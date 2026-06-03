@@ -147,7 +147,7 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
             ruleContext.getLabel(),
             nativeFlagSettings,
             userDefinedFlags.getSpecifiedFlagValues(),
-            ImmutableSet.copyOf(constraintValueSettings),
+            getSpecifiedConstraintValues(ruleContext),
             ConfigMatchingProvider.MatchResult.merge(
                 userDefinedFlags.result(), nativeFlagsMatch && constraintValuesMatch));
 
@@ -621,5 +621,26 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
       // Swallow this: the subsequent type conversion already checks for this.
       return expectedValue;
     }
+  }
+
+  /**
+   * Returns a list of labels for all prerequisite constraint values for this rule.
+   *
+   * <p>If any of the constraint values are provided via an alias, this method will resolve them to
+   * their concrete targets. This is needed for specialization checking in select() statements.
+   *
+   * @param ruleContext this rule's RuleContext
+   */
+  private static ImmutableSet<Label> getSpecifiedConstraintValues(RuleContext ruleContext) {
+    var result = ImmutableSet.<Label>builder();
+    for (TransitiveInfoCollection dep :
+        ruleContext.getPrerequisites(ConfigSettingRule.CONSTRAINT_VALUES_ATTRIBUTE)) {
+      result.add(dep.getLabel());
+      ConstraintValueInfo constraintValue = PlatformProviderUtils.constraintValue(dep);
+      if (constraintValue != null) {
+        result.addAll(constraintValue.constraint().refinementChain());
+      }
+    }
+    return result.build();
   }
 }

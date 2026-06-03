@@ -1749,6 +1749,63 @@ public class ConfigSettingTest extends BuildViewTestCase {
   }
 
   @Test
+  public void refinesSettingWithRefinedConstraintValue() throws Exception {
+    scratch.file(
+        "libc/BUILD",
+        """
+        constraint_setting(name = "libc")
+
+        constraint_value(
+            name = "glibc",
+            constraint_setting = ":libc",
+        )
+        """);
+    scratch.file(
+        "libc/glibc/BUILD",
+        """
+        constraint_setting(
+            name = "version",
+            refines_constraint_value = "//libc:glibc",
+        )
+
+        constraint_value(
+            name = "2.42",
+            constraint_setting = ":version",
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        platform(
+            name = "p",
+            constraint_values = [
+                "//libc:glibc",
+                "//libc/glibc:2.42",
+            ],
+        )
+
+        config_setting(
+            name = "refining",
+            constraint_values = ["//libc/glibc:2.42"],
+        )
+
+        config_setting(
+            name = "refined",
+            constraint_values = ["//libc:glibc"],
+        )
+        """);
+    useConfiguration("--platforms=//test:p");
+    assertThat(
+            getConfigMatchingProvider("//test:refining")
+                .refines(getConfigMatchingProvider("//test:refined")))
+        .isTrue();
+    assertThat(
+            getConfigMatchingProvider("//test:refined")
+                .refines(getConfigMatchingProvider("//test:refining")))
+        .isFalse();
+  }
+
+  @Test
   public void matchesAliasedFlagsInFlagValues() throws Exception {
     useConfiguration("--enforce_transitive_configs_for_config_feature_flag");
     scratch.file(

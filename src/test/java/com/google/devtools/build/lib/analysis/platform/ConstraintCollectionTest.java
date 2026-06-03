@@ -58,7 +58,8 @@ public class ConstraintCollectionTest extends BuildViewTestCase {
     ConstraintSettingInfo setting =
         ConstraintSettingInfo.create(
             Label.parseCanonicalUnchecked("//foo:s"),
-            Label.parseCanonicalUnchecked("//foo:value1"));
+            Label.parseCanonicalUnchecked("//foo:value1"),
+            /* refinedConstraintValue= */ null);
     ConstraintValueInfo value1 =
         ConstraintValueInfo.create(setting, Label.parseCanonicalUnchecked("//foo:value1"));
     ConstraintValueInfo value2 =
