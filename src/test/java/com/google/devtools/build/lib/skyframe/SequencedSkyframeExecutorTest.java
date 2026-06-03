@@ -2612,8 +2612,6 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     // Create 1 succeeded key, 1 failed key with infrastructure error and another failed key with
     // user error.
 
-    // TODO TODO
-
     Action succeededAction =
         new DummyAction(NestedSetBuilder.emptySet(Order.STABLE_ORDER), succeededOutput);
     ActionLookupValue succeededTarget = createActionLookupValue(succeededAction, succeededKey);
