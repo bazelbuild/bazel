@@ -1,3 +1,32 @@
+## Release 10.0.0-pre.20260524.1 (2026-06-03)
+
+```
+Baseline: fdba6e6bda1ff9423b111eb099f4f9f6e0d34115
+```
+
+Important changes:
+
+  - CDC chunk uploads and downloads can now happen in parallel within
+    a large blob.
+
+This release contains contributions from many people at Google, as well as Benjamin Peterson, Tyler French, XananasX.
+
+## Release 9.1.1 (2026-06-03)
+
+```
+
+Release Notes:
+
+```
+
+## Release 10.0.0-pre.20260520.2 (2026-05-28)
+
+```
+Baseline: 3d40c422df61c4adb243ef68fff7e84584019a1f
+```
+
+This release contains contributions from many people at Google, as well as .
+
 ## Release 10.0.0-pre.20260516.1 (2026-05-22)
 
 ```
