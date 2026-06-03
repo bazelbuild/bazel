@@ -52,7 +52,7 @@ abstract class AbstractValueOrFutureMap<
   /**
    * Constructor.
    *
-   * @param futureValueFactory creates appropriate instances of {@link SettableFutureKeyedValue}.
+   * @param futureOrValueFactory creates appropriate instances of {@link SettableFutureKeyedValue}.
    *     The key and consumer parameters are provided for use in {@link SettableFutureKeyedValue}'s
    *     constructor.
    */
@@ -70,7 +70,15 @@ abstract class AbstractValueOrFutureMap<
   }
 
   ValueOrFutureT getOrCreateValueForSubclasses(KeyT key) {
-    return map.computeIfAbsent(key, futureValueFactory);
+    ValueOrFutureT result = map.get(key);
+    if (result == null) {
+      ValueOrFutureT newValue = futureValueFactory.apply(key);
+      result = map.putIfAbsent(key, newValue);
+      if (result == null) {
+        result = newValue;
+      }
+    }
+    return result;
   }
 
   /**
