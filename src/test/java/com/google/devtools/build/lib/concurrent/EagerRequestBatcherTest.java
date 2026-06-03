@@ -58,7 +58,7 @@ public final class EagerRequestBatcherTest {
         EagerRequestBatcher.<Request, Response>create(
             requests -> immediateFuture(respondTo(requests)),
             directExecutor(),
-            new QueuePool<Request, Response>(10),
+            /* maxBatchSize= */ 10,
             /* targetConcurrentRequests= */ 1,
             directExecutor());
     ListenableFuture<Response> response = batcher.submit(new Request(1));
@@ -71,10 +71,7 @@ public final class EagerRequestBatcherTest {
     var strategy = RequestBatching.createBatchExecutionStrategy(multiplexer, directExecutor());
     var batcher =
         new EagerRequestBatcher<>(
-            strategy,
-            new QueuePool<Request, Response>(10),
-            /* targetConcurrentRequests= */ 2,
-            directExecutor());
+            strategy, /* maxBatchSize= */ 10, /* targetConcurrentRequests= */ 2, directExecutor());
 
     // Scenario A: Eager sending due to low concurrency.
     // State established:
@@ -178,10 +175,7 @@ public final class EagerRequestBatcherTest {
         RequestBatching.createBatchExecutionStrategy(faultyMultiplexer, directExecutor());
     var batcher =
         new EagerRequestBatcher<>(
-            strategy,
-            new QueuePool<Request, Response>(10),
-            /* targetConcurrentRequests= */ 1,
-            directExecutor());
+            strategy, /* maxBatchSize= */ 10, /* targetConcurrentRequests= */ 1, directExecutor());
 
     ListenableFuture<Response> response = batcher.submit(new Request(1));
 
@@ -195,7 +189,7 @@ public final class EagerRequestBatcherTest {
     var goodBatcher =
         new EagerRequestBatcher<>(
             goodStrategy,
-            new QueuePool<Request, Response>(10),
+            /* maxBatchSize= */ 10,
             /* targetConcurrentRequests= */ 1,
             directExecutor());
 
@@ -221,10 +215,7 @@ public final class EagerRequestBatcherTest {
 
     var batcher =
         new EagerRequestBatcher<>(
-            strategy,
-            new QueuePool<Request, Response>(10),
-            /* targetConcurrentRequests= */ 1,
-            recordingExecutor);
+            strategy, /* maxBatchSize= */ 10, /* targetConcurrentRequests= */ 1, recordingExecutor);
 
     ListenableFuture<Response> r1 = batcher.submit(new Request(1));
     BatchedOperations batch1 = multiplexer.queue.take();
@@ -251,7 +242,7 @@ public final class EagerRequestBatcherTest {
   }
 
   @Test
-  public void queuePool_safety_nestedSubmissions() throws Exception {
+  public void nestedSubmissions_workCorrectly() throws Exception {
     var multiplexer = new SettableMultiplexer();
     var batcherRef = new AtomicReference<EagerRequestBatcher<Request, Response>>();
     var nestedResponseRef = new AtomicReference<ListenableFuture<Response>>();
@@ -276,7 +267,7 @@ public final class EagerRequestBatcherTest {
     var batcher =
         new EagerRequestBatcher<>(
             goodStrategy,
-            new QueuePool<Request, Response>(10),
+            /* maxBatchSize= */ 10,
             /* targetConcurrentRequests= */ 1,
             directExecutor());
     batcherRef.set(batcher);
@@ -324,7 +315,7 @@ public final class EagerRequestBatcherTest {
     var batcher =
         EagerRequestBatcher.<Request, Response>createWithCallbackMultiplexer(
             callbackMultiplexer,
-            new QueuePool<Request, Response>(2),
+            /* maxBatchSize= */ 2,
             /* targetConcurrentRequests= */ 1,
             directExecutor());
 
@@ -346,7 +337,7 @@ public final class EagerRequestBatcherTest {
     var batcher =
         EagerRequestBatcher.<Request, Response>createWithFutureMultiplexer(
             futureMultiplexer,
-            new QueuePool<Request, Response>(2),
+            /* maxBatchSize= */ 2,
             /* targetConcurrentRequests= */ 1,
             directExecutor());
 
@@ -354,61 +345,28 @@ public final class EagerRequestBatcherTest {
     assertThat(r1.get()).isEqualTo(new Response(1));
   }
 
-  @Test
-  public void sharedQueuePool_worksWithoutIssues() throws Exception {
-    var pool = new QueuePool<Request, Response>(10);
-    var multiplexer1 = new SettableMultiplexer();
-    var multiplexer2 = new SettableMultiplexer();
 
-    var strategy1 = RequestBatching.createBatchExecutionStrategy(multiplexer1, directExecutor());
-    var strategy2 = RequestBatching.createBatchExecutionStrategy(multiplexer2, directExecutor());
-
-    var batcher1 =
-        new EagerRequestBatcher<>(
-            strategy1, pool, /* targetConcurrentRequests= */ 1, directExecutor());
-    var batcher2 =
-        new EagerRequestBatcher<>(
-            strategy2, pool, /* targetConcurrentRequests= */ 1, directExecutor());
-
-    var testThread =
-        new Thread(
-            () -> {
-              try {
-                ListenableFuture<Response> r1 = batcher1.submit(new Request(1));
-                BatchedOperations batch1 = multiplexer1.queue.take();
-                batch1.setSimpleResponses();
-                r1.get();
-
-                ListenableFuture<Response> r2 = batcher2.submit(new Request(2));
-                BatchedOperations batch2 = multiplexer2.queue.take();
-                batch2.setSimpleResponses();
-                r2.get();
-              } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                throw new RuntimeException(e);
-              } catch (ExecutionException e) {
-                throw new RuntimeException(e);
-              }
-            });
-    testThread.start();
-    testThread.join();
-  }
 
   @Test
   public void parameterValidation() {
-    assertThrows(IllegalArgumentException.class, () -> new QueuePool<Object, Object>(0));
-    assertThrows(IllegalArgumentException.class, () -> new QueuePool<Object, Object>(-1));
-
-    var pool = new QueuePool<Request, Response>(10);
     var strategy =
         RequestBatching.createBatchExecutionStrategy(new SettableMultiplexer(), directExecutor());
 
+    // Validate maxBatchSize
     assertThrows(
         IllegalArgumentException.class,
-        () -> new EagerRequestBatcher<>(strategy, pool, 0, directExecutor()));
+        () -> new EagerRequestBatcher<>(strategy, 0, 1, directExecutor()));
     assertThrows(
         IllegalArgumentException.class,
-        () -> new EagerRequestBatcher<>(strategy, pool, -1, directExecutor()));
+        () -> new EagerRequestBatcher<>(strategy, -1, 1, directExecutor()));
+
+    // Validate targetConcurrentRequests
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> new EagerRequestBatcher<>(strategy, 10, 0, directExecutor()));
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> new EagerRequestBatcher<>(strategy, 10, -1, directExecutor()));
   }
 
   private static class SettableMultiplexer implements Multiplexer<Request, Response> {
@@ -452,11 +410,7 @@ public final class EagerRequestBatcherTest {
       LatencyMultiplexer multiplexer = new LatencyMultiplexer(latencyMs, multiplexerExecutor);
       var strategy = RequestBatching.createBatchExecutionStrategy(multiplexer, directExecutor());
       var batcher =
-          new EagerRequestBatcher<>(
-              strategy,
-              new QueuePool<Request, Response>(maxBatchSize),
-              targetConcurrency,
-              directExecutor());
+          new EagerRequestBatcher<>(strategy, maxBatchSize, targetConcurrency, directExecutor());
 
       CyclicBarrier barrier = new CyclicBarrier(numThreads);
       CountDownLatch latch = new CountDownLatch(numThreads);
@@ -508,11 +462,7 @@ public final class EagerRequestBatcherTest {
     var multiplexer = new SettableMultiplexer();
     var strategy = RequestBatching.createBatchExecutionStrategy(multiplexer, directExecutor());
     var batcher =
-        new EagerRequestBatcher<>(
-            strategy,
-            new QueuePool<Request, Response>(maxBatchSize),
-            targetConcurrency,
-            directExecutor());
+        new EagerRequestBatcher<>(strategy, maxBatchSize, targetConcurrency, directExecutor());
 
     List<ListenableFuture<Response>> futures = new ArrayList<>();
     for (int i = 1; i <= 50; i++) {
@@ -594,11 +544,7 @@ public final class EagerRequestBatcherTest {
     var multiplexer = new MockExceptionMultiplexer();
     var strategy = RequestBatching.createBatchExecutionStrategy(multiplexer, directExecutor());
     var batcher =
-        new EagerRequestBatcher<>(
-            strategy,
-            new QueuePool<Request, Response>(maxBatchSize),
-            targetConcurrency,
-            directExecutor());
+        new EagerRequestBatcher<>(strategy, maxBatchSize, targetConcurrency, directExecutor());
 
     ListenableFuture<Response> r1 = batcher.submit(new Request(1));
     assertThat(batcher.getInFlightCount()).isEqualTo(0);
@@ -638,11 +584,7 @@ public final class EagerRequestBatcherTest {
     var multiplexer = new SettableMultiplexer();
     var strategy = RequestBatching.createBatchExecutionStrategy(multiplexer, directExecutor());
     var batcher =
-        new EagerRequestBatcher<>(
-            strategy,
-            new QueuePool<Request, Response>(maxBatchSize),
-            targetConcurrency,
-            directExecutor());
+        new EagerRequestBatcher<>(strategy, maxBatchSize, targetConcurrency, directExecutor());
 
     ListenableFuture<Response> r1 = batcher.submit(new Request(1));
     assertThat(batcher.getInFlightCount()).isEqualTo(1);
@@ -759,11 +701,7 @@ public final class EagerRequestBatcherTest {
       AsyncCountingMultiplexer multiplexer = new AsyncCountingMultiplexer(multiplexerExecutor);
       var strategy = RequestBatching.createBatchExecutionStrategy(multiplexer, directExecutor());
       var batcher =
-          new EagerRequestBatcher<>(
-              strategy,
-              new QueuePool<Request, Response>(maxBatchSize),
-              targetConcurrency,
-              directExecutor());
+          new EagerRequestBatcher<>(strategy, maxBatchSize, targetConcurrency, directExecutor());
 
       CyclicBarrier barrier = new CyclicBarrier(numThreads);
       CountDownLatch latch = new CountDownLatch(numThreads);
@@ -818,11 +756,7 @@ public final class EagerRequestBatcherTest {
     var multiplexer = new SettableMultiplexer();
     var strategy = RequestBatching.createBatchExecutionStrategy(multiplexer, directExecutor());
     var batcher =
-        new EagerRequestBatcher<>(
-            strategy,
-            new QueuePool<Request, Response>(maxBatchSize),
-            targetConcurrency,
-            directExecutor());
+        new EagerRequestBatcher<>(strategy, maxBatchSize, targetConcurrency, directExecutor());
 
     ListenableFuture<Response> r1 = batcher.submit(new Request(1));
     assertThat(batcher.getInFlightCount()).isEqualTo(1);

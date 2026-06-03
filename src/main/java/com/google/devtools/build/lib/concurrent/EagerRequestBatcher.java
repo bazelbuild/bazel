@@ -117,12 +117,12 @@ public final class EagerRequestBatcher<RequestT, ResponseT> {
   public static <RequestT, ResponseT> EagerRequestBatcher<RequestT, ResponseT> create(
       Multiplexer<RequestT, ResponseT> multiplexer,
       Executor responseDistributionExecutor,
-      QueuePool<RequestT, ResponseT> pool,
+      int maxBatchSize,
       int targetConcurrentRequests,
       Executor executor) {
     return new EagerRequestBatcher<>(
         RequestBatching.createBatchExecutionStrategy(multiplexer, responseDistributionExecutor),
-        pool,
+        maxBatchSize,
         targetConcurrentRequests,
         executor);
   }
@@ -141,12 +141,12 @@ public final class EagerRequestBatcher<RequestT, ResponseT> {
   public static <RequestT, ResponseT>
       EagerRequestBatcher<RequestT, ResponseT> createWithCallbackMultiplexer(
           CallbackMultiplexer<RequestT, ResponseT> multiplexer,
-          QueuePool<RequestT, ResponseT> pool,
+          int maxBatchSize,
           int targetConcurrentRequests,
           Executor executor) {
     return new EagerRequestBatcher<>(
         RequestBatching.createCallbackBatchExecutionStrategy(multiplexer),
-        pool,
+        maxBatchSize,
         targetConcurrentRequests,
         executor);
   }
@@ -165,12 +165,12 @@ public final class EagerRequestBatcher<RequestT, ResponseT> {
   public static <RequestT, ResponseT>
       EagerRequestBatcher<RequestT, ResponseT> createWithFutureMultiplexer(
           FutureMultiplexer<RequestT, ResponseT> multiplexer,
-          QueuePool<RequestT, ResponseT> pool,
+          int maxBatchSize,
           int targetConcurrentRequests,
           Executor executor) {
     return new EagerRequestBatcher<>(
         RequestBatching.createFutureBatchExecutionStrategy(multiplexer),
-        pool,
+        maxBatchSize,
         targetConcurrentRequests,
         executor);
   }
@@ -179,12 +179,12 @@ public final class EagerRequestBatcher<RequestT, ResponseT> {
   @VisibleForTesting
   EagerRequestBatcher(
       BatchExecutionStrategy<RequestT, ResponseT> batchExecutionStrategy,
-      // Kept for API compatibility. To be removed in a follow up change.
-      QueuePool<RequestT, ResponseT> pool,
+      int maxBatchSize,
       int targetConcurrentRequests,
       Executor executor) {
+    checkArgument(maxBatchSize >= 1, "maxBatchSize must be >= 1");
     this.batchExecutionStrategy = batchExecutionStrategy;
-    this.maxBatchSize = pool.getMaxBatchSize();
+    this.maxBatchSize = maxBatchSize;
     checkArgument(targetConcurrentRequests >= 1, "targetConcurrentRequests must be >= 1");
     this.targetConcurrentRequests = targetConcurrentRequests;
     this.executor = executor;
