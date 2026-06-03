@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.platform.ConstraintCollection;
+import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -108,11 +109,76 @@ public class Platform implements RuleConfiguredTargetFactory {
       throw ruleContext.throwWithAttributeError(PlatformRule.EXEC_PROPS_ATTR, e.getMessage());
     }
 
+    validateRefinedConstraintValues(ruleContext, platformInfo);
+
     return new RuleConfiguredTargetBuilder(ruleContext)
         .addProvider(RunfilesProvider.class, RunfilesProvider.EMPTY)
         .addProvider(FileProvider.class, FileProvider.EMPTY)
         .addProvider(FilesToRunProvider.class, FilesToRunProvider.EMPTY)
         .addNativeDeclaredProvider(platformInfo)
         .build();
+  }
+
+  /**
+   * Verifies that whenever a platform declares a non-default {@code constraint_value} for a {@code
+   * constraint_setting} that refines another {@code constraint_value}, the refined {@code
+   * constraint_value} is also declared on the platform (directly or via a parent).
+   *
+   * <p>The check is skipped for refining values that equal the {@code default_constraint_value} of
+   * their setting, allowing a "no information" default that does not pull in the refined value.
+   */
+  private static void validateRefinedConstraintValues(
+      RuleContext ruleContext, PlatformInfo platformInfo)
+      throws RuleErrorException, InterruptedException {
+    ConstraintCollection constraints = platformInfo.constraints();
+    ImmutableList<ConstraintValueInfo> directConstraints =
+        PlatformProviderUtils.constraintValues(
+            ruleContext.getPrerequisites(PlatformRule.CONSTRAINT_VALUES_ATTR));
+    boolean hasError = false;
+    for (ConstraintValueInfo constraintValue : directConstraints) {
+      var setting = constraintValue.constraint();
+      if (constraintValue.equals(setting.defaultConstraintValue())) {
+        // Default values don't carry the refinement implication.
+        continue;
+      }
+      ConstraintValueInfo refinedValue = setting.refinedConstraintValue();
+      if (refinedValue == null) {
+        continue;
+      }
+      ConstraintValueInfo actualValue = constraints.get(refinedValue.constraint());
+      if (refinedValue.equals(actualValue)) {
+        continue;
+      }
+
+      hasError = true;
+      var mainRepoMapping = ruleContext.getAnalysisEnvironment().getMainRepoMapping();
+      if (actualValue == null) {
+        ruleContext.attributeError(
+            PlatformRule.CONSTRAINT_VALUES_ATTR,
+            String.format(
+                "constraint_value %s refines %s, but platform %s does not set the latter. "
+                    + "Fix with:\n  buildozer 'add %s %s' %s",
+                constraintValue.label().getShorthandDisplayForm(mainRepoMapping),
+                refinedValue.label().getShorthandDisplayForm(mainRepoMapping),
+                ruleContext.getLabel().getShorthandDisplayForm(mainRepoMapping),
+                PlatformRule.CONSTRAINT_VALUES_ATTR,
+                refinedValue.label().getShorthandDisplayForm(mainRepoMapping),
+                ruleContext.getLabel().getShorthandDisplayForm(mainRepoMapping)));
+      } else {
+        ruleContext.attributeError(
+            PlatformRule.CONSTRAINT_VALUES_ATTR,
+            String.format(
+                "constraint_value %s refines %s, but platform %s sets the conflicting"
+                    + " constraint_value %s for %s",
+                constraintValue.label().getShorthandDisplayForm(mainRepoMapping),
+                refinedValue.label().getShorthandDisplayForm(mainRepoMapping),
+                ruleContext.getLabel().getShorthandDisplayForm(mainRepoMapping),
+                actualValue.label().getShorthandDisplayForm(mainRepoMapping),
+                refinedValue.constraint().label().getShorthandDisplayForm(mainRepoMapping)));
+      }
+    }
+    if (hasError) {
+      throw new RuleErrorException();
+    }
   }
 }
