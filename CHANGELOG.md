@@ -1,3 +1,115 @@
+## Release 9.1.1 (2026-06-03)
+
+```
+
+Release Notes:
+
+```
+
+## Release 10.0.0-pre.20260520.2 (2026-05-28)
+
+```
+Baseline: 3d40c422df61c4adb243ef68fff7e84584019a1f
+```
+
+This release contains contributions from many people at Google, as well as .
+
+## Release 10.0.0-pre.20260516.1 (2026-05-22)
+
+```
+Baseline: e2792d172525887b9ba4307c9bdd0483c736c5ad
+```
+
+New features:
+
+  - Add `add_prefix` attribute to `git_repository` to allow cloning
+    repositories into a given subdirectory prefix
+  - {r,m}ctx.download* report the size of downloaded files
+    RELNOTES: Addition to the user-facing Build API
+
+Important changes:
+
+  - `--tls_certificate=`, `--tls_client_certificate=`, and
+    `--tls_client_key=` can now be used to reset those flags to their
+    unset state.
+  - In output of `query --output=build`, string attributes containing
+    newline characters are now enclosed in triple double quotes (""")
+    for better readability.
+
+This release contains contributions from many people at Google, as well as Albert Lloveras, Chi Wang, dependabot[bot], Fabian Meumertzheim, Fredrik Medley, gaurav0107, John Millikin, Kapunahele Wong, Keith Smiley, Malte Poll, Nikki Vijaybhaskar, Richard Lavoie, Steffeeen, Tyler French, Will Stranton.
+
+## Release 10.0.0-pre.20260428.1 (2026-05-15)
+
+```
+Baseline: 37654e56598027f1f65bf729d604a600786dd8e9
+
+Cherry picks:
+
+   + 082349719b7f6a5a5930103df56e5c48f2bb1c34:
+     Add SkybridgeInterface to bootstrap test
+     (https://github.com/bazelbuild/bazel/pull/29418)
+   + 6de72fb7126113b15e67c9f0ae3745661c4881a7:
+     cherry-pick to include github tools release branch (#29533)
+   + 420dca55a0c9837fab29f6378738c694ac62d040:
+     Release 10.0.0-pre.20260428.1 (2026-05-15)
+   + 7c5c33a292e926580897a80ef1a8ea84c50dc4b6:
+     Release 10.0.0-pre.20260428.1 (2026-05-15)
+```
+
+New features:
+
+  - Adds the `strip_components` attribute to
+    `extract`/`download_and_extract`/`http_archive` to allow
+    stripping of path components when extracting files.
+
+This release contains contributions from many people at Google, as well as Armando Montanez, Grzegorz Lukasik, Hoyt Summers Pittman, Kapunahele Wong, Nikki Vijaybhaskar, Will Stranton.
+
+## Release 8.7.0 (2026-05-06)
+
+```
+
+Release Notes:
+
+```
+
+## Release 10.0.0-pre.20260421.2 (2026-04-30)
+
+```
+Baseline: 2d4650fe518304730dbda56c27cc3245784aea10
+
+Cherry picks:
+
+   + 84421290d1715dccc28b30aa662305d9964993f2:
+     Ensure Blaze profiler provides a valid clock fallback for
+     logging.
+   + 4090746091f5c6cad2d483bb64157c8beb8559b5:
+     Fix :bazel_bootstrap_distfile_test and
+     :bazel_bootstrap_distfile_tar_test.
+```
+
+Important changes:
+
+  - Added the `module_ctx.tag_sort_key(tag)` method, which returns an
+    opaque object for the given tag that can be compared to derive
+    the order in which tags from different classes appear in the
+    MODULE.bazel file.
+
+This release contains contributions from many people at Google, as well as Douglas Thor, Hoyt Summers Pittman, Jacob Nowjack, Keith Smiley, Xudong Yang.
+
+## Release 10.0.0-pre.20260416.1 (2026-04-23)
+
+```
+Baseline: ee72e6ddbcf19db6e4ddf127bde56ca5676de780
+```
+
+Important changes:
+
+  - Large numbers with 5+ digits in CLI output are now formatted with
+    comma separators for improved readability (e.g., "12,345 targets
+    configured" instead of "12345 targets configured")
+
+This release contains contributions from many people at Google, as well as Anthony Pratti, giria660, Jacob Nowjack, John Cater, Keith Smiley, Sarad Pant, Sarad, Tyler Breisacher, Tyler French.
+
 ## Release 9.1.0 (2026-04-20)
 
 ```
