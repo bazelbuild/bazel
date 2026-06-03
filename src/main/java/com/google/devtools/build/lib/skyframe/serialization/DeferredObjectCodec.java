@@ -63,8 +63,8 @@ public abstract class DeferredObjectCodec<T> implements ObjectCodec<T> {
   }
 
   @Override
-  public final MemoizationStrategy getStrategy() {
-    return MemoizationStrategy.MEMOIZE_AFTER;
+  public final MemoizationTiming getMemoizationTiming() {
+    return MemoizationTiming.AFTER;
   }
 
   /** Implementation that adapts this codec for synchronous use. */

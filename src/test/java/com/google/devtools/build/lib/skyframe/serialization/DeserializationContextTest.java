@@ -24,7 +24,7 @@ import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec.MemoizationStrategy;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec.MemoizationTiming;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import com.google.testing.junit.testparameterinjector.TestParameter;
@@ -138,7 +138,7 @@ public final class DeserializationContextTest {
     Object returned = new Object();
     @SuppressWarnings("unchecked")
     ObjectCodec<Object> codec = mock(ObjectCodec.class);
-    when(codec.getStrategy()).thenReturn(MemoizationStrategy.MEMOIZE_AFTER);
+    when(codec.getMemoizationTiming()).thenReturn(MemoizationTiming.AFTER);
     when(codec.getEncodedClass()).thenAnswer(unused -> Object.class);
     when(codec.additionalEncodedClasses()).thenReturn(ImmutableSet.of());
     when(codec.safeCast(any())).thenAnswer(invocation -> invocation.getArgument(0));

@@ -107,33 +107,19 @@ public interface ObjectCodec<T> extends ProfilerLocationProvider {
   T deserialize(DeserializationContext context, CodedInputStream codedIn)
       throws SerializationException, IOException;
 
-  /**
-   * Returns the memoization strategy for this codec.
-   *
-   * <p>If set to {@link MemoizationStrategy#MEMOIZE_BEFORE}, then {@link
-   * DeserializationContext#registerInitialValue} must be called first in the {@link #deserialize}
-   * method, before delegating to any other codecs.
-   *
-   * <p>Implementations of this method should just return a constant, since the choice of strategy
-   * is usually intrinsic to {@link T}.
-   */
-  default MemoizationStrategy getStrategy() {
-    return MemoizationStrategy.MEMOIZE_AFTER;
-  }
-
-  /** Indicates how an {@link ObjectCodec} is memoized. */
-  enum MemoizationStrategy {
+  /** Indicates when an {@link ObjectCodec} is memoized. */
+  enum MemoizationTiming {
     /**
      * Indicates that the value is memoized before recursing to its children, so that it is
-     * available to form cyclic references from its children. If this strategy is used, {@link
+     * available to form cyclic references from its children. If this timing is used, {@link
      * DeserializationContext#registerInitialValue} must be called during the {@link #deserialize}
      * method.
      *
      * <p>This should be used for all types where it is feasible to provide an initial value. Any
-     * cycle that does not go through at least one {@code MEMOIZE_BEFORE} type of value (e.g., a
+     * cycle that does not go through at least one {@code BEFORE} type of value (e.g., a
      * pathological self-referential tuple) is unserializable.
      */
-    MEMOIZE_BEFORE,
+    BEFORE,
 
     /**
      * Indicates that the value is memoized after recursing to its children, so that it cannot be
@@ -143,7 +129,42 @@ public interface ObjectCodec<T> extends ProfilerLocationProvider {
      * <p>This is typically used for immutable types, since they cannot be created by mutating an
      * initial value.
      */
-    MEMOIZE_AFTER
+    AFTER
+  }
+
+  /**
+   * Returns the memoization timing for this codec.
+   *
+   * <p>If set to {@link MemoizationTiming#BEFORE}, then {@link
+   * DeserializationContext#registerInitialValue} must be called first in the {@link #deserialize}
+   * method, before delegating to any other codecs.
+   *
+   * <p>Implementations of this method should just return a constant, since the choice of timing is
+   * usually intrinsic to {@link T}.
+   */
+  default MemoizationTiming getMemoizationTiming() {
+    return MemoizationTiming.AFTER;
+  }
+
+  /** Indicates whether memoization should use reference equality or value equality. */
+  enum MemoizationEquality {
+    /** Memoize using reference identity ({@code ==} and {@link System#identityHashCode}). */
+    BY_REFERENCE,
+    /**
+     * Memoize using value equality ({@link Object#equals} and {@link Object#hashCode}).
+     *
+     * <p>Can be used to ensure deterministic serialization for interned objects.
+     */
+    BY_VALUE
+  }
+
+  /**
+   * Returns the memoization equality strategy for the given object.
+   *
+   * <p>By default, returns {@link MemoizationEquality#BY_REFERENCE}.
+   */
+  default MemoizationEquality getMemoizationEquality(T obj) {
+    return MemoizationEquality.BY_REFERENCE;
   }
 
   /**

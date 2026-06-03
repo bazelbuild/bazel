@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe.serialization;
 
 import com.google.common.collect.ImmutableClassToInstanceMap;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec.MemoizationEquality;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 import javax.annotation.Nullable;
@@ -70,7 +71,8 @@ final class ImmutableSerializationContext extends SerializationContext {
   }
 
   @Override
-  boolean writeBackReferenceIfMemoized(Object obj, CodedOutputStream codedOut, boolean isLeafType) {
+  boolean writeBackReferenceIfMemoized(
+      Object obj, CodedOutputStream codedOut, MemoizationEquality memoizationEquality) {
     return false;
   }
 

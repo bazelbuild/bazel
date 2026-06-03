@@ -128,9 +128,9 @@ abstract class MemoizingDeserializationContext extends DeserializationContext {
         "non-null memoized-before tag %s (%s)",
         tagForMemoizedBefore,
         codec);
-    return switch (codec.getStrategy()) {
-      case MEMOIZE_BEFORE -> deserializeMemoBeforeContent(codec, codedIn);
-      case MEMOIZE_AFTER -> deserializeMemoAfterContent(codec, codedIn);
+    return switch (codec.getMemoizationTiming()) {
+      case BEFORE -> deserializeMemoBeforeContent(codec, codedIn);
+      case AFTER -> deserializeMemoAfterContent(codec, codedIn);
     };
   }
 
