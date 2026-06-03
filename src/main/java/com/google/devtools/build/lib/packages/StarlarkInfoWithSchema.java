@@ -17,6 +17,9 @@ package com.google.devtools.build.lib.packages;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Interner;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.util.HashCodes;
 import com.google.errorprone.annotations.ForOverride;
@@ -30,6 +33,7 @@ import javax.annotation.Nullable;
 import net.starlark.java.eval.Compactable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkFloat;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.syntax.TokenKind;
 
@@ -44,6 +48,21 @@ import net.starlark.java.syntax.TokenKind;
  * own dedicated subclass to optimize for memory by forgoing an array.
  */
 public abstract sealed class StarlarkInfoWithSchema extends StarlarkInfo {
+
+  /**
+   * Interner for {@linkplain #isInternable internable} instances.
+   *
+   * <p>Interning is limited to instances without truthy values for two reasons:
+   *
+   * <ol>
+   *   <li>This covers the most frequent category of duplicates in practice. Interning further may
+   *       not be worth the cost.
+   *   <li>Hashing truthy values can be arbitrarily expensive and potentially even dangerous due to
+   *       the possibility of object graph cycles.
+   * </ol>
+   */
+  private static final Interner<StarlarkInfoWithSchema> interner = BlazeInterners.newWeakInterner();
+
   private final StarlarkProvider provider;
 
   private StarlarkInfoWithSchema(StarlarkProvider provider) {
@@ -221,15 +240,48 @@ public abstract sealed class StarlarkInfoWithSchema extends StarlarkInfo {
 
   @Override
   public final StarlarkInfoWithSchema unsafeOptimizeMemoryLayout() {
+    boolean internable = true;
     int n = provider.getFields().size();
     for (int i = 0; i < n; i++) {
       Object val = getValueAt(i);
+      internable = internable && valueIsInternable(val);
       if (val instanceof Compactable compactable) {
         setValueAt(i, compactable.unsafeOptimizeMemoryLayout());
       }
     }
+    return internable ? interner.intern(this) : this;
+  }
 
-    return this;
+  /**
+   * Returns true if this instance is internable (i.e. it contains only values that are considered
+   * internable).
+   *
+   * <p>Internable instances are guaranteed to contain no object reference cycles, so they can be
+   * interned by value equality.
+   */
+  final boolean isInternable() {
+    int n = provider.getFields().size();
+    for (int i = 0; i < n; i++) {
+      if (!valueIsInternable(getValueAt(i))) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /**
+   * A value is considered internable if its {@linkplain Starlark#truth truthiness} is false (except
+   * for {@link StarlarkFloat} values, which are never internable), or it is an empty {@link
+   * NestedSet}, or a {@code null}.
+   */
+  private static boolean valueIsInternable(@Nullable Object val) {
+    return switch (val) {
+      case NestedSet<?> nestedSet -> nestedSet.isEmpty();
+      // ``+0.0`, `-0.0`, and `0` are all `equals()` but have different memory representations.
+      case StarlarkFloat sf -> false;
+      case null -> true;
+      default -> !Starlark.truth(val);
+    };
   }
 
   /** Returns the index of the given named field in the given list of fields, or -1 if not found. */
