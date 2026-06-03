@@ -18,6 +18,7 @@ import static java.util.Objects.requireNonNull;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.analysis.config.Scope;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
@@ -50,6 +51,10 @@ import java.util.Set;
  * @param customExecScopeValues Map from a build setting Label to the custom exec scope value for
  *     that setting. This contains [--foo, default_foo, --host_foo, default_host_foo,
  *     scope_type_foo, scope_type_host_foo]
+ * @param buildSettingToScopeType Map from each build option to its scope type. Does not include
+ *     aliases.
+ * @param buildSettingToOnLeaveScopeValue Map from each build option to its on_leave_scope value, if
+ *     explicitly set. Does not include aliases.
  */
 @CheckReturnValue
 @Immutable
@@ -60,7 +65,9 @@ public record StarlarkBuildSettingsDetailsValue(
     ImmutableMap<Label, Type<?>> buildSettingToType,
     ImmutableSet<Label> buildSettingIsAllowsMultiple,
     ImmutableMap<Label, Label> aliasToActual,
-    ImmutableMap<Label, CustomExecScopeValue> customExecScopeValues)
+    ImmutableMap<Label, CustomExecScopeValue> customExecScopeValues,
+    ImmutableMap<Label, Scope.ScopeType> buildSettingToScopeType,
+    ImmutableMap<Label, Object> buildSettingToOnLeaveScopeValue)
     implements SkyValue {
   public StarlarkBuildSettingsDetailsValue {
     requireNonNull(buildSettingToDefault, "buildSettingToDefault");
@@ -68,6 +75,8 @@ public record StarlarkBuildSettingsDetailsValue(
     requireNonNull(buildSettingIsAllowsMultiple, "buildSettingIsAllowsMultiple");
     requireNonNull(aliasToActual, "aliasToActual");
     requireNonNull(customExecScopeValues, "customExecScopeValues");
+    requireNonNull(buildSettingToScopeType, "buildSettingToScopeType");
+    requireNonNull(buildSettingToOnLeaveScopeValue, "buildSettingToOnLeaveScopeValue");
   }
 
   /**
@@ -75,10 +84,12 @@ public record StarlarkBuildSettingsDetailsValue(
    * that use no Starlark build settings
    */
   public static final StarlarkBuildSettingsDetailsValue EMPTY =
-      new StarlarkBuildSettingsDetailsValue(
+      create(
           ImmutableMap.of(),
           ImmutableMap.of(),
           ImmutableSet.of(),
+          ImmutableMap.of(),
+          ImmutableMap.of(),
           ImmutableMap.of(),
           ImmutableMap.of());
 
@@ -87,13 +98,17 @@ public record StarlarkBuildSettingsDetailsValue(
       Map<Label, Type<?>> buildSettingToType,
       Set<Label> buildSettingIsAllowsMultiple,
       Map<Label, Label> aliasToActual,
-      Map<Label, CustomExecScopeValue> customExecScopeValues) {
+      Map<Label, CustomExecScopeValue> customExecScopeValues,
+      Map<Label, Scope.ScopeType> buildSettingToScopeType,
+      Map<Label, Object> buildSettingToOnLeaveScopeValue) {
     return new StarlarkBuildSettingsDetailsValue(
         ImmutableMap.copyOf(buildSettingDefaults),
         ImmutableMap.copyOf(buildSettingToType),
         ImmutableSet.copyOf(buildSettingIsAllowsMultiple),
         ImmutableMap.copyOf(aliasToActual),
-        ImmutableMap.copyOf(customExecScopeValues));
+        ImmutableMap.copyOf(customExecScopeValues),
+        ImmutableMap.copyOf(buildSettingToScopeType),
+        ImmutableMap.copyOf(buildSettingToOnLeaveScopeValue));
   }
 
   public static Key key(Set<Label> buildSettings, Set<Label> hostFlags) {
