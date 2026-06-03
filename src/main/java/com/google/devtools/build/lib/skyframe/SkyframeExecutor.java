@@ -1561,11 +1561,14 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     PrecomputedValue.STAMP_SETTING_MARKER.inject(injectable());
   }
 
-  public void setBaselineConfiguration(BuildOptions buildOptions, ExtendedEventHandler eventHandler)
+  public void setBaselineConfiguration(
+      BuildOptions buildOptions, ExtendedEventHandler eventHandler, boolean setExecConfiguration)
       throws InvalidConfigurationException, InterruptedException {
     BaselineOptionsFunction.BASELINE_CONFIGURATION.set(injectable(), buildOptions);
-    BaselineOptionsFunction.BASELINE_EXEC_CONFIGURATION.set(
-        injectable(), adjustForExec(buildOptions, eventHandler));
+    if (setExecConfiguration) {
+      BaselineOptionsFunction.BASELINE_EXEC_CONFIGURATION.set(
+          injectable(), adjustForExec(buildOptions, eventHandler));
+    }
   }
 
   private BuildOptions adjustForExec(BuildOptions buildOptions, ExtendedEventHandler eventHandler)
