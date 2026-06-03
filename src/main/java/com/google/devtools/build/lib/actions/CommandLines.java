@@ -117,9 +117,15 @@ public abstract sealed class CommandLines {
           }
         }
         if (useParamFile) {
-          PathFragment paramFileExecPath =
-              ParameterFile.derivePath(paramFileBasePath, Integer.toString(paramFileNameSuffix));
-          ++paramFileNameSuffix;
+          PathFragment paramFileExecPath;
+          String paramFileName = paramFileInfo.getParamFileName();
+          if (paramFileName != null) {
+            paramFileExecPath = paramFileBasePath.replaceName(paramFileName);
+          } else {
+            paramFileExecPath =
+                ParameterFile.derivePath(paramFileBasePath, Integer.toString(paramFileNameSuffix));
+            ++paramFileNameSuffix;
+          }
 
           String paramArg =
               SingleStringArgFormatter.format(

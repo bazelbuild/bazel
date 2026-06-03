@@ -114,6 +114,26 @@ public class CommandLinesTest {
   }
 
   @Test
+  public void expand_paramFileWithCustomName_usesCustomName() throws Exception {
+    CommandLines commandLines =
+        CommandLines.builder()
+            .addCommandLine(
+                CommandLine.of(ImmutableList.of("--foo", "--bar")),
+                ParamFileInfo.builder(ParameterFileType.UNQUOTED)
+                    .setUseAlways(true)
+                    .setParamFileName("custom.params")
+                    .build())
+            .build();
+
+    ExpandedCommandLines expanded =
+        commandLines.expand(inputMetadataProvider, execPath, NO_LIMIT, PathMapper.NOOP, 0);
+
+    assertThat(expanded.arguments()).containsExactly("@custom.params");
+    assertThat(expanded.getParamFiles()).hasSize(1);
+    assertThat(expanded.getParamFiles().get(0).getExecPathString()).isEqualTo("custom.params");
+  }
+
+  @Test
   public void expand_paramFileCommandOverLimits_returnsParamFile() throws Exception {
     CommandLines commandLines =
         CommandLines.builder()

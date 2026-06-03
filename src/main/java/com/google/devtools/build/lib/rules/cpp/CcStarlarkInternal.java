@@ -481,12 +481,19 @@ public class CcStarlarkInternal implements StarlarkValue {
             positional = false,
             named = true,
             allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)}),
+        @Param(
+            name = "param_file_name",
+            positional = false,
+            named = true,
+            defaultValue = "None",
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)}),
       })
   public Args getArgs(
       String actionName,
       FeatureConfigurationForStarlark featureConfiguration,
       CcToolchainVariables buildVariables,
-      Object paramFileType)
+      Object paramFileType,
+      Object paramFileName)
       throws EvalException {
     LinkCommandLine.Builder linkCommandLineBuilder =
         new LinkCommandLine.Builder()
@@ -497,6 +504,9 @@ public class CcStarlarkInternal implements StarlarkValue {
       linkCommandLineBuilder
           .setParameterFileType(ParameterFileType.valueOf((String) paramFileType))
           .setSplitCommandLine(true);
+    }
+    if (paramFileName instanceof String string) {
+      linkCommandLineBuilder.setParamFileName(string);
     }
     LinkCommandLine linkCommandLine = linkCommandLineBuilder.build();
     return Args.forRegisteredAction(
