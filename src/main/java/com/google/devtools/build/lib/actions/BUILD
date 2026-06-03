@@ -27,6 +27,19 @@ java_library(
     srcs = ["ResourceEstimator.java"],
 )
 
+java_library(
+    name = "action_key_context",
+    srcs = [
+        "ActionKeyContext.java",
+    ],
+    deps = [
+        ":commandline_item",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset:fingerprint_cache",
+        "//src/main/java/com/google/devtools/build/lib/util",
+    ],
+)
+
 # Action graph and cache.
 java_library(
     name = "actions",
@@ -40,13 +53,11 @@ java_library(
         "ActionConcurrencyMeter.java",
         "ActionConflictException.java",
         "ActionContextMarker.java",
-        "ActionEnvironment.java",
         "ActionExecutedEvent.java",
         "ActionGraph.java",
         "ActionGraphVisitor.java",
         "ActionInputMap.java",
         "ActionKeyComputer.java",
-        "ActionKeyContext.java",
         "ActionLogBufferPathGenerator.java",
         "ActionLookupValue.java",
         "ActionProgressEvent.java",
@@ -63,14 +74,12 @@ java_library(
         "BaseSpawn.java",
         "BasicActionLookupValue.java",
         "BipartiteVisitor.java",
-        "BuildConfigurationEvent.java",
         "BuildFailedException.java",
         "CachedActionEvent.java",
         "CachingActionEvent.java",
         "ChangedFilesMessage.java",
         "CommandAction.java",
         "CommandLine.java",
-        "CommandLineLimits.java",
         "CommandLines.java",
         "CompletionContext.java",
         "DigestOfDirectoryException.java",
@@ -78,16 +87,13 @@ java_library(
         "DynamicStrategyRegistry.java",
         "EnvironmentalExecException.java",
         "EventReportingArtifacts.java",
-        "ExecException.java",
         "FailAction.java",
-        "HasDigest.java",
         "InjectedActionExecutionEvent.java",
         "InputFileErrorException.java",
         "MapBasedActionGraph.java",
         "MissingInputFileException.java",
         "MutableActionGraph.java",
         "NotifyOnActionCacheHit.java",
-        "OutputChecker.java",
         "ParamFileInfo.java",
         "ParameterFile.java",
         "ProxyMetadataFactory.java",
@@ -107,15 +113,24 @@ java_library(
         "StoppedScanningActionEvent.java",
         "TestExecException.java",
         "TopLevelOutputException.java",
-        "TotalAndConfiguredTargetOnlyMetric.java",
-        "UserExecException.java",
         "cache/ActionCache.java",
         "cache/CompactPersistentActionCache.java",
         "cache/PersistentStringIndexer.java",
         "cache/PostableActionCacheStats.java",
     ],
-    exports = [":action_input_prefetcher"],
+    exports = [
+        ":action_environment",
+        ":action_input_prefetcher",
+        ":action_key_context",
+        ":build_configuration_event",
+        ":commandline_limits",
+        ":exec_exception",
+        ":has_digest",
+        ":output_checker",
+        ":total_and_configured_target_only_metric",
+    ],
     deps = [
+        ":action_environment",
         ":action_input",
         ":action_input_prefetcher",
         ":action_lookup_data",
@@ -123,11 +138,14 @@ java_library(
         ":artifact_owner",
         ":artifacts",
         ":commandline_item",
+        ":commandline_limits",
+        ":exec_exception",
         ":execution_requirements",
         ":file_metadata",
         ":fileset_output_symlink",
         ":fileset_output_tree",
         ":localhost_capacity",
+        ":output_checker",
         ":package_roots",
         ":runfiles_metadata",
         ":runfiles_tree",
@@ -289,7 +307,6 @@ java_library(
 java_library(
     name = "artifacts",
     srcs = [
-        "ActionKeyContext.java",
         "ArgChunk.java",
         "Artifact.java",
         "ArtifactCodecs.java",
@@ -301,6 +318,7 @@ java_library(
         "PathMapper.java",
         "PathMapperConstants.java",
     ],
+    exports = [":action_key_context"],
     deps = [
         ":action_input",
         ":action_lookup_data",
@@ -417,6 +435,15 @@ java_library(
 )
 
 java_library(
+    name = "output_checker",
+    srcs = ["OutputChecker.java"],
+    deps = [
+        ":action_input",
+        ":file_metadata",
+    ],
+)
+
+java_library(
     name = "file_metadata",
     srcs = [
         "FileArtifactValue.java",
@@ -425,7 +452,6 @@ java_library(
         "FileStateValue.java",
         "FileStatusWithMetadata.java",
         "FileValue.java",
-        "OutputChecker.java",
         "RichArtifactData.java",
         "cache/MetadataDigestUtils.java",
     ],
