@@ -437,6 +437,7 @@ filegroup(
         "//src/test/tools/test_repos:srcs",
         "//src/tools/bzlmod:srcs",
         "//src/tools/diskcache:srcs",
+        "//src/tools/execgraph:srcs",
         "//src/tools/execlog:srcs",
         "//src/tools/launcher:srcs",
         "//src/tools/one_version:srcs",
