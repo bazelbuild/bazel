@@ -24,54 +24,96 @@ import com.google.devtools.build.lib.concurrent.RequestBatching.CallbackMultiple
 import com.google.devtools.build.lib.concurrent.RequestBatching.FutureMultiplexer;
 import com.google.devtools.build.lib.concurrent.RequestBatching.Multiplexer;
 import com.google.devtools.build.lib.concurrent.RequestBatching.Operation;
-import java.util.ArrayList;
-import java.util.List;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.VarHandle;
 import java.util.concurrent.Executor;
-import javax.annotation.concurrent.GuardedBy;
+import javax.annotation.Nullable;
 
 /**
- * A lock-based, asynchronous request batcher designed for eager execution.
+ * A lock-free, asynchronous request batcher designed for eager execution.
  *
  * <p>This class batches unary requests and executes them together. It eagerly dispatches batches as
  * soon as they reach {@code maxBatchSize} or when the number of active concurrent requests is below
  * {@code targetConcurrentRequests}.
  *
- * <p>Submissions do not block waiting for batch execution or queue capacity. While the class uses
- * lightweight synchronization (synchronized) to ensure thread-safe queue access, the lock is held
- * only for brief in-memory updates, ensuring that calling threads never block on I/O or
- * backpressure.
- *
- * <p><b>Locking Efficiency:</b> While the class uses a lock to ensure thread-safe queue operations,
- * the lock hold time is extremely short. Under high load, the relatively more expensive {@link
- * ThreadLocal} pool lookup is amortized over the batch size (occurring only once per {@code
- * maxBatchSize} submissions), keeping the average lock hold time close to a few nanoseconds.
- *
- * <p><b>Virtual Thread Performance:</b> While this class will function correctly when called from
- * virtual threads, performance will likely be very poor. It relies on {@link ThreadLocal} via
- * {@link QueuePool} for optimization, which does not behave predictably or efficiently with
- * short-lived virtual threads. Additionally, it uses monitor-based locks (synchronized) which can
- * cause pinning of carrier threads.
+ * <p>Submissions do not block waiting for batch execution or queue capacity. It uses lock-free
+ * constructs (via {@link VarHandle}) to ensure thread-safe queue access and is safe to use with
+ * virtual threads.
  */
 public final class EagerRequestBatcher<RequestT, ResponseT> {
 
-  private final Object lock = new Object();
+  private static final long PLUS_ONE_SIZE_PLUS_ONE_REFS = 0x0000_0001_0000_0001L;
+  private static final long MINUS_ONE_REF = -1L;
+  private static final long PLUS_ONE_SIZE_MINUS_ONE_REFS = 0x0000_0000_FFFF_FFFFL;
 
-  @GuardedBy("lock")
-  private List<Operation<RequestT, ResponseT>> queue;
+  private static final VarHandle STATE;
+  private static final VarHandle SIZE_AND_REFS;
 
-  @GuardedBy("lock")
-  private int inFlightCount = 0;
+  private static int refs(long sizeAndRefs) {
+    return (int) sizeAndRefs;
+  }
+
+  private static int size(long sizeAndRefs) {
+    return (int) (sizeAndRefs >>> 32);
+  }
+
+  /**
+   * Encapsulates the dynamic state.
+   *
+   * <p><b>CRITICAL CONCURRENCY INVARIANT (EFFECTIVE IMMUTABILITY):</b> The fields of this nested
+   * class are intentionally mutable to enable in-place updates and buffer reuse during concurrent
+   * CAS retry loops (eliminating GC allocation churn).
+   *
+   * <p>However, to prevent race conditions and state corruption, this object MUST be treated as
+   * strictly <b>immutable post-publication</b>. Once a State reference is successfully installed
+   * into the global 'state' volatile pointer, it is read-only.
+   *
+   * <p>NEVER write to or mutate the fields of the active state pointed to by
+   * EagerRequestBatcher.state.
+   */
+  private static final class State {
+    private int inFlightRequests;
+    private Buffer buffer;
+
+    private State(int inFlightRequests, Buffer buffer) {
+      this.inFlightRequests = inFlightRequests;
+      this.buffer = buffer;
+    }
+  }
+
+  private static final class Buffer {
+    private volatile long sizeAndRefs = 1L;
+    private final Object[] elements;
+
+    private Buffer(int maxBatchSize) {
+      this.elements = new Object[maxBatchSize];
+    }
+  }
 
   private final int maxBatchSize;
   private final int targetConcurrentRequests;
-
-  /** Executor used for batch completion work, which may include sending batches. */
   private final Executor executor;
-
   private final BatchExecutionStrategy<RequestT, ResponseT> batchExecutionStrategy;
-  private final QueuePool<RequestT, ResponseT> pool;
 
-  /** Creates a batcher with standard Multiplexer. */
+  /**
+   * Encapsulation of dynamic state of the batcher.
+   *
+   * <p>Fields of {@code state} must not be modified. Mutations are performed by swapping in new
+   * instances using CAS.
+   */
+  private volatile State state;
+
+  /**
+   * Creates a batcher with standard Multiplexer.
+   *
+   * @param executor the executor used for distributing responses and triggering completion.
+   *     <b>CRITICAL CONCURRENCY CONTRACT:</b> The injected executor MUST be unbounded (e.g., {@link
+   *     ForkJoinPool#commonPool()} or an executor configured with an unbounded task queue). Using a
+   *     bounded-queue executor will result in silent, permanent capacity slot leaks and a complete
+   *     lockup of eager sending under task saturation, as asynchronous {@link
+   *     RejectedExecutionException}s are silently swallowed inside the underlying {@link
+   *     ListenableFuture#addListener} pipeline.
+   */
   public static <RequestT, ResponseT> EagerRequestBatcher<RequestT, ResponseT> create(
       Multiplexer<RequestT, ResponseT> multiplexer,
       Executor responseDistributionExecutor,
@@ -85,7 +127,17 @@ public final class EagerRequestBatcher<RequestT, ResponseT> {
         executor);
   }
 
-  /** Creates a batcher with CallbackMultiplexer. */
+  /**
+   * Creates a batcher with CallbackMultiplexer.
+   *
+   * @param executor the executor used for distributing responses and triggering completion.
+   *     <b>CRITICAL CONCURRENCY CONTRACT:</b> The injected executor MUST be unbounded (e.g., {@link
+   *     ForkJoinPool#commonPool()} or an executor configured with an unbounded task queue). Using a
+   *     bounded-queue executor will result in silent, permanent capacity slot leaks and a complete
+   *     lockup of eager sending under task saturation, as asynchronous {@link
+   *     RejectedExecutionException}s are silently swallowed inside the underlying {@link
+   *     ListenableFuture#addListener} pipeline.
+   */
   public static <RequestT, ResponseT>
       EagerRequestBatcher<RequestT, ResponseT> createWithCallbackMultiplexer(
           CallbackMultiplexer<RequestT, ResponseT> multiplexer,
@@ -99,7 +151,17 @@ public final class EagerRequestBatcher<RequestT, ResponseT> {
         executor);
   }
 
-  /** Creates a batcher with FutureMultiplexer. */
+  /**
+   * Creates a batcher with FutureMultiplexer.
+   *
+   * @param executor the executor used for distributing responses and triggering completion.
+   *     <b>CRITICAL CONCURRENCY CONTRACT:</b> The injected executor MUST be unbounded (e.g., {@link
+   *     ForkJoinPool#commonPool()} or an executor configured with an unbounded task queue). Using a
+   *     bounded-queue executor will result in silent, permanent capacity slot leaks and a complete
+   *     lockup of eager sending under task saturation, as asynchronous {@link
+   *     RejectedExecutionException}s are silently swallowed inside the underlying {@link
+   *     ListenableFuture#addListener} pipeline.
+   */
   public static <RequestT, ResponseT>
       EagerRequestBatcher<RequestT, ResponseT> createWithFutureMultiplexer(
           FutureMultiplexer<RequestT, ResponseT> multiplexer,
@@ -117,80 +179,140 @@ public final class EagerRequestBatcher<RequestT, ResponseT> {
   @VisibleForTesting
   EagerRequestBatcher(
       BatchExecutionStrategy<RequestT, ResponseT> batchExecutionStrategy,
+      // Kept for API compatibility. To be removed in a follow up change.
       QueuePool<RequestT, ResponseT> pool,
       int targetConcurrentRequests,
       Executor executor) {
     this.batchExecutionStrategy = batchExecutionStrategy;
-    this.pool = pool;
     this.maxBatchSize = pool.getMaxBatchSize();
     checkArgument(targetConcurrentRequests >= 1, "targetConcurrentRequests must be >= 1");
     this.targetConcurrentRequests = targetConcurrentRequests;
     this.executor = executor;
-    this.queue = new ArrayList<>(maxBatchSize);
+    this.state = new State(0, new Buffer(maxBatchSize));
   }
 
   public ListenableFuture<ResponseT> submit(RequestT request) {
-    Operation<RequestT, ResponseT> operation = new Operation<>(request);
-    List<Operation<RequestT, ResponseT>> batch = null;
+    var operation = new Operation<RequestT, ResponseT>(request);
+    State newState = null;
+    State snapshot = state;
+    Buffer buffer = snapshot.buffer;
 
-    synchronized (lock) {
-      queue.add(operation);
+    while (true) {
+      long sizeAndRefsSnapshot = buffer.sizeAndRefs;
+      int size = size(sizeAndRefsSnapshot);
+      int refs = refs(sizeAndRefsSnapshot);
 
-      // Rule 1 (Eager): Execute immediately if queue reaches maxBatchSize.
-      // Rule 2 (Target Concurrency): Execute immediately if in-flight count is below target.
-      if (queue.size() >= maxBatchSize || inFlightCount < targetConcurrentRequests) {
-        batch = swapQueue();
-        inFlightCount++;
+      // 1. Check if buffer is already retired/dispatched
+      if (refs <= 0 || size >= maxBatchSize) {
+        snapshot = state;
+        buffer = snapshot.buffer;
+        continue;
       }
-    }
 
-    if (batch != null) {
-      execute(copyAndRecycle(batch));
-    }
+      // 2. Rule R2: Buffer is about to reach maxBatchSize. Detach and write last slot.
+      if (size >= maxBatchSize - 1) {
+        if (newState == null) {
+          newState = new State(snapshot.inFlightRequests + 1, new Buffer(maxBatchSize));
+        } else {
+          newState.inFlightRequests = snapshot.inFlightRequests + 1;
+        }
 
-    return operation;
-  }
+        if (!STATE.compareAndSet(this, snapshot, newState)) {
+          snapshot = state;
+          buffer = snapshot.buffer;
+          continue;
+        }
 
-  private void onBatchComplete() {
-    List<Operation<RequestT, ResponseT>> batch = null;
-    synchronized (lock) {
-      if (!queue.isEmpty() && inFlightCount <= targetConcurrentRequests) {
-        batch = swapQueue();
-        // A batch has just completed, but the queue contents will be sent immediately so
-        // inFlightCount does not change.
-      } else {
-        inFlightCount--;
+        buffer.elements[maxBatchSize - 1] = operation;
+
+        long preDecrement = (long) SIZE_AND_REFS.getAndAdd(buffer, PLUS_ONE_SIZE_MINUS_ONE_REFS);
+        if (refs(preDecrement) == 1) {
+          execute(buffer);
+        }
+        return operation;
       }
-    }
 
-    if (batch != null) {
-      execute(copyAndRecycle(batch));
+      // 3. Normal Insert Path: Try to reserve a slot
+      long targetValue = sizeAndRefsSnapshot + PLUS_ONE_SIZE_PLUS_ONE_REFS;
+      if (SIZE_AND_REFS.compareAndSet(buffer, sizeAndRefsSnapshot, targetValue)) {
+        buffer.elements[size] = operation;
+
+        long preDecrement = (long) SIZE_AND_REFS.getAndAdd(buffer, MINUS_ONE_REF);
+        if (refs(preDecrement) == 1) {
+          execute(buffer);
+        } else {
+          sendIfPossible(newState);
+        }
+        return operation;
+      }
     }
   }
 
   /**
-   * Swaps the queue with a clean one from the pool.
+   * Attempts to send the current batch if the number of in-flight requests is below {@code
+   * targetConcurrentRequests} and it is non-empty.
    *
-   * <p>IMPORTANT: after this swap, a batch must be recycled into {@link #pool} before any other
-   * calls to {@link QueuePool#getQueue()} from this thread.
-   *
-   * @return the queue at the moment this method was called
+   * <p>If the conditions are observed to be not met, returns without sending.
    */
-  @GuardedBy("lock")
-  private List<Operation<RequestT, ResponseT>> swapQueue() {
-    List<Operation<RequestT, ResponseT>> batch = queue;
-    queue = pool.getQueue();
-    return batch;
+  private void sendIfPossible(@Nullable State preAllocatedState) {
+    State newState = preAllocatedState;
+
+    while (true) {
+      State snapshot = state;
+
+      if (snapshot.inFlightRequests >= targetConcurrentRequests) {
+        return;
+      }
+
+      Buffer buffer = snapshot.buffer;
+      long sizeAndRefsSnapshot = buffer.sizeAndRefs;
+
+      if (size(sizeAndRefsSnapshot) == 0) {
+        return;
+      }
+
+      if (newState == null) {
+        newState = new State(snapshot.inFlightRequests + 1, new Buffer(maxBatchSize));
+      } else {
+        newState.inFlightRequests = snapshot.inFlightRequests + 1;
+      }
+
+      if (!STATE.compareAndSet(this, snapshot, newState)) {
+        continue;
+      }
+
+      long preDecrement = (long) SIZE_AND_REFS.getAndAdd(buffer, MINUS_ONE_REF);
+      if (refs(preDecrement) == 1) {
+        execute(buffer);
+      }
+      return;
+    }
   }
 
-  private ImmutableList<Operation<RequestT, ResponseT>> copyAndRecycle(
-      List<Operation<RequestT, ResponseT>> batch) {
-    ImmutableList<Operation<RequestT, ResponseT>> copy = ImmutableList.copyOf(batch);
-    pool.recycleQueue(batch);
-    return copy;
+  private void onBatchDone() {
+    State newState = null;
+
+    while (true) {
+      State snapshot = state;
+
+      if (newState == null) {
+        newState = new State(snapshot.inFlightRequests - 1, snapshot.buffer);
+      } else {
+        newState.inFlightRequests = snapshot.inFlightRequests - 1;
+        newState.buffer = snapshot.buffer;
+      }
+
+      if (STATE.compareAndSet(this, snapshot, newState)) {
+        break;
+      }
+    }
+
+    sendIfPossible(null);
   }
 
-  private void execute(ImmutableList<Operation<RequestT, ResponseT>> batch) {
+  private void execute(Buffer buffer) {
+    ImmutableList<Operation<RequestT, ResponseT>> batch = copyElements(buffer);
+
     ListenableFuture<?> batchFuture;
     try {
       batchFuture =
@@ -200,31 +322,61 @@ public final class EagerRequestBatcher<RequestT, ResponseT> {
       return;
     }
 
-    batchFuture.addListener(this::onBatchComplete, executor);
+    batchFuture.addListener(this::onBatchDone, executor);
+  }
+
+  private static <RequestT, ResponseT> ImmutableList<Operation<RequestT, ResponseT>> copyElements(
+      Buffer buffer) {
+    int size = size(buffer.sizeAndRefs);
+    ImmutableList.Builder<Operation<RequestT, ResponseT>> builder =
+        ImmutableList.builderWithExpectedSize(size);
+    for (int i = 0; i < size; i++) {
+      @SuppressWarnings("unchecked") // Java doesn't permit parameterized arrays.
+      Operation<RequestT, ResponseT> element = (Operation<RequestT, ResponseT>) buffer.elements[i];
+      if (element == null) {
+        throw new IllegalStateException(
+            "Null element found in buffer at index " + i + " with size " + size);
+      }
+      builder.add(element);
+    }
+    return builder.build();
   }
 
   private void handleSynchronousException(
       ImmutableList<Operation<RequestT, ResponseT>> operations, Throwable t) {
-    synchronized (lock) {
-      inFlightCount--;
-    }
+    onBatchDone();
     for (Operation<RequestT, ResponseT> operation : operations) {
       operation.acceptFailure(t);
     }
   }
 
-  // Package-private for testing
   @VisibleForTesting
   int getInFlightCount() {
-    synchronized (lock) {
-      return inFlightCount;
-    }
+    return state.inFlightRequests;
   }
 
   @VisibleForTesting
   int getQueueSize() {
-    synchronized (lock) {
-      return queue.size();
+    return size(state.buffer.sizeAndRefs);
+  }
+
+  @VisibleForTesting
+  static VarHandle getBufferSizeAndRefsVarHandleForTesting() {
+    return SIZE_AND_REFS;
+  }
+
+  @VisibleForTesting
+  Object getActiveBufferForTesting() {
+    return state.buffer;
+  }
+
+  static {
+    try {
+      MethodHandles.Lookup l = MethodHandles.lookup();
+      STATE = l.findVarHandle(EagerRequestBatcher.class, "state", State.class);
+      SIZE_AND_REFS = l.findVarHandle(Buffer.class, "sizeAndRefs", long.class);
+    } catch (ReflectiveOperationException e) {
+      throw new ExceptionInInitializerError(e);
     }
   }
 }
