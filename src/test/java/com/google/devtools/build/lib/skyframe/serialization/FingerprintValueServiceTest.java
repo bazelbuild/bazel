@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.skyframe.serialization;
 
 import static com.google.common.truth.Truth.assertThat;
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.Executors.newSingleThreadExecutor;
 
 import java.util.concurrent.Executor;
@@ -24,23 +23,6 @@ import org.junit.runners.JUnit4;
 
 @RunWith(JUnit4.class)
 public final class FingerprintValueServiceTest {
-  // FingerprintValueService is a thin wrapper over a few loosely related objects. The contained
-  // FingerprintValueCache is covered in FingerprintValueCacheTest.
-
-  @Test
-  public void get_returnsPreviouslyPut() throws Exception {
-    // `get` and `put` delegate to an underlying InMemoryFingerprintValueStore. Sanity checks this
-    // wiring.
-
-    FingerprintValueService service = FingerprintValueService.createForTesting();
-    PackedFingerprint key = service.fingerprint("key".getBytes(UTF_8));
-    byte[] value = new byte[] {0, 1, 2};
-
-    Boolean unused = service.put(key, value).get();
-
-    assertThat(service.get(key).get()).isSameInstanceAs(value);
-  }
-
   @Test
   public void fingerprint_isConsistent() {
     FingerprintValueService service =

@@ -37,6 +37,7 @@ import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.Version;
+import java.util.HashSet;
 import java.util.Set;
 import org.junit.Rule;
 import org.junit.Test;
@@ -57,7 +58,7 @@ public final class SkyframeFocuserTest extends BuildViewTestCase {
   public void testFocus_emptyInputsReturnsEmptyResult() throws InterruptedException {
     InMemoryGraph graph = skyframeExecutor.getEvaluator().getInMemoryGraph();
     FocusResult focusResult =
-        SkyframeFocuser.focus(graph, mockActionCache, Sets.newHashSet(), Sets.newHashSet());
+        SkyframeFocuser.focus(graph, mockActionCache, new HashSet<>(), new HashSet<>());
 
     assertThat(focusResult.deps()).isEmpty();
     assertThat(focusResult.rdeps()).isEmpty();
@@ -75,7 +76,7 @@ public final class SkyframeFocuserTest extends BuildViewTestCase {
     createEdgesAndMarkDone(graph, cat, ImmutableList.of(), ImmutableList.of());
     createEdgesAndMarkDone(graph, dog, ImmutableList.of(), ImmutableList.of());
 
-    Set<SkyKey> roots = Sets.newHashSet();
+    Set<SkyKey> roots = new HashSet<>();
     Set<SkyKey> leafs = Sets.newHashSet(cat, dog);
 
     FocusResult focusResult = SkyframeFocuser.focus(graph, mockActionCache, roots, leafs);
@@ -97,7 +98,7 @@ public final class SkyframeFocuserTest extends BuildViewTestCase {
     createEdgesAndMarkDone(graph, cat, ImmutableList.of(), ImmutableList.of());
     createEdgesAndMarkDone(graph, dog, ImmutableList.of(), ImmutableList.of());
 
-    Set<SkyKey> roots = Sets.newHashSet();
+    Set<SkyKey> roots = new HashSet<>();
     Set<SkyKey> leafs = Sets.newHashSet(cat); // dog is unreachable
 
     FocusResult focusResult = SkyframeFocuser.focus(graph, mockActionCache, roots, leafs);
@@ -118,7 +119,7 @@ public final class SkyframeFocuserTest extends BuildViewTestCase {
     createEdgesAndMarkDone(graph, cat, ImmutableList.of(), ImmutableList.of(dog));
     createEdgesAndMarkDone(graph, dog, ImmutableList.of(), ImmutableList.of());
 
-    Set<SkyKey> roots = Sets.newHashSet();
+    Set<SkyKey> roots = new HashSet<>();
     Set<SkyKey> leafs = Sets.newHashSet(cat); // dog is cat's rdep
 
     FocusResult focusResult = SkyframeFocuser.focus(graph, mockActionCache, roots, leafs);
@@ -140,7 +141,7 @@ public final class SkyframeFocuserTest extends BuildViewTestCase {
     createEdgesAndMarkDone(graph, dog, ImmutableList.of(), ImmutableList.of());
 
     Set<SkyKey> roots = Sets.newHashSet(cat, dog);
-    Set<SkyKey> leafs = Sets.newHashSet();
+    Set<SkyKey> leafs = new HashSet<>();
 
     FocusResult focusResult = SkyframeFocuser.focus(graph, mockActionCache, roots, leafs);
 
@@ -161,7 +162,7 @@ public final class SkyframeFocuserTest extends BuildViewTestCase {
     createEdgesAndMarkDone(graph, dog, ImmutableList.of(), ImmutableList.of());
 
     Set<SkyKey> roots = Sets.newHashSet(cat);
-    Set<SkyKey> leafs = Sets.newHashSet();
+    Set<SkyKey> leafs = new HashSet<>();
 
     FocusResult focusResult = SkyframeFocuser.focus(graph, mockActionCache, roots, leafs);
 

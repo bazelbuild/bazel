@@ -53,6 +53,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CopyOnWriteArrayList;
 import javax.annotation.Nullable;
 
 /**
@@ -679,7 +680,7 @@ public final class SpawnStrategyRegistry
     <T extends SpawnStrategy> ImmutableCollection<T> getStrategies(
         Spawn spawn, ImmutableCollection<T> candidateStrategies) {
       return ImmutableList.copyOf(
-          getStrategies(spawn, Lists.newCopyOnWriteArrayList(candidateStrategies)));
+          getStrategies(spawn, new CopyOnWriteArrayList<>(candidateStrategies)));
     }
 
     ImmutableSetMultimap<Label, SpawnStrategy> getFilterToStrategies() {

@@ -569,14 +569,21 @@ public abstract class AbstractPackageLoader implements PackageLoader {
         .put(SkyFunctions.CONTAINING_PACKAGE_LOOKUP, new ContainingPackageLookupFunction())
         .put(
             SkyFunctions.BZL_COMPILE,
-            new BzlCompileFunction(ruleClassProvider.getBazelStarlarkEnvironment(), hashFunction))
+            new BzlCompileFunction(
+                ruleClassProvider.getBazelStarlarkEnvironment(),
+                hashFunction,
+                PackageLoadingListener.NOOP_LISTENER))
         .put(
             SkyFunctions.STARLARK_BUILTINS,
             new StarlarkBuiltinsFunction(ruleClassProvider.getBazelStarlarkEnvironment()))
         .put(
             SkyFunctions.BZL_LOAD,
             BzlLoadFunction.create(
-                ruleClassProvider, directories, hashFunction, Caffeine.newBuilder().build()))
+                ruleClassProvider,
+                directories,
+                hashFunction,
+                PackageLoadingListener.NOOP_LISTENER,
+                Caffeine.newBuilder().build()))
         .put(
             SkyFunctions.REPO_FILE,
             new RepoFileFunction(

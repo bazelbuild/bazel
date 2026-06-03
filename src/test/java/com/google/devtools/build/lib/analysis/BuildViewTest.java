@@ -21,7 +21,6 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Actions;
@@ -135,7 +134,7 @@ public class BuildViewTest extends BuildViewTestBase {
     Collection<ConfiguredTarget> targets =
         new LinkedHashSet<>(ImmutableList.of(test1CT, test2CT, suiteCT));
     targets =
-        Lists.newArrayList(
+        new ArrayList<>(
             BuildView.filterTestsByTargets(
                 targets, Sets.newHashSet(test1.getTargetLabel(), suite.getTargetLabel())));
     assertThat(targets).containsExactlyElementsIn(Sets.newHashSet(test1CT, suiteCT));

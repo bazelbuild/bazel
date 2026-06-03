@@ -36,7 +36,6 @@ import com.google.bytestream.ByteStreamProto.WriteResponse;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
-import com.google.common.collect.Sets;
 import com.google.common.hash.HashCode;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
@@ -76,6 +75,8 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
@@ -832,7 +833,7 @@ public class ByteStreamUploaderTest {
             /* digestFunction= */ DigestFunction.Value.SHA256);
 
     int numUploads = 10;
-    Map<HashCode, byte[]> blobsByHash = Maps.newHashMap();
+    Map<HashCode, byte[]> blobsByHash = new HashMap<>();
     Map<Digest, Chunker> chunkers = Maps.newHashMapWithExpectedSize(numUploads);
     Random rand = new Random();
     for (int i = 0; i < numUploads; i++) {
@@ -904,7 +905,7 @@ public class ByteStreamUploaderTest {
 
     CustomFileTracker customFileTracker = new CustomFileTracker(maximumOpenFiles);
     int numUploads = 1000;
-    Map<HashCode, byte[]> blobsByHash = Maps.newHashMap();
+    Map<HashCode, byte[]> blobsByHash = new HashMap<>();
     Map<Digest, Chunker> chunkers = Maps.newHashMapWithExpectedSize(numUploads);
     Random rand = new Random();
     for (int i = 0; i < numUploads; i++) {
@@ -942,7 +943,7 @@ public class ByteStreamUploaderTest {
     assertThat(uploader.getOpenedFilePermits()).isNull();
 
     int numUploads = 10;
-    Map<HashCode, byte[]> blobsByHash = Maps.newHashMap();
+    Map<HashCode, byte[]> blobsByHash = new HashMap<>();
     Map<Digest, Chunker> chunkers = Maps.newHashMapWithExpectedSize(numUploads);
     Random rand = new Random();
     for (int i = 0; i < numUploads; i++) {
@@ -980,7 +981,7 @@ public class ByteStreamUploaderTest {
 
     List<String> toUpload = ImmutableList.of("aaaaaaaaaa", "bbbbbbbbbb", "cccccccccc");
     Map<Digest, Chunker> chunkers = Maps.newHashMapWithExpectedSize(toUpload.size());
-    Map<String, Integer> uploadsFailed = Maps.newHashMap();
+    Map<String, Integer> uploadsFailed = new HashMap<>();
     for (String s : toUpload) {
       Chunker chunker = Chunker.builder().setInput(s.getBytes(UTF_8)).setChunkSize(3).build();
       Digest digest = DIGEST_UTIL.computeAsUtf8(s);
@@ -1761,7 +1762,7 @@ public class ByteStreamUploaderTest {
   static class MaybeFailOnceUploadService extends ByteStreamImplBase {
 
     private final Map<HashCode, byte[]> blobsByHash;
-    private final Set<HashCode> uploadsFailedOnce = Collections.synchronizedSet(Sets.newHashSet());
+    private final Set<HashCode> uploadsFailedOnce = Collections.synchronizedSet(new HashSet<>());
     private final Random rand = new Random();
 
     MaybeFailOnceUploadService(Map<HashCode, byte[]> blobsByHash) {

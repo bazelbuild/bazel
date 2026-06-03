@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.packages;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import java.util.Map;
 import net.starlark.java.eval.Dict;
-import net.starlark.java.eval.StarlarkThread;
 
 /**
  * The provider for the built-in type {@code struct}.
@@ -36,8 +35,8 @@ public final class StructProvider extends BuiltinProvider<StarlarkInfo>
 
   /** Implementation of {@code struct(**kwargs)} function exposed to Starlark. */
   @Override
-  public StructImpl createStruct(Dict<String, Object> kwargs, StarlarkThread thread) {
-    return StarlarkInfo.create(this, kwargs, thread.getCallerLocation());
+  public StructImpl createStruct(Dict<String, Object> kwargs) {
+    return StarlarkInfo.create(this, kwargs);
   }
 
   /**

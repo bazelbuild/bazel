@@ -28,7 +28,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Maps;
 import com.google.common.hash.HashFunction;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -404,7 +403,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
       Rule rule,
       Object extraDataForAttrHash,
       LabelPrinter labelPrinter) {
-    Map<Attribute, Build.Attribute> serializedAttributes = Maps.newHashMap();
+    Map<Attribute, Build.Attribute> serializedAttributes = new HashMap<>();
     AggregatingAttributeMapper attributeMapper = AggregatingAttributeMapper.of(rule);
     for (Attribute attr : rule.getAttributes()) {
       if (!shouldIncludeAttribute(rule, attr)) {

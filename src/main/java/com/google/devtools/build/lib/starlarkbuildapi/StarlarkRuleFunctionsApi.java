@@ -109,7 +109,10 @@ public interface StarlarkRuleFunctionsApi {
                     + " dictionary field name -> documentation:<br>       <pre"
                     + " class=\"language-python\">provider(\n"
                     + "       fields = { 'a' : 'Documentation for a', 'b' : 'Documentation for b'"
-                    + " })</pre></ul>All fields are optional.",
+                    + " })</pre></ul>All fields are optional." //
+                    + "<p>It is <em>strongly recommended</em> to specify this parameter, as"
+                    + " defining a field schema allows Bazel to store provider instances more"
+                    + " compactly.",
             allowedTypes = {
               @ParamType(type = Sequence.class, generic1 = String.class),
               @ParamType(type = Dict.class),

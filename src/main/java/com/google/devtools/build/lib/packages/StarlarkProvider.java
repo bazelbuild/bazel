@@ -300,7 +300,7 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
           Starlark.callViaArgumentProcessor(thread, owner.init, initArgumentProcessor);
       Dict<String, Object> kwargs =
           Dict.cast(initResult, String.class, Object.class, "return value of provider init()");
-      return factory.createFromMap(kwargs, thread);
+      return factory.createFromMap(kwargs);
     }
   }
 
@@ -338,7 +338,7 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
 
     @Override
     public Object call(StarlarkThread thread) throws EvalException, InterruptedException {
-      return factory.createFromArgs(thread);
+      return factory.createFromArgs();
     }
   }
 
@@ -351,10 +351,9 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
       this.thread = thread;
     }
 
-    abstract StarlarkInfo createFromArgs(StarlarkThread thread) throws EvalException;
+    abstract StarlarkInfo createFromArgs() throws EvalException;
 
-    abstract StarlarkInfo createFromMap(Map<String, Object> map, StarlarkThread thread)
-        throws EvalException;
+    abstract StarlarkInfo createFromMap(Map<String, Object> map) throws EvalException;
 
     abstract void addNamedArg(String name, Object value) throws EvalException;
   }

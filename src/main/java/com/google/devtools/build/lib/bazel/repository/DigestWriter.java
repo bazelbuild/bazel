@@ -43,7 +43,7 @@ public class DigestWriter {
 
   // The marker file version is inject in the rule key digest so the rule key is always different
   // when we decide to update the format.
-  private static final int MARKER_FILE_VERSION = 7;
+  private static final int MARKER_FILE_VERSION = 8;
 
   private final BlazeDirectories directories;
   final String predeclaredInputHash;

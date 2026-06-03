@@ -819,7 +819,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         SkyFunctions.BZL_COMPILE, // TODO rename
         new BzlCompileFunction(
             ruleClassProvider.getBazelStarlarkEnvironment(),
-            getDigestFunction().getHashFunction()));
+            getDigestFunction().getHashFunction(),
+            pkgFactory.getPackageLoadingListener()));
     map.put(
         SkyFunctions.STARLARK_BUILTINS,
         new StarlarkBuiltinsFunction(ruleClassProvider.getBazelStarlarkEnvironment()));
@@ -1036,7 +1037,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   protected SkyFunction newBzlLoadFunction(RuleClassProvider ruleClassProvider) {
     return BzlLoadFunction.create(
-        ruleClassProvider, directories, getDigestFunction().getHashFunction(), bzlCompileCache);
+        ruleClassProvider,
+        directories,
+        getDigestFunction().getHashFunction(),
+        pkgFactory.getPackageLoadingListener(),
+        bzlCompileCache);
   }
 
   @ThreadCompatible
@@ -1249,7 +1254,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    * unsupported.
    */
   @Nullable
-  public abstract SkyframeStats getSkyframeStats(ExtendedEventHandler eventHandler);
+  public abstract SkyframeStats getSkyframeStats();
 
   /**
    * Decides if graph edges should be stored during this evaluation and checks if the state from the

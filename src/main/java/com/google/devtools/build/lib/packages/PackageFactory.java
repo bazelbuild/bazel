@@ -208,6 +208,10 @@ public final class PackageFactory {
     return ruleClassProvider;
   }
 
+  public PackageLoadingListener getPackageLoadingListener() {
+    return packageLoadingListener;
+  }
+
   // This function is public only for the benefit of skyframe.PackageFunction,
   // which is morally part of lib.packages, so that it can create empty packages
   // in case of error before BUILD execution. Do not call it from anywhere else.

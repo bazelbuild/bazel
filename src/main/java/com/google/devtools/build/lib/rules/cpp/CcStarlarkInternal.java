@@ -63,6 +63,7 @@ import com.google.devtools.build.lib.rules.cpp.CppLinkActionBuilder.LinkActionCo
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.NativeComputedDefaultApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.IdentityHashMap;
 import java.util.Objects;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
@@ -89,6 +90,26 @@ import net.starlark.java.eval.Tuple;
 public class CcStarlarkInternal implements StarlarkValue {
 
   public static final String NAME = "cc_internal";
+
+  private static final int ALLOWLIST_CACHE_MAX_SIZE = 32;
+  private static final Object ALLOWLIST_CACHE_LOCK = new Object();
+
+  /**
+   * Caches the conversion from a Starlark {@link Sequence} to a {@link
+   * BuiltinRestriction.Allowlist}.
+   *
+   * <p>{@link #checkPrivateApi} is called on every private API usage, making it a hot path.
+   * However, it is typically called with only a handful of unique {@link Sequence} instances
+   * defined in Starlark files.
+   *
+   * <p>To maximize performance, we use a copy-on-write {@link IdentityHashMap}. This avoids the
+   * cost of hashing sequences and keeps reads (the common case) lock-free. Updates are rare and are
+   * synchronized. If the cache exceeds {@link #ALLOWLIST_CACHE_MAX_SIZE}, we start fresh with an
+   * empty cache. This approach performs better than a Caffeine cache with maximum size and/or weak
+   * keys, which both have per-read maintenance operations.
+   */
+  private static volatile IdentityHashMap<Sequence<Tuple>, BuiltinRestriction.Allowlist>
+      allowlistCache = new IdentityHashMap<>();
 
   @StarlarkMethod(
       name = "check_private_api",
@@ -122,14 +143,56 @@ public class CcStarlarkInternal implements StarlarkValue {
       // phase
       return;
     }
+
     BazelModuleContext bazelModuleContext = (BazelModuleContext) module.getClientData();
-    ImmutableList<BuiltinRestriction.AllowlistEntry> allowlist =
-        Sequence.cast(allowlistObject, Tuple.class, "allowlist").stream()
+    BuiltinRestriction.Allowlist allowlist = allowlistFromStarlark(allowlistObject);
+    BuiltinRestriction.failIfModuleOutsideAllowlist(bazelModuleContext, allowlist);
+  }
+
+  private static BuiltinRestriction.Allowlist allowlistFromStarlark(Object allowlistObject)
+      throws EvalException {
+    // Fast path: lock-free read.
+    BuiltinRestriction.Allowlist allowlist = allowlistCache.get(allowlistObject);
+    if (allowlist != null) {
+      return allowlist;
+    }
+
+    Sequence<Tuple> seq = Sequence.cast(allowlistObject, Tuple.class, "allowlist");
+    if (!seq.isImmutable()) {
+      return createAllowlist(seq);
+    }
+
+    // Cache miss: check again under lock.
+    synchronized (ALLOWLIST_CACHE_LOCK) {
+      allowlist = allowlistCache.get(seq);
+      if (allowlist == null) {
+        // Copy on write.
+        IdentityHashMap<Sequence<Tuple>, BuiltinRestriction.Allowlist> newCache =
+            allowlistCache.size() < ALLOWLIST_CACHE_MAX_SIZE
+                ? new IdentityHashMap<>(allowlistCache)
+                : new IdentityHashMap<>();
+        allowlist = createAllowlist(seq);
+        newCache.put(seq, allowlist);
+        allowlistCache = newCache;
+      }
+    }
+    return allowlist;
+  }
+
+  private static BuiltinRestriction.Allowlist createAllowlist(Sequence<Tuple> seq) {
+    return BuiltinRestriction.Allowlist.create(
+        seq.stream()
             // TODO(bazel-team): Avoid unchecked indexing and casts on values obtained from
             // Starlark, even though it is allowlisted.
-            .map(p -> BuiltinRestriction.allowlistEntry((String) p.get(0), (String) p.get(1)))
-            .collect(toImmutableList());
-    BuiltinRestriction.failIfModuleOutsideAllowlist(bazelModuleContext, allowlist);
+            .map(
+                p -> {
+                  String repo = (String) p.get(0);
+                  String packagePrefix = (String) p.get(1);
+                  return repo.isEmpty()
+                      ? BuiltinRestriction.mainRepoAllowlistEntry(packagePrefix)
+                      : BuiltinRestriction.externalRepoAllowlistEntry(repo, packagePrefix);
+                })
+            .collect(toImmutableList()));
   }
 
   /** Wraps a dictionary of build variables into CcToolchainVariables. */
@@ -661,6 +724,12 @@ public class CcStarlarkInternal implements StarlarkValue {
             allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
             defaultValue = "None"),
         @Param(
+            name = "progress_message_prefix",
+            positional = false,
+            named = true,
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
+            defaultValue = "None"),
+        @Param(
             name = "should_scan_includes",
             positional = false,
             named = true,
@@ -706,6 +775,7 @@ public class CcStarlarkInternal implements StarlarkValue {
       Object buildInfoHeaderArtifacts,
       Object additionalPrunableHeaders,
       Object actionName,
+      Object progressMessagePrefix,
       Object shouldScanIncludes,
       Object shareable,
       Object moduleFiles,
@@ -763,6 +833,9 @@ public class CcStarlarkInternal implements StarlarkValue {
     }
     if (actionName instanceof String actionNameString) {
       builder.setActionName(actionNameString);
+    }
+    if (progressMessagePrefix instanceof String progressMessagePrefixString) {
+      builder.setProgressMessagePrefix(progressMessagePrefixString);
     }
     if (shouldScanIncludes instanceof Boolean bool) {
       builder.setShouldScanIncludes(bool);

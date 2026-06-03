@@ -40,7 +40,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.common.testing.GcFinalization;
 import com.google.common.util.concurrent.AtomicLongMap;
@@ -2580,7 +2579,7 @@ public class ParallelEvaluatorTest {
     tester.getOrCreate(grandparentKey).addDependency(parentKey2);
 
     ErrorInfo errorInfo = evalValueInError(grandparentKey);
-    List<ImmutableList<SkyKey>> cycles = Lists.newArrayList();
+    List<ImmutableList<SkyKey>> cycles = new ArrayList<>();
     for (CycleInfo cycleInfo : errorInfo.getCycleInfo()) {
       cycles.add(cycleInfo.getCycle());
     }

@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.metrics.criticalpath;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Comparators;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Maps;
 import com.google.common.eventbus.AllowConcurrentEvents;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.flogger.GoogleLogger;
@@ -42,6 +41,7 @@ import java.time.Duration;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -76,7 +76,7 @@ public class CriticalPathComputer {
   private final AtomicInteger idGenerator = new AtomicInteger();
   // outputArtifactToComponent is accessed from multiple event handlers.
   private final ConcurrentMap<Artifact, CriticalPathComponent> outputArtifactToComponent =
-      Maps.newConcurrentMap();
+      new ConcurrentHashMap<>();
   private final ActionKeyContext actionKeyContext;
   @Nullable private final WalkableGraph graph;
 

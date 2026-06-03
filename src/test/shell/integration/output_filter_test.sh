@@ -63,8 +63,7 @@ load("@rules_cc//cc:cc_library.bzl", "cc_library")
 cc_library(
     name = "cc",
     srcs = ["main.c"],
-    copts = [$copts],
-    nocopts = "-Werror",
+    copts = [$copts "-Wno-error"],
 )
 EOF
 
@@ -85,12 +84,12 @@ int main(void)
 }
 EOF
 
-  bazel build --output_filter="dummy" --noincompatible_disable_nocopts \
+  bazel build --output_filter="dummy" \
       $pkg/cc/main:cc >&"$TEST_log" || fail "build failed"
   expect_not_log "triggers_a_warning"
 
   echo "/* adding a comment forces recompilation */" >> $pkg/cc/main/main.c
-  bazel build --noincompatible_disable_nocopts $pkg/cc/main:cc >&"$TEST_log" \
+  bazel build $pkg/cc/main:cc >&"$TEST_log" \
       || fail "build failed"
   expect_log "triggers_a_warning"
 }

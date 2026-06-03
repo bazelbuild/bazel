@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.rules.extra;
 
-import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.CommandHelper;
@@ -29,6 +28,7 @@ import com.google.devtools.build.lib.analysis.extra.ExtraActionSpec;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Types;
+import java.util.ArrayList;
 import java.util.List;
 import javax.annotation.Nullable;
 
@@ -43,7 +43,7 @@ public final class ExtraActionFactory implements RuleConfiguredTargetFactory {
     // This rule doesn't produce any output when listed as a build target.
     // Only when used via the --experimental_action_listener flag,
     // this rule instructs the build system to add additional outputs.
-    List<Artifact> resolvedData = Lists.newArrayList();
+    List<Artifact> resolvedData = new ArrayList<>();
 
     CommandHelper commandHelper =
         CommandHelper.builder(context).addToolDependencies("tools").build();

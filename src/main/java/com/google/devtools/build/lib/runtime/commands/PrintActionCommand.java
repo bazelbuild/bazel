@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.runtime.commands;
 import static com.google.devtools.build.lib.runtime.Command.BuildPhase.ANALYZES;
 
 import com.google.common.base.Predicate;
-import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionGraph;
@@ -63,6 +62,7 @@ import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsClass;
 import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.protobuf.TextFormat;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -106,7 +106,7 @@ public final class PrintActionCommand implements BlazeCommand {
             options,
             env.getReporter().getOutErr(),
             options.getResidue(),
-            Sets.newHashSet(printActionOptions.getPrintActionMnemonics()));
+            new HashSet<>(printActionOptions.getPrintActionMnemonics()));
     return BlazeCommandResult.detailedExitCode(runner.printActionsForTargets(env));
   }
 
@@ -347,7 +347,7 @@ public final class PrintActionCommand implements BlazeCommand {
         return false;
       }
       // Check all the inputs for the configured target against the file we want argv for.
-      LinkedHashSet<Artifact> artifacts = Sets.newLinkedHashSet();
+      LinkedHashSet<Artifact> artifacts = new LinkedHashSet<>();
       artifacts.addAll(action.getInputs().toList());
       artifacts.addAll(action.getSchedulingDependencies().toList());
 

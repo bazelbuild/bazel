@@ -16,20 +16,21 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
+import com.google.devtools.build.lib.util.HashCodes;
+import com.google.errorprone.annotations.ForOverride;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Compactable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkThread;
-import net.starlark.java.syntax.Location;
 import net.starlark.java.syntax.TokenKind;
 
 /**
@@ -38,30 +39,49 @@ import net.starlark.java.syntax.TokenKind;
  * <p>Maintainer's note: This class is memory-optimized in a way that can cause profiling
  * instability in some pathological cases. See {@link StarlarkProvider#optimizeField} for more
  * information.
+ *
+ * <p>Schemas with <= 5 fields (covering the majority of provider types in practice) each have their
+ * own dedicated subclass to optimize for memory by forgoing an array.
  */
-public class StarlarkInfoWithSchema extends StarlarkInfo {
+public abstract sealed class StarlarkInfoWithSchema extends StarlarkInfo {
   private final StarlarkProvider provider;
 
-  // For each field in provider.getFields the table contains on corresponding position either null,
-  // a legal Starlark value, or an optimized value (see StarlarkProvider#optimizeField).
-  private final Object[] table;
-
-  // `table` elements should already be optimized by caller, see StarlarkProvider#optimizeField
-  @VisibleForSerialization // private
-  StarlarkInfoWithSchema(StarlarkProvider provider, Object[] table, @Nullable Location loc) {
-    super(loc);
+  private StarlarkInfoWithSchema(StarlarkProvider provider) {
     this.provider = provider;
-    this.table = table;
   }
 
   @Override
-  public Provider getProvider() {
+  public final Provider getProvider() {
     return provider;
   }
 
-  @VisibleForSerialization // private
-  Object[] getTable() {
+  @ForOverride
+  abstract Object getValueAt(int i);
+
+  @ForOverride
+  abstract void setValueAt(int i, Object val);
+
+  @VisibleForSerialization
+  Object[] getValuesForSerialization() {
+    int n = provider.getFields().size();
+    Object[] table = new Object[n];
+    for (int i = 0; i < n; i++) {
+      table[i] = getValueAt(i);
+    }
     return table;
+  }
+
+  @VisibleForSerialization
+  static StarlarkInfoWithSchema create(StarlarkProvider provider, Object[] vs) {
+    return switch (vs.length) {
+      case 0 -> new Schema0(provider);
+      case 1 -> new Schema1(provider, vs[0]);
+      case 2 -> new Schema2(provider, vs[0], vs[1]);
+      case 3 -> new Schema3(provider, vs[0], vs[1], vs[2]);
+      case 4 -> new Schema4(provider, vs[0], vs[1], vs[2], vs[3]);
+      case 5 -> new Schema5(provider, vs[0], vs[1], vs[2], vs[3], vs[4]);
+      default -> new SchemaN(provider, vs);
+    };
   }
 
   static StarlarkProvider.StarlarkInfoFactory newStarlarkInfoFactory(
@@ -74,7 +94,7 @@ public class StarlarkInfoWithSchema extends StarlarkInfo {
    * implementations. Checks that each key is provided at most once, and is defined by the schema,
    * which must be sorted. This class exists solely for the StarlarkInfo ArgumentProcessors.
    */
-  static class StarlarkInfoFactory extends StarlarkProvider.StarlarkInfoFactory {
+  static final class StarlarkInfoFactory extends StarlarkProvider.StarlarkInfoFactory {
     private final ImmutableList<String> fields;
     private final Object[] valueTable;
     private List<String> unexpected;
@@ -105,7 +125,7 @@ public class StarlarkInfoWithSchema extends StarlarkInfo {
     }
 
     @Override
-    public StarlarkInfoWithSchema createFromArgs(StarlarkThread thread) throws EvalException {
+    public StarlarkInfoWithSchema createFromArgs() throws EvalException {
       if (unexpected != null) {
         throw Starlark.errorf(
             "got unexpected field%s '%s' in call to instantiate provider %s",
@@ -113,25 +133,24 @@ public class StarlarkInfoWithSchema extends StarlarkInfo {
             Joiner.on("', '").join(unexpected),
             provider.getPrintableName());
       }
-      return new StarlarkInfoWithSchema(provider, valueTable, thread.getCallerLocation());
+      return create(provider, valueTable);
     }
 
     @Override
-    public StarlarkInfo createFromMap(Map<String, Object> map, StarlarkThread thread)
-        throws EvalException {
+    public StarlarkInfo createFromMap(Map<String, Object> map) throws EvalException {
       for (Map.Entry<String, Object> e : map.entrySet()) {
         addNamedArg(e.getKey(), e.getValue());
       }
-      return createFromArgs(thread);
+      return createFromArgs();
     }
   }
 
   @Override
-  public ImmutableCollection<String> getFieldNames() {
+  public final ImmutableList<String> getFieldNames() {
     ImmutableList.Builder<String> fieldNames = new ImmutableList.Builder<>();
     ImmutableList<String> fields = provider.getFields();
     for (int i = 0; i < fields.size(); i++) {
-      if (table[i] != null) {
+      if (getValueAt(i) != null) {
         fieldNames.add(fields.get(i));
       }
     }
@@ -139,15 +158,17 @@ public class StarlarkInfoWithSchema extends StarlarkInfo {
   }
 
   @Override
-  public boolean isImmutable() {
+  public final boolean isImmutable() {
     // If the provider is not yet exported, the hash code of the object is subject to change.
     if (!provider.isExported()) {
       return false;
     }
-    for (int i = 0; i < table.length; i++) {
-      if (table[i] != null
-          && !(provider.isOptimised(i, table[i]) // optimised fields might not be Starlark values
-              || Starlark.isImmutable(table[i]))) {
+    int n = provider.getFields().size();
+    for (int i = 0; i < n; i++) {
+      Object val = getValueAt(i);
+      if (val != null
+          && !(provider.isOptimised(i, val) // optimised fields might not be Starlark values
+              || Starlark.isImmutable(val))) {
         return false;
       }
     }
@@ -156,24 +177,24 @@ public class StarlarkInfoWithSchema extends StarlarkInfo {
 
   @Nullable
   @Override
-  public Object getValue(String name) {
+  public final Object getValue(String name) {
     ImmutableList<String> fields = provider.getFields();
     int i = indexOfField(name, fields);
-    return i >= 0 ? provider.retrieveOptimizedField(i, table[i]) : null;
+    return i >= 0 ? provider.retrieveOptimizedField(i, getValueAt(i)) : null;
   }
 
   @Nullable
   @Override
-  public StarlarkInfoWithSchema binaryOp(TokenKind op, Object that, boolean thisLeft)
+  public final StarlarkInfoWithSchema binaryOp(TokenKind op, Object that, boolean thisLeft)
       throws EvalException {
-    if (op == TokenKind.PLUS && that instanceof StarlarkInfo) {
-      final Provider thatProvider = ((StarlarkInfo) that).getProvider();
+    if (op == TokenKind.PLUS && that instanceof StarlarkInfo thatInfo) {
+      Provider thatProvider = thatInfo.getProvider();
       if (!provider.equals(thatProvider)) {
         throw Starlark.errorf(
             "Cannot use '+' operator on instances of different providers (%s and %s)",
             provider.getPrintableName(), thatProvider.getPrintableName());
       }
-      Preconditions.checkArgument(that instanceof StarlarkInfoWithSchema);
+      Preconditions.checkArgument(thatInfo instanceof StarlarkInfoWithSchema, thatInfo);
       return thisLeft
           ? plus(this, (StarlarkInfoWithSchema) that) //
           : plus((StarlarkInfoWithSchema) that, this);
@@ -183,47 +204,32 @@ public class StarlarkInfoWithSchema extends StarlarkInfo {
 
   private static StarlarkInfoWithSchema plus(StarlarkInfoWithSchema x, StarlarkInfoWithSchema y)
       throws EvalException {
-    int n = x.table.length;
+    int n = x.provider.getFields().size();
 
     Object[] ztable = new Object[n];
     for (int i = 0; i < n; i++) {
-      if (x.table[i] != null && y.table[i] != null) {
+      Object xVal = x.getValueAt(i);
+      Object yVal = y.getValueAt(i);
+      if (xVal != null && yVal != null) {
         ImmutableList<String> schema = x.provider.getFields();
         throw Starlark.errorf("cannot add struct instances with common field '%s'", schema.get(i));
       }
-      ztable[i] = x.table[i] != null ? x.table[i] : y.table[i];
+      ztable[i] = xVal != null ? xVal : yVal;
     }
-    return new StarlarkInfoWithSchema(x.provider, ztable, Location.BUILTIN);
+    return create(x.provider, ztable);
   }
 
   @Override
-  public StarlarkInfoWithSchema unsafeOptimizeMemoryLayout() {
-    int n = table.length;
+  public final StarlarkInfoWithSchema unsafeOptimizeMemoryLayout() {
+    int n = provider.getFields().size();
     for (int i = 0; i < n; i++) {
-      if (table[i] instanceof Compactable compactable) {
-        table[i] = compactable.unsafeOptimizeMemoryLayout();
+      Object val = getValueAt(i);
+      if (val instanceof Compactable compactable) {
+        setValueAt(i, compactable.unsafeOptimizeMemoryLayout());
       }
     }
+
     return this;
-  }
-
-  @Override
-  public boolean equals(Object otherObject) {
-    if (this == otherObject) {
-      return true;
-    }
-    if (!(otherObject instanceof StarlarkInfoWithSchema other)) {
-      return false;
-    }
-    if (!this.provider.equals(other.provider)) {
-      return false;
-    }
-    return Arrays.equals(this.table, other.table);
-  }
-
-  @Override
-  public int hashCode() {
-    return Arrays.hashCode(table);
   }
 
   /** Returns the index of the given named field in the given list of fields, or -1 if not found. */
@@ -233,5 +239,344 @@ public class StarlarkInfoWithSchema extends StarlarkInfo {
     }
     int idx = Collections.binarySearch(fields, name);
     return idx >= 0 ? idx : -1;
+  }
+
+  /** For providers with no fields. */
+  private static final class Schema0 extends StarlarkInfoWithSchema {
+    Schema0(StarlarkProvider provider) {
+      super(provider);
+    }
+
+    @Override
+    Object getValueAt(int i) {
+      throw new IndexOutOfBoundsException(i);
+    }
+
+    @Override
+    void setValueAt(int i, Object val) {
+      throw new IndexOutOfBoundsException(i);
+    }
+
+    @Override
+    public int hashCode() {
+      return 31 * getProvider().hashCode() + 1;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (!(o instanceof Schema0 other)) {
+        return false;
+      }
+      return getProvider().equals(other.getProvider());
+    }
+  }
+
+  /** For providers with 1 field. */
+  private static final class Schema1 extends StarlarkInfoWithSchema {
+    private Object v0;
+
+    Schema1(StarlarkProvider provider, Object v0) {
+      super(provider);
+      this.v0 = v0;
+    }
+
+    @Override
+    Object getValueAt(int i) {
+      if (i == 0) {
+        return v0;
+      }
+      throw new IndexOutOfBoundsException(i);
+    }
+
+    @Override
+    void setValueAt(int i, Object val) {
+      if (i == 0) {
+        this.v0 = val;
+        return;
+      }
+      throw new IndexOutOfBoundsException(i);
+    }
+
+    @Override
+    public int hashCode() {
+      return HashCodes.hashObjects(getProvider(), v0);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (!(o instanceof Schema1 other)) {
+        return false;
+      }
+      return getProvider().equals(other.getProvider()) && Objects.equals(v0, other.v0);
+    }
+  }
+
+  /** For providers with 2 fields. */
+  private static final class Schema2 extends StarlarkInfoWithSchema {
+    private Object v0;
+    private Object v1;
+
+    Schema2(StarlarkProvider provider, Object v0, Object v1) {
+      super(provider);
+      this.v0 = v0;
+      this.v1 = v1;
+    }
+
+    @Override
+    Object getValueAt(int i) {
+      return switch (i) {
+        case 0 -> v0;
+        case 1 -> v1;
+        default -> throw new IndexOutOfBoundsException(i);
+      };
+    }
+
+    @Override
+    void setValueAt(int i, Object val) {
+      switch (i) {
+        case 0 -> this.v0 = val;
+        case 1 -> this.v1 = val;
+        default -> throw new IndexOutOfBoundsException(i);
+      }
+    }
+
+    @Override
+    public int hashCode() {
+      return HashCodes.hashObjects(getProvider(), v0, v1);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (!(o instanceof Schema2 other)) {
+        return false;
+      }
+      return getProvider().equals(other.getProvider())
+          && Objects.equals(v0, other.v0)
+          && Objects.equals(v1, other.v1);
+    }
+  }
+
+  /** For providers with 3 fields. */
+  private static final class Schema3 extends StarlarkInfoWithSchema {
+    private Object v0;
+    private Object v1;
+    private Object v2;
+
+    Schema3(StarlarkProvider provider, Object v0, Object v1, Object v2) {
+      super(provider);
+      this.v0 = v0;
+      this.v1 = v1;
+      this.v2 = v2;
+    }
+
+    @Override
+    Object getValueAt(int i) {
+      return switch (i) {
+        case 0 -> v0;
+        case 1 -> v1;
+        case 2 -> v2;
+        default -> throw new IndexOutOfBoundsException(i);
+      };
+    }
+
+    @Override
+    void setValueAt(int i, Object val) {
+      switch (i) {
+        case 0 -> this.v0 = val;
+        case 1 -> this.v1 = val;
+        case 2 -> this.v2 = val;
+        default -> throw new IndexOutOfBoundsException(i);
+      }
+    }
+
+    @Override
+    public int hashCode() {
+      return HashCodes.hashObjects(getProvider(), v0, v1, v2);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (!(o instanceof Schema3 other)) {
+        return false;
+      }
+      return getProvider().equals(other.getProvider())
+          && Objects.equals(v0, other.v0)
+          && Objects.equals(v1, other.v1)
+          && Objects.equals(v2, other.v2);
+    }
+  }
+
+  /** For providers with 4 fields. */
+  private static final class Schema4 extends StarlarkInfoWithSchema {
+    private Object v0;
+    private Object v1;
+    private Object v2;
+    private Object v3;
+
+    Schema4(StarlarkProvider provider, Object v0, Object v1, Object v2, Object v3) {
+      super(provider);
+      this.v0 = v0;
+      this.v1 = v1;
+      this.v2 = v2;
+      this.v3 = v3;
+    }
+
+    @Override
+    Object getValueAt(int i) {
+      return switch (i) {
+        case 0 -> v0;
+        case 1 -> v1;
+        case 2 -> v2;
+        case 3 -> v3;
+        default -> throw new IndexOutOfBoundsException(i);
+      };
+    }
+
+    @Override
+    void setValueAt(int i, Object val) {
+      switch (i) {
+        case 0 -> this.v0 = val;
+        case 1 -> this.v1 = val;
+        case 2 -> this.v2 = val;
+        case 3 -> this.v3 = val;
+        default -> throw new IndexOutOfBoundsException(i);
+      }
+    }
+
+    @Override
+    public int hashCode() {
+      return HashCodes.hashObjects(getProvider(), v0, v1, v2, v3);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (!(o instanceof Schema4 other)) {
+        return false;
+      }
+      return getProvider().equals(other.getProvider())
+          && Objects.equals(v0, other.v0)
+          && Objects.equals(v1, other.v1)
+          && Objects.equals(v2, other.v2)
+          && Objects.equals(v3, other.v3);
+    }
+  }
+
+  /** For providers with 5 fields. */
+  private static final class Schema5 extends StarlarkInfoWithSchema {
+    private Object v0;
+    private Object v1;
+    private Object v2;
+    private Object v3;
+    private Object v4;
+
+    Schema5(StarlarkProvider provider, Object v0, Object v1, Object v2, Object v3, Object v4) {
+      super(provider);
+      this.v0 = v0;
+      this.v1 = v1;
+      this.v2 = v2;
+      this.v3 = v3;
+      this.v4 = v4;
+    }
+
+    @Override
+    Object getValueAt(int i) {
+      return switch (i) {
+        case 0 -> v0;
+        case 1 -> v1;
+        case 2 -> v2;
+        case 3 -> v3;
+        case 4 -> v4;
+        default -> throw new IndexOutOfBoundsException(i);
+      };
+    }
+
+    @Override
+    void setValueAt(int i, Object val) {
+      switch (i) {
+        case 0 -> this.v0 = val;
+        case 1 -> this.v1 = val;
+        case 2 -> this.v2 = val;
+        case 3 -> this.v3 = val;
+        case 4 -> this.v4 = val;
+        default -> throw new IndexOutOfBoundsException(i);
+      }
+    }
+
+    @Override
+    public int hashCode() {
+      return HashCodes.hashObjects(getProvider(), v0, v1, v2, v3, v4);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (!(o instanceof Schema5 other)) {
+        return false;
+      }
+      return getProvider().equals(other.getProvider())
+          && Objects.equals(v0, other.v0)
+          && Objects.equals(v1, other.v1)
+          && Objects.equals(v2, other.v2)
+          && Objects.equals(v3, other.v3)
+          && Objects.equals(v4, other.v4);
+    }
+  }
+
+  /** For providers with 6 or more fields. */
+  private static final class SchemaN extends StarlarkInfoWithSchema {
+    private final Object[] vs;
+
+    SchemaN(StarlarkProvider provider, Object[] vs) {
+      super(provider);
+      this.vs = vs;
+    }
+
+    @Override
+    Object getValueAt(int i) {
+      return vs[i];
+    }
+
+    @Override
+    void setValueAt(int i, Object val) {
+      vs[i] = val;
+    }
+
+    @Override
+    Object[] getValuesForSerialization() {
+      return vs;
+    }
+
+    @Override
+    public int hashCode() {
+      return 31 * getProvider().hashCode() + Arrays.hashCode(vs);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (!(o instanceof SchemaN other)) {
+        return false;
+      }
+      return getProvider().equals(other.getProvider()) && Arrays.equals(vs, other.vs);
+    }
   }
 }

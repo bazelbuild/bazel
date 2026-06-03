@@ -2813,6 +2813,10 @@ function test_watch_tree() {
   touch ${outside_dir}/foo
   touch ${outside_dir}/bar
   touch ${outside_dir}/baz
+  mkdir ${outside_dir}/.ignored
+  touch ${outside_dir}/.ignored/qux
+  mkdir -p ${outside_dir}/other/dir/not/.ignored
+  touch ${outside_dir}/other/dir/not/.ignored/grault
 
   create_new_workspace
   cat > $(setup_module_dot_bazel) <<EOF
@@ -2824,7 +2828,7 @@ EOF
 def _r(rctx):
   rctx.file("BUILD", "filegroup(name='r')")
   print("I'm running!")
-  rctx.watch_tree("${outside_dir}")
+  rctx.watch_tree("${outside_dir}", exclude=[".ignored/**"])
 r=repository_rule(_r)
 EOF
 
@@ -2836,10 +2840,25 @@ EOF
   bazel build @r >& $TEST_log || fail "expected bazel to succeed"
   expect_log "I'm running!"
 
+  # Same with this other file, which is NOT ignored.
+  echo haha > ${outside_dir}/other/dir/not/.ignored/grault
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_log "I'm running!"
+
+  # changing the contents under an excluded directory does nothing
+  echo haha > ${outside_dir}/.ignored/qux
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_not_log "I'm running!"
+
   # adding a file should trigger a refetch.
   touch ${outside_dir}/quux
   bazel build @r >& $TEST_log || fail "expected bazel to succeed"
   expect_log "I'm running!"
+
+  # adding a file under an excluded directory does nothing
+  touch ${outside_dir}/.ignored/corge
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_not_log "I'm running!"
 
   # just touching an existing file shouldn't cause a refetch.
   touch ${outside_dir}/bar

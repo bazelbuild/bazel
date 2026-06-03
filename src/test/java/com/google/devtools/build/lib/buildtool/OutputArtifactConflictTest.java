@@ -881,6 +881,9 @@ public class OutputArtifactConflictTest extends BuildIntegrationTestCase {
         my_rule(name = "second")
         """);
 
+    buildTarget("//foo:first");
+    String outputDirName = getTargetConfigurationFromLastBuildResult().getOutputDirectoryName();
+
     ViewCreationFailedException e =
         assertThrows(
             ViewCreationFailedException.class, () -> buildTarget("//foo:first", "//foo:second"));
@@ -912,10 +915,10 @@ public class OutputArtifactConflictTest extends BuildIntegrationTestCase {
     String expected =
         """
         Action describeKey: are different:
-          Action A:   Argument: 'touch %1$s-out/k8-fastbuild/bin/foo/conflict_output %1$s-out/k8-fastbuild/bin/foo/other%2$s'
-          Action B:   Argument: 'touch %1$s-out/k8-fastbuild/bin/foo/conflict_output %1$s-out/k8-fastbuild/bin/foo/other%3$s'
+          Action A:   Argument: 'touch %1$s-out/%2$s/bin/foo/conflict_output %1$s-out/%2$s/bin/foo/other%3$s'
+          Action B:   Argument: 'touch %1$s-out/%2$s/bin/foo/conflict_output %1$s-out/%2$s/bin/foo/other%4$s'
         """
-            .formatted(TestConstants.PRODUCT_NAME, attemptedAction, previousAction);
+            .formatted(TestConstants.PRODUCT_NAME, outputDirName, attemptedAction, previousAction);
 
     assertThat(msg).contains(expected);
   }

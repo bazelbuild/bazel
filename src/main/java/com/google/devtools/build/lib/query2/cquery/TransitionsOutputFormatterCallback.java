@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.query2.cquery;
 import static java.util.stream.Collectors.joining;
 
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.OptionsDiff;
@@ -69,7 +68,7 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
       LabelPrinter labelPrinter) {
     super(eventHandler, options, out, skyframeExecutor, accessor, /* uniquifyResults= */ false);
     this.ruleClassProvider = ruleClassProvider;
-    this.partialResultMap = Maps.newHashMap();
+    this.partialResultMap = new HashMap<>();
     this.labelPrinter = labelPrinter;
     this.transitionCache = skyframeExecutor.getSkyframeBuildView().getStarlarkTransitionCache();
   }

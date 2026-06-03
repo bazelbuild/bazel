@@ -310,4 +310,80 @@ public class PathMappersTest extends BuildViewTestCase {
     assertThat(pathMapper.map(PathFragment.create("bazel-out/k8-fastbuild-ST-12345/bin/pkg/file")))
         .isEqualTo(PathFragment.create("bazel-out/pm-k8-fastbuild-ST-12345/bin/pkg/file"));
   }
+
+  @Test
+  public void starlarkRule_archivedTreePaths() throws Exception {
+    String outDir = analysisMock.getProductName() + "-out";
+    scratch.file("defs/BUILD");
+    scratch.file(
+        "defs/defs.bzl",
+        """
+        def my_rule_impl(ctx):
+            out = ctx.actions.declare_file(ctx.label.name)
+            args = ctx.actions.args()
+            args.add(out)
+            args.add("--input")
+            args.add("%1$s/k8-fastbuild/bin/pkg/standard.js")
+            args.add("--input")
+            args.add("%1$s/:archived_tree_artifacts/k8-fastbuild/bin/pkg/tree.zip")
+            ctx.actions.run(
+                executable = ctx.executable.tool.path,
+                arguments = [args],
+                outputs = [out],
+                tools = [ctx.executable.tool],
+                mnemonic = "Android",  # Using a supported mnemonic to enable path-stripping.
+                execution_requirements = {"supports-path-mapping": "1"},
+            )
+            return DefaultInfo(files = depset([out]))
+        my_rule = rule(
+            implementation = my_rule_impl,
+            attrs = {
+                "tool": attr.label(
+                    default = "//foo:script",
+                    cfg = "exec",
+                    executable = True,
+                ),
+            },
+        )
+        """
+            .formatted(outDir));
+    scratch.file(
+        "foo/BUILD",
+        """
+        load('//test_defs:foo_binary.bzl', 'foo_binary')
+        foo_binary(
+            name = 'script',
+            srcs = ['script.sh'],
+            visibility = ['//visibility:public'],
+        )
+        """);
+    scratch.file(
+        "BUILD",
+        """
+        load("//defs:defs.bzl", "my_rule")
+        my_rule(name = "my_rule")
+        """);
+
+    ConfiguredTarget configuredTarget = getConfiguredTarget("//:my_rule");
+    Artifact outputArtifact =
+        configuredTarget.getProvider(FileProvider.class).getFilesToBuild().toList().get(0);
+    SpawnAction action = (SpawnAction) getGeneratingAction(outputArtifact);
+    Spawn spawn =
+        action.getSpawn(
+            new ActionExecutionContextBuilder()
+                .setMetadataProvider(new FakeActionInputFileCache())
+                .build());
+
+    assertThat(spawn.getPathMapper().isNoop()).isFalse();
+
+    assertThat(spawn.getArguments())
+        .containsExactly(
+            "%s/cfg/bin/foo/script".formatted(outDir),
+            "%s/cfg/bin/my_rule".formatted(outDir),
+            "--input",
+            "%s/cfg/bin/pkg/standard.js".formatted(outDir),
+            "--input",
+            "%s/:archived_tree_artifacts/cfg/bin/pkg/tree.zip".formatted(outDir))
+        .inOrder();
+  }
 }

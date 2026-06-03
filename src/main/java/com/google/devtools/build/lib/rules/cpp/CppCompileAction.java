@@ -167,6 +167,7 @@ public class CppCompileAction extends AbstractAction
 
   private final ImmutableMap<String, String> executionInfo;
   private final String actionName;
+  private final String progressMessagePrefix;
 
   private final FeatureConfiguration featureConfiguration;
 
@@ -236,6 +237,8 @@ public class CppCompileAction extends AbstractAction
    * @param additionalIncludeScanningRoots list of additional artifacts to include-scan
    * @param actionName a string giving the name of this action for the purpose of toolchain
    *     evaluation
+   * @param progressMessagePrefix a string describing this action for cases when the same action is
+   *     run on the same file.
    * @param cppSemantics C++ compilation semantics
    * @param builtInIncludeDirectories - list of toolchain-defined builtin include directories.
    */
@@ -264,6 +267,7 @@ public class CppCompileAction extends AbstractAction
       ImmutableList<Artifact> additionalIncludeScanningRoots,
       ImmutableMap<String, String> executionInfo,
       String actionName,
+      String progressMessagePrefix,
       boolean needsIncludeValidation,
       ImmutableList<PathFragment> builtInIncludeDirectories,
       @Nullable Artifact grepIncludes,
@@ -299,6 +303,7 @@ public class CppCompileAction extends AbstractAction
         buildCommandLine(coptsFilter, actionName, featureConfiguration, variables);
     this.executionInfo = executionInfo;
     this.actionName = actionName;
+    this.progressMessagePrefix = progressMessagePrefix;
     this.featureConfiguration = featureConfiguration;
     this.needsIncludeValidation = needsIncludeValidation;
     this.builtInIncludeDirectories = builtInIncludeDirectories;
@@ -355,6 +360,7 @@ public class CppCompileAction extends AbstractAction
       CompileCommandLine compileCommandLine,
       ImmutableMap<String, String> executionInfo,
       String actionName,
+      String progressMessagePrefix,
       FeatureConfiguration featureConfiguration,
       ImmutableList<PathFragment> builtInIncludeDirectories,
       NestedSet<Artifact> moduleFiles,
@@ -380,6 +386,7 @@ public class CppCompileAction extends AbstractAction
     this.compileCommandLine = compileCommandLine;
     this.executionInfo = executionInfo;
     this.actionName = actionName;
+    this.progressMessagePrefix = progressMessagePrefix;
     this.featureConfiguration = featureConfiguration;
     this.builtInIncludeDirectories = builtInIncludeDirectories;
     this.moduleFiles = moduleFiles;
@@ -1288,7 +1295,13 @@ public class CppCompileAction extends AbstractAction
 
   @Override
   protected String getRawProgressMessage() {
-    return switch (actionName) {
+    String separator = "";
+    if (!progressMessagePrefix.isEmpty()) {
+      separator = ": ";
+    }
+    return progressMessagePrefix
+        + separator
+        + switch (actionName) {
           case CppActionNames.CPP_HEADER_ANALYSIS -> "Header analysis for ";
           case CppActionNames.CPP_MODULE_DEPS_SCANNING -> "Deps scanning for ";
           default -> "Compiling ";

@@ -21,8 +21,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.WriteStatus;
 import com.google.devtools.build.lib.util.Bucket;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import javax.annotation.Nullable;
 
 /** Encapsulates fingerprint keyed bytes storage system. */
@@ -105,8 +108,7 @@ public interface FingerprintValueStore {
   static class InMemoryFingerprintValueStore implements FingerprintValueStore {
     private static final ListenableFuture<byte[]> IMMEDIATE_NULL = immediateFuture((byte[]) null);
 
-    public final ConcurrentHashMap<KeyBytesProvider, byte[]> fingerprintToContents =
-        new ConcurrentHashMap<>();
+    public final ConcurrentMap<ByteString, ByteString> fingerprintToContents;
 
     private final boolean useNullForMissingValues;
 
@@ -115,33 +117,45 @@ public interface FingerprintValueStore {
     }
 
     public InMemoryFingerprintValueStore(boolean useNullForMissingValues) {
+      this(new ConcurrentHashMap<>(), useNullForMissingValues);
+    }
+
+    public InMemoryFingerprintValueStore(
+        ConcurrentMap<ByteString, ByteString> kvMap, boolean useNullForMissingValues) {
+      this.fingerprintToContents = kvMap;
       this.useNullForMissingValues = useNullForMissingValues;
     }
 
     @Override
     public WriteStatus put(KeyBytesProvider fingerprint, byte[] serializedBytes) {
-      boolean wasNovel = (fingerprintToContents.put(fingerprint, serializedBytes) == null);
+      boolean wasNovel =
+          (fingerprintToContents.put(
+                  ByteString.copyFrom(fingerprint.toBytes()), ByteString.copyFrom(serializedBytes))
+              == null);
       return immediateWriteStatus(wasNovel);
     }
 
     @Override
     public ListenableFuture<byte[]> get(KeyBytesProvider fingerprint) {
-      byte[] serializedBytes = fingerprintToContents.get(fingerprint);
+      ByteString serializedBytes =
+          fingerprintToContents.get(ByteString.copyFrom(fingerprint.toBytes()));
       if (serializedBytes == null) {
         return useNullForMissingValues
             ? IMMEDIATE_NULL
             : immediateFailedFuture(new MissingFingerprintValueException(fingerprint));
       }
-      return immediateFuture(serializedBytes);
+      return immediateFuture(serializedBytes.toByteArray());
     }
 
-    public void remove(KeyBytesProvider fingerprint) {
-      // KeyBytesProvider is sealed and .equals() is properly implemented for all implementations
-      fingerprintToContents.remove(fingerprint);
+    @Nullable
+    @CanIgnoreReturnValue
+    public byte[] remove(KeyBytesProvider fingerprint) {
+      ByteString result = fingerprintToContents.remove(ByteString.copyFrom(fingerprint.toBytes()));
+      return result == null ? null : result.toByteArray();
     }
 
-    public Iterable<KeyBytesProvider> keys() {
-      return fingerprintToContents.keySet();
+    public Iterable<ByteString> keys() {
+      return ImmutableList.copyOf(fingerprintToContents.keySet());
     }
   }
 }

@@ -50,4 +50,7 @@ public interface RemoteAnalysisCacheReaderDepsProvider {
 
   /** Returns true if bailing out on the first missing fingerprint is enabled. */
   boolean shouldBailOutOnMissingFingerprint();
+
+  /** Returns true if Skycache is only used for analysis phase. */
+  boolean getSkycacheAnalysisOnly();
 }

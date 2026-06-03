@@ -658,7 +658,7 @@ public class BuildView {
       throws InterruptedException {
     ImmutableSet<Label> testsToRun = loadingResult.getTestsToRunLabels();
     Set<ConfiguredTarget> configuredTargets =
-        Sets.newLinkedHashSet(skyframeAnalysisResult.getConfiguredTargets());
+        new LinkedHashSet<>(skyframeAnalysisResult.getConfiguredTargets());
     ImmutableMap<AspectKey, ConfiguredAspect> aspects = skyframeAnalysisResult.getAspects();
 
     Set<ConfiguredTarget> allTargetsToTest = null;

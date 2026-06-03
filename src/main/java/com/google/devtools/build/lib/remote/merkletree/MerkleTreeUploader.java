@@ -32,7 +32,8 @@ public interface MerkleTreeUploader {
       RemoteActionExecutionContext context,
       RemotePathResolver remotePathResolver,
       Digest digest,
-      Path path);
+      Path path,
+      boolean force);
 
   /** Uploads a virtual action input to the remote cache. */
   ListenableFuture<Void> uploadVirtualActionInput(

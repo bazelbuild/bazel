@@ -19,7 +19,6 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.skyframe.DiffAwareness.View;
 import com.google.devtools.build.lib.skyframe.LocalDiffAwareness.SequentialView;
@@ -38,6 +37,7 @@ import com.google.devtools.common.options.OptionsProvider;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.nio.file.Paths;
+import java.util.HashSet;
 import java.util.Set;
 import org.junit.After;
 import org.junit.Assume;
@@ -354,7 +354,7 @@ public class LocalDiffAwarenessTest {
   }
 
   private class ModifiedFileSetChecker {
-    private final Set<PathFragment> modified = Sets.newHashSet();
+    private final Set<PathFragment> modified = new HashSet<>();
 
     public void check() throws Exception {
       // Unfortunately, inotify needs a few milliseconds (more than a few in the worst case)

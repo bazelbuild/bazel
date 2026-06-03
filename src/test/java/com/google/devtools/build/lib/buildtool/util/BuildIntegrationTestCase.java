@@ -707,7 +707,10 @@ public abstract class BuildIntegrationTestCase {
         "--noshow_progress",
 
         // Don't use ijars, because we don't have the executable in these tests
-        "--nouse_ijars");
+        "--nouse_ijars",
+
+        // Disable system network usage collection so we don't need the SystemNetworkStatsService.
+        "--noexperimental_collect_system_network_usage");
 
     runtimeWrapper.addOptions("--experimental_extended_sanity_checks");
     runtimeWrapper.addOptions(TestConstants.PRODUCT_SPECIFIC_FLAGS);

@@ -515,6 +515,10 @@ ExampleInfo = provider(
 )
 ```
 
+The `fields` parameter to `provider` is optional, but strongly recommended.
+Specifying `fields` creates a *schemaful provider*, which allows Bazel to store
+provider instances more compactly.
+
 Rule implementation functions can then construct and return provider instances:
 
 ```python

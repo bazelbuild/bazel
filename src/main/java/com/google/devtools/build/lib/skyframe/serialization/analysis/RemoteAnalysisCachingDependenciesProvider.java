@@ -87,6 +87,8 @@ public interface RemoteAnalysisCachingDependenciesProvider {
     RemoteAnalysisMetadataWriter getMetadataWriter() throws InterruptedException;
 
     boolean shouldMinimizeMemory();
+
+    boolean getSkycacheAnalysisOnly();
   }
 
 }

@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import static java.util.Objects.requireNonNull;
+
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -77,7 +79,7 @@ public final class SkyValueRetrieverUtils {
               new DefaultDependOnFutureShim(env),
               analysisCachingDeps.getObjectCodecs(),
               analysisCachingDeps.getFingerprintValueService(),
-              analysisCachingDeps.getAnalysisCacheClient(),
+              requireNonNull(analysisCachingDeps.getAnalysisCacheClient()),
               key,
               state,
               /* frontierNodeVersion= */ analysisCachingDeps.getSkyValueVersion());

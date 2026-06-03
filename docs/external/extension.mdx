@@ -278,6 +278,14 @@ version. The first time the extension is evaluated, it can fetch this mapping
 from the network, but on later evaluations it can use the mapping from `facts`
 to avoid the network requests.
 
+If you need to make a backwards-incompatible change to the schema of the values
+your extension stores in `facts`, set the
+[`facts_version`](/rules/lib/globals/bzl#module_extension.facts_version)
+parameter on `module_extension` to a higher integer than its previous value.
+Bazel persists `facts_version` in the lockfile alongside the facts and discards
+any persisted facts when the recorded version differs from the current one,
+making sure your extension only ever observes facts produced by the same schema.
+
 ### Specify dependence on operating system and architecture
 
 If your extension relies on the operating system or its architecture type,

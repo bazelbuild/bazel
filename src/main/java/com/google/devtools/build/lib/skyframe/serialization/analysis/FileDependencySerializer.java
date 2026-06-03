@@ -871,11 +871,16 @@ final class FileDependencySerializer {
         }
       }
 
-      // We need to sort these entries so that serialization is deterministic
-      var sortedFileKeys = fileKeys.stream().sorted().toList();
-      var sortedListingKeys = listingKeys.stream().sorted().toList();
+      // We need to deduplicate and sort these entries so that serialization is deterministic
+      // and compact.
+      var sortedFileKeys = fileKeys.stream().sorted().distinct().toList();
+      var sortedListingKeys = listingKeys.stream().sorted().distinct().toList();
       var sortedNodeDependencies =
-          nodeDependencies.stream().map(NodeInvalidationDataInfo::cacheKey).sorted().toList();
+          nodeDependencies.stream()
+              .map(NodeInvalidationDataInfo::cacheKey)
+              .sorted()
+              .distinct()
+              .toList();
 
       ProfileRecorder recorder =
           profileCollector == null ? null : new ProfileRecorder(profileCollector);
