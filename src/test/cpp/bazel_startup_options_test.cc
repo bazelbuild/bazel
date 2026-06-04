@@ -17,6 +17,8 @@
 #include <stdlib.h>
 
 #include <memory>
+#include <string>
+#include <vector>
 
 #include "src/main/cpp/blaze_util_platform.h"
 #include "src/main/cpp/util/file_platform.h"
@@ -263,6 +265,31 @@ TEST_F(BazelStartupOptionsTest, ValidStartupFlags) {
   ExpectIsUnaryOption(options, "output_base");
   ExpectIsUnaryOption(options, "output_user_root");
   ExpectIsUnaryOption(options, "server_javabase");
+}
+
+TEST_F(BazelStartupOptionsTest, MacosQosClassValues) {
+  for (const std::string qos_class : {"default", "utility", "background"}) {
+    ReinitStartupOptions();
+    std::string error;
+    const std::vector<RcStartupFlag> flags{
+        RcStartupFlag("somewhere", "--macos_qos_class=" + qos_class)};
+
+    EXPECT_EQ(blaze_exit_code::SUCCESS,
+              startup_options_->ProcessArgs(flags, &error))
+        << error;
+  }
+
+  for (const std::string qos_class : {"user-interactive", "user-initiated"}) {
+    ReinitStartupOptions();
+    std::string error;
+    const std::vector<RcStartupFlag> flags{
+        RcStartupFlag("somewhere", "--macos_qos_class=" + qos_class)};
+
+    EXPECT_EQ(blaze_exit_code::BAD_ARGV,
+              startup_options_->ProcessArgs(flags, &error));
+    EXPECT_EQ("Invalid argument to --macos_qos_class: '" + qos_class + "'.",
+              error);
+  }
 }
 
 TEST_F(BazelStartupOptionsTest, BlazercFlagsAreNotAccepted) {

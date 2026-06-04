@@ -309,9 +309,11 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(const string& argstr,
              nullptr) {
     // We parse the value of this flag on all platforms even if it is
     // macOS-specific to ensure that rc files mentioning it are valid.
-    // There is also apparently "QOS_CLASS_MAINTENANCE", but this doesn't
-    // appear to have been exposed in the public headers as of macOS 11.1.
-    if (strcmp(value, "utility") == 0) {
+    if (strcmp(value, "default") == 0) {
+#if defined(__APPLE__)
+      macos_qos_class = QOS_CLASS_UNSPECIFIED;
+#endif
+    } else if (strcmp(value, "utility") == 0) {
 #if defined(__APPLE__)
       macos_qos_class = QOS_CLASS_UTILITY;
 #endif
