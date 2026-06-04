@@ -1450,7 +1450,7 @@ struct ClassFile : HasAttrs {
 
   void WriteClass(u1 *&p);
 
-  bool ReadConstantPool(const u1 *&p);
+  bool ReadConstantPool(const u1 *&p, const u1 *end);
 
   bool KeepForCompile();
 
@@ -1621,13 +1621,15 @@ void HasAttrs::WriteAttrs(u1 *&p) {
 }
 
 // See sec.4.4 of JVM spec.
-bool ClassFile::ReadConstantPool(const u1 *&p) {
+bool ClassFile::ReadConstantPool(const u1 *&p, const u1 *end) {
 
   const_pool_in.clear();
   const_pool_in.push_back(NULL); // dummy first item
 
   u2 cp_count = get_u2be(p);
   for (int ii = 1; ii < cp_count; ++ii) {
+    // Each constant needs at least its one-byte tag inside the class data.
+    if (p >= end) return false;
     u1 tag = get_u1(p);
 
     if (devtools_ijar::verbose) {
@@ -1662,6 +1664,11 @@ bool ClassFile::ReadConstantPool(const u1 *&p) {
       }
       case CONSTANT_Utf8: {
         u2 length = get_u2be(p);
+        // length comes from the class file; the string body must stay within
+        // the class data.
+        if (p > end || length > static_cast<size_t>(end - p)) {
+          return false;
+        }
         if (devtools_ijar::verbose) {
           fprintf(stderr, "Utf8: \"%s\" (%d)\n",
                   std::string((const char*) p, length).c_str(), length);
@@ -1769,7 +1776,7 @@ static ClassFile *ReadClass(const void *classdata, size_t length) {
   clazz->major = get_u2be(p);
   clazz->minor = get_u2be(p);
 
-  if (!clazz->ReadConstantPool(p)) {
+  if (!clazz->ReadConstantPool(p, static_cast<const u1 *>(classdata) + length)) {
     delete clazz;
     return NULL;
   }
