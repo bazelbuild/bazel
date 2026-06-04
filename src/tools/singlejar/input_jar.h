@@ -98,19 +98,20 @@ class InputJar {
   }
 
   const LH* LocalHeader(const CDH* cdh) const {
-    const unsigned char* addr =
-        mapped_file_.address(cdh->local_header_offset() + preamble_size_);
     // local_header_offset() comes from the untrusted central-directory record.
-    // The fixed part of the local header must be mapped before we can read the
-    // variable-length name/extra-field lengths it declares.
-    if (!mapped_file_.mapped(addr) ||
-        !mapped_file_.mapped(addr + sizeof(LH) - 1)) {
+    // Validate it in offset space so we never form an out-of-bounds pointer.
+    const uint64_t offset = cdh->local_header_offset() + preamble_size_;
+    const uint64_t mapped_size =
+        static_cast<uint64_t>(mapped_file_.end() - mapped_file_.start());
+    // The fixed part of the local header must fit, so the variable-length
+    // file-name and extra-field lengths it declares are readable.
+    if (offset > mapped_size || sizeof(LH) > mapped_size - offset) {
       return nullptr;
     }
-    const LH* lh = reinterpret_cast<const LH*>(addr);
-    // The whole local header (fixed part + file name + extra fields) must be
-    // mapped too.
-    if (!mapped_file_.mapped(addr + lh->size() - 1)) {
+    const LH* lh = reinterpret_cast<const LH*>(
+        mapped_file_.address(static_cast<off64_t>(offset)));
+    // The whole local header (fixed part + file name + extra fields) must fit.
+    if (lh->size() > mapped_size - offset) {
       return nullptr;
     }
     return lh;
