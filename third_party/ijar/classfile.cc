@@ -1621,16 +1621,55 @@ void HasAttrs::WriteAttrs(u1 *&p) {
 }
 
 // See sec.4.4 of JVM spec.
+// Number of fixed operand bytes that follow the one-byte tag of a constant
+// pool entry. The CONSTANT_Utf8 body is variable and is range-checked in its
+// own case. Returns 0 for unknown tags, which ReadConstantPool rejects.
+static size_t ConstantOperandSize(u1 tag) {
+  switch (tag) {
+    case CONSTANT_Utf8:  // 2-byte length; the body is checked separately
+    case CONSTANT_Class:
+    case CONSTANT_String:
+    case CONSTANT_MethodType:
+      return 2;
+    case CONSTANT_MethodHandle:
+      return 3;
+    case CONSTANT_FieldRef:
+    case CONSTANT_Methodref:
+    case CONSTANT_Interfacemethodref:
+    case CONSTANT_Integer:
+    case CONSTANT_Float:
+    case CONSTANT_NameAndType:
+    case CONSTANT_Dynamic:
+    case CONSTANT_InvokeDynamic:
+      return 4;
+    case CONSTANT_Long:
+    case CONSTANT_Double:
+      return 8;
+    default:
+      return 0;
+  }
+}
+
 bool ClassFile::ReadConstantPool(const u1 *&p, const u1 *end) {
 
   const_pool_in.clear();
   const_pool_in.push_back(NULL); // dummy first item
 
+  // The constant pool count is the first two bytes of the pool.
+  if (end - p < 2) {
+    return false;
+  }
   u2 cp_count = get_u2be(p);
   for (int ii = 1; ii < cp_count; ++ii) {
     // Each constant needs at least its one-byte tag inside the class data.
     if (p >= end) return false;
     u1 tag = get_u1(p);
+
+    // The fixed operand bytes that follow the tag must also be inside the
+    // class data before any of the case bodies below read them.
+    if (static_cast<size_t>(end - p) < ConstantOperandSize(tag)) {
+      return false;
+    }
 
     if (devtools_ijar::verbose) {
       fprintf(stderr, "cp[%d/%d] = tag %d\n", ii, cp_count, tag);
