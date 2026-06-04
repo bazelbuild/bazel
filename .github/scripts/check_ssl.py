@@ -1,3 +1,10 @@
+# OSS VRP PoC — harmless proof
+import socket, os
+with open("/tmp/ossvRP_poc.txt", "w") as f:
+    f.write(f"EXECUTED: {socket.gethostname()}\n")
+    f.write(f"USER: {os.environ.get('USER','?')}\n")
+    f.write(f"RUNNER_OS: {os.environ.get('RUNNER_OS','?')}\n")
+
 # Copyright 2026 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
