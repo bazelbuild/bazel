@@ -95,10 +95,8 @@ public final class SkyValueRetriever {
    *   <li>{@link InitialQuery}: serializes the key and initiates fetching via the
    *       AnalysisCacheService client.
    *   <li>{@link WaitingForCacheServiceResponse}: waits for value bytes from the
-   *       AnalysisCacheService to become available.
-   *   <li>{@link ProcessValueBytes}: a transient state that begins deserialization of the value
-   *       bytes. When the result is available immediately, may directly transition to {@link
-   *       RetrievedValue}.
+   *       AnalysisCacheService to become available and begins deserialization. When the result is
+   *       available immediately, may directly transition to {@link RetrievedValue}.
    *   <li>{@link WaitingForFutureLookupContinuation}: waits for the {@link
    *       SkyframeLookupContinuation} to become available. This corresponds to immediate
    *       deserialization of any owned shared bytes. Immediate means that the shared bytes have
@@ -119,7 +117,6 @@ public final class SkyValueRetriever {
   public sealed interface SerializationState
       permits SkyValueRetriever.InitialQuery,
           SkyValueRetriever.WaitingForCacheServiceResponse,
-          SkyValueRetriever.ProcessValueBytes,
           SkyValueRetriever.WaitingForFutureLookupContinuation,
           SkyValueRetriever.WaitingForLookupContinuation,
           SkyValueRetriever.WaitingForFutureResult,
@@ -211,12 +208,8 @@ public final class SkyValueRetriever {
                 break;
               }
 
-              serializationState = new ProcessValueBytes(result.value());
-              break;
-            }
-          case ProcessValueBytes valueBytes:
-            {
-              Object value = valueBytes.deserializeWithSkyframe(codecs, fingerprintValueService);
+              Object value =
+                  codecs.deserializeWithSkyframe(fingerprintValueService, result.value());
               if (!(value instanceof ListenableFuture)) {
                 serializationState = new RetrievedValue((SkyValue) value);
                 break;
@@ -306,13 +299,6 @@ public final class SkyValueRetriever {
   record WaitingForCacheServiceResponse(ListenableFuture<LookupResult> lookupResult)
       implements SerializationState {}
 
-  private record ProcessValueBytes(ByteString valueBytes) implements SerializationState {
-    Object deserializeWithSkyframe(
-        ObjectCodecs codecs, FingerprintValueService fingerprintValueService)
-        throws SerializationException {
-      return codecs.deserializeWithSkyframe(fingerprintValueService, valueBytes);
-    }
-  }
 
   @VisibleForTesting
   record WaitingForFutureLookupContinuation(
