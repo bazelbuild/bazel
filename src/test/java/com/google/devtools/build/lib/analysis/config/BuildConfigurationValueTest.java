@@ -541,9 +541,9 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
     if (propagateByDefault) {
       assertThat(execOptions.getStarlarkOptions())
           .containsExactly(
-              Label.parseCanonicalUnchecked("//test:universal_scope"),
+              Label.parseCanonicalUnchecked("//test:universal_scope"), // Universal survives all transitions, of course.
               "custom",
-              Label.parseCanonicalUnchecked("//test:project_scope"),
+              Label.parseCanonicalUnchecked("//test:project_scope"), // This is just asserting that project scope survives the exec transition.  If we had changed project scope, this flag wouldn't be present.
               "custom",
               Label.parseCanonicalUnchecked("//test:default_scope"),
               "custom",
@@ -552,9 +552,9 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
     } else {
       assertThat(execOptions.getStarlarkOptions())
           .containsExactly(
-              Label.parseCanonicalUnchecked("//test:universal_scope"),
+              Label.parseCanonicalUnchecked("//test:universal_scope"), // Universal survives all transitions, of course.
               "custom",
-              Label.parseCanonicalUnchecked("//test:project_scope"),
+              Label.parseCanonicalUnchecked("//test:project_scope"), // This is just asserting that project scope survives the exec transition.  If we had changed project scope, this flag wouldn't be present.
               "custom",
               Label.parseCanonicalUnchecked("//test:flag_in_exec_config_set_to_another_value"),
               "another_value",
