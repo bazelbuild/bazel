@@ -25,7 +25,6 @@ import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionConflictException;
@@ -80,6 +79,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
@@ -117,7 +117,7 @@ public class BuildDriverFunction implements SkyFunction {
   // We didn't use SkyKeyComputeState since it should only be used as a performance optimization,
   // whereas in this situation the state determines the behavior of the SkyFunction.
   private Map<BuildDriverKey, Set<TopLevelStatusEvents.Type>> keyToPostedEvents =
-      Maps.newConcurrentMap();
+      new ConcurrentHashMap<>();
 
   public BuildDriverFunction(
       Supplier<IncrementalArtifactConflictFinder> incrementalArtifactConflictFinder,
@@ -500,7 +500,7 @@ public class BuildDriverFunction implements SkyFunction {
 
   public void resetStates() {
     checkedForConflicts = Sets.newConcurrentHashSet();
-    keyToPostedEvents = Maps.newConcurrentMap();
+    keyToPostedEvents = new ConcurrentHashMap<>();
   }
 
   private void removeStatesForKey(BuildDriverKey key) {

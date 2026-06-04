@@ -24,8 +24,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Maps;
-import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
@@ -78,6 +76,8 @@ import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -131,7 +131,7 @@ public final class SkyframeErrorProcessor {
       private boolean hasLoadingError = false;
       private boolean hasAnalysisError = false;
       private final Map<ActionAnalysisMetadata, ActionConflictException> actionConflicts =
-          Maps.newHashMap();
+          new HashMap<>();
       @Nullable private DetailedExitCode executionDetailedExitCode = null;
       private final ImmutableList.Builder<ActionLookupKey> aspectKeysForConflictReporting =
           ImmutableList.builder();
@@ -506,7 +506,7 @@ public final class SkyframeErrorProcessor {
       SkyKey errorKey,
       ErrorInfo errorInfo) {
     Exception exception = errorInfo.getException();
-    Set<Label> loadingRootCauses = Sets.newHashSet();
+    Set<Label> loadingRootCauses = new HashSet<>();
     ImmutableMap<ActionAnalysisMetadata, ActionConflictException> actionConflicts =
         ImmutableMap.of();
     DetailedExitCode executionDetailedExitCode = null;
