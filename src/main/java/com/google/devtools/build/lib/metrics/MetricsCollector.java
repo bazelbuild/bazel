@@ -585,7 +585,7 @@ class MetricsCollector {
                   .setName(provider.getName())
                   .setLocation(printer.getLocationString(provider.getLocation()))
                   .setCount(count);
-          ImmutableList<String> fields = provider.getFields();
+          ImmutableMap<String, Integer> fields = provider.getFields();
           if (fields != null) {
             providerBuilder.getSchemaBuilder().setFieldCount(fields.size());
           }

@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.packages;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
@@ -25,7 +26,6 @@ import com.google.devtools.build.lib.util.HashCodes;
 import com.google.errorprone.annotations.ForOverride;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -114,7 +114,7 @@ public abstract sealed class StarlarkInfoWithSchema extends StarlarkInfo {
    * which must be sorted. This class exists solely for the StarlarkInfo ArgumentProcessors.
    */
   static final class StarlarkInfoFactory extends StarlarkProvider.StarlarkInfoFactory {
-    private final ImmutableList<String> fields;
+    private final ImmutableMap<String, Integer> fields;
     private final Object[] valueTable;
     private List<String> unexpected;
 
@@ -167,11 +167,12 @@ public abstract sealed class StarlarkInfoWithSchema extends StarlarkInfo {
   @Override
   public final ImmutableList<String> getFieldNames() {
     ImmutableList.Builder<String> fieldNames = new ImmutableList.Builder<>();
-    ImmutableList<String> fields = provider.getFields();
-    for (int i = 0; i < fields.size(); i++) {
+    int i = 0;
+    for (String field : provider.getFields().keySet()) {
       if (getValueAt(i) != null) {
-        fieldNames.add(fields.get(i));
+        fieldNames.add(field);
       }
+      i++;
     }
     return fieldNames.build();
   }
@@ -197,7 +198,7 @@ public abstract sealed class StarlarkInfoWithSchema extends StarlarkInfo {
   @Nullable
   @Override
   public final Object getValue(String name) {
-    ImmutableList<String> fields = provider.getFields();
+    ImmutableMap<String, Integer> fields = provider.getFields();
     int i = indexOfField(name, fields);
     return i >= 0 ? provider.retrieveOptimizedField(i, getValueAt(i)) : null;
   }
@@ -230,8 +231,9 @@ public abstract sealed class StarlarkInfoWithSchema extends StarlarkInfo {
       Object xVal = x.getValueAt(i);
       Object yVal = y.getValueAt(i);
       if (xVal != null && yVal != null) {
-        ImmutableList<String> schema = x.provider.getFields();
-        throw Starlark.errorf("cannot add struct instances with common field '%s'", schema.get(i));
+        ImmutableMap<String, Integer> schema = x.provider.getFields();
+        throw Starlark.errorf(
+            "cannot add struct instances with common field '%s'", schema.keySet().asList().get(i));
       }
       ztable[i] = xVal != null ? xVal : yVal;
     }
@@ -284,13 +286,10 @@ public abstract sealed class StarlarkInfoWithSchema extends StarlarkInfo {
     };
   }
 
-  /** Returns the index of the given named field in the given list of fields, or -1 if not found. */
-  private static int indexOfField(String name, ImmutableList<String> fields) {
-    if (fields.size() <= BINARY_SEARCH_THRESHOLD) {
-      return fields.indexOf(name);
-    }
-    int idx = Collections.binarySearch(fields, name);
-    return idx >= 0 ? idx : -1;
+  /** Returns the index of the given named field in the given map of fields, or -1 if not found. */
+  private static int indexOfField(String name, ImmutableMap<String, Integer> fields) {
+    Integer idx = fields.get(name);
+    return idx != null ? idx : -1;
   }
 
   /** For providers with no fields. */

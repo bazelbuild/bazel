@@ -75,9 +75,9 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
 
   @Nullable private final String documentation;
 
-  // For schemaful providers, the sorted list of allowed field names.
-  // The requirement for sortedness comes from StarlarkInfoWithSchema and lets us bisect the fields.
-  @Nullable private final ImmutableList<String> fields;
+  // For schemaful providers, a map of field names to their index (position in the schema). Sorted
+  // by field name.
+  @Nullable private final ImmutableMap<String, Integer> fields;
 
   // For schemaful providers, an optional map from field names to documentation strings (if any). In
   // accordance with the provider() Starlark API, either all schema fields have documentation
@@ -235,7 +235,16 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
       Object keyOrIdentityToken) {
     this.location = location;
     this.documentation = documentation;
-    this.fields = schema != null ? ImmutableList.sortedCopyOf(schema.keySet()) : null;
+    if (schema != null) {
+      ImmutableList<String> sortedFields = ImmutableList.sortedCopyOf(schema.keySet());
+      ImmutableMap.Builder<String, Integer> fieldsBuilder = ImmutableMap.builder();
+      for (int i = 0; i < sortedFields.size(); i++) {
+        fieldsBuilder.put(sortedFields.get(i), i);
+      }
+      this.fields = fieldsBuilder.buildOrThrow();
+    } else {
+      this.fields = null;
+    }
     this.schema = schema;
     this.init = init;
     this.keyOrIdentityToken = keyOrIdentityToken;
@@ -445,7 +454,7 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
    * schemaless.
    */
   @Nullable
-  public ImmutableList<String> getFields() {
+  public ImmutableMap<String, Integer> getFields() {
     return fields;
   }
 

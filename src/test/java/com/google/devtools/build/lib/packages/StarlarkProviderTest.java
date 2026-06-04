@@ -327,7 +327,7 @@ public final class StarlarkProviderTest {
             // non-alphabetized field order in a provider declaration in Starlark code.
             .setSchema(ImmutableList.of("c", "a", "b"))
             .buildWithIdentityToken(generator.generate());
-    assertThat(provider.getFields()).containsExactly("a", "b", "c").inOrder();
+    assertThat(provider.getFields().keySet()).containsExactly("a", "b", "c").inOrder();
   }
 
   @Test
@@ -351,7 +351,7 @@ public final class StarlarkProviderTest {
             // non-alphabetized field order in a provider declaration in Starlark code.
             .setSchema(ImmutableMap.of("c", "Parameter c", "a", "Parameter a", "b", "Parameter b"))
             .buildWithIdentityToken(generator.generate());
-    assertThat(provider.getFields()).containsExactly("a", "b", "c").inOrder();
+    assertThat(provider.getFields().keySet()).containsExactly("a", "b", "c").inOrder();
   }
 
   @Test
