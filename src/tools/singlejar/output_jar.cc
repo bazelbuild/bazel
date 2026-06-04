@@ -659,6 +659,18 @@ bool OutputJar::AddJar(int jar_path_index) {
       }
     }
 
+    // copy_from and num_bytes derive from untrusted local-header / central-
+    // directory size fields. Make sure the range we are about to read lies
+    // entirely within the mapped input archive before copying it.
+    const size_t input_mapped_size =
+        input_jar.mapped_end() - input_jar.mapped_start();
+    if (copy_from < 0 || static_cast<size_t>(copy_from) > input_mapped_size ||
+        num_bytes > input_mapped_size - static_cast<size_t>(copy_from)) {
+      diag_errx(1, "%s:%d: entry %.*s extends past the end of archive %s",
+                __FILE__, __LINE__, file_name_length, file_name,
+                input_jar_path.c_str());
+    }
+
     // Do the actual copy.
     if (!WriteBytes(input_jar.mapped_start() + copy_from, num_bytes)) {
       diag_err(1, "%s:%d: Cannot write %zu bytes of %.*s from %s", __FILE__,
