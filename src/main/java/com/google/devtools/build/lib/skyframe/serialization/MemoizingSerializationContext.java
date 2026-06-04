@@ -214,13 +214,16 @@ abstract class MemoizingSerializationContext extends SerializationContext {
     }
     int maybePrevious = getMemoizedIndex(obj, codec.getMemoizationEquality(obj));
     if (maybePrevious != NO_VALUE) {
-      // There was a previous entry. Writes a backreference, subtracting 2 to avoid 0 (which
-      // indicates null), and -1 (which indicates an immediate value).
-      codedOut.writeSInt32NoTag(-maybePrevious - 2);
+      int tagWithType = WireType.Backreference.INSTANCE.getTypedTagNumber(maybePrevious);
+      codedOut.writeUInt32NoTag(tagWithType);
       return;
     }
-    // A new entry was added, emits -1 to signal an immediate value, then serializes the value.
-    codedOut.writeSInt32NoTag(-1);
+    // A new entry was added. Emits typedTag `(CodecWireType.UNSTABLE, 1)` to signal an immediate
+    // value, then serializes the value. Note that this placeholder value is *not actually going to
+    // be decoded later using UNSTABLE codec #1*. We just need an unambiguous signal for an
+    // immediate value.
+    int tagWithType = WireType.CodecWireType.UNSTABLE.getTypedTagNumber(1);
+    codedOut.writeUInt32NoTag(tagWithType);
     codec.serialize((LeafSerializationContext) this, obj, codedOut);
     // By necessity, a LeafCodec is treated like MEMOIZE_AFTER because when deserializing, the
     // value will only be available as a backreference after its deserialization is complete.
@@ -264,7 +267,8 @@ abstract class MemoizingSerializationContext extends SerializationContext {
             cylicallyCreatedId != NO_VALUE
                 ? cylicallyCreatedId
                 : memoize(obj, codec.getMemoizationEquality(obj));
-        codedOut.writeInt32NoTag(id);
+        int tagWithType = WireType.Backreference.INSTANCE.getTypedTagNumber(id);
+        codedOut.writeUInt32NoTag(tagWithType);
       }
     }
   }
@@ -277,8 +281,8 @@ abstract class MemoizingSerializationContext extends SerializationContext {
     if (memoizedIndex == NO_VALUE) {
       return false;
     }
-    // Subtracts 1 so it will be negative and not collide with null.
-    codedOut.writeSInt32NoTag(-memoizedIndex - 1);
+    int typedTag = WireType.Backreference.INSTANCE.getTypedTagNumber(memoizedIndex);
+    codedOut.writeUInt32NoTag(typedTag);
     return true;
   }
 

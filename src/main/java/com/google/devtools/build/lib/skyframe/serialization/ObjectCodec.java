@@ -81,6 +81,38 @@ public interface ObjectCodec<T> extends ProfilerLocationProvider {
   }
 
   /**
+   * The type of codec to generate.
+   *
+   * <p>This determines how the codec is registered in the {@link
+   * com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry}.
+   */
+  public enum CodecType {
+    UNSTABLE_CODEC,
+    STABLE_PUBLIC_CODEC,
+    STABLE_PRIVATE_CODEC
+  }
+
+  /**
+   * Returns the type of codec to generate.
+   *
+   * <p>This determines how the codec is registered in the {@link
+   * com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry}.
+   */
+  default WireType.CodecWireType codecType() {
+    return WireType.CodecWireType.UNSTABLE;
+  }
+
+  /**
+   * Returns the stable tag for the codec.
+   *
+   * <p>This is only used for stable codecs.
+   */
+  default int stableTag() {
+    throw new UnsupportedOperationException(
+        "Only stable codecs have a stable tag. This codec type is " + codecType());
+  }
+
+  /**
    * Serializes {@code obj}, inverse of {@link #deserialize}.
    *
    * @param context {@link SerializationContext} providing additional information to the

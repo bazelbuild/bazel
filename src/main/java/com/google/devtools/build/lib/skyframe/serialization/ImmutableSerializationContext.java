@@ -65,8 +65,9 @@ final class ImmutableSerializationContext extends SerializationContext {
     if (writeIfNullOrConstant(obj, codedOut)) {
       return;
     }
-    // It was not constant or null. Emits -1 to signal an immediate value and serializes the value.
-    codedOut.writeSInt32NoTag(-1);
+    // It was not constant or null. Emits typedTag `(CodecWireType.UNSTABLE, 1)` to signal an
+    // immediate value, then serializes the value.
+    codedOut.writeUInt32NoTag(WireType.CodecWireType.UNSTABLE.getTypedTagNumber(1));
     codec.serialize((LeafSerializationContext) this, obj, codedOut);
   }
 

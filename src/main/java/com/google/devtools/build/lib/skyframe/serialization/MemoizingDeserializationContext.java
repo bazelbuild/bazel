@@ -78,19 +78,27 @@ abstract class MemoizingDeserializationContext extends DeserializationContext {
   @Override
   public final <T> T deserializeLeaf(CodedInputStream codedIn, LeafObjectCodec<T> codec)
       throws IOException, SerializationException {
-    int tag = codedIn.readSInt32();
-    if (tag == 0) {
+    int typedTag = codedIn.readRawVarint32();
+    if (typedTag == 0) {
       return null;
     }
-    Object maybeConstant = maybeGetConstantByTag(tag);
+    Object maybeConstant = maybeGetConstantByTag(typedTag);
     if (maybeConstant != null) {
       return codec.safeCast(maybeConstant);
     }
-    if (tag < -1) {
-      // Subtracts 2 to undo the corresponding operation in SerializationContext.serializeLeaf.
-      return codec.safeCast(getMemoizedBackReference(-tag - 2));
+    // Micro-optimization: avoid looking up an actual WireType enum value.
+    int tag = WireType.getTagNumber(typedTag);
+    int wireType = WireType.getWireTypeIndex(typedTag);
+    if (wireType == WireType.BACKREFERENCE_VALUE) {
+      return codec.safeCast(getMemoizedBackReference(tag));
     }
-    checkState(tag == -1, "Unexpected tag for immediate value; %s", tag);
+    // See comments in MemoizingSerializationContext.serializeLeaf. We use the UNSTABLE codec
+    // to signal an immediate value. The UNSTABLE codec is not used for deserialization. It is
+    // simply unambiguous in this context.
+    checkState(
+        typedTag == WireType.CodecWireType.UNSTABLE.getTypedTagNumber(1),
+        "Unexpected typedTag for immediate value; %s",
+        typedTag);
     T value = codec.deserialize((LeafDeserializationContext) this, codedIn);
     memoize(memoTable.size(), value);
     return value;
@@ -201,16 +209,17 @@ abstract class MemoizingDeserializationContext extends DeserializationContext {
       throws SerializationException, IOException {
     Object value =
         combineValueWithReadFutures(deserializeAndMaybeHandleDeferredValues(codec, codedIn));
-    int tag = codedIn.readInt32();
+    int typedTag = codedIn.readRawVarint32();
     // If deserializing the children caused the parent object itself to be deserialized due to
     // a cycle, then there's now a memo entry for the parent. Reuse that object, discarding
     // the one we were trying to construct here, so as to avoid creating duplicate objects in
     // the object graph.
-    Object cyclicallyCreatedObject = memoTable.get(tag);
+    int memIdx = WireType.getTagNumber(typedTag);
+    Object cyclicallyCreatedObject = memoTable.get(memIdx);
     if (cyclicallyCreatedObject != null) {
       return cyclicallyCreatedObject;
     }
-    memoize(tag, value);
+    memoize(memIdx, value);
     return value;
   }
 

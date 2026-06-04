@@ -243,11 +243,11 @@ public final class DumperTest {
     var subject = ImmutableList.of(constant1, "a", constant2, constant1);
     assertThat(mode.dumpStructure(registry, subject))
         .isEqualTo(
-            """
+"""
 com.google.common.collect.ImmutableList(0) [
   java.lang.String[SERIALIZATION_CONSTANT:1]
   a
-  java.lang.Integer[SERIALIZATION_CONSTANT:2]
+  java.lang.Integer[SERIALIZATION_CONSTANT:9]
   java.lang.String[SERIALIZATION_CONSTANT:1]
 ]\
 """);
@@ -395,7 +395,7 @@ com.google.common.collect.ImmutableList(0) [
 
     assertThat(dumpStructure(subject))
         .isEqualTo(
-            """
+"""
 com.google.common.collect.ImmutableList(0) [
   com.google.devtools.build.lib.skyframe.serialization.testutils.DumperTest.Position(1) [
     x=4
@@ -411,7 +411,7 @@ com.google.common.collect.ImmutableList(0) [
     // With equivalence reduction, the duplicate position is turned into a backreference.
     assertThat(dumpStructureWithEquivalenceReduction(subject))
         .isEqualTo(
-            """
+"""
 com.google.common.collect.ImmutableList(0) [
   com.google.devtools.build.lib.skyframe.serialization.testutils.DumperTest.Position(1) [
     x=4
@@ -481,7 +481,7 @@ com.google.common.collect.ImmutableList(0) [
     var subject = new Object[] {null, true, null, false};
     assertThat(dumpStructureWithEquivalenceReduction(subject))
         .isEqualTo(
-            """
+"""
 java.lang.Object[](0) [
   null
   true
@@ -511,7 +511,7 @@ java.lang.Object[](0) [
     var subject = ImmutableList.of(cycle1, cycle2);
     assertThat(dumpStructureWithEquivalenceReduction(subject))
         .isEqualTo(
-            """
+"""
 com.google.common.collect.ImmutableList(0) [
   java.util.ArrayList(1) [
     1

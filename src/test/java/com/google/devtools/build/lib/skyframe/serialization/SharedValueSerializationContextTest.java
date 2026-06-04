@@ -342,7 +342,7 @@ public final class SharedValueSerializationContextTest {
     ImmutableList<ByteString> storeValues =
         ImmutableList.copyOf(store.fingerprintToContents.values());
     assertThat(storeValues).hasSize(1);
-    assertThat(storeValues.get(0).toByteArray()).hasLength(compress ? 23 : 1007);
+    assertThat(storeValues.get(0).toByteArray()).hasLength(compress ? 24 : 1007);
   }
 
   /** Test data for {@link #errorInSharedPut}. */

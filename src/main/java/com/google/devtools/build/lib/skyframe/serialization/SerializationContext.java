@@ -76,7 +76,7 @@ public abstract class SerializationContext implements LeafSerializationContext {
     if (writeBackReferenceIfMemoized(object, codedOut, castCodec.getMemoizationEquality(object))) {
       return;
     }
-    codedOut.writeSInt32NoTag(descriptor.tag());
+    codedOut.writeUInt32NoTag(descriptor.getTypedTagNumber());
     serializeWithCodec(castCodec, object, codedOut);
   }
 
@@ -201,12 +201,12 @@ public abstract class SerializationContext implements LeafSerializationContext {
   final boolean writeIfNullOrConstant(@Nullable Object object, CodedOutputStream codedOut)
       throws IOException {
     if (object == null) {
-      codedOut.writeSInt32NoTag(0);
+      codedOut.writeUInt32NoTag(0);
       return true;
     }
     Integer tag = codecRegistry.maybeGetTagForConstant(object);
     if (tag != null) {
-      codedOut.writeSInt32NoTag(tag);
+      codedOut.writeUInt32NoTag(tag);
       return true;
     }
     return false;
