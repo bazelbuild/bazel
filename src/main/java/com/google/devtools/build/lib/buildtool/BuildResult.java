@@ -123,8 +123,9 @@ public final class BuildResult {
 
   /** Sets the RuntimeException / Error that induced a Blaze crash. */
   public void setUnhandledThrowable(Throwable crash) {
-    Preconditions.checkState(
-        crash == null || ((crash instanceof RuntimeException) || (crash instanceof Error)));
+    if (crash != null && !((crash instanceof RuntimeException) || (crash instanceof Error))) {
+      throw new IllegalStateException("Expected no error or an unchecked throwable", crash);
+    }
     this.crash = crash;
   }
 
