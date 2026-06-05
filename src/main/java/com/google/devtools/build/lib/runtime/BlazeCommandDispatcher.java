@@ -57,6 +57,7 @@ import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.In
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.IdleTask;
+import com.google.devtools.build.lib.server.TerminalSizeMonitor;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue.RepositoryMappingResolutionException;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.AnsiStrippingOutputStream;
@@ -172,6 +173,37 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       List<Any> commandExtensions,
       CommandExtensionReporter commandExtensionReporter)
       throws InterruptedException {
+    return exec(
+        invocationPolicy,
+        args,
+        outErr,
+        lockingMode,
+        uiVerbosity,
+        clientDescription,
+        firstContactTimeMillis,
+        startupOptionsTaggedWithBazelRc,
+        idleTaskResultsSupplier,
+        commandExtensions,
+        commandExtensionReporter,
+        TerminalSizeMonitor.NOOP);
+  }
+
+  @Override
+  @CanIgnoreReturnValue
+  public BlazeCommandResult exec(
+      InvocationPolicy invocationPolicy,
+      List<String> args,
+      OutErr outErr,
+      LockingMode lockingMode,
+      UiVerbosity uiVerbosity,
+      String clientDescription,
+      long firstContactTimeMillis,
+      Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc,
+      Supplier<ImmutableList<IdleTask.Result>> idleTaskResultsSupplier,
+      List<Any> commandExtensions,
+      CommandExtensionReporter commandExtensionReporter,
+      TerminalSizeMonitor terminalSizeMonitor)
+      throws InterruptedException {
     Preconditions.checkNotNull(clientDescription);
     if (args.isEmpty()) { // Default to help command if no arguments specified.
       args = HELP_COMMAND;
@@ -278,7 +310,8 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
                   attemptNumber,
                   attemptedCommandIds,
                   buildRequestIdOverride,
-                  commandExtensionReporter);
+                  commandExtensionReporter,
+                  terminalSizeMonitor);
           break;
         } catch (RemoteCacheTransientErrorException e) {
           attemptedCommandIds.add(e.getCommandId());
@@ -343,7 +376,8 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       int attemptNumber,
       Set<UUID> attemptedCommandIds,
       @Nullable String buildRequestIdOverride,
-      CommandExtensionReporter commandExtensionReporter)
+      CommandExtensionReporter commandExtensionReporter,
+      TerminalSizeMonitor terminalSizeMonitor)
       throws RemoteCacheTransientErrorException {
     // Record the start time for the profiler. Do not put anything before this!
     long execStartTimeNanos = runtime.getClock().nanoTime();
@@ -519,7 +553,8 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
             options.getOptions(ExecutionOptions.class) != null
                 && options.getOptions(ExecutionOptions.class).getStatsSummary();
         UiEventHandler handler =
-            createEventHandler(outErr, eventHandlerOptions, quiet, env, newStatsSummary);
+            createEventHandler(
+                outErr, eventHandlerOptions, quiet, env, newStatsSummary, terminalSizeMonitor);
         env.setUiEventHandler(handler);
 
         // We register an ANSI-allowing handler associated with {@code handler} so that ANSI control
@@ -528,7 +563,13 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         // modified.
         if (!eventHandlerOptions.useColor()) {
           UiEventHandler ansiAllowingHandler =
-              createEventHandler(colorfulOutErr, eventHandlerOptions, quiet, env, newStatsSummary);
+              createEventHandler(
+                  colorfulOutErr,
+                  eventHandlerOptions,
+                  quiet,
+                  env,
+                  newStatsSummary,
+                  terminalSizeMonitor);
           reporter.registerAnsiAllowingHandler(handler, ansiAllowingHandler);
           env.getEventBus().register(new PassiveExperimentalEventHandler(ansiAllowingHandler));
         }
@@ -959,7 +1000,8 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       UiOptions eventOptions,
       boolean quiet,
       CommandEnvironment env,
-      boolean newStatsSummary) {
+      boolean newStatsSummary,
+      TerminalSizeMonitor terminalSizeMonitor) {
     Path workspacePath = runtime.getWorkspace().getDirectories().getWorkspace();
     PathFragment workspacePathFragment = workspacePath == null ? null : workspacePath.asFragment();
     return new UiEventHandler(
@@ -970,7 +1012,8 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         env.getEventBus(),
         workspacePathFragment,
         env.withMergedAnalysisAndExecutionSourceOfTruth(),
-        newStatsSummary);
+        newStatsSummary,
+        terminalSizeMonitor);
   }
 
   /** Returns the runtime instance shared by the commands that this dispatcher dispatches to. */
