@@ -17,7 +17,7 @@ java_library(
     name = "cache",
     srcs = [
         "DownloadCache.java",
-        "RepoContentsCache.java",
+        "LocalRepoContentsCache.java",
         "RepositoryCache.java",
     ],
     deps = [

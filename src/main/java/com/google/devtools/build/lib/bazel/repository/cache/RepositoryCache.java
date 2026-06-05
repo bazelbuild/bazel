@@ -19,7 +19,7 @@ import javax.annotation.Nullable;
 
 /**
  * A cache directory related to repositories, containing both the {@link DownloadCache} and the
- * {@link RepoContentsCache}.
+ * {@link LocalRepoContentsCache}.
  */
 public class RepositoryCache {
   // Repository cache subdirectories
@@ -27,13 +27,13 @@ public class RepositoryCache {
   private static final String CONTENTS_DIR = "contents";
 
   private final DownloadCache downloadCache;
-  private final RepoContentsCache repoContentsCache;
+  private final LocalRepoContentsCache repoContentsCache;
 
   @Nullable private Path path;
 
   public RepositoryCache() {
     downloadCache = new DownloadCache();
-    repoContentsCache = new RepoContentsCache();
+    repoContentsCache = new LocalRepoContentsCache();
   }
 
   public void setPath(@Nullable Path path) {
@@ -51,7 +51,7 @@ public class RepositoryCache {
     return downloadCache;
   }
 
-  public RepoContentsCache getRepoContentsCache() {
+  public LocalRepoContentsCache getRepoContentsCache() {
     return repoContentsCache;
   }
 

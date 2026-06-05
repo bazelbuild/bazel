@@ -18,7 +18,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import com.google.common.collect.ImmutableList;
 import com.google.common.hash.HashCode;
 import com.google.common.hash.Hasher;
-import com.google.devtools.build.lib.bazel.repository.cache.RepoContentsCache;
+import com.google.devtools.build.lib.bazel.repository.cache.LocalRepoContentsCache;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -89,7 +89,7 @@ public class VendorManager {
           actualMarkerFile =
               cacheRepoDir
                   .getParentDirectory()
-                  .getChild(cacheRepoDir.getBaseName() + RepoContentsCache.RECORDED_INPUTS_SUFFIX);
+                  .getChild(cacheRepoDir.getBaseName() + LocalRepoContentsCache.RECORDED_INPUTS_SUFFIX);
         } else {
           actualMarkerFile = markerUnderExternal;
         }
