@@ -1172,7 +1172,7 @@ public class RemoteExecutionService {
         // such as unused_inputs_list). They bypass the digest-keyed download path
         // that verifies content via Utils.verifyBlobContents, so verify them here
         // against the accompanying digest before they are trusted.
-        Digest contentDigest = digestUtil.compute(contents.toByteArray());
+        Digest contentDigest = digestUtil.compute(contents::writeTo);
         if (!contentDigest.equals(outputFile.getDigest())) {
           OutputDigestMismatchException e =
               new OutputDigestMismatchException(outputFile.getDigest(), contentDigest);
