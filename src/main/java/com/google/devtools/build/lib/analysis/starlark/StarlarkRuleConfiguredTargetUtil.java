@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.analysis.ActionsProvider;
 import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.DefaultInfo;
+import com.google.devtools.build.lib.analysis.IncompatiblePlatformProvider;
 import com.google.devtools.build.lib.analysis.MaterializedDepsInfo;
 import com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
@@ -29,9 +30,14 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.StarlarkProviderValidationUtil;
+import com.google.devtools.build.lib.analysis.test.TestActionBuilder;
+import com.google.devtools.build.lib.analysis.test.TestConfiguration;
+import com.google.devtools.build.lib.analysis.test.TestProvider;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.AdvertisedProviderSet;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.Provider;
@@ -178,7 +184,7 @@ public final class StarlarkRuleConfiguredTargetUtil {
     try {
       addProviders(context, builder, rawProviders, isDefaultExecutableCreated);
     } catch (EvalException ex) {
-      // Emit a single event that spans two lines (see infoError).
+      // Emit a single event that spans two lines (see errorWithLoc).
       // The message typically starts with another location, e.g. of provider creation.
       //     ERROR p/BUILD:1:1: in foo_library rule //p:p:
       //     ...message...
@@ -200,7 +206,7 @@ public final class StarlarkRuleConfiguredTargetUtil {
       ct = builder.build(); // may be null
     } catch (IllegalArgumentException ex) {
       // TODO(adonovan): eliminate this abuse of unchecked exceptions.
-      // Emit a single event that spans two lines (see infoError).
+      // Emit a single event that spans two lines (see errorWithLoc).
       // The message typically starts with another location, e.g. of provider creation.
       //     ERROR p/BUILD:1:1: in foo_library rule //p:p:
       //     ...message...
@@ -214,8 +220,10 @@ public final class StarlarkRuleConfiguredTargetUtil {
       try {
         // Check all artifacts have actions. Despite signature, must be done after build().
         StarlarkProviderValidationUtil.validateArtifacts(context);
-        // Check all advertised providers were created.
-        checkDeclaredProviders(ct, advertisedProviders);
+        if (ct.get(IncompatiblePlatformProvider.PROVIDER) == null) {
+          // Check all advertised providers were created.
+          checkDeclaredProviders(ct, advertisedProviders);
+        }
       } catch (EvalException ex) {
         context.ruleError("\n" + implLoc(context) + ": " + ex.getMessage());
         return null;
@@ -288,6 +296,17 @@ public final class StarlarkRuleConfiguredTargetUtil {
       }
     }
 
+    if (declaredProviders.containsKey(IncompatiblePlatformProvider.PROVIDER.getKey())) {
+      if (declaredProviders.size() != 1) {
+        throw Starlark.errorf(
+            "IncompatiblePlatformProvider must be the only provider returned by a rule "
+                + "implementation function, but got %s",
+            declaredProviders.keySet());
+      }
+      addEmptyProvidersForIncompatibleTarget(context, builder, declaredProviders);
+      return;
+    }
+
     var runEnvironmentInfo =
         (RunEnvironmentInfo) declaredProviders.get(RunEnvironmentInfo.PROVIDER.getKey());
     if (runEnvironmentInfo != null
@@ -328,6 +347,32 @@ public final class StarlarkRuleConfiguredTargetUtil {
           isDefaultExecutableCreated,
           runEnvironmentInfo);
     }
+  }
+
+  private static void addEmptyProvidersForIncompatibleTarget(
+      RuleContext context,
+      RuleConfiguredTargetBuilder builder,
+      Map<Provider.Key, Info> declaredProviders) {
+    var provider =
+        (IncompatiblePlatformProvider)
+            declaredProviders.get(IncompatiblePlatformProvider.PROVIDER.getKey());
+    builder.addStarlarkDeclaredProvider(
+        provider.withTargetPlatform(getTargetPlatformLabel(context)));
+
+    builder.setFilesToBuild(NestedSetBuilder.emptySet(Order.STABLE_ORDER));
+    builder.addProvider(RunfilesProvider.class, RunfilesProvider.simple(Runfiles.EMPTY));
+
+    if (TargetUtils.isTestRule(context.getTarget())
+        && context.getConfiguration().hasFragment(TestConfiguration.class)) {
+      builder.addProvider(
+          TestProvider.class, new TestProvider(TestActionBuilder.createEmptyTestParams()));
+    }
+  }
+
+  @Nullable
+  private static Label getTargetPlatformLabel(RuleContext context) {
+    var toolchainContext = context.getToolchainContext();
+    return toolchainContext == null ? null : toolchainContext.targetPlatform().label();
   }
 
   // Returns an EvalException whose message has a location as the prefix. The exception is intended

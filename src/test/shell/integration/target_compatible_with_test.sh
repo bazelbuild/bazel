@@ -637,6 +637,169 @@ EOF
   expect_log 'ERROR: Build did NOT complete successfully'
 }
 
+# Validates that a Starlark rule's implementation function can mark its target
+# as incompatible by returning IncompatiblePlatformProvider. Targets that do
+# this should behave just like target_compatible_with.
+function test_starlark_returns_incompatible_platform_provider() {
+  cat > target_skipping/rules.bzl <<'EOF'
+def _conditional_rule_impl(ctx):
+    if ctx.attr.is_incompatible:
+        return [IncompatiblePlatformProvider(
+            constraints = [ctx.attr._foo2[platform_common.ConstraintValueInfo]],
+        )]
+    out = ctx.actions.declare_file(ctx.label.name)
+    ctx.actions.write(out, "compatible")
+    return [DefaultInfo(files = depset([out]))]
+
+conditional_rule = rule(
+    implementation = _conditional_rule_impl,
+    attrs = {
+        "is_incompatible": attr.bool(),
+        "deps": attr.label_list(),
+        "_foo2": attr.label(default = "//target_skipping:foo2"),
+    },
+)
+
+def _no_constraint_rule_impl(ctx):
+    return [IncompatiblePlatformProvider()]
+
+no_constraint_rule = rule(
+    implementation = _no_constraint_rule_impl,
+)
+
+AdvertisedInfo = provider()
+
+def _advertised_rule_impl(ctx):
+    return [IncompatiblePlatformProvider()]
+
+advertised_rule = rule(
+    implementation = _advertised_rule_impl,
+    provides = [AdvertisedInfo],
+)
+
+def _output_group_rule_impl(ctx):
+    out = ctx.actions.declare_file(ctx.label.name + ".out")
+    ctx.actions.write(out, "unused")
+    return [
+        IncompatiblePlatformProvider(),
+        OutputGroupInfo(extra = depset([out])),
+    ]
+
+output_group_rule = rule(
+    implementation = _output_group_rule_impl,
+)
+EOF
+
+  cat >> target_skipping/BUILD <<'EOF'
+load(
+    "//target_skipping:rules.bzl",
+    "advertised_rule",
+    "conditional_rule",
+    "no_constraint_rule",
+    "output_group_rule",
+)
+
+conditional_rule(
+    name = "dynamic_incompatible",
+    is_incompatible = True,
+)
+
+conditional_rule(
+    name = "dynamic_compatible",
+    is_incompatible = False,
+)
+
+# A target that consumes a dynamically-incompatible target via deps. It should
+# become indirectly incompatible.
+conditional_rule(
+    name = "consumer_of_incompatible",
+    is_incompatible = False,
+    deps = [":dynamic_incompatible"],
+)
+
+no_constraint_rule(
+    name = "always_incompatible_no_constraint",
+)
+
+advertised_rule(
+    name = "advertised_incompatible",
+)
+
+output_group_rule(
+    name = "output_group_incompatible",
+)
+EOF
+
+  cd target_skipping || fail "couldn't cd into workspace"
+
+  # --skip_incompatible_explicit_targets applies
+  bazel build \
+    --show_result=10 \
+    --host_platform=@//target_skipping:foo1_bar1_platform \
+    --platforms=@//target_skipping:foo1_bar1_platform \
+    --skip_incompatible_explicit_targets \
+    //target_skipping:dynamic_compatible \
+    //target_skipping:dynamic_incompatible \
+    //target_skipping:consumer_of_incompatible \
+    //target_skipping:always_incompatible_no_constraint \
+    //target_skipping:advertised_incompatible &> "${TEST_log}" \
+    || fail "Bazel failed unexpectedly."
+  expect_log '//target_skipping:dynamic_compatible up-to-date'
+  expect_log 'Target //target_skipping:dynamic_incompatible was skipped'
+  expect_log 'Target //target_skipping:consumer_of_incompatible was skipped'
+  expect_log 'Target //target_skipping:always_incompatible_no_constraint was skipped'
+  expect_log 'Target //target_skipping:advertised_incompatible was skipped'
+
+  # IncompatiblePlatformProvider is a terminal result: rules cannot also return
+  # OutputGroupInfo or any other provider.
+  bazel build \
+    --show_result=10 \
+    --host_platform=@//target_skipping:foo1_bar1_platform \
+    --platforms=@//target_skipping:foo1_bar1_platform \
+    //target_skipping:output_group_incompatible &> "${TEST_log}" \
+    && fail "Bazel passed unexpectedly."
+  expect_log 'IncompatiblePlatformProvider must be the only provider returned'
+  expect_log 'OutputGroupInfo'
+  expect_log 'ERROR: Build did NOT complete successfully'
+
+  # Explicitly requesting just the incompatible target should fail with a
+  # message that mentions the responsible constraint.
+  bazel build \
+    --show_result=10 \
+    --host_platform=@//target_skipping:foo1_bar1_platform \
+    --platforms=@//target_skipping:foo1_bar1_platform \
+    //target_skipping:dynamic_incompatible &> "${TEST_log}" \
+    && fail "Bazel passed unexpectedly."
+  expect_log 'ERROR:.* Target //target_skipping:dynamic_incompatible is incompatible and cannot be built, but was explicitly requested'
+  expect_log "didn't satisfy constraint //target_skipping:foo2"
+  expect_log 'ERROR: Build did NOT complete successfully'
+
+  # Explicitly requesting the consumer should also error and surface the
+  # dependency chain back to the dynamically-incompatible dep.
+  bazel build \
+    --show_result=10 \
+    --host_platform=@//target_skipping:foo1_bar1_platform \
+    --platforms=@//target_skipping:foo1_bar1_platform \
+    //target_skipping:consumer_of_incompatible &> "${TEST_log}" \
+    && fail "Bazel passed unexpectedly."
+  expect_log 'ERROR:.* Target //target_skipping:consumer_of_incompatible is incompatible and cannot be built, but was explicitly requested'
+  expect_log '//target_skipping:consumer_of_incompatible '
+  expect_log '//target_skipping:dynamic_incompatible '
+  expect_log 'ERROR: Build did NOT complete successfully'
+
+  # A rule that returns IncompatiblePlatformProvider with no constraints should
+  # also be marked incompatible when explicitly requested.
+  bazel build \
+    --show_result=10 \
+    --host_platform=@//target_skipping:foo1_bar1_platform \
+    --platforms=@//target_skipping:foo1_bar1_platform \
+    //target_skipping:always_incompatible_no_constraint &> "${TEST_log}" \
+    && fail "Bazel passed unexpectedly."
+  expect_log 'ERROR:.* Target //target_skipping:always_incompatible_no_constraint is incompatible and cannot be built, but was explicitly requested'
+  expect_log 'target was marked incompatible'
+  expect_log 'ERROR: Build did NOT complete successfully'
+}
+
 # Validates that rules with custom providers are skipped when incompatible.
 # This is valuable because we use providers to convey incompatibility.
 function test_dependencies_with_providers() {

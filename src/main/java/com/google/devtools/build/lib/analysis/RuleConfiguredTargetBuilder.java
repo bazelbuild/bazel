@@ -193,6 +193,9 @@ public final class RuleConfiguredTargetBuilder {
       if (ruleContext.getConfiguration().hasFragment(TestConfiguration.class)) {
         if (runfilesSupport != null) {
           add(TestProvider.class, initializeTestProvider(filesToRunProvider));
+        } else if (providersBuilder.contains(IncompatiblePlatformProvider.PROVIDER.getKey())) {
+          // Incompatible test targets never run, so they don't need real runfiles. The empty
+          // TestProvider is wired up by StarlarkRuleConfiguredTargetUtil for this case.
         } else {
           if (!allowAnalysisFailures) {
             throw new IllegalStateException("Test rules must have runfiles");
