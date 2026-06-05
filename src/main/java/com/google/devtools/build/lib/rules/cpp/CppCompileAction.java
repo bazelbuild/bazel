@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
-import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
@@ -55,6 +54,7 @@ import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.actions.SpawnInputs;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.extra.CppCompileInfo;
 import com.google.devtools.build.lib.actions.extra.EnvironmentVariable;
@@ -1721,16 +1721,15 @@ public class CppCompileAction extends AbstractAction
       throws ActionExecutionException {
     // Intentionally not adding {@link CppCompileAction#inputsForInvalidation}, those are not needed
     // for execution.
-    NestedSetBuilder<ActionInput> inputsBuilder =
-        NestedSetBuilder.<ActionInput>stableOrder().addTransitive(mandatorySpawnInputs);
-
-    if (discoversInputs()) {
-      inputsBuilder.addTransitive(getAdditionalInputs());
-    }
-    if (paramFileActionInput != null) {
-      inputsBuilder.add(paramFileActionInput);
-    }
-    NestedSet<ActionInput> inputs = inputsBuilder.build();
+    SpawnInputs inputs =
+        SpawnInputs.of(
+            mandatorySpawnInputs,
+            discoversInputs()
+                ? getAdditionalInputs()
+                : NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+            paramFileActionInput == null
+                ? ImmutableList.of()
+                : ImmutableList.of(paramFileActionInput));
 
     ImmutableMap.Builder<String, String> executionInfo =
         ImmutableMap.<String, String>builder().putAll(getExecutionInfo());
@@ -1789,7 +1788,7 @@ public class CppCompileAction extends AbstractAction
                   enabledCppCompileResourcesEstimation(),
                   getMnemonic(),
                   OS.getCurrent(),
-                  inputs.memoizedFlattenAndGetSize()),
+                  inputs.flatten().size()),
           pathMapper);
     } catch (CommandLineExpansionException e) {
       String message =

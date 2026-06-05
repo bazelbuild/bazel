@@ -343,7 +343,7 @@ public class CompactSpawnLogContext extends SpawnLogContext {
       throws IOException, InterruptedException {
 
     return logInputSet(
-        spawn.getInputFiles(),
+        spawn.getInputFiles().asNestedSet(),
         inputMetadataProvider,
         fileSystem,
         /* shared= */ false,

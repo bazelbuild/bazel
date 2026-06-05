@@ -53,6 +53,7 @@ import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.actions.SpawnInputs;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
@@ -566,7 +567,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
   }
 
   private final class JavaSpawn extends BaseSpawn {
-    private final NestedSet<ActionInput> inputs;
+    private final SpawnInputs inputs;
     private final Artifact onlyMandatoryOutput;
     private final PathMapper pathMapper;
 
@@ -584,15 +585,12 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
           JavaCompileAction.this,
           LOCAL_RESOURCES);
       this.onlyMandatoryOutput = onlyMandatoryOutput;
-      this.inputs =
-          NestedSetBuilder.<ActionInput>fromNestedSet(inputs)
-              .addAll(expandedCommandLines.getParamFiles())
-              .build();
+      this.inputs = SpawnInputs.of(inputs, expandedCommandLines.getParamFiles());
       this.pathMapper = pathMapper;
     }
 
     @Override
-    public NestedSet<? extends ActionInput> getInputFiles() {
+    public SpawnInputs getInputFiles() {
       return inputs;
     }
 

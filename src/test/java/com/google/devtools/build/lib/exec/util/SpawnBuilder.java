@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.actions.SpawnInputs;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -78,7 +79,7 @@ public final class SpawnBuilder {
         ImmutableList.copyOf(args),
         ImmutableMap.copyOf(environment),
         ImmutableMap.copyOf(executionInfo),
-        inputs.build(),
+        SpawnInputs.of(inputs.build()),
         tools.build(),
         ImmutableSet.copyOf(outputs),
         mandatoryOutputs,

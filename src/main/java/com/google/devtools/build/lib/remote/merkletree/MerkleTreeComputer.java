@@ -57,6 +57,7 @@ import com.google.devtools.build.lib.actions.LostInputsExecException;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
 import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.actions.SpawnInputs.FlattenedInputs;
 import com.google.devtools.build.lib.actions.StaticInputMetadataProvider;
 import com.google.devtools.build.lib.actions.VirtualActionInput;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -288,11 +289,11 @@ public final class MerkleTreeComputer {
         }
       }
     }
-    var spawnInputs = spawn.getInputFiles().toList();
+    var spawnInputs = spawn.getInputFiles().flatten();
     // Add output directories to inputs so that they are created as empty directories by the
     // executor. The spec only requires the executor to create the parent directory of an output
     // directory, which differs from the behavior of both local and sandboxed execution.
-    var outputDirectories =
+    ImmutableList<ActionInput> outputDirectories =
         spawn.getOutputFiles().stream()
             .filter(output -> output instanceof Artifact artifact && artifact.isTreeArtifact())
             .map(outputDir -> new EmptyInputDirectory((Artifact) outputDir))
@@ -523,15 +524,17 @@ public final class MerkleTreeComputer {
       }
 
       PathFragment path = entry.getKey();
-      // The same path may appear multiple times if the inputs are outputs of shared actions. Only
-      // stage the first one.
+      // The same path may appear multiple times if the inputs are outputs of shared actions or if
+      // identical inputs are not de-duplicated. Only stage the first one.
       if (lastEntry != null && path.equals(lastEntry.getKey())) {
         var previousInput = lastEntry.getValue();
         var currentInput = entry.getValue();
+        if (previousInput.equals(currentInput)) {
+          continue;
+        }
         checkState(
             previousInput instanceof Artifact previousArtifact
                 && currentInput instanceof Artifact currentArtifact
-                && !previousInput.equals(currentInput)
                 && new Artifact.OwnerlessArtifactWrapper(previousArtifact)
                     .equals(new Artifact.OwnerlessArtifactWrapper(currentArtifact)),
             "Duplicate paths are only allowed for distinct shared artifacts, got: %s and %s at %s",
@@ -1082,29 +1085,25 @@ public final class MerkleTreeComputer {
   }
 
   /**
-   * Returns an immutable view of the concatenation of two collections.
+   * Returns an immutable view of the concatenation of inputs and outputs.
    *
    * <p>Use this over the unsized {@link Iterators#concat} to avoid intermediate allocations of
    * ArrayLists in methods such as {@link ImmutableList#sortedCopyOf}.
    */
-  @SuppressWarnings("unchecked")
-  private static <T> Collection<T> concat(
-      Collection<? extends T> first, Collection<? extends T> second) {
-    if (first.isEmpty()) {
-      return (Collection<T>) second;
-    }
-    if (second.isEmpty()) {
-      return (Collection<T>) first;
+  private static Collection<ActionInput> concat(
+      FlattenedInputs inputs, Collection<ActionInput> outputDirs) {
+    if (inputs.isEmpty()) {
+      return outputDirs;
     }
     return new AbstractCollection<>() {
       @Override
-      public Iterator<T> iterator() {
-        return Iterators.concat(first.iterator(), second.iterator());
+      public Iterator<ActionInput> iterator() {
+        return Iterators.concat(inputs.iterator(), outputDirs.iterator());
       }
 
       @Override
       public int size() {
-        return first.size() + second.size();
+        return inputs.size() + outputDirs.size();
       }
     };
   }

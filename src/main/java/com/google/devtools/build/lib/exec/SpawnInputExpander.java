@@ -25,8 +25,8 @@ import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.RunfilesTree;
 import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.actions.SpawnInputs;
 import com.google.devtools.build.lib.actions.VirtualActionInput;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
@@ -159,7 +159,7 @@ public final class SpawnInputExpander {
 
   private void addInputs(
       Map<PathFragment, ActionInput> inputMap,
-      NestedSet<? extends ActionInput> inputFiles,
+      SpawnInputs inputFiles,
       InputMetadataProvider inputMetadataProvider,
       PathMapper pathMapper,
       PathFragment baseDirectory) {
@@ -169,7 +169,7 @@ public final class SpawnInputExpander {
     List<ActionInput> inputs =
         InputMetadataProvider.expandArtifacts(
             inputMetadataProvider,
-            inputFiles,
+            inputFiles.flatten(),
             /* keepEmptyTreeArtifacts= */ true,
             /* keepRunfilesTrees= */ true);
     for (ActionInput input : inputs) {

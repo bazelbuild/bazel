@@ -71,8 +71,8 @@ public class BaseSpawn implements Spawn {
   }
 
   @Override
-  public NestedSet<? extends ActionInput> getInputFiles() {
-    return action.getInputs();
+  public SpawnInputs getInputFiles() {
+    return SpawnInputs.of(action.getInputs());
   }
 
   @Override

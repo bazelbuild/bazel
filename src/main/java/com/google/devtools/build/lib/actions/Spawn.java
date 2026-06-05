@@ -76,7 +76,7 @@ public interface Spawn extends DescribableExecutionUnit {
   NestedSet<? extends ActionInput> getToolFiles();
 
   /**
-   * Returns the list of files that this command may read.
+   * Returns the files that this command may read.
    *
    * <p>This method explicitly does not expand runfiles trees. Pass the result to an appropriate
    * utility method on {@link com.google.devtools.build.lib.actions.Artifact} to expand them.
@@ -84,7 +84,7 @@ public interface Spawn extends DescribableExecutionUnit {
    * <p>This is for use with remote execution, so we can ship inputs before starting the command.
    * Order stability across multiple calls should be upheld for performance reasons.
    */
-  NestedSet<? extends ActionInput> getInputFiles();
+  SpawnInputs getInputFiles();
 
   /**
    * Returns the collection of files that this command will write. Callers should not mutate the

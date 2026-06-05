@@ -2054,7 +2054,7 @@ public class RemoteExecutionService {
     if (!executionOptions.shouldMaterializeParamFiles()) {
       return;
     }
-    for (ActionInput actionInput : spawn.getInputFiles().toList()) {
+    for (ActionInput actionInput : spawn.getInputFiles().flatten()) {
       if (actionInput instanceof CommandLines.ParamFileActionInput paramFileActionInput) {
         paramFileActionInput.atomicallyWriteRelativeTo(execRoot);
       }

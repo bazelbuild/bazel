@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
+import com.google.devtools.build.lib.actions.SpawnInputs;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
@@ -45,7 +46,7 @@ public class TestTargetPropertiesTest extends BuildViewTestCase {
         /* arguments= */ ImmutableList.of(),
         /* environment= */ ImmutableMap.of(),
         /* executionInfo= */ action.getExecutionInfo(),
-        /* inputs= */ action.getInputs(),
+        /* inputs= */ SpawnInputs.of(action.getInputs()),
         /* tools= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         outputs,
         /* mandatoryOutputs= */ null,

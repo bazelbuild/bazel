@@ -81,6 +81,7 @@ import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.RunfilesTree;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.actions.SpawnInputs;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
@@ -2156,7 +2157,7 @@ public class RemoteExecutionServiceTest {
             /* arguments= */ ImmutableList.of(),
             /* environment= */ ImmutableMap.of(),
             /* executionInfo= */ ImmutableMap.of(REMOTE_EXECUTION_INLINE_OUTPUTS, "outputs/file1"),
-            /* inputs= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+            SpawnInputs.empty(),
             /* tools= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
             /* outputs= */ ImmutableSet.of(a1),
             /* mandatoryOutputs= */ ImmutableSet.of(),

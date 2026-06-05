@@ -55,6 +55,7 @@ import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.ResourceSetOrBuilder;
 import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.actions.SpawnInputs;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.extra.EnvironmentVariable;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
@@ -498,9 +499,9 @@ public class SpawnAction extends AbstractAction implements CommandAction {
               .setValue(variable.getValue())
               .build());
     }
-    for (ActionInput input : spawn.getInputFiles().toList()) {
+    for (ActionInput input : spawn.getInputFiles().flatten()) {
       // Explicitly ignore runfiles tree artifacts here.
-      if (!(input instanceof Artifact) || !((Artifact) input).isRunfilesTree()) {
+      if (!(input instanceof Artifact artifact) || !artifact.isRunfilesTree()) {
         info.addInputFile(input.getExecPathString());
       }
     }
@@ -526,7 +527,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
 
   /** A spawn instance that is tied to a specific SpawnAction. */
   private static final class ActionSpawn extends BaseSpawn {
-    private final NestedSet<ActionInput> inputs;
+    private final SpawnInputs inputs;
     private final ImmutableMap<String, String> effectiveEnvironment;
     private final boolean reportOutputs;
     private final PathMapper pathMapper;
@@ -543,7 +544,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
         Map<String, String> env,
         boolean envResolved,
         NestedSet<Artifact> inputs,
-        Iterable<? extends ActionInput> additionalInputs,
+        List<? extends ActionInput> additionalInputs,
         boolean reportOutputs,
         PathMapper pathMapper)
         throws CommandLineExpansionException {
@@ -553,11 +554,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
           parent.getExecutionInfo(),
           parent,
           parent.resourceSetOrBuilder);
-      this.inputs =
-          NestedSetBuilder.<ActionInput>stableOrder()
-              .addTransitive(inputs)
-              .addAll(additionalInputs)
-              .build();
+      this.inputs = SpawnInputs.of(inputs, additionalInputs);
       this.pathMapper = pathMapper;
 
       // If the action environment is already resolved using the client environment, the given
@@ -582,7 +579,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     }
 
     @Override
-    public NestedSet<? extends ActionInput> getInputFiles() {
+    public SpawnInputs getInputFiles() {
       return inputs;
     }
 

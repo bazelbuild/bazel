@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.actions.SpawnInputs;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.actions.VirtualActionInput;
@@ -99,7 +100,7 @@ public class WorkerSpawnRunnerTest {
 
   @Before
   public void setUp() throws Exception {
-    when(spawn.getInputFiles()).thenReturn(NestedSetBuilder.emptySet(Order.COMPILE_ORDER));
+    when(spawn.getInputFiles()).thenReturn(SpawnInputs.empty());
     doNothing()
         .when(metricsCollector)
         .registerWorker(
@@ -171,7 +172,9 @@ public class WorkerSpawnRunnerTest {
     when(spawn.getInputFiles())
         .thenAnswer(
             invocation ->
-                NestedSetBuilder.create(Order.COMPILE_ORDER, (ActionInput) virtualActionInput));
+                SpawnInputs.of(
+                    NestedSetBuilder.create(
+                        Order.COMPILE_ORDER, (ActionInput) virtualActionInput)));
 
     WorkResponse response =
         runner.execInWorker(
