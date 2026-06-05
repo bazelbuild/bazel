@@ -243,6 +243,7 @@ cc_library(
         ":blaze_util",
         ":startup_options",
         ":workspace_layout",
+        "//src/main/cpp/util",
         "//src/main/cpp/util:blaze_exit_code",
     ],
 )

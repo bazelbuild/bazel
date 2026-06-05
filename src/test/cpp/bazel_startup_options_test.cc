@@ -17,6 +17,8 @@
 #include <stdlib.h>
 
 #include <memory>
+#include <string>
+#include <vector>
 
 #include "src/main/cpp/blaze_util_platform.h"
 #include "src/main/cpp/util/file_platform.h"
@@ -25,6 +27,22 @@
 
 namespace blaze {
 
+namespace {
+
+void ExpectSystemCertJvmArgs(const std::vector<std::string> &args) {
+#if defined(__APPLE__)
+  ASSERT_EQ(1, args.size());
+  EXPECT_EQ("-Djavax.net.ssl.trustStoreType=KeychainStore", args[0]);
+#elif defined(_WIN32) || defined(__CYGWIN__)
+  ASSERT_EQ(1, args.size());
+  EXPECT_EQ("-Djavax.net.ssl.trustStoreType=Windows-ROOT", args[0]);
+#else
+  EXPECT_TRUE(args.empty());
+#endif
+}
+
+}  // namespace
+
 class BazelStartupOptionsTest : public ::testing::Test {
  protected:
   void SetUp() override {
@@ -32,11 +50,20 @@ class BazelStartupOptionsTest : public ::testing::Test {
     // being unset because we expect our test runner to set them in all cases.
     // Otherwise, we'll crash here, but this keeps our code simpler.
     old_test_tmpdir_ = GetPathEnv("TEST_TMPDIR");
+    old_use_system_certs_exists_ = ExistsEnv("BAZEL_USE_SYSTEM_CERTS");
+    old_use_system_certs_ = GetEnv("BAZEL_USE_SYSTEM_CERTS");
 
     ReinitStartupOptions();
   }
 
-  void TearDown() override { SetEnv("TEST_TMPDIR", old_test_tmpdir_); }
+  void TearDown() override {
+    SetEnv("TEST_TMPDIR", old_test_tmpdir_);
+    if (old_use_system_certs_exists_) {
+      SetEnv("BAZEL_USE_SYSTEM_CERTS", old_use_system_certs_);
+    } else {
+      UnsetEnv("BAZEL_USE_SYSTEM_CERTS");
+    }
+  }
 
   // Recreates startup_options_ after changes to the environment.
   void ReinitStartupOptions() {
@@ -53,6 +80,8 @@ class BazelStartupOptionsTest : public ::testing::Test {
 
  private:
   std::string old_test_tmpdir_;
+  bool old_use_system_certs_exists_;
+  std::string old_use_system_certs_;
 };
 
 TEST_F(BazelStartupOptionsTest, ProductName) {
@@ -62,6 +91,48 @@ TEST_F(BazelStartupOptionsTest, ProductName) {
 TEST_F(BazelStartupOptionsTest, JavaLoggingOptions) {
   ASSERT_EQ("com.google.devtools.build.lib.util.SingleLineFormatter",
             startup_options_->java_logging_formatter);
+}
+
+TEST_F(BazelStartupOptionsTest, UseSystemCertsAddsJvmTrustStoreType) {
+  std::string error;
+  const std::vector<RcStartupFlag> flags{
+      RcStartupFlag("somewhere", "--use_system_certs")};
+
+  const blaze_exit_code::ExitCode ec =
+      startup_options_->ProcessArgs(flags, &error);
+  ASSERT_EQ(blaze_exit_code::SUCCESS, ec)
+      << "ProcessArgs failed with error " << error;
+
+  std::vector<std::string> args;
+  startup_options_->AddJVMArgumentPrefix(blaze_util::Path("/javabase"), &args);
+  ExpectSystemCertJvmArgs(args);
+}
+
+TEST_F(BazelStartupOptionsTest, UseSystemCertsEnvAddsJvmTrustStoreType) {
+  SetEnv("BAZEL_USE_SYSTEM_CERTS", "1");
+  ReinitStartupOptions();
+
+  std::vector<std::string> args;
+  startup_options_->AddJVMArgumentPrefix(blaze_util::Path("/javabase"), &args);
+  ExpectSystemCertJvmArgs(args);
+}
+
+TEST_F(BazelStartupOptionsTest, NoUseSystemCertsOverridesEnv) {
+  SetEnv("BAZEL_USE_SYSTEM_CERTS", "1");
+  ReinitStartupOptions();
+
+  std::string error;
+  const std::vector<RcStartupFlag> flags{
+      RcStartupFlag("somewhere", "--nouse_system_certs")};
+
+  const blaze_exit_code::ExitCode ec =
+      startup_options_->ProcessArgs(flags, &error);
+  ASSERT_EQ(blaze_exit_code::SUCCESS, ec)
+      << "ProcessArgs failed with error " << error;
+
+  std::vector<std::string> args;
+  startup_options_->AddJVMArgumentPrefix(blaze_util::Path("/javabase"), &args);
+  EXPECT_TRUE(args.empty());
 }
 
 TEST_F(BazelStartupOptionsTest, EmptyFlagsAreInvalid) {
@@ -247,6 +318,7 @@ TEST_F(BazelStartupOptionsTest, ValidStartupFlags) {
   ExpectValidNullaryOption(options, "ignore_all_rc_files");
   ExpectValidNullaryOption(options, "shutdown_on_low_sys_mem");
   ExpectValidNullaryOption(options, "system_rc");
+  ExpectValidNullaryOption(options, "use_system_certs");
   ExpectValidNullaryOption(options, "workspace_rc");
   ExpectValidNullaryOption(options, "write_command_log");
   ExpectIsUnaryOption(options, "bazelrc");
