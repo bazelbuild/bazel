@@ -25,7 +25,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/analysis:test/instrumented_files_info",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:compilation_mode",
-        "//src/main/java/com/google/devtools/build/lib/analysis/config:invalid_configuration_exception",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform:utils",
         "//src/main/java/com/google/devtools/build/lib/cmdline",

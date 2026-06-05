@@ -148,10 +148,6 @@ bazel_fragments["AppleCommandLineOptions"] = fragment(
     propagate = [
         "//command_line_option:xcode_version_config",
         "//command_line_option:xcode_version",
-        "//command_line_option:ios_sdk_version",
-        "//command_line_option:watchos_sdk_version",
-        "//command_line_option:tvos_sdk_version",
-        "//command_line_option:macos_sdk_version",
         "//command_line_option:host_macos_minimum_os",
         "//command_line_option:experimental_prefer_mutual_xcode",
         "//command_line_option:experimental_include_xcode_execution_requirements",

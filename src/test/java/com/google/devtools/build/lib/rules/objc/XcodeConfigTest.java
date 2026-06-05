@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
-import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.starlark.util.BazelEvaluationTestCase;
@@ -49,17 +48,6 @@ public class XcodeConfigTest extends BuildViewTestCase {
           "XcodeVersionInfo");
 
   private final BazelEvaluationTestCase ev = new BazelEvaluationTestCase();
-
-  @Test
-  public void testEmptyConfig_noVersionFlag() throws Exception {
-    scratch.file(
-        "xcode/BUILD",
-        "load('@build_bazel_apple_support//xcode:xcode_config.bzl', 'xcode_config')",
-        "xcode_config(name = 'foo',)");
-    useConfiguration("--xcode_version_config=//xcode:foo");
-
-    assertIosSdkVersion(AppleCommandLineOptions.DEFAULT_IOS_SDK_VERSION);
-  }
 
   @Test
   public void testDefaultVersion() throws Exception {
@@ -998,71 +986,6 @@ public class XcodeConfigTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testOverrideDefaultSdkVersions() throws Exception {
-    scratch.file(
-        "xcode/BUILD",
-        """
-        load("@build_bazel_apple_support//xcode:xcode_config.bzl", "xcode_config")
-        load("@build_bazel_apple_support//xcode:xcode_version.bzl", "xcode_version")
-
-        xcode_config(
-            name = "foo",
-            default = ":version512",
-            versions = [
-                ":version512",
-                ":version64",
-            ],
-        )
-
-        xcode_version(
-            name = "version512",
-            aliases = [
-                "5",
-                "5.1",
-            ],
-            default_ios_sdk_version = "7.1",
-            version = "5.1.2",
-        )
-
-        xcode_version(
-            name = "version64",
-            aliases = [
-                "6.0",
-                "foo",
-                "6",
-            ],
-            default_ios_sdk_version = "101",
-            default_macos_sdk_version = "104",
-            default_tvos_sdk_version = "103",
-            default_watchos_sdk_version = "102",
-            version = "6.4",
-        )
-        """);
-    useConfiguration(
-        "--xcode_version=6",
-        "--xcode_version_config=//xcode:foo",
-        "--ios_sdk_version=15.3",
-        "--watchos_sdk_version=15.4",
-        "--tvos_sdk_version=15.5",
-        "--macos_sdk_version=15.6");
-
-    assertXcodeVersion("6.4");
-    assertAvailability("unknown");
-    ImmutableMap<ApplePlatform, String> platformToVersion =
-        ImmutableMap.<ApplePlatform, String>builder()
-            .put(ApplePlatform.IOS_SIMULATOR, "15.3")
-            .put(ApplePlatform.WATCHOS_SIMULATOR, "15.4")
-            .put(ApplePlatform.TVOS_SIMULATOR, "15.5")
-            .put(ApplePlatform.MACOS, "15.6")
-            .build();
-    for (ApplePlatform platform : platformToVersion.keySet()) {
-      DottedVersion version = DottedVersion.fromString(platformToVersion.get(platform));
-      assertThat(getSdkVersionForPlatform(platform)).isEqualTo(version);
-      assertThat(getMinimumOsVersionForPlatform(platform)).isEqualTo(version);
-    }
-  }
-
-  @Test
   public void testXcodeVersionFromStarlarkByAlias() throws Exception {
     scratch.file(
         "test_starlark/BUILD",
@@ -1123,7 +1046,6 @@ public class XcodeConfigTest extends BuildViewTestCase {
 
     useConfiguration(
         "--xcode_version_config=//test_starlark:c",
-        "--tvos_sdk_version=2.5",
         "--watchos_minimum_os=4.5");
     ConfiguredTarget r = getConfiguredTarget("//test_starlark:r");
     Provider.Key key =
@@ -1133,7 +1055,6 @@ public class XcodeConfigTest extends BuildViewTestCase {
 
     assertThat(info.getValue("xcode").toString()).isEqualTo("0.0");
     assertThat(info.getValue("ios_sdk").toString()).isEqualTo("1.0");
-    assertThat(info.getValue("tvos_sdk").toString()).isEqualTo("2.5");
     assertThat(info.getValue("macos_min").toString()).isEqualTo("3.0");
     assertThat(info.getValue("watchos_min").toString()).isEqualTo("4.5");
     assertThat(info.getValue("availability").toString()).isEqualTo("unknown");

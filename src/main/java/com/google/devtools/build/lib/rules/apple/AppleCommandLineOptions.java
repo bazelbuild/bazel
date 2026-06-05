@@ -45,50 +45,6 @@ public abstract class AppleCommandLineOptions extends FragmentOptions {
   public abstract String getXcodeVersion();
 
   @Option(
-      name = "ios_sdk_version",
-      defaultValue = "null",
-      converter = DottedVersionConverter.class,
-      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-      effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE},
-      help =
-          "Specifies the version of the iOS SDK to use to build iOS applications. "
-              + "If unspecified, uses the default iOS SDK version from 'xcode_version'.")
-  public abstract DottedVersion.Option getIosSdkVersion();
-
-  @Option(
-      name = "watchos_sdk_version",
-      defaultValue = "null",
-      converter = DottedVersionConverter.class,
-      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-      effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE},
-      help =
-          "Specifies the version of the watchOS SDK to use to build watchOS applications. "
-              + "If unspecified, uses the default watchOS SDK version from 'xcode_version'.")
-  public abstract DottedVersion.Option getWatchOsSdkVersion();
-
-  @Option(
-      name = "tvos_sdk_version",
-      defaultValue = "null",
-      converter = DottedVersionConverter.class,
-      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-      effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE},
-      help =
-          "Specifies the version of the tvOS SDK to use to build tvOS applications. "
-              + "If unspecified, uses the default tvOS SDK version from 'xcode_version'.")
-  public abstract DottedVersion.Option getTvOsSdkVersion();
-
-  @Option(
-      name = "macos_sdk_version",
-      defaultValue = "null",
-      converter = DottedVersionConverter.class,
-      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-      effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE},
-      help =
-          "Specifies the version of the macOS SDK to use to build macOS applications. "
-              + "If unspecified, uses the default macOS SDK version from 'xcode_version'.")
-  public abstract DottedVersion.Option getMacOsSdkVersion();
-
-  @Option(
       name = "ios_minimum_os",
       defaultValue = "null",
       converter = DottedVersionConverter.class,

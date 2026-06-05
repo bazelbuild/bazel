@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
-import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
@@ -1200,14 +1199,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     CommandAction action = compileAction("//objc:lib", "a.o");
 
     assertXcodeVersionEnv(action, "5.8");
-  }
-
-  @Test
-  public void testIosSdkVersionCannotBeDefinedButEmpty() {
-    var e =
-        assertThrows(
-            InvalidConfigurationException.class, () -> useConfiguration("--ios_sdk_version="));
-    assertThat(e).hasMessageThat().contains("--ios_sdk_version");
   }
 
   private void checkErrorIfNotExist(String attribute, String value) throws Exception {
