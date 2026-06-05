@@ -96,6 +96,273 @@ public class PlatformInfoApiTest extends PlatformTestCase {
   }
 
   @Test
+  public void constraints_refinesConstraintValue_satisfied() throws Exception {
+    scratch.file(
+        "libc/BUILD",
+        """
+        constraint_setting(name = "libc")
+
+        constraint_value(
+            name = "glibc",
+            constraint_setting = ":libc",
+        )
+        """);
+    scratch.file(
+        "libc/glibc/BUILD",
+        """
+        constraint_setting(
+            name = "version",
+            refines_constraint_value = "//libc:glibc",
+        )
+
+        constraint_value(
+            name = "2.42",
+            constraint_setting = ":version",
+        )
+        """);
+    scratch.file(
+        "platforms/BUILD",
+        """
+        platform(
+            name = "glibc242",
+            constraint_values = [
+                "//libc:glibc",
+                "//libc/glibc:2.42",
+            ],
+        )
+        """);
+
+    PlatformInfo platformInfo = fetchPlatformInfo("//platforms:glibc242");
+    assertThat(platformInfo).isNotNull();
+  }
+
+  @Test
+  public void constraints_refinesConstraintValue_alias_satisfied() throws Exception {
+    scratch.file(
+        "libc/BUILD",
+        """
+        constraint_setting(name = "libc")
+
+        constraint_value(
+            name = "glibc",
+            constraint_setting = ":libc",
+        )
+
+        alias(
+            name = "glibc_alias",
+            actual = ":glibc",
+        )
+        """);
+    scratch.file(
+        "libc/glibc/BUILD",
+        """
+        constraint_setting(
+            name = "version",
+            refines_constraint_value = "//libc:glibc_alias",
+        )
+
+        constraint_value(
+            name = "2.42",
+            constraint_setting = ":version",
+        )
+        """);
+    // The refined value is declared by its real label even though refines_constraint_value used
+    // an alias.
+    scratch.file(
+        "platforms/BUILD",
+        """
+        platform(
+            name = "glibc242",
+            constraint_values = [
+                "//libc:glibc",
+                "//libc/glibc:2.42",
+            ],
+        )
+        """);
+
+    PlatformInfo platformInfo = fetchPlatformInfo("//platforms:glibc242");
+    assertThat(platformInfo).isNotNull();
+  }
+
+  @Test
+  public void constraints_refinesConstraintValue_missingRefined_error() throws Exception {
+    scratch.file(
+        "libc/BUILD",
+        """
+        constraint_setting(name = "libc")
+
+        constraint_value(
+            name = "glibc",
+            constraint_setting = ":libc",
+        )
+        """);
+    scratch.file(
+        "libc/glibc/BUILD",
+        """
+        constraint_setting(
+            name = "version",
+            refines_constraint_value = "//libc:glibc",
+        )
+
+        constraint_value(
+            name = "2.42",
+            constraint_setting = ":version",
+        )
+        """);
+    checkError(
+        "platforms",
+        "broken",
+        "constraint_value //libc/glibc:2.42 refines //libc:glibc, but platform //platforms:broken"
+            + " does not set the latter.",
+        """
+        platform(
+            name = "broken",
+            constraint_values = ["//libc/glibc:2.42"],
+        )
+        """);
+    assertContainsEvent("buildozer 'add constraint_values //libc:glibc' //platforms:broken");
+  }
+
+  @Test
+  public void constraints_refinesConstraintValue_wrongValue_error() throws Exception {
+    scratch.file(
+        "libc/BUILD",
+        """
+        constraint_setting(name = "libc")
+
+        constraint_value(
+            name = "glibc",
+            constraint_setting = ":libc",
+        )
+
+        constraint_value(
+            name = "musl",
+            constraint_setting = ":libc",
+        )
+        """);
+    scratch.file(
+        "libc/glibc/BUILD",
+        """
+        constraint_setting(
+            name = "version",
+            refines_constraint_value = "//libc:glibc",
+        )
+
+        constraint_value(
+            name = "2.42",
+            constraint_setting = ":version",
+        )
+        """);
+    // The platform sets a conflicting value (musl) for the refined setting.
+    checkError(
+        "platforms",
+        "wrong",
+        "constraint_value //libc/glibc:2.42 refines //libc:glibc, but platform //platforms:wrong"
+            + " sets the conflicting constraint_value //libc:musl for //libc",
+        """
+        platform(
+            name = "wrong",
+            constraint_values = [
+                "//libc:musl",
+                "//libc/glibc:2.42",
+            ],
+        )
+        """);
+    // A conflicting value is a likely-real contradiction, so no mechanical buildozer fixup is
+    // suggested.
+    assertDoesNotContainEvent("buildozer");
+  }
+
+  @Test
+  public void constraints_refinesConstraintValue_defaultNotEnforced() throws Exception {
+    scratch.file(
+        "libc/BUILD",
+        """
+        constraint_setting(name = "libc")
+
+        constraint_value(
+            name = "glibc",
+            constraint_setting = ":libc",
+        )
+        """);
+    scratch.file(
+        "libc/glibc/BUILD",
+        """
+        constraint_setting(
+            name = "version",
+            default_constraint_value = ":unknown",
+            refines_constraint_value = "//libc:glibc",
+        )
+
+        constraint_value(
+            name = "unknown",
+            constraint_setting = ":version",
+        )
+
+        constraint_value(
+            name = "2.42",
+            constraint_setting = ":version",
+        )
+        """);
+    // Platform may explicitly set the *default* refining value without declaring the refined one.
+    scratch.file(
+        "platforms/BUILD",
+        """
+        platform(
+            name = "default_only",
+            constraint_values = ["//libc/glibc:unknown"],
+        )
+        """);
+
+    PlatformInfo platformInfo = fetchPlatformInfo("//platforms:default_only");
+    assertThat(platformInfo).isNotNull();
+  }
+
+  @Test
+  public void constraints_refinesConstraintValue_inheritedFromParent() throws Exception {
+    scratch.file(
+        "libc/BUILD",
+        """
+        constraint_setting(name = "libc")
+
+        constraint_value(
+            name = "glibc",
+            constraint_setting = ":libc",
+        )
+        """);
+    scratch.file(
+        "libc/glibc/BUILD",
+        """
+        constraint_setting(
+            name = "version",
+            refines_constraint_value = "//libc:glibc",
+        )
+
+        constraint_value(
+            name = "2.42",
+            constraint_setting = ":version",
+        )
+        """);
+    scratch.file(
+        "platforms/BUILD",
+        """
+        platform(
+            name = "parent",
+            constraint_values = ["//libc:glibc"],
+        )
+
+        platform(
+            name = "child",
+            parents = [":parent"],
+            constraint_values = ["//libc/glibc:2.42"],
+        )
+        """);
+
+    PlatformInfo platformInfo = fetchPlatformInfo("//platforms:child");
+    assertThat(platformInfo).isNotNull();
+  }
+
+  @Test
   public void constraints_invalidTarget_error() throws Exception {
     checkError(
         "foo",
