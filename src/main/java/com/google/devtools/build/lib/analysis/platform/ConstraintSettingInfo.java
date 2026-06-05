@@ -118,7 +118,7 @@ public class ConstraintSettingInfo extends NativeInfo implements ConstraintSetti
       printer.append(", default_constraint_value=").append(defaultConstraintValueLabel.toString());
     }
     if (refinedConstraintValue != null) {
-      printer.append(", refines_constraint_value=").str(refinedConstraintValue.label(), semantics);
+      printer.append(", refines_constraint_value=").append(refinedConstraintValue.label());
     }
     printer.append(")");
   }
