@@ -915,11 +915,15 @@ public class BuildView {
         if (target instanceof Rule rule) {
           if (isExclusive || TargetUtils.isExclusiveTestRule(rule)) {
             exclusiveTests.add(configuredTarget);
-          } else if (TargetUtils.isExclusiveIfLocalTestRule((Rule) target)
-              && TargetUtils.isLocalTestRule((Rule) target)) {
-            exclusiveTests.add(configuredTarget);
-          } else if (TargetUtils.isExclusiveIfLocalTestRule((Rule) target)) {
-            exclusiveIfLocalTests.add(configuredTarget);
+          } else if (TargetUtils.isExclusiveIfLocalTestRule(rule)) {
+            // An "exclusive-if-local" test that can never run remotely (because it is pinned to
+            // local execution by its tags) must stay serialized. Only tests that are actually
+            // eligible for remote execution may later be promoted to parallel tests.
+            if (TargetUtils.isLocalTestRule(rule) || TargetUtils.isNoRemoteExecTestRule(rule)) {
+              exclusiveTests.add(configuredTarget);
+            } else {
+              exclusiveIfLocalTests.add(configuredTarget);
+            }
           } else {
             parallelTests.add(configuredTarget);
           }
