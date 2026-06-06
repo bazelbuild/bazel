@@ -37,7 +37,7 @@ class JavaBinaryLauncher : public BinaryLauncherBase {
         singlejar(false),
         print_javabin(false),
         classpath_limit(MAX_ARG_STRLEN),
-        junction_base_dir_suffix_(GetRandomStr(10)) {}
+        rand_id_(GetRandomStr(10)) {}
   ~JavaBinaryLauncher() override = default;
   ExitCode Launch() override;
 
@@ -88,9 +88,9 @@ class JavaBinaryLauncher : public BinaryLauncherBase {
   bool singlejar;
   bool print_javabin;
   int classpath_limit;
-  // Per-invocation random suffix used to make the junction base directory
-  // unique across concurrent launcher processes sharing the same binary path.
-  const std::wstring junction_base_dir_suffix_;
+  // Per-invocation random suffix used to uniquify the junction base dir and
+  // classpath jar across concurrent launcher processes sharing the same binary.
+  const std::wstring rand_id_;
 
   // Create a classpath jar to pass CLASSPATH value when its length is over
   // limit.
