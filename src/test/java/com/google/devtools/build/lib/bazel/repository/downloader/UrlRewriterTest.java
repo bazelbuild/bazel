@@ -471,6 +471,48 @@ public class UrlRewriterTest {
     }
   }
 
+
+  @Test
+  public void rewriteRuleProducingNullHostUriDoesNotCrash() throws Exception {
+    // A rewrite rule whose replacement contains an unsubstituted placeholder of the form
+    // @VAR@ causes prefixWithProtocol to produce "https://@VAR@/path". Java's URI parser
+    // splits the authority at the last '@', leaving an empty (or null) host.
+    // isMatchingHostName must not NPE — the URL should be treated as unmatched by the
+    // allow-list and fall through to the block-list.
+    String config = "block *\nrewrite (example.com)/(.*) @UNSUBSTITUTED@/$1/$2";
+    UrlRewriter rewriter = testUrlRewriter("/dev/null", new StringReader(config));
+
+    // Should not throw; the malformed rewritten URL matches nothing in the allow-list
+    // and is then blocked by "block *", so the result is an empty list.
+    ImmutableList<URI> amended =
+        rewriter
+            .amend(ImmutableList.of(URI.create("https://example.com/foo/bar")))
+            .stream()
+            .map(UrlRewriter.RewrittenURL::url)
+            .collect(toImmutableList());
+
+    assertThat(amended).isEmpty();
+  }
+
+  @Test
+  public void allowListDoesNotCrashOnNullHostUri() throws Exception {
+    // Guard the allow-list path: even if a rewritten URI has a null host, iterating
+    // the allow-list must not NPE.
+    String config = "allow example.com\nblock *\nrewrite (example.com)/(.*) @PLACEHOLDER@/$1/$2";
+    UrlRewriter rewriter = testUrlRewriter("/dev/null", new StringReader(config));
+
+    ImmutableList<URI> amended =
+        rewriter
+            .amend(ImmutableList.of(URI.create("https://example.com/foo")))
+            .stream()
+            .map(UrlRewriter.RewrittenURL::url)
+            .collect(toImmutableList());
+
+    // The rewritten URL has a null/malformed host and should NOT match the allow-list
+    // entry for "example.com", so it falls through to "block *" and is dropped.
+    assertThat(amended).isEmpty();
+  }
+
   private static Credentials parseNetrc(String content)
       throws IOException, UrlRewriterParseException {
     String home = "/home/foo";
