@@ -168,7 +168,8 @@ static void WriteJarClasspath(const wstring& jar_path,
 wstring JavaBinaryLauncher::GetJunctionBaseDir() {
   wstring binary_base_path = GetBinaryPathWithExtension(GetLauncherPath());
   wstring result;
-  if (!NormalizePath(binary_base_path + L".j", &result)) {
+  if (!NormalizePath(binary_base_path + L".j-" + junction_base_dir_suffix_,
+                     &result)) {
     die(L"Failed to get normalized junction base directory.");
   }
   return result;
