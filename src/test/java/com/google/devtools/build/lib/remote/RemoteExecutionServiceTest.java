@@ -260,6 +260,21 @@ public class RemoteExecutionServiceTest {
   }
 
   @Test
+  public void forceExclusiveIfLocalTestsInParallel_withRemoteExecutor_returnsTrue() {
+    RemoteExecutionService service = newRemoteExecutionService();
+
+    assertThat(service.forceExclusiveIfLocalTestsInParallel()).isTrue();
+  }
+
+  @Test
+  public void forceExclusiveIfLocalTestsInParallel_withoutRemoteExecutor_returnsFalse() {
+    executor = null;
+    RemoteExecutionService service = newRemoteExecutionService();
+
+    assertThat(service.forceExclusiveIfLocalTestsInParallel()).isFalse();
+  }
+
+  @Test
   public void buildRemoteAction_withRegularFileAsOutput() throws Exception {
     PathFragment execPath = execRoot.getRelative("path/to/tree").asFragment();
     Spawn spawn =

@@ -364,6 +364,14 @@ public class RemoteExecutionService {
         && !isScrubbedSpawn(spawn, scrubber);
   }
 
+  /**
+   * Returns {@code true} if this service is configured for remote execution, in which case
+   * "exclusive-if-local" tests should be allowed to run in parallel rather than serialized.
+   */
+  public boolean forceExclusiveIfLocalTestsInParallel() {
+    return combinedCache instanceof RemoteExecutionCache && remoteExecutor != null;
+  }
+
   @Nullable
   private static ByteString buildSalt(Spawn spawn, @Nullable SpawnScrubber spawnScrubber) {
     CacheSalt.Builder saltBuilder =

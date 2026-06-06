@@ -1135,7 +1135,10 @@ public final class SkyframeBuildView {
     TestType fromExplicitFlagOrTag;
     if (buildDriverKeyTestContext.getTestStrategy().equals("exclusive")
         || TargetUtils.isExclusiveTestRule(rule)
-        || (TargetUtils.isExclusiveIfLocalTestRule(rule) && TargetUtils.isLocalTestRule(rule))) {
+        || (TargetUtils.isExclusiveIfLocalTestRule(rule)
+            && (TargetUtils.isLocalTestRule(rule) || TargetUtils.isNoRemoteExecTestRule(rule)))) {
+      // An "exclusive-if-local" test that can never run remotely (because it is pinned to local
+      // execution by its tags) is treated like an ordinary "exclusive" test.
       fromExplicitFlagOrTag = TestType.EXCLUSIVE;
     } else if (TargetUtils.isExclusiveIfLocalTestRule(rule)) {
       fromExplicitFlagOrTag = TestType.EXCLUSIVE_IF_LOCAL;
@@ -1143,10 +1146,8 @@ public final class SkyframeBuildView {
       fromExplicitFlagOrTag = TestType.PARALLEL;
     }
 
-    if ((fromExplicitFlagOrTag == TestType.EXCLUSIVE
-            && buildDriverKeyTestContext.forceExclusiveTestsInParallel())
-        || (fromExplicitFlagOrTag == TestType.EXCLUSIVE_IF_LOCAL
-            && buildDriverKeyTestContext.forceExclusiveIfLocalTestsInParallel())) {
+    if (fromExplicitFlagOrTag == TestType.EXCLUSIVE
+        && buildDriverKeyTestContext.forceExclusiveTestsInParallel()) {
       eventHandler.handle(
           Event.warn(
               label
@@ -1155,6 +1156,13 @@ public final class SkyframeBuildView {
                   + ", but --test_strategy="
                   + buildDriverKeyTestContext.getTestStrategy()
                   + " forces parallel test execution."));
+      return TestType.PARALLEL;
+    }
+    // A remote-eligible "exclusive-if-local" test is allowed to run in parallel when remote
+    // execution is enabled. This is the expected behavior of the tag rather than a forced override,
+    // so (unlike the "exclusive" case above) no warning is emitted.
+    if (fromExplicitFlagOrTag == TestType.EXCLUSIVE_IF_LOCAL
+        && buildDriverKeyTestContext.forceExclusiveIfLocalTestsInParallel()) {
       return TestType.PARALLEL;
     }
     return fromExplicitFlagOrTag;

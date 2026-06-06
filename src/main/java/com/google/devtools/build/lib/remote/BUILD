@@ -570,6 +570,7 @@ java_library(
     name = "remote_spawn_strategy",
     srcs = ["RemoteSpawnStrategy.java"],
     deps = [
+        ":bazel_output_service_cluster",
         "//src/main/java/com/google/devtools/build/lib/exec:abstract_spawn_strategy",
         "//src/main/java/com/google/devtools/build/lib/exec:execution_options",
         "//src/main/java/com/google/devtools/build/lib/exec:spawn_runner",
