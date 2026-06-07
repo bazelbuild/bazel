@@ -1,4 +1,6 @@
 load("@bazel_lib//lib:copy_file.bzl", "copy_file")
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_cc//cc:objc_library.bzl", "objc_library")
 load(
     "//tools/osx:xcode_version_flag.bzl",
     "ios_sdk_version_flag",
@@ -27,10 +29,37 @@ exports_files([
     "xcode_configure.bzl",
 ])
 
+objc_library(
+    name = "xcode-locator-lib",
+    srcs = ["xcode_locator.m"],
+    sdk_frameworks = [
+        "CoreServices",
+        "Foundation",
+    ],
+    target_compatible_with = ["@platforms//os:osx"],
+)
+
+cc_binary(
+    name = "xcode-locator-macos",
+    target_compatible_with = ["@platforms//os:osx"],
+    deps = [":xcode-locator-lib"],
+)
+
+copy_file(
+    name = "xcode-locator-stub-copy",
+    src = "xcode_locator_stub.sh",
+    out = "xcode-locator-stub",
+    is_executable = True,
+)
+
 copy_file(
     name = "xcode-locator-genrule",
-    src = "xcode_locator_stub.sh",
+    src = select({
+        "//src/conditions:darwin": ":xcode-locator-macos",
+        "//conditions:default": "xcode-locator-stub",
+    }),
     out = "xcode-locator",
+    allow_symlink = True,
     is_executable = True,
 )
 

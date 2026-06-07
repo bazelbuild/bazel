@@ -47,6 +47,23 @@ bazel_dep(name = "zstd-jni", version = "1.5.6-9")
 bazel_dep(name = "apple_support", version = "2.3.0")
 bazel_dep(name = "rules_cc", version = "0.2.19")
 
+osx = use_extension("@llvm//extensions:osx.bzl", "osx")
+osx.frameworks(
+    names = [
+        "CFNetwork",
+        "CoreFoundation",
+        "CoreGraphics",
+        "CoreServices",
+        "DiskArbitration",
+        "Foundation",
+        "IOKit",
+        "Kernel",
+        "OSLog",
+        "Security",
+        "SystemConfiguration",
+    ],
+)
+
 register_toolchains("@llvm//toolchain:all")
 
 # The starlark rules in @rules_cc are hidden behind macros but docgen needs to
