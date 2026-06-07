@@ -34,6 +34,8 @@ common:remote --jobs=800
 common:remote --extra_execution_platforms=@llvm//:rbe_platform
 common:remote --shell_executable=/bin/bash
 common:remote --action_env=PATH=/bin:/usr/bin:/usr/local/bin
+common:remote --@rules_python//python/config_settings:bootstrap_impl=script
+common:remote --@rules_python//python/config_settings:build_python_zip=false
 
 common:macos --host_macos_minimum_os=10.13
 common:macos --macos_minimum_os=10.13

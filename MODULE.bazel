@@ -98,6 +98,13 @@ single_version_override(
     version = "6.8",
 )
 
+single_version_override(
+    module_name = "rules_python",
+    patch_strip = 1,
+    patches = ["//third_party:rules_python_1.7.0_hermetic_zip.patch"],
+    version = "1.7.0",
+)
+
 # TODO(pcloudy): Remove once the next version of rules_graalvm is available.
 single_version_override(
     module_name = "rules_graalvm",
@@ -124,6 +131,13 @@ single_version_override(
     patch_strip = 1,
     patches = ["//third_party:googleapis.patch"],
     version = "0.0.0-20250604-de157ca3",
+)
+
+single_version_override(
+    module_name = "grpc",
+    patch_strip = 1,
+    patches = ["//third_party:grpc_1.76.0.bcr.1_hermetic_plugin.patch"],
+    version = "1.76.0.bcr.1",
 )
 
 single_version_override(
@@ -305,10 +319,10 @@ maven.override(
 # Pin to the version in //third_party/asm/... to avoid one-version violations.
 [
     maven.artifact(
-        group = "org.ow2.asm",
         artifact = artifact,
-        version = "9.10",
         force_version = True,
+        group = "org.ow2.asm",
+        version = "9.10",
     )
     for artifact in [
         "asm",
@@ -485,7 +499,6 @@ use_repo(
 bazel_dep(name = "bazel_ci_rules", version = "2.0.0")
 bazel_dep(name = "rules_fuzzing", version = "0.6.0")
 bazel_dep(name = "wabt", version = "1.0.37")
-
 
 rbe = use_extension("@bazel_ci_rules//:rbe_config.bzl", "rbe_config_extension")
 rbe.config(

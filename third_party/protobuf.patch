@@ -12,7 +12,7 @@ index 2a38c7475..e7736a675 100644
 -    ],
 +    visibility = ["//visibility:public"],
  )
- 
+
  proto_library(
 diff --git a/upb/BUILD b/upb/BUILD
 index 426bf9124..fd17ac96c 100644
@@ -21,7 +21,7 @@ index 426bf9124..fd17ac96c 100644
 @@ -115,6 +115,26 @@ cc_library(
      visibility = ["//hpb/bazel:__pkg__"],
  )
- 
+
 +# Aliases ######################################################################
 +
 +alias(
@@ -43,7 +43,7 @@ index 426bf9124..fd17ac96c 100644
 +)
 +
  # Amalgamation #################################################################
- 
+
  upb_amalgamation(
 diff --git a/src/google/protobuf/compiler/java/full/message.cc b/src/google/protobuf/compiler/java/full/message.cc
 index dd290f98c..1f100c568 100644
@@ -76,3 +76,68 @@ index dd290f98c..1f100c568 100644
    printer->Print(
        "@java.lang.Override\n"
        "public final boolean isInitialized() {\n");
+diff --git a/upb_generator/bootstrap_compiler.bzl b/upb_generator/bootstrap_compiler.bzl
+--- a/upb_generator/bootstrap_compiler.bzl
++++ b/upb_generator/bootstrap_compiler.bzl
+@@ -18,7 +18,8 @@
+ _stages = ["_stage0", "_stage1", ""]
+ _protoc = "//src/google/protobuf/compiler/release:protoc_minimal"
+
+-_extra_proto_path = "-I$$(dirname $(location //:descriptor_proto_srcs))/../.. "
++_descriptor_proto = "$(location //:descriptor_proto_srcs)"
++_extra_proto_path = "-I$${DESCRIPTOR_PROTO%/google/protobuf/descriptor.proto} "
+
+ # This visibility is used automatically for anything used by the bootstrapping process.
+ _bootstrap_visibility = [
+@@ -111,6 +112,7 @@
+         outs = ["bootstrap_generated_sources/" + f.replace("third_party", "3rd_party") for f in _generated_hdrs_and_srcs(src_files, "stage0", "upb")],
+         tools = [_protoc, _upbc("upb", 0)],
+         cmd =
++            "DESCRIPTOR_PROTO=" + _descriptor_proto + "; " +
+             "$(location " + _protoc + ") " +
+             "-I. -I$(GENDIR)/" + strip_prefix + " " + _extra_proto_path +
+             "--plugin=protoc-gen-upb=$(location " + _upbc("upb", 0) + ") " +
+@@ -137,7 +139,8 @@
+         name = "gen_{}_{}_stage1".format(name, generator),
+         srcs = src_rules,
+         outs = _generated_hdrs_and_srcs(src_files, "stage1", generator),
+-        cmd = "$(location " + _protoc + ") " +
++        cmd = "DESCRIPTOR_PROTO=" + _descriptor_proto + "; " +
++              "$(location " + _protoc + ") " +
+               "--plugin=protoc-gen-" + generator +
+               "=$(location " + _upbc(generator, 0) + ") " + _extra_proto_path +
+               "--" + generator + "_out=bootstrap_stage=1:$(RULEDIR)/stage1 " +
+diff --git a/protobuf.bzl b/protobuf.bzl
+--- a/protobuf.bzl
++++ b/protobuf.bzl
+@@ -92,6 +92,12 @@
+         return toolchain.proto.proto_compiler
+     else:
+         return ctx.attr._proto_compiler[DefaultInfo].files_to_run
++
++def _protoc_path_separator(ctx):
++    protoc = _protoc_files_to_run(ctx).executable
++    if protoc and protoc.extension == "exe":
++        return ";"
++    return ":"
+
+ ProtoGenInfo = provider(
+     fields = ["srcs", "import_flags", "deps"],
+@@ -320,7 +326,7 @@
+     args.add_joined(
+         "--descriptor_set_in",
+         descriptors,
+-        join_with = ctx.configuration.host_path_separator,
++        join_with = _protoc_path_separator(ctx),
+     )
+
+     for dep in deps:
+@@ -380,7 +386,7 @@
+     args.add_joined(
+         "--descriptor_set_in",
+         descriptors,
+-        join_with = ctx.configuration.host_path_separator,
++        join_with = _protoc_path_separator(ctx),
+     )
+
+     for dep in deps:

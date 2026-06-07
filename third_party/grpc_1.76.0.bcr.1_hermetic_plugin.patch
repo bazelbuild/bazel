@@ -1,0 +1,56 @@
+diff --git a/bazel/grpc_build_system.bzl b/bazel/grpc_build_system.bzl
+--- a/bazel/grpc_build_system.bzl
++++ b/bazel/grpc_build_system.bzl
+@@ -27,6 +27,7 @@
+ Contains macros used throughout the repo.
+ """
+
++load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
+ load("@build_bazel_apple_support//rules:universal_binary.bzl", "universal_binary")
+ load("@build_bazel_rules_apple//apple:ios.bzl", "ios_unit_test")
+ load("@build_bazel_rules_apple//apple/testing/default_runner:ios_test_runner.bzl", "ios_test_runner")
+@@ -207,15 +208,15 @@
+     )
+
+     # In order to avoid warnings from Bazel, names of the rule and its output file must differ.
+-    native.genrule(
++    copy_file(
+         name = name,
+-        srcs = select({
+-            "@platforms//os:macos": [name + "_universal"],
+-            "//conditions:default": [name + "_native"],
++        src = select({
++            "@platforms//os:macos": name + "_universal",
++            "//conditions:default": name + "_native",
+         }),
+-        outs = [name + "_binary"],
+-        cmd = "cp $< $@",
+-        executable = True,
++        out = name + "_binary",
++        allow_symlink = True,
++        is_executable = True,
+     )
+
+ def grpc_internal_proto_library(
+diff --git a/BUILD b/BUILD
+--- a/BUILD
++++ b/BUILD
+@@ -4274,6 +4274,7 @@
+         "//src/core:error",
+         "//src/core:json",
+         "//src/core:load_file",
++        "//src/core:slice",
+         "//src/core:useful",
+     ],
+ )
+diff --git a/src/core/BUILD b/src/core/BUILD
+--- a/src/core/BUILD
++++ b/src/core/BUILD
+@@ -2931,6 +2931,7 @@
+         "grpc_check",
+         "iomgr_port",
+         "posix_event_engine_timer_manager",
++        "resource_quota",
+         "sync",
+         "time",
+         "windows_endpoint",

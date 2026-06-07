@@ -6,7 +6,7 @@
      out = "ares_build.h",
 +    allow_symlink = True,
  )
- 
+
  copy_file(
 @@ -71,6 +72,7 @@
          "//conditions:default": "configs/config_linux/ares_config.h",
@@ -14,5 +14,41 @@
      out = "ares_config.h",
 +    allow_symlink = True,
  )
- 
+
  cc_library(
+diff --git a/BUILD.bazel b/BUILD.bazel
+--- a/BUILD.bazel
++++ b/BUILD.bazel
+@@ -1,3 +1,4 @@
++load("@bazel_skylib//lib:selects.bzl", "selects")
+ load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
+ load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
+@@ -11,6 +12,14 @@
+     constraint_values = ["@platforms//os:windows"],
+ )
+
++selects.config_setting_group(
++    name = "windows_clang",
++    match_all = [
++        ":windows",
++        "@rules_cc//cc/compiler:clang",
++    ],
++)
++
+ # Android is not officially supported through C++.
+ # This just helps with the build for now.
+ config_setting(
+@@ -236,6 +245,12 @@
+             "-defaultlib:iphlpapi.lib",
+         ],
+         "//conditions:default": [],
++    }) + select({
++        ":windows_clang": [
++            "-lws2_32",
++            "-liphlpapi",
++        ],
++        "//conditions:default": [],
+     }),
+     linkstatic = 1,
+     visibility = [
