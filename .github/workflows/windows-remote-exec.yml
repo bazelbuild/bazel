@@ -25,7 +25,8 @@ jobs:
       - name: Run no-XML shell test with the built Bazel
         shell: pwsh
         run: |
-          $bazel = Resolve-Path bazel-bin/src/bazel.exe
+          $bazel = Join-Path $env:RUNNER_TEMP bazel-under-test.exe
+          Copy-Item bazel-bin/src/bazel $bazel
           & $bazel --output_base="$env:RUNNER_TEMP/bazel-remote-test" test `
             --config=remote `
             --platforms=@llvm//platforms:linux_amd64 `
