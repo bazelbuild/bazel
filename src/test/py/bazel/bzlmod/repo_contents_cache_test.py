@@ -763,6 +763,101 @@ class RepoContentsCacheTest(test_base.TestBase):
     # by the replanting logic, so cross-repo symlinks prevent caching.
     self.doTestCachedRepoWithSymlinks(expect_cross_repo_cached=False)
 
+  def doTestReplantedWorkspaceSymlinkAccessibleFromExecroot(self):
+    # Regression test for https://github.com/bazelbuild/bazel/issues/29515:
+    # a reproducible repo rule that symlinks files from the main workspace has
+    # those symlinks replanted through the `_main` redirect under the external
+    # root (i.e. `../_main/...`). Actions access the repo through the execroot
+    # external path, so the replanted symlinks must resolve from there too. On
+    # Windows, where symlinks resolve using logical rather than physical paths,
+    # this previously failed.
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'local_link_repo = use_repo_rule("//:repo.bzl", "local_link_repo")',
+            'local_link_repo(',
+            '    name = "linked",',
+            '    anchor = "//payload:hello.txt",',
+            ')',
+        ],
+    )
+    self.ScratchFile('payload/hello.txt', ['Hello from the workspace!'])
+    self.ScratchFile('payload/src/lib.txt', ['Hello from a nested dir!'])
+    self.ScratchFile(
+        'payload/BUILD.bazel',
+        ['exports_files(["hello.txt", "src/lib.txt"])'],
+    )
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _local_link_repo_impl(rctx):',
+            '    root = rctx.path(rctx.attr.anchor).dirname',
+            '    for entry in root.readdir():',
+            # Absolute symlinks into the main workspace, which get replanted
+            # through the `_main` redirect under the external root.
+            '        rctx.symlink(entry, entry.basename)',
+            '    rctx.file("BUILD.bazel", """',
+            'package(default_visibility = ["//visibility:public"])',
+            'exports_files(["hello.txt", "src/lib.txt"])',
+            '""")',
+            '    return rctx.repo_metadata(reproducible = True)',
+            '',
+            'local_link_repo = repository_rule(',
+            '    implementation = _local_link_repo_impl,',
+            '    attrs = {',
+            '        "anchor": attr.label('
+            'allow_single_file = True, mandatory = True),',
+            '    },',
+            ')',
+        ],
+    )
+    self.ScratchFile(
+        'BUILD.bazel',
+        [
+            'genrule(',
+            '    name = "copy_file",',
+            '    srcs = ["@linked//:hello.txt"],',
+            '    outs = ["copied_hello.txt"],',
+            '    cmd = "cp $(location @linked//:hello.txt) $@",',
+            '    cmd_bat = "copy /Y $(location @linked//:hello.txt) $@",',
+            ')',
+            'genrule(',
+            '    name = "copy_nested_file",',
+            '    srcs = ["@linked//:src/lib.txt"],',
+            '    outs = ["copied_lib.txt"],',
+            '    cmd = "cp $(location @linked//:src/lib.txt) $@",',
+            '    cmd_bat = "copy /Y $(location @linked//:src/lib.txt) $@",',
+            ')',
+        ],
+    )
+
+    self.RunBazel(['build', '//:copy_file', '//:copy_nested_file'])
+    self.AssertFileContentContains(
+        os.path.join(self._test_cwd, 'bazel-bin/copied_hello.txt'),
+        'Hello from the workspace!',
+    )
+    self.AssertFileContentContains(
+        os.path.join(self._test_cwd, 'bazel-bin/copied_lib.txt'),
+        'Hello from a nested dir!',
+    )
+
+  def testReplantedWorkspaceSymlinkAccessibleFromExecroot(self):
+    self.doTestReplantedWorkspaceSymlinkAccessibleFromExecroot()
+
+  def testReplantedWorkspaceSymlinkAccessibleFromExecroot_symlinksEnabledOnWindows(
+      self,
+  ):
+    if not self.IsWindows():
+      self.skipTest('This test is only relevant on Windows')
+    self.ScratchFile(
+        '.bazelrc',
+        [
+            'startup --windows_enable_symlinks',
+        ],
+        mode='a',
+    )
+    self.doTestReplantedWorkspaceSymlinkAccessibleFromExecroot()
+
 
 if __name__ == '__main__':
   absltest.main()
