@@ -19,8 +19,19 @@ common:ubuntu2404 --host_platform=//:rbe_ubuntu2404_platform
 common:ubuntu2404 --platforms=//:rbe_ubuntu2404_platform
 common:ubuntu2404 --config=remote_shared
 
-# Alias
-common:remote --config=ubuntu2404
+# BuildBuddy remote execution with a hermetic Linux execution platform. Pass
+# --remote_header=x-buildbuddy-api-key=... separately when authentication is
+# required.
+common:remote --bes_results_url=https://app.buildbuddy.io/invocation/
+common:remote --bes_backend=grpcs://remote.buildbuddy.io
+common:remote --experimental_remote_downloader=grpcs://remote.buildbuddy.io
+common:remote --remote_cache=grpcs://remote.buildbuddy.io
+common:remote --remote_cache_compression
+common:remote --remote_download_toplevel
+common:remote --remote_executor=grpcs://remote.buildbuddy.io
+common:remote --remote_timeout=120
+common:remote --jobs=800
+common:remote --extra_execution_platforms=@llvm//:rbe_platform
 
 common:macos --host_macos_minimum_os=10.13
 common:macos --macos_minimum_os=10.13
