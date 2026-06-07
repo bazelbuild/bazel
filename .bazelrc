@@ -1,4 +1,5 @@
 common --enable_platform_specific_config
+common --@rules_python//python/config_settings:bootstrap_impl=script
 
 # Either consumed as @remoteapis or as files.
 common --deleted_packages=third_party/remoteapis
