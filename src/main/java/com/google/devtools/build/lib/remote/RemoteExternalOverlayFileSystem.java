@@ -54,7 +54,6 @@ import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import java.io.ByteArrayInputStream;
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InterruptedIOException;
@@ -273,7 +272,7 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
     var walkResult = walk(remoteRepo);
     var unused =
         getFromFuture(
-            inputPrefetcher.prefetchFilesInterruptibly(
+            inputPrefetcher.prefetchFiles(
                 /* action= */ null,
                 Iterables.transform(
                     walkResult.files(), path -> ActionInputHelper.fromPath(path.asFragment())),
@@ -565,7 +564,6 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
   public void chmod(PathFragment path, int mode) throws IOException {
     fsForPath(path).chmod(path, mode);
   }
-
 
   private final class RemoteExternalFileSystem
       extends RemoteActionFileSystem.RemoteInMemoryFileSystem {

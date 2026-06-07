@@ -337,29 +337,6 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       MetadataSupplier metadataSupplier,
       Priority priority,
       Reason reason) {
-    return prefetchFilesInterruptibly(action, inputs, metadataSupplier, priority, reason);
-  }
-
-  /**
-   * Fetches remotely stored action outputs and stores them under their path in the output base.
-   *
-   * <p>The {@code inputs} may not contain any unexpanded directories.
-   *
-   * <p>This method is safe to be called concurrently from spawn runners before running any local
-   * spawn.
-   *
-   * <p>This method is similar to #prefetchFiles() above, but note that {@code metadataSupplier} may
-   * throw {@link InterruptedException}. If it does, this method will propagate this exception in
-   * the returned future.
-   *
-   * @return a future that is completed once all downloads have finished.
-   */
-  public ListenableFuture<Void> prefetchFilesInterruptibly(
-      @Nullable ActionExecutionMetadata action,
-      Iterable<? extends ActionInput> inputs,
-      MetadataSupplier metadataSupplier,
-      Priority priority,
-      Reason reason) {
     List<ActionInput> files = new ArrayList<>();
 
     for (ActionInput input : inputs) {
