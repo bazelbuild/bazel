@@ -31,6 +31,7 @@ jobs:
           $bazel = Resolve-Path bazel-bin/src/bazel.exe
           & $bazel --output_base="$env:RUNNER_TEMP/bazel-remote-test" test `
             --config=remote `
+            --platforms=@llvm//platforms:linux_amd64 `
             --remote_header=x-buildbuddy-api-key=$env:BUILDBUDDY_API_KEY `
             --test_output=all `
             //src/test/shell/remote_exec:no_xml_test
