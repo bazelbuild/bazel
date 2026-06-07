@@ -97,6 +97,34 @@ function test_zipper() {
   expect_not_log "path"
 }
 
+function test_zipper_delete_entries() {
+  mkdir -p ${TEST_TMPDIR}/filter/META-INF/license
+  mkdir -p ${TEST_TMPDIR}/filter/META-INF/native
+  echo "Manifest-Version: 1.0" >${TEST_TMPDIR}/filter/META-INF/MANIFEST.MF
+  echo "license" >${TEST_TMPDIR}/filter/META-INF/license/LICENSE.txt
+  echo "linux" >${TEST_TMPDIR}/filter/META-INF/native/library.so
+  echo "windows" >${TEST_TMPDIR}/filter/META-INF/native/library.dll
+
+  (cd ${TEST_TMPDIR}/filter && \
+    $ZIPPER c ${TEST_TMPDIR}/input.zip \
+      META-INF/MANIFEST.MF \
+      META-INF/license/LICENSE.txt \
+      META-INF/native/library.so \
+      META-INF/native/library.dll)
+  $ZIPPER d ${TEST_TMPDIR}/input.zip ${TEST_TMPDIR}/output.zip \
+    "*/license/*" "*.dll"
+
+  $ZIPPER v ${TEST_TMPDIR}/output.zip >$TEST_log
+  expect_log "META-INF/MANIFEST.MF"
+  expect_log "META-INF/native/library.so"
+  expect_not_log "license"
+  expect_not_log "library.dll"
+
+  $ZIPPER d ${TEST_TMPDIR}/input.zip ${TEST_TMPDIR}/empty.zip "*"
+  $ZIPPER v ${TEST_TMPDIR}/empty.zip >$TEST_log
+  [ ! -s $TEST_log ] || fail "The '*' pattern did not remove every entry"
+}
+
 function test_zipper_junk_paths() {
   mkdir -p ${TEST_TMPDIR}/test/path/to/some
   mkdir -p ${TEST_TMPDIR}/test/some/other/path

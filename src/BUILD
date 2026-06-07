@@ -1,6 +1,6 @@
 # Packaging
 
-load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
+load("@bazel_lib//lib:copy_file.bzl", "copy_file")
 load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("@rules_java//java:java_binary.bzl", "java_binary")
 load("@rules_python//python:defs.bzl", "py_binary", "py_library")
@@ -187,6 +187,13 @@ copy_file(
     allow_symlink = True,
 )
 
+copy_file(
+    name = "objcopy_for_jlink",
+    src = "@llvm//tools:llvm-objcopy",
+    out = "objcopy",
+    allow_symlink = True,
+)
+
 # Reads the app manifest of a Windows executable.
 cc_binary(
     name = "read_manifest",
@@ -218,7 +225,10 @@ cc_binary(
 sh_binary(
     name = "minimize_jdk",
     srcs = ["minimize_jdk.sh"],
-    data = select({
+    data = [
+        ":objcopy_for_jlink",
+        "//third_party/ijar:zipper",
+    ] + select({
         "@platforms//os:windows": [
             ":read_manifest",
             ":write_manifest",
@@ -240,7 +250,10 @@ genrule(
         "//conditions:default": [],
     }),
     outs = ["minimal_jdk.zip"],
-    cmd = "$(location :minimize_jdk) $(location :jdk_for_jlink) $(location :embedded_jdk_vanilla) $(location :jdeps_modules.golden) $@" + select({
+    cmd = "$(location :minimize_jdk)" + select({
+        "//src/conditions:windows": " --target_windows",
+        "//conditions:default": "",
+    }) + " $(location :jdk_for_jlink) $(location :embedded_jdk_vanilla) $(location :jdeps_modules.golden) $@" + select({
         "//src/conditions:windows_arm64": " $(location @openjdk_win_arm64_jmods//file)",
         "//conditions:default": "",
     }),
@@ -261,7 +274,10 @@ genrule(
         "//conditions:default": [],
     }),
     outs = ["allmodules_jdk.zip"],
-    cmd = "$(location :minimize_jdk) --allmodules $(location :jdk_for_jlink) $(location :embedded_jdk_vanilla) $(location :jdeps_modules.golden) $@" + select({
+    cmd = "$(location :minimize_jdk) --allmodules" + select({
+        "//src/conditions:windows": " --target_windows",
+        "//conditions:default": "",
+    }) + " $(location :jdk_for_jlink) $(location :embedded_jdk_vanilla) $(location :jdeps_modules.golden) $@" + select({
         "//src/conditions:windows_arm64": " $(location @openjdk_win_arm64_jmods//file)",
         "//conditions:default": "",
     }),
@@ -299,7 +315,7 @@ genrule(
 
 [genrule(
     name = "package-zip" + suffix,
-    # This script assumes the following arg order:
+    # This tool assumes the following arg order:
     #   1) embedded tools zip (if it exists)
     #   2) the deploy jar
     #   3) the install base key
@@ -312,7 +328,6 @@ genrule(
         "//src/main/java/com/google/devtools/build/lib/bazel:BazelServer_deploy.jar",
         "install_base_key" + suffix,
         "//:platforms-srcs",
-        # Non-ordered items follow:
         "//src/main/java/net/starlark/java/eval:cpu_profiler_jni",
         "//src/main/tools:process-wrapper",
         "//src/main/tools:linux-sandbox",
@@ -333,15 +348,15 @@ genrule(
     ("_nojdk", True),
 ]]
 
-genrule(
+py_binary(
     name = "package_bazel_on_host_platform",
-    srcs = ["package-bazel.sh"],
-    outs = ["package-bazel-on-host-platform.sh"],
-    cmd = select({
-        "//src/conditions:freebsd": "cat $(SRCS) | sed -e 's@#!/bin/bash@#!/usr/local/bin/bash@' > $@",
-        "//src/conditions:openbsd": "cat $(SRCS) | sed -e 's@#!/bin/bash@#!/usr/local/bin/bash@' > $@",
-        "//conditions:default": "cp $(SRCS) $@",
-    }),
+    srcs = ["package_bazel.py"],
+    main = "package_bazel.py",
+)
+
+py_binary(
+    name = "combine_bazel",
+    srcs = ["combine_bazel.py"],
 )
 
 [genrule(
@@ -351,12 +366,10 @@ genrule(
         "package-zip" + jdk,
     ],
     outs = ["bazel" + suffix],
-    # In msys, a file path without .exe suffix(say foo), refers to a file with .exe
-    # suffix(say foo.exe), if foo.exe exists and foo doesn't. So, on windows, we
-    # need to remove bazel.exe first, so that cat to bazel won't fail.
-    cmd = "rm -f $@; cat $(location //src/main/cpp:client) $(location :package-zip" + jdk + ") > $@ && zip -qA $@ && chmod a+x $@",
+    cmd = "$(location :combine_bazel) $(location //src/main/cpp:client) $(location :package-zip" + jdk + ") $@",
     executable = 1,
     output_to_bindir = 1,
+    tools = [":combine_bazel"],
     visibility = [
         "//:__pkg__",  # For distribution archive lockfile generation
         "//scripts:__pkg__",  # For bash completion generation
@@ -377,13 +390,12 @@ genrule(
 # Build an executable named `bazel.exe`.
 # Works on all platforms but only makes sense on Windows.
 # Workaround for non-configurability of genrule's `outs` attribute.
-[genrule(
+[copy_file(
     name = "bazel-bin" + suffix + ".exe",
-    srcs = [":bazel-bin" + suffix],
-    outs = ["bazel" + suffix + ".exe"],
-    cmd = "cp $(location :bazel-bin" + suffix + ") $@",
-    executable = 1,
-    output_to_bindir = 1,
+    src = ":bazel-bin" + suffix,
+    out = "bazel" + suffix + ".exe",
+    allow_symlink = True,
+    is_executable = True,
     visibility = [
         "//scripts:__pkg__",  # For bash completion generation
         "//scripts/packages:__pkg__",  # For installer generation

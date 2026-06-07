@@ -1,12 +1,12 @@
 diff --git a/BUILD.bazel b/BUILD.bazel
-index 7cfc1e3..a00ecb1 100644
+index 7cfc1e3..0a6b31f 100644
 --- a/BUILD.bazel
 +++ b/BUILD.bazel
 @@ -1,24 +1,23 @@
  load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
  load("@rules_java//java:java_library.bzl", "java_library")
-+load(":hermetic_actions.bzl", "copy_file")
- 
++load(":hermetic_actions.bzl", "copy_file", "write_version_java")
+
 -genrule(
 +copy_file(
      name = "copy_link_jni_md_header",
@@ -27,7 +27,7 @@ index 7cfc1e3..a00ecb1 100644
 -    cmd = "cp -f $< $@",
 +    out = "jni_md.h",
  )
- 
+
 -genrule(
 +copy_file(
      name = "copy_link_jni_header",
@@ -37,15 +37,30 @@ index 7cfc1e3..a00ecb1 100644
 +    src = "@bazel_tools//tools/jdk:jni_header",
 +    out = "jni.h",
  )
- 
+
  cc_binary(
+@@ -63,12 +62,9 @@ cc_binary(
+ )
+
+
+-genrule(
++write_version_java(
+     name = "version-java",
+-    cmd_bash = 'echo "package com.github.luben.zstd.util;\n\npublic class ZstdVersion {\n\tpublic static final String VERSION = \\"$$(cat $<)\\";\n}" > $@',
+-    cmd_ps = '$$PSDefaultParameterValues.Remove("*:Encoding"); $$version = (Get-Content $<) -join ""; Set-Content -NoNewline -Path $@ -Value "package com.github.luben.zstd.util;\n\npublic class ZstdVersion {\n\tpublic static final String VERSION = `"$${version}`";\n}\n"',
+-    srcs = ["version"],
+-    outs = ["ZstdVersion.java"],
++    out = "ZstdVersion.java",
+ )
+
+ java_library(
 diff --git a/hermetic_actions.bzl b/hermetic_actions.bzl
 new file mode 100644
-index 0000000..6138cb1
+index 0000000..8318b61
 --- /dev/null
 +++ b/hermetic_actions.bzl
-@@ -0,0 +1,16 @@
-+"""Hermetic file-copy actions for the zstd-jni overlay."""
+@@ -0,0 +1,33 @@
++"""Hermetic file-generation actions for the zstd-jni overlay."""
 +
 +def _copy_file_impl(ctx):
 +    ctx.actions.symlink(
@@ -53,10 +68,28 @@ index 0000000..6138cb1
 +        target_file = ctx.file.src,
 +    )
 +
++def _write_version_java_impl(ctx):
++    ctx.actions.write(
++        output = ctx.outputs.out,
++        content = """package com.github.luben.zstd.util;
++
++public class ZstdVersion {
++\tpublic static final String VERSION = \"1.5.6-9\";
++}
++""",
++    )
++
 +copy_file = rule(
 +    implementation = _copy_file_impl,
 +    attrs = {
 +        "src": attr.label(allow_single_file = True, mandatory = True),
++        "out": attr.output(mandatory = True),
++    },
++)
++
++write_version_java = rule(
++    implementation = _write_version_java_impl,
++    attrs = {
 +        "out": attr.output(mandatory = True),
 +    },
 +)
