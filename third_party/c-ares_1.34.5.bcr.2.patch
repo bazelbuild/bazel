@@ -1,0 +1,18 @@
+--- a/BUILD.bazel
++++ b/BUILD.bazel
+@@ -54,6 +54,7 @@
+     name = "ares_build_h",
+     src = "configs/ares_build.h",
+     out = "ares_build.h",
++    allow_symlink = True,
+ )
+ 
+ copy_file(
+@@ -71,6 +72,7 @@
+         "//conditions:default": "configs/config_linux/ares_config.h",
+     }),
+     out = "ares_config.h",
++    allow_symlink = True,
+ )
+ 
+ cc_library(

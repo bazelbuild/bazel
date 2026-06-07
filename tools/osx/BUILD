@@ -1,3 +1,4 @@
+load("@bazel_lib//lib:copy_file.bzl", "copy_file")
 load(
     "//tools/osx:xcode_version_flag.bzl",
     "ios_sdk_version_flag",
@@ -26,24 +27,11 @@ exports_files([
     "xcode_configure.bzl",
 ])
 
-DARWIN_XCODE_LOCATOR_COMPILE_COMMAND = """
-  /usr/bin/xcrun --sdk macosx clang -mmacosx-version-min=10.13 -fobjc-arc -framework CoreServices \
-      -framework Foundation -arch arm64 -arch x86_64 -o $@ $<
-"""
-
-genrule(
+copy_file(
     name = "xcode-locator-genrule",
-    srcs = select({
-        "//src/conditions:darwin": ["xcode_locator.m"],
-        "//conditions:default": ["xcode_locator_stub.sh"],
-    }),
-    outs = ["xcode-locator"],
-    cmd = select({
-        "//src/conditions:darwin": DARWIN_XCODE_LOCATOR_COMPILE_COMMAND,
-        "//conditions:default": "cp $< $@",
-    }),
-    local = 1,
-    output_to_bindir = 1,
+    src = "xcode_locator_stub.sh",
+    out = "xcode-locator",
+    is_executable = True,
 )
 
 # TODO(cparsons): Consolidate with config_settings under //src

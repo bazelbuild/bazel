@@ -1,0 +1,62 @@
+diff --git a/BUILD.bazel b/BUILD.bazel
+index 7cfc1e3..a00ecb1 100644
+--- a/BUILD.bazel
++++ b/BUILD.bazel
+@@ -1,24 +1,23 @@
+ load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+ load("@rules_java//java:java_library.bzl", "java_library")
++load(":hermetic_actions.bzl", "copy_file")
+ 
+-genrule(
++copy_file(
+     name = "copy_link_jni_md_header",
+-    srcs = select({
+-        "@bazel_tools//src/conditions:darwin": ["@bazel_tools//tools/jdk:jni_md_header-darwin"],
+-        "@bazel_tools//src/conditions:freebsd": ["@bazel_tools//tools/jdk:jni_md_header-freebsd"],
+-        "@bazel_tools//src/conditions:openbsd": ["@bazel_tools//tools/jdk:jni_md_header-openbsd"],
+-        "@bazel_tools//src/conditions:windows": ["@bazel_tools//tools/jdk:jni_md_header-windows"],
+-        "//conditions:default": ["@bazel_tools//tools/jdk:jni_md_header-linux"],
++    src = select({
++        "@bazel_tools//src/conditions:darwin": "@bazel_tools//tools/jdk:jni_md_header-darwin",
++        "@bazel_tools//src/conditions:freebsd": "@bazel_tools//tools/jdk:jni_md_header-freebsd",
++        "@bazel_tools//src/conditions:openbsd": "@bazel_tools//tools/jdk:jni_md_header-openbsd",
++        "@bazel_tools//src/conditions:windows": "@bazel_tools//tools/jdk:jni_md_header-windows",
++        "//conditions:default": "@bazel_tools//tools/jdk:jni_md_header-linux",
+     }),
+-    outs = ["jni_md.h"],
+-    cmd = "cp -f $< $@",
++    out = "jni_md.h",
+ )
+ 
+-genrule(
++copy_file(
+     name = "copy_link_jni_header",
+-    srcs = ["@bazel_tools//tools/jdk:jni_header"],
+-    outs = ["jni.h"],
+-    cmd = "cp -f $< $@",
++    src = "@bazel_tools//tools/jdk:jni_header",
++    out = "jni.h",
+ )
+ 
+ cc_binary(
+diff --git a/hermetic_actions.bzl b/hermetic_actions.bzl
+new file mode 100644
+index 0000000..6138cb1
+--- /dev/null
++++ b/hermetic_actions.bzl
+@@ -0,0 +1,16 @@
++"""Hermetic file-copy actions for the zstd-jni overlay."""
++
++def _copy_file_impl(ctx):
++    ctx.actions.symlink(
++        output = ctx.outputs.out,
++        target_file = ctx.file.src,
++    )
++
++copy_file = rule(
++    implementation = _copy_file_impl,
++    attrs = {
++        "src": attr.label(allow_single_file = True, mandatory = True),
++        "out": attr.output(mandatory = True),
++    },
++)

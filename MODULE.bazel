@@ -15,6 +15,7 @@ module(
 
 bazel_dep(name = "abseil-cpp", version = "20250814.1")
 bazel_dep(name = "bazel_features", version = "1.47.0")
+bazel_dep(name = "bazel_lib", version = "3.2.2")
 bazel_dep(name = "bazel_skylib", version = "1.8.2")
 bazel_dep(name = "blake3", version = "1.8.2.bcr.1")
 bazel_dep(name = "googleapis-grpc-java", version = "1.0.0")
@@ -66,6 +67,27 @@ bazel_dep(name = "onetbb", version = "2022.2.0", repo_name = None)
 
 # bazel_dep overrides
 single_version_override(
+    module_name = "c-ares",
+    patch_strip = 1,
+    patches = ["//third_party:c-ares_1.34.5.bcr.2.patch"],
+    version = "1.34.5.bcr.2",
+)
+
+single_version_override(
+    module_name = "rules_java",
+    patch_strip = 1,
+    patches = ["//third_party:rules_java_9.5.0_hermetic_jni.patch"],
+    version = "9.5.0",
+)
+
+single_version_override(
+    module_name = "llvm",
+    patch_strip = 1,
+    patches = ["//third_party:llvm_0.8.6_hermetic_glibc.patch"],
+    version = "0.8.6",
+)
+
+single_version_override(
     module_name = "rules_jvm_external",
     patch_strip = 1,
     patches = [
@@ -91,7 +113,10 @@ single_version_override(
 single_version_override(
     module_name = "zstd-jni",
     patch_strip = 1,
-    patches = ["//third_party:zstd-jni.patch"],
+    patches = [
+        "//third_party:zstd-jni.patch",
+        "//third_party:zstd-jni_hermetic_actions.patch",
+    ],
 )
 
 single_version_override(
