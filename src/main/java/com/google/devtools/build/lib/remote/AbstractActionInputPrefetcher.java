@@ -83,10 +83,8 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   private final TempPathGenerator tempPathGenerator;
   private final OutputPermissions outputPermissions;
 
-  // The exec root may only be resolved once the workspace name is known, which does not happen
-  // until the loading phase. Since the remote repo contents cache materializes external repos
-  // before then (and only ever resolves paths under the external directory, which lives directly
-  // under the output base), exec root resolution is deferred via this supplier.
+  // The exec root isn't known when the prefetcher is created as its path depends on the name set in
+  // WORKSPACE.
   private final Supplier<Path> execRootSupplier;
   protected final Path outputBase;
   protected final RemoteOutputChecker remoteOutputChecker;
