@@ -15,9 +15,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Bazelisk
-        run: choco install bazelisk --no-progress --yes
-
       - name: Build Bazel with Linux remote execution
         shell: pwsh
         run: |
