@@ -33,3 +33,7 @@ jobs:
             --remote_header=x-buildbuddy-api-key=$env:BUILDBUDDY_API_KEY `
             --test_output=all `
             //src/test/shell/remote_exec:no_xml_test
+          $exitCode = $LASTEXITCODE
+          Get-ChildItem -Recurse "$env:RUNNER_TEMP/bazel-remote-test" -Filter test.log |
+            ForEach-Object { Get-Content $_ }
+          exit $exitCode

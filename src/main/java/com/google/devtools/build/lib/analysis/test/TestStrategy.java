@@ -216,6 +216,12 @@ public abstract class TestStrategy implements TestActionContext {
     List<String> args = new ArrayList<>();
     OS executionOs = testAction.getExecutionSettings().getExecutionOs();
 
+    if (executionOs != OS.WINDOWS) {
+      args.add(
+          Preconditions.checkNotNull(testAction.getShExecutableMaybe())
+              .getCallablePathStringForOs(executionOs));
+    }
+
     Artifact testSetup = testAction.getTestSetupScript();
     args.add(testSetup.getExecPath().getCallablePathStringForOs(executionOs));
 
