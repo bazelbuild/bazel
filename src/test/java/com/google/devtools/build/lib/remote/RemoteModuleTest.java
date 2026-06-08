@@ -611,6 +611,20 @@ public final class RemoteModuleTest {
         .isEqualTo(new CollectionPolicy(Optional.of(1234567890L), Optional.of(Duration.ofDays(7))));
   }
 
+  @Test
+  public void repositoryRemoteHelpersFactory_initializedForDiskCacheOnlyPath() throws Exception {
+    // Regression test: non-gRPC caches must still register the
+    // RepositoryRemoteHelpersFactory delegate so repo rules can use the remote
+    // contents cache.
+    var diskCacheDir = TestUtils.createUniqueTmpDir(null);
+    remoteOptions.setDiskCache(diskCacheDir.asFragment());
+
+    beforeCommand();
+
+    assertThat(remoteModule.getRepositoryRemoteHelpersFactoryDelegate().createRepoContentsCache())
+        .isNotNull();
+  }
+
   @CanIgnoreReturnValue
   private CommandEnvironment beforeCommand() throws IOException, AbruptExitException {
     CommandEnvironment env = createTestCommandEnvironment(remoteModule, remoteOptions);
