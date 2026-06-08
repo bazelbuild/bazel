@@ -462,6 +462,14 @@ public class CcStarlarkInternal implements StarlarkValue {
   private static final Interner<Object> interner = BlazeInterners.newWeakInterner();
 
   @StarlarkMethod(
+      name = "maybe_hash_preserve_extension",
+      documented = false,
+      parameters = {@Param(name = "filename")})
+  public String maybeHashPreserveExtension(String filename) {
+    return SolibSymlinkAction.maybeHashPreserveExtension(filename);
+  }
+
+  @StarlarkMethod(
       name = "intern_seq",
       documented = false,
       parameters = {@Param(name = "seq")})
