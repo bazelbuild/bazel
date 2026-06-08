@@ -323,6 +323,43 @@ public final class RemoteModule extends BlazeModule {
         outputPermissions);
   }
 
+  /**
+   * Initializes the repository remote helpers factory and primes the {@link
+   * RemoteExternalOverlayFileSystem} (when one is in use) with the per-build state it needs.
+   */
+  private void initRepoHelpersAndOverlayFs(
+      CommandEnvironment env, String buildRequestId, String invocationId, boolean verboseFailures) {
+    if (actionContextProvider == null) {
+      return;
+    }
+    CombinedCache combinedCache = actionContextProvider.getCombinedCache();
+    if (combinedCache == null) {
+      return;
+    }
+    repositoryRemoteHelpersFactoryDelegate.init(
+        new RepositoryRemoteHelpersFactoryImpl(
+            env.getDirectories(),
+            combinedCache,
+            actionContextProvider.getRemoteExecutionClient(),
+            buildRequestId,
+            invocationId,
+            remoteOptions.remoteInstanceName,
+            remoteOptions.remoteAcceptCached,
+            remoteOptions.remoteUploadLocalResults,
+            verboseFailures));
+    if (env.getDirectories().getOutputBase().getFileSystem()
+        instanceof RemoteExternalOverlayFileSystem remoteFs) {
+      remoteFs.beforeCommand(
+          combinedCache,
+          actionInputFetcher,
+          env.getReporter(),
+          buildRequestId,
+          invocationId,
+          env.getSkyframeExecutor().getEvaluator(),
+          remoteOptions.remoteCacheTtl);
+    }
+  }
+
   @Override
   public void workspaceInit(
       BlazeRuntime runtime, BlazeDirectories directories, WorkspaceBuilder builder) {
@@ -585,6 +622,7 @@ public final class RemoteModule extends BlazeModule {
 
     if ((enableHttpCache || enableDiskCache) && !enableGrpcCache) {
       initHttpAndDiskCache(env, credentials, authAndTlsOptions, remoteOptions, digestUtil);
+      initRepoHelpersAndOverlayFs(env, buildRequestId, invocationId, verboseFailures);
       return true;
     }
 
@@ -774,28 +812,7 @@ public final class RemoteModule extends BlazeModule {
 
     actionInputFetcher = createActionInputFetcher(actionContextProvider.getCombinedCache());
 
-    repositoryRemoteHelpersFactoryDelegate.init(
-        new RepositoryRemoteHelpersFactoryImpl(
-            env.getDirectories(),
-            actionContextProvider.getCombinedCache(),
-            actionContextProvider.getRemoteExecutionClient(),
-            buildRequestId,
-            invocationId,
-            remoteOptions.remoteInstanceName,
-            remoteOptions.remoteAcceptCached,
-            remoteOptions.remoteUploadLocalResults,
-            verboseFailures));
-    if (env.getDirectories().getOutputBase().getFileSystem()
-        instanceof RemoteExternalOverlayFileSystem remoteFs) {
-      remoteFs.beforeCommand(
-          actionContextProvider.getCombinedCache(),
-          actionInputFetcher,
-          env.getReporter(),
-          buildRequestId,
-          invocationId,
-          env.getSkyframeExecutor().getEvaluator(),
-          remoteOptions.remoteCacheTtl);
-    }
+    initRepoHelpersAndOverlayFs(env, buildRequestId, invocationId, verboseFailures);
 
     buildEventArtifactUploaderFactoryDelegate.init(
         new ByteStreamBuildEventArtifactUploaderFactory(
@@ -1246,6 +1263,11 @@ public final class RemoteModule extends BlazeModule {
   @VisibleForTesting
   RemoteActionContextProvider getActionContextProvider() {
     return actionContextProvider;
+  }
+
+  @VisibleForTesting
+  RepositoryRemoteHelpersFactory getRepositoryRemoteHelpersFactoryDelegate() {
+    return repositoryRemoteHelpersFactoryDelegate;
   }
 
   @VisibleForTesting
