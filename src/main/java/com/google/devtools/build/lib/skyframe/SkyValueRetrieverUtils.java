@@ -17,6 +17,7 @@ import static java.util.Objects.requireNonNull;
 
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
+import com.google.devtools.build.lib.actions.ActionLookupSummaryKey;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.serialization.DependOnFutureShim.DefaultDependOnFutureShim;
@@ -61,6 +62,7 @@ public final class SkyValueRetrieverUtils {
         switch (key) {
           case ActionLookupKey alk -> alk.getLabel();
           case ActionLookupData ald -> ald.getLabel();
+          case ActionLookupSummaryKey summaryKey -> summaryKey.argument().getLabel();
           case Artifact artifact -> artifact.getOwnerLabel();
           default -> throw new IllegalStateException("unexpected key: " + key.getCanonicalName());
         };
