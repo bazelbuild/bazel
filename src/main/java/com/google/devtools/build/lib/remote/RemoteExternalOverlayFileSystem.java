@@ -55,6 +55,7 @@ import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import java.io.ByteArrayInputStream;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InterruptedIOException;
@@ -81,7 +82,8 @@ import javax.annotation.Nullable;
  * <p>Each external repository can either be materialized to the native file system or kept in
  * memory in the {@link RemoteExternalFileSystem}.
  */
-public final class RemoteExternalOverlayFileSystem extends FileSystem {
+public final class RemoteExternalOverlayFileSystem extends FileSystem
+    implements AbstractActionInputPrefetcher.InjectedRepoFileMetadataSupplier {
   private final PathFragment externalDirectory;
   private final int externalDirectorySegmentCount;
   private final FileSystem nativeFs;
@@ -370,6 +372,36 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
     // The REPO.bazel file, if present, is a dependency of any package and will thus have to be
     // fetched anyway.
     return path.getFileExtension().equals("bzl") || path.getBaseName().equals("REPO.bazel");
+  }
+
+  /**
+   * Returns the metadata of a source file in an external repository that has been injected into this
+   * file system by the remote repo contents cache and not yet materialized, or {@code null} if the
+   * given path does not denote such a file.
+   *
+   * <p>Crucially, unlike the metadata that Skyframe derives for the corresponding source artifact,
+   * this metadata does not resolve symlinks: a symlink is reported as an unresolved symlink rather
+   * than as its resolved target. This is the same metadata that is used when a repo is materialized
+   * on behalf of another repo rule (see {@link #doMaterialize}), so that materializing a repo's
+   * files for a local action reproduces the exact same on-disk layout (in particular, the same
+   * per-hop symlinks).
+   */
+  @Nullable
+  @Override
+  public FileArtifactValue getInjectedRepoFileMetadata(PathFragment path) throws IOException {
+    if (path.segmentCount() <= externalDirectorySegmentCount
+        || !path.startsWith(externalDirectory)) {
+      return null;
+    }
+    if (!markerFileContents.containsKey(path.getSegment(externalDirectorySegmentCount))) {
+      // The repo is not injected: it was never cached or has already been materialized to disk.
+      return null;
+    }
+    try {
+      return externalFs.getMetadata(path);
+    } catch (FileNotFoundException e) {
+      return null;
+    }
   }
 
   @Override

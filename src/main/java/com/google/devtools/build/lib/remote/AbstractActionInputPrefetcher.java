@@ -103,6 +103,26 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   }
 
   /**
+   * A file system that holds the contents of external repositories injected by the remote repo
+   * contents cache and can supply their (symlink-preserving) metadata.
+   *
+   * <p>Defined here, rather than on the implementing file system, so that the prefetcher can consult
+   * it without depending on the remote module's file system (which would create a dependency cycle).
+   */
+  public interface InjectedRepoFileMetadataSupplier {
+    /**
+     * Returns the metadata of a source file in an external repository that has been injected but not
+     * yet materialized, or {@code null} if the given path does not denote such a file.
+     *
+     * <p>Unlike the metadata that Skyframe derives for the corresponding source artifact, this
+     * metadata does not resolve symlinks: a symlink is reported as an unresolved symlink rather than
+     * as its resolved target.
+     */
+    @Nullable
+    FileArtifactValue getInjectedRepoFileMetadata(PathFragment path) throws IOException;
+  }
+
+  /**
    * Tracks directory permissions to minimize filesystem operations.
    *
    * <p>Throughout the prefetcher, {@link Path#setWritable} and {@link Path#chmod} calls on output

@@ -819,6 +819,181 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
         extra_flags=['--sandbox_base=' + tmpdir]
     )
 
+  def testUseRepoSymlinkInBuildRule_actionDoesNotUseCache(self):
+    # Regression test for https://github.com/bazelbuild/bazel/issues/29656.
+    #
+    # A repo restored from the remote repo contents cache is injected into an
+    # in-memory overlay file system and materialized to disk only lazily. When a
+    # locally executed action that misses the action cache consumes a source
+    # file that is a symlink to another file in the same repo, the symlink
+    # itself (and the targets it points at, which need not be action inputs)
+    # must be materialized on disk. This mirrors toolchains_llvm, whose
+    # cc_wrapper.sh runs external/<repo>/bin/clang, a symlink chain ending at
+    # clang-19.
+    if self.IsWindows():
+      self.ScratchFile(
+          '.bazelrc',
+          ['startup --windows_enable_symlinks'],
+          mode='a',
+      )
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  rctx.file("BUILD", "exports_files([\'link2.txt\'])")',
+            '  rctx.file("data.txt", "hello")',
+            # Only link2.txt is a declared input of the consuming action;
+            # link1.txt and data.txt are reached purely by resolving it.
+            '  rctx.symlink("data.txt", "link1.txt")',
+            '  rctx.symlink("link1.txt", "link2.txt")',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+    self.ScratchFile(
+        'main/BUILD.bazel',
+        [
+            'genrule(',
+            '  name = "use_link",',
+            '  srcs = ["@my_repo//:link2.txt"],',
+            '  outs = ["out.txt"],',
+            '  cmd = "cat $< > $@",',
+            '  tags = ["no-cache"],',
+            ')',
+        ],
+    )
+
+    repo_dir = self.RepoDir('my_repo')
+    link2 = os.path.join(repo_dir, 'link2.txt')
+
+    # First fetch: not cached, the whole repo is materialized on disk.
+    _, _, stderr = self.RunBazel(['build', '//main:use_link'])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertTrue(os.path.exists(link2))
+    with open(self.Path('bazel-bin/main/out.txt')) as f:
+      self.assertEqual(f.read(), 'hello')
+
+    # After expunging: the repo is a remote cache hit and is not fully
+    # materialized, but the no-cache action still runs locally and must be able
+    # to read the symlink it depends on.
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(['build', '//main:use_link'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'BUILD')))
+    self.assertTrue(os.path.exists(link2))
+    self.assertTrue(os.path.exists(self.Path('bazel-bin/main/out.txt')))
+    with open(self.Path('bazel-bin/main/out.txt')) as f:
+      self.assertEqual(f.read(), 'hello')
+
+  def testMaterializationConsistentAcrossRepoRuleAndActionPaths(self):
+    # Materializing a repo restored from the remote repo contents cache must
+    # produce the same on-disk layout whether it is triggered by another repo
+    # rule reading it (ensureMaterialized) or by a locally executed action
+    # consuming one of its files (the action input prefetcher). In particular,
+    # internal symlinks must be recreated per hop in both cases. These two paths
+    # pass different InputMetadataProviders to the prefetcher; this test guards
+    # against them diverging (the inconsistency underlying #29656).
+    if self.IsWindows():
+      self.ScratchFile(
+          '.bazelrc',
+          ['startup --windows_enable_symlinks'],
+          mode='a',
+      )
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+            'other_repo = use_repo_rule("//:other_repo.bzl", "other_repo")',
+            'other_repo(name = "other", build_file = "@my_repo//:BUILD")',
+        ],
+    )
+    self.ScratchFile(
+        'BUILD.bazel',
+        [
+            'genrule(',
+            '  name = "use_link",',
+            '  srcs = ["@my_repo//:link2.txt"],',
+            '  outs = ["out.txt"],',
+            '  cmd = "cat $< > $@",',
+            '  tags = ["no-cache"],',
+            ')',
+        ],
+    )
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            (
+                '  rctx.file("BUILD",'
+                ' "filegroup(name=\'haha\')\\nexports_files([\'link2.txt\'])")'
+            ),
+            '  rctx.file("data.txt", "hello")',
+            '  rctx.symlink("data.txt", "link1.txt")',
+            '  rctx.symlink("link1.txt", "link2.txt")',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+    self.ScratchFile(
+        'other_repo.bzl',
+        [
+            'def _other_repo_impl(rctx):',
+            # Reading a label in my_repo triggers its materialization via the
+            # repo rule path (ensureMaterialized). other is not reproducible, so
+            # it is always re-fetched and re-triggers materialization.
+            '  rctx.file("BUILD", rctx.read(rctx.attr.build_file))',
+            '  return rctx.repo_metadata()',
+            (
+                'other_repo = repository_rule(_other_repo_impl,'
+                ' attrs={"build_file": attr.label()})'
+            ),
+        ],
+    )
+
+    repo_dir = self.RepoDir('my_repo')
+    link1 = os.path.join(repo_dir, 'link1.txt')
+    link2 = os.path.join(repo_dir, 'link2.txt')
+
+    def snapshot():
+      self.assertTrue(os.path.islink(link1))
+      self.assertTrue(os.path.islink(link2))
+      with open(link2) as f:
+        content = f.read()
+      return (os.readlink(link1), os.readlink(link2), content)
+
+    # Warm the remote cache.
+    self.RunBazel(['build', '@other//:haha', '//:use_link'])
+
+    # Path A: materialize via another repo rule reading my_repo.
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(['build', '@other//:haha'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    repo_rule_snapshot = snapshot()
+
+    # Path B: materialize via a local no-cache action consuming my_repo's
+    # symlink.
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(['build', '//:use_link'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    action_snapshot = snapshot()
+
+    # Both paths must reproduce the symlink chain identically (per hop).
+    self.assertEqual(repo_rule_snapshot, action_snapshot)
+    self.assertEqual(action_snapshot[0], 'data.txt')  # link1 -> data.txt
+    self.assertEqual(action_snapshot[1], 'link1.txt')  # link2 -> link1.txt
+    self.assertEqual(action_snapshot[2], 'hello')
+
   def testLostRemoteFile_build(self):
     # Create a repo with two BUILD files (one in a subpackage), build a target
     # from one to cause it to be cached, then build that target again after
