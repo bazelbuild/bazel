@@ -2069,7 +2069,7 @@ public final class StarlarkEvaluationTest {
     ev.new Scenario()
         .update("val", new SimpleStructWithMethods())
         .setUp("v = val.collision_method()")
-        .testLookup("v", "fromStarlarkMethod");
+        .testLookup("v", "fromValues");
   }
 
   @Test

@@ -1004,6 +1004,15 @@ public final class Starlark {
       String name,
       @Nullable Object defaultValue)
       throws EvalException, InterruptedException {
+    // Check if it's a user-defined struct field first. If it is, we bypass the overhead of
+    // attempting to look up a non-existent MethodDescriptor.
+    if (x instanceof Structure struct) {
+      Object field = struct.getValue(semantics, name);
+      if (field != null) {
+        return Starlark.checkValid(field);
+      }
+    }
+
     // StarlarkMethod-annotated field or method?
     MethodDescriptor method = manager.getAnnotatedMethods(x.getClass()).get(name);
     if (method != null) {
@@ -1014,24 +1023,15 @@ public final class Starlark {
       }
     }
 
-    // user-defined field?
+    if (defaultValue != null) {
+      return defaultValue;
+    }
+
     if (x instanceof Structure struct) {
-      Object field = struct.getValue(semantics, name);
-      if (field != null) {
-        return Starlark.checkValid(field);
-      }
-
-      if (defaultValue != null) {
-        return defaultValue;
-      }
-
       String error = struct.getErrorMessageForUnknownField(name);
       if (error != null) {
         throw Starlark.errorf("%s", error);
       }
-
-    } else if (defaultValue != null) {
-      return defaultValue;
     }
 
     throw Starlark.errorf(
