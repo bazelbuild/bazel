@@ -322,7 +322,7 @@ function merge_previous_dists() {
   local distribution="$1"
   # Download the metadata info from previous distribution
   mkdir -p previous
-  gsutil -m cp -r "gs://bazel-apt/dists" "./previous"
+  gcloud storage cp -r "gs://bazel-apt/dists" "./previous"
 
   # Merge Packages and Packages.gz file
   cat "previous/dists/${distribution}/jdk1.8/binary-amd64/Packages" >> "dists/${distribution}/jdk1.8/binary-amd64/Packages"
@@ -427,7 +427,7 @@ EOF
 
   merge_previous_dists "${distribution}"
 
-  gsutil -m cp -r dists pool "gs://bazel-apt"
+  gcloud storage cp -r dists pool "gs://bazel-apt"
 }
 
 function release_to_apt() {
