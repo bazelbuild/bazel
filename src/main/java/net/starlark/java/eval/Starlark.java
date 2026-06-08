@@ -136,10 +136,10 @@ public final class Starlark {
   }
 
   /**
-   * Reports whether the argument is a legal Starlark value: a string, boolean, or StarlarkValue.
+   * Reports whether the argument is a legal Starlark value: a string, StarlarkValue, or boolean.
    */
   public static boolean valid(Object x) {
-    return x instanceof String || x instanceof Boolean || x instanceof StarlarkValue;
+    return x instanceof String || x instanceof StarlarkValue || x instanceof Boolean;
   }
 
   /**
@@ -172,14 +172,12 @@ public final class Starlark {
   public static boolean isImmutable(Object x) {
     // NB: This is used as the basis for accepting objects in Depsets,
     // as well as for accepting objects as keys for Starlark dicts.
-
-    if (x instanceof String || x instanceof Boolean) {
-      return true;
-    } else if (x instanceof StarlarkValue) {
-      return ((StarlarkValue) x).isImmutable();
-    } else {
-      throw new InvalidStarlarkValueException(x.getClass());
-    }
+    return switch (x) {
+      case String s -> true;
+      case StarlarkValue val -> val.isImmutable();
+      case Boolean bool -> true;
+      default -> throw new InvalidStarlarkValueException(x.getClass());
+    };
   }
 
   /**
@@ -258,15 +256,12 @@ public final class Starlark {
    * bool(x)}.
    */
   public static boolean truth(Object x) {
-    if (x instanceof Boolean) {
-      return (Boolean) x;
-    } else if (x instanceof StarlarkValue) {
-      return ((StarlarkValue) x).truth();
-    } else if (x instanceof String) {
-      return !((String) x).isEmpty();
-    } else {
-      throw new InvalidStarlarkValueException(x.getClass());
-    }
+    return switch (x) {
+      case String s -> !s.isEmpty();
+      case StarlarkValue val -> val.truth();
+      case Boolean bool -> bool;
+      default -> throw new InvalidStarlarkValueException(x.getClass());
+    };
   }
 
   /**
@@ -342,7 +337,6 @@ public final class Starlark {
   static StarlarkType getStarlarkType(Object value, StarlarkSemantics semantics) {
     return switch (value) {
       case String s -> Types.STR;
-      case Boolean b -> Types.BOOL;
       case StarlarkValue x -> {
         @Nullable StarlarkType type = x.getStarlarkType(semantics);
         if (type == null) {
@@ -350,6 +344,7 @@ public final class Starlark {
         }
         yield type != null ? type : Types.ANY;
       }
+      case Boolean b -> Types.BOOL;
       default -> {
         checkValid(value); // throws
         throw new AssertionError("unreachable");
