@@ -33,6 +33,7 @@ import com.google.common.eventbus.EventBus;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
+import com.google.devtools.build.lib.actions.ActionLookupSummaryKey;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
@@ -64,7 +65,6 @@ import com.google.devtools.build.skyframe.InMemoryGraph;
 import com.google.devtools.build.skyframe.InMemoryNodeEntry;
 import com.google.devtools.build.skyframe.IncrementalInMemoryNodeEntry;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
-import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.BufferedOutputStream;
@@ -172,7 +172,7 @@ public final class FrontierSerializer {
         stopwatch.reset().start();
         // saves about 8% RAM b/418730298#comment26
         var deletionStats =
-            deleteNodesAndRdeps(graph, evaluator.getNodesToRemoveBeforeFrontierSerialization());
+            deleteNodesAndRdeps(graph, serializationDependenciesProvider.getSkycacheAnalysisOnly());
         reporter.handle(
             Event.info(
                 String.format(
@@ -349,6 +349,11 @@ public final class FrontierSerializer {
                 markActiveAndTraverseEdges(graph, key, selection, traversalMode);
               }
             }
+            case ActionLookupSummaryKey summaryKey when skycacheAnalysisOnly -> {
+              if (summaryKey.argument().getLabel() != null) {
+                selection.putIfAbsent(summaryKey, FRONTIER_CANDIDATE);
+              }
+            }
             case ActionLookupData data
                 when !skycacheAnalysisOnly && traversalMode == TraversalMode.FOR_SERIALIZATION -> {
               if (shouldUpload(data, node)) {
@@ -411,6 +416,11 @@ public final class FrontierSerializer {
             case ActionLookupKey key -> {
               if (key.getLabel() != null) {
                 selection.putIfAbsent(key, FRONTIER_CANDIDATE);
+              }
+            }
+            case ActionLookupSummaryKey summaryKey when skycacheAnalysisOnly -> {
+              if (summaryKey.argument().getLabel() != null) {
+                selection.putIfAbsent(summaryKey, FRONTIER_CANDIDATE);
               }
             }
             case ActionLookupData data
@@ -593,17 +603,18 @@ public final class FrontierSerializer {
    * <p>This is not safe to call if the Skyframe graph needs to be incrementally correct after this
    * point.
    *
-   * @return the number of rdeps deleted.
+   * @return the number of nodes and rdeps deleted.
    */
   private static DeletionStats deleteNodesAndRdeps(
-      InMemoryGraph graph, ImmutableSet<SkyFunctionName> nodesToRemove) {
+      InMemoryGraph graph, boolean skycacheAnalysisOnly) {
     AtomicLong deletedNodes = new AtomicLong();
     AtomicLong deletedRdeps = new AtomicLong();
     graph.parallelForEach(
         node -> {
           IncrementalInMemoryNodeEntry incrementalInMemoryNodeEntry =
               (IncrementalInMemoryNodeEntry) node;
-          if (nodesToRemove.contains(node.getKey().functionName())) {
+          if (!skycacheAnalysisOnly && node.getKey() instanceof ActionLookupSummaryKey) {
+            // skycacheAnalysisOnly mode requires ActionLookupSummaryKeys to remain in the graph.
             graph.remove(node.getKey());
             deletedNodes.incrementAndGet();
           } else {

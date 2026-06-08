@@ -16,7 +16,6 @@ package com.google.devtools.build.skyframe;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadHostile;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import java.io.PrintStream;
@@ -119,14 +118,7 @@ public interface MemoizingEvaluator {
    */
   default void postLoggingStats(ExtendedEventHandler eventHandler) {}
 
-  /**
-   * Returns node types that can be safely removed from the graph to save memory prior to
-   * {@linkplain com.google.devtools.build.lib.skyframe.serialization.analysis.FrontierSerializer
-   * frontier serialization} when the graph will not be used incrementally.
-   */
-  default ImmutableSet<SkyFunctionName> getNodesToRemoveBeforeFrontierSerialization() {
-    return ImmutableSet.of();
-  }
+
 
   /**
    * Returns the done (without error) values in the graph.

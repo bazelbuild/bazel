@@ -35,6 +35,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
+import com.google.devtools.build.lib.actions.ActionLookupSummaryKey;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.concurrent.QuiescingFuture;
 import com.google.devtools.build.lib.profiler.CounterSeriesCollector;
@@ -317,6 +318,10 @@ final class SelectedEntrySerializer implements Consumer<SkyKey> {
           // up here as ActionLookupData.
           serializationStats.registerExecutionNode();
           uploadEntry(artifact, checkNotNull(artifact.getArtifactOwner(), artifact));
+          break;
+        case ActionLookupSummaryKey summaryKey:
+          serializationStats.registerExecutionNode();
+          uploadEntry(summaryKey, summaryKey.argument());
           break;
         default:
           throw new AssertionError("Unexpected selected type: " + key.getCanonicalName());

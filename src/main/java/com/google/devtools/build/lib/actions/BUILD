@@ -250,6 +250,7 @@ java_library(
     name = "action_lookup_key",
     srcs = [
         "ActionLookupKey.java",
+        "ActionLookupSummaryKey.java",
     ],
     deps = [
         ":artifact_owner",
