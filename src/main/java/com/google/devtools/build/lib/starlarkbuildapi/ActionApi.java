@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.starlarkbuildapi;
 
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import java.io.IOException;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
@@ -136,13 +135,14 @@ public interface ActionApi extends StarlarkValue {
       name = "execution_info",
       structField = true,
       doc =
-          "The execution requirements for this action, set for this action specifically. This is a"
-              + " dictionary that maps strings specifying execution info to arbitrary strings."
-              + " This is in order to match the structure of execution info in other parts of the"
-              + " code base; all relevant info is in the keyset. Returns None if this action does"
-              + " not expose execution requirements.",
-      allowReturnNones = true,
-      enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API)
+          "For actions created by <a href=\"../builtins/actions.html#run\">ctx.actions.run()</a> or"
+              + " <a href=\"../builtins/actions.html#run_shell\">ctx.actions.run_shell()</a>, the"
+              + " execution requirements set for this action specifically (i.e. via the"
+              + " <code>execution_requirements</code> argument). This is a dictionary that maps"
+              + " strings specifying execution info to arbitrary strings; to match the structure of"
+              + " execution info elsewhere in the code base, all relevant info is in the keyset."
+              + " Returns <code>None</code> if this action does not expose execution requirements.",
+      allowReturnNones = true)
   @Nullable
   public Dict<String, String> getExecutionInfoDict();
 }

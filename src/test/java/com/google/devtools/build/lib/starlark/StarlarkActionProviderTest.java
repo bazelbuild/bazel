@@ -128,6 +128,7 @@ public class StarlarkActionProviderTest extends AnalysisTestCase {
                 command = "fakecmd",
                 mnemonic = "MyAction1",
                 env = {"pet": "bunny"},
+                execution_requirements = {"requires-network": "1"},
             )
             return None
 
@@ -143,7 +144,6 @@ public class StarlarkActionProviderTest extends AnalysisTestCase {
         )
         """);
 
-    useConfiguration("--experimental_google_legacy_api");
     AnalysisResult analysisResult =
         update(ImmutableList.of("test/aspect.bzl%MyAspect"), "//test:xxx");
 
@@ -171,7 +171,8 @@ public class StarlarkActionProviderTest extends AnalysisTestCase {
 
     Sequence<Dict<String, String>> executionInfo =
         (Sequence<Dict<String, String>>) fooProvider.getValue("execution_info");
-    assertThat(executionInfo).isNotNull();
+    assertThat(executionInfo).hasSize(2);
+    assertThat(executionInfo.get(1)).containsExactly("requires-network", "1");
 
     Sequence<Sequence<Artifact>> inputs =
         (Sequence<Sequence<Artifact>>) fooProvider.getValue("inputs");
