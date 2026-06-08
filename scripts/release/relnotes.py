@@ -97,7 +97,7 @@ def get_relnotes_between(base, head, is_patch_release):
 def get_label(issue_id):
   """Get team-X label added to issue."""
   auth = subprocess.check_output(
-      "gsutil cat"
+      "gcloud storage cat"
       " gs://bazel-trusted-encrypted-secrets/github-trusted-token.enc |"
       " gcloud kms decrypt --project bazel-public --location global"
       " --keyring buildkite --key github-trusted-token --ciphertext-file"
