@@ -100,28 +100,30 @@ public final class ParsedFlagsValue implements SkyValue {
 
   static ParsedFlagsValue parseAndCreate(NativeAndStarlarkFlags flags)
       throws OptionsParsingException {
-    return new ParsedFlagsValue(flags, flags.parse());
+    return create(flags.starlarkFlagDefaults(), flags.parse());
+  }
+
+  static ParsedFlagsValue create(
+      ImmutableMap<String, Object> starlarkFlagDefaults, OptionsParsingResult parsingResult) {
+    return new ParsedFlagsValue(starlarkFlagDefaults, parsingResult);
   }
 
   @AutoCodec.Instantiator
   @VisibleForSerialization
-  static ParsedFlagsValue createForDeserialization(NativeAndStarlarkFlags flags) {
-    try {
-      return parseAndCreate(flags);
-    } catch (OptionsParsingException e) {
-      // Should be impossible since it parsed successfully before it was serialized.
-      throw new IllegalStateException(e);
-    }
+  static ParsedFlagsValue createForDeserialization(
+      ImmutableMap<String, Object> starlarkFlagDefaults, OptionsParsingResult parsingResult) {
+    return create(starlarkFlagDefaults, parsingResult);
   }
 
-  private final NativeAndStarlarkFlags flags;
+  private final ImmutableMap<String, Object> starlarkFlagDefaults;
   private final OptionsParsingResult parsingResult;
   private final LoadingCache<BuildOptions, BuildConfigurationKey> mergeCache =
       Caffeine.newBuilder().weakKeys().build(this::mergeWithImpl);
 
-  private ParsedFlagsValue(NativeAndStarlarkFlags flags, OptionsParsingResult parsingResult) {
+  private ParsedFlagsValue(
+      ImmutableMap<String, Object> starlarkFlagDefaults, OptionsParsingResult parsingResult) {
+    this.starlarkFlagDefaults = checkNotNull(starlarkFlagDefaults);
     this.parsingResult = checkNotNull(parsingResult);
-    this.flags = checkNotNull(flags);
   }
 
   public OptionsParsingResult parsingResult() {
@@ -210,7 +212,7 @@ public final class ParsedFlagsValue implements SkyValue {
   }
 
   private boolean isStarlarkFlagSetToDefault(String rawFlagName, Object rawFlagValue) {
-    var defaultVal = flags.starlarkFlagDefaults().get(rawFlagName);
+    var defaultVal = starlarkFlagDefaults.get(rawFlagName);
     return defaultVal != null && defaultVal.equals(rawFlagValue);
   }
 
@@ -222,18 +224,18 @@ public final class ParsedFlagsValue implements SkyValue {
     if (!(obj instanceof ParsedFlagsValue that)) {
       return false;
     }
-    return flags.equals(that.flags);
+    return parsingResult.equals(that.parsingResult);
   }
 
   @Override
   public int hashCode() {
-    return flags.hashCode();
+    return parsingResult.hashCode();
   }
 
   @Override
   public String toString() {
     return MoreObjects.toStringHelper(this)
-        .add("flags", flags)
+        .add("starlarkFlagDefaults", starlarkFlagDefaults)
         .add("parsingResult", parsingResult)
         .toString();
   }

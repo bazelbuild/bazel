@@ -136,7 +136,9 @@ public final class ParsedFlagsFunction implements SkyFunction {
     }
 
     try {
-      return ParsedFlagsValue.parseAndCreate(flags.build());
+      NativeAndStarlarkFlags nativeAndStarlarkFlags = flags.build();
+      return ParsedFlagsValue.create(
+          nativeAndStarlarkFlags.starlarkFlagDefaults(), nativeAndStarlarkFlags.parse());
     } catch (OptionsParsingException e) {
       throw new ParsedFlagsFunctionException(e);
     }
