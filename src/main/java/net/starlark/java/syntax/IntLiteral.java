@@ -92,6 +92,11 @@ public final class IntLiteral extends Expression {
           radix = 8;
           str = str.substring(2);
           break;
+        case 'b':
+        case 'B':
+          radix = 2;
+          str = str.substring(2);
+          break;
         default:
           throw new NumberFormatException(
               "invalid octal literal: " + str + " (use '0o" + str.substring(1) + "')");
