@@ -159,7 +159,7 @@ public final class SpawnStrategyRegistry
    * parallel test.
    */
   public boolean forceExclusiveIfLocalTestsInParallel() {
-    // Mirrors the mnemonic used by TestRunnerAction to avoid a analysis layer dependency.
+    // Mirrors the mnemonic used by TestRunnerAction to avoid an analysis layer dependency.
     String mnemonic = "TestRunner";
     List<SpawnStrategy> candidates = new ArrayList<>();
     if (mnemonicToStrategies.containsKey(mnemonic)) {
@@ -172,6 +172,7 @@ public final class SpawnStrategyRegistry
     } else if (mnemonicToRemoteDynamicStrategies.containsKey("")) {
       candidates.addAll(mnemonicToRemoteDynamicStrategies.get(""));
     }
+    // Not selecting a strategy; just checking if any candidate allows parallel execution.
     return candidates.stream().anyMatch(SpawnStrategy::forceExclusiveIfLocalTestsInParallel);
   }
 
