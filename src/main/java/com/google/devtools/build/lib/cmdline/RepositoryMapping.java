@@ -38,6 +38,17 @@ public class RepositoryMapping {
 
   private final ImmutableMap<String, RepositoryName> entries;
   private final RepositoryName contextRepo;
+  // cache this classes hashCode - Package.Metadata is a Java record that
+  // includes RepositoryMapping, so its auto-generated hashCode() calls
+  // RepositoryMapping.hashCode(), which hashes the entries map by iterating
+  // all entries. This is called heavily during NestedSet<Package.Metadata>
+  // flattening. Since this class is immutable, we cache the result on first
+  // use.
+  //
+  // This field doesn't need to be volatile since reads and writes of an int
+  // are atomic, and the worst case of a race is redundant computation of the
+  // same value.
+  private int cachedHashCode;
 
   private RepositoryMapping(Map<String, RepositoryName> entries, RepositoryName contextRepo) {
     this.entries = ImmutableMap.copyOf(entries);
@@ -67,7 +78,15 @@ public class RepositoryMapping {
 
   @Override
   public int hashCode() {
-    return Objects.hashCode(entries, contextRepo);
+    int h = cachedHashCode;
+    if (h == 0) {
+      h = Objects.hashCode(entries, contextRepo);
+      if (h == 0) {
+        h = 1;
+      }
+      cachedHashCode = h;
+    }
+    return h;
   }
 
   @Override
