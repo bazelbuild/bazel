@@ -96,13 +96,19 @@ def get_relnotes_between(base, head, is_patch_release):
 
 def get_label(issue_id):
   """Get team-X label added to issue."""
-  auth = subprocess.check_output(
-      "gsutil cat"
-      " gs://bazel-trusted-encrypted-secrets/github-trusted-token.enc |"
-      " gcloud kms decrypt --project bazel-public --location global"
-      " --keyring buildkite --key github-trusted-token --ciphertext-file"
-      " - --plaintext-file -", shell=True
-  ).decode("utf-8").strip().split("\n")[0]
+  auth = (
+      subprocess.check_output(
+          "gcloud storage cat"
+          " gs://bazel-trusted-encrypted-secrets/github-trusted-token.enc |"
+          " gcloud kms decrypt --project bazel-public --location global"
+          " --keyring buildkite --key github-trusted-token --ciphertext-file"
+          " - --plaintext-file -",
+          shell=True,
+      )
+      .decode("utf-8")
+      .strip()
+      .split("\n")[0]
+  )
   headers = {
       "Authorization": "Bearer " + auth,
       "Accept": "application/vnd.github+json",

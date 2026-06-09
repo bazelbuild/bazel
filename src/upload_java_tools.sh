@@ -104,9 +104,9 @@ EOF
 # Add the README.md file to the temp zip.
 zip -rv "${tmp_zip}" "${readme_file}"
 
-gsutil_cmd="gsutil"
+gcloud_cmd="gcloud"
 if "$is_windows"; then
-  gsutil_cmd="gsutil.cmd"
+  gcloud_cmd="gcloud.cmd"
 fi
 
 
@@ -118,5 +118,5 @@ else
 fi
 
 # Upload the zip that contains the README.md to GCS.
-"$gsutil_cmd" cp "$zip_url" \
+"$gcloud_cmd" storage cp "$zip_url" \
  "gs://bazel-mirror/bazel_java_tools/${gcs_java_tools_dir}/${commit_hash}/java/java_tools${platform:+"_${platform}"}-${timestamp}.zip"

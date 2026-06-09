@@ -16,6 +16,6 @@
 
 bazel build //tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:coverage_output_generator.zip
 DEST=bazel_coverage_output_generator/coverage_output_generator-$(git rev-parse HEAD)-$(date +%s).zip
-gsutil cp "tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator/coverage_output_generator.zip" \
+gcloud storage cp "tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator/coverage_output_generator.zip" \
   "gs://bazel-mirror/${DEST}"
 echo "Uploaded to $DEST"
