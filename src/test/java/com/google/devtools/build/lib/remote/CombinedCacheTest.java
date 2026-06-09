@@ -36,7 +36,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
-import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
@@ -688,7 +687,7 @@ public class CombinedCacheTest {
     RemoteExecutionCache remoteCache = spy(newRemoteExecutionCache(cacheProtocol));
     remoteActionExecutionContext = RemoteActionExecutionContext.create(metadata);
 
-    Map<Digest, SettableFuture<Void>> uploadFutures = Maps.newConcurrentMap();
+    Map<Digest, SettableFuture<Void>> uploadFutures = new ConcurrentHashMap<>();
     // 3 unique file digests + 2 unique directory blob digests = 5 uploads total.
     CountDownLatch uploadCalls = new CountDownLatch(5);
     doAnswer(
