@@ -236,4 +236,28 @@ public class StarlarkTypesTest extends BuildViewTestCase {
     getTarget("//test:BUILD");
     assertContainsEvent("in call to f(), parameter 'x' got value of type 'str', want 'int'");
   }
+
+  @Test
+  public void structReturnType() throws Exception {
+    setBuildLanguageOptions(
+        "--experimental_starlark_type_syntax", "--experimental_starlark_static_type_checking");
+
+    scratch.file(
+        "good/good.bzl",
+        """
+        def f(s: struct[{"x": int}]):
+            return s.x + 1
+
+        good = f(struct(x = 1))
+        """);
+    scratch.file("good/BUILD", "load('good.bzl', 'good')");
+    getConfiguredTarget("//good:BUILD");
+    assertNoEvents();
+
+    scratch.file("bad/bad.bzl", "bad: int = struct(x = 1)");
+    scratch.file("bad/BUILD", "load('bad.bzl', 'bad')");
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//bad:BUILD");
+    assertContainsEvent("cannot assign type 'struct' to 'bad' of type 'int'");
+  }
 }

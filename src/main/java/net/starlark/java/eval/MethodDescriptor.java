@@ -159,7 +159,8 @@ final class MethodDescriptor {
       boolean extraKeywords,
       boolean allowReturnNones) {
     if (structField) {
-      StarlarkType returnType = starlarkTypeFromJava(method.getGenericReturnType());
+      StarlarkType returnType =
+          starlarkTypeFromJava(method.getGenericReturnType(), /* isReturnType= */ true);
       if (allowReturnNones) {
         returnType = Types.union(returnType, Types.NONE);
       }
@@ -199,7 +200,7 @@ final class MethodDescriptor {
       if (allowedTypes.length > 0) {
         parameterTypes.add(starlarkTypeFromAnnotation(allowedTypes));
       } else {
-        parameterTypes.add(starlarkTypeFromJava(methodParamTypes[i]));
+        parameterTypes.add(starlarkTypeFromJava(methodParamTypes[i], /* isReturnType= */ false));
       }
       if (parameters[i].getDefaultValue() == null) {
         mandatoryParameters.add(parameters[i].getName());
@@ -209,7 +210,7 @@ final class MethodDescriptor {
     if (method.getReturnType() == Object.class) {
       returnType = Types.ANY;
     } else {
-      returnType = starlarkTypeFromJava(method.getGenericReturnType());
+      returnType = starlarkTypeFromJava(method.getGenericReturnType(), /* isReturnType= */ true);
       if (allowReturnNones) {
         returnType = Types.union(returnType, Types.NONE);
       }
@@ -264,12 +265,12 @@ final class MethodDescriptor {
                     return paramType.type();
                   }
                 })
-            .map(MethodDescriptor::starlarkTypeFromJava)
+            .map(cls -> starlarkTypeFromJava(cls, /* isReturnType= */ false))
             .collect(toImmutableSet()));
   }
 
   /** Returns the Starlark type corresponding to the given Java type. */
-  static StarlarkType starlarkTypeFromJava(Type cls) {
+  static StarlarkType starlarkTypeFromJava(Type cls, boolean isReturnType) {
     if (cls == NoneType.class || cls == void.class) {
       return Types.NONE;
     } else if (cls == String.class) {
@@ -287,20 +288,27 @@ final class MethodDescriptor {
       return Types.FLOAT;
     } else if (cls instanceof ParameterizedType ptype && ptype.getRawType() == Dict.class) {
       return Types.dict(
-          starlarkTypeFromJava(ptype.getActualTypeArguments()[0]),
-          starlarkTypeFromJava(ptype.getActualTypeArguments()[1]));
+          starlarkTypeFromJava(ptype.getActualTypeArguments()[0], isReturnType),
+          starlarkTypeFromJava(ptype.getActualTypeArguments()[1], isReturnType));
     } else if (cls instanceof ParameterizedType ptype && ptype.getRawType() == StarlarkList.class) {
-      return Types.list(starlarkTypeFromJava(ptype.getActualTypeArguments()[0]));
+      return Types.list(starlarkTypeFromJava(ptype.getActualTypeArguments()[0], isReturnType));
     } else if (cls instanceof ParameterizedType ptype && ptype.getRawType() == StarlarkSet.class) {
-      return Types.set(starlarkTypeFromJava(ptype.getActualTypeArguments()[0]));
+      return Types.set(starlarkTypeFromJava(ptype.getActualTypeArguments()[0], isReturnType));
     } else if (cls instanceof Class<?> c && Tuple.class.isAssignableFrom(c)) {
       // TODO: #27370 - Should we ever return a narrower tuple type?
       return Types.homogeneousTuple(Types.ANY);
     } else if (cls instanceof ParameterizedType ptype
         && ptype.getRawType() == StarlarkIterable.class) {
-      return Types.collection(starlarkTypeFromJava(ptype.getActualTypeArguments()[0]));
+      return Types.collection(
+          starlarkTypeFromJava(ptype.getActualTypeArguments()[0], isReturnType));
     } else if (cls instanceof ParameterizedType ptype && ptype.getRawType() == Sequence.class) {
-      return Types.sequence(starlarkTypeFromJava(ptype.getActualTypeArguments()[0]));
+      return Types.sequence(starlarkTypeFromJava(ptype.getActualTypeArguments()[0], isReturnType));
+    } else if (cls instanceof Class<?> c && Structure.class.isAssignableFrom(c)) {
+      // TODO: #27370 - Support com.google.devtools.build.lib.starlarkbuildapi.core.StructApi
+      // TODO: #27370 - Allow StarlarkMethod to specify a narrower struct type.
+      // Use the top struct type for parameters (to accept all possible struct arguments); use the
+      // any partial struct type for returns (since we cannot know what fields it might have).
+      return isReturnType ? Types.STRUCT_OF_ANY : Types.EMPTY_STRUCT;
     } else if (cls == Object.class || cls == StarlarkValue.class) {
       return Types.OBJECT;
     } else {
