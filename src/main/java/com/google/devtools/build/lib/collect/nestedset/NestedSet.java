@@ -105,6 +105,10 @@ public final class NestedSet<E> {
   @VisibleForSerialization
   static <E> NestedSet<E> forDeserialization(Order order, int approxDepth, Object children) {
     Preconditions.checkState(!(children instanceof ListenableFuture), children);
+    // Deserialization does it own interning, so we don't need to intern here.
+    //
+    // A future improvement might be to unify deserialization's interning with NestedSetInterner
+    // (used by NestedSetBuilder).
     return new NestedSet<>(order, approxDepth, children);
   }
 
@@ -533,7 +537,7 @@ public final class NestedSet<E> {
    *
    * @param other the {@code NestedSet} to compare against.
    */
-  public boolean shallowEquals(@Nullable NestedSet<? extends E> other) {
+  public boolean shallowEquals(@Nullable NestedSet<?> other) {
     if (this == other) {
       return true;
     }

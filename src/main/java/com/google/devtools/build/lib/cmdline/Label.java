@@ -29,6 +29,7 @@ import com.google.common.util.concurrent.Striped;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.actions.CommandLineItem;
 import com.google.devtools.build.lib.cmdline.LabelParser.Parts;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetsShouldBeInternedByEquality;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.PooledInterner;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
@@ -86,7 +87,12 @@ import net.starlark.java.eval.StarlarkValue;
             + " the perspective of the main repository if possible.")
 @Immutable
 @ThreadSafe
-public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, CommandLineItem {
+public final class Label
+    implements Comparable<Label>,
+        StarlarkValue,
+        SkyKey,
+        CommandLineItem,
+        NestedSetsShouldBeInternedByEquality {
   /**
    * Package names that aren't made relative to the current repository because they mean special
    * things to Bazel.
