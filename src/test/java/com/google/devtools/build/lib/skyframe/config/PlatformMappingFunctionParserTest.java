@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.Label.RepoContext;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
 import com.google.devtools.build.lib.skyframe.config.PlatformMappingFunction.Mappings;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
@@ -37,7 +38,6 @@ import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.common.options.OptionsParsingException;
-import java.util.Objects;
 import javax.annotation.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -77,41 +77,6 @@ public class PlatformMappingFunctionParserTest extends AnalysisTestCase {
         .containsExactly(createFlags("--cpu=one"), createFlags("--cpu=two"));
     assertThat(mappings.flagsToPlatforms.get(createFlags("--cpu=one"))).isEqualTo(PLATFORM1);
     assertThat(mappings.flagsToPlatforms.get(createFlags("--cpu=two"))).isEqualTo(PLATFORM2);
-  }
-
-  @Test
-  public void testParseWithRepoMapping() throws Exception {
-    RepositoryMapping repoMapping =
-        RepositoryMapping.create(
-            ImmutableMap.of("foo", RepositoryName.MAIN, "dep", RepositoryName.create("dep+1.0")),
-            RepositoryName.MAIN);
-    PlatformMappingFunction.Mappings mappings =
-        parse(
-            repoMapping,
-            "platforms:",
-            "  @foo//platforms:one",
-            "    --cpu=one",
-            "  @dep//platforms:two",
-            "    --cpu=two",
-            "flags:",
-            "  --cpu=one",
-            "    @foo//platforms:one",
-            "  --cpu=two",
-            "    @dep//platforms:two");
-
-    assertThat(mappings.platformsToFlags.keySet()).containsExactly(PLATFORM1, EXTERNAL_PLATFORM);
-    assertThat(mappings.platformsToFlags.get(PLATFORM1).parsingResult().canonicalize())
-        .containsExactly("--cpu=one");
-    assertThat(mappings.platformsToFlags.get(EXTERNAL_PLATFORM).parsingResult().canonicalize())
-        .containsExactly("--cpu=two");
-
-    assertThat(mappings.flagsToPlatforms.keySet())
-        .containsExactly(
-            createFlags(repoMapping, "--cpu=one"), createFlags(repoMapping, "--cpu=two"));
-    assertThat(mappings.flagsToPlatforms.get(createFlags(repoMapping, "--cpu=one")))
-        .isEqualTo(PLATFORM1);
-    assertThat(mappings.flagsToPlatforms.get(createFlags(repoMapping, "--cpu=two")))
-        .isEqualTo(EXTERNAL_PLATFORM);
   }
 
   @Test
@@ -440,29 +405,27 @@ public class PlatformMappingFunctionParserTest extends AnalysisTestCase {
     assertThat(exception).hasMessageThat().contains("duplicate");
   }
 
-  private ParsedFlagsValue createFlags(String... nativeFlags) throws OptionsParsingException {
-    return createFlags(RepositoryMapping.EMPTY, nativeFlags);
-  }
-
-  private ParsedFlagsValue createFlags(RepositoryMapping mainRepoMapping, String... nativeFlags)
-      throws OptionsParsingException {
+  private ParsedFlagsValue createFlags(String... nativeFlags)
+      throws OptionsParsingException, InterruptedException {
     NativeAndStarlarkFlags flags =
         NativeAndStarlarkFlags.builder()
             .nativeFlags(ImmutableList.copyOf(nativeFlags))
             .optionsClasses(ruleClassProvider.getFragmentRegistry().getOptionsClasses())
-            .repoMapping(mainRepoMapping)
+            .repoMapping(mainRepoMapping())
             .build();
     return ParsedFlagsValue.parseAndCreate(flags);
   }
 
-  private PlatformMappingFunction.Mappings parse(String... lines)
-      throws PlatformMappingParsingException, InterruptedException {
-    return parse(RepositoryMapping.EMPTY, lines);
+  private RepositoryMapping mainRepoMapping() throws InterruptedException {
+    RepositoryMappingValue.Key key = RepositoryMappingValue.key(RepositoryName.MAIN);
+    EvaluationResult<RepositoryMappingValue> evalResult =
+        SkyframeExecutorTestUtils.evaluate(skyframeExecutor, key, /* keepGoing= */ false, reporter);
+    return evalResult.get(key).repositoryMapping();
   }
 
-  private PlatformMappingFunction.Mappings parse(RepositoryMapping mainRepoMapping, String... lines)
-      throws InterruptedException, PlatformMappingParsingException {
-    Key key = Key.create(mainRepoMapping, ImmutableList.copyOf(lines));
+  private PlatformMappingFunction.Mappings parse(String... lines)
+      throws PlatformMappingParsingException, InterruptedException {
+    Key key = Key.create(ImmutableList.copyOf(lines));
     try {
       // Must re-enable analysis for Skyframe functions that create configured targets.
       skyframeExecutor.getSkyframeBuildView().enableAnalysis(true);
@@ -483,42 +446,9 @@ public class PlatformMappingFunctionParserTest extends AnalysisTestCase {
       SkyFunctionName.createHermetic("PARSE_MAPPINGS");
 
   @AutoCodec
-  static final class Key implements SkyKey {
-    static Key create(RepositoryMapping mainRepoMapping, ImmutableList<String> lines) {
-      return new Key(mainRepoMapping, lines);
-    }
-
-    private final RepositoryMapping mainRepoMapping;
-    private final ImmutableList<String> lines;
-
-    public Key(RepositoryMapping mainRepoMapping, ImmutableList<String> lines) {
-      this.mainRepoMapping = mainRepoMapping;
-      this.lines = lines;
-    }
-
-    RepositoryMapping mainRepoMapping() {
-      return mainRepoMapping;
-    }
-
-    ImmutableList<String> lines() {
-      return lines;
-    }
-
-    @Override
-    public int hashCode() {
-      return Objects.hash(mainRepoMapping, lines);
-    }
-
-    @Override
-    public boolean equals(Object o) {
-      if (this == o) {
-        return true;
-      }
-      if (!(o instanceof Key other)) {
-        return false;
-      }
-      return Objects.equals(mainRepoMapping, other.mainRepoMapping)
-          && Objects.equals(lines, other.lines);
+  record Key(ImmutableList<String> lines) implements SkyKey {
+    static Key create(ImmutableList<String> lines) {
+      return new Key(lines);
     }
 
     @Override
@@ -553,7 +483,7 @@ public class PlatformMappingFunctionParserTest extends AnalysisTestCase {
       try {
         Mappings mappings =
             PlatformMappingFunction.parse(
-                env, key.lines(), RepoContext.of(RepositoryName.MAIN, key.mainRepoMapping()));
+                env, key.lines(), RepoContext.of(RepositoryName.MAIN, RepositoryMapping.EMPTY));
         if (mappings == null) {
           return null;
         }

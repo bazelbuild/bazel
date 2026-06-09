@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.runtime.StarlarkOptionsParser;
 import com.google.devtools.build.lib.skyframe.PackageValue;
+import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -54,6 +55,15 @@ public final class ParsedFlagsFunction implements SkyFunction {
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws InterruptedException, ParsedFlagsFunctionException {
     ParsedFlagsValue.Key key = (ParsedFlagsValue.Key) skyKey.argument();
+
+    var repoMappingValue =
+        (RepositoryMappingValue)
+            env.getValue(RepositoryMappingValue.key(key.packageId().getRepository()));
+    if (repoMappingValue == null) {
+      return null;
+    }
+    PackageContext packageContext =
+        PackageContext.of(key.packageId(), repoMappingValue.repositoryMapping());
 
     ImmutableList.Builder<String> nativeFlags = ImmutableList.builder();
     ImmutableList.Builder<String> starlarkFlags = ImmutableList.builder();
@@ -98,10 +108,10 @@ public final class ParsedFlagsFunction implements SkyFunction {
     // TODO: https://github.com/bazelbuild/bazel/issues/22365 - Clean this up as part of a general
     // rewrite.
     OptionsParser fakeNativeParser =
-        OptionsParser.builder().withConversionContext(key.packageContext()).build();
+        OptionsParser.builder().withConversionContext(packageContext).build();
     StarlarkOptionsParser starlarkFlagParser =
         StarlarkOptionsParser.builder()
-            .buildSettingLoader(new SkyframeTargetLoader(env, key.packageContext()))
+            .buildSettingLoader(new SkyframeTargetLoader(env, packageContext))
             .nativeOptionsParser(fakeNativeParser)
             .includeDefaultValues(key.includeDefaultValues())
             .build();
@@ -119,7 +129,7 @@ public final class ParsedFlagsFunction implements SkyFunction {
             .starlarkOptionAllowingMultiple(starlarkFlagParser.getStarlarkOptionsAllowingMultiple())
             .scopesAttributes(starlarkFlagParser.getScopesAttributes())
             .optionsClasses(optionsClasses)
-            .repoMapping(key.packageContext().repoMapping());
+            .repoMapping(packageContext.repoMapping());
 
     if (key.includeDefaultValues()) {
       flags.starlarkFlagDefaults(starlarkFlagParser.getDefaultValues());

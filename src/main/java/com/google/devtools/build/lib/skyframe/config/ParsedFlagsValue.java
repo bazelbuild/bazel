@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe.config;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
@@ -23,12 +24,11 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.Label.PackageContext;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.util.HashCodes;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -45,8 +45,23 @@ public final class ParsedFlagsValue implements SkyValue {
   /** Key for {@link ParsedFlagsValue} based on the raw flags. */
   @ThreadSafety.Immutable
   @AutoCodec
-  public static final class Key implements SkyKey {
+  public record Key(
+      ImmutableList<String> rawFlags,
+      PackageIdentifier packageId,
+      boolean includeDefaultValues,
+      ImmutableMap<String, Label> flagAliasMappings)
+      implements SkyKey {
     private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
+
+    /**
+     * @deprecated Use {@link #create} instead to ensure interning.
+     */
+    @Deprecated
+    public Key {
+      checkNotNull(rawFlags);
+      checkNotNull(packageId);
+      checkNotNull(flagAliasMappings);
+    }
 
     /**
      * Returns a new {@link Key} for the given command-line flags, such as {@code
@@ -54,9 +69,9 @@ public final class ParsedFlagsValue implements SkyValue {
      */
     public static Key create(
         ImmutableList<String> rawFlags,
-        PackageContext packageContext,
+        PackageIdentifier packageId,
         ImmutableMap<String, Label> flagAliasMappings) {
-      return create(rawFlags, packageContext, /* includeDefaultValues= */ false, flagAliasMappings);
+      return create(rawFlags, packageId, /* includeDefaultValues= */ false, flagAliasMappings);
     }
 
     /**
@@ -66,77 +81,15 @@ public final class ParsedFlagsValue implements SkyValue {
     @AutoCodec.Instantiator
     public static Key create(
         ImmutableList<String> rawFlags,
-        PackageContext packageContext,
+        PackageIdentifier packageId,
         boolean includeDefaultValues,
         ImmutableMap<String, Label> flagAliasMappings) {
-      return interner.intern(
-          new Key(rawFlags, packageContext, includeDefaultValues, flagAliasMappings));
-    }
-
-    private final ImmutableList<String> rawFlags;
-    private final PackageContext packageContext;
-    private final boolean includeDefaultValues;
-
-    private final ImmutableMap<String, Label> flagAliasMappings;
-
-    private Key(
-        ImmutableList<String> rawFlags,
-        PackageContext packageContext,
-        boolean includeDefaultValues,
-        ImmutableMap<String, Label> flagAliasMappings) {
-      this.rawFlags = checkNotNull(rawFlags);
-      this.packageContext = checkNotNull(packageContext);
-      this.includeDefaultValues = includeDefaultValues;
-      this.flagAliasMappings = flagAliasMappings;
-    }
-
-    ImmutableList<String> rawFlags() {
-      return rawFlags;
-    }
-
-    PackageContext packageContext() {
-      return packageContext;
-    }
-
-    boolean includeDefaultValues() {
-      return includeDefaultValues;
-    }
-
-    ImmutableMap<String, Label> flagAliasMappings() {
-      return flagAliasMappings;
+      return interner.intern(new Key(rawFlags, packageId, includeDefaultValues, flagAliasMappings));
     }
 
     @Override
     public SkyFunctionName functionName() {
       return SkyFunctions.PARSED_FLAGS;
-    }
-
-    @Override
-    public boolean equals(Object o) {
-      if (this == o) {
-        return true;
-      }
-      if (!(o instanceof Key that)) {
-        return false;
-      }
-      return rawFlags.equals(that.rawFlags)
-          && packageContext.equals(that.packageContext)
-          && includeDefaultValues == that.includeDefaultValues;
-    }
-
-    @Override
-    public int hashCode() {
-      return HashCodes.hashObjects(rawFlags, packageContext) * 31
-          + Boolean.hashCode(includeDefaultValues);
-    }
-
-    @Override
-    public String toString() {
-      return MoreObjects.toStringHelper("ParsedFlagsValue.Key")
-          .add("rawFlags", rawFlags)
-          .add("packageContext", packageContext)
-          .add("includeDefaultValues", includeDefaultValues)
-          .toString();
     }
 
     @Override

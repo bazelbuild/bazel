@@ -18,14 +18,12 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.config.CommonOptions;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.Label.PackageContext;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredValueCreationException;
 import com.google.devtools.build.lib.skyframe.PackageValue;
-import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.config.ParsedFlagsValue;
 import com.google.devtools.build.lib.skyframe.toolchains.PlatformLookupUtil;
@@ -103,17 +101,10 @@ public final class PlatformFunction implements SkyFunction {
       return PlatformValue.noFlags(platformInfo);
     }
 
-    var repoMappingValue =
-        (RepositoryMappingValue)
-            env.getValue(RepositoryMappingValue.key(platformLabel.getRepository()));
-    if (repoMappingValue == null) {
-      return null;
-    }
-
     var parsedFlagsKey =
         ParsedFlagsValue.Key.create(
             platformInfo.flags(),
-            PackageContext.of(pkgId, repoMappingValue.repositoryMapping()),
+            pkgId,
             // Include default values so that any flags explicitly reset to the default are kept.
             /* includeDefaultValues= */ true,
             params.flagAliasMappings());

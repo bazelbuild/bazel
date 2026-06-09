@@ -128,8 +128,6 @@ import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.Label.LabelInterner;
-import com.google.devtools.build.lib.cmdline.Label.PackageContext;
-import com.google.devtools.build.lib.cmdline.Label.RepoContext;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -1890,21 +1888,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   public BuildOptions createBuildOptionsForTesting(
       ExtendedEventHandler eventHandler, ImmutableList<String> args)
       throws InvalidConfigurationException {
-    RepositoryMappingValue.Key mainRepositoryMappingKey =
-        RepositoryMappingValue.key(RepositoryName.MAIN);
-    EvaluationResult<SkyValue> mainRepoMappingResult =
-        evaluateSkyKeys(eventHandler, ImmutableList.of(mainRepositoryMappingKey));
-    if (mainRepoMappingResult.hasError()) {
-      throw new InvalidConfigurationException(
-          "Cannot find main repository mapping",
-          Code.INVALID_BUILD_OPTIONS,
-          mainRepoMappingResult.getError().getException());
-    }
-    RepositoryMappingValue mainRepositoryMappingValue =
-        (RepositoryMappingValue) mainRepoMappingResult.get(mainRepositoryMappingKey);
-    RepoContext mainRepoContext =
-        RepoContext.of(RepositoryName.MAIN, mainRepositoryMappingValue.repositoryMapping());
-
     ImmutableMap<String, Label> flagAliasMappings =
         args.stream()
             .filter(arg -> arg.startsWith("--flag_alias="))
@@ -1913,7 +1896,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
                 ImmutableMap.toImmutableMap(
                     pair -> pair[0], pair -> Label.parseCanonicalUnchecked(pair[1])));
     // Parse the options.
-    PackageContext rootPackage = mainRepoContext.rootPackage();
+    PackageIdentifier rootPackage = PackageIdentifier.createRootPackage(RepositoryName.MAIN);
     ParsedFlagsValue.Key parsedFlagsKey =
         ParsedFlagsValue.Key.create(args, rootPackage, flagAliasMappings);
     EvaluationResult<SkyValue> result =

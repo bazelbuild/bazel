@@ -67,7 +67,8 @@ public class RepositoryMapping {
 
   @Override
   public int hashCode() {
-    return Objects.hashCode(entries, contextRepo);
+    throw new UnsupportedOperationException(
+        "RepositoryMapping#hashCode would be expensive and should not be used");
   }
 
   @Override

@@ -19,10 +19,10 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.devtools.build.lib.util.HashCodes;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsParsingResult;
-import javax.annotation.Nullable;
 
 /**
  * Container for storing a set of native and Starlark flag settings in separate buckets.
@@ -64,7 +64,8 @@ public abstract class NativeAndStarlarkFlags {
         .starlarkFlagDefaults(ImmutableMap.of())
         .starlarkOptionAllowingMultiple(ImmutableSet.of())
         .scopesAttributes(ImmutableMap.of())
-        .optionsClasses(ImmutableSet.of());
+        .optionsClasses(ImmutableSet.of())
+        .repoMapping(RepositoryMapping.EMPTY);
   }
 
   /**
@@ -91,8 +92,21 @@ public abstract class NativeAndStarlarkFlags {
 
   abstract ImmutableSet<Class<? extends FragmentOptions>> optionsClasses();
 
-  @Nullable
   abstract RepositoryMapping repoMapping();
+
+  @Override
+  public final int hashCode() {
+    // RepositoryMapping doesn't permit hashCode, but since each repo has a unique mapping within a
+    // build, hashing the owner repo provides comparable uniqueness.
+    return HashCodes.hashObjects(
+        nativeFlags(),
+        starlarkFlags(),
+        scopesAttributes(),
+        starlarkFlagDefaults(),
+        starlarkOptionAllowingMultiple(),
+        optionsClasses(),
+        repoMapping().contextRepo());
+  }
 
   public final OptionsParsingResult parse() throws OptionsParsingException {
     OptionsParser parser =

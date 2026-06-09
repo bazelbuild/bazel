@@ -27,9 +27,9 @@ import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.actions.MissingInputFileException;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.Label.PackageContext;
 import com.google.devtools.build.lib.cmdline.Label.RepoContext;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.server.FailureDetails.BuildConfiguration;
@@ -208,7 +208,8 @@ public final class PlatformMappingFunction implements SkyFunction {
   private static ParsedFlagsValue parseFlags(
       ImmutableList<String> rawFlags, Environment env, RepoContext mainRepoContext)
       throws PlatformMappingParsingException, InterruptedException {
-    PackageContext rootPackage = mainRepoContext.rootPackage();
+    PackageIdentifier rootPackage =
+        PackageIdentifier.createRootPackage(mainRepoContext.currentRepo());
     // Passing an empty flagAliasMappings means platform mappings don't support flag aliases: if
     // a mapping sets --foo=bar but --foo is an alias for --//actual:flag, the mapping must be
     // updated to set --actual:flag=bar. Since this is a deprecated API we won't support mappings
