@@ -24,10 +24,14 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import build.bazel.remote.execution.v2.ActionResult;
+import build.bazel.remote.execution.v2.CacheCapabilities;
 import build.bazel.remote.execution.v2.Digest;
+import build.bazel.remote.execution.v2.FastCdc2020Params;
 import build.bazel.remote.execution.v2.RequestMetadata;
+import build.bazel.remote.execution.v2.ServerCapabilities;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -713,6 +717,56 @@ public class CombinedCacheTest {
     assertThat(upload.isCancelled()).isTrue();
   }
 
+  @Test
+  public void uploadFile_chunkedUpload_deduplicatesRemoteUpload() throws Exception {
+    GrpcCacheClient grpcCacheClient = mock(GrpcCacheClient.class);
+    when(grpcCacheClient.getServerCapabilities()).thenAnswer(unused -> chunkingCapabilities());
+    when(grpcCacheClient.findMissingDigests(any(), any()))
+        .thenAnswer(unused -> immediateFuture(ImmutableSet.of()));
+
+    CountDownLatch spliceStarted = new CountDownLatch(1);
+    SettableFuture<Void> spliceFuture = SettableFuture.create();
+    when(grpcCacheClient.spliceBlob(any(), any(), any()))
+        .thenAnswer(
+            unused -> {
+              spliceStarted.countDown();
+              return spliceFuture;
+            });
+
+    CombinedCache combinedCache =
+        new CombinedCache(
+            grpcCacheClient,
+            /* diskCacheClient= */ null,
+            /* symlinkTemplate= */ null,
+            digestUtil,
+            /* chunkingEnabled= */ true);
+    byte[] data = new byte[8192];
+    Path file = execRoot.getRelative("chunked-output");
+    try (var out = file.getOutputStream()) {
+      out.write(data);
+    }
+    Digest digest = digestUtil.compute(data);
+
+    try {
+      ListenableFuture<Void> firstUpload =
+          combinedCache.uploadFile(remoteActionExecutionContext, digest, file);
+      assertThat(spliceStarted.await(1, TimeUnit.SECONDS)).isTrue();
+
+      ListenableFuture<Void> secondUpload =
+          combinedCache.uploadFile(remoteActionExecutionContext, digest, file);
+
+      assertThat(combinedCache.casUploadCache.getSubscriberCount(digest)).isEqualTo(2);
+      verify(grpcCacheClient).findMissingDigests(any(), any());
+      verify(grpcCacheClient).spliceBlob(any(), any(), any());
+
+      spliceFuture.set(null);
+      getFromFuture(firstUpload);
+      getFromFuture(secondUpload);
+    } finally {
+      combinedCache.release();
+    }
+  }
+
   private InMemoryCombinedCache newCombinedCache() {
     return new InMemoryCombinedCache(digestUtil);
   }
@@ -738,5 +792,14 @@ public class CombinedCacheTest {
         /* symlinkTemplate= */ null,
         digestUtil,
         /* chunkingEnabled= */ false);
+  }
+
+  private static ServerCapabilities chunkingCapabilities() {
+    return ServerCapabilities.newBuilder()
+        .setCacheCapabilities(
+            CacheCapabilities.newBuilder()
+                .setFastCdc2020Params(
+                    FastCdc2020Params.newBuilder().setAvgChunkSizeBytes(1024).build()))
+        .build();
   }
 }
