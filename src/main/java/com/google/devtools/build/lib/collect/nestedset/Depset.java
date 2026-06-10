@@ -163,8 +163,7 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
     if (set.isEmpty()) {
       return set.getOrder().emptyDepset();
     }
-    return new Depset(
-        ElementType.getTypeClass(elemClass), NestedSetInterner.internDepset(set, elemClass));
+    return new Depset(ElementType.getTypeClass(elemClass), set);
   }
 
   /**
@@ -393,7 +392,7 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
     if (builder.isEmpty()) {
       return builder.getOrder().emptyDepset();
     }
-    NestedSet<?> set = builder.buildForDepset(type);
+    NestedSet<Object> set = builder.build();
     // If the nested set was optimized to one of the transitive elements, reuse the corresponding
     // depset.
     for (Depset x : transitive) {

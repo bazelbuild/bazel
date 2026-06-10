@@ -233,7 +233,6 @@ public class NestedSetFingerprintCacheTest {
   @Test
   public void testFingerprintDeduplicationOfIdenticalTransitiveSets() throws Exception {
     NestedSet<String> a = NestedSetBuilder.<String>stableOrder().add("a").add("b").build();
-    NestedSetInterner.clear();
     NestedSet<String> b = NestedSetBuilder.<String>stableOrder().add("a").add("b").build();
 
     // Verify assumption that a and b are distinct objects (otherwise this test is trivial)
