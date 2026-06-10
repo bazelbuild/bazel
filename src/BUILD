@@ -109,7 +109,6 @@ JAVA_TOOLS = [
                "//third_party/def_parser:srcs",
                "//third_party/ijar:embedded_zipper_sources",
                "//third_party/ijar:zipper",
-               "//third_party/py/abseil:srcs",
                "//tools:embedded_tools_srcs",
            ] + select({
                "//src/conditions:darwin": [
@@ -140,7 +139,7 @@ rule_size_test(
     # WARNING: Only adjust the number in `expect` if you are intentionally
     # adding or removing embedded tools. Know that the more embedded tools there
     # are in Bazel, the bigger the binary becomes and the slower Bazel starts.
-    expect = 327,
+    expect = 285,
     margin = 5,  # percentage
 )
 

@@ -24,7 +24,6 @@ filegroup(
         "//third_party/java/proguard:srcs",
         "//third_party/pprof:srcs",
         "//third_party/protobuf:srcs",
-        "//third_party/py/abseil:srcs",
         "//third_party/py/concurrent:srcs",
         "//third_party/py/dataclasses:srcs",
         "//third_party/py/frozendict:srcs",
