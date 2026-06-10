@@ -1376,7 +1376,14 @@ public class Package extends Packageoid {
     }
   }
 
-  /** A collection of data that is known before BUILD file evaluation even begins. */
+  /**
+   * A collection of data that is known before BUILD file evaluation even begins.
+   *
+   * <p><b>Important:</b> Tracking of transitive packages relies on a {@link
+   * com.google.devtools.build.lib.collect.nestedset.NestedSet<Metadata>}, so this class must have a
+   * cheap {@link #hashCode()}. Some fields, such as {@link #repositoryMapping}, would be cheap to
+   * hash for Blaze but not Bazel.
+   */
   // TODO(bazel-team): move to Packageoid.java or to its own file to reduce size of Package.java?
   @AutoCodec
   public record Metadata(
@@ -1393,6 +1400,13 @@ public class Package extends Packageoid {
       @Nullable ConfigSettingVisibilityPolicy configSettingVisibilityPolicy,
       boolean succinctTargetNotFoundErrors,
       Root sourceRoot) {
+
+    // See class-level Javadoc for an explanation of why we need this.
+    @Override
+    public int hashCode() {
+      // Within a single build a package is uniquely identified by its PackageIdentifier.
+      return packageIdentifier.hashCode();
+    }
 
     public static Builder builder() {
       return new AutoBuilder_Package_Metadata_Builder();
