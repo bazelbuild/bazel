@@ -188,10 +188,10 @@ public abstract class RemoteAnalysisCachingOptions extends OptionsBase {
   // Configuration Modes:
   // 1. Write Proxy: If --experimental_remote_analysis_write_proxy is set, all uploads go through
   //    the write proxy. --experimental_remote_analysis_cache_mode must be UPLOAD.
-  //    --experimental_analysis_cache_service and --experimental_remote_analysis_cache are ignored.
+  //    --experimental_analysis_cache_service is ignored.
   //
-  // 2. Read Proxy: If --experimental_analysis_cache_service is set but
-  //    --experimental_remote_analysis_cache is NOT set, downloads are proxied through the
+  // 2. Read Proxy: If --experimental_analysis_cache_service is set, downloads are proxied through
+  // the
   //    AnalysisCacheService. --experimental_remote_analysis_cache_mode must be DOWNLOAD.
 
   @Option(
