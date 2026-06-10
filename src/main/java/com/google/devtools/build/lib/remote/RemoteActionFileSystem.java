@@ -269,6 +269,11 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat
   }
 
   @Override
+  public FileSystem getHostFileSystem() {
+    return localFs.getHostFileSystem();
+  }
+
+  @Override
   public boolean supportsModifications(PathFragment path) {
     return localFs.supportsModifications(path);
   }

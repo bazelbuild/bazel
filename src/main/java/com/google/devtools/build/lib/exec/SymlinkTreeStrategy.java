@@ -95,10 +95,10 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
           // Delete symlinks possibly left over by a previous invocation with a different mode.
           // This is required because only the output manifest is considered an action output, so
           // Skyframe does not clear the directory for us.
-          createSymlinkTreeHelper(action).clearRunfilesDirectory();
+          createSymlinkTreeHelper(action, actionExecutionContext).clearRunfilesDirectory();
         } else if (action.getRunfileSymlinksMode() == RunfileSymlinksMode.INTERNAL) {
           try {
-            SymlinkTreeHelper helper = createSymlinkTreeHelper(action);
+            SymlinkTreeHelper helper = createSymlinkTreeHelper(action, actionExecutionContext);
             if (action.isFilesetTree()) {
               helper.createFilesetSymlinksDirectly(getFilesetMap(action, actionExecutionContext));
             } else {
@@ -114,7 +114,7 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
         } else {
           Map<String, String> resolvedEnv = new LinkedHashMap<>();
           action.getEnvironment().resolve(resolvedEnv, actionExecutionContext.getClientEnv());
-          createSymlinkTreeHelper(action)
+          createSymlinkTreeHelper(action, actionExecutionContext)
               .createSymlinksUsingCommand(
                   binTools, resolvedEnv, actionExecutionContext.getFileOutErr());
         }
@@ -161,19 +161,13 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
     }
   }
 
-  private SymlinkTreeHelper createSymlinkTreeHelper(SymlinkTreeAction action) {
-    // Do not indirect paths through the action filesystem, for two reasons:
-    // (1) we always want to create the symlinks on disk, even if the action filesystem creates them
-    //     in memory (at the time of writing, no action filesystem implementations do so, but this
-    //     may change in the future).
-    // (2) current action filesystem implementations are not a true overlay filesystem, so errors
-    //     might occur in an incremental build when the parent directory of a symlink exists on disk
-    //     but not in memory (see https://github.com/bazelbuild/bazel/issues/24867).
+  private SymlinkTreeHelper createSymlinkTreeHelper(
+      SymlinkTreeAction action, ActionExecutionContext actionExecutionContext) {
     return new SymlinkTreeHelper(
         execRoot,
-        action.getInputManifest().getPath(),
-        action.getOutputManifest().getPath(),
-        action.getOutputManifest().getPath().getParentDirectory(),
+        actionExecutionContext.getInputPath(action.getInputManifest()),
+        actionExecutionContext.getInputPath(action.getOutputManifest()),
+        actionExecutionContext.getInputPath(action.getOutputManifest()).getParentDirectory(),
         action.isFilesetTree(),
         workspaceName);
   }
