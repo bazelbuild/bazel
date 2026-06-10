@@ -274,7 +274,10 @@ public class LexerTest {
     // binary
     check("0b101-", "INT(5) MINUS NEWLINE EOF");
     check("0B1101", "INT(13) NEWLINE EOF");
-    check("0b1012", "INT(5) INT(2) NEWLINE EOF"); // '2' terminates the binary literal
+    checkErrors(
+        "0b1012", // '2' is not a valid binary digit
+        "INT(0) NEWLINE EOF",
+        "^ invalid base-2 integer literal: 0b1012");
     checkErrors(
         "0b", //
         "INT(0) NEWLINE EOF",
@@ -285,7 +288,10 @@ public class LexerTest {
     check("0o12345-", "INT(5349) MINUS NEWLINE EOF");
     check("0O77", "INT(63) NEWLINE EOF");
     check("0o1o2349-", "INT(1) IDENTIFIER(o2349) MINUS NEWLINE EOF");
-    check("0o12349-", "INT(668) INT(9) MINUS NEWLINE EOF"); // '9' terminates the octal literal
+    checkErrors(
+        "0o12349-", // '9' is not a valid octal digit
+        "INT(0) MINUS NEWLINE EOF",
+        "^ invalid base-8 integer literal: 0o12349");
     checkErrors(
         "0o", //
         "INT(0) NEWLINE EOF",
@@ -343,6 +349,11 @@ public class LexerTest {
 
     // A leading underscore is an identifier, not a number.
     check("_100", "IDENTIFIER(_100) NEWLINE EOF");
+
+    // A digit invalid in the literal's base is an error, not the start of a new token,
+    // even when separated from the valid digits by an underscore.
+    checkErrors("0b1_2", "INT(0) NEWLINE EOF", "^ invalid base-2 integer literal: 0b1_2");
+    checkErrors("0o7_8", "INT(0) NEWLINE EOF", "^ invalid base-8 integer literal: 0o7_8");
 
     // A misplaced underscore terminates the number, like any other non-digit.
     check("1__0", "INT(1) IDENTIFIER(__0) NEWLINE EOF");

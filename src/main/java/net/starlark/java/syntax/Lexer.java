@@ -934,18 +934,22 @@ final class Lexer {
 
       } else if (c == 'o' || c == 'O') {
         // octal
+        // Scan decimal, not just octal, digits so that a digit invalid in base 8 makes the whole
+        // literal invalid ("0o777999" is an error, not the two tokens "0o777" and "999"); it is
+        // reported by IntLiteral.scan below.
         c = next();
         int digitsStart = pos;
-        c = scanDigits(c, Lexer::isodigit, /* leadingSeparatorOk= */ true);
+        c = scanDigits(c, Lexer::isdigit, /* leadingSeparatorOk= */ true);
         if (pos == digitsStart) {
           error("invalid octal literal", start);
         }
 
       } else if (c == 'b' || c == 'B') {
         // binary
+        // As for octal, scan decimal digits and let IntLiteral.scan report invalid ones.
         c = next();
         int digitsStart = pos;
-        c = scanDigits(c, Lexer::isbdigit, /* leadingSeparatorOk= */ true);
+        c = scanDigits(c, Lexer::isdigit, /* leadingSeparatorOk= */ true);
         if (pos == digitsStart) {
           error("invalid binary literal", start);
         }
@@ -1005,7 +1009,7 @@ final class Lexer {
 
     // int
     setToken(TokenKind.INT, start, pos);
-    String literal = bufferSlice(start, pos).replace("_", "");
+    String literal = bufferSlice(start, pos);
     Number value = 0;
     try {
       value = IntLiteral.scan(literal);
@@ -1038,14 +1042,6 @@ final class Lexer {
 
   private static boolean isxdigit(int c) {
     return isdigit(c) || ('A' <= c && c <= 'F') || ('a' <= c && c <= 'f');
-  }
-
-  private static boolean isodigit(int c) {
-    return '0' <= c && c <= '7';
-  }
-
-  private static boolean isbdigit(int c) {
-    return c == '0' || c == '1';
   }
 
   /**
