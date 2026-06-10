@@ -459,7 +459,7 @@ final class Lexer {
               // There was a CRLF after the newline. No shortcut possible, since it needs to be
               // transformed into a single LF.
               pos = contentStartPos;
-              escapedStringLiteral(quot, /* leadingSeparatorOk= */ true);
+              escapedStringLiteral(quot, true);
               return;
             } else {
               pos++;
@@ -468,7 +468,7 @@ final class Lexer {
           }
           // oops, hit an escape, need to start over & build a new string buffer
           pos = contentStartPos;
-          escapedStringLiteral(quot, /* leadingSeparatorOk= */ false);
+          escapedStringLiteral(quot, false);
           return;
         case '\'':
         case '"':
@@ -848,7 +848,7 @@ final class Lexer {
           break;
         case '\'':
         case '\"':
-          stringLiteral(c, /* leadingSeparatorOk= */ false);
+          stringLiteral(c, false);
           break;
         default:
           // detect raw strings, e.g. r"str"
@@ -856,7 +856,7 @@ final class Lexer {
             int c0 = peek(0);
             if (c0 == '\'' || c0 == '\"') {
               pos++;
-              stringLiteral((char) c0, /* leadingSeparatorOk= */ true);
+              stringLiteral((char) c0, true);
               break;
             }
           }

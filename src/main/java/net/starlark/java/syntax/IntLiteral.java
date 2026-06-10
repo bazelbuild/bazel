@@ -73,7 +73,8 @@ public final class IntLiteral extends Expression {
   /**
    * Returns the value denoted by a non-negative integer literal with an optional base prefix (but
    * no +/- sign), using the narrowest type of Integer, Long, or BigInteger capable of exactly
-   * representing the value. PEP 515 '_' separators are ignored.
+   * representing the value. PEP 515 '_' separators are ignored and callers must ensure that they
+   * are valid if present (i.e., no leading/trailing/consecutive separators).
    *
    * @throws NumberFormatException if the string is not a valid literal.
    */

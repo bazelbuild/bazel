@@ -346,6 +346,8 @@ public class LexerTest {
     check("1_0.0_1", "FLOAT(10.01) NEWLINE EOF");
     check("1_0e1_0", "FLOAT(1.0E11) NEWLINE EOF");
     check("1.5e1_0", "FLOAT(1.5E10) NEWLINE EOF");
+    check("1.5e+1_0", "FLOAT(1.5E10) NEWLINE EOF");
+    check("1.5e-1_0", "FLOAT(1.5E-10) NEWLINE EOF");
 
     // A leading underscore is an identifier, not a number.
     check("_100", "IDENTIFIER(_100) NEWLINE EOF");
@@ -361,6 +363,8 @@ public class LexerTest {
     check("1_.5", "INT(1) IDENTIFIER(_) FLOAT(0.5) NEWLINE EOF");
     check("1._5", "FLOAT(1.0) IDENTIFIER(_5) NEWLINE EOF");
     checkErrors("1e_5", "FLOAT(0.0) IDENTIFIER(_5) NEWLINE EOF", "^ invalid float literal");
+    checkErrors("1e+_5", "FLOAT(0.0) IDENTIFIER(_5) NEWLINE EOF", "^ invalid float literal");
+    checkErrors("1e-_5", "FLOAT(0.0) IDENTIFIER(_5) NEWLINE EOF", "^ invalid float literal");
     check("1_e5", "INT(1) IDENTIFIER(_e5) NEWLINE EOF");
   }
 
