@@ -33,14 +33,7 @@ import com.google.common.collect.MoreCollectors;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.common.options.OptionsParserImpl.OptionsParserImplResult;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -910,5 +903,43 @@ public class OptionsParser implements OptionsParsingResult {
         List<String> args, @Nullable OpaqueOptionsData fallbackData) {
       return Lists.transform(args, arg -> new ArgAndFallbackData(arg, fallbackData));
     }
+  }
+
+  @Override
+  public boolean equals(Object object) {
+    if (object == this) {
+      return true;
+    }
+    if (object instanceof OptionsParser otherOptionsParser) {
+      return Objects.equals(impl, otherOptionsParser.impl)
+          && Objects.equals(residue, otherOptionsParser.residue)
+          && Objects.equals(postDoubleDashResidue, otherOptionsParser.postDoubleDashResidue)
+          && Objects.equals(allowResidue, otherOptionsParser.allowResidue)
+          && Objects.equals(ignoreUserOptions, otherOptionsParser.ignoreUserOptions)
+          && Objects.equals(starlarkOptions, otherOptionsParser.starlarkOptions)
+          && Objects.equals(
+              starlarkOptionsAllowingMultiple, otherOptionsParser.starlarkOptionsAllowingMultiple)
+          && Objects.equals(scopesAttributes, otherOptionsParser.scopesAttributes)
+          && Objects.equals(onLeaveScopeValues, otherOptionsParser.onLeaveScopeValues)
+          && Objects.equals(aliases, otherOptionsParser.aliases)
+          && Objects.equals(success, otherOptionsParser.success);
+    }
+    return false;
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(
+        impl,
+        residue,
+        postDoubleDashResidue,
+        allowResidue,
+        ignoreUserOptions,
+        starlarkOptions,
+        starlarkOptionsAllowingMultiple,
+        scopesAttributes,
+        onLeaveScopeValues,
+        aliases,
+        success);
   }
 }
