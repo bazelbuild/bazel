@@ -76,6 +76,7 @@ import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -765,9 +766,9 @@ public abstract class ActionInputPrefetcherTestBase {
         .when(fs)
         .renameTo(any(), any());
     Thread secondCompletion = new Thread(() -> secondDownload.set(null));
-    // Completing the first download runs its direct-executor finalization on this thread. Without
-    // root-level synchronization it completes and restores the shared root while the second move
-    // is paused; with synchronization it waits for the second finalization to release the lock.
+    // Completing the first download runs its direct-executor finalization on this thread. Its move
+    // may proceed concurrently with the paused move, but its permission restoration must wait for
+    // the paused finalization to release its read lock.
     Thread firstCompletion = new Thread(() -> firstDownload.set(null));
     secondCompletion.start();
     try {
@@ -775,16 +776,11 @@ public abstract class ActionInputPrefetcherTestBase {
       firstCompletion.start();
 
       long deadline = System.nanoTime() + SECONDS.toNanos(10);
-      while (!firstPrefetch.isDone()
-          && firstCompletion.getState() != Thread.State.BLOCKED
-          && firstCompletion.getState() != Thread.State.WAITING
-          && System.nanoTime() < deadline) {
+      while (!children.get(0).getPath().exists() && System.nanoTime() < deadline) {
         Thread.yield();
       }
-      assertThat(firstPrefetch.isDone()
-              || firstCompletion.getState() == Thread.State.BLOCKED
-              || firstCompletion.getState() == Thread.State.WAITING)
-          .isTrue();
+      assertThat(children.get(0).getPath().exists()).isTrue();
+      assertThat(firstPrefetch.isDone()).isFalse();
       assertThat(tree.getPath().isWritable()).isTrue();
     } finally {
       secondFinalizationMayContinue.release();
@@ -795,6 +791,82 @@ public abstract class ActionInputPrefetcherTestBase {
     wait(firstPrefetch);
     wait(secondPrefetch);
     assertTreeReadableNonWritableAndExecutable(tree.getPath());
+  }
+
+  @Test
+  public void prefetchFiles_treeFiles_manyConcurrentOverlappingCalls() throws Exception {
+    int treeCount = 4;
+    int childrenPerTree = 16;
+    Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
+    Map<HashCode, byte[]> cas = new HashMap<>();
+    ImmutableList.Builder<SpecialArtifact> trees = ImmutableList.builder();
+    ImmutableList.Builder<ImmutableList<TreeFileArtifact>> childrenByTree =
+        ImmutableList.builder();
+    for (int treeIndex = 0; treeIndex < treeCount; treeIndex++) {
+      ImmutableMap.Builder<String, String> remoteContent = ImmutableMap.builder();
+      for (int childIndex = 0; childIndex < childrenPerTree; childIndex++) {
+        remoteContent.put("subdir-" + childIndex + "/file", "content");
+      }
+      Pair<SpecialArtifact, ImmutableList<TreeFileArtifact>> treeAndChildren =
+          createRemoteTreeArtifact(
+              "dir-" + treeIndex,
+              /* localContentMap= */ ImmutableMap.of(),
+              remoteContent.buildOrThrow(),
+              metadata,
+              cas);
+      trees.add(treeAndChildren.getFirst());
+      childrenByTree.add(treeAndChildren.getSecond());
+    }
+    ImmutableList<SpecialArtifact> treeList = trees.build();
+    ImmutableList<ImmutableList<TreeFileArtifact>> childLists = childrenByTree.build();
+    AbstractActionInputPrefetcher prefetcher = createPrefetcher(cas);
+
+    int concurrency = 32;
+    int requestCount = 128;
+    CountDownLatch requestsReady = new CountDownLatch(concurrency);
+    CountDownLatch startRequests = new CountDownLatch(1);
+    ThreadPoolExecutor pool =
+        new ThreadPoolExecutor(
+            concurrency, concurrency, 0, SECONDS, new LinkedBlockingQueue<>());
+    ImmutableList.Builder<Future<Void>> requests = ImmutableList.builder();
+    try {
+      for (int requestIndex = 0; requestIndex < requestCount; requestIndex++) {
+        int treeIndex = requestIndex % treeCount;
+        int childIndex = (requestIndex / treeCount) % childrenPerTree;
+        ImmutableList<TreeFileArtifact> children = childLists.get(treeIndex);
+        ImmutableList<ActionInput> inputs =
+            ImmutableList.of(
+                children.get(childIndex), children.get((childIndex + 1) % childrenPerTree));
+        requests.add(
+            pool.submit(
+                () -> {
+                  requestsReady.countDown();
+                  startRequests.await();
+                  wait(
+                      prefetcher.prefetchFilesInterruptibly(
+                          action, inputs, metadata::get, Priority.MEDIUM, Reason.INPUTS));
+                  return null;
+                }));
+      }
+
+      boolean allRequestsReady = requestsReady.await(10, SECONDS);
+      startRequests.countDown();
+      assertThat(allRequestsReady).isTrue();
+      for (Future<Void> request : requests.build()) {
+        request.get(30, SECONDS);
+      }
+    } finally {
+      startRequests.countDown();
+      pool.shutdownNow();
+      pool.awaitTermination(10, SECONDS);
+    }
+
+    for (int treeIndex = 0; treeIndex < treeCount; treeIndex++) {
+      for (TreeFileArtifact child : childLists.get(treeIndex)) {
+        assertThat(FileSystemUtils.readContent(child.getPath(), UTF_8)).isEqualTo("content");
+      }
+      assertTreeReadableNonWritableAndExecutable(treeList.get(treeIndex).getPath());
+    }
   }
 
   @Test

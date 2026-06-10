@@ -67,6 +67,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReadWriteLock;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
@@ -209,9 +210,11 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
 
   private final DirectoryTracker directoryTracker = new DirectoryTracker();
 
-  // TreeArtifact downloads use temporary paths. Serialize only permission changes and final file
-  // moves, keyed by resolved tree root, so unrelated trees can still finalize concurrently.
-  private final Striped<Lock> treeArtifactLocks = Striped.lock(64);
+  // TreeArtifact downloads use temporary paths. Coordinate finalization and permission restoration
+  // by resolved tree root. Weak locks over the full hash space allow unrelated trees to finalize
+  // concurrently without retaining every lock for the lifetime of the prefetcher.
+  private final Striped<ReadWriteLock> treeArtifactLocks =
+      Striped.lazyWeakReadWriteLock(Integer.MAX_VALUE);
 
   /** A symlink in the output tree that points to another artifact's absolute path. */
   record Symlink(Path linkPath, Path targetPath) {
@@ -378,10 +381,10 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
         unused -> {
           try {
             // Match the directory output permissions set by SkyframeActionExecutor#checkOutputs.
-            // Take the same root lock as finalization so restoration cannot make an ancestor
-            // read-only while another call moves a child into the tree.
+            // Take the root write lock so restoration cannot make an ancestor read-only while any
+            // call holds a read lock to move a child into the tree.
             for (var entry : directoriesByTreeRoot.asMap().entrySet()) {
-              Lock lock = treeArtifactLocks.get(entry.getKey().asFragment());
+              Lock lock = treeArtifactLocks.get(entry.getKey().asFragment()).writeLock();
               lock.lock();
               try {
                 for (Path dir : entry.getValue()) {
@@ -661,10 +664,14 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     tmpPath.chmod(outputPermissions.getPermissionsMode());
 
     Path parentDir = checkNotNull(finalPath.getParentDirectory());
+    // A read lock allows concurrent child moves, while preventing a prefetch call from restoring
+    // the tree's output permissions until every move in progress has completed.
     @Nullable Lock treeArtifactLock =
         dirsWithOutputPermissions.isEmpty()
             ? null
-            : treeArtifactLocks.get(dirsWithOutputPermissions.getLast().asFragment());
+            : treeArtifactLocks
+                .get(dirsWithOutputPermissions.getLast().asFragment())
+                .readLock();
     if (treeArtifactLock != null) {
       treeArtifactLock.lock();
     }
