@@ -1779,6 +1779,11 @@ bool HasAttrs::ReadAttrs(const u1 *&p, const u1 *end) {
       }
       p += attribute_length;
     }
+    // Resynchronize to the attribute's declared end. A handled reader may
+    // consume fewer bytes than attribute_length (e.g. a malformed internal
+    // length); without this, the trailing bytes of this attribute body would
+    // be misread as the next attribute header.
+    p = attr_end;
   }
   return true;
 }
