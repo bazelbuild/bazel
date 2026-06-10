@@ -41,30 +41,6 @@ source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
 source "$(rlocation "io_bazel/src/main/starlark/tests/builtins_bzl/builtin_test_setup.sh")" \
   || { echo "builtin_test_setup.sh not found!" >&2; exit 1; }
 
-function test_starlark_cc() {
-  setup_tests src/main/starlark/tests/builtins_bzl/cc
-  mkdir -p "src/conditions"
-  cp "$(rlocation "io_bazel/src/conditions/BUILD")" "src/conditions/BUILD"
-
-  add_rules_cc "MODULE.bazel"
-  add_protobuf "MODULE.bazel"
-  cat >> MODULE.bazel<<EOF
-bazel_dep(name = "test_repo", repo_name = "my_test_repo")
-local_path_override(
-    module_name = "test_repo",
-    path = "src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test2",
-)
-EOF
-  if is_windows; then
-    START_OPTS='--output_user_root=C:/tmp'
-  else
-    START_OPTS=''
-  fi
-
-  bazel $START_OPTS test --define=is_bazel=true --test_output=streamed \
-    //src/main/starlark/tests/builtins_bzl/cc/... || fail "expected success"
-}
-
 function test_cc_static_library_duplicate_symbol() {
   add_rules_cc "MODULE.bazel"
   mkdir -p pkg
