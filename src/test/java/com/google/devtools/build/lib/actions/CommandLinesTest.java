@@ -97,6 +97,27 @@ public class CommandLinesTest {
   }
 
   @Test
+  public void expand_paramFileWithCustomFlagFormat_preservesParamFileArg() throws Exception {
+    CommandLines commandLines =
+        CommandLines.builder()
+            .addCommandLine(
+                CommandLine.of(ImmutableList.of("--foo", "--bar")),
+                ParamFileInfo.builder(ParameterFileType.UNQUOTED)
+                    .setFlagFormatString("--flagfile=%s")
+                    .setUseAlways(true)
+                    .build())
+            .build();
+
+    ExpandedCommandLines expanded =
+        commandLines.expand(inputMetadataProvider, execPath, NO_LIMIT, PathMapper.NOOP, 0);
+
+    assertThat(expanded.arguments()).containsExactly("--flagfile=output.txt-0.params");
+    assertThat(expanded.getParamFiles()).hasSize(1);
+    assertThat(expanded.getParamFiles().get(0).getParamFileArg())
+        .isEqualTo("--flagfile=output.txt-0.params");
+  }
+
+  @Test
   public void expand_paramFileCommandWithinLimits_returnsNoParamFile() throws Exception {
     CommandLines commandLines =
         CommandLines.builder()

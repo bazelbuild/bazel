@@ -49,10 +49,10 @@ import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
-import com.google.devtools.build.lib.actions.CommandLines;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
+import com.google.devtools.build.lib.actions.ParamFileActionInput;
 import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
@@ -1274,8 +1274,8 @@ public class RemoteSpawnCacheTest {
     var cache = remoteSpawnCacheWithOptions(remoteOptions, executionOptions);
 
     ImmutableList<String> args = ImmutableList.of("--foo", "--bar");
-    CommandLines.ParamFileActionInput input =
-        new CommandLines.ParamFileActionInput(
+    ParamFileActionInput input =
+        new ParamFileActionInput(
             PathFragment.create("out/param_file"), args, ParameterFile.ParameterFileType.UNQUOTED);
     Spawn spawn =
         new SimpleSpawn(

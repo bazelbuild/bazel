@@ -108,12 +108,12 @@ public final class CompileCommandLine {
    *     returned without using a parameter file.
    */
   List<String> getArgumentsWithParameterFile(
-      PathMapper pathMapper, PathFragment parameterFilePath) {
+      PathMapper pathMapper, String parameterFileArgument, PathFragment parameterFilePath) {
     List<String> commandLine = new ArrayList<>();
     // first: The command name.
     commandLine.add(getToolPathForCommandLine(pathMapper));
     // second: The parameter file path.
-    commandLine.add("@" + parameterFilePath.getSafePathString());
+    commandLine.add(parameterFileArgument);
     return commandLine;
   }
 

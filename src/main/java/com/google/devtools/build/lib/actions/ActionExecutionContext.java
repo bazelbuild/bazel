@@ -488,7 +488,9 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         CommandFailureUtils.describeCommand(
             CommandDescriptionForm.COMPLETE,
             showSubcommands.prettyPrintArgs,
-            spawn.getArguments(),
+            executor.expandsParamFiles()
+                ? spawn.getArgumentsWithExpandedParamFiles()
+                : spawn.getArguments(),
             spawn.getEnvironment(),
             /* environmentVariablesToClear= */ null,
             getExecRoot().getPathString(),

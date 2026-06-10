@@ -1074,14 +1074,18 @@ public abstract class BuildIntegrationTestCase {
       command.execute(outErr.getOutputStream(), outErr.getErrorStream());
     } catch (AbnormalTerminationException e) { // non-zero exit or signal or I/O problem
       IntegrationTestExecException e2 =
-          new IntegrationTestExecException(CommandUtils.describeCommandFailure(verboseFailures, e));
+          new IntegrationTestExecException(
+              CommandUtils.describeCommandFailure(
+                  verboseFailures, /* expandParamFiles= */ false, e));
       e2.initCause(e); // We don't pass cause=e to the ExecException constructor
       // since we don't want it to contribute to the exception
       // message again; it's already in describeCommandFailure().
       throw e2;
     } catch (CommandException e) {
       IntegrationTestExecException e2 =
-          new IntegrationTestExecException(CommandUtils.describeCommandFailure(verboseFailures, e));
+          new IntegrationTestExecException(
+              CommandUtils.describeCommandFailure(
+                  verboseFailures, /* expandParamFiles= */ false, e));
       e2.initCause(e); // We don't pass cause=e to the ExecException constructor
       // since we don't want it to contribute to the exception
       // message again; it's already in describeCommandFailure().

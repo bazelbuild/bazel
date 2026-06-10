@@ -43,11 +43,11 @@ import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.CommandLines.CommandLineAndParamFileInfo;
-import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
+import com.google.devtools.build.lib.actions.ParamFileActionInput;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.PathMapper;
@@ -1617,13 +1617,16 @@ public class CppCompileAction extends AbstractAction
               .getExecPath()
               .getParentDirectory()
               .getChild(outputFile.getFilename() + ".params");
+      String paramFileArg = "@" + paramFilePath.getSafePathString();
       paramFileActionInput =
           new ParamFileActionInput(
               paramFilePath,
+              paramFileArg,
               compilerOptions,
               // TODO(b/132888308): Support MSVC, which has its own method of escaping strings.
               ParameterFileType.GCC_QUOTED);
-      args = compileCommandLine.getArgumentsWithParameterFile(pathMapper, paramFilePath);
+      args =
+          compileCommandLine.getArgumentsWithParameterFile(pathMapper, paramFileArg, paramFilePath);
     }
     return new ArgumentsAndParamFileActionInput(args, paramFileActionInput);
   }

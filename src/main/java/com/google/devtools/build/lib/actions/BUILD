@@ -94,8 +94,6 @@ java_library(
         "MissingInputFileException.java",
         "MutableActionGraph.java",
         "NotifyOnActionCacheHit.java",
-        "ParamFileInfo.java",
-        "ParameterFile.java",
         "ProxyMetadataFactory.java",
         "ResourceEstimator.java",
         "RichDataProducingAction.java",
@@ -147,9 +145,11 @@ java_library(
         ":localhost_capacity",
         ":output_checker",
         ":package_roots",
+        ":param_file_action_input",
+        ":param_file_info",
+        ":parameter_file",
         ":runfiles_metadata",
         ":runfiles_tree",
-        ":virtual_action_input",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:core_options",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream",
@@ -172,9 +172,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/java/com/google/devtools/build/lib/util:exit_code",
-        "//src/main/java/com/google/devtools/build/lib/util:filetype",
         "//src/main/java/com/google/devtools/build/lib/util:os",
-        "//src/main/java/com/google/devtools/build/lib/util:shell_escaper",
         "//src/main/java/com/google/devtools/build/lib/util:var_int",
         "//src/main/java/com/google/devtools/build/lib/util/io",
         "//src/main/java/com/google/devtools/build/lib/vfs",
@@ -542,6 +540,44 @@ java_library(
 )
 
 java_library(
+    name = "param_file_action_input",
+    srcs = ["ParamFileActionInput.java"],
+    deps = [
+        ":parameter_file",
+        ":virtual_action_input",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//third_party:error_prone_annotations",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "param_file_info",
+    srcs = ["ParamFileInfo.java"],
+    deps = [
+        ":parameter_file",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//third_party:error_prone_annotations",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "parameter_file",
+    srcs = ["ParameterFile.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/unsafe:string",
+        "//src/main/java/com/google/devtools/build/lib/util:filetype",
+        "//src/main/java/com/google/devtools/build/lib/util:shell_escaper",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
     name = "resource_manager",
     srcs = [
         "MachineLoadProvider.java",
@@ -662,6 +698,7 @@ java_library(
         ":file_metadata",
         ":fileset_output_tree",
         ":localhost_capacity",
+        ":param_file_action_input",
         ":runfiles_metadata",
         ":runfiles_tree",
         ":thread_state_receiver",
