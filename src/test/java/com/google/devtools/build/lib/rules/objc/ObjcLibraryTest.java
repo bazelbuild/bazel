@@ -59,7 +59,6 @@ import com.google.devtools.build.lib.rules.cpp.CppCompileAction;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.testutil.TestConstants;
-import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.util.Collection;
 import java.util.List;
@@ -2711,8 +2710,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testObjcTransitionWithTopLevelApplePlatforms(
-      @TestParameter boolean usePlatformsInAppleCrosstoolTransition) throws Exception {
+  public void testObjcTransitionWithTopLevelApplePlatforms() throws Exception {
     scratch.file(
         "bin/BUILD",
         """
@@ -2736,10 +2734,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         "--apple_platform_type=ios",
         "--platforms=" + MockObjcSupport.IOS_ARM64,
         "--experimental_platform_in_output_dir",
-        "--use_platforms_in_apple_crosstool_transition=" + usePlatformsInAppleCrosstoolTransition);
-    if (!usePlatformsInAppleCrosstoolTransition) {
-      args.add("--cpu=ios_arm64");
-    }
+        "--cpu=ios_arm64");
     useConfiguration(args.build().toArray(new String[0]));
 
     ConfiguredTarget cc = getConfiguredTarget("//bin:cc");
@@ -2750,8 +2745,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testObjcTransitionInExecConfig(
-      @TestParameter boolean usePlatformsInAppleCrosstoolTransition) throws Exception {
+  public void testObjcTransitionInExecConfig() throws Exception {
     scratch.file(
         "bin/defs.bzl",
         """
@@ -2785,11 +2779,8 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         "--apple_platform_type=ios",
         "--platforms=" + MockObjcSupport.IOS_ARM64,
         "--experimental_platform_in_output_dir",
-        "--use_platforms_in_apple_crosstool_transition=" + usePlatformsInAppleCrosstoolTransition,
+        "--host_cpu=darwin_arm64",
         "--host_platform=" + MockObjcSupport.DARWIN_ARM64);
-    if (!usePlatformsInAppleCrosstoolTransition) {
-      args.add("--host_cpu=darwin_arm64");
-    }
     useConfiguration(args.build().toArray(new String[0]));
 
     ConfiguredTarget t1 = getConfiguredTarget("//bin:t1");

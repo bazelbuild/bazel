@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.rules.apple;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ascii;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelConverter;
-import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelListConverter;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
@@ -255,25 +254,6 @@ public abstract class AppleCommandLineOptions extends FragmentOptions {
   // TODO(cparsons): Update all callers to reference the actual xcode_version_config flag value.
   @VisibleForTesting
   public static final String DEFAULT_XCODE_VERSION_CONFIG_LABEL = "//tools/objc:host_xcodes";
-
-  @Option(
-      name = "apple_platforms",
-      converter = LabelListConverter.class,
-      defaultValue = "",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.LOADING_AND_ANALYSIS},
-      help = "Comma-separated list of platforms to use when building Apple binaries.")
-  public abstract List<Label> getApplePlatforms();
-
-  @Option(
-      name = "use_platforms_in_apple_crosstool_transition",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      help =
-          "Makes apple_crosstool_transition fall back to using the value of `--platforms` flag"
-              + " instead of legacy `--cpu` when needed.")
-  public abstract boolean getUsePlatformsInAppleCrosstoolTransition();
 
   /** Returns whether the minimum OS version is explicitly set for the current platform. */
   public DottedVersion getMinimumOsVersion() {
