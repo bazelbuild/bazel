@@ -621,6 +621,46 @@ public abstract class ActionInputPrefetcherTestBase {
   }
 
   @Test
+  public void prefetchFiles_treeFiles_sequentialCalls_reopenAncestors() throws Exception {
+    Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
+    Map<HashCode, byte[]> cas = new HashMap<>();
+    Pair<SpecialArtifact, ImmutableList<TreeFileArtifact>> treeAndChildren =
+        createRemoteTreeArtifact(
+            "dir",
+            /* localContentMap= */ ImmutableMap.of(),
+            /* remoteContentMap= */ ImmutableMap.of(
+                "subdir1/file1", "content1", "subdir2/file2", "content2"),
+            metadata,
+            cas);
+    SpecialArtifact tree = treeAndChildren.getFirst();
+    ImmutableList<TreeFileArtifact> children = treeAndChildren.getSecond();
+    AbstractActionInputPrefetcher prefetcher = createPrefetcher(cas);
+
+    // The first call leaves the directory helper's cache populated but the tree read-only. The
+    // second call must explicitly reopen the cached root before creating a sibling directory, then
+    // restore its output permissions.
+    wait(
+        prefetcher.prefetchFilesInterruptibly(
+            action,
+            ImmutableList.of(children.get(0)),
+            metadata::get,
+            Priority.MEDIUM,
+            Reason.INPUTS));
+    assertTreeReadableNonWritableAndExecutable(tree.getPath());
+
+    wait(
+        prefetcher.prefetchFilesInterruptibly(
+            action,
+            ImmutableList.of(children.get(1)),
+            metadata::get,
+            Priority.MEDIUM,
+            Reason.INPUTS));
+    assertThat(FileSystemUtils.readContent(children.get(1).getPath(), UTF_8))
+        .isEqualTo("content2");
+    assertTreeReadableNonWritableAndExecutable(tree.getPath());
+  }
+
+  @Test
   public void prefetchFiles_treeFiles_multipleThreads_waitForPermissionsToBeSet() throws Exception {
     Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
     Map<HashCode, byte[]> cas = new HashMap<>();
@@ -664,6 +704,97 @@ public abstract class ActionInputPrefetcherTestBase {
 
     f1.get();
     f2.get();
+  }
+
+  @Test
+  public void prefetchFiles_treeFiles_concurrentFinalizations_doNotRacePermissions()
+      throws Exception {
+    Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
+    Map<HashCode, byte[]> cas = new HashMap<>();
+    Pair<SpecialArtifact, ImmutableList<TreeFileArtifact>> treeAndChildren =
+        createRemoteTreeArtifact(
+            "dir",
+            /* localContentMap= */ ImmutableMap.of(),
+            /* remoteContentMap= */ ImmutableMap.of(
+                "subdir1/file1", "content1", "subdir2/file2", "content2"),
+            metadata,
+            cas);
+    SpecialArtifact tree = treeAndChildren.getFirst();
+    ImmutableList<TreeFileArtifact> children = treeAndChildren.getSecond();
+
+    SettableFuture<Void> firstDownload = SettableFuture.create();
+    SettableFuture<Void> secondDownload = SettableFuture.create();
+    LinkedBlockingQueue<ListenableFuture<Void>> downloads = new LinkedBlockingQueue<>();
+    downloads.add(firstDownload);
+    downloads.add(secondDownload);
+    AbstractActionInputPrefetcher prefetcher = spy(createPrefetcher(cas));
+    mockDownload(prefetcher, cas, downloads::remove);
+
+    ListenableFuture<Void> firstPrefetch =
+        prefetcher.prefetchFilesInterruptibly(
+            action,
+            ImmutableList.of(children.get(0)),
+            metadata::get,
+            Priority.MEDIUM,
+            Reason.INPUTS);
+    ListenableFuture<Void> secondPrefetch =
+        prefetcher.prefetchFilesInterruptibly(
+            action,
+            ImmutableList.of(children.get(1)),
+            metadata::get,
+            Priority.MEDIUM,
+            Reason.INPUTS);
+
+    Semaphore secondFinalizationStarted = new Semaphore(0);
+    Semaphore secondFinalizationMayContinue = new Semaphore(0);
+    AtomicBoolean blockNextTempFileMove = new AtomicBoolean(true);
+    // Pause the second finalization after it has made the tree writable, but before it moves its
+    // temporary file into the tree.
+    doAnswer(
+            invocation -> {
+              PathFragment source = invocation.getArgument(0);
+              PathFragment target = invocation.getArgument(1);
+              if (source.startsWith(tempPathGenerator.getTempDir().asFragment())
+                  && target.startsWith(tree.getPath().asFragment())
+                  && blockNextTempFileMove.getAndSet(false)) {
+                secondFinalizationStarted.release();
+                secondFinalizationMayContinue.acquireUninterruptibly();
+              }
+              return invocation.callRealMethod();
+            })
+        .when(fs)
+        .renameTo(any(), any());
+    Thread secondCompletion = new Thread(() -> secondDownload.set(null));
+    // Completing the first download runs its direct-executor finalization on this thread. Without
+    // root-level synchronization it completes and restores the shared root while the second move
+    // is paused; with synchronization it waits for the second finalization to release the lock.
+    Thread firstCompletion = new Thread(() -> firstDownload.set(null));
+    secondCompletion.start();
+    try {
+      assertThat(secondFinalizationStarted.tryAcquire(10, SECONDS)).isTrue();
+      firstCompletion.start();
+
+      long deadline = System.nanoTime() + SECONDS.toNanos(10);
+      while (!firstPrefetch.isDone()
+          && firstCompletion.getState() != Thread.State.BLOCKED
+          && firstCompletion.getState() != Thread.State.WAITING
+          && System.nanoTime() < deadline) {
+        Thread.yield();
+      }
+      assertThat(firstPrefetch.isDone()
+              || firstCompletion.getState() == Thread.State.BLOCKED
+              || firstCompletion.getState() == Thread.State.WAITING)
+          .isTrue();
+      assertThat(tree.getPath().isWritable()).isTrue();
+    } finally {
+      secondFinalizationMayContinue.release();
+      firstCompletion.join(10_000);
+      secondCompletion.join(10_000);
+    }
+
+    wait(firstPrefetch);
+    wait(secondPrefetch);
+    assertTreeReadableNonWritableAndExecutable(tree.getPath());
   }
 
   @Test
