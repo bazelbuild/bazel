@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.analysis.actions;
 
 
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
@@ -39,27 +38,6 @@ import javax.annotation.Nullable;
  * PathMapper}).
  */
 public final class PathMappers {
-
-  // TODO: Remove actions from this list by adding ExecutionRequirements.SUPPORTS_PATH_MAPPING to
-  //  their execution info instead.
-  private static final ImmutableSet<String> SUPPORTED_MNEMONICS =
-      ImmutableSet.of(
-          "AndroidLint",
-          "CompileAndroidResources",
-          "DeJetify",
-          "DejetifySrcs",
-          "Desugar",
-          "DexBuilder",
-          "Jetify",
-          "JetifySrcs",
-          "LinkAndroidResources",
-          "MergeAndroidAssets",
-          "MergeManifests",
-          "ParseAndroidResources",
-          "StarlarkAARGenerator",
-          "StarlarkMergeCompiledAndroidResources",
-          "StarlarkRClassGenerator",
-          "Mock action");
 
   /**
    * Actions that support path mapping should call this method from {@link
@@ -157,8 +135,7 @@ public final class PathMappers {
       return OutputPathsMode.OFF;
     }
     if (outputPathsMode == OutputPathsMode.STRIP
-        && (SUPPORTED_MNEMONICS.contains(mnemonic)
-            || executionInfo.containsKey(ExecutionRequirements.SUPPORTS_PATH_MAPPING))) {
+        && executionInfo.containsKey(ExecutionRequirements.SUPPORTS_PATH_MAPPING)) {
       return OutputPathsMode.STRIP;
     }
     return OutputPathsMode.OFF;
