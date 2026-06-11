@@ -178,56 +178,49 @@ public final class SkyValueRetriever {
     try {
       while (true) {
         switch (serializationState) {
-          case InitialQuery unused:
-            {
-              PackedFingerprint cacheKey =
-                  FingerprintValueService.computeFingerprint(
-                      fingerprintValueService, codecs, key, frontierNodeVersion);
-              ListenableFuture<LookupResult> futureResponse =
-                  analysisCacheClient.lookup(ByteString.copyFrom(cacheKey.toBytes()));
+          case InitialQuery unused -> {
+            PackedFingerprint cacheKey =
+                FingerprintValueService.computeFingerprint(
+                    fingerprintValueService, codecs, key, frontierNodeVersion);
+            ListenableFuture<LookupResult> futureResponse =
+                analysisCacheClient.lookup(ByteString.copyFrom(cacheKey.toBytes()));
 
-              serializationState = new WaitingForCacheServiceResponse(futureResponse);
-              switch (futuresShim.dependOnFuture(futureResponse)) {
-                case DONE:
-                  break; // continues to the next state
-                case NOT_DONE:
-                  return Restart.RESTART;
+            serializationState = new WaitingForCacheServiceResponse(futureResponse);
+            switch (futuresShim.dependOnFuture(futureResponse)) {
+              case DONE -> {} // continues to the next state
+              case NOT_DONE -> {
+                return Restart.RESTART;
               }
-              break;
             }
-          case WaitingForCacheServiceResponse(ListenableFuture<LookupResult> futureResult):
-            {
-              LookupResult result;
-              try {
-                result = getDone(futureResult);
-              } catch (ExecutionException e) {
-                throw new SerializationException("getting cache response for " + key, e);
-              }
-              if (result.value().isEmpty()) {
-                serializationState = new NoCachedData(result.missReason());
-                break;
-              }
-
-              Object value =
-                  codecs.deserializeWithSkyframe(fingerprintValueService, result.value());
-              if (!(value instanceof ListenableFuture)) {
-                serializationState = new RetrievedValue((SkyValue) value);
-                break;
-              }
-
-              @SuppressWarnings("unchecked")
-              var futureContinuation = (ListenableFuture<SkyframeLookupContinuation>) value;
-              serializationState = new WaitingForFutureLookupContinuation(futureContinuation);
-              switch (futuresShim.dependOnFuture(futureContinuation)) {
-                case DONE:
-                  break; // continues to the next state
-                case NOT_DONE:
-                  return Restart.RESTART;
-              }
-              break;
+          }
+          case WaitingForCacheServiceResponse(ListenableFuture<LookupResult> futureResult) -> {
+            LookupResult result;
+            try {
+              result = getDone(futureResult);
+            } catch (ExecutionException e) {
+              throw new SerializationException("getting cache response for " + key, e);
             }
+            if (result.value().isEmpty()) {
+              serializationState = new NoCachedData(result.missReason());
+              continue;
+            }
+            Object value = codecs.deserializeWithSkyframe(fingerprintValueService, result.value());
+            if (!(value instanceof ListenableFuture)) {
+              serializationState = new RetrievedValue((SkyValue) value);
+              continue;
+            }
+            @SuppressWarnings("unchecked")
+            var futureContinuation = (ListenableFuture<SkyframeLookupContinuation>) value;
+            serializationState = new WaitingForFutureLookupContinuation(futureContinuation);
+            switch (futuresShim.dependOnFuture(futureContinuation)) {
+              case DONE -> {} // continues to the next state
+              case NOT_DONE -> {
+                return Restart.RESTART;
+              }
+            }
+          }
           case WaitingForFutureLookupContinuation(
-              ListenableFuture<SkyframeLookupContinuation> futureContinuation):
+                  ListenableFuture<SkyframeLookupContinuation> futureContinuation) -> {
             // This state is transient. It discards the wrapping future before
             // WaitingForLookupContinuation so restarts from that state do not need repeat the
             // unwrapping.
@@ -241,40 +234,39 @@ public final class SkyValueRetriever {
               throw new SerializationException(
                   "waiting for all owned shared values for " + key, e, reason);
             }
-            break;
-          case WaitingForLookupContinuation(SkyframeLookupContinuation lookupContinuation):
-            {
-              ListenableFuture<?> futureResult;
-              try {
-                futureResult =
-                    lookupContinuation.process(env); // only source of InterruptedException
-              } catch (SkyframeDependencyException e) {
-                throw new SerializationException(
-                    "skyframe dependency error during deserialization for " + key, e);
-              }
-              if (futureResult == null) {
+          }
+          case WaitingForLookupContinuation(SkyframeLookupContinuation lookupContinuation) -> {
+            ListenableFuture<?> futureResult;
+            try {
+              futureResult = lookupContinuation.process(env); // only source of InterruptedException
+            } catch (SkyframeDependencyException e) {
+              throw new SerializationException(
+                  "skyframe dependency error during deserialization for " + key, e);
+            }
+            if (futureResult == null) {
+              return Restart.RESTART;
+            }
+            serializationState = new WaitingForFutureResult(futureResult);
+            switch (futuresShim.dependOnFuture(futureResult)) {
+              case DONE -> {} // continues to the next state
+              case NOT_DONE -> {
                 return Restart.RESTART;
               }
-              serializationState = new WaitingForFutureResult(futureResult);
-              switch (futuresShim.dependOnFuture(futureResult)) {
-                case DONE:
-                  break; // continues to the next state
-                case NOT_DONE:
-                  return Restart.RESTART;
-              }
-              break;
             }
-          case WaitingForFutureResult(ListenableFuture<?> futureResult):
+          }
+          case WaitingForFutureResult(ListenableFuture<?> futureResult) -> {
             try {
               serializationState = new RetrievedValue((SkyValue) getDone(futureResult));
             } catch (ExecutionException e) {
               throw new SerializationException("waiting for deserialization result for " + key, e);
             }
-            break;
-          case RetrievedValue value:
+          }
+          case RetrievedValue value -> {
             return value;
-          case NoCachedData noCachedData:
+          }
+          case NoCachedData noCachedData -> {
             return noCachedData;
+          }
         }
       }
     } catch (CancellationException e) {
