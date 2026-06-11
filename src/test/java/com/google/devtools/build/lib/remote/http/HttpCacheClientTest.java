@@ -366,7 +366,7 @@ public class HttpCacheClientTest {
 
       ByteString data = ByteString.copyFrom("foo bar", StandardCharsets.UTF_8);
       Digest digest = DIGEST_UTIL.compute(data.toByteArray());
-      blobStore.uploadBlob(remoteActionExecutionContext, digest, data).get();
+      blobStore.uploadBlob(remoteActionExecutionContext, digest, data, /* force= */ false).get();
 
       assertThat(cacheContents).hasSize(1);
       String cacheKey = "/cas/" + digest.getHash();
@@ -420,7 +420,8 @@ public class HttpCacheClientTest {
                   blobStore.uploadBlob(
                       remoteActionExecutionContext,
                       DIGEST_UTIL.compute(data),
-                      ByteString.copyFrom(data))));
+                      ByteString.copyFrom(data),
+                      /* force= */ false)));
     } finally {
       testServer.stop(server);
     }
@@ -491,7 +492,8 @@ public class HttpCacheClientTest {
                       blobStore.uploadBlob(
                           remoteActionExecutionContext,
                           DIGEST_UTIL.compute(data.toByteArray()),
-                          data)));
+                          data,
+                          /* force= */ false)));
       assertThat(e.getCause()).isInstanceOf(TooLongFrameException.class);
     } finally {
       testServer.stop(server);
@@ -774,7 +776,10 @@ public class HttpCacheClientTest {
       byte[] data = "File Contents".getBytes(StandardCharsets.US_ASCII);
       blobStore
           .uploadBlob(
-              remoteActionExecutionContext, DIGEST_UTIL.compute(data), ByteString.copyFrom(data))
+              remoteActionExecutionContext,
+              DIGEST_UTIL.compute(data),
+              ByteString.copyFrom(data),
+              /* force= */ false)
           .get();
       verify(credentials, times(1)).refresh();
       verify(credentials, times(2)).getRequestMetadata(any(URI.class));
@@ -839,7 +844,8 @@ public class HttpCacheClientTest {
           blobStore.uploadBlob(
               remoteActionExecutionContext,
               DIGEST_UTIL.compute(oneByte),
-              ByteString.copyFrom(oneByte)));
+              ByteString.copyFrom(oneByte),
+              /* force= */ false));
       fail("Exception expected.");
     } catch (Exception e) {
       assertThat(e).isInstanceOf(HttpException.class);

@@ -39,7 +39,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 /** A {@link RemoteCacheClient} that stores its contents in memory. */
-public class InMemoryCacheClient implements RemoteCacheClient {
+public class InMemoryCacheClient extends RemoteCacheClient {
 
   private final ListeningExecutorService executorService =
       MoreExecutors.listeningDecorator(Executors.newFixedThreadPool(100));
@@ -140,7 +140,7 @@ public class InMemoryCacheClient implements RemoteCacheClient {
   }
 
   @Override
-  public ListenableFuture<Void> uploadBlob(
+  public ListenableFuture<Void> uploadBlobImpl(
       RemoteActionExecutionContext context, Digest digest, Blob blob) {
     try {
       cas.put(digest, blob.get().readAllBytes());

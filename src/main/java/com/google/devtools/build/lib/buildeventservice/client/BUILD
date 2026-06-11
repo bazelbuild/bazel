@@ -20,7 +20,7 @@ java_library(
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
-        "//src/main/java/com/google/devtools/build/lib/remote/util",
+        "//src/main/java/com/google/devtools/build/lib/remote/util:tracing_metadata_utils",
         "//third_party:auto_value",
         "//third_party:error_prone_annotations",
         "//third_party:guava",
