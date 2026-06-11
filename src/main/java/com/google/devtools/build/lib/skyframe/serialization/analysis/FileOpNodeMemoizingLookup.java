@@ -145,12 +145,8 @@ final class FileOpNodeMemoizingLookup {
 
     for (SkyKey dep : nodeEntry.getDirectDeps()) {
       switch (dep) {
-        case FileOpNode immediateNode:
-          collector.addNode(immediateNode);
-          break;
-        default:
-          addNodeForKey(dep, collector);
-          break;
+        case FileOpNode immediateNode -> collector.addNode(immediateNode);
+        default -> addNodeForKey(dep, collector);
       }
     }
   }
@@ -159,14 +155,9 @@ final class FileOpNodeMemoizingLookup {
     // TODO: b/364831651 - This adds all traversed SkyKeys to `nodes`. Consider if certain types
     // should be excluded from memoization.
     switch (nodes.getValueOrFuture(key)) {
-      case EMPTY_FILE_OP_NODE:
-        break;
-      case FileOpNode node:
-        collector.addNode(node);
-        break;
-      case FutureFileOpNode future:
-        collector.addFuture(future);
-        break;
+      case EMPTY_FILE_OP_NODE -> {}
+      case FileOpNode node -> collector.addNode(node);
+      case FutureFileOpNode future -> collector.addFuture(future);
     }
   }
 
@@ -224,11 +215,8 @@ final class FileOpNodeMemoizingLookup {
     @Override
     public void onSuccess(FileOpNodeOrEmpty nodeOrEmpty) {
       switch (nodeOrEmpty) {
-        case EMPTY_FILE_OP_NODE:
-          break;
-        case FileOpNode node:
-          addNode(node);
-          break;
+        case EMPTY_FILE_OP_NODE -> {}
+        case FileOpNode node -> addNode(node);
       }
       decrement();
     }

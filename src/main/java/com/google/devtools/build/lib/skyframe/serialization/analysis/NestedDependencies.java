@@ -48,11 +48,10 @@ abstract sealed class NestedDependencies
     var availableSources = new AvailableFileDependencies[size];
     for (int i = 0; i < size; i++) {
       switch (sources[i]) {
-        case AvailableFileDependencies available:
-          availableSources[i] = available;
-          break;
-        case MissingFileDependencies unused:
+        case AvailableFileDependencies available -> availableSources[i] = available;
+        case MissingFileDependencies unused -> {
           return new MissingNestedDependencies();
+        }
       }
     }
     return new AvailableNestedDependencies(analysisDependencies, availableSources);

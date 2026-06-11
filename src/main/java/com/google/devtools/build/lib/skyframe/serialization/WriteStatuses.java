@@ -430,15 +430,14 @@ public class WriteStatuses {
       }
 
       switch (status) {
-        case SparseAggregateWriteStatus sparse:
-          // The addToAggregator logic ensures that each SparseAggregateWriteStatus has at most one
-          // SparseAggregateWriteStatus parent.
-          sparse.addToAggregator(aggregate);
-          break;
-        default:
+        case SparseAggregateWriteStatus sparse ->
+            // The addToAggregator logic ensures that each SparseAggregateWriteStatus has at most
+            // one SparseAggregateWriteStatus parent.
+            sparse.addToAggregator(aggregate);
+        default -> {
           aggregate.prepareForAddingWrite();
           Futures.addCallback(status, (FutureCallback<Boolean>) aggregate, directExecutor());
-          break;
+        }
       }
       return this;
     }
