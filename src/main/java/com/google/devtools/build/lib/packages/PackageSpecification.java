@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetsShouldBeInternedByEquality;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -461,7 +462,8 @@ public abstract class PackageSpecification {
    * attribute), see {@link PackageSpecificationProvider}.
    */
   @AutoValue
-  public abstract static class PackageGroupContents {
+  public abstract static class PackageGroupContents
+      implements NestedSetsShouldBeInternedByEquality {
     // This class is optimized for memory and cpu.
     // TODO(b/279784354): Further improvements are possible.
     //
