@@ -19,6 +19,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Interner;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
@@ -41,7 +42,7 @@ import net.starlark.java.syntax.TokenKind;
  * A struct-like Info (provider instance) for providers defined in Starlark that have a schema.
  *
  * <p>Maintainer's note: This class is memory-optimized in a way that can cause profiling
- * instability in some pathological cases. See {@link StarlarkProvider#optimizeField} for more
+ * instability in some pathological cases. See {@link StarlarkProvider#maybeUnwrapDepset} for more
  * information.
  *
  * <p>Schemas with <= 5 fields (covering the majority of provider types in practice) each have their
@@ -134,7 +135,8 @@ public abstract sealed class StarlarkInfoWithSchema extends StarlarkInfo {
               "got multiple values for parameter %s in call to instantiate provider %s",
               name, provider.getPrintableName());
         }
-        valueTable[pos] = provider.optimizeField(pos, value);
+        valueTable[pos] =
+            value instanceof Depset depset ? provider.maybeUnwrapDepset(pos, depset) : value;
       } else {
         if (unexpected == null) {
           unexpected = new ArrayList<>();
@@ -186,9 +188,8 @@ public abstract sealed class StarlarkInfoWithSchema extends StarlarkInfo {
     int n = provider.getFields().size();
     for (int i = 0; i < n; i++) {
       Object val = getValueAt(i);
-      if (val != null
-          && !(provider.isOptimised(i, val) // optimised fields might not be Starlark values
-              || Starlark.isImmutable(val))) {
+      // Unwrapped depsets (NestedSets) are not Starlark values, but are immutable.
+      if (val != null && !(val instanceof NestedSet<?> || Starlark.isImmutable(val))) {
         return false;
       }
     }
@@ -200,7 +201,11 @@ public abstract sealed class StarlarkInfoWithSchema extends StarlarkInfo {
   public final Object getValue(String name) {
     ImmutableMap<String, Integer> fields = provider.getFields();
     int i = indexOfField(name, fields);
-    return i >= 0 ? provider.retrieveOptimizedField(i, getValueAt(i)) : null;
+    if (i < 0) {
+      return null;
+    }
+    Object val = getValueAt(i);
+    return val instanceof NestedSet<?> nestedSet ? provider.rewrapDepset(i, nestedSet) : val;
   }
 
   @Nullable

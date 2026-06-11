@@ -149,13 +149,10 @@ public class NestedSetInterner {
     if (!enabled.get()) {
       return nestedSet;
     }
-    NestedSetInterner interner = getInterner(elementClass);
-    if (interner == null) {
-      // Always intern NestedSets for Depsets, at least by identity. In practice there are lots of
-      // duplicate Depsets, even with respect to identity.
-      interner = identityInterner;
+    if (getInterner(elementClass) != null) {
+      return nestedSet; // We would have already interned when the NestedSet was built.
     }
-    return interner.internImpl(nestedSet);
+    return identityInterner.internImpl(nestedSet);
   }
 
   public static void clear() {

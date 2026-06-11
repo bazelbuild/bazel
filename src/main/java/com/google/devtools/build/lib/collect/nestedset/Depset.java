@@ -168,6 +168,21 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
   }
 
   /**
+   * Returns a {@link Depset} that wraps the specified {@link NestedSet}, skipping type
+   * normalization and interning.
+   *
+   * <p>Safe to use only for arguments that previously came from a {@link Depset} (they were
+   * unwrapped and are now being rewrapped).
+   */
+  public static Depset rewrap(Class<?> elemClass, NestedSet<?> set) {
+    Preconditions.checkNotNull(elemClass, "elemClass cannot be null");
+    if (set.isEmpty()) {
+      return set.getOrder().emptyDepset();
+    }
+    return new Depset(elemClass, set);
+  }
+
+  /**
    * Checks that an element with {@code newElemType} is permitted in a set of {@code
    * existingElemType}.
    *
@@ -393,7 +408,7 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
     if (builder.isEmpty()) {
       return builder.getOrder().emptyDepset();
     }
-    NestedSet<?> set = builder.buildForDepset(type);
+    NestedSet<?> set = builder.build();
     // If the nested set was optimized to one of the transitive elements, reuse the corresponding
     // depset.
     for (Depset x : transitive) {
@@ -402,7 +417,7 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
       }
     }
 
-    return new Depset(type, set);
+    return new Depset(type, NestedSetInterner.internDepset(set, type));
   }
 
   /** An exception thrown when validation fails on the type of elements of a nested set. */

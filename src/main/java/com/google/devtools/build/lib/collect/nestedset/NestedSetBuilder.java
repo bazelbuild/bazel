@@ -170,15 +170,6 @@ public abstract sealed class NestedSetBuilder<E> {
     }
   }
 
-  public final NestedSet<?> buildForDepset(Class<?> elementClass) {
-    try {
-      return NestedSetInterner.internDepset(
-          buildInternalNoInterning(InterruptStrategy.CRASH), elementClass);
-    } catch (InterruptedException e) {
-      throw new IllegalStateException("Cannot throw with InterruptStrategy.CRASH", e);
-    }
-  }
-
   /**
    * Similar to {@link #build} except that if any subset is based on a deserialization future and an
    * interrupt is observed, {@link InterruptedException} is propagated.
@@ -188,11 +179,6 @@ public abstract sealed class NestedSetBuilder<E> {
   }
 
   private NestedSet<E> buildInternal(InterruptStrategy interruptStrategy)
-      throws InterruptedException {
-    return NestedSetInterner.intern(buildInternalNoInterning(interruptStrategy));
-  }
-
-  private NestedSet<E> buildInternalNoInterning(InterruptStrategy interruptStrategy)
       throws InterruptedException {
     if (isEmpty()) {
       return getOrder().emptySet();
@@ -212,7 +198,8 @@ public abstract sealed class NestedSetBuilder<E> {
       }
     }
 
-    return new NestedSet<>(getOrder(), direct, transitive, interruptStrategy);
+    return NestedSetInterner.intern(
+        new NestedSet<>(getOrder(), direct, transitive, interruptStrategy));
   }
 
   @ForOverride
