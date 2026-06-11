@@ -17,6 +17,7 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 
 import com.google.devtools.build.lib.profiler.MemoryProfiler.MemoryProfileStableHeapParameters;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.profiler.SlimProfileConfiguration;
 import com.google.devtools.build.lib.runtime.CommandLineEvent.ToolCommandLineEvent;
 import com.google.devtools.build.lib.util.EnvVar;
 import com.google.devtools.build.lib.util.OptionsUtils;
@@ -327,12 +328,14 @@ public abstract class CommonCommandOptions extends OptionsBase {
       name = "slim_profile",
       oldName = "experimental_slim_json_profile",
       defaultValue = "true",
+      converter = SlimProfileConfiguration.SlimProfileConverter.class,
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.BAZEL_MONITORING},
       help =
           "Slims down the size of the JSON profile by merging events if the profile gets "
-              + "too large.")
-  public abstract boolean getSlimProfile();
+              + "too large. Supports boolean values or a size in bytes (e.g. 5M) to start "
+              + "slimming after the profile exceeds that size.")
+  public abstract SlimProfileConfiguration getSlimProfile();
 
   @Option(
       name = "experimental_profile_include_primary_output",

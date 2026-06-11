@@ -183,6 +183,7 @@ public interface TraceProfilerService extends BlazeService {
       Clock clock,
       long execStartTimeNanos,
       boolean slimProfile,
+      long slimProfileSizeLimit,
       boolean includePrimaryOutput,
       boolean includeTargetLabel,
       boolean includeConfiguration,

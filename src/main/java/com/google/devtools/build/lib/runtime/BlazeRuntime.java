@@ -445,7 +445,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       }
       ImmutableSet<ProfilerTask> profiledTasks = profiledTasksBuilder.build();
       if (!profiledTasks.isEmpty()) {
-        if (commandOptions.getSlimProfile() && commandOptions.getIncludePrimaryOutput()) {
+        if (commandOptions.getSlimProfile().isEnabled()
+            && commandOptions.getIncludePrimaryOutput()) {
           eventHandler.handle(
               Event.warn(
                   "Enabling both --slim_profile and"
@@ -486,7 +487,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
                 recordFullProfilerData,
                 clock,
                 execStartTimeNanos,
-                /* slimProfile= */ commandOptions.getSlimProfile(),
+                /* slimProfile= */ commandOptions.getSlimProfile().isEnabled(),
+                /* slimProfileSizeLimit= */ commandOptions.getSlimProfile().getSizeLimit(),
                 /* includePrimaryOutput= */ commandOptions.getIncludePrimaryOutput(),
                 /* includeTargetLabel= */ commandOptions.getProfileIncludeTargetLabel(),
                 /* includeConfiguration= */ commandOptions.getProfileIncludeTargetConfiguration(),
