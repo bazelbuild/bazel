@@ -22,6 +22,15 @@ java_library(
 )
 
 java_library(
+    name = "prev_invocation_bes_upload_report_failed_event",
+    srcs = ["PrevInvocationBesUploadReportFailedEvent.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
     name = "build_event_service_options",
     srcs = ["BuildEventServiceOptions.java"],
     deps = [
@@ -59,6 +68,7 @@ java_library(
     deps = [
         ":build_event_service_options",
         ":build_event_service_transport",
+        ":prev_invocation_bes_upload_report_failed_event",
         "//src/main/java/com/google/devtools/build/lib/analysis:test/test_configuration",
         "//src/main/java/com/google/devtools/build/lib/authandtls",
         "//src/main/java/com/google/devtools/build/lib/bugreport",

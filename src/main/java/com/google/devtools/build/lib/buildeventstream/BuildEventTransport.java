@@ -90,4 +90,9 @@ public interface BuildEventTransport {
 
   @Nullable
   BuildEventArtifactUploader getUploader();
+
+  @Nullable
+  default String getInvocationId() {
+    return null;
+  }
 }

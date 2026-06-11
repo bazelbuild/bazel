@@ -87,6 +87,12 @@ public class BuildEventServiceTransport implements BuildEventTransport {
   }
 
   @Override
+  @Nullable
+  public String getInvocationId() {
+    return besUploader.getInvocationId();
+  }
+
+  @Override
   public String name() {
     return "Build Event Service";
   }

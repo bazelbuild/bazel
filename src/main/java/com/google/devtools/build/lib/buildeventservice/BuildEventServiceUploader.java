@@ -204,6 +204,10 @@ public final class BuildEventServiceUploader implements Runnable {
     return buildEventUploader;
   }
 
+  String getInvocationId() {
+    return commandContext.invocationId();
+  }
+
   /** Enqueues an event for uploading to a BES backend. */
   void enqueueEvent(BuildEvent event) {
     // This needs to happen outside a synchronized block as it may trigger
