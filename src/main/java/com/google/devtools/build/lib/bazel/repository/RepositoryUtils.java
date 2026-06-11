@@ -76,12 +76,22 @@ public class RepositoryUtils {
   }
 
   /**
+   * The result of {@link #replantSymlinks}.
+   *
+   * @param safeForLocalCache whether the repo is safe to cache in the local repo contents cache
+   *     after replanting
+   * @param safeForRemoteCache whether the repo is safe to cache in the remote repo contents cache
+   *     after replanting
+   */
+  public record ReplantSymlinksResult(boolean safeForLocalCache, boolean safeForRemoteCache) {}
+
+  /**
    * Replants the symlinks under the specified repository directory.
    *
-   * <p>Re-writes symlinks that originally point to a path under the workspace or the external root
-   * to relative paths. Same-repo symlinks (those pointing back into {@code repoDir}) are replanted
-   * to repo-relative paths that work regardless of the repo's physical location. Cross-repo
-   * symlinks are replanted to relative paths going through {@code repoDirParentToExternalRoot}.
+   * <p>Re-writes symlinks that originally point to a path under the external root to relative
+   * paths. Same-repo symlinks (those pointing back into {@code repoDir}) are replanted to
+   * repo-relative paths that work regardless of the repo's physical location. Cross-repo symlinks
+   * are replanted to relative paths going through {@code repoDirParentToExternalRoot}.
    *
    * @param repoDir The path to the repository directory.
    * @param workspace The path to the workspace directory.
@@ -89,27 +99,39 @@ public class RepositoryUtils {
    * @param repoDirParentToExternalRoot The relative path from the parent directory of {@code
    *     repoDir} to the external root (or a symlink to it), which is used to rewrite cross-repo
    *     symlink targets to relative paths.
-   * @return {@code true} if it is safe to reuse the replanted repo from a different physical
-   *     location (e.g. a shared repo contents cache). This is the case when there are no cross-repo
-   *     symlinks or on Windows with symlinks enabled (where symlinks resolve using logical rather
-   *     than physical paths).
+   * @param replantSymlinksIntoMainRepo If true, symlinks pointing into the main repo are treated
+   *     like cross-repo symlinks by routing them through a symlink to the workspace planted under
+   *     the external root (used by vendoring, where the vendored repo has to keep working from a
+   *     different checkout of the workspace). If false, such symlinks are left untouched.
    * @throws IOException If an I/O error occurs while replanting the symlinks.
    */
   @CanIgnoreReturnValue
-  public static boolean replantSymlinks(
-      Path repoDir, Path workspace, Path externalRepoRoot, PathFragment repoDirParentToExternalRoot)
+  public static ReplantSymlinksResult replantSymlinks(
+      Path repoDir,
+      Path workspace,
+      Path externalRepoRoot,
+      PathFragment repoDirParentToExternalRoot,
+      boolean replantSymlinksIntoMainRepo)
       throws IOException {
     boolean portableSymlinksOnly = true;
+    boolean hasSymlinkIntoMainRepo = false;
     try {
       Collection<Path> symlinks = FileSystemUtils.traverseTree(repoDir, Path::isSymbolicLink);
       Path workspaceSymlinkUnderExternal = externalRepoRoot.getChild(WORKSPACE_SYMLINK_NAME);
-      FileSystemUtils.ensureSymbolicLink(workspaceSymlinkUnderExternal, workspace);
+      if (replantSymlinksIntoMainRepo) {
+        FileSystemUtils.ensureSymbolicLink(workspaceSymlinkUnderExternal, workspace);
+      }
       for (Path symlink : symlinks) {
         PathFragment target = symlink.readSymbolicLink();
         PathFragment originalTarget = target;
-        // Treat symlinks pointing into the workspace just like cross-repo symlinks by adding a
-        // symlink for the main repo to the external root and rewriting symlinks to it.
         if (target.startsWith(workspace.asFragment())) {
+          hasSymlinkIntoMainRepo = true;
+          if (!replantSymlinksIntoMainRepo) {
+            // Symlinks pointing into the main repo can't be replanted to a relative path that
+            // stays under the external root. They make the repo unsafe to cache.
+            portableSymlinksOnly = false;
+            continue;
+          }
           target =
               workspaceSymlinkUnderExternal
                   .asFragment()
@@ -172,6 +194,6 @@ public class RepositoryUtils {
       throw new IOException(
           String.format("Failed to rewrite symlinks under %s: %s", repoDir, e.getMessage()), e);
     }
-    return portableSymlinksOnly;
+    return new ReplantSymlinksResult(portableSymlinksOnly, !hasSymlinkIntoMainRepo);
   }
 }
