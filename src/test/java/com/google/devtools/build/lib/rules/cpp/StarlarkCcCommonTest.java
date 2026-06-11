@@ -7468,7 +7468,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
               + " feature_configuration=feature_configuration, "
               + " source_file=file, output_file=file,"
               + " compilation_inputs=depset([]), inputs_for_validation=depset([]),"
-              + " label_replacement='', output_replacement='')");
+              + " target_name='', build_target='')");
     }
     for (String call : calls) {
       scratch.overwriteFile(
