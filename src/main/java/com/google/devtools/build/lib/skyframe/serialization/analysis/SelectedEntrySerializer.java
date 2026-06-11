@@ -305,26 +305,25 @@ final class SelectedEntrySerializer implements Consumer<SkyKey> {
     // unaffected by local, un-submitted changes.
     try {
       switch (key) {
-        case ActionLookupKey actionLookupKey:
+        case ActionLookupKey actionLookupKey -> {
           serializationStats.registerAnalysisNode();
           uploadEntry(actionLookupKey, actionLookupKey);
-          break;
-        case ActionLookupData lookupData:
+        }
+        case ActionLookupData lookupData -> {
           serializationStats.registerExecutionNode();
           uploadEntry(lookupData, checkNotNull(lookupData.getActionLookupKey(), lookupData));
-          break;
-        case DerivedArtifact artifact:
+        }
+        case DerivedArtifact artifact -> {
           // This case handles the subclasses of DerivedArtifact. DerivedArtifact itself will show
           // up here as ActionLookupData.
           serializationStats.registerExecutionNode();
           uploadEntry(artifact, checkNotNull(artifact.getArtifactOwner(), artifact));
-          break;
-        case ActionLookupSummaryKey summaryKey:
+        }
+        case ActionLookupSummaryKey summaryKey -> {
           serializationStats.registerExecutionNode();
           uploadEntry(summaryKey, summaryKey.argument());
-          break;
-        default:
-          throw new AssertionError("Unexpected selected type: " + key.getCanonicalName());
+        }
+        default -> throw new AssertionError("Unexpected selected type: " + key.getCanonicalName());
       }
       eventBus.post(new SerializedNodeEvent(key));
     } catch (MissingSkyframeEntryException e) {
@@ -392,12 +391,9 @@ final class SelectedEntrySerializer implements Consumer<SkyKey> {
     @Override
     public void run() {
       switch (fileOpNodes.computeNode(dependencyKey)) {
-        case FileOpNodeOrEmpty nodeOrEmpty:
-          onSuccess(nodeOrEmpty);
-          break;
-        case FutureFileOpNode future:
-          Futures.addCallback(future, this, fingerprintValueService.getExecutor());
-          break;
+        case FileOpNodeOrEmpty nodeOrEmpty -> onSuccess(nodeOrEmpty);
+        case FutureFileOpNode future ->
+            Futures.addCallback(future, this, fingerprintValueService.getExecutor());
       }
     }
 

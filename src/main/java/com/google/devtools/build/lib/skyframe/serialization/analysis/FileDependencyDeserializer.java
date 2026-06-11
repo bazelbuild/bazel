@@ -352,18 +352,19 @@ final class FileDependencyDeserializer {
       FileDependencies.Builder builder;
       String parentDirectory;
       switch (parentOrMissing) {
-        case null:
+        case null -> {
           parentDirectory = null;
           builder = FileDependencies.builder(basename);
-          break;
-        case AvailableFileDependencies parent:
+        }
+        case AvailableFileDependencies parent -> {
           parentDirectory = parent.resolvedPath();
           builder =
               FileDependencies.builder(getRelative(parentDirectory, basename))
                   .addDependency(parent);
-          break;
-        case MissingFileDependencies unused:
+        }
+        case MissingFileDependencies unused -> {
           return immediateFuture(FileDependencies.newMissingInstance());
+        }
       }
       return processSymlinks(key, data, /* symlinkIndex= */ 0, parentDirectory, builder, store);
     }

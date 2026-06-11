@@ -212,14 +212,11 @@ final class FileDependencySerializer {
    * for more details about the data being persisted.
    */
   InvalidationDataInfoOrFuture registerDependency(FileOpNode node) {
-    switch (node) {
-      case FileKey file:
-        return registerDependency(file);
-      case DirectoryListingKey listing:
-        return registerDependency(listing);
-      case AbstractNestedFileOpNodes nested:
-        return registerDependency(nested);
-    }
+    return switch (node) {
+      case FileKey file -> registerDependency(file);
+      case DirectoryListingKey listing -> registerDependency(listing);
+      case AbstractNestedFileOpNodes nested -> registerDependency(nested);
+    };
   }
 
   FileDataInfoOrFuture registerDependency(FileKey key) {
@@ -458,12 +455,11 @@ final class FileDependencySerializer {
   private ListenableFuture<Void> fullyResolvePath(
       @Nullable PathFragment unresolvedLinkTarget, FileInvalidationDataUploader uploader) {
     var pathResolver = new PathResolver(unresolvedLinkTarget, uploader);
-    switch (registerDependency(FileValue.key(uploader.parentRootedPath))) {
-      case FileDataInfo parentData:
-        return pathResolver.apply(parentData);
-      case FutureFileDataInfo futureParentData:
-        return Futures.transformAsync(futureParentData, pathResolver, directExecutor());
-    }
+    return switch (registerDependency(FileValue.key(uploader.parentRootedPath))) {
+      case FileDataInfo parentData -> pathResolver.apply(parentData);
+      case FutureFileDataInfo futureParentData ->
+          Futures.transformAsync(futureParentData, pathResolver, directExecutor());
+    };
   }
 
   /**
@@ -486,17 +482,17 @@ final class FileDependencySerializer {
     @Override
     public ListenableFuture<Void> apply(FileDataInfo parentData) {
       RootedPath realParentPath;
-      switch (parentData) {
-        case CONSTANT_FILE:
-          // Assumes that BundledFileSystem does not symlink outside of BundledFileSystem.
-          realParentPath = uploader.parentRootedPath;
-          break;
-        case FileInvalidationDataInfo parentReference:
-          uploader.addParent(parentReference);
-          // If the parent folder doesn't exist, unresolvedLinkTarget will be null.
-          realParentPath = parentReference.realPath();
-          break;
-      }
+      realParentPath =
+          switch (parentData) {
+            case CONSTANT_FILE ->
+                // Assumes that BundledFileSystem does not symlink outside of BundledFileSystem.
+                uploader.parentRootedPath;
+            case FileInvalidationDataInfo parentReference -> {
+              uploader.addParent(parentReference);
+              // If the parent folder doesn't exist, unresolvedLinkTarget will be null.
+              yield parentReference.realPath();
+            }
+          };
 
       if (unresolvedLinkTarget == null) {
         return immediateVoidFuture(); // No symlink processing needed.
@@ -578,15 +574,14 @@ final class FileDependencySerializer {
     var parentProcessor = new SymlinkParentProcessor(parentRootedPath, link, uploader, symlinkData);
 
     // The parent path was changed by the link so it needs to be newly resolved.
-    switch (checkNotNull(
+    return switch (checkNotNull(
         registerDependency(
             FileValue.key(toRootedPath(parentRootedPath.getRoot(), unresolvedTargetParent))),
         unresolvedTargetParent)) {
-      case FileDataInfo data:
-        return parentProcessor.apply(data);
-      case FutureFileDataInfo future:
-        return Futures.transformAsync(future, parentProcessor, directExecutor());
-    }
+      case FileDataInfo data -> parentProcessor.apply(data);
+      case FutureFileDataInfo future ->
+          Futures.transformAsync(future, parentProcessor, directExecutor());
+    };
   }
 
   private ListenableFuture<Void> processSymlinkTarget(
