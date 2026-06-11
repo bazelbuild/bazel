@@ -435,6 +435,10 @@ public abstract sealed class RepoRecordedInput {
       this.path = path;
     }
 
+    public RepoCacheFriendlyPath getPath() {
+      return path;
+    }
+
     @Override
     public Parser getParser() {
       return PARSER;
