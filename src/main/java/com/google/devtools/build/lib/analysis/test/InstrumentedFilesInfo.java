@@ -20,9 +20,12 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
+import com.google.devtools.build.lib.packages.BuiltinRestriction;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.starlarkbuildapi.test.InstrumentedFilesInfoApi;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.Tuple;
 
 /** An implementation class for the InstrumentedFilesProvider interface. */
@@ -126,8 +129,21 @@ public final class InstrumentedFilesInfo extends NativeInfo implements Instrumen
     return coverageSupportFiles;
   }
 
+  @Override
+  public Depset getCoverageSupportFilesForStarlark(StarlarkThread thread) throws EvalException {
+    BuiltinRestriction.failIfCalledOutsideDefaultAllowlist(thread);
+    return Depset.of(Artifact.class, coverageSupportFiles);
+  }
+
   /** Environment variables that need to be set for tests collecting code coverage. */
   public ImmutableMap<String, String> getCoverageEnvironment() {
+    return coverageEnvironment;
+  }
+
+  @Override
+  public ImmutableMap<String, String> getCoverageEnvironmentForStarlark(StarlarkThread thread)
+      throws EvalException {
+    BuiltinRestriction.failIfCalledOutsideDefaultAllowlist(thread);
     return coverageEnvironment;
   }
 
