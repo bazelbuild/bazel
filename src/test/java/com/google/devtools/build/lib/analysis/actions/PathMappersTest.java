@@ -18,6 +18,8 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static java.lang.String.format;
 
+import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -299,6 +301,114 @@ public class PathMappersTest extends BuildViewTestCase {
         .containsExactly(
             "%s/cfg/bin/foo/script".formatted(outDir), "%s/cfg/bin/my_rule".formatted(outDir))
         .inOrder();
+  }
+
+  @Test
+  public void starlarkRule_artifactEnv() throws Exception {
+    scratch.file("defs/BUILD");
+    scratch.file(
+        "defs/defs.bzl",
+        """
+        def my_rule_impl(ctx):
+            out = ctx.actions.declare_file(ctx.label.name)
+            ctx.actions.run(
+                executable = ctx.executable._tool,
+                arguments = [ctx.actions.args().add(out)],
+                inputs = ctx.files.srcs,
+                outputs = [out],
+                env = {
+                    "GEN_SRC": ctx.files.srcs[0],
+                    "SOURCE_SRC": ctx.files.srcs[1],
+                    "OUT": out,
+                    "FIXED": "fixed_value",
+                },
+                mnemonic = "MyRuleAction",
+                execution_requirements = {"supports-path-mapping": "1"},
+            )
+            return [DefaultInfo(files = depset([out]))]
+        my_rule = rule(
+            implementation = my_rule_impl,
+            attrs = {
+                "srcs": attr.label_list(allow_files = True),
+                "_tool": attr.label(
+                    default = "//tool",
+                    executable = True,
+                    cfg = "exec",
+                ),
+            },
+        )
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load('//defs:defs.bzl', 'my_rule')
+        genrule(
+            name = 'gen_src',
+            outs = ['gen_src.txt'],
+            cmd = '<some command>',
+        )
+        my_rule(
+            name = 'my_rule',
+            srcs = [
+                ':gen_src',
+                'source.txt',
+            ],
+        )
+        """);
+    scratch.file(
+        "tool/BUILD",
+        """
+        load('//test_defs:foo_binary.bzl', 'foo_binary')
+        foo_binary(
+            name = 'tool',
+            srcs = ['tool.sh'],
+            visibility = ['//visibility:public'],
+        )
+        """);
+
+    ConfiguredTarget configuredTarget = getConfiguredTarget("//pkg:my_rule");
+    Artifact outputArtifact =
+        configuredTarget.getProvider(FileProvider.class).getFilesToBuild().toList().get(0);
+    SpawnAction action = (SpawnAction) getGeneratingAction(outputArtifact);
+    Spawn spawn =
+        action.getSpawn(
+            new ActionExecutionContextBuilder()
+                .setMetadataProvider(new FakeActionInputFileCache())
+                .build());
+
+    assertThat(spawn.getPathMapper().isNoop()).isFalse();
+    String outDir = analysisMock.getProductName() + "-out";
+    assertThat(spawn.getEnvironment())
+        .containsExactly(
+            "GEN_SRC",
+            format("%s/cfg/bin/pkg/gen_src.txt", outDir),
+            "SOURCE_SRC",
+            "pkg/source.txt",
+            "OUT",
+            format("%s/cfg/bin/pkg/my_rule", outDir),
+            "FIXED",
+            "fixed_value");
+
+    // Analysis-time consumers such as aquery see the unmapped paths.
+    Artifact genSrcArtifact =
+        action.getInputs().toList().stream()
+            .filter(input -> input.getFilename().equals("gen_src.txt"))
+            .findFirst()
+            .orElseThrow();
+    assertThat(
+            ActionEnvironment.resolveValues(
+                action.getEffectiveEnvironment(ImmutableMap.of()), PathMapper.NOOP))
+        .containsExactly(
+            "GEN_SRC",
+            genSrcArtifact.getExecPathString(),
+            "SOURCE_SRC",
+            "pkg/source.txt",
+            "OUT",
+            outputArtifact.getExecPathString(),
+            "FIXED",
+            "fixed_value");
+    assertThat(genSrcArtifact.getExecPathString())
+        .isNotEqualTo(format("%s/cfg/bin/pkg/gen_src.txt", outDir));
   }
 
   @Test

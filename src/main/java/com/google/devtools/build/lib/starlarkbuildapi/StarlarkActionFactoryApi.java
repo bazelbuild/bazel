@@ -519,7 +519,13 @@ This function must be top-level, i.e. lambdas and nested functions are not allow
                 "Sets the dictionary of environment variables.<p>If both"
                     + " <code>use_default_shell_env</code> and <code>env</code> are set to"
                     + " <code>True</code>, values set in <code>env</code> will overwrite the"
-                    + " default shell environment."),
+                    + " default shell environment.<p>Values may also be <code>File</code>s, which"
+                    + " are expanded to their <a"
+                    + " href=\"../builtins/File.html#path\"><code>path</code></a> at execution"
+                    + " time. This form should be preferred over expanding the path during"
+                    + " analysis if the action supports path mapping via the"
+                    + " <code>supports-path-mapping</code> execution requirement, as it allows the"
+                    + " mapped path to be used."),
         @Param(
             name = "execution_requirements",
             allowedTypes = {
@@ -771,7 +777,13 @@ This function must be top-level, i.e. lambdas and nested functions are not allow
                 "Sets the dictionary of environment variables.<p>If both"
                     + " <code>use_default_shell_env</code> and <code>env</code> are set to"
                     + " <code>True</code>, values set in <code>env</code> will overwrite the"
-                    + " default shell environment."),
+                    + " default shell environment.<p>Values may also be <code>File</code>s, which"
+                    + " are expanded to their <a"
+                    + " href=\"../builtins/File.html#path\"><code>path</code></a> at execution"
+                    + " time. This form should be preferred over expanding the path during"
+                    + " analysis if the action supports path mapping via the"
+                    + " <code>supports-path-mapping</code> execution requirement, as it allows the"
+                    + " mapped path to be used."),
         @Param(
             name = "execution_requirements",
             allowedTypes = {
