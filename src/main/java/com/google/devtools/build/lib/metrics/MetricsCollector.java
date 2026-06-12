@@ -98,6 +98,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.LongAccumulator;
 import java.util.function.LongConsumer;
 import java.util.stream.Stream;
@@ -113,6 +114,7 @@ class MetricsCollector {
   // For CumulativeMetrics.
   private final AtomicInteger numAnalyses;
   private final AtomicInteger numBuilds;
+  private final String previousInvocationId;
 
   private final ActionSummary.Builder actionSummary = ActionSummary.newBuilder();
   private final TargetMetrics.Builder targetMetrics = TargetMetrics.newBuilder();
@@ -134,7 +136,10 @@ class MetricsCollector {
 
   @CanIgnoreReturnValue
   private MetricsCollector(
-      CommandEnvironment env, AtomicInteger numAnalyses, AtomicInteger numBuilds) {
+      CommandEnvironment env,
+      AtomicInteger numAnalyses,
+      AtomicInteger numBuilds,
+      AtomicReference<String> mostRecentInvocationId) {
     this.env = env;
     Options options = env.getOptions().getOptions(Options.class);
     this.recordMetricsForAllMnemonics =
@@ -142,6 +147,7 @@ class MetricsCollector {
     this.recordSkyframeMetrics = options != null && options.getRecordSkyframeMetrics();
     this.numAnalyses = numAnalyses;
     this.numBuilds = numBuilds;
+    this.previousInvocationId = mostRecentInvocationId.getAndSet(env.getCommandId().toString());
     env.getEventBus().register(this);
     WorkerProcessMetricsCollector.instance().setClock(env.getClock());
     this.buildAccountedFor = new AtomicBoolean();
@@ -149,8 +155,11 @@ class MetricsCollector {
   }
 
   static void installInEnv(
-      CommandEnvironment env, AtomicInteger numAnalyses, AtomicInteger numBuilds) {
-    new MetricsCollector(env, numAnalyses, numBuilds);
+      CommandEnvironment env,
+      AtomicInteger numAnalyses,
+      AtomicInteger numBuilds,
+      AtomicReference<String> mostRecentInvocationId) {
+    new MetricsCollector(env, numAnalyses, numBuilds, mostRecentInvocationId);
   }
 
   @SuppressWarnings("unused")
@@ -636,6 +645,7 @@ class MetricsCollector {
     return CumulativeMetrics.newBuilder()
         .setNumAnalyses(numAnalyses.get())
         .setNumBuilds(numBuilds.get())
+        .setPreviousInvocationId(previousInvocationId)
         .build();
   }
 
