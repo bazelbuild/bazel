@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.analysis.util.ActionTester;
 import com.google.devtools.build.lib.analysis.util.ActionTester.ActionCombinationFactory;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.StoredEventHandler;
@@ -172,6 +173,26 @@ public class LtoBackendActionTest extends BuildViewTestCase {
     assertThat(action.inputsKnown()).isTrue();
     assertThat(action.getInputs().toList())
         .containsExactly(bitcode1Artifact, bitcode2Artifact, index2Artifact);
+  }
+
+  @Test
+  public void testGetInputFilesForExtraAction() throws Exception {
+    LtoBackendAction action =
+        LtoBackendAction.create(
+            ActionsTestUtil.NULL_ACTION_OWNER,
+            targetConfig,
+            NestedSetBuilder.create(Order.STABLE_ORDER, bitcode2Artifact, index2Artifact),
+            allBitcodeFiles,
+            imports2Artifact,
+            ImmutableSet.of(destinationArtifact),
+            CommandLines.builder()
+                .addSingleArgument(scratch.file("/bin/clang").asFragment())
+                .build(),
+            ActionEnvironment.create(ImmutableMap.of()));
+    collectingAnalysisEnvironment.registerAction(action);
+
+    NestedSet<Artifact> extraActionInputs = action.getInputFilesForExtraAction(context);
+    assertThat(extraActionInputs.toList()).containsExactly(bitcode1Artifact);
   }
 
   private enum KeyAttributes {
