@@ -168,7 +168,7 @@ static void WriteJarClasspath(const wstring& jar_path,
 wstring JavaBinaryLauncher::GetJunctionBaseDir() {
   wstring binary_base_path = GetBinaryPathWithExtension(GetLauncherPath());
   wstring result;
-  if (!NormalizePath(binary_base_path + L".j", &result)) {
+  if (!NormalizePath(binary_base_path + L".j-" + rand_id_, &result)) {
     die(L"Failed to get normalized junction base directory.");
   }
   return result;
@@ -248,7 +248,7 @@ wstring JavaBinaryLauncher::CreateClasspathJar(const wstring& classpath) {
     WriteJarClasspath(path, &manifest_classpath);
   }
 
-  wstring rand_id = L"-" + GetRandomStr(10);
+  const wstring rand_id = L"-" + rand_id_;
   // Enable long path support for jar_manifest_file_path.
   wstring jar_manifest_file_path =
       binary_base_path + rand_id + L".jar_manifest";
