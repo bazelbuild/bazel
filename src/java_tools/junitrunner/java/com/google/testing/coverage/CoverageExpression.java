@@ -18,7 +18,7 @@ package com.google.testing.coverage;
  * Expressions to evaluate a branch coverage result, either a simple probeId or a combination of
  * probes.
  */
-public interface CovExp {
+public interface CoverageExpression {
   /** Evaluate the expression using the given values of probes. */
   public abstract boolean eval(final boolean[] probes);
 }

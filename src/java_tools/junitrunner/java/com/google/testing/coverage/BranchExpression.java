@@ -21,31 +21,31 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 /** A branch coverage that must be evaluated as a combination of probes. */
-public class BranchExp implements CovExp {
-  private final List<CovExp> branches;
+public class BranchExpression implements CoverageExpression {
+  private final List<CoverageExpression> branches;
 
   // Cache the evaluation result to avoid reevaluating the expression with the same probes.
   private boolean[] probesUsed;
   private boolean value = false;
 
-  /** Create a BranchExp for a known number of branches but with no expression data. */
-  public static BranchExp initializeEmptyBranches() {
-    return new BranchExp(new ArrayList<>());
+  /** Create a BranchExpression for a known number of branches but with no expression data. */
+  public static BranchExpression initializeEmptyBranches() {
+    return new BranchExpression(new ArrayList<>());
   }
 
-  public BranchExp(List<CovExp> branches) {
+  public BranchExpression(List<CoverageExpression> branches) {
     this.branches = branches;
   }
 
-  /** Create a new BranchExp using this CovExp as the only branch. */
-  public BranchExp(CovExp exp) {
-    branches = new ArrayList<CovExp>();
+  /** Create a new BranchExpression using this CoverageExpression as the only branch. */
+  public BranchExpression(CoverageExpression exp) {
+    branches = new ArrayList<CoverageExpression>();
     branches.add(exp);
   }
 
-  /** Returns true if any branches been set for this BranchExp. */
+  /** Returns true if any branches been set for this BranchExpression. */
   public boolean hasBranches() {
-    return branches.stream().anyMatch(exp -> !exp.equals(NullExp.NULL_EXP));
+    return branches.stream().anyMatch(exp -> !exp.equals(NullExpression.NULL_EXP));
   }
 
   /**
@@ -53,21 +53,21 @@ public class BranchExp implements CovExp {
    *
    * <p>Expressions that have not been set are omitted.
    */
-  public List<CovExp> getBranches() {
+  public List<CoverageExpression> getBranches() {
     return branches.stream()
-        .filter(exp -> !exp.equals(NullExp.NULL_EXP))
+        .filter(exp -> !exp.equals(NullExpression.NULL_EXP))
         .collect(Collectors.toList());
   }
 
   /** Set the expression at a given index for this branch. */
-  public void setBranchAtIndex(int index, CovExp exp) {
+  public void setBranchAtIndex(int index, CoverageExpression exp) {
     extendBranches(index + 1);
     branches.set(index, exp);
     invalidateEvalCache();
   }
 
   /** Returns the expression at a given index for this branch. */
-  public CovExp getBranchAtIndex(int index) {
+  public CoverageExpression getBranchAtIndex(int index) {
     return branches.get(index);
   }
 
@@ -75,7 +75,7 @@ public class BranchExp implements CovExp {
   private void extendBranches(int size) {
     if (branches.size() < size) {
       // This preserves the cached eval value so no need to invalidate.
-      branches.addAll(Collections.nCopies(size - branches.size(), NullExp.NULL_EXP));
+      branches.addAll(Collections.nCopies(size - branches.size(), NullExpression.NULL_EXP));
     }
   }
 
@@ -84,39 +84,40 @@ public class BranchExp implements CovExp {
    *
    * @return the index of the newly added branch.
    */
-  public int add(CovExp exp) {
+  public int add(CoverageExpression exp) {
     branches.add(exp);
     invalidateEvalCache();
     return branches.size() - 1;
   }
 
-  /** Make a new BranchExp representing the concatenation of branches in inputs. */
-  public static BranchExp concatenate(BranchExp first, BranchExp second) {
-    List<CovExp> branches = new ArrayList<>(first.branches);
+  /** Make a new BranchExpression representing the concatenation of branches in inputs. */
+  public static BranchExpression concatenate(BranchExpression first, BranchExpression second) {
+    List<CoverageExpression> branches = new ArrayList<>(first.branches);
     branches.addAll(second.branches);
-    return new BranchExp(branches);
+    return new BranchExpression(branches);
   }
 
-  /** Make a new BranchExp representing the pairwise union of branches in inputs */
-  public static BranchExp zip(BranchExp left, BranchExp right) {
-    List<CovExp> zippedBranches = new ArrayList<>();
+  /** Make a new BranchExpression representing the pairwise union of branches in inputs */
+  public static BranchExpression zip(BranchExpression left, BranchExpression right) {
+    List<CoverageExpression> zippedBranches = new ArrayList<>();
     int leftSize = left.branches.size();
     int rightSize = right.branches.size();
     int i;
     for (i = 0; i < leftSize && i < rightSize; i++) {
-      List<CovExp> branches = Arrays.asList(left.branches.get(i), right.branches.get(i));
-      zippedBranches.add(new BranchExp(branches));
+      List<CoverageExpression> branches =
+          Arrays.asList(left.branches.get(i), right.branches.get(i));
+      zippedBranches.add(new BranchExpression(branches));
     }
-    List<CovExp> remainder = leftSize < rightSize ? right.branches : left.branches;
+    List<CoverageExpression> remainder = leftSize < rightSize ? right.branches : left.branches;
     for (; i < remainder.size(); i++) {
-      zippedBranches.add(new BranchExp(remainder.get(i)));
+      zippedBranches.add(new BranchExpression(remainder.get(i)));
     }
-    return new BranchExp(zippedBranches);
+    return new BranchExpression(zippedBranches);
   }
 
-  /** Wraps a CovExp in a BranchExp if it isn't one already. */
-  public static BranchExp ensureIsBranchExp(CovExp exp) {
-    return exp instanceof BranchExp ? (BranchExp) exp : new BranchExp(exp);
+  /** Wraps a CoverageExpression in a BranchExpression if it isn't one already. */
+  public static BranchExpression ensureIsBranchExpression(CoverageExpression exp) {
+    return exp instanceof BranchExpression ? (BranchExpression) exp : new BranchExpression(exp);
   }
 
   private void invalidateEvalCache() {
@@ -129,7 +130,7 @@ public class BranchExp implements CovExp {
       return value;
     }
     value = false;
-    for (CovExp exp : branches) {
+    for (CoverageExpression exp : branches) {
       value = exp.eval(probes);
       if (value) {
         break;

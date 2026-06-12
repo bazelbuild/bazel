@@ -1,4 +1,4 @@
-// Copyright 2016 The Bazel Authors. All Rights Reserved.
+// Copyright 2025 The Bazel Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,16 +14,15 @@
 
 package com.google.testing.coverage;
 
-/** The branch coverage can be evaluated by looking up single probe value. */
-public class ProbeExp implements CovExp {
-  private final int probeId;
+/** An expression that always evaluates to false. */
+public final class NullExpression implements CoverageExpression {
 
-  public ProbeExp(int id) {
-    probeId = id;
-  }
+  public static final NullExpression NULL_EXP = new NullExpression();
+
+  private NullExpression() {}
 
   @Override
   public boolean eval(final boolean[] probes) {
-    return probes != null && probes[probeId];
+    return false;
   }
 }

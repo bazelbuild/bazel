@@ -35,13 +35,13 @@ java_library(
     srcs = [
         "BranchCoverageDetail.java",
         "BranchDetailAnalyzer.java",
-        "BranchExp.java",
+        "BranchExpression.java",
         "ClassProbesMapper.java",
-        "CovExp.java",
+        "CoverageExpression.java",
         "JacocoLCOVFormatter.java",
         "MethodProbesMapper.java",
-        "NullExp.java",
-        "ProbeExp.java",
+        "NullExpression.java",
+        "ProbeExpression.java",
     ],
     deps = [
         ":bitfield",

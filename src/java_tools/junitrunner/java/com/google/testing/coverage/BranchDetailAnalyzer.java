@@ -73,7 +73,7 @@ public class BranchDetailAnalyzer extends Analyzer {
   }
 
   public void analyzeClass(final ClassReader reader) {
-    final Map<Integer, BranchExp> lineToBranchExp = mapProbes(reader);
+    final Map<Integer, BranchExpression> lineToBranchExp = mapProbes(reader);
 
     long classid = CRC64.classId(reader.b);
     ExecutionData classData = executionData.get(classid);
@@ -87,10 +87,10 @@ public class BranchDetailAnalyzer extends Analyzer {
 
     BranchCoverageDetail detail = new BranchCoverageDetail();
 
-    for (Map.Entry<Integer, BranchExp> entry : lineToBranchExp.entrySet()) {
+    for (Map.Entry<Integer, BranchExpression> entry : lineToBranchExp.entrySet()) {
       int line = entry.getKey();
-      BranchExp branchExp = entry.getValue();
-      List<CovExp> branches = branchExp.getBranches();
+      BranchExpression branchExp = entry.getValue();
+      List<CoverageExpression> branches = branchExp.getBranches();
 
       detail.setBranches(line, branches.size());
       for (int branchIdx = 0; branchIdx < branches.size(); branchIdx++) {
@@ -116,7 +116,7 @@ public class BranchDetailAnalyzer extends Analyzer {
   }
 
   // Generate the line to probeExp map so that we can evaluate the coverage.
-  private Map<Integer, BranchExp> mapProbes(final ClassReader reader) {
+  private Map<Integer, BranchExpression> mapProbes(final ClassReader reader) {
     final ClassProbesMapper mapper = new ClassProbesMapper(reader.getClassName());
     final ClassProbesAdapter adapter = new ClassProbesAdapter(mapper, false);
     reader.accept(adapter, 0);

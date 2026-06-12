@@ -30,7 +30,7 @@ import org.objectweb.asm.FieldVisitor;
 
 /** A visitor that maps each source code line to the probes corresponding to the lines. */
 public class ClassProbesMapper extends ClassProbesVisitor implements IFilterContext {
-  private Map<Integer, BranchExp> classLineToBranchExp;
+  private Map<Integer, BranchExpression> classLineToBranchExp;
 
   private IFilter allFilters = Filters.all();
 
@@ -44,13 +44,13 @@ public class ClassProbesMapper extends ClassProbesVisitor implements IFilterCont
   private String sourceFileName;
   private String sourceDebugExtension;
 
-  public Map<Integer, BranchExp> result() {
+  public Map<Integer, BranchExpression> result() {
     return classLineToBranchExp;
   }
 
   /** Create a new probe mapper object. */
   public ClassProbesMapper(String className) {
-    classLineToBranchExp = new TreeMap<Integer, BranchExp>();
+    classLineToBranchExp = new TreeMap<Integer, BranchExpression>();
     stringPool = new StringPool();
     this.className = stringPool.get(className);
   }
