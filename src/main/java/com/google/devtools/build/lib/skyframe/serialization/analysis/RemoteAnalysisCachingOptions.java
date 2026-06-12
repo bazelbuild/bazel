@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
 import com.google.common.hash.HashCode;
 import com.google.common.hash.Hashing;
@@ -284,5 +285,6 @@ public abstract class RemoteAnalysisCachingOptions extends OptionsBase {
       help = "Path to a local file containing remote analysis cache entries for debugging.")
   public abstract String getRemoteAnalysisDebugEntries();
 
+  @VisibleForTesting
   public abstract void setRemoteAnalysisDebugEntries(String value);
 }
