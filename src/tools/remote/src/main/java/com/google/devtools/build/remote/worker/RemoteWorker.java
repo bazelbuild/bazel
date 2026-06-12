@@ -226,6 +226,9 @@ public final class RemoteWorker {
 
     NettyServerBuilder b =
         NettyServerBuilder.forPort(workerOptions.getListenPort())
+            // Support large messages such as the ActionResult of an action with many
+            //output files (https://github.com/bazelbuild/bazel/issues/29821).
+            .maxInboundMessageSize(Integer.MAX_VALUE)
             .addService(ServerInterceptors.intercept(actionCacheServer, interceptors))
             .addService(ServerInterceptors.intercept(bsServer, interceptors))
             .addService(ServerInterceptors.intercept(casServer, interceptors))
