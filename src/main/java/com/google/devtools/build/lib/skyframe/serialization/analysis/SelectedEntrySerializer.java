@@ -209,6 +209,7 @@ final class SelectedEntrySerializer implements Consumer<SkyKey> {
   private final EventBus eventBus;
   private final ProfileCollector profileCollector;
   private final SerializationStats serializationStats;
+  private final boolean emitUploadedEvents;
 
   /** Uploads the entries of {@code selection} to {@code fingerprintValueService}. */
   static QuiescingFuture<ImmutableList<Throwable>> uploadSelection(
@@ -221,7 +222,8 @@ final class SelectedEntrySerializer implements Consumer<SkyKey> {
       KeyValueWriter fileInvalidationWriter,
       EventBus eventBus,
       ProfileCollector profileCollector,
-      SerializationStats serializationStats)
+      SerializationStats serializationStats,
+      boolean emitUploadedEvents)
       throws InterruptedException {
     var fileOpNodes = new FileOpNodeMemoizingLookup(fingerprintValueService.getExecutor(), graph);
     var fileDependencySerializer =
@@ -243,7 +245,8 @@ final class SelectedEntrySerializer implements Consumer<SkyKey> {
             writeStatuses,
             eventBus,
             profileCollector,
-            serializationStats);
+            serializationStats,
+            emitUploadedEvents);
 
     // A topological sort prevents the antipattern where one serializes a high level node, walks
     // its whole transitive closure, then serializes lower level nodes, thus revisiting the
@@ -286,7 +289,8 @@ final class SelectedEntrySerializer implements Consumer<SkyKey> {
       SerializationStatus writeStatuses,
       EventBus eventBus,
       ProfileCollector profileCollector,
-      SerializationStats serializationStats) {
+      SerializationStats serializationStats,
+      boolean emitUploadedEvents) {
     this.graph = graph;
     this.codecs = codecs;
     this.frontierVersion = frontierVersion;
@@ -297,6 +301,7 @@ final class SelectedEntrySerializer implements Consumer<SkyKey> {
     this.eventBus = eventBus;
     this.profileCollector = profileCollector;
     this.serializationStats = serializationStats;
+    this.emitUploadedEvents = emitUploadedEvents;
   }
 
   @Override
@@ -367,21 +372,25 @@ final class SelectedEntrySerializer implements Consumer<SkyKey> {
         () -> writeStatuses.counters.entriesWaitingForValueBytes.decrementAndGet(),
         directExecutor());
 
-    new FileOpNodeProcessor(keyResultTask, valueResultTask, isExecutionValue(key), dependencyKey)
+    new FileOpNodeProcessor(
+            key, keyResultTask, valueResultTask, isExecutionValue(key), dependencyKey)
         .run();
   }
 
   private final class FileOpNodeProcessor implements FutureCallback<FileOpNodeOrEmpty>, Runnable {
+    private final SkyKey key;
     private final AsyncSerializationTask keyResultTask;
     private final AsyncSerializationTask valueResultTask;
     private final boolean isExecutionValue;
     private final ActionLookupKey dependencyKey;
 
     private FileOpNodeProcessor(
+        SkyKey key,
         AsyncSerializationTask keyResultTask,
         AsyncSerializationTask valueResultTask,
         boolean isExecutionValue,
         ActionLookupKey dependencyKey) {
+      this.key = key;
       this.keyResultTask = keyResultTask;
       this.valueResultTask = valueResultTask;
       this.isExecutionValue = isExecutionValue;
@@ -540,6 +549,9 @@ final class SelectedEntrySerializer implements Consumer<SkyKey> {
                   writeStatuses.counters.entriesUploaded.incrementAndGet();
                   writeStatuses.counters.keyBytesUploaded.addAndGet(keyByteCount);
                   writeStatuses.counters.valueBytesUploaded.addAndGet(valueByteCount);
+                  if (emitUploadedEvents) {
+                    eventBus.post(new SkyValueUploadedEvent(key, frontierVersion, versionedKey));
+                  }
                 }
               },
               directExecutor());

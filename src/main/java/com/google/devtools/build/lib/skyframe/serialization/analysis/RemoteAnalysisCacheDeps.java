@@ -61,6 +61,7 @@ public class RemoteAnalysisCacheDeps
   private final RemoteAnalysisCachingEventListener listener;
   private final FrontierNodeVersion frontierNodeVersion;
   private final boolean skycacheAnalysisOnly;
+  private final boolean emitUploadedEvents;
 
   private final ListenableFuture<ObjectCodecs> objectCodecs;
   private final ListenableFuture<FingerprintValueService> fingerprintValueServiceFuture;
@@ -85,10 +86,12 @@ public class RemoteAnalysisCacheDeps
       FrontierNodeVersion frontierNodeVersion,
       Optional<Predicate<PackageIdentifier>> activeDirectoriesMatcher,
       String serializedFrontierProfile,
-      boolean skycacheAnalysisOnly) {
+      boolean skycacheAnalysisOnly,
+      boolean emitUploadedEvents) {
     this.mode = mode;
     this.bailOutOnMissingFingerprint = bailOutOnMissingFingerprint;
     this.skycacheAnalysisOnly = skycacheAnalysisOnly;
+    this.emitUploadedEvents = emitUploadedEvents;
     this.minimizeMemory = minimizeMemory;
     this.serializedFrontierProfile = serializedFrontierProfile;
     this.activeDirectoriesMatcher = activeDirectoriesMatcher;
@@ -109,6 +112,7 @@ public class RemoteAnalysisCacheDeps
     this.bailOutOnMissingFingerprint = false;
     this.minimizeMemory = false;
     this.skycacheAnalysisOnly = false;
+    this.emitUploadedEvents = false;
     this.serializedFrontierProfile = "";
     this.activeDirectoriesMatcher = Optional.empty();
     this.eventHandler = null;
@@ -250,5 +254,11 @@ public class RemoteAnalysisCacheDeps
   public boolean getSkycacheAnalysisOnly() {
     checkEnabled();
     return skycacheAnalysisOnly;
+  }
+
+  @Override
+  public boolean getEmitUploadedEvents() {
+    checkEnabled();
+    return emitUploadedEvents;
   }
 }

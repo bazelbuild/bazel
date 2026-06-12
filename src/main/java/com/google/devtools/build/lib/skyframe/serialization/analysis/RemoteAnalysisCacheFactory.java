@@ -209,7 +209,8 @@ public final class RemoteAnalysisCacheFactory {
             frontierNodeVersion,
             activeDirectoriesMatcher,
             options.getSerializedFrontierProfile(),
-            options.getSkycacheAnalysisOnly());
+            options.getSkycacheAnalysisOnly(),
+            options.getEmitBepUploadEvents());
 
     ListenableFuture<AnalysisCacheInvalidator> analysisCacheInvalidator =
         createAnalysisCacheInvalidator(

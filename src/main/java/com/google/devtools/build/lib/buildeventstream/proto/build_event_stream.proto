@@ -260,6 +260,10 @@ message BuildEventId {
   // Identifier of an event providing the ExecRequest of a run command.
   message ExecRequestId {}
 
+  message SkyValueUploadedId {
+    string key = 1;
+  }
+
   reserved 27;
 
   oneof id {
@@ -291,6 +295,7 @@ message BuildEventId {
     BuildMetadataId build_metadata = 24;
     ConvenienceSymlinksIdentifiedId convenience_symlinks_identified = 25;
     ExecRequestId exec_request = 28;
+    SkyValueUploadedId skyvalue_uploaded = 31;
   }
 }
 
@@ -1577,6 +1582,12 @@ message EnvironmentVariable {
   bytes value = 2;
 }
 
+message SkyValueUploaded {
+  string key = 1;
+  string version = 2;
+  string fingerprint = 3;  // As hex digits. (bytes would be base64 in JSON)
+}
+
 // Information about the Java version.
 message JavaVersionInfo {
   // The Java version string, e.g. "25.0.1+8-LTS-27".
@@ -1625,5 +1636,6 @@ message BuildEvent {
     BuildMetadata build_metadata = 26;
     ConvenienceSymlinksIdentified convenience_symlinks_identified = 27;
     ExecRequestConstructed exec_request = 29;
+    SkyValueUploaded skyvalue_uploaded = 32;
   }
 }

@@ -267,4 +267,12 @@ public abstract class RemoteAnalysisCachingOptions extends OptionsBase {
       effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
       help = "If true, Skycache will only be used for analysis phase.")
   public abstract boolean getSkycacheAnalysisOnly();
+
+  @Option(
+      name = "remote_analysis_cache_emit_bep_upload_events",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      help = "If true, Blaze will emit debug events for remote analysis caching.")
+  public abstract boolean getEmitBepUploadEvents();
 }

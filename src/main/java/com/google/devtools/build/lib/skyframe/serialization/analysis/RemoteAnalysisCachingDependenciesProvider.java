@@ -89,6 +89,8 @@ public interface RemoteAnalysisCachingDependenciesProvider {
     boolean shouldMinimizeMemory();
 
     boolean getSkycacheAnalysisOnly();
+
+    boolean getEmitUploadedEvents();
   }
 
 }

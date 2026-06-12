@@ -193,7 +193,8 @@ public final class FrontierSerializer {
             serializationDependenciesProvider.getFileInvalidationWriter(),
             eventBus,
             profileCollector,
-            serializationStats);
+            serializationStats,
+            serializationDependenciesProvider.getEmitUploadedEvents());
 
     try {
       // Waits for the write to complete uninterruptibly. This avoids returning to the caller

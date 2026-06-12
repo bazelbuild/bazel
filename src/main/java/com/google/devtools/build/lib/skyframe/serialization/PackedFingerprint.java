@@ -24,6 +24,7 @@ import java.io.IOException;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
 import java.nio.ByteOrder;
+import java.util.HexFormat;
 
 /**
  * A compact in-memory representation of a 128-bit fingerprint.
@@ -38,6 +39,8 @@ public record PackedFingerprint(long lo, long hi)
     implements KeyBytesProvider, Comparable<PackedFingerprint> {
   /** Number of bytes in the serialized representation of a fingerprint. */
   public static final int BYTES = 16;
+
+  private static final HexFormat HEX_FORMAT = HexFormat.of().withLowerCase();
 
   /**
    * Constructs a fingerprint directly from {@code bytes}.
@@ -66,6 +69,10 @@ public record PackedFingerprint(long lo, long hi)
     byte[] result = new byte[BYTES];
     copyTo(result, 0);
     return result;
+  }
+
+  public String toHex() {
+    return HEX_FORMAT.formatHex(toBytes());
   }
 
   /** Concatenates {@code bytes} to the {@code byte[]} representation of this fingerprint. */
