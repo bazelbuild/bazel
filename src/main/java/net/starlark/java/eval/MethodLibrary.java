@@ -522,6 +522,7 @@ class MethodLibrary {
         default:
           // finite
           try {
+            // TODO: Add support for PEP 515 underscores - they are already supported in literals.
             d = Double.parseDouble(s);
             if (!Double.isFinite(d)) {
               // parseDouble accepts signed "NaN" and "Infinity" (case sensitive)
@@ -621,6 +622,7 @@ class MethodLibrary {
     if (x instanceof String) {
       int base = baseO == Starlark.UNBOUND ? 10 : Starlark.toInt(baseO, "base");
       try {
+        // TODO: Add support for PEP 515 underscores - they are already supported in literals.
         return StarlarkInt.parse((String) x, base);
       } catch (NumberFormatException ex) {
         throw Starlark.errorf("%s", ex.getMessage());
