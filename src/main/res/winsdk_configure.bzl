@@ -38,7 +38,7 @@ Usage:
 load("@bazel_tools//tools/cpp:cc_configure.bzl", "MSVC_ENVVARS")
 load("@bazel_tools//tools/cpp:windows_cc_configure.bzl", "find_vc_path", "setup_vc_env_vars")
 
-# Keys: target architecture, as in <Windows-SDK-path>/<target-architecture>/bin/rc.exe
+# Keys: host architecture, as in <Windows-SDK-path>/<host-architecture>/bin/rc.exe
 # Values: corresponding Bazel CPU value under @platforms//cpu:*
 _TARGET_ARCH = {
     "arm": "arm",
@@ -117,11 +117,11 @@ toolchain(
     name = "local_{arch}",
     exec_compatible_with = [
         "@platforms//os:windows",
-        "@platforms//cpu:x86_64",
+        "@platforms//cpu:{cpu}",
     ],
     target_compatible_with = [
         "@platforms//os:windows",
-        "@platforms//cpu:{cpu}",
+        # cpu omitted: .res files are architecture-neutral
     ],
     toolchain = ":local_{arch}_tc",
     toolchain_type = WINDOWS_RESOURCE_COMPILER_TOOLCHAIN_TYPE,
