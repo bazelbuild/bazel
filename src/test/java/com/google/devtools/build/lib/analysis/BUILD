@@ -335,6 +335,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
         "//src/test/java/com/google/devtools/build/lib/testutil",
         "//third_party:junit4",
+        "//third_party:truth",
     ],
 )
 

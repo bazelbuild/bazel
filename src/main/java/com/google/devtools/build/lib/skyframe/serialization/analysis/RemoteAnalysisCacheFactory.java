@@ -20,7 +20,6 @@ import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.ForkJoinPool.commonPool;
 
-import com.google.common.base.Ascii;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableList;
@@ -317,8 +316,7 @@ public final class RemoteAnalysisCacheFactory {
       BlazeDirectories directories,
       BuildOptions topLevelOptions) {
     var roots = ImmutableList.<Root>builder().add(Root.fromPath(directories.getWorkspace()));
-    // TODO: b/406458763 - clean this up
-    if (Ascii.equalsIgnoreCase(directories.getProductName(), "blaze")) {
+    if (directories.isBlaze()) {
       roots.add(Root.fromPath(directories.getBlazeExecRoot()));
     }
 
