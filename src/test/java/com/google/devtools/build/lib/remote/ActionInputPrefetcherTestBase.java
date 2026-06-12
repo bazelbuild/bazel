@@ -24,6 +24,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
@@ -658,6 +659,60 @@ public abstract class ActionInputPrefetcherTestBase {
             Reason.INPUTS));
     assertThat(FileSystemUtils.readContent(children.get(1).getPath(), UTF_8))
         .isEqualTo("content2");
+    assertTreeReadableNonWritableAndExecutable(tree.getPath());
+  }
+
+  @Test
+  public void prefetchFiles_treeFile_failedFinalization_restoresPermissions() throws Exception {
+    Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
+    Map<HashCode, byte[]> cas = new HashMap<>();
+    Pair<SpecialArtifact, ImmutableList<TreeFileArtifact>> treeAndChildren =
+        createRemoteTreeArtifact(
+            "dir",
+            /* localContentMap= */ ImmutableMap.of(),
+            /* remoteContentMap= */ ImmutableMap.of("subdir/file", "content"),
+            metadata,
+            cas);
+    SpecialArtifact tree = treeAndChildren.getFirst();
+    TreeFileArtifact child = Iterables.getOnlyElement(treeAndChildren.getSecond());
+    AbstractActionInputPrefetcher prefetcher = createPrefetcher(cas);
+    PathFragment tempDir = tempPathGenerator.getTempDir().asFragment();
+
+    doAnswer(
+            invocation -> {
+              PathFragment source = invocation.getArgument(0);
+              if (source.startsWith(tempDir)) {
+                throw new IOException("move failed");
+              }
+              return invocation.callRealMethod();
+            })
+        .when(fs)
+        .renameTo(any(), any());
+    doAnswer(
+            invocation -> {
+              PathFragment path = invocation.getArgument(0);
+              if (path.startsWith(tempDir)) {
+                throw new IOException("copy fallback failed");
+              }
+              return invocation.callRealMethod();
+            })
+        .when(fs)
+        .stat(any(), anyBoolean());
+
+    IOException error =
+        assertThrows(
+            IOException.class,
+            () ->
+                wait(
+                    prefetcher.prefetchFilesInterruptibly(
+                        action,
+                        ImmutableList.of(child),
+                        metadata::get,
+                        Priority.MEDIUM,
+                        Reason.INPUTS)));
+
+    assertThat(error).hasMessageThat().isEqualTo("copy fallback failed");
+    assertThat(child.getPath().exists()).isFalse();
     assertTreeReadableNonWritableAndExecutable(tree.getPath());
   }
 

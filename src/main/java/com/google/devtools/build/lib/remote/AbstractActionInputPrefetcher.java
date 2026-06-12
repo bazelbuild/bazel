@@ -663,12 +663,14 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     tmpPath.chmod(outputPermissions.getPermissionsMode());
 
     Path parentDir = checkNotNull(finalPath.getParentDirectory());
+    @Nullable Path deepestTemporarilyWritableDirectory = null;
     @Nullable Lock treeArtifactLock =
         treeRoot == null ? null : treeArtifactLocks.get(treeRoot.asFragment()).readLock();
     if (treeArtifactLock != null) {
       treeArtifactLock.lock();
     }
 
+    @Nullable IOException finalizationError = null;
     try {
       // Compare as fragments since execRoot may be located on a file system overlaying the host
       // file system where the download is written to.
@@ -681,9 +683,11 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
           // and may otherwise leave a previously restored ancestor read-only.
           Path dir = treeRoot;
           directoryTracker.setTemporarilyWritable(dir);
+          deepestTemporarilyWritableDirectory = dir;
           for (String segment : parentDir.relativeTo(treeRoot).segments()) {
             dir = dir.getChild(segment);
             directoryTracker.setTemporarilyWritable(dir);
+            deepestTemporarilyWritableDirectory = dir;
           }
         } else {
           // One of the following must apply:
@@ -701,14 +705,45 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       }
 
       FileSystemUtils.moveFile(tmpPath, finalPath);
+    } catch (IOException e) {
+      finalizationError = e;
     } finally {
       if (treeArtifactLock != null) {
         treeArtifactLock.unlock();
       }
     }
 
-    // Set the contents proxy when supported, to make future modification checks cheaper.
-    metadata.setContentsProxy(FileContentsProxy.create(finalPath.stat()));
+    if (finalizationError == null) {
+      try {
+        // Set the contents proxy when supported, to make future modification checks cheaper.
+        metadata.setContentsProxy(FileContentsProxy.create(finalPath.stat()));
+        return;
+      } catch (IOException e) {
+        finalizationError = e;
+      }
+    }
+
+    // Successful calls restore permissions after every finalization has completed. A failed
+    // finalization never reaches that call-scoped restoration, so roll back the directories this
+    // finalization reopened before propagating the original error.
+    if (treeRoot != null && deepestTemporarilyWritableDirectory != null) {
+      Lock permissionRestorationLock = treeArtifactLocks.get(treeRoot.asFragment()).writeLock();
+      permissionRestorationLock.lock();
+      try {
+        for (Path dir = deepestTemporarilyWritableDirectory;
+            dir.startsWith(treeRoot);
+            dir = dir.getParentDirectory()) {
+          try {
+            directoryTracker.setOutputPermissions(dir);
+          } catch (IOException restorationError) {
+            finalizationError.addSuppressed(restorationError);
+          }
+        }
+      } finally {
+        permissionRestorationLock.unlock();
+      }
+    }
+    throw finalizationError;
   }
 
   private interface TaskWithTempPath {
