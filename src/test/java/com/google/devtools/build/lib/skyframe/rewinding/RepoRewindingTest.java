@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.BlockWaitingModule;
 import com.google.devtools.build.lib.testutil.ActionEventRecorder;
+import com.google.devtools.build.lib.testutil.SpawnController.ExecResult;
 import com.google.devtools.build.lib.testutil.SpawnController.SpawnShim;
 import com.google.devtools.build.lib.testutil.SpawnInputUtils;
 import com.google.devtools.build.lib.vfs.DelegateFileSystem;
@@ -39,11 +40,13 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RewindableRepoFileSystem;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyKey;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BooleanSupplier;
 import javax.annotation.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -90,9 +93,14 @@ public final class RepoRewindingTest extends BuildIntegrationTestCase {
   }
 
   /**
-   * Writes a repo rule whose repos contain a single file {@code src.txt} with the contents of the
-   * given workspace file, which is intentionally not watched so that it can be modified
-   * mid-build to observe refetches.
+   * Writes a repo rule whose repos contain a file {@code src.txt} with the contents of the given
+   * workspace file, which is intentionally not watched so that it can be modified mid-build to
+   * observe refetches, as well as a file {@code other.txt} with fixed contents.
+   *
+   * <p>Also writes a {@code dep_repo} rule whose repos contain a file {@code own.txt} with the
+   * contents of {@code @repo_a//:src.txt}. Reading another repo's file by label is the analog of
+   * (and in production triggers) the materialization of that repo from the remote repo contents
+   * cache.
    */
   private void writeRepoRule() throws Exception {
     write("repo/BUILD");
@@ -100,14 +108,21 @@ public final class RepoRewindingTest extends BuildIntegrationTestCase {
         "repo/repo.bzl",
         """
         def _my_repo_impl(rctx):
-            rctx.file("BUILD", "exports_files(['src.txt'])")
+            rctx.file("BUILD", "exports_files(['src.txt', 'other.txt'])")
             content_path = rctx.workspace_root.get_child("repo", rctx.attr.content_file)
             rctx.file("src.txt", rctx.read(content_path, watch = "no"))
+            rctx.file("other.txt", "other")
 
         my_repo = repository_rule(
             implementation = _my_repo_impl,
             attrs = {"content_file": attr.string()},
         )
+
+        def _dep_repo_impl(rctx):
+            rctx.file("BUILD", "exports_files(['own.txt'])")
+            rctx.file("own.txt", rctx.read(Label("@repo_a//:src.txt")))
+
+        dep_repo = repository_rule(implementation = _dep_repo_impl)
         """);
   }
 
@@ -135,14 +150,9 @@ public final class RepoRewindingTest extends BuildIntegrationTestCase {
       Artifact input = (Artifact) SpawnInputUtils.getInputWithName(spawn, inputName);
       lostInput.set(input);
       write("repo/" + contentFile, newContent);
-      String repoName = input.getPath().getParentDirectory().getBaseName();
-      Path markerFile =
-          getOutputBase()
-              .getRelative("external")
-              .getRelative(RepositoryName.createUnvalidated(repoName).getMarkerFileName());
       // The marker file may have already been deleted by another shim losing a file from the same
       // repo.
-      var unused = markerFile.delete();
+      var unused = markerFileForRepoOf(input).delete();
       allSpawnsObservedLostInputs.countDown();
       checkState(
           Uninterruptibles.awaitUninterruptibly(allSpawnsObservedLostInputs, 60, SECONDS),
@@ -300,6 +310,166 @@ public final class RepoRewindingTest extends BuildIntegrationTestCase {
     ImmutableList<SkyKey> chain = expectedRewoundChain(lostInput1.get());
     assertThat(ImmutableSet.copyOf(rewoundKeys)).containsExactlyElementsIn(chain);
     actionEventRecorder.assertTotalLostInputCountsFromStats(ImmutableList.of(2));
+  }
+
+  @Test
+  public void unrelatedActionExecutingWhileRepoRefetches() throws Exception {
+    writeRepoRule();
+    write("repo/content_a.txt", "old");
+    appendToModuleFile(
+        "my_repo = use_repo_rule('//repo:repo.bzl', 'my_repo')",
+        "my_repo(name = 'repo_a', content_file = 'content_a.txt')");
+    write(
+        "test/BUILD",
+        """
+        genrule(
+            name = "consume_lost",
+            srcs = ["@repo_a//:src.txt"],
+            outs = ["out_lost.txt"],
+            cmd = "cp $< $@",
+        )
+
+        genrule(
+            name = "reader",
+            srcs = ["@repo_a//:other.txt"],
+            outs = ["out_reader.txt"],
+            cmd = "cp $< $@",
+        )
+
+        genrule(
+            name = "all",
+            srcs = [
+                "out_lost.txt",
+                "out_reader.txt",
+            ],
+            outs = ["out_all.txt"],
+            cmd = "cat $(SRCS) > $@",
+        )
+        """);
+
+    CountDownLatch readerStarted = new CountDownLatch(1);
+    AtomicReference<Artifact> lostInput = new AtomicReference<>();
+    helper.addSpawnShim(
+        "Executing genrule //test:consume_lost",
+        (spawn, context) -> {
+          Artifact input = (Artifact) SpawnInputUtils.getInputWithName(spawn, "src.txt");
+          lostInput.set(input);
+          // Make sure that the reader's spawn is executing before the lost input is reported, so
+          // that it remains in flight while the repo is refetched.
+          checkState(
+              Uninterruptibles.awaitUninterruptibly(readerStarted, 60, SECONDS),
+              "timed out waiting for the reader to start executing");
+          write("repo/content_a.txt", "new");
+          Path markerFile = markerFileForRepoOf(input);
+          checkState(markerFile.delete(), "marker file %s did not exist", markerFile);
+          return helper.createLostInputsExecException(context, ImmutableList.of(input));
+        });
+    helper.addSpawnShim(
+        "Executing genrule //test:reader",
+        (spawn, context) -> {
+          readerStarted.countDown();
+          // Hold off the actual execution until the repo has been refetched (which rewrites the
+          // marker file deleted by the shim above) to ensure that an action that was already
+          // executing when the repo's contents were replaced still completes successfully.
+          Artifact input = (Artifact) SpawnInputUtils.getInputWithName(spawn, "other.txt");
+          Path markerFile = markerFileForRepoOf(input);
+          Path srcFile = input.getPath().getParentDirectory().getChild("src.txt");
+          waitFor(
+              () -> {
+                try {
+                  return markerFile.exists()
+                      && new String(FileSystemUtils.readContentAsLatin1(srcFile)).equals("new\n");
+                } catch (IOException e) {
+                  return false;
+                }
+              },
+              "the repo to be refetched");
+          return ExecResult.delegate();
+        });
+
+    List<SkyKey> rewoundKeys = helper.collectOrderedRewoundKeys();
+    buildTarget("//test:all");
+
+    helper.verifyAllSpawnShimsConsumed();
+    assertContents("new\nother", "//test:all");
+    // The reader executed only once: it was unaffected by the concurrent refetch of its repo.
+    assertThat(helper.getExecutedSpawnDescriptions())
+        .containsExactly(
+            "Executing genrule //test:consume_lost",
+            "Executing genrule //test:reader",
+            "Executing genrule //test:consume_lost",
+            "Executing genrule //test:all");
+    assertThat(rewoundKeys).containsExactlyElementsIn(expectedRewoundChain(lostInput.get()));
+    actionEventRecorder.assertTotalLostInputCountsFromStats(ImmutableList.of(1));
+  }
+
+  @Test
+  public void repoMaterializedByOtherRepoRefetched() throws Exception {
+    writeRepoRule();
+    write("repo/content_a.txt", "old");
+    appendToModuleFile(
+        "my_repo = use_repo_rule('//repo:repo.bzl', 'my_repo')",
+        "my_repo(name = 'repo_a', content_file = 'content_a.txt')",
+        "dep_repo = use_repo_rule('//repo:repo.bzl', 'dep_repo')",
+        "dep_repo(name = 'repo_b')");
+    write(
+        "test/BUILD",
+        """
+        genrule(
+            name = "consume_a",
+            srcs = ["@repo_a//:src.txt"],
+            outs = ["out_a.txt"],
+            cmd = "cp $< $@",
+        )
+
+        genrule(
+            name = "consume_b",
+            srcs = ["@repo_b//:own.txt"],
+            outs = ["out_b.txt"],
+            cmd = "cp $< $@",
+        )
+        """);
+
+    CountDownLatch lostInputObserved = new CountDownLatch(1);
+    AtomicReference<Artifact> lostInput = new AtomicReference<>();
+    helper.addSpawnShim(
+        "Executing genrule //test:consume_a",
+        lostRepoFileShim("src.txt", "content_a.txt", "new", lostInputObserved, lostInput));
+
+    List<SkyKey> rewoundKeys = helper.collectOrderedRewoundKeys();
+    // The fetch of repo_b reads (in production: materializes) repo_a, whose file is then lost by
+    // the action consuming it and recovered by refetching repo_a.
+    buildTarget("//test:consume_a", "//test:consume_b");
+
+    helper.verifyAllSpawnShimsConsumed();
+    assertContents("new", "//test:consume_a");
+    // repo_b retains the contents it read from repo_a when it was fetched: the refetch of repo_a
+    // does not affect repos fetched from it earlier in the build.
+    assertContents("old", "//test:consume_b");
+    assertThat(rewoundKeys).containsExactlyElementsIn(expectedRewoundChain(lostInput.get()));
+
+    // The next build notices that repo_b's recorded input @repo_a//:src.txt has changed and
+    // refetches it.
+    helper.clearExecutedSpawnDescriptions();
+    buildTarget("//test:consume_b");
+    assertContents("new", "//test:consume_b");
+    assertThat(helper.getExecutedSpawnDescriptions())
+        .containsExactly("Executing genrule //test:consume_b");
+  }
+
+  private Path markerFileForRepoOf(Artifact repoFile) {
+    String repoName = repoFile.getPath().getParentDirectory().getBaseName();
+    return getOutputBase()
+        .getRelative("external")
+        .getRelative(RepositoryName.createUnvalidated(repoName).getMarkerFileName());
+  }
+
+  private static void waitFor(BooleanSupplier condition, String what) throws InterruptedException {
+    long deadlineMillis = System.currentTimeMillis() + 60_000;
+    while (!condition.getAsBoolean()) {
+      checkState(System.currentTimeMillis() < deadlineMillis, "timed out waiting for %s", what);
+      Thread.sleep(50);
+    }
   }
 
   /**
