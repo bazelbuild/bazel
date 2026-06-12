@@ -25,6 +25,7 @@ import com.google.common.collect.ConcurrentHashMultiset;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
@@ -42,6 +43,9 @@ import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.ActionTemplate;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
+import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
+import com.google.devtools.build.lib.actions.FileStateValue;
+import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
@@ -49,11 +53,13 @@ import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
 import com.google.devtools.build.lib.actions.RunfilesTree;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.clock.BlazeClock;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.ArtifactNestedSetKey;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.remote.common.LostInputsEvent;
+import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.server.FailureDetails.ActionRewinding;
 import com.google.devtools.build.lib.server.FailureDetails.ActionRewinding.Code;
 import com.google.devtools.build.lib.skyframe.ActionUtils;
@@ -67,6 +73,9 @@ import com.google.devtools.build.lib.skyframe.proto.ActionRewind.LostInput;
 import com.google.devtools.build.lib.skyframe.rewinding.ActionRewindException.FallbackToBuildRewindingException;
 import com.google.devtools.build.lib.skyframe.rewinding.ActionRewindException.GenericActionRewindException;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheReaderDepsProvider;
+import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.RewindableRepoFileSystem;
+import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunction.Reset;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -74,6 +83,7 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -330,8 +340,9 @@ public final class ActionRewindStrategy {
     // between them.
     MutableGraph<SkyKey> rewindGraph = Reset.newRewindGraphFor(failedKey);
 
-    Set<DerivedArtifact> lostArtifacts =
+    LostInputOwningDirectDeps lostInputOwningDirectDeps =
         getLostInputOwningDirectDeps(failedKey, failedKeyDeps, lostInputs, owners);
+    ImmutableSet<DerivedArtifact> lostArtifacts = lostInputOwningDirectDeps.derivedArtifacts();
 
     // Additional nested sets we may need to invalidate that are the dependencies of an
     // insensitively propagating action, associated with the key that depends on them.
@@ -383,6 +394,24 @@ public final class ActionRewindStrategy {
       return new RewindPlanResult(/* reset= */ null);
     }
 
+    for (Map.Entry<SourceArtifact, RepositoryName> entry :
+        lostInputOwningDirectDeps.sourceArtifactsToRepos().entrySet()) {
+      SourceArtifact lostSource = entry.getKey();
+      // Note that Artifact.key(lostSource) is lostSource itself. As for derived artifacts, it is
+      // possible that it is not actually a direct dep of the action if it is below an
+      // ArtifactNestedSetKey, but this edge is benign since it's always a transitive dep.
+      rewindGraph.putEdge(failedKey, lostSource);
+      addLostSourceFileNodesToRewindGraph(rewindGraph, lostSource, entry.getValue());
+      // Aggregation artifacts (e.g. runfiles trees) containing the lost source artifact cache its
+      // metadata, so their rewound nodes must be re-evaluated after the source artifact.
+      for (Artifact owner : owners.get(lostSource)) {
+        SkyKey ownerKey = Artifact.key(owner);
+        if (rewindGraph.nodes().contains(ownerKey)) {
+          rewindGraph.putEdge(ownerKey, lostSource);
+        }
+      }
+    }
+
     // addNestedSetPathsToRewindGraph, called after this loop, stops its walk when it finds a node
     // that is already in the rewind graph.
     // However, because this rewinds all NestedSet chains from a given root, early termination later
@@ -401,7 +430,13 @@ public final class ActionRewindStrategy {
     // This needs to be done after the loop above because addArtifactDepsAndGetNewlyVisitedActions
     // short-circuits when a node is already in the rewind graph.
     ArtifactNestedSetKey.addNestedSetPathsToRewindGraph(
-        rewindGraph, failedKey, failedKeyDeps, lostArtifacts);
+        rewindGraph,
+        failedKey,
+        failedKeyDeps,
+        ImmutableSet.<Artifact>builder()
+            .addAll(lostArtifacts)
+            .addAll(lostInputOwningDirectDeps.sourceArtifactsToRepos().keySet())
+            .build());
 
     return new RewindPlanResult(Reset.of(rewindGraph));
   }
@@ -634,7 +669,17 @@ public final class ActionRewindStrategy {
     return owners;
   }
 
-  private Set<DerivedArtifact> getLostInputOwningDirectDeps(
+  /**
+   * The artifacts whose Skyframe nodes must be rewound to recover the lost inputs of a failed
+   * action, partitioned into derived artifacts, which are recovered by rewinding their generating
+   * actions, and source artifacts served from the remote repo contents cache, which are recovered
+   * by rewinding the fetch of the repository (given by its canonical name) that contains them.
+   */
+  private record LostInputOwningDirectDeps(
+      ImmutableSet<DerivedArtifact> derivedArtifacts,
+      ImmutableMap<SourceArtifact, RepositoryName> sourceArtifactsToRepos) {}
+
+  private LostInputOwningDirectDeps getLostInputOwningDirectDeps(
       SkyKey failedKey,
       Set<SkyKey> failedKeyDeps,
       ImmutableList<ActionInput> lostInputs,
@@ -651,6 +696,7 @@ public final class ActionRewindStrategy {
     }
 
     Set<DerivedArtifact> lostInputOwningDirectDeps = new HashSet<>();
+    Map<SourceArtifact, RepositoryName> sourceArtifactsToRepos = new HashMap<>();
     for (ActionInput lostInput : lostInputs) {
       boolean foundLostInputDepOwner = false;
 
@@ -685,9 +731,20 @@ public final class ActionRewindStrategy {
         }
       }
 
-      if (lostInput instanceof Artifact artifact && expandedDeps.contains(Artifact.key(artifact))) {
-        checkDerived(artifact);
-
+      if (lostInput instanceof Artifact artifact && artifact.isSourceArtifact()) {
+        // Source artifacts have no generating action that could be rewound to recreate them.
+        // However, if the artifact's contents are served from the remote repo contents cache, it
+        // can be recovered by rewinding the fetch of the repository containing it together with
+        // the Skyframe nodes tracking the file's metadata.
+        if (foundLostInputDepOwner || expandedDeps.contains(Artifact.key(artifact))) {
+          RepositoryName repo = markLostSourceFile((SourceArtifact) artifact);
+          if (repo != null) {
+            sourceArtifactsToRepos.put((SourceArtifact) artifact, repo);
+            foundLostInputDepOwner = true;
+          }
+        }
+      } else if (lostInput instanceof Artifact artifact
+          && expandedDeps.contains(Artifact.key(artifact))) {
         lostInputOwningDirectDeps.add((DerivedArtifact) lostInput);
         foundLostInputDepOwner = true;
       }
@@ -705,11 +762,48 @@ public final class ActionRewindStrategy {
                     lostInput, owners, failedKey)));
       }
     }
-    return lostInputOwningDirectDeps;
+    return new LostInputOwningDirectDeps(
+        ImmutableSet.copyOf(lostInputOwningDirectDeps),
+        ImmutableMap.copyOf(sourceArtifactsToRepos));
   }
 
   private static void checkDerived(Artifact artifact) {
     checkState(!artifact.isSourceArtifact(), "Unexpected source artifact: %s", artifact);
+  }
+
+  /**
+   * Marks the given lost source artifact's file as lost in its file system and returns the
+   * canonical name of the repository whose fetch must be rewound to recover it, or {@code null} if
+   * the file cannot be recovered by rewinding.
+   */
+  @Nullable
+  private static RepositoryName markLostSourceFile(SourceArtifact artifact) {
+    Path path = artifact.getPath();
+    if (!(path.getFileSystem() instanceof RewindableRepoFileSystem repoFileSystem)) {
+      return null;
+    }
+    String repoName = repoFileSystem.markLostRepoFile(path.asFragment());
+    return repoName != null ? RepositoryName.createUnvalidated(repoName) : null;
+  }
+
+  /**
+   * Adds the chain of Skyframe nodes that must be rewound to recover a lost source artifact served
+   * from the remote repo contents cache.
+   *
+   * <p>Rewinding the repository fetch causes the repo rule to be executed again (the remote repo
+   * contents cache reports a cache miss for repos with lost files), which materializes the repo on
+   * the local file system and uploads its contents to the remote cache again. Rewinding the file
+   * state, file, and artifact nodes in between makes the failed action pick up the refetched file.
+   */
+  private static void addLostSourceFileNodesToRewindGraph(
+      MutableGraph<SkyKey> rewindGraph, SourceArtifact lostSource, RepositoryName repo) {
+    RootedPath rootedPath =
+        RootedPath.toRootedPath(lostSource.getRoot().getRoot(), lostSource.getPath());
+    SkyKey fileKey = FileValue.key(rootedPath);
+    SkyKey fileStateKey = FileStateValue.key(rootedPath);
+    rewindGraph.putEdge(lostSource, fileKey);
+    rewindGraph.putEdge(fileKey, fileStateKey);
+    rewindGraph.putEdge(fileStateKey, RepositoryDirectoryValue.key(repo));
   }
 
   private enum CheckActionsStatus {

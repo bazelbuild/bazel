@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.RewindableRepoFileSystem;
 import com.google.devtools.build.lib.vfs.SymlinkTargetType;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
@@ -81,7 +82,8 @@ import javax.annotation.Nullable;
  * <p>Each external repository can either be materialized to the native file system or kept in
  * memory in the {@link RemoteExternalFileSystem}.
  */
-public final class RemoteExternalOverlayFileSystem extends FileSystem {
+public final class RemoteExternalOverlayFileSystem extends FileSystem
+    implements RewindableRepoFileSystem {
   private final PathFragment externalDirectory;
   private final int externalDirectorySegmentCount;
   private final FileSystem nativeFs;
@@ -274,6 +276,37 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
       }
       injectRecursively(fs, subdirPath, subdir, childMap, filesToPrefetch, expirationTime);
     }
+  }
+
+  @Override
+  @Nullable
+  public String markLostRepoFile(PathFragment path) {
+    if (!path.startsWith(externalDirectory)
+        || path.segmentCount() <= externalDirectorySegmentCount) {
+      return null;
+    }
+    String repoName = path.getSegment(externalDirectorySegmentCount);
+    if (markerFileContents.containsKey(repoName)) {
+      // The repo contents are served from the remote cache. Make the next cache lookup report a
+      // miss so that rewinding the repo fetch executes the repo rule again, which also uploads the
+      // fresh contents to the remote cache.
+      reposWithLostFiles.add(repoName);
+    }
+    // Even if the repo has been materialized or refetched in the meantime, rewinding the repo
+    // fetch recovers the file by re-reading the on-disk state.
+    return repoName;
+  }
+
+  /**
+   * Returns whether any files of the given repo have been lost remotely since the last fetch and
+   * clears that state.
+   *
+   * <p>Called by the remote repo contents cache before a lookup so that repos with lost files are
+   * treated as cache misses, which causes them to be refetched and their contents to be uploaded
+   * to the remote cache again.
+   */
+  public boolean consumeLostFiles(String repoName) {
+    return reposWithLostFiles.remove(repoName);
   }
 
   /**

@@ -248,6 +248,13 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
       return false;
     }
 
+    if (remoteFs.consumeLostFiles(repoName.getName())) {
+      // The remote cache has lost the contents of files in this repo. Report a cache miss so that
+      // the repo rule is executed again, which also uploads the fresh contents to the remote
+      // cache.
+      return false;
+    }
+
     var context = buildContext(repoName, CacheOp.DOWNLOAD);
     if (!context.getReadCachePolicy().allowRemoteCache()) {
       return false;
