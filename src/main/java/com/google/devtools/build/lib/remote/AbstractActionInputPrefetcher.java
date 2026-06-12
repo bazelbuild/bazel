@@ -25,7 +25,6 @@ import static com.google.devtools.build.lib.remote.util.Utils.mergeBulkTransfer;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.HashMultimap;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.SetMultimap;
 import com.google.common.flogger.GoogleLogger;
