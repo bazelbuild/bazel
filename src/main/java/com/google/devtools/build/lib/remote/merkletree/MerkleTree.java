@@ -175,9 +175,10 @@ public sealed interface MerkleTree {
         Digest digest,
         boolean force) {
       return switch (blobs.get(digest)) {
-        case byte[] data -> Optional.of(uploader.uploadBlob(context, digest, data));
+        case byte[] data -> Optional.of(uploader.uploadBlob(context, digest, data, force));
         case VirtualActionInput virtualActionInput ->
-            Optional.of(uploader.uploadVirtualActionInput(context, digest, virtualActionInput));
+            Optional.of(
+                uploader.uploadVirtualActionInput(context, digest, virtualActionInput, force));
         case ActionInput actionInput -> {
           var spawnExecutionContext = context.getSpawnExecutionContext();
           var pathResolver =
