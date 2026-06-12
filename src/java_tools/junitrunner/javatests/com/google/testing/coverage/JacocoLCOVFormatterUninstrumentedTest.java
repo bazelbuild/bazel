@@ -80,8 +80,7 @@ public class JacocoLCOVFormatterUninstrumentedTest {
     ImmutableSet<String> execPaths = ImmutableSet.of("/parent/dir/com/example/Foo.java");
     JacocoLCOVFormatter formatter = new JacocoLCOVFormatter(execPaths);
     IReportVisitor visitor =
-        formatter.createVisitor(
-            new PrintWriter(writer), new TreeMap<String, BranchCoverageDetail>());
+        formatter.createVisitor(new PrintWriter(writer), new TreeMap<String, CoverageData>());
 
     visitor.visitBundle(mockBundle, mock(ISourceFileLocator.class));
     visitor.visitEnd();
@@ -98,8 +97,7 @@ public class JacocoLCOVFormatterUninstrumentedTest {
     ImmutableSet<String> execPaths = ImmutableSet.of("C:/parent/dir/com/example/Foo.java");
     JacocoLCOVFormatter formatter = new JacocoLCOVFormatter(execPaths);
     IReportVisitor visitor =
-        formatter.createVisitor(
-            new PrintWriter(writer), new TreeMap<String, BranchCoverageDetail>());
+        formatter.createVisitor(new PrintWriter(writer), new TreeMap<String, CoverageData>());
 
     visitor.visitBundle(mockBundle, mock(ISourceFileLocator.class));
     visitor.visitEnd();
@@ -117,8 +115,7 @@ public class JacocoLCOVFormatterUninstrumentedTest {
     ImmutableSet<String> execPaths = ImmutableSet.of(srcPath + "////com/example/Foo.java");
     JacocoLCOVFormatter formatter = new JacocoLCOVFormatter(execPaths);
     IReportVisitor visitor =
-        formatter.createVisitor(
-            new PrintWriter(writer), new TreeMap<String, BranchCoverageDetail>());
+        formatter.createVisitor(new PrintWriter(writer), new TreeMap<String, CoverageData>());
 
     visitor.visitBundle(mockBundle, mock(ISourceFileLocator.class));
     visitor.visitEnd();
@@ -134,8 +131,7 @@ public class JacocoLCOVFormatterUninstrumentedTest {
     ImmutableSet<String> execPaths = ImmutableSet.of(srcPath + "////com/example/Foo.java");
     JacocoLCOVFormatter formatter = new JacocoLCOVFormatter(execPaths);
     IReportVisitor visitor =
-        formatter.createVisitor(
-            new PrintWriter(writer), new TreeMap<String, BranchCoverageDetail>());
+        formatter.createVisitor(new PrintWriter(writer), new TreeMap<String, CoverageData>());
 
     visitor.visitBundle(mockBundle, mock(ISourceFileLocator.class));
     visitor.visitEnd();
@@ -150,8 +146,7 @@ public class JacocoLCOVFormatterUninstrumentedTest {
     ImmutableSet<String> execPaths = ImmutableSet.of("/path/does/not/match/anything.txt");
     JacocoLCOVFormatter formatter = new JacocoLCOVFormatter(execPaths);
     IReportVisitor visitor =
-        formatter.createVisitor(
-            new PrintWriter(writer), new TreeMap<String, BranchCoverageDetail>());
+        formatter.createVisitor(new PrintWriter(writer), new TreeMap<String, CoverageData>());
 
     visitor.visitBundle(mockBundle, mock(ISourceFileLocator.class));
     visitor.visitEnd();
@@ -166,8 +161,7 @@ public class JacocoLCOVFormatterUninstrumentedTest {
     ImmutableSet<String> execPaths = ImmutableSet.of();
     JacocoLCOVFormatter formatter = new JacocoLCOVFormatter(execPaths);
     IReportVisitor visitor =
-        formatter.createVisitor(
-            new PrintWriter(writer), new TreeMap<String, BranchCoverageDetail>());
+        formatter.createVisitor(new PrintWriter(writer), new TreeMap<String, CoverageData>());
 
     visitor.visitBundle(mockBundle, mock(ISourceFileLocator.class));
     visitor.visitEnd();
@@ -182,8 +176,7 @@ public class JacocoLCOVFormatterUninstrumentedTest {
     // class-paths as is.
     JacocoLCOVFormatter formatter = new JacocoLCOVFormatter();
     IReportVisitor visitor =
-        formatter.createVisitor(
-            new PrintWriter(writer), new TreeMap<String, BranchCoverageDetail>());
+        formatter.createVisitor(new PrintWriter(writer), new TreeMap<String, CoverageData>());
 
     visitor.visitBundle(mockBundle, mock(ISourceFileLocator.class));
     visitor.visitEnd();
@@ -199,8 +192,7 @@ public class JacocoLCOVFormatterUninstrumentedTest {
     ImmutableSet<String> execPaths = ImmutableSet.of(srcPath);
     JacocoLCOVFormatter formatter = new JacocoLCOVFormatter(execPaths);
     IReportVisitor visitor =
-        formatter.createVisitor(
-            new PrintWriter(writer), new TreeMap<String, BranchCoverageDetail>());
+        formatter.createVisitor(new PrintWriter(writer), new TreeMap<String, CoverageData>());
 
     visitor.visitBundle(mockBundle, mock(ISourceFileLocator.class));
     visitor.visitEnd();

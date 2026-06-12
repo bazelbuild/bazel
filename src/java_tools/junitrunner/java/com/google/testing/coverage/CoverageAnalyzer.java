@@ -14,6 +14,7 @@
 
 package com.google.testing.coverage;
 
+import com.google.common.collect.ImmutableMap;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
@@ -30,17 +31,23 @@ import org.jacoco.core.internal.flow.ClassProbesAdapter;
 import org.objectweb.asm.ClassReader;
 
 /**
- * Analyzer that process the branch coverage detail information.
+ * Custom analyzer to calculate the coverage of source files in the form we require.
+ *
+ * <p>Jacoco does not expose coverage for individual branches, reporting how many branches were
+ * covered on a line (and how many there are) and not reporting which branches were covered. In
+ * order to be able to merge coverage reports correctly we need to know which branches were covered
+ * on each line. Since we have to process the coverage data for branches we might as well record
+ * line coverage as well.
  *
  * <p>Reuse the Analyzer class from Jacoco to avoid duplicating the content detection logic.
  * Override the main {@code Analyzer.analyzeClass} method which does the main work.
  */
-public class BranchDetailAnalyzer extends Analyzer {
+public class CoverageAnalyzer extends Analyzer {
 
   private final ExecutionDataStore executionData;
-  private final Map<String, BranchCoverageDetail> branchDetails;
+  private final Map<String, CoverageData> classCoverageData;
 
-  public BranchDetailAnalyzer(final ExecutionDataStore executionData) {
+  public CoverageAnalyzer(final ExecutionDataStore executionData) {
     super(
         executionData,
         new ICoverageVisitor() {
@@ -48,7 +55,7 @@ public class BranchDetailAnalyzer extends Analyzer {
           public void visitCoverage(IClassCoverage coverage) {}
         });
     this.executionData = executionData;
-    this.branchDetails = new TreeMap<String, BranchCoverageDetail>();
+    this.classCoverageData = new TreeMap<>();
   }
 
   // Override all analyzeClass methods.
@@ -72,35 +79,46 @@ public class BranchDetailAnalyzer extends Analyzer {
     }
   }
 
-  public void analyzeClass(final ClassReader reader) {
-    final Map<Integer, BranchExpression> lineToBranchExp = mapProbes(reader);
+  private void analyzeClass(final ClassReader reader) {
+    final ClassProbesMapper mapper = new ClassProbesMapper(reader.getClassName());
+    final ClassProbesAdapter adapter = new ClassProbesAdapter(mapper, false);
+    reader.accept(adapter, 0); // Read the class using the ClassProbesMapper visitor
+
+    final Map<Integer, BranchExpression> lineToBranchExpression = mapper.getBranchExpressions();
+    final Map<Integer, CoverageExpression> lineToCoverageExpression = mapper.getLineExpressions();
+    final List<MethodInfo> methods = mapper.getMethods();
 
     long classid = CRC64.classId(reader.b);
-    ExecutionData classData = executionData.get(classid);
+    ExecutionData classExecutionData = executionData.get(classid);
 
     // It's possible our class was never executed or that we're generating a baseline coverage
     // report but we still need to perform the analysis run.
     boolean[] probes = null;
-    if (classData != null) {
-      probes = classData.getProbes();
+    if (classExecutionData != null) {
+      probes = classExecutionData.getProbes();
     }
 
-    BranchCoverageDetail detail = new BranchCoverageDetail();
+    CoverageData.Builder coverageBuilder = new CoverageData.Builder();
 
-    for (Map.Entry<Integer, BranchExpression> entry : lineToBranchExp.entrySet()) {
+    for (Map.Entry<Integer, CoverageExpression> entry : lineToCoverageExpression.entrySet()) {
       int line = entry.getKey();
-      BranchExpression branchExp = entry.getValue();
-      List<CoverageExpression> branches = branchExp.getBranches();
-
-      detail.setBranches(line, branches.size());
-      for (int branchIdx = 0; branchIdx < branches.size(); branchIdx++) {
-        if (branches.get(branchIdx).eval(probes)) {
-          detail.setTakenBit(line, branchIdx);
-        }
+      CoverageExpression exp = entry.getValue();
+      coverageBuilder.addLine(line, exp.eval(probes));
+    }
+    for (Map.Entry<Integer, BranchExpression> entry : lineToBranchExpression.entrySet()) {
+      int line = entry.getKey();
+      BranchExpression branchExpression = entry.getValue();
+      List<CoverageExpression> branches = branchExpression.getBranches();
+      for (CoverageExpression branch : branches) {
+        coverageBuilder.addBranch(line, branch.eval(probes));
       }
     }
-    if (detail.linesWithBranches().size() > 0) {
-      branchDetails.put(reader.getClassName(), detail);
+    for (MethodInfo method : methods) {
+      coverageBuilder.addMethod(
+          method.name(), method.startLine(), method.coverageExpression().eval(probes));
+    }
+    if (!coverageBuilder.isEmpty()) {
+      classCoverageData.put(reader.getClassName(), coverageBuilder.build());
     }
   }
 
@@ -115,16 +133,8 @@ public class BranchDetailAnalyzer extends Analyzer {
     return ex;
   }
 
-  // Generate the line to probeExp map so that we can evaluate the coverage.
-  private Map<Integer, BranchExpression> mapProbes(final ClassReader reader) {
-    final ClassProbesMapper mapper = new ClassProbesMapper(reader.getClassName());
-    final ClassProbesAdapter adapter = new ClassProbesAdapter(mapper, false);
-    reader.accept(adapter, 0);
-
-    return mapper.result();
-  }
-
-  public Map<String, BranchCoverageDetail> getBranchDetails() {
-    return branchDetails;
+  /** Returns a map of class to coverage data. */
+  public ImmutableMap<String, CoverageData> getCoverage() {
+    return ImmutableMap.copyOf(classCoverageData);
   }
 }

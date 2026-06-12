@@ -15,6 +15,7 @@ package com.google.testing.coverage;
 
 
 import com.google.common.collect.ImmutableSet;
+import com.google.testing.coverage.CoverageData.BranchData;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.Collection;
@@ -63,7 +64,7 @@ public class JacocoLCOVFormatter {
   }
 
   public IReportVisitor createVisitor(
-      PrintWriter output, final Map<String, BranchCoverageDetail> branchCoverageDetail) {
+      PrintWriter output, final Map<String, CoverageData> coverageData) {
     return new IReportVisitor() {
 
       private Map<String, Map<String, IClassCoverage>> sourceToClassCoverage = new TreeMap<>();
@@ -153,18 +154,18 @@ public class JacocoLCOVFormatter {
             }
           }
 
-          // List branches
           for (IClassCoverage clsCoverage : sourceToClassCoverage.get(sourceFile).values()) {
-            BranchCoverageDetail detail = branchCoverageDetail.get(clsCoverage.getName());
-            if (detail != null) {
-              for (int line : detail.linesWithBranches()) {
-                int numBranches = detail.getBranches(line);
-                boolean executed = detail.getExecutedBit(line);
+            CoverageData coverage = coverageData.get(clsCoverage.getName());
+            if (coverage != null) {
+              for (Integer line : coverage.linesWithBranches()) {
+                BranchData branchData = coverage.getBranches(line);
+                int numBranches = branchData.size();
+                boolean executed = branchData.anyBranchTaken();
                 if (executed) {
                   for (int branchIdx = 0; branchIdx < numBranches; branchIdx++) {
                     // We haven't got execution counts for branches; just record if they were hit or
                     // not.
-                    if (detail.getTakenBit(line, branchIdx)) {
+                    if (branchData.isBranchTaken(branchIdx)) {
                       writer.printf("BRDA:%d,%d,%d,%d\n", line, 0, branchIdx, 1); // executed, taken
                     } else {
                       writer.printf(
@@ -186,9 +187,7 @@ public class JacocoLCOVFormatter {
           for (int line = firstLine; line <= lastLine; line++) {
             ICounter instructionCounter = srcCoverage.getLine(line).getInstructionCounter();
             if (instructionCounter.getTotalCount() != 0) {
-              // All we can do is say if a line was hit, we do not have execution counts.
-              int execCount = instructionCounter.getCoveredCount() > 0 ? 1 : 0;
-              writer.printf("DA:%d,%d\n", line, execCount);
+              writer.printf("DA:%d,%d\n", line, instructionCounter.getCoveredCount() > 0 ? 1 : 0);
             }
           }
         }

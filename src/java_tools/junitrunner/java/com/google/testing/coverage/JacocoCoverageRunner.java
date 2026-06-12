@@ -128,13 +128,13 @@ public class JacocoCoverageRunner {
     // report. The lcov formatter doesn't seem to care, and we're only using one bundle anyway.
     final IBundleCoverage bundleCoverage = analyzeStructure();
 
-    final Map<String, BranchCoverageDetail> branchDetails = analyzeBranch();
+    final Map<String, CoverageData> branchDetails = analyzeBranch();
     createReport(bundleCoverage, branchDetails);
   }
 
   @VisibleForTesting
   void createReport(
-      final IBundleCoverage bundleCoverage, final Map<String, BranchCoverageDetail> branchDetails)
+      final IBundleCoverage bundleCoverage, final Map<String, CoverageData> branchDetails)
       throws IOException {
     JacocoLCOVFormatter formatter = new JacocoLCOVFormatter(createPathsSet());
     try (PrintWriter writer =
@@ -193,22 +193,21 @@ public class JacocoCoverageRunner {
   }
 
   // Additional pass to process the branch details of the classes
-  private Map<String, BranchCoverageDetail> analyzeBranch() throws IOException {
-    final BranchDetailAnalyzer analyzer =
-        new BranchDetailAnalyzer(execFileLoader.getExecutionDataStore());
+  private Map<String, CoverageData> analyzeBranch() throws IOException {
+    final CoverageAnalyzer analyzer = new CoverageAnalyzer(execFileLoader.getExecutionDataStore());
 
-    Map<String, BranchCoverageDetail> result = new TreeMap<>();
+    Map<String, CoverageData> result = new TreeMap<>();
     Set<String> alreadyInstrumentedClasses = new HashSet<>();
     if (uninstrumentedClasses == null) {
       for (File classesJar : classesJars) {
         analyzeUninstrumentedClassesFromJar(analyzer, classesJar, alreadyInstrumentedClasses);
-        result.putAll(analyzer.getBranchDetails());
+        result.putAll(analyzer.getCoverage());
       }
     } else {
       for (Map.Entry<String, byte[]> entry : uninstrumentedClasses.entrySet()) {
         analyzer.analyzeClass(entry.getValue(), entry.getKey());
       }
-      result.putAll(analyzer.getBranchDetails());
+      result.putAll(analyzer.getCoverage());
     }
     return result;
   }

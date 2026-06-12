@@ -14,6 +14,7 @@
 
 package com.google.testing.coverage;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -78,11 +79,30 @@ public class MethodProbesMapper extends MethodProbesVisitor implements IFilterOu
   private final Map<AbstractInsnNode, AbstractInsnNode> unioned = new HashMap<>();
   private final Map<AbstractInsnNode, Replacements> branchReplacements = new HashMap<>();
 
-  // Result
-  private Map<Integer, BranchExpression> lineToBranchExp = new TreeMap<>();
+  // Results
+  private int methodLineStart;
+  private CoverageExpression methodExpression;
+  private final Map<Integer, BranchExpression> branchExpressions = new TreeMap<>();
+  private final Map<Integer, CoverageExpression> lineExpressions = new TreeMap<>();
 
-  public Map<Integer, BranchExpression> result() {
-    return lineToBranchExp;
+  /** Returns a map of line number to the branch expressions on that line. */
+  public Map<Integer, BranchExpression> getBranchExpressions() {
+    return branchExpressions;
+  }
+
+  /** Returns a map of line number to the coverage expression on that line. */
+  public Map<Integer, CoverageExpression> getLineExpressions() {
+    return lineExpressions;
+  }
+
+  /** Returns the coverage expression for the method. */
+  public CoverageExpression getMethodExpression() {
+    return methodExpression;
+  }
+
+  /** Returns the line number of the first instruction for the method. */
+  public int getMethodLineStart() {
+    return methodLineStart;
   }
 
   // Intermediate results
@@ -318,31 +338,34 @@ public class MethodProbesMapper extends MethodProbesVisitor implements IFilterOu
       AbstractInsnNode rep = findRepresentative(node);
       Instruction insn = instructionMap.get(node);
       Instruction repInsn = instructionMap.get(rep);
-      BranchExpression branch = BranchExpression.ensureIsBranchExpression(insn.branchExp);
-      BranchExpression repBranch = BranchExpression.ensureIsBranchExpression(repInsn.branchExp);
-      repInsn.branchExp = BranchExpression.zip(repBranch, branch);
+      BranchExpression branch = BranchExpression.ensureIsBranchExpression(insn.branchExpression);
+      BranchExpression repBranch =
+          BranchExpression.ensureIsBranchExpression(repInsn.branchExpression);
+      repInsn.branchExpression = BranchExpression.zip(repBranch, branch);
       ignored.add(node);
     }
 
     // Handle branch replacements
     for (Map.Entry<AbstractInsnNode, Replacements> entry : branchReplacements.entrySet()) {
-      BranchExpression newBranchExp = BranchExpression.initializeEmptyBranches();
+      BranchExpression newBranchExpression = BranchExpression.initializeEmptyBranches();
       int branchIndex = 0;
       for (Collection<InstructionBranch> replacements : entry.getValue().values()) {
         BranchExpression subExp = BranchExpression.initializeEmptyBranches();
         int subBranchIndex = 0;
         for (InstructionBranch replacement : replacements) {
-          BranchExpression branchExp = instructionMap.get(replacement.instruction).branchExp;
-          subExp.setBranchAtIndex(subBranchIndex, branchExp.getBranchAtIndex(replacement.branch));
+          BranchExpression branchExpression =
+              instructionMap.get(replacement.instruction).branchExpression;
+          subExp.setBranchAtIndex(
+              subBranchIndex, branchExpression.getBranchAtIndex(replacement.branch));
           subBranchIndex++;
         }
-        newBranchExp.setBranchAtIndex(branchIndex, subExp);
+        newBranchExpression.setBranchAtIndex(branchIndex, subExp);
         branchIndex++;
       }
       Instruction oldInsn = instructionMap.get(entry.getKey());
       Instruction newInsn = new Instruction(oldInsn.line);
       newInsn.logicalBranches = branchIndex;
-      newInsn.branchExp = newBranchExp;
+      newInsn.branchExpression = newBranchExpression;
       instructionMap.put(entry.getKey(), newInsn);
       instructions.replace(oldInsn, newInsn);
     }
@@ -354,28 +377,43 @@ public class MethodProbesMapper extends MethodProbesVisitor implements IFilterOu
       }
     }
 
-    // Merge branches in the instructions on the same line
+    // Consolidate instruction coverage expressions on the same line
     for (Instruction insn : instructions) {
       if (ignoredInstructions.contains(insn)) {
         continue;
       }
+
+      BranchExpression exp = insn.branchExpression;
+      if (exp == null) {
+        continue;
+      }
+      CoverageExpression lineExp = lineExpressions.get(insn.line);
+      if (lineExp == null) {
+        lineExpressions.put(insn.line, exp);
+      } else {
+        // Since this is line coverage we don't care about the details of this expression, only
+        // whether or not it evaluates to true or false. So we can just concatenate the two
+        // expressions and pretend it's a branch.
+        lineExpressions.put(
+            insn.line,
+            BranchExpression.concatenate(BranchExpression.ensureIsBranchExpression(lineExp), exp));
+      }
       if (insn.logicalBranches > 1) {
-        CoverageExpression insnExp = insn.branchExp;
-        if (insnExp != null && (insnExp instanceof BranchExpression)) {
-          BranchExpression exp = (BranchExpression) insnExp;
-          BranchExpression lineExp = lineToBranchExp.get(insn.line);
-          if (lineExp == null) {
-            lineToBranchExp.put(insn.line, exp);
-          } else {
-            lineToBranchExp.put(insn.line, BranchExpression.concatenate(lineExp, exp));
-          }
+        BranchExpression lineBranchExpression = branchExpressions.get(insn.line);
+        if (lineBranchExpression == null) {
+          branchExpressions.put(insn.line, exp);
         } else {
-          // If we reach here, the internal data of the mapping is inconsistent, either
-          // 1) An instruction has branches but we do not create BranchExp for it.
-          // 2) An instruction has branches but it does not have an associated CovExp.
+          branchExpressions.put(insn.line, BranchExpression.concatenate(lineBranchExpression, exp));
         }
       }
     }
+    methodLineStart =
+        instructionMap.values().stream().mapToInt(v -> v.line).reduce(Math::min).orElseGet(() -> 0);
+    methodExpression =
+        new BranchExpression(
+            instructionMap.values().stream()
+                .map(v -> (CoverageExpression) v.branchExpression)
+                .collect(toImmutableList()));
   }
 
   /** IFilterOutput */
@@ -430,12 +468,12 @@ public class MethodProbesMapper extends MethodProbesVisitor implements IFilterOu
     }
   }
 
-  /** Associate an instruction with a CovExp and its predecessor. */
+  /** Associate an instruction with a CoverageExpression and its predecessor. */
   private static class Instruction {
 
     final int line;
 
-    BranchExpression branchExp = BranchExpression.initializeEmptyBranches();
+    BranchExpression branchExpression = BranchExpression.initializeEmptyBranches();
 
     Instruction predecessor = null;
 
@@ -453,14 +491,14 @@ public class MethodProbesMapper extends MethodProbesVisitor implements IFilterOu
       target.predecessorBranchIndex = branchIndex;
     }
 
-    void addBranch(ProbeExpression probeExp, int branchIndex) {
+    void addBranch(ProbeExpression probeExpression, int branchIndex) {
       logicalBranches++;
-      branchExp.setBranchAtIndex(branchIndex, probeExp);
+      branchExpression.setBranchAtIndex(branchIndex, probeExpression);
     }
 
     /** Sets the target for a given branch. */
     void setBranchTarget(CoverageExpression targetExp, int branchIndex) {
-      branchExp.setBranchAtIndex(branchIndex, targetExp);
+      branchExpression.setBranchAtIndex(branchIndex, targetExp);
     }
 
     static void wireBranchPredecessors(Instruction root) {
@@ -468,11 +506,11 @@ public class MethodProbesMapper extends MethodProbesVisitor implements IFilterOu
       Instruction current = root;
       Instruction predecessor = root.predecessor;
       while (predecessor != null) {
-        boolean alreadyHasBranches = predecessor.branchExp.hasBranches();
-        predecessor.setBranchTarget(current.branchExp, current.predecessorBranchIndex);
+        boolean alreadyHasBranches = predecessor.branchExpression.hasBranches();
+        predecessor.setBranchTarget(current.branchExpression, current.predecessorBranchIndex);
         if (alreadyHasBranches) {
-          // if the predecessor already had a configured branchExp we don't need to continue the
-          // walk; it should already have wired up its predecessors.
+          // if the predecessor already had a configured BranchExpression we don't need to continue
+          // the walk; it should already have wired up its predecessors.
           break;
         }
         current = predecessor;

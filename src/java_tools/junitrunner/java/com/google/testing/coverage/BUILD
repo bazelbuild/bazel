@@ -33,18 +33,20 @@ java_binary(
 java_library(
     name = "JacocoCoverageLib",
     srcs = [
-        "BranchCoverageDetail.java",
-        "BranchDetailAnalyzer.java",
         "BranchExpression.java",
         "ClassProbesMapper.java",
+        "CoverageAnalyzer.java",
+        "CoverageData.java",
         "CoverageExpression.java",
         "JacocoLCOVFormatter.java",
+        "MethodInfo.java",
         "MethodProbesMapper.java",
         "NullExpression.java",
         "ProbeExpression.java",
     ],
     deps = [
         ":bitfield",
+        "//third_party:auto_value",
         "//third_party:guava",
         "//third_party/java/jacoco:blaze-agent",
         "//third_party/java/jacoco:core",
