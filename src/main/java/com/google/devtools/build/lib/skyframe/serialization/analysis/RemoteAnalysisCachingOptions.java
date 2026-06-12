@@ -275,4 +275,14 @@ public abstract class RemoteAnalysisCachingOptions extends OptionsBase {
       effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
       help = "If true, Blaze will emit debug events for remote analysis caching.")
   public abstract boolean getEmitBepUploadEvents();
+
+  @Option(
+      name = "remote_analysis_debug_entries",
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      help = "Path to a local file containing remote analysis cache entries for debugging.")
+  public abstract String getRemoteAnalysisDebugEntries();
+
+  public abstract void setRemoteAnalysisDebugEntries(String value);
 }
