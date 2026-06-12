@@ -210,9 +210,11 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
 
   private final DirectoryTracker directoryTracker = new DirectoryTracker();
 
-  // TreeArtifact downloads use temporary paths. Coordinate finalization and permission restoration
-  // by resolved tree root. Weak locks over the full hash space allow unrelated trees to finalize
-  // concurrently without retaining every lock for the lifetime of the prefetcher.
+  // Tree artifact downloads use temporary paths. Coordinate by resolved tree root: a read lock
+  // protects reopening ancestors and moving one child into place, while a write lock protects
+  // restoring every directory touched by a prefetchFiles call to its output permissions. Weak
+  // locks over the full hash space allow unrelated trees to finalize concurrently without
+  // retaining every lock for the lifetime of the prefetcher.
   private final Striped<ReadWriteLock> treeArtifactLocks =
       Striped.lazyWeakReadWriteLock(Integer.MAX_VALUE);
 
@@ -357,9 +359,10 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     }
 
     // Collect directories whose output permissions must be restored at the end of this call,
-    // grouped by tree root for synchronization. Keeping restoration call-scoped avoids toggling
-    // shared ancestors between child finalizations. A concurrent call for the same child may join
-    // the cached download but must still participate in permission restoration before returning.
+    // grouped by tree root for synchronization. Keeping permission restoration scoped to this
+    // prefetchFiles call avoids toggling shared ancestors between child finalizations. A concurrent
+    // call to prefetchFiles for the same child may await the same download, but must still
+    // participate in permission restoration before returning.
     SetMultimap<Path, Path> directoriesByTreeRoot = HashMultimap.create();
 
     // Using plain futures to avoid RxJava overheads.
@@ -381,8 +384,6 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
         unused -> {
           try {
             // Match the directory output permissions set by SkyframeActionExecutor#checkOutputs.
-            // Take the root write lock so restoration cannot make an ancestor read-only while any
-            // call holds a read lock to move a child into the tree.
             for (var entry : directoriesByTreeRoot.asMap().entrySet()) {
               Lock lock = treeArtifactLocks.get(entry.getKey().asFragment()).writeLock();
               lock.lock();
@@ -600,23 +601,22 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     // Downloads are written to the actual host file system, not any overlays.
     Path finalPath = path.forHostFileSystem();
 
-    ImmutableList.Builder<Path> dirsWithOutputPermissions = ImmutableList.builder();
-    if (treeRoot != null
-        && actionInput instanceof Artifact artifact
-        && artifact.isChildOfDeclaredDirectory()) {
-      Path finalTreeRoot = treeRoot.forHostFileSystem();
-      // Record directories child-to-root. Every ancestor must be explicitly reopened because
-      // ActionOutputDirectoryHelper caches existing directories and may otherwise leave a
-      // previously restored ancestor read-only.
+    @Nullable Path finalTreeRoot =
+        treeRoot != null
+                && actionInput instanceof Artifact artifact
+                && artifact.isChildOfDeclaredDirectory()
+            ? treeRoot.forHostFileSystem()
+            : null;
+    if (finalTreeRoot != null) {
+      // Record directories child-to-root. If a directory is already present for this tree root, an
+      // earlier traversal also recorded every ancestor through the root.
       for (Path dir = finalPath.getParentDirectory();
           dir.startsWith(finalTreeRoot);
           dir = dir.getParentDirectory()) {
-        dirsWithOutputPermissions.add(dir);
+        if (!directoriesByTreeRoot.put(finalTreeRoot, dir)) {
+          break;
+        }
       }
-    }
-    ImmutableList<Path> directories = dirsWithOutputPermissions.build();
-    if (!directories.isEmpty()) {
-      directoriesByTreeRoot.putAll(directories.getLast(), directories);
     }
 
     Completable download =
@@ -636,7 +636,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
                     .doOnComplete(
                         () -> {
                           finalizeDownload(
-                              metadata, tempPath.forHostFileSystem(), finalPath, directories);
+                              metadata, tempPath.forHostFileSystem(), finalPath, finalTreeRoot);
                           alreadyDeleted.set(true);
                         }));
 
@@ -656,22 +656,16 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       FileArtifactValue metadata,
       Path tmpPath,
       Path finalPath,
-      ImmutableList<Path> dirsWithOutputPermissions)
+      @Nullable Path treeRoot)
       throws IOException {
     // Set file output permissions, matching SkyframeActionExecutor#checkOutputs for artifacts
     // produced by local actions. The temporary path is outside the output tree, so this can happen
-    // before entering the TreeArtifact root's critical section.
+    // before entering the tree artifact root's critical section.
     tmpPath.chmod(outputPermissions.getPermissionsMode());
 
     Path parentDir = checkNotNull(finalPath.getParentDirectory());
-    // A read lock allows concurrent child moves, while preventing a prefetch call from restoring
-    // the tree's output permissions until every move in progress has completed.
     @Nullable Lock treeArtifactLock =
-        dirsWithOutputPermissions.isEmpty()
-            ? null
-            : treeArtifactLocks
-                .get(dirsWithOutputPermissions.getLast().asFragment())
-                .readLock();
+        treeRoot == null ? null : treeArtifactLocks.get(treeRoot.asFragment()).readLock();
     if (treeArtifactLock != null) {
       treeArtifactLock.lock();
     }
@@ -683,8 +677,13 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
         // Ensure the parent directory exists and is writable. We cannot rely on this precondition
         // to have been established by the execution of the owning action in a previous invocation,
         // since the output tree may have been externally modified in between invocations.
-        if (!dirsWithOutputPermissions.isEmpty()) {
-          for (Path dir : dirsWithOutputPermissions.reverse()) {
+        if (treeRoot != null) {
+          // Reopen every ancestor because ActionOutputDirectoryHelper caches existing directories
+          // and may otherwise leave a previously restored ancestor read-only.
+          Path dir = treeRoot;
+          directoryTracker.setTemporarilyWritable(dir);
+          for (String segment : parentDir.relativeTo(treeRoot).segments()) {
+            dir = dir.getChild(segment);
             directoryTracker.setTemporarilyWritable(dir);
           }
         } else {
