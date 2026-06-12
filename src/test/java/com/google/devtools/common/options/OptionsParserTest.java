@@ -2316,6 +2316,46 @@ public final class OptionsParserTest {
     assertThat(e).hasMessageThat().contains("Unrecognized option: --no_foo");
   }
 
+  @OptionsClass
+  public abstract static class PrefixErrorOptions extends OptionsBase {
+    @Option(
+        name = "non_boolean",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "defaultValue")
+    public abstract String getNonBoolean();
+
+    @Option(
+        name = "boolean_option",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "false")
+    public abstract boolean getBooleanOption();
+  }
+
+  @Test
+  public void testNoPrefixErrors() {
+    OptionsParser parser = OptionsParser.builder().optionsClasses(PrefixErrorOptions.class).build();
+
+    OptionsParsingException e1 =
+        assertThrows(
+            "--nonon_boolean should fail to parse.",
+            OptionsParsingException.class,
+            () -> parser.parse("--nonon_boolean"));
+    assertThat(e1)
+        .hasMessageThat()
+        .contains("Illegal use of 'no' prefix on non-boolean option: --nonon_boolean");
+
+    OptionsParsingException e2 =
+        assertThrows(
+            "--noboolean_option=true should fail to parse.",
+            OptionsParsingException.class,
+            () -> parser.parse("--noboolean_option=true"));
+    assertThat(e2)
+        .hasMessageThat()
+        .contains("Unexpected value after boolean option: --noboolean_option=true");
+  }
+
   /** Dummy options for testing getHelpCompletion() and visitOptions(). */
   @OptionsClass
   public abstract static class CompletionOptions extends OptionsBase {

@@ -791,7 +791,6 @@ class OptionsParserImpl {
             getWithFallback(OptionsData::getOptionDefinitionFromName, name, fallbackData);
         booleanValue = false;
         if (lookupResult != null) {
-          // TODO(bazel-team): Add tests for these cases.
           if (!lookupResult.definition.usesBooleanValueSyntax()) {
             throw new OptionsParsingException(
                 "Illegal use of 'no' prefix on non-boolean option: " + arg, arg);
