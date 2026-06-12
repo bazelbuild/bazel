@@ -249,6 +249,15 @@ public final class CoverageData {
       return branchBits.any();
     }
 
+    /** Returns the coverage for each branch on this line. */
+    public ImmutableList<Boolean> getBranchValues() {
+      ImmutableList.Builder<Boolean> result = ImmutableList.builder();
+      for (int i = 0; i < count; i++) {
+        result.add(branchBits.isBitSet(i));
+      }
+      return result.build();
+    }
+
     /** Returns the number of branches on this line. */
     public int size() {
       return count;

@@ -76,6 +76,35 @@ public class ClassProbesMapper extends ClassProbesVisitor implements IFilterCont
     this.className = stringPool.get(className);
   }
 
+  private void addLineExpressions(Map<Integer, CoverageExpression> lineExpressions) {
+    for (Map.Entry<Integer, CoverageExpression> entry : lineExpressions.entrySet()) {
+      Integer line = entry.getKey();
+      CoverageExpression expression = entry.getValue();
+      CoverageExpression existing = this.lineExpressions.get(line);
+      // If a line already has a coverage expression we need to combine it with the new one.
+      // We don't care about the details of expression so any form of combination is fine.
+      if (existing == null) {
+        this.lineExpressions.put(line, expression);
+      } else {
+        this.lineExpressions.put(line, BranchExpression.create(existing, expression));
+      }
+    }
+  }
+
+  private void addBranchExpressions(Map<Integer, BranchExpression> branchExpressions) {
+    for (Map.Entry<Integer, BranchExpression> entry : branchExpressions.entrySet()) {
+      Integer line = entry.getKey();
+      BranchExpression expression = entry.getValue();
+      BranchExpression existing = this.branchExpressions.get(line);
+      // If a line already has a branch expression we need to concatenate it with the new one.
+      if (existing == null) {
+        this.branchExpressions.put(line, expression);
+      } else {
+        this.branchExpressions.put(line, BranchExpression.concatenate(existing, expression));
+      }
+    }
+  }
+
   @Override
   public AnnotationVisitor visitAnnotation(final String desc, final boolean visible) {
     classAnnotations.add(desc);
@@ -112,8 +141,8 @@ public class ClassProbesMapper extends ClassProbesVisitor implements IFilterCont
       @Override
       public void visitEnd() {
         super.visitEnd();
-        branchExpressions.putAll(this.getBranchExpressions());
-        lineExpressions.putAll(this.getLineExpressions());
+        addBranchExpressions(this.getBranchExpressions());
+        addLineExpressions(this.getLineExpressions());
         String method = constructFunctionName(className, name, desc);
         methods.add(MethodInfo.create(method, getMethodLineStart(), getMethodExpression()));
       }

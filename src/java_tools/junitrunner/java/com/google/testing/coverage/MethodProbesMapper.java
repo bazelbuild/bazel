@@ -347,10 +347,10 @@ public class MethodProbesMapper extends MethodProbesVisitor implements IFilterOu
 
     // Handle branch replacements
     for (Map.Entry<AbstractInsnNode, Replacements> entry : branchReplacements.entrySet()) {
-      BranchExpression newBranchExpression = BranchExpression.initializeEmptyBranches();
+      BranchExpression newBranchExpression = BranchExpression.create();
       int branchIndex = 0;
       for (Collection<InstructionBranch> replacements : entry.getValue().values()) {
-        BranchExpression subExp = BranchExpression.initializeEmptyBranches();
+        BranchExpression subExp = BranchExpression.create();
         int subBranchIndex = 0;
         for (InstructionBranch replacement : replacements) {
           BranchExpression branchExpression =
@@ -410,7 +410,7 @@ public class MethodProbesMapper extends MethodProbesVisitor implements IFilterOu
     methodLineStart =
         instructionMap.values().stream().mapToInt(v -> v.line).reduce(Math::min).orElseGet(() -> 0);
     methodExpression =
-        new BranchExpression(
+        BranchExpression.create(
             instructionMap.values().stream()
                 .map(v -> (CoverageExpression) v.branchExpression)
                 .collect(toImmutableList()));
@@ -473,7 +473,7 @@ public class MethodProbesMapper extends MethodProbesVisitor implements IFilterOu
 
     final int line;
 
-    BranchExpression branchExpression = BranchExpression.initializeEmptyBranches();
+    BranchExpression branchExpression = BranchExpression.create();
 
     Instruction predecessor = null;
 

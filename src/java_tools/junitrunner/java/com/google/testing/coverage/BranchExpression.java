@@ -28,19 +28,24 @@ public class BranchExpression implements CoverageExpression {
   private boolean[] probesUsed;
   private boolean value = false;
 
-  /** Create a BranchExpression for a known number of branches but with no expression data. */
-  public static BranchExpression initializeEmptyBranches() {
-    return new BranchExpression(new ArrayList<>());
-  }
-
-  public BranchExpression(List<CoverageExpression> branches) {
+  private BranchExpression(List<CoverageExpression> branches) {
     this.branches = branches;
   }
 
   /** Create a new BranchExpression using this CoverageExpression as the only branch. */
-  public BranchExpression(CoverageExpression exp) {
-    branches = new ArrayList<CoverageExpression>();
+  private BranchExpression(CoverageExpression exp) {
+    branches = new ArrayList<>();
     branches.add(exp);
+  }
+
+  /** Make a new BranchExpression with a branch for each of the given expressions. */
+  public static BranchExpression create(CoverageExpression... expressions) {
+    return new BranchExpression(new ArrayList<>(Arrays.asList(expressions)));
+  }
+
+  /** Make a new BranchExpression with a branch for each of the given expressions. */
+  public static BranchExpression create(List<CoverageExpression> expressions) {
+    return new BranchExpression(new ArrayList<>(expressions));
   }
 
   /** Returns true if any branches been set for this BranchExpression. */
