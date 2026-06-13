@@ -48,7 +48,6 @@ sh_test(
 sh_test(
     name = "rewinding_integration_test",
     size = "large",
-    timeout = "long",
     srcs = ["rewinding_integration_test.sh"],
     data = [
         ":remote_utils",
@@ -60,9 +59,6 @@ sh_test(
     env = {
         "JAVA_ROOTPATH": "$(JAVA_ROOTPATH)",  # for remote_helpers setup_javabase
     },
-    tags = [
-        "requires-network",  # for Bzlmod (apple_support)
-    ],
     toolchains = [
         "@rules_java//toolchains:current_java_runtime",
     ],
