@@ -42,7 +42,6 @@ import com.google.bytestream.ByteStreamProto.ReadResponse;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
-import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.flogger.GoogleLogger;
@@ -487,8 +486,11 @@ public class GrpcCacheClient extends RemoteCacheClient implements MissingDigests
                 .setReadOffset(rawOut.getCount())
                 .build(),
             new ClientResponseObserver<ReadRequest, ReadResponse>() {
+              private volatile ClientCallStreamObserver<ReadRequest> requestStream;
+
               @Override
               public void beforeStart(ClientCallStreamObserver<ReadRequest> requestStream) {
+                this.requestStream = requestStream;
                 future.addListener(
                     () -> {
                       if (future.isCancelled()) {
@@ -504,8 +506,13 @@ public class GrpcCacheClient extends RemoteCacheClient implements MissingDigests
                 try {
                   data.writeTo(out);
                 } catch (IOException e) {
-                  // Cancel the call.
-                  throw new VerifyException(e);
+                  // The output stream was likely closed due to cancellation (e.g. dynamic execution
+                  // choosing the local branch).
+                  if (requestStream != null) {
+                    requestStream.cancel("output stream closed", e);
+                  }
+                  future.setException(e);
+                  return;
                 }
                 // reset the stall backoff because we've made progress or been kept alive
                 progressiveBackoff.reset();
