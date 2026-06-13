@@ -29,7 +29,6 @@ import com.google.common.flogger.GoogleLogger;
 import com.google.common.hash.Hashing;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.remote.CombinedCache;
 import com.google.devtools.build.lib.remote.Store;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
@@ -144,51 +143,46 @@ class OnDiskBlobStoreCache extends CombinedCache {
   @Override
   public ListenableFuture<Void> uploadFile(
       RemoteActionExecutionContext context, Digest digest, Path file) {
-    return maybeLoseAfterUpload(digest, super.uploadFile(context, digest, file));
+    if (shouldLoseUpload(digest)) {
+      return Futures.immediateVoidFuture();
+    }
+    return super.uploadFile(context, digest, file);
   }
 
   @Override
   public ListenableFuture<Void> uploadBlob(
       RemoteActionExecutionContext context, Digest digest, Blob blob) {
-    return maybeLoseAfterUpload(digest, super.uploadBlob(context, digest, blob));
+    if (shouldLoseUpload(digest)) {
+      return Futures.immediateVoidFuture();
+    }
+    return super.uploadBlob(context, digest, blob);
   }
 
   /**
-   * Simulates a remote cache that loses CAS entries by deleting the blob with the given digest
-   * from the CAS after each of its first {@code --lost_blob_max_losses} successful uploads (see
-   * {@code --lost_blob_percentage}).
+   * Simulates a remote cache that loses CAS entries by silently dropping the upload of the blob
+   * with the given digest for each of its first {@code --lost_blob_max_losses} uploads (see {@code
+   * --lost_blob_percentage}): the upload is reported as successful to the client, but the blob is
+   * not actually stored, so it only becomes available once it has been uploaded one more time.
    *
-   * <p>Since the loss takes the form of an actual deletion, all kinds of requests referencing the
-   * blob consistently observe it: findMissingBlobs reports it as missing, reads fail with
-   * NOT_FOUND, executions report a FAILED_PRECONDITION with a MISSING violation when staging it as
-   * an input, and action cache hits referencing it are treated as stale. Since only a bounded
-   * number of uploads of a blob is affected, clients can always recover by re-uploading or
-   * regenerating it sufficiently often.
+   * <p>Since the blob is never stored, all kinds of requests referencing it consistently observe it
+   * as absent: findMissingBlobs reports it as missing, reads fail with NOT_FOUND, executions report
+   * a FAILED_PRECONDITION with a MISSING violation when staging it as an input, and action cache
+   * hits referencing it are treated as stale. Since only a bounded number of uploads of a blob is
+   * affected, clients can always recover by re-uploading or regenerating it sufficiently often.
    */
-  private ListenableFuture<Void> maybeLoseAfterUpload(
-      Digest digest, ListenableFuture<Void> upload) {
+  private boolean shouldLoseUpload(Digest digest) {
     if (!isLossCandidate(digest)) {
-      return upload;
+      return false;
     }
-    return Futures.transform(
-        upload,
-        unused -> {
-          int uploads = numberOfUploadsPerLossCandidate.merge(digest, 1, Integer::sum);
-          int maxLosses = remoteWorkerOptions.getLostBlobMaxLosses();
-          if (uploads <= maxLosses) {
-            try {
-              diskCacheClient.toPath(digest, Store.CAS).delete();
-              logger.atInfo().log(
-                  "Simulated loss of CAS entry %s (loss %d of %d)",
-                  DigestUtil.toString(digest), uploads, maxLosses);
-            } catch (IOException e) {
-              logger.atWarning().withCause(e).log(
-                  "Failed to simulate loss of CAS entry %s", DigestUtil.toString(digest));
-            }
-          }
-          return unused;
-        },
-        MoreExecutors.directExecutor());
+    int uploads = numberOfUploadsPerLossCandidate.merge(digest, 1, Integer::sum);
+    int maxLosses = remoteWorkerOptions.getLostBlobMaxLosses();
+    if (uploads > maxLosses) {
+      return false;
+    }
+    logger.atInfo().log(
+        "Simulated loss of CAS entry %s (loss %d of %d)",
+        DigestUtil.toString(digest), uploads, maxLosses);
+    return true;
   }
 
   private boolean isLossCandidate(Digest digest) {
@@ -206,7 +200,7 @@ class OnDiskBlobStoreCache extends CombinedCache {
    * policy, by deleting a seeded sample of the entries that currently exist on disk (see {@code
    * --evict_existing_percentage}).
    *
-   * <p>Unlike {@link #maybeLoseAfterUpload}, which loses blobs as they are produced during a build,
+   * <p>Unlike {@link #shouldLoseUpload}, which loses blobs as they are produced during a build,
    * this models the loss of cache contents that were populated by a previous build. It is meant to
    * be run on startup, before any requests are served, so that a subsequent build observes a warm
    * but partially evicted cache. Whether a blob is evicted is an independent sample from the set of

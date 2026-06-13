@@ -241,13 +241,13 @@ public abstract class RemoteWorkerOptions extends OptionsBase {
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "If set to a value between 1 and 100, the worker simulates a remote cache that loses"
-              + " CAS entries, e.g. due to evictions or outages: roughly this percentage of all"
-              + " blobs are deleted from the CAS right after their first upload, consistently"
-              + " affecting all kinds of requests referencing them. Whether a given blob is"
-              + " affected is a deterministic function of its digest and --lost_blob_seed. In"
-              + " particular, a blob is only ever lost once, so that clients can recover by"
-              + " re-uploading it. This is useful for testing only, in particular for testing"
-              + " --rewind_lost_inputs.")
+              + " CAS entries, e.g. due to evictions or outages: the upload of roughly this"
+              + " percentage of all blobs is silently dropped (reported as successful, but the blob"
+              + " is not stored), consistently affecting all kinds of requests referencing them."
+              + " Whether a given blob is affected is a deterministic function of its digest and"
+              + " --lost_blob_seed. In particular, a blob is only ever lost once, so that clients"
+              + " can recover by re-uploading it. This is useful for testing only, in particular"
+              + " for testing --rewind_lost_inputs.")
   public abstract int getLostBlobPercentage();
 
   @Option(
@@ -266,8 +266,8 @@ public abstract class RemoteWorkerOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
-          "How many times a blob selected via --lost_blob_percentage is lost: it is deleted from"
-              + " the CAS right after each of its first N uploads and thus only stays available"
+          "How many times a blob selected via --lost_blob_percentage is lost: the upload is"
+              + " dropped for each of its first N uploads and thus the blob only stays available"
               + " once it has been uploaded N+1 times. Values above 1 exercise repeated recovery"
               + " from the loss of the same blob, e.g. repeated rewinding of the same action.")
   public abstract int getLostBlobMaxLosses();

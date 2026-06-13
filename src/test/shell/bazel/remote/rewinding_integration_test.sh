@@ -336,12 +336,15 @@ function test_action_rewinding_recovers() {
   expect_not_log "Found transient remote cache error"
 }
 
-# A substantial *one-time* loss of CAS entries (eviction without ongoing loss)
-# is, unlike the ongoing loss above, recovered by a single whole-build retry:
-# the retry invalidates all of the missing outputs at once and regenerates the
-# entire chain in one evaluation, and since nothing is dropped again, the
-# regenerated blobs stick. This is the case that whole-build retries are
-# designed for.
+# "One retry suffices" half of the one-time-vs-ongoing contrast below. A
+# substantial *one-time* loss of CAS entries (eviction without ongoing loss) is
+# recovered by a single whole-build retry: the retry re-runs the entire lost
+# dependency chain in one evaluation -- all NUM_LIBS levels at once, regardless
+# of how deep the chain is -- and since nothing is dropped again, the
+# regenerated blobs stick. Recovery is therefore bounded by one retry and does
+# not scale with the chain depth (in particular, one retry suffices even though
+# NUM_LIBS exceeds the retry budget used elsewhere). This is the case that
+# whole-build retries are designed for.
 function test_build_rewinding_recovers_from_one_time_eviction() {
   populate_evict_and_modify --evict_existing_percentage=100
 
@@ -366,6 +369,40 @@ function test_build_rewinding_recovers_from_one_time_eviction() {
   [[ -f bazel-bin/pkg/top.out ]] \
       || fail "Expected top-level output bazel-bin/pkg/top.out to be downloaded"
   assert_contains "BASE_CONTENT" bazel-bin/pkg/top.out
+}
+
+# "One retry does NOT suffice" half of the contrast: identical to
+# test_build_rewinding_recovers_from_one_time_eviction except that the cache
+# also keeps dropping blobs as they are re-uploaded (--lost_blob_percentage).
+# The single retry still re-runs the lost chain, but each regenerated output is
+# dropped again before the action consuming it can use it, so one retry cannot
+# converge. Unlike the one-time case, the limitation is not about the budget:
+# raising the number of retries does not help either (see
+# test_build_rewinding_is_insufficient) -- only in-build action rewinding
+# recovers ongoing loss. The crux is that whether one retry suffices depends on
+# whether the loss is one-time, not on the depth of the lost chain.
+function test_build_rewinding_one_retry_insufficient_under_ongoing_loss() {
+  populate_evict_and_modify --evict_existing_percentage=100 \
+      --lost_blob_percentage=100
+
+  bazel build \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --remote_download_toplevel \
+      --remote_retries=10 \
+      --experimental_remote_cache_eviction_retries=1 \
+      //pkg:top >& $TEST_log \
+      && fail "Expected build to fail: a single retry cannot recover ongoing loss"
+
+  expect_log "Lost .* no longer available remotely"
+  # The ongoing loss was genuinely in effect during the build.
+  assert_blobs_lost
+  # The build exhausted its single whole-build retry before giving up.
+  local retries
+  retries=$(grep -c "Found transient remote cache error, retrying the build..." \
+      $TEST_log || true)
+  if [[ "${retries}" -ne 1 ]]; then
+    fail "Expected exactly 1 whole-build retry, but observed ${retries}"
+  fi
 }
 
 run_suite "Tests for recovery from lost remote CAS entries"
