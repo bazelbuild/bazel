@@ -25,11 +25,15 @@ import build.bazel.remote.execution.v2.DirectoryNode;
 import build.bazel.remote.execution.v2.FileNode;
 import build.bazel.remote.execution.v2.SymlinkAbsolutePathStrategy;
 import build.bazel.remote.execution.v2.SymlinkNode;
+import com.google.common.flogger.GoogleLogger;
+import com.google.common.hash.Hashing;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.remote.CombinedCache;
 import com.google.devtools.build.lib.remote.Store;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
+import com.google.devtools.build.lib.remote.common.RemoteCacheClient.Blob;
 import com.google.devtools.build.lib.remote.disk.DiskCacheClient;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.vfs.Path;
@@ -41,11 +45,15 @@ import java.util.concurrent.ConcurrentHashMap;
 /** A {@link CombinedCache} backed by an {@link DiskCacheClient}. */
 class OnDiskBlobStoreCache extends CombinedCache {
 
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+
   private record DigestAndInvocation(Digest digest, String invocationId) {}
 
   private final RemoteWorkerOptions remoteWorkerOptions;
   private final ConcurrentHashMap<DigestAndInvocation, Integer>
       numberOfDownloadsPerDigestAndInvocation = new ConcurrentHashMap<>();
+  private final ConcurrentHashMap<Digest, Integer> numberOfUploadsPerLossCandidate =
+      new ConcurrentHashMap<>();
 
   public OnDiskBlobStoreCache(
       Path cacheDir, DigestUtil digestUtil, RemoteWorkerOptions remoteWorkerOptions)
@@ -131,6 +139,125 @@ class OnDiskBlobStoreCache extends CombinedCache {
     }
 
     return super.downloadBlob(context, digest);
+  }
+
+  @Override
+  public ListenableFuture<Void> uploadFile(
+      RemoteActionExecutionContext context, Digest digest, Path file) {
+    return maybeLoseAfterUpload(digest, super.uploadFile(context, digest, file));
+  }
+
+  @Override
+  public ListenableFuture<Void> uploadBlob(
+      RemoteActionExecutionContext context, Digest digest, Blob blob) {
+    return maybeLoseAfterUpload(digest, super.uploadBlob(context, digest, blob));
+  }
+
+  /**
+   * Simulates a remote cache that loses CAS entries by deleting the blob with the given digest
+   * from the CAS after each of its first {@code --lost_blob_max_losses} successful uploads (see
+   * {@code --lost_blob_percentage}).
+   *
+   * <p>Since the loss takes the form of an actual deletion, all kinds of requests referencing the
+   * blob consistently observe it: findMissingBlobs reports it as missing, reads fail with
+   * NOT_FOUND, executions report a FAILED_PRECONDITION with a MISSING violation when staging it as
+   * an input, and action cache hits referencing it are treated as stale. Since only a bounded
+   * number of uploads of a blob is affected, clients can always recover by re-uploading or
+   * regenerating it sufficiently often.
+   */
+  private ListenableFuture<Void> maybeLoseAfterUpload(
+      Digest digest, ListenableFuture<Void> upload) {
+    if (!isLossCandidate(digest)) {
+      return upload;
+    }
+    return Futures.transform(
+        upload,
+        unused -> {
+          int uploads = numberOfUploadsPerLossCandidate.merge(digest, 1, Integer::sum);
+          int maxLosses = remoteWorkerOptions.getLostBlobMaxLosses();
+          if (uploads <= maxLosses) {
+            try {
+              diskCacheClient.toPath(digest, Store.CAS).delete();
+              logger.atInfo().log(
+                  "Simulated loss of CAS entry %s (loss %d of %d)",
+                  DigestUtil.toString(digest), uploads, maxLosses);
+            } catch (IOException e) {
+              logger.atWarning().withCause(e).log(
+                  "Failed to simulate loss of CAS entry %s", DigestUtil.toString(digest));
+            }
+          }
+          return unused;
+        },
+        MoreExecutors.directExecutor());
+  }
+
+  private boolean isLossCandidate(Digest digest) {
+    int lostBlobPercentage = remoteWorkerOptions.getLostBlobPercentage();
+    // The empty blob is special-cased by clients and servers (including DiskCacheClient) as always
+    // present, so it can't be lost.
+    if (lostBlobPercentage == 0 || digest.getSizeBytes() == 0) {
+      return false;
+    }
+    return isInBucket(/* category= */ "lose", digest.getHash(), lostBlobPercentage);
+  }
+
+  /**
+   * Simulates a remote cache that has evicted CAS entries, e.g. due to an outage or a trimming
+   * policy, by deleting a seeded sample of the entries that currently exist on disk (see {@code
+   * --evict_existing_percentage}).
+   *
+   * <p>Unlike {@link #maybeLoseAfterUpload}, which loses blobs as they are produced during a build,
+   * this models the loss of cache contents that were populated by a previous build. It is meant to
+   * be run on startup, before any requests are served, so that a subsequent build observes a warm
+   * but partially evicted cache. Whether a blob is evicted is an independent sample from the set of
+   * blobs lost via {@code --lost_blob_percentage}.
+   *
+   * @return the number of evicted entries.
+   */
+  int evictExistingEntries(int percentage) throws IOException {
+    if (percentage <= 0) {
+      return 0;
+    }
+    // toPath places an entry at <cas root>/<first 2 hash chars>/<full hash>, so going two levels up
+    // from an arbitrary entry path yields the CAS store root.
+    Path casRoot =
+        diskCacheClient
+            .toPath("0".repeat(64), Store.CAS)
+            .getParentDirectory()
+            .getParentDirectory();
+    if (!casRoot.exists()) {
+      return 0;
+    }
+    int evicted = 0;
+    for (Path shard : casRoot.getDirectoryEntries()) {
+      if (!shard.isDirectory()) {
+        continue;
+      }
+      for (Path entry : shard.getDirectoryEntries()) {
+        if (isInBucket(/* category= */ "evict", entry.getBaseName(), percentage)) {
+          entry.delete();
+          evicted++;
+        }
+      }
+    }
+    return evicted;
+  }
+
+  /**
+   * Deterministically assigns the blob with the given hash to a bucket based on the seed and the
+   * given category, returning whether it falls into the first {@code percentage} percent. The
+   * category keeps independent uses (losing vs. evicting) from selecting correlated samples.
+   */
+  private boolean isInBucket(String category, String hash, int percentage) {
+    long bucket =
+        Hashing.murmur3_128()
+            .newHasher()
+            .putUnencodedChars(category)
+            .putUnencodedChars(remoteWorkerOptions.getLostBlobSeed())
+            .putUnencodedChars(hash)
+            .hash()
+            .asLong();
+    return Math.floorMod(bucket, 100) < percentage;
   }
 
   public DigestUtil getDigestUtil() {

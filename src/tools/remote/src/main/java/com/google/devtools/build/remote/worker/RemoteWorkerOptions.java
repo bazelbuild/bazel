@@ -234,6 +234,60 @@ public abstract class RemoteWorkerOptions extends OptionsBase {
               + " invocation id. This is useful for testing only.")
   public abstract boolean getErrorOnDuplicateDownloads();
 
+  @Option(
+      name = "lost_blob_percentage",
+      defaultValue = "0",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "If set to a value between 1 and 100, the worker simulates a remote cache that loses"
+              + " CAS entries, e.g. due to evictions or outages: roughly this percentage of all"
+              + " blobs are deleted from the CAS right after their first upload, consistently"
+              + " affecting all kinds of requests referencing them. Whether a given blob is"
+              + " affected is a deterministic function of its digest and --lost_blob_seed. In"
+              + " particular, a blob is only ever lost once, so that clients can recover by"
+              + " re-uploading it. This is useful for testing only, in particular for testing"
+              + " --rewind_lost_inputs.")
+  public abstract int getLostBlobPercentage();
+
+  @Option(
+      name = "lost_blob_seed",
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "The seed used to deterministically select the CAS entries lost due to"
+              + " --lost_blob_percentage. Change it to lose a different sample of blobs.")
+  public abstract String getLostBlobSeed();
+
+  @Option(
+      name = "lost_blob_max_losses",
+      defaultValue = "1",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "How many times a blob selected via --lost_blob_percentage is lost: it is deleted from"
+              + " the CAS right after each of its first N uploads and thus only stays available"
+              + " once it has been uploaded N+1 times. Values above 1 exercise repeated recovery"
+              + " from the loss of the same blob, e.g. repeated rewinding of the same action.")
+  public abstract int getLostBlobMaxLosses();
+
+  @Option(
+      name = "evict_existing_percentage",
+      defaultValue = "0",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "If set to a value between 1 and 100, the worker deletes roughly this percentage of the"
+              + " CAS entries that already exist in --cas_path on startup, before serving any"
+              + " request. This simulates a remote cache that has evicted part of its contents"
+              + " since a previous build populated it, e.g. due to an outage or a trimming policy."
+              + " Whether a given blob is evicted is a deterministic function of its hash and"
+              + " --lost_blob_seed, independent of the sample lost via --lost_blob_percentage."
+              + " This is useful for testing only, in particular for testing --rewind_lost_inputs"
+              + " against a warm but partially evicted cache.")
+  public abstract int getEvictExistingPercentage();
+
   private static final int MAX_JOBS = 16384;
 
   /**
