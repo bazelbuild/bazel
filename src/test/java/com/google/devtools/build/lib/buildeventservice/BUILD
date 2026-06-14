@@ -104,6 +104,28 @@ java_test(
 )
 
 java_test(
+    name = "BuildEventServiceUploaderCauseTest",
+    srcs = ["BuildEventServiceUploaderCauseTest.java"],
+    test_class = "com.google.devtools.build.lib.AllTests",
+    runtime_deps = ["//src/test/java/com/google/devtools/build/lib:test_runner"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/buildeventservice:build_event_service_options",
+        "//src/main/java/com/google/devtools/build/lib/buildeventservice:build_event_service_transport",
+        "//src/main/java/com/google/devtools/build/lib/buildeventservice/client:build_event_service_client",
+        "//src/main/java/com/google/devtools/build/lib/buildeventstream",
+        "//src/main/java/com/google/devtools/build/lib/clock",
+        "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
+        "//src/main/java/com/google/devtools/common/options",
+        "//src/test/java/com/google/devtools/build/lib/testutil",
+        "//third_party:guava",
+        "//third_party:jsr305",
+        "//third_party:junit4",
+        "//third_party:mockito",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
     name = "BazelBuildEventServiceModuleTest",
     srcs = ["BazelBuildEventServiceModuleTest.java"],
     shard_count = 10,

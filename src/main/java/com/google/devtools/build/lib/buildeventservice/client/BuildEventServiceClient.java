@@ -187,6 +187,17 @@ public interface BuildEventServiceClient {
 
     /** Returns an error message for this status. */
     String getErrorMessage();
+
+    /**
+     * Returns the underlying cause of this status, if it originated from a client-side failure
+     * (e.g. a transport-level {@link Throwable} such as a connection, DNS, or TLS error). Returns
+     * {@code null} when no cause is available, such as for errors reported by the remote server
+     * (which are not transmitted over the wire) or synthetic client-side protocol errors.
+     */
+    @Nullable
+    default Throwable getCause() {
+      return null;
+    }
   }
 
   /** An exception with an underlying {@link StreamStatus}. */

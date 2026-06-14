@@ -344,7 +344,7 @@ public final class BuildEventServiceUploader implements Runnable {
       DetailedExitCode detailedExitCode =
           DetailedExitCode.of(
               FailureDetail.newBuilder()
-                  .setMessage(e.getMessage())
+                  .setMessage(e.getMessageWithCause())
                   .setBuildProgress(BuildProgress.newBuilder().setCode(e.getCode()).build())
                   .build());
       logger.atSevere().withCause(e).log();
@@ -750,7 +750,7 @@ public final class BuildEventServiceUploader implements Runnable {
 
     BuildEventUploadException(
         StreamStatus status, BuildProgress.Code code, @Nullable String additionalMessage) {
-      super(getMessage(status, additionalMessage));
+      super(getMessage(status, additionalMessage), status.getCause());
       this.status = status;
       this.code = code;
     }
@@ -763,6 +763,27 @@ public final class BuildEventServiceUploader implements Runnable {
       }
       sb.append(": ").append(status.getErrorMessage());
       return sb.toString();
+    }
+
+    /**
+     * Returns {@link #getMessage()} augmented with the underlying transport cause (e.g. {@link
+     * java.net.UnknownHostException}, {@link java.net.ConnectException}, {@code
+     * SSLHandshakeException}), so the failure is distinguishable from the bare gRPC status, which
+     * collapses every client-side transport error into {@code UNAVAILABLE}.
+     *
+     * <p>This is meant for the user-facing {@link FailureDetail}, which carries no stack trace. The
+     * cause is also attached to this exception (see the constructor), so {@code
+     * logger.atSevere().withCause(e)} records the full transport stack trace; rendering it here
+     * rather than in {@link #getMessage()} keeps it out of the logged message line, where the
+     * attached cause already appears as a {@code Caused by:} stack.
+     */
+    String getMessageWithCause() {
+      Throwable cause = status.getCause();
+      if (cause == null) {
+        return getMessage();
+      }
+      // Throwable.toString() renders "class: message", omitting ": null" when there is no message.
+      return getMessage() + " (cause: " + Throwables.getRootCause(cause) + ")";
     }
 
     BuildProgress.Code getCode() {

@@ -252,6 +252,12 @@ public class BuildEventServiceGrpcClient implements BuildEventServiceClient {
       }
       return sb.toString();
     }
+
+    @Override
+    @Nullable
+    public Throwable getCause() {
+      return status.getCause();
+    }
   }
 
   @Override
