@@ -80,6 +80,12 @@ public final class SkyValueRetrieverTest {
 
   private ObjectCodecs codecs = new ObjectCodecs();
 
+  private static SkyValueRetriever createSkyValueRetriever(
+      FingerprintValueService fingerprintValueService,
+      ObjectCodecs codecs,
+      FrontierNodeVersion frontierNodeVersion) {
+    return new SkyValueRetriever(fingerprintValueService, codecs, frontierNodeVersion);
+  }
 
   private enum InitialQueryCases {
     IMMEDIATE_EMPTY_VALUE,
@@ -119,15 +125,13 @@ public final class SkyValueRetrieverTest {
     RetrievalContext state = new RetrievalContext();
 
     RetrievalResult result =
-        SkyValueRetriever.tryRetrieve(
-            NO_LOOKUP_ENVIRONMENT,
-            SkyValueRetrieverTest::dependOnFutureImpl,
-            codecs,
-            fingerprintValueService,
-            analysisCacheClient,
-            key,
-            state,
-            /* frontierNodeVersion= */ CONSTANT_FOR_TESTING);
+        createSkyValueRetriever(fingerprintValueService, codecs, CONSTANT_FOR_TESTING)
+            .tryRetrieve(
+                NO_LOOKUP_ENVIRONMENT,
+                SkyValueRetrieverTest::dependOnFutureImpl,
+                analysisCacheClient,
+                key,
+                state);
 
     if (testCase.equals(InitialQueryCases.FUTURE_VALUE)) {
       assertThat(state.getState()).isInstanceOf(WaitingForCacheServiceResponse.class);
@@ -156,15 +160,13 @@ public final class SkyValueRetrieverTest {
     uploadKeyValuePair(key, value, fingerprintValueService, analysisCacheServiceData);
 
     RetrievalResult result =
-        SkyValueRetriever.tryRetrieve(
-            NO_LOOKUP_ENVIRONMENT,
-            SkyValueRetrieverTest::dependOnFutureImpl,
-            codecs,
-            fingerprintValueService,
-            analysisCacheClient,
-            key,
-            state,
-            /* frontierNodeVersion= */ CONSTANT_FOR_TESTING);
+        createSkyValueRetriever(fingerprintValueService, codecs, CONSTANT_FOR_TESTING)
+            .tryRetrieve(
+                NO_LOOKUP_ENVIRONMENT,
+                SkyValueRetrieverTest::dependOnFutureImpl,
+                analysisCacheClient,
+                key,
+                state);
 
     result =
         maybeWaitForAnalysisCacheService(
@@ -189,15 +191,13 @@ public final class SkyValueRetrieverTest {
 
       // Waits for the future to complete and simulates a restart.
       var unused = futureResult.get();
-      return SkyValueRetriever.tryRetrieve(
-          NO_LOOKUP_ENVIRONMENT,
-          SkyValueRetrieverTest::dependOnFutureImpl,
-          codecs,
-          fingerprintValueService,
-          analysisCacheClient,
-          key,
-          state,
-          /* frontierNodeVersion= */ CONSTANT_FOR_TESTING);
+      return createSkyValueRetriever(fingerprintValueService, codecs, CONSTANT_FOR_TESTING)
+          .tryRetrieve(
+              NO_LOOKUP_ENVIRONMENT,
+              SkyValueRetrieverTest::dependOnFutureImpl,
+              analysisCacheClient,
+              key,
+              state);
     }
     return previousResult;
   }
@@ -243,15 +243,13 @@ public final class SkyValueRetrieverTest {
         assertThrows(
             SerializationException.class,
             () ->
-                SkyValueRetriever.tryRetrieve(
-                    NO_LOOKUP_ENVIRONMENT,
-                    SkyValueRetrieverTest::alwaysDoneDependOnFuture,
-                    codecs,
-                    fingerprintValueService,
-                    analysisCacheClient,
-                    key,
-                    state,
-                    /* frontierNodeVersion= */ CONSTANT_FOR_TESTING));
+                createSkyValueRetriever(fingerprintValueService, codecs, CONSTANT_FOR_TESTING)
+                    .tryRetrieve(
+                        NO_LOOKUP_ENVIRONMENT,
+                        SkyValueRetrieverTest::alwaysDoneDependOnFuture,
+                        analysisCacheClient,
+                        key,
+                        state));
     assertThat(e.getReason()).isEqualTo(MissReason.MISS_REASON_REFERENCED_OBJECT_MISS);
 
     // Also check just in case that if we remove the SkyValue entry, we get a SKYVALUE_MISS
@@ -259,15 +257,13 @@ public final class SkyValueRetrieverTest {
     analysisCacheServiceData.remove(ByteString.copyFrom(skyValueFingerprint.toBytes()));
     RetrievalContext state2 = new RetrievalContext();
     RetrievalResult result =
-        SkyValueRetriever.tryRetrieve(
-            NO_LOOKUP_ENVIRONMENT,
-            SkyValueRetrieverTest::alwaysDoneDependOnFuture,
-            codecs,
-            fingerprintValueService,
-            analysisCacheClient,
-            key,
-            state2,
-            /* frontierNodeVersion= */ CONSTANT_FOR_TESTING);
+        createSkyValueRetriever(fingerprintValueService, codecs, CONSTANT_FOR_TESTING)
+            .tryRetrieve(
+                NO_LOOKUP_ENVIRONMENT,
+                SkyValueRetrieverTest::alwaysDoneDependOnFuture,
+                analysisCacheClient,
+                key,
+                state2);
     assertThat(((NoCachedData) result).reason()).isEqualTo(MissReason.MISS_REASON_SKYVALUE_MISS);
   }
 
@@ -286,15 +282,13 @@ public final class SkyValueRetrieverTest {
     uploadKeyValuePair(key, value, fingerprintValueService, analysisCacheServiceData);
 
     RetrievalResult result =
-        SkyValueRetriever.tryRetrieve(
-            NO_LOOKUP_ENVIRONMENT,
-            SkyValueRetrieverTest::alwaysDoneDependOnFuture,
-            codecs,
-            fingerprintValueService,
-            analysisCacheClient,
-            key,
-            state,
-            /* frontierNodeVersion= */ CONSTANT_FOR_TESTING);
+        createSkyValueRetriever(fingerprintValueService, codecs, CONSTANT_FOR_TESTING)
+            .tryRetrieve(
+                NO_LOOKUP_ENVIRONMENT,
+                SkyValueRetrieverTest::alwaysDoneDependOnFuture,
+                analysisCacheClient,
+                key,
+                state);
 
     assertThat(((RetrievedValue) result).value()).isEqualTo(value);
   }
@@ -315,39 +309,35 @@ public final class SkyValueRetrieverTest {
     var capturedKey = new SkyKey[1];
 
     RetrievalResult result =
-        SkyValueRetriever.tryRetrieve(
-            new EnvironmentForUtilities(
-                k -> {
-                  assertThat(capturedKey[0]).isNull();
-                  capturedKey[0] = k;
-                  return null;
-                }),
-            SkyValueRetrieverTest::alwaysDoneDependOnFuture,
-            codecs,
-            fingerprintValueService,
-            analysisCacheClient,
-            key,
-            state,
-            /* frontierNodeVersion= */ CONSTANT_FOR_TESTING);
+        createSkyValueRetriever(fingerprintValueService, codecs, CONSTANT_FOR_TESTING)
+            .tryRetrieve(
+                new EnvironmentForUtilities(
+                    k -> {
+                      assertThat(capturedKey[0]).isNull();
+                      capturedKey[0] = k;
+                      return null;
+                    }),
+                SkyValueRetrieverTest::alwaysDoneDependOnFuture,
+                analysisCacheClient,
+                key,
+                state);
 
     assertThat(result).isEqualTo(RESTART);
     assertThat(capturedKey[0]).isEqualTo(key);
     assertThat(state.getState()).isInstanceOf(WaitingForLookupContinuation.class);
 
     result =
-        SkyValueRetriever.tryRetrieve(
-            new EnvironmentForUtilities(
-                k -> {
-                  assertThat(k).isEqualTo(key);
-                  return value;
-                }),
-            SkyValueRetrieverTest::alwaysDoneDependOnFuture,
-            codecs,
-            fingerprintValueService,
-            analysisCacheClient,
-            key,
-            state,
-            /* frontierNodeVersion= */ CONSTANT_FOR_TESTING);
+        createSkyValueRetriever(fingerprintValueService, codecs, CONSTANT_FOR_TESTING)
+            .tryRetrieve(
+                new EnvironmentForUtilities(
+                    k -> {
+                      assertThat(k).isEqualTo(key);
+                      return value;
+                    }),
+                SkyValueRetrieverTest::alwaysDoneDependOnFuture,
+                analysisCacheClient,
+                key,
+                state);
 
     assertThat(((RetrievedValue) result).value()).isEqualTo(value);
   }
@@ -363,15 +353,13 @@ public final class SkyValueRetrieverTest {
     var key = new TrivialKey("a");
 
     RetrievalResult result =
-        SkyValueRetriever.tryRetrieve(
-            NO_LOOKUP_ENVIRONMENT,
-            SkyValueRetrieverTest::dependOnFutureImpl,
-            codecs,
-            fingerprintValueService,
-            analysisCacheClient,
-            key,
-            state,
-            /* frontierNodeVersion= */ CONSTANT_FOR_TESTING);
+        createSkyValueRetriever(fingerprintValueService, codecs, CONSTANT_FOR_TESTING)
+            .tryRetrieve(
+                NO_LOOKUP_ENVIRONMENT,
+                SkyValueRetrieverTest::dependOnFutureImpl,
+                analysisCacheClient,
+                key,
+                state);
 
     assertThat(result).isEqualTo(RESTART);
     assertThat(state.getState()).isInstanceOf(WaitingForCacheServiceResponse.class);
@@ -384,15 +372,13 @@ public final class SkyValueRetrieverTest {
         assertThrows(
             SerializationException.class,
             () ->
-                SkyValueRetriever.tryRetrieve(
-                    NO_LOOKUP_ENVIRONMENT,
-                    SkyValueRetrieverTest::dependOnFutureImpl,
-                    codecs,
-                    fingerprintValueService,
-                    analysisCacheClient,
-                    key,
-                    state,
-                    /* frontierNodeVersion= */ CONSTANT_FOR_TESTING));
+                createSkyValueRetriever(fingerprintValueService, codecs, CONSTANT_FOR_TESTING)
+                    .tryRetrieve(
+                        NO_LOOKUP_ENVIRONMENT,
+                        SkyValueRetrieverTest::dependOnFutureImpl,
+                        analysisCacheClient,
+                        key,
+                        state));
 
     assertThat(thrown).hasMessageThat().contains("getting cache response for " + key);
     assertThat(thrown).hasCauseThat().hasCauseThat().isSameInstanceAs(error);
@@ -409,15 +395,13 @@ public final class SkyValueRetrieverTest {
     var key = new TrivialKey("a");
 
     RetrievalResult result =
-        SkyValueRetriever.tryRetrieve(
-            NO_LOOKUP_ENVIRONMENT,
-            SkyValueRetrieverTest::dependOnFutureImpl,
-            codecs,
-            fingerprintValueService,
-            analysisCacheClient,
-            key,
-            state,
-            /* frontierNodeVersion= */ CONSTANT_FOR_TESTING);
+        createSkyValueRetriever(fingerprintValueService, codecs, CONSTANT_FOR_TESTING)
+            .tryRetrieve(
+                NO_LOOKUP_ENVIRONMENT,
+                SkyValueRetrieverTest::dependOnFutureImpl,
+                analysisCacheClient,
+                key,
+                state);
 
     assertThat(result).isEqualTo(RESTART);
     assertThat(state.getState()).isInstanceOf(WaitingForCacheServiceResponse.class);
@@ -426,15 +410,13 @@ public final class SkyValueRetrieverTest {
     captured.get(0).cancel(false);
 
     result =
-        SkyValueRetriever.tryRetrieve(
-            NO_LOOKUP_ENVIRONMENT,
-            SkyValueRetrieverTest::dependOnFutureImpl,
-            codecs,
-            fingerprintValueService,
-            analysisCacheClient,
-            key,
-            state,
-            /* frontierNodeVersion= */ CONSTANT_FOR_TESTING);
+        createSkyValueRetriever(fingerprintValueService, codecs, CONSTANT_FOR_TESTING)
+            .tryRetrieve(
+                NO_LOOKUP_ENVIRONMENT,
+                SkyValueRetrieverTest::dependOnFutureImpl,
+                analysisCacheClient,
+                key,
+                state);
 
     assertThat(result).isInstanceOf(NoCachedData.class);
     assertThat(state.getState()).isInstanceOf(NoCachedData.class);
@@ -456,20 +438,18 @@ public final class SkyValueRetrieverTest {
     var capturedKey = new SkyKey[1];
 
     RetrievalResult result =
-        SkyValueRetriever.tryRetrieve(
-            new EnvironmentForUtilities(
-                k -> {
-                  assertThat(capturedKey[0]).isNull();
-                  capturedKey[0] = k;
-                  return null;
-                }),
-            SkyValueRetrieverTest::alwaysDoneDependOnFuture,
-            codecs,
-            fingerprintValueService,
-            analysisCacheClient,
-            key,
-            state,
-            /* frontierNodeVersion= */ CONSTANT_FOR_TESTING);
+        createSkyValueRetriever(fingerprintValueService, codecs, CONSTANT_FOR_TESTING)
+            .tryRetrieve(
+                new EnvironmentForUtilities(
+                    k -> {
+                      assertThat(capturedKey[0]).isNull();
+                      capturedKey[0] = k;
+                      return null;
+                    }),
+                SkyValueRetrieverTest::alwaysDoneDependOnFuture,
+                analysisCacheClient,
+                key,
+                state);
 
     assertThat(result).isEqualTo(RESTART);
     assertThat(capturedKey[0]).isEqualTo(key);
@@ -481,19 +461,17 @@ public final class SkyValueRetrieverTest {
         assertThrows(
             SerializationException.class,
             () ->
-                SkyValueRetriever.tryRetrieve(
-                    new EnvironmentForUtilities(
-                        k -> {
-                          assertThat(k).isEqualTo(key);
-                          return error;
-                        }),
-                    SkyValueRetrieverTest::alwaysDoneDependOnFuture,
-                    codecs,
-                    fingerprintValueService,
-                    analysisCacheClient,
-                    key,
-                    state,
-                    /* frontierNodeVersion= */ CONSTANT_FOR_TESTING));
+                createSkyValueRetriever(fingerprintValueService, codecs, CONSTANT_FOR_TESTING)
+                    .tryRetrieve(
+                        new EnvironmentForUtilities(
+                            k -> {
+                              assertThat(k).isEqualTo(key);
+                              return error;
+                            }),
+                        SkyValueRetrieverTest::alwaysDoneDependOnFuture,
+                        analysisCacheClient,
+                        key,
+                        state));
 
     assertThat(thrown)
         .hasMessageThat()
@@ -521,19 +499,17 @@ public final class SkyValueRetrieverTest {
     var capturedKeys = new ArrayList<SkyKey>();
 
     RetrievalResult result =
-        SkyValueRetriever.tryRetrieve(
-            new EnvironmentForUtilities(
-                k -> {
-                  capturedKeys.add(k);
-                  return null;
-                }),
-            SkyValueRetrieverTest::alwaysDoneDependOnFuture,
-            codecs,
-            fingerprintValueService,
-            analysisCacheClient,
-            key,
-            state,
-            /* frontierNodeVersion= */ CONSTANT_FOR_TESTING);
+        createSkyValueRetriever(fingerprintValueService, codecs, CONSTANT_FOR_TESTING)
+            .tryRetrieve(
+                new EnvironmentForUtilities(
+                    k -> {
+                      capturedKeys.add(k);
+                      return null;
+                    }),
+                SkyValueRetrieverTest::alwaysDoneDependOnFuture,
+                analysisCacheClient,
+                key,
+                state);
 
     assertThat(result).isEqualTo(RESTART);
     assertThat(capturedKeys).containsExactly(lookupKey0, lookupKey1).inOrder();
@@ -551,19 +527,17 @@ public final class SkyValueRetrieverTest {
         assertThrows(
             SerializationException.class,
             () ->
-                SkyValueRetriever.tryRetrieve(
-                    new EnvironmentForUtilities(
-                        k -> {
-                          assertThat(k).isEqualTo(lookupKey0);
-                          return error;
-                        }),
-                    SkyValueRetrieverTest::alwaysDoneDependOnFuture,
-                    codecs,
-                    fingerprintValueService,
-                    analysisCacheClient,
-                    key,
-                    state,
-                    /* frontierNodeVersion= */ CONSTANT_FOR_TESTING));
+                createSkyValueRetriever(fingerprintValueService, codecs, CONSTANT_FOR_TESTING)
+                    .tryRetrieve(
+                        new EnvironmentForUtilities(
+                            k -> {
+                              assertThat(k).isEqualTo(lookupKey0);
+                              return error;
+                            }),
+                        SkyValueRetrieverTest::alwaysDoneDependOnFuture,
+                        analysisCacheClient,
+                        key,
+                        state));
     assertThat(thrown)
         .hasMessageThat()
         .contains("skyframe dependency error during deserialization for " + key);
@@ -597,15 +571,13 @@ public final class SkyValueRetrieverTest {
         assertThrows(
             SerializationException.class,
             () ->
-                SkyValueRetriever.tryRetrieve(
-                    NO_LOOKUP_ENVIRONMENT,
-                    SkyValueRetrieverTest::alwaysDoneDependOnFuture,
-                    codecs,
-                    fingerprintValueService,
-                    analysisCacheClient,
-                    key,
-                    state,
-                    /* frontierNodeVersion= */ CONSTANT_FOR_TESTING));
+                createSkyValueRetriever(fingerprintValueService, codecs, CONSTANT_FOR_TESTING)
+                    .tryRetrieve(
+                        NO_LOOKUP_ENVIRONMENT,
+                        SkyValueRetrieverTest::alwaysDoneDependOnFuture,
+                        analysisCacheClient,
+                        key,
+                        state));
 
     assertThat(thrown).hasMessageThat().contains("waiting for deserialization result for " + key);
     assertThat(thrown).hasCauseThat().hasMessageThat().contains("error setting value");

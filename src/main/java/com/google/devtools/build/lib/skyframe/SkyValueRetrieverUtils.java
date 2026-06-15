@@ -76,15 +76,14 @@ public final class SkyValueRetrieverUtils {
     RetrievalContext state = env.getState(stateSupplier).getRetrievalContext();
     try {
       retrievalResult =
-          SkyValueRetriever.tryRetrieve(
-              env,
-              new DefaultDependOnFutureShim(env),
-              analysisCachingDeps.getObjectCodecs(),
-              analysisCachingDeps.getFingerprintValueService(),
-              requireNonNull(analysisCachingDeps.getAnalysisCacheClient()),
-              key,
-              state,
-              /* frontierNodeVersion= */ analysisCachingDeps.getSkyValueVersion());
+          analysisCachingDeps
+              .getSkyValueRetriever()
+              .tryRetrieve(
+                  env,
+                  new DefaultDependOnFutureShim(env),
+                  requireNonNull(analysisCachingDeps.getAnalysisCacheClient()),
+                  key,
+                  state);
       analysisCachingDeps.recordRetrievalResult(retrievalResult, key);
     } catch (SerializationException e) {
       // TODO: b/445242928 - also log this in BEP

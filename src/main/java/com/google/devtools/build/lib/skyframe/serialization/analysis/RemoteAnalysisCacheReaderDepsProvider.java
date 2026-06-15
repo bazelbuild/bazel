@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueServ
 import com.google.devtools.build.lib.skyframe.serialization.FrontierNodeVersion;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
+import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalResult;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions.RemoteAnalysisCacheMode;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -43,6 +44,8 @@ public interface RemoteAnalysisCacheReaderDepsProvider {
   FingerprintValueService getFingerprintValueService() throws InterruptedException;
 
   RemoteAnalysisCacheClient getAnalysisCacheClient() throws InterruptedException;
+
+  SkyValueRetriever getSkyValueRetriever() throws InterruptedException;
 
   void recordRetrievalResult(RetrievalResult retrievalResult, SkyKey key);
 

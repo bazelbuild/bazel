@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.skyframe.serialization.FrontierNodeVersion;
 import com.google.devtools.build.lib.skyframe.serialization.KeyValueWriter;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
+import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalResult;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions.RemoteAnalysisCacheMode;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -66,6 +67,9 @@ public class RemoteAnalysisCacheDeps
   private final ListenableFuture<FingerprintValueService> fingerprintValueServiceFuture;
   @Nullable private final ListenableFuture<? extends RemoteAnalysisCacheClient> analysisCacheClient;
   @Nullable private final ListenableFuture<? extends RemoteAnalysisMetadataWriter> metadataWriter;
+
+  // Volatile because double-checked locking is used in the getter
+  @Nullable private volatile SkyValueRetriever skyValueRetriever;
 
   private final AtomicBoolean bailedOut = new AtomicBoolean();
   private final ExtendedEventHandler eventHandler;
@@ -197,6 +201,23 @@ public class RemoteAnalysisCacheDeps
   public RemoteAnalysisCacheClient getAnalysisCacheClient() throws InterruptedException {
     checkEnabled();
     return resolveWithTimeout(analysisCacheClient, "analysis cache client");
+  }
+
+  @Override
+  public SkyValueRetriever getSkyValueRetriever() throws InterruptedException {
+    checkEnabled();
+    if (skyValueRetriever != null) {
+      return skyValueRetriever;
+    }
+
+    synchronized (this) {
+      if (skyValueRetriever == null) {
+        skyValueRetriever =
+            new SkyValueRetriever(
+                getFingerprintValueService(), getObjectCodecs(), frontierNodeVersion);
+      }
+      return skyValueRetriever;
+    }
   }
 
   @Override

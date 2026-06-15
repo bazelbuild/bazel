@@ -32,6 +32,19 @@ import java.util.concurrent.ExecutionException;
 /** Fetches remotely stored {@link SkyValue}s by {@link SkyKey}. */
 public final class SkyValueRetriever {
 
+  private final FingerprintValueService fingerprintValueService;
+  private final ObjectCodecs codecs;
+  private final FrontierNodeVersion frontierNodeVersion;
+
+  public SkyValueRetriever(
+      FingerprintValueService fingerprintValueService,
+      ObjectCodecs codecs,
+      FrontierNodeVersion frontierNodeVersion) {
+    this.fingerprintValueService = fingerprintValueService;
+    this.codecs = codecs;
+    this.frontierNodeVersion = frontierNodeVersion;
+  }
+
   /**
    * A wrapper for the mutable state of the analysis cache deserialization machinery.
    *
@@ -164,15 +177,12 @@ public final class SkyValueRetriever {
    * @return a {@link RetrievalResult} instance. This can be {@link NoCachedData} when there is no
    *     data associated with the given key.
    */
-  public static RetrievalResult tryRetrieve(
+  public RetrievalResult tryRetrieve(
       LookupEnvironment env,
       DependOnFutureShim futuresShim,
-      ObjectCodecs codecs,
-      FingerprintValueService fingerprintValueService,
       RemoteAnalysisCacheClient analysisCacheClient,
       SkyKey key,
-      RetrievalContext retrievalContext,
-      FrontierNodeVersion frontierNodeVersion)
+      RetrievalContext retrievalContext)
       throws InterruptedException, SerializationException {
     SerializationState serializationState = retrievalContext.getState();
     try {
@@ -181,7 +191,7 @@ public final class SkyValueRetriever {
           case InitialQuery unused -> {
             PackedFingerprint cacheKey =
                 FingerprintValueService.computeFingerprint(
-                    fingerprintValueService, codecs, key, frontierNodeVersion);
+                    this.fingerprintValueService, this.codecs, key, this.frontierNodeVersion);
             ListenableFuture<LookupResult> futureResponse =
                 analysisCacheClient.lookup(ByteString.copyFrom(cacheKey.toBytes()));
 
@@ -204,7 +214,8 @@ public final class SkyValueRetriever {
               serializationState = new NoCachedData(result.missReason());
               continue;
             }
-            Object value = codecs.deserializeWithSkyframe(fingerprintValueService, result.value());
+            Object value =
+                this.codecs.deserializeWithSkyframe(this.fingerprintValueService, result.value());
             if (!(value instanceof ListenableFuture)) {
               serializationState = new RetrievedValue((SkyValue) value);
               continue;
@@ -309,5 +320,4 @@ public final class SkyValueRetriever {
   @VisibleForTesting
   record WaitingForFutureResult(ListenableFuture<?> futureResult) implements SerializationState {}
 
-  private SkyValueRetriever() {}
 }
