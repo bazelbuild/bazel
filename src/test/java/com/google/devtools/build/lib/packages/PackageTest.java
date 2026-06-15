@@ -191,6 +191,7 @@ public class PackageTest {
         /* globber= */ null,
         /* enableNameConflictChecking= */ true,
         /* trackFullMacroInformation= */ false,
+        PackageValidator.NOOP_VALIDATOR,
         Package.Builder.PackageLimits.DEFAULTS);
   }
 

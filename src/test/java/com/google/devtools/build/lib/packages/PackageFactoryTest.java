@@ -917,6 +917,20 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
   }
 
   @Test
+  public void testDefaultTestonlyForJavatestsPackages() throws Exception {
+    scratch.file("javatests/foo/BUILD", "filegroup(name = 'bar')");
+    Package pkg = getPackage("javatests/foo");
+    assertThat(pkg.getPackageArgs().defaultTestOnly()).isTrue();
+  }
+
+  @Test
+  public void testDefaultTestonlyForJavaPackagesIsFalse() throws Exception {
+    scratch.file("java/foo/BUILD", "filegroup(name = 'bar')");
+    Package pkg = getPackage("java/foo");
+    assertThat(pkg.getPackageArgs().defaultTestOnly()).isFalse();
+  }
+
+  @Test
   public void testDefaultDeprecation() throws Exception {
     String testMessage = "OMG PONIES!";
     Package pkg = expectEvalSuccess("package(default_deprecation = \"" + testMessage + "\")");

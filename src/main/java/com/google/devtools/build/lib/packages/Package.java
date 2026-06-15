@@ -586,6 +586,7 @@ public class Package extends Packageoid {
       @Nullable Globber globber,
       boolean enableNameConflictChecking,
       boolean trackFullMacroInformation,
+      PackageValidator packageValidator,
       PackageLimits packageLimits) {
     return new Builder(
         Metadata.builder()
@@ -610,6 +611,7 @@ public class Package extends Packageoid {
         globber,
         enableNameConflictChecking,
         trackFullMacroInformation,
+        packageValidator,
         packageLimits);
   }
 
@@ -627,6 +629,7 @@ public class Package extends Packageoid {
       @Nullable Globber globber,
       boolean enableNameConflictChecking,
       boolean trackFullMacroInformation,
+      PackageValidator packageValidator,
       PackageLimits packageLimits,
       InputFile buildFile) {
     Builder builder =
@@ -644,6 +647,7 @@ public class Package extends Packageoid {
             globber,
             enableNameConflictChecking,
             trackFullMacroInformation,
+            packageValidator,
             packageLimits);
     checkArgument(
         buildFile.getPackageMetadata().packageIdentifier().equals(metadata.packageIdentifier()));
@@ -997,6 +1001,7 @@ public class Package extends Packageoid {
         boolean enableNameConflictChecking,
         boolean trackFullMacroInformation,
         boolean enableTargetMapSnapshotting,
+        PackageValidator packageValidator,
         PackageLimits packageLimits) {
       super(
           metadata,
@@ -1014,7 +1019,7 @@ public class Package extends Packageoid {
           packageLimits);
       this.precomputeTransitiveLoads = precomputeTransitiveLoads;
       this.noImplicitFileExport = noImplicitFileExport;
-      if (metadata.getName().startsWith("javatests/")) {
+      if (packageValidator.defaultTestOnly(metadata.packageIdentifier())) {
         mergePackageArgsFrom(PackageArgs.builder().setDefaultTestOnly(true));
       }
       // Add target for the BUILD file itself.
@@ -1133,6 +1138,7 @@ public class Package extends Packageoid {
         @Nullable Globber globber,
         boolean enableNameConflictChecking,
         boolean trackFullMacroInformation,
+        PackageValidator packageValidator,
         PackageLimits packageLimits) {
       super(
           metadata,
@@ -1149,6 +1155,7 @@ public class Package extends Packageoid {
           enableNameConflictChecking,
           trackFullMacroInformation,
           /* enableTargetMapSnapshotting= */ true,
+          packageValidator,
           packageLimits);
     }
 
