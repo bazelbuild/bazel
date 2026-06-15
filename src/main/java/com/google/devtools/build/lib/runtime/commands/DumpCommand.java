@@ -326,8 +326,8 @@ public class DumpCommand implements BlazeCommand {
         documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
         effectTags = {OptionEffectTag.BAZEL_MONITORING},
         help =
-            "Regex filter of SkyKey names to output. Only used with --skyframe=value, deps, rdeps,"
-                + " function_graph.")
+            "Regex filter of SkyKey names to output. Only used with --skyframe=keys, value, deps,"
+                + " rdeps, function_graph.")
     public abstract RegexFilter getSkyKeyFilter();
 
     @Option(
@@ -361,6 +361,7 @@ public class DumpCommand implements BlazeCommand {
     OFF,
     SUMMARY,
     COUNT,
+    KEYS,
     VALUE,
     DEPS,
     RDEPS,
@@ -522,6 +523,7 @@ public class DumpCommand implements BlazeCommand {
       switch (dumpOptions.getDumpSkyframe()) {
         case SUMMARY -> evaluator.dumpSummary(out);
         case COUNT -> evaluator.dumpCount(out);
+        case KEYS -> evaluator.dumpKeys(out, dumpOptions.getSkyKeyFilter());
         case VALUE -> evaluator.dumpValues(out, dumpOptions.getSkyKeyFilter());
         case DEPS -> evaluator.dumpDeps(out, dumpOptions.getSkyKeyFilter());
         case RDEPS -> evaluator.dumpRdeps(out, dumpOptions.getSkyKeyFilter());
@@ -585,9 +587,7 @@ public class DumpCommand implements BlazeCommand {
   }
 
   private static void dumpRuleStats(
-      BlazeWorkspace workspace,
-      SkyframeExecutor executor,
-      PrintStream out)
+      BlazeWorkspace workspace, SkyframeExecutor executor, PrintStream out)
       throws InterruptedException {
     SkyframeStats skyframeStats = executor.getSkyframeStats();
     if (skyframeStats.ruleStats().isEmpty()) {

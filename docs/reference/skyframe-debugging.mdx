@@ -28,9 +28,10 @@ The `--skyframe` flag takes an argument detailing what information to report:
   Skyframe.
 - [`--skyframe=count`](#count-mode): A report on the number of values for each
   SkyFunction type.
+- [`--skyframe=keys`](#keys-mode): The keys in Skyframe.
 - [`--skyframe=value`](#value-mode): The full value in Skyframe.
 - [`--skyframe=deps`](#deps-mode): The dependencies of the value in Skyframe.
-- [`--skyframe=rdeps`](#reverse-dps-mode): Other values in Skyframe with a
+- [`--skyframe=rdeps`](#reverse-deps-mode): Other values in Skyframe with a
   dependency on the value.
 
 ### Filtering by SkyKey
@@ -83,6 +84,18 @@ Commonly used types are:
 - `ARTIFACT`: The number of output files known in Skyframe.
 - `PACKAGE`: The numbe of packages loading into Skyframe.
 - `BUILD_CONFIGURATION`: The number of distinct configurations.
+
+## Keys Mode
+
+The `baze dump --skyframe=keys --skykey_filter=FOO` command will show keys
+available that match the filter. This can be quite extensive unless the key is
+very specific.
+
+The format is one line per key, the result of calling `.toString()` on the key.
+
+This can be helpful to identify specific keys to investigate with
+[`--skyframe=value`](#value-mode), [`--skyframe=deps`](#deps-mode), or
+[`--skyframe=rdeps`](#reverse-deps-mode).
 
 ## Value Mode
 
