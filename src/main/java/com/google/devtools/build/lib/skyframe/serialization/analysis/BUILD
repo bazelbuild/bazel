@@ -33,6 +33,7 @@ java_library(
     srcs = [
         "RemoteAnalysisCacheReaderDepsProvider.java",
         "RemoteAnalysisCachingDependenciesProvider.java",
+        "SerializationDependenciesProvider.java",
     ],
     deps = [
         ":options",
