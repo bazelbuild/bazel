@@ -18,7 +18,6 @@ import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueServ
 import com.google.devtools.build.lib.skyframe.serialization.FrontierNodeVersion;
 import com.google.devtools.build.lib.skyframe.serialization.KeyValueWriter;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
-import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions.RemoteAnalysisCacheMode;
 import java.util.Optional;
 import java.util.function.Predicate;
 import javax.annotation.Nullable;

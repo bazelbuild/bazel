@@ -82,48 +82,6 @@ public abstract class RemoteAnalysisCachingOptions extends OptionsBase {
 
   public abstract void setMode(RemoteAnalysisCacheMode value);
 
-  /** * The transport direction for the remote analysis cache. */
-  public enum RemoteAnalysisCacheMode {
-    /** Serializes and uploads Skyframe analysis nodes after the build command finishes. */
-    UPLOAD,
-
-    /**
-     * Dumps the manifest of SkyKeys computed in the frontier and the active set. This mode does not
-     * serialize and upload the keys.
-     */
-    DUMP_UPLOAD_MANIFEST_ONLY,
-
-    /** Fetches and deserializes the Skyframe analysis nodes during the build. */
-    DOWNLOAD,
-
-    /** Disabled. */
-    OFF;
-
-    /** Returns true if the selected mode needs to connect to a backend. */
-    public boolean requiresBackendConnectivity() {
-      return switch (this) {
-        case UPLOAD, DOWNLOAD -> true;
-        case DUMP_UPLOAD_MANIFEST_ONLY, OFF -> false;
-      };
-    }
-
-    public boolean isRetrievalEnabled() {
-      return this == DOWNLOAD;
-    }
-
-    /**
-     * Returns true if the mode serializes <i>values</i>.
-     *
-     * <p>{@link DOWNLOAD} serializes keys, but not values.
-     */
-    public boolean serializesValues() {
-      return switch (this) {
-        case UPLOAD, DUMP_UPLOAD_MANIFEST_ONLY -> true;
-        case DOWNLOAD, OFF -> false;
-      };
-    }
-  }
-
   /** Enum converter for {@link RemoteAnalysisCacheMode}. */
   private static class RemoteAnalysisCacheModeConverter
       extends EnumConverter<RemoteAnalysisCacheMode> {

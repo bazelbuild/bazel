@@ -36,8 +36,8 @@ java_library(
         "SerializationDependenciesProvider.java",
     ],
     deps = [
-        ":options",
         ":remote_analysis_cache_client",
+        ":remote_analysis_cache_mode",
         ":remote_analysis_caching_server_state",
         ":remote_analysis_metadata_writer",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
@@ -65,7 +65,7 @@ java_library(
         ":invalidation_data_reference_or_future",
         ":long_version_getter_test_injection",
         ":missing_skyframe_entry_exception",
-        ":options",
+        ":remote_analysis_cache_mode",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
@@ -236,9 +236,18 @@ java_library(
 )
 
 java_library(
+    name = "remote_analysis_cache_mode",
+    srcs = ["RemoteAnalysisCacheMode.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
+    ],
+)
+
+java_library(
     name = "options",
     srcs = ["RemoteAnalysisCachingOptions.java"],
     deps = [
+        ":remote_analysis_cache_mode",
         ":remote_analysis_cache_storage_type",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:guava",
@@ -386,9 +395,9 @@ java_library(
         ":dependencies_provider",
         ":frontier_serializer",
         ":lookup_result",
-        ":options",
         ":remote_analysis_cache_client",
         ":remote_analysis_cache_deps",
+        ":remote_analysis_cache_mode",
         ":remote_analysis_caching_server_state",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/events",
@@ -410,6 +419,7 @@ java_library(
         ":remote_analysis_cache_client",
         ":remote_analysis_cache_deps",
         ":remote_analysis_cache_manager",
+        ":remote_analysis_cache_mode",
         ":remote_analysis_caching_services_supplier",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
@@ -449,8 +459,8 @@ java_library(
     deps = [
         ":dependencies_provider",
         ":event_listener",
-        ":options",
         ":remote_analysis_cache_client",
+        ":remote_analysis_cache_mode",
         ":remote_analysis_caching_services_supplier",
         ":remote_analysis_metadata_writer",
         "//src/main/java/com/google/devtools/build/lib/cmdline",

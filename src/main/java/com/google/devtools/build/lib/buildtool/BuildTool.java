@@ -103,10 +103,10 @@ import com.google.devtools.build.lib.skyframe.serialization.SkycacheMetadataPara
 import com.google.devtools.build.lib.skyframe.serialization.analysis.FrontierSerializer;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheClient;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheFactory;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheMode;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheReaderDepsProvider;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions;
-import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions.RemoteAnalysisCacheMode;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisMetadataWriter;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.SerializationDependenciesProvider;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -1284,8 +1284,7 @@ public class BuildTool {
     }
   }
 
-  private void serializeValues(
-      SerializationDependenciesProvider serializationDependenciesProvider)
+  private void serializeValues(SerializationDependenciesProvider serializationDependenciesProvider)
       throws InterruptedException, AbruptExitException {
     if (!(env.getSkyframeExecutor() instanceof SequencedSkyframeExecutor)) {
       return;

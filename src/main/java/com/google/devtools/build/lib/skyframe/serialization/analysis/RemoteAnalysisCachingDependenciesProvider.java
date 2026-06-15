@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions.RemoteAnalysisCacheMode;
 import com.google.devtools.build.skyframe.InMemoryGraph;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.util.Set;
@@ -46,7 +45,4 @@ public interface RemoteAnalysisCachingDependenciesProvider {
   void computeSelectionAndMinimizeMemory(InMemoryGraph graph);
 
   boolean shouldMinimizeMemory();
-
-
-
 }
