@@ -36,12 +36,11 @@ import net.starlark.java.eval.StarlarkValue;
  * <p>Bazel's {@code struct} values ({@link com.google.devtools.build.lib.packages.StructImpl})
  * implement both {@link Structure} and {@link StructApi} interfaces.
  */
-// TODO: #27370 - ClassStarlarkType instances auto-generated for any implementation of this
-// interface should be assignable to `struct`.
 // TODO(bazel-team): StructApi should be in net.starlark.java.eval, and Structure should extend it.
 @StarlarkBuiltin(
     name = "struct",
     category = DocCategory.BUILTIN,
+    isStructType = true,
     doc =
         "A generic object with fields."
             + "<p>Structs fields cannot be reassigned once the struct is created. Two structs are "

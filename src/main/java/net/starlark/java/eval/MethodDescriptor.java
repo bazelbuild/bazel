@@ -32,6 +32,7 @@ import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkAnnotations;
+import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.ParamDescriptor.ConditionalCheck;
 import net.starlark.java.syntax.StarlarkType;
@@ -303,8 +304,7 @@ final class MethodDescriptor {
           starlarkTypeFromJava(ptype.getActualTypeArguments()[0], isReturnType));
     } else if (cls instanceof ParameterizedType ptype && ptype.getRawType() == Sequence.class) {
       return Types.sequence(starlarkTypeFromJava(ptype.getActualTypeArguments()[0], isReturnType));
-    } else if (cls instanceof Class<?> c && Structure.class.isAssignableFrom(c)) {
-      // TODO: #27370 - Support com.google.devtools.build.lib.starlarkbuildapi.core.StructApi
+    } else if (isStructType(cls)) {
       // TODO: #27370 - Allow StarlarkMethod to specify a narrower struct type.
       // Use the top struct type for parameters (to accept all possible struct arguments); use the
       // any partial struct type for returns (since we cannot know what fields it might have).
@@ -315,6 +315,20 @@ final class MethodDescriptor {
       // TODO(ilist@): handle more complex types
       return Types.ANY;
     }
+  }
+
+  private static boolean isStructType(Type cls) {
+    if (cls instanceof Class<?> c) {
+      if (Structure.class.isAssignableFrom(c)) {
+        return true;
+      }
+      @Nullable StarlarkBuiltin annotation = StarlarkAnnotations.getStarlarkBuiltin(c);
+      if (annotation != null && annotation.isStructType()) {
+        // Detect com.google.devtools.build.lib.starlarkbuildapi.core.StructApi
+        return true;
+      }
+    }
+    return false;
   }
 
   private static boolean paramUsableAsPositionalWithoutChecks(ParamDescriptor param) {

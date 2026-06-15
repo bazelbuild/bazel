@@ -130,25 +130,41 @@ public final class CallUtils {
 
     private static final class ClassStarlarkType extends StarlarkType {
       private final String name;
-      @Nullable private final MethodDescriptor selfCall; // shared with ClassDescriptor
       private final ImmutableMap<String, MethodDescriptor> methods; // shared with ClassDescriptor
+      private final ImmutableList<StarlarkType> supertypes;
 
       private ClassStarlarkType(
           String name,
           @Nullable MethodDescriptor selfCall,
-          ImmutableMap<String, MethodDescriptor> methods) {
+          ImmutableMap<String, MethodDescriptor> methods,
+          boolean assignableToStructType) {
         this.name = name;
-        this.selfCall = selfCall;
         this.methods = methods;
+        // TODO: #28325 - Populate supertypes where possible.
+        ImmutableList.Builder<StarlarkType> supertypesBuilder = ImmutableList.builder();
+        if (selfCall != null) {
+          // Values of a self-call type are callable, with the self-call method's signature.
+          supertypesBuilder.add(selfCall.getStarlarkType());
+        }
+        if (assignableToStructType) {
+          // Values of struct-like types are assignable to a struct type whose fields are the
+          // class's structfield annotated methods.
+          // TODO: #28325 - Do we need to support partial structs?
+          ImmutableMap.Builder<String, StarlarkType> fields = ImmutableMap.builder();
+          methods.forEach(
+              (methodName, desc) -> {
+                if (desc.isStructField()) {
+                  fields.put(methodName, desc.getStarlarkType());
+                }
+              });
+          supertypesBuilder.add(Types.struct(fields.buildOrThrow()));
+        }
+        this.supertypes = supertypesBuilder.build();
       }
 
       @Override
       public ImmutableList<StarlarkType> getSupertypes() {
-        // TODO: #28325 - Populate supertypes where possible.
-        return selfCall == null
-            ? ImmutableList.of()
-            // Values of a self-call type are callable, with the self-call method's signature.
-            : ImmutableList.of(selfCall.getStarlarkType());
+        return supertypes;
       }
 
       @Override
@@ -337,7 +353,8 @@ public final class CallUtils {
     if (StarlarkValue.class.isAssignableFrom(clazz) && !overridesGetStarlarkType) {
       String typeName = annotation != null ? annotation.name() : clazz.getSimpleName();
       classDescriptor.classStarlarkType =
-          new ClassDescriptor.ClassStarlarkType(typeName, selfCall, methods);
+          new ClassDescriptor.ClassStarlarkType(
+              typeName, selfCall, methods, StarlarkAnnotations.isAssignableToStructType(clazz));
     }
     return classDescriptor;
   }
