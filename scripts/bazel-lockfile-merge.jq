@@ -72,7 +72,7 @@ def shallow_merge(f):
                   if length > 0 then group_by(.key) | shallow_merge({(.[0].key): shallow_merge(.value)}) else {} end
                 else null end),
         # Keep only non-zero versions, mirroring how Bazel writes the lockfile.
-        factsVersions: (if ($maxFactsVersions | with_entries(select(.value != 0)) | length) > 0 then
+        factsVersions: (if any(has("factsVersions")) then
                           $maxFactsVersions | with_entries(select(.value != 0))
                         else null end),
     }
