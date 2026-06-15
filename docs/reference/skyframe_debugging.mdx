@@ -32,7 +32,7 @@ start with a `-` character to act as exclusions instead of inclusions.
 The key is converted with the following format:
 `SKYFUNCTION_NAME:SkyKey.toString()`. Because many Skykey implementations use
 `@AutoValue`, the format will then be `SkyKeyClass{field=value, field=value}`.
-Thetefore, the skykey for the configured target for the bazel binary would be
+Therefore, the skykey for the configured target for the bazel binary would be
 something like `CONFIGURED_TARGET:ConfiguredTargetKey{label=//src:bazel-bin,
 config=BuildConfigurationKey[a3ed33ca825cecaab69d541c45e04267665be178055813d03b8dcded031fdf82]}`.
 
