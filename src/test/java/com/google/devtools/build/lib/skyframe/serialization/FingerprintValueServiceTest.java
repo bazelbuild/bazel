@@ -16,6 +16,10 @@ package com.google.devtools.build.lib.skyframe.serialization;
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.concurrent.Executors.newSingleThreadExecutor;
 
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.SettableWriteStatus;
+import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.SparseAggregateWriteStatus;
+import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.WriteStatus;
 import java.util.concurrent.Executor;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -40,6 +44,72 @@ public final class FingerprintValueServiceTest {
 
     assertThat(testFingerprint).isNotEqualTo(service.fingerprintPlaceholder());
     assertThat(testFingerprint.toBytes().length).isEqualTo(16);
+  }
+
+  @Test
+  public void sparseAggregationEnabled_returnsSparseAggregateWriteStatus() {
+    FingerprintValueStore store =
+        new FingerprintValueStore() {
+          @Override
+          public WriteStatus put(KeyBytesProvider fingerprint, byte[] serializedBytes) {
+            return new SettableWriteStatus();
+          }
+
+          @Override
+          public ListenableFuture<byte[]> get(KeyBytesProvider fingerprint) {
+            throw new UnsupportedOperationException();
+          }
+
+          @Override
+          public boolean isSparseAggregationSupported() {
+            return true;
+          }
+        };
+
+    FingerprintValueService service =
+        new FingerprintValueService(
+            newSingleThreadExecutor(),
+            store,
+            new FingerprintValueCache(),
+            FingerprintValueService.NONPROD_FINGERPRINTER);
+
+    byte[] testValue = new byte[] {0, 1, 2};
+    PackedFingerprint testFingerprint = service.fingerprint(testValue);
+    WriteStatus writeStatus = service.put(testFingerprint, testValue);
+
+    assertThat(writeStatus).isInstanceOf(SparseAggregateWriteStatus.class);
+  }
+
+  @Test
+  public void sparseAggregationEnabled_alreadyDone_returnsSparseAggregateWriteStatus() {
+    FingerprintValueStore store =
+        new FingerprintValueStore() {
+          @Override
+          public WriteStatus put(KeyBytesProvider fingerprint, byte[] serializedBytes) {
+            return WriteStatuses.immediateWriteStatus();
+          }
+
+          @Override
+          public ListenableFuture<byte[]> get(KeyBytesProvider fingerprint) {
+            throw new UnsupportedOperationException();
+          }
+
+          @Override
+          public boolean isSparseAggregationSupported() {
+            return true;
+          }
+        };
+    FingerprintValueService service =
+        new FingerprintValueService(
+            newSingleThreadExecutor(),
+            store,
+            new FingerprintValueCache(),
+            FingerprintValueService.NONPROD_FINGERPRINTER);
+
+    byte[] testValue = new byte[] {0, 1, 2};
+    PackedFingerprint testFingerprint = service.fingerprint(testValue);
+    WriteStatus writeStatus = service.put(testFingerprint, testValue);
+    assertThat(writeStatus).isNotInstanceOf(SparseAggregateWriteStatus.class);
   }
 
   @Test
