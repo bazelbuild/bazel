@@ -84,7 +84,6 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiConsumer;
-import java.util.function.Consumer;
 import javax.annotation.Nullable;
 
 /**
@@ -105,9 +104,9 @@ import javax.annotation.Nullable;
  * have relatively small immediate representations. When there is a large amount of data, it will be
  * expressed via references (e.g., keys to a other {@link FingerprintValueService} entries).
  */
-final class SelectedEntrySerializer implements Consumer<SkyKey> {
+final class SelectedEntrySerializer {
   // Chosen completely arbitrarily and the first attempt worked out quite well
-  private static final int MAX_PENDING_SKYVALUES = 10_000;
+  private static final int MAX_PENDING_SKYVALUES = 20_000;
 
   /**
    * Counters for the progress of serialization.
@@ -301,21 +300,22 @@ final class SelectedEntrySerializer implements Consumer<SkyKey> {
     ImmutableList<SkyKey> sortedSelection = sortTopologically(selection, graph);
 
     for (SkyKey selectedKey : sortedSelection) {
-      // We acquire the semaphore here and not in the Runnable so as not to starve the thread pool.
-      writeStatuses.semaphore.acquire();
-      writeStatuses.selectedEntryStarting();
-      fingerprintValueService
-          .getExecutor()
-          .execute(
-              () -> {
-                try {
-                  serializer.accept(selectedKey);
-                } catch (Throwable t) {
-                  writeStatuses.notifyWriteFailure(t); // Propagates uncaught exceptions.
-                } finally {
-                  writeStatuses.semaphore.release();
-                }
-              });
+      // Acquires the semaphore and increments the task count throttled by it.
+      writeStatuses.selectedEntryStartingCapped();
+      try {
+        fingerprintValueService
+            .getExecutor()
+            .execute(
+                () -> {
+                  try {
+                    serializer.serializeEntry(selectedKey);
+                  } catch (Throwable t) {
+                    writeStatuses.selectedEntryFailed(t); // Releases and decrements
+                  }
+                });
+      } catch (Throwable t) {
+        writeStatuses.selectedEntryFailed(t); // Releases and decrements on execution rejection
+      }
     }
 
     writeStatuses.notifyAllStarted();
@@ -351,8 +351,7 @@ final class SelectedEntrySerializer implements Consumer<SkyKey> {
     this.emitUploadedEvents = emitUploadedEvents;
   }
 
-  @Override
-  public void accept(SkyKey key) {
+  public void serializeEntry(SkyKey key) {
     // TODO: b/371508153 - only upload nodes that were freshly computed by this invocation and
     // unaffected by local, un-submitted changes.
     try {
@@ -379,7 +378,7 @@ final class SelectedEntrySerializer implements Consumer<SkyKey> {
       }
       eventBus.post(new SerializedNodeEvent(key));
     } catch (MissingSkyframeEntryException e) {
-      writeStatuses.notifyWriteFailure(e);
+      writeStatuses.selectedEntryFailed(e);
     }
   }
 
@@ -491,7 +490,7 @@ final class SelectedEntrySerializer implements Consumer<SkyKey> {
     @Override
     public final void onFailure(Throwable t) {
       writeStatuses.counters.entriesWaitingForInvalidationInfo.decrementAndGet();
-      writeStatuses.notifyWriteFailure(t);
+      writeStatuses.selectedEntryFailed(t);
     }
 
     private final class InvalidationDataInfoHandler
@@ -619,7 +618,6 @@ final class SelectedEntrySerializer implements Consumer<SkyKey> {
 
           writeStatuses.addWriteStatus(putStatus);
 
-          // IMPORTANT: when this completes, no more write statuses can be added.
           writeStatuses.selectedEntryDone();
         } catch (Throwable t) {
           onFailure(t);
@@ -629,14 +627,14 @@ final class SelectedEntrySerializer implements Consumer<SkyKey> {
       @Override
       public final void onFailure(Throwable t) {
         writeStatuses.counters.entriesWaitingForInvalidationBytes.decrementAndGet();
-        writeStatuses.notifyWriteFailure(t);
+        writeStatuses.selectedEntryFailed(t);
       }
     }
   }
 
   public static class SerializationStatus extends QuiescingFuture<ImmutableList<Throwable>>
       implements FutureCallback<Object>, CounterSeriesCollector {
-    private final Semaphore semaphore = new Semaphore(MAX_PENDING_SKYVALUES);
+    private final Semaphore inflightSkyframeEntrySemaphore = new Semaphore(MAX_PENDING_SKYVALUES);
     private final ConcurrentLinkedQueue<Throwable> errors = new ConcurrentLinkedQueue<>();
     private final FileDependencySerializer.Counters fileDependencySerializerCounters;
     private final Counters counters = new Counters();
@@ -678,12 +676,19 @@ final class SelectedEntrySerializer implements Consumer<SkyKey> {
       Profiler.instance().registerCounterSeriesCollector(fileDependencySerializerCounters);
     }
 
-    private void selectedEntryStarting() {
+    private void selectedEntryStartingCapped() throws InterruptedException {
+      inflightSkyframeEntrySemaphore.acquire();
       increment();
     }
 
     private void selectedEntryDone() {
       decrement();
+      inflightSkyframeEntrySemaphore.release();
+    }
+
+    private void selectedEntryFailed(Throwable t) {
+      notifyWriteFailure(t);
+      inflightSkyframeEntrySemaphore.release();
     }
 
     private void notifyAllStarted() {
