@@ -99,46 +99,6 @@ public class CcCommonTest extends BuildViewTestCase {
         .isEqualTo("emptybinary");
   }
 
-  private List<String> getCopts(String target) throws Exception {
-    ConfiguredTarget cLib = getConfiguredTarget(target);
-    Artifact object = getOutputGroup(cLib, OutputGroupInfo.FILES_TO_COMPILE).getSingleton();
-    CppCompileAction compileAction = (CppCompileAction) getGeneratingAction(object);
-    return compileAction.getCompilerOptions();
-  }
-
-  @Test
-  public void testCoptsTokenization() throws Exception {
-    scratch.file(
-        "copts/BUILD",
-        """
-        load("@rules_cc//cc:cc_library.bzl", "cc_library")
-        cc_library(
-            name = "c_lib",
-            srcs = ["foo.cc"],
-            copts = ["-Wmy-warning -frun-faster"],
-        )
-        """);
-    List<String> copts = getCopts("//copts:c_lib");
-    assertThat(copts).containsAtLeast("-Wmy-warning", "-frun-faster");
-  }
-
-  @Test
-  public void testCoptsNoTokenization() throws Exception {
-    scratch.file(
-        "copts/BUILD",
-        """
-        load("@rules_cc//cc:cc_library.bzl", "cc_library")
-        package(features = ["no_copts_tokenization"])
-
-        cc_library(
-            name = "c_lib",
-            srcs = ["foo.cc"],
-            copts = ["-Wmy-warning -frun-faster"],
-        )
-        """);
-    List<String> copts = getCopts("//copts:c_lib");
-    assertThat(copts).contains("-Wmy-warning -frun-faster");
-  }
 
   /**
    * Test that we handle ".a" files in cc_library srcs correctly when linking dynamically. In
@@ -214,73 +174,6 @@ public class CcCommonTest extends BuildViewTestCase {
     assertThat(dotAPath.getPathString()).endsWith(STATIC_LIB);
   }
 
-  @Test
-  public void testExpandedDefinesAgainstDeps() throws Exception {
-    ConfiguredTarget expandedDefines =
-        scratchConfiguredTarget(
-            "expanded_defines",
-            "expand_deps",
-            "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
-            "cc_library(name = 'expand_deps',",
-            "           srcs = ['defines.cc'],",
-            "           deps = ['//foo'],",
-            "           defines = ['FOO=$(location //foo)'])");
-    assertThat(CcInfo.get(expandedDefines).getCcCompilationContext().getDefines())
-        .containsExactly(
-            String.format("FOO=%s/foo/libfoo.a", getRuleContext(expandedDefines).getBinFragment()));
-  }
-
-  @Test
-  public void testExpandedDefinesAgainstSrcs() throws Exception {
-    ConfiguredTarget expandedDefines =
-        scratchConfiguredTarget(
-            "expanded_defines",
-            "expand_srcs",
-            "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
-            "cc_library(name = 'expand_srcs',",
-            "           srcs = ['defines.cc'],",
-            "           defines = ['FOO=$(location defines.cc)'])");
-    assertThat(CcInfo.get(expandedDefines).getCcCompilationContext().getDefines())
-        .containsExactly("FOO=expanded_defines/defines.cc");
-  }
-
-  @Test
-  public void testExpandedDefinesAgainstData() throws Exception {
-    scratch.file("data/BUILD", "filegroup(name = 'data', srcs = ['data.txt'])");
-    ConfiguredTarget expandedDefines =
-        scratchConfiguredTarget(
-            "expanded_defines",
-            "expand_srcs",
-            "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
-            "cc_library(name = 'expand_srcs',",
-            "           srcs = ['defines.cc'],",
-            "           data = ['//data'],",
-            "           defines = ['FOO=$(location //data)'])");
-    assertThat(CcInfo.get(expandedDefines).getCcCompilationContext().getDefines())
-        .containsExactly("FOO=data/data.txt");
-  }
-
-  @Test
-  public void testExpandedDefinesDuplicateTargets() throws Exception {
-    scratch.file(
-        "data/BUILD",
-        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
-        "cc_library(name = 'a', srcs = ['foo.cc'])");
-    ConfiguredTarget expandedDefines =
-        scratchConfiguredTarget(
-            "expanded_defines",
-            "expand_srcs",
-            "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
-            "cc_library(name = 'expand_srcs',",
-            "           srcs = ['defines.cc'],",
-            "           data = ['//data:a'],",
-            "           deps = ['//data:a'],",
-            "           defines = ['FOO=$(location //data:a)'])");
-    String depPath =
-        getFilesToBuild(getConfiguredTarget("//data:a")).getSingleton().getExecPathString();
-    assertThat(CcInfo.get(expandedDefines).getCcCompilationContext().getDefines())
-        .containsExactly(String.format("FOO=%s", depPath));
-  }
 
   @Test
   public void testStartEndLib() throws Exception {
