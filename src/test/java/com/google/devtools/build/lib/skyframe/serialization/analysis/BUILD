@@ -123,6 +123,7 @@ java_test(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/skyframe:filesystem_keys",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:file_op_node_map",
         "//src/main/java/com/google/devtools/build/skyframe",

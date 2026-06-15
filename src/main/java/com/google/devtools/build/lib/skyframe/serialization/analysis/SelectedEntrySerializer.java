@@ -27,6 +27,7 @@ import static com.google.devtools.build.lib.skyframe.serialization.proto.DataTyp
 import static com.google.devtools.build.lib.skyframe.serialization.proto.DataType.DATA_TYPE_LISTING;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
@@ -37,11 +38,14 @@ import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionLookupSummaryKey;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
+import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.concurrent.QuiescingFuture;
 import com.google.devtools.build.lib.profiler.CounterSeriesCollector;
 import com.google.devtools.build.lib.profiler.CounterSeriesTask;
 import com.google.devtools.build.lib.profiler.CounterSeriesTask.Color;
 import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture.FileOpNode;
 import com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture.FileOpNodeOrEmpty;
 import com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture.FutureFileOpNode;
@@ -73,9 +77,11 @@ import java.io.ByteArrayOutputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -206,10 +212,22 @@ final class SelectedEntrySerializer implements Consumer<SkyKey> {
 
   private final SerializationStatus writeStatuses;
 
+  private final boolean shouldDiscardMemory;
+
   private final EventBus eventBus;
   private final ProfileCollector profileCollector;
   private final SerializationStats serializationStats;
   private final boolean emitUploadedEvents;
+
+  /**
+   * Tracks the number of selected configured target keys remaining to be uploaded per package.
+   *
+   * <p>Used to perform early memory reclamation of {@link PackageValue} nodes from the Skyframe
+   * graph as soon as all of their selected configured targets have finished uploading.
+   *
+   * <p>Null if {@link #shouldDiscardMemory} is false.
+   */
+  @Nullable private final ImmutableMap<PackageIdentifier, AtomicInteger> packageRefcounts;
 
   /** Uploads the entries of {@code selection} to {@code fingerprintValueService}. */
   static QuiescingFuture<ImmutableList<Throwable>> uploadSelection(
@@ -220,12 +238,35 @@ final class SelectedEntrySerializer implements Consumer<SkyKey> {
       ImmutableSet<SkyKey> selection,
       FingerprintValueService fingerprintValueService,
       KeyValueWriter fileInvalidationWriter,
+      boolean shouldDiscardMemory,
       EventBus eventBus,
       ProfileCollector profileCollector,
       SerializationStats serializationStats,
       boolean emitUploadedEvents)
       throws InterruptedException {
-    var fileOpNodes = new FileOpNodeMemoizingLookup(fingerprintValueService.getExecutor(), graph);
+    ImmutableMap<PackageIdentifier, AtomicInteger> packageRefcounts = null;
+    if (shouldDiscardMemory) {
+      var tempRefcounts = new ConcurrentHashMap<PackageIdentifier, AtomicInteger>();
+      selection.parallelStream()
+          .forEach(
+              key -> {
+                if (!(key instanceof ConfiguredTargetKey ctKey)) {
+                  return;
+                }
+                tempRefcounts
+                    .computeIfAbsent(
+                        getActualPackageIdentifier(graph, ctKey), unused -> new AtomicInteger(0))
+                    .incrementAndGet();
+              });
+      packageRefcounts = ImmutableMap.copyOf(tempRefcounts);
+    }
+    var fileOpNodes =
+        new FileOpNodeMemoizingLookup(
+            fingerprintValueService.getExecutor(),
+            graph,
+            selection,
+            shouldDiscardMemory,
+            shouldDiscardMemory ? packageRefcounts.keySet() : null);
     var fileDependencySerializer =
         new FileDependencySerializer(
             versionGetter,
@@ -243,6 +284,8 @@ final class SelectedEntrySerializer implements Consumer<SkyKey> {
             fileOpNodes,
             fileDependencySerializer,
             writeStatuses,
+            shouldDiscardMemory,
+            packageRefcounts,
             eventBus,
             profileCollector,
             serializationStats,
@@ -287,6 +330,8 @@ final class SelectedEntrySerializer implements Consumer<SkyKey> {
       FileOpNodeMemoizingLookup fileOpNodes,
       FileDependencySerializer fileDependencySerializer,
       SerializationStatus writeStatuses,
+      boolean shouldDiscardMemory,
+      @Nullable ImmutableMap<PackageIdentifier, AtomicInteger> packageRefcounts,
       EventBus eventBus,
       ProfileCollector profileCollector,
       SerializationStats serializationStats,
@@ -298,6 +343,8 @@ final class SelectedEntrySerializer implements Consumer<SkyKey> {
     this.fileOpNodes = fileOpNodes;
     this.fileDependencySerializer = fileDependencySerializer;
     this.writeStatuses = writeStatuses;
+    this.shouldDiscardMemory = shouldDiscardMemory;
+    this.packageRefcounts = packageRefcounts;
     this.eventBus = eventBus;
     this.profileCollector = profileCollector;
     this.serializationStats = serializationStats;
@@ -462,13 +509,27 @@ final class SelectedEntrySerializer implements Consumer<SkyKey> {
        *   <li>Otherwise when {@code dataInfo} is non-null, the invalidation data starts with a type
        *       value, {@link DATA_TYPE_FILE}, {@link DATA_TYPE_LISTING}, {@link
        *       DATA_TYPE_ANALYSIS_NODE} or {@link DATA_TYPE_EXECUTION_NODE}, depending on {@code
-       *       dataInfo}'s and {@link FileOpNodeProcessor#entry}'s type. The invalidation data cache
+       *       dataInfo}'s and {@link FileOpNodeProcessor#key}'s type. The invalidation data cache
        *       key follows the type value.
-       *   <li>The {@link #entry}'s value bytes.
+       *   <li>The {@link FileOpNodeProcessor#key}'s value bytes.
        * </ol>
        */
       @Override
       public void onSuccess(@Nullable InvalidationDataInfo dataInfo) {
+        if (shouldDiscardMemory) {
+          // Reclaim memory early: once a selected entry is successfully serialized and uploaded,
+          // its value is no longer needed in the evaluator. If it's a ConfiguredTargetKey, we
+          // also decrement the refcount of its package. Once all selected configured targets in
+          // the package are uploaded, the PackageValue is also discarded, releasing substantial
+          // memory early.
+          if (key instanceof ConfiguredTargetKey ctKey) {
+            PackageIdentifier pkgId = getActualPackageIdentifier(graph, ctKey);
+            if (packageRefcounts.get(pkgId).decrementAndGet() <= 0) {
+              graph.removeIfDone(pkgId);
+            }
+          }
+          graph.removeIfDone(key);
+        }
         try {
           ByteArrayOutputStream bytesOut = new ByteArrayOutputStream();
           CodedOutputStream codedOut = CodedOutputStream.newInstance(bytesOut);
@@ -743,5 +804,18 @@ final class SelectedEntrySerializer implements Consumer<SkyKey> {
     }
 
     result.add(key);
+  }
+
+  /**
+   * Returns the real package associated with a configured target.
+   *
+   * <p>The configured target may be an alias where the referent package contains its target data.
+   */
+  private static PackageIdentifier getActualPackageIdentifier(
+      InMemoryGraph graph, ConfiguredTargetKey key) {
+    return ((ConfiguredTargetValue) graph.getIfPresent(key).getValue())
+        .getConfiguredTarget()
+        .getLabel()
+        .getPackageIdentifier();
   }
 }

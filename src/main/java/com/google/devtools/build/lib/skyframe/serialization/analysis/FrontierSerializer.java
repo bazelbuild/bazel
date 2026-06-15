@@ -150,7 +150,8 @@ public final class FrontierSerializer {
       }
     }
 
-    if (!keepStateAfterBuild) {
+    boolean shouldDiscardMemory = !keepStateAfterBuild;
+    if (shouldDiscardMemory) {
       // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       // INCREMENTALITY PITFALLS WARNING
       // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -189,6 +190,7 @@ public final class FrontierSerializer {
             selectedKeys,
             serializationDependenciesProvider.getFingerprintValueService(),
             serializationDependenciesProvider.getFileInvalidationWriter(),
+            shouldDiscardMemory,
             eventBus,
             profileCollector,
             serializationStats,
