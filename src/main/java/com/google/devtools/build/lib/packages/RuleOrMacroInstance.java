@@ -46,6 +46,9 @@ public abstract class RuleOrMacroInstance implements DependencyFilter.AttributeI
 
   private static final int ATTR_SIZE_THRESHOLD = 126;
 
+  private static final Object[] EMPTY_OBJECT_ARRAY = new Object[0];
+  private static final byte[] EMPTY_BYTE_ARRAY = new byte[0];
+
   /**
    * For {@link Rule}s, the length of this instance's generator name if it is a prefix of its name,
    * otherwise zero. For {@link MacroInstance}s, always zero since they never have a generator name.
@@ -439,6 +442,11 @@ public abstract class RuleOrMacroInstance implements DependencyFilter.AttributeI
 
   private void freezeSmall(BitSet indicesToStore) {
     int numToStore = indicesToStore.cardinality();
+    if (numToStore == 0) {
+      this.attrValues = EMPTY_OBJECT_ARRAY;
+      this.attrBytes = EMPTY_BYTE_ARRAY;
+      return;
+    }
     Object[] compactValues = new Object[numToStore];
     byte[] compactBytes = new byte[numToStore];
 
@@ -461,7 +469,7 @@ public abstract class RuleOrMacroInstance implements DependencyFilter.AttributeI
   private void freezeLarge(BitSet indicesToStore) {
     int numToStore = indicesToStore.cardinality();
     int bitSetSize = attrBytes.length;
-    Object[] compactValues = new Object[numToStore];
+    Object[] compactValues = numToStore == 0 ? EMPTY_OBJECT_ARRAY : new Object[numToStore];
     byte[] compactBytes = Arrays.copyOf(attrBytes, bitSetSize + numToStore);
 
     int attrIndex = 0;
