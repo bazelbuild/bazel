@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.concurrent.QuiescingFuture;
 import com.google.devtools.build.lib.concurrent.QuiescingFutureTask;
 import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.AggregateWriteStatusBuilder;
 import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.SparseAggregateWriteStatusBuilder;
-import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.WriteStatus;
 import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.WriteStatusBuilder;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedOutputStream;

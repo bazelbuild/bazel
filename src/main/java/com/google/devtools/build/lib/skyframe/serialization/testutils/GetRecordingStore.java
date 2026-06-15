@@ -20,7 +20,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore;
 import com.google.devtools.build.lib.skyframe.serialization.KeyBytesProvider;
-import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.WriteStatus;
+import com.google.devtools.build.lib.skyframe.serialization.WriteStatus;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;

@@ -456,6 +456,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:frontier_node_version",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:serialization_registry_setup_helpers",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:write_status",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:write_statuses",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:client_id",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:lookup_result",
@@ -484,7 +485,6 @@ java_library(
         "//third_party/pprof:profile_java_proto",
         "@com_google_protobuf//:protobuf_java",
         "@maven//:com_google_testparameterinjector_test_parameter_injector",
-        "@maven//:org_apache_commons_commons_lang3",
     ],
 )
 

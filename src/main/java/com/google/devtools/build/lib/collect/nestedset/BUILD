@@ -41,6 +41,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:constants",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:write_status",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:write_statuses",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",

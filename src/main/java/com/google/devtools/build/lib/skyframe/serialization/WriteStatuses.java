@@ -39,29 +39,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * inner classes, requires all the implementations to be public.
  */
 public class WriteStatuses {
-  /**
-   * Represents future success or failure of a write operation.
-   *
-   * <p>This can act like an ordinary future, but has special case, memory saving handling for
-   * aggregation.
-   *
-   * <p>The {@link Boolean} result of this future indicates the "novelty" of the write. A {@code
-   * true} result means new bytes were actually written to the storage backend; {@code false} means
-   * they were already present. Novelty tracking is used for metrics and defaults to {@code true} if
-   * the backend configuration doesn't support it.
-   *
-   * <p>OR semantics are used for aggregation: an aggregate is novel if any of its components are
-   * novel.
-   */
-  // The ImmediateWriteStatus class should be singleton, so it's cleaner to not derive it from
-  // AbstractFuture.
-  @SuppressWarnings("ShouldNotSubclass")
-  public sealed interface WriteStatus extends ListenableFuture<Boolean>
-      permits ImmediateWriteStatus,
-          ImmediateFailedWriteStatus,
-          SettableWriteStatus,
-          SparseAggregateWriteStatus,
-          AggregateWriteStatus {}
+
 
   /** Returns the stateless, immediately successful write status. */
   public static WriteStatus immediateWriteStatus() {

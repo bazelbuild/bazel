@@ -19,7 +19,6 @@ import static com.google.devtools.build.lib.skyframe.serialization.WriteStatuses
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.WriteStatus;
 import com.google.devtools.build.lib.util.Bucket;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.ByteString;

@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec.MemoizationEquality;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry.CodecDescriptor;
-import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.WriteStatus;
 import com.google.errorprone.annotations.ForOverride;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;

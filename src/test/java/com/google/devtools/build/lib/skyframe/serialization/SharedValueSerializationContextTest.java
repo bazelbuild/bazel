@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStor
 import com.google.devtools.build.lib.skyframe.serialization.NotNestedSet.NestedArrayCodec;
 import com.google.devtools.build.lib.skyframe.serialization.NotNestedSet.NotNestedSetCodec;
 import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.SettableWriteStatus;
-import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.WriteStatus;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;

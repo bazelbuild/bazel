@@ -19,7 +19,6 @@ import static java.util.concurrent.Executors.newSingleThreadExecutor;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.SettableWriteStatus;
 import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.SparseAggregateWriteStatus;
-import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.WriteStatus;
 import java.util.concurrent.Executor;
 import org.junit.Test;
 import org.junit.runner.RunWith;

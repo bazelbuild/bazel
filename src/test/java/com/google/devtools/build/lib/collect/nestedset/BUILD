@@ -125,6 +125,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset:testutils",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:write_status",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:write_statuses",
         "//src/main/java/com/google/devtools/build/lib/util/io:out-err",
         "//third_party:guava",

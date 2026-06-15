@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.skyframe.serialization;
 
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.WriteStatus;
 import com.google.protobuf.ByteString;
 
 /**

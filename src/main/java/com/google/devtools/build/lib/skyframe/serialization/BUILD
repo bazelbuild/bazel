@@ -108,6 +108,7 @@ java_library(
             "SerializationConstants.java",
             "SerializationModule.java",
             "VisibleForSerialization.java",
+            "WriteStatus.java",
             "WriteStatuses.java",
         ],
     ),
@@ -119,6 +120,7 @@ java_library(
         ":constants",
         ":depend_on_future_shim",
         ":frontier_node_version",
+        ":write_status",
         ":write_statuses",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
@@ -131,7 +133,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:bucket",
         "//src/main/java/com/google/devtools/build/lib/util:decimal_bucketer",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-        "//src/main/protobuf:file_invalidation_data_java_proto",
         "//third_party:caffeine",
         "//third_party:error_prone_annotations",
         "//third_party:fastutil",
@@ -210,9 +211,23 @@ java_library(
 )
 
 java_library(
-    name = "write_statuses",
-    srcs = ["WriteStatuses.java"],
+    name = "write_status",
+    srcs = [
+        "WriteStatus.java",
+    ],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "write_statuses",
+    srcs = [
+        "WriteStatuses.java",
+    ],
+    deps = [
+        ":write_status",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//third_party:error_prone_annotations",
         "//third_party:guava",

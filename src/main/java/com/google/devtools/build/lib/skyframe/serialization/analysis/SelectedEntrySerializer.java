@@ -54,7 +54,7 @@ import com.google.devtools.build.lib.skyframe.serialization.PackedFingerprint;
 import com.google.devtools.build.lib.skyframe.serialization.ProfileCollector;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationResult;
 import com.google.devtools.build.lib.skyframe.serialization.SharedValueSerializationContext;
-import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.WriteStatus;
+import com.google.devtools.build.lib.skyframe.serialization.WriteStatus;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.InvalidationDataInfoOrFuture.FileInvalidationDataInfo;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.InvalidationDataInfoOrFuture.FutureFileDataInfo;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.InvalidationDataInfoOrFuture.FutureListingDataInfo;

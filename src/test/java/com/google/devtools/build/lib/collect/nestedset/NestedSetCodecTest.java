@@ -53,8 +53,8 @@ import com.google.devtools.build.lib.skyframe.serialization.SerializationContext
 import com.google.devtools.build.lib.skyframe.serialization.SerializationDependencyProvider;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationResult;
+import com.google.devtools.build.lib.skyframe.serialization.WriteStatus;
 import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.SettableWriteStatus;
-import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.WriteStatus;
 import com.google.devtools.build.lib.util.io.AnsiTerminal.Color;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedInputStream;

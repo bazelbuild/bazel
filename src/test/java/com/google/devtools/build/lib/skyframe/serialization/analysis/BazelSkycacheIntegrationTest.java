@@ -28,8 +28,8 @@ import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueServ
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore;
 import com.google.devtools.build.lib.skyframe.serialization.KeyBytesProvider;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationModule;
+import com.google.devtools.build.lib.skyframe.serialization.WriteStatus;
 import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses;
-import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.WriteStatus;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.versioning.LongVersionGetter;
 import java.io.IOException;
