@@ -414,12 +414,10 @@ public final class Converters {
   /** Checks whether a string is part of a set of strings. */
   public static class StringSetConverter extends Converter.Contextless<String> {
 
-    // TODO(bazel-team): if this class never actually contains duplicates, we could s/List/Set/
-    // here.
-    private final ImmutableList<String> values;
+    private final ImmutableSet<String> values;
 
     public StringSetConverter(String... values) {
-      this.values = ImmutableList.copyOf(values);
+      this.values = ImmutableSet.copyOf(values);
     }
 
     @Override
