@@ -1,3 +1,51 @@
+## Release 10.0.0-pre.20260608.1 (2026-06-16)
+
+```
+Baseline: db077161e43484e4cb0f2270374ee33d05f3690d
+```
+
+Important changes:
+
+  - The new `refines_constraint_value` attribute on
+    `constraint_setting` can be used to indicate that any non-default
+    value for that setting specified on a `platform` requires the
+    refined value to also be specified.
+  - Bazel's serialization system now has a new wire encoding that
+    supports
+    preserving how values are serialized across Bazel versions.
+
+This release contains contributions from many people at Google, as well as Benjamin Peterson, dependabot[bot], Fabian Meumertzheim, Fredrik Medley, Jean-Baptiste Bronisz, JonathanPerry651, Keith Smiley, vadim.
+
+## Release 10.0.0-pre.20260601.1 (2026-06-11)
+
+```
+Baseline: c9a05c3af4e6bf7a2bd9ab0a29ada8f33eab76cf
+```
+
+New features:
+
+  - Add an `exclude` param to `rtx.watch_tree()` to allow excluding
+    glob patterns from watch.
+
+Important changes:
+
+  - Enabled output path mapping (config stripping) support for
+    `ArchivedTreeArtifact`s to improve action caching under
+    `--experimental_output_paths=strip`.
+  - `module_extension(...)` now accepts a `facts_version` integer
+    parameter. Bumping it invalidates the facts persisted in
+    `MODULE.bazel.lock` for that extension, allowing extension
+    authors to make breaking changes to the facts schema without
+    risking misinterpretation by older code paths.
+  - Fixed an issue that caused Bazel to fail on a lost input even
+    with build or action rewinding enabled.
+  - BuildFinished events in BEP will consistently contain an
+    "infrastructure-caused" detailed exit code when a single target
+    contains both infrastructure-caused and user-caused exit codes in
+    its failed actions.
+
+This release contains contributions from many people at Google, as well as Chi Wang, Fabian Meumertzheim, Moran Omer, Son Luong Ngoc, Will Stranton, Yonatan Goldschmidt.
+
 ## Release 10.0.0-pre.20260524.1 (2026-06-03)
 
 ```
