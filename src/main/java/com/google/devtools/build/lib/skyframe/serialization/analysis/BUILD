@@ -301,9 +301,7 @@ java_library(
         "LookupTopLevelTargetsResult.java",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis/proto:analysis_cache_service_metadata_status_java_proto",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis/proto:analysis_cache_service_miss_reason_java_proto",
-        "@com_google_protobuf//:protobuf_java",
+        "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
     ],
 )
 
@@ -312,11 +310,9 @@ java_library(
     srcs = ["RemoteAnalysisCacheClient.java"],
     deps = [
         ":lookup_result",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis/proto:analysis_cache_service_metadata_status_java_proto",
         "//src/main/java/com/google/devtools/build/lib/util:bucket",
         "//third_party:error_prone_annotations",
         "//third_party:guava",
-        "@com_google_protobuf//:protobuf_java",
     ],
 )
 
@@ -362,7 +358,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:flogger",
         "//third_party:guava",
-        "@com_google_protobuf//:protobuf_java",
     ],
 )
 
@@ -405,6 +400,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis/proto:analysis_cache_service_metadata_status_java_proto",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:guava",

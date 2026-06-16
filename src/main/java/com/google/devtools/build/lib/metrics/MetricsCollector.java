@@ -80,6 +80,7 @@ import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTarge
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheClient;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingEventListener;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.proto.TopLevelTargetsMatchStatus;
 import com.google.devtools.build.lib.util.Bucket;
 import com.google.devtools.build.lib.worker.WorkerProcessMetrics;
 import com.google.devtools.build.lib.worker.WorkerProcessMetricsCollector;
@@ -446,6 +447,12 @@ class MetricsCollector {
 
     RemoteAnalysisCacheClient.Stats raccStats =
         env.getRemoteAnalysisCachingEventListener().getRemoteAnalysisCacheStats();
+    TopLevelTargetsMatchStatus matchStatus =
+        TopLevelTargetsMatchStatus.forNumber(raccStats.matchStatus());
+    if (matchStatus == null) {
+      // Possible version skew: the old LC doesn't know about the new enum value.
+      matchStatus = TopLevelTargetsMatchStatus.MATCH_STATUS_UNSPECIFIED;
+    }
     result
         .setAnalysisCacheBytesReceived(raccStats.bytesReceived())
         .setAnalysisCacheKeyBytesSent(raccStats.bytesSent())
@@ -454,7 +461,7 @@ class MetricsCollector {
         .setAnalysisCacheReadLatencyMicros(computeDistributionProto(raccStats.latencyMicros()))
         .setAnalysisCacheReadBatchLatencyMicros(
             computeDistributionProto(raccStats.batchLatencyMicros()))
-        .setMetadataLookupResult(raccStats.matchStatus());
+        .setMetadataLookupResult(matchStatus);
 
     RemoteAnalysisCacheStatistics.InvalidationLookupMetrics invalidationMetrics =
         listener.getInvalidationLookupMetrics();

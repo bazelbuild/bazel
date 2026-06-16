@@ -25,7 +25,7 @@ import com.google.devtools.build.skyframe.SkyFunction.Environment.SkyKeyComputeS
 import com.google.devtools.build.skyframe.SkyFunction.LookupEnvironment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.protobuf.ByteString;
+import com.google.protobuf.CodedInputStream;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 
@@ -193,7 +193,7 @@ public final class SkyValueRetriever {
                 FingerprintValueService.computeFingerprint(
                     this.fingerprintValueService, this.codecs, key, this.frontierNodeVersion);
             ListenableFuture<LookupResult> futureResponse =
-                analysisCacheClient.lookup(ByteString.copyFrom(cacheKey.toBytes()));
+                analysisCacheClient.lookup(cacheKey.toBytes());
 
             serializationState = new WaitingForCacheServiceResponse(futureResponse);
             switch (futuresShim.dependOnFuture(futureResponse)) {
@@ -210,12 +210,18 @@ public final class SkyValueRetriever {
             } catch (ExecutionException e) {
               throw new SerializationException("getting cache response for " + key, e);
             }
-            if (result.value().isEmpty()) {
-              serializationState = new NoCachedData(result.missReason());
+            if (result.value().length == 0) {
+              var missReason = MissReason.forNumber(result.missReason());
+              if (missReason == null) {
+                // Possible version skew: the old LC doesn't know about the new enum value.
+                missReason = MissReason.MISS_REASON_UNSPECIFIED;
+              }
+              serializationState = new NoCachedData(missReason);
               continue;
             }
             Object value =
-                this.codecs.deserializeWithSkyframe(this.fingerprintValueService, result.value());
+                codecs.deserializeWithSkyframe(
+                    this.fingerprintValueService, CodedInputStream.newInstance(result.value()));
             if (!(value instanceof ListenableFuture)) {
               serializationState = new RetrievedValue((SkyValue) value);
               continue;

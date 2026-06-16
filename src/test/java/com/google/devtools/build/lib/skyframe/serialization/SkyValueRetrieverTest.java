@@ -293,6 +293,35 @@ public final class SkyValueRetrieverTest {
     assertThat(((RetrievedValue) result).value()).isEqualTo(value);
   }
 
+  @Test
+  public void tryRetrieve_withInvalidMissReason_defaultsToUnspecified() throws Exception {
+    var fingerprintValueService = FingerprintValueService.createForAnalysisCacheTesting();
+    RetrievalContext state = new RetrievalContext();
+    var key = new TrivialKey("a");
+
+    RemoteAnalysisCacheClient analysisCacheClient = mock(RemoteAnalysisCacheClient.class);
+    when(analysisCacheClient.lookup(any()))
+        .thenReturn(
+            immediateFuture(
+                new LookupResult(
+                    /* value= */ new byte[0], /* missReason= */ 999))); // invalid miss reason
+
+    RetrievalResult result =
+        createSkyValueRetriever(fingerprintValueService, codecs, CONSTANT_FOR_TESTING)
+            .tryRetrieve(
+                NO_LOOKUP_ENVIRONMENT,
+                SkyValueRetrieverTest::dependOnFutureImpl,
+                analysisCacheClient,
+                key,
+                state);
+
+    result =
+        maybeWaitForAnalysisCacheService(
+            fingerprintValueService, analysisCacheClient, state, key, result);
+
+    assertThat(state.getState()).isInstanceOf(NoCachedData.class);
+    assertThat(((NoCachedData) result).reason()).isEqualTo(MissReason.MISS_REASON_UNSPECIFIED);
+  }
 
   @Test
   public void tryRetrieve_withSkyframeRestart_completes() throws Exception {
@@ -837,14 +866,14 @@ public final class SkyValueRetrieverTest {
     when(result.lookup(any()))
         .thenAnswer(
             invocation -> {
-              ByteString key = invocation.getArgument(0);
+              ByteString key = ByteString.copyFrom((byte[]) invocation.getArgument(0));
               ByteString value = data.getOrDefault(key, ByteString.empty());
               return immediateFuture(
                   new LookupResult(
-                      value,
+                      value.toByteArray(),
                       value.isEmpty()
-                          ? MissReason.MISS_REASON_SKYVALUE_MISS
-                          : MissReason.MISS_REASON_UNSPECIFIED));
+                          ? MissReason.MISS_REASON_SKYVALUE_MISS.getNumber()
+                          : MissReason.MISS_REASON_UNSPECIFIED.getNumber()));
             });
 
     return result;

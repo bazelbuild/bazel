@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Bui
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.BuildGraphMetrics.AspectCount;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.BuildGraphMetrics.RuleClassCount;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.CumulativeMetrics;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.RemoteAnalysisCacheStatistics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.WorkerPoolMetrics.WorkerPoolStats;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.clock.JavaClock;
@@ -37,12 +38,16 @@ import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.MemoryPressureModule;
+import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheClient;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.proto.TopLevelTargetsMatchStatus;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.worker.WorkerProcessMetrics;
 import com.google.devtools.build.lib.worker.WorkerProcessMetricsCollector;
 import com.google.devtools.build.lib.worker.WorkerProcessStatus;
 import com.google.devtools.build.lib.worker.WorkerProcessStatus.Status;
 import java.util.List;
+import javax.annotation.Nullable;
 import org.junit.After;
 import org.junit.Assume;
 import org.junit.Before;
@@ -57,10 +62,20 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
   static class BuildMetricsEventListener extends BlazeModule {
 
     private BuildMetricsEvent event;
+    @Nullable RemoteAnalysisCacheClient.Stats statsToInject;
 
     @Override
     public void beforeCommand(CommandEnvironment env) {
       env.getEventBus().register(this);
+      if (statsToInject != null) {
+        env.getRemoteAnalysisCachingEventListener()
+            .recordServiceStats(FingerprintValueStore.EMPTY_STATS, statsToInject);
+      }
+    }
+
+    @Override
+    public void afterCommand() {
+      statsToInject = null;
     }
 
     @Subscribe
@@ -69,7 +84,8 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
     }
   }
 
-  private BuildMetricsEventListener buildMetricsEventListener = new BuildMetricsEventListener();
+  private final BuildMetricsEventListener buildMetricsEventListener =
+      new BuildMetricsEventListener();
   // needed for HeapOffset options.
   private final MemoryPressureModule memoryPressureModule = new MemoryPressureModule();
 
@@ -918,6 +934,28 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
                 .setDestroyedCount(6)
                 .setCreatedCount(3)
                 .build());
+  }
+
+  @Test
+  public void testRemoteAnalysisCacheStats_invalidMatchStatus_defaultsToUnspecified()
+      throws Exception {
+    buildMetricsEventListener.statsToInject =
+        new RemoteAnalysisCacheClient.Stats(
+            /* bytesSent= */ 10,
+            /* bytesReceived= */ 2,
+            /* requestsSent= */ 100,
+            /* batches= */ 200,
+            /* latencyMicros= */ ImmutableList.of(),
+            /* batchLatencyMicros= */ ImmutableList.of(),
+            /* matchStatus= */ 999); // invalid value
+
+    buildTarget("//foo:foo");
+
+    BuildMetrics buildMetrics = buildMetricsEventListener.event.getBuildMetrics();
+    assertThat(buildMetrics.hasRemoteAnalysisCacheStatistics()).isTrue();
+    RemoteAnalysisCacheStatistics stats = buildMetrics.getRemoteAnalysisCacheStatistics();
+    assertThat(stats.getMetadataLookupResult())
+        .isEqualTo(TopLevelTargetsMatchStatus.MATCH_STATUS_UNSPECIFIED);
   }
 
   private static final String DUMMY_MNEMONIC = "DUMMY_MNEMONIC";

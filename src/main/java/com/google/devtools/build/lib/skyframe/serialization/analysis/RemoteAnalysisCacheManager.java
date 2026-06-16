@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.skyframe.serialization.SkycacheMetadataParams;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.proto.TopLevelTargetsMatchStatus;
 import com.google.devtools.build.skyframe.InMemoryGraph;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.util.Collection;
@@ -123,8 +124,14 @@ public class RemoteAnalysisCacheManager implements RemoteAnalysisCachingDependen
                     skycacheMetadataParams.getUseFakeStampData(),
                     skycacheMetadataParams.getBazelVersion());
 
+        TopLevelTargetsMatchStatus matchStatus =
+            TopLevelTargetsMatchStatus.forNumber(result.status());
+        if (matchStatus == null) {
+          // Possible version skew: the old LC doesn't know about the new enum value.
+          matchStatus = TopLevelTargetsMatchStatus.MATCH_STATUS_UNSPECIFIED;
+        }
         Event event =
-            switch (result.status()) {
+            switch (matchStatus) {
               case MATCH_STATUS_MATCH -> Event.info("Skycache: " + result.statusMessage());
               default -> {
                 bailedOut = true;
