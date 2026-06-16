@@ -159,6 +159,9 @@ public interface ImportantOutputHandler extends ActionContext {
     }
   }
 
+  /** Informs this handler of a param file that was materialized prior to action execution. */
+  default void processParamFile(ParamFileActionInput paramFile) throws ImportantOutputException {}
+
   /** Represents an exception encountered during processing of important outputs. */
   final class ImportantOutputException extends Exception implements DetailedException {
     private final FailureDetail failureDetail;

@@ -491,6 +491,7 @@ java_library(
         ":action_input",
         ":actions",
         ":artifacts",
+        ":param_file_action_input",
         "//src/main/java/com/google/devtools/build/lib/skyframe:detailed_exceptions",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/java/com/google/devtools/build/lib/vfs",
