@@ -151,7 +151,7 @@ final class MethodDescriptor {
             allowReturnNones);
   }
 
-  private static StarlarkType buildStarlarkType(
+  private StarlarkType buildStarlarkType(
       Method method,
       StarlarkMethod annotation,
       ParamDescriptor[] parameters,
@@ -254,7 +254,7 @@ final class MethodDescriptor {
     }
   }
 
-  static StarlarkType starlarkTypeFromAnnotation(ParamType[] paramTypes) {
+  private StarlarkType starlarkTypeFromAnnotation(ParamType[] paramTypes) {
     return Types.union(
         Arrays.stream(paramTypes)
             .map(
@@ -271,7 +271,7 @@ final class MethodDescriptor {
   }
 
   /** Returns the Starlark type corresponding to the given Java type. */
-  static StarlarkType starlarkTypeFromJava(Type cls, boolean isReturnType) {
+  private StarlarkType starlarkTypeFromJava(Type cls, boolean isReturnType) {
     if (cls == NoneType.class || cls == void.class) {
       return Types.NONE;
     } else if (cls == String.class) {
@@ -304,29 +304,35 @@ final class MethodDescriptor {
           starlarkTypeFromJava(ptype.getActualTypeArguments()[0], isReturnType));
     } else if (cls instanceof ParameterizedType ptype && ptype.getRawType() == Sequence.class) {
       return Types.sequence(starlarkTypeFromJava(ptype.getActualTypeArguments()[0], isReturnType));
-    } else if (isStructType(cls)) {
-      // TODO: #27370 - Allow StarlarkMethod to specify a narrower struct type.
-      // Use the top struct type for parameters (to accept all possible struct arguments); use the
-      // any partial struct type for returns (since we cannot know what fields it might have).
-      return isReturnType ? Types.STRUCT_OF_ANY : Types.EMPTY_STRUCT;
     } else if (cls == Object.class || cls == StarlarkValue.class) {
       return Types.OBJECT;
     } else {
-      // TODO(ilist@): handle more complex types
+      if (cls instanceof Class<?> c) {
+        @Nullable StarlarkType classStarlarkType = manager.getClassStarlarkType(c);
+        if (classStarlarkType != null) {
+          // If there is a class Starlark type defined, prefer it over STRUCT_OF_ANY/EMPTY_STRUCT.
+          return classStarlarkType;
+        }
+        if (isStructType(c)) {
+          // TODO: #27370 - Allow StarlarkMethod to specify a narrower struct type.
+          // Use the top struct type for parameters (to accept all possible struct arguments); use
+          // the any partial struct type for returns (since we cannot know what fields it might
+          // have).
+          return isReturnType ? Types.STRUCT_OF_ANY : Types.EMPTY_STRUCT;
+        }
+      }
       return Types.ANY;
     }
   }
 
-  private static boolean isStructType(Type cls) {
-    if (cls instanceof Class<?> c) {
-      if (Structure.class.isAssignableFrom(c)) {
-        return true;
-      }
-      @Nullable StarlarkBuiltin annotation = StarlarkAnnotations.getStarlarkBuiltin(c);
-      if (annotation != null && annotation.isStructType()) {
-        // Detect com.google.devtools.build.lib.starlarkbuildapi.core.StructApi
-        return true;
-      }
+  private static boolean isStructType(Class<?> cls) {
+    if (Structure.class.isAssignableFrom(cls)) {
+      return true;
+    }
+    @Nullable StarlarkBuiltin annotation = StarlarkAnnotations.getStarlarkBuiltin(cls);
+    if (annotation != null && annotation.isStructType()) {
+      // Detect com.google.devtools.build.lib.starlarkbuildapi.core.StructApi
+      return true;
     }
     return false;
   }

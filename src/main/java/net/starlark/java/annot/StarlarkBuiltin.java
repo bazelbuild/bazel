@@ -89,8 +89,5 @@ public @interface StarlarkBuiltin {
    *       of this type will be translated as a {@link net.starlark.java.syntax.Types.StructType}
    * </ul>
    */
-  // TODO: #27370 - for point #2 above, when possible, use a more specific type rather than a plain
-  // `struct`. Requires breaking the circular dependency between auto-generated ClassStarlarkType-s
-  // and their methods' types.
   boolean isStructType() default false;
 }

@@ -17,11 +17,9 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
+import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
-import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.Mutability;
-import net.starlark.java.eval.Starlark;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -32,14 +30,25 @@ public class StarlarkTypesTest extends BuildViewTestCase {
 
   @StarlarkBuiltin(name = "TestStructApiImpl")
   private static final class TestStructApiImpl implements StructApi {
-    @StarlarkMethod(name = "some_field", doc = "A field", structField = true)
-    public int someField() {
-      return 42;
+    private final int answer;
+
+    private TestStructApiImpl(int answer) {
+      this.answer = answer;
     }
 
-    @StarlarkMethod(name = "ctor", doc = "Not a field")
-    public TestStructApiImpl ctor() {
-      return new TestStructApiImpl();
+    @StarlarkMethod(name = "answer", doc = "A field", structField = true)
+    public int answer() {
+      return answer;
+    }
+
+    @StarlarkMethod(
+        name = "plus",
+        doc = "Not a field",
+        parameters = {
+          @Param(name = "other"),
+        })
+    public TestStructApiImpl plus(TestStructApiImpl other) {
+      return new TestStructApiImpl(this.answer + other.answer);
     }
   }
 
@@ -47,14 +56,7 @@ public class StarlarkTypesTest extends BuildViewTestCase {
   protected ConfiguredRuleClassProvider createRuleClassProvider() {
     ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
     TestRuleClassProvider.addStandardRules(builder);
-    try {
-      builder.addBzlToplevel(
-          "test_struct_api_impl_ctor",
-          Starlark.getattr(
-              Mutability.IMMUTABLE, getStarlarkSemantics(), new TestStructApiImpl(), "ctor", null));
-    } catch (EvalException | InterruptedException e) {
-      throw new IllegalStateException(e);
-    }
+    builder.addBzlToplevel("test_struct_api_impl", new TestStructApiImpl(42));
     return builder.build();
   }
 
@@ -302,20 +304,10 @@ public class StarlarkTypesTest extends BuildViewTestCase {
     setBuildLanguageOptions(
         "--experimental_starlark_type_syntax", "--experimental_starlark_static_type_checking");
 
-    // We need a value statically typed as `TestStructApiImpl`. We can't use TestStructApiImpl#ctor
-    // directly because MethodDescriptor#starlarkTypeFromJava doesn't (yet) support auto-generated
-    // types; instead, we have to export the value from an intermediate .bzl file, and rely on the
-    // fact that in consuming modules, an exported global's type is inferred from its dynamic type.
-    // TODO: #28325 - Fix MethodDescriptor#starlarkTypeFromJava.
-    scratch.file("exports.bzl", "test_struct_api_impl = test_struct_api_impl_ctor()");
-    scratch.file("BUILD");
-
     scratch.file(
         "good/good.bzl",
         """
-        load("//:exports.bzl", "test_struct_api_impl")
-
-        good: struct[{"some_field": int}] = test_struct_api_impl
+        good: struct[{"answer": int}] = test_struct_api_impl.plus(test_struct_api_impl)
         """);
     scratch.file("good/BUILD", "load('good.bzl', 'good')");
     getConfiguredTarget("//good:BUILD");
@@ -324,15 +316,12 @@ public class StarlarkTypesTest extends BuildViewTestCase {
     scratch.file(
         "bad/bad.bzl",
         """
-        load("//:exports.bzl", "test_struct_api_impl")
-
-        bad: struct[{"some_field": float}] = test_struct_api_impl
+        bad: struct[{"answer": float}] = test_struct_api_impl.plus(test_struct_api_impl)
         """);
     scratch.file("bad/BUILD", "load('bad.bzl', 'bad')");
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//bad:BUILD");
     assertContainsEvent(
-        "cannot assign type 'TestStructApiImpl' to 'bad' of type 'struct[{\"some_field\":"
-            + " float}]'");
+        "cannot assign type 'TestStructApiImpl' to 'bad' of type 'struct[{\"answer\": float}]'");
   }
 }
