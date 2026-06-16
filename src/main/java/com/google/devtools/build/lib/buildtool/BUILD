@@ -235,6 +235,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe/actiongraph/v2:actiongraph_v2",
         "//src/main/java/com/google/devtools/build/lib/skyframe/config",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:fingerprint_value_store",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:skycache_metadata_params",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:dependencies_provider",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:frontier_serializer",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:options",

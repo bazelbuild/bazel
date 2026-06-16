@@ -46,7 +46,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/profiler:memory_profiler",
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
         "//src/main/java/com/google/devtools/build/lib/runtime:memory_pressure_module",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:fingerprint_value_store",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:remote_analysis_cache_client",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis/proto:analysis_cache_service_metadata_status_java_proto",
         "//src/main/java/com/google/devtools/build/lib/util:os",

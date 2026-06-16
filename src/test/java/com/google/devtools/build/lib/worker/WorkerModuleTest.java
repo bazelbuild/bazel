@@ -320,7 +320,8 @@ public class WorkerModuleTest {
             /* allocationTracker= */ null,
             /* syscallCache= */ null,
             /* analysisCodecRegistrySupplier= */ null,
-            /* fingerprintValueServiceFactory= */ null,
+            /* remoteAnalysisCachingServicesSupplier= */ null,
+            /* fingerprinterForAnalysisCaching= */ null,
             /* allowExternalRepositories= */ true);
     when(env.getBlazeWorkspace()).thenReturn(blazeWorkspace);
     when(env.getDirectories()).thenReturn(blazeDirectories);

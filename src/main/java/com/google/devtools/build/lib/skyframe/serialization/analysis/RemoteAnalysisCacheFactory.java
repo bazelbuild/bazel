@@ -64,6 +64,7 @@ import com.google.devtools.build.lib.skyframe.serialization.analysis.ClientId.Lo
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheManager.AnalysisDeps;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.util.SerializedAbruptExitException;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.Root.RootCodecDependencies;
 import java.util.Collection;
@@ -180,7 +181,11 @@ public final class RemoteAnalysisCacheFactory {
             options.getRemoteAnalysisWriteProxy(),
             options.getAnalysisCacheEnableMetadataQueries(),
             options.getRemoteAnalysisDebugEntries());
-    servicesSupplier.configure(config, clientId, env.getCommandId().toString());
+    try {
+      servicesSupplier.configure(config, clientId, env.getCommandId().toString());
+    } catch (SerializedAbruptExitException e) {
+      throw AbruptExitException.fromSerialized(e);
+    }
 
     // Set up parameters for the metadata store, if needed
 
@@ -219,7 +224,8 @@ public final class RemoteAnalysisCacheFactory {
             activeDirectoriesMatcher,
             options.getSerializedFrontierProfile(),
             options.getSkycacheAnalysisOnly(),
-            options.getEmitBepUploadEvents());
+            options.getEmitBepUploadEvents(),
+            env.getBlazeWorkspace().getFingerprinterForAnalysisCaching());
 
     ListenableFuture<AnalysisCacheInvalidator> analysisCacheInvalidator =
         createAnalysisCacheInvalidator(
@@ -227,7 +233,7 @@ public final class RemoteAnalysisCacheFactory {
             clientId,
             frontierNodeVersion,
             objectCodecs,
-            servicesSupplier.getFingerprintValueService(),
+            deps.getFingerprintValueServiceFuture(),
             servicesSupplier.getAnalysisCacheClient(),
             env.getRemoteAnalysisCachingEventListener());
 

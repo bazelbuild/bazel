@@ -13,15 +13,18 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
 import com.google.devtools.build.lib.util.Bucket;
 import java.io.IOException;
+import java.util.List;
 import javax.annotation.Nullable;
 
 /** Encapsulates fingerprint keyed bytes storage system. */
+@SkybridgeInterface
 public interface FingerprintValueStore {
   /** Usage statistics. */
+  @SkybridgeInterface
   record Stats(
       long valueBytesReceived,
       long valueBytesSent,
@@ -31,25 +34,13 @@ public interface FingerprintValueStore {
       long entriesNotFound,
       long getBatches,
       long setBatches,
-      ImmutableList<Bucket> getLatencyMicros,
-      ImmutableList<Bucket> setLatencyMicros,
-      ImmutableList<Bucket> getBatchLatencyMicros,
-      ImmutableList<Bucket> setBatchLatencyMicros) {}
+      List<Bucket> getLatencyMicros,
+      List<Bucket> setLatencyMicros,
+      List<Bucket> getBatchLatencyMicros,
+      List<Bucket> setBatchLatencyMicros) {}
 
-  Stats EMPTY_STATS =
-      new Stats(
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          ImmutableList.of(),
-          ImmutableList.of(),
-          ImmutableList.of(),
-          ImmutableList.of());
+  @SuppressWarnings("JdkImmutableCollections") // Keep the SkybridgeInterface simple.
+  Stats EMPTY_STATS = new Stats(0, 0, 0, 0, 0, 0, 0, 0, List.of(), List.of(), List.of(), List.of());
 
   default Stats getStats() {
     return EMPTY_STATS;

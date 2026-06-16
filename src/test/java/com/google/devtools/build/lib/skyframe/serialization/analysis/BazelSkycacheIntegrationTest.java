@@ -16,15 +16,12 @@ package com.google.devtools.build.lib.skyframe.serialization.analysis;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.devtools.build.lib.skyframe.serialization.analysis.LongVersionGetterTestInjection.injectVersionGetterForTesting;
-import static java.util.concurrent.Executors.newSingleThreadExecutor;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.mock;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
-import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueCache;
-import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore;
 import com.google.devtools.build.lib.skyframe.serialization.InMemoryFingerprintValueStore;
 import com.google.devtools.build.lib.skyframe.serialization.KeyBytesProvider;
@@ -89,27 +86,22 @@ public final class BazelSkycacheIntegrationTest extends SkycacheIntegrationTestB
 
   private class ModuleWithOverrides extends SerializationModule {
     @Override
-    protected RemoteAnalysisCachingServicesSupplier getAnalysisCachingServicesSupplier() {
+    protected RemoteAnalysisCachingServicesSupplier getAnalysisCachingServicesSupplier(
+        BlazeRuntime runtime) {
       return new TestServicesSupplier(failingStore);
     }
   }
 
   private static class TestServicesSupplier implements RemoteAnalysisCachingServicesSupplier {
-    private final ListenableFuture<FingerprintValueService> wrappedService;
+    private final ListenableFuture<FingerprintValueStore> fingerprintValueStore;
 
     private TestServicesSupplier(FailingFingerprintValueStore failingStore) {
-      this.wrappedService =
-          immediateFuture(
-              new FingerprintValueService(
-                  newSingleThreadExecutor(),
-                  failingStore,
-                  new FingerprintValueCache(FingerprintValueCache.SyncMode.NOT_LINKED),
-                  FingerprintValueService.NONPROD_FINGERPRINTER));
+      this.fingerprintValueStore = immediateFuture(failingStore);
     }
 
     @Override
-    public ListenableFuture<FingerprintValueService> getFingerprintValueService() {
-      return wrappedService;
+    public ListenableFuture<FingerprintValueStore> getFingerprintValueStore() {
+      return fingerprintValueStore;
     }
 
     @Override

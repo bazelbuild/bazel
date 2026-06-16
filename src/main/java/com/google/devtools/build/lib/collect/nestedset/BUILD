@@ -40,6 +40,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:constants",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:fingerprint_value_store",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:write_status",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:write_statuses",

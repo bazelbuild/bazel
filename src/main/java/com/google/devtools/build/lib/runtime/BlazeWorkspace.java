@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.In
 import com.google.devtools.build.lib.server.IdleTask;
 import com.google.devtools.build.lib.server.IdleTaskException;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
+import com.google.devtools.build.lib.skyframe.serialization.Fingerprinter;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingServicesSupplier;
 import com.google.devtools.build.lib.util.io.CommandExtensionReporter;
@@ -88,6 +89,8 @@ public final class BlazeWorkspace {
    */
   @Nullable
   private final RemoteAnalysisCachingServicesSupplier remoteAnalysisCachingServicesSupplier;
+
+  private final Fingerprinter fingerprinterForAnalysisCaching;
 
   /**
    * The action cache, or null if it hasn't been loaded yet.
@@ -164,6 +167,7 @@ public final class BlazeWorkspace {
       SyscallCache syscallCache,
       Supplier<ObjectCodecRegistry> analysisCodecRegistrySupplier,
       @Nullable RemoteAnalysisCachingServicesSupplier remoteAnalysisCachingServicesSupplier,
+      Fingerprinter fingerprinterForAnalysisCaching,
       boolean allowExternalRepositories) {
     this.runtime = runtime;
     this.eventBusExceptionHandler = Preconditions.checkNotNull(eventBusExceptionHandler);
@@ -179,6 +183,7 @@ public final class BlazeWorkspace {
     this.virtualPackageLocator = createPackageLocatorIfVirtual(directories, skyframeExecutor);
     this.analysisCodecRegistrySupplier = analysisCodecRegistrySupplier;
     this.remoteAnalysisCachingServicesSupplier = remoteAnalysisCachingServicesSupplier;
+    this.fingerprinterForAnalysisCaching = fingerprinterForAnalysisCaching;
 
     if (directories.inWorkspace()) {
       writeOutputBaseReadmeFile();
@@ -473,6 +478,10 @@ public final class BlazeWorkspace {
 
   public RemoteAnalysisCachingServicesSupplier remoteAnalysisCachingServicesSupplier() {
     return remoteAnalysisCachingServicesSupplier;
+  }
+
+  public Fingerprinter getFingerprinterForAnalysisCaching() {
+    return fingerprinterForAnalysisCaching;
   }
 
   @Nullable

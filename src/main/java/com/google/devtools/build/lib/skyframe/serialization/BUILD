@@ -61,6 +61,7 @@ java_library(
     name = "serialization_module",
     srcs = ["SerializationModule.java"],
     deps = [
+        ":fingerprint_value_store",
         ":serialization",
         ":serialization_registry_setup_helpers",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
@@ -102,11 +103,14 @@ java_library(
             "DependOnFutureShim.java",
             "DeserializedSkyValue.java",
             "ErrorMessageHelper.java",
+            "FingerprintValueStore.java",
             "FrontierNodeVersion.java",
+            "KeyBytesProvider.java",
             "ModuleCodec.java",
             "SerializationRegistrySetupHelpers.java",
             "SerializationConstants.java",
             "SerializationModule.java",
+            "SkycacheMetadataParams.java",
             "VisibleForSerialization.java",
             "WriteStatus.java",
             "WriteStatuses.java",
@@ -119,18 +123,20 @@ java_library(
         ":codec-scanning-constants",
         ":constants",
         ":depend_on_future_shim",
+        ":fingerprint_value_store",
         ":frontier_node_version",
+        ":key_bytes_provider",
         ":write_status",
         ":write_statuses",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:lookup_result",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:remote_analysis_cache_client",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis/proto:analysis_cache_service_miss_reason_java_proto",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//src/main/java/com/google/devtools/build/lib/unsafe:string",
         "//src/main/java/com/google/devtools/build/lib/unsafe:unsafe-provider",
-        "//src/main/java/com/google/devtools/build/lib/util:bucket",
         "//src/main/java/com/google/devtools/build/lib/util:decimal_bucketer",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:caffeine",
@@ -231,5 +237,34 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//third_party:error_prone_annotations",
         "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "skycache_metadata_params",
+    srcs = ["SkycacheMetadataParams.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
+    ],
+)
+
+java_library(
+    name = "fingerprint_value_store",
+    srcs = ["FingerprintValueStore.java"],
+    deps = [
+        ":key_bytes_provider",
+        ":write_status",
+        "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
+        "//src/main/java/com/google/devtools/build/lib/util:bucket",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "key_bytes_provider",
+    srcs = ["KeyBytesProvider.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
     ],
 )

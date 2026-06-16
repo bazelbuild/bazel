@@ -93,6 +93,7 @@ import com.google.protobuf.util.Durations;
 import java.time.Duration;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -382,7 +383,7 @@ class MetricsCollector {
     return buildMetrics.build();
   }
 
-  private Distribution computeDistributionProto(ImmutableList<Bucket> buckets) {
+  private Distribution computeDistributionProto(List<Bucket> buckets) {
     Distribution.Builder result = Distribution.newBuilder();
 
     for (var b : buckets) {

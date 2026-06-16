@@ -91,6 +91,8 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
         "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:fingerprint_value_store",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:key_bytes_provider",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:serialization_module",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:write_status",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:write_statuses",

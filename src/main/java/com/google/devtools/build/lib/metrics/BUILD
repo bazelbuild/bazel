@@ -58,7 +58,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:execution_finished_event",
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_stats",
         "//src/main/java/com/google/devtools/build/lib/skyframe:top_level_status_events",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:fingerprint_value_store",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:event_listener",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:remote_analysis_cache_client",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis/proto:analysis_cache_service_metadata_status_java_proto",
