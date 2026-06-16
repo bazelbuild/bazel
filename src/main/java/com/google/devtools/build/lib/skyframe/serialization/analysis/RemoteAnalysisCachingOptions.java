@@ -19,6 +19,7 @@ import com.google.common.hash.HashCode;
 import com.google.common.hash.Hashing;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters.DurationConverter;
+import com.google.devtools.common.options.Converters.RangeConverter;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -63,6 +64,13 @@ public abstract class RemoteAnalysisCachingOptions extends OptionsBase {
     }
   }
 
+  /** A converter for integers that must be at least 1. */
+  public static final class PositiveIntegerConverter extends RangeConverter {
+    public PositiveIntegerConverter() {
+      super(1, Integer.MAX_VALUE);
+    }
+  }
+
   @Option(
       name = "serialized_frontier_profile",
       defaultValue = "",
@@ -95,6 +103,7 @@ public abstract class RemoteAnalysisCachingOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
       defaultValue = "4095",
+      converter = PositiveIntegerConverter.class,
       help = "Batch size limit for remote analysis caching RPCs.")
   public abstract int getMaxBatchSize();
 
@@ -103,8 +112,27 @@ public abstract class RemoteAnalysisCachingOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
       defaultValue = "4",
+      converter = PositiveIntegerConverter.class,
       help = "Target concurrency for remote analysis caching RPCs.")
   public abstract int getConcurrency();
+
+  @Option(
+      name = "experimental_remote_analysis_cache_max_write_concurrency",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      defaultValue = "100",
+      converter = PositiveIntegerConverter.class,
+      help = "Max write concurrency for remote analysis caching RPCs.")
+  public abstract int getMaxWriteConcurrency();
+
+  @Option(
+      name = "experimental_remote_analysis_cache_target_write_concurrency",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      defaultValue = "1",
+      converter = PositiveIntegerConverter.class,
+      help = "Target write concurrency for remote analysis caching RPCs.")
+  public abstract int getTargetWriteConcurrency();
 
   @Option(
       name = "experimental_remote_analysis_cache_deadline",

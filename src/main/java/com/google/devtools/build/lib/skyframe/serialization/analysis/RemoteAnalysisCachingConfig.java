@@ -23,6 +23,8 @@ public record RemoteAnalysisCachingConfig(
     RemoteAnalysisCacheStorageType storageType,
     int maxBatchSize,
     int concurrency,
+    int targetWriteConcurrency,
+    int maxWriteConcurrency,
     Duration deadline,
     String cacheServiceAddress,
     String writeProxyServiceAddress,

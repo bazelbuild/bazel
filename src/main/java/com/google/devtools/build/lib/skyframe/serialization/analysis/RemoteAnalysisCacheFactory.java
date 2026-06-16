@@ -174,8 +174,10 @@ public final class RemoteAnalysisCacheFactory {
         new RemoteAnalysisCachingConfig(
             options.getMode(),
             options.getStorageType(),
-            options.getMaxBatchSize(),
-            options.getConcurrency(),
+            /* maxBatchSize= */ options.getMaxBatchSize(),
+            /* concurrency= */ options.getConcurrency(),
+            /* targetWriteConcurrency= */ options.getTargetWriteConcurrency(),
+            /* maxWriteConcurrency= */ options.getMaxWriteConcurrency(),
             options.getDeadline(),
             options.getAnalysisCacheService(),
             options.getRemoteAnalysisWriteProxy(),
