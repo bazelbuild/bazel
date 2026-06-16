@@ -7,6 +7,8 @@ Cherry picks:
 
    + 65ecccb87ae8dfda0ef1cd064f3a441746072abd:
      Release 10.0.0-pre.20260608.1 (2026-06-16)
+   + abca86808bb612026ee6d3831958af995966515f:
+     Release 10.0.0-pre.20260608.1 (2026-06-16)
 ```
 
 Important changes:
