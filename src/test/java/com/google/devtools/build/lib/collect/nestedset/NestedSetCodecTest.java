@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.skyframe.serialization.DeserializationConte
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore.MissingFingerprintValueException;
+import com.google.devtools.build.lib.skyframe.serialization.InMemoryFingerprintValueStore;
 import com.google.devtools.build.lib.skyframe.serialization.KeyBytesProvider;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry;
@@ -100,7 +101,7 @@ public final class NestedSetCodecTest {
     AtomicInteger reads = new AtomicInteger();
     FingerprintValueStore fingerprintValueStore =
         new FingerprintValueStore() {
-          final FingerprintValueStore delegate = FingerprintValueStore.inMemoryStore();
+          final FingerprintValueStore delegate = new InMemoryFingerprintValueStore();
 
           @Override
           public WriteStatus put(KeyBytesProvider fingerprint, byte[] serializedBytes) {
@@ -320,8 +321,7 @@ public final class NestedSetCodecTest {
 
   @Test
   public void testDeserializationInParallel() throws Exception {
-    FingerprintValueStore nestedSetFingerprintValueStore =
-        spy(FingerprintValueStore.inMemoryStore());
+    FingerprintValueStore nestedSetFingerprintValueStore = spy(new InMemoryFingerprintValueStore());
     FingerprintValueService fingerprintValueService =
         FingerprintValueService.createForTesting(nestedSetFingerprintValueStore);
     NestedSetSerializationCache emptyNestedSetCache = mock(NestedSetSerializationCache.class);
@@ -430,7 +430,7 @@ public final class NestedSetCodecTest {
   @Test
   public void racingSerialization() throws Exception {
     // Exercises calling serialization twice for the same contents, concurrently, in 2 threads.
-    FingerprintValueStore fingerprintValueStore = spy(FingerprintValueStore.inMemoryStore());
+    FingerprintValueStore fingerprintValueStore = spy(new InMemoryFingerprintValueStore());
     NestedSetSerializationCache nestedSetCache =
         spy(new NestedSetSerializationCache(BugReporter.defaultInstance()));
     NestedSetStore nestedSetStore = createStoreWithCache(fingerprintValueStore, nestedSetCache);
@@ -567,7 +567,7 @@ public final class NestedSetCodecTest {
       }
     }
 
-    FingerprintValueStore fingerprintValueStore = FingerprintValueStore.inMemoryStore();
+    FingerprintValueStore fingerprintValueStore = new InMemoryFingerprintValueStore();
     FingerprintValueService fingerprintValueService =
         FingerprintValueService.createForTesting(fingerprintValueStore);
 

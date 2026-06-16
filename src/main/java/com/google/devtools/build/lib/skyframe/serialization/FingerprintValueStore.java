@@ -13,18 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization;
 
-import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
-import static com.google.common.util.concurrent.Futures.immediateFuture;
-import static com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.immediateWriteStatus;
-
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.util.Bucket;
-import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import com.google.protobuf.ByteString;
 import java.io.IOException;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 import javax.annotation.Nullable;
 
 /** Encapsulates fingerprint keyed bytes storage system. */
@@ -104,62 +96,4 @@ public interface FingerprintValueStore {
     }
   }
 
-  static InMemoryFingerprintValueStore inMemoryStore() {
-    return new InMemoryFingerprintValueStore();
-  }
-
-  /** An in-memory {@link FingerprintValueStore} for testing. */
-  static class InMemoryFingerprintValueStore implements FingerprintValueStore {
-    private static final ListenableFuture<byte[]> IMMEDIATE_NULL = immediateFuture((byte[]) null);
-
-    public final ConcurrentMap<ByteString, ByteString> fingerprintToContents;
-
-    private final boolean useNullForMissingValues;
-
-    public InMemoryFingerprintValueStore() {
-      this(/* useNullForMissingValues= */ false);
-    }
-
-    public InMemoryFingerprintValueStore(boolean useNullForMissingValues) {
-      this(new ConcurrentHashMap<>(), useNullForMissingValues);
-    }
-
-    public InMemoryFingerprintValueStore(
-        ConcurrentMap<ByteString, ByteString> kvMap, boolean useNullForMissingValues) {
-      this.fingerprintToContents = kvMap;
-      this.useNullForMissingValues = useNullForMissingValues;
-    }
-
-    @Override
-    public WriteStatus put(KeyBytesProvider fingerprint, byte[] serializedBytes) {
-      boolean wasNovel =
-          (fingerprintToContents.put(
-                  ByteString.copyFrom(fingerprint.toBytes()), ByteString.copyFrom(serializedBytes))
-              == null);
-      return immediateWriteStatus(wasNovel);
-    }
-
-    @Override
-    public ListenableFuture<byte[]> get(KeyBytesProvider fingerprint) {
-      ByteString serializedBytes =
-          fingerprintToContents.get(ByteString.copyFrom(fingerprint.toBytes()));
-      if (serializedBytes == null) {
-        return useNullForMissingValues
-            ? IMMEDIATE_NULL
-            : immediateFailedFuture(new MissingFingerprintValueException(fingerprint));
-      }
-      return immediateFuture(serializedBytes.toByteArray());
-    }
-
-    @Nullable
-    @CanIgnoreReturnValue
-    public byte[] remove(KeyBytesProvider fingerprint) {
-      ByteString result = fingerprintToContents.remove(ByteString.copyFrom(fingerprint.toBytes()));
-      return result == null ? null : result.toByteArray();
-    }
-
-    public Iterable<ByteString> keys() {
-      return ImmutableList.copyOf(fingerprintToContents.keySet());
-    }
-  }
 }

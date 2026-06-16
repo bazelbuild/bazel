@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueCache;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore;
+import com.google.devtools.build.lib.skyframe.serialization.InMemoryFingerprintValueStore;
 import com.google.devtools.build.lib.skyframe.serialization.KeyBytesProvider;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationModule;
 import com.google.devtools.build.lib.skyframe.serialization.WriteStatus;
@@ -52,7 +53,7 @@ public final class BazelSkycacheIntegrationTest extends SkycacheIntegrationTestB
   }
 
   private static class FailingFingerprintValueStore implements FingerprintValueStore {
-    private final FingerprintValueStore delegate = FingerprintValueStore.inMemoryStore();
+    private final FingerprintValueStore delegate = new InMemoryFingerprintValueStore();
     private final AtomicBoolean shouldFail = new AtomicBoolean();
     private final AtomicInteger failCounter = new AtomicInteger();
     private final AtomicReference<KeyBytesProvider> lastFailedKey = new AtomicReference<>();

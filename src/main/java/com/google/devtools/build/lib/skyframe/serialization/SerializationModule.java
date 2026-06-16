@@ -90,7 +90,7 @@ public class SerializationModule extends BlazeModule {
         new FingerprintValueService(
             commonPool(),
             // TODO: b/358347099 - use a persistent store
-            FingerprintValueStore.inMemoryStore(),
+            new InMemoryFingerprintValueStore(),
             new FingerprintValueCache(FingerprintValueCache.SyncMode.NOT_LINKED),
             FingerprintValueService.NONPROD_FINGERPRINTER);
 

@@ -22,7 +22,6 @@ import com.google.common.base.Throwables;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore.InMemoryFingerprintValueStore;
 import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.SparseAggregateWriteStatus;
 import com.google.devtools.build.lib.util.DecimalBucketer;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -74,7 +73,7 @@ public final class FingerprintValueService implements KeyValueWriter {
   @VisibleForTesting
   public static FingerprintValueService createForTesting() {
     return createForTesting(
-        FingerprintValueStore.inMemoryStore(), FingerprintValueCache.SyncMode.NOT_LINKED);
+        new InMemoryFingerprintValueStore(), FingerprintValueCache.SyncMode.NOT_LINKED);
   }
 
   @VisibleForTesting
@@ -84,7 +83,7 @@ public final class FingerprintValueService implements KeyValueWriter {
 
   @VisibleForTesting
   public static FingerprintValueService createForTesting(FingerprintValueCache.SyncMode mode) {
-    return createForTesting(FingerprintValueStore.inMemoryStore(), mode);
+    return createForTesting(new InMemoryFingerprintValueStore(), mode);
   }
 
   private static FingerprintValueService createForTesting(

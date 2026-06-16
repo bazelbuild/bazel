@@ -31,7 +31,7 @@ public final class FingerprintValueServiceTest {
     FingerprintValueService service =
         new FingerprintValueService(
             newSingleThreadExecutor(),
-            FingerprintValueStore.inMemoryStore(),
+            new InMemoryFingerprintValueStore(),
             new FingerprintValueCache(),
             FingerprintValueService.NONPROD_FINGERPRINTER);
 
@@ -117,7 +117,7 @@ public final class FingerprintValueServiceTest {
     FingerprintValueService service =
         new FingerprintValueService(
             executor,
-            FingerprintValueStore.inMemoryStore(),
+            new InMemoryFingerprintValueStore(),
             new FingerprintValueCache(),
             FingerprintValueService.NONPROD_FINGERPRINTER);
     assertThat(service.getExecutor()).isSameInstanceAs(executor);
