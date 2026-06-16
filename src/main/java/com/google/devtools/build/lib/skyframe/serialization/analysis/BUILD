@@ -321,8 +321,8 @@ java_library(
     srcs = ["RemoteAnalysisCachingServicesSupplier.java"],
     deps = [
         ":client_id",
-        ":options",
         ":remote_analysis_cache_client",
+        ":remote_analysis_caching_config",
         ":remote_analysis_metadata_writer",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
@@ -419,6 +419,7 @@ java_library(
         ":remote_analysis_cache_deps",
         ":remote_analysis_cache_manager",
         ":remote_analysis_cache_mode",
+        ":remote_analysis_caching_config",
         ":remote_analysis_caching_services_supplier",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
@@ -481,4 +482,14 @@ java_library(
         "NodeValuePart.java",
     ],
     deps = ["//src/main/java/com/google/devtools/build/lib/skyframe/serialization"],
+)
+
+java_library(
+    name = "remote_analysis_caching_config",
+    srcs = ["RemoteAnalysisCachingConfig.java"],
+    deps = [
+        ":remote_analysis_cache_mode",
+        ":remote_analysis_cache_storage_type",
+        "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
+    ],
 )

@@ -169,7 +169,18 @@ public final class RemoteAnalysisCacheFactory {
 
     RemoteAnalysisCachingServicesSupplier servicesSupplier =
         env.getBlazeWorkspace().remoteAnalysisCachingServicesSupplier();
-    servicesSupplier.configure(options, clientId, env.getCommandId().toString());
+    RemoteAnalysisCachingConfig config =
+        new RemoteAnalysisCachingConfig(
+            options.getMode(),
+            options.getStorageType(),
+            options.getMaxBatchSize(),
+            options.getConcurrency(),
+            options.getDeadline(),
+            options.getAnalysisCacheService(),
+            options.getRemoteAnalysisWriteProxy(),
+            options.getAnalysisCacheEnableMetadataQueries(),
+            options.getRemoteAnalysisDebugEntries());
+    servicesSupplier.configure(config, clientId, env.getCommandId().toString());
 
     // Set up parameters for the metadata store, if needed
 

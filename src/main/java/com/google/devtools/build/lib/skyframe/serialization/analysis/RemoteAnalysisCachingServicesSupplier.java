@@ -33,13 +33,13 @@ import javax.annotation.Nullable;
 public interface RemoteAnalysisCachingServicesSupplier {
 
   /**
-   * Service definitions and parameters depend on {@code options}, which are allowed to vary
+   * Service definitions and parameters depend on {@code config}, which are allowed to vary
    * per-command.
    *
    * <p>This method updates the services and parameters when the relevant flags change.
    */
   default void configure(
-      RemoteAnalysisCachingOptions cachingOptions, @Nullable ClientId clientId, String buildId)
+      RemoteAnalysisCachingConfig config, @Nullable ClientId clientId, String buildId)
       throws AbruptExitException {
     // Does nothing by default.
   }
