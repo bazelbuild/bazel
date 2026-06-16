@@ -1485,57 +1485,57 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       QueryExpression targetExpr,
       QueryExpressionContext<Target> context,
       Callback<Target> callback) {
-    return QueryTaskFutureImpl.ofDelegate(
-        safeSubmit(
-            () -> {
-              // Step 1: Load the lockfile from the Skyframe graph
-              BazelLockFileValue lockfile =
-                  (BazelLockFileValue) graph.getValue(BazelLockFileValue.KEY);
-              if (lockfile == null) {
-                // No lockfile means no bzlmod extensions have run yet.
-                return null;
-              }
-              // Step 2: Create the helper from Person 1's work
-              BzlmodExtensionInputsHelper helper =
-                  BzlmodExtensionInputsHelper.create(lockfile);
-              // Step 3: Evaluate the user's target expression
-              eval(
-                  targetExpr,
-                  context,
-                  targets -> {
-                    for (Target target : targets) {
-                      // Step 4: Skip main repo targets
-                      RepositoryName repo = target.getLabel().getRepository();
-                      if (repo.isMain()) {
-                        continue;
-                      }
-                      // Step 5: Ask the helper what files the extension read
-                      ImmutableSet<RepoRecordedInput.RepoCacheFriendlyPath> filePaths =
-                          helper.getRecordedFilesForRepo(repo.getName());
-                      // Step 6: Convert each file path to a Target and emit it
-                      for (RepoRecordedInput.RepoCacheFriendlyPath filePath : filePaths) {
-                        if (filePath.repoName().isEmpty()
-                            || !filePath.repoName().get().isMain()) {
-                          continue;
-                        }
-                        Label fileLabel =
-                            Label.createUnvalidated(
-                                PackageIdentifier.createInMainRepo(
-                                    filePath.path().getParentDirectory()),
-                                filePath.path().getBaseName());
-                        PackageIdentifier pkgId = fileLabel.getPackageIdentifier();
-                        PackageValue pkgValue = (PackageValue) graph.getValue(pkgId);
-                        if (pkgValue == null) {
-                          continue;
-                        }
-                        callback.process(
-                            ImmutableList.of(
-                                new FakeLoadTarget(fileLabel, pkgValue.getPackage())));
-                      }
+    // graph.getValue() throws InterruptedException, so read the lockfile via execute() which
+    // runs on the executor and handles checked exceptions.  Then chain eval() with transformAsync
+    // so the returned future doesn't complete until the inner eval's callback has finished —
+    // the original safeSubmit approach fire-and-forgot the async eval() and returned too early.
+    QueryTaskFuture<BazelLockFileValue> lockfileFuture =
+        execute(() -> (BazelLockFileValue) graph.getValue(BazelLockFileValue.KEY));
+    return transformAsync(
+        lockfileFuture,
+        lockfile -> {
+          if (lockfile == null) {
+            return immediateSuccessfulFuture(null);
+          }
+          BzlmodExtensionInputsHelper extensionHelper =
+              BzlmodExtensionInputsHelper.create(lockfile);
+          return eval(
+              targetExpr,
+              context,
+              targets -> {
+                for (Target target : targets) {
+                  RepositoryName repo = target.getLabel().getRepository();
+                  if (repo.isMain()) {
+                    continue;
+                  }
+                  // Canonical repo names are "{extensionUniqueName}+{internalName}"; the helper
+                  // expects the internal name, so strip up to and including the last '+'.
+                  String canonicalName = repo.getName();
+                  int lastPlus = canonicalName.lastIndexOf('+');
+                  String internalName =
+                      lastPlus >= 0 ? canonicalName.substring(lastPlus + 1) : canonicalName;
+                  ImmutableSet<RepoRecordedInput.RepoCacheFriendlyPath> filePaths =
+                      extensionHelper.getRecordedFilesForRepo(internalName);
+                  for (RepoRecordedInput.RepoCacheFriendlyPath filePath : filePaths) {
+                    if (filePath.repoName().isEmpty() || !filePath.repoName().get().isMain()) {
+                      continue;
                     }
-                  });
-              return null;
-            }));
+                    Label fileLabel =
+                        Label.createUnvalidated(
+                            PackageIdentifier.createInMainRepo(
+                                filePath.path().getParentDirectory()),
+                            filePath.path().getBaseName());
+                    PackageIdentifier pkgId = fileLabel.getPackageIdentifier();
+                    PackageValue pkgValue = (PackageValue) graph.getValue(pkgId);
+                    if (pkgValue == null) {
+                      continue;
+                    }
+                    callback.process(
+                        ImmutableList.of(new FakeLoadTarget(fileLabel, pkgValue.getPackage())));
+                  }
+                }
+              });
+        });
   }
 
   @Override
