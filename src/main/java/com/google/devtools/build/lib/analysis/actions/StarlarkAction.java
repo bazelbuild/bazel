@@ -479,21 +479,6 @@ public class StarlarkAction extends SpawnAction {
           || (shadowedAction.isPresent() && shadowedAction.get().discoversInputs());
     }
 
-    /**
-     * {@inheritDoc}
-     *
-     * <p>Adds the environment of the shadowed action, if any, to the execution spawn.
-     */
-    @Override
-    public Spawn getSpawn(ActionExecutionContext actionExecutionContext)
-        throws CommandLineExpansionException, InterruptedException {
-      return getSpawn(
-          actionExecutionContext,
-          getEffectiveEnvironment(actionExecutionContext.getClientEnv()),
-          /* envResolved= */ true,
-          /* reportOutputs= */ true);
-    }
-
     @Override
     public ImmutableMap<String, String> getEffectiveEnvironment(Map<String, String> clientEnv)
         throws CommandLineExpansionException {
