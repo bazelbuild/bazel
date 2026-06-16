@@ -70,17 +70,6 @@ import net.starlark.java.eval.StarlarkSemantics;
  */
 @OptionsClass
 public abstract class BuildLanguageOptions extends OptionsBase {
-  @Option(
-      name = "incompatible_stop_exporting_language_modules",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "If enabled, certain language-specific modules (such as `cc_common`) are unavailable in"
-              + " user .bzl files and may only be called from their respective rules repositories.")
-  public abstract boolean getIncompatibleStopExportingLanguageModules();
-
   // TODO(#11437): Delete the special empty string value so that it's on unconditionally.
   @Option(
       name = "experimental_builtins_bzl_path",
@@ -854,9 +843,6 @@ public abstract class BuildLanguageOptions extends OptionsBase {
   private void setFlags(FlagConsumer consumer) {
     var unused =
         consumer
-            .setBool(
-                INCOMPATIBLE_STOP_EXPORTING_LANGUAGE_MODULES,
-                getIncompatibleStopExportingLanguageModules())
             .setBool(INCOMPATIBLE_ALLOW_TAGS_PROPAGATION, getExperimentalAllowTagsPropagation())
             .set(EXPERIMENTAL_BUILTINS_BZL_PATH, getExperimentalBuiltinsBzlPath())
             .setBool(EXPERIMENTAL_BUILTINS_DUMMY, getExperimentalBuiltinsDummy())
@@ -1054,8 +1040,6 @@ public abstract class BuildLanguageOptions extends OptionsBase {
   // (In principle, a key not associated with a command-line flag may be declared anywhere.)
 
   // booleans: the +/- prefix indicates the default value (true/false).
-  public static final String INCOMPATIBLE_STOP_EXPORTING_LANGUAGE_MODULES =
-      "-incompatible_stop_exporting_language_modules";
   public static final String INCOMPATIBLE_ALLOW_TAGS_PROPAGATION =
       "+incompatible_allow_tags_propagation";
   public static final String EXPERIMENTAL_BUILTINS_DUMMY = "-experimental_builtins_dummy";
