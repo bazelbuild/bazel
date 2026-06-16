@@ -2,6 +2,11 @@
 
 ```
 Baseline: db077161e43484e4cb0f2270374ee33d05f3690d
+
+Cherry picks:
+
+   + 65ecccb87ae8dfda0ef1cd064f3a441746072abd:
+     Release 10.0.0-pre.20260608.1 (2026-06-16)
 ```
 
 Important changes:
