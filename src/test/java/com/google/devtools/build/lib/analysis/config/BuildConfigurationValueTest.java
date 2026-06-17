@@ -494,24 +494,9 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
             scope = "universal",
         )
         string_flag(
-            name = "flag_in_exec_config_set_to_another_value",
-            build_setting_default = "default",
-            scope = "target",
-            on_leave_scope = "another_value"
-        )
-        string_flag(
             name = "project_scope",
             build_setting_default = "default",
             scope = "project",
-        )
-        string_flag(
-            name = "another_flag",
-            build_setting_default = "default",
-        )
-        string_flag(
-            name = "flag_in_exec_config_reference_another_flag_value",
-            build_setting_default = "default",
-            scope = "exec:--//test:another_flag",
         )
         """);
 
