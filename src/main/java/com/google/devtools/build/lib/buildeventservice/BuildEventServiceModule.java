@@ -37,7 +37,7 @@ import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.buildeventservice.BuildEventServiceOptions.BesUploadMode;
 import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient;
-import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient.CommandContext;
+import com.google.devtools.build.lib.buildeventservice.client.CommandContext;
 import com.google.devtools.build.lib.buildeventstream.AnnounceBuildEventTransportsEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
@@ -92,6 +92,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CancellationException;
@@ -388,7 +389,7 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
     // allow completing previous runs using BES, for example:
     //   bazel build (..run with async BES..)
     //   bazel info <-- Doesn't run with BES unless we wait before checking {@code allowedCommands}.
-    boolean commandIsShutdown = "shutdown".equals(cmdEnv.getCommandName());
+    boolean commandIsShutdown = Objects.equals(cmdEnv.getCommandName(), "shutdown");
     waitForPreviousInvocation(commandIsShutdown);
     if (commandIsShutdown && uploaderFactoryToCleanup != null) {
       uploaderFactoryToCleanup.shutdown();
@@ -798,7 +799,7 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
     }
 
     CommandContext commandContext =
-        CommandContext.builder()
+        CommandContextImpl.builder()
             .setBuildId(buildRequestId)
             .setInvocationId(invocationId)
             .setAttemptNumber(cmdEnv.getAttemptNumber())

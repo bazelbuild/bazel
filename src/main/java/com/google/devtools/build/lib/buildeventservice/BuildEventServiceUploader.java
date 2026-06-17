@@ -30,13 +30,13 @@ import com.google.common.util.concurrent.SettableFuture;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient;
 import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient.AbortReason;
-import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient.CommandContext;
-import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient.InvocationStatus;
-import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient.LifecycleEvent;
 import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient.StreamContext;
-import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient.StreamEvent;
 import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient.StreamException;
 import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient.StreamStatus;
+import com.google.devtools.build.lib.buildeventservice.client.CommandContext;
+import com.google.devtools.build.lib.buildeventservice.client.LifecycleEvent;
+import com.google.devtools.build.lib.buildeventservice.client.LifecycleEvent.InvocationStatus;
+import com.google.devtools.build.lib.buildeventservice.client.StreamEvent;
 import com.google.devtools.build.lib.buildeventstream.AbortedEvent;
 import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildCompletingEvent;
@@ -312,8 +312,8 @@ public final class BuildEventServiceUploader implements Runnable {
   public void run() {
     try {
       if (publishLifecycleEvents) {
-        publishLifecycleEvent(new LifecycleEvent.BuildEnqueued(commandStartTime));
-        publishLifecycleEvent(new LifecycleEvent.InvocationStarted(eventStreamStartTime));
+        publishLifecycleEvent(new BuildEnqueuedImpl(commandStartTime));
+        publishLifecycleEvent(new InvocationStartedImpl(eventStreamStartTime));
       }
 
       try {
@@ -325,8 +325,8 @@ public final class BuildEventServiceUploader implements Runnable {
             invocationStatus = this.invocationStatus;
           }
           Instant now = clock.now();
-          publishLifecycleEvent(new LifecycleEvent.InvocationFinished(now, invocationStatus));
-          publishLifecycleEvent(new LifecycleEvent.BuildFinished(now, invocationStatus));
+          publishLifecycleEvent(new InvocationFinishedImpl(now, invocationStatus));
+          publishLifecycleEvent(new BuildFinishedImpl(now, invocationStatus));
         }
       }
       eventBus.post(BuildEventServiceAvailabilityEvent.ofSuccess());
@@ -469,7 +469,7 @@ public final class BuildEventServiceUploader implements Runnable {
                 createSerializedRegularBuildEvent(pathConverter, sendRegularBuildEventCmd);
 
             var bazelEvent =
-                new StreamEvent.BazelEvent(
+                new BazelEventImpl(
                     sendRegularBuildEventCmd.creationTime(),
                     sendRegularBuildEventCmd.sequenceNumber(),
                     serializedRegularBuildEvent.toByteArray());
@@ -488,7 +488,7 @@ public final class BuildEventServiceUploader implements Runnable {
             // Invariant: the commandQueue may contain commands of any type
             lastEventSent = true;
             var streamFinishedEvent =
-                new StreamEvent.StreamFinished(
+                new StreamFinishedImpl(
                     sendLastBuildEventCmd.creationTime(), sendLastBuildEventCmd.sequenceNumber());
             ackQueue.addLast(new Command.SendSerializedBuildEvent(streamFinishedEvent));
             streamContext.sendOverStream(streamFinishedEvent);

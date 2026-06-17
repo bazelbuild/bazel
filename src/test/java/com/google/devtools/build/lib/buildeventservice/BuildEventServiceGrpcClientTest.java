@@ -17,8 +17,8 @@ package com.google.devtools.build.lib.buildeventservice;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient.CommandContext;
 import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceGrpcClient;
+import com.google.devtools.build.lib.buildeventservice.client.CommandContext;
 import com.google.devtools.build.v1.PublishBuildEventGrpc;
 import com.google.devtools.build.v1.PublishBuildToolEventStreamRequest;
 import com.google.devtools.build.v1.PublishBuildToolEventStreamResponse;
@@ -48,7 +48,7 @@ import org.junit.runners.JUnit4;
 public class BuildEventServiceGrpcClientTest {
 
   private static final CommandContext COMMAND_CONTEXT =
-      CommandContext.builder()
+      CommandContextImpl.builder()
           .setBuildId(UUID.randomUUID().toString())
           .setInvocationId(UUID.randomUUID().toString())
           .setAttemptNumber(1)

@@ -33,9 +33,9 @@ import com.google.common.hash.HashCode;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient;
-import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient.CommandContext;
-import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient.InvocationStatus;
 import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceProtoUtil;
+import com.google.devtools.build.lib.buildeventservice.client.CommandContext;
+import com.google.devtools.build.lib.buildeventservice.client.LifecycleEvent.InvocationStatus;
 import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildCompletingEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
@@ -113,7 +113,7 @@ public abstract class AbstractBuildEventServiceTransportTest extends FoundationT
   private static final ImmutableSet<String> KEYWORDS = ImmutableSet.of("foo=bar", "spam=eggs");
   private static final Instant COMMAND_START_TIME = Instant.ofEpochMilli(500L);
   private static final CommandContext COMMAND_CONTEXT =
-      CommandContext.builder()
+      CommandContextImpl.builder()
           .setBuildId(BUILD_REQUEST_ID)
           .setInvocationId(BUILD_INVOCATION_ID)
           .setAttemptNumber(1)

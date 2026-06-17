@@ -17,10 +17,7 @@ package com.google.devtools.build.lib.buildeventservice.client;
 import static com.google.devtools.build.v1.BuildEvent.BuildComponentStreamFinished.FinishType.FINISHED;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient.CommandContext;
-import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient.InvocationStatus;
-import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient.LifecycleEvent;
-import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient.StreamEvent;
+import com.google.devtools.build.lib.buildeventservice.client.LifecycleEvent.InvocationStatus;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.v1.BuildEvent;
 import com.google.devtools.build.v1.BuildEvent.BuildComponentStreamFinished;
@@ -52,16 +49,17 @@ public final class BuildEventServiceProtoUtil {
   /** Creates a {@link PublishLifecycleEventRequest} from a {@link LifecycleEvent}. */
   public static PublishLifecycleEventRequest publishLifecycleEventRequest(
       CommandContext commandContext, LifecycleEvent lifecycleEvent) {
-    return switch (lifecycleEvent) {
-      case LifecycleEvent.BuildEnqueued(Instant eventTime) ->
-          buildEnqueued(commandContext, eventTime);
-      case LifecycleEvent.InvocationStarted(Instant eventTime) ->
-          invocationStarted(commandContext, eventTime);
-      case LifecycleEvent.InvocationFinished(Instant eventTime, InvocationStatus status) ->
-          invocationFinished(commandContext, eventTime, status);
-      case LifecycleEvent.BuildFinished(Instant eventTime, InvocationStatus status) ->
-          buildFinished(commandContext, eventTime, status);
-    };
+    if (lifecycleEvent instanceof LifecycleEvent.BuildEnqueued buildEnqueued) {
+      return buildEnqueued(commandContext, buildEnqueued.eventTime());
+    } else if (lifecycleEvent instanceof LifecycleEvent.InvocationStarted invocationStarted) {
+      return invocationStarted(commandContext, invocationStarted.eventTime());
+    } else if (lifecycleEvent instanceof LifecycleEvent.InvocationFinished invocationFinished) {
+      return invocationFinished(
+          commandContext, invocationFinished.eventTime(), invocationFinished.status());
+    } else if (lifecycleEvent instanceof LifecycleEvent.BuildFinished buildFinished) {
+      return buildFinished(commandContext, buildFinished.eventTime(), buildFinished.status());
+    }
+    throw new IllegalArgumentException("Unknown lifecycle event: " + lifecycleEvent);
   }
 
   public static PublishLifecycleEventRequest buildEnqueued(
@@ -123,12 +121,17 @@ public final class BuildEventServiceProtoUtil {
   /** Creates a {@link PublishBuildToolEventStreamRequest} from a {@link StreamEvent}. */
   public static PublishBuildToolEventStreamRequest publishBuildToolEventStreamRequest(
       CommandContext commandContext, StreamEvent streamEvent) {
-    return switch (streamEvent) {
-      case StreamEvent.BazelEvent(Instant eventTime, long sequenceNumber, byte[] payload) ->
-          bazelEvent(commandContext, eventTime, sequenceNumber, payload);
-      case StreamEvent.StreamFinished(Instant eventTime, long sequenceNumber) ->
-          streamFinished(commandContext, eventTime, sequenceNumber);
-    };
+    if (streamEvent instanceof StreamEvent.BazelEvent bazelEvent) {
+      return bazelEvent(
+          commandContext,
+          bazelEvent.eventTime(),
+          bazelEvent.sequenceNumber(),
+          bazelEvent.payload());
+    } else if (streamEvent instanceof StreamEvent.StreamFinished streamFinished) {
+      return streamFinished(
+          commandContext, streamFinished.eventTime(), streamFinished.sequenceNumber());
+    }
+    throw new IllegalArgumentException("Unknown stream event: " + streamEvent);
   }
 
   public static PublishBuildToolEventStreamRequest bazelEvent(
