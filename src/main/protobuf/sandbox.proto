@@ -1,0 +1,338 @@
+// Copyright 2026 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package bazel.sandbox;
+
+import "build/bazel/remote/execution/v2/remote_execution.proto";
+
+option java_package = "com.google.devtools.build.lib.sandbox.proto";
+option java_outer_classname = "SandboxProto";
+
+// Wire contract between Bazel and a sandbox backend (an external sandbox implementation).
+//
+// The input tree is a standard REAPI Merkle tree (content-addressed, identical to what Bazel
+// computes for remote execution). It ships out of band via Push and is referenced from the Manifest
+// only by digest: its directory structure as `blobs` (serialized REAPI Directory messages) and its
+// leaf file content as `content` (bytes inline, or a host path for the controller to capture). A
+// leaf the store has no `content` entry for is read from the default location, exec_root/<tree
+// path>. Everything is content-addressed and immutable by digest, so no host path is ever a durable
+// reference — reuse across actions and builds is by digest alone.
+//
+// Transport: varint length-delimited Request/Response protos over stdin/stdout, matched by `rid`
+// (responses may arrive out of order).
+
+// The input tree and execution metadata for one sandbox.
+message Manifest {
+  // Action mnemonic, for controller diagnostics.
+  string mnemonic = 1;
+
+  // Directory containing the workspace exec root. It anchors the DEFAULT content location: a leaf
+  // the store has no Push.content entry for is read from exec_root/<tree path> — where Bazel has
+  // already staged it — while the controller services this Create. That read is safe for the same
+  // reason a Content.location is (see there): the Create is serviced within the build that produced
+  // this manifest, so the path still holds the leaf's digest. Push.content entries (runfiles,
+  // filesets, param files) override this default.
+  string exec_root = 2;
+
+  // Hash function for all digests, e.g. "SHA-256".
+  string hash_function = 3;
+
+  // Digest of the root Directory: the entry point the controller walks against its session store
+  // (populated out of band via Push) to reconstruct the tree. Structure blobs and leaf content are
+  // content-addressed and immutable by digest, so they are pushed once and referenced here only by
+  // digest. A Create whose tree references a digest the store lacks comes back as
+  // Create.Result.MissingContent; Bazel pushes those and retries.
+  build.bazel.remote.execution.v2.Digest input_root_digest = 4;
+
+  // Declared outputs. The key is the output's path INSIDE the sandbox, sandbox-root-relative like
+  // "/<workspace>/<path>" — where the action writes it and where the controller finds it on Collect.
+  // The value carries its type and the destination the controller moves it to under Collect.exec_root.
+  //
+  // With path mapping (--experimental_output_paths=strip) the key holds the action's MAPPED path
+  // (config segment stripped, e.g. bazel-out/bin/foo) while Output.dest holds the UNMAPPED exec path
+  // Bazel expects the output at (e.g. bazel-out/k8-fastbuild/bin/foo). Without path mapping the two
+  // coincide and Output.dest is empty.
+  map<string, Output> outputs = 5;
+
+  // Sandbox-relative writable directory -> host path.
+  map<string, string> writable_dirs = 6;
+
+  // The settings a confinement is built from, populated every Create. Bazel's own built-in jail (the
+  // default) already has these; they are on the wire for a backend that returns a CustomConfinement
+  // and must build its own jail. A backend that returns nothing (Bazel's default) or `unconfined`
+  // can ignore them.
+  ConfinementSetting confinement_setting = 7;
+}
+
+// One declared output. Keyed in Manifest.outputs by its in-sandbox path (where the action writes
+// it); this carries its type and where the controller moves it on Collect.
+message Output {
+  // "dir" for a tree/directory output, "file" otherwise. A dir output gets the directory itself
+  // materialized (so `tar --directory` can chdir into it); a file output gets only its parent.
+  string type = 1;
+
+  // Destination the controller moves the output to on Collect, exec_root-relative like the map key
+  // ("/<workspace>/<exec-path>"). Empty means "same as the key" — the common case, with no path
+  // mapping. Set (to the UNMAPPED exec path) only when path mapping made the in-sandbox path differ
+  // from where Bazel expects the output.
+  string dest = 2;
+}
+
+// The host-side settings an OS jail is built from — the writable/inaccessible paths and network
+// policy for this action. The sandbox mount root a jail also needs is not here: the backend minted
+// it in the same Create and already knows it.
+message ConfinementSetting {
+  // Host paths the confined process may write, beyond the sandbox mount (scratch, /tmp, /dev, ...).
+  repeated string writable_paths = 1;
+  // Host paths the confined process must not read.
+  repeated string inaccessible_paths = 2;
+  // Whether the action is allowed network access.
+  bool allow_network = 3;
+}
+
+// Create a sandbox from the given input manifest.
+message Create {
+  Manifest manifest = 1;
+
+  // What comes back for a Create. Exactly one arm is set.
+  message Result {
+    // The sandbox was created.
+    message Ok {
+      // Absolute sandbox root path the action's cwd derives from.
+      string path = 1;
+
+      // How the action process is confined. Confinement policy is Bazel's (and the user's) concern,
+      // not the backend's, so the backend does not pick a Bazel mechanism — it only states whether
+      // it is bringing its own jail or needs none:
+      //   - unset  => Bazel applies its platform-default built-in jail (the common case). A backend
+      //               that just wants to be confined returns nothing and gets Seatbelt / Linux
+      //               namespaces for free.
+      //   - custom => the backend brings its own jail; Bazel prepends the given wrapper.
+      //   - unconfined => the backend confines itself (its own VM/namespace); Bazel applies nothing.
+      // Absence is the safe default (confined); an unconfined run is always a present, named choice,
+      // so it can never happen by omission.
+      oneof confinement {
+        CustomConfinement custom = 2;
+        Unconfined unconfined = 3;
+      }
+    }
+
+    // The tree references digests absent from the store — directory structure blobs or leaf content
+    // that were never pushed or were evicted. Bazel re-pushes exactly these — from the current
+    // action's tree, so a re-pushed location is captured from a path valid for this build — and
+    // retries the Create. Recoverable, and kept distinct from `error` so the client retries rather
+    // than failing the action.
+    message MissingContent {
+      repeated string digest_hashes = 1;
+    }
+
+    oneof outcome {
+      Ok ok = 1;
+      MissingContent missing_content = 2;
+      Error error = 3;  // permanent: malformed manifest, unresolvable tree, controller fault
+    }
+  }
+}
+
+// A jail the backend implements itself, delivered as a command wrapper Bazel prepends to the
+// action. Lets a backend bring a mechanism Bazel has no built-in for (gVisor, bwrap, firejail, a
+// bespoke seccomp launcher) without a Bazel release. Bazel applies it in the same outermost position
+// it applies a built-in — wrapper(process-wrapper(action)) — building the argv from Manifest
+// .confinement_setting plus the sandbox mount root the backend already knows.
+message CustomConfinement {
+  // Diagnostic name for logs / policy (e.g. "gvisor"); Bazel does not interpret it.
+  string name = 1;
+  // Argv prepended to the action. MUST be non-empty: an empty wrapper is no jail, which is only
+  // expressible via the Unconfined arm, so an unconfined run is always explicit. argv[0] is an
+  // absolute path or a bare name resolved against PATH.
+  repeated string wrapper = 2;
+  // Extra environment for the wrapped process, merged over (and overriding) the action's env.
+  map<string, string> env = 3;
+}
+
+// The backend confines the action itself (its own namespace/VM), so Bazel applies no OS jail on top.
+// A present, empty message — distinct from an unset confinement oneof, which means "Bazel, apply
+// your default jail".
+message Unconfined {}
+
+// The bytes for one leaf digest, and how the controller obtains them. Keyed by content-digest hash
+// wherever it appears (Push.content), so it is a pure content-addressed fact: any source holding the
+// digest is interchangeable with any other, and once captured the entry is valid for the
+// controller's lifetime.
+message Content {
+  oneof source {
+    // The bytes themselves, on the wire. Immutable and self-describing: valid for the controller's
+    // lifetime and recovers via Create.Result.MissingContent, exactly like a directory blob. Use
+    // when the content has no durable host path — virtual inputs such as param files — or when
+    // shipping the bytes is simpler than reading a path.
+    bytes inline = 1;
+
+    // A host path the controller reads this content FROM. The digest<->path correspondence is a
+    // MOMENTARY assertion, true only at the instant this Push is sent: Bazel does NOT guarantee the
+    // bytes at `location` still hash to the digest any time afterward. No host path is a durable
+    // content reference — a generated path is reused with different bytes after a rebuild, a source
+    // or external-repo path is a symlink that may be edited or re-planted — so between Creates the
+    // path may hold anything. The controller MUST therefore read and capture the bytes (snapshot /
+    // clone / copy into its own store) WHILE PROCESSING THIS PUSH, and thereafter serve the digest
+    // only from that captured copy; it MUST NOT defer the read to Create time and MUST NOT re-read
+    // the path later. Reuse across actions and builds is by immutable digest, never by a path: a
+    // captured entry stays correct for the controller's lifetime regardless of what later happens
+    // to the path it came from. (The one case where the bytes at `location` already differ
+    // from the digest at capture time is a source file edited mid-build — the same assumption Bazel
+    // makes for its own local execution and does not guard by default.)
+    //
+    // Use for content already staged on disk at a path other than exec_root/<tree path> — chiefly
+    // runfiles and fileset entries, whose bytes live at their target artifact's exec path.
+    string location = 2;
+  }
+
+  // How long the controller's store may keep this entry. Retaining longer than needed only costs
+  // memory, never correctness, so the default is the reuse-friendly case.
+  Retention retention = 3;
+}
+
+// Retention policy for a Content entry in the controller's store. A memory/eviction hint ONLY: it
+// says how long the controller may KEEP an entry, never how long the entry stays correct. An
+// entry's validity is determined solely by its digest, so a Retention value must never be read as a
+// validity or expiry signal.
+enum Retention {
+  // Keep it in the store, keyed by digest, and reuse across actions. The common case for
+  // content-addressed inputs (runfiles, filesets). Default.
+  RETENTION_REUSE = 0;
+
+  // Used by a single action; the store may drop it once that action's sandbox is destroyed. For
+  // content unique to one action (most param files) that would otherwise accumulate unbounded.
+  RETENTION_SINGLE_USE = 1;
+}
+
+// Push directory structure blobs and leaf content into the controller's session store, keyed by
+// digest hash. Both are content-addressed and immutable by digest, so an entry need be pushed only
+// once for the controller's lifetime; Bazel tracks what it has pushed to THIS controller instance
+// (reset when the controller respawns) and includes only novel entries — no discovery round-trip —
+// batching many actions' worth into one Push. Fire-and-forget: there is no response. The single
+// ordered request pipe guarantees a Push reaches the controller before any later-written Create, and
+// the controller must apply it to the store before servicing a later request that reads it.
+//
+// Recovery: a lost or evicted entry surfaces as the dependent Create's MissingContent, never by
+// re-reading a path. That is the single safety net for eviction or a stale client belief — Bazel
+// re-pushes exactly the named digests from the current action's tree.
+message Push {
+  // digest hash -> serialized build.bazel.remote.execution.v2.Directory bytes, shipped verbatim (the
+  // hasher already produced these bytes and their hash is their digest, so there is nothing to parse
+  // or re-serialize). Directory structure only; leaf file content travels in `content`.
+  map<string, bytes> blobs = 1;
+
+  // digest hash -> the leaf file content for that digest and how to obtain it (bytes inline, or a
+  // host path to capture on receipt). See Content. Covers every leaf whose bytes the controller
+  // cannot read from the default exec_root/<tree path> — chiefly runfiles and fileset entries, and
+  // param files (inline). Keyed by digest and captured on receipt.
+  map<string, Content> content = 2;
+}
+
+// Destroy a previously created sandbox. The id is Request.sandbox_id.
+message Destroy {
+  // What comes back for a Destroy. Exactly one arm is set.
+  message Result {
+    message Ok {}
+    oneof outcome {
+      Ok ok = 1;
+      Error error = 2;
+    }
+  }
+}
+
+// Harvest a successful action's declared outputs (sent after success, before Destroy); the
+// controller moves each Manifest.outputs entry from its in-sandbox path (the map key) to its
+// destination under exec_root — Output.dest when set, else the key itself.
+message Collect {
+  // Directory the workspace exec root lives in; outputs are anchored under it.
+  string exec_root = 1;
+
+  // What comes back for a Collect. Exactly one arm is set.
+  message Result {
+    message Ok {}
+    oneof outcome {
+      Ok ok = 1;
+      Error error = 2;
+    }
+  }
+}
+
+// Sandbox protocol version. New values are appended as the protocol evolves; there is no
+// "unspecified" — a party always names concrete versions. Only VERSION_1 exists today.
+enum Version {
+  VERSION_1 = 0;
+}
+
+// One-time handshake sent right after the backend is spawned, before any sandbox is created. It
+// relays the backend's configured options (from --sandbox_backend_opt) out of band — not as process
+// arguments — and negotiates the protocol version. The backend replies with a Negotiate.Result.
+message Negotiate {
+  // Opaque, Bazel-uninterpreted backend options: one token per --sandbox_backend_opt occurrence, in
+  // order. The backend defines their meaning.
+  repeated string options = 1;
+  // Protocol versions Bazel speaks; the backend picks one to reply with in Negotiated (or rejects
+  // via an Error if it shares none). One element today.
+  repeated Version versions = 2;
+
+  // What comes back for a Negotiate. Exactly one arm is set.
+  message Result {
+    // The backend's declared capabilities.
+    message Ok {
+      // Protocol version the backend speaks.
+      Version version = 1;
+    }
+    oneof outcome {
+      Ok ok = 1;
+      Error error = 2;  // e.g. the backend shares no protocol version with Bazel
+    }
+  }
+}
+
+// A request from Bazel to the controller.
+message Request {
+  // Request/response correlation id, echoed in the matching Response.
+  uint64 rid = 1;
+  // Sandbox id, shared by create/collect/destroy. Bazel mints it on create. Empty for negotiate.
+  string sandbox_id = 2;
+  oneof op {
+    Create create = 3;
+    Destroy destroy = 4;
+    Collect collect = 5;
+    Negotiate negotiate = 6;
+    Push push = 7;  // no sandbox_id; the store is session-scoped. Fire-and-forget: no Response.
+  }
+}
+
+// A failed operation. Shared across every op's Result. `message` is a human-readable diagnosis for
+// the build log, not a machine-dispatched code — recoverable outcomes (e.g. Create.Result
+// .MissingContent) are modeled as their own arms, so an Error is always terminal for that op.
+message Error {
+  string message = 1;
+}
+
+// A reply carrying the same `rid` as its Request. `result` mirrors Request.op one-to-one: a Create
+// yields a Create.Result, a Destroy a Destroy.Result, and so on. A Push has no reply, so it has no
+// arm here. Each op names its own outcomes; there is no cross-op or generic result.
+message Response {
+  uint64 rid = 1;
+  oneof result {
+    Create.Result create = 2;
+    Destroy.Result destroy = 3;
+    Collect.Result collect = 4;
+    Negotiate.Result negotiate = 5;
+  }
+}
