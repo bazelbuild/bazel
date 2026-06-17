@@ -35,7 +35,6 @@ import com.google.common.collect.Iterables;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.devtools.build.lib.actions.VirtualActionInput;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
@@ -49,6 +48,7 @@ import com.google.devtools.build.lib.remote.merkletree.MerkleTreeUploader;
 import com.google.devtools.build.lib.remote.util.AsyncTaskCache;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.RxUtils.TransferResult;
+import com.google.devtools.build.lib.util.DeterministicWriter;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.Message;
 import io.reactivex.rxjava3.annotations.NonNull;
@@ -64,12 +64,8 @@ import io.reactivex.rxjava3.subjects.AsyncSubject;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.PipedInputStream;
-import java.io.PipedOutputStream;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 
@@ -233,46 +229,16 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
   }
 
   @Override
-  public ListenableFuture<Void> uploadVirtualActionInput(
-      RemoteActionExecutionContext context, Digest digest, VirtualActionInput virtualActionInput) {
+  public ListenableFuture<Void> uploadDeterministicWriter(
+      RemoteActionExecutionContext context, Digest digest, DeterministicWriter deterministicWriter) {
     return remoteCacheClient.uploadBlob(
-        context, digest, new VirtualActionInputBlob(virtualActionInput), /* force= */ false);
+        context, digest, new DeterministicWriterBlob(deterministicWriter), /* force= */ false);
   }
 
-  private record VirtualActionInputBlob(VirtualActionInput virtualActionInput) implements Blob {
-
-    private static final ExecutorService VIRTUAL_ACTION_INPUT_PIPE_EXECUTOR =
-        Executors.newThreadPerTaskExecutor(
-            Thread.ofVirtual().name("virtual-action-input-pipe-", 0).factory());
-
+  private record DeterministicWriterBlob(DeterministicWriter deterministicWriter) implements Blob {
     @Override
     public InputStream get() {
-      // Avoid materializing and retaining VirtualActionInput.getBytes() during the upload. This
-      // can result in high memory usage with many parallel actions with large virtual inputs. Limit
-      // this memory usage to the fixed buffer size by using a piped stream.
-      var pipedIn = new PipedInputStream(Chunker.getDefaultChunkSize());
-      PipedOutputStream pipedOut;
-      try {
-        pipedOut = new PipedOutputStream(pipedIn);
-      } catch (IOException e) {
-        throw new IllegalStateException(
-            "PipedOutputStream constructor is not expected to throw", e);
-      }
-      // Note that while Piped{Input,Output}Stream are not directly I/O-bound, bytes read from
-      // pipedIn are sent out via gRPC before more bytes are read. As a result, pipedOut is expected
-      // to block frequently enough to make virtual threads suitable here.
-      var unused =
-          VIRTUAL_ACTION_INPUT_PIPE_EXECUTOR.submit(
-              () -> {
-                try (pipedOut) {
-                  virtualActionInput.writeTo(pipedOut);
-                } catch (IOException e) {
-                  // Since VirtualActionInput#writeTo only throws when pipedOut does, this means
-                  // that the reader has closed pipedIn early, perhaps due to interruption. Since
-                  // the reader is gone, there is no way to propagate this exception back.
-                }
-              });
-      return pipedIn;
+      return deterministicWriter.get(Chunker.getDefaultChunkSize());
     }
   }
 

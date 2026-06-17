@@ -376,6 +376,13 @@ public class RemoteActionFileSystem extends FileSystem implements PathCanonicali
 
   @Override
   public InputStream getInputStream(PathFragment path) throws IOException {
+    // Inline file contents (e.g. for lazily written files) are available directly from the
+    // metadata and don't need to be downloaded or materialized on disk.
+    var inMemoryStatus = statInternal(path, FollowMode.FOLLOW_ALL, StatSources.IN_MEMORY_ONLY);
+    if (inMemoryStatus instanceof FileStatusWithMetadata fileStatusWithMetadata
+        && fileStatusWithMetadata.getMetadata().isInline()) {
+      return fileStatusWithMetadata.getMetadata().getInputStream();
+    }
     try {
       getFromFuture(downloadIfRemote(path));
     } catch (InterruptedException e) {
@@ -388,6 +395,8 @@ public class RemoteActionFileSystem extends FileSystem implements PathCanonicali
       }
       throw e;
     }
+    // TODO(tjgq): Consider only falling back to the local filesystem for source (non-output) files.
+    // See getMetadata() for why this isn't currently possible.
     return localFs.getPath(path).getInputStream();
   }
 

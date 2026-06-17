@@ -87,7 +87,7 @@ public class RemoteActionInputFetcher extends AbstractActionInputPrefetcher {
     // build may have been re-executed locally to regenerate lost inputs, but may then be rewound
     // again and thus have its (now local) outputs deleted. In this case, we need to download the
     // outputs again, even if they are now considered local.
-    return metadata.isRemote() || (forceRefetch(path) && !path.exists(Symlinks.NOFOLLOW));
+    return metadata.isLazy() || (forceRefetch(path) && !path.exists(Symlinks.NOFOLLOW));
   }
 
   @Override
