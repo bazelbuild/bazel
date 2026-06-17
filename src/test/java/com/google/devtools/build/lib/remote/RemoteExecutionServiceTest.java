@@ -630,6 +630,14 @@ public class RemoteExecutionServiceTest {
                             ImmutableList.of(
                                 file("bar.txt", "content of tree file srcs/system-root/bar.txt")),
                             ImmutableMap.of())))));
+    // MerkleTreeComputer stamps a non-empty tree artifact's root Directory with the whole-subtree
+    // marker; mirror it on the expected tree.
+    treeArtifactDirectory =
+        treeArtifactDirectory.toBuilder()
+            .setNodeProperties(
+                NodeProperties.newBuilder()
+                    .addProperties(NodeProperty.newBuilder().setName("bazel_is_treeartifact")))
+            .build();
     var runfilesDirectory =
         dir(
             ImmutableList.of(),
@@ -718,6 +726,19 @@ public class RemoteExecutionServiceTest {
                             ImmutableMap.of()),
                         "tree_artifact",
                         treeArtifactDirectory))));
+    // A non-empty source directory's root Directory carries the source-dir marker.
+    var srcDirDirectory =
+        dir(
+                ImmutableList.of(
+                    file("file1", "content of src_dir/file1"),
+                    file("file2", "content of src_dir/file2"),
+                    file("file3", "content of src_dir/file3")),
+                ImmutableMap.of())
+            .toBuilder()
+            .setNodeProperties(
+                NodeProperties.newBuilder()
+                    .addProperties(NodeProperty.newBuilder().setName("bazel_is_sourcedir")))
+            .build();
     var rootDirectory =
         dir(
             ImmutableList.of(),
@@ -753,12 +774,7 @@ public class RemoteExecutionServiceTest {
                                         file("bar.txt", "content of srcs/system-root/bar.txt")),
                                     ImmutableMap.of()))))),
                 "src_dir",
-                dir(
-                    ImmutableList.of(
-                        file("file1", "content of src_dir/file1"),
-                        file("file2", "content of src_dir/file2"),
-                        file("file3", "content of src_dir/file3")),
-                    ImmutableMap.of())));
+                srcDirDirectory));
 
     var expectedDigest =
         DigestUtil.fromString(
@@ -766,7 +782,7 @@ public class RemoteExecutionServiceTest {
               // The product name and the main workspace name differ between Bazel and Blaze,
               // both of them making their way into paths.
               case "bazel" ->
-                  "ff6cfaefd3fe05996e6e06e818ff462b7e5632a730e48111a8643bbf58d6e01f/164";
+                  "a6ba1e3f5b43db299aa4cec5596e7c71780f45e3a6a4278df1614cab2706e224/164";
               case "blaze" ->
                   "53a0d960028fceda7b7f7108721f0d5fae190710c4e78fd7385851648958f220/164";
               default ->
