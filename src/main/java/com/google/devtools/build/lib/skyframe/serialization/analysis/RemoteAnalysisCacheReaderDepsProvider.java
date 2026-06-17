@@ -46,6 +46,8 @@ public interface RemoteAnalysisCacheReaderDepsProvider {
 
   SkyValueRetriever getSkyValueRetriever() throws InterruptedException;
 
+  SkycacheUploadClient getSkycacheUploadClient() throws InterruptedException;
+
   void recordRetrievalResult(RetrievalResult retrievalResult, SkyKey key);
 
   void recordSerializationException(SerializationException e, SkyKey key);

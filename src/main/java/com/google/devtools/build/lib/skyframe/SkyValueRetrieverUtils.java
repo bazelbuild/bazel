@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.Re
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievedValue;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.SerializableSkyKeyComputeState;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheReaderDepsProvider;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.SkycacheUploadClient;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.proto.MissReason;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -109,6 +110,20 @@ public final class SkyValueRetrieverUtils {
     }
 
     return retrievalResult;
+  }
+
+  public static void tryUploadAsync(
+      RemoteAnalysisCacheReaderDepsProvider cachingDeps,
+      SkyKey key,
+      SkyValue value,
+      Environment env)
+      throws InterruptedException {
+    if (!cachingDeps.mode().isAsyncUploadEnabled()) {
+      return;
+    }
+
+    SkycacheUploadClient uploadClient = cachingDeps.getSkycacheUploadClient();
+    uploadClient.tryUpload(key, value, env);
   }
 
   private SkyValueRetrieverUtils() {}

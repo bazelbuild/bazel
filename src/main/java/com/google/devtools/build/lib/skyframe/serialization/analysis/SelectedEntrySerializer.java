@@ -763,17 +763,17 @@ final class SelectedEntrySerializer {
       Profiler.instance().registerCounterSeriesCollector(fileDependencySerializerCounters);
     }
 
-    private void selectedEntryStartingCapped() throws InterruptedException {
+    void selectedEntryStartingCapped() throws InterruptedException {
       inflightSkyframeEntrySemaphore.acquire();
       increment();
     }
 
-    private void selectedEntryDone() {
+    void selectedEntryDone() {
       decrement();
       inflightSkyframeEntrySemaphore.release();
     }
 
-    private void selectedEntryFailed(Throwable t) {
+    void selectedEntryFailed(Throwable t) {
       notifyWriteFailure(t);
       inflightSkyframeEntrySemaphore.release();
     }

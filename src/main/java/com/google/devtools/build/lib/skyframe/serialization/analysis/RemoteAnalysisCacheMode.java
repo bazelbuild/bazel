@@ -30,19 +30,33 @@ public enum RemoteAnalysisCacheMode {
   /** Fetches and deserializes the Skyframe analysis nodes during the build. */
   DOWNLOAD,
 
+  /** Both fetches and serializes Skyframe analysis nodes during the build. */
+  BIDI,
+
+  /** Serializes and uploads Skyframe analysis nodes during the build (no download). */
+  ASYNC_UPLOAD,
+
   /** Disabled. */
   OFF;
 
   /** Returns true if the selected mode needs to connect to a backend. */
   public boolean requiresBackendConnectivity() {
     return switch (this) {
-      case UPLOAD, DOWNLOAD -> true;
+      case UPLOAD, DOWNLOAD, BIDI, ASYNC_UPLOAD -> true;
       case DUMP_UPLOAD_MANIFEST_ONLY, OFF -> false;
     };
   }
 
   public boolean isRetrievalEnabled() {
-    return this == DOWNLOAD;
+    return this == DOWNLOAD || this == BIDI;
+  }
+
+  public boolean isAsyncUploadEnabled() {
+    return this == BIDI || this == ASYNC_UPLOAD;
+  }
+
+  public boolean isUploadEnabled() {
+    return this == BIDI || this == ASYNC_UPLOAD || this == UPLOAD;
   }
 
   /**
@@ -52,7 +66,7 @@ public enum RemoteAnalysisCacheMode {
    */
   public boolean serializesValues() {
     return switch (this) {
-      case UPLOAD, DUMP_UPLOAD_MANIFEST_ONLY -> true;
+      case UPLOAD, DUMP_UPLOAD_MANIFEST_ONLY, BIDI, ASYNC_UPLOAD -> true;
       case DOWNLOAD, OFF -> false;
     };
   }

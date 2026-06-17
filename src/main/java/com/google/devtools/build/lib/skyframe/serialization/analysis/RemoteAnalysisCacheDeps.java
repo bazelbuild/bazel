@@ -19,6 +19,7 @@ import static java.util.concurrent.ForkJoinPool.commonPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 import com.google.common.base.Preconditions;
+import com.google.common.eventbus.EventBus;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -36,6 +37,8 @@ import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalResult;
+import com.google.devtools.build.lib.versioning.LongVersionGetter;
+import com.google.devtools.build.skyframe.InMemoryGraph;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
@@ -74,6 +77,11 @@ public class RemoteAnalysisCacheDeps
 
   // Volatile because double-checked locking is used in the getter
   @Nullable private volatile SkyValueRetriever skyValueRetriever;
+  @Nullable private volatile SkycacheUploadClient skycacheUploadClient;
+
+  private final InMemoryGraph graph;
+  private final EventBus eventBus;
+  private final LongVersionGetter versionGetter;
 
   private final AtomicBoolean bailedOut = new AtomicBoolean();
   private final ExtendedEventHandler eventHandler;
@@ -95,7 +103,10 @@ public class RemoteAnalysisCacheDeps
       String serializedFrontierProfile,
       boolean skycacheAnalysisOnly,
       boolean emitUploadedEvents,
-      Fingerprinter fingerprinterForAnalysisCaching) {
+      Fingerprinter fingerprinterForAnalysisCaching,
+      InMemoryGraph graph,
+      EventBus eventBus,
+      LongVersionGetter versionGetter) {
     this.mode = mode;
     this.bailOutOnMissingFingerprint = bailOutOnMissingFingerprint;
     this.skycacheAnalysisOnly = skycacheAnalysisOnly;
@@ -129,6 +140,10 @@ public class RemoteAnalysisCacheDeps
                 directExecutor());
     this.metadataWriter = servicesSupplier.getMetadataWriter();
     this.analysisCacheClient = servicesSupplier.getAnalysisCacheClient();
+
+    this.graph = graph;
+    this.eventBus = eventBus;
+    this.versionGetter = versionGetter;
   }
 
   private RemoteAnalysisCacheDeps() {
@@ -146,6 +161,10 @@ public class RemoteAnalysisCacheDeps
     this.fingerprintValueServiceFuture = null;
     this.metadataWriter = null;
     this.analysisCacheClient = null;
+
+    this.graph = null;
+    this.eventBus = null;
+    this.versionGetter = null;
   }
 
   static <T> T resolveWithTimeout(Future<? extends T> future, String what)
@@ -243,6 +262,31 @@ public class RemoteAnalysisCacheDeps
                 getFingerprintValueService(), getObjectCodecs(), frontierNodeVersion);
       }
       return skyValueRetriever;
+    }
+  }
+
+  @Override
+  public SkycacheUploadClient getSkycacheUploadClient() throws InterruptedException {
+    checkEnabled();
+    if (skycacheUploadClient != null) {
+      return skycacheUploadClient;
+    }
+
+    synchronized (this) {
+      if (skycacheUploadClient == null) {
+        ObjectCodecs codecs = getObjectCodecs();
+        FingerprintValueService fvs = getFingerprintValueService();
+        skycacheUploadClient =
+            new SkycacheUploadClient(
+                fvs,
+                codecs,
+                frontierNodeVersion,
+                graph,
+                eventBus,
+                versionGetter,
+                emitUploadedEvents);
+      }
+      return skycacheUploadClient;
     }
   }
 

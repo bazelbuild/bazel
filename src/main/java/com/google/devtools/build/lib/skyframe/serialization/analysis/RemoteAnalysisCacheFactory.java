@@ -99,6 +99,17 @@ public final class RemoteAnalysisCacheFactory {
           RemoteAnalysisCacheManager.createDisabled(), disabledDeps, disabledDeps);
     }
 
+    if (env.getSkyframeExecutor().getSkyfocusState().enabled()) {
+      throw new AbruptExitException(
+          DetailedExitCode.of(
+              FailureDetail.newBuilder()
+                  .setMessage("Skycache and Skyfocus cannot be enabled at the same time.")
+                  .setRemoteAnalysisCaching(
+                      RemoteAnalysisCaching.newBuilder()
+                          .setCode(RemoteAnalysisCaching.Code.INCOMPATIBLE_OPTIONS))
+                  .build()));
+    }
+
     if (options.getMode() == RemoteAnalysisCacheMode.UPLOAD
         || options.getMode() == RemoteAnalysisCacheMode.DUMP_UPLOAD_MANIFEST_ONLY) {
       CoreOptions coreOptions = topLevelOptions.get(CoreOptions.class);
@@ -227,7 +238,10 @@ public final class RemoteAnalysisCacheFactory {
             options.getSerializedFrontierProfile(),
             options.getSkycacheAnalysisOnly(),
             options.getEmitBepUploadEvents(),
-            env.getBlazeWorkspace().getFingerprinterForAnalysisCaching());
+            env.getBlazeWorkspace().getFingerprinterForAnalysisCaching(),
+            env.getSkyframeExecutor().getEvaluator().getInMemoryGraph(),
+            env.getEventBus(),
+            env.getVersionGetter());
 
     ListenableFuture<AnalysisCacheInvalidator> analysisCacheInvalidator =
         createAnalysisCacheInvalidator(
@@ -254,9 +268,11 @@ public final class RemoteAnalysisCacheFactory {
     // Bail out if needed
 
     return switch (options.getMode()) {
-      case RemoteAnalysisCacheMode.DUMP_UPLOAD_MANIFEST_ONLY, RemoteAnalysisCacheMode.UPLOAD ->
+      case RemoteAnalysisCacheMode.DUMP_UPLOAD_MANIFEST_ONLY,
+          RemoteAnalysisCacheMode.UPLOAD,
+          RemoteAnalysisCacheMode.ASYNC_UPLOAD ->
           new AnalysisDeps(manager, deps, deps);
-      case RemoteAnalysisCacheMode.DOWNLOAD -> {
+      case RemoteAnalysisCacheMode.DOWNLOAD, RemoteAnalysisCacheMode.BIDI -> {
         RemoteAnalysisCacheClient analysisCacheClient;
         try (SilentCloseable unused = Profiler.instance().profile("initAnalysisCacheClient")) {
           analysisCacheClient = deps.getAnalysisCacheClient();
@@ -295,7 +311,7 @@ public final class RemoteAnalysisCacheFactory {
       throws InvalidConfigurationException {
     return switch (mode) {
       case DOWNLOAD, OFF -> Optional.empty();
-      case UPLOAD, DUMP_UPLOAD_MANIFEST_ONLY -> {
+      case UPLOAD, DUMP_UPLOAD_MANIFEST_ONLY, BIDI, ASYNC_UPLOAD -> {
         // Upload or Dump mode: allow overriding the project file matcher with the active
         // directories flag.
         List<String> activeDirectoriesFromFlag =

@@ -203,7 +203,12 @@ public final class ActionExecutionFunction implements SkyFunction {
     }
 
     try {
-      return computeInternal(actionLookupData, action, env);
+      SkyValue result = computeInternal(actionLookupData, action, env);
+      if (result != null) {
+        SkyValueRetrieverUtils.tryUploadAsync(
+            remoteCachingDependencies, actionLookupData, result, env);
+      }
+      return result;
     } catch (ActionExecutionFunctionException e) {
       skyframeActionExecutor.recordExecutionError();
       throw e;

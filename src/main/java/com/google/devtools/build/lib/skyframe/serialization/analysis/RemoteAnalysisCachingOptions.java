@@ -90,6 +90,7 @@ public abstract class RemoteAnalysisCachingOptions extends OptionsBase {
 
   public abstract void setMode(RemoteAnalysisCacheMode value);
 
+
   /** Enum converter for {@link RemoteAnalysisCacheMode}. */
   private static class RemoteAnalysisCacheModeConverter
       extends EnumConverter<RemoteAnalysisCacheMode> {

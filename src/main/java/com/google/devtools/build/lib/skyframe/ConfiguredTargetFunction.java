@@ -381,8 +381,12 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               state.computeDependenciesState.transitivePackages(),
               /* crashIfExecutionPhase= */ !remoteCachingDependencies.mode().isRetrievalEnabled(),
               remoteCachingDependencies.mode());
-      if (ans != null && analysisProgress != null) {
-        analysisProgress.doneConfigureTarget();
+      if (ans != null) {
+        if (analysisProgress != null) {
+          analysisProgress.doneConfigureTarget();
+        }
+        SkyValueRetrieverUtils.tryUploadAsync(
+            remoteCachingDependencies, configuredTargetKey, ans, env);
       }
       return ans;
     } catch (IncompatibleTargetChecker.IncompatibleTargetException e) {
