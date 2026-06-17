@@ -134,13 +134,12 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
 
   /**
    * Relativizes the given path against the exec root, falling back to the output base for paths
-   * not under the exec root (e.g., external repos on 8.7.0 which are at output_base/external/).
+   * not under the exec root.
    */
   private PathFragment relativizeToExecRootOrOutputBase(PathFragment path) {
     if (path.startsWith(execRoot)) {
       return path.relativeTo(execRoot);
     }
-    // External repos on 8.7.0 are at output_base/external/, a sibling of execroot/.
     return path.relativeTo(execRoot.getParentDirectory().getParentDirectory());
   }
 

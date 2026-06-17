@@ -47,12 +47,12 @@ import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifac
 import com.google.devtools.build.lib.actions.FileContentsProxy;
 import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.util.AsyncTaskCache;
-import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.util.TempPathGenerator;
 import com.google.devtools.build.lib.vfs.FileSymlinkLoopException;
@@ -248,12 +248,9 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   }
 
   /**
-   * Resolves an exec path to an absolute path. On 8.7.0, external repos are at
-   * output_base/external/ (sibling of execroot/), so exec paths starting with "external/" must be
-   * resolved relative to the output base rather than the exec root.
-   *
-   * <p>Absolute paths (e.g., from RemoteExternalOverlayFileSystem.prefetch) are returned as-is on
-   * the exec root's file system.
+   * Resolves an exec path to an absolute path, avoiding evaluation of execRoot() if possible as it
+   * isn't available during server startup. This logic is unique to Bazel 8.x as it still names the
+   * exec root based on the name set in WORKSPACE, which is gone from HEAD and Bazel 9.x.
    */
   private Path resolveExecPath(PathFragment execPath) {
     if (execPath.isAbsolute()) {
@@ -265,8 +262,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     return execRoot().getRelative(execPath);
   }
 
-  private boolean shouldDownloadFile(Path path, FileArtifactValue metadata)
-      throws IOException {
+  private boolean shouldDownloadFile(Path path, FileArtifactValue metadata) throws IOException {
     var stat = path.statIfFound();
     if (stat == null) {
       return true;
@@ -601,14 +597,13 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     }
 
     // Downloads should always be written to the "actual" host file system, not any overlays.
+    // See the comment on resolveExecPath for the rationale behind the branching below.
     Path finalPath = path.forHostFileSystem();
     PathFragment execPath;
     if (finalPath
         .asFragment()
-        .startsWith(outputBase.getRelative(LabelConstants.EXTERNAL_REPOSITORY_LOCATION).asFragment())) {
-      // On 8.7.0, external repos are at output_base/external/ which is not under execRoot
-      // (output_base/execroot/_main/). Use the path relative to the output base instead. This also
-      // avoids resolving the exec root during external repo materialization, before it is known.
+        .startsWith(
+            outputBase.getRelative(LabelConstants.EXTERNAL_REPOSITORY_LOCATION).asFragment())) {
       execPath = finalPath.asFragment().relativeTo(outputBase.asFragment());
     } else {
       execPath = finalPath.asFragment().relativeTo(execRoot().asFragment());
@@ -673,7 +668,8 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     // overlaying the host file system where the download is written to.
     if (!finalPath
         .asFragment()
-        .startsWith(outputBase.getRelative(LabelConstants.EXTERNAL_REPOSITORY_LOCATION).asFragment())) {
+        .startsWith(
+            outputBase.getRelative(LabelConstants.EXTERNAL_REPOSITORY_LOCATION).asFragment())) {
       // Ensure the parent directory exists and is writable. We cannot rely on this precondition to
       // have been established by the execution of the owning action in a previous invocation, since
       // the output tree may have been externally modified in between invocations.
