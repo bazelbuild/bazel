@@ -485,17 +485,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     public abstract boolean getFixedResourceNeverlinking();
 
     @Option(
-        name = "experimental_persistent_aar_extractor",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
-        effectTags = {
-          OptionEffectTag.EXECUTION,
-        },
-        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-        help = "Enable persistent aar extractor by using workers.")
-    public abstract boolean getPersistentAarExtractor();
-
-    @Option(
         name = "persistent_android_resource_processor",
         defaultValue = "null",
         documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
@@ -740,7 +729,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   private final boolean compressJavaResources;
   private final boolean exportsManifestDefault;
   private final boolean fixedResourceNeverlinking;
-  private final boolean persistentAarExtractor;
   private final boolean persistentBusyboxTools;
   private final boolean persistentMultiplexBusyboxTools;
   private final boolean persistentDexDesugar;
@@ -775,7 +763,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     this.compressJavaResources = options.getCompressJavaResources();
     this.exportsManifestDefault = options.getExportsManifestDefault();
     this.fixedResourceNeverlinking = options.getFixedResourceNeverlinking();
-    this.persistentAarExtractor = options.getPersistentAarExtractor();
     this.persistentBusyboxTools = options.getPersistentBusyboxTools();
     this.persistentMultiplexBusyboxTools = options.getPersistentMultiplexBusyboxTools();
     this.persistentDexDesugar = options.getPersistentDexDesugar();
@@ -903,11 +890,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   @Override
   public boolean fixedResourceNeverlinking() {
     return this.fixedResourceNeverlinking;
-  }
-
-  @Override
-  public boolean persistentAarExtractor() {
-    return persistentAarExtractor;
   }
 
   @Override
