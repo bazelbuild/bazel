@@ -372,7 +372,7 @@ This function must be top-level, i.e. lambdas and nested functions are not allow
             defaultValue = "None",
             named = true,
             positional = false,
-        doc = "A one-word description of the action, for example, CppCompile or GoLink."),
+            doc = "A one-word description of the action, for example, CppCompile or GoLink."),
         @Param(
             name = "execution_requirements",
             allowedTypes = {
@@ -477,7 +477,7 @@ This function must be top-level, i.e. lambdas and nested functions are not allow
             defaultValue = "None",
             named = true,
             positional = false,
-        doc = "A one-word description of the action, for example, CppCompile or GoLink."),
+            doc = "A one-word description of the action, for example, CppCompile or GoLink."),
         @Param(
             name = "progress_message",
             allowedTypes = {
@@ -519,7 +519,12 @@ This function must be top-level, i.e. lambdas and nested functions are not allow
                 "Sets the dictionary of environment variables.<p>If both"
                     + " <code>use_default_shell_env</code> and <code>env</code> are set to"
                     + " <code>True</code>, values set in <code>env</code> will overwrite the"
-                    + " default shell environment."),
+                    + " default shell environment.<p>Values may also be <code>File</code>s, which"
+                    + " are expanded to their <a"
+                    + " href=\"../builtins/File.html#path\"><code>path</code></a> at execution"
+                    + " time. This form should be preferred over passing the path string so that"
+                    + " the action can support path mapping via the <code>supports-path-mapping</code>"
+                    + " execution requirement."),
         @Param(
             name = "execution_requirements",
             allowedTypes = {
@@ -695,7 +700,7 @@ This function must be top-level, i.e. lambdas and nested functions are not allow
             defaultValue = "None",
             named = true,
             positional = false,
-        doc = "A one-word description of the action, for example, CppCompile or GoLink."),
+            doc = "A one-word description of the action, for example, CppCompile or GoLink."),
         @Param(
             name = "command",
             allowedTypes = {
@@ -771,7 +776,12 @@ This function must be top-level, i.e. lambdas and nested functions are not allow
                 "Sets the dictionary of environment variables.<p>If both"
                     + " <code>use_default_shell_env</code> and <code>env</code> are set to"
                     + " <code>True</code>, values set in <code>env</code> will overwrite the"
-                    + " default shell environment."),
+                    + " default shell environment.<p>Values may also be <code>File</code>s, which"
+                    + " are expanded to their <a"
+                    + " href=\"../builtins/File.html#path\"><code>path</code></a> at execution"
+                    + " time. This form should be preferred over passing the path string so that"
+                    + " the action can support path mapping via the <code>supports-path-mapping</code>"
+                    + " execution requirement."),
         @Param(
             name = "execution_requirements",
             allowedTypes = {

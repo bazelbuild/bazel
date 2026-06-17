@@ -494,6 +494,66 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         "ruleContext.actions.run(outputs=[], bad_param = 'some text', executable = f)");
   }
 
+  @Test
+  public void testCreateSpawnActionEnvFileValue() throws Exception {
+    StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    setRuleContext(ruleContext);
+    ev.exec(
+        "ruleContext.actions.run_shell(",
+        "  inputs = ruleContext.files.srcs,",
+        "  outputs = ruleContext.files.srcs,",
+        "  env = {'SRC': ruleContext.files.srcs[0], 'FIXED': 'value'},",
+        "  mnemonic = 'DummyMnemonic',",
+        "  command = 'dummy_command')");
+    SpawnAction action =
+        (SpawnAction)
+            Iterables.getOnlyElement(
+                ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
+    assertThat(
+            action.getEffectiveEnvironment(
+                ImmutableMap.of(), execPath -> PathFragment.create(execPath + "_mapped")))
+        .containsExactly("SRC", "foo/a.txt_mapped", "FIXED", "value");
+  }
+
+  @Test
+  public void testCreateSpawnActionEnvFileValue_useDefaultShellEnv() throws Exception {
+    useConfiguration("--action_env=SRC", "--action_env=OTHER=other");
+    StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    setRuleContext(ruleContext);
+    ev.exec(
+        "ruleContext.actions.run_shell(",
+        "  inputs = ruleContext.files.srcs,",
+        "  outputs = ruleContext.files.srcs,",
+        "  env = {'SRC': ruleContext.files.srcs[0]},",
+        "  use_default_shell_env = True,",
+        "  mnemonic = 'DummyMnemonic',",
+        "  command = 'dummy_command')");
+    SpawnAction action =
+        (SpawnAction)
+            Iterables.getOnlyElement(
+                ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
+    // The action-provided value for SRC overrides the inherited variable of the same name, which
+    // the action thus no longer depends on.
+    assertThat(action.getClientEnvironmentVariables()).doesNotContain("SRC");
+    assertThat(
+            action.getEffectiveEnvironment(ImmutableMap.of("SRC", "from_client"), PathMapper.NOOP))
+        .containsEntry("SRC", "foo/a.txt");
+    assertThat(action.getEffectiveEnvironment(ImmutableMap.of(), PathMapper.NOOP))
+        .containsEntry("OTHER", "other");
+  }
+
+  @Test
+  public void testCreateSpawnActionEnvInvalidValueType() throws Exception {
+    setRuleContext(createRuleContext("//foo:foo"));
+    ev.checkEvalErrorContains(
+        "expected value of type 'string' or 'File' for env variable 'FOO', but got int instead",
+        "ruleContext.actions.run_shell(",
+        "  outputs = ruleContext.files.srcs,",
+        "  env = {'FOO': 1},",
+        "  mnemonic = 'DummyMnemonic',",
+        "  command = 'dummy_command')");
+  }
+
   private Object createTestSpawnAction(StarlarkRuleContext ruleContext) throws Exception {
     setRuleContext(ruleContext);
     return ev.eval(

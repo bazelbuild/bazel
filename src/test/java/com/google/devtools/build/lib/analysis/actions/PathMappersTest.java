@@ -302,6 +302,97 @@ public class PathMappersTest extends BuildViewTestCase {
   }
 
   @Test
+  public void starlarkRule_artifactEnv() throws Exception {
+    scratch.file("defs/BUILD");
+    scratch.file(
+        "defs/defs.bzl",
+        """
+        def my_rule_impl(ctx):
+            out = ctx.actions.declare_file(ctx.label.name)
+            ctx.actions.run(
+                executable = ctx.executable._tool,
+                arguments = [ctx.actions.args().add(out)],
+                inputs = ctx.files.srcs,
+                outputs = [out],
+                env = {
+                    "GEN_SRC": ctx.files.srcs[0],
+                    "SOURCE_SRC": ctx.files.srcs[1],
+                    "OUT": out,
+                    "STRING_PATH": ctx.files.srcs[0].path,
+                    "FIXED": "fixed_value",
+                },
+                mnemonic = "MyRuleAction",
+                execution_requirements = {"supports-path-mapping": "1"},
+            )
+            return [DefaultInfo(files = depset([out]))]
+        my_rule = rule(
+            implementation = my_rule_impl,
+            attrs = {
+                "srcs": attr.label_list(allow_files = True),
+                "_tool": attr.label(
+                    default = "//tool",
+                    executable = True,
+                    cfg = "exec",
+                ),
+            },
+        )
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load('//defs:defs.bzl', 'my_rule')
+        genrule(
+            name = 'gen_src',
+            outs = ['gen_src.txt'],
+            cmd = '<some command>',
+        )
+        my_rule(
+            name = 'my_rule',
+            srcs = [
+                ':gen_src',
+                'source.txt',
+            ],
+        )
+        """);
+    scratch.file(
+        "tool/BUILD",
+        """
+        load('//test_defs:foo_binary.bzl', 'foo_binary')
+        foo_binary(
+            name = 'tool',
+            srcs = ['tool.sh'],
+            visibility = ['//visibility:public'],
+        )
+        """);
+
+    ConfiguredTarget configuredTarget = getConfiguredTarget("//pkg:my_rule");
+    Artifact outputArtifact =
+        configuredTarget.getProvider(FileProvider.class).getFilesToBuild().toList().get(0);
+    SpawnAction action = (SpawnAction) getGeneratingAction(outputArtifact);
+    Spawn spawn =
+        action.getSpawn(
+            new ActionExecutionContextBuilder()
+                .setMetadataProvider(new FakeActionInputFileCache())
+                .build());
+
+    assertThat(spawn.getPathMapper().isNoop()).isFalse();
+    String outDir = analysisMock.getProductName() + "-out";
+    assertThat(spawn.getEnvironment())
+        .containsExactly(
+            "GEN_SRC",
+            format("%s/cfg/bin/pkg/gen_src.txt", outDir),
+            "SOURCE_SRC",
+            "pkg/source.txt",
+            "OUT",
+            format("%s/cfg/bin/pkg/my_rule", outDir),
+            // String paths are not mapped.
+            "STRING_PATH",
+            format("%s/pkg/gen_src.txt", outputArtifact.getExecPath().subFragment(0, 3)),
+            "FIXED",
+            "fixed_value");
+  }
+
+  @Test
   public void forActionKey() {
     var pathMapper = PathMapper.forActionKey(CoreOptions.OutputPathsMode.STRIP);
     assertThat(pathMapper.isNoop()).isFalse();
