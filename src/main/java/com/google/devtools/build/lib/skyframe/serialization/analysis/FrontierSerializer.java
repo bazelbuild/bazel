@@ -368,7 +368,6 @@ public final class FrontierSerializer {
                 when !skycacheAnalysisOnly && traversalMode == TraversalMode.FOR_SERIALIZATION -> {
               SkyKey artifactKey = selectArtifactKey(artifact);
               if (artifactKey != null) {
-                // TODO: b/441769854 - add test coverage
                 selection.putIfAbsent(artifactKey, FRONTIER_CANDIDATE);
               }
             }
@@ -497,7 +496,6 @@ public final class FrontierSerializer {
   @Nullable
   private static SkyKey selectArtifactKey(Artifact artifact) {
     if (!artifact.valueIsShareable()) {
-      // TODO: b/441769854 - add test coverage
       return null;
     }
     return switch (artifact) {
