@@ -67,6 +67,11 @@ public class InMemoryCacheClient extends RemoteCacheClient {
     downloadFailures.put(digest, e);
   }
 
+  /** Removes a CAS entry, e.g. to simulate the remote cache losing a previously uploaded blob. */
+  public void removeCasEntry(Digest digest) {
+    cas.remove(digest);
+  }
+
   public int getNumSuccessfulDownloads() {
     return numSuccess.get();
   }

@@ -25,7 +25,7 @@ import java.io.IOException;
 public interface MerkleTreeUploader {
   /** Uploads an in-memory blob to the remote cache. */
   ListenableFuture<Void> uploadBlob(
-      RemoteActionExecutionContext context, Digest digest, byte[] data);
+      RemoteActionExecutionContext context, Digest digest, byte[] data, boolean force);
 
   /** Uploads a local file to the remote cache. */
   ListenableFuture<Void> uploadFile(
@@ -37,7 +37,10 @@ public interface MerkleTreeUploader {
 
   /** Uploads a virtual action input to the remote cache. */
   ListenableFuture<Void> uploadVirtualActionInput(
-      RemoteActionExecutionContext context, Digest digest, VirtualActionInput virtualActionInput);
+      RemoteActionExecutionContext context,
+      Digest digest,
+      VirtualActionInput virtualActionInput,
+      boolean force);
 
   /**
    * Ensures that all inputs as well as metadata protos in the given Merkle tree are present in the
