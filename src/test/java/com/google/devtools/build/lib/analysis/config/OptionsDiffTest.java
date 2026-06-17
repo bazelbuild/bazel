@@ -19,6 +19,7 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
+import com.google.devtools.build.lib.analysis.config.Scope.ScopeType;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.cpp.CppOptions;
 import org.junit.Test;
@@ -112,5 +113,83 @@ public class OptionsDiffTest {
     assertThat(diff.getExtraStarlarkOptionsFirstForTesting()).containsExactly(flagNameOne);
     assertThat(diff.getExtraStarlarkOptionsSecondForTesting().entrySet())
         .containsExactly(Maps.immutableEntry(flagNameTwo, flagValue));
+  }
+
+  @Test
+  public void diff_starlarkMetadataChanged() {
+    Label flagName = Label.parseCanonicalUnchecked("//metadata/flag");
+    ScopeType scope1 = new ScopeType(ScopeType.DEFAULT);
+    ScopeType scope2 = new ScopeType(ScopeType.UNIVERSAL);
+
+    BuildOptions one =
+        BuildOptions.builder()
+            .addStarlarkOption(flagName, "value")
+            .addScopeType(flagName, scope1)
+            .addOnLeaveScopeValue(flagName, "onLeave1")
+            .build();
+
+    BuildOptions two =
+        BuildOptions.builder()
+            .addStarlarkOption(flagName, "value")
+            .addScopeType(flagName, scope2)
+            .addOnLeaveScopeValue(flagName, "onLeave2")
+            .build();
+
+    OptionsDiff diff = OptionsDiff.diff(one, two);
+
+    assertThat(diff.areSame()).isFalse();
+    assertThat(diff.getStarlarkFirstScopes()).containsExactly(flagName, scope1);
+    assertThat(diff.getStarlarkSecondScopes()).containsExactly(flagName, scope2);
+    assertThat(diff.getStarlarkFirstOnLeaveValues()).containsExactly(flagName, "onLeave1");
+    assertThat(diff.getStarlarkSecondOnLeaveValues()).containsExactly(flagName, "onLeave2");
+  }
+
+  @Test
+  public void diff_extraStarlarkMetadata() {
+    Label flagName = Label.parseCanonicalUnchecked("//metadata/flag");
+    ScopeType scope = new ScopeType(ScopeType.DEFAULT);
+
+    BuildOptions one = BuildOptions.builder().build();
+
+    BuildOptions two =
+        BuildOptions.builder()
+            .addStarlarkOption(flagName, "value")
+            .addScopeType(flagName, scope)
+            .addOnLeaveScopeValue(flagName, "onLeaveValue")
+            .build();
+
+    OptionsDiff diff = OptionsDiff.diff(one, two);
+
+    assertThat(diff.areSame()).isFalse();
+    assertThat(diff.getExtraStarlarkOptionsSecondScopes()).containsExactly(flagName, scope);
+    assertThat(diff.getExtraStarlarkOptionsSecondOnLeaveValues())
+        .containsExactly(flagName, "onLeaveValue");
+  }
+
+  @Test
+  public void testApplyDiff_recreatesIdenticalObject() throws Exception {
+    BuildOptions one =
+        BuildOptions.of(ImmutableList.of(CoreOptions.class), "--compilation_mode=opt", "cpu=k8");
+
+    Label flagName = Label.parseCanonicalUnchecked("//metadata/flag");
+    ScopeType scope = new ScopeType(ScopeType.UNIVERSAL);
+
+    BuildOptions two =
+        BuildOptions.of(ImmutableList.of(CoreOptions.class)).toBuilder()
+            .addStarlarkOption(flagName, "value")
+            .addScopeType(flagName, scope)
+            .addOnLeaveScopeValue(flagName, "onLeaveValue")
+            .build();
+
+    // Diff one - two
+    OptionsDiff diff = OptionsDiff.diff(one, two);
+
+    // Apply diff on one to reconstruct two
+    BuildOptions reconstructedTwo = OptionsDiff.applyDiff(one, diff);
+
+    // Verify equality of two and reconstructed two
+    assertThat(reconstructedTwo).isEqualTo(two);
+    assertThat(reconstructedTwo.getScopeTypeMap()).isEqualTo(two.getScopeTypeMap());
+    assertThat(reconstructedTwo.getOnLeaveScopeValues()).isEqualTo(two.getOnLeaveScopeValues());
   }
 }
