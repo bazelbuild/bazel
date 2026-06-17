@@ -255,6 +255,14 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     };
   }
 
+  /** Escapes quotes and backslashes for Apple SBPL Scheme string literals. */
+  private static String escapeSchemeString(String s) {
+    if (s == null) {
+      return "";
+    }
+    return s.replace("\\", "\\\\").replace("\"", "\\\"");
+  }
+
   private static void writeConfig(
       Path sandboxConfigPath,
       Set<Path> writableDirs,
@@ -284,10 +292,10 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
       out.println("(allow file-write*");
       for (Path path : writableDirs) {
-        out.println("    (subpath \"" + path.getPathString() + "\")");
+        out.println("    (subpath \"" + escapeSchemeString(path.getPathString()) + "\")");
       }
       if (statisticsPath != null) {
-        out.println("    (literal \"" + statisticsPath.getPathString() + "\")");
+        out.println("    (literal \"" + escapeSchemeString(statisticsPath.getPathString()) + "\")");
       }
       out.println(")");
 
@@ -296,7 +304,7 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
         // The sandbox configuration file is not part of a cache key and sandbox-exec doesn't care
         // about ordering of paths in expressions, so it's fine if the iteration order is random.
         for (Path inaccessiblePath : inaccessiblePaths) {
-          out.println("    (subpath \"" + inaccessiblePath + "\")");
+          out.println("    (subpath \"" + escapeSchemeString(inaccessiblePath.toString()) + "\")");
         }
         out.println(")");
       }
