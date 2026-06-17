@@ -22,7 +22,6 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.nio.channels.SeekableByteChannel;
 import java.util.Collection;
 import javax.annotation.Nullable;
 
@@ -200,11 +199,6 @@ public abstract class PathTransformingDelegateFileSystem extends FileSystem {
   @Override
   public InputStream getInputStream(PathFragment path) throws IOException {
     return delegateFs.getInputStream(toDelegatePath(path));
-  }
-
-  @Override
-  public SeekableByteChannel createReadWriteByteChannel(PathFragment path) throws IOException {
-    return delegateFs.createReadWriteByteChannel(toDelegatePath(path));
   }
 
   @Override

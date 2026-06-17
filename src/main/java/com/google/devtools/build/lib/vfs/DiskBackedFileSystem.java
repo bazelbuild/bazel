@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.vfs;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -29,9 +28,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.channels.FileChannel;
-import java.nio.channels.SeekableByteChannel;
-import java.nio.file.Files;
-import java.nio.file.StandardOpenOption;
 
 /**
  * This class extends {@link FileSystem} with default implementations providing access to files on
@@ -40,13 +36,6 @@ import java.nio.file.StandardOpenOption;
 @ThreadSafe
 public abstract class DiskBackedFileSystem extends FileSystem {
   private static final Profiler profiler = Profiler.instance();
-
-  private static final ImmutableSet<StandardOpenOption> READ_WRITE_BYTE_CHANNEL_OPEN_OPTIONS =
-      ImmutableSet.of(
-          StandardOpenOption.READ,
-          StandardOpenOption.WRITE,
-          StandardOpenOption.CREATE,
-          StandardOpenOption.TRUNCATE_EXISTING);
 
   protected DiskBackedFileSystem(DigestHashFunction hashFunction) {
     super(hashFunction);
@@ -115,22 +104,6 @@ public abstract class DiskBackedFileSystem extends FileSystem {
     }
   }
 
-  @Override
-  public SeekableByteChannel createReadWriteByteChannel(PathFragment path) throws IOException {
-    java.nio.file.Path nioPath = checkNotNull(getNioPath(path), "getNioPath() must not be null");
-
-    boolean profileOpen = profiler.isActive() && profiler.isProfiling(ProfilerTask.VFS_OPEN);
-
-    long startTime = Profiler.instance().nanoTimeMaybe();
-    try {
-      // TODO: add profiling for read/write operations.
-      return Files.newByteChannel(nioPath, READ_WRITE_BYTE_CHANNEL_OPEN_OPTIONS);
-    } finally {
-      if (profileOpen) {
-        profiler.logSimpleTask(startTime, ProfilerTask.VFS_OPEN, path.toString());
-      }
-    }
-  }
 
   // As of OpenJDK 25, FileInputStream.transferTo(FileOutputStream) closes the underlying
   // FileChannels and throws a ClosedByInterruptException (a subclass of IOException) when called

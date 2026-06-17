@@ -26,7 +26,6 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.nio.channels.SeekableByteChannel;
 import java.util.ArrayList;
 import java.util.Collection;
 import javax.annotation.Nullable;
@@ -780,16 +779,6 @@ public class Path implements Comparable<Path>, FileType.HasFileType {
    */
   public InputStream getInputStream() throws IOException {
     return fileSystem.getInputStream(asFragment());
-  }
-
-  /**
-   * Opens the file denoted by this path, following symbolic links, for reading and writing and
-   * returns a file channel for it.
-   *
-   * <p>Truncates the file, therefore it cannot be used to read already existing files.
-   */
-  public SeekableByteChannel createReadWriteByteChannel() throws IOException {
-    return fileSystem.createReadWriteByteChannel(asFragment());
   }
 
   /**

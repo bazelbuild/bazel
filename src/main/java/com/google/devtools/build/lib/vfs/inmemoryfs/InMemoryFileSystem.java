@@ -35,7 +35,6 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.nio.channels.SeekableByteChannel;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -605,13 +604,6 @@ public class InMemoryFileSystem extends FileSystem {
   @Override
   public synchronized InputStream getInputStream(PathFragment path) throws IOException {
     return statFile(path).getInputStream();
-  }
-
-  @Override
-  public synchronized SeekableByteChannel createReadWriteByteChannel(PathFragment path)
-      throws IOException {
-    InMemoryContentInfo status = getOrCreateWritableInode(path);
-    return ((FileInfo) status).createReadWriteByteChannel();
   }
 
   @Override

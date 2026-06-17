@@ -59,7 +59,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InterruptedIOException;
 import java.io.OutputStream;
-import java.nio.channels.SeekableByteChannel;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -543,11 +542,6 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
   @Override
   public InputStream getInputStream(PathFragment path) throws IOException {
     return fsForPath(path).getInputStream(path);
-  }
-
-  @Override
-  public SeekableByteChannel createReadWriteByteChannel(PathFragment path) throws IOException {
-    return fsForPath(path).createReadWriteByteChannel(path);
   }
 
   @Override

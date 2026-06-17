@@ -30,7 +30,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
-import java.nio.channels.SeekableByteChannel;
 import java.nio.file.AccessDeniedException;
 import java.nio.file.DirectoryNotEmptyException;
 import java.nio.file.FileAlreadyExistsException;
@@ -739,15 +738,6 @@ public abstract class FileSystem {
    * @throws IOException if there was an error opening the file for writing
    */
   public abstract OutputStream getOutputStream(PathFragment path, boolean append, boolean internal)
-      throws IOException;
-
-  /**
-   * Creates a {@link SeekableByteChannel}, truncating the file if it already exists.
-   *
-   * @param path the path to open
-   * @throws IOException if there was an error opening the file for reading
-   */
-  public abstract SeekableByteChannel createReadWriteByteChannel(PathFragment path)
       throws IOException;
 
   /**

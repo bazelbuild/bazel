@@ -60,7 +60,6 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.nio.channels.SeekableByteChannel;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -419,11 +418,6 @@ public class RemoteActionFileSystem extends FileSystem implements PathCanonicali
   public OutputStream getOutputStream(PathFragment path, boolean append, boolean internal)
       throws IOException {
     return localFs.getPath(path).getOutputStream(append, internal);
-  }
-
-  @Override
-  public SeekableByteChannel createReadWriteByteChannel(PathFragment path) throws IOException {
-    return localFs.getPath(path).createReadWriteByteChannel();
   }
 
   @Override
@@ -974,11 +968,6 @@ public class RemoteActionFileSystem extends FileSystem implements PathCanonicali
 
     @Override
     public InputStream getInputStream() throws IOException {
-      throw new IllegalStateException("Shouldn't be called directly");
-    }
-
-    @Override
-    public SeekableByteChannel createReadWriteByteChannel() throws IOException {
       throw new IllegalStateException("Shouldn't be called directly");
     }
 

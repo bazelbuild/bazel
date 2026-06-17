@@ -95,12 +95,6 @@ public class InMemoryFileInfo extends FileInfo {
             /* truncate= */ !append));
   }
 
-  @Override
-  public SeekableByteChannel createReadWriteByteChannel() {
-    return new InMemoryByteChannel(
-        /* readable= */ true, /* writable= */ true, /* append= */ false, /* truncate= */ true);
-  }
-
   /**
    * A {@link SeekableByteChannel} manipulating the contents of the parent {@link InMemoryFileInfo}
    * instance.

@@ -14,11 +14,9 @@
 //
 package com.google.devtools.build.lib.vfs;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.common.truth.TruthJUnit.assume;
-import static java.lang.Math.min;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
@@ -43,10 +41,6 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.nio.ByteBuffer;
-import java.nio.channels.ReadableByteChannel;
-import java.nio.channels.SeekableByteChannel;
-import java.nio.channels.WritableByteChannel;
 import java.nio.charset.Charset;
 import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
@@ -1285,158 +1279,6 @@ public abstract class FileSystemTest {
     assertThat(xFile.exists()).isTrue();
     xFile.setWritable(false);
     assertThrows(FileAccessException.class, () -> xFile.getOutputStream());
-  }
-
-  @Test
-  public void testCreateReadWriteByteChannelWrite(@TestParameter boolean overwrite)
-      throws Exception {
-    String text = "hello";
-    Path file = overwrite ? xFile : xNothing;
-    FileSystemUtils.writeContent(xFile, UTF_8, "goodbye"); // longer than hello
-    try (SeekableByteChannel channel = file.createReadWriteByteChannel()) {
-      writeToChannelAsLatin1(channel, text);
-      assertThat(channel.position()).isEqualTo(text.length());
-    }
-
-    assertThat(FileSystemUtils.readContent(file, ISO_8859_1)).isEqualTo("hello");
-  }
-
-  @Test
-  public void testCreateReadWriteByteChannelWriteAfterSeek() throws Exception {
-    try (SeekableByteChannel channel = xNothing.createReadWriteByteChannel()) {
-      writeToChannelAsLatin1(channel, "01234567890");
-      channel.position(5);
-      writeToChannelAsLatin1(channel, "hello!");
-      assertThat(channel.position()).isEqualTo(5 + "hello!".length());
-    }
-
-    assertThat(FileSystemUtils.readContent(xNothing, ISO_8859_1)).isEqualTo("01234hello!");
-  }
-
-  @Test
-  public void testCreateReadWriteByteChannelSeek(@TestParameter({"0", "5", "12"}) int seekPosition)
-      throws Exception {
-    String text = "hello there!";
-    try (SeekableByteChannel channel = xNothing.createReadWriteByteChannel()) {
-      writeToChannelAsLatin1(channel, text);
-      channel.position(seekPosition);
-      assertThat(channel.position()).isEqualTo(seekPosition);
-      String read = readAllAsString(channel, text.length() - seekPosition);
-      assertThat(channel.position()).isEqualTo(text.length());
-      assertThat(read).isEqualTo(text.substring(seekPosition));
-    }
-  }
-
-  @Test
-  public void testCreateReadWriteByteChannelSeekHole(@TestParameter boolean write)
-      throws Exception {
-    String text1 = "goodbye";
-    String text2 = "and thanks for all the fish";
-    try (SeekableByteChannel channel = xNothing.createReadWriteByteChannel()) {
-      writeToChannelAsLatin1(channel, text1);
-      channel.position(text1.length() + 1);
-      assertThat(channel.position()).isEqualTo(text1.length() + 1);
-      assertThat(channel.size()).isEqualTo(text1.length());
-      assertThat(channel.read(ByteBuffer.allocate(1))).isEqualTo(-1);
-      if (write) {
-        writeToChannelAsLatin1(channel, text2);
-        assertThat(channel.position()).isEqualTo(text1.length() + 1 + text2.length());
-      }
-    }
-
-    assertThat(FileSystemUtils.readContent(xNothing, ISO_8859_1))
-        .isEqualTo(write ? text1 + "\0" + text2 : text1);
-  }
-
-  @Test
-  public void testCreateReadWriteByteChannelSeekNegative() throws Exception {
-    try (SeekableByteChannel channel = xNothing.createReadWriteByteChannel()) {
-      assertThrows(IllegalArgumentException.class, () -> channel.position(-1));
-    }
-  }
-
-  @Test
-  public void testCreateReadWriteByteChannelTruncate(
-      @TestParameter({"0", "5", "12", "100"}) int truncateSize) throws Exception {
-    String text = "hello there!";
-    int expectedSize = min(truncateSize, text.length());
-    try (SeekableByteChannel channel = xNothing.createReadWriteByteChannel()) {
-      writeToChannelAsLatin1(channel, text);
-      channel.truncate(truncateSize);
-      assertThat(channel.position()).isEqualTo(expectedSize);
-      assertThat(channel.size()).isEqualTo(expectedSize);
-      assertThat(channel.read(ByteBuffer.allocate(1))).isEqualTo(-1);
-    }
-
-    assertThat(FileSystemUtils.readContent(xNothing, ISO_8859_1))
-        .isEqualTo(text.substring(0, expectedSize));
-  }
-
-  @Test
-  public void testCreateReadWriteByteChannelTruncateHole(@TestParameter boolean shrink)
-      throws Exception {
-    String text = "hello";
-    try (SeekableByteChannel channel = xNothing.createReadWriteByteChannel()) {
-      writeToChannelAsLatin1(channel, text);
-      channel.position(text.length() + 5);
-      assertThat(channel.position()).isEqualTo(text.length() + 5);
-      assertThat(channel.size()).isEqualTo(text.length());
-      int truncateSize = shrink ? text.length() - 1 : text.length() + 1;
-      channel.truncate(truncateSize);
-      assertThat(channel.position()).isEqualTo(truncateSize);
-      assertThat(channel.size()).isEqualTo(shrink ? text.length() - 1 : text.length());
-    }
-
-    assertThat(FileSystemUtils.readContent(xNothing, ISO_8859_1))
-        .isEqualTo(shrink ? "hell" : "hello");
-  }
-
-  @Test
-  public void testCreateReadWriteByteChannelTruncateAndSeekToErase() throws Exception {
-    try (SeekableByteChannel channel = xNothing.createReadWriteByteChannel()) {
-      writeToChannelAsLatin1(channel, "hello");
-      channel.truncate("hello".length() - 1);
-      channel.position("hello".length());
-      writeToChannelAsLatin1(channel, "world");
-    }
-
-    assertThat(FileSystemUtils.readContent(xNothing, ISO_8859_1)).isEqualTo("hell\0world");
-  }
-
-  @Test
-  public void testCreateReadWriteByteChannelTruncateNegative() throws Exception {
-    try (SeekableByteChannel channel = xNothing.createReadWriteByteChannel()) {
-      assertThrows(IllegalArgumentException.class, () -> channel.truncate(-1));
-    }
-  }
-
-  private static void writeToChannelAsLatin1(WritableByteChannel channel, String text)
-      throws IOException {
-    byte[] bytes = text.getBytes(ISO_8859_1);
-    ByteBuffer buffer = ByteBuffer.wrap(bytes);
-    int toWrite = bytes.length;
-    while (toWrite > 0) {
-      toWrite -= channel.write(buffer);
-    }
-    assertThat(toWrite).isEqualTo(0);
-    assertThat(buffer.remaining()).isEqualTo(0);
-  }
-
-  private static String readAllAsString(ReadableByteChannel channel, int expectedSize)
-      throws IOException {
-    checkArgument(expectedSize >= 0, "negative expected size: %s", expectedSize);
-    // +1 to make sure we can observe EOF -- Channel::read will always return 0 for a full buffer.
-    ByteBuffer buffer = ByteBuffer.allocate(expectedSize + 1);
-    int totalRead = 0;
-    for (; ; ) {
-      int read = channel.read(buffer);
-      if (read == -1) {
-        assertThat(totalRead).isEqualTo(expectedSize);
-        return new String(buffer.array(), 0, expectedSize, ISO_8859_1);
-      }
-      totalRead += read;
-      assertThat(buffer.position()).isEqualTo(totalRead);
-    }
   }
 
   @Test

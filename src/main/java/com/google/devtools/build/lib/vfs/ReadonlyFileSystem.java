@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.vfs;
 
 import java.io.IOException;
 import java.io.OutputStream;
-import java.nio.channels.SeekableByteChannel;
 
 /** Functionally like a read-only {@link FileSystem}. */
 public abstract class ReadonlyFileSystem extends FileSystem {
@@ -33,11 +32,6 @@ public abstract class ReadonlyFileSystem extends FileSystem {
   @Override
   public OutputStream getOutputStream(PathFragment path, boolean append, boolean internal)
       throws IOException {
-    throw modificationException();
-  }
-
-  @Override
-  public SeekableByteChannel createReadWriteByteChannel(PathFragment path) throws IOException {
     throw modificationException();
   }
 
