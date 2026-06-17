@@ -697,6 +697,44 @@ EOF
       || fail "Remote execution generated different result"
 }
 
+# Tests an action with so many output files that the serialized ActionResult
+# proto exceeds the default gRPC maximum message size of 4 MiB.
+# Regression test for https://github.com/bazelbuild/bazel/issues/29821.
+function test_action_result_exceeding_grpc_max_message_size() {
+  mkdir -p a
+  # 15000 outputs with ~290 character paths serialize to an ActionResult of
+  # more than 5 MB.
+  cat > a/BUILD <<'EOF'
+DIR = "x" * 250
+
+N = 15000
+
+genrule(
+    name = "many_outputs",
+    outs = ["%s/%s.txt" % (DIR, i) for i in range(N)],
+    cmd = ("mkdir -p $(RULEDIR)/{dir} && cd $(RULEDIR)/{dir} && " +
+           "seq 0 {max} | sed 's/$$/.txt/' | xargs touch").format(
+        dir = DIR,
+        max = N - 1,
+    ),
+)
+EOF
+
+  bazel build \
+      --remote_executor=grpc://localhost:${worker_port} \
+      //a:many_outputs >& $TEST_log \
+      || fail "Failed to build //a:many_outputs with remote execution"
+
+  # Also exercise the remote cache hit path, which fetches the same
+  # ActionResult via GetActionResult.
+  bazel clean >& $TEST_log
+  bazel build \
+      --remote_executor=grpc://localhost:${worker_port} \
+      //a:many_outputs >& $TEST_log \
+      || fail "Failed to build //a:many_outputs from the remote cache"
+  expect_log "1 remote cache hit"
+}
+
 function test_py_test() {
   mkdir -p a
   cat > a/BUILD <<EOF
