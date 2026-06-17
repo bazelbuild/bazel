@@ -269,10 +269,7 @@ java_library(
         "AbstractValueOrFutureMap.java",
         "ValueOrFutureMap.java",
     ],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/concurrent:settable_future_keyed_value",
-        "//third_party:guava",
-    ],
+    deps = ["//src/main/java/com/google/devtools/build/lib/concurrent:settable_future_keyed_value"],
 )
 
 java_library(

@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.InMemoryGraph;
 import com.google.devtools.build.skyframe.InMemoryNodeEntry;
 import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
@@ -80,7 +81,40 @@ import javax.annotation.Nullable;
  * overwriting of the configured target doesn't affect correctness either because each action
  * directly references the invalidation data created by its respective build.
  */
-final class FileOpNodeMemoizingLookup {
+public final class FileOpNodeMemoizingLookup {
+
+  /**
+   * An {@link AbstractValueOrFutureMap} that allows passing in data that it forwards to the
+   * function computing the value from the key.
+   */
+  private final class FileOpNodeMap
+      extends AbstractValueOrFutureMap<
+          SkyKey, FileOpNodeOrFuture, FileOpNodeOrEmpty, FutureFileOpNode> {
+
+    private FileOpNodeMap() {
+      super(new ConcurrentHashMap<>(), FutureFileOpNode::new, FutureFileOpNode.class);
+    }
+
+    private FileOpNodeOrFuture getValueOrFuture(SkyKey key) {
+      return getValueOrFuture(key, null, null);
+    }
+
+    private FileOpNodeOrFuture getValueOrFuture(
+        SkyKey key, @Nullable SkyValue value, @Nullable Iterable<SkyKey> directDeps) {
+      FileOpNodeOrFuture result = getOrCreateValueForSubclasses(key);
+      if (result instanceof FutureFileOpNode future) {
+        if (future.tryTakeOwnership()) {
+          try {
+            return populateFutureFileOpNode(future, value, directDeps);
+          } finally {
+            future.verifyComplete();
+          }
+        }
+      }
+      return result;
+    }
+  }
+
   private final Executor executor;
   private final InMemoryGraph graph;
   private final ImmutableSet<SkyKey> selectedKeys;
@@ -88,13 +122,7 @@ final class FileOpNodeMemoizingLookup {
   @Nullable // non-null if shouldDiscardMemory is true
   private final ImmutableSet<PackageIdentifier> referencedPackages;
 
-  private final ValueOrFutureMap<SkyKey, FileOpNodeOrFuture, FileOpNodeOrEmpty, FutureFileOpNode>
-      nodes =
-          new ValueOrFutureMap<>(
-              new ConcurrentHashMap<>(),
-              FutureFileOpNode::new,
-              this::populateFutureFileOpNode,
-              FutureFileOpNode.class);
+  private final FileOpNodeMap nodes = new FileOpNodeMap();
 
   FileOpNodeMemoizingLookup(
       Executor executor,
@@ -113,10 +141,28 @@ final class FileOpNodeMemoizingLookup {
     return nodes.getValueOrFuture(key);
   }
 
-  private FileOpNodeOrFuture populateFutureFileOpNode(FutureFileOpNode ownedFuture) {
-    var collector = new FileOpNodeCollector(executor, ownedFuture.key());
+  /**
+   * Computes a node with the specified direct deps and value.
+   *
+   * <p>To be used when the node in question hasn't been committed to Skyframe yet.
+   *
+   * @param key the {@link SkyKey} for which the node should be computed
+   * @param value the value that will be eventually committed to Skyframe under the specified key
+   * @param directDeps the deps of the corresponding Skyframe node. Must be the same as what will be
+   *     committed to Skyframe.
+   */
+  FileOpNodeOrFuture computeNode(ActionLookupKey key, SkyValue value, Iterable<SkyKey> directDeps) {
+    return nodes.getValueOrFuture(key, value, directDeps);
+  }
 
-    accumulateTransitiveFileSystemOperations(ownedFuture.key(), collector);
+  private FileOpNodeOrFuture populateFutureFileOpNode(
+      FutureFileOpNode ownedFuture,
+      @Nullable SkyValue value,
+      @Nullable Iterable<SkyKey> directDeps) {
+    SkyKey key = ownedFuture.key();
+    var collector = new FileOpNodeCollector(executor, key);
+
+    accumulateTransitiveFileSystemOperations(collector, key, value, directDeps);
     collector.notifyAllFuturesAdded();
 
     if (collector.isDone()) {
@@ -129,20 +175,27 @@ final class FileOpNodeMemoizingLookup {
     return ownedFuture.completeWith(collector);
   }
 
-  private void accumulateTransitiveFileSystemOperations(SkyKey key, FileOpNodeCollector collector) {
-    InMemoryNodeEntry nodeEntry = graph.getIfPresent(key);
-    if (nodeEntry == null) {
-      collector.failWith(new MissingSkyframeEntryException(key));
-      return;
+  private void accumulateTransitiveFileSystemOperations(
+      FileOpNodeCollector collector,
+      SkyKey key,
+      @Nullable SkyValue value,
+      @Nullable Iterable<SkyKey> directDeps) {
+    if (directDeps == null) {
+      InMemoryNodeEntry nodeEntry = graph.getIfPresent(key);
+      if (nodeEntry == null) {
+        collector.failWith(new MissingSkyframeEntryException(key));
+        return;
+      }
+      directDeps = nodeEntry.getDirectDeps();
+      value = checkNotNull(nodeEntry.getValue(), key);
     }
 
-    if (key instanceof ActionLookupKey actionLookupKey) {
+    if (key instanceof ActionLookupKey) {
       // If the corresponding value is an InputFileConfiguredTarget, it indicates an execution time
       // file dependency.
-      if ((checkNotNull(nodeEntry.getValue(), actionLookupKey)
-              instanceof NonRuleConfiguredTargetValue nonRuleConfiguredTargetValue)
-          && (nonRuleConfiguredTargetValue.getConfiguredTarget()
-              instanceof InputFileConfiguredTarget inputFileConfiguredTarget)) {
+      if (value instanceof NonRuleConfiguredTargetValue nonRuleConfiguredTargetValue
+          && nonRuleConfiguredTargetValue.getConfiguredTarget()
+              instanceof InputFileConfiguredTarget inputFileConfiguredTarget) {
         // The source artifact's file becomes an execution time dependency of actions owned by
         // configured targets with this InputFileConfiguredTarget as a dependency.
         SourceArtifact source = inputFileConfiguredTarget.getArtifact();
@@ -159,7 +212,7 @@ final class FileOpNodeMemoizingLookup {
       }
     }
 
-    for (SkyKey dep : nodeEntry.getDirectDeps()) {
+    for (SkyKey dep : directDeps) {
       switch (dep) {
         case FileOpNode immediateNode -> collector.addNode(immediateNode);
         default -> addNodeForKey(dep, collector);
