@@ -827,6 +827,53 @@ EOF
   [[ -f "${temp_dir}/file" ]] || fail "Expected ${temp_dir}/file to exist"
 }
 
+# Regression test for https://github.com/bazelbuild/bazel/issues/29649
+function test_repo_contents_cache_under_hermetic_tmp {
+  if ! is_linux; then
+    echo "Skipping test: hermetic /tmp is only supported in Linux" 1>&2
+    return 0
+  fi
+
+  # Place the repo contents cache directly under /tmp at a location that is not
+  # contained in the output base.
+  # Not declared local so that it is still bound when the EXIT trap runs.
+  repo_contents_cache=$(mktemp -d /tmp/repo_contents_cache.XXXXXX)
+  trap 'rm -rf ${repo_contents_cache}' EXIT
+
+  cat > repo.bzl <<'EOF'
+def _cached_repo_impl(rctx):
+    rctx.file("BUILD", "exports_files(['data.txt'])")
+    rctx.file("data.txt", "hello from the cached repo\n")
+    # Mark the repo as reproducible so it is stored in the repo contents cache
+    # and materialized as a symlink into it.
+    return rctx.repo_metadata(reproducible = True)
+
+cached_repo = repository_rule(implementation = _cached_repo_impl)
+EOF
+  touch BUILD
+
+  cat >> MODULE.bazel <<'EOF'
+cached_repo = use_repo_rule("//:repo.bzl", "cached_repo")
+cached_repo(name = "cached_repo")
+EOF
+
+  mkdir -p pkg
+  cat > pkg/BUILD <<'EOF'
+genrule(
+    name = "use_cached_repo",
+    srcs = ["@cached_repo//:data.txt"],
+    outs = ["out.txt"],
+    cmd = "cat $(location @cached_repo//:data.txt) > $@",
+)
+EOF
+
+  bazel build //pkg:use_cached_repo \
+    --repo_contents_cache="${repo_contents_cache}" &>"$TEST_log" \
+    || fail "Expected build to succeed"
+
+  assert_contains "hello from the cached repo" bazel-genfiles/pkg/out.txt
+}
+
 function test_sandbox_reuse_stashes_sandbox() {
   mkdir pkg
   cat >pkg/BUILD <<'EOF'
