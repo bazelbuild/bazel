@@ -93,10 +93,13 @@ java_test(
     name = "SpawnRunnerTests",
     size = "medium",
     srcs = [
+        "SandboxBackendSpawnRunnerTest.java",
         "DarwinSandboxedSpawnRunnerTest.java",
         "LinuxSandboxCommandLineBuilderTest.java",
         "LinuxSandboxedSpawnRunnerTest.java",
         "ProcessWrapperSandboxedSpawnRunnerTest.java",
+        "SandboxBackendManifestTest.java",
+        "SandboxBackendUtilTest.java",
     ],
     data = ["//src/test/java/com/google/devtools/build/lib:embedded_scripts"],
     tags = ["no_windows"],
@@ -107,6 +110,7 @@ java_test(
     deps = [
         ":testutil",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:action_input",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
         "//src/main/java/com/google/devtools/build/lib/actions:param_file_action_input",
@@ -116,6 +120,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/exec:tree_deleter",
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
         "//src/main/java/com/google/devtools/build/lib/sandbox:darwin_sandbox",
+        "//src/main/java/com/google/devtools/build/lib/sandbox:sandbox_backend",
         "//src/main/java/com/google/devtools/build/lib/sandbox:linux_sandbox",
         "//src/main/java/com/google/devtools/build/lib/sandbox:linux_sandbox_command_line_builder",
         "//src/main/java/com/google/devtools/build/lib/sandbox:process_wrapper_sandbox",
@@ -128,6 +133,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
         "//src/main/java/com/google/devtools/common/options:options_internal",
+        "//src/main/protobuf:sandbox_java_proto",
         "//src/test/java/com/google/devtools/build/lib/actions/util",
         "//src/test/java/com/google/devtools/build/lib/exec/util",
         "//src/test/java/com/google/devtools/build/lib/testutil",
@@ -135,6 +141,7 @@ java_test(
         "//third_party:junit4",
         "//third_party:truth",
         "@maven//:com_google_testparameterinjector_test_parameter_injector",
+        "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
     ],
 )
 

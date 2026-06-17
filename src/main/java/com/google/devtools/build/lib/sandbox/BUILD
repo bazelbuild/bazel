@@ -92,6 +92,7 @@ java_library(
     srcs = ["SandboxModule.java"],
     deps = [
         ":darwin_sandbox",
+        ":sandbox_backend",
         ":docker_sandbox",
         ":linux_sandbox",
         ":process_wrapper_sandbox",
@@ -261,6 +262,16 @@ java_library(
 )
 
 java_library(
+    name = "darwin_sandbox_command_line_builder",
+    srcs = ["DarwinSandboxCommandLineBuilder.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
     name = "darwin_sandbox",
     srcs = [
         "DarwinSandboxedSpawnRunner.java",
@@ -268,6 +279,7 @@ java_library(
     ],
     deps = [
         ":abstract_sandbox_spawn_runner",
+        ":darwin_sandbox_command_line_builder",
         ":sandbox_helpers",
         ":sandboxed_spawns",
         "//src/main/java/com/google/devtools/build/lib/actions",
@@ -286,6 +298,58 @@ java_library(
         "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "sandbox_backend",
+    srcs = [
+        "SandboxBackendConfinement.java",
+        "SandboxBackendManifest.java",
+        "SandboxBackendServer.java",
+        "SandboxBackendSpawn.java",
+        "SandboxBackendSpawnRunner.java",
+        "SandboxBackendStrategy.java",
+        "SandboxBackendUtil.java",
+    ],
+    deps = [
+        ":abstract_sandbox_spawn_runner",
+        ":darwin_sandbox_command_line_builder",
+        ":linux_sandbox_command_line_builder",
+        ":linux_sandbox_util",
+        ":sandbox_helpers",
+        ":sandbox_options",
+        ":sandboxed_spawns",
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:action_input",
+        "//src/main/java/com/google/devtools/build/lib/actions:action_input_helper",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
+        "//src/main/java/com/google/devtools/build/lib/actions:virtual_action_input",
+        "//src/main/java/com/google/devtools/build/lib/exec:abstract_spawn_strategy",
+        "//src/main/java/com/google/devtools/build/lib/exec:execution_options",
+        "//src/main/java/com/google/devtools/build/lib/exec:spawn_runner",
+        "//src/main/java/com/google/devtools/build/lib/exec:tree_deleter",
+        "//src/main/java/com/google/devtools/build/lib/exec/local",
+        "//src/main/java/com/google/devtools/build/lib/profiler",
+        "//src/main/java/com/google/devtools/build/lib/remote/common",
+        "//src/main/java/com/google/devtools/build/lib/remote/merkletree",
+        "//src/main/java/com/google/devtools/build/lib/remote/util:digest_util",
+        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
+        "//src/main/java/com/google/devtools/build/lib/runtime:process_wrapper",
+        "//src/main/java/com/google/devtools/build/lib/shell",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:tree_artifact_value",
+        "//src/main/java/com/google/devtools/build/lib/util:os",
+        "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/protobuf:sandbox_java_proto",
+        "//third_party:caffeine",
+        "//third_party:flogger",
+        "//third_party:guava",
+        "//third_party:jsr305",
+        "@com_google_protobuf//:protobuf_java",
+        "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
     ],
 )
 
