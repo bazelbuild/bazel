@@ -140,9 +140,7 @@ toolchain(name = "toolchain", toolchain = ":cc_toolchain", toolchain_type = '\
         """);
     useConfiguration("--features=a", "--extra_toolchains=//toolchain");
     scratch.file(
-        "foo/BUILD",
-        "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
-        "cc_binary(name = 'foo')");
+        "foo/BUILD", "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')", "cc_binary(name = 'foo')");
 
     SpawnAction linkAction = (SpawnAction) Iterables.getOnlyElement(getActions("//foo", "CppLink"));
     assertThat(linkAction.getArguments()).contains("some_flag");
@@ -162,9 +160,7 @@ toolchain(name = "toolchain", toolchain = ":cc_toolchain", toolchain_type = '\
         """);
     useConfiguration("--extra_toolchains=//toolchain");
     scratch.file(
-        "foo/BUILD",
-        "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
-        "cc_binary(name = 'foo')");
+        "foo/BUILD", "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')", "cc_binary(name = 'foo')");
 
     SpawnAction linkAction = (SpawnAction) Iterables.getOnlyElement(getActions("//foo", "CppLink"));
     assertThat(linkAction.getExecutionInfo()).containsEntry("supports-exec-requirement", "");
@@ -370,12 +366,11 @@ toolchain(name = "toolchain", toolchain = ":cc_toolchain", toolchain_type = '\
         """);
     useConfiguration("--features=a", "--extra_toolchains=//toolchain");
     scratch.file(
-        "foo/BUILD",
-        "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
-        "cc_binary(name = 'foo')");
+        "foo/BUILD", "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')", "cc_binary(name = 'foo')");
 
     SpawnAction linkAction = (SpawnAction) Iterables.getOnlyElement(getActions("//foo", "CppLink"));
-    assertThat(linkAction.getEffectiveEnvironment(ImmutableMap.of())).containsEntry("foo", "bar");
+    assertThat(linkAction.getEffectiveEnvironment(ImmutableMap.of(), PathMapper.NOOP))
+        .containsEntry("foo", "bar");
   }
 
   @Test
@@ -640,9 +635,7 @@ toolchain(name = "toolchain", toolchain = ":cc_toolchain", toolchain_type = '\
   @Test
   public void testLocalLinkResourceEstimate() throws Exception {
     scratch.file(
-        "foo/BUILD",
-        "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
-        "cc_binary(name = 'foo')");
+        "foo/BUILD", "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')", "cc_binary(name = 'foo')");
 
     SpawnAction linkAction = (SpawnAction) Iterables.getOnlyElement(getActions("//foo", "CppLink"));
 
