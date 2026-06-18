@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.MemoryPressureModule;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheClient;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.proto.TopLevelTargetsMatchStatus;
 import com.google.devtools.build.lib.util.OS;
@@ -46,8 +47,9 @@ import com.google.devtools.build.lib.worker.WorkerProcessMetrics;
 import com.google.devtools.build.lib.worker.WorkerProcessMetricsCollector;
 import com.google.devtools.build.lib.worker.WorkerProcessStatus;
 import com.google.devtools.build.lib.worker.WorkerProcessStatus.Status;
+import com.google.devtools.build.skyframe.SkyFunctionName;
+import com.google.devtools.build.skyframe.SkyKey;
 import java.util.List;
-import javax.annotation.Nullable;
 import org.junit.After;
 import org.junit.Assume;
 import org.junit.Before;
@@ -62,20 +64,10 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
   static class BuildMetricsEventListener extends BlazeModule {
 
     private BuildMetricsEvent event;
-    @Nullable RemoteAnalysisCacheClient.Stats statsToInject;
 
     @Override
     public void beforeCommand(CommandEnvironment env) {
       env.getEventBus().register(this);
-      if (statsToInject != null) {
-        env.getRemoteAnalysisCachingEventListener()
-            .recordServiceStats(FingerprintValueStore.EMPTY_STATS, statsToInject);
-      }
-    }
-
-    @Override
-    public void afterCommand() {
-      statsToInject = null;
     }
 
     @Subscribe
@@ -939,15 +931,19 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
   @Test
   public void testRemoteAnalysisCacheStats_invalidMatchStatus_defaultsToUnspecified()
       throws Exception {
-    buildMetricsEventListener.statsToInject =
-        new RemoteAnalysisCacheClient.Stats(
-            /* bytesSent= */ 10,
-            /* bytesReceived= */ 2,
-            /* requestsSent= */ 100,
-            /* batches= */ 200,
-            /* latencyMicros= */ ImmutableList.of(),
-            /* batchLatencyMicros= */ ImmutableList.of(),
-            /* matchStatus= */ 999); // invalid value
+    runtimeWrapper.newCommand();
+    getCommandEnvironment()
+        .getRemoteAnalysisCachingEventListener()
+        .recordServiceStats(
+            FingerprintValueStore.EMPTY_STATS,
+            new RemoteAnalysisCacheClient.Stats(
+                /* bytesSent= */ 10,
+                /* bytesReceived= */ 2,
+                /* requestsSent= */ 100,
+                /* batches= */ 200,
+                /* latencyMicros= */ ImmutableList.of(),
+                /* batchLatencyMicros= */ ImmutableList.of(),
+                /* matchStatus= */ 999)); // invalid value
 
     buildTarget("//foo:foo");
 
@@ -978,5 +974,27 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
       workerProcessMetrics.onBeforeCommand();
     }
     return workerProcessMetrics;
+  }
+
+  @Test
+  public void testRemoteAnalysisCacheStats_serializationExceptionCount() throws Exception {
+    runtimeWrapper.newCommand();
+    getCommandEnvironment()
+        .getRemoteAnalysisCachingEventListener()
+        .recordSerializationException(
+            new SerializationException("test error"),
+            new SkyKey() {
+              @Override
+              public SkyFunctionName functionName() {
+                return SkyFunctionName.createHermetic("DUMMY_FUNCTION");
+              }
+            });
+
+    buildTarget("//foo:foo");
+
+    BuildMetrics buildMetrics = buildMetricsEventListener.event.getBuildMetrics();
+    assertThat(buildMetrics.hasRemoteAnalysisCacheStatistics()).isTrue();
+    RemoteAnalysisCacheStatistics stats = buildMetrics.getRemoteAnalysisCacheStatistics();
+    assertThat(stats.getSerializationExceptionCount()).isEqualTo(1);
   }
 }

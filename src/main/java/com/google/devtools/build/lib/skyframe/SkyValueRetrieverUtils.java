@@ -87,8 +87,6 @@ public final class SkyValueRetrieverUtils {
                   state);
       analysisCachingDeps.recordRetrievalResult(retrievalResult, key);
     } catch (SerializationException e) {
-      // TODO: b/445242928 - also log this in BEP
-      //
       // Don't crash the build if deserialization failed. Gracefully fallback to local evaluation.
       analysisCachingDeps.recordSerializationException(e, key);
       retrievalResult = new NoCachedData(e.getReason());

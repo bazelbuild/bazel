@@ -1497,6 +1497,7 @@ message BuildMetrics {
       int32 num_invalidated_keys = 4;
     }
     InvalidationLookupMetrics invalidation_lookup_metrics = 27;
+    int64 serialization_exception_count = 28;
   }
 
   RemoteAnalysisCacheStatistics remote_analysis_cache_statistics = 13;

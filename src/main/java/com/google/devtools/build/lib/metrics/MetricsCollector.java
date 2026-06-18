@@ -470,6 +470,8 @@ class MetricsCollector {
       result.setInvalidationLookupMetrics(invalidationMetrics);
     }
 
+    result.setSerializationExceptionCount(listener.getSerializationExceptionCounts());
+
     return result.build();
   }
 
