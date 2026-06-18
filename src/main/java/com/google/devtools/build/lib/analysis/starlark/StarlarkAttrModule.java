@@ -56,6 +56,7 @@ import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.NativeComputedDefaultApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkAttrModuleApi;
+import com.google.devtools.build.lib.starlarkbuildapi.config.ComposedConfigurationTransition;
 import com.google.devtools.build.lib.starlarkbuildapi.config.ConfigurationTransitionApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.util.FileType;
@@ -534,6 +535,12 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
     }
     if (trans instanceof StarlarkDefinedConfigTransition starlarkDefinedTransition) {
       return new StarlarkAttributeTransitionProvider(starlarkDefinedTransition);
+    }
+    if (trans instanceof ComposedConfigurationTransition composition) {
+      return ComposedTransitionMaterializer.fold(
+          composition,
+          element -> convertCfg(thread, element),
+          "it contains a native transition that can only be used as a rule transition");
     }
     if (trans instanceof ConfigurationTransitionApi cta) {
       // Every ConfigurationTransitionApi must be a TransitionFactory instance to be usable.
