@@ -682,6 +682,54 @@ public final class RemoteModuleTest {
     assertThat(env.getIdleTasks()).isEmpty();
   }
 
+  @Test
+  public void resolveProxyFromEnvironment_unsupportedScheme_returnsNull() throws Exception {
+    assertThat(RemoteModule.resolveProxyFromEnvironment("unix:/some/socket", ImmutableMap.of()))
+        .isNull();
+  }
+
+  @Test
+  public void resolveProxyFromEnvironment_grpcTarget_usesHttpProxyEnv() throws Exception {
+    String proxy =
+        RemoteModule.resolveProxyFromEnvironment(
+            "grpc://cache.example.com",
+            ImmutableMap.of("http_proxy", "http://proxy.example.com:8080"));
+
+    assertThat(proxy).isEqualTo("http://proxy.example.com:8080");
+  }
+
+  @Test
+  public void resolveProxyFromEnvironment_grpcsTarget_usesHttpsProxyEnv() throws Exception {
+    String proxy =
+        RemoteModule.resolveProxyFromEnvironment(
+            "grpcs://cache.example.com",
+            ImmutableMap.of("https_proxy", "http://secure.example.com:8443"));
+
+    assertThat(proxy).isEqualTo("http://secure.example.com:8443");
+  }
+
+  @Test
+  public void resolveProxyFromEnvironment_noProxyMatch_returnsNull() throws Exception {
+    String proxy =
+        RemoteModule.resolveProxyFromEnvironment(
+            "grpc://internal.example.com",
+            ImmutableMap.of(
+                "http_proxy", "http://proxy.example.com:8080",
+                "no_proxy", "internal.example.com"));
+
+    assertThat(proxy).isNull();
+  }
+
+  @Test
+  public void resolveProxyFromEnvironment_socksProxy_returnsNull() throws Exception {
+    String proxy =
+        RemoteModule.resolveProxyFromEnvironment(
+            "grpc://cache.example.com",
+            ImmutableMap.of("http_proxy", "socks5://socks.example.com:1080"));
+
+    assertThat(proxy).isNull();
+  }
+
   private void assertCircuitBreakerInstance() {
     RemoteActionContextProvider actionContextProvider = remoteModule.getActionContextProvider();
     assertThat(actionContextProvider).isNotNull();

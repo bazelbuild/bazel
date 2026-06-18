@@ -151,6 +151,25 @@ public class CombinedCacheClientFactoryTest {
   }
 
   @Test
+  public void createHttpCacheWithHttpConnectProxy() throws IOException {
+    remoteOptions.setRemoteCache("http://doesnotexist.com");
+    remoteOptions.setRemoteProxy("http://localhost:3128");
+
+    var blobStore =
+        CombinedCacheClientFactory.create(
+            remoteOptions,
+            remoteOptions.getDiskCachePath(workingDirectory),
+            /* creds= */ null,
+            authAndTlsOptions,
+            workingDirectory,
+            digestUtil,
+            retrier);
+
+    assertThat(blobStore.remoteCacheClient()).isInstanceOf(HttpCacheClient.class);
+    assertThat(blobStore.diskCacheClient()).isNull();
+  }
+
+  @Test
   public void createHttpCacheFailsWithUnsupportedProxyProtocol() {
     remoteOptions.setRemoteCache("http://doesnotexist.com");
     remoteOptions.setRemoteProxy("bad-proxy");

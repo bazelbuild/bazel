@@ -53,6 +53,7 @@ function set_up() {
 function tear_down() {
   bazel clean >& $TEST_log
   stop_worker
+  stop_http_connect_proxy
 }
 
 function has_utf8_locale() {
@@ -287,6 +288,200 @@ EOF
   kill ${proxy_pid}
   rm "${socket_dir}/executor-socket"
   rmdir "${socket_dir}"
+}
+
+# Starts a HTTP CONNECT proxy on a random port.
+# Each CONNECT target it sees is appended to ${http_proxy_log} so callers can assert that traffic
+# was routed through it.
+# Optional $1: a host to which every CONNECT is redialed, regardless of the
+# requested target (used to point an unresolvable cache hostname at the worker).
+function start_http_connect_proxy() {
+  local force_host="${1:-}"
+  http_proxy_port=$(pick_random_unused_tcp_port) || fail "no port found"
+  http_proxy_log="${TEST_TMPDIR}/http_connect_proxy.connections"
+  local proxy_stdout="${TEST_TMPDIR}/http_connect_proxy.stdout"
+  rm -f "${http_proxy_log}" "${proxy_stdout}"
+  local proxy="$(rlocation io_bazel/src/test/shell/bazel/remote/http_connect_proxy.py)"
+  python3 "${proxy}" "${http_proxy_port}" "${http_proxy_log}" "${force_host}" \
+      >"${proxy_stdout}" 2>&1 &
+  http_proxy_pid=$!
+  local wait_seconds=0
+  until grep -q "listening" "${proxy_stdout}" 2>/dev/null || [[ "$wait_seconds" -eq 30 ]]; do
+    sleep 1
+    wait_seconds=$((wait_seconds + 1))
+  done
+  grep -q "listening" "${proxy_stdout}" || fail "HTTP CONNECT proxy did not start"
+}
+
+function stop_http_connect_proxy() {
+  if [[ -n "${http_proxy_pid:-}" ]]; then
+    kill "${http_proxy_pid}" 2>/dev/null || true
+    http_proxy_pid=""
+  fi
+}
+
+function test_remote_grpc_executor_via_http_connect_proxy() {
+  start_http_connect_proxy
+
+  mkdir -p a
+  cat > a/BUILD <<EOF
+genrule(
+  name = 'foo',
+  outs = ["foo.txt"],
+  cmd = "echo \"foo bar\" > \$@",
+)
+EOF
+
+  bazel build \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --remote_proxy=http://127.0.0.1:${http_proxy_port} \
+      //a:foo >& $TEST_log \
+      || fail "Failed to build //a:foo via HTTP CONNECT proxy"
+
+  expect_log "1 remote" "Build did not execute remotely through the proxy"
+  grep -q "localhost:${worker_port}" "${http_proxy_log}" \
+      || fail "Proxy did not receive a CONNECT for the remote executor"
+
+  stop_http_connect_proxy
+}
+
+function test_remote_grpc_executor_works_via_proxy_with_unresolvable_host_on_client_side() {
+  start_http_connect_proxy 127.0.0.1
+
+  mkdir -p a
+  cat > a/BUILD <<EOF
+genrule(
+  name = 'foo',
+  outs = ["foo.txt"],
+  cmd = "echo \"foo bar\" > \$@",
+)
+EOF
+
+  bazel build \
+      --remote_executor=grpc://executor.nonexistent.invalid:${worker_port} \
+      --remote_proxy=http://127.0.0.1:${http_proxy_port} \
+      //a:foo >& $TEST_log \
+      || fail "Failed to reach remote executor via proxy using unresolvable host"
+
+  expect_log "1 remote" "Build did not execute remotely through the proxy"
+  grep -q "executor.nonexistent.invalid:${worker_port}" "${http_proxy_log}" \
+      || fail "Proxy did not receive a CONNECT for the unresolved executor host"
+
+  stop_http_connect_proxy
+}
+
+function test_remote_http_cache_via_http_connect_proxy() {
+  local http_port=$(pick_random_unused_tcp_port) || fail "no port found"
+  stop_worker
+  start_worker --http_listen_port=${http_port}
+  start_http_connect_proxy
+
+  mkdir -p a
+  cat > a/BUILD <<EOF
+genrule(
+  name = 'foo',
+  outs = ["foo.txt"],
+  cmd = "echo \"foo bar\" > \$@",
+)
+EOF
+
+  bazel build \
+      --remote_cache=http://localhost:${http_port} \
+      --remote_proxy=http://127.0.0.1:${http_proxy_port} \
+      //a:foo >& $TEST_log \
+      || fail "Failed to populate HTTP cache via HTTP CONNECT proxy"
+
+  bazel clean
+  bazel build \
+      --remote_cache=http://localhost:${http_port} \
+      --remote_proxy=http://127.0.0.1:${http_proxy_port} \
+      //a:foo >& $TEST_log \
+      || fail "Failed to read HTTP cache via HTTP CONNECT proxy"
+
+  expect_log "remote cache hit" "HTTP cache was not served through the proxy"
+  grep -q "localhost:${http_port}" "${http_proxy_log}" \
+      || fail "Proxy did not receive a CONNECT for the HTTP cache"
+
+  stop_http_connect_proxy
+}
+
+function test_remote_http_cache_works_via_proxy_with_unresolvable_host_on_client_side() {
+  local http_port=$(pick_random_unused_tcp_port) || fail "no port found"
+  stop_worker
+  start_worker --http_listen_port=${http_port}
+  start_http_connect_proxy 127.0.0.1
+
+  mkdir -p a
+  cat > a/BUILD <<EOF
+genrule(
+  name = 'foo',
+  outs = ["foo.txt"],
+  cmd = "echo \"foo bar\" > \$@",
+)
+EOF
+
+  bazel build \
+      --remote_cache=http://cache.nonexistent.invalid:${http_port} \
+      --remote_proxy=http://127.0.0.1:${http_proxy_port} \
+      //a:foo >& $TEST_log \
+      || fail "Failed to reach HTTP cache via proxy using unresolvable host"
+
+  grep -q "cache.nonexistent.invalid:${http_port}" "${http_proxy_log}" \
+      || fail "Proxy did not receive a CONNECT for the unresolved cache host"
+
+  stop_http_connect_proxy
+}
+
+function test_http_proxy_env_var_fallback() {
+  start_http_connect_proxy
+
+  mkdir -p a
+  cat > a/BUILD <<EOF
+genrule(
+  name = 'foo',
+  outs = ["foo.txt"],
+  cmd = "echo \"foo bar\" > \$@",
+)
+EOF
+
+  HTTP_PROXY="http://127.0.0.1:${http_proxy_port}" \
+  no_proxy="" NO_PROXY="" \
+  bazel build \
+      --remote_executor=grpc://localhost:${worker_port} \
+      //a:foo >& $TEST_log \
+      || fail "Failed to build //a:foo via HTTP_PROXY env var"
+
+  expect_log "1 remote" "Build did not execute remotely via HTTP_PROXY env var"
+  grep -q "localhost:${worker_port}" "${http_proxy_log}" \
+      || fail "Proxy did not receive a CONNECT from HTTP_PROXY fallback"
+
+  stop_http_connect_proxy
+}
+
+function test_no_proxy_bypasses_proxy() {
+  start_http_connect_proxy
+
+  mkdir -p a
+  cat > a/BUILD <<EOF
+genrule(
+  name = 'foo',
+  outs = ["foo.txt"],
+  cmd = "echo \"foo bar\" > \$@",
+)
+EOF
+
+  HTTP_PROXY="http://127.0.0.1:${http_proxy_port}" NO_PROXY="localhost" \
+  no_proxy="" \
+  bazel build \
+      --remote_executor=grpc://localhost:${worker_port} \
+      //a:foo >& $TEST_log \
+      || fail "Failed to build //a:foo with NO_PROXY bypass"
+
+  expect_log "1 remote" "Build did not execute remotely when bypassing the proxy"
+  [[ ! -s "${http_proxy_log}" ]] \
+      || fail "Proxy was used despite NO_PROXY matching the target"
+
+  stop_http_connect_proxy
 }
 
 function test_cc_binary() {

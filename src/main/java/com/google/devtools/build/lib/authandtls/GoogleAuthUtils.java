@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import io.grpc.CallCredentials;
 import io.grpc.ClientInterceptor;
+import io.grpc.HttpConnectProxiedSocketAddress;
 import io.grpc.ManagedChannel;
 import io.grpc.auth.MoreCallCredentials;
 import io.grpc.netty.GrpcSslContexts;
@@ -52,7 +53,9 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.InetSocketAddress;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -200,6 +203,38 @@ public final class GoogleAuthUtils {
     throw new IOException("Unix domain sockets are unsupported on this platform");
   }
 
+  public static InetSocketAddress parseHttpProxyAddress(String proxyUrl) throws IOException {
+    URI proxyUri;
+    try {
+      proxyUri = new URI(proxyUrl);
+    } catch (URISyntaxException e) {
+      throw new IOException("Invalid proxy URL: " + proxyUrl, e);
+    }
+    String host = proxyUri.getHost();
+    if (host == null) {
+      throw new IOException("Invalid proxy URL (no host): " + proxyUrl);
+    }
+    int port = proxyUri.getPort();
+    if (port == -1) {
+      port = 80;
+    }
+    return new InetSocketAddress(host, port);
+  }
+
+  private static NettyChannelBuilder newHttpConnectProxyChannelBuilder(
+      String targetUrl, String proxyUrl) throws IOException {
+    InetSocketAddress proxyAddress = parseHttpProxyAddress(proxyUrl);
+
+    return NettyChannelBuilder.forTarget(targetUrl)
+        .defaultLoadBalancingPolicy("round_robin")
+        .proxyDetector(
+            targetServerAddress ->
+                HttpConnectProxiedSocketAddress.newBuilder()
+                    .setTargetAddress((InetSocketAddress) targetServerAddress)
+                    .setProxyAddress(proxyAddress)
+                    .build());
+  }
+
   private static NettyChannelBuilder newNettyChannelBuilder(String targetUrl, String proxy)
       throws IOException {
     if (targetUrl.startsWith("unix:")) {
@@ -210,11 +245,15 @@ public final class GoogleAuthUtils {
       return NettyChannelBuilder.forTarget(targetUrl).defaultLoadBalancingPolicy("round_robin");
     }
 
-    if (!proxy.startsWith("unix:")) {
-      throw new IOException("Remote proxy unsupported: " + proxy);
+    if (proxy.startsWith("unix:")) {
+      return newUnixNettyChannelBuilder(proxy).overrideAuthority(targetUrl);
     }
 
-    return newUnixNettyChannelBuilder(proxy).overrideAuthority(targetUrl);
+    if (proxy.startsWith("http://")) {
+      return newHttpConnectProxyChannelBuilder(targetUrl, proxy);
+    }
+
+    throw new IOException("Remote proxy unsupported: " + proxy);
   }
 
   /**

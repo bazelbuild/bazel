@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelpe
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialModule;
 import com.google.devtools.build.lib.authandtls.credentialhelper.GetCredentialsResponse;
 import com.google.devtools.build.lib.bazel.repository.downloader.Downloader;
+import com.google.devtools.build.lib.bazel.repository.downloader.ProxyHelper;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
 import com.google.devtools.build.lib.buildeventstream.LocalFilesArtifactUploader;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
@@ -122,10 +123,13 @@ import io.netty.handler.codec.http.HttpResponseStatus;
 import io.reactivex.rxjava3.plugins.RxJavaPlugins;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.net.Proxy;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.channels.ClosedChannelException;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
@@ -424,6 +428,15 @@ public final class RemoteModule extends BlazeModule {
     if (!Strings.isNullOrEmpty(remoteOptions.getRemoteExecutor())
         && Strings.isNullOrEmpty(remoteOptions.getRemoteCache())) {
       remoteOptions.setRemoteCache(remoteOptions.getRemoteExecutor());
+    }
+
+    String primaryTarget =
+        !Strings.isNullOrEmpty(remoteOptions.getRemoteExecutor())
+            ? remoteOptions.getRemoteExecutor()
+            : remoteOptions.getRemoteCache();
+    if (Strings.isNullOrEmpty(remoteOptions.getRemoteProxy())
+        && !Strings.isNullOrEmpty(primaryTarget)) {
+      remoteOptions.setRemoteProxy(resolveProxyFromEnvironment(primaryTarget, env.getClientEnv()));
     }
 
     if (shouldEnableRemoteOutputService(remoteOptions)) {
@@ -1252,6 +1265,39 @@ public final class RemoteModule extends BlazeModule {
       }
       return uploaderFactory0.create(env);
     }
+  }
+
+  /**
+   * Selects an HTTP CONNECT proxy, if applicable, for {@code target} from the environment.
+   * Uses the same sources as the repository downloader.
+   */
+  @VisibleForTesting
+  @Nullable
+  static String resolveProxyFromEnvironment(String target, Map<String, String> clientEnv)
+      throws AbruptExitException {
+    String httpUrl;
+    if (target.startsWith("grpcs://")) {
+      httpUrl = "https://" + target.substring("grpcs://".length());
+    } else if (target.startsWith("grpc://")) {
+      httpUrl = "http://" + target.substring("grpc://".length());
+    } else if (target.startsWith("http://") || target.startsWith("https://")) {
+      httpUrl = target;
+    } else {
+      return null;
+    }
+    Proxy proxy;
+    try {
+      proxy = new ProxyHelper(clientEnv).createProxyIfNeeded(URI.create(httpUrl)).proxy();
+    } catch (IOException e) {
+      throw createOptionsExitException(
+          "Failed to resolve proxy for " + target + ": " + e.getMessage(),
+          FailureDetails.RemoteOptions.Code.REMOTE_OPTIONS_UNKNOWN);
+    }
+    if (proxy.type() != Proxy.Type.HTTP) {
+      return null;
+    }
+    InetSocketAddress address = (InetSocketAddress) proxy.address();
+    return "http://" + address.getHostString() + ":" + address.getPort();
   }
 
   private static AbruptExitException createOptionsExitException(

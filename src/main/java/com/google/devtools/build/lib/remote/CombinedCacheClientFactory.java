@@ -19,6 +19,7 @@ import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
+import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.disk.DiskCacheClient;
 import com.google.devtools.build.lib.remote.http.HttpCacheClient;
@@ -28,6 +29,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import io.netty.channel.unix.DomainSocketAddress;
 import java.io.IOException;
+import java.net.InetSocketAddress;
 import java.net.URI;
 import java.util.Map.Entry;
 import javax.annotation.Nullable;
@@ -92,6 +94,20 @@ public final class CombinedCacheClientFactory {
         if (options.getRemoteProxy().startsWith("unix:")) {
           return HttpCacheClient.create(
               new DomainSocketAddress(options.getRemoteProxy().replaceFirst("^unix:", "")),
+              uri,
+              Math.toIntExact(options.getRemoteTimeout().toSeconds()),
+              options.getRemoteMaxConnections(),
+              options.getRemoteVerifyDownloads(),
+              effectiveHeaders(options),
+              digestUtil,
+              retrier,
+              creds,
+              authAndTlsOptions);
+        } else if (options.getRemoteProxy().startsWith("http://")) {
+          InetSocketAddress proxyAddress =
+              GoogleAuthUtils.parseHttpProxyAddress(options.getRemoteProxy());
+          return HttpCacheClient.create(
+              proxyAddress,
               uri,
               Math.toIntExact(options.getRemoteTimeout().toSeconds()),
               options.getRemoteMaxConnections(),
