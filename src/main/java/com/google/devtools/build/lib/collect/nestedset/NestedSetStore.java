@@ -17,6 +17,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.aggregateWriteStatuses;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Stopwatch;
@@ -260,7 +261,7 @@ public class NestedSetStore {
 
               Duration fetchDuration = fetchStopwatch.elapsed();
               if (FETCH_FROM_STORAGE_LOGGING_THRESHOLD.compareTo(fetchDuration) < 0) {
-                logger.atInfo().log(
+                logger.atInfo().atMostEvery(5, SECONDS).log(
                     "NestedSet fetch took: %dms, size: %dB",
                     fetchDuration.toMillis(), bytes.length);
               }
