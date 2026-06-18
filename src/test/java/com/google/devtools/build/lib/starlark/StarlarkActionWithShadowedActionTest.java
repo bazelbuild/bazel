@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.DiscoveredModulesPruner;
 import com.google.devtools.build.lib.actions.Executor;
+import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.analysis.actions.StarlarkAction;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
@@ -343,12 +344,54 @@ public final class StarlarkActionWithShadowedActionTest extends BuildViewTestCas
     expectedEnvironment.putAll(shadowedActionEnvironment);
     expectedEnvironment.putAll(starlarkActionEnvironment);
 
-    ImmutableMap<String, String> actualEnvironment =
+    ImmutableMap<String, Object> actualEnvironment =
         starlarkAction.getEffectiveEnvironment(ImmutableMap.of());
     assertThat(actualEnvironment).hasSize(5);
     // Starlark action's env overwrites any repeated variable from the shadowed action env
     assertThat(actualEnvironment).containsEntry("repeated_var", "starlark_val");
     assertThat(actualEnvironment).containsExactlyEntriesIn(expectedEnvironment);
+  }
+
+  @Test
+  public void testShadowedActionEnvironmentIsPathMapped() throws Exception {
+    useConfiguration("--experimental_output_paths=strip");
+    Artifact shadowedOutput = getBinArtifactWithNoOwner("shadowed_output");
+    Action shadowedAction =
+        createShadowedAction(
+            shadowedActionInputs, /* discoversInputs= */ false, /* discoveredInputs= */ null);
+    when(shadowedAction.getEffectiveEnvironment(ArgumentMatchers.anyMap()))
+        .thenReturn(ImmutableMap.of("shadowed_out", shadowedOutput));
+
+    StarlarkAction starlarkAction =
+        (StarlarkAction)
+            new StarlarkAction.Builder()
+                .setShadowedAction(Optional.of(shadowedAction))
+                .setExecutable(executable)
+                .addInput(starlarkActionInputs.toList().get(0))
+                .addOutput(output)
+                .setEnvironment(ImmutableMap.of("own_out", output))
+                .setExecutionInfo(ImmutableMap.of("supports-path-mapping", ""))
+                .build(NULL_ACTION_OWNER, targetConfig);
+    collectingAnalysisEnvironment.registerAction(starlarkAction);
+
+    Spawn spawn = starlarkAction.getSpawn(executionContext);
+
+    assertThat(spawn.getPathMapper().isNoop()).isFalse();
+    // Artifact-valued variables of both the Starlark action and its shadowed action are resolved
+    // with the spawn's path mapper.
+    assertThat(spawn.getEnvironment())
+        .containsExactly(
+            "shadowed_out", stripConfig(shadowedOutput), "own_out", stripConfig(output));
+    assertThat(stripConfig(output)).isNotEqualTo(output.getExecPathString());
+  }
+
+  private static String stripConfig(Artifact artifact) {
+    PathFragment execPath = artifact.getExecPath();
+    return execPath
+        .subFragment(0, 1)
+        .getRelative("cfg")
+        .getRelative(execPath.subFragment(2))
+        .getPathString();
   }
 
   private Action createShadowedAction(
@@ -365,7 +408,7 @@ public final class StarlarkActionWithShadowedActionTest extends BuildViewTestCas
     when(shadowedAction.inputsKnown()).thenReturn(true);
     when(shadowedAction.getOwner()).thenReturn(NULL_ACTION_OWNER);
     when(shadowedAction.getEffectiveEnvironment(ArgumentMatchers.anyMap()))
-        .thenReturn(ImmutableMap.copyOf(shadowedActionEnvironment));
+        .thenReturn(ImmutableMap.<String, Object>copyOf(shadowedActionEnvironment));
 
     return shadowedAction;
   }

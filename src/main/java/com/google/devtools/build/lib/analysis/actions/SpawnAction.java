@@ -393,14 +393,13 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       @Nullable InputMetadataProvider inputMetadataProvider,
       Fingerprint fp)
       throws CommandLineExpansionException, InterruptedException {
+    OutputPathsMode effectiveOutputPathsMode =
+        PathMappers.getEffectiveOutputPathsMode(outputPathsMode, getMnemonic(), getExecutionInfo());
     fp.addString(GUID);
     commandLines.addToFingerprint(
-        actionKeyContext,
-        inputMetadataProvider,
-        PathMappers.getEffectiveOutputPathsMode(outputPathsMode, getMnemonic(), getExecutionInfo()),
-        fp);
+        actionKeyContext, inputMetadataProvider, effectiveOutputPathsMode, fp);
     fp.addString(mnemonic);
-    env.addTo(fp);
+    env.addTo(PathMapper.forActionKey(effectiveOutputPathsMode), fp);
     fp.addStringMap(getExecutionInfo());
     PathMappers.addToFingerprint(
         getMnemonic(),
@@ -547,7 +546,8 @@ public class SpawnAction extends AbstractAction implements CommandAction {
           parent.resourceSetOrBuilder);
       this.inputs = SpawnInputs.of(inputs, additionalInputs);
       this.pathMapper = pathMapper;
-      this.effectiveEnvironment = parent.getEffectiveEnvironment(clientEnv);
+      this.effectiveEnvironment =
+          ActionEnvironment.resolveValues(parent.getEffectiveEnvironment(clientEnv), pathMapper);
       this.reportOutputs = reportOutputs;
     }
 
@@ -575,7 +575,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
   public static ActionEnvironment createActionEnvironment(
       BuildConfigurationValue configuration,
       boolean useDefaultShellEnvironment,
-      ImmutableMap<String, String> environment) {
+      ImmutableMap<String, /* String | Artifact */ ?> environment) {
     ActionEnvironment env;
     if (useDefaultShellEnvironment && !environment.isEmpty()) {
       // Inherited variables override fixed variables in ActionEnvironment. Since we want the
@@ -614,7 +614,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     private final NestedSetBuilder<Artifact> inputsBuilder = NestedSetBuilder.stableOrder();
     private final List<Artifact> outputs = new ArrayList<>();
     private ResourceSetOrBuilder resourceSetOrBuilder = AbstractAction.DEFAULT_RESOURCE_SET;
-    private ImmutableMap<String, String> environment = ImmutableMap.of();
+    private ImmutableMap<String, /* String | Artifact */ Object> environment = ImmutableMap.of();
     @Nullable private ActionEnvironment actionEnvironment = null;
     @Nullable private OutputPathsMode outputPathsMode = null;
     private ImmutableMap<String, String> executionInfo = ImmutableMap.of();
@@ -868,16 +868,20 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       return this;
     }
 
-    private static final Interner<ImmutableMap<String, String>> envInterner =
+    private static final Interner<ImmutableMap<String, Object>> envInterner =
         BlazeInterners.newWeakInterner();
 
     /**
-     * Sets the map of environment variables. Do not use! This makes the builder ignore the 'default
-     * shell environment', which is computed from the --action_env command line option.
+     * Sets the map of environment variables. The values must be of type {@link String} or {@link
+     * Artifact}; the latter are resolved to their exec paths at execution time so that any
+     * applicable {@link PathMapper} can be applied to them.
+     *
+     * <p>Do not use! This makes the builder ignore the 'default shell environment', which is
+     * computed from the --action_env command line option.
      */
     @CanIgnoreReturnValue
-    public Builder setEnvironment(Map<String, String> environment) {
-      this.environment = envInterner.intern(ImmutableMap.copyOf(environment));
+    public Builder setEnvironment(Map<String, /* String | Artifact */ ?> environment) {
+      this.environment = envInterner.intern(ImmutableMap.<String, Object>copyOf(environment));
       this.useDefaultShellEnvironment = false;
       return this;
     }
@@ -946,8 +950,8 @@ public class SpawnAction extends AbstractAction implements CommandAction {
      * @see BuildConfigurationValue#getLocalShellEnvironment
      */
     @CanIgnoreReturnValue
-    public Builder useDefaultShellEnvironment(Map<String, String> environment) {
-      this.environment = ImmutableMap.copyOf(environment);
+    public Builder useDefaultShellEnvironment(Map<String, /* String | Artifact */ ?> environment) {
+      this.environment = ImmutableMap.<String, Object>copyOf(environment);
       this.useDefaultShellEnvironment = true;
       return this;
     }

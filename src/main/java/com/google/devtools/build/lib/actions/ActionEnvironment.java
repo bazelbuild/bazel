@@ -18,6 +18,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Interner;
+import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.util.Fingerprint;
 import java.util.Map;
@@ -32,7 +33,10 @@ import java.util.TreeSet;
  * <p>The action environment consists of two parts.
  *
  * <ol>
- *   <li>All the environment variables with a fixed value, stored in a map.
+ *   <li>All the environment variables with a fixed value, stored in a map. The value of such a
+ *       variable is either a {@link String}, which is used as is, or an {@link Artifact}, which is
+ *       resolved to its exec path at execution time so that any applicable {@link PathMapper} can
+ *       be applied to it.
  *   <li>All the environment variables inherited from the client environment, stored in a set.
  * </ol>
  *
@@ -53,23 +57,27 @@ public abstract class ActionEnvironment {
       BlazeInterners.newWeakInterner();
 
   /** Convenience method for creating an {@link ActionEnvironment} with no inherited variables. */
-  public static ActionEnvironment create(ImmutableMap<String, String> fixedEnv) {
+  public static ActionEnvironment create(ImmutableMap<String, ?> fixedEnv) {
     return create(fixedEnv, /* inheritedEnv= */ ImmutableSet.of());
   }
 
   /**
    * Creates a new {@link ActionEnvironment}.
    *
+   * <p>The values of {@code fixedEnv} must be of type {@link String} or {@link Artifact}.
+   *
    * <p>If an environment variable is contained both as a key in {@code fixedEnv} and in {@code
    * inheritedEnv}, the result of {@link #resolve} will contain the value inherited from the client
    * environment.
    */
   public static ActionEnvironment create(
-      ImmutableMap<String, String> fixedEnv, ImmutableSet<String> inheritedEnv) {
+      ImmutableMap<String, ?> fixedEnv, ImmutableSet<String> inheritedEnv) {
     if (fixedEnv.isEmpty() && inheritedEnv.isEmpty()) {
       return EMPTY;
     }
-    return actionEnvironmentInterner.intern(new SimpleActionEnvironment(fixedEnv, inheritedEnv));
+    // copyOf returns the given map unchanged, with its value type widened to Object.
+    return actionEnvironmentInterner.intern(
+        new SimpleActionEnvironment(ImmutableMap.copyOf(fixedEnv), inheritedEnv));
   }
 
   /**
@@ -90,14 +98,42 @@ public abstract class ActionEnvironment {
     return create(ImmutableMap.copyOf(fixedEnv), ImmutableSet.copyOf(inheritedEnv));
   }
 
+  private static String maybeMapValue(Object value, PathMapper pathMapper) {
+    return value instanceof Artifact artifact
+        ? pathMapper.getMappedExecPathString(artifact)
+        : (String) value;
+  }
+
   private ActionEnvironment() {}
 
   /**
-   * Returns the 'fixed' part of the environment, i.e., those environment variables that are set to
-   * fixed values and their values. This should only be used for testing and to compute the cache
-   * keys of actions. Use {@link #resolve} instead to get the complete environment.
+   * Returns the 'fixed' part of the environment, with {@link String} values used as is and {@link
+   * Artifact} values resolved to their unmapped exec paths. This should only be used for testing
+   * and analysis-time introspection (e.g. aquery), as the value of an artifact-valued variable seen
+   * by the action may differ due to path mapping. Use {@link #resolve} instead to get the complete
+   * environment.
    */
-  public abstract ImmutableMap<String, String> getFixedEnv();
+  public final ImmutableMap<String, String> getFixedEnv() {
+    ImmutableMap<String, Object> fixedEnv = fixedEnv();
+    if (!hasArtifactValues(fixedEnv)) {
+      // Covariant cast of a map without Artifact values.
+      @SuppressWarnings("unchecked")
+      var stringEnv = (ImmutableMap<String, String>) (ImmutableMap<?, ?>) fixedEnv;
+      return stringEnv;
+    }
+    return ImmutableMap.copyOf(
+        Maps.transformValues(fixedEnv, value -> maybeMapValue(value, PathMapper.NOOP)));
+  }
+
+  private static boolean hasArtifactValues(ImmutableMap<String, Object> fixedEnv) {
+    return fixedEnv.values().stream().anyMatch(value -> value instanceof Artifact);
+  }
+
+  /**
+   * Returns the 'fixed' part of the environment, with values that are either of type {@link String}
+   * or {@link Artifact}.
+   */
+  abstract ImmutableMap<String, /* String | Artifact */ Object> fixedEnv();
 
   /**
    * Returns the 'inherited' part of the environment, i.e., those environment variables that are
@@ -116,13 +152,14 @@ public abstract class ActionEnvironment {
 
   /**
    * Resolves the action environment and adds the resulting entries to the given {@code result} map,
-   * by looking up any inherited env variables in the given {@code clientEnv}.
+   * by looking up any inherited env variables in the given {@code clientEnv} and resolving any
+   * artifact-valued env variables to their unmapped exec paths.
    *
    * <p>We pass in a map to mutate to avoid creating and merging intermediate maps.
    */
   public final void resolve(Map<String, String> result, Map<String, String> clientEnv) {
     checkNotNull(clientEnv);
-    result.putAll(getFixedEnv());
+    result.putAll(Maps.transformValues(fixedEnv(), value -> maybeMapValue(value, PathMapper.NOOP)));
     for (String var : getInheritedEnv()) {
       String value = clientEnv.get(var);
       if (value != null) {
@@ -131,16 +168,60 @@ public abstract class ActionEnvironment {
     }
   }
 
+  /**
+   * Like {@link #resolve}, but keeps {@link Artifact} values unresolved so that callers can later
+   * resolve them with a {@link PathMapper} applied via {@link #resolveValues}.
+   */
+  public final void resolveKeepingArtifacts(
+      Map<String, /* String | Artifact */ Object> result, Map<String, String> clientEnv) {
+    checkNotNull(clientEnv);
+    result.putAll(fixedEnv());
+    for (String var : getInheritedEnv()) {
+      String value = clientEnv.get(var);
+      if (value != null) {
+        result.put(var, value);
+      }
+    }
+  }
+
+  /**
+   * Resolves the values of an environment as returned by {@link Action#getEffectiveEnvironment}:
+   * {@link String} values are used as is and {@link Artifact} values are replaced by their exec
+   * paths with the given {@link PathMapper} applied.
+   *
+   * <p>Actions that support path mapping should pass in the path mapper of the spawn being created
+   * so that artifact-valued env variables reflect the paths seen by the action at execution time.
+   */
+  public static ImmutableMap<String, String> resolveValues(
+      Map<String, /* String | Artifact */ Object> env, PathMapper pathMapper) {
+    return ImmutableMap.copyOf(
+        Maps.transformValues(env, value -> maybeMapValue(value, pathMapper)));
+  }
+
   public final void addTo(Fingerprint f) {
-    f.addStringMap(getFixedEnv());
+    addTo(PathMapper.NOOP, f);
+  }
+
+  /**
+   * Adds this environment to the given fingerprint, resolving artifact-valued env variables with
+   * the given {@link PathMapper}.
+   *
+   * <p>Actions that support path mapping should pass in the path mapper returned by {@code
+   * PathMapper.forActionKey} to ensure that the action key remains stable across configurations if
+   * and only if the resolved environment does.
+   */
+  public final void addTo(PathMapper pathMapper, Fingerprint f) {
+    f.addStringMap(Maps.transformValues(fixedEnv(), value -> maybeMapValue(value, pathMapper)));
     f.addStrings(getInheritedEnv());
   }
 
   /**
    * Returns a copy of the environment with the given fixed variables added to it, <em>overwriting
    * any existing occurrences of those variables</em>.
+   *
+   * <p>The values of {@code fixedVars} must be of type {@link String} or {@link Artifact}.
    */
-  public final ActionEnvironment withAdditionalFixedVariables(Map<String, String> fixedVars) {
+  public final ActionEnvironment withAdditionalFixedVariables(Map<String, ?> fixedVars) {
     if (fixedVars.isEmpty()) {
       return this;
     }
@@ -155,7 +236,7 @@ public abstract class ActionEnvironment {
   private static final class EmptyActionEnvironment extends ActionEnvironment {
 
     @Override
-    public ImmutableMap<String, String> getFixedEnv() {
+    ImmutableMap<String, Object> fixedEnv() {
       return ImmutableMap.of();
     }
 
@@ -171,17 +252,17 @@ public abstract class ActionEnvironment {
   }
 
   private static final class SimpleActionEnvironment extends ActionEnvironment {
-    private final ImmutableMap<String, String> fixedEnv;
+    private final ImmutableMap<String, /* String | Artifact */ Object> fixedEnv;
     private final ImmutableSet<String> inheritedEnv;
 
     SimpleActionEnvironment(
-        ImmutableMap<String, String> fixedEnv, ImmutableSet<String> inheritedEnv) {
+        ImmutableMap<String, Object> fixedEnv, ImmutableSet<String> inheritedEnv) {
       this.fixedEnv = fixedEnv;
       this.inheritedEnv = inheritedEnv;
     }
 
     @Override
-    public ImmutableMap<String, String> getFixedEnv() {
+    ImmutableMap<String, Object> fixedEnv() {
       return fixedEnv;
     }
 
@@ -214,18 +295,18 @@ public abstract class ActionEnvironment {
 
   private static final class CompoundActionEnvironment extends ActionEnvironment {
     private final ActionEnvironment base;
-    private final ImmutableMap<String, String> fixedVars;
+    private final ImmutableMap<String, /* String | Artifact */ Object> fixedVars;
 
     private CompoundActionEnvironment(
-        ActionEnvironment base, ImmutableMap<String, String> fixedVars) {
+        ActionEnvironment base, ImmutableMap<String, Object> fixedVars) {
       this.base = base;
       this.fixedVars = fixedVars;
     }
 
     @Override
-    public ImmutableMap<String, String> getFixedEnv() {
-      return ImmutableMap.<String, String>builder()
-          .putAll(base.getFixedEnv())
+    ImmutableMap<String, Object> fixedEnv() {
+      return ImmutableMap.<String, Object>builder()
+          .putAll(base.fixedEnv())
           .putAll(fixedVars)
           .buildKeepingLast();
     }

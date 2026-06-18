@@ -239,12 +239,12 @@ public abstract class AbstractAction extends ActionKeyComputer implements Action
   }
 
   @Override
-  public ImmutableMap<String, String> getEffectiveEnvironment(Map<String, String> clientEnv)
-      throws CommandLineExpansionException {
+  public ImmutableMap<String, /* String | Artifact */ Object> getEffectiveEnvironment(
+      Map<String, String> clientEnv) throws CommandLineExpansionException {
     ActionEnvironment env = getEnvironment();
-    Map<String, String> effectiveEnvironment =
+    Map<String, Object> effectiveEnvironment =
         Maps.newLinkedHashMapWithExpectedSize(env.estimatedSize());
-    env.resolve(effectiveEnvironment, clientEnv);
+    env.resolveKeepingArtifacts(effectiveEnvironment, clientEnv);
     return ImmutableMap.copyOf(effectiveEnvironment);
   }
 

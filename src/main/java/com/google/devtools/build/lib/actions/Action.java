@@ -239,11 +239,17 @@ public interface Action extends ActionExecutionMetadata {
    * Called by {@link com.google.devtools.build.lib.analysis.actions.StarlarkAction} to use its
    * shadowed action, if any, complete list of environment variables in the Starlark action Spawn.
    *
+   * <p>The values of the returned map are either of type {@link String}, which are used as is, or
+   * {@link Artifact}, which are resolved to their exec paths when the spawn is created so that any
+   * applicable {@link PathMapper} can be applied to them. Callers that do not create a spawn
+   * should resolve the values via {@link ActionEnvironment#resolveValues} with {@link
+   * PathMapper#NOOP}.
+   *
    * <p>As this method is called from the StarlarkAction, make sure it is ok to call it from a
    * different thread than the one this action is executed on. By definition, the method should not
    * mutate any of the called action data but if necessary, its implementation must synchronize any
    * accesses to mutable data.
    */
-  ImmutableMap<String, String> getEffectiveEnvironment(Map<String, String> clientEnv)
-      throws CommandLineExpansionException;
+  ImmutableMap<String, /* String | Artifact */ Object> getEffectiveEnvironment(
+      Map<String, String> clientEnv) throws CommandLineExpansionException;
 }
