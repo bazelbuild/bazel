@@ -112,6 +112,18 @@ java_library(
 )
 
 java_test(
+    name = "ExecutionOptionsTest",
+    srcs = ["ExecutionOptionsTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:per_label_options",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/exec:execution_options",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
     name = "ExecTests",
     test_class = "com.google.devtools.build.lib.AllTests",
     runtime_deps = [
