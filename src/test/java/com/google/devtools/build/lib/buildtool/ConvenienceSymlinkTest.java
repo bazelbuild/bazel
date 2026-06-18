@@ -287,10 +287,6 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
     return new PathTestRulesModule();
   }
 
-  private Path getExecRoot() {
-    return getBlazeWorkspace().getDirectories().getExecRoot(TestConstants.WORKSPACE_NAME);
-  }
-
   private Path getOutputPath() {
     return getBlazeWorkspace().getDirectories().getOutputPath(TestConstants.WORKSPACE_NAME);
   }
@@ -401,7 +397,7 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
     assertThat(genfilesLink.exists(Symlinks.NOFOLLOW)).isTrue();
     assertThat(testlogsLink.exists(Symlinks.NOFOLLOW)).isTrue();
 
-    // the execroot and output path symlinks should have been created because they don't depend on
+    // the output path symlink should have been created because it doesn't depend on
     // configuration, but no other symlinks should have been created
     assertThat(getConvenienceSymlinks())
         .containsExactly(
@@ -416,8 +412,6 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
             "nothing-testlogs",
             getOutputPath()
                 .getRelative(getTargetConfiguration().getCpu() + "-fastbuild-default/testlogs"),
-            "nothing-" + TestConstants.WORKSPACE_NAME,
-            getExecRoot(),
             "nothing-out",
             getOutputPath());
   }
@@ -446,13 +440,13 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
     assertThat(genfilesLink.exists(Symlinks.NOFOLLOW)).isFalse();
     assertThat(testlogsLink.exists(Symlinks.NOFOLLOW)).isFalse();
 
-    // the execroot and output path symlinks should have been created because they don't depend on
+    // the output path symlink should have been created because it doesn't depend on
     // configuration, but no other symlinks should have been created
     assertThat(getConvenienceSymlinks())
         .containsExactly(
             // notably absent: nulled-bin, nulled-genfiles, nulled-testlogs
             // these were also not created under other names
-            "nulled-" + TestConstants.WORKSPACE_NAME, getExecRoot(), "nulled-out", getOutputPath());
+            "nulled-out", getOutputPath());
   }
 
   @Test
@@ -490,14 +484,12 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
     assertThat(genfilesLink.exists(Symlinks.NOFOLLOW)).isFalse();
     assertThat(testlogsLink.exists(Symlinks.NOFOLLOW)).isFalse();
 
-    // the execroot and output path symlinks should have been created because they don't depend on
+    // the output path symlink should have been created because it doesn't depend on
     // configuration, but no other symlinks should have been created
     assertThat(getConvenienceSymlinks())
         .containsExactly(
             // notably absent: ambiguous-bin, ambiguous-genfiles, ambiguous-testlogs
             // these were also not created under other names
-            "ambiguous-" + TestConstants.WORKSPACE_NAME,
-            getExecRoot(),
             "ambiguous-out",
             getOutputPath());
   }
@@ -543,8 +535,6 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
             "ambiguous-testlogs",
             getOutputPath()
                 .getRelative(getTargetConfiguration().getCpu() + "-fastbuild-default/testlogs"),
-            "ambiguous-" + TestConstants.WORKSPACE_NAME,
-            getExecRoot(),
             "ambiguous-out",
             getOutputPath());
   }
@@ -583,8 +573,6 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
             "same-testlogs",
             getOutputPath()
                 .getRelative(getTargetConfiguration().getCpu() + "-fastbuild-configured/testlogs"),
-            "same-" + TestConstants.WORKSPACE_NAME,
-            getExecRoot(),
             "same-out",
             getOutputPath());
   }
@@ -632,8 +620,6 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
             "united-testlogs",
             getOutputPath()
                 .getRelative(getTargetConfiguration().getCpu() + "-fastbuild-from_flag/testlogs"),
-            "united-" + TestConstants.WORKSPACE_NAME,
-            getExecRoot(),
             "united-out",
             getOutputPath());
   }
@@ -675,8 +661,6 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
             "unchanged-testlogs",
             getOutputPath()
                 .getRelative(getTargetConfiguration().getCpu() + "-fastbuild-from_flag/testlogs"),
-            "unchanged-" + TestConstants.WORKSPACE_NAME,
-            getExecRoot(),
             "unchanged-out",
             getOutputPath());
   }
@@ -713,8 +697,6 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
             "mixed-testlogs",
             getOutputPath()
                 .getRelative(getTargetConfiguration().getCpu() + "-fastbuild-from_flag/testlogs"),
-            "mixed-" + TestConstants.WORKSPACE_NAME,
-            getExecRoot(),
             "mixed-out",
             getOutputPath());
   }
@@ -730,14 +712,12 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
     Path binLink = getWorkspace().getChild("replaced-bin");
     Path genfilesLink = getWorkspace().getChild("replaced-genfiles");
     Path testlogsLink = getWorkspace().getChild("replaced-testlogs");
-    Path workspaceLink = getWorkspace().getChild("replaced-" + TestConstants.WORKSPACE_NAME);
     Path outLink = getWorkspace().getChild("replaced-out");
 
     PathFragment original = getOutputPath().getRelative("original/destination").asFragment();
     binLink.createSymbolicLink(original);
     genfilesLink.createSymbolicLink(original);
     testlogsLink.createSymbolicLink(original);
-    workspaceLink.createSymbolicLink(original);
     outLink.createSymbolicLink(original);
 
     write("target/BUILD", "basic_rule(name='target')");
@@ -747,7 +727,6 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
     assertThat(binLink.readSymbolicLink()).isNotEqualTo(original);
     assertThat(genfilesLink.readSymbolicLink()).isNotEqualTo(original);
     assertThat(testlogsLink.readSymbolicLink()).isNotEqualTo(original);
-    assertThat(workspaceLink.readSymbolicLink()).isNotEqualTo(original);
     assertThat(outLink.readSymbolicLink()).isNotEqualTo(original);
   }
 
@@ -765,8 +744,6 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
     assertThat(getWorkspace().getChild("created-bin").isSymbolicLink()).isTrue();
     assertThat(getWorkspace().getChild("created-genfiles").isSymbolicLink()).isTrue();
     assertThat(getWorkspace().getChild("created-testlogs").isSymbolicLink()).isTrue();
-    assertThat(getWorkspace().getChild("created-" + TestConstants.WORKSPACE_NAME).isSymbolicLink())
-        .isTrue();
     assertThat(getWorkspace().getChild("created-out").isSymbolicLink()).isTrue();
   }
 
@@ -813,13 +790,11 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
     Path binLink = getWorkspace().getChild("blocked-bin");
     Path genfilesLink = getWorkspace().getChild("blocked-genfiles");
     Path testlogsLink = getWorkspace().getChild("blocked-testlogs");
-    Path workspaceLink = getWorkspace().getChild("blocked-" + TestConstants.WORKSPACE_NAME);
     Path outLink = getWorkspace().getChild("blocked-out");
 
     FileSystemUtils.writeIsoLatin1(binLink, "this file is not a symlink");
     FileSystemUtils.writeIsoLatin1(genfilesLink, "this file is not a symlink");
     FileSystemUtils.writeIsoLatin1(testlogsLink, "this file is not a symlink");
-    FileSystemUtils.writeIsoLatin1(workspaceLink, "this file is not a symlink");
     FileSystemUtils.writeIsoLatin1(outLink, "this file is not a symlink");
 
     write("target/BUILD", "basic_rule(name='target')");
@@ -828,7 +803,6 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
     assertThat(binLink.isFile(Symlinks.NOFOLLOW)).isTrue();
     assertThat(genfilesLink.isFile(Symlinks.NOFOLLOW)).isTrue();
     assertThat(testlogsLink.isFile(Symlinks.NOFOLLOW)).isTrue();
-    assertThat(workspaceLink.isFile(Symlinks.NOFOLLOW)).isTrue();
     assertThat(outLink.isFile(Symlinks.NOFOLLOW)).isTrue();
   }
 
@@ -842,13 +816,11 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
     Path binLink = getWorkspace().getChild("blocked-bin");
     Path genfilesLink = getWorkspace().getChild("blocked-genfiles");
     Path testlogsLink = getWorkspace().getChild("blocked-testlogs");
-    Path workspaceLink = getWorkspace().getChild("blocked-" + TestConstants.WORKSPACE_NAME);
     Path outLink = getWorkspace().getChild("blocked-out");
 
     binLink.createDirectory();
     genfilesLink.createDirectory();
     testlogsLink.createDirectory();
-    workspaceLink.createDirectory();
     outLink.createDirectory();
 
     write("target/BUILD", "basic_rule(name='target')");
@@ -857,7 +829,6 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
     assertThat(binLink.isDirectory(Symlinks.NOFOLLOW)).isTrue();
     assertThat(genfilesLink.isDirectory(Symlinks.NOFOLLOW)).isTrue();
     assertThat(testlogsLink.isDirectory(Symlinks.NOFOLLOW)).isTrue();
-    assertThat(workspaceLink.isDirectory(Symlinks.NOFOLLOW)).isTrue();
     assertThat(outLink.isDirectory(Symlinks.NOFOLLOW)).isTrue();
   }
 
@@ -873,14 +844,12 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
     Path binLink = getWorkspace().getChild("replaced-bin");
     Path genfilesLink = getWorkspace().getChild("replaced-genfiles");
     Path testlogsLink = getWorkspace().getChild("replaced-testlogs");
-    Path workspaceLink = getWorkspace().getChild("replaced-" + TestConstants.WORKSPACE_NAME);
     Path outLink = getWorkspace().getChild("replaced-out");
 
     Path original = getWorkspace().getRelative("/arbitrary/somewhere/else/in/the/filesystem");
     binLink.createSymbolicLink(original);
     genfilesLink.createSymbolicLink(original);
     testlogsLink.createSymbolicLink(original);
-    workspaceLink.createSymbolicLink(original);
     outLink.createSymbolicLink(original);
 
     write("target/BUILD", "basic_rule(name='target')");
@@ -902,7 +871,6 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
             getOutputPath()
                 .getRelative(getTargetConfiguration().getCpu() + "-fastbuild-from_flag/testlogs")
                 .asFragment());
-    assertThat(workspaceLink.readSymbolicLink()).isEqualTo(getExecRoot().asFragment());
     assertThat(outLink.readSymbolicLink()).isEqualTo(getOutputPath().asFragment());
   }
 
@@ -921,9 +889,6 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
     assertThat(getWorkspace().getRelative("created/bin").isSymbolicLink()).isTrue();
     assertThat(getWorkspace().getRelative("created/genfiles").isSymbolicLink()).isTrue();
     assertThat(getWorkspace().getRelative("created/testlogs").isSymbolicLink()).isTrue();
-    assertThat(
-            getWorkspace().getRelative("created/" + TestConstants.WORKSPACE_NAME).isSymbolicLink())
-        .isTrue();
     assertThat(getWorkspace().getRelative("created/out").isSymbolicLink()).isTrue();
   }
 
@@ -958,11 +923,6 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
     assertThat(getWorkspace().getRelative("cooperating/bin").isSymbolicLink()).isTrue();
     assertThat(getWorkspace().getRelative("cooperating/genfiles").isSymbolicLink()).isTrue();
     assertThat(getWorkspace().getRelative("cooperating/testlogs").isSymbolicLink()).isTrue();
-    assertThat(
-            getWorkspace()
-                .getRelative("cooperating/" + TestConstants.WORKSPACE_NAME)
-                .isSymbolicLink())
-        .isTrue();
     assertThat(getWorkspace().getRelative("cooperating/out").isSymbolicLink()).isTrue();
     assertThat(getWorkspace().getRelative("cooperating/original").isFile()).isTrue();
   }
@@ -976,14 +936,12 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
     Path binLink = getWorkspace().getChild("other-prefix-bin");
     Path genfilesLink = getWorkspace().getChild("other-prefix-genfiles");
     Path testlogsLink = getWorkspace().getChild("other-prefix-testlogs");
-    Path workspaceLink = getWorkspace().getChild("other-prefix-" + TestConstants.WORKSPACE_NAME);
     Path outLink = getWorkspace().getChild("other-prefix-out");
 
     PathFragment original = getOutputPath().getRelative("original/destination").asFragment();
     binLink.createSymbolicLink(original);
     genfilesLink.createSymbolicLink(original);
     testlogsLink.createSymbolicLink(original);
-    workspaceLink.createSymbolicLink(original);
     outLink.createSymbolicLink(original);
 
     write("target/BUILD", "basic_rule(name='target')");
@@ -993,7 +951,6 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
     assertThat(binLink.readSymbolicLink()).isEqualTo(original);
     assertThat(genfilesLink.readSymbolicLink()).isEqualTo(original);
     assertThat(testlogsLink.readSymbolicLink()).isEqualTo(original);
-    assertThat(workspaceLink.readSymbolicLink()).isEqualTo(original);
     assertThat(outLink.readSymbolicLink()).isEqualTo(original);
   }
 
@@ -1007,7 +964,6 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
     Path binLink = getWorkspace().getChild("deleted-bin");
     Path genfilesLink = getWorkspace().getChild("deleted-genfiles");
     Path testlogsLink = getWorkspace().getChild("deleted-testlogs");
-    Path workspaceLink = getWorkspace().getChild("deleted-" + TestConstants.WORKSPACE_NAME);
     Path outLink = getWorkspace().getChild("deleted-out");
 
     Path config = getOutputPath().getRelative("some-imaginary-config");
@@ -1024,7 +980,6 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
     assertThat(genfilesLink.exists(Symlinks.NOFOLLOW)).isFalse();
     assertThat(testlogsLink.exists(Symlinks.NOFOLLOW)).isFalse();
 
-    assertThat(workspaceLink.isSymbolicLink()).isTrue();
     assertThat(outLink.isSymbolicLink()).isTrue();
   }
 
@@ -1037,7 +992,6 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
     Path binLink = getWorkspace().getChild("already-absent-bin");
     Path genfilesLink = getWorkspace().getChild("already-absent-genfiles");
     Path testlogsLink = getWorkspace().getChild("already-absent-testlogs");
-    Path workspaceLink = getWorkspace().getChild("already-absent-" + TestConstants.WORKSPACE_NAME);
     Path outLink = getWorkspace().getChild("already-absent-out");
 
     write("file/BUILD", "exports_files(['file'])");
@@ -1048,7 +1002,6 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
     assertThat(genfilesLink.exists(Symlinks.NOFOLLOW)).isFalse();
     assertThat(testlogsLink.exists(Symlinks.NOFOLLOW)).isFalse();
 
-    assertThat(workspaceLink.isSymbolicLink()).isTrue();
     assertThat(outLink.isSymbolicLink()).isTrue();
   }
 
@@ -1061,13 +1014,11 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
     Path binLink = getWorkspace().getChild("blocked-bin");
     Path genfilesLink = getWorkspace().getChild("blocked-genfiles");
     Path testlogsLink = getWorkspace().getChild("blocked-testlogs");
-    Path workspaceLink = getWorkspace().getChild("blocked-" + TestConstants.WORKSPACE_NAME);
     Path outLink = getWorkspace().getChild("blocked-out");
 
     FileSystemUtils.writeIsoLatin1(binLink, "this file is not a symlink");
     FileSystemUtils.writeIsoLatin1(genfilesLink, "this file is not a symlink");
     FileSystemUtils.writeIsoLatin1(testlogsLink, "this file is not a symlink");
-    FileSystemUtils.writeIsoLatin1(workspaceLink, "this file is not a symlink");
     FileSystemUtils.writeIsoLatin1(outLink, "this file is not a symlink");
 
     write("file/BUILD", "exports_files(['file'])");
@@ -1077,7 +1028,6 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
     assertThat(binLink.isFile(Symlinks.NOFOLLOW)).isTrue();
     assertThat(genfilesLink.isFile(Symlinks.NOFOLLOW)).isTrue();
     assertThat(testlogsLink.isFile(Symlinks.NOFOLLOW)).isTrue();
-    assertThat(workspaceLink.isFile(Symlinks.NOFOLLOW)).isTrue();
     assertThat(outLink.isFile(Symlinks.NOFOLLOW)).isTrue();
   }
 
@@ -1090,13 +1040,11 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
     Path binLink = getWorkspace().getChild("blocked-bin");
     Path genfilesLink = getWorkspace().getChild("blocked-genfiles");
     Path testlogsLink = getWorkspace().getChild("blocked-testlogs");
-    Path workspaceLink = getWorkspace().getChild("blocked-" + TestConstants.WORKSPACE_NAME);
     Path outLink = getWorkspace().getChild("blocked-out");
 
     binLink.createDirectory();
     genfilesLink.createDirectory();
     testlogsLink.createDirectory();
-    workspaceLink.createDirectory();
     outLink.createDirectory();
 
     write("file/BUILD", "exports_files(['file'])");
@@ -1106,7 +1054,6 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
     assertThat(binLink.isDirectory(Symlinks.NOFOLLOW)).isTrue();
     assertThat(genfilesLink.isDirectory(Symlinks.NOFOLLOW)).isTrue();
     assertThat(testlogsLink.isDirectory(Symlinks.NOFOLLOW)).isTrue();
-    assertThat(workspaceLink.isDirectory(Symlinks.NOFOLLOW)).isTrue();
     assertThat(outLink.isDirectory(Symlinks.NOFOLLOW)).isTrue();
   }
 
@@ -1120,14 +1067,12 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
     Path binLink = getWorkspace().getChild("deleted-bin");
     Path genfilesLink = getWorkspace().getChild("deleted-genfiles");
     Path testlogsLink = getWorkspace().getChild("deleted-testlogs");
-    Path workspaceLink = getWorkspace().getChild("deleted-" + TestConstants.WORKSPACE_NAME);
     Path outLink = getWorkspace().getChild("deleted-out");
 
     Path original = getWorkspace().getRelative("/arbitrary/somewhere/else/in/the/filesystem");
     binLink.createSymbolicLink(original);
     genfilesLink.createSymbolicLink(original);
     testlogsLink.createSymbolicLink(original);
-    workspaceLink.createSymbolicLink(original);
     outLink.createSymbolicLink(original);
 
     write("file/BUILD", "exports_files(['file'])");
@@ -1138,7 +1083,6 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
     assertThat(genfilesLink.exists(Symlinks.NOFOLLOW)).isFalse();
     assertThat(testlogsLink.exists(Symlinks.NOFOLLOW)).isFalse();
 
-    assertThat(workspaceLink.isSymbolicLink()).isTrue();
     assertThat(outLink.isSymbolicLink()).isTrue();
   }
 
@@ -1151,14 +1095,12 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
     Path binLink = getWorkspace().getChild("other-prefix-bin");
     Path genfilesLink = getWorkspace().getChild("other-prefix-genfiles");
     Path testlogsLink = getWorkspace().getChild("other-prefix-testlogs");
-    Path workspaceLink = getWorkspace().getChild("other-prefix-" + TestConstants.WORKSPACE_NAME);
     Path outLink = getWorkspace().getChild("other-prefix-out");
 
     PathFragment original = getOutputPath().getRelative("original/destination").asFragment();
     binLink.createSymbolicLink(original);
     genfilesLink.createSymbolicLink(original);
     testlogsLink.createSymbolicLink(original);
-    workspaceLink.createSymbolicLink(original);
     outLink.createSymbolicLink(original);
 
     write("file/BUILD", "exports_files(['file'])");
@@ -1169,7 +1111,6 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
     assertThat(binLink.readSymbolicLink()).isEqualTo(original);
     assertThat(genfilesLink.readSymbolicLink()).isEqualTo(original);
     assertThat(testlogsLink.readSymbolicLink()).isEqualTo(original);
-    assertThat(workspaceLink.readSymbolicLink()).isEqualTo(original);
     assertThat(outLink.readSymbolicLink()).isEqualTo(original);
   }
 
@@ -1182,13 +1123,13 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
 
     // This will be a preexisting symlink and when --symlink_prefix=/ is used, assert that this
     // preexisting symlink still exists.
-    Path binLink = getWorkspace().getChild("blaze-" + TestConstants.WORKSPACE_NAME);
-    binLink.createSymbolicLink(PathFragment.create("foo/"));
+    Path outLink = getWorkspace().getChild("blaze-out");
+    outLink.createSymbolicLink(PathFragment.create("foo/"));
 
     buildTarget("//foo:bar.txt");
 
     ImmutableMap<String, Path> symlinks = getConvenienceSymlinks();
-    assertThat(symlinks).containsKey("blaze-" + TestConstants.WORKSPACE_NAME);
+    assertThat(symlinks).containsKey("blaze-out");
   }
 
   @Test
@@ -1200,11 +1141,11 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
     buildTarget("//foo:bar.txt");
 
     // This will be a preexisting symlink that will remain after the build
-    Path binLink = getWorkspace().getChild("blaze-" + TestConstants.WORKSPACE_NAME);
-    binLink.createSymbolicLink(PathFragment.create("foo/"));
+    Path outLink = getWorkspace().getChild("blaze-out");
+    outLink.createSymbolicLink(PathFragment.create("foo/"));
 
     ImmutableMap<String, Path> symlinks = getConvenienceSymlinks();
-    assertThat(symlinks).containsKey("blaze-" + TestConstants.WORKSPACE_NAME);
+    assertThat(symlinks).containsKey("blaze-out");
   }
 
   @Test
@@ -1216,7 +1157,6 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
     buildTarget("//foo:bar.txt");
 
     ImmutableMap<String, Path> symlinks = getConvenienceSymlinks();
-    assertThat(symlinks).containsKey("test-" + TestConstants.WORKSPACE_NAME);
     assertThat(symlinks).containsKey("test-out");
   }
 
@@ -1228,13 +1168,12 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
     write("foo/bar.txt", "This is just a test file to pretend to build.");
 
     // This will be a preexisting symlink that will be deleted after the build
-    Path binLink = getWorkspace().getChild("test-" + TestConstants.WORKSPACE_NAME);
-    binLink.createSymbolicLink(PathFragment.create("foo"));
+    Path outLink = getWorkspace().getChild("test-out");
+    outLink.createSymbolicLink(PathFragment.create("foo"));
 
     buildTarget("//foo:bar.txt");
 
     ImmutableMap<String, Path> symlinks = getConvenienceSymlinks();
-    assertThat(symlinks).doesNotContainKey("test-" + TestConstants.WORKSPACE_NAME);
     assertThat(symlinks).doesNotContainKey("test-out");
   }
 }

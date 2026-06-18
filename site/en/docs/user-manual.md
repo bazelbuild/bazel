@@ -1351,9 +1351,8 @@ Some common values of this option:
 
 *   **Suppress symlink creation:**
       `--symlink_prefix=/` will cause Bazel to not
-      create or update any symlinks, including the `bazel-out` and
-      `bazel-<workspace>`
-      symlinks. Use this option to suppress symlink creation entirely.
+      create or update any symlinks, including the `bazel-out`
+      symlink. Use this option to suppress symlink creation entirely.
 
 *   **Reduce clutter:**
       `--symlink_prefix=.bazel/` will cause Bazel to create
@@ -1966,9 +1965,7 @@ through `sed -ne /key:/s/key://p`:
 *   `execution_root`: the absolute path to the execution
     root directory under output_base. This directory is the root for all files
     accessible to commands executed during the build, and is the working
-    directory for those commands. If the workspace directory is writable, a
-    symlink named `bazel-<workspace>`
-    is placed there pointing to this directory.
+    directory for those commands.
 *   `output_path`: the absolute path to the output
     directory beneath the execution root used for all files actually
     generated as a result of build commands. If the workspace directory is
