@@ -132,6 +132,17 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
     this.execRoot = checkNotNull(execRoot);
   }
 
+  /**
+   * Relativizes the given path against the exec root, falling back to the output base for paths
+   * not under the exec root.
+   */
+  private PathFragment relativizeToExecRootOrOutputBase(PathFragment path) {
+    if (path.startsWith(execRoot)) {
+      return path.relativeTo(execRoot);
+    }
+    return path.relativeTo(execRoot.getParentDirectory().getParentDirectory());
+  }
+
   private void putArtifactData(Artifact artifact, FileArtifactValue value) {
     Preconditions.checkArgument(
         !artifact.isTreeArtifact() && !artifact.isChildOfDeclaredDirectory(),
@@ -326,7 +337,8 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
       tree.setMaterializationExecPath(
           metadata
               .getMaterializationExecPath()
-              .orElse(treeDir.resolveSymbolicLinks().asFragment().relativeTo(execRoot)));
+              .orElse(relativizeToExecRootOrOutputBase(
+                  treeDir.resolveSymbolicLinks().asFragment())));
     }
 
     return tree.build();
@@ -469,7 +481,7 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
       value =
           RemoteFileArtifactValue.createFromExistingWithMaterializationPath(
               (RemoteFileArtifactValue) value,
-              statAndValue.realPath().asFragment().relativeTo(execRoot));
+              relativizeToExecRootOrOutputBase(statAndValue.realPath().asFragment()));
     }
 
     // Ensure that we don't have both an injected digest and a digest from the filesystem.

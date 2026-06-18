@@ -18,16 +18,10 @@ import static org.mockito.Mockito.spy;
 import com.google.devtools.build.lib.vfs.DelegateFileSystem;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
-import java.io.IOException;
-import java.io.OutputStream;
 
 /**
  * Delegate file system with the sole purpose of creating a {@link org.mockito.Mockito#spy}.
- *
- * <p>This class purposely makes the {@link FileSystem} methods public so that tests can mock those.
- * Please feel free to add any methods you need.
  */
 public class SpiedFileSystem extends DelegateFileSystem {
 
@@ -44,26 +38,5 @@ public class SpiedFileSystem extends DelegateFileSystem {
 
   public static SpiedFileSystem createInMemorySpy() {
     return createSpy(new InMemoryFileSystem(DigestHashFunction.SHA256));
-  }
-
-  @Override
-  public OutputStream getOutputStream(PathFragment path, boolean append, boolean internal)
-      throws IOException {
-    return super.getOutputStream(path, append, internal);
-  }
-
-  @Override
-  public boolean createWritableDirectory(PathFragment path) throws IOException {
-    return super.createWritableDirectory(path);
-  }
-
-  @Override
-  public byte[] getDigest(PathFragment path) throws IOException {
-    return super.getDigest(path);
-  }
-
-  @Override
-  public void chmod(PathFragment path, int mode) throws IOException {
-    super.chmod(path, mode);
   }
 }

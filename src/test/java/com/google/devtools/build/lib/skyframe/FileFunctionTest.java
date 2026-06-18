@@ -564,7 +564,7 @@ public class FileFunctionTest {
         new CustomInMemoryFs(manualClock) {
           @Override
           @SuppressWarnings("UnsynchronizedOverridesSynchronized")
-          protected byte[] getFastDigest(PathFragment path) {
+          public byte[] getFastDigest(PathFragment path) {
             return digest;
           }
         });
@@ -603,7 +603,7 @@ public class FileFunctionTest {
         new CustomInMemoryFs(manualClock) {
           @Override
           @SuppressWarnings("UnsynchronizedOverridesSynchronized")
-          protected byte[] getFastDigest(PathFragment path) {
+          public byte[] getFastDigest(PathFragment path) {
             return path.getBaseName().equals("unreadable") ? expectedDigest : null;
           }
         });
@@ -904,7 +904,7 @@ public class FileFunctionTest {
     fs =
         new CustomInMemoryFs(manualClock) {
           @Override
-          protected byte[] getDigest(PathFragment path) throws IOException {
+          public byte[] getDigest(PathFragment path) throws IOException {
             digestCalls.incrementAndGet();
             return super.getDigest(path);
           }
@@ -986,7 +986,7 @@ public class FileFunctionTest {
     createFsAndRoot(
         new CustomInMemoryFs(manualClock) {
           @Override
-          protected boolean isReadable(PathFragment path) throws IOException {
+          public boolean isReadable(PathFragment path) throws IOException {
             if (path.getBaseName().equals("unreadable")) {
               throw new IOException("isReadable failed");
             }
@@ -1828,7 +1828,7 @@ public class FileFunctionTest {
 
     @Override
     @SuppressWarnings("UnsynchronizedOverridesSynchronized")
-    protected byte[] getFastDigest(PathFragment path) throws IOException {
+    public byte[] getFastDigest(PathFragment path) throws IOException {
       if (stubbedFastDigestErrors.containsKey(path)) {
         throw stubbedFastDigestErrors.get(path);
       }

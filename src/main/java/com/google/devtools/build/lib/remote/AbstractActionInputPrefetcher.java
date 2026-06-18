@@ -26,6 +26,8 @@ import static com.google.devtools.build.lib.remote.util.Utils.mergeBulkTransfer;
 import static java.util.Objects.requireNonNull;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
@@ -45,6 +47,7 @@ import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifac
 import com.google.devtools.build.lib.actions.FileContentsProxy;
 import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -80,10 +83,13 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   private final TempPathGenerator tempPathGenerator;
   private final OutputPermissions outputPermissions;
 
-  protected final Path execRoot;
+  // The exec root isn't known when the prefetcher is created as its path depends on the name set in
+  // WORKSPACE.
+  private final Supplier<Path> execRootSupplier;
+  protected final Path outputBase;
   protected final RemoteOutputChecker remoteOutputChecker;
 
-  protected final ActionOutputDirectoryHelper outputDirectoryHelper;
+  @Nullable protected final ActionOutputDirectoryHelper outputDirectoryHelper;
 
   /** The state of a directory tracked by {@link DirectoryTracker}, as explained below. */
   enum DirectoryState {
@@ -124,6 +130,17 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     }
 
     private void setWritable(Path dir, DirectoryState newState) throws IOException {
+      // External repo paths (which live directly under the output base) are not build outputs and
+      // don't need output permission management. Check this first (comparing fragments, since the
+      // dir may be on the host file system while the output base is on an overlay) so that the exec
+      // root, which is only resolvable during the loading phase and later, is not resolved during
+      // external repo materialization.
+      if (dir.asFragment()
+              .startsWith(
+                  outputBase.getRelative(LabelConstants.EXTERNAL_REPOSITORY_LOCATION).asFragment())
+          || !dir.startsWith(execRoot())) {
+        return;
+      }
       AtomicReference<IOException> caughtException = new AtomicReference<>();
 
       directoryStateMap.compute(
@@ -136,7 +153,11 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
               return newState == DirectoryState.PERMANENTLY_WRITABLE ? newState : oldState;
             }
             try {
-              outputDirectoryHelper.createOutputDirectory(dir, execRoot);
+              if (outputDirectoryHelper != null) {
+                outputDirectoryHelper.createOutputDirectory(dir, execRoot());
+              } else {
+                dir.createDirectoryAndParents();
+              }
               dir.setWritable(true);
             } catch (IOException e) {
               caughtException.set(e);
@@ -202,21 +223,46 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
 
   protected AbstractActionInputPrefetcher(
       Reporter reporter,
-      Path execRoot,
+      Supplier<Path> execRootSupplier,
+      Path outputBase,
       TempPathGenerator tempPathGenerator,
       RemoteOutputChecker remoteOutputChecker,
-      ActionOutputDirectoryHelper outputDirectoryHelper,
+      @Nullable ActionOutputDirectoryHelper outputDirectoryHelper,
       OutputPermissions outputPermissions) {
     this.reporter = reporter;
-    this.execRoot = execRoot;
+    this.execRootSupplier = Suppliers.memoize(execRootSupplier::get);
+    this.outputBase = outputBase;
     this.tempPathGenerator = tempPathGenerator;
     this.remoteOutputChecker = remoteOutputChecker;
     this.outputDirectoryHelper = outputDirectoryHelper;
     this.outputPermissions = outputPermissions;
   }
 
-  private boolean shouldDownloadFile(Path path, FileArtifactValue metadata)
-      throws IOException {
+  /**
+   * Returns the exec root. May only be called once the workspace name is known, i.e. not before the
+   * loading phase. Code paths reached during external repository materialization must use {@link
+   * #outputBase} instead.
+   */
+  protected Path execRoot() {
+    return execRootSupplier.get();
+  }
+
+  /**
+   * Resolves an exec path to an absolute path, avoiding evaluation of execRoot() if possible as it
+   * isn't available during server startup. This logic is unique to Bazel 8.x as it still names the
+   * exec root based on the name set in WORKSPACE, which is gone from HEAD and Bazel 9.x.
+   */
+  private Path resolveExecPath(PathFragment execPath) {
+    if (execPath.isAbsolute()) {
+      return outputBase.getFileSystem().getPath(execPath);
+    }
+    if (execPath.startsWith(LabelConstants.EXTERNAL_REPOSITORY_LOCATION)) {
+      return outputBase.getRelative(execPath);
+    }
+    return execRoot().getRelative(execPath);
+  }
+
+  private boolean shouldDownloadFile(Path path, FileArtifactValue metadata) throws IOException {
     var stat = path.statIfFound();
     if (stat == null) {
       return true;
@@ -228,7 +274,12 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     if (stat.getSize() != metadata.getSize()) {
       return true;
     }
-    var contentsProxy = metadata.getContentsProxy();
+    FileContentsProxy contentsProxy;
+    try {
+      contentsProxy = metadata.getContentsProxy();
+    } catch (UnsupportedOperationException e) {
+      contentsProxy = null;
+    }
     if (contentsProxy != null && contentsProxy.equals(FileContentsProxy.create(stat))) {
       return false;
     }
@@ -254,7 +305,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
    * @param tempPath the temporary path which the input should be written to.
    */
   protected abstract ListenableFuture<Void> doDownloadFile(
-      ActionExecutionMetadata action,
+      @Nullable ActionExecutionMetadata action,
       Reporter reporter,
       Path tempPath,
       PathFragment execPath,
@@ -285,8 +336,10 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     List<ActionInput> files = new ArrayList<>();
 
     for (ActionInput input : inputs) {
-      // Source artifacts don't need to be fetched.
-      if (input instanceof Artifact && ((Artifact) input).isSourceArtifact()) {
+      // Source artifacts in the main repo don't need to be fetched.
+      if (input instanceof Artifact artifact
+          && artifact.isSourceArtifact()
+          && artifact.getArtifactOwner().getLabel().getRepository().isMain()) {
         continue;
       }
 
@@ -343,7 +396,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   }
 
   private ListenableFuture<Void> prefetchFile(
-      ActionExecutionMetadata action,
+      @Nullable ActionExecutionMetadata action,
       Set<Path> dirsWithOutputPermissions,
       MetadataSupplier metadataSupplier,
       ActionInput input,
@@ -358,7 +411,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       PathFragment execPath = input.getExecPath();
 
       FileArtifactValue metadata = metadataSupplier.getMetadata(input);
-      if (metadata == null || !canDownloadFile(execRoot.getRelative(execPath), metadata)) {
+      if (metadata == null || !canDownloadFile(resolveExecPath(execPath), metadata)) {
         return immediateVoidFuture();
       }
 
@@ -375,8 +428,8 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       Completable result =
           downloadFileNoCheckRx(
                   action,
-                  execRoot.getRelative(execPath),
-                  treeRootExecPath != null ? execRoot.getRelative(treeRootExecPath) : null,
+                  resolveExecPath(execPath),
+                  treeRootExecPath != null ? resolveExecPath(treeRootExecPath) : null,
                   dirsWithOutputPermissions,
                   input,
                   metadata,
@@ -504,7 +557,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   }
 
   private Completable downloadFileNoCheckRx(
-      ActionExecutionMetadata action,
+      @Nullable ActionExecutionMetadata action,
       Path path,
       @Nullable Path treeRoot,
       Set<Path> dirsWithOutputPermissions,
@@ -543,8 +596,18 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       }
     }
 
-    Path finalPath = path;
-    PathFragment execPath = finalPath.relativeTo(execRoot);
+    // Downloads should always be written to the "actual" host file system, not any overlays.
+    // See the comment on resolveExecPath for the rationale behind the branching below.
+    Path finalPath = path.forHostFileSystem();
+    PathFragment execPath;
+    if (finalPath
+        .asFragment()
+        .startsWith(
+            outputBase.getRelative(LabelConstants.EXTERNAL_REPOSITORY_LOCATION).asFragment())) {
+      execPath = finalPath.asFragment().relativeTo(outputBase.asFragment());
+    } else {
+      execPath = finalPath.asFragment().relativeTo(execRoot().asFragment());
+    }
 
     Completable download =
         usingTempPath(
@@ -552,12 +615,21 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
                 toCompletable(
                         () ->
                             doDownloadFile(
-                                action, reporter, tempPath, execPath, metadata, priority, reason),
+                                action,
+                                reporter,
+                                tempPath.forHostFileSystem(),
+                                execPath,
+                                metadata,
+                                priority,
+                                reason),
                         directExecutor())
                     .doOnComplete(
                         () -> {
                           finalizeDownload(
-                              metadata, tempPath, finalPath, dirsWithOutputPermissions);
+                              metadata,
+                              tempPath.forHostFileSystem(),
+                              finalPath,
+                              dirsWithOutputPermissions);
                           alreadyDeleted.set(true);
                         })
                     .onErrorResumeNext(
@@ -590,26 +662,35 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       throws IOException {
     Path parentDir = checkNotNull(finalPath.getParentDirectory());
 
-    // Ensure the parent directory exists and is writable. We cannot rely on this precondition to be
-    // have been established by the execution of the owning action in a previous invocation, since
-    // the output tree may have been externally modified in between invocations.
-    if (dirsWithOutputPermissions.contains(parentDir)) {
-      // The file belongs to a tree artifact created by an action that declared an output directory
-      // (as opposed to an action template expansion). The output permissions should be set on the
-      // parent directory after prefetching.
-      directoryTracker.setTemporarilyWritable(parentDir);
+    // External repo paths live directly under the output base, not the exec root. Classify by the
+    // external directory (rather than the exec root, which isn't resolvable during external repo
+    // materialization) and compare as fragments since the exec root may be located on a file system
+    // overlaying the host file system where the download is written to.
+    if (!finalPath
+        .asFragment()
+        .startsWith(
+            outputBase.getRelative(LabelConstants.EXTERNAL_REPOSITORY_LOCATION).asFragment())) {
+      // Ensure the parent directory exists and is writable. We cannot rely on this precondition to
+      // have been established by the execution of the owning action in a previous invocation, since
+      // the output tree may have been externally modified in between invocations.
+      if (dirsWithOutputPermissions.contains(parentDir)) {
+        // The file belongs to a tree artifact created by an action that declared an output
+        // directory (as opposed to an action template expansion). The output permissions should be
+        // set on the parent directory after prefetching.
+        directoryTracker.setTemporarilyWritable(parentDir);
+      } else {
+        // One of the following must apply:
+        //   (1) The file does not belong to a tree artifact.
+        //   (2) The file belongs to a tree artifact created by an action template expansion.
+        // In case (1), the parent directory is a package or a subdirectory of a package, and should
+        // remain writable. In case (2), even though we arguably ought to set the output permissions
+        // on the parent directory to match local execution, we choose not to do it and avoid the
+        // additional implementation complexity required to detect a race condition between
+        // concurrent calls touching the same directory.
+        directoryTracker.setPermanentlyWritable(parentDir);
+      }
     } else {
-      // There are three cases:
-      //   (1) The file does not belong to a tree artifact.
-      //   (2) The file belongs to a tree artifact created by an action template expansion.
-      //   (3) The file belongs to a tree artifact but we don't know it. This can occur when the
-      //       file belongs to a tree artifact inside a fileset (see b/254844173).
-      // In case (1), the parent directory is a package or a subdirectory of a package, and should
-      // remain writable. In cases (2) and (3), even though we arguably ought to set the output
-      // permissions on the parent directory to match the outcome of a locally executed action, we
-      // choose not to do it and avoid the additional implementation complexity required to detect a
-      // race condition between concurrent calls touching the same directory.
-      directoryTracker.setPermanentlyWritable(parentDir);
+      parentDir.createDirectoryAndParents();
     }
 
     // Set output permissions on files, matching the behavior of SkyframeActionExecutor#checkOutputs
@@ -656,18 +737,18 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
 
   private Completable plantSymlink(Symlink symlink) {
     return downloadCache.execute(
-        execRoot.getRelative(symlink.linkExecPath()),
+        resolveExecPath(symlink.linkExecPath()),
         Completable.defer(
             () -> {
-              Path link = execRoot.getRelative(symlink.linkExecPath());
-              Path target = execRoot.getRelative(symlink.targetExecPath());
+              Path link = resolveExecPath(symlink.linkExecPath());
+              Path target = resolveExecPath(symlink.targetExecPath());
               // Delete the link path if it already exists. This is the case for tree artifacts,
               // whose root directory is created before the action runs.
               link.delete();
               link.createSymbolicLink(target);
               return Completable.complete();
             }),
-        forceRefetch(execRoot.getRelative(symlink.linkExecPath())));
+        forceRefetch(resolveExecPath(symlink.linkExecPath())));
   }
 
   public ImmutableSet<Path> downloadedFiles() {

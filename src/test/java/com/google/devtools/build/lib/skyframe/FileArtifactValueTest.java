@@ -212,7 +212,7 @@ public final class FileArtifactValueTest {
 
           @Override
           @SuppressWarnings("UnsynchronizedOverridesSynchronized")
-          protected byte[] getFastDigest(PathFragment path) throws IOException {
+          public byte[] getFastDigest(PathFragment path) throws IOException {
             throw exception;
           }
         };

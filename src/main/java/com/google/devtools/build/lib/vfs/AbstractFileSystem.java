@@ -48,7 +48,7 @@ public abstract class AbstractFileSystem extends FileSystem {
   }
 
   @Override
-  protected InputStream getInputStream(PathFragment path) throws IOException {
+  public InputStream getInputStream(PathFragment path) throws IOException {
     // This loop is a workaround for an apparent bug in FileInputStream.open, which delegates
     // ultimately to JVM_Open in the Hotspot JVM.  This call is not EINTR-safe, so we must do the
     // retry here.
@@ -99,7 +99,7 @@ public abstract class AbstractFileSystem extends FileSystem {
       Sets.immutableEnumSet(READ, WRITE, CREATE, TRUNCATE_EXISTING);
 
   @Override
-  protected SeekableByteChannel createReadWriteByteChannel(PathFragment path) throws IOException {
+  public SeekableByteChannel createReadWriteByteChannel(PathFragment path) throws IOException {
     boolean shouldProfile = profiler.isActive() && profiler.isProfiling(ProfilerTask.VFS_OPEN);
 
     long startTime = Profiler.nanoTimeMaybe();
@@ -136,7 +136,7 @@ public abstract class AbstractFileSystem extends FileSystem {
   }
 
   @Override
-  protected OutputStream getOutputStream(PathFragment path, boolean append, boolean internal)
+  public OutputStream getOutputStream(PathFragment path, boolean append, boolean internal)
       throws IOException {
     try {
       return createFileOutputStream(path, append, internal);

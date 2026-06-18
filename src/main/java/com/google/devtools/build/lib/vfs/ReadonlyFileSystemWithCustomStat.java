@@ -30,13 +30,13 @@ public abstract class ReadonlyFileSystemWithCustomStat extends AbstractFileSyste
   }
 
   @Override
-  protected OutputStream getOutputStream(PathFragment path, boolean append, boolean internal)
+  public OutputStream getOutputStream(PathFragment path, boolean append, boolean internal)
       throws IOException {
     throw modificationException();
   }
 
   @Override
-  protected void setReadable(PathFragment path, boolean readable) throws IOException {
+  public void setReadable(PathFragment path, boolean readable) throws IOException {
     throw modificationException();
   }
 
@@ -46,7 +46,7 @@ public abstract class ReadonlyFileSystemWithCustomStat extends AbstractFileSyste
   }
 
   @Override
-  protected void setExecutable(PathFragment path, boolean executable) {
+  public void setExecutable(PathFragment path, boolean executable) {
     throw new UnsupportedOperationException("setExecutable");
   }
 
@@ -81,14 +81,14 @@ public abstract class ReadonlyFileSystemWithCustomStat extends AbstractFileSyste
   }
 
   @Override
-  protected void createSymbolicLink(
+  public void createSymbolicLink(
       PathFragment linkPath, PathFragment targetFragment, SymlinkTargetType type)
       throws IOException {
     throw modificationException();
   }
 
   @Override
-  protected void createFSDependentHardLink(PathFragment linkPath, PathFragment originalPath)
+  public void createFSDependentHardLink(PathFragment linkPath, PathFragment originalPath)
       throws IOException {
     throw modificationException();
   }
@@ -99,7 +99,7 @@ public abstract class ReadonlyFileSystemWithCustomStat extends AbstractFileSyste
   }
 
   @Override
-  protected boolean delete(PathFragment path) throws IOException {
+  public boolean delete(PathFragment path) throws IOException {
     throw modificationException();
   }
 
@@ -108,4 +108,3 @@ public abstract class ReadonlyFileSystemWithCustomStat extends AbstractFileSyste
     throw modificationException();
   }
 }
-
