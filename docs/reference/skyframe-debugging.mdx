@@ -6,11 +6,14 @@ Debugging Bazel's [Skyframe](/reference/skyframe) system can be complex:
 the dependencies between different values can be difficult to trace and it can
 be confusing to understand what edges exist in the system.
 
-The `bazel dump` command with the `--skyframe` argument makes it possible to
-inspect the current contents of Skyframe and see what the actual underlying
-state is, separate from the higher-level information provided by `bazel query`,
-`bazel cquery`, and `bazel aquery` (which are implemented on top of Skyframe and
-can mutate the Skyframe state).
+The [`bazel dump` command](/reference/command-line-reference#dump-options) with
+the [`--skyframe`
+argument](/reference/command-line-reference#dump-flag--skyframe) makes it
+possible to inspect the current contents of Skyframe and see what the actual
+underlying state is, separate from the higher-level information provided by
+[`bazel query`](/query/guide), [`bazel cquery`](/query/cquery), and [`bazel
+aquery`](/query/aquery) (which are implemented on top of Skyframe and can mutate
+the Skyframe state).
 
 **Note that the output of `bazel dump` is an implementation detail and may
 change at any time. If you write scripts around this format know that they may
@@ -19,11 +22,14 @@ break on future Bazel versions.**
 The `--skyframe` flag takes an argument detailing what information to report:
 
 - `--skyframe=off`: The default, reports nothing.
-- `--skyframe=summary`: A count of the nodes and edges in Skyframe.
-- `--skyframe=count`: A report on the number of values for each SkyFunction type.
-- `--skyframe=value`: The full value in Skyframe.
-- `--skyframe=deps`: The dependencies of the value in Skyframe.
-- `--skyframe=rdeps`: Other values in Skyframe with a dependency on the value.
+- [`--skyframe=summary`](#summary-mode): A count of the nodes and edges in
+  Skyframe.
+- [`--skyframe=count`](#count-mode): A report on the number of values for each
+  SkyFunction type.
+- [`--skyframe=value`](#value-mode): The full value in Skyframe.
+- [`--skyframe=deps`](#deps-mode): The dependencies of the value in Skyframe.
+- [`--skyframe=rdeps`](#reverse-dps-mode): Other values in Skyframe with a
+  dependency on the value.
 
 ### Filtering by SkyKey
 
