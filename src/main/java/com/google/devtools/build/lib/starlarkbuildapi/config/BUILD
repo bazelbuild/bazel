@@ -21,11 +21,16 @@ filegroup(
 
 java_library(
     name = "configuration_transition_api",
-    srcs = ["ConfigurationTransitionApi.java"],
+    srcs = [
+        "ComposedConfigurationTransition.java",
+        "ConfigurationTransitionApi.java",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/docgen/annot",
         "//src/main/java/net/starlark/java/annot",
         "//src/main/java/net/starlark/java/eval",
+        "//src/main/java/net/starlark/java/syntax",
+        "//third_party:guava",
     ],
 )
 
@@ -45,6 +50,7 @@ java_library(
     srcs = glob(
         ["*.java"],
         exclude = [
+            "ComposedConfigurationTransition.java",
             "ConfigurationTransitionApi.java",
             "StarlarkToolchainTypeRequirement.java",
         ],
