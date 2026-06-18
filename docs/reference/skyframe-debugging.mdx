@@ -4,7 +4,9 @@ Title: Skyframe Inspection with `bazel dump`
 
 Debugging Bazel's [Skyframe](/reference/skyframe) system can be complex:
 the dependencies between different values can be difficult to trace and it can
-be confusing to understand what edges exist in the system.
+be confusing to understand what edges exist in the system. However, if you are
+working on Bazel itself it is absolutely necessary to understand the
+interactions between the different components at this level.
 
 The [`bazel dump` command](/reference/command-line-reference#dump-options) with
 the [`--skyframe`
