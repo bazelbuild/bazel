@@ -2,7 +2,7 @@
 Title: Skyframe Inspection with `bazel dump`
 ---
 
-Debugging Bazel's [Skyframe](/docs/reference/skyframe) system can be complex:
+Debugging Bazel's [Skyframe](/reference/skyframe) system can be complex:
 the dependencies between different values can be difficult to trace and it can
 be confusing to understand what edges exist in the system.
 
@@ -11,6 +11,10 @@ inspect the current contents of Skyframe and see what the actual underlying
 state is, separate from the higher-level information provided by `bazel query`,
 `bazel cquery`, and `bazel aquery` (which are implemented on top of Skyframe and
 can mutate the Skyframe state).
+
+**Note that the output of `bazel dump` is an implementation detail and may
+change at any time. If you write scripts around this format know that they may
+break on future Bazel versions.**
 
 The `--skyframe` flag takes an argument detailing what information to report:
 
@@ -25,7 +29,7 @@ The `--skyframe` flag takes an argument detailing what information to report:
 
 Many of these modes (specifically `value`, `deps`, and `rdeps`) also consider the
 `--skykey_filter` flag, which will do a regex compare of the Java `toString()`
-version of a key to decide whether to include it in the report. The flag can be
+value of a key to decide whether to include it in the report. The flag can be
 specified several times to give several regular expressions, including ones that
 start with a `-` character to act as exclusions instead of inclusions.
 
@@ -36,7 +40,8 @@ Therefore, the SkyKey for the configured target for the Bazel binary would be
 something like `CONFIGURED_TARGET:ConfiguredTargetKey{label=//src:bazel-bin,
 config=BuildConfigurationKey[a3ed33ca825cecaab69d541c45e04267665be178055813d03b8dcded031fdf82]}`.
 
-This format introduces some complications, however:
+Be sure to use regex escapes, and replace any comma characters with a `.` (which
+matches any character):
 - The `SkyKey.toString()` representation does not perform regex escaping. In the
   above example, the characters "{[]}" are all used in regular expressions and
   will need to be escaped when used with `--skykey_filter` (and possibly escaped
@@ -53,7 +58,7 @@ characters with a `.` (which matches any character).
 
 ## Summary Mode
 
-The output of `bazel dump --skyframe=summary` is a report of the number of nodes
+The output of `bazel dump --skyframe=summary` reports the number of nodes
 and edges currently present in Skyframe. Since each node and edge consumes
 memory in the Bazel process, it is safe to say that more nodes and edges means
 that more memory is in use, although since keys and values can have different
