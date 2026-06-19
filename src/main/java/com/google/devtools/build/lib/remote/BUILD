@@ -25,6 +25,18 @@ filegroup(
 )
 
 java_library(
+    name = "remote_grpc_service_config",
+    srcs = ["RemoteGrpcServiceConfig.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/remote/options",
+        "//third_party:guava",
+        "@googleapis//google/bytestream:bytestream_java_grpc",
+        "@remoteapis//:build_bazel_remote_asset_v1_remote_asset_java_grpc",
+        "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_grpc",
+    ],
+)
+
+java_library(
     name = "remote_action",
     srcs = ["RemoteAction.java"],
     deps = [
@@ -220,6 +232,7 @@ java_library(
     deps = [
         ":ReferenceCountedChannel",
         ":channel_factory",
+        ":remote_grpc_service_config",
         ":remote_server_capabilities",
         "//src/main/java/com/google/devtools/build/lib/authandtls",
         "//src/main/java/com/google/devtools/build/lib/events",
