@@ -45,7 +45,6 @@ filegroup(
         "//site:srcs",
         "//src:srcs",
         "//src/main/java/com/google/devtools/build/docgen/release:srcs",
-        "//src/main/starlark/tests/builtins_bzl:srcs",
         "//third_party:srcs",
         "//tools:srcs",
     ] + glob(
