@@ -665,12 +665,21 @@ public final class MerkleTreeComputer {
             lastSourceDirPath = path;
           } else {
             var digest = DigestUtil.buildDigest(metadata.getDigest(), metadata.getSize());
-            // The executable bit is only tracked for generated artifacts, whose metadata carries
-            // it. Source artifacts (and the input kinds handled below) retain the historical
-            // always-executable behavior.
+            // Generated and source artifacts both carry the real executable bit in their metadata.
+            // The remaining input kinds handled below (virtual inputs, exploded source directories,
+            // repository and test inputs) retain the historical always-executable behavior. On file
+            // systems that don't distinguish executable files (Windows), a source file's bit can't
+            // be determined, so fall back to forcing it executable rather than marking it
+            // non-executable; generated artifacts carry a trustworthy bit (e.g. from a remote action
+            // result) even there.
             boolean isExecutable =
-                !trackExecutableBit || fileOrSourceDirectory.isSourceArtifact()
-                    || metadata.isExecutable();
+                !trackExecutableBit
+                    || metadata.isExecutable()
+                    || (fileOrSourceDirectory.isSourceArtifact()
+                        && !artifactPathResolver
+                            .toPath(fileOrSourceDirectory)
+                            .getFileSystem()
+                            .supportsExecutability());
             addFile(currentDirectory, name, digest, nodeProperties, isExecutable);
             if (blobPolicy != BlobPolicy.DISCARD && digest.getSizeBytes() != 0) {
               // If there is both a Digest and a FileArtifactValue key for the same content, prefer

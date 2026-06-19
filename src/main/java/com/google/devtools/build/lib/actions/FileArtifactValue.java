@@ -321,6 +321,14 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
         isFile ? fileValue.getSize() : 0,
         isFile ? fileValue.realFileStateValue().getContentsProxy() : null,
         isFile ? fileValue.getDigest() : null,
+        // Track the executable bit of source files so that it is reflected in remote execution
+        // inputs and the action cache instead of every source being treated as executable. This
+        // costs one extra stat when the (memoized) source metadata is computed. FOLLOW matches the
+        // digest, which is taken from the symlink target. Skipped on file systems that don't
+        // distinguish executable files (Windows), where the bit would otherwise always be set.
+        isFile
+            && artifact.getPath().getFileSystem().supportsExecutability()
+            && (artifact.getPath().stat(Symlinks.FOLLOW).getPermissions() & 0100) != 0,
         xattrProvider);
   }
 
@@ -351,6 +359,7 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
         stat.getSize(),
         FileContentsProxy.create(stat),
         stat instanceof FileStatusWithDigest statWithDigest ? statWithDigest.getDigest() : null,
+        /* isExecutable= */ false,
         xattrProvider);
   }
 
@@ -360,6 +369,7 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
       long size,
       FileContentsProxy proxy,
       @Nullable byte[] digest,
+      boolean isExecutable,
       XattrProvider xattrProvider)
       throws IOException {
     if (!isFile) {
@@ -372,7 +382,7 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
       digest = DigestUtils.getDigestWithManualFallback(path, xattrProvider);
     }
     checkState(digest != null, path);
-    return createForNormalFile(digest, proxy, size);
+    return createForNormalFile(digest, proxy, size, isExecutable);
   }
 
   public static FileArtifactValue createForVirtualActionInput(byte[] digest, long size) {
@@ -407,7 +417,13 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
   public static FileArtifactValue createForNormalFileUsingPath(
       Path path, long size, XattrProvider xattrProvider) throws IOException {
     return create(
-        path, /* isFile= */ true, size, /* proxy= */ null, /* digest= */ null, xattrProvider);
+        path,
+        /* isFile= */ true,
+        size,
+        /* proxy= */ null,
+        /* digest= */ null,
+        /* isExecutable= */ false,
+        xattrProvider);
   }
 
   public static FileArtifactValue createForDirectoryWithHash(byte[] digest) {
