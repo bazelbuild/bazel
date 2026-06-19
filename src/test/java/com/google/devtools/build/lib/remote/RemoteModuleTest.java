@@ -238,6 +238,12 @@ public final class RemoteModuleTest {
         .build();
   }
 
+  private static RemoteOptions parseRemoteOptions(String... args) throws Exception {
+    OptionsParser parser = OptionsParser.builder().optionsClasses(RemoteOptions.class).build();
+    parser.parse(args);
+    return parser.getOptions(RemoteOptions.class);
+  }
+
   @Test
   public void remoteGrpcServiceConfig_usesRemoteTimeoutForRemoteServices() {
     assertThat(RemoteGrpcServiceConfig.create(Duration.ofSeconds(123)))
@@ -255,6 +261,80 @@ public final class RemoteModuleTest {
                         ImmutableMap.of("service", "build.bazel.remote.asset.v1.Fetch")),
                     "timeout",
                     "123s")));
+  }
+
+  @Test
+  public void remoteGrpcServiceConfig_usesUserSuppliedJsonFile() throws Exception {
+    Scratch scratch = new Scratch(new InMemoryFileSystem(DigestHashFunction.SHA256));
+    Path workspace = scratch.dir("/workspace");
+    scratch.file(
+        "/workspace/service_config.json",
+        """
+        {
+          "methodConfig": [
+            {
+              "name": [
+                {
+                  "service": "build.bazel.remote.execution.v2.ActionCache",
+                  "method": "GetActionResult"
+                },
+                {"service": "google.bytestream.ByteStream"}
+              ],
+              "timeout": "3.500s"
+            }
+          ]
+        }
+        """);
+
+    assertThat(
+            RemoteGrpcServiceConfig.create(
+                parseRemoteOptions("--remote_grpc_service_config=service_config.json"),
+                workspace))
+        .containsExactly(
+            "methodConfig",
+            ImmutableList.of(
+                ImmutableMap.of(
+                    "name",
+                    ImmutableList.of(
+                        ImmutableMap.of(
+                            "service",
+                            "build.bazel.remote.execution.v2.ActionCache",
+                            "method",
+                            "GetActionResult"),
+                        ImmutableMap.of("service", "google.bytestream.ByteStream")),
+                    "timeout",
+                    "3.500s")));
+  }
+
+  @Test
+  public void remoteGrpcServiceConfig_rejectsUnsupportedJsonFields() throws Exception {
+    Scratch scratch = new Scratch(new InMemoryFileSystem(DigestHashFunction.SHA256));
+    Path workspace = scratch.dir("/workspace");
+    scratch.file(
+        "/workspace/service_config.json",
+        """
+        {
+          "methodConfig": [
+            {
+              "name": [{"service": "google.bytestream.ByteStream"}],
+              "timeout": "1s",
+              "retryPolicy": {}
+            }
+          ]
+        }
+        """);
+
+    IOException e =
+        Assert.assertThrows(
+            IOException.class,
+            () ->
+                RemoteGrpcServiceConfig.create(
+                    parseRemoteOptions("--remote_grpc_service_config=service_config.json"),
+                    workspace));
+
+    assertThat(e)
+        .hasMessageThat()
+        .contains("methodConfig[0] contains unsupported field 'retryPolicy'");
   }
 
   private RemoteModule remoteModule;

@@ -269,6 +269,21 @@ public abstract class RemoteOptions extends CommonRemoteOptions {
   public abstract Duration getRemoteTimeout();
 
   @Option(
+      name = "remote_grpc_service_config",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      converter = OptionsUtils.EmptyToNullPathFragmentConverter.class,
+      help =
+          "Path to a gRPC service config JSON file for remote gRPC channels. This replaces the"
+              + " service config Bazel generates from --remote_timeout. Only a subset of the gRPC"
+              + " service config JSON schema is supported: top-level methodConfig entries with"
+              + " name objects containing service and optional method, plus timeout. Other service"
+              + " config fields are rejected and may be supported in the future.")
+  @Nullable
+  public abstract PathFragment getRemoteGrpcServiceConfig();
+
+  @Option(
       name = "remote_bytestream_uri_prefix",
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.REMOTE,
