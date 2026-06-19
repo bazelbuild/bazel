@@ -16,7 +16,7 @@ from typing import Tuple
 
 from dataclasses import dataclass
 
-from tools.ctexplain.types import ConfiguredTarget
+from tools.ctexplain.ctexplain_types import ConfiguredTarget
 import tools.ctexplain.util as util
 
 

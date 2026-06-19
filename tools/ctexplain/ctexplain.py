@@ -44,7 +44,7 @@ from dataclasses import dataclass
 import tools.ctexplain.analyses.summary as summary
 from tools.ctexplain.bazel_api import BazelApi
 import tools.ctexplain.lib as lib
-from tools.ctexplain.types import ConfiguredTarget
+from tools.ctexplain.ctexplain_types import ConfiguredTarget
 import tools.ctexplain.util as util
 
 FLAGS = flags.FLAGS

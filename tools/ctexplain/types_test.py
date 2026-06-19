@@ -11,10 +11,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Tests for types.py."""
+"""Tests for ctexplain_types.py."""
 import unittest
 from frozendict import frozendict
-from tools.ctexplain.types import Configuration
+from tools.ctexplain.ctexplain_types import Configuration
 
 
 class TypesTest(unittest.TestCase):
