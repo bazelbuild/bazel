@@ -635,6 +635,16 @@ public final class RemoteModule extends BlazeModule {
             retryScheduler,
             circuitBreaker);
 
+    Map<String, ?> remoteGrpcServiceConfig;
+    try {
+      remoteGrpcServiceConfig =
+          RemoteGrpcServiceConfig.create(remoteOptions, env.getWorkingDirectory());
+    } catch (IOException e) {
+      throw createOptionsExitException(
+          "Invalid --remote_grpc_service_config: " + e.getMessage(),
+          FailureDetails.RemoteOptions.Code.REMOTE_GRPC_SERVICE_CONFIG_INVALID);
+    }
+
     if (!Strings.isNullOrEmpty(remoteOptions.getRemoteOutputService())) {
       var bazelOutputServiceChannel =
           createChannel(
@@ -644,6 +654,7 @@ public final class RemoteModule extends BlazeModule {
               Options.getDefaults(AuthAndTLSOptions.class),
               null,
               null,
+              remoteGrpcServiceConfig,
               channelFactory,
               remoteOptions.getRemoteOutputService(),
               null,
@@ -730,6 +741,7 @@ public final class RemoteModule extends BlazeModule {
                   TracingMetadataUtils.newExecHeadersInterceptor(
                       remoteOptions.getRemoteHeaders(), remoteOptions.getRemoteExecHeaders()),
                   loggingInterceptor,
+                  remoteGrpcServiceConfig,
                   channelFactory,
                   remoteOptions.getRemoteExecutor(),
                   remoteOptions.getRemoteProxy(),
@@ -750,6 +762,7 @@ public final class RemoteModule extends BlazeModule {
                   TracingMetadataUtils.newExecHeadersInterceptor(
                       remoteOptions.getRemoteHeaders(), remoteOptions.getRemoteExecHeaders()),
                   loggingInterceptor,
+                  remoteGrpcServiceConfig,
                   channelFactory,
                   remoteOptions.getRemoteExecutor(),
                   remoteOptions.getRemoteProxy(),
@@ -772,6 +785,7 @@ public final class RemoteModule extends BlazeModule {
                 TracingMetadataUtils.newCacheHeadersInterceptor(
                     remoteOptions.getRemoteHeaders(), remoteOptions.getRemoteCacheHeaders()),
                 loggingInterceptor,
+                remoteGrpcServiceConfig,
                 channelFactory,
                 remoteOptions.getRemoteCache(),
                 remoteOptions.getRemoteProxy(),
@@ -887,6 +901,7 @@ public final class RemoteModule extends BlazeModule {
                 authAndTlsOptions,
                 /* headersInterceptor= */ null,
                 loggingInterceptor,
+                remoteGrpcServiceConfig,
                 channelFactory,
                 remoteOptions.getRemoteDownloader(),
                 remoteOptions.getRemoteProxy(),
@@ -925,6 +940,7 @@ public final class RemoteModule extends BlazeModule {
       AuthAndTLSOptions authAndTlsOptions,
       @Nullable ClientInterceptor headersInterceptor,
       @Nullable ClientInterceptor loggingInterceptor,
+      Map<String, ?> serviceConfig,
       ChannelFactory channelFactory,
       String target,
       String proxy,
@@ -949,6 +965,7 @@ public final class RemoteModule extends BlazeModule {
                 target,
                 proxy,
                 remoteOptions,
+                serviceConfig,
                 authAndTlsOptions,
                 interceptors.build(),
                 maxConcurrencyPerConnection,
