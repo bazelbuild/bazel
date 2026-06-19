@@ -186,10 +186,7 @@ public final class RemoteModuleTest {
             .build();
 
     BlazeDirectories directories =
-        new BlazeDirectories(
-            serverDirectories,
-            scratch.dir("/workspace"),
-            productName);
+        new BlazeDirectories(serverDirectories, scratch.dir("/workspace"), productName);
     BlazeWorkspace workspace = runtime.initWorkspace(directories, BinTools.empty(directories));
     Command command = BuildCommand.class.getAnnotation(Command.class);
     return workspace.initCommand(
@@ -241,6 +238,25 @@ public final class RemoteModuleTest {
         .build();
   }
 
+  @Test
+  public void remoteGrpcServiceConfig_usesRemoteTimeoutForRemoteServices() {
+    assertThat(RemoteGrpcServiceConfig.create(Duration.ofSeconds(123)))
+        .containsExactly(
+            "methodConfig",
+            ImmutableList.of(
+                ImmutableMap.of(
+                    "name",
+                    ImmutableList.of(
+                        ImmutableMap.of("service", "build.bazel.remote.execution.v2.ActionCache"),
+                        ImmutableMap.of("service", "build.bazel.remote.execution.v2.Capabilities"),
+                        ImmutableMap.of(
+                            "service", "build.bazel.remote.execution.v2.ContentAddressableStorage"),
+                        ImmutableMap.of("service", "google.bytestream.ByteStream"),
+                        ImmutableMap.of("service", "build.bazel.remote.asset.v1.Fetch")),
+                    "timeout",
+                    "123s")));
+  }
+
   private RemoteModule remoteModule;
   private RemoteOptions remoteOptions;
 
@@ -248,7 +264,7 @@ public final class RemoteModuleTest {
   public void initialize() {
     remoteModule = new RemoteModule();
     remoteModule.setChannelFactory(
-        (target, proxy, options, interceptors) ->
+        (target, proxy, options, interceptors, serviceConfig) ->
             InProcessChannelBuilder.forName(target).directExecutor().build());
     remoteOptions = Options.getDefaults(RemoteOptions.class);
   }

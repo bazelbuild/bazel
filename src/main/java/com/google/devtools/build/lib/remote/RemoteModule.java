@@ -126,6 +126,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.channels.ClosedChannelException;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
@@ -165,14 +166,16 @@ public final class RemoteModule extends BlazeModule {
             String target,
             String proxy,
             AuthAndTLSOptions options,
-            List<ClientInterceptor> interceptors)
+            List<ClientInterceptor> interceptors,
+            Map<String, ?> serviceConfig)
             throws IOException {
           return GoogleAuthUtils.newChannel(
               executorService,
               target,
               proxy,
               options,
-              interceptors.isEmpty() ? null : interceptors);
+              interceptors.isEmpty() ? null : interceptors,
+              serviceConfig);
         }
       };
 
@@ -726,7 +729,6 @@ public final class RemoteModule extends BlazeModule {
             invocationId,
             remoteOptions.getRemoteInstanceName(),
             callCredentials,
-            remoteOptions.getRemoteTimeout().toSeconds(),
             retrier);
 
     ReferenceCountedChannel execChannel = null;

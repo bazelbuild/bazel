@@ -98,7 +98,13 @@ public class GoogleChannelConnectionFactory
   @Override
   public Single<ChannelConnectionWithServerCapabilities> create() {
     return Single.fromCallable(
-            () -> channelFactory.newChannel(target, proxy, options, interceptors))
+            () ->
+                channelFactory.newChannel(
+                    target,
+                    proxy,
+                    options,
+                    interceptors,
+                    RemoteGrpcServiceConfig.create(remoteOptions)))
         .flatMap(
             channel -> {
               var serverCapabilitiesSingle =
