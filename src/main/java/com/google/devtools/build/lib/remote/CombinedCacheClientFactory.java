@@ -107,7 +107,6 @@ public final class CombinedCacheClientFactory {
           InetSocketAddress proxyAddress =
               GoogleAuthUtils.parseHttpProxyAddress(options.getRemoteProxy());
           return HttpCacheClient.create(
-              proxyAddress,
               uri,
               Math.toIntExact(options.getRemoteTimeout().toSeconds()),
               options.getRemoteMaxConnections(),
@@ -116,7 +115,8 @@ public final class CombinedCacheClientFactory {
               digestUtil,
               retrier,
               creds,
-              authAndTlsOptions);
+              authAndTlsOptions,
+              proxyAddress);
         } else {
           throw new Exception("Remote cache proxy unsupported: " + options.getRemoteProxy());
         }
@@ -130,7 +130,8 @@ public final class CombinedCacheClientFactory {
             digestUtil,
             retrier,
             creds,
-            authAndTlsOptions);
+            authAndTlsOptions,
+            /* httpConnectProxy= */ null);
       }
     } catch (Exception e) {
       throw new RuntimeException(e);

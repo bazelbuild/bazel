@@ -164,7 +164,8 @@ public final class HttpCacheClient extends RemoteCacheClient {
       DigestUtil digestUtil,
       RemoteRetrier retrier,
       @Nullable final Credentials creds,
-      AuthAndTLSOptions authAndTlsOptions)
+      AuthAndTLSOptions authAndTlsOptions,
+      @Nullable InetSocketAddress httpConnectProxy)
       throws Exception {
     return new HttpCacheClient(
         NioEventLoopGroup::new,
@@ -179,7 +180,7 @@ public final class HttpCacheClient extends RemoteCacheClient {
         creds,
         authAndTlsOptions,
         null,
-        null);
+        httpConnectProxy);
   }
 
   public static HttpCacheClient create(
@@ -228,34 +229,6 @@ public final class HttpCacheClient extends RemoteCacheClient {
     } else {
       throw new Exception("Unix domain sockets are unsupported on this platform");
     }
-  }
-
-  public static HttpCacheClient create(
-      InetSocketAddress proxyAddress,
-      URI uri,
-      int timeoutSeconds,
-      int remoteMaxConnections,
-      boolean verifyDownloads,
-      ImmutableList<Entry<String, String>> extraHttpHeaders,
-      DigestUtil digestUtil,
-      RemoteRetrier retrier,
-      @Nullable final Credentials creds,
-      AuthAndTLSOptions authAndTlsOptions)
-      throws Exception {
-    return new HttpCacheClient(
-        NioEventLoopGroup::new,
-        NioSocketChannel.class,
-        uri,
-        timeoutSeconds,
-        remoteMaxConnections,
-        verifyDownloads,
-        extraHttpHeaders,
-        digestUtil,
-        retrier,
-        creds,
-        authAndTlsOptions,
-        null,
-        proxyAddress);
   }
 
   private HttpCacheClient(
