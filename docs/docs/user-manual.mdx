@@ -1081,9 +1081,10 @@ If `--explain` is not enabled, then
 #### `--profile=<var>file</var>` {#profile}
 
 This option, which takes a filename argument, causes Bazel to write
-profiling data into a file. The data then can be analyzed or parsed using the
-`bazel analyze-profile` command. The Build profile can be useful in
-understanding where Bazel's `build` command is spending its time.
+profiling data into a file. The build profile can be useful in understanding
+where Bazel's `build` command is spending its time. See
+[JSON trace profile](/advanced/performance/json-trace-profile) for profile
+format and tooling details.
 
 #### `--[no]show_loading_progress` {#show-loading-progress}
 
@@ -2210,12 +2211,6 @@ Example:
     dump --skylark_memory=$HOME/prof.gz
     % pprof -flame $HOME/prof.gz
 </pre>
-
-### `analyze-profile` {#analyze-profile}
-
-The `analyze-profile` command analyzes a
-[JSON trace profile](/advanced/performance/json-trace-profile) previously
-gathered during a Bazel invocation.
 
 ### `canonicalize-flags` {#canonicalize-flags}
 
