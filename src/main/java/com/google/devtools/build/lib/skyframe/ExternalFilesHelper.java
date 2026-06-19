@@ -34,6 +34,7 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
+import javax.annotation.Nullable;
 
 /** Common utilities for dealing with paths outside the package roots. */
 public class ExternalFilesHelper {
@@ -110,6 +111,15 @@ public class ExternalFilesHelper {
         /*maxNumExternalFilesToLog=*/ 0);
   }
 
+
+  /**
+   * Returns the path of the repo contents cache directory, or {@code null} if the repo contents
+   * cache is disabled. Fetched repos may be materialized as symlinks into this directory.
+   */
+  @Nullable
+  public Path getRepoContentsCachePath() {
+    return repoContentsCachePathSupplier.get();
+  }
 
   /**
    * The action to take when an external path is encountered. See {@link FileType} for the
