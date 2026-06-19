@@ -359,15 +359,7 @@ public final class BlazeWorkspace {
     return env;
   }
 
-  void clearEventBus() {
-    // EventBus does not have an unregister() method, so this is how we release memory associated
-    // with handlers.
-    skyframeExecutor.setEventBus(null);
-  }
-
-  /**
-   * Reinitializes the Skyframe evaluator.
-   */
+  /** Reinitializes the Skyframe evaluator. */
   public void resetEvaluator() {
     skyframeExecutor.resetEvaluator();
   }
