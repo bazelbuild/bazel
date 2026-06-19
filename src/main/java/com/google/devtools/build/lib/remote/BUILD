@@ -132,6 +132,7 @@ java_library(
         ":remote_output_checker",
         ":remote_output_service",
         ":remote_server_capabilities",
+        ":remote_download_idle_timeout_interceptor",
         ":repository_remote_helpers_factory_impl",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:important_output_handler",
@@ -193,6 +194,16 @@ java_library(
         "//third_party:rxjava3",
         "//third_party/grpc-java:grpc-jar",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
+    ],
+)
+
+java_library(
+    name = "remote_download_idle_timeout_interceptor",
+    srcs = ["RemoteDownloadIdleTimeoutInterceptor.java"],
+    deps = [
+        "@googleapis//google/bytestream:bytestream_java_grpc",
+        "//third_party:jsr305",
+        "//third_party/grpc-java:grpc-jar",
     ],
 )
 

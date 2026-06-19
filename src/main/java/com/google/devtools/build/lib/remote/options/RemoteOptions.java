@@ -284,6 +284,19 @@ public abstract class RemoteOptions extends CommonRemoteOptions {
   public abstract PathFragment getRemoteGrpcServiceConfig();
 
   @Option(
+      name = "remote_download_idle_timeout",
+      defaultValue = "0",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      converter = RemoteDurationConverter.class,
+      help =
+          "The maximum amount of time a remote download may go without receiving response data"
+              + " before Bazel cancels and retries the download. This applies to ByteStream Read."
+              + " The value 0 disables the timeout. If the unit is omitted, the value is"
+              + " interpreted as seconds.")
+  public abstract Duration getRemoteDownloadIdleTimeout();
+
+  @Option(
       name = "remote_bytestream_uri_prefix",
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.REMOTE,

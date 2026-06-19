@@ -143,6 +143,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/remote:remote_server_capabilities",
         "//src/main/java/com/google/devtools/build/lib/remote:remote_spawn_cache",
         "//src/main/java/com/google/devtools/build/lib/remote:remote_spawn_runner",
+        "//src/main/java/com/google/devtools/build/lib/remote:remote_download_idle_timeout_interceptor",
         "//src/main/java/com/google/devtools/build/lib/remote:scrubber",
         "//src/main/java/com/google/devtools/build/lib/remote:store",
         "//src/main/java/com/google/devtools/build/lib/remote:upload_manifest",
