@@ -145,6 +145,61 @@ public class AuthAndTLSOptions extends OptionsBase {
   public Duration grpcKeepaliveTimeout;
 
   @Option(
+      name = "grpc_tcp_keepalive",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          """
+          Whether to enable TCP keep-alive (the SO_KEEPALIVE socket option) for outgoing gRPC
+          connections. This operates at the transport layer and is independent of the
+          application-level keep-alive pings configured with `--grpc_keepalive_time`. When enabled,
+          the keep-alive behavior is controlled by `--grpc_tcp_keepalive_time`,
+          `--grpc_tcp_keepalive_interval` and `--grpc_tcp_keepalive_count`.
+          """)
+  public boolean grpcTcpKeepalive;
+
+  @Option(
+      name = "grpc_tcp_keepalive_time",
+      defaultValue = "60s",
+      converter = DurationConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          """
+          When `--grpc_tcp_keepalive` is enabled, the amount of idle time on a gRPC connection
+          before the first TCP keep-alive probe is sent (TCP_KEEPIDLE). Has no effect if TCP
+          keep-alive is disabled.
+          """)
+  public Duration grpcTcpKeepaliveTime;
+
+  @Option(
+      name = "grpc_tcp_keepalive_interval",
+      defaultValue = "10s",
+      converter = DurationConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          """
+          When `--grpc_tcp_keepalive` is enabled, the amount of time between successive TCP
+          keep-alive probes (TCP_KEEPINTVL). Has no effect if TCP keep-alive is disabled.
+          """)
+  public Duration grpcTcpKeepaliveInterval;
+
+  @Option(
+      name = "grpc_tcp_keepalive_count",
+      defaultValue = "3",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          """
+          When `--grpc_tcp_keepalive` is enabled, the number of unacknowledged TCP keep-alive probes
+          to send before considering the connection dead (TCP_KEEPCNT). Has no effect if TCP
+          keep-alive is disabled.
+          """)
+  public int grpcTcpKeepaliveCount;
+
+  @Option(
       name = "credential_helper",
       oldName = "experimental_credential_helper",
       defaultValue = "null",

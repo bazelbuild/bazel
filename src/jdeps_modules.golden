@@ -7,4 +7,5 @@ java.naming
 java.sql
 java.xml
 jdk.management
+jdk.net
 jdk.unsupported
