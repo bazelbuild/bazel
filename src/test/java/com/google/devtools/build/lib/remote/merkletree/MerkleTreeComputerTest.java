@@ -375,13 +375,65 @@ public class MerkleTreeComputerTest {
     assertThat(ensureInputsPresentCount.get()).isEqualTo(1);
   }
 
+  @Test
+  public void executableBitAffectsRootDigestWhenTracked() throws Exception {
+    assertThat(rootDigestForFile(/* isExecutable= */ true, /* trackExecutableBit= */ true))
+        .isNotEqualTo(rootDigestForFile(/* isExecutable= */ false, /* trackExecutableBit= */ true));
+  }
+
+  @Test
+  public void executableBitIgnoredWhenNotTracked() throws Exception {
+    // Without tracking, every input is forced executable, so the input's own bit is irrelevant.
+    assertThat(rootDigestForFile(/* isExecutable= */ true, /* trackExecutableBit= */ false))
+        .isEqualTo(rootDigestForFile(/* isExecutable= */ false, /* trackExecutableBit= */ false));
+  }
+
+  @Test
+  public void trackedExecutableInputMatchesForcedExecutableEncoding() throws Exception {
+    // A genuinely executable tracked input encodes identically to the legacy forced-executable
+    // input; tracking only changes the encoding of non-executable inputs.
+    assertThat(rootDigestForFile(/* isExecutable= */ true, /* trackExecutableBit= */ true))
+        .isEqualTo(rootDigestForFile(/* isExecutable= */ false, /* trackExecutableBit= */ false));
+  }
+
   private MerkleTreeComputer createMerkleTreeComputer(MerkleTreeUploader uploader) {
+    return createMerkleTreeComputer(uploader, /* trackExecutableBit= */ false);
+  }
+
+  private MerkleTreeComputer createMerkleTreeComputer(
+      MerkleTreeUploader uploader, boolean trackExecutableBit) {
     return new MerkleTreeComputer(
         new DigestUtil(SyscallCache.NO_CACHE, DigestHashFunction.SHA256),
         uploader,
         "buildRequestId",
         "commandId",
-        "_main");
+        "_main",
+        trackExecutableBit);
+  }
+
+  private Digest rootDigestForFile(boolean isExecutable, boolean trackExecutableBit)
+      throws Exception {
+    var fileArtifact = ActionsTestUtil.createArtifact(artifactRoot, "dir/file");
+    fileArtifact.getPath().getParentDirectory().createDirectoryAndParents();
+    FileSystemUtils.writeContentAsLatin1(fileArtifact.getPath(), "file content");
+    var fakeFileCache = new FakeActionInputFileCache();
+    fakeFileCache.put(
+        fileArtifact,
+        FileArtifactValue.createForNormalFile(
+            fileArtifact.getPath().getDigest(),
+            /* proxy= */ null,
+            fileArtifact.getPath().getFileSize(),
+            isExecutable));
+    var spawn = new SpawnBuilder().withInputs(fileArtifact).build();
+    return createMerkleTreeComputer(/* uploader= */ null, trackExecutableBit)
+        .buildForSpawn(
+            spawn,
+            ImmutableSet.of(),
+            /* scrubber= */ null,
+            createSpawnExecutionContext(spawn, fakeFileCache),
+            RemotePathResolver.createDefault(execRoot),
+            MerkleTreeComputer.BlobPolicy.KEEP)
+        .digest();
   }
 
   private FakeSpawnExecutionContext createSpawnExecutionContext(

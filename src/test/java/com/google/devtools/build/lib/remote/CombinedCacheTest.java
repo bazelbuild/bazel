@@ -125,7 +125,8 @@ public class CombinedCacheTest {
           /* remoteExecutionCache= */ null,
           "buildRequestId",
           "commandId",
-          TestConstants.WORKSPACE_NAME);
+          TestConstants.WORKSPACE_NAME,
+          /* trackExecutableBit= */ false);
   private FakeActionInputFileCache fakeFileCache;
 
   private ListeningScheduledExecutorService retryService;

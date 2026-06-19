@@ -450,6 +450,10 @@ public final class SkyframeActionExecutor {
         : OutputPermissions.READONLY;
   }
 
+  boolean shouldTrackExecutableBit() {
+    return options.getOptions(CoreOptions.class).getTrackExecutableBit();
+  }
+
   XattrProvider getXattrProvider() {
     return checkNotNull(outputService.getXattrProvider(syscallCache));
   }

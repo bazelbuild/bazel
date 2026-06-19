@@ -460,6 +460,7 @@ java_library(
         ":remote_spawn_cache",
         ":remote_spawn_runner",
         ":remote_spawn_strategy",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:core_options",
         "//src/main/java/com/google/devtools/build/lib/exec:execution_options",
         "//src/main/java/com/google/devtools/build/lib/exec:module_action_context_registry",
         "//src/main/java/com/google/devtools/build/lib/exec:spawn_cache",

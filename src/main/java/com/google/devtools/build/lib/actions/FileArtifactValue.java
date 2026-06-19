@@ -130,6 +130,18 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
    */
   public void setContentsProxy(FileContentsProxy proxy) {}
 
+  /**
+   * Returns whether the underlying file system object has its owner executable bit set.
+   *
+   * <p>Only meaningful for regular files; always {@code false} for other file types. The bit is
+   * only tracked for action outputs when {@code --incompatible_track_executable_bit} is enabled.
+   * When the flag is disabled, this always returns {@code false} and consumers treat every file as
+   * executable (the historical behavior, see https://github.com/bazelbuild/bazel/issues/13262).
+   */
+  public boolean isExecutable() {
+    return false;
+  }
+
   @Nullable
   public byte[] getValueFingerprint() {
     // TODO(janakr): return fingerprint in other cases: symlink, directory.
@@ -234,6 +246,13 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
       // keeping the contents of a file the same should not cause rebuilds.
       fp.addLong(getModifiedTime());
     }
+    if (isExecutable()) {
+      // Distinguish an executable file from a non-executable one with otherwise identical metadata
+      // so that flipping the bit invalidates actions consuming the file. Only emitted when the bit
+      // is set, so non-executable files (always the case unless --incompatible_track_executable_bit
+      // produced an executable value) contribute exactly as before.
+      fp.addBoolean(true);
+    }
   }
 
   protected boolean couldBeModifiedByMetadata(FileArtifactValue lastKnown) {
@@ -307,7 +326,8 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
 
   public static FileArtifactValue createFromInjectedDigest(
       FileArtifactValue metadata, @Nullable byte[] digest) {
-    return createForNormalFile(digest, metadata.getContentsProxy(), metadata.getSize());
+    return createForNormalFile(
+        digest, metadata.getContentsProxy(), metadata.getSize(), metadata.isExecutable());
   }
 
   @VisibleForTesting
@@ -370,7 +390,14 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
 
   public static FileArtifactValue createForNormalFile(
       byte[] digest, @Nullable FileContentsProxy proxy, long size) {
-    return new RegularFileArtifactValue(digest, proxy, size);
+    return createForNormalFile(digest, proxy, size, /* isExecutable= */ false);
+  }
+
+  public static FileArtifactValue createForNormalFile(
+      byte[] digest, @Nullable FileContentsProxy proxy, long size, boolean isExecutable) {
+    return isExecutable
+        ? new ExecutableRegularFileArtifactValue(digest, proxy, size)
+        : new RegularFileArtifactValue(digest, proxy, size);
   }
 
   /**
@@ -406,8 +433,21 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
 
   public static FileArtifactValue createForRemoteFileWithMaterializationData(
       byte[] digest, long size, int locationIndex, @Nullable Instant expirationTime) {
-    return new RemoteFileArtifactValueWithMaterializationData(
-        digest, size, locationIndex, expirationTime);
+    return createForRemoteFileWithMaterializationData(
+        digest, size, locationIndex, expirationTime, /* isExecutable= */ false);
+  }
+
+  public static FileArtifactValue createForRemoteFileWithMaterializationData(
+      byte[] digest,
+      long size,
+      int locationIndex,
+      @Nullable Instant expirationTime,
+      boolean isExecutable) {
+    return isExecutable
+        ? new ExecutableRemoteFileArtifactValueWithMaterializationData(
+            digest, size, locationIndex, expirationTime)
+        : new RemoteFileArtifactValueWithMaterializationData(
+            digest, size, locationIndex, expirationTime);
   }
 
   public static FileArtifactValue createFromExistingWithResolvedPath(
@@ -546,7 +586,8 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     }
   }
 
-  private static final class RegularFileArtifactValue extends FileArtifactValue {
+  private static sealed class RegularFileArtifactValue extends FileArtifactValue
+      permits ExecutableRegularFileArtifactValue {
     private final byte[] digest;
     @Nullable private final FileContentsProxy proxy;
     private final long size;
@@ -568,12 +609,13 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
       }
       return Arrays.equals(digest, that.digest)
           && Objects.equals(proxy, that.proxy)
-          && size == that.size;
+          && size == that.size
+          && isExecutable() == that.isExecutable();
     }
 
     @Override
     public int hashCode() {
-      return HashCodes.hashObjects(Arrays.hashCode(digest), proxy, size);
+      return HashCodes.hashObjects(Arrays.hashCode(digest), proxy, size, isExecutable());
     }
 
     @Override
@@ -650,6 +692,32 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     @Override
     protected boolean couldBeModifiedByMetadata(FileArtifactValue lastKnown) {
       return size != lastKnown.getSize() || !Objects.equals(proxy, lastKnown.getContentsProxy());
+    }
+  }
+
+  /**
+   * A {@link RegularFileArtifactValue} for an executable file.
+   *
+   * <p>Modeled as a dedicated subclass rather than a field so that the common, non-executable case
+   * carries no extra memory. The executable bit participates in {@link #equals}, {@link #hashCode}
+   * (both inherited from the parent, which consults {@link #isExecutable}) and {@link
+   * #getValueFingerprint} so that flipping it invalidates dependent actions.
+   */
+  private static final class ExecutableRegularFileArtifactValue extends RegularFileArtifactValue {
+    private ExecutableRegularFileArtifactValue(
+        @Nullable byte[] digest, @Nullable FileContentsProxy proxy, long size) {
+      super(digest, proxy, size);
+    }
+
+    @Override
+    public boolean isExecutable() {
+      return true;
+    }
+
+    @Override
+    public byte[] getValueFingerprint() {
+      // Distinguish from a non-executable file with identical content.
+      return new Fingerprint().addBytes(getDigest()).addBoolean(true).digestAndReset();
     }
   }
 
@@ -794,8 +862,9 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
    * <p>This is used when the output mode allows for late materialization of remote outputs in the
    * local filesystem.
    */
-  private static final class RemoteFileArtifactValueWithMaterializationData
-      extends RemoteFileArtifactValue {
+  private static sealed class RemoteFileArtifactValueWithMaterializationData
+      extends RemoteFileArtifactValue
+      permits ExecutableRemoteFileArtifactValueWithMaterializationData {
     private long expirationTime;
     @Nullable private FileContentsProxy proxy;
 
@@ -857,12 +926,14 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
 
       return Arrays.equals(getDigest(), that.getDigest())
           && getSize() == that.getSize()
-          && getLocationIndex() == that.getLocationIndex();
+          && getLocationIndex() == that.getLocationIndex()
+          && isExecutable() == that.isExecutable();
     }
 
     @Override
     public int hashCode() {
-      return HashCodes.hashObjects(Arrays.hashCode(getDigest()), getSize(), getLocationIndex());
+      return HashCodes.hashObjects(
+          Arrays.hashCode(getDigest()), getSize(), getLocationIndex(), isExecutable());
     }
 
     @Override
@@ -874,6 +945,29 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
           .add("expirationTime", fromEpochMilli(expirationTime))
           .add("proxy", proxy)
           .toString();
+    }
+  }
+
+  /**
+   * A {@link RemoteFileArtifactValueWithMaterializationData} for an executable file. See {@link
+   * ExecutableRegularFileArtifactValue} for the rationale of modeling this as a subclass.
+   */
+  private static final class ExecutableRemoteFileArtifactValueWithMaterializationData
+      extends RemoteFileArtifactValueWithMaterializationData {
+    private ExecutableRemoteFileArtifactValueWithMaterializationData(
+        byte[] digest, long size, int locationIndex, @Nullable Instant expirationTime) {
+      super(digest, size, locationIndex, expirationTime);
+    }
+
+    @Override
+    public boolean isExecutable() {
+      return true;
+    }
+
+    @Override
+    public byte[] getValueFingerprint() {
+      // Distinguish from a non-executable file with identical content.
+      return new Fingerprint().addBytes(getDigest()).addBoolean(true).digestAndReset();
     }
   }
 
@@ -931,6 +1025,11 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     @Override
     public void setContentsProxy(FileContentsProxy proxy) {
       delegate.setContentsProxy(proxy);
+    }
+
+    @Override
+    public boolean isExecutable() {
+      return delegate.isExecutable();
     }
 
     @Override
@@ -1276,6 +1375,11 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     @Override
     public void setContentsProxy(FileContentsProxy proxy) {
       delegate.setContentsProxy(proxy);
+    }
+
+    @Override
+    public boolean isExecutable() {
+      return delegate.isExecutable();
     }
 
     @Override

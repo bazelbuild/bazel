@@ -146,7 +146,8 @@ public class RemoteRepositoryRemoteExecutor implements RepositoryRemoteExecutor 
                 /* remoteExecutionCache= */ null,
                 buildRequestId,
                 commandId,
-                workspaceName)
+                workspaceName,
+                /* trackExecutableBit= */ false)
             .buildForFiles(inputFiles);
     Action action =
         buildAction(

@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.readContent;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
+import static org.junit.Assume.assumeFalse;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
@@ -155,6 +156,77 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
 
   @Override
   protected void injectFile(byte[] content) {}
+
+  @Test
+  public void executableBit_preservedForDownloadedRemoteOutputs() throws Exception {
+    // The executable bit is a Unix concept; Path#isExecutable has different semantics on Windows.
+    assumeFalse(OS.getCurrent() == OS.WINDOWS);
+    write(
+        "BUILD",
+        "genrule(",
+        "  name = 'nonexec',",
+        "  outs = ['nonexec.txt'],",
+        "  cmd = 'echo hi > $@',",
+        ")",
+        "genrule(",
+        "  name = 'exec',",
+        "  outs = ['exec.sh'],",
+        "  cmd = 'echo hi > $@ && chmod +x $@',",
+        ")");
+    addOptions("--incompatible_track_executable_bit");
+    setDownloadAll();
+
+    buildTarget("//:nonexec", "//:exec");
+    waitDownloads();
+
+    assertThat(getOutputPath("nonexec.txt").isExecutable()).isFalse();
+    assertThat(getOutputPath("exec.sh").isExecutable()).isTrue();
+  }
+
+  @Test
+  public void executableBit_forcedForDownloadedRemoteOutputsWithoutFlag() throws Exception {
+    assumeFalse(OS.getCurrent() == OS.WINDOWS);
+    write(
+        "BUILD",
+        "genrule(",
+        "  name = 'nonexec',",
+        "  outs = ['nonexec.txt'],",
+        "  cmd = 'echo hi > $@',",
+        ")");
+    setDownloadAll();
+
+    buildTarget("//:nonexec");
+    waitDownloads();
+
+    // Historical behavior: every output is forced executable regardless of the action's intent.
+    assertThat(getOutputPath("nonexec.txt").isExecutable()).isTrue();
+  }
+
+  @Test
+  public void executableBit_trackedInMetadataWhenNotDownloaded() throws Exception {
+    assumeFalse(OS.getCurrent() == OS.WINDOWS);
+    write(
+        "BUILD",
+        "genrule(",
+        "  name = 'nonexec',",
+        "  outs = ['nonexec.txt'],",
+        "  cmd = 'echo hi > $@',",
+        ")",
+        "genrule(",
+        "  name = 'exec',",
+        "  outs = ['exec.sh'],",
+        "  cmd = 'echo hi > $@ && chmod +x $@',",
+        ")");
+    addOptions("--incompatible_track_executable_bit", "--remote_download_outputs=minimal");
+
+    buildTarget("//:nonexec", "//:exec");
+    waitDownloads();
+
+    // The outputs aren't downloaded; the executable bit survives in the injected remote metadata.
+    assertThat(getOnlyElement(getMetadata("//:nonexec").values()).isRemote()).isTrue();
+    assertThat(getOnlyElement(getMetadata("//:nonexec").values()).isExecutable()).isFalse();
+    assertThat(getOnlyElement(getMetadata("//:exec").values()).isExecutable()).isTrue();
+  }
 
   @Test
   public void executeRemotely_actionFails_outputsAreAvailableLocallyForDebuggingPurpose()

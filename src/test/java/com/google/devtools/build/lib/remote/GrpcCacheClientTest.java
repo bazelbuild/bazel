@@ -323,7 +323,12 @@ public class GrpcCacheClientTest {
         };
     var merkleTreeComputer =
         new MerkleTreeComputer(
-            DIGEST_UTIL, client, "buildRequestId", "commandId", TestConstants.WORKSPACE_NAME);
+            DIGEST_UTIL,
+            client,
+            "buildRequestId",
+            "commandId",
+            TestConstants.WORKSPACE_NAME,
+            /* trackExecutableBit= */ false);
     var spawn = new SpawnBuilder().withInput(virtualActionInput).build();
     var merkleTree =
         (MerkleTree.Uploadable)

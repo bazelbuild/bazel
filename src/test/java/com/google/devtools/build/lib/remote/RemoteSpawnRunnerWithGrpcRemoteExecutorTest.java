@@ -356,6 +356,7 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
             DIGEST_UTIL,
             remoteOptions,
             Options.getDefaults(ExecutionOptions.class),
+            /* trackExecutableBit= */ false,
             remoteCache,
             executor,
             tempPathGenerator,
@@ -1588,7 +1589,8 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
             tempPathGenerator,
             remoteOutputChecker,
             ActionOutputDirectoryHelper.createForTesting(),
-            OutputPermissions.READONLY);
+            OutputPermissions.READONLY,
+            /* trackExecutableBit= */ false);
 
     var actionFileSystem =
         new RemoteActionFileSystem(

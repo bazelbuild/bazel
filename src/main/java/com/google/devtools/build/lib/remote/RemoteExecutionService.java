@@ -184,6 +184,7 @@ public class RemoteExecutionService {
   private final MerkleTreeComputer merkleTreeComputer;
   private final RemoteOptions remoteOptions;
   private final ExecutionOptions executionOptions;
+  private final boolean trackExecutableBit;
   @Nullable private final CombinedCache combinedCache;
   @Nullable private final RemoteExecutionClient remoteExecutor;
   private final TempPathGenerator tempPathGenerator;
@@ -217,6 +218,7 @@ public class RemoteExecutionService {
       DigestUtil digestUtil,
       RemoteOptions remoteOptions,
       ExecutionOptions executionOptions,
+      boolean trackExecutableBit,
       @Nullable CombinedCache combinedCache,
       @Nullable RemoteExecutionClient remoteExecutor,
       TempPathGenerator tempPathGenerator,
@@ -233,6 +235,7 @@ public class RemoteExecutionService {
     this.digestUtil = digestUtil;
     this.remoteOptions = remoteOptions;
     this.executionOptions = executionOptions;
+    this.trackExecutableBit = trackExecutableBit;
     this.combinedCache = combinedCache;
     this.remoteExecutor = remoteExecutor;
     this.merkleTreeComputer =
@@ -244,7 +247,8 @@ public class RemoteExecutionService {
                 : null,
             buildRequestId,
             commandId,
-            workspaceName);
+            workspaceName,
+            trackExecutableBit);
 
     this.scrubber = remoteOptions.getScrubber();
 
@@ -1290,6 +1294,7 @@ public class RemoteExecutionService {
                   file.path().asFragment(),
                   DigestUtil.toBinaryDigest(file.digest()),
                   file.digest().getSizeBytes(),
+                  trackExecutableBit && file.isExecutable(),
                   expirationTime);
         }
 
@@ -1344,6 +1349,7 @@ public class RemoteExecutionService {
                   file.path().asFragment(),
                   DigestUtil.toBinaryDigest(file.digest()),
                   file.digest().getSizeBytes(),
+                  trackExecutableBit && file.isExecutable(),
                   expirationTime);
         }
       }
@@ -1395,6 +1401,14 @@ public class RemoteExecutionService {
     } else {
       moveOutputsToFinalLocation(
           Iterables.transform(finishedDownloads, FileMetadata::path), realToTmpPath);
+      if (trackExecutableBit) {
+        // moveOutputsToFinalLocation deliberately doesn't carry over the executable bit. Set it
+        // from the action result so the post-execution chmod in ActionOutputMetadataStore preserves
+        // it instead of forcing every downloaded output to be executable.
+        for (FileMetadata file : finishedDownloads) {
+          file.path().setExecutable(file.isExecutable());
+        }
+      }
     }
 
     List<SymlinkMetadata> symlinksInDirectories = new ArrayList<>();
@@ -1740,7 +1754,7 @@ public class RemoteExecutionService {
           spawnResult.exitCode(),
           spawnResult.getStartTime(),
           spawnResult.getWallTimeInMs(),
-          /* preserveExecutableBit= */ false);
+          /* preserveExecutableBit= */ trackExecutableBit);
     }
   }
 

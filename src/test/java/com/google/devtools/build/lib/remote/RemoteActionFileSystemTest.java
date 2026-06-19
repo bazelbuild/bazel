@@ -1163,7 +1163,7 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
     byte[] digest = getDigest(content);
     int size = Utf8.encodedLength(content);
     ((RemoteActionFileSystem) actionFs)
-        .injectRemoteFile(path, digest, size, /* expirationTime= */ null);
+        .injectRemoteFile(path, digest, size, /* isExecutable= */ false, /* expirationTime= */ null);
     return FileArtifactValue.createForRemoteFileWithMaterializationData(
         digest, size, /* locationIndex= */ 1, /* expirationTime= */ null);
   }
