@@ -64,8 +64,6 @@ import io.netty.handler.codec.http.HttpRequestEncoder;
 import io.netty.handler.codec.http.HttpResponse;
 import io.netty.handler.codec.http.HttpResponseDecoder;
 import io.netty.handler.codec.http.HttpResponseStatus;
-import io.netty.handler.proxy.HttpProxyHandler;
-import io.netty.handler.proxy.ProxyHandler;
 import io.netty.handler.ssl.OpenSsl;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
@@ -74,7 +72,6 @@ import io.netty.handler.ssl.SslProvider;
 import io.netty.handler.stream.ChunkedWriteHandler;
 import io.netty.handler.timeout.ReadTimeoutException;
 import io.netty.handler.timeout.WriteTimeoutException;
-import io.netty.resolver.NoopAddressResolverGroup;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.Promise;
 import java.io.File;
@@ -260,10 +257,11 @@ public final class HttpCacheClient extends RemoteCacheClient {
               uri.getFragment());
     }
     this.uri = uri;
+    HttpConnectProxy proxy = HttpConnectProxy.create(httpConnectProxy);
     if (socketAddress == null) {
       socketAddress =
-          httpConnectProxy != null
-              ? InetSocketAddress.createUnresolved(uri.getHost(), uri.getPort())
+          proxy != null
+              ? proxy.remoteAddress(uri)
               : new InetSocketAddress(uri.getHost(), uri.getPort());
     }
 
@@ -277,9 +275,8 @@ public final class HttpCacheClient extends RemoteCacheClient {
             .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 1000 * timeoutSeconds)
             .group(eventLoop)
             .remoteAddress(socketAddress);
-    if (httpConnectProxy != null) {
-      // DNS is resolved on the proxy-side rather than client side
-      clientBootstrap.resolver(NoopAddressResolverGroup.INSTANCE);
+    if (proxy != null) {
+      proxy.configureBootstrap(clientBootstrap);
     }
 
     ChannelPoolHandler channelPoolHandler =
@@ -293,8 +290,8 @@ public final class HttpCacheClient extends RemoteCacheClient {
           @Override
           public void channelCreated(Channel ch) {
             ChannelPipeline p = ch.pipeline();
-            if (httpConnectProxy != null) {
-              p.addLast("http-proxy-handler", new HttpProxyHandler(httpConnectProxy));
+            if (proxy != null) {
+              proxy.addProxyHandler(p);
             }
             if (sslCtx != null) {
               SSLEngine engine = sslCtx.newEngine(ch.alloc(), hostname, port);
@@ -320,54 +317,6 @@ public final class HttpCacheClient extends RemoteCacheClient {
     this.retrier = retrier;
   }
 
-  /**
-   * Runs {@code onReady} once any HTTP CONNECT proxy handshake on the channel has completed. The
-   * proxy handler installs transient codec handlers while the tunnel is being established, so
-   * per-request handlers must not be added until then. Once the handshake succeeds the proxy
-   * handlers have done their job and are removed so the pipeline is clean before {@code onReady}
-   * adds the request handlers. If no proxy is configured (or it was already removed on a reused
-   * channel), {@code onReady} runs immediately.
-   */
-  @SuppressWarnings("FutureReturnValueIgnored")
-  private static void awaitProxyHandshake(
-      Channel channel, Promise<Channel> channelReady, Runnable onReady) {
-    ProxyHandler proxyHandler = channel.pipeline().get(ProxyHandler.class);
-    if (proxyHandler == null) {
-      onReady.run();
-      return;
-    }
-    proxyHandler
-        .connectFuture()
-        .addListener(
-            (Future<Channel> handshake) -> {
-              if (!handshake.isSuccess()) {
-                channelReady.setFailure(handshake.cause());
-                return;
-              }
-              // The listener fires from within the proxy handler's own channelRead, so defer the
-              // cleanup and handler setup to the event loop to avoid reentrant pipeline mutation.
-              channel
-                  .eventLoop()
-                  .execute(
-                      () -> {
-                        removeProxyHandlers(channel.pipeline());
-                        onReady.run();
-                      });
-            });
-  }
-
-  /**
-   * Strips the handlers an HTTP CONNECT proxy leaves behind once the tunnel is established: the
-   * proxy handler itself and the now-inert codec wrapper that Netty does not fully detach. These
-   * sit ahead of the persistent {@code ssl-handler}, so removing from the front until that handler
-   * (or an empty pipeline) is reached leaves the pipeline ready for per-request handlers.
-   */
-  private static void removeProxyHandlers(ChannelPipeline pipeline) {
-    while (pipeline.first() != null && !"ssl-handler".equals(pipeline.firstContext().name())) {
-      pipeline.removeFirst();
-    }
-  }
-
   @SuppressWarnings("FutureReturnValueIgnored")
   private Promise<Channel> acquireUploadChannel() {
     Promise<Channel> channelReady = eventLoop.next().newPromise();
@@ -380,7 +329,7 @@ public final class HttpCacheClient extends RemoteCacheClient {
                 return;
               }
               Channel channel = channelAcquired.getNow();
-              awaitProxyHandshake(
+              HttpConnectProxy.awaitHandshake(
                   channel, channelReady, () -> setUpUploadChannel(channel, channelReady));
             });
     return channelReady;
@@ -456,7 +405,7 @@ public final class HttpCacheClient extends RemoteCacheClient {
                 return;
               }
               Channel channel = channelAcquired.getNow();
-              awaitProxyHandshake(
+              HttpConnectProxy.awaitHandshake(
                   channel, channelReady, () -> setUpDownloadChannel(channel, channelReady));
             });
 
