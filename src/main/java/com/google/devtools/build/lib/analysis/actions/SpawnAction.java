@@ -300,7 +300,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
                 .setSpawn(
                     FailureDetails.Spawn.newBuilder().setCode(Code.COMMAND_LINE_EXPANSION_FAILURE))
                 .build());
-    return new ActionExecutionException(e, this, /*catastrophe=*/ false, detailedExitCode);
+    return new ActionExecutionException(e, this, /* catastrophe= */ false, detailedExitCode);
   }
 
   @VisibleForTesting
@@ -348,9 +348,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
   public Spawn getSpawn(ActionExecutionContext actionExecutionContext)
       throws CommandLineExpansionException, InterruptedException {
     return getSpawn(
-        actionExecutionContext,
-        actionExecutionContext.getClientEnv(),
-        /* reportOutputs= */ true);
+        actionExecutionContext, actionExecutionContext.getClientEnv(), /* reportOutputs= */ true);
   }
 
   /**
@@ -550,7 +548,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
               .addAll(additionalInputs)
               .build();
       this.pathMapper = pathMapper;
-      this.effectiveEnvironment = parent.getEffectiveEnvironment(clientEnv);
+      this.effectiveEnvironment = parent.getEffectiveEnvironment(clientEnv, pathMapper);
       this.reportOutputs = reportOutputs;
     }
 
@@ -608,9 +606,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     return env;
   }
 
-  /**
-   * Builder class to construct {@link SpawnAction} instances.
-   */
+  /** Builder class to construct {@link SpawnAction} instances. */
   public static class Builder {
 
     private final NestedSetBuilder<Artifact> toolsBuilder = NestedSetBuilder.stableOrder();
