@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -62,7 +61,6 @@ public final class CppCompileActionBuilder implements StarlarkValue {
   private Artifact gcnoFile;
   private CcCompilationContext ccCompilationContext = null;
   private final List<String> pluginOpts = new ArrayList<>();
-  private CoptsFilter coptsFilter = CoptsFilter.alwaysPasses();
   private ImmutableList<PathFragment> extraSystemIncludePrefixes = ImmutableList.of();
   private boolean usePic;
   private final CppConfiguration cppConfiguration;
@@ -122,7 +120,6 @@ public final class CppCompileActionBuilder implements StarlarkValue {
     this.gcnoFile = other.gcnoFile;
     this.ccCompilationContext = other.ccCompilationContext;
     this.pluginOpts.addAll(other.pluginOpts);
-    this.coptsFilter = other.coptsFilter;
     this.extraSystemIncludePrefixes = other.extraSystemIncludePrefixes;
     this.cppConfiguration = other.cppConfiguration;
     this.configuration = other.configuration;
@@ -334,7 +331,6 @@ public final class CppCompileActionBuilder implements StarlarkValue {
         dwoFile,
         ltoIndexingFile,
         ccCompilationContext,
-        coptsFilter,
         ImmutableList.copyOf(additionalIncludeScanningRoots),
         ImmutableMap.copyOf(executionInfo),
         actionName,
@@ -585,16 +581,6 @@ public final class CppCompileActionBuilder implements StarlarkValue {
 
   public CcToolchainProvider getToolchain() {
     return ccToolchain;
-  }
-
-  @CanIgnoreReturnValue
-  public CppCompileActionBuilder setCoptsFilter(CoptsFilter coptsFilter) {
-    this.coptsFilter = Preconditions.checkNotNull(coptsFilter);
-    return this;
-  }
-
-  CoptsFilter getCoptsFilter() {
-    return coptsFilter;
   }
 
   @CanIgnoreReturnValue

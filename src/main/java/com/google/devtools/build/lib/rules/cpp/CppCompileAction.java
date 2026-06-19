@@ -74,7 +74,6 @@ import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
-import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.IncludeScanner.IncludeScanningHeaderData;
 import com.google.devtools.build.lib.server.FailureDetails.CppCompile;
@@ -233,7 +232,6 @@ public class CppCompileAction extends AbstractAction
    * @param dwoFile the .dwo output file where debug information is stored for Fission builds (null
    *     if Fission mode is disabled)
    * @param ccCompilationContext the {@code CcCompilationContext}
-   * @param coptsFilter regular expression to remove options from {@code copts}
    * @param additionalIncludeScanningRoots list of additional artifacts to include-scan
    * @param actionName a string giving the name of this action for the purpose of toolchain
    *     evaluation
@@ -263,7 +261,6 @@ public class CppCompileAction extends AbstractAction
       @Nullable Artifact dwoFile,
       @Nullable Artifact ltoIndexingFile,
       CcCompilationContext ccCompilationContext,
-      CoptsFilter coptsFilter,
       ImmutableList<Artifact> additionalIncludeScanningRoots,
       ImmutableMap<String, String> executionInfo,
       String actionName,
@@ -299,8 +296,7 @@ public class CppCompileAction extends AbstractAction
     this.builtinIncludeFiles = builtinIncludeFiles;
     this.additionalIncludeScanningRoots =
         Preconditions.checkNotNull(additionalIncludeScanningRoots);
-    this.compileCommandLine =
-        buildCommandLine(coptsFilter, actionName, featureConfiguration, variables);
+    this.compileCommandLine = buildCommandLine(actionName, featureConfiguration, variables);
     this.executionInfo = executionInfo;
     this.actionName = actionName;
     this.progressMessagePrefix = progressMessagePrefix;
@@ -423,11 +419,10 @@ public class CppCompileAction extends AbstractAction
   }
 
   static CompileCommandLine buildCommandLine(
-      CoptsFilter coptsFilter,
       String actionName,
       FeatureConfiguration featureConfiguration,
       CcToolchainVariables variables) {
-    return CompileCommandLine.builder(coptsFilter, actionName)
+    return CompileCommandLine.builder(actionName)
         .setFeatureConfiguration(featureConfiguration)
         .setVariables(variables)
         .build();

@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.packages.util.ResourceLoader;
-import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import java.io.IOException;
@@ -149,6 +148,6 @@ public class CompileCommandLineTest extends BuildViewTestCase {
   }
 
   private CompileCommandLine.Builder makeCompileCommandLineBuilder() throws Exception {
-    return CompileCommandLine.builder(CoptsFilter.alwaysPasses(), "c++-compile");
+    return CompileCommandLine.builder("c++-compile");
   }
 }
