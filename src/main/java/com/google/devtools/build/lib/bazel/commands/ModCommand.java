@@ -837,13 +837,11 @@ public final class ModCommand implements BlazeCommand {
         // Any other override (non-registry, registry-only, multiple_version_override) means the
         // user controls the version and there's no meaningful latest to show, so skip it.
         overriddenModulesBuilder.add(moduleKey.name());
-        registryByModule.remove(moduleKey.name());
         continue;
       }
       if (!seenModuleNames.add(moduleKey.name())) {
         // Multiple versions of the same module (multiple_version_override), skip.
         overriddenModulesBuilder.add(moduleKey.name());
-        registryByModule.remove(moduleKey.name());
         continue;
       }
       InterimModule interim = unprunedGraph.get(moduleKey);
@@ -956,8 +954,9 @@ public final class ModCommand implements BlazeCommand {
         }
       }
     } else {
-      // Upgrade specific named modules.
-      for (String moduleName : args) {
+      // Upgrade specific named modules. Deduplicate so a repeated argument is handled once
+      // (e.g. it must not add a promoted module to toPromote twice).
+      for (String moduleName : ImmutableSet.copyOf(args)) {
         ModuleVersionEntry entry = directDepsByName.get(moduleName);
         if (entry != null) {
           // Direct dependency: upgrade version in-place.
@@ -1027,12 +1026,7 @@ public final class ModCommand implements BlazeCommand {
 
     // Direct dep upgrades: update version in-place.
     for (ModuleVersionEntry entry : toUpgrade) {
-      buildozerInput
-          .append("//MODULE.bazel:")
-          .append(entry.name())
-          .append("|set version \"")
-          .append(entry.latest())
-          .append("\"\n");
+      appendSetVersion(buildozerInput, entry.name(), entry.latest());
     }
 
     // Indirect dep promotions: create new bazel_dep entries with repo_name = None,
@@ -1114,17 +1108,18 @@ public final class ModCommand implements BlazeCommand {
     for (ModuleVersionEntry entry : toPromote) {
       if (existingIndirectDeps.contains(entry.name())) {
         // Already has a bazel_dep(..., repo_name = None) — just update version in-place.
-        buildozerInput
-            .append("//MODULE.bazel:")
-            .append(entry.name())
-            .append("|set version \"")
-            .append(entry.latest())
-            .append("\"\n");
+        appendSetVersion(buildozerInput, entry.name(), entry.latest());
       } else {
         newEntriesBuilder.add(entry);
       }
     }
-    ImmutableList<ModuleVersionEntry> newEntries = newEntriesBuilder.build();
+    // Emit new entries in alphabetical order. In the sorted-merge case below, an entry may be
+    // anchored ("after X") on another new entry; processing them in name order guarantees that
+    // anchor has already been created by the time buildozer applies the command.
+    ImmutableList<ModuleVersionEntry> newEntries =
+        Ordering.natural()
+            .onResultOf(ModuleVersionEntry::name)
+            .immutableSortedCopy(newEntriesBuilder.build());
 
     // If all upgrades affect only existing indirect deps, we're already done.
     if (newEntries.isEmpty()) {
@@ -1212,6 +1207,17 @@ public final class ModCommand implements BlazeCommand {
     } catch (CommandException e) {
       return null;
     }
+  }
+
+  /** Appends a buildozer command that sets the {@code version} attribute of a bazel_dep. */
+  private static void appendSetVersion(
+      StringBuilder buildozerInput, String name, Version version) {
+    buildozerInput
+        .append("//MODULE.bazel:")
+        .append(name)
+        .append("|set version \"")
+        .append(version)
+        .append("\"\n");
   }
 
   /** Appends buildozer commands to create a new {@code bazel_dep(..., repo_name = None)} entry. */
@@ -1366,10 +1372,12 @@ public final class ModCommand implements BlazeCommand {
       try {
         builder.put(entry.getKey(), entry.getValue().get());
       } catch (ExecutionException e) {
+        // The cause's message can be null (e.g. a bare IOException), so fall back to its type.
+        Throwable cause = e.getCause();
+        String reason = cause.getMessage() != null ? cause.getMessage() : cause.toString();
         String msg =
             String.format(
-                "Could not read metadata file for module %s: %s",
-                entry.getKey(), e.getCause().getMessage());
+                "Could not read metadata file for module %s: %s", entry.getKey(), reason);
         reporter.handle(Event.warn(msg));
         builder.put(entry.getKey(), Optional.empty());
       }

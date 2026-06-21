@@ -73,8 +73,8 @@ public interface Registry extends NotComparableSkyValue {
   Optional<YankedVersionsValue> tryGetYankedVersionsFromLockfile(ModuleKey selectedModuleKey);
 
   /**
-   * Retrieves all available versions of the module identified by {@code moduleName} from the
-   * registry. Returns {@code Optional.empty()} when the information is not found in the registry.
+   * Retrieves all available, non-yanked versions of the module identified by {@code moduleName} from
+   * the registry. Returns {@code Optional.empty()} when the information is not found in the registry.
    */
   Optional<ImmutableList<Version>> getAvailableVersions(
       String moduleName, ExtendedEventHandler eventHandler, DownloadManager downloadManager)

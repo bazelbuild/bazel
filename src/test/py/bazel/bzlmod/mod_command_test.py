@@ -1959,6 +1959,72 @@ class ModUpgradeCommandTest(test_base.TestBase):
     stderr_str = '\n'.join(stderr)
     self.assertIn('All specified modules are already up to date', stderr_str)
 
+  def testUpgradeSkipsYankedLatest(self):
+    """A yanked latest version is never offered; the newest non-yanked wins."""
+    # eee has 1.0, 2.0 and 3.0, but 3.0 is yanked, so upgrading lands on 2.0.
+    self.main_registry.createShModule('eee', '1.0')
+    self.main_registry.createShModule('eee', '2.0')
+    self.main_registry.createShModule('eee', '3.0')
+    self.main_registry.addMetadata(
+        'eee',
+        versions=['1.0', '2.0', '3.0'],
+        yanked_versions={'3.0': 'broken'},
+    )
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'module(name = "my_project", version = "1.0")',
+            'bazel_dep(name = "eee", version = "1.0")',
+        ],
+    )
+    _, _, stderr = self.RunBazel(['mod', 'upgrade', 'eee'])
+    stderr_str = '\n'.join(stderr)
+    self.assertIn('Upgraded eee from 1.0 to 2.0', stderr_str)
+
+    with open('MODULE.bazel', 'r') as f:
+      contents = f.read()
+    self.assertIn('"2.0"', contents)
+    self.assertNotIn('"3.0"', contents)
+
+  def testUpgradeDuplicateArgIsHandledOnce(self):
+    """A repeated module argument is deduplicated, not acted on twice."""
+    self._setupSimpleProject()
+    _, _, stderr = self.RunBazel(['mod', 'upgrade', 'aaa', 'aaa'])
+    stderr_str = '\n'.join(stderr)
+    self.assertEqual(stderr_str.count('Upgraded aaa from 1.0 to 2.0'), 1)
+
+  def testUpgradeMultipleIndirectDepsKeepSortedOrder(self):
+    """Promoting several indirect deps at once keeps the nodep group sorted,
+    regardless of the order the modules are named on the command line."""
+    # parent@1.0 pulls in nnn, ooo and ppp as transitive deps, each upgradable.
+    for name in ('nnn', 'ooo', 'ppp'):
+      self.main_registry.createShModule(name, '1.0')
+      self.main_registry.createShModule(name, '2.0')
+      self.main_registry.addMetadata(name, versions=['1.0', '2.0'])
+    self.main_registry.createShModule('mmm', '1.0')
+    self.main_registry.addMetadata('mmm', versions=['1.0'])
+    self.main_registry.createShModule(
+        'parent', '1.0', deps={'nnn': '1.0', 'ooo': '1.0', 'ppp': '1.0'}
+    )
+    self.main_registry.addMetadata('parent', versions=['1.0'])
+
+    # The existing sorted nodep group contains only "mmm". Naming the three
+    # promotions in reverse order must still produce mmm < nnn < ooo < ppp.
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'module(name = "my_project", version = "1.0")',
+            'bazel_dep(name = "parent", version = "1.0")',
+            'bazel_dep(name = "mmm", version = "1.0", repo_name = None)',
+        ],
+    )
+    self.RunBazel(['mod', 'upgrade', 'ppp', 'ooo', 'nnn'])
+
+    with open('MODULE.bazel', 'r') as f:
+      contents = f.read()
+    positions = [contents.index('"%s"' % name) for name in ('mmm', 'nnn', 'ooo', 'ppp')]
+    self.assertEqual(positions, sorted(positions))
+
 
 if __name__ == '__main__':
   absltest.main()
