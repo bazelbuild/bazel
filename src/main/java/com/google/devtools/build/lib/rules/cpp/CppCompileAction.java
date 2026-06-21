@@ -964,7 +964,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   public ImmutableMap<String, String> getIncompleteEnvironmentForTesting()
       throws ActionExecutionException {
     try {
-      return getEffectiveEnvironment(ImmutableMap.of());
+      return getEffectiveEnvironment(ImmutableMap.of(), PathMapper.NOOP);
     } catch (CommandLineExpansionException e) {
       String message =
           String.format(
@@ -976,11 +976,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   }
 
   @Override
-  public ImmutableMap<String, String> getEffectiveEnvironment(Map<String, String> clientEnv)
-      throws CommandLineExpansionException {
-    return getEffectiveEnvironment(clientEnv, PathMapper.NOOP);
-  }
-
   public ImmutableMap<String, String> getEffectiveEnvironment(
       Map<String, String> clientEnv, PathMapper pathMapper) throws CommandLineExpansionException {
     ActionEnvironment env = getEnvironment();
@@ -1060,7 +1055,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     }
     // TODO(ulfjack): Extra actions currently ignore the client environment.
     for (Map.Entry<String, String> envVariable :
-        getEffectiveEnvironment(/*clientEnv=*/ ImmutableMap.of()).entrySet()) {
+        getEffectiveEnvironment(/*clientEnv=*/ ImmutableMap.of(), PathMapper.NOOP).entrySet()) {
       info.addVariable(
           EnvironmentVariable.newBuilder()
               .setName(envVariable.getKey())

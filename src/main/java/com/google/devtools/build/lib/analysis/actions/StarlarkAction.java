@@ -480,14 +480,14 @@ public class StarlarkAction extends SpawnAction {
     }
 
     @Override
-    public ImmutableMap<String, String> getEffectiveEnvironment(Map<String, String> clientEnv)
-        throws CommandLineExpansionException {
+    public ImmutableMap<String, String> getEffectiveEnvironment(
+        Map<String, String> clientEnv, PathMapper pathMapper) throws CommandLineExpansionException {
       ActionEnvironment env = getEnvironment();
       Map<String, String> environment = Maps.newLinkedHashMapWithExpectedSize(env.estimatedSize());
 
       if (shadowedAction.isPresent()) {
         // Put all the variables of the shadowed action's environment
-        environment.putAll(shadowedAction.get().getEffectiveEnvironment(clientEnv));
+        environment.putAll(shadowedAction.get().getEffectiveEnvironment(clientEnv, pathMapper));
       }
 
       // This order guarantees that the Starlark action can overwrite any variable in its shadowed
