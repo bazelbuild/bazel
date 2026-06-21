@@ -113,11 +113,14 @@ public class FakeRegistry implements Registry {
   @Override
   public Optional<ImmutableList<Version>> getAvailableVersions(
       String moduleName, ExtendedEventHandler eventHandler, DownloadManager downloadManager) {
-    // Return versions based on what modules have been registered with this name, sorted.
+    // Return the non-yanked versions registered under this name, sorted.
+    ImmutableMap<Version, String> yanked =
+        yankedVersionMap.getOrDefault(moduleName, ImmutableMap.of());
     ImmutableList<Version> result =
         modules.keySet().stream()
             .filter(key -> key.name().equals(moduleName))
             .map(ModuleKey::version)
+            .filter(version -> !yanked.containsKey(version))
             .sorted()
             .collect(ImmutableList.toImmutableList());
     return result.isEmpty() ? Optional.empty() : Optional.of(result);

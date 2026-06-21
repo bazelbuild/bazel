@@ -593,18 +593,24 @@ public class IndexRegistry implements Registry {
         .build();
   }
 
+  /** Fetches and parses the {@code metadata.json} file of the given module, if it exists. */
+  private Optional<MetadataJson> grabMetadata(
+      String moduleName, ExtendedEventHandler eventHandler, DownloadManager downloadManager)
+      throws IOException, InterruptedException {
+    return grabJson(
+        constructUrl(getUrl(), "modules", moduleName, "metadata.json"),
+        MetadataJson.class,
+        eventHandler,
+        downloadManager,
+        // metadata.json is not immutable
+        /* useChecksum= */ false);
+  }
+
   @Override
   public Optional<ImmutableMap<Version, String>> getYankedVersions(
       String moduleName, ExtendedEventHandler eventHandler, DownloadManager downloadManager)
       throws IOException, InterruptedException {
-    Optional<MetadataJson> metadataJson =
-        grabJson(
-            constructUrl(getUrl(), "modules", moduleName, "metadata.json"),
-            MetadataJson.class,
-            eventHandler,
-            downloadManager,
-            // metadata.json is not immutable
-            /* useChecksum= */ false);
+    Optional<MetadataJson> metadataJson = grabMetadata(moduleName, eventHandler, downloadManager);
     if (metadataJson.isEmpty()) {
       return Optional.empty();
     }
@@ -672,23 +678,23 @@ public class IndexRegistry implements Registry {
   public Optional<ImmutableList<Version>> getAvailableVersions(
       String moduleName, ExtendedEventHandler eventHandler, DownloadManager downloadManager)
       throws IOException, InterruptedException {
-    Optional<MetadataJson> metadataJson =
-        grabJson(
-            constructUrl(getUrl(), "modules", moduleName, "metadata.json"),
-            MetadataJson.class,
-            eventHandler,
-            downloadManager,
-            // metadata.json is not immutable
-            /* useChecksum= */ false);
+    Optional<MetadataJson> metadataJson = grabMetadata(moduleName, eventHandler, downloadManager);
     if (metadataJson.isEmpty()) {
       return Optional.empty();
     }
 
     try {
+      // Yanked versions are never offered as upgrade targets, so exclude them here.
+      ImmutableSet<String> yankedVersions =
+          metadataJson.get().yankedVersions != null
+              ? ImmutableSet.copyOf(metadataJson.get().yankedVersions.keySet())
+              : ImmutableSet.of();
       ImmutableList.Builder<Version> versionsBuilder = new ImmutableList.Builder<>();
       if (metadataJson.get().versions != null) {
         for (String v : metadataJson.get().versions) {
-          versionsBuilder.add(Version.parse(v));
+          if (!yankedVersions.contains(v)) {
+            versionsBuilder.add(Version.parse(v));
+          }
         }
       }
       return Optional.of(versionsBuilder.build());
