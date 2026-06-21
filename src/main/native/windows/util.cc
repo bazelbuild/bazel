@@ -194,6 +194,15 @@ static bool Contains(const wstring& s, const WCHAR* substr) {
   return s.find(substr) != wstring::npos;
 }
 
+static bool IsBatchFile(const wstring& path) {
+  if (path.size() < 4) {
+    return false;
+  }
+  const wchar_t* ext = path.c_str() + (path.size() - 4);
+  return CompareStringOrdinal(ext, 4, L".bat", 4, TRUE) == CSTR_EQUAL ||
+         CompareStringOrdinal(ext, 4, L".cmd", 4, TRUE) == CSTR_EQUAL;
+}
+
 wstring AsShortPath(wstring path, wstring* result) {
   // Using `MAX_PATH` - 4 (256) instead of `MAX_PATH` to fix
   // https://github.com/bazelbuild/bazel/issues/12310
@@ -267,7 +276,8 @@ wstring AsShortPath(wstring path, wstring* result) {
   return L"";
 }
 
-wstring AsExecutablePathForCreateProcess(wstring path, wstring* result) {
+wstring AsExecutablePathForCreateProcess(wstring path, wstring* quoted_path,
+                                         wstring* extended_path) {
   if (path.empty()) {
     return MakeErrorMessage(WSTR(__FILE__), __LINE__,
                             L"AsExecutablePathForCreateProcess", path,
@@ -287,16 +297,33 @@ wstring AsExecutablePathForCreateProcess(wstring path, wstring* result) {
     }
     path = cwd + L"\\" + path;
   }
-  wstring error = AsShortPath(path, result);
-  if (!error.empty()) {
-    return MakeErrorMessage(WSTR(__FILE__), __LINE__,
-                            L"AsExecutablePathForCreateProcess", path, error);
+  wstring error = AsShortPath(path, quoted_path);
+  if (error.empty()) {
+    // Quote the path in case it's something like "c:\foo\app name.exe".
+    // Do this unconditionally, there's no harm in quoting. Quotes are not
+    // allowed inside paths so we don't need to escape quotes.
+    QuotePath(*quoted_path, quoted_path);
+    extended_path->clear();
+    return L"";
   }
-  // Quote the path in case it's something like "c:\foo\app name.exe".
-  // Do this unconditionally, there's no harm in quoting. Quotes are not
-  // allowed inside paths so we don't need to escape quotes.
-  QuotePath(*result, result);
-  return L"";
+  // Shortening might fail (https://github.com/bazelbuild/bazel/issues/19710),
+  // typically when 8.3 aliases are disabled on the volume, which is common in
+  // containers (https://github.com/microsoft/Windows-Containers/issues/507).
+  // As a fallback, set `quoted_path` as above and `extended_path` to the
+  // extended-length form of `path`, suitable for CreateProcessW's
+  // lpApplicationName: it is not subject to MAX_PATH, and providing it lifts
+  // that limit from the executable part of CreateProcessW's lpCommandLine too.
+  // This works only for a plain executable with an absolute, normalized path.
+  if (!IsBatchFile(path)) {
+    std::replace(path.begin(), path.end(), L'/', L'\\');
+    if (IsAbsoluteNormalizedWindowsPath(path)) {
+      QuotePath(path, quoted_path);
+      *extended_path = wstring(L"\\\\?\\") + path;
+      return L"";
+    }
+  }
+  return MakeErrorMessage(WSTR(__FILE__), __LINE__,
+                          L"AsExecutablePathForCreateProcess", path, error);
 }
 
 }  // namespace windows

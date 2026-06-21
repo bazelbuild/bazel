@@ -328,6 +328,25 @@ public class WindowsProcessesTest {
   }
 
   @Test
+  public void testExecutableWithExtendedLengthPath() throws Exception {
+    StringBuilder dir = new StringBuilder(System.getenv("TEST_TMPDIR"));
+    for (char c = 'a'; c <= 'z'; c++) {
+      dir.append('\\').repeat(c, 8).append('.').repeat(c, 3);
+    }
+    String exe = dir + "\\cmd.exe";
+    assertThat(exe.length()).isGreaterThan(260); // Windows MAX_PATH
+    Files.createDirectories(Paths.get("\\\\?\\" + dir));
+    Files.copy(
+        Paths.get(System.getenv("SystemRoot"), "System32", "cmd.exe"),
+        Paths.get("\\\\?\\" + exe));
+
+    process = WindowsProcesses.createProcess(exe, "/c exit 42", null, null, null, null);
+    assertNoProcessError();
+    assertThat(WindowsProcesses.waitFor(process, -1)).isEqualTo(0);
+    assertThat(WindowsProcesses.getExitCode(process)).isEqualTo(42);
+  }
+
+  @Test
   public void testReadingAndWritingAfterTermination() throws Exception {
     process =
         WindowsProcesses.createProcess(mockBinary, mockArgs("X42"), null, null, null, null);
