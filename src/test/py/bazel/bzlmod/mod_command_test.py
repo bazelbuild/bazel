@@ -1986,6 +1986,31 @@ class ModUpgradeCommandTest(test_base.TestBase):
     self.assertIn('"2.0"', contents)
     self.assertNotIn('"3.0"', contents)
 
+  def testUpgradeUsesDeclaredVersionNotResolved(self):
+    """Upgrade compares against the version declared in MODULE.bazel, not the
+    MVS-resolved version, so a dep already bumped by MVS is still rewritten."""
+    # forcer@1.0 depends on aaa@2.0, so MVS bumps the root's aaa from 1.0 to 2.0
+    # even though MODULE.bazel still declares aaa@1.0.
+    self.main_registry.createShModule('forcer', '1.0', deps={'aaa': '2.0'})
+    self.main_registry.addMetadata('forcer', versions=['1.0'])
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'module(name = "my_project", version = "1.0")',
+            'bazel_dep(name = "aaa", version = "1.0")',
+            'bazel_dep(name = "forcer", version = "1.0")',
+        ],
+    )
+    _, _, stderr = self.RunBazel(['mod', 'upgrade', 'aaa'])
+    stderr_str = '\n'.join(stderr)
+    self.assertIn('Upgraded aaa from 1.0 to 2.0', stderr_str)
+
+    with open('MODULE.bazel', 'r') as f:
+      contents = f.read()
+    aaa_line = next(line for line in contents.splitlines() if '"aaa"' in line)
+    self.assertIn('"2.0"', aaa_line)
+    self.assertNotIn('"1.0"', aaa_line)
+
   def testUpgradeDuplicateArgIsHandledOnce(self):
     """A repeated module argument is deduplicated, not acted on twice."""
     self._setupSimpleProject()

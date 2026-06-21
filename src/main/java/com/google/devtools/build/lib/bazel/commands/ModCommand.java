@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.bazel.commands;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableListMultimap.toImmutableListMultimap;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModOptions.Charset.UTF8;
 import static com.google.devtools.build.lib.runtime.Command.BuildPhase.LOADS;
@@ -817,6 +818,15 @@ public final class ModCommand implements BlazeCommand {
     AugmentedModule rootModule = moduleInspector.depGraph().get(ModuleKey.ROOT);
     ImmutableSet<ModuleKey> directDepKeys = ImmutableSet.copyOf(rootModule.deps().values());
 
+    // The version each direct dep is declared with in MODULE.bazel, which can be lower than the
+    // version selected by MVS (e.g. another dependency forces a higher version). Upgrades compare
+    // against and rewrite this declared version, so a dep already bumped by MVS is still updated.
+    // A module can appear under several repo names (multiple_version_override); such modules are
+    // never upgraded, so any one of the declared versions will do.
+    ImmutableMap<String, Version> declaredDirectVersions =
+        unprunedGraph.get(ModuleKey.ROOT).getOriginalDeps().values().stream()
+            .collect(toImmutableMap(ModuleKey::name, ModuleKey::version, (a, b) -> a));
+
     // Collect registries for each non-root module in the resolved graph.
     // Track modules that are skipped due to overrides (single_version_override,
     // multiple_version_override, non-registry overrides like local_path_override, etc.).
@@ -899,9 +909,14 @@ public final class ModCommand implements BlazeCommand {
 
       boolean isDirect = directDepKeys.contains(moduleKey);
       boolean isPinned = pinnedModules.contains(moduleKey.name());
+      // For direct deps, "installed" is the version declared in MODULE.bazel (what an upgrade
+      // rewrites); for transitive deps it is the resolved version, since they aren't declared there.
+      Version installed =
+          isDirect
+              ? declaredDirectVersions.getOrDefault(moduleKey.name(), moduleKey.version())
+              : moduleKey.version();
       ModuleVersionEntry entry =
-          new ModuleVersionEntry(
-              moduleKey.name(), moduleKey.version(), latest, isDirect, isPinned);
+          new ModuleVersionEntry(moduleKey.name(), installed, latest, isDirect, isPinned);
       if (isDirect) {
         directDepsBuilder.add(entry);
       } else {
