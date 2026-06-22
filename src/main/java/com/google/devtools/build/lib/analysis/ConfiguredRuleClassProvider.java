@@ -391,7 +391,7 @@ public /*final*/ class ConfiguredRuleClassProvider
         trimmingTransitionFactory = factory;
       } else {
         trimmingTransitionFactory =
-            ComposingTransitionFactory.of(trimmingTransitionFactory, factory);
+            ComposingTransitionFactory.ofUnchecked(trimmingTransitionFactory, factory);
       }
       return this;
     }
