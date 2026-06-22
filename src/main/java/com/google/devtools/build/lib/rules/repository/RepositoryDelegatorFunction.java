@@ -831,9 +831,6 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
               .addInt(environ.size());
       environ.forEach(
           (key, value) -> fp.addString(key.toString()).addNullableString(value.orElse(null)));
-      // The repo mapping entries recorded while loading the repo rule definition are part of the
-      // predeclared inputs: they influence how labels in the rule's implementation resolve, so a
-      // change in them must invalidate the repo (and its repo contents cache entries).
       var repoMappingEntries =
           rule.getRuleClassObject().getRuleDefinitionEnvironmentRepoMappingEntries();
       var repoMappingCells =
