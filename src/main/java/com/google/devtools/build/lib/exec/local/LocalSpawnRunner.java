@@ -98,6 +98,7 @@ public class LocalSpawnRunner implements SpawnRunner {
   private final BinTools binTools;
 
   private final RunfilesTreeUpdater runfilesTreeUpdater;
+  private final boolean experimentalSpawnMeasuredMemoryMetrics;
 
   public LocalSpawnRunner(
       Path execRoot,
@@ -106,7 +107,8 @@ public class LocalSpawnRunner implements SpawnRunner {
       LocalEnvProvider localEnvProvider,
       BinTools binTools,
       ProcessWrapper processWrapper,
-      RunfilesTreeUpdater runfilesTreeUpdater) {
+      RunfilesTreeUpdater runfilesTreeUpdater,
+      boolean experimentalSpawnMeasuredMemoryMetrics) {
     this.execRoot = execRoot;
     this.processWrapper = processWrapper;
     this.localExecutionOptions = Preconditions.checkNotNull(localExecutionOptions);
@@ -115,6 +117,7 @@ public class LocalSpawnRunner implements SpawnRunner {
     this.localEnvProvider = localEnvProvider;
     this.binTools = binTools;
     this.runfilesTreeUpdater = runfilesTreeUpdater;
+    this.experimentalSpawnMeasuredMemoryMetrics = experimentalSpawnMeasuredMemoryMetrics;
   }
 
   @Override
@@ -464,6 +467,9 @@ public class LocalSpawnRunner implements SpawnRunner {
         }
         if (statisticsPath != null) {
           spawnResultBuilder.setResourceUsageFromProto(statisticsPath);
+          if (experimentalSpawnMeasuredMemoryMetrics) {
+            spawnResultBuilder.populateMeasuredMemoryInto(spawnMetrics);
+          }
         }
         spawnMetrics.setTotalTime(totalTimeStopwatch.elapsed());
         spawnResultBuilder.setSpawnMetrics(spawnMetrics.build());

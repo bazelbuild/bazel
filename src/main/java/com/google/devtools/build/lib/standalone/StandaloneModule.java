@@ -79,6 +79,8 @@ public class StandaloneModule extends BlazeModule {
   @Override
   public void registerSpawnStrategies(
       SpawnStrategyRegistry.Builder registryBuilder, CommandEnvironment env) {
+    ExecutionOptions executionOptions =
+        checkNotNull(env.getOptions().getOptions(ExecutionOptions.class));
     SpawnRunner localSpawnRunner =
         new LocalSpawnRunner(
             env.getExecRoot(),
@@ -87,10 +89,8 @@ public class StandaloneModule extends BlazeModule {
             LocalEnvProvider.forCurrentOs(env.getClientEnv()),
             env.getBlazeWorkspace().getBinTools(),
             ProcessWrapper.fromCommandEnvironment(env),
-            RunfilesTreeUpdater.forCommandEnvironment(env));
-
-    ExecutionOptions executionOptions =
-        checkNotNull(env.getOptions().getOptions(ExecutionOptions.class));
+            RunfilesTreeUpdater.forCommandEnvironment(env),
+            executionOptions.getExperimentalSpawnMeasuredMemoryMetrics());
     // Order of strategies passed to builder is significant - when there are many strategies that
     // could potentially be used and a spawnActionContext doesn't specify which one it wants, the
     // last one from strategies list will be used

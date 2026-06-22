@@ -170,6 +170,30 @@ public final class LinuxSandboxedSpawnRunnerTest extends SandboxedSpawnRunnerTes
   }
 
   @Test
+  public void exec_collectsMeasuredMemoryWhenFlagEnabled() throws Exception {
+    runtimeWrapper.addOptions("--experimental_spawn_measured_memory_metrics");
+    CommandEnvironment commandEnvironment = createCommandEnvironment();
+    LinuxSandboxedSpawnRunner runner = setupSandboxAndCreateRunner(commandEnvironment);
+    Path cpuTimeSpenderPath =
+        SpawnRunnerTestUtil.copyCpuTimeSpenderIntoPath(commandEnvironment.getExecRoot());
+    Spawn spawn =
+        new SpawnBuilder(
+                cpuTimeSpenderPath.getPathString(),
+                /* userSeconds= */ "10",
+                /* systemSeconds= */ "0")
+            .build();
+    SpawnExecutionContextForTesting policy = createSpawnExecutionContext(spawn);
+
+    SpawnResult spawnResult = runner.exec(spawn, policy);
+
+    assertThat(spawnResult.status()).isEqualTo(SpawnResult.Status.SUCCESS);
+    // linux-sandbox wait4 collects rusage for the sandbox init (pid1), not necessarily the
+    // action subprocess peak RSS. This test only verifies stats.out is wired to SpawnMetrics.
+    assertThat(spawnResult.getMemoryInKb()).isGreaterThan(0L);
+    assertThat(spawnResult.getMetrics().memoryBytes()).isGreaterThan(0L);
+  }
+
+  @Test
   public void hermeticTmp_tmpCreatedAndMounted() throws Exception {
     CommandEnvironment commandEnvironment = createCommandEnvironment();
     LinuxSandboxedSpawnRunner runner = setupSandboxAndCreateRunner(commandEnvironment);

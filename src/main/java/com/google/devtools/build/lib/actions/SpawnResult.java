@@ -319,7 +319,9 @@ public interface SpawnResult {
       this.spawnMetrics =
           builder.spawnMetrics != null
               ? builder.spawnMetrics
-              : SpawnMetrics.forLocalExecution(builder.wallTimeInMs);
+              : SpawnMetrics.forLocalExecution(
+                  builder.wallTimeInMs,
+                  builder.populateMeasuredMemoryInSpawnMetrics ? builder.memoryInKb : null);
       this.startTime = builder.startTime;
       this.wallTimeInMs = builder.wallTimeInMs;
       this.userTimeInMs = builder.userTimeInMs;
@@ -634,6 +636,7 @@ public interface SpawnResult {
 
     private boolean remote;
     private Digest digest;
+    private boolean populateMeasuredMemoryInSpawnMetrics;
 
     public SpawnResult build() {
       Preconditions.checkArgument(!runnerName.isEmpty());
@@ -709,6 +712,13 @@ public interface SpawnResult {
     }
 
     @CanIgnoreReturnValue
+    public Builder setPopulateMeasuredMemoryInSpawnMetrics(
+        boolean populateMeasuredMemoryInSpawnMetrics) {
+      this.populateMeasuredMemoryInSpawnMetrics = populateMeasuredMemoryInSpawnMetrics;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
     public Builder setStartTime(Instant startTime) {
       this.startTime = startTime;
       return this;
@@ -753,6 +763,19 @@ public interface SpawnResult {
     @CanIgnoreReturnValue
     public Builder setMemoryInKb(long memoryInKb) {
       this.memoryInKb = memoryInKb;
+      return this;
+    }
+
+    /**
+     * Copies measured memory from resource usage statistics into {@code spawnMetricsBuilder}.
+     *
+     * <p>No-op if memory usage was not recorded.
+     */
+    @CanIgnoreReturnValue
+    public Builder populateMeasuredMemoryInto(SpawnMetrics.Builder spawnMetricsBuilder) {
+      if (memoryInKb != null && memoryInKb > 0) {
+        spawnMetricsBuilder.setMemoryBytes(SpawnMetrics.memoryKbToBytes(memoryInKb));
+      }
       return this;
     }
 

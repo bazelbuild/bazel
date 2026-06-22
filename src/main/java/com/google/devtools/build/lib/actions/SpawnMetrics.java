@@ -25,6 +25,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import javax.annotation.Nullable;
 
 /** Timing, size, and memory statistics for a Spawn execution. */
 @SuppressWarnings("GoodTime") // Use ints instead of Durations to improve build time (cl/505728570)
@@ -45,6 +46,7 @@ public class SpawnMetrics {
     this.inputBytes = builder.inputBytes;
     this.inputFiles = builder.inputFiles;
     this.memoryEstimateBytes = builder.memoryEstimateBytes;
+    this.memoryBytes = builder.memoryBytes;
   }
 
   /** Indicates whether the metrics correspond to the remote, local or worker execution. */
@@ -85,15 +87,29 @@ public class SpawnMetrics {
   private final long inputBytes;
   private final long inputFiles;
   private final long memoryEstimateBytes;
+  private final long memoryBytes;
 
   /** Any non-important stats < than 10% will not be shown in the summary. */
   private static final double STATS_SHOW_THRESHOLD = 0.10;
 
   static SpawnMetrics forLocalExecution(int wallTimeInMs) {
+    return forLocalExecution(wallTimeInMs, /* memoryInKb= */ null);
+  }
+
+  static SpawnMetrics forLocalExecution(int wallTimeInMs, @Nullable Long memoryInKb) {
     return SpawnMetrics.Builder.forLocalExec()
         .setTotalTimeInMs(wallTimeInMs)
         .setExecutionWallTimeInMs(wallTimeInMs)
+        .setMemoryBytes(memoryKbToBytes(memoryInKb))
         .build();
+  }
+
+  /** Converts measured memory in KB to bytes, or returns 0 if unavailable. */
+  public static long memoryKbToBytes(@Nullable Long memoryInKb) {
+    if (memoryInKb == null || memoryInKb <= 0) {
+      return 0;
+    }
+    return memoryInKb * 1024L;
   }
 
   /**
@@ -121,7 +137,8 @@ public class SpawnMetrics {
     if (!summary) {
       stats.add("input files: " + inputFiles);
       stats.add("input bytes: " + inputBytes);
-      stats.add("memory bytes: " + memoryEstimateBytes);
+      stats.add("memory estimate bytes: " + memoryEstimateBytes);
+      stats.add("memory bytes: " + memoryBytes);
     }
     Joiner.on(", ").appendTo(sb, stats);
     sb.append("]");
@@ -271,6 +288,11 @@ public class SpawnMetrics {
     return memoryEstimateBytes;
   }
 
+  /** Actual measured peak memory usage in bytes or 0 if unavailable. */
+  public long memoryBytes() {
+    return memoryBytes;
+  }
+
   /** Limit of total size in bytes of inputs or 0 if unavailable. */
   public long inputBytesLimit() {
     return 0;
@@ -317,6 +339,7 @@ public class SpawnMetrics {
     private long inputBytes = 0;
     private long inputFiles = 0;
     private long memoryEstimateBytes = 0;
+    private long memoryBytes = 0;
     long inputBytesLimit = 0;
     long inputFilesLimit = 0;
     long outputBytesLimit = 0;
@@ -525,6 +548,12 @@ public class SpawnMetrics {
     }
 
     @CanIgnoreReturnValue
+    public Builder setMemoryBytes(long memoryBytes) {
+      this.memoryBytes = memoryBytes;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
     public Builder setInputBytesLimit(long inputBytesLimit) {
       this.inputBytesLimit = inputBytesLimit;
       return this;
@@ -582,6 +611,7 @@ public class SpawnMetrics {
       inputFiles += metric.inputFiles();
       inputBytes += metric.inputBytes();
       memoryEstimateBytes += metric.memoryEstimate();
+      memoryBytes += metric.memoryBytes();
       inputFilesLimit += metric.inputFilesLimit();
       inputBytesLimit += metric.inputBytesLimit();
       outputFilesLimit += metric.outputFilesLimit();
@@ -596,6 +626,7 @@ public class SpawnMetrics {
       inputFiles = Long.max(inputFiles, metric.inputFiles());
       inputBytes = Long.max(inputBytes, metric.inputBytes());
       memoryEstimateBytes = Long.max(memoryEstimateBytes, metric.memoryEstimate());
+      memoryBytes = Long.max(memoryBytes, metric.memoryBytes());
       inputFilesLimit = Long.max(inputFilesLimit, metric.inputFilesLimit());
       inputBytesLimit = Long.max(inputBytesLimit, metric.inputBytesLimit());
       outputFilesLimit = Long.max(outputFilesLimit, metric.outputFilesLimit());

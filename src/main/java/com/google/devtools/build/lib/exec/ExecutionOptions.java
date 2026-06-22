@@ -539,6 +539,18 @@ public abstract class ExecutionOptions extends OptionsBase {
   public abstract RegexFilter getExecutionLogMnemonicFilter();
 
   @Option(
+      name = "experimental_spawn_measured_memory_metrics",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help =
+          "If set, record measured peak memory (SpawnMetrics.memory_bytes) in spawn metrics and"
+              + " the execution log using execution statistics from process-wrapper or"
+              + " linux-sandbox (stats.out). Requires local or sandbox execution with statistics"
+              + " collection enabled. Remote and worker execution are not supported.")
+  public abstract boolean getExperimentalSpawnMeasuredMemoryMetrics();
+
+  @Option(
       // TODO: when this flag is moved to non-experimental, rename it to a more general name
       // to reflect the new logic - it's not only about cache evictions.
       name = "experimental_remote_cache_eviction_retries",

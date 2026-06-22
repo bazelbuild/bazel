@@ -262,6 +262,9 @@ public abstract class SpawnLogContext implements ActionContext {
     builder.setInputBytes(metrics.inputBytes());
     builder.setInputFiles(metrics.inputFiles());
     builder.setMemoryEstimateBytes(metrics.memoryEstimate());
+    if (metrics.memoryBytes() != 0) {
+      builder.setMemoryBytes(metrics.memoryBytes());
+    }
     builder.setInputBytesLimit(metrics.inputBytesLimit());
     builder.setInputFilesLimit(metrics.inputFilesLimit());
     builder.setOutputBytesLimit(metrics.outputBytesLimit());

@@ -74,6 +74,7 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
   private final SandboxOptions sandboxOptions;
   private final boolean verboseFailures;
   private final boolean expandParamFiles;
+  private final boolean experimentalSpawnMeasuredMemoryMetrics;
   private final ImmutableSet<Path> inaccessiblePaths;
   protected final BinTools binTools;
   private final Path execRoot;
@@ -82,10 +83,12 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
   protected final ImmutableMap<String, String> clientEnv;
 
   public AbstractSandboxSpawnRunner(CommandEnvironment cmdEnv) {
-    this.sandboxOptions = cmdEnv.getOptions().getOptions(SandboxOptions.class);
     ExecutionOptions executionOptions = cmdEnv.getOptions().getOptions(ExecutionOptions.class);
+    this.sandboxOptions = cmdEnv.getOptions().getOptions(SandboxOptions.class);
     this.verboseFailures = executionOptions.getVerboseFailures();
     this.expandParamFiles = executionOptions.getExpandParamFiles();
+    this.experimentalSpawnMeasuredMemoryMetrics =
+        executionOptions.getExperimentalSpawnMeasuredMemoryMetrics();
     this.inaccessiblePaths =
         sandboxOptions.getInaccessiblePaths(cmdEnv.getRuntime().getFileSystem());
     this.binTools = cmdEnv.getBlazeWorkspace().getBinTools();
@@ -325,6 +328,9 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
     Path statisticsPath = sandbox.getStatisticsPath();
     if (statisticsPath != null) {
       spawnResultBuilder.setResourceUsageFromProto(statisticsPath);
+      if (experimentalSpawnMeasuredMemoryMetrics) {
+        spawnResultBuilder.setPopulateMeasuredMemoryInSpawnMetrics(true);
+      }
     }
 
     return spawnResultBuilder.build();

@@ -112,7 +112,8 @@ public class LocalSpawnRunnerTest {
           localEnvProvider,
           /* binTools= */ null,
           processWrapper,
-          Mockito.mock(RunfilesTreeUpdater.class));
+          Mockito.mock(RunfilesTreeUpdater.class),
+          /* experimentalSpawnMeasuredMemoryMetrics= */ false);
     }
 
     // Rigged to act on supplied filesystem (e.g. InMemoryFileSystem) for testing purposes
@@ -617,7 +618,8 @@ public class LocalSpawnRunnerTest {
             LocalEnvProvider.forCurrentOs(ImmutableMap.of()),
             /* binTools= */ null,
             /* processWrapper= */ null,
-            Mockito.mock(RunfilesTreeUpdater.class));
+            Mockito.mock(RunfilesTreeUpdater.class),
+            /* experimentalSpawnMeasuredMemoryMetrics= */ false);
     FileOutErr fileOutErr =
         new FileOutErr(tempDir.getRelative("stdout"), tempDir.getRelative("stderr"));
 
@@ -887,7 +889,8 @@ public class LocalSpawnRunnerTest {
                 ActionInputHelper.fromPath(processWrapperPath.asFragment()),
                 /* killDelay= */ Duration.ZERO,
                 /* gracefulSigterm= */ false),
-            Mockito.mock(RunfilesTreeUpdater.class));
+            Mockito.mock(RunfilesTreeUpdater.class),
+            /* experimentalSpawnMeasuredMemoryMetrics= */ false);
 
     Spawn spawn =
         new SpawnBuilder(
@@ -916,6 +919,7 @@ public class LocalSpawnRunnerTest {
     assertThat(spawnResult.getNumBlockOutputOperations()).isAtLeast(0L);
     assertThat(spawnResult.getNumBlockInputOperations()).isAtLeast(0L);
     assertThat(spawnResult.getNumInvoluntaryContextSwitches()).isAtLeast(0L);
+    assertThat(spawnResult.getMetrics().memoryBytes()).isEqualTo(0);
   }
 
   // Check that relative paths in the Spawn are absolutized relative to the execroot passed to the

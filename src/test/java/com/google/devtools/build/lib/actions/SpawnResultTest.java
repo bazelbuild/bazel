@@ -63,6 +63,57 @@ public final class SpawnResultTest {
   }
 
   @Test
+  public void defaultSpawnMetricsOmitsMemoryWhenNotEnabled() {
+    SpawnResult result =
+        new SpawnResult.Builder()
+            .setStatus(Status.SUCCESS)
+            .setExitCode(0)
+            .setRunnerName("linux-sandbox")
+            .setWallTimeInMs(5089)
+            .setMemoryInKb(346692)
+            .build();
+
+    assertThat(result.getMemoryInKb()).isEqualTo(346692);
+    assertThat(result.getMetrics().memoryBytes()).isEqualTo(0);
+  }
+
+  @Test
+  public void defaultSpawnMetricsIncludesMemoryFromResourceUsageWhenEnabled() {
+    SpawnResult result =
+        new SpawnResult.Builder()
+            .setStatus(Status.SUCCESS)
+            .setExitCode(0)
+            .setRunnerName("linux-sandbox")
+            .setWallTimeInMs(5089)
+            .setMemoryInKb(346692)
+            .setPopulateMeasuredMemoryInSpawnMetrics(true)
+            .build();
+
+    assertThat(result.getMemoryInKb()).isEqualTo(346692);
+    assertThat(result.getMetrics().memoryBytes()).isEqualTo(346692L * 1024L);
+  }
+
+  @Test
+  public void explicitSpawnMetricsOverridesDefaultMemoryPopulation() {
+    SpawnResult result =
+        new SpawnResult.Builder()
+            .setStatus(Status.SUCCESS)
+            .setExitCode(0)
+            .setRunnerName("local")
+            .setWallTimeInMs(100)
+            .setMemoryInKb(346692)
+            .setSpawnMetrics(
+                SpawnMetrics.Builder.forLocalExec()
+                    .setTotalTimeInMs(100)
+                    .setExecutionWallTimeInMs(100)
+                    .setMemoryBytes(123)
+                    .build())
+            .build();
+
+    assertThat(result.getMetrics().memoryBytes()).isEqualTo(123);
+  }
+
+  @Test
   public void inMemoryContents() {
     ActionInput output = ActionInputHelper.fromPath("/foo/bar");
     ByteString contents = ByteString.copyFromUtf8("hello world");
