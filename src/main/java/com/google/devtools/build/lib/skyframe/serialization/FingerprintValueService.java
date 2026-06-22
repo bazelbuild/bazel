@@ -141,6 +141,10 @@ public final class FingerprintValueService implements KeyValueWriter {
     store.shutdown();
   }
 
+  public Fingerprinter getFingerprinter() {
+    return fingerprinter;
+  }
+
   /** Delegates to {@link FingerprintValueStore#put}. */
   @Override
   public WriteStatus put(KeyBytesProvider fingerprint, byte[] serializedBytes) {

@@ -309,7 +309,8 @@ public final class NestedSet<E> {
    * Returns the internal item or array. If the internal item is a deserialization future, blocks on
    * completion. For use only by NestedSetVisitor.
    */
-  Object getChildren() {
+  @VisibleForTesting
+  public Object getChildren() {
     return getChildrenUninterruptibly();
   }
 

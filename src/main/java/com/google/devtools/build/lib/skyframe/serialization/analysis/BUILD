@@ -62,6 +62,24 @@ java_library(
 )
 
 java_library(
+    name = "graph_dumper",
+    srcs = [
+        "GraphDumper.java",
+    ],
+    deps = [
+        ":file_dependency_deserializer",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:fingerprint_value_store",
+        "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//src/main/protobuf:file_invalidation_data_java_proto",
+        "//third_party:guava",
+        "//third_party:jsr305",
+        "@com_google_protobuf//:protobuf_java",
+    ],
+)
+
+java_library(
     name = "frontier_serializer",
     srcs = [
         "FrontierSerializer.java",
