@@ -486,7 +486,7 @@ public final class CppConfiguration extends Fragment
   @StarlarkMethod(name = "legacy_whole_archive", documented = false, useStarlarkThread = true)
   public boolean legacyWholeArchiveForStarlark(StarlarkThread thread) throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return cppOptions.getLegacyWholeArchive();
+    return true;
   }
 
   @StarlarkMethod(
@@ -495,7 +495,7 @@ public final class CppConfiguration extends Fragment
       useStarlarkThread = true)
   public boolean removeLegacyWholeArchiveForStarlark(StarlarkThread thread) throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return cppOptions.getRemoveLegacyWholeArchive();
+    return true;
   }
 
   public boolean getInmemoryDotdFiles() {

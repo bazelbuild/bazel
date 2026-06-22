@@ -589,6 +589,26 @@ public final class BazelRulesModule extends BlazeModule {
         help = "Deprecated no-op.")
     public abstract boolean getDisableLegacyCcProvider();
 
+    @Deprecated
+    @Option(
+        name = "legacy_whole_archive",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.DEPRECATED},
+        help = "Deprecated no-op.")
+    public abstract boolean getLegacyWholeArchive();
+
+    @Deprecated
+    @Option(
+        name = "incompatible_remove_legacy_whole_archive",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE, OptionMetadataTag.DEPRECATED},
+        help = "Deprecated no-op.")
+    public abstract boolean getRemoveLegacyWholeArchive();
+
     @Option(
         name = "python_path",
         defaultValue = "",

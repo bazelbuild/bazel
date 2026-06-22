@@ -207,7 +207,7 @@ toolchain(name = "toolchain", toolchain = ":cc_toolchain", toolchain_type = '\
   }
 
   @Test
-  public void testLegacyWholeArchiveHasNoEffectOnDynamicModeDynamicLibraries() throws Exception {
+  public void testDynamicModeDynamicLibrariesDoNotUseWholeArchive() throws Exception {
     getAnalysisMock()
         .ccSupport()
         .setupCcToolchainConfig(
@@ -224,7 +224,6 @@ toolchain(name = "toolchain", toolchain = ":cc_toolchain", toolchain_type = '\
             linkstatic = 0,
         )
         """);
-    useConfiguration("--legacy_whole_archive");
     assertThat(getLibfooArguments()).doesNotContain("-Wl,-whole-archive");
   }
 
