@@ -80,6 +80,7 @@ import com.google.devtools.build.lib.actions.SpawnActionExecutionException;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.StoppedScanningActionEvent;
 import com.google.devtools.build.lib.actions.ThreadStateReceiver;
+import com.google.devtools.build.lib.actions.cache.ActionCache;
 import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.bugreport.BugReport;
@@ -739,6 +740,7 @@ public final class SkyframeActionExecutor {
       ArtifactPathResolver artifactPathResolver,
       long actionStartTime,
       List<Artifact> resolvedCacheArtifacts,
+      @Nullable byte[] mandatoryInputsDigest,
       Map<String, String> clientEnv)
       throws ActionExecutionException, InterruptedException {
     Token token;
@@ -765,6 +767,7 @@ public final class SkyframeActionExecutor {
           actionCacheChecker.getTokenIfNeedToExecute(
               action,
               resolvedCacheArtifacts,
+              mandatoryInputsDigest,
               clientEnv,
               getOutputPermissions(),
               handler,
@@ -807,6 +810,7 @@ public final class SkyframeActionExecutor {
                 actionCacheChecker.getTokenUnconditionallyAfterFailureToRecordActionCacheHit(
                     action,
                     resolvedCacheArtifacts,
+                    mandatoryInputsDigest,
                     clientEnv,
                     getOutputPermissions(),
                     handler,
@@ -845,6 +849,7 @@ public final class SkyframeActionExecutor {
       InputMetadataProvider inputMetadataProvider,
       OutputMetadataStore outputMetadataStore,
       Token token,
+      @Nullable byte[] mandatoryInputsDigest,
       Map<String, String> clientEnv)
       throws ActionExecutionException, InterruptedException {
     if (!actionCacheChecker.enabled()) {
@@ -855,6 +860,7 @@ public final class SkyframeActionExecutor {
       actionCacheChecker.updateActionCache(
           action,
           token,
+          mandatoryInputsDigest,
           inputMetadataProvider,
           outputMetadataStore,
           clientEnv,
@@ -870,6 +876,11 @@ public final class SkyframeActionExecutor {
               + ", but all outputs should already have been checked",
           e);
     }
+  }
+
+  @Nullable
+  ActionCache.Entry getActionCacheEntry(Action action) {
+    return actionCacheChecker.getUsableCacheEntry(action);
   }
 
   @Nullable
