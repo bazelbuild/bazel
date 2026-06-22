@@ -227,7 +227,7 @@ public class BlazeRuntimeTest {
                 new BlazeModule() {
                   @Override
                   public void initializeRuleClasses(ConfiguredRuleClassProvider.Builder builder) {
-                    builder.setRunfilesPrefix("__main__");
+                    builder.setRunfilesPrefix("_main");
                   }
                 }),
             ImmutableList.of());
