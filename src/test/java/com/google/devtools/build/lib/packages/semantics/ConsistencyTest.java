@@ -142,7 +142,6 @@ public class ConsistencyTest {
         "--force_starlark_stack_trace=" + rand.nextBoolean(),
         "--incompatible_always_check_depset_elements=" + rand.nextBoolean(),
         "--incompatible_disallow_empty_glob=" + rand.nextBoolean(),
-        "--incompatible_do_not_split_linking_cmdline=" + rand.nextBoolean(),
         "--incompatible_enable_deprecated_label_apis=" + rand.nextBoolean(),
         "--incompatible_enforce_starlark_utf8="
             + BuildLanguageOptions.Utf8EnforcementMode.values()[
@@ -188,7 +187,6 @@ public class ConsistencyTest {
         .setBool(StarlarkSemantics.FORCE_STARLARK_STACK_TRACE, rand.nextBoolean())
         .setBool(BuildLanguageOptions.INCOMPATIBLE_ALWAYS_CHECK_DEPSET_ELEMENTS, rand.nextBoolean())
         .setBool(BuildLanguageOptions.INCOMPATIBLE_DISALLOW_EMPTY_GLOB, rand.nextBoolean())
-        .setBool(BuildLanguageOptions.INCOMPATIBLE_DO_NOT_SPLIT_LINKING_CMDLINE, rand.nextBoolean())
         .setBool(BuildLanguageOptions.INCOMPATIBLE_ENABLE_DEPRECATED_LABEL_APIS, rand.nextBoolean())
         .set(
             BuildLanguageOptions.INCOMPATIBLE_ENFORCE_STARLARK_UTF8,
