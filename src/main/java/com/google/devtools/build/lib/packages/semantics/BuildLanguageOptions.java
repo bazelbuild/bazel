@@ -284,20 +284,6 @@ public abstract class BuildLanguageOptions extends OptionsBase {
   public abstract boolean getExperimentalRepoRemoteExec();
 
   @Option(
-      name = "experimental_disable_external_package",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.LOSES_INCREMENTAL_STATE},
-      metadataTags = {
-        OptionMetadataTag.EXPERIMENTAL,
-      },
-      help =
-          "If set to true, the auto-generated //external package will not be available anymore. "
-              + "Bazel will still be unable to parse the file 'external/BUILD', but globs reaching "
-              + "into external/ from the unnamed package will work.")
-  public abstract boolean getExperimentalDisableExternalPackage();
-
-  @Option(
       name = "experimental_sibling_repository_layout",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -868,7 +854,6 @@ public abstract class BuildLanguageOptions extends OptionsBase {
             .setBool(EXPERIMENTAL_PLATFORMS_API, getExperimentalPlatformsApi())
             .setBool(EXPERIMENTAL_CC_SHARED_LIBRARY, getExperimentalCcSharedLibrary())
             .setBool(EXPERIMENTAL_REPO_REMOTE_EXEC, getExperimentalRepoRemoteExec())
-            .setBool(EXPERIMENTAL_DISABLE_EXTERNAL_PACKAGE, getExperimentalDisableExternalPackage())
             .setBool(
                 EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT, getExperimentalSiblingRepositoryLayout())
             .setBool(
@@ -1047,8 +1032,6 @@ public abstract class BuildLanguageOptions extends OptionsBase {
   public static final String ALLOW_EXPERIMENTAL_LOADS = "-allow_experimental_loads";
   public static final String CHECK_BZL_VISIBILITY = "+check_bzl_visibility";
   public static final String EXPERIMENTAL_CC_SHARED_LIBRARY = "-experimental_cc_shared_library";
-  public static final String EXPERIMENTAL_DISABLE_EXTERNAL_PACKAGE =
-      "-experimental_disable_external_package";
   public static final String EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS =
       "-experimental_enable_android_migration_apis";
   public static final String EXPERIMENTAL_SINGLE_PACKAGE_TOOLCHAIN_BINDING =
