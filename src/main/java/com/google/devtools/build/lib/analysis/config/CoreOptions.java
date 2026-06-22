@@ -153,6 +153,7 @@ public abstract class CoreOptions extends FragmentOptions implements Cloneable {
           """)
   public abstract boolean getExcludeDefinesFromExecConfig();
 
+  // Remove after Bazel 10 is cut: https://github.com/bazelbuild/bazel/issues/26909
   @Option(
       name = "incompatible_exclude_starlark_flags_from_exec_config",
       oldName = "experimental_exclude_starlark_flags_from_exec_config",
