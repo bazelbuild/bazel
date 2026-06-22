@@ -16,13 +16,6 @@
 
 set -eu
 
-# Use the hermetic C++ toolchain provided by the "llvm" module for the child
-# Bazel instances spawned by this test, so that coverage is exercised against
-# the hermetic clang/llvm-cov/llvm-profdata rather than the host tools.
-# --extra_toolchains takes precedence over the autodetected local_config_cc
-# toolchain. @@llvm+ is the canonical repository name of the "llvm" module.
-EXTRA_BAZELRC="build --extra_toolchains=@@llvm+//toolchain:all"
-
 # Load the test setup defined in the parent directory
 CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${CURRENT_DIR}/../integration_test_setup.sh" \
@@ -41,8 +34,8 @@ function set_up() {
 }
 
 # Configures Bazel to emit coverage in LLVM lcov format. The hermetic LLVM
-# toolchain (selected via --extra_toolchains above) provides clang, llvm-cov and
-# llvm-profdata, so no host tools need to be located here.
+# toolchain (registered for all integration tests in testenv.sh) provides clang,
+# llvm-cov and llvm-profdata, so no host tools need to be located here.
 function setup_llvm_coverage_tools_for_lcov() {
   add_to_bazelrc "common --experimental_generate_llvm_lcov"
 }

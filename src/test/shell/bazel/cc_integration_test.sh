@@ -18,14 +18,6 @@
 
 set -eu
 
-# Make the child Bazel instances spawned by this test use the hermetic C++
-# toolchain provided by the "llvm" module (a bazel_dep of the embedded
-# bazel_tools) instead of the autodetected host toolchain (local_config_cc).
-# --extra_toolchains has the highest precedence during toolchain resolution, so
-# it reliably wins over the local_config_cc toolchain that rules_cc registers.
-# @@llvm+ is the canonical repository name of the "llvm" module.
-EXTRA_BAZELRC="build --extra_toolchains=@@llvm+//toolchain:all"
-
 # Load the test setup defined in the parent directory
 CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${CURRENT_DIR}/../integration_test_setup.sh" \

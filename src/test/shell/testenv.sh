@@ -304,6 +304,13 @@ build --incompatible_use_toolchain_resolution_for_java_rules
 build --java_runtime_version=21
 build --tool_java_runtime_version=21
 
+# Use the hermetic C++ toolchain from the "llvm" module (a transitive dep of the
+# embedded bazel_tools, so it's always in the module graph) for all integration
+# tests, in place of the autodetected local_config_cc toolchain.
+# --extra_toolchains has the highest precedence during toolchain resolution.
+# @@llvm+ is the canonical repository name of the "llvm" module.
+build --extra_toolchains=@@llvm+//toolchain:all
+
 ${EXTRA_BAZELRC:-}
 EOF
 
