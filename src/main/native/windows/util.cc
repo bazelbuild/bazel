@@ -315,10 +315,11 @@ wstring AsExecutablePathForCreateProcess(wstring path, wstring* quoted_path,
   // that limit from the executable part of CreateProcessW's lpCommandLine too.
   // This works only for a plain executable with an absolute, normalized path.
   if (!IsBatchFile(path)) {
-    std::replace(path.begin(), path.end(), L'/', L'\\');
-    if (IsAbsoluteNormalizedWindowsPath(path)) {
-      QuotePath(path, quoted_path);
-      *extended_path = wstring(L"\\\\?\\") + path;
+    wstring native_path = path;
+    std::replace(native_path.begin(), native_path.end(), L'/', L'\\');
+    if (IsAbsoluteNormalizedWindowsPath(native_path)) {
+      QuotePath(native_path, quoted_path);
+      *extended_path = wstring(L"\\\\?\\") + native_path;
       return L"";
     }
   }
