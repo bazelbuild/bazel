@@ -174,14 +174,6 @@ public abstract class BuildLanguageOptions extends OptionsBase {
   public abstract List<String> getExperimentalCcStarlarkApiEnabledPackages();
 
   @Option(
-      name = "experimental_enable_android_migration_apis",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = OptionEffectTag.BUILD_FILE_SEMANTICS,
-      help = "If set to true, enables the APIs required to support the Android Starlark migration.")
-  public abstract boolean getExperimentalEnableAndroidMigrationApis();
-
-  @Option(
       name = "experimental_enable_first_class_macros",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -853,9 +845,6 @@ public abstract class BuildLanguageOptions extends OptionsBase {
             .setBool(ALLOW_EXPERIMENTAL_LOADS, getAllowExperimentalLoads())
             .setBool(CHECK_BZL_VISIBILITY, getCheckBzlVisibility())
             .setBool(
-                EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS,
-                getExperimentalEnableAndroidMigrationApis())
-            .setBool(
                 EXPERIMENTAL_SINGLE_PACKAGE_TOOLCHAIN_BINDING,
                 getExperimentalSinglePackageToolchainBinding())
             .setBool(
@@ -1049,8 +1038,6 @@ public abstract class BuildLanguageOptions extends OptionsBase {
   public static final String EXPERIMENTAL_CC_SHARED_LIBRARY = "-experimental_cc_shared_library";
   public static final String EXPERIMENTAL_DISABLE_EXTERNAL_PACKAGE =
       "-experimental_disable_external_package";
-  public static final String EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS =
-      "-experimental_enable_android_migration_apis";
   public static final String EXPERIMENTAL_SINGLE_PACKAGE_TOOLCHAIN_BINDING =
       "-experimental_single_package_toolchain_binding";
   public static final String EXPERIMENTAL_ENABLE_FIRST_CLASS_MACROS =
