@@ -652,18 +652,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
         help = "Tracking flag for when multiplexed dexing and desugaring workers are enabled.")
     public abstract boolean getPersistentMultiplexDexDesugar();
 
-    @Option(
-        name = "experimental_remove_r_classes_from_instrumentation_test_jar",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {
-          OptionEffectTag.CHANGES_INPUTS,
-        },
-        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-        help =
-            "If enabled and the test instruments an application, all the R classes from the test's "
-                + "deploy jar will be removed.")
-    public abstract boolean getRemoveRClassesFromInstrumentationTestJar();
 
     @Option(
         name = "legacy_main_dex_list_generator",
@@ -733,7 +721,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   private final boolean persistentMultiplexBusyboxTools;
   private final boolean persistentDexDesugar;
   private final boolean persistentMultiplexDexDesugar;
-  private final boolean removeRClassesFromInstrumentationTestJar;
   private final Label legacyMainDexListGenerator;
   private final Label optimizingDexer;
   private final boolean getJavaResourcesFromOptimizedJar;
@@ -767,8 +754,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     this.persistentMultiplexBusyboxTools = options.getPersistentMultiplexBusyboxTools();
     this.persistentDexDesugar = options.getPersistentDexDesugar();
     this.persistentMultiplexDexDesugar = options.getPersistentMultiplexDexDesugar();
-    this.removeRClassesFromInstrumentationTestJar =
-        options.getRemoveRClassesFromInstrumentationTestJar();
     this.legacyMainDexListGenerator = options.getLegacyMainDexListGenerator();
     this.optimizingDexer = options.getOptimizingDexer();
     this.getJavaResourcesFromOptimizedJar = options.getJavaResourcesFromOptimizedJar();
@@ -925,10 +910,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     if (configurationDistinguisher.suffix != null) {
       ctx.addToMnemonic(configurationDistinguisher.suffix);
     }
-  }
-
-  public boolean removeRClassesFromInstrumentationTestJar() {
-    return removeRClassesFromInstrumentationTestJar;
   }
 
   @Override
