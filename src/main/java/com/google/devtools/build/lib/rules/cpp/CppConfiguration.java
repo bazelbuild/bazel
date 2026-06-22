@@ -792,17 +792,13 @@ public final class CppConfiguration extends Fragment
     return cppOptions.getSaveFeatureState();
   }
 
-  public boolean useSpecificToolFiles() {
-    return cppOptions.getUseSpecificToolFiles();
-  }
-
   @StarlarkMethod(
       name = "incompatible_use_specific_tool_files",
       documented = false,
       useStarlarkThread = true)
   public boolean useSpecificToolFilesForStarlark(StarlarkThread thread) throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return cppOptions.getUseSpecificToolFiles();
+    return true;
   }
 
   public boolean disableNoCopts() {
