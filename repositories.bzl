@@ -63,7 +63,6 @@ DIST_ARCHIVE_REPOS = [
     "xds+",
     "zlib+",
     "zstd-jni+",
-    "bazel_lib++toolchains+bats_toolchains",
 ] + [get_canonical_repo_name(repo) for repo in [
     # Module extension repos
     "async_profiler",

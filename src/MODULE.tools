@@ -36,10 +36,11 @@ use_repo(buildozer_binary, "buildozer_binary")
 # TODO: because autoloads are removed, these dependencies are no longer needed.
 bazel_dep(name = "protobuf", version = "33.4", repo_name = "com_google_protobuf")
 bazel_dep(name = "rules_java", version = "9.5.0")
+# Provides a hermetic C++ toolchain at @@llvm+//toolchain:all. It is not
+# registered here so that it doesn't change the default toolchain resolution for
+# integration tests in general; cc_integration_test opts into it explicitly via
+# --extra_toolchains.
 bazel_dep(name = "llvm", version = "0.8.9")
-
-register_toolchains("@llvm//toolchain:all")
-
 bazel_dep(name = "rules_cc", version = "0.2.17")
 bazel_dep(name = "rules_python", version = "1.7.0")
 bazel_dep(name = "rules_shell", version = "0.6.1")
