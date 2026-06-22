@@ -56,6 +56,7 @@ import com.google.devtools.build.lib.view.proto.Deps;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Stream;
@@ -514,7 +515,7 @@ public final class JavaHeaderCompileAction extends SpawnAction {
 
       commandLine.add("--javacopts");
       if (!javacOpts.isEmpty()) {
-        commandLine.addObject(javacOpts);
+        commandLine.addObject(filterJavacoptsForTurbine(javacOpts));
       }
       // See b/31371210, b/142059842, and b/464431616.
       commandLine.add("-Aexperimental_turbine_hjar");
@@ -675,5 +676,88 @@ public final class JavaHeaderCompileAction extends SpawnAction {
         return PROGRESS_MESSAGE_PREFIX;
       }
     }
+  }
+
+  private static final ImmutableSet<String> TURBINE_USED_FLAGS =
+      ImmutableSet.of("-source", "--source", "-target", "--target", "--release", "-proc:none");
+
+  // Set of standard javac options that take exactly 1 argument.
+  // This is used to correctly skip arguments of options not used by Turbine.
+  //
+  // This can be best-effort, it's unusual that a flag argument would look like a flag, this is
+  // defending against things like an output directory named `--release`.
+  private static final ImmutableSet<String> ONE_ARG_FLAGS =
+      ImmutableSet.of(
+          "-source",
+          "--source",
+          "-target",
+          "--target",
+          "--release",
+          "-d",
+          "-s",
+          "-h",
+          "-encoding",
+          "-cp",
+          "-classpath",
+          "--class-path",
+          "-bootclasspath",
+          "--boot-class-path",
+          "-processor",
+          "-processorpath",
+          "--processor-path",
+          "-profile",
+          "--limit-modules",
+          "--add-modules",
+          "--module-path",
+          "-p",
+          "--upgrade-module-path",
+          "--system",
+          "--module-source-path",
+          "--module-version",
+          "--processor-module-path",
+          "--add-exports",
+          "--add-reads",
+          "--patch-module",
+          "-Xmaxerrs",
+          "-Xmaxwarns",
+          "-Xstdout",
+          "-Xplugin",
+          "-Xprefer",
+          "-Xdiags",
+          "-Xpkginfo",
+          "-extdirs",
+          "-endorseddirs");
+
+  public static ImmutableList<String> filterJavacoptsForTurbine(ImmutableList<String> javacopts) {
+    ImmutableList.Builder<String> result = ImmutableList.builder();
+    Iterator<String> it = javacopts.iterator();
+    while (it.hasNext()) {
+      String opt = it.next();
+      if (ONE_ARG_FLAGS.contains(opt)) {
+        if (it.hasNext()) {
+          String val = it.next();
+          if (TURBINE_USED_FLAGS.contains(opt)) {
+            result.add(opt).add(val);
+          }
+        } else {
+          if (TURBINE_USED_FLAGS.contains(opt)) {
+            result.add(opt);
+          }
+        }
+      } else if (opt.startsWith("--release=")
+          || opt.startsWith("--source=")
+          || opt.startsWith("--target=")) {
+        result.add(opt);
+      } else if (opt.startsWith("-A")) {
+        result.add(opt);
+      } else if (opt.startsWith("-XD")) {
+        if (opt.equals("-XDnoParallel") || opt.startsWith("-XDturbine")) {
+          result.add(opt);
+        }
+      } else if (opt.equals("-proc:none")) {
+        result.add(opt);
+      }
+    }
+    return result.build();
   }
 }
