@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.analysis.config.BuildOptions.MapBackedChecksumCache;
 import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsChecksumCache;
+import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
 import com.google.devtools.build.lib.analysis.util.ConfigurationTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -471,7 +472,7 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
         string_flag = rule(
             implementation = lambda ctx: [],
             build_setting = config.string(flag = True),
-            attrs = {"scope": attr.string(values = ["target", "universal"])},
+            attrs = {"scope": attr.string(values = ["target", "universal", "project"])},
         )
         """);
     scratch.file(
@@ -492,30 +493,54 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
             build_setting_default = "default",
             scope = "universal",
         )
+        string_flag(
+            name = "project_scope",
+            build_setting_default = "default",
+            scope = "project",
+        )
         """);
 
-    BuildConfigurationValue execConfig =
-        createExec(
+    BuildOptions targetOptions =
+        parseBuildOptions(
             ImmutableMap.of(
                 "//test:default_scope",
                 "custom",
                 "//test:target_scope",
                 "custom",
                 "//test:universal_scope",
+                "custom",
+                "//test:project_scope",
                 "custom"),
             "--experimental_exclude_starlark_flags_from_exec_config="
                 + (propagateByDefault ? "false" : "true"));
 
+    BuildOptions execOptions =
+        AnalysisTestUtil.execOptions(targetOptions, skyframeExecutor, reporter);
+
     if (propagateByDefault) {
-      assertThat(execConfig.getOptions().getStarlarkOptions())
+      assertThat(execOptions.getStarlarkOptions())
           .containsExactly(
-              Label.parseCanonicalUnchecked("//test:universal_scope"),
+              Label.parseCanonicalUnchecked(
+                  "//test:universal_scope"), // Universal survives all transitions, of course.
+              "custom",
+              Label.parseCanonicalUnchecked(
+                  "//test:project_scope"), // This is just asserting that project scope survives the
+              // exec transition.  If we had changed project scope,
+              // this flag wouldn't be present.
               "custom",
               Label.parseCanonicalUnchecked("//test:default_scope"),
               "custom");
     } else {
-      assertThat(execConfig.getOptions().getStarlarkOptions())
-          .containsExactly(Label.parseCanonicalUnchecked("//test:universal_scope"), "custom");
+      assertThat(execOptions.getStarlarkOptions())
+          .containsExactly(
+              Label.parseCanonicalUnchecked(
+                  "//test:universal_scope"), // Universal survives all transitions, of course.
+              "custom",
+              Label.parseCanonicalUnchecked(
+                  "//test:project_scope"), // This is just asserting that project scope survives the
+              // exec transition.  If we had changed project scope,
+              // this flag wouldn't be present.
+              "custom");
     }
   }
 
@@ -528,7 +553,7 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
         string_flag = rule(
             implementation = lambda ctx: [],
             build_setting = config.string(flag = True),
-            attrs = {"scope": attr.string(values = ["target", "universal"])},
+            attrs = {"scope": attr.string(values = ["target", "universal", "project"])},
         )
         """);
     scratch.file(
