@@ -472,7 +472,7 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
         string_flag = rule(
             implementation = lambda ctx: [],
             build_setting = config.string(flag = True),
-            attrs = {"scope": attr.string(values = ["target", "universal"])},
+            attrs = {"scope": attr.string(values = ["target", "universal", "project"])},
         )
         """);
     scratch.file(
@@ -553,7 +553,7 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
         string_flag = rule(
             implementation = lambda ctx: [],
             build_setting = config.string(flag = True),
-            attrs = {"scope": attr.string(values = ["target", "universal"])},
+            attrs = {"scope": attr.string(values = ["target", "universal", "project"])},
         )
         """);
     scratch.file(
