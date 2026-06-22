@@ -119,8 +119,8 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
       builder.setRuleDefinitionEnvironmentLabelAndDigest(
           moduleContext.label(), moduleContext.bzlTransitiveDigest());
     }
-    Label.RepoMappingRecorder repoMappingRecorder =
-        thread.getThreadLocal(Label.RepoMappingRecorder.class);
+    Label.SimpleRepoMappingRecorder repoMappingRecorder =
+        (Label.SimpleRepoMappingRecorder) thread.getThreadLocal(Label.RepoMappingRecorder.class);
     if (repoMappingRecorder != null) {
       builder.setRuleDefinitionEnvironmentRepoMappingEntries(repoMappingRecorder.recordedEntries());
     }

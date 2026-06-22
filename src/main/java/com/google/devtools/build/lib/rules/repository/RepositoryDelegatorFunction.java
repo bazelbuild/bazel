@@ -18,11 +18,11 @@ package com.google.devtools.build.lib.rules.repository;
 import static com.google.devtools.build.lib.skyframe.RepositoryMappingFunction.REPOSITORY_OVERRIDES;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Table;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleValue;
@@ -64,7 +64,7 @@ import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
 import java.util.Map;
 import java.util.Optional;
-import java.util.TreeMap;
+import java.util.LinkedHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
@@ -671,41 +671,6 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
         source, /* isFetchingDelayed= */ false, /* excludeFromVendoring= */ true);
   }
 
-  // Escape a value for the marker file
-  @VisibleForTesting
-  static String escape(String str) {
-    return str == null ? "\\0" : str.replace("\\", "\\\\").replace("\n", "\\n").replace(" ", "\\s");
-  }
-
-  // Unescape a value from the marker file
-  @Nullable
-  @VisibleForTesting
-  static String unescape(String str) {
-    if (str.equals("\\0")) {
-      return null; // \0 == null string
-    }
-    StringBuilder result = new StringBuilder();
-    boolean escaped = false;
-    for (int i = 0; i < str.length(); i++) {
-      char c = str.charAt(i);
-      if (escaped) {
-        if (c == 'n') { // n means new line
-          result.append("\n");
-        } else if (c == 's') { // s means space
-          result.append(" ");
-        } else { // Any other escaped characters are just un-escaped
-          result.append(c);
-        }
-        escaped = false;
-      } else if (c == '\\') {
-        escaped = true;
-      } else {
-        result.append(c);
-      }
-    }
-    return result.toString();
-  }
-
   private static class DigestWriter {
     // Input value map to force repo invalidation upon an invalid marker file.
     private static final ImmutableMap<RepoRecordedInput, String> PARSE_FAILURE =
@@ -746,10 +711,10 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
       StringBuilder builder = new StringBuilder();
       builder.append(predeclaredInputHash).append("\n");
       for (Map.Entry<RepoRecordedInput, String> recordedInput :
-          new TreeMap<RepoRecordedInput, String>(recordedInputValues).entrySet()) {
-        String key = recordedInput.getKey().toString();
-        String value = recordedInput.getValue();
-        builder.append(escape(key)).append(" ").append(escape(value)).append("\n");
+          new LinkedHashMap<RepoRecordedInput, String>(recordedInputValues).entrySet()) {
+        builder
+            .append(new RepoRecordedInput.WithValue(recordedInput.getKey(), recordedInput.getValue()))
+            .append("\n");
       }
       String content = builder.toString();
       try {
@@ -827,15 +792,13 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
                 "");
           }
           firstLineVerified = true;
-          recordedInputValues = new TreeMap<>();
+          recordedInputValues = new LinkedHashMap<>();
         } else {
-          int sChar = line.indexOf(' ');
-          if (sChar > 0) {
-            RepoRecordedInput input = RepoRecordedInput.parse(unescape(line.substring(0, sChar)));
-            if (!input.equals(NeverUpToDateRepoRecordedInput.PARSE_FAILURE)) {
-              recordedInputValues.put(input, unescape(line.substring(sChar + 1)));
-              continue;
-            }
+          Optional<RepoRecordedInput.WithValue> withValue =
+              RepoRecordedInput.WithValue.parse(line);
+          if (withValue.isPresent()) {
+            recordedInputValues.put(withValue.get().input(), withValue.get().value());
+            continue;
           }
           // On parse failure, just forget everything else and mark the whole input out of date.
           return PARSE_FAILURE;
@@ -868,6 +831,17 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
               .addInt(environ.size());
       environ.forEach(
           (key, value) -> fp.addString(key.toString()).addNullableString(value.orElse(null)));
+      var repoMappingEntries =
+          rule.getRuleClassObject().getRuleDefinitionEnvironmentRepoMappingEntries();
+      var repoMappingCells =
+          repoMappingEntries == null ? ImmutableSet.<Table.Cell<RepositoryName, String, RepositoryName>>of() : repoMappingEntries.cellSet();
+      fp.addInt(repoMappingCells.size());
+      repoMappingCells.forEach(
+          entry -> {
+            fp.addString(entry.getRowKey().getName());
+            fp.addString(entry.getColumnKey());
+            fp.addString(entry.getValue().getName());
+          });
       return fp.hexDigestAndReset();
     }
 

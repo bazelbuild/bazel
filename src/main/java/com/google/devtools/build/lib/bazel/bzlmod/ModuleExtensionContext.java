@@ -15,15 +15,19 @@
 package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableTable;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkBaseExternalContext;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.rules.repository.RepoRecordedInput;
 import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import java.util.Map;
+import java.util.Optional;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
@@ -65,7 +69,9 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
       ModuleExtensionId extensionId,
       StarlarkList<StarlarkBazelModule> modules,
       Facts facts,
-      boolean rootModuleHasNonDevDependency) {
+      boolean rootModuleHasNonDevDependency,
+      ImmutableMap<String, Optional<String>> staticEnvVars,
+      ImmutableTable<RepositoryName, String, RepositoryName> staticRepoMappingEntries) {
     super(
         workingDirectory,
         directories,
@@ -83,6 +89,10 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
     this.modules = modules;
     this.facts = facts;
     this.rootModuleHasNonDevDependency = rootModuleHasNonDevDependency;
+    // Record inputs to the extension that are known prior to evaluation.
+    RepoRecordedInput.EnvVar.wrap(staticEnvVars)
+        .forEach((input, value) -> recordInput(input, value.orElse(null)));
+    repoMappingRecorder.record(staticRepoMappingEntries);
   }
 
   @Override

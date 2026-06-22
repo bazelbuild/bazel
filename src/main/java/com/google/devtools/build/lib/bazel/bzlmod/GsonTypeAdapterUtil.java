@@ -20,11 +20,12 @@ import static com.google.devtools.build.lib.bazel.bzlmod.DelegateTypeAdapterFact
 import static com.google.devtools.build.lib.bazel.bzlmod.DelegateTypeAdapterFactory.IMMUTABLE_MAP;
 import static com.google.devtools.build.lib.bazel.bzlmod.DelegateTypeAdapterFactory.IMMUTABLE_SET;
 import static com.google.devtools.build.lib.bazel.bzlmod.DelegateTypeAdapterFactory.IMMUTABLE_SORTED_MAP;
+import static com.google.devtools.build.lib.rules.repository.RepoRecordedInput.NeverUpToDateRepoRecordedInput.PARSE_FAILURE;
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
+import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
-import com.google.common.collect.ImmutableTable;
-import com.google.common.collect.Table;
 import com.google.devtools.build.lib.bazel.bzlmod.Version.ParseException;
 import com.google.devtools.build.lib.bazel.repository.cache.DownloadCache;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
@@ -293,113 +294,34 @@ public final class GsonTypeAdapterUtil {
     }
   }
 
-  /**
-   * Converts Guava tables into a JSON array of 3-tuples (one per cell). Each 3-tuple is a JSON
-   * array itself (rowKey, columnKey, value). For example, a JSON snippet could be: {@code [
-   * ["row1", "col1", "value1"], ["row2", "col2", "value2"], ... ]}
-   */
-  public static final TypeAdapterFactory IMMUTABLE_TABLE =
-      new TypeAdapterFactory() {
-        @Nullable
-        @Override
-        @SuppressWarnings("unchecked")
-        public <T> TypeAdapter<T> create(Gson gson, TypeToken<T> typeToken) {
-          if (typeToken.getRawType() != ImmutableTable.class) {
-            return null;
-          }
-          Type type = typeToken.getType();
-          if (!(type instanceof ParameterizedType)) {
-            return null;
-          }
-          Type[] typeArgs = ((ParameterizedType) typeToken.getType()).getActualTypeArguments();
-          if (typeArgs.length != 3) {
-            return null;
-          }
-          var rowTypeAdapter = (TypeAdapter<Object>) gson.getAdapter(TypeToken.get(typeArgs[0]));
-          var colTypeAdapter = (TypeAdapter<Object>) gson.getAdapter(TypeToken.get(typeArgs[1]));
-          var valTypeAdapter = (TypeAdapter<Object>) gson.getAdapter(TypeToken.get(typeArgs[2]));
-          if (rowTypeAdapter == null || colTypeAdapter == null || valTypeAdapter == null) {
-            return null;
-          }
-          return (TypeAdapter<T>)
-              new TypeAdapter<ImmutableTable<Object, Object, Object>>() {
-                @Override
-                public void write(JsonWriter jsonWriter, ImmutableTable<Object, Object, Object> t)
-                    throws IOException {
-                  jsonWriter.beginArray();
-                  for (Table.Cell<Object, Object, Object> cell : t.cellSet()) {
-                    jsonWriter.beginArray();
-                    rowTypeAdapter.write(jsonWriter, cell.getRowKey());
-                    colTypeAdapter.write(jsonWriter, cell.getColumnKey());
-                    valTypeAdapter.write(jsonWriter, cell.getValue());
-                    jsonWriter.endArray();
-                  }
-                  jsonWriter.endArray();
-                }
-
-                @Override
-                public ImmutableTable<Object, Object, Object> read(JsonReader jsonReader)
-                    throws IOException {
-                  var builder = ImmutableTable.builder();
-                  jsonReader.beginArray();
-                  while (jsonReader.peek() != JsonToken.END_ARRAY) {
-                    jsonReader.beginArray();
-                    builder.put(
-                        rowTypeAdapter.read(jsonReader),
-                        colTypeAdapter.read(jsonReader),
-                        valTypeAdapter.read(jsonReader));
-                    jsonReader.endArray();
-                  }
-                  jsonReader.endArray();
-                  return builder.buildOrThrow();
-                }
-              };
-        }
-      };
-
-  private static final TypeAdapter<RepoRecordedInput.File> REPO_RECORDED_INPUT_FILE_TYPE_ADAPTER =
+  // This is needed because Bazel uses a custom String encoding internally, see StringEncoding for
+  // details.
+  public static final TypeAdapter<String> STRING_ADAPTER =
       new TypeAdapter<>() {
         @Override
-        public void write(JsonWriter jsonWriter, RepoRecordedInput.File value) throws IOException {
-          jsonWriter.value(value.toStringInternal());
+        public void write(JsonWriter jsonWriter, String s) throws IOException {
+          jsonWriter.value(internalToUnicode(s));
         }
 
         @Override
-        public RepoRecordedInput.File read(JsonReader jsonReader) throws IOException {
-          return (RepoRecordedInput.File)
-              RepoRecordedInput.File.PARSER.parse(jsonReader.nextString());
+        public String read(JsonReader jsonReader) throws IOException {
+          return unicodeToInternal(jsonReader.nextString());
         }
       };
 
-  private static final TypeAdapter<RepoRecordedInput.Dirents>
-      REPO_RECORDED_INPUT_DIRENTS_TYPE_ADAPTER =
+  private static final TypeAdapter<RepoRecordedInput.WithValue>
+      REPO_RECORDED_INPUT_WITH_VALUE_TYPE_ADAPTER =
           new TypeAdapter<>() {
             @Override
-            public void write(JsonWriter jsonWriter, RepoRecordedInput.Dirents value)
+            public void write(JsonWriter jsonWriter, RepoRecordedInput.WithValue value)
                 throws IOException {
-              jsonWriter.value(value.toStringInternal());
+              jsonWriter.value(internalToUnicode(value.toString()));
             }
 
             @Override
-            public RepoRecordedInput.Dirents read(JsonReader jsonReader) throws IOException {
-              return (RepoRecordedInput.Dirents)
-                  RepoRecordedInput.Dirents.PARSER.parse(jsonReader.nextString());
-            }
-          };
-
-  private static final TypeAdapter<RepoRecordedInput.EnvVar>
-      REPO_RECORDED_INPUT_ENV_VAR_TYPE_ADAPTER =
-          new TypeAdapter<>() {
-            @Override
-            public void write(JsonWriter jsonWriter, RepoRecordedInput.EnvVar value)
-                throws IOException {
-              jsonWriter.value(value.toStringInternal());
-            }
-
-            @Override
-            public RepoRecordedInput.EnvVar read(JsonReader jsonReader) throws IOException {
-              return (RepoRecordedInput.EnvVar)
-                  RepoRecordedInput.EnvVar.PARSER.parse(jsonReader.nextString());
+            public RepoRecordedInput.WithValue read(JsonReader jsonReader) throws IOException {
+              return RepoRecordedInput.WithValue.parse(unicodeToInternal(jsonReader.nextString()))
+                  .orElseGet(() -> new RepoRecordedInput.WithValue(PARSE_FAILURE, ""));
             }
           };
 
@@ -475,7 +397,7 @@ public final class GsonTypeAdapterUtil {
         .registerTypeAdapterFactory(IMMUTABLE_BIMAP)
         .registerTypeAdapterFactory(IMMUTABLE_SET)
         .registerTypeAdapterFactory(OPTIONAL)
-        .registerTypeAdapterFactory(IMMUTABLE_TABLE)
+        .registerTypeAdapter(String.class, STRING_ADAPTER)
         .registerTypeAdapter(Label.class, LABEL_TYPE_ADAPTER)
         .registerTypeAdapter(RepoRuleId.class, REPO_RULE_ID_TYPE_ADAPTER)
         .registerTypeAdapter(RepositoryName.class, REPOSITORY_NAME_TYPE_ADAPTER)
@@ -487,11 +409,8 @@ public final class GsonTypeAdapterUtil {
         .registerTypeAdapter(ModuleExtensionId.IsolationKey.class, ISOLATION_KEY_TYPE_ADAPTER)
         .registerTypeAdapter(AttributeValues.class, new AttributeValuesAdapter())
         .registerTypeAdapter(byte[].class, BYTE_ARRAY_TYPE_ADAPTER)
-        .registerTypeAdapter(RepoRecordedInput.File.class, REPO_RECORDED_INPUT_FILE_TYPE_ADAPTER)
         .registerTypeAdapter(
-            RepoRecordedInput.Dirents.class, REPO_RECORDED_INPUT_DIRENTS_TYPE_ADAPTER)
-        .registerTypeAdapter(
-            RepoRecordedInput.EnvVar.class, REPO_RECORDED_INPUT_ENV_VAR_TYPE_ADAPTER);
+            RepoRecordedInput.WithValue.class, REPO_RECORDED_INPUT_WITH_VALUE_TYPE_ADAPTER);
   }
 
   private GsonTypeAdapterUtil() {}

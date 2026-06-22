@@ -1,5 +1,5 @@
 {
-  "lockFileVersion": 24,
+  "lockFileVersion": 26,
   "registryFileHashes": {
     "https://bcr.bazel.build/bazel_registry.json": "8a28e4aff06ee60aed2a8c281907fb8bcbf3b753c91fb5a5c57da3215d5b3497",
     "https://bcr.bazel.build/modules/abseil-cpp/20210324.2/MODULE.bazel": "7cd0312e064fde87c8d1cd79ba06c876bd23630c83466e9500321be55c96ace2",
@@ -140,11 +140,10 @@
       "general": {
         "bzlTransitiveDigest": "VhEtmxw1yzb9rBZVsKTdti7p+nDM/Fv1p9TmKdO45+Q=",
         "usagesDigest": "fycyB39YnXIJkfWCIXLUKJMZzANcuLy9ZE73hRucjFk=",
-        "recordedFileInputs": {
-          "@@pybind11_bazel+//MODULE.bazel": "88af1c246226d87e65be78ed49ecd1e6f5e98648558c14ce99176da041dc378e"
-        },
-        "recordedDirentsInputs": {},
-        "envVariables": {},
+        "recordedInputs": [
+          "REPO_MAPPING:pybind11_bazel+,bazel_tools bazel_tools",
+          "FILE:@@pybind11_bazel+//MODULE.bazel 88af1c246226d87e65be78ed49ecd1e6f5e98648558c14ce99176da041dc378e"
+        ],
         "generatedRepoSpecs": {
           "local_config_python": {
             "repoRuleId": "@@pybind11_bazel+//:python_configure.bzl%python_configure",
@@ -160,23 +159,16 @@
               ]
             }
           }
-        },
-        "recordedRepoMappingEntries": [
-          [
-            "pybind11_bazel+",
-            "bazel_tools",
-            "bazel_tools"
-          ]
-        ]
+        }
       }
     },
     "@@rules_fuzzing+//fuzzing/private:extensions.bzl%non_module_dependencies": {
       "general": {
         "bzlTransitiveDigest": "CYUiFDCnL2VGx3uotIu/VuGabgObnZra2zzRUJCX0sU=",
         "usagesDigest": "wy6ISK6UOcBEjj/mvJ/S3WeXoO67X+1llb9yPyFtPgc=",
-        "recordedFileInputs": {},
-        "recordedDirentsInputs": {},
-        "envVariables": {},
+        "recordedInputs": [
+          "REPO_MAPPING:rules_fuzzing+,bazel_tools bazel_tools"
+        ],
         "generatedRepoSpecs": {
           "platforms": {
             "repoRuleId": "@@bazel_tools//tools/build_defs/repo:http.bzl%http_archive",
@@ -243,23 +235,16 @@
               "url": "https://repo1.maven.org/maven2/com/code-intelligence/jazzer-api/0.20.1/jazzer-api-0.20.1.jar"
             }
           }
-        },
-        "recordedRepoMappingEntries": [
-          [
-            "rules_fuzzing+",
-            "bazel_tools",
-            "bazel_tools"
-          ]
-        ]
+        }
       }
     },
     "@@rules_kotlin+//src/main/starlark/core/repositories:bzlmod_setup.bzl%rules_kotlin_extensions": {
       "general": {
         "bzlTransitiveDigest": "03Qju4tW0vE+0RBuZGuV2A4Hx6AiSkdNahYvworx2aM=",
         "usagesDigest": "QI2z8ZUR+mqtbwsf2fLqYdJAkPOHdOV+tF2yVAUgRzw=",
-        "recordedFileInputs": {},
-        "recordedDirentsInputs": {},
-        "envVariables": {},
+        "recordedInputs": [
+          "REPO_MAPPING:rules_kotlin+,bazel_tools bazel_tools"
+        ],
         "generatedRepoSpecs": {
           "com_github_jetbrains_kotlin_git": {
             "repoRuleId": "@@rules_kotlin+//src/main/starlark/core/repositories:compiler.bzl%kotlin_compiler_git_repository",
@@ -307,30 +292,46 @@
               ]
             }
           }
-        },
-        "recordedRepoMappingEntries": [
-          [
-            "rules_kotlin+",
-            "bazel_tools",
-            "bazel_tools"
-          ]
-        ]
+        }
       }
     },
     "@@rules_python+//python/private/pypi:pip.bzl%pip_internal": {
       "general": {
         "bzlTransitiveDigest": "lFXtGLhTWi+586Hk5wxd2is/yHXqyHDL7B2EAPLG4qA=",
         "usagesDigest": "OLoIStnzNObNalKEMRq99FqenhPGLFZ5utVLV4sz7OI=",
-        "recordedFileInputs": {
-          "@@rules_python+//tools/publish/requirements_darwin.txt": "2994136eab7e57b083c3de76faf46f70fad130bc8e7360a7fed2b288b69e79dc",
-          "@@rules_python+//tools/publish/requirements_linux.txt": "8175b4c8df50ae2f22d1706961884beeb54e7da27bd2447018314a175981997d",
-          "@@rules_python+//tools/publish/requirements_windows.txt": "7673adc71dc1a81d3661b90924d7a7c0fc998cd508b3cb4174337cef3f2de556"
-        },
-        "recordedDirentsInputs": {},
-        "envVariables": {
-          "RULES_PYTHON_REPO_DEBUG": null,
-          "RULES_PYTHON_REPO_DEBUG_VERBOSITY": null
-        },
+        "recordedInputs": [
+          "REPO_MAPPING:bazel_features+,bazel_features_globals bazel_features++version_extension+bazel_features_globals",
+          "REPO_MAPPING:bazel_features+,bazel_features_version bazel_features++version_extension+bazel_features_version",
+          "REPO_MAPPING:rules_python+,bazel_features bazel_features+",
+          "REPO_MAPPING:rules_python+,bazel_skylib bazel_skylib+",
+          "REPO_MAPPING:rules_python+,bazel_tools bazel_tools",
+          "REPO_MAPPING:rules_python+,pypi__build rules_python++internal_deps+pypi__build",
+          "REPO_MAPPING:rules_python+,pypi__click rules_python++internal_deps+pypi__click",
+          "REPO_MAPPING:rules_python+,pypi__colorama rules_python++internal_deps+pypi__colorama",
+          "REPO_MAPPING:rules_python+,pypi__importlib_metadata rules_python++internal_deps+pypi__importlib_metadata",
+          "REPO_MAPPING:rules_python+,pypi__installer rules_python++internal_deps+pypi__installer",
+          "REPO_MAPPING:rules_python+,pypi__more_itertools rules_python++internal_deps+pypi__more_itertools",
+          "REPO_MAPPING:rules_python+,pypi__packaging rules_python++internal_deps+pypi__packaging",
+          "REPO_MAPPING:rules_python+,pypi__pep517 rules_python++internal_deps+pypi__pep517",
+          "REPO_MAPPING:rules_python+,pypi__pip rules_python++internal_deps+pypi__pip",
+          "REPO_MAPPING:rules_python+,pypi__pip_tools rules_python++internal_deps+pypi__pip_tools",
+          "REPO_MAPPING:rules_python+,pypi__pyproject_hooks rules_python++internal_deps+pypi__pyproject_hooks",
+          "REPO_MAPPING:rules_python+,pypi__setuptools rules_python++internal_deps+pypi__setuptools",
+          "REPO_MAPPING:rules_python+,pypi__tomli rules_python++internal_deps+pypi__tomli",
+          "REPO_MAPPING:rules_python+,pypi__wheel rules_python++internal_deps+pypi__wheel",
+          "REPO_MAPPING:rules_python+,pypi__zipp rules_python++internal_deps+pypi__zipp",
+          "REPO_MAPPING:rules_python+,pythons_hub rules_python++python+pythons_hub",
+          "REPO_MAPPING:rules_python++python+pythons_hub,python_3_10_host rules_python++python+python_3_10_host",
+          "REPO_MAPPING:rules_python++python+pythons_hub,python_3_11_host rules_python++python+python_3_11_host",
+          "REPO_MAPPING:rules_python++python+pythons_hub,python_3_12_host rules_python++python+python_3_12_host",
+          "REPO_MAPPING:rules_python++python+pythons_hub,python_3_8_host rules_python++python+python_3_8_host",
+          "REPO_MAPPING:rules_python++python+pythons_hub,python_3_9_host rules_python++python+python_3_9_host",
+          "ENV:RULES_PYTHON_REPO_DEBUG \\0",
+          "ENV:RULES_PYTHON_REPO_DEBUG_VERBOSITY \\0",
+          "FILE:@@rules_python+//tools/publish/requirements_darwin.txt 2994136eab7e57b083c3de76faf46f70fad130bc8e7360a7fed2b288b69e79dc",
+          "FILE:@@rules_python+//tools/publish/requirements_linux.txt 8175b4c8df50ae2f22d1706961884beeb54e7da27bd2447018314a175981997d",
+          "FILE:@@rules_python+//tools/publish/requirements_windows.txt 7673adc71dc1a81d3661b90924d7a7c0fc998cd508b3cb4174337cef3f2de556"
+        ],
         "generatedRepoSpecs": {
           "rules_python_publish_deps_311_backports_tarfile_py3_none_any_77e284d7": {
             "repoRuleId": "@@rules_python+//python/private/pypi:whl_library.bzl%whl_library",
@@ -2676,139 +2677,7 @@
               "groups": {}
             }
           }
-        },
-        "recordedRepoMappingEntries": [
-          [
-            "bazel_features+",
-            "bazel_features_globals",
-            "bazel_features++version_extension+bazel_features_globals"
-          ],
-          [
-            "bazel_features+",
-            "bazel_features_version",
-            "bazel_features++version_extension+bazel_features_version"
-          ],
-          [
-            "rules_python+",
-            "bazel_features",
-            "bazel_features+"
-          ],
-          [
-            "rules_python+",
-            "bazel_skylib",
-            "bazel_skylib+"
-          ],
-          [
-            "rules_python+",
-            "bazel_tools",
-            "bazel_tools"
-          ],
-          [
-            "rules_python+",
-            "pypi__build",
-            "rules_python++internal_deps+pypi__build"
-          ],
-          [
-            "rules_python+",
-            "pypi__click",
-            "rules_python++internal_deps+pypi__click"
-          ],
-          [
-            "rules_python+",
-            "pypi__colorama",
-            "rules_python++internal_deps+pypi__colorama"
-          ],
-          [
-            "rules_python+",
-            "pypi__importlib_metadata",
-            "rules_python++internal_deps+pypi__importlib_metadata"
-          ],
-          [
-            "rules_python+",
-            "pypi__installer",
-            "rules_python++internal_deps+pypi__installer"
-          ],
-          [
-            "rules_python+",
-            "pypi__more_itertools",
-            "rules_python++internal_deps+pypi__more_itertools"
-          ],
-          [
-            "rules_python+",
-            "pypi__packaging",
-            "rules_python++internal_deps+pypi__packaging"
-          ],
-          [
-            "rules_python+",
-            "pypi__pep517",
-            "rules_python++internal_deps+pypi__pep517"
-          ],
-          [
-            "rules_python+",
-            "pypi__pip",
-            "rules_python++internal_deps+pypi__pip"
-          ],
-          [
-            "rules_python+",
-            "pypi__pip_tools",
-            "rules_python++internal_deps+pypi__pip_tools"
-          ],
-          [
-            "rules_python+",
-            "pypi__pyproject_hooks",
-            "rules_python++internal_deps+pypi__pyproject_hooks"
-          ],
-          [
-            "rules_python+",
-            "pypi__setuptools",
-            "rules_python++internal_deps+pypi__setuptools"
-          ],
-          [
-            "rules_python+",
-            "pypi__tomli",
-            "rules_python++internal_deps+pypi__tomli"
-          ],
-          [
-            "rules_python+",
-            "pypi__wheel",
-            "rules_python++internal_deps+pypi__wheel"
-          ],
-          [
-            "rules_python+",
-            "pypi__zipp",
-            "rules_python++internal_deps+pypi__zipp"
-          ],
-          [
-            "rules_python+",
-            "pythons_hub",
-            "rules_python++python+pythons_hub"
-          ],
-          [
-            "rules_python++python+pythons_hub",
-            "python_3_10_host",
-            "rules_python++python+python_3_10_host"
-          ],
-          [
-            "rules_python++python+pythons_hub",
-            "python_3_11_host",
-            "rules_python++python+python_3_11_host"
-          ],
-          [
-            "rules_python++python+pythons_hub",
-            "python_3_12_host",
-            "rules_python++python+python_3_12_host"
-          ],
-          [
-            "rules_python++python+pythons_hub",
-            "python_3_8_host",
-            "rules_python++python+python_3_8_host"
-          ],
-          [
-            "rules_python++python+pythons_hub",
-            "python_3_9_host",
-            "rules_python++python+python_3_9_host"
-          ]
-        ]
+        }
       }
     }
   },
