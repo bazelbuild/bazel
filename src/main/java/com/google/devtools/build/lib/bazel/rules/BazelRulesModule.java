@@ -51,6 +51,16 @@ public final class BazelRulesModule extends BlazeModule {
 
     @Deprecated
     @Option(
+        name = "experimental_skyframe_error_handling_refactor",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.DEPRECATED},
+        help = "Deprecated. No-op.")
+    public abstract boolean getSkyframeErrorHandlingRefactor();
+
+    @Deprecated
+    @Option(
         name = "incompatible_enable_apple_toolchain_resolution",
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
