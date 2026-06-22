@@ -60,6 +60,8 @@ public final class GraphDumper {
   public record SkyValueEntry(
       // What kind of entry this is
       DataType dataType,
+      // If available, the path of the file/listing this node represents
+      @Nullable String pathKey,
       // If available, the fingerprint of the invalidation data of this node
       @Nullable PackedFingerprint dependencyFingerprint,
       // The rest of the entry after headers and invalidation data
@@ -283,19 +285,20 @@ public final class GraphDumper {
     DataType dataType = DataType.forNumber(dataTypeOrdinal);
     if (dataType == null) {
       return new SkyValueEntry(
-          DataType.UNRECOGNIZED, null, entryBytes.substring(codedIn.getTotalBytesRead()));
+          DataType.UNRECOGNIZED, null, null, entryBytes.substring(codedIn.getTotalBytesRead()));
     }
 
+    String pathKey = null;
     PackedFingerprint dependencyFingerprint = null;
 
     switch (dataType) {
       case DATA_TYPE_EMPTY, DATA_TYPE_UNSPECIFIED, UNRECOGNIZED -> {}
-      case DATA_TYPE_FILE, DATA_TYPE_LISTING -> codedIn.readString(); // We don't need the path
+      case DATA_TYPE_FILE, DATA_TYPE_LISTING -> pathKey = codedIn.readString();
       case DATA_TYPE_ANALYSIS_NODE, DATA_TYPE_EXECUTION_NODE ->
           dependencyFingerprint = PackedFingerprint.readFrom(codedIn);
     }
 
     ByteString rawValueBytes = entryBytes.substring(codedIn.getTotalBytesRead());
-    return new SkyValueEntry(dataType, dependencyFingerprint, rawValueBytes);
+    return new SkyValueEntry(dataType, pathKey, dependencyFingerprint, rawValueBytes);
   }
 }

@@ -37,6 +37,14 @@ public final class SkyValueUploadedEvent implements BuildEvent {
     this.fingerprint = fingerprint;
   }
 
+  public SkyKey getKey() {
+    return key;
+  }
+
+  public PackedFingerprint getFingerprint() {
+    return fingerprint;
+  }
+
   @Override
   public BuildEventId getEventId() {
     return BuildEventIdUtil.skyValueUploadedId(fingerprint.toHex());
