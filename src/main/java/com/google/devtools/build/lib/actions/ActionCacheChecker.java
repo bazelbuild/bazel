@@ -244,19 +244,28 @@ public class ActionCacheChecker {
         }
       }
     }
-    // A non-null mandatoryInputsDigest is the digest of the action's mandatory inputs, seeded into
-    // the entry digest by the builder; skip those inputs here to avoid hashing them a second time.
-    // It is only non-null for non-pruning input-discovering actions, mirroring the write path in
-    // updateActionCache.
-    boolean excludeMandatoryInputs = mandatoryInputsDigest != null;
-    ImmutableSet<Artifact> mandatoryInputs =
-        excludeMandatoryInputs ? action.getMandatoryInputs().toSet() : ImmutableSet.of();
-    for (Artifact artifact : actionInputs.toList()) {
-      if (excludeMandatoryInputs && mandatoryInputs.contains(artifact)) {
-        continue;
+    if (mandatoryInputsDigest != null) {
+      // The mandatory inputs are covered by mandatoryInputsDigest, which the builder folds into the
+      // entry digest as a seed. Fold only the discovered inputs, which the cache entry already
+      // enumerates by exec path, so the mandatory inputs are neither hashed a second time nor
+      // flattened into a set just to be skipped. mandatoryInputsDigest is only set for non-pruning
+      // input-discovering actions, so the entry is one too.
+      if (!entry.discoversInputs()) {
+        return false;
       }
-      FileArtifactValue inputMetadata = getInputMetadataMaybe(inputMetadataProvider, artifact);
-      builder.addInputFile(artifact, inputMetadata);
+      for (String execPath : entry.getDiscoveredInputPaths()) {
+        ActionInput input = inputMetadataProvider.getInput(PathFragment.create(execPath));
+        if (input == null) {
+          // A previously discovered input is no longer among the action's inputs.
+          return false;
+        }
+        builder.addInputFile(
+            (Artifact) input, getInputMetadataMaybe(inputMetadataProvider, (Artifact) input));
+      }
+    } else {
+      for (Artifact artifact : actionInputs.toList()) {
+        builder.addInputFile(artifact, getInputMetadataMaybe(inputMetadataProvider, artifact));
+      }
     }
     return Arrays.equals(entry.getDigest(), builder.build().getDigest());
   }
