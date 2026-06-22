@@ -825,16 +825,6 @@ public abstract class CppOptions extends FragmentOptions {
       help = "This flag is a noop and scheduled for removal.")
   public abstract boolean getRequireCtxInConfigureFeatures();
 
-  @Deprecated
-  @Option(
-      name = "incompatible_validate_top_level_header_inclusions",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
-      effectTags = {OptionEffectTag.NO_OP},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE, OptionMetadataTag.DEPRECATED},
-      help = "This flag is a noop and scheduled for removal.")
-  public abstract boolean getValidateTopLevelHeaderInclusions();
-
   @Option(
       name = "incompatible_remove_legacy_whole_archive",
       defaultValue = "true",

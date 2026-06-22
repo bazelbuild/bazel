@@ -684,6 +684,16 @@ public final class BazelRulesModule extends BlazeModule {
 
     @Deprecated
     @Option(
+        name = "incompatible_validate_top_level_header_inclusions",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE, OptionMetadataTag.DEPRECATED},
+        help = "Deprecated no-op.")
+    public abstract boolean getValidateTopLevelHeaderInclusions();
+
+    @Deprecated
+    @Option(
         name = "experimental_post_profile_started_event",
         defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
