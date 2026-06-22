@@ -1656,13 +1656,6 @@ EOF
 }
 
 function test_compiler_flag_gcc() {
-  # The default macOS toolchain always uses XCode's clang.
-  if is_darwin; then
-    return 0
-  fi
-
-  type -P gcc || return 0
-
   add_rules_cc "MODULE.bazel"
   cat > BUILD.bazel <<'EOF'
 load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
@@ -1684,8 +1677,6 @@ EOF
 }
 
 function test_compiler_flag_clang() {
-  type -P clang || return 0
-
   add_rules_cc "MODULE.bazel"
   cat > BUILD.bazel <<'EOF'
 load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
@@ -1829,22 +1820,8 @@ EOF
   fi
 }
 
-# sanitizer features are opt-in so we check if the sanitizer library is
-# installed and skip the test if it isn't (e.g. centos-7-openjdk-11-gcc-10)
-function __is_installed() {
-  local lib="$1"
-
-  if is_linux; then
-    return $(ldconfig -p | grep -q "$lib")
-  fi
-
-  # assume installed for darwin
-}
-
 function test_cc_toolchain_asan_feature() {
   local feature=asan
-  __is_installed "lib$feature" || return 0
-
   add_rules_cc "MODULE.bazel"
   mkdir pkg
   cat > pkg/BUILD <<EOF
@@ -1878,8 +1855,6 @@ EOF
 
 function test_cc_toolchain_tsan_feature() {
   local feature=tsan
-  __is_installed "lib$feature" || return 0
-
   add_rules_cc "MODULE.bazel"
   mkdir pkg
   cat > pkg/BUILD <<EOF
@@ -1920,8 +1895,6 @@ EOF
 
 function test_cc_toolchain_ubsan_feature() {
   local feature=ubsan
-  __is_installed "lib$feature" || return 0
-
   add_rules_cc "MODULE.bazel"
   mkdir pkg
   cat > pkg/BUILD <<EOF
@@ -2215,19 +2188,6 @@ EOF
 }
 
 function test_cpp20_modules_with_clang() {
-  type -P clang || return 0
-  # Check if clang version is less than 17
-  clang_version=$(clang --version | head -n1 | grep -oE '[0-9]+\.[0-9]+' | head -n1)
-  if [[ -n "$clang_version" ]]; then
-    major_version=$(echo "$clang_version" | cut -d. -f1)
-    if [[ "$major_version" -lt 17 ]]; then
-      return 0
-    fi
-  fi
-  if [[ "$(uname -s)" == "Darwin" ]]; then
-    return 0
-  fi
-
   add_rules_cc "MODULE.bazel"
 
   cat > BUILD.bazel <<'EOF'
