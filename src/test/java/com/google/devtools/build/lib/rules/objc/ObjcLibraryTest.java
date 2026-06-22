@@ -2403,8 +2403,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
             srcs = ["a.S"],
         )
         """);
-    useConfiguration("--incompatible_use_specific_tool_files");
-
     ConfiguredTarget target = getConfiguredTarget("//a:a");
     CcToolchainProvider toolchainProvider = CcToolchainProvider.getFromTarget(target);
 

@@ -289,8 +289,7 @@ public final class CppCompileActionBuilder implements StarlarkValue {
     addTransitiveMandatoryInputs(
         getShouldScanIncludes()
             ? compilerFilesWithoutIncludes
-            : configuration.getFragment(CppConfiguration.class).useSpecificToolFiles()
-                    && !getSourceFile().isTreeArtifact()
+            : !getSourceFile().isTreeArtifact()
                 ? (getActionName().equals(CppActionNames.ASSEMBLE)
                     ? ccToolchain.getAsFiles()
                     : ccToolchain.getCompilerFiles())
