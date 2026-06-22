@@ -837,15 +837,6 @@ public abstract class CppOptions extends FragmentOptions {
   public abstract boolean getRemoveLegacyWholeArchive();
 
   @Option(
-      name = "incompatible_enable_cc_toolchain_resolution",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help = "No-op flag. Will be removed in a future release.")
-  public abstract boolean getEnableCcToolchainResolutionNoOp();
-
-  @Option(
       name = "experimental_save_feature_state",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,

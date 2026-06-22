@@ -402,9 +402,7 @@ MyAspect = aspect(
 
   @Test
   public void aspectsPropagatingForDefaultAndImplicit() throws Exception {
-    useConfiguration(
-        "--experimental_builtins_injection_override=+cc_library",
-        "--incompatible_enable_cc_toolchain_resolution");
+    useConfiguration("--experimental_builtins_injection_override=+cc_library");
     scratch.file(
         "test/aspect.bzl",
         """
