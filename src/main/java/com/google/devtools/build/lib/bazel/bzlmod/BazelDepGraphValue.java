@@ -42,14 +42,16 @@ public abstract class BazelDepGraphValue implements SkyValue {
       ImmutableList<AbridgedModule> abridgedModules,
       ImmutableTable<ModuleExtensionId, ModuleKey, ModuleExtensionUsage> extensionUsagesTable,
       ImmutableMap<ModuleExtensionId, String> extensionUniqueNames,
-      ImmutableTable<ModuleExtensionId, String, RepositoryName> repoOverrides) {
+      ImmutableTable<ModuleExtensionId, String, RepositoryName> repoOverrides,
+      ImmutableMap<String, String> flagAliases) {
     return new AutoValue_BazelDepGraphValue(
         depGraph,
         ImmutableBiMap.copyOf(canonicalRepoNameLookup),
         abridgedModules,
         extensionUsagesTable,
         extensionUniqueNames,
-        repoOverrides);
+        repoOverrides,
+        flagAliases);
   }
 
   public static BazelDepGraphValue createEmptyDepGraph() {
@@ -75,7 +77,8 @@ public abstract class BazelDepGraphValue implements SkyValue {
         ImmutableList.of(),
         ImmutableTable.of(),
         ImmutableMap.of(),
-        ImmutableTable.of());
+        ImmutableTable.of(),
+        ImmutableMap.of());
   }
 
   /**
@@ -112,6 +115,14 @@ public abstract class BazelDepGraphValue implements SkyValue {
    * canonical name of the repo that should override it (if any).
    */
   public abstract ImmutableTable<ModuleExtensionId, String, RepositoryName> getRepoOverrides();
+
+  /**
+   * The flag aliases declared via {@code flag_alias()} in {@code MODULE.bazel} files, mapping each
+   * short flag name to the canonical label of the Starlark flag it aliases. These, along with
+   * whatever is set in {@code --flag_alias}, rewrite {@code --foo}-style command line flags to
+   * canonical Starlark flags.
+   */
+  public abstract ImmutableMap<String, String> getFlagAliases();
 
   /**
    * Returns the full {@link RepositoryMapping} for the given module, including repos from Bazel

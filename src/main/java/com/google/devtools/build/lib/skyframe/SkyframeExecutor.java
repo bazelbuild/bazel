@@ -3308,81 +3308,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     return detailedExitCode;
   }
 
-  /** Canonical Starlark flag aliases for {@link PythonOptions} flags. */
-  // TODO: b/453809359 - Remove when Bazel 9+ can read Python flag alias definitions straight from
-  // rules_python's MODULE.bazel.
-  private static final ImmutableMap<String, String> PY_FLAG_ALIASES =
-      ImmutableMap.of(
-          "build_python_zip",
-          "@@rules_python+//python/config_settings:build_python_zip",
-          "incompatible_default_to_explicit_init_py",
-          "@@rules_python+//python/config_settings:incompatible_default_to_explicit_init_py");
-
-  /** Canonical Starlark flag aliases for {@link BazelPythonConfiguration} flags. */
-  // TODO: b/453809359 - Remove when Bazel 9+ can read Python flag alias definitions straight from
-  // rules_python's MODULE.bazel.
-  private static final ImmutableMap<String, String> BAZEL_PY_FLAG_ALIASES =
-      ImmutableMap.of(
-          "python_path",
-          "@@rules_python+//python/config_settings:python_path",
-          "experimental_python_import_all_repositories",
-          "@@rules_python+//python/config_settings:experimental_python_import_all_repositories");
-
-  /**
-   * Returns flag aliases from {@code MODULE.bazel} {@code flag_alias()} definitions.
-   *
-   * <p>These, along with whatever is set in {@code --flag_alias}, rewrite {@code --foo}-style
-   * command line flags to canonical Starlark flags.
-   *
-   * @param eventHandler handler for Skyframe events
-   */
-  public Map<String, String> getFlagAliases(ExtendedEventHandler eventHandler)
-      throws InterruptedException {
-    EvaluationResult<BazelDepGraphValue> evalResult =
-        evaluate(
-            ImmutableList.of(BazelDepGraphValue.KEY), false, DEFAULT_THREAD_COUNT, eventHandler);
-    var bzlmodDepGraph = evalResult.get(BazelDepGraphValue.KEY).getDepGraph();
-    LinkedHashMap<String, String> aliasesMap = new LinkedHashMap<>();
-    var rootModule = bzlmodDepGraph.entrySet().iterator().next().getValue();
-    for (var module : bzlmodDepGraph.entrySet()) {
-      ImmutableMap<String, String> flagAliases = module.getValue().getFlagAliases();
-      for (var flagAlias : flagAliases.entrySet()) {
-        aliasesMap.put(
-            flagAlias.getKey(),
-            flagAlias.getValue().startsWith("//")
-                ? module.getKey().getCanonicalRepoNameWithoutVersion() + flagAlias.getValue()
-                : flagAlias.getValue());
-      }
-      if (!module.getValue().getName().equals("rules_python")) {
-        continue;
-      }
-      // Don't apply hard-coded aliases if rules_python uses MODULE.bazel aliases.
-      if (!module.getValue().getFlagAliases().isEmpty()) {
-        continue;
-      }
-      // Add Python flags that haven't already been added by rules_python's MODULE.bazel.
-      PY_FLAG_ALIASES.entrySet().stream()
-          .filter(e -> !flagAliases.containsKey(e.getKey()))
-          .map(
-              e ->
-                  rootModule.getName().equals("rules_python")
-                      ? Map.entry(e.getKey(), e.getValue().substring(e.getValue().indexOf("/")))
-                      : e)
-          .forEach(e -> aliasesMap.put(e.getKey(), e.getValue()));
-      // Add Bazel Python flags that haven't already been added by rules_python's MODULE.bazel.
-      BAZEL_PY_FLAG_ALIASES.entrySet().stream()
-          .filter(e -> !flagAliases.containsKey(e.getKey()))
-          .map(
-              e ->
-                  rootModule.getName().equals("rules_python")
-                      ? Map.entry(e.getKey(), e.getValue().substring(e.getValue().indexOf("/")))
-                      : e)
-          .forEach(e -> aliasesMap.put(e.getKey(), e.getValue()));
-    }
-
-    return ImmutableMap.copyOf(aliasesMap);
-  }
-
   public RepositoryMapping getMainRepoMapping(ExtendedEventHandler eventHandler)
       throws InterruptedException, RepositoryMappingResolutionException {
     return getMainRepoMapping(false, DEFAULT_THREAD_COUNT, eventHandler);
@@ -3396,41 +3321,83 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         evaluate(
             ImmutableList.of(mainRepoMappingKey), keepGoing, loadingPhaseThreads, eventHandler);
     if (evalResult.hasError()) {
-      ErrorInfo errorInfo = evalResult.getError(mainRepoMappingKey);
-      Exception e = errorInfo.getException();
-      if (e == null && !errorInfo.getCycleInfo().isEmpty()) {
-        cyclesReporter.reportCycles(errorInfo.getCycleInfo(), mainRepoMappingKey, eventHandler);
-        throw new RepositoryMappingResolutionException(
-            DetailedExitCode.of(
-                FailureDetail.newBuilder()
-                    .setExternalRepository(
-                        FailureDetails.ExternalRepository.newBuilder()
-                            .setCode(ExternalRepository.Code.REPOSITORY_MAPPING_RESOLUTION_FAILED)
-                            .build())
-                    .setMessage("cycles detected during computation of main repo mapping")
-                    .build()));
-      }
-      if (e instanceof DetailedException) {
-        throw new RepositoryMappingResolutionException(
-            ((DetailedException) e).getDetailedExitCode(), e);
-      }
-      // An IOException at this early stage is often due to transient infrastructure issues. We
-      // give such failures a specific error code so that they can be retried.
-      FailureDetails.ExternalRepository externalRepoDetail =
-          e instanceof IOException
-              ? FailureDetails.ExternalRepository.newBuilder()
-                  .setCode(ExternalRepository.Code.REPOSITORY_MAPPING_IO_EXCEPTION)
-                  .build()
-              : FailureDetails.ExternalRepository.getDefaultInstance();
-      throw new RepositoryMappingResolutionException(
-          DetailedExitCode.of(
-              FailureDetail.newBuilder()
-                  .setExternalRepository(externalRepoDetail)
-                  .setMessage("error during computation of main repo mapping: " + e.getMessage())
-                  .build()),
-          e);
+      throw mainRepoMappingResolutionException(evalResult, mainRepoMappingKey, eventHandler);
     }
     return evalResult.get(mainRepoMappingKey).repositoryMapping();
+  }
+
+  /**
+   * The main repo mapping together with the flag aliases defined via {@code flag_alias()} in {@code
+   * MODULE.bazel} files. Both are needed to reparse the command line with correct values for
+   * label-typed and aliased flags.
+   */
+  public record MainRepoMappingAndFlagAliases(
+      RepositoryMapping mainRepoMapping, ImmutableMap<String, String> flagAliases) {}
+
+  /**
+   * Computes the {@linkplain #getMainRepoMapping main repo mapping} and the {@linkplain
+   * BazelDepGraphValue#getFlagAliases flag aliases} in a single Skyframe evaluation. The dep graph
+   * holding the flag aliases is already computed as part of the main repo mapping, so obtaining both
+   * together avoids a redundant evaluation.
+   */
+  public MainRepoMappingAndFlagAliases getMainRepoMappingAndFlagAliases(
+      ExtendedEventHandler eventHandler)
+      throws InterruptedException, RepositoryMappingResolutionException {
+    SkyKey mainRepoMappingKey = RepositoryMappingValue.key(RepositoryName.MAIN);
+    EvaluationResult<SkyValue> evalResult =
+        evaluate(
+            ImmutableList.of(mainRepoMappingKey, BazelDepGraphValue.KEY),
+            /* keepGoing= */ false,
+            DEFAULT_THREAD_COUNT,
+            eventHandler);
+    if (evalResult.hasError()) {
+      throw mainRepoMappingResolutionException(evalResult, mainRepoMappingKey, eventHandler);
+    }
+    return new MainRepoMappingAndFlagAliases(
+        ((RepositoryMappingValue) evalResult.get(mainRepoMappingKey)).repositoryMapping(),
+        ((BazelDepGraphValue) evalResult.get(BazelDepGraphValue.KEY)).getFlagAliases());
+  }
+
+  private RepositoryMappingResolutionException mainRepoMappingResolutionException(
+      EvaluationResult<? extends SkyValue> evalResult,
+      SkyKey mainRepoMappingKey,
+      ExtendedEventHandler eventHandler) {
+    ErrorInfo errorInfo = evalResult.getError(mainRepoMappingKey);
+    if (errorInfo == null) {
+      errorInfo = evalResult.getError();
+    }
+    Exception e = errorInfo.getException();
+    if (e == null && !errorInfo.getCycleInfo().isEmpty()) {
+      cyclesReporter.reportCycles(errorInfo.getCycleInfo(), mainRepoMappingKey, eventHandler);
+      return new RepositoryMappingResolutionException(
+          DetailedExitCode.of(
+              FailureDetail.newBuilder()
+                  .setExternalRepository(
+                      FailureDetails.ExternalRepository.newBuilder()
+                          .setCode(ExternalRepository.Code.REPOSITORY_MAPPING_RESOLUTION_FAILED)
+                          .build())
+                  .setMessage("cycles detected during computation of main repo mapping")
+                  .build()));
+    }
+    if (e instanceof DetailedException) {
+      return new RepositoryMappingResolutionException(
+          ((DetailedException) e).getDetailedExitCode(), e);
+    }
+    // An IOException at this early stage is often due to transient infrastructure issues. We
+    // give such failures a specific error code so that they can be retried.
+    FailureDetails.ExternalRepository externalRepoDetail =
+        e instanceof IOException
+            ? FailureDetails.ExternalRepository.newBuilder()
+                .setCode(ExternalRepository.Code.REPOSITORY_MAPPING_IO_EXCEPTION)
+                .build()
+            : FailureDetails.ExternalRepository.getDefaultInstance();
+    return new RepositoryMappingResolutionException(
+        DetailedExitCode.of(
+            FailureDetail.newBuilder()
+                .setExternalRepository(externalRepoDetail)
+                .setMessage("error during computation of main repo mapping: " + e.getMessage())
+                .build()),
+        e);
   }
 
   @Nullable
