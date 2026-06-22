@@ -17,6 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -25,6 +26,7 @@ import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.SplitBlobResponse;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.devtools.build.lib.remote.chunking.ChunkingConfig;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.OutputDigestMismatchException;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
@@ -51,6 +53,8 @@ import org.mockito.junit.MockitoRule;
 public class ChunkedBlobDownloaderTest {
   private static final DigestUtil DIGEST_UTIL =
       new DigestUtil(SyscallCache.NO_CACHE, DigestHashFunction.SHA256);
+  private static final ChunkingConfig CHUNKING_CONFIG =
+      new ChunkingConfig(/* avgChunkSize= */ 1024, /* normalizationLevel= */ 2, /* seed= */ 0);
   private static final int MAX_IN_FLIGHT_CHUNK_DOWNLOADS = 16;
 
   @Rule public final MockitoRule mockito = MockitoJUnit.rule();
@@ -64,7 +68,8 @@ public class ChunkedBlobDownloaderTest {
   @Before
   public void setUp() {
     when(grpcCacheClient.shouldVerifyDownloads()).thenReturn(true);
-    downloader = new ChunkedBlobDownloader(grpcCacheClient, combinedCache, DIGEST_UTIL);
+    downloader =
+        new ChunkedBlobDownloader(grpcCacheClient, combinedCache, CHUNKING_CONFIG, DIGEST_UTIL);
   }
 
   @Test
@@ -325,6 +330,79 @@ public class ChunkedBlobDownloaderTest {
     downloader.downloadChunked(context, blobDigest, out);
 
     assertThat(out.toByteArray()).isEmpty();
+  }
+
+  @Test
+  public void downloadChunked_oversizedChunk_throwsIOExceptionBeforeDownload() {
+    Digest blobDigest = DIGEST_UTIL.compute(new byte[1024]);
+    Digest chunkDigest =
+        DigestUtil.buildDigest(blobDigest.getHash(), CHUNKING_CONFIG.maxChunkSize() + 1L);
+    SplitBlobResponse splitResponse =
+        SplitBlobResponse.newBuilder().addChunkDigests(chunkDigest).build();
+    when(grpcCacheClient.splitBlob(any(), eq(blobDigest)))
+        .thenReturn(Futures.immediateFuture(splitResponse));
+
+    IOException e =
+        assertThrows(
+            IOException.class,
+            () -> downloader.downloadChunked(context, blobDigest, new ByteArrayOutputStream()));
+
+    assertThat(e).hasMessageThat().contains("exceeds max chunk size");
+    verify(combinedCache, never()).downloadBlob(any(), any(Digest.class));
+  }
+
+  @Test
+  public void downloadChunked_negativeChunkSize_throwsIOExceptionBeforeDownload() {
+    Digest blobDigest = DIGEST_UTIL.compute(new byte[1024]);
+    Digest chunkDigest = DigestUtil.buildDigest(blobDigest.getHash(), -1);
+    SplitBlobResponse splitResponse =
+        SplitBlobResponse.newBuilder().addChunkDigests(chunkDigest).build();
+    when(grpcCacheClient.splitBlob(any(), eq(blobDigest)))
+        .thenReturn(Futures.immediateFuture(splitResponse));
+
+    IOException e =
+        assertThrows(
+            IOException.class,
+            () -> downloader.downloadChunked(context, blobDigest, new ByteArrayOutputStream()));
+
+    assertThat(e).hasMessageThat().contains("non-positive size");
+    verify(combinedCache, never()).downloadBlob(any(), any(Digest.class));
+  }
+
+  @Test
+  public void downloadChunked_chunkSizesExceedBlobSize_throwsIOExceptionBeforeDownload() {
+    Digest blobDigest = DIGEST_UTIL.compute(new byte[1024]);
+    Digest chunkDigest = DigestUtil.buildDigest(blobDigest.getHash(), 1025);
+    SplitBlobResponse splitResponse =
+        SplitBlobResponse.newBuilder().addChunkDigests(chunkDigest).build();
+    when(grpcCacheClient.splitBlob(any(), eq(blobDigest)))
+        .thenReturn(Futures.immediateFuture(splitResponse));
+
+    IOException e =
+        assertThrows(
+            IOException.class,
+            () -> downloader.downloadChunked(context, blobDigest, new ByteArrayOutputStream()));
+
+    assertThat(e).hasMessageThat().contains("chunk sizes exceed blob size");
+    verify(combinedCache, never()).downloadBlob(any(), any(Digest.class));
+  }
+
+  @Test
+  public void downloadChunked_chunkSizesLessThanBlobSize_throwsIOExceptionBeforeDownload() {
+    Digest blobDigest = DIGEST_UTIL.compute(new byte[1024]);
+    Digest chunkDigest = DigestUtil.buildDigest(blobDigest.getHash(), 1023);
+    SplitBlobResponse splitResponse =
+        SplitBlobResponse.newBuilder().addChunkDigests(chunkDigest).build();
+    when(grpcCacheClient.splitBlob(any(), eq(blobDigest)))
+        .thenReturn(Futures.immediateFuture(splitResponse));
+
+    IOException e =
+        assertThrows(
+            IOException.class,
+            () -> downloader.downloadChunked(context, blobDigest, new ByteArrayOutputStream()));
+
+    assertThat(e).hasMessageThat().contains("chunk sizes do not match blob size");
+    verify(combinedCache, never()).downloadBlob(any(), any(Digest.class));
   }
 
   @Test
