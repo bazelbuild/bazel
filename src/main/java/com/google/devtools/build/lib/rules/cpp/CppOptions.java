@@ -866,17 +866,6 @@ public abstract class CppOptions extends FragmentOptions {
   public abstract boolean getUseSpecificToolFiles();
 
   @Option(
-      name = "incompatible_disable_nocopts",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "When enabled, it removes nocopts attribute from C++ rules. See"
-              + " https://github.com/bazelbuild/bazel/issues/8706 for details.")
-  public abstract boolean getDisableNoCopts();
-
-  @Option(
       name = "apple_generate_dsym",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
