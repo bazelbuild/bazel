@@ -1822,6 +1822,7 @@ public final class LoadingPhaseRunnerTest {
           defaultBuildLanguageOptions(),
           UUID.randomUUID(),
           ImmutableMap.of(),
+          /* repoEnv= */ ImmutableMap.of(),
           QuiescingExecutorsImpl.forTesting(),
           new TimestampGranularityMonitor(clock));
       skyframeExecutor.setActionEnv(ImmutableMap.of());

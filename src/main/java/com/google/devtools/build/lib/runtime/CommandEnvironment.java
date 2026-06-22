@@ -853,6 +853,7 @@ public class CommandEnvironment {
                 packageLocator,
                 commandId,
                 clientEnv,
+                repoEnv,
                 timestampGranularityMonitor,
                 quiescingExecutors,
                 options,

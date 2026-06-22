@@ -93,9 +93,6 @@ public final class PrecomputedValue implements SkyValue {
 
   public static final Precomputed<Map<String, String>> ACTION_ENV = new Precomputed<>("action_env");
 
-  public static final Precomputed<ImmutableMap<String, String>> REPO_ENV =
-      new Precomputed<>("repo_env");
-
   public static final Precomputed<PathPackageLocator> PATH_PACKAGE_LOCATOR =
       new Precomputed<>("path_package_locator");
 
