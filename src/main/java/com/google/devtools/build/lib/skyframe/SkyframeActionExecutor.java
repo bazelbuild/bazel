@@ -731,6 +731,14 @@ public final class SkyframeActionExecutor {
    * if the action is up to date, and non-null if it needs to be executed, in which case that token
    * should be provided to the ActionCacheChecker after execution.
    */
+  boolean useSplitMandatoryInputsActionCacheCheck(Action action) {
+    return actionCacheChecker.useSplitMandatoryInputsActionCacheCheck(action);
+  }
+
+  boolean mandatoryInputsMatch(Action action, byte[] mandatoryInputsDigest) {
+    return actionCacheChecker.mandatoryInputsMatch(action, mandatoryInputsDigest);
+  }
+
   Token checkActionCache(
       ExtendedEventHandler eventHandler,
       Action action,
@@ -739,6 +747,7 @@ public final class SkyframeActionExecutor {
       ArtifactPathResolver artifactPathResolver,
       long actionStartTime,
       List<Artifact> resolvedCacheArtifacts,
+      @Nullable byte[] mandatoryInputsDigest,
       Map<String, String> clientEnv)
       throws ActionExecutionException, InterruptedException {
     Token token;
@@ -765,6 +774,7 @@ public final class SkyframeActionExecutor {
           actionCacheChecker.getTokenIfNeedToExecute(
               action,
               resolvedCacheArtifacts,
+              mandatoryInputsDigest,
               clientEnv,
               getOutputPermissions(),
               handler,
@@ -807,6 +817,7 @@ public final class SkyframeActionExecutor {
                 actionCacheChecker.getTokenUnconditionallyAfterFailureToRecordActionCacheHit(
                     action,
                     resolvedCacheArtifacts,
+                    mandatoryInputsDigest,
                     clientEnv,
                     getOutputPermissions(),
                     handler,
@@ -845,7 +856,8 @@ public final class SkyframeActionExecutor {
       InputMetadataProvider inputMetadataProvider,
       OutputMetadataStore outputMetadataStore,
       Token token,
-      Map<String, String> clientEnv)
+      Map<String, String> clientEnv,
+      @Nullable byte[] mandatoryInputsDigest)
       throws ActionExecutionException, InterruptedException {
     if (!actionCacheChecker.enabled()) {
       return;
@@ -860,7 +872,8 @@ public final class SkyframeActionExecutor {
           clientEnv,
           getOutputPermissions(),
           actionExecutionSalt,
-          useArchivedTreeArtifacts(action));
+          useArchivedTreeArtifacts(action),
+          mandatoryInputsDigest);
     } catch (IOException e) {
       // Skyframe has already done all the filesystem access needed for outputs and swallows
       // IOExceptions for inputs. So an IOException is impossible here.

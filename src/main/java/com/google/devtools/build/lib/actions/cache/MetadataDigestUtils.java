@@ -28,6 +28,8 @@ import javax.annotation.Nullable;
 public final class MetadataDigestUtils {
   private MetadataDigestUtils() {}
 
+  private static final byte[] EMPTY_DIGEST = new Fingerprint().digestAndReset();
+
   /**
    * @param source the byte buffer source.
    * @return the digest from the given buffer.
@@ -54,7 +56,7 @@ public final class MetadataDigestUtils {
    * @param mdMap A collection of (execPath, FileArtifactValue) pairs. Values may be null.
    */
   public static byte[] fromMetadata(Map<String, FileArtifactValue> mdMap) {
-    byte[] result = new byte[1]; // reserve the empty string
+    byte[] result = EMPTY_DIGEST.clone();
     // Profiling showed that MessageDigest engine instantiation was a hotspot, so create one
     // instance for this computation to amortize its cost.
     Fingerprint fp = new Fingerprint();

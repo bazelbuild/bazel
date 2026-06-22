@@ -29,6 +29,7 @@ import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionCacheChecker.Token;
 import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
@@ -46,7 +47,11 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil.FakeArtifactRe
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil.FakeInputMetadataHandlerBase;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil.MissDetailsBuilder;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil.NullAction;
+import com.google.devtools.build.lib.actions.util.TestAction;
 import com.google.devtools.build.lib.clock.Clock;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.testutil.ManualClock;
@@ -221,6 +226,7 @@ public final class ActionCacheCheckerTest {
         cacheChecker.getTokenIfNeedToExecute(
             action,
             /* resolvedCacheArtifacts= */ null,
+            /* mandatoryInputsDigest= */ null,
             clientEnv,
             OutputPermissions.READONLY,
             /* handler= */ null,
@@ -295,7 +301,8 @@ public final class ActionCacheCheckerTest {
           clientEnv,
           OutputPermissions.READONLY,
           actionExecutionSalt,
-          useArchivedTreeArtifacts);
+          useArchivedTreeArtifacts,
+          /* mandatoryInputsDigest= */ null);
     }
   }
 
@@ -489,6 +496,7 @@ public final class ActionCacheCheckerTest {
             cacheChecker.getTokenIfNeedToExecute(
                 action,
                 /* resolvedCacheArtifacts= */ null,
+            /* mandatoryInputsDigest= */ null,
                 /* clientEnv= */ ImmutableMap.of(),
                 OutputPermissions.READONLY,
                 /* handler= */ null,
@@ -642,6 +650,7 @@ public final class ActionCacheCheckerTest {
         cacheChecker.getTokenIfNeedToExecute(
             action,
             /* resolvedCacheArtifacts= */ null,
+            /* mandatoryInputsDigest= */ null,
             /* clientEnv= */ ImmutableMap.of(),
             OutputPermissions.READONLY,
             /* handler= */ null,
@@ -676,6 +685,7 @@ public final class ActionCacheCheckerTest {
         cacheChecker.getTokenIfNeedToExecute(
             action,
             /* resolvedCacheArtifacts= */ null,
+            /* mandatoryInputsDigest= */ null,
             /* clientEnv= */ ImmutableMap.of(),
             OutputPermissions.READONLY,
             /* handler= */ null,
@@ -705,6 +715,7 @@ public final class ActionCacheCheckerTest {
         cacheChecker.getTokenIfNeedToExecute(
             action,
             /* resolvedCacheArtifacts= */ null,
+            /* mandatoryInputsDigest= */ null,
             /* clientEnv= */ ImmutableMap.of(),
             OutputPermissions.READONLY,
             /* handler= */ null,
@@ -766,6 +777,7 @@ public final class ActionCacheCheckerTest {
         cacheChecker.getTokenIfNeedToExecute(
             action,
             /* resolvedCacheArtifacts= */ null,
+            /* mandatoryInputsDigest= */ null,
             /* clientEnv= */ ImmutableMap.of(),
             OutputPermissions.READONLY,
             /* handler= */ null,
@@ -962,6 +974,7 @@ public final class ActionCacheCheckerTest {
         cacheChecker.getTokenIfNeedToExecute(
             action,
             /* resolvedCacheArtifacts= */ null,
+            /* mandatoryInputsDigest= */ null,
             /* clientEnv= */ ImmutableMap.of(),
             OutputPermissions.READONLY,
             /* handler= */ null,
@@ -1067,6 +1080,7 @@ public final class ActionCacheCheckerTest {
         cacheChecker.getTokenIfNeedToExecute(
             action,
             /* resolvedCacheArtifacts= */ null,
+            /* mandatoryInputsDigest= */ null,
             /* clientEnv= */ ImmutableMap.of(),
             OutputPermissions.READONLY,
             /* handler= */ null,
@@ -1127,6 +1141,7 @@ public final class ActionCacheCheckerTest {
         cacheChecker.getTokenIfNeedToExecute(
             action,
             /* resolvedCacheArtifacts= */ null,
+            /* mandatoryInputsDigest= */ null,
             /* clientEnv= */ ImmutableMap.of(),
             OutputPermissions.READONLY,
             /* handler= */ null,
@@ -1200,6 +1215,7 @@ public final class ActionCacheCheckerTest {
         cacheChecker.getTokenIfNeedToExecute(
             action,
             /* resolvedCacheArtifacts= */ null,
+            /* mandatoryInputsDigest= */ null,
             /* clientEnv= */ ImmutableMap.of(),
             OutputPermissions.READONLY,
             /* handler= */ null,
@@ -1265,6 +1281,7 @@ public final class ActionCacheCheckerTest {
         cacheChecker.getTokenIfNeedToExecute(
             action,
             /* resolvedCacheArtifacts= */ null,
+            /* mandatoryInputsDigest= */ null,
             /* clientEnv= */ ImmutableMap.of(),
             OutputPermissions.READONLY,
             /* handler= */ null,
@@ -1309,6 +1326,7 @@ public final class ActionCacheCheckerTest {
         cacheChecker.getTokenIfNeedToExecute(
             action,
             /* resolvedCacheArtifacts= */ null,
+            /* mandatoryInputsDigest= */ null,
             /* clientEnv= */ ImmutableMap.of(),
             OutputPermissions.READONLY,
             /* handler= */ null,
@@ -1361,6 +1379,7 @@ public final class ActionCacheCheckerTest {
         cacheChecker.getTokenIfNeedToExecute(
             action,
             /* resolvedCacheArtifacts= */ null,
+            /* mandatoryInputsDigest= */ null,
             /* clientEnv= */ ImmutableMap.of(),
             OutputPermissions.READONLY,
             /* handler= */ null,
@@ -1405,6 +1424,7 @@ public final class ActionCacheCheckerTest {
         cacheChecker.getTokenIfNeedToExecute(
             action,
             /* resolvedCacheArtifacts= */ null,
+            /* mandatoryInputsDigest= */ null,
             /* clientEnv= */ ImmutableMap.of(),
             OutputPermissions.READONLY,
             /* handler= */ null,
@@ -1736,9 +1756,213 @@ public final class ActionCacheCheckerTest {
     assertThat(entry.getProxyOutputs()).containsExactly(output.getExecPathString());
   }
 
+  @Test
+  public void mandatoryInputsMatch_returnsFalseWhenNoCacheEntry() throws Exception {
+    SplitCacheActionSetup setup = createSplitCacheActionSetup("content");
+    assertThat(
+            cacheChecker.mandatoryInputsMatch(
+                setup.action(), computeMandatoryInputsDigest(setup.mandatory(), setup.handler())))
+        .isFalse();
+  }
+
+  @Test
+  public void mandatoryInputsMatch_returnsTrueWhenDigestMatches() throws Exception {
+    SplitCacheActionSetup setup = createSplitCacheActionSetup("content");
+    byte[] mandatoryInputsDigest =
+        computeMandatoryInputsDigest(setup.mandatory(), setup.handler());
+
+    runActionWithMandatoryInputsDigest(
+        setup.action(), mandatoryInputsDigest, setup.handler());
+
+    assertThat(cacheChecker.mandatoryInputsMatch(setup.action(), mandatoryInputsDigest))
+        .isTrue();
+  }
+
+  @Test
+  public void mandatoryInputsMatch_returnsFalseWhenDigestDiffers() throws Exception {
+    SplitCacheActionSetup setup = createSplitCacheActionSetup("content");
+    byte[] mandatoryInputsDigest =
+        computeMandatoryInputsDigest(setup.mandatory(), setup.handler());
+
+    runActionWithMandatoryInputsDigest(
+        setup.action(), mandatoryInputsDigest, setup.handler());
+
+    writeIsoLatin1(setup.mandatory().getPath(), "changed");
+    assertThat(
+            cacheChecker.mandatoryInputsMatch(
+                setup.action(), computeMandatoryInputsDigest(setup.mandatory(), setup.handler())))
+        .isFalse();
+  }
+
+  @Test
+  public void mandatoryInputsMatch_returnsFalseWhenCacheEntryHasNoDigest() throws Exception {
+    SplitCacheActionSetup setup = createSplitCacheActionSetup("content");
+    runAction(
+        setup.action(),
+        ImmutableMap.of(),
+        "",
+        setup.handler(),
+        setup.handler());
+
+    assertThat(
+            cacheChecker.mandatoryInputsMatch(
+                setup.action(), computeMandatoryInputsDigest(setup.mandatory(), setup.handler())))
+        .isFalse();
+  }
+
+  @Test
+  public void useSplitMandatoryInputsActionCacheCheck_respectsActionOptIn() throws Exception {
+    SplitCacheActionSetup setup = createSplitCacheActionSetup("content");
+    Action regularAction =
+        new TestAction(
+            TestAction.NO_EFFECT,
+            NestedSetBuilder.create(Order.STABLE_ORDER, setup.mandatory()),
+            ImmutableSet.of(setup.output()));
+
+    assertThat(cacheChecker.useSplitMandatoryInputsActionCacheCheck(setup.action())).isTrue();
+    assertThat(cacheChecker.useSplitMandatoryInputsActionCacheCheck(regularAction)).isFalse();
+  }
+
+  @Test
+  public void cacheHit_withMandatoryInputsDigest() throws Exception {
+    SplitCacheActionSetup setup = createSplitCacheActionSetup("content");
+    byte[] mandatoryInputsDigest =
+        computeMandatoryInputsDigest(setup.mandatory(), setup.handler());
+
+    runActionWithMandatoryInputsDigest(
+        setup.action(), mandatoryInputsDigest, setup.handler());
+    Token token =
+        cacheChecker.getTokenIfNeedToExecute(
+            setup.action(),
+            /* resolvedCacheArtifacts= */ null,
+            mandatoryInputsDigest,
+            /* clientEnv= */ ImmutableMap.of(),
+            OutputPermissions.READONLY,
+            /* handler= */ null,
+            setup.handler(),
+            setup.handler(),
+            /* actionExecutionSalt= */ "",
+            OutputChecker.TRUST_ALL,
+            /* useArchivedTreeArtifacts= */ false);
+
+    assertThat(token).isNull();
+    assertStatistics(1, new MissDetailsBuilder().set(MissReason.NOT_CACHED, 1).build());
+  }
+
+  @Test
+  public void cacheMiss_whenMandatoryInputsDigestDiffers() throws Exception {
+    SplitCacheActionSetup setup = createSplitCacheActionSetup("content");
+    byte[] mandatoryInputsDigest =
+        computeMandatoryInputsDigest(setup.mandatory(), setup.handler());
+
+    runActionWithMandatoryInputsDigest(
+        setup.action(), mandatoryInputsDigest, setup.handler());
+
+    writeIsoLatin1(setup.mandatory().getPath(), "changed");
+    byte[] updatedMandatoryInputsDigest =
+        computeMandatoryInputsDigest(setup.mandatory(), setup.handler());
+    Token token =
+        cacheChecker.getTokenIfNeedToExecute(
+            setup.action(),
+            /* resolvedCacheArtifacts= */ null,
+            updatedMandatoryInputsDigest,
+            /* clientEnv= */ ImmutableMap.of(),
+            OutputPermissions.READONLY,
+            /* handler= */ null,
+            setup.handler(),
+            setup.handler(),
+            /* actionExecutionSalt= */ "",
+            OutputChecker.TRUST_ALL,
+            /* useArchivedTreeArtifacts= */ false);
+
+    assertThat(token).isNotNull();
+  }
+
+  private record SplitCacheActionSetup(
+      Action action, Artifact mandatory, Artifact output, FakeInputMetadataHandler handler) {}
+
+  private SplitCacheActionSetup createSplitCacheActionSetup(String mandatoryContent)
+      throws IOException {
+    Artifact mandatory = createArtifact(artifactRoot, "mandatory.txt");
+    Artifact discovered = createArtifact(artifactRoot, "discovered.extra.optional");
+    Artifact output = createArtifact(artifactRoot, "out.o");
+    writeIsoLatin1(mandatory.getPath(), mandatoryContent);
+    writeIsoLatin1(discovered.getPath(), "discovered");
+    FakeInputMetadataHandler metadataHandler = new FakeInputMetadataHandler();
+    Action action =
+        new SplitCacheTestAction(
+            TestAction.NO_EFFECT,
+            NestedSetBuilder.create(Order.STABLE_ORDER, mandatory, discovered),
+            ImmutableSet.of(output));
+    return new SplitCacheActionSetup(action, mandatory, output, metadataHandler);
+  }
+
+  private static byte[] computeMandatoryInputsDigest(
+      Artifact mandatory, FakeInputMetadataHandler metadataHandler) throws IOException {
+    return MandatoryInputsDigestUtils.fromMandatoryArtifacts(
+        metadataHandler, ImmutableList.of(mandatory));
+  }
+
+  private void runActionWithMandatoryInputsDigest(
+      Action action,
+      byte[] mandatoryInputsDigest,
+      FakeInputMetadataHandler metadataHandler)
+      throws Exception {
+    Token token =
+        cacheChecker.getTokenIfNeedToExecute(
+            action,
+            /* resolvedCacheArtifacts= */ null,
+            mandatoryInputsDigest,
+            /* clientEnv= */ ImmutableMap.of(),
+            OutputPermissions.READONLY,
+            /* handler= */ null,
+            metadataHandler,
+            metadataHandler,
+            /* actionExecutionSalt= */ "",
+            OutputChecker.TRUST_ALL,
+            /* useArchivedTreeArtifacts= */ false);
+    if (token == null) {
+      return;
+    }
+    for (Artifact artifact : action.getOutputs()) {
+      Path path = artifact.getPath();
+      filesToDelete.add(path);
+      Path parent = path.getParentDirectory();
+      if (parent != null) {
+        parent.createDirectoryAndParents();
+      }
+    }
+    ActionExecutionContext context = mock(ActionExecutionContext.class);
+    when(context.getOutputMetadataStore()).thenReturn(metadataHandler);
+    action.execute(context);
+    cacheChecker.updateActionCache(
+        action,
+        token,
+        metadataHandler,
+        metadataHandler,
+        ImmutableMap.of(),
+        OutputPermissions.READONLY,
+        "",
+        /* useArchivedTreeArtifacts= */ false,
+        mandatoryInputsDigest);
+  }
+
   // TODO(tjgq): Add tests for cached tree artifacts with a materialization path. They should take
   // into account every combination of entirely/partially remote metadata and symlink present/not
   // present in the filesystem.
+
+  /** {@link TestAction} that opts in to split mandatory/discovered action cache checking. */
+  private static final class SplitCacheTestAction extends TestAction {
+    SplitCacheTestAction(
+        Runnable effect, NestedSet<Artifact> inputs, ImmutableSet<Artifact> outputs) {
+      super(effect, inputs, outputs);
+    }
+
+    @Override
+    public boolean usesSplitMandatoryInputsActionCacheCheck() {
+      return true;
+    }
+  }
 
   /** An {@link ActionCache} that allows injecting corruption for testing. */
   private static final class CorruptibleActionCache implements ActionCache {

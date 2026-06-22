@@ -61,6 +61,7 @@ java_library(
         "ActionLogBufferPathGenerator.java",
         "ActionLookupValue.java",
         "ActionProgressEvent.java",
+        "MandatoryInputsDigestUtils.java",
         "ActionRegistry.java",
         "ActionResultReceivedEvent.java",
         "ActionScanningCompletedEvent.java",
