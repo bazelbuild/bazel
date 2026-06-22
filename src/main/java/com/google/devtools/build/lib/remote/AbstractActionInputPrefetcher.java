@@ -24,11 +24,13 @@ import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 import static com.google.devtools.build.lib.remote.util.Utils.mergeBulkTransfer;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Sets;
+import com.google.common.collect.SetMultimap;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.Striped;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -58,10 +60,11 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReadWriteLock;
 import javax.annotation.Nullable;
 
 /**
@@ -203,6 +206,14 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
 
   private final DirectoryTracker directoryTracker = new DirectoryTracker();
 
+  // Tree artifact downloads use temporary paths. Coordinate by resolved tree root: a read lock
+  // protects reopening ancestors and moving one child into place, while a write lock protects
+  // restoring every directory touched by a prefetchFiles call to its output permissions. Weak
+  // locks over the full hash space allow unrelated trees to finalize concurrently without
+  // retaining every lock for the lifetime of the prefetcher.
+  private final Striped<ReadWriteLock> treeArtifactLocks =
+      Striped.lazyWeakReadWriteLock(Integer.MAX_VALUE);
+
   /** A symlink in the output tree that points to another artifact's absolute path. */
   record Symlink(Path linkPath, Path targetPath) {
     Symlink {
@@ -342,21 +353,19 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       return immediateVoidFuture();
     }
 
-    // Collect the set of directories whose output permissions must be set at the end of this call.
-    // This responsibility cannot lie with the downloading of an individual file, because multiple
-    // files may be concurrently downloaded into the same directory within a single call to
-    // prefetchFiles, and two concurrent calls to prefetchFiles may prefetch the same file. In the
-    // latter case, the second call will have its downloads deduplicated against the first call, but
-    // it must still synchronize on the output permissions having been set.
-    Set<Path> dirsWithOutputPermissions = Sets.newConcurrentHashSet();
+    // Collect directories whose output permissions must be restored at the end of this call,
+    // grouped by tree root for synchronization. Keeping permission restoration scoped to this
+    // prefetchFiles call avoids toggling shared ancestors between child finalizations. A concurrent
+    // call to prefetchFiles for the same child may await the same download, but must still
+    // participate in permission restoration before returning.
+    SetMultimap<Path, Path> directoriesByTreeRoot = HashMultimap.create();
 
     // Using plain futures to avoid RxJava overheads.
     List<ListenableFuture<Void>> transfers = new ArrayList<>(files.size());
     try (var s = Profiler.instance().profile("compose prefetches")) {
       for (var file : files) {
         transfers.add(
-            prefetchFile(
-                action, dirsWithOutputPermissions, metadataSupplier, file, priority, reason));
+            prefetchFile(action, directoriesByTreeRoot, metadataSupplier, file, priority, reason));
       }
     }
 
@@ -369,10 +378,17 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
         mergedTransfer,
         unused -> {
           try {
-            // Set output permissions on tree artifact subdirectories, matching the behavior of
-            // SkyframeActionExecutor#checkOutputs for artifacts produced by local actions.
-            for (Path dir : dirsWithOutputPermissions) {
-              directoryTracker.setOutputPermissions(dir);
+            // Match the directory output permissions set by SkyframeActionExecutor#checkOutputs.
+            for (var entry : directoriesByTreeRoot.asMap().entrySet()) {
+              Lock lock = treeArtifactLocks.get(entry.getKey().asFragment()).writeLock();
+              lock.lock();
+              try {
+                for (Path dir : entry.getValue()) {
+                  directoryTracker.setOutputPermissions(dir);
+                }
+              } finally {
+                lock.unlock();
+              }
             }
           } catch (IOException e) {
             return immediateFailedFuture(e);
@@ -384,7 +400,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
 
   private ListenableFuture<Void> prefetchFile(
       @Nullable ActionExecutionMetadata action,
-      Set<Path> dirsWithOutputPermissions,
+      SetMultimap<Path, Path> directoriesByTreeRoot,
       MetadataSupplier metadataSupplier,
       ActionInput input,
       Priority priority,
@@ -432,7 +448,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
               input,
               inputPath,
               treeRootPath,
-              dirsWithOutputPermissions,
+              directoriesByTreeRoot,
               input,
               metadata,
               priority,
@@ -556,7 +572,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       ActionInput input,
       Path path,
       @Nullable Path treeRoot,
-      Set<Path> dirsWithOutputPermissions,
+      SetMultimap<Path, Path> directoriesByTreeRoot,
       ActionInput actionInput,
       FileArtifactValue metadata,
       Priority priority,
@@ -577,24 +593,27 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       return Completable.error(e);
     }
 
-    if (treeRoot != null
-        && actionInput instanceof Artifact artifact
-        && artifact.isChildOfDeclaredDirectory()) {
-      // Arrange for the output permissions to be set on every directory inside the tree artifact.
-      // This must be done at assembly time to ensure that the permissions are set before the
-      // prefetchFiles call returns, even when the actual downloads are deduplicated against a
-      // concurrent call. See finalizeDownload for why we don't do so in other cases.
-      for (Path dir = path.getParentDirectory();
-          dir.startsWith(treeRoot);
+    // Downloads are written to the actual host file system, not any overlays.
+    Path finalPath = path.forHostFileSystem();
+
+    @Nullable
+    Path finalTreeRoot =
+        treeRoot != null
+                && actionInput instanceof Artifact artifact
+                && artifact.isChildOfDeclaredDirectory()
+            ? treeRoot.forHostFileSystem()
+            : null;
+    if (finalTreeRoot != null) {
+      // Record directories child-to-root. If a directory is already present for this tree root, an
+      // earlier traversal also recorded every ancestor through the root.
+      for (Path dir = finalPath.getParentDirectory();
+          dir.startsWith(finalTreeRoot);
           dir = dir.getParentDirectory()) {
-        if (!dirsWithOutputPermissions.add(dir)) {
+        if (!directoriesByTreeRoot.put(finalTreeRoot, dir)) {
           break;
         }
       }
     }
-
-    // Downloads should always be written to the "actual" host file system, not any overlays.
-    Path finalPath = path.forHostFileSystem();
 
     Completable download =
         usingTempPath(
@@ -613,10 +632,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
                     .doOnComplete(
                         () -> {
                           finalizeDownload(
-                              metadata,
-                              tempPath.forHostFileSystem(),
-                              finalPath,
-                              dirsWithOutputPermissions);
+                              metadata, tempPath.forHostFileSystem(), finalPath, finalTreeRoot);
                           alreadyDeleted.set(true);
                         }));
 
@@ -633,40 +649,58 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   }
 
   private void finalizeDownload(
-      FileArtifactValue metadata, Path tmpPath, Path finalPath, Set<Path> dirsWithOutputPermissions)
+      FileArtifactValue metadata, Path tmpPath, Path finalPath, @Nullable Path treeRoot)
       throws IOException {
-    Path parentDir = checkNotNull(finalPath.getParentDirectory());
+    // Set file output permissions, matching SkyframeActionExecutor#checkOutputs for artifacts
+    // produced by local actions. The temporary path is outside the output tree, so this can happen
+    // before entering the tree artifact root's critical section.
+    tmpPath.chmod(outputPermissions.getPermissionsMode());
 
-    // Compare as fragments since execRoot may be located on a file system overlaying the host
-    // file system where the download is written to.
-    if (finalPath.asFragment().startsWith(execRoot.asFragment())) {
-      // Ensure the parent directory exists and is writable. We cannot rely on this precondition to
-      // have been established by the execution of the owning action in a previous invocation, since
-      // the output tree may have been externally modified in between invocations.
-      if (dirsWithOutputPermissions.contains(parentDir)) {
-        // The file belongs to a tree artifact created by an action that declared an output
-        // directory (as opposed to an action template expansion). The output permissions should be
-        // set on the parent directory after prefetching.
-        directoryTracker.setTemporarilyWritable(parentDir);
-      } else {
-        // One of the following must apply:
-        //   (1) The file does not belong to a tree artifact.
-        //   (2) The file belongs to a tree artifact created by an action template expansion.
-        // In case (1), the parent directory is a package or a subdirectory of a package, and should
-        // remain writable. In case (2), even though we arguably ought to set the output permissions
-        // on the parent directory to match local execution, we choose not to do it and avoid the
-        // additional implementation complexity required to detect a race condition between
-        // concurrent calls touching the same directory.
-        directoryTracker.setPermanentlyWritable(parentDir);
-      }
-    } else {
-      parentDir.createDirectoryAndParents();
+    Path parentDir = checkNotNull(finalPath.getParentDirectory());
+    @Nullable
+    Lock treeArtifactLock =
+        treeRoot == null ? null : treeArtifactLocks.get(treeRoot.asFragment()).readLock();
+    if (treeArtifactLock != null) {
+      treeArtifactLock.lock();
     }
 
-    // Set output permissions on files, matching the behavior of SkyframeActionExecutor#checkOutputs
-    // for artifacts produced by local actions.
-    tmpPath.chmod(outputPermissions.getPermissionsMode());
-    FileSystemUtils.moveFile(tmpPath, finalPath);
+    try {
+      // Compare as fragments since execRoot may be located on a file system overlaying the host
+      // file system where the download is written to.
+      if (finalPath.asFragment().startsWith(execRoot.asFragment())) {
+        // Ensure the parent directory exists and is writable. We cannot rely on this precondition
+        // to have been established by the execution of the owning action in a previous invocation,
+        // since the output tree may have been externally modified in between invocations.
+        if (treeRoot != null) {
+          // Reopen every ancestor because ActionOutputDirectoryHelper caches existing directories
+          // and may otherwise leave a previously restored ancestor read-only.
+          Path dir = treeRoot;
+          directoryTracker.setTemporarilyWritable(dir);
+          for (String segment : parentDir.relativeTo(treeRoot).segments()) {
+            dir = dir.getChild(segment);
+            directoryTracker.setTemporarilyWritable(dir);
+          }
+        } else {
+          // One of the following must apply:
+          //   (1) The file does not belong to a tree artifact.
+          //   (2) The file belongs to a tree artifact created by an action template expansion.
+          // In case (1), the parent directory is a package or a subdirectory of a package, and
+          // should remain writable. In case (2), even though we arguably ought to set the output
+          // permissions on the parent directory to match local execution, we choose not to do it
+          // and avoid the additional implementation complexity required to detect a race condition
+          // between concurrent calls touching the same directory.
+          directoryTracker.setPermanentlyWritable(parentDir);
+        }
+      } else {
+        parentDir.createDirectoryAndParents();
+      }
+
+      FileSystemUtils.moveFile(tmpPath, finalPath);
+    } finally {
+      if (treeArtifactLock != null) {
+        treeArtifactLock.unlock();
+      }
+    }
 
     // Set the contents proxy when supported, to make future modification checks cheaper.
     metadata.setContentsProxy(FileContentsProxy.create(finalPath.stat()));
