@@ -277,20 +277,9 @@ public abstract class JavaOptions extends FragmentOptions {
       help = "Do not use.")
   public abstract Label getLocalJavaOptimizationConfiguration();
 
-  // TODO(b/237004872) Remove this after rollout of bytecode_optimization_pass_actions.
-  /** If true, the OPTIMIZATION stage of the bytecode optimizer will be split across two actions. */
-  @Option(
-      name = "split_bytecode_optimization_pass",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "Do not use.")
-  public abstract boolean getSplitBytecodeOptimizationPass();
-
   /**
    * This specifies the number of actions to divide the OPTIMIZATION stage of the bytecode optimizer
-   * into. Note that if split_bytecode_optimization_pass is set, bytecode_optimization_pass_actions
-   * will only effectively change build behavior if it is > 2.
+   * into.
    */
   @Option(
       name = "bytecode_optimization_pass_actions",
