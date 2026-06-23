@@ -142,8 +142,8 @@ final class StateInformingSkyFunctionEnvironment implements SkyFunction.Environm
   }
 
   @Override
-  public void injectVersionForNonHermeticFunction(Version version) {
-    delegate.injectVersionForNonHermeticFunction(version);
+  public void injectVersion(Version version) {
+    delegate.injectVersion(version);
   }
 
   @Override

@@ -162,8 +162,8 @@ public final class RecordingSkyFunctionEnvironment implements Environment {
   }
 
   @Override
-  public void injectVersionForNonHermeticFunction(Version version) {
-    delegate.injectVersionForNonHermeticFunction(version);
+  public void injectVersion(Version version) {
+    delegate.injectVersion(version);
   }
 
   @Override

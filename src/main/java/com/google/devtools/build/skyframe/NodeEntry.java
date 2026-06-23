@@ -17,7 +17,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.skyframe.SkyFunction.Reset;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
@@ -464,9 +463,9 @@ public interface NodeEntry {
   /**
    * Returns the maximal version of this node's dependencies from source.
    *
-   * <p>This version should only be tracked when non-hermetic functions {@linkplain
-   * SkyFunction.Environment#injectVersionForNonHermeticFunction inject} source versions. Otherwise,
-   * returns {@code null} to signal that source versions are not being tracked.
+   * <p>This version should only be tracked when functions {@linkplain
+   * SkyFunction.Environment#injectVersion inject} source versions. Otherwise, returns {@code null}
+   * to signal that source versions are not being tracked.
    */
   @ThreadSafe
   @Nullable
