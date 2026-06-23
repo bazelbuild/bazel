@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.actions.InputFileErrorException;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.actions.TopLevelOutputException;
 import com.google.devtools.build.lib.analysis.AnalysisFailureEvent;
+import com.google.devtools.build.lib.bazel.bzlmod.ExternalDepsException;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.constraints.TopLevelConstraintSemantics.TargetCompatibilityCheckException;
 import com.google.devtools.build.lib.bugreport.BugReport;
@@ -540,6 +541,13 @@ public final class SkyframeErrorProcessor {
               configurationIdMessage(ctKey.getConfigurationKey()),
               ((NoSuchThingException) exception).getDetailedExitCode());
       analysisRootCauses = NestedSetBuilder.create(Order.STABLE_ORDER, analysisFailedCause);
+    } else if (exception instanceof ExternalDepsException externalDepsException) {
+      AnalysisFailedCause analysisFailedCause =
+          new AnalysisFailedCause(
+              topLevelLabel,
+              configurationIdMessage(ctKey.getConfigurationKey()),
+              externalDepsException.getDetailedExitCode());
+      analysisRootCauses = NestedSetBuilder.create(Order.STABLE_ORDER, analysisFailedCause);
     } else if (exception instanceof TargetCompatibilityCheckException) {
       analysisRootCauses = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     } else if (isExecutionException(exception)) {
@@ -779,7 +787,8 @@ public final class SkyframeErrorProcessor {
     // analyze with --nokeep_going.
     if (cause instanceof SaneAnalysisException
         || cause instanceof NoSuchTargetException
-        || cause instanceof NoSuchPackageException) {
+        || cause instanceof NoSuchPackageException
+        || cause instanceof ExternalDepsException) {
       return (DetailedException) cause;
     }
     return null;
