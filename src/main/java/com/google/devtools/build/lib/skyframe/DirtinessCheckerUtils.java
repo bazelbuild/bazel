@@ -165,8 +165,10 @@ public class DirtinessCheckerUtils {
           return true;
         case EXTERNAL_REPO:
         case OUTPUT:
-        case REPO_CONTENTS_CACHE_DIRS:
           return false;
+        case REPO_CONTENTS_CACHE_DIRS:
+          throw new IllegalStateException(
+              "Repo contents cache dirs are not expected to be checked for dirtiness");
       }
       throw new AssertionError("Unknown type " + fileType);
     }
