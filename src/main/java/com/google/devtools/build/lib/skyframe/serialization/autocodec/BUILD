@@ -97,6 +97,9 @@ java_library(
 java_library(
     name = "autocodec-annotation",
     srcs = ["AutoCodec.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
+    ],
 )
 
 # Installs the @AutoCodec annotation processor as a compiler plugin.

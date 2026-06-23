@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.skyframe.serialization.autocodec;
 
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec.MemoizationEquality;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Target;
 
@@ -100,4 +101,10 @@ public @interface AutoCodec {
    * com.google.devtools.build.lib.skyframe.serialization.ObjectCodec#autoRegister()}.
    */
   boolean autoRegister() default true;
+
+  /**
+   * The memoization strategy to use for the generated codec. See {@link
+   * com.google.devtools.build.lib.skyframe.serialization.ObjectCodec.MemoizationEquality}.
+   */
+  MemoizationEquality memoizationEquality() default MemoizationEquality.BY_REFERENCE;
 }

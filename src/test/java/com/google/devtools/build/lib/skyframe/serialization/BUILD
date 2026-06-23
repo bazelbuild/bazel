@@ -409,6 +409,7 @@ java_library(
     srcs = glob(
         ["*.java"],
         exclude = [
+            "AspectCodecsTest.java",
             "PackageLookupValueCodecTest.java",
             "MutableListCodecTest.java",
             "SingletonCodecTest.java",
@@ -499,6 +500,22 @@ java_test(
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:guava",
         "//third_party:junit4",
+    ],
+)
+
+java_test(
+    name = "AspectCodecsTest",
+    size = "small",
+    srcs = ["AspectCodecsTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
     ],
 )
 
