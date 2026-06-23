@@ -815,16 +815,6 @@ public abstract class CppOptions extends FragmentOptions {
       help = "This flag is a noop and scheduled for removal.")
   public abstract boolean getUseStandaloneLtoIndexingCommandLines();
 
-  @Deprecated
-  @Option(
-      name = "incompatible_require_ctx_in_configure_features",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-      effectTags = {OptionEffectTag.NO_OP},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE, OptionMetadataTag.DEPRECATED},
-      help = "This flag is a noop and scheduled for removal.")
-  public abstract boolean getRequireCtxInConfigureFeatures();
-
   @Option(
       name = "incompatible_remove_legacy_whole_archive",
       defaultValue = "true",

@@ -664,6 +664,16 @@ public final class BazelRulesModule extends BlazeModule {
 
     @Deprecated
     @Option(
+        name = "incompatible_require_ctx_in_configure_features",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE, OptionMetadataTag.DEPRECATED},
+        help = "Deprecated no-op.")
+    public abstract boolean getRequireCtxInConfigureFeatures();
+
+    @Deprecated
+    @Option(
         name = "force_ignore_dash_static",
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
