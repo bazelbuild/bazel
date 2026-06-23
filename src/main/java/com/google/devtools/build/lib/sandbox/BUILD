@@ -199,7 +199,6 @@ java_library(
     data = ["//src/main/tools:linux-sandbox"],
     deps = [
         ":abstract_sandbox_spawn_runner",
-        ":cgroups_info",
         ":linux_sandbox_command_line_builder",
         ":linux_sandbox_util",
         ":sandbox_helpers",
@@ -234,16 +233,8 @@ java_library(
     name = "cgroups_info",
     srcs = [
         "Cgroup.java",
-        "CgroupsInfo.java",
-        "CgroupsInfoV1.java",
-        "CgroupsInfoV2.java",
     ],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/util:os",
-        "//third_party:flogger",
-        "//third_party:guava",
-        "//third_party:jsr305",
-    ],
+    deps = ["//third_party:guava"],
 )
 
 java_library(
@@ -349,7 +340,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party:error_prone_annotations",
-        "//third_party:flogger",
         "//third_party:guava",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
     ],
