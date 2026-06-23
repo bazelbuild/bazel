@@ -103,7 +103,7 @@ public final class ArtifactNestedSetKey implements ExecutionPhaseSkyKey {
    */
   public ImmutableList<Artifact> expandToArtifacts() {
     // Depth is not accurate, but doesn't matter.
-    return new NestedSet<Artifact>(Order.STABLE_ORDER, /* depth= */ 3, children).toList();
+    return NestedSet.<Artifact>create(Order.STABLE_ORDER, /* depth= */ 3, children).toList();
   }
 
   /**
