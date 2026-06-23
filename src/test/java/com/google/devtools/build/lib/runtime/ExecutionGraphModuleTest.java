@@ -507,7 +507,6 @@ public final class ExecutionGraphModuleTest extends FoundationTestCase {
             BugReporter.defaultInstance(),
             new EventBus(),
             /* localLockFreeOutputEnabled= */ false,
-            /* logFileWriteEdges= */ false,
             OutputStream.nullOutputStream(),
             DependencyInfo.NONE,
             queueSize,
@@ -532,7 +531,6 @@ public final class ExecutionGraphModuleTest extends FoundationTestCase {
         eventBus,
         BugReporter.defaultInstance(),
         /* localLockFreeOutputEnabled= */ false,
-        /* logFileWriteEdges= */ false,
         buffer,
         depType);
   }
@@ -541,7 +539,6 @@ public final class ExecutionGraphModuleTest extends FoundationTestCase {
       EventBus eventBus,
       BugReporter bugReporter,
       boolean localLockFreeOutputEnabled,
-      boolean logFileWriteEdges,
       OutputStream buffer,
       DependencyInfo depType) {
     ActionDumpWriter writer =
@@ -549,7 +546,6 @@ public final class ExecutionGraphModuleTest extends FoundationTestCase {
             bugReporter,
             eventBus,
             localLockFreeOutputEnabled,
-            logFileWriteEdges,
             buffer,
             depType,
             queueSize,
@@ -835,7 +831,6 @@ public final class ExecutionGraphModuleTest extends FoundationTestCase {
         eventBus,
         bugReporter,
         localLockFreeOutput.optionValue,
-        /* logFileWriteEdges= */ false,
         buffer,
         DependencyInfo.ALL);
     SpawnResult localResult = createLocalSpawnResult(100);
@@ -898,7 +893,6 @@ public final class ExecutionGraphModuleTest extends FoundationTestCase {
         eventBus,
         BugReporter.defaultInstance(),
         /* localLockFreeOutputEnabled= */ true,
-        /* logFileWriteEdges= */ false,
         buffer,
         DependencyInfo.ALL);
     SpawnResult localResult = createLocalSpawnResult(100);
