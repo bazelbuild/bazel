@@ -579,6 +579,16 @@ public final class BazelRulesModule extends BlazeModule {
   /** This is where deprecated Bazel-specific options only used by the build command go to die. */
   @OptionsClass
   public abstract static class BazelBuildGraveyardOptions extends BuildGraveyardOptions {
+    @Deprecated
+    @Option(
+        name = "incompatible_disable_legacy_cc_provider",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE, OptionMetadataTag.DEPRECATED},
+        help = "Deprecated no-op.")
+    public abstract boolean getDisableLegacyCcProvider();
+
     @Option(
         name = "python_path",
         defaultValue = "",
