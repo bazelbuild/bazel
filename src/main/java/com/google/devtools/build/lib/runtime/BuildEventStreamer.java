@@ -105,9 +105,19 @@ public class BuildEventStreamer {
   private final OutputGroupFileModes outputGroupFileModes;
   private final boolean publishTargetSummaries;
 
+  /**
+   * Tracks all events that have been announced.
+   * Notable exceptions:
+   * - Only the first and next (unposted) progress event is tracked.
+   */
   @GuardedBy("this")
   private Set<BuildEventId> announcedEvents;
 
+  /**
+   * Tracks all events that have been posted.
+   * Notable exceptions:
+   * - Only the first progress event is tracked.
+   */
   @GuardedBy("this")
   private final Set<BuildEventId> postedEvents = new HashSet<>();
 
@@ -338,7 +348,10 @@ public class BuildEventStreamer {
               finalLinkEvents.add(progressEvent);
               progressCount++;
               maybeRegisterAnnouncedEvents(progressEvent.getChildrenEvents());
-              postedEvents.add(progressEvent.getEventId());
+              // Discard produced progress event from announced list as it is no longer needed:
+              // - Only the initial progress event is waited on.
+              // - Progress event has been posted.
+              announcedEvents.remove(progressEvent.getEventId());
             });
       }
     }
@@ -738,7 +751,10 @@ public class BuildEventStreamer {
     BuildEvent updateEvent = ProgressEvent.progressUpdate(progressCount, out, err);
     progressCount++;
     maybeRegisterAnnouncedEvents(updateEvent.getChildrenEvents());
-    postedEvents.add(updateEvent.getEventId());
+    // Discard produced progress event from announced list as it is no longer needed:
+    // - Only the initial progress event is waited on.
+    // - Progress event has been posted.
+    announcedEvents.remove(updateEvent.getEventId());
     return updateEvent;
   }
 
