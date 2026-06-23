@@ -361,24 +361,6 @@ public abstract class CppOptions extends FragmentOptions {
       converter = LabelConverter.class)
   public abstract Label getCustomMalloc();
 
-  // @Deprecated
-  // TODO(https://github.com/bazelbuild/bazel/pull/26854): figure out how to deprecate
-  // this without warning spam because of a globally set bazelrc.
-  @Option(
-      name = "legacy_whole_archive",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.AFFECTS_OUTPUTS},
-      metadataTags = {OptionMetadataTag.HIDDEN},
-      help =
-          "Deprecated, superseded by --incompatible_remove_legacy_whole_archive "
-              + "(see https://github.com/bazelbuild/bazel/issues/7362 for details). "
-              + "When on, use --whole-archive for cc_binary rules that have "
-              + "linkshared=True and either linkstatic=True or '-static' in linkopts. "
-              + "This is for backwards compatibility only. "
-              + "A better alternative is to use alwayslink=1 where required.")
-  public abstract boolean getLegacyWholeArchive();
-
   @Option(
       name = "strip",
       defaultValue = "sometimes",
@@ -824,17 +806,6 @@ public abstract class CppOptions extends FragmentOptions {
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE, OptionMetadataTag.DEPRECATED},
       help = "This flag is a noop and scheduled for removal.")
   public abstract boolean getRequireCtxInConfigureFeatures();
-
-  @Option(
-      name = "incompatible_remove_legacy_whole_archive",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "If true, Bazel will not link library dependencies as whole archive by default "
-              + "(see https://github.com/bazelbuild/bazel/issues/7362 for migration instructions).")
-  public abstract boolean getRemoveLegacyWholeArchive();
 
   @Option(
       name = "incompatible_enable_cc_toolchain_resolution",

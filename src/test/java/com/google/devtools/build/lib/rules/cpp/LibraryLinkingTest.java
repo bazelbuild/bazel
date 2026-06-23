@@ -46,16 +46,14 @@ public final class LibraryLinkingTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testGeneratedLib() throws Exception {
+  public void testGeneratedLibraryLinkedWithoutWholeArchive() throws Exception {
     getAnalysisMock()
         .ccSupport()
         .setupCcToolchainConfig(
             mockToolsConfig,
             CcToolchainConfig.builder().withFeatures(CppRuleClasses.SUPPORTS_DYNAMIC_LINKER));
 
-    useConfiguration(
-        "--platforms=" + TestConstants.PLATFORM_LABEL,
-        "--noincompatible_remove_legacy_whole_archive");
+    useConfiguration("--platforms=" + TestConstants.PLATFORM_LABEL);
     ConfiguredTarget genlib =
         scratchConfiguredTarget(
             "genrule",
@@ -79,9 +77,7 @@ public final class LibraryLinkingTest extends BuildViewTestCase {
         "-shared",
         "-o",
         analysisMock.getProductName() + "-out/.+/genrule/thebinary.so",
-        "-Wl,-whole-archive",
-        analysisMock.getProductName() + "-out/.+/genrule/genlib.a",
-        "-Wl,-no-whole-archive");
+        analysisMock.getProductName() + "-out/.+/genrule/genlib.a");
   }
 
   /**
