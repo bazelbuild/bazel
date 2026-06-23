@@ -308,9 +308,9 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
           }
           if (repoContentsCache.isEnabled()) {
             // This repo is eligible for the repo contents cache.
-            Path cachedRepoDir;
+            CandidateRepo newCacheEntry;
             try {
-              cachedRepoDir =
+              newCacheEntry =
                   repoContentsCache.moveToCache(
                       repoRoot, digestWriter.markerPath, digestWriter.predeclaredInputHash);
             } catch (IOException e) {
@@ -321,6 +321,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
                       e),
                   Transience.TRANSIENT);
             }
+            Path cachedRepoDir = newCacheEntry.contentsDir();
             // Don't forget to register a FileStateValue on the cache repo dir, so that we know to
             // refetch if the cache entry gets GC'd from under us or the entire cache is deleted.
             //

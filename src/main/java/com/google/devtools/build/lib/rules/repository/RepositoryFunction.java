@@ -239,12 +239,23 @@ public abstract class RepositoryFunction {
       Map<RepoRecordedInput, String> recordedInputValues,
       Environment env)
       throws InterruptedException {
-    return RepoRecordedInput.isAnyValueOutdated(
-        env,
-        directories,
+    var withValues =
         recordedInputValues.entrySet().stream()
             .map(e -> new RepoRecordedInput.WithValue(e.getKey(), e.getValue()))
-            .collect(com.google.common.collect.ImmutableList.toImmutableList()));
+            .collect(com.google.common.collect.ImmutableList.toImmutableList());
+    // Check inputs in batches to prevent Skyframe cycles caused by outdated dependencies: a batch
+    // ends right before any input that may cause a cycle if requested while earlier inputs are out
+    // of date. A later batch's deps are only requested after the earlier batches have been
+    // confirmed up to date across Skyframe restarts (isAnyValueOutdated returns a non-empty reason
+    // when its batch's values are still missing, short-circuiting this loop).
+    for (var batch : RepoRecordedInput.WithValue.splitIntoBatches(withValues)) {
+      Optional<String> outdatedReason =
+          RepoRecordedInput.isAnyValueOutdated(env, directories, batch);
+      if (outdatedReason.isPresent()) {
+        return outdatedReason;
+      }
+    }
+    return Optional.empty();
   }
 
   public static RootedPath getRootedPathFromLabel(Label label, Environment env)
