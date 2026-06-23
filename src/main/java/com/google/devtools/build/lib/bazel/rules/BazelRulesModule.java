@@ -589,6 +589,16 @@ public final class BazelRulesModule extends BlazeModule {
         help = "Deprecated no-op.")
     public abstract boolean getDisableLegacyCcProvider();
 
+    @Deprecated
+    @Option(
+        name = "experimental_java_test_auto_create_deploy_jar",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.EXPERIMENTAL, OptionMetadataTag.DEPRECATED},
+        help = "Deprecated no-op.")
+    public abstract boolean getJavaTestAutoCreateDeployJar();
+
     @Option(
         name = "python_path",
         defaultValue = "",

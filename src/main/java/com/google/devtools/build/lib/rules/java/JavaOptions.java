@@ -442,13 +442,4 @@ public abstract class JavaOptions extends FragmentOptions {
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help = "Enable experimental jspecify integration.")
   public abstract boolean getExperimentalEnableJspecify();
-
-  @Option(
-      name = "experimental_java_test_auto_create_deploy_jar",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help = "DO NOT USE")
-  public abstract boolean getAutoCreateDeployJarForJavaTests();
 }
