@@ -364,6 +364,16 @@ public final class SkyframeErrorProcessor {
     }
 
     Preconditions.checkNotNull(eventBus);
+    // Top-level aspect failures may be the only processed error in nokeep_going Skymeld.
+    if (errorKey instanceof TopLevelAspectsKey topLevelAspectsKey) {
+      if (individualErrorProcessingResult.isAnalysisError()) {
+        eventBus.post(
+            AnalysisFailureEvent.whileAnalyzingTarget(
+                topLevelAspectsKey.getBaseConfiguredTargetKey(),
+                individualErrorProcessingResult.analysisRootCauses()));
+      }
+      return;
+    }
     if (!(errorKey instanceof ConfiguredTargetKey)) {
       return;
     }
