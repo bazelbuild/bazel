@@ -805,16 +805,6 @@ public abstract class CppOptions extends FragmentOptions {
               + "(see https://github.com/bazelbuild/bazel/issues/7407 for more information).")
   public abstract boolean getDontEnableHostNonhost();
 
-  @Deprecated
-  @Option(
-      name = "incompatible_make_thinlto_command_lines_standalone",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-      effectTags = {OptionEffectTag.NO_OP},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE, OptionMetadataTag.DEPRECATED},
-      help = "This flag is a noop and scheduled for removal.")
-  public abstract boolean getUseStandaloneLtoIndexingCommandLines();
-
   @Option(
       name = "incompatible_remove_legacy_whole_archive",
       defaultValue = "true",

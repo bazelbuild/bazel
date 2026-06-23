@@ -842,10 +842,7 @@ public class CcBinaryThinLtoTest extends BuildViewTestCase {
     createBuildFiles();
 
     setupThinLTOCrosstool(CppRuleClasses.SUPPORTS_PIC);
-    useConfiguration(
-        "--ltoindexopt=anltoindexopt",
-        "--incompatible_make_thinlto_command_lines_standalone",
-        "--features=thin_lto");
+    useConfiguration("--ltoindexopt=anltoindexopt", "--features=thin_lto");
 
     /*
     We follow the chain from the final product backwards.
