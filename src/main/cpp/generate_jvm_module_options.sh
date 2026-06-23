@@ -46,7 +46,7 @@ if [[ -f "${JAR_FILE}" ]]; then
   # We first join continuation lines in the manifest, then grep for the headers we
   # care about, and then process them.
   unzip -p "${JAR_FILE}" META-INF/MANIFEST.MF 2>/dev/null | \
-      sed -e 's/\r$//' | sed -e ':a' -e 'N' -e '$!ba' -e 's/\n / /g' | \
+      tr -d '\r' | sed -e ':a' -e 'N' -e '$!ba' -e 's/\n / /g' | \
       grep -E '^(Add-Exports|Add-Opens):' | \
       while read -r line; do
           if [[ "$line" =~ ^Add-Exports: ]]; then
