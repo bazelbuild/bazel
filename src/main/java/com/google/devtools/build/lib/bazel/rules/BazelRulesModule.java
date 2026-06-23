@@ -609,6 +609,16 @@ public final class BazelRulesModule extends BlazeModule {
   public abstract static class BazelBuildGraveyardOptions extends BuildGraveyardOptions {
     @Deprecated
     @Option(
+        name = "split_bytecode_optimization_pass",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.DEPRECATED},
+        help = "Deprecated no-op.")
+    public abstract boolean getSplitBytecodeOptimizationPass();
+
+    @Deprecated
+    @Option(
         name = "host_compiler",
         defaultValue = "null",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
