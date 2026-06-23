@@ -324,7 +324,6 @@ bazel_fragments["JavaOptions"] = fragment(
         "//command_line_option:experimental_fix_deps_tool",
         "//command_line_option:experimental_one_version_enforcement",
         "//command_line_option:one_version_enforcement_on_java_tests",
-        "//command_line_option:experimental_add_test_support_to_compile_time_deps",
         "//command_line_option:java_runtime_version",
         "//command_line_option:java_language_version",
         "//command_line_option:bytecode_optimizers",
