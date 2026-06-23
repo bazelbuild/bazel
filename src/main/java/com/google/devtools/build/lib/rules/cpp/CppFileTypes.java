@@ -30,6 +30,7 @@ public final class CppFileTypes {
   // FileType is extended to use case-sensitive comparison also on Windows
   public static final FileType CPP_SOURCE =
       new FileType() {
+        // TODO: Remove .cu when --incompatible_cuda_compile_action is removed
         final ImmutableList<String> extensions =
             ImmutableList.of(".cc", ".cpp", ".cxx", ".c++", ".C", ".cu", ".cl");
 
@@ -70,6 +71,7 @@ public final class CppFileTypes {
   public static final FileType CLIF_INPUT_PROTO = FileType.of(".ipb");
   public static final FileType CLIF_OUTPUT_PROTO = FileType.of(".opb");
   public static final FileType BC_SOURCE = FileType.of(".bc");
+  public static final FileType CUDA_SOURCE = FileType.of(".cu");
 
   public static final FileTypeSet ALL_C_CLASS_SOURCE =
       FileTypeSet.of(
@@ -77,11 +79,15 @@ public final class CppFileTypes {
           CppFileTypes.C_SOURCE,
           CppFileTypes.OBJCPP_SOURCE,
           CppFileTypes.OBJC_SOURCE,
-          CppFileTypes.CLIF_INPUT_PROTO);
+          CppFileTypes.CLIF_INPUT_PROTO,
+          CppFileTypes.CUDA_SOURCE);
 
   // Filetypes that generate LLVM bitcode when -flto is specified.
   public static final FileTypeSet LTO_SOURCE =
-      FileTypeSet.of(CppFileTypes.CPP_SOURCE, CppFileTypes.C_SOURCE);
+      FileTypeSet.of(
+          CppFileTypes.CPP_SOURCE,
+          CppFileTypes.C_SOURCE,
+          CppFileTypes.CUDA_SOURCE);
 
   public static final FileType CPP_HEADER =
       FileType.of(

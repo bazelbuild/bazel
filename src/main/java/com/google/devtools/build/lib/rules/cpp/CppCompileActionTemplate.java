@@ -107,6 +107,7 @@ public final class CppCompileActionTemplate extends ActionKeyComputer
       FileTypeSet.of(
           CppFileTypes.CPP_SOURCE,
           CppFileTypes.CPP_HEADER,
+          CppFileTypes.CUDA_SOURCE,
           CppFileTypes.OBJC_SOURCE,
           CppFileTypes.OBJCPP_SOURCE,
           CppFileTypes.C_SOURCE,

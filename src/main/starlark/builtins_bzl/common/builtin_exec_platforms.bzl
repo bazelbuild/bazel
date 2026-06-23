@@ -265,6 +265,7 @@ bazel_fragments["CppOptions"] = fragment(
         "//command_line_option:incompatible_remove_legacy_whole_archive",
         "//command_line_option:incompatible_dont_enable_host_nonhost_crosstool_features",
         "//command_line_option:incompatible_use_specific_tool_files",
+        "//command_line_option:incompatible_cuda_compile_action",
         "//command_line_option:incompatible_disable_nocopts",
         "//command_line_option:strict_system_includes",
         "//command_line_option:experimental_use_cpp_compile_action_args_params_file",

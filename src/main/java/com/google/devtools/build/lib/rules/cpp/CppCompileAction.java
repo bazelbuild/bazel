@@ -2013,6 +2013,8 @@ public class CppCompileAction extends AbstractAction
         return "CppHeaderAnalysis";
       case CppActionNames.CPP_MODULE_DEPS_SCANNING:
         return "CppDepsScanning";
+      case CppActionNames.CUDA_COMPILE:
+        return "CudaCompile";
       default:
         return CPP_COMPILE_MNEMONIC;
     }
