@@ -20,6 +20,7 @@ import static com.google.common.base.Preconditions.checkState;
 import com.google.common.base.Predicates;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.HashMultiset;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multiset;
@@ -40,6 +41,7 @@ import com.google.devtools.build.skyframe.SkyframeGraphStatsEvent.EvaluationStat
 import com.google.errorprone.annotations.ForOverride;
 import java.io.PrintStream;
 import java.time.Duration;
+import java.util.ArrayDeque;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -245,11 +247,73 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
   public final void deleteDirty(long versionAgeLimit) {
     checkArgument(versionAgeLimit >= 0, versionAgeLimit);
     Version threshold = IntVersion.of(lastGraphVersion.getVal() - versionAgeLimit);
+    var graph = getInMemoryGraph();
+    Set<SkyKey> candidates = progressReceiver.getUnenqueuedDirtyKeys();
+
+    // Keep dirty nodes that change pruning would verify clean without rebuilding as their value is
+    // still valid, they just weren't in scope for the last evaluation. Keeping them matches the
+    // behavior for done but unrequested nodes.
+    HashMultiset<SkyKey> remainingDirtyDeps = HashMultiset.create();
+    HashMultimap<SkyKey, SkyKey> dirtyRdeps = HashMultimap.create();
+    ArrayDeque<SkyKey> ready = new ArrayDeque<>();
+    for (SkyKey skyKey : candidates) {
+      if (!(graph.getIfPresent(skyKey) instanceof IncrementalInMemoryNodeEntry entry)) {
+        continue;
+      }
+      Iterable<SkyKey> lastBuildDeps = entry.lastBuildDepsIfChangePrunable();
+      if (lastBuildDeps == null) {
+        continue; // Not change-prunable -> eligible for deletion.
+      }
+      Version lastEvaluated = entry.lastEvaluatedVersion();
+      ImmutableList.Builder<SkyKey> dirtyDepsBuilder = ImmutableList.builder();
+      boolean keepable = true;
+      for (SkyKey dep : lastBuildDeps) {
+        NodeEntry depEntry = graph.getIfPresent(dep);
+        // A dep must be present and unchanged since this node was last evaluated (mirrors
+        // childVersion.atMost(version.lastEvaluated()) in signalDep). A dep that is itself dirty must
+        // additionally be kept; the worklist decides that (a dirty dep that is never kept leaves this
+        // node's count above zero, so it is not kept either -- including non-candidate dirty deps,
+        // which are never processed below).
+        if (depEntry == null || !depEntry.getVersion().atMost(lastEvaluated)) {
+          keepable = false;
+          break;
+        }
+        if (!depEntry.isDone()) {
+          dirtyDepsBuilder.add(dep);
+        }
+      }
+      if (!keepable) {
+        continue;
+      }
+      ImmutableList<SkyKey> dirtyDeps = dirtyDepsBuilder.build();
+      if (dirtyDeps.isEmpty()) {
+        ready.add(skyKey); // All deps already done and unchanged.
+      } else {
+        remainingDirtyDeps.add(skyKey, dirtyDeps.size());
+        for (SkyKey dirtyDep : dirtyDeps) {
+          dirtyRdeps.put(dirtyDep, skyKey);
+        }
+      }
+    }
+    Set<SkyKey> kept = new HashSet<>();
+    while (!ready.isEmpty()) {
+      SkyKey skyKey = ready.poll();
+      kept.add(skyKey);
+      for (SkyKey rdep : dirtyRdeps.get(skyKey)) {
+        if (remainingDirtyDeps.remove(rdep, 1) == 1) {
+          ready.add(rdep);
+        }
+      }
+    }
+
     valuesToDelete.addAll(
         Sets.filter(
-            progressReceiver.getUnenqueuedDirtyKeys(),
+            candidates,
             skyKey -> {
-              NodeEntry entry = checkNotNull(getInMemoryGraph().getIfPresent(skyKey), skyKey);
+              if (kept.contains(skyKey)) {
+                return false;
+              }
+              NodeEntry entry = checkNotNull(graph.getIfPresent(skyKey), skyKey);
               checkState(entry.isDirty(), skyKey);
               return entry.getVersion().atMost(threshold);
             }));
