@@ -98,7 +98,6 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   private final boolean experimentalTurbineAnnotationProcessing;
   private final int experimentalTurbineCpuReservation;
   private final boolean experimentalEnableJspecify;
-  private final boolean multiReleaseDeployJars;
   private final boolean disallowJavaImportExports;
   private final boolean autoCreateDeployJarForJavaTests;
 
@@ -128,7 +127,6 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     this.explicitJavaTestDeps = javaOptions.getExplicitJavaTestDeps();
     this.addTestSupportToCompileTimeDeps = javaOptions.getAddTestSupportToCompileTimeDeps();
     this.runAndroidLint = javaOptions.getRunAndroidLint();
-    this.multiReleaseDeployJars = javaOptions.getMultiReleaseDeployJars();
     this.disallowJavaImportExports = javaOptions.getDisallowJavaImportExports();
     this.autoCreateDeployJarForJavaTests = javaOptions.getAutoCreateDeployJarForJavaTests();
     Map<String, Label> optimizers = javaOptions.getBytecodeOptimizers();
@@ -353,7 +351,7 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
 
   @Override
   public boolean multiReleaseDeployJars() {
-    return multiReleaseDeployJars;
+    return true;
   }
 
   /** Returns true if java_import exports are not allowed. */

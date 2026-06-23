@@ -417,15 +417,6 @@ public abstract class JavaOptions extends FragmentOptions {
   public abstract String getHostJavaLanguageVersion();
 
   @Option(
-      name = "incompatible_multi_release_deploy_jars",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help = "When enabled, java_binary creates Multi-Release deploy jars.")
-  public abstract boolean getMultiReleaseDeployJars();
-
-  @Option(
       name = "incompatible_disallow_java_import_exports",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,

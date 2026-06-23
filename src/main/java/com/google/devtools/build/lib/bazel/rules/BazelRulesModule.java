@@ -609,6 +609,16 @@ public final class BazelRulesModule extends BlazeModule {
         help = "Deprecated no-op.")
     public abstract boolean getUseSpecificToolFiles();
 
+    @Deprecated
+    @Option(
+        name = "incompatible_multi_release_deploy_jars",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE, OptionMetadataTag.DEPRECATED},
+        help = "Deprecated no-op.")
+    public abstract boolean getMultiReleaseDeployJars();
+
     @Option(
         name = "python_path",
         defaultValue = "",
