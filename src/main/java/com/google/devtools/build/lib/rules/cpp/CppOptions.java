@@ -794,17 +794,6 @@ public abstract class CppOptions extends FragmentOptions {
               + "gcov when collect_code_coverage is enabled.")
   public abstract boolean getUseLLVMCoverageMapFormat();
 
-  @Option(
-      name = "incompatible_dont_enable_host_nonhost_crosstool_features",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "If true, Bazel will not enable 'host' and 'nonhost' features in the c++ toolchain "
-              + "(see https://github.com/bazelbuild/bazel/issues/7407 for more information).")
-  public abstract boolean getDontEnableHostNonhost();
-
   @Deprecated
   @Option(
       name = "incompatible_make_thinlto_command_lines_standalone",

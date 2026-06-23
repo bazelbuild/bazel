@@ -781,7 +781,7 @@ public final class CppConfiguration extends Fragment
 
   @StarlarkMethod(name = "_dont_enable_host_nonhost", documented = false, structField = true)
   public boolean dontEnableHostNonhost() {
-    return cppOptions.getDontEnableHostNonhost();
+    return true;
   }
 
   public boolean collectCodeCoverage() {

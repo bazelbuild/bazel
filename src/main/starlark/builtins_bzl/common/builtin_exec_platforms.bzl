@@ -263,7 +263,6 @@ bazel_fragments["CppOptions"] = fragment(
         "//command_line_option:experimental_inmemory_dotd_files",
         "//command_line_option:incompatible_enable_cc_toolchain_resolution",
         "//command_line_option:incompatible_remove_legacy_whole_archive",
-        "//command_line_option:incompatible_dont_enable_host_nonhost_crosstool_features",
         "//command_line_option:incompatible_require_ctx_in_configure_features",
         "//command_line_option:incompatible_make_thinlto_command_lines_standalone",
         "//command_line_option:incompatible_use_specific_tool_files",
