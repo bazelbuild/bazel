@@ -134,9 +134,7 @@ public interface JavaConfigurationApi extends StarlarkValue {
   @StarlarkMethod(
       name = "split_bytecode_optimization_pass",
       structField = true,
-      doc =
-          "Returns whether the OPTIMIZATION stage of the bytecode optimizer will be split across"
-              + " two actions.")
+      doc = "Deprecated. Always false; use bytecode_optimization_pass_actions.")
   boolean splitBytecodeOptimizationPass();
 
   @StarlarkMethod(
@@ -144,8 +142,7 @@ public interface JavaConfigurationApi extends StarlarkValue {
       structField = true,
       doc =
           "This specifies the number of actions to divide the OPTIMIZATION stage of the bytecode"
-              + " optimizer into. Note that if split_bytecode_optimization_pass is set, this will"
-              + " only change behavior if it is > 2.")
+              + " optimizer into.")
   int bytecodeOptimizationPassActions();
 
   @StarlarkMethod(

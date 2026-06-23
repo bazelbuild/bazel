@@ -589,6 +589,16 @@ public final class BazelRulesModule extends BlazeModule {
         help = "Deprecated no-op.")
     public abstract boolean getDisableLegacyCcProvider();
 
+    @Deprecated
+    @Option(
+        name = "split_bytecode_optimization_pass",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.DEPRECATED},
+        help = "Deprecated no-op.")
+    public abstract boolean getSplitBytecodeOptimizationPass();
+
     @Option(
         name = "python_path",
         defaultValue = "",

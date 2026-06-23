@@ -88,7 +88,6 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   private final NamedLabel bytecodeOptimizer;
   private final boolean runLocalJavaOptimizations;
   private final Label localJavaOptimizationConfiguration;
-  private final boolean splitBytecodeOptimizationPass;
   private final int bytecodeOptimizationPassActions;
   private final boolean enforceProguardFileExtension;
   private final boolean runAndroidLint;
@@ -120,7 +119,6 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     this.proguardBinary = javaOptions.getProguard();
     this.runLocalJavaOptimizations = javaOptions.getRunLocalJavaOptimizations();
     this.localJavaOptimizationConfiguration = javaOptions.getLocalJavaOptimizationConfiguration();
-    this.splitBytecodeOptimizationPass = javaOptions.getSplitBytecodeOptimizationPass();
     this.bytecodeOptimizationPassActions = javaOptions.getBytecodeOptimizationPassActions();
     this.enforceProguardFileExtension = javaOptions.getEnforceProguardFileExtension();
     this.enforceOneVersion = javaOptions.getEnforceOneVersion();
@@ -254,19 +252,15 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     return proguardBinary;
   }
 
-  /**
-   * Returns whether the OPTIMIZATION stage of the bytecode optimizer will be split across two
-   * actions.
-   */
+  /** Returns false for Starlark API compatibility. */
   @Override
   public boolean splitBytecodeOptimizationPass() {
-    return splitBytecodeOptimizationPass;
+    return false;
   }
 
   /**
    * This specifies the number of actions to divide the OPTIMIZATION stage of the bytecode optimizer
-   * into. Note that if split_bytecode_optimization_pass is set, this will only change behavior if
-   * it is > 2.
+   * into.
    */
   @Override
   public int bytecodeOptimizationPassActions() {
