@@ -165,6 +165,7 @@ public class DirtinessCheckerUtils {
           return true;
         case EXTERNAL_REPO:
         case OUTPUT:
+        case REPO_CONTENTS_CACHE_DIRS:
           return false;
       }
       throw new AssertionError("Unknown type " + fileType);

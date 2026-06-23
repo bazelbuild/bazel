@@ -566,6 +566,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       @Nullable WorkspaceInfoFromDiffReceiver workspaceInfoFromDiffReceiver,
       @Nullable RecordingDifferencer recordingDiffer,
       @Nullable SkyframeExecutorRepositoryHelpersHolder repositoryHelpersHolder,
+      Supplier<Path> repoContentsCachePathSupplier,
       boolean globUnderSingleDep) {
     // Strictly speaking, these arguments are not required for initialization, but all current
     // callsites have them at hand, so we might as well set them during construction.
@@ -609,7 +610,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     this.skyframeBuildView =
         new SkyframeBuildView(artifactFactory, this, ruleClassProvider, actionKeyContext);
     this.externalFilesHelper =
-        ExternalFilesHelper.create(pkgLocator, externalFileAction, directories);
+        ExternalFilesHelper.create(
+            pkgLocator, externalFileAction, directories, repoContentsCachePathSupplier);
     this.crossRepositoryLabelViolationStrategy = crossRepositoryLabelViolationStrategy;
     this.buildFilesByPriority = buildFilesByPriority;
     this.externalPackageHelper = externalPackageHelper;

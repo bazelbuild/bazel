@@ -79,6 +79,7 @@ import com.google.devtools.build.lib.vfs.BatchStat;
 import com.google.devtools.build.lib.vfs.FileStateKey;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.DelegatingGraphInconsistencyReceiver;
 import com.google.devtools.build.skyframe.EmittedEventState;
@@ -113,6 +114,7 @@ import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /**
@@ -164,6 +166,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
       ImmutableList<BuildFileName> buildFilesByPriority,
       ExternalPackageHelper externalPackageHelper,
       @Nullable SkyframeExecutorRepositoryHelpersHolder repositoryHelpersHolder,
+      Supplier<Path> repoContentsCachePathSupplier,
       ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile,
       boolean shouldUseRepoDotBazel,
       SkyKeyStateReceiver skyKeyStateReceiver,
@@ -194,6 +197,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
         workspaceInfoFromDiffReceiver,
         new SequencedRecordingDifferencer(),
         repositoryHelpersHolder,
+        repoContentsCachePathSupplier,
         globUnderSingleDep);
   }
 
@@ -799,6 +803,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
     private WorkspaceInfoFromDiffReceiver workspaceInfoFromDiffReceiver =
         (ignored1, ignored2) -> {};
     @Nullable private SkyframeExecutorRepositoryHelpersHolder repositoryHelpersHolder = null;
+    private Supplier<Path> repoContentsCachePathSupplier = () -> null;
     private Consumer<SkyframeExecutor> skyframeExecutorConsumerOnInit = skyframeExecutor -> {};
     private SkyFunction ignoredPackagePrefixesFunction;
     private BugReporter bugReporter = BugReporter.defaultInstance();
@@ -837,6 +842,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
               buildFilesByPriority,
               externalPackageHelper,
               repositoryHelpersHolder,
+              repoContentsCachePathSupplier,
               actionOnIOExceptionReadingBuildFile,
               shouldUseRepoDotBazel,
               skyKeyStateReceiver,
@@ -913,6 +919,12 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
     public Builder setRepositoryHelpersHolder(
         SkyframeExecutorRepositoryHelpersHolder repositoryHelpersHolder) {
       this.repositoryHelpersHolder = repositoryHelpersHolder;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder setRepoContentsCachePathSupplier(Supplier<Path> repoContentsCachePathSupplier) {
+      this.repoContentsCachePathSupplier = repoContentsCachePathSupplier;
       return this;
     }
 
