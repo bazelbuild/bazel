@@ -109,7 +109,8 @@ public class ExecutionGraphModule extends BlazeModule {
   @OptionsClass
   public abstract static class ExecutionGraphOptions extends OptionsBase {
     @Option(
-        name = "experimental_enable_execution_graph_log",
+        name = "enable_execution_graph_log",
+        oldName = "experimental_enable_execution_graph_log",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
         defaultValue = "false",
@@ -121,35 +122,38 @@ public class ExecutionGraphModule extends BlazeModule {
     public abstract boolean getEnableExecutionGraphLog();
 
     @Option(
-        name = "experimental_execution_graph_log_path",
+        name = "execution_graph_log_path",
+        oldName = "experimental_execution_graph_log_path",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
         defaultValue = "",
         help =
             "Local path at which the execution path will be written. If this is set, the log will"
                 + " only be written locally, and not to BEP. If this is set when"
-                + " experimental_enable_execution_graph_log is disabled, there will be an error. If"
+                + " enable_execution_graph_log is disabled, there will be an error. If"
                 + " this is unset while BEP uploads are disabled and"
-                + " experimental_enable_execution_graph_log is enabled, the log will be written to"
+                + " enable_execution_graph_log is enabled, the log will be written to"
                 + " a local default.")
     public abstract String getExecutionGraphLogPath();
 
     @Option(
-        name = "experimental_execution_graph_log_dep_type",
+        name = "execution_graph_log_dep_type",
+        oldName = "experimental_execution_graph_log_dep_type",
         converter = DependencyInfoConverter.class,
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.UNKNOWN},
-        defaultValue = "none",
+        defaultValue = "all",
         help =
             "Selects what kind of dependency information is reported in the action dump. If 'all',"
                 + " every inter-action edge will be reported.")
     public abstract DependencyInfo getDepType();
 
     @Option(
-        name = "experimental_execution_graph_log_queue_size",
+        name = "execution_graph_log_queue_size",
+        oldName = "experimental_execution_graph_log_queue_size",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.UNKNOWN},
-        defaultValue = "-1",
+        defaultValue = "1000000",
         help =
             "The size of the action dump queue, where actions are kept before writing. Larger"
                 + " sizes will increase peak memory usage, but should decrease queue blocking. -1"
@@ -160,21 +164,12 @@ public class ExecutionGraphModule extends BlazeModule {
         name = "execution_graph_log_queued_bytes_limit",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.UNKNOWN},
-        defaultValue = "-1",
+        defaultValue = "100000000",
         help =
             "The maximum number of bytes that can be enqueued at a time in the action dump queue."
                 + " -1 means unbounded. Setting this can limit peak memory at the cost of stalling"
                 + " execution threads.")
     public abstract int getQueuedBytesLimit();
-
-    @Option(
-        name = "experimental_execution_graph_enable_edges_from_filewrite_actions",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        defaultValue = "true",
-        help = "Handle edges from filewrite actions to their inputs correctly.")
-    public abstract boolean getLogFileWriteEdges();
-
   }
 
   /** What level of dependency information to include in the dump. */
@@ -190,6 +185,7 @@ public class ExecutionGraphModule extends BlazeModule {
       super(DependencyInfo.class, "dependency edge strategy");
     }
   }
+
   private ActionDumpWriter writer;
   private CommandEnvironment env;
   private WalkableGraph graph;
@@ -239,8 +235,8 @@ public class ExecutionGraphModule extends BlazeModule {
                         ExitCode.COMMAND_LINE_ERROR,
                         FailureDetail.newBuilder()
                             .setMessage(
-                                "experimental_execution_graph_log_path cannot be set when"
-                                    + " experimental_enable_execution_graph_log is false")
+                                "execution_graph_log_path cannot be set when"
+                                    + " enable_execution_graph_log is false")
                             .setBuildReport(
                                 BuildReport.newBuilder().setCode(Code.BUILD_REPORT_WRITE_FAILED))
                             .build())));
@@ -527,7 +523,7 @@ public class ExecutionGraphModule extends BlazeModule {
       metrics = null;
 
       SpawnInputs inputFiles;
-      if (logFileWriteEdges && spawn.getResourceOwner() instanceof AbstractFileWriteAction) {
+      if (spawn.getResourceOwner() instanceof AbstractFileWriteAction) {
         // In order to handle file write like actions correctly, get the inputs
         // from the corresponding action.
         inputFiles = SpawnInputs.of(spawn.getResourceOwner().getInputs());
@@ -698,7 +694,6 @@ public class ExecutionGraphModule extends BlazeModule {
     private final BugReporter bugReporter;
     private final EventBus eventBus;
     private final boolean localLockFreeOutputEnabled;
-    private final boolean logFileWriteEdges;
     private final Map<ActionInput, NodeInfo> outputToNode = new ConcurrentHashMap<>();
     private final Map<ActionInput, Integer> outputToDiscoverInputsTimeMs =
         new ConcurrentHashMap<>();
@@ -732,7 +727,6 @@ public class ExecutionGraphModule extends BlazeModule {
         BugReporter bugReporter,
         EventBus eventBus,
         boolean localLockFreeOutputEnabled,
-        boolean logFileWriteEdges,
         OutputStream outStream,
         DependencyInfo depType,
         int queueSize,
@@ -740,7 +734,6 @@ public class ExecutionGraphModule extends BlazeModule {
       this.bugReporter = bugReporter;
       this.eventBus = eventBus;
       this.localLockFreeOutputEnabled = localLockFreeOutputEnabled;
-      this.logFileWriteEdges = logFileWriteEdges;
       this.outStream = outStream;
       this.depType = depType;
       if (queueSize < 0) {
@@ -952,7 +945,6 @@ public class ExecutionGraphModule extends BlazeModule {
           env.getRuntime().getBugReporter(),
           env.getEventBus(),
           env.getOptions().getOptions(LocalExecutionOptions.class).getLocalLockfreeOutput(),
-          executionGraphOptions.getLogFileWriteEdges(),
           newUploader(env, bepOptions).startUpload(LocalFileType.PERFORMANCE_LOG, null),
           executionGraphOptions.getDepType(),
           executionGraphOptions.getQueueSize(),
@@ -969,7 +961,6 @@ public class ExecutionGraphModule extends BlazeModule {
           env.getRuntime().getBugReporter(),
           env.getEventBus(),
           env.getOptions().getOptions(LocalExecutionOptions.class).getLocalLockfreeOutput(),
-          executionGraphOptions.getLogFileWriteEdges(),
           actionGraphFile,
           executionGraphOptions.getDepType(),
           executionGraphOptions.getQueueSize(),
@@ -986,7 +977,6 @@ public class ExecutionGraphModule extends BlazeModule {
         BugReporter bugReporter,
         EventBus eventBus,
         boolean localLockFreeOutputEnabled,
-        boolean logFileWriteEdges,
         Path actionGraphFile,
         DependencyInfo depType,
         int queueSize,
@@ -996,7 +986,6 @@ public class ExecutionGraphModule extends BlazeModule {
           bugReporter,
           eventBus,
           localLockFreeOutputEnabled,
-          logFileWriteEdges,
           actionGraphFile.getOutputStream(),
           depType,
           queueSize,
@@ -1036,7 +1025,6 @@ public class ExecutionGraphModule extends BlazeModule {
         BugReporter bugReporter,
         EventBus eventBus,
         boolean localLockFreeOutputEnabled,
-        boolean logFileWriteEdges,
         UploadContext uploadContext,
         DependencyInfo depType,
         int queueSize,
@@ -1045,7 +1033,6 @@ public class ExecutionGraphModule extends BlazeModule {
           bugReporter,
           eventBus,
           localLockFreeOutputEnabled,
-          logFileWriteEdges,
           uploadContext.getOutputStream(),
           depType,
           queueSize,
