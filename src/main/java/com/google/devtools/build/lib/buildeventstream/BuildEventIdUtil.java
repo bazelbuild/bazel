@@ -36,10 +36,11 @@ import javax.annotation.concurrent.Immutable;
  */
 @Immutable
 public final class BuildEventIdUtil {
-  // String interners for frequently occurring strings in `BuildEventId`s.
+  // Interners for frequently occurring components of `BuildEventId`s.
   private static final Interner<String> LABEL_INTERNER = Interners.newWeakInterner();
-  private static final Interner<String> CONFIGURATION_INTERNER = Interners.newWeakInterner();
   private static final Interner<String> ASPECT_INTERNER = Interners.newWeakInterner();
+  private static final Interner<ConfigurationId> CONFIGURATION_ID_INTERNER =
+      Interners.newWeakInterner();
 
   private static String internLabel(Label label) {
     return LABEL_INTERNER.intern(label.toString());
@@ -48,8 +49,8 @@ public final class BuildEventIdUtil {
     return LABEL_INTERNER.intern(label);
   }
 
-  private static String internConfiguration(String configuration) {
-    return CONFIGURATION_INTERNER.intern(configuration);
+  private static ConfigurationId internConfigurationId(ConfigurationId id) {
+    return CONFIGURATION_ID_INTERNER.intern(id);
   }
 
   private static String internAspect(String aspect) {
@@ -142,7 +143,7 @@ public final class BuildEventIdUtil {
   }
 
   public static ConfigurationId configurationIdMessage(String checksum) {
-    return ConfigurationId.newBuilder().setId(internConfiguration(checksum)).build();
+    return internConfigurationId(ConfigurationId.newBuilder().setId(checksum).build());
   }
 
   public static BuildEventId execRequestId() {
@@ -244,7 +245,7 @@ public final class BuildEventIdUtil {
       actionId.setLabel(internLabel(label));
     }
     if (configurationChecksum != null) {
-      actionId.setConfiguration(ConfigurationId.newBuilder().setId(internConfiguration(configurationChecksum)));
+      actionId.setConfiguration(configurationIdMessage(configurationChecksum));
     }
     return BuildEventId.newBuilder().setActionCompleted(actionId).build();
   }
