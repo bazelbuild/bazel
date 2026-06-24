@@ -18,6 +18,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import build.bazel.remote.execution.v2.Digest;
 import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
 import com.google.devtools.build.lib.exec.SpawnCache;
@@ -167,6 +168,8 @@ final class RemoteActionContextProvider {
 
       boolean verboseFailures =
           checkNotNull(env.getOptions().getOptions(ExecutionOptions.class)).getVerboseFailures();
+      CoreOptions coreOptions = env.getOptions().getOptions(CoreOptions.class);
+      boolean trackExecutableBit = coreOptions != null && coreOptions.getTrackExecutableBit();
       remoteExecutionService =
           new RemoteExecutionService(
               env.getReporter(),
@@ -179,6 +182,7 @@ final class RemoteActionContextProvider {
               digestUtil,
               checkNotNull(env.getOptions().getOptions(RemoteOptions.class)),
               checkNotNull(env.getOptions().getOptions(ExecutionOptions.class)),
+              trackExecutableBit,
               combinedCache,
               remoteExecutor,
               tempPathGenerator,

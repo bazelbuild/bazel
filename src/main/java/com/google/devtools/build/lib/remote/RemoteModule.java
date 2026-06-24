@@ -320,6 +320,7 @@ public final class RemoteModule extends BlazeModule {
         coreOptions != null && coreOptions.getExperimentalWritableOutputs()
             ? OutputPermissions.WRITABLE
             : OutputPermissions.READONLY;
+    var trackExecutableBit = coreOptions != null && coreOptions.getTrackExecutableBit();
     return new RemoteActionInputFetcher(
         env.getReporter(),
         env.getBuildRequestId(),
@@ -331,7 +332,8 @@ public final class RemoteModule extends BlazeModule {
         env.getOptions().getOptions(BuildRequestOptions.class) != null
             ? env.getOutputDirectoryHelper()
             : null,
-        outputPermissions);
+        outputPermissions,
+        trackExecutableBit);
   }
 
   /**

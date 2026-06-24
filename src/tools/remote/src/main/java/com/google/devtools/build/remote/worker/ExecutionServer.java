@@ -421,7 +421,9 @@ final class ExecutionServer extends ExecutionImplBase {
                 exitCode,
                 startTime,
                 (int) wallTime.toMillis(),
-                /* preserveExecutableBit= */ false);
+                // Report the real executable bit of action outputs, like a production remote
+                // execution backend, so it is available to clients that track it.
+                /* preserveExecutableBit= */ true);
         result = manifest.upload(context, cache, NullEventHandler.INSTANCE);
       } catch (ExecException e) {
         if (errStatus == null) {

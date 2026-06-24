@@ -178,6 +178,18 @@ public abstract class FileSystem {
   public abstract boolean mayBeCaseOrNormalizationInsensitive();
 
   /**
+   * Returns true if this file system distinguishes executable files, i.e. {@link #getPermissions}
+   * reflects a real executable bit and {@link #setExecutable} has an effect.
+   *
+   * <p>Returns false on file systems where every file is implicitly executable (notably Windows).
+   * On such file systems the executable bit reported by {@link #getPermissions} carries no
+   * information and must not be tracked, as it would otherwise mark every file as executable.
+   */
+  public boolean supportsExecutability() {
+    return true;
+  }
+
+  /**
    * Returns the type of the file system path belongs to.
    *
    * <p>The string returned is obtained directly from the operating system, so it's a best guess in

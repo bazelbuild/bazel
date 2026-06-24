@@ -342,6 +342,22 @@ public abstract class CoreOptions extends FragmentOptions implements Cloneable {
       help = "If true, the file permissions of action outputs are set to `0755` instead of `0555`")
   public abstract boolean getExperimentalWritableOutputs();
 
+  // This execution-time behavior is an input to analysis (AFFECTS_OUTPUTS) so that flipping the
+  // flag invalidates already-executed actions. It is preserved by the exec transition, like other
+  // incompatible flags, so tools track the executable bit consistently with the target config.
+  @Option(
+      name = "incompatible_track_executable_bit",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "If true, Bazel preserves the executable bit of action output files instead of forcing"
+              + " every output to be executable, and propagates the real bit to remote execution"
+              + " inputs and the remote cache. See"
+              + " https://github.com/bazelbuild/bazel/issues/13262.")
+  public abstract boolean getTrackExecutableBit();
+
   @Option(
       name = "stamp",
       defaultValue = "false",

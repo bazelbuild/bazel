@@ -81,6 +81,7 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
   static ActionOutputMetadataStore create(
       boolean archivedTreeArtifactsEnabled,
       OutputPermissions outputPermissions,
+      boolean trackExecutableBit,
       ImmutableSet<Artifact> outputs,
       XattrProvider xattrProvider,
       TimestampGranularityMonitor tsgm,
@@ -88,6 +89,7 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
     return new ActionOutputMetadataStore(
         archivedTreeArtifactsEnabled,
         outputPermissions,
+        trackExecutableBit,
         outputs,
         xattrProvider,
         tsgm,
@@ -96,6 +98,7 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
 
   private final boolean archivedTreeArtifactsEnabled;
   private final OutputPermissions outputPermissions;
+  private final boolean trackExecutableBit;
 
   private final XattrProvider xattrProvider;
   private final TimestampGranularityMonitor tsgm;
@@ -112,12 +115,14 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
   private ActionOutputMetadataStore(
       boolean archivedTreeArtifactsEnabled,
       OutputPermissions outputPermissions,
+      boolean trackExecutableBit,
       ImmutableSet<Artifact> outputs,
       XattrProvider xattrProvider,
       TimestampGranularityMonitor tsgm,
       ArtifactPathResolver artifactPathResolver) {
     this.archivedTreeArtifactsEnabled = archivedTreeArtifactsEnabled;
     this.outputPermissions = outputPermissions;
+    this.trackExecutableBit = trackExecutableBit;
     this.outputs = checkNotNull(outputs);
     this.xattrProvider = xattrProvider;
     this.tsgm = checkNotNull(tsgm);
@@ -391,6 +396,7 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
             artifact,
             artifactPathResolver,
             statNoFollow,
+            trackExecutableBit,
             xattrProvider,
             // Prevent constant metadata artifacts from notifying the timestamp granularity monitor
             // and potentially delaying the build for no reason.
@@ -463,8 +469,15 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
       XattrProvider xattrProvider,
       @Nullable TimestampGranularityMonitor tsgm)
       throws IOException {
+    // External callers re-derive metadata only for couldBeModifiedSince comparisons, which ignore
+    // the executable bit, so it doesn't need to be tracked here.
     return fileArtifactValueFromArtifact(
-            artifact, ArtifactPathResolver.IDENTITY, statNoFollow, xattrProvider, tsgm)
+            artifact,
+            ArtifactPathResolver.IDENTITY,
+            statNoFollow,
+            /* trackExecutableBit= */ false,
+            xattrProvider,
+            tsgm)
         .fileArtifactValue();
   }
 
@@ -472,6 +485,7 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
       Artifact artifact,
       ArtifactPathResolver artifactPathResolver,
       @Nullable FileStatusWithDigest statNoFollow,
+      boolean trackExecutableBit,
       XattrProvider xattrProvider,
       @Nullable TimestampGranularityMonitor tsgm)
       throws IOException {
@@ -501,7 +515,8 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
 
     if (statNoFollow == null || !statNoFollow.isSymbolicLink()) {
       var fileArtifactValue =
-          fileArtifactValueFromStat(rootedPathNoFollow, statNoFollow, xattrProvider, tsgm);
+          fileArtifactValueFromStat(
+              rootedPathNoFollow, statNoFollow, trackExecutableBit, xattrProvider, tsgm);
       return FileArtifactStatAndValue.create(
           pathNoFollow, /* realPath= */ null, statNoFollow, fileArtifactValue);
     }
@@ -524,7 +539,8 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
     FileStatus realStat = realRootedPath.asPath().statIfFound(Symlinks.NOFOLLOW);
     FileStatusWithDigest realStatWithDigest = FileStatusWithDigestAdapter.maybeAdapt(realStat);
     var fileArtifactValue =
-        fileArtifactValueFromStat(realRootedPath, realStatWithDigest, xattrProvider, tsgm);
+        fileArtifactValueFromStat(
+            realRootedPath, realStatWithDigest, trackExecutableBit, xattrProvider, tsgm);
 
     // If the artifact was materialized in the filesystem as as symlink to another artifact, record
     // the real path in the metadata so that it can be recreated as such later.
@@ -562,6 +578,7 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
   private static FileArtifactValue fileArtifactValueFromStat(
       RootedPath rootedPath,
       FileStatusWithDigest stat,
+      boolean trackExecutableBit,
       XattrProvider xattrProvider,
       @Nullable TimestampGranularityMonitor tsgm)
       throws IOException {
@@ -581,19 +598,53 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
         FileStateValue.createWithStatNoFollow(rootedPath, stat, xattrProvider, tsgm);
 
     return FileArtifactValue.createForNormalFile(
-        fileStateValue.getDigest(), fileStateValue.getContentsProxy(), stat.getSize());
+        fileStateValue.getDigest(),
+        fileStateValue.getContentsProxy(),
+        stat.getSize(),
+        // When the flag is disabled, the bit is left unset; the file has already been chmodded to
+        // be executable by setPathPermissions, matching the historical always-executable behavior.
+        /* isExecutable= */ trackExecutableBit && (stat.getPermissions() & 0100) != 0);
   }
 
   private void setPathPermissionsIfFile(Path path) throws IOException {
     FileStatus stat = path.statIfFound(Symlinks.NOFOLLOW);
-    if (stat != null
-        && stat.isFile()
-        && stat.getPermissions() != outputPermissions.getPermissionsMode()) {
-      setPathPermissions(path);
+    if (stat != null && stat.isFile()) {
+      chmodToTarget(path, stat);
     }
   }
 
   private void setPathPermissions(Path path) throws IOException {
-    path.chmod(outputPermissions.getPermissionsMode());
+    if (!trackExecutableBit) {
+      // Fast path: force the configured output permissions (always executable) without a stat.
+      path.chmod(outputPermissions.getPermissionsMode());
+      return;
+    }
+    FileStatus stat = path.statIfFound(Symlinks.NOFOLLOW);
+    if (stat != null) {
+      chmodToTarget(path, stat);
+    }
+  }
+
+  private void chmodToTarget(Path path, FileStatus stat) throws IOException {
+    int currentMode = stat.getPermissions();
+    int targetMode = targetPermissions(currentMode, stat.isDirectory());
+    if (currentMode != targetMode) {
+      path.chmod(targetMode);
+    }
+  }
+
+  /**
+   * Computes the permissions an output should be chmodded to. Without {@link #trackExecutableBit},
+   * this is always {@link #outputPermissions} (every output is made executable). With the flag, the
+   * file's own executable bit is preserved while the read/write bits are normalized; directories
+   * always keep their execute (i.e. searchable) bit.
+   */
+  private int targetPermissions(int currentMode, boolean isDirectory) {
+    int outputMode = outputPermissions.getPermissionsMode();
+    if (!trackExecutableBit || isDirectory) {
+      return outputMode;
+    }
+    int nonExecutableMode = outputMode & ~0111;
+    return (currentMode & 0100) != 0 ? nonExecutableMode | 0111 : nonExecutableMode;
   }
 }

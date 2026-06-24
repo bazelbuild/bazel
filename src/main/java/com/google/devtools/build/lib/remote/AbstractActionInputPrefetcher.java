@@ -86,6 +86,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   private final AsyncTaskCache.NoResult<Path> downloadCache = AsyncTaskCache.NoResult.create();
   private final TempPathGenerator tempPathGenerator;
   private final OutputPermissions outputPermissions;
+  private final boolean trackExecutableBit;
 
   protected final Path execRoot;
   protected final RemoteOutputChecker remoteOutputChecker;
@@ -245,13 +246,15 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       TempPathGenerator tempPathGenerator,
       RemoteOutputChecker remoteOutputChecker,
       @Nullable ActionOutputDirectoryHelper outputDirectoryHelper,
-      OutputPermissions outputPermissions) {
+      OutputPermissions outputPermissions,
+      boolean trackExecutableBit) {
     this.reporter = reporter;
     this.execRoot = execRoot;
     this.tempPathGenerator = tempPathGenerator;
     this.remoteOutputChecker = remoteOutputChecker;
     this.outputDirectoryHelper = outputDirectoryHelper;
     this.outputPermissions = outputPermissions;
+    this.trackExecutableBit = trackExecutableBit;
   }
 
   private static boolean shouldDownloadFile(Path path, FileArtifactValue metadata)
@@ -689,7 +692,12 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     // Set file output permissions, matching SkyframeActionExecutor#checkOutputs for artifacts
     // produced by local actions. The temporary path is outside the output tree, so this can happen
     // before entering the tree artifact root's critical section.
-    tmpPath.chmod(outputPermissions.getPermissionsMode());
+    int mode = outputPermissions.getPermissionsMode();
+    if (trackExecutableBit && !metadata.isExecutable()) {
+      // Preserve the real executable bit instead of forcing every output to be executable.
+      mode &= ~0111;
+    }
+    tmpPath.chmod(mode);
 
     Path parentDir = checkNotNull(finalPath.getParentDirectory());
     @Nullable

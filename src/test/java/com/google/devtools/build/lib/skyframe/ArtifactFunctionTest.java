@@ -113,6 +113,43 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
   }
 
   @Test
+  public void sourceArtifact_executable_tracksExecutableBit() throws Exception {
+    Artifact artifact = createSourceArtifact("executable");
+    file(artifact.getPath(), "contents");
+    artifact.getPath().setExecutable(true);
+
+    assertThat(evaluateFileArtifactValue(artifact).isExecutable()).isTrue();
+  }
+
+  @Test
+  public void sourceArtifact_nonExecutable_isNotExecutable() throws Exception {
+    Artifact artifact = createSourceArtifact("nonexecutable");
+    file(artifact.getPath(), "contents");
+    artifact.getPath().setExecutable(false);
+
+    assertThat(evaluateFileArtifactValue(artifact).isExecutable()).isFalse();
+  }
+
+  @Test
+  public void sourceArtifact_notTrackedOnFilesystemWithoutExecutability() throws Exception {
+    // Mirrors Windows, where getPermissions always reports files as executable. The bit carries no
+    // information there and must not be tracked, otherwise every source would re-fingerprint as
+    // executable.
+    setupRoot(
+        new CustomInMemoryFs() {
+          @Override
+          public boolean supportsExecutability() {
+            return false;
+          }
+        });
+    Artifact artifact = createSourceArtifact("executable");
+    file(artifact.getPath(), "contents");
+    artifact.getPath().setExecutable(true);
+
+    assertThat(evaluateFileArtifactValue(artifact).isExecutable()).isFalse();
+  }
+
+  @Test
   public void testUnreadableInputWithFsWithAvailableDigest() throws Throwable {
     final byte[] expectedDigest = {1, 2, 3, 4};
     setupRoot(

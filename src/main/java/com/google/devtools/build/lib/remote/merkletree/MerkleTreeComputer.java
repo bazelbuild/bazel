@@ -176,6 +176,7 @@ public final class MerkleTreeComputer {
   private final String buildRequestId;
   private final String commandId;
   private final String workspaceName;
+  private final boolean trackExecutableBit;
   private final Digest emptyDigest;
   private final MerkleTree.Uploadable emptyTree;
   private final TaskDeduplicator<InFlightCacheKey, MerkleTree.RootOnly> inFlightComputations =
@@ -186,12 +187,14 @@ public final class MerkleTreeComputer {
       @Nullable MerkleTreeUploader remoteExecutionCache,
       String buildRequestId,
       String commandId,
-      String workspaceName) {
+      String workspaceName,
+      boolean trackExecutableBit) {
     this.digestUtil = digestUtil;
     this.merkleTreeUploader = remoteExecutionCache;
     this.buildRequestId = buildRequestId;
     this.commandId = commandId;
     this.workspaceName = workspaceName;
+    this.trackExecutableBit = trackExecutableBit;
     var emptyBlob = new byte[0];
     this.emptyDigest = digestUtil.compute(emptyBlob);
     this.emptyTree =
@@ -662,7 +665,22 @@ public final class MerkleTreeComputer {
             lastSourceDirPath = path;
           } else {
             var digest = DigestUtil.buildDigest(metadata.getDigest(), metadata.getSize());
-            addFile(currentDirectory, name, digest, nodeProperties);
+            // Generated and source artifacts both carry the real executable bit in their metadata.
+            // The remaining input kinds handled below (virtual inputs, exploded source directories,
+            // repository and test inputs) retain the historical always-executable behavior. On file
+            // systems that don't distinguish executable files (Windows), a source file's bit can't
+            // be determined, so fall back to forcing it executable rather than marking it
+            // non-executable; generated artifacts carry a trustworthy bit (e.g. from a remote action
+            // result) even there.
+            boolean isExecutable =
+                !trackExecutableBit
+                    || metadata.isExecutable()
+                    || (fileOrSourceDirectory.isSourceArtifact()
+                        && !artifactPathResolver
+                            .toPath(fileOrSourceDirectory)
+                            .getFileSystem()
+                            .supportsExecutability());
+            addFile(currentDirectory, name, digest, nodeProperties, isExecutable);
             if (blobPolicy != BlobPolicy.DISCARD && digest.getSizeBytes() != 0) {
               // If there is both a Digest and a FileArtifactValue key for the same content, prefer
               // the FileArtifactValue as it is retained anyway.
@@ -674,7 +692,7 @@ public final class MerkleTreeComputer {
         }
         case VirtualActionInput virtualActionInput -> {
           var digest = digestUtil.compute(virtualActionInput);
-          addFile(currentDirectory, name, digest, nodeProperties);
+          addFile(currentDirectory, name, digest, nodeProperties, /* isExecutable= */ true);
           if (blobPolicy != BlobPolicy.DISCARD && digest.getSizeBytes() != 0) {
             blobs.putIfAbsent(digest, virtualActionInput);
           }
@@ -686,14 +704,14 @@ public final class MerkleTreeComputer {
         case null -> {
           // This is a sentinel value for an empty file. This case only occurs when this method is
           // called from computeForRunfilesTreeIfAbsent.
-          addFile(currentDirectory, name, emptyDigest, nodeProperties);
+          addFile(currentDirectory, name, emptyDigest, nodeProperties, /* isExecutable= */ true);
           inputFiles++;
         }
         default -> {
           // The input is not represented by a known subtype of ActionInput. Bare ActionInputs
           // arise from exploded source directories, repository rules or tests.
           var digest = digestUtil.compute(artifactPathResolver.toPath(input));
-          addFile(currentDirectory, name, digest, nodeProperties);
+          addFile(currentDirectory, name, digest, nodeProperties, /* isExecutable= */ true);
           if (blobPolicy != BlobPolicy.DISCARD && digest.getSizeBytes() != 0) {
             blobs.putIfAbsent(digest, input);
           }
@@ -1004,18 +1022,19 @@ public final class MerkleTreeComputer {
       Directory.Builder directory,
       String name,
       Digest digest,
-      @Nullable NodeProperties nodeProperties) {
+      @Nullable NodeProperties nodeProperties,
+      boolean isExecutable) {
+    // Unless --incompatible_track_executable_bit is set, files are always treated as executable
+    // since Bazel will `chmod 555` on the output files of an action within
+    // ActionOutputMetadataStore#getMetadata after action execution if no metadata was injected.
+    // We can't use the real executable bit of the file until this behavior is changed. See
+    // https://github.com/bazelbuild/bazel/issues/13262 for more details.
     var builder =
         directory
             .addFilesBuilder()
             .setName(name)
             .setDigest(digest)
-            // We always treat files as executable since Bazel will `chmod 555` on the output
-            // files of an action within ActionOutputMetadataStore#getMetadata after action
-            // execution if no metadata was injected. We can't use real executable bit of the
-            // file until this behavior is changed. See
-            // https://github.com/bazelbuild/bazel/issues/13262 for more details.
-            .setIsExecutable(true);
+            .setIsExecutable(isExecutable);
     if (nodeProperties != null) {
       builder.setNodeProperties(nodeProperties);
     }

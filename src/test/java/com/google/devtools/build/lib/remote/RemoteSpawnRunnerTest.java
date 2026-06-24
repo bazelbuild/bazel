@@ -280,7 +280,8 @@ public class RemoteSpawnRunnerTest {
             tempPathGenerator,
             remoteOutputChecker,
             ActionOutputDirectoryHelper.createForTesting(),
-            OutputPermissions.READONLY);
+            OutputPermissions.READONLY,
+            /* trackExecutableBit= */ false);
 
     var actionFileSystem =
         new RemoteActionFileSystem(
@@ -1322,6 +1323,7 @@ public class RemoteSpawnRunnerTest {
             digestUtil,
             remoteOptions,
             executionOptions,
+            /* trackExecutableBit= */ false,
             cache,
             executor,
             tempPathGenerator,
@@ -1858,6 +1860,7 @@ public class RemoteSpawnRunnerTest {
                 digestUtil,
                 remoteOptions,
                 Options.getDefaults(ExecutionOptions.class),
+                /* trackExecutableBit= */ false,
                 cache,
                 executor,
                 tempPathGenerator,

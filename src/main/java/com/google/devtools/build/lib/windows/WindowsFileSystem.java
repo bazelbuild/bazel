@@ -244,6 +244,13 @@ public class WindowsFileSystem extends JavaIoFileSystem {
   }
 
   @Override
+  public boolean supportsExecutability() {
+    // getPermissions always reports files as executable and setExecutable is a no-op, so the
+    // executable bit carries no information on Windows.
+    return false;
+  }
+
+  @Override
   public void setWritable(PathFragment path, boolean writable) throws IOException {
     // Windows does not have a notion of read-only directories.
     // See https://learn.microsoft.com/en-us/windows/win32/fileio/file-attribute-constants.

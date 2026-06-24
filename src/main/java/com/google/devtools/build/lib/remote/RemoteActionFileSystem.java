@@ -305,14 +305,15 @@ public class RemoteActionFileSystem extends FileSystem implements PathCanonicali
     this.action = action;
   }
 
-  void injectRemoteFile(PathFragment path, byte[] digest, long size, Instant expirationTime)
+  void injectRemoteFile(
+      PathFragment path, byte[] digest, long size, boolean isExecutable, Instant expirationTime)
       throws IOException {
     if (!isOutput(path)) {
       return;
     }
     var metadata =
         FileArtifactValue.createForRemoteFileWithMaterializationData(
-            digest, size, /* locationIndex= */ 1, expirationTime);
+            digest, size, /* locationIndex= */ 1, expirationTime, isExecutable);
     remoteOutputTree.injectFile(path, metadata);
   }
 

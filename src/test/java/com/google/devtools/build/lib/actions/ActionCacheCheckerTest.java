@@ -449,6 +449,43 @@ public final class ActionCacheCheckerTest {
   }
 
   @Test
+  public void executableBitChangeOfInputCausesReexecution() throws Exception {
+    Artifact input = createArtifact(artifactRoot, "input");
+    input.getPath().getParentDirectory().createDirectoryAndParents();
+    writeContentAsLatin1(input.getPath(), "content");
+    Artifact output = createArtifact(artifactRoot, "output");
+    Action action = new WriteEmptyOutputAction(ImmutableList.of(input), output);
+
+    byte[] digest = input.getPath().getDigest();
+    long size = input.getPath().getFileSize();
+    FileArtifactValue nonExecutable =
+        FileArtifactValue.createForNormalFile(
+            digest, /* proxy= */ null, size, /* isExecutable= */ false);
+    FileArtifactValue executable =
+        FileArtifactValue.createForNormalFile(
+            digest, /* proxy= */ null, size, /* isExecutable= */ true);
+
+    // The producing action first emits a non-executable input; populates the cache.
+    runAction(
+        action,
+        new StaticInputMetadataProvider(ImmutableMap.of(input, nonExecutable)),
+        new FakeInputMetadataHandler());
+    // The producing action now emits the same content but with the executable bit set: the
+    // consuming action must re-execute and notice the change rather than hitting the cache.
+    runAction(
+        action,
+        new StaticInputMetadataProvider(ImmutableMap.of(input, executable)),
+        new FakeInputMetadataHandler());
+
+    assertStatistics(
+        0,
+        new MissDetailsBuilder()
+            .set(MissReason.NOT_CACHED, 1)
+            .set(MissReason.DIGEST_MISMATCH, 1)
+            .build());
+  }
+
+  @Test
   public void testUnconditionalExecution() throws Exception {
     Action action =
         new WriteEmptyOutputAction() {
@@ -1909,6 +1946,10 @@ public final class ActionCacheCheckerTest {
 
     WriteEmptyOutputAction(Artifact... outputs) {
       super(outputs);
+    }
+
+    WriteEmptyOutputAction(ImmutableList<Artifact> inputs, Artifact... outputs) {
+      super(inputs, outputs);
     }
 
     @Override

@@ -3121,7 +3121,8 @@ public class RemoteExecutionServiceTest {
             tempPathGenerator,
             remoteOutputChecker,
             ActionOutputDirectoryHelper.createForTesting(),
-            OutputPermissions.READONLY);
+            OutputPermissions.READONLY,
+            /* trackExecutableBit= */ false);
 
     var actionFileSystem =
         new RemoteActionFileSystem(
@@ -3151,6 +3152,7 @@ public class RemoteExecutionServiceTest {
         digestUtil,
         remoteOptions,
         Options.getDefaults(ExecutionOptions.class),
+        /* trackExecutableBit= */ false,
         cache,
         executor,
         tempPathGenerator,

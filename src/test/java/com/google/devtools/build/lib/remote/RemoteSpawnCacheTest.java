@@ -316,6 +316,7 @@ public class RemoteSpawnCacheTest {
                 digestUtil,
                 options,
                 executionOptions,
+                /* trackExecutableBit= */ false,
                 combinedCache,
                 null,
                 tempPathGenerator,

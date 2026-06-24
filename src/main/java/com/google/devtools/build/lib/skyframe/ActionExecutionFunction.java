@@ -756,6 +756,7 @@ public final class ActionExecutionFunction implements SkyFunction {
         ActionOutputMetadataStore.create(
             skyframeActionExecutor.useArchivedTreeArtifacts(action),
             skyframeActionExecutor.getOutputPermissions(),
+            skyframeActionExecutor.shouldTrackExecutableBit(),
             ImmutableSet.copyOf(action.getOutputs()),
             skyframeActionExecutor.getXattrProvider(),
             tsgm.get(),

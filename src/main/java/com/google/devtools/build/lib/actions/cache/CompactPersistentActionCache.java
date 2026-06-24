@@ -790,12 +790,19 @@ public class CompactPersistentActionCache implements ActionCache {
     VarInt.putVarLong(
         value.getExpirationTime() != null ? value.getExpirationTime().toEpochMilli() : -1, sink);
 
+    // The trailing varint is a bitmask: bit 0 marks the presence of a resolved path, bit 1 the
+    // executable bit. Older caches only ever wrote 0 or 1, so they decode as non-executable.
     PathFragment resolvedPath = value.getResolvedPath();
+    int flags = 0;
     if (resolvedPath != null) {
-      VarInt.putVarInt(1, sink);
+      flags |= 1;
+    }
+    if (value.isExecutable()) {
+      flags |= 2;
+    }
+    VarInt.putVarInt(flags, sink);
+    if (resolvedPath != null) {
       VarInt.putVarInt(indexer.getOrCreateIndex(resolvedPath.toString()), sink);
-    } else {
-      VarInt.putVarInt(0, sink);
     }
   }
 
@@ -804,7 +811,7 @@ public class CompactPersistentActionCache implements ActionCache {
           + VarInt.MAX_VARLONG_SIZE // size
           + VarInt.MAX_VARINT_SIZE // locationIndex
           + VarInt.MAX_VARLONG_SIZE // expirationTime
-          + (1 + VarInt.MAX_VARINT_SIZE); // resolvedPath
+          + (1 + VarInt.MAX_VARINT_SIZE); // flags byte + resolvedPath index
 
   private FileArtifactValue decodeRemoteMetadata(ByteBuffer source) throws IOException {
     byte[] digest = MetadataDigestUtils.read(source);
@@ -815,12 +822,11 @@ public class CompactPersistentActionCache implements ActionCache {
 
     long expirationTimeEpochMilli = VarInt.getVarLong(source);
 
+    int flags = VarInt.getVarInt(source);
+    boolean hasResolvedPath = (flags & 1) != 0;
+    boolean isExecutable = (flags & 2) != 0;
     PathFragment resolvedPath = null;
-    int numResolvedPath = VarInt.getVarInt(source);
-    if (numResolvedPath > 0) {
-      if (numResolvedPath != 1) {
-        throw new IOException("Invalid presence marker for resolved path");
-      }
+    if (hasResolvedPath) {
       resolvedPath = PathFragment.create(getStringForIndex(indexer, VarInt.getVarInt(source)));
     }
 
@@ -829,7 +835,8 @@ public class CompactPersistentActionCache implements ActionCache {
             digest,
             size,
             locationIndex,
-            expirationTimeEpochMilli >= 0 ? Instant.ofEpochMilli(expirationTimeEpochMilli) : null);
+            expirationTimeEpochMilli >= 0 ? Instant.ofEpochMilli(expirationTimeEpochMilli) : null,
+            isExecutable);
 
     if (resolvedPath != null) {
       metadata = FileArtifactValue.createFromExistingWithResolvedPath(metadata, resolvedPath);

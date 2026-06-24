@@ -75,7 +75,8 @@ public class RemoteActionInputFetcherTest extends ActionInputPrefetcherTestBase 
         tempPathGenerator,
         DUMMY_REMOTE_OUTPUT_CHECKER,
         ActionOutputDirectoryHelper.createForTesting(),
-        OutputPermissions.READONLY);
+        OutputPermissions.READONLY,
+        /* trackExecutableBit= */ false);
   }
 
   @Test
@@ -92,7 +93,8 @@ public class RemoteActionInputFetcherTest extends ActionInputPrefetcherTestBase 
             tempPathGenerator,
             DUMMY_REMOTE_OUTPUT_CHECKER,
             ActionOutputDirectoryHelper.createForTesting(),
-            OutputPermissions.READONLY);
+            OutputPermissions.READONLY,
+            /* trackExecutableBit= */ false);
     VirtualActionInput a = ActionsTestUtil.createVirtualActionInput("file1", "hello world");
 
     // act
@@ -126,7 +128,8 @@ public class RemoteActionInputFetcherTest extends ActionInputPrefetcherTestBase 
             tempPathGenerator,
             DUMMY_REMOTE_OUTPUT_CHECKER,
             ActionOutputDirectoryHelper.createForTesting(),
-            OutputPermissions.READONLY);
+            OutputPermissions.READONLY,
+            /* trackExecutableBit= */ false);
 
     // act
     wait(

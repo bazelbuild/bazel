@@ -64,14 +64,16 @@ public class RemoteActionInputFetcher extends AbstractActionInputPrefetcher {
       TempPathGenerator tempPathGenerator,
       RemoteOutputChecker remoteOutputChecker,
       @Nullable ActionOutputDirectoryHelper outputDirectoryHelper,
-      OutputPermissions outputPermissions) {
+      OutputPermissions outputPermissions,
+      boolean trackExecutableBit) {
     super(
         reporter,
         execRoot,
         tempPathGenerator,
         remoteOutputChecker,
         outputDirectoryHelper,
-        outputPermissions);
+        outputPermissions,
+        trackExecutableBit);
     this.buildRequestId = Preconditions.checkNotNull(buildRequestId);
     this.commandId = Preconditions.checkNotNull(commandId);
     this.combinedCache = Preconditions.checkNotNull(combinedCache);

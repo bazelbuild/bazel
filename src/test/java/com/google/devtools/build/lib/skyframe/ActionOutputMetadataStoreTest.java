@@ -106,14 +106,25 @@ public final class ActionOutputMetadataStoreTest {
   }
 
   private ActionOutputMetadataStore createStore(ImmutableSet<Artifact> outputs) {
-    return createStore(outputs, /* actionFs= */ null);
+    return createStore(outputs, /* actionFs= */ null, /* trackExecutableBit= */ false);
   }
 
   private ActionOutputMetadataStore createStore(
       ImmutableSet<Artifact> outputs, @Nullable FileSystem actionFs) {
+    return createStore(outputs, actionFs, /* trackExecutableBit= */ false);
+  }
+
+  private ActionOutputMetadataStore createStore(
+      ImmutableSet<Artifact> outputs, boolean trackExecutableBit) {
+    return createStore(outputs, /* actionFs= */ null, trackExecutableBit);
+  }
+
+  private ActionOutputMetadataStore createStore(
+      ImmutableSet<Artifact> outputs, @Nullable FileSystem actionFs, boolean trackExecutableBit) {
     return ActionOutputMetadataStore.create(
         /* archivedTreeArtifactsEnabled= */ false,
         OutputPermissions.READONLY,
+        trackExecutableBit,
         outputs,
         SyscallCache.NO_CACHE,
         tsgm,
@@ -284,6 +295,62 @@ public final class ActionOutputMetadataStoreTest {
   }
 
   @Test
+  public void trackExecutableBit_preservesNonExecutableOutput() throws Exception {
+    Artifact artifact =
+        ActionsTestUtil.createArtifactWithRootRelativePath(
+            outputRoot, PathFragment.create("foo/bar"));
+    Path outputPath = scratch.file(artifact.getPath().getPathString(), "content");
+    outputPath.chmod(0644);
+    chmodCalls.clear();
+    ActionOutputMetadataStore store =
+        createStore(/* outputs= */ ImmutableSet.of(artifact), /* trackExecutableBit= */ true);
+    store.prepareForActionExecution();
+
+    FileArtifactValue metadata = store.getOutputMetadata(artifact);
+
+    assertThat(metadata.isExecutable()).isFalse();
+    // The read/write bits are normalized but the (absent) executable bit is preserved: 0444.
+    assertThat(chmodCalls).containsExactly(outputPath, 0444);
+  }
+
+  @Test
+  public void trackExecutableBit_preservesExecutableOutput() throws Exception {
+    Artifact artifact =
+        ActionsTestUtil.createArtifactWithRootRelativePath(
+            outputRoot, PathFragment.create("foo/bar"));
+    Path outputPath = scratch.file(artifact.getPath().getPathString(), "content");
+    outputPath.chmod(0755);
+    chmodCalls.clear();
+    ActionOutputMetadataStore store =
+        createStore(/* outputs= */ ImmutableSet.of(artifact), /* trackExecutableBit= */ true);
+    store.prepareForActionExecution();
+
+    FileArtifactValue metadata = store.getOutputMetadata(artifact);
+
+    assertThat(metadata.isExecutable()).isTrue();
+    assertThat(chmodCalls).containsExactly(outputPath, 0555);
+  }
+
+  @Test
+  public void withoutTrackExecutableBit_forcesExecutableAndLeavesBitUnset() throws Exception {
+    Artifact artifact =
+        ActionsTestUtil.createArtifactWithRootRelativePath(
+            outputRoot, PathFragment.create("foo/bar"));
+    Path outputPath = scratch.file(artifact.getPath().getPathString(), "content");
+    outputPath.chmod(0644);
+    chmodCalls.clear();
+    ActionOutputMetadataStore store =
+        createStore(/* outputs= */ ImmutableSet.of(artifact), /* trackExecutableBit= */ false);
+    store.prepareForActionExecution();
+
+    FileArtifactValue metadata = store.getOutputMetadata(artifact);
+
+    // Historical behavior: every output is forced executable and the bit is not recorded.
+    assertThat(metadata.isExecutable()).isFalse();
+    assertThat(chmodCalls).containsExactly(outputPath, 0555);
+  }
+
+  @Test
   public void injectRemoteArtifactMetadata() throws Exception {
     PathFragment path = PathFragment.create("foo/bar");
     Artifact artifact = ActionsTestUtil.createArtifactWithRootRelativePath(outputRoot, path);
@@ -299,6 +366,28 @@ public final class ActionOutputMetadataStoreTest {
     assertThat(v).isNotNull();
     assertThat(v.getDigest()).isEqualTo(digest);
     assertThat(v.getSize()).isEqualTo(size);
+    assertThat(chmodCalls).isEmpty();
+  }
+
+  @Test
+  public void injectRemoteArtifactMetadata_executable_preservesExecutableBit() throws Exception {
+    PathFragment path = PathFragment.create("foo/bar");
+    Artifact artifact = ActionsTestUtil.createArtifactWithRootRelativePath(outputRoot, path);
+    ActionOutputMetadataStore store = createStore(/* outputs= */ ImmutableSet.of(artifact));
+    store.prepareForActionExecution();
+
+    // Mirrors a remote (build-without-the-bytes) output whose action result marked it executable.
+    store.injectFile(
+        artifact,
+        FileArtifactValue.createForRemoteFileWithMaterializationData(
+            new byte[] {1, 2, 3},
+            /* size= */ 10,
+            /* locationIndex= */ 1,
+            /* expirationTime= */ null,
+            /* isExecutable= */ true));
+
+    assertThat(store.getOutputMetadata(artifact).isExecutable()).isTrue();
+    // Injected metadata is never chmodded on disk.
     assertThat(chmodCalls).isEmpty();
   }
 
@@ -623,6 +712,7 @@ public final class ActionOutputMetadataStoreTest {
         ActionOutputMetadataStore.create(
             /* archivedTreeArtifactsEnabled= */ false,
             OutputPermissions.WRITABLE,
+            /* trackExecutableBit= */ false,
             /* outputs= */ ImmutableSet.of(output),
             SyscallCache.NO_CACHE,
             tsgm,
