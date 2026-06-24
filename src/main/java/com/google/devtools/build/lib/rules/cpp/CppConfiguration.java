@@ -896,11 +896,6 @@ public final class CppConfiguration extends Fragment
     return cppOptions.getExperimentalCppCompileResourcesEstimation();
   }
 
-  @Override
-  public boolean macosSetInstallName() {
-    return true;
-  }
-
   private static void checkInExpandedApiAllowlist(StarlarkThread thread, String feature)
       throws EvalException {
     try {
