@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.rules.repository.RepoRecordedInput;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.WorkspaceFileHelper;
 import com.google.devtools.build.lib.runtime.ProcessWrapper;
+import com.google.devtools.build.lib.runtime.RemoteRepoContentsCache;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
 import com.google.devtools.build.lib.skyframe.IgnoredSubdirectoriesValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
@@ -125,11 +126,18 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
 
   private static class State extends WorkerSkyKeyComputeState<FetchResult> {
     @Nullable FetchResult result;
+    final RemoteRepoContentsCache.LookupState repoContentsCacheLookupState =
+        new RemoteRepoContentsCache.LookupState();
   }
 
   @Override
   public boolean wasJustFetched(Environment env) {
     return env.getState(State::new).result != null;
+  }
+
+  @Override
+  public RemoteRepoContentsCache.LookupState getRemoteRepoContentsCacheLookupState(Environment env) {
+    return env.getState(State::new).repoContentsCacheLookupState;
   }
 
   private record FetchArgs(

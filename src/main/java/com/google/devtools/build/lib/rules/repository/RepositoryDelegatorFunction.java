@@ -269,7 +269,11 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
           try {
             boolean cacheHit =
                 remoteRepoContentsCache.lookupCache(
-                    repositoryName, repoRoot, digestWriter.predeclaredInputHash, env);
+                    repositoryName,
+                    repoRoot,
+                    digestWriter.predeclaredInputHash,
+                    env,
+                    handler.getRemoteRepoContentsCacheLookupState(env));
             if (env.valuesMissing()) {
               return null;
             }

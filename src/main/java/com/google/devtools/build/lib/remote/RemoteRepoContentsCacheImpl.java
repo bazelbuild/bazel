@@ -229,14 +229,22 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
   }
 
   @Override
+  // The LookupState is only populated by this class and thus always contains CacheEntry values.
+  @SuppressWarnings("unchecked")
   public boolean lookupCache(
       RepositoryName repoName,
       Path repoDir,
       String predeclaredInputHash,
-      SkyFunction.Environment env)
+      SkyFunction.Environment env,
+      RemoteRepoContentsCache.LookupState<?> lookupState)
       throws IOException, InterruptedException {
     try {
-      return doLookupCache(repoName, repoDir, predeclaredInputHash, env);
+      return doLookupCache(
+          repoName,
+          repoDir,
+          predeclaredInputHash,
+          env,
+          (RemoteRepoContentsCache.LookupState<CacheEntry>) lookupState);
     } catch (IOException e) {
       throw new IOException(
           "Failed to look up repo %s in the remote repo contents cache: %s"
@@ -249,7 +257,8 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
       RepositoryName repoName,
       Path repoDir,
       String predeclaredInputHash,
-      SkyFunction.Environment env)
+      SkyFunction.Environment env,
+      RemoteRepoContentsCache.LookupState<CacheEntry> lookupState)
       throws IOException, InterruptedException {
     if (!(repoDir.getFileSystem() instanceof RemoteExternalOverlayFileSystem remoteFs)) {
       return false;
@@ -259,7 +268,7 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
     if (!context.getReadCachePolicy().allowRemoteCache()) {
       return false;
     }
-    var finalEntry = fetchFinalCacheEntry(env, context, predeclaredInputHash);
+    var finalEntry = fetchFinalCacheEntry(env, lookupState, context, predeclaredInputHash);
     if (env.valuesMissing() || finalEntry == null) {
       return false;
     }
@@ -426,7 +435,7 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
   }
 
   /** Represents a single AC entry in the internal format used by the remote repo contents cache. */
-  private sealed interface CacheEntry {
+  private sealed interface CacheEntry extends OpaqueCacheEntry {
     /**
      * A final cache entry containing the contents of a repository.
      *
@@ -461,6 +470,7 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
   @Nullable
   private CacheEntry.Final fetchFinalCacheEntry(
       SkyFunction.Environment env,
+      RemoteRepoContentsCache.LookupState<CacheEntry> lookupState,
       RemoteActionExecutionContext context,
       String predeclaredInputHash)
       throws IOException, InterruptedException {
@@ -468,7 +478,7 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
     while (!currentHashes.isEmpty()) {
       var nextHashes = ImmutableList.<String>builder();
       for (var hash : currentHashes) {
-        switch (fetchCacheEntry(env, context, hash)) {
+        switch (fetchCacheEntry(env, lookupState, context, hash)) {
           case CacheEntry.Final finalEntry -> {
             return finalEntry;
           }
@@ -492,8 +502,17 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
   // Returns null if and only if values are missing.
   @Nullable
   private CacheEntry fetchCacheEntry(
-      SkyFunction.Environment env, RemoteActionExecutionContext context, String inputHash)
+      SkyFunction.Environment env,
+      RemoteRepoContentsCache.LookupState<CacheEntry> lookupState,
+      RemoteActionExecutionContext context,
+      String inputHash)
       throws IOException, InterruptedException {
+    // Cache action cache entries so that network calls don't have to be repeated on Skyframe
+    // restarts.
+    var memoized = lookupState.get(inputHash);
+    if (memoized != null) {
+      return memoized;
+    }
     var actionKey = new ActionKey(digestUtil.compute(buildAction(inputHash)));
     // The marker file is read right after and thus requested to be inlined. If the action result
     // is an intermediate node, the full result will be contained in the stdout, which should thus
@@ -502,28 +521,34 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
         cache.downloadActionResult(
             context, actionKey, /* inlineOutErr= */ true, ImmutableSet.of(MARKER_FILE_PATH));
     if (cachedActionResult == null) {
-      return new CacheEntry.Intermediate(ImmutableList.of());
+      return lookupState.memoize(inputHash, new CacheEntry.Intermediate(ImmutableList.of()));
     }
     var actionResult = cachedActionResult.actionResult();
 
     if (actionResult.getExitCode() != 0) {
-      return new CacheEntry.Invalid(
-          "Unexpected exit code in action result for remotely cached repo %s:\n%s"
-              .formatted(context.getRequestMetadata().getActionId(), actionResult));
+      return lookupState.memoize(
+          inputHash,
+          new CacheEntry.Invalid(
+              "Unexpected exit code in action result for remotely cached repo %s:\n%s"
+                  .formatted(context.getRequestMetadata().getActionId(), actionResult)));
     }
     if (actionResult.getOutputFilesCount() == 1
         && actionResult.getOutputDirectoriesCount() == 1
         && actionResult.getOutputSymlinksCount() == 0) {
-      return new CacheEntry.Final(
-          actionResult.getOutputDirectories(0), actionResult.getOutputFiles(0));
+      return lookupState.memoize(
+          inputHash,
+          new CacheEntry.Final(
+              actionResult.getOutputDirectories(0), actionResult.getOutputFiles(0)));
     }
     if (!(actionResult.getOutputFilesCount() == 0
         && actionResult.getOutputDirectoriesCount() == 0
         && actionResult.getOutputSymlinksCount() == 0
         && actionResult.getStdoutDigest().getSizeBytes() > 0)) {
-      return new CacheEntry.Invalid(
-          "Unexpected intermediate action result for remotely cached repo %s:\n%s"
-              .formatted(context.getRequestMetadata().getActionId(), actionResult));
+      return lookupState.memoize(
+          inputHash,
+          new CacheEntry.Invalid(
+              "Unexpected intermediate action result for remotely cached repo %s:\n%s"
+                  .formatted(context.getRequestMetadata().getActionId(), actionResult)));
     }
     var stdoutFuture = fetchStdout(context, actionResult);
     waitForBulkTransfer(ImmutableList.of(stdoutFuture));
@@ -564,7 +589,7 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
       }
       nextHashes.add(rollingHash);
     }
-    return new CacheEntry.Intermediate(nextHashes.build());
+    return lookupState.memoize(inputHash, new CacheEntry.Intermediate(nextHashes.build()));
   }
 
   private String rollForwardHash(String hash, RepoRecordedInput.WithValue inputWithValue) {
@@ -588,9 +613,9 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
 
   /**
    * Parses a marker file written by {@code DigestWriter}: the first non-empty line is the
-   * predeclared input hash, followed by one serialized {@link RepoRecordedInput.WithValue} per line.
-   * Returns an empty {@link Optional} if the first line doesn't match the expected hash or any
-   * subsequent line fails to parse.
+   * predeclared input hash, followed by one serialized {@link RepoRecordedInput.WithValue} per
+   * line. Returns an empty {@link Optional} if the first line doesn't match the expected hash or
+   * any subsequent line fails to parse.
    */
   private static Optional<ImmutableList<RepoRecordedInput.WithValue>> readMarkerFile(
       String content, String predeclaredInputHash) {
