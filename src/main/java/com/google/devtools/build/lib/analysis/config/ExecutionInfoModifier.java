@@ -94,6 +94,16 @@ public abstract class ExecutionInfoModifier {
     public String getTypeDescription() {
       return "regex=[+-]key,regex=[+-]key,...";
     }
+
+    @Override
+    public boolean starlarkConvertible() {
+      return true;
+    }
+
+    @Override
+    public String reverseForStarlark(Object converted) {
+      return ((ExecutionInfoModifier) converted).option();
+    }
   }
 
   private static ExecutionInfoModifier create(String input, ImmutableList<Expression> expressions) {
