@@ -9,5 +9,5 @@ requests==2.33.0
 six==1.17.0
 soupsieve==2.8.3
 typing_extensions==4.15.0
-urllib3==2.6.3
+urllib3==2.7.0
 
