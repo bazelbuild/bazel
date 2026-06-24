@@ -824,12 +824,14 @@ public class CompactPersistentActionCache implements ActionCache {
       resolvedPath = PathFragment.create(getStringForIndex(indexer, VarInt.getVarInt(source)));
     }
 
-    FileArtifactValue metadata =
-        FileArtifactValue.createForRemoteFileWithMaterializationData(
-            digest,
-            size,
-            locationIndex,
-            expirationTimeEpochMilli >= 0 ? Instant.ofEpochMilli(expirationTimeEpochMilli) : null);
+    FileArtifactValue metadata;
+    if (expirationTimeEpochMilli >= 0) {
+      metadata =
+          FileArtifactValue.createForRemoteFileWithMaterializationData(
+              digest, size, locationIndex, Instant.ofEpochMilli(expirationTimeEpochMilli));
+    } else {
+      metadata = FileArtifactValue.createForRemoteFile(digest, size, locationIndex);
+    }
 
     if (resolvedPath != null) {
       metadata = FileArtifactValue.createFromExistingWithResolvedPath(metadata, resolvedPath);
