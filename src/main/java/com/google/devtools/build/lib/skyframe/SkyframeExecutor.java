@@ -3470,6 +3470,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         fileTypesToCheck.add(FileType.OUTPUT);
       }
       if (!fileTypesToCheck.isEmpty()) {
+        // FileType.REPO_CONTENTS_CACHE_DIRS is intentionally never checked here. See the comment on
+        // that enum constant for details.
         dirtinessCheckers =
             Iterables.concat(
                 dirtinessCheckers,
