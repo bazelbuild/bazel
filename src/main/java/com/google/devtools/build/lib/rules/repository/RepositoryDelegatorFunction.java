@@ -267,8 +267,13 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
 
         if (remoteRepoContentsCache != null) {
           try {
-            if (remoteRepoContentsCache.lookupCache(
-                repositoryName, repoRoot, digestWriter.predeclaredInputHash, env.getListener())) {
+            boolean cacheHit =
+                remoteRepoContentsCache.lookupCache(
+                    repositoryName, repoRoot, digestWriter.predeclaredInputHash, env);
+            if (env.valuesMissing()) {
+              return null;
+            }
+            if (cacheHit) {
               return new RepositoryDirectoryValue.Success(
                   repoRoot, /* isFetchingDelayed= */ false, excludeRepoFromVendoring);
             }

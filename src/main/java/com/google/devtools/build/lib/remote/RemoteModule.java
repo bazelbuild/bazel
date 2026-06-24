@@ -762,6 +762,7 @@ public final class RemoteModule extends BlazeModule {
 
     repositoryRemoteHelpersFactoryDelegate.init(
         new RepositoryRemoteHelpersFactoryImpl(
+            env.getDirectories(),
             actionContextProvider.getCombinedCache(),
             actionContextProvider.getRemoteExecutionClient(),
             buildRequestId,
