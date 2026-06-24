@@ -62,6 +62,7 @@ import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.NoAnalyzeEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.NoExecutionEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ReleaseReplaceableBuildEvent;
+import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
@@ -119,7 +120,7 @@ public class BuildEventStreamer {
    * - Only the first progress event is tracked.
    */
   @GuardedBy("this")
-  private final Set<BuildEventId> postedEvents = new HashSet<>();
+  private final Set<BuildEventId> postedEvents = CompactHashSet.create();
 
   @GuardedBy("this")
   private final Set<BuildEventId> configurationsPosted = new HashSet<>();
