@@ -157,11 +157,17 @@ public class BuildTool {
   private static final String SKYFRAME_MEMORY_DUMP_FILE = "skyframe_memory.json";
 
   private static final AnalysisPostProcessor NOOP_POST_PROCESSOR =
-      (unusedRequest, unusedEnv, unusedRuntime, unusedAnalysisResult) -> {};
+      (unusedRequest, unusedEnv, unusedRuntime, analysisResult) -> analysisResult;
 
-  /** Hook for inserting extra post-analysis-phase processing. Used for implementing {a,c}query. */
+  /**
+   * Hook for inserting extra post-analysis-phase processing. Used for implementing {a,c}query.
+   *
+   * <p>Returns the {@link AnalysisResult} the execution phase should use. Implementations may
+   * return the given {@code analysisResult} unchanged, or a modified copy (e.g. with a filtered
+   * set of targets to build, as {@code build --cquery} does).
+   */
   public interface AnalysisPostProcessor {
-    void process(
+    AnalysisResult process(
         BuildRequest request,
         CommandEnvironment env,
         BlazeRuntime runtime,
@@ -564,12 +570,15 @@ public class BuildTool {
         }
 
         result.setBuildConfiguration(analysisResult.getConfiguration());
-        result.setActualTargets(analysisResult.getTargetsToBuild());
-        result.setTestTargets(analysisResult.getTargetsToTest());
 
         try (SilentCloseable c = Profiler.instance().profile("analysisPostProcessor.process")) {
-          analysisPostProcessor.process(request, env, runtime, analysisResult);
+          analysisResult = analysisPostProcessor.process(request, env, runtime, analysisResult);
         }
+
+        // Record the targets to build/test after the post-processor runs, so a processor that
+        // filters the set (e.g. build --cquery) determines what the execution phase builds.
+        result.setActualTargets(analysisResult.getTargetsToBuild());
+        result.setTestTargets(analysisResult.getTargetsToTest());
 
         if (needsExecutionPhase(request.getBuildOptions())) {
           try (SilentCloseable closeable = Profiler.instance().profile("ExecutionTool.init")) {

@@ -54,6 +54,7 @@ java_library(
     srcs = [
         "CommonQueryOptions.java",
         "FlagConstants.java",
+        "UniverseScopeOptions.java",
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/cmdline",

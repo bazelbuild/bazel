@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.profiler.ProfilePhase;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.query2.common.AbstractBlazeQueryEnvironment;
 import com.google.devtools.build.lib.query2.common.UniverseScope;
+import com.google.devtools.build.lib.query2.common.UniverseScopeOptions;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
 import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
@@ -178,7 +179,10 @@ public abstract class QueryEnvironmentBasedCommand implements BlazeCommand {
               !streamResults,
               env.getSkyframeExecutor()
                   .maybeGetHardcodedUniverseScope()
-                  .orElse(getUniverseScope(queryOptions)),
+                  .orElse(
+                      getUniverseScope(
+                          queryOptions,
+                          env.getOptions().getOptions(UniverseScopeOptions.class))),
               threadsOption.getThreads(),
               settings,
               useGraphlessQuery,
@@ -220,10 +224,11 @@ public abstract class QueryEnvironmentBasedCommand implements BlazeCommand {
     }
   }
 
-  private static UniverseScope getUniverseScope(QueryOptions queryOptions) {
-    if (!queryOptions.getUniverseScope().isEmpty()) {
+  private static UniverseScope getUniverseScope(
+      QueryOptions queryOptions, UniverseScopeOptions universeScopeOptions) {
+    if (!universeScopeOptions.getUniverseScope().isEmpty()) {
       return UniverseScope.fromUniverseScopeList(
-          ImmutableList.copyOf(queryOptions.getUniverseScope()));
+          ImmutableList.copyOf(universeScopeOptions.getUniverseScope()));
     }
     return queryOptions.getInferUniverseScope()
         ? UniverseScope.INFER_FROM_QUERY_EXPRESSION
