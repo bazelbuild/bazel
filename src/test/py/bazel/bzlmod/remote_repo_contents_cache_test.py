@@ -617,6 +617,16 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
     )
 
   def testLostRemoteFile_build(self):
+    self._runLostRemoteFileBuildTest(
+        '--experimental_merged_skyframe_analysis_execution'
+    )
+
+  def testLostRemoteFile_build_noSkymeld(self):
+    self._runLostRemoteFileBuildTest(
+        '--noexperimental_merged_skyframe_analysis_execution'
+    )
+
+  def _runLostRemoteFileBuildTest(self, skymeld_flag):
     # Create a repo with two BUILD files (one in a subpackage), build a target
     # from one to cause it to be cached, then build that target again after
     # expunging to verify it is cached.
@@ -653,7 +663,7 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
     repo_dir = self.RepoDir('my_repo')
 
     # First fetch: not cached
-    _, _, stderr = self.RunBazel(['build', '@my_repo//:root'])
+    _, _, stderr = self.RunBazel(['build', skymeld_flag, '@my_repo//:root'])
     self.assertIn('JUST FETCHED', '\n'.join(stderr))
     self.assertTrue(os.path.exists(os.path.join(repo_dir, 'BUILD')))
     self.assertTrue(os.path.exists(os.path.join(repo_dir, 'root.txt')))
@@ -662,10 +672,10 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
 
     # After expunging: cached
     self.RunBazel(['clean', '--expunge'])
-    _, _, stderr = self.RunBazel(['build', '@my_repo//:root'])
+    _, _, stderr = self.RunBazel(['build', skymeld_flag, '@my_repo//:root'])
     self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
     self.assertFalse(os.path.exists(os.path.join(repo_dir, 'BUILD')))
-    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'root.txt')))
+    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'root.txt')))
     self.assertFalse(os.path.exists(os.path.join(repo_dir, 'sub/BUILD')))
     self.assertFalse(os.path.exists(os.path.join(repo_dir, 'sub/sub.txt')))
 
@@ -675,7 +685,7 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
     # Build the other target: fails due to the lost input
     # TODO: #26450 - Assert success and enable the checks below.
     _, _, stderr = self.RunBazel(
-        ['build', '@my_repo//sub:sub'], allow_failure=True
+        ['build', skymeld_flag, '@my_repo//sub:sub'], allow_failure=True
     )
     self.assertEqual(
         1,
@@ -699,12 +709,12 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
 
     # After expunging again: cached
     self.RunBazel(['clean', '--expunge'])
-    _, _, stderr = self.RunBazel(['build', '@my_repo//sub:sub'])
+    _, _, stderr = self.RunBazel(['build', skymeld_flag, '@my_repo//sub:sub'])
     self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
     self.assertFalse(os.path.exists(os.path.join(repo_dir, 'BUILD')))
     self.assertFalse(os.path.exists(os.path.join(repo_dir, 'root.txt')))
     self.assertFalse(os.path.exists(os.path.join(repo_dir, 'sub/BUILD')))
-    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'sub/sub.txt')))
+    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'sub/sub.txt')))
 
   def testBzlFilePrefetching(self):
     self.ScratchFile(
@@ -780,6 +790,25 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
     self.assertTrue(
         os.path.exists(os.path.join(repo_dir, 'subdir/more_nested.bzl'))
     )
+
+  def testRun(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'bazel_dep(name = "buildozer", version = "8.5.1")',
+        ],
+    )
+
+    # First fetch: not cached
+    _, stdout, _ = self.RunBazel(['run', '@buildozer', '--', '--version'])
+    self.assertIn('buildozer version: 8.5.1', '\n'.join(stdout))
+
+    # After expunging: cached
+    self.RunBazel(['clean', '--expunge'])
+    _, stdout, _ = self.RunBazel(['run', '@buildozer', '--', '--version'])
+    self.assertIn('buildozer version: 8.5.1', '\n'.join(stdout))
+    repo_dir = self.RepoDir('buildozer')
+    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'MODULE.bazel')))
 
 
 if __name__ == '__main__':

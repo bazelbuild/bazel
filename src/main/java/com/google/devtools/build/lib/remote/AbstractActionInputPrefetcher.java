@@ -329,7 +329,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
    */
   @Override
   public ListenableFuture<Void> prefetchFiles(
-      ActionExecutionMetadata action,
+      @Nullable ActionExecutionMetadata action,
       Iterable<? extends ActionInput> inputs,
       MetadataSupplier metadataSupplier,
       Priority priority,
