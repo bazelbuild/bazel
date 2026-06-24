@@ -234,6 +234,8 @@ public class ExecutionTransitionFactoryTest extends BuildViewTestCase {
             // Skipping this explicitly as propagating it causes a cycle when compiling
             // the optimizer itself.
             .filter(o -> !o.getKey().equals("experimental_local_java_optimizations"))
+            // Android lint validation actions do not run in exec configurations.
+            .filter(o -> !o.getKey().equals("experimental_run_android_lint_on_java_rules"))
             // A rare (only?) case of a flag named "--experimental_..." that isn't
             // actually experimental.
             .filter(o -> !o.getKey().equals("experimental_deps_ok"))

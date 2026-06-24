@@ -341,7 +341,6 @@ bazel_fragments["JavaOptions"] = fragment(
         "//command_line_option:incompatible_disallow_java_import_exports",
         "//command_line_option:experimental_enable_jspecify",
         "//command_line_option:experimental_java_test_auto_create_deploy_jar",
-        "//command_line_option:experimental_run_android_lint_on_java_rules",
     ],
     outputs = [
         "//command_line_option:jvmopt",
