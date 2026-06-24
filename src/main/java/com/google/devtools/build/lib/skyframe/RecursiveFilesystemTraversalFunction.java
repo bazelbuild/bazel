@@ -553,6 +553,9 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
         rootInfo.type.exists() && !rootInfo.type.isFile(), "{%s} {%s}", traversal, rootInfo);
     var rootPath = traversal.root().getRootPart().asPath();
     RepositoryName repoName;
+    // The roots of external repositories are always children of the external directory, even if
+    // those are symlinks to other locations (e.g. in the case of a local_repository), so all other
+    // roots are part of the main repository.
     if (rootPath.startsWith(externalDirectory)) {
       checkState(
           rootPath.relativeTo(externalDirectory).isSingleSegment(),
