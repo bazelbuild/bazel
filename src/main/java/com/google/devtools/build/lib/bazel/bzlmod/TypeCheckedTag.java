@@ -59,7 +59,7 @@ public class TypeCheckedTag implements Structure {
     }
 
     @Override
-    public void repr(Printer printer, StarlarkSemantics semantics) {
+    public void repr(Printer printer) {
       printer.append("<sort_key>");
     }
 
