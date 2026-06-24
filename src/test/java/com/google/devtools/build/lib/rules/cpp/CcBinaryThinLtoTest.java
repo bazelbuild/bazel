@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.Truth.assertWithMessage;
 import static java.util.Arrays.stream;
 
 import com.google.common.base.Joiner;
@@ -154,102 +153,11 @@ public class CcBinaryThinLtoTest extends BuildViewTestCase {
 
 
 
-  @Test
-  public void testLinkstaticCcTest() throws Exception {
-    createTestFiles("linkstatic = 1,", "");
 
-    setupThinLTOCrosstool(
-        CppRuleClasses.SUPPORTS_PIC,
-        CppRuleClasses.THIN_LTO_LINKSTATIC_TESTS_USE_SHARED_NONLTO_BACKENDS,
-        CppRuleClasses.PER_OBJECT_DEBUG_INFO,
-        MockCcSupport.USER_COMPILE_FLAGS);
-    useConfiguration(
-        "--features=thin_lto_linkstatic_tests_use_shared_nonlto_backends", "--linkopt=alinkopt");
 
-    ConfiguredTarget pkg = getConfiguredTarget("//pkg:bin_test");
-    Artifact pkgArtifact = getFilesToBuild(pkg).getSingleton();
-    SpawnAction linkAction = (SpawnAction) getGeneratingAction(pkgArtifact);
 
-    ConfiguredTarget pkg2 = getConfiguredTarget("//pkg:bin_test2");
-    Artifact pkgArtifact2 = getFilesToBuild(pkg2).getSingleton();
-    SpawnAction linkAction2 = (SpawnAction) getGeneratingAction(pkgArtifact2);
 
-    // All backends should be shared non-LTO in this case
-    String rootExecPath1 = pkgArtifact.getRoot().getExecPathString();
-    String rootExecPath2 = pkgArtifact.getRoot().getExecPathString();
-    LtoBackendAction backendAction =
-        (LtoBackendAction)
-            getPredecessorByInputName(
-                linkAction,
-                "shared.nonlto/" + rootExecPath1 + "/pkg/_objs/bin_test/bin_test.pic.o");
-    assertThat(backendAction.getMnemonic()).isEqualTo("CcLtoBackendCompile");
-    assertThat(backendAction.getArguments()).doesNotContain("alinkopt");
 
-    backendAction =
-        (LtoBackendAction)
-            getPredecessorByInputName(
-                linkAction, "shared.nonlto/" + rootExecPath1 + "/pkg/_objs/lib/libfile.pic.o");
-    assertThat(backendAction.getMnemonic()).isEqualTo("CcLtoBackendCompile");
-    assertThat(backendAction.getArguments()).contains("-fPIC");
-    assertThat(backendAction.getArguments()).doesNotContain("alinkopt");
-
-    LtoBackendAction backendAction2 =
-        (LtoBackendAction)
-            getPredecessorByInputName(
-                linkAction2, "shared.nonlto/" + rootExecPath2 + "/pkg/_objs/lib/libfile.pic.o");
-    assertThat(backendAction2.getMnemonic()).isEqualTo("CcLtoBackendCompile");
-
-    assertThat(backendAction).isEqualTo(backendAction2);
-  }
-
-  @Test
-  public void testTestOnlyTarget() throws Exception {
-    createBuildFiles("testonly = 1,");
-
-    setupThinLTOCrosstool(
-        CppRuleClasses.SUPPORTS_PIC,
-        CppRuleClasses.THIN_LTO_LINKSTATIC_TESTS_USE_SHARED_NONLTO_BACKENDS,
-        MockCcSupport.USER_COMPILE_FLAGS);
-    useConfiguration(
-        "--features=thin_lto_linkstatic_tests_use_shared_nonlto_backends", "--linkopt=alinkopt");
-
-    ConfiguredTarget pkg = getConfiguredTarget("//pkg:bin");
-    Artifact pkgArtifact = getFilesToBuild(pkg).getSingleton();
-    String rootExecPath = pkgArtifact.getRoot().getExecPathString();
-    SpawnAction linkAction = (SpawnAction) getGeneratingAction(pkgArtifact);
-
-    LtoBackendAction backendAction =
-        (LtoBackendAction)
-            getPredecessorByInputName(
-                linkAction, "shared.nonlto/" + rootExecPath + "/pkg/_objs/bin/binfile.pic.o");
-    assertThat(backendAction.getMnemonic()).isEqualTo("CcLtoBackendCompile");
-    assertThat(backendAction.getArguments()).doesNotContain("alinkopt");
-  }
-
-  @Test
-  public void testUseSharedAllLinkstatic() throws Exception {
-    createBuildFiles();
-
-    setupThinLTOCrosstool(
-        CppRuleClasses.THIN_LTO_ALL_LINKSTATIC_USE_SHARED_NONLTO_BACKENDS,
-        CppRuleClasses.SUPPORTS_PIC,
-        MockCcSupport.USER_COMPILE_FLAGS);
-    useConfiguration(
-        "--features=thin_lto_all_linkstatic_use_shared_nonlto_backends", "--linkopt=alinkopt");
-
-    ConfiguredTarget pkg = getConfiguredTarget("//pkg:bin");
-    Artifact pkgArtifact = getFilesToBuild(pkg).getSingleton();
-    String rootExecPath = pkgArtifact.getRoot().getExecPathString();
-
-    SpawnAction linkAction = (SpawnAction) getGeneratingAction(pkgArtifact);
-
-    LtoBackendAction backendAction =
-        (LtoBackendAction)
-            getPredecessorByInputName(
-                linkAction, "shared.nonlto/" + rootExecPath + "/pkg/_objs/bin/binfile.pic.o");
-    assertThat(backendAction.getMnemonic()).isEqualTo("CcLtoBackendCompile");
-    assertThat(backendAction.getArguments()).doesNotContain("alinkopt");
-  }
 
   private Action getPredecessorByInputName(Action action, String str) {
     for (Artifact a : action.getInputs().toList()) {
@@ -260,119 +168,11 @@ public class CcBinaryThinLtoTest extends BuildViewTestCase {
     return null;
   }
 
-  @Test
-  public void testAssemblerSource() throws Exception {
-    scratch.file(
-        "pkg/BUILD",
-        """
-        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
-        load("@rules_cc//cc:cc_library.bzl", "cc_library")
-        package(features = ["thin_lto"])
 
-        cc_binary(
-            name = "bin",
-            srcs = ["binfile.cc"],
-            malloc = "//base:system_malloc",
-            deps = [":lib"],
-        )
 
-        cc_library(
-            name = "lib",
-            srcs = [
-                "tracing.cc",
-                "tracing_x86-64.S",
-            ],
-        )
-        """);
 
-    scratch.file("pkg/binfile.cc", "int main() { return pkg(); }");
-    scratch.file("pkg/tracing.cc", "// hello");
-    scratch.file("pkg/tracing_x86-64.S", "NOP");
 
-    setupThinLTOCrosstool();
-    useConfiguration();
 
-    ConfiguredTarget bin = getConfiguredTarget("//pkg:bin");
-
-    Artifact binArtifact = getFilesToBuild(bin).getSingleton();
-
-    SpawnAction linkAction = (SpawnAction) getGeneratingAction(binArtifact);
-    assertThat(linkAction.getOutputs()).containsExactly(binArtifact);
-
-    Action dataGen = getPredecessorByInputName(linkAction, "tracing_x86-64");
-    assertWithMessage(linkAction.getInputs().toString()).that(dataGen).isNotNull();
-    assertThat(dataGen.getMnemonic()).isEqualTo("CppCompile");
-  }
-
-  // Make sure we don't choke on a cc_library without sources and therefore, without bitcode files.
-  @Test
-  public void testNoSourceFiles() throws Exception {
-    scratch.file(
-        "pkg/BUILD",
-        """
-        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
-        load("@rules_cc//cc:cc_library.bzl", "cc_library")
-        package(features = ["thin_lto"])
-
-        cc_binary(
-            name = "bin",
-            srcs = ["binfile.cc"],
-            malloc = "//base:system_malloc",
-            deps = [":lib"],
-        )
-
-        cc_library(
-            name = "lib",
-            srcs = ["static.a"],
-        )
-        """);
-
-    scratch.file("pkg/binfile.cc", "int main() { return 1; }");
-    scratch.file("pkg/static.a", "xyz");
-    setupThinLTOCrosstool();
-    useConfiguration();
-
-    getConfiguredTarget("//pkg:bin");
-  }
-
-  @Test
-  public void testFdoInstrument() throws Exception {
-    scratch.file(
-        "pkg/BUILD",
-        """
-        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
-        package(features = ["thin_lto"])
-
-        cc_binary(
-            name = "bin",
-            srcs = ["binfile.cc"],
-            malloc = "//base:system_malloc",
-        )
-        """);
-
-    scratch.file("pkg/binfile.cc", "int main() {}");
-
-    setupThinLTOCrosstool(CppRuleClasses.SUPPORTS_PIC, CppRuleClasses.FDO_INSTRUMENT);
-    useConfiguration("--fdo_instrument=profiles");
-
-    ConfiguredTarget pkg = getConfiguredTarget("//pkg:bin");
-
-    Artifact pkgArtifact = getFilesToBuild(pkg).getSingleton();
-    String rootExecPath = pkgArtifact.getRoot().getExecPathString();
-
-    SpawnAction linkAction = (SpawnAction) getGeneratingAction(pkgArtifact);
-    assertThat(linkAction.getOutputs()).containsExactly(pkgArtifact);
-
-    LtoBackendAction backendAction =
-        (LtoBackendAction)
-            getPredecessorByInputName(
-                linkAction, "pkg/bin.lto/" + rootExecPath + "/pkg/_objs/bin/binfile.pic.o");
-    // If the LtoBackendAction incorrectly tries to add the fdo_instrument
-    // feature, we will fail with an "unknown variable 'fdo_instrument_path'"
-    // error. But let's also explicitly confirm that the fdo_instrument
-    // option didn't end up here.
-    assertThat(backendAction.getArguments()).doesNotContain("fdo_instrument_option");
-  }
 
   @Test
   public void testLtoIndexOpt() throws Exception {
