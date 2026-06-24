@@ -37,17 +37,14 @@ expected_modules=(
   abseil-cpp
   abseil-py
   apple_support
-  aspect_bazel_lib
   bazel_features
   bazel_lib
   bazel_skylib
   bazel_worker_api
   bazel_worker_java
   buildozer
-  gawk
   gazelle
   googletest
-  jq.bzl
   jsoncpp
   package_metadata
   platforms
@@ -65,10 +62,9 @@ expected_modules=(
   rules_proto
   rules_python
   rules_robolectric
+  rules_rust
   rules_shell
   stardoc
-  tar.bzl
-  yq.bzl
   zlib
 )
 
