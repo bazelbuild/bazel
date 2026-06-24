@@ -386,13 +386,6 @@ public final class CompletionFunction<
   private void ensureToplevelArtifacts(
       Environment env, ImmutableCollection<Artifact> importantArtifacts, ActionInputMap inputMap)
       throws CompletionFunctionException, InterruptedException {
-    // For skymeld, a non-toplevel target might become a toplevel after it has been executed. This
-    // is the last chance to download the missing toplevel outputs in this case before sending out
-    // TargetCompleteEvent. See https://github.com/bazelbuild/bazel/issues/20737.
-    if (!isSkymeld.get()) {
-      return;
-    }
-
     var actionInputPrefetcher = skyframeActionExecutor.getActionInputPrefetcher();
     if (actionInputPrefetcher == null || actionInputPrefetcher == ActionInputPrefetcher.NONE) {
       return;
@@ -444,6 +437,33 @@ public final class CompletionFunction<
       List<ListenableFuture<Void>> futures)
       throws InterruptedException {
     if (!(artifact instanceof DerivedArtifact derivedArtifact)) {
+      // Source artifacts from external repos (e.g. remote repo contents cache hits) have no
+      // generating action and are thus never downloaded by finalizeAction, so materialize the
+      // toplevel ones here so they honor --remote_download_outputs like build outputs do. Source
+      // artifacts in the main repo are always local.
+      if (artifact.getOwner() != null && !artifact.getOwner().getRepository().isMain()) {
+        var metadata = inputMap.getInputMetadata(artifact);
+        if (metadata != null
+            && metadata.isRemote()
+            && remoteArtifactChecker.shouldDownloadOutput(
+                artifact, (RemoteFileArtifactValue) metadata)) {
+          futures.add(
+              actionInputPrefetcher.prefetchFiles(
+                  /* action= */ null,
+                  ImmutableList.of(artifact),
+                  inputMap::getInputMetadata,
+                  Priority.LOW,
+                  Reason.OUTPUTS));
+        }
+      }
+      return;
+    }
+
+    // Derived toplevel outputs are downloaded eagerly by finalizeAction during execution. For
+    // skymeld, a non-toplevel target might only become toplevel after it has been executed, so this
+    // is the last chance to download the missing toplevel outputs in that case before sending out
+    // TargetCompleteEvent. See https://github.com/bazelbuild/bazel/issues/20737.
+    if (!isSkymeld.get()) {
       return;
     }
 
