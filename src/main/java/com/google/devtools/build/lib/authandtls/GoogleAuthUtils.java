@@ -40,6 +40,7 @@ import io.grpc.netty.NettyChannelBuilder;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.epoll.Epoll;
+import io.netty.channel.epoll.EpollChannelOption;
 import io.netty.channel.epoll.EpollDomainSocketChannel;
 import io.netty.channel.epoll.EpollEventLoopGroup;
 import io.netty.channel.kqueue.KQueue;
@@ -104,21 +105,28 @@ public final class GoogleAuthUtils {
       boolean isUnixSocketChannel = targetUrl.startsWith("unix:") || !Strings.isNullOrEmpty(proxy);
       if (options.grpcTcpKeepalive && !isUnixSocketChannel) {
         builder.withOption(ChannelOption.SO_KEEPALIVE, true);
+        boolean epoll = Epoll.isAvailable();
         long idleSeconds = options.grpcTcpKeepaliveTime.toSeconds();
         if (idleSeconds > 0) {
           builder.withOption(
-              NioChannelOption.of(ExtendedSocketOptions.TCP_KEEPIDLE),
+              epoll
+                  ? EpollChannelOption.TCP_KEEPIDLE
+                  : NioChannelOption.of(ExtendedSocketOptions.TCP_KEEPIDLE),
               Math.toIntExact(idleSeconds));
         }
         long intervalSeconds = options.grpcTcpKeepaliveInterval.toSeconds();
         if (intervalSeconds > 0) {
           builder.withOption(
-              NioChannelOption.of(ExtendedSocketOptions.TCP_KEEPINTERVAL),
+              epoll
+                  ? EpollChannelOption.TCP_KEEPINTVL
+                  : NioChannelOption.of(ExtendedSocketOptions.TCP_KEEPINTERVAL),
               Math.toIntExact(intervalSeconds));
         }
         if (options.grpcTcpKeepaliveCount > 0) {
           builder.withOption(
-              NioChannelOption.of(ExtendedSocketOptions.TCP_KEEPCOUNT),
+              epoll
+                  ? EpollChannelOption.TCP_KEEPCNT
+                  : NioChannelOption.of(ExtendedSocketOptions.TCP_KEEPCOUNT),
               options.grpcTcpKeepaliveCount);
         }
       }
