@@ -41,7 +41,7 @@ import javax.annotation.Nullable;
 public final class SpawnBuilder {
   private String mnemonic = "Mnemonic";
   private String progressMessage = "progress message";
-  private String ownerLabel = "//dummy:label";
+  @Nullable private String ownerLabel = "//dummy:label";
   private String ownerRuleKind = "dummy-target-kind";
   @Nullable private Artifact ownerPrimaryOutput;
   @Nullable private PlatformInfo platform;
@@ -107,6 +107,13 @@ public final class SpawnBuilder {
   @CanIgnoreReturnValue
   public SpawnBuilder withOwnerLabel(String ownerLabel) {
     this.ownerLabel = checkNotNull(ownerLabel);
+    return this;
+  }
+
+  /** Sets the owner to have no label, simulating synthetic actions (e.g. coverage aggregation). */
+  @CanIgnoreReturnValue
+  public SpawnBuilder withNullOwnerLabel() {
+    this.ownerLabel = null;
     return this;
   }
 

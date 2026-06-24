@@ -447,6 +447,35 @@ public class ScrubberTest {
     assertThat(spawnScrubber.transformArgument("foospam")).isEqualTo("fooeggs");
   }
 
+  @Test
+  public void nullOwnerLabelDoesNotThrow() {
+    // Synthetic Bazel actions (e.g. CoverageReportKeySingleton) have a null label on their
+    // ActionOwner. The scrubber must not throw NPE and should treat the label as empty.
+    var scrubber =
+        new Scrubber(
+            Config.newBuilder()
+                .addRules(
+                    Config.Rule.newBuilder()
+                        .setMatcher(Config.Matcher.newBuilder().setMnemonic("CoverageReport")))
+                .build());
+
+    assertThat(scrubber.forSpawn(createSpawnWithNullLabel("CoverageReport"))).isNotNull();
+  }
+
+  @Test
+  public void nullOwnerLabelDoesNotMatchLabelFilter() {
+    // When the action owner has no label, it should not match a specific label pattern.
+    var scrubber =
+        new Scrubber(
+            Config.newBuilder()
+                .addRules(
+                    Config.Rule.newBuilder()
+                        .setMatcher(Config.Matcher.newBuilder().setLabel("//foo:bar")))
+                .build());
+
+    assertThat(scrubber.forSpawn(createSpawnWithNullLabel("CoverageReport"))).isNull();
+  }
+
   private static Spawn createSpawn() {
     return createSpawn("//foo:bar", "Foo");
   }
@@ -463,5 +492,13 @@ public class ScrubberTest {
         .withOwnerRuleKind(ruleKind)
         .setBuiltForToolConfiguration(forTool)
         .build();
+  }
+
+  /**
+   * Creates a spawn whose action owner has no label, simulating synthetic Bazel actions such as
+   * {@code CoverageReportKeySingleton}.
+   */
+  private static Spawn createSpawnWithNullLabel(String mnemonic) {
+    return new SpawnBuilder("cmd").withNullOwnerLabel().withMnemonic(mnemonic).build();
   }
 }
