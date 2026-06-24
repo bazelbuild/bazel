@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.buildeventstream;
 
+import com.google.common.collect.Interner;
+import com.google.common.collect.Interners;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.ActionCompletedId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.ConfigurationId;
@@ -41,8 +43,10 @@ public final class BuildEventIdUtil {
     return label.intern();
   }
 
-  private static String internConfiguration(String configuration) {
-    return configuration.intern();
+  private static final Interner<ConfigurationId> CONFIGURATION_ID_INTERNER =
+      Interners.newWeakInterner();
+  private static ConfigurationId internConfigurationId(ConfigurationId id) {
+    return CONFIGURATION_ID_INTERNER.intern(id);
   }
 
   private static final ConfigurationId NULL_CONFIGURATION_ID_MESSAGE =
@@ -131,7 +135,7 @@ public final class BuildEventIdUtil {
   }
 
   public static ConfigurationId configurationIdMessage(String checksum) {
-    return ConfigurationId.newBuilder().setId(internConfiguration(checksum)).build();
+    return internConfigurationId(ConfigurationId.newBuilder().setId(checksum).build());
   }
 
   public static BuildEventId execRequestId() {
@@ -233,7 +237,7 @@ public final class BuildEventIdUtil {
       actionId.setLabel(internLabel(label));
     }
     if (configurationChecksum != null) {
-      actionId.setConfiguration(ConfigurationId.newBuilder().setId(internConfiguration(configurationChecksum)));
+      actionId.setConfiguration(configurationIdMessage(configurationChecksum));
     }
     return BuildEventId.newBuilder().setActionCompleted(actionId).build();
   }
