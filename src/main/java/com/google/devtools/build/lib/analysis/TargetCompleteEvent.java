@@ -115,7 +115,6 @@ public final class TargetCompleteEvent
   private final Label label;
   private final ConfiguredTargetKey configuredTargetKey;
   private final NestedSet<Cause> rootCauses;
-  private final ImmutableList<BuildEventId> postedAfter;
   private final CompletionContext completionContext;
   private final ImmutableMap<String, ArtifactsInOutputGroup> outputs;
   // The label as appeared in the BUILD file.
@@ -140,18 +139,15 @@ public final class TargetCompleteEvent
     this.rootCauses =
         (rootCauses == null) ? NestedSetBuilder.emptySet(Order.STABLE_ORDER) : rootCauses;
     this.executableTargetData = new ExecutableTargetData(targetAndData);
-    ImmutableList.Builder<BuildEventId> postedAfterBuilder = ImmutableList.builder();
     this.label = targetAndData.getConfiguredTarget().getLabel();
     this.originalLabel = targetAndData.getConfiguredTarget().getOriginalLabel();
     this.configuredTargetKey =
         ConfiguredTargetKey.fromConfiguredTarget(targetAndData.getConfiguredTarget());
-    postedAfterBuilder.add(BuildEventIdUtil.targetConfigured(originalLabel));
     DetailedExitCode mostImportantDetailedExitCode = null;
     for (Cause cause : this.rootCauses.toList()) {
       mostImportantDetailedExitCode =
           DetailedExitCodeComparator.chooseMoreImportantWithFirstIfTie(
               mostImportantDetailedExitCode, cause.getDetailedExitCode());
-      postedAfterBuilder.add(cause.getIdProto());
     }
     detailedExitCode = mostImportantDetailedExitCode;
     this.completionContext = completionContext;
@@ -166,7 +162,6 @@ public final class TargetCompleteEvent
         isTest
             ? targetAndData.getConfiguredTarget().getProvider(TestProvider.class).getTestParams()
             : null;
-    this.postedAfter = postedAfterBuilder.build();
     this.tags = targetAndData.getRuleTags();
   }
 
@@ -466,7 +461,12 @@ public final class TargetCompleteEvent
 
   @Override
   public ImmutableList<BuildEventId> postedAfter() {
-    return postedAfter;
+    ImmutableList.Builder<BuildEventId> postedAfter = ImmutableList.builder();
+    postedAfter.add(BuildEventIdUtil.targetConfigured(originalLabel));
+    for (Cause cause : rootCauses.toList()) {
+      postedAfter.add(cause.getIdProto());
+    }
+    return postedAfter.build();
   }
 
   @Override
