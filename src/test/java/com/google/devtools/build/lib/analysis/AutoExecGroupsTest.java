@@ -239,8 +239,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
     String[] flags = {
       "--extra_toolchains=//toolchain:foo_toolchain,//toolchain:bar_toolchain,//toolchain:baz_toolchain,//toolchain:quz_toolchain,toolchain:qux_toolchain",
       "--platforms=//platforms:platform_1",
-      "--extra_execution_platforms=//platforms:platform_1,//platforms:platform_2,//platforms:platform_3,//platforms:platform_4",
-      "--incompatible_enable_cc_toolchain_resolution"
+      "--extra_execution_platforms=//platforms:platform_1,//platforms:platform_2,//platforms:platform_3,//platforms:platform_4"
     };
 
     super.useConfiguration(ObjectArrays.concat(flags, args, String.class));
