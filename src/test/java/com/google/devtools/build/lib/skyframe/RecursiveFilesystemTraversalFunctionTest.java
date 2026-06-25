@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.clock.BlazeClock;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.io.FileSymlinkCycleUniquenessFunction;
@@ -168,7 +169,9 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
         new DirectoryListingStateFunction(externalFilesHelper, SyscallCache.NO_CACHE));
     skyFunctions.put(
         SkyFunctions.RECURSIVE_FILESYSTEM_TRAVERSAL,
-        new RecursiveFilesystemTraversalFunction(SyscallCache.NO_CACHE));
+        new RecursiveFilesystemTraversalFunction(
+            SyscallCache.NO_CACHE,
+            directories.getOutputBase().getRelative(LabelConstants.EXTERNAL_REPOSITORY_LOCATION)));
     skyFunctions.put(
         SkyFunctions.PACKAGE_LOOKUP,
         new PackageLookupFunction(

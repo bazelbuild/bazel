@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -29,6 +30,8 @@ import com.google.devtools.build.lib.actions.FileStateValue.RegularFileStateValu
 import com.google.devtools.build.lib.actions.FileStateValue.RegularFileStateValueWithDigest;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.actions.HasDigest;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.io.FileSymlinkException;
@@ -155,17 +158,19 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
   }
 
   /** Exception type thrown by {@link RecursiveFilesystemTraversalFunction#compute}. */
-  private static final class RecursiveFilesystemTraversalFunctionException extends
-      SkyFunctionException {
+  private static final class RecursiveFilesystemTraversalFunctionException
+      extends SkyFunctionException {
     RecursiveFilesystemTraversalFunctionException(RecursiveFilesystemTraversalException e) {
       super(e, Transience.PERSISTENT);
     }
   }
 
   private final SyscallCache syscallCache;
+  private final Path externalDirectory;
 
-  RecursiveFilesystemTraversalFunction(SyscallCache syscallCache) {
+  RecursiveFilesystemTraversalFunction(SyscallCache syscallCache, Path externalDirectory) {
     this.syscallCache = syscallCache;
+    this.externalDirectory = externalDirectory;
   }
 
   @Nullable
@@ -199,8 +204,8 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
       if (rootInfo.type.isDirectory() && rootInfo.metadata instanceof TreeArtifactValue value) {
         ImmutableList.Builder<RecursiveFilesystemTraversalValue> traversalValues =
             ImmutableList.builderWithExpectedSize(value.getChildValues().size());
-        for (Map.Entry<TreeFileArtifact, FileArtifactValue> entry
-            : value.getChildValues().entrySet()) {
+        for (Map.Entry<TreeFileArtifact, FileArtifactValue> entry :
+            value.getChildValues().entrySet()) {
           RootedPath path =
               RootedPath.toRootedPath(traversal.root().getRootPart(), entry.getKey().getPath());
           traversalValues.add(
@@ -315,8 +320,9 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
     @Override
     public String toString() {
       if (type.isSymlink()) {
-        return String.format("(%s: link_value=%s, real_path=%s)", type,
-            unresolvedSymlinkTarget.getPathString(), realPath);
+        return String.format(
+            "(%s: link_value=%s, real_path=%s)",
+            type, unresolvedSymlinkTarget.getPathString(), realPath);
       } else {
         return String.format("(%s: real_path=%s)", type, realPath);
       }
@@ -487,7 +493,9 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
 
   private static final class PkgLookupResult {
     private enum Type {
-      CONFLICT, DIRECTORY, PKG
+      CONFLICT,
+      DIRECTORY,
+      PKG
     }
 
     private final PkgLookupResult.Type type;
@@ -504,7 +512,7 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
       return new PkgLookupResult(PkgLookupResult.Type.DIRECTORY, traversal, rootInfo);
     }
 
-    /** Result for a package, i.e. a directory  with a BUILD file. */
+    /** Result for a package, i.e. a directory with a BUILD file. */
     static PkgLookupResult pkg(TraversalRequest traversal, FileInfo rootInfo) {
       return new PkgLookupResult(PkgLookupResult.Type.PKG, traversal, rootInfo);
     }
@@ -538,11 +546,26 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
    *     a package is found, but under a different root than expected)
    */
   @Nullable
-  private static PkgLookupResult checkIfPackage(
+  private PkgLookupResult checkIfPackage(
       Environment env, TraversalRequest traversal, FileInfo rootInfo, SyscallCache syscallCache)
       throws IOException, InterruptedException, BuildFileNotFoundException {
     checkArgument(
         rootInfo.type.exists() && !rootInfo.type.isFile(), "{%s} {%s}", traversal, rootInfo);
+    var rootPath = traversal.root().getRootPart().asPath();
+    RepositoryName repoName;
+    // The roots of external repositories are always children of the external directory, even if
+    // those are symlinks to other locations (e.g. in the case of a local_repository), so all other
+    // roots are part of the main repository.
+    if (rootPath.startsWith(externalDirectory)) {
+      checkState(
+          rootPath.relativeTo(externalDirectory).isSingleSegment(),
+          "%s is expected to be directly under %s",
+          rootPath,
+          externalDirectory);
+      repoName = RepositoryName.createUnvalidated(rootPath.getBaseName());
+    } else {
+      repoName = RepositoryName.MAIN;
+    }
     // PackageLookupFunction/dependencies can only throw IOException, BuildFileNotFoundException,
     // and RepositoryFetchException, and RepositoryFetchException is not in play here. Note that
     // run-of-the-mill circular symlinks will *not* throw here, and will trigger later errors during
@@ -550,7 +573,8 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
     PackageLookupValue pkgLookup =
         (PackageLookupValue)
             env.getValueOrThrow(
-                PackageLookupValue.key(traversal.root().getRelativePart()),
+                PackageLookupValue.key(
+                    PackageIdentifier.create(repoName, traversal.root().getRelativePart())),
                 BuildFileNotFoundException.class,
                 IOException.class);
     if (env.valuesMissing()) {
