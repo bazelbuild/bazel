@@ -462,6 +462,18 @@ public class ResolverTest {
   }
 
   @Test
+  public void testTypeAlias_failsOnUnknownTypeVariables() throws Exception {
+    options.allowTypeSyntax(true);
+    options.resolveTypeSyntax(true);
+    assertInvalid(
+        "name 'T' is not defined", //
+        "type Foo = T");
+    assertInvalid(
+        "name 'U' is not defined", //
+        "type Foo[T] = T | U");
+  }
+
+  @Test
   public void testBindingScopeAndIndex_basic() throws Exception {
     checkBindings(
         // Assign successive indices.
@@ -633,15 +645,28 @@ public class ResolverTest {
   }
 
   @Test
-  public void testBindingScopeAndIndex_genericTypeVars_notResolved() throws Exception {
+  public void testBindingScopeAndIndex_typeAliasParams_resolved() throws Exception {
+    options.allowTypeSyntax(true);
+    options.resolveTypeSyntax(true);
+    checkBindings(
+        """
+        type Fooᴳ₀[Tᴸ₀, Uᴸ₁] = preᴾ₀[Tᴸ₀] | preᴾ₀[Uᴸ₁]
+        type Barᴳ₁[Uᴸ₀] = Fooᴳ₀[Uᴸ₀, Uᴸ₀]
+        type Bazᴳ₂[Fooᴸ₀] = Barᴳ₁[Fooᴸ₀]  # note that parameter `Foo` shadows global `Foo`
+        """);
+  }
+
+  @Test
+  public void testBindingScopeAndIndex_genericFunctionTypeVars_notResolved() throws Exception {
     // Check that these are not currently processed.
     // TODO: #27370 - Add support to the resolver for these.
     options.allowTypeSyntax(true);
     options.resolveTypeSyntax(true);
     checkBindings(
-        "def fᴳ₀[S  , T  ]():", //
-        "  pass",
-        "type Fooᴳ₁[X  ] = preᴾ₀");
+        """
+        def fᴳ₀[S  , T  ]():
+            pass
+        """);
   }
 
   @Test

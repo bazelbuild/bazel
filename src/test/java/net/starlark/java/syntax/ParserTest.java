@@ -1724,6 +1724,14 @@ public final class ParserTest {
   }
 
   @Test
+  public void testTypeAliasStatement_typeParams_mustBeUnique() throws Exception {
+    setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
+    setFailFast(false);
+    parseStatement("type my_nullable_dict[T, U, T] = dict[T, U] | None");
+    assertContainsError("syntax error at 'T': duplicate type parameter");
+  }
+
+  @Test
   public void testTypeAliasStatement_requiresTypeSyntax() throws Exception {
     setFileOptions(FileOptions.builder().allowTypeSyntax(false).build());
     setFailFast(false);
