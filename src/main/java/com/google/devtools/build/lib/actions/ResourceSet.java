@@ -38,7 +38,7 @@ public class ResourceSet implements ResourceSetOrBuilder {
   public static final String MEMORY = "memory";
 
   /** For actions that consume negligible resources. */
-  public static final ResourceSet ZERO = new ResourceSet(ImmutableMap.of(), 0, null);
+  public static final ResourceSet ZERO = create(ImmutableMap.of(), 0, null);
 
   /**
    * Map of extra resources (for example: GPUs, embedded boards, ...) mapping name of the resource
@@ -52,11 +52,22 @@ public class ResourceSet implements ResourceSetOrBuilder {
   /** The workerKey of used worker. Null if no worker is used. */
   @Nullable private final WorkerKey workerKey;
 
+  /**
+   * Scheduling priority for resource acquisition. Higher values get resources first when multiple
+   * requests are waiting. Default is 0 (no priority). Used to prioritize large tests over small
+   * ones.
+   */
+  private final int schedulingPriority;
+
   private ResourceSet(
-      ImmutableMap<String, Double> resources, int localTestCount, @Nullable WorkerKey workerKey) {
+      ImmutableMap<String, Double> resources,
+      int localTestCount,
+      @Nullable WorkerKey workerKey,
+      int schedulingPriority) {
     this.resources = resources;
     this.localTestCount = localTestCount;
     this.workerKey = workerKey;
+    this.schedulingPriority = schedulingPriority;
   }
 
   public static ResourceSet createWithRamCpu(double memoryMb, double cpu) {
@@ -81,7 +92,12 @@ public class ResourceSet implements ResourceSetOrBuilder {
 
   public static ResourceSet create(
       ImmutableMap<String, Double> resources, int localTestCount, @Nullable WorkerKey workerKey) {
-    return new ResourceSet(resources, localTestCount, workerKey);
+    return new ResourceSet(resources, localTestCount, workerKey, 0);
+  }
+
+  public static ResourceSet createWithSchedulingPriority(
+      ImmutableMap<String, Double> resources, int localTestCount, int schedulingPriority) {
+    return new ResourceSet(resources, localTestCount, null, schedulingPriority);
   }
 
   /**
@@ -107,7 +123,15 @@ public class ResourceSet implements ResourceSetOrBuilder {
     for (ImmutableMap<String, Double> override : overrides) {
       builder.putAll(override);
     }
-    return create(builder.buildKeepingLast(), localTestCount, workerKey);
+    return new ResourceSet(builder.buildKeepingLast(), localTestCount, workerKey, schedulingPriority);
+  }
+
+  /** Returns a copy of this resource set with the given scheduling priority. */
+  public ResourceSet withSchedulingPriority(int schedulingPriority) {
+    if (this.schedulingPriority == schedulingPriority) {
+      return this;
+    }
+    return new ResourceSet(resources, localTestCount, workerKey, schedulingPriority);
   }
 
   public double get(String resource) {
@@ -140,6 +164,11 @@ public class ResourceSet implements ResourceSetOrBuilder {
     return localTestCount;
   }
 
+  /** Returns the scheduling priority. Higher values get resources first when waiting. */
+  public int getSchedulingPriority() {
+    return schedulingPriority;
+  }
+
   @Override
   public String toString() {
     return "Resources: \n"
@@ -157,6 +186,9 @@ public class ResourceSet implements ResourceSetOrBuilder {
                 StringBuilder::append)
         + "Local tests: "
         + localTestCount
+        + "\n"
+        + "Scheduling priority: "
+        + schedulingPriority
         + "\n";
   }
 
