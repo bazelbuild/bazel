@@ -34,25 +34,27 @@ Relevant terms in https://docs.bazel.build/versions/main/glossary.html:
 
 TODO(gregce): link to proper documentation for full details.
 """
+
+from dataclasses import dataclass
 from typing import Callable
 from typing import Tuple
 
 from absl import app
 from absl import flags
-from dataclasses import dataclass
 
 import tools.ctexplain.analyses.summary as summary
 from tools.ctexplain.bazel_api import BazelApi
+from tools.ctexplain.ctexplain_types import ConfiguredTarget
 import tools.ctexplain.lib as lib
-from tools.ctexplain.types import ConfiguredTarget
 import tools.ctexplain.util as util
 
 FLAGS = flags.FLAGS
 
 
 @dataclass(frozen=True)
-class Analysis():
+class Analysis:
   """Supported analysis type."""
+
   # The value in --analysis=<value> that triggers this analysis.
   key: str
   # The function that invokes this analysis.
@@ -60,17 +62,18 @@ class Analysis():
   # User-friendly analysis description.
   description: str
 
+
 available_analyses = [
     Analysis(
         "summary",
         lambda x: summary.report(summary.analyze(x)),
-        "summarizes build graph size and how trimming could help"
+        "summarizes build graph size and how trimming could help",
     ),
     Analysis(
         "culprits",
         lambda x: print("this analysis not yet implemented"),
         "shows which flags unnecessarily fork configured targets. These\n"
-        + "are conceptually mergeable."
+        + "are conceptually mergeable.",
     ),
     Analysis(
         "forked_targets",
@@ -78,14 +81,14 @@ available_analyses = [
         "ranks targets by how many configured targets they\n"
         + "create. These may be legitimate forks (because they behave "
         + "differently with\n different flags) or identical clones that are "
-        + "conceptually mergeable."
+        + "conceptually mergeable.",
     ),
     Analysis(
         "cloned_targets",
         lambda x: print("this analysis not yet implemented"),
         "ranks targets by how many behavior-identical configured\n targets "
-        + "they produce. These are conceptually mergeable."
-    )
+        + "they produce. These are conceptually mergeable.",
+    ),
 ]
 
 # Available analyses, keyed by --analysis=<value> triggers.
@@ -97,26 +100,36 @@ analyses = {analysis.key: analysis for analysis in available_analyses}
 
 def _render_analysis_help_text() -> str:
   """Pretty-prints help text for available analyses."""
-  return "\n".join(f'- "{name}": {analysis.description}'
-                   for name, analysis in analyses.items())
+  return "\n".join(
+      f'- "{name}": {analysis.description}'
+      for name, analysis in analyses.items()
+  )
 
-flags.DEFINE_list("analysis", ["summary"], f"""
+
+flags.DEFINE_list(
+    "analysis",
+    ["summary"],
+    f"""
 Analyses to run. May be any comma-separated combination of
 
 {_render_analysis_help_text()}
-""")
+""",
+)
 
 flags.register_validator(
     "analysis",
     lambda flag_value: all(name in analyses for name in flag_value),
-    message=f'available analyses: {", ".join(analyses.keys())}')
+    message=f'available analyses: {", ".join(analyses.keys())}',
+)
 
 flags.DEFINE_multi_string(
-    "build", [],
+    "build",
+    [],
     """command-line invocation of the build to analyze. For example:
 "//foo --define a=b". If listed multiple times, this is a "multi-build
 analysis" that measures how much distinct builds can share subgraphs""",
-    short_name="b")
+    short_name="b",
+)
 
 
 # Core program logic:
@@ -140,12 +153,14 @@ def _get_build_flags(cmdline: str) -> Tuple[Tuple[str, ...], Tuple[str, ...]]:
 def main(argv):
   del argv  # Satisfy py linter's "unused" warning.
   if not FLAGS.build:
-    exit("ctexplain: build efficiency measurement tool. Add --help "
-         + "for usage.")
+    exit(
+        "ctexplain: build efficiency measurement tool. Add --help "
+        + "for usage."
+    )
   elif len(FLAGS.build) > 1:
     exit("TODO(gregce): support multi-build shareability analysis")
 
-  (labels, build_flags) = _get_build_flags(FLAGS.build[0])
+  labels, build_flags = _get_build_flags(FLAGS.build[0])
   build_desc = ",".join(labels)
   with util.ProgressStep(f"Collecting configured targets for {build_desc}"):
     cts = lib.analyze_build(BazelApi(), labels, build_flags)
