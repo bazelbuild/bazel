@@ -234,6 +234,19 @@ java_test(
 )
 
 java_test(
+    name = "CompdbCommandTest",
+    srcs = ["commands/CompdbCommandTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/runtime/commands",
+        "//src/main/java/com/google/devtools/common/options:options_internal",
+        "//third_party:gson",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
     name = "RuntimeTests",
     shard_count = 2,
     test_class = "com.google.devtools.build.lib.AllTests",

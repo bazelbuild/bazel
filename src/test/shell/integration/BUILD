@@ -322,6 +322,16 @@ sh_test(
 )
 
 sh_test(
+    name = "compdb_test",
+    size = "medium",
+    srcs = ["compdb_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+)
+
+sh_test(
     name = "bazel_aquery_test",
     size = "large",
     srcs = ["bazel_aquery_test.sh"],

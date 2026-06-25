@@ -118,6 +118,7 @@ java_library(
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party:caffeine",
         "//third_party:error_prone_annotations",
+        "//third_party:gson",
         "//third_party:guava",
         "//third_party:jsr305",
         "@com_google_protobuf//:protobuf_java",

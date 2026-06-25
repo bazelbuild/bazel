@@ -1,0 +1,29 @@
+
+Usage: %{product} %{command} <options> <targets>
+
+Generates a compile_commands.json file for C/C++ targets. This file describes
+how to compile each source file and is used by tools like clangd, clang-tidy,
+and other C/C++ development tools.
+
+See '%{product} help target-syntax' for details and examples on how to
+specify targets to build.
+
+The compile_commands.json file is written to the path specified by
+--compdb_output (default: compile_commands.json in the workspace root).
+Use '--compdb_output=-' to output to stdout.
+
+%{options}
+
+Examples:
+
+  # Generate compile_commands.json for all targets
+  %{product} %{command} //...
+
+  # Generate for a specific target
+  %{product} %{command} //my:target
+
+  # Output to a custom path
+  %{product} %{command} --compdb_output=/tmp/compile_commands.json //...
+
+  # Output to stdout for piping
+  %{product} %{command} --compdb_output=- //...
