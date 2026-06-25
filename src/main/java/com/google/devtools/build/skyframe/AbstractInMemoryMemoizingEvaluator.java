@@ -23,6 +23,7 @@ import com.google.common.collect.HashMultiset;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.MultimapBuilder;
 import com.google.common.collect.Multiset;
 import com.google.common.collect.Multisets;
 import com.google.common.collect.Sets;
@@ -39,6 +40,7 @@ import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.DirtyingInvali
 import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.InvalidationState;
 import com.google.devtools.build.skyframe.SkyframeGraphStatsEvent.EvaluationStats;
 import com.google.errorprone.annotations.ForOverride;
+import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import java.io.PrintStream;
 import java.time.Duration;
 import java.util.ArrayDeque;
@@ -253,9 +255,9 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
     // Keep dirty nodes that change pruning would verify clean without rebuilding as their value is
     // still valid, they just weren't in scope for the last evaluation. Keeping them matches the
     // behavior for done but unrequested nodes.
-    HashMultiset<SkyKey> remainingDirtyDeps = HashMultiset.create();
-    HashMultimap<SkyKey, SkyKey> dirtyRdeps = HashMultimap.create();
-    ArrayDeque<SkyKey> ready = new ArrayDeque<>();
+    var remainingDirtyDeps = new Object2IntOpenHashMap<SkyKey>();
+    var dirtyRdeps = MultimapBuilder.hashKeys().arrayListValues(2).<SkyKey, SkyKey>build();
+    var ready = new ArrayDeque<SkyKey>();
     for (SkyKey skyKey : candidates) {
       if (!(graph.getIfPresent(skyKey) instanceof IncrementalInMemoryNodeEntry entry)) {
         continue;
@@ -270,15 +272,20 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
       for (SkyKey dep : lastBuildDeps) {
         NodeEntry depEntry = graph.getIfPresent(dep);
         // A dep must be present and unchanged since this node was last evaluated (mirrors
-        // childVersion.atMost(version.lastEvaluated()) in signalDep). A dep that is itself dirty must
-        // additionally be kept; the worklist decides that (a dirty dep that is never kept leaves this
-        // node's count above zero, so it is not kept either -- including non-candidate dirty deps,
-        // which are never processed below).
+        // childVersion.atMost(version.lastEvaluated()) in signalDep). A dep that is itself dirty
+        // must additionally be kept; the worklist below decides that for candidate dirty deps. A
+        // dirty dep that is not a candidate is never processed by the worklist and so can never be
+        // kept, which makes this node unkeepable too -- short-circuit instead of tracking a count
+        // that can never reach zero.
         if (depEntry == null || !depEntry.getVersion().atMost(lastEvaluated)) {
           keepable = false;
           break;
         }
         if (!depEntry.isDone()) {
+          if (!candidates.contains(dep)) {
+            keepable = false;
+            break;
+          }
           dirtyDepsBuilder.add(dep);
         }
       }
@@ -289,7 +296,7 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
       if (dirtyDeps.isEmpty()) {
         ready.add(skyKey); // All deps already done and unchanged.
       } else {
-        remainingDirtyDeps.add(skyKey, dirtyDeps.size());
+        remainingDirtyDeps.addTo(skyKey, dirtyDeps.size());
         for (SkyKey dirtyDep : dirtyDeps) {
           dirtyRdeps.put(dirtyDep, skyKey);
         }
@@ -300,7 +307,7 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
       SkyKey skyKey = ready.poll();
       kept.add(skyKey);
       for (SkyKey rdep : dirtyRdeps.get(skyKey)) {
-        if (remainingDirtyDeps.remove(rdep, 1) == 1) {
+        if (remainingDirtyDeps.addTo(rdep, -1) == 1) {
           ready.add(rdep);
         }
       }
