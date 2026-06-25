@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Wrapper script to execute proguard and then normalize timestamps in the output jar file."""
+
 import argparse
 import datetime
 import os
@@ -29,9 +31,9 @@ def lookup_binary(r, path):
         path = path + ".exe"
     binary = r.Rlocation(path)
     if not binary:
-        raise Exception(f"Runfiles failed to resolve {path}")
+        raise RuntimeError(f"Runfiles failed to resolve {path}")
     elif not os.path.exists(binary):
-        raise Exception(f"Runfiles resolved {path} to {binary} but the file does not exist")
+        raise RuntimeError(f"Runfiles resolved {path} to {binary} but the file does not exist")
     return binary
 
 def apply_proguard(srcs, deps, proguard_spec, output_jar):
@@ -61,7 +63,7 @@ def apply_proguard(srcs, deps, proguard_spec, output_jar):
         stderr = p.stderr.decode()
         if stderr:
             message += f"\n  stderr:\n{stderr}"
-        raise Exception(message)
+        raise RuntimeError(message)
 
 def reset_timestamps(input, output, timestamp):
     #print("Resetting timestamps in %s to %s, writing to %s" % (input, timestamp, output))
