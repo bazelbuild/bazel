@@ -1951,6 +1951,190 @@ EOF
   assert_exists ${dotd_file}
 }
 
+function test_inmemory_dotd_files_no_rebuild_on_incremental_build() {
+  # Regression test for https://github.com/bazelbuild/bazel/issues/29313: under
+  # --remote_download_outputs=all, an action whose .d file is kept in memory
+  # (--experimental_inmemory_dotd_files) must not be re-executed on a later
+  # build, on both a warm and a cold (post-restart) server.
+  stop_worker
+  start_worker
+
+  add_rules_cc MODULE.bazel
+  cat > BUILD <<'EOF'
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+cc_library(name="foo", srcs=["foo.c"])
+EOF
+  touch foo.c
+
+  # Populate the remote cache.
+  bazel build \
+      --remote_upload_local_results \
+      --remote_cache=grpc://localhost:"${worker_port}" \
+      //:foo &> "$TEST_log" \
+      || fail "Expected success from uploading invocation"
+
+  # Drop the local outputs so the next build fetches them from the cache and
+  # the action's outputs get remote metadata.
+  bazel clean
+
+  # Build, fetching outputs from the cache and keeping the .d file in memory.
+  bazel build \
+      --experimental_inmemory_dotd_files \
+      --remote_download_outputs=all \
+      --remote_cache=grpc://localhost:"${worker_port}" \
+      //:foo &> "$TEST_log" \
+      || fail "Expected success from downloading invocation"
+
+  # Build again without changing anything: the compile action must be up to date.
+  bazel build \
+      --experimental_inmemory_dotd_files \
+      --remote_download_outputs=all \
+      --remote_cache=grpc://localhost:"${worker_port}" \
+      --explain="${TEST_TMPDIR}/explain_warm.txt" \
+      //:foo &> "$TEST_log" \
+      || fail "Expected success from warm incremental invocation"
+
+  assert_not_contains "Compiling foo.c" "${TEST_TMPDIR}/explain_warm.txt"
+
+  # Restart the server and build again: a cold server decides up-to-dateness
+  # from the persisted action cache, so the in-memory output must be recognized
+  # purely from its (never-materialized) metadata.
+  bazel shutdown
+  bazel build \
+      --experimental_inmemory_dotd_files \
+      --remote_download_outputs=all \
+      --remote_cache=grpc://localhost:"${worker_port}" \
+      --explain="${TEST_TMPDIR}/explain_cold.txt" \
+      //:foo &> "$TEST_log" \
+      || fail "Expected success from cold incremental invocation"
+
+  assert_not_contains "Compiling foo.c" "${TEST_TMPDIR}/explain_cold.txt"
+}
+
+function test_download_all_after_minimal_materializes_intermediate_output() {
+  # An unmaterialized remote output and an in-memory output both lack a local
+  # presence, so recognizing in-memory outputs must not also match ordinary
+  # remote outputs left unmaterialized by an earlier build: switching
+  # --remote_download_outputs from minimal to all must still materialize them.
+  setup_genrule_with_dep
+
+  # Build with minimal: the intermediate output stays remote, not on disk.
+  bazel build \
+    --genrule_strategy=remote \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_download_outputs=minimal \
+    //a:foobar >& "$TEST_log" || fail "Failed to build //a:foobar (minimal)"
+
+  if [[ -f bazel-bin/a/foo.txt ]]; then
+    fail "Expected intermediate output to not be downloaded under minimal"
+  fi
+
+  # Switch to all: the intermediate output must now be materialized on disk.
+  bazel build \
+    --genrule_strategy=remote \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_download_outputs=all \
+    //a:foobar >& "$TEST_log" || fail "Failed to build //a:foobar (all)"
+
+  if ! [[ -f bazel-bin/a/foo.txt ]]; then
+    fail "Expected intermediate output bazel-bin/a/foo.txt to be downloaded after switching to --remote_download_outputs=all"
+  fi
+}
+
+function test_disabling_inmemory_dotd_materializes_dotd_after_restart() {
+  # An in-memory marker recorded by an earlier build must not keep the .d off
+  # disk when a later build disables in-memory mode and requests all outputs:
+  # the marker describes how a previous invocation handled the output, not what
+  # the current flags require.
+  stop_worker
+  start_worker
+
+  add_rules_cc MODULE.bazel
+  cat > BUILD <<'EOF'
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+cc_library(name="foo", srcs=["foo.c"])
+EOF
+  touch foo.c
+
+  # Populate the remote cache, then drop the local outputs.
+  bazel build \
+      --remote_upload_local_results \
+      --remote_cache=grpc://localhost:"${worker_port}" \
+      //:foo &> "$TEST_log" || fail "Expected success from uploading invocation"
+  bazel clean
+
+  # Build with in-memory dotd enabled: the .d is kept in memory and recorded as
+  # an in-memory output in the action cache.
+  bazel build \
+      --experimental_inmemory_dotd_files \
+      --remote_download_outputs=all \
+      --remote_cache=grpc://localhost:"${worker_port}" \
+      //:foo &> "$TEST_log" || fail "Expected success from in-memory invocation"
+
+  # Restart, then build with in-memory dotd disabled. The current flags require
+  # the .d on disk, so it must be materialized despite the persisted marker.
+  bazel shutdown
+  bazel build \
+      --noexperimental_inmemory_dotd_files \
+      --remote_download_outputs=all \
+      --remote_cache=grpc://localhost:"${worker_port}" \
+      //:foo &> "$TEST_log" || fail "Expected success from on-disk invocation"
+
+  local -r dotd_file="$(find -L bazel-bin -type f -name 'foo*.d' | head -n1)"
+  if [[ -z "$dotd_file" ]]; then
+    fail "Expected the .d file to be materialized on disk after disabling --experimental_inmemory_dotd_files"
+  fi
+}
+
+function test_disabling_inmemory_jdeps_materializes_jdeps_after_restart() {
+  # An in-memory marker recorded by an earlier build must not keep the .jdeps
+  # off disk when a later build disables in-memory mode and requests all
+  # outputs: the marker describes how a previous invocation handled the output,
+  # not what the current flags require.
+  stop_worker
+  start_worker
+
+  add_rules_java MODULE.bazel
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+load("@rules_java//java:java_library.bzl", "java_library")
+java_library(name="lib", srcs=["Library.java"])
+EOF
+  cat > a/Library.java <<'EOF'
+public class Library {
+  public static boolean TEST = true;
+}
+EOF
+
+  # Populate the remote cache, then drop the local outputs.
+  bazel build \
+      --remote_upload_local_results \
+      --remote_cache=grpc://localhost:"${worker_port}" \
+      //a:lib &> "$TEST_log" || fail "Expected success from uploading invocation"
+  bazel clean
+
+  # Build with in-memory jdeps enabled: the .jdeps is kept in memory and
+  # recorded as an in-memory output in the action cache.
+  bazel build \
+      --experimental_inmemory_jdeps_files \
+      --remote_download_outputs=all \
+      --remote_cache=grpc://localhost:"${worker_port}" \
+      //a:lib &> "$TEST_log" || fail "Expected success from in-memory invocation"
+
+  # Restart, then build with in-memory jdeps disabled. The current flags require
+  # the .jdeps on disk, so it must be materialized despite the persisted marker.
+  bazel shutdown
+  bazel build \
+      --noexperimental_inmemory_jdeps_files \
+      --remote_download_outputs=all \
+      --remote_cache=grpc://localhost:"${worker_port}" \
+      //a:lib &> "$TEST_log" || fail "Expected success from on-disk invocation"
+
+  if [[ ! -e "bazel-bin/a/liblib.jdeps" ]]; then
+    fail "Expected the .jdeps file to be materialized on disk after disabling --experimental_inmemory_jdeps_files"
+  fi
+}
+
 function test_remote_download_regex() {
   add_rules_java "MODULE.bazel"
   mkdir -p a
