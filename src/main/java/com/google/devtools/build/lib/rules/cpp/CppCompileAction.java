@@ -1357,6 +1357,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       @Nullable InputMetadataProvider inputMetadataProvider,
       Fingerprint fp)
       throws CommandLineExpansionException, InterruptedException {
+    fp.addBoolean(getDotdFile() != null && useInMemoryDotdFiles());
     computeKey(
         actionKeyContext,
         fp,

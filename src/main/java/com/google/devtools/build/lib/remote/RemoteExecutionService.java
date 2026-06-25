@@ -1275,7 +1275,8 @@ public class RemoteExecutionService {
                   file.path().asFragment(),
                   DigestUtil.toBinaryDigest(file.digest()),
                   file.digest().getSizeBytes(),
-                  expirationTime);
+                  expirationTime,
+                  isInMemoryOutputFile);
         }
 
         if (isInMemoryOutputFile) {
@@ -1329,7 +1330,8 @@ public class RemoteExecutionService {
                   file.path().asFragment(),
                   DigestUtil.toBinaryDigest(file.digest()),
                   file.digest().getSizeBytes(),
-                  expirationTime);
+                  expirationTime,
+                  /* inMemoryOutput= */ false);
         }
       }
     }
