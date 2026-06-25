@@ -326,7 +326,7 @@ public class DumpCommand implements BlazeCommand {
         documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
         effectTags = {OptionEffectTag.BAZEL_MONITORING},
         help =
-            "Regex filter of SkyKey names to output. Only used with --skyframe=deps, rdeps,"
+            "Regex filter of SkyKey names to output. Only used with --skyframe=value, deps, rdeps,"
                 + " function_graph.")
     public abstract RegexFilter getSkyKeyFilter();
 
