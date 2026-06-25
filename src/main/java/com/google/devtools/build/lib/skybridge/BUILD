@@ -15,3 +15,8 @@ java_library(
     name = "skybridge_interface",
     srcs = ["SkybridgeInterface.java"],
 )
+
+java_library(
+    name = "sc_flags",
+    srcs = ["ScFlags.java"],
+)
