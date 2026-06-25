@@ -151,7 +151,8 @@ public final class Scrubber {
     private boolean matches(Spawn spawn) {
       String mnemonic = spawn.getMnemonic();
       ActionOwner actionOwner = spawn.getResourceOwner().getOwner();
-      String label = actionOwner.getLabel().getCanonicalForm();
+      String label =
+          actionOwner.getLabel() != null ? actionOwner.getLabel().getCanonicalForm() : "";
       String kind = actionOwner.getTargetKind();
       boolean isForTool = actionOwner.isBuildConfigurationForTool();
 
