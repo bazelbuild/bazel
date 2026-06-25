@@ -2,8 +2,6 @@ load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 
 package(default_visibility = ["//visibility:public"])
 
-exports_files(["fastutil.proguard"])
-
 filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
