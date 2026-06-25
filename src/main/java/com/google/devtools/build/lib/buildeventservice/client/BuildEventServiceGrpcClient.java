@@ -95,8 +95,7 @@ public class BuildEventServiceGrpcClient implements BuildEventServiceClient {
                   TracingMetadataUtils.buildMetadata(
                       commandContext.buildId(),
                       commandContext.invocationId(),
-                      "publish_lifecycle_event",
-                      /* actionMetadata= */ null)))
+                      "publish_lifecycle_event")))
           .publishLifecycleEvent(request);
     } catch (StatusRuntimeException e) {
       Throwables.throwIfInstanceOf(Throwables.getRootCause(e), InterruptedException.class);
@@ -121,8 +120,7 @@ public class BuildEventServiceGrpcClient implements BuildEventServiceClient {
                       TracingMetadataUtils.buildMetadata(
                           commandContext.buildId(),
                           commandContext.invocationId(),
-                          "publish_build_tool_event_stream",
-                          /* actionMetadata= */ null)))
+                          "publish_build_tool_event_stream")))
               .publishBuildToolEventStream(
                   new StreamObserver<PublishBuildToolEventStreamResponse>() {
                     @Override

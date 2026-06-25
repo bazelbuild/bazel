@@ -81,7 +81,7 @@ import javax.annotation.Nullable;
  */
 @Immutable
 @ThreadSafe
-public abstract class FileArtifactValue implements SkyValue, HasDigest {
+public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadata {
   /**
    * The type of the underlying file system object. If it is a regular file, then it is guaranteed
    * to have a digest. Otherwise it does not have a digest.
@@ -101,10 +101,6 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
    */
   @Override
   public abstract byte[] getDigest();
-
-  /** Returns the file's size, or 0 if the underlying file system object is not a file. */
-  // TODO(ulfjack): Throw an exception if it's not a file.
-  public abstract long getSize();
 
   /**
    * Returns the last modified time; see the documentation of {@link #getDigest} for when this can
@@ -162,12 +158,12 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     throw new UnsupportedOperationException();
   }
 
-  /** Returns whether the file contents exist remotely. */
+  @Override
   public boolean isRemote() {
     return false;
   }
 
-  /** Returns the location index for remote files. For non-remote files, returns 0. */
+  @Override
   public int getLocationIndex() {
     return 0;
   }

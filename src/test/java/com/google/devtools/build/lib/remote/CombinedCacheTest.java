@@ -133,7 +133,7 @@ public class CombinedCacheTest {
   @Before
   public void setUp() throws Exception {
     MockitoAnnotations.initMocks(this);
-    metadata = TracingMetadataUtils.buildMetadata("none", "none", "action-id", null);
+    metadata = TracingMetadataUtils.buildMetadata("none", "none", "action-id");
     Spawn spawn =
         new SimpleSpawn(
             new FakeOwner("foo", "bar", "//dummy:label"),

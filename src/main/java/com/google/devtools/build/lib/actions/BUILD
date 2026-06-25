@@ -442,6 +442,14 @@ java_library(
 )
 
 java_library(
+    name = "file_artifact_metadata",
+    srcs = ["FileArtifactMetadata.java"],
+    deps = [
+        ":has_digest",
+    ],
+)
+
+java_library(
     name = "file_metadata",
     srcs = [
         "FileArtifactValue.java",
@@ -454,8 +462,8 @@ java_library(
         "cache/MetadataDigestUtils.java",
     ],
     deps = [
-        ":action_input",
         ":artifacts",
+        ":file_artifact_metadata",
         ":has_digest",
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//src/main/java/com/google/devtools/build/lib/io:inconsistent_filesystem_exception",

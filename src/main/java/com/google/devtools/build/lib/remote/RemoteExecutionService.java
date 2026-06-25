@@ -65,6 +65,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
@@ -563,9 +564,17 @@ public class RemoteExecutionService {
 
       ActionKey actionKey = digestUtil.computeActionKey(action);
 
+      ActionExecutionMetadata actionMetadata = spawn.getResourceOwner();
       RequestMetadata metadata =
           TracingMetadataUtils.buildMetadata(
-              buildRequestId, commandId, actionKey.digest().getHash(), spawn.getResourceOwner());
+              buildRequestId,
+              commandId,
+              actionKey.digest().getHash(),
+              actionMetadata != null ? actionMetadata.getMnemonic() : null,
+              actionMetadata != null && actionMetadata.getOwner().getLabel() != null
+                  ? actionMetadata.getOwner().getLabel().getCanonicalForm()
+                  : null,
+              actionMetadata != null ? actionMetadata.getOwner().getConfigurationChecksum() : null);
       RemoteActionExecutionContext remoteActionExecutionContext =
           RemoteActionExecutionContext.create(
               spawn, context, metadata, getWriteCachePolicy(spawn), getReadCachePolicy(spawn));

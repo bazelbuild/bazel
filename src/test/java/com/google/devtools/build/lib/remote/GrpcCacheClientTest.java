@@ -202,7 +202,10 @@ public class GrpcCacheClientTest {
                     InProcessChannelBuilder.forName(fakeServerName)
                         .directExecutor()
                         .intercept(new CallCredentialsInterceptor(creds))
-                        .intercept(TracingMetadataUtils.newCacheHeadersInterceptor(remoteOptions))
+                        .intercept(
+                            TracingMetadataUtils.newCacheHeadersInterceptor(
+                                remoteOptions.getRemoteHeaders(),
+                                remoteOptions.getRemoteCacheHeaders()))
                         .build();
                 return Single.just(
                     new ChannelConnectionWithServerCapabilities(
@@ -266,8 +269,7 @@ public class GrpcCacheClientTest {
     stderr.getParentDirectory().createDirectoryAndParents();
     outErr = new FileOutErr(stdout, stderr);
     RequestMetadata metadata =
-        TracingMetadataUtils.buildMetadata(
-            "none", "none", Digest.getDefaultInstance().getHash(), null);
+        TracingMetadataUtils.buildMetadata("none", "none", Digest.getDefaultInstance().getHash());
     context =
         RemoteActionExecutionContext.create(
             mock(Spawn.class), mock(SpawnExecutionContext.class), metadata);

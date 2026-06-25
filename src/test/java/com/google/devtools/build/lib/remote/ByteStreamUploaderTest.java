@@ -144,8 +144,7 @@ public class ByteStreamUploaderTest {
         TracingMetadataUtils.buildMetadata(
             "none",
             "none",
-            DIGEST_UTIL.asActionKey(Digest.getDefaultInstance()).digest().getHash(),
-            null);
+            DIGEST_UTIL.asActionKey(Digest.getDefaultInstance()).digest().getHash());
     context = RemoteActionExecutionContext.create(metadata);
 
     retryService = MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
@@ -1059,8 +1058,7 @@ public class ByteStreamUploaderTest {
           TracingMetadataUtils.buildMetadata(
               "build-req-id",
               "command-id",
-              DIGEST_UTIL.asActionKey(actionDigest).digest().getHash(),
-              null);
+              DIGEST_UTIL.asActionKey(actionDigest).digest().getHash());
       RemoteActionExecutionContext remoteActionExecutionContext =
           RemoteActionExecutionContext.create(metadata);
       uploads.add(

@@ -46,6 +46,7 @@ import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.AsyncCallable;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper.BasicActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -307,9 +308,17 @@ public final class MerkleTreeComputer {
                 input -> getOutputPath(input, remotePathResolver, spawn.getPathMapper()),
                 HIERARCHICAL_COMPARATOR),
             concat(spawnInputs, outputDirectories));
+    ActionExecutionMetadata actionMetadata = spawn.getResourceOwner();
     var metadata =
         TracingMetadataUtils.buildMetadata(
-            buildRequestId, commandId, "subtree", spawn.getResourceOwner());
+            buildRequestId,
+            commandId,
+            "subtree",
+            actionMetadata != null ? actionMetadata.getMnemonic() : null,
+            actionMetadata != null && actionMetadata.getOwner().getLabel() != null
+                ? actionMetadata.getOwner().getLabel().getCanonicalForm()
+                : null,
+            actionMetadata != null ? actionMetadata.getOwner().getConfigurationChecksum() : null);
     var remoteActionExecutionContext =
         RemoteActionExecutionContext.create(
             spawn,

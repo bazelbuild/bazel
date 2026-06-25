@@ -711,7 +711,8 @@ public final class RemoteModule extends BlazeModule {
                   executorService,
                   remoteOptions,
                   authAndTlsOptions,
-                  TracingMetadataUtils.newExecHeadersInterceptor(remoteOptions),
+                  TracingMetadataUtils.newExecHeadersInterceptor(
+                      remoteOptions.getRemoteHeaders(), remoteOptions.getRemoteExecHeaders()),
                   loggingInterceptor,
                   channelFactory,
                   remoteOptions.getRemoteExecutor(),
@@ -730,7 +731,8 @@ public final class RemoteModule extends BlazeModule {
                   executorService,
                   remoteOptions,
                   authAndTlsOptions,
-                  TracingMetadataUtils.newExecHeadersInterceptor(remoteOptions),
+                  TracingMetadataUtils.newExecHeadersInterceptor(
+                      remoteOptions.getRemoteHeaders(), remoteOptions.getRemoteExecHeaders()),
                   loggingInterceptor,
                   channelFactory,
                   remoteOptions.getRemoteExecutor(),
@@ -751,7 +753,8 @@ public final class RemoteModule extends BlazeModule {
                 executorService,
                 remoteOptions,
                 authAndTlsOptions,
-                TracingMetadataUtils.newCacheHeadersInterceptor(remoteOptions),
+                TracingMetadataUtils.newCacheHeadersInterceptor(
+                    remoteOptions.getRemoteHeaders(), remoteOptions.getRemoteCacheHeaders()),
                 loggingInterceptor,
                 channelFactory,
                 remoteOptions.getRemoteCache(),

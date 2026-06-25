@@ -671,9 +671,7 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
 
     private RemoteActionExecutionContext makeRemoteContext(PathFragment relativePath) {
       String repoName = relativePath.subFragment(0, 1).getBaseName();
-      var metadata =
-          TracingMetadataUtils.buildMetadata(
-              buildRequestId, commandId, repoName, /* actionMetadata= */ null);
+      var metadata = TracingMetadataUtils.buildMetadata(buildRequestId, commandId, repoName);
       // Files in the remote external repo that Bazel reads are worth writing through to the
       // disk cache, as they are likely to be read again on future cold builds.
       return RemoteActionExecutionContext.create(metadata)
