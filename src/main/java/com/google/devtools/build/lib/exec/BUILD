@@ -186,6 +186,7 @@ java_library(
     name = "runfiles_tree_updater",
     srcs = ["RunfilesTreeUpdater.java"],
     deps = [
+        ":execution_options",
         ":symlink_tree_helper",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:runfiles_tree",

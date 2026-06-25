@@ -145,17 +145,14 @@ EOF
 }
 
 function test_runfiles_updated_correctly_with_nobuild_runfile_links {
-  if is_windows; then
-    # TODO(laszlocsomor): fix this test on Windows, and enable it.
-    return
-  fi
   write_cc_source_files
 
   cat > cc/hello_kitty.txt <<EOF
 Hello, kitty.
 EOF
 
-  bazel run --nobuild_runfile_links //cc:kitty > output \
+  bazel run --nobuild_runfile_links \
+    --experimental_detect_stale_runfiles //cc:kitty > output \
     || fail "${PRODUCT_NAME} run failed."
   assert_contains "Hello, kitty" output || fail "Output is not OK."
 
@@ -164,7 +161,8 @@ EOF
 A pussycat.
 EOF
 
-  bazel run --nobuild_runfile_links //cc:kitty > output \
+  bazel run --nobuild_runfile_links \
+    --experimental_detect_stale_runfiles //cc:kitty > output \
     || fail "${PRODUCT_NAME} run failed."
   assert_contains "pussycat" output || fail "Output is not OK."
 }
