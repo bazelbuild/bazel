@@ -34,7 +34,7 @@ use_repo(buildozer_binary, "buildozer_binary")
 # Dependencies used to auto-load removed symbols and rules from Bazel (due to Starlarkification)
 # See also:  --incompatible_autoload_externally, AutoloadSymbols
 # TODO: because autoloads are removed, these dependencies are no longer needed.
-bazel_dep(name = "protobuf", version = "33.4", repo_name = "com_google_protobuf")
+bazel_dep(name = "protobuf", version = "35.1", repo_name = "com_google_protobuf")
 bazel_dep(name = "rules_java", version = "9.5.0")
 bazel_dep(name = "rules_cc", version = "0.2.17")
 bazel_dep(name = "rules_python", version = "1.7.0")
@@ -43,7 +43,7 @@ bazel_dep(name = "apple_support", version = "2.3.0") # xcode_configure needs it
 bazel_dep(name = "rules_apple", version = "4.1.0", repo_name = None) # version bump, older versions contribute lockfile entries
 bazel_dep(name = "rules_swift", version = "3.1.2", repo_name = None) # version bump, older versions don't load CcInfo
 bazel_dep(name = "abseil-cpp", version = "20250814.1", repo_name = None) # version bump, fixes errors with older compilers
-# add rules_android
+bazel_dep(name = "rules_android", version = "0.7.3", repo_name = None) # version bump, fixes errors with older compilers
 
 register_toolchains(
     "//tools/launcher:all",

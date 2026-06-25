@@ -141,6 +141,7 @@ import com.google.devtools.common.options.Options;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.ExtensionRegistry;
 import com.google.protobuf.Message;
+import com.google.protobuf.RuntimeVersion;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
@@ -867,7 +868,11 @@ public class RemoteExecutionServiceTest {
       //   basename for file nodes), and Integers (referencing intermediate segments of Artifact
       //   exec paths for most directory nodes).
       // TODO: Get this number down.
-      assertThat(stableRetainedSize).isEqualTo(4064);
+      // expected size is 4136 for 35.1 (OSS major 4, minor 35), and 4064 for 34.1.
+      boolean isProto35 =
+          RuntimeVersion.MAJOR == 35 || (RuntimeVersion.MAJOR == 4 && RuntimeVersion.MINOR == 35);
+      int expectedStableRetainedSize = isProto35 ? 4136 : 4064;
+      assertThat(stableRetainedSize).isEqualTo(expectedStableRetainedSize);
     }
   }
 
