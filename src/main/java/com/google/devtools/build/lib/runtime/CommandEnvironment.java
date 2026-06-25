@@ -741,9 +741,9 @@ public class CommandEnvironment {
    * remote branch fails over to the {@code local} strategy ({@code --remote_local_fallback}) and
    * stages the same tree into the same execroot path at the same time.
    *
-   * <p>Scoped to the command, not static: the dedup map caches completed futures and never evicts,
-   * which is correct within a build (a tree's contents are fixed) but would wrongly skip a tree
-   * that changed in a later build.
+   * <p>Scoped to the command, not static: the dedup map never evicts entries, which is safe within a
+   * build (a tree's contents are fixed) but would wrongly skip re-staging a tree that changed in a
+   * later build.
    */
   public RunfilesTreeUpdater getRunfilesTreeUpdater() {
     synchronized (runfilesTreeUpdaterLock) {
