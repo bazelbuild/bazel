@@ -343,20 +343,24 @@ public class RemoteOutputChecker implements OutputChecker {
       return true;
     }
 
-    // If Bazel should download this file, but it does not exist locally, returns false to rerun
-    // the generating action to trigger the download (just like in the normal build, when local
-    // outputs are missing).
+    // An in-memory output (e.g. --experimental_inmemory_{dotd,jdeps}_files) is never written to
+    // disk, so a "should download" verdict must not force a re-execution to materialize it; trust
+    // it via its TTL instead. See https://github.com/bazelbuild/bazel/issues/29313.
+    if (!metadata.isInMemoryOutput()) {
+      // If Bazel should download this file, but it does not exist locally, returns false to rerun
+      // the generating action to trigger the download (just like in the normal build, when local
+      // outputs are missing).
+      if (lastRemoteOutputChecker != null) {
+        // This is an incremental build. If the file was downloaded by previous build and is now
+        // missing, invalidate the action.
+        if (lastRemoteOutputChecker.shouldDownloadOutput(file, metadata)) {
+          return false;
+        }
+      }
 
-    if (lastRemoteOutputChecker != null) {
-      // This is an incremental build. If the file was downloaded by previous build and is now
-      // missing, invalidate the action.
-      if (lastRemoteOutputChecker.shouldDownloadOutput(file, metadata)) {
+      if (shouldDownloadOutput(file, metadata)) {
         return false;
       }
-    }
-
-    if (shouldDownloadOutput(file, metadata)) {
-      return false;
     }
 
     if (clock != null) {
