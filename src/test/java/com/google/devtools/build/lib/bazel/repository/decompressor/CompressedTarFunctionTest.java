@@ -44,13 +44,14 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
+import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /** Tests decompressing archives. */
 @RunWith(JUnit4.class)
 public class CompressedTarFunctionTest {
-
+  @Rule public TestName name = new TestName();
   @Rule public TemporaryFolder folder = new TemporaryFolder();
 
   /* Tarball, created by "tar -czf <ARCHIVE_NAME> <files...>" */
@@ -58,9 +59,14 @@ public class CompressedTarFunctionTest {
 
   private TestArchiveDescriptor archiveDescriptor;
 
+  /** Provides a test filesystem descriptor for a test. NOTE: unique per individual test ONLY. */
   @Before
-  public void setUpFs() throws Exception {
-    archiveDescriptor = new TestArchiveDescriptor(ARCHIVE_NAME, "out", true);
+  public void setUpFs() {
+    archiveDescriptor =
+        new TestArchiveDescriptor(
+            ARCHIVE_NAME,
+            /* outDirName= */ this.getClass().getSimpleName() + "_" + name.getMethodName(),
+            true);
   }
 
   /**
