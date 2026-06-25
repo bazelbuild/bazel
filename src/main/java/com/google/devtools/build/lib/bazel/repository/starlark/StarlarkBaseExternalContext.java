@@ -23,13 +23,10 @@ import com.google.common.base.Ascii;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.Futures;
-import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.bazel.debug.WorkspaceRuleEvent;
 import com.google.devtools.build.lib.bazel.repository.DecompressorDescriptor;
@@ -55,6 +52,7 @@ import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.remote.RemoteExternalOverlayFileSystem;
 import com.google.devtools.build.lib.rules.repository.NeedsSkyframeRestartException;
 import com.google.devtools.build.lib.rules.repository.RepoRecordedInput;
+import com.google.devtools.build.lib.rules.repository.RepoRecordedInput.MaybeValue;
 import com.google.devtools.build.lib.rules.repository.RepoRecordedInput.RepoCacheFriendlyPath;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
@@ -71,6 +69,7 @@ import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.ForOverride;
 import java.io.File;
 import java.io.IOException;
@@ -212,7 +211,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
     // apparent repo names to canonical repo names. See #20721 for why this is necessary.
     this.repoMappingRecorder =
         (fromRepo, apparentRepoName, canonicalRepoName) ->
-            recordInput(
+            recordInputWithValue(
                 new RepoRecordedInput.RecordedRepoMapping(fromRepo, apparentRepoName),
                 canonicalRepoName.isVisible() ? canonicalRepoName.getName() : null);
   }
@@ -251,13 +250,30 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
     repoMappingRecorder.storeInThread(thread);
   }
 
-  protected void recordInput(RepoRecordedInput input, @Nullable String value) {
+  protected void recordInputWithValue(RepoRecordedInput input, @Nullable String value) {
     if (recordedInputs.containsKey(input) && !Objects.equals(recordedInputs.get(input), value)) {
       throw new IllegalStateException(
           "Conflicting values recorded for input %s: '%s' vs. '%s'"
               .formatted(input, recordedInputs.get(input), value));
     }
     recordedInputs.put(input, value);
+  }
+
+  @CanIgnoreReturnValue
+  @Nullable
+  protected String getValueAndRecordInput(RepoRecordedInput input)
+      throws InterruptedException, NeedsSkyframeRestartException, IOException {
+    var maybeValue = input.getValue(env, directories);
+    if (env.valuesMissing()) {
+      throw new NeedsSkyframeRestartException();
+    }
+    return switch (maybeValue) {
+      case MaybeValue.Invalid(String reason) -> throw new IOException(reason);
+      case MaybeValue.Valid(String value) -> {
+        recordInputWithValue(input, value);
+        yield value;
+      }
+    };
   }
 
   private boolean cancelPendingAsyncTasks() {
@@ -1489,18 +1505,12 @@ Strip the given number of leading components from file paths on extraction. Only
   @Nullable
   public String getEnvironmentValue(String name, Object defaultValue)
       throws InterruptedException, NeedsSkyframeRestartException {
-    // Must look up via Skyframe, rather than solely copy from `this.repoEnvVariables`, in order to
-    // establish a SkyKey dependency relationship.
-    var nameAndValue = RepositoryFunction.getEnvVarValues(env, ImmutableSet.of(name));
-    if (nameAndValue == null) {
-      return null;
+    try {
+      String value = getValueAndRecordInput(new RepoRecordedInput.EnvVar(name));
+      return value != null ? value : nullIfNone(defaultValue, String.class);
+    } catch (IOException e) {
+      throw new IllegalStateException("getting EnvVar never throws IOException", e);
     }
-    // However, to account for --repo_env we take the value from `this.repoEnvVariables`.
-    // See https://github.com/bazelbuild/bazel/pull/20787#discussion_r1445571248 .
-    var entry = Iterables.getOnlyElement(RepoRecordedInput.EnvVar.wrap(nameAndValue).entrySet());
-    String envVarValue = repoEnvVariables.get(name);
-    recordInput(entry.getKey(), envVarValue);
-    return envVarValue != null ? envVarValue : nullIfNone(defaultValue, String.class);
   }
 
   @StarlarkMethod(
@@ -1661,17 +1671,8 @@ Strip the given number of leading components from file paths on extraction. Only
     if (repoCacheFriendlyPath == null) {
       return;
     }
-    var recordedInput = new RepoRecordedInput.File(repoCacheFriendlyPath);
-    var skyKey = recordedInput.getSkyKey(directories);
     try {
-      FileValue fileValue = (FileValue) env.getValueOrThrow(skyKey, IOException.class);
-      if (fileValue == null) {
-        throw new NeedsSkyframeRestartException();
-      }
-
-      recordInput(
-          recordedInput,
-          RepoRecordedInput.File.fileValueToMarkerValue((RootedPath) skyKey.argument(), fileValue));
+      getValueAndRecordInput(new RepoRecordedInput.File(repoCacheFriendlyPath));
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }
@@ -1683,12 +1684,8 @@ Strip the given number of leading components from file paths on extraction. Only
     if (repoCacheFriendlyPath == null) {
       return;
     }
-    var recordedInput = new RepoRecordedInput.Dirents(repoCacheFriendlyPath);
-    if (env.getValue(recordedInput.getSkyKey(directories)) == null) {
-      throw new NeedsSkyframeRestartException();
-    }
     try {
-      recordInput(recordedInput, RepoRecordedInput.Dirents.getDirentsMarkerValue(path));
+      getValueAndRecordInput(new RepoRecordedInput.Dirents(repoCacheFriendlyPath));
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }
