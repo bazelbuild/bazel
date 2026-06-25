@@ -2041,6 +2041,51 @@ function test_download_all_after_minimal_materializes_intermediate_output() {
   fi
 }
 
+function test_disabling_inmemory_dotd_materializes_dotd_after_restart() {
+  # An in-memory marker recorded by an earlier build must not keep the .d off
+  # disk when a later build disables in-memory mode and requests all outputs:
+  # the marker describes how a previous invocation handled the output, not what
+  # the current flags require.
+  stop_worker
+  start_worker
+
+  add_rules_cc MODULE.bazel
+  cat > BUILD <<'EOF'
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+cc_library(name="foo", srcs=["foo.c"])
+EOF
+  touch foo.c
+
+  # Populate the remote cache, then drop the local outputs.
+  bazel build \
+      --remote_upload_local_results \
+      --remote_cache=grpc://localhost:"${worker_port}" \
+      //:foo &> "$TEST_log" || fail "Expected success from uploading invocation"
+  bazel clean
+
+  # Build with in-memory dotd enabled: the .d is kept in memory and recorded as
+  # an in-memory output in the action cache.
+  bazel build \
+      --experimental_inmemory_dotd_files \
+      --remote_download_outputs=all \
+      --remote_cache=grpc://localhost:"${worker_port}" \
+      //:foo &> "$TEST_log" || fail "Expected success from in-memory invocation"
+
+  # Restart, then build with in-memory dotd disabled. The current flags require
+  # the .d on disk, so it must be materialized despite the persisted marker.
+  bazel shutdown
+  bazel build \
+      --noexperimental_inmemory_dotd_files \
+      --remote_download_outputs=all \
+      --remote_cache=grpc://localhost:"${worker_port}" \
+      //:foo &> "$TEST_log" || fail "Expected success from on-disk invocation"
+
+  local -r dotd_file="$(find -L bazel-bin -type f -name 'foo*.d' | head -n1)"
+  if [[ -z "$dotd_file" ]]; then
+    fail "Expected the .d file to be materialized on disk after disabling --experimental_inmemory_dotd_files"
+  fi
+}
+
 function test_remote_download_regex() {
   add_rules_java "MODULE.bazel"
   mkdir -p a
