@@ -335,6 +335,17 @@ public abstract class JavaOptions extends FragmentOptions {
   public abstract boolean getEnforceOneVersionOnJavaTests();
 
   @Option(
+      name = "experimental_add_test_support_to_compile_time_deps",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "Flag to help transition away from adding test support libraries to the compile-time"
+              + " deps of Java test rules.")
+  public abstract boolean getAddTestSupportToCompileTimeDeps();
+
+  @Option(
       name = "experimental_run_android_lint_on_java_rules",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,

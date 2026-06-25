@@ -80,6 +80,9 @@ public interface JavaConfigurationApi extends StarlarkValue {
       documented = false)
   boolean enforceOneVersionOnJavaTests();
 
+  @StarlarkMethod(name = "add_test_support_to_compile_deps", structField = true, documented = false)
+  boolean addTestSupportToCompileTimeDeps();
+
   @StarlarkMethod(
       name = "run_android_lint",
       structField = true,

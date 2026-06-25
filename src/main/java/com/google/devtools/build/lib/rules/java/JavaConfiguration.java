@@ -93,6 +93,7 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   private final boolean enforceProguardFileExtension;
   private final boolean runAndroidLint;
   private final boolean explicitJavaTestDeps;
+  private final boolean addTestSupportToCompileTimeDeps;
   private final ImmutableList<Label> pluginList;
   private final boolean experimentalTurbineAnnotationProcessing;
   private final int experimentalTurbineCpuReservation;
@@ -124,6 +125,7 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     this.enforceOneVersion = javaOptions.getEnforceOneVersion();
     this.enforceOneVersionOnJavaTests = javaOptions.getEnforceOneVersionOnJavaTests();
     this.explicitJavaTestDeps = javaOptions.getExplicitJavaTestDeps();
+    this.addTestSupportToCompileTimeDeps = javaOptions.getAddTestSupportToCompileTimeDeps();
     this.runAndroidLint = javaOptions.getRunAndroidLint();
     this.multiReleaseDeployJars = javaOptions.getMultiReleaseDeployJars();
     this.disallowJavaImportExports = javaOptions.getDisallowJavaImportExports();
@@ -375,6 +377,11 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   @Override
   public boolean enforceOneVersionOnJavaTests() {
     return enforceOneVersionOnJavaTests;
+  }
+
+  @Override
+  public boolean addTestSupportToCompileTimeDeps() {
+    return addTestSupportToCompileTimeDeps;
   }
 
   @Override
