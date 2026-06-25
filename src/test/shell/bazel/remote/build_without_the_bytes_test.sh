@@ -2086,6 +2086,55 @@ EOF
   fi
 }
 
+function test_disabling_inmemory_jdeps_materializes_jdeps_after_restart() {
+  # An in-memory marker recorded by an earlier build must not keep the .jdeps
+  # off disk when a later build disables in-memory mode and requests all
+  # outputs: the marker describes how a previous invocation handled the output,
+  # not what the current flags require.
+  stop_worker
+  start_worker
+
+  add_rules_java MODULE.bazel
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+load("@rules_java//java:java_library.bzl", "java_library")
+java_library(name="lib", srcs=["Library.java"])
+EOF
+  cat > a/Library.java <<'EOF'
+public class Library {
+  public static boolean TEST = true;
+}
+EOF
+
+  # Populate the remote cache, then drop the local outputs.
+  bazel build \
+      --remote_upload_local_results \
+      --remote_cache=grpc://localhost:"${worker_port}" \
+      //a:lib &> "$TEST_log" || fail "Expected success from uploading invocation"
+  bazel clean
+
+  # Build with in-memory jdeps enabled: the .jdeps is kept in memory and
+  # recorded as an in-memory output in the action cache.
+  bazel build \
+      --experimental_inmemory_jdeps_files \
+      --remote_download_outputs=all \
+      --remote_cache=grpc://localhost:"${worker_port}" \
+      //a:lib &> "$TEST_log" || fail "Expected success from in-memory invocation"
+
+  # Restart, then build with in-memory jdeps disabled. The current flags require
+  # the .jdeps on disk, so it must be materialized despite the persisted marker.
+  bazel shutdown
+  bazel build \
+      --noexperimental_inmemory_jdeps_files \
+      --remote_download_outputs=all \
+      --remote_cache=grpc://localhost:"${worker_port}" \
+      //a:lib &> "$TEST_log" || fail "Expected success from on-disk invocation"
+
+  if [[ ! -e "bazel-bin/a/liblib.jdeps" ]]; then
+    fail "Expected the .jdeps file to be materialized on disk after disabling --experimental_inmemory_jdeps_files"
+  fi
+}
+
 function test_remote_download_regex() {
   add_rules_java "MODULE.bazel"
   mkdir -p a
