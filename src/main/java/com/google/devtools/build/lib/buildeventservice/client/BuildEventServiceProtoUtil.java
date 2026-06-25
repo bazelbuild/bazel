@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.buildeventservice.client;
 import static com.google.devtools.build.v1.BuildEvent.BuildComponentStreamFinished.FinishType.FINISHED;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.buildeventservice.client.LifecycleEvent.InvocationStatus;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.v1.BuildEvent;
@@ -35,8 +36,11 @@ import com.google.devtools.build.v1.StreamId;
 import com.google.devtools.build.v1.StreamId.BuildComponent;
 import com.google.protobuf.Any;
 import com.google.protobuf.ByteString;
+import com.google.protobuf.ExtensionRegistryLite;
+import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Timestamp;
 import java.time.Instant;
+import java.util.List;
 
 /** Utility methods to create BES proto messages. */
 public final class BuildEventServiceProtoUtil {
@@ -174,7 +178,8 @@ public final class BuildEventServiceProtoUtil {
     if (sequenceNumber == 1) {
       builder
           .addAllNotificationKeywords(commandContext.keywords())
-          .setCheckPrecedingLifecycleEventsPresent(commandContext.checkPrecedingLifecycleEvents());
+          .setCheckPrecedingLifecycleEventsPresent(commandContext.checkPrecedingLifecycleEvents())
+          .addAllStreamMetadata(parseMetadata(commandContext.streamMetadata()));
     }
     if (commandContext.projectId() != null) {
       builder.setProjectId(commandContext.projectId());
@@ -227,5 +232,17 @@ public final class BuildEventServiceProtoUtil {
         .setSeconds(instant.getEpochSecond())
         .setNanos(instant.getNano())
         .build();
+  }
+
+  private static ImmutableList<Any> parseMetadata(List<byte[]> metadataBytes) {
+    ImmutableList.Builder<Any> builder = ImmutableList.builder();
+    for (byte[] bytes : metadataBytes) {
+      try {
+        builder.add(Any.parseFrom(bytes, ExtensionRegistryLite.getEmptyRegistry()));
+      } catch (InvalidProtocolBufferException e) {
+        throw new IllegalStateException("Failed to parse stream metadata", e);
+      }
+    }
+    return builder.build();
   }
 }

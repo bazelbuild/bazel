@@ -17,8 +17,10 @@ package com.google.devtools.build.lib.buildeventservice;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.buildeventservice.client.CommandContext;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.util.List;
 import java.util.Set;
 import javax.annotation.Nullable;
 
@@ -29,7 +31,8 @@ public record CommandContextImpl(
     int attemptNumber,
     Set<String> keywords,
     @Nullable String projectId,
-    boolean checkPrecedingLifecycleEvents)
+    boolean checkPrecedingLifecycleEvents,
+    List<byte[]> streamMetadata)
     implements CommandContext {
 
   public CommandContextImpl {
@@ -37,6 +40,7 @@ public record CommandContextImpl(
     checkNotNull(invocationId, "invocationId");
     checkNotNull(keywords, "keywords");
     checkArgument(attemptNumber >= 1, "attemptNumber must be >= 1");
+    streamMetadata = ImmutableList.copyOf(streamMetadata);
   }
 
   public static Builder builder() {
@@ -51,6 +55,7 @@ public record CommandContextImpl(
     private Set<String> keywords;
     private String projectId;
     private boolean checkPrecedingLifecycleEvents;
+    private List<byte[]> streamMetadata = ImmutableList.of();
 
     private Builder() {}
 
@@ -90,9 +95,21 @@ public record CommandContextImpl(
       return this;
     }
 
+    @CanIgnoreReturnValue
+    public Builder setStreamMetadata(List<byte[]> streamMetadata) {
+      this.streamMetadata = streamMetadata;
+      return this;
+    }
+
     public CommandContextImpl build() {
       return new CommandContextImpl(
-          buildId, invocationId, attemptNumber, keywords, projectId, checkPrecedingLifecycleEvents);
+          buildId,
+          invocationId,
+          attemptNumber,
+          keywords,
+          projectId,
+          checkPrecedingLifecycleEvents,
+          streamMetadata);
     }
   }
 }

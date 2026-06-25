@@ -808,6 +808,7 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
                     cmdEnv.getCommandName(),
                     besOptions,
                     cmdEnv.getRuntime().getStartupOptionsProvider()))
+            .setStreamMetadata(getStreamMetadata(cmdEnv))
             .setProjectId(besOptions.getInstanceName())
             .setCheckPrecedingLifecycleEvents(besOptions.getBesCheckPrecedingLifecycleEvents())
             .build();
@@ -975,6 +976,11 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
       String commandName,
       OptionsT besOptions,
       @Nullable OptionsParsingResult startupOptionsProvider);
+
+  /** Returns arbitrary metadata to be sent to the Build Event Service upon stream creation. */
+  protected List<byte[]> getStreamMetadata(CommandEnvironment cmdEnv) {
+    return ImmutableList.of();
+  }
 
   /** Returns the prefix used when printing the invocation ID in the command line. */
   protected abstract String getInvocationIdPrefix();
