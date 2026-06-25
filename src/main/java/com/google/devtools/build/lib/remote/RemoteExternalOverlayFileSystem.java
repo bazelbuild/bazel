@@ -252,7 +252,8 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
               DigestUtil.toBinaryDigest(file.getDigest()),
               file.getDigest().getSizeBytes(),
               /* locationIndex= */ 1,
-              expirationTime));
+              expirationTime,
+              /* inMemoryOutput= */ false));
       fs.setExecutable(filePath, file.getIsExecutable());
       // The RE API does not track whether a file is readable or writable. We choose to make all
       // files readable and not writable to ensure that other repo rules can't accidentally modify

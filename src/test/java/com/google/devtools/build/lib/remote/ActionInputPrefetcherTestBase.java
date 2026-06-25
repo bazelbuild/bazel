@@ -160,7 +160,8 @@ public abstract class ActionInputPrefetcherTestBase {
             hashCode.asBytes(),
             contentsBytes.length,
             /* locationIndex= */ 1,
-            /* expirationTime= */ null);
+            /* expirationTime= */ null,
+            /* inMemoryOutput= */ false);
     if (resolvedPath != null) {
       f = FileArtifactValue.createFromExistingWithResolvedPath(f, resolvedPath);
     }
@@ -219,7 +220,8 @@ public abstract class ActionInputPrefetcherTestBase {
               hashCode.asBytes(),
               contents.length,
               /* locationIndex= */ 1,
-              /* expirationTime= */ null);
+              /* expirationTime= */ null,
+              /* inMemoryOutput= */ false);
       treeBuilder.putChild(child, childValue);
       metadata.put(child, childValue);
       cas.put(hashCode, contents);

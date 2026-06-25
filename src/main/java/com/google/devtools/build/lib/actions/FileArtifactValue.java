@@ -126,6 +126,15 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
    */
   public void setContentsProxy(FileContentsProxy proxy) {}
 
+  /**
+   * Returns whether this metadata describes an in-memory output (e.g. a file kept in memory by
+   * {@code --experimental_inmemory_dotd_files} or {@code --experimental_inmemory_jdeps_files}) that
+   * is never written to the local filesystem.
+   */
+  public boolean isInMemoryOutput() {
+    return false;
+  }
+
   @Nullable
   public byte[] getValueFingerprint() {
     // TODO(janakr): return fingerprint in other cases: symlink, directory.
@@ -401,9 +410,13 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
   }
 
   public static FileArtifactValue createForRemoteFileWithMaterializationData(
-      byte[] digest, long size, int locationIndex, @Nullable Instant expirationTime) {
+      byte[] digest,
+      long size,
+      int locationIndex,
+      @Nullable Instant expirationTime,
+      boolean inMemoryOutput) {
     return new RemoteFileArtifactValueWithMaterializationData(
-        digest, size, locationIndex, expirationTime);
+        digest, size, locationIndex, expirationTime, inMemoryOutput);
   }
 
   public static FileArtifactValue createFromExistingWithResolvedPath(
@@ -794,11 +807,17 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
       extends RemoteFileArtifactValue {
     private long expirationTime;
     @Nullable private FileContentsProxy proxy;
+    private final boolean inMemoryOutput;
 
     private RemoteFileArtifactValueWithMaterializationData(
-        byte[] digest, long size, int locationIndex, @Nullable Instant expirationTime) {
+        byte[] digest,
+        long size,
+        int locationIndex,
+        @Nullable Instant expirationTime,
+        boolean inMemoryOutput) {
       super(digest, size, locationIndex);
       this.expirationTime = toEpochMilli(expirationTime);
+      this.inMemoryOutput = inMemoryOutput;
     }
 
     private static long toEpochMilli(@Nullable Instant expirationTime) {
@@ -843,6 +862,11 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
     }
 
     @Override
+    public boolean isInMemoryOutput() {
+      return inMemoryOutput;
+    }
+
+    @Override
     public boolean equals(Object o) {
       if (this == o) {
         return true;
@@ -869,6 +893,7 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
           .add("locationIndex", getLocationIndex())
           .add("expirationTime", fromEpochMilli(expirationTime))
           .add("proxy", proxy)
+          .add("inMemoryOutput", inMemoryOutput)
           .toString();
     }
   }
@@ -927,6 +952,11 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
     @Override
     public void setContentsProxy(FileContentsProxy proxy) {
       delegate.setContentsProxy(proxy);
+    }
+
+    @Override
+    public boolean isInMemoryOutput() {
+      return delegate.isInMemoryOutput();
     }
 
     @Override
@@ -1272,6 +1302,11 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
     @Override
     public void setContentsProxy(FileContentsProxy proxy) {
       delegate.setContentsProxy(proxy);
+    }
+
+    @Override
+    public boolean isInMemoryOutput() {
+      return delegate.isInMemoryOutput();
     }
 
     @Override
