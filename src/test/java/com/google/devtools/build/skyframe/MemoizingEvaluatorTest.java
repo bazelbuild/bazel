@@ -571,9 +571,7 @@ public abstract class MemoizingEvaluatorTest {
   public void deleteDirtyKeepsChangePrunableChain() throws Exception {
     // d -> bPrime -> b -> a, and c -> b. Changing a so that b change-prunes and evaluating only c
     // leaves bPrime and d as unenqueued dirty orphans. bPrime is verifiable-clean because its dep b
-    // is done and unchanged; d is verifiable-clean only because bPrime is itself kept. The deps-first
-    // fixpoint keeps the whole chain -- a single pass that required deps to be done would keep bPrime
-    // but delete d (whose dep bPrime is kept dirty, not done).
+    // is done and unchanged; d is verifiable-clean only because bPrime is itself kept.
     SkyKey a = nonHermeticKey("a");
     SkyKey b = skyKey("b");
     SkyKey bPrime = skyKey("bPrime");
@@ -626,8 +624,7 @@ public abstract class MemoizingEvaluatorTest {
   public void deleteDirtyDeletesNodeNeedingRebuildToPrune() throws Exception {
     // b -> a, d -> b, plus an unrelated direct consumer e -> a. Changing a and evaluating only e
     // leaves b dirty (its dep a changed) and never recomputed, so b cannot be verified clean without
-    // a rebuild. The GC therefore deletes b and its rdep d even with rescue. This is the residual
-    // case that the per-variable RepoEnvironmentFunction injection fix is needed for.
+    // a rebuild. The GC therefore deletes b and its rdep d even with rescue.
     SkyKey a = nonHermeticKey("a");
     SkyKey b = skyKey("b");
     SkyKey d = skyKey("d");

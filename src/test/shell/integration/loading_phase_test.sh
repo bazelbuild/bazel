@@ -258,13 +258,9 @@ function test_glob_with_subpackage() {
     assert_equals "3" $(wc -l "$TEST_log")
 }
 
-function test_dirty_node_gc_keeps_change_prunable_nodes() {
-    # The dirty-node GC (--version_window_for_dirty_node_gc, run after every build) must not delete
-    # dirty nodes that change pruning would verify clean. Many targets glob the same directory.
+function test_unrelated_glob_change_pruned() {
     # Adding a file that the glob does not match changes the directory listing and thus dirties the
-    # shared glob, but the glob re-evaluates to the same matches and change-prunes. Building one
-    # target re-evaluates (and change-prunes) the glob; the other targets are left as verifiable
-    # clean orphans that the GC must keep rather than delete (and re-analyze).
+    # shared glob, but the glob re-evaluates to the same matches and change-prunes.
     local -r pkg="${FUNCNAME}"
     mkdir -p "$pkg/data" || fail "could not create \"$pkg/data\""
     echo a > "$pkg/data/f0.txt"

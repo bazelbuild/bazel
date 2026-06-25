@@ -382,23 +382,20 @@ public class IncrementalInMemoryNodeEntry extends AbstractInMemoryNodeEntry<Dirt
   }
 
   /**
-   * For dirty-node garbage collection: if change pruning could verify this node clean without
-   * rebuilding it -- it is dirty, was built incrementally, and is not {@linkplain DirtyType#CHANGE
-   * changed} -- returns its direct deps from the last evaluation so the caller can check them;
-   * otherwise returns {@code null}. The node may be kept iff every dep is present and was not changed
-   * more recently than {@link #lastEvaluatedVersion} (each dep is either done, or a dirty node that
-   * is itself kept), the same condition {@link DirtyBuildingState#signalDep} uses to reach {@link
-   * LifecycleState#VERIFIED_CLEAN}.
+   * Returns this node's direct deps from the last evaluation if the node may be resurrected by
+   * change pruning; otherwise returns {@code null}. The node may be kept iff every returned dep is
+   * still present and was not changed more recently than {@link #lastEvaluatedVersion}.
    */
   @Nullable
-  final synchronized Iterable<SkyKey> lastBuildDepsIfChangePrunable() {
-    // Check isIncremental first so that non-incremental dirty nodes (those being built for the first
-    // time) bail out before any further work.
-    if (dirtyBuildingState == null || !dirtyBuildingState.isIncremental() || isChanged()) {
+  final Iterable<SkyKey> lastBuildDepsIfChangePrunable() {
+    var localDirtyBuildingState = dirtyBuildingState;
+    if (localDirtyBuildingState == null
+        || !localDirtyBuildingState.isIncremental()
+        || isChanged()) {
       return null;
     }
     try {
-      return dirtyBuildingState.getLastBuildDirectDeps().getAllElementsAsIterable();
+      return localDirtyBuildingState.getLastBuildDirectDeps().getAllElementsAsIterable();
     } catch (InterruptedException e) {
       // An incremental dirty state returns its stored deps without blocking.
       throw new IllegalStateException(e);
