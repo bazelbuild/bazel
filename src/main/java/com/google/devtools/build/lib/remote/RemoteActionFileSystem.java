@@ -62,13 +62,11 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.channels.SeekableByteChannel;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import javax.annotation.Nullable;
 
@@ -113,7 +111,7 @@ public class RemoteActionFileSystem extends FileSystem implements PathCanonicali
   private final FileSystem localFs;
   private final RemoteInMemoryFileSystem remoteOutputTree;
   // Concurrent access is rare and most builds don't have lost inputs.
-  private final List<LostArtifacts> lostInputs = Collections.synchronizedList(new ArrayList<>(0));
+  private final Set<LostArtifacts> lostInputs = ConcurrentHashMap.newKeySet();
 
   @Nullable private ActionExecutionMetadata action = null;
 
