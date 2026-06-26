@@ -119,6 +119,7 @@ single_version_override(
     patch_strip = 1,
     # Patch is based on 34.1
     patches = ["//third_party:protobuf.patch"],
+    version = "35.1",
 )
 
 # Remove once the following PRs are available in a grpc-java release.

@@ -55,3 +55,71 @@ diff --git a/upb_generator/minitable/generator.cc b/upb_generator/minitable/gene
    }
 -  output("const upb_MiniTableExtension $0_obj = {\n  ", ExtensionVarName(ext));
 +  output("const UPB_RETAIN upb_MiniTableExtension $0_obj = {\n  ", ExtensionVarName(ext));
+
+diff --git a/MODULE.bazel b/MODULE.bazel
+index 8e45a90d..cd8ab1d6 100644
+--- a/MODULE.bazel
++++ b/MODULE.bazel
+@@ -36,8 +36,6 @@ bazel_dep(name = "bazel_skylib", version = "1.9.0")
+ bazel_dep(name = "jsoncpp", version = "1.9.6.bcr.2")
+ bazel_dep(name = "rules_java", version = "8.6.1")
+ bazel_dep(name = "rules_jvm_external", version = "6.7")
+-bazel_dep(name = "rules_kotlin", version = "2.3.20")
+ bazel_dep(name = "rules_license", version = "1.0.0")
+ bazel_dep(name = "rules_pkg", version = "1.0.1")
+ bazel_dep(name = "rules_python", version = "1.6.0")
+-bazel_dep(name = "rules_rust", version = "0.69.0")
+@@ -103,19 +103,0 @@
+-# Define toolchains that use pre-built protoc binaries.
+-prebuilt_protoc = use_extension("//bazel/private/oss/toolchains/prebuilt:protoc_extension.bzl", "protoc")
+-use_repo(
+-    prebuilt_protoc,
+-    "prebuilt_protoc.linux_aarch_64",
+-    "prebuilt_protoc.linux_ppcle_64",
+-    "prebuilt_protoc.linux_s390_64",
+-    "prebuilt_protoc.linux_x86_32",
+-    "prebuilt_protoc.linux_x86_64",
+-    "prebuilt_protoc.osx_aarch_64",
+-    "prebuilt_protoc.osx_x86_64",
+-    "prebuilt_protoc.win32",
+-    "prebuilt_protoc.win64",
+-)
+-
+-# This registration applies when the config_setting for prefer_prebuilt_protoc is true.
+-# This is now enabled by default.
+-# It can be disabled using --@protobuf//bazel/flags:prefer_prebuilt_protoc=false
+-register_toolchains("//bazel/private/oss/toolchains/prebuilt:all")
+@@ -187,33 +187,0 @@
+-rust = use_extension("@rules_rust//rust:extensions.bzl", "rust", dev_dependency = True)
+-
+-# As of October 2025, our minimum supported Rust version is 1.79. However, we
+-# use 1.85.0 here so that we can get some test coverage with Rust edition 2024.
+-# Cargo and our Bazel WORKSPACE build are both still on Rust edition 2021.
+-rust.toolchain(
+-    edition = "2024",
+-    versions = ["1.85.0"],
+-)
+-
+-crate = use_extension("@rules_rust//crate_universe:extension.bzl", "crate")
+-crate.spec(
+-    package = "googletest",
+-    version = ">0.0.0",
+-)
+-crate.spec(
+-    package = "linkme",
+-    version = "0.3.35",
+-)
+-crate.spec(
+-    package = "paste",
+-    version = ">=1",
+-)
+-crate.spec(
+-    package = "quote",
+-    version = ">=1",
+-)
+-crate.spec(
+-    package = "syn",
+-    version = ">=2",
+-)
+-crate.from_specs()
+-use_repo(crate, crate_index = "crates")
