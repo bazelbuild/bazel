@@ -27,6 +27,20 @@ from python.runfiles import Runfiles
 _PROGUARD_PATH = "_main/tools/build_defs/proguard/proguard_private"
 
 def lookup_binary(r, path):
+    """Lookup the runfiles-adjusted path to a binary.
+
+    Args:
+      r: The Runfiles object to use for the lookup.
+      path: The path of the binary being found.
+
+    Returns:
+      The full path to the binary.
+
+    Raises:
+      RuntimeError: If the path is not present in the runfiles, or if the adjusted path does not
+      exist on the filesystem.
+    """
+
     if platform.system() == "Windows":
         path = path + ".exe"
     binary = r.Rlocation(path)
@@ -37,6 +51,17 @@ def lookup_binary(r, path):
     return binary
 
 def apply_proguard(srcs, deps, proguard_spec, output_jar):
+    """Call proguard on the given source jars with the spec.
+
+    Args:
+      srcs: The source jars to be modified.
+      deps: Dependency jars needed to resolve the source jars.
+      proguard_spec: The path to the proguard spec file describing what modifications to make.
+      output_jar: The path to write the resulting modified jar file to.
+
+    Raises:
+      RuntimeError: When the proguard binary fails, includes the stdout and stderr.
+    """
 
     # Set up runfiles and call the proguard binary.
     r = Runfiles.Create()
@@ -53,7 +78,7 @@ def apply_proguard(srcs, deps, proguard_spec, output_jar):
     env = os.environ.copy()
     env.update(r.EnvVars())
     #print("Running proguard: %s" % " ".join(command))
-    p = subprocess.run(command, capture_output=True, env=env)
+    p = subprocess.run(command, capture_output=True, env=env, check = False)
 
     if p.returncode != 0:
         message = f"Proguard failed ({p.returncode})"
@@ -65,11 +90,18 @@ def apply_proguard(srcs, deps, proguard_spec, output_jar):
             message += f"\n  stderr:\n{stderr}"
         raise RuntimeError(message)
 
-def reset_timestamps(input, output, timestamp):
+def reset_timestamps(input_jar, output_jar, timestamp):
+    """Rewrite the given jar file to reset all timestamps to a known value.
+
+    Args:
+      input_jar: The jar file to be modified.
+      output_jar: The path to write the destination jar to.
+      timestamp: The known timestamp to modify the output_jar with.
+    """
     #print("Resetting timestamps in %s to %s, writing to %s" % (input, timestamp, output))
 
-    with zipfile.ZipFile(input, mode="r") as src:
-        with zipfile.ZipFile(output, mode="w") as dest:
+    with zipfile.ZipFile(input_jar, mode="r") as src:
+        with zipfile.ZipFile(output_jar, mode="w") as dest:
             for info in src.infolist():
                 #print(f"Filename: {info.filename}")
                 #print(f"  Modified: {datetime.datetime(*info.date_time)}")

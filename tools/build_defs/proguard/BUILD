@@ -1,7 +1,7 @@
 load("@rules_java//java:defs.bzl", "java_binary")
 load("@rules_python//python:py_binary.bzl", "py_binary")
 
-licenses(["notice"])  # Apache 2.0
+package(default_applicable_licenses = ["//:license"])
 
 filegroup(
     name = "srcs",
