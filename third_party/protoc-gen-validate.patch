@@ -1,0 +1,13 @@
+diff --git a/bazel/protobuf.bzl b/bazel/protobuf.bzl
+index 08d9d56..9f3826e 100644
+--- a/bazel/protobuf.bzl
++++ b/bazel/protobuf.bzl
+@@ -1,5 +1,7 @@
+ load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
+-load("@bazel_tools//tools/jdk:toolchain_utils.bzl", "find_java_runtime_toolchain", "find_java_toolchain")
++load("@bazel_tools//tools/jdk:toolchain_utils.bzl", "find_java_toolchain")
++load("@rules_java//java/common:java_common.bzl", "java_common")
++load("@rules_java//java/common:java_info.bzl", "JavaInfo")
+ load("@rules_proto//proto:defs.bzl", "ProtoInfo")
+ 
+ # Borrowed from https://github.com/grpc/grpc-java/blob/v1.28.0/java_grpc_library.bzl#L59

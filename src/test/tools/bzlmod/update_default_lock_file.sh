@@ -36,7 +36,6 @@ function generate_lock_file() {
 
   cd "${tmpdir}"
   touch MODULE.bazel
-  touch BUILD
   bazel=$(rlocation io_bazel/src/bazel)
 
   echo "Running: $bazel --batch --ignore_all_rc_files mod deps $@"
