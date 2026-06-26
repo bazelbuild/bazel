@@ -439,6 +439,16 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
     return result.build();
   }
 
+  /** Returns true if the URL targets localhost (127.0.0.1, ::1, or localhost). */
+  private static boolean isLocalhostUrl(URI url) {
+    String host = url.getHost();
+    if (host == null) {
+      return false;
+    }
+    // URI.getHost() returns IPv6 literals without brackets (e.g. "::1" for "http://[::1]/").
+    return host.equalsIgnoreCase("localhost") || host.equals("127.0.0.1") || host.equals("::1");
+  }
+
   private static ImmutableList<URI> getUrls(
       Object urlOrList, boolean ensureNonEmpty, boolean checksumGiven)
       throws RepositoryFunctionException, EvalException {
@@ -465,7 +475,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
             new IOException("Unsupported protocol: " + url.getScheme()), Transience.PERSISTENT);
       }
       if (!checksumGiven) {
-        if (!Ascii.equalsIgnoreCase("http", url.getScheme())) {
+        if (!Ascii.equalsIgnoreCase("http", url.getScheme()) || isLocalhostUrl(url)) {
           urls.add(url);
         }
       } else {
@@ -815,6 +825,18 @@ When <code>sha256</code> or <code>integrity</code> is user specified, setting an
             /* ensureNonEmpty= */ !allowFail,
             /* checksumGiven= */ !Strings.isNullOrEmpty(sha256)
                 || !Strings.isNullOrEmpty(integrity));
+    if (allowFail && urls.isEmpty()) {
+      // All URLs were filtered out (e.g. plain http without checksum for non-localhost URLs).
+      // Return a failed struct immediately rather than attempting a download with no URLs.
+      ImmutableMap<String, Object> struct =
+          ImmutableMap.of(
+              "success",
+              false,
+              "error",
+              "No URLs left after removing plain http URLs due to missing checksum."
+                  + " Please provide either a checksum or an https download location.");
+      return StarlarkInfo.create(StructProvider.STRUCT, struct);
+    }
     Optional<Checksum> checksum = null;
     RepositoryFunctionException checksumValidation = null;
     try {
@@ -1089,6 +1111,18 @@ Strip the given number of leading components from file paths on extraction. Only
             /* ensureNonEmpty= */ !allowFail,
             /* checksumGiven= */ !Strings.isNullOrEmpty(sha256)
                 || !Strings.isNullOrEmpty(integrity));
+    if (allowFail && urls.isEmpty()) {
+      // All URLs were filtered out (e.g. plain http without checksum for non-localhost URLs).
+      // Return a failed struct immediately rather than attempting a download with no URLs.
+      ImmutableMap<String, Object> struct =
+          ImmutableMap.of(
+              "success",
+              false,
+              "error",
+              "No URLs left after removing plain http URLs due to missing checksum."
+                  + " Please provide either a checksum or an https download location.");
+      return StarlarkInfo.create(StructProvider.STRUCT, struct);
+    }
     Optional<Checksum> checksum;
     RepositoryFunctionException checksumValidation = null;
     try {
