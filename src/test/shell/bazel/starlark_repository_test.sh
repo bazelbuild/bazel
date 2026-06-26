@@ -1745,18 +1745,40 @@ EOF
   expect_not_log "authrepo is being evaluated"
 }
 
-function test_disallow_unverified_http() {
+function test_localhost_http_without_checksum() {
   mkdir x
   echo 'exports_files(["file.txt"])' > x/BUILD
   echo 'Hello World' > x/file.txt
   tar cvf x.tar x
   sha256="$(sha256sum x.tar | head -c 64)"
   serve_file x.tar
-  cat > MODULE.bazel <<EOF
-http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-http_archive(
+
+  # Localhost (127.0.0.1) is exempt from the http+checksum requirement,
+  # so downloading without a checksum should succeed.
+  # We use a custom repository rule instead of http_archive because we need
+  # rctx.download() with allow_fail=True to verify the URL passes filtering.
+  cat > $(setup_module_dot_bazel) <<EOF
+local_http = use_repo_rule("//:local_http.bzl", "local_http")
+local_http(
   name="ext",
   url = "http://127.0.0.1:$nc_port/x.tar",
+)
+EOF
+  cat > local_http.bzl <<'EOF'
+def _impl(rctx):
+  result = rctx.download(
+    url = rctx.attr.url,
+    output = "x.tar",
+    allow_fail = True,
+  )
+  if not result.success:
+    fail("Download failed: " + str(result))
+  rctx.extract("x.tar")
+  rctx.delete("x.tar")
+
+local_http = repository_rule(
+  implementation = _impl,
+  attrs = {"url": attr.string(mandatory = True)},
 )
 EOF
   cat > BUILD <<'EOF'
@@ -1767,19 +1789,51 @@ genrule(
   cmd = "cp $< $@",
 )
 EOF
+  bazel build //:it || fail "Expected success for localhost http without checksum"
+
+  # Non-localhost http without checksum should still be rejected.
+  bazel clean --expunge
+  cat > $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+  name="ext",
+  url = "http://nonlocalhost.example.com:$nc_port/x.tar",
+  build_file_content = "exports_files([\"file.txt\"])",
+  strip_prefix = "x",
+)
+EOF
+  cat > BUILD <<'EOF'
+genrule(
+  name = "it",
+  srcs = ["@ext//:file.txt"],
+  outs = ["it.txt"],
+  cmd = "cp $< $@",
+)
+EOF
   bazel build //:it > "${TEST_log}" 2>&1 && fail "Expected failure" || :
   expect_log 'plain http.*missing checksum'
 
-  # After adding a good checksum, we expect success
-  ed MODULE.bazel <<EOF
-/url
-a
-sha256 = "$sha256",
-.
-w
-q
+  # http with a checksum should always succeed (even non-localhost).
+  bazel clean --expunge
+  cat > $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+  name="ext",
+  url = "http://127.0.0.1:$nc_port/x.tar",
+  sha256 = "$sha256",
+  build_file_content = "exports_files([\"file.txt\"])",
+  strip_prefix = "x",
+)
 EOF
-  bazel build //:it || fail "Expected success one the checksum is given"
+  cat > BUILD <<'EOF'
+genrule(
+  name = "it",
+  srcs = ["@ext//:file.txt"],
+  outs = ["it.txt"],
+  cmd = "cp $< $@",
+)
+EOF
+  bazel build //:it || fail "Expected success when checksum is provided"
 
 }
 
