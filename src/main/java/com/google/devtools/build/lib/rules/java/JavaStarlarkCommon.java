@@ -201,7 +201,8 @@ public class JavaStarlarkCommon
       boolean enableJSpecify,
       boolean enableDirectClasspath,
       Sequence<?> additionalInputs,
-      Sequence<?> additionalOutputs)
+      Sequence<?> additionalOutputs,
+      Sequence<?> directDepJarsToVerify)
       throws EvalException,
           TypeException,
           RuleErrorException,
@@ -217,11 +218,25 @@ public class JavaStarlarkCommon
             .nativeHeader(nativeHeader == Starlark.NONE ? null : (Artifact) nativeHeader)
             .manifestProto(manifestProto)
             .build();
+    ImmutableList.Builder<Artifact> directDepJarsToVerifyBuilder = ImmutableList.builder();
+    ImmutableList.Builder<String> directDepLabelsToVerifyBuilder = ImmutableList.builder();
+    for (Object obj : Sequence.cast(directDepJarsToVerify, Object.class, "direct_dep_jars_to_verify")) {
+      if (obj instanceof StarlarkInfo struct) {
+        Artifact jar = (Artifact) struct.getValue("jar");
+        String label = (String) struct.getValue("label");
+        if (jar != null && label != null) {
+          directDepJarsToVerifyBuilder.add(jar);
+          directDepLabelsToVerifyBuilder.add(label);
+        }
+      }
+    }
     JavaTargetAttributes.Builder attributesBuilder =
         new JavaTargetAttributes.Builder()
             .addSourceJars(Sequence.cast(sourceJars, Artifact.class, "source_jars"))
             .addSourceFiles(Depset.noneableCast(sourceFiles, Artifact.class, "sources").toList())
             .addDirectJars(directJars.getSet(Artifact.class))
+            .addDirectDepJarsToVerify(
+                directDepJarsToVerifyBuilder.build(), directDepLabelsToVerifyBuilder.build())
             .setCompileTimeClassPathEntriesWithPrependedDirectJars(
                 compileTimeClasspath.getSet(Artifact.class))
             .addClassPathResources(
@@ -413,6 +428,11 @@ public class JavaStarlarkCommon
   public Sequence<?> tokenizeJavacOpts(Sequence<?> opts) throws EvalException {
     return StarlarkList.immutableCopyOf(
         JavaHelper.tokenizeJavaOptions(Sequence.noneableCast(opts, String.class, "opts")));
+  }
+
+  @Override
+  public boolean isUnusedDepsSupported(StarlarkThread thread) throws EvalException {
+    return true;
   }
 
   static boolean isInstanceOfProvider(Object obj, Provider provider) {

@@ -524,6 +524,11 @@ public interface JavaCommonApi<
         @Param(name = "enable_direct_classpath", defaultValue = "True", named = true),
         @Param(name = "additional_inputs", defaultValue = "[]", named = true),
         @Param(name = "additional_outputs", defaultValue = "[]", named = true),
+        @Param(
+            name = "direct_dep_jars_to_verify",
+            defaultValue = "[]",
+            named = true,
+            positional = false),
       })
   void createCompilationAction(
       StarlarkRuleContextT ctx,
@@ -553,7 +558,8 @@ public interface JavaCommonApi<
       boolean enableJSpecify,
       boolean enableDirectClasspath,
       Sequence<?> additionalInputs,
-      Sequence<?> additionalOutputs)
+      Sequence<?> additionalOutputs,
+      Sequence<?> directDepJarsToVerify)
       throws EvalException,
           TypeException,
           RuleErrorException,
@@ -697,4 +703,12 @@ public interface JavaCommonApi<
       documented = false,
       parameters = {@Param(name = "opts")})
   Sequence<?> tokenizeJavacOpts(Sequence<?> opts) throws EvalException, InterruptedException;
+
+  @StarlarkMethod(
+      name = "is_unused_deps_supported",
+      documented = false,
+      useStarlarkThread = true)
+  default boolean isUnusedDepsSupported(StarlarkThread thread) throws EvalException {
+    return false;
+  }
 }

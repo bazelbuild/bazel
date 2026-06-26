@@ -92,6 +92,8 @@ public final class DependencyModule {
   private final Set<String> exemptGenerators;
   private final Set<PackageSymbol> packages;
   @Nonnull private final Path workDir;
+  private final Map<Path, String> directDepJarsToVerify;
+  private final Set<String> allDeclaredLabels;
 
   DependencyModule(
       StrictJavaDeps strictJavaDeps,
@@ -104,7 +106,9 @@ public final class DependencyModule {
       Path outputDepsProtoFile,
       FixMessage fixMessage,
       Set<String> exemptGenerators,
-      @Nonnull Path workDir) {
+      @Nonnull Path workDir,
+      Map<Path, String> directDepJarsToVerify,
+      Set<String> allDeclaredLabels) {
     this.strictJavaDeps = strictJavaDeps;
     this.fixDepsTool = fixDepsTool;
     this.directJars = directJars;
@@ -117,8 +121,9 @@ public final class DependencyModule {
     this.platformJars = platformJars;
     this.fixMessage = fixMessage;
     this.exemptGenerators = exemptGenerators;
-    this.packages = new HashSet<>();
     this.workDir = requireNonNull(workDir);
+    this.directDepJarsToVerify = directDepJarsToVerify;
+    this.allDeclaredLabels = allDeclaredLabels;
   }
 
   /** Returns the sandbox working directory that output paths are relativized against. */
@@ -140,6 +145,14 @@ public final class DependencyModule {
     Path relative =
         !workDir.toString().isEmpty() && path.startsWith(workDir) ? workDir.relativize(path) : path;
     return relative.toString().replace(File.separatorChar, '/');
+  }
+
+  public Map<Path, String> getDirectDepJarsToVerify() {
+    return directDepJarsToVerify;
+  }
+
+  public Set<String> getAllDeclaredLabels() {
+    return allDeclaredLabels;
   }
 
   /** Returns a plugin to be enabled in the compiler. */
@@ -387,6 +400,9 @@ public final class DependencyModule {
       }
     }
 
+    private final Map<Path, String> directDepJarsToVerify = new HashMap<>();
+    private final Set<String> allDeclaredLabels = new HashSet<>();
+
     /**
      * Constructs the DependencyModule, guaranteeing that the maps are never null (they may be
      * empty), and the default strictJavaDeps setting is OFF.
@@ -401,16 +417,25 @@ public final class DependencyModule {
           strictClasspathMode,
           depsArtifacts,
           platformJars,
-          targetLabel,
-          outputDepsProtoFile,
-          fixMessage,
-          exemptGenerators,
-          workDir);
+          workDir,
+          directDepJarsToVerify,
+          allDeclaredLabels);
     }
 
     @CanIgnoreReturnValue
     public Builder setWorkDir(@Nonnull Path workDir) {
       this.workDir = workDir;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder addDirectDepJarsToVerify(List<Path> jars, List<String> labels) {
+      for (int i = 0; i < jars.size(); i++) {
+        Path jar = jars.get(i);
+        String label = labels.get(i);
+        this.directDepJarsToVerify.put(jar, label);
+        this.allDeclaredLabels.add(label);
+      }
       return this;
     }
 

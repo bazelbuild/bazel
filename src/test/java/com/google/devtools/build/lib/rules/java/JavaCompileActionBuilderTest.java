@@ -22,6 +22,7 @@ import static com.google.devtools.build.lib.rules.java.JavaCompileActionTestHelp
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandAction;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
@@ -280,5 +281,77 @@ public final class JavaCompileActionBuilderTest extends BuildViewTestCase {
       throws Exception {
     return getInputs(compileAction, getDirectJars(compileAction)).stream()
         .filter(a -> a.getFilename().endsWith("-hjar.jar"));
+  }
+
+  @Test
+  public void testUnusedDepsVerifyFlags() throws Exception {
+    scratch.file("third_party/bazel_rules/rules_java/BUILD");
+    scratch.file(
+        "third_party/bazel_rules/rules_java/rule.bzl",
+        """
+        load("@rules_java//java:defs.bzl", "JavaInfo", "JavaPluginInfo", rules_java_common = "java_common")
+
+        def _my_rule_impl(ctx):
+            output = ctx.outputs.jar
+            manifest = ctx.actions.declare_file(ctx.label.name + ".manifest")
+            internal_common = java_common.internal_DO_NOT_USE()
+            dep = ctx.attr.deps[0]
+            compile_jar = dep[JavaInfo].compile_jars.to_list()[0]
+            internal_common.create_compilation_action(
+                ctx,
+                ctx.attr._java_toolchain[rules_java_common.JavaToolchainInfo],
+                output,
+                manifest,
+                JavaPluginInfo(runtime_deps = []),
+                depset([compile_jar]),
+                depset([compile_jar]),
+                depset(),
+                depset(),
+                depset(),
+                depset(),
+                "ERROR",
+                ctx.label,
+                direct_dep_jars_to_verify = [struct(jar = compile_jar, label = str(dep.label))],
+            )
+            return [DefaultInfo(files = depset([output]))]
+
+        my_rule = rule(
+            implementation = _my_rule_impl,
+            outputs = {
+                "jar": "%{name}.jar",
+            },
+            attrs = {
+                "deps": attr.label_list(),
+                "_java_toolchain": attr.label(default = "@bazel_tools//tools/jdk:current_java_toolchain"),
+            },
+            fragments = ["java"],
+            toolchains = ["@bazel_tools//tools/jdk:toolchain_type"],
+        )
+        """);
+    scratch.file(
+        "java/com/google/test/BUILD",
+        """
+        load("@rules_java//java:defs.bzl", "java_library")
+        load("//third_party/bazel_rules/rules_java:rule.bzl", "my_rule")
+
+        java_library(
+            name = "dep",
+            srcs = ["Dep.java"],
+        )
+
+        my_rule(
+            name = "a",
+            deps = [":dep"],
+        )
+        """);
+
+    JavaCompileAction compileAction =
+        (JavaCompileAction) getGeneratingActionForLabel("//java/com/google/test:a.jar");
+    List<String> command = getJavacArguments(compileAction);
+    assertThat(command).containsAtLeast("--direct_dep_jar", "--direct_dep_label");
+    int jarIdx = command.indexOf("--direct_dep_jar");
+    int labelIdx = command.indexOf("--direct_dep_label");
+    assertThat(command.get(jarIdx + 1)).contains("libdep");
+    assertThat(command.get(labelIdx + 1)).endsWith("//java/com/google/test:dep");
   }
 }

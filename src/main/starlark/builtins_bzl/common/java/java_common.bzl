@@ -36,6 +36,7 @@ def _internal_exports():
         incompatible_disable_non_executable_java_binary = _java_common_internal.incompatible_disable_non_executable_java_binary,
         incompatible_java_info_merge_runtime_module_flags = _java_common_internal._incompatible_java_info_merge_runtime_module_flags,
         target_kind = _java_common_internal.target_kind,
+        is_unused_deps_supported = _java_common_internal.is_unused_deps_supported,
     )
 
 java_common = struct(internal_DO_NOT_USE = _internal_exports)
