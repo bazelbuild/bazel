@@ -949,6 +949,18 @@ public class RemoteExecutionService {
 
   private void createSymlinks(Iterable<SymlinkMetadata> symlinks) throws IOException {
     for (SymlinkMetadata symlink : symlinks) {
+      // Ensure the symlink is materialized inside the exec root. The local path is derived from an
+      // ActionResult output symlink path via execRoot.getRelative(...), which returns an absolute
+      // path verbatim, so without this check an absolute (or otherwise escaping) symlink path would
+      // be created outside the output tree. Output files already enforce containment via
+      // file.path.relativeTo(execRoot) in downloadOutputs(); apply the same guarantee to output
+      // symlinks (including tree-nested symlinks, which also flow through here).
+      if (!symlink.path().startsWith(execRoot)) {
+        throw new IOException(
+            String.format(
+                "Failed to create symlink %s: the output path escapes the output tree %s",
+                symlink.path(), execRoot));
+      }
       Preconditions.checkNotNull(
               symlink.path().getParentDirectory(),
               "Failed creating directory and parents for %s",
