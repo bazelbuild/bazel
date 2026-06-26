@@ -168,7 +168,10 @@ public class ZipDecompressor implements Decompressor {
                 + new String(buffer, UTF_8));
       }
 
-      symlinks.put(outputPath, maybeDeprefixSymlink(buffer, prefix, destinationDirectory));
+      symlinks.put(
+          outputPath,
+          maybeDeprefixSymlink(
+              buffer, prefix, destinationDirectory, /* forceExtractRootRelative= */ false));
     } else {
       try (InputStream input = reader.getInputStream(entry);
           OutputStream output = outputPath.getOutputStream()) {
