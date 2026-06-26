@@ -249,7 +249,9 @@ public class JavaStarlarkCommon
         directDepJarsToVerifyBuilder.add(jar);
         directDepLabelsToVerifyBuilder.add(label);
       } else {
-        throw Starlark.errorf("Expected direct_dep_jars_to_verify to contain structs, but got: %s", Starlark.type(obj));
+        throw Starlark.errorf(
+            "Expected direct_dep_jars_to_verify to contain structs with 'jar' (Artifact) and 'label' (string) fields, but got: %s",
+            Starlark.type(obj));
       }
     }
     JavaTargetAttributes.Builder attributesBuilder =

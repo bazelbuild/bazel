@@ -486,6 +486,7 @@ public final class JavaCompileActionBuilderTest extends BuildViewTestCase {
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//java/com/google/test:a");
-    assertContainsEvent("Expected direct_dep_jars_to_verify to contain structs, but got: string");
+    assertContainsEvent(
+        "Expected direct_dep_jars_to_verify to contain structs with 'jar' (Artifact) and 'label' (string) fields, but got: string");
   }
 }
