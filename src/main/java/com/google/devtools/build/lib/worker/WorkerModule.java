@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
-import com.google.devtools.build.lib.exec.RunfilesTreeUpdater;
 import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.runtime.BlazeModule;
@@ -239,7 +238,7 @@ public class WorkerModule extends BlazeModule {
             localEnvProvider,
             env.getBlazeWorkspace().getBinTools(),
             env.getLocalResourceManager(),
-            RunfilesTreeUpdater.forCommandEnvironment(env),
+            env.getRunfilesTreeUpdater(),
             env.getOptions().getOptions(WorkerOptions.class),
             WorkerProcessMetricsCollector.instance(),
             env.getClock());
