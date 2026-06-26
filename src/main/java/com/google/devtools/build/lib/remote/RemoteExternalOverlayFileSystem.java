@@ -661,6 +661,11 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
 
     @Override
     public synchronized InputStream getInputStream(PathFragment path) throws IOException {
+      // .bzl and REPO.bazel files are prefetched to the native file system during injection, but
+      // only if they are regular files, a symlink with such a name is kept in the in-memory overlay
+      // only. We thus need to follow symlinks before attempting to read a supposedly prefetched
+      // file.
+      path = resolveSymbolicLinks(path).asFragment();
       if (shouldPrefetch(path)) {
         return nativeFs.getInputStream(path);
       }
