@@ -210,7 +210,8 @@ public class CppCompileAction extends AbstractAction
   private NestedSet<Artifact> topLevelModules;
 
   private final NestedSet<Artifact> moduleFiles;
-  private final Artifact modmapInputFile;
+  @Nullable private final Artifact modmapFile;
+  @Nullable private final Artifact modmapInputFile;
 
   /**
    * Creates a new action to compile C/C++ source files.
@@ -270,7 +271,8 @@ public class CppCompileAction extends AbstractAction
       @Nullable Artifact grepIncludes,
       ImmutableList<Artifact> additionalOutputs,
       NestedSet<Artifact> moduleFiles,
-      Artifact modmapInputFile) {
+      @Nullable Artifact modmapFile,
+      @Nullable Artifact modmapInputFile) {
     super(
         owner,
         mandatoryInputs,
@@ -327,6 +329,7 @@ public class CppCompileAction extends AbstractAction
     }
     this.allowedDerivedInputs = allowedDerivedInputsBuilder.build();
     this.moduleFiles = moduleFiles;
+    this.modmapFile = modmapFile;
     this.modmapInputFile = modmapInputFile;
   }
 
@@ -360,7 +363,8 @@ public class CppCompileAction extends AbstractAction
       FeatureConfiguration featureConfiguration,
       ImmutableList<PathFragment> builtInIncludeDirectories,
       NestedSet<Artifact> moduleFiles,
-      Artifact modmapInputFile) {
+      @Nullable Artifact modmapFile,
+      @Nullable Artifact modmapInputFile) {
     super(owner, mandatoryInputs, rawOutputs);
     this.gcnoFile = gcnoFile;
     this.sourceFile = sourceFile;
@@ -386,6 +390,7 @@ public class CppCompileAction extends AbstractAction
     this.featureConfiguration = featureConfiguration;
     this.builtInIncludeDirectories = builtInIncludeDirectories;
     this.moduleFiles = moduleFiles;
+    this.modmapFile = modmapFile;
     this.modmapInputFile = modmapInputFile;
   }
 
@@ -1830,10 +1835,37 @@ public class CppCompileAction extends AbstractAction
             .build(),
         getPermittedSystemIncludePrefixes(execRoot),
         getAllowedDerivedInputs(),
+        getIgnorableDepPaths(),
         execRoot,
         artifactResolver,
         siblingRepositoryLayout,
         pathMapper);
+  }
+
+  /**
+   * Paths that may appear in compiler-generated dependency files but are not discovered compile-time
+   * inputs: the source file, action outputs, and C++20 module mapper files for this action.
+   *
+   * <p>Only GCC emits these paths in {@code .d} files for C++20 module builds (Clang does not).
+   * This set is therefore only populated when the {@code cpp_modules} feature is enabled;
+   * otherwise an empty set is returned so standard dependency-file validation is unchanged.
+   */
+  private ImmutableSet<PathFragment> getIgnorableDepPaths() {
+    if (!featureConfiguration.isEnabled(CppRuleClasses.CPP_MODULES)) {
+      return ImmutableSet.of();
+    }
+    ImmutableSet.Builder<PathFragment> builder = ImmutableSet.builder();
+    builder.add(getSourceFile().getExecPath());
+    for (Artifact output : getOutputs()) {
+      builder.add(output.getExecPath());
+    }
+    if (modmapFile != null) {
+      builder.add(modmapFile.getExecPath());
+    }
+    if (modmapInputFile != null) {
+      builder.add(modmapInputFile.getExecPath());
+    }
+    return builder.build();
   }
 
   @VisibleForTesting
@@ -1853,6 +1885,7 @@ public class CppCompileAction extends AbstractAction
         processDepset(actionExecutionContext, execRoot, dotDContents).getDependencies(),
         getPermittedSystemIncludePrefixes(execRoot),
         getAllowedDerivedInputs(),
+        getIgnorableDepPaths(),
         execRoot,
         artifactResolver,
         siblingRepositoryLayout,

@@ -18,6 +18,7 @@ import static com.google.devtools.build.lib.analysis.constraints.ConstraintConst
 
 import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
@@ -72,6 +73,7 @@ final class HeaderDiscovery {
       Collection<Path> dependencies,
       List<Path> permittedSystemIncludePrefixes,
       NestedSet<Artifact> allowedDerivedInputs,
+      ImmutableSet<PathFragment> ignorableDepPaths,
       Path execRoot,
       ArtifactResolver artifactResolver,
       boolean siblingRepositoryLayout,
@@ -107,6 +109,7 @@ final class HeaderDiscovery {
         permittedSystemIncludePrefixes,
         regularDerivedArtifacts,
         treeArtifacts,
+        ignorableDepPaths,
         execRoot,
         artifactResolver,
         siblingRepositoryLayout,
@@ -121,6 +124,7 @@ final class HeaderDiscovery {
       List<Path> permittedSystemIncludePrefixes,
       Map<PathFragment, Artifact> regularDerivedArtifacts,
       Map<PathFragment, SpecialArtifact> treeArtifacts,
+      ImmutableSet<PathFragment> ignorableDepPaths,
       Path execRoot,
       ArtifactResolver artifactResolver,
       boolean siblingRepositoryLayout,
@@ -190,6 +194,9 @@ final class HeaderDiscovery {
           absolutePathProblems.add(execPathFragment.getPathString());
           continue;
         }
+      }
+      if (shouldIgnoreDepPath(execPathFragment, ignorableDepPaths)) {
+        continue;
       }
       Collection<? extends Artifact> resolvedArtifacts = ImmutableList.of();
       Artifact derivedArtifact = regularDerivedArtifacts.get(execPathFragment);
@@ -280,6 +287,27 @@ final class HeaderDiscovery {
           action);
     }
     return inputs.build();
+  }
+
+  /**
+   * Returns true for dependency-file paths that are not compile-time inputs, including caller-
+   * supplied ignorable paths and, when that set is non-empty (GCC C++20 module builds), Makefile
+   * metadata from dependency files (e.g. {@code foo.c++-module}, {@code .PHONY}, order-only {@code |}
+   * markers).
+   */
+  private static boolean shouldIgnoreDepPath(
+      PathFragment execPathFragment, ImmutableSet<PathFragment> ignorableDepPaths) {
+    if (ignorableDepPaths.contains(execPathFragment)) {
+      return true;
+    }
+    if (ignorableDepPaths.isEmpty()) {
+      return false;
+    }
+    String baseName = execPathFragment.getBaseName();
+    if (baseName.equals(".PHONY") || baseName.equals("|")) {
+      return true;
+    }
+    return baseName.endsWith(".c++-module");
   }
 
   @Nullable

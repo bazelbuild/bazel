@@ -2292,6 +2292,106 @@ EOF
   expect_log "17 disk cache hit"
 }
 
+function test_cpp20_modules_with_gcc() {
+  if [[ "$(uname -s)" == "Darwin" ]]; then
+    return 0
+  fi
+
+  local gcc_compiler=
+  for candidate in gcc g++-16 g++-15 g++-14; do
+    if ! type -P "$candidate" >/dev/null 2>&1; then
+      continue
+    fi
+    local version=$("$candidate" -dumpversion 2>/dev/null | cut -d. -f1)
+    if [[ -z "$version" || "$version" -lt 14 ]]; then
+      continue
+    fi
+    if echo 'export module m;' | "$candidate" -std=c++20 -fmodules -fsyntax-only -x c++ - \
+        >/dev/null 2>&1; then
+      gcc_compiler=$candidate
+      break
+    fi
+  done
+  if [[ -z "$gcc_compiler" ]]; then
+    return 0
+  fi
+
+  add_rules_cc "MODULE.bazel"
+
+  cat > BUILD.bazel <<'EOF'
+load("@rules_cc//cc:defs.bzl", "cc_library", "cc_binary")
+
+package(features = ["cpp_modules"])
+
+cc_library(
+  name = "base",
+  module_interfaces = ["base.cppm"],
+)
+cc_library(
+  name = "foo",
+  module_interfaces = ["foo.cppm"],
+  deps = [":base"]
+)
+cc_library(
+  name = "bar",
+  module_interfaces = ["bar.cppm"],
+  deps = [":base"]
+)
+cc_binary(
+  name = "main",
+  srcs = ["main.cc"],
+  deps = [":foo", ":bar"]
+)
+EOF
+  cat > main.cc <<'EOF'
+import foo;
+import bar;
+
+void f() {
+  f_foo();
+  f_bar();
+}
+
+int main() {
+  f();
+  return 0;
+}
+EOF
+  cat > foo.cppm <<'EOF'
+export module foo;
+import base;
+
+export void f_foo() {
+  f_base();
+}
+EOF
+  cat > bar.cppm <<'EOF'
+export module bar;
+import base;
+
+export void f_bar() {
+  f_base();
+}
+EOF
+  cat > base.cppm <<'EOF'
+export module base;
+
+export void f_base() {
+}
+EOF
+
+  bazel build //:main --experimental_cpp_modules --repo_env=CC="${gcc_compiler}" \
+    --copt=-std=c++20 --disk_cache=disk &> $TEST_log \
+    || fail "Expected build C++20 Modules success with compiler '${gcc_compiler}'"
+
+  # Verify that the build can hit the cache without action cycles.
+  bazel clean || fail "Expected clean success"
+  bazel build //:main --experimental_cpp_modules --repo_env=CC="${gcc_compiler}" \
+    --copt=-std=c++20 --disk_cache=disk &> $TEST_log \
+    || fail "Expected build C++20 Modules success with compiler '${gcc_compiler}'"
+  expect_log "17 disk cache hit"
+}
+
 function test_external_repo_lto() {
   add_rules_cc "MODULE.bazel"
   REPO_PATH=$TEST_TMPDIR/repo

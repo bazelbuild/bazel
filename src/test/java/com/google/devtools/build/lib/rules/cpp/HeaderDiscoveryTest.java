@@ -25,6 +25,7 @@ import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -206,6 +207,7 @@ public final class HeaderDiscoveryTest {
             ImmutableList.of(dep),
             /* permittedSystemIncludePrefixes= */ ImmutableList.of(systemIncludeDir),
             NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+            ImmutableSet.of(),
             execRoot,
             artifactResolver,
             /* siblingRepositoryLayout= */ false,
@@ -231,6 +233,7 @@ public final class HeaderDiscoveryTest {
             ImmutableList.of(dep),
             /* permittedSystemIncludePrefixes= */ ImmutableList.of(systemIncludeDir),
             NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+            ImmutableSet.of(),
             execRoot,
             artifactResolver,
             /* siblingRepositoryLayout= */ false,
@@ -254,6 +257,7 @@ public final class HeaderDiscoveryTest {
             ImmutableList.of(execRoot.getRelative("pkg/foo.cc")),
             /* permittedSystemIncludePrefixes= */ ImmutableList.of(),
             NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+            ImmutableSet.of(),
             execRoot,
             artifactResolver,
             /* siblingRepositoryLayout= */ false,
@@ -345,6 +349,102 @@ public final class HeaderDiscoveryTest {
     assertThat(result.toList()).containsExactly(variant2);
   }
 
+  @Test
+  public void gccModuleDepfile_skipsActionOutputsAndMakefileNoise() throws Exception {
+    ArtifactResolver artifactResolver = mock(ArtifactResolver.class);
+    when(artifactResolver.resolveSourceArtifact(any(), any())).thenReturn(null);
+
+    PathFragment objOutput =
+        PathFragment.create("bazel-out/k8-fastbuild/bin/_objs/demo/foo.pic.o");
+    PathFragment pcmOutput =
+        PathFragment.create("bazel-out/k8-fastbuild/bin/_objs/demo/foo.pic.pcm");
+    PathFragment modmapPath =
+        PathFragment.create("bazel-out/k8-fastbuild/bin/_objs/demo/foo.pic.modmap");
+    SourceArtifact sourceFile = sourceArtifact("foo.cppm");
+
+    ImmutableList<Path> dependencies =
+        ImmutableList.of(
+            execRoot.getRelative("bazel-out/k8-fastbuild/bin/_objs/demo/foo.pic.o"),
+            execRoot.getRelative("bazel-out/k8-fastbuild/bin/_objs/demo/foo.pic.pcm"),
+            execRoot.getRelative("foo.cppm"),
+            fs.getPath("/usr/include/stdc-predef.h"),
+            execRoot.getRelative("bazel-out/k8-fastbuild/bin/_objs/demo/foo.pic.modmap"),
+            execRoot.getRelative("foo.c++-module"),
+            execRoot.getRelative("foo.c++-module"),
+            execRoot.getRelative("|"),
+            execRoot.getRelative("bazel-out/k8-fastbuild/bin/_objs/demo/foo.pic.o"));
+
+    NestedSet<Artifact> result =
+        HeaderDiscovery.discoverInputsFromDependencies(
+            nonWindowsAction(),
+            sourceFile,
+            /* shouldValidateInclusions= */ true,
+            dependencies,
+            /* permittedSystemIncludePrefixes= */ ImmutableList.of(fs.getPath("/usr/include")),
+            NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+            ImmutableSet.of(
+                objOutput,
+                pcmOutput,
+                sourceFile.getExecPath(),
+                modmapPath),
+            execRoot,
+            artifactResolver,
+            /* siblingRepositoryLayout= */ false,
+            PathMapper.NOOP);
+
+    assertThat(result.toList()).isEmpty();
+  }
+
+  @Test
+  public void gccModuleDepfile_doesNotSkipImportedModuleOutputs() throws Exception {
+    ArtifactResolver artifactResolver = mock(ArtifactResolver.class);
+    when(artifactResolver.resolveSourceArtifact(any(), any())).thenReturn(null);
+
+    Path importedModulePath = derivedRoot.getRelative("_objs/demo/bar.pic.pcm");
+    Artifact importedModuleArtifact =
+        ActionsTestUtil.createArtifact(derivedArtifactRoot, importedModulePath);
+
+    NestedSet<Artifact> result =
+        HeaderDiscovery.discoverInputsFromDependencies(
+            nonWindowsAction(),
+            sourceArtifact("main.cc"),
+            /* shouldValidateInclusions= */ true,
+            ImmutableList.of(importedModulePath),
+            /* permittedSystemIncludePrefixes= */ ImmutableList.of(),
+            NestedSetBuilder.create(Order.STABLE_ORDER, importedModuleArtifact),
+            /* ignorableDepPaths= */ ImmutableSet.of(
+                PathFragment.create("main.cc"),
+                PathFragment.create("derived/_objs/demo/main.pic.o")),
+            execRoot,
+            artifactResolver,
+            /* siblingRepositoryLayout= */ false,
+            PathMapper.NOOP);
+
+    assertThat(result.toList()).containsExactly(importedModuleArtifact);
+  }
+
+  @Test
+  public void gccModuleDepfile_makefileNoiseNotSkippedWhenIgnorableDepPathsEmpty() {
+    ArtifactResolver artifactResolver = mock(ArtifactResolver.class);
+    when(artifactResolver.resolveSourceArtifact(any(), any())).thenReturn(null);
+
+    assertThrows(
+        ActionExecutionException.class,
+        () ->
+            HeaderDiscovery.discoverInputsFromDependencies(
+                nonWindowsAction(),
+                sourceArtifact("foo.cppm"),
+                /* shouldValidateInclusions= */ true,
+                ImmutableList.of(execRoot.getRelative("|"), execRoot.getRelative(".PHONY")),
+                /* permittedSystemIncludePrefixes= */ ImmutableList.of(),
+                NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+                ImmutableSet.of(),
+                execRoot,
+                artifactResolver,
+                /* siblingRepositoryLayout= */ false,
+                PathMapper.NOOP));
+  }
+
   // Helpers
 
   private void checkHeaderInclusion(
@@ -360,6 +460,7 @@ public final class HeaderDiscoveryTest {
             dependencies,
             /* permittedSystemIncludePrefixes= */ ImmutableList.of(),
             includedHeaders,
+            ImmutableSet.of(),
             execRoot,
             artifactResolver,
             /* siblingRepositoryLayout= */ false,
@@ -379,6 +480,7 @@ public final class HeaderDiscoveryTest {
         dependencies,
         /* permittedSystemIncludePrefixes= */ ImmutableList.of(),
         allowedDerivedInputs,
+        ImmutableSet.of(),
         execRoot,
         artifactResolver,
         /* siblingRepositoryLayout= */ false,
