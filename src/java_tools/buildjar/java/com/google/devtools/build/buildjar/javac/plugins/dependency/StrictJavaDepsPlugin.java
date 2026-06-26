@@ -255,11 +255,14 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
       unusedLabels.removeAll(usedLabels);
       if (!unusedLabels.isEmpty()) {
         String targetLabel = dependencyModule.getTargetLabel();
-        for (String unusedLabel : unusedLabels) {
-          String msg = targetLabel != null
-              ? String.format("[unused-deps] Target '%s' is declared as a direct dependency of '%s' but is unused.", unusedLabel, targetLabel)
-              : String.format("[unused-deps] Target '%s' is declared as a direct dependency but is unused.", unusedLabel);
-          log.error(Position.NOPOS, Errors.ProcMessager(msg));
+        if (targetLabel != null) {
+          for (String unusedLabel : unusedLabels) {
+            String msg = String.format(
+                "[unused-deps] Target '%s' is declared as a direct dependency of '%s' but is unused.",
+                unusedLabel,
+                targetLabel);
+            log.error(Position.NOPOS, Errors.ProcMessager(msg));
+          }
         }
       }
     }
