@@ -1687,6 +1687,121 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
         os.path.exists(os.path.join(repo_dir, 'subdir/more_nested.bzl'))
     )
 
+  def testBzlSymlinkLoadedByBuildFile(self):
+    # Regression test for
+    # https://github.com/bazelbuild/bazel/issues/29656#issuecomment-4808145049.
+    #
+    # A repo's BUILD file loads a .bzl file that is a symlink. On a remote repo
+    # contents cache hit, the repo is injected into the overlay file system but
+    # not materialized on disk. Reads of .bzl (and REPO.bazel) files are
+    # redirected to the native file system on the assumption that they were
+    # prefetched during injection, but symlinks are not prefetched, only their
+    # target if they match the name pattern.
+    if self.IsWindows():
+      self.ScratchFile(
+          '.bazelrc',
+          ['startup --windows_enable_symlinks'],
+          mode='a',
+      )
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  rctx.file("BUILD", """',
+            'load(":helper.bzl", "the_name")',
+            'filegroup(name = the_name)',
+            '""")',
+            '  rctx.file("real_helper.bzl", \'the_name = "haha"\')',
+            '  rctx.symlink("real_helper.bzl", "helper.bzl")',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+
+    repo_dir = self.RepoDir('my_repo')
+
+    # First fetch: not cached
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:haha'])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertTrue(os.path.islink(os.path.join(repo_dir, 'helper.bzl')))
+
+    # After expunging: cached. The repo is injected but not materialized; the
+    # symlinked .bzl file loaded by the BUILD file must still be readable.
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:haha'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'helper.bzl')))
+
+  def testBzlSymlinkToOtherRepoLoadedByBuildFile(self):
+    # Regression test for
+    # https://github.com/bazelbuild/bazel/issues/29656#issuecomment-4808145049.
+    #
+    # Cross-repo variant of testBzlSymlinkLoadedByBuildFile.
+    if self.IsWindows():
+      self.ScratchFile(
+          '.bazelrc',
+          ['startup --windows_enable_symlinks'],
+          mode='a',
+      )
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'helper_repo = use_repo_rule("//:helper_repo.bzl", "helper_repo")',
+            'helper_repo(name = "helper_repo")',
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'helper_repo.bzl',
+        [
+            'def _helper_repo_impl(rctx):',
+            '  rctx.file("BUILD", "exports_files([\'helper.bzl\'])")',
+            '  rctx.file("helper.bzl", \'the_name = "haha"\')',
+            '  print("JUST FETCHED HELPER")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'helper_repo = repository_rule(_helper_repo_impl)',
+        ],
+    )
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  rctx.file("BUILD", """',
+            'load(":helper.bzl", "the_name")',
+            'filegroup(name = the_name)',
+            '""")',
+            '  rctx.symlink(Label("@helper_repo//:helper.bzl"), "helper.bzl")',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+
+    repo_dir = self.RepoDir('my_repo')
+
+    # First fetch: not cached
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:haha'])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertTrue(os.path.islink(os.path.join(repo_dir, 'helper.bzl')))
+
+    # After expunging: cached. my_repo is injected but not materialized; the
+    # cross-repo symlinked .bzl loaded by the BUILD file must still be readable.
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:haha'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'helper.bzl')))
+
   def testRun(self):
     self.ScratchFile(
         'MODULE.bazel',
