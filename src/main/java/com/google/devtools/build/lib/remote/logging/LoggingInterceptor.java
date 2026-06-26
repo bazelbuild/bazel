@@ -93,7 +93,9 @@ public class LoggingInterceptor implements ClientInterceptor {
     @SuppressWarnings("unchecked") // handler matches method, but that type is inexpressible
     LoggingHandler<ReqT, RespT> handler = selectHandler(method);
     if (handler != null) {
-      return new LoggingForwardingCall<>(call, handler, method);
+      // Capture the retrier's per-logical-call state (if any) while we are still running in the
+      // gRPC Context attached by the retrier, so onClose can hand the attempt entry back to it.
+      return new LoggingForwardingCall<>(call, handler, method, RetryLogState.KEY.get());
     } else {
       return call;
     }
@@ -116,14 +118,17 @@ public class LoggingInterceptor implements ClientInterceptor {
       extends ForwardingClientCall.SimpleForwardingClientCall<ReqT, RespT> {
     private final LoggingHandler<ReqT, RespT> handler;
     private final LogEntry.Builder entryBuilder;
+    @Nullable private final RetryLogState retryLogState;
 
     protected LoggingForwardingCall(
         ClientCall<ReqT, RespT> delegate,
         LoggingHandler<ReqT, RespT> handler,
-        MethodDescriptor<ReqT, RespT> method) {
+        MethodDescriptor<ReqT, RespT> method,
+        @Nullable RetryLogState retryLogState) {
       super(delegate);
       this.handler = handler;
       this.entryBuilder = LogEntry.newBuilder().setMethodName(method.getFullMethodName());
+      this.retryLogState = retryLogState;
     }
 
     @Override
@@ -151,12 +156,17 @@ public class LoggingInterceptor implements ClientInterceptor {
               entryBuilder.setEndTime(getCurrentTimestamp());
               entryBuilder.setStatus(makeStatusProto(status));
               entryBuilder.setDetails(handler.getDetails());
+              LogEntry entry = entryBuilder.build();
               try {
-                rpcLogFile.write(entryBuilder.build());
+                rpcLogFile.write(entry);
+                if (retryLogState != null) {
+                  // Hand this attempt's entry to the retrier so it can emit a terminal entry if the
+                  // logical call later exhausts its retries.
+                  retryLogState.recordAttempt(entry, rpcLogFile);
+                }
               } catch (RuntimeException e) {
                 // e.g. the log file is already closed.
-                logger.atWarning().withCause(e).log(
-                    "Unable to write RPC log entry for %s", entryBuilder.build());
+                logger.atWarning().withCause(e).log("Unable to write RPC log entry for %s", entry);
               }
               super.onClose(status, trailers);
             }

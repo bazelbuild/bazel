@@ -18,9 +18,14 @@ import static java.lang.Math.max;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.devtools.build.lib.remote.Retrier.ResultClassifier.Result;
+import com.google.devtools.build.lib.remote.logging.RemoteExecutionLog.LogEntry;
+import com.google.devtools.build.lib.remote.logging.RemoteExecutionLog.RetrySummary;
+import com.google.devtools.build.lib.remote.logging.RetryLogState;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
+import com.google.devtools.build.lib.util.io.MessageOutputStream;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
 import java.io.IOException;
@@ -31,6 +36,11 @@ import javax.annotation.Nullable;
 
 /** Specific retry logic for remote execution/caching. */
 public class RemoteRetrier extends Retrier {
+
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+
+  /** Whether to emit a terminal log entry on retry exhaustion (true iff --remote_grpc_log is set). */
+  private final boolean grpcLogEnabled;
 
   @Nullable
   private static Status fromException(Exception e) {
@@ -83,7 +93,8 @@ public class RemoteRetrier extends Retrier {
             : () -> RETRIES_DISABLED,
         resultClassifier,
         retryScheduler,
-        circuitBreaker);
+        circuitBreaker,
+        options.getRemoteGrpcLog() != null);
   }
 
   public RemoteRetrier(
@@ -91,7 +102,23 @@ public class RemoteRetrier extends Retrier {
       ResultClassifier resultClassifier,
       ListeningScheduledExecutorService retryScheduler,
       CircuitBreaker circuitBreaker) {
+    this(backoff, resultClassifier, retryScheduler, circuitBreaker, /* grpcLogEnabled= */ false);
+  }
+
+  /**
+   * Full constructor that carries the {@code grpcLogEnabled} seam. Reached via the {@link
+   * RemoteOptions} constructor in production (which derives the flag from {@code --remote_grpc_log})
+   * and used directly by same-package tests. Package-private so the seam is not part of the public
+   * API.
+   */
+  RemoteRetrier(
+      Supplier<Backoff> backoff,
+      ResultClassifier resultClassifier,
+      ListeningScheduledExecutorService retryScheduler,
+      CircuitBreaker circuitBreaker,
+      boolean grpcLogEnabled) {
     super(backoff, resultClassifier, retryScheduler, circuitBreaker);
+    this.grpcLogEnabled = grpcLogEnabled;
   }
 
   @VisibleForTesting
@@ -102,6 +129,7 @@ public class RemoteRetrier extends Retrier {
       CircuitBreaker circuitBreaker,
       Sleeper sleeper) {
     super(backoff, resultClassifier, retryScheduler, circuitBreaker, sleeper);
+    this.grpcLogEnabled = false;
   }
 
   /** Execute a callable with retries. */
@@ -109,6 +137,45 @@ public class RemoteRetrier extends Retrier {
   public <T, E extends Exception> T execute(RetryableCallable<T, E> call)
       throws E, IOException, InterruptedException {
     return execute(call, newBackoff());
+  }
+
+  @Override
+  @Nullable
+  protected RetryLogState newCallState() {
+    // Only set up per-call state (and the Context attach in the base Retrier) when the gRPC log is
+    // enabled; otherwise there is nothing to write a terminal entry to.
+    return grpcLogEnabled ? new RetryLogState() : null;
+  }
+
+  @Override
+  protected void onRetriesExhausted(Exception e, Backoff backoff, @Nullable RetryLogState state) {
+    if (state == null) {
+      return;
+    }
+    LogEntry lastEntry = state.getLastEntry();
+    MessageOutputStream<LogEntry> sink = state.getSink();
+    if (lastEntry == null || sink == null) {
+      // No attempt for this logical call was logged (e.g. the HTTP cache retrier, or a gRPC method
+      // without a logging handler), so there is nothing to base a terminal entry on.
+      return;
+    }
+    // Emit a synthetic terminal entry mirroring the final attempt, marked retries-exhausted, so that
+    // post-retry failures are identifiable in the gRPC log. Drop the (potentially large) per-call
+    // details since the per-attempt entries already carry them.
+    LogEntry terminalEntry =
+        lastEntry.toBuilder()
+            .clearDetails()
+            .setRetrySummary(
+                RetrySummary.newBuilder()
+                    .setRetryAttempts(backoff.getRetryAttempts())
+                    .setRetriesExhausted(true))
+            .build();
+    try {
+      sink.write(terminalEntry);
+    } catch (IOException | RuntimeException ex) {
+      // e.g. the log file is already closed; mirror LoggingInterceptor's defensive handling.
+      logger.atWarning().withCause(ex).log("Unable to write terminal RPC log entry");
+    }
   }
 
   /** Backoff strategy that backs off exponentially. */

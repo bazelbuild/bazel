@@ -18,6 +18,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/remote/util:tracing_metadata_utils",
         "//src/main/java/com/google/devtools/build/lib/util/io",
+        "//src/main/java/com/google/devtools/build/lib/util/io:io-proto",
         "//src/main/protobuf:remote_execution_log_java_proto",
         "//third_party:flogger",
         "//third_party:guava",

@@ -75,6 +75,7 @@ import com.google.protobuf.ByteString;
 import com.google.protobuf.Timestamp;
 import io.grpc.Channel;
 import io.grpc.ClientInterceptors;
+import io.grpc.Context;
 import io.grpc.MethodDescriptor;
 import io.grpc.Server;
 import io.grpc.Status;
@@ -186,6 +187,47 @@ public class LoggingInterceptorTest {
     verify(handler).handleResp(response);
     verify(handler).getDetails();
     verify(logStream).write(expectedEntry);
+  }
+
+  @Test
+  public void recordsAttemptIntoRetryLogStateWhenAttached() {
+    ReadRequest request = ReadRequest.newBuilder().setResourceName("test").build();
+    ReadResponse response =
+        ReadResponse.newBuilder().setData(ByteString.copyFromUtf8("abc")).build();
+    serviceRegistry.addService(
+        new ByteStreamImplBase() {
+          @Override
+          public void read(ReadRequest request, StreamObserver<ReadResponse> responseObserver) {
+            responseObserver.onNext(response);
+            responseObserver.onCompleted();
+          }
+        });
+
+    @SuppressWarnings("unchecked")
+    LoggingHandler<ReadRequest, ReadResponse> handler = Mockito.mock(LoggingHandler.class);
+    Mockito.when(handler.getDetails()).thenReturn(RpcCallDetails.getDefaultInstance());
+
+    LoggingInterceptor interceptor = getInterceptorWithAlwaysThisHandler(handler, logStream);
+    Channel channel =
+        ClientInterceptors.intercept(
+            InProcessChannelBuilder.forName(fakeServerName).directExecutor().build(), interceptor);
+    ByteStreamBlockingStub stub = ByteStreamGrpc.newBlockingStub(channel);
+
+    // Drive the call inside a Context carrying a RetryLogState, as the retrier does per attempt.
+    RetryLogState state = new RetryLogState();
+    Context context = Context.current().withValue(RetryLogState.KEY, state);
+    Context previous = context.attach();
+    try {
+      stub.read(request).next();
+    } finally {
+      context.detach(previous);
+    }
+
+    ArgumentCaptor<LogEntry> captor = ArgumentCaptor.forClass(LogEntry.class);
+    verify(logStream).write(captor.capture());
+    // The interceptor hands the same entry it wrote (plus the sink) to the attached state.
+    assertThat(state.getLastEntry()).isEqualTo(captor.getValue());
+    assertThat(state.getSink()).isSameInstanceAs(logStream);
   }
 
   @Test

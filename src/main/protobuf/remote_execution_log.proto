@@ -45,6 +45,25 @@ message LogEntry {
 
   // Time the call closed.
   google.protobuf.Timestamp end_time = 6;
+
+  // Set only on a synthetic terminal entry emitted when a logical RPC failed
+  // after all retry attempts were exhausted. When set, this entry mirrors the
+  // method_name/metadata/status of the final (failed) attempt; it is emitted in
+  // addition to the per-attempt entries so that final, post-retry failures can
+  // be identified in log analysis without having to reconstruct retry chains.
+  // Only populated when --remote_grpc_log is set.
+  RetrySummary retry_summary = 7;
+}
+
+// Summarizes the retry outcome of a logical RPC. Present only on the synthetic
+// terminal entry described in LogEntry.retry_summary.
+message RetrySummary {
+  // Number of retries attempted before giving up (does not count the initial
+  // attempt). The total number of executions is retry_attempts + 1.
+  int32 retry_attempts = 1;
+
+  // Always true on a terminal entry: the call failed after exhausting retries.
+  bool retries_exhausted = 2;
 }
 
 // Details for a call to

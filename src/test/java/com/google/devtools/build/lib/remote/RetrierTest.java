@@ -31,10 +31,13 @@ import com.google.devtools.build.lib.remote.Retrier.CircuitBreakerException;
 import com.google.devtools.build.lib.remote.Retrier.ResultClassifier;
 import com.google.devtools.build.lib.remote.Retrier.ResultClassifier.Result;
 import com.google.devtools.build.lib.remote.Retrier.ZeroBackoff;
+import com.google.devtools.build.lib.remote.logging.RetryLogState;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
@@ -415,10 +418,102 @@ public class RetrierTest {
     }
   }
 
+  @Test
+  public void onRetriesExhausted_sync_firesOnceWithThreadedState() throws Exception {
+    Supplier<Backoff> s = () -> new ZeroBackoff(/* maxRetries= */ 2);
+    RecordingRetrier r = new RecordingRetrier(s, RETRY_ALL, retryService, alwaysOpen);
+    assertThrows(
+        Exception.class,
+        () ->
+            r.execute(
+                () -> {
+                  throw new Exception("call failed");
+                }));
+    // newCallState is created exactly once per logical call and the same instance reaches the hook.
+    assertThat(r.newCallStateCount.get()).isEqualTo(1);
+    assertThat(r.exhaustedStates).containsExactly(r.state);
+  }
+
+  @Test
+  public void onRetriesExhausted_async_firesOnceWithThreadedState() throws Exception {
+    Supplier<Backoff> s = () -> new ZeroBackoff(/* maxRetries= */ 2);
+    RecordingRetrier r = new RecordingRetrier(s, RETRY_ALL, retryService, alwaysOpen);
+    ListenableFuture<Void> res =
+        r.executeAsync(
+            () -> {
+              throw new Exception("call failed");
+            });
+    assertThrows(ExecutionException.class, res::get);
+    // The state survives the retryService executor hop and reaches the hook exactly once.
+    assertThat(r.newCallStateCount.get()).isEqualTo(1);
+    assertThat(r.exhaustedStates).containsExactly(r.state);
+  }
+
+  @Test
+  public void onRetriesExhausted_notFiredOnSuccess() throws Exception {
+    Supplier<Backoff> s = () -> new ZeroBackoff(/* maxRetries= */ 2);
+    RecordingRetrier r = new RecordingRetrier(s, RETRY_ALL, retryService, alwaysOpen);
+    AtomicInteger numCalls = new AtomicInteger();
+    int val =
+        r.execute(
+            () -> {
+              if (numCalls.incrementAndGet() == 3) {
+                return 1;
+              }
+              throw new Exception("call failed");
+            });
+    assertThat(val).isEqualTo(1);
+    assertThat(r.exhaustedStates).isEmpty();
+  }
+
+  @Test
+  public void onRetriesExhausted_notFiredOnNonRetriableFailure() throws Exception {
+    Supplier<Backoff> s = () -> new ZeroBackoff(/* maxRetries= */ 2);
+    RecordingRetrier r =
+        new RecordingRetrier(s, (e) -> Result.PERMANENT_FAILURE, retryService, alwaysOpen);
+    AtomicInteger numCalls = new AtomicInteger();
+    assertThrows(
+        Exception.class,
+        () ->
+            r.execute(
+                () -> {
+                  numCalls.incrementAndGet();
+                  throw new Exception("call failed");
+                }));
+    // A permanent (non-retriable) failure is not "retries exhausted".
+    assertThat(numCalls.get()).isEqualTo(1);
+    assertThat(r.exhaustedStates).isEmpty();
+  }
+
+  /** A {@link Retrier} that records the state threaded to {@link Retrier#onRetriesExhausted}. */
+  private static class RecordingRetrier extends Retrier {
+    final RetryLogState state = new RetryLogState();
+    final AtomicInteger newCallStateCount = new AtomicInteger();
+    final List<RetryLogState> exhaustedStates = Collections.synchronizedList(new ArrayList<>());
+
+    RecordingRetrier(
+        Supplier<Backoff> backoffSupplier,
+        ResultClassifier resultClassifier,
+        ListeningScheduledExecutorService retryService,
+        CircuitBreaker circuitBreaker) {
+      super(backoffSupplier, resultClassifier, retryService, circuitBreaker);
+    }
+
+    @Override
+    protected RetryLogState newCallState() {
+      newCallStateCount.incrementAndGet();
+      return state;
+    }
+
+    @Override
+    protected void onRetriesExhausted(Exception e, Backoff backoff, RetryLogState state) {
+      exhaustedStates.add(state);
+    }
+  }
+
   /** Simple circuit breaker that trips after N consecutive failures. */
   @ThreadSafe
   private static class TripAfterNCircuitBreaker implements CircuitBreaker {
-
     private final int maxConsecutiveFailures;
 
     private State state = State.ACCEPT_CALLS;
