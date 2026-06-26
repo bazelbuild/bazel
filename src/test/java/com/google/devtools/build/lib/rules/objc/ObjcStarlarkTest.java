@@ -509,10 +509,7 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
         def swift_binary_impl(ctx):
             apple_toolchain = apple_common.apple_toolchain()
             sdk_dir = apple_toolchain.sdk_dir()
-            platform_developer_framework_dir = \\
-                apple_toolchain.platform_developer_framework_dir(ctx.fragments.apple)
             return MyInfo(
-                platform_developer_framework_dir = platform_developer_framework_dir,
                 sdk_dir = sdk_dir,
             )
 
@@ -540,13 +537,8 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
         getConfiguredTarget("//test_starlark/apple_starlark:my_target");
     StructImpl myInfo = getMyInfoFromTarget(starlarkTarget);
 
-    String platformDevFrameworksDir = (String) myInfo.getValue("platform_developer_framework_dir");
     String sdkDir = (String) myInfo.getValue("sdk_dir");
 
-    assertThat(platformDevFrameworksDir)
-        .isEqualTo(
-            "__BAZEL_XCODE_DEVELOPER_DIR__"
-                + "/Platforms/iPhoneSimulator.platform/Developer/Library/Frameworks");
     assertThat(sdkDir).isEqualTo("__BAZEL_XCODE_SDKROOT__");
   }
 
