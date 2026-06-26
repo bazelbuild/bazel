@@ -842,6 +842,21 @@ public final class BazelRulesModule extends BlazeModule {
         metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE, OptionMetadataTag.DEPRECATED},
         help = "No-op")
     public abstract boolean getIncompatibleEnableGoToolchainResolution();
+
+    /**
+     * Option to ease migration away from leaking deps into the compile classpath of tests.
+     *
+     * @deprecated flag is a no-op, will be deleted in a future Bazel release
+     */
+    @Deprecated
+    @Option(
+        name = "experimental_add_test_support_to_compile_time_deps",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.EXPERIMENTAL, OptionMetadataTag.DEPRECATED},
+        help = "Deprecated no-op.")
+    public abstract boolean getAddTestSupportToCompileTimeDeps();
   }
 
   /**
