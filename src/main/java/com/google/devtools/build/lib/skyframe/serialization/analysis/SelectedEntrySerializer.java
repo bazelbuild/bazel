@@ -16,14 +16,8 @@ package com.google.devtools.build.lib.skyframe.serialization.analysis;
 import static com.google.common.util.concurrent.Futures.whenAllSucceed;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture.EmptyFileOpNode.EMPTY_FILE_OP_NODE;
-import static com.google.devtools.build.lib.skyframe.serialization.analysis.InvalidationDataInfoOrFuture.ConstantFileData.CONSTANT_FILE;
-import static com.google.devtools.build.lib.skyframe.serialization.analysis.InvalidationDataInfoOrFuture.ConstantListingData.CONSTANT_LISTING;
-import static com.google.devtools.build.lib.skyframe.serialization.analysis.InvalidationDataInfoOrFuture.ConstantNodeData.CONSTANT_NODE;
 import static com.google.devtools.build.lib.skyframe.serialization.proto.DataType.DATA_TYPE_ANALYSIS_NODE;
-import static com.google.devtools.build.lib.skyframe.serialization.proto.DataType.DATA_TYPE_EMPTY;
 import static com.google.devtools.build.lib.skyframe.serialization.proto.DataType.DATA_TYPE_EXECUTION_NODE;
-import static com.google.devtools.build.lib.skyframe.serialization.proto.DataType.DATA_TYPE_FILE;
-import static com.google.devtools.build.lib.skyframe.serialization.proto.DataType.DATA_TYPE_LISTING;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -60,12 +54,10 @@ import com.google.devtools.build.lib.skyframe.serialization.ProfileCollector;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationResult;
 import com.google.devtools.build.lib.skyframe.serialization.SharedValueSerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.WriteStatus;
-import com.google.devtools.build.lib.skyframe.serialization.analysis.InvalidationDataInfoOrFuture.FileInvalidationDataInfo;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.InvalidationDataInfoOrFuture.FutureFileDataInfo;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.InvalidationDataInfoOrFuture.FutureListingDataInfo;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.InvalidationDataInfoOrFuture.FutureNodeDataInfo;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.InvalidationDataInfoOrFuture.InvalidationDataInfo;
-import com.google.devtools.build.lib.skyframe.serialization.analysis.InvalidationDataInfoOrFuture.ListingInvalidationDataInfo;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.InvalidationDataInfoOrFuture.NodeInvalidationDataInfo;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingEventListener.SerializedNodeEvent;
 import com.google.devtools.build.lib.versioning.LongVersionGetter;
@@ -632,32 +624,19 @@ final class SelectedEntrySerializer {
           writeStatuses.addWriteStatus(valueResult.getFutureToBlockWritesOn());
           writeStatuses.addWriteStatus(keyResult.getFutureToBlockWritesOn());
 
-          switch (dataInfo) {
-            case CONSTANT_FILE:
-            case CONSTANT_LISTING:
-            case CONSTANT_NODE:
-            // fall through
-            case null:
-              codedOut.writeEnumNoTag(DATA_TYPE_EMPTY.getNumber());
-              break;
-            case FileInvalidationDataInfo file:
-              codedOut.writeEnumNoTag(DATA_TYPE_FILE.getNumber());
-              codedOut.writeStringNoTag(file.cacheKey());
-              writeStatuses.addWriteStatus(file.writeStatus());
-              break;
-            case ListingInvalidationDataInfo listing:
-              codedOut.writeEnumNoTag(DATA_TYPE_LISTING.getNumber());
-              codedOut.writeStringNoTag(listing.cacheKey());
-              writeStatuses.addWriteStatus(listing.writeStatus());
-              break;
-            case NodeInvalidationDataInfo node:
-              codedOut.writeEnumNoTag(
-                  (isExecutionValue ? DATA_TYPE_EXECUTION_NODE : DATA_TYPE_ANALYSIS_NODE)
-                      .getNumber());
-              node.cacheKey().writeTo(codedOut);
-              writeStatuses.addWriteStatus(node.writeStatus());
-              break;
+          // Entries representing SkyValues should always have a node as their invalidation info
+          // so that that node can be reported as the invalidation fingerprint to Blaze.
+          if (!(dataInfo instanceof NodeInvalidationDataInfo node)) {
+            throw new IllegalStateException(
+                String.format(
+                    "Expected NodeInvalidationDataInfo for %s, but got %s",
+                    key, dataInfo == null ? "null" : dataInfo.getClass().getSimpleName()));
           }
+
+          codedOut.writeEnumNoTag(
+              (isExecutionValue ? DATA_TYPE_EXECUTION_NODE : DATA_TYPE_ANALYSIS_NODE).getNumber());
+          node.cacheKey().writeTo(codedOut);
+          writeStatuses.addWriteStatus(node.writeStatus());
           codedOut.writeRawBytes(valueResult.getObject());
           codedOut.flush();
 

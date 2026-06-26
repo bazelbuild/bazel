@@ -20,6 +20,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import com.google.devtools.build.skyframe.Version;
+import java.util.Set;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
@@ -106,6 +107,11 @@ final class ProgressEventSuppressingEnvironment implements SkyFunction.Environme
   @Nullable
   public GroupedDeps getTemporaryDirectDeps() {
     return delegate.getTemporaryDirectDeps();
+  }
+
+  @Override
+  public Set<SkyKey> getNewlyRequestedDeps() {
+    return delegate.getNewlyRequestedDeps();
   }
 
   @Override

@@ -16,6 +16,7 @@ package com.google.devtools.build.skyframe;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.common.graph.Graph;
 import com.google.common.graph.GraphBuilder;
 import com.google.common.graph.ImmutableGraph;
@@ -26,6 +27,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
@@ -359,6 +361,11 @@ public interface SkyFunction {
     @Nullable
     default GroupedDeps getTemporaryDirectDeps() {
       return null;
+    }
+
+    /** Returns dependencies requested in the current run of this node evaluation. */
+    default Set<SkyKey> getNewlyRequestedDeps() {
+      return ImmutableSet.of();
     }
 
     /**

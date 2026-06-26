@@ -850,7 +850,8 @@ public class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
     building = false;
   }
 
-  Set<SkyKey> getNewlyRequestedDeps() {
+  @Override
+  public Set<SkyKey> getNewlyRequestedDeps() {
     return newlyRequestedDepsValues.keySet();
   }
 

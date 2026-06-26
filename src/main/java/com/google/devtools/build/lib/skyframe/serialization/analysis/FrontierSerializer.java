@@ -425,7 +425,7 @@ public final class FrontierSerializer {
             }
             case ActionLookupData data
                 when !skycacheAnalysisOnly && traversalMode == TraversalMode.FOR_SERIALIZATION -> {
-              if (shouldUpload(data, node)) {
+              if (data.getActionLookupKey().getLabel() != null && shouldUpload(data, node)) {
                 selection.putIfAbsent(data, FRONTIER_CANDIDATE);
               }
             }
@@ -500,6 +500,14 @@ public final class FrontierSerializer {
     }
     return switch (artifact) {
       case DerivedArtifact derived -> {
+        ActionLookupKey owner = derived.getArtifactOwner();
+        if (owner.getLabel() == null) {
+          // These are various odd action owners, like that for the coverage report and the build
+          // info artifacts. They aren't really useful to cache and they have some oddities (like
+          // not depending on any source files at all) so they just cause trouble without anything
+          // to show for it.
+          yield null;
+        }
         // Artifact#key is the canonical function to produce the SkyKey that will build this
         // artifact. We want to avoid serializing ordinary DerivedArtifacts, which are never built
         // by Skyframe directly, and the function will return ActionLookupData as the canonical key
@@ -583,8 +591,9 @@ public final class FrontierSerializer {
         .getDirectDeps()
         .forEach(
             depKey -> {
-              if (depKey instanceof ActionLookupKey) {
-                selection.putIfAbsent(depKey, FRONTIER_CANDIDATE);
+              if (depKey instanceof ActionLookupKey actionLookupKey
+                  && actionLookupKey.getLabel() != null) {
+                selection.putIfAbsent(actionLookupKey, FRONTIER_CANDIDATE);
               }
             });
   }
