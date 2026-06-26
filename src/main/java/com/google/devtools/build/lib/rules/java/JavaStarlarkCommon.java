@@ -222,12 +222,34 @@ public class JavaStarlarkCommon
     ImmutableList.Builder<String> directDepLabelsToVerifyBuilder = ImmutableList.builder();
     for (Object obj : Sequence.cast(directDepJarsToVerify, Object.class, "direct_dep_jars_to_verify")) {
       if (obj instanceof StarlarkInfo struct) {
-        Artifact jar = (Artifact) struct.getValue("jar");
-        String label = (String) struct.getValue("label");
-        if (jar != null && label != null) {
-          directDepJarsToVerifyBuilder.add(jar);
-          directDepLabelsToVerifyBuilder.add(label);
+        Artifact jar = null;
+        Object jarObj = struct.getValue("jar");
+        if (jarObj != null && jarObj != Starlark.NONE) {
+          if (jarObj instanceof Artifact) {
+            jar = (Artifact) jarObj;
+          } else {
+            throw Starlark.errorf("Expected jar attribute to be an Artifact in struct, but got: %s", Starlark.type(jarObj));
+          }
         }
+        String label = null;
+        Object labelObj = struct.getValue("label");
+        if (labelObj != null && labelObj != Starlark.NONE) {
+          if (labelObj instanceof String) {
+            label = (String) labelObj;
+          } else {
+            throw Starlark.errorf("Expected label attribute to be a string in struct, but got: %s", Starlark.type(labelObj));
+          }
+        }
+        if (jar == null) {
+          throw Starlark.errorf("struct in direct_dep_jars_to_verify must contain a non-empty 'jar' field of type Artifact");
+        }
+        if (label == null) {
+          throw Starlark.errorf("struct in direct_dep_jars_to_verify must contain a non-empty 'label' field of type string");
+        }
+        directDepJarsToVerifyBuilder.add(jar);
+        directDepLabelsToVerifyBuilder.add(label);
+      } else {
+        throw Starlark.errorf("Expected direct_dep_jars_to_verify to contain structs, but got: %s", Starlark.type(obj));
       }
     }
     JavaTargetAttributes.Builder attributesBuilder =

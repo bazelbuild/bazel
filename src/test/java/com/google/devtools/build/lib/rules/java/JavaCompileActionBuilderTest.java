@@ -354,4 +354,71 @@ public final class JavaCompileActionBuilderTest extends BuildViewTestCase {
     assertThat(command.get(jarIdx + 1)).contains("libdep");
     assertThat(command.get(labelIdx + 1)).endsWith("//java/com/google/test:dep");
   }
+
+  @Test
+  public void testUnusedDepsVerifyFlags_missingJarThrows() throws Exception {
+    scratch.file("third_party/bazel_rules/rules_java/BUILD");
+    scratch.file(
+        "third_party/bazel_rules/rules_java/rule.bzl",
+        """
+        load("@rules_java//java:defs.bzl", "JavaInfo", "JavaPluginInfo", rules_java_common = "java_common")
+
+        def _my_rule_impl(ctx):
+            output = ctx.outputs.jar
+            manifest = ctx.actions.declare_file(ctx.label.name + ".manifest")
+            internal_common = java_common.internal_DO_NOT_USE()
+            dep = ctx.attr.deps[0]
+            compile_jar = dep[JavaInfo].compile_jars.to_list()[0]
+            internal_common.create_compilation_action(
+                ctx,
+                ctx.attr._java_toolchain[rules_java_common.JavaToolchainInfo],
+                output,
+                manifest,
+                JavaPluginInfo(runtime_deps = []),
+                depset([compile_jar]),
+                depset([compile_jar]),
+                depset(),
+                depset(),
+                depset(),
+                depset(),
+                "ERROR",
+                ctx.label,
+                direct_dep_jars_to_verify = [struct(label = str(dep.label))],
+            )
+            return [DefaultInfo(files = depset([output]))]
+
+        my_rule = rule(
+            implementation = _my_rule_impl,
+            outputs = {
+                "jar": "%{name}.jar",
+            },
+            attrs = {
+                "deps": attr.label_list(),
+                "_java_toolchain": attr.label(default = "@bazel_tools//tools/jdk:current_java_toolchain"),
+            },
+            fragments = ["java"],
+            toolchains = ["@bazel_tools//tools/jdk:toolchain_type"],
+        )
+        """);
+    scratch.file(
+        "java/com/google/test/BUILD",
+        """
+        load("@rules_java//java:defs.bzl", "java_library")
+        load("//third_party/bazel_rules/rules_java:rule.bzl", "my_rule")
+
+        java_library(
+            name = "dep",
+            srcs = ["Dep.java"],
+        )
+
+        my_rule(
+            name = "a",
+            deps = [":dep"],
+        )
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//java/com/google/test:a");
+    assertContainsEvent("struct in direct_dep_jars_to_verify must contain a non-empty 'jar' field");
+  }
 }
