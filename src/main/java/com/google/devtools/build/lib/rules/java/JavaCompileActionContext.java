@@ -14,7 +14,8 @@
 
 package com.google.devtools.build.lib.rules.java;
 
-import com.google.common.base.Throwables;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -33,7 +34,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 
-/** Context for compiling Java files. */
+/**
+ * Context for compiling Java files.
+ */
 public class JavaCompileActionContext implements ActionContext {
 
   // TODO(djasper): Investigate caching across builds.
@@ -69,7 +72,7 @@ public class JavaCompileActionContext implements ActionContext {
     // Wait for every read to finish, even after one fails, so that the full set of lost jdeps files
     // can be discovered by RemoteActionFileSystem (if used).
     try {
-      Futures.successfulAsList(uncached).get();
+      Futures.whenAllComplete(uncached).run(() -> {}, directExecutor()).get();
     } catch (ExecutionException e) {
       // successfulAsList never completes exceptionally.
       throw new IllegalStateException(e);
