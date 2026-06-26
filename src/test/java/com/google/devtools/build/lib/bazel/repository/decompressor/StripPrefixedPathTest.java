@@ -110,7 +110,13 @@ public class StripPrefixedPathTest {
     PathFragment relativePrefix =
         StripPrefixedPath.maybeDeprefixSymlink(
             "root/a/b".getBytes(UTF_8), Optional.of("root"), fileSystem.getPath("/usr"));
-    // there is no attempt to get absolute path for the relative symlinks target path
-    assertThat(relativePrefix).isEqualTo(PathFragment.create("a/b"));
+    // Only absolute paths or paths relative to extraction root are deprefixed.
+    assertThat(relativePrefix).isEqualTo(PathFragment.create("root/a/b"));
+
+    PathFragment forceDeprefixRelativePrefix =
+        StripPrefixedPath.maybeDeprefixSymlink(
+            "root/a/b".getBytes(UTF_8), Optional.of("root"), fileSystem.getPath("/usr"), true);
+    // Forced deprefixing into root relative path.
+    assertThat(forceDeprefixRelativePrefix).isEqualTo(PathFragment.create("/usr/a/b"));
   }
 }
