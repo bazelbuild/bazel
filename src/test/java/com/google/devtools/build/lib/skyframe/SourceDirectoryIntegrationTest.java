@@ -350,7 +350,7 @@ public final class SourceDirectoryIntegrationTest extends BuildIntegrationTestCa
             visibility = ["//visibility:public"],
         )
         """);
-    // The presence of this BUILD file makes ext's data/sub a package, so the data source directory
+    // The presence of this BUILD file makes ext's `data/sub` a package, so the `data` source directory
     // crosses a package boundary.
     write("ext/data/sub/BUILD");
     writeIsoLatin1(getWorkspace().getRelative("ext/data/top"), "content");
