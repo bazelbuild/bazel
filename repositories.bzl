@@ -43,7 +43,6 @@ DIST_ARCHIVE_REPOS = [
     "protobuf+",
     "protoc-gen-validate+",
     "re2+",
-    "rules_android+",
     "rules_apple+",
     "rules_cc+",
     "rules_fuzzing+",
