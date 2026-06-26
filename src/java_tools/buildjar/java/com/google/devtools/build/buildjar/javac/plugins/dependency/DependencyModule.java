@@ -122,6 +122,7 @@ public final class DependencyModule {
     this.platformJars = platformJars;
     this.fixMessage = fixMessage;
     this.exemptGenerators = exemptGenerators;
+    this.packages = new HashSet<>();
     this.workDir = requireNonNull(workDir);
     this.directDepJarsToVerify = directDepJarsToVerify;
     this.allDeclaredLabels = allDeclaredLabels;
@@ -418,6 +419,10 @@ public final class DependencyModule {
           strictClasspathMode,
           depsArtifacts,
           platformJars,
+          targetLabel,
+          outputDepsProtoFile,
+          fixMessage,
+          exemptGenerators,
           workDir,
           directDepJarsToVerify,
           allDeclaredLabels);
