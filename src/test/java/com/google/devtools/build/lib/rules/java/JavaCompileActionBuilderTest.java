@@ -419,7 +419,8 @@ public final class JavaCompileActionBuilderTest extends BuildViewTestCase {
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//java/com/google/test:a");
-    assertContainsEvent("struct in direct_dep_jars_to_verify must contain a non-empty 'jar' field");
+    assertContainsEvent(
+        "struct in direct_dep_jars_to_verify is missing 'jar' field (type Artifact), got struct: struct(label = \"@@//java/com/google/test:dep\")");
   }
 
   @Test

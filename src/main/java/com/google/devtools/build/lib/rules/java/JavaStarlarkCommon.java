@@ -241,10 +241,10 @@ public class JavaStarlarkCommon
           }
         }
         if (jar == null) {
-          throw Starlark.errorf("struct in direct_dep_jars_to_verify must contain a non-empty 'jar' field of type Artifact");
+          throw Starlark.errorf("struct in direct_dep_jars_to_verify is missing 'jar' field (type Artifact), got struct: %s", struct);
         }
         if (label == null) {
-          throw Starlark.errorf("struct in direct_dep_jars_to_verify must contain a non-empty 'label' field of type string");
+          throw Starlark.errorf("struct in direct_dep_jars_to_verify is missing 'label' field (type string), got struct: %s", struct);
         }
         directDepJarsToVerifyBuilder.add(jar);
         directDepLabelsToVerifyBuilder.add(label);
