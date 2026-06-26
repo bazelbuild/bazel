@@ -15,6 +15,7 @@
 
 package com.google.devtools.build.lib.rules.repository;
 
+import static com.google.common.base.StandardSystemProperty.OS_NAME;
 import static com.google.devtools.build.lib.skyframe.RepositoryMappingFunction.REPOSITORY_OVERRIDES;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
@@ -63,6 +64,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.LinkedHashMap;
@@ -862,6 +864,11 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
               .addBytes(RuleFormatter.serializeRule(rule).build().toByteArray())
               .addInt(MARKER_FILE_VERSION)
               .addBytes(BuildLanguageOptions.stableFingerprint(starlarkSemantics))
+              // This info is accessible via rctx.os.{name,arch} and can also influence the
+              // result of a repo rule in subtle ways (e.g. behavior of host tools, line breaks,
+              // etc).
+              .addString(OS_NAME.value().toLowerCase(Locale.ROOT))
+              .addString(System.getProperty("os.arch").toLowerCase(Locale.ROOT))
               .addInt(environ.size());
       environ.forEach(
           (key, value) -> fp.addString(key.toString()).addNullableString(value.orElse(null)));
