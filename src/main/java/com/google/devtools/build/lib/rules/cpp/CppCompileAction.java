@@ -1448,7 +1448,10 @@ public class CppCompileAction extends AbstractAction
       throws ActionExecutionException, InterruptedException {
     PathMapper pathMapper =
         PathMappers.create(
-            this, PathMappers.getOutputPathsMode(configuration), /* isStarlarkAction= */ false);
+            this,
+            PathMappers.getOutputPathsMode(configuration),
+            /* isStarlarkAction= */ false,
+            actionExecutionContext.getInputMetadataProvider());
 
     ArgumentsAndParamFileActionInput argumentsAndParamFileActionInput =
         getArgumentsForExecute(pathMapper);
