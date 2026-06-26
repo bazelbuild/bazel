@@ -104,7 +104,6 @@ JAVA_TOOLS = [
                "//src/main/cpp/util:embedded_tools",
                "//src/main/native:embedded_tools",
                "//src/main/protobuf:srcs",
-               "//src/main/res:srcs",
                "//src/tools/launcher:srcs",
                "//third_party:gpl-srcs",
                "//third_party/def_parser:srcs",

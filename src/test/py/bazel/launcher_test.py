@@ -16,7 +16,6 @@
 import os
 import stat
 import string
-import xml.etree.ElementTree
 from absl.testing import absltest
 from src.test.py.bazel import test_base
 
@@ -48,49 +47,6 @@ if os.name == 'nt':
         return output_buf.value
       else:
         output_buf_size = needed
-
-  _LoadLibraryExW = kernel32.LoadLibraryExW
-  _LoadLibraryExW.argtypes = [wintypes.LPCWSTR, ctypes.c_void_p, wintypes.DWORD]
-  _LoadLibraryExW.restype = ctypes.c_void_p
-
-  _FindResourceW = kernel32.FindResourceW
-  _FindResourceW.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p]
-  _FindResourceW.restype = ctypes.c_void_p
-
-  _LoadResource = kernel32.LoadResource
-  _LoadResource.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
-  _LoadResource.restype = ctypes.c_void_p
-
-  _SizeofResource = kernel32.SizeofResource
-  _SizeofResource.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
-  _SizeofResource.restype = wintypes.DWORD
-
-  _LockResource = kernel32.LockResource
-  _LockResource.argtypes = [ctypes.c_void_p]
-  _LockResource.restype = ctypes.c_void_p
-
-  _FreeLibrary = kernel32.FreeLibrary
-  _FreeLibrary.argtypes = [ctypes.c_void_p]
-  _FreeLibrary.restype = wintypes.BOOL
-
-  def _get_exe_manifest(exe_path):
-    """Returns the RT_MANIFEST XML embedded in a Windows PE binary."""
-    if not (
-        module := _LoadLibraryExW(exe_path, None, 0x2)
-    ):  # LOAD_LIBRARY_AS_DATAFILE
-      raise ctypes.WinError()
-    try:
-      if not (info := _FindResourceW(module, 1, 24)):  # id=1, RT_MANIFEST=24
-        raise ctypes.WinError()
-      if not (
-          data := _LoadResource(module, info)
-      ):  # "there is no need to free the resource"
-        raise ctypes.WinError()
-      resource = _LockResource(data)  # "there is no way to unlock a resource"
-      size = _SizeofResource(module, info)
-      return ctypes.string_at(resource, size).decode()
-    finally:
-      _FreeLibrary(module)
 
 
 class LauncherTest(test_base.TestBase):
@@ -893,44 +849,6 @@ class LauncherTest(test_base.TestBase):
     )
     self.assertEqual('helloworld', ''.join(stdout))
 
-  # Regression test for https://github.com/bazelbuild/bazel/issues/29819
-  def testWindowsNativeLauncherUserAccessControlManifest(self):
-    if not self.IsWindows():
-      return
-    self.AddBazelDep('rules_python')
-    self.ScratchFile(
-        'BUILD',
-        [
-            'load("@rules_python//python:py_binary.bzl", "py_binary")',
-            'py_binary(',
-            '    name = "not_an_installer",',
-            '    srcs = ["not_an_installer.py"],',
-            ')',
-        ],
-    )
-    self.ScratchFile('not_an_installer.py', ['print("hello")'])
-
-    _, stdout, _ = self.RunBazel(['info', 'bazel-bin'])
-    bazel_bin = stdout[0]
-
-    self.RunBazel(['build', '//:not_an_installer'])
-    exe = os.path.join(bazel_bin, 'not_an_installer.exe')
-    self.assertTrue(os.path.isfile(exe))
-
-    # first, verify the manifest's content
-    manifest = xml.etree.ElementTree.fromstring(_get_exe_manifest(exe))
-    el = manifest.find(
-        './/{urn:schemas-microsoft-com:asm.v3}requestedExecutionLevel'
-    )
-    self.assertIsNotNone(el, 'no requestedExecutionLevel in manifest')
-    self.assertEqual(el.get('level'), 'asInvoker')
-    self.assertEqual(el.get('uiAccess'), 'false')
-
-    # then, verify the manifest's effectiveness (would pass as admin even
-    # without the fix)
-    exit_code, _, stderr = self.RunProgram([exe], allow_failure=True)
-    self.AssertExitCode(exit_code, 0, stderr)
-
   # Regression test for
   # https://github.com/bazelbuild/bazel/pull/24703#issuecomment-2665963637
   def testBuildLaunchersWithClangClOnWindows(self):
@@ -946,9 +864,6 @@ class LauncherTest(test_base.TestBase):
             'use_repo(cc_configure, "local_config_cc")',
             # Register all cc toolchains for Windows
             'register_toolchains("@local_config_cc//:all")',
-            # Register the no-op RC toolchain since resource compilation is not
-            # under test here
-            'register_toolchains("@bazel_tools//src/main/res:empty_rc_toolchain")',
         ],
         mode='a',
     )
