@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.io.FileSymlinkInfiniteExpansionException;
 import com.google.devtools.build.lib.io.FileSymlinkInfiniteExpansionUniquenessFunction;
 import com.google.devtools.build.lib.io.InconsistentFilesystemException;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
@@ -72,6 +73,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.StarlarkSemantics;
 
 /** A {@link SkyFunction} to build {@link RecursiveFilesystemTraversalValue}s. */
 public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
@@ -557,6 +559,14 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
     // those are symlinks to other locations (e.g. in the case of a local_repository), so all other
     // roots are part of the main repository.
     if (rootPath.startsWith(externalDirectory)) {
+      StarlarkSemantics semantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
+      if (semantics == null) {
+        return null;
+      }
+      if (!semantics.getBool(
+          BuildLanguageOptions.INCOMPATIBLE_CHECK_EXTERNAL_REPO_SOURCE_DIR_PACKAGE_BOUNDARY)) {
+        return PkgLookupResult.directory(traversal, rootInfo);
+      }
       checkState(
           rootPath.relativeTo(externalDirectory).isSingleSegment(),
           "%s is expected to be directly under %s",
