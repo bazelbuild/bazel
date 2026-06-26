@@ -309,7 +309,9 @@ _GIT_LOCAL_ENV_VARS = {
 def _execute(ctx, git_repo, args):
     # "core.fsmonitor=false" disables git from spawning a file system monitor which can cause hangs when cloning a lot.
     # See https://github.com/bazelbuild/bazel/issues/21438
-    start = ["git", "-c", "core.fsmonitor=false"]
+    # "core.autocrlf=false" & "core.eol=lf" bypass host config to keep checkouts verbatim; .gitattributes still applies.
+    # See https://github.com/bazelbuild/bazel/issues/30026
+    start = ["git", "-c", "core.fsmonitor=false", "-c", "core.autocrlf=false", "-c", "core.eol=lf"]
     return ctx.execute(
         start + args,
         environment = ctx.os.environ | _GIT_LOCAL_ENV_VARS,
