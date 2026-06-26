@@ -135,7 +135,11 @@ public final class StrippingPathMapper implements PathMapper {
     // path collisions after stripping. It is thus important to include them in this check.
     if (isPathStrippable(
         Iterables.concat(
-            action.getInputs().toList(), action.getAdditionalArtifactsForPathMapping().toList()),
+            action.getInputs().toList(),
+            action.getAdditionalArtifactsForPathMapping().toList(),
+            action.discoversInputs()
+                ? action.getAllowedDerivedInputs().toList()
+                : ImmutableSet.of()),
         outputRoot)) {
       return Optional.of(
           new StrippingPathMapper(
