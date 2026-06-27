@@ -80,6 +80,7 @@ public class ZipDecompressor implements Decompressor {
       throws IOException, InterruptedException {
     Path destinationDirectory = descriptor.destinationPath();
     Optional<String> prefix = descriptor.prefix();
+    int stripComponents = descriptor.stripComponents();
     Map<String, String> renameFiles = descriptor.renameFiles();
     boolean foundPrefix = false;
     // Store link, target info of symlinks, we create them after regular files are extracted.
@@ -91,24 +92,26 @@ public class ZipDecompressor implements Decompressor {
         String entryName = entry.getName();
         entryName = renameFiles.getOrDefault(entryName, entryName);
         StripPrefixedPath entryPath =
-            StripPrefixedPath.maybeDeprefix(entryName.getBytes(UTF_8), prefix);
+            StripPrefixedPath.maybeDeprefix(entryName.getBytes(UTF_8), prefix, stripComponents);
         foundPrefix = foundPrefix || entryPath.foundPrefix();
         if (entryPath.skip()) {
           continue;
         }
-        PathFragment pathFragment =
-            entryPath.getPathFragment().stripComponents(descriptor.stripComponents());
-        if (Objects.equals(pathFragment, PathFragment.EMPTY_FRAGMENT)) {
-          continue;
-        }
-        extractZipEntry(reader, entry, destinationDirectory, pathFragment, prefix, symlinks);
+        extractZipEntry(
+            reader,
+            entry,
+            destinationDirectory,
+            entryPath.getPathFragment(),
+            prefix,
+            stripComponents,
+            symlinks);
       }
 
       if (prefix.isPresent() && !foundPrefix) {
         Set<String> prefixes = new HashSet<>();
         for (ZipFileEntry entry : entries) {
           StripPrefixedPath entryPath =
-              StripPrefixedPath.maybeDeprefix(entry.getName().getBytes(UTF_8), Optional.empty());
+              StripPrefixedPath.maybeDeprefix(entry.getName().getBytes(UTF_8), Optional.empty(), 0);
           CouldNotFindPrefixException.maybeMakePrefixSuggestion(entryPath.getPathFragment())
               .ifPresent(prefixes::add);
         }
@@ -129,6 +132,7 @@ public class ZipDecompressor implements Decompressor {
       Path destinationDirectory,
       PathFragment strippedRelativePath,
       Optional<String> prefix,
+      int stripComponents,
       Map<Path, PathFragment> symlinks)
       throws IOException, InterruptedException {
     if (strippedRelativePath.isAbsolute()) {
@@ -171,7 +175,7 @@ public class ZipDecompressor implements Decompressor {
       symlinks.put(
           outputPath,
           maybeDeprefixSymlink(
-              buffer, prefix, destinationDirectory, /* forceExtractRootRelative= */ false));
+              buffer, prefix, stripComponents, destinationDirectory, /* forceExtractRootRelative= */ false));
     } else {
       try (InputStream input = reader.getInputStream(entry);
           OutputStream output = outputPath.getOutputStream()) {

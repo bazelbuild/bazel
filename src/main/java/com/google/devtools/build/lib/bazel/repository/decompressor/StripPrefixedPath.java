@@ -20,30 +20,51 @@ import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.Objects;
 import java.util.Optional;
 
 /**
  * Utility class for removing a prefix from an archive's path.
+ *
+ * <p>A "prefix" can be a string of path segments or an integer representing the number of path
+ * segments to remove. Given an example path <code>/tmp/path/to/file</code>, removing the string
+ * prefix <code>/tmp/path</code> or stripping two components will result in the same de-prefixed
+ * path: <code>to/file</code>
  */
 @ThreadSafety.Immutable
 public final class StripPrefixedPath {
   private final PathFragment pathFragment;
-  private final boolean found;
+  private final boolean foundPrefix;
   private final boolean skip;
 
   /**
-   * If a prefix is given, it will be removed from the entry's path. This also turns absolute paths
-   * into relative paths (e.g., /usr/bin/bash will become usr/bin/bash, same as unzip's default
-   * behavior) and normalizes the paths (foo/../bar////baz will become bar/baz). Note that this
-   * could cause collisions, if a zip file had one entry for bin/some-binary and another entry for
-   * /bin/some-binary.
+   * Removes the given prefix or the specified number of components.
+   *
+   * If a prefix of number of components is given, it will be removed from the entry's path. This
+   * also turns absolute paths into relative paths (e.g., /usr/bin/bash will become usr/bin/bash,
+   * same as unzip's default behavior) and normalizes the paths (foo/../bar////baz will become
+   * bar/baz). Note that this could cause collisions, if a zip file had one entry for
+   * bin/some-binary and another entry for /bin/some-binary.
    *
    * <p>Note that the prefix is stripped to move the files up one level, so if you have an entry
    * "foo/../bar" and a prefix of "foo", the result will be "bar" not "../bar".
+   *
+   * Only one of <code>prefix</code> or <code>stripComponents</code> is allowed.
    */
-  public static StripPrefixedPath maybeDeprefix(byte[] entry, Optional<String> prefix) {
+  public static StripPrefixedPath maybeDeprefix(byte[] entry, Optional<String> prefix, int stripComponents) {
     Preconditions.checkNotNull(entry);
+    Preconditions.checkArgument(!(prefix.isPresent() && !prefix.get().isEmpty() && stripComponents != 0),
+        "Only one of prefix or strip_components can be set.");
+
     PathFragment entryPath = relativize(entry);
+    if (stripComponents != 0) {
+      return maybeStripComponent(entryPath, stripComponents);
+    } else {
+      return maybeStripPrefix(entryPath, prefix);
+    }
+  }
+
+  private static StripPrefixedPath maybeStripPrefix(PathFragment entryPath, Optional<String> prefix) {
     if (prefix.isEmpty()) {
       return new StripPrefixedPath(entryPath, false, false);
     }
@@ -65,6 +86,18 @@ public final class StripPrefixedPath {
     return new StripPrefixedPath(entryPath, found, skip);
   }
 
+  private static StripPrefixedPath maybeStripComponent(PathFragment entryPath, int stripComponents) {
+    if (stripComponents == 0) {
+      return new StripPrefixedPath(entryPath, /* foundPrefix= */ false, false);
+    }
+    PathFragment strippedPath = entryPath.stripComponents(stripComponents);
+    boolean skipEntry = false;
+    if (Objects.equals(strippedPath, PathFragment.EMPTY_FRAGMENT)) {
+      skipEntry = true;
+    }
+    return new StripPrefixedPath(strippedPath, /* foundPrefix= */ false, skipEntry);
+  }
+
   /**
    * Normalize the path and, if it is absolute, make it relative (e.g., /foo/bar becomes foo/bar).
    */
@@ -76,15 +109,15 @@ public final class StripPrefixedPath {
     return entryPath;
   }
 
-  private StripPrefixedPath(PathFragment pathFragment, boolean found, boolean skip) {
+  private StripPrefixedPath(PathFragment pathFragment, boolean foundPrefix, boolean skip) {
     this.pathFragment = pathFragment;
-    this.found = found;
+    this.foundPrefix = foundPrefix;
     this.skip = skip;
   }
 
   public static PathFragment maybeDeprefixSymlink(
-      byte[] rawTarget, Optional<String> prefix, Path root) {
-    return maybeDeprefixSymlink(rawTarget, prefix, root, false);
+      byte[] rawTarget, Optional<String> prefix, int stripComponents, Path root) {
+    return maybeDeprefixSymlink(rawTarget, prefix, stripComponents, root, false);
   }
 
   /**
@@ -101,18 +134,26 @@ public final class StripPrefixedPath {
    * Otherwise, no deprefixing will occur.
    *
    * @param rawTarget The target path for the link.
-   * @param prefix The prefix to remove.
+   * @param prefix The prefix to remove. If set, <code>stripComponents</code> must be 0.
+   * @param stripComponents The number of path segements to remove. If nonzero, <code>prefix</code>
+   *     must be Optional.empty().
    * @param root The path for absolute or <code>forceExtractRootRelative</code> to be relative to.
    * @param forceExtractRootRelative Forces the given <code>rawTarget</code> to be relative to the
    *     <code>root</code>.
    * @return The normalized and possibly deprefixed link target.
    */
   public static PathFragment maybeDeprefixSymlink(
-      byte[] rawTarget, Optional<String> prefix, Path root, boolean forceExtractRootRelative) {
+      byte[] rawTarget,
+      Optional<String> prefix,
+      int stripComponents,
+      Path root,
+      boolean forceExtractRootRelative) {
+    Preconditions.checkArgument(!(prefix.isPresent() && !prefix.get().isEmpty() && stripComponents != 0),
+        "Only one of prefix or strip_components can be set.");
     boolean wasAbsolute = createPathFragment(rawTarget).isAbsolute();
     if (wasAbsolute || forceExtractRootRelative) {
       // Strip the prefix from the link path if set
-      PathFragment linkPathFragment = maybeDeprefix(rawTarget, prefix).getPathFragment();
+      PathFragment linkPathFragment = maybeDeprefix(rawTarget, prefix, stripComponents).getPathFragment();
       // Recover the path to an absolute path as maybeDeprefix() relativize the path
       // even if the prefix is not set
       return root.getRelative(linkPathFragment).asFragment();
@@ -127,7 +168,7 @@ public final class StripPrefixedPath {
   }
 
   public boolean foundPrefix() {
-    return found;
+    return foundPrefix;
   }
 
   public boolean skip() {
