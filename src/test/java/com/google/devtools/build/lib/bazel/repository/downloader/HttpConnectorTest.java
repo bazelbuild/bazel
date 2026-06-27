@@ -728,6 +728,73 @@ public class HttpConnectorTest {
     }
   }
 
+  @Test
+  public void crossOriginRedirect_stripsAuthorizationHeader() throws Exception {
+    final String secret = "Bearer my-secret-token";
+    final Map<String, List<String>> headers1 = new ConcurrentHashMap<>();
+    final Map<String, List<String>> headers2 = new ConcurrentHashMap<>();
+    try (ServerSocket server1 = new ServerSocket(0, 1, InetAddress.getByName(null));
+        ServerSocket server2 = new ServerSocket(0, 1, InetAddress.getByName(null))) {
+      @SuppressWarnings("unused")
+      Future<?> possiblyIgnoredError =
+          executor.submit(
+              new Callable<Object>() {
+                @Override
+                public Object call() throws Exception {
+                  try (Socket socket = server1.accept()) {
+                    readHttpRequest(socket.getInputStream(), headers1);
+                    sendLines(
+                        socket,
+                        "HTTP/1.1 302 Found",
+                        "Date: Fri, 31 Dec 1999 23:59:59 GMT",
+                        "Connection: close",
+                        String.format(
+                            "Location: http://localhost:%d/secret.tar.gz",
+                            server2.getLocalPort()),
+                        "Content-Length: 0",
+                        "",
+                        "");
+                  }
+                  return null;
+                }
+              });
+      @SuppressWarnings("unused")
+      Future<?> possiblyIgnoredError1 =
+          executor.submit(
+              new Callable<Object>() {
+                @Override
+                public Object call() throws Exception {
+                  try (Socket socket = server2.accept()) {
+                    readHttpRequest(socket.getInputStream(), headers2);
+                    sendLines(
+                        socket,
+                        "HTTP/1.1 200 OK",
+                        "Date: Fri, 31 Dec 1999 23:59:59 GMT",
+                        "Connection: close",
+                        "Content-Type: text/plain",
+                        "Content-Length: 5",
+                        "",
+                        "hello");
+                  }
+                  return null;
+                }
+              });
+      Function<URI, ImmutableMap<String, List<String>>> authHeaders =
+          url -> ImmutableMap.of("Authorization", ImmutableList.of(secret));
+      URLConnection connection =
+          connector.connect(
+              URI.create(String.format("http://localhost:%d", server1.getLocalPort())),
+              authHeaders);
+      try (InputStream input = connection.getInputStream()) {
+        assertThat(ByteStreams.toByteArray(input)).isEqualTo("hello".getBytes(US_ASCII));
+      }
+      // First request should have the Authorization header.
+      assertThat(headers1).containsEntry("authorization", ImmutableList.of(secret));
+      // Cross-origin redirect should strip the Authorization header.
+      assertThat(headers2).doesNotContainKey("authorization");
+    }
+  }
+
   private File createTempFile(byte[] fileContents) throws IOException {
     File temp = testFolder.newFile();
     try (FileOutputStream outputStream = new FileOutputStream(temp)) {

@@ -61,6 +61,8 @@ class HttpConnector {
   private static final int READ_TIMEOUT_MS = 20000;
   private static final ImmutableSet<String> COMPRESSED_EXTENSIONS =
       ImmutableSet.of("bz2", "gz", "jar", "tgz", "war", "xz", "zip");
+  private static final ImmutableSet<String> SENSITIVE_HEADERS =
+      ImmutableSet.of("authorization", "cookie", "proxy-authorization");
   private static final String USER_AGENT_VALUE =
       "bazel/" + BlazeVersionInfo.instance().getVersion();
 
@@ -206,9 +208,26 @@ class HttpConnector {
             eventHandler.handle(Event.progress("Redirect loop detected in " + originalUrl));
             throw new UnrecoverableHttpException("Redirect loop detected");
           }
+          URI previousUrl = url;
           url = HttpUtils.getLocation(connection);
           if (code == 301) {
             originalUrl = url;
+          }
+          // Strip sensitive headers on cross-origin redirects or HTTPS->HTTP downgrades
+          // to prevent credential leakage. This follows the behavior of modern HTTP clients
+          // and browsers (RFC 7231, Fetch Standard).
+          if (isCrossOrigin(previousUrl, url) || isSchemeDowngrade(previousUrl, url)) {
+            final Function<URI, ImmutableMap<String, List<String>>> delegate = requestHeaders;
+            requestHeaders =
+                newUrl -> {
+                  ImmutableMap.Builder<String, List<String>> filtered = new ImmutableMap.Builder<>();
+                  for (Map.Entry<String, List<String>> entry : delegate.apply(newUrl).entrySet()) {
+                    if (!SENSITIVE_HEADERS.contains(Ascii.toLowerCase(entry.getKey()))) {
+                      filtered.put(entry.getKey(), entry.getValue());
+                    }
+                  }
+                  return filtered.build();
+                };
           }
         } else if (code == 403) {
           // jart@ has noticed BitBucket + Amazon AWS downloads frequently flake with this code.
@@ -326,5 +345,42 @@ class HttpConnector {
       ByteStreams.exhaust(stream);
       stream.close();
     }
+  }
+
+  /**
+   * Returns true if the two URIs have different origins (scheme + normalized host + normalized
+   * port). Origin comparison follows the Same-Origin Policy: scheme and host are compared
+   * case-insensitively, and default ports (80 for http, 443 for https) are normalized.
+   */
+  private static boolean isCrossOrigin(URI a, URI b) {
+    if (!Ascii.equalsIgnoreCase(
+        Strings.nullToEmpty(a.getScheme()), Strings.nullToEmpty(b.getScheme()))) {
+      return true;
+    }
+    if (!Ascii.equalsIgnoreCase(
+        Strings.nullToEmpty(a.getHost()), Strings.nullToEmpty(b.getHost()))) {
+      return true;
+    }
+    return getEffectivePort(a) != getEffectivePort(b);
+  }
+
+  /** Returns true if the redirect goes from HTTPS to HTTP (protocol downgrade). */
+  private static boolean isSchemeDowngrade(URI from, URI to) {
+    return HttpUtils.isProtocol(from, "https") && HttpUtils.isProtocol(to, "http");
+  }
+
+  /** Returns the port, or the default port for the scheme (80 for http, 443 for https). */
+  private static int getEffectivePort(URI uri) {
+    int port = uri.getPort();
+    if (port != -1) {
+      return port;
+    }
+    if (HttpUtils.isProtocol(uri, "https")) {
+      return 443;
+    }
+    if (HttpUtils.isProtocol(uri, "http")) {
+      return 80;
+    }
+    return port;
   }
 }
