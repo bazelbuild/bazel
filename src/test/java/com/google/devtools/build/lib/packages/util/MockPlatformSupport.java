@@ -111,6 +111,10 @@ public class MockPlatformSupport {
         "    constraint_setting = ':cpu',",
         ")",
         "constraint_value(",
+        "    name = 'sw_64',",
+        "    constraint_setting = ':cpu',",
+        ")",
+        "constraint_value(",
         "    name = 's390x',",
         "    constraint_setting = ':cpu',",
         ")");
