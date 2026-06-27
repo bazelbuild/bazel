@@ -29,6 +29,9 @@ class BazelStartupOptions : public StartupOptions {
 
   void AddExtraOptions(std::vector<std::string> *result) const override;
 
+  void AddJVMArgumentPrefix(const blaze_util::Path &javabase,
+                            std::vector<std::string> *result) const override;
+
   blaze_exit_code::ExitCode ProcessArgExtra(
       const char *arg, const char *next_arg, const std::string &rcfile,
       const char **value, bool *is_processed, std::string *error) override;
@@ -45,6 +48,7 @@ class BazelStartupOptions : public StartupOptions {
   bool use_system_rc;
   bool use_workspace_rc;
   bool use_home_rc;
+  bool use_system_certs;
 };
 
 }  // namespace blaze

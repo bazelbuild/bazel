@@ -50,6 +50,16 @@ public abstract class HostJvmStartupOptions extends OptionsBase {
   public abstract List<String> getHostJvmArgs();
 
   @Option(
+      name = "use_system_certs",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Use the operating system trust store for the JVM executing Bazel, when supported by "
+              + "the current platform.")
+  public abstract boolean getUseSystemCerts();
+
+  @Option(
       name = "host_jvm_debug",
       defaultValue = "null", // NOTE: purely decorative!  See BlazeServerStartupOptions.
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
