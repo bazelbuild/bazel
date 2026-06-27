@@ -161,7 +161,8 @@ public final class HttpCacheClient extends RemoteCacheClient {
       DigestUtil digestUtil,
       RemoteRetrier retrier,
       @Nullable final Credentials creds,
-      AuthAndTLSOptions authAndTlsOptions)
+      AuthAndTLSOptions authAndTlsOptions,
+      @Nullable InetSocketAddress httpConnectProxy)
       throws Exception {
     return new HttpCacheClient(
         NioEventLoopGroup::new,
@@ -175,7 +176,8 @@ public final class HttpCacheClient extends RemoteCacheClient {
         retrier,
         creds,
         authAndTlsOptions,
-        null);
+        null,
+        httpConnectProxy);
   }
 
   public static HttpCacheClient create(
@@ -204,7 +206,8 @@ public final class HttpCacheClient extends RemoteCacheClient {
           retrier,
           creds,
           authAndTlsOptions,
-          domainSocketAddress);
+          domainSocketAddress,
+          null);
     } else if (Epoll.isAvailable()) {
       return new HttpCacheClient(
           EpollEventLoopGroup::new,
@@ -218,7 +221,8 @@ public final class HttpCacheClient extends RemoteCacheClient {
           retrier,
           creds,
           authAndTlsOptions,
-          domainSocketAddress);
+          domainSocketAddress,
+          null);
     } else {
       throw new Exception("Unix domain sockets are unsupported on this platform");
     }
@@ -236,7 +240,8 @@ public final class HttpCacheClient extends RemoteCacheClient {
       RemoteRetrier retrier,
       @Nullable final Credentials creds,
       AuthAndTLSOptions authAndTlsOptions,
-      @Nullable SocketAddress socketAddress)
+      @Nullable SocketAddress socketAddress,
+      @Nullable InetSocketAddress httpConnectProxy)
       throws Exception {
     useTls = uri.getScheme().equals("https");
     if (uri.getPort() == -1) {
@@ -252,8 +257,12 @@ public final class HttpCacheClient extends RemoteCacheClient {
               uri.getFragment());
     }
     this.uri = uri;
+    HttpConnectProxy proxy = HttpConnectProxy.create(httpConnectProxy);
     if (socketAddress == null) {
-      socketAddress = new InetSocketAddress(uri.getHost(), uri.getPort());
+      socketAddress =
+          proxy != null
+              ? proxy.remoteAddress(uri)
+              : new InetSocketAddress(uri.getHost(), uri.getPort());
     }
 
     final SslContext sslCtx = useTls ? createSSLContext(authAndTlsOptions) : null;
@@ -266,6 +275,9 @@ public final class HttpCacheClient extends RemoteCacheClient {
             .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 1000 * timeoutSeconds)
             .group(eventLoop)
             .remoteAddress(socketAddress);
+    if (proxy != null) {
+      proxy.configureBootstrap(clientBootstrap);
+    }
 
     ChannelPoolHandler channelPoolHandler =
         new ChannelPoolHandler() {
@@ -278,6 +290,9 @@ public final class HttpCacheClient extends RemoteCacheClient {
           @Override
           public void channelCreated(Channel ch) {
             ChannelPipeline p = ch.pipeline();
+            if (proxy != null) {
+              proxy.addProxyHandler(p);
+            }
             if (sslCtx != null) {
               SSLEngine engine = sslCtx.newEngine(ch.alloc(), hostname, port);
               engine.setUseClientMode(true);
@@ -285,7 +300,7 @@ public final class HttpCacheClient extends RemoteCacheClient {
                   && authAndTlsOptions.getTlsClientKey() != null) {
                 engine.setNeedClientAuth(true);
               }
-              p.addFirst("ssl-handler", new SslHandler(engine));
+              p.addLast("ssl-handler", new SslHandler(engine));
             }
           }
         };
@@ -313,48 +328,49 @@ public final class HttpCacheClient extends RemoteCacheClient {
                 channelReady.setFailure(channelAcquired.cause());
                 return;
               }
-
-              try {
-                Channel channel = channelAcquired.getNow();
-                ChannelPipeline pipeline = channel.pipeline();
-
-                if (!isChannelPipelineEmpty(pipeline)) {
-                  channelReady.setFailure(
-                      new IllegalStateException("Channel pipeline is not empty."));
-                  return;
-                }
-
-                pipeline.addFirst(
-                    "timeout-handler",
-                    new IdleTimeoutHandler(timeoutSeconds, WriteTimeoutException.INSTANCE));
-                pipeline.addLast(new HttpResponseDecoder());
-                // The 10KiB limit was chosen arbitrarily. We only expect HTTP servers to respond
-                // with an error message in the body, and that should always be less than 10KiB. If
-                // the response is larger than 10KiB, HttpUploadHandler will catch the
-                // TooLongFrameException that HttpObjectAggregator throws and convert it to an
-                // IOException.
-                pipeline.addLast(new HttpObjectAggregator(10 * 1024));
-                pipeline.addLast(new HttpRequestEncoder());
-                pipeline.addLast(new ChunkedWriteHandler());
-                synchronized (credentialsLock) {
-                  pipeline.addLast(new HttpUploadHandler(creds, extraHttpHeaders));
-                }
-
-                if (!channel.eventLoop().inEventLoop()) {
-                  // If addLast is called outside an event loop, then it doesn't complete until the
-                  // event loop is run again. In that case, a message sent to the last handler gets
-                  // delivered to the last non-pending handler, which will most likely end up
-                  // throwing UnsupportedMessageTypeException. Therefore, we only complete the
-                  // promise in the event loop.
-                  channel.eventLoop().execute(() -> channelReady.setSuccess(channel));
-                } else {
-                  channelReady.setSuccess(channel);
-                }
-              } catch (Throwable t) {
-                channelReady.setFailure(t);
-              }
+              Channel channel = channelAcquired.getNow();
+              HttpConnectProxy.awaitHandshake(
+                  channel, channelReady, () -> setUpUploadChannel(channel, channelReady));
             });
     return channelReady;
+  }
+
+  private void setUpUploadChannel(Channel channel, Promise<Channel> channelReady) {
+    try {
+      ChannelPipeline pipeline = channel.pipeline();
+
+      if (!isChannelPipelineEmpty(pipeline)) {
+        channelReady.setFailure(new IllegalStateException("Channel pipeline is not empty."));
+        return;
+      }
+
+      pipeline.addFirst(
+          "timeout-handler",
+          new IdleTimeoutHandler(timeoutSeconds, WriteTimeoutException.INSTANCE));
+      pipeline.addLast(new HttpResponseDecoder());
+      // The 10KiB limit was chosen arbitrarily. We only expect HTTP servers to respond with an
+      // error message in the body, and that should always be less than 10KiB. If the response is
+      // larger than 10KiB, HttpUploadHandler will catch the TooLongFrameException that
+      // HttpObjectAggregator throws and convert it to an IOException.
+      pipeline.addLast(new HttpObjectAggregator(10 * 1024));
+      pipeline.addLast(new HttpRequestEncoder());
+      pipeline.addLast(new ChunkedWriteHandler());
+      synchronized (credentialsLock) {
+        pipeline.addLast(new HttpUploadHandler(creds, extraHttpHeaders));
+      }
+
+      if (!channel.eventLoop().inEventLoop()) {
+        // If addLast is called outside an event loop, then it doesn't complete until the event loop
+        // is run again. In that case, a message sent to the last handler gets delivered to the last
+        // non-pending handler, which will most likely end up throwing UnsupportedMessageTypeException.
+        // Therefore, we only complete the promise in the event loop.
+        channel.eventLoop().execute(() -> channelReady.setSuccess(channel));
+      } else {
+        channelReady.setSuccess(channel);
+      }
+    } catch (Throwable t) {
+      channelReady.setFailure(t);
+    }
   }
 
   @SuppressWarnings("FutureReturnValueIgnored")
@@ -388,41 +404,43 @@ public final class HttpCacheClient extends RemoteCacheClient {
                 channelReady.setFailure(channelAcquired.cause());
                 return;
               }
-
-              try {
-                Channel channel = channelAcquired.getNow();
-                ChannelPipeline pipeline = channel.pipeline();
-
-                if (!isChannelPipelineEmpty(pipeline)) {
-                  channelReady.setFailure(
-                      new IllegalStateException("Channel pipeline is not empty."));
-                  return;
-                }
-                pipeline.addFirst(
-                    "timeout-handler",
-                    new IdleTimeoutHandler(timeoutSeconds, ReadTimeoutException.INSTANCE));
-                pipeline.addLast(new HttpClientCodec());
-                pipeline.addLast("inflater", new HttpContentDecompressor());
-                synchronized (credentialsLock) {
-                  pipeline.addLast(new HttpDownloadHandler(creds, extraHttpHeaders));
-                }
-
-                if (!channel.eventLoop().inEventLoop()) {
-                  // If addLast is called outside an event loop, then it doesn't complete until the
-                  // event loop is run again. In that case, a message sent to the last handler gets
-                  // delivered to the last non-pending handler, which will most likely end up
-                  // throwing UnsupportedMessageTypeException. Therefore, we only complete the
-                  // promise in the event loop.
-                  channel.eventLoop().execute(() -> channelReady.setSuccess(channel));
-                } else {
-                  channelReady.setSuccess(channel);
-                }
-              } catch (Throwable t) {
-                channelReady.setFailure(t);
-              }
+              Channel channel = channelAcquired.getNow();
+              HttpConnectProxy.awaitHandshake(
+                  channel, channelReady, () -> setUpDownloadChannel(channel, channelReady));
             });
 
     return channelReady;
+  }
+
+  private void setUpDownloadChannel(Channel channel, Promise<Channel> channelReady) {
+    try {
+      ChannelPipeline pipeline = channel.pipeline();
+
+      if (!isChannelPipelineEmpty(pipeline)) {
+        channelReady.setFailure(new IllegalStateException("Channel pipeline is not empty."));
+        return;
+      }
+      pipeline.addFirst(
+          "timeout-handler",
+          new IdleTimeoutHandler(timeoutSeconds, ReadTimeoutException.INSTANCE));
+      pipeline.addLast(new HttpClientCodec());
+      pipeline.addLast("inflater", new HttpContentDecompressor());
+      synchronized (credentialsLock) {
+        pipeline.addLast(new HttpDownloadHandler(creds, extraHttpHeaders));
+      }
+
+      if (!channel.eventLoop().inEventLoop()) {
+        // If addLast is called outside an event loop, then it doesn't complete until the event loop
+        // is run again. In that case, a message sent to the last handler gets delivered to the last
+        // non-pending handler, which will most likely end up throwing UnsupportedMessageTypeException.
+        // Therefore, we only complete the promise in the event loop.
+        channel.eventLoop().execute(() -> channelReady.setSuccess(channel));
+      } else {
+        channelReady.setSuccess(channel);
+      }
+    } catch (Throwable t) {
+      channelReady.setFailure(t);
+    }
   }
 
   @SuppressWarnings("FutureReturnValueIgnored")

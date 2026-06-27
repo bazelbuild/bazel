@@ -326,7 +326,8 @@ public class HttpCacheClientTest {
           DIGEST_UTIL,
           retrier,
           creds,
-          authAndTlsOptions);
+          authAndTlsOptions,
+          /* httpConnectProxy= */ null);
     } else {
       throw new IllegalStateException(
           "unsupported socket address class " + socketAddress.getClass());
