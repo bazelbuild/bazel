@@ -70,6 +70,7 @@ public abstract class CompressedTarFunction implements Decompressor {
       throw new InterruptedException();
     }
     Optional<String> prefix = descriptor.prefix();
+    int stripComponents = descriptor.stripComponents();
     Map<String, String> renameFiles = descriptor.renameFiles();
     boolean foundPrefix = false;
     Set<String> availablePrefixes = new HashSet<>();
@@ -90,7 +91,8 @@ public abstract class CompressedTarFunction implements Decompressor {
         String entryName = toRawBytesString(entry.getName());
         entryName = renameFiles.getOrDefault(entryName, entryName);
         StripPrefixedPath entryPath =
-            StripPrefixedPath.maybeDeprefix(entryName.getBytes(ISO_8859_1), prefix);
+            StripPrefixedPath.maybeDeprefix(
+                entryName.getBytes(ISO_8859_1), prefix, stripComponents);
         foundPrefix = foundPrefix || entryPath.foundPrefix();
 
         if (prefix.isPresent() && !foundPrefix) {
@@ -109,11 +111,6 @@ public abstract class CompressedTarFunction implements Decompressor {
                   "Failed to extract %s, tarred paths cannot be absolute", strippedRelativePath));
         }
 
-        strippedRelativePath = strippedRelativePath.stripComponents(descriptor.stripComponents());
-        if (Objects.equals(strippedRelativePath, PathFragment.EMPTY_FRAGMENT)) {
-          continue;
-        }
-
         Path filePath = descriptor.destinationPath().getRelative(strippedRelativePath);
         if (!filePath.startsWith(descriptor.destinationPath())) {
           throw new IOException(
@@ -130,6 +127,7 @@ public abstract class CompressedTarFunction implements Decompressor {
                 maybeDeprefixSymlink(
                     toRawBytesString(entry.getLinkName()).getBytes(ISO_8859_1),
                     prefix,
+                    stripComponents,
                     descriptor.destinationPath(),
                     // Hard link target paths should be relative to the extraction directory.
                     /* forceExtractRootRelative= */ entry.isLink());
