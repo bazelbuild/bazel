@@ -170,4 +170,105 @@ public class LcovPrinterTest {
             "end_of_record",
             "");
   }
+
+  @Test
+  public void testPrintMcdcLines() throws Exception {
+    Coverage coverage = new Coverage();
+    SourceFileCoverage sourceFile = new SourceFileCoverage("test.cpp");
+    sourceFile.addMcdc(10, McdcCoverage.create(10, 3, 't', 5, 0, "a && b"));
+    sourceFile.addMcdc(10, McdcCoverage.create(10, 3, 'f', 2, 1, "a && b"));
+    sourceFile.addMcdc(10, McdcCoverage.create(10, 3, 't', 0, 2, "a && b"));
+    coverage.add(sourceFile);
+
+    ByteArrayOutputStream byteOutputStream = new ByteArrayOutputStream();
+    LcovPrinter.print(byteOutputStream, coverage);
+    Iterable<String> fileLines = Splitter.on('\n').split(byteOutputStream.toString(UTF_8));
+
+    assertThat(fileLines)
+        .containsExactly(
+            "SF:test.cpp",
+            "FNF:0",
+            "FNH:0",
+            "MCDC:10,3,t,5,0,a && b",
+            "MCDC:10,3,f,2,1,a && b",
+            "MCDC:10,3,t,0,2,a && b",
+            "MCF:3",
+            "MCH:2",
+            "LH:0",
+            "LF:0",
+            "end_of_record",
+            "");
+  }
+
+  @Test
+  public void testPrintMcdcWithNoRecords() throws Exception {
+    Coverage coverage = new Coverage();
+    SourceFileCoverage sourceFile = new SourceFileCoverage("empty.cpp");
+    coverage.add(sourceFile);
+
+    ByteArrayOutputStream byteOutputStream = new ByteArrayOutputStream();
+    LcovPrinter.print(byteOutputStream, coverage);
+    Iterable<String> fileLines = Splitter.on('\n').split(byteOutputStream.toString(UTF_8));
+
+    assertThat(fileLines)
+        .containsExactly(
+            "SF:empty.cpp",
+            "FNF:0",
+            "FNH:0",
+            "LH:0",
+            "LF:0",
+            "end_of_record",
+            "");
+  }
+
+  @Test
+  public void testPrintMcdcWithComplexExpression() throws Exception {
+    Coverage coverage = new Coverage();
+    SourceFileCoverage sourceFile = new SourceFileCoverage("complex.cpp");
+    String complexExpr = "((a || b) && (c || d)) || e";
+    sourceFile.addMcdc(50, McdcCoverage.create(50, 5, 'f', 42, 3, complexExpr));
+    coverage.add(sourceFile);
+
+    ByteArrayOutputStream byteOutputStream = new ByteArrayOutputStream();
+    LcovPrinter.print(byteOutputStream, coverage);
+    Iterable<String> fileLines = Splitter.on('\n').split(byteOutputStream.toString(UTF_8));
+
+    assertThat(fileLines)
+        .containsExactly(
+            "SF:complex.cpp",
+            "FNF:0",
+            "FNH:0",
+            "MCDC:50,5,f,42,3," + complexExpr,
+            "MCF:1",
+            "MCH:1",
+            "LH:0",
+            "LF:0",
+            "end_of_record",
+            "");
+  }
+
+  @Test
+  public void testPrintMcdcWithEmptyExpression() throws Exception {
+    Coverage coverage = new Coverage();
+    SourceFileCoverage sourceFile = new SourceFileCoverage("minimal.cpp");
+    sourceFile.addMcdc(20, McdcCoverage.create(20, 1, 't', 1, 0, ""));
+    coverage.add(sourceFile);
+
+    ByteArrayOutputStream byteOutputStream = new ByteArrayOutputStream();
+    LcovPrinter.print(byteOutputStream, coverage);
+    Iterable<String> fileLines = Splitter.on('\n').split(byteOutputStream.toString(UTF_8));
+
+    assertThat(fileLines)
+        .containsExactly(
+            "SF:minimal.cpp",
+            "FNF:0",
+            "FNH:0",
+            "MCDC:20,1,t,1,0,",
+            "MCF:1",
+            "MCH:1",
+            "LH:0",
+            "LF:0",
+            "end_of_record",
+            "");
+  }
 }
