@@ -43,6 +43,21 @@ java_test(
     ],
 )
 
+java_test(
+    name = "ExtensionInputsFunctionTest",
+    srcs = ["ExtensionInputsFunctionTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/query2",
+        "//src/main/java/com/google/devtools/build/lib/query2/engine",
+        "//src/test/java/com/google/devtools/build/lib/packages:testutil",
+        "//src/test/java/com/google/devtools/build/lib/query2/testutil",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
 test_suite(
     name = "AllTests",
     tests = [
