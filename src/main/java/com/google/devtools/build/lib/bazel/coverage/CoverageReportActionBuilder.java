@@ -100,11 +100,16 @@ public final class CoverageReportActionBuilder {
   private static final ResourceSet LOCAL_RESOURCES =
       ResourceSet.createWithRamCpu(/* memoryMb= */ 750, /* cpu= */ 1);
 
+  private static boolean hasExecProperties(ActionOwner actionOwner) {
+    return actionOwner != null && !actionOwner.getExecProperties().isEmpty();
+  }
+
   private static final Comparator<ActionOwner> ACTION_OWNER_COMPARATOR =
-      comparing(
-              (ActionOwner actionOwner) -> actionOwner.getExecProperties().isEmpty(), falseFirst())
-          .thenComparing(ActionOwner::getLabel)
-          .thenComparing(ActionOwner::getConfigurationChecksum);
+      Comparator.nullsFirst(
+          comparing(
+                  (ActionOwner actionOwner) -> !hasExecProperties(actionOwner), falseFirst())
+              .thenComparing(ActionOwner::getLabel)
+              .thenComparing(ActionOwner::getConfigurationChecksum));
 
   // SpawnActions can't be used because they need the AnalysisEnvironment and this action is
   // created specially at the very end of the analysis phase when we don't have it anymore.
@@ -220,11 +225,12 @@ public final class CoverageReportActionBuilder {
       // targetsToTest has non-deterministic order, so we ensure that we pick the same action owner
       // and matching report generator each time by picking the owner that's lexicographically
       // largest. We prefer an owner with exec properties set in case the action is run remotely.
+      ActionOwner currentActionOwner = testParams.getActionOwnerForCoverage();
       if (reportGenerator == null
-          || ACTION_OWNER_COMPARATOR.compare(testParams.getActionOwnerForCoverage(), actionOwner)
-              > 0) {
+          || (currentActionOwner != null
+              && ACTION_OWNER_COMPARATOR.compare(currentActionOwner, actionOwner) > 0)) {
         reportGenerator = testParams.getCoverageReportGenerator();
-        actionOwner = testParams.getActionOwnerForCoverage();
+        actionOwner = currentActionOwner;
       }
     }
     // If all tests are incompatible, there's nothing to do.
