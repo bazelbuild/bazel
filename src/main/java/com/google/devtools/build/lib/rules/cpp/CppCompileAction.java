@@ -1389,8 +1389,10 @@ public class CppCompileAction extends AbstractAction
       String mnemonic,
       OutputPathsMode outputPathsMode)
       throws CommandLineExpansionException, InterruptedException {
+    var effectiveOutputPathsMode =
+        PathMappers.getEffectiveOutputPathsMode(outputPathsMode, mnemonic, executionInfo);
     fp.addUUID(GUID);
-    env.addTo(fp);
+    env.addTo(effectiveOutputPathsMode, fp);
     fp.addStringMap(environmentVariables);
     fp.addStringMap(executionInfo);
     fp.addBytes(commandLineKey);
@@ -1415,11 +1417,9 @@ public class CppCompileAction extends AbstractAction
     actionKeyContext.addNestedSetToFingerprint(fp, inputsForInvalidation);
 
     PathMappers.addToFingerprint(
-        mnemonic,
-        executionInfo,
         NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         actionKeyContext,
-        outputPathsMode,
+        effectiveOutputPathsMode,
         fp);
   }
 
