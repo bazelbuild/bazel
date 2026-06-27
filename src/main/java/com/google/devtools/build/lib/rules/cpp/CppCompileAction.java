@@ -1699,10 +1699,14 @@ public class CppCompileAction extends AbstractAction
       DetailedExitCode code = createDetailedExitCode(message, Code.MODMAP_INPUT_FILE_READ_FAILURE);
       throw new ActionExecutionException(message, this, /* catastrophe= */ false, code);
     }
+    var pathMapper =
+        PathMappers.create(
+            this, PathMappers.getOutputPathsMode(configuration), /* isStarlarkAction= */ false);
     // All module files referenced in the modmap input file are expected to be known modules. We
     // delegate error reporting to the compiler by silently skipping over unknown files.
     return moduleFiles.toList().stream()
-        .filter(moduleFile -> usedModulePaths.contains(moduleFile.getExecPathString()))
+        .filter(
+            moduleFile -> usedModulePaths.contains(pathMapper.getMappedExecPathString(moduleFile)))
         .collect(toImmutableSet());
   }
 
