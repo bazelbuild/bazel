@@ -331,7 +331,8 @@ public final class ConfiguredTargetFactory {
               ConfiguredTargetKey.builder()
                   .setLabel(target.getLabel())
                   .setConfiguration(config)
-                  .build());
+                  .build(),
+              inputFile.getPath().isDirectory());
       return new InputFileConfiguredTarget(targetContext, artifact);
     } else if (target instanceof PackageGroup packageGroup) {
       TargetContext targetContext =
