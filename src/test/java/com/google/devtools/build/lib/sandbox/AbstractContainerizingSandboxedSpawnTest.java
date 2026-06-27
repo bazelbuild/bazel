@@ -102,7 +102,13 @@ public class AbstractContainerizingSandboxedSpawnTest {
     Path outputsDir = testRoot.getRelative("outputs");
     outputsDir.createDirectory();
     outputsDir.getRelative("very").createDirectory();
-    SandboxHelpers.moveOutputs(SandboxOutputs.create(outputs, outputDirs), execRoot, outputsDir);
+    SandboxHelpers.moveOutputs(
+        SandboxOutputs.create(
+            outputs,
+            outputDirs,
+            ImmutableSet.of(outputDangling.relativeTo(execRoot))),
+        execRoot,
+        outputsDir);
 
     assertThat(outputsDir.getRelative("very/output.txt").isFile(Symlinks.NOFOLLOW)).isTrue();
     assertThat(outputsDir.getRelative("very/output.link").isSymbolicLink()).isTrue();
