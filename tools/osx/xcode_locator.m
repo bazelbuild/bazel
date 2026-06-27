@@ -130,8 +130,18 @@ static NSMutableDictionary<NSString *, XcodeVersionEntry *> *FindXcodes()
   NSMutableDictionary<NSString *, XcodeVersionEntry *> *dict =
       [[NSMutableDictionary alloc] init];
   CFErrorRef cfError;
-  NSArray *array = CFBridgingRelease(LSCopyApplicationURLsForBundleIdentifier(
-      cfBundleID, &cfError));
+
+  // If the user sets the environment variable DEVELOPER_DIR, then that Xcode will be returned.
+  // Otherwise, the function returns a list of all discovered Xcodes on the host.
+  NSDictionary<NSString *, NSString *> *environmentVariables = [[NSProcessInfo processInfo] environment];
+  NSString *developer_dir_env = environmentVariables[@"DEVELOPER_DIR"];
+
+  NSArray *array = CFBridgingRelease(LSCopyApplicationURLsForBundleIdentifier(cfBundleID, &cfError));
+  if (developer_dir_env) {
+    NSURL *fileURL = [NSURL fileURLWithPath:developer_dir_env];
+    NSURL *xcodeURL = [[fileURL URLByDeletingLastPathComponent] URLByDeletingLastPathComponent];
+    array = @[xcodeURL];
+  }
   if (array == nil) {
     NSError *nsError = (__bridge NSError *)cfError;
     fprintf(stderr, "error: %s\n", nsError.description.UTF8String);
