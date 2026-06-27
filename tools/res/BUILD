@@ -3,19 +3,13 @@ load(":winsdk_toolchain.bzl", "WINDOWS_RESOURCE_COMPILER_TOOLCHAIN_TYPE", "windo
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
-    visibility = ["//src:__pkg__"],
+    visibility = ["//tools:__pkg__"],
 )
 
 filegroup(
-    name = "srcs_for_testing",
-    testonly = 1,
-    srcs = [
-        "BUILD",
-        "win_res.bzl",
-        "winsdk_configure.bzl",
-        "winsdk_toolchain.bzl",
-    ],
-    visibility = ["//src/test/shell/bazel:__pkg__"],
+    name = "bzl_srcs",
+    srcs = glob(["*.bzl"]),
+    visibility = ["//tools:__pkg__"],
 )
 
 # The toolchain type for every resource compiler toolchain.

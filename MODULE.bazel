@@ -466,7 +466,7 @@ list_source_repository = use_repo_rule("//src/test/shell/bazel:list_source_repos
 
 list_source_repository(name = "local_bazel_source_list")
 
-winsdk_configure = use_repo_rule("//src/main/res:winsdk_configure.bzl", "winsdk_configure")
+winsdk_configure = use_repo_rule("//tools/res:winsdk_configure.bzl", "winsdk_configure")
 
 winsdk_configure(name = "local_config_winsdk")
 
@@ -491,6 +491,6 @@ register_toolchains("//:all")
 
 register_toolchains("@local_config_winsdk//:all")
 
-register_toolchains("//src/main/res:empty_rc_toolchain")
+register_toolchains("//tools/res:empty_rc_toolchain")
 
 register_toolchains("@graalvm_ce_toolchains//:gvm")
