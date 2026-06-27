@@ -334,11 +334,38 @@ public final class RemoteWorker {
       return;
     }
 
+    if (remoteWorkerOptions.getLostBlobPercentage() < 0
+        || remoteWorkerOptions.getLostBlobPercentage() > 100) {
+      logger.atSevere().log("--lost_blob_percentage must be between 0 and 100");
+      System.exit(1);
+      return;
+    }
+
+    if (remoteWorkerOptions.getLostBlobMaxLosses() < 1) {
+      logger.atSevere().log("--lost_blob_max_losses must be at least 1");
+      System.exit(1);
+      return;
+    }
+
+    if (remoteWorkerOptions.getEvictExistingPercentage() < 0
+        || remoteWorkerOptions.getEvictExistingPercentage() > 100) {
+      logger.atSevere().log("--evict_existing_percentage must be between 0 and 100");
+      System.exit(1);
+      return;
+    }
+
     Path casPath = fs.getPath(remoteWorkerOptions.getCasPath());
     casPath.createDirectoryAndParents();
 
     DigestUtil digestUtil = new DigestUtil(SyscallCache.NO_CACHE, fs.getDigestFunction());
     OnDiskBlobStoreCache cache = new OnDiskBlobStoreCache(casPath, digestUtil, remoteWorkerOptions);
+
+    if (remoteWorkerOptions.getEvictExistingPercentage() > 0) {
+      int evicted = cache.evictExistingEntries(remoteWorkerOptions.getEvictExistingPercentage());
+      logger.atInfo().log(
+          "Evicted %d existing CAS entries on startup (--evict_existing_percentage=%d)",
+          evicted, remoteWorkerOptions.getEvictExistingPercentage());
+    }
     ListeningScheduledExecutorService retryService =
         MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
     RemoteWorker worker = new RemoteWorker(fs, remoteWorkerOptions, cache, sandboxPath, digestUtil);

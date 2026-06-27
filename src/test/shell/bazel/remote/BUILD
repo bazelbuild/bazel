@@ -46,6 +46,25 @@ sh_test(
 )
 
 sh_test(
+    name = "rewinding_integration_test",
+    size = "large",
+    srcs = ["rewinding_integration_test.sh"],
+    data = [
+        ":remote_utils",
+        "//src/test/shell/bazel:test-deps",
+        "//src/tools/remote:worker",
+        "@bazel_tools//tools/bash/runfiles",
+        "@rules_java//toolchains:current_java_runtime",
+    ],
+    env = {
+        "JAVA_ROOTPATH": "$(JAVA_ROOTPATH)",  # for remote_helpers setup_javabase
+    },
+    toolchains = [
+        "@rules_java//toolchains:current_java_runtime",
+    ],
+)
+
+sh_test(
     name = "build_without_the_bytes_test",
     size = "large",
     timeout = "eternal",
