@@ -636,6 +636,117 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
     self.assertTrue(os.path.exists(os.path.join(repo_dir, 'BUILD')))
     self.assertTrue(os.path.exists(os.path.join(other_repo_dir, 'BUILD')))
 
+  def testAccessFromOtherRepo_withoutRemoteCache(self):
+    # Regression test for a crash when a command that doesn't configure a remote
+    # cache accesses a repo that a previous cached build injected into the
+    # in-memory overlay file system but didn't materialize to disk: the in-memory
+    # contents can't be served, so such repos must be re-fetched from scratch.
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+            'other_repo = use_repo_rule("//:other_repo.bzl", "other_repo")',
+            'other_repo(name = "other", build_file = "@my_repo//:BUILD")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  rctx.file("BUILD", "filegroup(name=\'haha\')")',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+    self.ScratchFile(
+        'other_repo.bzl',
+        [
+            'def _other_repo_impl(rctx):',
+            '  rctx.file("BUILD", rctx.read(rctx.path(rctx.attr.build_file)))',
+            '  return rctx.repo_metadata()',
+            (
+                'other_repo = repository_rule(_other_repo_impl,'
+                ' attrs={"build_file": attr.label()})'
+            ),
+        ],
+    )
+
+    repo_dir = self.RepoDir('my_repo')
+
+    # Populate the cache: my_repo is materialized as a side effect of fetching
+    # other, which reads my_repo's BUILD file.
+    self.RunBazel(['build', '@other//:haha'])
+
+    # After expunging, fetch my_repo only: it is injected from the cache but not
+    # materialized to disk and kept in memory for subsequent commands.
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:haha'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'BUILD')))
+
+    # Access my_repo from a command without a remote cache (same server). Its
+    # in-memory contents can't be served, so it must be re-fetched from scratch.
+    _, _, stderr = self.RunBazel(['build', '@other//:haha', '--remote_cache='])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'BUILD')))
+
+  def testActionInput_withoutRemoteCache(self):
+    # Like testAccessFromOtherRepo_withoutRemoteCache, but the in-memory repo is
+    # accessed as a source file consumed by an action (which goes through the
+    # file system's getInputStream) rather than via ctx.path()/materialization.
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+        ],
+    )
+    self.ScratchFile(
+        'BUILD.bazel',
+        [
+            'genrule(',
+            '    name = "gen",',
+            '    srcs = ["@my_repo//:data.txt"],',
+            '    outs = ["out.txt"],',
+            '    cmd = "cp $< $@",',
+            ')',
+        ],
+    )
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  rctx.file("data.txt", "from my_repo")',
+            '  rctx.file("BUILD", "exports_files([\'data.txt\'])\\n'
+            'filegroup(name=\'haha\')")',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+
+    repo_dir = self.RepoDir('my_repo')
+
+    # Populate the cache by building the genrule, which reads my_repo's data.txt.
+    self.RunBazel(['build', '//:gen'])
+
+    # After expunging, fetch my_repo without reading data.txt: it is injected from
+    # the cache but not materialized to disk and kept in memory.
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:haha'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'data.txt')))
+
+    # Build the genrule from a command without a remote cache (same server). The
+    # action input lives only in memory and can't be served, so my_repo must be
+    # re-fetched from scratch.
+    _, _, stderr = self.RunBazel(['build', '//:gen', '--remote_cache='])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'data.txt')))
+
   def testAccessFromOtherRepo_symlink(self):
     self.ScratchFile(
         'MODULE.bazel',
