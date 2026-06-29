@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.remote;
 import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
+import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
@@ -25,12 +26,12 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.google.common.collect.ImmutableList;
 import com.google.bytestream.ByteStreamGrpc;
 import com.google.bytestream.ByteStreamProto.ReadRequest;
 import com.google.bytestream.ByteStreamProto.ReadResponse;
 import com.google.bytestream.ByteStreamProto.WriteRequest;
 import com.google.bytestream.ByteStreamProto.WriteResponse;
+import com.google.common.collect.ImmutableList;
 import io.grpc.CallOptions;
 import io.grpc.Channel;
 import io.grpc.ClientCall;
@@ -104,7 +105,8 @@ public final class RemoteDownloadIdleTimeoutInterceptorTest {
     assertThat(delegate.cancelled).isTrue();
     assertThat(delegate.cancelMessage)
         .isEqualTo(
-            "Remote download idle timeout exceeded after PT3S for google.bytestream.ByteStream/Read");
+            "Remote download idle timeout exceeded after PT3S for"
+                + " google.bytestream.ByteStream/Read");
     assertThat(Status.fromThrowable(delegate.cancelCause).getCode())
         .isEqualTo(Status.Code.DEADLINE_EXCEEDED);
   }
@@ -143,6 +145,42 @@ public final class RemoteDownloadIdleTimeoutInterceptorTest {
     verify(thirdTimeout).cancel(false);
     assertThat(responses.build()).containsExactly(response);
     assertThat(delegate.cancelled).isFalse();
+  }
+
+  @Test
+  public void byteStreamRead_forwardsCallbacksWhenResetTimeoutFails() {
+    FakeClientCall<ReadRequest, ReadResponse> delegate = new FakeClientCall<>();
+    FakeChannel channel = new FakeChannel(delegate);
+    ScheduledExecutorService scheduler = mock(ScheduledExecutorService.class);
+    RuntimeException resetFailure = new RuntimeException("reset failed");
+    when(scheduler.schedule(any(Runnable.class), anyLong(), eq(NANOSECONDS)))
+        .thenThrow(resetFailure);
+    RemoteDownloadIdleTimeoutInterceptor interceptor =
+        new RemoteDownloadIdleTimeoutInterceptor(Duration.ofSeconds(3), scheduler);
+    ImmutableList.Builder<ReadResponse> responses = ImmutableList.builder();
+
+    ClientCall<ReadRequest, ReadResponse> call =
+        interceptor.interceptCall(ByteStreamGrpc.getReadMethod(), CallOptions.DEFAULT, channel);
+    assertThrows(
+        RuntimeException.class,
+        () ->
+            call.start(
+                new ClientCall.Listener<>() {
+                  @Override
+                  public void onMessage(ReadResponse message) {
+                    responses.add(message);
+                  }
+                },
+                new Metadata()));
+
+    ReadRequest request = ReadRequest.getDefaultInstance();
+    assertThrows(RuntimeException.class, () -> call.sendMessage(request));
+
+    ReadResponse response = ReadResponse.getDefaultInstance();
+    assertThrows(RuntimeException.class, () -> delegate.listener.onMessage(response));
+
+    assertThat(delegate.sentMessages).containsExactly(request);
+    assertThat(responses.build()).containsExactly(response);
   }
 
   private static MethodDescriptor<String, String> method(MethodDescriptor.MethodType type) {
@@ -189,6 +227,7 @@ public final class RemoteDownloadIdleTimeoutInterceptorTest {
 
   private static final class FakeClientCall<ReqT, RespT> extends ClientCall<ReqT, RespT> {
     private Listener<RespT> listener;
+    private final List<ReqT> sentMessages = new ArrayList<>();
     private boolean cancelled;
     private String cancelMessage;
     private Throwable cancelCause;
@@ -212,7 +251,9 @@ public final class RemoteDownloadIdleTimeoutInterceptorTest {
     public void halfClose() {}
 
     @Override
-    public void sendMessage(ReqT message) {}
+    public void sendMessage(ReqT message) {
+      sentMessages.add(message);
+    }
   }
 
   private static final class ScheduledTasks {

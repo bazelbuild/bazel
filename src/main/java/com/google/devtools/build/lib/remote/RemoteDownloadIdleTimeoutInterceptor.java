@@ -82,20 +82,29 @@ final class RemoteDownloadIdleTimeoutInterceptor implements ClientInterceptor {
               responseListener) {
             @Override
             public void onHeaders(Metadata headers) {
-              resetTimeout();
-              super.onHeaders(headers);
+              try {
+                resetTimeout();
+              } finally {
+                super.onHeaders(headers);
+              }
             }
 
             @Override
             public void onMessage(RespT message) {
-              resetTimeout();
-              super.onMessage(message);
+              try {
+                resetTimeout();
+              } finally {
+                super.onMessage(message);
+              }
             }
 
             @Override
             public void onClose(Status status, Metadata trailers) {
-              closeTimeout();
-              super.onClose(status, trailers);
+              try {
+                closeTimeout();
+              } finally {
+                super.onClose(status, trailers);
+              }
             }
           },
           headers);
@@ -104,20 +113,29 @@ final class RemoteDownloadIdleTimeoutInterceptor implements ClientInterceptor {
 
     @Override
     public void sendMessage(ReqT message) {
-      resetTimeout();
-      super.sendMessage(message);
+      try {
+        resetTimeout();
+      } finally {
+        super.sendMessage(message);
+      }
     }
 
     @Override
     public void halfClose() {
-      resetTimeout();
-      super.halfClose();
+      try {
+        resetTimeout();
+      } finally {
+        super.halfClose();
+      }
     }
 
     @Override
     public void cancel(@Nullable String message, @Nullable Throwable cause) {
-      closeTimeout();
-      super.cancel(message, cause);
+      try {
+        closeTimeout();
+      } finally {
+        super.cancel(message, cause);
+      }
     }
 
     private void resetTimeout() {

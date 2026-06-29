@@ -645,10 +645,10 @@ public final class RemoteModule extends BlazeModule {
           FailureDetails.RemoteOptions.Code.REMOTE_GRPC_SERVICE_CONFIG_INVALID);
     }
     ClientInterceptor downloadIdleTimeoutInterceptor = null;
-    if (!remoteOptions.getRemoteDownloadIdleTimeout().isZero()) {
+    if (!remoteOptions.getRemoteGrpcDownloadIdleTimeout().isZero()) {
       downloadIdleTimeoutInterceptor =
           new RemoteDownloadIdleTimeoutInterceptor(
-              remoteOptions.getRemoteDownloadIdleTimeout(), retryScheduler);
+              remoteOptions.getRemoteGrpcDownloadIdleTimeout(), retryScheduler);
     }
 
     if (!Strings.isNullOrEmpty(remoteOptions.getRemoteOutputService())) {
