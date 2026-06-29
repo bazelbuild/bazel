@@ -29,7 +29,7 @@ bazel_dep(name = "re2", version = "2025-11-05.bcr.1")
 bazel_dep(name = "rules_go", version = "0.59.0")
 bazel_dep(name = "rules_graalvm", version = "0.11.1")
 bazel_dep(name = "rules_java", version = "9.5.0")
-bazel_dep(name = "rules_jvm_external", version = "6.6")
+bazel_dep(name = "rules_jvm_external", version = "6.8")
 bazel_dep(name = "rules_license", version = "1.0.0")
 bazel_dep(name = "rules_pkg", version = "1.1.0")
 bazel_dep(name = "rules_python", version = "1.7.0")
@@ -65,8 +65,8 @@ bazel_dep(name = "onetbb", version = "2022.2.0", repo_name = None)
 single_version_override(
     module_name = "rules_jvm_external",
     patch_strip = 1,
-    patches = ["//third_party:rules_jvm_external_6.5.patch"],
-    version = "6.6",
+    patches = ["//third_party:rules_jvm_external_6.8_bazel_vendor.patch"],
+    version = "6.8",
 )
 
 # TODO(pcloudy): Remove once the next version of rules_graalvm is available.
