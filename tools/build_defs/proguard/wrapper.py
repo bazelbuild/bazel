@@ -37,6 +37,7 @@ def lookup_binary(r, path):
     return binary
 
 def apply_proguard(srcs, deps, proguard_spec, output_jar):
+    """Call proguard on the given source jars with the spec."""
 
     # Set up runfiles and call the proguard binary.
     r = Runfiles.Create()
@@ -53,7 +54,7 @@ def apply_proguard(srcs, deps, proguard_spec, output_jar):
     env = os.environ.copy()
     env.update(r.EnvVars())
     #print("Running proguard: %s" % " ".join(command))
-    p = subprocess.run(command, capture_output=True, env=env)
+    p = subprocess.run(command, capture_output=True, env=env, check = False)
 
     if p.returncode != 0:
         message = f"Proguard failed ({p.returncode})"
@@ -65,11 +66,11 @@ def apply_proguard(srcs, deps, proguard_spec, output_jar):
             message += f"\n  stderr:\n{stderr}"
         raise RuntimeError(message)
 
-def reset_timestamps(input, output, timestamp):
+def reset_timestamps(input_jar, output_jar, timestamp):
     #print("Resetting timestamps in %s to %s, writing to %s" % (input, timestamp, output))
 
-    with zipfile.ZipFile(input, mode="r") as src:
-        with zipfile.ZipFile(output, mode="w") as dest:
+    with zipfile.ZipFile(input_jar, mode="r") as src:
+        with zipfile.ZipFile(output_jar, mode="w") as dest:
             for info in src.infolist():
                 #print(f"Filename: {info.filename}")
                 #print(f"  Modified: {datetime.datetime(*info.date_time)}")
