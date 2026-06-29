@@ -76,21 +76,6 @@ public final class GoogleAuthUtils {
       String target,
       String proxy,
       AuthAndTLSOptions options,
-      @Nullable List<ClientInterceptor> interceptors)
-      throws IOException {
-    return newChannel(executor, target, proxy, options, interceptors, /* serviceConfig= */ null);
-  }
-
-  /**
-   * Create a new gRPC {@link ManagedChannel}.
-   *
-   * @throws IOException in case the channel can't be constructed.
-   */
-  public static ManagedChannel newChannel(
-      @Nullable Executor executor,
-      String target,
-      String proxy,
-      AuthAndTLSOptions options,
       @Nullable List<ClientInterceptor> interceptors,
       @Nullable Map<String, ?> serviceConfig)
       throws IOException {

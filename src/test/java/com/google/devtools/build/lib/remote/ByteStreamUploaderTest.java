@@ -1656,7 +1656,6 @@ public class ByteStreamUploaderTest {
             INSTANCE_NAME,
             referenceCountedChannel,
             CallCredentialsProvider.NO_CREDENTIALS,
-            /* callTimeoutSecs= */ 60,
             retrier,
             /* maximumOpenFiles= */ -1,
             /* digestFunction= */ DigestFunction.Value.SHA256);
@@ -1713,7 +1712,6 @@ public class ByteStreamUploaderTest {
             INSTANCE_NAME,
             referenceCountedChannel,
             CallCredentialsProvider.NO_CREDENTIALS,
-            /* callTimeoutSecs= */ 60,
             retrier,
             /* maximumOpenFiles= */ -1,
             /* digestFunction= */ DigestFunction.Value.SHA256);
