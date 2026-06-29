@@ -79,12 +79,15 @@ public class UnixFileSystem extends DiskBackedFileSystem {
 
   /** Converts from {@link NativePosixFilesService.Dirent.Type} to {@link Dirent.Type}. */
   private static Dirent.Type convertDirentType(NativePosixFilesService.Dirent.Type type) {
-    return switch (type) {
-      case FILE -> Dirent.Type.FILE;
-      case DIRECTORY -> Dirent.Type.DIRECTORY;
-      case SYMLINK -> Dirent.Type.SYMLINK;
-      default -> Dirent.Type.UNKNOWN;
-    };
+    if (type == NativePosixFilesService.Dirent.Type.FILE) {
+      return Dirent.Type.FILE;
+    } else if (type == NativePosixFilesService.Dirent.Type.DIRECTORY) {
+      return Dirent.Type.DIRECTORY;
+    } else if (type == NativePosixFilesService.Dirent.Type.SYMLINK) {
+      return Dirent.Type.SYMLINK;
+    } else {
+      return Dirent.Type.UNKNOWN;
+    }
   }
 
   @Override

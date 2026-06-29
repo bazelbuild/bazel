@@ -143,23 +143,32 @@ public interface NativePosixFilesService extends BlazeService {
   /** A directory entry and its corresponding type, as returned by readdir(). */
   public record Dirent(String name, Type type) {
     /** The type of the directory entry. */
-    public enum Type {
+    public static final class Type {
       /** Regular file. */
-      FILE,
+      public static final Type FILE = new Type();
+
       /** Directory. */
-      DIRECTORY,
+      public static final Type DIRECTORY = new Type();
+
       /** Symbolic link. */
-      SYMLINK,
+      public static final Type SYMLINK = new Type();
+
       /** Character special device. */
-      CHAR,
+      public static final Type CHAR = new Type();
+
       /* Block special device. */
-      BLOCK,
+      public static final Type BLOCK = new Type();
+
       /** Named pipe. */
-      FIFO,
+      public static final Type FIFO = new Type();
+
       /** Unix domain socket. */
-      SOCKET,
+      public static final Type SOCKET = new Type();
+
       /** Unknown type. */
-      UNKNOWN
+      public static final Type UNKNOWN = new Type();
+
+      private Type() {}
     }
   }
 
