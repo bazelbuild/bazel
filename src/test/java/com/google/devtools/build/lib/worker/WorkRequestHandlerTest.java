@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.worker;
 
 import static com.google.common.truth.Truth.assertThat;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.devtools.build.lib.worker.WorkRequestHandler.RequestInfo;
 import com.google.devtools.build.lib.worker.WorkRequestHandler.WorkRequestCallback;
@@ -22,11 +23,16 @@ import com.google.devtools.build.lib.worker.WorkRequestHandler.WorkRequestHandle
 import com.google.devtools.build.lib.worker.WorkRequestHandler.WorkerMessageProcessor;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
+import com.google.gson.stream.JsonReader;
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.InterruptedIOException;
+import java.io.OutputStreamWriter;
 import java.io.PipedInputStream;
 import java.io.PipedOutputStream;
 import java.io.PrintStream;
@@ -162,6 +168,71 @@ public class WorkRequestHandlerTest {
     }
     assertThat(workerThreads.get(0).isAlive()).isFalse();
     assertThat(workerThreads.get(1).isAlive()).isFalse();
+  }
+
+  @Test
+  public void testMultiplexWorkRequest_json_stopsThreadsOnShutdown()
+      throws IOException, InterruptedException {
+    PipedOutputStream src = new PipedOutputStream();
+    PipedInputStream dest = new PipedInputStream();
+
+    Semaphore started = new Semaphore(0);
+    Semaphore eternity = new Semaphore(0);
+    Semaphore stopped = new Semaphore(0);
+    List<Thread> workerThreads = new ArrayList<>();
+    JsonWorkerMessageProcessor jsonProcessor =
+        new JsonWorkerMessageProcessor(
+            new JsonReader(
+                new BufferedReader(new InputStreamReader(new PipedInputStream(src), UTF_8))),
+            new BufferedWriter(new OutputStreamWriter(new PipedOutputStream(dest), UTF_8)));
+    StoppableWorkerMessageProcessor messageProcessor =
+        new StoppableWorkerMessageProcessor(jsonProcessor);
+    ByteArrayOutputStream stderrStream = new ByteArrayOutputStream();
+    WorkRequestHandler handler =
+        new WorkRequestHandler(
+            (args, err) -> {
+              synchronized (workerThreads) {
+                workerThreads.add(Thread.currentThread());
+              }
+              started.release();
+              try {
+                eternity.acquire();
+              } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+              }
+              return 0;
+            },
+            new PrintStream(stderrStream),
+            messageProcessor);
+
+    Thread t =
+        new Thread(
+            () -> {
+              try {
+                handler.processRequests();
+                stopped.release();
+              } catch (IOException e) {
+                throw new AssertionError("Unhandled exception", e);
+              }
+            });
+    t.start();
+    // Write two JSON work requests (ndjson format).
+    src.write("{\"requestId\":42,\"arguments\":[\"--sources\",\"A.java\"]}\n".getBytes(UTF_8));
+    src.write("{\"requestId\":43,\"arguments\":[\"--sources\",\"A.java\"]}\n".getBytes(UTF_8));
+    src.flush();
+
+    started.acquire(2);
+    assertThat(workerThreads).hasSize(2);
+    // Closing stdin should trigger clean shutdown via EOF → null return.
+    src.close();
+    stopped.acquire();
+    while (workerThreads.get(0).isAlive() || workerThreads.get(1).isAlive()) {
+      Thread.sleep(1);
+    }
+    assertThat(workerThreads.get(0).isAlive()).isFalse();
+    assertThat(workerThreads.get(1).isAlive()).isFalse();
+    // Verify this was a clean shutdown, not an error-driven one. 
+    assertThat(stderrStream.toString(UTF_8)).doesNotContain("Error reading next WorkRequest");
   }
 
   @Test
