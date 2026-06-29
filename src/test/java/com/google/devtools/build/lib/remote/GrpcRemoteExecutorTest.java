@@ -29,6 +29,8 @@ import com.google.devtools.build.lib.remote.RemoteRetrier.ExponentialBackoff;
 import com.google.devtools.build.lib.remote.common.OperationObserver;
 import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
 import com.google.devtools.build.lib.remote.util.TestUtils;
+import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
+import com.google.longrunning.Operation;
 import com.google.rpc.Code;
 import io.grpc.ManagedChannel;
 import io.grpc.Server;
