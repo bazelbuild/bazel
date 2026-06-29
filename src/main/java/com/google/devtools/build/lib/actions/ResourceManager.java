@@ -568,6 +568,14 @@ public class ResourceManager implements ResourceEstimator {
   /**
    * Inserts a request into the list maintaining descending order by scheduling priority. Requests
    * with the same priority preserve FIFO order among themselves.
+   *
+   * <p>{@code insertByPriority} is O(n) per insert, so a burst of waiters can be O(n^2) in the
+   * worst case. We chose a sorted {@link LinkedList} over a {@link java.util.PriorityQueue} because
+   * {@link #processWaitingRequests} scans the queue in priority order and may satisfy requests out
+   * of order as different resources become available. A priority queue would not preserve that
+   * traversal order, and head-only polling would change the behavior.
+   *
+   * <p>The waiting queue is bounded by local parallelism, so we expect it to stay small.
    */
   private static void insertByPriority(List<WaitingRequest> requests, WaitingRequest request) {
     int priority = request.getResourceRequest().getResourceSet().getSchedulingPriority();
