@@ -18,9 +18,12 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.ArtifactNestedSetKey;
 import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue.ActionTemplateExpansionKey;
 import com.google.devtools.build.lib.skyframe.AspectCompletionValue.AspectCompletionKey;
+import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.TargetCompletionValue.TargetCompletionKey;
 import com.google.devtools.build.lib.skyframe.TestCompletionValue.TestCompletionKey;
 import com.google.devtools.build.lib.skyframe.TopLevelActionLookupKeyWrapper;
+import com.google.devtools.build.lib.vfs.FileStateKey;
+import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 
 /** Rewinding-related utilities used by {@link RewindableGraphInconsistencyReceiver}. */
@@ -38,7 +41,20 @@ public final class RewindingInconsistencyUtils {
   public static boolean isRewindable(SkyKey key) {
     return key instanceof ActionLookupData
         || key instanceof ArtifactNestedSetKey
-        || key instanceof Artifact;
+        || key instanceof Artifact
+        || isRewindableForLostSourceFile(key);
+  }
+
+  /**
+   * Returns whether the key specifies a node which may be rewound to recover a source file in an
+   * external repository whose contents are served from the remote repo contents cache and have
+   * been lost.
+   */
+  static boolean isRewindableForLostSourceFile(SkyKey key) {
+    SkyFunctionName functionName = key.functionName();
+    return functionName.equals(SkyFunctions.FILE)
+        || functionName.equals(FileStateKey.FILE_STATE)
+        || functionName.equals(SkyFunctions.REPOSITORY_DIRECTORY);
   }
 
   /**
@@ -54,6 +70,10 @@ public final class RewindingInconsistencyUtils {
         || key instanceof Artifact
         || key instanceof TargetCompletionKey
         || key instanceof TestCompletionKey
-        || key instanceof AspectCompletionKey;
+        || key instanceof AspectCompletionKey
+        // These node types form the chain rewound to recover a lost source file: a file node
+        // depends on file state nodes, a file state node in an external repository depends on the
+        // repository fetch, and a repository fetch may depend on file nodes in other repositories.
+        || isRewindableForLostSourceFile(key);
   }
 }

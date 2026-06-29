@@ -251,7 +251,9 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
     @Override
     public void dirtied(SkyKey skyKey, DirtyType dirtyType) {
       super.dirtied(skyKey, dirtyType);
-      if (skyKey instanceof FileKey) {
+      // The monitor is null during the execution phase, in which file values can only be dirtied
+      // by action rewinding to recover source files lost from the remote repo contents cache.
+      if (skyKey instanceof FileKey && incrementalBuildMonitor != null) {
         incrementalBuildMonitor.reportInvalidatedFileValue();
       }
     }

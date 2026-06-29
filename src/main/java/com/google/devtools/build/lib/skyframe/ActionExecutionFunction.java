@@ -1054,11 +1054,15 @@ public final class ActionExecutionFunction implements SkyFunction {
       if (value != null) {
         ActionInputMapHelper.addToMap(
             inputArtifactData, input, value, MetadataConsumerForMetrics.NO_OP);
-      } else if (!hasMissingInputs && input.hasKnownGeneratingAction()) {
-        // Derived inputs are mandatory, but we did not detect any missing inputs. This is only
-        // possible for indirect inputs (beneath an ArtifactNestedSetKey) when, between the time the
-        // associated direct dependency ArtifactNestedSetKey completes successfully and the call to
-        // lookupInput, the input's key was rewound and completed with an error.
+      } else if (!hasMissingInputs
+          && (input.hasKnownGeneratingAction()
+              || (input.isSourceArtifact() && isMandatoryInput.test(input)))) {
+        // Derived inputs are mandatory and source inputs in external repositories may be rewound
+        // to recover files lost from the remote repo contents cache, but we did not detect any
+        // missing inputs. This is only possible for indirect inputs (beneath an
+        // ArtifactNestedSetKey) when, between the time the associated direct dependency
+        // ArtifactNestedSetKey completes successfully and the call to lookupInput, the input's key
+        // was rewound and completed with an error.
         undoneInputs.add(input);
       }
     }
@@ -1120,11 +1124,14 @@ public final class ActionExecutionFunction implements SkyFunction {
       throws InterruptedException {
     SkyValue value = lookupInput(input, inputDepKeys, env);
     if (value == null) {
-      // Undone mandatory inputs are only expected for generated artifacts when rewinding is
-      // enabled. Returning null allows the caller to use UndoneInputsException to recover.
+      // Undone mandatory inputs are only expected when rewinding is enabled: generated artifacts
+      // may be rewound to recover lost outputs of their generating actions and source artifacts
+      // may be rewound to recover files lost from the remote repo contents cache. Returning null
+      // allows the caller to use UndoneInputsException to recover.
       checkState(
           !isMandatoryInput.test(input)
-              || (input.hasKnownGeneratingAction() && skyframeActionExecutor.rewindingEnabled()),
+              || ((input.hasKnownGeneratingAction() || input.isSourceArtifact())
+                  && skyframeActionExecutor.rewindingEnabled()),
           "Unexpected undone mandatory input: %s",
           input);
       return null;

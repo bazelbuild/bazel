@@ -1449,6 +1449,82 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
     self.assertFalse(os.path.exists(os.path.join(repo_dir, 'sub/BUILD')))
     self.assertTrue(os.path.exists(os.path.join(repo_dir, 'sub/sub.txt')))
 
+  def testLostRemoteFile_actionInput_rewound(self):
+    # Create a repo with a data file consumed by a genrule, cache the repo
+    # remotely, then build the genrule with --rewind_lost_inputs after the
+    # remote cache lost all files. The lost action input is recovered by
+    # rewinding, which refetches the repo, without restarting the build.
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  rctx.file("BUILD", "exports_files([\'data.txt\'])")',
+            '  rctx.file("data.txt", "hello")',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+    self.ScratchFile(
+        'main/BUILD.bazel',
+        [
+            'genrule(',
+            '  name = "use_data",',
+            '  srcs = ["@my_repo//:data.txt"],',
+            '  outs = ["out.txt"],',
+            '  cmd = "cat $(SRCS) > $@",',
+            ')',
+        ],
+    )
+
+    repo_dir = self.RepoDir('my_repo')
+
+    # First fetch: not cached. Analyze (but do not execute) the genrule so
+    # that all loading and analysis state is in Skyframe for the builds below.
+    _, _, stderr = self.RunBazel(['build', '--nobuild', '//main:use_data'])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'data.txt')))
+
+    # After expunging: cached, with the contents of data.txt staying remote.
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(['build', '--nobuild', '//main:use_data'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'data.txt')))
+
+    # Lose all remote files.
+    self.ClearRemoteCache()
+
+    # Build the genrule: its input data.txt is no longer available remotely,
+    # which is recovered within the build by rewinding the repo fetch instead
+    # of restarting the build.
+    _, _, stderr = self.RunBazel(
+        ['build', '--rewind_lost_inputs', '//main:use_data']
+    )
+    stderr = '\n'.join(stderr)
+    self.assertNotIn('Found transient remote cache error', stderr)
+    self.assertIn('JUST FETCHED', stderr)
+    # The refetch materializes the repo on disk.
+    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'data.txt')))
+    with open(self.Path('bazel-bin/main/out.txt')) as f:
+      self.assertEqual(f.read().strip(), 'hello')
+
+    # After expunging again: cached, with the repo contents having been
+    # uploaded again by the refetch.
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(['build', '//main:use_data'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'data.txt')))
+    with open(self.Path('bazel-bin/main/out.txt')) as f:
+      self.assertEqual(f.read().strip(), 'hello')
+
   def doTestMaterializationWithInternalAndExternalSymlinks(
       self, *, expect_symlinks, watch_dep_file=True
   ):
