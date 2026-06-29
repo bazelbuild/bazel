@@ -15,11 +15,12 @@
 package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import java.util.LinkedHashSet;
-import java.util.Set;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.eval.Dict;
@@ -56,10 +57,10 @@ public abstract class ModuleExtensionMetadata implements StarlarkValue {
           /* facts= */ Facts.EMPTY);
 
   @Nullable
-  abstract ImmutableSet<String> getExplicitRootModuleDirectDeps();
+  abstract ImmutableMap<String, String> getExplicitRootModuleDirectDeps();
 
   @Nullable
-  abstract ImmutableSet<String> getExplicitRootModuleDirectDevDeps();
+  abstract ImmutableMap<String, String> getExplicitRootModuleDirectDevDeps();
 
   abstract UseAllRepos getUseAllRepos();
 
@@ -68,17 +69,17 @@ public abstract class ModuleExtensionMetadata implements StarlarkValue {
   abstract Facts getFacts();
 
   private static ModuleExtensionMetadata create(
-      @Nullable Set<String> explicitRootModuleDirectDeps,
-      @Nullable Set<String> explicitRootModuleDirectDevDeps,
+      @Nullable Map<String, String> explicitRootModuleDirectDeps,
+      @Nullable Map<String, String> explicitRootModuleDirectDevDeps,
       UseAllRepos useAllRepos,
       boolean reproducible,
       Facts facts) {
     return new AutoValue_ModuleExtensionMetadata(
         explicitRootModuleDirectDeps != null
-            ? ImmutableSet.copyOf(explicitRootModuleDirectDeps)
+            ? ImmutableMap.copyOf(explicitRootModuleDirectDeps)
             : null,
         explicitRootModuleDirectDevDeps != null
-            ? ImmutableSet.copyOf(explicitRootModuleDirectDevDeps)
+            ? ImmutableMap.copyOf(explicitRootModuleDirectDevDeps)
             : null,
         useAllRepos,
         reproducible,
@@ -121,7 +122,7 @@ public abstract class ModuleExtensionMetadata implements StarlarkValue {
         || rootModuleDirectDevDepsUnchecked instanceof String) {
       throw Starlark.errorf(
           "root_module_direct_deps and root_module_direct_dev_deps must be "
-              + "None, \"all\", or a list of strings");
+              + "None, \"all\", a list of strings, or a dict of strings");
     }
     if ((rootModuleDirectDepsUnchecked == Starlark.NONE)
         != (rootModuleDirectDevDepsUnchecked == Starlark.NONE)) {
@@ -130,38 +131,31 @@ public abstract class ModuleExtensionMetadata implements StarlarkValue {
               + "specified or both be unspecified");
     }
 
-    Sequence<String> rootModuleDirectDeps =
-        Sequence.cast(rootModuleDirectDepsUnchecked, String.class, "root_module_direct_deps");
-    Sequence<String> rootModuleDirectDevDeps =
-        Sequence.cast(
-            rootModuleDirectDevDepsUnchecked, String.class, "root_module_direct_dev_deps");
+    Map<String, String> explicitRootModuleDirectDeps =
+        parseRootModuleDirectDeps(rootModuleDirectDepsUnchecked, "root_module_direct_deps");
+    Map<String, String> explicitRootModuleDirectDevDeps =
+        parseRootModuleDirectDeps(rootModuleDirectDevDepsUnchecked, "root_module_direct_dev_deps");
 
-    Set<String> explicitRootModuleDirectDeps = new LinkedHashSet<>();
-    for (String dep : rootModuleDirectDeps) {
-      try {
-        RepositoryName.validateUserProvidedRepoName(dep);
-      } catch (EvalException e) {
-        throw Starlark.errorf("in root_module_direct_deps: %s", e.getMessage());
-      }
-      if (!explicitRootModuleDirectDeps.add(dep)) {
-        throw Starlark.errorf("in root_module_direct_deps: duplicate entry '%s'", dep);
+    // Check for overlapping module-local names between deps and dev_deps
+    for (String moduleLocalName : explicitRootModuleDirectDevDeps.keySet()) {
+      if (explicitRootModuleDirectDeps.containsKey(moduleLocalName)) {
+        throw Starlark.errorf(
+            "in root_module_direct_dev_deps: module-local name '%s' is also in "
+                + "root_module_direct_deps",
+            moduleLocalName);
       }
     }
 
-    Set<String> explicitRootModuleDirectDevDeps = new LinkedHashSet<>();
-    for (String dep : rootModuleDirectDevDeps) {
-      try {
-        RepositoryName.validateUserProvidedRepoName(dep);
-      } catch (EvalException e) {
-        throw Starlark.errorf("in root_module_direct_dev_deps: %s", e.getMessage());
-      }
-      if (explicitRootModuleDirectDeps.contains(dep)) {
+    // Check for overlapping extension names between deps and dev_deps
+    // Pre-collect extension names into a Set for O(1) lookup instead of O(N) containsValue()
+    var extensionNamesInDeps = ImmutableSet.copyOf(explicitRootModuleDirectDeps.values());
+    for (Map.Entry<String, String> devEntry : explicitRootModuleDirectDevDeps.entrySet()) {
+      String extensionName = devEntry.getValue();
+      if (extensionNamesInDeps.contains(extensionName)) {
         throw Starlark.errorf(
-            "in root_module_direct_dev_deps: entry '%s' is also in " + "root_module_direct_deps",
-            dep);
-      }
-      if (!explicitRootModuleDirectDevDeps.add(dep)) {
-        throw Starlark.errorf("in root_module_direct_dev_deps: duplicate entry '%s'", dep);
+            "in root_module_direct_dev_deps: extension name '%s' is also in "
+                + "root_module_direct_deps",
+            extensionName);
       }
     }
 
@@ -171,6 +165,74 @@ public abstract class ModuleExtensionMetadata implements StarlarkValue {
         UseAllRepos.NO,
         reproducible,
         facts);
+  }
+
+  /**
+   * Parses root_module_direct_deps or root_module_direct_dev_deps parameters.
+   *
+   * <p>Returns a map from module-local name to extension-exported name.
+   *
+   * <p>For sequences like ["foo", "bar"], creates identity mappings {"foo": "foo", "bar": "bar"}
+   *
+   * <p>For dicts like {"my_repo": "ext_repo"}, uses the mapping as provided (module-local ->
+   * extension-exported)
+   */
+  private static Map<String, String> parseRootModuleDirectDeps(Object unchecked, String paramName)
+      throws EvalException {
+    Map<String, String> result = new LinkedHashMap<>();
+
+    if (unchecked instanceof Sequence) {
+      // Handle sequence of strings - create identity mappings (key -> key)
+      Sequence<String> sequence = Sequence.cast(unchecked, String.class, paramName);
+      for (String repoName : sequence) {
+        try {
+          RepositoryName.validateUserProvidedRepoName(repoName);
+        } catch (EvalException e) {
+          throw Starlark.errorf("in %s: %s", paramName, e.getMessage());
+        }
+        if (result.containsKey(repoName)) {
+          throw Starlark.errorf("in %s: duplicate entry '%s'", paramName, repoName);
+        }
+        result.put(repoName, repoName);
+      }
+    } else if (unchecked instanceof Dict) {
+      // Handle dict of strings to strings
+      // Key = module-local name, Value = extension-exported name
+      Dict<String, String> dict = Dict.cast(unchecked, String.class, String.class, paramName);
+      // Track extension names to detect duplicates
+      var extensionNames = new java.util.HashSet<String>(dict.size());
+      for (Map.Entry<String, String> entry : dict.entrySet()) {
+        String moduleLocalName = entry.getKey();
+        String extensionName = entry.getValue();
+
+        try {
+          RepositoryName.validateUserProvidedRepoName(moduleLocalName);
+        } catch (EvalException e) {
+          throw Starlark.errorf(
+              "in %s: invalid module-local name '%s': %s", paramName, moduleLocalName, e.getMessage());
+        }
+
+        try {
+          RepositoryName.validateUserProvidedRepoName(extensionName);
+        } catch (EvalException e) {
+          throw Starlark.errorf(
+              "in %s: invalid extension name '%s': %s", paramName, extensionName, e.getMessage());
+        }
+
+        if (result.containsKey(moduleLocalName)) {
+          throw Starlark.errorf("in %s: duplicate module-local name '%s'", paramName, moduleLocalName);
+        }
+        if (!extensionNames.add(extensionName)) {
+          throw Starlark.errorf("in %s: duplicate extension name '%s'", paramName, extensionName);
+        }
+        result.put(moduleLocalName, extensionName);
+      }
+    } else {
+      throw Starlark.errorf(
+          "%s must be a list of strings or a dict of strings to strings", paramName);
+    }
+
+    return result;
   }
 
   enum UseAllRepos {
