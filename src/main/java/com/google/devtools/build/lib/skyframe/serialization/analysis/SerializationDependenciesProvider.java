@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.skyframe.serialization.FrontierNodeVersion;
 import com.google.devtools.build.lib.skyframe.serialization.KeyValueWriter;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import java.util.Optional;
+import java.util.concurrent.ExecutionException;
 import java.util.function.Predicate;
 import javax.annotation.Nullable;
 
@@ -52,6 +53,8 @@ public interface SerializationDependenciesProvider {
 
   @Nullable
   RemoteAnalysisMetadataWriter getMetadataWriter() throws InterruptedException;
+
+  void waitForUploadCompletion() throws InterruptedException, ExecutionException;
 
   boolean shouldMinimizeMemory();
 

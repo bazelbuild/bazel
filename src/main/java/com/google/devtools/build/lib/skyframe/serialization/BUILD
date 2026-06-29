@@ -111,6 +111,7 @@ java_library(
             "SerializationConstants.java",
             "SerializationModule.java",
             "SkycacheMetadataParams.java",
+            "SkyValueRetriever.java",
             "VisibleForSerialization.java",
             "WriteStatus.java",
             "WriteStatuses.java",
@@ -122,7 +123,6 @@ java_library(
     deps = [
         ":codec-scanning-constants",
         ":constants",
-        ":depend_on_future_shim",
         ":fingerprint_value_store",
         ":frontier_node_version",
         ":key_bytes_provider",
@@ -131,8 +131,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:lookup_result",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:remote_analysis_cache_client",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis/proto:analysis_cache_service_miss_reason_java_proto",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//src/main/java/com/google/devtools/build/lib/unsafe:string",
@@ -266,5 +264,23 @@ java_library(
     srcs = ["KeyBytesProvider.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
+    ],
+)
+
+java_library(
+    name = "skyvalue_retriever",
+    srcs = ["SkyValueRetriever.java"],
+    deps = [
+        ":depend_on_future_shim",
+        ":frontier_node_version",
+        ":serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:file_op_node_map",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:lookup_result",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:remote_analysis_cache_client",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis/proto:analysis_cache_service_miss_reason_java_proto",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//third_party:guava",
+        "//third_party:jsr305",
+        "@com_google_protobuf//:protobuf_java",
     ],
 )

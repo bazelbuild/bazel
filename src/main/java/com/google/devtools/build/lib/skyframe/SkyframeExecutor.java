@@ -238,7 +238,6 @@ import com.google.devtools.build.lib.skyframe.serialization.FrontierNodeVersion;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.ClientId;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheDeps;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheManager;
-import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheMode;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheReaderDepsProvider;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingServerState;
@@ -676,7 +675,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   @VisibleForTesting
   public boolean isRemoteAnalysisCachingEnabled() {
-    return remoteAnalysisCachingDependenciesProvider.mode() == RemoteAnalysisCacheMode.DOWNLOAD;
+    return remoteAnalysisCachingDependenciesProvider.mode().isRetrievalEnabled();
   }
 
   final class PathResolverFactoryImpl implements PathResolverFactory {
@@ -1078,6 +1077,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   public void noteCommandStart() {
     // Prevent stale Skycache configuration from persisting between builds.
     remoteAnalysisCachingDependenciesProvider = RemoteAnalysisCacheManager.createDisabled();
+    remoteAnalysisCacheReaderDepsProvider = RemoteAnalysisCacheDeps.createDisabled();
   }
 
   /**

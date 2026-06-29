@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
-
 import com.google.devtools.build.lib.concurrent.SettableFutureKeyedValue;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.BiConsumer;
@@ -79,6 +78,15 @@ abstract class AbstractValueOrFutureMap<
       }
     }
     return result;
+  }
+
+  /**
+   * Puts a specific value into the map.
+   *
+   * <p>Returns the old value, if any.
+   */
+  public final ValueOrFutureT put(KeyT key, ValueT value) {
+    return map.put(key, value);
   }
 
   /**

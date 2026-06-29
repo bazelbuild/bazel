@@ -86,6 +86,7 @@ import com.google.devtools.build.lib.runtime.StarlarkOptionsParser.BuildSettingL
 import com.google.devtools.build.lib.server.FailureDetails.ActionQuery;
 import com.google.devtools.build.lib.server.FailureDetails.BuildConfiguration.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.RemoteAnalysisCaching;
 import com.google.devtools.build.lib.skyframe.BuildResultListener;
 import com.google.devtools.build.lib.skyframe.ProjectValue;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue.RepositoryMappingResolutionException;
@@ -134,6 +135,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
@@ -1291,6 +1293,23 @@ public class BuildTool {
     }
 
     checkState(serializationDependenciesProvider.mode().serializesValues());
+
+    if (serializationDependenciesProvider.mode().isAsyncUploadEnabled()) {
+      try {
+        serializationDependenciesProvider.waitForUploadCompletion();
+      } catch (ExecutionException e) {
+        Throwables.throwIfInstanceOf(e.getCause(), AbruptExitException.class);
+        throw new AbruptExitException(
+            DetailedExitCode.of(
+                FailureDetail.newBuilder()
+                    .setMessage("Skycache upload failed: " + e.getCause().getMessage())
+                    .setRemoteAnalysisCaching(
+                        RemoteAnalysisCaching.newBuilder()
+                            .setCode(RemoteAnalysisCaching.Code.UPLOAD_FAILED))
+                    .build()));
+      }
+      return;
+    }
 
     try (SilentCloseable closeable = Profiler.instance().profile("serializeAndUploadFrontier")) {
       Optional<FailureDetail> maybeFailureDetail =

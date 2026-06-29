@@ -19,6 +19,7 @@ import static java.util.concurrent.ForkJoinPool.commonPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.EventBus;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.Futures;
@@ -78,6 +79,7 @@ public class RemoteAnalysisCacheDeps
   // Volatile because double-checked locking is used in the getter
   @Nullable private volatile SkyValueRetriever skyValueRetriever;
   @Nullable private volatile SkycacheUploadClient skycacheUploadClient;
+  @Nullable private volatile FileOpNodeMemoizingLookup fileOpNodes;
 
   private final InMemoryGraph graph;
   private final EventBus eventBus;
@@ -248,6 +250,24 @@ public class RemoteAnalysisCacheDeps
     return resolveWithTimeout(analysisCacheClient, "analysis cache client");
   }
 
+  private FileOpNodeMemoizingLookup getFileOpNodes() throws InterruptedException {
+    if (fileOpNodes != null) {
+      return fileOpNodes;
+    }
+    synchronized (this) {
+      if (fileOpNodes == null) {
+        fileOpNodes =
+            new FileOpNodeMemoizingLookup(
+                getFingerprintValueService().getExecutor(),
+                graph,
+                ImmutableSet.of(),
+                /* shouldDiscardMemory= */ false,
+                /* referencedPackages= */ null);
+      }
+      return fileOpNodes;
+    }
+  }
+
   @Override
   public SkyValueRetriever getSkyValueRetriever() throws InterruptedException {
     checkEnabled();
@@ -259,7 +279,10 @@ public class RemoteAnalysisCacheDeps
       if (skyValueRetriever == null) {
         skyValueRetriever =
             new SkyValueRetriever(
-                getFingerprintValueService(), getObjectCodecs(), frontierNodeVersion);
+                getFingerprintValueService(),
+                getObjectCodecs(),
+                frontierNodeVersion,
+                getFileOpNodes());
       }
       return skyValueRetriever;
     }
@@ -284,9 +307,18 @@ public class RemoteAnalysisCacheDeps
                 graph,
                 eventBus,
                 versionGetter,
-                emitUploadedEvents);
+                emitUploadedEvents,
+                getFileOpNodes());
       }
       return skycacheUploadClient;
+    }
+  }
+
+  @Override
+  public void waitForUploadCompletion() throws InterruptedException, ExecutionException {
+    var client = skycacheUploadClient;
+    if (client != null) {
+      client.waitForCompletion();
     }
   }
 

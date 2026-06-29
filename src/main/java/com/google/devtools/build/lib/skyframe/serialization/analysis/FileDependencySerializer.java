@@ -54,6 +54,7 @@ import com.google.devtools.build.lib.skyframe.AbstractNestedFileOpNodes.NestedFi
 import com.google.devtools.build.lib.skyframe.DirectoryListingKey;
 import com.google.devtools.build.lib.skyframe.FileKey;
 import com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture.FileOpNode;
+import com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture.RemoteFileOpNode;
 import com.google.devtools.build.lib.skyframe.serialization.EntryPart;
 import com.google.devtools.build.lib.skyframe.serialization.KeyBytesProvider;
 import com.google.devtools.build.lib.skyframe.serialization.KeyValueWriter;
@@ -62,6 +63,7 @@ import com.google.devtools.build.lib.skyframe.serialization.ProfileCollector;
 import com.google.devtools.build.lib.skyframe.serialization.ProfileRecorder;
 import com.google.devtools.build.lib.skyframe.serialization.StringKey;
 import com.google.devtools.build.lib.skyframe.serialization.WriteStatus;
+import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses;
 import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.SparseAggregateWriteStatusBuilder;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.InvalidationDataInfoOrFuture.FileDataInfo;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.InvalidationDataInfoOrFuture.FileDataInfoOrFuture;
@@ -216,7 +218,29 @@ final class FileDependencySerializer {
       case FileKey file -> registerDependency(file);
       case DirectoryListingKey listing -> registerDependency(listing);
       case AbstractNestedFileOpNodes nested -> registerDependency(nested);
+      case RemoteFileOpNode remote -> registerDependency(remote);
     };
+  }
+
+  NodeDataInfo registerDependency(RemoteFileOpNode node) {
+    var reference = (NodeDataInfo) node.getSerializationScratch();
+    if (reference != null) {
+      return reference;
+    }
+
+    synchronized (node) {
+      reference = (NodeDataInfo) node.getSerializationScratch();
+      if (reference != null) {
+        return reference;
+      }
+
+      var info =
+          new NodeInvalidationDataInfo(
+              PackedFingerprint.fromBytes(node.fingerprint().toByteArray()),
+              WriteStatuses.immediateWriteStatus());
+      node.setSerializationScratch(info);
+      return info;
+    }
   }
 
   FileDataInfoOrFuture registerDependency(FileKey key) {
@@ -781,6 +805,9 @@ final class FileDependencySerializer {
         case AbstractNestedFileOpNodes nestedKeys:
           dependencyHandler.addNodeKey(nestedKeys);
           break;
+        case RemoteFileOpNode remoteNode:
+          dependencyHandler.addRemoteNode(remoteNode);
+          break;
       }
     }
 
@@ -923,6 +950,10 @@ final class FileDependencySerializer {
 
       writeStatusBuilder.add(writeStatus);
       return new NodeInvalidationDataInfo(key, writeStatusBuilder.build());
+    }
+
+    private void addRemoteNode(RemoteFileOpNode remoteNode) {
+      addNodeInfo(registerDependency(remoteNode));
     }
 
     private void addFileKey(FileKey fileKey) {
