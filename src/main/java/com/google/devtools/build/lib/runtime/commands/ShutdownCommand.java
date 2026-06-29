@@ -54,8 +54,7 @@ public final class ShutdownCommand implements BlazeCommand {
     public abstract int getHeapSizeLimit();
   }
 
-  @Override
-  public void editOptions(OptionsParser optionsParser) {}
+
 
   @Override
   public BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options) {
