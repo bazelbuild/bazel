@@ -500,6 +500,28 @@ public final class StarlarkEvaluationTest {
         .testLookup("result", "bar");
   }
 
+  // A @StarlarkMethod implementation declared in a non-public class and inherited (not overridden)
+  // by a public subclass.
+  abstract static class NonPublicMethodBase implements StarlarkValue {
+    @StarlarkMethod(name = "inherited_method", documented = false)
+    public String inheritedMethod() {
+      return "inherited";
+    }
+  }
+
+  public static final class InheritsNonPublicMethod extends NonPublicMethodBase {}
+
+  // Verifies that a @StarlarkMethod inherited (not overridden) from a non-public superclass remains
+  // callable. Class.getMethods() surfaces such a method on the public subclass only as a synthetic
+  // bridge; CallUtils must register the method from that bridge rather than dropping it.
+  @Test
+  public void testMethodInheritedFromNonPublicSuperclass() throws Exception {
+    ev.new Scenario()
+        .update("mock", new InheritsNonPublicMethod())
+        .setUp("result = mock.inherited_method()")
+        .testLookup("result", "inherited");
+  }
+
   @Test
   public void testSimpleIf() throws Exception {
     ev.new Scenario()
