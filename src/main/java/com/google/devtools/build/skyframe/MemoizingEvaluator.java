@@ -68,8 +68,8 @@ public interface MemoizingEvaluator {
   void delete(BiPredicate<SkyKey, SkyValue> pred);
 
   /**
-   * Marks dirty values for deletion if they have been dirty for at least as many graph versions
-   * as the specified limit.
+   * Marks dirty values for deletion if they have been dirty for at least as many graph versions as
+   * the specified limit.
    *
    * <p>This ensures that after the next completed {@link #evaluate} call, all such values, along
    * with all values that transitively depend on them, will be removed from the value cache. Values
@@ -117,8 +117,6 @@ public interface MemoizingEvaluator {
    * #noteEvaluationsAtSameVersionMayBeFinished}.
    */
   default void postLoggingStats(ExtendedEventHandler eventHandler) {}
-
-
 
   /**
    * Returns the done (without error) values in the graph.
@@ -224,6 +222,15 @@ public interface MemoizingEvaluator {
    */
   @ThreadHostile
   void dumpCount(PrintStream out);
+
+  /**
+   * Writes the keys in the graph to the given output stream. For each keys matching the given
+   * filter, prints the key name.
+   *
+   * <p>Not necessarily thread-safe. Use only for debugging purposes.
+   */
+  @ThreadHostile
+  void dumpKeys(PrintStream out, Predicate<String> filter) throws InterruptedException;
 
   /**
    * Writes a detailed summary of the graph to the given output stream. For each key matching the
