@@ -198,8 +198,8 @@ Bazel a `SIGQUIT` signal (`kill -3 $(bazel info server_pid)`) to get a thread
 dump in the file `$(bazel info output_base)/server/jvm.out`.
 
 Since you may not be able to run `bazel info` if bazel is hung, the
-`output_base` directory is usually the parent of the `bazel-<workspace>`
-symlink in your workspace directory.
+`output_base` directory is usually an ancestor of the directory that the
+`bazel-out` symlink in your workspace directory points to.
 
 ## Performance profiling {:#performance-profiling}
 
