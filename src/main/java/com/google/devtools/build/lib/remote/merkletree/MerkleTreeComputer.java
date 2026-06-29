@@ -39,6 +39,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
@@ -69,6 +70,7 @@ import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.remote.Scrubber;
 import com.google.devtools.build.lib.remote.Scrubber.SpawnScrubber;
 import com.google.devtools.build.lib.remote.common.BulkTransferException;
+import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext.CachePolicy;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
@@ -87,6 +89,7 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Deque;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Objects;
@@ -349,9 +352,65 @@ public final class MerkleTreeComputer {
               remotePathResolver,
               blobPolicy));
     } catch (BulkTransferException e) {
-      e.getLostArtifacts(spawnExecutionContext.getInputMetadataProvider()::getInput)
-          .throwIfNotEmpty();
+      var inputMetadataProvider = spawnExecutionContext.getInputMetadataProvider();
+      e.getLostArtifacts(inputMetadataProvider::getInput).throwIfNotEmpty();
+      throwLostInputsByDigestIfNotEmpty(e, allInputs, inputMetadataProvider);
       throw e;
+    }
+  }
+
+  private static void throwLostInputsByDigestIfNotEmpty(
+      BulkTransferException e,
+      Collection<? extends ActionInput> inputs,
+      InputMetadataProvider metadataProvider)
+      throws IOException, LostInputsExecException {
+    if (!e.allCausedByCacheNotFoundException()) {
+      return;
+    }
+
+    var missingDigests = new HashSet<String>();
+    for (var suppressed : e.getSuppressed()) {
+      var cacheNotFoundException = (CacheNotFoundException) suppressed;
+      missingDigests.add(DigestUtil.toString(cacheNotFoundException.getMissingDigest()));
+    }
+
+    var byDigestBuilder = ImmutableSetMultimap.<String, ActionInput>builder();
+    for (ActionInput input : inputs) {
+      if (input instanceof Artifact.SpecialArtifact specialArtifact
+          && specialArtifact.isTreeArtifact()) {
+        var treeArtifactValue = metadataProvider.getTreeMetadata(specialArtifact);
+        if (treeArtifactValue != null) {
+          for (var childEntry : treeArtifactValue.getChildValues().entrySet()) {
+            addLostInputIfMissing(
+                childEntry.getKey(), childEntry.getValue(), missingDigests, byDigestBuilder);
+          }
+        }
+        continue;
+      }
+
+      var metadata = metadataProvider.getInputMetadata(input);
+      if (metadata != null) {
+        addLostInputIfMissing(input, metadata, missingDigests, byDigestBuilder);
+      }
+    }
+    var lostInputs = byDigestBuilder.build();
+    if (!lostInputs.isEmpty()) {
+      throw new LostInputsExecException(lostInputs, e);
+    }
+  }
+
+  private static void addLostInputIfMissing(
+      ActionInput input,
+      FileArtifactValue metadata,
+      Set<String> missingDigests,
+      ImmutableSetMultimap.Builder<String, ActionInput> byDigestBuilder) {
+    if (!metadata.getType().isFile() || metadata.getDigest() == null) {
+      return;
+    }
+    var digest =
+        DigestUtil.toString(DigestUtil.buildDigest(metadata.getDigest(), metadata.getSize()));
+    if (missingDigests.contains(digest)) {
+      byDigestBuilder.put(digest, input);
     }
   }
 

@@ -293,6 +293,9 @@ public final class ActionRewindStrategy {
       ExtendedEventHandler listener)
       throws ActionRewindException {
     if (skyframeActionExecutor.rewindingEnabled()) {
+      // Inform remote caching that these digests are missing before rewinding their producers. This
+      // avoids accepting stale ActionResults that still reference the missing CAS objects.
+      listener.post(new LostInputsEvent(lostArtifacts.keySet()));
       return;
     }
     if (skyframeActionExecutor.invocationRetriesEnabled()) {

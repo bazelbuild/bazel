@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.actions.DelegatingPairInputMetadataProvider
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
+import com.google.devtools.build.lib.actions.LostInputsExecException;
 import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
 import com.google.devtools.build.lib.actions.RunfilesTree;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -379,7 +380,7 @@ public class MerkleTreeComputerTest {
   }
 
   @Test
-  public void buildForSpawn_missingUploadedTreeFile_rethrowsBulkTransferException()
+  public void buildForSpawn_missingUploadedTreeFile_reportedAsLostInputByDigest()
       throws Exception {
     var fakeFileCache = new FakeActionInputFileCache();
     var treeArtifactInput =
@@ -394,6 +395,7 @@ public class MerkleTreeComputerTest {
 
     var missingDigest =
         DigestUtil.buildDigest(treeFileMetadata.getDigest(), treeFileMetadata.getSize());
+    var digestString = DigestUtil.toString(missingDigest);
     var bulkTransferException = new BulkTransferException();
     bulkTransferException.add(
         new CacheNotFoundException(missingDigest, treeFileArtifact.getExecPathString()));
@@ -401,16 +403,19 @@ public class MerkleTreeComputerTest {
     var merkleTreeComputer =
         createMerkleTreeComputer(createUploaderThrowingOnEnsureInputsPresent(bulkTransferException));
 
-    assertThrows(
-        BulkTransferException.class,
-        () ->
-            merkleTreeComputer.buildForSpawn(
-                spawn,
-                ImmutableSet.of(),
-                /* scrubber= */ null,
-                createSpawnExecutionContext(spawn, fakeFileCache),
-                RemotePathResolver.createDefault(execRoot),
-                MerkleTreeComputer.BlobPolicy.KEEP_AND_REUPLOAD));
+    var exception =
+        assertThrows(
+            LostInputsExecException.class,
+            () ->
+                merkleTreeComputer.buildForSpawn(
+                    spawn,
+                    ImmutableSet.of(),
+                    /* scrubber= */ null,
+                    createSpawnExecutionContext(spawn, fakeFileCache),
+                    RemotePathResolver.createDefault(execRoot),
+                    MerkleTreeComputer.BlobPolicy.KEEP_AND_REUPLOAD));
+
+    assertThat(exception.getLostInputs().get(digestString)).containsExactly(treeFileArtifact);
   }
 
   private MerkleTreeComputer createMerkleTreeComputer(MerkleTreeUploader uploader) {

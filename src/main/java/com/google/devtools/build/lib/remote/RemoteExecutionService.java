@@ -2039,7 +2039,12 @@ public class RemoteExecutionService {
   @Subscribe
   public void onLostInputs(LostInputsEvent event) {
     for (String digest : event.missingDigests()) {
-      knownMissingCasDigests.add(DigestUtil.fromString(digest));
+      try {
+        knownMissingCasDigests.add(DigestUtil.fromString(digest));
+      } catch (IllegalArgumentException ignored) {
+        // Some non-remote tests use synthetic lost-input digests. Only valid REAPI digests can
+        // participate in stale ActionResult suppression.
+      }
     }
   }
 
