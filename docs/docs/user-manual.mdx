@@ -1603,10 +1603,10 @@ be formatted to stay within 80 characters when possible.
 
 #### `--test_tmpdir=<var>path</var>` {#test-tmpdir}
 
-Specifies temporary directory for tests executed locally. Each test will be
-executed in a separate subdirectory inside this directory. The directory will
-be cleaned at the beginning of the each `bazel test` command.
-By default, bazel will place this directory under Bazel output base directory.
+Specifies temporary directory for tests. Each test will be executed in a
+separate subdirectory inside this directory. The directory will be cleaned at
+the beginning of each `bazel test` command.
+By default, Bazel will place this directory under the Bazel output base directory.
 
 Note: This is a directory for running tests, not storing test results
 (those are always stored under the `bazel-out` directory).
