@@ -49,6 +49,7 @@ static constexpr const char* JAR_BIN_PATH = "jar_bin_path";
 static constexpr const char* CLASSPATH = "classpath";
 static constexpr const char* JAVA_START_CLASS = "java_start_class";
 static constexpr const char* JVM_FLAGS = "jvm_flags";
+static constexpr const char* JACOCO_MAIN_CLASS = "jacoco_main_class";
 
 // Check if a string start with a certain prefix.
 // If it's true, store the substring without the prefix in value.
@@ -303,6 +304,16 @@ ExitCode JavaBinaryLauncher::Launch() {
     java_runfiles = this->GetRunfilesPath();
   }
   SetEnv(L"JAVA_RUNFILES", java_runfiles);
+
+  // Set JACOCO_MAIN_CLASS for JaCoCo coverage support.
+  // rules_java writes jacoco_main_class into the launch info when coverage is
+  // enabled; the Linux shell stub exports it as JACOCO_MAIN_CLASS but the
+  // Windows launcher was missing this step.
+  wstring jacoco_main_class =
+      this->GetLaunchInfoByKeyOrEmpty(JACOCO_MAIN_CLASS);
+  if (!jacoco_main_class.empty()) {
+    SetEnv(L"JACOCO_MAIN_CLASS", jacoco_main_class);
+  }
 
   // Print Java binary path if needed
   wstring java_bin = this->Rlocation(this->GetLaunchInfoByKey(JAVA_BIN_PATH),
