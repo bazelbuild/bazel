@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.remote.merkletree;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
+import static org.junit.Assert.assertThrows;
 
 import build.bazel.remote.execution.v2.Digest;
 import com.google.common.collect.ImmutableClassToInstanceMap;
@@ -38,6 +39,8 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.exec.util.FakeActionInputFileCache;
 import com.google.devtools.build.lib.exec.util.SpawnBuilder;
+import com.google.devtools.build.lib.remote.common.BulkTransferException;
+import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
@@ -375,6 +378,41 @@ public class MerkleTreeComputerTest {
     assertThat(ensureInputsPresentCount.get()).isEqualTo(1);
   }
 
+  @Test
+  public void buildForSpawn_missingUploadedTreeFile_rethrowsBulkTransferException()
+      throws Exception {
+    var fakeFileCache = new FakeActionInputFileCache();
+    var treeArtifactInput =
+        ActionsTestUtil.createTreeArtifactWithGeneratingAction(artifactRoot, "dir/tree_artifact");
+    treeArtifactInput.getPath().createDirectoryAndParents();
+    var treeFileArtifact = Artifact.TreeFileArtifact.createTreeOutput(treeArtifactInput, "file");
+    FileSystemUtils.writeContentAsLatin1(treeFileArtifact.getPath(), "file content");
+    var treeFileMetadata = FileArtifactValue.createForTesting(treeFileArtifact);
+    var treeArtifactBuilder = TreeArtifactValue.newBuilder(treeArtifactInput);
+    treeArtifactBuilder.putChild(treeFileArtifact, treeFileMetadata);
+    fakeFileCache.putTreeArtifact(treeArtifactInput, treeArtifactBuilder.build());
+
+    var missingDigest =
+        DigestUtil.buildDigest(treeFileMetadata.getDigest(), treeFileMetadata.getSize());
+    var bulkTransferException = new BulkTransferException();
+    bulkTransferException.add(
+        new CacheNotFoundException(missingDigest, treeFileArtifact.getExecPathString()));
+    var spawn = new SpawnBuilder().withInputs(treeArtifactInput).build();
+    var merkleTreeComputer =
+        createMerkleTreeComputer(createUploaderThrowingOnEnsureInputsPresent(bulkTransferException));
+
+    assertThrows(
+        BulkTransferException.class,
+        () ->
+            merkleTreeComputer.buildForSpawn(
+                spawn,
+                ImmutableSet.of(),
+                /* scrubber= */ null,
+                createSpawnExecutionContext(spawn, fakeFileCache),
+                RemotePathResolver.createDefault(execRoot),
+                MerkleTreeComputer.BlobPolicy.KEEP_AND_REUPLOAD));
+  }
+
   private MerkleTreeComputer createMerkleTreeComputer(MerkleTreeUploader uploader) {
     return new MerkleTreeComputer(
         new DigestUtil(SyscallCache.NO_CACHE, DigestHashFunction.SHA256),
@@ -393,5 +431,45 @@ public class MerkleTreeComputerTest {
         new FileOutErr(),
         ImmutableClassToInstanceMap.of(),
         /* actionFileSystem= */ null);
+  }
+
+  private static MerkleTreeUploader createUploaderThrowingOnEnsureInputsPresent(
+      IOException exception) {
+    return new MerkleTreeUploader() {
+      @Override
+      public ListenableFuture<Void> uploadBlob(
+          RemoteActionExecutionContext context, Digest digest, byte[] data, boolean force) {
+        return immediateVoidFuture();
+      }
+
+      @Override
+      public ListenableFuture<Void> uploadFile(
+          RemoteActionExecutionContext context,
+          RemotePathResolver remotePathResolver,
+          Digest digest,
+          Path path,
+          boolean force) {
+        return immediateVoidFuture();
+      }
+
+      @Override
+      public ListenableFuture<Void> uploadVirtualActionInput(
+          RemoteActionExecutionContext context,
+          Digest digest,
+          VirtualActionInput virtualActionInput,
+          boolean force) {
+        return immediateVoidFuture();
+      }
+
+      @Override
+      public void ensureInputsPresent(
+          RemoteActionExecutionContext context,
+          MerkleTree.Uploadable merkleTree,
+          boolean force,
+          RemotePathResolver remotePathResolver)
+          throws IOException {
+        throw exception;
+      }
+    };
   }
 }
