@@ -37,7 +37,14 @@ def lookup_binary(r, path):
     return binary
 
 def apply_proguard(srcs, deps, proguard_spec, output_jar):
-    """Call proguard on the given source jars with the spec."""
+    """Call proguard on the given source jars with the spec.
+
+    Args:
+      srcs: The source jars to be modified.
+      deps: Dependency jars needed to resolve the source jars.
+      proguard_spec: The path to the proguard spec file describing what modifications to make.
+      output_jar: The path to write the resulting modified jar file to.
+    """
 
     # Set up runfiles and call the proguard binary.
     r = Runfiles.Create()
@@ -67,6 +74,13 @@ def apply_proguard(srcs, deps, proguard_spec, output_jar):
         raise RuntimeError(message)
 
 def reset_timestamps(input_jar, output_jar, timestamp):
+    """Rewrite the given jar file to reset all timestamps to a known value.
+
+    Args:
+      input_jar: The jar file to be modified.
+      output_jar: The path to write the destination jar to.
+      timestamp: The known timestamp to modify the output_jar with.
+    """
     #print("Resetting timestamps in %s to %s, writing to %s" % (input, timestamp, output))
 
     with zipfile.ZipFile(input_jar, mode="r") as src:
