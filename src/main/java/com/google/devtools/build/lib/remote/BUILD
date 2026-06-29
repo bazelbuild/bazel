@@ -25,6 +25,21 @@ filegroup(
 )
 
 java_library(
+    name = "remote_grpc_service_config",
+    srcs = ["RemoteGrpcServiceConfig.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/remote/options",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//third_party:gson",
+        "//third_party:guava",
+        "@googleapis//google/bytestream:bytestream_java_grpc",
+        "@remoteapis//:build_bazel_remote_asset_v1_remote_asset_java_grpc",
+        "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_grpc",
+    ],
+)
+
+java_library(
     name = "remote_action",
     srcs = ["RemoteAction.java"],
     deps = [
@@ -111,11 +126,13 @@ java_library(
         ":remote_action_input_fetcher",
         ":remote_execution_cache",
         ":remote_external_overlay_file_system",
+        ":remote_grpc_service_config",
         ":remote_important_output_handler",
         ":remote_lease_extension",
         ":remote_output_checker",
         ":remote_output_service",
         ":remote_server_capabilities",
+        ":remote_download_idle_timeout_interceptor",
         ":repository_remote_helpers_factory_impl",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:important_output_handler",
@@ -181,6 +198,16 @@ java_library(
 )
 
 java_library(
+    name = "remote_download_idle_timeout_interceptor",
+    srcs = ["RemoteDownloadIdleTimeoutInterceptor.java"],
+    deps = [
+        "@googleapis//google/bytestream:bytestream_java_grpc",
+        "//third_party:jsr305",
+        "//third_party/grpc-java:grpc-jar",
+    ],
+)
+
+java_library(
     name = "client_api_version",
     srcs = ["ClientApiVersion.java"],
     deps = [
@@ -220,6 +247,7 @@ java_library(
     deps = [
         ":ReferenceCountedChannel",
         ":channel_factory",
+        ":remote_grpc_service_config",
         ":remote_server_capabilities",
         "//src/main/java/com/google/devtools/build/lib/authandtls",
         "//src/main/java/com/google/devtools/build/lib/events",
