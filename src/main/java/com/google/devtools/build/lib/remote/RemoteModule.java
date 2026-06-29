@@ -392,10 +392,24 @@ public final class RemoteModule extends BlazeModule {
       knownMissingCasDigests.clear();
     }
 
+    var cacheAvailable = setup(env);
+    if (!cacheAvailable) {
+      if (env.getDirectories().getOutputBase().getFileSystem()
+          instanceof RemoteExternalOverlayFileSystem remoteFs) {
+        remoteFs.notifyNoCacheAvailable(env.getSkyframeExecutor().getEvaluator());
+      }
+    }
+  }
+
+  /**
+   * Sets up all requested remote functionality (caching, execution, downloader, ...) and returns
+   * whether any cache (disk or remote) is enabled.
+   */
+  private boolean setup(CommandEnvironment env) throws AbruptExitException {
     RemoteOptions remoteOptions = env.getOptions().getOptions(RemoteOptions.class);
     if (remoteOptions == null) {
       // Quit if no supported command is being used. See getCommandOptions for details.
-      return;
+      return false;
     }
 
     this.remoteOptions = remoteOptions;
@@ -493,7 +507,7 @@ public final class RemoteModule extends BlazeModule {
       actionContextProvider =
           RemoteActionContextProvider.createForPlaceholder(
               env, retryScheduler, digestUtil, knownMissingCasDigests);
-      return;
+      return false;
     }
 
     if (enableHttpCache && enableRemoteExecution) {
@@ -587,7 +601,7 @@ public final class RemoteModule extends BlazeModule {
               remoteOptions);
     } catch (IOException e) {
       handleInitFailure(env, e, Code.CREDENTIALS_INIT_FAILURE);
-      return;
+      return false;
     }
 
     int maxConcurrencyPerConnection = 0;
@@ -651,7 +665,7 @@ public final class RemoteModule extends BlazeModule {
     if ((enableHttpCache || enableDiskCache) && !enableGrpcCache) {
       initHttpAndDiskCache(env, credentials, authAndTlsOptions, remoteOptions, digestUtil);
       initRepoHelpersAndOverlayFs(env, buildRequestId, invocationId, verboseFailures);
-      return;
+      return true;
     }
 
     ClientInterceptor loggingInterceptor = null;
@@ -662,7 +676,7 @@ public final class RemoteModule extends BlazeModule {
                 env.getWorkingDirectory().getRelative(remoteOptions.remoteGrpcLog));
       } catch (IOException e) {
         handleInitFailure(env, e, Code.RPC_LOG_FAILURE);
-        return;
+        return false;
       }
       loggingInterceptor = new LoggingInterceptor(rpcLogFile, env.getRuntime().getClock());
     }
@@ -768,7 +782,7 @@ public final class RemoteModule extends BlazeModule {
                   env.getWorkingDirectory(), remoteOptions, digestUtil);
         } catch (Exception e) {
           handleInitFailure(env, e, Code.CACHE_INIT_FAILURE);
-          return;
+          return false;
         }
       }
 
@@ -804,7 +818,7 @@ public final class RemoteModule extends BlazeModule {
                   env.getWorkingDirectory(), remoteOptions, digestUtil);
         } catch (Exception e) {
           handleInitFailure(env, e, Code.CACHE_INIT_FAILURE);
-          return;
+          return false;
         }
       }
 
@@ -884,6 +898,8 @@ public final class RemoteModule extends BlazeModule {
       downloaderChannel.release();
       env.getDownloaderDelegate().setDelegate(remoteDownloader);
     }
+
+    return true;
   }
 
   private static ReferenceCountedChannel createChannel(
