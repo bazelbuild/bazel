@@ -327,9 +327,8 @@ public final class BuildEventServiceUploader implements Runnable {
   public void run() {
     try {
       if (publishLifecycleEvents) {
-        publishLifecycleEvent(new LifecycleEvent.BuildEnqueued(commandContext, commandStartTime));
-        publishLifecycleEvent(
-            new LifecycleEvent.InvocationStarted(commandContext, eventStreamStartTime));
+        publishLifecycleEvent(new LifecycleEvent.BuildEnqueued(commandStartTime));
+        publishLifecycleEvent(new LifecycleEvent.InvocationStarted(eventStreamStartTime));
       }
 
       try {
@@ -341,10 +340,8 @@ public final class BuildEventServiceUploader implements Runnable {
             invocationStatus = this.invocationStatus;
           }
           Instant now = clock.now();
-          publishLifecycleEvent(
-              new LifecycleEvent.InvocationFinished(commandContext, now, invocationStatus));
-          publishLifecycleEvent(
-              new LifecycleEvent.BuildFinished(commandContext, now, invocationStatus));
+          publishLifecycleEvent(new LifecycleEvent.InvocationFinished(now, invocationStatus));
+          publishLifecycleEvent(new LifecycleEvent.BuildFinished(now, invocationStatus));
         }
       }
       eventBus.post(BuildEventServiceAvailabilityEvent.ofSuccess());
@@ -458,7 +455,8 @@ public final class BuildEventServiceUploader implements Runnable {
             logger.atInfo().log(
                 "Starting publishBuildEvents: commandQueue=%d", commandQueue.size());
             streamContext =
-                besClient.openStream((ack) -> commandQueue.addLast(new Command.AckReceived(ack)));
+                besClient.openStream(
+                    commandContext, (ack) -> commandQueue.addLast(new Command.AckReceived(ack)));
             addStreamStatusListener(
                 streamContext.getStatus(),
                 (status) -> commandQueue.addLast(new Command.StreamComplete(status)));
@@ -473,7 +471,6 @@ public final class BuildEventServiceUploader implements Runnable {
 
             var bazelEvent =
                 new StreamEvent.BazelEvent(
-                    commandContext,
                     sendRegularBuildEventCmd.creationTime(),
                     sendRegularBuildEventCmd.sequenceNumber(),
                     serializedRegularBuildEvent.toByteString());
@@ -493,9 +490,7 @@ public final class BuildEventServiceUploader implements Runnable {
             lastEventSent = true;
             var streamFinishedEvent =
                 new StreamEvent.StreamFinished(
-                    commandContext,
-                    sendLastBuildEventCmd.creationTime(),
-                    sendLastBuildEventCmd.sequenceNumber());
+                    sendLastBuildEventCmd.creationTime(), sendLastBuildEventCmd.sequenceNumber());
             ackQueue.addLast(new Command.SendSerializedBuildEvent(streamFinishedEvent));
             streamContext.sendOverStream(streamFinishedEvent);
             halfCloseEventUploadingStream();
@@ -658,7 +653,7 @@ public final class BuildEventServiceUploader implements Runnable {
     StatusException cause = null;
     while (retryAttempt <= this.buildEventProtocolOptions.besUploadMaxRetries) {
       try {
-        besClient.publish(lifecycleEvent);
+        besClient.publish(commandContext, lifecycleEvent);
         return;
       } catch (StatusException e) {
         if (!shouldRetryStatus(e.getStatus()) || shouldStartNewInvocation(e.getStatus())) {
