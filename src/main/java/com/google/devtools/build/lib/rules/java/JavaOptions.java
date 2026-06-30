@@ -423,12 +423,4 @@ public abstract class JavaOptions extends FragmentOptions {
       help = "When enabled, java_import.exports is not supported.")
   public abstract boolean getDisallowJavaImportExports();
 
-  @Option(
-      name = "experimental_enable_jspecify",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help = "Enable experimental jspecify integration.")
-  public abstract boolean getExperimentalEnableJspecify();
 }

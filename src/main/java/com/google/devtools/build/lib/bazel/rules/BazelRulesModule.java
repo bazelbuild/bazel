@@ -591,6 +591,16 @@ public final class BazelRulesModule extends BlazeModule {
   public abstract static class BazelBuildGraveyardOptions extends BuildGraveyardOptions {
     @Deprecated
     @Option(
+        name = "experimental_enable_jspecify",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.EXPERIMENTAL, OptionMetadataTag.DEPRECATED},
+        help = "Deprecated no-op.")
+    public abstract boolean getEnableJspecify();
+
+    @Deprecated
+    @Option(
         name = "incompatible_disable_legacy_cc_provider",
         defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
