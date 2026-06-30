@@ -141,6 +141,7 @@ public class ConsistencyTest {
         "--force_starlark_stack_trace=" + rand.nextBoolean(),
         "--incompatible_always_check_depset_elements=" + rand.nextBoolean(),
         "--incompatible_check_external_repo_source_dir_package_boundary=" + rand.nextBoolean(),
+        "--incompatible_prevent_status_files_without_stamp=" + rand.nextBoolean(),
         "--incompatible_disallow_empty_glob=" + rand.nextBoolean(),
         "--incompatible_do_not_split_linking_cmdline=" + rand.nextBoolean(),
         "--incompatible_enable_deprecated_label_apis=" + rand.nextBoolean(),
