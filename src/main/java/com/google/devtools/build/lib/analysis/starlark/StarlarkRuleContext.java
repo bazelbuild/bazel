@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.ActionsProvider;
 import com.google.devtools.build.lib.analysis.AliasProvider;
+import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.AspectContext;
 import com.google.devtools.build.lib.analysis.BashCommandConstructor;
 import com.google.devtools.build.lib.analysis.CommandHelper;
@@ -980,12 +981,14 @@ public final class StarlarkRuleContext
   @Override
   public Artifact getStableWorkspaceStatus() throws InterruptedException, EvalException {
     checkMutable("info_file");
+    AnalysisUtils.checkWorkspaceStatusFileAccess(ruleContext, "ctx.info_file");
     return ruleContext.getAnalysisEnvironment().getStableWorkspaceStatusArtifact();
   }
 
   @Override
   public Artifact getVolatileWorkspaceStatus() throws InterruptedException, EvalException {
     checkMutable("version_file");
+    AnalysisUtils.checkWorkspaceStatusFileAccess(ruleContext, "ctx.version_file");
     return ruleContext.getAnalysisEnvironment().getVolatileWorkspaceStatusArtifact();
   }
 

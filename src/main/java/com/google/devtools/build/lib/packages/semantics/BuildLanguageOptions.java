@@ -725,6 +725,20 @@ public final class BuildLanguageOptions extends OptionsBase {
               + "from the top level target instead (No-op in Bazel)")
   public boolean incompatibleDisableObjcLibraryTransition;
 
+  @Option(
+      name = "incompatible_prevent_status_files_without_stamp",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "If enabled, ctx.info_file and ctx.version_file (and the corresponding"
+              + " ctx.actions.transform_*_file functions) are only available when stamping is"
+              + " enabled for the target (via the stamp attribute or --stamp). Otherwise, rule"
+              + " implementations that access these files fail during analysis. See"
+              + " https://github.com/bazelbuild/bazel/issues/14341.")
+  public boolean incompatiblePreventStatusFilesWithoutStamp;
+
   // remove after Bazel LTS in Nov 2023
   @Option(
       name = "incompatible_fail_on_unknown_attributes",
@@ -810,6 +824,20 @@ public final class BuildLanguageOptions extends OptionsBase {
               + " to a rule attribute, it is stored as [\"a\", \"b\"]. This option does not affect"
               + " attributes of symbolic macros or attribute default values.")
   public boolean incompatibleSimplifyUnconditionalSelectsInRuleAttrs;
+
+  @Option(
+      name = "incompatible_prevent_status_files_without_stamp",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "If enabled, ctx.info_file and ctx.version_file (and the corresponding"
+              + " ctx.actions.transform_*_file functions) are only available when stamping is"
+              + " enabled for the target (via the stamp attribute or --stamp). Otherwise, rule"
+              + " implementations that access these files fail during analysis. See"
+              + " https://github.com/bazelbuild/bazel/issues/14341.")
+  public abstract boolean getIncompatiblePreventStatusFilesWithoutStamp();
 
   @Option(
       name = "experimental_enable_starlark_set",
@@ -995,6 +1023,9 @@ public final class BuildLanguageOptions extends OptionsBase {
             .setBool(
                 INCOMPATIBLE_DISABLE_OBJC_LIBRARY_TRANSITION,
                 incompatibleDisableObjcLibraryTransition)
+            .setBool(
+                INCOMPATIBLE_PREVENT_STATUS_FILES_WITHOUT_STAMP,
+                incompatiblePreventStatusFilesWithoutStamp)
             .setBool(INCOMPATIBLE_FAIL_ON_UNKNOWN_ATTRIBUTES, incompatibleFailOnUnknownAttributes)
             .setBool(
                 INCOMPATIBLE_ENABLE_PROTO_TOOLCHAIN_RESOLUTION,
@@ -1144,6 +1175,9 @@ public final class BuildLanguageOptions extends OptionsBase {
       "+incompatible_depset_for_libraries_to_link_getter";
   public static final String INCOMPATIBLE_DISABLE_TARGET_PROVIDER_FIELDS =
       "-incompatible_disable_target_provider_fields";
+  public static final String INCOMPATIBLE_PREVENT_STATUS_FILES_WITHOUT_STAMP =
+      "-incompatible_prevent_status_files_without_stamp";
+
   // Note that INCOMPATIBLE_DISALLOW_EMPTY_GLOB differs in Google and in OSS Bazel.
   public static final String INCOMPATIBLE_DISALLOW_EMPTY_GLOB = "+incompatible_disallow_empty_glob";
   public static final String INCOMPATIBLE_DISALLOW_STRUCT_PROVIDER_SYNTAX =

@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.actions.ResourceSetOrBuilder;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.actions.extra.SpawnInfo;
+import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.BashCommandConstructor;
 import com.google.devtools.build.lib.analysis.CommandHelper;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
@@ -477,6 +478,9 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       StarlarkThread thread)
       throws InterruptedException, EvalException {
     RuleContext ruleContext = getRuleContext();
+    String apiName =
+        isVolatile ? "ctx.actions.transform_version_file" : "ctx.actions.transform_info_file";
+    AnalysisUtils.checkWorkspaceStatusFileAccess(ruleContext, apiName);
     Artifact templateFile = (Artifact) templateObject;
     PathFragment fragment =
         ruleContext.getPackageDirectory().getRelative(PathFragment.create(outputFileName));

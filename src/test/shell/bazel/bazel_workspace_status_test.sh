@@ -258,4 +258,40 @@ EOF
 
 }
 
+function test_prevent_status_files_without_stamp() {
+  create_new_workspace
+
+  cat > rules.bzl <<'EOF'
+def _impl(ctx):
+    ctx.actions.write(ctx.outputs.out, ctx.info_file.path)
+    return DefaultInfo(files = depset([ctx.outputs.out]))
+
+uses_status = rule(
+    implementation = _impl,
+    attrs = {"stamp": attr.int(default = -1)},
+    outputs = {"out": "%{name}.txt"},
+)
+EOF
+
+  cat > BUILD <<'EOF'
+load(":rules.bzl", "uses_status")
+
+uses_status(name = "unstamped")
+uses_status(name = "stamped", stamp = 1)
+EOF
+
+  # By default, status files are available without stamping.
+  bazel build //:unstamped &> $TEST_log || fail "expected build to succeed by default"
+
+  # With the incompatible flag enabled, unstamped targets fail and point at the rule implementation.
+  bazel build --incompatible_prevent_status_files_without_stamp //:unstamped &> $TEST_log \
+    && fail "expected build to fail" || true
+  expect_log "ctx.info_file cannot be accessed without stamping"
+  expect_log "rules.bzl"
+
+  # Stamped targets succeed with the incompatible flag enabled.
+  bazel build --incompatible_prevent_status_files_without_stamp --stamp //:stamped \
+    &> $TEST_log || fail "expected stamped build to succeed"
+}
+
 run_suite "workspace status tests"

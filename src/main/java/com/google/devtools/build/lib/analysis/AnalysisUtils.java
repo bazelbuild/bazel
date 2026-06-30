@@ -24,8 +24,11 @@ import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.
 import com.google.devtools.build.lib.packages.StarlarkProviderWrapper;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Starlark;
 
 /**
  * Utility functions for use during analysis.
@@ -71,6 +74,44 @@ public final class AnalysisUtils {
 
   public static boolean isStampingEnabled(RuleContext ruleContext) {
     return isStampingEnabled(ruleContext, ruleContext.getConfiguration());
+  }
+
+  /**
+   * Returns whether workspace status files ({@code ctx.info_file} / {@code ctx.version_file}) may
+   * be accessed for the given rule.
+   */
+  public static boolean areWorkspaceStatusFilesAvailable(RuleContext ruleContext) {
+    BuildConfigurationValue config = ruleContext.getConfiguration();
+    if (config.isToolConfiguration()) {
+      return false;
+    }
+    if (ruleContext.attributes().has("stamp", BuildType.TRISTATE)
+        || ruleContext.attributes().has("stamp", Type.INTEGER)) {
+      return isStampingEnabled(ruleContext, config);
+    }
+    return config.stampBinaries();
+  }
+
+  /**
+   * Verifies that workspace status files may be accessed, or fails with an error pointing at the
+   * calling rule implementation.
+   */
+  public static void checkWorkspaceStatusFileAccess(RuleContext ruleContext, String apiName)
+      throws EvalException {
+    if (!ruleContext
+        .getAnalysisEnvironment()
+        .getStarlarkSemantics()
+        .getBool(BuildLanguageOptions.INCOMPATIBLE_PREVENT_STATUS_FILES_WITHOUT_STAMP)) {
+      return;
+    }
+    if (areWorkspaceStatusFilesAvailable(ruleContext)) {
+      return;
+    }
+    throw Starlark.errorf(
+        "%s cannot be accessed without stamping when"
+            + " --incompatible_prevent_status_files_without_stamp is enabled. Enable stamping with"
+            + " the stamp attribute or --stamp.",
+        apiName);
   }
 
   // TODO(bazel-team): These need Iterable<? extends TransitiveInfoCollection> because they need to
