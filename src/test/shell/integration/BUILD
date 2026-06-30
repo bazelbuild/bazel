@@ -1010,6 +1010,16 @@ sh_test(
     ],
 )
 
+sh_test(
+    name = "profiler_test",
+    size = "medium",
+    srcs = ["profiler_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+)
+
 ########################################################################
 # Test suites.
 
