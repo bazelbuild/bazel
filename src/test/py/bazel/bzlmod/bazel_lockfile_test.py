@@ -3148,6 +3148,139 @@ class BazelLockfileTest(test_base.TestBase):
     facts = lockfile['facts']
     self.assertEqual(len(facts), 2)
 
+  def testFactsVersionDiscardedOnMismatch(self):
+    """facts_version is persisted in the lockfile and discards stale facts."""
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'lockfile_ext = use_extension("extension.bzl", "lockfile_ext")',
+            'use_repo(lockfile_ext, "hello")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'extension.bzl',
+        [
+            'def impl(ctx):',
+            '    ctx.file("BUILD", "filegroup(name=\\"lala\\")")',
+            'repo_rule = repository_rule(',
+            '    implementation = impl,',
+            '    attrs = {"hash": attr.string()},',
+            ')',
+            'def _mod_ext_impl(ctx):',
+            '    if "hello" in ctx.facts:',
+            '        print("Reusing facts")',
+            '    else:',
+            '        print("No facts")',
+            '    repo_rule(name = "hello", hash = "h")',
+            '    return ctx.extension_metadata(',
+            '        reproducible = False,',
+            '        facts = {"hello": "h"},',
+            '    )',
+            'lockfile_ext = module_extension(',
+            '    implementation = _mod_ext_impl,',
+            '    facts_version = 1,',
+            ')',
+        ],
+    )
+    _, _, stderr = self.RunBazel(['build', '@hello//:all'])
+    self.assertIn('No facts', ''.join(stderr))
+
+    with open(self.Path('MODULE.bazel.lock'), 'r') as f:
+      lockfile = json.loads(f.read())
+    ext_id = '//:extension.bzl%lockfile_ext'
+    self.assertIn(ext_id, lockfile['facts'])
+    self.assertIn('factsVersions', lockfile)
+    self.assertEqual(lockfile['factsVersions'].get(ext_id), 1)
+
+    # Reevaluation at the same facts_version reuses the facts.
+    self.ScratchFile(
+        'extension.bzl',
+        [
+            'def impl(ctx):',
+            '    ctx.file("BUILD", "filegroup(name=\\"lala\\")")',
+            'repo_rule = repository_rule(',
+            '    implementation = impl,',
+            '    attrs = {"hash": attr.string()},',
+            ')',
+            'def _mod_ext_impl(ctx):',
+            '    if "hello" in ctx.facts:',
+            '        print("Reusing facts")',
+            '    else:',
+            '        print("No facts")',
+            '    repo_rule(name = "hello", hash = "h2")',
+            '    return ctx.extension_metadata(',
+            '        reproducible = False,',
+            '        facts = {"hello": "h"},',
+            '    )',
+            'lockfile_ext = module_extension(',
+            '    implementation = _mod_ext_impl,',
+            '    facts_version = 1,',
+            ')',
+        ],
+    )
+    _, _, stderr = self.RunBazel(['build', '@hello//:all'])
+    self.assertIn('Reusing facts', ''.join(stderr))
+
+    # Bumping facts_version discards the previously persisted facts.
+    self.ScratchFile(
+        'extension.bzl',
+        [
+            'def impl(ctx):',
+            '    ctx.file("BUILD", "filegroup(name=\\"lala\\")")',
+            'repo_rule = repository_rule(',
+            '    implementation = impl,',
+            '    attrs = {"hash": attr.string()},',
+            ')',
+            'def _mod_ext_impl(ctx):',
+            '    if "hello" in ctx.facts:',
+            '        print("Reusing facts")',
+            '    else:',
+            '        print("No facts")',
+            '    repo_rule(name = "hello", hash = "h3")',
+            '    return ctx.extension_metadata(',
+            '        reproducible = False,',
+            '        facts = {"hello": {"hash": "h"}},',
+            '    )',
+            'lockfile_ext = module_extension(',
+            '    implementation = _mod_ext_impl,',
+            '    facts_version = 2,',
+            ')',
+        ],
+    )
+    _, _, stderr = self.RunBazel(['build', '@hello//:all'])
+    self.assertIn('No facts', ''.join(stderr))
+
+    with open(self.Path('MODULE.bazel.lock'), 'r') as f:
+      lockfile = json.loads(f.read())
+    self.assertEqual(lockfile['factsVersions'].get(ext_id), 2)
+
+  def testFactsVersionRejectsNegative(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'lockfile_ext = use_extension("extension.bzl", "lockfile_ext")',
+            'use_repo(lockfile_ext, "hello")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'extension.bzl',
+        [
+            'def _mod_ext_impl(ctx):',
+            '    pass',
+            'lockfile_ext = module_extension(',
+            '    implementation = _mod_ext_impl,',
+            '    facts_version = -1,',
+            ')',
+        ],
+    )
+    exit_code, _, stderr = self.RunBazel(
+        ['build', '@hello//:all'], allow_failure=True
+    )
+    self.assertNotEqual(exit_code, 0)
+    self.assertIn('facts_version must be non-negative', ''.join(stderr))
+
   def testFactsWithLockfileModeErrorAfterRollback(self):
     """Test that ERROR mode doesn't fail when rolling back to a version without facts.
 
