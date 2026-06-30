@@ -54,9 +54,14 @@ public final class Scrubber {
   }
 
   private final ImmutableList<SpawnScrubber> spawnScrubbers;
+  private final boolean scrubParamFiles;
 
   @VisibleForTesting
   Scrubber(Config configProto) {
+    this(configProto, /* scrubParamFiles= */ false);
+  }
+
+  private Scrubber(Config configProto, boolean scrubParamFiles) {
     ArrayList<SpawnScrubber> spawnScrubbers = new ArrayList<>();
     for (Config.Rule ruleProto : configProto.getRulesList()) {
       spawnScrubbers.add(new SpawnScrubber(ruleProto));
@@ -64,6 +69,21 @@ public final class Scrubber {
     // Reverse the order so that later rules supersede earlier ones.
     Collections.reverse(spawnScrubbers);
     this.spawnScrubbers = ImmutableList.copyOf(spawnScrubbers);
+    this.scrubParamFiles = scrubParamFiles;
+  }
+
+  private Scrubber(ImmutableList<SpawnScrubber> spawnScrubbers, boolean scrubParamFiles) {
+    this.spawnScrubbers = spawnScrubbers;
+    this.scrubParamFiles = scrubParamFiles;
+  }
+
+  /**
+   * Returns a {@link Scrubber} identical to this one but where every resolved {@link
+   * SpawnScrubber} also applies {@code arg_replacements} scrubbing to params file content when
+   * computing cache keys.
+   */
+  public Scrubber withParamFileScrubbing() {
+    return new Scrubber(spawnScrubbers, /* scrubParamFiles= */ true);
   }
 
   /**
@@ -91,7 +111,7 @@ public final class Scrubber {
   public SpawnScrubber forSpawn(Spawn spawn) {
     for (SpawnScrubber spawnScrubber : spawnScrubbers) {
       if (spawnScrubber.matches(spawn)) {
-        return spawnScrubber;
+        return scrubParamFiles ? spawnScrubber.withParamFileScrubbing() : spawnScrubber;
       }
     }
     return null;
@@ -102,12 +122,14 @@ public final class Scrubber {
     if (this == o) {
       return true;
     }
-    return o instanceof Scrubber that && spawnScrubbers.equals(that.spawnScrubbers);
+    return o instanceof Scrubber that
+        && scrubParamFiles == that.scrubParamFiles
+        && spawnScrubbers.equals(that.spawnScrubbers);
   }
 
   @Override
   public int hashCode() {
-    return spawnScrubbers.hashCode();
+    return Objects.hash(spawnScrubbers, scrubParamFiles);
   }
 
   /**
@@ -124,6 +146,7 @@ public final class Scrubber {
     private final ImmutableList<Pattern> omittedInputPatterns;
     private final ImmutableMap<Pattern, String> argReplacements;
     private final String salt;
+    private final boolean scrubParamFiles;
 
     private SpawnScrubber(Config.Rule ruleProto) {
       Config.Matcher matcherProto = ruleProto.getMatcher();
@@ -141,6 +164,28 @@ public final class Scrubber {
           transformProto.getArgReplacementsList().stream()
               .collect(toImmutableMap(r -> Pattern.compile(r.getSource()), r -> r.getTarget()));
       this.salt = ruleProto.getTransform().getSalt();
+      this.scrubParamFiles = false;
+    }
+
+    private SpawnScrubber(SpawnScrubber base, boolean scrubParamFiles) {
+      this.mnemonicPattern = base.mnemonicPattern;
+      this.labelPattern = base.labelPattern;
+      this.kindPattern = base.kindPattern;
+      this.matchTools = base.matchTools;
+      this.omittedInputPatterns = base.omittedInputPatterns;
+      this.argReplacements = base.argReplacements;
+      this.salt = base.salt;
+      this.scrubParamFiles = scrubParamFiles;
+    }
+
+    /** Returns a new SpawnScrubber identical to this one but with param file scrubbing enabled. */
+    public SpawnScrubber withParamFileScrubbing() {
+      return new SpawnScrubber(this, /* scrubParamFiles= */ true);
+    }
+
+    /** Whether arg_replacements should be applied to params file content when hashing. */
+    public boolean shouldScrubParamFiles() {
+      return scrubParamFiles;
     }
 
     private String emptyToAll(String s) {
