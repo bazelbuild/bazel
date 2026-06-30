@@ -193,11 +193,13 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
    */
   public boolean injectRemoteRepo(RepositoryName repo, Tree remoteContents, String markerFile)
       throws IOException, InterruptedException {
+    var repoDir = externalDirectory.getChild(repo.getName());
+    deleteTree(repoDir);
+    var unused = delete(externalDirectory.getChild(repo.getMarkerFileName()));
     var childMap =
         remoteContents.getChildrenList().stream()
             .collect(
                 toImmutableMap(cache.digestUtil::compute, directory -> directory, (a, b) -> a));
-    var repoDir = externalDirectory.getChild(repo.getName());
     var filesToPrefetch = new ArrayList<PathFragment>();
     injectRecursively(
         externalFs,
@@ -220,7 +222,7 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
     }
     // Create the repo directory on disk so that readdir reflects the overlaid state of the external
     // directory.
-    nativeFs.createDirectoryAndParents(externalDirectory.getChild(repo.getName()));
+    nativeFs.createDirectoryAndParents(repoDir);
     // Keep the marker file contents in memory so that it can be written out when the repo is
     // materialized. This doubles as a presence marker for the in-memory repo contents.
     markerFileContents.put(repo.getName(), markerFile);
@@ -313,12 +315,8 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
     }
     prefetch(walkResult.files());
     // Create symlinks last as some platforms don't allow creating a symlink to a non-existent
-    // target. A symlink may have already been created as an input to an action.
-    for (var remoteSymlink : walkResult.symlinks()) {
-      var nativeSymlink = nativeFs.getPath(remoteSymlink);
-      FileSystemUtils.ensureSymbolicLink(
-          nativeSymlink, externalFs.getPath(remoteSymlink).readSymbolicLink());
-    }
+    // target.
+    prefetch(walkResult.symlinks());
 
     // After the repo has been copied, atomically materialize the marker file. This ensures that the
     // repo doesn't have to be refetched after the next server restart.
@@ -654,9 +652,11 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
     }
 
     private FileArtifactValue getMetadata(PathFragment path) throws IOException {
-      var info =
-          (RemoteActionFileSystem.RemoteInMemoryFileInfo) stat(path, /* followSymlinks= */ true);
-      return info.getMetadata();
+      var status = stat(path, /* followSymlinks= */ false);
+      if (!status.isSymbolicLink()) {
+        return ((RemoteActionFileSystem.RemoteInMemoryFileInfo) status).getMetadata();
+      }
+      return FileArtifactValue.createForUnresolvedSymlink(externalFs.getPath(path));
     }
 
     @Override

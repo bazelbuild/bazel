@@ -15,6 +15,7 @@
 
 package com.google.devtools.build.lib.rules.repository;
 
+import static com.google.common.base.StandardSystemProperty.OS_NAME;
 import static com.google.devtools.build.lib.skyframe.RepositoryMappingFunction.REPOSITORY_OVERRIDES;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
@@ -63,6 +64,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.LinkedHashMap;
@@ -267,8 +269,17 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
 
         if (remoteRepoContentsCache != null) {
           try {
-            if (remoteRepoContentsCache.lookupCache(
-                repositoryName, repoRoot, digestWriter.predeclaredInputHash, env.getListener())) {
+            boolean cacheHit =
+                remoteRepoContentsCache.lookupCache(
+                    repositoryName,
+                    repoRoot,
+                    digestWriter.predeclaredInputHash,
+                    env,
+                    handler.getRemoteRepoContentsCacheLookupState(env));
+            if (env.valuesMissing()) {
+              return null;
+            }
+            if (cacheHit) {
               return new RepositoryDirectoryValue.Success(
                   repoRoot, /* isFetchingDelayed= */ false, excludeRepoFromVendoring);
             }
@@ -298,7 +309,32 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
         }
         digestWriter.writeMarkerFile(result.recordedInputValues());
         if (result.reproducible() == Reproducibility.YES && !handler.isLocal(rule)) {
-          if (remoteRepoContentsCache != null) {
+          // This repo may be eligible for the local and remote repo contents cache.
+          // Replant symlinks before caching to convert absolute symlinks relative if possible, which
+          // can make more repos eligible.
+          Path externalRepoRoot = RepositoryFunction.getExternalRepositoryDirectory(directories);
+          RepositoryFunction.ReplantSymlinksResult replantSymlinksResult;
+          try {
+            replantSymlinksResult =
+                RepositoryFunction.replantSymlinks(
+                    repoRoot,
+                    directories.getWorkspace(),
+                    externalRepoRoot,
+                    PathFragment.EMPTY_FRAGMENT,
+                    // The local repo contents cache can't handle any cross-repo symlinks and while
+                    // the remote repo contents cache could in theory handle main repo symlinks, this
+                    // would add a lot of complexity for little gain (local files are always
+                    // available).
+                    /* replantSymlinksIntoMainRepo= */ false);
+          } catch (IOException e) {
+            throw new RepositoryFunctionException(
+                new IOException(
+                    "error replanting symlinks in repo %s before caching: %s"
+                        .formatted(repositoryName, e.getMessage()),
+                    e),
+                Transience.TRANSIENT);
+          }
+          if (remoteRepoContentsCache != null && replantSymlinksResult.safeForRemoteCache()) {
             remoteRepoContentsCache.addToCache(
                 repositoryName,
                 repoRoot,
@@ -306,7 +342,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
                 digestWriter.predeclaredInputHash,
                 env.getListener());
           }
-          if (repoContentsCache.isEnabled()) {
+          if (repoContentsCache.isEnabled() && replantSymlinksResult.safeForLocalCache()) {
             // This repo is eligible for the repo contents cache.
             CandidateRepo newCacheEntry;
             try {
@@ -853,6 +889,11 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
               .addBytes(RuleFormatter.serializeRule(rule).build().toByteArray())
               .addInt(MARKER_FILE_VERSION)
               .addBytes(BuildLanguageOptions.stableFingerprint(starlarkSemantics))
+              // This info is accessible via rctx.os.{name,arch} and can also influence the
+              // result of a repo rule in subtle ways (e.g. behavior of host tools, line breaks,
+              // etc).
+              .addString(OS_NAME.value().toLowerCase(Locale.ROOT))
+              .addString(System.getProperty("os.arch").toLowerCase(Locale.ROOT))
               .addInt(environ.size());
       environ.forEach(
           (key, value) -> fp.addString(key.toString()).addNullableString(value.orElse(null)));

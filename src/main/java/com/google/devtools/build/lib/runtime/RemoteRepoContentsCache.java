@@ -17,10 +17,39 @@ package com.google.devtools.build.lib.runtime;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.skyframe.SkyFunction;
 import java.io.IOException;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /** A remote cache for the contents of external repositories. */
 public interface RemoteRepoContentsCache {
+  /**
+   * An entry memoized in a {@link LookupState}. The concrete representation is an implementation
+   * detail of the cache, so this is an opaque marker to callers.
+   */
+  interface OpaqueCacheEntry {}
+
+  /**
+   * Per-repository scratch state for {@link #lookupCache} that is meant to be stored in the
+   * repository's {@link SkyFunction.Environment.SkyKeyComputeState} so that it survives Skyframe
+   * restarts.
+   */
+  final class LookupState<T extends OpaqueCacheEntry> {
+    private final Map<String, T> entries = new ConcurrentHashMap<>();
+
+    /** Returns the entry memoized under the given input hash, or null if there is none. */
+    public T get(String inputHash) {
+      return entries.get(inputHash);
+    }
+
+    /** Memoizes the given entry under the given input hash. */
+    public T memoize(String inputHash, T entry) {
+      entries.put(inputHash, entry);
+      return entry;
+    }
+  }
+
   /** Adds a repository that has been fetched locally to the remote cache. */
   void addToCache(
       RepositoryName repoName,
@@ -33,6 +62,10 @@ public interface RemoteRepoContentsCache {
   /**
    * Retrieves a repository from the remote cache if possible.
    *
+   * <p>Callers have to check {@code env.valuesMissing()} after this method returns.
+   *
+   * @param lookupState scratch state surviving Skyframe restarts; pass the same instance across
+   *     restarts of the repository's evaluation to avoid re-fetching action cache entries
    * @return true if there was a cache hit and the repository has been fetched into the given
    *     directory.
    */
@@ -40,6 +73,7 @@ public interface RemoteRepoContentsCache {
       RepositoryName repoName,
       Path repoDir,
       String predeclaredInputHash,
-      ExtendedEventHandler reporter)
+      SkyFunction.Environment env,
+      LookupState<?> lookupState)
       throws IOException, InterruptedException;
 }
