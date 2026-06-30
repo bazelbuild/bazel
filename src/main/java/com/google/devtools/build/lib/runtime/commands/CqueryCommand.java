@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.cmdline.TargetPattern.Parser;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.query2.common.UniverseScopeOptions;
 import com.google.devtools.build.lib.query2.cquery.ConfiguredTargetQueryEnvironment;
 import com.google.devtools.build.lib.query2.cquery.CqueryOptions;
 import com.google.devtools.build.lib.query2.engine.AllPathsFunction;
@@ -165,7 +166,8 @@ public final class CqueryCommand implements BlazeCommand {
       return createFailureResult(message, Code.EXPRESSION_PARSE_FAILURE);
     }
 
-    List<String> topLevelTargets = options.getOptions(CqueryOptions.class).getUniverseScope();
+    List<String> topLevelTargets =
+        options.getOptions(UniverseScopeOptions.class).getUniverseScope();
     LinkedHashSet<String> targetPatternSet = new LinkedHashSet<>();
     ImmutableList<String> targetsForProjectResolution = null;
     if (topLevelTargets.isEmpty()) {
