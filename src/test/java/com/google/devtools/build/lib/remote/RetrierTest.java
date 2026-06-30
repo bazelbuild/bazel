@@ -31,7 +31,7 @@ import com.google.devtools.build.lib.remote.Retrier.CircuitBreakerException;
 import com.google.devtools.build.lib.remote.Retrier.ResultClassifier;
 import com.google.devtools.build.lib.remote.Retrier.ResultClassifier.Result;
 import com.google.devtools.build.lib.remote.Retrier.ZeroBackoff;
-import com.google.devtools.build.lib.remote.logging.RetryLogState;
+import com.google.devtools.build.lib.remote.logging.RpcLogContext;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
@@ -419,7 +419,7 @@ public class RetrierTest {
   }
 
   @Test
-  public void onRetriesExhausted_sync_firesOnceWithThreadedState() throws Exception {
+  public void onRetriesExhausted_sync_firesOnceWithRpcId() throws Exception {
     Supplier<Backoff> s = () -> new ZeroBackoff(/* maxRetries= */ 2);
     RecordingRetrier r = new RecordingRetrier(s, RETRY_ALL, retryService, alwaysOpen);
     assertThrows(
@@ -429,13 +429,13 @@ public class RetrierTest {
                 () -> {
                   throw new Exception("call failed");
                 }));
-    // newCallState is created exactly once per logical call and the same instance reaches the hook.
-    assertThat(r.newCallStateCount.get()).isEqualTo(1);
-    assertThat(r.exhaustedStates).containsExactly(r.state);
+    // newRpcId is created exactly once per logical call and the same id reaches the hook.
+    assertThat(r.newRpcIdCount.get()).isEqualTo(1);
+    assertThat(r.exhaustedRpcIds).containsExactly(RecordingRetrier.RPC_ID);
   }
 
   @Test
-  public void onRetriesExhausted_async_firesOnceWithThreadedState() throws Exception {
+  public void onRetriesExhausted_async_firesOnceWithRpcId() throws Exception {
     Supplier<Backoff> s = () -> new ZeroBackoff(/* maxRetries= */ 2);
     RecordingRetrier r = new RecordingRetrier(s, RETRY_ALL, retryService, alwaysOpen);
     ListenableFuture<Void> res =
@@ -444,9 +444,9 @@ public class RetrierTest {
               throw new Exception("call failed");
             });
     assertThrows(ExecutionException.class, res::get);
-    // The state survives the retryService executor hop and reaches the hook exactly once.
-    assertThat(r.newCallStateCount.get()).isEqualTo(1);
-    assertThat(r.exhaustedStates).containsExactly(r.state);
+    // The id survives the retryService executor hop and reaches the hook exactly once.
+    assertThat(r.newRpcIdCount.get()).isEqualTo(1);
+    assertThat(r.exhaustedRpcIds).containsExactly(RecordingRetrier.RPC_ID);
   }
 
   @Test
@@ -463,7 +463,7 @@ public class RetrierTest {
               throw new Exception("call failed");
             });
     assertThat(val).isEqualTo(1);
-    assertThat(r.exhaustedStates).isEmpty();
+    assertThat(r.exhaustedRpcIds).isEmpty();
   }
 
   @Test
@@ -482,14 +482,55 @@ public class RetrierTest {
                 }));
     // A permanent (non-retriable) failure is not "retries exhausted".
     assertThat(numCalls.get()).isEqualTo(1);
-    assertThat(r.exhaustedStates).isEmpty();
+    assertThat(r.exhaustedRpcIds).isEmpty();
   }
 
-  /** A {@link Retrier} that records the state threaded to {@link Retrier#onRetriesExhausted}. */
+  @Test
+  public void rpcContext_propagatesConstantIdAndIncrementingAttempts_sync() throws Exception {
+    Supplier<Backoff> s = () -> new ZeroBackoff(/* maxRetries= */ 2);
+    RecordingRetrier r = new RecordingRetrier(s, RETRY_ALL, retryService, alwaysOpen);
+    List<String> ids = Collections.synchronizedList(new ArrayList<>());
+    List<Integer> attempts = Collections.synchronizedList(new ArrayList<>());
+    assertThrows(
+        Exception.class,
+        () ->
+            r.execute(
+                () -> {
+                  RpcLogContext ctx = RpcLogContext.KEY.get();
+                  ids.add(ctx == null ? null : ctx.getRpcId());
+                  attempts.add(ctx == null ? -1 : ctx.getAttemptNumber());
+                  throw new Exception("call failed");
+                }));
+    assertThat(ids)
+        .containsExactly(RecordingRetrier.RPC_ID, RecordingRetrier.RPC_ID, RecordingRetrier.RPC_ID);
+    assertThat(attempts).containsExactly(1, 2, 3).inOrder();
+  }
+
+  @Test
+  public void rpcContext_propagatesConstantIdAndIncrementingAttempts_async() throws Exception {
+    Supplier<Backoff> s = () -> new ZeroBackoff(/* maxRetries= */ 2);
+    RecordingRetrier r = new RecordingRetrier(s, RETRY_ALL, retryService, alwaysOpen);
+    List<String> ids = Collections.synchronizedList(new ArrayList<>());
+    List<Integer> attempts = Collections.synchronizedList(new ArrayList<>());
+    ListenableFuture<Void> res =
+        r.executeAsync(
+            () -> {
+              RpcLogContext ctx = RpcLogContext.KEY.get();
+              ids.add(ctx == null ? null : ctx.getRpcId());
+              attempts.add(ctx == null ? -1 : ctx.getAttemptNumber());
+              throw new Exception("call failed");
+            });
+    assertThrows(ExecutionException.class, res::get);
+    assertThat(ids)
+        .containsExactly(RecordingRetrier.RPC_ID, RecordingRetrier.RPC_ID, RecordingRetrier.RPC_ID);
+    assertThat(attempts).containsExactly(1, 2, 3).inOrder();
+  }
+
+  /** A {@link Retrier} that records the rpc id threaded to {@link Retrier#onRetriesExhausted}. */
   private static class RecordingRetrier extends Retrier {
-    final RetryLogState state = new RetryLogState();
-    final AtomicInteger newCallStateCount = new AtomicInteger();
-    final List<RetryLogState> exhaustedStates = Collections.synchronizedList(new ArrayList<>());
+    static final String RPC_ID = "test-rpc-id";
+    final AtomicInteger newRpcIdCount = new AtomicInteger();
+    final List<String> exhaustedRpcIds = Collections.synchronizedList(new ArrayList<>());
 
     RecordingRetrier(
         Supplier<Backoff> backoffSupplier,
@@ -500,14 +541,14 @@ public class RetrierTest {
     }
 
     @Override
-    protected RetryLogState newCallState() {
-      newCallStateCount.incrementAndGet();
-      return state;
+    protected String newRpcId() {
+      newRpcIdCount.incrementAndGet();
+      return RPC_ID;
     }
 
     @Override
-    protected void onRetriesExhausted(Exception e, Backoff backoff, RetryLogState state) {
-      exhaustedStates.add(state);
+    protected void onRetriesExhausted(Exception e, Backoff backoff, String rpcId) {
+      exhaustedRpcIds.add(rpcId);
     }
   }
 

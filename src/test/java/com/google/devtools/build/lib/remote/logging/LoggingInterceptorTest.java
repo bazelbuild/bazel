@@ -190,7 +190,7 @@ public class LoggingInterceptorTest {
   }
 
   @Test
-  public void recordsAttemptIntoRetryLogStateWhenAttached() {
+  public void tagsAttemptWithRpcContextWhenAttached() {
     ReadRequest request = ReadRequest.newBuilder().setResourceName("test").build();
     ReadResponse response =
         ReadResponse.newBuilder().setData(ByteString.copyFromUtf8("abc")).build();
@@ -213,9 +213,8 @@ public class LoggingInterceptorTest {
             InProcessChannelBuilder.forName(fakeServerName).directExecutor().build(), interceptor);
     ByteStreamBlockingStub stub = ByteStreamGrpc.newBlockingStub(channel);
 
-    // Drive the call inside a Context carrying a RetryLogState, as the retrier does per attempt.
-    RetryLogState state = new RetryLogState();
-    Context context = Context.current().withValue(RetryLogState.KEY, state);
+    // Drive the call inside a Context carrying an RpcLogContext, as the retrier does per attempt.
+    Context context = Context.current().withValue(RpcLogContext.KEY, new RpcLogContext("rpc-1", 2));
     Context previous = context.attach();
     try {
       stub.read(request).next();
@@ -225,9 +224,10 @@ public class LoggingInterceptorTest {
 
     ArgumentCaptor<LogEntry> captor = ArgumentCaptor.forClass(LogEntry.class);
     verify(logStream).write(captor.capture());
-    // The interceptor hands the same entry it wrote (plus the sink) to the attached state.
-    assertThat(state.getLastEntry()).isEqualTo(captor.getValue());
-    assertThat(state.getSink()).isSameInstanceAs(logStream);
+    // The per-attempt entry is tagged with the logical-call id + attempt number from the context, so
+    // interleaved attempts of the same logical call can be correlated during log analysis.
+    assertThat(captor.getValue().getRpcId()).isEqualTo("rpc-1");
+    assertThat(captor.getValue().getAttemptNumber()).isEqualTo(2);
   }
 
   @Test

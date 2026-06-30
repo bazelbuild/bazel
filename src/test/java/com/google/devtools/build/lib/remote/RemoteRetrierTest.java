@@ -27,9 +27,6 @@ import com.google.devtools.build.lib.remote.Retrier.ResultClassifier.Result;
 import com.google.devtools.build.lib.remote.Retrier.Sleeper;
 import com.google.devtools.build.lib.remote.Retrier.ZeroBackoff;
 import com.google.devtools.build.lib.remote.logging.RemoteExecutionLog.LogEntry;
-import com.google.devtools.build.lib.remote.logging.RemoteExecutionLog.ReadDetails;
-import com.google.devtools.build.lib.remote.logging.RemoteExecutionLog.RpcCallDetails;
-import com.google.devtools.build.lib.remote.logging.RetryLogState;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.io.MessageOutputStream;
@@ -179,94 +176,107 @@ public class RemoteRetrierTest {
   }
 
   @Test
-  public void newCallState_gatedOnGrpcLogEnabled() {
-    RemoteRetrier enabled =
+  public void newRpcId_nonNullWhenSinkSupplierResolves() {
+    MessageOutputStream<LogEntry> sink = inMemorySink(new ArrayList<>());
+    RemoteRetrier retrier =
         new RemoteRetrier(
             () -> Retrier.RETRIES_DISABLED,
             (e) -> Result.TRANSIENT_FAILURE,
             retryService,
             Retrier.ALLOW_ALL_CALLS,
-            /* grpcLogEnabled= */ true);
-    RemoteRetrier disabled =
-        new RemoteRetrier(
-            () -> Retrier.RETRIES_DISABLED,
-            (e) -> Result.TRANSIENT_FAILURE,
-            retryService,
-            Retrier.ALLOW_ALL_CALLS,
-            /* grpcLogEnabled= */ false);
-    assertThat(enabled.newCallState()).isNotNull();
-    assertThat(disabled.newCallState()).isNull();
+            () -> sink);
+    assertThat(retrier.newRpcId()).isNotNull();
   }
 
   @Test
-  public void newCallState_disabledWhenOptionsHaveNoGrpcLog() {
+  public void newRpcId_nullWhenNoSinkSupplier() {
     RemoteOptions options = Options.getDefaults(RemoteOptions.class);
-    // --remote_grpc_log is unset by default.
+    // No sink supplier is wired in (e.g. the HTTP retrier), so this retrier never participates.
     RemoteRetrier retrier =
         new RemoteRetrier(
             options, (e) -> Result.TRANSIENT_FAILURE, retryService, Retrier.ALLOW_ALL_CALLS);
-    assertThat(retrier.newCallState()).isNull();
+    assertThat(retrier.newRpcId()).isNull();
   }
 
   @Test
-  public void onRetriesExhausted_writesTerminalEntry() {
+  public void newRpcId_nullWhenSinkSupplierResolvesNull() {
+    // Mirrors a gRPC retrier constructed before the log file exists, with --remote_grpc_log unset.
     RemoteRetrier retrier =
         new RemoteRetrier(
             () -> Retrier.RETRIES_DISABLED,
             (e) -> Result.TRANSIENT_FAILURE,
             retryService,
             Retrier.ALLOW_ALL_CALLS,
-            /* grpcLogEnabled= */ true);
+            () -> null);
+    assertThat(retrier.newRpcId()).isNull();
+  }
 
-    LogEntry attemptEntry =
-        LogEntry.newBuilder()
-            .setMethodName("/google.bytestream.ByteStream/Read")
-            .setStatus(com.google.rpc.Status.newBuilder().setCode(Status.Code.UNAVAILABLE.value()))
-            .setDetails(RpcCallDetails.newBuilder().setRead(ReadDetails.getDefaultInstance()))
-            .build();
-
+  @Test
+  public void onRetriesExhausted_writesCorrelatedMarker() {
     List<LogEntry> written = new ArrayList<>();
-    MessageOutputStream<LogEntry> sink =
-        new MessageOutputStream<>() {
-          @Override
-          public void write(LogEntry m) {
-            written.add(m);
-          }
-
-          @Override
-          public void close() {}
-        };
-    RetryLogState state = new RetryLogState();
-    state.recordAttempt(attemptEntry, sink);
+    MessageOutputStream<LogEntry> sink = inMemorySink(written);
+    RemoteRetrier retrier =
+        new RemoteRetrier(
+            () -> Retrier.RETRIES_DISABLED,
+            (e) -> Result.TRANSIENT_FAILURE,
+            retryService,
+            Retrier.ALLOW_ALL_CALLS,
+            () -> sink);
 
     Backoff backoff = new ZeroBackoff(/* maxRetries= */ 3);
     backoff.nextDelayMillis(new Exception());
     backoff.nextDelayMillis(new Exception());
     backoff.nextDelayMillis(new Exception());
 
-    retrier.onRetriesExhausted(new Exception("boom"), backoff, state);
+    retrier.onRetriesExhausted(new Exception("boom"), backoff, "rpc-123");
 
     assertThat(written).hasSize(1);
-    LogEntry terminal = written.get(0);
-    // method/target/status are mirrored from the final attempt; details are dropped.
-    assertThat(terminal.getMethodName()).isEqualTo("/google.bytestream.ByteStream/Read");
-    assertThat(terminal.getStatus().getCode()).isEqualTo(Status.Code.UNAVAILABLE.value());
-    assertThat(terminal.hasDetails()).isFalse();
-    assertThat(terminal.getRetrySummary().getRetriesExhausted()).isTrue();
-    assertThat(terminal.getRetrySummary().getRetryAttempts()).isEqualTo(3);
+    LogEntry marker = written.get(0);
+    assertThat(marker.getRpcId()).isEqualTo("rpc-123");
+    assertThat(marker.getRetrySummary().getRetriesExhausted()).isTrue();
+    assertThat(marker.getRetrySummary().getRetryAttempts()).isEqualTo(3);
+    // The marker carries no attempt status/method/details — the attempt entries already do, so it
+    // does not inflate error counts.
+    assertThat(marker.getMethodName()).isEmpty();
+    assertThat(marker.hasStatus()).isFalse();
+    assertThat(marker.hasDetails()).isFalse();
   }
 
   @Test
-  public void onRetriesExhausted_noOpWhenNoAttemptLoggedOrStateNull() {
-    RemoteRetrier retrier =
+  public void onRetriesExhausted_noOpWhenRpcIdNullOrNoSink() {
+    List<LogEntry> written = new ArrayList<>();
+    MessageOutputStream<LogEntry> sink = inMemorySink(written);
+    RemoteRetrier withSink =
         new RemoteRetrier(
             () -> Retrier.RETRIES_DISABLED,
             (e) -> Result.TRANSIENT_FAILURE,
             retryService,
             Retrier.ALLOW_ALL_CALLS,
-            /* grpcLogEnabled= */ true);
-    // An empty state (no attempt recorded) and a null state must not write or throw.
-    retrier.onRetriesExhausted(new Exception(), new ZeroBackoff(/* maxRetries= */ 1), new RetryLogState());
-    retrier.onRetriesExhausted(new Exception(), new ZeroBackoff(/* maxRetries= */ 1), null);
+            () -> sink);
+    // A null rpcId (logging not active for this call) writes nothing.
+    withSink.onRetriesExhausted(new Exception(), new ZeroBackoff(/* maxRetries= */ 1), null);
+
+    // A retrier with no sink supplier writes nothing and does not throw.
+    RemoteRetrier noSink =
+        new RemoteRetrier(
+            () -> Retrier.RETRIES_DISABLED,
+            (e) -> Result.TRANSIENT_FAILURE,
+            retryService,
+            Retrier.ALLOW_ALL_CALLS);
+    noSink.onRetriesExhausted(new Exception(), new ZeroBackoff(/* maxRetries= */ 1), "rpc-x");
+
+    assertThat(written).isEmpty();
+  }
+
+  private static MessageOutputStream<LogEntry> inMemorySink(List<LogEntry> out) {
+    return new MessageOutputStream<>() {
+      @Override
+      public void write(LogEntry m) {
+        out.add(m);
+      }
+
+      @Override
+      public void close() {}
+    };
   }
 }

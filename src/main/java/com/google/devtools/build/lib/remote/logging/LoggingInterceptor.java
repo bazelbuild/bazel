@@ -93,9 +93,9 @@ public class LoggingInterceptor implements ClientInterceptor {
     @SuppressWarnings("unchecked") // handler matches method, but that type is inexpressible
     LoggingHandler<ReqT, RespT> handler = selectHandler(method);
     if (handler != null) {
-      // Capture the retrier's per-logical-call state (if any) while we are still running in the
-      // gRPC Context attached by the retrier, so onClose can hand the attempt entry back to it.
-      return new LoggingForwardingCall<>(call, handler, method, RetryLogState.KEY.get());
+      // Capture the per-attempt id/number (if any) propagated by the retrier while we are still
+      // running in the gRPC Context it attached, so each attempt entry can be tagged with it.
+      return new LoggingForwardingCall<>(call, handler, method, RpcLogContext.KEY.get());
     } else {
       return call;
     }
@@ -118,17 +118,22 @@ public class LoggingInterceptor implements ClientInterceptor {
       extends ForwardingClientCall.SimpleForwardingClientCall<ReqT, RespT> {
     private final LoggingHandler<ReqT, RespT> handler;
     private final LogEntry.Builder entryBuilder;
-    @Nullable private final RetryLogState retryLogState;
 
     protected LoggingForwardingCall(
         ClientCall<ReqT, RespT> delegate,
         LoggingHandler<ReqT, RespT> handler,
         MethodDescriptor<ReqT, RespT> method,
-        @Nullable RetryLogState retryLogState) {
+        @Nullable RpcLogContext rpcLogContext) {
       super(delegate);
       this.handler = handler;
       this.entryBuilder = LogEntry.newBuilder().setMethodName(method.getFullMethodName());
-      this.retryLogState = retryLogState;
+      if (rpcLogContext != null) {
+        // Tag every attempt entry with the logical-call id + attempt number propagated by the
+        // retrier, so interleaved attempts can be correlated during log analysis.
+        entryBuilder
+            .setRpcId(rpcLogContext.getRpcId())
+            .setAttemptNumber(rpcLogContext.getAttemptNumber());
+      }
     }
 
     @Override
@@ -159,11 +164,6 @@ public class LoggingInterceptor implements ClientInterceptor {
               LogEntry entry = entryBuilder.build();
               try {
                 rpcLogFile.write(entry);
-                if (retryLogState != null) {
-                  // Hand this attempt's entry to the retrier so it can emit a terminal entry if the
-                  // logical call later exhausts its retries.
-                  retryLogState.recordAttempt(entry, rpcLogFile);
-                }
               } catch (RuntimeException e) {
                 // e.g. the log file is already closed.
                 logger.atWarning().withCause(e).log("Unable to write RPC log entry for %s", entry);
