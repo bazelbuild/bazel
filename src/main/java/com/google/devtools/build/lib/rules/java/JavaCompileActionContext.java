@@ -34,9 +34,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 
-/**
- * Context for compiling Java files.
- */
+/** Context for compiling Java files. */
 public class JavaCompileActionContext implements ActionContext {
 
   // TODO(djasper): Investigate caching across builds.
@@ -74,7 +72,7 @@ public class JavaCompileActionContext implements ActionContext {
     try {
       Futures.whenAllComplete(uncached).run(() -> {}, directExecutor()).get();
     } catch (ExecutionException e) {
-      // successfulAsList never completes exceptionally.
+      // whenAllComplete never completes exceptionally.
       throw new IllegalStateException(e);
     }
 
@@ -87,7 +85,7 @@ public class JavaCompileActionContext implements ActionContext {
         if (e.getCause() instanceof IOException cause) {
           if (ioException == null) {
             ioException = cause;
-          } else if (ioException != cause) {
+          } else {
             ioException.addSuppressed(cause);
           }
           continue;
