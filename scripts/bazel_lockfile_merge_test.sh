@@ -446,4 +446,24 @@ EOF
   diff -u expected left || fail "output differs"
 }
 
+# Regression test for https://github.com/bazelbuild/bazel/issues/29742.
+function test_merge_preserves_empty_facts_versions() {
+  cat > base <<'EOF'
+{
+  "lockFileVersion": 28,
+  "registryFileHashes": {},
+  "selectedYankedVersions": {},
+  "moduleExtensions": {},
+  "facts": {},
+  "factsVersions": {}
+}
+EOF
+  cp base left
+  cp base right
+  cp base expected
+
+  do_merge base left right
+  diff -u expected left || fail "output differs"
+}
+
 run_suite "Tests of bash completion of 'blaze' command."
