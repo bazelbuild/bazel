@@ -33,37 +33,10 @@ function set_up() {
   add_rules_cc "MODULE.bazel"
 }
 
-# Configures Bazel to emit coverage using LLVM tools, returning a non-zero exit
-# code if the tools are not available.
+# Configures Bazel to emit coverage in LLVM lcov format. The hermetic LLVM
+# toolchain (registered for all integration tests in testenv.sh) provides clang,
+# llvm-cov and llvm-profdata, so no host tools need to be located here.
 function setup_llvm_coverage_tools_for_lcov() {
-  local -r clang=$(which clang || true)
-  if [[ ! -x "${clang}" ]]; then
-    echo "clang not installed. Skipping test."
-    return 1
-  fi
-  local -r clang_version=$(clang --version | grep -o "clang version [0-9]*" | cut -d " " -f 3)
-  if [ "$clang_version" -lt 9 ];  then
-    # No lcov produced with <9.0.
-    echo "clang versions <9.0 are not supported, got $clang_version. Skipping test."
-    return 1
-  fi
-
-  local -r llvm_profdata=$(which llvm-profdata || true)
-  if [[ ! -x "${llvm_profdata}" ]]; then
-    echo "llvm-profdata not installed. Skipping test."
-    return 1
-  fi
-
-  local -r llvm_cov=$(which llvm-cov || true)
-  if [[ ! -x "${llvm_cov}" ]]; then
-    echo "llvm-cov not installed. Skipping test."
-    return 1
-  fi
-
-  add_to_bazelrc "common --repo_env=BAZEL_LLVM_COV=${llvm_cov}"
-  add_to_bazelrc "common --repo_env=BAZEL_LLVM_PROFDATA=${llvm_profdata}"
-  add_to_bazelrc "common --repo_env=BAZEL_USE_LLVM_NATIVE_COVERAGE=1"
-  add_to_bazelrc "common --repo_env=CC=${clang}"
   add_to_bazelrc "common --experimental_generate_llvm_lcov"
 }
 
@@ -114,24 +87,12 @@ EOF
 }
 
 function test_cc_test_llvm_coverage_doesnt_fail() {
-  local -r llvmprofdata=$(which llvm-profdata)
-  if [[ ! -x ${llvmprofdata:-/usr/bin/llvm-profdata} ]]; then
-    echo "llvm-profdata not installed. Skipping test."
-    return
-  fi
-
-  local -r clang_tool=$(which clang++)
-  if [[ ! -x ${clang_tool:-/usr/bin/clang_tool} ]]; then
-    echo "clang++ not installed. Skipping test."
-    return
-  fi
-
+  setup_llvm_coverage_tools_for_lcov || return 0
   setup_a_cc_lib_and_t_cc_test
 
   # Only test that bazel coverage doesn't crash when invoked for llvm native
   # coverage.
-  BAZEL_USE_LLVM_NATIVE_COVERAGE=1 BAZEL_LLVM_PROFDATA=$llvmprofdata CC=$clang_tool \
-      bazel coverage --test_output=all //:t &>$TEST_log \
+  bazel coverage --test_output=all //:t &>$TEST_log \
       || fail "Coverage for //:t failed"
 
   # Check to see if the coverage output file was created. Cannot check its
