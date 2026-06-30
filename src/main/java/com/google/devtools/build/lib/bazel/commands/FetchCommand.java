@@ -50,6 +50,7 @@ import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.common.options.OptionsParser;
+import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.util.List;
 import java.util.stream.Stream;
@@ -76,7 +77,7 @@ public final class FetchCommand implements BlazeCommand {
   public static final String NAME = "fetch";
 
   @Override
-  public void editOptions(OptionsParser optionsParser) {
+  public void editOptions(OptionsParser optionsParser) throws OptionsParsingException {
     TargetFetcher.injectNoBuildOption(optionsParser);
   }
 

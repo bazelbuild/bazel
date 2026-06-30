@@ -64,6 +64,7 @@ import com.google.devtools.build.skyframe.QueryableGraph.Reason;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.common.options.OptionsParser;
+import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.IOException;
 import java.net.URI;
@@ -123,7 +124,7 @@ public final class VendorCommand implements BlazeCommand {
   }
 
   @Override
-  public void editOptions(OptionsParser optionsParser) {
+  public void editOptions(OptionsParser optionsParser) throws OptionsParsingException {
     TargetFetcher.injectNoBuildOption(optionsParser);
   }
 
