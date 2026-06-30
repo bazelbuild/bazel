@@ -591,6 +591,16 @@ public final class BazelRulesModule extends BlazeModule {
   public abstract static class BazelBuildGraveyardOptions extends BuildGraveyardOptions {
     @Deprecated
     @Option(
+        name = "crosstool_top",
+        defaultValue = "@bazel_tools//tools/cpp:toolchain",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.DEPRECATED},
+        help = "Deprecated no-op.")
+    public abstract String getCrosstoolTop();
+
+    @Deprecated
+    @Option(
         name = "incompatible_disable_legacy_cc_provider",
         defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
