@@ -966,17 +966,6 @@ public abstract class CppOptions extends FragmentOptions {
   public abstract boolean getObjcGenerateDotdFiles();
 
   @Option(
-      name = "experimental_cc_implementation_deps",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {
-        OptionEffectTag.LOADING_AND_ANALYSIS,
-      },
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help = "If enabled, cc_library targets can use attribute `implementation_deps`.")
-  public abstract boolean getExperimentalCcImplementationDeps();
-
-  @Option(
       name = "experimental_cpp_modules",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
