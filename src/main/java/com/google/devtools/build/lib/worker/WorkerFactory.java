@@ -181,10 +181,6 @@ public class WorkerFactory {
   }
 
   public boolean validateWorker(WorkerKey key, Worker worker) {
-    // Status is invalid if the status is either killed or pending killed.
-    if (!worker.getStatus().isValid()) {
-      return false;
-    }
     Optional<Integer> exitValue = worker.getExitValue();
     if (exitValue.isPresent()) {
       // At this point, the worker factory has no idea what caused the process to be killed - so we
@@ -204,6 +200,10 @@ public class WorkerFactory {
         WorkerLoggingHelper.logMessage(
             reporter, WorkerLoggingHelper.LogLevel.WARNING, errorMessage.toString());
       }
+      return false;
+    }
+    // Status is invalid if the status is either killed or pending killed.
+    if (!worker.getStatus().isValid()) {
       return false;
     }
     boolean filesChanged =
