@@ -436,7 +436,7 @@ public class BuildTool {
 
         // Log stats and sync state even on failure.
         if (analysisCachingDeps != null) {
-          if (analysisCacheReaderDeps.mode() == RemoteAnalysisCacheMode.DOWNLOAD
+          if (analysisCacheReaderDeps.mode().isRetrievalEnabled()
               && (analysisCacheReaderDeps.shouldBailOutOnMissingFingerprint()
                   || analysisCachingDeps.bailedOut())) {
             reportOnlyBailOutReason(analysisCacheReaderDeps);
@@ -1075,12 +1075,12 @@ public class BuildTool {
     }
 
     switch (dependenciesProvider.mode()) {
-      case UPLOAD ->
+      case UPLOAD, ASYNC_UPLOAD ->
           reportRemoteAnalysisServiceStats(
               dependenciesProvider.getFingerprintValueService(),
               dependenciesProvider.getAnalysisCacheClient());
 
-      case DOWNLOAD -> {
+      case DOWNLOAD, BIDI -> {
         reportRemoteAnalysisServiceStats(
             dependenciesProvider.getFingerprintValueService(),
             dependenciesProvider.getAnalysisCacheClient());
