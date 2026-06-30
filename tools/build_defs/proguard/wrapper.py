@@ -27,6 +27,20 @@ from python.runfiles import Runfiles
 _PROGUARD_PATH = "_main/tools/build_defs/proguard/proguard_private"
 
 def lookup_binary(r, path):
+    """Lookup the runfiles-adjusted path to a binary.
+
+    Args:
+      r: The Runfiles object to use for the lookup.
+      path: The path of the binary being found.
+
+    Returns:
+      The full path to the binary.
+
+    Raises:
+      RuntimeError: If the path is not present in the runfiles, or if the adjusted path does not
+      exist on the filesystem.
+    """
+
     if platform.system() == "Windows":
         path = path + ".exe"
     binary = r.Rlocation(path)
@@ -44,6 +58,9 @@ def apply_proguard(srcs, deps, proguard_spec, output_jar):
       deps: Dependency jars needed to resolve the source jars.
       proguard_spec: The path to the proguard spec file describing what modifications to make.
       output_jar: The path to write the resulting modified jar file to.
+
+    Raises:
+      RuntimeError: When the proguard binary fails, includes the stdout and stderr.
     """
 
     # Set up runfiles and call the proguard binary.
