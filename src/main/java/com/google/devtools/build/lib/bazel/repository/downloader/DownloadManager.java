@@ -460,8 +460,8 @@ public class DownloadManager {
     for (int attempt = 0; ; ++attempt) {
       try {
         content =
-            bzlmodHttpDownloader.downloadAndReadOneUrl(
-                rewrittenUrls.get(0),
+            bzlmodHttpDownloader.downloadAndRead(
+                rewrittenUrls,
                 credentialFactory.create(authHeaders),
                 checksum,
                 eventHandler,

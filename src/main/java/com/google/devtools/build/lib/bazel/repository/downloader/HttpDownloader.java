@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.bazel.repository.downloader;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 import com.google.auth.Credentials;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -143,33 +145,62 @@ public class HttpDownloader implements Downloader {
     }
   }
 
-  /** Downloads the contents of one URL and reads it into a byte array. */
-  public byte[] downloadAndReadOneUrl(
-      URI url,
+  /**
+   * Downloads the contents of the first of the given URLs that succeeds.
+   *
+   * <p>As with {@link #download}, the URLs are tried in order, falling back to the next one if the
+   * previous one fails; callers typically pass the rewritten URLs of a single logical resource
+   * (e.g. a mirror/proxy URL followed by the direct URL as a fallback). If all of them fail, the
+   * last failure is rethrown with its original type preserved (so callers can still distinguish
+   * e.g. {@link java.io.FileNotFoundException}), and the earlier failures are attached to it as
+   * suppressed exceptions.
+   */
+  public byte[] downloadAndRead(
+      List<URI> urls,
       Credentials credentials,
       Optional<Checksum> checksum,
       ExtendedEventHandler eventHandler,
       Map<String, String> clientEnv)
       throws IOException, InterruptedException {
+    checkArgument(!urls.isEmpty(), "Cannot download from an empty list of URLs");
     HttpConnectorMultiplexer multiplexer = setUpConnectorMultiplexer(eventHandler, clientEnv);
 
-    ByteArrayOutputStream out = new ByteArrayOutputStream();
-    semaphore.acquire();
-    try (HttpStream payload =
-        multiplexer.connect(url, checksum, ImmutableMap.of(), credentials, Optional.empty())) {
-      ByteStreams.copy(payload, out);
-    } catch (SocketTimeoutException e) {
-      // SocketTimeoutExceptions are InterruptedIOExceptions; however they do not signify
-      // an external interruption, but simply a failed download due to some server timing
-      // out. So rethrow them as ordinary IOExceptions.
-      throw new IOException(e);
-    } catch (InterruptedIOException e) {
-      throw new InterruptedException(e.getMessage());
-    } finally {
-      semaphore.release();
-      // TODO(wyv): Do we need to report any event here?
+    List<IOException> ioExceptions = ImmutableList.of();
+
+    for (URI url : urls) {
+      semaphore.acquire();
+      ByteArrayOutputStream out = new ByteArrayOutputStream();
+      try (HttpStream payload =
+          multiplexer.connect(url, checksum, ImmutableMap.of(), credentials, Optional.empty())) {
+        ByteStreams.copy(payload, out);
+        return out.toByteArray();
+      } catch (SocketTimeoutException e) {
+        // SocketTimeoutExceptions are InterruptedIOExceptions; however they do not signify
+        // an external interruption, but simply a failed download due to some server timing
+        // out. So treat them as ordinary IOExceptions and fall back to the next URL.
+        if (ioExceptions.isEmpty()) {
+          ioExceptions = new ArrayList<>(1);
+        }
+        ioExceptions.add(new IOException(e));
+      } catch (InterruptedIOException e) {
+        throw new InterruptedException(e.getMessage());
+      } catch (IOException e) {
+        if (ioExceptions.isEmpty()) {
+          ioExceptions = new ArrayList<>(1);
+        }
+        ioExceptions.add(e);
+      } finally {
+        semaphore.release();
+        // TODO(wyv): Do we need to report any event here?
+      }
     }
-    return out.toByteArray();
+
+    // Rethrow the last failure (preserving its type), attaching the earlier ones as suppressed.
+    IOException last = Iterables.getLast(ioExceptions);
+    for (IOException e : ioExceptions.subList(0, ioExceptions.size() - 1)) {
+      last.addSuppressed(e);
+    }
+    throw last;
   }
 
   private HttpConnectorMultiplexer setUpConnectorMultiplexer(
