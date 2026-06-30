@@ -152,7 +152,6 @@ public final class JavaCompilationHelper {
     JspecifyInfo jspecifyInfo = javaToolchain.jspecifyInfo();
     boolean jspecify =
         enableJspecify
-            && getJavaConfiguration().experimentalEnableJspecify()
             && jspecifyInfo != null
             && jspecifyInfo.matches(ruleContext.getLabel());
     if (jspecify) {

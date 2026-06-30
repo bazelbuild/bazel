@@ -97,7 +97,6 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   private final boolean experimentalTurbineAnnotationProcessing;
   private final int experimentalTurbineCpuReservation;
   private final boolean experimentalTurbineOutputRootRelativePath;
-  private final boolean experimentalEnableJspecify;
   private final boolean disallowJavaImportExports;
 
   public JavaConfiguration(BuildOptions buildOptions) throws InvalidConfigurationException {
@@ -153,7 +152,6 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     this.experimentalTurbineCpuReservation = javaOptions.getTurbineCpuReservation();
     this.experimentalTurbineOutputRootRelativePath =
         javaOptions.getExperimentalTurbineOutputRootRelativePath();
-    this.experimentalEnableJspecify = javaOptions.getExperimentalEnableJspecify();
   }
 
   @Override
@@ -432,14 +430,10 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     return experimentalTurbineOutputRootRelativePath;
   }
 
-  public boolean experimentalEnableJspecify() {
-    return experimentalEnableJspecify;
-  }
-
   @Override
   public boolean experimentalEnableJspecifyStarlark(StarlarkThread thread) throws EvalException {
     checkPrivateAccess(thread);
-    return experimentalEnableJspecify;
+    return true;
   }
 
   @Override
