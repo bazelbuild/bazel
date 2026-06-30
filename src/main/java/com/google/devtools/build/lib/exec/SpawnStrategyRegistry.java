@@ -146,6 +146,37 @@ public final class SpawnStrategyRegistry
     return defaultStrategies;
   }
 
+  /**
+   * Returns if "exclusive-if-local" tests should run in parallel or serialized.
+   *
+   * <p>Whether a test runs locally or remotely is only decided by the underlying {@link
+   * SpawnStrategy} during execution, so this consults the strategies that may execute a {@code
+   * TestRunner} spawn and returns {@code true} if any of them opts in. Both the regularly selected
+   * strategies and the remote branch of dynamic execution are considered, so that
+   * "exclusive-if-local" is honored under {@code --strategy=TestRunner=dynamic} as well.
+   *
+   * <p>This is a global signal: callers must still ensure that an individual test is actually
+   * eligible for remote execution (e.g. not tagged {@code no-remote-exec}) before treating it as a
+   * parallel test.
+   */
+  public boolean forceExclusiveIfLocalTestsInParallel() {
+    // Mirrors the mnemonic used by TestRunnerAction to avoid an analysis layer dependency.
+    String mnemonic = "TestRunner";
+    List<SpawnStrategy> candidates = new ArrayList<>();
+    if (mnemonicToStrategies.containsKey(mnemonic)) {
+      candidates.addAll(mnemonicToStrategies.get(mnemonic));
+    } else {
+      candidates.addAll(defaultStrategies);
+    }
+    if (mnemonicToRemoteDynamicStrategies.containsKey(mnemonic)) {
+      candidates.addAll(mnemonicToRemoteDynamicStrategies.get(mnemonic));
+    } else if (mnemonicToRemoteDynamicStrategies.containsKey("")) {
+      candidates.addAll(mnemonicToRemoteDynamicStrategies.get(""));
+    }
+    // Not selecting a strategy; just checking if any candidate allows parallel execution.
+    return candidates.stream().anyMatch(SpawnStrategy::forceExclusiveIfLocalTestsInParallel);
+  }
+
   @Override
   public void notifyUsedDynamic(ActionContext.ActionContextRegistry actionContextRegistry) {
     for (SandboxedSpawnStrategy strategy : mnemonicToLocalDynamicStrategies.values()) {
