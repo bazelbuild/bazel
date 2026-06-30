@@ -21,7 +21,9 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.HashMultiset;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.MultimapBuilder;
 import com.google.common.collect.Multiset;
 import com.google.common.collect.Multisets;
 import com.google.common.collect.Sets;
@@ -30,6 +32,7 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
 import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.skyframe.Differencer.Diff;
 import com.google.devtools.build.skyframe.Differencer.DiffWithDelta.Delta;
@@ -38,8 +41,11 @@ import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.DirtyingInvali
 import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.InvalidationState;
 import com.google.devtools.build.skyframe.SkyframeGraphStatsEvent.EvaluationStats;
 import com.google.errorprone.annotations.ForOverride;
+import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import java.io.PrintStream;
 import java.time.Duration;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -245,14 +251,92 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
   public final void deleteDirty(long versionAgeLimit) {
     checkArgument(versionAgeLimit >= 0, versionAgeLimit);
     Version threshold = IntVersion.of(lastGraphVersion.getVal() - versionAgeLimit);
+    var graph = getInMemoryGraph();
+
+    var dirtyKeys = progressReceiver.getUnenqueuedDirtyKeys();
+    long profilerStartNanos = Profiler.instance().nanoTimeMaybe();
+    var toKeep = findChangePrunableNodes(graph, dirtyKeys);
+    Profiler.instance()
+        .completeTask(
+            profilerStartNanos,
+            ProfilerTask.INFO,
+            "Resurrected %d out of %d dirty nodes during GC"
+                .formatted(toKeep.size(), dirtyKeys.size()));
+
     valuesToDelete.addAll(
         Sets.filter(
-            progressReceiver.getUnenqueuedDirtyKeys(),
+            dirtyKeys,
             skyKey -> {
-              NodeEntry entry = checkNotNull(getInMemoryGraph().getIfPresent(skyKey), skyKey);
+              if (toKeep.contains(skyKey)) {
+                return false;
+              }
+              NodeEntry entry = checkNotNull(graph.getIfPresent(skyKey), skyKey);
               checkState(entry.isDirty(), skyKey);
               return entry.getVersion().atMost(threshold);
             }));
+  }
+
+  /**
+   * Returns the dirty nodes that change pruning would verify clean if it ran, which it doesn't
+   * purely because these nodes weren't in scope for the current evaluation.
+   */
+  private static ImmutableSet<SkyKey> findChangePrunableNodes(
+      InMemoryGraph graph, Set<SkyKey> candidates) {
+    // The first step is to build a DAG of dirty but unchanged deletion candidates and their dirty
+    // rdeps.
+    var remainingDirtyDeps = new Object2IntOpenHashMap<SkyKey>();
+    var dirtyRdeps = MultimapBuilder.hashKeys().arrayListValues().<SkyKey, SkyKey>build();
+    var ready = new ArrayDeque<SkyKey>();
+    skipCandidate:
+    for (var skyKey : candidates) {
+      if (!(graph.getIfPresent(skyKey) instanceof IncrementalInMemoryNodeEntry entry)) {
+        continue;
+      }
+      Iterable<SkyKey> lastBuildDeps = entry.lastBuildDepsIfChangePrunable();
+      if (lastBuildDeps == null) {
+        continue;
+      }
+      Version lastEvaluated = entry.lastEvaluatedVersion();
+      var dirtyDeps = new ArrayList<SkyKey>();
+      for (var dep : lastBuildDeps) {
+        NodeEntry depEntry = graph.getIfPresent(dep);
+        // A dep must be present and unchanged since this node was last evaluated to be potentially
+        // change-prunable. Undone deps that aren't unenqueued dirty deps will never be considered
+        // below and thus make an entry not change-prunable.
+        if (depEntry == null || !depEntry.getVersion().atMost(lastEvaluated)) {
+          continue skipCandidate;
+        }
+        if (depEntry.isDone()) {
+          continue;
+        }
+        if (!candidates.contains(dep)) {
+          continue skipCandidate;
+        }
+        dirtyDeps.add(dep);
+      }
+      if (dirtyDeps.isEmpty()) {
+        ready.add(skyKey);
+      } else {
+        remainingDirtyDeps.addTo(skyKey, dirtyDeps.size());
+        for (var dirtyDep : dirtyDeps) {
+          dirtyRdeps.put(dirtyDep, skyKey);
+        }
+      }
+    }
+
+    // Now visit the DAG, keeping all nodes whose dirty deps are also kept.
+    var toKeep = ImmutableSet.<SkyKey>builder();
+    SkyKey readyKey;
+    while ((readyKey = ready.poll()) != null) {
+      toKeep.add(readyKey);
+      for (var rdep : dirtyRdeps.get(readyKey)) {
+        if (remainingDirtyDeps.addTo(rdep, -1) == 1) {
+          // The last dirty dep of rdep is now known to be kept.
+          ready.add(rdep);
+        }
+      }
+    }
+    return toKeep.build();
   }
 
   @Override

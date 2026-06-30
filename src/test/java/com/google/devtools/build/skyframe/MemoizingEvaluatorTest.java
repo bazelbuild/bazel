@@ -514,6 +514,146 @@ public abstract class MemoizingEvaluatorTest {
   }
 
   @Test
+  public void deleteDirtyKeepsChangePrunableNode() throws Exception {
+    // d -> b, c -> b, b -> a. Changing a so that b change-prunes and then evaluating only c leaves d
+    // dirty, even though change pruning would verify it clean (its only dep b is unchanged). Without
+    // rescue, the dirty-node GC deletes d and it must be recomputed the next time it is requested;
+    // with rescue, d survives and is verified clean.
+    SkyKey a = nonHermeticKey("a");
+    SkyKey b = skyKey("b");
+    SkyKey c = skyKey("c");
+    SkyKey d = skyKey("d");
+    StringValue fixedB = new StringValue("fixed-b");
+    AtomicBoolean dEvaluated = new AtomicBoolean(false);
+
+    tester.set(a, new StringValue("a1"));
+    // b depends on a but always returns the same value, so it change-prunes when a changes.
+    tester.getOrCreate(b).setBuilder((skyKey, env) -> env.getValue(a) == null ? null : fixedB);
+    tester.getOrCreate(c).addDependency(b).setComputedValue(COPY);
+    tester
+        .getOrCreate(d)
+        .setBuilder(
+            (skyKey, env) -> {
+              dEvaluated.set(true);
+              return env.getValue(b);
+            });
+
+    // The initial evaluation computes a, b, c and d.
+    tester.eval(/* keepGoing= */ false, c, d);
+    assertThat(tester.evaluator.getValues().keySet()).containsAtLeast(a, b, c, d);
+
+    // Change a (b re-evaluates to the same value) and evaluate only c. b change-prunes, c is
+    // verified clean, and d is left dirty without being touched.
+    tester.set(a, new StringValue("a2"));
+    tester.invalidate();
+    dEvaluated.set(false);
+    tester.eval(/* keepGoing= */ false, c);
+    assertThat(dEvaluated.get()).isFalse();
+    assertThat(tester.getDirtyKeys()).contains(d);
+
+    // Run dirty-node GC with the smallest possible version window.
+    String[] noKeys = {};
+    tester.evaluator.deleteDirty(0);
+    tester.eval(/* keepGoing= */ false, noKeys);
+
+    // d's only dep b change-pruned, so d is verifiable-clean and is kept rather than deleted.
+    assertThat(tester.evaluator.getValues().keySet()).contains(d);
+    // It is kept dirty (not eagerly recomputed), so it has no done value yet.
+    assertThat(tester.evaluator.getExistingValue(d)).isNull();
+
+    // Requesting d now verifies it clean via change pruning without recomputing it.
+    dEvaluated.set(false);
+    assertThat(tester.evalAndGet(/* keepGoing= */ false, d)).isEqualTo(fixedB);
+    assertThat(dEvaluated.get()).isFalse();
+  }
+
+  @Test
+  public void deleteDirtyKeepsChangePrunableChain() throws Exception {
+    // d -> bPrime -> b -> a, and c -> b. Changing a so that b change-prunes and evaluating only c
+    // leaves bPrime and d as unenqueued dirty orphans. bPrime is verifiable-clean because its dep b
+    // is done and unchanged; d is verifiable-clean only because bPrime is itself kept.
+    SkyKey a = nonHermeticKey("a");
+    SkyKey b = skyKey("b");
+    SkyKey bPrime = skyKey("bPrime");
+    SkyKey c = skyKey("c");
+    SkyKey d = skyKey("d");
+    StringValue fixedB = new StringValue("fixed-b");
+    AtomicBoolean dEvaluated = new AtomicBoolean(false);
+
+    tester.set(a, new StringValue("a1"));
+    // b depends on a but always returns the same value, so it change-prunes when a changes.
+    tester.getOrCreate(b).setBuilder((skyKey, env) -> env.getValue(a) == null ? null : fixedB);
+    tester.getOrCreate(bPrime).addDependency(b).setComputedValue(COPY);
+    tester.getOrCreate(c).addDependency(b).setComputedValue(COPY);
+    tester
+        .getOrCreate(d)
+        .setBuilder(
+            (skyKey, env) -> {
+              dEvaluated.set(true);
+              return env.getValue(bPrime);
+            });
+
+    // The initial evaluation computes a, b, bPrime, c and d.
+    tester.eval(/* keepGoing= */ false, c, d);
+    assertThat(tester.evaluator.getValues().keySet()).containsAtLeast(a, b, bPrime, c, d);
+
+    // Change a (b re-evaluates to the same value) and evaluate only c. b change-prunes; bPrime and d
+    // are left dirty without being touched.
+    tester.set(a, new StringValue("a2"));
+    tester.invalidate();
+    dEvaluated.set(false);
+    tester.eval(/* keepGoing= */ false, c);
+    assertThat(dEvaluated.get()).isFalse();
+    assertThat(tester.getDirtyKeys()).containsAtLeast(bPrime, d);
+
+    // Run dirty-node GC with the smallest possible version window.
+    String[] noKeys = {};
+    tester.evaluator.deleteDirty(0);
+    tester.eval(/* keepGoing= */ false, noKeys);
+
+    // The whole chain is verifiable-clean, so both bPrime and (transitively) d are kept, not deleted.
+    assertThat(tester.evaluator.getValues().keySet()).containsAtLeast(bPrime, d);
+
+    // Requesting d now verifies the chain clean without recomputing d.
+    dEvaluated.set(false);
+    assertThat(tester.evalAndGet(/* keepGoing= */ false, d)).isEqualTo(fixedB);
+    assertThat(dEvaluated.get()).isFalse();
+  }
+
+  @Test
+  public void deleteDirtyDeletesNodeNeedingRebuildToPrune() throws Exception {
+    // b -> a, d -> b, plus an unrelated direct consumer e -> a. Changing a and evaluating only e
+    // leaves b dirty (its dep a changed) and never recomputed, so b cannot be verified clean without
+    // a rebuild. The GC therefore deletes b and its rdep d even with rescue.
+    SkyKey a = nonHermeticKey("a");
+    SkyKey b = skyKey("b");
+    SkyKey d = skyKey("d");
+    SkyKey e = skyKey("e");
+    StringValue fixedB = new StringValue("fixed-b");
+
+    tester.set(a, new StringValue("a1"));
+    tester.getOrCreate(b).setBuilder((skyKey, env) -> env.getValue(a) == null ? null : fixedB);
+    tester.getOrCreate(d).addDependency(b).setComputedValue(COPY);
+    tester.getOrCreate(e).addDependency(a).setComputedValue(COPY);
+
+    tester.eval(/* keepGoing= */ false, d, e);
+    assertThat(tester.evaluator.getValues().keySet()).containsAtLeast(a, b, d, e);
+
+    // Change a and evaluate only e, which recomputes e but not b or d.
+    tester.set(a, new StringValue("a2"));
+    tester.invalidate();
+    tester.eval(/* keepGoing= */ false, e);
+    assertThat(tester.getDirtyKeys()).containsAtLeast(b, d);
+
+    String[] noKeys = {};
+    tester.evaluator.deleteDirty(0);
+    tester.eval(/* keepGoing= */ false, noKeys);
+
+    // b needs a rebuild to discover that it would prune, so it (and its rdep d) are still GC'd.
+    assertThat(tester.evaluator.getValues().keySet()).containsNoneOf(b, d);
+  }
+
+  @Test
   public void deleteNonexistentValues() throws Exception {
     tester.getOrCreate("d1").setConstantValue(new StringValue("1"));
     tester.delete("d1");
