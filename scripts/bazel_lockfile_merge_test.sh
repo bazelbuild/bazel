@@ -465,5 +465,3 @@ EOF
   do_merge base left right
   diff -u expected left || fail "output differs"
 }
-
-run_suite "Tests of bash completion of 'blaze' command."
