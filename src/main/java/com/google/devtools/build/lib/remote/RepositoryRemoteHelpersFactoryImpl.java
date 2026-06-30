@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote;
 
+import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
 import com.google.devtools.build.lib.runtime.RemoteRepoContentsCache;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
@@ -22,6 +23,7 @@ import javax.annotation.Nullable;
 /** Factory for {@link RemoteRepositoryRemoteExecutor} and {@link RemoteRepoContentsCacheImpl}. */
 class RepositoryRemoteHelpersFactoryImpl implements RepositoryRemoteHelpersFactory {
 
+  private final BlazeDirectories directories;
   private final CombinedCache cache;
   @Nullable private final RemoteExecutionClient remoteExecutor;
   private final String buildRequestId;
@@ -33,6 +35,7 @@ class RepositoryRemoteHelpersFactoryImpl implements RepositoryRemoteHelpersFacto
   private final boolean verboseFailures;
 
   RepositoryRemoteHelpersFactoryImpl(
+      BlazeDirectories directories,
       CombinedCache cache,
       @Nullable RemoteExecutionClient remoteExecutor,
       String buildRequestId,
@@ -41,6 +44,7 @@ class RepositoryRemoteHelpersFactoryImpl implements RepositoryRemoteHelpersFacto
       boolean acceptCached,
       boolean uploadLocalResults,
       boolean verboseFailures) {
+    this.directories = directories;
     this.cache = cache;
     this.remoteExecutor = remoteExecutor;
     this.buildRequestId = buildRequestId;
@@ -71,6 +75,12 @@ class RepositoryRemoteHelpersFactoryImpl implements RepositoryRemoteHelpersFacto
   @Override
   public RemoteRepoContentsCache createRepoContentsCache() {
     return new RemoteRepoContentsCacheImpl(
-        cache, buildRequestId, commandId, acceptCached, uploadLocalResults, verboseFailures);
+        directories,
+        cache,
+        buildRequestId,
+        commandId,
+        acceptCached,
+        uploadLocalResults,
+        verboseFailures);
   }
 }

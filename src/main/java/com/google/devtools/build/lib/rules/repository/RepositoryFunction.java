@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.repository.ExternalPackageException;
 import com.google.devtools.build.lib.repository.RepositoryFetchProgress;
+import com.google.devtools.build.lib.runtime.RemoteRepoContentsCache;
 import com.google.devtools.build.lib.skyframe.ActionEnvironmentFunction;
 import com.google.devtools.build.lib.skyframe.AlreadyReportedException;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction;
@@ -227,6 +228,19 @@ public abstract class RepositoryFunction {
    */
   public boolean wasJustFetched(Environment env) {
     return false;
+  }
+
+  /**
+   * Returns the {@link RemoteRepoContentsCache.LookupState} to use for the remote repo contents
+   * cache lookup of the repository currently being computed.
+   *
+   * <p>The default returns a fresh instance on each call, which is correct but doesn't memoize
+   * anything across Skyframe restarts. Handlers that store a {@link
+   * com.google.devtools.build.skyframe.SkyFunction.Environment.SkyKeyComputeState} should override
+   * this to return a per-evaluation instance held in that state.
+   */
+  public RemoteRepoContentsCache.LookupState getRemoteRepoContentsCacheLookupState(Environment env) {
+    return new RemoteRepoContentsCache.LookupState();
   }
 
   /**
