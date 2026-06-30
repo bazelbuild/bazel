@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.actions;
 
+import com.google.devtools.build.lib.actions.ExecutionRequirements.ParseableRequirement;
+import com.google.devtools.build.lib.actions.ExecutionRequirements.ParseableRequirement.ValidationException;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
@@ -160,20 +162,64 @@ public final class Spawns {
    * defaultTimeout, or {@code Duration.ZERO} if that is null.
    */
   public static Duration getTimeout(Spawn spawn, Duration defaultTimeout) throws ExecException {
-    String timeoutStr = spawn.getExecutionInfo().get(ExecutionRequirements.TIMEOUT);
-    if (timeoutStr == null) {
-      return defaultTimeout == null ? Duration.ZERO : defaultTimeout;
+    Duration timeout = null;
+    String targetLabel = String.valueOf(spawn.getTargetLabel());
+
+    for (Map.Entry<String, String> entry : spawn.getExecutionInfo().entrySet()) {
+      String value = getTimeoutValueFromExecutionInfoEntry(targetLabel, entry);
+      if (value != null) {
+        Duration parsed = parseTimeoutValue(value);
+        // On duplicate timeout values, take the more permissive (larger) one.
+        timeout = (timeout == null) ? parsed : (parsed.compareTo(timeout) > 0 ? parsed : timeout);
+      }
     }
+
+    if (timeout == null) {
+      timeout = defaultTimeout == null ? Duration.ZERO : defaultTimeout;
+    }
+    return timeout;
+  }
+
+  /**
+   * Retrieves the timeout value from a single execution info entry.
+   * Timeout may be specified as a tag in the form {@code timeout:<duration>}
+   * or as a plain key-value pair {@code "timeout" -> "<duration>"}.
+   */
+  private static String getTimeoutValueFromExecutionInfoEntry(
+      String targetLabel, Map.Entry<String, String> entry) throws ExecException {
+    if (entry.getKey().equals(ExecutionRequirements.TIMEOUT_KEY)) {
+      return entry.getValue();
+    }
+    ParseableRequirement requirement = ExecutionRequirements.TIMEOUT;
     try {
-      return Duration.ofSeconds(Integer.parseInt(timeoutStr));
-    } catch (NumberFormatException e) {
+      return requirement.parseIfMatches(entry.getKey());
+    } catch (ValidationException e) {
       throw new UserExecException(
           e,
           FailureDetail.newBuilder()
-              .setMessage("could not parse timeout")
+              .setMessage(
+                  String.format(
+                      "%s has a '%s' tag, but its value '%s' didn't pass validation: %s",
+                      targetLabel, requirement.userFriendlyName(), e.getTagValue(),
+                      e.getMessage()))
+              .setSpawn(FailureDetails.Spawn.newBuilder().setCode(Code.INVALID_TIMEOUT_TAG))
+              .build());
+    }
+  }
+
+  /**
+   * Parses a timeout duration string and returns it as a {@link Duration}.
+   */
+  private static Duration parseTimeoutValue(String value) throws ExecException {
+    long seconds = ExecutionRequirements.parseDurationToSeconds(value);
+    if (seconds < 0) {
+      throw new UserExecException(
+          FailureDetail.newBuilder()
+              .setMessage(String.format("could not parse timeout value '%s'", value))
               .setSpawn(FailureDetails.Spawn.newBuilder().setCode(Code.INVALID_TIMEOUT))
               .build());
     }
+    return Duration.ofSeconds(seconds);
   }
 
   /**
