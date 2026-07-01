@@ -1,0 +1,187 @@
+// Copyright 2026 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package bazel.sandbox;
+
+import "build/bazel/remote/execution/v2/remote_execution.proto";
+
+option java_package = "com.google.devtools.build.lib.sandbox.proto";
+option java_outer_classname = "SandboxProto";
+
+// Wire contract between Bazel and a sandbox backend (an external sandbox implementation).
+//
+// The input tree is a standard REAPI Merkle tree (content-addressed, identical to what
+// Bazel computes for remote execution), shipped as a `tree`; where each input's bytes
+// live on this host is kept out of the tree in `locations`.
+//
+// Transport: varint length-delimited Request/Response protos over stdin/stdout, matched
+// by `rid` (responses may arrive out of order).
+
+// The input tree and execution metadata for one sandbox.
+message Manifest {
+  // Fields 1-10 belong to the controller. Bazel never emits them; the controller
+  // stamps its own data here as a contiguous low-numbered prefix, so it can add
+  // or drop that data by slicing the leading bytes without parsing Bazel's tree.
+  reserved 1 to 10;
+
+  // Action mnemonic, for controller diagnostics.
+  string mnemonic = 13;
+
+  // Directory containing the workspace exec root; `locations` values and the default
+  // (`exec_root/<tree path>`) are relative to it.
+  string exec_root = 15;
+
+  // Hash function for all digests, e.g. "SHA-256".
+  string hash_function = 12;
+
+  // Digest of the root Directory; entry point into `directories`. First Bazel field.
+  build.bazel.remote.execution.v2.Digest input_root_digest = 11;
+
+  // The input root's directories, keyed by digest hash. Each value is the raw serialized bytes of a
+  // build.bazel.remote.execution.v2.Directory (raw bytes, not a nested message: the hasher already
+  // produced these bytes and their SHA is their digest, so they ship verbatim with no re-encode).
+  // Walk from input_root_digest; within a Directory, each DirectoryNode is just a pointer whose
+  // digest indexes back into this map. File contents are not here — they live at their paths under
+  // exec_root (see locations).
+  map<string, bytes> directories = 14;
+
+
+
+  // Where a tree path's content lives when NOT the default `exec_root/<path>`. Value is
+  // exec_root-relative, or absolute for a location outside it. On a FILE leaf the bytes
+  // are there (runfiles, virtuals); on a DIRECTORY the subtree is exactly that one host
+  // dir (tree artifacts, source dirs). Stating where, not what to do with it.
+  map<string, string> locations = 16;
+
+  // Declared outputs: sandbox-relative path -> "dir" | "file".
+  map<string, string> outputs = 17;
+
+  // Sandbox-relative writable directory -> host path.
+  map<string, string> writable_dirs = 18;
+}
+
+// Create a sandbox from the given input manifest.
+message Create {
+  Manifest manifest = 1;
+}
+
+// Destroy a previously created sandbox. The id is Request.sandbox_id.
+message Destroy {}
+
+// Harvest a successful action's declared outputs (sent after success, before Destroy);
+// the controller moves each to its place under exec_root.
+message Collect {
+  // Directory the workspace exec root lives in; outputs are anchored under it.
+  string exec_root = 1;
+}
+
+// Sandbox protocol version. New values are appended as the protocol evolves; there is no
+// "unspecified" — a party always names concrete versions. Only VERSION_1 exists today.
+enum Version {
+  VERSION_1 = 0;
+}
+
+// One-time handshake sent right after the backend is spawned, before any sandbox is created. It
+// relays the backend's configured options (from --sandbox_backend_opt) out of band — not as process
+// arguments — and negotiates the protocol version. The backend replies with Negotiated.
+message Negotiate {
+  // Opaque, Bazel-uninterpreted backend options: one token per --sandbox_backend_opt occurrence, in
+  // order. The backend defines their meaning.
+  repeated string options = 1;
+  // Protocol versions Bazel speaks; the backend picks one to reply with in Negotiated (or rejects
+  // via an Error if it shares none). One element today.
+  repeated Version versions = 2;
+  // Confinement mechanisms Bazel can enforce on this host (always includes CONFINEMENT_NONE). The
+  // backend must choose this sandbox's confinement (in Created.confinement) from this set; Bazel
+  // rejects a Created.confinement it did not advertise here.
+  repeated Confinement supported_confinements = 3;
+}
+
+// How the action process is confined. The proto enum names concrete mechanisms a backend can
+// advertise (in Negotiate) and a sandbox can be assigned (in Created); the policies for *choosing*
+// among them (auto / best-effort) live on the Bazel side, not the wire.
+enum Confinement {
+  // No preference. Not a meaningful entry in Negotiate.supported_confinements (advertise concrete
+  // mechanisms instead). In Created.confinement: the backend states no per-sandbox preference, so
+  // Bazel decides per the user's bazelrc policy / platform default, clamped to the advertised set.
+  CONFINEMENT_UNSPECIFIED = 0;
+  // Run with no OS confinement — only the backend's filesystem view. Its presence in
+  // supported_confinements is what *permits* unconfined execution: omit it and Bazel refuses to run
+  // this backend's actions unconfined, rejecting even a user-supplied "none" (fail-closed). In
+  // Created.confinement it is the backend's per-sandbox recommendation to skip OS confinement, still
+  // subject to the user's policy. For backends that self-jail (their own namespace/VM) or trusted
+  // setups.
+  CONFINEMENT_NONE = 1;
+  // macOS Seatbelt (the sandbox-exec / TrustedBSD MAC layer).
+  CONFINEMENT_SEATBELT = 2;
+  // Linux namespaces (user/mount/pid).
+  CONFINEMENT_LINUX_NAMESPACES = 3;
+}
+
+// A request from Bazel to the controller.
+message Request {
+  // Request/response correlation id, echoed in the matching Response.
+  uint64 rid = 1;
+  // Sandbox id, shared by create/collect/destroy. Bazel mints it on create. Empty for negotiate.
+  string sandbox_id = 2;
+  oneof op {
+    Create create = 3;
+    Destroy destroy = 4;
+    Collect collect = 5;
+    Negotiate negotiate = 6;
+  }
+}
+
+// Successful result of a Create.
+message Created {
+  // Absolute sandbox root path the action's cwd derives from.
+  string path = 1;
+  // The backend's per-sandbox confinement preference; must be one it advertised in
+  // Negotiate.supported_confinements. CONFINEMENT_UNSPECIFIED = no preference. Bazel resolves the
+  // effective confinement in precedence order — user bazelrc policy, else this value, else platform
+  // default — then clamps to the advertised set (a result outside it, including a user-forced "none"
+  // the backend didn't advertise, fails closed).
+  Confinement confinement = 2;
+}
+
+// Successful result of a Destroy.
+message Destroyed {}
+
+// Successful result of a Collect.
+message Collected {}
+
+// Successful result of a Negotiate handshake: the backend's declared capabilities.
+message Negotiated {
+  // Protocol version the backend speaks.
+  Version version = 1;
+}
+
+// A failed operation.
+message Error {
+  string message = 1;
+}
+
+// A reply carrying the same `rid`; the `error` arm means the operation failed.
+message Response {
+  uint64 rid = 1;
+  oneof result {
+    Created created = 2;
+    Destroyed destroyed = 3;
+    Error error = 4;
+    Collected collected = 5;
+    Negotiated negotiated = 6;
+  }
+}

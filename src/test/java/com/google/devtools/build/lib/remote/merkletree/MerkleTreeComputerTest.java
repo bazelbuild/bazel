@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 
 import build.bazel.remote.execution.v2.Digest;
+import build.bazel.remote.execution.v2.Directory;
 import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -373,6 +374,115 @@ public class MerkleTreeComputerTest {
 
     // All threads share a single upload of the subtree.
     assertThat(ensureInputsPresentCount.get()).isEqualTo(1);
+  }
+
+  @Test
+  public void buildForSpawn_retainAll_inlinesSubtreeBodyAndStampsTreeArtifactMarker()
+      throws Exception {
+    var fakeFileCache = new FakeActionInputFileCache();
+    var treeArtifactInput =
+        ActionsTestUtil.createTreeArtifactWithGeneratingAction(
+            artifactRoot, "dir/subdir/tree_artifact");
+    treeArtifactInput.getPath().createDirectoryAndParents();
+    var treeArtifactBuilder = TreeArtifactValue.newBuilder(treeArtifactInput);
+    var treeFileArtifact = Artifact.TreeFileArtifact.createTreeOutput(treeArtifactInput, "file");
+    FileSystemUtils.writeContentAsLatin1(treeFileArtifact.getPath(), "file content");
+    treeArtifactBuilder.putChild(
+        treeFileArtifact, FileArtifactValue.createForTesting(treeFileArtifact));
+    fakeFileCache.putTreeArtifact(treeArtifactInput, treeArtifactBuilder.build());
+    var spawn = new SpawnBuilder().withInputs(treeArtifactInput).build();
+
+    MerkleTree.Uploadable tree =
+        (MerkleTree.Uploadable)
+            createMerkleTreeComputer(/* uploader= */ null)
+                .buildForSpawn(
+                    spawn,
+                    ImmutableSet.of(),
+                    /* scrubber= */ null,
+                    createSpawnExecutionContext(spawn, fakeFileCache),
+                    RemotePathResolver.createDefault(execRoot),
+                    MerkleTreeComputer.BlobPolicy.RETAIN_ALL);
+
+    // The tree artifact's root directory is stamped is_treeartifact, and its full body (the `file`
+    // child) is inlined into the returned tree rather than folded to a bare digest.
+    Directory treeArtifactDir = directoryAt(tree, treeArtifactInput.getExecPath());
+    assertThat(treeArtifactDir.getNodeProperties().getProperties(0).getName())
+        .isEqualTo("is_treeartifact");
+    assertThat(treeArtifactDir.getFilesList().stream().map(f -> f.getName()))
+        .containsExactly("file");
+
+    // Invariant the consumer relies on to read a marker that lives on the child's own Directory:
+    // the digest the parent references must be exactly the shipped, marked interior blob — present
+    // in blobs() (body not dropped) and byte-identical to what the parent points at (the marker was
+    // stamped before digesting, so no digest perturbation). If either broke, a consumer resolving
+    // the DirectoryNode.digest would miss the blob and never see the marker.
+    Directory parent = directoryAt(tree, treeArtifactInput.getExecPath().getParentDirectory());
+    Digest subTreeDigest =
+        parent.getDirectoriesList().stream()
+            .filter(n -> n.getName().equals("tree_artifact"))
+            .findFirst()
+            .orElseThrow()
+            .getDigest();
+    assertThat(tree.blobs()).containsKey(subTreeDigest);
+    assertThat(
+            Directory.parseFrom((byte[]) tree.blobs().get(subTreeDigest))
+                .getNodeProperties()
+                .getProperties(0)
+                .getName())
+        .isEqualTo("is_treeartifact");
+  }
+
+  @Test
+  public void buildForSpawn_keep_foldsSubtreeToDigestWithoutInliningBody() throws Exception {
+    var fakeFileCache = new FakeActionInputFileCache();
+    var treeArtifactInput =
+        ActionsTestUtil.createTreeArtifactWithGeneratingAction(
+            artifactRoot, "dir/subdir/tree_artifact");
+    treeArtifactInput.getPath().createDirectoryAndParents();
+    var treeArtifactBuilder = TreeArtifactValue.newBuilder(treeArtifactInput);
+    var treeFileArtifact = Artifact.TreeFileArtifact.createTreeOutput(treeArtifactInput, "file");
+    FileSystemUtils.writeContentAsLatin1(treeFileArtifact.getPath(), "file content");
+    treeArtifactBuilder.putChild(
+        treeFileArtifact, FileArtifactValue.createForTesting(treeFileArtifact));
+    fakeFileCache.putTreeArtifact(treeArtifactInput, treeArtifactBuilder.build());
+    var spawn = new SpawnBuilder().withInputs(treeArtifactInput).build();
+
+    MerkleTree.Uploadable tree =
+        (MerkleTree.Uploadable)
+            createMerkleTreeComputer(/* uploader= */ null)
+                .buildForSpawn(
+                    spawn,
+                    ImmutableSet.of(),
+                    /* scrubber= */ null,
+                    createSpawnExecutionContext(spawn, fakeFileCache),
+                    RemotePathResolver.createDefault(execRoot),
+                    MerkleTreeComputer.BlobPolicy.KEEP);
+
+    // The parent references the tree artifact by digest, but under KEEP its body is not retained.
+    Directory parent = directoryAt(tree, treeArtifactInput.getExecPath().getParentDirectory());
+    Digest subTreeDigest =
+        parent.getDirectoriesList().stream()
+            .filter(n -> n.getName().equals("tree_artifact"))
+            .findFirst()
+            .orElseThrow()
+            .getDigest();
+    assertThat(tree.blobs()).doesNotContainKey(subTreeDigest);
+  }
+
+  private static Directory directoryAt(MerkleTree.Uploadable tree, PathFragment path)
+      throws Exception {
+    var blobs = tree.blobs();
+    Directory current = Directory.parseFrom((byte[]) blobs.get(tree.digest()));
+    for (String segment : path.segments()) {
+      Digest digest =
+          current.getDirectoriesList().stream()
+              .filter(n -> n.getName().equals(segment))
+              .findFirst()
+              .orElseThrow()
+              .getDigest();
+      current = Directory.parseFrom((byte[]) blobs.get(digest));
+    }
+    return current;
   }
 
   private MerkleTreeComputer createMerkleTreeComputer(MerkleTreeUploader uploader) {
