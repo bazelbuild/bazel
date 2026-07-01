@@ -270,7 +270,7 @@ public class WorkerModule extends BlazeModule {
     Preconditions.checkArgument(!reason.isEmpty());
 
     if (workerPool != null) {
-      if (workerVerbose || alwaysLog) {
+      if ((workerVerbose || alwaysLog) && env != null) {
         env.getReporter().handle(Event.info(reason));
       }
       workerPool.close();
@@ -286,6 +286,14 @@ public class WorkerModule extends BlazeModule {
       this.workerFactory.setReporter(null);
     }
     WorkerMultiplexerManager.afterCommand();
+  }
+
+  @Override
+  public void blazeShutdown() {
+    shutdownPool(
+        "Blaze server shutting down, shutting down worker pool...",
+        /* alwaysLog= */ false,
+        /* workerVerbose= */ false);
   }
 
   public WorkerPoolConfig getWorkerPoolConfig() {
