@@ -49,6 +49,7 @@ public class SevenZDecompressor implements Decompressor {
       throws IOException, RepositoryFunctionException, InterruptedException {
     Path destinationDirectory = descriptor.destinationPath();
     Optional<String> prefix = descriptor.prefix();
+    int stripComponents = descriptor.stripComponents();
     ImmutableMap<String, String> renameFiles = descriptor.renameFiles();
     boolean foundPrefix = false;
 
@@ -82,24 +83,19 @@ public class SevenZDecompressor implements Decompressor {
         }
         entryName = renameFiles.getOrDefault(entryName, entryName);
         StripPrefixedPath entryPath =
-            StripPrefixedPath.maybeDeprefix(entryName.getBytes(UTF_8), prefix);
+            StripPrefixedPath.maybeDeprefix(entryName.getBytes(UTF_8), prefix, stripComponents);
         foundPrefix = foundPrefix || entryPath.foundPrefix();
         if (entryPath.skip()) {
           continue;
         }
-        PathFragment pathFragment =
-            entryPath.getPathFragment().stripComponents(descriptor.stripComponents());
-        if (Objects.equals(pathFragment, PathFragment.EMPTY_FRAGMENT)) {
-          continue;
-        }
-        extract7zEntry(sevenZFile, entry, destinationDirectory, pathFragment);
+        extract7zEntry(sevenZFile, entry, destinationDirectory, entryPath.getPathFragment());
       }
 
       if (prefix.isPresent() && !foundPrefix) {
         Set<String> prefixes = new HashSet<>();
         for (SevenZArchiveEntry entry : entries) {
           StripPrefixedPath entryPath =
-              StripPrefixedPath.maybeDeprefix(entry.getName().getBytes(UTF_8), Optional.empty());
+              StripPrefixedPath.maybeDeprefix(entry.getName().getBytes(UTF_8), Optional.empty(), 0);
           CouldNotFindPrefixException.maybeMakePrefixSuggestion(entryPath.getPathFragment())
               .ifPresent(prefixes::add);
         }
