@@ -813,6 +813,32 @@ public final class LoadingPhaseRunnerTest {
         .containsExactlyElementsIn(getLabels("//cc:test1", "//cc:test2"));
   }
 
+  // Regression test for b/489243968.
+  @Test
+  public void testStarlarkRuleNamedTestSuite_notExpandedLikeTestSuite() throws Exception {
+    tester.addFile(
+        "test_suite.bzl",
+        """
+        # Custom Starlark rule whose name happens to be test_suite.
+        test_suite = rule(
+            implementation = lambda ctx: [],
+        )
+        """);
+
+    tester.addFile(
+        "BUILD",
+        """
+        load(":test_suite.bzl", "test_suite")
+
+        test_suite(name = "not_a_real_test_suite")
+        """);
+
+    TargetPatternPhaseValue result = assertNoErrors(tester.loadTests("//:not_a_real_test_suite"));
+    assertThat(result.getTargetLabels())
+        .containsExactlyElementsIn(getLabels("//:not_a_real_test_suite"));
+    assertThat(result.getTestsToRunLabels()).isEmpty();
+  }
+
   @Test
   public void testAllExcludesManualTest() throws Exception {
     tester.addFile(
