@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.analysis.config.FeatureSet;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
@@ -32,6 +34,14 @@ import net.starlark.java.eval.EvalException;
 
 /** A {@link SkyFunction} that returns the {@link PackageArgs} for a given repository. */
 public class RepoPackageArgsFunction implements SkyFunction {
+  private static final String BAZEL_MAIN_REPO = "bazel_main_repo";
+  private static final String BAZEL_EXTERNAL_REPO = "bazel_external_repo";
+
+  private static final FeatureSet MAIN_REPO_FEATURES =
+      new FeatureSet(ImmutableSet.of(BAZEL_MAIN_REPO), ImmutableSet.of());
+  private static final FeatureSet EXTERNAL_REPO_FEATURES =
+      new FeatureSet(ImmutableSet.of(BAZEL_EXTERNAL_REPO), ImmutableSet.of());
+
   public static final RepoPackageArgsFunction INSTANCE = new RepoPackageArgsFunction();
 
   /** {@link SkyValue} wrapping a PackageArgs. */
@@ -116,6 +126,8 @@ public class RepoPackageArgsFunction implements SkyFunction {
         RepoFileFunction.getDisplayNameForRepo(repositoryName, mainRepoMapping.repositoryMapping());
 
     PackageArgs.Builder pkgArgsBuilder = PackageArgs.builder();
+    pkgArgsBuilder.setFeatures(
+        repositoryName.isMain() ? MAIN_REPO_FEATURES : EXTERNAL_REPO_FEATURES);
     LabelConverter labelConverter =
         new LabelConverter(
             PackageIdentifier.create(repositoryName, PathFragment.EMPTY_FRAGMENT),
