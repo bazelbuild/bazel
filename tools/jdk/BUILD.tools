@@ -1,8 +1,8 @@
-package(default_visibility = ["//visibility:public"])
-
 load("@rules_java//java:defs.bzl", "java_import")
 load("@rules_python//python:defs.bzl", "py_binary", "py_test")
 load(":launcher_flag_alias.bzl", "launcher_flag_alias")
+
+package(default_visibility = ["//visibility:public"])
 
 exports_files([
     "BUILD.java_tools",
@@ -80,7 +80,7 @@ alias(
 )
 
 alias(
-    name = "vanillajavabuilder",
+    name = "javabuilder_core",
     actual = "@remote_java_tools//:VanillaJavaBuilder",
 )
 
@@ -183,8 +183,8 @@ TARGET_NAMES = [
     "toolchain_jdk_%d" % version
     for version in (14, 15, 16, 17, 21)
 ] + [
-     "toolchain_jdk_%d_definition" % version
-     for version in (14, 15, 16, 17, 21)
+    "toolchain_jdk_%d_definition" % version
+    for version in (14, 15, 16, 17, 21)
 ]
 
 [

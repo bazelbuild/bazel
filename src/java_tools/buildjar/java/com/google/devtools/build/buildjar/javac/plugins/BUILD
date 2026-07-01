@@ -48,8 +48,21 @@ java_library(
 )
 
 java_library(
+    name = "javabuilder_errorprone_api",
+    srcs = ["errorprone/ErrorProneInvoker.java"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":plugins",
+    ],
+)
+
+java_library(
     name = "errorprone",
-    srcs = glob(["errorprone/*.java"]),
+    srcs = [
+        "errorprone/BazelScannerSuppliers.java",
+        "errorprone/ErrorProneInvokerImpl.java",
+        "errorprone/ErrorPronePlugin.java",
+    ],
     javacopts = [
         "--add-exports=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
         "--add-exports=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED",
@@ -57,7 +70,11 @@ java_library(
         "--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
         "--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
     ],
+    resources = ["errorprone/META-INF/services/com.google.devtools.build.buildjar.javac.plugins.errorprone.ErrorProneInvoker"],
+    resource_strip_prefix = "src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/plugins/errorprone",
+    visibility = ["//visibility:public"],
     deps = [
+        ":javabuilder_errorprone_api",
         ":plugins",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar:invalid_command_line_exception",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/statistics",

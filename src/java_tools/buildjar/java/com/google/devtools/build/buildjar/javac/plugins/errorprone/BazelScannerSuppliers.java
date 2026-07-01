@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.buildjar;
+package com.google.devtools.build.buildjar.javac.plugins.errorprone;
 
 import static com.google.errorprone.scanner.BuiltInCheckerSuppliers.getSuppliers;
 
@@ -199,8 +199,8 @@ import com.google.errorprone.scanner.BuiltInCheckerSuppliers;
 import com.google.errorprone.scanner.ScannerSupplier;
 
 /** A factory for the {@link ScannerSupplier} that supplies Error Prone checks for Bazel. */
-final class BazelScannerSuppliers {
-  static ScannerSupplier bazelChecks() {
+public final class BazelScannerSuppliers {
+  public static ScannerSupplier bazelChecks() {
     return BuiltInCheckerSuppliers.allChecks().filter(Predicates.in(ENABLED_ERRORS));
   }
 
