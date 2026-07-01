@@ -154,6 +154,8 @@ public final class SkyFunctions {
 
   public static final SkyFunctionName BAZEL_MOD_TIDY =
       SkyFunctionName.createHermetic("BAZEL_MOD_TIDY");
+  public static final SkyFunctionName BUILDOZER_BINARY =
+      SkyFunctionName.createHermetic("BUILDOZER_BINARY");
   public static final SkyFunctionName BAZEL_MODULE_RESOLUTION =
       SkyFunctionName.createHermetic("BAZEL_MODULE_RESOLUTION");
   public static final SkyFunctionName BAZEL_MODULE_INSPECTION =
@@ -174,7 +176,6 @@ public final class SkyFunctions {
   public static final SkyFunctionName REPO_SPEC = SkyFunctionName.createNonHermetic("REPO_SPEC");
   public static final SkyFunctionName YANKED_VERSIONS =
       SkyFunctionName.createNonHermetic("YANKED_VERSIONS");
-
   public static final SkyFunctionName MODULE_EXTENSION_REPO_MAPPING_ENTRIES =
       SkyFunctionName.createHermetic("MODULE_EXTENSION_REPO_MAPPING_ENTRIES");
   public static final SkyFunctionName VENDOR_FILE = SkyFunctionName.createHermetic("VENDOR_FILE");

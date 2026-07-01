@@ -593,18 +593,24 @@ public class IndexRegistry implements Registry {
         .build();
   }
 
+  /** Fetches and parses the {@code metadata.json} file of the given module, if it exists. */
+  private Optional<MetadataJson> grabMetadata(
+      String moduleName, ExtendedEventHandler eventHandler, DownloadManager downloadManager)
+      throws IOException, InterruptedException {
+    return grabJson(
+        constructUrl(getUrl(), "modules", moduleName, "metadata.json"),
+        MetadataJson.class,
+        eventHandler,
+        downloadManager,
+        // metadata.json is not immutable
+        /* useChecksum= */ false);
+  }
+
   @Override
   public Optional<ImmutableMap<Version, String>> getYankedVersions(
       String moduleName, ExtendedEventHandler eventHandler, DownloadManager downloadManager)
       throws IOException, InterruptedException {
-    Optional<MetadataJson> metadataJson =
-        grabJson(
-            constructUrl(getUrl(), "modules", moduleName, "metadata.json"),
-            MetadataJson.class,
-            eventHandler,
-            downloadManager,
-            // metadata.json is not immutable
-            /* useChecksum= */ false);
+    Optional<MetadataJson> metadataJson = grabMetadata(moduleName, eventHandler, downloadManager);
     if (metadataJson.isEmpty()) {
       return Optional.empty();
     }
@@ -664,8 +670,38 @@ public class IndexRegistry implements Registry {
 
   /** Represents fields available in {@code metadata.json} for each module. */
   static class MetadataJson {
-    // There are other attributes in the metadata.json file, but for now, we only care about
-    // the yanked_version attribute.
+    List<String> versions;
     Map<String, String> yankedVersions;
+  }
+
+  @Override
+  public Optional<ImmutableList<Version>> getAvailableVersions(
+      String moduleName, ExtendedEventHandler eventHandler, DownloadManager downloadManager)
+      throws IOException, InterruptedException {
+    Optional<MetadataJson> metadataJson = grabMetadata(moduleName, eventHandler, downloadManager);
+    if (metadataJson.isEmpty()) {
+      return Optional.empty();
+    }
+
+    try {
+      // Yanked versions are never offered as upgrade targets, so exclude them here.
+      ImmutableSet<String> yankedVersions =
+          metadataJson.get().yankedVersions != null
+              ? ImmutableSet.copyOf(metadataJson.get().yankedVersions.keySet())
+              : ImmutableSet.of();
+      ImmutableList.Builder<Version> versionsBuilder = new ImmutableList.Builder<>();
+      if (metadataJson.get().versions != null) {
+        for (String v : metadataJson.get().versions) {
+          if (!yankedVersions.contains(v)) {
+            versionsBuilder.add(Version.parse(v));
+          }
+        }
+      }
+      return Optional.of(versionsBuilder.build());
+    } catch (ParseException e) {
+      throw new IOException(
+          String.format(
+              "Could not parse module %s's metadata file: %s", moduleName, e.getMessage()));
+    }
   }
 }

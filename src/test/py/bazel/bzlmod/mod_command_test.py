@@ -1694,5 +1694,362 @@ class ModCommandTest(test_base.TestBase):
       )
 
 
+class ModUpgradeCommandTest(test_base.TestBase):
+  """Test class for the mod upgrade command."""
+
+  def setUp(self):
+    test_base.TestBase.setUp(self)
+    self.registries_work_dir = tempfile.mkdtemp(dir=self._test_cwd)
+    self.main_registry = BazelRegistry(
+        os.path.join(self.registries_work_dir, 'main')
+    )
+    self.main_registry.start()
+    self.main_registry.setModuleBasePath('projects')
+    self.projects_dir = self.main_registry.projects
+
+    self.ScratchFile(
+        '.bazelrc',
+        [
+            'mod --registry=' + self.main_registry.getURL(),
+            'mod --registry=https://bcr.bazel.build',
+            'mod --allow_yanked_versions=all',
+            'mod --charset=ascii',
+        ],
+    )
+
+    # Register aaa@1.0 (depends on ccc@1.0) and aaa@2.0 (upgrade available).
+    self.main_registry.createShModule('aaa', '1.0', deps={'ccc': '1.0'})
+    self.main_registry.createShModule('aaa', '2.0')
+    self.main_registry.addMetadata('aaa', versions=['1.0', '2.0'])
+    # Register bbb@1.0 only (already up to date).
+    self.main_registry.createShModule('bbb', '1.0')
+    self.main_registry.addMetadata('bbb', versions=['1.0'])
+    # Register ccc@1.0 and ccc@2.0 (ccc is a transitive dep via aaa).
+    self.main_registry.createShModule('ccc', '1.0')
+    self.main_registry.createShModule('ccc', '2.0')
+    self.main_registry.addMetadata('ccc', versions=['1.0', '2.0'])
+    # Register ddd@1.0 and ddd@2.0 (used for override tests).
+    self.main_registry.createShModule('ddd', '1.0')
+    self.main_registry.createShModule('ddd', '2.0')
+    self.main_registry.addMetadata('ddd', versions=['1.0', '2.0'])
+
+    self.ScratchFile('BUILD.bazel')
+
+  def tearDown(self):
+    self.main_registry.stop()
+    test_base.TestBase.tearDown(self)
+
+  def _setupSimpleProject(self):
+    """Create a simple MODULE.bazel with aaa@1.0 and bbb@1.0 as direct deps."""
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'module(name = "my_project", version = "1.0")',
+            'bazel_dep(name = "aaa", version = "1.0")',
+            'bazel_dep(name = "bbb", version = "1.0")',
+        ],
+    )
+
+  def testUpgradeDisplayOnly(self):
+    """Without args or flags, shows the version table and a hint."""
+    self._setupSimpleProject()
+    _, stdout, _ = self.RunBazel(['mod', 'upgrade'])
+    stdout_str = '\n'.join(stdout)
+    # aaa has an upgrade available, so it appears in the table.
+    self.assertIn('aaa', stdout_str)
+    # bbb is already up to date, so it is hidden from the table but counted.
+    self.assertNotIn('bbb', stdout_str)
+    self.assertIn('up to date', stdout_str)
+    # Should show the hint message.
+    self.assertIn('bazel mod upgrade <module>', stdout_str)
+    self.assertIn('--all', stdout_str)
+
+  def testUpgradeNamedDirectDep(self):
+    """Upgrading a named direct dep updates its version in MODULE.bazel."""
+    self._setupSimpleProject()
+    _, _, stderr = self.RunBazel(['mod', 'upgrade', 'aaa'])
+    stderr_str = '\n'.join(stderr)
+    self.assertIn('Upgraded aaa from 1.0 to 2.0', stderr_str)
+
+    with open('MODULE.bazel', 'r') as f:
+      contents = f.read()
+    self.assertIn('"aaa"', contents)
+    self.assertIn('"2.0"', contents)
+    # bbb should not have been changed.
+    self.assertIn('"bbb"', contents)
+
+  def testUpgradeAll(self):
+    """--all upgrades all direct deps that have a newer version."""
+    self._setupSimpleProject()
+    _, _, stderr = self.RunBazel(['mod', 'upgrade', '--all'])
+    stderr_str = '\n'.join(stderr)
+    self.assertIn('Upgraded aaa from 1.0 to 2.0', stderr_str)
+    # bbb has no upgrade available, so it should not appear.
+    self.assertNotIn('Upgraded bbb', stderr_str)
+
+    with open('MODULE.bazel', 'r') as f:
+      contents = f.read()
+    self.assertIn('"2.0"', contents)
+
+  def testUpgradeAlreadyUpToDate(self):
+    """Upgrading a module already at the latest version is a no-op."""
+    self._setupSimpleProject()
+    _, _, stderr = self.RunBazel(['mod', 'upgrade', 'bbb'])
+    stderr_str = '\n'.join(stderr)
+    self.assertIn('already at the latest version', stderr_str)
+
+  def testUpgradeUnknownModule(self):
+    """Upgrading a module not in the dep graph fails with an error."""
+    self._setupSimpleProject()
+    exit_code, _, stderr = self.RunBazel(
+        ['mod', 'upgrade', 'nonexistent'], allow_failure=True
+    )
+    self.assertNotEqual(exit_code, 0)
+    stderr_str = '\n'.join(stderr)
+    self.assertIn('not in the dependency graph', stderr_str)
+
+  def testUpgradeIndirectDep(self):
+    """Upgrading a transitive dep adds it as a direct dep."""
+    self._setupSimpleProject()
+    _, _, stderr = self.RunBazel(['mod', 'upgrade', 'ccc'])
+    stderr_str = '\n'.join(stderr)
+    self.assertIn('Upgraded ccc', stderr_str)
+    self.assertIn('indirect dependency', stderr_str)
+
+    with open('MODULE.bazel', 'r') as f:
+      contents = f.read()
+    # ccc should now be a bazel_dep with the latest version.
+    self.assertIn('ccc', contents)
+    self.assertIn('"2.0"', contents)
+
+  def testUpgradeAllAndArgsMutuallyExclusive(self):
+    """--all and positional args cannot be used together."""
+    self._setupSimpleProject()
+    exit_code, _, stderr = self.RunBazel(
+        ['mod', 'upgrade', '--all', 'aaa'], allow_failure=True
+    )
+    self.assertNotEqual(exit_code, 0)
+    stderr_str = '\n'.join(stderr)
+    self.assertIn("doesn't accept both --all and a list of module names",
+                  stderr_str)
+
+  def testUpgradeAllOnNonUpgradeSubcommand(self):
+    """--all is rejected on non-upgrade subcommands."""
+    self._setupSimpleProject()
+    exit_code, _, stderr = self.RunBazel(
+        ['mod', 'graph', '--all'], allow_failure=True
+    )
+    self.assertNotEqual(exit_code, 0)
+    stderr_str = '\n'.join(stderr)
+    self.assertIn("doesn't take the --all option", stderr_str)
+
+  def testUpgradeOverriddenModule(self):
+    """Upgrading a module with a local_path_override warns and skips."""
+    self.ScratchFile('ddd/MODULE.bazel', ['module(name = "ddd", version = "1.0")'])
+    self.ScratchFile('ddd/BUILD.bazel')
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'module(name = "my_project", version = "1.0")',
+            'bazel_dep(name = "aaa", version = "1.0")',
+            'bazel_dep(name = "bbb", version = "1.0")',
+            'bazel_dep(name = "ddd", version = "1.0")',
+            'local_path_override(module_name = "ddd", path = "ddd")',
+        ],
+    )
+    _, _, stderr = self.RunBazel(['mod', 'upgrade', 'ddd'])
+    stderr_str = '\n'.join(stderr)
+    self.assertIn("has an override and won't be upgraded automatically",
+                  stderr_str)
+
+  def testUpgradeWithMultipleVersionOverride(self):
+    """Modules with multiple_version_override are skipped without crashing."""
+    self.main_registry.createShModule('eee', '1.0')
+    self.main_registry.createShModule('eee', '2.0')
+    self.main_registry.addMetadata('eee', versions=['1.0', '2.0'])
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'module(name = "my_project", version = "1.0")',
+            'bazel_dep(name = "eee", version = "1.0", repo_name = "eee1")',
+            'bazel_dep(name = "eee", version = "2.0", repo_name = "eee2")',
+            'multiple_version_override(',
+            '  module_name = "eee",',
+            '  versions = ["1.0", "2.0"],',
+            ')',
+        ],
+    )
+    # Display-only mode should not crash.
+    _, stdout, _ = self.RunBazel(['mod', 'upgrade'])
+    stdout_str = '\n'.join(stdout)
+    self.assertNotIn('eee', stdout_str)
+
+    # Explicitly upgrading the module should warn about the override.
+    _, _, stderr = self.RunBazel(['mod', 'upgrade', 'eee'])
+    stderr_str = '\n'.join(stderr)
+    self.assertIn("has an override and won't be upgraded automatically",
+                  stderr_str)
+
+  def testUpgradeWithSingleVersionOverride(self):
+    """A stale version pin is shown as 'pinned' but never upgraded."""
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'module(name = "my_project", version = "1.0")',
+            'bazel_dep(name = "aaa", version = "1.0")',
+            'bazel_dep(name = "ddd", version = "1.0")',
+            'single_version_override(',
+            '  module_name = "ddd",',
+            '  version = "1.0",',
+            ')',
+        ],
+    )
+    # ddd is pinned at 1.0 but 2.0 exists: shown with a 'pinned' status so the
+    # stale pin stays visible, but it is not offered as an available upgrade.
+    _, stdout, _ = self.RunBazel(['mod', 'upgrade'])
+    stdout_str = '\n'.join(stdout)
+    self.assertIn('ddd', stdout_str)
+    self.assertIn('pinned', stdout_str)
+
+    # --all must not bump the pinned module: doing so would request a version
+    # higher than the override pin and break resolution on the next command.
+    self.RunBazel(['mod', 'upgrade', '--all'])
+    with open('MODULE.bazel', 'r') as f:
+      contents = f.read()
+    self.assertIn('bazel_dep(name = "ddd", version = "1.0")', contents)
+    self.assertNotIn('bazel_dep(name = "ddd", version = "2.0")', contents)
+    # Resolution must still succeed after the upgrade (RunBazel asserts exit 0).
+    self.RunBazel(['mod', 'upgrade'])
+
+    # Explicitly naming the pinned module warns instead of upgrading.
+    _, _, stderr = self.RunBazel(['mod', 'upgrade', 'ddd'])
+    stderr_str = '\n'.join(stderr)
+    self.assertIn("has an override and won't be upgraded automatically",
+                  stderr_str)
+
+  def testUpgradePinnedAtLatestHidden(self):
+    """A version pin already at the latest version is hidden (nothing to do)."""
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'module(name = "my_project", version = "1.0")',
+            'bazel_dep(name = "aaa", version = "1.0")',
+            'bazel_dep(name = "ddd", version = "2.0")',
+            'single_version_override(',
+            '  module_name = "ddd",',
+            '  version = "2.0",',
+            ')',
+        ],
+    )
+    _, stdout, _ = self.RunBazel(['mod', 'upgrade'])
+    stdout_str = '\n'.join(stdout)
+    self.assertNotIn('ddd', stdout_str)
+
+  def testUpgradeAllAlreadyUpToDate(self):
+    """--all when all direct deps are already at latest shows info message."""
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'module(name = "my_project", version = "1.0")',
+            'bazel_dep(name = "aaa", version = "2.0")',
+            'bazel_dep(name = "bbb", version = "1.0")',
+        ],
+    )
+    _, _, stderr = self.RunBazel(['mod', 'upgrade', '--all'])
+    stderr_str = '\n'.join(stderr)
+    self.assertIn('All specified modules are already up to date', stderr_str)
+
+  def testUpgradeSkipsYankedLatest(self):
+    """A yanked latest version is never offered; the newest non-yanked wins."""
+    # eee has 1.0, 2.0 and 3.0, but 3.0 is yanked, so upgrading lands on 2.0.
+    self.main_registry.createShModule('eee', '1.0')
+    self.main_registry.createShModule('eee', '2.0')
+    self.main_registry.createShModule('eee', '3.0')
+    self.main_registry.addMetadata(
+        'eee',
+        versions=['1.0', '2.0', '3.0'],
+        yanked_versions={'3.0': 'broken'},
+    )
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'module(name = "my_project", version = "1.0")',
+            'bazel_dep(name = "eee", version = "1.0")',
+        ],
+    )
+    _, _, stderr = self.RunBazel(['mod', 'upgrade', 'eee'])
+    stderr_str = '\n'.join(stderr)
+    self.assertIn('Upgraded eee from 1.0 to 2.0', stderr_str)
+
+    with open('MODULE.bazel', 'r') as f:
+      contents = f.read()
+    self.assertIn('"2.0"', contents)
+    self.assertNotIn('"3.0"', contents)
+
+  def testUpgradeUsesDeclaredVersionNotResolved(self):
+    """Upgrade compares against the version declared in MODULE.bazel, not the
+    MVS-resolved version, so a dep already bumped by MVS is still rewritten."""
+    # forcer@1.0 depends on aaa@2.0, so MVS bumps the root's aaa from 1.0 to 2.0
+    # even though MODULE.bazel still declares aaa@1.0.
+    self.main_registry.createShModule('forcer', '1.0', deps={'aaa': '2.0'})
+    self.main_registry.addMetadata('forcer', versions=['1.0'])
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'module(name = "my_project", version = "1.0")',
+            'bazel_dep(name = "aaa", version = "1.0")',
+            'bazel_dep(name = "forcer", version = "1.0")',
+        ],
+    )
+    _, _, stderr = self.RunBazel(['mod', 'upgrade', 'aaa'])
+    stderr_str = '\n'.join(stderr)
+    self.assertIn('Upgraded aaa from 1.0 to 2.0', stderr_str)
+
+    with open('MODULE.bazel', 'r') as f:
+      contents = f.read()
+    aaa_line = next(line for line in contents.splitlines() if '"aaa"' in line)
+    self.assertIn('"2.0"', aaa_line)
+    self.assertNotIn('"1.0"', aaa_line)
+
+  def testUpgradeDuplicateArgIsHandledOnce(self):
+    """A repeated module argument is deduplicated, not acted on twice."""
+    self._setupSimpleProject()
+    _, _, stderr = self.RunBazel(['mod', 'upgrade', 'aaa', 'aaa'])
+    stderr_str = '\n'.join(stderr)
+    self.assertEqual(stderr_str.count('Upgraded aaa from 1.0 to 2.0'), 1)
+
+  def testUpgradeMultipleIndirectDepsKeepSortedOrder(self):
+    """Promoting several indirect deps at once keeps the nodep group sorted,
+    regardless of the order the modules are named on the command line."""
+    # parent@1.0 pulls in nnn, ooo and ppp as transitive deps, each upgradable.
+    for name in ('nnn', 'ooo', 'ppp'):
+      self.main_registry.createShModule(name, '1.0')
+      self.main_registry.createShModule(name, '2.0')
+      self.main_registry.addMetadata(name, versions=['1.0', '2.0'])
+    self.main_registry.createShModule('mmm', '1.0')
+    self.main_registry.addMetadata('mmm', versions=['1.0'])
+    self.main_registry.createShModule(
+        'parent', '1.0', deps={'nnn': '1.0', 'ooo': '1.0', 'ppp': '1.0'}
+    )
+    self.main_registry.addMetadata('parent', versions=['1.0'])
+
+    # The existing sorted nodep group contains only "mmm". Naming the three
+    # promotions in reverse order must still produce mmm < nnn < ooo < ppp.
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'module(name = "my_project", version = "1.0")',
+            'bazel_dep(name = "parent", version = "1.0")',
+            'bazel_dep(name = "mmm", version = "1.0", repo_name = None)',
+        ],
+    )
+    self.RunBazel(['mod', 'upgrade', 'ppp', 'ooo', 'nnn'])
+
+    with open('MODULE.bazel', 'r') as f:
+      contents = f.read()
+    positions = [contents.index('"%s"' % name) for name in ('mmm', 'nnn', 'ooo', 'ppp')]
+    self.assertEqual(positions, sorted(positions))
+
+
 if __name__ == '__main__':
   absltest.main()
