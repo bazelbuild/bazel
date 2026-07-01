@@ -456,7 +456,7 @@ public final class RemoteModuleTest {
             CredentialHelperEnvironment.newBuilder()
                 .setEventReporter(new Reporter(EventBusEventHandler.createWithNewEventBus()))
                 .setWorkspacePath(fileSystem.getPath("/workspace"))
-                .setClientEnvironment(ImmutableMap.of("NETRC", netrc))
+                .setClientEnvironment(() -> ImmutableMap.of("NETRC", netrc))
                 .setHelperExecutionTimeout(Duration.ZERO)
                 .build(),
             credentialCache,

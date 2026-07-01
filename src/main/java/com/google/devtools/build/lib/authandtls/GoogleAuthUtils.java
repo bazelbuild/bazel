@@ -306,7 +306,7 @@ public final class GoogleAuthUtils {
       // Fallback to .netrc if it exists.
       try {
         fallbackCredentials =
-            newCredentialsFromNetrc(credentialHelperEnvironment.clientEnvironment(), fileSystem);
+            newCredentialsFromNetrc(credentialHelperEnvironment.clientEnvironment().get(), fileSystem);
       } catch (IOException e) {
         // TODO(yannic): Make this fail the build.
         credentialHelperEnvironment.eventReporter().handle(Event.warn(e.getMessage()));
@@ -422,7 +422,7 @@ public final class GoogleAuthUtils {
     CredentialHelperProvider.Builder builder = CredentialHelperProvider.builder();
     for (AuthAndTLSOptions.CredentialHelperOption helper : helpers) {
       Optional<String> scope = helper.scope();
-      Path path = pathFactory.create(environment.clientEnvironment(), helper.path());
+      Path path = pathFactory.create(environment.clientEnvironment().get(), helper.path());
       if (scope.isPresent()) {
         builder.add(scope.get(), path);
       } else {
