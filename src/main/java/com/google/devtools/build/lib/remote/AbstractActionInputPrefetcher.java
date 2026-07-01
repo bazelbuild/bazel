@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValueWithMaterializationData;
 import com.google.devtools.build.lib.actions.FileContentsProxy;
+import com.google.devtools.build.lib.actions.FileStateType;
 import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
@@ -248,6 +249,17 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   }
 
   /**
+   * Returns whether the given path lives under the external repository root. Unlike {@link
+   * #execRoot()}, this can be evaluated during external repository materialization, where the exec
+   * root isn't available yet.
+   */
+  private boolean isUnderExternalRepoRoot(Path path) {
+    return path.asFragment()
+        .startsWith(
+            outputBase.getRelative(LabelConstants.EXTERNAL_REPOSITORY_LOCATION).asFragment());
+  }
+
+  /**
    * Resolves an exec path to an absolute path, avoiding evaluation of execRoot() if possible as it
    * isn't available during server startup. This logic is unique to Bazel 8.x as it still names the
    * exec root based on the name set in WORKSPACE, which is gone from HEAD and Bazel 9.x.
@@ -412,7 +424,19 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       PathFragment execPath = input.getExecPath();
 
       FileArtifactValue metadata = metadataSupplier.getMetadata(input);
-      if (metadata == null || !canDownloadFile(resolveExecPath(execPath), metadata)) {
+      if (metadata == null) {
+        return immediateVoidFuture();
+      }
+      Path inputPath = resolveExecPath(execPath);
+      if (metadata.getType() == FileStateType.SYMLINK && isUnderExternalRepoRoot(inputPath)) {
+        return toListenableFuture(
+            plantUnresolvedSymlink(
+                inputPath.forHostFileSystem(),
+                PathFragment.create(
+                    ((FileArtifactValue.UnresolvedSymlinkArtifactValue) metadata)
+                        .getSymlinkTarget())));
+      }
+      if (!canDownloadFile(inputPath, metadata)) {
         return immediateVoidFuture();
       }
 
@@ -750,6 +774,17 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
               return Completable.complete();
             }),
         forceRefetch(resolveExecPath(symlink.linkExecPath())));
+  }
+
+  private Completable plantUnresolvedSymlink(Path linkPath, PathFragment target) {
+    return downloadCache.executeIfNot(
+        linkPath,
+        Completable.defer(
+            () -> {
+              linkPath.delete();
+              linkPath.createSymbolicLink(target);
+              return Completable.complete();
+            }));
   }
 
   public ImmutableSet<Path> downloadedFiles() {
