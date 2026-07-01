@@ -134,7 +134,8 @@ import net.starlark.java.eval.StarlarkSemantics;
  * in-flight primary shared action's execution, this function can abort after declaring an external
  * dep on the execution's completion future.
  */
-public final class ActionExecutionFunction implements SkyFunction {
+// Non-final for mocking.
+public class ActionExecutionFunction implements SkyFunction {
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
