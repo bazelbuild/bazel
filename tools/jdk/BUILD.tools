@@ -4,6 +4,9 @@ load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("@rules_java//java:defs.bzl", "java_import")
 load(":launcher_flag_alias.bzl", "launcher_flag_alias")
 
+exports_files([
+    "BUILD.java_tools",
+])
 # A single binary distribution of a JDK (e.g., OpenJDK 17 for Windows arm64) provides three
 # different types of toolchains from the perspective of Bazel:
 
@@ -76,7 +79,7 @@ alias(
 )
 
 alias(
-    name = "vanillajavabuilder",
+    name = "javabuilder_core",
     actual = "@remote_java_tools//:VanillaJavaBuilder",
 )
 
@@ -172,8 +175,8 @@ TARGET_NAMES = [
     "toolchain_jdk_%d" % version
     for version in (14, 15, 16, 17, 21, 25)
 ] + [
-     "toolchain_jdk_%d_definition" % version
-     for version in (14, 15, 16, 17, 21, 25)
+    "toolchain_jdk_%d_definition" % version
+    for version in (14, 15, 16, 17, 21, 25)
 ]
 
 [

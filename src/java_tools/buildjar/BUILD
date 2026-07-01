@@ -34,6 +34,12 @@ java_binary(
     runtime_deps = ["//src/java_tools/buildjar/java/com/google/devtools/build/buildjar"],
 )
 
+alias(
+    name = "javabuilder_core",
+    actual = "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar:javabuilder_core",
+    visibility = ["//visibility:public"],
+)
+
 java_binary(
     name = "VanillaJavaBuilder",
     main_class = "com.google.devtools.build.buildjar.VanillaJavaBuilder",
