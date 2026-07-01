@@ -149,6 +149,7 @@ cc_test(
     data = [
         "data/log4j2_plugins_set_1.jar",
         "data/log4j2_plugins_set_2.jar",
+        "data/log4j2_malformed_empty_plugin.jar",
         "data/log4j2_plugins_set_result.dat",
     ],
     deps = [

@@ -142,4 +142,23 @@ TEST_F(Log4J2PluginDatCombinerTest, Log4J2PluginDatCombinerDuplicate) {
   }
 }
 
+TEST_F(Log4J2PluginDatCombinerTest, Log4J2PluginDatCombinerMalformed) {
+  const std::string plugins_cache_path =
+      "META-INF/org/apache/logging/log4j/core/config/plugins/Log4j2Plugins.dat";
+  Log4J2PluginDatCombiner combiner(plugins_cache_path, true);
+  InputJar input_jar;
+  ASSERT_TRUE(input_jar.Open(
+      runfiles
+          ->Rlocation(
+              "io_bazel/src/tools/singlejar/data/log4j2_malformed_empty_plugin.jar")
+          .c_str()));
+  const LH* lh;
+  const CDH* cdh;
+  while ((cdh = input_jar.NextEntry(&lh))) {
+    if (cdh->file_name_is(plugins_cache_path.c_str())) {
+      ASSERT_DEATH(combiner.Merge(cdh, lh), "Log4j2Plugins.dat file is malformed");
+    }
+  }
+}
+
 }  // anonymous namespace
