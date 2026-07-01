@@ -207,6 +207,10 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
             positional = false),
         @Param(
             name = DEFAULT_ARG,
+            allowedTypes = {
+              @ParamType(type = StarlarkInt.class),
+              @ParamType(type = SelectApi.class),
+            },
             defaultValue = "0",
             doc = DEFAULT_DOC,
             named = true,
@@ -235,7 +239,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
       useStarlarkThread = true)
   Descriptor intAttribute(
       Object configurable,
-      StarlarkInt defaultValue,
+      Object defaultValue,
       Object doc,
       Boolean mandatory,
       Sequence<?> values,
@@ -258,12 +262,13 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
             positional = false),
         @Param(
             name = DEFAULT_ARG,
-            defaultValue = "''",
-            doc = DEFAULT_DOC,
             allowedTypes = {
               @ParamType(type = String.class),
-              @ParamType(type = NativeComputedDefaultApi.class)
+              @ParamType(type = NativeComputedDefaultApi.class),
+              @ParamType(type = SelectApi.class),
             },
+            defaultValue = "''",
+            doc = DEFAULT_DOC,
             named = true,
             positional = false),
         @Param(
@@ -338,6 +343,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
               // that was never fully exposed to Starlark (or was since
               // withdrawn).
               @ParamType(type = StarlarkFunction.class),
+              @ParamType(type = SelectApi.class),
               @ParamType(type = NoneType.class),
             },
             defaultValue = "None",
@@ -531,7 +537,8 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
             name = DEFAULT_ARG,
             allowedTypes = {
               @ParamType(type = Sequence.class, generic1 = String.class),
-              @ParamType(type = NativeComputedDefaultApi.class)
+              @ParamType(type = NativeComputedDefaultApi.class),
+              @ParamType(type = SelectApi.class),
             },
             defaultValue = "[]",
             doc = DEFAULT_DOC,
@@ -575,7 +582,10 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
             positional = false),
         @Param(
             name = DEFAULT_ARG,
-            allowedTypes = {@ParamType(type = Sequence.class, generic1 = StarlarkInt.class)},
+            allowedTypes = {
+              @ParamType(type = Sequence.class, generic1 = StarlarkInt.class),
+              @ParamType(type = SelectApi.class),
+            },
             defaultValue = "[]",
             doc = DEFAULT_DOC,
             named = true,
@@ -593,7 +603,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
       Boolean mandatory,
       Boolean allowEmpty,
       Object configurable,
-      Sequence<?> defaultValue,
+      Object defaultValue,
       Object doc,
       StarlarkThread thread)
       throws EvalException;
@@ -622,7 +632,8 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
             name = DEFAULT_ARG,
             allowedTypes = {
               @ParamType(type = Sequence.class, generic1 = Label.class),
-              @ParamType(type = StarlarkFunction.class)
+              @ParamType(type = StarlarkFunction.class),
+              @ParamType(type = SelectApi.class),
             },
             defaultValue = "[]",
             named = true,
@@ -789,7 +800,8 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
             name = DEFAULT_ARG,
             allowedTypes = {
               @ParamType(type = Dict.class),
-              @ParamType(type = StarlarkFunction.class)
+              @ParamType(type = StarlarkFunction.class),
+              @ParamType(type = SelectApi.class),
             },
             defaultValue = "{}",
             named = true,
@@ -907,7 +919,8 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
             name = DEFAULT_ARG,
             allowedTypes = {
               @ParamType(type = Dict.class),
-              @ParamType(type = StarlarkFunction.class)
+              @ParamType(type = StarlarkFunction.class),
+              @ParamType(type = SelectApi.class),
             },
             defaultValue = "{}",
             named = true,
@@ -1030,6 +1043,10 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
             positional = false),
         @Param(
             name = DEFAULT_ARG,
+            allowedTypes = {
+              @ParamType(type = Dict.class),
+              @ParamType(type = SelectApi.class),
+            },
             defaultValue = "{}",
             named = true,
             positional = false,
@@ -1118,7 +1135,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
   Descriptor labelListDictAttribute(
       Boolean allowEmpty,
       Object configurable,
-      Dict<?, ?> defaultValue,
+      Object defaultValue, // Dict | SelectApi
       Object doc,
       Object allowFiles,
       Object allowRules,
@@ -1151,6 +1168,10 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
             positional = false),
         @Param(
             name = DEFAULT_ARG,
+            allowedTypes = {
+              @ParamType(type = Boolean.class),
+              @ParamType(type = SelectApi.class),
+            },
             defaultValue = "False",
             named = true,
             positional = false,
@@ -1172,7 +1193,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
       useStarlarkThread = true)
   Descriptor boolAttribute(
       Object configurable,
-      Boolean defaultValue,
+      Object defaultValue,
       Object doc,
       Boolean mandatory,
       StarlarkThread thread)
@@ -1251,6 +1272,10 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
             positional = false),
         @Param(
             name = DEFAULT_ARG,
+            allowedTypes = {
+              @ParamType(type = Dict.class),
+              @ParamType(type = SelectApi.class),
+            },
             named = true,
             positional = false,
             defaultValue = "{}",
@@ -1273,7 +1298,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
   Descriptor stringDictAttribute(
       Boolean allowEmpty,
       Object configurable,
-      Dict<?, ?> defaultValue,
+      Object defaultValue,
       Object doc,
       Boolean mandatory,
       StarlarkThread thread)
@@ -1302,6 +1327,10 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
             positional = false),
         @Param(
             name = DEFAULT_ARG,
+            allowedTypes = {
+              @ParamType(type = Dict.class),
+              @ParamType(type = SelectApi.class),
+            },
             defaultValue = "{}",
             named = true,
             positional = false,
@@ -1324,7 +1353,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
   Descriptor stringListDictAttribute(
       Boolean allowEmpty,
       Object configurable,
-      Dict<?, ?> defaultValue,
+      Object defaultValue,
       Object doc,
       Boolean mandatory,
       StarlarkThread thread)
