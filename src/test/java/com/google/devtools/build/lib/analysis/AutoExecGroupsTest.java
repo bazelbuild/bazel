@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.rules.cpp.CppRuleClasses.CPP_COMPILE_EXEC_GROUP;
 import static com.google.devtools.build.lib.rules.cpp.CppRuleClasses.CPP_LINK_EXEC_GROUP;
 
 import com.google.common.collect.ImmutableList;
@@ -2206,6 +2207,71 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
         .isEqualTo("Compiling bazel_internal/test_rules/cc/custom.cc");
     assertThat(cppCompileActions.get(0).getOwner().getExecutionPlatform().label())
         .isEqualTo(Label.parseCanonical("//platforms:platform_1"));
+  }
+
+  @Test
+  public void
+      ccCommonCompile_cppCompileExecGroupDefined_cppCompileActionExecutesOnExecGroupPlatform()
+          throws Exception {
+    scratch.file(
+        "bazel_internal/test_rules/cc/defs.bzl",
+        "load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')",
+        "def _use_cpp_toolchain():",
+        "   return [",
+        "      config_common.toolchain_type('"
+            + TestConstants.CPP_TOOLCHAIN_TYPE
+            + "', mandatory = False),",
+        "   ]",
+        "def _impl(ctx):",
+        "  cc_toolchain = ctx.toolchains['" + TestConstants.CPP_TOOLCHAIN_TYPE + "'].cc",
+        "  feature_configuration = cc_common.configure_features(",
+        "      ctx = ctx,",
+        "      cc_toolchain = cc_toolchain,",
+        "      requested_features = ctx.features,",
+        "      unsupported_features = ctx.disabled_features,",
+        "  )",
+        "  (compilation_context, compilation_outputs) = cc_common.compile(",
+        "    name = ctx.label.name,",
+        "    actions = ctx.actions,",
+        "    feature_configuration = feature_configuration,",
+        "    cc_toolchain = cc_toolchain,",
+        "    srcs = ctx.files.srcs,",
+        "  )",
+        "  return []",
+        "custom_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'srcs': attr.label_list(allow_files = ['.cc']),",
+        "  },",
+        "  exec_groups = { ",
+        "    '"
+            + CPP_COMPILE_EXEC_GROUP
+            + "': exec_group(",
+        "      toolchains = _use_cpp_toolchain(),",
+        "      exec_compatible_with = ['//platforms:constraint_2'],",
+        "    ),",
+        "  },",
+        "  toolchains = ['//rule:toolchain_type_2'] + _use_cpp_toolchain(),",
+        "  fragments = ['cpp']",
+        ")");
+    scratch.file(
+        "bazel_internal/test_rules/cc/BUILD",
+        """
+        load("//bazel_internal/test_rules/cc:defs.bzl", "custom_rule")
+
+        custom_rule(
+            name = "custom_rule_name",
+            srcs = ["custom.cc"],
+        )
+        """);
+    useConfiguration("--incompatible_auto_exec_groups");
+
+    ImmutableList<Action> cppCompileActions =
+        getActions("//bazel_internal/test_rules/cc:custom_rule_name", CppCompileAction.class);
+
+    assertThat(cppCompileActions).hasSize(1);
+    assertThat(cppCompileActions.get(0).getOwner().getExecutionPlatform().label())
+        .isEqualTo(Label.parseCanonical("//platforms:platform_2"));
   }
 
   @Test
