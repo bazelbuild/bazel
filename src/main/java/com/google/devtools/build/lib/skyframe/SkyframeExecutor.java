@@ -2277,8 +2277,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
       if (e != null) {
         // Wrap exceptions related to loading
-        if (e instanceof NoSuchThingException noSuchThingException) {
-          throw new InvalidConfigurationException(noSuchThingException.getDetailedExitCode(), e);
+        if (e instanceof DetailedException detailedException) {
+          throw new InvalidConfigurationException(detailedException.getDetailedExitCode(), e);
         }
         Throwables.throwIfInstanceOf(e, InvalidConfigurationException.class);
         // If we get here, e is non-null but not an InvalidConfigurationException, so wrap it and
