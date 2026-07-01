@@ -42,7 +42,28 @@ public final class StaticCredentials extends Credentials {
   public Map<String, List<String>> getRequestMetadata(URI uri) {
     Preconditions.checkNotNull(uri);
 
-    return credentials.getOrDefault(uri, ImmutableMap.of());
+    // First try exact URI match.
+    Map<String, List<String>> result = credentials.get(uri);
+    if (result != null) {
+      return result;
+    }
+
+    // Fall back to matching by host (and port) for same-host redirects.
+    // This matches the behavior of curl --netrc and wget, which re-derive
+    // credentials from netrc per host on every redirect hop.
+    String host = uri.getHost();
+    if (host == null) {
+      return ImmutableMap.of();
+    }
+    int port = uri.getPort();
+    for (Map.Entry<URI, Map<String, List<String>>> entry : credentials.entrySet()) {
+      URI credUri = entry.getKey();
+      if (host.equals(credUri.getHost()) && port == credUri.getPort()) {
+        return entry.getValue();
+      }
+    }
+
+    return ImmutableMap.of();
   }
 
   @Override

@@ -840,4 +840,36 @@ public final class MethodLibraryTest {
         .testIfErrorContains(
             "expected string for sequence element 1, got '2' of type int", "', '.join(['foo', 2])");
   }
+
+  @Test
+  public void testMaxRecursiveKey() throws Exception {
+    ev.new Scenario()
+        .testIfErrorContains(
+            "max() argument 'key' must not be max",
+            "max([1, 2, 3], key = max)");
+  }
+
+  @Test
+  public void testMinRecursiveKey() throws Exception {
+    ev.new Scenario()
+        .testIfErrorContains(
+            "min() argument 'key' must not be min",
+            "min([1, 2, 3], key = min)");
+  }
+
+  @Test
+  public void testSortedRecursiveKey() throws Exception {
+    ev.new Scenario()
+        .testIfErrorContains(
+            "sorted() argument 'key' must not be sorted",
+            "sorted([1, 2, 3], key = sorted)");
+  }
+
+  @Test
+  public void testMaxWithDifferentKeyFunction() throws Exception {
+    ev.new Scenario()
+        .testIfStatementEquals(
+            "max([[1,2,3], [4,5,6]], key = len)",
+            "[4, 5, 6]");
+  }
 }
