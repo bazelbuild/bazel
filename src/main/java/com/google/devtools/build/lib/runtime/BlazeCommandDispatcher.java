@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.buildtool.buildevent.MainRepoMappingComputationStartingEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ProfilerStartedEvent;
 import com.google.devtools.build.lib.clock.BlazeClock;
-import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
@@ -58,6 +57,7 @@ import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.IdleTask;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue.RepositoryMappingResolutionException;
+import com.google.devtools.build.lib.skyframe.SkyframeExecutor.MainRepoMappingAndFlagAliases;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.AnsiStrippingOutputStream;
 import com.google.devtools.build.lib.util.DebugLoggerConfigurator;
@@ -632,9 +632,12 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         env.getEventBus().post(new MainRepoMappingComputationStartingEvent());
         try (SilentCloseable c =
             Profiler.instance().profile(ProfilerTask.BZLMOD, "compute main repo mapping")) {
-          RepositoryMapping mainRepoMapping =
-              env.getSkyframeExecutor().getMainRepoMapping(reporter);
-          optionsParser = optionsParser.toBuilder().withConversionContext(mainRepoMapping).build();
+          MainRepoMappingAndFlagAliases mainRepoMappingAndFlagAliases =
+              env.getSkyframeExecutor().getMainRepoMappingAndFlagAliases(reporter);
+          optionsParser =
+              optionsParser.toBuilder()
+                  .withConversionContext(mainRepoMappingAndFlagAliases.mainRepoMapping())
+                  .build();
           // Collect MODULE.bazel flag_alias(name = "foo", starlark_flag = "//bar") entries, so when
           // builds set "--foo=1", that maps to "--//bar=1". Inject this as an implicit
           // "--flag_alias=foo=//bar" flag. This is because select()s and configuration transitions
@@ -643,7 +646,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
           optionsParser.parse(
               PriorityCategory.RC_FILE,
               "module resolution",
-              env.getSkyframeExecutor().getFlagAliases(reporter).entrySet().stream()
+              mainRepoMappingAndFlagAliases.flagAliases().entrySet().stream()
                   .map(e -> String.format("--flag_alias=%s=%s", e.getKey(), e.getValue()))
                   .collect(toImmutableList()));
         } catch (InterruptedException e) {

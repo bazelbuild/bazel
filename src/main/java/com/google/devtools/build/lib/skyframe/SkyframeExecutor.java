@@ -3311,93 +3311,37 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     return detailedExitCode;
   }
 
-  /** Canonical Starlark flag aliases for {@link PythonOptions} flags. */
-  // TODO: b/453809359 - Remove when Bazel 9+ can read Python flag alias definitions straight from
-  // rules_python's MODULE.bazel.
-  private static final ImmutableMap<String, String> PY_FLAG_ALIASES =
-      ImmutableMap.of(
-          "build_python_zip",
-          "@@rules_python+//python/config_settings:build_python_zip",
-          "incompatible_default_to_explicit_init_py",
-          "@@rules_python+//python/config_settings:incompatible_default_to_explicit_init_py");
-
-  /** Canonical Starlark flag aliases for {@link BazelPythonConfiguration} flags. */
-  // TODO: b/453809359 - Remove when Bazel 9+ can read Python flag alias definitions straight from
-  // rules_python's MODULE.bazel.
-  private static final ImmutableMap<String, String> BAZEL_PY_FLAG_ALIASES =
-      ImmutableMap.of(
-          "python_path",
-          "@@rules_python+//python/config_settings:python_path",
-          "experimental_python_import_all_repositories",
-          "@@rules_python+//python/config_settings:experimental_python_import_all_repositories");
-
-  /**
-   * Returns flag aliases from {@code MODULE.bazel} {@code flag_alias()} definitions.
-   *
-   * <p>These, along with whatever is set in {@code --flag_alias}, rewrite {@code --foo}-style
-   * command line flags to canonical Starlark flags.
-   *
-   * @param eventHandler handler for Skyframe events
-   */
-  public Map<String, String> getFlagAliases(ExtendedEventHandler eventHandler)
-      throws InterruptedException {
-    EvaluationResult<BazelDepGraphValue> evalResult =
-        evaluate(
-            ImmutableList.of(BazelDepGraphValue.KEY), false, DEFAULT_THREAD_COUNT, eventHandler);
-    var bzlmodDepGraph = evalResult.get(BazelDepGraphValue.KEY).getDepGraph();
-    LinkedHashMap<String, String> aliasesMap = new LinkedHashMap<>();
-    var rootModule = bzlmodDepGraph.entrySet().iterator().next().getValue();
-    for (var module : bzlmodDepGraph.entrySet()) {
-      ImmutableMap<String, String> flagAliases = module.getValue().getFlagAliases();
-      for (var flagAlias : flagAliases.entrySet()) {
-        aliasesMap.put(
-            flagAlias.getKey(),
-            flagAlias.getValue().startsWith("//")
-                ? module.getKey().getCanonicalRepoNameWithoutVersion() + flagAlias.getValue()
-                : flagAlias.getValue());
-      }
-      if (!module.getValue().getName().equals("rules_python")) {
-        continue;
-      }
-      // Don't apply hard-coded aliases if rules_python uses MODULE.bazel aliases.
-      if (!module.getValue().getFlagAliases().isEmpty()) {
-        continue;
-      }
-      // Add Python flags that haven't already been added by rules_python's MODULE.bazel.
-      PY_FLAG_ALIASES.entrySet().stream()
-          .filter(e -> !flagAliases.containsKey(e.getKey()))
-          .map(
-              e ->
-                  rootModule.getName().equals("rules_python")
-                      ? Map.entry(e.getKey(), e.getValue().substring(e.getValue().indexOf("/")))
-                      : e)
-          .forEach(e -> aliasesMap.put(e.getKey(), e.getValue()));
-      // Add Bazel Python flags that haven't already been added by rules_python's MODULE.bazel.
-      BAZEL_PY_FLAG_ALIASES.entrySet().stream()
-          .filter(e -> !flagAliases.containsKey(e.getKey()))
-          .map(
-              e ->
-                  rootModule.getName().equals("rules_python")
-                      ? Map.entry(e.getKey(), e.getValue().substring(e.getValue().indexOf("/")))
-                      : e)
-          .forEach(e -> aliasesMap.put(e.getKey(), e.getValue()));
-    }
-
-    return ImmutableMap.copyOf(aliasesMap);
-  }
-
   public RepositoryMapping getMainRepoMapping(ExtendedEventHandler eventHandler)
       throws InterruptedException, RepositoryMappingResolutionException {
-    return getMainRepoMapping(false, DEFAULT_THREAD_COUNT, eventHandler);
+    return getMainRepoMappingAndFlagAliases(eventHandler).mainRepoMapping();
   }
 
   public RepositoryMapping getMainRepoMapping(
       boolean keepGoing, int loadingPhaseThreads, ExtendedEventHandler eventHandler)
       throws InterruptedException, RepositoryMappingResolutionException {
+    return getMainRepoMappingAndFlagAliases(keepGoing, loadingPhaseThreads, eventHandler)
+        .mainRepoMapping();
+  }
+
+  public record MainRepoMappingAndFlagAliases(
+      RepositoryMapping mainRepoMapping, ImmutableMap<String, String> flagAliases) {}
+
+  public MainRepoMappingAndFlagAliases getMainRepoMappingAndFlagAliases(
+      ExtendedEventHandler eventHandler)
+      throws InterruptedException, RepositoryMappingResolutionException {
+    return getMainRepoMappingAndFlagAliases(false, DEFAULT_THREAD_COUNT, eventHandler);
+  }
+
+  public MainRepoMappingAndFlagAliases getMainRepoMappingAndFlagAliases(
+      boolean keepGoing, int loadingPhaseThreads, ExtendedEventHandler eventHandler)
+      throws InterruptedException, RepositoryMappingResolutionException {
     SkyKey mainRepoMappingKey = RepositoryMappingValue.key(RepositoryName.MAIN);
-    EvaluationResult<RepositoryMappingValue> evalResult =
+    EvaluationResult<SkyValue> evalResult =
         evaluate(
-            ImmutableList.of(mainRepoMappingKey), keepGoing, loadingPhaseThreads, eventHandler);
+            ImmutableList.of(mainRepoMappingKey, BazelDepGraphValue.KEY),
+            keepGoing,
+            loadingPhaseThreads,
+            eventHandler);
     if (evalResult.hasError()) {
       ErrorInfo errorInfo = evalResult.getError(mainRepoMappingKey);
       Exception e = errorInfo.getException();
@@ -3433,7 +3377,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
                   .build()),
           e);
     }
-    return evalResult.get(mainRepoMappingKey).repositoryMapping();
+    return new MainRepoMappingAndFlagAliases(
+        ((RepositoryMappingValue) evalResult.get(mainRepoMappingKey)).repositoryMapping(),
+        ((BazelDepGraphValue) evalResult.get(BazelDepGraphValue.KEY)).getFlagAliases());
   }
 
   @Nullable

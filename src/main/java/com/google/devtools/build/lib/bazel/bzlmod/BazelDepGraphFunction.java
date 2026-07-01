@@ -43,6 +43,8 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Map.Entry;
 import javax.annotation.Nullable;
 
@@ -90,8 +92,77 @@ public class BazelDepGraphFunction implements SkyFunction {
               depGraph,
               extensionUsagesById,
               extensionUniqueNames.inverse(),
-              canonicalRepoNameLookup));
+              canonicalRepoNameLookup),
+          collectFlagAliases(depGraph, canonicalRepoNameLookup));
     }
+  }
+
+  /** Canonical Starlark flag aliases for {@code PythonOptions} flags. */
+  // TODO: b/453809359 - Remove when Bazel 9+ can read Python flag alias definitions straight from
+  // rules_python's MODULE.bazel.
+  private static final ImmutableMap<String, String> PY_FLAG_ALIASES =
+      ImmutableMap.of(
+          "build_python_zip",
+          "@@rules_python+//python/config_settings:build_python_zip",
+          "incompatible_default_to_explicit_init_py",
+          "@@rules_python+//python/config_settings:incompatible_default_to_explicit_init_py");
+
+  /** Canonical Starlark flag aliases for {@code BazelPythonConfiguration} flags. */
+  // TODO: b/453809359 - Remove when Bazel 9+ can read Python flag alias definitions straight from
+  // rules_python's MODULE.bazel.
+  private static final ImmutableMap<String, String> BAZEL_PY_FLAG_ALIASES =
+      ImmutableMap.of(
+          "python_path",
+          "@@rules_python+//python/config_settings:python_path",
+          "experimental_python_import_all_repositories",
+          "@@rules_python+//python/config_settings:experimental_python_import_all_repositories");
+
+  /**
+   * Collects the flag aliases declared via {@code flag_alias()} across all modules, mapping each
+   * short flag name to the canonical label of the Starlark flag it aliases.
+   */
+  private static ImmutableMap<String, String> collectFlagAliases(
+      ImmutableMap<ModuleKey, Module> depGraph,
+      ImmutableBiMap<RepositoryName, ModuleKey> canonicalRepoNameLookup) {
+    LinkedHashMap<String, String> aliasesMap = new LinkedHashMap<>();
+    Module rootModule = depGraph.values().iterator().next();
+    for (Entry<ModuleKey, Module> module : depGraph.entrySet()) {
+      ImmutableMap<String, String> flagAliases = module.getValue().getFlagAliases();
+      for (Entry<String, String> flagAlias : flagAliases.entrySet()) {
+        aliasesMap.put(
+            flagAlias.getKey(),
+            flagAlias.getValue().startsWith("//")
+                ? canonicalRepoNameLookup.inverse().get(module.getKey()).getNameWithAt()
+                    + flagAlias.getValue()
+                : flagAlias.getValue());
+      }
+      if (!module.getValue().getName().equals("rules_python")) {
+        continue;
+      }
+      // Don't apply hard-coded aliases if rules_python uses MODULE.bazel aliases.
+      if (!module.getValue().getFlagAliases().isEmpty()) {
+        continue;
+      }
+      // Add Python flags that haven't already been added by rules_python's MODULE.bazel.
+      PY_FLAG_ALIASES.entrySet().stream()
+          .filter(e -> !flagAliases.containsKey(e.getKey()))
+          .map(
+              e ->
+                  rootModule.getName().equals("rules_python")
+                      ? Map.entry(e.getKey(), e.getValue().substring(e.getValue().indexOf("/")))
+                      : e)
+          .forEach(e -> aliasesMap.put(e.getKey(), e.getValue()));
+      // Add Bazel Python flags that haven't already been added by rules_python's MODULE.bazel.
+      BAZEL_PY_FLAG_ALIASES.entrySet().stream()
+          .filter(e -> !flagAliases.containsKey(e.getKey()))
+          .map(
+              e ->
+                  rootModule.getName().equals("rules_python")
+                      ? Map.entry(e.getKey(), e.getValue().substring(e.getValue().indexOf("/")))
+                      : e)
+          .forEach(e -> aliasesMap.put(e.getKey(), e.getValue()));
+    }
+    return ImmutableMap.copyOf(aliasesMap);
   }
 
   private static ImmutableTable<ModuleExtensionId, ModuleKey, ModuleExtensionUsage>
