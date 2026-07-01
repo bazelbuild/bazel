@@ -55,10 +55,12 @@ import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor.ExecutionR
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue;
 import com.google.devtools.build.lib.testutil.Scratch;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.SyscallCache;
+import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.protobuf.ByteString;
 import java.io.File;
@@ -106,12 +108,16 @@ public final class StarlarkRepositoryContextTest {
 
   @Before
   public void setUp() throws Exception {
-    scratch = new Scratch("/");
+    setUpScratch(new Scratch("/"));
+    setUpRepoRule(false);
+  }
+
+  private void setUpScratch(Scratch scratch) throws Exception {
+    this.scratch = scratch;
     outputBase = scratch.dir("/outputBase");
     outputDirectory = scratch.dir("/outputDir");
     root = Root.fromPath(scratch.dir("/wsRoot"));
     scratch.file("/wsRoot/WORKSPACE");
-    setUpRepoRule(false);
   }
 
   private void setUpRepoRule(boolean remotable, Attribute... attributes) {
@@ -570,6 +576,50 @@ public final class StarlarkRepositoryContextTest {
     testOutputFile(outputDirectory.getChild("bar"), "foobar");
 
     assertThat(context.getPath("bar").realpath()).isEqualTo(context.getPath("foo"));
+  }
+
+  @Test
+  public void testEmulatedSymlinkToFileRecordsFileInput() throws Exception {
+    setUpScratch(new Scratch(new NonNativeSymlinkInMemoryFileSystem(), "/"));
+    setUpRepo("test");
+    scratch.file("/source/file.txt", "hello");
+
+    context.symlink(context.getPath("/source/file.txt"), context.getPath("bar"), thread);
+
+    assertThat(context.getRecordedInputs()).hasSize(1);
+    assertThat(context.getRecordedInputs().get(0).input())
+        .isEqualTo(
+            new RepoRecordedInput.File(
+                RepoRecordedInput.RepoCacheFriendlyPath.createOutsideWorkspace(
+                    PathFragment.create("/source/file.txt"))));
+  }
+
+  @Test
+  public void testEmulatedSymlinkToDirectoryRecordsFileInput() throws Exception {
+    setUpScratch(new Scratch(new NonNativeSymlinkInMemoryFileSystem(), "/"));
+    setUpRepo("test");
+    scratch.file("/source/tree/data.txt", "hello");
+
+    context.symlink(context.getPath("/source/tree"), context.getPath("bar"), thread);
+
+    assertThat(context.getRecordedInputs()).hasSize(1);
+    assertThat(context.getRecordedInputs().get(0).input())
+        .isEqualTo(
+            new RepoRecordedInput.File(
+                RepoRecordedInput.RepoCacheFriendlyPath.createOutsideWorkspace(
+                    PathFragment.create("/source/tree"))));
+  }
+
+  private static final class NonNativeSymlinkInMemoryFileSystem extends InMemoryFileSystem {
+
+    NonNativeSymlinkInMemoryFileSystem() {
+      super(DigestHashFunction.SHA256);
+    }
+
+    @Override
+    public boolean supportsSymbolicLinksNatively(PathFragment path) {
+      return false;
+    }
   }
 
   private static void testOutputFile(Path path, String content) throws IOException {
