@@ -22,6 +22,7 @@ import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsClass;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * A blaze module that installs metrics instrumentations and issues a {@link BuildMetricsEvent} at
@@ -61,6 +62,7 @@ public class MetricsModule extends BlazeModule {
 
   private final AtomicInteger numAnalyses = new AtomicInteger();
   private final AtomicInteger numBuilds = new AtomicInteger();
+  private final AtomicReference<String> mostRecentInvocationId = new AtomicReference<>("");
 
   @Override
   public Iterable<Class<? extends OptionsBase>> getCommonCommandOptions() {
@@ -78,6 +80,6 @@ public class MetricsModule extends BlazeModule {
 
   @Override
   public void beforeCommand(CommandEnvironment env) {
-    MetricsCollector.installInEnv(env, numAnalyses, numBuilds);
+    MetricsCollector.installInEnv(env, numAnalyses, numBuilds, mostRecentInvocationId);
   }
 }

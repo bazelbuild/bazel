@@ -737,16 +737,29 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
     buildTarget("//foo:foo");
     assertThat(buildMetricsEventListener.event.getBuildMetrics().getCumulativeMetrics())
         .isEqualTo(CumulativeMetrics.newBuilder().setNumAnalyses(1).setNumBuilds(1).build());
+    String invocation1 = getCommandEnvironment().getCommandId().toString();
 
     addOptions("--nobuild");
     buildTarget("//foo:foo");
     assertThat(buildMetricsEventListener.event.getBuildMetrics().getCumulativeMetrics())
-        .isEqualTo(CumulativeMetrics.newBuilder().setNumAnalyses(2).setNumBuilds(1).build());
+        .isEqualTo(
+            CumulativeMetrics.newBuilder()
+                .setNumAnalyses(2)
+                .setNumBuilds(1)
+                .setPreviousInvocationId(invocation1)
+                .build());
+    String invocation2 = getCommandEnvironment().getCommandId().toString();
 
     addOptions("--build", "--noanalyze");
     buildTarget("//foo:foo");
     assertThat(buildMetricsEventListener.event.getBuildMetrics().getCumulativeMetrics())
-        .isEqualTo(CumulativeMetrics.newBuilder().setNumAnalyses(2).setNumBuilds(1).build());
+        .isEqualTo(
+            CumulativeMetrics.newBuilder()
+                .setNumAnalyses(2)
+                .setNumBuilds(1)
+                .setPreviousInvocationId(invocation2)
+                .build());
+    String invocation3 = getCommandEnvironment().getCommandId().toString();
 
     write(
         "foo/BUILD",
@@ -762,7 +775,13 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
     addOptions("--analyze");
     assertThrows(ViewCreationFailedException.class, () -> buildTarget("//foo:foo"));
     assertThat(buildMetricsEventListener.event.getBuildMetrics().getCumulativeMetrics())
-        .isEqualTo(CumulativeMetrics.newBuilder().setNumAnalyses(3).setNumBuilds(1).build());
+        .isEqualTo(
+            CumulativeMetrics.newBuilder()
+                .setNumAnalyses(3)
+                .setNumBuilds(1)
+                .setPreviousInvocationId(invocation3)
+                .build());
+    String invocation4 = getCommandEnvironment().getCommandId().toString();
 
     write(
         "foo/BUILD",
@@ -776,7 +795,47 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
 
     assertThrows(BuildFailedException.class, () -> buildTarget("//foo:foo"));
     assertThat(buildMetricsEventListener.event.getBuildMetrics().getCumulativeMetrics())
-        .isEqualTo(CumulativeMetrics.newBuilder().setNumAnalyses(4).setNumBuilds(2).build());
+        .isEqualTo(
+            CumulativeMetrics.newBuilder()
+                .setNumAnalyses(4)
+                .setNumBuilds(2)
+                .setPreviousInvocationId(invocation4)
+                .build());
+  }
+
+  @Test
+  public void previousInvocationId_chainsAcrossInvocations() throws Exception {
+    buildTarget("//foo:foo");
+    // First command: no predecessor on the server.
+    assertThat(
+            buildMetricsEventListener
+                .event
+                .getBuildMetrics()
+                .getCumulativeMetrics()
+                .getPreviousInvocationId())
+        .isEmpty();
+    String firstInvocationId = getCommandEnvironment().getCommandId().toString();
+
+    buildTarget("//foo:foo");
+    // Second command: reports the first command's invocation ID.
+    assertThat(
+            buildMetricsEventListener
+                .event
+                .getBuildMetrics()
+                .getCumulativeMetrics()
+                .getPreviousInvocationId())
+        .isEqualTo(firstInvocationId);
+    String secondInvocationId = getCommandEnvironment().getCommandId().toString();
+
+    buildTarget("//foo:foo");
+    // Third command: reports the second command's invocation ID.
+    assertThat(
+            buildMetricsEventListener
+                .event
+                .getBuildMetrics()
+                .getCumulativeMetrics()
+                .getPreviousInvocationId())
+        .isEqualTo(secondInvocationId);
   }
 
   @Test

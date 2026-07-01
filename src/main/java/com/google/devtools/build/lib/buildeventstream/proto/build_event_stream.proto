@@ -1111,6 +1111,11 @@ message BuildMetrics {
     // one. Will be incremented for every build/test/run/etc. command that
     // reaches the execution phase.
     int32 num_builds = 12;
+    // Invocation ID of the command (of any kind) that the server ran
+    // immediately before this one. Empty for the server's first command.
+    // Useful for fetching and diffing stats/metrics/inputs/outputs against the
+    // preceding invocation on the same server.
+    string previous_invocation_id = 13;
   }
 
   CumulativeMetrics cumulative_metrics = 6;
