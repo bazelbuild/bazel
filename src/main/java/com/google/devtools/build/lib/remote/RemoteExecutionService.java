@@ -1187,13 +1187,28 @@ public class RemoteExecutionService {
     for (OutputFile outputFile : result.getOutputFilesList()) {
       Path localPath =
           remotePathResolver.outputPathToLocalPath(unicodeToInternal(outputFile.getPath()));
+      ByteString contents = outputFile.getContents();
+      if (!contents.isEmpty()) {
+        // Inlined output bytes are consumed directly (e.g. for in-memory outputs
+        // such as unused_inputs_list). They bypass the digest-keyed download path
+        // that verifies content via Utils.verifyBlobContents, so verify them here
+        // against the accompanying digest before they are trusted.
+        Digest contentDigest = digestUtil.compute(contents::writeTo);
+        if (!contentDigest.equals(outputFile.getDigest())) {
+          OutputDigestMismatchException e =
+              new OutputDigestMismatchException(outputFile.getDigest(), contentDigest);
+          e.setOutputPath(outputFile.getPath());
+          e.setLocalPath(localPath);
+          throw e;
+        }
+      }
       files.put(
           localPath,
           new FileMetadata(
               localPath,
               outputFile.getDigest(),
               outputFile.getIsExecutable(),
-              outputFile.getContents()));
+              contents));
     }
 
     var symlinkMap = new HashMap<Path, SymlinkMetadata>();
