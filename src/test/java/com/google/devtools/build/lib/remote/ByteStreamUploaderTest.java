@@ -1159,6 +1159,83 @@ public class ByteStreamUploaderTest {
   }
 
   @Test
+  public void chunkedHeaderIsAttachedOnlyForChunkedContext() throws Exception {
+    RemoteRetrier retrier =
+        TestUtils.newRemoteRetrier(
+            () -> new FixedBackoff(1, 0), (e) -> Result.TRANSIENT_FAILURE, retryService);
+    ByteStreamUploader uploader =
+        new ByteStreamUploader(
+            INSTANCE_NAME,
+            referenceCountedChannel,
+            CallCredentialsProvider.NO_CREDENTIALS,
+            /* callTimeoutSecs= */ 60,
+            retrier,
+            /* maximumOpenFiles= */ -1,
+            /* digestFunction= */ DigestFunction.Value.SHA256);
+
+    List<String> chunkedHeaderValues = Collections.synchronizedList(new ArrayList<>());
+    serviceRegistry.addService(
+        ServerInterceptors.intercept(
+            new ByteStreamImplBase() {
+              @Override
+              public StreamObserver<WriteRequest> write(
+                  StreamObserver<WriteResponse> streamObserver) {
+                return new StreamObserver<WriteRequest>() {
+                  private long committedSize;
+
+                  @Override
+                  public void onNext(WriteRequest writeRequest) {
+                    committedSize += writeRequest.getData().size();
+                  }
+
+                  @Override
+                  public void onError(Throwable throwable) {
+                    fail("onError should never be called.");
+                  }
+
+                  @Override
+                  public void onCompleted() {
+                    WriteResponse response =
+                        WriteResponse.newBuilder().setCommittedSize(committedSize).build();
+                    streamObserver.onNext(response);
+                    streamObserver.onCompleted();
+                  }
+                };
+              }
+            },
+            new ServerInterceptor() {
+              @Override
+              public <ReqT, RespT> ServerCall.Listener<ReqT> interceptCall(
+                  ServerCall<ReqT, RespT> call,
+                  Metadata metadata,
+                  ServerCallHandler<ReqT, RespT> next) {
+                chunkedHeaderValues.add(metadata.get(TracingMetadataUtils.CHUNKED_HEADER_KEY));
+                return next.startCall(call, metadata);
+              }
+            }));
+
+    byte[] regularBlob = new byte[CHUNK_SIZE];
+    byte[] chunkedBlob = new byte[CHUNK_SIZE];
+    Arrays.fill(chunkedBlob, (byte) 1);
+
+    Digest regularDigest = DIGEST_UTIL.compute(regularBlob);
+    uploadBlob(
+        uploader,
+        context,
+        regularDigest,
+        Chunker.builder().setInput(regularBlob).setChunkSize(CHUNK_SIZE).build());
+
+    Digest chunkedDigest = DIGEST_UTIL.compute(chunkedBlob);
+    uploadBlob(
+        uploader,
+        context.chunked(),
+        chunkedDigest,
+        Chunker.builder().setInput(chunkedBlob).setChunkSize(CHUNK_SIZE).build());
+
+    assertThat(chunkedHeaderValues).containsExactly(null, "FAST_CDC_2020").inOrder();
+  }
+
+  @Test
   public void errorsShouldBeReported() throws IOException, InterruptedException {
     RemoteRetrier retrier =
         TestUtils.newRemoteRetrier(
