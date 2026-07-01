@@ -1,0 +1,111 @@
+---
+title: 'Update the docs navigation'
+---
+
+Add a new page to the Bazel docs sidebar, or
+reorganize existing navigation groups. `bazel-contrib/bazel-docs` controls navigation, 
+which is a separate repo from where doc content lives (`bazelbuild/bazel`).
+
+## How navigation works {#how-it-works}
+
+`docs.json` in [`bazel-contrib/bazel-docs`](https://github.com/bazel-contrib/bazel-docs)
+defines the Bazel docs sidebar. Mintlify reads this file to build the
+left-hand navigation tree.
+
+`docs.json` contains a `navigation` array of groups, each with a list of pages:
+
+```json
+{
+  "navigation": [
+    {
+      "group": "Contribute",
+      "pages": [
+        "contribute/index",
+        "contribute/docs-contribution-workflow",
+        "contribute/docs-style-guide"
+      ]
+    }
+  ]
+}
+```
+
+Each entry in `pages` is a root-relative path to an `.mdx` file, without the
+`.mdx` extension.
+
+## Prerequisites {#prerequisites}
+
+- A fork of [`bazel-contrib/bazel-docs`](https://github.com/bazel-contrib/bazel-docs)
+- The [Mintlify CLI](https://www.mintlify.com/docs/cli/install) for local validation
+
+## Add a page to an existing group {#add-page}
+
+1. Clone your fork of `bazel-contrib/bazel-docs` and add the upstream remote:
+
+   ```bash
+   git clone https://github.com/YOUR_USERNAME/bazel-docs.git
+   cd bazel-docs
+   git remote add upstream https://github.com/bazel-contrib/bazel-docs.git
+   ```
+
+2. Check out a new branch:
+
+   ```bash
+   git fetch upstream
+   git checkout -b add-my-page-to-nav upstream/main
+   ```
+
+3. Open `docs.json` and find the group where your page belongs. Add the
+   path to the `pages` array:
+
+   ```json
+   {
+     "group": "Contribute",
+     "pages": [
+       "contribute/index",
+       "contribute/docs-contribution-workflow",
+       "contribute/docs-navigation",
+       "contribute/docs-style-guide"
+     ]
+   }
+   ```
+
+4. Validate that `docs.json` is well-formed:
+
+   ```bash
+   mint validate
+   ```
+
+   Run this from the `bazel-docs` root (where `docs.json` lives).
+
+5. Commit and open a PR against `bazel-contrib/bazel-docs` main:
+
+   ```bash
+   git add docs.json
+   git commit -m "docs: Add my-page to navigation"
+   git push origin add-my-page-to-nav
+   ```
+
+   Open a pull request targeting **`bazel-contrib/bazel-docs` main**.
+
+## Add a new navigation group {#add-group}
+
+If your new page does not fit into any existing group, add a new group object
+to the `navigation` array in `docs.json`:
+
+```json
+{
+  "group": "My New Section",
+  "pages": [
+    "my-section/index",
+    "my-section/getting-started"
+  ]
+}
+```
+
+Position it in the array where you want it to appear in the sidebar.
+
+## Getting help {#getting-help}
+
+If you are unsure where a page belongs, ask in the `#documentation` channel on
+the [Bazel community Slack](https://slack.bazel.build) or open an issue in
+[`bazel-contrib/bazel-docs`](https://github.com/bazel-contrib/bazel-docs/issues).
