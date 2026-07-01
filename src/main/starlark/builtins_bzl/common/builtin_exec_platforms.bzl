@@ -251,7 +251,6 @@ bazel_fragments["CppOptions"] = fragment(
         "//command_line_option:objc_use_dotd_pruning",
         "//command_line_option:host_copt",
         "//command_line_option:host_conlyopt",
-        "//command_line_option:host_compiler",
         "//command_line_option:host_cxxopt",
         "//command_line_option:host_per_file_copt",
         "//command_line_option:host_grte_top",
@@ -277,7 +276,6 @@ bazel_fragments["CppOptions"] = fragment(
         "//command_line_option:experimental_use_llvm_covmap",
     ],
     outputs = [
-        "//command_line_option:compiler",
         "//command_line_option:grte_top",
         "//command_line_option:copt",
         "//command_line_option:cxxopt",
@@ -287,7 +285,6 @@ bazel_fragments["CppOptions"] = fragment(
         "//command_line_option:strip",
     ],
     func = lambda settings: {
-        "//command_line_option:compiler": settings["//command_line_option:host_compiler"],
         "//command_line_option:grte_top": settings["//command_line_option:host_grte_top"],
         # TODO: Properly fix https://github.com/bazelbuild/bazel/issues/24545 with features.
         "//command_line_option:copt": settings["//command_line_option:host_copt"] + ([] if py_internal.get_current_os_name() == "windows" else ["-g0"]),
