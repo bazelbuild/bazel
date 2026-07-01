@@ -84,15 +84,42 @@ public final class StripPrefixedPath {
 
   public static PathFragment maybeDeprefixSymlink(
       byte[] rawTarget, Optional<String> prefix, Path root) {
+    return maybeDeprefixSymlink(rawTarget, prefix, root, false);
+  }
+
+  /**
+   * Normalizes and possibly deprefixes a target link.
+   *
+   * <p>A target link will only be deprefixed and relative to the given root if any of the
+   * following:
+   *
+   * <ul>
+   *   <li>The link is absolute
+   *   <li>The link is known to be relative to the root (<code>forceExtractRootRelative</code>)
+   * </ul>
+   *
+   * Otherwise, no deprefixing will occur.
+   *
+   * @param rawTarget The target path for the link.
+   * @param prefix The prefix to remove.
+   * @param root The path for absolute or <code>forceExtractRootRelative</code> to be relative to.
+   * @param forceExtractRootRelative Forces the given <code>rawTarget</code> to be relative to the
+   *     <code>root</code>.
+   * @return The normalized and possibly deprefixed link target.
+   */
+  public static PathFragment maybeDeprefixSymlink(
+      byte[] rawTarget, Optional<String> prefix, Path root, boolean forceExtractRootRelative) {
     boolean wasAbsolute = createPathFragment(rawTarget).isAbsolute();
-    // Strip the prefix from the link path if set.
-    PathFragment linkPathFragment = maybeDeprefix(rawTarget, prefix).getPathFragment();
-    if (wasAbsolute) {
+    if (wasAbsolute || forceExtractRootRelative) {
+      // Strip the prefix from the link path if set
+      PathFragment linkPathFragment = maybeDeprefix(rawTarget, prefix).getPathFragment();
       // Recover the path to an absolute path as maybeDeprefix() relativize the path
       // even if the prefix is not set
       return root.getRelative(linkPathFragment).asFragment();
+    } else {
+      // No deprefixing needed if not relative to extraction root.
+      return relativize(rawTarget);
     }
-    return linkPathFragment;
   }
 
   public PathFragment getPathFragment() {

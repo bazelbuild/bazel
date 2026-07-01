@@ -130,7 +130,9 @@ public abstract class CompressedTarFunction implements Decompressor {
                 maybeDeprefixSymlink(
                     toRawBytesString(entry.getLinkName()).getBytes(ISO_8859_1),
                     prefix,
-                    descriptor.destinationPath());
+                    descriptor.destinationPath(),
+                    // Hard link target paths should be relative to the extraction directory.
+                    /* forceExtractRootRelative= */ entry.isLink());
 
             Path resolvedTargetPath =
                 (entry.isSymbolicLink()
