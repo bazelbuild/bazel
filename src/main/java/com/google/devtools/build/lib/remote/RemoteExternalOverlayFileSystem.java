@@ -721,30 +721,45 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
       if (shouldPrefetch(path)) {
         return nativeFs.getInputStream(path);
       }
+      // Snapshot the per-build fields so they can't be nulled out from under us by a concurrent
+      // afterCommand(). The overlay outlives any single command, and Skyframe can still hit this
+      // method for a previously-injected repo between commands (e.g. IgnoredSubdirectoriesFunction
+      // reading a repo's .bazelignore before the next beforeCommand rewires these fields). Without
+      // this guard the whole invocation crashes with an NPE instead of failing the specific
+      // SkyFunction cleanly. See https://github.com/bazelbuild/bazel/issues/30110.
+      CombinedCache cacheSnapshot = cache;
+      Reporter reporterSnapshot = reporter;
+      if (cacheSnapshot == null) {
+        throw new IOException(
+            "Cannot fetch remote external file %s: no remote cache is configured for this command"
+                .formatted(path));
+      }
       var relativePath = path.relativeTo(externalDirectory);
       var info =
           (RemoteActionFileSystem.RemoteInMemoryFileInfo) stat(path, /* followSymlinks= */ true);
-      reporter.post(
-          new ExtendedEventHandler.FetchProgress() {
-            @Override
-            public String getResourceIdentifier() {
-              return relativePath.getPathString();
-            }
+      if (reporterSnapshot != null) {
+        reporterSnapshot.post(
+            new ExtendedEventHandler.FetchProgress() {
+              @Override
+              public String getResourceIdentifier() {
+                return relativePath.getPathString();
+              }
 
-            @Override
-            public String getProgress() {
-              return "(%s)".formatted(bytesCountToDisplayString(info.getSize()));
-            }
+              @Override
+              public String getProgress() {
+                return "(%s)".formatted(bytesCountToDisplayString(info.getSize()));
+              }
 
-            @Override
-            public boolean isFinished() {
-              return false;
-            }
-          });
+              @Override
+              public boolean isFinished() {
+                return false;
+              }
+            });
+      }
       var digest = DigestUtil.buildDigest(info.getMetadata().getDigest(), info.getSize());
       try {
         var contentFuture =
-            cache.downloadBlob(
+            cacheSnapshot.downloadBlob(
                 makeRemoteContext(relativePath),
                 path.getPathString(),
                 /* execPath= */ null,
@@ -769,23 +784,25 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
       } catch (ExecutionException e) {
         throw new IllegalStateException("waitForBulkTransfer should have thrown", e);
       } finally {
-        reporter.post(
-            new ExtendedEventHandler.FetchProgress() {
-              @Override
-              public String getResourceIdentifier() {
-                return relativePath.getPathString();
-              }
+        if (reporterSnapshot != null) {
+          reporterSnapshot.post(
+              new ExtendedEventHandler.FetchProgress() {
+                @Override
+                public String getResourceIdentifier() {
+                  return relativePath.getPathString();
+                }
 
-              @Override
-              public String getProgress() {
-                return "";
-              }
+                @Override
+                public String getProgress() {
+                  return "";
+                }
 
-              @Override
-              public boolean isFinished() {
-                return true;
-              }
-            });
+                @Override
+                public boolean isFinished() {
+                  return true;
+                }
+              });
+        }
       }
     }
 
