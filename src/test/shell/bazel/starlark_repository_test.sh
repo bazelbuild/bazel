@@ -1685,6 +1685,9 @@ function test_disallow_unverified_http() {
   tar cvf x.tar x
   sha256="$(sha256sum x.tar | head -c 64)"
   serve_file x.tar
+
+  # Localhost (127.0.0.1) is exempt from the http+checksum requirement,
+  # so downloading without a checksum should succeed.
   cat > MODULE.bazel <<EOF
 http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
@@ -1700,19 +1703,19 @@ genrule(
   cmd = "cp $< $@",
 )
 EOF
+  bazel build //:it || fail "Expected success for localhost http without checksum"
+
+  # Non-localhost http without checksum should still be rejected.
+  bazel clean --expunge
+  cat > MODULE.bazel <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+  name="ext",
+  url = "http://nonlocalhost.example.com:$nc_port/x.tar",
+)
+EOF
   bazel build //:it > "${TEST_log}" 2>&1 && fail "Expected failure" || :
   expect_log 'plain http.*missing checksum'
-
-  # After adding a good checksum, we expect success
-  ed MODULE.bazel <<EOF
-/url
-a
-sha256 = "$sha256",
-.
-w
-q
-EOF
-  bazel build //:it || fail "Expected success one the checksum is given"
 
 }
 

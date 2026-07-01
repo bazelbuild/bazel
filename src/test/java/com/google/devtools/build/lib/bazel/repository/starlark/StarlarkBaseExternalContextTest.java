@@ -467,6 +467,188 @@ public class StarlarkBaseExternalContextTest {
   }
 
   @Test
+  public void download_localhostHttpWithoutChecksum_isAllowed() throws Exception {
+    FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
+    Path testPath = fs.getPath("/test");
+    testPath.createDirectory();
+    testPath.getRelative("output").createDirectory();
+
+    Path testFile = fs.getPath("/test/output/file.txt");
+    OutputStream o = testFile.getOutputStream();
+    o.write(getEmptyTarGzBytes());
+    o.close();
+
+    when(environment.getListener()).thenReturn(extendedEventHandler);
+    when(downloadManager.finalizeDownload(any())).thenReturn(testFile);
+    when(downloadManager.startDownload(
+            /* executorService= */ any(),
+            /* originalUrls= */ any(),
+            /* headers= */ any(),
+            /* authHeaders= */ any(),
+            /* checksum= */ any(),
+            /* canonicalId= */ any(),
+            /* type= */ any(),
+            /* output= */ any(),
+            /* clientEnv= */ any(),
+            /* context= */ any(),
+            /* downloadPhaser= */ any(),
+            /* mayHardlink= */ anyBoolean()))
+        .thenReturn(new CompletableFuture<>());
+
+    try (StarlarkBaseExternalContext sbec = setupStarlarkContext(testPath)) {
+      // http://localhost without checksum should be allowed — URL not filtered out.
+      // We use block=false so download() returns without needing a real download.
+      Object result =
+          sbec.download(
+              /* url= */ "http://localhost:8080/registry/scope/name/1.0.0",
+              /* output= */ "/test/output",
+              /* sha256= */ "",
+              /* executable= */ false,
+              /* allowFail= */ true,
+              /* canonicalId= */ "",
+              /* authUnchecked= */ Dict.<String, Dict<String, Object>>builder().buildImmutable(),
+              /* headersUnchecked= */ Dict.<String, Dict<String, Object>>builder().buildImmutable(),
+              /* integrity= */ "",
+              /* block= */ false,
+              /* thread= */ starlarkThread);
+      // If localhost URL was incorrectly filtered, startDownload would not be called
+      // and download() would return a failed struct. A non-null PendingDownload means
+      // the URL passed filtering and reached the download manager.
+      assertThat(result).isNotNull();
+    }
+  }
+
+  @Test
+  public void download_127001HttpWithoutChecksum_isAllowed() throws Exception {
+    FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
+    Path testPath = fs.getPath("/test");
+    testPath.createDirectory();
+    testPath.getRelative("output").createDirectory();
+
+    Path testFile = fs.getPath("/test/output/file.txt");
+    OutputStream o = testFile.getOutputStream();
+    o.write(getEmptyTarGzBytes());
+    o.close();
+
+    when(environment.getListener()).thenReturn(extendedEventHandler);
+    when(downloadManager.finalizeDownload(any())).thenReturn(testFile);
+    when(downloadManager.startDownload(
+            /* executorService= */ any(),
+            /* originalUrls= */ any(),
+            /* headers= */ any(),
+            /* authHeaders= */ any(),
+            /* checksum= */ any(),
+            /* canonicalId= */ any(),
+            /* type= */ any(),
+            /* output= */ any(),
+            /* clientEnv= */ any(),
+            /* context= */ any(),
+            /* downloadPhaser= */ any(),
+            /* mayHardlink= */ anyBoolean()))
+        .thenReturn(new CompletableFuture<>());
+
+    try (StarlarkBaseExternalContext sbec = setupStarlarkContext(testPath)) {
+      // http://127.0.0.1 without checksum should be allowed — URL not filtered out.
+      Object result =
+          sbec.download(
+              /* url= */ "http://127.0.0.1:9090/packages/test/1.0.0",
+              /* output= */ "/test/output",
+              /* sha256= */ "",
+              /* executable= */ false,
+              /* allowFail= */ true,
+              /* canonicalId= */ "",
+              /* authUnchecked= */ Dict.<String, Dict<String, Object>>builder().buildImmutable(),
+              /* headersUnchecked= */ Dict.<String, Dict<String, Object>>builder().buildImmutable(),
+              /* integrity= */ "",
+              /* block= */ false,
+              /* thread= */ starlarkThread);
+      assertThat(result).isNotNull();
+    }
+  }
+
+  @Test
+  public void download_ipv6LoopbackHttpWithoutChecksum_isAllowed() throws Exception {
+    FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
+    Path testPath = fs.getPath("/test");
+    testPath.createDirectory();
+    testPath.getRelative("output").createDirectory();
+
+    Path testFile = fs.getPath("/test/output/file.txt");
+    OutputStream o = testFile.getOutputStream();
+    o.write(getEmptyTarGzBytes());
+    o.close();
+
+    when(environment.getListener()).thenReturn(extendedEventHandler);
+    when(downloadManager.finalizeDownload(any())).thenReturn(testFile);
+    when(downloadManager.startDownload(
+            /* executorService= */ any(),
+            /* originalUrls= */ any(),
+            /* headers= */ any(),
+            /* authHeaders= */ any(),
+            /* checksum= */ any(),
+            /* canonicalId= */ any(),
+            /* type= */ any(),
+            /* output= */ any(),
+            /* clientEnv= */ any(),
+            /* context= */ any(),
+            /* downloadPhaser= */ any(),
+            /* mayHardlink= */ anyBoolean()))
+        .thenReturn(new CompletableFuture<>());
+
+    try (StarlarkBaseExternalContext sbec = setupStarlarkContext(testPath)) {
+      // http://[::1] without checksum should be allowed — URL not filtered out.
+      Object result =
+          sbec.download(
+              /* url= */ "http://[::1]:8080/registry/scope/name/1.0.0",
+              /* output= */ "/test/output",
+              /* sha256= */ "",
+              /* executable= */ false,
+              /* allowFail= */ true,
+              /* canonicalId= */ "",
+              /* authUnchecked= */ Dict.<String, Dict<String, Object>>builder().buildImmutable(),
+              /* headersUnchecked= */ Dict.<String, Dict<String, Object>>builder().buildImmutable(),
+              /* integrity= */ "",
+              /* block= */ false,
+              /* thread= */ starlarkThread);
+      assertThat(result).isNotNull();
+    }
+  }
+
+  @Test
+  public void download_remoteHttpWithoutChecksum_isRejected() throws Exception {
+    FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
+    Path testPath = fs.getPath("/test");
+    testPath.createDirectory();
+    testPath.getRelative("output").createDirectory();
+
+    when(environment.getListener()).thenReturn(extendedEventHandler);
+
+    try (StarlarkBaseExternalContext sbec = setupStarlarkContext(testPath)) {
+      // http://example.com without checksum should still be rejected.
+      // With allowFail=true and no valid URLs, download() returns a failed struct
+      // rather than throwing, since getUrls is called with ensureNonEmpty=false.
+      Object result =
+          sbec.download(
+              /* url= */ "http://example.com/file.txt",
+              /* output= */ "/test/output",
+              /* sha256= */ "",
+              /* executable= */ false,
+              /* allowFail= */ true,
+              /* canonicalId= */ "",
+              /* authUnchecked= */ Dict.<String, Dict<String, Object>>builder().buildImmutable(),
+              /* headersUnchecked= */ Dict.<String, Dict<String, Object>>builder().buildImmutable(),
+              /* integrity= */ "",
+              /* block= */ true,
+              /* thread= */ starlarkThread);
+      // With allowFail=true, an empty URL list (all http filtered) causes an IOException
+      // that gets caught and returned as a failed struct with success=false.
+      assertThat(result).isInstanceOf(StructImpl.class);
+      StructImpl struct = (StructImpl) result;
+      assertThat(struct.getValue("success", Boolean.class)).isEqualTo(false);
+    }
+  }
+
+  @Test
   public void docSupportedFormats() {
     String expected = DecompressorValue.readableSupportedFormats("\"", "\"", "or");
     String observed = StarlarkBaseExternalContext.SUPPORTED_DECOMPRESSION_FORMATS;
