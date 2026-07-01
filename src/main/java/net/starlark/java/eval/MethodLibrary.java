@@ -28,9 +28,11 @@ import java.util.Optional;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkLibrary;
 import net.starlark.java.annot.StarlarkMethod;
 
 /** The universal predeclared functions of core Starlark. */
+@StarlarkLibrary
 class MethodLibrary {
 
   @StarlarkMethod(

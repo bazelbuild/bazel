@@ -30,6 +30,7 @@ import java.util.Objects;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkLibrary;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
@@ -246,6 +247,7 @@ public final class SelectorList implements StarlarkValue, HasBinary {
 
   /** The user-facing API to the {@code select()} callable. */
   @GlobalMethods(environment = {Environment.BUILD, Environment.BZL})
+  @StarlarkLibrary
   public static final class SelectLibrary {
 
     private SelectLibrary() {}

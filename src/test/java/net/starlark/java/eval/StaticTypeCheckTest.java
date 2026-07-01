@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableSet;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkLibrary;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.syntax.Expression;
 import net.starlark.java.syntax.FileOptions;
@@ -181,6 +182,7 @@ public final class StaticTypeCheckTest {
     // no getAssociatedTypeConstructor()
   }
 
+  @StarlarkLibrary
   public static final class DummyLibrary {
     @StarlarkMethod(name = "BadSignature", documented = false, isTypeConstructor = true)
     public BadSignatureTypeBuiltin badSignature() {
