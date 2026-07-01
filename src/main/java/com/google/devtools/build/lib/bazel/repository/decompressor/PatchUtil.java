@@ -27,6 +27,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathContainmentPolicy;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -308,7 +309,7 @@ public class PatchUtil {
       return null;
     }
     Path filePath = outputDirectory.getRelative(path);
-    if (!filePath.startsWith(outputDirectory)) {
+    if (!PathContainmentPolicy.HOST_POLICY.isContained(filePath, outputDirectory)) {
       throw new PatchFailedException(
           String.format(
               "Cannot patch file outside of external repository (%s), file path = \"%s\" at line"
