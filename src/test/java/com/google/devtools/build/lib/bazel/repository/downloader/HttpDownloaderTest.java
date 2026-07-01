@@ -24,6 +24,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -710,7 +711,7 @@ public class HttpDownloaderTest {
   }
 
   @Test
-  public void downloadAndReadOneUrl_ok() throws IOException, InterruptedException {
+  public void downloadAndRead_ok() throws IOException, InterruptedException {
     try (ServerSocket server = new ServerSocket(0, 1, InetAddress.getByName(null))) {
       @SuppressWarnings("unused")
       Future<?> possiblyIgnoredError =
@@ -733,8 +734,10 @@ public class HttpDownloaderTest {
 
       assertThat(
               new String(
-                  httpDownloader.downloadAndReadOneUrl(
-                      URI.create(String.format("http://localhost:%d/foo", server.getLocalPort())),
+                  httpDownloader.downloadAndRead(
+                      ImmutableList.of(
+                          URI.create(
+                              String.format("http://localhost:%d/foo", server.getLocalPort()))),
                       StaticCredentials.EMPTY,
                       Optional.empty(),
                       eventHandler,
@@ -745,7 +748,7 @@ public class HttpDownloaderTest {
   }
 
   @Test
-  public void downloadAndReadOneUrl_notFound() throws IOException, InterruptedException {
+  public void downloadAndRead_notFound() throws IOException, InterruptedException {
     try (ServerSocket server = new ServerSocket(0, 1, InetAddress.getByName(null))) {
       @SuppressWarnings("unused")
       Future<?> possiblyIgnoredError =
@@ -769,8 +772,9 @@ public class HttpDownloaderTest {
       assertThrows(
           IOException.class,
           () ->
-              httpDownloader.downloadAndReadOneUrl(
-                  URI.create(String.format("http://localhost:%d/foo", server.getLocalPort())),
+              httpDownloader.downloadAndRead(
+                  ImmutableList.of(
+                      URI.create(String.format("http://localhost:%d/foo", server.getLocalPort()))),
                   StaticCredentials.EMPTY,
                   Optional.empty(),
                   eventHandler,
@@ -779,7 +783,7 @@ public class HttpDownloaderTest {
   }
 
   @Test
-  public void downloadAndReadOneUrl_checksumProvided()
+  public void downloadAndRead_checksumProvided()
       throws IOException, Checksum.InvalidChecksumException, InterruptedException {
     try (ServerSocket server = new ServerSocket(0, 1, InetAddress.getByName(null))) {
       @SuppressWarnings("unused")
@@ -803,8 +807,10 @@ public class HttpDownloaderTest {
 
       assertThat(
               new String(
-                  httpDownloader.downloadAndReadOneUrl(
-                      URI.create(String.format("http://localhost:%d/foo", server.getLocalPort())),
+                  httpDownloader.downloadAndRead(
+                      ImmutableList.of(
+                          URI.create(
+                              String.format("http://localhost:%d/foo", server.getLocalPort()))),
                       StaticCredentials.EMPTY,
                       Optional.of(
                           Checksum.fromString(
@@ -818,7 +824,7 @@ public class HttpDownloaderTest {
   }
 
   @Test
-  public void downloadAndReadOneUrl_checksumMismatch() throws IOException {
+  public void downloadAndRead_checksumMismatch() throws IOException {
     try (ServerSocket server = new ServerSocket(0, 1, InetAddress.getByName(null))) {
       @SuppressWarnings("unused")
       Future<?> possiblyIgnoredError =
@@ -843,8 +849,10 @@ public class HttpDownloaderTest {
           assertThrows(
               UnrecoverableHttpException.class,
               () ->
-                  httpDownloader.downloadAndReadOneUrl(
-                      URI.create(String.format("http://localhost:%d/foo", server.getLocalPort())),
+                  httpDownloader.downloadAndRead(
+                      ImmutableList.of(
+                          URI.create(
+                              String.format("http://localhost:%d/foo", server.getLocalPort()))),
                       StaticCredentials.EMPTY,
                       Optional.of(
                           Checksum.fromString(
@@ -853,6 +861,137 @@ public class HttpDownloaderTest {
                       eventHandler,
                       ImmutableMap.of()));
       assertThat(e).hasMessageThat().contains("Checksum was");
+    }
+  }
+
+  @Test
+  public void downloadAndRead_twoUrlsFirstNotFoundAndSecondOk()
+      throws IOException, InterruptedException {
+    try (ServerSocket server1 = new ServerSocket(0, 1, InetAddress.getByName(null));
+        ServerSocket server2 = new ServerSocket(0, 1, InetAddress.getByName(null))) {
+      @SuppressWarnings("unused")
+      Future<?> possiblyIgnoredError =
+          executor.submit(
+              () -> {
+                try (Socket socket = server1.accept()) {
+                  readHttpRequest(socket.getInputStream());
+                  sendLines(
+                      socket,
+                      "HTTP/1.1 404 Not Found",
+                      "Date: Fri, 31 Dec 1999 23:59:59 GMT",
+                      "Connection: close",
+                      "Content-Type: text/plain",
+                      "Content-Length: 0",
+                      "",
+                      "");
+                }
+                return null;
+              });
+
+      @SuppressWarnings("unused")
+      Future<?> possiblyIgnoredError2 =
+          executor.submit(
+              () -> {
+                while (!executor.isShutdown()) {
+                  try (Socket socket = server2.accept()) {
+                    readHttpRequest(socket.getInputStream());
+                    sendLines(
+                        socket,
+                        "HTTP/1.1 200 OK",
+                        "Date: Fri, 31 Dec 1999 23:59:59 GMT",
+                        "Connection: close",
+                        "Content-Type: text/plain",
+                        "",
+                        "content2");
+                  }
+                }
+                return null;
+              });
+
+      ImmutableList<URI> urls =
+          ImmutableList.of(
+              URI.create(String.format("http://localhost:%d/foo", server1.getLocalPort())),
+              URI.create(String.format("http://localhost:%d/foo", server2.getLocalPort())));
+
+      byte[] content =
+          httpDownloader.downloadAndRead(
+              urls,
+              StaticCredentials.EMPTY,
+              Optional.empty(),
+              eventHandler,
+              Collections.emptyMap());
+
+      assertThat(new String(content, UTF_8)).isEqualTo("content2");
+    }
+  }
+
+  @Test
+  public void downloadAndReadOneUrlForBzlmod_fallsBackToNextRewrittenUrl()
+      throws IOException, InterruptedException {
+    try (ServerSocket primary = new ServerSocket(0, 1, InetAddress.getByName(null));
+        ServerSocket fallback = new ServerSocket(0, 1, InetAddress.getByName(null))) {
+      // The first (e.g. proxy/mirror) URL fails ...
+      @SuppressWarnings("unused")
+      Future<?> possiblyIgnoredError =
+          executor.submit(
+              () -> {
+                try (Socket socket = primary.accept()) {
+                  readHttpRequest(socket.getInputStream());
+                  sendLines(
+                      socket,
+                      "HTTP/1.1 404 Not Found",
+                      "Date: Fri, 31 Dec 1999 23:59:59 GMT",
+                      "Connection: close",
+                      "Content-Type: text/plain",
+                      "Content-Length: 0",
+                      "",
+                      "");
+                }
+                return null;
+              });
+
+      // ... so the read must fall back to the second (e.g. direct) URL.
+      @SuppressWarnings("unused")
+      Future<?> possiblyIgnoredError2 =
+          executor.submit(
+              () -> {
+                while (!executor.isShutdown()) {
+                  try (Socket socket = fallback.accept()) {
+                    readHttpRequest(socket.getInputStream());
+                    sendLines(
+                        socket,
+                        "HTTP/1.1 200 OK",
+                        "Date: Fri, 31 Dec 1999 23:59:59 GMT",
+                        "Connection: close",
+                        "Content-Type: text/plain",
+                        "",
+                        "content2");
+                  }
+                }
+                return null;
+              });
+
+      URI originalUrl = URI.create("https://example.com/foo");
+      URI primaryUrl = URI.create(String.format("http://localhost:%d/foo", primary.getLocalPort()));
+      URI fallbackUrl =
+          URI.create(String.format("http://localhost:%d/foo", fallback.getLocalPort()));
+
+      // A rewriter that expands the single registry URL into an ordered [primary, fallback] list,
+      // like e.g. a proxy/mirror rewrite with a direct-URL fallback.
+      UrlRewriter rewriter = mock(UrlRewriter.class);
+      when(rewriter.amend(any()))
+          .thenReturn(
+              ImmutableList.of(
+                  UrlRewriter.RewrittenURL.create(primaryUrl, true),
+                  UrlRewriter.RewrittenURL.create(fallbackUrl, true)));
+      when(rewriter.updateAuthHeaders(any(), any(), any())).thenReturn(ImmutableMap.of());
+      downloadManager.setUrlRewriter(rewriter);
+
+      byte[] content =
+          downloadManager.downloadAndReadOneUrlForBzlmod(
+              originalUrl, Collections.emptyMap(), Optional.empty());
+
+      assertThat(new String(content, UTF_8)).isEqualTo("content2");
     }
   }
 
