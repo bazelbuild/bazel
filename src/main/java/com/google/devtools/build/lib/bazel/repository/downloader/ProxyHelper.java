@@ -30,6 +30,7 @@ import java.net.URI;
 import java.net.URLDecoder;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -44,6 +45,12 @@ public class ProxyHelper {
   private static final Object AUTHENTICATOR_LOCK = new Object();
   private static volatile boolean authenticatorSet = false;
 
+  // Maps "host:port" to credentials for that proxy endpoint. This allows the global
+  // Authenticator to return the correct credentials for each distinct proxy endpoint,
+  // preventing credential bleed across proxy boundaries.
+  private static final ConcurrentHashMap<String, PasswordAuthentication> proxyCredentials =
+      new ConcurrentHashMap<>();
+
   private final Map<String, String> env;
 
   /** Resets the static authenticator state. This is intended for testing only. */
@@ -51,6 +58,7 @@ public class ProxyHelper {
     synchronized (AUTHENTICATOR_LOCK) {
       Authenticator.setDefault(null);
       authenticatorSet = false;
+      proxyCredentials.clear();
     }
   }
 
@@ -310,14 +318,21 @@ public class ProxyHelper {
     // Instead, it uses the Authenticator mechanism. We also enable Basic auth tunneling by
     // clearing the disabled schemes (by default, Basic auth is disabled for HTTPS tunneling).
     if (username != null && password != null) {
+      // Register credentials for this specific proxy endpoint.
+      // Multiple proxy endpoints can each have different credentials; the Authenticator
+      // looks up credentials by the requesting host and port.
+      String proxyKey = hostname + ":" + port;
+      proxyCredentials.put(
+          proxyKey,
+          new PasswordAuthentication(
+              internalToUnicode(username), internalToUnicode(password).toCharArray()));
+
       // Use double-checked locking to ensure thread-safe, one-time setup of the global
-      // Authenticator. The first caller with credentials wins. This is safe because Bazel
-      // typically uses a single proxy configuration for all downloads.
+      // Authenticator. The Authenticator is set once and then reused for all proxy auth
+      // challenges, looking up credentials from the proxyCredentials map.
       if (!authenticatorSet) {
         synchronized (AUTHENTICATOR_LOCK) {
           if (!authenticatorSet) {
-            final String finalUsername = username;
-            final String finalPassword = password;
             // Capture the previous authenticator to delegate non-proxy auth requests to it.
             // This preserves existing behavior for server authentication (e.g., .netrc).
             final Authenticator previousAuthenticator = Authenticator.getDefault();
@@ -326,11 +341,23 @@ public class ProxyHelper {
                   @Nullable
                   @Override
                   public PasswordAuthentication getPasswordAuthentication() {
-                    // Only provide credentials for proxy authentication.
                     if (getRequestorType() == RequestorType.PROXY) {
-                      return new PasswordAuthentication(
-                          internalToUnicode(finalUsername),
-                          internalToUnicode(finalPassword).toCharArray());
+                      String requestingHost = getRequestingHost();
+                      int requestingPort = getRequestingPort();
+                      if (requestingHost != null) {
+                        // Look up credentials for the specific proxy endpoint.
+                        // This prevents credential bleed across proxy boundaries by ensuring
+                        // that credentials configured for proxy-A are never sent to proxy-B.
+                        String key = requestingHost + ":" + requestingPort;
+                        PasswordAuthentication auth = proxyCredentials.get(key);
+                        if (auth != null) {
+                          return auth;
+                        }
+                      }
+                      // No credentials registered for this proxy endpoint.
+                      // Return null so the caller can handle the authentication failure
+                      // (e.g., by falling through to the previous authenticator).
+                      return null;
                     }
                     // Delegate non-proxy auth to previous authenticator (if any).
                     // This preserves existing behavior for server authentication.
