@@ -412,9 +412,9 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
     storedEventHandler.post(profilerStartedEvent);
 
     // Enable Starlark CPU profiling (--starlark_cpu_profile=/tmp/foo.pprof.gz)
-    boolean success = false;
+    OutputStream starlarkCpuProfileOut = null;
+    boolean starlarkCpuProfileStarted = false;
     if (!commonOptions.getStarlarkCpuProfile().isEmpty()) {
-      OutputStream out;
       try {
         InstrumentationOutput starlarkCpuProfile =
             runtime
@@ -427,7 +427,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
                     storedEventHandler,
                     /* append= */ null,
                     /* internal= */ null);
-        out = starlarkCpuProfile.createOutputStream();
+        starlarkCpuProfileOut = starlarkCpuProfile.createOutputStream();
       } catch (IOException ex) {
         String message = "Starlark CPU profiler: " + ex.getMessage();
         outErr.printErrLn(message);
@@ -435,8 +435,10 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
             message, FailureDetails.Command.Code.STARLARK_CPU_PROFILE_FILE_INITIALIZATION_FAILURE);
       }
       try {
-        success = Starlark.startCpuProfile(out, Duration.ofMillis(10));
+        starlarkCpuProfileStarted =
+            Starlark.startCpuProfile(starlarkCpuProfileOut, Duration.ofMillis(10));
       } catch (IllegalStateException ex) { // e.g. SIGPROF in use
+        closeStarlarkCpuProfileOutput(starlarkCpuProfileOut);
         String message = Strings.nullToEmpty(ex.getMessage());
         outErr.printErrLn(message);
         return createDetailedCommandResult(
@@ -762,10 +764,14 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       }
 
       // Finalize the Starlark CPU profile.
-      if (!commonOptions.getStarlarkCpuProfile().isEmpty() && success) {
+      if (starlarkCpuProfileStarted) {
         try {
           Starlark.stopCpuProfile();
+          starlarkCpuProfileStarted = false;
+          starlarkCpuProfileOut = null;
         } catch (IOException ex) {
+          starlarkCpuProfileStarted = false;
+          starlarkCpuProfileOut = null;
           String message = "Starlark CPU profiler: " + ex.getMessage();
           reporter.handle(Event.error(message));
           if (result.getDetailedExitCode().isSuccess()) { // don't clobber existing error
@@ -797,6 +803,15 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       result = BlazeCommandResult.createShutdown(crash);
       return result;
     } finally {
+      if (starlarkCpuProfileStarted) {
+        try {
+          Starlark.stopCpuProfile();
+        } catch (IOException e) {
+          env.getReporter().handle(Event.error("Starlark CPU profiler: " + e.getMessage()));
+        }
+      } else {
+        closeStarlarkCpuProfileOutput(starlarkCpuProfileOut);
+      }
       try {
         // Profiler might still be running when an exception is thrown before BuildCompleteEvent is
         // emitted or BlazeModule#completeCommand() is called. So we still need to try to stop the
@@ -827,6 +842,17 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       systemOutErrPatcher.close();
 
       env.getTimestampGranularityMonitor().waitForTimestampGranularity(outErr);
+    }
+  }
+
+  private static void closeStarlarkCpuProfileOutput(@Nullable OutputStream out) {
+    if (out == null) {
+      return;
+    }
+    try {
+      out.close();
+    } catch (IOException e) {
+      logger.atWarning().withCause(e).log("Failed to close Starlark CPU profile output");
     }
   }
 
