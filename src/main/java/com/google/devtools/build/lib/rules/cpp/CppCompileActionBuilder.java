@@ -339,6 +339,7 @@ public final class CppCompileActionBuilder implements StarlarkValue {
         ccToolchain.getGrepIncludes(),
         additionalOutputs,
         moduleFiles,
+        modmapFile,
         modmapInputFile);
   }
 
