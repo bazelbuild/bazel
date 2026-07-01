@@ -395,6 +395,19 @@ public abstract class BuildRequestOptions extends OptionsBase {
   public abstract boolean getIncompatibleSkipGenfilesSymlink();
 
   @Option(
+      name = "incompatible_external_symlink",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          """
+          If set to true, Bazel creates an `external` convenience symlink in the workspace root
+          pointing to the external repository directory.
+          """)
+  public abstract boolean getIncompatibleExternalSymlink();
+
+  @Option(
       name = "target_pattern_file",
       defaultValue = "",
       documentationCategory = OptionDocumentationCategory.GENERIC_INPUTS,
