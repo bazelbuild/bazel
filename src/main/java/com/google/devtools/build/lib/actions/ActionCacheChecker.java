@@ -178,6 +178,9 @@ public class ActionCacheChecker {
    * @param actionKey the action key previously obtained from action.getKey()
    * @param actionInputs the action inputs; usually action.getInputs(), but might be a previously
    *     cached set of discovered inputs for actions that discover them.
+   * @param mandatoryInputsDigest the digest of the action's mandatory inputs, or null if the action
+   *     doesn't discover inputs or pruned them. When set, it is used as a proxy for the mandatory
+   *     inputs so that they are not hashed a second time.
    * @param outputMetadataStore metadata provider for action outputs.
    * @param cachedOutputMetadata cached metadata that should be used instead of {@code
    *     outputMetadataStore}.
@@ -193,6 +196,7 @@ public class ActionCacheChecker {
       Action action,
       String actionKey,
       NestedSet<Artifact> actionInputs,
+      @Nullable byte[] mandatoryInputsDigest,
       InputMetadataProvider inputMetadataProvider,
       OutputMetadataStore outputMetadataStore,
       @Nullable CachedOutputMetadata cachedOutputMetadata,
@@ -206,10 +210,14 @@ public class ActionCacheChecker {
         new ActionCache.Entry.Builder(
             actionKey,
             action.discoversInputs(),
+            mandatoryInputsDigest,
             effectiveEnvironment,
             actionExecutionSalt,
             outputPermissions,
             useArchivedTreeArtifacts);
+    // Mirror how the cached entry was written: if it pruned its inputs, the mandatory inputs digest
+    // is not used as a seed and all inputs are hashed (see updateActionCache).
+    builder.setPrunedInputs(entry.prunedInputs());
 
     for (Artifact artifact : action.getOutputs()) {
       if (artifact.isTreeArtifact()) {
@@ -236,9 +244,28 @@ public class ActionCacheChecker {
         }
       }
     }
-    for (Artifact artifact : actionInputs.toList()) {
-      FileArtifactValue inputMetadata = getInputMetadataMaybe(inputMetadataProvider, artifact);
-      builder.addInputFile(artifact, inputMetadata);
+    if (mandatoryInputsDigest != null) {
+      // The mandatory inputs are covered by mandatoryInputsDigest, which the builder folds into the
+      // entry digest as a seed. Fold only the discovered inputs, which the cache entry already
+      // enumerates by exec path, so the mandatory inputs are neither hashed a second time nor
+      // flattened into a set just to be skipped. mandatoryInputsDigest is only set for non-pruning
+      // input-discovering actions, so the entry is one too.
+      if (!entry.discoversInputs()) {
+        return false;
+      }
+      for (String execPath : entry.getDiscoveredInputPaths()) {
+        ActionInput input = inputMetadataProvider.getInput(PathFragment.create(execPath));
+        if (input == null) {
+          // A previously discovered input is no longer among the action's inputs.
+          return false;
+        }
+        builder.addInputFile(
+            (Artifact) input, getInputMetadataMaybe(inputMetadataProvider, (Artifact) input));
+      }
+    } else {
+      for (Artifact artifact : actionInputs.toList()) {
+        builder.addInputFile(artifact, getInputMetadataMaybe(inputMetadataProvider, artifact));
+      }
     }
     return Arrays.equals(entry.getDigest(), builder.build().getDigest());
   }
@@ -452,6 +479,7 @@ public class ActionCacheChecker {
   public Token getTokenIfNeedToExecute(
       Action action,
       List<Artifact> resolvedCacheArtifacts,
+      @Nullable byte[] mandatoryInputsDigest,
       Map<String, String> clientEnv,
       OutputPermissions outputPermissions,
       EventHandler handler,
@@ -508,6 +536,7 @@ public class ActionCacheChecker {
         inputMetadataProvider,
         outputMetadataStore,
         actionInputs,
+        mandatoryInputsDigest,
         clientEnv,
         outputPermissions,
         actionExecutionSalt,
@@ -542,6 +571,7 @@ public class ActionCacheChecker {
       InputMetadataProvider inputMetadataProvider,
       OutputMetadataStore outputMetadataStore,
       NestedSet<Artifact> actionInputs,
+      @Nullable byte[] mandatoryInputsDigest,
       Map<String, String> clientEnv,
       OutputPermissions outputPermissions,
       String actionExecutionSalt,
@@ -580,6 +610,7 @@ public class ActionCacheChecker {
         action,
         actionKey,
         actionInputs,
+        mandatoryInputsDigest,
         inputMetadataProvider,
         outputMetadataStore,
         cachedOutputMetadata,
@@ -618,7 +649,7 @@ public class ActionCacheChecker {
   // to trigger a re-execution, so we should catch the IOException explicitly there. In others, we
   // should propagate the exception, because it is unexpected (e.g., bad file system state).
   @Nullable
-  private static FileArtifactValue getInputMetadataMaybe(
+  public static FileArtifactValue getInputMetadataMaybe(
       InputMetadataProvider inputMetadataProvider, Artifact artifact) {
     try {
       return getInputMetadataOrConstant(inputMetadataProvider, artifact);
@@ -655,6 +686,7 @@ public class ActionCacheChecker {
   public void updateActionCache(
       Action action,
       Token token,
+      @Nullable byte[] mandatoryInputsDigest,
       InputMetadataProvider inputMetadataProvider,
       OutputMetadataStore outputMetadataStore,
       Map<String, String> clientEnv,
@@ -684,6 +716,7 @@ public class ActionCacheChecker {
         new ActionCache.Entry.Builder(
                 actionKey,
                 action.discoversInputs(),
+                mandatoryInputsDigest,
                 effectiveEnvironment,
                 actionExecutionSalt,
                 outputPermissions,
@@ -713,19 +746,38 @@ public class ActionCacheChecker {
       }
     }
 
-    ImmutableSet<Artifact> excludePathsFromActionCache =
-        action.discoversInputs() && !action.prunedInputs()
-            ? action.getMandatoryInputs().toSet()
-            : ImmutableSet.of();
+    // When mandatoryInputsDigest is set, the builder seeds the entry digest with it (the mandatory
+    // inputs are not pruned), so omit those inputs here: they are neither hashed again nor recorded
+    // as discovered inputs. The read path (isUpToDate) performs the mirror-image skip.
+    boolean excludeMandatoryInputs = mandatoryInputsDigest != null && !action.prunedInputs();
+    ImmutableSet<Artifact> mandatoryInputs =
+        excludeMandatoryInputs ? action.getMandatoryInputs().toSet() : ImmutableSet.of();
 
     for (Artifact input : action.getInputs().toList()) {
+      if (excludeMandatoryInputs && mandatoryInputs.contains(input)) {
+        continue;
+      }
       builder.addInputFile(
           input,
           getInputMetadataMaybe(inputMetadataProvider, input),
-          /* saveExecPath= */ !excludePathsFromActionCache.contains(input));
+          /* saveExecPath= */ action.discoversInputs());
     }
 
     actionCache.put(key, builder.build());
+  }
+
+  /**
+   * Returns the action's cached entry if it exists and is not corrupted, or null otherwise.
+   *
+   * <p>Used by the cheap first phase of the action cache lookup for input-discovering actions, which
+   * compares the entry's {@linkplain ActionCache.Entry#getMandatoryInputsDigest mandatory inputs
+   * digest} before requesting the previously discovered inputs (which could otherwise reintroduce a
+   * stale dependency edge and form a phantom cycle).
+   */
+  @Nullable
+  public ActionCache.Entry getUsableCacheEntry(Action action) {
+    ActionCache.Entry entry = getCacheEntry(action);
+    return (entry == null || entry.isCorrupted()) ? null : entry;
   }
 
   @Nullable
@@ -801,6 +853,7 @@ public class ActionCacheChecker {
   public Token getTokenUnconditionallyAfterFailureToRecordActionCacheHit(
       Action action,
       List<Artifact> resolvedCacheArtifacts,
+      @Nullable byte[] mandatoryInputsDigest,
       Map<String, String> clientEnv,
       OutputPermissions outputPermissions,
       EventHandler handler,
@@ -816,6 +869,7 @@ public class ActionCacheChecker {
     return getTokenIfNeedToExecute(
         action,
         resolvedCacheArtifacts,
+        mandatoryInputsDigest,
         clientEnv,
         outputPermissions,
         handler,
