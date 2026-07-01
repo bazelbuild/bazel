@@ -377,13 +377,12 @@ genrule(
 # Build an executable named `bazel.exe`.
 # Works on all platforms but only makes sense on Windows.
 # Workaround for non-configurability of genrule's `outs` attribute.
-[genrule(
+[copy_file(
     name = "bazel-bin" + suffix + ".exe",
-    srcs = [":bazel-bin" + suffix],
-    outs = ["bazel" + suffix + ".exe"],
-    cmd = "cp $(location :bazel-bin" + suffix + ") $@",
-    executable = 1,
-    output_to_bindir = 1,
+    src = ":bazel-bin" + suffix,
+    out = "bazel" + suffix + ".exe",
+    allow_symlink = True,
+    is_executable = True,
     visibility = [
         "//scripts:__pkg__",  # For bash completion generation
         "//scripts/packages:__pkg__",  # For installer generation

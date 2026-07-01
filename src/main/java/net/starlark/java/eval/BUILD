@@ -1,5 +1,6 @@
 # Description: Bazel's Starlark interpreter
 
+load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
 load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("@rules_java//java:defs.bzl", "java_library")
 
@@ -111,11 +112,11 @@ filegroup(
     visibility = ["//src/main/java/net/starlark/java:clients"],
 )
 
-genrule(
+copy_file(
     name = "cpu_profiler_jni_darwin",
-    srcs = ["libcpu_profiler.so"],
-    outs = ["libcpu_profiler.dylib"],
-    cmd = "cp $< $@",
+    src = "libcpu_profiler.so",
+    out = "libcpu_profiler.dylib",
+    allow_symlink = True,
 )
 
 # The C++ portion of the Starlark CPU profiler.
