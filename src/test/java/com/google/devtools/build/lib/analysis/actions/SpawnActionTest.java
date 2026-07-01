@@ -564,6 +564,65 @@ public final class SpawnActionTest extends BuildViewTestCase {
         .isEqualTo("ToolPoolMnemonic");
   }
 
+  @Test
+  public void testSetTimeout_addsToExecutionInfo() {
+    SpawnAction action =
+        builder()
+            .addOutput(destinationArtifact)
+            .setExecutable(PathFragment.create("/bin/cp"))
+            .setTimeout(java.time.Duration.ofSeconds(300))
+            .setMnemonic("Dummy")
+            .build(nullOwnerWithTargetConfig(), targetConfig);
+    assertThat(action.getExecutionInfo())
+        .containsEntry(
+            com.google.devtools.build.lib.actions.ExecutionRequirements.TIMEOUT, "300");
+  }
+
+  @Test
+  public void testSetTimeout_zeroDoesNotAddToExecutionInfo() {
+    SpawnAction action =
+        builder()
+            .addOutput(destinationArtifact)
+            .setExecutable(PathFragment.create("/bin/cp"))
+            .setTimeout(java.time.Duration.ZERO)
+            .setMnemonic("Dummy")
+            .build(nullOwnerWithTargetConfig(), targetConfig);
+    assertThat(action.getExecutionInfo())
+        .doesNotContainKey(
+            com.google.devtools.build.lib.actions.ExecutionRequirements.TIMEOUT);
+  }
+
+  @Test
+  public void testSetTimeout_nullDoesNotAddToExecutionInfo() {
+    SpawnAction action =
+        builder()
+            .addOutput(destinationArtifact)
+            .setExecutable(PathFragment.create("/bin/cp"))
+            .setTimeout(null)
+            .setMnemonic("Dummy")
+            .build(nullOwnerWithTargetConfig(), targetConfig);
+    assertThat(action.getExecutionInfo())
+        .doesNotContainKey(
+            com.google.devtools.build.lib.actions.ExecutionRequirements.TIMEOUT);
+  }
+
+  @Test
+  public void testSetTimeout_overridesExistingTimeout() {
+    SpawnAction action =
+        builder()
+            .addOutput(destinationArtifact)
+            .setExecutable(PathFragment.create("/bin/cp"))
+            .setExecutionInfo(
+                ImmutableMap.of(
+                    com.google.devtools.build.lib.actions.ExecutionRequirements.TIMEOUT, "100"))
+            .setTimeout(java.time.Duration.ofSeconds(300))
+            .setMnemonic("Dummy")
+            .build(nullOwnerWithTargetConfig(), targetConfig);
+    assertThat(action.getExecutionInfo())
+        .containsEntry(
+            com.google.devtools.build.lib.actions.ExecutionRequirements.TIMEOUT, "300");
+  }
+
   private ActionOwner nullOwnerWithTargetConfig() {
     return ActionOwner.create(
         ActionsTestUtil.NULL_ACTION_OWNER.getLabel(),
