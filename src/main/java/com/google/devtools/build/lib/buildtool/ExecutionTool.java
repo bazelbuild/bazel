@@ -984,6 +984,7 @@ public class ExecutionTool {
   @VisibleForTesting
   public static void configureResourceManager(ResourceManager resourceMgr, BuildRequest request) {
     ExecutionOptions options = request.getOptions(ExecutionOptions.class);
+    resourceMgr.setPrioritizeTestBySize(options.getPrioritizeTestBySize());
     resourceMgr.setAvailableResources(
         ResourceSet.create(
             options.getLocalResources(),
