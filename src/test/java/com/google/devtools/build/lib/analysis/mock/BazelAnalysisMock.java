@@ -698,6 +698,13 @@ launcher_flag_alias(
           ),
         )
         """);
+    config.create("bazel_features_workspace/private/BUILD");
+    config.create(
+        "bazel_features_workspace/private/util.bzl",
+        """
+        def ge(version):
+          return True
+        """);
 
     config.create(
         "embedded_tools/tools/allowlists/materializer_rule_allowlist/BUILD",

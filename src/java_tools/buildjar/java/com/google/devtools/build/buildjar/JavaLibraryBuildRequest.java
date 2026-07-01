@@ -166,6 +166,11 @@ public final class JavaLibraryBuildRequest {
     if (optionsParser.getStrictJavaDeps() != null) {
       depsBuilder.setStrictJavaDeps(optionsParser.getStrictJavaDeps());
     }
+    if (!optionsParser.getDirectDepJars().isEmpty()) {
+      depsBuilder.addDirectDepJarsToVerify(
+          optionsParser.getDirectDepJars().stream().map(this::asPath).collect(toImmutableList()),
+          optionsParser.getDirectDepLabels());
+    }
     if (optionsParser.getOutputDepsProtoFile() != null) {
       depsBuilder.setOutputDepsProtoFile(asPath(optionsParser.getOutputDepsProtoFile()));
     }

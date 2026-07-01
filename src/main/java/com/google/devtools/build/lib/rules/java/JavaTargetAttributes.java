@@ -69,6 +69,8 @@ public class JavaTargetAttributes {
     private StrictDepsMode strictJavaDeps = StrictDepsMode.ERROR;
 
     private final NestedSetBuilder<Artifact> directJarsBuilder = NestedSetBuilder.naiveLinkOrder();
+    private final ImmutableList.Builder<Artifact> directDepJarsToVerify = ImmutableList.builder();
+    private final ImmutableList.Builder<String> directDepLabelsToVerify = ImmutableList.builder();
     private final NestedSetBuilder<Artifact> headerCompilationDirectJarsBuilder =
         NestedSetBuilder.naiveLinkOrder();
     private final NestedSetBuilder<Artifact> compileTimeDependencyArtifacts =
@@ -245,6 +247,14 @@ public class JavaTargetAttributes {
       return this;
     }
 
+    @CanIgnoreReturnValue
+    public Builder addDirectDepJarsToVerify(List<Artifact> jars, List<String> labels) {
+      Preconditions.checkArgument(!built);
+      this.directDepJarsToVerify.addAll(jars);
+      this.directDepLabelsToVerify.addAll(labels);
+      return this;
+    }
+
     public JavaTargetAttributes build() {
       built = true;
       NestedSet<Artifact> directJars = directJarsBuilder.build();
@@ -272,7 +282,9 @@ public class JavaTargetAttributes {
           compileTimeDependencyArtifacts.build(),
           targetLabel,
           injectingRuleKind,
-          strictJavaDeps);
+          strictJavaDeps,
+          directDepJarsToVerify.build(),
+          directDepLabelsToVerify.build());
     }
 
     // TODO(bazel-team): delete the following method - users should use the built
@@ -314,6 +326,8 @@ public class JavaTargetAttributes {
   @Nullable private final String injectingRuleKind;
 
   private final StrictDepsMode strictJavaDeps;
+  private final ImmutableList<Artifact> directDepJarsToVerify;
+  private final ImmutableList<String> directDepLabelsToVerify;
 
   /** Constructor of JavaTargetAttributes. */
   private JavaTargetAttributes(
@@ -332,7 +346,9 @@ public class JavaTargetAttributes {
       NestedSet<Artifact> compileTimeDependencyArtifacts,
       Label targetLabel,
       @Nullable String injectingRuleKind,
-      StrictDepsMode strictJavaDeps) {
+      StrictDepsMode strictJavaDeps,
+      ImmutableList<Artifact> directDepJarsToVerify,
+      ImmutableList<String> directDepLabelsToVerify) {
     this.sourceFiles = sourceFiles;
     this.directJars = directJars;
     this.headerCompilationDirectJars = headerCompilationDirectJars;
@@ -349,6 +365,8 @@ public class JavaTargetAttributes {
     this.targetLabel = targetLabel;
     this.injectingRuleKind = injectingRuleKind;
     this.strictJavaDeps = strictJavaDeps;
+    this.directDepJarsToVerify = directDepJarsToVerify;
+    this.directDepLabelsToVerify = directDepLabelsToVerify;
   }
 
   JavaTargetAttributes appendAdditionalTransitiveClassPathEntries(
@@ -373,7 +391,17 @@ public class JavaTargetAttributes {
         compileTimeDependencyArtifacts,
         targetLabel,
         injectingRuleKind,
-        strictJavaDeps);
+        strictJavaDeps,
+        directDepJarsToVerify,
+        directDepLabelsToVerify);
+  }
+
+  public ImmutableList<Artifact> getDirectDepJarsToVerify() {
+    return directDepJarsToVerify;
+  }
+
+  public ImmutableList<String> getDirectDepLabelsToVerify() {
+    return directDepLabelsToVerify;
   }
 
   public NestedSet<Artifact> getDirectJars() {
