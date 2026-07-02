@@ -26,6 +26,9 @@ common:remote --config=ubuntu2404
 common:macos --host_macos_minimum_os=10.13
 common:macos --macos_minimum_os=10.13
 
+# grpc fails layering_check on macOS until the next update
+common:macos --repo_env=APPLE_SUPPORT_LAYERING_CHECK_BETA=0
+
 common:windows_arm64 --platforms=//:windows_arm64
 common:windows_arm64 --extra_toolchains=@local_config_cc//:cc-toolchain-arm64_windows
 
