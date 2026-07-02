@@ -116,6 +116,13 @@ class MethodLibrary {
     Iterable<?> items = (args.size() == 1) ? Starlark.toIterable(args.get(0)) : args;
     try {
       if (keyFn.isPresent()) {
+        // Prevent recursive calls: min(max, key=max) or max(max, key=max) etc.
+        String fnName = (maxOrdering == Starlark.ORDERING) ? "max" : "min";
+        if (keyFn.get() instanceof BuiltinFunction builtin
+            && builtin.getName().equals(fnName)) {
+          throw Starlark.errorf(
+              "%s() argument 'key' must not be %s", fnName, fnName);
+        }
         try {
           return stream(items)
               .map(value -> ValueWithComparisonKey.make(value, keyFn.get(), thread))
@@ -296,6 +303,11 @@ class MethodLibrary {
     // We must call it exactly once per element, in order,
     // so use the decorate/sort/undecorate pattern.
     StarlarkCallable keyfn = (StarlarkCallable) key;
+
+    // Prevent recursive calls: sorted(iter, key=sorted) etc.
+    if (keyfn instanceof BuiltinFunction builtin && builtin.getName().equals("sorted")) {
+      throw Starlark.errorf("sorted() argument 'key' must not be sorted");
+    }
 
     // decorate
     for (int i = 0; i < array.length; i++) {
