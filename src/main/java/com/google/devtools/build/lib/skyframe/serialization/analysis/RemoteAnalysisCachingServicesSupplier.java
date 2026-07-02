@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore;
 import com.google.devtools.build.lib.skyframe.serialization.SkycacheMetadataParams;
 import com.google.devtools.build.lib.util.SerializedAbruptExitException;
+import com.google.devtools.common.options.OptionsProvider;
 import javax.annotation.Nullable;
 
 /**
@@ -38,13 +39,26 @@ import javax.annotation.Nullable;
 public interface RemoteAnalysisCachingServicesSupplier extends BlazeService {
 
   /**
-   * Service definitions and parameters depend on {@code config}, which are allowed to vary
+   * Service definitions and parameters depend on the command options, which are allowed to vary
    * per-command.
    *
    * <p>This method updates the services and parameters when the relevant flags change.
    */
   default void configure(
-      RemoteAnalysisCachingConfig config, @Nullable ClientId clientId, String buildId)
+      OptionsProvider optionsProvider,
+      RemoteAnalysisCacheMode mode,
+      @Nullable ClientId clientId,
+      String buildId)
+      throws SerializedAbruptExitException {
+    // Does nothing by default.
+  }
+
+  /** A specialized version of {@link #configure} for the dump command. */
+  default void configureForDebugging(
+      String remoteAnalysisDebugEntries,
+      RemoteAnalysisCacheMode mode,
+      ClientId clientId,
+      String buildId)
       throws SerializedAbruptExitException {
     // Does nothing by default.
   }
@@ -72,6 +86,11 @@ public interface RemoteAnalysisCachingServicesSupplier extends BlazeService {
     return null;
   }
 
+  /**
+   * Gets the parameters for querying and updating Skycache metadata.
+   *
+   * <p>Returns null if metadata queries are not enabled.
+   */
   @Nullable
   default SkycacheMetadataParams getSkycacheMetadataParams() {
     return null;

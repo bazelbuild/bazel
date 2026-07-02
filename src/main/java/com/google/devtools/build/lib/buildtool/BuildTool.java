@@ -107,7 +107,6 @@ import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnaly
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheMode;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheReaderDepsProvider;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider;
-import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisMetadataWriter;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.SerializationDependenciesProvider;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -1074,6 +1073,7 @@ public class BuildTool {
       return;
     }
 
+    // TODO(b/529634169): make this exhaustive.
     switch (dependenciesProvider.mode()) {
       case UPLOAD, ASYNC_UPLOAD ->
           reportRemoteAnalysisServiceStats(
@@ -1101,10 +1101,7 @@ public class BuildTool {
     boolean success = false;
     SkycacheMetadataParams skycacheMetadataParams =
         env.getBlazeWorkspace().remoteAnalysisCachingServicesSupplier().getSkycacheMetadataParams();
-    if (skycacheMetadataParams == null
-        || !env.getOptions()
-            .getOptions(RemoteAnalysisCachingOptions.class)
-            .getAnalysisCacheEnableMetadataQueries()) {
+    if (skycacheMetadataParams == null) {
       return;
     }
     try (SilentCloseable c = Profiler.instance().profile("skycache.metadata.upload")) {

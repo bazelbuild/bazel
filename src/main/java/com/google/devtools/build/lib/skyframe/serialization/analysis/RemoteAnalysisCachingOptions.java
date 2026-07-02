@@ -13,13 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
 import com.google.common.hash.HashCode;
 import com.google.common.hash.Hashing;
 import com.google.devtools.common.options.Converter;
-import com.google.devtools.common.options.Converters.DurationConverter;
-import com.google.devtools.common.options.Converters.RangeConverter;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -27,7 +24,6 @@ import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsClass;
 import com.google.devtools.common.options.OptionsParsingException;
-import java.time.Duration;
 import javax.annotation.Nullable;
 
 /** Options for caching analysis results remotely. */
@@ -64,13 +60,6 @@ public abstract class RemoteAnalysisCachingOptions extends OptionsBase {
     }
   }
 
-  /** A converter for integers that must be at least 1. */
-  public static final class PositiveIntegerConverter extends RangeConverter {
-    public PositiveIntegerConverter() {
-      super(1, Integer.MAX_VALUE);
-    }
-  }
-
   @Option(
       name = "serialized_frontier_profile",
       defaultValue = "",
@@ -90,7 +79,6 @@ public abstract class RemoteAnalysisCachingOptions extends OptionsBase {
 
   public abstract void setMode(RemoteAnalysisCacheMode value);
 
-
   /** Enum converter for {@link RemoteAnalysisCacheMode}. */
   private static class RemoteAnalysisCacheModeConverter
       extends EnumConverter<RemoteAnalysisCacheMode> {
@@ -100,117 +88,12 @@ public abstract class RemoteAnalysisCachingOptions extends OptionsBase {
   }
 
   @Option(
-      name = "experimental_remote_analysis_cache_max_batch_size",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-      defaultValue = "4095",
-      converter = PositiveIntegerConverter.class,
-      help = "Batch size limit for remote analysis caching RPCs.")
-  public abstract int getMaxBatchSize();
-
-  @Option(
-      name = "experimental_remote_analysis_cache_concurrency",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-      defaultValue = "4",
-      converter = PositiveIntegerConverter.class,
-      help = "Target concurrency for remote analysis caching RPCs.")
-  public abstract int getConcurrency();
-
-  @Option(
-      name = "experimental_remote_analysis_cache_max_write_concurrency",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-      defaultValue = "100",
-      converter = PositiveIntegerConverter.class,
-      help = "Max write concurrency for remote analysis caching RPCs.")
-  public abstract int getMaxWriteConcurrency();
-
-  @Option(
-      name = "experimental_remote_analysis_cache_target_write_concurrency",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-      defaultValue = "1",
-      converter = PositiveIntegerConverter.class,
-      help = "Target write concurrency for remote analysis caching RPCs.")
-  public abstract int getTargetWriteConcurrency();
-
-  @Option(
-      name = "experimental_remote_analysis_cache_deadline",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-      defaultValue = "45s",
-      converter = DurationConverter.class,
-      help = "Deadline to use for remote analysis cache operations.")
-  public abstract Duration getDeadline();
-
-  public abstract void setDeadline(Duration value);
-
-  @Option(
-      name = "experimental_analysis_cache_service",
-      defaultValue = "",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-      help = "Locator for the AnalysisCacheService instance.")
-  public abstract String getAnalysisCacheService();
-
-  public abstract void setAnalysisCacheService(String value);
-
-  @Option(
-      name = "experimental_remote_analysis_cache_storage",
-      defaultValue = "RAM",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-      converter = RemoteAnalysisCacheStorageTypeConverter.class,
-      help = "The storage type for the remote analysis cache.")
-  public abstract RemoteAnalysisCacheStorageType getStorageType();
-
-  /** Enum converter for {@link RemoteAnalysisCacheStorageType}. */
-  public static class RemoteAnalysisCacheStorageTypeConverter
-      extends EnumConverter<RemoteAnalysisCacheStorageType> {
-    public RemoteAnalysisCacheStorageTypeConverter() {
-      super(RemoteAnalysisCacheStorageType.class, "Remote analysis cache storage type");
-    }
-  }
-
-  // Configuration Modes:
-  // 1. Write Proxy: If --experimental_remote_analysis_write_proxy is set, all uploads go through
-  //    the write proxy. --experimental_remote_analysis_cache_mode must be UPLOAD.
-  //    --experimental_analysis_cache_service is ignored.
-  //
-  // 2. Read Proxy: If --experimental_analysis_cache_service is set, downloads are proxied through
-  // the
-  //    AnalysisCacheService. --experimental_remote_analysis_cache_mode must be DOWNLOAD.
-
-  @Option(
-      name = "experimental_remote_analysis_write_proxy",
-      defaultValue = "",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-      help =
-          "The address of the SkycacheStorageWriteProxyService. If set, this service will be used "
-              + "for uploading analysis cache data.")
-  public abstract String getRemoteAnalysisWriteProxy();
-
-  public abstract void setRemoteAnalysisWriteProxy(String value);
-
-  @Option(
       name = "experimental_analysis_cache_key_distinguisher_for_testing",
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
       help = "An opaque string used as part of the cache key. Should only be used for testing.")
   public abstract String getAnalysisCacheKeyDistinguisherForTesting();
-
-  @Option(
-      name = "experimental_analysis_cache_enable_metadata_queries",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-      help = "A flag to switch on/off inserting and querying the metadata db (b/425247333).")
-  public abstract boolean getAnalysisCacheEnableMetadataQueries();
-
-  public abstract void setAnalysisCacheEnableMetadataQueries(boolean value);
 
   @Option(
       name = "experimental_analysis_cache_server_checksum_override",
@@ -263,15 +146,4 @@ public abstract class RemoteAnalysisCachingOptions extends OptionsBase {
       effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
       help = "If true, Blaze will emit debug events for remote analysis caching.")
   public abstract boolean getEmitBepUploadEvents();
-
-  @Option(
-      name = "remote_analysis_debug_entries",
-      defaultValue = "",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-      help = "Path to a local file containing remote analysis cache entries for debugging.")
-  public abstract String getRemoteAnalysisDebugEntries();
-
-  @VisibleForTesting
-  public abstract void setRemoteAnalysisDebugEntries(String value);
 }

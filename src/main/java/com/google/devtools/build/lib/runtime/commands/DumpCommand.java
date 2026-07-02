@@ -73,7 +73,6 @@ import com.google.devtools.build.lib.skyframe.serialization.analysis.GraphDumper
 import com.google.devtools.build.lib.skyframe.serialization.analysis.GraphDumper.InvalidationGraph;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.GraphDumper.Node;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.GraphDumper.SkyValueEntry;
-import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingConfig;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingServicesSupplier;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -484,21 +483,6 @@ public class DumpCommand implements BlazeCommand {
                 .optionsClasses(RemoteAnalysisCachingOptions.class)
                 .build()
                 .getOptions(RemoteAnalysisCachingOptions.class);
-        cachingOptions.setRemoteAnalysisDebugEntries(skycacheCache);
-
-        RemoteAnalysisCachingConfig config =
-            new RemoteAnalysisCachingConfig(
-                cachingOptions.getMode(),
-                cachingOptions.getStorageType(),
-                /* maxBatchSize= */ cachingOptions.getMaxBatchSize(),
-                /* concurrency= */ cachingOptions.getConcurrency(),
-                /* targetWriteConcurrency= */ cachingOptions.getTargetWriteConcurrency(),
-                /* maxWriteConcurrency= */ cachingOptions.getMaxWriteConcurrency(),
-                cachingOptions.getDeadline(),
-                cachingOptions.getAnalysisCacheService(),
-                cachingOptions.getRemoteAnalysisWriteProxy(),
-                cachingOptions.getAnalysisCacheEnableMetadataQueries(),
-                cachingOptions.getRemoteAnalysisDebugEntries());
 
         RemoteAnalysisCachingServicesSupplier supplier =
             env.getBlazeWorkspace().remoteAnalysisCachingServicesSupplier();
@@ -507,7 +491,11 @@ public class DumpCommand implements BlazeCommand {
         String dummyBuildId = env.getCommandId().toString();
 
         try {
-          supplier.configure(config, dummyClientId, dummyBuildId);
+          supplier.configureForDebugging(
+              /* remoteAnalysisDebugEntries= */ skycacheCache,
+              /* mode= */ cachingOptions.getMode(),
+              /* clientId= */ dummyClientId,
+              /* buildId= */ dummyBuildId);
           failure = dumpSkycacheEntry(env, supplier, dumpOptions.getSkycacheFingerprint(), out);
         } catch (SerializedAbruptExitException e) {
           AbruptExitException abruptExit = AbruptExitException.fromSerialized(e);

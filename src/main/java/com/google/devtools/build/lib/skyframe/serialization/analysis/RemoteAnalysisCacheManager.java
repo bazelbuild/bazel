@@ -47,7 +47,6 @@ public class RemoteAnalysisCacheManager implements RemoteAnalysisCachingDependen
 
   private final ExtendedEventHandler eventHandler;
 
-  private final boolean areMetadataQueriesEnabled;
   private final SkycacheMetadataParams skycacheMetadataParams;
 
   private boolean bailedOut;
@@ -76,12 +75,10 @@ public class RemoteAnalysisCacheManager implements RemoteAnalysisCachingDependen
     this.minimizeMemory = false;
     this.eventHandler = null;
     this.skycacheMetadataParams = null;
-    this.areMetadataQueriesEnabled = false;
   }
 
   RemoteAnalysisCacheManager(
       RemoteAnalysisCacheMode mode,
-      boolean areMetadataQueriesEnabled,
       ExtendedEventHandler eventHandler,
       SkycacheMetadataParams skycacheMetadataParams,
       Future<? extends RemoteAnalysisCacheClient> analysisCacheClient,
@@ -97,7 +94,6 @@ public class RemoteAnalysisCacheManager implements RemoteAnalysisCachingDependen
     this.minimizeMemory = minimizeMemory;
     this.eventHandler = eventHandler;
     this.skycacheMetadataParams = skycacheMetadataParams;
-    this.areMetadataQueriesEnabled = areMetadataQueriesEnabled;
   }
 
   @Override
@@ -108,7 +104,7 @@ public class RemoteAnalysisCacheManager implements RemoteAnalysisCachingDependen
   @Override
   public void queryMetadataAndMaybeBailout() throws InterruptedException {
     Preconditions.checkState(mode == RemoteAnalysisCacheMode.DOWNLOAD);
-    if (!areMetadataQueriesEnabled) {
+    if (skycacheMetadataParams == null) {
       return;
     }
     if (skycacheMetadataParams.getTargets().isEmpty()) {
