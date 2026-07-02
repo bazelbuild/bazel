@@ -200,6 +200,11 @@ public class SpawnIncludeScanner {
     }
 
     @Override
+    public boolean allowsStrategyRegexpMatching() {
+      return false;
+    }
+
+    @Override
     public NestedSet<Artifact> getTools() {
       throw new UnsupportedOperationException();
     }
