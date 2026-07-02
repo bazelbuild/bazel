@@ -236,9 +236,16 @@ public final class MerkleTreeComputer {
    * @param metadata the metadata of the aggregate {@link ActionInput} that forms the subtree
    * @param isTool whether the subtree consists of tool inputs
    * @param uploadBlobs whether the blobs in this tree will be uploaded
+   * @param unmappedExecPath the exec path of the aggregate input, included only when path mapping
+   *     is used and reusing an ongoing computation for an identical mapped subtree with a different
+   *     unmapped exec path would be incorrect (currently only because the failure case of a lost
+   *     input depends on the unmapped path)
    */
   private record InFlightCacheKey(
-      FileArtifactValue metadata, boolean isTool, boolean uploadBlobs) {}
+      FileArtifactValue metadata,
+      boolean isTool,
+      boolean uploadBlobs,
+      @Nullable PathFragment unmappedExecPath) {}
 
   /**
    * Builds a Merkle tree for the inputs of a {@link Spawn}.
@@ -763,6 +770,7 @@ public final class MerkleTreeComputer {
     return switch (input) {
       case Artifact artifact when artifact.isTreeArtifact() ->
           computeForTreeArtifactIfAbsent(
+              artifact.getExecPath(),
               metadataProvider.getTreeMetadata(artifact),
               mappedExecPath,
               isToolInput,
@@ -790,6 +798,8 @@ public final class MerkleTreeComputer {
         }
         yield computeIfAbsent(
             metadata,
+            // Source artifacts are not path mapped.
+            /* unmappedExecPath= */ null,
             () -> explodeDirectory(artifact, artifactPathResolver).entrySet(),
             isToolInput.test(mappedExecPath),
             metadataProvider,
@@ -831,6 +841,8 @@ public final class MerkleTreeComputer {
     // use isTool instead.
     return computeIfAbsent(
         runfilesArtifactValue.getMetadata(),
+        // Runfiles metadata already encodes the exec path of the root.
+        /* unmappedExecPath= */ null,
         () ->
             ImmutableList.sortedCopyOf(
                 Map.Entry.comparingByKey(HIERARCHICAL_COMPARATOR),
@@ -845,6 +857,7 @@ public final class MerkleTreeComputer {
   }
 
   private ListenableFuture<MerkleTree.RootOnly> computeForTreeArtifactIfAbsent(
+      PathFragment unmappedExecPath,
       TreeArtifactValue treeArtifactValue,
       PathFragment mappedExecPath,
       Predicate<PathFragment> isToolInput,
@@ -863,6 +876,7 @@ public final class MerkleTreeComputer {
     // use isTool instead.
     return computeIfAbsent(
         treeArtifactValue.getMetadata(),
+        unmappedExecPath,
         () ->
             Lists.transform(
                 ImmutableList.sortedCopyOf(
@@ -883,8 +897,16 @@ public final class MerkleTreeComputer {
         throws IOException, InterruptedException;
   }
 
+  /**
+   * Performs a cached computation of the sub-Merkle tree for the given aggregate input.
+   *
+   * @param unmappedExecPath the exec path of the aggregate input before path mapping to be added to
+   *     the cache key, null if this aggregate input is not subject to path mapping or the metadata
+   *     already includes the path
+   */
   private ListenableFuture<MerkleTree.RootOnly> computeIfAbsent(
       FileArtifactValue metadata,
+      @Nullable PathFragment unmappedExecPath,
       SortedInputsSupplier sortedInputsSupplier,
       boolean isTool,
       InputMetadataProvider metadataProvider,
@@ -903,7 +925,16 @@ public final class MerkleTreeComputer {
         return immediateFuture(cachedRoot);
       }
     }
-    var key = new InFlightCacheKey(metadata, isTool, blobPolicy != BlobPolicy.DISCARD);
+    var uploadBlobs = blobPolicy != BlobPolicy.DISCARD;
+    // When the upload of a path mapped tree artifact is shared between two actions that each have
+    // that tree artifact as an input under a different unmmapped exec path, CacheNotFoundExceptions
+    // triggered by evicted remote cache entries could be reported with the wrong unmapped exec
+    // path. We currently avoid this by including the unmapped exec path in the cache key for this
+    // case. Surfacing the mapped path in CNFEs and unmapping when calling
+    // BulkTransferException.getLostArtifacts has been considered, but is far more complex and only
+    // relevant for the uncommon no-DISCARD case.
+    var key =
+        new InFlightCacheKey(metadata, isTool, uploadBlobs, uploadBlobs ? unmappedExecPath : null);
     AsyncCallable<MerkleTree.RootOnly> buildMerkleTreeTask =
         () -> {
           // There is a window in which a concurrent call may have removed the in-flight cache entry
@@ -919,7 +950,8 @@ public final class MerkleTreeComputer {
           if (blobPolicy == BlobPolicy.DISCARD) {
             var inFlightComputation =
                 inFlightComputations.maybeJoinExecution(
-                    new InFlightCacheKey(metadata, isTool, /* uploadBlobs= */ true));
+                    new InFlightCacheKey(
+                        metadata, isTool, /* uploadBlobs= */ true, unmappedExecPath));
             if (inFlightComputation != null) {
               return inFlightComputation;
             }
