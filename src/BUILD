@@ -354,7 +354,9 @@ genrule(
     # In msys, a file path without .exe suffix(say foo), refers to a file with .exe
     # suffix(say foo.exe), if foo.exe exists and foo doesn't. So, on windows, we
     # need to remove bazel.exe first, so that cat to bazel won't fail.
-    cmd = "rm -f $@; cat $(location //src/main/cpp:client) $(location :package-zip" + jdk + ") > $@ && zip -qA $@ && chmod a+x $@",
+    # These actions run concurrently, so give Info-ZIP a separate temporary
+    # directory for each output archive.
+    cmd = "zip_tmp=\"$@.tmp\"; rm -rf \"$$zip_tmp\"; mkdir -p \"$$zip_tmp\"; trap 'rm -rf \"$$zip_tmp\"' EXIT; rm -f \"$@\"; cat $(location //src/main/cpp:client) $(location :package-zip" + jdk + ") > \"$@\" && zip -b \"$$zip_tmp\" -qA \"$@\" && chmod a+x \"$@\"",
     executable = 1,
     output_to_bindir = 1,
     visibility = [

@@ -38,8 +38,13 @@ RECOMP="$ROOT/recomp"
 PACKAGE_DIR="$ROOT/pkg"
 DEPLOY_UNCOMP="$ROOT/deploy-uncompressed.jar"
 FILE_LIST="$ROOT/file.list"
+# Package actions run concurrently. Give Info-ZIP a separate temporary directory
+# for each output archive.
+ZIP_TMP_DIR="${WORKDIR}/${OUT}.tmp"
 mkdir -p "${PACKAGE_DIR}"
-trap "rm -fr ${ROOT}" EXIT
+rm -rf "${ZIP_TMP_DIR}"
+mkdir -p "${ZIP_TMP_DIR}"
+trap 'rm -fr "${ROOT}" "${ZIP_TMP_DIR}"' EXIT
 
 cp $* ${PACKAGE_DIR}
 
@@ -103,4 +108,5 @@ else
   # Create output zip with highest compression, but slow.
   ZIP_ARGS="-q9DX@"
 fi
-(cd $PACKAGE_DIR; zip $ZIP_ARGS "$WORKDIR/$OUT") < $FILE_LIST
+rm -f "$WORKDIR/$OUT"
+(cd $PACKAGE_DIR; zip $ZIP_ARGS -b "$ZIP_TMP_DIR" "$WORKDIR/$OUT") < $FILE_LIST
