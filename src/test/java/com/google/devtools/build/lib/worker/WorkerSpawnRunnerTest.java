@@ -34,6 +34,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
@@ -230,7 +231,7 @@ public class WorkerSpawnRunnerTest {
   public void testExecInWorker_sendsCancelMessageOnInterrupt() throws Exception {
     WorkerOptions workerOptions = Options.getDefaults(WorkerOptions.class);
     workerOptions.setWorkerCancellation(true);
-    workerOptions.setWorkerSandboxing(true);
+    workerOptions.setWorkerSandboxing(ImmutableList.of(Maps.immutableEntry("", true)));
     when(spawn.getExecutionInfo())
         .thenReturn(ImmutableMap.of(ExecutionRequirements.SUPPORTS_WORKER_CANCELLATION, "1"));
     when(worker.isSandboxed()).thenReturn(true);
@@ -281,7 +282,7 @@ public class WorkerSpawnRunnerTest {
   public void testExecInWorker_unsandboxedDiesOnInterrupt() throws Exception {
     WorkerOptions workerOptions = Options.getDefaults(WorkerOptions.class);
     workerOptions.setWorkerCancellation(true);
-    workerOptions.setWorkerSandboxing(false);
+    workerOptions.setWorkerSandboxing(ImmutableList.of(Maps.immutableEntry("", false)));
     when(spawn.getExecutionInfo())
         .thenReturn(ImmutableMap.of(ExecutionRequirements.SUPPORTS_WORKER_CANCELLATION, "1"));
     WorkerSpawnRunner runner = createWorkerSpawnRunner(workerOptions);
