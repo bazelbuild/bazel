@@ -1177,7 +1177,7 @@ public class ActionExecutionFunction implements SkyFunction {
       DetailedExitCode detailedExitCode,
       Label labelInCaseOfBug,
       BugReporter bugReporter) {
-    if (input.getOwner() == null) {
+    if (input.getOwner() == null && !input.isSourceArtifact()) {
       bugReporter.sendBugReport(
           new IllegalStateException(
               String.format(
