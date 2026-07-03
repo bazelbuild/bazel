@@ -19,6 +19,20 @@ load("@rules_java//java:defs.bzl", "java_binary", "java_library")
 def errorprone_with_custom_plugins(name, errorprone, plugins = [], **kwargs):
     """Merges a base Error Prone compiler core library with extra custom plugin/checker libraries.
 
+    Note: Custom plugins run inside the isolated Javac classloader environment.
+    To avoid ClassNotFoundException due to Javac's classloader masking:
+      1. Any custom BugChecker classes must be listed in a service provider file:
+         META-INF/services/com.google.errorprone.bugpatterns.BugChecker
+      2. The masking classloader automatically whitelists and delegates any classes
+         whose package name starts with the package prefix of the discovered checkers
+         (e.g., if a checker class is `com.example.MyChecker`, classes in `com.example.*`
+         will be loaded successfully).
+      3. If your plugin depends on separate third-party libraries (e.g. org.json.*),
+         you must relocate (shade) those dependency classes under the checker's package
+         prefix (e.g. relocating to `com.example.shaded.org.json.*`). A common tool to do
+         this in Bazel is `rules_jarjar` (https://github.com/bazelbuild/rules_jarjar) using
+         its relocation rules.
+
     Args:
       name: The name of the target.
       errorprone: The base Error Prone core target.
@@ -29,7 +43,6 @@ def errorprone_with_custom_plugins(name, errorprone, plugins = [], **kwargs):
         name = name,
         exports = [
             errorprone,
-            "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/plugins:errorprone",
         ] + plugins,
         **kwargs
     )

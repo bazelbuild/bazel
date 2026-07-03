@@ -31,7 +31,10 @@ java_binary(
     name = "JavaBuilder",
     main_class = "com.google.devtools.build.buildjar.BazelJavaBuilder",
     visibility = ["//visibility:public"],
-    runtime_deps = ["//src/java_tools/buildjar/java/com/google/devtools/build/buildjar"],
+    runtime_deps = [
+        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar:javabuilder_core",
+        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/plugins:errorprone",
+    ],
 )
 
 alias(

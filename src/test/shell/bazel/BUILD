@@ -56,6 +56,9 @@ sh_library(
         "//third_party/ijar",
         "//tools:srcs",
         "@bazel_skylib//:test_deps",
+        "@rules_java//:distribution",
+        "@rules_java//java_tools/buildjar:srcs",
+        "@rules_java//third_party:error_prone",
         "@rules_java//toolchains:current_java_runtime",
     ],
     data = [
