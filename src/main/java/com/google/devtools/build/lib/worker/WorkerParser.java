@@ -145,7 +145,9 @@ public class WorkerParser {
       sandboxed = canSandboxMultiplex;
       multiplex = true;
     } else {
-      sandboxed = options.getWorkerSandboxing();
+      ImmutableMap<String, Boolean> sandboxingMap = options.getWorkerSandboxingMap();
+      Boolean perMnemonic = sandboxingMap.get(workerKeyMnemonic);
+      sandboxed = perMnemonic != null ? perMnemonic : sandboxingMap.getOrDefault("", false);
       multiplex = false;
     }
     boolean useInMemoryTracking = false;
