@@ -62,7 +62,6 @@ import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.NativeComputedDefaultApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.IdentityHashMap;
-import java.util.Objects;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
@@ -630,28 +629,6 @@ public class CcStarlarkInternal implements StarlarkValue {
       })
   public boolean isTreeArtifact(Artifact artifact) {
     return artifact.isTreeArtifact();
-  }
-
-  @StarlarkMethod(
-      name = "compute_output_name_prefix_dir",
-      documented = false,
-      parameters = {
-        @Param(name = "configuration", positional = false, named = true),
-        @Param(name = "purpose", positional = false, named = true),
-      })
-  public String computeOutputNamePrefixDir(BuildConfigurationValue configuration, String purpose) {
-    String outputNamePrefixDir = null;
-    // purpose is only used by objc rules; if set it ends with either "_non_objc_arc" or
-    // "_objc_arc", and it is used to override configuration.getMnemonic() to prefix the output
-    // dir with "non_arc" or "arc".
-    String mnemonic = configuration.getMnemonic();
-    if (purpose != null) {
-      mnemonic = purpose;
-    }
-    if (mnemonic.endsWith("_objc_arc")) {
-      outputNamePrefixDir = mnemonic.endsWith("_non_objc_arc") ? "non_arc" : "arc";
-    }
-    return Objects.requireNonNullElse(outputNamePrefixDir, "");
   }
 
   @StarlarkMethod(
