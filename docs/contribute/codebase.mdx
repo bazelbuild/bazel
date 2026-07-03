@@ -1377,7 +1377,7 @@ are provided:
 *   `bazel aquery` is used to investigate the action graph
 
 Each of these is implemented by subclassing `AbstractBlazeQueryEnvironment`.
-Additional additional query functions can be done by subclassing `QueryFunction`
+Additional query functions can be done by subclassing `QueryFunction`
 . In order to allow streaming query results, instead of collecting them to some
 data structure, a `query2.engine.Callback` is passed to `QueryFunction`, which
 calls it for results it wants to return.
