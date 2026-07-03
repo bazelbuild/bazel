@@ -80,8 +80,18 @@ alias(
 )
 
 alias(
-    name = "javabuilder_core",
+    name = "vanillajavabuilder",
     actual = "@remote_java_tools//:VanillaJavaBuilder",
+)
+
+java_import(
+    name = "javabuilder_core_import",
+    jars = ["@remote_java_tools//:java_tools/JavaBuilder_deploy.jar"],
+)
+
+alias(
+    name = "javabuilder_core",
+    actual = ":javabuilder_core_import",
 )
 
 alias(

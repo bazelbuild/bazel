@@ -2531,4 +2531,141 @@ EOF
   expect_log "foo.txt"
 }
 
+function test_custom_javabuilder_inject_plugin() {
+  add_platforms "MODULE.bazel"
+
+  mkdir -p custom_plugin
+  cat > custom_plugin/MyChecker.java << 'EOF'
+package custom_plugin;
+
+import com.google.errorprone.BugPattern;
+import com.google.errorprone.BugPattern.SeverityLevel;
+import com.google.errorprone.VisitorState;
+import com.google.errorprone.bugpatterns.BugChecker;
+import com.google.errorprone.bugpatterns.BugChecker.ClassTreeMatcher;
+import com.google.errorprone.matchers.Description;
+import com.sun.source.tree.ClassTree;
+
+@BugPattern(
+    name = "MyChecker",
+    summary = "A custom check that always flags class declarations",
+    severity = SeverityLevel.ERROR
+)
+public class MyChecker extends BugChecker implements ClassTreeMatcher {
+  @Override
+  public Description matchClass(ClassTree tree, VisitorState state) {
+    return describeMatch(tree);
+  }
+}
+EOF
+
+  mkdir -p custom_plugin/META-INF/services
+  cat > custom_plugin/META-INF/services/com.google.errorprone.bugpatterns.BugChecker << 'EOF'
+custom_plugin.MyChecker
+EOF
+
+  cat > custom_plugin/BUILD << 'EOF'
+load("@rules_java//java:defs.bzl", "java_library")
+load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "DEFAULT_TOOLCHAIN_CONFIGURATION", "default_java_toolchain")
+load("@bazel_tools//tools/jdk:javabuilder.bzl", "default_javabuilder", "errorprone_with_custom_plugins")
+
+# Define target platform constraints to break the toolchain resolution loop.
+# This prevents our custom JavaBuilder from being compiled using the custom toolchain itself.
+constraint_setting(name = "toolchain_type_setting")
+constraint_value(
+    name = "custom_plugin_enabled",
+    constraint_setting = ":toolchain_type_setting",
+)
+
+platform(
+    name = "custom_platform",
+    constraint_values = [
+        ":custom_plugin_enabled",
+    ],
+    parents = ["@platforms//host"],
+)
+
+java_library(
+    name = "my_plugin",
+    srcs = ["MyChecker.java"],
+    resources = ["META-INF/services/com.google.errorprone.bugpatterns.BugChecker"],
+    resource_strip_prefix = "custom_plugin",
+    javacopts = [
+        "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
+    ],
+    deps = [
+        "@rules_java//third_party:error_prone",
+    ],
+)
+
+errorprone_with_custom_plugins(
+    name = "my_errorprone",
+    errorprone = "@rules_java//third_party:error_prone",
+    plugins = [":my_plugin"],
+)
+
+default_javabuilder(
+    name = "custom_javabuilder",
+    errorprone = [":my_errorprone"],
+)
+
+default_java_toolchain(
+    name = "custom_toolchain",
+    configuration = DEFAULT_TOOLCHAIN_CONFIGURATION,
+    javabuilder = ":custom_javabuilder_deploy.jar",
+    toolchain_definition = False,
+)
+
+toolchain(
+    name = "custom_toolchain_definition",
+    toolchain_type = "@bazel_tools//tools/jdk:toolchain_type",
+    exec_compatible_with = [],
+    target_compatible_with = [":custom_plugin_enabled"],
+    toolchain = ":custom_toolchain",
+    visibility = ["//visibility:public"],
+)
+EOF
+
+  local bzl_file=$(rlocation "${RULES_JAVA_REPO_NAME}/java/defs.bzl")
+  local real_rules_java=$(dirname "$(dirname "$(readlink -f "${bzl_file}")")")
+  local rules_java_path="${TEST_TMPDIR}/rules_java_override"
+  rm -rf "${rules_java_path}"
+  mkdir -p "${rules_java_path}"
+  cp -r "${real_rules_java}/"* "${rules_java_path}/"
+
+  mkdir -p hello
+  cat > hello/HelloWorld.java << 'EOF'
+package hello;
+public class HelloWorld {
+  public static void main(String[] args) {
+    System.out.println("Hello");
+  }
+}
+EOF
+
+  cat > hello/BUILD << 'EOF'
+load("@rules_java//java:defs.bzl", "java_binary")
+java_binary(
+    name = "hello",
+    srcs = ["HelloWorld.java"],
+    main_class = "hello.HelloWorld",
+    javacopts = ["-Xep:MyChecker:ERROR"],
+)
+EOF
+
+  bazel clean --lockfile_mode=off --override_repository=rules_java="${rules_java_path}" --override_module=rules_java="${rules_java_path}"
+
+  bazel build --platforms=//custom_plugin:custom_platform --extra_toolchains=//custom_plugin:custom_toolchain_definition --lockfile_mode=off --override_repository=rules_java="${rules_java_path}" --override_module=rules_java="${rules_java_path}" //hello:hello \
+      >& $TEST_log && fail "Build succeeded but should have failed due to custom Error Prone check" || true
+
+  echo "=== TEST LOG CONTENT ===" >&2
+  cat "$TEST_log" >&2
+
+  expect_log "MyChecker"
+}
+
 run_suite "Java integration tests"

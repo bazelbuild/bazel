@@ -355,6 +355,40 @@ public class BlazeJavacMain {
   @Trusted
   private static class ClassloaderMaskingFileManager extends JavacFileManager {
 
+    private static final com.google.common.collect.ImmutableSet<String> CUSTOM_PLUGIN_PACKAGES = getCustomPluginPackages();
+
+    /**
+     * Discovers registered custom Error Prone bug patterns and extracts their package prefixes.
+     * These package prefixes are whitelisted in Javac's masking classloader to allow loading
+     * plugin dependencies (e.g. shaded third-party libraries or internal helper classes).
+     */
+    private static com.google.common.collect.ImmutableSet<String> getCustomPluginPackages() {
+      com.google.common.collect.ImmutableSet.Builder<String> builder = com.google.common.collect.ImmutableSet.builder();
+      try {
+        java.util.Enumeration<URL> resources =
+            ClassloaderMaskingFileManager.class.getClassLoader().getResources("META-INF/services/com.google.errorprone.bugpatterns.BugChecker");
+        while (resources.hasMoreElements()) {
+          URL url = resources.nextElement();
+          try (java.io.BufferedReader reader =
+              new java.io.BufferedReader(new java.io.InputStreamReader(url.openStream(), UTF_8))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+              line = line.trim();
+              if (!line.isEmpty() && !line.startsWith("#")) {
+                int lastDot = line.lastIndexOf('.');
+                if (lastDot != -1) {
+                  builder.add(line.substring(0, lastDot + 1));
+                }
+              }
+            }
+          }
+        }
+      } catch (IOException e) {
+        // Ignore
+      }
+      return builder.build();
+    }
+
     public ClassloaderMaskingFileManager(Context context) {
       super(context, true, UTF_8);
     }
@@ -374,7 +408,28 @@ public class BlazeJavacMain {
                   || name.startsWith("com.google.devtools.build.buildjar.javac.statistics.")) {
                 return Class.forName(name);
               }
+              for (String prefix : CUSTOM_PLUGIN_PACKAGES) {
+                if (name.startsWith(prefix)) {
+                  return Class.forName(name);
+                }
+              }
               throw new ClassNotFoundException(name);
+            }
+
+            @Override
+            protected URL findResource(String name) {
+              if (name.equals("META-INF/services/com.google.errorprone.bugpatterns.BugChecker")) {
+                return ClassloaderMaskingFileManager.class.getClassLoader().getResource(name);
+              }
+              return super.findResource(name);
+            }
+
+            @Override
+            protected java.util.Enumeration<URL> findResources(String name) throws IOException {
+              if (name.equals("META-INF/services/com.google.errorprone.bugpatterns.BugChecker")) {
+                return ClassloaderMaskingFileManager.class.getClassLoader().getResources(name);
+              }
+              return super.findResources(name);
             }
           });
     }

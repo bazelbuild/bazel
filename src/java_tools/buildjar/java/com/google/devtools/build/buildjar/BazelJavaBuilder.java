@@ -135,7 +135,7 @@ public class BazelJavaBuilder {
     OptionsParser optionsParser =
         new OptionsParser(args, JavacOptions.createWithWarningsAsErrorsDefault(ImmutableList.of()));
     ImmutableList.Builder<BlazeJavaCompilerPlugin> pluginsBuilder = ImmutableList.builder();
-    for (ErrorProneInvoker invoker : ServiceLoader.load(ErrorProneInvoker.class)) {
+    for (ErrorProneInvoker invoker : ServiceLoader.load(ErrorProneInvoker.class, BazelJavaBuilder.class.getClassLoader())) {
       pluginsBuilder.add(invoker.create());
     }
     ImmutableList<BlazeJavaCompilerPlugin> plugins = pluginsBuilder.build();
