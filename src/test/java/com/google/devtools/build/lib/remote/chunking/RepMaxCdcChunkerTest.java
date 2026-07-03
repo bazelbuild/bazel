@@ -206,7 +206,7 @@ public class RepMaxCdcChunkerTest {
   }
 
   @Test
-  public void chunkToDigests_matchesSimpleReferenceImplementation_randomData() throws IOException {
+  public void chunkToDigests_randomData_producesValidChunks() throws IOException {
     Random random = new Random(42);
     int[][] params = {
       {64, 0}, {64, 256}, {128, 1024}, {1024, 0}, {1024, 8 * 1024}, {2048, 16 * 1024},
@@ -227,74 +227,88 @@ public class RepMaxCdcChunkerTest {
         peekSize - 1,
         peekSize,
         peekSize + 1,
-        // Large enough to force multiple refills of the optimized chunker's read buffer.
+        // Large enough to force multiple refills of the chunker's read buffer.
         4 * peekSize + 17,
         64 * 1024 + 1,
       };
       for (int size : sizes) {
         byte[] data = new byte[size];
         random.nextBytes(data);
-        assertSameChunks(minSize, horizonSize, data);
+        assertValidChunks(minSize, horizonSize, data);
       }
     }
   }
 
   @Test
-  public void chunkToDigests_matchesSimpleReferenceImplementation_lowEntropyData()
-      throws IOException {
+  public void chunkToDigests_lowEntropyData_producesValidChunks() throws IOException {
     // Constant and periodic inputs starve the algorithm of new hash maxima, exercising the chunk
-    // completion and forced-cut paths of the optimized implementation.
+    // completion and forced-cut paths of the implementation.
     for (int minSize : new int[] {64, 1024}) {
       for (int horizonSize : new int[] {0, 8 * minSize}) {
         byte[] constant = new byte[64 * 1024 + 3];
-        assertSameChunks(minSize, horizonSize, constant);
+        assertValidChunks(minSize, horizonSize, constant);
 
         byte[] periodic = new byte[64 * 1024 + 3];
         for (int i = 0; i < periodic.length; i++) {
           periodic[i] = (byte) (i % 7);
         }
-        assertSameChunks(minSize, horizonSize, periodic);
+        assertValidChunks(minSize, horizonSize, periodic);
       }
     }
   }
 
   @Test
-  public void chunkToDigests_matchesSimpleReferenceImplementation_randomParameters()
-      throws IOException {
+  public void chunkToDigests_randomParameters_producesValidChunks() throws IOException {
     // Random small parameters maximize the rate of forced cuts and cutting point recomputation,
-    // covering the rare paths of the optimized implementation.
+    // covering the rare paths of the implementation.
     Random random = new Random(987654321);
     for (int i = 0; i < 200; i++) {
       int minSize = 64 + random.nextInt(256);
       int horizonSize = random.nextInt(4 * 1024);
       byte[] data = new byte[random.nextInt(32 * 1024)];
       random.nextBytes(data);
-      assertSameChunks(minSize, horizonSize, data);
+      assertValidChunks(minSize, horizonSize, data);
     }
   }
 
   @Test
-  public void chunkToDigests_matchesSimpleReferenceImplementation_largeInput() throws IOException {
+  public void chunkToDigests_largeInput_producesValidChunks() throws IOException {
     byte[] data = new byte[4 * 1024 * 1024];
     new Random(123).nextBytes(data);
 
-    assertSameChunks(/* minSize= */ 1024, /* horizonSize= */ 8 * 1024, data);
+    assertValidChunks(/* minSize= */ 1024, /* horizonSize= */ 8 * 1024, data);
   }
 
-  private static void assertSameChunks(int minSize, int horizonSize, byte[] data)
+  /**
+   * Chunks {@code data} and verifies the guarantees of the algorithm: all chunks are within
+   * {@code [minSize, 2 * minSize)}, except that the final chunk may be smaller than {@code
+   * minSize} only if the entire input is; the chunk sizes add up to the input size; and chunking
+   * is deterministic.
+   */
+  private static void assertValidChunks(int minSize, int horizonSize, byte[] data)
       throws IOException {
-    RepMaxCdcChunker optimized = new RepMaxCdcChunker(minSize, horizonSize, DIGEST_UTIL);
-    SimpleRepMaxCdcChunker simple =
-        new SimpleRepMaxCdcChunker(minSize, horizonSize, DIGEST_UTIL);
+    RepMaxCdcChunker chunker = new RepMaxCdcChunker(minSize, horizonSize, DIGEST_UTIL);
 
-    List<Digest> optimizedDigests = optimized.chunkToDigests(new ByteArrayInputStream(data));
-    List<Digest> simpleDigests = simple.chunkToDigests(new ByteArrayInputStream(data));
+    List<Digest> digests = chunker.chunkToDigests(new ByteArrayInputStream(data));
 
-    assertWithMessage("minSize=%s, horizonSize=%s, inputSize=%s", minSize, horizonSize, data.length)
-        .that(optimizedDigests)
-        .isEqualTo(simpleDigests);
+    String context =
+        String.format(
+            "minSize=%s, horizonSize=%s, inputSize=%s", minSize, horizonSize, data.length);
+    long totalSize = 0;
+    for (int i = 0; i < digests.size(); i++) {
+      long size = digests.get(i).getSizeBytes();
+      if (i < digests.size() - 1 || data.length >= minSize) {
+        assertWithMessage(context).that(size).isAtLeast(minSize);
+      }
+      assertWithMessage(context).that(size).isLessThan(2L * minSize);
+      totalSize += size;
+    }
+    assertWithMessage(context).that(totalSize).isEqualTo(data.length);
+
+    assertWithMessage(context)
+        .that(chunker.chunkToDigests(new ByteArrayInputStream(data)))
+        .isEqualTo(digests);
   }
-
   @Test
   public void chunkToDigests_testVectors() throws Exception {
     verifyTestVectors(

@@ -56,9 +56,9 @@ import java.util.List;
  * ({@code rep_max_content_defined_chunker.go}), which hashes every input byte exactly once by
  * carrying cutting point candidates and rolling hash state across chunks. Because the Gear hash at
  * a given position only depends on the 64 bytes preceding it, hash values are independent of chunk
- * boundaries and can be reused. The naive version of the algorithm rehashes the full lookahead
- * window for every chunk, which makes it several times slower than FastCDC (see {@code
- * SimpleRepMaxCdcChunker} in the test package, against which this implementation is verified).
+ * boundaries and can be reused. The naive version of the algorithm ({@code
+ * NewSimpleRepMaxContentDefinedChunker} in go-cdc) rehashes the full lookahead window for every
+ * chunk, which makes it several times slower than FastCDC.
  */
 public final class RepMaxCdcChunker implements ContentDefinedChunker {
 
