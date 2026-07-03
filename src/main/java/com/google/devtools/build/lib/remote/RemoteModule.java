@@ -244,7 +244,9 @@ public final class RemoteModule extends BlazeModule {
             return Result.SUCCESS;
           }
           retry =
-              status == HttpResponseStatus.INTERNAL_SERVER_ERROR.code()
+              status == HttpResponseStatus.REQUEST_TIMEOUT.code()
+                  || status == HttpResponseStatus.TOO_MANY_REQUESTS.code()
+                  || status == HttpResponseStatus.INTERNAL_SERVER_ERROR.code()
                   || status == HttpResponseStatus.BAD_GATEWAY.code()
                   || status == HttpResponseStatus.SERVICE_UNAVAILABLE.code()
                   || status == HttpResponseStatus.GATEWAY_TIMEOUT.code();
