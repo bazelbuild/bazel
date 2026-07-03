@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.remote.chunking;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 import static org.junit.Assert.assertThrows;
 
 import build.bazel.remote.execution.v2.Digest;
@@ -202,6 +203,96 @@ public class RepMaxCdcChunkerTest {
     assertThat(digests.size()).isGreaterThan(1);
     long totalSize = digests.stream().mapToLong(Digest::getSizeBytes).sum();
     assertThat(totalSize).isEqualTo(data.length);
+  }
+
+  @Test
+  public void chunkToDigests_matchesSimpleReferenceImplementation_randomData() throws IOException {
+    Random random = new Random(42);
+    int[][] params = {
+      {64, 0}, {64, 256}, {128, 1024}, {1024, 0}, {1024, 8 * 1024}, {2048, 16 * 1024},
+    };
+    for (int[] param : params) {
+      int minSize = param[0];
+      int horizonSize = param[1];
+      int peekSize = 2 * minSize + horizonSize;
+      int[] sizes = {
+        0,
+        1,
+        minSize - 1,
+        minSize,
+        minSize + 1,
+        2 * minSize - 1,
+        2 * minSize,
+        2 * minSize + 1,
+        peekSize - 1,
+        peekSize,
+        peekSize + 1,
+        // Large enough to force multiple refills of the optimized chunker's read buffer.
+        4 * peekSize + 17,
+        64 * 1024 + 1,
+      };
+      for (int size : sizes) {
+        byte[] data = new byte[size];
+        random.nextBytes(data);
+        assertSameChunks(minSize, horizonSize, data);
+      }
+    }
+  }
+
+  @Test
+  public void chunkToDigests_matchesSimpleReferenceImplementation_lowEntropyData()
+      throws IOException {
+    // Constant and periodic inputs starve the algorithm of new hash maxima, exercising the chunk
+    // completion and forced-cut paths of the optimized implementation.
+    for (int minSize : new int[] {64, 1024}) {
+      for (int horizonSize : new int[] {0, 8 * minSize}) {
+        byte[] constant = new byte[64 * 1024 + 3];
+        assertSameChunks(minSize, horizonSize, constant);
+
+        byte[] periodic = new byte[64 * 1024 + 3];
+        for (int i = 0; i < periodic.length; i++) {
+          periodic[i] = (byte) (i % 7);
+        }
+        assertSameChunks(minSize, horizonSize, periodic);
+      }
+    }
+  }
+
+  @Test
+  public void chunkToDigests_matchesSimpleReferenceImplementation_randomParameters()
+      throws IOException {
+    // Random small parameters maximize the rate of forced cuts and cutting point recomputation,
+    // covering the rare paths of the optimized implementation.
+    Random random = new Random(987654321);
+    for (int i = 0; i < 200; i++) {
+      int minSize = 64 + random.nextInt(256);
+      int horizonSize = random.nextInt(4 * 1024);
+      byte[] data = new byte[random.nextInt(32 * 1024)];
+      random.nextBytes(data);
+      assertSameChunks(minSize, horizonSize, data);
+    }
+  }
+
+  @Test
+  public void chunkToDigests_matchesSimpleReferenceImplementation_largeInput() throws IOException {
+    byte[] data = new byte[4 * 1024 * 1024];
+    new Random(123).nextBytes(data);
+
+    assertSameChunks(/* minSize= */ 1024, /* horizonSize= */ 8 * 1024, data);
+  }
+
+  private static void assertSameChunks(int minSize, int horizonSize, byte[] data)
+      throws IOException {
+    RepMaxCdcChunker optimized = new RepMaxCdcChunker(minSize, horizonSize, DIGEST_UTIL);
+    SimpleRepMaxCdcChunker simple =
+        new SimpleRepMaxCdcChunker(minSize, horizonSize, DIGEST_UTIL);
+
+    List<Digest> optimizedDigests = optimized.chunkToDigests(new ByteArrayInputStream(data));
+    List<Digest> simpleDigests = simple.chunkToDigests(new ByteArrayInputStream(data));
+
+    assertWithMessage("minSize=%s, horizonSize=%s, inputSize=%s", minSize, horizonSize, data.length)
+        .that(optimizedDigests)
+        .isEqualTo(simpleDigests);
   }
 
   @Test
