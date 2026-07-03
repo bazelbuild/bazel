@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.remote.options;
 
+import build.bazel.remote.execution.v2.ChunkingFunction;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.remote.Scrubber;
@@ -839,11 +840,62 @@ public abstract class RemoteOptions extends CommonRemoteOptions {
       metadataTags = OptionMetadataTag.EXPERIMENTAL,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
-          "If enabled, large blobs are split into content-defined chunks using FastCDC 2020 and "
+          "If enabled, large blobs are split into content-defined chunks and "
               + "uploaded/downloaded in chunks, enabling deduplication across blobs. The server "
-              + "must advertise SplitBlob/SpliceBlob RPCs and FastCDC 2020 parameters in its "
+              + "must advertise SplitBlob/SpliceBlob RPCs and the parameters of the chunking "
+              + "function selected by --experimental_remote_cache_chunking_function in its "
               + "capabilities.")
   public abstract boolean getExperimentalRemoteCacheChunking();
+
+  @Option(
+      name = "experimental_remote_cache_chunking_function",
+      defaultValue = "fast_cdc_2020",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      metadataTags = OptionMetadataTag.EXPERIMENTAL,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      converter = ChunkingFunctionConverter.class,
+      help =
+          "The content-defined chunking function used to split large blobs when "
+              + "--experimental_remote_cache_chunking is enabled. Possible values are "
+              + "'fast_cdc_2020' and 'rep_max_cdc'. The server must advertise the parameters of "
+              + "the selected function in its capabilities. All clients sharing a cache should "
+              + "use the same function to maximize chunk reuse.")
+  public abstract ChunkingFunctionValue getExperimentalRemoteCacheChunkingFunction();
+
+  /**
+   * Returns the chunking function to use for chunked cache transfers, or {@code null} if chunking
+   * is disabled.
+   */
+  @Nullable
+  public ChunkingFunction.Value getEffectiveChunkingFunction() {
+    return getExperimentalRemoteCacheChunking()
+        ? getExperimentalRemoteCacheChunkingFunction().toProto()
+        : null;
+  }
+
+  /** Values for --experimental_remote_cache_chunking_function. */
+  public enum ChunkingFunctionValue {
+    FAST_CDC_2020(ChunkingFunction.Value.FAST_CDC_2020),
+    REP_MAX_CDC(ChunkingFunction.Value.REP_MAX_CDC);
+
+    private final ChunkingFunction.Value proto;
+
+    ChunkingFunctionValue(ChunkingFunction.Value proto) {
+      this.proto = proto;
+    }
+
+    /** Returns the corresponding Remote Execution API chunking function. */
+    public ChunkingFunction.Value toProto() {
+      return proto;
+    }
+  }
+
+  /** Chunking function flag parser. */
+  public static class ChunkingFunctionConverter extends EnumConverter<ChunkingFunctionValue> {
+    public ChunkingFunctionConverter() {
+      super(ChunkingFunctionValue.class, "chunking function");
+    }
+  }
 
   @Option(
       name = "experimental_throttle_remote_action_building",

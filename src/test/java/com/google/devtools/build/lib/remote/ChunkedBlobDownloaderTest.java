@@ -27,6 +27,7 @@ import build.bazel.remote.execution.v2.SplitBlobResponse;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.remote.chunking.ChunkingConfig;
+import com.google.devtools.build.lib.remote.chunking.FastCdcChunkingConfig;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.OutputDigestMismatchException;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
@@ -54,7 +55,8 @@ public class ChunkedBlobDownloaderTest {
   private static final DigestUtil DIGEST_UTIL =
       new DigestUtil(SyscallCache.NO_CACHE, DigestHashFunction.SHA256);
   private static final ChunkingConfig CHUNKING_CONFIG =
-      new ChunkingConfig(/* avgChunkSize= */ 1024, /* normalizationLevel= */ 2, /* seed= */ 0);
+      new FastCdcChunkingConfig(
+          /* avgChunkSize= */ 1024, /* normalizationLevel= */ 2, /* seed= */ 0);
   private static final int MAX_IN_FLIGHT_CHUNK_DOWNLOADS = 16;
 
   @Rule public final MockitoRule mockito = MockitoJUnit.rule();

@@ -21,7 +21,6 @@ import static com.google.devtools.build.lib.remote.util.DigestUtil.isOldStyleDig
 import build.bazel.remote.execution.v2.ActionCacheGrpc;
 import build.bazel.remote.execution.v2.ActionCacheGrpc.ActionCacheFutureStub;
 import build.bazel.remote.execution.v2.ActionResult;
-import build.bazel.remote.execution.v2.ChunkingFunction;
 import build.bazel.remote.execution.v2.ContentAddressableStorageGrpc;
 import build.bazel.remote.execution.v2.ContentAddressableStorageGrpc.ContentAddressableStorageFutureStub;
 import build.bazel.remote.execution.v2.Digest;
@@ -193,7 +192,7 @@ public class GrpcCacheClient extends RemoteCacheClient implements MissingDigests
             .setBlobDigest(blobDigest)
             .addAllChunkDigests(chunkDigests)
             .setDigestFunction(digestUtil.getDigestFunction())
-            .setChunkingFunction(ChunkingFunction.Value.FAST_CDC_2020)
+            .setChunkingFunction(options.getEffectiveChunkingFunction())
             .build();
     return Futures.catchingAsync(
         Futures.transform(
@@ -227,7 +226,7 @@ public class GrpcCacheClient extends RemoteCacheClient implements MissingDigests
             .setInstanceName(options.getRemoteInstanceName())
             .setBlobDigest(digest)
             .setDigestFunction(digestUtil.getDigestFunction())
-            .setChunkingFunction(ChunkingFunction.Value.FAST_CDC_2020)
+            .setChunkingFunction(options.getEffectiveChunkingFunction())
             .build();
     return Futures.catchingAsync(
         Utils.refreshIfUnauthenticatedAsync(

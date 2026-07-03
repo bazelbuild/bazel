@@ -22,7 +22,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteStreams;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.remote.chunking.ChunkingConfig;
-import com.google.devtools.build.lib.remote.chunking.FastCdcChunker;
+import com.google.devtools.build.lib.remote.chunking.ContentDefinedChunker;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.Blob;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
@@ -38,12 +38,12 @@ import java.util.Set;
 import java.util.concurrent.LinkedBlockingQueue;
 
 /**
- * Uploads blobs in chunks using Content-Defined Chunking with FastCDC 2020.
+ * Uploads blobs in chunks using Content-Defined Chunking.
  *
  * <p>Upload flow for blobs above threshold:
  *
  * <ol>
- *   <li>Chunk file with FastCDC
+ *   <li>Chunk file with the configured chunking function
  *   <li>Call findMissingDigests on chunk digests
  *   <li>Upload only missing chunks
  *   <li>Call SpliceBlob to register the blob as the concatenation of chunks
@@ -57,7 +57,7 @@ public class ChunkedBlobUploader {
 
   private final GrpcCacheClient grpcCacheClient;
   private final CombinedCache combinedCache;
-  private final FastCdcChunker chunker;
+  private final ContentDefinedChunker chunker;
   private final long chunkingThreshold;
 
   /**
@@ -75,7 +75,7 @@ public class ChunkedBlobUploader {
       DigestUtil digestUtil) {
     this.grpcCacheClient = grpcCacheClient;
     this.combinedCache = combinedCache;
-    this.chunker = new FastCdcChunker(config, digestUtil);
+    this.chunker = config.newChunker(digestUtil);
     this.chunkingThreshold = config.chunkingThreshold();
   }
 
@@ -85,9 +85,9 @@ public class ChunkedBlobUploader {
   }
 
   /**
-   * Uploads a blob in content-defined chunks. The file is chunked with FastCDC, missing chunks are
-   * uploaded, and {@code SpliceBlob} is called to register the blob as the concatenation of its
-   * chunks.
+   * Uploads a blob in content-defined chunks. The file is chunked with the configured chunking
+   * function, missing chunks are uploaded, and {@code SpliceBlob} is called to register the blob
+   * as the concatenation of its chunks.
    */
   public void uploadChunked(RemoteActionExecutionContext context, Digest blobDigest, Path file)
       throws IOException, InterruptedException {

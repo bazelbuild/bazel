@@ -29,8 +29,8 @@ import build.bazel.remote.execution.v2.Digest;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.clock.JavaClock;
-import com.google.devtools.build.lib.remote.chunking.ChunkingConfig;
 import com.google.devtools.build.lib.remote.chunking.FastCdcChunker;
+import com.google.devtools.build.lib.remote.chunking.FastCdcChunkingConfig;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.Blob;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
@@ -88,13 +88,13 @@ public class ChunkedBlobUploaderTest {
     execRoot = fs.getPath("/execroot");
     execRoot.createDirectoryAndParents();
 
-    ChunkingConfig config = new ChunkingConfig(1024, 2, 0);
+    FastCdcChunkingConfig config = new FastCdcChunkingConfig(1024, 2, 0);
     uploader = new ChunkedBlobUploader(grpcCacheClient, combinedCache, config, DIGEST_UTIL);
   }
 
   @Test
   public void getChunkingThreshold_returnsConfiguredValue() {
-    ChunkingConfig config = new ChunkingConfig(512, 2, 0);
+    FastCdcChunkingConfig config = new FastCdcChunkingConfig(512, 2, 0);
     ChunkedBlobUploader uploader =
         new ChunkedBlobUploader(grpcCacheClient, combinedCache, config, DIGEST_UTIL);
 
@@ -157,7 +157,7 @@ public class ChunkedBlobUploaderTest {
     writeFile(file, fileData);
     Digest blobDigest = DIGEST_UTIL.compute(fileData);
 
-    ChunkingConfig config = new ChunkingConfig(1024, 2, 0);
+    FastCdcChunkingConfig config = new FastCdcChunkingConfig(1024, 2, 0);
     FastCdcChunker testChunker = new FastCdcChunker(config, DIGEST_UTIL);
     List<Digest> allChunkDigests;
     try (InputStream input = file.getInputStream()) {
@@ -218,7 +218,8 @@ public class ChunkedBlobUploaderTest {
     writeFile(file, data);
     Digest blobDigest = DIGEST_UTIL.compute(data);
 
-    FastCdcChunker testChunker = new FastCdcChunker(new ChunkingConfig(1024, 2, 0), DIGEST_UTIL);
+    FastCdcChunker testChunker =
+        new FastCdcChunker(new FastCdcChunkingConfig(1024, 2, 0), DIGEST_UTIL);
     List<Digest> chunkDigests;
     try (InputStream input = file.getInputStream()) {
       chunkDigests = testChunker.chunkToDigests(input);
@@ -298,7 +299,8 @@ public class ChunkedBlobUploaderTest {
     writeFile(file, data);
     Digest blobDigest = DIGEST_UTIL.compute(data);
 
-    FastCdcChunker testChunker = new FastCdcChunker(new ChunkingConfig(1024, 2, 0), DIGEST_UTIL);
+    FastCdcChunker testChunker =
+        new FastCdcChunker(new FastCdcChunkingConfig(1024, 2, 0), DIGEST_UTIL);
     List<Digest> chunkDigests;
     try (InputStream input = file.getInputStream()) {
       chunkDigests = testChunker.chunkToDigests(input);
@@ -367,7 +369,8 @@ public class ChunkedBlobUploaderTest {
     writeFile(file, data);
     Digest blobDigest = DIGEST_UTIL.compute(data);
 
-    FastCdcChunker testChunker = new FastCdcChunker(new ChunkingConfig(1024, 2, 0), DIGEST_UTIL);
+    FastCdcChunker testChunker =
+        new FastCdcChunker(new FastCdcChunkingConfig(1024, 2, 0), DIGEST_UTIL);
     List<Digest> chunkDigests;
     try (InputStream input = file.getInputStream()) {
       chunkDigests = testChunker.chunkToDigests(input);
@@ -395,7 +398,8 @@ public class ChunkedBlobUploaderTest {
     new Random(42).nextBytes(data);
     Digest blobDigest = DIGEST_UTIL.compute(data);
 
-    FastCdcChunker testChunker = new FastCdcChunker(new ChunkingConfig(1024, 2, 0), DIGEST_UTIL);
+    FastCdcChunker testChunker =
+        new FastCdcChunker(new FastCdcChunkingConfig(1024, 2, 0), DIGEST_UTIL);
     List<Digest> chunkDigests;
     try (InputStream input = new ByteArrayInputStream(data)) {
       chunkDigests = testChunker.chunkToDigests(input);
@@ -439,7 +443,8 @@ public class ChunkedBlobUploaderTest {
     new Random(42).nextBytes(data);
     Digest blobDigest = DIGEST_UTIL.compute(data);
 
-    FastCdcChunker testChunker = new FastCdcChunker(new ChunkingConfig(1024, 2, 0), DIGEST_UTIL);
+    FastCdcChunker testChunker =
+        new FastCdcChunker(new FastCdcChunkingConfig(1024, 2, 0), DIGEST_UTIL);
     List<Digest> chunkDigests;
     try (InputStream input = new ByteArrayInputStream(data)) {
       chunkDigests = testChunker.chunkToDigests(input);

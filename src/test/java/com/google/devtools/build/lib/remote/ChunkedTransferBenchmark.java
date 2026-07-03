@@ -26,8 +26,8 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.clock.JavaClock;
-import com.google.devtools.build.lib.remote.chunking.ChunkingConfig;
 import com.google.devtools.build.lib.remote.chunking.FastCdcChunker;
+import com.google.devtools.build.lib.remote.chunking.FastCdcChunkingConfig;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.Blob;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
@@ -144,7 +144,7 @@ public class ChunkedTransferBenchmark {
       when(grpcCacheClient.splitBlob(any(), any(Digest.class)))
           .thenReturn(Futures.immediateFuture(splitBlobResponse));
 
-      ChunkingConfig chunkingConfig = new ChunkingConfig(chunkSizeBytes, 2, 0);
+      FastCdcChunkingConfig chunkingConfig = new FastCdcChunkingConfig(chunkSizeBytes, 2, 0);
       downloader =
           new ChunkedBlobDownloader(grpcCacheClient, combinedCache, chunkingConfig, DIGEST_UTIL);
     }
@@ -197,7 +197,7 @@ public class ChunkedTransferBenchmark {
         out.write(data);
       }
 
-      ChunkingConfig chunkingConfig = new ChunkingConfig(avgChunkSizeBytes, 2, 0);
+      FastCdcChunkingConfig chunkingConfig = new FastCdcChunkingConfig(avgChunkSizeBytes, 2, 0);
       uploader =
           new ChunkedBlobUploader(grpcCacheClient, combinedCache, chunkingConfig, DIGEST_UTIL);
 
