@@ -578,7 +578,18 @@ function add_bazel_skylib() {
 }
 
 function add_rules_cc() {
-  add_bazel_dep "rules_cc" "$1"
+  local module_file=$1
+  add_bazel_dep "rules_cc" "$module_file"
+  cp "$(rlocation io_bazel/third_party/rules_cc_0.2.21.patch)" \
+    "$(dirname "$module_file")/rules_cc_0.2.21.patch"
+  cat >> "$module_file" <<EOF
+single_version_override(
+    module_name = "rules_cc",
+    patch_strip = 1,
+    patches = ["//:rules_cc_0.2.21.patch"],
+    version = "$(get_version_from_default_lock_file rules_cc)",
+)
+EOF
 }
 
 function add_rules_shell() {

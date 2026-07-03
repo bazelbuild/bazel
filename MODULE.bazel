@@ -69,6 +69,15 @@ single_version_override(
     version = "6.8",
 )
 
+# TODO: Remove when a rules_cc release after 0.2.21 forwards C++20 module
+# arguments through _create_compile_action.
+single_version_override(
+    module_name = "rules_cc",
+    patch_strip = 1,
+    patches = ["//third_party:rules_cc_0.2.21.patch"],
+    version = "0.2.21",
+)
+
 # TODO(pcloudy): Remove once the next version of rules_graalvm is available.
 single_version_override(
     module_name = "rules_graalvm",
