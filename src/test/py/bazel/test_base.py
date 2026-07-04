@@ -168,6 +168,14 @@ class TestBase(absltest.TestCase):
 
   def AddBazelDep(self, module, path=''):
     version = self.GetModuleVersionFromDefaultLockFile(module)
+    if module == 'rules_python' and not TestBase.IsWindows():
+      # Use host Python because CI test sandboxes cannot download the hermetic
+      # Python runtime.
+      with open(self._test_bazelrc, 'at') as f:
+        f.write(
+            'common'
+            ' --extra_toolchains=@@rules_python+//python/runtime_env_toolchains:all\n'
+        )
     self.ScratchFile(
         os.path.join(path, 'MODULE.bazel'),
         [

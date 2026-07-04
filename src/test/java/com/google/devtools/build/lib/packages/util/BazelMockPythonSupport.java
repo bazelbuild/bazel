@@ -113,6 +113,33 @@ public final class BazelMockPythonSupport extends MockPythonSupport {
         "    visibility = ['//visibility:public'])",
         "bool_setting(name = 'visible_for_testing', build_setting_default = False)");
     config.create("rules_python_workspace/python/private/uncachable_version_file.txt");
+    config.overwrite(
+        "rules_python_workspace/python/private/mock_executable.bzl",
+        "def _mock_executable_impl(ctx):",
+        "    executable = ctx.actions.declare_file(ctx.label.name)",
+        "    ctx.actions.symlink(",
+        "        output = executable,",
+        "        target_file = ctx.file.src,",
+        "        is_executable = True,",
+        "    )",
+        "    return [DefaultInfo(",
+        "        executable = executable,",
+        "        files = depset([executable]),",
+        "        runfiles = ctx.runfiles(files = [executable]),",
+        "    )]",
+        "",
+        "mock_executable = rule(",
+        "    implementation = _mock_executable_impl,",
+        "    executable = True,",
+        "    attrs = {'src': attr.label(allow_single_file = True, mandatory = True)},",
+        ")");
+    config.overwrite(
+        "rules_python_workspace/tools/private/zipapp/BUILD.bazel",
+        "load('//python/private:mock_executable.bzl', 'mock_executable')",
+        "mock_executable(name = 'exe_zip_maker', src = 'exe_zip_maker.sh',",
+        "    visibility = ['//visibility:public'])");
+    config.overwrite(
+        "rules_python_workspace/tools/private/zipapp/exe_zip_maker.sh", "#!/bin/sh", "exit 0");
     config.overwrite("rules_python_workspace/python/private/common/BUILD");
     config.overwrite(
         "rules_python_workspace/python/private/zipapp/BUILD",
@@ -135,6 +162,7 @@ public final class BazelMockPythonSupport extends MockPythonSupport {
         "    values = ['system_python'])",
         "label_flag(name = 'debugger', build_setting_default = '//python/private:empty')",
         "string_flag(name = 'venvs_use_declare_symlink', build_setting_default = 'yes')",
+        "string_flag(name = 'venv', build_setting_default = 'auto')",
         "string_flag(name = 'precompile_add_to_runfiles', build_setting_default = 'always')",
         "string_flag(name = 'exec_tools_toolchain', build_setting_default = 'yes')",
         "label_flag(name = 'pip_env_marker_config', build_setting_default ="
@@ -165,11 +193,17 @@ public final class BazelMockPythonSupport extends MockPythonSupport {
     config.create(
         "rules_python_internal_workspace/rules_python_config.bzl",
         "config = struct(",
+        "    build_python_zip_default = False,",
+        "    supports_whl_extraction = True,",
         "    enable_pystar = True,",
+        "    enable_deprecation_warnings = False,",
+        "    extract_needs_chmod = False,",
+        "    bazel_8_or_later = True,",
         "    bazel_9_or_later = True,",
         "    bazel_10_or_later = True,",
         "    BuiltinPyInfo = None,",
         "    BuiltinPyRuntimeInfo = None,",
+        "    BuiltinPyCcLinkParamsProvider = None,",
         ")");
 
     config.create(
