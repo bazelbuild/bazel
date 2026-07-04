@@ -96,11 +96,49 @@ public final class BazelMockPythonSupport extends MockPythonSupport {
     config.overwrite(
         "rules_python_workspace/python/private/BUILD",
         "load('@bazel_skylib//rules:common_settings.bzl', 'bool_setting')",
+        "load('@rules_python//python:py_library.bzl', 'py_library')",
+        "load(':mock_executable.bzl', 'mock_executable')",
         "filegroup(name = 'stage2_bootstrap_template', srcs = ['stage2_bootstrap_template.py'])",
         "filegroup(name = 'zip_main_template', srcs = ['zip_main_template.py'])",
         "filegroup(name = 'bootstrap_template', srcs = ['python_bootstrap_template.txt'])",
         "filegroup(name = 'site_init_template', srcs = ['site_init_template.py'])",
-        "bool_setting(name = 'visible_for_testing', build_setting_default = False)");
+        "bool_setting(name = 'visible_for_testing', build_setting_default = False)",
+        "mock_executable(name = 'build_data_writer', src = 'build_data_writer.sh')",
+        "filegroup(name = 'uncachable_version_file', srcs = ['python_bootstrap_template.txt'])",
+        "py_library(name = 'empty')",
+        "alias(name = 'debugger_if_target_config', actual = ':empty')");
+    config.overwrite(
+        "rules_python_workspace/python/private/mock_executable.bzl",
+        "def _mock_executable_impl(ctx):",
+        "    executable = ctx.actions.declare_file(ctx.label.name)",
+        "    ctx.actions.symlink(",
+        "        output = executable,",
+        "        target_file = ctx.file.src,",
+        "        is_executable = True,",
+        "    )",
+        "    return [DefaultInfo(",
+        "        executable = executable,",
+        "        files = depset([executable]),",
+        "        runfiles = ctx.runfiles(files = [executable]),",
+        "    )]",
+        "",
+        "mock_executable = rule(",
+        "    implementation = _mock_executable_impl,",
+        "    executable = True,",
+        "    attrs = {'src': attr.label(allow_single_file = True, mandatory = True)},",
+        ")");
+    config.overwrite(
+        "rules_python_workspace/python/private/build_data_writer.sh", "#!/bin/sh", "exit 0");
+    config.overwrite(
+        "rules_python_workspace/python/private/zipapp/BUILD.bazel",
+        "filegroup(name = 'zip_main_template', srcs = ['zip_main_template.py'])");
+    config.overwrite("rules_python_workspace/python/private/zipapp/zip_main_template.py");
+    config.overwrite(
+        "rules_python_workspace/tools/private/zipapp/BUILD.bazel",
+        "load('//python/private:mock_executable.bzl', 'mock_executable')",
+        "mock_executable(name = 'exe_zip_maker', src = 'exe_zip_maker.sh')");
+    config.overwrite(
+        "rules_python_workspace/tools/private/zipapp/exe_zip_maker.sh", "#!/bin/sh", "exit 0");
     config.overwrite("rules_python_workspace/python/private/common/BUILD");
     config.overwrite(
         "rules_python_workspace/python/config_settings/BUILD.bazel",
@@ -114,7 +152,9 @@ public final class BazelMockPythonSupport extends MockPythonSupport {
         "string_flag(name = 'precompile_source_retention', build_setting_default = 'auto')",
         "rp_string_flag(name = 'bootstrap_impl', build_setting_default = 'system_python', ",
         "    values = ['system_python'])",
+        "label_flag(name = 'debugger', build_setting_default = '//python/private:empty')",
         "string_flag(name = 'venvs_use_declare_symlink', build_setting_default = 'yes')",
+        "string_flag(name = 'venv', build_setting_default = 'auto')",
         "string_flag(name = 'precompile_add_to_runfiles', build_setting_default = 'always')",
         "string_flag(name = 'exec_tools_toolchain', build_setting_default = 'yes')",
         "label_flag(name = 'pip_env_marker_config', build_setting_default ="
@@ -144,7 +184,19 @@ public final class BazelMockPythonSupport extends MockPythonSupport {
     config.create("rules_python_internal_workspace/BUILD");
     config.create(
         "rules_python_internal_workspace/rules_python_config.bzl",
-        "config = struct(enable_pystar = True, BuiltinPyInfo = None, BuiltinPyRuntimeInfo = None)");
+        "config = struct(",
+        "    build_python_zip_default = False,",
+        "    supports_whl_extraction = True,",
+        "    enable_pystar = True,",
+        "    enable_deprecation_warnings = False,",
+        "    extract_needs_chmod = False,",
+        "    bazel_8_or_later = True,",
+        "    bazel_9_or_later = True,",
+        "    bazel_10_or_later = True,",
+        "    BuiltinPyInfo = None,",
+        "    BuiltinPyRuntimeInfo = None,",
+        "    BuiltinPyCcLinkParamsProvider = None,",
+        ")");
 
     config.create(
         "rules_python_internal_workspace/py_internal.bzl",
