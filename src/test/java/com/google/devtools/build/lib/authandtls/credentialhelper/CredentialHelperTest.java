@@ -46,8 +46,10 @@ public class CredentialHelperTest {
       PathFragment.create(System.getenv("TEST_TMPDIR"));
   private static final PathFragment TEST_CREDENTIAL_HELPER_PATH =
       PathFragment.create(
-          "io_bazel/src/test/java/com/google/devtools/build/lib/authandtls/credentialhelper/test_credential_helper"
-              + (OS.getCurrent() == OS.WINDOWS ? ".exe" : ""));
+          "io_bazel/src/test/java/com/google/devtools/build/lib/authandtls/credentialhelper/"
+              + (OS.getCurrent() == OS.WINDOWS
+                  ? "test_credential_helper_zipapp.exe"
+                  : "test_credential_helper"));
 
   private static final Reporter reporter =
       new Reporter(EventBusEventHandler.createWithNewEventBus());

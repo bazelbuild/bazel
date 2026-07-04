@@ -115,6 +115,7 @@ class TestBase(absltest.TestCase):
             'common'
             ' --extra_toolchains=@@rules_python+//python/runtime_env_toolchains:all\n'
         )
+        f.write('common --noincompatible_no_implicit_file_export\n')
         python_exe = shutil.which('python.exe').replace('\\', '/')
         if python_exe:
           f.write(f'common --python_path="{python_exe}"\n')
@@ -158,6 +159,16 @@ class TestBase(absltest.TestCase):
 
   def AddBazelDep(self, module, path=''):
     version = self.GetModuleVersionFromDefaultLockFile(module)
+    if module == 'rules_python' and not TestBase.IsWindows():
+      # Use host Python because CI test sandboxes cannot download the hermetic
+      # Python runtime. rules_python 1.7.0 does not export
+      # runtime_env_toolchain_interpreter.sh.
+      with open(self._test_bazelrc, 'at') as f:
+        f.write(
+            'common'
+            ' --extra_toolchains=@@rules_python+//python/runtime_env_toolchains:all\n'
+        )
+        f.write('common --noincompatible_no_implicit_file_export\n')
     self.ScratchFile(
         os.path.join(path, 'MODULE.bazel'),
         [
