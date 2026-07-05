@@ -288,11 +288,46 @@ public final class RepMaxCdcChunker implements ContentDefinedChunker {
 
         // Preserve all offsets at which the hash increases. Hash values are compared as unsigned
         // 64-bit integers, matching the Go reference implementation.
-        for (int i = 0; i < hashRegionLen; i++) {
-          hash = (hash << 1) + gear[buf[base + pos + i] & 0xFF];
+        //
+        // The Gear hash recurrence is linear, so the hashes of the next four positions can all be
+        // computed directly from the hash at the block start: h(i+k) = (hash << k) + s(k), where
+        // s(k) is the Gear sum of the k block bytes. This shortens the serial dependency chain
+        // from one shift+add per byte to one per four bytes; the rest is independent work. The
+        // speedup is capped by the per-byte Gear table load, so unrolling wider than this adds
+        // code without a meaningful gain.
+        int idx = 0;
+        for (int p = base + pos; idx + 4 <= hashRegionLen; idx += 4, p += 4) {
+          long s1 = gear[buf[p] & 0xFF];
+          long s2 = (s1 << 1) + gear[buf[p + 1] & 0xFF];
+          long s3 = (s2 << 1) + gear[buf[p + 2] & 0xFF];
+          long s4 = (s3 << 1) + gear[buf[p + 3] & 0xFF];
+          long h1 = (hash << 1) + s1;
+          long h2 = (hash << 2) + s2;
+          long h3 = (hash << 3) + s3;
+          long h4 = (hash << 4) + s4;
+          hash = h4;
+          if (Long.compareUnsigned(best, h1) < 0) {
+            best = h1;
+            incompleteChunks.add(currentChunk + idx + 1);
+          }
+          if (Long.compareUnsigned(best, h2) < 0) {
+            best = h2;
+            incompleteChunks.add(currentChunk + idx + 2);
+          }
+          if (Long.compareUnsigned(best, h3) < 0) {
+            best = h3;
+            incompleteChunks.add(currentChunk + idx + 3);
+          }
+          if (Long.compareUnsigned(best, h4) < 0) {
+            best = h4;
+            incompleteChunks.add(currentChunk + idx + 4);
+          }
+        }
+        for (; idx < hashRegionLen; idx++) {
+          hash = (hash << 1) + gear[buf[base + pos + idx] & 0xFF];
           if (Long.compareUnsigned(best, hash) < 0) {
             best = hash;
-            incompleteChunks.add(currentChunk + i + 1);
+            incompleteChunks.add(currentChunk + idx + 1);
           }
         }
 
