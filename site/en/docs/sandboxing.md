@@ -58,8 +58,9 @@ preferring an OS-specific sandbox to the less hermetic generic one.
 the `--worker_sandboxing` flag. In addition to the plain boolean form, the flag
 can be scoped to a specific worker-key mnemonic with
 `--worker_sandboxing=<mnemonic>=<boolean>` (for example
-`--worker_sandboxing --worker_sandboxing=Javac=no` to sandbox all workers except
-`Javac`; a later plain boolean value applies to all mnemonics again).
+`--worker_sandboxing --worker_sandboxing=Javac=no` to sandbox all singleplex
+workers except `Javac`; a later plain boolean value applies to all mnemonics
+again).
 
 The `local` (a.k.a. `standalone`) strategy does not do any kind of sandboxing.
 It simply executes the action's command line with the working directory set to
