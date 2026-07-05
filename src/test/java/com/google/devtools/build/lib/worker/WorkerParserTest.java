@@ -164,7 +164,12 @@ public class WorkerParserTest {
             parseWorkerOptions("--worker_sandboxing", "--worker_sandboxing=Javac=no")
                 .getWorkerSandboxingMap())
         .containsExactly("", true, "Javac", false);
-    // Later values override earlier ones for the same mnemonic.
+    assertThat(
+            parseWorkerOptions(
+                    "--worker_sandboxing", "--worker_sandboxing=Javac=no", "--worker_sandboxing")
+                .getWorkerSandboxingMap())
+        .containsExactly("", true);
+    // Later mnemonic-specific values override earlier ones for that mnemonic.
     assertThat(
             parseWorkerOptions("--worker_sandboxing=Javac=yes", "--worker_sandboxing=Javac=no")
                 .getWorkerSandboxingMap())
@@ -193,6 +198,25 @@ public class WorkerParserTest {
         WorkerTestUtils.createWorkerKeyWithRequirements(
             fs.getPath("/outputbase"), options, "Bar", /* dynamic= */ false);
     assertThat(barKey.isSandboxed()).isTrue();
+  }
+
+  @Test
+  public void createWorkerKey_laterGlobalSandboxingOverridesEarlierPerMnemonicValue()
+      throws Exception {
+    WorkerOptions options =
+        parseWorkerOptions(
+            "--worker_sandboxing", "--worker_sandboxing=Javac=no", "--worker_sandboxing");
+    options.setWorkerMultiplex(false);
+
+    WorkerKey javacKey =
+        WorkerTestUtils.createWorkerKeyWithRequirements(
+            fs.getPath("/outputbase"), options, "Javac", /* dynamic= */ false);
+    assertThat(javacKey.isSandboxed()).isTrue();
+
+    WorkerKey otherKey =
+        WorkerTestUtils.createWorkerKeyWithRequirements(
+            fs.getPath("/outputbase"), options, "Other", /* dynamic= */ false);
+    assertThat(otherKey.isSandboxed()).isTrue();
   }
 
   @Test

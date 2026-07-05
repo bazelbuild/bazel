@@ -135,7 +135,8 @@ the plain boolean form, the flag may be scoped to a worker-key mnemonic as
 `--worker_sandboxing=<mnemonic>=<boolean>`, allowing sandboxing to be enabled or
 disabled per mnemonic (for example
 `--worker_sandboxing --worker_sandboxing=Javac=no`). Later values override
-earlier ones for the same mnemonic.
+earlier ones for the mnemonics they affect, so a later plain
+`--worker_sandboxing` re-enables sandboxing for all mnemonics.
 
 The
 [`--worker_quit_after_build`](/reference/command-line-reference#flag--worker_quit_after_build)
