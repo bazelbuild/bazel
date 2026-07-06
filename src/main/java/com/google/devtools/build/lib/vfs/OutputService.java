@@ -233,6 +233,7 @@ public interface OutputService {
   default void updateActionFileSystemContext(
       ActionExecutionMetadata action,
       FileSystem actionFileSystem,
+      InputMetadataProvider inputMetadataProvider,
       OutputMetadataStore outputMetadataStore) {}
 
   /**

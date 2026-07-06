@@ -470,8 +470,12 @@ public final class SkyframeActionExecutor {
   }
 
   private void updateActionFileSystemContext(
-      Action action, FileSystem actionFileSystem, OutputMetadataStore outputMetadataStore) {
-    outputService.updateActionFileSystemContext(action, actionFileSystem, outputMetadataStore);
+      Action action,
+      FileSystem actionFileSystem,
+      InputMetadataProvider inputMetadataProvider,
+      OutputMetadataStore outputMetadataStore) {
+    outputService.updateActionFileSystemContext(
+        action, actionFileSystem, inputMetadataProvider, outputMetadataStore);
   }
 
   void executionOver() {
@@ -606,7 +610,8 @@ public final class SkyframeActionExecutor {
       boolean hasDiscoveredInputs)
       throws ActionExecutionException, InterruptedException {
     if (actionFileSystem != null) {
-      updateActionFileSystemContext(action, actionFileSystem, outputMetadataStore);
+      updateActionFileSystemContext(
+          action, actionFileSystem, compositeInputMetadataProvider, outputMetadataStore);
     }
 
     ActionExecutionContext actionExecutionContext =
@@ -929,7 +934,10 @@ public final class SkyframeActionExecutor {
             outputService.actionFileSystemType().supportsInputDiscovery());
     if (actionFileSystem != null) {
       updateActionFileSystemContext(
-          action, actionFileSystem, THROWING_OUTPUT_METADATA_STORE_FOR_ACTIONFS);
+          action,
+          actionFileSystem,
+          compositeInputMetadataProvider,
+          THROWING_OUTPUT_METADATA_STORE_FOR_ACTIONFS);
       // Note that when not using ActionFS, a global setup of the parent directories of the OutErr
       // streams is sufficient.
       setupActionFsFileOutErr(fileOutErr, action);
