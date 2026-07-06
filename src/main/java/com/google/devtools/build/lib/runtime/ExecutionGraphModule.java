@@ -111,6 +111,7 @@ public class ExecutionGraphModule extends BlazeModule {
     @Option(
         name = "enable_execution_graph_log",
         oldName = "experimental_enable_execution_graph_log",
+        oldNameWarning = false,
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
         defaultValue = "false",
@@ -124,6 +125,7 @@ public class ExecutionGraphModule extends BlazeModule {
     @Option(
         name = "execution_graph_log_path",
         oldName = "experimental_execution_graph_log_path",
+        oldNameWarning = false,
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
         defaultValue = "",
@@ -139,6 +141,7 @@ public class ExecutionGraphModule extends BlazeModule {
     @Option(
         name = "execution_graph_log_dep_type",
         oldName = "experimental_execution_graph_log_dep_type",
+        oldNameWarning = false,
         converter = DependencyInfoConverter.class,
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.UNKNOWN},
@@ -151,6 +154,7 @@ public class ExecutionGraphModule extends BlazeModule {
     @Option(
         name = "execution_graph_log_queue_size",
         oldName = "experimental_execution_graph_log_queue_size",
+        oldNameWarning = false,
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.UNKNOWN},
         defaultValue = "1000000",
