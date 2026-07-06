@@ -53,6 +53,8 @@ public class JacocoLCOVFormatter {
   // file-paths).
   private final Optional<ImmutableSet<String>> execPathsOfUninstrumentedFiles;
 
+  // The delimiter between the provided "exec path" and the source file name if an explicit mapping
+  // is provided via an "execPath//sourcePath" line in the paths-for-coverage.txt file.
   private static final String EXEC_PATH_DELIMITER = "///";
 
   public JacocoLCOVFormatter(ImmutableSet<String> execPathsOfUninstrumentedFiles) {
