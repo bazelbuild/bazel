@@ -2564,8 +2564,11 @@ EOF
 custom_plugin.MyChecker
 EOF
 
+  local jb_deploy_jar=$(rlocation io_bazel/src/java_tools/buildjar/JavaBuilder_deploy.jar)
+  cp "${jb_deploy_jar}" custom_plugin/JavaBuilder_deploy.jar
+
   cat > custom_plugin/BUILD << 'EOF'
-load("@rules_java//java:defs.bzl", "java_library")
+load("@rules_java//java:defs.bzl", "java_import", "java_library")
 load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "DEFAULT_TOOLCHAIN_CONFIGURATION", "default_java_toolchain")
 load("@bazel_tools//tools/jdk:javabuilder.bzl", "default_javabuilder", "errorprone_with_custom_plugins")
 
@@ -2585,6 +2588,11 @@ platform(
     parents = ["@platforms//host"],
 )
 
+java_import(
+    name = "javabuilder_core_import",
+    jars = ["JavaBuilder_deploy.jar"],
+)
+
 java_library(
     name = "my_plugin",
     srcs = ["MyChecker.java"],
@@ -2598,18 +2606,19 @@ java_library(
         "--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
     ],
     deps = [
-        "@rules_java//third_party:error_prone",
+        ":javabuilder_core_import",
     ],
 )
 
 errorprone_with_custom_plugins(
     name = "my_errorprone",
-    errorprone = "@rules_java//third_party:error_prone",
+    errorprone = ":javabuilder_core_import",
     plugins = [":my_plugin"],
 )
 
 default_javabuilder(
     name = "custom_javabuilder",
+    javabuilder_core = ":javabuilder_core_import",
     errorprone = [":my_errorprone"],
 )
 
@@ -2629,13 +2638,6 @@ toolchain(
     visibility = ["//visibility:public"],
 )
 EOF
-
-  local bzl_file=$(rlocation "${RULES_JAVA_REPO_NAME}/java/defs.bzl")
-  local real_rules_java=$(dirname "$(dirname "$(readlink -f "${bzl_file}")")")
-  local rules_java_path="${TEST_TMPDIR}/rules_java_override"
-  rm -rf "${rules_java_path}"
-  mkdir -p "${rules_java_path}"
-  cp -r "${real_rules_java}/"* "${rules_java_path}/"
 
   mkdir -p hello
   cat > hello/HelloWorld.java << 'EOF'
@@ -2657,9 +2659,9 @@ java_binary(
 )
 EOF
 
-  bazel clean --lockfile_mode=off --override_repository=rules_java="${rules_java_path}" --override_module=rules_java="${rules_java_path}"
+  bazel clean --lockfile_mode=off
 
-  bazel build --platforms=//custom_plugin:custom_platform --extra_toolchains=//custom_plugin:custom_toolchain_definition --lockfile_mode=off --override_repository=rules_java="${rules_java_path}" --override_module=rules_java="${rules_java_path}" //hello:hello \
+  bazel build --subcommands --strategy=Javac=standalone --platforms=//custom_plugin:custom_platform --extra_toolchains=//custom_plugin:custom_toolchain_definition --lockfile_mode=off //hello:hello \
       >& $TEST_log && fail "Build succeeded but should have failed due to custom Error Prone check" || true
 
   echo "=== TEST LOG CONTENT ===" >&2

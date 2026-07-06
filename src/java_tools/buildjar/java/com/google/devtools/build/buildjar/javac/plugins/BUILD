@@ -103,6 +103,7 @@ filegroup(
     name = "srcs",
     srcs = glob(["**/*.java"]) + [
         "BUILD",
+        "errorprone/META-INF/services/com.google.devtools.build.buildjar.javac.plugins.errorprone.ErrorProneInvoker",
     ],
     visibility = ["//src:__subpackages__"],
 )
