@@ -171,11 +171,14 @@ public class BuildEventServiceGrpcClient implements BuildEventServiceClient {
 
     @Override
     public void abortStream(AbortReason reason, @Nullable String description) {
-      Status status =
-          switch (reason) {
-            case CANCELLED -> Status.CANCELLED;
-            case FAILED_PRECONDITION -> Status.FAILED_PRECONDITION;
-          };
+      Status status;
+      if (reason == AbortReason.CANCELLED) {
+        status = Status.CANCELLED;
+      } else if (reason == AbortReason.FAILED_PRECONDITION) {
+        status = Status.FAILED_PRECONDITION;
+      } else {
+        status = Status.UNKNOWN;
+      }
       if (description != null) {
         status = status.withDescription(description);
       }
