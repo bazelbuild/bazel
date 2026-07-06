@@ -805,16 +805,6 @@ public abstract class CppOptions extends FragmentOptions {
               + "(see https://github.com/bazelbuild/bazel/issues/7407 for more information).")
   public abstract boolean getDontEnableHostNonhost();
 
-  @Deprecated
-  @Option(
-      name = "incompatible_make_thinlto_command_lines_standalone",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-      effectTags = {OptionEffectTag.NO_OP},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE, OptionMetadataTag.DEPRECATED},
-      help = "This flag is a noop and scheduled for removal.")
-  public abstract boolean getUseStandaloneLtoIndexingCommandLines();
-
   @Option(
       name = "incompatible_remove_legacy_whole_archive",
       defaultValue = "true",
@@ -843,17 +833,6 @@ public abstract class CppOptions extends FragmentOptions {
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help = "Save the state of enabled and requested feautres as an output of compilation.")
   public abstract boolean getSaveFeatureState();
-
-  @Option(
-      name = "incompatible_use_specific_tool_files",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "Use cc toolchain's compiler_files, as_files, and ar_files as inputs to appropriate "
-              + "actions. See https://github.com/bazelbuild/bazel/issues/8531")
-  public abstract boolean getUseSpecificToolFiles();
 
   @Option(
       name = "incompatible_disable_nocopts",

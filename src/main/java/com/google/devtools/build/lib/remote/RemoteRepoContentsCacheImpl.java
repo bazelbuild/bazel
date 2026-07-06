@@ -303,8 +303,7 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
 
   private RemoteActionExecutionContext buildContext(RepositoryName repoName, CacheOp cacheOp) {
     var metadata =
-        TracingMetadataUtils.buildMetadata(
-            buildRequestId, commandId, repoName.getName(), /* actionMetadata= */ null);
+        TracingMetadataUtils.buildMetadata(buildRequestId, commandId, repoName.getName());
     // Don't upload local repo contents to the disk cache as the (local) `--repo_contents_cache` is
     // a better alternative for local caching. Do write through the disk cache for downloads from
     // the remote cache to speed up future usage.

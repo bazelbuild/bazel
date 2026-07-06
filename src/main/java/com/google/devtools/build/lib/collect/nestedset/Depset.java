@@ -26,6 +26,7 @@ import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkAnnotations;
 import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkLibrary;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Debug;
 import net.starlark.java.eval.Dict;
@@ -578,6 +579,7 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
 
   /** The user-facing API to the {@code depset} callable. */
   @GlobalMethods(environment = {Environment.BUILD, Environment.BZL})
+  @StarlarkLibrary
   public static final class DepsetLibrary {
 
     private DepsetLibrary() {}

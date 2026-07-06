@@ -483,6 +483,96 @@ EOF
   expect_not_log "hi there"
 }
 
+function test_cgroups_v2_peak_memory_mock() {
+  local local_tmp="$(mktemp -d "${OUT_DIR}/test_cgroups_v2_peak_memory_mockXXXX")"
+  local stats_out_path="${local_tmp}/statsfile"
+  local stats_out_decoded_path="${local_tmp}/statsfile.decoded"
+
+  # Create a mock cgroup directory
+  local mock_cgroup_dir="${local_tmp}/mock_cgroup"
+  mkdir -p "${mock_cgroup_dir}"
+
+  # Write a mock peak memory value (40MB = 41943040 bytes)
+  echo "41943040" > "${mock_cgroup_dir}/memory.peak"
+
+  # Run sandbox pointing to the mock cgroup directory
+  local code=0
+  "${linux_sandbox}" \
+      -W "${SANDBOX_DIR}" \
+      -S "${stats_out_path}" \
+      -C "${mock_cgroup_dir}" \
+      -- /bin/true \
+      &> "${TEST_log}" || code="$?"
+
+  assert_equals 0 "${code}"
+
+  if ! [[ -e "${stats_out_path}" ]]; then
+    fail "Stats file not found: '${stats_out_path}'"
+  fi
+
+  # Decode stats
+  "${protoc_compiler}" --proto_path="${STATS_PROTO_DIR}" \
+      --decode tools.protos.ExecutionStatistics execution_statistics.proto \
+      < "${stats_out_path}" > "${stats_out_decoded_path}"
+
+  if ! [[ -e "${stats_out_decoded_path}" ]]; then
+    fail "Decoded stats file not found: '${stats_out_decoded_path}'"
+  fi
+
+  # Assert maxrss is reported and matches the mock value (40MB = 40960 KB)
+  local maxrss=0
+  if grep -q maxrss "${stats_out_decoded_path}"; then
+    maxrss="$(grep maxrss "${stats_out_decoded_path}" | cut -f2 -d':' | tr -dc '0-9')"
+  fi
+
+  assert_equals 40960 "${maxrss}"
+}
+
+function test_cgroups_v1_peak_memory_mock() {
+  local local_tmp="$(mktemp -d "${OUT_DIR}/test_cgroups_v1_peak_memory_mockXXXX")"
+  local stats_out_path="${local_tmp}/statsfile"
+  local stats_out_decoded_path="${local_tmp}/statsfile.decoded"
+
+  # Create a mock cgroup directory
+  local mock_cgroup_dir="${local_tmp}/mock_cgroup"
+  mkdir -p "${mock_cgroup_dir}"
+
+  # Write a mock peak memory value (40MB = 41943040 bytes)
+  echo "41943040" > "${mock_cgroup_dir}/memory.max_usage_in_bytes"
+
+  # Run sandbox pointing to the mock cgroup directory
+  local code=0
+  "${linux_sandbox}" \
+      -W "${SANDBOX_DIR}" \
+      -S "${stats_out_path}" \
+      -C "${mock_cgroup_dir}" \
+      -- /bin/true \
+      &> "${TEST_log}" || code="$?"
+
+  assert_equals 0 "${code}"
+
+  if ! [[ -e "${stats_out_path}" ]]; then
+    fail "Stats file not found: '${stats_out_path}'"
+  fi
+
+  # Decode stats
+  "${protoc_compiler}" --proto_path="${STATS_PROTO_DIR}" \
+      --decode tools.protos.ExecutionStatistics execution_statistics.proto \
+      < "${stats_out_path}" > "${stats_out_decoded_path}"
+
+  if ! [[ -e "${stats_out_decoded_path}" ]]; then
+    fail "Decoded stats file not found: '${stats_out_decoded_path}'"
+  fi
+
+  # Assert maxrss is reported and matches the mock value (40MB = 40960 KB)
+  local maxrss=0
+  if grep -q maxrss "${stats_out_decoded_path}"; then
+    maxrss="$(grep maxrss "${stats_out_decoded_path}" | cut -f2 -d':' | tr -dc '0-9')"
+  fi
+
+  assert_equals 40960 "${maxrss}"
+}
+
 # The test shouldn't fail if the environment doesn't support running it.
 is_linux || exit 0
 check_sandbox_allowed || exit 0

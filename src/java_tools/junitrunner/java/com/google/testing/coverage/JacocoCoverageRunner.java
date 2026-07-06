@@ -34,7 +34,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
-import java.io.Reader;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.net.URL;
@@ -55,11 +54,7 @@ import java.util.jar.Manifest;
 import org.jacoco.agent.rt.IAgent;
 import org.jacoco.agent.rt.RT;
 import org.jacoco.core.analysis.Analyzer;
-import org.jacoco.core.analysis.CoverageBuilder;
-import org.jacoco.core.analysis.IBundleCoverage;
 import org.jacoco.core.tools.ExecFileLoader;
-import org.jacoco.report.IReportVisitor;
-import org.jacoco.report.ISourceFileLocator;
 import sun.misc.Unsafe;
 
 /**
@@ -122,78 +117,20 @@ public class JacocoCoverageRunner {
     execFileLoader = new ExecFileLoader();
     execFileLoader.load(executionData);
 
-    // Run the structure analyzer on a single class folder or jar file to build up the coverage
-    // model. Typically you would create a bundle for each class folder and each jar you want in
-    // your report. If you have more than one bundle you may need to add a grouping node to the
-    // report. The lcov formatter doesn't seem to care, and we're only using one bundle anyway.
-    final IBundleCoverage bundleCoverage = analyzeStructure();
-
-    final Map<String, CoverageData> branchDetails = analyzeBranch();
-    createReport(bundleCoverage, branchDetails);
+    final Map<String, CoverageData> coverageData = analyze();
+    createReport(coverageData);
   }
 
   @VisibleForTesting
-  void createReport(
-      final IBundleCoverage bundleCoverage, final Map<String, CoverageData> branchDetails)
-      throws IOException {
+  void createReport(final Map<String, CoverageData> coverageData) throws IOException {
     JacocoLCOVFormatter formatter = new JacocoLCOVFormatter(createPathsSet());
     try (PrintWriter writer =
         new PrintWriter(newBufferedWriter(reportFile.toPath(), UTF_8, CREATE, APPEND))) {
-      final IReportVisitor visitor = formatter.createVisitor(writer, branchDetails);
-
-      // Initialize the report with all of the execution and session information. At this point the
-      // report doesn't know about the structure of the report being created.
-      visitor.visitInfo(
-          execFileLoader.getSessionInfoStore().getInfos(),
-          execFileLoader.getExecutionDataStore().getContents());
-
-      // Populate the report structure with the bundle coverage information.
-      // Call visitGroup if you need groups in your report.
-
-      // Note the API requires a sourceFileLocator because the HTML and XML formatters display a
-      // page of code annotated with coverage information. Having the source files is not actually
-      // needed for generating the lcov report.
-      visitor.visitBundle(
-          bundleCoverage,
-          new ISourceFileLocator() {
-
-            @Override
-            public Reader getSourceFile(String packageName, String fileName) throws IOException {
-              return null;
-            }
-
-            @Override
-            public int getTabWidth() {
-              return 0;
-            }
-          });
-
-      // Signal end of structure information to allow report to write all information out
-      visitor.visitEnd();
+      formatter.writeCoverageData(writer, coverageData);
     }
   }
 
-  @VisibleForTesting
-  IBundleCoverage analyzeStructure() throws IOException {
-    final CoverageBuilder coverageBuilder = new CoverageBuilder();
-    final Analyzer analyzer = new Analyzer(execFileLoader.getExecutionDataStore(), coverageBuilder);
-    Set<String> alreadyInstrumentedClasses = new HashSet<>();
-    if (uninstrumentedClasses == null) {
-      for (File classesJar : classesJars) {
-        analyzeUninstrumentedClassesFromJar(analyzer, classesJar, alreadyInstrumentedClasses);
-      }
-    } else {
-      for (Map.Entry<String, byte[]> entry : uninstrumentedClasses.entrySet()) {
-        analyzer.analyzeClass(entry.getValue(), entry.getKey());
-      }
-    }
-
-    // TODO(bazel-team): Find out where the name of the bundle can pop out in the report.
-    return coverageBuilder.getBundle("isthisevenused");
-  }
-
-  // Additional pass to process the branch details of the classes
-  private Map<String, CoverageData> analyzeBranch() throws IOException {
+  private Map<String, CoverageData> analyze() throws IOException {
     final CoverageAnalyzer analyzer = new CoverageAnalyzer(execFileLoader.getExecutionDataStore());
 
     Map<String, CoverageData> result = new TreeMap<>();

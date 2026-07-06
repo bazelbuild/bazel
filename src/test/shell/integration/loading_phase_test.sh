@@ -141,7 +141,9 @@ function test_options_errors() {
       grep -v '^  '${PRODUCT_NAME}' ' |
       awk '{print $1}' |
   while read command; do
-    bazel $command >$TEST_log 2>&1 || true
+    # bazel help <command> instantiates the options processor in the same way that
+    # bazel <command> does, but is lighter weight.
+    bazel help $command >$TEST_log 2>&1 || true
     # Mustn't crash in the options package:
     expect_not_log "Duplicate option name"
     expect_not_log "at com.google.devtools.build.lib"

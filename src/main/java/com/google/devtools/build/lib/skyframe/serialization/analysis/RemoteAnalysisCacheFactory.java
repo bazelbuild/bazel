@@ -20,7 +20,6 @@ import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.ForkJoinPool.commonPool;
 
-import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -175,27 +174,15 @@ public final class RemoteAnalysisCacheFactory {
         "Remote analysis caching SkyValue version: %s (actual evaluating version: %s)",
         frontierNodeVersion, workspaceInfoFromDiff.getEvaluatingVersion());
 
-    // Create various objets we need
+    // Create various objects we need
 
     ListenableFuture<ObjectCodecs> objectCodecs = createObjectCodecs(env, topLevelOptions);
 
     RemoteAnalysisCachingServicesSupplier servicesSupplier =
         env.getBlazeWorkspace().remoteAnalysisCachingServicesSupplier();
-    RemoteAnalysisCachingConfig config =
-        new RemoteAnalysisCachingConfig(
-            options.getMode(),
-            options.getStorageType(),
-            /* maxBatchSize= */ options.getMaxBatchSize(),
-            /* concurrency= */ options.getConcurrency(),
-            /* targetWriteConcurrency= */ options.getTargetWriteConcurrency(),
-            /* maxWriteConcurrency= */ options.getMaxWriteConcurrency(),
-            options.getDeadline(),
-            options.getAnalysisCacheService(),
-            options.getRemoteAnalysisWriteProxy(),
-            options.getAnalysisCacheEnableMetadataQueries(),
-            options.getRemoteAnalysisDebugEntries());
     try {
-      servicesSupplier.configure(config, clientId, env.getCommandId().toString());
+      servicesSupplier.configure(
+          env.getOptions(), options.getMode(), clientId, env.getCommandId().toString());
     } catch (SerializedAbruptExitException e) {
       throw AbruptExitException.fromSerialized(e);
     }
@@ -203,10 +190,8 @@ public final class RemoteAnalysisCacheFactory {
     // Set up parameters for the metadata store, if needed
 
     SkycacheMetadataParams skycacheMetadataParams = servicesSupplier.getSkycacheMetadataParams();
-    boolean areMetadataQueriesEnabled =
-        skycacheMetadataParams != null && options.getAnalysisCacheEnableMetadataQueries();
 
-    if (areMetadataQueriesEnabled) {
+    if (skycacheMetadataParams != null) {
       skycacheMetadataParams.init(
           workspaceInfoFromDiff.getEvaluatingVersion().getVal(),
           String.format("%s-%s", BlazeVersionInfo.instance().getReleaseName(), blazeInstallMD5),
@@ -214,9 +199,6 @@ public final class RemoteAnalysisCacheFactory {
           env.getUseFakeStampData(),
           userOptions,
           projectSclOptions);
-    }
-
-    if (skycacheMetadataParams != null) {
       skycacheMetadataParams.setConfigurationHash(trimmedTopLevelOptions.checksum());
       skycacheMetadataParams.setOriginalConfigurationOptions(
           getConfigurationOptionsAsStrings(topLevelOptions));
@@ -256,7 +238,6 @@ public final class RemoteAnalysisCacheFactory {
     var manager =
         new RemoteAnalysisCacheManager(
             options.getMode(),
-            areMetadataQueriesEnabled,
             env.getReporter(),
             skycacheMetadataParams,
             servicesSupplier.getAnalysisCacheClient(),
@@ -278,20 +259,11 @@ public final class RemoteAnalysisCacheFactory {
           analysisCacheClient = deps.getAnalysisCacheClient();
         }
         if (analysisCacheClient == null) {
-          if (Strings.isNullOrEmpty(options.getAnalysisCacheService())) {
-            env.getReporter()
-                .handle(
-                    Event.warn(
-                        "--experimental_remote_analysis_cache_mode=DOWNLOAD was requested but"
-                            + " --experimental_analysis_cache_service was not specified. Falling"
-                            + " back on local evaluation."));
-          } else {
-            env.getReporter()
-                .handle(
-                    Event.warn(
-                        "Failed to establish connection to AnalysisCacheService. Falling back to"
-                            + " local evaluation."));
-          }
+          env.getReporter()
+              .handle(
+                  Event.warn(
+                      "Failed to establish connection to AnalysisCacheService (or it was not"
+                          + " specified). Falling back to local evaluation."));
           yield new AnalysisDeps(
               RemoteAnalysisCacheManager.createDisabled(),
               RemoteAnalysisCacheDeps.createDisabled(),
@@ -402,7 +374,7 @@ public final class RemoteAnalysisCacheFactory {
       ListenableFuture<? extends FingerprintValueService> fingerprintValueService,
       ListenableFuture<? extends RemoteAnalysisCacheClient> analysisCacheClient,
       RemoteAnalysisCachingEventListener eventListener) {
-    if (analysisCacheClient == null) {
+    if (analysisCacheClient == null || fingerprintValueService == null) {
       return immediateFuture(null);
     }
     return Futures.whenAllSucceed(objectCodecs, fingerprintValueService, analysisCacheClient)

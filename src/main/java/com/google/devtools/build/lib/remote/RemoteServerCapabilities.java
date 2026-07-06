@@ -72,7 +72,7 @@ class RemoteServerCapabilities {
 
   public ListenableFuture<ServerCapabilities> get(ManagedChannel channel) {
     RequestMetadata metadata =
-        TracingMetadataUtils.buildMetadata(buildRequestId, commandId, "capabilities", null);
+        TracingMetadataUtils.buildMetadata(buildRequestId, commandId, "capabilities");
     RemoteActionExecutionContext context = RemoteActionExecutionContext.create(metadata);
     GetCapabilitiesRequest request =
         instanceName == null

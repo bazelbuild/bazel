@@ -35,6 +35,7 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
+import javax.annotation.Nonnull;
 
 /** The JavaBuilder main called by bazel. */
 public class BazelJavaBuilder {
@@ -80,7 +81,7 @@ public class BazelJavaBuilder {
     }
   }
 
-  public int parseAndBuild(List<String> args, Path workDir, PrintWriter pw) {
+  public int parseAndBuild(List<String> args, @Nonnull Path workDir, PrintWriter pw) {
     try {
       JavaLibraryBuildRequest build = parse(args, workDir);
       try (SimpleJavaLibraryBuilder builder =
@@ -128,7 +129,7 @@ public class BazelJavaBuilder {
    * @throws InvalidCommandLineException on any command line error
    */
   @VisibleForTesting
-  public JavaLibraryBuildRequest parse(List<String> args, Path workDir)
+  public JavaLibraryBuildRequest parse(List<String> args, @Nonnull Path workDir)
       throws IOException, InvalidCommandLineException {
     OptionsParser optionsParser =
         new OptionsParser(args, JavacOptions.createWithWarningsAsErrorsDefault(ImmutableList.of()));

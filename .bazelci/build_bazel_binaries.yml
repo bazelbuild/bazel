@@ -29,6 +29,9 @@ platforms:
       - "-c"
       - "opt"
   macos:
+    environment:
+      ANDROID_HOME: ""
+      ANDROID_NDK_HOME: ""
     build_targets:
       - "//src:bazel"
       - "//src:bazel_nojdk"

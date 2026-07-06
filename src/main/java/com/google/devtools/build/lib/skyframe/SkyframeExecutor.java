@@ -130,6 +130,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.Label.LabelInterner;
 import com.google.devtools.build.lib.cmdline.Label.PackageContext;
 import com.google.devtools.build.lib.cmdline.Label.RepoContext;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -237,7 +238,6 @@ import com.google.devtools.build.lib.skyframe.serialization.FrontierNodeVersion;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.ClientId;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheDeps;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheManager;
-import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheMode;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheReaderDepsProvider;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingServerState;
@@ -675,7 +675,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   @VisibleForTesting
   public boolean isRemoteAnalysisCachingEnabled() {
-    return remoteAnalysisCachingDependenciesProvider.mode() == RemoteAnalysisCacheMode.DOWNLOAD;
+    return remoteAnalysisCachingDependenciesProvider.mode().isRetrievalEnabled();
   }
 
   final class PathResolverFactoryImpl implements PathResolverFactory {
@@ -958,7 +958,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     map.put(SkyFunctions.ACTION_EXECUTION, newActionExecutionFunction());
     map.put(
         SkyFunctions.RECURSIVE_FILESYSTEM_TRAVERSAL,
-        new RecursiveFilesystemTraversalFunction(syscallCache));
+        new RecursiveFilesystemTraversalFunction(
+            syscallCache,
+            directories.getOutputBase().getRelative(LabelConstants.EXTERNAL_REPOSITORY_LOCATION)));
     map.put(
         SkyFunctions.ACTION_TEMPLATE_EXPANSION,
         new ActionTemplateExpansionFunction(actionKeyContext));
@@ -1075,6 +1077,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   public void noteCommandStart() {
     // Prevent stale Skycache configuration from persisting between builds.
     remoteAnalysisCachingDependenciesProvider = RemoteAnalysisCacheManager.createDisabled();
+    remoteAnalysisCacheReaderDepsProvider = RemoteAnalysisCacheDeps.createDisabled();
   }
 
   /**
@@ -2274,8 +2277,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
       if (e != null) {
         // Wrap exceptions related to loading
-        if (e instanceof NoSuchThingException noSuchThingException) {
-          throw new InvalidConfigurationException(noSuchThingException.getDetailedExitCode(), e);
+        if (e instanceof DetailedException detailedException) {
+          throw new InvalidConfigurationException(detailedException.getDetailedExitCode(), e);
         }
         Throwables.throwIfInstanceOf(e, InvalidConfigurationException.class);
         // If we get here, e is non-null but not an InvalidConfigurationException, so wrap it and

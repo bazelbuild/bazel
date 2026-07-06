@@ -17,9 +17,9 @@ import unittest
 from frozendict import frozendict
 
 import tools.ctexplain.analyses.summary as summary
-from tools.ctexplain.types import Configuration
-from tools.ctexplain.types import ConfiguredTarget
-from tools.ctexplain.types import NullConfiguration
+from tools.ctexplain.ctexplain_types import Configuration
+from tools.ctexplain.ctexplain_types import ConfiguredTarget
+from tools.ctexplain.ctexplain_types import NullConfiguration
 
 
 class SummaryTest(unittest.TestCase):

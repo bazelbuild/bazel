@@ -51,6 +51,16 @@ public final class BazelRulesModule extends BlazeModule {
 
     @Deprecated
     @Option(
+        name = "incompatible_use_new_cgroup_implementation",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.DEPRECATED},
+        help = "Deprecated no-op.")
+    public abstract boolean getUseNewCgroupImplementation();
+
+    @Deprecated
+    @Option(
         name = "experimental_skyframe_error_handling_refactor",
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -589,6 +599,26 @@ public final class BazelRulesModule extends BlazeModule {
         help = "Deprecated no-op.")
     public abstract boolean getDisableLegacyCcProvider();
 
+    @Deprecated
+    @Option(
+        name = "incompatible_use_specific_tool_files",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE, OptionMetadataTag.DEPRECATED},
+        help = "Deprecated no-op.")
+    public abstract boolean getUseSpecificToolFiles();
+
+    @Deprecated
+    @Option(
+        name = "experimental_java_test_auto_create_deploy_jar",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.EXPERIMENTAL, OptionMetadataTag.DEPRECATED},
+        help = "Deprecated no-op.")
+    public abstract boolean getJavaTestAutoCreateDeployJar();
+
     @Option(
         name = "python_path",
         defaultValue = "",
@@ -622,6 +652,16 @@ public final class BazelRulesModule extends BlazeModule {
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "Deprecated. No-op.")
     public abstract String getPythonTop();
+
+    @Deprecated
+    @Option(
+        name = "incompatible_make_thinlto_command_lines_standalone",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE, OptionMetadataTag.DEPRECATED},
+        help = "Deprecated no-op.")
+    public abstract boolean getUseStandaloneLtoIndexingCommandLines();
 
     @Deprecated
     @Option(
@@ -822,6 +862,21 @@ public final class BazelRulesModule extends BlazeModule {
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "Deprecated. No-op.")
     public abstract boolean getExperimentalExecutionGraphIncludeChangePrunedActions();
+
+    /**
+     * Option to ease migration away from leaking deps into the compile classpath of tests.
+     *
+     * @deprecated flag is a no-op, will be deleted in a future Bazel release
+     */
+    @Deprecated
+    @Option(
+        name = "experimental_add_test_support_to_compile_time_deps",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.EXPERIMENTAL, OptionMetadataTag.DEPRECATED},
+        help = "Deprecated no-op.")
+    public abstract boolean getAddTestSupportToCompileTimeDeps();
   }
 
   /**

@@ -14,6 +14,8 @@
 
 package net.starlark.java.syntax;
 
+import static com.google.common.base.Preconditions.checkState;
+
 import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -53,9 +55,9 @@ public final class Resolver extends NodeVisitor {
 
   /** Scope discriminates the scope of a binding: global, local, etc. */
   public enum Scope {
-    /** Binding is local to a function, comprehension, or file (e.g. load). */
+    /** Binding is local to a function, comprehension, type alias, or file (e.g. load). */
     LOCAL,
-    /** Binding is non-local and occurs outside any function or comprehension. */
+    /** Binding is non-local and occurs outside any function, comprehension, or type alias. */
     GLOBAL,
     /** Binding is local to a function, comprehension, or file, but shared with nested functions. */
     CELL,
@@ -492,11 +494,12 @@ public final class Resolver extends NodeVisitor {
    */
   private static class Block {
     @Nullable private final Block parent; // enclosing block, or null for tail of list
-    @Nullable Node syntax; // Comprehension, DefStatement/LambdaExpression, StarlarkFile, or null
+    // Comprehension, DefStatement/LambdaExpression, StarlarkFile, TypeAliasStatement, or null
+    @Nullable final Node syntax;
     private final ArrayList<Binding> frame; // accumulated locals of enclosing function
     // Accumulated CELL/FREE bindings of the enclosing function that will provide
     // the values for the free variables of this function; see Function.getFreeVars.
-    // Null for toplevel functions and expressions, which have no free variables.
+    // Null for toplevel functions/expressions and type aliases, which have no free variables.
     @Nullable private final ArrayList<Binding> freevars;
 
     // Bindings for names defined in this block.
@@ -525,7 +528,8 @@ public final class Resolver extends NodeVisitor {
   @Nullable private final Map<String, DocComments> docCommentsMap;
   // A cache of PREDECLARED, UNIVERSAL, and GLOBAL bindings queried from the module.
   private final Map<String, Binding> toplevel = new HashMap<>();
-  // Linked list of blocks, innermost first, for functions and comprehensions and (finally) file.
+  // Linked list of blocks, innermost first, for functions, comprehensions, type aliases, and
+  // (finally) file.
   private Block locals;
   private int loopCount;
   private int nextBindingId = 0;
@@ -932,12 +936,18 @@ public final class Resolver extends NodeVisitor {
 
     if (options.resolveTypeSyntax()) {
       assertIsBound(node.getIdentifier());
-      visit(node.getDefinition());
-    }
 
-    // TODO: #27370 - Bind the generic type params (`type Foo[S, T] = ...`). Will require creating
-    // a new block for the RHS, since the type params don't leak outside the statement. (This
-    // means extending the invariant of Block#syntax to allow include TypeAliasStatement.)
+      ArrayList<Binding> frame = new ArrayList<>();
+      pushLocalBlock(node, frame, /* freevars= */ null);
+      for (Identifier paramId : node.getParameters()) {
+        // Parser guarantees that type alias parameter names are unique.
+        checkState(bind(paramId, /* isLoad= */ false, /* docComments= */ null));
+      }
+
+      visit(node.getDefinition());
+
+      popLocalBlock();
+    }
   }
 
   // Resolves a non-binding identifier to an existing binding, or null.
@@ -945,8 +955,8 @@ public final class Resolver extends NodeVisitor {
   private Binding use(Identifier id) {
     String name = id.getName();
 
-    // Locally defined in this function, comprehension,
-    // or file block, or an enclosing one?
+    // Locally defined in this function, comprehension, type alias, or file block, or an enclosing
+    // one?
     Binding bind = lookupLexical(name, locals);
     if (bind != null) {
       return bind;
@@ -1167,7 +1177,7 @@ public final class Resolver extends NodeVisitor {
     }
     params.add(param);
   }
-
+    
   /**
    * Process a binding use of a name by adding a binding to the current block if not already bound,
    * and associate the identifier with it.
@@ -1182,7 +1192,7 @@ public final class Resolver extends NodeVisitor {
     // TODO(adonovan): factor out bindLocal/bindGlobal cases
     // and simply the condition below.
 
-    // outside any function/comprehension, and not a (local) load? => global binding.
+    // outside any function/comprehension/type-alias, and not a (local) load? => global binding.
     if (locals.syntax instanceof StarlarkFile && !(isLoad && !options.loadBindsGlobally())) {
       bind = toplevel.get(name);
       if (bind == null) {
@@ -1206,7 +1216,7 @@ public final class Resolver extends NodeVisitor {
       }
 
     } else {
-      // Binding is local to file, function, or comprehension.
+      // Binding is local to file, function, comprehension, or type alias.
       bind = locals.bindings.get(name);
       if (bind == null) {
         // New local binding: add to current block's bindings map, current function's frame.

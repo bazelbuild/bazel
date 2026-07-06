@@ -184,6 +184,12 @@ public class ClassProbesMapper extends ClassProbesVisitor implements IFilterCont
     return classAttributes;
   }
 
+  /** Returns the package name of the class. */
+  public String getPackageName() {
+    int pos = className.lastIndexOf('/');
+    return pos == -1 ? "" : className.substring(0, pos);
+  }
+
   private static String constructFunctionName(String clsName, String methodName, String desc) {
     // The lcov spec doesn't of course cover Java formats, so we output the method signature.
     // lcov_merger doesn't seem to care about these entries.

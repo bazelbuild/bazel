@@ -146,7 +146,9 @@ public class RemoteServerCapabilitiesTest {
             retryService);
     ManagedChannel channel =
         InProcessChannelBuilder.forName(fakeServerName)
-            .intercept(TracingMetadataUtils.newExecHeadersInterceptor(remoteOptions))
+            .intercept(
+                TracingMetadataUtils.newExecHeadersInterceptor(
+                    remoteOptions.getRemoteHeaders(), remoteOptions.getRemoteExecHeaders()))
             .directExecutor()
             .build();
     RemoteServerCapabilities client =

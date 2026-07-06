@@ -310,7 +310,9 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
     return FetchGrpc.newBlockingStub(channel)
         .withInterceptors(
             TracingMetadataUtils.attachMetadataInterceptor(context.getRequestMetadata()))
-        .withInterceptors(TracingMetadataUtils.newDownloaderHeadersInterceptor(options))
+        .withInterceptors(
+            TracingMetadataUtils.newDownloaderHeadersInterceptor(
+                options.getRemoteHeaders(), options.getRemoteDownloaderHeaders()))
         .withCallCredentials(credentials.orElse(null))
         .withDeadlineAfter(options.getRemoteTimeout().toSeconds(), TimeUnit.SECONDS);
   }

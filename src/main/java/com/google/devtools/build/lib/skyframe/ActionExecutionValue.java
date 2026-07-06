@@ -20,6 +20,7 @@ import static com.google.common.base.Preconditions.checkState;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.Action;
@@ -66,6 +67,12 @@ public abstract class ActionExecutionValue implements SkyValue {
       ImmutableMap<Artifact, TreeArtifactValue> treeArtifactData,
       RichArtifactData richArtifactData,
       NestedSet<Artifact> discoveredModules) {
+
+    // Defensive sorting to make it obvious that the iteration order is deterministic. These maps
+    // are most of the time sorted, since ActionOutputMetadataStore sorts them.
+    artifactData = ImmutableSortedMap.copyOf(artifactData);
+    treeArtifactData = ImmutableSortedMap.copyOf(treeArtifactData);
+
     // Use forEach instead of entrySet to avoid instantiating an EntrySet in ImmutableMap.
     artifactData.forEach(
         (artifact, value) -> {

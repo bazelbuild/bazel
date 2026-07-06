@@ -1354,6 +1354,7 @@ public class CppCompileAction extends AbstractAction
       @Nullable InputMetadataProvider inputMetadataProvider,
       Fingerprint fp)
       throws CommandLineExpansionException, InterruptedException {
+    fp.addBoolean(getDotdFile() != null && useInMemoryDotdFiles());
     computeKey(
         actionKeyContext,
         fp,

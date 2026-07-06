@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.UserExecException;
-import com.google.devtools.build.lib.sandbox.CgroupsInfo;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.sandbox.cgroups.VirtualCgroupFactory;
@@ -96,11 +95,6 @@ class SingleplexWorker extends Worker {
     Subprocess process = createProcessBuilder(args, clientEnv).start();
     if (cgroupFactory != null) {
       cgroup = cgroupFactory.create(workerId, ImmutableMap.of());
-    } else if (options.getUseCgroupsOnLinux() && CgroupsInfo.isSupported()) {
-      cgroup =
-          CgroupsInfo.getBlazeSpawnsCgroup()
-              .createIndividualSpawnCgroup(
-                  /* dirName= */ "worker_" + workerId, /* memoryLimitMb= */ 0);
     }
     if (cgroup != null && cgroup.exists()) {
       cgroup.addProcess(process.getProcessId());

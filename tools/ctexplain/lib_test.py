@@ -17,9 +17,9 @@
 import unittest
 from src.test.py.bazel import test_base
 import tools.ctexplain.bazel_api as bazel_api
+from tools.ctexplain.ctexplain_types import Configuration
+from tools.ctexplain.ctexplain_types import NullConfiguration
 import tools.ctexplain.lib as lib
-from tools.ctexplain.types import Configuration
-from tools.ctexplain.types import NullConfiguration
 
 
 class LibTest(test_base.TestBase):

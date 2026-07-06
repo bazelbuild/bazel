@@ -254,8 +254,7 @@ public class RemoteExecutionServiceTest {
     executor = mock(RemoteExecutionClient.class);
     when(executor.getServerCapabilities()).thenReturn(remoteExecutorCapabilities);
 
-    RequestMetadata metadata =
-        TracingMetadataUtils.buildMetadata("none", "none", "action-id", null);
+    RequestMetadata metadata = TracingMetadataUtils.buildMetadata("none", "none", "action-id");
     remoteActionExecutionContext = RemoteActionExecutionContext.create(metadata);
   }
 
@@ -1341,6 +1340,34 @@ public class RemoteExecutionServiceTest {
     assertThat(path.isSymbolicLink()).isTrue();
     assertThat(path.readSymbolicLink()).isEqualTo(PathFragment.create("../../foo"));
     assertThat(context.isLockOutputFilesCalled()).isTrue();
+  }
+
+  @Test
+  public void downloadOutputs_outputSymlinkEscapingExecRoot_isRejected() throws Exception {
+    // An output symlink whose resolved local path is outside the exec root must be rejected,
+    // mirroring
+    // the containment enforced for output files (file.path.relativeTo(execRoot) throws in
+    // downloadOutputs). The escaping symlink is present only in the result passed to
+    // downloadOutputs;
+    // building the spawn from it would otherwise attempt to create a test artifact for the escaping
+    // path.
+    Spawn spawn =
+        newSpawnFromResult(
+            RemoteActionResult.createFromCache(
+                CachedActionResult.remote(ActionResult.getDefaultInstance())));
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
+    RemoteExecutionService service = newRemoteExecutionService();
+    RemoteAction action = service.buildRemoteAction(spawn, context);
+    createOutputDirectories(spawn);
+    when(remoteOutputChecker.shouldDownloadOutput(ArgumentMatchers.<PathFragment>any(), any()))
+        .thenReturn(true);
+
+    ActionResult.Builder poisoned = ActionResult.newBuilder();
+    poisoned.addOutputSymlinksBuilder().setPath("outputs/../../../escape/link").setTarget("foo");
+    RemoteActionResult poisonedResult =
+        RemoteActionResult.createFromCache(CachedActionResult.remote(poisoned.build()));
+
+    assertThrows(IOException.class, () -> service.downloadOutputs(action, poisonedResult));
   }
 
   @Test

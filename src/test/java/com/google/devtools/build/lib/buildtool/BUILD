@@ -22,7 +22,7 @@ java_test(
         "JobsConverterTest.java",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
+        "//src/main/java/com/google/devtools/build/lib/actions:localhost_compute_resources",
         "//src/main/java/com/google/devtools/build/lib/buildtool:build_request_options",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:junit4",

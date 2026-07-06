@@ -16,6 +16,7 @@ package com.google.devtools.build.skyframe;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.common.graph.Graph;
 import com.google.common.graph.GraphBuilder;
 import com.google.common.graph.ImmutableGraph;
@@ -23,11 +24,10 @@ import com.google.common.graph.MutableGraph;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.concurrent.QuiescingExecutor;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.lib.events.Reportable;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
@@ -71,7 +71,7 @@ public interface SkyFunction {
    * values of this type unless you know exactly what you are doing.
    *
    * <p>If version information is discovered for the given {@code skyKey}, {@link
-   * Environment#injectVersionForNonHermeticFunction(Version)} may be called on {@code env}.
+   * Environment#injectVersion(Version)} may be called on {@code env}.
    *
    * @throws SkyFunctionException on failure
    * @throws InterruptedException if interrupted
@@ -95,9 +95,9 @@ public interface SkyFunction {
 
   /**
    * Returns the max transitive source version that would be injected via {@link
-   * SkyFunctionEnvironment#injectVersionForNonHermeticFunction} if {@link #compute(SkyKey,
-   * Environment)} were invoked for the given {@link SkyKey}/{@link SkyValue} pair, or null if no
-   * call for version injection would be made.
+   * SkyFunctionEnvironment#injectVersion} if {@link #compute(SkyKey, Environment)} were invoked for
+   * the given {@link SkyKey}/{@link SkyValue} pair, or null if no call for version injection would
+   * be made.
    */
   @Nullable
   default Version getMaxTransitiveSourceVersionToInjectForNonHermeticFunction(
@@ -363,17 +363,22 @@ public interface SkyFunction {
       return null;
     }
 
+    /** Returns dependencies requested in the current run of this node evaluation. */
+    default Set<SkyKey> getNewlyRequestedDeps() {
+      return ImmutableSet.of();
+    }
+
     /**
-     * Injects non-hermetic {@link Version} information for the currently evaluating {@link SkyKey}.
+     * Injects {@link Version} information for the currently evaluating {@link SkyKey}.
      *
      * <p>This may be called during the course of {@link SkyFunction#compute} if the function
      * determines that the currently evaluating key's source dependencies have not changed since the
      * given {@code version}.
      *
-     * <p>Environments that either do not need or wish to ignore non-hermetic version information
-     * may keep the default no-op implementation.
+     * <p>Environments that either do not need or wish to ignore version information may keep the
+     * default no-op implementation.
      */
-    default void injectVersionForNonHermeticFunction(Version version) {}
+    default void injectVersion(Version version) {}
 
     /**
      * Register dependencies on keys without necessarily requiring their values.
@@ -618,8 +623,8 @@ public interface SkyFunction {
      * <ul>
      *   <li>Returns {@code null} during cycle detection and error bubbling, or for transient
      *       errors.
-     *   <li>If the node is {@link FunctionHermeticity#NONHERMETIC}, returns the version passed to
-     *       {@link #injectVersionForNonHermeticFunction} if it was called, or else {@code null}.
+     *   <li>Returns the version passed to {@link #injectVersion} if it was called, or else {@code
+     *       null}.
      *   <li>For all other nodes, queries {@link NodeEntry#getMaxTransitiveSourceVersion} of direct
      *       dependency nodes and chooses the maximal version seen (according to {@link
      *       Version#atMost}). If there are no direct dependencies, returns {@link

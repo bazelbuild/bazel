@@ -540,7 +540,7 @@ public class CcToolchainFeatures implements StarlarkValue {
     private final ImmutableSet<WithFeatureSet> withFeatureSetSets;
 
     // Caching tool path string.
-    @Nullable private String toolPathString = null;
+    @Nullable private transient String toolPathString = null;
 
     @VisibleForTesting
     public Tool(

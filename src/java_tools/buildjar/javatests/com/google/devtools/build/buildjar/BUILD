@@ -21,3 +21,14 @@ java_test(
         "//third_party:truth",
     ],
 )
+
+java_test(
+    name = "JavacWorkDirStrippingTest",
+    srcs = ["JavacWorkDirStrippingTest.java"],
+    deps = [
+        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/plugins:dependency",
+        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/plugins:processing",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)

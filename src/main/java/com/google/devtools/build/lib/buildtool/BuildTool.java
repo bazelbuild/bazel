@@ -86,6 +86,7 @@ import com.google.devtools.build.lib.runtime.StarlarkOptionsParser.BuildSettingL
 import com.google.devtools.build.lib.server.FailureDetails.ActionQuery;
 import com.google.devtools.build.lib.server.FailureDetails.BuildConfiguration.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.RemoteAnalysisCaching;
 import com.google.devtools.build.lib.skyframe.BuildResultListener;
 import com.google.devtools.build.lib.skyframe.ProjectValue;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue.RepositoryMappingResolutionException;
@@ -106,7 +107,6 @@ import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnaly
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheMode;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheReaderDepsProvider;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider;
-import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisMetadataWriter;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.SerializationDependenciesProvider;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -134,6 +134,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
@@ -434,7 +435,7 @@ public class BuildTool {
 
         // Log stats and sync state even on failure.
         if (analysisCachingDeps != null) {
-          if (analysisCacheReaderDeps.mode() == RemoteAnalysisCacheMode.DOWNLOAD
+          if (analysisCacheReaderDeps.mode().isRetrievalEnabled()
               && (analysisCacheReaderDeps.shouldBailOutOnMissingFingerprint()
                   || analysisCachingDeps.bailedOut())) {
             reportOnlyBailOutReason(analysisCacheReaderDeps);
@@ -1034,14 +1035,18 @@ public class BuildTool {
   }
 
   private void reportRemoteAnalysisServiceStats(
-      FingerprintValueService fingerprintValueService,
-      RemoteAnalysisCacheClient analysisCacheClient) {
-    FingerprintValueStore.Stats fvsStats = fingerprintValueService.getStats();
-    RemoteAnalysisCacheClient.Stats raccStats =
+      @Nullable FingerprintValueService fingerprintValueService,
+      @Nullable RemoteAnalysisCacheClient analysisCacheClient) {
+    FingerprintValueStore.Stats fingerprintValueServiceStats =
+        fingerprintValueService == null
+            ? FingerprintValueStore.EMPTY_STATS
+            : fingerprintValueService.getStats();
+    RemoteAnalysisCacheClient.Stats remoteAnalysisCacheClientStats =
         analysisCacheClient == null
             ? RemoteAnalysisCacheClient.EMPTY_STATS
             : analysisCacheClient.getStats();
-    env.getRemoteAnalysisCachingEventListener().recordServiceStats(fvsStats, raccStats);
+    env.getRemoteAnalysisCachingEventListener()
+        .recordServiceStats(fingerprintValueServiceStats, remoteAnalysisCacheClientStats);
   }
 
   private void reportOnlyBailOutReason(RemoteAnalysisCacheReaderDepsProvider readerDeps)
@@ -1072,13 +1077,14 @@ public class BuildTool {
       return;
     }
 
+    // TODO(b/529634169): make this exhaustive.
     switch (dependenciesProvider.mode()) {
-      case UPLOAD ->
+      case UPLOAD, ASYNC_UPLOAD ->
           reportRemoteAnalysisServiceStats(
               dependenciesProvider.getFingerprintValueService(),
               dependenciesProvider.getAnalysisCacheClient());
 
-      case DOWNLOAD -> {
+      case DOWNLOAD, BIDI -> {
         reportRemoteAnalysisServiceStats(
             dependenciesProvider.getFingerprintValueService(),
             dependenciesProvider.getAnalysisCacheClient());
@@ -1099,10 +1105,7 @@ public class BuildTool {
     boolean success = false;
     SkycacheMetadataParams skycacheMetadataParams =
         env.getBlazeWorkspace().remoteAnalysisCachingServicesSupplier().getSkycacheMetadataParams();
-    if (skycacheMetadataParams == null
-        || !env.getOptions()
-            .getOptions(RemoteAnalysisCachingOptions.class)
-            .getAnalysisCacheEnableMetadataQueries()) {
+    if (skycacheMetadataParams == null) {
       return;
     }
     try (SilentCloseable c = Profiler.instance().profile("skycache.metadata.upload")) {
@@ -1291,6 +1294,23 @@ public class BuildTool {
     }
 
     checkState(serializationDependenciesProvider.mode().serializesValues());
+
+    if (serializationDependenciesProvider.mode().isAsyncUploadEnabled()) {
+      try {
+        serializationDependenciesProvider.waitForUploadCompletion();
+      } catch (ExecutionException e) {
+        Throwables.throwIfInstanceOf(e.getCause(), AbruptExitException.class);
+        throw new AbruptExitException(
+            DetailedExitCode.of(
+                FailureDetail.newBuilder()
+                    .setMessage("Skycache upload failed: " + e.getCause().getMessage())
+                    .setRemoteAnalysisCaching(
+                        RemoteAnalysisCaching.newBuilder()
+                            .setCode(RemoteAnalysisCaching.Code.UPLOAD_FAILED))
+                    .build()));
+      }
+      return;
+    }
 
     try (SilentCloseable closeable = Profiler.instance().profile("serializeAndUploadFrontier")) {
       Optional<FailureDetail> maybeFailureDetail =

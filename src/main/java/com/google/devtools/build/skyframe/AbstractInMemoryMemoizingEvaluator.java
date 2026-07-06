@@ -335,6 +335,18 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
   }
 
   @Override
+  public final void dumpKeys(PrintStream out, Predicate<String> filter)
+      throws InterruptedException {
+    processGraphForDumpCommand(
+        filter,
+        out,
+        entry -> {
+          out.println(entry.getKey().getCanonicalName());
+          out.println();
+        });
+  }
+
+  @Override
   public final void dumpValues(PrintStream out, Predicate<String> filter)
       throws InterruptedException {
     processGraphForDumpCommand(

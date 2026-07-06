@@ -98,7 +98,6 @@ sh_test(
         "//src/test/shell:bashunit",
         "//src/test/shell:unittest.bash",
     ],
-    flaky = True,
 )
 
 sh_test(

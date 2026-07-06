@@ -123,8 +123,7 @@ public class GrpcRemoteDownloaderTest {
         TracingMetadataUtils.buildMetadata(
             "none",
             "none",
-            DIGEST_UTIL.asActionKey(Digest.getDefaultInstance()).digest().getHash(),
-            null);
+            DIGEST_UTIL.asActionKey(Digest.getDefaultInstance()).digest().getHash());
     context = RemoteActionExecutionContext.create(metadata);
 
     retryService = MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));

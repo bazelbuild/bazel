@@ -26,8 +26,6 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_input",
-        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
-        "//src/main/java/com/google/devtools/build/lib/exec:spawn_input_expander",
         "//src/main/java/com/google/devtools/build/lib/exec:spawn_runner",
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
         "//src/main/java/com/google/devtools/build/lib/shell",
@@ -135,23 +133,5 @@ java_test(
         "//third_party:junit4",
         "//third_party:truth",
         "@maven//:com_google_testparameterinjector_test_parameter_injector",
-    ],
-)
-
-java_test(
-    name = "CgroupsInfoTest",
-    size = "small",
-    srcs = ["CgroupsInfoTest.java"],
-    tags = [
-        # MacOS does not have cgroups so it can't support hardened sandbox
-        "no_macos",
-        "no_windows",
-    ],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/sandbox:cgroups_info",
-        "//src/test/java/com/google/devtools/build/lib/vfs/util",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
     ],
 )

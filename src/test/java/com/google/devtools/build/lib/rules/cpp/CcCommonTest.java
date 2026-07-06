@@ -14,12 +14,10 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.baseArtifactNames;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.baseNamesOf;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.truth.IterableSubject;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -27,7 +25,6 @@ import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RunEnvironmentInfo;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
@@ -172,169 +169,6 @@ public class CcCommonTest extends BuildViewTestCase {
     assertThat(getGeneratingAction(staticallyDotA).getMnemonic()).isEqualTo("CppArchive");
     PathFragment dotAPath = staticallyDotA.getExecPath();
     assertThat(dotAPath.getPathString()).endsWith(STATIC_LIB);
-  }
-
-
-  @Test
-  public void testStartEndLib() throws Exception {
-    getAnalysisMock()
-        .ccSupport()
-        .setupCcToolchainConfig(
-            mockToolsConfig,
-            CcToolchainConfig.builder().withFeatures(CppRuleClasses.SUPPORTS_START_END_LIB));
-    useConfiguration("--start_end_lib");
-    scratch.file(
-        "test/BUILD",
-        """
-        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
-        load("@rules_cc//cc:cc_library.bzl", "cc_library")
-        cc_library(
-            name = "lib",
-            srcs = ["lib.c"],
-        )
-
-        cc_binary(
-            name = "bin",
-            srcs = ["bin.c"],
-        )
-        """);
-
-    ConfiguredTarget target = getConfiguredTarget("//test:bin");
-    SpawnAction action = (SpawnAction) getGeneratingAction(getExecutable(target));
-    for (Artifact input : action.getInputs().toList()) {
-      String name = input.getFilename();
-      assertThat(!CppFileTypes.ARCHIVE.matches(name) && !CppFileTypes.PIC_ARCHIVE.matches(name))
-          .isTrue();
-    }
-  }
-
-  @Test
-  public void testStartEndLibThroughFeature() throws Exception {
-    AnalysisMock.get()
-        .ccSupport()
-        .setupCcToolchainConfig(
-            mockToolsConfig,
-            CcToolchainConfig.builder().withFeatures(CppRuleClasses.SUPPORTS_START_END_LIB));
-    useConfiguration("--start_end_lib");
-    scratch.file(
-        "test/BUILD",
-        """
-        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
-        load("@rules_cc//cc:cc_library.bzl", "cc_library")
-        cc_library(
-            name = "lib",
-            srcs = ["lib.c"],
-        )
-
-        cc_binary(
-            name = "bin",
-            srcs = ["bin.c"],
-        )
-        """);
-
-    ConfiguredTarget target = getConfiguredTarget("//test:bin");
-    SpawnAction action = (SpawnAction) getGeneratingAction(getExecutable(target));
-    for (Artifact input : action.getInputs().toList()) {
-      String name = input.getFilename();
-      assertWithMessage("Expect '%s' not to be an archive", name)
-          .that(!CppFileTypes.ARCHIVE.matches(name) && !CppFileTypes.PIC_ARCHIVE.matches(name))
-          .isTrue();
-    }
-  }
-
-  @Test
-  public void testTempsWithDifferentExtensions() throws Exception {
-    AnalysisMock.get()
-        .ccSupport()
-        .setupCcToolchainConfig(
-            mockToolsConfig, CcToolchainConfig.builder().withFeatures(CppRuleClasses.SUPPORTS_PIC));
-    invalidatePackages();
-    useConfiguration("--platforms=" + TestConstants.PLATFORM_LABEL, "--save_temps");
-    scratch.file(
-        "ananas/BUILD",
-        """
-        load("@rules_cc//cc:cc_library.bzl", "cc_library")
-        cc_library(
-            name = "ananas",
-            srcs = [
-                "1.c",
-                "2.cc",
-                "3.cpp",
-                "4.S",
-                "5.h",
-                "6.hpp",
-                "7.inc",
-                "8.inl",
-                "9.tlh",
-                "A.tli",
-            ],
-        )
-        """);
-
-    ConfiguredTarget ananas = getConfiguredTarget("//ananas:ananas");
-    Iterable<String> temps =
-        ActionsTestUtil.baseArtifactNames(getOutputGroup(ananas, OutputGroupInfo.TEMP_FILES));
-    assertThat(temps)
-        .containsExactly(
-            "1.pic.i", "1.pic.s",
-            "2.pic.ii", "2.pic.s",
-            "3.pic.ii", "3.pic.s");
-  }
-
-  /**
-   * Returns the {@link IterableSubject} for the {@link OutputGroupInfo#TEMP_FILES} generated when
-   * {@code testTarget} is built for {@code cpu}.
-   */
-  private IterableSubject assertTempsForTarget(String testTarget) throws Exception {
-    useConfiguration("--save_temps");
-    ConfiguredTarget target = getConfiguredTarget(testTarget);
-    assertThat(target).isNotNull();
-
-    List<String> temps =
-        ActionsTestUtil.baseArtifactNames(getOutputGroup(target, OutputGroupInfo.TEMP_FILES));
-
-    // Return the IterableSubject for the temp files.
-    return assertWithMessage("k8").that(temps);
-  }
-
-  @Test
-  public void testTempsForCcWithPic() throws Exception {
-    AnalysisMock.get()
-        .ccSupport()
-        .setupCcToolchainConfig(
-            mockToolsConfig, CcToolchainConfig.builder().withFeatures(CppRuleClasses.SUPPORTS_PIC));
-    invalidatePackages();
-    assertTempsForTarget("//foo:foo").containsExactly("foo.pic.ii", "foo.pic.s");
-  }
-
-  @Test
-  public void testTempsForCcWithoutPic() throws Exception {
-    assertTempsForTarget("//foo:foo").containsExactly("foo.ii", "foo.s");
-  }
-
-  @Test
-  public void testTempsForCWithPic() throws Exception {
-    AnalysisMock.get()
-        .ccSupport()
-        .setupCcToolchainConfig(
-            mockToolsConfig, CcToolchainConfig.builder().withFeatures(CppRuleClasses.SUPPORTS_PIC));
-    invalidatePackages();
-    useConfiguration();
-
-    scratch.file(
-        "csrc/BUILD",
-        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
-        "cc_library(name='csrc', srcs=['foo.c'])");
-    assertTempsForTarget("//csrc:csrc").containsExactly("foo.pic.i", "foo.pic.s");
-  }
-
-  @Test
-  public void testTempsForCWithoutPic() throws Exception {
-    scratch.file(
-        "csrc/BUILD",
-        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
-        "cc_library(name='csrc', srcs=['foo.c'])");
-    assertTempsForTarget("//csrc:csrc").containsExactly("foo.i", "foo.s");
   }
 
   @Test

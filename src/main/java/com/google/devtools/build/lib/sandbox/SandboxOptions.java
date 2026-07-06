@@ -366,10 +366,9 @@ public abstract class SandboxOptions extends OptionsBase {
       converter = ResourceConverter.AssignmentConverter.class,
       allowMultiple = true,
       help =
-          "If > 0, each Linux sandbox will be limited to the given amount"
-              + " for the specified resource. Requires --incompatible_use_new_cgroup_implementation"
-              + " and overrides --experimental_sandbox_memory_limit_mb."
-              + " Requires cgroups v1 or v2 and permissions for the users to the cgroups dir.")
+          "If > 0, each Linux sandbox will be limited to the given amount for the specified"
+              + " resource. This overrides --experimental_sandbox_memory_limit_mb. Requires cgroups"
+              + " v1 or v2 and permissions for the users to the cgroups dir.")
   public abstract List<Map.Entry<String, Double>> getLimits();
 
   public ImmutableMap<String, Double> getLimitsMap() {
@@ -378,17 +377,6 @@ public abstract class SandboxOptions extends OptionsBase {
         .putAll(getLimits())
         .buildKeepingLast();
   }
-
-  @Option(
-      name = "incompatible_use_new_cgroup_implementation",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
-      effectTags = {OptionEffectTag.EXECUTION},
-      converter = BooleanConverter.class,
-      help =
-          "If true, use the new implementation for cgroups. The old implementation only supports"
-              + " the memory controller and ignores the value of --experimental_sandbox_limits.")
-  public abstract boolean getUseNewCgroupImplementation();
 
   @Option(
       name = "experimental_sandbox_enforce_resources_regexp",

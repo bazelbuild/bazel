@@ -47,7 +47,7 @@ import java.util.List;
 import javax.annotation.Nullable;
 
 /** Implementation that supports sharing of sub-objects between objects. */
-final class SharedValueDeserializationContext extends MemoizingDeserializationContext {
+public final class SharedValueDeserializationContext extends MemoizingDeserializationContext {
   @VisibleForTesting // private
   static SharedValueDeserializationContext createForTesting(
       ObjectCodecRegistry codecRegistry,
@@ -631,7 +631,7 @@ final class SharedValueDeserializationContext extends MemoizingDeserializationCo
    * <p>This does not indicate a deserialization failure for the value depending on the lookup. See
    * the subclasses for more details.
    */
-  static sealed class LookupAbandonedException extends Exception {
+  public static sealed class LookupAbandonedException extends Exception {
     LookupAbandonedException() {}
 
     LookupAbandonedException(Throwable cause) {
@@ -645,7 +645,7 @@ final class SharedValueDeserializationContext extends MemoizingDeserializationCo
    * <p>Since the compute state is lost, there's no way to perform the Skyframe lookups needed to
    * satisfy the {@link SkyframeLookup}.
    */
-  static final class StateEvictedException extends LookupAbandonedException {}
+  public static final class StateEvictedException extends LookupAbandonedException {}
 
   /**
    * A lookup is abandoned because another sub-value failed to deserialize (possibly due to a failed

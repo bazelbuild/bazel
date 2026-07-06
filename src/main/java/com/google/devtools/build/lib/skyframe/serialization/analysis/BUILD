@@ -22,6 +22,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:fingerprint_value_store",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:frontier_node_version",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:skyvalue_retriever",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis/proto:analysis_cache_service_miss_reason_java_proto",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:guava",
@@ -55,9 +56,11 @@ java_library(
         ":remote_analysis_caching_server_state",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:frontier_node_version",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:skyvalue_retriever",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 
@@ -122,6 +125,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe/toolchains:registered_toolchains_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe/toolchains:toolchain_context_key",
         "//src/main/java/com/google/devtools/build/lib/util:TestType",
+        "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
+        "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/java/com/google/devtools/build/lib/versioning:long_version_getter",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
@@ -152,6 +157,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:guava",
         "//third_party:jsr305",
+        "@com_google_protobuf//:protobuf_java",
     ],
 )
 
@@ -267,9 +273,6 @@ java_library(
 java_library(
     name = "remote_analysis_cache_storage_type",
     srcs = ["RemoteAnalysisCacheStorageType.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
-    ],
 )
 
 java_library(
@@ -282,13 +285,27 @@ java_library(
 
 java_library(
     name = "options",
-    srcs = ["RemoteAnalysisCachingOptions.java"],
+    srcs = [
+        "RemoteAnalysisCachingOptions.java",
+    ],
     deps = [
         ":remote_analysis_cache_mode",
-        ":remote_analysis_cache_storage_type",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:guava",
         "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "sc_options",
+    srcs = [
+        "RemoteAnalysisCachingServicesOptions.java",
+    ],
+    deps = [
+        ":remote_analysis_cache_storage_type",
+        "//src/main/java/com/google/devtools/build/lib/skybridge:sc_flags",
+        "//src/main/java/com/google/devtools/common/options",
+        "//third_party:guava",
     ],
 )
 
@@ -333,6 +350,7 @@ java_library(
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
+        "//third_party:jsr305",
     ],
 )
 
@@ -354,13 +372,14 @@ java_library(
     deps = [
         ":client_id",
         ":remote_analysis_cache_client",
-        ":remote_analysis_caching_config",
+        ":remote_analysis_cache_mode",
         ":remote_analysis_metadata_writer",
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_service",
         "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:fingerprint_value_store",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:skycache_metadata_params",
         "//src/main/java/com/google/devtools/build/lib/util:serialized_abrupt_exit_exception",
+        "//src/main/java/com/google/devtools/common/options",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
@@ -458,7 +477,6 @@ java_library(
         ":remote_analysis_cache_deps",
         ":remote_analysis_cache_manager",
         ":remote_analysis_cache_mode",
-        ":remote_analysis_caching_config",
         ":remote_analysis_caching_services_supplier",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
@@ -500,6 +518,7 @@ java_library(
     deps = [
         ":dependencies_provider",
         ":event_listener",
+        ":file_op_node_map",
         ":frontier_serializer",
         ":remote_analysis_cache_client",
         ":remote_analysis_cache_mode",
@@ -511,6 +530,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:frontier_node_version",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:skyvalue_retriever",
         "//src/main/java/com/google/devtools/build/lib/versioning:long_version_getter",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
@@ -527,14 +547,4 @@ java_library(
         "NodeValuePart.java",
     ],
     deps = ["//src/main/java/com/google/devtools/build/lib/skyframe/serialization"],
-)
-
-java_library(
-    name = "remote_analysis_caching_config",
-    srcs = ["RemoteAnalysisCachingConfig.java"],
-    deps = [
-        ":remote_analysis_cache_mode",
-        ":remote_analysis_cache_storage_type",
-        "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
-    ],
 )

@@ -373,7 +373,7 @@ public class HttpCacheClientTest {
             mock(Spawn.class),
             mock(SpawnExecutionContext.class),
             TracingMetadataUtils.buildMetadata(
-                "none", "none", Digest.getDefaultInstance().getHash(), null));
+                "none", "none", Digest.getDefaultInstance().getHash()));
   }
 
   @Test

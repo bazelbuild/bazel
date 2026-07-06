@@ -310,7 +310,10 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
               public Single<ChannelConnectionWithServerCapabilities> create() {
                 ManagedChannel ch =
                     InProcessChannelBuilder.forName(fakeServerName)
-                        .intercept(TracingMetadataUtils.newExecHeadersInterceptor(remoteOptions))
+                        .intercept(
+                            TracingMetadataUtils.newExecHeadersInterceptor(
+                                remoteOptions.getRemoteHeaders(),
+                                remoteOptions.getRemoteExecHeaders()))
                         .directExecutor()
                         .build();
                 ServerCapabilities caps =

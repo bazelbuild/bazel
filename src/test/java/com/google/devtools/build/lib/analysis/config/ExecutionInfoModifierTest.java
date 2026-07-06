@@ -166,6 +166,18 @@ public class ExecutionInfoModifierTest {
         .testEquals();
   }
 
+  @Test
+  public void starlarkConvertible_returnsTrue() {
+    assertThat(converter.starlarkConvertible()).isTrue();
+  }
+
+  @Test
+  public void reverseForStarlark_returnsOriginalString() throws Exception {
+    String original = "Genrule=+x,.*=+y,CppCompile=+z";
+    ExecutionInfoModifier modifier = converter.convert(original);
+    assertThat(converter.reverseForStarlark(modifier)).isEqualTo(original);
+  }
+
   private void assertModifierMatchesAndResults(
       ExecutionInfoModifier modifier, String mnemonic, Set<String> expectedKeys) {
     assertModifierMatchesAndResults(

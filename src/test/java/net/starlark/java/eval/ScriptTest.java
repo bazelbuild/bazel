@@ -32,6 +32,7 @@ import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkLibrary;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.lib.json.Json;
 import net.starlark.java.syntax.FileOptions;
@@ -39,6 +40,7 @@ import net.starlark.java.syntax.ParserInput;
 import net.starlark.java.syntax.SyntaxError;
 
 /** Script-based tests of Starlark evaluator. */
+@StarlarkLibrary
 public final class ScriptTest {
 
   // Tests for Starlark.

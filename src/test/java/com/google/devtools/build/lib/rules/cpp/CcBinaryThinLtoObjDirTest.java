@@ -864,7 +864,6 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
     setupThinLTOCrosstool(CppRuleClasses.SUPPORTS_PIC);
     useConfiguration(
         "--ltoindexopt=anltoindexopt",
-        "--incompatible_make_thinlto_command_lines_standalone",
         "--features=thin_lto",
         "--features=use_lto_native_object_directory");
 

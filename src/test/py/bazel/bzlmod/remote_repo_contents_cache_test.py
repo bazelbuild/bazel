@@ -636,6 +636,121 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
     self.assertTrue(os.path.exists(os.path.join(repo_dir, 'BUILD')))
     self.assertTrue(os.path.exists(os.path.join(other_repo_dir, 'BUILD')))
 
+  def testAccessFromOtherRepo_withoutRemoteCache(self):
+    # Regression test for a crash when a command that doesn't configure a remote
+    # cache accesses a repo that a previous cached build injected into the
+    # in-memory overlay file system but didn't materialize to disk: the
+    # in-memory contents can't be served, so such repos must be re-fetched
+    # from scratch.
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+            'other_repo = use_repo_rule("//:other_repo.bzl", "other_repo")',
+            'other_repo(name = "other", build_file = "@my_repo//:BUILD")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  rctx.file("BUILD", "filegroup(name=\'haha\')")',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+    self.ScratchFile(
+        'other_repo.bzl',
+        [
+            'def _other_repo_impl(rctx):',
+            '  rctx.file("BUILD", rctx.read(rctx.path(rctx.attr.build_file)))',
+            '  return rctx.repo_metadata()',
+            (
+                'other_repo = repository_rule(_other_repo_impl,'
+                ' attrs={"build_file": attr.label()})'
+            ),
+        ],
+    )
+
+    repo_dir = self.RepoDir('my_repo')
+
+    # Populate the cache: my_repo is materialized as a side effect of fetching
+    # other, which reads my_repo's BUILD file.
+    self.RunBazel(['build', '@other//:haha'])
+
+    # After expunging, fetch my_repo only: it is injected from the cache but not
+    # materialized to disk and kept in memory for subsequent commands.
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:haha'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'BUILD')))
+
+    # Access my_repo from a command without a remote cache (same server). Its
+    # in-memory contents can't be served, so it must be re-fetched from scratch.
+    _, _, stderr = self.RunBazel(['build', '@other//:haha', '--remote_cache='])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'BUILD')))
+
+  def testActionInput_withoutRemoteCache(self):
+    # Like testAccessFromOtherRepo_withoutRemoteCache, but the in-memory repo is
+    # accessed as a source file consumed by an action (which goes through the
+    # file system's getInputStream) rather than via ctx.path()/materialization.
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+        ],
+    )
+    self.ScratchFile(
+        'BUILD.bazel',
+        [
+            'genrule(',
+            '    name = "gen",',
+            '    srcs = ["@my_repo//:data.txt"],',
+            '    outs = ["out.txt"],',
+            '    cmd = "cp $< $@",',
+            ')',
+        ],
+    )
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  rctx.file("data.txt", "from my_repo")',
+            (
+                '  rctx.file("BUILD", "exports_files([\'data.txt\'])\\n'
+                "filegroup(name='haha')\")"
+            ),
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+
+    repo_dir = self.RepoDir('my_repo')
+
+    # Populate the cache by building the genrule, which reads my_repo's
+    # data.txt.
+    self.RunBazel(['build', '//:gen'])
+
+    # After expunging, fetch my_repo without reading data.txt: it is injected
+    # from the cache but not materialized to disk and kept in memory.
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:haha'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'data.txt')))
+
+    # Build the genrule from a command without a remote cache (same server). The
+    # action input lives only in memory and can't be served, so my_repo must be
+    # re-fetched from scratch.
+    _, _, stderr = self.RunBazel(['build', '//:gen', '--remote_cache='])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'data.txt')))
+
   def testAccessFromOtherRepo_symlink(self):
     self.ScratchFile(
         'MODULE.bazel',
@@ -1560,6 +1675,121 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
         os.path.exists(os.path.join(repo_dir, 'subdir/more_nested.bzl'))
     )
 
+  def testBzlSymlinkLoadedByBuildFile(self):
+    # Regression test for
+    # https://github.com/bazelbuild/bazel/issues/29656#issuecomment-4808145049.
+    #
+    # A repo's BUILD file loads a .bzl file that is a symlink. On a remote repo
+    # contents cache hit, the repo is injected into the overlay file system but
+    # not materialized on disk. Reads of .bzl (and REPO.bazel) files are
+    # redirected to the native file system on the assumption that they were
+    # prefetched during injection, but symlinks are not prefetched, only their
+    # target if they match the name pattern.
+    if self.IsWindows():
+      self.ScratchFile(
+          '.bazelrc',
+          ['startup --windows_enable_symlinks'],
+          mode='a',
+      )
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  rctx.file("BUILD", """',
+            'load(":helper.bzl", "the_name")',
+            'filegroup(name = the_name)',
+            '""")',
+            '  rctx.file("real_helper.bzl", \'the_name = "haha"\')',
+            '  rctx.symlink("real_helper.bzl", "helper.bzl")',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+
+    repo_dir = self.RepoDir('my_repo')
+
+    # First fetch: not cached
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:haha'])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertTrue(os.path.islink(os.path.join(repo_dir, 'helper.bzl')))
+
+    # After expunging: cached. The repo is injected but not materialized; the
+    # symlinked .bzl file loaded by the BUILD file must still be readable.
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:haha'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'helper.bzl')))
+
+  def testBzlSymlinkToOtherRepoLoadedByBuildFile(self):
+    # Regression test for
+    # https://github.com/bazelbuild/bazel/issues/29656#issuecomment-4808145049.
+    #
+    # Cross-repo variant of testBzlSymlinkLoadedByBuildFile.
+    if self.IsWindows():
+      self.ScratchFile(
+          '.bazelrc',
+          ['startup --windows_enable_symlinks'],
+          mode='a',
+      )
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'helper_repo = use_repo_rule("//:helper_repo.bzl", "helper_repo")',
+            'helper_repo(name = "helper_repo")',
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'helper_repo.bzl',
+        [
+            'def _helper_repo_impl(rctx):',
+            '  rctx.file("BUILD", "exports_files([\'helper.bzl\'])")',
+            '  rctx.file("helper.bzl", \'the_name = "haha"\')',
+            '  print("JUST FETCHED HELPER")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'helper_repo = repository_rule(_helper_repo_impl)',
+        ],
+    )
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  rctx.file("BUILD", """',
+            'load(":helper.bzl", "the_name")',
+            'filegroup(name = the_name)',
+            '""")',
+            '  rctx.symlink(Label("@helper_repo//:helper.bzl"), "helper.bzl")',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+
+    repo_dir = self.RepoDir('my_repo')
+
+    # First fetch: not cached
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:haha'])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertTrue(os.path.islink(os.path.join(repo_dir, 'helper.bzl')))
+
+    # After expunging: cached. my_repo is injected but not materialized; the
+    # cross-repo symlinked .bzl loaded by the BUILD file must still be readable.
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:haha'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'helper.bzl')))
+
   def testRun(self):
     self.ScratchFile(
         'MODULE.bazel',
@@ -1644,6 +1874,96 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
     _, _, stderr = self.RunBazel(['build', '@foo//:output.txt'])
     stderr = '\n'.join(stderr)
     self.assertNotIn('JUST FETCHED', stderr)
+
+  def testMaterializedRepoIsNotRefetchedWhenEvictedFromCache(self):
+    # A repo restored from the remote repo contents cache is injected into an
+    # in-memory overlay file system. When a file is later materialized on disk,
+    # a contents proxy is recorded on its injected metadata. The proxy lets the
+    # next build recognize the materialized file (which has no fast digest on
+    # the local file system) as unchanged; without it, the file is compared by
+    # contents proxy rather than digest, is considered modified, and the repo
+    # is spuriously invalidated. To make such an invalidation observable,
+    # the remote cache is evicted first, so a refetch can no longer be served
+    # silently from the cache and must visibly re-run the repo rule.
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+            'other_repo = use_repo_rule("//:other_repo.bzl", "other_repo")',
+            'other_repo(name = "other", data_file = "@my_repo//:data.txt")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  rctx.file("BUILD", "exports_files([\'data.txt\'])")',
+            '  rctx.file("data.txt", "hello")',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+    self.ScratchFile(
+        'other_repo.bzl',
+        [
+            'def _other_repo_impl(rctx):',
+            # Reading my_repo's data.txt forces full materialization of
+            # my_repo, recording a contents proxy on each materialized file.
+            # other is not reproducible, so it is always refetched
+            # and re-triggers materialization.
+            '  rctx.file("BUILD", "filegroup(name=\'haha\')")',
+            (
+                '  rctx.file("data_copy.txt",'
+                ' rctx.read(rctx.path(rctx.attr.data_file)))'
+            ),
+            '  return rctx.repo_metadata()',
+            (
+                'other_repo = repository_rule(_other_repo_impl,'
+                ' attrs={"data_file": attr.label()})'
+            ),
+        ],
+    )
+    self.ScratchFile(
+        'main/BUILD.bazel',
+        [
+            'genrule(',
+            '  name = "use_data",',
+            '  srcs = ["@my_repo//:data.txt"],',
+            '  outs = ["out.txt"],',
+            '  cmd = "cat $< > $@",',
+            '  tags = ["no-cache"],',
+            ')',
+        ],
+    )
+
+    # Cold build: fetch my_repo and upload it to the remote repo contents cache.
+    _, _, stderr = self.RunBazel(['build', '//main:use_data'])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+
+    # Restore my_repo from the cache into the overlay; the genrule reads
+    # data.txt while it is still
+    # overlay-resident, so its metadata is the injected remote metadata.
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(['build', '//main:use_data'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+
+    # Fully materialize my_repo onto the local disk (other reads its files),
+    # which records a contents
+    # proxy on the injected metadata and evicts the repo from the overlay.
+    self.RunBazel(['build', '@other//:haha'])
+
+    # Evict everything from the remote cache. After this, my_repo can no longer
+    # be silently restored
+    # from the cache: any refetch must visibly re-run its repo rule.
+    self.ClearRemoteCache()
+
+    # Incremental build: the materialized repo file is recognized as unchanged
+    # via its contents proxy, so my_repo is neither invalidated nor refetched.
+    _, _, stderr = self.RunBazel(['build', '//main:use_data'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
 
 
 if __name__ == '__main__':

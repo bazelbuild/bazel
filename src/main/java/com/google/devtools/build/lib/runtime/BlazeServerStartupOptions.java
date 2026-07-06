@@ -561,4 +561,17 @@ public abstract class BlazeServerStartupOptions extends OptionsBase {
           "A colon-separated list of classpath entries to be added to the classpath of the Bazel"
               + " server.")
   public abstract String getExtraClasspath();
+
+  @Option(
+      name = "experimental_use_compact_object_headers",
+      defaultValue = "true", // NOTE: only for documentation, value is always passed by the client.
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {
+        OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION,
+        OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS,
+      },
+      help =
+          "Use compact object headers in the JVM. Enabled by default for Bazel when "
+              + "using the embedded JDK. This can reduce memory usage by 5-7%.")
+  public abstract boolean getUseCompactObjectHeaders();
 }

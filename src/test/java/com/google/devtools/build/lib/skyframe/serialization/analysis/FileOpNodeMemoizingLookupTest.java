@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture;
 import com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture.FileOpNode;
 import com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture.FileOpNodeOrEmpty;
 import com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture.FutureFileOpNode;
+import com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture.RemoteFileOpNode;
 import com.google.devtools.build.skyframe.InMemoryGraph;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.util.ArrayList;
@@ -210,6 +211,7 @@ public final class FileOpNodeMemoizingLookupTest extends BuildIntegrationTestCas
     switch (node) {
       case FileKey file -> nodes.add(file);
       case DirectoryListingKey directory -> nodes.add(directory);
+      case RemoteFileOpNode remote -> nodes.add(remote);
       case NestedFileOpNodes nested -> {
         for (int i = 0; i < nested.analysisDependenciesCount(); i++) {
           flattenNode(nested.getAnalysisDependency(i), nodes, sources, visited);

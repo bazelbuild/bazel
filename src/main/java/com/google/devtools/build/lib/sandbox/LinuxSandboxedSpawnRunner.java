@@ -135,7 +135,6 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   private final TreeDeleter treeDeleter;
   private final Path slashTmp;
   private final ImmutableSet<Path> knownPathsToMountUnderHermeticTmp;
-  private String cgroupsDir;
   private final VirtualCgroupFactory cgroupFactory;
 
   /**
@@ -157,7 +156,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     super(cmdEnv);
     SandboxOptions sandboxOptions = cmdEnv.getOptions().getOptions(SandboxOptions.class);
     this.cgroupFactory =
-        sandboxOptions == null || !sandboxOptions.getUseNewCgroupImplementation()
+        sandboxOptions == null
             ? null
             : new VirtualCgroupFactory(
                 "sandbox_",
@@ -327,16 +326,6 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       }
       VirtualCgroup cgroup = cgroupFactory.create(context.getId(), spawnResourceLimits);
       commandLineBuilder.setCgroupsDirs(cgroup.paths());
-    } else if (sandboxOptions.getMemoryLimitMb() > 0) {
-      // We put the sandbox inside a unique subdirectory using the context's ID. This ID is
-      // unique per spawn run by this spawn runner.
-      CgroupsInfo sandboxCgroup =
-          CgroupsInfo.getBlazeSpawnsCgroup()
-              .createIndividualSpawnCgroup(
-                  "sandbox_" + context.getId(), sandboxOptions.getMemoryLimitMb());
-      if (sandboxCgroup.exists()) {
-        commandLineBuilder.setCgroupsDirs(ImmutableSet.of(sandboxCgroup.getCgroupDir().toPath()));
-      }
     }
 
     if (!timeout.isZero()) {
@@ -526,9 +515,6 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
   @Override
   public void cleanupSandboxBase(Path sandboxBase, TreeDeleter treeDeleter) throws IOException {
-    if (cgroupsDir != null) {
-      new File(cgroupsDir).delete();
-    }
     VirtualCgroup.deleteInstance();
     // Delete the inaccessible files synchronously, bypassing the treeDeleter. They are only a
     // couple of files that can be deleted fast, and ensuring they are gone at the end of every

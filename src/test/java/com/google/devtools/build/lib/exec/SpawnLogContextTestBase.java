@@ -2074,7 +2074,11 @@ public abstract class SpawnLogContextTestBase {
 
   @Test
   public void testSpawnMetrics() throws Exception {
-    SpawnMetrics metrics = SpawnMetrics.Builder.forLocalExec().setTotalTimeInMs(1).build();
+    SpawnMetrics metrics =
+        SpawnMetrics.Builder.forLocalExec()
+            .setTotalTimeInMs(1)
+            .setMeasuredMemoryPeakBytes(42L)
+            .build();
 
     SpawnLogContext context = createSpawnLogContext();
 
@@ -2093,6 +2097,7 @@ public abstract class SpawnLogContextTestBase {
             .setMetrics(
                 Protos.SpawnMetrics.newBuilder()
                     .setTotalTime(millisToProto(1))
+                    .setMeasuredMemoryPeakBytes(42L)
                     .setStartTime(Timestamps.fromDate(Date.from(now))))
             .build());
   }

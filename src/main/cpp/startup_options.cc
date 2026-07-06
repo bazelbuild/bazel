@@ -102,7 +102,8 @@ StartupOptions::StartupOptions(const string& product_name,
       run_in_user_cgroup(false),
 #endif
       windows_enable_symlinks(false),
-      remote_repo_contents_cache(false) {
+      remote_repo_contents_cache(false),
+      use_compact_object_headers_(false) {
 #if defined(_WIN32) || defined(__CYGWIN__)
   string windows_unix_root = DetectBashAndExportBazelSh();
   if (!windows_unix_root.empty()) {
@@ -138,6 +139,8 @@ StartupOptions::StartupOptions(const string& product_name,
                              &windows_enable_symlinks);
   RegisterNullaryStartupFlag("experimental_remote_repo_contents_cache",
                              &remote_repo_contents_cache);
+  RegisterNullaryStartupFlag("experimental_use_compact_object_headers",
+                             &use_compact_object_headers_);
 #ifdef __linux__
   RegisterNullaryStartupFlag("experimental_run_in_user_cgroup",
                              &run_in_user_cgroup);
@@ -612,6 +615,25 @@ blaze_exit_code::ExitCode StartupOptions::AddJVMArguments(
   result->push_back(
       "-XX:OnOutOfMemoryError=touch " +
       GetOOMFilePath(blaze_util::Path(output_base)).AsJvmArgument());
+
+  bool use_compact_headers = use_compact_object_headers_;
+  if (use_compact_headers) {
+    // If it is true, but it was NOT explicitly set by the user (i.e. it's the
+    // default), only enable it if we are using the embedded JDK to avoid
+    // crashes on older system JDKs.
+    if (option_sources.find("experimental_use_compact_object_headers") ==
+        option_sources.end()) {
+      auto javabase_and_type = GetServerJavabaseAndType();
+      if (javabase_and_type.second != JavabaseType::EMBEDDED) {
+        use_compact_headers = false;
+      }
+    }
+  }
+
+  if (use_compact_headers) {
+    result->push_back("-XX:+UnlockExperimentalVMOptions");
+    result->push_back("-XX:+UseCompactObjectHeaders");
+  }
 
   return AddJVMMemoryArguments(server_javabase, result, user_options, error);
 }

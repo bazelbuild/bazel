@@ -121,7 +121,11 @@ public class RemoteActionInputFetcher extends AbstractActionInputPrefetcher {
               case INPUTS -> "input";
               case OUTPUTS -> "output";
             },
-            action);
+            action != null ? action.getMnemonic() : null,
+            action != null && action.getOwner().getLabel() != null
+                ? action.getOwner().getLabel().getCanonicalForm()
+                : null,
+            action != null ? action.getOwner().getConfigurationChecksum() : null);
     RemoteActionExecutionContext context = RemoteActionExecutionContext.create(requestMetadata);
 
     Digest digest = DigestUtil.buildDigest(metadata.getDigest(), metadata.getSize());

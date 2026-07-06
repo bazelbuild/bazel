@@ -96,3 +96,11 @@ java_test(
     test_class = "com.google.devtools.build.skyframe.AllTests",
     runtime_deps = [":skyframe_tests"],
 )
+
+java_test(
+    name = "SkyframeEvictionTest",
+    size = "small",
+    tags = ["cpu:4"],  # Have some real CPUs to better suss out concurrency bugs
+    test_class = "com.google.devtools.build.skyframe.SkyframeEvictionTest",
+    runtime_deps = [":skyframe_tests"],
+)
