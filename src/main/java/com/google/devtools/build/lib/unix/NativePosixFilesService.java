@@ -61,19 +61,21 @@ public interface NativePosixFilesService extends BlazeService {
   void link(String oldpath, String newpath) throws IOException;
 
   /** How stat() and lstat() should handle errors. */
-  public enum StatErrorHandling {
-    /** Always throw an exception. */
-    ALWAYS_THROW('a'),
-    /** Throw an exception unless the error is ENOENT/ENOTDIR, in which case return null. */
-    THROW_UNLESS_NOT_FOUND('f'),
-    /* Never throw an exception. Return null instead. */
-    NEVER_THROW('n');
-
+  public final class StatErrorHandling {
     private final char code;
 
     private StatErrorHandling(char code) {
       this.code = code;
     }
+
+    /** Always throw an exception. */
+    public static final StatErrorHandling ALWAYS_THROW = new StatErrorHandling('a');
+
+    /** Throw an exception unless the error is ENOENT/ENOTDIR, in which case return null. */
+    public static final StatErrorHandling THROW_UNLESS_NOT_FOUND = new StatErrorHandling('f');
+
+    /* Never throw an exception. Return null instead. */
+    public static final StatErrorHandling NEVER_THROW = new StatErrorHandling('n');
 
     public char getCode() {
       return code;
