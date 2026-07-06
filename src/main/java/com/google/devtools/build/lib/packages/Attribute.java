@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.packages;
 
+import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.collect.Sets.newEnumSet;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -52,12 +53,14 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
@@ -1179,6 +1182,14 @@ public final class Attribute implements Comparable<Attribute> {
    * {@link InterruptedException}.
    */
   private abstract static class ComputationStrategy<TComputeException extends Exception> {
+
+    /**
+     * Marker for a null entry in {@link #createDependencyAssignmentTuple} so that we can use {@link
+     * ImmutableList}.
+     */
+    // TODO: b/531696257 - Nulls may become impossible depending how this bug is fixed.
+    private static final Object NULL_MARKER = new Object();
+
     abstract Object compute(AttributeMap map) throws TComputeException;
 
     /**
@@ -1208,23 +1219,24 @@ public final class Attribute implements Comparable<Attribute> {
      * any labels that a ComputedDefault attribute may evaluate to must be loaded during the loading
      * phase.
      */
-    <T, TLimitException extends Exception> Map<List<Object>, T> computeValuesForAllCombinations(
-        List<String> dependencies,
-        Type<T> type,
-        RuleOrMacroInstance rule,
-        ComputationLimiter<TLimitException> limiter)
-        throws TComputeException, TLimitException {
+    <T, TLimitException extends Exception>
+        Map<ImmutableList<Object>, T> computeValuesForAllCombinations(
+            List<String> dependencies,
+            Type<T> type,
+            RuleOrMacroInstance rule,
+            ComputationLimiter<TLimitException> limiter)
+            throws TComputeException, TLimitException {
       AggregatingAttributeMapper mapper = AggregatingAttributeMapper.of(rule);
       // This will hold every (value1, value2, ..) combination of the declared dependencies.
       // Collect those combinations.
       List<Map<String, Object>> depMaps = mapper.visitAttributes(dependencies, limiter);
       // For each combination, call compute() on a specialized AttributeMap providing those
       // values.
-      Map<List<Object>, T> valueMap = Maps.newHashMapWithExpectedSize(depMaps.size());
+      Map<ImmutableList<Object>, T> valueMap = Maps.newHashMapWithExpectedSize(depMaps.size());
       for (Map<String, Object> depMap : depMaps) {
         AttributeMap attrMap = mapper.createMapBackedAttributeMap(depMap);
         Object value = compute(attrMap);
-        List<Object> key = createDependencyAssignmentTuple(dependencies, attrMap);
+        ImmutableList<Object> key = createDependencyAssignmentTuple(dependencies, attrMap);
         valueMap.put(key, type.cast(value));
       }
       return valueMap;
@@ -1235,14 +1247,15 @@ public final class Attribute implements Comparable<Attribute> {
      * dependencies}, this returns a list of the assigned values, ordered as {@code dependencies} is
      * ordered.
      */
-    static List<Object> createDependencyAssignmentTuple(
+    static ImmutableList<Object> createDependencyAssignmentTuple(
         List<String> dependencies, AttributeMap attrMap) {
-      ArrayList<Object> tuple = new ArrayList<>(dependencies.size());
+      ImmutableList.Builder<Object> tuple =
+          ImmutableList.builderWithExpectedSize(dependencies.size());
       for (String attrName : dependencies) {
         Type<?> attrType = attrMap.getAttributeType(attrName);
-        tuple.add(attrMap.get(attrName, attrType));
+        tuple.add(firstNonNull(attrMap.get(attrName, attrType), NULL_MARKER));
       }
-      return tuple;
+      return tuple.build();
     }
   }
 
@@ -1320,7 +1333,7 @@ public final class Attribute implements Comparable<Attribute> {
     }
 
     <T> List<T> getPossibleValues(Type<T> type, RuleOrMacroInstance rule) {
-      final ComputedDefault owner = ComputedDefault.this;
+      ComputedDefault owner = ComputedDefault.this;
       if (dependencies.isEmpty()) {
         AggregatingAttributeMapper mapper = AggregatingAttributeMapper.of(rule);
         Object value = owner.getDefault(mapper.createMapBackedAttributeMap(ImmutableMap.of()));
@@ -1375,6 +1388,17 @@ public final class Attribute implements Comparable<Attribute> {
     private final ImmutableList<String> dependencies;
 
     /**
+     * Caches a single "default" instance among rules of a given {@link RuleClass} where none of the
+     * dependency attributes are explicitly specified.
+     *
+     * <p>It is necessary to partition by rule class because a {@code
+     * StarlarkComputedDefaultTemplate} may be shared among multiple rule classes with different
+     * default values for dependency attributes.
+     */
+    private final Map<RuleClass, StarlarkComputedDefault> defaultInstances =
+        new ConcurrentHashMap<>(1);
+
+    /**
      * Creates a new StarlarkComputedDefaultTemplate that allows the computation of attribute values
      * via a callback function during loading phase.
      *
@@ -1392,6 +1416,15 @@ public final class Attribute implements Comparable<Attribute> {
       this.callback = Preconditions.checkNotNull(callback);
     }
 
+    private boolean anyDependencyExplicitlySpecified(RuleOrMacroInstance rule) {
+      for (String dep : dependencies) {
+        if (rule.isAttributeValueExplicitlySpecified(dep)) {
+          return true;
+        }
+      }
+      return false;
+    }
+
     /**
      * Returns a {@link StarlarkComputedDefault} containing a lookup table specifying the output of
      * this {@link StarlarkComputedDefaultTemplate}'s callback given each possible assignment {@code
@@ -1405,11 +1438,27 @@ public final class Attribute implements Comparable<Attribute> {
      * {@code rule}.
      */
     StarlarkComputedDefault computePossibleValues(
-        Attribute attr, final RuleOrMacroInstance rule, final EventHandler eventHandler)
+        Attribute attr, RuleOrMacroInstance rule, EventHandler eventHandler)
         throws InterruptedException, CannotPrecomputeDefaultsException {
+      if (!(rule instanceof Rule target) || anyDependencyExplicitlySpecified(rule)) {
+        return computePossibleValuesInternal(attr, rule, eventHandler);
+      }
 
-      final StarlarkComputedDefaultTemplate owner = StarlarkComputedDefaultTemplate.this;
-      final AtomicReference<EvalException> caughtEvalExceptionIfAny = new AtomicReference<>();
+      // None of the dependency attributes were specified. Share a single instance.
+      RuleClass ruleClass = target.getRuleClassObject();
+      StarlarkComputedDefault result = defaultInstances.get(ruleClass);
+      if (result == null) {
+        result = computePossibleValuesInternal(attr, rule, eventHandler);
+        result = firstNonNull(defaultInstances.putIfAbsent(ruleClass, result), result);
+      }
+      return result;
+    }
+
+    private StarlarkComputedDefault computePossibleValuesInternal(
+        Attribute attr, RuleOrMacroInstance rule, EventHandler eventHandler)
+        throws InterruptedException, CannotPrecomputeDefaultsException {
+      StarlarkComputedDefaultTemplate owner = StarlarkComputedDefaultTemplate.this;
+      AtomicReference<EvalException> caughtEvalExceptionIfAny = new AtomicReference<>();
       ComputationStrategy<InterruptedException> strategy =
           new ComputationStrategy<>() {
             @Nullable
@@ -1425,7 +1474,7 @@ public final class Attribute implements Comparable<Attribute> {
           };
 
       ImmutableList.Builder<Type<?>> dependencyTypesBuilder = ImmutableList.builder();
-      Map<List<Object>, Object> lookupTable;
+      Map<ImmutableList<Object>, Object> lookupTable;
       try {
         for (String dependency : dependencies) {
           Attribute attribute = rule.getAttributeProvider().getAttributeByNameMaybe(dependency);
@@ -1445,7 +1494,7 @@ public final class Attribute implements Comparable<Attribute> {
       } catch (AttributeNotFoundException
           | TooManyConfigurableAttributesException
           | EvalException ex) {
-        final String msg =
+        String msg =
             String.format(
                 "Cannot compute default value of attribute '%s' in rule '%s': ",
                 attr.getPublicName(), rule.getLabel());
@@ -1453,7 +1502,8 @@ public final class Attribute implements Comparable<Attribute> {
         rule.reportError(error, eventHandler);
         throw new CannotPrecomputeDefaultsException(error);
       }
-      return new StarlarkComputedDefault(dependencies, dependencyTypesBuilder.build(), lookupTable);
+      return StarlarkComputedDefault.create(
+          dependencies, dependencyTypesBuilder.build(), lookupTable);
     }
 
     private Object computeValue(EventHandler eventHandler, AttributeMap rule)
@@ -1517,65 +1567,129 @@ public final class Attribute implements Comparable<Attribute> {
   /**
    * A class for computed attributes defined in Starlark.
    *
-   * <p>Unlike {@link ComputedDefault}, instances of this class contain a pre-computed table of all
-   * possible assignments of depended-on attributes and what the Starlark function evaluates to, and
-   * {@link #getPossibleValues(Type, Rule)} and {@link #getDefault(AttributeMap)} do lookups in that
-   * table.
+   * <p>Unlike {@link ComputedDefault}, instances of this class pre-computed all possible
+   * assignments of depended-on attributes and what the Starlark function evaluates to.
    */
-  static final class StarlarkComputedDefault extends ComputedDefault {
+  abstract static sealed class StarlarkComputedDefault extends ComputedDefault {
 
     private static final Interner<ImmutableList<Type<?>>> dependencyTypesInterner =
         BlazeInterners.newWeakInterner();
 
-    private final ImmutableList<Type<?>> dependencyTypes;
-    private final Map<List<Object>, Object> lookupTable;
-
-    /**
-     * Creates a new StarlarkComputedDefault containing a lookup table.
-     *
-     * @param dependencies A list of all names of other attributes that are accessed by this
-     *     attribute.
-     * @param dependencyTypes A list of requiredAttributes' types.
-     * @param lookupTable An exhaustive mapping from requiredAttributes assignments to values this
-     *     computed default evaluates to.
-     */
-    StarlarkComputedDefault(
+    static StarlarkComputedDefault create(
         ImmutableList<String> dependencies,
         ImmutableList<Type<?>> dependencyTypes,
-        Map<List<Object>, Object> lookupTable) {
-      super(Preconditions.checkNotNull(dependencies));
-      this.dependencyTypes =
-          Preconditions.checkNotNull(dependencyTypesInterner.intern(dependencyTypes));
-      this.lookupTable = Preconditions.checkNotNull(lookupTable);
+        Map<ImmutableList<Object>, Object> lookupTable) {
+      dependencyTypes = dependencyTypesInterner.intern(dependencyTypes);
+      if (lookupTable.size() == 1) {
+        var entry = Iterables.getOnlyElement(lookupTable.entrySet());
+        return new NonConfigurable(dependencies, dependencyTypes, entry.getKey(), entry.getValue());
+      }
+      return new Configurable(dependencies, dependencyTypes, lookupTable);
     }
 
-    ImmutableList<Type<?>> getDependencyTypes() {
+    private final ImmutableList<Type<?>> dependencyTypes;
+
+    StarlarkComputedDefault(
+        ImmutableList<String> dependencies, ImmutableList<Type<?>> dependencyTypes) {
+      super(dependencies);
+      this.dependencyTypes = dependencyTypes;
+    }
+
+    final ImmutableList<Type<?>> getDependencyTypes() {
       return dependencyTypes;
     }
 
-    Map<List<Object>, Object> getLookupTable() {
-      return lookupTable;
-    }
+    @VisibleForSerialization
+    abstract Map<ImmutableList<Object>, Object> getLookupTable();
 
-    @Override
-    public Object getDefault(AttributeMap rule) {
-      List<Object> key = ComputationStrategy.createDependencyAssignmentTuple(dependencies(), rule);
-      Preconditions.checkState(
-          lookupTable.containsKey(key),
-          "Error in rule '%s': precomputed value missing for dependencies: %s. Available keys: %s.",
-          rule.describeRule(),
-          Iterables.toString(key),
-          Iterables.toString(lookupTable.keySet()));
-      return lookupTable.get(key);
-    }
+    /**
+     * Subclass for the common case where there are no configurable dependencies (i.e. select
+     * statements), so the computed default has only one possible outcome.
+     *
+     * <p>In this case, we save memory by forgoing a lookup table.
+     */
+    private static final class NonConfigurable extends StarlarkComputedDefault {
+      private final ImmutableList<Object> singleKey;
+      @Nullable private final Object singleValue;
 
-    @Override
-    <T> List<T> getPossibleValues(Type<T> type, RuleOrMacroInstance rule) {
-      List<T> result = new ArrayList<>(lookupTable.size());
-      for (Object obj : lookupTable.values()) {
-        result.add(type.cast(obj));
+      NonConfigurable(
+          ImmutableList<String> dependencies,
+          ImmutableList<Type<?>> dependencyTypes,
+          ImmutableList<Object> singleKey,
+          @Nullable Object singleValue) {
+        super(dependencies, dependencyTypes);
+        this.singleKey = Preconditions.checkNotNull(singleKey);
+        this.singleValue = singleValue;
       }
-      return result;
+
+      @Override
+      Map<ImmutableList<Object>, Object> getLookupTable() {
+        return Collections.singletonMap(singleKey, singleValue);
+      }
+
+      @Override
+      public Object getDefault(AttributeMap rule) {
+        ImmutableList<Object> key =
+            ComputationStrategy.createDependencyAssignmentTuple(dependencies(), rule);
+        if (!singleKey.equals(key)) {
+          throw new IllegalStateException(
+              String.format(
+                  "Error in rule '%s': precomputed value missing for dependencies: %s. Available"
+                      + " keys: %s.",
+                  rule.describeRule(), key, ImmutableList.of(singleKey)));
+        }
+        return singleValue;
+      }
+
+      @Override
+      <T> List<T> getPossibleValues(Type<T> type, RuleOrMacroInstance rule) {
+        return Collections.singletonList(type.cast(singleValue));
+      }
+    }
+
+    /**
+     * Subclass for the case where one or more dependencies are configurable (i.e. select
+     * statements), so the computed default has multiple possible outcomes.
+     */
+    private static final class Configurable extends StarlarkComputedDefault {
+      private final Map<ImmutableList<Object>, Object> lookupTable;
+
+      Configurable(
+          ImmutableList<String> dependencies,
+          ImmutableList<Type<?>> dependencyTypes,
+          Map<ImmutableList<Object>, Object> lookupTable) {
+        super(dependencies, dependencyTypes);
+        this.lookupTable = Preconditions.checkNotNull(lookupTable);
+      }
+
+      @Override
+      Map<ImmutableList<Object>, Object> getLookupTable() {
+        return lookupTable;
+      }
+
+      @Override
+      public Object getDefault(AttributeMap rule) {
+        ImmutableList<Object> key =
+            ComputationStrategy.createDependencyAssignmentTuple(dependencies(), rule);
+        Object result = lookupTable.get(key);
+        Preconditions.checkState(
+            result != null || lookupTable.containsKey(key),
+            "Error in rule '%s': precomputed value missing for dependencies: %s. Available keys:"
+                + " %s.",
+            rule.describeRule(),
+            key,
+            lookupTable);
+        return result;
+      }
+
+      @Override
+      <T> List<T> getPossibleValues(Type<T> type, RuleOrMacroInstance rule) {
+        List<T> result = new ArrayList<>(lookupTable.size());
+        for (Object obj : lookupTable.values()) {
+          result.add(type.cast(obj));
+        }
+        return result;
+      }
     }
   }
 
