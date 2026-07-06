@@ -180,33 +180,6 @@ public class JacocoLCOVFormatterTest {
   }
 
   @Test
-  public void testNoSourcePathsOutputsOriginalName() throws Exception {
-    CoverageData coverage =
-        CoverageData.builder()
-            .addMethod("Class::method", 3, true)
-            .addLine(3, true)
-            .addLine(4, true)
-            .build();
-    JacocoLCOVFormatter formatter = new JacocoLCOVFormatter();
-
-    StringWriter stringWriter = new StringWriter();
-    try (PrintWriter printWriter = new PrintWriter(stringWriter)) {
-      formatter.writeCoverageData(printWriter, ImmutableMap.of("com/example/Foo.java", coverage));
-    }
-
-    String expected =
-        """
-        SF:com/example/Foo.java
-        FN:3,Class::method
-        FNDA:1,Class::method
-        DA:3,1
-        DA:4,1
-        end_of_record
-        """;
-    assertThat(stringWriter.toString()).isEqualTo(expected);
-  }
-
-  @Test
   public void testSourcePathEqualsPackagePath() throws Exception {
     CoverageData coverage =
         CoverageData.builder()

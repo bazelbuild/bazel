@@ -35,16 +35,11 @@ public class JacocoLCOVFormatter {
   // The "exec paths" of files that may have coverage data. A source file may have a computed path
   // of "com/google/.../Foo.java" (corresponding to the class path) but the actual path is likely to
   // be "java/com/google/.../Foo.java" or similar. That is, it will have an additional prefix.
-  // We use this set to remap the source file path to the actual path. If it is not set, we assume
-  // provided source paths are correct.
-  private final Optional<ImmutableSet<String>> sourceExecPaths;
+  // We use this set to remap the source file path to the actual path.
+  private final ImmutableSet<String> sourceExecPaths;
 
   public JacocoLCOVFormatter(ImmutableSet<String> sourceExecPaths) {
-    this.sourceExecPaths = Optional.of(sourceExecPaths);
-  }
-
-  public JacocoLCOVFormatter() {
-    this.sourceExecPaths = Optional.empty();
+    this.sourceExecPaths = sourceExecPaths;
   }
 
   /**
@@ -68,12 +63,8 @@ public class JacocoLCOVFormatter {
   }
 
   private Optional<String> getExecPath(String sourceFile) {
-    if (!sourceExecPaths.isPresent()) {
-      return Optional.of(sourceFile);
-    }
-
     String matchingFileName = sourceFile.startsWith("/") ? sourceFile : "/" + sourceFile;
-    for (String execPath : sourceExecPaths.get()) {
+    for (String execPath : sourceExecPaths) {
       if (execPath.contains(EXEC_PATH_DELIMITER)) {
         String[] parts = execPath.split(EXEC_PATH_DELIMITER, 2);
         if (parts.length != 2) {
