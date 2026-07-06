@@ -41,6 +41,7 @@ public interface SerializationDependenciesProvider {
   ObjectCodecs getObjectCodecs() throws InterruptedException;
 
   /** Returns the {@link FingerprintValueService} implementation. */
+  @Nullable
   FingerprintValueService getFingerprintValueService() throws InterruptedException;
 
   String getSerializedFrontierProfile();

@@ -1035,14 +1035,18 @@ public class BuildTool {
   }
 
   private void reportRemoteAnalysisServiceStats(
-      FingerprintValueService fingerprintValueService,
-      RemoteAnalysisCacheClient analysisCacheClient) {
-    FingerprintValueStore.Stats fvsStats = fingerprintValueService.getStats();
-    RemoteAnalysisCacheClient.Stats raccStats =
+      @Nullable FingerprintValueService fingerprintValueService,
+      @Nullable RemoteAnalysisCacheClient analysisCacheClient) {
+    FingerprintValueStore.Stats fingerprintValueServiceStats =
+        fingerprintValueService == null
+            ? FingerprintValueStore.EMPTY_STATS
+            : fingerprintValueService.getStats();
+    RemoteAnalysisCacheClient.Stats remoteAnalysisCacheClientStats =
         analysisCacheClient == null
             ? RemoteAnalysisCacheClient.EMPTY_STATS
             : analysisCacheClient.getStats();
-    env.getRemoteAnalysisCachingEventListener().recordServiceStats(fvsStats, raccStats);
+    env.getRemoteAnalysisCachingEventListener()
+        .recordServiceStats(fingerprintValueServiceStats, remoteAnalysisCacheClientStats);
   }
 
   private void reportOnlyBailOutReason(RemoteAnalysisCacheReaderDepsProvider readerDeps)

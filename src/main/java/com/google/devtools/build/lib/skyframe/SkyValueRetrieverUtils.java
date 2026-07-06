@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import static java.util.Objects.requireNonNull;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.Re
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalResult;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievedValue;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.SerializableSkyKeyComputeState;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheClient;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheReaderDepsProvider;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.SkycacheUploadClient;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.proto.MissReason;
@@ -73,18 +74,17 @@ public final class SkyValueRetrieverUtils {
       return new NoCachedData(MissReason.MISS_REASON_NOT_ATTEMPTED);
     }
 
+    SkyValueRetriever retriever = analysisCachingDeps.getSkyValueRetriever();
+    RemoteAnalysisCacheClient client = analysisCachingDeps.getAnalysisCacheClient();
+    if (retriever == null || client == null) {
+      return new NoCachedData(MissReason.MISS_REASON_NOT_ATTEMPTED);
+    }
+
     RetrievalResult retrievalResult = null;
     RetrievalContext state = env.getState(stateSupplier).getRetrievalContext();
     try {
       retrievalResult =
-          analysisCachingDeps
-              .getSkyValueRetriever()
-              .tryRetrieve(
-                  env,
-                  new DefaultDependOnFutureShim(env),
-                  requireNonNull(analysisCachingDeps.getAnalysisCacheClient()),
-                  key,
-                  state);
+          retriever.tryRetrieve(env, new DefaultDependOnFutureShim(env), client, key, state);
       analysisCachingDeps.recordRetrievalResult(retrievalResult, key);
     } catch (SerializationException e) {
       // Don't crash the build if deserialization failed. Gracefully fallback to local evaluation.
@@ -121,7 +121,8 @@ public final class SkyValueRetrieverUtils {
     }
 
     SkycacheUploadClient uploadClient = cachingDeps.getSkycacheUploadClient();
-    uploadClient.tryUpload(key, value, env);
+    // TODO(b/527929697): Handle null uploadClient properly (e.g. fail the build cleanly).
+    checkNotNull(uploadClient).tryUpload(key, value, env);
   }
 
   private SkyValueRetrieverUtils() {}
