@@ -374,7 +374,7 @@ public final class RemoteAnalysisCacheFactory {
       ListenableFuture<? extends FingerprintValueService> fingerprintValueService,
       ListenableFuture<? extends RemoteAnalysisCacheClient> analysisCacheClient,
       RemoteAnalysisCachingEventListener eventListener) {
-    if (analysisCacheClient == null) {
+    if (analysisCacheClient == null || fingerprintValueService == null) {
       return immediateFuture(null);
     }
     return Futures.whenAllSucceed(objectCodecs, fingerprintValueService, analysisCacheClient)

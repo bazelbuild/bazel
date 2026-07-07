@@ -73,8 +73,9 @@ public class RemoteAnalysisCacheDeps
 
   private final ListenableFuture<ObjectCodecs> objectCodecs;
   @Nullable private final ListenableFuture<FingerprintValueService> fingerprintValueServiceFuture;
-  @Nullable private final ListenableFuture<? extends RemoteAnalysisCacheClient> analysisCacheClient;
-  @Nullable private final ListenableFuture<? extends RemoteAnalysisMetadataWriter> metadataWriter;
+  private final LazyResolver<FingerprintValueService> fingerprintValueService;
+  private final LazyResolver<? extends RemoteAnalysisCacheClient> analysisCacheClient;
+  private final LazyResolver<? extends RemoteAnalysisMetadataWriter> metadataWriter;
 
   // Volatile because double-checked locking is used in the getter
   @Nullable private volatile SkyValueRetriever skyValueRetriever;
@@ -140,8 +141,12 @@ public class RemoteAnalysisCacheDeps
                         new FingerprintValueCache(FingerprintValueCache.SyncMode.NOT_LINKED),
                         fingerprinterForAnalysisCaching),
                 directExecutor());
-    this.metadataWriter = servicesSupplier.getMetadataWriter();
-    this.analysisCacheClient = servicesSupplier.getAnalysisCacheClient();
+    this.fingerprintValueService =
+        new LazyResolver<>(this.fingerprintValueServiceFuture, "fingerprint value service");
+    this.analysisCacheClient =
+        new LazyResolver<>(servicesSupplier.getAnalysisCacheClient(), "analysis cache client");
+    this.metadataWriter =
+        new LazyResolver<>(servicesSupplier.getMetadataWriter(), "metadata writer");
 
     this.graph = graph;
     this.eventBus = eventBus;
@@ -161,8 +166,9 @@ public class RemoteAnalysisCacheDeps
     this.listener = null;
     this.frontierNodeVersion = null;
     this.fingerprintValueServiceFuture = null;
-    this.metadataWriter = null;
-    this.analysisCacheClient = null;
+    this.fingerprintValueService = new LazyResolver<>(null, "");
+    this.analysisCacheClient = new LazyResolver<>(null, "");
+    this.metadataWriter = new LazyResolver<>(null, "");
 
     this.graph = null;
     this.eventBus = null;
@@ -232,12 +238,14 @@ public class RemoteAnalysisCacheDeps
   }
 
   @Override
+  @Nullable
   public FingerprintValueService getFingerprintValueService() throws InterruptedException {
     checkEnabled();
-    return resolveWithTimeout(fingerprintValueServiceFuture, "fingerprint value service");
+    return fingerprintValueService.get();
   }
 
   @Override
+  @Nullable
   public KeyValueWriter getFileInvalidationWriter() throws InterruptedException {
     checkEnabled();
     return getFingerprintValueService();
@@ -247,18 +255,23 @@ public class RemoteAnalysisCacheDeps
   @Nullable
   public RemoteAnalysisCacheClient getAnalysisCacheClient() throws InterruptedException {
     checkEnabled();
-    return resolveWithTimeout(analysisCacheClient, "analysis cache client");
+    return analysisCacheClient.get();
   }
 
+  @Nullable
   private FileOpNodeMemoizingLookup getFileOpNodes() throws InterruptedException {
     if (fileOpNodes != null) {
       return fileOpNodes;
+    }
+    FingerprintValueService fingerprintValueService = getFingerprintValueService();
+    if (fingerprintValueService == null) {
+      return null;
     }
     synchronized (this) {
       if (fileOpNodes == null) {
         fileOpNodes =
             new FileOpNodeMemoizingLookup(
-                getFingerprintValueService().getExecutor(),
+                fingerprintValueService.getExecutor(),
                 graph,
                 ImmutableSet.of(),
                 /* shouldDiscardMemory= */ false,
@@ -269,46 +282,56 @@ public class RemoteAnalysisCacheDeps
   }
 
   @Override
+  @Nullable
   public SkyValueRetriever getSkyValueRetriever() throws InterruptedException {
     checkEnabled();
     if (skyValueRetriever != null) {
       return skyValueRetriever;
     }
 
+    FingerprintValueService fingerprintValueService = getFingerprintValueService();
+    if (fingerprintValueService == null) {
+      return null;
+    }
+    ObjectCodecs codecs = getObjectCodecs();
+    FileOpNodeMemoizingLookup fileOp = getFileOpNodes();
+
     synchronized (this) {
       if (skyValueRetriever == null) {
         skyValueRetriever =
-            new SkyValueRetriever(
-                getFingerprintValueService(),
-                getObjectCodecs(),
-                frontierNodeVersion,
-                getFileOpNodes());
+            new SkyValueRetriever(fingerprintValueService, codecs, frontierNodeVersion, fileOp);
       }
       return skyValueRetriever;
     }
   }
 
   @Override
+  @Nullable
   public SkycacheUploadClient getSkycacheUploadClient() throws InterruptedException {
     checkEnabled();
     if (skycacheUploadClient != null) {
       return skycacheUploadClient;
     }
 
+    FingerprintValueService fingerprintValueService = getFingerprintValueService();
+    if (fingerprintValueService == null) {
+      return null;
+    }
+    ObjectCodecs codecs = getObjectCodecs();
+    FileOpNodeMemoizingLookup fileOp = getFileOpNodes();
+
     synchronized (this) {
       if (skycacheUploadClient == null) {
-        ObjectCodecs codecs = getObjectCodecs();
-        FingerprintValueService fvs = getFingerprintValueService();
         skycacheUploadClient =
             new SkycacheUploadClient(
-                fvs,
+                fingerprintValueService,
                 codecs,
                 frontierNodeVersion,
                 graph,
                 eventBus,
                 versionGetter,
                 emitUploadedEvents,
-                getFileOpNodes());
+                fileOp);
       }
       return skycacheUploadClient;
     }
@@ -326,7 +349,7 @@ public class RemoteAnalysisCacheDeps
   @Nullable
   public RemoteAnalysisMetadataWriter getMetadataWriter() throws InterruptedException {
     checkEnabled();
-    return resolveWithTimeout(metadataWriter, "metadata writer");
+    return metadataWriter.get();
   }
 
   @Override
@@ -354,21 +377,20 @@ public class RemoteAnalysisCacheDeps
     try {
       FingerprintValueService service = getFingerprintValueService();
       boolean retVal = service != null && service.getStats().entriesNotFound() > 0;
-      if (retVal) {
-        bailedOut.set(true);
+      if (retVal && bailedOut.compareAndSet(false, true)) {
         eventHandler.handle(
             Event.warn(
                 "Skycache: falling back to local evaluation due to unexpected missing cache"
                     + " entries"));
-        analysisCacheClient.get().bailOutDueToMissingFingerprint();
+        RemoteAnalysisCacheClient client = getAnalysisCacheClient();
+        if (client != null) {
+          client.bailOutDueToMissingFingerprint();
+        }
       }
       return retVal;
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
       return false;
-    } catch (ExecutionException e) {
-      throw new IllegalStateException(
-          "At this point the Skycache client should have been initialized", e);
     }
   }
 
@@ -382,5 +404,47 @@ public class RemoteAnalysisCacheDeps
   public boolean getEmitUploadedEvents() {
     checkEnabled();
     return emitUploadedEvents;
+  }
+
+  /**
+   * Encapsulates lazy, thread-safe initialization of a remote service.
+   *
+   * <p>This class exists to:
+   *
+   * <ul>
+   *   <li><b>Cache Timeouts:</b> It caches the result of {@code resolveWithTimeout} (even if it
+   *       returns {@code null} due to {@link TimeoutException} or {@link ExecutionException}) by
+   *       setting {@code initialized = true}. This prevents subsequent calls from blocking again on
+   *       incomplete futures, avoiding cascading timeouts.
+   *   <li><b>Serialize Resolution:</b> The blocking {@code resolveWithTimeout} call is kept
+   *       <i>inside</i> the {@code synchronized(this)} block of the resolver instance. This ensures
+   *       that only one thread attempts to resolve the service concurrently, preventing duplicate
+   *       warnings and redundant resource usage (log spam).
+   * </ul>
+   */
+  private static final class LazyResolver<T> {
+    @Nullable private final Future<? extends T> future;
+    private final String description;
+    @Nullable private volatile T resolvedValue;
+    private volatile boolean initialized = false;
+
+    private LazyResolver(@Nullable Future<? extends T> future, String description) {
+      this.future = future;
+      this.description = description;
+    }
+
+    @Nullable
+    private T get() throws InterruptedException {
+      if (initialized) {
+        return resolvedValue;
+      }
+      synchronized (this) {
+        if (!initialized) {
+          resolvedValue = resolveWithTimeout(future, description);
+          initialized = true;
+        }
+        return resolvedValue;
+      }
+    }
   }
 }

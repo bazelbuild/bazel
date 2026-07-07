@@ -51,8 +51,10 @@ import com.google.devtools.build.lib.server.FailureDetails.RemoteAnalysisCaching
 import com.google.devtools.build.lib.skyframe.ActionExecutionValue.WithRichData;
 import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue.ActionTemplateExpansionKey;
 import com.google.devtools.build.lib.skyframe.BzlLoadValue;
+import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore;
 import com.google.devtools.build.lib.skyframe.serialization.FrontierNodeVersion;
+import com.google.devtools.build.lib.skyframe.serialization.KeyValueWriter;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.ProfileCollector;
 import com.google.devtools.build.lib.skyframe.toolchains.RegisteredExecutionPlatformsValue;
@@ -136,6 +138,17 @@ public final class FrontierSerializer {
       return Optional.empty();
     }
 
+    FingerprintValueService fingerprintValueService =
+        serializationDependenciesProvider.getFingerprintValueService();
+    if (fingerprintValueService == null) {
+      return Optional.of(
+          createFailureDetail(
+              "Remote analysis cache initialization failed (FingerprintValueService is null).",
+              Code.UPLOAD_FAILED));
+    }
+    KeyValueWriter fileInvalidationWriter =
+        serializationDependenciesProvider.getFileInvalidationWriter();
+
     ObjectCodecs codecs = requireNonNull(serializationDependenciesProvider.getObjectCodecs());
     FrontierNodeVersion frontierVersion = serializationDependenciesProvider.getSkyValueVersion();
     String profilePath = serializationDependenciesProvider.getSerializedFrontierProfile();
@@ -188,8 +201,8 @@ public final class FrontierSerializer {
             codecs,
             frontierVersion,
             selectedKeys,
-            serializationDependenciesProvider.getFingerprintValueService(),
-            serializationDependenciesProvider.getFileInvalidationWriter(),
+            fingerprintValueService,
+            fileInvalidationWriter,
             shouldDiscardMemory,
             eventBus,
             profileCollector,
@@ -206,8 +219,7 @@ public final class FrontierSerializer {
         return Optional.of(createFailureDetail(message, Code.SERIALIZED_FRONTIER_PROFILE_FAILED));
       }
 
-      FingerprintValueStore.Stats stats =
-          serializationDependenciesProvider.getFingerprintValueService().getStats();
+      FingerprintValueStore.Stats stats = fingerprintValueService.getStats();
 
       reporter.handle(
           Event.info(

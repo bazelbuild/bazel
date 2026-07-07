@@ -42,7 +42,10 @@ java_library(
 
 java_library(
     name = "native_posix_files_service",
-    srcs = ["NativePosixFilesService.java"],
+    srcs = [
+        "NativePosixFilesException.java",
+        "NativePosixFilesService.java",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_service",
         "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",

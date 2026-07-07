@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.skyframe.serialization.SerializationExcepti
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalResult;
 import com.google.devtools.build.skyframe.SkyKey;
+import javax.annotation.Nullable;
 
 /** Functionality needed to retrieve values from the remote cache. */
 public interface RemoteAnalysisCacheReaderDepsProvider {
@@ -40,12 +41,16 @@ public interface RemoteAnalysisCacheReaderDepsProvider {
   ObjectCodecs getObjectCodecs() throws InterruptedException;
 
   /** Returns the {@link FingerprintValueService} implementation. */
+  @Nullable
   FingerprintValueService getFingerprintValueService() throws InterruptedException;
 
+  @Nullable
   RemoteAnalysisCacheClient getAnalysisCacheClient() throws InterruptedException;
 
+  @Nullable
   SkyValueRetriever getSkyValueRetriever() throws InterruptedException;
 
+  @Nullable
   SkycacheUploadClient getSkycacheUploadClient() throws InterruptedException;
 
   void recordRetrievalResult(RetrievalResult retrievalResult, SkyKey key);

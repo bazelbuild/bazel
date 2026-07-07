@@ -26,6 +26,7 @@ def _impl(ctx):
 
     cmd = "for f in $SRCS; do echo ===== $f ===== && cat $f && echo && echo ; done > $OUT"
     ctx.actions.run_shell(
+        mnemonic = "MergeLicenses",
         inputs = depset(direct = files),
         outputs = [ctx.outputs.out],
         command = cmd,

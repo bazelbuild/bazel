@@ -112,13 +112,23 @@ public class RemoteAnalysisCacheManager implements RemoteAnalysisCachingDependen
           Event.warn("Skycache: Not querying Skycache metadata because invocation has no targets"));
     } else {
       try {
+        RemoteAnalysisCacheClient client =
+            RemoteAnalysisCacheDeps.resolveWithTimeout(
+                analysisCacheClient, "analysis cache client");
+        if (client == null) {
+          bailedOut = true;
+          eventHandler.handle(
+              Event.warn(
+                  "Skycache: Failed to initialize analysis cache client for metadata query."
+                      + " Skipping query."));
+          return;
+        }
         LookupTopLevelTargetsResult result =
-            RemoteAnalysisCacheDeps.resolveWithTimeout(analysisCacheClient, "analysis cache client")
-                .lookupTopLevelTargets(
-                    skycacheMetadataParams.getEvaluatingVersion(),
-                    skycacheMetadataParams.getConfigurationHash(),
-                    skycacheMetadataParams.getUseFakeStampData(),
-                    skycacheMetadataParams.getBazelVersion());
+            client.lookupTopLevelTargets(
+                skycacheMetadataParams.getEvaluatingVersion(),
+                skycacheMetadataParams.getConfigurationHash(),
+                skycacheMetadataParams.getUseFakeStampData(),
+                skycacheMetadataParams.getBazelVersion());
 
         TopLevelTargetsMatchStatus matchStatus =
             TopLevelTargetsMatchStatus.forNumber(result.status());

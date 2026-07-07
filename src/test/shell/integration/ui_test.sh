@@ -558,7 +558,7 @@ function test_terminal_title {
     --progress_in_terminal_title pkg:true \
     2>$TEST_log || fail "${PRODUCT_NAME} test failed"
   # The terminal title is changed
-  expect_log $'\x1b\]0;.*\x07'
+  expect_log $'\x1b\]0;.*\x1b\\\\'
 }
 
 function test_failure_scrollback_buffer {

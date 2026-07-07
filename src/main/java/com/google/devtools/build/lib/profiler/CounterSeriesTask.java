@@ -27,45 +27,46 @@ import javax.annotation.Nullable;
  */
 @SkybridgeInterface
 public record CounterSeriesTask(String laneName, String seriesName, @Nullable Color color) {
-  /** The revered color for rendering the bar chart. */
-  public enum Color {
+  /** The reserved color for rendering the bar chart. */
+  public static final class Color {
     // Pick acceptable counter colors manually, unfortunately we have to pick from these
     // weird reserved names from
     // https://github.com/catapult-project/catapult/blob/master/tracing/tracing/base/color_scheme.html
-    THREAD_STATE_UNINTERRUPTIBLE("thread_state_uninterruptible"),
-    THREAD_STATE_IOWAIT("thread_state_iowait"),
-    THREAD_STATE_RUNNING("thread_state_running"),
-    THREAD_STATE_RUNNABLE("thread_state_runnable"),
-    THREAD_STATE_SLEEPING("thread_state_sleeping"),
-    THREAD_STATE_UNKNOWN("thread_state_unknown"),
-    BACKGROUND_MEMORY_DUMP("background_memory_dump"),
-    LIGHT_MEMORY_DUMP("light_memory_dump"),
-    DETAILED_MEMORY_DUMP("detailed_memory_dump"),
-    VSYNC_HIGHLIGHT_COLOR("vsync_highlight_color"),
-    GENERIC_WORK("generic_work"),
-    GOOD("good"),
-    BAD("bad"),
-    TERRIBLE("terrible"),
-    BLACK("black"),
-    GREY("grey"),
-    WHITE("white"),
-    YELLOW("yellow"),
-    OLIVE("olive"),
-    RAIL_RESPONSE("rail_response"),
-    RAIL_ANIMATION("rail_animation"),
-    RAIL_IDLE("rail_idle"),
-    RAIL_LOAD("rail_load"),
-    STARTUP("startup"),
-    HEAP_DUMP_STACK_FRAME("heap_dump_stack_frame"),
-    HEAP_DUMP_OBJECT_TYPE("heap_dump_object_type"),
-    HEAP_DUMP_CHILD_NODE_ARROW("heap_dump_child_node_arrow"),
-    CQ_BUILD_RUNNING("cq_build_running"),
-    CQ_BUILD_PASSED("cq_build_passed"),
-    CQ_BUILD_FAILED("cq_build_failed"),
-    CQ_BUILD_ABANDONED("cq_build_abandoned"),
-    CQ_BUILD_ATTEMPT_RUNNIG("cq_build_attempt_runnig"),
-    CQ_BUILD_ATTEMPT_PASSED("cq_build_attempt_passed"),
-    CQ_BUILD_ATTEMPT_FAILED("cq_build_attempt_failed");
+    public static final Color THREAD_STATE_UNINTERRUPTIBLE =
+        new Color("thread_state_uninterruptible");
+    public static final Color THREAD_STATE_IOWAIT = new Color("thread_state_iowait");
+    public static final Color THREAD_STATE_RUNNING = new Color("thread_state_running");
+    public static final Color THREAD_STATE_RUNNABLE = new Color("thread_state_runnable");
+    public static final Color THREAD_STATE_SLEEPING = new Color("thread_state_sleeping");
+    public static final Color THREAD_STATE_UNKNOWN = new Color("thread_state_unknown");
+    public static final Color BACKGROUND_MEMORY_DUMP = new Color("background_memory_dump");
+    public static final Color LIGHT_MEMORY_DUMP = new Color("light_memory_dump");
+    public static final Color DETAILED_MEMORY_DUMP = new Color("detailed_memory_dump");
+    public static final Color VSYNC_HIGHLIGHT_COLOR = new Color("vsync_highlight_color");
+    public static final Color GENERIC_WORK = new Color("generic_work");
+    public static final Color GOOD = new Color("good");
+    public static final Color BAD = new Color("bad");
+    public static final Color TERRIBLE = new Color("terrible");
+    public static final Color BLACK = new Color("black");
+    public static final Color GREY = new Color("grey");
+    public static final Color WHITE = new Color("white");
+    public static final Color YELLOW = new Color("yellow");
+    public static final Color OLIVE = new Color("olive");
+    public static final Color RAIL_RESPONSE = new Color("rail_response");
+    public static final Color RAIL_ANIMATION = new Color("rail_animation");
+    public static final Color RAIL_IDLE = new Color("rail_idle");
+    public static final Color RAIL_LOAD = new Color("rail_load");
+    public static final Color STARTUP = new Color("startup");
+    public static final Color HEAP_DUMP_STACK_FRAME = new Color("heap_dump_stack_frame");
+    public static final Color HEAP_DUMP_OBJECT_TYPE = new Color("heap_dump_object_type");
+    public static final Color HEAP_DUMP_CHILD_NODE_ARROW = new Color("heap_dump_child_node_arrow");
+    public static final Color CQ_BUILD_RUNNING = new Color("cq_build_running");
+    public static final Color CQ_BUILD_PASSED = new Color("cq_build_passed");
+    public static final Color CQ_BUILD_FAILED = new Color("cq_build_failed");
+    public static final Color CQ_BUILD_ABANDONED = new Color("cq_build_abandoned");
+    public static final Color CQ_BUILD_ATTEMPT_RUNNIG = new Color("cq_build_attempt_runnig");
+    public static final Color CQ_BUILD_ATTEMPT_PASSED = new Color("cq_build_attempt_passed");
+    public static final Color CQ_BUILD_ATTEMPT_FAILED = new Color("cq_build_attempt_failed");
 
     private final String value;
 
