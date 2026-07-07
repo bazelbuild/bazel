@@ -246,7 +246,7 @@ public final class RepMaxCdcChunker implements ContentDefinedChunker {
       long[] gear = GearTable.GEAR;
       int base = bufStart;
 
-      // Extract the final incomplete chunk from the list, as it denotes where the previous call
+      // Extract the last incomplete chunk from the list, as it denotes where the previous call
       // stopped hashing the input. incompleteChunks takes over the role of the Go
       // implementation's oldChunks from here on.
       int currentChunk;
