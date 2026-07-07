@@ -24,10 +24,9 @@ from src.test.py.bazel import test_base
 
 # Whether repos containing symlinks that point out of the repo can be added to
 # the remote repo contents cache. If False, such repos are refetched instead of
-# being restored from the cache.
-# TODO(#30160): Flip to True once the overlay file system supports resolving
-# symlinks across its backing file systems.
-CROSS_REPO_SYMLINKS_CACHEABLE = False
+# being restored from the cache. Symlinks resolve across the cache's in-memory
+# overlay and the native file system via OverlayFileSystem.
+CROSS_REPO_SYMLINKS_CACHEABLE = True
 
 
 class RemoteRepoContentsCacheTest(test_base.TestBase):

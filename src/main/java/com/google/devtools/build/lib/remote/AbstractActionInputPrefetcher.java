@@ -44,7 +44,6 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileContentsProxy;
-import com.google.devtools.build.lib.actions.FileStateType;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.VirtualActionInput;
@@ -542,11 +541,13 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       }
       return getSymlinks(treeArtifact, treeArtifact.getPath(), treeMetadata, metadataSupplier);
     }
-    if ((metadata.isRemote() || metadata.getType() == FileStateType.SYMLINK)
-        && !inputPath.startsWith(execRoot)) {
+    if (!inputPath.startsWith(execRoot)) {
       // A path in an external repo, e.g. a source artifact consumed by an action or a file
       // prefetched during the materialization of an external repo. It may be (part of) a chain of
-      // symlinks created by the repo rule, which has to be reproduced verbatim on disk.
+      // symlinks created by the repo rule, which has to be reproduced verbatim on disk. This
+      // applies even if the metadata is local: a symlink in an unmaterialized repo backed by the
+      // remote repo contents cache may resolve to a file in a materialized repo, in which case
+      // only the symlink itself is missing from disk.
       var symlinkChain = ImmutableList.<Symlink>builder();
       FileStatus stat;
       Path currentPath = inputPath;
