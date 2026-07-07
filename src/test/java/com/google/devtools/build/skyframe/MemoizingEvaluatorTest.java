@@ -486,14 +486,14 @@ public abstract class MemoizingEvaluatorTest {
         .containsExactly(skyKey("top"), skyKey("d1"), d2Key, ErrorTransienceValue.KEY);
 
     String[] noKeys = {};
-    tester.evaluator.deleteDirty(2);
+    tester.evaluator.deleteDirty(2, /* keepChangePrunableNodes= */ false);
     tester.eval(true, noKeys);
 
     // The top node's value is dirty, but less than two generations old, so it wasn't deleted.
     assertThat(tester.evaluator.getValues().keySet())
         .containsExactly(skyKey("top"), skyKey("d1"), d2Key, ErrorTransienceValue.KEY);
 
-    tester.evaluator.deleteDirty(2);
+    tester.evaluator.deleteDirty(2, /* keepChangePrunableNodes= */ false);
     tester.eval(true, noKeys);
 
     // The top node's value was dirty, and was two generations old, so it was deleted.
@@ -510,7 +510,7 @@ public abstract class MemoizingEvaluatorTest {
 
     assertThat(tester.evalAndGet(/*keepGoing=*/ false, topKey)).isEqualTo(new StringValue("value"));
     failBuildAndRemoveValue(leafKey);
-    tester.evaluator.deleteDirty(0);
+    tester.evaluator.deleteDirty(0, /* keepChangePrunableNodes= */ false);
   }
 
   @Test
@@ -553,7 +553,7 @@ public abstract class MemoizingEvaluatorTest {
 
     // Run dirty-node GC with the smallest possible version window.
     String[] noKeys = {};
-    tester.evaluator.deleteDirty(0);
+    tester.evaluator.deleteDirty(0, /* keepChangePrunableNodes= */ true);
     tester.eval(/* keepGoing= */ false, noKeys);
 
     // d's only dep b change-pruned, so d is verifiable-clean and is kept rather than deleted.
@@ -565,6 +565,38 @@ public abstract class MemoizingEvaluatorTest {
     dEvaluated.set(false);
     assertThat(tester.evalAndGet(/* keepGoing= */ false, d)).isEqualTo(fixedB);
     assertThat(dEvaluated.get()).isFalse();
+  }
+
+  @Test
+  public void deleteDirtyDeletesChangePrunableNodeIfNotKeeping() throws Exception {
+    // Same setup as deleteDirtyKeepsChangePrunableNode, but without keepChangePrunableNodes, the
+    // dirty node d is deleted even though change pruning would verify it clean.
+    SkyKey a = nonHermeticKey("a");
+    SkyKey b = skyKey("b");
+    SkyKey c = skyKey("c");
+    SkyKey d = skyKey("d");
+    StringValue fixedB = new StringValue("fixed-b");
+
+    tester.set(a, new StringValue("a1"));
+    // b depends on a but always returns the same value, so it change-prunes when a changes.
+    tester.getOrCreate(b).setBuilder((skyKey, env) -> env.getValue(a) == null ? null : fixedB);
+    tester.getOrCreate(c).addDependency(b).setComputedValue(COPY);
+    tester.getOrCreate(d).addDependency(b).setComputedValue(COPY);
+
+    tester.eval(/* keepGoing= */ false, c, d);
+    assertThat(tester.evaluator.getValues().keySet()).containsAtLeast(a, b, c, d);
+
+    // Change a (b re-evaluates to the same value) and evaluate only c, leaving d dirty.
+    tester.set(a, new StringValue("a2"));
+    tester.invalidate();
+    tester.eval(/* keepGoing= */ false, c);
+    assertThat(tester.getDirtyKeys()).contains(d);
+
+    String[] noKeys = {};
+    tester.evaluator.deleteDirty(0, /* keepChangePrunableNodes= */ false);
+    tester.eval(/* keepGoing= */ false, noKeys);
+
+    assertThat(tester.evaluator.getValues().keySet()).doesNotContain(d);
   }
 
   @Test
@@ -608,7 +640,7 @@ public abstract class MemoizingEvaluatorTest {
 
     // Run dirty-node GC with the smallest possible version window.
     String[] noKeys = {};
-    tester.evaluator.deleteDirty(0);
+    tester.evaluator.deleteDirty(0, /* keepChangePrunableNodes= */ true);
     tester.eval(/* keepGoing= */ false, noKeys);
 
     // The whole chain is verifiable-clean, so both bPrime and (transitively) d are kept, not deleted.
@@ -646,7 +678,7 @@ public abstract class MemoizingEvaluatorTest {
     assertThat(tester.getDirtyKeys()).containsAtLeast(b, d);
 
     String[] noKeys = {};
-    tester.evaluator.deleteDirty(0);
+    tester.evaluator.deleteDirty(0, /* keepChangePrunableNodes= */ true);
     tester.eval(/* keepGoing= */ false, noKeys);
 
     // b needs a rebuild to discover that it would prune, so it (and its rdep d) are still GC'd.

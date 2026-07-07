@@ -3178,8 +3178,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    * <p>Specifying a value N means, if the current version is V and a value was dirtied (and has
    * remained so) in version U, and U + N &lt;= V, then the value will be marked for deletion and
    * purged in version V+1.
+   *
+   * <p>If {@code keepChangePrunableNodes} is true, dirty values that change pruning would mark
+   * clean when they are next requested are exempt from deletion.
    */
-  public abstract void deleteOldNodes(long versionWindowForDirtyGc);
+  public abstract void deleteOldNodes(
+      long versionWindowForDirtyGc, boolean keepChangePrunableNodes);
 
   @Nullable
   public PackageProgressReceiver getPackageProgressReceiver() {

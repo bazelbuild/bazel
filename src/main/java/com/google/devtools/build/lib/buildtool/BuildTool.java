@@ -427,7 +427,9 @@ public class BuildTool {
         // Delete dirty nodes to ensure that they do not accumulate indefinitely.
         long versionWindow = request.getViewOptions().getVersionWindowForDirtyNodeGc();
         if (versionWindow != -1) {
-          env.getSkyframeExecutor().deleteOldNodes(versionWindow);
+          env.getSkyframeExecutor()
+              .deleteOldNodes(
+                  versionWindow, request.getViewOptions().getKeepChangePrunableNodesDuringGc());
         }
         // The workspace status actions will not run with certain flags, or if an error occurs early
         // in the build. Ensure that build info is posted on every build.

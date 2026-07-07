@@ -253,20 +253,25 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
   }
 
   @Override
-  public final void deleteDirty(long versionAgeLimit) {
+  public final void deleteDirty(long versionAgeLimit, boolean keepChangePrunableNodes) {
     checkArgument(versionAgeLimit >= 0, versionAgeLimit);
     Version threshold = IntVersion.of(lastGraphVersion.getVal() - versionAgeLimit);
     var graph = getInMemoryGraph();
 
     var dirtyKeys = progressReceiver.getUnenqueuedDirtyKeys();
-    long profilerStartNanos = Profiler.instance().nanoTimeMaybe();
-    var toKeep = new ChangePrunableNodesFinder(graph, dirtyKeys).find();
-    Profiler.instance()
-        .completeTask(
-            profilerStartNanos,
-            ProfilerTask.INFO,
-            "Resurrected %d out of %d dirty nodes during GC"
-                .formatted(toKeep.size(), dirtyKeys.size()));
+    ImmutableSet<SkyKey> toKeep;
+    if (keepChangePrunableNodes) {
+      long profilerStartNanos = Profiler.instance().nanoTimeMaybe();
+      toKeep = new ChangePrunableNodesFinder(graph, dirtyKeys).find();
+      Profiler.instance()
+          .completeTask(
+              profilerStartNanos,
+              ProfilerTask.INFO,
+              "Resurrected %d out of %d dirty nodes during GC"
+                  .formatted(toKeep.size(), dirtyKeys.size()));
+    } else {
+      toKeep = ImmutableSet.of();
+    }
 
     valuesToDelete.addAll(
         Sets.filter(
@@ -318,8 +323,6 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
         return ImmutableSet.of();
       }
 
-      // To avoid contention and scheduling too many jobs for our #cpus, we start
-      // SCAN_THREAD_COUNT jobs, each scanning a chunk of the candidates.
       var executor =
           ForkJoinQuiescingExecutor.newBuilder()
               .withOwnershipOf(
@@ -328,8 +331,6 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
       long listSize = candidateList.size();
       long numJobs = min(SCAN_THREAD_COUNT, listSize);
       for (long i = 0; i < numJobs; i++) {
-        // Use long multiplication to avoid possible overflow, as numJobs * listSize might be
-        // larger than max int.
         int startIndex = (int) ((i * listSize) / numJobs);
         int endIndex = (int) (((i + 1) * listSize) / numJobs);
         List<SkyKey> chunk = candidateList.subList(startIndex, endIndex);

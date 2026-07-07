@@ -270,7 +270,8 @@ function test_unrelated_glob_change_pruned() {
     echo '[filegroup(name = "t%d" % i, srcs = glob(["data/*.txt"])) for i in range(21)]' \
         > "$pkg/BUILD"
 
-    bazel build "//$pkg:all" >& "$TEST_log" || fail "Expected initial build to succeed"
+    local -r gc_flag="--experimental_keep_change_prunable_nodes_during_gc"
+    bazel build "$gc_flag" "//$pkg:all" >& "$TEST_log" || fail "Expected initial build to succeed"
     local before="$(bazel dump --skyframe=count 2>/dev/null \
         | awk '/^CONFIGURED_TARGET/{print $2}')"
 
@@ -278,8 +279,8 @@ function test_unrelated_glob_change_pruned() {
     # build only one target (orphaning the other 20), then a no-op build to flush the dirty-node
     # GC's deferred deletions.
     echo unrelated > "$pkg/data/notes.md"
-    bazel build "//$pkg:t0" >& "$TEST_log" || fail "Expected build of t0 to succeed"
-    bazel build "//$pkg:t0" >& "$TEST_log" || fail "Expected flush build to succeed"
+    bazel build "$gc_flag" "//$pkg:t0" >& "$TEST_log" || fail "Expected build of t0 to succeed"
+    bazel build "$gc_flag" "//$pkg:t0" >& "$TEST_log" || fail "Expected flush build to succeed"
     local after="$(bazel dump --skyframe=count 2>/dev/null \
         | awk '/^CONFIGURED_TARGET/{print $2}')"
 
