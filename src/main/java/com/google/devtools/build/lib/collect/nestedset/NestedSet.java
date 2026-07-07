@@ -46,6 +46,7 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
@@ -428,11 +429,15 @@ public abstract sealed class NestedSet<E> {
       throws InterruptedException, MissingFingerprintValueException {
     Object actualChildren;
     if (children instanceof ListenableFuture) {
-      actualChildren =
-          MoreFutures.waitForFutureAndGetWithCheckedException(
-              (ListenableFuture<Object[]>) children,
-              /* cancelOnInterrupt= */ false,
-              MissingFingerprintValueException.class);
+      try {
+        actualChildren =
+            MoreFutures.waitForFutureAndGetWithCheckedException(
+                (ListenableFuture<Object[]>) children,
+                /* cancelOnInterrupt= */ false,
+                MissingFingerprintValueException.class);
+      } catch (CancellationException e) {
+        throw new MissingFingerprintValueException(e);
+      }
     } else {
       actualChildren = children;
     }
@@ -463,6 +468,8 @@ public abstract sealed class NestedSet<E> {
         throwIfInstanceOf(e.getCause(), MissingFingerprintValueException.class);
         throwIfUnchecked(e.getCause());
         throw new IllegalStateException(e);
+      } catch (CancellationException e) {
+        throw new MissingFingerprintValueException(e);
       }
     } else {
       actualChildren = children;

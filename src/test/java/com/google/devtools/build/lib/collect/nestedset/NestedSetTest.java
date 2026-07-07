@@ -451,6 +451,14 @@ public final class NestedSetTest {
   }
 
   @Test
+  public void toListInterruptibly_propagatesCancellationAsMissingFingerprintValueException() {
+    NestedSet<String> deserializingNestedSet =
+        NestedSet.withFuture(Order.STABLE_ORDER, UNKNOWN_DEPTH, immediateCancelledFuture());
+    assertThrows(
+        MissingFingerprintValueException.class, deserializingNestedSet::toListInterruptibly);
+  }
+
+  @Test
   public void toListWithTimeout_propagatesInterrupt() {
     NestedSet<String> deserializingNestedSet =
         NestedSet.withFuture(Order.STABLE_ORDER, UNKNOWN_DEPTH, SettableFuture.create());
@@ -468,6 +476,15 @@ public final class NestedSetTest {
             UNKNOWN_DEPTH,
             immediateFailedFuture(
                 new MissingFingerprintValueException(getFingerprintForTesting("fingerprint"))));
+    assertThrows(
+        MissingFingerprintValueException.class,
+        () -> deserializingNestedSet.toListWithTimeout(Duration.ofNanos(1)));
+  }
+
+  @Test
+  public void toListWithTimeout_propagatesCancellationAsMissingFingerprintValueException() {
+    NestedSet<String> deserializingNestedSet =
+        NestedSet.withFuture(Order.STABLE_ORDER, UNKNOWN_DEPTH, immediateCancelledFuture());
     assertThrows(
         MissingFingerprintValueException.class,
         () -> deserializingNestedSet.toListWithTimeout(Duration.ofNanos(1)));

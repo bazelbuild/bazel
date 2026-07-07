@@ -13,11 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
 import com.google.devtools.build.lib.util.Bucket;
 import java.io.IOException;
 import java.util.List;
+import java.util.concurrent.CancellationException;
 import javax.annotation.Nullable;
 
 /** Encapsulates fingerprint keyed bytes storage system. */
@@ -73,7 +76,7 @@ public interface FingerprintValueStore {
 
   /**
    * {@link FingerprintValueStore#get} was called with a fingerprint that does not exist in the
-   * store.
+   * store, or the get operation was cancelled.
    */
   final class MissingFingerprintValueException extends Exception {
 
@@ -84,6 +87,10 @@ public interface FingerprintValueStore {
     public MissingFingerprintValueException(
         KeyBytesProvider fingerprint, @Nullable Throwable cause) {
       super("No remote value for " + fingerprint, cause);
+    }
+
+    public MissingFingerprintValueException(CancellationException cause) {
+      super("Fingerprint value fetch cancelled", checkNotNull(cause));
     }
   }
 
