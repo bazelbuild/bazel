@@ -348,6 +348,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/remote/util:rx_futures",
         "//src/main/java/com/google/devtools/build/lib/remote/util:rx_utils",
         "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",

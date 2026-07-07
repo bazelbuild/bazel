@@ -15,6 +15,7 @@
 # pylint: disable=g-long-ternary
 # pylint: disable=g-bad-todo
 
+import hashlib
 import json
 import os
 import re
@@ -1496,6 +1497,33 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
         '--remote_executor=grpc://localhost:' + str(self._worker_port),
     ])
     self.assertNotIn('JUST FETCHED MY_REPO', '\n'.join(stderr))
+    with open(self.Path('bazel-bin/main/remote.txt')) as f:
+      self.assertEqual(f.read(), 'dep_hello')
+    self.assertFalse(os.path.exists(os.path.join(my_repo_dir, 'BUILD')))
+    self.assertFalse(os.path.lexists(external_link))
+
+  def testRepoExternalSymlinkWithNativeTargetRepoUpload(self):
+    my_repo_dir, _, external_link = (
+        self.setUpExternalSymlinkWithNativeTargetRepo()
+    )
+
+    # Remove the target contents from the CAS so remote input upload has to
+    # read through the overlay symlink instead of reusing the repository blob.
+    dep_digest = hashlib.sha256(b'dep_hello').hexdigest()
+    dep_blob = os.path.join(self._cas_path, 'cas', dep_digest[:2], dep_digest)
+    self.assertTrue(os.path.exists(dep_blob))
+    os.remove(dep_blob)
+
+    # A remote action must be able to upload the native target through the
+    # symlink path stored in the overlay.
+    _, _, stderr = self.RunBazel([
+        'build',
+        '//main:remote',
+        '--spawn_strategy=remote',
+        '--remote_executor=grpc://localhost:' + str(self._worker_port),
+    ])
+    self.assertNotIn('JUST FETCHED MY_REPO', '\n'.join(stderr))
+    self.assertTrue(os.path.exists(dep_blob))
     with open(self.Path('bazel-bin/main/remote.txt')) as f:
       self.assertEqual(f.read(), 'dep_hello')
     self.assertFalse(os.path.exists(os.path.join(my_repo_dir, 'BUILD')))
