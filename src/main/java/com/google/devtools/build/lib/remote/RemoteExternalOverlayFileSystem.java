@@ -43,11 +43,11 @@ import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.vfs.DetailedIOException;
-import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.OverlayFileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.SymlinkTargetType;
@@ -76,17 +76,23 @@ import java.util.function.Consumer;
 import javax.annotation.Nullable;
 
 /**
- * A file system that overlays the native file system with a {@link RemoteExternalFileSystem} for
- * the "external" directory, which contains the contents of external repositories.
+ * A file system that overlays the native file system with an in-memory file system for the
+ * "external" directory, which contains the contents of external repositories.
  *
  * <p>Each external repository can either be materialized to the native file system or kept in
- * memory in the {@link RemoteExternalFileSystem}.
+ * memory in a {@link RemoteInMemoryFileSystem}, with file contents downloaded from the remote
+ * cache on access. Symlinks may point from either backing into the other (e.g. from an in-memory
+ * repo into a materialized repo or the workspace, or vice versa); resolving such chains correctly
+ * is handled by {@link OverlayFileSystem}, which canonicalizes paths against the combined view
+ * before dispatching to whichever backing owns the canonical path.
+ *
+ * <p>Paths outside the external directory are delegated wholesale to the native file system.
  */
-public final class RemoteExternalOverlayFileSystem extends FileSystem {
+public final class RemoteExternalOverlayFileSystem extends OverlayFileSystem {
   private final PathFragment externalDirectory;
   private final int externalDirectorySegmentCount;
   private final FileSystem nativeFs;
-  private final RemoteExternalFileSystem externalFs;
+  private final RemoteInMemoryFileSystem externalFs;
   private final ConcurrentHashMap<String, Future<Void>> materializations =
       new ConcurrentHashMap<>();
   // As long as a repo name appears as a key in this map, the repo contents are available in
@@ -109,7 +115,7 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
     this.externalDirectory = externalDirectory;
     this.externalDirectorySegmentCount = externalDirectory.segmentCount();
     this.nativeFs = nativeFs;
-    this.externalFs = new RemoteExternalFileSystem(nativeFs.getDigestFunction());
+    this.externalFs = new RemoteInMemoryFileSystem(nativeFs.getDigestFunction());
   }
 
   public void beforeCommand(
@@ -142,6 +148,10 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
   }
 
   public void afterCommand() {
+    // While mayCacheResolution restricts the canonicalization cache to in-memory repo contents
+    // that can't go stale within a command, this file system lives as long as the server. Clear
+    // the cache between commands to reclaim memory and as a defense against staleness bugs.
+    clearCanonicalizationCache();
     if (cache == null) {
       // Not all commands cause beforeCommand to be called, but afterCommand is called
       // unconditionally.
@@ -176,8 +186,12 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
 
   /** Removes the contents of the given repo from the in-memory overlay file system. */
   private void evictInMemoryRepo(String repoName) {
+    var repoDir = externalDirectory.getChild(repoName);
+    // A repo that is evicted due to lost files has no native mirror, so cached canonicalization
+    // results under it are stale (for materialized repos this is merely conservative).
+    invalidatePrefix(repoDir);
     try {
-      externalFs.deleteTree(externalDirectory.getChild(repoName));
+      externalFs.deleteTree(repoDir);
     } catch (IOException e) {
       throw new IllegalStateException("In-memory file system is not expected to throw", e);
     }
@@ -225,6 +239,7 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
     } catch (BulkTransferException e) {
       if (e.allCausedByCacheNotFoundException()) {
         // The cache has lost the .bzl files, which should be treated just like a cache miss.
+        invalidatePrefix(repoDir);
         externalFs.deleteTree(repoDir);
         return false;
       }
@@ -240,7 +255,7 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
   }
 
   private static void injectRecursively(
-      RemoteExternalFileSystem fs,
+      RemoteInMemoryFileSystem fs,
       PathFragment path,
       Directory dir,
       ImmutableMap<Digest, Directory> childMap,
@@ -345,9 +360,18 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
             inputPrefetcher.prefetchFilesInterruptibly(
                 /* action= */ null,
                 Lists.transform(paths, ActionInputHelper::fromPath),
-                actionInput -> externalFs.getMetadata(actionInput.getExecPath()),
+                actionInput -> getInMemoryMetadata(actionInput.getExecPath()),
                 ActionInputPrefetcher.Priority.CRITICAL,
                 ActionInputPrefetcher.Reason.INPUTS));
+  }
+
+  /** Returns the metadata of a file or symlink in the in-memory file system. */
+  private FileArtifactValue getInMemoryMetadata(PathFragment path) throws IOException {
+    var status = externalFs.stat(path, /* followSymlinks= */ false);
+    if (!status.isSymbolicLink()) {
+      return ((RemoteInMemoryFileSystem.RemoteInMemoryFileInfo) status).getMetadata();
+    }
+    return FileArtifactValue.createForUnresolvedSymlink(externalFs.getPath(path));
   }
 
   /**
@@ -360,6 +384,7 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
     var reposToDiscard = ImmutableSet.copyOf(markerFileContents.keySet());
     reposToDiscard.forEach(this::evictInMemoryRepo);
     invalidateRepoDirectories(evaluator, reposToDiscard);
+    clearCanonicalizationCache();
   }
 
   private record WalkResult(
@@ -401,24 +426,53 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
     return nativeFs.getHostFileSystem();
   }
 
+  // Only paths strictly below the external directory are overlaid; everything else is delegated
+  // wholesale to the native file system.
+
+  @Override
+  @Nullable
+  protected FileSystem wholesaleDelegate(PathFragment path) {
+    if (path.startsWith(externalDirectory) && !path.equals(externalDirectory)) {
+      return null;
+    }
+    return nativeFs;
+  }
+
+  @Override
+  protected boolean mayCacheResolution(PathFragment path) {
+    // Only the contents of unmaterialized in-memory repos are guaranteed not to change through
+    // channels that bypass this file system (native repo directories are mutated by processes run
+    // by repo rules, and workspace paths reached through symlinks by the user). The external
+    // directory and its ancestors are managed by Bazel and stable, and caching them provides the
+    // anchor for the in-memory repo entries below them.
+    return externalDirectory.startsWith(path) || fsForPath(path) == externalFs;
+  }
+
   // Always mirror tree deletions to the underlying native file system to support bazel clean and
   // repository refetching.
 
   @Override
   public void deleteTree(PathFragment path) throws IOException {
+    invalidatePrefix(path);
     nativeFs.deleteTree(path);
     externalFs.deleteTree(path);
   }
 
   @Override
   public void deleteTreesBelow(PathFragment dir) throws IOException {
+    invalidatePrefix(dir);
     nativeFs.deleteTreesBelow(dir);
     externalFs.deleteTreesBelow(dir);
   }
 
-  // All other methods delegate to the file system given by this method. It is important to override
-  // each non-final FileSystem method to benefit from optimizations implemented in the respective
-  // underlying file systems.
+  /**
+   * Returns the file system that owns the given path.
+   *
+   * <p>The path must be canonical, except that the last segment (for operations that operate on
+   * the symlink itself) or the segments below the repo directory (for operations that create new
+   * paths, which never target in-memory repos) may not be. Canonical paths that a symlink chain
+   * caused to escape the external directory are owned by the native file system.
+   */
   private FileSystem fsForPath(PathFragment path) {
     if (path.startsWith(externalDirectory) && !path.equals(externalDirectory)) {
       String repoName = path.getSegment(externalDirectorySegmentCount);
@@ -442,19 +496,101 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
   }
 
   @Override
-  public boolean delete(PathFragment path) throws IOException {
+  @Nullable
+  protected FileStatus statNofollow(PathFragment path) throws IOException {
+    return fsForPath(path).statIfFound(path, /* followSymlinks= */ false);
+  }
+
+  @Override
+  protected PathFragment readSymlinkNofollow(PathFragment path) throws IOException {
+    return fsForPath(path).readSymbolicLink(path);
+  }
+
+  @Override
+  protected Collection<Dirent> readdirNofollow(PathFragment path) throws IOException {
+    return fsForPath(path).readdir(path, /* followSymlinks= */ false);
+  }
+
+  @Override
+  protected byte[] getDigestNofollow(PathFragment path) throws IOException {
+    var fs = fsForPath(path);
+    if (fs == externalFs) {
+      // The in-memory file system stores digests as metadata; its inherited getDigest would
+      // attempt to hash the file contents, which it doesn't have.
+      return externalFs.getFastDigest(path);
+    }
+    return fs.getDigest(path);
+  }
+
+  @Override
+  @Nullable
+  protected byte[] getFastDigestNofollow(PathFragment path) throws IOException {
+    return fsForPath(path).getFastDigest(path);
+  }
+
+  @Override
+  protected boolean deleteNofollow(PathFragment path) throws IOException {
     return fsForPath(path).delete(path);
   }
 
   @Override
-  public byte[] getDigest(PathFragment path) throws IOException {
-    return fsForPath(path).getDigest(path);
+  protected void renameToNofollow(PathFragment sourcePath, PathFragment targetPath)
+      throws IOException {
+    var sourceFs = fsForPath(sourcePath);
+    if (sourceFs != fsForPath(targetPath)) {
+      // Renaming between the in-memory and native backing is not supported, just like renaming
+      // across file system boundaries isn't in general.
+      throw new IOException(
+          "%s -> %s (Cross-device link)".formatted(sourcePath, targetPath));
+    }
+    sourceFs.renameTo(sourcePath, targetPath);
   }
 
-  @Nullable
   @Override
-  public byte[] getFastDigest(PathFragment path) throws IOException {
-    return fsForPath(path).getFastDigest(path);
+  protected void createSymbolicLinkNofollow(
+      PathFragment linkPath, PathFragment targetFragment, SymlinkTargetType type)
+      throws IOException {
+    fsForPath(linkPath).createSymbolicLink(linkPath, targetFragment, type);
+  }
+
+  @Override
+  protected void setLastModifiedTimeNofollow(PathFragment path, long newTime) throws IOException {
+    fsForPath(path).setLastModifiedTime(path, newTime);
+  }
+
+  @Override
+  protected boolean isReadableNofollow(PathFragment path) throws IOException {
+    return fsForPath(path).isReadable(path);
+  }
+
+  @Override
+  protected boolean isWritableNofollow(PathFragment path) throws IOException {
+    return fsForPath(path).isWritable(path);
+  }
+
+  @Override
+  protected boolean isExecutableNofollow(PathFragment path) throws IOException {
+    return fsForPath(path).isExecutable(path);
+  }
+
+  @Override
+  protected void setReadableNofollow(PathFragment path, boolean readable) throws IOException {
+    fsForPath(path).setReadable(path, readable);
+  }
+
+  @Override
+  protected void setWritableNofollow(PathFragment path, boolean writable) throws IOException {
+    fsForPath(path).setWritable(path, writable);
+  }
+
+  @Override
+  protected void setExecutableNofollow(PathFragment path, boolean executable) throws IOException {
+    fsForPath(path).setExecutable(path, executable);
+  }
+
+  @Override
+  protected void chmodNofollow(PathFragment path, int mode) throws IOException {
+    fsForPath(path).chmod(path, mode);
   }
 
   @Override
@@ -474,7 +610,7 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
 
   @Override
   public boolean mayBeCaseOrNormalizationInsensitive() {
-    return fsForPath(externalDirectory).mayBeCaseOrNormalizationInsensitive();
+    return nativeFs.mayBeCaseOrNormalizationInsensitive();
   }
 
   @Override
@@ -488,101 +624,126 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
   }
 
   @Override
-  public long getFileSize(PathFragment path, boolean followSymlinks) throws IOException {
-    return fsForPath(path).getFileSize(path, followSymlinks);
-  }
-
-  @Override
-  public long getLastModifiedTime(PathFragment path, boolean followSymlinks) throws IOException {
-    return fsForPath(path).getLastModifiedTime(path, followSymlinks);
-  }
-
-  @Override
-  public void setLastModifiedTime(PathFragment path, long newTime) throws IOException {
-    fsForPath(path).setLastModifiedTime(path, newTime);
-  }
-
-  @Override
-  public FileStatus stat(PathFragment path, boolean followSymlinks) throws IOException {
-    return fsForPath(path).stat(path, followSymlinks);
-  }
-
-  @Override
-  public void createSymbolicLink(
-      PathFragment linkPath, PathFragment targetFragment, SymlinkTargetType hint)
-      throws IOException {
-    fsForPath(linkPath).createSymbolicLink(linkPath, targetFragment, hint);
-  }
-
-  @Override
-  public PathFragment readSymbolicLink(PathFragment path) throws IOException {
-    return fsForPath(path).readSymbolicLink(path);
-  }
-
-  @Override
-  public boolean exists(PathFragment path, boolean followSymlinks) {
-    return fsForPath(path).exists(path, followSymlinks);
-  }
-
-  @Override
-  public boolean exists(PathFragment path) {
-    return fsForPath(path).exists(path);
-  }
-
-  @Override
-  public Collection<String> getDirectoryEntries(PathFragment path) throws IOException {
-    return fsForPath(path).getDirectoryEntries(path);
-  }
-
-  @Override
-  public boolean isReadable(PathFragment path) throws IOException {
-    return fsForPath(path).isReadable(path);
-  }
-
-  @Override
-  public void setReadable(PathFragment path, boolean readable) throws IOException {
-    fsForPath(path).setReadable(path, readable);
-  }
-
-  @Override
-  public boolean isWritable(PathFragment path) throws IOException {
-    return fsForPath(path).isWritable(path);
-  }
-
-  @Override
-  public void setWritable(PathFragment path, boolean writable) throws IOException {
-    fsForPath(path).setWritable(path, writable);
-  }
-
-  @Override
-  public boolean isExecutable(PathFragment path) throws IOException {
-    return fsForPath(path).isExecutable(path);
-  }
-
-  @Override
-  public void setExecutable(PathFragment path, boolean executable) throws IOException {
-    fsForPath(path).setExecutable(path, executable);
-  }
-
-  @Override
   public InputStream getInputStream(PathFragment path) throws IOException {
-    return fsForPath(path).getInputStream(path);
+    var delegate = wholesaleDelegate(path);
+    if (delegate != null) {
+      return delegate.getInputStream(path);
+    }
+    var resolvedPath = canonicalize(path);
+    if (fsForPath(resolvedPath) != externalFs) {
+      return nativeFs.getInputStream(resolvedPath);
+    }
+    if (shouldPrefetch(resolvedPath)) {
+      // .bzl and REPO.bazel files are prefetched to the native file system during injection, but
+      // only if they are regular files; a symlink with such a name is kept in the in-memory
+      // overlay only. Since the path is canonical at this point, it refers to a prefetched file.
+      return nativeFs.getInputStream(resolvedPath);
+    }
+    return downloadInputStream(resolvedPath);
+  }
+
+  private RemoteActionExecutionContext makeRemoteContext(PathFragment relativePath) {
+    String repoName = relativePath.subFragment(0, 1).getBaseName();
+    var metadata = TracingMetadataUtils.buildMetadata(buildRequestId, commandId, repoName);
+    // Files in the remote external repo that Bazel reads are worth writing through to the
+    // disk cache, as they are likely to be read again on future cold builds.
+    return RemoteActionExecutionContext.create(metadata)
+        .withReadCachePolicy(RemoteActionExecutionContext.CachePolicy.ANY_CACHE)
+        .withWriteCachePolicy(RemoteActionExecutionContext.CachePolicy.ANY_CACHE);
+  }
+
+  /**
+   * Downloads the contents of the in-memory file with the given canonical path from the remote
+   * cache.
+   */
+  private InputStream downloadInputStream(PathFragment path) throws IOException {
+    var relativePath = path.relativeTo(externalDirectory);
+    var status = externalFs.stat(path, /* followSymlinks= */ false);
+    if (!(status instanceof RemoteInMemoryFileSystem.RemoteInMemoryFileInfo info)) {
+      // The canonical path denotes a directory.
+      throw new IOException(path.getPathString() + " (Is a directory)");
+    }
+    reporter.post(
+        new ExtendedEventHandler.FetchProgress() {
+          @Override
+          public String getResourceIdentifier() {
+            return relativePath.getPathString();
+          }
+
+          @Override
+          public String getProgress() {
+            return "(%s)".formatted(bytesCountToDisplayString(info.getSize()));
+          }
+
+          @Override
+          public boolean isFinished() {
+            return false;
+          }
+        });
+    var digest = DigestUtil.buildDigest(info.getMetadata().getDigest(), info.getSize());
+    try {
+      var contentFuture =
+          cache.downloadBlob(
+              makeRemoteContext(relativePath), path.getPathString(), /* execPath= */ null, digest);
+      waitForBulkTransfer(ImmutableList.of(contentFuture));
+      return new ByteArrayInputStream(contentFuture.get());
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new InterruptedIOException("interrupted while waiting for remote file transfer");
+    } catch (BulkTransferException e) {
+      if (e.allCausedByCacheNotFoundException()) {
+        reposWithLostFiles.add(relativePath.getSegment(0));
+        throw new DetailedIOException(
+            "%s/%s with digest %s is no longer available in the remote cache"
+                .formatted(
+                    externalDirectory.getBaseName(), relativePath, DigestUtil.toString(digest)),
+            e,
+            FailureDetails.Filesystem.Code.REMOTE_FILE_EVICTED,
+            SkyFunctionException.Transience.TRANSIENT);
+      }
+      throw e;
+    } catch (ExecutionException e) {
+      throw new IllegalStateException("waitForBulkTransfer should have thrown", e);
+    } finally {
+      reporter.post(
+          new ExtendedEventHandler.FetchProgress() {
+            @Override
+            public String getResourceIdentifier() {
+              return relativePath.getPathString();
+            }
+
+            @Override
+            public String getProgress() {
+              return "";
+            }
+
+            @Override
+            public boolean isFinished() {
+              return true;
+            }
+          });
+    }
   }
 
   @Override
   public SeekableByteChannel createReadWriteByteChannel(PathFragment path) throws IOException {
-    return fsForPath(path).createReadWriteByteChannel(path);
+    var delegate = wholesaleDelegate(path);
+    if (delegate != null) {
+      return delegate.createReadWriteByteChannel(path);
+    }
+    var resolvedPath = canonicalizeParent(path);
+    return fsForPath(resolvedPath).createReadWriteByteChannel(resolvedPath);
   }
 
   @Override
   public OutputStream getOutputStream(PathFragment path, boolean append, boolean internal)
       throws IOException {
-    return fsForPath(path).getOutputStream(path, append, internal);
-  }
-
-  @Override
-  public void renameTo(PathFragment sourcePath, PathFragment targetPath) throws IOException {
-    fsForPath(sourcePath).renameTo(sourcePath, targetPath);
+    var delegate = wholesaleDelegate(path);
+    if (delegate != null) {
+      return delegate.getOutputStream(path, append, internal);
+    }
+    var resolvedPath = canonicalizeParent(path);
+    return fsForPath(resolvedPath).getOutputStream(resolvedPath, append, internal);
   }
 
   @Override
@@ -609,66 +770,17 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
   @Override
   public byte[] getxattr(PathFragment path, String name, boolean followSymlinks)
       throws IOException {
-    return fsForPath(path).getxattr(path, name, followSymlinks);
-  }
-
-  @Nullable
-  @Override
-  public PathFragment resolveOneLink(PathFragment path) throws IOException {
-    return fsForPath(path).resolveOneLink(path);
-  }
-
-  @Override
-  public Path resolveSymbolicLinks(PathFragment path) throws IOException {
-    // Ensure that the return value doesn't leave the overlay file system.
-    return getPath(fsForPath(path).resolveSymbolicLinks(path).asFragment());
-  }
-
-  @Nullable
-  @Override
-  public FileStatus statNullable(PathFragment path, boolean followSymlinks) {
-    return fsForPath(path).statNullable(path, followSymlinks);
-  }
-
-  @Nullable
-  @Override
-  public FileStatus statIfFound(PathFragment path, boolean followSymlinks) throws IOException {
-    return fsForPath(path).statIfFound(path, followSymlinks);
-  }
-
-  @Override
-  public boolean isFile(PathFragment path, boolean followSymlinks) {
-    return fsForPath(path).isFile(path, followSymlinks);
-  }
-
-  @Override
-  public boolean isSpecialFile(PathFragment path, boolean followSymlinks) {
-    return fsForPath(path).isSpecialFile(path, followSymlinks);
-  }
-
-  @Override
-  public boolean isSymbolicLink(PathFragment path) {
-    return fsForPath(path).isSymbolicLink(path);
-  }
-
-  @Override
-  public boolean isDirectory(PathFragment path, boolean followSymlinks) {
-    return fsForPath(path).isDirectory(path, followSymlinks);
-  }
-
-  @Override
-  public PathFragment readSymbolicLinkUnchecked(PathFragment path) throws IOException {
-    return fsForPath(path).readSymbolicLinkUnchecked(path);
-  }
-
-  @Override
-  public Collection<Dirent> readdir(PathFragment path, boolean followSymlinks) throws IOException {
-    return fsForPath(path).readdir(path, followSymlinks);
-  }
-
-  @Override
-  public void chmod(PathFragment path, int mode) throws IOException {
-    fsForPath(path).chmod(path, mode);
+    var delegate = wholesaleDelegate(path);
+    if (delegate != null) {
+      return delegate.getxattr(path, name, followSymlinks);
+    }
+    var resolvedPath = followSymlinks ? canonicalize(path) : canonicalizeParent(path);
+    var fs = fsForPath(resolvedPath);
+    if (fs == externalFs) {
+      // In-memory files don't have extended attributes.
+      return null;
+    }
+    return fs.getxattr(resolvedPath, name, followSymlinks);
   }
 
   @Override
@@ -684,121 +796,5 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
   @Override
   public PathFragment createTempDirectory(PathFragment parent, String prefix) throws IOException {
     return fsForPath(parent).createTempDirectory(parent, prefix);
-  }
-
-  private final class RemoteExternalFileSystem
-      extends RemoteInMemoryFileSystem {
-
-    RemoteExternalFileSystem(DigestHashFunction hashFunction) {
-      super(hashFunction);
-    }
-
-    private RemoteActionExecutionContext makeRemoteContext(PathFragment relativePath) {
-      String repoName = relativePath.subFragment(0, 1).getBaseName();
-      var metadata = TracingMetadataUtils.buildMetadata(buildRequestId, commandId, repoName);
-      // Files in the remote external repo that Bazel reads are worth writing through to the
-      // disk cache, as they are likely to be read again on future cold builds.
-      return RemoteActionExecutionContext.create(metadata)
-          .withReadCachePolicy(RemoteActionExecutionContext.CachePolicy.ANY_CACHE)
-          .withWriteCachePolicy(RemoteActionExecutionContext.CachePolicy.ANY_CACHE);
-    }
-
-    private FileArtifactValue getMetadata(PathFragment path) throws IOException {
-      var status = stat(path, /* followSymlinks= */ false);
-      if (!status.isSymbolicLink()) {
-        return ((RemoteInMemoryFileSystem.RemoteInMemoryFileInfo) status).getMetadata();
-      }
-      return FileArtifactValue.createForUnresolvedSymlink(externalFs.getPath(path));
-    }
-
-    @Override
-    public synchronized InputStream getInputStream(PathFragment path) throws IOException {
-      // .bzl and REPO.bazel files are prefetched to the native file system during injection, but
-      // only if they are regular files, a symlink with such a name is kept in the in-memory overlay
-      // only. We thus need to follow symlinks before attempting to read a supposedly prefetched
-      // file.
-      path = resolveSymbolicLinks(path).asFragment();
-      if (shouldPrefetch(path)) {
-        return nativeFs.getInputStream(path);
-      }
-      var relativePath = path.relativeTo(externalDirectory);
-      var info =
-          (RemoteInMemoryFileSystem.RemoteInMemoryFileInfo) stat(path, /* followSymlinks= */ true);
-      reporter.post(
-          new ExtendedEventHandler.FetchProgress() {
-            @Override
-            public String getResourceIdentifier() {
-              return relativePath.getPathString();
-            }
-
-            @Override
-            public String getProgress() {
-              return "(%s)".formatted(bytesCountToDisplayString(info.getSize()));
-            }
-
-            @Override
-            public boolean isFinished() {
-              return false;
-            }
-          });
-      var digest = DigestUtil.buildDigest(info.getMetadata().getDigest(), info.getSize());
-      try {
-        var contentFuture =
-            cache.downloadBlob(
-                makeRemoteContext(relativePath),
-                path.getPathString(),
-                /* execPath= */ null,
-                digest);
-        waitForBulkTransfer(ImmutableList.of(contentFuture));
-        return new ByteArrayInputStream(contentFuture.get());
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-        throw new InterruptedIOException("interrupted while waiting for remote file transfer");
-      } catch (BulkTransferException e) {
-        if (e.allCausedByCacheNotFoundException()) {
-          reposWithLostFiles.add(relativePath.getSegment(0));
-          throw new DetailedIOException(
-              "%s/%s with digest %s is no longer available in the remote cache"
-                  .formatted(
-                      externalDirectory.getBaseName(), relativePath, DigestUtil.toString(digest)),
-              e,
-              FailureDetails.Filesystem.Code.REMOTE_FILE_EVICTED,
-              SkyFunctionException.Transience.TRANSIENT);
-        }
-        throw e;
-      } catch (ExecutionException e) {
-        throw new IllegalStateException("waitForBulkTransfer should have thrown", e);
-      } finally {
-        reporter.post(
-            new ExtendedEventHandler.FetchProgress() {
-              @Override
-              public String getResourceIdentifier() {
-                return relativePath.getPathString();
-              }
-
-              @Override
-              public String getProgress() {
-                return "";
-              }
-
-              @Override
-              public boolean isFinished() {
-                return true;
-              }
-            });
-      }
-    }
-
-    @Override
-    public byte[] getDigest(PathFragment path) throws IOException {
-      var info =
-          (RemoteInMemoryFileSystem.RemoteInMemoryFileInfo) stat(path, /* followSymlinks= */ true);
-      return info.getMetadata().getDigest();
-    }
-
-    @Override
-    public synchronized byte[] getFastDigest(PathFragment path) throws IOException {
-      return getDigest(path);
-    }
   }
 }
