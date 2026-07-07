@@ -70,6 +70,38 @@ public class TypeTaggerTest {
       return typeTable().getType(function);
     }
 
+    /** Returns the type of a global. Does not support vars that are bound in a list assignment. */
+    @Nullable
+    private StarlarkType getType(String name) {
+      for (Statement stmt : file().getStatements()) {
+        switch (stmt) {
+          case AssignmentStatement assign -> {
+            if (assign.getLHS() instanceof Identifier id && id.getName().equals(name)) {
+              return typeTable().getType(id.getBinding());
+            }
+          }
+          case DefStatement def -> {
+            if (def.getIdentifier().getName().equals(name)) {
+              return typeTable().getType(def.getResolvedFunction());
+            }
+          }
+          case TypeAliasStatement typeAlias -> {
+            // TODO: #27370 - give type aliases' values a sensible type.
+            if (typeAlias.getIdentifier().getName().equals(name)) {
+              return typeTable().getType(typeAlias.getIdentifier().getBinding());
+            }
+          }
+          case VarStatement var -> {
+            if (var.getIdentifier().getName().equals(name)) {
+              return typeTable().getType(var.getIdentifier().getBinding());
+            }
+          }
+          default -> {}
+        }
+      }
+      return null;
+    }
+
     /** Returns the type of a {@code def}'s resolved function. */
     @Nullable
     private Types.CallableType getType(DefStatement def) {
@@ -720,5 +752,60 @@ public class TypeTaggerTest {
   public void loadStatement_requiresExportedGlobal() throws Exception {
     loader = importName -> TestUtils.LoadableModule.of();
     assertInvalid("module '//x:x.bzl' does not contain symbol 'x'", "load('//x:x.bzl', 'x')");
+  }
+
+  @Test
+  public void loadStatement_loadsTypeConstructor() throws Exception {
+    loader =
+        importName ->
+            TestUtils.LoadableModule.ofTypesAndConstructors(
+                "numeric", Types.ANY, Types.wrapType("numeric", Types.NUMERIC));
+    Result result =
+        tagFile(
+            """
+            load("//x:x.bzl", "numeric")
+            x: numeric = 1
+            """);
+    assertThat(result.getType("x")).isEqualTo(Types.NUMERIC);
+  }
+
+  @Test
+  public void loadedTypeConstructor_cannotBeRebound() throws Exception {
+    loader =
+        importName ->
+            TestUtils.LoadableModule.ofTypesAndConstructors(
+                "numeric", Types.ANY, Types.wrapType("numeric", Types.NUMERIC));
+    options.allowToplevelRebinding(true).loadBindsGlobally(true);
+
+    // TODO: #27370 - Arguably, these should all be allowed unless the loaded symbol is used in a
+    // type expression in the file.
+    assertInvalid(
+        ":2:1: type 'numeric' redeclared",
+        """
+        load("//x:x.bzl", "numeric")
+        type numeric = int
+        """);
+
+    assertInvalid(
+        ":2:1: type 'numeric' redeclared",
+        """
+        load("//x:x.bzl", "numeric")
+        numeric = 123
+        """);
+
+    assertInvalid(
+        ":2:1: type 'numeric' redeclared",
+        """
+        load("//x:x.bzl", "numeric")
+        foo, bar, numeric = 123, 456, 789
+        """);
+
+    assertInvalid(
+        ":2:1: type 'numeric' redeclared",
+        """
+        load("//x:x.bzl", "numeric")
+        def numeric(x):
+            return cast(int|float, x)
+        """);
   }
 }

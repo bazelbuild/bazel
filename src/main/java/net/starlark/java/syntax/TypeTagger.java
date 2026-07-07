@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.FormatMethod;
 import java.util.ArrayDeque;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.Set;
 import javax.annotation.Nullable;
 import net.starlark.java.spelling.SpellChecker;
@@ -69,6 +70,13 @@ public final class TypeTagger extends NodeVisitor {
      */
     @Nullable
     StarlarkType getExportType(String name);
+
+    /**
+     * Returns the Starlark type constructor value of the specified exported symbol, or null if the
+     * export does not have a type constructor value.
+     */
+    @Nullable
+    TypeConstructor getExportTypeConstructor(String name);
   }
 
   /** Returns the named module, or null if not found. */
@@ -87,6 +95,11 @@ public final class TypeTagger extends NodeVisitor {
   // Empty if we are tagging a type expression (inside which no function definitions are allowed).
   // Populated and mutated by visitation.
   private final ArrayDeque<Resolver.Function> functionStack = new ArrayDeque<>();
+
+  // Global and file-local symbols of type constructors defined or loaded in this file. Used only
+  // for spelling suggestions in error messages. (Note that TypeTable doesn't store names of type
+  // constructor symbols.)
+  private final LinkedHashSet<String> fileDefinedTypeConstructorNames = new LinkedHashSet<>();
 
   // Formats and reports an error at the start of the specified node.
   @FormatMethod
@@ -128,23 +141,36 @@ public final class TypeTagger extends NodeVisitor {
   private TypeConstructor resolveTypeConstructor(Identifier id) {
     String name = id.getName();
 
-    var scope = id.getBinding().getScope();
+    var binding = id.getBinding();
+    var scope = binding.getScope();
+    @Nullable TypeConstructor constructor = null;
     if (!(scope == Scope.UNIVERSAL || scope == Scope.PREDECLARED || scope == Scope.GLOBAL)) {
-      // Local names cannot by types. Don't allow `x: Foo` to succeed if Foo is a local shadowing a
-      // type name.
-      errorf(id, "local symbol '%s' cannot be used as a type", name);
-      return null;
+      // Non-file-level local names cannot be types. Don't allow `x: Foo` to succeed if Foo is a
+      // local shadowing a type name.
+      if (binding.isToplevelLocal()) {
+        constructor = typeTable.getTypeConstructor(binding);
+      }
+      if (constructor != null) {
+        return constructor;
+      } else {
+        errorf(id, "local symbol '%s' cannot be used as a type", name);
+        return null;
+      }
     }
 
     try {
-      TypeConstructor constructor = module.getTypeConstructor(name);
+      constructor = module.getTypeConstructor(name);
       if (constructor == null) {
         errorf(id, "%s symbol '%s' cannot be used as a type", scope, name);
         return null;
       }
       return constructor;
     } catch (Resolver.Module.Undefined ex) {
-      String suggestion = ex.candidates != null ? SpellChecker.didYouMean(name, ex.candidates) : "";
+      LinkedHashSet<String> candidates = new LinkedHashSet<>(fileDefinedTypeConstructorNames);
+      if (ex.candidates != null) {
+        candidates.addAll(ex.candidates);
+      }
+      String suggestion = candidates.isEmpty() ? "" : SpellChecker.didYouMean(name, candidates);
       errorf(id, "%s%s", ex.getMessage(), suggestion);
       return null;
     }
@@ -359,6 +385,7 @@ public final class TypeTagger extends NodeVisitor {
       if (binding.isSyntactic()) {
         errorf(binding.getFirst(), "'%s' previously declared here", id.getName());
       }
+      errorIfTypeConstructor(node, id);
       return;
     }
 
@@ -368,6 +395,44 @@ public final class TypeTagger extends NodeVisitor {
           String.format("Expected type of binding %s to be null but was %s", binding, prevType));
     }
     typeTable.setDeclaredType(binding, type);
+  }
+
+  /**
+   * Sets the type constructor value associated with a given binding, making it available for
+   * subsequent type tagging and checking.
+   */
+  private void setTypeConstructor(Node node, Identifier id, TypeConstructor typeConstructor) {
+    Resolver.Binding binding = id.getBinding();
+    checkNotNull(binding, "no binding set on identifier '%s'", id.getName());
+    checkArgument(
+        binding.getScope() == Resolver.Scope.GLOBAL || binding.isToplevelLocal(),
+        "'%s' must be either a global or a file-level local",
+        id.getName());
+
+    if (errorIfTypeConstructor(node, id)) {
+      return;
+    }
+
+    fileDefinedTypeConstructorNames.add(id.getName());
+    typeTable.setTypeConstructor(binding, typeConstructor);
+  }
+
+  /**
+   * Returns true and logs an error if the given symbol has been associated with a type constructor;
+   * otherwise, returns false.
+   */
+  private boolean errorIfTypeConstructor(Node node, Identifier id) {
+    if (typeTable.getTypeConstructor(id.getBinding()) != null) {
+      // A type constructor cannot be redeclared, even if allowTopLevelRebinding is set.
+      // TODO: #27370 - Allow types to be redeclared in REPL. What we really want to prevent is
+      // redeclaration only within the same program (the same set of statements passed to
+      // TypeTagger/TypeChecker); but redeclaration in a different program which happens to mutate
+      // the same globals should be fine.
+      errorf(node, "type '%s' redeclared", id.getName());
+      errorf(id.getBinding().getFirst(), "'%s' previously declared here", id.getName());
+      return true;
+    }
+    return false;
   }
 
   /**
@@ -419,6 +484,14 @@ public final class TypeTagger extends NodeVisitor {
       setUsesTypeSyntax();
       StarlarkType type = extractType(assignment.getType());
       setType(assignment, (Identifier) assignment.getLHS(), type);
+    }
+
+    for (Identifier id : Identifier.boundIdentifiers(assignment.getLHS())) {
+      // TODO: #27370 - This is brittle: if loadsBindGlobally and allowToplevelRebinding are both
+      // set, the exporting file may break the loading file by changing an exported value to be a
+      // TypeConstructor instance. One solution may be to run the check only for symbols which are
+      // used by type annotations in this file. (That could also fix the REPL use case.)
+      errorIfTypeConstructor(assignment, id);
     }
 
     // Traverse children; RHS could contain a lambda.
@@ -481,12 +554,18 @@ public final class TypeTagger extends NodeVisitor {
         continue;
       }
       setType(load, binding.getLocalName(), loadedModule.getExportType(originalName));
+      @Nullable
+      TypeConstructor typeConstructor = loadedModule.getExportTypeConstructor(originalName);
+      if (typeConstructor != null) {
+        setTypeConstructor(load, binding.getLocalName(), typeConstructor);
+      }
     }
   }
 
   @Override
   public void visit(TypeAliasStatement node) {
     setUsesTypeSyntax();
+    errorIfTypeConstructor(node, node.getIdentifier());
     super.visit(node);
   }
 
