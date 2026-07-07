@@ -591,6 +591,16 @@ public final class BazelRulesModule extends BlazeModule {
   public abstract static class BazelBuildGraveyardOptions extends BuildGraveyardOptions {
     @Deprecated
     @Option(
+        name = "incompatible_disable_native_apple_binary_rule",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE, OptionMetadataTag.DEPRECATED},
+        help = "Deprecated no-op.")
+    public abstract boolean getDisableNativeAppleBinaryRule();
+
+    @Deprecated
+    @Option(
         name = "incompatible_disable_legacy_cc_provider",
         defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
