@@ -21,6 +21,7 @@ import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.readContentAsLatin1;
+import static com.google.devtools.build.lib.vfs.FileSystemUtils.writeContent;
 import static java.util.Arrays.stream;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
@@ -77,6 +78,7 @@ import com.google.devtools.build.lib.testutil.SpawnController.ExecResult;
 import com.google.devtools.build.lib.testutil.SpawnController.SpawnShim;
 import com.google.devtools.build.lib.testutil.SpawnInputUtils;
 import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
 import com.google.devtools.build.skyframe.NotifyingHelper;
@@ -86,7 +88,6 @@ import com.google.devtools.build.skyframe.QueryableGraph.Reason;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueWithMetadata;
-import com.google.devtools.build.skyframe.proto.GraphInconsistency.Inconsistency;
 import com.google.errorprone.annotations.ForOverride;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -1445,10 +1446,12 @@ public class RewindingTestsHelper {
         def _tree_impl(ctx):
             tree_artifact = ctx.actions.declare_directory(ctx.attr.name + "_dir.cc")
             ctx.actions.run_shell(
+                mnemonic = "TreeGenerator",
                 inputs = ctx.files.srcs,
                 outputs = [tree_artifact],
-                command = "touch $1/file1.cc && touch $1/file2.cc",
+                command = "if [ -f tree/control.txt ]; then cat tree/control.txt | while read f; do touch $1/$f; done; else touch $1/file1.cc && touch $1/file2.cc; fi",
                 arguments = [tree_artifact.path],
+                execution_requirements = {"no-cache": "1"},
             )
             return DefaultInfo(files = depset(direct = [tree_artifact]))
 
@@ -1520,9 +1523,9 @@ public class RewindingTestsHelper {
     verifyAllSpawnShimsConsumed();
     assertThat(getExecutedSpawnDescriptions())
         .containsExactly(
-            "Action tree/make_cc_dir.cc",
+            "TreeGenerator tree/make_cc_dir.cc",
             "Compiling tree/make_cc_dir.cc/file1.cc",
-            "Action tree/make_cc_dir.cc",
+            "TreeGenerator tree/make_cc_dir.cc",
             "Compiling tree/make_cc_dir.cc/file1.cc",
             "Compiling tree/make_cc_dir.cc/file2.cc",
             "Compiling tree/source_2.cc",
@@ -1534,7 +1537,7 @@ public class RewindingTestsHelper {
             "Compiling tree/make_cc_dir.cc/file2.cc",
             "Linking tree/libconsumes_tree.so",
             "Linking tree/libconsumes_tree.a"),
-        /* completedRewound= */ ImmutableList.of("Action tree/make_cc_dir.cc"),
+        /* completedRewound= */ ImmutableList.of("TreeGenerator tree/make_cc_dir.cc"),
         /* failedRewound= */ ImmutableList.of("Compiling tree/make_cc_dir.cc/file1.cc"),
 
         /* actionRewindingPostLostInputCounts= */ ImmutableList.of(1));
@@ -1621,7 +1624,7 @@ public class RewindingTestsHelper {
     verifyAllSpawnShimsConsumed();
     assertThat(getExecutedSpawnDescriptions())
         .containsExactly(
-            "Action tree/make_cc_dir.cc",
+            "TreeGenerator tree/make_cc_dir.cc",
             "Compiling tree/make_cc_dir.cc/file1.cc",
             "Compiling tree/make_cc_dir.cc/file2.cc",
             "Compiling tree/source_2.cc",
@@ -1633,7 +1636,7 @@ public class RewindingTestsHelper {
 
     recorder.assertEvents(
         /* runOnce= */ ImmutableList.of(
-            "Action tree/make_cc_dir.cc", "Linking tree/libconsumes_tree.a"),
+            "TreeGenerator tree/make_cc_dir.cc", "Linking tree/libconsumes_tree.a"),
         /* completedRewound= */ ImmutableList.of(
             "Compiling tree/make_cc_dir.cc/file1.cc", "Compiling tree/make_cc_dir.cc/file2.cc"),
         /* failedRewound= */ ImmutableList.of("Linking tree/libconsumes_tree.so"),
@@ -3269,6 +3272,44 @@ public class RewindingTestsHelper {
               }
             });
     return aspectCompleteEvents;
+  }
+
+  public final void runNondeterministicTreeArtifactMismatchChildren() throws Exception {
+    setUpTreeArtifactPackage(testCase);
+
+    AtomicInteger treeGeneratorRuns = new AtomicInteger(0);
+    SpawnShim treeGeneratorShim =
+        (spawn, context) -> {
+          int run = treeGeneratorRuns.incrementAndGet();
+          Artifact treeArtifact = (Artifact) Iterables.getOnlyElement(spawn.getOutputFiles());
+          Path dir = context.getExecRoot().getRelative(treeArtifact.getExecPath());
+          dir.createDirectoryAndParents();
+          if (run == 1) {
+            writeContent(dir.getRelative("file1.cc"), new byte[0]);
+            writeContent(dir.getRelative("file2.cc"), new byte[0]);
+          } else {
+            writeContent(dir.getRelative("file3.cc"), new byte[0]);
+            writeContent(dir.getRelative("file2.cc"), new byte[0]);
+          }
+          return ExecResult.of(
+              new SpawnResult.Builder()
+                  .setStatus(SpawnResult.Status.SUCCESS)
+                  .setRunnerName("shim")
+                  .build());
+        };
+    addSpawnShim("TreeGenerator tree/make_cc_dir.cc", treeGeneratorShim);
+    addSpawnShim("TreeGenerator tree/make_cc_dir.cc", treeGeneratorShim);
+
+    addSpawnShim(
+        "Compiling tree/make_cc_dir.cc/file1.cc",
+        (spawn, context) ->
+            createLostInputsExecException(spawn, context, "make_cc_dir.cc/file1.cc"));
+
+    var e =
+        assertThrows(
+            BuildFailedException.class, () -> testCase.buildTarget("//tree:consumes_tree"));
+    assertThat(e.getDetailedExitCode().getFailureDetail().getMessage())
+        .contains("Nondeterministic output tree artifact detected");
   }
 
   /**
