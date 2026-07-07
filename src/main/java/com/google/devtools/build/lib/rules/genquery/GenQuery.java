@@ -71,6 +71,7 @@ import com.google.devtools.build.lib.query2.engine.QueryUtil.AggregateAllOutputF
 import com.google.devtools.build.lib.query2.engine.SkyframeRestartQueryException;
 import com.google.devtools.build.lib.query2.query.output.OutputFormatter;
 import com.google.devtools.build.lib.query2.query.output.OutputFormatters;
+import com.google.devtools.build.lib.query2.common.UniverseScopeOptions;
 import com.google.devtools.build.lib.query2.query.output.QueryOptions;
 import com.google.devtools.build.lib.query2.query.output.QueryOptions.OrderOutput;
 import com.google.devtools.build.lib.query2.query.output.QueryOutputUtils;
@@ -119,7 +120,8 @@ public class GenQuery implements RuleConfiguredTargetFactory {
 
     OptionsParser optionsParser =
         OptionsParser.builder()
-            .optionsClasses(QueryOptions.class, KeepGoingOption.class)
+            .optionsClasses(
+                QueryOptions.class, UniverseScopeOptions.class, KeepGoingOption.class)
             .allowResidue(false)
             .withConversionContext(
                 Label.RepoContext.of(
@@ -141,7 +143,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
       ruleContext.attributeError("opts", "option --keep_going is not allowed");
       return null;
     }
-    if (!queryOptions.getUniverseScope().isEmpty()) {
+    if (!optionsParser.getOptions(UniverseScopeOptions.class).getUniverseScope().isEmpty()) {
       ruleContext.attributeError("opts", "option --universe_scope is not allowed");
       return null;
     }

@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.query2.common.AbstractBlazeQueryEnvironment;
+import com.google.devtools.build.lib.query2.common.UniverseScopeOptions;
 import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
@@ -62,6 +63,7 @@ import java.util.Set;
       CoreOptions.class, // for --action_env, which affects the repo env
       PackageOptions.class,
       QueryOptions.class,
+      UniverseScopeOptions.class,
       KeepGoingOption.class,
       LoadingPhaseThreadsOption.class
     },

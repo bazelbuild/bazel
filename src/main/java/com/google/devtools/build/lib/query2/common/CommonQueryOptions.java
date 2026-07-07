@@ -36,23 +36,9 @@ import net.starlark.java.eval.StarlarkSemantics;
 @OptionsClass
 public abstract class CommonQueryOptions extends OptionsBase {
 
-  @Option(
-      name = "universe_scope",
-      defaultValue = "",
-      documentationCategory = OptionDocumentationCategory.QUERY,
-      converter = Converters.CommaSeparatedOptionListConverter.class,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      help =
-          "A comma-separated set of target patterns (additive and subtractive). The query may be"
-              + " performed in the universe defined by the transitive closure of the specified"
-              + " targets. This option is used for the query and cquery commands.\n"
-              + "For cquery, the input to this option is the targets all answers are built under"
-              + " and so this option may affect configurations and transitions. If this option is"
-              + " not specified, the top-level targets are assumed to be the targets parsed from"
-              + " the query expression. Note: For cquery, not specifying this option may cause the"
-              + " build to break if targets parsed from the query expression are not buildable"
-              + " with top-level options.")
-  public abstract List<String> getUniverseScope();
+  // Note: --universe_scope lives in its own UniverseScopeOptions class (shared by the query,
+  // cquery, aquery and build commands) rather than here, to avoid an option-name collision when
+  // cquery/aquery inherit the build command's options.
 
   @Option(
       name = "line_terminator_null",

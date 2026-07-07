@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.cmdline.TargetPattern.Parser;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.query2.aquery.ActionGraphQueryEnvironment;
 import com.google.devtools.build.lib.query2.aquery.AqueryOptions;
+import com.google.devtools.build.lib.query2.common.UniverseScopeOptions;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
@@ -129,7 +130,9 @@ public final class AqueryCommand implements BlazeCommand {
     try {
       topLevelTargets =
           QueryCommandUtils.getTopLevelTargets(
-              aqueryOptions.getUniverseScope(), expr, queryCurrentSkyframeState);
+              options.getOptions(UniverseScopeOptions.class).getUniverseScope(),
+              expr,
+              queryCurrentSkyframeState);
     } catch (QueryException e) {
       env.getReporter().handle(Event.error(e.getMessage()));
       return createFailureResult(
