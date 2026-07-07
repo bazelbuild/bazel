@@ -202,36 +202,37 @@ public final class ExecGraphParser {
       System.exit(1);
     }
 
-    if (options.logPath == null || options.logPath.isEmpty()) {
+    if (options.getLogPath() == null || options.getLogPath().isEmpty()) {
       System.err.println("--log_path needs to be specified.");
       System.exit(1);
     }
-    if (options.outputPath != null && options.outputPath.size() > options.logPath.size()) {
+    if (options.getOutputPath() != null
+        && options.getOutputPath().size() > options.getLogPath().size()) {
       System.err.println("Too many --output_path values.");
       System.exit(1);
     }
 
-    String logPath = options.logPath.get(0);
+    String logPath = options.getLogPath().get(0);
     String secondPath = null;
     String output1 = null;
     String output2 = null;
 
-    if (options.logPath.size() > 1) {
-      if (options.logPath.size() > 2) {
+    if (options.getLogPath().size() > 1) {
+      if (options.getLogPath().size() > 2) {
         System.err.println("Too many --log_path: at most two files are currently supported.");
         System.exit(1);
       }
-      secondPath = options.logPath.get(1);
-      if (options.outputPath == null || options.outputPath.size() != 2) {
+      secondPath = options.getLogPath().get(1);
+      if (options.getOutputPath() == null || options.getOutputPath().size() != 2) {
         System.err.println(
             "Exactly two --output_path values expected, one for each of --log_path values.");
         System.exit(1);
       }
-      output1 = options.outputPath.get(0);
-      output2 = options.outputPath.get(1);
+      output1 = options.getOutputPath().get(0);
+      output2 = options.getOutputPath().get(1);
     } else {
-      if (options.outputPath != null && !options.outputPath.isEmpty()) {
-        output1 = options.outputPath.get(0);
+      if (options.getOutputPath() != null && !options.getOutputPath().isEmpty()) {
+        output1 = options.getOutputPath().get(0);
       }
     }
 
@@ -241,7 +242,7 @@ public final class ExecGraphParser {
     }
 
     try (MessageInputStream<Node> input = getMessageInputStream(logPath)) {
-      FilteredStream parser = new FilteredStream(input, options.restrictToRunner);
+      FilteredStream parser = new FilteredStream(input, options.getRestrictToRunner());
 
       if (output1 == null) {
         output(parser, System.out, golden);
@@ -255,7 +256,7 @@ public final class ExecGraphParser {
     if (secondPath != null) {
       try (MessageInputStream<Node> file2 = getMessageInputStream(secondPath);
           OutputStream output = new FileOutputStream(output2)) {
-        MessageInputStream<Node> parser = new FilteredStream(file2, options.restrictToRunner);
+        MessageInputStream<Node> parser = new FilteredStream(file2, options.getRestrictToRunner());
         // OrderedStream will read the whole golden on initialization,
         // so it is safe to close after.
         parser = new OrderedStream(golden, parser);
