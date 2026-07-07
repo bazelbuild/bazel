@@ -40,10 +40,8 @@ import com.google.devtools.build.lib.actions.ImportantOutputHandler.LostArtifact
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
 import com.google.devtools.build.lib.actions.LostInputsExecException;
-import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
-import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileStatusWithDigest;
@@ -53,9 +51,6 @@ import com.google.devtools.build.lib.vfs.PathCanonicalizer;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.SymlinkTargetType;
 import com.google.devtools.build.lib.vfs.Symlinks;
-import com.google.devtools.build.lib.vfs.inmemoryfs.FileInfo;
-import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryContentInfo;
-import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -927,86 +922,4 @@ public class RemoteActionFileSystem extends FileSystem implements PathCanonicali
     }
   }
 
-  static class RemoteInMemoryFileSystem extends InMemoryFileSystem {
-
-    RemoteInMemoryFileSystem(DigestHashFunction hashFunction) {
-      super(hashFunction);
-    }
-
-    @Override
-    public synchronized OutputStream getOutputStream(
-        PathFragment path, boolean append, boolean internal) throws IOException {
-      // To get an output stream from remote file, we need to first stage it.
-      throw new IllegalStateException("Shouldn't be called directly");
-    }
-
-    @Override
-    protected FileInfo newFile(Clock clock, PathFragment path) {
-      return new RemoteInMemoryFileInfo(clock);
-    }
-
-    protected void injectFile(PathFragment path, FileArtifactValue metadata) throws IOException {
-      checkArgument(metadata.isRemote(), "metadata is not remote: %s", metadata);
-      createDirectoryAndParents(path.getParentDirectory());
-      InMemoryContentInfo node = getOrCreateWritableInode(path);
-      // If a node already exists but is not a regular file, throw an error.
-      if (!(node instanceof RemoteInMemoryFileInfo remoteInMemoryFileInfo)) {
-        throw new IOException("Could not inject into " + node);
-      }
-
-      remoteInMemoryFileInfo.set(metadata);
-    }
-  }
-
-  static class RemoteInMemoryFileInfo extends FileInfo implements FileStatusWithMetadata {
-    private FileArtifactValue metadata;
-
-    RemoteInMemoryFileInfo(Clock clock) {
-      super(clock);
-    }
-
-    private void set(FileArtifactValue metadata) {
-      this.metadata = metadata;
-    }
-
-    @Override
-    public OutputStream getOutputStream(boolean append) throws IOException {
-      throw new IllegalStateException("Shouldn't be called directly");
-    }
-
-    @Override
-    public InputStream getInputStream() throws IOException {
-      throw new IllegalStateException("Shouldn't be called directly");
-    }
-
-    @Override
-    public SeekableByteChannel createReadWriteByteChannel() throws IOException {
-      throw new IllegalStateException("Shouldn't be called directly");
-    }
-
-    @Override
-    public byte[] getxattr(String name) throws IOException {
-      throw new IllegalStateException("Shouldn't be called directly");
-    }
-
-    @Override
-    public byte[] getFastDigest() {
-      return metadata.getDigest();
-    }
-
-    @Override
-    public byte[] getDigest() throws IOException {
-      return metadata.getDigest();
-    }
-
-    @Override
-    public long getSize() {
-      return metadata.getSize();
-    }
-
-    @Override
-    public FileArtifactValue getMetadata() {
-      return metadata;
-    }
-  }
 }
