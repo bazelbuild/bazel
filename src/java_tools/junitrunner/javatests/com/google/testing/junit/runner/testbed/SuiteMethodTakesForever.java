@@ -29,7 +29,6 @@ public class SuiteMethodTakesForever {
    * Simulates a test suite that takes a really long time to build, giving enough time to the test
    * to send the TERM signal and verify the output.
    */
-  @SuppressWarnings("AllowVirtualThreads")
   public static Test suite() throws Exception {
     System.out.println("Entered suite creation");
     System.out.flush();

@@ -14,6 +14,8 @@
 
 package net.starlark.java.syntax;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.stream.Collectors.joining;
 
 import com.google.auto.value.AutoValue;
@@ -24,6 +26,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import javax.annotation.Nullable;
@@ -67,6 +70,10 @@ public final class Types {
   public static final FixedLengthTupleType EMPTY_TUPLE = tuple(ImmutableList.of());
   // A frequently-used arbitrary collection.
   public static final CollectionType COLLECTION_OF_ANY = collection(ANY);
+  // A frequently-used arbitrary partial struct.
+  public static final StructType STRUCT_OF_ANY = partialStruct(ImmutableMap.of());
+  // A frequently-used struct without fields; the top struct type.
+  public static final StructType EMPTY_STRUCT = struct(ImmutableMap.of());
 
   // A frequently used function without parameters, that returns Any.
   public static final CallableType NO_PARAMS_CALLABLE =
@@ -628,6 +635,11 @@ public final class Types {
     }
 
     @Override
+    public StarlarkType toLvalue() {
+      return union(getTypes().stream().map(StarlarkType::toLvalue).collect(toImmutableSet()));
+    }
+
+    @Override
     protected boolean isComparable(StarlarkType that) {
       return getTypes().stream().allMatch(type -> StarlarkType.comparable(type, that));
     }
@@ -661,17 +673,27 @@ public final class Types {
     return new AutoValue_Types_ListType(elementType);
   }
 
-  /** List type */
-  @AutoValue
-  public abstract static class ListType extends AbstractSequenceType {
-    @Override
-    public List<StarlarkType> getSupertypes() {
-      return ImmutableList.of(sequence(getElementType()), collection(getElementType()));
-    }
+  /**
+   * Constructs a list rvalue type. Only for literals and anonymous temporary values.
+   *
+   * <p>Like all rvalue types, this type MUST NOT be used as or in the type of any variable or
+   * parameter; and it MUST NOT be inferred as or in a type parameter of a generic function.
+   */
+  public static ListRvalueType listRvalue(StarlarkType elementType) {
+    return new AutoValue_Types_ListRvalueType(elementType);
+  }
 
+  /** List type */
+  public abstract static sealed class BaseListType extends AbstractSequenceType
+      permits ListType, ListRvalueType {
     @Override
     public final String toString() {
       return "list[" + getElementType() + "]";
+    }
+
+    @Override
+    public ListType toLvalue() {
+      return list(getElementType().toLvalue());
     }
 
     @Override
@@ -679,10 +701,10 @@ public final class Types {
     StarlarkType inferBinaryOperator(TokenKind operator, StarlarkType that, boolean thisLeft) {
       return switch (operator) {
         case PLUS ->
-            that instanceof ListType thatList
-                ? list(union(getElementType(), thatList.getElementType()))
+            that instanceof BaseListType thatList
+                ? listRvalue(union(getElementType(), thatList.getElementType()))
                 : null;
-        case STAR -> that.equals(Types.INT) ? this : null;
+        case STAR -> that.equals(Types.INT) ? this.toRvalue() : null;
         default -> super.inferBinaryOperator(operator, that, thisLeft);
       };
     }
@@ -697,7 +719,7 @@ public final class Types {
     protected boolean isComparable(StarlarkType that) {
       if (that.equals(Types.ANY)) {
         return true;
-      } else if (that instanceof ListType thatList) {
+      } else if (that instanceof BaseListType thatList) {
         return comparable(getElementType(), thatList.getElementType());
       }
       return false;
@@ -709,13 +731,71 @@ public final class Types {
     }
   }
 
+  /**
+   * The type of a new, unaliased list value; for example, a list literal or the result of a binary
+   * operator which has not yet been assigned.
+   */
+  @AutoValue
+  public abstract static non-sealed class ListRvalueType extends BaseListType {
+    @Override
+    public List<StarlarkType> getSupertypes() {
+      return ImmutableList.of(
+          list(getElementType()), sequence(getElementType()), collection(getElementType()));
+    }
+
+    @Override
+    public ListRvalueType toRvalue() {
+      return this;
+    }
+
+    @Override
+    protected boolean isRvalueAssignableTo(AbstractCollectionType that) {
+      // Covariant in element type. Assignable only to types having a constructor which is a
+      // constructor of one of this type's supertypes (in particular: not assignable to dicts,
+      // sets, or application-defined types).
+      // TODO: #27370 - when we have type deconstruction, replace `instanceof` checks below with
+      // deconstruction of getSupertypes().
+      return (that instanceof BaseListType
+              || that instanceof SequenceType
+              || that instanceof CollectionType)
+          && StarlarkType.assignableFrom(that.getElementType(), this.getElementType());
+    }
+  }
+
+  /**
+   * The type of a potentially aliased list value; for example, the value of a variable, or nested
+   * in a variable's compound value.
+   */
+  @AutoValue
+  public abstract static non-sealed class ListType extends BaseListType {
+    @Override
+    public List<StarlarkType> getSupertypes() {
+      return ImmutableList.of(sequence(getElementType()), collection(getElementType()));
+    }
+
+    @Override
+    public ListRvalueType toRvalue() {
+      return listRvalue(getElementType());
+    }
+  }
+
   public static DictType dict(StarlarkType keyType, StarlarkType valueType) {
     return new AutoValue_Types_DictType(keyType, valueType);
   }
 
+  /**
+   * Constructs a dict rvalue type. Only for literals and anonymous temporary values.
+   *
+   * <p>Like all rvalue types, this type MUST NOT be used as or in the type of any variable or
+   * parameter; and it MUST NOT be inferred as or in a type parameter of a generic function.
+   */
+  public static DictRvalueType dictRvalue(StarlarkType keyType, StarlarkType valueType) {
+    return new AutoValue_Types_DictRvalueType(keyType, valueType);
+  }
+
   /** Dict type */
-  @AutoValue
-  public abstract static class DictType extends AbstractMappingType {
+  public abstract static sealed class BaseDictType extends AbstractMappingType
+      permits DictType, DictRvalueType {
     @Override
     public abstract StarlarkType getKeyType();
 
@@ -723,13 +803,13 @@ public final class Types {
     public abstract StarlarkType getValueType();
 
     @Override
-    public List<StarlarkType> getSupertypes() {
-      return ImmutableList.of(collection(getKeyType()), mapping(getKeyType(), getValueType()));
+    public final String toString() {
+      return "dict[" + getKeyType() + ", " + getValueType() + "]";
     }
 
     @Override
-    public final String toString() {
-      return "dict[" + getKeyType() + ", " + getValueType() + "]";
+    public DictType toLvalue() {
+      return dict(getKeyType().toLvalue(), getValueType().toLvalue());
     }
 
     @Override
@@ -744,11 +824,68 @@ public final class Types {
     }
   }
 
+  /**
+   * The type of a new, unaliased dict value; for example, a dict literal or the result of a binary
+   * operator which has not yet been assigned.
+   */
+  @AutoValue
+  public abstract static non-sealed class DictRvalueType extends BaseDictType {
+    @Override
+    public List<StarlarkType> getSupertypes() {
+      return ImmutableList.of(
+          dict(getKeyType(), getValueType()),
+          mapping(getKeyType(), getValueType()),
+          collection(getKeyType()));
+    }
+
+    @Override
+    public DictRvalueType toRvalue() {
+      return this;
+    }
+
+    @Override
+    protected boolean isMappingRvalueAssignableTo(AbstractMappingType that) {
+      // Covariant in both key and value types. This differs from Mapping, which is covariant only
+      // in the value type, because we need to be able to assign e.g. an empty dict having Never key
+      // type. Mapping avoids covariance in keys in order to catch type errors at lookups, but
+      // that's not a concern for rvalue dicts since this method is only checked upon promotion to
+      // lvalues, not at indexing expressions.
+      // Assignable only to types having a constructor which is a constructor of one of this type's
+      // supertypes (in particular: not assignable to sequences, sets, or application-defined
+      // types).
+      // TODO: #27370 - when we have type deconstruction, replace `instanceof` checks below with
+      // deconstruction of getSupertypes().
+      return (that instanceof BaseDictType || that instanceof MappingType)
+          && StarlarkType.assignableFrom(that.getKeyType(), getKeyType())
+          && StarlarkType.assignableFrom(that.getValueType(), getValueType());
+    }
+  }
+
+  /**
+   * The type of a potentially aliased dict value; for example, the value of a variable, or nested
+   * in a variable's compound value.
+   */
+  @AutoValue
+  public abstract static non-sealed class DictType extends BaseDictType {
+    @Override
+    public List<StarlarkType> getSupertypes() {
+      return ImmutableList.of(mapping(getKeyType(), getValueType()), collection(getKeyType()));
+    }
+
+    @Override
+    public DictRvalueType toRvalue() {
+      return dictRvalue(getKeyType(), getValueType());
+    }
+  }
+
   public static SetType set(StarlarkType elementType) {
     return new AutoValue_Types_SetType(elementType);
   }
 
   /** Set type */
+  // TODO: #27370 - add Rvalue version (same as for ListType and DictType) and have the {@code
+  // set()} built-in function return an rvalue. To be useful, this would first require generics
+  // support for StarlarkMethod.
   @AutoValue
   public abstract static class SetType extends AbstractCollectionType {
     @Override
@@ -784,6 +921,11 @@ public final class Types {
                 : null;
         default -> super.inferBinaryOperator(operator, that, thisLeft);
       };
+    }
+
+    @Override
+    public SetType toLvalue() {
+      return set(getElementType().toLvalue());
     }
   }
 
@@ -912,6 +1054,12 @@ public final class Types {
       // Comparison with HomogeneousTupleType defers to HomogeneousTupleType.
       return false;
     }
+
+    @Override
+    public FixedLengthTupleType toLvalue() {
+      return tuple(
+          getElementTypes().stream().map(StarlarkType::toLvalue).collect(toImmutableList()));
+    }
   }
 
   /** Tuple type of an indeterminate length. */
@@ -965,6 +1113,11 @@ public final class Types {
       }
       return false;
     }
+
+    @Override
+    public HomogeneousTupleType toLvalue() {
+      return homogeneousTuple(getElementType().toLvalue());
+    }
   }
 
   /** Collection type */
@@ -981,22 +1134,38 @@ public final class Types {
    * Abstract collection type implementing common functionality. Exists to be subclassed.
    *
    * <p>{@code AbstractCollectionType}'s default {@link #assignableFromHook} always returns false if
-   * {@code t} and this are not of the same Java class. Therefore, subclasses having multiple Java
-   * classes corresponding to the same Starlark type family may need to override {@link
-   * #assignableFromHook}.
+   * {@code t} is not an rvalue-subtype of this and not of the same Java class as this. Therefore,
+   * subclasses having multiple Java classes corresponding to the same Starlark type family may need
+   * to override {@link #assignableFromHook}.
    */
   public abstract static class AbstractCollectionType extends StarlarkType {
     public abstract StarlarkType getElementType();
 
     @Override
     public boolean assignableFromHook(StarlarkType t) {
-      // Assume 1-1 correspondence between Java subclass and Starlark type family.
-      if (!this.getClass().equals(t.getClass())) {
-        return false;
+      if (t instanceof AbstractCollectionType that) {
+        if (that.isRvalueAssignableTo(this)) {
+          return true;
+        }
+        // Assume 1-1 correspondence between Java subclass and Starlark type family.
+        if (this.getClass().equals(t.getClass())) {
+          // Invariant in element type because `that` might be mutable.
+          return StarlarkType.consistentEquals(this.getElementType(), that.getElementType());
+        }
       }
-      // Invariant in element type because `that` might be mutable.
-      AbstractCollectionType that = (AbstractCollectionType) t;
-      return StarlarkType.consistentEquals(this.getElementType(), that.getElementType());
+      return false;
+    }
+
+    /**
+     * Returns true if {@code this} is an rvalue type and is assignable to {@code that}.
+     *
+     * <p>Must be overridden by rvalue types.
+     *
+     * <p>Intended to be invoked by {@link #assignableFromHook} implementations.
+     */
+    // TODO: #27370 - Consider elevating to StarlarkType level if useful for non-collection types.
+    protected boolean isRvalueAssignableTo(AbstractCollectionType that) {
+      return false;
     }
 
     @Override
@@ -1020,16 +1189,25 @@ public final class Types {
   public abstract static class CollectionType extends AbstractCollectionType {
     @Override
     public boolean assignableFromHook(StarlarkType t) {
-      if (!(t instanceof CollectionType that)) {
-        return false;
+      if (t instanceof AbstractCollectionType that) {
+        if (that.isRvalueAssignableTo(this)) {
+          return true;
+        }
+        // Covariant in element type when assigning from a Collection (which is immutable)
+        return that instanceof CollectionType
+            && StarlarkType.assignableFrom(this.getElementType(), that.getElementType());
       }
-      // Covariant in element type.
-      return StarlarkType.assignableFrom(this.getElementType(), that.getElementType());
+      return false;
     }
 
     @Override
     public final String toString() {
       return "Collection[" + getElementType() + "]";
+    }
+
+    @Override
+    public CollectionType toLvalue() {
+      return collection(getElementType().toLvalue());
     }
   }
 
@@ -1062,16 +1240,30 @@ public final class Types {
 
     @Override
     public boolean assignableFromHook(StarlarkType t) {
-      if (!(t instanceof SequenceType that)) {
-        return false;
+      if (t instanceof AbstractSequenceType that) {
+        if (that.isRvalueAssignableTo(this)) {
+          return true;
+        }
+        // Covariant in element type when assigning from a Sequence (which is immutable)
+        return that instanceof SequenceType
+            && StarlarkType.assignableFrom(this.getElementType(), that.getElementType());
       }
-      // Covariant in element type.
-      return StarlarkType.assignableFrom(this.getElementType(), that.getElementType());
+      return false;
     }
 
     @Override
     public final String toString() {
       return "Sequence[" + getElementType() + "]";
+    }
+
+    @Override
+    public SequenceType toLvalue() {
+      return sequence(getElementType().toLvalue());
+    }
+
+    @Override
+    protected boolean isRvalueAssignableTo(AbstractCollectionType t) {
+      return false;
     }
   }
 
@@ -1105,14 +1297,34 @@ public final class Types {
 
     @Override
     public boolean assignableFromHook(StarlarkType t) {
-      // Assume 1-1 correspondence between Java subclass and Starlark type family.
-      if (!this.getClass().equals(t.getClass())) {
-        return false;
+      if (t instanceof AbstractMappingType that) {
+        if (that.isMappingRvalueAssignableTo(this)) {
+          return true;
+        }
+        // Assume 1-1 correspondence between Java subclass and Starlark type family.
+        if (this.getClass().equals(t.getClass())) {
+          // Invariant in both key and value types because `that` might be mutable.
+          return StarlarkType.consistentEquals(this.getKeyType(), that.getKeyType())
+              && StarlarkType.consistentEquals(this.getValueType(), that.getValueType());
+        }
       }
-      // Invariant in both key and value types because `that` might be mutable.
-      AbstractMappingType that = (AbstractMappingType) t;
-      return StarlarkType.consistentEquals(this.getKeyType(), that.getKeyType())
-          && StarlarkType.consistentEquals(this.getValueType(), that.getValueType());
+      return false;
+    }
+
+    @Override
+    protected boolean isRvalueAssignableTo(AbstractCollectionType t) {
+      return t instanceof AbstractMappingType that && this.isMappingRvalueAssignableTo(that);
+    }
+
+    /**
+     * Returns true if {@code this} is an rvalue type and is assignable to {@code that}.
+     *
+     * <p>Must be overridden by rvalue types.
+     *
+     * <p>Intended to be invoked by {@link #assignableFromHook} implementations.
+     */
+    protected boolean isMappingRvalueAssignableTo(AbstractMappingType that) {
+      return false;
     }
 
     @Override
@@ -1125,7 +1337,7 @@ public final class Types {
             // would break some uses of Bazel's native.existing_rules()).
             // TODO: #27370 - do we need to handle Neve for the key or value type?
             rhs instanceof AbstractMappingType rhsMapping
-                ? dict(
+                ? dictRvalue(
                     union(getKeyType(), rhsMapping.getKeyType()),
                     union(getValueType(), rhsMapping.getValueType()))
                 : null;
@@ -1150,27 +1362,43 @@ public final class Types {
 
     @Override
     public boolean assignableFromHook(StarlarkType t) {
-      if (!(t instanceof MappingType that)) {
-        return false;
+      if (t instanceof AbstractMappingType that) {
+        if (that.isMappingRvalueAssignableTo(this)) {
+          return true;
+        }
+        // Invariant in key type, covariant in value type when assigning from a Mapping (which is
+        // immutable).
+        // TODO: #27370 - Should Mapping assignment be covariant in key type as well?
+        return that instanceof MappingType
+            && StarlarkType.consistentEquals(this.getKeyType(), that.getKeyType())
+            && StarlarkType.assignableFrom(this.getValueType(), that.getValueType());
       }
-      // Invariant in key type; covariant in value type.
-      return StarlarkType.consistentEquals(this.getKeyType(), that.getKeyType())
-          && StarlarkType.assignableFrom(this.getValueType(), that.getValueType());
+      return false;
     }
 
     @Override
     public final String toString() {
       return "Mapping[" + getKeyType() + ", " + getValueType() + "]";
     }
+
+    @Override
+    public MappingType toLvalue() {
+      return mapping(getKeyType().toLvalue(), getValueType().toLvalue());
+    }
   }
 
-  /** Struct type */
+  /** Immutable partial struct type */
+  public static StructType partialStruct(ImmutableMap<String, StarlarkType> fields) {
+    return new AutoValue_Types_StructType(fields, /* partial= */ true);
+  }
+
+  /** Immutable total struct type */
   public static StructType struct(ImmutableMap<String, StarlarkType> fields) {
-    return new AutoValue_Types_StructType(fields);
+    return new AutoValue_Types_StructType(fields, /* partial= */ false);
   }
 
   /**
-   * Struct type.
+   * Immutable struct type.
    *
    * <p>This is intended to be either the type or a supertype for values implementing {@link
    * net.starlark.java.eval.Structure} - for example, Bazel's structs and providers.
@@ -1178,18 +1406,50 @@ public final class Types {
    * <p>Morally non-struct types shouldn't add a {@link StructType} to their supertypes just because
    * they happen to have fields. For example, a {@code list} has {@code append} and {@code extend}
    * methods, but it is *not* a subtype of {@code struct[{"append": ..., "extend": ...}]}.
+   *
+   * <p>Since struct types don't support mutation, their assignability follows structural subtyping:
+   *
+   * <ul>
+   *   <li>The set of LHS field names must be a subset of RHS field names. (This implies, in
+   *       particular, that a RHS total struct cannot be assigned to a LHS partial struct, since the
+   *       LHS partial struct admits any possible field name.)
+   *   <li>The type of each LHS field must be assignable from the type of the corresponding RHS
+   *       field. (This implies, in particular, that {@link #STRUCT_OF_ANY} is assignable to all
+   *       struct types.)
+   * </ul>
+   *
+   * In particular, these rules imply that:
+   *
+   * <ul>
+   *   <li>A RHS total struct cannot be assigned to a LHS partial struct, since the LHS partial
+   *       struct admits any possible field name.
+   *   <li>A LHS total struct with a particular set of fields {@code F} is assignable from any RHS
+   *       partial struct whose set of explicit fields is a subset of {@code F}.
+   *   <li>{@link #STRUCT_OF_ANY} is assignable to all LHS struct types.
+   * </ul>
    */
   @AutoValue
   public abstract static class StructType extends StarlarkType {
     /** Returns the names and types of the mandatory fields of this struct type. */
     // TODO: #27370 - should we add optional fields? (Maybe useful for Bazel's providers.)
-    // TODO: #27370 - should we add mutable fields / hasSetField()?
+    // TODO: #27370 - should we add mutable fields / hasSetField()? If we do, such fields would need
+    // to be treated as invariant for assignability.
     public abstract ImmutableMap<String, StarlarkType> getFields();
+
+    /**
+     * If true, then any field not specified in {@link #getFields} is assumed to potentially exist
+     * and be of type {@link #ANY}.
+     */
+    public abstract boolean isPartial();
 
     @Override
     public boolean assignableFromHook(StarlarkType t) {
       if (t instanceof StructType that) {
-        // Covariant in LHS fields; LHS field names must be a subset of RHS field names.
+        if (this.isPartial() && !that.isPartial()) {
+          return false;
+        }
+        // The set of LHS field names must be a subset of RHS field names, and LHS field types must
+        // be assignable from the corresponding RHS field types.
         return this.getFields().entrySet().stream()
             .allMatch(
                 entry1 -> {
@@ -1217,16 +1477,38 @@ public final class Types {
      */
     @Nullable
     public StarlarkType getField(String name) {
-      return getFields().get(name);
+      @Nullable StarlarkType fieldType = getFields().get(name);
+      if (fieldType != null) {
+        return fieldType;
+      }
+      return isPartial() ? ANY : null;
     }
 
     @Override
     public final String toString() {
+      if (this.equals(STRUCT_OF_ANY)) {
+        return "struct";
+      }
       StringBuilder buf = new StringBuilder();
       buf.append("struct[");
       TypeConstructor.Arg.TypeDict.print(buf, getFields());
+      if (isPartial()) {
+        if (!getFields().isEmpty()) {
+          buf.append(", ");
+        }
+        buf.append("...");
+      }
       buf.append("]");
       return buf.toString();
+    }
+
+    @Override
+    public StructType toLvalue() {
+      ImmutableMap.Builder<String, StarlarkType> builder = ImmutableMap.builder();
+      for (Map.Entry<String, StarlarkType> entry : getFields().entrySet()) {
+        builder.put(entry.getKey(), entry.getValue().toLvalue());
+      }
+      return isPartial() ? partialStruct(builder.buildOrThrow()) : struct(builder.buildOrThrow());
     }
   }
 
@@ -1332,17 +1614,32 @@ public final class Types {
 
   private static final TypeConstructor wrapStructConstructor() {
     return args -> {
-      if (args.size() == 1) {
+      if (args.isEmpty()) {
+        // `struct` is equivalent to `struct[{}, ...]`
+        return STRUCT_OF_ANY;
+      } else if (args.size() <= 2) {
         TypeConstructor.Arg arg = args.getFirst();
+        ImmutableMap<String, StarlarkType> fields;
         if (arg instanceof TypeConstructor.Arg.TypeDict dict) {
-          return struct(dict.getTypes());
+          fields = dict.getTypes();
         } else {
           throw new TypeConstructor.Failure(
               String.format("in application to struct, got '%s', expected a dict", arg));
         }
+        if (args.size() == 1) {
+          return struct(fields);
+        } else {
+          if (!(args.get(1) instanceof TypeConstructor.Arg.Ellipsis)) {
+            throw new TypeConstructor.Failure(
+                String.format(
+                    "in application to struct, got '%s' for optional argument #2, expected '...'",
+                    args.get(1)));
+          }
+          return partialStruct(fields);
+        }
       } else {
         throw new TypeConstructor.Failure(
-            String.format("struct[] accepts exactly 1 argument but got %d", args.size()));
+            String.format("struct[] accepts at most 2 arguments but got %d", args.size()));
       }
     };
   }

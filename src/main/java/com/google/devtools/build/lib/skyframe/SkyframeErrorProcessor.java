@@ -24,8 +24,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Maps;
-import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
@@ -78,6 +76,8 @@ import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -131,7 +131,7 @@ public final class SkyframeErrorProcessor {
       private boolean hasLoadingError = false;
       private boolean hasAnalysisError = false;
       private final Map<ActionAnalysisMetadata, ActionConflictException> actionConflicts =
-          Maps.newHashMap();
+          new HashMap<>();
       @Nullable private DetailedExitCode executionDetailedExitCode = null;
       private final ImmutableList.Builder<ActionLookupKey> aspectKeysForConflictReporting =
           ImmutableList.builder();
@@ -249,29 +249,21 @@ public final class SkyframeErrorProcessor {
       boolean keepGoing,
       boolean keepEdges,
       @Nullable EventBus eventBus,
-      BugReporter bugReporter,
-      boolean skyframeErrorHandlingRefactor)
+      BugReporter bugReporter)
       throws InterruptedException, BuildFailedException, TestExecException {
-    if (skyframeErrorHandlingRefactor) {
-      try {
-        return processErrors(
-            result,
-            cyclesReporter,
-            eventHandler,
-            keepGoing,
-            keepEdges,
-            eventBus,
-            bugReporter,
-            /* includeExecutionPhase= */ true);
-      } catch (ViewCreationFailedException unexpected) {
-        throw new IllegalStateException("Unexpected analysis phase exception: ", unexpected);
-      }
+    try {
+      return processErrors(
+          result,
+          cyclesReporter,
+          eventHandler,
+          keepGoing,
+          keepEdges,
+          eventBus,
+          bugReporter,
+          /* includeExecutionPhase= */ true);
+    } catch (ViewCreationFailedException unexpected) {
+      throw new IllegalStateException("Unexpected analysis phase exception: ", unexpected);
     }
-    var executionErrorExitCode =
-        processResult(eventHandler, result, keepGoing, cyclesReporter, bugReporter);
-    return ErrorProcessingResult.newBuilder()
-        .setExecutionDetailedExitCode(executionErrorExitCode)
-        .build();
   }
 
   /**
@@ -424,6 +416,16 @@ public final class SkyframeErrorProcessor {
     }
 
     Preconditions.checkNotNull(eventBus);
+    // Top-level aspect failures may be the only processed error in nokeep_going Skymeld.
+    if (errorKey instanceof TopLevelAspectsKey topLevelAspectsKey) {
+      if (individualErrorProcessingResult.isAnalysisError()) {
+        eventBus.post(
+            AnalysisFailureEvent.whileAnalyzingTarget(
+                topLevelAspectsKey.getBaseConfiguredTargetKey(),
+                individualErrorProcessingResult.analysisRootCauses()));
+      }
+      return;
+    }
     if (!(errorKey instanceof ConfiguredTargetKey)) {
       return;
     }
@@ -506,7 +508,7 @@ public final class SkyframeErrorProcessor {
       SkyKey errorKey,
       ErrorInfo errorInfo) {
     Exception exception = errorInfo.getException();
-    Set<Label> loadingRootCauses = Sets.newHashSet();
+    Set<Label> loadingRootCauses = new HashSet<>();
     ImmutableMap<ActionAnalysisMetadata, ActionConflictException> actionConflicts =
         ImmutableMap.of();
     DetailedExitCode executionDetailedExitCode = null;
@@ -870,92 +872,7 @@ public final class SkyframeErrorProcessor {
         || cause instanceof TopLevelOutputException;
   }
 
-  /**
-   * Process an {@link EvaluationResult}, taking into account the keepGoing setting.
-   *
-   * <p>Returns a nullable {@link DetailedExitCode} value, as follows:
-   *
-   * <ol>
-   *   <li>{@code null}, if {@code result} had no errors
-   *   <li>{@code e} if result had errors and one of them specified a {@link DetailedExitCode} value
-   *       {@code e}
-   *   <li>a {@link DetailedExitCode} with {@link Execution.Code#NON_ACTION_EXECUTION_FAILURE} if
-   *       result had errors but none specified a {@link DetailedExitCode} value
-   * </ol>
-   *
-   * <p>Throws on catastrophic failures and, if !keepGoing, on any failure. TODO(b/249690006):
-   * Remove this method once the refactor is complete.
-   */
-  @Nullable
-  public static DetailedExitCode processResult(
-      ExtendedEventHandler eventHandler,
-      EvaluationResult<?> result,
-      boolean keepGoing,
-      CyclesReporter cyclesReporter,
-      @Nullable BugReporter bugReporter)
-      throws BuildFailedException, TestExecException {
-    if (result.hasError()) {
-      for (Map.Entry<SkyKey, ErrorInfo> entry : result.errorMap().entrySet()) {
-        ImmutableList<CycleInfo> cycles = entry.getValue().getCycleInfo();
-        cyclesReporter.reportCycles(cycles, entry.getKey(), eventHandler);
-      }
 
-      if (result.getCatastrophe() != null) {
-        rethrow(result.getCatastrophe(), bugReporter, result);
-      }
-      if (keepGoing) {
-        return getDetailedExitCodeKeepGoing(result);
-      }
-      ErrorInfo errorInfo = Preconditions.checkNotNull(result.getError(), result);
-      Exception exception = errorInfo.getException();
-      if (exception == null) {
-        Preconditions.checkState(!errorInfo.getCycleInfo().isEmpty(), errorInfo);
-        // If a keepGoing=false build found a cycle, that means there were no other errors thrown
-        // during evaluation (otherwise, it wouldn't have bothered to find a cycle). So the best
-        // we can do is throw a generic build failure exception, since we've already reported the
-        // cycles above.
-        throw new BuildFailedException(null, CYCLE_CODE);
-      } else {
-        rethrow(exception, bugReporter, result);
-      }
-    }
-
-    return null;
-  }
-
-  private static DetailedExitCode getDetailedExitCodeKeepGoing(EvaluationResult<?> result) {
-    // If build fails and keepGoing is true, an exit code is assigned using reported errors
-    // in the following order:
-    //   1. First infrastructure error with non-null exit code
-    //   2. First non-infrastructure error with non-null exit code
-    //   3. If the build fails but no interpretable error is specified, BUILD_FAILURE.
-    DetailedExitCode detailedExitCode = null;
-    Throwable undetailedCause = null;
-    for (Map.Entry<SkyKey, ErrorInfo> error : result.errorMap().entrySet()) {
-      Throwable cause = error.getValue().getException();
-      if (cause instanceof DetailedException) {
-        // Update global exit code when current exit code is not null and global exit code has
-        // a lower 'reporting' priority.
-        detailedExitCode =
-            DetailedExitCodeComparator.chooseMoreImportantWithFirstIfTie(
-                detailedExitCode, ((DetailedException) cause).getDetailedExitCode());
-        if (isExecutionCauseWorthLogging(cause)) {
-          logger.atWarning().withCause(cause).log(
-              "Non-action-execution/input-error exception for %s", error);
-        }
-      } else if (!error.getValue().getCycleInfo().isEmpty()) {
-        detailedExitCode =
-            DetailedExitCodeComparator.chooseMoreImportantWithFirstIfTie(
-                detailedExitCode, CYCLE_CODE);
-      } else {
-        undetailedCause = cause;
-      }
-    }
-    if (detailedExitCode != null) {
-      return detailedExitCode;
-    }
-    return createDetailedExitCodeForUndetailedExecutionCauseKeepGoing(result, undetailedCause);
-  }
 
   /**
    * Figure out why an action's analysis/execution failed and rethrow the right kind of exception.
@@ -1013,24 +930,7 @@ public final class SkyframeErrorProcessor {
         unknownExitCode);
   }
 
-  private static DetailedExitCode createDetailedExitCodeForUndetailedExecutionCauseKeepGoing(
-      EvaluationResult<?> result, Throwable undetailedCause) {
-    if (undetailedCause == null) {
-      BugReport.sendBugReport("No exceptions found despite error in %s", result);
-      return createDetailedExecutionExitCode(
-          "keep_going execution failed without an action failure",
-          Execution.Code.NON_ACTION_EXECUTION_FAILURE);
-    }
-    BugReport.sendBugReport(
-        new IllegalStateException("No detailed exception found in " + result, undetailedCause));
-    return createDetailedExecutionExitCode(
-        "keep_going execution failed without an action failure: "
-            + undetailedCause.getMessage()
-            + " ("
-            + undetailedCause.getClass().getSimpleName()
-            + ")",
-        Execution.Code.NON_ACTION_EXECUTION_FAILURE);
-  }
+
 
   private static final DetailedExitCode CYCLE_CODE =
       createDetailedExecutionExitCode("cycle found during execution", Execution.Code.CYCLE);

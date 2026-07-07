@@ -45,15 +45,15 @@ import net.starlark.java.eval.StarlarkSemantics;
 @Immutable
 @AutoCodec
 public record JavaOutput(
-    @Override Artifact classJar,
-    @Nullable @Override Artifact compileJar,
-    @Nullable @Override Artifact headerCompilationJar,
-    @Nullable @Override Artifact compileJdeps,
-    @Nullable @Override Artifact generatedClassJar,
-    @Nullable @Override Artifact generatedSourceJar,
-    @Nullable @Override Artifact nativeHeadersJar,
-    @Nullable @Override Artifact manifestProto,
-    @Nullable @Override Artifact jdeps,
+    Artifact classJar,
+    @Nullable Artifact compileJar,
+    @Nullable Artifact headerCompilationJar,
+    @Nullable Artifact compileJdeps,
+    @Nullable Artifact generatedClassJar,
+    @Nullable Artifact generatedSourceJar,
+    @Nullable Artifact nativeHeadersJar,
+    @Nullable Artifact manifestProto,
+    @Nullable Artifact jdeps,
     NestedSet<Artifact> sourceJars)
     implements JavaOutputApi<Artifact> {
   public JavaOutput {

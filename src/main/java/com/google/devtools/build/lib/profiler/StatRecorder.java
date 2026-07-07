@@ -13,7 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.profiler;
 
+import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
+
 /** An object that can record time statistics about an object. */
+@SkybridgeInterface
 public interface StatRecorder {
 
   /** Add a new time statistic for the object {@code obj}. */

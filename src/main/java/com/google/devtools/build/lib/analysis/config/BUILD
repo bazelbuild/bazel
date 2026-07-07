@@ -124,7 +124,6 @@ java_library(
     deps = [
         ":build_options",
         "//src/main/java/com/google/devtools/build/lib/events",
-        "//third_party:auto_value",
         "//third_party:caffeine",
         "//third_party:guava",
         "//third_party:jsr305",
@@ -137,6 +136,7 @@ java_library(
     deps = [
         ":build_options",
         ":core_options",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//src/main/java/com/google/devtools/common/options",
     ],
 )
@@ -161,7 +161,6 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/analysis:transitive_info_provider",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//third_party:auto_value",
@@ -178,7 +177,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_and_data",
-        "//third_party:auto_value",
         "//third_party:guava",
     ],
 )
@@ -186,10 +184,7 @@ java_library(
 java_library(
     name = "configuration_transition_event",
     srcs = ["ConfigurationTransitionEvent.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/events",
-        "//third_party:auto_value",
-    ],
+    deps = ["//src/main/java/com/google/devtools/build/lib/events"],
 )
 
 java_library(
@@ -207,7 +202,6 @@ java_library(
     deps = [
         ":build_configuration",
         "//src/main/java/com/google/devtools/build/lib/events",
-        "//third_party:auto_value",
     ],
 )
 
@@ -267,8 +261,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_failed_exception",
         "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_value",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:starlark_builtins_value",
-        "//third_party:auto_value",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
@@ -304,7 +296,6 @@ java_library(
     srcs = ["FeatureSet.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
-        "//third_party:auto_value",
         "//third_party:guava",
     ],
 )
@@ -383,10 +374,15 @@ java_library(
     deps = [
         ":build_options",
         ":fragment_options",
+        ":scope",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:guava",
+        "//third_party:jsr305",
+        "@com_google_protobuf//:protobuf_java",
     ],
 )
 

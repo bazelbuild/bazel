@@ -14,9 +14,11 @@
 package com.google.devtools.build.lib.skyframe.serialization;
 
 import static com.google.common.truth.Truth.assertThat;
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.Executors.newSingleThreadExecutor;
 
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.SettableWriteStatus;
+import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.SparseAggregateWriteStatus;
 import java.util.concurrent.Executor;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -24,32 +26,14 @@ import org.junit.runners.JUnit4;
 
 @RunWith(JUnit4.class)
 public final class FingerprintValueServiceTest {
-  // FingerprintValueService is a thin wrapper over a few loosely related objects. The contained
-  // FingerprintValueCache is covered in FingerprintValueCacheTest.
-
-  @Test
-  public void get_returnsPreviouslyPut() throws Exception {
-    // `get` and `put` delegate to an underlying InMemoryFingerprintValueStore. Sanity checks this
-    // wiring.
-
-    FingerprintValueService service = FingerprintValueService.createForTesting();
-    PackedFingerprint key = service.fingerprint("key".getBytes(UTF_8));
-    byte[] value = new byte[] {0, 1, 2};
-
-    Boolean unused = service.put(key, value).get();
-
-    assertThat(service.get(key).get()).isSameInstanceAs(value);
-  }
-
   @Test
   public void fingerprint_isConsistent() {
     FingerprintValueService service =
         new FingerprintValueService(
             newSingleThreadExecutor(),
-            FingerprintValueStore.inMemoryStore(),
+            new InMemoryFingerprintValueStore(),
             new FingerprintValueCache(),
-            FingerprintValueService.NONPROD_FINGERPRINTER,
-            /* jsonLogWriter= */ null);
+            FingerprintValueService.NONPROD_FINGERPRINTER);
 
     assertThat(service.fingerprintPlaceholder().toBytes().length).isEqualTo(16);
     assertThat(service.fingerprintLength()).isEqualTo(16);
@@ -62,15 +46,80 @@ public final class FingerprintValueServiceTest {
   }
 
   @Test
+  public void sparseAggregationEnabled_returnsSparseAggregateWriteStatus() {
+    FingerprintValueStore store =
+        new FingerprintValueStore() {
+          @Override
+          public WriteStatus put(KeyBytesProvider fingerprint, byte[] serializedBytes) {
+            return new SettableWriteStatus();
+          }
+
+          @Override
+          public ListenableFuture<byte[]> get(KeyBytesProvider fingerprint) {
+            throw new UnsupportedOperationException();
+          }
+
+          @Override
+          public boolean isSparseAggregationSupported() {
+            return true;
+          }
+        };
+
+    FingerprintValueService service =
+        new FingerprintValueService(
+            newSingleThreadExecutor(),
+            store,
+            new FingerprintValueCache(),
+            FingerprintValueService.NONPROD_FINGERPRINTER);
+
+    byte[] testValue = new byte[] {0, 1, 2};
+    PackedFingerprint testFingerprint = service.fingerprint(testValue);
+    WriteStatus writeStatus = service.put(testFingerprint, testValue);
+
+    assertThat(writeStatus).isInstanceOf(SparseAggregateWriteStatus.class);
+  }
+
+  @Test
+  public void sparseAggregationEnabled_alreadyDone_returnsSparseAggregateWriteStatus() {
+    FingerprintValueStore store =
+        new FingerprintValueStore() {
+          @Override
+          public WriteStatus put(KeyBytesProvider fingerprint, byte[] serializedBytes) {
+            return WriteStatuses.immediateWriteStatus();
+          }
+
+          @Override
+          public ListenableFuture<byte[]> get(KeyBytesProvider fingerprint) {
+            throw new UnsupportedOperationException();
+          }
+
+          @Override
+          public boolean isSparseAggregationSupported() {
+            return true;
+          }
+        };
+    FingerprintValueService service =
+        new FingerprintValueService(
+            newSingleThreadExecutor(),
+            store,
+            new FingerprintValueCache(),
+            FingerprintValueService.NONPROD_FINGERPRINTER);
+
+    byte[] testValue = new byte[] {0, 1, 2};
+    PackedFingerprint testFingerprint = service.fingerprint(testValue);
+    WriteStatus writeStatus = service.put(testFingerprint, testValue);
+    assertThat(writeStatus).isNotInstanceOf(SparseAggregateWriteStatus.class);
+  }
+
+  @Test
   public void executor_passesThrough() {
     Executor executor = newSingleThreadExecutor();
     FingerprintValueService service =
         new FingerprintValueService(
             executor,
-            FingerprintValueStore.inMemoryStore(),
+            new InMemoryFingerprintValueStore(),
             new FingerprintValueCache(),
-            FingerprintValueService.NONPROD_FINGERPRINTER,
-            /* jsonLogWriter= */ null);
+            FingerprintValueService.NONPROD_FINGERPRINTER);
     assertThat(service.getExecutor()).isSameInstanceAs(executor);
   }
 }

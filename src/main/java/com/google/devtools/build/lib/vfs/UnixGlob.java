@@ -328,7 +328,7 @@ public final class UnixGlob {
     public Builder(Path base, FilesystemOps filesystemOps) {
       this.base = base;
       this.filesystemOps = filesystemOps;
-      this.patterns = Lists.newArrayList();
+      this.patterns = new ArrayList<>();
     }
 
     /**

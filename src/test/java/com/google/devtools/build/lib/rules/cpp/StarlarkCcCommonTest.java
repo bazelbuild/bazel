@@ -1656,18 +1656,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
                     CppRuleClasses.SUPPORTS_PIC,
                     CppRuleClasses.SUPPORTS_DYNAMIC_LINKER));
     var picStaticLibraries =
-        ImmutableList.of(
-            "a.pic.a",
-            "b.rlib",
-            "e.pic.a",
-            "libdep1.a",
-            "c.pic.a",
-            "libdep2.a",
-            "libstl_cc_library.a");
-    if (AnalysisMock.get().isThisBazel()) {
-      picStaticLibraries =
-          ImmutableList.of("a.pic.a", "libdep2.a", "b.rlib", "c.pic.a", "e.pic.a", "libdep1.a");
-    }
+        ImmutableList.of("a.pic.a", "b.rlib", "e.pic.a", "libdep1.a", "c.pic.a", "libdep2.a");
     doTestCcLinkingContext(
         ImmutableList.of("a.a", "b.rlib", "c.a", "d.a"),
         picStaticLibraries,
@@ -1686,18 +1675,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
                     CppRuleClasses.SUPPORTS_PIC,
                     CppRuleClasses.SUPPORTS_DYNAMIC_LINKER));
     var picStaticLibraries =
-        ImmutableList.of(
-            "a.pic.a",
-            "libdep2.a",
-            "b.rlib",
-            "c.pic.a",
-            "e.pic.a",
-            "libdep1.a",
-            "libstl_cc_library.a");
-    if (AnalysisMock.get().isThisBazel()) {
-      picStaticLibraries =
-          ImmutableList.of("a.pic.a", "libdep2.a", "b.rlib", "c.pic.a", "e.pic.a", "libdep1.a");
-    }
+        ImmutableList.of("a.pic.a", "libdep2.a", "b.rlib", "c.pic.a", "e.pic.a", "libdep1.a");
     doTestCcLinkingContext(
         ImmutableList.of("a.a", "b.rlib", "c.a", "d.a"),
         picStaticLibraries,
@@ -4351,9 +4329,6 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     EvalException e = assertThrows(EvalException.class, () -> featureFromStarlark(featureStruct));
     String msg = e.getMessage();
     assertThat(msg).contains("A feature must either have a nonempty 'name' field or be enabled.");
-    assertThat(msg)
-        .contains(
-            "in FeatureInfo instantiated at /workspace/tools/cpp/cc_toolchain_config_lib.bzl:");
   }
 
   @Test
@@ -7493,7 +7468,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
               + " feature_configuration=feature_configuration, "
               + " source_file=file, output_file=file,"
               + " compilation_inputs=depset([]), inputs_for_validation=depset([]),"
-              + " label_replacement='', output_replacement='')");
+              + " target_name='', build_target='')");
     }
     for (String call : calls) {
       scratch.overwriteFile(

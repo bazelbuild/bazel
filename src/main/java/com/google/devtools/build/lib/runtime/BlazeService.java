@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
+import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
 import com.google.devtools.build.lib.util.SerializedAbruptExitException;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsProvider;
@@ -30,6 +31,7 @@ import java.util.Collections;
  * server. A service can be obtained by calling {@link BlazeRuntime#getBlazeService} with the
  * interface type as the argument.
  */
+@SkybridgeInterface
 public interface BlazeService extends OptionsSupplier {
 
   @Override

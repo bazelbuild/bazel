@@ -13,7 +13,7 @@
 # limitations under the License.
 
 load("@rules_python//python:defs.bzl", "py_binary", "py_library")
-load("//tools/python:private/py_test_alias.bzl", "py_test_alias")
+load("@rules_python//python:py_test.bzl", "py_test")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -49,12 +49,13 @@ py_library(
     ],
 )
 
-py_test_alias(
+py_test(
     name = "aquery_differ_test",
     srcs = ["aquery_differ_test.py"],
     deps = [
         ":aquery_differ_main_lib",
         "//src/main/protobuf:analysis_v2_py_proto",
         "//third_party/py/mock",
+        "@com_google_protobuf//:protobuf_python",
     ],
 )

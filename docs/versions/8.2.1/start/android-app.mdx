@@ -36,8 +36,7 @@ In this tutorial you learn how to:
 Before you begin the tutorial, install the following software:
 
 * **Bazel.** To install, follow the [installation instructions](/versions/8.2.1/install).
-* **Android Studio.** To install, follow the steps to [download Android
-  Studio](https://developer.android.com/sdk/index.html).
+* **Android Studio.** To install, follow the steps to [download Android Studio](https://developer.android.com/sdk/index.html).
   Execute the setup wizard to download the SDK and configure your environment.
 * (Optional) **Git.** Use `git` to download the Android app project.
 
@@ -52,8 +51,7 @@ This app has a single button that prints a greeting when clicked:
 
 **Figure 1.** Android app button greeting.
 
-Clone the repository with `git` (or [download the ZIP file
-directly](https://github.com/bazelbuild/examples/archive/master.zip)):
+Clone the repository with `git` (or [download the ZIP file directly](https://github.com/bazelbuild/examples/archive/master.zip)):
 
 ```posix-terminal
 git clone https://github.com/bazelbuild/examples
@@ -103,8 +101,7 @@ A [workspace](/versions/8.2.1/concepts/build-ref#workspace) is a directory that 
 source files for one or more software projects, and has a `MODULE.bazel` file at
 its root.
 
-The `MODULE.bazel` file may be empty or may contain references to [external
-dependencies](/versions/8.2.1/external/overview) required to build your project.
+The `MODULE.bazel` file may be empty or may contain references to [external dependencies](/versions/8.2.1/external/overview) required to build your project.
 
 First, run the following command to create an empty `MODULE.bazel` file:
 
@@ -147,8 +144,7 @@ environment variable, and automatically detect the highest API level and the
 latest version of build tools installed within that location.
 
 You can set the `ANDROID_HOME` variable to the location of the Android SDK. Find
-the path to the installed SDK using Android Studio's [SDK
-Manager](https://developer.android.com/studio/intro/update#sdk-manager).
+the path to the installed SDK using Android Studio's [SDK Manager](https://developer.android.com/studio/intro/update#sdk-manager).
 Assuming the SDK is installed to default locations, you can use the following
 commands to set the `ANDROID_HOME` variable:
 
@@ -170,16 +166,14 @@ them permanent, run the following commands:
 | Windows (PowerShell)     | `[System.Environment]::SetEnvironmentVariable('ANDROID_HOME', "$env:LOCALAPPDATA\Android\Sdk", [System.EnvironmentVariableTarget]::User)` |
 
 **Optional:** If you want to compile native code into your Android app, you
-also need to download the [Android
-NDK](https://developer.android.com/ndk/downloads/index.html)
+also need to download the [Android NDK](https://developer.android.com/ndk/downloads/index.html)
 and use `rules_android_ndk` by adding the following line to your `MODULE.bazel` file:
 
 ```python
 bazel_dep(name = "rules_android_ndk", version = "0.1.2")
 ```
 
-For more information, read [Using the Android Native Development Kit with
-Bazel](/versions/8.2.1/docs/android-ndk).
+For more information, read [Using the Android Native Development Kit with Bazel](/versions/8.2.1/docs/android-ndk).
 
 It's not necessary to set the API levels to the same value for the SDK and NDK.
 [This page](https://developer.android.com/ndk/guides/stable_apis.html)
@@ -221,8 +215,7 @@ files or other dependencies. Bazel provides two build rules,
 build an Android app.
 
 For this tutorial, you'll first use the
-`android_library` rule to tell Bazel to build an [Android library
-module](http://developer.android.com/tools/projects/index.html#LibraryProjects)
+`android_library` rule to tell Bazel to build an [Android library module](http://developer.android.com/tools/projects/index.html#LibraryProjects)
 from the app source code and resource files. You'll then use the
 `android_binary` rule to tell Bazel how to build the Android application package.
 
@@ -337,11 +330,9 @@ file:
 ### Run the app
 
 You can now deploy the app to a connected Android device or emulator from the
-command line using the [`bazel
-mobile-install`](/versions/8.2.1/docs/user-manual#mobile-install) command. This command uses
+command line using the [`bazel mobile-install`](/versions/8.2.1/docs/user-manual#mobile-install) command. This command uses
 the Android Debug Bridge (`adb`) to communicate with the device. You must set up
-your device to use `adb` following the instructions in [Android Debug
-Bridge](http://developer.android.com/tools/help/adb.html) before deployment. You
+your device to use `adb` following the instructions in [Android Debug Bridge](http://developer.android.com/tools/help/adb.html) before deployment. You
 can also choose to install the app on the Android emulator included in Android
 Studio. Make sure the emulator is running before executing the command below.
 

@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.actions;
 
+import static com.google.common.collect.Streams.stream;
 import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static org.junit.Assert.assertThrows;
@@ -259,10 +260,7 @@ public final class SpawnActionTest extends BuildViewTestCase {
 
     Spawn spawn =
         action.getSpawn(
-            actionExecutionContext,
-            ImmutableMap.of(),
-            /* envResolved= */ false,
-            /* reportOutputs= */ true);
+            actionExecutionContext, /* clientEnv= */ ImmutableMap.of(), /* reportOutputs= */ true);
     String paramFileName = output.getExecPathString() + "-0.params";
     // The spawn's primary arguments should reference the param file
     assertThat(spawn.getArguments())
@@ -271,7 +269,7 @@ public final class SpawnActionTest extends BuildViewTestCase {
 
     // Asserts that the inputs contain the param file virtual input
     Optional<? extends ActionInput> input =
-        spawn.getInputFiles().toList().stream()
+        stream(spawn.getInputFiles().flatten())
             .filter(i -> i instanceof VirtualActionInput)
             .findFirst();
     assertThat(input).isPresent();

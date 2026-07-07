@@ -32,8 +32,7 @@ Before you begin, do the following:
 
 1.  [Install Bazel](/versions/8.0.1/install) if you have not already done so.
 
-2.  If you're not familiar with Bazel and its concepts, complete the [iOS app
-    tutorial](/versions/8.0.1/start/ios-app)). You should understand the Bazel workspace,
+2.  If you're not familiar with Bazel and its concepts, complete the [iOS app tutorial](/versions/8.0.1/start/ios-app)). You should understand the Bazel workspace,
     including the `MODULE.bazel` and `BUILD` files, as well as the concepts of
     targets, build rules, and Bazel packages.
 
@@ -44,8 +43,7 @@ Before you begin, do the following:
 Unlike Xcode, Bazel requires you to explicitly declare all dependencies for
 every target in the `BUILD` file.
 
-For more information on external dependencies, see [Working with external
-dependencies](/versions/8.0.1/docs/external).
+For more information on external dependencies, see [Working with external dependencies](/versions/8.0.1/docs/external).
 
 ## Build or test an Xcode project with Bazel {#build-xcode-project}
 
@@ -84,8 +82,7 @@ Note: Place the project source code within the directory tree containing the
 
 To integrate SwiftPM dependencies into the Bazel workspace with
 [swift_bazel](https://github.com/cgrindel/swift_bazel), you must
-convert them into Bazel packages as described in the [following
-tutorial](https://chuckgrindel.com/swift-packages-in-bazel-using-swift_bazel/)
+convert them into Bazel packages as described in the [following tutorial](https://chuckgrindel.com/swift-packages-in-bazel-using-swift_bazel/)
 .
 
 Note: SwiftPM support is a manual process with many variables. SwiftPM
@@ -103,8 +100,7 @@ initial build of the project as follows:
 *   [Step 3b: (Optional) Add the test target(s)](#step-3b-optional-add-the-test-target-s)
 *   [Step 3c: Add the library target(s)](#step-3c-add-the-library-target-s)
 
-**Tip:** To learn more about packages and other Bazel concepts, see [Workspaces,
-packages, and targets](/versions/8.0.1/concepts/build-ref).
+**Tip:** To learn more about packages and other Bazel concepts, see [Workspaces, packages, and targets](/versions/8.0.1/concepts/build-ref).
 
 #### Step 3a: Add the application target {#add-app-target}
 
@@ -132,8 +128,7 @@ In the target, specify the following at the minimum:
 
 #### Step 3b: (Optional) Add the test target(s) {#add-test-target}
 
-Bazel's [Apple build
-rules](https://github.com/bazelbuild/rules_apple) support running
+Bazel's [Apple build rules](https://github.com/bazelbuild/rules_apple) support running
 unit and UI tests on all Apple platforms. Add test targets as follows:
 
 *   [`macos_unit_test`](https://github.com/bazelbuild/rules_apple/blob/master/doc/rules-macos.md#macos_unit_test)
@@ -181,8 +176,7 @@ all sources and/or headers of a certain type. Use it carefully as it might
 include files you do not want Bazel to build.
 
 You can browse existing examples for various types of applications directly in
-the [rules_apple examples
-directory](https://github.com/bazelbuild/rules_apple/tree/master/examples/). For
+the [rules_apple examples directory](https://github.com/bazelbuild/rules_apple/tree/master/examples/). For
 example:
 
 *   [macOS application targets](https://github.com/bazelbuild/rules_apple/tree/master/examples/macos)
@@ -191,8 +185,7 @@ example:
 
 *   [Multi platform applications (macOS, iOS, watchOS, tvOS)](https://github.com/bazelbuild/rules_apple/tree/master/examples/multi_platform)
 
-For more information on build rules, see [Apple Rules for
-Bazel](https://github.com/bazelbuild/rules_apple).
+For more information on build rules, see [Apple Rules for Bazel](https://github.com/bazelbuild/rules_apple).
 
 At this point, it is a good idea to test the build:
 

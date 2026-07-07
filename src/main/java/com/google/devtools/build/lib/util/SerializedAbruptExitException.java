@@ -13,12 +13,15 @@
 // limitations under the License.
 package com.google.devtools.build.lib.util;
 
+import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
+
 /**
  * An exception thrown by {@link BlazeService#globalInit} to signal an abrupt exit.
  *
  * <p>This exception carries the serialized {@code FailureDetail} protobuf message as a {@code
  * byte[]} to avoid exposing protobuf types in the interface jar.
  */
+@SkybridgeInterface
 public class SerializedAbruptExitException extends Exception {
   private final byte[] serializedFailureDetail;
 

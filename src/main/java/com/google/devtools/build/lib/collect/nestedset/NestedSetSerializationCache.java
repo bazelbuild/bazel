@@ -20,6 +20,7 @@ import static com.google.devtools.build.lib.skyframe.serialization.WriteStatuses
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -28,6 +29,8 @@ import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.skyframe.serialization.PackedFingerprint;
 import com.google.devtools.build.lib.skyframe.serialization.PutOperation;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationConstants;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.Future;
 import javax.annotation.Nullable;
 
 /**
@@ -42,6 +45,8 @@ import javax.annotation.Nullable;
  * deterministic.
  */
 class NestedSetSerializationCache {
+
+  @VisibleForTesting static final int CANCELLATION_PARALLELISM_THRESHOLD = 1024;
 
   /**
    * Fingerprint to array cache.
@@ -72,6 +77,23 @@ class NestedSetSerializationCache {
 
   NestedSetSerializationCache(BugReporter bugReporter) {
     this.bugReporter = bugReporter;
+  }
+
+  /** Cancels pending fetch futures and removes them from this cache. */
+  void cancelPendingFetches() {
+    var entries = fingerprintToContents.asMap().entrySet();
+    var stream =
+        entries.size() > CANCELLATION_PARALLELISM_THRESHOLD
+            ? entries.parallelStream()
+            : entries.stream();
+    stream.forEach(
+        entry -> {
+          if (entry.getValue() instanceof Future<?> future
+              // Futures may already have been cancelled via propagation.
+              && (future.cancel(/* mayInterruptIfRunning= */ false) || future.isCancelled())) {
+            fingerprintToContents.invalidate(entry.getKey());
+          }
+        });
   }
 
   /**
@@ -112,7 +134,7 @@ class NestedSetSerializationCache {
       PackedFingerprint fingerprint, ListenableFuture<Object[]> futureContents, Object context) {
     Futures.addCallback(
         futureContents,
-        new FutureCallback<Object[]>() {
+        new FutureCallback<>() {
           @Override
           public void onSuccess(Object[] contents) {
             // Store a PutOperation so that we can skip fingerprinting this array and writing it to
@@ -130,6 +152,9 @@ class NestedSetSerializationCache {
 
           @Override
           public void onFailure(Throwable t) {
+            if (t instanceof CancellationException) {
+              return; // Expected, see cancelPendingFetches().
+            }
             // Failure to fetch the NestedSet contents is unexpected, but the failed future can be
             // stored as the NestedSet children. This way the exception is only propagated if the
             // NestedSet is consumed (unrolled).

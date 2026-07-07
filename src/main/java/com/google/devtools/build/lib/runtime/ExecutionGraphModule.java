@@ -43,6 +43,8 @@ import com.google.devtools.build.lib.actions.RunfilesTree;
 import com.google.devtools.build.lib.actions.SharedActionEvent;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnExecutedEvent;
+import com.google.devtools.build.lib.actions.SpawnInputs;
+import com.google.devtools.build.lib.actions.SpawnInputs.FlattenedInputs;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
@@ -57,7 +59,6 @@ import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionStartingEvent;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.BlazeClock.NanosToMillisSinceEpochConverter;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.exec.local.LocalExecutionOptions;
 import com.google.devtools.build.lib.runtime.BuildEventArtifactUploaderFactory.InvalidPackagePathSymlinkException;
@@ -461,7 +462,7 @@ public class ExecutionGraphModule extends BlazeModule {
       maybeAddEdges(
           node,
           action.getOutputs(),
-          action.getInputs(),
+          SpawnInputs.of(action.getInputs()),
           action,
           inputMetadataProvider,
           startMillis,
@@ -536,11 +537,11 @@ public class ExecutionGraphModule extends BlazeModule {
       }
       metrics = null;
 
-      NestedSet<? extends ActionInput> inputFiles;
+      SpawnInputs inputFiles;
       if (logFileWriteEdges && spawn.getResourceOwner() instanceof AbstractFileWriteAction) {
         // In order to handle file write like actions correctly, get the inputs
         // from the corresponding action.
-        inputFiles = spawn.getResourceOwner().getInputs();
+        inputFiles = SpawnInputs.of(spawn.getResourceOwner().getInputs());
       } else {
         inputFiles = spawn.getInputFiles();
       }
@@ -575,7 +576,7 @@ public class ExecutionGraphModule extends BlazeModule {
     private void maybeAddEdges(
         ExecutionGraph.Node.Builder nodeBuilder,
         Iterable<? extends ActionInput> outputs,
-        NestedSet<? extends ActionInput> inputs,
+        SpawnInputs inputs,
         ActionExecutionMetadata metadata,
         @Nullable InputMetadataProvider inputMetadataProvider,
         long startMillis,
@@ -635,44 +636,49 @@ public class ExecutionGraphModule extends BlazeModule {
       }
 
       NestedSetBuilder<Artifact> runfilesArtifactsBuilder = NestedSetBuilder.stableOrder();
-      ImmutableList<? extends ActionInput> inputsList = inputs.toList();
-      IntArrayList deps = new IntArrayList(inputsList.size());
+      IntArrayList deps;
 
       // Track the previous dep index to reduce the number of duplicates added to deps. Duplicates
       // are often seen consecutively due to NestedSet structure (e.g. when all outputs of an action
       // are added as inputs).
       int previousDepIndex = -1;
 
-      for (ActionInput input : inputsList) {
-        // We don't use inputMetadataProvider.getRunfilesTrees() because this method is called both
-        // for Spawns and Actions and the runfiles on a Spawn can be a subset of the runfiles of the
-        // action during whose execution it was created.
-        if ((input instanceof Artifact)
-            && ((Artifact) input).isRunfilesTree()
-            && inputMetadataProvider != null) {
-          // This is a runfiles tree. Collect the artifacts in it into
-          // runfilesArtifactsBuilder.
-          RunfilesTree runfilesTree =
-              inputMetadataProvider.getRunfilesMetadata(input).getRunfilesTree();
-          runfilesArtifactsBuilder.addTransitive(runfilesTree.getArtifacts());
-        }
+      {
+        FlattenedInputs flattenedInputs = inputs.flatten();
+        deps = new IntArrayList(flattenedInputs.size());
 
-        if (depType == DependencyInfo.ALL) {
-          NodeInfo dep = outputToNode.get(input);
-          if (dep != null && dep.index != previousDepIndex) {
-            deps.add(dep.index);
-            previousDepIndex = dep.index;
+        for (ActionInput input : flattenedInputs) {
+          // We don't use inputMetadataProvider.getRunfilesTrees() because this method is called
+          // both for Spawns and Actions and the runfiles on a Spawn can be a subset of the runfiles
+          // of the action during whose execution it was created.
+          if (input instanceof Artifact artifact
+              && artifact.isRunfilesTree()
+              && inputMetadataProvider != null) {
+            // This is a runfiles tree. Collect the artifacts in it into runfilesArtifactsBuilder.
+            RunfilesTree runfilesTree =
+                inputMetadataProvider.getRunfilesMetadata(input).getRunfilesTree();
+            runfilesArtifactsBuilder.addTransitive(runfilesTree.getArtifacts());
+          }
+
+          if (depType == DependencyInfo.ALL) {
+            NodeInfo dep = outputToNode.get(input);
+            if (dep != null && dep.index != previousDepIndex) {
+              deps.add(dep.index);
+              previousDepIndex = dep.index;
+            }
           }
         }
       }
 
-      inputsList = runfilesArtifactsBuilder.build().toList();
-      deps.ensureCapacity(deps.size() + inputsList.size());
-      for (ActionInput runfilesInput : inputsList) {
-        NodeInfo dep = outputToNode.get(runfilesInput);
-        if (dep != null && dep.index != previousDepIndex) {
-          deps.add(dep.index);
-          previousDepIndex = dep.index;
+      {
+        ImmutableList<Artifact> runfilesList = runfilesArtifactsBuilder.build().toList();
+        deps.ensureCapacity(deps.size() + runfilesList.size());
+        for (ActionInput runfilesInput : runfilesList) {
+          NodeInfo dep = outputToNode.get(runfilesInput);
+          if (dep != null && dep.index != previousDepIndex) {
+            deps.add(dep.index);
+            previousDepIndex = dep.index;
+          }
         }
       }
 

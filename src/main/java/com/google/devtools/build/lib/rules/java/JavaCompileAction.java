@@ -28,7 +28,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -53,6 +52,7 @@ import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.actions.SpawnInputs;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
@@ -84,7 +84,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -237,6 +236,9 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
     actionKeyContext.addNestedSetToFingerprint(fp, transitiveInputs);
     getEnvironment().addTo(fp);
     fp.addStringMap(executionInfo);
+    fp.addBoolean(
+        outputDepsProto != null
+            && configuration.getFragment(JavaConfiguration.class).inmemoryJdepsFiles());
     PathMappers.addToFingerprint(
         getMnemonic(),
         getExecutionInfo(),
@@ -324,7 +326,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
             .build();
     return new JavaSpawn(
         expandedCommandLines,
-        getEffectiveEnvironment(actionExecutionContext.getClientEnv()),
+        getEffectiveEnvironment(actionExecutionContext.getClientEnv(), pathMapper),
         getExecutionInfo(),
         inputs,
         /* onlyMandatoryOutput= */ fallback ? null : outputDepsProto,
@@ -345,20 +347,11 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
                 configuration.getCommandLineLimits());
     return new JavaSpawn(
         expandedCommandLines,
-        getEffectiveEnvironment(actionExecutionContext.getClientEnv()),
+        getEffectiveEnvironment(actionExecutionContext.getClientEnv(), pathMapper),
         getExecutionInfo(),
         getInputs(),
         /* onlyMandatoryOutput= */ null,
         pathMapper);
-  }
-
-  @Override
-  public ImmutableMap<String, String> getEffectiveEnvironment(Map<String, String> clientEnv) {
-    ActionEnvironment env = getEnvironment();
-    LinkedHashMap<String, String> effectiveEnvironment =
-        Maps.newLinkedHashMapWithExpectedSize(env.estimatedSize());
-    env.resolve(effectiveEnvironment, clientEnv);
-    return ImmutableMap.copyOf(effectiveEnvironment);
   }
 
   private ActionExecutionException wrapIOException(IOException e, String message) {
@@ -566,7 +559,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
   }
 
   private final class JavaSpawn extends BaseSpawn {
-    private final NestedSet<ActionInput> inputs;
+    private final SpawnInputs inputs;
     private final Artifact onlyMandatoryOutput;
     private final PathMapper pathMapper;
 
@@ -584,15 +577,12 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
           JavaCompileAction.this,
           LOCAL_RESOURCES);
       this.onlyMandatoryOutput = onlyMandatoryOutput;
-      this.inputs =
-          NestedSetBuilder.<ActionInput>fromNestedSet(inputs)
-              .addAll(expandedCommandLines.getParamFiles())
-              .build();
+      this.inputs = SpawnInputs.of(inputs, expandedCommandLines.getParamFiles());
       this.pathMapper = pathMapper;
     }
 
     @Override
-    public NestedSet<? extends ActionInput> getInputFiles() {
+    public SpawnInputs getInputFiles() {
       return inputs;
     }
 

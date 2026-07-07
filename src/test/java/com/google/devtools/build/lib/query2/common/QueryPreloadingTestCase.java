@@ -19,7 +19,6 @@ import static com.google.devtools.build.skyframe.WalkableGraphUtils.exists;
 import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.packages.RuleVisibility;
@@ -40,6 +39,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -187,7 +187,7 @@ public abstract class QueryPreloadingTestCase extends PackageLoadingTestCase {
   }
 
   protected static class CustomInMemoryFs extends InMemoryFileSystem {
-    private final Map<PathFragment, FileStatus> stubbedStats = Maps.newHashMap();
+    private final Map<PathFragment, FileStatus> stubbedStats = new HashMap<>();
 
     public CustomInMemoryFs(ManualClock manualClock) {
       super(manualClock, DigestHashFunction.SHA256);

@@ -291,9 +291,7 @@ public final class FilesystemValueCheckerTest {
                 BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY));
     BlazeDirectories directories =
         new BlazeDirectories(
-            new ServerDirectories(pkgRoot, pkgRoot, pkgRoot),
-            pkgRoot,
-            TestConstants.PRODUCT_NAME);
+            new ServerDirectories(pkgRoot, pkgRoot, pkgRoot), pkgRoot, TestConstants.PRODUCT_NAME);
     ExternalFilesHelper externalFilesHelper =
         ExternalFilesHelper.createForTesting(
             pkgLocator,
@@ -1340,8 +1338,57 @@ public final class FilesystemValueCheckerTest {
         });
   }
 
-  // TODO(bazel-team): Add some tests for FileSystemValueChecker#changedKeys*() methods.
-  // Presently these appear to be untested.
+  @Test
+  public void testChangedKeysWithAndWithoutNewValues() throws Exception {
+    FilesystemValueChecker checker =
+        new FilesystemValueChecker(
+            /* tsgm= */ null,
+            SyscallCache.NO_CACHE,
+            XattrProviderOverrider.NO_OVERRIDE,
+            FSVC_THREADS_FOR_TEST);
+
+    Path path1 = fs.getPath("/foo");
+    FileSystemUtils.createEmptyFile(path1);
+    SkyKey key1 =
+        FileStateValue.key(
+            RootedPath.toRootedPath(Root.absoluteRoot(fs), PathFragment.create("/foo")));
+
+    Path path2 = fs.getPath("/bar");
+    FileSystemUtils.createEmptyFile(path2);
+    SkyKey key2 =
+        FileStateValue.key(
+            RootedPath.toRootedPath(Root.absoluteRoot(fs), PathFragment.create("/bar")));
+
+    evaluator.evaluate(ImmutableList.of(key1, key2), EVALUATION_OPTIONS);
+
+    // Modify /foo so key1 is dirty with new value
+    FileSystemUtils.writeContentAsLatin1(path1, "hello");
+
+    SkyValueDirtinessChecker customChecker =
+        new SkyValueDirtinessChecker() {
+          @Override
+          public boolean applies(SkyKey key) {
+            return key.equals(key1) || key.equals(key2);
+          }
+
+          @Override
+          public SkyValue createNewValue(
+              SkyKey key, SyscallCache syscallCache, @Nullable TimestampGranularityMonitor tsgm)
+              throws IOException {
+            if (key.equals(key1)) {
+              return FileStateValue.create((RootedPath) key.argument(), syscallCache, tsgm);
+            } else {
+              throw new IOException("simulated error for key2");
+            }
+          }
+        };
+
+    FilesystemValueChecker.ImmutableBatchDirtyResult result =
+        checker.getDirtyKeys(evaluator.getValues(), customChecker);
+
+    assertThat(result.changedKeysWithNewValues().keySet()).containsExactly(key1);
+    assertThat(result.changedKeysWithoutNewValues()).containsExactly(key2);
+  }
 
   private static ActionExecutionValue actionValue(Action action) {
     Map<Artifact, FileArtifactValue> artifactData = new HashMap<>();
@@ -1384,7 +1431,7 @@ public final class FilesystemValueCheckerTest {
     DigestHashFunction hashFn = fs.getDigestFunction();
     HashCode hash = hashFn.getHashFunction().hashBytes(data);
     return FileArtifactValue.createForRemoteFileWithMaterializationData(
-        hash.asBytes(), data.length, -1, expirationTime);
+        hash.asBytes(), data.length, -1, expirationTime, /* inMemoryOutput= */ false);
   }
 
   @Test

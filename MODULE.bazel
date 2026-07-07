@@ -14,7 +14,7 @@ module(
 # =========================================
 
 bazel_dep(name = "abseil-cpp", version = "20250814.1")
-bazel_dep(name = "bazel_features", version = "1.42.1")
+bazel_dep(name = "bazel_features", version = "1.47.0")
 bazel_dep(name = "bazel_skylib", version = "1.8.2")
 bazel_dep(name = "blake3", version = "1.8.2.bcr.1")
 bazel_dep(name = "googleapis-grpc-java", version = "1.0.0")
@@ -29,7 +29,7 @@ bazel_dep(name = "re2", version = "2025-11-05.bcr.1")
 bazel_dep(name = "rules_go", version = "0.59.0")
 bazel_dep(name = "rules_graalvm", version = "0.11.1")
 bazel_dep(name = "rules_java", version = "9.5.0")
-bazel_dep(name = "rules_jvm_external", version = "6.6")
+bazel_dep(name = "rules_jvm_external", version = "6.8")
 bazel_dep(name = "rules_license", version = "1.0.0")
 bazel_dep(name = "rules_pkg", version = "1.1.0")
 bazel_dep(name = "rules_python", version = "1.7.0")
@@ -43,7 +43,7 @@ bazel_dep(name = "zstd-jni", version = "1.5.6-9")
 # Depend on apple_support first and then rules_cc so that the Xcode toolchain
 # from apple_support wins over the generic Unix toolchain from rules_cc.
 bazel_dep(name = "apple_support", version = "2.3.0")
-bazel_dep(name = "rules_cc", version = "0.2.17")
+bazel_dep(name = "rules_cc", version = "0.2.19")
 
 # The starlark rules in @rules_cc are hidden behind macros but docgen needs to
 # load the rule class directly, so we need to expose the cc_compatibility_proxy
@@ -65,8 +65,8 @@ bazel_dep(name = "onetbb", version = "2022.2.0", repo_name = None)
 single_version_override(
     module_name = "rules_jvm_external",
     patch_strip = 1,
-    patches = ["//third_party:rules_jvm_external_6.5.patch"],
-    version = "6.6",
+    patches = ["//third_party:rules_jvm_external_6.8_bazel_vendor.patch"],
+    version = "6.8",
 )
 
 # TODO(pcloudy): Remove once the next version of rules_graalvm is available.
@@ -147,9 +147,10 @@ maven.install(
         # keep sorted
         "args4j:args4j:2.37",
         "com.beust:jcommander:1.82",
-        "com.dylibso.chicory:log:1.5.2",
-        "com.dylibso.chicory:runtime:1.5.2",
-        "com.dylibso.chicory:wasm:1.5.2",
+        "com.dylibso.chicory:compiler:1.7.5",
+        "com.dylibso.chicory:log:1.7.5",
+        "com.dylibso.chicory:runtime:1.7.5",
+        "com.dylibso.chicory:wasm:1.7.5",
         "com.github.ben-manes.caffeine:caffeine:3.1.8",
         "com.github.stephenc.jcip:jcip-annotations:1.0-1",
         "com.google.api-client:google-api-client:1.35.2",
@@ -164,10 +165,10 @@ maven.install(
         "com.google.code.findbugs:jsr305:3.0.2",
         "com.google.code.gson:gson:2.11.0",
         "com.google.code.java-allocation-instrumenter:java-allocation-instrumenter:3.3.4",
-        "com.google.errorprone:error_prone_annotation:2.46.0",
-        "com.google.errorprone:error_prone_annotations:2.46.0",
-        "com.google.errorprone:error_prone_check_api:2.46.0",
-        "com.google.errorprone:error_prone_core:2.46.0",
+        "com.google.errorprone:error_prone_annotation:2.50.0",
+        "com.google.errorprone:error_prone_annotations:2.50.0",
+        "com.google.errorprone:error_prone_check_api:2.50.0",
+        "com.google.errorprone:error_prone_core:2.50.0",
         "com.google.flogger:flogger:0.5.1",
         "com.google.flogger:flogger-system-backend:0.5.1",
         "com.google.flogger:google-extensions:0.5.1",
@@ -236,11 +237,6 @@ maven.install(
         "org.openjdk.jmh:jmh-core:1.37",
         "org.openjdk.jmh:jmh-generator-annprocess:1.37",
         "org.openjdk.jol:jol-core:0.17",
-        "org.ow2.asm:asm:9.9",
-        "org.ow2.asm:asm-analysis:9.9",
-        "org.ow2.asm:asm-commons:9.9",
-        "org.ow2.asm:asm-tree:9.9",
-        "org.ow2.asm:asm-util:9.9",
         "org.pcollections:pcollections:4.0.1",
         "org.threeten:threeten-extra:1.5.0",
         "org.tukaani:xz:1.9",
@@ -273,6 +269,23 @@ maven.override(
     coordinates = "io.github.eisop:checker-qual",
     target = "@maven//:org_checkerframework_checker_qual",
 )
+
+# Pin to the version in //third_party/asm/... to avoid one-version violations.
+[
+    maven.artifact(
+        group = "org.ow2.asm",
+        artifact = artifact,
+        version = "9.10",
+        force_version = True,
+    )
+    for artifact in [
+        "asm",
+        "asm-analysis",
+        "asm-commons",
+        "asm-tree",
+        "asm-util",
+    ]
+]
 
 # Test only maven dependencies
 [
@@ -437,16 +450,17 @@ use_repo(
 # Other Bazel testing dependencies
 # =========================================
 
-bazel_dep(name = "bazel_ci_rules", version = "1.0.0")
+bazel_dep(name = "bazel_ci_rules", version = "2.0.0")
 bazel_dep(name = "rules_fuzzing", version = "0.6.0")
 bazel_dep(name = "wabt", version = "1.0.37")
 
-rbe_preconfig = use_repo_rule("@bazel_ci_rules//:rbe_repo.bzl", "rbe_preconfig")
 
-rbe_preconfig(
-    name = "rbe_ubuntu2004",
-    toolchain = "ubuntu2004",
+rbe = use_extension("@bazel_ci_rules//:rbe_config.bzl", "rbe_config_extension")
+rbe.config(
+    name = "rbe_ubuntu2404",
+    preset = "ubuntu2404",
 )
+use_repo(rbe, "rbe_ubuntu2404")
 
 list_source_repository = use_repo_rule("//src/test/shell/bazel:list_source_repository.bzl", "list_source_repository")
 

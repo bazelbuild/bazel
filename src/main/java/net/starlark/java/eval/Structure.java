@@ -88,12 +88,12 @@ public interface Structure extends StarlarkValue {
    * method to return a memoized value.
    */
   @Override
-  default Types.StructType getStarlarkType() {
+  default Types.StructType getStarlarkType(StarlarkSemantics semantics) {
     ImmutableMap.Builder<String, StarlarkType> fieldTypes =
         ImmutableMap.builderWithExpectedSize(getFieldNames().size());
     for (String fieldName : getFieldNames()) {
       try {
-        fieldTypes.put(fieldName, Starlark.getStarlarkType(getValue(fieldName)));
+        fieldTypes.put(fieldName, Starlark.getStarlarkType(getValue(fieldName), semantics));
       } catch (EvalException e) {
         // Ignore; if retrieving some internal-only field is an evaluation error, then retrieving it
         // should be a type checking error too.

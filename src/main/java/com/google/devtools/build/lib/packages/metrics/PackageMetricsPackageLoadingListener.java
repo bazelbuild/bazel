@@ -13,9 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages.metrics;
 
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.BzlMetrics.BzlFileMetrics;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageLoadingListener;
 import com.google.devtools.build.lib.pkgcache.PackageOptions.LazyMacroExpansionPackages;
+import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.protobuf.util.Durations;
 import javax.annotation.concurrent.GuardedBy;
 import net.starlark.java.eval.StarlarkSemantics;
@@ -66,6 +68,20 @@ public class PackageMetricsPackageLoadingListener implements PackageLoadingListe
     }
 
     currentRecorder.recordMetrics(pkg.getPackageIdentifier(), builder.build());
+  }
+
+  @Override
+  public void onBzlCompileCompleteAndSuccessful(RootedPath path, long fileSize) {
+    PackageMetricsRecorder currentRecorder = recorder;
+    if (currentRecorder == null) {
+      return;
+    }
+
+    currentRecorder.recordBzlMetrics(
+        BzlFileMetrics.newBuilder()
+            .setPath(path.getRootRelativePath().getPathString())
+            .setSize(fileSize)
+            .build());
   }
 
   /** Set the PackageMetricsRecorder for this listener. */

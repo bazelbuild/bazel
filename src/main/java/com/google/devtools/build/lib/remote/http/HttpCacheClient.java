@@ -121,7 +121,7 @@ import javax.net.ssl.SSLEngine;
  *
  * <p>The implementation currently does not support transfer encoding chunked.
  */
-public final class HttpCacheClient implements RemoteCacheClient {
+public final class HttpCacheClient extends RemoteCacheClient {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   public static final String AC_PREFIX = "ac/";
@@ -718,7 +718,7 @@ public final class HttpCacheClient implements RemoteCacheClient {
   }
 
   @Override
-  public ListenableFuture<Void> uploadBlob(
+  public ListenableFuture<Void> uploadBlobImpl(
       RemoteActionExecutionContext context, Digest digest, Blob blob) {
     return retrier.executeAsync(
         () ->

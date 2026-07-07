@@ -27,9 +27,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
-import com.google.common.collect.Sets;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FileValue;
@@ -88,6 +85,9 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -310,7 +310,7 @@ public class FileFunctionTest {
     file("a");
     file("b");
 
-    Set<RootedPath> seenFiles = Sets.newHashSet();
+    Set<RootedPath> seenFiles = new HashSet<>();
     seenFiles.addAll(getFilesSeenAndAssertValueChangesIfContentsOfFileChanges("a", false, "b"));
     seenFiles.addAll(getFilesSeenAndAssertValueChangesIfContentsOfFileChanges("b", false, "a"));
     assertThat(seenFiles).containsExactly(rootedPath("a"), rootedPath("b"), rootedPath(""));
@@ -381,7 +381,7 @@ public class FileFunctionTest {
     symlink("a", "../outside");
     file("b");
     file("../outside");
-    Set<RootedPath> seenFiles = Sets.newHashSet();
+    Set<RootedPath> seenFiles = new HashSet<>();
     seenFiles.addAll(getFilesSeenAndAssertValueChangesIfContentsOfFileChanges("b", false, "a"));
     seenFiles.addAll(
         getFilesSeenAndAssertValueChangesIfContentsOfFileChanges("../outside", true, "a"));
@@ -398,7 +398,7 @@ public class FileFunctionTest {
     symlink("a", "/absolute");
     file("b");
     file("/absolute");
-    Set<RootedPath> seenFiles = Sets.newHashSet();
+    Set<RootedPath> seenFiles = new HashSet<>();
     seenFiles.addAll(getFilesSeenAndAssertValueChangesIfContentsOfFileChanges("b", false, "a"));
     seenFiles.addAll(
         getFilesSeenAndAssertValueChangesIfContentsOfFileChanges("/absolute", true, "a"));
@@ -420,7 +420,7 @@ public class FileFunctionTest {
     symlink("a", externalPath);
     file("b");
     file(externalPath);
-    Set<RootedPath> seenFiles = Sets.newHashSet();
+    Set<RootedPath> seenFiles = new HashSet<>();
     seenFiles.addAll(getFilesSeenAndAssertValueChangesIfContentsOfFileChanges("b", false, "a"));
     seenFiles.addAll(
         getFilesSeenAndAssertValueChangesIfContentsOfFileChanges(externalPath, true, "a"));
@@ -490,7 +490,7 @@ public class FileFunctionTest {
   @Test
   public void testBrokenSymlink() throws Exception {
     symlink("a", "b");
-    Set<RootedPath> seenFiles = Sets.newHashSet();
+    Set<RootedPath> seenFiles = new HashSet<>();
     seenFiles.addAll(getFilesSeenAndAssertValueChangesIfContentsOfFileChanges("b", true, "a"));
     seenFiles.addAll(getFilesSeenAndAssertValueChangesIfContentsOfFileChanges("a", false, "b"));
     assertThat(seenFiles).containsExactly(rootedPath("a"), rootedPath("b"), rootedPath(""));
@@ -1541,7 +1541,7 @@ public class FileFunctionTest {
 
   /** Returns the files that would be changed/created if {@code path} were to be changed/created. */
   private static ImmutableList<String> filesTouchedIfTouched(Path path) {
-    List<String> filesToBeTouched = Lists.newArrayList();
+    List<String> filesToBeTouched = new ArrayList<>();
     do {
       filesToBeTouched.add(path.getPathString());
       path = path.getParentDirectory();
@@ -1776,9 +1776,9 @@ public class FileFunctionTest {
 
   private class CustomInMemoryFs extends InMemoryFileSystem {
 
-    private final Map<PathFragment, FileStatus> stubbedStats = Maps.newHashMap();
-    private final Map<PathFragment, IOException> stubbedStatErrors = Maps.newHashMap();
-    private final Map<PathFragment, IOException> stubbedFastDigestErrors = Maps.newHashMap();
+    private final Map<PathFragment, FileStatus> stubbedStats = new HashMap<>();
+    private final Map<PathFragment, IOException> stubbedStatErrors = new HashMap<>();
+    private final Map<PathFragment, IOException> stubbedFastDigestErrors = new HashMap<>();
 
     CustomInMemoryFs(ManualClock manualClock) {
       super(manualClock, DigestHashFunction.SHA256);

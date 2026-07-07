@@ -14,114 +14,15 @@
 
 package com.google.devtools.build.lib.buildeventservice.client;
 
-import com.google.auto.value.AutoBuilder;
-import java.time.Instant;
-import java.util.Objects;
-import java.util.Set;
+import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
 import java.util.concurrent.Future;
 import javax.annotation.Nullable;
 
 /** Interface used to abstract the Stubby and gRPC client implementations. */
+@SkybridgeInterface
 public interface BuildEventServiceClient {
 
-  /** Context for a build command. */
-  public record CommandContext(
-      String buildId,
-      String invocationId,
-      int attemptNumber,
-      Set<String> keywords,
-      @Nullable String projectId,
-      boolean checkPrecedingLifecycleEvents) {
-    public CommandContext {
-      Objects.requireNonNull(buildId, "buildId");
-      Objects.requireNonNull(invocationId, "invocationId");
-      Objects.requireNonNull(keywords, "keywords");
-      if (attemptNumber < 1) {
-        throw new IllegalArgumentException("attemptNumber must be >= 1");
-      }
-    }
 
-    public static Builder builder() {
-      return new AutoBuilder_BuildEventServiceClient_CommandContext_Builder();
-    }
-
-    /** Builder for {@link CommandContext}. */
-    @AutoBuilder
-    public abstract static class Builder {
-      public abstract Builder setBuildId(String buildId);
-
-      public abstract Builder setInvocationId(String invocationId);
-
-      public abstract Builder setAttemptNumber(int attemptNumber);
-
-      public abstract Builder setKeywords(Set<String> keywords);
-
-      public abstract Builder setProjectId(@Nullable String projectId);
-
-      public abstract Builder setCheckPrecedingLifecycleEvents(
-          boolean checkPrecedingLifecycleEvents);
-
-      public abstract CommandContext build();
-    }
-  }
-
-  /** The status of an invocation. */
-  enum InvocationStatus {
-    /** No information is available about the invocation status. */
-    UNKNOWN,
-    /** The invocation succeeded. */
-    SUCCEEDED,
-    /** The invocation failed. */
-    FAILED,
-  }
-
-  /** A lifecycle event. */
-  sealed interface LifecycleEvent {
-    /** The time at which the event occurred. */
-    Instant eventTime();
-
-    /** The lifecycle event signalling that the build was enqueued. */
-    record BuildEnqueued(Instant eventTime) implements LifecycleEvent {}
-
-    /** The lifecycle event signalling that the invocation was started. */
-    record InvocationStarted(Instant eventTime) implements LifecycleEvent {}
-
-    /**
-     * The lifecycle event signalling that the invocation was finished.
-     *
-     * @param status the invocation status
-     */
-    record InvocationFinished(Instant eventTime, InvocationStatus status)
-        implements LifecycleEvent {}
-
-    /**
-     * The lifecycle event signalling that the build was finished.
-     *
-     * @param status the invocation status
-     */
-    record BuildFinished(Instant eventTime, InvocationStatus status) implements LifecycleEvent {}
-  }
-
-  /** An event sent over a {@link StreamContext}. */
-  sealed interface StreamEvent {
-    /** The time at which the event occurred. */
-    Instant eventTime();
-
-    /** The sequence number of the event. */
-    long sequenceNumber();
-
-    /**
-     * An event containing a {@link BuildEventStreamProtos.BuildEvent}.
-     *
-     * @param payload the {@link BuildEventStreamProtos.BuildEvent} in wire format
-     */
-    @SuppressWarnings("ArrayRecordComponent")
-    record BazelEvent(Instant eventTime, long sequenceNumber, byte[] payload)
-        implements StreamEvent {}
-
-    /** An event signalling the end of the stream. */
-    record StreamFinished(Instant eventTime, long sequenceNumber) implements StreamEvent {}
-  }
 
   /** Callback for ACKed build events. */
   @FunctionalInterface
@@ -164,11 +65,23 @@ public interface BuildEventServiceClient {
   }
 
   /** The reason why a stream is being aborted. */
-  enum AbortReason {
+  public final class AbortReason {
+    private final String name;
+
+    private AbortReason(String name) {
+      this.name = name;
+    }
+
     /** The operation was cancelled. */
-    CANCELLED,
+    public static final AbortReason CANCELLED = new AbortReason("CANCELLED");
+
     /** A precondition was failed. */
-    FAILED_PRECONDITION,
+    public static final AbortReason FAILED_PRECONDITION = new AbortReason("FAILED_PRECONDITION");
+
+    @Override
+    public String toString() {
+      return name;
+    }
   }
 
   /** A handle to a bidirectional stream. */

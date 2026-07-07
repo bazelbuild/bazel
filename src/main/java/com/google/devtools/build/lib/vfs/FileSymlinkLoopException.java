@@ -18,12 +18,8 @@ import com.google.devtools.build.lib.io.FileSymlinkException;
 
 /** A {@link FileSymlinkException} that indicates a symlink loop. */
 public final class FileSymlinkLoopException extends FileSymlinkException {
-  FileSymlinkLoopException(String message) {
+  public FileSymlinkLoopException(String message) {
     super(message);
-  }
-
-  public FileSymlinkLoopException(PathFragment pathFragment) {
-    this(pathFragment.getPathString() + " (Too many levels of symbolic links)");
   }
 
   @Override

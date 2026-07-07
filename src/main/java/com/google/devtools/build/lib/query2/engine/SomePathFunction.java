@@ -34,8 +34,7 @@ import java.util.OptionalInt;
  * <pre>expr ::= SOMEPATH '(' expr ',' expr ')'</pre>
  */
 public class SomePathFunction implements QueryFunction {
-  SomePathFunction() {
-  }
+  public SomePathFunction() {}
 
   @Override
   public String getName() {
@@ -50,6 +49,11 @@ public class SomePathFunction implements QueryFunction {
   @Override
   public List<ArgumentType> getArgumentTypes() {
     return ImmutableList.of(ArgumentType.EXPRESSION, ArgumentType.EXPRESSION);
+  }
+
+  @Override
+  public boolean requiresEdges() {
+    return true;
   }
 
   @Override

@@ -707,6 +707,11 @@ public class TestRunnerAction extends AbstractAction
     return directoriesToDeleteBeforeExecution;
   }
 
+  @Override
+  public boolean allowsStrategyRegexpMatching() {
+    return false;
+  }
+
   void createEmptyOutputs(ActionExecutionContext context) throws IOException {
     for (Artifact output : TestRunnerAction.this.getOutputs()) {
       FileSystemUtils.touchFile(context.getInputPath(output));

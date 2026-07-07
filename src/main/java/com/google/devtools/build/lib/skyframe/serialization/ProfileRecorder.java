@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.devtools.build.lib.skyframe.serialization.ProfileCollector.Counts;
-import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.WriteStatus;
 import com.google.protobuf.CodedOutputStream;
 import java.util.ArrayList;
 import java.util.HashMap;

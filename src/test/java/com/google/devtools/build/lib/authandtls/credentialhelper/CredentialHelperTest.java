@@ -20,7 +20,7 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.eventbus.EventBus;
+import com.google.devtools.build.lib.events.EventBusEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.shell.WindowsSubprocessFactory;
 import com.google.devtools.build.lib.util.OS;
@@ -49,13 +49,22 @@ public class CredentialHelperTest {
           "io_bazel/src/test/java/com/google/devtools/build/lib/authandtls/credentialhelper/test_credential_helper"
               + (OS.getCurrent() == OS.WINDOWS ? ".exe" : ""));
 
-  private static final Reporter reporter = new Reporter(new EventBus());
+  private static final Reporter reporter =
+      new Reporter(EventBusEventHandler.createWithNewEventBus());
+
+  // Windows VMs in CI can be slow to start the Python-based helper process (wrapped in an exe),
+  // so we use a larger timeout (30s) on Windows to avoid flakiness, while keeping it 5s on Linux.
+  private static Duration getDefaultTimeout() {
+    return OS.getCurrent() == OS.WINDOWS ? Duration.ofSeconds(30) : Duration.ofSeconds(5);
+  }
 
   private GetCredentialsResponse getCredentialsFromHelper(
-      String credHelperPath, String uri, ImmutableMap<String, String> env) throws Exception {
+      String credHelperPath, String uri, ImmutableMap<String, String> env, Duration timeout)
+      throws Exception {
     Preconditions.checkNotNull(credHelperPath);
     Preconditions.checkNotNull(uri);
     Preconditions.checkNotNull(env);
+    Preconditions.checkNotNull(timeout);
 
     FileSystem fs = FileSystems.getNativeFileSystem();
 
@@ -70,25 +79,35 @@ public class CredentialHelperTest {
             .setEventReporter(reporter)
             .setWorkspacePath(fs.getPath(TEST_WORKSPACE_PATH))
             .setClientEnvironment(ImmutableMap.copyOf(clientEnv))
-            .setHelperExecutionTimeout(Duration.ofSeconds(5))
+            .setHelperExecutionTimeout(timeout)
             .build(),
         URI.create(uri));
   }
 
   private GetCredentialsResponse getCredentialsFromHelper(
-      String uri, ImmutableMap<String, String> env) throws Exception {
+      String credHelperPath, String uri, ImmutableMap<String, String> env) throws Exception {
+    return getCredentialsFromHelper(credHelperPath, uri, env, getDefaultTimeout());
+  }
+
+  private GetCredentialsResponse getCredentialsFromHelper(
+      String uri, ImmutableMap<String, String> env, Duration timeout) throws Exception {
     String credHelperPath =
         Runfiles.preload()
             .withSourceRepository("")
             .rlocation(TEST_CREDENTIAL_HELPER_PATH.getPathString());
 
-    return getCredentialsFromHelper(credHelperPath, uri, env);
+    return getCredentialsFromHelper(credHelperPath, uri, env, timeout);
+  }
+
+  private GetCredentialsResponse getCredentialsFromHelper(
+      String uri, ImmutableMap<String, String> env) throws Exception {
+    return getCredentialsFromHelper(uri, env, getDefaultTimeout());
   }
 
   private GetCredentialsResponse getCredentialsFromHelper(String uri) throws Exception {
     Preconditions.checkNotNull(uri);
 
-    return getCredentialsFromHelper(uri, ImmutableMap.of());
+    return getCredentialsFromHelper(uri, /* env= */ ImmutableMap.of());
   }
 
   @Test
@@ -160,7 +179,11 @@ public class CredentialHelperTest {
     CredentialHelperException e =
         assertThrows(
             CredentialHelperException.class,
-            () -> getCredentialsFromHelper("https://timeout.example.com"));
+            () ->
+                getCredentialsFromHelper(
+                    "https://timeout.example.com",
+                    /* env= */ ImmutableMap.of(),
+                    /* timeout= */ Duration.ofSeconds(5)));
     assertThat(e).hasMessageThat().contains("Failed to get credentials");
     assertThat(e).hasMessageThat().contains("process timed out");
   }
@@ -174,7 +197,7 @@ public class CredentialHelperTest {
                 getCredentialsFromHelper(
                     OS.getCurrent() == OS.WINDOWS ? "C:/no/such/file" : "/no/such/file",
                     "https://timeout.example.com",
-                    ImmutableMap.of()));
+                    /* env= */ ImmutableMap.of()));
     assertThat(e).hasMessageThat().contains("Failed to get credentials");
     assertThat(e)
         .hasMessageThat()

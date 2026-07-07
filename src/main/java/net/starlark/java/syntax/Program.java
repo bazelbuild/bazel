@@ -110,6 +110,17 @@ public final class Program {
   }
 
   /**
+   * Returns true if this program does not contain any top-level expressions that could mutate
+   * collections (e.g., calls, index assignments, or augmented assignments).
+   *
+   * <p>This is a heuristic used by the evaluator to safely optimize collection literals (lists and
+   * dicts) into compact, immutable implementations to save memory.
+   */
+  public boolean isMutationFreeAtTopLevel() {
+    return body.isMutationFreeAtTopLevel();
+  }
+
+  /**
    * Returns the static type table of this compiled program, or null if type resolution was not
    * performed.
    */
@@ -129,10 +140,13 @@ public final class Program {
    *   <li>in case of error, appending to {@code file.errors()}.
    * </ul>
    *
+   * @param loader A loader for processing load() statements; used by type tagging/checking; must be
+   *     specified if type tagging is enabled and the file contains load() statements.
    * @throws SyntaxError.Exception in case of resolution error, or if the syntax tree already
    *     contained syntax scan/parse errors. Resolution errors are added to {@code file.errors()}.
    */
-  public static Program compileFile(StarlarkFile file, Resolver.Module env)
+  public static Program compileFile(
+      StarlarkFile file, Resolver.Module env, @Nullable TypeTagger.Loader loader)
       throws SyntaxError.Exception {
     Resolver.resolveFile(file, env);
     if (!file.ok()) {
@@ -169,6 +183,11 @@ public final class Program {
         docCommentsMap,
         unusedDocCommentLines,
         /* typeTable= */ null);
+  }
+
+  public static Program compileFile(StarlarkFile file, Resolver.Module env)
+      throws SyntaxError.Exception {
+    return compileFile(file, env, /* loader= */ null);
   }
 
   /**

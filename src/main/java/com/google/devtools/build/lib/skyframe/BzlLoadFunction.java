@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.packages.BazelStarlarkEnvironment;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.packages.BzlInitThreadContext;
 import com.google.devtools.build.lib.packages.BzlVisibility;
+import com.google.devtools.build.lib.packages.PackageLoadingListener;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.StarlarkExportable;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
@@ -142,6 +143,7 @@ public class BzlLoadFunction implements SkyFunction {
       RuleClassProvider ruleClassProvider,
       BlazeDirectories directories,
       HashFunction hashFunction,
+      PackageLoadingListener packageLoadingListener,
       Cache<BzlCompileValue.Key, BzlCompileValue> bzlCompileCache) {
     return new BzlLoadFunction(
         ruleClassProvider,
@@ -170,7 +172,8 @@ public class BzlLoadFunction implements SkyFunction {
         // just a temporary thing for bzl execution. Retaining it forever is pure waste.
         // (b) The memory overhead of the extra Skyframe node and edge per bzl file is pure
         // waste.
-        new InliningAndCachingGetter(ruleClassProvider, hashFunction, bzlCompileCache),
+        new InliningAndCachingGetter(
+            ruleClassProvider, hashFunction, packageLoadingListener, bzlCompileCache),
         /* inlineCacheManager= */ null);
   }
 
@@ -788,6 +791,8 @@ public class BzlLoadFunction implements SkyFunction {
             programLoads,
             pkg,
             ruleClassProvider::isPackageUnderExperimental,
+            ruleClassProvider::isPackageUnderPrototypes,
+            ruleClassProvider::mayPackageDependOnPrototypes,
             builtins.starlarkSemantics.getBool(BuildLanguageOptions.ALLOW_EXPERIMENTAL_LOADS),
             repoMapping,
             key.isSclDialect(),
@@ -829,6 +834,8 @@ public class BzlLoadFunction implements SkyFunction {
         programLoads,
         /* demoteErrorsToWarnings= */ !builtins.starlarkSemantics.getBool(
             BuildLanguageOptions.CHECK_BZL_VISIBILITY),
+        ruleClassProvider::isPackageUnderExperimental,
+        ruleClassProvider::isPackageUnderPrototypes,
         env.getListener());
 
     // Accumulate a transitive digest of the bzl file, the digests of its direct loads, and the
@@ -876,7 +883,8 @@ public class BzlLoadFunction implements SkyFunction {
     BzlCompileValue.TypeOptions typeOptions = compileValue.getTypeOptions();
     if (typeOptions.wantStaticTypeChecking() || typeOptions.wantDynamicTypeChecking()) {
       try {
-        prog = Starlark.withTypeInfo(prog, module, typeOptions.wantStaticTypeChecking());
+        prog =
+            Starlark.withTypeInfo(prog, module, typeOptions.wantStaticTypeChecking(), loadMap::get);
       } catch (SyntaxError.Exception e) {
         Event.replayEventsOn(env.getListener(), e.errors());
         throw typingFailed(label);
@@ -1060,13 +1068,14 @@ public class BzlLoadFunction implements SkyFunction {
       ImmutableList<Pair<String, Location>> loads,
       PackageIdentifier base,
       Predicate<PackageIdentifier> isUnderExperimental,
+      Predicate<PackageIdentifier> isUnderPrototypes,
+      Predicate<PackageIdentifier> mayDependOnPrototypes,
       boolean allowExperimentalLoads,
       RepositoryMapping repoMapping,
       boolean withinSclDialect,
       boolean isSclFlagEnabled,
       @Nullable Label.RepoMappingRecorder repoMappingRecorder) {
     boolean ok = true;
-    boolean baseWithinExperimental = isUnderExperimental.test(base);
 
     ImmutableList.Builder<Label> loadLabels = ImmutableList.builderWithExpectedSize(loads.size());
     for (Pair<String, Location> load : loads) {
@@ -1094,14 +1103,20 @@ public class BzlLoadFunction implements SkyFunction {
             /* withinSclDialect= */ withinSclDialect,
             /* mentionSclInErrorMessage= */ isSclFlagEnabled);
         if (!allowExperimentalLoads
-            && !baseWithinExperimental
-            && isUnderExperimental.test(label.getPackageIdentifier())) {
+            && isUnderExperimental.test(label.getPackageIdentifier())
+            && !isUnderExperimental.test(base)) {
           throw new LabelSyntaxException(
               """
               Cannot load an experimental Starlark file from a non-experimental package.
               Consider moving the loaded file to a non-experimental package.
               To temporarily bypass this error, use --allow_experimental_loads.
               """);
+        }
+        if (isUnderPrototypes.test(label.getPackageIdentifier())
+            && !mayDependOnPrototypes.test(base)) {
+          throw new LabelSyntaxException(
+              "Cannot load a Starlark file under prototypes from a non-experimental, non-prototypes"
+                  + " package. Consider moving the loaded file to a non-prototype package.");
         }
         loadLabels.add(label);
       } catch (LabelSyntaxException ex) {
@@ -1124,6 +1139,8 @@ public class BzlLoadFunction implements SkyFunction {
       ImmutableList<Pair<String, Location>> loads,
       PackageIdentifier base,
       Predicate<PackageIdentifier> isUnderExperimental,
+      Predicate<PackageIdentifier> isUnderPrototypes,
+      Predicate<PackageIdentifier> mayDependOnPrototypes,
       RepositoryMapping repoMapping,
       StarlarkSemantics starlarkSemantics) {
     return getLoadLabels(
@@ -1131,6 +1148,8 @@ public class BzlLoadFunction implements SkyFunction {
         loads,
         base,
         isUnderExperimental,
+        isUnderPrototypes,
+        mayDependOnPrototypes,
         /* allowExperimentalLoads= */ starlarkSemantics.getBool(
             BuildLanguageOptions.ALLOW_EXPERIMENTAL_LOADS),
         repoMapping,
@@ -1273,13 +1292,28 @@ public class BzlLoadFunction implements SkyFunction {
       List<BzlLoadValue.Key> loadKeys,
       List<Pair<String, Location>> programLoads,
       boolean demoteErrorsToWarnings,
+      Predicate<PackageIdentifier> isUnderExperimental,
+      Predicate<PackageIdentifier> isUnderPrototype,
       EventHandler handler)
       throws BzlLoadFailedException {
+    if (isUnderExperimental.test(requestingPackage)) {
+      // Experimental code is exempted from load visibility.
+      return;
+    }
+    boolean requestingIsPrototype = isUnderPrototype.test(requestingPackage);
+
     boolean foundViolation = false;
     for (int i = 0; i < loadValues.size(); i++) {
-      BzlVisibility loadVisibility = loadValues.get(i).getBzlVisibility();
       Label loadLabel = loadKeys.get(i).getLabel();
       PackageIdentifier loadPackage = loadLabel.getPackageIdentifier();
+      if (requestingIsPrototype && !isUnderPrototype.test(loadPackage)) {
+        // Prototypes can always load from normal packages; there's no load-visibility equivalent
+        // flag for --check_visibility_for_prototypes. But load visibility is still enforced between
+        // two prototypes packages (possibly demoted to a warning, below).
+        continue;
+      }
+
+      BzlVisibility loadVisibility = loadValues.get(i).getBzlVisibility();
       if (!(requestingPackage.equals(loadPackage)
           || loadVisibility.allowsPackage(requestingPackage))) {
         Location loc = programLoads.get(i).second;
@@ -1370,7 +1404,10 @@ public class BzlLoadFunction implements SkyFunction {
       Label.RepoMappingRecorder repoMappingRecorder)
       throws BzlLoadFailedException, InterruptedException {
     Label label = key.getLabel();
-    try (Mutability mu = Mutability.create("loading", label)) {
+    try (Mutability mu =
+        prog.isMutationFreeAtTopLevel()
+            ? Mutability.IMMUTABLE
+            : Mutability.create("loading", label)) {
       StarlarkThread thread =
           StarlarkThread.create(
               mu, starlarkSemantics, /* contextDescription= */ "", SymbolGenerator.create(key));
@@ -1458,6 +1495,7 @@ public class BzlLoadFunction implements SkyFunction {
   private static class InliningAndCachingGetter implements ValueGetter {
     private final RuleClassProvider ruleClassProvider;
     private final HashFunction hashFunction;
+    private final PackageLoadingListener packageLoadingListener;
     // We keep a cache of BzlCompileValues that have been computed but whose corresponding
     // BzlLoadValue has not yet completed. This avoids repeating the BzlCompileValue work in case
     // of Skyframe restarts. (If we weren't inlining, Skyframe would cache this for us.)
@@ -1466,9 +1504,11 @@ public class BzlLoadFunction implements SkyFunction {
     private InliningAndCachingGetter(
         RuleClassProvider ruleClassProvider,
         HashFunction hashFunction,
+        PackageLoadingListener packageLoadingListener,
         Cache<BzlCompileValue.Key, BzlCompileValue> bzlCompileCache) {
       this.ruleClassProvider = ruleClassProvider;
       this.hashFunction = hashFunction;
+      this.packageLoadingListener = packageLoadingListener;
       this.bzlCompileCache = bzlCompileCache;
     }
 
@@ -1480,7 +1520,11 @@ public class BzlLoadFunction implements SkyFunction {
       if (value == null) {
         value =
             BzlCompileFunction.computeInline(
-                key, env, ruleClassProvider.getBazelStarlarkEnvironment(), hashFunction);
+                key,
+                env,
+                ruleClassProvider.getBazelStarlarkEnvironment(),
+                hashFunction,
+                packageLoadingListener);
         if (value != null) {
           bzlCompileCache.put(key, value);
         }

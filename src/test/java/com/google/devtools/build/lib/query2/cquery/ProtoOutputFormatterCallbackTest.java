@@ -22,7 +22,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.analysis.AnalysisProtosV2;
 import com.google.devtools.build.lib.analysis.AnalysisProtosV2.Configuration;
 import com.google.devtools.build.lib.analysis.AnalysisProtosV2.Fragment;
@@ -32,6 +31,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventBusEventHandler;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.LabelPrinter;
@@ -94,7 +94,7 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
     helper.setQuerySettings(Setting.INCLUDE_ASPECTS);
     options.setProtoIncludeConfigurations(true);
     options.setProtoIncludeRuleInputsAndOutputs(true);
-    this.reporter = new Reporter(new EventBus(), events::add);
+    this.reporter = new Reporter(EventBusEventHandler.createWithNewEventBus(), events::add);
   }
 
   @Test

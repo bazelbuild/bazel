@@ -22,7 +22,6 @@ import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.EventKind;
@@ -73,7 +72,7 @@ public class MoreAsserts {
   static final Predicate<Field> ALL_STRONG_REFS = Predicates.equalTo(NON_STRONG_REF);
 
   private static boolean isRetained(Predicate<Object> predicate, Object start) {
-    IdentityHashMap<Object, Object> visited = Maps.newIdentityHashMap();
+    IdentityHashMap<Object, Object> visited = new IdentityHashMap<>();
     visited.put(start, start);
     Queue<Object> toScan = new ArrayDeque<>();
     toScan.add(start);

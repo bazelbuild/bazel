@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.remote.Store;
 import com.google.devtools.build.lib.remote.common.ActionKey;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.MaybePathBacked;
+import com.google.devtools.build.lib.remote.common.RemoteCacheClient.Blob;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -73,7 +74,7 @@ public class DiskCacheClient {
 
   // Disk cache operations are almost entirely I/O-bound as digests are only computed as part of
   // I/O operations, so using virtual threads is appropriate.
-  @SuppressWarnings("AllowVirtualThreads")
+
   private final ListeningExecutorService executorService =
       MoreExecutors.listeningDecorator(
           Executors.newThreadPerTaskExecutor(Thread.ofVirtual().name("disk-cache-", 0).factory()));
@@ -277,9 +278,14 @@ public class DiskCacheClient {
   }
 
   public ListenableFuture<Void> uploadBlob(Digest digest, ByteString data) {
+    return uploadBlob(digest, (Blob) data::newInput);
+  }
+
+  /** Uploads a blob from a stream supplier. */
+  public ListenableFuture<Void> uploadBlob(Digest digest, Blob blob) {
     return executorService.submit(
         () -> {
-          try (InputStream in = data.newInput()) {
+          try (InputStream in = blob.get()) {
             saveFile(digest, Store.CAS, in);
           }
           return null;

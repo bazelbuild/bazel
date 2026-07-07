@@ -18,7 +18,6 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
@@ -28,6 +27,7 @@ import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.events.EventBusEventHandler;
 import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.BuildFileName;
@@ -107,7 +107,7 @@ public abstract class AbstractCollectPackagesUnderDirectoryTest {
             workingDir,
             /* productName= */ "DummyProductNameForUnitTests");
     eventCollector = new EventCollector();
-    reporter = new Reporter(new EventBus());
+    reporter = new Reporter(EventBusEventHandler.createWithNewEventBus());
     reporter.addHandler(eventCollector);
   }
 
@@ -357,7 +357,7 @@ public abstract class AbstractCollectPackagesUnderDirectoryTest {
         EvaluationContext.newBuilder()
             .setKeepGoing(true)
             .setParallelism(1)
-            .setEventHandler(new Reporter(new EventBus(), reporter))
+            .setEventHandler(new Reporter(EventBusEventHandler.createWithNewEventBus(), reporter))
             .build();
     return evaluator.evaluate(ImmutableList.of(key), evaluationContext);
   }

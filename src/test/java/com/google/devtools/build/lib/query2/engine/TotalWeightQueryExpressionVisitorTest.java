@@ -86,6 +86,7 @@ public class TotalWeightQueryExpressionVisitorTest {
     return new SkyQueryEnvironment(
         /* keepGoing= */ false,
         /* loadingPhaseThreads= */ 1,
+        /* trackIncrementalState= */ true,
         /* eventHandler= */ NullEventHandler.INSTANCE,
         /* settings= */ ImmutableSet.of(),
         /* extraFunctions= */ ImmutableList.of(),

@@ -93,7 +93,7 @@ public interface TypeConstructor {
           if (!first) {
             buf.append(", ");
           }
-          buf.append(entry.getKey());
+          NodePrinter.printStringLiteral(buf, entry.getKey());
           buf.append(": ");
           buf.append(entry.getValue());
           first = false;

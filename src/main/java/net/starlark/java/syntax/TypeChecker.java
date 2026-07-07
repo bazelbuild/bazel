@@ -112,7 +112,12 @@ public final class TypeChecker extends NodeVisitor {
   private StarlarkType getType(Identifier id) {
     Resolver.Binding binding = id.getBinding();
     checkNotNull(binding);
-    StarlarkType type = typeTable.getType(binding);
+    StarlarkType type =
+        switch (binding.getScope()) {
+          case UNIVERSAL -> checkNotNull(typeContext.getUniversalSymbolType(binding.getName()));
+          case PREDECLARED -> checkNotNull(typeContext.getPredeclaredSymbolType(binding.getName()));
+          default -> typeTable.getType(binding);
+        };
     return type != null ? type : Types.ANY;
   }
 
@@ -193,7 +198,7 @@ public final class TypeChecker extends NodeVisitor {
         }
         return list.isTuple()
             ? Types.tuple(ImmutableList.copyOf(elementTypes))
-            : Types.list(Types.union(elementTypes));
+            : Types.listRvalue(Types.union(elementTypes));
       }
       case DICT_EXPR -> {
         var dict = (DictExpression) expr;
@@ -203,9 +208,11 @@ public final class TypeChecker extends NodeVisitor {
           keyTypes.add(infer(entry.getKey()));
           valueTypes.add(infer(entry.getValue()));
         }
-        return Types.dict(Types.union(keyTypes), Types.union(valueTypes));
+        return Types.dictRvalue(Types.union(keyTypes), Types.union(valueTypes));
       }
       case CALL -> {
+        // TODO: #27370 - we could special-case set literals; e.g. check if a call expression is
+        // `set()`, verifying using typeContext that `set` is the set type constructor.
         return inferCall((CallExpression) expr);
       }
       case CONDITIONAL -> {
@@ -258,24 +265,14 @@ public final class TypeChecker extends NodeVisitor {
   }
 
   /**
-   * Returns the integer value of an expression if it's an integer value (or a unary expression
-   * negating an integer value) which can be exactly represented as a Java integer, or null
-   * otherwise (in particular, if the expression itself is null).
+   * Returns the integer value of an expression if it's an integer value which can be exactly
+   * represented as a Java integer, or null otherwise (in particular, if the expression itself is
+   * null).
    */
-  // TODO: #28037 - Consider allowing more complicated static expressions, e.g. binary operators on
-  // integers.
   @Nullable
   private static Integer getIntValueExact(@Nullable Expression expr) {
     if (expr instanceof IntLiteral intLiteral) {
       return intLiteral.getIntValueExact();
-    } else if (expr instanceof UnaryOperatorExpression unop
-        && unop.getOperator() == TokenKind.MINUS
-        && unop.getX() instanceof IntLiteral negatedIntLiteral) {
-      // We may want to simplify negative integer literals to be IntLiteral; see #28385.
-      Integer x = negatedIntLiteral.getIntValueExact();
-      if (x != null) {
-        return -x; // safe since x >= 0
-      }
     }
     return null;
   }
@@ -595,8 +592,7 @@ public final class TypeChecker extends NodeVisitor {
     ImmutableList<StarlarkType> argTypes =
         call.getArguments().stream()
             .limit(numArgs)
-            .map(Argument::getValue)
-            .map(this::infer)
+            .map(arg -> infer(arg.getValue()))
             .collect(toImmutableList());
 
     ImmutableCollection<StarlarkType> callFunctionTypes = Types.unfoldUnion(callFunctionType);
@@ -607,7 +603,7 @@ public final class TypeChecker extends NodeVisitor {
         returnTypes.add(Types.ANY);
         continue;
       }
-      Types.CallableType callable = callFunctionElemType instanceof Types.CallableType c ? c : null;
+      @Nullable Types.CallableType callable = toCallableType(callFunctionElemType);
       if (callable == null) {
         errorf(
             call.getFunction(),
@@ -779,6 +775,23 @@ public final class TypeChecker extends NodeVisitor {
       }
       return Types.union(values);
     }
+  }
+
+  /**
+   * Returns {@code t} if it is a {@link Types.CallableType}; or its callable supertype otherwise
+   * (e.g. for self-call builtins); or null if it is not callable.
+   */
+  @Nullable
+  private Types.CallableType toCallableType(StarlarkType t) {
+    if (t instanceof Types.CallableType callableType) {
+      return callableType;
+    }
+    for (StarlarkType supertype : t.getSupertypes()) {
+      if (supertype instanceof Types.CallableType callableType) {
+        return callableType;
+      }
+    }
+    return null;
   }
 
   /**
@@ -1045,7 +1058,7 @@ public final class TypeChecker extends NodeVisitor {
 
     if (lhs instanceof Identifier id && typeTable.getType(id.getBinding()) == null) {
       // If a variable has not been typed, infer its type from the rhs of the first assignment.
-      typeTable.setInferredType(id.getBinding(), rhsType);
+      typeTable.setInferredType(id.getBinding(), rhsType.toLvalue());
     }
   }
 
@@ -1226,9 +1239,6 @@ public final class TypeChecker extends NodeVisitor {
       }
     } else {
 
-      // TODO: #27370 - Do bidirectional inference, passing down information about the expected type
-      // from the LHS to the infer() call here, e.g. to construct the type of `[1, 2, 3]` as
-      // list[int] instead of list[object].
       var rhsType = infer(assignment.getRHS());
 
       assign(assignment.getLHS(), rhsType);

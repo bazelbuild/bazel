@@ -20,7 +20,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.eventbus.EventBus;
+import com.google.devtools.build.lib.events.EventBusEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Target;
@@ -69,9 +69,10 @@ public class QueryCommandTest {
     Either<BlazeCommandResult, QueryEvalResult> result =
         underTest.doQuery(
             "terrible syntax",
-            mockCommandEnvironment(new Reporter(new EventBus(), storedEventHandler)),
+            mockCommandEnvironment(
+                new Reporter(EventBusEventHandler.createWithNewEventBus(), storedEventHandler)),
             Options.getDefaults(QueryOptions.class),
-            /*streamResults=*/ false,
+            /* streamResults= */ false,
             mock(OutputFormatter.class),
             mockQueryEnvironment,
             mock(QueryRuntimeHelper.class));

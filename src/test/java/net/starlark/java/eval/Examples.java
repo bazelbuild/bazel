@@ -16,6 +16,7 @@ package net.starlark.java.eval;
 import com.google.common.collect.ImmutableMap;
 import java.io.IOException;
 import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkLibrary;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.syntax.FileOptions;
 import net.starlark.java.syntax.ParserInput;
@@ -121,6 +122,7 @@ final class Examples {
    * The annotated methods of this class are added to the environment by {@link
    * Starlark#addMethods}.
    */
+  @StarlarkLibrary
   static final class MyFunctions {
     @StarlarkMethod(
         name = "square",

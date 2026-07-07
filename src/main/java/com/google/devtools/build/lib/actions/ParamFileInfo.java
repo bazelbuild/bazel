@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Objects;
+import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
 /**
@@ -32,6 +33,7 @@ public final class ParamFileInfo {
   private final String flagFormatString;
   private final boolean always;
   private final boolean flagsOnly;
+  @Nullable private final String paramFileName;
 
   private static final Interner<ParamFileInfo> paramFileInfoInterner =
       BlazeInterners.newWeakInterner();
@@ -41,6 +43,7 @@ public final class ParamFileInfo {
     this.flagFormatString = Preconditions.checkNotNull(builder.flagFormatString);
     this.always = builder.always;
     this.flagsOnly = builder.flagsOnly;
+    this.paramFileName = builder.paramFileName;
   }
 
   /** Returns the file type. */
@@ -66,9 +69,15 @@ public final class ParamFileInfo {
     return flagsOnly;
   }
 
+  /** Returns the custom name for the parameter file, or null if it should be derived. */
+  @Nullable
+  public String getParamFileName() {
+    return paramFileName;
+  }
+
   @Override
   public int hashCode() {
-    return Objects.hash(flagFormatString, fileType, always);
+    return Objects.hash(flagFormatString, fileType, always, flagsOnly, paramFileName);
   }
 
   @Override
@@ -82,7 +91,8 @@ public final class ParamFileInfo {
     return fileType.equals(other.fileType)
         && flagFormatString.equals(other.flagFormatString)
         && always == other.always
-        && flagsOnly == other.flagsOnly;
+        && flagsOnly == other.flagsOnly
+        && Objects.equals(paramFileName, other.paramFileName);
   }
 
   public static Builder builder(ParameterFileType parameterFileType) {
@@ -95,6 +105,7 @@ public final class ParamFileInfo {
     private String flagFormatString = "@%s";
     private boolean always;
     private boolean flagsOnly;
+    @Nullable private String paramFileName;
 
     private Builder(ParameterFileType fileType) {
       this.fileType = fileType;
@@ -126,6 +137,13 @@ public final class ParamFileInfo {
     @CanIgnoreReturnValue
     public Builder setFlagsOnly(boolean flagsOnly) {
       this.flagsOnly = flagsOnly;
+      return this;
+    }
+
+    /** Sets the custom name for the parameter file. */
+    @CanIgnoreReturnValue
+    public Builder setParamFileName(String paramFileName) {
+      this.paramFileName = paramFileName;
       return this;
     }
 

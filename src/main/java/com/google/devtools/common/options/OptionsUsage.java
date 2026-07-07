@@ -151,15 +151,32 @@ class OptionsUsage {
         String word =
             paragraph.substring(start, end); // (may include trailing space)
         if (word.length() + cursor > width) {
+          deleteTrailingWhitespace(out);
           out.append('\n').append(indentString);
           cursor = indent;
         }
         out.append(word);
         cursor += word.length();
       }
+      deleteTrailingWhitespace(out);
       sep = "\n";
     }
     return out.toString();
+  }
+
+  static void deleteTrailingWhitespace(StringBuilder sb) {
+    int len = sb.length();
+    while (len > 0) {
+      char c = sb.charAt(len - 1);
+      if (Character.isWhitespace(c) && c != '\n' && c != '\r') {
+        len--;
+      } else {
+        break;
+      }
+    }
+    if (len < sb.length()) {
+      sb.setLength(len);
+    }
   }
 
   // Placeholder tag "UNKNOWN" is ignored.

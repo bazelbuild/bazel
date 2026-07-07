@@ -212,10 +212,19 @@ RcFile::ParseError RcFile::ParseFile(
                                                               import_filename);
       if (!resolved_filename.has_value()) {
         if (command == kCommandImport) {
-          *error_text = absl::StrFormat(
-              "Nonexistent path in import declaration in config file '%s': '%s'"
-              " (are you in your source checkout/WORKSPACE?)",
-              canonical_filename, line);
+          if (workspace.empty()) {
+            *error_text = absl::StrFormat(
+                "Nonexistent path in import declaration in config file '%s': "
+                "'%s'. This is because no workspace was found and "
+                "%%workspace%%-relative imports are only supported when "
+                "running from within a workspace.",
+                canonical_filename, line);
+          } else {
+            *error_text = absl::StrFormat(
+                "Nonexistent path in import declaration in config file '%s': "
+                "'%s' (are you in your source checkout/WORKSPACE?)",
+                canonical_filename, line);
+          }
           return ParseError::INVALID_FORMAT;
         }
         // For try-import, we ignore it if we couldn't find a file.

@@ -77,6 +77,28 @@ public final class Converters {
     }
   }
 
+  /**
+   * Converter that treats an empty string as {@code null}, and passes any other value through
+   * unchanged. Useful for optional flags that have {@code defaultValue = "null"} so that an empty
+   * value on the command line resets the flag to its unset state instead of being interpreted as a
+   * literal empty string.
+   */
+  public static class EmptyToNullStringConverter extends Converter.Contextless<String> {
+    @Override
+    @Nullable
+    public String convert(String input) {
+      if (input.isEmpty()) {
+        return null;
+      }
+      return input;
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "a string; empty to unset";
+    }
+  }
+
   /** Standard converter for integers. */
   public static class IntegerConverter extends Converter.Contextless<Integer> {
     @Override
@@ -392,12 +414,10 @@ public final class Converters {
   /** Checks whether a string is part of a set of strings. */
   public static class StringSetConverter extends Converter.Contextless<String> {
 
-    // TODO(bazel-team): if this class never actually contains duplicates, we could s/List/Set/
-    // here.
-    private final ImmutableList<String> values;
+    private final ImmutableSet<String> values;
 
     public StringSetConverter(String... values) {
-      this.values = ImmutableList.copyOf(values);
+      this.values = ImmutableSet.copyOf(values);
     }
 
     @Override

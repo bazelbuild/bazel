@@ -88,7 +88,6 @@ public final class SandboxHelpers {
 
   private static final AtomicBoolean warnedAboutMovesBeingCopies = new AtomicBoolean(false);
 
-  @SuppressWarnings("AllowVirtualThreads")
   private static final ExecutorService VISITOR_POOL =
       Executors.newThreadPerTaskExecutor(
           Thread.ofVirtual().name("sandbox-directory-visitor-").factory());

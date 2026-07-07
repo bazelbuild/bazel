@@ -13,25 +13,31 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture.EmptyFileOpNode.EMPTY_FILE_OP_NODE;
 
 import com.google.common.base.Function;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.skyframe.AbstractNestedFileOpNodes.NestedFileOpNodes;
 import com.google.devtools.build.lib.skyframe.AbstractNestedFileOpNodes.NestedFileOpNodesWithSource;
 import com.google.devtools.build.lib.skyframe.DirectoryListingKey;
 import com.google.devtools.build.lib.skyframe.FileKey;
+import com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture;
 import com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture.FileOpNode;
 import com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture.FileOpNodeOrEmpty;
 import com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture.FutureFileOpNode;
+import com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture.RemoteFileOpNode;
 import com.google.devtools.build.skyframe.InMemoryGraph;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.util.ArrayList;
@@ -71,7 +77,13 @@ public final class FileOpNodeMemoizingLookupTest extends BuildIntegrationTestCas
 
     var pool = new ForkJoinPool(CONCURRENCY);
 
-    var fileOpDataMap = new FileOpNodeMemoizingLookup(pool, graph);
+    var fileOpDataMap =
+        new FileOpNodeMemoizingLookup(
+            pool,
+            graph,
+            ImmutableSet.of(),
+            /* shouldDiscardMemory= */ false,
+            /* referencedPackages= */ null);
 
     var actionLookups = new ArrayList<ActionLookupKey>();
     var actions = new ArrayList<ActionLookupData>();
@@ -122,12 +134,15 @@ public final class FileOpNodeMemoizingLookupTest extends BuildIntegrationTestCas
               .isEqualTo(collectTransitiveFileOpNodes(graph, lookupKey));
           return null;
         };
-    switch (fileOpDataMap.computeNode(lookupKey)) {
-      case FileOpNodeOrEmpty nodeOrEmpty:
+    FileOpNodeOrFuture nodeOrFuture = fileOpDataMap.computeNode(lookupKey);
+    switch (nodeOrFuture) {
+      case FileOpNodeOrEmpty nodeOrEmpty -> {
         var unusedNull = verify.apply(nodeOrEmpty);
         return immediateVoidFuture();
-      case FutureFileOpNode future:
+      }
+      case FutureFileOpNode future -> {
         return Futures.transform(future, verify, directExecutor());
+      }
     }
   }
 
@@ -155,12 +170,15 @@ public final class FileOpNodeMemoizingLookupTest extends BuildIntegrationTestCas
           return null;
         };
     // Note, that this looks up the incrementality data for the action by its ActionLookupKey.
-    switch (fileOpDataMap.computeNode(lookupData.getActionLookupKey())) {
-      case FileOpNodeOrEmpty nodeOrEmpty:
+    FileOpNodeOrFuture nodeOrFuture = fileOpDataMap.computeNode(lookupData.getActionLookupKey());
+    switch (nodeOrFuture) {
+      case FileOpNodeOrEmpty nodeOrEmpty -> {
         var unusedNull = verify.apply(nodeOrEmpty);
         return immediateVoidFuture();
-      case FutureFileOpNode future:
+      }
+      case FutureFileOpNode future -> {
         return Futures.transform(future, verify, directExecutor());
+      }
     }
   }
 
@@ -175,11 +193,13 @@ public final class FileOpNodeMemoizingLookupTest extends BuildIntegrationTestCas
       Set<FileKey> sources,
       Set<FileOpNode> visited) {
     switch (maybeNode) {
-      case EMPTY_FILE_OP_NODE:
+      case EMPTY_FILE_OP_NODE -> {
         return;
-      case FileOpNode node:
+      }
+      case FileOpNode node -> {
         flattenNode(node, nodes, sources, visited);
         return;
+      }
     }
   }
 
@@ -189,23 +209,20 @@ public final class FileOpNodeMemoizingLookupTest extends BuildIntegrationTestCas
       return;
     }
     switch (node) {
-      case FileKey file:
-        nodes.add(file);
-        break;
-      case DirectoryListingKey directory:
-        nodes.add(directory);
-        break;
-      case NestedFileOpNodes nested:
+      case FileKey file -> nodes.add(file);
+      case DirectoryListingKey directory -> nodes.add(directory);
+      case RemoteFileOpNode remote -> nodes.add(remote);
+      case NestedFileOpNodes nested -> {
         for (int i = 0; i < nested.analysisDependenciesCount(); i++) {
           flattenNode(nested.getAnalysisDependency(i), nodes, sources, visited);
         }
-        break;
-      case NestedFileOpNodesWithSource withSources:
+      }
+      case NestedFileOpNodesWithSource withSources -> {
         for (int i = 0; i < withSources.analysisDependenciesCount(); i++) {
           flattenNode(withSources.getAnalysisDependency(i), nodes, sources, visited);
         }
         sources.add(withSources.source());
-        break;
+      }
     }
   }
 
@@ -231,6 +248,86 @@ public final class FileOpNodeMemoizingLookupTest extends BuildIntegrationTestCas
     }
     for (SkyKey dep : graph.getIfPresent(key).getDirectDeps()) {
       collectTransitiveFileOpNodes(graph, dep, visited, nodes);
+    }
+  }
+
+  @Test
+  public void fileOpNodes_unselectedAreDiscarded() throws Exception {
+    write("discard/x.txt", "x");
+    write("discard/y.txt", "y");
+    write(
+        "discard/BUILD",
+        """
+        genrule(
+            name = "target",
+            srcs = ["x.txt", "y.txt"],
+            outs = ["out"],
+            cmd = "cat $(SRCS) > $@",
+        )
+        """);
+
+    buildTarget("//discard:target");
+
+    InMemoryGraph graph = getSkyframeExecutor().getEvaluator().getInMemoryGraph();
+
+    var pool = new ForkJoinPool(CONCURRENCY);
+
+    ImmutableList<ActionLookupKey> actionLookups =
+        graph.getDoneValues().keySet().stream()
+            .filter(ActionLookupKey.class::isInstance)
+            .map(ActionLookupKey.class::cast)
+            .collect(toImmutableList());
+
+    assertThat(actionLookups.size()).isAtLeast(2); // At least one selected and one unselected.
+    ActionLookupKey selectedKey = actionLookups.get(0);
+    ImmutableSet<SkyKey> selectedKeys = ImmutableSet.of(selectedKey);
+
+    ImmutableList<ActionLookupKey> unselectedKeys =
+        actionLookups.stream()
+            .filter(key -> !selectedKeys.contains(key))
+            .collect(toImmutableList());
+    assertThat(unselectedKeys).isNotEmpty();
+
+    // Referenced PackageIdentifier keys should NOT be discarded.
+    ImmutableList<PackageIdentifier> referencedPackageKeys =
+        graph.getDoneValues().keySet().stream()
+            .filter(PackageIdentifier.class::isInstance)
+            .map(PackageIdentifier.class::cast)
+            .collect(toImmutableList());
+    assertThat(referencedPackageKeys).isNotEmpty();
+
+    var fileOpDataMap =
+        new FileOpNodeMemoizingLookup(
+            pool,
+            graph,
+            selectedKeys,
+            /* shouldDiscardMemory= */ true,
+            /* referencedPackages= */ ImmutableSet.copyOf(referencedPackageKeys));
+
+    var futures = new ConcurrentLinkedQueue<ListenableFuture<Void>>();
+    for (ActionLookupKey key : actionLookups) {
+      switch (fileOpDataMap.computeNode(key)) {
+        case FileOpNodeOrEmpty nodeOrEmpty -> futures.add(Futures.immediateVoidFuture());
+        case FutureFileOpNode future ->
+            futures.add(Futures.transform(future, unused -> null, directExecutor()));
+      }
+    }
+    var unused = Futures.whenAllSucceed(futures).call(() -> null, directExecutor()).get();
+
+    // The selected key should still be present in the graph.
+    assertThat(graph.getIfPresent(selectedKey)).isNotNull();
+
+    // Unselected keys should be discarded (i.e. graph.getIfPresent returns null).
+    for (ActionLookupKey key : unselectedKeys) {
+      assertWithMessage("unselected key %s should be discarded", key)
+          .that(graph.getIfPresent(key))
+          .isNull();
+    }
+
+    for (PackageIdentifier key : referencedPackageKeys) {
+      assertWithMessage("referenced PackageIdentifier key %s should NOT be discarded", key)
+          .that(graph.getIfPresent(key))
+          .isNotNull();
     }
   }
 }

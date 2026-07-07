@@ -136,12 +136,15 @@ wstring GetLastErrorString(DWORD error_code);
 // Same as `AsExecutablePathForCreateProcess` except it won't quote the result.
 wstring AsShortPath(wstring path, wstring* result);
 
-// Computes a path suitable as the executable part in CreateProcessA's cmdline.
+// Computes a path suitable as the executable part in CreateProcessW's
+// lpCommandLine, plus an extended-length form suitable for CreateProcessW's
+// lpApplicationName when applicable.
 //
-// The null-terminated executable path for CreateProcessA has to fit into
-// MAX_PATH, therefore the limit for the executable's path is MAX_PATH - 1
-// (not including null terminator). This method attempts to convert the input
-// `path` to a short format to fit it into the MAX_PATH - 1 limit.
+// Unless CreateProcessW's lpApplicationName is populated, the null-terminated
+// executable path in CreateProcessW's lpCommandLine has to fit into MAX_PATH,
+// therefore the limit for the executable's path is MAX_PATH - 1 (not including
+// null terminator). This method attempts to convert the input `path` to a short
+// format to fit it into the MAX_PATH - 1 limit.
 //
 // `path` must be either an absolute, normalized, Windows-style path with drive
 // letter (e.g. "c:\foo\bar.exe", but no "\foo\bar.exe"), or must be just a file
@@ -149,17 +152,23 @@ wstring AsShortPath(wstring path, wstring* result);
 // In both cases, `path` must be unquoted.
 //
 // If this function succeeds, it returns an empty string (indicating no error),
-// and sets `result` to the resulting path, which is always quoted, and is
+// and sets `quoted_path` to the resulting path, which is always quoted, and is
 // always at most MAX_PATH + 1 long (MAX_PATH - 1 without null terminator, plus
-// two quotes). If there's any error, this function returns the error message.
+// two quotes), unless the `extended_path` fallback below applies. If there's
+// any error, this function returns the error message.
 //
 // If `path` is at most MAX_PATH - 1 long (not including null terminator), the
 // result will be that (plus quotes).
 // Otherwise this method attempts to compute an 8dot3 style short name for
 // `path`, and if that succeeds and the result is at most MAX_PATH - 1 long (not
 // including null terminator), then that will be the result (plus quotes).
+// Otherwise, if `path` is an absolute, normalized path to a plain executable
+// (not a batch file), `extended_path` is set to its extended-length form (the
+// "\\?\" prefix plus `path`) for use as CreateProcessW's lpApplicationName, and
+// `quoted_path` to the quoted `path`.
 // Otherwise this function fails and returns an error message.
-wstring AsExecutablePathForCreateProcess(wstring path, wstring* result);
+wstring AsExecutablePathForCreateProcess(wstring path, wstring* quoted_path,
+                                         wstring* extended_path);
 
 }  // namespace windows
 }  // namespace bazel

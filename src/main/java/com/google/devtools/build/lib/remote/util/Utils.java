@@ -37,7 +37,6 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
-import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.Spawns;
@@ -53,7 +52,6 @@ import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.protobuf.Any;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Duration;
@@ -123,20 +121,6 @@ public final class Utils {
       }
       throw e;
     }
-  }
-
-  /**
-   * Returns the (exec root relative) path of a spawn output that should be made available via
-   * {@link SpawnResult#getInMemoryOutput(ActionInput)}.
-   */
-  @Nullable
-  public static PathFragment getInMemoryOutputPath(Spawn spawn) {
-    String outputPath =
-        spawn.getExecutionInfo().get(ExecutionRequirements.REMOTE_EXECUTION_INLINE_OUTPUTS);
-    if (outputPath != null) {
-      return PathFragment.create(outputPath);
-    }
-    return null;
   }
 
   /** Constructs a {@link SpawnResult}. */

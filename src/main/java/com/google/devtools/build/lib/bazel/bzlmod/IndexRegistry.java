@@ -293,6 +293,7 @@ public class IndexRegistry implements Registry {
     Map<String, String> patches;
     int patchStrip;
     String stripPrefix;
+    String addPrefix;
   }
 
   /**
@@ -583,6 +584,7 @@ public class IndexRegistry implements Registry {
         .setInitSubmodules(sourceJson.initSubmodules)
         .setVerbose(sourceJson.verbose)
         .setStripPrefix(sourceJson.stripPrefix)
+        .setAddPrefix(sourceJson.addPrefix)
         .setRemoteModuleFile(
             new RemoteFile(
                 moduleFileChecksum.toSubresourceIntegrity(), ImmutableList.of(moduleFileUrl)))

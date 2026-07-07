@@ -20,12 +20,9 @@ import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.packages.util.ResourceLoader;
-import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import java.io.IOException;
-import java.util.List;
-import java.util.regex.Pattern;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -146,55 +143,11 @@ public class CompileCommandLineTest extends BuildViewTestCase {
                     "    ),",
                     "]"))
             .build();
-    assertThat(
-            compileCommandLine.getArguments(
-                /* parameterFilePath= */ null, /* overwrittenVariables= */ null, PathMapper.NOOP))
+    assertThat(compileCommandLine.getArguments(/* overwrittenVariables= */ null, PathMapper.NOOP))
         .contains("-some_foo_flag");
   }
 
-  @Test
-  public void testUnfilteredFlagsAreNotFiltered() throws Exception {
-    List<String> actualCommandLine =
-        getCompileCommandLineWithCoptsFilter(CppRuleClasses.UNFILTERED_COMPILE_FLAGS_FEATURE_NAME);
-    assertThat(actualCommandLine).contains("-i_am_a_flag");
-  }
-
-  @Test
-  public void testNonUnfilteredFlagsAreFiltered() throws Exception {
-    List<String> actualCommandLine = getCompileCommandLineWithCoptsFilter("filtered_flags");
-    assertThat(actualCommandLine).doesNotContain("-i_am_a_flag");
-  }
-
-  private List<String> getCompileCommandLineWithCoptsFilter(String featureName) throws Exception {
-    CompileCommandLine compileCommandLine =
-        makeCompileCommandLineBuilder()
-            .setFeatureConfiguration(
-                getMockFeatureConfigurationFromStarlark(
-                    "action_configs = [",
-                    "    action_config(",
-                    "        action_name = 'c++-compile',",
-                    "        implies = ['" + featureName + "'],",
-                    "        tools = [tool(path = 'foo/bar/DUMMY_COMPILER')],",
-                    "    ),",
-                    "],",
-                    "features = [",
-                    "    feature(",
-                    "        name = '" + featureName + "',",
-                    "        flag_sets = [",
-                    "            flag_set(",
-                    "                actions = ['c++-compile'],",
-                    "                flag_groups = [flag_group(flags = ['-i_am_a_flag'])],",
-                    "            ),",
-                    "        ],",
-                    "    ),",
-                    "]"))
-            .setCoptsFilter(CoptsFilter.fromRegex(Pattern.compile(".*i_am_a_flag.*")))
-            .build();
-    return compileCommandLine.getArguments(
-        /* parameterFilePath= */ null, /* overwrittenVariables= */ null, PathMapper.NOOP);
-  }
-
   private CompileCommandLine.Builder makeCompileCommandLineBuilder() throws Exception {
-    return CompileCommandLine.builder(CoptsFilter.alwaysPasses(), "c++-compile");
+    return CompileCommandLine.builder("c++-compile");
   }
 }

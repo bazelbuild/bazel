@@ -17,9 +17,9 @@ package com.google.devtools.build.lib.buildeventservice;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient.CommandContext;
-import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient.InvocationStatus;
 import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceProtoUtil;
+import com.google.devtools.build.lib.buildeventservice.client.CommandContext;
+import com.google.devtools.build.lib.buildeventservice.client.LifecycleEvent.InvocationStatus;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.v1.BuildEvent;
 import com.google.devtools.build.v1.BuildEvent.BuildComponentStreamFinished;
@@ -54,7 +54,7 @@ public class BuildEventServiceProtoUtilTest {
   private static final String PROJECT_ID = "my_project";
   private static final ImmutableSet<String> KEYWORDS = ImmutableSet.of("foo=bar", "spam=eggs");
   private static final CommandContext COMMAND_CONTEXT =
-      CommandContext.builder()
+      CommandContextImpl.builder()
           .setBuildId(BUILD_REQUEST_ID)
           .setInvocationId(BUILD_INVOCATION_ID)
           .setAttemptNumber(ATTEMPT_NUMBER)
@@ -117,7 +117,7 @@ public class BuildEventServiceProtoUtilTest {
   @Test
   public void invocationAttemptStarted_attemptNumber() {
     var commandContext =
-        CommandContext.builder()
+        CommandContextImpl.builder()
             .setBuildId(BUILD_REQUEST_ID)
             .setInvocationId(BUILD_INVOCATION_ID)
             .setAttemptNumber(2)
@@ -295,7 +295,7 @@ public class BuildEventServiceProtoUtilTest {
   public void testStreamEventsWithCheckPrecedingLifecycleEventsEnabled() {
     byte[] payload = ByteString.fromHex("deadbeef").toByteArray();
     CommandContext commandContext =
-        CommandContext.builder()
+        CommandContextImpl.builder()
             .setBuildId(BUILD_REQUEST_ID)
             .setInvocationId(BUILD_INVOCATION_ID)
             .setAttemptNumber(ATTEMPT_NUMBER)

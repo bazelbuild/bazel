@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.server.FailureDetails.PackageLoading.Code;
 import java.util.List;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
+import net.starlark.java.annot.StarlarkLibrary;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.NoneType;
@@ -33,6 +34,7 @@ import net.starlark.java.syntax.Location;
 
 /** A set of miscellaneous APIs that are available to any BUILD file. */
 @GlobalMethods(environment = Environment.BUILD)
+@StarlarkLibrary
 public class BuildGlobals {
 
   private BuildGlobals() {}

@@ -39,6 +39,8 @@ public class TypeTaggerTest {
   private Module module =
       TestUtils.Module.withUniversalTypesAnd("struct", Types.STRUCT_CONSTRUCTOR);
 
+  private TypeTagger.Loader loader = null;
+
   /** Extracts an expression string to a type in an empty environment. */
   private StarlarkType extractType(String type) throws Exception {
     Expression expr = Expression.parseTypeExpression(ParserInput.fromLines(type), options.build());
@@ -94,7 +96,7 @@ public class TypeTaggerTest {
     assertThat(file.errors()).isEmpty();
     Resolver.resolveFile(file, module);
     assertThat(file.errors()).isEmpty();
-    TypeTable typeTable = TypeTagger.tagFile(file, module);
+    TypeTable typeTable = TypeTagger.tagFile(file, module, loader);
     return new Result(file, typeTable);
   }
 
@@ -245,10 +247,16 @@ public class TypeTaggerTest {
     assertThat(extractType("struct[{'foo': int, 'bar': list[str]}]"))
         .isEqualTo(Types.struct(ImmutableMap.of("foo", Types.INT, "bar", Types.list(Types.STR))));
 
-    assertExtractTypeFails("struct", "struct[] accepts exactly 1 argument but got 0");
+    assertThat(extractType("struct")).isEqualTo(Types.STRUCT_OF_ANY);
+    assertThat(extractType("struct[{'foo': int}, ...]"))
+        .isEqualTo(Types.partialStruct(ImmutableMap.of("foo", Types.INT)));
+
+    assertExtractTypeFails("struct[...]", "in application to struct, got '...', expected a dict");
     assertExtractTypeFails(
-        "struct[{'a': int}, {'b': str}]", "struct[] accepts exactly 1 argument but got 2");
-    assertExtractTypeFails("struct[int]", "in application to struct, got 'int', expected a dict");
+        "struct[{'a': int}, int]",
+        "in application to struct, got 'int' for optional argument #2, expected '...'");
+    assertExtractTypeFails(
+        "struct[{'a': int}, ..., ...]", "struct[] accepts at most 2 arguments but got 3");
     // Just like for eval-time dict literals, keys must be unique.
     assertExtractTypeFails(
         "struct[{'foo': int, 'foo': bool}]", "dictionary expression has duplicate key: \"foo\"");
@@ -681,5 +689,36 @@ public class TypeTaggerTest {
                 return (lambda w: w)(nested(x))
             """)
         .isFalse();
+  }
+
+  @Test
+  public void loadStatement() throws Exception {
+    loader = importName -> TestUtils.LoadableModule.of("typed", Types.INT, "untyped", Types.ANY);
+    Result result = tagFile("load('//x:x.bzl', local_t = 'typed', local_u = 'untyped')");
+    LoadStatement loadStmt = getFirstStatement(LoadStatement.class, result.file());
+
+    assertThat(loadStmt.getBindings().stream().map(b -> result.getType(b.getLocalName())))
+        .containsExactly(Types.INT, Types.ANY)
+        .inOrder();
+  }
+
+  @Test
+  public void loadStatement_requiresWorkingLoader() throws Exception {
+    loader = null;
+    assertInvalid(
+        "load statements are not supported because no module loader has been defined",
+        "load('//x:x.bzl', 'x')");
+  }
+
+  @Test
+  public void loadStatement_requiresLoadableModule() throws Exception {
+    loader = importName -> null;
+    assertInvalid("module '//x:x.bzl' not found", "load('//x:x.bzl', 'x')");
+  }
+
+  @Test
+  public void loadStatement_requiresExportedGlobal() throws Exception {
+    loader = importName -> TestUtils.LoadableModule.of();
+    assertInvalid("module '//x:x.bzl' does not contain symbol 'x'", "load('//x:x.bzl', 'x')");
   }
 }

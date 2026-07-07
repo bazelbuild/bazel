@@ -16,16 +16,22 @@ package com.google.devtools.build.lib.buildeventservice;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.TruthJUnit.assume;
 import static com.google.common.truth.extensions.proto.ProtoTruth.assertThat;
 import static com.google.devtools.build.lib.buildeventservice.BuildEventServiceModule.RUNS_PER_TEST_LIMIT;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Maps;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.actions.ActionLookupData;
+import com.google.devtools.build.lib.actions.BuildFailedException;
+import com.google.devtools.build.lib.actions.SpawnResult;
+import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialModule;
 import com.google.devtools.build.lib.bugreport.BugReport;
@@ -44,14 +50,21 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Bui
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.BuildFinishedId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.ConfigurationId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.TargetCompletedId;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildFinished;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.BuildGraphMetrics.StarlarkProviderStats.StalarkProvider;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.BzlMetrics;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.BzlMetrics.BzlFileMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
 import com.google.devtools.build.lib.buildeventstream.transports.BinaryFormatFileTransport;
 import com.google.devtools.build.lib.buildeventstream.transports.JsonFormatFileTransport;
 import com.google.devtools.build.lib.buildeventstream.transports.TextFormatFileTransport;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
+import com.google.devtools.build.lib.exec.SpawnExecException;
 import com.google.devtools.build.lib.network.ConnectivityStatus;
 import com.google.devtools.build.lib.network.ConnectivityStatusProvider;
 import com.google.devtools.build.lib.network.NoOpConnectivityModule;
+import com.google.devtools.build.lib.packages.metrics.PackageMetricsModule;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
@@ -59,11 +72,18 @@ import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.NoSpawnCacheModule;
 import com.google.devtools.build.lib.runtime.proto.CommandLineOuterClass.CommandLineSection;
 import com.google.devtools.build.lib.runtime.proto.CommandLineOuterClass.Option;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.Spawn;
+import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
+import com.google.devtools.build.lib.testutil.ControllableActionStrategyModule;
+import com.google.devtools.build.lib.testutil.SpawnController;
+import com.google.devtools.build.lib.testutil.SpawnController.ExecResult;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.skyframe.NotifyingHelper;
 import com.google.devtools.common.options.Options;
+import com.google.protobuf.MessageLite;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import io.grpc.ManagedChannel;
@@ -87,8 +107,10 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 import org.junit.After;
@@ -113,6 +135,7 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
 
   private BazelBuildEventServiceModule besModule;
   private BlazeModule connectivityModule = new NoOpConnectivityModule();
+  private final SpawnController spawnController = new SpawnController();
 
   @Rule public TemporaryFolder tmpFolder = new TemporaryFolder();
 
@@ -135,6 +158,8 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
             })
         .addBlazeModule(new NoSpawnCacheModule())
         .addBlazeModule(new CredentialModule())
+        .addBlazeModule(new PackageMetricsModule())
+        .addBlazeModule(new ControllableActionStrategyModule(spawnController, "standalone"))
         .addBlazeModule(
             new BazelBuildEventServiceModule() {
               @Override
@@ -163,6 +188,8 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
   private ImmutableSet<BuildEventTransport> bepTransports;
   private final List<BuildEventServiceUploadCompleteEvent> besUploadCompleteEvents =
       new ArrayList<>();
+  private final List<PrevInvocationBesUploadReportFailedEvent>
+      prevInvocationBesUploadReportFailedEvents = new ArrayList<>();
 
   private class BepTransportLogger {
     @Subscribe
@@ -177,6 +204,15 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
     @SuppressWarnings("unused")
     public void onBuildEventServiceUploadComplete(BuildEventServiceUploadCompleteEvent event) {
       besUploadCompleteEvents.add(event);
+    }
+  }
+
+  private class PrevInvocationBesUploadReportFailedEventListener {
+    @Subscribe
+    @SuppressWarnings("unused")
+    public void onPrevInvocationBesUploadReportFailed(
+        PrevInvocationBesUploadReportFailedEvent event) {
+      prevInvocationBesUploadReportFailedEvents.add(event);
     }
   }
 
@@ -222,12 +258,14 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
             .directExecutor()
             .build()
             .start();
+    runtimeWrapper.registerSubscriber(new PrevInvocationBesUploadReportFailedEventListener());
   }
 
   @After
   public void tearDown() throws Exception {
     fakeServer.shutdownNow();
     fakeServer.awaitTermination();
+    spawnController.verifyAllShimsConsumed();
   }
 
   @Test
@@ -423,8 +461,9 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
     afterBuildCommand();
     buildTarget();
     events.assertContainsWarning(
-        "The background upload of the Build Event Protocol for the previous "
-            + "invocation failed to complete in");
+        Pattern.compile(
+            "The background upload of the Build Event Protocol for the previous invocation.*"
+                + " failed to complete in"));
   }
 
   @Test
@@ -435,8 +474,9 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
     afterBuildCommand();
     buildTarget();
     events.assertContainsWarning(
-        "The background upload of the Build Event Protocol for the previous "
-            + "invocation failed to complete in");
+        Pattern.compile(
+            "The background upload of the Build Event Protocol for the previous invocation.*"
+                + " failed to complete in"));
   }
 
   @Test
@@ -450,8 +490,12 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
     afterBuildCommand();
     buildTarget();
     events.assertContainsWarning(
-        "The background upload of the Build Event Protocol for the previous "
-            + "invocation failed due to a network timeout");
+        Pattern.compile(
+            "The background upload of the Build Event Protocol for the previous invocation.*"
+                + " failed due to a network timeout"));
+    assertThat(prevInvocationBesUploadReportFailedEvents).isNotEmpty();
+    assertThat(prevInvocationBesUploadReportFailedEvents.get(0).failed()).isTrue();
+    assertThat(prevInvocationBesUploadReportFailedEvents.get(0).prevInvocationId()).isNotNull();
   }
 
   @Test
@@ -465,8 +509,9 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
     afterBuildCommand();
     buildTarget();
     events.assertContainsWarning(
-        "The background upload of the Build Event Protocol for the previous "
-            + "invocation failed due to a network timeout");
+        Pattern.compile(
+            "The background upload of the Build Event Protocol for the previous invocation.*"
+                + " failed due to a network timeout"));
   }
 
   @Test
@@ -550,8 +595,9 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
     afterBuildCommand();
     buildTarget();
     events.assertContainsWarning(
-        "The background upload of the Build Event Protocol for the previous "
-            + "invocation failed to complete in");
+        Pattern.compile(
+            "The background upload of the Build Event Protocol for the previous invocation.*"
+                + " failed to complete in"));
   }
 
   @Test
@@ -577,8 +623,9 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
     afterBuildCommand();
     buildTarget();
     events.assertContainsWarning(
-        "The background upload of the Build Event Protocol for the previous "
-            + "invocation failed due to a network timeout.");
+        Pattern.compile(
+            "The background upload of the Build Event Protocol for the previous invocation.*"
+                + " failed due to a network timeout\\."));
   }
 
   @Test
@@ -943,16 +990,11 @@ project = project_pb2.Project.create(
         "--build_event_binary_file=" + buildEventBinaryFile.getAbsolutePath());
     buildTarget("//hello:hello");
 
-    BuildEvent canonicalCommandLineEvent = null;
-    try (InputStream in = new FileInputStream(buildEventBinaryFile)) {
-      BuildEvent ev;
-      while ((ev = BuildEvent.parseDelimitedFrom(in)) != null) {
-        if (ev.hasStructuredCommandLine()
-            && ev.getStructuredCommandLine().getCommandLineLabel().equals("canonical")) {
-          canonicalCommandLineEvent = ev;
-        }
-      }
-    }
+    BuildEvent canonicalCommandLineEvent =
+        findEventInBep(
+            buildEventBinaryFile,
+            (e) ->
+                e.getStructuredCommandLine().getCommandLineLabel().equals("canonical") ? e : null);
     ImmutableList<CommandLineSection> sections =
         canonicalCommandLineEvent.getStructuredCommandLine().getSectionsList().stream()
             .filter(s -> s.getSectionLabel().equals("command options"))
@@ -964,6 +1006,96 @@ project = project_pb2.Project.create(
             .collect(toImmutableList());
     assertThat(options).contains("--define=foo=bar");
     assertThat(options).contains("--//flag:my_flag=my_value");
+  }
+
+  @Test
+  public void bzlMetrics(
+      @TestParameter boolean publishPackageMetrics, @TestParameter boolean recordAllPackageMetrics)
+      throws Exception {
+    // In bazel there are other bzl files loaded for repo rules, so just skip.
+    assume().that(AnalysisMock.get().isThisBazel()).isFalse();
+
+    long smallBzlSize = write("foo/small.bzl", "A = 1").getFileSize();
+    long bigBzlSize = write("foo/big.bzl", "B = 123456789").getFileSize();
+    write(
+        "foo/BUILD",
+        """
+        load(":small.bzl", "A")
+        load(":big.bzl", "B")
+        filegroup(name = "empty")
+        """);
+    File buildEventBinaryFile = tmpFolder.newFile();
+    addOptions(
+        "--build_event_binary_file=" + buildEventBinaryFile.getAbsolutePath(),
+        "--experimental_publish_package_metrics_in_bep=" + publishPackageMetrics,
+        "--record_metrics_for_all_packages=" + recordAllPackageMetrics,
+        "--log_top_n_packages=1");
+
+    buildTarget("//foo:empty");
+
+    BzlMetrics bzlMetrics = getBuildMetrics(buildEventBinaryFile).getBzlMetrics();
+
+    if (!publishPackageMetrics) {
+      assertThat(bzlMetrics).isEqualToDefaultInstance();
+      return;
+    }
+
+    BzlFileMetrics bigBzlMetrics =
+        BzlFileMetrics.newBuilder().setPath("foo/big.bzl").setSize(bigBzlSize).build();
+    BzlFileMetrics smallBzlMetrics =
+        BzlFileMetrics.newBuilder().setPath("foo/small.bzl").setSize(smallBzlSize).build();
+
+    if (recordAllPackageMetrics) {
+      assertThat(bzlMetrics.getBzlFileMetricsList())
+          .containsExactly(bigBzlMetrics, smallBzlMetrics);
+    } else {
+      assertThat(bzlMetrics.getBzlFileMetricsList()).containsExactly(bigBzlMetrics);
+    }
+    assertThat(bzlMetrics.getBzlFileCount()).isEqualTo(2);
+  }
+
+  @Test
+  public void starlarkProviderMetrics() throws Exception {
+    write(
+        "foo/defs.bzl",
+        """
+        A = provider()
+        B = provider(fields = ["x", "y"])
+
+        def _impl(ctx):
+          return [
+            A(some_field = "a"),
+            B(x = "x", y = "y"),
+            DefaultInfo(files = depset([])),
+          ]
+
+        my_rule = rule(implementation = _impl)
+        """);
+    write(
+        "foo/BUILD",
+        """
+        load(":defs.bzl", "my_rule")
+        my_rule(name = "example")
+        """);
+    File buildEventBinaryFile = tmpFolder.newFile();
+    addOptions(
+        "--build_event_binary_file=" + buildEventBinaryFile.getAbsolutePath(),
+        "--experimental_record_skyframe_metrics");
+
+    buildTarget("//foo:example");
+
+    ImmutableMap<String, StalarkProvider> starlarkProviderStats =
+        Maps.uniqueIndex(
+            getBuildMetrics(buildEventBinaryFile)
+                .getBuildGraphMetrics()
+                .getStarlarkProviderStats()
+                .getProvidersList(),
+            StalarkProvider::getName);
+    assertThat(starlarkProviderStats.keySet()).containsExactly("A", "B");
+    assertThat(starlarkProviderStats.get("A").getLocation()).startsWith("foo/defs.bzl:1");
+    assertThat(starlarkProviderStats.get("A").hasSchema()).isFalse();
+    assertThat(starlarkProviderStats.get("B").getLocation()).startsWith("foo/defs.bzl:2");
+    assertThat(starlarkProviderStats.get("B").getSchema().getFieldCount()).isEqualTo(2);
   }
 
   private static final class DelayingCloseBufferedOutputStream extends BufferedOutputStream {
@@ -986,5 +1118,155 @@ project = project_pb2.Project.create(
     public boolean isClosed() {
       return closed.get();
     }
+  }
+
+  @Test
+  public void testMultipleActionsSingleTarget() throws Exception {
+    write(
+        "foo/defs.bzl",
+        """
+        def _multi_action_rule_impl(ctx):
+            outputs = []
+            for i, out_name in enumerate(ctx.attr.out_names):
+                out_file = ctx.actions.declare_file(out_name)
+                outputs.append(out_file)
+                ctx.actions.run_shell(
+                    outputs = [out_file],
+                    command = "echo action %d > %s" % (i, out_file.path),
+                    mnemonic = "MyAction%d" % i,
+                )
+            return [DefaultInfo(files = depset(outputs))]
+
+        multi_action_rule = rule(
+            implementation = _multi_action_rule_impl,
+            attrs = {
+                "out_names": attr.string_list(),
+            },
+        )
+        """);
+    write(
+        "foo/BUILD",
+        """
+        load(":defs.bzl", "multi_action_rule")
+        multi_action_rule(
+            name = "my_target",
+            out_names = ["out1.txt", "out2.txt"],
+        )
+        """);
+
+    buildTarget("//foo:my_target");
+    events.assertNoWarningsOrErrors();
+  }
+
+  @Test
+  public void testSeverityErrorSelection() throws Exception {
+    write(
+        "foo/defs.bzl",
+        """
+        def _multi_action_rule_impl(ctx):
+            outputs = []
+            for i, out_name in enumerate(ctx.attr.out_names):
+                out_file = ctx.actions.declare_file(out_name)
+                outputs.append(out_file)
+                ctx.actions.run_shell(
+                    outputs = [out_file],
+                    command = "echo action %d > %s" % (i, out_file.path),
+                    mnemonic = "MyAction%d" % i,
+                )
+            return [DefaultInfo(files = depset(outputs))]
+
+        multi_action_rule = rule(
+            implementation = _multi_action_rule_impl,
+            attrs = {
+                "out_names": attr.string_list(),
+            },
+        )
+        """);
+    write(
+        "foo/BUILD",
+        """
+        load(":defs.bzl", "multi_action_rule")
+        multi_action_rule(
+            name = "my_target",
+            out_names = ["out1.txt", "out2.txt"],
+        )
+        """);
+
+    spawnController.addSpawnShim(
+        "MyAction0 foo/out1.txt",
+        (spawn, context) ->
+            ExecResult.ofException(
+                new SpawnExecException(
+                    "Action 0 failed",
+                    new SpawnResult.Builder()
+                        .setRunnerName("local")
+                        .setStatus(SpawnResult.Status.NON_ZERO_EXIT)
+                        .setExitCode(1)
+                        .setFailureDetail(
+                            FailureDetail.newBuilder()
+                                .setMessage("Action 0 failed")
+                                .setSpawn(Spawn.newBuilder().setCode(Code.NON_ZERO_EXIT))
+                                .build())
+                        .build(),
+                    /* forciblyRunRemotely= */ false,
+                    /* catastrophe= */ false)));
+
+    // EXECUTION_FAILED is an infrastructure error and should be prioritized over NON_ZERO_EXIT.
+    spawnController.addSpawnShim(
+        "MyAction1 foo/out2.txt",
+        (spawn, context) ->
+            ExecResult.ofException(
+                new SpawnExecException(
+                    "Action 1 failed",
+                    new SpawnResult.Builder()
+                        .setRunnerName("local")
+                        .setStatus(SpawnResult.Status.EXECUTION_FAILED)
+                        .setExitCode(34)
+                        .setFailureDetail(
+                            FailureDetail.newBuilder()
+                                .setMessage("Action 1 failed")
+                                .setSpawn(Spawn.newBuilder().setCode(Code.EXECUTION_FAILED))
+                                .build())
+                        .build(),
+                    /* forciblyRunRemotely= */ false,
+                    /* catastrophe= */ false)));
+
+    File bep = tmpFolder.newFile();
+    addOptions(
+        "--keep_going",
+        "--spawn_strategy=standalone",
+        "--build_event_binary_file=" + bep.getAbsolutePath(),
+        "--bes_upload_mode=WAIT_FOR_UPLOAD_COMPLETE");
+
+    assertThrows(BuildFailedException.class, () -> buildTarget("//foo:my_target"));
+    afterBuildCommand();
+
+    BuildFinished buildFinished = findBuildFinishedEvent(bep);
+    assertThat(buildFinished).isNotNull();
+    assertThat(buildFinished.getFailureDetail().getSpawn().getCode())
+        .isEqualTo(Code.EXECUTION_FAILED);
+  }
+
+  private static BuildFinished findBuildFinishedEvent(File bep) throws IOException {
+    return findEventInBep(bep, ev -> ev.hasFinished() ? ev.getFinished() : null);
+  }
+
+  private static BuildMetrics getBuildMetrics(File buildEventBinaryFile) throws IOException {
+    return findEventInBep(
+        buildEventBinaryFile, ev -> ev.hasBuildMetrics() ? ev.getBuildMetrics() : null);
+  }
+
+  private static <T extends MessageLite> T findEventInBep(
+      File bep, Function<BuildEvent, T> extractor) throws IOException {
+    try (InputStream in = new FileInputStream(bep)) {
+      BuildEvent ev;
+      while ((ev = BuildEvent.parseDelimitedFrom(in)) != null) {
+        @Nullable T extracted = extractor.apply(ev);
+        if (extracted != null) {
+          return extracted;
+        }
+      }
+    }
+    throw new NoSuchElementException();
   }
 }

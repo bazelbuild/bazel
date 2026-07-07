@@ -222,6 +222,7 @@ public abstract sealed class PackagePiece extends Packageoid
         @Nullable Globber globber,
         boolean enableNameConflictChecking,
         boolean trackFullMacroInformation,
+        PackageValidator packageValidator,
         PackageLimits packageLimits) {
       Metadata metadata =
           Metadata.builder()
@@ -247,6 +248,7 @@ public abstract sealed class PackagePiece extends Packageoid
           globber,
           enableNameConflictChecking,
           trackFullMacroInformation,
+          packageValidator,
           packageLimits);
     }
 
@@ -310,6 +312,7 @@ public abstract sealed class PackagePiece extends Packageoid
           @Nullable Globber globber,
           boolean enableNameConflictChecking,
           boolean trackFullMacroInformation,
+          PackageValidator packageValidator,
           PackageLimits packageLimits) {
         super(
             forBuildFile.getMetadata(),
@@ -326,6 +329,7 @@ public abstract sealed class PackagePiece extends Packageoid
             enableNameConflictChecking,
             trackFullMacroInformation,
             /* enableTargetMapSnapshotting= */ false,
+            packageValidator,
             packageLimits);
       }
     }

@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.analysis.AspectCollection;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
-import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
@@ -46,6 +45,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import javax.annotation.Nullable;
 
@@ -182,6 +182,7 @@ public class BuildRequest implements OptionsProvider {
   private final UUID id;
   private final LoadingCache<Class<? extends OptionsBase>, Optional<OptionsBase>> optionsCache;
   private final Map<String, Object> starlarkOptions;
+  private final Set<String> starlarkOptionsAllowingMultiple;
   private final Map<String, String> scopesAttributes;
   private final Map<String, Object> onLeaveScopeValues;
 
@@ -237,6 +238,7 @@ public class BuildRequest implements OptionsProvider {
                   return Optional.fromNullable(result);
                 });
     this.starlarkOptions = options.getStarlarkOptions();
+    this.starlarkOptionsAllowingMultiple = options.getStarlarkOptionsAllowingMultiple();
     this.scopesAttributes = options.getScopesAttributes();
     this.onLeaveScopeValues = options.getOnLeaveScopeValues();
     this.needsInstrumentationFilter = needsInstrumentationFilter;
@@ -287,6 +289,11 @@ public class BuildRequest implements OptionsProvider {
   @Override
   public Map<String, Object> getExplicitCommandLineStarlarkOptions() {
     throw new UnsupportedOperationException("No known callers to this implementation");
+  }
+
+  @Override
+  public Set<String> getStarlarkOptionsAllowingMultiple() {
+    return starlarkOptionsAllowingMultiple;
   }
 
   /**

@@ -12,8 +12,7 @@ alike.
 This page describes how to enable, tune, and debug dynamic execution. If you
 have both local and remote execution set up and are trying to adjust Bazel
 settings for better performance, this page is for you. If you don't already have
-remote execution set up, go to the Bazel [Remote Execution
-Overview](/remote/rbe) first.
+remote execution set up, go to the Bazel [Remote Execution Overview](/remote/rbe) first.
 
 ## Enabling dynamic execution? {#enabling-dynamic-execution}
 
@@ -44,14 +43,12 @@ are likely. The default value is 1000ms, but should be tuned to being just a bit
 longer than cache hits usually take. The actual time depends both on the remote
 system and on how long a round-trip takes. Usually, the value will be the same
 for all users of a given remote system, unless some of them are far enough away
-to add roundtrip latency. You can use the [Bazel profiling
-features](/rules/performance#performance-profiling) to look at how long typical
+to add roundtrip latency. You can use the [Bazel profiling features](/rules/performance#performance-profiling) to look at how long typical
 cache hits take.
 
 Dynamic execution can be used with local sandboxed strategy as well as with
 [persistent workers](/remote/persistent). Persistent workers will automatically
-run with sandboxing when used with dynamic execution, and cannot use [multiplex
-workers](/remote/multiplex). On Darwin and Windows systems, the sandboxed
+run with sandboxing when used with dynamic execution, and cannot use [multiplex workers](/remote/multiplex). On Darwin and Windows systems, the sandboxed
 strategy can be slow; you can pass `--reuse_sandbox_directories` to reduce
 overhead of creating sandboxes on these systems.
 
@@ -67,8 +64,7 @@ entire action fails. This is an intentional choice to prevent differences
 between local and remote execution from going unnoticed.
 
 For more background on how dynamic execution and its locking works, see Julio
-Merino's excellent [blog
-posts](https://jmmv.dev/series/bazel-dynamic-execution/)
+Merino's excellent [blog posts](https://jmmv.dev/series/bazel-dynamic-execution/)
 
 ## When should I use dynamic execution? {#when-to-use}
 

@@ -346,10 +346,11 @@ public final class WorkspaceRuleEvent implements Postable {
   }
 
   public static WorkspaceRuleEvent newLoadWasmEvent(
-      String modulePath, String allocateFn, String context, Location location) {
+      String modulePath, boolean compile, String allocateFn, String context, Location location) {
     LoadWasmEvent e =
         WorkspaceLogProtos.LoadWasmEvent.newBuilder()
             .setModulePath(modulePath)
+            .setCompile(compile)
             .setAllocateFn(allocateFn)
             .build();
     WorkspaceLogProtos.WorkspaceEvent.Builder result =

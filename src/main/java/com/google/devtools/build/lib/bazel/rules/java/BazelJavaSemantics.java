@@ -19,12 +19,15 @@ import static com.google.devtools.build.lib.analysis.constraints.ConstraintConst
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaUtil;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
+import java.util.Optional;
 
 /** Semantics for Bazel Java rules */
 public class BazelJavaSemantics implements JavaSemantics {
@@ -85,5 +88,10 @@ public class BazelJavaSemantics implements JavaSemantics {
     // Disable parallelism
     // See also https://github.com/bazelbuild/bazel/issues/29350
     return false;
+  }
+
+  @Override
+  public Optional<String> getFixDepsTool(Rule rule, JavaConfiguration javaConfiguration) {
+    return Optional.empty();
   }
 }

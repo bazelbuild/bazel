@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.config.StarlarkConfigApi.BuildSettingApi;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
+import net.starlark.java.annot.StarlarkLibrary;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
@@ -36,6 +37,7 @@ import net.starlark.java.eval.StarlarkThread;
  * functions.
  */
 @GlobalMethods(environment = Environment.BZL)
+@StarlarkLibrary
 public interface StarlarkRuleFunctionsApi {
 
   String EXEC_COMPATIBLE_WITH_PARAM = "exec_compatible_with";
@@ -109,7 +111,10 @@ public interface StarlarkRuleFunctionsApi {
                     + " dictionary field name -> documentation:<br>       <pre"
                     + " class=\"language-python\">provider(\n"
                     + "       fields = { 'a' : 'Documentation for a', 'b' : 'Documentation for b'"
-                    + " })</pre></ul>All fields are optional.",
+                    + " })</pre></ul>All fields are optional." //
+                    + "<p>It is <em>strongly recommended</em> to specify this parameter, as"
+                    + " defining a field schema allows Bazel to store provider instances more"
+                    + " compactly.",
             allowedTypes = {
               @ParamType(type = Sequence.class, generic1 = String.class),
               @ParamType(type = Dict.class),

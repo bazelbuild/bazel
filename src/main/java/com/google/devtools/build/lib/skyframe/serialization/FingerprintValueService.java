@@ -14,17 +14,15 @@
 package com.google.devtools.build.lib.skyframe.serialization;
 
 import static com.google.common.hash.Hashing.murmur3_128;
-import static com.google.common.io.BaseEncoding.base16;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.concurrent.Executors.newSingleThreadExecutor;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Throwables;
+import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore.InMemoryFingerprintValueStore;
-import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.WriteStatus;
-import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisJsonLogWriter;
+import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.SparseAggregateWriteStatus;
 import com.google.devtools.build.lib.util.DecimalBucketer;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.protobuf.ByteString;
@@ -57,20 +55,11 @@ public final class FingerprintValueService implements KeyValueWriter {
    */
   private final Fingerprinter fingerprinter;
 
-  @Nullable // When log writing is not turned on
-  private final RemoteAnalysisJsonLogWriter jsonLogWriter;
-
   private final PackedFingerprint fingerprintPlaceholder;
   private final int fingerprintLength;
 
   private final DecimalBucketer getLatencyMicros = new DecimalBucketer();
   private final DecimalBucketer setLatencyMicros = new DecimalBucketer();
-
-  @VisibleForTesting
-  public static FingerprintValueService createForTesting() {
-    return createForTesting(
-        FingerprintValueStore.inMemoryStore(), FingerprintValueCache.SyncMode.NOT_LINKED);
-  }
 
   /**
    * Returns an instance that uses a {@link FingerprintValueStore} that indicates a missing entry by
@@ -82,36 +71,36 @@ public final class FingerprintValueService implements KeyValueWriter {
   }
 
   @VisibleForTesting
+  public static FingerprintValueService createForTesting() {
+    return createForTesting(
+        new InMemoryFingerprintValueStore(), FingerprintValueCache.SyncMode.NOT_LINKED);
+  }
+
+  @VisibleForTesting
   public static FingerprintValueService createForTesting(FingerprintValueStore store) {
     return createForTesting(store, FingerprintValueCache.SyncMode.NOT_LINKED);
   }
 
   @VisibleForTesting
   public static FingerprintValueService createForTesting(FingerprintValueCache.SyncMode mode) {
-    return createForTesting(FingerprintValueStore.inMemoryStore(), mode);
+    return createForTesting(new InMemoryFingerprintValueStore(), mode);
   }
 
   private static FingerprintValueService createForTesting(
       FingerprintValueStore store, FingerprintValueCache.SyncMode mode) {
     return new FingerprintValueService(
-        newSingleThreadExecutor(),
-        store,
-        new FingerprintValueCache(mode),
-        NONPROD_FINGERPRINTER,
-        /* jsonLogWriter= */ null);
+        newSingleThreadExecutor(), store, new FingerprintValueCache(mode), NONPROD_FINGERPRINTER);
   }
 
   public FingerprintValueService(
       Executor executor,
       FingerprintValueStore store,
       FingerprintValueCache cache,
-      Fingerprinter fingerprinter,
-      @Nullable RemoteAnalysisJsonLogWriter jsonLogWriter) {
+      Fingerprinter fingerprinter) {
     this.executor = executor;
     this.store = store;
     this.cache = cache;
     this.fingerprinter = fingerprinter;
-    this.jsonLogWriter = jsonLogWriter;
 
     this.fingerprintPlaceholder = fingerprint(new byte[] {});
     this.fingerprintLength = fingerprintPlaceholder.toBytes().length;
@@ -152,34 +141,46 @@ public final class FingerprintValueService implements KeyValueWriter {
     store.shutdown();
   }
 
+  public Fingerprinter getFingerprinter() {
+    return fingerprinter;
+  }
+
   /** Delegates to {@link FingerprintValueStore#put}. */
   @Override
   public WriteStatus put(KeyBytesProvider fingerprint, byte[] serializedBytes) {
-    int serializedBytesLength = serializedBytes.length;
     Instant before = Instant.now();
-    WriteStatus putStatus = store.put(fingerprint, serializedBytes);
-    putStatus.addListener(
+    WriteStatus rawStatus = store.put(fingerprint, serializedBytes);
+    WriteStatus finalStatus;
+
+    if (store.isSparseAggregationSupported()
+        && !rawStatus.isDone()) { // Skip if the status is already done.
+      // Wrap to enable sparse callback edges.
+      // TODO(shahan): avoid FutureCallback here by using a custom wrapper class.
+      var wrapper = new SparseAggregateWriteStatus();
+      Futures.addCallback(
+          rawStatus,
+          new FutureCallback<Boolean>() {
+            @Override
+            public void onSuccess(Boolean result) {
+              wrapper.notifyWriteSucceeded(result);
+            }
+
+            @Override
+            public void onFailure(Throwable t) {
+              wrapper.notifyWriteFailed(t);
+            }
+          },
+          directExecutor());
+      finalStatus = wrapper;
+    } else {
+      finalStatus = rawStatus;
+    }
+    finalStatus.addListener(
         () ->
             setLatencyMicros.add(
                 TimeUnit.NANOSECONDS.toMicros(Duration.between(before, Instant.now()).toNanos())),
         directExecutor());
-    if (jsonLogWriter == null) {
-      return putStatus;
-    }
-
-    return jsonLogWriter.logWrite(
-        putStatus,
-        e -> {
-          try (var entry = jsonLogWriter.startEntry("fvsPut")) {
-            entry.addField("start", before);
-            entry.addField("end", Instant.now());
-            entry.addField("key", base16().lowerCase().encode(fingerprint.toBytes()));
-            entry.addField("valueSize", serializedBytesLength);
-            if (e != null) {
-              entry.addField("exception", e.getMessage());
-            }
-          }
-        });
+    return finalStatus;
   }
 
   public FingerprintValueStore.Stats getStats() {
@@ -201,29 +202,8 @@ public final class FingerprintValueService implements KeyValueWriter {
 
   /** Delegates to {@link FingerprintValueStore#get}. */
   public ListenableFuture<byte[]> get(KeyBytesProvider fingerprint) throws IOException {
-    return get(fingerprint, /* fallback= */ true);
-  }
-
-  /** Delegates to {@link FingerprintValueStore#get}. */
-  public ListenableFuture<byte[]> get(KeyBytesProvider fingerprint, boolean fallback)
-      throws IOException {
     Instant before = Instant.now();
-    ListenableFuture<byte[]> result = store.get(fingerprint, fallback);
-    if (jsonLogWriter != null) {
-      result =
-          Futures.transform(
-              result,
-              b -> {
-                try (var entry = jsonLogWriter.startEntry("fvsGet")) {
-                  entry.addField("start", before);
-                  entry.addField("end", Instant.now());
-                  entry.addField("key", base16().lowerCase().encode(fingerprint.toBytes()));
-                  entry.addField("responseSize", b.length);
-                }
-                return b;
-              },
-              directExecutor());
-    }
+    ListenableFuture<byte[]> result = store.get(fingerprint);
     result.addListener(
         () ->
             getLatencyMicros.add(

@@ -273,10 +273,18 @@ final class ByteStreamUploader {
           return;
         }
 
+        // The spec leaves the non-dedup committed_size for a compressed write
+        // underspecified, so accept the uncompressed blob size that some servers
+        // report on success.
+        if (committedSize == chunker.getUncompressedSize()) {
+          return;
+        }
+
         throw new IOException(
             format(
-                "compressed write incomplete: committed_size %d is neither -1 nor total %d - %s",
-                committedSize, expected, resourceName));
+                "compressed write incomplete: committed_size %d is neither -1, total %d, nor"
+                    + " uncompressed size %d - %s",
+                committedSize, expected, chunker.getUncompressedSize(), resourceName));
       }
 
       // Uncompressed upload failed.

@@ -76,10 +76,6 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
   private final AppleCommandLineOptions options;
   private final AppleCpus appleCpus;
   private final String xcodeVersionFlag;
-  private final DottedVersion iosSdkVersionFlag;
-  private final DottedVersion macOsSdkVersionFlag;
-  private final DottedVersion tvOsSdkVersionFlag;
-  private final DottedVersion watchOsSdkVersionFlag;
   private final DottedVersion iosMinimumOsFlag;
   private final DottedVersion macosMinimumOsFlag;
   private final DottedVersion tvosMinimumOsFlag;
@@ -99,10 +95,6 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
     // AppleConfiguration should not have this knowledge. This is a temporary workaround
     // for Starlarkification, until apple rules are toolchainized.
     this.xcodeVersionFlag = options.getXcodeVersion();
-    this.iosSdkVersionFlag = DottedVersion.maybeUnwrap(options.getIosSdkVersion());
-    this.macOsSdkVersionFlag = DottedVersion.maybeUnwrap(options.getMacOsSdkVersion());
-    this.tvOsSdkVersionFlag = DottedVersion.maybeUnwrap(options.getTvOsSdkVersion());
-    this.watchOsSdkVersionFlag = DottedVersion.maybeUnwrap(options.getWatchOsSdkVersion());
     this.iosMinimumOsFlag = DottedVersion.maybeUnwrap(options.getIosMinimumOs());
     this.macosMinimumOsFlag = DottedVersion.maybeUnwrap(options.getMacosMinimumOs());
     this.tvosMinimumOsFlag = DottedVersion.maybeUnwrap(options.getTvosMinimumOs());
@@ -246,26 +238,6 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
   @Override
   public String getXcodeVersionFlag() throws EvalException {
     return xcodeVersionFlag;
-  }
-
-  @Override
-  public DottedVersion iosSdkVersionFlag() throws EvalException {
-    return iosSdkVersionFlag;
-  }
-
-  @Override
-  public DottedVersion macOsSdkVersionFlag() throws EvalException {
-    return macOsSdkVersionFlag;
-  }
-
-  @Override
-  public DottedVersion tvOsSdkVersionFlag() throws EvalException {
-    return tvOsSdkVersionFlag;
-  }
-
-  @Override
-  public DottedVersion watchOsSdkVersionFlag() throws EvalException {
-    return watchOsSdkVersionFlag;
   }
 
   @Override

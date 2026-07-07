@@ -15,7 +15,7 @@ widespread use.
 ## Use depsets {#use-depsets}
 
 Whenever you are rolling up information from rule dependencies you should use
-[depsets](lib/depset). Only use plain lists or dicts to publish information
+[depsets](/versions/8.3.1/rules/lib/builtins/depset). Only use plain lists or dicts to publish information
 local to the current rule.
 
 A depset represents information as a nested graph which enables sharing.
@@ -73,7 +73,7 @@ See the [depset overview](/versions/8.3.1/extending/depsets) page for more infor
 ### Avoid calling `depset.to_list()` {#avoid-depset-to-list}
 
 You can coerce a depset to a flat list using
-[`to_list()`](lib/depset#to_list), but doing so usually results in O(N^2)
+[`to_list()`](/versions/8.3.1/rules/lib/builtins/depset#to_list), but doing so usually results in O(N^2)
 cost. If at all possible, avoid any flattening of depsets except for debugging
 purposes.
 
@@ -115,7 +115,7 @@ x = depset(transitive = [i.deps for i in inputs])
 
 ## Use ctx.actions.args() for command lines {#ctx-actions-args}
 
-When building command lines you should use [ctx.actions.args()](lib/Args).
+When building command lines you should use [ctx.actions.args()](/versions/8.3.1/rules/lib/builtins/Args).
 This defers expansion of any depsets to the execution phase.
 
 Apart from being strictly faster, this will reduce the memory consumption of
@@ -126,11 +126,11 @@ Here are some tricks:
 * Pass depsets and lists directly as arguments, instead of flattening them
 yourself. They will get expanded by `ctx.actions.args()` for you.
 If you need any transformations on the depset contents, look at
-[ctx.actions.args#add](lib/Args#add) to see if anything fits the bill.
+[ctx.actions.args#add](/versions/8.3.1/rules/lib/builtins/Args#add) to see if anything fits the bill.
 
 * Are you passing `File#path` as arguments? No need. Any
-[File](lib/File) is automatically turned into its
-[path](lib/File#path), deferred to expansion time.
+[File](/versions/8.3.1/rules/lib/builtins/File) is automatically turned into its
+[path](/versions/8.3.1/rules/lib/builtins/File#path), deferred to expansion time.
 
 * Avoid constructing strings by concatenating them together.
 The best string argument is a constant as its memory will be shared between
@@ -138,10 +138,10 @@ all instances of your rule.
 
 * If the args are too long for the command line an `ctx.actions.args()` object
 can be conditionally or unconditionally written to a param file using
-[`ctx.actions.args#use_param_file`](lib/Args#use_param_file). This is
+[`ctx.actions.args#use_param_file`](/versions/8.3.1/rules/lib/builtins/Args#use_param_file). This is
 done behind the scenes when the action is executed. If you need to explicitly
 control the params file you can write it manually using
-[`ctx.actions.write`](lib/actions#write).
+[`ctx.actions.write`](/versions/8.3.1/rules/lib/builtins/actions#write).
 
 Example:
 
@@ -176,7 +176,7 @@ def _to_short_path(f):
 
 ## Transitive action inputs should be depsets {#transitive-action-inputs}
 
-When building an action using [ctx.actions.run](lib/actions?#run), do not
+When building an action using [ctx.actions.run](/versions/8.3.1/rules/lib/builtins/actions#run), do not
 forget that the `inputs` field accepts a depset. Use this whenever inputs are
 collected from dependencies transitively.
 

@@ -305,17 +305,17 @@ public final class VendorCommand implements BlazeCommand {
       InMemoryGraph inMemoryGraph, ImmutableList<SkyKey> targetKeys) throws InterruptedException {
     ImmutableSet.Builder<RepositoryName> repos = ImmutableSet.builder();
     Queue<SkyKey> nodes = new ArrayDeque<>(targetKeys);
-    Set<SkyKey> visited = new HashSet<>();
+    // Mark nodes as visited when they are enqueued.
+    Set<SkyKey> visited = new HashSet<>(targetKeys);
     while (!nodes.isEmpty()) {
       SkyKey key = nodes.remove();
-      visited.add(key);
       NodeEntry nodeEntry = inMemoryGraph.get(null, Reason.VENDOR_EXTERNAL_REPOS, key);
       if (nodeEntry.getValue() instanceof RepositoryDirectoryValue.Success repoDirValue
           && !repoDirValue.excludeFromVendoring()) {
         repos.add((RepositoryName) key.argument());
       }
       for (SkyKey depKey : nodeEntry.getDirectDeps()) {
-        if (!visited.contains(depKey)) {
+        if (visited.add(depKey)) {
           nodes.add(depKey);
         }
       }

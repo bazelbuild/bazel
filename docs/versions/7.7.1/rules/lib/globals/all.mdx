@@ -49,7 +49,7 @@ abs(-2.3) == 2.3
 
 | Parameter | Description |
 | --- | --- |
-| `x` | [int](../core/int); or [float](../core/float); required  A number (int or float) |
+| `x` | [int](/versions/7.7.1/rules/lib/core/int); or [float](/versions/7.7.1/rules/lib/core/float); required  A number (int or float) |
 
 ## all
 
@@ -109,7 +109,7 @@ Constructor for the bool type. It returns `False` if the object is `None`, `Fals
 dict dict(pairs=[], **kwargs)
 ```
 
-Creates a [dictionary](../core/dict) from an optional positional argument and an optional set of keyword arguments. In the case where the same key is given multiple times, the last value will be used. Entries supplied via keyword arguments are considered to come after entries supplied via the positional argument.
+Creates a [dictionary](/versions/7.7.1/rules/lib/core/dict) from an optional positional argument and an optional set of keyword arguments. In the case where the same key is given multiple times, the last value will be used. Entries supplied via keyword arguments are considered to come after entries supplied via the positional argument.
 
 ### Parameters
 
@@ -164,7 +164,7 @@ Causes execution to fail with an error.
 | Parameter | Description |
 | --- | --- |
 | `msg` | default is `None`  Deprecated: use positional arguments instead. This argument acts like an implicit leading positional argument. |
-| `attr` | [string](../core/string); or `None`; default is `None`  Deprecated. Causes an optional prefix containing this string to be added to the error message. |
+| `attr` | [string](/versions/7.7.1/rules/lib/core/string); or `None`; default is `None`  Deprecated. Causes an optional prefix containing this string to be added to the error message. |
 | `sep` | default is `" "`  The separator string between the objects, default is space (" "). |
 | `args` | required  A list of values, formatted with debugPrint (which is equivalent to str by default) and joined with sep (defaults to " "), that appear in the error message. |
 
@@ -393,7 +393,7 @@ range(3, 0, -1) == [3, 2, 1]
 | Parameter | Description |
 | --- | --- |
 | `start_or_stop` | required  Value of the start element if stop is provided, otherwise value of stop and the actual start is 0 |
-| `stop_or_none` | [int](../core/int); or `None`; default is `None`  optional index of the first item *not* to be included in the resulting list; generation of the list stops before `stop` is reached. |
+| `stop_or_none` | [int](/versions/7.7.1/rules/lib/core/int); or `None`; default is `None`  optional index of the first item *not* to be included in the resulting list; generation of the list stops before `stop` is reached. |
 | `step` | default is `1`  The increment (default is 1). It may be negative. |
 
 ## repr

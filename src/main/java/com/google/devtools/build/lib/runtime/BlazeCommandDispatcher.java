@@ -42,7 +42,6 @@ import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
-import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.events.PrintingEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
@@ -673,10 +672,13 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
                   runtime, workspace, command, commandAnnotation, optionsParser, invocationPolicy);
           ImmutableList.Builder<OptionAndRawValue> invocationPolicyFlagListBuilder =
               ImmutableList.builder();
-          // Do not handle any events since this is the second time we parse the options.
+          StoredEventHandler storedSecondPassEventHandler = new StoredEventHandler();
           earlyExitCode =
               optionHandler.parseOptions(
-                  args, ExtendedEventHandler.NOOP, invocationPolicyFlagListBuilder);
+                  args, storedSecondPassEventHandler, invocationPolicyFlagListBuilder);
+          if (!earlyExitCode.isSuccess()) {
+            storedSecondPassEventHandler.replayOn(reporter);
+          }
           env.setInvocationPolicyFlags(invocationPolicyFlagListBuilder.build());
         }
         if (!earlyExitCode.isSuccess()) {
@@ -718,6 +720,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
               includeResidueInRunBepEvent,
               options.asListOfExplicitOptions(),
               options.getExplicitCommandLineStarlarkOptions(),
+              options.getStarlarkOptionsAllowingMultiple(),
               startupOptionsTaggedWithBazelRc);
       CommandLineEvent canonicalCommandLineEvent =
           new CommandLineEvent.CanonicalCommandLineEvent(
@@ -728,6 +731,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
               includeResidueInRunBepEvent,
               options.getExplicitCommandLineStarlarkOptions(),
               options.getStarlarkOptions(),
+              options.getStarlarkOptionsAllowingMultiple(),
               options.asListOfCanonicalOptions(),
               // If this is a command that analyzes with BuildTool, PROJECT.scl might set extra
               // canonical flags. In that case give BuildTool a chance to post a final updated
@@ -935,12 +939,16 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
     OpaqueOptionsData optionsData;
     optionsData = optionsDataCache.get(command);
     Command annotation = command.getClass().getAnnotation(Command.class);
+    Path workspacePath = runtime.getWorkspace().getWorkspace();
+    boolean hasModuleDotBazel =
+        workspacePath != null && workspacePath.getRelative("MODULE.bazel").exists();
     OptionsParser parser =
         OptionsParser.builder()
             .optionsData(optionsData)
             .skipStarlarkOptionPrefixes()
             .allowResidue(annotation.allowResidue())
             .withAliasFlag(CoreOptionConverters.BLAZE_ALIASING_FLAG)
+            .isFirstRoundOfParsing(annotation.buildPhase().analyzes() && hasModuleDotBazel)
             .build();
     return parser;
   }

@@ -14,6 +14,8 @@
 
 package com.google.devtools.common.options;
 
+import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
+
 /**
  * Base class for all options classes. Extend this class, adding public instance fields annotated
  * with {@link Option}. Then you can create instances either programmatically:
@@ -39,6 +41,7 @@ package com.google.devtools.common.options;
  * empty instance, not containing default values. This leads to surprising behavior and often {@code
  * NullPointerExceptions}, etc.)
  */
+@SkybridgeInterface
 public abstract class OptionsBase {
 
   /** Subclasses must provide a default (no argument) constructor. */

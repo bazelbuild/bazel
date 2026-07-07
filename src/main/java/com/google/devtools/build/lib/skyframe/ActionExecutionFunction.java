@@ -134,7 +134,8 @@ import net.starlark.java.eval.StarlarkSemantics;
  * in-flight primary shared action's execution, this function can abort after declaring an external
  * dep on the execution's completion future.
  */
-public final class ActionExecutionFunction implements SkyFunction {
+// Non-final for mocking.
+public class ActionExecutionFunction implements SkyFunction {
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
@@ -179,6 +180,7 @@ public final class ActionExecutionFunction implements SkyFunction {
     RemoteAnalysisCacheReaderDepsProvider remoteCachingDependencies =
         cachingDependenciesSupplier.get();
     if (remoteCachingDependencies.mode().isRetrievalEnabled()
+        && !remoteCachingDependencies.getSkycacheAnalysisOnly()
         && !skyframeActionExecutor.shouldSkipRetrieval(actionLookupData)) {
       switch (retrieveRemoteSkyValue(
           actionLookupData, env, remoteCachingDependencies, InputDiscoveryState::new)) {
@@ -202,7 +204,12 @@ public final class ActionExecutionFunction implements SkyFunction {
     }
 
     try {
-      return computeInternal(actionLookupData, action, env);
+      SkyValue result = computeInternal(actionLookupData, action, env);
+      if (result != null) {
+        SkyValueRetrieverUtils.tryUploadAsync(
+            remoteCachingDependencies, actionLookupData, result, env);
+      }
+      return result;
     } catch (ActionExecutionFunctionException e) {
       skyframeActionExecutor.recordExecutionError();
       throw e;
@@ -1170,7 +1177,7 @@ public final class ActionExecutionFunction implements SkyFunction {
       DetailedExitCode detailedExitCode,
       Label labelInCaseOfBug,
       BugReporter bugReporter) {
-    if (input.getOwner() == null) {
+    if (input.getOwner() == null && !input.isSourceArtifact()) {
       bugReporter.sendBugReport(
           new IllegalStateException(
               String.format(

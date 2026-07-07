@@ -50,6 +50,7 @@ function set_up() {
   start_worker
 
   add_rules_java "MODULE.bazel"
+  add_rules_shell "MODULE.bazel"
   mkdir -p src/main/java/com/example
   cat > src/main/java/com/example/BUILD <<'EOF'
 load("@rules_java//java:java_binary.bzl", "java_binary")
@@ -1192,6 +1193,231 @@ EOF
   expect_not_log 'INFO: From Action pkg/my_rule_file'
   expect_log_n 'Hello, stderr!' 2
   expect_log_n 'Hello, stdout!' 2
+}
+
+function test_path_stripping_archived_tree_artifacts() {
+  if is_windows; then
+    echo "Skipping test_path_stripping_archived_tree_artifacts on Windows as it requires sandboxing"
+    return
+  fi
+
+  local -r pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg"
+  cat > "$pkg/defs.bzl" <<EOF
+def _tree_gen_impl(ctx):
+    out = ctx.actions.declare_directory(ctx.label.name)
+    ctx.actions.run_shell(
+        outputs = [out],
+        command = "mkdir -p " + out.path,
+        mnemonic = "GenerateArchiveTree",
+    )
+    return [DefaultInfo(files = depset([out]))]
+
+tree_gen = rule(
+    implementation = _tree_gen_impl,
+)
+
+def _consume_impl(ctx):
+    out = ctx.actions.declare_file(ctx.label.name + ".out")
+    args = ctx.actions.args()
+    args.add(out)
+    args.add_all(ctx.files.srcs, expand_directories = False)
+    ctx.actions.run(
+        inputs = ctx.files.srcs,
+        outputs = [out],
+        executable = ctx.executable.tool,
+        arguments = [args],
+        mnemonic = "ConsumeArchiveTree",
+        execution_requirements = {"supports-path-mapping": ""},
+    )
+    return [DefaultInfo(files = depset([out]))]
+
+consume = rule(
+    implementation = _consume_impl,
+    attrs = {
+        "srcs": attr.label_list(allow_files = True),
+        "tool": attr.label(
+            default = "//$pkg:tool",
+            cfg = "exec",
+            executable = True,
+        ),
+    },
+)
+EOF
+
+  cat > "$pkg/BUILD" <<EOF
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+load(":defs.bzl", "tree_gen", "consume")
+
+tree_gen(name = "my_tree")
+
+sh_binary(
+    name = "tool",
+    srcs = ["tool.sh"],
+)
+
+consume(
+    name = "my_consume",
+    srcs = [":my_tree"],
+)
+EOF
+
+  cat > "$pkg/tool.sh" <<'EOF'
+#!/bin/bash
+touch "$1"
+EOF
+  chmod +x "$pkg/tool.sh"
+
+
+  bazel build -c fastbuild \
+    --remote_cache=grpc://localhost:${worker_port} \
+    --archived_tree_artifact_mnemonics_filter=GenerateArchiveTree \
+    --experimental_output_paths=strip \
+    "//$pkg:my_consume" &> $TEST_log || fail "build failed unexpectedly"
+
+  expect_log '\(linux\|darwin\|processwrapper\)-sandbox'
+  expect_not_log 'remote cache hit'
+
+  bazel build -c opt \
+    --remote_cache=grpc://localhost:${worker_port} \
+    --archived_tree_artifact_mnemonics_filter=GenerateArchiveTree \
+    --experimental_output_paths=strip \
+    "//$pkg:my_consume" &> $TEST_log || fail "build failed unexpectedly"
+
+  expect_log '1 remote cache hit'
+
+  rm -rf "$pkg"
+}
+
+function test_path_stripping_archived_tree_runfiles() {
+  if is_windows; then
+    echo "Skipping test_path_stripping_archived_tree_runfiles on Windows as it requires sandboxing"
+    return
+  fi
+
+  stop_worker
+  start_worker
+
+  local -r pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg"
+
+  cat > "$pkg/defs.bzl" <<EOF
+def _tree_gen_impl(ctx):
+    out = ctx.actions.declare_directory(ctx.label.name)
+    ctx.actions.run_shell(
+        outputs = [out],
+        command = "mkdir -p " + out.path,
+        mnemonic = "GenerateArchiveTree",
+    )
+    return [DefaultInfo(files = depset([out]))]
+
+tree_gen = rule(
+    implementation = _tree_gen_impl,
+)
+
+def _consume_impl(ctx):
+    out = ctx.actions.declare_file(ctx.label.name + ".out")
+    args = ctx.actions.args()
+    args.add(out)
+    ctx.actions.run(
+        inputs = ctx.files.srcs,
+        outputs = [out],
+        executable = ctx.executable.tool,
+        arguments = [args],
+        mnemonic = "ConsumeArchiveTree",
+        execution_requirements = {"supports-path-mapping": ""},
+    )
+    return [DefaultInfo(files = depset([out]))]
+
+consume = rule(
+    implementation = _consume_impl,
+    attrs = {
+        "srcs": attr.label_list(allow_files = True),
+        "tool": attr.label(
+            default = "//$pkg:my_binary",
+            cfg = "exec",
+            executable = True,
+        ),
+    },
+)
+EOF
+
+  cat > "$pkg/BUILD" <<EOF
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+load(":defs.bzl", "tree_gen", "consume")
+
+tree_gen(name = "my_tree")
+
+sh_binary(
+    name = "my_binary",
+    srcs = ["my_binary.sh"],
+    data = [":my_tree"],
+)
+
+consume(
+    name = "my_consume",
+    srcs = [":my_tree"],
+)
+EOF
+
+  cat > "$pkg/my_binary.sh" <<'EOF'
+#!/bin/bash
+touch "$1"
+EOF
+  chmod +x "$pkg/my_binary.sh"
+
+  bazel build -c fastbuild \
+    --remote_cache=grpc://localhost:${worker_port} \
+    --archived_tree_artifact_mnemonics_filter=GenerateArchiveTree \
+    --experimental_output_paths=strip \
+    "//$pkg:my_consume" &> $TEST_log || fail "build failed unexpectedly"
+
+  expect_log '\(linux\|darwin\|processwrapper\)-sandbox'
+  expect_not_log 'remote cache hit'
+
+  bazel build -c opt \
+    --remote_cache=grpc://localhost:${worker_port} \
+    --archived_tree_artifact_mnemonics_filter=GenerateArchiveTree \
+    --experimental_output_paths=strip \
+    "//$pkg:my_consume" &> $TEST_log || fail "build failed unexpectedly"
+
+  expect_log '1 remote cache hit'
+
+  rm -rf "$pkg"
+}
+
+# Verifies that path mapping works for configurations that contain dots in their
+# names (e.g. "my.platform.one"). This emulates configuration transitions that
+# introduce dots, such as Apple minimum OS version constraints (e.g., "min11.0").
+function test_path_stripping_with_dots() {
+  local -r pkg="src/main/java/com/example"
+
+  cat >> "${pkg}/BUILD" <<EOF
+platform(
+    name = "my.platform.one",
+)
+platform(
+    name = "my.platform.two",
+)
+EOF
+
+  bazel build -c fastbuild \
+    --experimental_output_paths=strip \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --experimental_platform_in_output_dir=yes \
+    --experimental_override_platform_cpu_name=//${pkg}:my.platform.one=my.platform.one \
+    --platforms=//${pkg}:my.platform.one \
+    "//${pkg}:lib" &> $TEST_log || fail "First build failed"
+
+  bazel build -c fastbuild \
+    --experimental_output_paths=strip \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --experimental_platform_in_output_dir=yes \
+    --experimental_override_platform_cpu_name=//${pkg}:my.platform.two=my.platform.two \
+    --platforms=//${pkg}:my.platform.two \
+    "//${pkg}:lib" &> $TEST_log || fail "Second build failed"
+
+  expect_log 'remote cache hit'
 }
 
 run_suite "path mapping tests"

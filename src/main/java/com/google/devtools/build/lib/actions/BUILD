@@ -15,6 +15,8 @@ java_library(
     name = "execution_requirements",
     srcs = ["ExecutionRequirements.java"],
     deps = [
+        ":exec_exception",
+        "//src/main/protobuf:failure_details_java_proto",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
@@ -23,6 +25,19 @@ java_library(
 java_library(
     name = "resource_estimator",
     srcs = ["ResourceEstimator.java"],
+)
+
+java_library(
+    name = "action_key_context",
+    srcs = [
+        "ActionKeyContext.java",
+    ],
+    deps = [
+        ":commandline_item",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset:fingerprint_cache",
+        "//src/main/java/com/google/devtools/build/lib/util",
+    ],
 )
 
 # Action graph and cache.
@@ -38,14 +53,11 @@ java_library(
         "ActionConcurrencyMeter.java",
         "ActionConflictException.java",
         "ActionContextMarker.java",
-        "ActionEnvironment.java",
         "ActionExecutedEvent.java",
-        "ActionExecutionStatusReporter.java",
         "ActionGraph.java",
         "ActionGraphVisitor.java",
         "ActionInputMap.java",
         "ActionKeyComputer.java",
-        "ActionKeyContext.java",
         "ActionLogBufferPathGenerator.java",
         "ActionLookupValue.java",
         "ActionProgressEvent.java",
@@ -62,14 +74,12 @@ java_library(
         "BaseSpawn.java",
         "BasicActionLookupValue.java",
         "BipartiteVisitor.java",
-        "BuildConfigurationEvent.java",
         "BuildFailedException.java",
         "CachedActionEvent.java",
         "CachingActionEvent.java",
         "ChangedFilesMessage.java",
         "CommandAction.java",
         "CommandLine.java",
-        "CommandLineLimits.java",
         "CommandLines.java",
         "CompletionContext.java",
         "DigestOfDirectoryException.java",
@@ -77,18 +87,13 @@ java_library(
         "DynamicStrategyRegistry.java",
         "EnvironmentalExecException.java",
         "EventReportingArtifacts.java",
-        "ExecException.java",
         "FailAction.java",
-        "HasDigest.java",
         "InjectedActionExecutionEvent.java",
         "InputFileErrorException.java",
         "MapBasedActionGraph.java",
         "MissingInputFileException.java",
         "MutableActionGraph.java",
         "NotifyOnActionCacheHit.java",
-        "OutputChecker.java",
-        "ParamFileInfo.java",
-        "ParameterFile.java",
         "ProxyMetadataFactory.java",
         "ResourceEstimator.java",
         "RichDataProducingAction.java",
@@ -106,15 +111,24 @@ java_library(
         "StoppedScanningActionEvent.java",
         "TestExecException.java",
         "TopLevelOutputException.java",
-        "TotalAndConfiguredTargetOnlyMetric.java",
-        "UserExecException.java",
         "cache/ActionCache.java",
         "cache/CompactPersistentActionCache.java",
         "cache/PersistentStringIndexer.java",
         "cache/PostableActionCacheStats.java",
     ],
-    exports = [":action_input_prefetcher"],
+    exports = [
+        ":action_environment",
+        ":action_input_prefetcher",
+        ":action_key_context",
+        ":build_configuration_event",
+        ":commandline_limits",
+        ":exec_exception",
+        ":has_digest",
+        ":output_checker",
+        ":total_and_configured_target_only_metric",
+    ],
     deps = [
+        ":action_environment",
         ":action_input",
         ":action_input_prefetcher",
         ":action_lookup_data",
@@ -122,25 +136,28 @@ java_library(
         ":artifact_owner",
         ":artifacts",
         ":commandline_item",
+        ":commandline_limits",
+        ":exec_exception",
         ":execution_requirements",
         ":file_metadata",
         ":fileset_output_symlink",
         ":fileset_output_tree",
         ":localhost_capacity",
+        ":output_checker",
         ":package_roots",
+        ":param_file_action_input",
+        ":param_file_info",
+        ":parameter_file",
         ":runfiles_metadata",
         ":runfiles_tree",
-        ":virtual_action_input",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:core_options",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
-        "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/compacthashmap",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset:fingerprint_cache",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//src/main/java/com/google/devtools/build/lib/events",
@@ -155,9 +172,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/java/com/google/devtools/build/lib/util:exit_code",
-        "//src/main/java/com/google/devtools/build/lib/util:filetype",
         "//src/main/java/com/google/devtools/build/lib/util:os",
-        "//src/main/java/com/google/devtools/build/lib/util:shell_escaper",
         "//src/main/java/com/google/devtools/build/lib/util:var_int",
         "//src/main/java/com/google/devtools/build/lib/util/io",
         "//src/main/java/com/google/devtools/build/lib/vfs",
@@ -175,6 +190,22 @@ java_library(
         "//third_party:jsr305",
         "@com_google_protobuf//:protobuf_java",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
+    ],
+)
+
+java_library(
+    name = "action_execution_status_reporter",
+    srcs = ["ActionExecutionStatusReporter.java"],
+    deps = [
+        ":action_input_prefetcher",
+        ":actions",
+        "//src/main/java/com/google/devtools/build/lib/bugreport",
+        "//src/main/java/com/google/devtools/build/lib/clock",
+        "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/util",
+        "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 
@@ -217,6 +248,7 @@ java_library(
     name = "action_lookup_key",
     srcs = [
         "ActionLookupKey.java",
+        "ActionLookupSummaryKey.java",
     ],
     deps = [
         ":artifact_owner",
@@ -273,7 +305,6 @@ java_library(
 java_library(
     name = "artifacts",
     srcs = [
-        "ActionKeyContext.java",
         "ArgChunk.java",
         "Artifact.java",
         "ArtifactCodecs.java",
@@ -285,6 +316,7 @@ java_library(
         "PathMapper.java",
         "PathMapperConstants.java",
     ],
+    exports = [":action_key_context"],
     deps = [
         ":action_input",
         ":action_lookup_data",
@@ -296,7 +328,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis/config:core_options",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset:fingerprint_cache",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset:is_artifact_for_nested_set",
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
@@ -381,7 +413,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//third_party:guava",
-        "//third_party:jsr305",
     ],
 )
 
@@ -402,6 +433,23 @@ java_library(
 )
 
 java_library(
+    name = "output_checker",
+    srcs = ["OutputChecker.java"],
+    deps = [
+        ":action_input",
+        ":file_metadata",
+    ],
+)
+
+java_library(
+    name = "file_artifact_metadata",
+    srcs = ["FileArtifactMetadata.java"],
+    deps = [
+        ":has_digest",
+    ],
+)
+
+java_library(
     name = "file_metadata",
     srcs = [
         "FileArtifactValue.java",
@@ -410,13 +458,12 @@ java_library(
         "FileStateValue.java",
         "FileStatusWithMetadata.java",
         "FileValue.java",
-        "OutputChecker.java",
         "RichArtifactData.java",
         "cache/MetadataDigestUtils.java",
     ],
     deps = [
-        ":action_input",
         ":artifacts",
+        ":file_artifact_metadata",
         ":has_digest",
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//src/main/java/com/google/devtools/build/lib/io:inconsistent_filesystem_exception",
@@ -452,6 +499,7 @@ java_library(
         ":action_input",
         ":actions",
         ":artifacts",
+        ":param_file_action_input",
         "//src/main/java/com/google/devtools/build/lib/skyframe:detailed_exceptions",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/java/com/google/devtools/build/lib/vfs",
@@ -459,6 +507,11 @@ java_library(
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party:guava",
     ],
+)
+
+java_library(
+    name = "localhost_compute_resources",
+    srcs = ["LocalHostComputeResources.java"],
 )
 
 java_library(
@@ -471,7 +524,7 @@ java_library(
     ],
     deps = [
         ":exec_exception",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        ":localhost_compute_resources",
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/build/lib/worker:worker_key",
@@ -499,6 +552,44 @@ java_library(
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party:guava",
         "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "param_file_action_input",
+    srcs = ["ParamFileActionInput.java"],
+    deps = [
+        ":parameter_file",
+        ":virtual_action_input",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//third_party:error_prone_annotations",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "param_file_info",
+    srcs = ["ParamFileInfo.java"],
+    deps = [
+        ":parameter_file",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//third_party:error_prone_annotations",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "parameter_file",
+    srcs = ["ParameterFile.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/unsafe:string",
+        "//src/main/java/com/google/devtools/build/lib/util:filetype",
+        "//src/main/java/com/google/devtools/build/lib/util:shell_escaper",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//third_party:guava",
     ],
 )
 
@@ -608,6 +699,7 @@ java_library(
         "LostInputsExecException.java",
         "MissingDepExecException.java",
         "Spawn.java",
+        "SpawnInputs.java",
         "SpawnMetrics.java",
         "SpawnResult.java",
         "StaticInputMetadataProvider.java",
@@ -618,15 +710,14 @@ java_library(
         ":action_lookup_data",
         ":artifacts",
         ":build_configuration_event",
-        ":commandline_limits",
         ":exec_exception",
         ":file_metadata",
         ":fileset_output_tree",
         ":localhost_capacity",
+        ":param_file_action_input",
         ":runfiles_metadata",
         ":runfiles_tree",
         ":thread_state_receiver",
-        "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
         "//src/main/java/com/google/devtools/build/lib/analysis:symlink_entry",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:build_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:build_configuration_info",
@@ -637,7 +728,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
@@ -654,11 +744,9 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util/io",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/java/net/starlark/java/syntax",
-        "//src/main/protobuf:execution_statistics_java_proto",
         "//src/main/protobuf:extra_actions_base_java_proto",
         "//src/main/protobuf:failure_details_java_proto",
         "//src/main/protobuf:spawn_java_proto",

@@ -50,7 +50,6 @@ import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
 import com.google.common.collect.Multiset;
 import com.google.common.collect.Multisets;
 import com.google.common.collect.Range;
@@ -131,6 +130,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.Label.LabelInterner;
 import com.google.devtools.build.lib.cmdline.Label.PackageContext;
 import com.google.devtools.build.lib.cmdline.Label.RepoContext;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -182,6 +182,7 @@ import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.query2.common.QueryTransitivePackagePreloader;
 import com.google.devtools.build.lib.query2.common.UniverseScope;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
+import com.google.devtools.build.lib.rules.AliasConfiguredTarget;
 import com.google.devtools.build.lib.rules.genquery.GenQueryPackageProviderFactory;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.runtime.KeepStateAfterBuildOption;
@@ -239,7 +240,6 @@ import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnaly
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheManager;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheReaderDepsProvider;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider;
-import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions.RemoteAnalysisCacheMode;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingServerState;
 import com.google.devtools.build.lib.skyframe.toolchains.RegisteredExecutionPlatformsCycleReporter;
 import com.google.devtools.build.lib.skyframe.toolchains.RegisteredExecutionPlatformsFunction;
@@ -303,6 +303,7 @@ import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.devtools.common.options.OptionsProvider;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.ForOverride;
+import java.io.IOException;
 import java.io.PrintStream;
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryMXBean;
@@ -567,7 +568,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     return remoteAnalysisCachingDependenciesProvider;
   }
 
-  @VisibleForTesting // productionVisibility = Visibility.PRIVATE
   public RemoteAnalysisCacheReaderDepsProvider getRemoteAnalysisCacheReaderDepsProvider() {
     return remoteAnalysisCacheReaderDepsProvider;
   }
@@ -675,7 +675,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   @VisibleForTesting
   public boolean isRemoteAnalysisCachingEnabled() {
-    return remoteAnalysisCachingDependenciesProvider.mode() == RemoteAnalysisCacheMode.DOWNLOAD;
+    return remoteAnalysisCachingDependenciesProvider.mode().isRetrievalEnabled();
   }
 
   final class PathResolverFactoryImpl implements PathResolverFactory {
@@ -817,7 +817,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         SkyFunctions.BZL_COMPILE, // TODO rename
         new BzlCompileFunction(
             ruleClassProvider.getBazelStarlarkEnvironment(),
-            getDigestFunction().getHashFunction()));
+            getDigestFunction().getHashFunction(),
+            pkgFactory.getPackageLoadingListener()));
     map.put(
         SkyFunctions.STARLARK_BUILTINS,
         new StarlarkBuiltinsFunction(ruleClassProvider.getBazelStarlarkEnvironment()));
@@ -957,7 +958,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     map.put(SkyFunctions.ACTION_EXECUTION, newActionExecutionFunction());
     map.put(
         SkyFunctions.RECURSIVE_FILESYSTEM_TRAVERSAL,
-        new RecursiveFilesystemTraversalFunction(syscallCache));
+        new RecursiveFilesystemTraversalFunction(
+            syscallCache,
+            directories.getOutputBase().getRelative(LabelConstants.EXTERNAL_REPOSITORY_LOCATION)));
     map.put(
         SkyFunctions.ACTION_TEMPLATE_EXPANSION,
         new ActionTemplateExpansionFunction(actionKeyContext));
@@ -1034,7 +1037,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   protected SkyFunction newBzlLoadFunction(RuleClassProvider ruleClassProvider) {
     return BzlLoadFunction.create(
-        ruleClassProvider, directories, getDigestFunction().getHashFunction(), bzlCompileCache);
+        ruleClassProvider,
+        directories,
+        getDigestFunction().getHashFunction(),
+        pkgFactory.getPackageLoadingListener(),
+        bzlCompileCache);
   }
 
   @ThreadCompatible
@@ -1070,6 +1077,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   public void noteCommandStart() {
     // Prevent stale Skycache configuration from persisting between builds.
     remoteAnalysisCachingDependenciesProvider = RemoteAnalysisCacheManager.createDisabled();
+    remoteAnalysisCacheReaderDepsProvider = RemoteAnalysisCacheDeps.createDisabled();
   }
 
   /**
@@ -1247,7 +1255,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    * unsupported.
    */
   @Nullable
-  public abstract SkyframeStats getSkyframeStats(ExtendedEventHandler eventHandler);
+  public abstract SkyframeStats getSkyframeStats();
 
   /**
    * Decides if graph edges should be stored during this evaluation and checks if the state from the
@@ -2269,8 +2277,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
       if (e != null) {
         // Wrap exceptions related to loading
-        if (e instanceof NoSuchThingException noSuchThingException) {
-          throw new InvalidConfigurationException(noSuchThingException.getDetailedExitCode(), e);
+        if (e instanceof DetailedException detailedException) {
+          throw new InvalidConfigurationException(detailedException.getDetailedExitCode(), e);
         }
         Throwables.throwIfInstanceOf(e, InvalidConfigurationException.class);
         // If we get here, e is non-null but not an InvalidConfigurationException, so wrap it and
@@ -2406,7 +2414,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       BuildConfigurationValue configuration =
           getConfigurationFromGraph(graph, configuredTarget.getConfigurationKey());
       targetsWithConfiguration.add(new TargetAndConfiguration(target, configuration));
-      eventHandler.post(new TargetConfiguredEvent(target, configuration));
+      Label actual =
+          (configuredTarget instanceof AliasConfiguredTarget alias)
+              ? alias.getActual().getLabel()
+              : null;
+      eventHandler.post(new TargetConfiguredEvent(target, configuration, actual));
     }
 
     for (TopLevelAspectsKey key : topLevelAspectKeys) {
@@ -2783,6 +2795,15 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   public PackageManager getPackageManager() {
     return packageManager;
+  }
+
+  /**
+   * Returns the path of the repo contents cache directory, or {@code null} if the repo contents
+   * cache is disabled.
+   */
+  @Nullable
+  public Path getRepoContentsCachePath() {
+    return externalFilesHelper.getRepoContentsCachePath();
   }
 
   public QueryTransitivePackagePreloader getQueryTransitivePackagePreloader() {
@@ -3396,10 +3417,18 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         throw new RepositoryMappingResolutionException(
             ((DetailedException) e).getDetailedExitCode(), e);
       }
+      // An IOException at this early stage is often due to transient infrastructure issues. We
+      // give such failures a specific error code so that they can be retried.
+      FailureDetails.ExternalRepository externalRepoDetail =
+          e instanceof IOException
+              ? FailureDetails.ExternalRepository.newBuilder()
+                  .setCode(ExternalRepository.Code.REPOSITORY_MAPPING_IO_EXCEPTION)
+                  .build()
+              : FailureDetails.ExternalRepository.getDefaultInstance();
       throw new RepositoryMappingResolutionException(
           DetailedExitCode.of(
               FailureDetail.newBuilder()
-                  .setExternalRepository(FailureDetails.ExternalRepository.getDefaultInstance())
+                  .setExternalRepository(externalRepoDetail)
                   .setMessage("error during computation of main repo mapping: " + e.getMessage())
                   .build()),
           e);
@@ -3720,6 +3749,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
           }
 
           @Override
+          public ImmutableSet<String> getStarlarkOptionsAllowingMultiple() {
+            return ImmutableSet.of();
+          }
+
+          @Override
           public ImmutableMap<String, String> getUserOptions() {
             return ImmutableMap.of();
           }
@@ -3737,9 +3771,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
     WorkspaceInfoFromDiff workspaceInfo = null;
     Map<Root, DiffAwarenessManager.ProcessableModifiedFileSet> modifiedFilesByPathEntry =
-        Maps.newHashMap();
-    Set<Pair<Root, ProcessableModifiedFileSet>> pathEntriesWithoutDiffInformation =
-        Sets.newHashSet();
+        new HashMap<>();
+    Set<Pair<Root, ProcessableModifiedFileSet>> pathEntriesWithoutDiffInformation = new HashSet<>();
     ImmutableList<Root> pkgRoots = getPackagePathEntries();
 
     Path workspacePath = directories.getWorkspace();

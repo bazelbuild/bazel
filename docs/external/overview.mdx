@@ -15,8 +15,7 @@ concepts in more detail.
 
 ## Overview of the system {#overview}
 
-Bazel's external dependency system works on the basis of [*Bazel
-modules*](#module), each of which is a versioned Bazel project, and
+Bazel's external dependency system works on the basis of [*Bazel modules*](#module), each of which is a versioned Bazel project, and
 [*repositories*](#repository) (or repos), which are directory trees containing
 source files.
 
@@ -33,8 +32,7 @@ bazel_dep(name = "platforms", version = "0.0.11")
 ```
 
 From there, Bazel looks up all transitive dependency modules in a
-[*Bazel registry*](registry) — by default, the [Bazel Central
-Registry](https://bcr.bazel.build/). The registry provides the
+[*Bazel registry*](/external/registry) — by default, the [Bazel Central Registry](https://bcr.bazel.build/). The registry provides the
 dependencies' `MODULE.bazel` files, which allows Bazel to discover the entire
 transitive dependency graph before performing version resolution.
 
@@ -44,7 +42,7 @@ Bazel consults the registry again to learn how to define a repo for each module
 of the time, these are just archives downloaded from the internet and extracted.
 
 Modules can also specify customized pieces of data called *tags*, which are
-consumed by [*module extensions*](extension) after module resolution
+consumed by [*module extensions*](/external/extension) after module resolution
 to define additional repos. These extensions can perform actions like file I/O
 and sending network requests. Among other things, they allow Bazel to interact
 with other package management systems while also respecting the dependency graph
@@ -63,12 +61,12 @@ Bazel's external dependency system offers a wide range of benefits.
 ### Automatic Dependency Resolution {#automatic-dependency-resolution}
 
 -   **Deterministic Version Resolution**: Bazel adopts the deterministic
-    [MVS](module#version-selection) version resolution algorithm,
+    [MVS](/external/module#version-selection) version resolution algorithm,
     minimizing conflicts and addressing diamond dependency issues.
 -   **Simplified Dependency Management**: `MODULE.bazel` declares only direct
     dependencies, while transitive dependencies are automatically resolved,
     providing a clearer overview of the project's dependencies.
--   **[Strict Dependency visibility](module#repository_names_and_strict_deps)**:
+-   **[Strict Dependency visibility](/external/module#repository_names_and_strict_deps)**:
     Only direct dependencies are visible, ensuring correctness and
     predictability.
 
@@ -95,19 +93,18 @@ Bazel's external dependency system offers a wide range of benefits.
 
 ### Advanced Features {#advanced-features}
 
--   **[Module Extensions](extension)**: The
+-   **[Module Extensions](/external/extension)**: The
     [`use_repo_rule`](/rules/lib/globals/module#use_repo_rule) and module
     extension features allow flexible use of custom repository rules and
     resolution logic to introduce any non-Bazel dependencies.
--   **[`bazel mod` Command](mod-command)**: The sub-command offers
+-   **[`bazel mod` Command](/external/mod-command)**: The sub-command offers
     powerful ways to inspect external dependencies. You know exactly how an
     external dependency is defined and where it comes from.
--   **[Vendor Mode](vendor)**: Pre-fetch the exact external dependencies you
+-   **[Vendor Mode](/external/vendor)**: Pre-fetch the exact external dependencies you
     need to facilitate offline builds.
--   **[Lockfile](lockfile)**: The lockfile improves build reproducibility and
+-   **[Lockfile](/external/lockfile)**: The lockfile improves build reproducibility and
     accelerates dependency resolution.
--   **(Upcoming) [BCR Provenance
-    Attestations](https://github.com/bazelbuild/bazel-central-registry/discussions/2721)**:
+-   **(Upcoming) [BCR Provenance Attestations](https://github.com/bazelbuild/bazel-central-registry/discussions/2721)**:
     Strengthen supply chain security by ensuring verified provenance of
     dependencies.
 
@@ -122,7 +119,7 @@ dependencies on other modules.
 
 In a local Bazel workspace, a module is represented by a repository.
 
-For more details, see [Bazel modules](module).
+For more details, see [Bazel modules](/external/module).
 
 ### Repository {#repository}
 
@@ -180,7 +177,7 @@ and extract it", or "fetch a certain Maven artifact and make it available as a
 `java_import` target", or simply "symlink a local directory". Every repo is
 **defined** by calling a repo rule with an appropriate number of arguments.
 
-See [Repository rules](repo) for more information about how to write
+See [Repository rules](/external/repo) for more information about how to write
 your own repository rules.
 
 The most common repo rules by far are
@@ -231,8 +228,7 @@ contain anything to serve as a repo boundary file; however, it can also be used
 to specify some common attributes for all build targets inside the repo.
 
 The syntax of a `REPO.bazel` file is similar to `BUILD` files, except that no
-`load` statements are supported. The `repo()` function takes the same arguments as the [`package()`
-function](/reference/be/functions#package) in `BUILD` files; whereas `package()`
+`load` statements are supported. The `repo()` function takes the same arguments as the [`package()` function](/reference/be/functions#package) in `BUILD` files; whereas `package()`
 specifies common attributes for all build targets inside the package, `repo()`
 analogously does so for all build targets inside the repo.
 
@@ -293,7 +289,7 @@ pain points, including:
 
 Due to the shortcomings of WORKSPACE, the new module-based system (codenamed
 "Bzlmod") gradually replaced the legacy WORKSPACE system between Bazel 6 and 9.
-Read the [Bzlmod migration guide](migration) on how to migrate
+Read the [Bzlmod migration guide](/external/migration) on how to migrate
 to Bzlmod.
 
 ### External links on Bzlmod {#external-links}

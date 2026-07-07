@@ -277,9 +277,12 @@ public abstract class MockCcSupport {
             "cc/common/semantics.bzl",
             "cc/find_cc_toolchain.bzl",
             "cc/toolchains/BUILD",
+            "cc/toolchains/actions/BUILD",
             "cc/toolchains/cc_toolchain.bzl",
             "cc/toolchains/cc_toolchain_alias.bzl",
             "cc/toolchains/cc_toolchain_config_info.bzl",
+            "cc/toolchains/features/BUILD",
+            "cc/toolchains/features/legacy/BUILD",
             "cc/toolchains/tool_map.bzl",
             "cc/toolchain_utils.bzl")) {
       try {
@@ -322,6 +325,8 @@ public abstract class MockCcSupport {
         TestConstants.RULES_CC_REPOSITORY_EXECROOT + "BUILD",
         "filegroup(name='license', visibility=['//visibility:public'])");
     config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/build_defs/cc/BUILD");
+    config.create(
+        TestConstants.TOOLS_REPOSITORY_SCRATCH + "third_party/gloop/tools/build_defs/cc/BUILD");
     config.append(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/cpp/BUILD", "");
 
     // These could be a distinct method

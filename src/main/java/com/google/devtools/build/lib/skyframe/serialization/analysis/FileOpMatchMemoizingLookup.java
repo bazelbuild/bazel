@@ -123,13 +123,11 @@ final class FileOpMatchMemoizingLookup
 
     private void addDependency(FileOpMatchResultOrFuture resultOrFuture) {
       switch (resultOrFuture) {
-        case FileOpMatchResult match:
-          updateResult(match);
-          break;
-        case FutureFileOpMatchResult future:
+        case FileOpMatchResult match -> updateResult(match);
+        case FutureFileOpMatchResult future -> {
           increment();
           Futures.addCallback(future, (FutureCallback<FileOpMatchResult>) this, executor);
-          break;
+        }
       }
     }
 

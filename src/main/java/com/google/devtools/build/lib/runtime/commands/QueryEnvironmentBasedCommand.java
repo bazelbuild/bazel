@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.runtime.CommonCommandOptions;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.runtime.LoadingPhaseThreadsOption;
 import com.google.devtools.build.lib.runtime.QueryRuntimeHelper;
@@ -263,6 +264,9 @@ public abstract class QueryEnvironmentBasedCommand implements BlazeCommand {
       env.getReporter().post(new LoadingPhaseStartedEvent(progressReceiver));
     }
 
+    boolean trackIncrementalState =
+        env.getOptions().getOptions(CommonCommandOptions.class).getTrackIncrementalState();
+
     return env.getRuntime()
         .getQueryEnvironmentFactory()
         .create(
@@ -278,6 +282,7 @@ public abstract class QueryEnvironmentBasedCommand implements BlazeCommand {
             orderedResults,
             universeScope,
             loadingPhaseThreads,
+            trackIncrementalState,
             /* labelFilter= */ ALL_LABELS,
             env.getReporter(),
             settings,

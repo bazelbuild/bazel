@@ -143,6 +143,7 @@ public final class ArtifactFunction implements SkyFunction {
     RemoteAnalysisCacheReaderDepsProvider remoteCachingDependencies =
         cachingDependenciesSupplier.get();
     if (remoteCachingDependencies.mode().isRetrievalEnabled()
+        && !remoteCachingDependencies.getSkycacheAnalysisOnly()
         && !actionExecutor.shouldSkipRetrieval(derivedArtifact.getGeneratingActionKey())) {
       switch (retrieveRemoteSkyValue(artifact, env, remoteCachingDependencies, State::new)) {
         case SkyValueRetriever.Restart unused:
@@ -172,7 +173,11 @@ public final class ArtifactFunction implements SkyFunction {
       if (mkdirForTreeArtifacts.get()) {
         mkdirForTreeArtifact(artifact, env, actionTemplate);
       }
-      return createTreeArtifactValueFromActionKey(artifactDependencies, env);
+      var result = createTreeArtifactValueFromActionKey(artifactDependencies, env);
+      if (result != null) {
+        SkyValueRetrieverUtils.tryUploadAsync(remoteCachingDependencies, artifact, result, env);
+      }
+      return result;
     }
 
     ActionLookupData generatingActionKey = derivedArtifact.getGeneratingActionKey();
@@ -188,7 +193,9 @@ public final class ArtifactFunction implements SkyFunction {
 
     // We got a request for the whole tree artifact. We can just return the associated
     // TreeArtifactValue.
-    return Preconditions.checkNotNull(actionValue.getTreeArtifactValue(artifact), artifact);
+    var result = Preconditions.checkNotNull(actionValue.getTreeArtifactValue(artifact), artifact);
+    SkyValueRetrieverUtils.tryUploadAsync(remoteCachingDependencies, artifact, result, env);
+    return result;
   }
 
   private static void mkdirForTreeArtifact(

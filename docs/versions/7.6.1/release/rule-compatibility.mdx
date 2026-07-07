@@ -53,18 +53,15 @@ Bazel LTS release.
 As Bazel rules authors, you can ensure a manageable migration process for users
 by following these best practices:
 
-1.  The rule should follow [Semantic
-    Versioning](https://semver.org/): minor versions of the same
+1.  The rule should follow [Semantic Versioning](https://semver.org/): minor versions of the same
     major version are backward compatible.
 1.  The rule at HEAD should be compatible with the latest Bazel LTS release.
 1.  The rule at HEAD should be compatible with Bazel at HEAD. To achieve this,
     you can
     *   Set up your own CI testing with Bazel at HEAD
-    *   Add your project to [Bazel downstream
-        testing](https://github.com/bazelbuild/continuous-integration/blob/master/docs/downstream-testing.md);
+    *   Add your project to [Bazel downstream testing](https://github.com/bazelbuild/continuous-integration/blob/master/docs/downstream-testing.md);
         the Bazel team files issues to your project if breaking changes in Bazel
-        affect your project, and you must follow our [downstream project
-        policies](https://github.com/bazelbuild/continuous-integration/blob/master/docs/downstream-testing.md#downstream-project-policies)
+        affect your project, and you must follow our [downstream project policies](https://github.com/bazelbuild/continuous-integration/blob/master/docs/downstream-testing.md#downstream-project-policies)
         to address issues timely.
 1.  The latest major version of the rule must be compatible with the latest
     Bazel LTS release.

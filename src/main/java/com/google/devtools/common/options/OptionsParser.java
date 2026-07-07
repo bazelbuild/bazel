@@ -40,6 +40,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -237,6 +238,12 @@ public class OptionsParser implements OptionsParsingResult {
       return this;
     }
 
+    @CanIgnoreReturnValue
+    public Builder isFirstRoundOfParsing(boolean isFirstRoundOfParsing) {
+      this.implBuilder.isFirstRoundOfParsing(isFirstRoundOfParsing);
+      return this;
+    }
+
     /** Returns a new {@link OptionsParser}. */
     public OptionsParser build() {
       return new OptionsParser(implBuilder.build(), allowResidue, ignoreUserOptions);
@@ -259,6 +266,7 @@ public class OptionsParser implements OptionsParsingResult {
   private final boolean ignoreUserOptions;
 
   private ImmutableSortedMap<String, Object> starlarkOptions = ImmutableSortedMap.of();
+  private ImmutableSet<String> starlarkOptionsAllowingMultiple = ImmutableSet.of();
   // scopes for starlark options
   private ImmutableSortedMap<String, String> scopesAttributes = ImmutableSortedMap.of();
   private ImmutableSortedMap<String, Object> onLeaveScopeValues = ImmutableSortedMap.of();
@@ -326,8 +334,15 @@ public class OptionsParser implements OptionsParsingResult {
     return result.buildOrThrow();
   }
 
-  public void setStarlarkOptions(Map<String, Object> starlarkOptions) {
+  @Override
+  public ImmutableSet<String> getStarlarkOptionsAllowingMultiple() {
+    return starlarkOptionsAllowingMultiple;
+  }
+
+  public void setStarlarkOptions(
+      Map<String, Object> starlarkOptions, Set<String> starlarkOptionsAllowingMultiple) {
     this.starlarkOptions = ImmutableSortedMap.copyOf(starlarkOptions);
+    this.starlarkOptionsAllowingMultiple = ImmutableSet.copyOf(starlarkOptionsAllowingMultiple);
   }
 
   public void setScopesAttributes(Map<String, String> scopesAttributes) {

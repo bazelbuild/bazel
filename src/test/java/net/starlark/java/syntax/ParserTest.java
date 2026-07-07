@@ -21,8 +21,10 @@ import static org.junit.Assert.fail;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -216,16 +218,101 @@ public final class ParserTest {
   }
 
   @Test
-  public void testUnaryMinusExpr() throws Exception {
-    UnaryOperatorExpression e = (UnaryOperatorExpression) parseExpression("-5");
-    UnaryOperatorExpression e2 = (UnaryOperatorExpression) parseExpression("- 5");
+  public void testUnaryMinusForNonLiteral() throws Exception {
+    Expression expression = parseExpression("-(5 + 3)");
+    assertThat(expression).isInstanceOf(UnaryOperatorExpression.class);
+    UnaryOperatorExpression unaryExpression = (UnaryOperatorExpression) expression;
+    assertThat(unaryExpression.getOperator()).isEqualTo(TokenKind.MINUS);
+    assertThat(unaryExpression.getX()).isInstanceOf(BinaryOperatorExpression.class);
+    BinaryOperatorExpression binaryExpression = (BinaryOperatorExpression) unaryExpression.getX();
+    assertThat(binaryExpression.getX()).isInstanceOf(IntLiteral.class);
+    IntLiteral x = (IntLiteral) binaryExpression.getX();
+    assertThat(x.getValue()).isEqualTo(5);
+    assertThat(binaryExpression.getY()).isInstanceOf(IntLiteral.class);
+    IntLiteral y = (IntLiteral) binaryExpression.getY();
+    assertThat(y.getValue()).isEqualTo(3);
 
-    IntLiteral i = (IntLiteral) e.getX();
-    assertThat(i.getValue()).isEqualTo(5);
-    IntLiteral i2 = (IntLiteral) e2.getX();
-    assertThat(i2.getValue()).isEqualTo(5);
-    assertLocation(0, 2, e);
-    assertLocation(0, 3, e2);
+    assertLocation(0, 7, expression);
+  }
+
+  @CanIgnoreReturnValue
+  private IntLiteral parseAndVerifyIntLiteral(String input, Number expectedValue)
+      throws SyntaxError.Exception {
+    Expression expression = parseExpression(input);
+    assertWithMessage("parseExpression(\"%s\")", input)
+        .that(expression)
+        .isInstanceOf(IntLiteral.class);
+    IntLiteral intLiteral = (IntLiteral) expression;
+    assertWithMessage("parseExpression(\"%s\")", input)
+        .that(intLiteral.getValue())
+        .isInstanceOf(expectedValue.getClass());
+    assertWithMessage("parseExpression(\"%s\")", input)
+        .that(intLiteral.getValue())
+        .isEqualTo(expectedValue);
+    return intLiteral;
+  }
+
+  @Test
+  public void testUnaryMinusWithIntLiteral() throws Exception {
+    parseAndVerifyIntLiteral("-0", 0);
+    parseAndVerifyIntLiteral("--0", 0);
+    parseAndVerifyIntLiteral("-5", -5);
+    parseAndVerifyIntLiteral("--5", 5);
+    parseAndVerifyIntLiteral("-3000000000", -3000000000L);
+    parseAndVerifyIntLiteral("--3000000000", 3000000000L);
+    parseAndVerifyIntLiteral("-10000000000000000000", new BigInteger("-10000000000000000000"));
+    parseAndVerifyIntLiteral("--10000000000000000000", new BigInteger("10000000000000000000"));
+    // Edge cases
+    parseAndVerifyIntLiteral(String.format("-%d", Integer.MAX_VALUE), Integer.MIN_VALUE + 1);
+    parseAndVerifyIntLiteral(String.format("%d", Integer.MIN_VALUE), Integer.MIN_VALUE);
+    parseAndVerifyIntLiteral(
+        String.format("-%d", Integer.MIN_VALUE), (long) Integer.MAX_VALUE + 1L);
+    parseAndVerifyIntLiteral(String.format("-%d", Long.MAX_VALUE), Long.MIN_VALUE + 1L);
+    parseAndVerifyIntLiteral(String.format("%d", Long.MIN_VALUE), Long.MIN_VALUE);
+    parseAndVerifyIntLiteral(
+        String.format("-%d", Long.MIN_VALUE),
+        BigInteger.valueOf(Long.MAX_VALUE).add(BigInteger.ONE));
+  }
+
+  @Test
+  public void testUnaryMinusWithIntLiteralLocation() throws Exception {
+    IntLiteral intLiteral = parseAndVerifyIntLiteral("- 5", -5);
+    assertLocation(0, 3, intLiteral);
+  }
+
+  @CanIgnoreReturnValue
+  private FloatLiteral parseAndVerifyFloatLiteral(String input, double expectedValue)
+      throws SyntaxError.Exception {
+    Expression expression = parseExpression(input);
+    assertWithMessage(input).that(expression).isInstanceOf(FloatLiteral.class);
+    FloatLiteral floatLiteral = (FloatLiteral) expression;
+    assertWithMessage("parseExpression(\"%s\") expected to equal %s", input, expectedValue)
+        .that(floatLiteral.getValue() == expectedValue) // For doubles, == and equals() differ
+        .isTrue();
+    return floatLiteral;
+  }
+
+  @Test
+  public void testUnaryMinusWithFloatLiteral() throws Exception {
+    parseAndVerifyFloatLiteral("-0.0", -0.0);
+    parseAndVerifyFloatLiteral("--0.0", 0.0);
+    parseAndVerifyFloatLiteral("-5.5", -5.5);
+    parseAndVerifyFloatLiteral("--5.5", 5.5);
+    // 0.0 vs. -0.0
+    FloatLiteral zero = parseAndVerifyFloatLiteral("0.0", 0.0);
+    FloatLiteral minusZero = parseAndVerifyFloatLiteral("-0.0", -0.0);
+    FloatLiteral minusMinusZero = parseAndVerifyFloatLiteral("--0.0", 0.0);
+    assertThat(minusMinusZero.getValue()).isEqualTo(zero.getValue());
+    assertThat(minusZero.getValue()).isNotEqualTo(zero.getValue());
+  }
+
+  @Test
+  public void testZeroFloatLiteralDistinguishesSign() throws Exception {
+    FloatLiteral positiveZero = (FloatLiteral) parseExpression("0.0");
+    FloatLiteral negativeZero = (FloatLiteral) parseExpression("-0.0");
+    assertThat(positiveZero.getValue() == 0).isTrue();
+    assertThat(negativeZero.getValue() == 0).isTrue();
+    assertThat(positiveZero.getValue()).isNotEqualTo(negativeZero.getValue());
   }
 
   @Test
@@ -1634,6 +1721,14 @@ public final class ParserTest {
         .containsExactly("T", "U")
         .inOrder();
     assertThat(stmt.getDefinition()).isInstanceOf(BinaryOperatorExpression.class);
+  }
+
+  @Test
+  public void testTypeAliasStatement_typeParams_mustBeUnique() throws Exception {
+    setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
+    setFailFast(false);
+    parseStatement("type my_nullable_dict[T, U, T] = dict[T, U] | None");
+    assertContainsError("syntax error at 'T': duplicate type parameter");
   }
 
   @Test

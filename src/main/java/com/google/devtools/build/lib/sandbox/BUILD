@@ -91,7 +91,6 @@ java_library(
     name = "sandbox_module",
     srcs = ["SandboxModule.java"],
     deps = [
-        ":abstract_sandbox_spawn_runner",
         ":darwin_sandbox",
         ":docker_sandbox",
         ":linux_sandbox",
@@ -101,14 +100,11 @@ java_library(
         ":sandboxed_spawns",
         ":tree_deleter",
         ":windows_sandbox",
-        "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/exec:execution_options",
-        "//src/main/java/com/google/devtools/build/lib/exec:runfiles_tree_updater",
         "//src/main/java/com/google/devtools/build/lib/exec:spawn_runner",
         "//src/main/java/com/google/devtools/build/lib/exec:spawn_strategy_registry",
         "//src/main/java/com/google/devtools/build/lib/exec:tree_deleter",
-        "//src/main/java/com/google/devtools/build/lib/exec/local",
         "//src/main/java/com/google/devtools/build/lib/exec/local:options",
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
@@ -203,7 +199,6 @@ java_library(
     data = ["//src/main/tools:linux-sandbox"],
     deps = [
         ":abstract_sandbox_spawn_runner",
-        ":cgroups_info",
         ":linux_sandbox_command_line_builder",
         ":linux_sandbox_util",
         ":sandbox_helpers",
@@ -238,16 +233,8 @@ java_library(
     name = "cgroups_info",
     srcs = [
         "Cgroup.java",
-        "CgroupsInfo.java",
-        "CgroupsInfoV1.java",
-        "CgroupsInfoV2.java",
     ],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/util:os",
-        "//third_party:flogger",
-        "//third_party:guava",
-        "//third_party:jsr305",
-    ],
+    deps = ["//third_party:guava"],
 )
 
 java_library(
@@ -353,7 +340,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party:error_prone_annotations",
-        "//third_party:flogger",
         "//third_party:guava",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
     ],

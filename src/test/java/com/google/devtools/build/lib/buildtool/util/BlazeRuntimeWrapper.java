@@ -26,6 +26,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.eventbus.EventBus;
+import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.analysis.AnalysisOptions;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
@@ -124,6 +125,7 @@ public class BlazeRuntimeWrapper {
   private OptionsParser optionsParser;
   private final List<String> optionsToParse = new ArrayList<>();
   private final Map<String, Object> starlarkOptions = new HashMap<>();
+  private final Set<String> starlarkOptionAllowingMultiple = new HashSet<>();
   private final List<Class<? extends OptionsBase>> additionalOptionsClasses = new ArrayList<>();
   private final List<String> crashMessages = new ArrayList<>();
 
@@ -224,7 +226,7 @@ public class BlazeRuntimeWrapper {
     checkNotNull(
         optionsParser,
         "The options parser must be initialized before creating a new command environment");
-    optionsParser.setStarlarkOptions(starlarkOptions);
+    optionsParser.setStarlarkOptions(starlarkOptions, starlarkOptionAllowingMultiple);
 
     env =
         runtime
@@ -301,8 +303,8 @@ public class BlazeRuntimeWrapper {
     this.configuration = configuration;
   }
 
-  public void addStarlarkOption(String label, Object value) {
-    starlarkOptions.put(Label.parseCanonicalUnchecked(label).getCanonicalForm(), value);
+  public void addStarlarkOption(String label, Object optionValue) {
+    starlarkOptions.put(Label.parseCanonicalUnchecked(label).getCanonicalForm(), optionValue);
   }
 
   public void addStarlarkOptions(Map<String, Object> starlarkOptions) {
@@ -319,6 +321,10 @@ public class BlazeRuntimeWrapper {
 
   public ImmutableMap<String, Object> getStarlarkOptions() {
     return ImmutableMap.copyOf(starlarkOptions);
+  }
+
+  public ImmutableSet<String> getStarlarkOptionAllowingMultiple() {
+    return ImmutableSet.copyOf(starlarkOptionAllowingMultiple);
   }
 
   public void addOptionsClass(Class<? extends OptionsBase> optionsClass) {
@@ -544,6 +550,12 @@ public class BlazeRuntimeWrapper {
               optionsParser,
               /* targetsForProjectResolution= */ null);
           detailedExitCode = DetailedExitCode.success();
+        } catch (BuildFailedException e) {
+          // This corresponds to the logic in BuildTool#processRequest that calls
+          // BuildTool#buildTargets. There are many other cases omitted. This only seems relevant
+          // for tests verifying the contents of the BuildFinished BEP event.
+          detailedExitCode = e.getDetailedExitCode();
+          throw e;
         } catch (RuntimeException | Error e) {
           crash = Crash.from(e);
           detailedExitCode = crash.getDetailedExitCode();
@@ -578,6 +590,7 @@ public class BlazeRuntimeWrapper {
             new JavaClock(),
             /* execStartTimeNanos= */ 42,
             /* slimProfile= */ false,
+            /* slimProfileSizeLimit= */ -1,
             /* includePrimaryOutput= */ false,
             /* includeTargetLabel= */ false,
             /* includeConfiguration= */ false,

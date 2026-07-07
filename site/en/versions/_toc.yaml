@@ -3,6 +3,8 @@ toc:
   label: 9.1.0
 - path: /versions/9.0.0
   label: 9.0.0
+- path: /versions/8.7.0
+  label: 8.7.0
 - label: '8.6'
   path: /versions/8.6.0
 - label: '8.5'

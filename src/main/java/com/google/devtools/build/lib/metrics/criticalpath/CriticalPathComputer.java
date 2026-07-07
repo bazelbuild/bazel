@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.metrics.criticalpath;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Comparators;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Maps;
 import com.google.common.eventbus.AllowConcurrentEvents;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.flogger.GoogleLogger;
@@ -31,17 +30,21 @@ import com.google.devtools.build.lib.actions.ActionStartedEvent;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.AggregatedSpawnMetrics;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.CachedActionEvent;
 import com.google.devtools.build.lib.actions.DiscoveredInputsEvent;
 import com.google.devtools.build.lib.actions.SpawnExecutedEvent;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
+import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue.ActionTemplateExpansionKey;
 import com.google.devtools.build.lib.skyframe.rewinding.ActionRewoundEvent;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import java.time.Duration;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -76,7 +79,7 @@ public class CriticalPathComputer {
   private final AtomicInteger idGenerator = new AtomicInteger();
   // outputArtifactToComponent is accessed from multiple event handlers.
   private final ConcurrentMap<Artifact, CriticalPathComponent> outputArtifactToComponent =
-      Maps.newConcurrentMap();
+      new ConcurrentHashMap<>();
   private final ActionKeyContext actionKeyContext;
   @Nullable private final WalkableGraph graph;
 
@@ -368,14 +371,54 @@ public class CriticalPathComputer {
     }
     component.finishActionExecution(startTimeNanos, finishTimeNanos, finalizeReason);
     maxCriticalPath.accumulateAndGet(component, SELECT_LONGER_COMPONENT);
+
+    if (isTemplateExpansionAction(action)) {
+      for (Artifact output : action.getOutputs()) {
+        if ((output instanceof TreeFileArtifact treeFileArtifact
+                && !treeFileArtifact.isChildOfDeclaredDirectory())
+            || output.isSubTreeArtifact()) {
+          // If this action generates a template expansion TreeFileArtifact or sub-TreeArtifact,
+          // the parent TreeArtifact is an output of action template expansion, and is not a direct
+          // output of an action. As such, we need to keep track of the longest critical path of
+          // this
+          // parent TreeArtifact by updating the longest component for all whenever a template
+          // action
+          // completes.
+          Artifact parent = output.getParent();
+          while (parent != null) {
+            outputArtifactToComponent.merge(parent, component, SELECT_LONGER_COMPONENT);
+            parent = parent.hasParent() ? parent.getParent() : null;
+          }
+        }
+      }
+    }
+  }
+
+  private static boolean isTemplateExpansionAction(Action action) {
+    Artifact primaryOutput = action.getPrimaryOutput();
+    return primaryOutput instanceof DerivedArtifact derivedArtifact
+        && derivedArtifact.hasGeneratingActionKey()
+        && derivedArtifact.getGeneratingActionKey().getActionLookupKey()
+            instanceof ActionTemplateExpansionKey;
   }
 
   /** If "input" is a generated artifact, link its critical path to the one we're building. */
   private void addArtifactDependency(
       CriticalPathComponent actionStats, Artifact input, long componentFinishNanos) {
     CriticalPathComponent depComponent = outputArtifactToComponent.get(input);
-    if (depComponent == null && input.isChildOfDeclaredDirectory()) {
-      depComponent = outputArtifactToComponent.get(input.getParent());
+    if (depComponent == null && input.hasParent()) {
+      // If the input is a nested artifact (e.g. a TreeFileArtifact) and does not have a direct
+      // generating action recorded, it might have been generated as part of a parent artifact (i.e.
+      // a TreeFileArtifact of an output TreeArtifact). This can happen in the following events:
+      // - ctx.actions.declare_directory()
+      // - template_ctx.declare_subdirectory()
+      // In both cases, the action generates the parent TreeArtifact and registers a component for
+      // the parent, but not for the child.
+      Artifact parent = input.getParent();
+      while (parent != null && depComponent == null) {
+        depComponent = outputArtifactToComponent.get(parent);
+        parent = parent.hasParent() ? parent.getParent() : null;
+      }
     }
 
     // Typically, the dep component should already be finished since its output was used as an input

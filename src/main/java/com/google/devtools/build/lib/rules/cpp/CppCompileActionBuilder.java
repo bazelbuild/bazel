@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -62,7 +61,6 @@ public final class CppCompileActionBuilder implements StarlarkValue {
   private Artifact gcnoFile;
   private CcCompilationContext ccCompilationContext = null;
   private final List<String> pluginOpts = new ArrayList<>();
-  private CoptsFilter coptsFilter = CoptsFilter.alwaysPasses();
   private ImmutableList<PathFragment> extraSystemIncludePrefixes = ImmutableList.of();
   private boolean usePic;
   private final CppConfiguration cppConfiguration;
@@ -71,6 +69,7 @@ public final class CppCompileActionBuilder implements StarlarkValue {
   private Map<String, String> executionInfo = new LinkedHashMap<>();
   private final CcToolchainProvider ccToolchain;
   @Nullable private String actionName;
+  private String progressMessagePrefix = "";
   private ImmutableList<Artifact> buildInfoHeaderArtifacts = ImmutableList.of();
   private NestedSet<Artifact> cacheKeyInputs = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
   private NestedSet<Artifact> additionalPrunableHeaders =
@@ -121,7 +120,6 @@ public final class CppCompileActionBuilder implements StarlarkValue {
     this.gcnoFile = other.gcnoFile;
     this.ccCompilationContext = other.ccCompilationContext;
     this.pluginOpts.addAll(other.pluginOpts);
-    this.coptsFilter = other.coptsFilter;
     this.extraSystemIncludePrefixes = other.extraSystemIncludePrefixes;
     this.cppConfiguration = other.cppConfiguration;
     this.configuration = other.configuration;
@@ -130,6 +128,7 @@ public final class CppCompileActionBuilder implements StarlarkValue {
     this.executionInfo = new LinkedHashMap<>(other.executionInfo);
     this.ccToolchain = other.ccToolchain;
     this.actionName = other.actionName;
+    this.progressMessagePrefix = other.progressMessagePrefix;
     this.additionalOutputs = other.additionalOutputs;
     this.needsIncludeValidation = other.needsIncludeValidation;
     this.moduleFiles = other.moduleFiles;
@@ -290,8 +289,7 @@ public final class CppCompileActionBuilder implements StarlarkValue {
     addTransitiveMandatoryInputs(
         getShouldScanIncludes()
             ? compilerFilesWithoutIncludes
-            : configuration.getFragment(CppConfiguration.class).useSpecificToolFiles()
-                    && !getSourceFile().isTreeArtifact()
+            : !getSourceFile().isTreeArtifact()
                 ? (getActionName().equals(CppActionNames.ASSEMBLE)
                     ? ccToolchain.getAsFiles()
                     : ccToolchain.getCompilerFiles())
@@ -332,10 +330,10 @@ public final class CppCompileActionBuilder implements StarlarkValue {
         dwoFile,
         ltoIndexingFile,
         ccCompilationContext,
-        coptsFilter,
         ImmutableList.copyOf(additionalIncludeScanningRoots),
         ImmutableMap.copyOf(executionInfo),
         actionName,
+        progressMessagePrefix,
         needsIncludeValidation,
         getBuiltinIncludeDirectories(),
         ccToolchain.getGrepIncludes(),
@@ -420,6 +418,12 @@ public final class CppCompileActionBuilder implements StarlarkValue {
         actionName,
         this.actionName);
     this.actionName = actionName;
+    return this;
+  }
+
+  @CanIgnoreReturnValue
+  public CppCompileActionBuilder setProgressMessagePrefix(String progressMessagePrefix) {
+    this.progressMessagePrefix = progressMessagePrefix;
     return this;
   }
 
@@ -576,16 +580,6 @@ public final class CppCompileActionBuilder implements StarlarkValue {
 
   public CcToolchainProvider getToolchain() {
     return ccToolchain;
-  }
-
-  @CanIgnoreReturnValue
-  public CppCompileActionBuilder setCoptsFilter(CoptsFilter coptsFilter) {
-    this.coptsFilter = Preconditions.checkNotNull(coptsFilter);
-    return this;
-  }
-
-  CoptsFilter getCoptsFilter() {
-    return coptsFilter;
   }
 
   @CanIgnoreReturnValue

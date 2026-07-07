@@ -29,7 +29,7 @@ java_library(
         "//src/test/java/com/google/devtools/build/lib/bazel/repository/starlark:__subpackages__",
     ],
     deps = [
-        "//third_party:guava",
+        "//third_party:error_prone_annotations",
         "//third_party:jsr305",
     ],
 )

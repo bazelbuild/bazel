@@ -279,7 +279,8 @@ public class DynamicTypeCheckTest {
   public void testStarlarkUniverseTypes() {
     ImmutableList.Builder<String> builder = ImmutableList.builder();
     for (var entry : Starlark.UNIVERSE.entrySet()) {
-      StarlarkType type = Starlark.getStarlarkType(entry.getValue());
+      StarlarkType type =
+          Starlark.getStarlarkType(entry.getValue(), ev.getStarlarkThread().getSemantics());
       if (type instanceof CallableType callable) {
         builder.add(entry.getKey() + ": " + callable.toSignatureString());
       } else {
@@ -315,7 +316,8 @@ public class DynamicTypeCheckTest {
     for (String name : Starlark.dir(Mutability.IMMUTABLE, StarlarkSemantics.DEFAULT, s)) {
       StarlarkType type =
           Starlark.getStarlarkType(
-              Starlark.getattr(Mutability.IMMUTABLE, StarlarkSemantics.DEFAULT, s, name, null));
+              Starlark.getattr(Mutability.IMMUTABLE, StarlarkSemantics.DEFAULT, s, name, null),
+              ev.getStarlarkThread().getSemantics());
       if (type instanceof CallableType callable) {
         builder.add(name + ": " + callable.toSignatureString());
       } else {
@@ -363,7 +365,8 @@ public class DynamicTypeCheckTest {
     for (String name : Starlark.dir(Mutability.IMMUTABLE, StarlarkSemantics.DEFAULT, list)) {
       StarlarkType type =
           Starlark.getStarlarkType(
-              Starlark.getattr(Mutability.IMMUTABLE, StarlarkSemantics.DEFAULT, list, name, null));
+              Starlark.getattr(Mutability.IMMUTABLE, StarlarkSemantics.DEFAULT, list, name, null),
+              ev.getStarlarkThread().getSemantics());
       if (type instanceof CallableType callable) {
         builder.add(name + ": " + callable.toSignatureString());
       } else {

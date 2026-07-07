@@ -49,6 +49,8 @@ redirects:
   to: /versions/8.5.0/reference/be/overview
 - from: /versions/8.6.0/reference/be/
   to: /versions/8.6.0/reference/be/overview
+- from: /versions/8.7.0/reference/be/
+  to: /versions/8.7.0/reference/be/overview
 - from: /versions/9.0.0/reference/be/
   to: /versions/9.0.0/reference/be/overview
 - from: /versions/9.1.0/reference/be/
@@ -115,6 +117,8 @@ redirects:
   to: /versions/8.5.0/rules/lib/overview
 - from: /versions/8.6.0/rules/lib/
   to: /versions/8.6.0/rules/lib/overview
+- from: /versions/8.7.0/rules/lib/
+  to: /versions/8.7.0/rules/lib/overview
 - from: /versions/9.0.0/rules/lib/
   to: /versions/9.0.0/rules/lib/overview
 - from: /versions/9.1.0/rules/lib/
@@ -903,6 +907,8 @@ redirects:
   to: /versions/8.5.0/extending/aspects
 - from: /versions/8.6.0/rules/aspects
   to: /versions/8.6.0/extending/aspects
+- from: /versions/8.7.0/rules/aspects
+  to: /versions/8.7.0/extending/aspects
 - from: /versions/9.0.0/rules/aspects
   to: /versions/9.0.0/extending/aspects
 - from: /versions/9.1.0/rules/aspects

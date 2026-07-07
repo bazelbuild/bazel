@@ -2,7 +2,7 @@
 title: 'configuration'
 ---
 
-This object holds information about the environment in which the build is running. See the [Rules page](https://bazel.build/extending/rules#configurations) for more on the general concept of configurations.
+This object holds information about the environment in which the build is running. See the [Rules page](https://bazel.build/versions/8.6.0/extending/rules#configurations) for more on the general concept of configurations.
 
 ## Members
 
@@ -18,7 +18,7 @@ This object holds information about the environment in which the build is runnin
 bool configuration.coverage_enabled
 ```
 
-A boolean that tells whether code coverage is enabled for this run. Note that this does not compute whether a specific rule should be instrumented for code coverage data collection. For that, see the [`ctx.coverage_instrumented`](../builtins/ctx#coverage_instrumented) function.
+A boolean that tells whether code coverage is enabled for this run. Note that this does not compute whether a specific rule should be instrumented for code coverage data collection. For that, see the [`ctx.coverage_instrumented`](/versions/8.6.0/rules/lib/builtins/ctx#coverage_instrumented) function.
 
 ## default_shell_env
 

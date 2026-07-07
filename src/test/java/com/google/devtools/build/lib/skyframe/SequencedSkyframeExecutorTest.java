@@ -91,6 +91,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventBusEventHandler;
 import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
@@ -781,7 +782,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
         skyframeExecutor
             .getPackageManager()
             .getPackage(
-                new Reporter(new EventBus(), customEventCollector),
+                new Reporter(EventBusEventHandler.createWithNewEventBus(), customEventCollector),
                 PackageIdentifier.createInMainRepo("pkg"));
     assertThat(pkg.containsErrors()).isTrue();
     MoreAsserts.assertContainsEvent(customEventCollector, "name 'thisisanerror' is not defined");
@@ -2309,6 +2310,65 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testExceptionComparator() throws Exception {
+    options.parse("--keep_going", "--jobs=5");
+
+    Path root = getExecRoot();
+    PathFragment execPath = PathFragment.create("out").getRelative("dir");
+    ActionLookupKey configuredTargetKey = new InjectedActionLookupKey("key");
+    Artifact dummyArtifact =
+        DerivedArtifact.create(
+            ArtifactRoot.asDerivedRoot(root, RootType.OUTPUT, "out"),
+            execPath.getRelative("catas"),
+            configuredTargetKey);
+
+    ActionExecutionException catastropheWithUserExitCode =
+        new ActionExecutionException(
+            "foo",
+            new Exception("bar"),
+            new DummyAction(NestedSetBuilder.emptySet(Order.STABLE_ORDER), dummyArtifact),
+            /* catastrophe= */ true,
+            USER_DETAILED_EXIT_CODE);
+    ActionExecutionException catastropheWithInfrastructureExitCode =
+        new ActionExecutionException(
+            "foo",
+            new Exception("bar"),
+            new DummyAction(NestedSetBuilder.emptySet(Order.STABLE_ORDER), dummyArtifact),
+            /* catastrophe= */ true,
+            INFRA_DETAILED_EXIT_CODE);
+    ActionExecutionException nonCatastropheWithUserExitCode =
+        new ActionExecutionException(
+            "foo",
+            new Exception("bar"),
+            new DummyAction(NestedSetBuilder.emptySet(Order.STABLE_ORDER), dummyArtifact),
+            /* catastrophe= */ false,
+            USER_DETAILED_EXIT_CODE);
+    ActionExecutionException nonCatastropheWithInfrastructureExitCode =
+        new ActionExecutionException(
+            "foo",
+            new Exception("bar"),
+            new DummyAction(NestedSetBuilder.emptySet(Order.STABLE_ORDER), dummyArtifact),
+            /* catastrophe= */ false,
+            INFRA_DETAILED_EXIT_CODE);
+
+    ImmutableList<ActionExecutionException> exceptionsWithIncreasingSeverity =
+        ImmutableList.of(
+            nonCatastropheWithUserExitCode,
+            nonCatastropheWithInfrastructureExitCode,
+            catastropheWithUserExitCode,
+            catastropheWithInfrastructureExitCode);
+    for (int i = 0; i < exceptionsWithIncreasingSeverity.size() - 1; i++) {
+      for (int j = i + 1; j < exceptionsWithIncreasingSeverity.size(); j++) {
+        assertThat(
+                CompletionFunction.SEVERITY_ORDERING.max(
+                    exceptionsWithIncreasingSeverity.get(i),
+                    exceptionsWithIncreasingSeverity.get(j)))
+            .isEqualTo(exceptionsWithIncreasingSeverity.get(j));
+      }
+    }
+  }
+
+  @Test
   public void testCatastropheReportingWithError() throws Exception {
     options.parse("--keep_going", "--jobs=1");
     Path root = getExecRoot();
@@ -2657,7 +2717,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
         .inject(ImmutableMap.of(topKey, Delta.justNew(topTarget)));
     // Collect all events.
     eventCollector = new EventCollector();
-    reporter = new Reporter(eventBus, eventCollector);
+    reporter = new Reporter(new EventBusEventHandler(eventBus), eventCollector);
     skyframeExecutor.setEventBus(eventBus);
     skyframeExecutor.setActionOutputRoot(getOutputPath());
 

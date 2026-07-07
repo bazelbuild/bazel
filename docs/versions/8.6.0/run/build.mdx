@@ -633,8 +633,7 @@ Note: Hermeticity means that the action only uses its declared input
 files and no other files in the filesystem, and it only produces its declared
 output files. See [Hermeticity](/versions/8.6.0/basics/hermeticity) for more details.
 
-On some platforms such as [Google Kubernetes
-Engine](https://cloud.google.com/kubernetes-engine/) cluster nodes or Debian,
+On some platforms such as [Google Kubernetes Engine](https://cloud.google.com/kubernetes-engine/) cluster nodes or Debian,
 user namespaces are deactivated by default due to security
 concerns. This can be checked by looking at the file
 `/proc/sys/kernel/unprivileged_userns_clone`: if it exists and contains a 0,

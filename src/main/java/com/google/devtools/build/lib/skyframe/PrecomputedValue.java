@@ -113,6 +113,8 @@ public final class PrecomputedValue implements SkyValue {
    *
    * <ul>
    *   <li>When a starlark transition reads {@code //command_line_option:stamp} as an input.
+   *   <li>When a starlark transition sets {@code //command_line_option:stamp} as an output (since
+   *       then dependencies may have a different output path in --stamp vs --nostamp).
    *   <li>A {@code config_setting} that matches on the value of {@code --stamp}.
    * </ul>
    *

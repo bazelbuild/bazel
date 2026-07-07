@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.packages;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkValue;
-import net.starlark.java.syntax.Location;
 
 /**
  * An Info is a unit of information produced by analysis of one configured target and consumed by
@@ -54,14 +53,6 @@ public interface Info extends StarlarkValue {
 
   /** Returns the provider that instantiated this Info. */
   Provider getProvider();
-
-  /**
-   * Returns the source location where this Info (provider instance) was created, or BUILTIN if it
-   * was instantiated by Java code.
-   */
-  default Location getCreationLocation() {
-    return Location.BUILTIN;
-  }
 
   @Override
   default void repr(Printer printer, StarlarkSemantics semantics) {

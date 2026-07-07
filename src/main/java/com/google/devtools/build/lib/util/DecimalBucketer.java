@@ -25,8 +25,6 @@ import java.util.ArrayList;
  * #getBuckets} to get the buckets.
  */
 public class DecimalBucketer {
-  /** A bucket of values. min is inclusive, max is exclusive. */
-  public record Bucket(long minInclusive, long maxExclusive, long count) {}
 
   private final ArrayList<Long> counts = new ArrayList<>();
 

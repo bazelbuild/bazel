@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.BazelStarlarkEnvironment;
+import com.google.devtools.build.lib.packages.PackageLoadingListener;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.skyframe.BzlCompileValue.TypeOptions;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -57,11 +58,15 @@ public class BzlCompileFunction implements SkyFunction {
 
   private final BazelStarlarkEnvironment bazelStarlarkEnvironment;
   private final HashFunction hashFunction;
+  private final PackageLoadingListener packageLoadingListener;
 
   public BzlCompileFunction(
-      BazelStarlarkEnvironment bazelStarlarkEnvironment, HashFunction hashFunction) {
+      BazelStarlarkEnvironment bazelStarlarkEnvironment,
+      HashFunction hashFunction,
+      PackageLoadingListener packageLoadingListener) {
     this.bazelStarlarkEnvironment = bazelStarlarkEnvironment;
     this.hashFunction = hashFunction;
+    this.packageLoadingListener = packageLoadingListener;
   }
 
   @Override
@@ -69,7 +74,11 @@ public class BzlCompileFunction implements SkyFunction {
       throws SkyFunctionException, InterruptedException {
     try {
       return computeInline(
-          (BzlCompileValue.Key) skyKey.argument(), env, bazelStarlarkEnvironment, hashFunction);
+          (BzlCompileValue.Key) skyKey.argument(),
+          env,
+          bazelStarlarkEnvironment,
+          hashFunction,
+          packageLoadingListener);
     } catch (FailedIOException e) {
       throw new FunctionException(e);
     }
@@ -80,11 +89,13 @@ public class BzlCompileFunction implements SkyFunction {
       BzlCompileValue.Key key,
       Environment env,
       BazelStarlarkEnvironment bazelStarlarkEnvironment,
-      HashFunction hashFunction)
+      HashFunction hashFunction,
+      PackageLoadingListener packageLoadingListener)
       throws FailedIOException, InterruptedException {
     byte[] bytes;
     byte[] digest;
     String inputName;
+    RootedPath rootedPath = null;
 
     if (key.kind == BzlCompileValue.Kind.EMPTY_PRELUDE) {
       // Default prelude is empty.
@@ -92,9 +103,8 @@ public class BzlCompileFunction implements SkyFunction {
       digest = null;
       inputName = "<default prelude>";
     } else {
-
       // Obtain the file.
-      RootedPath rootedPath = RootedPath.toRootedPath(key.root, key.label.toPathFragment());
+      rootedPath = RootedPath.toRootedPath(key.root, key.label.toPathFragment());
       SkyKey fileSkyKey = FileValue.key(rootedPath);
       FileValue fileValue = null;
       try {
@@ -216,6 +226,9 @@ public class BzlCompileFunction implements SkyFunction {
     }
     try {
       Program prog = Program.compileFile(file, module);
+      if (key.kind == BzlCompileValue.Kind.NORMAL) {
+        packageLoadingListener.onBzlCompileCompleteAndSuccessful(rootedPath, bytes.length);
+      }
       return BzlCompileValue.withProgram(prog, digest, typeOptions);
     } catch (SyntaxError.Exception ex) {
       addSyntaxErrorsToListener(env.getListener(), ex.errors(), key);

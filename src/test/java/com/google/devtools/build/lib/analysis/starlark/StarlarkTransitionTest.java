@@ -1009,13 +1009,13 @@ public class StarlarkTransitionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void stampTransitionOutput_stampSettingMarkerNotApplied(@TestParameter boolean stampFlag)
-      throws Exception {
+  public void stampTransitionOutput_stampSettingMarkerAppliedIfStampFlag(
+      @TestParameter boolean stampFlag) throws Exception {
     scratch.file(
         "test/defs.bzl",
         """
         def _stamp_output_impl(settings, attr):
-            return {"//command_line_option:stamp": True}
+            return {"//command_line_option:stamp": False}
 
         stamp_output_transition = transition(
             implementation = _stamp_output_impl,
@@ -1023,13 +1023,17 @@ public class StarlarkTransitionTest extends BuildViewTestCase {
             outputs = ["//command_line_option:stamp"],
         )
 
-        example = rule(implementation = lambda ctx: None, cfg = stamp_output_transition)
+        example = rule(
+          implementation = lambda ctx: None,
+          attrs = {"dep": attr.label(cfg = stamp_output_transition)},
+        )
         """);
     scratch.file(
         "test/BUILD",
         """
         load(":defs.bzl", "example")
-        example(name = "depends_on_stamp_output")
+        example(name = "depends_on_stamp_output", dep = ":dep")
+        filegroup(name = "dep", srcs = [])
         """);
 
     useConfiguration("--stamp=" + stampFlag);
@@ -1037,7 +1041,12 @@ public class StarlarkTransitionTest extends BuildViewTestCase {
     ActionLookupKey key = getConfiguredTarget("//test:depends_on_stamp_output").getLookupKey();
     NodeEntry node =
         getSkyframeExecutor().getEvaluator().getExistingEntryAtCurrentlyEvaluatingVersion(key);
-    assertThat(node.getDirectDeps()).doesNotContain(PrecomputedValue.STAMP_SETTING_MARKER.getKey());
+    if (stampFlag) {
+      assertThat(node.getDirectDeps()).contains(PrecomputedValue.STAMP_SETTING_MARKER.getKey());
+    } else {
+      assertThat(node.getDirectDeps())
+          .doesNotContain(PrecomputedValue.STAMP_SETTING_MARKER.getKey());
+    }
   }
 
   @Test

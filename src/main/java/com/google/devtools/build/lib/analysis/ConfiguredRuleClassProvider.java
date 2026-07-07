@@ -392,7 +392,7 @@ public /*final*/ class ConfiguredRuleClassProvider
         trimmingTransitionFactory = factory;
       } else {
         trimmingTransitionFactory =
-            ComposingTransitionFactory.of(trimmingTransitionFactory, factory);
+            ComposingTransitionFactory.ofUnchecked(trimmingTransitionFactory, factory);
       }
       return this;
     }
@@ -735,6 +735,16 @@ public /*final*/ class ConfiguredRuleClassProvider
   @Override
   public boolean isPackageUnderExperimental(PackageIdentifier packageIdentifier) {
     return prerequisiteValidator.packageUnderExperimental(packageIdentifier);
+  }
+
+  @Override
+  public boolean isPackageUnderPrototypes(PackageIdentifier packageIdentifier) {
+    return prerequisiteValidator.packageUnderPrototypes(packageIdentifier);
+  }
+
+  @Override
+  public boolean mayPackageDependOnPrototypes(PackageIdentifier packageIdentifier) {
+    return prerequisiteValidator.mayDependOnPrototypes(packageIdentifier);
   }
 
   @Override

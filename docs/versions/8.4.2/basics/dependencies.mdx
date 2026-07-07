@@ -65,8 +65,7 @@ targets, we’ve made some strides in mitigating the downside by investing in
 tooling to automatically manage `BUILD` files to avoid burdening developers.
 
 Some of these tools, such as `buildifier` and `buildozer`, are available with
-Bazel in the [`buildtools`
-directory](https://github.com/bazelbuild/buildtools).
+Bazel in the [`buildtools` directory](https://github.com/bazelbuild/buildtools).
 
 ## Minimizing Module Visibility
 
@@ -106,8 +105,7 @@ transitive dependencies (Figure 1). Suppose target A depends on target B, which
 depends on a common library target C. Should target A be able to use classes
 defined in target C?
 
-[![Transitive
-dependencies](/versions/8.4.2/images/transitive-dependencies.png)](/versions/8.4.2/images/transitive-dependencies.png)
+[![Transitive dependencies](/versions/8.4.2/images/transitive-dependencies.png)](/versions/8.4.2/images/transitive-dependencies.png)
 
 **Figure 1**. Transitive dependencies
 
@@ -141,9 +139,7 @@ dependencies and adding them to a `BUILD` files without any developer
 intervention. But even without such tools, we’ve found the trade-off to be well
 worth it as the codebase scales: explicitly adding a dependency to `BUILD` file
 is a one-time cost, but dealing with implicit transitive dependencies can cause
-ongoing problems as long as the build target exists. Bazel [enforces strict
-transitive
-dependencies](https://blog.bazel.build/2017/06/28/sjd-unused_deps.html)
+ongoing problems as long as the build target exists. Bazel [enforces strict transitive dependencies](https://blog.bazel.build/2017/06/28/sjd-unused_deps.html)
 on Java code by default.
 
 ### External dependencies
@@ -192,8 +188,7 @@ so in theory there’s no reason that different versions of the same external
 dependency couldn’t both be declared in the build system under different names.
 That way, each target could choose which version of the dependency it wanted to
 use. This causes a lot of problems in practice, so Google enforces a strict
-[One-Version
-Rule](https://opensource.google/docs/thirdparty/oneversion/) for
+[One-Version Rule](https://opensource.google/docs/thirdparty/oneversion/) for
 all third-party dependencies in our codebase.
 
 The biggest problem with allowing multiple versions is the diamond dependency
@@ -232,8 +227,7 @@ Bazel did not use to automatically download transitive dependencies. It used to
 employ a `WORKSPACE` file that required all transitive dependencies to be
 listed, which led to a lot of pain when managing external dependencies. Bazel
 has since added support for automatic transitive external dependency management
-in the form of the `MODULE.bazel` file. See [external dependency
-overview](/versions/8.4.2/external/overview) for more details.
+in the form of the `MODULE.bazel` file. See [external dependency overview](/versions/8.4.2/external/overview) for more details.
 
 Yet again, the choice here is one between convenience and scalability. Small
 projects might prefer not having to worry about managing transitive dependencies

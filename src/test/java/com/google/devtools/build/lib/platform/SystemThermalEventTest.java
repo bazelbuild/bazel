@@ -82,7 +82,8 @@ public final class SystemThermalEventTest extends BuildIntegrationTestCase {
   protected BlazeRuntime.Builder getRuntimeBuilder() throws Exception {
     return super.getRuntimeBuilder()
         .addBlazeModule(eventListener)
-        .addBlazeModule(new SystemThermalModule());
+        .addBlazeModule(new SystemThermalModule())
+        .addBlazeService(new PlatformNativeDepsServiceImpl());
   }
 
   @Test

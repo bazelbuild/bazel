@@ -70,7 +70,7 @@ public class WorkerFilesHash {
     List<ActionInput> tools =
         InputMetadataProvider.expandArtifacts(
             actionInputFileCache,
-            spawn.getToolFiles(),
+            spawn.getToolFiles().toList(),
             /* keepEmptyTreeArtifacts= */ false,
             /* keepRunfilesTrees= */ true);
     for (ActionInput tool : tools) {

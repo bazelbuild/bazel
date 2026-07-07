@@ -63,9 +63,6 @@ java_library(
 java_test(
     name = "StarlarkTests",
     testonly = 1,
-    jvm_flags = [
-        "-Djava.lang.Thread.allowVirtualThreads=true",
-    ],
     tags = [
         "rules",
     ],

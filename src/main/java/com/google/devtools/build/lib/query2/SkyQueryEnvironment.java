@@ -74,6 +74,7 @@ import com.google.devtools.build.lib.query2.common.QueryTransitivePackagePreload
 import com.google.devtools.build.lib.query2.common.UniverseScope;
 import com.google.devtools.build.lib.query2.common.UniverseSkyKey;
 import com.google.devtools.build.lib.query2.compat.FakeLoadTarget;
+import com.google.devtools.build.lib.query2.engine.AggregatingQueryExpressionVisitor.RequiresEdgesQueryExpressionVisitor;
 import com.google.devtools.build.lib.query2.engine.AllRdepsFunction;
 import com.google.devtools.build.lib.query2.engine.Callback;
 import com.google.devtools.build.lib.query2.engine.KeyExtractor;
@@ -156,6 +157,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
 
   private final BlazeTargetAccessor accessor = new BlazeTargetAccessor(this);
   protected final int loadingPhaseThreads;
+  protected final boolean trackIncrementalState;
   protected final WalkableGraphFactory graphFactory;
   protected final UniverseScope universeScope;
   protected final TargetPattern.Parser mainRepoTargetParser;
@@ -175,6 +177,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   public SkyQueryEnvironment(
       boolean keepGoing,
       int loadingPhaseThreads,
+      boolean trackIncrementalState,
       ExtendedEventHandler eventHandler,
       Set<Setting> settings,
       Iterable<QueryFunction> extraFunctions,
@@ -187,6 +190,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     this(
         keepGoing,
         loadingPhaseThreads,
+        trackIncrementalState,
         // SkyQueryEnvironment operates on a prepopulated Skyframe graph. Therefore, query
         // evaluation is completely CPU-bound.
         /* queryEvaluationParallelismLevel= */ DEFAULT_THREAD_COUNT,
@@ -204,6 +208,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   protected SkyQueryEnvironment(
       boolean keepGoing,
       int loadingPhaseThreads,
+      boolean trackIncrementalState,
       int queryEvaluationParallelismLevel,
       ExtendedEventHandler eventHandler,
       Set<Setting> settings,
@@ -223,6 +228,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
         extraFunctions,
         labelPrinter);
     this.loadingPhaseThreads = loadingPhaseThreads;
+    this.trackIncrementalState = trackIncrementalState;
     this.graphFactory = graphFactory;
     this.pkgPath = pkgPath;
     this.universeScope = universeScope;
@@ -262,6 +268,15 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   protected void beforeEvaluateQuery(
       QueryExpression expr, ThreadSafeOutputFormatterCallback<Target> callback)
       throws QueryException, InterruptedException {
+    if (!trackIncrementalState) {
+      RequiresEdgesQueryExpressionVisitor visitor = new RequiresEdgesQueryExpressionVisitor();
+      if (expr.accept(visitor)) {
+        throw new QueryException(
+            expr,
+            "Queries requiring edge traversal are not supported with --notrack_incremental_state",
+            Code.ILLEGAL_FLAG_COMBINATION);
+      }
+    }
     UniverseSkyKey universeKey = universeScope.getUniverseKey(expr, parserPrefix);
     ImmutableList<String> universeScopeListToUse = universeKey.getPatterns();
     logger.atInfo().log("Using a --universe_scope value of %s", universeScopeListToUse);

@@ -880,6 +880,23 @@ TEST_F(BlazercImportTest, BazelRcTryImportDoesNotFallBackToLiteralPlaceholder) {
   ParseOptionsAndCheckOutput(args, blaze_exit_code::SUCCESS, "", "");
 }
 
+TEST_F(BlazercImportTest, WorkspaceRelativeImportFailsOutsideOfWorkspace) {
+  const std::string rc_path = blaze_util::JoinPath(cwd_, "mybazelrc");
+  ASSERT_TRUE(
+      blaze_util::WriteFile("import %workspace%/some_rc", rc_path, 0755));
+
+  const std::vector<std::string> args = {binary_path_, "--bazelrc=" + rc_path,
+                                         "build"};
+  std::string error;
+  // Use empty string for workspace to simulate being outside of a workspace
+  // directory.
+  const blaze_exit_code::ExitCode exit_code =
+      option_processor_->ParseOptions(args, "", cwd_, &error);
+
+  EXPECT_EQ(blaze_exit_code::BAD_ARGV, exit_code);
+  EXPECT_THAT(error, HasSubstr("This is because no workspace was found"));
+}
+
 TEST_F(BlazercImportTest, SuccessfulTryImportIfBazelVersion) {
   const std::string imported_rc_path =
       blaze_util::JoinPath(workspace_, "myimportedbazelrc");

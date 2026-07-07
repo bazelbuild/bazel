@@ -17,7 +17,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -27,6 +26,7 @@ import com.google.devtools.build.lib.pkgcache.PackageProvider;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.skyframe.CycleInfo;
 import com.google.devtools.build.skyframe.SkyKey;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -87,7 +87,7 @@ class TargetCycleReporter extends AbstractLabelCycleReporter {
   @Override
   protected String getAdditionalMessageAboutCycle(
       ExtendedEventHandler eventHandler, SkyKey topLevelKey, CycleInfo cycleInfo) {
-    List<SkyKey> keys = Lists.newArrayList();
+    List<SkyKey> keys = new ArrayList<>();
     if (!cycleInfo.getPathToCycle().isEmpty()) {
       if (!shouldSkipOnPathToCycle(topLevelKey)) {
         keys.add(topLevelKey);

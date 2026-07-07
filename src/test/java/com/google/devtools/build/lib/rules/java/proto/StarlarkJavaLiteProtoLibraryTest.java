@@ -111,6 +111,11 @@ proto_lang_toolchain(
   }
 
   /** Tests that java_binaries which depend on proto_libraries depend on the right set of files. */
+  @Ignore(
+      "TODO(b/442009533): This test should be starlarkified because there's not a way to keepit in"
+          + " sync with both Bazel (depends on old protbuf) and blaze (depends on new protbuf). The"
+          + " actual failure related to whether the dep on the native version of the"
+          + " --proto_compiler flag is included in the deps or not")
   @Test
   public void testBinaryDeps() throws Exception {
     scratch.file(

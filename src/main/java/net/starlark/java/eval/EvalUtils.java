@@ -14,6 +14,7 @@
 package net.starlark.java.eval;
 
 import java.util.IllegalFormatException;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -109,10 +110,12 @@ final class EvalUtils {
             // int | int
             return StarlarkInt.or((StarlarkInt) x, (StarlarkInt) y);
           }
-        } else if (x instanceof Map) {
-          if (y instanceof Map) {
+        } else if (x instanceof Map<?, ?> xMap) {
+          if (y instanceof Map<?, ?> yMap) {
             // map | map (usually dicts)
-            return Dict.builder().putAll((Map<?, ?>) x).putAll((Map<?, ?>) y).build(mu);
+            LinkedHashMap<Object, Object> union = new LinkedHashMap<>(xMap);
+            union.putAll(yMap);
+            return mu.isFrozen() ? CompactImmutableDict.copyOf(union) : Dict.wrap(mu, union);
           }
         } else if (x instanceof Set && y instanceof Set) {
           // set | set

@@ -16,6 +16,7 @@ package com.google.devtools.build.skyframe;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
+import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
@@ -162,8 +163,13 @@ public final class RecordingSkyFunctionEnvironment implements Environment {
   }
 
   @Override
-  public void injectVersionForNonHermeticFunction(Version version) {
-    delegate.injectVersionForNonHermeticFunction(version);
+  public Set<SkyKey> getNewlyRequestedDeps() {
+    return delegate.getNewlyRequestedDeps();
+  }
+
+  @Override
+  public void injectVersion(Version version) {
+    delegate.injectVersion(version);
   }
 
   @Override

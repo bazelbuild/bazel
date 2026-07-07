@@ -17,9 +17,6 @@ filegroup(
 java_library(
     name = "fragment_options_for_output",
     srcs = ["FragmentOptionsForOutput.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/analysis/config:fragment_options",
-    ],
 )
 
 java_library(
@@ -44,8 +41,4 @@ java_library(
 java_library(
     name = "fragment_for_output",
     srcs = ["FragmentForOutput.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/analysis/config:fragment",
-        "//src/main/java/com/google/devtools/build/lib/analysis/config:fragment_options",
-    ],
 )

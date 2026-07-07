@@ -387,7 +387,9 @@ static vector<string> GetServerExeArgs(const blaze_util::Path &jvm_path,
   // 11, so this option is known to be supported.
   result.push_back("--add-opens=java.base/java.lang=ALL-UNNAMED");
 
-  result.push_back("-Xverify:none");
+  result.push_back("-XX:+UnlockDiagnosticVMOptions");
+  result.push_back("-XX:-BytecodeVerificationLocal");
+  result.push_back("-XX:-BytecodeVerificationRemote");
 
   vector<string> user_options = startup_options.host_jvm_args;
 

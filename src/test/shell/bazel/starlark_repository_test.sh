@@ -2813,6 +2813,10 @@ function test_watch_tree() {
   touch ${outside_dir}/foo
   touch ${outside_dir}/bar
   touch ${outside_dir}/baz
+  mkdir ${outside_dir}/.ignored
+  touch ${outside_dir}/.ignored/qux
+  mkdir -p ${outside_dir}/other/dir/not/.ignored
+  touch ${outside_dir}/other/dir/not/.ignored/grault
 
   create_new_workspace
   cat > $(setup_module_dot_bazel) <<EOF
@@ -2824,7 +2828,7 @@ EOF
 def _r(rctx):
   rctx.file("BUILD", "filegroup(name='r')")
   print("I'm running!")
-  rctx.watch_tree("${outside_dir}")
+  rctx.watch_tree("${outside_dir}", exclude=[".ignored/**"])
 r=repository_rule(_r)
 EOF
 
@@ -2836,10 +2840,25 @@ EOF
   bazel build @r >& $TEST_log || fail "expected bazel to succeed"
   expect_log "I'm running!"
 
+  # Same with this other file, which is NOT ignored.
+  echo haha > ${outside_dir}/other/dir/not/.ignored/grault
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_log "I'm running!"
+
+  # changing the contents under an excluded directory does nothing
+  echo haha > ${outside_dir}/.ignored/qux
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_not_log "I'm running!"
+
   # adding a file should trigger a refetch.
   touch ${outside_dir}/quux
   bazel build @r >& $TEST_log || fail "expected bazel to succeed"
   expect_log "I'm running!"
+
+  # adding a file under an excluded directory does nothing
+  touch ${outside_dir}/.ignored/corge
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_not_log "I'm running!"
 
   # just touching an existing file shouldn't cause a refetch.
   touch ${outside_dir}/bar
@@ -3155,6 +3174,34 @@ EOF
   expect_log 'result_err.output: "err"'
   expect_log 'result_err.return_code: 1'
   expect_log 'result_err.error_message: ""'
+}
+
+function test_wasm_compilation() {
+  setup_starlark_repository
+
+  declare -r exec_wasm="$(rlocation "io_bazel/src/test/shell/bazel/testdata/exec_wasm.wasm")"
+  cat >test.bzl <<EOF
+def _impl(repository_ctx):
+  wasm_file = "$exec_wasm"
+  wasm_module = repository_ctx.load_wasm("$exec_wasm", compile=True)
+
+  result_ok = repository_ctx.execute_wasm(wasm_module, "run_ok", input="")
+  print('result_ok.output: %r' % (result_ok.output,))
+  print('result_ok.return_code: %r' % (result_ok.return_code,))
+  print('result_ok.error_message: %r' % (result_ok.error_message,))
+
+  # Symlink so a repository is created
+  repository_ctx.symlink(repository_ctx.path("$repo2"), repository_ctx.path(""))
+
+repo = repository_rule(implementation=_impl, local=True)
+EOF
+
+  bazel build --experimental_repository_ctx_execute_wasm --experimental_repository_ctx_wasm_compilation @foo//:bar >& $TEST_log \
+    || fail "Expected build to succeed"
+
+  expect_log 'result_ok.output: "ok"'
+  expect_log 'result_ok.return_code: 0'
+  expect_log 'result_ok.error_message: ""'
 }
 
 function test_resolved_attributes_shows_no_message_if_unchanged() {

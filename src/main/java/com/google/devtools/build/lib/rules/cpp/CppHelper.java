@@ -66,7 +66,7 @@ public class CppHelper {
   }
 
   /** Returns the directory where object files are created. */
-  public static PathFragment getObjDirectory(Label ruleLabel, boolean siblingRepositoryLayout) {
+  private static PathFragment getObjDirectory(Label ruleLabel, boolean siblingRepositoryLayout) {
     return AnalysisUtils.getUniqueDirectory(ruleLabel, OBJS, siblingRepositoryLayout);
   }
 

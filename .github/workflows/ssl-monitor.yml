@@ -39,7 +39,7 @@ jobs:
 
       - name: Manage SSL Issue on Failure
         if: env.SSL_CHECK_FAILED == 'true'
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             const script = require('./.github/scripts/manage_ssl_issue.js')

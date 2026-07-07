@@ -17,10 +17,7 @@ filegroup(
 
 java_binary(
     name = "worker",
-    jvm_flags = [
-        "--enable-native-access=ALL-UNNAMED",
-        "-Djava.lang.Thread.allowVirtualThreads=true",
-    ],
+    jvm_flags = ["--enable-native-access=ALL-UNNAMED"],
     main_class = "com.google.devtools.build.remote.worker.RemoteWorker",
     visibility = ["//visibility:public"],
     runtime_deps = ["//src/tools/remote/src/main/java/com/google/devtools/build/remote/worker"],

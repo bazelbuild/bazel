@@ -334,4 +334,22 @@ public final class StarlarkMethodProcessorTest {
         .failsToCompile()
         .withErrorContaining("Parameter 'one' must be documented because it is positional");
   }
+
+  @Test
+  public void testStarlarkBuiltinAndLibraryCombined() throws Exception {
+    assertAbout(javaSource())
+        .that(getFile("StarlarkBuiltinAndLibraryCombined.java"))
+        .processedWith(new StarlarkMethodProcessor())
+        .failsToCompile()
+        .withErrorContaining("also has or inherits StarlarkLibrary");
+  }
+
+  @Test
+  public void testStarlarkBuiltinAndLibraryInherited() throws Exception {
+    assertAbout(javaSource())
+        .that(getFile("StarlarkBuiltinAndLibraryInherited.java"))
+        .processedWith(new StarlarkMethodProcessor())
+        .failsToCompile()
+        .withErrorContaining("also has or inherits StarlarkBuiltin");
+  }
 }

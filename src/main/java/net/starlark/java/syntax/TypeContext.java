@@ -46,4 +46,18 @@ public interface TypeContext {
    */
   @Nullable
   StarlarkType getSetFieldType(String name);
+
+  /**
+   * Returns the value type of a {@link Resolver.Scope#PREDECLARED} symbol, or null if there is no
+   * such symbol.
+   */
+  @Nullable
+  StarlarkType getPredeclaredSymbolType(String name);
+
+  /**
+   * Returns the value type of a {@link Resolver.Scope#UNIVERSAL} symbol, or null if there is no
+   * such symbol.
+   */
+  @Nullable
+  StarlarkType getUniversalSymbolType(String name);
 }

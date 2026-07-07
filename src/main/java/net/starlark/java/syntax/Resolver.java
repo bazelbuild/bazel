@@ -14,6 +14,8 @@
 
 package net.starlark.java.syntax;
 
+import static com.google.common.base.Preconditions.checkState;
+
 import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -53,9 +55,9 @@ public final class Resolver extends NodeVisitor {
 
   /** Scope discriminates the scope of a binding: global, local, etc. */
   public enum Scope {
-    /** Binding is local to a function, comprehension, or file (e.g. load). */
+    /** Binding is local to a function, comprehension, type alias, or file (e.g. load). */
     LOCAL,
-    /** Binding is non-local and occurs outside any function or comprehension. */
+    /** Binding is non-local and occurs outside any function, comprehension, or type alias. */
     GLOBAL,
     /** Binding is local to a function, comprehension, or file, but shared with nested functions. */
     CELL,
@@ -217,6 +219,7 @@ public final class Resolver extends NodeVisitor {
     private final int[] cellIndices;
     private final ImmutableList<Binding> freevars;
     private final ImmutableList<String> globals; // TODO(adonovan): move to Program.
+    private final boolean mutationFreeAtTopLevel;
 
     private Function(
         String name,
@@ -230,7 +233,8 @@ public final class Resolver extends NodeVisitor {
         int numKeywordOnlyParams,
         List<Binding> locals,
         List<Binding> freevars,
-        List<String> globals) {
+        List<String> globals,
+        boolean mutationFreeAtTopLevel) {
       this.name = name;
       this.location = loc;
       this.functionId = functionId;
@@ -251,6 +255,7 @@ public final class Resolver extends NodeVisitor {
       this.locals = ImmutableList.copyOf(locals);
       this.freevars = ImmutableList.copyOf(freevars);
       this.globals = ImmutableList.copyOf(globals);
+      this.mutationFreeAtTopLevel = mutationFreeAtTopLevel;
 
       // Create an index of the locals that are cells.
       int ncells = 0;
@@ -409,11 +414,19 @@ public final class Resolver extends NodeVisitor {
     public boolean isToplevel() {
       return isToplevel;
     }
+
+    /** Inverse of {@link Resolver#sawPossibleMutationAtTopLevel}. */
+    boolean isMutationFreeAtTopLevel() {
+      return mutationFreeAtTopLevel;
+    }
   }
 
   /**
    * A static abstraction of a Starlark {@link net.starlark.java.eval.Module Module}, that resolves
    * names to scope and type information rather than to dynamic Starlark values.
+   *
+   * <p>Contrast with {@link TypeTagger.LoadableModule}, which is an abstraction of an already
+   * compiled (and type-checked) module used by this one as a load dependency.
    *
    * <p>The {@link #resolve} API returns information about predefined variables, including those
    * provided by the interpreter itself ({@link Scope#UNIVERSAL}), the application ({@link
@@ -481,11 +494,12 @@ public final class Resolver extends NodeVisitor {
    */
   private static class Block {
     @Nullable private final Block parent; // enclosing block, or null for tail of list
-    @Nullable Node syntax; // Comprehension, DefStatement/LambdaExpression, StarlarkFile, or null
+    // Comprehension, DefStatement/LambdaExpression, StarlarkFile, TypeAliasStatement, or null
+    @Nullable final Node syntax;
     private final ArrayList<Binding> frame; // accumulated locals of enclosing function
     // Accumulated CELL/FREE bindings of the enclosing function that will provide
     // the values for the free variables of this function; see Function.getFreeVars.
-    // Null for toplevel functions and expressions, which have no free variables.
+    // Null for toplevel functions/expressions and type aliases, which have no free variables.
     @Nullable private final ArrayList<Binding> freevars;
 
     // Bindings for names defined in this block.
@@ -514,11 +528,25 @@ public final class Resolver extends NodeVisitor {
   @Nullable private final Map<String, DocComments> docCommentsMap;
   // A cache of PREDECLARED, UNIVERSAL, and GLOBAL bindings queried from the module.
   private final Map<String, Binding> toplevel = new HashMap<>();
-  // Linked list of blocks, innermost first, for functions and comprehensions and (finally) file.
+  // Linked list of blocks, innermost first, for functions, comprehensions, type aliases, and
+  // (finally) file.
   private Block locals;
   private int loopCount;
   private int nextBindingId = 0;
   private int nextFunctionId = 0;
+  private int functionDepth = 0;
+
+  /**
+   * A heuristic indicating whether the program being resolved contains any top-level expressions
+   * that might mutate collections (e.g., function calls, index/dot writes, or augmented
+   * assignments).
+   *
+   * <p>This is used by the runtime interpreter to safely optimize collection literals (lists,
+   * dicts) into compact, immutable implementations to save memory. If this is false after resolving
+   * the program, then any collection literals created when executing the program can be made
+   * immutable at construction time.
+   */
+  private boolean sawPossibleMutationAtTopLevel;
 
   private Resolver(
       List<SyntaxError> errors,
@@ -532,6 +560,7 @@ public final class Resolver extends NodeVisitor {
     this.module = module;
     this.options = options;
     this.docCommentsMap = docCommentsMap;
+    this.sawPossibleMutationAtTopLevel = options.allowToplevelRebinding();
   }
 
   // Formats and reports an error at the start of the specified node.
@@ -645,6 +674,19 @@ public final class Resolver extends NodeVisitor {
     }
   }
 
+  /**
+   * Returns true if the LHS of an assignment consists purely of variable bindings (identifiers or
+   * unpacked tuples/lists of identifiers). Returns false if it contains an index or dot write.
+   */
+  private static boolean isPureBinding(Expression lhs) {
+    return switch (lhs) {
+      case Identifier id -> true;
+      case ListExpression listExpr ->
+          listExpr.getElements().stream().allMatch(Resolver::isPureBinding);
+      default -> false;
+    };
+  }
+
   private void assertIsBound(Identifier id) {
     Preconditions.checkState(id.getBinding() != null, "%s expected to be bound", id.getName());
   }
@@ -679,6 +721,12 @@ public final class Resolver extends NodeVisitor {
 
   @Override
   public void visit(CallExpression node) {
+    // Conservative over-approximation: any top-level call (e.g., `list.append()`) could be a
+    // mutation. Calls nested inside functions are safe to ignore, since if those functions are
+    // eventually executed during load, it must be via a top-level call in the caller's file.
+    if (functionDepth == 0) {
+      sawPossibleMutationAtTopLevel = true;
+    }
     // validate call arguments
     boolean seenVarargs = false;
     boolean seenKwargs = false;
@@ -834,6 +882,11 @@ public final class Resolver extends NodeVisitor {
 
   @Override
   public void visit(AssignmentStatement node) {
+    // Augmented assignments (e.g. `+=`) and non-pure bindings (e.g. index or dot writes) mutate
+    // objects in-place. If nested inside a function body, they are safe to ignore.
+    if (functionDepth == 0 && !sawPossibleMutationAtTopLevel) {
+      sawPossibleMutationAtTopLevel = node.isAugmented() || !isPureBinding(node.getLHS());
+    }
     visit(node.getRHS());
 
     // Disallow: [e, ...] += rhs
@@ -883,12 +936,18 @@ public final class Resolver extends NodeVisitor {
 
     if (options.resolveTypeSyntax()) {
       assertIsBound(node.getIdentifier());
-      visit(node.getDefinition());
-    }
 
-    // TODO: #27370 - Bind the generic type params (`type Foo[S, T] = ...`). Will require creating
-    // a new block for the RHS, since the type params don't leak outside the statement. (This
-    // means extending the invariant of Block#syntax to allow include TypeAliasStatement.)
+      ArrayList<Binding> frame = new ArrayList<>();
+      pushLocalBlock(node, frame, /* freevars= */ null);
+      for (Identifier paramId : node.getParameters()) {
+        // Parser guarantees that type alias parameter names are unique.
+        checkState(bind(paramId, /* isLoad= */ false, /* docComments= */ null));
+      }
+
+      visit(node.getDefinition());
+
+      popLocalBlock();
+    }
   }
 
   // Resolves a non-binding identifier to an existing binding, or null.
@@ -896,8 +955,8 @@ public final class Resolver extends NodeVisitor {
   private Binding use(Identifier id) {
     String name = id.getName();
 
-    // Locally defined in this function, comprehension,
-    // or file block, or an enclosing one?
+    // Locally defined in this function, comprehension, type alias, or file block, or an enclosing
+    // one?
     Binding bind = lookupLexical(name, locals);
     if (bind != null) {
       return bind;
@@ -1091,7 +1150,9 @@ public final class Resolver extends NodeVisitor {
     }
 
     createBindingsForBlock(body);
+    functionDepth++;
     visitAll(body);
+    functionDepth--;
     popLocalBlock();
 
     return new Function(
@@ -1106,7 +1167,8 @@ public final class Resolver extends NodeVisitor {
         numKeywordOnlyParams,
         frame,
         freevars,
-        globals);
+        globals,
+        /* mutationFreeAtTopLevel= */ false);
   }
 
   private void bindParam(ImmutableList.Builder<Parameter> params, Parameter param) {
@@ -1115,7 +1177,7 @@ public final class Resolver extends NodeVisitor {
     }
     params.add(param);
   }
-
+    
   /**
    * Process a binding use of a name by adding a binding to the current block if not already bound,
    * and associate the identifier with it.
@@ -1130,7 +1192,7 @@ public final class Resolver extends NodeVisitor {
     // TODO(adonovan): factor out bindLocal/bindGlobal cases
     // and simply the condition below.
 
-    // outside any function/comprehension, and not a (local) load? => global binding.
+    // outside any function/comprehension/type-alias, and not a (local) load? => global binding.
     if (locals.syntax instanceof StarlarkFile && !(isLoad && !options.loadBindsGlobally())) {
       bind = toplevel.get(name);
       if (bind == null) {
@@ -1154,7 +1216,7 @@ public final class Resolver extends NodeVisitor {
       }
 
     } else {
-      // Binding is local to file, function, or comprehension.
+      // Binding is local to file, function, comprehension, or type alias.
       bind = locals.bindings.get(name);
       if (bind == null) {
         // New local binding: add to current block's bindings map, current function's frame.
@@ -1269,7 +1331,7 @@ public final class Resolver extends NodeVisitor {
     }
 
     ArrayList<Binding> frame = new ArrayList<>();
-    r.pushLocalBlock(file, frame, /*freevars=*/ null);
+    r.pushLocalBlock(file, frame, /* freevars= */ null);
 
     // First pass: creating bindings for statements in this block.
     r.createBindingsForBlock(stmts);
@@ -1304,7 +1366,8 @@ public final class Resolver extends NodeVisitor {
             /* numKeywordOnlyParams= */ 0,
             frame,
             /* freevars= */ ImmutableList.of(),
-            r.globals));
+            r.globals,
+            !r.sawPossibleMutationAtTopLevel));
   }
 
   /**
@@ -1323,7 +1386,7 @@ public final class Resolver extends NodeVisitor {
     Resolver r = new Resolver(errors, module, options, /* docCommentsMap= */ null);
 
     ArrayList<Binding> frame = new ArrayList<>();
-    r.pushLocalBlock(null, frame, /*freevars=*/ null); // for bindings in list comprehensions
+    r.pushLocalBlock(null, frame, /* freevars= */ null); // for bindings in list comprehensions
     r.visit(expr);
     r.popLocalBlock();
 
@@ -1344,7 +1407,8 @@ public final class Resolver extends NodeVisitor {
         /* numKeywordOnlyParams= */ 0,
         frame,
         /* freevars= */ ImmutableList.of(),
-        r.globals);
+        r.globals,
+        !r.sawPossibleMutationAtTopLevel);
   }
 
   private void pushLocalBlock(

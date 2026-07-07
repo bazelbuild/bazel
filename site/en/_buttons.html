@@ -57,6 +57,13 @@
 9.0</a>
 {% dynamic endif %}
 ·
+{% dynamic if setvar.version == "8.7.0" %}
+<strong>8.7</strong>
+{% dynamic else %}
+<a href="/versions/8.7.0{% dynamic print setvar.original_path %}">
+8.7</a>
+{% dynamic endif %}
+·
 {% dynamic if setvar.version == "8.6.0" %}
 <strong>8.6</strong>
 {% dynamic else %}

@@ -1,3 +1,213 @@
+## Release 10.0.0-pre.20260614.4 (2026-06-24)
+
+```
+Baseline: e05fcb1658bce403337a3e73a0ca184c45128ad6
+```
+
+This release contains contributions from many people at Google, as well as .
+
+## Release 10.0.0-pre.20260614.1 (2026-06-22)
+
+```
+Baseline: e05fcb1658bce403337a3e73a0ca184c45128ad6
+```
+
+Important changes:
+
+  - Fixed repo content caching for non-gRPC cache backends.
+  - CCStarlarkInternal exposes hash functions currently  used by
+    rules_cc Java rules to starlark
+  - The new `--expand_param_files` flag expands param files into
+    their contents in `--subcommands` and `--verbose_failures` output.
+  - Fixed a performance regression in Bazel 9 that causes
+    `RepoMappingManifest` actions to consume a lot of CPU time.
+  - Improved BES upload failure message with failed invocation's ID.
+  - Any existing action relying on the legacy hardcoded list in Bazel
+    code being populated will now need to opt-into output mapping by
+    modifying their execution requirements.
+
+This release contains contributions from many people at Google, as well as Benjamin Peterson, Bryce Lampe, Fabian Meumertzheim, honnix, Keith Smiley, peakschris.
+
+## Release 10.0.0-pre.20260608.1 (2026-06-16)
+
+```
+Baseline: db077161e43484e4cb0f2270374ee33d05f3690d
+
+Cherry picks:
+
+   + 65ecccb87ae8dfda0ef1cd064f3a441746072abd:
+     Release 10.0.0-pre.20260608.1 (2026-06-16)
+   + abca86808bb612026ee6d3831958af995966515f:
+     Release 10.0.0-pre.20260608.1 (2026-06-16)
+```
+
+Important changes:
+
+  - The new `refines_constraint_value` attribute on
+    `constraint_setting` can be used to indicate that any non-default
+    value for that setting specified on a `platform` requires the
+    refined value to also be specified.
+  - Bazel's serialization system now has a new wire encoding that
+    supports
+    preserving how values are serialized across Bazel versions.
+
+This release contains contributions from many people at Google, as well as Benjamin Peterson, dependabot[bot], Fabian Meumertzheim, Fredrik Medley, Jean-Baptiste Bronisz, JonathanPerry651, Keith Smiley, vadim.
+
+## Release 10.0.0-pre.20260601.1 (2026-06-11)
+
+```
+Baseline: c9a05c3af4e6bf7a2bd9ab0a29ada8f33eab76cf
+```
+
+New features:
+
+  - Add an `exclude` param to `rtx.watch_tree()` to allow excluding
+    glob patterns from watch.
+
+Important changes:
+
+  - Enabled output path mapping (config stripping) support for
+    `ArchivedTreeArtifact`s to improve action caching under
+    `--experimental_output_paths=strip`.
+  - `module_extension(...)` now accepts a `facts_version` integer
+    parameter. Bumping it invalidates the facts persisted in
+    `MODULE.bazel.lock` for that extension, allowing extension
+    authors to make breaking changes to the facts schema without
+    risking misinterpretation by older code paths.
+  - Fixed an issue that caused Bazel to fail on a lost input even
+    with build or action rewinding enabled.
+  - BuildFinished events in BEP will consistently contain an
+    "infrastructure-caused" detailed exit code when a single target
+    contains both infrastructure-caused and user-caused exit codes in
+    its failed actions.
+
+This release contains contributions from many people at Google, as well as Chi Wang, Fabian Meumertzheim, Moran Omer, Son Luong Ngoc, Will Stranton, Yonatan Goldschmidt.
+
+## Release 10.0.0-pre.20260524.1 (2026-06-03)
+
+```
+Baseline: fdba6e6bda1ff9423b111eb099f4f9f6e0d34115
+```
+
+Important changes:
+
+  - CDC chunk uploads and downloads can now happen in parallel within
+    a large blob.
+
+This release contains contributions from many people at Google, as well as Benjamin Peterson, Tyler French, XananasX.
+
+## Release 9.1.1 (2026-06-03)
+
+```
+
+Release Notes:
+
+```
+
+## Release 10.0.0-pre.20260520.2 (2026-05-28)
+
+```
+Baseline: 3d40c422df61c4adb243ef68fff7e84584019a1f
+```
+
+This release contains contributions from many people at Google, as well as .
+
+## Release 10.0.0-pre.20260516.1 (2026-05-22)
+
+```
+Baseline: e2792d172525887b9ba4307c9bdd0483c736c5ad
+```
+
+New features:
+
+  - Add `add_prefix` attribute to `git_repository` to allow cloning
+    repositories into a given subdirectory prefix
+  - {r,m}ctx.download* report the size of downloaded files
+    RELNOTES: Addition to the user-facing Build API
+
+Important changes:
+
+  - `--tls_certificate=`, `--tls_client_certificate=`, and
+    `--tls_client_key=` can now be used to reset those flags to their
+    unset state.
+  - In output of `query --output=build`, string attributes containing
+    newline characters are now enclosed in triple double quotes (""")
+    for better readability.
+
+This release contains contributions from many people at Google, as well as Albert Lloveras, Chi Wang, dependabot[bot], Fabian Meumertzheim, Fredrik Medley, gaurav0107, John Millikin, Kapunahele Wong, Keith Smiley, Malte Poll, Nikki Vijaybhaskar, Richard Lavoie, Steffeeen, Tyler French, Will Stranton.
+
+## Release 10.0.0-pre.20260428.1 (2026-05-15)
+
+```
+Baseline: 37654e56598027f1f65bf729d604a600786dd8e9
+
+Cherry picks:
+
+   + 082349719b7f6a5a5930103df56e5c48f2bb1c34:
+     Add SkybridgeInterface to bootstrap test
+     (https://github.com/bazelbuild/bazel/pull/29418)
+   + 6de72fb7126113b15e67c9f0ae3745661c4881a7:
+     cherry-pick to include github tools release branch (#29533)
+   + 420dca55a0c9837fab29f6378738c694ac62d040:
+     Release 10.0.0-pre.20260428.1 (2026-05-15)
+   + 7c5c33a292e926580897a80ef1a8ea84c50dc4b6:
+     Release 10.0.0-pre.20260428.1 (2026-05-15)
+```
+
+New features:
+
+  - Adds the `strip_components` attribute to
+    `extract`/`download_and_extract`/`http_archive` to allow
+    stripping of path components when extracting files.
+
+This release contains contributions from many people at Google, as well as Armando Montanez, Grzegorz Lukasik, Hoyt Summers Pittman, Kapunahele Wong, Nikki Vijaybhaskar, Will Stranton.
+
+## Release 8.7.0 (2026-05-06)
+
+```
+
+Release Notes:
+
+```
+
+## Release 10.0.0-pre.20260421.2 (2026-04-30)
+
+```
+Baseline: 2d4650fe518304730dbda56c27cc3245784aea10
+
+Cherry picks:
+
+   + 84421290d1715dccc28b30aa662305d9964993f2:
+     Ensure Blaze profiler provides a valid clock fallback for
+     logging.
+   + 4090746091f5c6cad2d483bb64157c8beb8559b5:
+     Fix :bazel_bootstrap_distfile_test and
+     :bazel_bootstrap_distfile_tar_test.
+```
+
+Important changes:
+
+  - Added the `module_ctx.tag_sort_key(tag)` method, which returns an
+    opaque object for the given tag that can be compared to derive
+    the order in which tags from different classes appear in the
+    MODULE.bazel file.
+
+This release contains contributions from many people at Google, as well as Douglas Thor, Hoyt Summers Pittman, Jacob Nowjack, Keith Smiley, Xudong Yang.
+
+## Release 10.0.0-pre.20260416.1 (2026-04-23)
+
+```
+Baseline: ee72e6ddbcf19db6e4ddf127bde56ca5676de780
+```
+
+Important changes:
+
+  - Large numbers with 5+ digits in CLI output are now formatted with
+    comma separators for improved readability (e.g., "12,345 targets
+    configured" instead of "12345 targets configured")
+
+This release contains contributions from many people at Google, as well as Anthony Pratti, giria660, Jacob Nowjack, John Cater, Keith Smiley, Sarad Pant, Sarad, Tyler Breisacher, Tyler French.
+
 ## Release 9.1.0 (2026-04-20)
 
 ```

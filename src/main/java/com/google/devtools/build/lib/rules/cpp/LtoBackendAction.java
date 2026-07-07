@@ -208,9 +208,7 @@ public final class LtoBackendAction extends SpawnAction {
     return bitcodeInputs.build();
   }
 
-  @Nullable
-  @Override
-  public NestedSet<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext)
+  private NestedSet<Artifact> computeImports(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException {
     Path importsFilePath = actionExecutionContext.getInputPath(imports);
     ImmutableList<String> lines;
@@ -246,10 +244,23 @@ public final class LtoBackendAction extends SpawnAction {
 
     // Convert the import set of paths to the set of bitcode file artifacts.
     // Throws an error if there is any path in the importset that is not pat of any artifact
-    NestedSet<Artifact> bitcodeInputSet = computeBitcodeInputs(importSet, actionExecutionContext);
+    return computeBitcodeInputs(importSet, actionExecutionContext);
+  }
+
+  @Nullable
+  @Override
+  public NestedSet<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext)
+      throws ActionExecutionException {
+    NestedSet<Artifact> bitcodeInputSet = computeImports(actionExecutionContext);
     updateInputs(
         NestedSetBuilder.fromNestedSet(bitcodeInputSet).addTransitive(mandatoryInputs).build());
     return bitcodeInputSet;
+  }
+
+  @Override
+  public NestedSet<Artifact> getInputFilesForExtraAction(
+      ActionExecutionContext actionExecutionContext) throws ActionExecutionException {
+    return computeImports(actionExecutionContext);
   }
 
   @Override

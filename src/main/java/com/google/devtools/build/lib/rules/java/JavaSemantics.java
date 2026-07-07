@@ -20,9 +20,11 @@ import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute.LabelListLateBoundDefault;
+import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.Optional;
 
 /** Pluggable Java compilation semantics. */
 public interface JavaSemantics {
@@ -68,4 +70,8 @@ public interface JavaSemantics {
 
   /** Whether to enable parallelism in Turbine. */
   boolean turbineParallelism();
+
+  /** Returns the name of the tool to use for fixing dependencies in Java rules. */
+  Optional<String> getFixDepsTool(Rule rule, JavaConfiguration javaConfiguration);
 }
+

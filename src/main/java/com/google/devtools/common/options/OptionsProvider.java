@@ -13,14 +13,17 @@
 // limitations under the License.
 package com.google.devtools.common.options;
 
+import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
 import java.util.Collections;
 import java.util.Map;
+import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
  * A read-only interface for options parser results, which only allows to query the options of a
  * specific class, but not e.g. the residue any other information pertaining to the command line.
  */
+@SkybridgeInterface
 public interface OptionsProvider {
   public static final OptionsProvider EMPTY =
       new OptionsProvider() {
@@ -30,26 +33,37 @@ public interface OptionsProvider {
           return null;
         }
 
+        @SuppressWarnings("EmptyMap") // no Guava in skybridge interfaces
         @Override
         public Map<String, Object> getStarlarkOptions() {
           return Collections.emptyMap();
         }
 
+        @SuppressWarnings("EmptyMap") // no Guava in skybridge interfaces
         @Override
         public Map<String, String> getScopesAttributes() {
           return Collections.emptyMap();
         }
 
+        @SuppressWarnings("EmptyMap") // no Guava in skybridge interfaces
         @Override
         public Map<String, Object> getOnLeaveScopeValues() {
           return Collections.emptyMap();
         }
 
+        @SuppressWarnings("EmptyMap") // no Guava in skybridge interfaces
         @Override
         public Map<String, Object> getExplicitCommandLineStarlarkOptions() {
           return Collections.emptyMap();
         }
 
+        @SuppressWarnings("EmptySet") // no Guava in skybridge interfaces
+        @Override
+        public Set<String> getStarlarkOptionsAllowingMultiple() {
+          return Collections.emptySet();
+        }
+
+        @SuppressWarnings("EmptyMap") // no Guava in skybridge interface
         @Override
         public Map<String, String> getUserOptions() {
           return Collections.emptyMap();
@@ -82,6 +96,14 @@ public interface OptionsProvider {
    * the command line.
    */
   Map<String, Object> getExplicitCommandLineStarlarkOptions();
+
+  /**
+   * Returns the names of Starlark options allowing multiple option instances on the command line,
+   * which are combined into a list value upon parsing (which then needs to be split if one wishes
+   * to obtain the original command line). Corresponds to {@code allow_multiple = True} or {@code
+   * repeatable = True} in the {@code config} API in Starlark.
+   */
+  Set<String> getStarlarkOptionsAllowingMultiple();
 
   /**
    * Returns the options that were parsed from either a user blazerc file or the command line as a

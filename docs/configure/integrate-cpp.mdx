@@ -14,8 +14,7 @@ To depend on a C++ toolchain in your rule, set the `toolchains` parameter to
 `use_cc_toolchain()`. Then, in the rule implementation, use
 `find_cpp_toolchain(ctx)` to get the
 [`CcToolchainInfo`](/rules/lib/providers/CcToolchainInfo). A complete working
-example can be found [in the rules_cc
-examples](https://github.com/bazelbuild/rules_cc/blob/main/examples/write_cc_toolchain_cpu/write_cc_toolchain_cpu.bzl).
+example can be found [in the rules_cc examples](https://github.com/bazelbuild/rules_cc/blob/main/examples/write_cc_toolchain_cpu/write_cc_toolchain_cpu.bzl).
 
 ## Generating command lines and environment variables using the C++ toolchain {#generate-command-lines-toolchain}
 
@@ -25,8 +24,7 @@ This is because when writing our own actions, they must behave
 consistently with the C++ toolchain - for example, passing C++ command line
 flags to a tool that invokes the C++ compiler behind the scenes.
 
-C++ rules use a special way of constructing command lines based on [feature
-configuration](/docs/cc-toolchain-config-reference). To construct a command line,
+C++ rules use a special way of constructing command lines based on [feature configuration](/docs/cc-toolchain-config-reference). To construct a command line,
 you need the following:
 
 * `features` and `action_configs` - these come from the `CcToolchainConfigInfo`

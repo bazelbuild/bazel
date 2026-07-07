@@ -16,7 +16,6 @@ package com.google.devtools.build.skyframe;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadHostile;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import java.io.PrintStream;
@@ -69,8 +68,8 @@ public interface MemoizingEvaluator {
   void delete(BiPredicate<SkyKey, SkyValue> pred);
 
   /**
-   * Marks dirty values for deletion if they have been dirty for at least as many graph versions
-   * as the specified limit.
+   * Marks dirty values for deletion if they have been dirty for at least as many graph versions as
+   * the specified limit.
    *
    * <p>This ensures that after the next completed {@link #evaluate} call, all such values, along
    * with all values that transitively depend on them, will be removed from the value cache. Values
@@ -118,15 +117,6 @@ public interface MemoizingEvaluator {
    * #noteEvaluationsAtSameVersionMayBeFinished}.
    */
   default void postLoggingStats(ExtendedEventHandler eventHandler) {}
-
-  /**
-   * Returns node types that can be safely removed from the graph to save memory prior to
-   * {@linkplain com.google.devtools.build.lib.skyframe.serialization.analysis.FrontierSerializer
-   * frontier serialization} when the graph will not be used incrementally.
-   */
-  default ImmutableSet<SkyFunctionName> getNodesToRemoveBeforeFrontierSerialization() {
-    return ImmutableSet.of();
-  }
 
   /**
    * Returns the done (without error) values in the graph.
@@ -232,6 +222,15 @@ public interface MemoizingEvaluator {
    */
   @ThreadHostile
   void dumpCount(PrintStream out);
+
+  /**
+   * Writes the keys in the graph to the given output stream. For each keys matching the given
+   * filter, prints the key name.
+   *
+   * <p>Not necessarily thread-safe. Use only for debugging purposes.
+   */
+  @ThreadHostile
+  void dumpKeys(PrintStream out, Predicate<String> filter) throws InterruptedException;
 
   /**
    * Writes a detailed summary of the graph to the given output stream. For each key matching the

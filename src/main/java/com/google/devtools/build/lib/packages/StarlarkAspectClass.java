@@ -20,9 +20,13 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.BzlLoadValue;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec.MemoizationEquality;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 
 /** {@link AspectClass} for aspects defined in Starlark. */
 @Immutable
+// Interning requires by value memoization to prevent serialization non-determinism
+@AutoCodec(memoizationEquality = MemoizationEquality.BY_VALUE)
 public final class StarlarkAspectClass implements AspectClass {
   private final BzlLoadValue.Key extensionKey;
   private final String exportedName;

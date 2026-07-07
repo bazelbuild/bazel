@@ -9,7 +9,7 @@ anymore, and Bazel sees only the concrete set of instantiated rules.
 
 ## Why you shouldn't use legacy macros (and should use Symbolic macros instead) {#no-legacy-macros}
 
-Where possible you should use [symbolic macros](macros.md#macros).
+Where possible you should use [symbolic macros](/versions/8.0.1/extending/macros#macros).
 
 Symbolic macros
 
@@ -18,7 +18,7 @@ Symbolic macros
 *   Take typed attributes, which in turn means automatic label and select
     conversion.
 *   Are more readable
-*   Will soon have [lazy evaluation](macros.md/laziness)
+*   Will soon have [lazy evaluation](/versions/8.0.1/extending/macros#laziness)
 
 ## Usage {#usage}
 
@@ -152,7 +152,7 @@ the macro), use the function
 ## Label resolution in macros {#label-resolution}
 
 Since legacy macros are evaluated in the
-[loading phase](concepts.md#evaluation-model), label strings such as
+[loading phase](/versions/8.0.1/extending/concepts#evaluation-model), label strings such as
 `"//foo:bar"` that occur in a legacy macro are interpreted relative to the
 `BUILD` file in which the macro is used rather than relative to the `.bzl` file
 in which it is defined. This behavior is generally undesirable for macros that

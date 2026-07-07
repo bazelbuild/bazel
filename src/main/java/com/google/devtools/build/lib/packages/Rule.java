@@ -398,8 +398,6 @@ public class Rule extends RuleOrMacroInstance implements Target {
     return switch (attr.getName()) {
       case GENERATOR_FUNCTION -> interiorCallStack != null ? interiorCallStack.functionName() : "";
       case GENERATOR_LOCATION -> interiorCallStack != null ? getRelativeLocation() : "";
-      case GENERATOR_NAME ->
-          generatorNamePrefixLength > 0 ? getName().substring(0, generatorNamePrefixLength) : "";
       default -> attr.getDefaultValue(this);
     };
   }
@@ -413,15 +411,6 @@ public class Rule extends RuleOrMacroInstance implements Target {
   public boolean isRuleCreatedInMacro() {
     // TODO(bazel-team): do we really need the `hasStringAttribute(GENERATOR_NAME)` check?
     return interiorCallStack != null || hasStringAttribute(GENERATOR_NAME);
-  }
-
-  /** Returns the macro that generated this rule, or an empty string. */
-  public String getGeneratorFunction() {
-    Object value = getAttr(GENERATOR_FUNCTION);
-    if (value instanceof String valString) {
-      return valString;
-    }
-    return "";
   }
 
   private boolean hasStringAttribute(String attrName) {

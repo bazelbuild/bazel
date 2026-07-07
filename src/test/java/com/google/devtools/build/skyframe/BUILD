@@ -62,6 +62,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/events:event_bus_event_handler",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils:round-tripping",
         "//src/main/java/com/google/devtools/build/lib/util",
@@ -93,5 +94,13 @@ java_test(
     shard_count = 2,
     tags = ["not_run:arm"],
     test_class = "com.google.devtools.build.skyframe.AllTests",
+    runtime_deps = [":skyframe_tests"],
+)
+
+java_test(
+    name = "SkyframeEvictionTest",
+    size = "small",
+    tags = ["cpu:4"],  # Have some real CPUs to better suss out concurrency bugs
+    test_class = "com.google.devtools.build.skyframe.SkyframeEvictionTest",
     runtime_deps = [":skyframe_tests"],
 )

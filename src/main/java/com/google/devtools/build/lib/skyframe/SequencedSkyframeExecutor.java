@@ -26,6 +26,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multiset;
+import com.google.common.collect.Multisets;
 import com.google.common.collect.Range;
 import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
@@ -39,6 +40,7 @@ import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
+import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Factory;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionException;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
@@ -59,6 +61,8 @@ import com.google.devtools.build.lib.packages.BuildFileName;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.RuleClassId;
+import com.google.devtools.build.lib.packages.StarlarkInfo;
+import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -527,10 +531,10 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
 
   @Override
   @Nullable
-  public SkyframeStats getSkyframeStats(ExtendedEventHandler eventHandler) {
+  public SkyframeStats getSkyframeStats() {
     Map<String, SkyKeyStats> ruleStats = new HashMap<>();
     Map<String, SkyKeyStats> aspectStats = new HashMap<>();
-    Multiset<SkyFunctionName> functionCount = HashMultiset.create();
+    Multiset<StarlarkProvider> starlarkProviders = HashMultiset.create();
     for (Map.Entry<SkyKey, SkyValue> skyKeyAndValue :
         memoizingEvaluator.getDoneValues().entrySet()) {
       SkyValue value = skyKeyAndValue.getValue();
@@ -544,6 +548,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
               ruleStats.computeIfAbsent(
                   ruleClassId.key(), k -> new SkyKeyStats(k, ruleClassId.name()));
           ruleStat.countWithActions(ctValue.getActions().size());
+          addStarlarkProviders(ruleCfgTarget.getProvidersForMetrics(), starlarkProviders);
         }
       } else if (functionName.equals(SkyFunctions.ASPECT)) {
         AspectValue aspectValue = (AspectValue) value;
@@ -557,16 +562,25 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
             aspectStats.computeIfAbsent(
                 aspectClass.getKey(), k -> new SkyKeyStats(k, aspectClass.getName()));
         aspectStat.countWithActions(aspectValue.getActions().size());
+        addStarlarkProviders(aspectValue.getProviders(), starlarkProviders);
       }
-
-      // We record rules and aspects again here so function count is correct.
-      functionCount.add(functionName);
     }
     return new SkyframeStats(
         /* ruleStats= */ ImmutableList.sortedCopyOf(SkyKeyStats.BY_COUNT_DESC, ruleStats.values()),
         /* aspectStats= */ ImmutableList.sortedCopyOf(
             SkyKeyStats.BY_COUNT_DESC, aspectStats.values()),
-        functionCount);
+        Multisets.copyHighestCountFirst(starlarkProviders));
+  }
+
+  private static void addStarlarkProviders(
+      TransitiveInfoProviderMap providers, Multiset<StarlarkProvider> starlarkProviders) {
+    for (int i = 0; i < providers.getProviderCount(); i++) {
+      if (providers.getProviderInstanceAt(i) instanceof StarlarkInfo info
+          && info.getProvider() instanceof StarlarkProvider provider
+          && !provider.getLocation().file().startsWith("/virtual_builtins_bzl/")) {
+        starlarkProviders.add(provider);
+      }
+    }
   }
 
   public void dumpSkyframeStateInParallel(

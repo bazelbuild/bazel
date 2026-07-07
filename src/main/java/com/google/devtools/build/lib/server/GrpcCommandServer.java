@@ -13,10 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.server;
 
+import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
 import java.io.IOException;
 import java.net.SocketAddress;
 
 /** The gRPC command server interface. */
+@SkybridgeInterface
 public interface GrpcCommandServer {
   /** The interface for responding to an RPC. */
   public interface Responder {

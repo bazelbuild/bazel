@@ -150,6 +150,15 @@ public interface CcModuleApi<
             defaultValue = "unbound",
             allowedTypes = {@ParamType(type = Sequence.class), @ParamType(type = NoneType.class)}),
         @Param(
+            name = "local_includes",
+            doc =
+                "Search paths for header files referenced by angle brackets and quotes. "
+                    + "Usually passed with -I. Not propagated to dependents transitively.",
+            positional = false,
+            named = true,
+            defaultValue = "[]",
+            allowedTypes = {@ParamType(type = Sequence.class), @ParamType(type = Depset.class)}),
+        @Param(
             name = "quote_includes",
             doc =
                 "Search paths for header files referenced by quotes, "
@@ -252,6 +261,12 @@ public interface CcModuleApi<
             },
             named = true),
         @Param(
+            name = "progress_message_prefix",
+            doc = "An additional string to identify actions for logging.",
+            positional = false,
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
+            named = true),
+        @Param(
             name = "name",
             doc =
                 "This is used for naming the output artifacts of actions created by this "
@@ -342,13 +357,6 @@ public interface CcModuleApi<
             allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
             defaultValue = "unbound"),
         @Param(
-            name = "copts_filter",
-            documented = false,
-            positional = false,
-            named = true,
-            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
-            defaultValue = "unbound"),
-        @Param(
             name = "separate_module_headers",
             documented = false,
             positional = false,
@@ -382,6 +390,7 @@ public interface CcModuleApi<
       Object additionalExportedHeadersObject,
       Object starlarkIncludes,
       Object starlarkLooseIncludes,
+      Object starlarkLocalIncludes,
       Sequence<?> quoteIncludes, // <String> expected
       Sequence<?> systemIncludes, // <String> expected
       Sequence<?> frameworkIncludes, // <String> expected
@@ -394,6 +403,7 @@ public interface CcModuleApi<
       Sequence<?> cxxFlags, // <String> expected
       Sequence<?> ccCompilationContexts, // <CcCompilationContext> expected
       Object implementationCcCompilationContextsObject,
+      Object progressMessagePrefixObject,
       String name,
       boolean disallowPicOutputs,
       boolean disallowNopicOutputs,
@@ -407,7 +417,6 @@ public interface CcModuleApi<
       Object variablesExtension,
       Object languageObject,
       Object purposeObject,
-      Object coptsFilterObject,
       Object separateModuleHeadersObject,
       Sequence<?> moduleInterfacesUnchecked, // <Artifact> expected
       Object nonCompilationAdditionalInputsObject,

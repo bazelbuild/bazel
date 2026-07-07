@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.runtime;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.bazel.BazelStartupOptionsModule.Options;
@@ -70,6 +71,7 @@ public class CommandLineEventTest {
                 true,
                 new ArrayList<>(),
                 ImmutableSortedMap.of(),
+                ImmutableSet.of(),
                 Optional.of(ImmutableList.of()))
             .asStreamProto(null)
             .getStructuredCommandLine();
@@ -99,6 +101,7 @@ public class CommandLineEventTest {
                 false,
                 ImmutableSortedMap.of(),
                 ImmutableSortedMap.of(),
+                ImmutableSet.of(),
                 fakeCommandOptions.asListOfCanonicalOptions(),
                 /* replaceable= */ false)
             .asStreamProto(null)
@@ -135,6 +138,7 @@ public class CommandLineEventTest {
                 false,
                 fakeCommandOptions.asListOfCanonicalOptions(),
                 ImmutableSortedMap.of(),
+                ImmutableSet.of(),
                 Optional.empty())
             .asStreamProto(null)
             .getStructuredCommandLine();
@@ -172,6 +176,7 @@ public class CommandLineEventTest {
                 false,
                 fakeCommandOptions.asListOfCanonicalOptions(),
                 ImmutableSortedMap.of(),
+                ImmutableSet.of(),
                 Optional.of(
                     ImmutableList.of(
                         Pair.of("", "--bazelrc=/some/path"),
@@ -219,6 +224,7 @@ public class CommandLineEventTest {
                 false,
                 ImmutableSortedMap.of(),
                 ImmutableSortedMap.of(),
+                ImmutableSet.of(),
                 fakeCommandOptions.asListOfCanonicalOptions(),
                 /* replaceable= */ false)
             .asStreamProto(null)
@@ -264,6 +270,7 @@ public class CommandLineEventTest {
                 false,
                 fakeCommandOptions.asListOfCanonicalOptions(),
                 ImmutableSortedMap.of(),
+                ImmutableSet.of(),
                 Optional.of(ImmutableList.of()))
             .asStreamProto(null)
             .getStructuredCommandLine();
@@ -310,6 +317,7 @@ public class CommandLineEventTest {
                 false,
                 ImmutableSortedMap.of(),
                 ImmutableSortedMap.of(),
+                ImmutableSet.of(),
                 fakeCommandOptions.asListOfCanonicalOptions(),
                 /* replaceable= */ false)
             .asStreamProto(null)
@@ -352,6 +360,7 @@ public class CommandLineEventTest {
                 false,
                 fakeCommandOptions.asListOfExplicitOptions(),
                 fakeCommandOptions.getExplicitCommandLineStarlarkOptions(),
+                fakeCommandOptions.getStarlarkOptionsAllowingMultiple(),
                 Optional.empty())
             .asStreamProto(null)
             .getStructuredCommandLine();
@@ -387,6 +396,7 @@ public class CommandLineEventTest {
                 false,
                 ImmutableSortedMap.of(),
                 ImmutableSortedMap.of(),
+                ImmutableSet.of(),
                 fakeCommandOptions.asListOfCanonicalOptions(),
                 /* replaceable= */ false)
             .asStreamProto(null)
@@ -432,6 +442,7 @@ public class CommandLineEventTest {
                 false,
                 fakeCommandOptions.asListOfCanonicalOptions(),
                 ImmutableSortedMap.of(),
+                ImmutableSet.of(),
                 Optional.of(ImmutableList.of()))
             .asStreamProto(null)
             .getStructuredCommandLine();
@@ -469,6 +480,7 @@ public class CommandLineEventTest {
                 false,
                 ImmutableSortedMap.of(),
                 ImmutableSortedMap.of(),
+                ImmutableSet.of(),
                 fakeCommandOptions.asListOfCanonicalOptions(),
                 /* replaceable= */ false)
             .asStreamProto(null)
@@ -592,6 +604,7 @@ public class CommandLineEventTest {
                 false,
                 fakeCommandOptions.asListOfCanonicalOptions(),
                 ImmutableSortedMap.of(),
+                ImmutableSet.of(),
                 Optional.of(ImmutableList.of()))
             .asStreamProto(null)
             .getStructuredCommandLine();
@@ -627,6 +640,7 @@ public class CommandLineEventTest {
                 false,
                 ImmutableSortedMap.of(),
                 ImmutableSortedMap.of(),
+                ImmutableSet.of(),
                 fakeCommandOptions.asListOfCanonicalOptions(),
                 /* replaceable= */ false)
             .asStreamProto(null)

@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec.MemoizationEquality;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.HashCodes;
@@ -33,7 +34,8 @@ import java.util.Map;
  * <p>Used for dependency resolution.
  */
 @Immutable
-@AutoCodec
+// Interning requires by value memoization to prevent serialization non-determinism
+@AutoCodec(memoizationEquality = MemoizationEquality.BY_VALUE)
 public final class AspectDescriptor {
 
   private static final Interner<AspectDescriptor> interner = BlazeInterners.newWeakInterner();
@@ -41,6 +43,12 @@ public final class AspectDescriptor {
   @VisibleForTesting
   public static AspectDescriptor of(AspectClass aspectClass, AspectParameters aspectParameters) {
     return interner.intern(new AspectDescriptor(aspectClass, aspectParameters));
+  }
+
+  @VisibleForTesting
+  public static AspectDescriptor createUninternedForTesting(
+      AspectClass aspectClass, AspectParameters aspectParameters) {
+    return new AspectDescriptor(aspectClass, aspectParameters);
   }
 
   private final AspectClass aspectClass;

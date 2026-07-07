@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.DefaultInfo;
-import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
@@ -1462,12 +1461,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
             "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
             "cc_library(name = 'b', srcs = ['libb.so'])");
 
-    if (!analysisMock.isThisBazel()) {
-      assertThat(artifactsToStrings(getFilesToBuild(target.getConfiguredTarget())))
-          .containsExactly("bin a/libb.a");
-    } else {
-      assertThat(artifactsToStrings(getFilesToBuild(target.getConfiguredTarget()))).isEmpty();
-    }
+    assertThat(artifactsToStrings(getFilesToBuild(target.getConfiguredTarget()))).isEmpty();
   }
 
   // Returns the libraries to link from the CcLinkingContext of the given target, excluding
@@ -1775,36 +1769,6 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         )
         """);
     checkError("//foo", "Trying to link twice");
-  }
-
-  @Test
-  public void testImplicitOutputsWhitelistOnWhitelist() throws Exception {
-    if (analysisMock.isThisBazel()) {
-      return;
-    }
-    scratch.overwriteFile(
-        "tools/build_defs/cc/whitelists/cc_lib_implicit_outputs/BUILD",
-        """
-        package_group(
-            name = 'allowed_cc_lib_implicit_outputs',
-            packages = ['//bar'])
-        """);
-
-    scratch.file(
-        "bar/BUILD",
-        """
-        load("@rules_cc//cc:cc_library.bzl", "cc_library")
-        filegroup(
-            name = 'allowed',
-            srcs = [':liballowed_cc_lib.a'],
-        )
-        cc_library(
-            name = 'allowed_cc_lib',
-            srcs = ['allowed_cc_lib.cc'],
-        )
-        """);
-    getConfiguredTarget("//bar:allowed");
-    assertNoEvents();
   }
 
   private void prepareCustomTransition() throws Exception {
@@ -2293,22 +2257,6 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     assertContainsEvent("Only targets in the following allowlist");
   }
 
-  @Test
-  public void testCcLibraryProducesEmptyArchive() throws Exception {
-    if (analysisMock.isThisBazel()) {
-      return;
-    }
-    scratch.file(
-        "foo/BUILD",
-        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
-        "cc_library(name = 'foo')");
-    assertThat(
-            getConfiguredTarget("//foo:foo")
-                .getProvider(FileProvider.class)
-                .getFilesToBuild()
-                .toList())
-        .isNotEmpty();
-  }
 
   @Test
   public void testRpathIsNotAddedWhenThereAreNoSoDeps() throws Exception {

@@ -18,12 +18,13 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.testing.EqualsTester;
+import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions.MapBackedChecksumCache;
 import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsChecksumCache;
+import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
 import com.google.devtools.build.lib.analysis.util.ConfigurationTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.rules.objc.J2ObjcConfiguration;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -209,13 +210,13 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
     // Skyframe-invalidated between create() calls.
     BuildConfigurationValue config1 = create("--javacopt=foo");
     BuildConfigurationValue config2 = create("--javacopt=bar");
-    BuildConfigurationValue config3 = create("--j2objc_translation_flags=baz");
-    // Shared because all j2objc options are the same:
-    assertThat(config1.getFragment(J2ObjcConfiguration.class))
-        .isSameInstanceAs(config2.getFragment(J2ObjcConfiguration.class));
-    // Distinct because the j2objc options differ:
-    assertThat(config1.getFragment(J2ObjcConfiguration.class))
-        .isNotSameInstanceAs(config3.getFragment(J2ObjcConfiguration.class));
+    BuildConfigurationValue config3 = create("--toolchain_resolution_debug=.*");
+    // Shared because all platform options are the same:
+    assertThat(config1.getFragment(PlatformConfiguration.class))
+        .isSameInstanceAs(config2.getFragment(PlatformConfiguration.class));
+    // Distinct because the platform options differ:
+    assertThat(config1.getFragment(PlatformConfiguration.class))
+        .isNotSameInstanceAs(config3.getFragment(PlatformConfiguration.class));
   }
 
   @Test
@@ -499,6 +500,11 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
             on_leave_scope = "another_value"
         )
         string_flag(
+            name = "project_scope",
+            build_setting_default = "default",
+            scope = "project",
+        )
+        string_flag(
             name = "another_flag",
             build_setting_default = "default",
         )
@@ -509,14 +515,16 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
         )
         """);
 
-    BuildConfigurationValue execConfig =
-        createExec(
+    BuildOptions targetOptions =
+        parseBuildOptions(
             ImmutableMap.of(
                 "//test:default_scope",
                 "custom",
                 "//test:target_scope",
                 "custom",
                 "//test:universal_scope",
+                "custom",
+                "//test:project_scope",
                 "custom",
                 "//test:flag_in_exec_config_set_to_another_value",
                 "target_value",
@@ -527,26 +535,39 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
             "--experimental_exclude_starlark_flags_from_exec_config="
                 + (propagateByDefault ? "false" : "true"));
 
+    BuildOptions execOptions =
+        AnalysisTestUtil.execOptions(targetOptions, skyframeExecutor, reporter);
+
     if (propagateByDefault) {
-      assertThat(execConfig.getOptions().getStarlarkOptions())
+      assertThat(execOptions.getStarlarkOptions())
           .containsExactly(
-              Label.parseCanonicalUnchecked("//test:universal_scope"),
+              Label.parseCanonicalUnchecked(
+                  "//test:universal_scope"), // Universal survives all transitions, of course.
+              "custom",
+              Label.parseCanonicalUnchecked(
+                  "//test:project_scope"), // This is just asserting that project scope survives the
+              // exec transition.  If we had changed project scope,
+              // this flag wouldn't be present.
               "custom",
               Label.parseCanonicalUnchecked("//test:default_scope"),
               "custom",
               Label.parseCanonicalUnchecked("//test:another_flag"),
               "default");
     } else {
-      assertThat(execConfig.getOptions().getStarlarkOptions())
+      assertThat(execOptions.getStarlarkOptions())
           .containsExactly(
-              Label.parseCanonicalUnchecked("//test:universal_scope"),
+              Label.parseCanonicalUnchecked(
+                  "//test:universal_scope"), // Universal survives all transitions, of course.
+              "custom",
+              Label.parseCanonicalUnchecked(
+                  "//test:project_scope"), // This is just asserting that project scope survives the
+              // exec transition.  If we had changed project scope,
+              // this flag wouldn't be present.
               "custom",
               Label.parseCanonicalUnchecked("//test:flag_in_exec_config_set_to_another_value"),
               "another_value",
               Label.parseCanonicalUnchecked(
                   "//test:flag_in_exec_config_reference_another_flag_value"),
-              "default",
-              Label.parseCanonicalUnchecked("//test:another_flag"),
               "default");
     }
   }

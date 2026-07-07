@@ -162,8 +162,7 @@ To build C++ targets with MSVC, you need:
         set BAZEL_VC=C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC
         ```
 
-*   The [Windows
-    SDK](https://developer.microsoft.com/en-us/windows/downloads/windows-10-sdk).
+*   The [Windows SDK](https://developer.microsoft.com/en-us/windows/downloads/windows-10-sdk).
 
     The Windows SDK contains header files and libraries you need when building
     Windows applications, including Bazel itself. By default, the latest Windows SDK installed will
@@ -182,8 +181,7 @@ To build C++ targets with MSVC, you need:
 
 If everything is set up, you can build a C++ target now!
 
-Try building a target from one of our [sample
-projects](https://github.com/bazelbuild/bazel/tree/master/examples):
+Try building a target from one of our [sample projects](https://github.com/bazelbuild/bazel/tree/master/examples):
 
 ```
 <code class="devsite-terminal"
@@ -207,8 +205,7 @@ cc_configure = use_extension("@rules_cc//cc:extensions.bzl", "cc_configure_exten
 use_repo(cc_configure, "local_config_cc")
 ```
 
-To build and use Dynamically Linked Libraries (DLL files), see [this
-example](https://github.com/bazelbuild/bazel/tree/master/examples/windows/dll).
+To build and use Dynamically Linked Libraries (DLL files), see [this example](https://github.com/bazelbuild/bazel/tree/master/examples/windows/dll).
 
 **Command Line Length Limit**: To prevent the
 [Windows command line length limit issue](https://github.com/bazelbuild/bazel/issues/5163),
@@ -361,8 +358,7 @@ necessary for consistent behavior between WORKSPACE and Bzlmod setups in Bazel
   a build flag `--compiler=clang-cl`.
 
 *   If your build sets the flag
-  [\-\-incompatible_enable_cc_toolchain_resolution]
-  (https://github.com/bazelbuild/bazel/issues/7260)
+  [\-\-incompatible_enable_cc_toolchain_resolution](https://github.com/bazelbuild/bazel/issues/7260)
   to `true`, then use the approach for Bazel 7.0.0.
 
 **Bazel 0.28 and older:**
@@ -381,8 +377,7 @@ On Windows, Bazel builds two output files for `java_binary` rules:
 *   a `.jar` file
 *   a `.exe` file that can set up the environment for the JVM and run the binary
 
-Try building a target from one of our [sample
-projects](https://github.com/bazelbuild/bazel/tree/master/examples):
+Try building a target from one of our [sample projects](https://github.com/bazelbuild/bazel/tree/master/examples):
 
 ```
   <code class="devsite-terminal"
@@ -406,8 +401,7 @@ On Windows, Bazel builds two output files for `py_binary` rules:
 You can either run the executable file (it has a `.exe` extension) or you can run
 Python with the self-extracting zip file as the argument.
 
-Try building a target from one of our [sample
-projects](https://github.com/bazelbuild/bazel/tree/master/examples):
+Try building a target from one of our [sample projects](https://github.com/bazelbuild/bazel/tree/master/examples):
 
 ```
   <code class="devsite-terminal"
@@ -419,5 +413,4 @@ projects](https://github.com/bazelbuild/bazel/tree/master/examples):
 ```
 
 If you are interested in details about how Bazel builds Python targets on
-Windows, check out this [design
-doc](https://github.com/bazelbuild/bazel-website/blob/master/designs/_posts/2016-09-05-build-python-on-windows.md).
+Windows, check out this [design doc](https://github.com/bazelbuild/bazel-website/blob/master/designs/_posts/2016-09-05-build-python-on-windows.md).

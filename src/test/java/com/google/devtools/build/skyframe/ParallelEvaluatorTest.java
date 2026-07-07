@@ -24,12 +24,14 @@ import static com.google.devtools.build.skyframe.EvaluationResultSubjectFactory.
 import static com.google.devtools.build.skyframe.GraphTester.CONCATENATE;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.Mockito.when;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
@@ -40,9 +42,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
-import com.google.common.eventbus.EventBus;
 import com.google.common.testing.GcFinalization;
 import com.google.common.util.concurrent.AtomicLongMap;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -55,6 +55,7 @@ import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.QuiescingExecutor;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventBusEventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.events.Reportable;
@@ -64,7 +65,6 @@ import com.google.devtools.build.lib.testutil.TestThread;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.skyframe.EvaluationContext.UnnecessaryTemporaryStateDropper;
 import com.google.devtools.build.skyframe.EvaluationContext.UnnecessaryTemporaryStateDropperReceiver;
-import com.google.devtools.build.skyframe.GraphTester.SkipBatchPrefetchKey;
 import com.google.devtools.build.skyframe.GraphTester.StringValue;
 import com.google.devtools.build.skyframe.NotifyingHelper.EventType;
 import com.google.devtools.build.skyframe.NotifyingHelper.Order;
@@ -2580,7 +2580,7 @@ public class ParallelEvaluatorTest {
     tester.getOrCreate(grandparentKey).addDependency(parentKey2);
 
     ErrorInfo errorInfo = evalValueInError(grandparentKey);
-    List<ImmutableList<SkyKey>> cycles = Lists.newArrayList();
+    List<ImmutableList<SkyKey>> cycles = new ArrayList<>();
     for (CycleInfo cycleInfo : errorInfo.getCycleInfo()) {
       cycles.add(cycleInfo.getCycle());
     }
@@ -2620,7 +2620,7 @@ public class ParallelEvaluatorTest {
 
     ExtendedEventHandler reporter =
         new Reporter(
-            new EventBus(),
+            EventBusEventHandler.createWithNewEventBus(),
             e -> {
               throw new IllegalStateException();
             });
@@ -4316,5 +4316,27 @@ public class ParallelEvaluatorTest {
 
     assertThat(result.hasError()).isTrue();
     assertThat(evaluatedValues).hasSize(2); // errorKey and midKey
+  }
+
+  @Test
+  public void injectVersion_errorBubbling_doesNotCrash() throws Exception {
+    SkyKey key = () -> SkyFunctionName.createHermetic("HERMETIC_FN");
+    GroupedDeps previouslyRequestedDeps = new GroupedDeps();
+    ParallelEvaluatorContext evaluatorContext = mock(ParallelEvaluatorContext.class);
+    Version version = mock(Version.class);
+    when(evaluatorContext.getMinimalVersion()).thenReturn(version);
+    when(evaluatorContext.getGraphVersion()).thenReturn(version);
+
+    QueryableGraph graph = mock(QueryableGraph.class);
+    NodeBatch batch = mock(NodeBatch.class);
+    when(graph.getBatch(any(), any(), any())).thenReturn(batch);
+    when(evaluatorContext.getGraph()).thenReturn(graph);
+
+    SkyFunctionEnvironment env =
+        SkyFunctionEnvironment.createForError(
+            key, previouslyRequestedDeps, ImmutableMap.of(), ImmutableSet.of(), evaluatorContext);
+
+    // This should not crash on any precondition violation.
+    env.injectVersion(version);
   }
 }

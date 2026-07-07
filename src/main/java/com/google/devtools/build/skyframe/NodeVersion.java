@@ -13,12 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
-import com.google.auto.value.AutoValue;
+import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
 
 /**
  * Encapsulates the two versions relevant to a {@link NodeEntry}: when it was last evaluated, and
  * when its value last changed.
  */
+@SkybridgeInterface
 public interface NodeVersion {
 
   /**
@@ -43,13 +44,12 @@ public interface NodeVersion {
     if (lastChanged.equals(lastEvaluated)) {
       return lastChanged;
     }
-    return new AutoValue_NodeVersion_ChangePruned(lastChanged, lastEvaluated);
+    return new ChangePruned(lastChanged, lastEvaluated);
   }
 
   /**
    * Basic implementation of {@link NodeVersion} for the case where {@link #lastChanged} and {@link
    * #lastEvaluated} are different versions.
    */
-  @AutoValue
-  abstract class ChangePruned implements NodeVersion {}
+  record ChangePruned(Version lastChanged, Version lastEvaluated) implements NodeVersion {}
 }

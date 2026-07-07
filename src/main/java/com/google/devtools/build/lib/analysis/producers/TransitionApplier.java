@@ -82,14 +82,14 @@ final class TransitionApplier
   @Override
   public StateMachine step(Tasks tasks) throws InterruptedException {
     AtomicBoolean doesStarlarkTransition = new AtomicBoolean(false);
-    AtomicBoolean readsStampSetting = new AtomicBoolean(false);
+    AtomicBoolean stampDependent = new AtomicBoolean(false);
     try {
       transition.visit(
           (StarlarkTransitionVisitor)
               t -> {
                 doesStarlarkTransition.set(true);
-                if (t.readsStampSetting()) {
-                  readsStampSetting.set(true);
+                if (!t.isExecTransition() && (t.readsStampSetting() || t.setsStampSetting())) {
+                  stampDependent.set(true);
                 }
               });
     } catch (TransitionException e) {
@@ -104,7 +104,7 @@ final class TransitionApplier
               TransitionUtil.restrict(transition, fromConfiguration.getOptions()), eventHandler),
           this.label);
     }
-    if (readsStampSetting.get()
+    if (stampDependent.get()
         && fromConfiguration.getOptions().get(CoreOptions.class).getStampBinaries()) {
       // Request the STAMP_SETTING_MARKER dep. It's a precomputed value so should already be done,
       // but return a reference to the next step anyway as a state machine best practice.

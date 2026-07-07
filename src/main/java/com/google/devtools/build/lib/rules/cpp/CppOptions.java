@@ -805,36 +805,6 @@ public abstract class CppOptions extends FragmentOptions {
               + "(see https://github.com/bazelbuild/bazel/issues/7407 for more information).")
   public abstract boolean getDontEnableHostNonhost();
 
-  @Deprecated
-  @Option(
-      name = "incompatible_make_thinlto_command_lines_standalone",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-      effectTags = {OptionEffectTag.NO_OP},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE, OptionMetadataTag.DEPRECATED},
-      help = "This flag is a noop and scheduled for removal.")
-  public abstract boolean getUseStandaloneLtoIndexingCommandLines();
-
-  @Deprecated
-  @Option(
-      name = "incompatible_require_ctx_in_configure_features",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-      effectTags = {OptionEffectTag.NO_OP},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE, OptionMetadataTag.DEPRECATED},
-      help = "This flag is a noop and scheduled for removal.")
-  public abstract boolean getRequireCtxInConfigureFeatures();
-
-  @Deprecated
-  @Option(
-      name = "incompatible_validate_top_level_header_inclusions",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
-      effectTags = {OptionEffectTag.NO_OP},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE, OptionMetadataTag.DEPRECATED},
-      help = "This flag is a noop and scheduled for removal.")
-  public abstract boolean getValidateTopLevelHeaderInclusions();
-
   @Option(
       name = "incompatible_remove_legacy_whole_archive",
       defaultValue = "true",
@@ -845,15 +815,6 @@ public abstract class CppOptions extends FragmentOptions {
           "If true, Bazel will not link library dependencies as whole archive by default "
               + "(see https://github.com/bazelbuild/bazel/issues/7362 for migration instructions).")
   public abstract boolean getRemoveLegacyWholeArchive();
-
-  @Option(
-      name = "incompatible_disable_legacy_cc_provider",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help = "No-op flag. Will be removed in a future release.")
-  public abstract boolean getDisableLegacyCcProvider();
 
   @Option(
       name = "incompatible_enable_cc_toolchain_resolution",
@@ -872,17 +833,6 @@ public abstract class CppOptions extends FragmentOptions {
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help = "Save the state of enabled and requested feautres as an output of compilation.")
   public abstract boolean getSaveFeatureState();
-
-  @Option(
-      name = "incompatible_use_specific_tool_files",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "Use cc toolchain's compiler_files, as_files, and ar_files as inputs to appropriate "
-              + "actions. See https://github.com/bazelbuild/bazel/issues/8531")
-  public abstract boolean getUseSpecificToolFiles();
 
   @Option(
       name = "incompatible_disable_nocopts",

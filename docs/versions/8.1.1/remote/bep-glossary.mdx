@@ -36,7 +36,7 @@ BEP contains an event like the following:
 ## ActionExecuted {#actionexecuted}
 
 Provides details about the execution of a specific
-[Action](/versions/8.1.1/rules/lib/actions) in a build. By default, this event is
+[Action](/versions/8.1.1/rules/lib/builtins/actions) in a build. By default, this event is
 included in the BEP only for failed actions, to support identifying the root cause
 of build failures. Users may set the `--build_event_publish_all_actions` flag
 to include all `ActionExecuted` events.
@@ -410,5 +410,4 @@ workspace, such as the execution root.
 
 ## WorkspaceStatus {#workspacestatus}
 
-A single `WorkspaceStatus` event contains the result of the [workspace status
-command](/versions/8.1.1/docs/user-manual#workspace-status).
+A single `WorkspaceStatus` event contains the result of the [workspace status command](/versions/8.1.1/docs/user-manual#workspace-status).

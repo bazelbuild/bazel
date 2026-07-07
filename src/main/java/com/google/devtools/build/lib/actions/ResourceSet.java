@@ -84,6 +84,32 @@ public class ResourceSet implements ResourceSetOrBuilder {
     return new ResourceSet(resources, localTestCount, workerKey);
   }
 
+  /**
+   * Returns a new {@link ResourceSet} with the given overrides merged on top of this one's
+   * resources in order. Entries in later maps replace earlier ones and this set's resources; {@code
+   * localTestCount} and {@code workerKey} are preserved. Returns {@code this} if all override maps
+   * are empty.
+   */
+  @SafeVarargs
+  public final ResourceSet withResourceOverrides(ImmutableMap<String, Double>... overrides) {
+    boolean anyNonEmpty = false;
+    for (ImmutableMap<String, Double> override : overrides) {
+      if (!override.isEmpty()) {
+        anyNonEmpty = true;
+        break;
+      }
+    }
+    if (!anyNonEmpty) {
+      return this;
+    }
+    ImmutableMap.Builder<String, Double> builder =
+        ImmutableMap.<String, Double>builderWithExpectedSize(resources.size()).putAll(resources);
+    for (ImmutableMap<String, Double> override : overrides) {
+      builder.putAll(override);
+    }
+    return create(builder.buildKeepingLast(), localTestCount, workerKey);
+  }
+
   public double get(String resource) {
     return resources.getOrDefault(resource, 0.0);
   }

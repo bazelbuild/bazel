@@ -18,7 +18,6 @@ java_library(
     srcs = ["SpiedFileSystem.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
         "//third_party:mockito",
     ],

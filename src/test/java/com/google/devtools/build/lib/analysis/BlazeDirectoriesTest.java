@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.skyframe.serialization.testutils.FsUtils;
@@ -42,5 +43,23 @@ public final class BlazeDirectoriesTest extends FoundationTestCase {
   @Test
   public void noBlazeOutputPathInBazel() {
     assertThrows(NullPointerException.class, directories::getBlazeOutputPath);
+  }
+
+  @Test
+  public void isBlaze_falseForBazel() {
+    assertThat(directories.isBlaze()).isFalse();
+  }
+
+  @Test
+  public void isBlaze_trueForBlaze() {
+    BlazeDirectories blazeDirs =
+        new BlazeDirectories(
+            new ServerDirectories(
+                FsUtils.TEST_FILESYSTEM.getPath("/install_base"),
+                FsUtils.TEST_FILESYSTEM.getPath("/output_base"),
+                FsUtils.TEST_FILESYSTEM.getPath("/user_root")),
+            FsUtils.TEST_FILESYSTEM.getPath("/workspace"),
+            /* productName= */ "blaze");
+    assertThat(blazeDirs.isBlaze()).isTrue();
   }
 }

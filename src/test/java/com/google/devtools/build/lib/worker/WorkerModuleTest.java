@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase.RecordingExceptionHandler;
 import com.google.devtools.build.lib.clock.BlazeClock;
+import com.google.devtools.build.lib.events.EventBusEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.exec.BinTools;
@@ -319,13 +320,15 @@ public class WorkerModuleTest {
             /* allocationTracker= */ null,
             /* syscallCache= */ null,
             /* analysisCodecRegistrySupplier= */ null,
-            /* fingerprintValueServiceFactory= */ null,
+            /* remoteAnalysisCachingServicesSupplier= */ null,
+            /* fingerprinterForAnalysisCaching= */ null,
             /* allowExternalRepositories= */ true);
     when(env.getBlazeWorkspace()).thenReturn(blazeWorkspace);
     when(env.getDirectories()).thenReturn(blazeDirectories);
     EventBus eventBus = new EventBus();
     when(env.getEventBus()).thenReturn(eventBus);
-    when(env.getReporter()).thenReturn(new Reporter(eventBus, storedEventHandler));
+    when(env.getReporter())
+        .thenReturn(new Reporter(new EventBusEventHandler(eventBus), storedEventHandler));
   }
 
   private static BuildStartingEvent buildStartingEvent(BuildRequest request) {

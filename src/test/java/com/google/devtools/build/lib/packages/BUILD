@@ -117,7 +117,7 @@ java_test(
         ":DocumentationTestUtil",
         "//src/main/java/com/google/devtools/build/lib/bazel:bazel_services",
         "//src/main/java/com/google/devtools/build/lib/bazel:main",
-        "//src/main/java/com/google/devtools/build/lib/bazel/rules",
+        "//src/main/java/com/google/devtools/build/lib/bazel/rules:bazel_rule_class_provider",
         "//third_party:guava",
         "//third_party:junit4",
         "@rules_java//java/runfiles",

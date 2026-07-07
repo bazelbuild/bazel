@@ -19,9 +19,9 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.BuildType.OUTPUT;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventBusEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment;
@@ -70,7 +70,7 @@ public class BuildOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
     // following target deps. See CommonQueryOptions for further flag details.
     options.setAspectDeps(Mode.OFF);
     helper.setQuerySettings(Setting.INCLUDE_ASPECTS);
-    this.reporter = new Reporter(new EventBus(), events::add);
+    this.reporter = new Reporter(EventBusEventHandler.createWithNewEventBus(), events::add);
     helper.useRuleClassProvider(
         setRuleClassProviders(BuildOutputFormatterCallbackTest::simpleRule).build());
   }

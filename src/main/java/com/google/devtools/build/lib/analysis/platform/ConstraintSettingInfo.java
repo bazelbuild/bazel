@@ -14,13 +14,14 @@
 
 package com.google.devtools.build.lib.analysis.platform;
 
-import com.google.common.base.Objects;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.ConstraintSettingInfoApi;
 import com.google.devtools.build.lib.util.Fingerprint;
+import java.util.Objects;
+import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.StarlarkSemantics;
@@ -37,10 +38,15 @@ public class ConstraintSettingInfo extends NativeInfo implements ConstraintSetti
 
   private final Label label;
   @Nullable private final Label defaultConstraintValueLabel;
+  @Nullable private final ConstraintValueInfo refinedConstraintValue;
 
-  private ConstraintSettingInfo(Label label, Label defaultConstraintValueLabel) {
+  private ConstraintSettingInfo(
+      Label label,
+      @Nullable Label defaultConstraintValueLabel,
+      @Nullable ConstraintValueInfo refinedConstraintValue) {
     this.label = label;
     this.defaultConstraintValueLabel = defaultConstraintValueLabel;
+    this.refinedConstraintValue = refinedConstraintValue;
   }
 
   @Override
@@ -67,6 +73,26 @@ public class ConstraintSettingInfo extends NativeInfo implements ConstraintSetti
     return ConstraintValueInfo.create(this, defaultConstraintValueLabel);
   }
 
+  /** Returns the refined constraint value, or {@code null} if not set. */
+  @Nullable
+  public ConstraintValueInfo refinedConstraintValue() {
+    return refinedConstraintValue;
+  }
+
+  /**
+   * Iterates the constraint value labels that any {@code constraint_value} for this setting
+   * recursively implies via the {@code refines_constraint_value} chain.
+   */
+  public Iterable<Label> refinementChain() {
+    return () ->
+        Stream.iterate(
+                refinedConstraintValue,
+                Objects::nonNull,
+                cv -> cv.constraint().refinedConstraintValue)
+            .map(ConstraintValueInfo::label)
+            .iterator();
+  }
+
   /** Add this constraint setting to the given fingerprint. */
   public void addTo(Fingerprint fp) {
     fp.addString(label.getCanonicalForm());
@@ -78,7 +104,7 @@ public class ConstraintSettingInfo extends NativeInfo implements ConstraintSetti
       return false;
     }
 
-    return Objects.equal(label, otherConstraint.label);
+    return Objects.equals(label, otherConstraint.label);
   }
 
   @Override
@@ -92,17 +118,24 @@ public class ConstraintSettingInfo extends NativeInfo implements ConstraintSetti
     if (defaultConstraintValueLabel != null) {
       printer.append(", default_constraint_value=").str(defaultConstraintValueLabel, semantics);
     }
+    if (refinedConstraintValue != null) {
+      printer.append(", refines_constraint_value=").str(refinedConstraintValue.label(), semantics);
+    }
     printer.append(")");
   }
 
   /** Returns a new {@link ConstraintSettingInfo} with the given data. */
   public static ConstraintSettingInfo create(Label constraintSetting) {
-    return create(constraintSetting, null);
+    return create(
+        constraintSetting, /* defaultConstraintValue= */ null, /* refinedConstraintValue= */ null);
   }
 
   /** Returns a new {@link ConstraintSettingInfo} with the given data. */
   public static ConstraintSettingInfo create(
-      Label constraintSetting, Label defaultConstraintValue) {
-    return new ConstraintSettingInfo(constraintSetting, defaultConstraintValue);
+      Label constraintSetting,
+      @Nullable Label defaultConstraintValue,
+      @Nullable ConstraintValueInfo refinedConstraintValue) {
+    return new ConstraintSettingInfo(
+        constraintSetting, defaultConstraintValue, refinedConstraintValue);
   }
 }

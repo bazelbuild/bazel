@@ -444,4 +444,33 @@ public final class TaskGroupTest {
       assertThat(e).hasCauseThat().isInstanceOf(MyException1.class);
     }
   }
+
+  @Test
+  public void close_forkedButNotJoined_cancelsSubtasksAndThrows() throws Exception {
+    var latch = new CountDownLatch(1);
+    var subtaskStarted = new CountDownLatch(1);
+    AtomicBoolean interrupted = new AtomicBoolean(false);
+
+    var e =
+        assertThrows(
+            IllegalStateException.class,
+            () -> {
+              try (var group = TaskGroup.open(Policies.allSuccessful(), Joiners.voidOrThrow())) {
+                group.fork(
+                    () -> {
+                      subtaskStarted.countDown();
+                      try {
+                        latch.await();
+                      } catch (InterruptedException ex) {
+                        interrupted.set(true);
+                      }
+                      return 1;
+                    });
+                subtaskStarted.await();
+                // exiting try-with-resources without join!
+              }
+            });
+    assertThat(e).hasMessageThat().contains("Owner did not join after forking");
+    assertThat(interrupted.get()).isTrue();
+  }
 }

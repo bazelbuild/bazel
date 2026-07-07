@@ -42,7 +42,9 @@ import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.QuiescingExecutors;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventBusEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.exec.RunfilesTreeUpdater;
 import com.google.devtools.build.lib.exec.SingleBuildFileCache;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
@@ -169,6 +171,11 @@ public class CommandEnvironment {
   @GuardedBy("outputDirectoryHelperLock")
   private ActionOutputDirectoryHelper outputDirectoryHelper;
 
+  private final Object runfilesTreeUpdaterLock = new Object();
+
+  @GuardedBy("runfilesTreeUpdaterLock")
+  private RunfilesTreeUpdater runfilesTreeUpdater;
+
   // List of flags and their values that were added by invocation policy. May contain multiple
   // occurrences of the same flag.
   private ImmutableList<OptionAndRawValue> invocationPolicyFlags = ImmutableList.of();
@@ -247,7 +254,7 @@ public class CommandEnvironment {
     this.runtime = runtime;
     this.workspace = workspace;
     this.directories = workspace.getDirectories();
-    this.reporter = new Reporter(eventBus);
+    this.reporter = new Reporter(new EventBusEventHandler(eventBus));
     this.eventBus = eventBus;
     this.commandThread = commandThread;
     this.command = command;
@@ -679,6 +686,15 @@ public class CommandEnvironment {
     return workspace.getSkyframeExecutor();
   }
 
+  /**
+   * Returns the path of the repo contents cache directory, or {@code null} if the repo contents
+   * cache is disabled.
+   */
+  @Nullable
+  public Path getRepoContentsCachePath() {
+    return getSkyframeExecutor().getRepoContentsCachePath();
+  }
+
   public SkyframeBuildView getSkyframeBuildView() {
     return getSkyframeExecutor().getSkyframeBuildView();
   }
@@ -721,6 +737,30 @@ public class CommandEnvironment {
    */
   public Path getActionTempsDirectory() {
     return directories.getActionTempsDirectory(getExecRoot());
+  }
+
+  /**
+   * Returns the {@link RunfilesTreeUpdater} for this command, lazily creating it on first use.
+   *
+   * <p>All spawn strategies (local, sandboxed, worker) share this one instance so that staging of a
+   * runfiles tree under {@code --nobuild_runfile_links} is serialized across strategies via the
+   * updater's dedup map. Per-strategy instances would let two strategies reconcile the same tree
+   * concurrently and race on {@code createSymbolicLink} ({@code EEXIST}). This is reachable under
+   * dynamic execution: the local branch stages a tree via the {@code worker} strategy while the
+   * remote branch fails over to the {@code local} strategy ({@code --remote_local_fallback}) and
+   * stages the same tree into the same execroot path at the same time.
+   *
+   * <p>Scoped to the command, not static: the dedup map caches completed futures and never evicts,
+   * which is correct within a build (a tree's contents are fixed) but would wrongly skip a tree
+   * that changed in a later build.
+   */
+  public RunfilesTreeUpdater getRunfilesTreeUpdater() {
+    synchronized (runfilesTreeUpdaterLock) {
+      if (runfilesTreeUpdater == null) {
+        runfilesTreeUpdater = new RunfilesTreeUpdater(getExecRoot(), getXattrProvider());
+      }
+      return runfilesTreeUpdater;
+    }
   }
 
   /**

@@ -35,7 +35,7 @@ public final class NoneType implements StarlarkValue, TypeConstructor {
   }
 
   @Override
-  public StarlarkType getStarlarkType() {
+  public StarlarkType getStarlarkType(StarlarkSemantics semantics) {
     return Types.NONE;
   }
 

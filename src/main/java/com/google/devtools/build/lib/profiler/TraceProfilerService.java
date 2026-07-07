@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.profiler;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.runtime.BlazeService;
+import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -45,13 +46,16 @@ import java.util.function.Supplier;
  *
  * @see ProfilerTask enum for recognized task types.
  */
+@SkybridgeInterface
 @SuppressWarnings("GoodTime") // This code is very performance sensitive.
 public interface TraceProfilerService extends BlazeService {
 
-  /** File format enum. */
-  enum Format {
-    JSON_TRACE_FILE_FORMAT,
-    JSON_TRACE_FILE_COMPRESSED_FORMAT
+  /** File format. */
+  public final class Format {
+    public static final Format JSON_TRACE_FILE_FORMAT = new Format();
+    public static final Format JSON_TRACE_FILE_COMPRESSED_FORMAT = new Format();
+
+    private Format() {}
   }
 
   /** Returns the nanoTime of the current profiler instance, or -1 if not active. */
@@ -181,6 +185,7 @@ public interface TraceProfilerService extends BlazeService {
       Clock clock,
       long execStartTimeNanos,
       boolean slimProfile,
+      long slimProfileSizeLimit,
       boolean includePrimaryOutput,
       boolean includeTargetLabel,
       boolean includeConfiguration,

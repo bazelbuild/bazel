@@ -83,6 +83,7 @@ public final class StrippingPathMapper implements PathMapper {
   public static final String GUID = "8eb2ad5a-85d4-435b-858f-5c192e91997d";
 
   private static final String FIXED_CONFIG_SEGMENT = "cfg";
+  private static final String ARCHIVED_TREE_ARTIFACTS_SEGMENT = ":archived_tree_artifacts";
 
   private final PathFragment outputRoot;
   private final String mnemonic;
@@ -159,11 +160,9 @@ public final class StrippingPathMapper implements PathMapper {
 
   @Override
   public int computeExecPathLengthDiff(DerivedArtifact artifact) {
-    String unmappedPath = artifact.getExecPathString();
-    // bazel-out/k8-fastbuild/... is mapped to bazel-out/${FIXED_CONFIG_SEGMENT}/...
-    int firstSlash = outputRoot.getPathString().length() + 1;
-    int secondSlash = unmappedPath.indexOf('/', firstSlash + 1);
-    return (secondSlash - firstSlash) - FIXED_CONFIG_SEGMENT.length();
+    PathFragment execPath = artifact.getExecPath();
+    int configIndex = getConfigSegmentIndex(execPath);
+    return execPath.getSegment(configIndex).length() - FIXED_CONFIG_SEGMENT.length();
   }
 
   @Override
@@ -280,21 +279,23 @@ public final class StrippingPathMapper implements PathMapper {
      * <p>Supports strings with multiple output paths in arbitrary places. For example
      * "/path/to/compiler bazel-out/x86-fastbuild/foo src/my.src -Dbazel-out/arm-opt/bar".
      *
+     * <p>Also supports special archived tree artifact paths containing colons (e.g.,
+     * "bazel-out/:archived_tree_artifacts/k8-fastbuild/...").
+     *
      * <p>Doesn't strip paths that would be non-existent without config prefixes. For example, these
      * are unchanged: "bazel-out/x86-fastbuild", "bazel-out;foo", "/path/to/compiler bazel-out".
      *
      * @param outputRoot root segment of output paths (e.g. "bazel-out")
      */
     private static Pattern stripPathsPattern(String outputRoot) {
-      // Match "bazel-out" followed by a slash followed by any combination of word characters, "_",
-      // and "-", followed by another slash. This would miss substrings like
-      // "bazel-out/k8-fastbuild". But those don't represent actual outputs (all outputs would have
-      // to have names beneath that path). So we're not trying to replace those.
-      return Pattern.compile(outputRoot + "/[\\w_-]+/");
+      // Match "bazel-out" followed by a slash, an optional ":archived_tree_artifacts/" prefix group
+      // captured in group 1, followed by the configuration segment (any combination of word
+      // characters, "_", ".", and "-"), and another slash.
+      return Pattern.compile(outputRoot + "/(" + ARCHIVED_TREE_ARTIFACTS_SEGMENT + "/)?[\\w_.-]+/");
     }
 
-    public String strip(String str) {
-      return pattern.matcher(str).replaceAll(outputRoot + "/" + FIXED_CONFIG_SEGMENT + "/");
+    String strip(String str) {
+      return pattern.matcher(str).replaceAll(outputRoot + "/$1" + FIXED_CONFIG_SEGMENT + "/");
     }
   }
 
@@ -313,6 +314,29 @@ public final class StrippingPathMapper implements PathMapper {
   /** Private utility method: Is this a strippable path? */
   private static boolean isOutputPath(PathFragment pathFragment, PathFragment outputRoot) {
     return pathFragment.startsWith(outputRoot);
+  }
+
+  /**
+   * Returns whether the given execution path belongs to an archived tree artifact.
+   *
+   * <p>Archived tree artifacts are compressed directory outputs stored in zip format that prepend a
+   * virtual directory prefix segment {@value #ARCHIVED_TREE_ARTIFACTS_SEGMENT} immediately after
+   * the output root (e.g., {@code bazel-out/:archived_tree_artifacts/k8-fastbuild/...}).
+   */
+  private static boolean isArchivedTreeArtifactPath(PathFragment execPath) {
+    return execPath.segmentCount() > 2
+        && execPath.getSegment(1).equals(ARCHIVED_TREE_ARTIFACTS_SEGMENT);
+  }
+
+  /**
+   * Returns the segment index inside the execution path where the configuration prefix is located.
+   *
+   * <p>For standard output artifacts, the configuration segment is at index 1 (e.g. {@code
+   * bazel-out/k8-fastbuild/bin/...}). For archived tree artifacts, the configuration segment is
+   * shifted to index 2 due to the injected virtual prefix directory.
+   */
+  private static int getConfigSegmentIndex(PathFragment execPath) {
+    return isArchivedTreeArtifactPath(execPath) ? 2 : 1;
   }
 
   /**
@@ -338,10 +362,12 @@ public final class StrippingPathMapper implements PathMapper {
       if (!isOutputPath(input, outputRoot)) {
         continue;
       }
+      PathFragment execPath = input.getExecPath();
+      int configIndex = getConfigSegmentIndex(execPath);
+      // Extract root-relative path after the configuration segment.
       // For "bazel-out/k8-fastbuild/bin/foo/bar", get "bin/foo/bar".
-      if (!rootRelativePaths
-          .computeIfAbsent(input.getExecPath().subFragment(2), k -> input)
-          .equals(input)) {
+      PathFragment rootRelativePath = execPath.subFragment(configIndex + 1);
+      if (!rootRelativePaths.computeIfAbsent(rootRelativePath, k -> input).equals(input)) {
         return false;
       }
     }
@@ -352,11 +378,12 @@ public final class StrippingPathMapper implements PathMapper {
    * Strips the configuration prefix from an output artifact's exec path.
    */
   private static PathFragment strip(PathFragment execPath) {
+    int configIndex = getConfigSegmentIndex(execPath);
     return execPath
-        .subFragment(0, 1)
+        .subFragment(0, configIndex)
         // Keep the config segment, but replace it with a fixed string to improve cacheability while
         // still preserving the general segment structure of the execpath.
         .getRelative(FIXED_CONFIG_SEGMENT)
-        .getRelative(execPath.subFragment(2));
+        .getRelative(execPath.subFragment(configIndex + 1));
   }
 }

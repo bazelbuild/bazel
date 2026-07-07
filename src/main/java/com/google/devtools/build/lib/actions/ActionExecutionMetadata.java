@@ -125,4 +125,12 @@ public interface ActionExecutionMetadata extends ActionAnalysisMetadata {
   default boolean mayModifySpawnOutputsAfterExecution() {
     return false;
   }
+
+  /**
+   * Returns true if this action allows strategy selection to be affected by the {@code
+   * --strategy_regexp} flag.
+   */
+  default boolean allowsStrategyRegexpMatching() {
+    return true;
+  }
 }

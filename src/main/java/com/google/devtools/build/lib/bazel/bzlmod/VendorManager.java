@@ -129,7 +129,11 @@ public class VendorManager {
         Path externalSymlink = vendorDirectory.getRelative(EXTERNAL_ROOT_SYMLINK_NAME);
         FileSystemUtils.ensureSymbolicLink(externalSymlink, externalRepoRoot);
         RepositoryUtils.replantSymlinks(
-            repoUnderVendor, workspace, externalRepoRoot, EXTERNAL_ROOT_SYMLINK_NAME);
+            repoUnderVendor,
+            workspace,
+            externalRepoRoot,
+            EXTERNAL_ROOT_SYMLINK_NAME,
+            /* replantSymlinksIntoMainRepo= */ true);
         // 5. Rename the temporary marker file after the move/copy is done.
         temporaryMarker.renameTo(markerUnderVendor);
         // 6. Leave a symlink in external dir to keep things working.

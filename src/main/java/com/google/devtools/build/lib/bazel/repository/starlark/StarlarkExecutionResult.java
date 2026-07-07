@@ -17,7 +17,6 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Maps;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.shell.AbnormalTerminationException;
@@ -34,6 +33,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -116,7 +116,7 @@ final class StarlarkExecutionResult implements StarlarkValue {
 
     private final List<String> args = new ArrayList<>();
     private File directory = null;
-    private final Map<String, String> envBuilder = Maps.newLinkedHashMap();
+    private final Map<String, String> envBuilder = new LinkedHashMap<>();
     private final ImmutableMap<String, String> clientEnv;
     private long timeout = -1;
     private boolean executed = false;
