@@ -284,6 +284,9 @@ tasks:
       # https://github.com/bazelbuild/bazel/issues/4292
       - "-//src/test/shell/bazel/remote/..."
       - "-//tools/python:pywrapper_test"
+      # Temporarily disable this test which is failing on Windows due to a clang update.
+      # TODO(b/530925565): Re-enable.
+      - "-//src/test/py/bazel:launcher_test"
     include_json_profile:
       - build
       - test
