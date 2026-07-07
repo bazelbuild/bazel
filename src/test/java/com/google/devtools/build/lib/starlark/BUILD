@@ -132,6 +132,7 @@ java_test(
 
 java_test(
     name = "StarlarkDefinedAspectsTest",
+    timeout = "long",
     srcs = ["StarlarkDefinedAspectsTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
