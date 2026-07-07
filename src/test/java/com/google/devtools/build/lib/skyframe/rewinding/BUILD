@@ -62,6 +62,34 @@ java_library(
 )
 
 java_test(
+    name = "RepoRewindingTest",
+    size = "medium",
+    srcs = ["RepoRewindingTest.java"],
+    deps = [
+        ":rewinding_tests_helper",
+        "//src/main/java/com/google/devtools/build/lib/actions:action_input",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/rules:repository/repository_directory_value",
+        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
+        "//src/main/java/com/google/devtools/build/lib/runtime:block_waiting_module",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/rewinding:lost_important_output_handler_module",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//src/test/java/com/google/devtools/build/lib/buildtool/util",
+        "//src/test/java/com/google/devtools/build/lib/testutil:action_event_recorder",
+        "//src/test/java/com/google/devtools/build/lib/testutil:spawn_controller",
+        "//src/test/java/com/google/devtools/build/lib/testutil:spawn_input_utils",
+        "//third_party:guava",
+        "//third_party:jsr305",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
     name = "RewindingTest",
     timeout = "long",
     srcs = ["RewindingTest.java"],
