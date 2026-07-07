@@ -37,7 +37,11 @@ public sealed interface ChunkingConfig permits FastCdcChunkingConfig, RepMaxCdcC
   /** The maximum size of a chunk. */
   int maxChunkSize();
 
-  /** Blobs larger than this should be chunked. Equal to {@link #maxChunkSize()}. */
+  /**
+   * Blobs larger than this should be chunked. Always equal to {@link #maxChunkSize()}: anything
+   * above it splits into at least two chunks, while anything at or below it would come back as a
+   * single chunk, making chunking pointless. Implementations must not override this.
+   */
   default long chunkingThreshold() {
     return maxChunkSize();
   }
