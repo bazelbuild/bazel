@@ -237,6 +237,10 @@ public abstract class AbstractQueryTest<T> {
     return resultSetToListOfStrings(eval(query));
   }
 
+  protected ImmutableList<String> evalToListOfStringsUnsorted(String query) throws Exception {
+    return eval(query).stream().map(node -> helper.getLabel(node)).collect(toImmutableList());
+  }
+
   protected ImmutableList<String> resultSetToListOfStrings(Set<T> results) {
     return results.stream()
         .map(node -> helper.getLabel(node))
@@ -662,6 +666,26 @@ public abstract class AbstractQueryTest<T> {
     } else {
       assertThat(somepathAToD).isEqualTo(pathList2);
     }
+  }
+
+  @Test
+  public void testSomePathOperatorOrderingWithLet() throws Exception {
+    writeFile("z/BUILD", "genrule(name='z', srcs=['//y:y'], outs=['out'], cmd=':')");
+    writeFile("y/BUILD", "genrule(name='y', srcs=['//x:x'], outs=['out'], cmd=':')");
+    writeFile("x/BUILD", "genrule(name='x', srcs=['//w:w'], outs=['out'], cmd=':')");
+    writeFile("w/BUILD", "exports_files(['w'])");
+
+    ImmutableList<String> expectedPath = ImmutableList.of("//z:z", "//y:y", "//x:x", "//w:w");
+
+    // Single let expression
+    ImmutableList<String> somepathZToW =
+        evalToListOfStringsUnsorted("let x = //z:z in somepath($x, //w)");
+    assertThat(somepathZToW).isEqualTo(expectedPath);
+
+    // Nested let expressions
+    ImmutableList<String> somepathZToWNested =
+        evalToListOfStringsUnsorted("let y = //y:y in let x = //z:z in somepath($x, //w)");
+    assertThat(somepathZToWNested).isEqualTo(expectedPath);
   }
 
   @Test
