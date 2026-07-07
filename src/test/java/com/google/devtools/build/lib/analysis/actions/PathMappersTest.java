@@ -80,7 +80,10 @@ public class PathMappersTest extends BuildViewTestCase {
         (JavaCompileAction) getGeneratingActionForLabel("//java/com/google/test:liba.jar");
     PathMapper pathMapper =
         PathMappers.create(
-            action, PathMappers.getOutputPathsMode(targetConfig), /* isStarlarkAction= */ false);
+            action,
+            PathMappers.getOutputPathsMode(targetConfig),
+            /* isStarlarkAction= */ false,
+            /* inputMetadataProvider= */ null);
 
     assertThat(pathMapper.isNoop()).isFalse();
     String outDir = analysisMock.getProductName() + "-out";

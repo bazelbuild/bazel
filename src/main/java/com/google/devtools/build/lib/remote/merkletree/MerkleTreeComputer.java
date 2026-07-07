@@ -533,23 +533,11 @@ public final class MerkleTreeComputer {
       }
 
       PathFragment path = entry.getKey();
-      // The same path may appear multiple times if the inputs are outputs of shared actions or if
-      // identical inputs are not de-duplicated. Only stage the first one.
+      // The same path may appear multiple times if the inputs are outputs of shared actions,
+      // if identical inputs are not deduplicated or if path mapping maps artifacts from
+      // different configurations to the same path. Only stage the first one as we assume
+      // that the inputs have been validated before.
       if (lastEntry != null && path.equals(lastEntry.getKey())) {
-        var previousInput = lastEntry.getValue();
-        var currentInput = entry.getValue();
-        if (previousInput.equals(currentInput)) {
-          continue;
-        }
-        checkState(
-            previousInput instanceof Artifact previousArtifact
-                && currentInput instanceof Artifact currentArtifact
-                && new Artifact.OwnerlessArtifactWrapper(previousArtifact)
-                    .equals(new Artifact.OwnerlessArtifactWrapper(currentArtifact)),
-            "Duplicate paths are only allowed for distinct shared artifacts, got: %s and %s at %s",
-            previousInput,
-            currentInput,
-            path);
         continue;
       }
       lastEntry = entry;

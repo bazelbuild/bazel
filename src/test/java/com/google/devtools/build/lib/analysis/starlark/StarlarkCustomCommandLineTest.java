@@ -886,7 +886,11 @@ public final class StarlarkCustomCommandLineTest {
   private void verifyStrippedCommandLine(CommandLine commandLine, String... expected)
       throws CommandLineExpansionException, InterruptedException {
     verifyCommandLine(
-        PathMappers.create(action, CoreOptions.OutputPathsMode.STRIP, /* isStarlarkAction= */ true),
+        PathMappers.create(
+            action,
+            CoreOptions.OutputPathsMode.STRIP,
+            /* isStarlarkAction= */ true,
+            /* inputMetadataProvider= */ null),
         commandLine,
         expected);
   }
