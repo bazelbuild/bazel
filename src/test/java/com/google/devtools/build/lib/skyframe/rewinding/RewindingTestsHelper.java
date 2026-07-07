@@ -89,6 +89,7 @@ import com.google.devtools.build.skyframe.QueryableGraph.Reason;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueWithMetadata;
+import com.google.devtools.common.options.Options;
 import com.google.errorprone.annotations.ForOverride;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -636,12 +637,14 @@ public class RewindingTestsHelper {
     // saying that the file produced by rule1 is missing. The last time rule2 fails because of the
     // same lost input, rewinding is not attempted, and the build fails with a
     // LOST_INPUT_TOO_MANY_TIMES detailed exit code.
+    int maxRepeatedLostInputs =
+        Options.getDefaults(BuildRequestOptions.class).getMaxRepeatedLostInputs();
     writeTwoGenrulePackage(testCase);
 
     // Store a reference to the input so that we can match the exception message. The output
     // directory name (and hence the string representation) varies by platform.
     AtomicReference<ActionInput> intermediate = new AtomicReference<>();
-    for (int i = 0; i <= ActionRewindStrategy.MAX_REPEATED_LOST_INPUTS; i++) {
+    for (int i = 0; i <= maxRepeatedLostInputs; i++) {
       addSpawnShim(
           "Executing genrule //test:rule2",
           (spawn, context) -> {
@@ -664,7 +667,7 @@ public class RewindingTestsHelper {
             "lost input too many times (#%s) for the same action. lostInput: %s, "
                 + "lostInput digest: fakedigest/10, "
                 + "failedAction: action 'Executing genrule //test:rule2'",
-            ActionRewindStrategy.MAX_REPEATED_LOST_INPUTS + 1, intermediate.get());
+            maxRepeatedLostInputs + 1, intermediate.get());
     assertThat(e.getDetailedExitCode().getFailureDetail().getMessage()).contains(errorDetail);
     assertThat(Iterables.getOnlyElement(bugReporter.getExceptions()))
         .hasMessageThat()
@@ -674,7 +677,7 @@ public class RewindingTestsHelper {
         .containsExactlyElementsIn(
             Iterables.concat(
                 Collections.nCopies(
-                    ActionRewindStrategy.MAX_REPEATED_LOST_INPUTS + 1,
+                    maxRepeatedLostInputs + 1,
                     ImmutableList.of(
                         "Executing genrule //test:rule1", "Executing genrule //test:rule2"))))
         .inOrder();
@@ -684,12 +687,61 @@ public class RewindingTestsHelper {
         /* completedRewound= */ ImmutableList.of("Executing genrule //test:rule1"),
         /* failedRewound= */ ImmutableList.of(),
         /* expectResultReceivedForFailedRewound= */ false,
-        /* actionRewindingPostLostInputCounts= */ ImmutableList.of(
-            ActionRewindStrategy.MAX_REPEATED_LOST_INPUTS + 1));
+        /* actionRewindingPostLostInputCounts= */ ImmutableList.of(maxRepeatedLostInputs + 1));
 
     assertOnlyActionsRewound(rewoundKeys);
     assertThat(Iterables.frequency(rewoundArtifactOwnerLabels(rewoundKeys), "//test:rule1"))
-        .isEqualTo(ActionRewindStrategy.MAX_REPEATED_LOST_INPUTS);
+        .isEqualTo(maxRepeatedLostInputs);
+  }
+
+  /**
+   * Like {@link #runIneffectiveRewindingResultsInLostInputTooManyTimes}, but verifies that {@code
+   * --experimental_max_repeated_lost_inputs} overrides the default repeated-loss limit: rewinding
+   * gives up, and the build fails with {@link ActionRewinding.Code#LOST_INPUT_TOO_MANY_TIMES},
+   * after the configured number of repeated losses rather than the default.
+   */
+  public final void runLostInputTooManyTimesLimitIsConfigurable() throws Exception {
+    int maxRepeatedLostInputs = 2;
+    testCase.addOptions("--experimental_max_repeated_lost_inputs=" + maxRepeatedLostInputs);
+    writeTwoGenrulePackage(testCase);
+
+    // Fail rule2 with the same lost input one more time than the configured limit allows.
+    AtomicReference<ActionInput> intermediate = new AtomicReference<>();
+    for (int i = 0; i <= maxRepeatedLostInputs; i++) {
+      addSpawnShim(
+          "Executing genrule //test:rule2",
+          (spawn, context) -> {
+            intermediate.set(SpawnInputUtils.getInputWithName(spawn, "intermediate.txt"));
+            return ExecResult.ofException(
+                new LostInputsExecException(
+                    ImmutableSetMultimap.of("fakedigest/10", intermediate.get())));
+          });
+    }
+
+    RecordingBugReporter bugReporter = testCase.recordBugReportsAndReinitialize();
+    BuildFailedException e =
+        assertThrows(BuildFailedException.class, () -> testCase.buildTarget("//test:rule2"));
+    assertThat(e.getDetailedExitCode().getFailureDetail().getActionRewinding().getCode())
+        .isEqualTo(ActionRewinding.Code.LOST_INPUT_TOO_MANY_TIMES);
+
+    // The give-up (and bug report) happens at the configured limit + 1, not the default 20 + 1.
+    String errorDetail =
+        String.format(
+            "lost input too many times (#%s) for the same action. lostInput: %s, "
+                + "lostInput digest: fakedigest/10, "
+                + "failedAction: action 'Executing genrule //test:rule2'",
+            maxRepeatedLostInputs + 1, intermediate.get());
+    assertThat(e.getDetailedExitCode().getFailureDetail().getMessage()).contains(errorDetail);
+    assertThat(Iterables.getOnlyElement(bugReporter.getExceptions()))
+        .hasMessageThat()
+        .contains(errorDetail);
+
+    // rule2 executed once per loss: the configured rewinds plus the final give-up attempt.
+    // With the default limit this would be 21; the configured limit of 2 makes it 3.
+    assertThat(
+            Iterables.frequency(
+                getExecutedSpawnDescriptions(), "Executing genrule //test:rule2"))
+        .isEqualTo(maxRepeatedLostInputs + 1);
   }
 
   /**
@@ -3182,6 +3234,8 @@ public class RewindingTestsHelper {
   }
 
   public final void runTopLevelOutputRewound_ineffectiveRewinding() throws Exception {
+    int maxRepeatedLostInputs =
+        Options.getDefaults(BuildRequestOptions.class).getMaxRepeatedLostInputs();
     testCase.write(
         "foo/defs.bzl",
         """
@@ -3208,7 +3262,7 @@ public class RewindingTestsHelper {
     Map<Label, TargetCompleteEvent> targetCompleteEvents = recordTargetCompleteEvents();
     listenForNoCompletionEventsBeforeRewinding(fooLostAndFound, targetCompleteEvents);
 
-    for (int i = 0; i <= ActionRewindStrategy.MAX_REPEATED_LOST_INPUTS; i++) {
+    for (int i = 0; i <= maxRepeatedLostInputs; i++) {
       addSpawnShim(
           "Action foo/lost.out",
           (spawn, context) -> {
@@ -3226,10 +3280,9 @@ public class RewindingTestsHelper {
     assertOnlyActionsRewound(rewoundKeys);
     assertThat(rewoundArtifactOwnerLabels(rewoundKeys))
         .containsExactlyElementsIn(
-            Collections.nCopies(
-                ActionRewindStrategy.MAX_REPEATED_LOST_INPUTS, "//foo:lost_and_found"));
+            Collections.nCopies(maxRepeatedLostInputs, "//foo:lost_and_found"));
     assertThat(ImmutableMultiset.copyOf(getExecutedSpawnDescriptions()))
-        .hasCount("Action foo/lost.out", ActionRewindStrategy.MAX_REPEATED_LOST_INPUTS + 1);
+        .hasCount("Action foo/lost.out", maxRepeatedLostInputs + 1);
 
     ActionExecutionValue actionExecutionValue =
         (ActionExecutionValue)
@@ -3243,8 +3296,7 @@ public class RewindingTestsHelper {
         String.format(
             "Lost output foo/lost.out (digest %s), and rewinding was ineffective after %d"
                 + " attempts.",
-            toHex(lostInput.getDigest(), lostInput.getSize()),
-            ActionRewindStrategy.MAX_REPEATED_LOST_INPUTS);
+            toHex(lostInput.getDigest(), lostInput.getSize()), maxRepeatedLostInputs);
     testCase.assertContainsError(expectedError);
     assertThat(e.getDetailedExitCode().getFailureDetail().getMessage()).contains(expectedError);
     assertThat(Iterables.getOnlyElement(bugReporter.getExceptions()))
@@ -3257,8 +3309,7 @@ public class RewindingTestsHelper {
     assertThat(event.failed()).isTrue();
     assertOutputsReported(event, "bin/foo/found.out");
 
-    recorder.assertTotalLostOutputCountsFromStats(
-        ImmutableList.of(ActionRewindStrategy.MAX_REPEATED_LOST_INPUTS + 1));
+    recorder.assertTotalLostOutputCountsFromStats(ImmutableList.of(maxRepeatedLostInputs + 1));
   }
 
   final void listenForNoCompletionEventsBeforeRewinding(

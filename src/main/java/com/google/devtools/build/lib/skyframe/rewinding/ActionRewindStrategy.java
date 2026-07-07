@@ -91,7 +91,6 @@ import javax.annotation.Nullable;
 public final class ActionRewindStrategy {
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
-  @VisibleForTesting static final int MAX_REPEATED_LOST_INPUTS = 20;
   @VisibleForTesting static final int MAX_ACTION_REWIND_EVENTS = 5;
   private static final int MAX_LOST_INPUTS_RECORDED = 5;
 
@@ -515,7 +514,7 @@ public final class ActionRewindStrategy {
     for (LostInputRecord lostInputRecord : currentAttemptLostOutputRecords) {
       String digest = lostInputRecord.lostInputDigest();
       int losses = historyForThisTopLevelKey.add(lostInputRecord, /* occurrences= */ 1) + 1;
-      if (losses > MAX_REPEATED_LOST_INPUTS) {
+      if (losses > skyframeActionExecutor.maxRepeatedLostInputs()) {
         ActionInput lostOutput =
             Iterables.find(
                 lostOutputsByDigest.get(digest),
@@ -524,7 +523,9 @@ public final class ActionRewindStrategy {
             new GenericActionRewindException(
                 String.format(
                     "Lost output %s (digest %s), and rewinding was ineffective after %d attempts.",
-                    prettyPrint(lostOutput), digest, MAX_REPEATED_LOST_INPUTS),
+                    prettyPrint(lostOutput),
+                    digest,
+                    skyframeActionExecutor.maxRepeatedLostInputs()),
                 ActionRewinding.Code.LOST_OUTPUT_TOO_MANY_TIMES);
         bugReporter.sendBugReport(e);
         throw e;
@@ -582,7 +583,7 @@ public final class ActionRewindStrategy {
       // the same input is repeatedly lost.
       String digest = lostInputRecord.lostInputDigest();
       int losses = historyForThisAction.add(lostInputRecord, /* occurrences= */ 1) + 1;
-      if (losses > MAX_REPEATED_LOST_INPUTS) {
+      if (losses > skyframeActionExecutor.maxRepeatedLostInputs()) {
         // This ensures coalesced shared actions aren't orphaned.
         skyframeActionExecutor.prepareForRewinding(
             failedKey, failedAction, /* depsToRewind= */ ImmutableList.of());

@@ -205,6 +205,12 @@ public final class RewindingTest extends BuildIntegrationTestCase {
   }
 
   @Test
+  public void lostInputTooManyTimesLimitIsConfigurable() throws Exception {
+    helper.runLostInputTooManyTimesLimitIsConfigurable();
+    assertOutputForRule2NotCreated();
+  }
+
+  @Test
   public void interruptedDuringRewindStopsNormally() throws Exception {
     helper.runInterruptedDuringRewindStopsNormally();
     assertOutputForRule2NotCreated();
