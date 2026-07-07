@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.remote;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 
+import build.bazel.remote.execution.v2.ChunkingFunction;
 import build.bazel.remote.execution.v2.Digest;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteStreams;
@@ -58,6 +59,7 @@ public class ChunkedBlobUploader {
   private final GrpcCacheClient grpcCacheClient;
   private final CombinedCache combinedCache;
   private final ContentDefinedChunker chunker;
+  private final ChunkingFunction.Value chunkingFunction;
   private final long chunkingThreshold;
 
   /**
@@ -76,6 +78,7 @@ public class ChunkedBlobUploader {
     this.grpcCacheClient = grpcCacheClient;
     this.combinedCache = combinedCache;
     this.chunker = config.newChunker(digestUtil);
+    this.chunkingFunction = config.chunkingFunction();
     this.chunkingThreshold = config.chunkingThreshold();
   }
 
@@ -102,7 +105,7 @@ public class ChunkedBlobUploader {
     ImmutableSet<Digest> missingDigests =
         getFromFuture(grpcCacheClient.findMissingDigests(context, chunkDigests));
     uploadMissingChunks(context, missingDigests, chunkDigests, file);
-    getFromFuture(grpcCacheClient.spliceBlob(context, blobDigest, chunkDigests));
+    getFromFuture(grpcCacheClient.spliceBlob(context, blobDigest, chunkDigests, chunkingFunction));
   }
 
   private void uploadMissingChunks(

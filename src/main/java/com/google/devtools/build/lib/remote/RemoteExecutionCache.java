@@ -25,7 +25,6 @@ import static com.google.devtools.build.lib.remote.util.RxUtils.mergeBulkTransfe
 import static com.google.devtools.build.lib.remote.util.RxUtils.toTransferResult;
 import static java.lang.String.format;
 
-import build.bazel.remote.execution.v2.ChunkingFunction;
 import build.bazel.remote.execution.v2.Digest;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Throwables;
@@ -45,6 +44,7 @@ import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.Blob;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.disk.DiskCacheClient;
+import com.google.devtools.build.lib.remote.options.RemoteOptions.ChunkingFunctionValue;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTreeUploader;
 import com.google.devtools.build.lib.remote.util.AsyncTaskCache;
@@ -131,7 +131,7 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
       @Nullable DiskCacheClient diskCacheClient,
       @Nullable String symlinkTemplate,
       DigestUtil digestUtil,
-      @Nullable ChunkingFunction.Value chunkingFunction) {
+      @Nullable ChunkingFunctionValue chunkingFunction) {
     super(
         checkNotNull(remoteCacheClient),
         diskCacheClient,

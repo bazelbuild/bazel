@@ -50,6 +50,23 @@ public sealed interface ChunkingConfig permits FastCdcChunkingConfig, RepMaxCdcC
   ContentDefinedChunker newChunker(DigestUtil digestUtil);
 
   /**
+   * Returns a configuration negotiated from the server capabilities: FastCDC 2020 if the server
+   * advertises it, otherwise RepMaxCDC, or {@code null} if the server advertises neither.
+   *
+   * <p>FastCDC 2020 is preferred for backward compatibility, so that a fleet of clients with
+   * mixed versions keeps producing identical chunks against the same server.
+   */
+  @Nullable
+  static ChunkingConfig fromServerCapabilities(ServerCapabilities capabilities) {
+    ChunkingConfig config =
+        fromServerCapabilities(capabilities, ChunkingFunction.Value.FAST_CDC_2020);
+    if (config == null) {
+      config = fromServerCapabilities(capabilities, ChunkingFunction.Value.REP_MAX_CDC);
+    }
+    return config;
+  }
+
+  /**
    * Returns the configuration for the given chunking function based on the parameters advertised
    * by the server, or {@code null} if the server does not support the function.
    *

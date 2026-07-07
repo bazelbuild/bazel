@@ -141,7 +141,7 @@ public class ChunkedTransferBenchmark {
 
       SplitBlobResponse splitBlobResponse =
           SplitBlobResponse.newBuilder().addAllChunkDigests(chunkDigests).build();
-      when(grpcCacheClient.splitBlob(any(), any(Digest.class)))
+      when(grpcCacheClient.splitBlob(any(), any(Digest.class), any()))
           .thenReturn(Futures.immediateFuture(splitBlobResponse));
 
       FastCdcChunkingConfig chunkingConfig = new FastCdcChunkingConfig(chunkSizeBytes, 2, 0);
@@ -208,7 +208,7 @@ public class ChunkedTransferBenchmark {
 
       when(grpcCacheClient.findMissingDigests(any(), any()))
           .thenReturn(Futures.immediateFuture(ImmutableSet.copyOf(chunkDigests)));
-      when(grpcCacheClient.spliceBlob(any(), any(Digest.class), any()))
+      when(grpcCacheClient.spliceBlob(any(), any(Digest.class), any(), any()))
           .thenReturn(Futures.immediateVoidFuture());
       when(combinedCache.uploadBlob(any(), any(Digest.class), any(Blob.class)))
           .thenAnswer(

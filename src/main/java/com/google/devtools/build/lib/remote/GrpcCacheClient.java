@@ -21,6 +21,7 @@ import static com.google.devtools.build.lib.remote.util.DigestUtil.isOldStyleDig
 import build.bazel.remote.execution.v2.ActionCacheGrpc;
 import build.bazel.remote.execution.v2.ActionCacheGrpc.ActionCacheFutureStub;
 import build.bazel.remote.execution.v2.ActionResult;
+import build.bazel.remote.execution.v2.ChunkingFunction;
 import build.bazel.remote.execution.v2.ContentAddressableStorageGrpc;
 import build.bazel.remote.execution.v2.ContentAddressableStorageGrpc.ContentAddressableStorageFutureStub;
 import build.bazel.remote.execution.v2.Digest;
@@ -182,7 +183,10 @@ public class GrpcCacheClient extends RemoteCacheClient implements MissingDigests
   @Override
   @Nullable
   public ListenableFuture<Void> spliceBlob(
-      RemoteActionExecutionContext context, Digest blobDigest, List<Digest> chunkDigests) {
+      RemoteActionExecutionContext context,
+      Digest blobDigest,
+      List<Digest> chunkDigests,
+      ChunkingFunction.Value chunkingFunction) {
     if (!options.getExperimentalRemoteCacheChunking()) {
       return null;
     }
@@ -192,7 +196,7 @@ public class GrpcCacheClient extends RemoteCacheClient implements MissingDigests
             .setBlobDigest(blobDigest)
             .addAllChunkDigests(chunkDigests)
             .setDigestFunction(digestUtil.getDigestFunction())
-            .setChunkingFunction(options.getEffectiveChunkingFunction())
+            .setChunkingFunction(chunkingFunction)
             .build();
     return Futures.catchingAsync(
         Futures.transform(
@@ -217,7 +221,9 @@ public class GrpcCacheClient extends RemoteCacheClient implements MissingDigests
    */
   @Nullable
   public ListenableFuture<SplitBlobResponse> splitBlob(
-      RemoteActionExecutionContext context, Digest digest) {
+      RemoteActionExecutionContext context,
+      Digest digest,
+      ChunkingFunction.Value chunkingFunction) {
     if (!options.getExperimentalRemoteCacheChunking()) {
       return null;
     }
@@ -226,7 +232,7 @@ public class GrpcCacheClient extends RemoteCacheClient implements MissingDigests
             .setInstanceName(options.getRemoteInstanceName())
             .setBlobDigest(digest)
             .setDigestFunction(digestUtil.getDigestFunction())
-            .setChunkingFunction(options.getEffectiveChunkingFunction())
+            .setChunkingFunction(chunkingFunction)
             .build();
     return Futures.catchingAsync(
         Utils.refreshIfUnauthenticatedAsync(

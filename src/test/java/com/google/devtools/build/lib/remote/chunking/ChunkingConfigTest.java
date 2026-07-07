@@ -119,6 +119,58 @@ public class ChunkingConfigTest {
   }
 
   @Test
+  public void fromServerCapabilities_negotiation_prefersFastCdcWhenBothAdvertised() {
+    ServerCapabilities capabilities =
+        ServerCapabilities.newBuilder()
+            .setCacheCapabilities(
+                CacheCapabilities.newBuilder()
+                    .setFastCdc2020Params(
+                        FastCdc2020Params.newBuilder().setAvgChunkSizeBytes(512 * 1024).build())
+                    .setRepMaxCdcParams(
+                        RepMaxCdcParams.newBuilder().setMinChunkSizeBytes(256 * 1024).build())
+                    .build())
+            .build();
+
+    ChunkingConfig config = ChunkingConfig.fromServerCapabilities(capabilities);
+
+    assertThat(config).isInstanceOf(FastCdcChunkingConfig.class);
+  }
+
+  @Test
+  public void fromServerCapabilities_negotiation_usesRepMaxCdcWhenOnlyItIsAdvertised() {
+    ServerCapabilities capabilities =
+        capabilitiesWithRepMaxCdcParams(
+            RepMaxCdcParams.newBuilder().setMinChunkSizeBytes(256 * 1024).build());
+
+    ChunkingConfig config = ChunkingConfig.fromServerCapabilities(capabilities);
+
+    assertThat(config).isInstanceOf(RepMaxCdcChunkingConfig.class);
+  }
+
+  @Test
+  public void fromServerCapabilities_negotiation_usesFastCdcWhenOnlyItIsAdvertised() {
+    ServerCapabilities capabilities =
+        capabilitiesWithFastCdcParams(
+            FastCdc2020Params.newBuilder().setAvgChunkSizeBytes(512 * 1024).build());
+
+    ChunkingConfig config = ChunkingConfig.fromServerCapabilities(capabilities);
+
+    assertThat(config).isInstanceOf(FastCdcChunkingConfig.class);
+  }
+
+  @Test
+  public void fromServerCapabilities_negotiation_neitherAdvertised_returnsNull() {
+    ServerCapabilities capabilities =
+        ServerCapabilities.newBuilder()
+            .setCacheCapabilities(CacheCapabilities.getDefaultInstance())
+            .build();
+
+    assertThat(ChunkingConfig.fromServerCapabilities(capabilities)).isNull();
+    assertThat(ChunkingConfig.fromServerCapabilities(ServerCapabilities.getDefaultInstance()))
+        .isNull();
+  }
+
+  @Test
   public void fromServerCapabilities_withoutCacheCapabilities_returnsNull() {
     ServerCapabilities capabilities = ServerCapabilities.getDefaultInstance();
 

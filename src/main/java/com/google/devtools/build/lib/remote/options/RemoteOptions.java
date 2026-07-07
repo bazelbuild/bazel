@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.remote.options;
 
-import build.bazel.remote.execution.v2.ChunkingFunction;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.remote.Scrubber;
@@ -849,17 +848,19 @@ public abstract class RemoteOptions extends CommonRemoteOptions {
 
   @Option(
       name = "experimental_remote_cache_chunking_function",
-      defaultValue = "fast_cdc_2020",
+      defaultValue = "auto",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       metadataTags = OptionMetadataTag.EXPERIMENTAL,
       effectTags = {OptionEffectTag.UNKNOWN},
       converter = ChunkingFunctionConverter.class,
       help =
           "The content-defined chunking function used to split large blobs when "
-              + "--experimental_remote_cache_chunking is enabled. Possible values are "
-              + "'fast_cdc_2020' and 'rep_max_cdc'. The server must advertise the parameters of "
-              + "the selected function in its capabilities. All clients sharing a cache should "
-              + "use the same function to maximize chunk reuse.")
+              + "--experimental_remote_cache_chunking is enabled. If set to 'auto' (the "
+              + "default), the function is negotiated with the server: FastCDC 2020 is used if "
+              + "the server advertises it, otherwise RepMaxCDC. Set to 'fast_cdc_2020' or "
+              + "'rep_max_cdc' to require a specific function, in which case the server must "
+              + "advertise the parameters of that function in its capabilities. All clients "
+              + "sharing a cache should use the same function to maximize chunk reuse.")
   public abstract ChunkingFunctionValue getExperimentalRemoteCacheChunkingFunction();
 
   /**
@@ -867,27 +868,18 @@ public abstract class RemoteOptions extends CommonRemoteOptions {
    * is disabled.
    */
   @Nullable
-  public ChunkingFunction.Value getEffectiveChunkingFunction() {
+  public ChunkingFunctionValue getEffectiveChunkingFunction() {
     return getExperimentalRemoteCacheChunking()
-        ? getExperimentalRemoteCacheChunkingFunction().toProto()
+        ? getExperimentalRemoteCacheChunkingFunction()
         : null;
   }
 
   /** Values for --experimental_remote_cache_chunking_function. */
   public enum ChunkingFunctionValue {
-    FAST_CDC_2020(ChunkingFunction.Value.FAST_CDC_2020),
-    REP_MAX_CDC(ChunkingFunction.Value.REP_MAX_CDC);
-
-    private final ChunkingFunction.Value proto;
-
-    ChunkingFunctionValue(ChunkingFunction.Value proto) {
-      this.proto = proto;
-    }
-
-    /** Returns the corresponding Remote Execution API chunking function. */
-    public ChunkingFunction.Value toProto() {
-      return proto;
-    }
+    /** Negotiate with the server: FastCDC 2020 if advertised, otherwise RepMaxCDC. */
+    AUTO,
+    FAST_CDC_2020,
+    REP_MAX_CDC
   }
 
   /** Chunking function flag parser. */

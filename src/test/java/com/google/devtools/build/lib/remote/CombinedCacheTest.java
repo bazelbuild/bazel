@@ -27,7 +27,6 @@ import static org.mockito.Mockito.verify;
 
 import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.CacheCapabilities;
-import build.bazel.remote.execution.v2.ChunkingFunction;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.FastCdc2020Params;
 import build.bazel.remote.execution.v2.RequestMetadata;
@@ -910,7 +909,7 @@ public class CombinedCacheTest {
               return spliceFuture;
             })
         .when(grpcCacheClient)
-        .spliceBlob(any(), any(), any());
+        .spliceBlob(any(), any(), any(), any());
 
     CombinedCache combinedCache =
         new CombinedCache(
@@ -918,7 +917,7 @@ public class CombinedCacheTest {
             /* diskCacheClient= */ null,
             /* symlinkTemplate= */ null,
             digestUtil,
-            /* chunkingFunction= */ ChunkingFunction.Value.FAST_CDC_2020);
+            /* chunkingFunction= */ RemoteOptions.ChunkingFunctionValue.FAST_CDC_2020);
     byte[] data = new byte[8192];
     Path file = execRoot.getRelative("chunked-output");
     try (var out = file.getOutputStream()) {
@@ -936,7 +935,7 @@ public class CombinedCacheTest {
 
       assertThat(grpcCacheClient.getUploadSubscriberCount(digest)).isEqualTo(2);
       verify(grpcCacheClient).findMissingDigests(any(), any());
-      verify(grpcCacheClient).spliceBlob(any(), any(), any());
+      verify(grpcCacheClient).spliceBlob(any(), any(), any(), any());
 
       spliceFuture.set(null);
       getFromFuture(firstUpload);

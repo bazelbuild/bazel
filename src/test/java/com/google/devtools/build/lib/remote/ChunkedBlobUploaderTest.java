@@ -119,7 +119,7 @@ public class ChunkedBlobUploaderTest {
             });
     when(combinedCache.uploadBlob(any(), any(Digest.class), any(Blob.class)))
         .thenReturn(immediateVoidFuture());
-    when(grpcCacheClient.spliceBlob(any(), any(), any())).thenReturn(immediateVoidFuture());
+    when(grpcCacheClient.spliceBlob(any(), any(), any(), any())).thenReturn(immediateVoidFuture());
 
     uploader.uploadChunked(context, blobDigest, file);
 
@@ -140,12 +140,12 @@ public class ChunkedBlobUploaderTest {
 
     when(grpcCacheClient.findMissingDigests(any(), any()))
         .thenReturn(immediateFuture(ImmutableSet.of()));
-    when(grpcCacheClient.spliceBlob(any(), any(), any())).thenReturn(immediateVoidFuture());
+    when(grpcCacheClient.spliceBlob(any(), any(), any(), any())).thenReturn(immediateVoidFuture());
 
     uploader.uploadChunked(context, blobDigest, file);
 
     verify(combinedCache, never()).uploadBlob(any(), any(Digest.class), any(Blob.class));
-    verify(grpcCacheClient).spliceBlob(any(), eq(blobDigest), any());
+    verify(grpcCacheClient).spliceBlob(any(), eq(blobDigest), any(), any());
   }
 
   @Test
@@ -198,7 +198,7 @@ public class ChunkedBlobUploaderTest {
               }
               return immediateVoidFuture();
             });
-    when(grpcCacheClient.spliceBlob(any(), any(), any())).thenReturn(immediateVoidFuture());
+    when(grpcCacheClient.spliceBlob(any(), any(), any(), any())).thenReturn(immediateVoidFuture());
 
     uploader.uploadChunked(context, blobDigest, file);
 
@@ -206,7 +206,7 @@ public class ChunkedBlobUploaderTest {
     for (Map.Entry<Digest, ByteString> entry : expectedChunkData.entrySet()) {
       assertThat(actualUploads.get(entry.getKey())).isEqualTo(entry.getValue());
     }
-    verify(grpcCacheClient).spliceBlob(any(), eq(blobDigest), eq(allChunkDigests));
+    verify(grpcCacheClient).spliceBlob(any(), eq(blobDigest), eq(allChunkDigests), any());
   }
 
   @Test
@@ -239,7 +239,7 @@ public class ChunkedBlobUploaderTest {
 
     when(grpcCacheClient.findMissingDigests(any(), any()))
         .thenReturn(immediateFuture(ImmutableSet.copyOf(uniqueChunkDigests)));
-    when(grpcCacheClient.spliceBlob(any(), any(), any())).thenReturn(immediateVoidFuture());
+    when(grpcCacheClient.spliceBlob(any(), any(), any(), any())).thenReturn(immediateVoidFuture());
 
     List<SettableFuture<Void>> uploads = new ArrayList<>(uniqueChunkDigests.size());
     for (int i = 0; i < uniqueChunkDigests.size(); i++) {
@@ -287,7 +287,7 @@ public class ChunkedBlobUploaderTest {
     uploadThread.join(TimeUnit.SECONDS.toMillis(1));
 
     assertThat(uploadThread.isAlive()).isFalse();
-    verify(grpcCacheClient).spliceBlob(any(), eq(blobDigest), eq(chunkDigests));
+    verify(grpcCacheClient).spliceBlob(any(), eq(blobDigest), eq(chunkDigests), any());
   }
 
   @Test
@@ -357,7 +357,7 @@ public class ChunkedBlobUploaderTest {
 
     assertThat(uploadThread.isAlive()).isFalse();
     assertThat(cancelledUpload.isCancelled()).isTrue();
-    verify(grpcCacheClient, never()).spliceBlob(any(), any(), any());
+    verify(grpcCacheClient, never()).spliceBlob(any(), any(), any(), any());
   }
 
   @Test
@@ -387,7 +387,7 @@ public class ChunkedBlobUploaderTest {
 
     assertThrows(
         InterruptedException.class, () -> uploader.uploadChunked(context, blobDigest, file));
-    verify(grpcCacheClient, never()).spliceBlob(any(), any(), any());
+    verify(grpcCacheClient, never()).spliceBlob(any(), any(), any(), any());
   }
 
   @Test
@@ -432,7 +432,7 @@ public class ChunkedBlobUploaderTest {
     uploadThread.join(TimeUnit.SECONDS.toMillis(1));
     assertThat(uploadThread.isAlive()).isFalse();
     verify(file, times(1)).getInputStream();
-    verify(grpcCacheClient, never()).spliceBlob(any(), any(), any());
+    verify(grpcCacheClient, never()).spliceBlob(any(), any(), any(), any());
   }
 
   @Test
@@ -472,7 +472,7 @@ public class ChunkedBlobUploaderTest {
 
     assertThat(e).hasMessageThat().contains("file was concurrently modified during upload");
     assertThat(e).hasCauseThat().isInstanceOf(EOFException.class);
-    verify(grpcCacheClient, never()).spliceBlob(any(), any(), any());
+    verify(grpcCacheClient, never()).spliceBlob(any(), any(), any(), any());
   }
 
   private void writeFile(Path path, byte[] data) throws IOException {

@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.Blob;
 import com.google.devtools.build.lib.remote.disk.DiskCacheClient;
+import com.google.devtools.build.lib.remote.options.RemoteOptions.ChunkingFunctionValue;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution;
@@ -106,7 +107,7 @@ public class CombinedCache extends AbstractReferenceCounted {
   @Nullable protected final DiskCacheClient diskCacheClient;
   @Nullable protected final String symlinkTemplate;
   protected final DigestUtil digestUtil;
-  @Nullable private final ChunkingFunction.Value chunkingFunction;
+  @Nullable private final ChunkingFunctionValue chunkingFunction;
 
   // Delays the initialization of the chunking support logic until first use to avoid blocking on
   // a server capabilities check at construction time.
@@ -126,8 +127,15 @@ public class CombinedCache extends AbstractReferenceCounted {
       if (!initialized) {
         synchronized (this) {
           config =
-              ChunkingConfig.fromServerCapabilities(
-                  getRemoteServerCapabilities(), chunkingFunction);
+              switch (chunkingFunction) {
+                case AUTO -> ChunkingConfig.fromServerCapabilities(getRemoteServerCapabilities());
+                case FAST_CDC_2020 ->
+                    ChunkingConfig.fromServerCapabilities(
+                        getRemoteServerCapabilities(), ChunkingFunction.Value.FAST_CDC_2020);
+                case REP_MAX_CDC ->
+                    ChunkingConfig.fromServerCapabilities(
+                        getRemoteServerCapabilities(), ChunkingFunction.Value.REP_MAX_CDC);
+              };
           if (config != null) {
             downloader =
                 new ChunkedBlobDownloader(grpcClient, CombinedCache.this, config, digestUtil);
@@ -159,7 +167,7 @@ public class CombinedCache extends AbstractReferenceCounted {
       @Nullable DiskCacheClient diskCacheClient,
       @Nullable String symlinkTemplate,
       DigestUtil digestUtil,
-      @Nullable ChunkingFunction.Value chunkingFunction) {
+      @Nullable ChunkingFunctionValue chunkingFunction) {
     checkArgument(
         remoteCacheClient != null || diskCacheClient != null,
         "remoteCacheClient and diskCacheClient cannot be null at the same time");
