@@ -1529,6 +1529,24 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
     self.assertFalse(os.path.exists(os.path.join(my_repo_dir, 'BUILD')))
     self.assertFalse(os.path.lexists(external_link))
 
+  def testRepoExternalSymlinkWithNativeTargetRepoLocalAction(self):
+    my_repo_dir, _, external_link = (
+        self.setUpExternalSymlinkWithNativeTargetRepo()
+    )
+
+    # A local action needs the original symlink on the host file system.
+    self.RunBazel([
+        'build',
+        '//main:local',
+        '--spawn_strategy=local',
+    ])
+    with open(self.Path('bazel-bin/main/local.txt')) as f:
+      self.assertEqual(f.read(), 'dep_hello')
+    self.assertFalse(os.path.exists(os.path.join(my_repo_dir, 'BUILD')))
+    self.assertTrue(os.path.islink(external_link))
+    with open(external_link) as f:
+      self.assertEqual(f.read(), 'dep_hello')
+
   def testLostRemoteFile_build(self):
     # Create a repo with two BUILD files (one in a subpackage), build a target
     # from one to cause it to be cached, then build that target again after

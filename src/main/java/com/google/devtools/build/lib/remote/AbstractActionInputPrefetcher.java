@@ -542,8 +542,10 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       }
       return getSymlinks(treeArtifact, treeArtifact.getPath(), treeMetadata, metadataSupplier);
     }
-    if ((metadata.isRemote() || metadata.getType() == FileStateType.SYMLINK)
-        && !inputPath.startsWith(execRoot)) {
+    if (!inputPath.startsWith(execRoot)
+        && (metadata.isRemote()
+            || metadata.getType() == FileStateType.SYMLINK
+            || isOverlayOnlySymlink(inputPath))) {
       // A path in an external repo, e.g. a source artifact consumed by an action or a file
       // prefetched during the materialization of an external repo. It may be (part of) a chain of
       // symlinks created by the repo rule, which has to be reproduced verbatim on disk.
@@ -567,6 +569,27 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       return ImmutableList.of();
     }
     return ImmutableList.of(new Symlink(inputPath, resolvedPath));
+  }
+
+  /**
+   * Returns whether the given path is a symlink in an overlay file system that isn't present on
+   * the host file system.
+   *
+   * <p>A symlink in a repo backed by the remote repo contents cache can resolve to a file in a
+   * repo that has been materialized on disk. Its metadata then describes a local regular file,
+   * but the symlink itself only exists in the in-memory overlay and still has to be planted on
+   * disk for local actions to consume it.
+   */
+  private static boolean isOverlayOnlySymlink(Path path) throws IOException {
+    var fs = path.getFileSystem();
+    if (fs == fs.getHostFileSystem()) {
+      // The path is on the host file system, so any symlink already exists on disk.
+      return false;
+    }
+    var stat = path.statIfFound(Symlinks.NOFOLLOW);
+    return stat != null
+        && stat.isSymbolicLink()
+        && path.forHostFileSystem().statIfFound(Symlinks.NOFOLLOW) == null;
   }
 
   private static Path resolveOneSymlink(Path path, @Nullable PathFragment targetPathFragment)
