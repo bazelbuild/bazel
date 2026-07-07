@@ -284,20 +284,30 @@ public class ArtifactFactory implements ArtifactResolver {
 
   @Override
   public SourceArtifact getSourceArtifact(PathFragment execPath, Root root, ArtifactOwner owner) {
+    return getSourceArtifact(execPath, root, owner, /* isDirectory= */ false);
+  }
+
+  public SourceArtifact getSourceArtifact(
+      PathFragment execPath, Root root, ArtifactOwner owner, boolean isDirectory) {
     // TODO(jungjw): Come up with a more reliable way to distinguish external source roots.
     ArtifactRoot artifactRoot =
         root.asPath() != null && root.asPath().startsWith(externalSourceBase)
             ? ArtifactRoot.asExternalSourceRoot(root)
             : ArtifactRoot.asSourceRoot(root);
-    return getSourceArtifact(execPath, artifactRoot, owner);
+    return getSourceArtifact(execPath, artifactRoot, owner, isDirectory);
   }
 
   public SourceArtifact getSourceArtifact(
       PathFragment execPath, ArtifactRoot root, ArtifactOwner owner) {
+    return getSourceArtifact(execPath, root, owner, /* isDirectory= */ false);
+  }
+
+  public SourceArtifact getSourceArtifact(
+      PathFragment execPath, ArtifactRoot root, ArtifactOwner owner, boolean isDirectory) {
     Preconditions.checkArgument(
         execPath.isAbsolute() == root.getRoot().isAbsolute(), "%s %s %s", execPath, root, owner);
     Preconditions.checkNotNull(owner, "%s %s", execPath, root);
-    return (SourceArtifact) getArtifact(root, execPath, owner, /* type= */ null);
+    return (SourceArtifact) getArtifact(root, execPath, owner, /* type= */ null, isDirectory);
   }
 
   private void validatePath(PathFragment rootRelativePath, ArtifactRoot root) {
@@ -335,7 +345,8 @@ public class ArtifactFactory implements ArtifactResolver {
       PathFragment rootRelativePath, ArtifactRoot root, ArtifactOwner owner) {
     validatePath(rootRelativePath, root);
     return (Artifact.DerivedArtifact)
-        getArtifact(root, root.getExecPath().getRelative(rootRelativePath), owner, null);
+        getArtifact(
+            root, root.getExecPath().getRelative(rootRelativePath), owner, null, false);
   }
 
   /**
@@ -354,7 +365,8 @@ public class ArtifactFactory implements ArtifactResolver {
             root,
             root.getExecPath().getRelative(rootRelativePath),
             owner,
-            SpecialArtifactType.FILESET);
+            SpecialArtifactType.FILESET,
+            false);
   }
 
   public Artifact.DerivedArtifact getRunfilesArtifact(
@@ -365,7 +377,8 @@ public class ArtifactFactory implements ArtifactResolver {
             root,
             root.getExecPath().getRelative(rootRelativePath),
             owner,
-            SpecialArtifactType.RUNFILES);
+            SpecialArtifactType.RUNFILES,
+            false);
   }
 
   /**
@@ -383,7 +396,8 @@ public class ArtifactFactory implements ArtifactResolver {
             root,
             root.getExecPath().getRelative(rootRelativePath),
             owner,
-            SpecialArtifactType.TREE);
+            SpecialArtifactType.TREE,
+            false);
   }
 
   /**
@@ -401,7 +415,8 @@ public class ArtifactFactory implements ArtifactResolver {
             root,
             root.getExecPath().getRelative(rootRelativePath),
             owner,
-            SpecialArtifactType.UNRESOLVED_SYMLINK);
+            SpecialArtifactType.UNRESOLVED_SYMLINK,
+            false);
   }
 
   public Artifact.DerivedArtifact getConstantMetadataArtifact(
@@ -412,7 +427,8 @@ public class ArtifactFactory implements ArtifactResolver {
             root,
             root.getExecPath().getRelative(rootRelativePath),
             owner,
-            SpecialArtifactType.CONSTANT_METADATA);
+            SpecialArtifactType.CONSTANT_METADATA,
+            false);
   }
 
   /**
@@ -423,17 +439,21 @@ public class ArtifactFactory implements ArtifactResolver {
       ArtifactRoot root,
       PathFragment execPath,
       ArtifactOwner owner,
-      @Nullable SpecialArtifactType type) {
+      @Nullable SpecialArtifactType type,
+      boolean isDirectory) {
     Preconditions.checkNotNull(root);
     Preconditions.checkNotNull(execPath);
 
     if (!root.isSourceRoot()) {
-      return createArtifact(root, execPath, owner, type);
+      return createArtifact(root, execPath, owner, type, isDirectory);
     }
 
     // Double-checked locking to avoid locking cost when possible.
     SourceArtifact firstArtifact = sourceArtifactCache.getArtifact(execPath);
     if (firstArtifact != null && !firstArtifact.differentOwnerOrRoot(owner, root)) {
+      if (isDirectory) {
+        firstArtifact.markAsDirectory();
+      }
       return firstArtifact;
     }
     SourceArtifactCache.Entry newEntry =
@@ -447,8 +467,11 @@ public class ArtifactFactory implements ArtifactResolver {
                 // Artifacts with the same exec path but a different Owner, but we also need to
                 // reuse Artifacts from previous builds.
                 return new SourceArtifactCache.Entry(
-                    (SourceArtifact) createArtifact(root, execPath, owner, type),
+                    (SourceArtifact) createArtifact(root, execPath, owner, type, isDirectory),
                     sourceArtifactCache.buildId);
+              }
+              if (isDirectory) {
+                entry.artifact().markAsDirectory();
               }
               return entry;
             });
@@ -459,11 +482,12 @@ public class ArtifactFactory implements ArtifactResolver {
       ArtifactRoot root,
       PathFragment execPath,
       ArtifactOwner owner,
-      @Nullable SpecialArtifactType type) {
+      @Nullable SpecialArtifactType type,
+      boolean isDirectory) {
     Preconditions.checkNotNull(owner);
     if (type == null) {
       return root.isSourceRoot()
-          ? new Artifact.SourceArtifact(root, execPath, owner)
+          ? new Artifact.SourceArtifact(root, execPath, owner, isDirectory)
           : DerivedArtifact.create(root, execPath, (ActionLookupKey) owner);
     } else {
       return SpecialArtifact.create(root, execPath, (ActionLookupKey) owner, type);

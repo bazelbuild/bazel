@@ -458,6 +458,83 @@ EOF
   expect_symlink bazel-bin/a/a.link
 }
 
+function test_source_directory_is_directory_from_glob() {
+  mkdir -p a/dir
+  cat > a/BUILD <<'EOF'
+load(":rule.bzl", "check_dirs")
+
+filegroup(
+    name = "srcs",
+    srcs = glob(
+        ["dir", "dir/**"],
+        exclude_directories = 0,
+    ),
+)
+
+check_dirs(
+    name = "check",
+    data = ":srcs",
+)
+EOF
+
+  cat > a/rule.bzl <<'EOF'
+def _check_dirs_impl(ctx):
+    out = ctx.actions.declare_file(ctx.label.name + ".txt")
+    ctx.actions.write(out, "done")
+
+    for file in sorted(ctx.files.data, key = lambda f: f.short_path):
+        kind = "directory" if file.is_directory else "file"
+        print("%s is %s" % (file.short_path, kind))
+
+    return DefaultInfo(files = depset([out]))
+
+check_dirs = rule(
+    implementation = _check_dirs_impl,
+    attrs = {
+        "data": attr.label(allow_files = True),
+    },
+)
+EOF
+
+  touch a/dir/file.txt
+
+  bazel build //a:check >& "$TEST_log" || fail "build failed"
+  expect_log "a/dir is directory"
+  expect_log "a/dir/file.txt is file"
+}
+
+function test_symlink_source_directory_created_from_symlink_action() {
+  mkdir -p a/source_dir
+  cat > a/a.bzl <<'EOF'
+def _a_impl(ctx):
+    symlink = ctx.actions.declare_directory(ctx.label.name + ".link")
+    ctx.actions.symlink(
+        output = symlink,
+        target_file = ctx.files.src[0],
+    )
+    return DefaultInfo(files = depset([symlink]))
+
+a = rule(
+    implementation = _a_impl,
+    attrs = {
+        "src": attr.label(allow_files = True),
+    },
+)
+EOF
+
+  cat > a/BUILD <<'EOF'
+load(":a.bzl", "a")
+
+a(
+    name = "a",
+    src = "source_dir",
+)
+EOF
+
+  bazel build //a:a || fail "build failed"
+  expect_symlink bazel-bin/a/a.link
+}
+
 function test_symlink_file_to_directory_created_from_symlink_action() {
   mkdir -p a
   cat > a/a.bzl <<'EOF'
