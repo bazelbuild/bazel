@@ -87,6 +87,10 @@ public final class GoogleAuthUtils {
       NettyChannelBuilder builder =
           newNettyChannelBuilder(targetUrl, proxy)
               .executor(executor)
+              // The server is trusted, so the default limit of 4 MiB on inbound messages only
+              // breaks legitimately large messages such as the ActionResult of an action with
+              // many output files (https://github.com/bazelbuild/bazel/issues/29821).
+              .maxInboundMessageSize(Integer.MAX_VALUE)
               .negotiationType(
                   isTlsEnabled(target) ? NegotiationType.TLS : NegotiationType.PLAINTEXT);
       if (options.grpcKeepaliveTime != null) {
