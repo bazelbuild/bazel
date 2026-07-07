@@ -177,6 +177,15 @@ public class WorkerParserTest {
   }
 
   @Test
+  public void workerSandboxing_invalidAssignmentsThrow() {
+    assertThrows(
+        OptionsParsingException.class, () -> parseWorkerOptions("--worker_sandboxing=Javac"));
+    assertThrows(
+        OptionsParsingException.class,
+        () -> parseWorkerOptions("--worker_sandboxing=Javac=foo=bar"));
+  }
+
+  @Test
   public void workerSandboxing_defaultsToEmptyMap() throws Exception {
     assertThat(parseWorkerOptions().getWorkerSandboxingMap()).isEmpty();
   }
@@ -262,6 +271,19 @@ public class WorkerParserTest {
         WorkerTestUtils.createWorkerKeyWithRequirements(
             fs.getPath("/outputbase"), options, "Foo", /* dynamic= */ true);
     assertThat(fooKey.isSandboxed()).isTrue();
+  }
+
+  @Test
+  public void createWorkerKey_perMnemonicSandboxingDoesNotAffectMultiplexWorkers() {
+    WorkerOptions options = Options.getDefaults(WorkerOptions.class);
+    options.setWorkerMultiplex(true);
+    options.setWorkerSandboxing(ImmutableList.of(Maps.immutableEntry("Foo", true)));
+
+    WorkerKey fooKey =
+        WorkerTestUtils.createWorkerKeyWithRequirements(
+            fs.getPath("/outputbase"), options, "Foo", /* dynamic= */ false);
+    assertThat(fooKey.isMultiplex()).isTrue();
+    assertThat(fooKey.isSandboxed()).isFalse();
   }
 
   @Test
