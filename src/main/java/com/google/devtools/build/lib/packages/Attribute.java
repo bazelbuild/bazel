@@ -1940,6 +1940,7 @@ public final class Attribute implements Comparable<Attribute> {
   }
 
   private final String name;
+  private final String publicName;
 
   private final String doc;
 
@@ -2028,6 +2029,7 @@ public final class Attribute implements Comparable<Attribute> {
         "analysis dependent attributes require a default value that is one (and vice versa): %s",
         name);
     this.name = name;
+    this.publicName = getStarlarkName(name);
     this.doc = doc;
     this.type = type;
     this.propertyFlags = propertyFlags;
@@ -2071,7 +2073,7 @@ public final class Attribute implements Comparable<Attribute> {
    * of '$' or ':').
    */
   public String getPublicName() {
-    return getStarlarkName(name);
+    return publicName;
   }
 
   /**

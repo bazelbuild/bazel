@@ -117,8 +117,7 @@ public final class StarlarkRuleTransitionProvider implements TransitionFactory<R
         }
       }
 
-      attributes.put(
-          Attribute.getStarlarkName(attribute.getPublicName()), Attribute.valueToStarlark(val));
+      attributes.put(attribute.getPublicName(), Attribute.valueToStarlark(val));
     }
 
     StructImpl attrObject =
