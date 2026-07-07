@@ -623,7 +623,9 @@ public final class RemoteModule extends BlazeModule {
             remoteOptions,
             RemoteRetrier.EXPERIMENTAL_GRPC_RESULT_CLASSIFIER,
             retryScheduler,
-            circuitBreaker);
+            circuitBreaker,
+            // Resolved lazily: rpcLogFile is created further below, after this retrier.
+            () -> rpcLogFile);
 
     ImmutableMap<String, ?> remoteGrpcServiceConfig;
     try {
@@ -813,7 +815,11 @@ public final class RemoteModule extends BlazeModule {
 
       RemoteRetrier execRetrier =
           new RemoteRetrier(
-              remoteOptions, RemoteRetrier.GRPC_RESULT_CLASSIFIER, retryScheduler, circuitBreaker);
+              remoteOptions,
+              RemoteRetrier.GRPC_RESULT_CLASSIFIER,
+              retryScheduler,
+              circuitBreaker,
+              () -> rpcLogFile);
       RemoteExecutionClient remoteExecutor =
           new GrpcRemoteExecutor(execChannel.retain(), callCredentialsProvider, execRetrier);
       execChannel.release();
