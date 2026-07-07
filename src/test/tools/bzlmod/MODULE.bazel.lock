@@ -452,5 +452,6 @@
       }
     }
   },
-  "facts": {}
+  "facts": {},
+  "factsVersions": {}
 }

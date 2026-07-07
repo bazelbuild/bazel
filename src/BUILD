@@ -6,6 +6,7 @@ load("@rules_java//java:java_binary.bzl", "java_binary")
 load("@rules_python//python:defs.bzl", "py_binary", "py_library")
 load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 load("//src:release_archive.bzl", "minimum_java_compilation_runtime_filegroup", "minimum_java_runtime_filegroup", "release_archive")
+load(":bazel_binary.bzl", "bazel_binary")
 load(":embedded_tools.bzl", "srcsfile")
 load(":rule_size_test.bzl", "rule_size_test")
 
@@ -344,19 +345,10 @@ genrule(
     }),
 )
 
-[genrule(
+[bazel_binary(
     name = "bazel-bin" + suffix,
-    srcs = [
-        "//src/main/cpp:client",
-        "package-zip" + jdk,
-    ],
-    outs = ["bazel" + suffix],
-    # In msys, a file path without .exe suffix(say foo), refers to a file with .exe
-    # suffix(say foo.exe), if foo.exe exists and foo doesn't. So, on windows, we
-    # need to remove bazel.exe first, so that cat to bazel won't fail.
-    cmd = "rm -f $@; cat $(location //src/main/cpp:client) $(location :package-zip" + jdk + ") > $@ && zip -qA $@ && chmod a+x $@",
-    executable = 1,
-    output_to_bindir = 1,
+    out = "bazel" + suffix,
+    client = "//src/main/cpp:client",
     visibility = [
         "//:__pkg__",  # For distribution archive lockfile generation
         "//scripts:__pkg__",  # For bash completion generation
@@ -365,6 +357,7 @@ genrule(
         "//src/test:__subpackages__",  # For integration tests
         "//tools/compliance:__pkg__",  # For license gathering
     ],
+    workspace_zip = ":package-zip" + jdk,
 ) for suffix, jdk in [
     ("-dev", "_jdk_allmodules"),
     ("", "_jdk_minimal"),
@@ -377,13 +370,11 @@ genrule(
 # Build an executable named `bazel.exe`.
 # Works on all platforms but only makes sense on Windows.
 # Workaround for non-configurability of genrule's `outs` attribute.
-[genrule(
+[copy_file(
     name = "bazel-bin" + suffix + ".exe",
-    srcs = [":bazel-bin" + suffix],
-    outs = ["bazel" + suffix + ".exe"],
-    cmd = "cp $(location :bazel-bin" + suffix + ") $@",
-    executable = 1,
-    output_to_bindir = 1,
+    src = ":bazel-bin" + suffix,
+    out = "bazel" + suffix + ".exe",
+    is_executable = True,
     visibility = [
         "//scripts:__pkg__",  # For bash completion generation
         "//scripts/packages:__pkg__",  # For installer generation
