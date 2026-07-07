@@ -31,6 +31,9 @@ public interface ContentDefinedChunker {
    *
    * <p>Chunking is deterministic: the same input always produces the same chunks for a given
    * configuration.
+   *
+   * @throws IOException only if reading from {@code input} throws; chunking and digest
+   *     computation themselves do not perform any I/O
    */
   List<Digest> chunkToDigests(InputStream input) throws IOException;
 }
