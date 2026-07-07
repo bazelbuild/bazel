@@ -345,7 +345,7 @@ genrule(
 )
 
 [genrule(
-    name = "bazel-bin" + suffix,
+    name = "bazel-bin-src" + suffix,
     srcs = [
         "//src/main/cpp:client",
         "package-zip" + jdk,
@@ -379,9 +379,9 @@ genrule(
 # Workaround for non-configurability of genrule's `outs` attribute.
 [genrule(
     name = "bazel-bin" + suffix + ".exe",
-    srcs = [":bazel-bin" + suffix],
+    srcs = [":bazel-bin-src" + suffix],
     outs = ["bazel" + suffix + ".exe"],
-    cmd = "cp $(location :bazel-bin" + suffix + ") $@",
+    cmd = "cp $(location :bazel-bin-src" + suffix + ") $@",
     executable = 1,
     output_to_bindir = 1,
     visibility = [
