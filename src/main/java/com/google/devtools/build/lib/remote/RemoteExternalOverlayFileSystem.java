@@ -56,6 +56,7 @@ import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import java.io.ByteArrayInputStream;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InterruptedIOException;
@@ -419,6 +420,14 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
   // All other methods delegate to the file system given by this method. It is important to override
   // each non-final FileSystem method to benefit from optimizations implemented in the respective
   // underlying file systems.
+  //
+  // A repo backed by one of the two file systems can contain a symlink pointing into a repo backed
+  // by the other one (e.g. an in-memory repo can have been created with a symlink into a repo that
+  // has only been materialized on disk). Neither backing file system can follow such a symlink on
+  // its own as the target repo doesn't exist in it. Since this situation is rare, operations
+  // delegate to a single backing file system first and only fall back to resolving symlinks
+  // segment by segment at the overlay level if that fails (see followingSymlinks and
+  // followingParentSymlinks).
   private FileSystem fsForPath(PathFragment path) {
     if (path.startsWith(externalDirectory) && !path.equals(externalDirectory)) {
       String repoName = path.getSegment(externalDirectorySegmentCount);
@@ -441,20 +450,91 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
     return nativeFs;
   }
 
+  @FunctionalInterface
+  private interface FileSystemOp<T> {
+    T apply(FileSystem fs, PathFragment path) throws IOException;
+  }
+
+  /**
+   * Applies an operation that follows symlinks in the last path segment to the backing file system
+   * responsible for the given path, retrying it on the overlay-level canonical path if it fails
+   * because a symlink crosses between the two backing file systems.
+   */
+  private <T> T followingSymlinks(PathFragment path, FileSystemOp<T> op) throws IOException {
+    try {
+      return op.apply(fsForPath(path), path);
+    } catch (FileNotFoundException e) {
+      PathFragment resolved = resolveCrossFileSystemSymlinks(path, /* resolveLastSegment= */ true);
+      if (resolved == null) {
+        throw e;
+      }
+      return op.apply(fsForPath(resolved), resolved);
+    }
+  }
+
+  /**
+   * Applies an operation that does not follow symlinks in the last path segment to the backing
+   * file system responsible for the given path, retrying it on the overlay-level canonical path if
+   * it fails because a symlink crosses between the two backing file systems.
+   */
+  private <T> T followingParentSymlinks(PathFragment path, FileSystemOp<T> op) throws IOException {
+    try {
+      return op.apply(fsForPath(path), path);
+    } catch (FileNotFoundException e) {
+      PathFragment resolved = resolveCrossFileSystemSymlinks(path, /* resolveLastSegment= */ false);
+      if (resolved == null) {
+        throw e;
+      }
+      return op.apply(fsForPath(resolved), resolved);
+    }
+  }
+
+  /**
+   * Returns the canonical form of the given path with symlinks resolved segment by segment at the
+   * overlay level, with each segment routed to the backing file system that contains it.
+   *
+   * <p>Returns {@code null} if the path does not lie in an external repo, cannot be resolved, or
+   * resolves to itself, in which case retrying an operation on it cannot change the outcome.
+   */
+  @Nullable
+  private PathFragment resolveCrossFileSystemSymlinks(
+      PathFragment path, boolean resolveLastSegment) {
+    if (!path.startsWith(externalDirectory) || path.equals(externalDirectory)) {
+      // Only paths in external repos can contain symlinks that cross between the two backing file
+      // systems.
+      return null;
+    }
+    int segmentsToResolve = path.segmentCount() - (resolveLastSegment ? 0 : 1);
+    try {
+      // The external directory itself always exists in both backing file systems and is never a
+      // symlink, so resolution can start below it instead of at the file system root.
+      PathFragment resolved = externalDirectory;
+      for (int i = externalDirectorySegmentCount; i < segmentsToResolve; i++) {
+        resolved = appendSegment(resolved, path.getSegment(i), MAX_SYMLINKS);
+      }
+      if (!resolveLastSegment) {
+        resolved = resolved.getChild(path.getBaseName());
+      }
+      return resolved.equals(path) ? null : resolved;
+    } catch (IOException e) {
+      return null;
+    }
+  }
+
   @Override
   public boolean delete(PathFragment path) throws IOException {
-    return fsForPath(path).delete(path);
+    return followingParentSymlinks(path, FileSystem::delete);
   }
 
   @Override
   public byte[] getDigest(PathFragment path) throws IOException {
-    return fsForPath(path).getDigest(path);
+    return followingSymlinks(path, FileSystem::getDigest);
   }
 
   @Nullable
   @Override
   public byte[] getFastDigest(PathFragment path) throws IOException {
-    return fsForPath(path).getFastDigest(path);
+    return followingSymlinks(path, FileSystem::getFastDigest);
   }
 
   @Override
@@ -479,7 +559,7 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
 
   @Override
   public boolean createDirectory(PathFragment path) throws IOException {
-    return fsForPath(path).createDirectory(path);
+    return followingParentSymlinks(path, FileSystem::createDirectory);
   }
 
   @Override
@@ -489,95 +569,121 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
 
   @Override
   public long getFileSize(PathFragment path, boolean followSymlinks) throws IOException {
-    return fsForPath(path).getFileSize(path, followSymlinks);
+    return followSymlinks
+        ? followingSymlinks(path, (fs, p) -> fs.getFileSize(p, true))
+        : followingParentSymlinks(path, (fs, p) -> fs.getFileSize(p, false));
   }
 
   @Override
   public long getLastModifiedTime(PathFragment path, boolean followSymlinks) throws IOException {
-    return fsForPath(path).getLastModifiedTime(path, followSymlinks);
+    return followSymlinks
+        ? followingSymlinks(path, (fs, p) -> fs.getLastModifiedTime(p, true))
+        : followingParentSymlinks(path, (fs, p) -> fs.getLastModifiedTime(p, false));
   }
 
   @Override
   public void setLastModifiedTime(PathFragment path, long newTime) throws IOException {
-    fsForPath(path).setLastModifiedTime(path, newTime);
+    followingSymlinks(
+        path,
+        (fs, p) -> {
+          fs.setLastModifiedTime(p, newTime);
+          return null;
+        });
   }
 
   @Override
   public FileStatus stat(PathFragment path, boolean followSymlinks) throws IOException {
-    return fsForPath(path).stat(path, followSymlinks);
+    return followSymlinks
+        ? followingSymlinks(path, (fs, p) -> fs.stat(p, true))
+        : followingParentSymlinks(path, (fs, p) -> fs.stat(p, false));
   }
 
   @Override
   public void createSymbolicLink(
       PathFragment linkPath, PathFragment targetFragment, SymlinkTargetType hint)
       throws IOException {
-    fsForPath(linkPath).createSymbolicLink(linkPath, targetFragment, hint);
+    followingParentSymlinks(
+        linkPath,
+        (fs, p) -> {
+          fs.createSymbolicLink(p, targetFragment, hint);
+          return null;
+        });
   }
 
   @Override
   public PathFragment readSymbolicLink(PathFragment path) throws IOException {
-    return fsForPath(path).readSymbolicLink(path);
+    return followingParentSymlinks(path, FileSystem::readSymbolicLink);
   }
 
   @Override
   public boolean exists(PathFragment path, boolean followSymlinks) {
-    return fsForPath(path).exists(path, followSymlinks);
-  }
-
-  @Override
-  public boolean exists(PathFragment path) {
-    return fsForPath(path).exists(path);
+    return statNullable(path, followSymlinks) != null;
   }
 
   @Override
   public Collection<String> getDirectoryEntries(PathFragment path) throws IOException {
-    return fsForPath(path).getDirectoryEntries(path);
+    return followingSymlinks(path, FileSystem::getDirectoryEntries);
   }
 
   @Override
   public boolean isReadable(PathFragment path) throws IOException {
-    return fsForPath(path).isReadable(path);
+    return followingSymlinks(path, FileSystem::isReadable);
   }
 
   @Override
   public void setReadable(PathFragment path, boolean readable) throws IOException {
-    fsForPath(path).setReadable(path, readable);
+    followingSymlinks(
+        path,
+        (fs, p) -> {
+          fs.setReadable(p, readable);
+          return null;
+        });
   }
 
   @Override
   public boolean isWritable(PathFragment path) throws IOException {
-    return fsForPath(path).isWritable(path);
+    return followingSymlinks(path, FileSystem::isWritable);
   }
 
   @Override
   public void setWritable(PathFragment path, boolean writable) throws IOException {
-    fsForPath(path).setWritable(path, writable);
+    followingSymlinks(
+        path,
+        (fs, p) -> {
+          fs.setWritable(p, writable);
+          return null;
+        });
   }
 
   @Override
   public boolean isExecutable(PathFragment path) throws IOException {
-    return fsForPath(path).isExecutable(path);
+    return followingSymlinks(path, FileSystem::isExecutable);
   }
 
   @Override
   public void setExecutable(PathFragment path, boolean executable) throws IOException {
-    fsForPath(path).setExecutable(path, executable);
+    followingSymlinks(
+        path,
+        (fs, p) -> {
+          fs.setExecutable(p, executable);
+          return null;
+        });
   }
 
   @Override
   public InputStream getInputStream(PathFragment path) throws IOException {
-    return fsForPath(path).getInputStream(path);
+    return followingSymlinks(path, FileSystem::getInputStream);
   }
 
   @Override
   public SeekableByteChannel createReadWriteByteChannel(PathFragment path) throws IOException {
-    return fsForPath(path).createReadWriteByteChannel(path);
+    return followingSymlinks(path, FileSystem::createReadWriteByteChannel);
   }
 
   @Override
   public OutputStream getOutputStream(PathFragment path, boolean append, boolean internal)
       throws IOException {
-    return fsForPath(path).getOutputStream(path, append, internal);
+    return followingSymlinks(path, (fs, p) -> fs.getOutputStream(p, append, internal));
   }
 
   @Override
@@ -609,7 +715,9 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
   @Override
   public byte[] getxattr(PathFragment path, String name, boolean followSymlinks)
       throws IOException {
-    return fsForPath(path).getxattr(path, name, followSymlinks);
+    return followSymlinks
+        ? followingSymlinks(path, (fs, p) -> fs.getxattr(p, name, true))
+        : followingParentSymlinks(path, (fs, p) -> fs.getxattr(p, name, false));
   }
 
   @Nullable
@@ -620,55 +728,72 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
 
   @Override
   public Path resolveSymbolicLinks(PathFragment path) throws IOException {
-    // Ensure that the return value doesn't leave the overlay file system.
-    return getPath(fsForPath(path).resolveSymbolicLinks(path).asFragment());
+    try {
+      // Ensure that the return value doesn't leave the overlay file system.
+      return getPath(fsForPath(path).resolveSymbolicLinks(path).asFragment());
+    } catch (FileNotFoundException e) {
+      PathFragment resolved = resolveCrossFileSystemSymlinks(path, /* resolveLastSegment= */ true);
+      if (resolved == null) {
+        throw e;
+      }
+      return getPath(resolved);
+    }
   }
 
   @Nullable
   @Override
   public FileStatus statNullable(PathFragment path, boolean followSymlinks) {
-    return fsForPath(path).statNullable(path, followSymlinks);
+    var fs = fsForPath(path);
+    var status = fs.statNullable(path, followSymlinks);
+    if (status == null && fs == externalFs) {
+      // The in-memory file system may have failed to fully resolve the path due to a symlink
+      // pointing out of it. Only retry in this direction as retrying failed native operations
+      // would noticeably slow down existence checks for paths that legitimately don't exist.
+      PathFragment resolved = resolveCrossFileSystemSymlinks(path, followSymlinks);
+      if (resolved != null) {
+        return fsForPath(resolved).statNullable(resolved, followSymlinks);
+      }
+    }
+    return status;
   }
 
   @Nullable
   @Override
   public FileStatus statIfFound(PathFragment path, boolean followSymlinks) throws IOException {
-    return fsForPath(path).statIfFound(path, followSymlinks);
-  }
-
-  @Override
-  public boolean isFile(PathFragment path, boolean followSymlinks) {
-    return fsForPath(path).isFile(path, followSymlinks);
-  }
-
-  @Override
-  public boolean isSpecialFile(PathFragment path, boolean followSymlinks) {
-    return fsForPath(path).isSpecialFile(path, followSymlinks);
-  }
-
-  @Override
-  public boolean isSymbolicLink(PathFragment path) {
-    return fsForPath(path).isSymbolicLink(path);
-  }
-
-  @Override
-  public boolean isDirectory(PathFragment path, boolean followSymlinks) {
-    return fsForPath(path).isDirectory(path, followSymlinks);
+    var fs = fsForPath(path);
+    var status = fs.statIfFound(path, followSymlinks);
+    if (status == null && fs == externalFs) {
+      // The in-memory file system may have failed to fully resolve the path due to a symlink
+      // pointing out of it. Only retry in this direction as retrying failed native operations
+      // would noticeably slow down existence checks for paths that legitimately don't exist.
+      PathFragment resolved = resolveCrossFileSystemSymlinks(path, followSymlinks);
+      if (resolved != null) {
+        return fsForPath(resolved).statIfFound(resolved, followSymlinks);
+      }
+    }
+    return status;
   }
 
   @Override
   public PathFragment readSymbolicLinkUnchecked(PathFragment path) throws IOException {
-    return fsForPath(path).readSymbolicLinkUnchecked(path);
+    return followingParentSymlinks(path, FileSystem::readSymbolicLinkUnchecked);
   }
 
   @Override
   public Collection<Dirent> readdir(PathFragment path, boolean followSymlinks) throws IOException {
-    return fsForPath(path).readdir(path, followSymlinks);
+    // The path itself must be a directory, so symlinks in its last segment are always followed;
+    // followSymlinks only applies to the types reported for the entries.
+    return followingSymlinks(path, (fs, p) -> fs.readdir(p, followSymlinks));
   }
 
   @Override
   public void chmod(PathFragment path, int mode) throws IOException {
-    fsForPath(path).chmod(path, mode);
+    followingSymlinks(
+        path,
+        (fs, p) -> {
+          fs.chmod(p, mode);
+          return null;
+        });
   }
 
   @Override
