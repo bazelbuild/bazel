@@ -130,7 +130,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/remote:combined_cache_client_factory",
         "//src/main/java/com/google/devtools/build/lib/remote:grpc_cache_client",
         "//src/main/java/com/google/devtools/build/lib/remote:grpc_remote_executor",
-        "//src/main/java/com/google/devtools/build/lib/remote:path_canonicalizer",
         "//src/main/java/com/google/devtools/build/lib/remote:remote_action",
         "//src/main/java/com/google/devtools/build/lib/remote:remote_action_context_provider",
         "//src/main/java/com/google/devtools/build/lib/remote:remote_action_file_system",

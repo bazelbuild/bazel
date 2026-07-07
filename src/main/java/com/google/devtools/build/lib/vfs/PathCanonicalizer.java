@@ -11,13 +11,10 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.remote;
+package com.google.devtools.build.lib.vfs;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
-import com.google.devtools.build.lib.vfs.FileSymlinkLoopException;
-import com.google.devtools.build.lib.vfs.FileSystem;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.util.Iterator;
 import java.util.concurrent.ConcurrentHashMap;
@@ -27,11 +24,11 @@ import javax.annotation.Nullable;
  * Canonicalizes paths like {@link FileSystem#resolveSymbolicLinks}, while storing the intermediate
  * results in a trie so they can be reused by future canonicalizations.
  *
- * <p>This is an implementation detail of {@link RemoteActionFileSystem}, factored out for testing.
- * Because {@link RemoteActionFileSystem} implements a union filesystem and must account for the
- * possibility of symlinks straddling the underlying filesystems, the performance of large
- * filesystem scans can be greatly improved with a custom {@link FileSystem#resolveSymbolicLinks}
- * implementation that leverages the trie to avoid repeated work.
+ * <p>This is an implementation detail of union filesystems, factored out for testing. Because a
+ * union filesystem must account for the possibility of symlinks straddling the underlying
+ * filesystems, the performance of large filesystem scans can be greatly improved with a custom
+ * {@link FileSystem#resolveSymbolicLinks} implementation that leverages the trie to avoid repeated
+ * work.
  *
  * <p>On case-insensitive filesystems, accessing the same path through different case variations
  * will produce distinct trie entries. This could be fixed, but it's a performance rather than a
@@ -41,9 +38,10 @@ import javax.annotation.Nullable;
  * FileSystem#resolveSymbolicLinks}, the result is undefined if the filesystem is mutated
  * concurrently.
  */
-final class PathCanonicalizer {
+public final class PathCanonicalizer {
 
-  interface Resolver {
+  /** Provides the single-link resolution primitive used to canonicalize paths. */
+  public interface Resolver {
     /**
      * Returns the result of {@link FileSystem#readSymbolicLink} if the path is a symlink, otherwise
      * null. All but the last path segment must be canonical.
@@ -71,7 +69,7 @@ final class PathCanonicalizer {
   private final Resolver resolver;
   private final NonSymlinkNode root = new NonSymlinkNode();
 
-  PathCanonicalizer(Resolver resolver) {
+  public PathCanonicalizer(Resolver resolver) {
     this.resolver = resolver;
   }
 
@@ -168,12 +166,17 @@ final class PathCanonicalizer {
    * @throws IOException if an I/O error occurs
    * @return the canonical path.
    */
-  PathFragment resolveSymbolicLinks(PathFragment path) throws IOException {
+  public PathFragment resolveSymbolicLinks(PathFragment path) throws IOException {
     return resolveSymbolicLinks(path, FileSystem.MAX_SYMLINKS);
   }
 
+  /** Removes all cached information. */
+  public void clear() {
+    root.clear();
+  }
+
   /** Removes cached information for a path prefix. */
-  void clearPrefix(PathFragment pathPrefix) {
+  public void clearPrefix(PathFragment pathPrefix) {
     Node node = getRootNode(pathPrefix);
     NonSymlinkNode parent = null;
     String parentSegment = null;

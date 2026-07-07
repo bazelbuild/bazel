@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.remote;
+package com.google.devtools.build.lib.vfs;
 
 import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -19,17 +19,11 @@ import static org.junit.Assert.assertThrows;
 import static org.junit.Assume.assumeTrue;
 
 import com.google.devtools.build.lib.util.OS;
-import com.google.devtools.build.lib.vfs.DigestHashFunction;
-import com.google.devtools.build.lib.vfs.FileSymlinkLoopException;
-import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystem.NotASymlinkException;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
-import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import org.checkerframework.checker.nullness.qual.Nullable;
+import javax.annotation.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -50,7 +44,8 @@ public final class PathCanonicalizerTest {
 
   private final PathCanonicalizer canonicalizer = new PathCanonicalizer(this::resolve);
 
-  private @Nullable PathFragment resolve(PathFragment pathFragment) throws IOException {
+  @Nullable
+  private PathFragment resolve(PathFragment pathFragment) throws IOException {
     Path path = fs.getPath(pathFragment);
     try {
       return path.readSymbolicLink();

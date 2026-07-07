@@ -246,17 +246,6 @@ java_library(
 )
 
 java_library(
-    name = "path_canonicalizer",
-    srcs = ["PathCanonicalizer.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//third_party:guava",
-        "//third_party:jsr305",
-    ],
-)
-
-java_library(
     name = "api_version",
     srcs = ["ApiVersion.java"],
     deps = ["@remoteapis//:build_bazel_semver_semver_java_proto"],
@@ -373,7 +362,6 @@ java_library(
     name = "remote_action_file_system",
     srcs = ["RemoteActionFileSystem.java"],
     deps = [
-        ":path_canonicalizer",
         ":remote_action_input_fetcher",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_input",
