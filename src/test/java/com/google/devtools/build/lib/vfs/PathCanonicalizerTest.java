@@ -261,6 +261,42 @@ public final class PathCanonicalizerTest {
   }
 
   @Test
+  public void testUncacheableResolutionIsRecomputed() throws Exception {
+    PathCanonicalizer partiallyCachingCanonicalizer =
+        new PathCanonicalizer(
+            this::resolve, path -> !path.startsWith(pathFragment("/volatile")));
+    createSymlink("/volatile/a", "/d");
+    createNonSymlink("/d/c");
+    assertThat(partiallyCachingCanonicalizer.resolveSymbolicLinks(pathFragment("/volatile/a/c")))
+        .isEqualTo(pathFragment("/d/c"));
+
+    // Repoint the symlink without invalidating the canonicalizer.
+    fs.getPath(pathFragment("/volatile/a")).delete();
+    createSymlink("/volatile/a", "/e");
+    createNonSymlink("/e/c");
+    assertThat(partiallyCachingCanonicalizer.resolveSymbolicLinks(pathFragment("/volatile/a/c")))
+        .isEqualTo(pathFragment("/e/c"));
+  }
+
+  @Test
+  public void testResolutionBelowUncacheablePathIsRecomputed() throws Exception {
+    // Only the path /volatile itself is marked uncacheable, but as its descendants cannot be
+    // attached to the trie, their resolution is recomputed as well.
+    PathCanonicalizer partiallyCachingCanonicalizer =
+        new PathCanonicalizer(this::resolve, path -> !path.equals(pathFragment("/volatile")));
+    createSymlink("/volatile/a", "/d");
+    createNonSymlink("/d/c");
+    assertThat(partiallyCachingCanonicalizer.resolveSymbolicLinks(pathFragment("/volatile/a/c")))
+        .isEqualTo(pathFragment("/d/c"));
+
+    fs.getPath(pathFragment("/volatile/a")).delete();
+    createSymlink("/volatile/a", "/e");
+    createNonSymlink("/e/c");
+    assertThat(partiallyCachingCanonicalizer.resolveSymbolicLinks(pathFragment("/volatile/a/c")))
+        .isEqualTo(pathFragment("/e/c"));
+  }
+
+  @Test
   public void testEmpty() throws Exception {
     assertFailure(IllegalArgumentException.class, "");
   }
