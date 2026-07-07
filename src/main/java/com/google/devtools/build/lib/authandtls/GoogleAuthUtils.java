@@ -35,13 +35,16 @@ import io.grpc.auth.MoreCallCredentials;
 import io.grpc.netty.GrpcSslContexts;
 import io.grpc.netty.NegotiationType;
 import io.grpc.netty.NettyChannelBuilder;
+import io.netty.channel.ChannelOption;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.epoll.Epoll;
+import io.netty.channel.epoll.EpollChannelOption;
 import io.netty.channel.epoll.EpollDomainSocketChannel;
 import io.netty.channel.epoll.EpollEventLoopGroup;
 import io.netty.channel.kqueue.KQueue;
 import io.netty.channel.kqueue.KQueueDomainSocketChannel;
 import io.netty.channel.kqueue.KQueueEventLoopGroup;
+import io.netty.channel.socket.nio.NioChannelOption;
 import io.netty.channel.unix.DomainSocketAddress;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
@@ -57,6 +60,7 @@ import java.util.Optional;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import javax.annotation.Nullable;
+import jdk.net.ExtendedSocketOptions;
 
 /** Utility methods for using {@link AuthAndTLSOptions} with Google Cloud. */
 public final class GoogleAuthUtils {
@@ -96,6 +100,34 @@ public final class GoogleAuthUtils {
       if (options.grpcKeepaliveTime != null) {
         builder.keepAliveTime(options.grpcKeepaliveTime.getSeconds(), TimeUnit.SECONDS);
         builder.keepAliveTimeout(options.grpcKeepaliveTimeout.getSeconds(), TimeUnit.SECONDS);
+      }
+      boolean isUnixSocketChannel = targetUrl.startsWith("unix:") || !Strings.isNullOrEmpty(proxy);
+      if (options.grpcTcpKeepalive && !isUnixSocketChannel) {
+        builder.withOption(ChannelOption.SO_KEEPALIVE, true);
+        boolean epoll = Epoll.isAvailable();
+        long idleSeconds = options.grpcTcpKeepaliveTime.toSeconds();
+        if (idleSeconds > 0) {
+          builder.withOption(
+              epoll
+                  ? EpollChannelOption.TCP_KEEPIDLE
+                  : NioChannelOption.of(ExtendedSocketOptions.TCP_KEEPIDLE),
+              Math.toIntExact(idleSeconds));
+        }
+        long intervalSeconds = options.grpcTcpKeepaliveInterval.toSeconds();
+        if (intervalSeconds > 0) {
+          builder.withOption(
+              epoll
+                  ? EpollChannelOption.TCP_KEEPINTVL
+                  : NioChannelOption.of(ExtendedSocketOptions.TCP_KEEPINTERVAL),
+              Math.toIntExact(intervalSeconds));
+        }
+        if (options.grpcTcpKeepaliveCount > 0) {
+          builder.withOption(
+              epoll
+                  ? EpollChannelOption.TCP_KEEPCNT
+                  : NioChannelOption.of(ExtendedSocketOptions.TCP_KEEPCOUNT),
+              options.grpcTcpKeepaliveCount);
+        }
       }
       if (interceptors != null) {
         builder.intercept(interceptors);
