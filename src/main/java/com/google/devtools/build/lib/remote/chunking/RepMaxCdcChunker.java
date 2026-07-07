@@ -18,11 +18,10 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
 import build.bazel.remote.execution.v2.Digest;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  * RepMaxCDC implementation for splitting large blobs.
@@ -117,8 +116,8 @@ public final class RepMaxCdcChunker implements ContentDefinedChunker {
    * uploading, similar to how whole blobs work.
    */
   @Override
-  public List<Digest> chunkToDigests(InputStream input) throws IOException {
-    List<Digest> digests = new ArrayList<>();
+  public ImmutableList<Digest> chunkToDigests(InputStream input) throws IOException {
+    ImmutableList.Builder<Digest> digests = ImmutableList.builder();
 
     ChunkingSession session = new ChunkingSession(input);
     while (true) {
@@ -129,7 +128,7 @@ public final class RepMaxCdcChunker implements ContentDefinedChunker {
       digests.add(digestUtil.compute(session.buffer(), session.chunkOffset(), chunkSize));
     }
 
-    return digests;
+    return digests.build();
   }
 
   /**

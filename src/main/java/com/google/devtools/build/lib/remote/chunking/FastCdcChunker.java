@@ -17,11 +17,10 @@ package com.google.devtools.build.lib.remote.chunking;
 import static com.google.common.base.Preconditions.checkArgument;
 
 import build.bazel.remote.execution.v2.Digest;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  * FastCDC 2020 implementation for splitting large blobs.
@@ -190,8 +189,8 @@ public final class FastCdcChunker implements ContentDefinedChunker {
    * uploading, similar to how whole blobs work.
    */
   @Override
-  public List<Digest> chunkToDigests(InputStream input) throws IOException {
-    List<Digest> digests = new ArrayList<>();
+  public ImmutableList<Digest> chunkToDigests(InputStream input) throws IOException {
+    ImmutableList.Builder<Digest> digests = ImmutableList.builder();
 
     byte[] buf = new byte[maxSize * 2];
     int cursor = 0;
@@ -228,6 +227,6 @@ public final class FastCdcChunker implements ContentDefinedChunker {
       cursor += chunkLen;
     }
 
-    return digests;
+    return digests.build();
   }
 }

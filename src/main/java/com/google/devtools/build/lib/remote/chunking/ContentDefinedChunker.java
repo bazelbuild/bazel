@@ -15,9 +15,9 @@
 package com.google.devtools.build.lib.remote.chunking;
 
 import build.bazel.remote.execution.v2.Digest;
+import com.google.common.collect.ImmutableList;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.List;
 
 /** Splits a blob into content-defined chunks. */
 public interface ContentDefinedChunker {
@@ -35,5 +35,5 @@ public interface ContentDefinedChunker {
    * @throws IOException only if reading from {@code input} throws; chunking and digest
    *     computation themselves do not perform any I/O
    */
-  List<Digest> chunkToDigests(InputStream input) throws IOException;
+  ImmutableList<Digest> chunkToDigests(InputStream input) throws IOException;
 }
