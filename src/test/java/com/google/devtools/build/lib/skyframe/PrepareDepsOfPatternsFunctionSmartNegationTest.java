@@ -107,6 +107,7 @@ public class PrepareDepsOfPatternsFunctionSmartNegationTest extends FoundationTe
         optionsParser.getOptions(BuildLanguageOptions.class),
         UUID.randomUUID(),
         ImmutableMap.of(),
+        /* repoEnv= */ ImmutableMap.of(),
         QuiescingExecutorsImpl.forTesting(),
         new TimestampGranularityMonitor(null));
     skyframeExecutor.setActionEnv(ImmutableMap.of());
