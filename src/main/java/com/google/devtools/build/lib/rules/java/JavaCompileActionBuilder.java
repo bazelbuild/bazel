@@ -157,6 +157,8 @@ public final class JavaCompileActionBuilder {
   private NestedSet<Artifact> extraData = NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
   private Label targetLabel;
   @Nullable private String injectingRuleKind;
+  private ImmutableList<Artifact> directDepJarsToVerify = ImmutableList.of();
+  private ImmutableList<String> directDepLabelsToVerify = ImmutableList.of();
   private ImmutableList<Artifact> additionalInputs = ImmutableList.of();
   private Artifact genSourceOutput;
   private JavaCompileOutputs<Artifact> outputs;
@@ -320,6 +322,12 @@ public final class JavaCompileActionBuilder {
       result.add("--strict_java_deps", strictJavaDeps.toString());
       result.addExecPaths("--direct_dependencies", directJars);
     }
+    if (!directDepJarsToVerify.isEmpty()) {
+      for (int i = 0; i < directDepJarsToVerify.size(); i++) {
+        result.addExecPath("--direct_dep_jar", directDepJarsToVerify.get(i));
+        result.add("--direct_dep_label", directDepLabelsToVerify.get(i));
+      }
+    }
     result.add("--experimental_fix_deps_tool", fixDepsTool);
 
     // Chose what artifact to pass to JavaBuilder, as input to jacoco instrumentation processor.
@@ -375,6 +383,18 @@ public final class JavaCompileActionBuilder {
       NestedSet<Artifact> dependencyArtifacts) {
     checkNotNull(compileTimeDependencyArtifacts, "dependencyArtifacts must not be null");
     this.compileTimeDependencyArtifacts = dependencyArtifacts;
+    return this;
+  }
+
+  @CanIgnoreReturnValue
+  public JavaCompileActionBuilder setDirectDepJarsToVerify(ImmutableList<Artifact> directDepJarsToVerify) {
+    this.directDepJarsToVerify = directDepJarsToVerify;
+    return this;
+  }
+
+  @CanIgnoreReturnValue
+  public JavaCompileActionBuilder setDirectDepLabelsToVerify(ImmutableList<String> directDepLabelsToVerify) {
+    this.directDepLabelsToVerify = directDepLabelsToVerify;
     return this;
   }
 

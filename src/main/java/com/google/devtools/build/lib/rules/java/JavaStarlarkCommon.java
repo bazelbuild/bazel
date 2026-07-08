@@ -201,7 +201,8 @@ public class JavaStarlarkCommon
       boolean enableJSpecify,
       boolean enableDirectClasspath,
       Sequence<?> additionalInputs,
-      Sequence<?> additionalOutputs)
+      Sequence<?> additionalOutputs,
+      Sequence<?> directDepJarsToVerify)
       throws EvalException,
           TypeException,
           RuleErrorException,
@@ -217,11 +218,49 @@ public class JavaStarlarkCommon
             .nativeHeader(nativeHeader == Starlark.NONE ? null : (Artifact) nativeHeader)
             .manifestProto(manifestProto)
             .build();
+    ImmutableList.Builder<Artifact> directDepJarsToVerifyBuilder = ImmutableList.builder();
+    ImmutableList.Builder<String> directDepLabelsToVerifyBuilder = ImmutableList.builder();
+    for (Object obj : Sequence.cast(directDepJarsToVerify, Object.class, "direct_dep_jars_to_verify")) {
+      if (obj instanceof StarlarkInfo struct) {
+        Artifact jar = null;
+        Object jarObj = struct.getValue("jar");
+        if (jarObj != null && jarObj != Starlark.NONE) {
+          if (jarObj instanceof Artifact) {
+            jar = (Artifact) jarObj;
+          } else {
+            throw Starlark.errorf("Expected jar attribute to be an Artifact in struct, but got: %s", Starlark.type(jarObj));
+          }
+        }
+        String label = null;
+        Object labelObj = struct.getValue("label");
+        if (labelObj != null && labelObj != Starlark.NONE) {
+          if (labelObj instanceof String) {
+            label = (String) labelObj;
+          } else {
+            throw Starlark.errorf("Expected label attribute to be a string in struct, but got: %s", Starlark.type(labelObj));
+          }
+        }
+        if (jar == null) {
+          throw Starlark.errorf("struct in direct_dep_jars_to_verify is missing 'jar' field (type Artifact), got struct: %s", struct);
+        }
+        if (label == null) {
+          throw Starlark.errorf("struct in direct_dep_jars_to_verify is missing 'label' field (type string), got struct: %s", struct);
+        }
+        directDepJarsToVerifyBuilder.add(jar);
+        directDepLabelsToVerifyBuilder.add(label);
+      } else {
+        throw Starlark.errorf(
+            "Expected direct_dep_jars_to_verify to contain structs with 'jar' (Artifact) and 'label' (string) fields, but got: %s",
+            Starlark.type(obj));
+      }
+    }
     JavaTargetAttributes.Builder attributesBuilder =
         new JavaTargetAttributes.Builder()
             .addSourceJars(Sequence.cast(sourceJars, Artifact.class, "source_jars"))
             .addSourceFiles(Depset.noneableCast(sourceFiles, Artifact.class, "sources").toList())
             .addDirectJars(directJars.getSet(Artifact.class))
+            .addDirectDepJarsToVerify(
+                directDepJarsToVerifyBuilder.build(), directDepLabelsToVerifyBuilder.build())
             .setCompileTimeClassPathEntriesWithPrependedDirectJars(
                 compileTimeClasspath.getSet(Artifact.class))
             .addClassPathResources(
@@ -413,6 +452,11 @@ public class JavaStarlarkCommon
   public Sequence<?> tokenizeJavacOpts(Sequence<?> opts) throws EvalException {
     return StarlarkList.immutableCopyOf(
         JavaHelper.tokenizeJavaOptions(Sequence.noneableCast(opts, String.class, "opts")));
+  }
+
+  @Override
+  public boolean isUnusedDepsSupported(StarlarkThread thread) throws EvalException {
+    return true;
   }
 
   static boolean isInstanceOfProvider(Object obj, Provider provider) {

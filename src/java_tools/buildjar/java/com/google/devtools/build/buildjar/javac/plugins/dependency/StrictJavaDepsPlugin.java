@@ -241,6 +241,31 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
         dependencyModule.setHasMissingTargets();
       }
     }
+
+    Map<Path, String> directDepJarsToVerify = dependencyModule.getDirectDepJarsToVerify();
+    if (!directDepJarsToVerify.isEmpty()) {
+      Set<String> usedLabels = new HashSet<>();
+      for (Path usedJar : dependencyModule.getExplicitDependenciesMap().keySet()) {
+        String label = directDepJarsToVerify.get(usedJar);
+        if (label != null) {
+          usedLabels.add(label);
+        }
+      }
+      Set<String> unusedLabels = new java.util.TreeSet<>(dependencyModule.getAllDeclaredLabels());
+      unusedLabels.removeAll(usedLabels);
+      if (!unusedLabels.isEmpty()) {
+        String targetLabel = dependencyModule.getTargetLabel();
+        if (targetLabel != null) {
+          for (String unusedLabel : unusedLabels) {
+            String msg = String.format(
+                "[unused-deps] Target '%s' is declared as a direct dependency of '%s' but is unused.",
+                unusedLabel,
+                targetLabel);
+            log.error(Position.NOPOS, Errors.ProcMessager(msg));
+          }
+        }
+      }
+    }
   }
 
   /**
