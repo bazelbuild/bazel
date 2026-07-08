@@ -11,27 +11,25 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.remote;
+package com.google.devtools.build.lib.vfs;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
-import com.google.devtools.build.lib.vfs.FileSymlinkLoopException;
-import com.google.devtools.build.lib.vfs.FileSystem;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.util.Iterator;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Predicate;
 import javax.annotation.Nullable;
 
 /**
  * Canonicalizes paths like {@link FileSystem#resolveSymbolicLinks}, while storing the intermediate
  * results in a trie so they can be reused by future canonicalizations.
  *
- * <p>This is an implementation detail of {@link RemoteActionFileSystem}, factored out for testing.
- * Because {@link RemoteActionFileSystem} implements a union filesystem and must account for the
- * possibility of symlinks straddling the underlying filesystems, the performance of large
- * filesystem scans can be greatly improved with a custom {@link FileSystem#resolveSymbolicLinks}
- * implementation that leverages the trie to avoid repeated work.
+ * <p>This is an implementation detail of {@link OverlayFileSystem}, factored out for testing.
+ * Because an overlay filesystem must account for the possibility of symlinks straddling the
+ * underlying filesystems, the performance of large filesystem scans can be greatly improved with a
+ * custom {@link FileSystem#resolveSymbolicLinks} implementation that leverages the trie to avoid
+ * repeated work.
  *
  * <p>On case-insensitive filesystems, accessing the same path through different case variations
  * will produce distinct trie entries. This could be fixed, but it's a performance rather than a
@@ -43,6 +41,7 @@ import javax.annotation.Nullable;
  */
 final class PathCanonicalizer {
 
+  /** Provides the single-link resolution primitive used to canonicalize paths. */
   interface Resolver {
     /**
      * Returns the result of {@link FileSystem#readSymbolicLink} if the path is a symlink, otherwise
@@ -69,10 +68,24 @@ final class PathCanonicalizer {
   }
 
   private final Resolver resolver;
+  private final Predicate<PathFragment> mayCacheResolution;
   private final NonSymlinkNode root = new NonSymlinkNode();
 
   PathCanonicalizer(Resolver resolver) {
+    this(resolver, unused -> true);
+  }
+
+  /**
+   * Creates a canonicalizer that only caches the resolution of paths matched by the given
+   * predicate.
+   *
+   * <p>The resolution of paths not matched by the predicate (and, since they cannot be attached to
+   * the trie, of all paths underneath them) is recomputed on every call. This supports resolvers
+   * whose backing state can change through channels that don't invalidate this cache.
+   */
+  PathCanonicalizer(Resolver resolver, Predicate<PathFragment> mayCacheResolution) {
     this.resolver = resolver;
+    this.mayCacheResolution = mayCacheResolution;
   }
 
   /** Returns the root node for an absolute path. */
@@ -111,48 +124,62 @@ final class PathCanonicalizer {
     // - `path` is the absolute path to canonicalize. If `segmentIndex` > 0, `path` is already
     //    canonical up to and including `segmentIndex` - 1.
     // - `node` is the trie node corresponding to the `path` prefix ending with `segmentIndex` - 1,
-    //   or to the root path when `segmentIndex` is 0.
+    //   or to the root path when `segmentIndex` is 0, or null if the resolution of that prefix was
+    //   not cacheable (in which case none of the remaining segments can be cached either).
     for (String segment : segments) {
-      Node nextNode = node.get(segment);
+      // The target path if the current segment is a symlink, otherwise null.
+      PathFragment targetPath = null;
+      Node nextNode = node != null ? node.get(segment) : null;
       if (nextNode == null) {
         PathFragment naivePath = path.subFragment(0, segmentIndex + 1);
-        PathFragment targetPath = resolver.resolveOneLink(naivePath);
-        nextNode =
-            node.computeIfAbsent(
-                segment,
-                unused -> targetPath != null ? new SymlinkNode(targetPath) : new NonSymlinkNode());
-      }
-
-      switch (nextNode) {
-        case SymlinkNode(PathFragment targetPath) -> {
-          if (maxLinks == 0) {
-            throw new FileSymlinkLoopException(
-                path.getPathString() + FileSystem.ERR_TOO_MANY_SYMLINKS);
-          }
-          maxLinks--;
-
-          // Compute the path obtained by resolving the symlink.
-          // Note that path normalization already handles uplevel references.
-          PathFragment newPath;
-          if (targetPath.isAbsolute()) {
-            newPath = targetPath.getRelative(path.subFragment(segmentIndex + 1));
-          } else {
-            newPath =
-                path.subFragment(0, segmentIndex)
-                    .getRelative(targetPath)
-                    .getRelative(path.subFragment(segmentIndex + 1));
-          }
-
-          // For absolute symlinks, we must start over.
-          // For relative symlinks, it would have been possible to restart after the already
-          // canonicalized prefix, but they're too rare to be worth optimizing for.
-          return resolveSymbolicLinks(newPath, maxLinks);
-        }
-        case NonSymlinkNode nonSymlinkNode -> {
-          node = nonSymlinkNode;
-          segmentIndex++;
+        targetPath = resolver.resolveOneLink(naivePath);
+        if (node != null && mayCacheResolution.test(naivePath)) {
+          PathFragment resolvedTargetPath = targetPath;
+          nextNode =
+              node.computeIfAbsent(
+                  segment,
+                  unused ->
+                      resolvedTargetPath != null
+                          ? new SymlinkNode(resolvedTargetPath)
+                          : new NonSymlinkNode());
         }
       }
+      if (nextNode != null) {
+        // The cached node is authoritative, even if a concurrent canonicalization won the race to
+        // insert it.
+        targetPath =
+            nextNode instanceof SymlinkNode(PathFragment cachedTargetPath)
+                ? cachedTargetPath
+                : null;
+      }
+
+      if (targetPath != null) {
+        if (maxLinks == 0) {
+          throw new FileSymlinkLoopException(
+              path.getPathString() + FileSystem.ERR_TOO_MANY_SYMLINKS);
+        }
+        maxLinks--;
+
+        // Compute the path obtained by resolving the symlink.
+        // Note that path normalization already handles uplevel references.
+        PathFragment newPath;
+        if (targetPath.isAbsolute()) {
+          newPath = targetPath.getRelative(path.subFragment(segmentIndex + 1));
+        } else {
+          newPath =
+              path.subFragment(0, segmentIndex)
+                  .getRelative(targetPath)
+                  .getRelative(path.subFragment(segmentIndex + 1));
+        }
+
+        // For absolute symlinks, we must start over.
+        // For relative symlinks, it would have been possible to restart after the already
+        // canonicalized prefix, but they're too rare to be worth optimizing for.
+        return resolveSymbolicLinks(newPath, maxLinks);
+      }
+
+      node = nextNode instanceof NonSymlinkNode nonSymlinkNode ? nonSymlinkNode : null;
+      segmentIndex++;
     }
 
     return path;
@@ -170,6 +197,11 @@ final class PathCanonicalizer {
    */
   PathFragment resolveSymbolicLinks(PathFragment path) throws IOException {
     return resolveSymbolicLinks(path, FileSystem.MAX_SYMLINKS);
+  }
+
+  /** Removes all cached information. */
+  void clear() {
+    root.clear();
   }
 
   /** Removes cached information for a path prefix. */

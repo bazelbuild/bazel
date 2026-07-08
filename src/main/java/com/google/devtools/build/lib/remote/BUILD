@@ -246,13 +246,15 @@ java_library(
 )
 
 java_library(
-    name = "path_canonicalizer",
-    srcs = ["PathCanonicalizer.java"],
+    name = "remote_in_memory_file_system",
+    srcs = ["RemoteInMemoryFileSystem.java"],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
+        "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
         "//third_party:guava",
-        "//third_party:jsr305",
     ],
 )
 
@@ -348,6 +350,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/remote/util:rx_futures",
         "//src/main/java/com/google/devtools/build/lib/remote/util:rx_utils",
         "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
@@ -373,20 +376,18 @@ java_library(
     name = "remote_action_file_system",
     srcs = ["RemoteActionFileSystem.java"],
     deps = [
-        ":path_canonicalizer",
         ":remote_action_input_fetcher",
+        ":remote_in_memory_file_system",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_input",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/actions:important_output_handler",
-        "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/remote/common:bulk_transfer_exception",
         "//src/main/java/com/google/devtools/build/lib/remote/util:utils",
         "//src/main/java/com/google/devtools/build/lib/skyframe:tree_artifact_value",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
         "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
@@ -731,7 +732,7 @@ java_library(
     deps = [
         ":abstract_action_input_prefetcher",
         ":combined_cache",
-        ":remote_action_file_system",
+        ":remote_in_memory_file_system",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_input_helper",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",

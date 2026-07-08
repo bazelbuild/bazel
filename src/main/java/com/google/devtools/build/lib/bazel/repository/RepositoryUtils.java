@@ -81,7 +81,7 @@ public class RepositoryUtils {
    * @param safeForLocalCache whether the repo is safe to cache in the local repo contents cache
    *     after replanting
    * @param safeForRemoteCache whether the repo is safe to cache in the remote repo contents cache
-   *     after replanting
+   *     after replanting.
    */
   public record ReplantSymlinksResult(boolean safeForLocalCache, boolean safeForRemoteCache) {}
 
@@ -114,7 +114,12 @@ public class RepositoryUtils {
       boolean replantSymlinksIntoMainRepo)
       throws IOException {
     boolean portableSymlinksOnly = true;
-    boolean hasSymlinkIntoMainRepo = false;
+    // Symlinks pointing into the main repo make a repo unsafe for the remote repo contents cache:
+    // their target contents aren't tracked by the cache key, so a restored repo could silently
+    // see different contents than the one that was cached. Cross-repo symlinks are fine since all
+    // repos are covered by recorded inputs, and their resolution across the cache's in-memory
+    // overlay and the native file system is handled by OverlayFileSystem.
+    boolean safeForRemoteCache = true;
     try {
       Collection<Path> symlinks = FileSystemUtils.traverseTree(repoDir, Path::isSymbolicLink);
       Path workspaceSymlinkUnderExternal = externalRepoRoot.getChild(WORKSPACE_SYMLINK_NAME);
@@ -125,7 +130,7 @@ public class RepositoryUtils {
         PathFragment target = symlink.readSymbolicLink();
         PathFragment originalTarget = target;
         if (target.startsWith(workspace.asFragment())) {
-          hasSymlinkIntoMainRepo = true;
+          safeForRemoteCache = false;
           if (!replantSymlinksIntoMainRepo) {
             // Symlinks pointing into the main repo can't be replanted to a relative path that
             // stays under the external root. They make the repo unsafe to cache.
@@ -137,10 +142,20 @@ public class RepositoryUtils {
                   .asFragment()
                   .getRelative(target.relativeTo(workspace.asFragment()));
         }
+        if (!target.isAbsolute()) {
+          // A symlink that was created with a relative target by the repo rule. Resolve it
+          // against the symlink's parent directory to determine whether it stays within the repo.
+          if (!symlink.getParentDirectory().getRelative(target).startsWith(repoDir)) {
+            // The symlink breaks when the repo is moved to the local repo contents cache, but
+            // repos restored from the remote repo contents cache live at their original location.
+            portableSymlinksOnly = false;
+          }
+          continue;
+        }
         if (!target.startsWith(externalRepoRoot.asFragment())) {
           // This symlink doesn't point into any Bazel repo, including the main repo, and thus its
           // target isn't managed by Bazel. We assume such symlinks are portable across machines
-          // on which the repo is relevant (e.g. /lib/ld-linux.so* or /usr/bin/ld).
+          // on which the repo is relevant (e.g. /lib/ld-linux.so* or /usr/bin/ld)
           continue;
         }
         PathFragment newTarget;
@@ -175,6 +190,7 @@ public class RepositoryUtils {
           var newTargetNioPath = symlink.getFileSystem().getNioPath(newTarget);
           if (symlinkNioPath == null || newTargetNioPath == null) {
             portableSymlinksOnly = false;
+            safeForRemoteCache = false;
             continue;
           }
           symlink.delete();
@@ -182,9 +198,12 @@ public class RepositoryUtils {
             Files.createSymbolicLink(symlinkNioPath, newTargetNioPath);
           } catch (IOException e) {
             // Creating a real symlink failed (likely no Developer Mode or symlink privilege).
-            // Restore the original symlink/junction and mark as non-portable.
+            // Restore the original symlink/junction and mark as non-portable. The absolute target
+            // is also specific to this machine's output base, so the repo can't be cached
+            // remotely.
             FileSystemUtils.ensureSymbolicLink(symlink, originalTarget);
             portableSymlinksOnly = false;
+            safeForRemoteCache = false;
           }
         } else {
           FileSystemUtils.ensureSymbolicLink(symlink, newTarget);
@@ -194,6 +213,6 @@ public class RepositoryUtils {
       throw new IOException(
           String.format("Failed to rewrite symlinks under %s: %s", repoDir, e.getMessage()), e);
     }
-    return new ReplantSymlinksResult(portableSymlinksOnly, !hasSymlinkIntoMainRepo);
+    return new ReplantSymlinksResult(portableSymlinksOnly, safeForRemoteCache);
   }
 }

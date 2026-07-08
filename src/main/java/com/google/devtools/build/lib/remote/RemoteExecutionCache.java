@@ -50,6 +50,7 @@ import com.google.devtools.build.lib.remote.util.AsyncTaskCache;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.RxUtils.TransferResult;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.protobuf.Message;
 import io.reactivex.rxjava3.annotations.NonNull;
 import io.reactivex.rxjava3.core.Completable;
@@ -120,7 +121,21 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
           }
           return Futures.transform(
               downloadFromDiskCache,
-              unused -> remoteActionFileSystem.getHostFileSystem().exists(path.asFragment()),
+              unused -> {
+                // The path may be (part of) a symlink chain that crosses into a part of the file
+                // system that only exists in an overlay, e.g. an unmaterialized external repo
+                // backed by the remote repo contents cache. Resolve it through the action file
+                // system, which sees all overlays, before checking for the presence of the
+                // resolved file on the host file system.
+                PathFragment resolvedPath;
+                try {
+                  resolvedPath =
+                      remoteActionFileSystem.resolveSymbolicLinks(path.asFragment()).asFragment();
+                } catch (IOException e) {
+                  return false;
+                }
+                return remoteActionFileSystem.getHostFileSystem().exists(resolvedPath);
+              },
               directExecutor());
         }
       };
