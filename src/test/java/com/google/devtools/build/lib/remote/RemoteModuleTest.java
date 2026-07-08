@@ -68,6 +68,7 @@ import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParser;
@@ -659,5 +660,32 @@ public final class RemoteModuleTest {
     if (remoteOptions.circuitBreakerStrategy == null) {
       assertThat(circuitBreaker).isEqualTo(Retrier.ALLOW_ALL_CALLS);
     }
+  }
+
+  @Test
+  public void openRpcLogFile_firstAttempt_doesNotRenameExistingFile() throws Exception {
+    Scratch scratch = new Scratch(new InMemoryFileSystem(DigestHashFunction.SHA256));
+    Path log = scratch.file("/workspace/grpc.log", "stale contents");
+
+    RemoteModule.openRpcLogFile(log, /* attemptNumber= */ 1).close();
+
+    // Attempt 1 is a fresh build: the log is (re)created at the base path and nothing is preserved.
+    assertThat(log.exists()).isTrue();
+    assertThat(scratch.resolve("/workspace/grpc.log.1").exists()).isFalse();
+  }
+
+  @Test
+  public void openRpcLogFile_retry_preservesPreviousAttemptLog() throws Exception {
+    Scratch scratch = new Scratch(new InMemoryFileSystem(DigestHashFunction.SHA256));
+    Path log = scratch.file("/workspace/grpc.log", "attempt 1 contents");
+
+    RemoteModule.openRpcLogFile(log, /* attemptNumber= */ 2).close();
+
+    // The retry must not clobber the previous attempt's log: it is renamed aside, and a fresh log
+    // is opened at the base path for the new attempt.
+    Path preserved = scratch.resolve("/workspace/grpc.log.1");
+    assertThat(preserved.exists()).isTrue();
+    assertThat(preserved.getFileSize()).isGreaterThan(0L);
+    assertThat(log.exists()).isTrue();
   }
 }
