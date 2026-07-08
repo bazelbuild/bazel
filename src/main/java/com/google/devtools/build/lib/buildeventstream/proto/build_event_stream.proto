@@ -1111,6 +1111,14 @@ message BuildMetrics {
     // one. Will be incremented for every build/test/run/etc. command that
     // reaches the execution phase.
     int32 num_builds = 12;
+    // UUID of the Bazel server instance that ran this command. Every command
+    // handled by the same server process reports the same value; it changes
+    // only when the server restarts. Useful for correlating invocations that
+    // shared a server (and therefore its incremental state), e.g. to fetch and
+    // diff stats/metrics/inputs/outputs against earlier invocations on the same
+    // server. Always non-empty; only streams produced by Bazel versions that
+    // predate this field lack it.
+    string instance_id = 13;
   }
 
   CumulativeMetrics cumulative_metrics = 6;

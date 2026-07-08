@@ -734,19 +734,37 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
 
   @Test
   public void cumulativeMetrics() throws Exception {
+    // The instance ID is the server's UUID, stable for the server's lifetime, so every event
+    // below reports the same value.
+    String instanceId = getRuntime().getInstanceId().toString();
     buildTarget("//foo:foo");
     assertThat(buildMetricsEventListener.event.getBuildMetrics().getCumulativeMetrics())
-        .isEqualTo(CumulativeMetrics.newBuilder().setNumAnalyses(1).setNumBuilds(1).build());
+        .isEqualTo(
+            CumulativeMetrics.newBuilder()
+                .setNumAnalyses(1)
+                .setNumBuilds(1)
+                .setInstanceId(instanceId)
+                .build());
 
     addOptions("--nobuild");
     buildTarget("//foo:foo");
     assertThat(buildMetricsEventListener.event.getBuildMetrics().getCumulativeMetrics())
-        .isEqualTo(CumulativeMetrics.newBuilder().setNumAnalyses(2).setNumBuilds(1).build());
+        .isEqualTo(
+            CumulativeMetrics.newBuilder()
+                .setNumAnalyses(2)
+                .setNumBuilds(1)
+                .setInstanceId(instanceId)
+                .build());
 
     addOptions("--build", "--noanalyze");
     buildTarget("//foo:foo");
     assertThat(buildMetricsEventListener.event.getBuildMetrics().getCumulativeMetrics())
-        .isEqualTo(CumulativeMetrics.newBuilder().setNumAnalyses(2).setNumBuilds(1).build());
+        .isEqualTo(
+            CumulativeMetrics.newBuilder()
+                .setNumAnalyses(2)
+                .setNumBuilds(1)
+                .setInstanceId(instanceId)
+                .build());
 
     write(
         "foo/BUILD",
@@ -762,7 +780,12 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
     addOptions("--analyze");
     assertThrows(ViewCreationFailedException.class, () -> buildTarget("//foo:foo"));
     assertThat(buildMetricsEventListener.event.getBuildMetrics().getCumulativeMetrics())
-        .isEqualTo(CumulativeMetrics.newBuilder().setNumAnalyses(3).setNumBuilds(1).build());
+        .isEqualTo(
+            CumulativeMetrics.newBuilder()
+                .setNumAnalyses(3)
+                .setNumBuilds(1)
+                .setInstanceId(instanceId)
+                .build());
 
     write(
         "foo/BUILD",
@@ -776,7 +799,35 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
 
     assertThrows(BuildFailedException.class, () -> buildTarget("//foo:foo"));
     assertThat(buildMetricsEventListener.event.getBuildMetrics().getCumulativeMetrics())
-        .isEqualTo(CumulativeMetrics.newBuilder().setNumAnalyses(4).setNumBuilds(2).build());
+        .isEqualTo(
+            CumulativeMetrics.newBuilder()
+                .setNumAnalyses(4)
+                .setNumBuilds(2)
+                .setInstanceId(instanceId)
+                .build());
+  }
+
+  @Test
+  public void instanceId_matchesServerInstanceIdAndChangesOnRestart() throws Exception {
+    String firstInstanceId = getRuntime().getInstanceId().toString();
+    buildTarget("//foo:foo");
+    assertThat(reportedInstanceId()).isEqualTo(firstInstanceId);
+
+    // Simulate a server restart: the new runtime mints a new instance ID.
+    reinitializeAndPreserveOptions();
+    writeTrivialFooTarget();
+    buildTarget("//foo:foo");
+    String secondInstanceId = getRuntime().getInstanceId().toString();
+    assertThat(secondInstanceId).isNotEqualTo(firstInstanceId);
+    assertThat(reportedInstanceId()).isEqualTo(secondInstanceId);
+  }
+
+  private String reportedInstanceId() {
+    return buildMetricsEventListener
+        .event
+        .getBuildMetrics()
+        .getCumulativeMetrics()
+        .getInstanceId();
   }
 
   @Test

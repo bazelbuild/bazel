@@ -115,6 +115,7 @@ class MetricsCollector {
   // For CumulativeMetrics.
   private final AtomicInteger numAnalyses;
   private final AtomicInteger numBuilds;
+  private final String instanceId;
 
   private final ActionSummary.Builder actionSummary = ActionSummary.newBuilder();
   private final TargetMetrics.Builder targetMetrics = TargetMetrics.newBuilder();
@@ -144,6 +145,7 @@ class MetricsCollector {
     this.recordSkyframeMetrics = options != null && options.getRecordSkyframeMetrics();
     this.numAnalyses = numAnalyses;
     this.numBuilds = numBuilds;
+    this.instanceId = env.getRuntime().getInstanceId().toString();
     env.getEventBus().register(this);
     WorkerProcessMetricsCollector.instance().setClock(env.getClock());
     this.buildAccountedFor = new AtomicBoolean();
@@ -646,6 +648,7 @@ class MetricsCollector {
     return CumulativeMetrics.newBuilder()
         .setNumAnalyses(numAnalyses.get())
         .setNumBuilds(numBuilds.get())
+        .setInstanceId(instanceId)
         .build();
   }
 
