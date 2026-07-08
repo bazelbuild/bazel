@@ -263,6 +263,7 @@ tasks:
       - "//src/java_tools/..."
       - "//src/main/starlark/tests/builtins_bzl/..."
       - "//src/test/..."
+      - "//src/tools/execgraph/..."
       - "//src/tools/execlog/..."
       - "//src/tools/one_version/..."
       - "//src/tools/singlejar/..."

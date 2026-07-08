@@ -22,13 +22,13 @@ To output results to a file, use `--output_path`:
         bazel-bin/src/tools/execgraph/parser --log_path=/tmp/exec_graph.log \
             --output_path=/tmp/exec_graph.log.txt
 
-To limit the output to a certain runner, use `--restrict_to_runner` option.
+To limit the output to a certain runner, use the `--restrict_to_runner` option.
 For example,
 
         bazel-bin/src/tools/execgraph/parser --log_path=/tmp/exec_graph.log \
             --restrict_to_runner="linux-sandbox"
 
-Will limit the output to those nodes that were ran in the linux sandbox.
+will limit the output to those nodes that were run in the linux sandbox.
 
 
 Note that because Bazel is nondeterministic, different runs of the same build

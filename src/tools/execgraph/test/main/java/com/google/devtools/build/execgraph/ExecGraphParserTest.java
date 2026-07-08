@@ -36,8 +36,15 @@ public final class ExecGraphParserTest {
   public void readsZstdCompressedNodes() throws Exception {
     var path = Files.createTempFile("execgraph", ".tmp");
     try (var out = new ZstdOutputStream(Files.newOutputStream(path))) {
-      Node.newBuilder().setDescription("action a").setMnemonic("Javac").build().writeDelimitedTo(out);
-      Node.newBuilder().setDescription("action b").setMnemonic("CppCompile").build()
+      Node.newBuilder()
+          .setDescription("action a")
+          .setMnemonic("Javac")
+          .build()
+          .writeDelimitedTo(out);
+      Node.newBuilder()
+          .setDescription("action b")
+          .setMnemonic("CppCompile")
+          .build()
           .writeDelimitedTo(out);
     }
 

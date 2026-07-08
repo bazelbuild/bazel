@@ -37,11 +37,9 @@ public abstract class ParserOptions extends OptionsBase {
               + " will be reordered to match the first. A node will be matched if the first file"
               + " contains a node with the same description. Any nodes that cannot be matched to"
               + " the first file will appear at the end of the log. Note that this reordering"
-              + " fascilitates easier text-based comparisons, but may break any logical order of"
+              + " facilitates easier text-based comparisons, but may break any logical order of"
               + " the nodes.")
   public abstract List<String> getLogPath();
-
-  public abstract void setLogPath(List<String> value);
 
   @Option(
       name = "output_path",
@@ -56,8 +54,6 @@ public abstract class ParserOptions extends OptionsBase {
               + " paths.")
   public abstract List<String> getOutputPath();
 
-  public abstract void setOutputPath(List<String> value);
-
   @Option(
       name = "restrict_to_runner",
       defaultValue = "null",
@@ -66,6 +62,4 @@ public abstract class ParserOptions extends OptionsBase {
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "If set, only output the nodes that used the given runner.")
   public abstract String getRestrictToRunner();
-
-  public abstract void setRestrictToRunner(String value);
 }
