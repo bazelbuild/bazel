@@ -2715,6 +2715,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
             createPackageLocator(),
             UUID.randomUUID(),
             /* clientEnv= */ ImmutableMap.of(),
+            /* repoEnv= */ ImmutableMap.of(),
             tsgm,
             QuiescingExecutorsImpl.forTesting(),
             options,
