@@ -533,6 +533,7 @@ message Execution {
     reserved 38;
     SOURCE_INPUT_IO_EXCEPTION = 39 [(metadata) = { exit_code: 1 }];
     SYMLINK_TREE_DELETION_IO_EXCEPTION = 40 [(metadata) = { exit_code: 36 }];
+    NONDETERMINISTIC_TREE_ARTIFACT = 41 [(metadata) = { exit_code: 1 }];
   }
 
   Code code = 1;

@@ -746,7 +746,6 @@ public class BazelRepositoryModule extends BlazeModule {
       lastRegistryInvalidation = now;
     }
     return ImmutableList.of(
-        PrecomputedValue.injected(PrecomputedValue.REPO_ENV, repoEnvSupplier.get()),
         PrecomputedValue.injected(RepoDefinitionFunction.REPOSITORY_OVERRIDES, overrides),
         PrecomputedValue.injected(ModuleFileFunction.INJECTED_REPOSITORIES, injections),
         PrecomputedValue.injected(ModuleFileFunction.MODULE_OVERRIDES, moduleOverrides),

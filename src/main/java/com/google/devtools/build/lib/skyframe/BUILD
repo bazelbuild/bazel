@@ -220,6 +220,7 @@ java_library(
         ":transitive_target_value",
         ":transitive_traversal_function",
         ":transitive_traversal_value",
+        ":tree_artifact_value",
         ":workspace_info",
         ":workspace_info_receiver",
         ":workspace_status_function",

@@ -546,8 +546,8 @@ public class ResolverTest {
     // Functions that reference load bindings are closures.
     checkBindings(
         """
-        load('module', aᶜ₀='a', bᴸ₁='b')
-        aᶜ₀, bᴸ₁
+        load('module', aᶜᵀ₀='a', bᴸᵀ₁='b')
+        aᶜᵀ₀, bᴸᵀ₁
         def fᴳ₀():
           aᶠ₀
         """);
@@ -848,7 +848,7 @@ public class ResolverTest {
   // the spaces. The resulting string must match the input.
   private void checkBindings(String... lines) throws Exception {
     String src = Joiner.on("\n").join(lines);
-    StarlarkFile file = resolveFile(src.replaceAll("[₀₁₂₃₄₅₆₇₈₉ᴸᴳᶜᶠᴾᵁ]", " "));
+    StarlarkFile file = resolveFile(src.replaceAll("[₀₁₂₃₄₅₆₇₈₉ᴸᴳᶜᶠᴾᵁᵀ]", " "));
     if (!file.ok()) {
       throw new AssertionError("resolution failed: " + file.errors());
     }
@@ -861,6 +861,9 @@ public class ResolverTest {
         String suffix = "";
         if (binding != null) {
           suffix += "ᴸᴳᶜᶠᴾᵁ".charAt(binding.getScope().ordinal()); // follow order of enum
+          if (binding.isToplevelLocal()) {
+            suffix += "ᵀ";
+          }
           suffix += "₀₁₂₃₄₅₆₇₈₉".charAt(binding.getIndex()); // 10 is plenty
         } else {
           suffix = "  ";
@@ -868,7 +871,7 @@ public class ResolverTest {
         out[0] =
             out[0].substring(0, id.getEndOffset())
                 + suffix
-                + out[0].substring(id.getEndOffset() + 2);
+                + out[0].substring(id.getEndOffset() + suffix.length());
       }
     }.visit(file);
     assertThat(out[0]).isEqualTo(src);

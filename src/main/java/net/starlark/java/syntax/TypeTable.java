@@ -18,6 +18,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 
 import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import javax.annotation.Nullable;
 
@@ -35,8 +36,12 @@ import javax.annotation.Nullable;
 public final class TypeTable {
   // Declared types of global bindings. Indexed by the binding's global scope index.
   private final StarlarkType[] globalsDeclaredTypes;
-  // Types of bindings (regardless of scope). Indexed by binding's sequence number.
+  // Types of bindings (regardless of scope). Indexed by binding's sequence number. Contains nulls
+  // for bindings without static type information.
   private final StarlarkType[] bindingTypes;
+  // Type constructor values of bindings, indexed by the binding's sequence number. Sparse because
+  // most bindings are not type constructors.
+  private final LinkedHashMap<Integer, TypeConstructor> typeConstructors = new LinkedHashMap<>();
   // Types of functions. Indexed by function's sequence number.
   private final Types.CallableType[] functionTypes;
   // Whether a function uses type syntax. Indexed by function's sequence number.
@@ -103,6 +108,31 @@ public final class TypeTable {
    */
   void setType(Resolver.Function function, Types.CallableType type) {
     functionTypes[function.getFunctionId()] = type;
+  }
+
+  /**
+   * Sets (or clears, if given a null) the {@link TypeConstructor} value defined in or loaded by
+   * this file, so that it can be used when the binding appears in a type expression. May be called
+   * more than once.
+   *
+   * <p>Associating a type constructor with a symbol (e.g. via an assignment) does not by itself
+   * make the symbol usable in type expressions.
+   *
+   * @param binding the global or file-level local binding to associate with a type constructor
+   */
+  void setTypeConstructor(Resolver.Binding binding, @Nullable TypeConstructor typeConstructor) {
+    checkArgument(binding.getScope() == Resolver.Scope.GLOBAL || binding.isToplevelLocal());
+    typeConstructors.put(binding.getBindingId(), typeConstructor);
+  }
+
+  /**
+   * Returns the {@link TypeConstructor} value associated with the given binding by {@link
+   * #setTypeConstructor}. Null indicates that the binding doesn't (and, perhaps, cannot) have a
+   * usable type constructor value that was defined in or loaded by this file.
+   */
+  @Nullable
+  public TypeConstructor getTypeConstructor(Resolver.Binding binding) {
+    return typeConstructors.get(binding.getBindingId());
   }
 
   /** Returns the declared type of the global binding. Null indicates untyped / Any. */
