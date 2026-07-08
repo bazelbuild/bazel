@@ -1373,7 +1373,8 @@ public final class SkyframeBuildView {
       @Nullable ToolchainCollection<ResolvedToolchainContext> toolchainContexts,
       @Nullable NestedSet<Package.Metadata> transitivePackages,
       ExecGroupCollection.Builder execGroupCollectionBuilder,
-      boolean crashIfExecutionPhase)
+      boolean crashIfExecutionPhase,
+      boolean dependsOnFileKey)
       throws InterruptedException,
           ActionConflictException,
           InvalidExecGroupException,
@@ -1412,7 +1413,8 @@ public final class SkyframeBuildView {
         toolchainContexts,
         transitivePackages,
         execGroupCollectionBuilder,
-        starlarkExecTransition.orElse(null));
+        starlarkExecTransition.orElse(null),
+        dependsOnFileKey);
   }
 
   /**

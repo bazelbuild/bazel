@@ -139,6 +139,7 @@ public final class SkycacheUploadClient {
                 RemoteAnalysisCaching.newBuilder()
                     .setCode(RemoteAnalysisCaching.Code.UPLOAD_FAILED))
             .build();
-    throw new ExecutionException(new AbruptExitException(DetailedExitCode.of(detail)));
+    throw new ExecutionException(
+        new AbruptExitException(DetailedExitCode.of(detail), errors.get(0)));
   }
 }

@@ -465,7 +465,8 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               toolchainContexts,
               transitivePackages,
               execGroupCollectionBuilder,
-              crashIfExecutionPhase);
+              crashIfExecutionPhase,
+              remoteAnalysisCacheMode.isUploadEnabled());
     } catch (MissingDepException e) {
       Preconditions.checkState(env.valuesMissing(), e.getMessage());
       return null;
