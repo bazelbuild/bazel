@@ -2685,6 +2685,71 @@ EOF
   expect_log "uuid: \"${second_id#INFO: Invocation ID: }\""
 }
 
+function test_remote_cache_eviction_retries_preserve_grpc_log() {
+  mkdir -p a
+
+  cat > a/BUILD <<'EOF'
+genrule(
+  name = 'foo',
+  srcs = ['foo.in'],
+  outs = ['foo.out'],
+  cmd = 'cat $(SRCS) > $@',
+)
+
+genrule(
+  name = 'bar',
+  srcs = ['foo.out', 'bar.in'],
+  outs = ['bar.out'],
+  cmd = 'cat $(SRCS) > $@',
+  tags = ['no-remote-exec'],
+)
+EOF
+
+  echo foo > a/foo.in
+  echo bar > a/bar.in
+
+  # Populate remote cache
+  bazel build \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --remote_download_minimal \
+      //a:bar >& $TEST_log || fail "Failed to build"
+
+  bazel clean
+
+  # Clean build, foo.out isn't downloaded
+  bazel build \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --remote_download_minimal \
+      //a:bar >& $TEST_log || fail "Failed to build"
+
+  # Evict blobs from remote cache
+  stop_worker
+  start_worker
+
+  echo "updated bar" > a/bar.in
+
+  # Incremental build triggers remote cache eviction error and Bazel retries the
+  # build in-process. The gRPC log of the attempt that hit the eviction must be
+  # preserved rather than truncated when the retry reopens the log.
+  bazel build \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --remote_download_minimal \
+      --experimental_remote_cache_eviction_retries=1 \
+      --remote_grpc_log=grpc.log \
+      //a:bar >& $TEST_log || fail "Failed to build"
+
+  expect_log "Found transient remote cache error, retrying the build..."
+
+  # The retry renames the first attempt's log to grpc.log.1 and writes the second
+  # attempt's log at the base path, so both attempts are available for debugging.
+  [[ -f grpc.log.1 ]] \
+      || fail "Expected first attempt's gRPC log to be preserved as grpc.log.1"
+  [[ -s grpc.log.1 ]] \
+      || fail "Expected preserved gRPC log grpc.log.1 to be non-empty"
+  [[ -f grpc.log ]] \
+      || fail "Expected second attempt's gRPC log to be written to grpc.log"
+}
+
 function test_download_toplevel_symlinks_runfiles() {
     cat > rules.bzl <<EOF
 def _symlink_rule_impl(ctx):
