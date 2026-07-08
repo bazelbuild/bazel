@@ -25,14 +25,12 @@ import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
 public class SerializedAbruptExitException extends Exception {
   private final byte[] serializedFailureDetail;
 
-  public SerializedAbruptExitException(String message, byte[] serializedFailureDetail) {
-    super(message);
+  public SerializedAbruptExitException(byte[] serializedFailureDetail) {
     this.serializedFailureDetail = serializedFailureDetail;
   }
 
-  public SerializedAbruptExitException(
-      String message, byte[] serializedFailureDetail, Throwable cause) {
-    super(message, cause);
+  public SerializedAbruptExitException(byte[] serializedFailureDetail, Throwable cause) {
+    super(cause);
     this.serializedFailureDetail = serializedFailureDetail;
   }
 
