@@ -29,7 +29,11 @@ import net.starlark.java.spelling.SpellChecker;
  */
 @AutoCodec
 public record RepoDefinition(
-    RepoRule repoRule, AttributeValues attrValues, String name, @Nullable String originalName)
+    RepoRule repoRule,
+    AttributeValues attrValues,
+    String name,
+    @Nullable String originalName,
+    boolean rootModuleGenerated)
     implements Structure {
 
   @Override

@@ -137,7 +137,12 @@ public final class RepoDefinitionFunction implements SkyFunction {
     Optional<RepoSpec> repoSpec = checkRepoFromBazelModules(bazelDepGraphValue, repositoryName);
     if (repoSpec.isPresent()) {
       return createRepoDefinitionFromSpec(
-          repoSpec.get(), repositoryName, /* originalName= */ null, basicMainRepoMapping, env);
+          repoSpec.get(),
+          repositoryName,
+          /* originalName= */ null,
+          /* rootModuleGenerated= */ false,
+          basicMainRepoMapping,
+          env);
     }
 
     // Step 4: look for the repo from module extension evaluation results.
@@ -162,8 +167,10 @@ public final class RepoDefinitionFunction implements SkyFunction {
       return RepoDefinitionValue.NOT_FOUND;
     }
     RepoSpec extRepoSpec = extensionValue.generatedRepoSpecs().get(internalRepo);
+    boolean rootModuleGenerated =
+        bazelDepGraphValue.getExtensionUsagesTable().contains(extensionId.get(), ModuleKey.ROOT);
     return createRepoDefinitionFromSpec(
-        extRepoSpec, repositoryName, internalRepo, basicMainRepoMapping, env);
+        extRepoSpec, repositoryName, internalRepo, rootModuleGenerated, basicMainRepoMapping, env);
   }
 
   // Callers must check env.valuesMissing() and ignore the result if true.
@@ -193,6 +200,7 @@ public final class RepoDefinitionFunction implements SkyFunction {
             override.repoSpec(),
             repositoryName,
             /* originalName= */ null,
+            /* rootModuleGenerated= */ false,
             basicMainRepoMapping,
             env));
   }
@@ -246,6 +254,7 @@ public final class RepoDefinitionFunction implements SkyFunction {
       RepoSpec repoSpec,
       RepositoryName repositoryName,
       @Nullable String originalName,
+      boolean rootModuleGenerated,
       RepositoryMapping basicMainRepoMapping,
       Environment env)
       throws RepoDefinitionFunctionException, InterruptedException {
@@ -267,7 +276,11 @@ public final class RepoDefinitionFunction implements SkyFunction {
               "to the root module");
       var repoDefinition =
           new RepoDefinition(
-              repoRule, typeCheckedRepoSpec.attributes(), repositoryName.getName(), originalName);
+              repoRule,
+              typeCheckedRepoSpec.attributes(),
+              repositoryName.getName(),
+              originalName,
+              rootModuleGenerated);
       return new RepoDefinitionValue.Found(repoDefinition);
     } catch (ExternalDepsException e) {
       throw new RepoDefinitionFunctionException(e, Transience.PERSISTENT);
