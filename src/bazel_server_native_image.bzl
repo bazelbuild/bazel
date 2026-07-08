@@ -72,6 +72,9 @@ def _resolve_cc_toolchain(ctx):
     )
 
 def _bazel_server_native_image_impl(ctx):
+    if ctx.attr.pgo_instrument and ctx.files.pgo_profiles:
+        fail("pgo_instrument and pgo_profiles cannot both be set")
+
     classpath = depset([ctx.file.deploy_jar])
 
     generated_reflection_configs = [
@@ -107,8 +110,8 @@ def _bazel_server_native_image_impl(ctx):
         progress_message = "Generating native-image configs %{label}",
     )
 
-    binary = ctx.actions.declare_file(ctx.attr.executable_name)
-    jdk_library = ctx.actions.declare_file("libmanagement_ext.so")
+    binary = ctx.actions.declare_file(ctx.attr.output_path or ctx.attr.executable_name)
+    jdk_library = ctx.actions.declare_file(ctx.attr.jdk_library_path or "libmanagement_ext.so")
     build_output_json = ctx.actions.declare_file(ctx.attr.name + "/build-output.json")
     bundle = ctx.actions.declare_file(ctx.attr.name + "/native-image.nib")
 
@@ -135,6 +138,10 @@ def _bazel_server_native_image_impl(ctx):
         args.add("-O" + ctx.attr.optimization)
     if ctx.attr.gc:
         args.add("--gc=" + ctx.attr.gc)
+    if ctx.attr.pgo_instrument:
+        args.add("--pgo-instrument")
+    elif ctx.files.pgo_profiles:
+        args.add_joined(ctx.files.pgo_profiles, join_with = ",", format_joined = "--pgo=%s")
     args.add(bundle, format = "--bundle-create=%s,dry-run")
     args.add(build_output_json, format = "-H:BuildOutputJSONFile=%s")
     args.add_joined(
@@ -174,6 +181,7 @@ def _bazel_server_native_image_impl(ctx):
         direct = direct_inputs,
         transitive = [
             classpath,
+            depset(ctx.files.pgo_profiles),
             graalvm_files,
             cc_toolchain.files,
         ],
@@ -305,6 +313,7 @@ bazel_server_native_image = rule(
             allow_single_file = [".json"],
             mandatory = True,
         ),
+        "jdk_library_path": attr.string(),
         "main_class": attr.string(
             default = _MAIN_CLASS,
         ),
@@ -324,6 +333,11 @@ bazel_server_native_image = rule(
                 "2",
                 "3",
             ],
+        ),
+        "output_path": attr.string(),
+        "pgo_instrument": attr.bool(),
+        "pgo_profiles": attr.label_list(
+            allow_files = True,
         ),
         "gc": attr.string(
             values = [
