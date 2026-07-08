@@ -324,8 +324,9 @@ public final class JavaCompileActionBuilder {
     }
     if (!directDepJarsToVerify.isEmpty()) {
       for (int i = 0; i < directDepJarsToVerify.size(); i++) {
-        result.addExecPath("--direct_dep_jar", directDepJarsToVerify.get(i));
-        result.add("--direct_dep_label", directDepLabelsToVerify.get(i));
+        result.add(
+            "--declared_dep",
+            directDepJarsToVerify.get(i).getExecPathString() + "::" + directDepLabelsToVerify.get(i));
       }
     }
     result.add("--experimental_fix_deps_tool", fixDepsTool);

@@ -166,10 +166,17 @@ public final class JavaLibraryBuildRequest {
     if (optionsParser.getStrictJavaDeps() != null) {
       depsBuilder.setStrictJavaDeps(optionsParser.getStrictJavaDeps());
     }
-    if (!optionsParser.getDirectDepJars().isEmpty()) {
-      depsBuilder.addDirectDepJarsToVerify(
-          optionsParser.getDirectDepJars().stream().map(this::asPath).collect(toImmutableList()),
-          optionsParser.getDirectDepLabels());
+    if (!optionsParser.getDeclaredDeps().isEmpty()) {
+      ImmutableList.Builder<Path> jars = ImmutableList.builder();
+      ImmutableList.Builder<String> labels = ImmutableList.builder();
+      for (String declaredDep : optionsParser.getDeclaredDeps()) {
+        int separatorIdx = declaredDep.indexOf("::");
+        if (separatorIdx != -1) {
+          jars.add(asPath(declaredDep.substring(0, separatorIdx)));
+          labels.add(declaredDep.substring(separatorIdx + 2));
+        }
+      }
+      depsBuilder.addDirectDepJarsToVerify(jars.build(), labels.build());
     }
     if (optionsParser.getOutputDepsProtoFile() != null) {
       depsBuilder.setOutputDepsProtoFile(asPath(optionsParser.getOutputDepsProtoFile()));

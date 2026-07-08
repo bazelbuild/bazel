@@ -31,6 +31,7 @@ import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
@@ -526,7 +527,10 @@ public interface JavaCommonApi<
         @Param(name = "additional_outputs", defaultValue = "[]", named = true),
         @Param(
             name = "direct_dep_jars_to_verify",
-            defaultValue = "[]",
+            allowedTypes = {
+                @ParamType(type = Dict.class),
+            },
+            defaultValue = "{}",
             named = true,
             positional = false),
       })
@@ -559,7 +563,7 @@ public interface JavaCommonApi<
       boolean enableDirectClasspath,
       Sequence<?> additionalInputs,
       Sequence<?> additionalOutputs,
-      Sequence<?> directDepJarsToVerify)
+      Dict<?, ?> directDepJarsToVerify)
       throws EvalException,
           TypeException,
           RuleErrorException,

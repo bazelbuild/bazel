@@ -73,19 +73,17 @@ unused_deps = attr.string(default = "off", values = ["off", "error"])
 ```
 
 ### B. Mapping Direct Dependencies to Compile Jars for Verification
-The rules (e.g., `java_library`, `java_binary`) must map each declared dependency to its direct compile jars (excluding transitively exported jars). This is achieved by extracting `java_outputs` from each dependency and pairing them with the dependency's declared label.
+The rules (e.g., `java_library`, `java_binary`) must map each declared dependency to its direct compile jars (excluding transitively exported jars). This is achieved by extracting `java_outputs` from each dependency and pairing them with the dependency's declared label in a dictionary.
 
 ```starlark
 # Inside rules_java compilation helper:
-direct_dep_jars_to_verify = []
+direct_dep_jars_to_verify = {}
 for dep in ctx.attr.deps:
     # Collect only compile jars generated directly by this target (excluding exports)
     for output in dep[JavaInfo].java_outputs:
-        if output.compile_jar:
-            direct_dep_jars_to_verify.append(struct(
-                jar = output.compile_jar,
-                label = str(dep.label),
-            ))
+        compile_jar = output.compile_jar if output.compile_jar else output.class_jar
+        if compile_jar:
+            direct_dep_jars_to_verify[compile_jar] = str(dep.label)
 ```
 
 ### C. Resolving Unused Dependencies Check Levels
@@ -117,27 +115,23 @@ Extend the `createCompilationAction` and `createHeaderCompilationAction` methods
 ```java
 public void createCompilationAction(
     ...
-    List<Artifact> directDepJarsToVerify,
-    List<String> directDepLabelsToVerify,
+    Dict<Artifact, String> directDepJarsToVerify,
     ...)
 ```
 
 ### B. Compilation Action Builder Updates (`JavaCompileActionBuilder.java`)
-Update the builder to receive the jar-to-label mapping and translate it into parallel command-line flags for JavaBuilder. The presence of these flags instructs JavaBuilder to execute the check:
+Update the builder to receive the jar-to-label mapping and translate it into a single `--declared_dep` flag with a `::` separator:
 
 ```java
 // inside JavaCompileActionBuilder.java
-if (!directDepJarsToVerify.isEmpty()) {
-  for (int i = 0; i < directDepJarsToVerify.size(); i++) {
-    result.addPath("--direct_dep_jar", directDepJarsToVerify.get(i));
-    result.add("--direct_dep_label", directDepLabelsToVerify.get(i));
-  }
+for (Map.Entry<Artifact, String> entry : directDepJarsToVerify.entrySet()) {
+  result.addFormatted("--declared_dep", "%s::%s", entry.getKey().getExecPathString(), entry.getValue());
 }
 ```
 
 ### C. JavaBuilder Compiler Plugin (`StrictJavaDepsPlugin.java`)
 Update the strict Java dependencies plugin in JavaBuilder to:
-- Parse `--direct_dep_jar` and `--direct_dep_label` to build a map of `JarPath -> DeclaredLabel`.
+- Parse `--declared_dep` in the format `path::label` to build a map of `JarPath -> DeclaredLabel`.
 - Keep track of which direct dependency jar paths are actually loaded and used during compilation (leveraging the compiler plugin's existing AST traversal).
 - If a declared target label has all of its associated jars completely unused during compilation, emit a `[unused-deps]` error referencing the declared target label.
 

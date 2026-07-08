@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaCommonApi;
+import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
@@ -202,7 +203,7 @@ public class JavaStarlarkCommon
       boolean enableDirectClasspath,
       Sequence<?> additionalInputs,
       Sequence<?> additionalOutputs,
-      Sequence<?> directDepJarsToVerify)
+      Dict<?, ?> directDepJarsToVerify)
       throws EvalException,
           TypeException,
           RuleErrorException,
@@ -218,49 +219,19 @@ public class JavaStarlarkCommon
             .nativeHeader(nativeHeader == Starlark.NONE ? null : (Artifact) nativeHeader)
             .manifestProto(manifestProto)
             .build();
-    ImmutableList.Builder<Artifact> directDepJarsToVerifyBuilder = ImmutableList.builder();
-    ImmutableList.Builder<String> directDepLabelsToVerifyBuilder = ImmutableList.builder();
-    for (Object obj : Sequence.cast(directDepJarsToVerify, Object.class, "direct_dep_jars_to_verify")) {
-      if (obj instanceof StarlarkInfo struct) {
-        Artifact jar = null;
-        Object jarObj = struct.getValue("jar");
-        if (jarObj != null && jarObj != Starlark.NONE) {
-          if (jarObj instanceof Artifact) {
-            jar = (Artifact) jarObj;
-          } else {
-            throw Starlark.errorf("Expected jar attribute to be an Artifact in struct, but got: %s", Starlark.type(jarObj));
-          }
-        }
-        String label = null;
-        Object labelObj = struct.getValue("label");
-        if (labelObj != null && labelObj != Starlark.NONE) {
-          if (labelObj instanceof String) {
-            label = (String) labelObj;
-          } else {
-            throw Starlark.errorf("Expected label attribute to be a string in struct, but got: %s", Starlark.type(labelObj));
-          }
-        }
-        if (jar == null) {
-          throw Starlark.errorf("struct in direct_dep_jars_to_verify is missing 'jar' field (type Artifact), got struct: %s", struct);
-        }
-        if (label == null) {
-          throw Starlark.errorf("struct in direct_dep_jars_to_verify is missing 'label' field (type string), got struct: %s", struct);
-        }
-        directDepJarsToVerifyBuilder.add(jar);
-        directDepLabelsToVerifyBuilder.add(label);
-      } else {
-        throw Starlark.errorf(
-            "Expected direct_dep_jars_to_verify to contain structs with 'jar' (Artifact) and 'label' (string) fields, but got: %s",
-            Starlark.type(obj));
-      }
-    }
+    Dict<Artifact, String> directDepJarsToVerifyDict = Dict.cast(
+        directDepJarsToVerify,
+        Artifact.class,
+        String.class,
+        "direct_dep_jars_to_verify");
     JavaTargetAttributes.Builder attributesBuilder =
         new JavaTargetAttributes.Builder()
             .addSourceJars(Sequence.cast(sourceJars, Artifact.class, "source_jars"))
             .addSourceFiles(Depset.noneableCast(sourceFiles, Artifact.class, "sources").toList())
             .addDirectJars(directJars.getSet(Artifact.class))
             .addDirectDepJarsToVerify(
-                directDepJarsToVerifyBuilder.build(), directDepLabelsToVerifyBuilder.build())
+                ImmutableList.copyOf(directDepJarsToVerifyDict.keySet()),
+                ImmutableList.copyOf(directDepJarsToVerifyDict.values()))
             .setCompileTimeClassPathEntriesWithPrependedDirectJars(
                 compileTimeClasspath.getSet(Artifact.class))
             .addClassPathResources(

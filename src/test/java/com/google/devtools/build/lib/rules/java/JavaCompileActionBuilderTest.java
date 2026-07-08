@@ -311,7 +311,7 @@ public final class JavaCompileActionBuilderTest extends BuildViewTestCase {
                 depset(),
                 "ERROR",
                 ctx.label,
-                direct_dep_jars_to_verify = [struct(jar = compile_jar, label = str(dep.label))],
+                direct_dep_jars_to_verify = {compile_jar: str(dep.label)},
             )
             return [DefaultInfo(files = depset([output]))]
 
@@ -348,15 +348,14 @@ public final class JavaCompileActionBuilderTest extends BuildViewTestCase {
     JavaCompileAction compileAction =
         (JavaCompileAction) getGeneratingActionForLabel("//java/com/google/test:a.jar");
     List<String> command = getJavacArguments(compileAction);
-    assertThat(command).containsAtLeast("--direct_dep_jar", "--direct_dep_label");
-    int jarIdx = command.indexOf("--direct_dep_jar");
-    int labelIdx = command.indexOf("--direct_dep_label");
-    assertThat(command.get(jarIdx + 1)).contains("libdep");
-    assertThat(command.get(labelIdx + 1)).endsWith("//java/com/google/test:dep");
+    assertThat(command).contains("--declared_dep");
+    int depIdx = command.indexOf("--declared_dep");
+    assertThat(command.get(depIdx + 1)).contains("libdep");
+    assertThat(command.get(depIdx + 1)).endsWith("::@@//java/com/google/test:dep");
   }
 
   @Test
-  public void testUnusedDepsVerifyFlags_missingJarThrows() throws Exception {
+  public void testUnusedDepsVerifyFlags_invalidKeyTypeThrows() throws Exception {
     scratch.file("third_party/bazel_rules/rules_java/BUILD");
     scratch.file(
         "third_party/bazel_rules/rules_java/rule.bzl",
@@ -383,7 +382,7 @@ public final class JavaCompileActionBuilderTest extends BuildViewTestCase {
                 depset(),
                 "ERROR",
                 ctx.label,
-                direct_dep_jars_to_verify = [struct(label = str(dep.label))],
+                direct_dep_jars_to_verify = {"not-a-jar": str(dep.label)},
             )
             return [DefaultInfo(files = depset([output]))]
 
@@ -420,11 +419,11 @@ public final class JavaCompileActionBuilderTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//java/com/google/test:a");
     assertContainsEvent(
-        "struct in direct_dep_jars_to_verify is missing 'jar' field (type Artifact), got struct: struct(label = \"@@//java/com/google/test:dep\")");
+        "got dict<string, string> for 'direct_dep_jars_to_verify', want dict<File, string>");
   }
 
   @Test
-  public void testUnusedDepsVerifyFlags_notAStructThrows() throws Exception {
+  public void testUnusedDepsVerifyFlags_invalidValueTypeThrows() throws Exception {
     scratch.file("third_party/bazel_rules/rules_java/BUILD");
     scratch.file(
         "third_party/bazel_rules/rules_java/rule.bzl",
@@ -451,7 +450,7 @@ public final class JavaCompileActionBuilderTest extends BuildViewTestCase {
                 depset(),
                 "ERROR",
                 ctx.label,
-                direct_dep_jars_to_verify = ["not-a-struct"],
+                direct_dep_jars_to_verify = {compile_jar: 123},
             )
             return [DefaultInfo(files = depset([output]))]
 
@@ -488,6 +487,6 @@ public final class JavaCompileActionBuilderTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//java/com/google/test:a");
     assertContainsEvent(
-        "Expected direct_dep_jars_to_verify to contain structs with 'jar' (Artifact) and 'label' (string) fields, but got: string");
+        "got dict<File, int> for 'direct_dep_jars_to_verify', want dict<File, string>");
   }
 }
