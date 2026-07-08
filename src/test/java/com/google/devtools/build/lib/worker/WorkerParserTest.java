@@ -17,12 +17,19 @@ package com.google.devtools.build.lib.worker;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.ExecutionRequirements.SUPPORTS_MULTIPLEX_SANDBOXING;
 import static org.junit.Assert.assertThrows;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.UserExecException;
+import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
+import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
@@ -31,6 +38,7 @@ import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -284,6 +292,46 @@ public class WorkerParserTest {
             fs.getPath("/outputbase"), options, "Foo", /* dynamic= */ false);
     assertThat(fooKey.isMultiplex()).isTrue();
     assertThat(fooKey.isSandboxed()).isFalse();
+  }
+
+  @Test
+  public void compute_cachesWorkerSandboxingMapAcrossWorkerKeys() throws Exception {
+    WorkerOptions options = spy(Options.getDefaults(WorkerOptions.class));
+    options.setWorkerMultiplex(false);
+    options.setWorkerSandboxing(
+        ImmutableList.of(Maps.immutableEntry("Foo", true), Maps.immutableEntry("Bar", false)));
+
+    AtomicInteger sandboxingMapCalls = new AtomicInteger();
+    doAnswer(
+            invocation -> {
+              sandboxingMapCalls.incrementAndGet();
+              return invocation.callRealMethod();
+            })
+        .when(options)
+        .getWorkerSandboxingMap();
+
+    WorkerParser parser =
+        new WorkerParser(
+            fs.getPath("/outputbase/execroot"),
+            options,
+            LocalEnvProvider.NOOP,
+            /* binTools= */ null);
+    SpawnExecutionContext context = mock(SpawnExecutionContext.class);
+    when(context.getInputMetadataProvider()).thenReturn(mock(InputMetadataProvider.class));
+    when(context.speculating()).thenReturn(false);
+
+    WorkerKey fooKey = parser.compute(createWorkerSpawn("Foo"), context).getWorkerKey();
+    WorkerKey barKey = parser.compute(createWorkerSpawn("Bar"), context).getWorkerKey();
+
+    assertThat(fooKey.isSandboxed()).isTrue();
+    assertThat(barKey.isSandboxed()).isFalse();
+    assertThat(sandboxingMapCalls.get()).isEqualTo(1);
+  }
+
+  private static Spawn createWorkerSpawn(String mnemonic) {
+    return WorkerTestUtils.createSpawn(
+        ImmutableList.of("--foo", "@bar"),
+        WorkerTestUtils.execRequirementsBuilder(mnemonic).buildOrThrow());
   }
 
   @Test
