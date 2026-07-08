@@ -3,7 +3,10 @@ load(":winsdk_toolchain.bzl", "WINDOWS_RESOURCE_COMPILER_TOOLCHAIN_TYPE", "windo
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
-    visibility = ["//tools:__pkg__"],
+    visibility = [
+        "//src/test/shell/bazel:__pkg__",
+        "//tools:__pkg__",
+    ],
 )
 
 filegroup(
