@@ -112,12 +112,10 @@ public class Retrier {
     /**
      * Returns a human-readable description of the breaker's current failure statistics (for example
      * the observed failure rate and the configured threshold), for appending to the {@link
-     * CircuitBreakerException} message when a call is rejected. Returns an empty string when no
-     * details are available.
+     * CircuitBreakerException} message when a call is rejected. Implementations that have no details
+     * to report should return an empty string.
      */
-    default String failureDetails() {
-      return "";
-    }
+    String failureDetails();
   }
 
   /** Thrown if the call was stopped by a circuit breaker. */
@@ -170,6 +168,11 @@ public class Retrier {
 
         @Override
         public void recordSuccess() {}
+
+        @Override
+        public String failureDetails() {
+          return "";
+        }
       };
 
   /** Disables retries. */

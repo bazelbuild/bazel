@@ -614,6 +614,11 @@ public class RetrierTest {
       state = State.ACCEPT_CALLS;
     }
 
+    @Override
+    public String failureDetails() {
+      return "";
+    }
+
     void trialCall() {
       state = State.TRIAL_CALL;
     }
