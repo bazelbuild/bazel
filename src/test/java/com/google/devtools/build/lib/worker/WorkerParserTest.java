@@ -17,9 +17,9 @@ package com.google.devtools.build.lib.worker;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.ExecutionRequirements.SUPPORTS_MULTIPLEX_SANDBOXING;
 import static org.junit.Assert.assertThrows;
+import static org.mockito.Mockito.CALLS_REAL_METHODS;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
@@ -296,10 +296,12 @@ public class WorkerParserTest {
 
   @Test
   public void compute_cachesWorkerSandboxingMapAcrossWorkerKeys() throws Exception {
-    WorkerOptions options = spy(Options.getDefaults(WorkerOptions.class));
-    options.setWorkerMultiplex(false);
-    options.setWorkerSandboxing(
-        ImmutableList.of(Maps.immutableEntry("Foo", true), Maps.immutableEntry("Bar", false)));
+    WorkerOptions options = mock(WorkerOptions.class, CALLS_REAL_METHODS);
+    when(options.getWorkerMultiplex()).thenReturn(false);
+    when(options.getWorkerExtraFlags()).thenReturn(ImmutableList.of());
+    when(options.getWorkerSandboxing())
+        .thenReturn(
+            ImmutableList.of(Maps.immutableEntry("Foo", true), Maps.immutableEntry("Bar", false)));
 
     AtomicInteger sandboxingMapCalls = new AtomicInteger();
     doAnswer(
