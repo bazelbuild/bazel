@@ -96,7 +96,7 @@ arguments:
       create actions.</li>
   <li><code>input_directories</code> (keyword-only): A dictionary mapping from the string keys of
       the <code>input_directories</code> argument of <code>actions.map_directory()</code> to their
-      values' corresponding <a href='../builtins/File.html'><code>ExpandedDirectory</code></a>
+      values' corresponding <a href='../builtins/ExpandedDirectory.html'><code>ExpandedDirectory</code></a>
       objects.</li>
   <li><code>output_directories</code> (keyword-only): The value of the
       <code>output_directories</code> argument of <code>actions.map_directory()</code>; a

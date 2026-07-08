@@ -26,8 +26,7 @@ import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.exec.util.FakeActionInputFileCache;
-import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
-import com.google.devtools.build.lib.rules.java.JavaInfo;
+import com.google.devtools.build.lib.rules.java.JavaCompileAction;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import net.starlark.java.eval.Dict;
@@ -77,32 +76,29 @@ public class PathMappersTest extends BuildViewTestCase {
         )
         """);
 
-    ConfiguredTarget configuredTarget = getConfiguredTarget("//java/com/google/test:a");
-    Artifact compiledArtifact =
-        JavaInfo.getProvider(JavaCompilationArgsProvider.class, configuredTarget)
-            .directCompileTimeJars()
-            .toList()
-            .get(0);
-    SpawnAction action = (SpawnAction) getGeneratingAction(compiledArtifact);
-    Spawn spawn =
-        action.getSpawn(
-            new ActionExecutionContextBuilder()
-                .setMetadataProvider(new FakeActionInputFileCache())
-                .build());
+    JavaCompileAction action =
+        (JavaCompileAction) getGeneratingActionForLabel("//java/com/google/test:liba.jar");
+    PathMapper pathMapper =
+        PathMappers.create(
+            action,
+            PathMappers.getOutputPathsMode(targetConfig),
+            /* isStarlarkAction= */ false,
+            /* inputMetadataProvider= */ null);
 
-    assertThat(spawn.getPathMapper().isNoop()).isFalse();
+    assertThat(pathMapper.isNoop()).isFalse();
     String outDir = analysisMock.getProductName() + "-out";
     assertThat(
-            spawn.getArguments().stream()
+            action.getCommandLines().allArguments(pathMapper).stream()
                 .filter(arg -> arg.contains("java/com/google/test/"))
                 .collect(toImmutableList()))
         .containsExactly(
             "java/com/google/test/A.java",
             format("%s/cfg/bin/java/com/google/test/B.java", outDir),
             format("%s/cfg/bin/java/com/google/test/C.java", outDir),
-            format("%s/cfg/bin/java/com/google/test/liba-hjar.jar", outDir),
-            format("%s/cfg/bin/java/com/google/test/liba-hjar.jdeps", outDir),
-            format("%s/cfg/bin/java/com/google/test/liba-tjar.jar", outDir),
+            format("%s/cfg/bin/java/com/google/test/liba.jar", outDir),
+            format("%s/cfg/bin/java/com/google/test/liba-native-header.jar", outDir),
+            format("%s/cfg/bin/java/com/google/test/liba.jar_manifest_proto", outDir),
+            format("%s/cfg/bin/java/com/google/test/liba.jdeps", outDir),
             format("-XepOpt:foo:bar=%s/cfg/bin/java/com/google/test/B.java", outDir),
             format(
                 "-XepOpt:baz=%s/cfg/bin/java/com/google/test/C.java,%s/cfg/bin/java/com/google/test/B.java",

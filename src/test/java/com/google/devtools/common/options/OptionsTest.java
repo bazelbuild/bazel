@@ -82,17 +82,16 @@ public class OptionsTest {
 
   @Test
   public void paragraphFill() throws Exception {
-    // TODO(bazel-team): don't include trailing space after last word in line.
     String input = "The quick brown fox jumps over the lazy dog.";
 
     assertThat(OptionsUsage.paragraphFill(input, 2, 13))
-        .isEqualTo("  The quick \n  brown fox \n  jumps over \n  the lazy \n" + "  dog.");
+        .isEqualTo("  The quick\n  brown fox\n  jumps over\n  the lazy\n" + "  dog.");
     assertThat(OptionsUsage.paragraphFill(input, 3, 19))
-        .isEqualTo("   The quick brown \n   fox jumps over \n   the lazy dog.");
+        .isEqualTo("   The quick brown\n   fox jumps over\n   the lazy dog.");
 
     String input2 = "The quick brown fox jumps\nAnother paragraph.";
     assertThat(OptionsUsage.paragraphFill(input2, 2, 23))
-        .isEqualTo("  The quick brown fox \n  jumps\n  Another paragraph.");
+        .isEqualTo("  The quick brown fox\n  jumps\n  Another paragraph.");
   }
 
   @Test

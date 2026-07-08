@@ -65,6 +65,7 @@ java_library(
         "SymbolGenerator.java",
         "Tuple.java",
         "TypeChecker.java",
+        "TypeConstructorValue.java",
     ],
     visibility = ["//src/main/java/net/starlark/java:clients"],
     deps = [

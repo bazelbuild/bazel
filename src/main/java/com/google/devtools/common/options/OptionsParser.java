@@ -238,6 +238,12 @@ public class OptionsParser implements OptionsParsingResult {
       return this;
     }
 
+    @CanIgnoreReturnValue
+    public Builder isFirstRoundOfParsing(boolean isFirstRoundOfParsing) {
+      this.implBuilder.isFirstRoundOfParsing(isFirstRoundOfParsing);
+      return this;
+    }
+
     /** Returns a new {@link OptionsParser}. */
     public OptionsParser build() {
       return new OptionsParser(implBuilder.build(), allowResidue, ignoreUserOptions);

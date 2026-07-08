@@ -52,7 +52,7 @@ public final class BaselineOptionsFunction implements SkyFunction {
   @Nullable
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws InterruptedException, BaselineOptionsFunctionException {
-    env.injectVersionForNonHermeticFunction(minimalVersionToInject);
+    env.injectVersion(minimalVersionToInject);
 
     BaselineOptionsValue.Key key = (BaselineOptionsValue.Key) skyKey.argument();
 

@@ -13,10 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import static java.util.Objects.requireNonNull;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
+import com.google.devtools.build.lib.actions.ActionLookupSummaryKey;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.serialization.DependOnFutureShim.DefaultDependOnFutureShim;
@@ -29,7 +30,9 @@ import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.Re
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalResult;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievedValue;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.SerializableSkyKeyComputeState;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheClient;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheReaderDepsProvider;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.SkycacheUploadClient;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.proto.MissReason;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -61,6 +64,7 @@ public final class SkyValueRetrieverUtils {
         switch (key) {
           case ActionLookupKey alk -> alk.getLabel();
           case ActionLookupData ald -> ald.getLabel();
+          case ActionLookupSummaryKey summaryKey -> summaryKey.argument().getLabel();
           case Artifact artifact -> artifact.getOwnerLabel();
           default -> throw new IllegalStateException("unexpected key: " + key.getCanonicalName());
         };
@@ -70,23 +74,19 @@ public final class SkyValueRetrieverUtils {
       return new NoCachedData(MissReason.MISS_REASON_NOT_ATTEMPTED);
     }
 
+    SkyValueRetriever retriever = analysisCachingDeps.getSkyValueRetriever();
+    RemoteAnalysisCacheClient client = analysisCachingDeps.getAnalysisCacheClient();
+    if (retriever == null || client == null) {
+      return new NoCachedData(MissReason.MISS_REASON_NOT_ATTEMPTED);
+    }
+
     RetrievalResult retrievalResult = null;
     RetrievalContext state = env.getState(stateSupplier).getRetrievalContext();
     try {
       retrievalResult =
-          SkyValueRetriever.tryRetrieve(
-              env,
-              new DefaultDependOnFutureShim(env),
-              analysisCachingDeps.getObjectCodecs(),
-              analysisCachingDeps.getFingerprintValueService(),
-              requireNonNull(analysisCachingDeps.getAnalysisCacheClient()),
-              key,
-              state,
-              /* frontierNodeVersion= */ analysisCachingDeps.getSkyValueVersion());
+          retriever.tryRetrieve(env, new DefaultDependOnFutureShim(env), client, key, state);
       analysisCachingDeps.recordRetrievalResult(retrievalResult, key);
     } catch (SerializationException e) {
-      // TODO: b/445242928 - also log this in BEP
-      //
       // Don't crash the build if deserialization failed. Gracefully fallback to local evaluation.
       analysisCachingDeps.recordSerializationException(e, key);
       retrievalResult = new NoCachedData(e.getReason());
@@ -108,6 +108,21 @@ public final class SkyValueRetrieverUtils {
     }
 
     return retrievalResult;
+  }
+
+  public static void tryUploadAsync(
+      RemoteAnalysisCacheReaderDepsProvider cachingDeps,
+      SkyKey key,
+      SkyValue value,
+      Environment env)
+      throws InterruptedException {
+    if (!cachingDeps.mode().isAsyncUploadEnabled()) {
+      return;
+    }
+
+    SkycacheUploadClient uploadClient = cachingDeps.getSkycacheUploadClient();
+    // TODO(b/527929697): Handle null uploadClient properly (e.g. fail the build cleanly).
+    checkNotNull(uploadClient).tryUpload(key, value, env);
   }
 
   private SkyValueRetrieverUtils() {}

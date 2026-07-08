@@ -80,6 +80,7 @@ import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTarge
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheClient;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingEventListener;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.proto.TopLevelTargetsMatchStatus;
 import com.google.devtools.build.lib.util.Bucket;
 import com.google.devtools.build.lib.worker.WorkerProcessMetrics;
 import com.google.devtools.build.lib.worker.WorkerProcessMetricsCollector;
@@ -92,6 +93,7 @@ import com.google.protobuf.util.Durations;
 import java.time.Duration;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -381,7 +383,7 @@ class MetricsCollector {
     return buildMetrics.build();
   }
 
-  private Distribution computeDistributionProto(ImmutableList<Bucket> buckets) {
+  private Distribution computeDistributionProto(List<Bucket> buckets) {
     Distribution.Builder result = Distribution.newBuilder();
 
     for (var b : buckets) {
@@ -446,6 +448,12 @@ class MetricsCollector {
 
     RemoteAnalysisCacheClient.Stats raccStats =
         env.getRemoteAnalysisCachingEventListener().getRemoteAnalysisCacheStats();
+    TopLevelTargetsMatchStatus matchStatus =
+        TopLevelTargetsMatchStatus.forNumber(raccStats.matchStatus());
+    if (matchStatus == null) {
+      // Possible version skew: the old LC doesn't know about the new enum value.
+      matchStatus = TopLevelTargetsMatchStatus.MATCH_STATUS_UNSPECIFIED;
+    }
     result
         .setAnalysisCacheBytesReceived(raccStats.bytesReceived())
         .setAnalysisCacheKeyBytesSent(raccStats.bytesSent())
@@ -454,13 +462,15 @@ class MetricsCollector {
         .setAnalysisCacheReadLatencyMicros(computeDistributionProto(raccStats.latencyMicros()))
         .setAnalysisCacheReadBatchLatencyMicros(
             computeDistributionProto(raccStats.batchLatencyMicros()))
-        .setMetadataLookupResult(raccStats.matchStatus());
+        .setMetadataLookupResult(matchStatus);
 
     RemoteAnalysisCacheStatistics.InvalidationLookupMetrics invalidationMetrics =
         listener.getInvalidationLookupMetrics();
     if (invalidationMetrics != null) {
       result.setInvalidationLookupMetrics(invalidationMetrics);
     }
+
+    result.setSerializationExceptionCount(listener.getSerializationExceptionCounts());
 
     return result.build();
   }
@@ -585,7 +595,7 @@ class MetricsCollector {
                   .setName(provider.getName())
                   .setLocation(printer.getLocationString(provider.getLocation()))
                   .setCount(count);
-          ImmutableList<String> fields = provider.getFields();
+          ImmutableMap<String, Integer> fields = provider.getFields();
           if (fields != null) {
             providerBuilder.getSchemaBuilder().setFieldCount(fields.size());
           }

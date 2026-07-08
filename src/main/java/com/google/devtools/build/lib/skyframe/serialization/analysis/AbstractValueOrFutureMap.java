@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
-
 import com.google.devtools.build.lib.concurrent.SettableFutureKeyedValue;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.BiConsumer;
@@ -52,7 +51,7 @@ abstract class AbstractValueOrFutureMap<
   /**
    * Constructor.
    *
-   * @param futureValueFactory creates appropriate instances of {@link SettableFutureKeyedValue}.
+   * @param futureOrValueFactory creates appropriate instances of {@link SettableFutureKeyedValue}.
    *     The key and consumer parameters are provided for use in {@link SettableFutureKeyedValue}'s
    *     constructor.
    */
@@ -70,7 +69,24 @@ abstract class AbstractValueOrFutureMap<
   }
 
   ValueOrFutureT getOrCreateValueForSubclasses(KeyT key) {
-    return map.computeIfAbsent(key, futureValueFactory);
+    ValueOrFutureT result = map.get(key);
+    if (result == null) {
+      ValueOrFutureT newValue = futureValueFactory.apply(key);
+      result = map.putIfAbsent(key, newValue);
+      if (result == null) {
+        result = newValue;
+      }
+    }
+    return result;
+  }
+
+  /**
+   * Puts a specific value into the map.
+   *
+   * <p>Returns the old value, if any.
+   */
+  public final ValueOrFutureT put(KeyT key, ValueT value) {
+    return map.put(key, value);
   }
 
   /**

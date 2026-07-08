@@ -22,12 +22,15 @@ java_library(
         "NestedSet.java",
         "NestedSetBuilder.java",
         "NestedSetCodecWithStore.java",
+        "NestedSetInterner.java",
         "NestedSetSerializationCache.java",
         "NestedSetStore.java",
         "NestedSetVisitor.java",
         "Order.java",
     ],
     deps = [
+        ":is_artifact_for_nested_set",
+        ":nested_sets_should_be_interned_by_equality",
         "//src/main/java/com/google/devtools/build/docgen/annot",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/collect:concurrent_identity_set",
@@ -37,7 +40,9 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:constants",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:fingerprint_value_store",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:write_status",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:write_statuses",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
@@ -51,6 +56,16 @@ java_library(
         "//third_party:jsr305",
         "@com_google_protobuf//:protobuf_java",
     ],
+)
+
+java_library(
+    name = "is_artifact_for_nested_set",
+    srcs = ["IsArtifactForNestedSet.java"],
+)
+
+java_library(
+    name = "nested_sets_should_be_interned_by_equality",
+    srcs = ["NestedSetsShouldBeInternedByEquality.java"],
 )
 
 java_library(

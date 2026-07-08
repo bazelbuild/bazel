@@ -73,9 +73,7 @@ java_library(
     name = "tracing_metadata_utils",
     srcs = ["TracingMetadataUtils.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_version_info",
-        "//src/main/java/com/google/devtools/build/lib/remote/options",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party/grpc-java:grpc-jar",

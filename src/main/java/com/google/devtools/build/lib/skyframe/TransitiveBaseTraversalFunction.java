@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -35,6 +34,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import javax.annotation.Nullable;
@@ -177,7 +177,7 @@ public abstract class TransitiveBaseTraversalFunction<ProcessedTargetsT> impleme
       return ImmutableList.of();
     }
 
-    List<SkyKey> depKeys = Lists.newArrayList();
+    List<SkyKey> depKeys = new ArrayList<>();
     Multimap<Attribute, Label> transitions =
         rule.getTransitions(DependencyFilter.NO_NODEP_ATTRIBUTES);
     for (Attribute attribute : transitions.keySet()) {

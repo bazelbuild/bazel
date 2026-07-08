@@ -16,6 +16,7 @@
 
 #include <stdlib.h>
 
+#include <algorithm>
 #include <memory>
 
 #include "src/main/cpp/blaze_util_platform.h"
@@ -240,6 +241,7 @@ TEST_F(BazelStartupOptionsTest, ValidStartupFlags) {
   ExpectValidNullaryOption(options, "batch_cpu_scheduling");
   ExpectValidNullaryOption(options, "block_for_lock");
   ExpectValidNullaryOption(options, "client_debug");
+  ExpectValidNullaryOption(options, "experimental_use_compact_object_headers");
   ExpectValidNullaryOption(options, "fatal_event_bus_exceptions");
   ExpectValidNullaryOption(options, "home_rc");
   ExpectValidNullaryOption(options, "host_jvm_debug");
@@ -353,6 +355,126 @@ TEST_F(BazelStartupOptionsTest, FinalValueOfIgnoreIsUsedForWarning) {
 
 TEST_F(BazelStartupOptionsTest, LockInstallBase) {
   EXPECT_TRUE(startup_options_->lock_install_base);
+}
+
+TEST_F(BazelStartupOptionsTest, CompactObjectHeadersDefaultTrue) {
+  EXPECT_TRUE(startup_options_->use_compact_object_headers_);
+}
+
+TEST_F(BazelStartupOptionsTest, ProcessNoCompactObjectHeaders) {
+  std::string error;
+  const std::vector<RcStartupFlag> flags{RcStartupFlag(
+      "somewhere", "--noexperimental_use_compact_object_headers")};
+
+  const blaze_exit_code::ExitCode ec =
+      startup_options_->ProcessArgs(flags, &error);
+  ASSERT_EQ(blaze_exit_code::SUCCESS, ec)
+      << "ProcessArgs failed with error " << error;
+  EXPECT_FALSE(startup_options_->use_compact_object_headers_);
+  EXPECT_TRUE(startup_options_->option_sources.find(
+                  "experimental_use_compact_object_headers") !=
+              startup_options_->option_sources.end());
+}
+
+TEST_F(BazelStartupOptionsTest, ProcessExplicitCompactObjectHeaders) {
+  std::string error;
+  const std::vector<RcStartupFlag> flags{
+      RcStartupFlag("somewhere", "--experimental_use_compact_object_headers")};
+
+  const blaze_exit_code::ExitCode ec =
+      startup_options_->ProcessArgs(flags, &error);
+  ASSERT_EQ(blaze_exit_code::SUCCESS, ec)
+      << "ProcessArgs failed with error " << error;
+  EXPECT_TRUE(startup_options_->use_compact_object_headers_);
+  EXPECT_TRUE(startup_options_->option_sources.find(
+                  "experimental_use_compact_object_headers") !=
+              startup_options_->option_sources.end());
+}
+
+TEST_F(BazelStartupOptionsTest, AddJVMArgumentsCompactObjectHeadersExplicit) {
+  std::vector<std::string> result;
+  std::string error;
+  blaze_util::Path test_tmpdir(blaze::GetPathEnv("TEST_TMPDIR"));
+  blaze_util::Path dummy_javabase = test_tmpdir.GetRelative("dummy_javabase");
+
+  startup_options_->use_compact_object_headers_ = true;
+  startup_options_->option_sources["experimental_use_compact_object_headers"] =
+      "";  // simulate explicit
+  startup_options_->output_base = test_tmpdir.GetRelative("output_base");
+
+  blaze_exit_code::ExitCode ec =
+      startup_options_->AddJVMArguments(dummy_javabase, &result, {}, &error);
+  ASSERT_EQ(blaze_exit_code::SUCCESS, ec)
+      << "AddJVMArguments failed with error " << error;
+
+  bool has_unlock =
+      std::find(result.begin(), result.end(),
+                "-XX:+UnlockExperimentalVMOptions") != result.end();
+  bool has_use = std::find(result.begin(), result.end(),
+                           "-XX:+UseCompactObjectHeaders") != result.end();
+  EXPECT_TRUE(has_unlock);
+  EXPECT_TRUE(has_use);
+}
+
+TEST_F(BazelStartupOptionsTest,
+       AddJVMArgumentsCompactObjectHeadersDefaultNotEmbedded) {
+  std::vector<std::string> result;
+  std::string error;
+  blaze_util::Path test_tmpdir(blaze::GetPathEnv("TEST_TMPDIR"));
+  blaze_util::Path dummy_javabase = test_tmpdir.GetRelative("dummy_javabase");
+
+  // Set explicit_server_javabase_ via ProcessArgs to avoid GetSystemJavabase()
+  // crash
+  const std::vector<RcStartupFlag> flags{RcStartupFlag(
+      "somewhere",
+      "--server_javabase=" + dummy_javabase.AsCommandLineArgument())};
+  const blaze_exit_code::ExitCode ec =
+      startup_options_->ProcessArgs(flags, &error);
+  ASSERT_EQ(blaze_exit_code::SUCCESS, ec)
+      << "ProcessArgs failed with error " << error;
+
+  // use_compact_object_headers_ is true by default for Bazel
+  // option_sources does NOT contain it (simulating default)
+  // in test environment, it is not embedded
+  startup_options_->output_base = test_tmpdir.GetRelative("output_base");
+
+  blaze_exit_code::ExitCode ec_add =
+      startup_options_->AddJVMArguments(dummy_javabase, &result, {}, &error);
+  ASSERT_EQ(blaze_exit_code::SUCCESS, ec_add)
+      << "AddJVMArguments failed with error " << error;
+
+  bool has_unlock =
+      std::find(result.begin(), result.end(),
+                "-XX:+UnlockExperimentalVMOptions") != result.end();
+  bool has_use = std::find(result.begin(), result.end(),
+                           "-XX:+UseCompactObjectHeaders") != result.end();
+  EXPECT_FALSE(has_unlock);
+  EXPECT_FALSE(has_use);
+}
+
+TEST_F(BazelStartupOptionsTest, AddJVMArgumentsCompactObjectHeadersDisabled) {
+  std::vector<std::string> result;
+  std::string error;
+  blaze_util::Path test_tmpdir(blaze::GetPathEnv("TEST_TMPDIR"));
+  blaze_util::Path dummy_javabase = test_tmpdir.GetRelative("dummy_javabase");
+
+  startup_options_->use_compact_object_headers_ = false;
+  startup_options_->option_sources["experimental_use_compact_object_headers"] =
+      "";  // simulate explicit
+  startup_options_->output_base = test_tmpdir.GetRelative("output_base");
+
+  blaze_exit_code::ExitCode ec =
+      startup_options_->AddJVMArguments(dummy_javabase, &result, {}, &error);
+  ASSERT_EQ(blaze_exit_code::SUCCESS, ec)
+      << "AddJVMArguments failed with error " << error;
+
+  bool has_unlock =
+      std::find(result.begin(), result.end(),
+                "-XX:+UnlockExperimentalVMOptions") != result.end();
+  bool has_use = std::find(result.begin(), result.end(),
+                           "-XX:+UseCompactObjectHeaders") != result.end();
+  EXPECT_FALSE(has_unlock);
+  EXPECT_FALSE(has_use);
 }
 
 }  // namespace blaze

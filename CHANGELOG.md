@@ -1,3 +1,109 @@
+## Release 10.0.0-pre.20260614.4 (2026-06-24)
+
+```
+Baseline: e05fcb1658bce403337a3e73a0ca184c45128ad6
+```
+
+This release contains contributions from many people at Google, as well as .
+
+## Release 10.0.0-pre.20260614.1 (2026-06-22)
+
+```
+Baseline: e05fcb1658bce403337a3e73a0ca184c45128ad6
+```
+
+Important changes:
+
+  - Fixed repo content caching for non-gRPC cache backends.
+  - CCStarlarkInternal exposes hash functions currently  used by
+    rules_cc Java rules to starlark
+  - The new `--expand_param_files` flag expands param files into
+    their contents in `--subcommands` and `--verbose_failures` output.
+  - Fixed a performance regression in Bazel 9 that causes
+    `RepoMappingManifest` actions to consume a lot of CPU time.
+  - Improved BES upload failure message with failed invocation's ID.
+  - Any existing action relying on the legacy hardcoded list in Bazel
+    code being populated will now need to opt-into output mapping by
+    modifying their execution requirements.
+
+This release contains contributions from many people at Google, as well as Benjamin Peterson, Bryce Lampe, Fabian Meumertzheim, honnix, Keith Smiley, peakschris.
+
+## Release 10.0.0-pre.20260608.1 (2026-06-16)
+
+```
+Baseline: db077161e43484e4cb0f2270374ee33d05f3690d
+
+Cherry picks:
+
+   + 65ecccb87ae8dfda0ef1cd064f3a441746072abd:
+     Release 10.0.0-pre.20260608.1 (2026-06-16)
+   + abca86808bb612026ee6d3831958af995966515f:
+     Release 10.0.0-pre.20260608.1 (2026-06-16)
+```
+
+Important changes:
+
+  - The new `refines_constraint_value` attribute on
+    `constraint_setting` can be used to indicate that any non-default
+    value for that setting specified on a `platform` requires the
+    refined value to also be specified.
+  - Bazel's serialization system now has a new wire encoding that
+    supports
+    preserving how values are serialized across Bazel versions.
+
+This release contains contributions from many people at Google, as well as Benjamin Peterson, dependabot[bot], Fabian Meumertzheim, Fredrik Medley, Jean-Baptiste Bronisz, JonathanPerry651, Keith Smiley, vadim.
+
+## Release 10.0.0-pre.20260601.1 (2026-06-11)
+
+```
+Baseline: c9a05c3af4e6bf7a2bd9ab0a29ada8f33eab76cf
+```
+
+New features:
+
+  - Add an `exclude` param to `rtx.watch_tree()` to allow excluding
+    glob patterns from watch.
+
+Important changes:
+
+  - Enabled output path mapping (config stripping) support for
+    `ArchivedTreeArtifact`s to improve action caching under
+    `--experimental_output_paths=strip`.
+  - `module_extension(...)` now accepts a `facts_version` integer
+    parameter. Bumping it invalidates the facts persisted in
+    `MODULE.bazel.lock` for that extension, allowing extension
+    authors to make breaking changes to the facts schema without
+    risking misinterpretation by older code paths.
+  - Fixed an issue that caused Bazel to fail on a lost input even
+    with build or action rewinding enabled.
+  - BuildFinished events in BEP will consistently contain an
+    "infrastructure-caused" detailed exit code when a single target
+    contains both infrastructure-caused and user-caused exit codes in
+    its failed actions.
+
+This release contains contributions from many people at Google, as well as Chi Wang, Fabian Meumertzheim, Moran Omer, Son Luong Ngoc, Will Stranton, Yonatan Goldschmidt.
+
+## Release 10.0.0-pre.20260524.1 (2026-06-03)
+
+```
+Baseline: fdba6e6bda1ff9423b111eb099f4f9f6e0d34115
+```
+
+Important changes:
+
+  - CDC chunk uploads and downloads can now happen in parallel within
+    a large blob.
+
+This release contains contributions from many people at Google, as well as Benjamin Peterson, Tyler French, XananasX.
+
+## Release 9.1.1 (2026-06-03)
+
+```
+
+Release Notes:
+
+```
+
 ## Release 10.0.0-pre.20260520.2 (2026-05-28)
 
 ```

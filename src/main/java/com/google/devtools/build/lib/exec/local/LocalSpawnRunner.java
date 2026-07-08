@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.actions.ResourceManager.ResourceHandle;
 import com.google.devtools.build.lib.actions.ResourceManager.ResourcePriority;
 import com.google.devtools.build.lib.actions.RunfilesTree;
 import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.actions.SpawnInputs.FlattenedInputs;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
@@ -337,16 +338,19 @@ public class LocalSpawnRunner implements SpawnRunner {
             .build();
       }
 
-      spawnMetrics.setInputFiles(spawn.getInputFiles().memoizedFlattenAndGetSize());
       Stopwatch setupTimeStopwatch = Stopwatch.createStarted();
       List<RunfilesTree> runfilesTrees = new ArrayList<>();
 
-      for (ActionInput input : spawn.getInputFiles().toList()) {
-        if (input instanceof VirtualActionInput virtualActionInput) {
-          virtualActionInput.atomicallyWriteRelativeTo(execRoot);
-        } else if ((input instanceof Artifact) && ((Artifact) input).isRunfilesTree()) {
-          runfilesTrees.add(
-              context.getInputMetadataProvider().getRunfilesMetadata(input).getRunfilesTree());
+      {
+        FlattenedInputs inputs = spawn.getInputFiles().flatten();
+        spawnMetrics.setInputFiles(inputs.size());
+        for (ActionInput input : inputs) {
+          if (input instanceof VirtualActionInput virtualActionInput) {
+            virtualActionInput.atomicallyWriteRelativeTo(execRoot);
+          } else if (input instanceof Artifact artifact && artifact.isRunfilesTree()) {
+            runfilesTrees.add(
+                context.getInputMetadataProvider().getRunfilesMetadata(input).getRunfilesTree());
+          }
         }
       }
 

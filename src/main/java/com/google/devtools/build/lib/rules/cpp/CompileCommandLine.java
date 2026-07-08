@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.actions.AbstractCommandLine;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.PathMapper;
-import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.util.Pair;
@@ -33,17 +32,14 @@ import javax.annotation.Nullable;
 
 /** The compile command line for the C++ compile action. */
 public final class CompileCommandLine {
-  private final CoptsFilter coptsFilter;
   private final FeatureConfiguration featureConfiguration;
   private final CcToolchainVariables variables;
   private final String actionName;
 
   private CompileCommandLine(
-      CoptsFilter coptsFilter,
       FeatureConfiguration featureConfiguration,
       CcToolchainVariables variables,
       String actionName) {
-    this.coptsFilter = coptsFilter;
     this.featureConfiguration = Preconditions.checkNotNull(featureConfiguration);
     this.variables = variables;
     this.actionName = actionName;
@@ -108,12 +104,12 @@ public final class CompileCommandLine {
    *     returned without using a parameter file.
    */
   List<String> getArgumentsWithParameterFile(
-      PathMapper pathMapper, PathFragment parameterFilePath) {
+      PathMapper pathMapper, String parameterFileArgument, PathFragment parameterFilePath) {
     List<String> commandLine = new ArrayList<>();
     // first: The command name.
     commandLine.add(getToolPathForCommandLine(pathMapper));
     // second: The parameter file path.
-    commandLine.add("@" + parameterFilePath.getSafePathString());
+    commandLine.add(parameterFileArgument);
     return commandLine;
   }
 
@@ -167,7 +163,7 @@ public final class CompileCommandLine {
     }
   }
 
-  // For each option in 'in', add it to 'out' unless it is matched by the 'coptsFilter' regexp.
+  // For each option in 'in', add it to 'out'.
   private void addFilteredOptions(
       List<String> out, List<Pair<String, List<String>>> expandedFeatures) {
     for (Pair<String, List<String>> pair : expandedFeatures) {
@@ -178,9 +174,7 @@ public final class CompileCommandLine {
       // We do not uses Java's stream API here as it causes a substantial overhead compared to the
       // very little work that this is actually doing.
       for (String flag : pair.getSecond()) {
-        if (coptsFilter.passesFilter(flag)) {
-          out.add(flag);
-        }
+        out.add(flag);
       }
     }
   }
@@ -210,27 +204,24 @@ public final class CompileCommandLine {
     }
   }
 
-  public static Builder builder(CoptsFilter coptsFilter, String actionName) {
-    return new Builder(coptsFilter, actionName);
+  public static Builder builder(String actionName) {
+    return new Builder(actionName);
   }
 
   /** A builder for a {@link CompileCommandLine}. */
   public static final class Builder {
-    private CoptsFilter coptsFilter;
     private FeatureConfiguration featureConfiguration;
     private CcToolchainVariables variables = CcToolchainVariables.empty();
     private final String actionName;
 
     public CompileCommandLine build() {
       return new CompileCommandLine(
-          Preconditions.checkNotNull(coptsFilter),
           Preconditions.checkNotNull(featureConfiguration),
           Preconditions.checkNotNull(variables),
           Preconditions.checkNotNull(actionName));
     }
 
-    private Builder(CoptsFilter coptsFilter, String actionName) {
-      this.coptsFilter = coptsFilter;
+    private Builder(String actionName) {
       this.actionName = actionName;
     }
 
@@ -247,11 +238,5 @@ public final class CompileCommandLine {
       return this;
     }
 
-    @CanIgnoreReturnValue
-    @VisibleForTesting
-    Builder setCoptsFilter(CoptsFilter filter) {
-      this.coptsFilter = Preconditions.checkNotNull(filter);
-      return this;
-    }
   }
 }

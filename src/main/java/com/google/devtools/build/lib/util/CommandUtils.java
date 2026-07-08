@@ -33,15 +33,15 @@ public class CommandUtils {
   }
 
   /**
-   * Construct an error message that describes a failed command invocation.
-   * Currently this returns a message of the form "foo failed: error executing
-   * command /dir/foo bar baz: exception message", with the
-   * command's stdout and stderr output appended if available.
+   * Construct an error message that describes a failed command invocation. Currently this returns a
+   * message of the form "foo failed: error executing command /dir/foo bar baz: exception message",
+   * with the command's stdout and stderr output appended if available.
    */
-  public static String describeCommandFailure(boolean verbose, CommandException exception) {
+  public static String describeCommandFailure(
+      boolean verbose, boolean expandParamFiles, CommandException exception) {
     Command command = exception.getCommand();
     String message =
-        CommandFailureUtils.describeCommandFailure(verbose, cwd(command), command)
+        CommandFailureUtils.describeCommandFailure(verbose, expandParamFiles, cwd(command), command)
             + ": "
             + exception.getMessage();
     if (exception instanceof AbnormalTerminationException abnormalTerminationException) {

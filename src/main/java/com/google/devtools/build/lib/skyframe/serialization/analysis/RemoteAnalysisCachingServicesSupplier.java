@@ -14,9 +14,12 @@
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
+import com.google.devtools.build.lib.runtime.BlazeService;
+import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
+import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore;
 import com.google.devtools.build.lib.skyframe.serialization.SkycacheMetadataParams;
-import com.google.devtools.build.lib.util.AbruptExitException;
+import com.google.devtools.build.lib.util.SerializedAbruptExitException;
+import com.google.devtools.common.options.OptionsProvider;
 import javax.annotation.Nullable;
 
 /**
@@ -29,28 +32,44 @@ import javax.annotation.Nullable;
  *
  * <p>Updating parameters is not thread safe. This class assumes that such updates are performed
  * synchronously. Subsequent service get calls are thread safe.
+ *
+ * <p>Skybridge: this is the main boundary between the SC and the LC for Skycache.
  */
-public interface RemoteAnalysisCachingServicesSupplier {
+@SkybridgeInterface
+public interface RemoteAnalysisCachingServicesSupplier extends BlazeService {
 
   /**
-   * Service definitions and parameters depend on {@code options}, which are allowed to vary
+   * Service definitions and parameters depend on the command options, which are allowed to vary
    * per-command.
    *
    * <p>This method updates the services and parameters when the relevant flags change.
    */
   default void configure(
-      RemoteAnalysisCachingOptions cachingOptions, @Nullable ClientId clientId, String buildId)
-      throws AbruptExitException {
+      OptionsProvider optionsProvider,
+      RemoteAnalysisCacheMode mode,
+      @Nullable ClientId clientId,
+      String buildId)
+      throws SerializedAbruptExitException {
+    // Does nothing by default.
+  }
+
+  /** A specialized version of {@link #configure} for the dump command. */
+  default void configureForDebugging(
+      String remoteAnalysisDebugEntries,
+      RemoteAnalysisCacheMode mode,
+      ClientId clientId,
+      String buildId)
+      throws SerializedAbruptExitException {
     // Does nothing by default.
   }
 
   /**
-   * Gets or creates the {@link FingerprintValueService},
+   * Gets or creates the {@link FingerprintValueStore},
    *
    * <p>This may entail I/O so it is wrapped in a future.
    */
   @Nullable // null if remote analysis caching is not enabled
-  ListenableFuture<FingerprintValueService> getFingerprintValueService();
+  ListenableFuture<? extends FingerprintValueStore> getFingerprintValueStore();
 
   /**
    * Gets or creates the analysis cache service interface.
@@ -67,6 +86,11 @@ public interface RemoteAnalysisCachingServicesSupplier {
     return null;
   }
 
+  /**
+   * Gets the parameters for querying and updating Skycache metadata.
+   *
+   * <p>Returns null if metadata queries are not enabled.
+   */
   @Nullable
   default SkycacheMetadataParams getSkycacheMetadataParams() {
     return null;

@@ -14,6 +14,8 @@
 
 package net.starlark.java.syntax;
 
+import static com.google.common.base.Preconditions.checkState;
+
 import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -53,9 +55,9 @@ public final class Resolver extends NodeVisitor {
 
   /** Scope discriminates the scope of a binding: global, local, etc. */
   public enum Scope {
-    /** Binding is local to a function, comprehension, or file (e.g. load). */
+    /** Binding is local to a function, comprehension, type alias, or file (e.g. load). */
     LOCAL,
-    /** Binding is non-local and occurs outside any function or comprehension. */
+    /** Binding is non-local and occurs outside any function, comprehension, or type alias. */
     GLOBAL,
     /** Binding is local to a function, comprehension, or file, but shared with nested functions. */
     CELL,
@@ -95,15 +97,28 @@ public final class Resolver extends NodeVisitor {
     // particular in the REPL, where the same Module is shared across multiple input syntax trees.
     private final boolean isSyntactic;
 
+    // True if the binding is a file-level LOCAL/CELL binding, i.e. local to a <toplevel> function.
+    //
+    // This is only the case for bindings introduced by a load() when FileOptions#loadBindsGlobally
+    // is false; all other bindings created at file-level are GLOBAL.
+    private final boolean isToplevelLocal;
+
     // If isSyntactic is true, the first binding occurrence of this symbol.
     // Otherwise, the first occurrence of this symbol (which must be non-binding).
     private final Identifier first;
 
-    private Binding(Scope scope, int index, int bindingId, boolean isSyntactic, Identifier first) {
+    private Binding(
+        Scope scope,
+        int index,
+        int bindingId,
+        boolean isSyntactic,
+        boolean isToplevelLocal,
+        Identifier first) {
       this.scope = scope;
       this.index = index;
       this.bindingId = bindingId;
       this.isSyntactic = isSyntactic;
+      this.isToplevelLocal = isToplevelLocal;
       this.first = first;
     }
 
@@ -118,6 +133,14 @@ public final class Resolver extends NodeVisitor {
     /** Returns whether any binding occurrence of this symbol appears in the syntax tree. */
     boolean isSyntactic() {
       return isSyntactic;
+    }
+
+    /**
+     * Returns whether this symbol is a file-level LOCAL/CELL symbol, i.e. a local symbol introduced
+     * by a {@code load()} statement when {@link FileOptions#loadBindsGlobally} is false.
+     */
+    boolean isToplevelLocal() {
+      return isToplevelLocal;
     }
 
     /** Returns the name of this binding's identifier. */
@@ -146,7 +169,7 @@ public final class Resolver extends NodeVisitor {
     @Override
     public String toString() {
       String declaredAt =
-          isSyntactic
+          isSyntactic()
               ? first.getStartLocation().toString()
               : scope == Scope.UNIVERSAL || scope == Scope.PREDECLARED
                   ? "<builtin>"
@@ -157,7 +180,18 @@ public final class Resolver extends NodeVisitor {
   }
 
   private Binding newBinding(Scope scope, int index, boolean isSyntactic, Identifier first) {
-    return new Binding(scope, index, nextBindingId++, isSyntactic, first);
+    return new Binding(
+        scope, index, nextBindingId++, isSyntactic, /* isToplevelLocal= */ false, first);
+  }
+
+  private Binding newToplevelLocalBinding(int index, Identifier first) {
+    return new Binding(
+        Scope.LOCAL,
+        index,
+        nextBindingId++,
+        /* isSyntactic= */ true,
+        /* isToplevelLocal= */ true,
+        first);
   }
 
   /** A {@link Binding} for a variable of a list or dict comprehension. */
@@ -168,7 +202,13 @@ public final class Resolver extends NodeVisitor {
     private final Comprehension node;
 
     private ComprehensionBinding(int index, int bindingId, Identifier first, Comprehension node) {
-      super(Scope.LOCAL, index, bindingId, /* isSyntactic= */ true, first);
+      super(
+          Scope.LOCAL,
+          index,
+          bindingId,
+          /* isSyntactic= */ true,
+          /* isToplevelLocal= */ false,
+          first);
       this.node = node;
     }
 
@@ -492,11 +532,12 @@ public final class Resolver extends NodeVisitor {
    */
   private static class Block {
     @Nullable private final Block parent; // enclosing block, or null for tail of list
-    @Nullable Node syntax; // Comprehension, DefStatement/LambdaExpression, StarlarkFile, or null
+    // Comprehension, DefStatement/LambdaExpression, StarlarkFile, TypeAliasStatement, or null
+    @Nullable final Node syntax;
     private final ArrayList<Binding> frame; // accumulated locals of enclosing function
     // Accumulated CELL/FREE bindings of the enclosing function that will provide
     // the values for the free variables of this function; see Function.getFreeVars.
-    // Null for toplevel functions and expressions, which have no free variables.
+    // Null for toplevel functions/expressions and type aliases, which have no free variables.
     @Nullable private final ArrayList<Binding> freevars;
 
     // Bindings for names defined in this block.
@@ -525,7 +566,8 @@ public final class Resolver extends NodeVisitor {
   @Nullable private final Map<String, DocComments> docCommentsMap;
   // A cache of PREDECLARED, UNIVERSAL, and GLOBAL bindings queried from the module.
   private final Map<String, Binding> toplevel = new HashMap<>();
-  // Linked list of blocks, innermost first, for functions and comprehensions and (finally) file.
+  // Linked list of blocks, innermost first, for functions, comprehensions, type aliases, and
+  // (finally) file.
   private Block locals;
   private int loopCount;
   private int nextBindingId = 0;
@@ -932,12 +974,18 @@ public final class Resolver extends NodeVisitor {
 
     if (options.resolveTypeSyntax()) {
       assertIsBound(node.getIdentifier());
-      visit(node.getDefinition());
-    }
 
-    // TODO: #27370 - Bind the generic type params (`type Foo[S, T] = ...`). Will require creating
-    // a new block for the RHS, since the type params don't leak outside the statement. (This
-    // means extending the invariant of Block#syntax to allow include TypeAliasStatement.)
+      ArrayList<Binding> frame = new ArrayList<>();
+      pushLocalBlock(node, frame, /* freevars= */ null);
+      for (Identifier paramId : node.getParameters()) {
+        // Parser guarantees that type alias parameter names are unique.
+        checkState(bind(paramId, /* isLoad= */ false, /* docComments= */ null));
+      }
+
+      visit(node.getDefinition());
+
+      popLocalBlock();
+    }
   }
 
   // Resolves a non-binding identifier to an existing binding, or null.
@@ -945,8 +993,8 @@ public final class Resolver extends NodeVisitor {
   private Binding use(Identifier id) {
     String name = id.getName();
 
-    // Locally defined in this function, comprehension,
-    // or file block, or an enclosing one?
+    // Locally defined in this function, comprehension, type alias, or file block, or an enclosing
+    // one?
     Binding bind = lookupLexical(name, locals);
     if (bind != null) {
       return bind;
@@ -976,17 +1024,14 @@ public final class Resolver extends NodeVisitor {
       return null;
     }
     switch (scope) {
-      case GLOBAL:
+      case GLOBAL -> {
         bind = newBinding(scope, globals.size(), /* isSyntactic= */ false, id);
         // Accumulate globals in module.
         globals.add(name);
-        break;
-      case PREDECLARED:
-      case UNIVERSAL:
-        bind = newBinding(scope, 0, /* isSyntactic= */ false, id); // index not used
-        break;
-      default:
-        throw new IllegalStateException("bad scope: " + scope);
+      }
+      case PREDECLARED, UNIVERSAL -> bind = newBinding(scope, 0, /* isSyntactic= */ false, id);
+      // index not used
+      default -> throw new IllegalStateException("bad scope: " + scope);
     }
     toplevel.put(name, bind);
     return bind;
@@ -1182,7 +1227,7 @@ public final class Resolver extends NodeVisitor {
     // TODO(adonovan): factor out bindLocal/bindGlobal cases
     // and simply the condition below.
 
-    // outside any function/comprehension, and not a (local) load? => global binding.
+    // outside any function/comprehension/type-alias, and not a (local) load? => global binding.
     if (locals.syntax instanceof StarlarkFile && !(isLoad && !options.loadBindsGlobally())) {
       bind = toplevel.get(name);
       if (bind == null) {
@@ -1206,7 +1251,7 @@ public final class Resolver extends NodeVisitor {
       }
 
     } else {
-      // Binding is local to file, function, or comprehension.
+      // Binding is local to file, function, comprehension, or type alias.
       bind = locals.bindings.get(name);
       if (bind == null) {
         // New local binding: add to current block's bindings map, current function's frame.
@@ -1217,7 +1262,10 @@ public final class Resolver extends NodeVisitor {
           // its own frame (e.g. a lambda).
           bind = newComprehensionBinding(locals.frame.size(), id, comprehension);
         } else {
-          bind = newBinding(Scope.LOCAL, locals.frame.size(), /* isSyntactic= */ true, id);
+          bind =
+              locals.syntax instanceof StarlarkFile
+                  ? newToplevelLocalBinding(locals.frame.size(), id)
+                  : newBinding(Scope.LOCAL, locals.frame.size(), /* isSyntactic= */ true, id);
         }
         locals.bindings.put(name, bind);
         locals.frame.add(bind);
@@ -1246,7 +1294,7 @@ public final class Resolver extends NodeVisitor {
   private void toplevelRebinding(Identifier id, Binding prev) {
     if (!options.allowToplevelRebinding()) {
       errorf(id, "'%s' redeclared at top level", id.getName());
-      if (prev.isSyntactic) {
+      if (prev.isSyntactic()) {
         errorf(prev.first, "'%s' previously declared here", id.getName());
       }
     }
@@ -1258,7 +1306,7 @@ public final class Resolver extends NodeVisitor {
     String newqual = scope == Scope.GLOBAL ? "global" : "file-local";
     String oldqual = prev.getScope() == Scope.GLOBAL ? "global" : "file-local";
     errorf(id, "conflicting %s declaration of '%s'", newqual, id.getName());
-    if (prev.isSyntactic) {
+    if (prev.isSyntactic()) {
       errorf(prev.first, "'%s' previously declared as %s here", id.getName(), oldqual);
     }
   }

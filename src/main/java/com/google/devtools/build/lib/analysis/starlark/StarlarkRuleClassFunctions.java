@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.analysis.DormantDependency;
 import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
+import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
@@ -113,6 +114,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.Serializat
 import com.google.devtools.build.lib.starlarkbuildapi.MacroFunctionApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleFunctionsApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkSubruleApi;
+import com.google.devtools.build.lib.starlarkbuildapi.config.ComposedConfigurationTransition;
 import com.google.devtools.build.lib.starlarkbuildapi.config.ConfigurationTransitionApi;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Pair;
@@ -183,6 +185,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
                   .value(ImmutableMap.of()))
           .add(
               attr(RuleClass.TARGET_COMPATIBLE_WITH_ATTR, LABEL_LIST)
+                  .mandatoryBuiltinProviders(ImmutableList.of(ConfigMatchingProvider.class))
                   .mandatoryProviders(ConstraintValueInfo.PROVIDER.id())
                   // This should be configurable to allow for complex types of restrictions.
                   .tool(
@@ -1096,7 +1099,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
         });
     if (parent != null) {
       transitionFactory =
-          ComposingTransitionFactory.of(transitionFactory, parent.getTransitionFactory());
+          ComposingTransitionFactory.ofUnchecked(transitionFactory, parent.getTransitionFactory());
     }
     // Check if the transition has any Starlark code.
     StarlarkTransitionCheckingVisitor visitor = new StarlarkTransitionCheckingVisitor();
@@ -1247,6 +1250,13 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     if (cfg instanceof StarlarkDefinedConfigTransition starlarkDefinedConfigTransition) {
       // defined in Starlark via, cfg = transition
       return new StarlarkRuleTransitionProvider(starlarkDefinedConfigTransition);
+    }
+    if (cfg instanceof ComposedConfigurationTransition composition) {
+      return ComposedTransitionMaterializer.fold(
+          composition,
+          StarlarkRuleClassFunctions::convertConfig,
+          "it contains a native transition that can only be used as an attribute transition, such"
+              + " as the exec transition");
     }
     if (cfg instanceof ConfigurationTransitionApi cta) {
       // Every ConfigurationTransitionApi must be a TransitionFactory instance to be usable.

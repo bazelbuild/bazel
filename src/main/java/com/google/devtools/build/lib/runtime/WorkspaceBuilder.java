@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.skyframe.DiffAwareness;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutorFactory;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutorFactory;
+import com.google.devtools.build.lib.skyframe.serialization.Fingerprinter;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingServicesSupplier;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -68,6 +69,8 @@ public final class WorkspaceBuilder {
 
   @Nullable
   private RemoteAnalysisCachingServicesSupplier remoteAnalysisCachingServicesSupplier = null;
+
+  private Fingerprinter fingerprinterForAnalysisCaching;
 
   WorkspaceBuilder(BlazeDirectories directories, BinTools binTools) {
     this.directories = directories;
@@ -141,6 +144,7 @@ public final class WorkspaceBuilder {
         singleFsSyscallCache,
         analysisCodecRegistrySupplier,
         remoteAnalysisCachingServicesSupplier,
+        fingerprinterForAnalysisCaching,
         allowExternalRepositories);
   }
 
@@ -256,6 +260,13 @@ public final class WorkspaceBuilder {
   public WorkspaceBuilder setRemoteAnalysisCachingServicesSupplier(
       RemoteAnalysisCachingServicesSupplier remoteAnalysisCachingServicesSupplier) {
     this.remoteAnalysisCachingServicesSupplier = remoteAnalysisCachingServicesSupplier;
+    return this;
+  }
+
+  @CanIgnoreReturnValue
+  public WorkspaceBuilder setFingerprinterForAnalysisCaching(
+      Fingerprinter fingerprinterForAnalysisCaching) {
+    this.fingerprinterForAnalysisCaching = fingerprinterForAnalysisCaching;
     return this;
   }
 }

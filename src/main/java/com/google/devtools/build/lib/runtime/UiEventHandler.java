@@ -1097,7 +1097,13 @@ public final class UiEventHandler implements EventHandler {
     if (progressInTermTitle) {
       LoggingTerminalWriter stringWriter = new LoggingTerminalWriter(true);
       stateTracker.writeProgressBar(stringWriter, true);
-      terminal.setTitle(stringWriter.getTranscript());
+      String transcript = stringWriter.getTranscript();
+      int newlinePos = transcript.indexOf('\n');
+      if (newlinePos == -1) {
+        terminal.setTitle(stringWriter.getTranscript());
+      } else {
+        terminal.setTitle(stringWriter.getTranscript().substring(0, newlinePos));
+      }
     }
   }
 }

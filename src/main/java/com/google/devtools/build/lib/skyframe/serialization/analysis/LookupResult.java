@@ -13,12 +13,49 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
-import com.google.devtools.build.lib.skyframe.serialization.analysis.proto.MissReason;
-import com.google.protobuf.ByteString;
+import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
+import java.util.Arrays;
+import java.util.Objects;
+import javax.annotation.Nullable;
 
-/** The result of a remote analysis cache lookup. */
-public record LookupResult(ByteString value, MissReason missReason) {
-  public LookupResult(ByteString value) {
-    this(value, MissReason.MISS_REASON_UNSPECIFIED);
+/**
+ * The result of a remote analysis cache lookup.
+ *
+ * @param value The serialized SkyValue, or empty if the lookup missed.
+ * @param invalidationFingerprint The invalidation fingerprint of the node, or null if missing.
+ * @param missReason Corresponds to
+ *     com.google.devtools.build.lib.skyframe.serialization.analysis.proto.MissReason. We use an int
+ *     instead of the proto to keep the SkybridgeInterface simple. Since older LCs may not know
+ *     about the new enum values, consumers must check for possible version skews and map the value
+ *     to MISS_REASON_UNSPECIFIED.
+ */
+@SuppressWarnings("ArrayRecordComponent") // To keep the SkybridgeInterface simple.
+@SkybridgeInterface
+public record LookupResult(byte[] value, @Nullable byte[] invalidationFingerprint, int missReason) {
+  public LookupResult(byte[] value) {
+    this(value, null, 0); // 0 corresponds to MISS_REASON_UNSPECIFIED
+  }
+
+  public LookupResult(byte[] value, int missReason) {
+    this(value, null, missReason);
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (!(o instanceof LookupResult that)) {
+      return false;
+    }
+    return missReason == that.missReason
+        && Arrays.equals(value, that.value)
+        && Arrays.equals(invalidationFingerprint, that.invalidationFingerprint);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(
+        missReason, Arrays.hashCode(value), Arrays.hashCode(invalidationFingerprint));
   }
 }

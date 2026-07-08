@@ -22,10 +22,25 @@ import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.StarlarkValue;
 
-/** Interface for the "struct" object in the build API. */
+/**
+ * Interface for the "struct" object in the build API.
+ *
+ * <p>A distinction between this interface and {@link net.starlark.java.eval.Structure} is that a
+ * {@code Structure}'s fields have a set of keys defined at runtime, while {@link StructApi} in
+ * addition encompasses built-in struct-like objects whose fields are defined at compile time by
+ * their {@link StarlarkBuiltin} annotation.
+ *
+ * <p>Classes implementing {@link StructApi} are expected to be "record-like", with sensible
+ * equality/hashing semantics, and with a set of fields fixed at construction time.
+ *
+ * <p>Bazel's {@code struct} values ({@link com.google.devtools.build.lib.packages.StructImpl})
+ * implement both {@link Structure} and {@link StructApi} interfaces.
+ */
+// TODO(bazel-team): StructApi should be in net.starlark.java.eval, and Structure should extend it.
 @StarlarkBuiltin(
     name = "struct",
     category = DocCategory.BUILTIN,
+    isStructType = true,
     doc =
         "A generic object with fields."
             + "<p>Structs fields cannot be reassigned once the struct is created. Two structs are "

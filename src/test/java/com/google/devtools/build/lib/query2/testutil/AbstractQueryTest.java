@@ -62,7 +62,6 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading.Code;
 import com.google.devtools.build.lib.server.FailureDetails.Query;
 import com.google.devtools.build.lib.server.FailureDetails.TargetPatterns;
-import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -236,6 +235,10 @@ public abstract class AbstractQueryTest<T> {
 
   protected ImmutableList<String> evalToListOfStrings(String query) throws Exception {
     return resultSetToListOfStrings(eval(query));
+  }
+
+  protected ImmutableList<String> evalToListOfStringsUnsorted(String query) throws Exception {
+    return eval(query).stream().map(node -> helper.getLabel(node)).collect(toImmutableList());
   }
 
   protected ImmutableList<String> resultSetToListOfStrings(Set<T> results) {
@@ -592,10 +595,10 @@ public abstract class AbstractQueryTest<T> {
         """);
     writeFile(
         "configurable/BUILD",
-        "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
-        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "load('//test_defs:foo_binary.bzl', 'foo_binary')",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
         "",
-        "cc_binary(",
+        "foo_binary(",
         "    name = 'main',",
         "    srcs = ['main.cc'],",
         "    deps = select({",
@@ -603,13 +606,13 @@ public abstract class AbstractQueryTest<T> {
         "        '//conditions:b': [':bdep'],",
         "        '" + BuildType.Selector.DEFAULT_CONDITION_KEY + "': [':defaultdep'],",
         "    }))",
-        "cc_library(",
+        "foo_library(",
         "    name = 'adep',",
         "    srcs = ['adep.cc'])",
-        "cc_library(",
+        "foo_library(",
         "    name = 'bdep',",
         "    srcs = ['bdep.cc'])",
-        "cc_library(",
+        "foo_library(",
         "    name = 'defaultdep',",
         "    srcs = ['defaultdep.cc'])");
   }
@@ -663,6 +666,26 @@ public abstract class AbstractQueryTest<T> {
     } else {
       assertThat(somepathAToD).isEqualTo(pathList2);
     }
+  }
+
+  @Test
+  public void testSomePathOperatorOrderingWithLet() throws Exception {
+    writeFile("z/BUILD", "genrule(name='z', srcs=['//y:y'], outs=['out'], cmd=':')");
+    writeFile("y/BUILD", "genrule(name='y', srcs=['//x:x'], outs=['out'], cmd=':')");
+    writeFile("x/BUILD", "genrule(name='x', srcs=['//w:w'], outs=['out'], cmd=':')");
+    writeFile("w/BUILD", "exports_files(['w'])");
+
+    ImmutableList<String> expectedPath = ImmutableList.of("//z:z", "//y:y", "//x:x", "//w:w");
+
+    // Single let expression
+    ImmutableList<String> somepathZToW =
+        evalToListOfStringsUnsorted("let x = //z:z in somepath($x, //w)");
+    assertThat(somepathZToW).isEqualTo(expectedPath);
+
+    // Nested let expressions
+    ImmutableList<String> somepathZToWNested =
+        evalToListOfStringsUnsorted("let y = //y:y in let x = //z:z in somepath($x, //w)");
+    assertThat(somepathZToWNested).isEqualTo(expectedPath);
   }
 
   @Test
@@ -729,22 +752,11 @@ public abstract class AbstractQueryTest<T> {
 
     // Configurable attributes:
     if (testConfigurableAttributes()) {
-      String implicitDeps = "";
-      if (analysisMock.isThisBazel()) {
-        implicitDeps = " + " + helper.getToolsRepository() + "//tools/def_parser:def_parser";
-      }
       String expectedDependencies =
-          helper.getToolsRepository()
-              + "//tools/cpp:link_extra_lib + "
-              + helper.getToolsRepository()
-              + "//tools/cpp:malloc + //configurable:main + "
+          "//configurable:main + "
               + "//configurable:main.cc + //configurable:adep + //configurable:bdep + "
-              + "//configurable:defaultdep + //conditions:a + //conditions:b "
-              + implicitDeps;
-      if (includeCppToolchainDependencies()) {
-        expectedDependencies += " + //tools/cpp:toolchain_type + //tools/cpp:current_cc_toolchain";
-      }
-      assertThat(eval("deps(//configurable:main, 1)" + TestConstants.CC_DEPENDENCY_CORRECTION))
+              + "//configurable:defaultdep + //conditions:a + //conditions:b";
+      assertThat(eval("deps(//configurable:main, 1)"))
           .containsExactlyElementsIn(eval(expectedDependencies));
     }
   }
@@ -1118,49 +1130,45 @@ public abstract class AbstractQueryTest<T> {
   @Test
   public void testNoImplicitDeps() throws Exception {
     writeFile(
+        "x/defs.bzl",
+        """
+        def _impl(ctx):
+          return [DefaultInfo()]
+        custom_rule = rule(
+            implementation = _impl,
+            attrs = {
+                'srcs': attr.label_list(allow_files=True),
+                '_implicit_dep': attr.label(default='//x:implicit'),
+                '_exec_dep': attr.label(default='//x:exec_tool', cfg='exec'),
+            },
+        )
+        """);
+    writeFile(
         "x/BUILD",
-        "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
-        "cc_binary(name='x', srcs=['x.cc'])");
+        """
+        load(':defs.bzl', 'custom_rule')
+        custom_rule(name='x', srcs=['x.cc'])
+        filegroup(name='implicit')
+        filegroup(name='exec_tool')
+        """);
 
-    // Implicit dependencies:
-    String hostDepsExpr = helper.getToolsRepository() + "//tools/cpp:malloc";
-    hostDepsExpr +=
-        " + "
-            + helper.getToolsRepository()
-            + "//tools/cpp:link_extra_lib"
-            + " + "
-            + helper.getToolsRepository()
-            + "//tools/cpp:linkextra.cc";
-    if (!analysisMock.isThisBazel()) {
-      hostDepsExpr += " + //tools/cpp:malloc.cc";
-    }
-    String implicitDepsExpr = "";
-    if (analysisMock.isThisBazel()) {
-      implicitDepsExpr +=
-          " + "
-              + helper.getToolsRepository()
-              + "//tools/def_parser:def_parser"
-              + " + "
-              + helper.getToolsRepository()
-              + "//tools/def_parser:def_parser.exe";
-    }
+    String targetDeps = "//x:x + //x:x.cc";
+    String implicitDeps = "//x:implicit";
+    String execDeps = "//x:exec_tool";
 
-    String targetDepsExpr = "//x:x + //x:x.cc";
-    String toolchainDepsExpr = "//tools/cpp:toolchain_type + //tools/cpp:current_cc_toolchain";
+    // Default: all deps
+    assertEqualsFiltered(targetDeps + " + " + implicitDeps + " + " + execDeps, "deps(//x:x)");
 
-    // Test all combinations of --[no]host_deps and --[no]implicit_deps on //x:x
-    String expected = targetDepsExpr + " + " + hostDepsExpr + implicitDepsExpr;
-    if (includeCppToolchainDependencies()) {
-      expected += " + " + toolchainDepsExpr;
-    }
-    assertEqualsFiltered(expected, "deps(//x)" + TestConstants.CC_DEPENDENCY_CORRECTION);
+    // Only target deps (no host deps)
     assertEqualsFiltered(
-        targetDepsExpr + " + " + hostDepsExpr,
-        "deps(//x)" + TestConstants.CC_DEPENDENCY_CORRECTION,
-        Setting.ONLY_TARGET_DEPS);
-    assertEqualsFiltered(targetDepsExpr, "deps(//x)", Setting.NO_IMPLICIT_DEPS);
+        targetDeps + " + " + implicitDeps, "deps(//x:x)", Setting.ONLY_TARGET_DEPS);
+
+    // No implicit deps (filters out both implicit target and implicit exec deps)
+    assertEqualsFiltered(targetDeps, "deps(//x:x)", Setting.NO_IMPLICIT_DEPS);
+
+    // No implicit and no host deps
     assertEqualsFiltered(
-        targetDepsExpr, "deps(//x)", Setting.ONLY_TARGET_DEPS, Setting.NO_IMPLICIT_DEPS);
+        targetDeps, "deps(//x:x)", Setting.ONLY_TARGET_DEPS, Setting.NO_IMPLICIT_DEPS);
   }
 
   protected void assertEqualsFiltered(String expected, String actual, Setting... settings)

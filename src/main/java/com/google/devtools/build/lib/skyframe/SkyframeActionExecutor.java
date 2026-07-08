@@ -25,7 +25,6 @@ import static java.lang.Math.min;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.Action;
@@ -127,6 +126,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -335,7 +335,7 @@ public final class SkyframeActionExecutor {
     var buildRequestOptions = options.getOptions(BuildRequestOptions.class);
 
     // Start with a new map each build so there's no issue with internal resizing.
-    this.buildActionMap = Maps.newConcurrentMap();
+    this.buildActionMap = new ConcurrentHashMap<>();
     this.rewoundActions = Sets.newConcurrentHashSet();
     this.hadExecutionError.set(false);
     this.actionCacheChecker = checkNotNull(actionCacheChecker);
@@ -470,8 +470,12 @@ public final class SkyframeActionExecutor {
   }
 
   private void updateActionFileSystemContext(
-      Action action, FileSystem actionFileSystem, OutputMetadataStore outputMetadataStore) {
-    outputService.updateActionFileSystemContext(action, actionFileSystem, outputMetadataStore);
+      Action action,
+      FileSystem actionFileSystem,
+      InputMetadataProvider inputMetadataProvider,
+      OutputMetadataStore outputMetadataStore) {
+    outputService.updateActionFileSystemContext(
+        action, actionFileSystem, inputMetadataProvider, outputMetadataStore);
   }
 
   void executionOver() {
@@ -606,7 +610,8 @@ public final class SkyframeActionExecutor {
       boolean hasDiscoveredInputs)
       throws ActionExecutionException, InterruptedException {
     if (actionFileSystem != null) {
-      updateActionFileSystemContext(action, actionFileSystem, outputMetadataStore);
+      updateActionFileSystemContext(
+          action, actionFileSystem, compositeInputMetadataProvider, outputMetadataStore);
     }
 
     ActionExecutionContext actionExecutionContext =
@@ -929,7 +934,10 @@ public final class SkyframeActionExecutor {
             outputService.actionFileSystemType().supportsInputDiscovery());
     if (actionFileSystem != null) {
       updateActionFileSystemContext(
-          action, actionFileSystem, THROWING_OUTPUT_METADATA_STORE_FOR_ACTIONFS);
+          action,
+          actionFileSystem,
+          compositeInputMetadataProvider,
+          THROWING_OUTPUT_METADATA_STORE_FOR_ACTIONFS);
       // Note that when not using ActionFS, a global setup of the parent directories of the OutErr
       // streams is sufficient.
       setupActionFsFileOutErr(fileOutErr, action);

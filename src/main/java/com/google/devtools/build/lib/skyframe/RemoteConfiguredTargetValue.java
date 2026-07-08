@@ -89,6 +89,11 @@ public sealed class RemoteConfiguredTargetValue
   }
 
   @Override
+  public final boolean isCleared() {
+    return configuredTarget == null;
+  }
+
+  @Override
   public final String toString() {
     return toStringHelper(this)
         .add("configuredTarget", configuredTarget)

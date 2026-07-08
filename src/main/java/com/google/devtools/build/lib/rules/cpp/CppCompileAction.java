@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
-import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
@@ -44,17 +43,18 @@ import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.CommandLines.CommandLineAndParamFileInfo;
-import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
+import com.google.devtools.build.lib.actions.ParamFileActionInput;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.actions.SpawnInputs;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.extra.CppCompileInfo;
 import com.google.devtools.build.lib.actions.extra.EnvironmentVariable;
@@ -74,7 +74,6 @@ import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
-import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.IncludeScanner.IncludeScanningHeaderData;
 import com.google.devtools.build.lib.server.FailureDetails.CppCompile;
@@ -233,7 +232,6 @@ public class CppCompileAction extends AbstractAction
    * @param dwoFile the .dwo output file where debug information is stored for Fission builds (null
    *     if Fission mode is disabled)
    * @param ccCompilationContext the {@code CcCompilationContext}
-   * @param coptsFilter regular expression to remove options from {@code copts}
    * @param additionalIncludeScanningRoots list of additional artifacts to include-scan
    * @param actionName a string giving the name of this action for the purpose of toolchain
    *     evaluation
@@ -263,7 +261,6 @@ public class CppCompileAction extends AbstractAction
       @Nullable Artifact dwoFile,
       @Nullable Artifact ltoIndexingFile,
       CcCompilationContext ccCompilationContext,
-      CoptsFilter coptsFilter,
       ImmutableList<Artifact> additionalIncludeScanningRoots,
       ImmutableMap<String, String> executionInfo,
       String actionName,
@@ -299,8 +296,7 @@ public class CppCompileAction extends AbstractAction
     this.builtinIncludeFiles = builtinIncludeFiles;
     this.additionalIncludeScanningRoots =
         Preconditions.checkNotNull(additionalIncludeScanningRoots);
-    this.compileCommandLine =
-        buildCommandLine(coptsFilter, actionName, featureConfiguration, variables);
+    this.compileCommandLine = buildCommandLine(actionName, featureConfiguration, variables);
     this.executionInfo = executionInfo;
     this.actionName = actionName;
     this.progressMessagePrefix = progressMessagePrefix;
@@ -423,11 +419,10 @@ public class CppCompileAction extends AbstractAction
   }
 
   static CompileCommandLine buildCommandLine(
-      CoptsFilter coptsFilter,
       String actionName,
       FeatureConfiguration featureConfiguration,
       CcToolchainVariables variables) {
-    return CompileCommandLine.builder(coptsFilter, actionName)
+    return CompileCommandLine.builder(actionName)
         .setFeatureConfiguration(featureConfiguration)
         .setVariables(variables)
         .build();
@@ -967,7 +962,7 @@ public class CppCompileAction extends AbstractAction
   public ImmutableMap<String, String> getIncompleteEnvironmentForTesting()
       throws ActionExecutionException {
     try {
-      return getEffectiveEnvironment(ImmutableMap.of());
+      return getEffectiveEnvironment(ImmutableMap.of(), PathMapper.NOOP);
     } catch (CommandLineExpansionException e) {
       String message =
           String.format(
@@ -979,11 +974,6 @@ public class CppCompileAction extends AbstractAction
   }
 
   @Override
-  public ImmutableMap<String, String> getEffectiveEnvironment(Map<String, String> clientEnv)
-      throws CommandLineExpansionException {
-    return getEffectiveEnvironment(clientEnv, PathMapper.NOOP);
-  }
-
   public ImmutableMap<String, String> getEffectiveEnvironment(
       Map<String, String> clientEnv, PathMapper pathMapper) throws CommandLineExpansionException {
     ActionEnvironment env = getEnvironment();
@@ -1056,7 +1046,7 @@ public class CppCompileAction extends AbstractAction
     }
     // TODO(ulfjack): Extra actions currently ignore the client environment.
     for (Map.Entry<String, String> envVariable :
-        getEffectiveEnvironment(/* clientEnv= */ ImmutableMap.of()).entrySet()) {
+        getEffectiveEnvironment(/* clientEnv= */ ImmutableMap.of(), PathMapper.NOOP).entrySet()) {
       info.addVariable(
           EnvironmentVariable.newBuilder()
               .setName(envVariable.getKey())
@@ -1364,6 +1354,7 @@ public class CppCompileAction extends AbstractAction
       @Nullable InputMetadataProvider inputMetadataProvider,
       Fingerprint fp)
       throws CommandLineExpansionException, InterruptedException {
+    fp.addBoolean(getDotdFile() != null && useInMemoryDotdFiles());
     computeKey(
         actionKeyContext,
         fp,
@@ -1457,7 +1448,10 @@ public class CppCompileAction extends AbstractAction
       throws ActionExecutionException, InterruptedException {
     PathMapper pathMapper =
         PathMappers.create(
-            this, PathMappers.getOutputPathsMode(configuration), /* isStarlarkAction= */ false);
+            this,
+            PathMappers.getOutputPathsMode(configuration),
+            /* isStarlarkAction= */ false,
+            actionExecutionContext.getInputMetadataProvider());
 
     ArgumentsAndParamFileActionInput argumentsAndParamFileActionInput =
         getArgumentsForExecute(pathMapper);
@@ -1617,13 +1611,16 @@ public class CppCompileAction extends AbstractAction
               .getExecPath()
               .getParentDirectory()
               .getChild(outputFile.getFilename() + ".params");
+      String paramFileArg = "@" + paramFilePath.getSafePathString();
       paramFileActionInput =
           new ParamFileActionInput(
               paramFilePath,
+              paramFileArg,
               compilerOptions,
               // TODO(b/132888308): Support MSVC, which has its own method of escaping strings.
               ParameterFileType.GCC_QUOTED);
-      args = compileCommandLine.getArgumentsWithParameterFile(pathMapper, paramFilePath);
+      args =
+          compileCommandLine.getArgumentsWithParameterFile(pathMapper, paramFileArg, paramFilePath);
     }
     return new ArgumentsAndParamFileActionInput(args, paramFileActionInput);
   }
@@ -1705,10 +1702,17 @@ public class CppCompileAction extends AbstractAction
       DetailedExitCode code = createDetailedExitCode(message, Code.MODMAP_INPUT_FILE_READ_FAILURE);
       throw new ActionExecutionException(message, this, /* catastrophe= */ false, code);
     }
+    var pathMapper =
+        PathMappers.create(
+            this,
+            PathMappers.getOutputPathsMode(configuration),
+            /* isStarlarkAction= */ false,
+            actionExecutionContext.getInputMetadataProvider());
     // All module files referenced in the modmap input file are expected to be known modules. We
     // delegate error reporting to the compiler by silently skipping over unknown files.
     return moduleFiles.toList().stream()
-        .filter(moduleFile -> usedModulePaths.contains(moduleFile.getExecPathString()))
+        .filter(
+            moduleFile -> usedModulePaths.contains(pathMapper.getMappedExecPathString(moduleFile)))
         .collect(toImmutableSet());
   }
 
@@ -1721,16 +1725,15 @@ public class CppCompileAction extends AbstractAction
       throws ActionExecutionException {
     // Intentionally not adding {@link CppCompileAction#inputsForInvalidation}, those are not needed
     // for execution.
-    NestedSetBuilder<ActionInput> inputsBuilder =
-        NestedSetBuilder.<ActionInput>stableOrder().addTransitive(mandatorySpawnInputs);
-
-    if (discoversInputs()) {
-      inputsBuilder.addTransitive(getAdditionalInputs());
-    }
-    if (paramFileActionInput != null) {
-      inputsBuilder.add(paramFileActionInput);
-    }
-    NestedSet<ActionInput> inputs = inputsBuilder.build();
+    SpawnInputs inputs =
+        SpawnInputs.of(
+            mandatorySpawnInputs,
+            discoversInputs()
+                ? getAdditionalInputs()
+                : NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+            paramFileActionInput == null
+                ? ImmutableList.of()
+                : ImmutableList.of(paramFileActionInput));
 
     ImmutableMap.Builder<String, String> executionInfo =
         ImmutableMap.<String, String>builder().putAll(getExecutionInfo());
@@ -1789,7 +1792,7 @@ public class CppCompileAction extends AbstractAction
                   enabledCppCompileResourcesEstimation(),
                   getMnemonic(),
                   OS.getCurrent(),
-                  inputs.memoizedFlattenAndGetSize()),
+                  inputs.flatten().size()),
           pathMapper);
     } catch (CommandLineExpansionException e) {
       String message =

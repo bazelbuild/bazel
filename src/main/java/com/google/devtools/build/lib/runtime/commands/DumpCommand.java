@@ -16,9 +16,17 @@ package com.google.devtools.build.lib.runtime.commands;
 
 import static com.google.devtools.build.lib.runtime.Command.BuildPhase.NONE;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.io.BaseEncoding;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.actions.Artifact.ArtifactSerializationContext;
+import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.buildtool.SkyframeMemoryDumper;
 import com.google.devtools.build.lib.buildtool.SkyframeMemoryDumper.DisplayMode;
 import com.google.devtools.build.lib.buildtool.SkyframeMemoryDumper.DumpFailedException;
@@ -29,6 +37,8 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.lib.packages.RuleClassProvider;
+import com.google.devtools.build.lib.pkgcache.PackagePathCodecDependencies;
 import com.google.devtools.build.lib.profiler.memory.AllocationTracker;
 import com.google.devtools.build.lib.profiler.memory.AllocationTracker.RuleBytes;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
@@ -45,15 +55,34 @@ import com.google.devtools.build.lib.server.FailureDetails.DumpCommand.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.BzlLoadValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
+import com.google.devtools.build.lib.skyframe.PrerequisitePackageFunction;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.SkyKeyStats;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyframeStats;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
+import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
+import com.google.devtools.build.lib.skyframe.serialization.PackedFingerprint;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.ClientId;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.ClientId.LongVersionClientId;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.GraphDumper;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.GraphDumper.Edge;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.GraphDumper.InvalidationGraph;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.GraphDumper.Node;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.GraphDumper.SkyValueEntry;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingServicesSupplier;
+import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.MemoryAccountant.Stats;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.lib.util.RegexFilter.RegexFilterConverter;
+import com.google.devtools.build.lib.util.SerializedAbruptExitException;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.vfs.Root.RootCodecDependencies;
 import com.google.devtools.build.skyframe.InMemoryGraph;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.NodeEntry;
@@ -67,19 +96,26 @@ import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsClass;
+import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsParsingResult;
+import com.google.errorprone.annotations.FormatMethod;
+import com.google.gson.stream.JsonWriter;
+import com.google.protobuf.ByteString;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
+import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ExecutionException;
 import javax.annotation.Nullable;
 
 /** Implementation of the dump command. */
@@ -289,8 +325,8 @@ public class DumpCommand implements BlazeCommand {
         documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
         effectTags = {OptionEffectTag.BAZEL_MONITORING},
         help =
-            "Regex filter of SkyKey names to output. Only used with --skyframe=deps, rdeps,"
-                + " function_graph.")
+            "Regex filter of SkyKey names to output. Only used with --skyframe=keys, value, deps,"
+                + " rdeps, function_graph.")
     public abstract RegexFilter getSkyKeyFilter();
 
     @Option(
@@ -301,6 +337,22 @@ public class DumpCommand implements BlazeCommand {
         effectTags = {OptionEffectTag.BAZEL_MONITORING},
         help = "Dump the memory use of the given Skyframe node.")
     public abstract MemoryMode getMemory();
+
+    @Option(
+        name = "skycache_cache",
+        defaultValue = "",
+        documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+        effectTags = {OptionEffectTag.BAZEL_MONITORING},
+        help = "Key-value store for dumping remote analysis cache entries from.")
+    public abstract String getSkycacheCache();
+
+    @Option(
+        name = "skycache_fingerprint",
+        defaultValue = "null",
+        documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+        effectTags = {OptionEffectTag.BAZEL_MONITORING},
+        help = "Hex fingerprint of the Skycache entry to dump.")
+    public abstract String getSkycacheFingerprint();
   }
 
   /** Different ways to dump information about Skyframe. */
@@ -308,6 +360,7 @@ public class DumpCommand implements BlazeCommand {
     OFF,
     SUMMARY,
     COUNT,
+    KEYS,
     VALUE,
     DEPS,
     RDEPS,
@@ -332,6 +385,16 @@ public class DumpCommand implements BlazeCommand {
     BlazeRuntime runtime = env.getRuntime();
     DumpOptions dumpOptions = options.getOptions(DumpOptions.class);
 
+    String skycacheCache = dumpOptions.getSkycacheCache();
+    boolean hasCache = skycacheCache != null && !skycacheCache.isEmpty();
+    boolean hasFingerprint = dumpOptions.getSkycacheFingerprint() != null;
+
+    if (hasCache != hasFingerprint) {
+      return createFailureResult(
+          "Both --skycache_cache and --skycache_fingerprint " + "must be specified together.",
+          Code.DUMP_COMMAND_UNKNOWN);
+    }
+
     boolean anyOutput =
         dumpOptions.getDumpPackages()
             || dumpOptions.getDumpActionCache()
@@ -339,7 +402,8 @@ public class DumpCommand implements BlazeCommand {
             || dumpOptions.getDumpRules()
             || dumpOptions.getStarlarkMemory() != null
             || dumpOptions.getDumpSkyframe() != SkyframeDumpOption.OFF
-            || dumpOptions.getMemory() != null;
+            || dumpOptions.getMemory() != null
+            || (hasCache && hasFingerprint);
     if (!anyOutput) {
       Collection<Class<? extends OptionsBase>> optionList = new ArrayList<>();
       optionList.add(DumpOptions.class);
@@ -413,10 +477,41 @@ public class DumpCommand implements BlazeCommand {
         failure = dumpSkyframeMemory(env, dumpOptions, out);
       }
 
+      if (hasCache && hasFingerprint) {
+        RemoteAnalysisCachingOptions cachingOptions =
+            OptionsParser.builder()
+                .optionsClasses(RemoteAnalysisCachingOptions.class)
+                .build()
+                .getOptions(RemoteAnalysisCachingOptions.class);
+
+        RemoteAnalysisCachingServicesSupplier supplier =
+            env.getBlazeWorkspace().remoteAnalysisCachingServicesSupplier();
+
+        ClientId dummyClientId = new LongVersionClientId(0L);
+        String dummyBuildId = env.getCommandId().toString();
+
+        try {
+          supplier.configureForDebugging(
+              /* remoteAnalysisDebugEntries= */ skycacheCache,
+              /* mode= */ cachingOptions.getMode(),
+              /* clientId= */ dummyClientId,
+              /* buildId= */ dummyBuildId);
+          failure = dumpSkycacheEntry(env, supplier, dumpOptions.getSkycacheFingerprint(), out);
+        } catch (SerializedAbruptExitException e) {
+          AbruptExitException abruptExit = AbruptExitException.fromSerialized(e);
+          failure =
+              Optional.of(
+                  createFailureResult(
+                      "Error connecting to remote analysis cache: " + abruptExit.getMessage(),
+                      Code.DUMP_COMMAND_UNKNOWN));
+        }
+      }
+
       MemoizingEvaluator evaluator = env.getSkyframeExecutor().getEvaluator();
       switch (dumpOptions.getDumpSkyframe()) {
         case SUMMARY -> evaluator.dumpSummary(out);
         case COUNT -> evaluator.dumpCount(out);
+        case KEYS -> evaluator.dumpKeys(out, dumpOptions.getSkyKeyFilter());
         case VALUE -> evaluator.dumpValues(out, dumpOptions.getSkyKeyFilter());
         case DEPS -> evaluator.dumpDeps(out, dumpOptions.getSkyKeyFilter());
         case RDEPS -> evaluator.dumpRdeps(out, dumpOptions.getSkyKeyFilter());
@@ -480,9 +575,7 @@ public class DumpCommand implements BlazeCommand {
   }
 
   private static void dumpRuleStats(
-      BlazeWorkspace workspace,
-      SkyframeExecutor executor,
-      PrintStream out)
+      BlazeWorkspace workspace, SkyframeExecutor executor, PrintStream out)
       throws InterruptedException {
     SkyframeStats skyframeStats = executor.getSkyframeStats();
     if (skyframeStats.ruleStats().isEmpty()) {
@@ -716,5 +809,249 @@ public class DumpCommand implements BlazeCommand {
             .setMessage(message)
             .setDumpCommand(FailureDetails.DumpCommand.newBuilder().setCode(detailedCode))
             .build());
+  }
+
+  @FormatMethod
+  private static Optional<BlazeCommandResult> dumpSkycacheError(
+      CommandEnvironment env, String fmt, String... args) {
+    String msg = String.format(fmt, (Object[]) args);
+    env.getReporter().error(null, msg);
+    return Optional.of(createFailureResult(msg, Code.DUMP_COMMAND_UNKNOWN));
+  }
+
+  private static Optional<BlazeCommandResult> dumpSkycacheEntry(
+      CommandEnvironment env,
+      RemoteAnalysisCachingServicesSupplier servicesSupplier,
+      String fingerprintHex,
+      PrintStream out)
+      throws InterruptedException {
+    byte[] targetFingerprintBytes;
+    try {
+      targetFingerprintBytes = BaseEncoding.base16().ignoreCase().decode(fingerprintHex);
+    } catch (IllegalArgumentException e) {
+      return dumpSkycacheError(env, "Invalid fingerprint hex string: %s", e.getMessage());
+    }
+    PackedFingerprint targetFingerprint = PackedFingerprint.fromBytes(targetFingerprintBytes);
+
+    FingerprintValueStore store;
+    byte[] entryBytes;
+    try {
+      ListenableFuture<? extends FingerprintValueStore> storeFuture =
+          servicesSupplier.getFingerprintValueStore();
+      if (storeFuture == null) {
+        return dumpSkycacheError(env, "Remote analysis caching store is not enabled");
+      }
+      store = storeFuture.get();
+      if (store == null) {
+        return dumpSkycacheError(env, "Remote analysis caching store is not initialized");
+      }
+      entryBytes = store.get(targetFingerprint).get();
+    } catch (ExecutionException | IOException e) {
+      return dumpSkycacheError(
+          env, "Cannot read fingerprint %s from backend: %s", fingerprintHex, e.getMessage());
+    }
+
+    if (entryBytes == null) {
+      return dumpSkycacheError(env, "Fingerprint %s not found in backend", fingerprintHex);
+    }
+
+    SkyValueEntry entry;
+    try {
+      entry = GraphDumper.parseSkyValueEntry(ByteString.copyFrom(entryBytes));
+    } catch (IOException e) {
+      return dumpSkycacheError(env, "Cannot parse invalidation metadata: %s", e.getMessage());
+    }
+
+    ObjectCodecs codecs = getObjectCodecs(env);
+    try {
+      ImmutableList<Edge> edges =
+          GraphDumper.collectEdgesForSkyValue(
+              env.getSkyframeExecutor().getEvaluator().getInMemoryGraph(),
+              codecs,
+              store,
+              entry,
+              targetFingerprint);
+
+      InvalidationGraph graphResult;
+      if (entry.dependencyFingerprint() != null) {
+        graphResult =
+            GraphDumper.collectInvalidationGraph(
+                entry.dependencyFingerprint(),
+                store,
+                env.getBlazeWorkspace().getFingerprinterForAnalysisCaching());
+      } else {
+        graphResult = new InvalidationGraph(ImmutableList.of(), ImmutableMap.of());
+      }
+
+      dumpSkycacheEntry(out, fingerprintHex, entry, edges, graphResult);
+    } catch (SerializationException | ExecutionException | IOException e) {
+      return dumpSkycacheError(env, "Failed to deserialize SkyValue: %s", e.getMessage());
+    }
+
+    return Optional.empty();
+  }
+
+  private static void dumpSkycacheEntry(
+      PrintStream out,
+      String targetFingerprintHex,
+      SkyValueEntry targetInvalidation,
+      ImmutableList<Edge> deserializationEdges,
+      InvalidationGraph invalidationGraph)
+      throws IOException {
+    StringWriter stringWriter = new StringWriter();
+    try (JsonWriter writer = new JsonWriter(stringWriter)) {
+      writer.setIndent("  ");
+      writer.beginObject();
+
+      writer.name("target");
+      writer.beginObject();
+      writer.name("fingerprint").value(targetFingerprintHex);
+      writer.name("invalidation_data");
+      writeInvalidationData(writer, targetInvalidation);
+      writer.endObject();
+
+      writer.name("shared_value_dependency_graph");
+      writeSharedValueGraph(writer, deserializationEdges);
+
+      writer.name("invalidation_dependency_graph");
+      writeInvalidationGraph(writer, invalidationGraph);
+
+      writer.endObject();
+    }
+    out.print(stringWriter.toString());
+  }
+
+  private static void writeInvalidationData(JsonWriter writer, SkyValueEntry targetInvalidation)
+      throws IOException {
+    writer.beginObject();
+    writer.name("type").value(targetInvalidation.dataType().name());
+    switch (targetInvalidation.dataType()) {
+      case DATA_TYPE_UNSPECIFIED, DATA_TYPE_EMPTY, UNRECOGNIZED -> {}
+      case DATA_TYPE_FILE, DATA_TYPE_LISTING ->
+          writer.name("path_key").value(targetInvalidation.pathKey());
+      case DATA_TYPE_ANALYSIS_NODE, DATA_TYPE_EXECUTION_NODE ->
+          writer
+              .name("dependency_fingerprint")
+              .value(targetInvalidation.dependencyFingerprint().toHex());
+    }
+    writer.endObject();
+  }
+
+  private static void writeSharedValueGraph(
+      JsonWriter writer, ImmutableList<Edge> deserializationEdges) throws IOException {
+    writer.beginObject();
+
+    Map<PackedFingerprint, List<PackedFingerprint>> parentToChildren = new LinkedHashMap<>();
+    for (Edge edge : deserializationEdges) {
+      parentToChildren.computeIfAbsent(edge.parent(), k -> new ArrayList<>()).add(edge.child());
+    }
+
+    for (Map.Entry<PackedFingerprint, List<PackedFingerprint>> entry :
+        parentToChildren.entrySet()) {
+      writer.name(entry.getKey().toHex());
+      writer.beginArray();
+      for (PackedFingerprint child : entry.getValue()) {
+        writer.value(child.toHex());
+      }
+      writer.endArray();
+    }
+
+    writer.endObject();
+  }
+
+  private static void writeInvalidationGraph(JsonWriter writer, InvalidationGraph invalidationGraph)
+      throws IOException {
+    writer.beginObject();
+
+    writer.name("edges");
+    writer.beginArray();
+    for (Edge edge : invalidationGraph.edges()) {
+      writer.beginObject();
+      writer.name("parent").value(edge.parent().toHex());
+      writer.name("child").value(edge.child().toHex());
+      writer.endObject();
+    }
+    writer.endArray();
+
+    writer.name("metadata");
+    writer.beginObject();
+    for (Map.Entry<PackedFingerprint, Node> entry : invalidationGraph.metadata().entrySet()) {
+      writer.name(entry.getKey().toHex());
+
+      Node node = entry.getValue();
+      writer.beginObject();
+      writer.name("node_type").value(node.nodeType().name());
+
+      if (node.nodeType() == GraphDumper.NodeType.ERROR) {
+        if (node.exception() != null) {
+          writer.name("error_message").value(node.exception().toString());
+        }
+      } else if (node.nodeType() == GraphDumper.NodeType.PRESENT) {
+        writer.name("sources");
+        writeStringList(writer, node.sources());
+
+        writer.name("file_dependencies");
+        writeStringList(writer, node.fileDependencies());
+
+        writer.name("listing_dependencies");
+        writeStringList(writer, node.listingDependencies());
+
+        writer.name("nested_node_dependencies");
+        writer.beginArray();
+        for (PackedFingerprint child : node.nestedNodeDependencies()) {
+          writer.value(child.toHex());
+        }
+        writer.endArray();
+      }
+
+      writer.endObject();
+    }
+    writer.endObject();
+
+    writer.endObject();
+  }
+
+  private static void writeStringList(JsonWriter writer, List<String> list) throws IOException {
+    writer.beginArray();
+    for (String s : list) {
+      writer.value(s);
+    }
+    writer.endArray();
+  }
+
+  @VisibleForTesting
+  static ObjectCodecs getObjectCodecs(CommandEnvironment env) {
+    ObjectCodecRegistry registry =
+        env.getBlazeWorkspace().getAnalysisObjectCodecRegistrySupplier().get();
+
+    ImmutableClassToInstanceMap.Builder<Object> serializationDeps =
+        ImmutableClassToInstanceMap.builder();
+
+    RuleClassProvider ruleClassProvider = env.getRuntime().getRuleClassProvider();
+    if (ruleClassProvider != null) {
+      serializationDeps.put(RuleClassProvider.class, ruleClassProvider);
+    }
+
+    BlazeDirectories directories = env.getDirectories();
+    var roots =
+        ImmutableList.<Root>builder()
+            .add(Root.fromPath(directories.getWorkspace()))
+            .add(Root.fromPath(directories.getBlazeExecRoot()));
+    serializationDeps.put(RootCodecDependencies.class, new RootCodecDependencies(roots.build()));
+
+    SkyframeExecutor skyframeExecutor = env.getSkyframeExecutor();
+    serializationDeps
+        .put(PackagePathCodecDependencies.class, () -> skyframeExecutor.getPackagePathEntries())
+        .put(PrerequisitePackageFunction.class, skyframeExecutor::getExistingPackage)
+        .put(
+            ArtifactSerializationContext.class,
+            skyframeExecutor.getSkyframeBuildView().getArtifactFactory()::getSourceArtifact);
+
+    BuildConfigurationValue buildConfiguration = env.getSkyframeBuildView().getBuildConfiguration();
+    if (buildConfiguration != null) {
+      serializationDeps.put(BuildOptions.class, buildConfiguration.getOptions());
+    }
+
+    return new ObjectCodecs(registry, serializationDeps.build());
   }
 }

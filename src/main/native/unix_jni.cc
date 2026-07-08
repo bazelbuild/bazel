@@ -59,6 +59,30 @@ namespace blaze_jni {
 
 #define FILE_BASENAME "unix_jni.cc"
 
+namespace {
+
+static jclass getClass(JNIEnv* env, const char* name) {
+  jclass lookup_result = env->FindClass(name);
+  BAZEL_CHECK_NE(lookup_result, nullptr);
+  return static_cast<jclass>(env->NewGlobalRef(lookup_result));
+}
+
+static jmethodID getConstructorID(JNIEnv* env, jclass clazz, const char* sig) {
+  jmethodID method = env->GetMethodID(clazz, "<init>", sig);
+  BAZEL_CHECK_NE(method, nullptr) << sig;
+  return method;
+}
+
+static jobject getStaticObjectField(JNIEnv* env, jclass clazz, const char* name,
+                                    const char* sig) {
+  jfieldID field = env->GetStaticFieldID(clazz, name, sig);
+  BAZEL_CHECK_NE(field, nullptr);
+  return static_cast<jobject>(
+      env->NewGlobalRef(env->GetStaticObjectField(clazz, field)));
+}
+
+}  // namespace
+
 struct DIROrError {
   DIR *dir;
   int error;
@@ -77,33 +101,34 @@ static void PostException(JNIEnv *env, const char *exception_classname,
   }
 }
 
-// See unix_jni.h.
-void PostException(JNIEnv* env, int error_number, const std::string& message) {
-  // Select the most appropriate Java exception for a given UNIX error number.
-  const char *exception_classname;
+static jobject GetPosixError(JNIEnv* env, int error_number) {
+  static const jclass error_class =
+      getClass(env,
+               "com/google/devtools/build/lib/unix/"
+               "NativePosixFilesException$PosixError");
+  static const char* field_sig =
+      "Lcom/google/devtools/build/lib/unix/"
+      "NativePosixFilesException$PosixError;";
+  static const jobject error_enoent =
+      getStaticObjectField(env, error_class, "ENOENT", field_sig);
+  static const jobject error_eacces =
+      getStaticObjectField(env, error_class, "EACCES", field_sig);
+  static const jobject error_eloop =
+      getStaticObjectField(env, error_class, "ELOOP", field_sig);
+  static const jobject error_etimedout =
+      getStaticObjectField(env, error_class, "ETIMEDOUT", field_sig);
+  static const jobject error_other =
+      getStaticObjectField(env, error_class, "OTHER", field_sig);
+
   switch (error_number) {
-    case EFAULT:  // Illegal pointer (unlikely; perhaps from or via FUSE?)
-      exception_classname = "java/lang/IllegalArgumentException";
-      break;
     case ETIMEDOUT:  // Local socket timed out
-      exception_classname = "java/net/SocketTimeoutException";
-      break;
+      return error_etimedout;
     case ENOENT:  // No such file or directory
-      exception_classname = "java/io/FileNotFoundException";
-      break;
+      return error_enoent;
     case EACCES:  // Permission denied
-      exception_classname =
-          "com/google/devtools/build/lib/vfs/FileAccessException";
-      break;
-    case ENOSYS:   // Function not implemented
-    case ENOTSUP:  // Operation not supported on transport endpoint
-                   // (aka EOPNOTSUPP)
-      exception_classname = "java/lang/UnsupportedOperationException";
-      break;
+      return error_eacces;
     case ELOOP:  // Too many symbolic links encountered
-      exception_classname =
-          "com/google/devtools/build/lib/vfs/FileSymlinkLoopException";
-      break;
+      return error_eloop;
     case EBADF:         // Bad file number or descriptor already closed.
     case ENAMETOOLONG:  // File name too long
     case ENODATA:    // No data available
@@ -131,10 +156,56 @@ void PostException(JNIEnv* env, int error_number, const std::string& message) {
     case ENFILE:     // File table overflow
     case EMFILE:     // Too many open files
     default:
-      exception_classname = "java/io/IOException";
+      return error_other;
   }
-  PostException(env, exception_classname,
-                message + " (" + ErrorMessage(error_number) + ")");
+}
+
+static void PostNativePosixFilesException(JNIEnv* env,
+                                          const std::string& message,
+                                          jobject posix_error) {
+  static const jclass exception_class = getClass(
+      env, "com/google/devtools/build/lib/unix/NativePosixFilesException");
+  static const jmethodID constructor =
+      getConstructorID(env, exception_class,
+                       "(Ljava/lang/String;Lcom/google/devtools/build/lib/unix/"
+                       "NativePosixFilesException$PosixError;)V");
+  jstring j_message = env->NewStringUTF(message.c_str());
+  bool success = false;
+  if (j_message != nullptr) {
+    jobject exception =
+        env->NewObject(exception_class, constructor, j_message, posix_error);
+    if (exception != nullptr) {
+      success = env->Throw(reinterpret_cast<jthrowable>(exception)) == 0;
+    }
+  }
+  if (!success) {
+    BAZEL_LOG(FATAL) << "Failed to throw NativePosixFilesException: "
+                     << message.c_str();
+  }
+}
+
+// See unix_jni.h.
+void PostException(JNIEnv* env, int error_number, const std::string& message) {
+  // Select the most appropriate Java exception for a given UNIX error number.
+  const char* exception_classname = nullptr;
+  switch (error_number) {
+    case EFAULT:  // Illegal pointer (unlikely; perhaps from or via FUSE?)
+      exception_classname = "java/lang/IllegalArgumentException";
+      break;
+    case ENOSYS:   // Function not implemented
+    case ENOTSUP:  // Operation not supported on transport endpoint
+                   // (aka EOPNOTSUPP)
+      exception_classname = "java/lang/UnsupportedOperationException";
+      break;
+  }
+  std::string formatted_message =
+      message + " (" + ErrorMessage(error_number) + ")";
+  if (exception_classname != nullptr) {
+    PostException(env, exception_classname, formatted_message);
+  } else {
+    jobject posix_error = GetPosixError(env, error_number);
+    PostNativePosixFilesException(env, formatted_message, posix_error);
+  }
 }
 
 static void PostAssertionError(JNIEnv *env, const std::string& message) {
@@ -309,26 +380,6 @@ Java_com_google_devtools_build_lib_unix_NativePosixFilesServiceImpl_symlink(
 }
 
 namespace {
-
-static jclass getClass(JNIEnv* env, const char* name) {
-  jclass lookup_result = env->FindClass(name);
-  BAZEL_CHECK_NE(lookup_result, nullptr);
-  return static_cast<jclass>(env->NewGlobalRef(lookup_result));
-}
-
-static jmethodID getConstructorID(JNIEnv* env, jclass clazz, const char* sig) {
-  jmethodID method = env->GetMethodID(clazz, "<init>", sig);
-  BAZEL_CHECK_NE(method, nullptr) << sig;
-  return method;
-}
-
-static jobject getStaticObjectField(JNIEnv* env, jclass clazz, const char* name,
-                                    const char* sig) {
-  jfieldID field = env->GetStaticFieldID(clazz, name, sig);
-  BAZEL_CHECK_NE(field, nullptr);
-  return static_cast<jobject>(
-      env->NewGlobalRef(env->GetStaticObjectField(clazz, field)));
-}
 
 static jobject NewStat(JNIEnv* env, const portable_stat_struct& stat_ref) {
   static const jclass stat_class = getClass(

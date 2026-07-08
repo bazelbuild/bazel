@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.unix;
 
 import com.google.devtools.build.lib.runtime.BlazeService;
 import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
-import java.io.IOException;
 import javax.annotation.Nullable;
 
 /** A {@link BlazeService} providing access to POSIX filesystem calls. */
@@ -28,52 +27,54 @@ public interface NativePosixFilesService extends BlazeService {
    * @param path the file of interest
    * @return the pathname to which the symbolic link 'path' links, or {@code null} if 'path' is not
    *     a symbolic link.
-   * @throws IOException iff the readlink() call failed for any other reason
+   * @throws NativePosixFilesException iff the readlink() call failed for any other reason
    */
   @Nullable
-  String readlink(String path) throws IOException;
+  String readlink(String path) throws NativePosixFilesException;
 
   /**
    * Native wrapper around POSIX chmod(2) syscall.
    *
    * @param path the file of interest
    * @param mode the POSIX type and permission mode bits to set
-   * @throws IOException iff the chmod() call failed.
+   * @throws NativePosixFilesException iff the chmod() call failed.
    */
-  void chmod(String path, int mode) throws IOException;
+  void chmod(String path, int mode) throws NativePosixFilesException;
 
   /**
    * Native wrapper around POSIX symlink(2) syscall.
    *
    * @param oldpath the file to link to
    * @param newpath the new path for the link
-   * @throws IOException iff the symlink() syscall failed.
+   * @throws NativePosixFilesException iff the symlink() syscall failed.
    */
-  void symlink(String oldpath, String newpath) throws IOException;
+  void symlink(String oldpath, String newpath) throws NativePosixFilesException;
 
   /**
    * Native wrapper around POSIX link(2) syscall.
    *
    * @param oldpath the file to link to
    * @param newpath the new path for the link
-   * @throws IOException iff the link() syscall failed.
+   * @throws NativePosixFilesException iff the link() syscall failed.
    */
-  void link(String oldpath, String newpath) throws IOException;
+  void link(String oldpath, String newpath) throws NativePosixFilesException;
 
   /** How stat() and lstat() should handle errors. */
-  public enum StatErrorHandling {
-    /** Always throw an exception. */
-    ALWAYS_THROW('a'),
-    /** Throw an exception unless the error is ENOENT/ENOTDIR, in which case return null. */
-    THROW_UNLESS_NOT_FOUND('f'),
-    /* Never throw an exception. Return null instead. */
-    NEVER_THROW('n');
-
+  public final class StatErrorHandling {
     private final char code;
 
     private StatErrorHandling(char code) {
       this.code = code;
     }
+
+    /** Always throw an exception. */
+    public static final StatErrorHandling ALWAYS_THROW = new StatErrorHandling('a');
+
+    /** Throw an exception unless the error is ENOENT/ENOTDIR, in which case return null. */
+    public static final StatErrorHandling THROW_UNLESS_NOT_FOUND = new StatErrorHandling('f');
+
+    /* Never throw an exception. Return null instead. */
+    public static final StatErrorHandling NEVER_THROW = new StatErrorHandling('n');
 
     public char getCode() {
       return code;
@@ -89,9 +90,9 @@ public interface NativePosixFilesService extends BlazeService {
    * @param path the file to stat.
    * @param errorHandling how to handle errors.
    * @return a {@link Stat} containing the metadata.
-   * @throws IOException if the stat() syscall failed.
+   * @throws NativePosixFilesException if the stat() syscall failed.
    */
-  Stat stat(String path, StatErrorHandling errorHandling) throws IOException;
+  Stat stat(String path, StatErrorHandling errorHandling) throws NativePosixFilesException;
 
   /**
    * Native wrapper around POSIX lstat(2) syscall.
@@ -99,9 +100,9 @@ public interface NativePosixFilesService extends BlazeService {
    * @param path the file to lstat.
    * @param errorHandling how to handle errors.
    * @return a {@link Stat} containing the metadata.
-   * @throws IOException if the lstat() syscall failed.
+   * @throws NativePosixFilesException if the lstat() syscall failed.
    */
-  Stat lstat(String path, StatErrorHandling errorHandling) throws IOException;
+  Stat lstat(String path, StatErrorHandling errorHandling) throws NativePosixFilesException;
 
   /**
    * Native wrapper around POSIX utimensat(2) syscall.
@@ -112,9 +113,9 @@ public interface NativePosixFilesService extends BlazeService {
    * @param path the file whose modification time should be changed.
    * @param now if true, ignore {@code epochMilli} and use the current time.
    * @param epochMilli the file modification time in milliseconds since the UNIX epoch.
-   * @throws IOException if the operation failed.
+   * @throws NativePosixFilesException if the operation failed.
    */
-  void utimensat(String path, boolean now, long epochMilli) throws IOException;
+  void utimensat(String path, boolean now, long epochMilli) throws NativePosixFilesException;
 
   /**
    * Native wrapper around POSIX mkdir(2) syscall.
@@ -126,9 +127,9 @@ public interface NativePosixFilesService extends BlazeService {
    * @param mode the mode with which to create the directory.
    * @return true if the directory was successfully created; false if the system call returned
    *     EEXIST because some kind of a file (not necessarily a directory) already exists.
-   * @throws IOException if the mkdir() syscall failed for any other reason.
+   * @throws NativePosixFilesException if the mkdir() syscall failed for any other reason.
    */
-  boolean mkdir(String path, int mode) throws IOException;
+  boolean mkdir(String path, int mode) throws NativePosixFilesException;
 
   /**
    * Native wrapper around POSIX opendir(2)/readdir(3)/closedir(3) syscalls.
@@ -136,30 +137,40 @@ public interface NativePosixFilesService extends BlazeService {
    * @param path the directory to read.
    * @return an array of {@link Dirent} objects, one for each directory entry, excluding {@code .}
    *     and {@code ..}.
-   * @throws IOException if the opendir(), readdir() or closedir() calls failed for any reason.
+   * @throws NativePosixFilesException if the opendir(), readdir() or closedir() calls failed for
+   *     any reason.
    */
-  Dirent[] readdir(String path) throws IOException;
+  Dirent[] readdir(String path) throws NativePosixFilesException;
 
   /** A directory entry and its corresponding type, as returned by readdir(). */
   public record Dirent(String name, Type type) {
     /** The type of the directory entry. */
-    public enum Type {
+    public static final class Type {
       /** Regular file. */
-      FILE,
+      public static final Type FILE = new Type();
+
       /** Directory. */
-      DIRECTORY,
+      public static final Type DIRECTORY = new Type();
+
       /** Symbolic link. */
-      SYMLINK,
+      public static final Type SYMLINK = new Type();
+
       /** Character special device. */
-      CHAR,
+      public static final Type CHAR = new Type();
+
       /* Block special device. */
-      BLOCK,
+      public static final Type BLOCK = new Type();
+
       /** Named pipe. */
-      FIFO,
+      public static final Type FIFO = new Type();
+
       /** Unix domain socket. */
-      SOCKET,
+      public static final Type SOCKET = new Type();
+
       /** Unknown type. */
-      UNKNOWN
+      public static final Type UNKNOWN = new Type();
+
+      private Type() {}
     }
   }
 
@@ -168,27 +179,28 @@ public interface NativePosixFilesService extends BlazeService {
    *
    * @param oldpath the source location.
    * @param newpath the destination location.
-   * @throws IOException if the rename failed for any reason.
+   * @throws NativePosixFilesException if the rename failed for any reason.
    */
-  void rename(String oldpath, String newpath) throws IOException;
+  void rename(String oldpath, String newpath) throws NativePosixFilesException;
 
   /**
    * Native wrapper around POSIX remove(3) C library call.
    *
    * @param path the file or directory to remove.
    * @return true iff the file was actually deleted by this call.
-   * @throws IOException if the remove failed, but the file was present prior to the call.
+   * @throws NativePosixFilesException if the remove failed, but the file was present prior to the
+   *     call.
    */
-  boolean remove(String path) throws IOException;
+  boolean remove(String path) throws NativePosixFilesException;
 
   /**
    * Native wrapper around POSIX mkfifo(3) C library call.
    *
    * @param path the name of the pipe to create.
    * @param mode the mode with which to create the pipe.
-   * @throws IOException if the mkfifo failed.
+   * @throws NativePosixFilesException if the mkfifo failed.
    */
-  void mkfifo(String path, int mode) throws IOException;
+  void mkfifo(String path, int mode) throws NativePosixFilesException;
 
   /**
    * Native wrapper around Linux getxattr(2) syscall.
@@ -197,9 +209,9 @@ public interface NativePosixFilesService extends BlazeService {
    * @param name the name of the extended attribute key.
    * @return the value of the extended attribute associated with 'path', if any, or null if no such
    *     attribute is defined (ENODATA).
-   * @throws IOException if the call failed for any other reason.
+   * @throws NativePosixFilesException if the call failed for any other reason.
    */
-  byte[] getxattr(String path, String name) throws IOException;
+  byte[] getxattr(String path, String name) throws NativePosixFilesException;
 
   /**
    * Native wrapper around Linux lgetxattr(2) syscall.
@@ -208,17 +220,17 @@ public interface NativePosixFilesService extends BlazeService {
    * @param name the name of the extended attribute key.
    * @return the value of the extended attribute associated with 'path', if any, or null if no such
    *     attribute is defined (ENODATA).
-   * @throws IOException if the call failed for any other reason.
+   * @throws NativePosixFilesException if the call failed for any other reason.
    */
-  byte[] lgetxattr(String path, String name) throws IOException;
+  byte[] lgetxattr(String path, String name) throws NativePosixFilesException;
 
   /**
    * Deletes all directory trees recursively beneath the given path, which is expected to be a
    * directory. Does not remove the top directory.
    *
    * @param dir the directory hierarchy to remove
-   * @throws IOException if the hierarchy cannot be removed successfully or if the given path is not
-   *     a directory
+   * @throws NativePosixFilesException if the hierarchy cannot be removed successfully or if the
+   *     given path is not a directory
    */
-  void deleteTreesBelow(String dir) throws IOException;
+  void deleteTreesBelow(String dir) throws NativePosixFilesException;
 }

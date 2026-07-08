@@ -517,7 +517,11 @@ public final class ActionCacheCheckerTest {
     byte[] bytes = content.getBytes(UTF_8);
     FileArtifactValue metadata =
         FileArtifactValue.createForRemoteFileWithMaterializationData(
-            digest(bytes), bytes.length, 1, /* expirationTime= */ null);
+            digest(bytes),
+            bytes.length,
+            1,
+            /* expirationTime= */ null,
+            /* inMemoryOutput= */ false);
     if (resolvedPath != null) {
       metadata = FileArtifactValue.createFromExistingWithResolvedPath(metadata, resolvedPath);
     }
@@ -529,7 +533,7 @@ public final class ActionCacheCheckerTest {
     byte[] bytes = content.getBytes(UTF_8);
     FileArtifactValue metadata =
         FileArtifactValue.createForRemoteFileWithMaterializationData(
-            digest(bytes), bytes.length, 1, expirationTime);
+            digest(bytes), bytes.length, 1, expirationTime, /* inMemoryOutput= */ false);
     if (resolvedPath != null) {
       metadata = FileArtifactValue.createFromExistingWithResolvedPath(metadata, resolvedPath);
     }

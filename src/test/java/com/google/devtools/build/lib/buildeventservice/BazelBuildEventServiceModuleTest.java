@@ -188,6 +188,8 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
   private ImmutableSet<BuildEventTransport> bepTransports;
   private final List<BuildEventServiceUploadCompleteEvent> besUploadCompleteEvents =
       new ArrayList<>();
+  private final List<PrevInvocationBesUploadReportFailedEvent>
+      prevInvocationBesUploadReportFailedEvents = new ArrayList<>();
 
   private class BepTransportLogger {
     @Subscribe
@@ -202,6 +204,15 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
     @SuppressWarnings("unused")
     public void onBuildEventServiceUploadComplete(BuildEventServiceUploadCompleteEvent event) {
       besUploadCompleteEvents.add(event);
+    }
+  }
+
+  private class PrevInvocationBesUploadReportFailedEventListener {
+    @Subscribe
+    @SuppressWarnings("unused")
+    public void onPrevInvocationBesUploadReportFailed(
+        PrevInvocationBesUploadReportFailedEvent event) {
+      prevInvocationBesUploadReportFailedEvents.add(event);
     }
   }
 
@@ -247,6 +258,7 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
             .directExecutor()
             .build()
             .start();
+    runtimeWrapper.registerSubscriber(new PrevInvocationBesUploadReportFailedEventListener());
   }
 
   @After
@@ -449,8 +461,9 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
     afterBuildCommand();
     buildTarget();
     events.assertContainsWarning(
-        "The background upload of the Build Event Protocol for the previous "
-            + "invocation failed to complete in");
+        Pattern.compile(
+            "The background upload of the Build Event Protocol for the previous invocation.*"
+                + " failed to complete in"));
   }
 
   @Test
@@ -461,8 +474,9 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
     afterBuildCommand();
     buildTarget();
     events.assertContainsWarning(
-        "The background upload of the Build Event Protocol for the previous "
-            + "invocation failed to complete in");
+        Pattern.compile(
+            "The background upload of the Build Event Protocol for the previous invocation.*"
+                + " failed to complete in"));
   }
 
   @Test
@@ -476,8 +490,12 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
     afterBuildCommand();
     buildTarget();
     events.assertContainsWarning(
-        "The background upload of the Build Event Protocol for the previous "
-            + "invocation failed due to a network timeout");
+        Pattern.compile(
+            "The background upload of the Build Event Protocol for the previous invocation.*"
+                + " failed due to a network timeout"));
+    assertThat(prevInvocationBesUploadReportFailedEvents).isNotEmpty();
+    assertThat(prevInvocationBesUploadReportFailedEvents.get(0).failed()).isTrue();
+    assertThat(prevInvocationBesUploadReportFailedEvents.get(0).prevInvocationId()).isNotNull();
   }
 
   @Test
@@ -491,8 +509,9 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
     afterBuildCommand();
     buildTarget();
     events.assertContainsWarning(
-        "The background upload of the Build Event Protocol for the previous "
-            + "invocation failed due to a network timeout");
+        Pattern.compile(
+            "The background upload of the Build Event Protocol for the previous invocation.*"
+                + " failed due to a network timeout"));
   }
 
   @Test
@@ -576,8 +595,9 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
     afterBuildCommand();
     buildTarget();
     events.assertContainsWarning(
-        "The background upload of the Build Event Protocol for the previous "
-            + "invocation failed to complete in");
+        Pattern.compile(
+            "The background upload of the Build Event Protocol for the previous invocation.*"
+                + " failed to complete in"));
   }
 
   @Test
@@ -603,8 +623,9 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
     afterBuildCommand();
     buildTarget();
     events.assertContainsWarning(
-        "The background upload of the Build Event Protocol for the previous "
-            + "invocation failed due to a network timeout.");
+        Pattern.compile(
+            "The background upload of the Build Event Protocol for the previous invocation.*"
+                + " failed due to a network timeout\\."));
   }
 
   @Test

@@ -70,17 +70,6 @@ import net.starlark.java.eval.StarlarkSemantics;
  */
 @OptionsClass
 public abstract class BuildLanguageOptions extends OptionsBase {
-  @Option(
-      name = "incompatible_stop_exporting_language_modules",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "If enabled, certain language-specific modules (such as `cc_common`) are unavailable in"
-              + " user .bzl files and may only be called from their respective rules repositories.")
-  public abstract boolean getIncompatibleStopExportingLanguageModules();
-
   // TODO(#11437): Delete the special empty string value so that it's on unconditionally.
   @Option(
       name = "experimental_builtins_bzl_path",
@@ -293,20 +282,6 @@ public abstract class BuildLanguageOptions extends OptionsBase {
       },
       help = "If set to true, repository_rule gains some remote execution capabilities.")
   public abstract boolean getExperimentalRepoRemoteExec();
-
-  @Option(
-      name = "experimental_disable_external_package",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.LOSES_INCREMENTAL_STATE},
-      metadataTags = {
-        OptionMetadataTag.EXPERIMENTAL,
-      },
-      help =
-          "If set to true, the auto-generated //external package will not be available anymore. "
-              + "Bazel will still be unable to parse the file 'external/BUILD', but globs reaching "
-              + "into external/ from the unnamed package will work.")
-  public abstract boolean getExperimentalDisableExternalPackage();
 
   @Option(
       name = "experimental_sibling_repository_layout",
@@ -733,6 +708,19 @@ public abstract class BuildLanguageOptions extends OptionsBase {
   public abstract boolean getIncompatibleSimplifyUnconditionalSelectsInRuleAttrs();
 
   @Option(
+      name = "incompatible_check_external_repo_source_dir_package_boundary",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "If true, a source directory in an external repository fails the build if it crosses a"
+              + " package boundary into a sub-package, matching the behavior that already applies"
+              + " to source directories in the main repository. If false, such package boundary"
+              + " crossings inside external repositories are not detected.")
+  public abstract boolean getIncompatibleCheckExternalRepoSourceDirPackageBoundary();
+
+  @Option(
       name = "experimental_enable_starlark_set",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -854,9 +842,6 @@ public abstract class BuildLanguageOptions extends OptionsBase {
   private void setFlags(FlagConsumer consumer) {
     var unused =
         consumer
-            .setBool(
-                INCOMPATIBLE_STOP_EXPORTING_LANGUAGE_MODULES,
-                getIncompatibleStopExportingLanguageModules())
             .setBool(INCOMPATIBLE_ALLOW_TAGS_PROPAGATION, getExperimentalAllowTagsPropagation())
             .set(EXPERIMENTAL_BUILTINS_BZL_PATH, getExperimentalBuiltinsBzlPath())
             .setBool(EXPERIMENTAL_BUILTINS_DUMMY, getExperimentalBuiltinsDummy())
@@ -882,12 +867,14 @@ public abstract class BuildLanguageOptions extends OptionsBase {
             .setBool(EXPERIMENTAL_PLATFORMS_API, getExperimentalPlatformsApi())
             .setBool(EXPERIMENTAL_CC_SHARED_LIBRARY, getExperimentalCcSharedLibrary())
             .setBool(EXPERIMENTAL_REPO_REMOTE_EXEC, getExperimentalRepoRemoteExec())
-            .setBool(EXPERIMENTAL_DISABLE_EXTERNAL_PACKAGE, getExperimentalDisableExternalPackage())
             .setBool(
                 EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT, getExperimentalSiblingRepositoryLayout())
             .setBool(
                 INCOMPATIBLE_ALWAYS_CHECK_DEPSET_ELEMENTS,
                 getIncompatibleAlwaysCheckDepsetElements())
+            .setBool(
+                INCOMPATIBLE_CHECK_EXTERNAL_REPO_SOURCE_DIR_PACKAGE_BOUNDARY,
+                getIncompatibleCheckExternalRepoSourceDirPackageBoundary())
             .setBool(INCOMPATIBLE_DISALLOW_EMPTY_GLOB, getIncompatibleDisallowEmptyGlob())
             .setBool(
                 INCOMPATIBLE_PACKAGE_GROUP_HAS_PUBLIC_SYNTAX,
@@ -1054,8 +1041,6 @@ public abstract class BuildLanguageOptions extends OptionsBase {
   // (In principle, a key not associated with a command-line flag may be declared anywhere.)
 
   // booleans: the +/- prefix indicates the default value (true/false).
-  public static final String INCOMPATIBLE_STOP_EXPORTING_LANGUAGE_MODULES =
-      "-incompatible_stop_exporting_language_modules";
   public static final String INCOMPATIBLE_ALLOW_TAGS_PROPAGATION =
       "+incompatible_allow_tags_propagation";
   public static final String EXPERIMENTAL_BUILTINS_DUMMY = "-experimental_builtins_dummy";
@@ -1063,8 +1048,6 @@ public abstract class BuildLanguageOptions extends OptionsBase {
   public static final String ALLOW_EXPERIMENTAL_LOADS = "-allow_experimental_loads";
   public static final String CHECK_BZL_VISIBILITY = "+check_bzl_visibility";
   public static final String EXPERIMENTAL_CC_SHARED_LIBRARY = "-experimental_cc_shared_library";
-  public static final String EXPERIMENTAL_DISABLE_EXTERNAL_PACKAGE =
-      "-experimental_disable_external_package";
   public static final String EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS =
       "-experimental_enable_android_migration_apis";
   public static final String EXPERIMENTAL_SINGLE_PACKAGE_TOOLCHAIN_BINDING =
@@ -1083,6 +1066,8 @@ public abstract class BuildLanguageOptions extends OptionsBase {
       "-experimental_sibling_repository_layout";
   public static final String INCOMPATIBLE_ALWAYS_CHECK_DEPSET_ELEMENTS =
       "+incompatible_always_check_depset_elements";
+  public static final String INCOMPATIBLE_CHECK_EXTERNAL_REPO_SOURCE_DIR_PACKAGE_BOUNDARY =
+      "-incompatible_check_external_repo_source_dir_package_boundary";
 
   // Note that INCOMPATIBLE_DISALLOW_EMPTY_GLOB differs in Google and in OSS Bazel.
   public static final String INCOMPATIBLE_DISALLOW_EMPTY_GLOB = "+incompatible_disallow_empty_glob";

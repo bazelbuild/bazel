@@ -27,6 +27,7 @@ import build.bazel.remote.execution.v2.Directory;
 import build.bazel.remote.execution.v2.Tree;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
@@ -167,23 +168,33 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
                     || reposWithLostFiles.contains(repoName)
                 ? repoName
                 : null,
-        repoName -> {
-          try {
-            externalFs.deleteTree(externalDirectory.getChild(repoName));
-          } catch (IOException e) {
-            throw new IllegalStateException("In-memory file system is not expected to throw", e);
-          }
-          materializations.remove(repoName);
-          markerFileContents.remove(repoName);
-        });
-    if (!reposWithLostFiles.isEmpty()) {
-      evaluator.delete(
-          k ->
-              k.functionName().equals(SkyFunctions.REPOSITORY_DIRECTORY)
-                  && reposWithLostFiles.contains(((RepositoryName) k.argument()).getName()));
-    }
+        this::evictInMemoryRepo);
+    invalidateRepoDirectories(evaluator, reposWithLostFiles);
     reposWithLostFiles.clear();
     this.evaluator = null;
+  }
+
+  /** Removes the contents of the given repo from the in-memory overlay file system. */
+  private void evictInMemoryRepo(String repoName) {
+    try {
+      externalFs.deleteTree(externalDirectory.getChild(repoName));
+    } catch (IOException e) {
+      throw new IllegalStateException("In-memory file system is not expected to throw", e);
+    }
+    materializations.remove(repoName);
+    markerFileContents.remove(repoName);
+  }
+
+  /** Invalidates the {@link SkyFunctions#REPOSITORY_DIRECTORY} nodes of the given repos. */
+  private static void invalidateRepoDirectories(
+      MemoizingEvaluator evaluator, Set<String> repoNames) {
+    if (repoNames.isEmpty()) {
+      return;
+    }
+    evaluator.delete(
+        k ->
+            k.functionName().equals(SkyFunctions.REPOSITORY_DIRECTORY)
+                && repoNames.contains(((RepositoryName) k.argument()).getName()));
   }
 
   /**
@@ -252,7 +263,8 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
               DigestUtil.toBinaryDigest(file.getDigest()),
               file.getDigest().getSizeBytes(),
               /* locationIndex= */ 1,
-              expirationTime));
+              expirationTime,
+              /* inMemoryOutput= */ false));
       fs.setExecutable(filePath, file.getIsExecutable());
       // The RE API does not track whether a file is readable or writable. We choose to make all
       // files readable and not writable to ensure that other repo rules can't accidentally modify
@@ -336,6 +348,18 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
                 actionInput -> externalFs.getMetadata(actionInput.getExecPath()),
                 ActionInputPrefetcher.Priority.CRITICAL,
                 ActionInputPrefetcher.Reason.INPUTS));
+  }
+
+  /**
+   * Informs the FS that no cache is available and in-memory repos can no longer be used.
+   *
+   * <p>Must not be called while accessing external repos.
+   */
+  public void notifyNoCacheAvailable(MemoizingEvaluator evaluator) {
+    checkState(materializationExecutor == null, "must not be called when active");
+    var reposToDiscard = ImmutableSet.copyOf(markerFileContents.keySet());
+    reposToDiscard.forEach(this::evictInMemoryRepo);
+    invalidateRepoDirectories(evaluator, reposToDiscard);
   }
 
   private record WalkResult(
@@ -671,9 +695,7 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
 
     private RemoteActionExecutionContext makeRemoteContext(PathFragment relativePath) {
       String repoName = relativePath.subFragment(0, 1).getBaseName();
-      var metadata =
-          TracingMetadataUtils.buildMetadata(
-              buildRequestId, commandId, repoName, /* actionMetadata= */ null);
+      var metadata = TracingMetadataUtils.buildMetadata(buildRequestId, commandId, repoName);
       // Files in the remote external repo that Bazel reads are worth writing through to the
       // disk cache, as they are likely to be read again on future cold builds.
       return RemoteActionExecutionContext.create(metadata)
@@ -691,6 +713,11 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
 
     @Override
     public synchronized InputStream getInputStream(PathFragment path) throws IOException {
+      // .bzl and REPO.bazel files are prefetched to the native file system during injection, but
+      // only if they are regular files, a symlink with such a name is kept in the in-memory overlay
+      // only. We thus need to follow symlinks before attempting to read a supposedly prefetched
+      // file.
+      path = resolveSymbolicLinks(path).asFragment();
       if (shouldPrefetch(path)) {
         return nativeFs.getInputStream(path);
       }

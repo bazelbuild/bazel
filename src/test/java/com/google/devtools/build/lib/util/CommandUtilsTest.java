@@ -17,11 +17,10 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
-import java.io.File;
-import java.util.ArrayList;
 import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -30,28 +29,16 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class CommandUtilsTest {
 
-  private static Command buildLongCommand() {
-    ArrayList<String> args = new ArrayList<>();
-    args.add("this_command_will_not_be_found");
-    for (int i = 1; i < 40; i++) {
-      args.add("arg" + i);
-    }
-    Map<String, String> env = Maps.newTreeMap();
-    env.put("PATH", "/usr/bin:/bin:/sbin");
-    env.put("FOO", "foo");
-    File directory = new File("/tmp");
-    return new Command(args, env, directory, System.getenv());
-  }
-
   @Test
   public void longCommand() throws Exception {
-    Command command = buildLongCommand();
+    DescribableExecutionUnit unit = unitWithLongCommandLine();
     String message =
-        CommandFailureUtils.describeCommandFailure(false, CommandUtils.cwd(command), command);
+        CommandFailureUtils.describeCommandFailure(
+            /* verboseFailures= */ false, /* expandParamFiles= */ false, "/path/to/cwd", unit);
     assertThat(message)
         .isEqualTo(
             "this_command_will_not_be_found failed: "
-                + "error executing <shell command> command this_command_will_not_be_found arg1 "
+                + "error executing Mnemonic command this_command_will_not_be_found arg1 "
                 + "arg2 arg3 arg4 arg5 arg6 arg7 arg8 arg9 arg10 "
                 + "arg11 arg12 arg13 arg14 arg15 arg16 arg17 arg18 "
                 + "arg19 arg20 arg21 arg22 arg23 arg24 arg25 arg26 "
@@ -61,13 +48,14 @@ public class CommandUtilsTest {
 
   @Test
   public void longCommand_verbose() throws Exception {
-    Command command = buildLongCommand();
+    DescribableExecutionUnit command = unitWithLongCommandLine();
     String verboseMessage =
-        CommandFailureUtils.describeCommandFailure(true, CommandUtils.cwd(command), command);
+        CommandFailureUtils.describeCommandFailure(
+            /* verboseFailures= */ true, /* expandParamFiles= */ false, "/path/to/cwd", command);
     assertThat(verboseMessage)
         .isEqualTo(
-            "this_command_will_not_be_found failed: error executing <shell command> command \n"
-                + "  (cd /tmp && \\\n"
+            "this_command_will_not_be_found failed: error executing Mnemonic command \n"
+                + "  (cd /path/to/cwd && \\\n"
                 + "  exec env - \\\n"
                 + "    FOO=foo \\\n"
                 + "    PATH=/usr/bin:/bin:/sbin \\\n"
@@ -89,8 +77,12 @@ public class CommandUtilsTest {
     CommandException exception =
         assertThrows(
             CommandException.class, () -> new Command(args, env, null, System.getenv()).execute());
-    String message = CommandUtils.describeCommandFailure(false, exception);
-    String verboseMessage = CommandUtils.describeCommandFailure(true, exception);
+    String message =
+        CommandUtils.describeCommandFailure(
+            /* verbose= */ false, /* expandParamFiles= */ false, exception);
+    String verboseMessage =
+        CommandUtils.describeCommandFailure(
+            /* verbose= */ true, /* expandParamFiles= */ false, exception);
     assertThat(message)
         .isEqualTo(
             "sh failed: error executing <shell command> command "
@@ -108,5 +100,63 @@ public class CommandUtilsTest {
                 + "Process exited with status 42\n"
                 + "Some output\n"
                 + "Some errors\n");
+  }
+
+  @Test
+  public void describeCommandFailure_expandParamFiles() throws Exception {
+    DescribableExecutionUnit unit =
+        unit(
+            ImmutableList.of("this_command_will_not_be_found", "@argfile"),
+            ImmutableList.of("this_command_will_not_be_found", "arg1", "arg2"),
+            ImmutableMap.of(),
+            "Mnemonic");
+    String message =
+        CommandFailureUtils.describeCommandFailure(
+            /* verboseFailures= */ false, /* expandParamFiles= */ true, /* cwd= */ null, unit);
+    assertThat(message)
+        .isEqualTo(
+            "this_command_will_not_be_found failed: error executing Mnemonic command"
+                + " this_command_will_not_be_found arg1 arg2");
+  }
+
+  private static DescribableExecutionUnit unitWithLongCommandLine() {
+    ImmutableList.Builder<String> args = ImmutableList.builder();
+    args.add("this_command_will_not_be_found");
+    for (int i = 1; i < 40; i++) {
+      args.add("arg" + i);
+    }
+    ImmutableMap<String, String> env =
+        ImmutableMap.of(
+            "PATH", "/usr/bin:/bin:/sbin",
+            "FOO", "foo");
+    return unit(args.build(), args.build(), env, "Mnemonic");
+  }
+
+  private static DescribableExecutionUnit unit(
+      ImmutableList<String> args,
+      ImmutableList<String> argsWithExpandedParamFiles,
+      ImmutableMap<String, String> env,
+      String mnemonic) {
+    return new DescribableExecutionUnit() {
+      @Override
+      public ImmutableList<String> getArguments() {
+        return args;
+      }
+
+      @Override
+      public ImmutableList<String> getArgumentsWithExpandedParamFiles() {
+        return argsWithExpandedParamFiles;
+      }
+
+      @Override
+      public ImmutableMap<String, String> getEnvironment() {
+        return env;
+      }
+
+      @Override
+      public String getMnemonic() {
+        return mnemonic;
+      }
+    };
   }
 }

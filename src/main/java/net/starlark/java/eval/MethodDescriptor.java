@@ -32,6 +32,7 @@ import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkAnnotations;
+import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.ParamDescriptor.ConditionalCheck;
 import net.starlark.java.syntax.StarlarkType;
@@ -150,7 +151,7 @@ final class MethodDescriptor {
             allowReturnNones);
   }
 
-  private static StarlarkType buildStarlarkType(
+  private StarlarkType buildStarlarkType(
       Method method,
       StarlarkMethod annotation,
       ParamDescriptor[] parameters,
@@ -159,7 +160,8 @@ final class MethodDescriptor {
       boolean extraKeywords,
       boolean allowReturnNones) {
     if (structField) {
-      StarlarkType returnType = starlarkTypeFromJava(method.getGenericReturnType());
+      StarlarkType returnType =
+          starlarkTypeFromJava(method.getGenericReturnType(), /* isReturnType= */ true);
       if (allowReturnNones) {
         returnType = Types.union(returnType, Types.NONE);
       }
@@ -199,7 +201,7 @@ final class MethodDescriptor {
       if (allowedTypes.length > 0) {
         parameterTypes.add(starlarkTypeFromAnnotation(allowedTypes));
       } else {
-        parameterTypes.add(starlarkTypeFromJava(methodParamTypes[i]));
+        parameterTypes.add(starlarkTypeFromJava(methodParamTypes[i], /* isReturnType= */ false));
       }
       if (parameters[i].getDefaultValue() == null) {
         mandatoryParameters.add(parameters[i].getName());
@@ -209,7 +211,7 @@ final class MethodDescriptor {
     if (method.getReturnType() == Object.class) {
       returnType = Types.ANY;
     } else {
-      returnType = starlarkTypeFromJava(method.getGenericReturnType());
+      returnType = starlarkTypeFromJava(method.getGenericReturnType(), /* isReturnType= */ true);
       if (allowReturnNones) {
         returnType = Types.union(returnType, Types.NONE);
       }
@@ -252,7 +254,7 @@ final class MethodDescriptor {
     }
   }
 
-  static StarlarkType starlarkTypeFromAnnotation(ParamType[] paramTypes) {
+  private StarlarkType starlarkTypeFromAnnotation(ParamType[] paramTypes) {
     return Types.union(
         Arrays.stream(paramTypes)
             .map(
@@ -264,12 +266,12 @@ final class MethodDescriptor {
                     return paramType.type();
                   }
                 })
-            .map(MethodDescriptor::starlarkTypeFromJava)
+            .map(cls -> starlarkTypeFromJava(cls, /* isReturnType= */ false))
             .collect(toImmutableSet()));
   }
 
   /** Returns the Starlark type corresponding to the given Java type. */
-  static StarlarkType starlarkTypeFromJava(Type cls) {
+  private StarlarkType starlarkTypeFromJava(Type cls, boolean isReturnType) {
     if (cls == NoneType.class || cls == void.class) {
       return Types.NONE;
     } else if (cls == String.class) {
@@ -287,26 +289,52 @@ final class MethodDescriptor {
       return Types.FLOAT;
     } else if (cls instanceof ParameterizedType ptype && ptype.getRawType() == Dict.class) {
       return Types.dict(
-          starlarkTypeFromJava(ptype.getActualTypeArguments()[0]),
-          starlarkTypeFromJava(ptype.getActualTypeArguments()[1]));
+          starlarkTypeFromJava(ptype.getActualTypeArguments()[0], isReturnType),
+          starlarkTypeFromJava(ptype.getActualTypeArguments()[1], isReturnType));
     } else if (cls instanceof ParameterizedType ptype && ptype.getRawType() == StarlarkList.class) {
-      return Types.list(starlarkTypeFromJava(ptype.getActualTypeArguments()[0]));
+      return Types.list(starlarkTypeFromJava(ptype.getActualTypeArguments()[0], isReturnType));
     } else if (cls instanceof ParameterizedType ptype && ptype.getRawType() == StarlarkSet.class) {
-      return Types.set(starlarkTypeFromJava(ptype.getActualTypeArguments()[0]));
+      return Types.set(starlarkTypeFromJava(ptype.getActualTypeArguments()[0], isReturnType));
     } else if (cls instanceof Class<?> c && Tuple.class.isAssignableFrom(c)) {
       // TODO: #27370 - Should we ever return a narrower tuple type?
       return Types.homogeneousTuple(Types.ANY);
     } else if (cls instanceof ParameterizedType ptype
         && ptype.getRawType() == StarlarkIterable.class) {
-      return Types.collection(starlarkTypeFromJava(ptype.getActualTypeArguments()[0]));
+      return Types.collection(
+          starlarkTypeFromJava(ptype.getActualTypeArguments()[0], isReturnType));
     } else if (cls instanceof ParameterizedType ptype && ptype.getRawType() == Sequence.class) {
-      return Types.sequence(starlarkTypeFromJava(ptype.getActualTypeArguments()[0]));
+      return Types.sequence(starlarkTypeFromJava(ptype.getActualTypeArguments()[0], isReturnType));
     } else if (cls == Object.class || cls == StarlarkValue.class) {
       return Types.OBJECT;
     } else {
-      // TODO(ilist@): handle more complex types
+      if (cls instanceof Class<?> c) {
+        @Nullable StarlarkType classStarlarkType = manager.getClassStarlarkType(c);
+        if (classStarlarkType != null) {
+          // If there is a class Starlark type defined, prefer it over STRUCT_OF_ANY/EMPTY_STRUCT.
+          return classStarlarkType;
+        }
+        if (isStructType(c)) {
+          // TODO: #27370 - Allow StarlarkMethod to specify a narrower struct type.
+          // Use the top struct type for parameters (to accept all possible struct arguments); use
+          // the any partial struct type for returns (since we cannot know what fields it might
+          // have).
+          return isReturnType ? Types.STRUCT_OF_ANY : Types.EMPTY_STRUCT;
+        }
+      }
       return Types.ANY;
     }
+  }
+
+  private static boolean isStructType(Class<?> cls) {
+    if (Structure.class.isAssignableFrom(cls)) {
+      return true;
+    }
+    @Nullable StarlarkBuiltin annotation = StarlarkAnnotations.getStarlarkBuiltin(cls);
+    if (annotation != null && annotation.isStructType()) {
+      // Detect com.google.devtools.build.lib.starlarkbuildapi.core.StructApi
+      return true;
+    }
+    return false;
   }
 
   private static boolean paramUsableAsPositionalWithoutChecks(ParamDescriptor param) {

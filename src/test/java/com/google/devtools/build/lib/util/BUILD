@@ -40,7 +40,7 @@ java_test(
         "//src/test/java/com/google/devtools/build/lib:test_runner",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
+        "//src/main/java/com/google/devtools/build/lib/actions:localhost_compute_resources",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/clock",
@@ -57,6 +57,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/util:cpu_resource_converter",
         "//src/main/java/com/google/devtools/build/lib/util:crash_failure_details",
         "//src/main/java/com/google/devtools/build/lib/util:decimal_bucketer",
+        "//src/main/java/com/google/devtools/build/lib/util:describable_execution_unit",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/java/com/google/devtools/build/lib/util:env_var",
         "//src/main/java/com/google/devtools/build/lib/util:exit_code",

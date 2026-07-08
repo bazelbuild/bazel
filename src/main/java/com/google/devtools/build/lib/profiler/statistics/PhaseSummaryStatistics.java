@@ -15,8 +15,9 @@ package com.google.devtools.build.lib.profiler.statistics;
 
 import com.google.devtools.build.lib.profiler.ProfilePhase;
 import java.time.Duration;
-import java.util.EnumMap;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.NoSuchElementException;
 
 /**
@@ -26,10 +27,10 @@ import java.util.NoSuchElementException;
 public final class PhaseSummaryStatistics implements Iterable<ProfilePhase> {
 
   private long totalDurationNanos;
-  private final EnumMap<ProfilePhase, Long> durations;
+  private final Map<ProfilePhase, Long> durations;
 
   public PhaseSummaryStatistics() {
-    durations = new EnumMap<>(ProfilePhase.class);
+    durations = new LinkedHashMap<>();
     totalDurationNanos = 0;
   }
 

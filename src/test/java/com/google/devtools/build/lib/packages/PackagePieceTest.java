@@ -249,6 +249,7 @@ def fail_impl(name, visibility, **kwargs):
             /* globber= */ null,
             /* enableNameConflictChecking= */ true,
             /* trackFullMacroInformation= */ false,
+            PackageValidator.NOOP_VALIDATOR,
             Package.Builder.PackageLimits.DEFAULTS)
         .setLoads(ImmutableList.of());
   }

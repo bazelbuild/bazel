@@ -36,7 +36,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
-import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
@@ -83,6 +82,7 @@ import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.Options;
 import com.google.protobuf.ByteString;
+import com.google.protobuf.Message;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.Deque;
@@ -133,7 +133,7 @@ public class CombinedCacheTest {
   @Before
   public void setUp() throws Exception {
     MockitoAnnotations.initMocks(this);
-    metadata = TracingMetadataUtils.buildMetadata("none", "none", "action-id", null);
+    metadata = TracingMetadataUtils.buildMetadata("none", "none", "action-id");
     Spawn spawn =
         new SimpleSpawn(
             new FakeOwner("foo", "bar", "//dummy:label"),
@@ -379,6 +379,54 @@ public class CombinedCacheTest {
         .containsExactly(
             DigestUtil.toString(digestUtil.computeAsUtf8("bar")),
             ActionInputHelper.fromPath("foo"));
+  }
+
+  @Test
+  public void ensureInputsPresent_blobsLostAfterUpload_forceReuploadsDirectoryProtos()
+      throws Exception {
+    InMemoryCacheClient cacheProtocol = new InMemoryCacheClient();
+    RemoteExecutionCache remoteCache = newRemoteExecutionCache(cacheProtocol);
+    remoteActionExecutionContext = RemoteActionExecutionContext.create(metadata);
+
+    // A file in a subdirectory ensures that the Merkle tree contains directory protos, which are
+    // retained as in-memory byte arrays rather than as action inputs.
+    Path path = execRoot.getRelative("dir/foo");
+    path.getParentDirectory().createDirectoryAndParents();
+    FileSystemUtils.writeContentAsLatin1(path, "bar");
+    SortedMap<PathFragment, Path> inputs = new TreeMap<>();
+    inputs.put(PathFragment.create("dir/foo"), path);
+    var merkleTree = merkleTreeComputer.buildForFiles(inputs);
+    Message message = Digest.newBuilder().setHash("message standing in for an Action").build();
+    var messageDigest = digestUtil.compute(message);
+    var additionalInputs = ImmutableMap.of(messageDigest, message);
+    var allDigests =
+        ImmutableSet.<Digest>builder().addAll(merkleTree.allDigests()).add(messageDigest).build();
+    var remotePathResolver = new RemotePathResolver.DefaultRemotePathResolver(execRoot);
+
+    remoteCache.ensureInputsPresent(
+        remoteActionExecutionContext,
+        merkleTree,
+        additionalInputs,
+        /* force= */ false,
+        remotePathResolver);
+    assertThat(
+            getFromFuture(remoteCache.findMissingDigests(remoteActionExecutionContext, allDigests)))
+        .isEmpty();
+
+    // Simulate a remote cache that loses all blobs right after they have been uploaded.
+    for (Digest digest : allDigests) {
+      cacheProtocol.removeCasEntry(digest);
+    }
+
+    remoteCache.ensureInputsPresent(
+        remoteActionExecutionContext,
+        merkleTree,
+        additionalInputs,
+        /* force= */ true,
+        remotePathResolver);
+    assertThat(
+            getFromFuture(remoteCache.findMissingDigests(remoteActionExecutionContext, allDigests)))
+        .isEmpty();
   }
 
   @Test
@@ -688,7 +736,7 @@ public class CombinedCacheTest {
     RemoteExecutionCache remoteCache = spy(newRemoteExecutionCache(cacheProtocol));
     remoteActionExecutionContext = RemoteActionExecutionContext.create(metadata);
 
-    Map<Digest, SettableFuture<Void>> uploadFutures = Maps.newConcurrentMap();
+    Map<Digest, SettableFuture<Void>> uploadFutures = new ConcurrentHashMap<>();
     // 3 unique file digests + 2 unique directory blob digests = 5 uploads total.
     CountDownLatch uploadCalls = new CountDownLatch(5);
     doAnswer(

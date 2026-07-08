@@ -792,17 +792,13 @@ public final class CppConfiguration extends Fragment
     return cppOptions.getSaveFeatureState();
   }
 
-  public boolean useSpecificToolFiles() {
-    return cppOptions.getUseSpecificToolFiles();
-  }
-
   @StarlarkMethod(
       name = "incompatible_use_specific_tool_files",
       documented = false,
       useStarlarkThread = true)
   public boolean useSpecificToolFilesForStarlark(StarlarkThread thread) throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return cppOptions.getUseSpecificToolFiles();
+    return true;
   }
 
   public boolean disableNoCopts() {
@@ -898,11 +894,6 @@ public final class CppConfiguration extends Fragment
 
   public boolean getExperimentalCppCompileResourcesEstimation() {
     return cppOptions.getExperimentalCppCompileResourcesEstimation();
-  }
-
-  @Override
-  public boolean macosSetInstallName() {
-    return true;
   }
 
   private static void checkInExpandedApiAllowlist(StarlarkThread thread, String feature)

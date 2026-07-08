@@ -164,7 +164,9 @@ public class TestConstants {
   /** Partial query to filter out implicit dependencies of C/C++ rules. */
   public static final String CC_DEPENDENCY_CORRECTION =
       " - deps(" + TOOLS_REPOSITORY + "//tools/cpp:current_cc_toolchain)"
-      + " - deps(" + TOOLS_REPOSITORY + "//tools/cpp:grep-includes)";
+      + " - deps(" + TOOLS_REPOSITORY + "//tools/cpp:grep-includes)"
+      + " - deps("+ RULES_CC_CANNONICAL + "/private/rules_impl/wrappers:cc_binary_impl_wrapper)"
+      + " - deps("+ RULES_CC_CANNONICAL + "/private/rules_impl/wrappers:cc_library_impl_wrapper)";
 
   public static final String APPLE_PLATFORM_PATH = "build_bazel_apple_support/platforms";
   public static final String APPLE_PLATFORM_PACKAGE_ROOT =

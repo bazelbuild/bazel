@@ -16,7 +16,7 @@ import os
 import unittest
 from src.test.py.bazel import test_base
 from tools.ctexplain.bazel_api import BazelApi
-from tools.ctexplain.types import NullConfiguration
+from tools.ctexplain.ctexplain_types import NullConfiguration
 
 
 class BazelApiTest(test_base.TestBase):

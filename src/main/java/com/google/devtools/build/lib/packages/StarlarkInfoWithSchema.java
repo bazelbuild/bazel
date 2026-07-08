@@ -17,12 +17,16 @@ package com.google.devtools.build.lib.packages;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Interner;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.util.HashCodes;
 import com.google.errorprone.annotations.ForOverride;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -30,6 +34,7 @@ import javax.annotation.Nullable;
 import net.starlark.java.eval.Compactable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkFloat;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.syntax.TokenKind;
 
@@ -37,13 +42,28 @@ import net.starlark.java.syntax.TokenKind;
  * A struct-like Info (provider instance) for providers defined in Starlark that have a schema.
  *
  * <p>Maintainer's note: This class is memory-optimized in a way that can cause profiling
- * instability in some pathological cases. See {@link StarlarkProvider#optimizeField} for more
+ * instability in some pathological cases. See {@link StarlarkProvider#maybeUnwrapDepset} for more
  * information.
  *
  * <p>Schemas with <= 5 fields (covering the majority of provider types in practice) each have their
  * own dedicated subclass to optimize for memory by forgoing an array.
  */
 public abstract sealed class StarlarkInfoWithSchema extends StarlarkInfo {
+
+  /**
+   * Interner for {@linkplain #isInternable internable} instances.
+   *
+   * <p>Interning is limited to instances without truthy values for two reasons:
+   *
+   * <ol>
+   *   <li>This covers the most frequent category of duplicates in practice. Interning further may
+   *       not be worth the cost.
+   *   <li>Hashing truthy values can be arbitrarily expensive and potentially even dangerous due to
+   *       the possibility of object graph cycles.
+   * </ol>
+   */
+  private static final Interner<StarlarkInfoWithSchema> interner = BlazeInterners.newWeakInterner();
+
   private final StarlarkProvider provider;
 
   private StarlarkInfoWithSchema(StarlarkProvider provider) {
@@ -95,7 +115,7 @@ public abstract sealed class StarlarkInfoWithSchema extends StarlarkInfo {
    * which must be sorted. This class exists solely for the StarlarkInfo ArgumentProcessors.
    */
   static final class StarlarkInfoFactory extends StarlarkProvider.StarlarkInfoFactory {
-    private final ImmutableList<String> fields;
+    private final ImmutableMap<String, Integer> fields;
     private final Object[] valueTable;
     private List<String> unexpected;
 
@@ -115,7 +135,8 @@ public abstract sealed class StarlarkInfoWithSchema extends StarlarkInfo {
               "got multiple values for parameter %s in call to instantiate provider %s",
               name, provider.getPrintableName());
         }
-        valueTable[pos] = provider.optimizeField(pos, value);
+        valueTable[pos] =
+            value instanceof Depset depset ? provider.maybeUnwrapDepset(pos, depset) : value;
       } else {
         if (unexpected == null) {
           unexpected = new ArrayList<>();
@@ -148,11 +169,12 @@ public abstract sealed class StarlarkInfoWithSchema extends StarlarkInfo {
   @Override
   public final ImmutableList<String> getFieldNames() {
     ImmutableList.Builder<String> fieldNames = new ImmutableList.Builder<>();
-    ImmutableList<String> fields = provider.getFields();
-    for (int i = 0; i < fields.size(); i++) {
+    int i = 0;
+    for (String field : provider.getFields().keySet()) {
       if (getValueAt(i) != null) {
-        fieldNames.add(fields.get(i));
+        fieldNames.add(field);
       }
+      i++;
     }
     return fieldNames.build();
   }
@@ -166,9 +188,8 @@ public abstract sealed class StarlarkInfoWithSchema extends StarlarkInfo {
     int n = provider.getFields().size();
     for (int i = 0; i < n; i++) {
       Object val = getValueAt(i);
-      if (val != null
-          && !(provider.isOptimised(i, val) // optimised fields might not be Starlark values
-              || Starlark.isImmutable(val))) {
+      // Unwrapped depsets (NestedSets) are not Starlark values, but are immutable.
+      if (val != null && !(val instanceof NestedSet<?> || Starlark.isImmutable(val))) {
         return false;
       }
     }
@@ -178,9 +199,13 @@ public abstract sealed class StarlarkInfoWithSchema extends StarlarkInfo {
   @Nullable
   @Override
   public final Object getValue(String name) {
-    ImmutableList<String> fields = provider.getFields();
+    ImmutableMap<String, Integer> fields = provider.getFields();
     int i = indexOfField(name, fields);
-    return i >= 0 ? provider.retrieveOptimizedField(i, getValueAt(i)) : null;
+    if (i < 0) {
+      return null;
+    }
+    Object val = getValueAt(i);
+    return val instanceof NestedSet<?> nestedSet ? provider.rewrapDepset(i, nestedSet) : val;
   }
 
   @Nullable
@@ -211,8 +236,9 @@ public abstract sealed class StarlarkInfoWithSchema extends StarlarkInfo {
       Object xVal = x.getValueAt(i);
       Object yVal = y.getValueAt(i);
       if (xVal != null && yVal != null) {
-        ImmutableList<String> schema = x.provider.getFields();
-        throw Starlark.errorf("cannot add struct instances with common field '%s'", schema.get(i));
+        ImmutableMap<String, Integer> schema = x.provider.getFields();
+        throw Starlark.errorf(
+            "cannot add struct instances with common field '%s'", schema.keySet().asList().get(i));
       }
       ztable[i] = xVal != null ? xVal : yVal;
     }
@@ -221,24 +247,54 @@ public abstract sealed class StarlarkInfoWithSchema extends StarlarkInfo {
 
   @Override
   public final StarlarkInfoWithSchema unsafeOptimizeMemoryLayout() {
+    boolean internable = true;
     int n = provider.getFields().size();
     for (int i = 0; i < n; i++) {
       Object val = getValueAt(i);
+      internable = internable && valueIsInternable(val);
       if (val instanceof Compactable compactable) {
         setValueAt(i, compactable.unsafeOptimizeMemoryLayout());
       }
     }
-
-    return this;
+    return internable ? interner.intern(this) : this;
   }
 
-  /** Returns the index of the given named field in the given list of fields, or -1 if not found. */
-  private static int indexOfField(String name, ImmutableList<String> fields) {
-    if (fields.size() <= BINARY_SEARCH_THRESHOLD) {
-      return fields.indexOf(name);
+  /**
+   * Returns true if this instance is internable (i.e. it contains only values that are considered
+   * internable).
+   *
+   * <p>Internable instances are guaranteed to contain no object reference cycles, so they can be
+   * interned by value equality.
+   */
+  final boolean isInternable() {
+    int n = provider.getFields().size();
+    for (int i = 0; i < n; i++) {
+      if (!valueIsInternable(getValueAt(i))) {
+        return false;
+      }
     }
-    int idx = Collections.binarySearch(fields, name);
-    return idx >= 0 ? idx : -1;
+    return true;
+  }
+
+  /**
+   * A value is considered internable if its {@linkplain Starlark#truth truthiness} is false (except
+   * for {@link StarlarkFloat} values, which are never internable), or it is an empty {@link
+   * NestedSet}, or a {@code null}.
+   */
+  private static boolean valueIsInternable(@Nullable Object val) {
+    return switch (val) {
+      case NestedSet<?> nestedSet -> nestedSet.isEmpty();
+      // ``+0.0`, `-0.0`, and `0` are all `equals()` but have different memory representations.
+      case StarlarkFloat sf -> false;
+      case null -> true;
+      default -> !Starlark.truth(val);
+    };
+  }
+
+  /** Returns the index of the given named field in the given map of fields, or -1 if not found. */
+  private static int indexOfField(String name, ImmutableMap<String, Integer> fields) {
+    Integer idx = fields.get(name);
+    return idx != null ? idx : -1;
   }
 
   /** For providers with no fields. */

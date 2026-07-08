@@ -50,6 +50,7 @@ public final class LinkCommandLine extends AbstractCommandLine {
 
   private final boolean splitCommandLine;
   private final ParameterFileType parameterFileType;
+  @Nullable private final String paramFileName;
 
   private LinkCommandLine(
       String actionName,
@@ -57,7 +58,8 @@ public final class LinkCommandLine extends AbstractCommandLine {
       boolean splitCommandLine,
       ParameterFileType parameterFileType,
       CcToolchainVariables variables,
-      @Nullable FeatureConfiguration featureConfiguration) {
+      @Nullable FeatureConfiguration featureConfiguration,
+      @Nullable String paramFileName) {
 
     this.actionName = actionName;
     this.forcedToolPath = forcedToolPath;
@@ -65,6 +67,7 @@ public final class LinkCommandLine extends AbstractCommandLine {
     this.featureConfiguration = featureConfiguration;
     this.splitCommandLine = splitCommandLine;
     this.parameterFileType = parameterFileType;
+    this.paramFileName = paramFileName;
   }
 
   public String getActionName() {
@@ -135,15 +138,19 @@ public final class LinkCommandLine extends AbstractCommandLine {
                 .stream()
                 .filter(s -> s.contains("LINKER_PARAM_FILE_PLACEHOLDER"))
                 .findAny();
-        if (formatString.isPresent()) {
+        if (formatString.isPresent() || paramFileName != null) {
+          String flagFormatString =
+              formatString.isPresent()
+                  ? formatString
+                      .get()
+                      .replace("%", "%%")
+                      .replace("LINKER_PARAM_FILE_PLACEHOLDER", "%s")
+                  : "@%s";
           paramFileInfo =
               ParamFileInfo.builder(parameterFileType)
-                  .setFlagFormatString(
-                      formatString
-                          .get()
-                          .replace("%", "%%")
-                          .replace("LINKER_PARAM_FILE_PLACEHOLDER", "%s"))
+                  .setFlagFormatString(flagFormatString)
                   .setUseAlways(true)
+                  .setParamFileName(paramFileName)
                   .build();
         }
       } catch (ExpansionException e) {
@@ -173,6 +180,7 @@ public final class LinkCommandLine extends AbstractCommandLine {
     private CcToolchainVariables variables;
     private FeatureConfiguration featureConfiguration;
     private String actionName;
+    private String paramFileName;
 
     public LinkCommandLine build() {
       if (variables == null) {
@@ -185,7 +193,8 @@ public final class LinkCommandLine extends AbstractCommandLine {
           splitCommandLine,
           parameterFileType,
           variables,
-          featureConfiguration);
+          featureConfiguration,
+          paramFileName);
     }
 
     /** Use given tool path instead of the one from feature configuration */
@@ -223,6 +232,12 @@ public final class LinkCommandLine extends AbstractCommandLine {
     @CanIgnoreReturnValue
     public Builder setActionName(String actionName) {
       this.actionName = actionName;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder setParamFileName(String paramFileName) {
+      this.paramFileName = paramFileName;
       return this;
     }
   }

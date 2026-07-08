@@ -70,8 +70,10 @@ public final class Types {
   public static final FixedLengthTupleType EMPTY_TUPLE = tuple(ImmutableList.of());
   // A frequently-used arbitrary collection.
   public static final CollectionType COLLECTION_OF_ANY = collection(ANY);
-  // A frequently-used arbitrary struct
+  // A frequently-used arbitrary partial struct.
   public static final StructType STRUCT_OF_ANY = partialStruct(ImmutableMap.of());
+  // A frequently-used struct without fields; the top struct type.
+  public static final StructType EMPTY_STRUCT = struct(ImmutableMap.of());
 
   // A frequently used function without parameters, that returns Any.
   public static final CallableType NO_PARAMS_CALLABLE =

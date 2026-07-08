@@ -13,24 +13,21 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization;
 
-import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
-import static com.google.common.util.concurrent.Futures.immediateFuture;
-import static com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.immediateWriteStatus;
+import static com.google.common.base.Preconditions.checkNotNull;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.WriteStatus;
+import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
 import com.google.devtools.build.lib.util.Bucket;
-import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import com.google.protobuf.ByteString;
 import java.io.IOException;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
+import java.util.List;
+import java.util.concurrent.CancellationException;
 import javax.annotation.Nullable;
 
 /** Encapsulates fingerprint keyed bytes storage system. */
+@SkybridgeInterface
 public interface FingerprintValueStore {
   /** Usage statistics. */
+  @SkybridgeInterface
   record Stats(
       long valueBytesReceived,
       long valueBytesSent,
@@ -40,25 +37,13 @@ public interface FingerprintValueStore {
       long entriesNotFound,
       long getBatches,
       long setBatches,
-      ImmutableList<Bucket> getLatencyMicros,
-      ImmutableList<Bucket> setLatencyMicros,
-      ImmutableList<Bucket> getBatchLatencyMicros,
-      ImmutableList<Bucket> setBatchLatencyMicros) {}
+      List<Bucket> getLatencyMicros,
+      List<Bucket> setLatencyMicros,
+      List<Bucket> getBatchLatencyMicros,
+      List<Bucket> setBatchLatencyMicros) {}
 
-  Stats EMPTY_STATS =
-      new Stats(
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          ImmutableList.of(),
-          ImmutableList.of(),
-          ImmutableList.of(),
-          ImmutableList.of());
+  @SuppressWarnings("JdkImmutableCollections") // Keep the SkybridgeInterface simple.
+  Stats EMPTY_STATS = new Stats(0, 0, 0, 0, 0, 0, 0, 0, List.of(), List.of(), List.of(), List.of());
 
   default Stats getStats() {
     return EMPTY_STATS;
@@ -76,6 +61,11 @@ public interface FingerprintValueStore {
    */
   WriteStatus put(KeyBytesProvider fingerprint, byte[] serializedBytes);
 
+  /** Returns whether the WriteStatuses from {@link #put} can be sparsely aggregated. */
+  default boolean isSparseAggregationSupported() {
+    return false;
+  }
+
   /**
    * Retrieves the serialized bytes associated with {@code fingerprint}.
    *
@@ -86,7 +76,7 @@ public interface FingerprintValueStore {
 
   /**
    * {@link FingerprintValueStore#get} was called with a fingerprint that does not exist in the
-   * store.
+   * store, or the get operation was cancelled.
    */
   final class MissingFingerprintValueException extends Exception {
 
@@ -98,64 +88,10 @@ public interface FingerprintValueStore {
         KeyBytesProvider fingerprint, @Nullable Throwable cause) {
       super("No remote value for " + fingerprint, cause);
     }
-  }
 
-  static InMemoryFingerprintValueStore inMemoryStore() {
-    return new InMemoryFingerprintValueStore();
-  }
-
-  /** An in-memory {@link FingerprintValueStore} for testing. */
-  static class InMemoryFingerprintValueStore implements FingerprintValueStore {
-    private static final ListenableFuture<byte[]> IMMEDIATE_NULL = immediateFuture((byte[]) null);
-
-    public final ConcurrentMap<ByteString, ByteString> fingerprintToContents;
-
-    private final boolean useNullForMissingValues;
-
-    public InMemoryFingerprintValueStore() {
-      this(/* useNullForMissingValues= */ false);
-    }
-
-    public InMemoryFingerprintValueStore(boolean useNullForMissingValues) {
-      this(new ConcurrentHashMap<>(), useNullForMissingValues);
-    }
-
-    public InMemoryFingerprintValueStore(
-        ConcurrentMap<ByteString, ByteString> kvMap, boolean useNullForMissingValues) {
-      this.fingerprintToContents = kvMap;
-      this.useNullForMissingValues = useNullForMissingValues;
-    }
-
-    @Override
-    public WriteStatus put(KeyBytesProvider fingerprint, byte[] serializedBytes) {
-      boolean wasNovel =
-          (fingerprintToContents.put(
-                  ByteString.copyFrom(fingerprint.toBytes()), ByteString.copyFrom(serializedBytes))
-              == null);
-      return immediateWriteStatus(wasNovel);
-    }
-
-    @Override
-    public ListenableFuture<byte[]> get(KeyBytesProvider fingerprint) {
-      ByteString serializedBytes =
-          fingerprintToContents.get(ByteString.copyFrom(fingerprint.toBytes()));
-      if (serializedBytes == null) {
-        return useNullForMissingValues
-            ? IMMEDIATE_NULL
-            : immediateFailedFuture(new MissingFingerprintValueException(fingerprint));
-      }
-      return immediateFuture(serializedBytes.toByteArray());
-    }
-
-    @Nullable
-    @CanIgnoreReturnValue
-    public byte[] remove(KeyBytesProvider fingerprint) {
-      ByteString result = fingerprintToContents.remove(ByteString.copyFrom(fingerprint.toBytes()));
-      return result == null ? null : result.toByteArray();
-    }
-
-    public Iterable<ByteString> keys() {
-      return ImmutableList.copyOf(fingerprintToContents.keySet());
+    public MissingFingerprintValueException(CancellationException cause) {
+      super("Fingerprint value fetch cancelled", checkNotNull(cause));
     }
   }
+
 }

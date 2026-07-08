@@ -23,7 +23,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.sandbox.Cgroup;
-import com.google.devtools.build.lib.sandbox.CgroupsInfo;
 import com.google.devtools.build.lib.sandbox.cgroups.VirtualCgroup;
 import com.google.devtools.build.lib.sandbox.cgroups.controller.v2.UnifiedMemory;
 import com.google.devtools.build.lib.vfs.util.FsApparatus;
@@ -41,20 +40,19 @@ public class CgroupsInfoCollectorTest {
   @Test
   public void testCollectResourceUsage_returnsValidCgroupInfoMemoryUsage() {
     Clock clock = BlazeClock.instance();
-    CgroupsInfo cgroupsInfo1 = mock(CgroupsInfo.class);
-    when(cgroupsInfo1.getMemoryUsageInKb()).thenReturn(1000);
-    when(cgroupsInfo1.exists()).thenReturn(true);
-    CgroupsInfo cgroupsInfo2 = mock(CgroupsInfo.class);
-    when(cgroupsInfo2.exists()).thenReturn(false);
-    when(cgroupsInfo2.getMemoryUsageInKb()).thenReturn(2000);
-    CgroupsInfo cgroupsInfo3 = mock(CgroupsInfo.class);
-    when(cgroupsInfo3.exists()).thenReturn(true);
-    when(cgroupsInfo3.getMemoryUsageInKb()).thenReturn(3000);
+    Cgroup cgroup1 = mock(Cgroup.class);
+    when(cgroup1.getMemoryUsageInKb()).thenReturn(1000);
+    when(cgroup1.exists()).thenReturn(true);
+    Cgroup cgroup2 = mock(Cgroup.class);
+    when(cgroup2.exists()).thenReturn(false);
+    when(cgroup2.getMemoryUsageInKb()).thenReturn(2000);
+    Cgroup cgroup3 = mock(Cgroup.class);
+    when(cgroup3.exists()).thenReturn(true);
+    when(cgroup3.getMemoryUsageInKb()).thenReturn(3000);
 
     ResourceSnapshot snapshot =
         CgroupsInfoCollector.instance()
-            .collectResourceUsage(
-                ImmutableMap.of(1L, cgroupsInfo1, 2L, cgroupsInfo2, 3L, cgroupsInfo3), clock);
+            .collectResourceUsage(ImmutableMap.of(1L, cgroup1, 2L, cgroup2, 3L, cgroup3), clock);
     assertThat(snapshot.pidToMemoryInKb()).containsExactly(1L, 1000, 3L, 3000);
   }
 

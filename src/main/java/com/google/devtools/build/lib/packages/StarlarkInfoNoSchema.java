@@ -284,6 +284,22 @@ public class StarlarkInfoNoSchema extends StarlarkInfo {
   }
 
   @Override
+  public final boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (!(o instanceof StarlarkInfoNoSchema other)) {
+      return false;
+    }
+    return provider.equals(other.provider) && Arrays.equals(table, other.table);
+  }
+
+  @Override
+  public final int hashCode() {
+    return 31 * provider.hashCode() + Arrays.hashCode(table);
+  }
+
+  @Override
   public StarlarkInfoNoSchema unsafeOptimizeMemoryLayout() {
     for (int i = table.length / 2; i < table.length; i++) {
       if (table[i] instanceof Compactable compactable) {

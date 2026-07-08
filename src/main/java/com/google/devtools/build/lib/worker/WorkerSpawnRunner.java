@@ -255,7 +255,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
     List<ActionInput> inputs =
         InputMetadataProvider.expandArtifacts(
             context.getInputMetadataProvider(),
-            spawn.getInputFiles(),
+            spawn.getInputFiles().flatten(),
             /* keepEmptyTreeArtifacts= */ false,
             /* keepRunfilesTrees= */ false);
 

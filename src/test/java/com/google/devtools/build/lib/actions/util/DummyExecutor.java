@@ -105,4 +105,9 @@ public class DummyExecutor implements Executor {
     }
     throw new UnsupportedOperationException();
   }
+
+  @Override
+  public boolean expandsParamFiles() {
+    return false;
+  }
 }

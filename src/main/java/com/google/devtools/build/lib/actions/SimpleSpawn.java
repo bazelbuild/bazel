@@ -35,7 +35,7 @@ public final class SimpleSpawn implements Spawn {
   private final ImmutableList<String> arguments;
   private final ImmutableMap<String, String> environment;
   private final ImmutableMap<String, String> executionInfo;
-  private final NestedSet<? extends ActionInput> inputs;
+  private final SpawnInputs inputs;
   private final NestedSet<? extends ActionInput> tools;
   private final ImmutableList<ActionInput> outputs;
   // If null, all outputs are mandatory.
@@ -49,7 +49,7 @@ public final class SimpleSpawn implements Spawn {
       ImmutableList<String> arguments,
       ImmutableMap<String, String> environment,
       ImmutableMap<String, String> executionInfo,
-      NestedSet<? extends ActionInput> inputs,
+      SpawnInputs inputs,
       NestedSet<? extends ActionInput> tools,
       Collection<? extends ActionInput> outputs,
       @Nullable final Set<? extends ActionInput> mandatoryOutputs,
@@ -83,7 +83,7 @@ public final class SimpleSpawn implements Spawn {
       ImmutableList<String> arguments,
       ImmutableMap<String, String> environment,
       ImmutableMap<String, String> executionInfo,
-      NestedSet<? extends ActionInput> inputs,
+      SpawnInputs inputs,
       NestedSet<? extends ActionInput> tools,
       Collection<? extends ActionInput> outputs,
       @Nullable Set<? extends ActionInput> mandatoryOutputs,
@@ -108,7 +108,7 @@ public final class SimpleSpawn implements Spawn {
       ImmutableList<String> arguments,
       ImmutableMap<String, String> environment,
       ImmutableMap<String, String> executionInfo,
-      NestedSet<? extends ActionInput> inputs,
+      SpawnInputs inputs,
       NestedSet<? extends ActionInput> tools,
       Collection<? extends ActionInput> outputs,
       @Nullable Set<? extends ActionInput> mandatoryOutputs,
@@ -132,7 +132,7 @@ public final class SimpleSpawn implements Spawn {
       ImmutableList<String> arguments,
       ImmutableMap<String, String> environment,
       ImmutableMap<String, String> executionInfo,
-      NestedSet<? extends ActionInput> inputs,
+      SpawnInputs inputs,
       NestedSet<? extends ActionInput> tools,
       Collection<? extends ActionInput> outputs,
       @Nullable Set<? extends ActionInput> mandatoryOutputs,
@@ -157,7 +157,7 @@ public final class SimpleSpawn implements Spawn {
       ImmutableList<String> arguments,
       ImmutableMap<String, String> environment,
       ImmutableMap<String, String> executionInfo,
-      NestedSet<? extends ActionInput> inputs,
+      SpawnInputs inputs,
       NestedSet<? extends ActionInput> tools,
       Collection<? extends ActionInput> outputs,
       @Nullable Set<? extends ActionInput> mandatoryOutputs,
@@ -183,26 +183,6 @@ public final class SimpleSpawn implements Spawn {
       ImmutableMap<String, String> environment,
       ImmutableMap<String, String> executionInfo,
       NestedSet<? extends ActionInput> inputs,
-      Collection<Artifact> outputs,
-      LocalResourcesSupplier localResourcesSupplier) {
-    this(
-        owner,
-        arguments,
-        environment,
-        executionInfo,
-        inputs,
-        /* tools= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-        outputs,
-        /* mandatoryOutputs= */ null,
-        localResourcesSupplier);
-  }
-
-  public SimpleSpawn(
-      ActionExecutionMetadata owner,
-      ImmutableList<String> arguments,
-      ImmutableMap<String, String> environment,
-      ImmutableMap<String, String> executionInfo,
-      NestedSet<? extends ActionInput> inputs,
       Collection<? extends ActionInput> outputs,
       ResourceSet resourceSet) {
     this(
@@ -210,7 +190,7 @@ public final class SimpleSpawn implements Spawn {
         arguments,
         environment,
         executionInfo,
-        inputs,
+        SpawnInputs.of(inputs),
         NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         outputs,
         /* mandatoryOutputs= */ null,
@@ -233,7 +213,7 @@ public final class SimpleSpawn implements Spawn {
   }
 
   @Override
-  public NestedSet<? extends ActionInput> getInputFiles() {
+  public SpawnInputs getInputFiles() {
     return inputs;
   }
 

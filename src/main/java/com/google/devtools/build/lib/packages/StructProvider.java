@@ -14,17 +14,23 @@
 
 package com.google.devtools.build.lib.packages;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import java.util.Map;
 import net.starlark.java.eval.Dict;
+import net.starlark.java.syntax.StarlarkType;
+import net.starlark.java.syntax.TypeConstructor;
+import net.starlark.java.syntax.Types;
 
 /**
  * The provider for the built-in type {@code struct}.
  *
  * <p>Its singleton instance is {@link StructProvider#STRUCT}.
  */
+// We explicitly implement TypeConstructor here to avoid giving StarlarkInfoNoSchema an associated
+// struct type constructor.
 public final class StructProvider extends BuiltinProvider<StarlarkInfo>
-    implements StructApi.StructProviderApi {
+    implements StructApi.StructProviderApi, TypeConstructor {
 
   /** Provider of "struct" instances. */
   public static final StructProvider STRUCT = new StructProvider();
@@ -49,5 +55,11 @@ public final class StructProvider extends BuiltinProvider<StarlarkInfo>
   public StarlarkInfo create(Map<String, Object> fields, String errorMessageFormatForUnknownField) {
     return StarlarkInfoWithMessage.createWithCustomMessage(
         this, fields, errorMessageFormatForUnknownField);
+  }
+
+  @Override
+  public StarlarkType createStarlarkType(ImmutableList<TypeConstructor.Arg> argsTuple)
+      throws TypeConstructor.Failure {
+    return Types.STRUCT_CONSTRUCTOR.createStarlarkType(argsTuple);
   }
 }

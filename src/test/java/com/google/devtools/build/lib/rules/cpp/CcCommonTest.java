@@ -14,12 +14,10 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.baseArtifactNames;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.baseNamesOf;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.truth.IterableSubject;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -27,7 +25,6 @@ import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RunEnvironmentInfo;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
@@ -99,46 +96,6 @@ public class CcCommonTest extends BuildViewTestCase {
         .isEqualTo("emptybinary");
   }
 
-  private List<String> getCopts(String target) throws Exception {
-    ConfiguredTarget cLib = getConfiguredTarget(target);
-    Artifact object = getOutputGroup(cLib, OutputGroupInfo.FILES_TO_COMPILE).getSingleton();
-    CppCompileAction compileAction = (CppCompileAction) getGeneratingAction(object);
-    return compileAction.getCompilerOptions();
-  }
-
-  @Test
-  public void testCoptsTokenization() throws Exception {
-    scratch.file(
-        "copts/BUILD",
-        """
-        load("@rules_cc//cc:cc_library.bzl", "cc_library")
-        cc_library(
-            name = "c_lib",
-            srcs = ["foo.cc"],
-            copts = ["-Wmy-warning -frun-faster"],
-        )
-        """);
-    List<String> copts = getCopts("//copts:c_lib");
-    assertThat(copts).containsAtLeast("-Wmy-warning", "-frun-faster");
-  }
-
-  @Test
-  public void testCoptsNoTokenization() throws Exception {
-    scratch.file(
-        "copts/BUILD",
-        """
-        load("@rules_cc//cc:cc_library.bzl", "cc_library")
-        package(features = ["no_copts_tokenization"])
-
-        cc_library(
-            name = "c_lib",
-            srcs = ["foo.cc"],
-            copts = ["-Wmy-warning -frun-faster"],
-        )
-        """);
-    List<String> copts = getCopts("//copts:c_lib");
-    assertThat(copts).contains("-Wmy-warning -frun-faster");
-  }
 
   /**
    * Test that we handle ".a" files in cc_library srcs correctly when linking dynamically. In
@@ -212,236 +169,6 @@ public class CcCommonTest extends BuildViewTestCase {
     assertThat(getGeneratingAction(staticallyDotA).getMnemonic()).isEqualTo("CppArchive");
     PathFragment dotAPath = staticallyDotA.getExecPath();
     assertThat(dotAPath.getPathString()).endsWith(STATIC_LIB);
-  }
-
-  @Test
-  public void testExpandedDefinesAgainstDeps() throws Exception {
-    ConfiguredTarget expandedDefines =
-        scratchConfiguredTarget(
-            "expanded_defines",
-            "expand_deps",
-            "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
-            "cc_library(name = 'expand_deps',",
-            "           srcs = ['defines.cc'],",
-            "           deps = ['//foo'],",
-            "           defines = ['FOO=$(location //foo)'])");
-    assertThat(CcInfo.get(expandedDefines).getCcCompilationContext().getDefines())
-        .containsExactly(
-            String.format("FOO=%s/foo/libfoo.a", getRuleContext(expandedDefines).getBinFragment()));
-  }
-
-  @Test
-  public void testExpandedDefinesAgainstSrcs() throws Exception {
-    ConfiguredTarget expandedDefines =
-        scratchConfiguredTarget(
-            "expanded_defines",
-            "expand_srcs",
-            "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
-            "cc_library(name = 'expand_srcs',",
-            "           srcs = ['defines.cc'],",
-            "           defines = ['FOO=$(location defines.cc)'])");
-    assertThat(CcInfo.get(expandedDefines).getCcCompilationContext().getDefines())
-        .containsExactly("FOO=expanded_defines/defines.cc");
-  }
-
-  @Test
-  public void testExpandedDefinesAgainstData() throws Exception {
-    scratch.file("data/BUILD", "filegroup(name = 'data', srcs = ['data.txt'])");
-    ConfiguredTarget expandedDefines =
-        scratchConfiguredTarget(
-            "expanded_defines",
-            "expand_srcs",
-            "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
-            "cc_library(name = 'expand_srcs',",
-            "           srcs = ['defines.cc'],",
-            "           data = ['//data'],",
-            "           defines = ['FOO=$(location //data)'])");
-    assertThat(CcInfo.get(expandedDefines).getCcCompilationContext().getDefines())
-        .containsExactly("FOO=data/data.txt");
-  }
-
-  @Test
-  public void testExpandedDefinesDuplicateTargets() throws Exception {
-    scratch.file(
-        "data/BUILD",
-        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
-        "cc_library(name = 'a', srcs = ['foo.cc'])");
-    ConfiguredTarget expandedDefines =
-        scratchConfiguredTarget(
-            "expanded_defines",
-            "expand_srcs",
-            "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
-            "cc_library(name = 'expand_srcs',",
-            "           srcs = ['defines.cc'],",
-            "           data = ['//data:a'],",
-            "           deps = ['//data:a'],",
-            "           defines = ['FOO=$(location //data:a)'])");
-    String depPath =
-        getFilesToBuild(getConfiguredTarget("//data:a")).getSingleton().getExecPathString();
-    assertThat(CcInfo.get(expandedDefines).getCcCompilationContext().getDefines())
-        .containsExactly(String.format("FOO=%s", depPath));
-  }
-
-  @Test
-  public void testStartEndLib() throws Exception {
-    getAnalysisMock()
-        .ccSupport()
-        .setupCcToolchainConfig(
-            mockToolsConfig,
-            CcToolchainConfig.builder().withFeatures(CppRuleClasses.SUPPORTS_START_END_LIB));
-    useConfiguration("--start_end_lib");
-    scratch.file(
-        "test/BUILD",
-        """
-        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
-        load("@rules_cc//cc:cc_library.bzl", "cc_library")
-        cc_library(
-            name = "lib",
-            srcs = ["lib.c"],
-        )
-
-        cc_binary(
-            name = "bin",
-            srcs = ["bin.c"],
-        )
-        """);
-
-    ConfiguredTarget target = getConfiguredTarget("//test:bin");
-    SpawnAction action = (SpawnAction) getGeneratingAction(getExecutable(target));
-    for (Artifact input : action.getInputs().toList()) {
-      String name = input.getFilename();
-      assertThat(!CppFileTypes.ARCHIVE.matches(name) && !CppFileTypes.PIC_ARCHIVE.matches(name))
-          .isTrue();
-    }
-  }
-
-  @Test
-  public void testStartEndLibThroughFeature() throws Exception {
-    AnalysisMock.get()
-        .ccSupport()
-        .setupCcToolchainConfig(
-            mockToolsConfig,
-            CcToolchainConfig.builder().withFeatures(CppRuleClasses.SUPPORTS_START_END_LIB));
-    useConfiguration("--start_end_lib");
-    scratch.file(
-        "test/BUILD",
-        """
-        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
-        load("@rules_cc//cc:cc_library.bzl", "cc_library")
-        cc_library(
-            name = "lib",
-            srcs = ["lib.c"],
-        )
-
-        cc_binary(
-            name = "bin",
-            srcs = ["bin.c"],
-        )
-        """);
-
-    ConfiguredTarget target = getConfiguredTarget("//test:bin");
-    SpawnAction action = (SpawnAction) getGeneratingAction(getExecutable(target));
-    for (Artifact input : action.getInputs().toList()) {
-      String name = input.getFilename();
-      assertWithMessage("Expect '%s' not to be an archive", name)
-          .that(!CppFileTypes.ARCHIVE.matches(name) && !CppFileTypes.PIC_ARCHIVE.matches(name))
-          .isTrue();
-    }
-  }
-
-  @Test
-  public void testTempsWithDifferentExtensions() throws Exception {
-    AnalysisMock.get()
-        .ccSupport()
-        .setupCcToolchainConfig(
-            mockToolsConfig, CcToolchainConfig.builder().withFeatures(CppRuleClasses.SUPPORTS_PIC));
-    invalidatePackages();
-    useConfiguration("--platforms=" + TestConstants.PLATFORM_LABEL, "--save_temps");
-    scratch.file(
-        "ananas/BUILD",
-        """
-        load("@rules_cc//cc:cc_library.bzl", "cc_library")
-        cc_library(
-            name = "ananas",
-            srcs = [
-                "1.c",
-                "2.cc",
-                "3.cpp",
-                "4.S",
-                "5.h",
-                "6.hpp",
-                "7.inc",
-                "8.inl",
-                "9.tlh",
-                "A.tli",
-            ],
-        )
-        """);
-
-    ConfiguredTarget ananas = getConfiguredTarget("//ananas:ananas");
-    Iterable<String> temps =
-        ActionsTestUtil.baseArtifactNames(getOutputGroup(ananas, OutputGroupInfo.TEMP_FILES));
-    assertThat(temps)
-        .containsExactly(
-            "1.pic.i", "1.pic.s",
-            "2.pic.ii", "2.pic.s",
-            "3.pic.ii", "3.pic.s");
-  }
-
-  /**
-   * Returns the {@link IterableSubject} for the {@link OutputGroupInfo#TEMP_FILES} generated when
-   * {@code testTarget} is built for {@code cpu}.
-   */
-  private IterableSubject assertTempsForTarget(String testTarget) throws Exception {
-    useConfiguration("--save_temps");
-    ConfiguredTarget target = getConfiguredTarget(testTarget);
-    assertThat(target).isNotNull();
-
-    List<String> temps =
-        ActionsTestUtil.baseArtifactNames(getOutputGroup(target, OutputGroupInfo.TEMP_FILES));
-
-    // Return the IterableSubject for the temp files.
-    return assertWithMessage("k8").that(temps);
-  }
-
-  @Test
-  public void testTempsForCcWithPic() throws Exception {
-    AnalysisMock.get()
-        .ccSupport()
-        .setupCcToolchainConfig(
-            mockToolsConfig, CcToolchainConfig.builder().withFeatures(CppRuleClasses.SUPPORTS_PIC));
-    invalidatePackages();
-    assertTempsForTarget("//foo:foo").containsExactly("foo.pic.ii", "foo.pic.s");
-  }
-
-  @Test
-  public void testTempsForCcWithoutPic() throws Exception {
-    assertTempsForTarget("//foo:foo").containsExactly("foo.ii", "foo.s");
-  }
-
-  @Test
-  public void testTempsForCWithPic() throws Exception {
-    AnalysisMock.get()
-        .ccSupport()
-        .setupCcToolchainConfig(
-            mockToolsConfig, CcToolchainConfig.builder().withFeatures(CppRuleClasses.SUPPORTS_PIC));
-    invalidatePackages();
-    useConfiguration();
-
-    scratch.file(
-        "csrc/BUILD",
-        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
-        "cc_library(name='csrc', srcs=['foo.c'])");
-    assertTempsForTarget("//csrc:csrc").containsExactly("foo.pic.i", "foo.pic.s");
-  }
-
-  @Test
-  public void testTempsForCWithoutPic() throws Exception {
-    scratch.file(
-        "csrc/BUILD",
-        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
-        "cc_library(name='csrc', srcs=['foo.c'])");
-    assertTempsForTarget("//csrc:csrc").containsExactly("foo.i", "foo.s");
   }
 
   @Test

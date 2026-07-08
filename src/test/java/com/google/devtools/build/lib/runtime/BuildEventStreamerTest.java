@@ -29,8 +29,6 @@ import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.Subscribe;
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutedEvent;
 import com.google.devtools.build.lib.actions.ActionExecutedEvent.ErrorTiming;
@@ -51,14 +49,10 @@ import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentFactory;
 import com.google.devtools.build.lib.analysis.config.FragmentRegistry;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
-import com.google.devtools.build.lib.buildeventservice.BuildEventServiceOptions.BesUploadMode;
 import com.google.devtools.build.lib.buildeventstream.AnnounceBuildEventTransportsEvent;
-import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
-import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
-import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions.OutputGroupFileModes;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Aborted;
@@ -71,7 +65,6 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventTransportClosedE
 import com.google.devtools.build.lib.buildeventstream.BuildEventWithConfiguration;
 import com.google.devtools.build.lib.buildeventstream.BuildEventWithOrderConstraint;
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
-import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.buildeventstream.ProgressEvent;
 import com.google.devtools.build.lib.buildeventstream.ReplaceableBuildEvent;
 import com.google.devtools.build.lib.buildeventstream.transports.BuildEventStreamOptions;
@@ -87,7 +80,6 @@ import com.google.devtools.build.lib.server.FailureDetails.Crash;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
-import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
@@ -123,40 +115,7 @@ import org.junit.runner.RunWith;
 
 /** Tests {@link BuildEventStreamer}. */
 @RunWith(TestParameterInjector.class)
-public final class BuildEventStreamerTest extends FoundationTestCase {
-
-  private static final String OOM_MESSAGE = "Please build fewer targets.";
-
-  private final CountingArtifactGroupNamer artifactGroupNamer = new CountingArtifactGroupNamer();
-  private final RecordingBuildEventTransport transport =
-      new RecordingBuildEventTransport(artifactGroupNamer);
-
-  private final BuildEventStreamer streamer =
-      new BuildEventStreamer.Builder()
-          .artifactGroupNamer(artifactGroupNamer)
-          .buildEventTransports(ImmutableSet.of(transport))
-          .besStreamOptions(Options.getDefaults(BuildEventStreamOptions.class))
-          .oomMessage(OOM_MESSAGE)
-          .build();
-
-  private static BuildEventContext getTestBuildEventContext(ArtifactGroupNamer artifactGroupNamer) {
-    return new BuildEventContext() {
-      @Override
-      public ArtifactGroupNamer artifactGroupNamer() {
-        return artifactGroupNamer;
-      }
-
-      @Override
-      public PathConverter pathConverter() {
-        return Path::toString;
-      }
-
-      @Override
-      public BuildEventProtocolOptions getOptions() {
-        return Options.getDefaults(BuildEventProtocolOptions.class);
-      }
-    };
-  }
+public final class BuildEventStreamerTest extends BuildEventStreamerTestBase {
 
   private static final ActionExecutedEvent SUCCESSFUL_ACTION_EXECUTED_EVENT =
       new ActionExecutedEvent(
@@ -171,60 +130,6 @@ public final class BuildEventStreamerTest extends FoundationTestCase {
           ErrorTiming.NO_ERROR,
           /* startTime= */ null,
           /* endTime= */ null);
-
-  private static final class RecordingBuildEventTransport implements BuildEventTransport {
-    private final List<BuildEvent> events = new ArrayList<>();
-    private final List<BuildEventStreamProtos.BuildEvent> eventsAsProtos = new ArrayList<>();
-    private final ArtifactGroupNamer artifactGroupNamer;
-
-    RecordingBuildEventTransport(ArtifactGroupNamer namer) {
-      this.artifactGroupNamer = namer;
-    }
-
-    @Override
-    public String name() {
-      return this.getClass().getSimpleName();
-    }
-
-    @Override
-    public boolean mayBeSlow() {
-      return false;
-    }
-
-    @Override
-    public BesUploadMode getBesUploadMode() {
-      return BesUploadMode.WAIT_FOR_UPLOAD_COMPLETE;
-    }
-
-    @Override
-    public synchronized void sendBuildEvent(BuildEvent event) {
-      events.add(event);
-      try {
-        eventsAsProtos.add(event.asStreamProto(getTestBuildEventContext(this.artifactGroupNamer)));
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-        throw new IllegalStateException("interrupts not supported in test instance");
-      }
-    }
-
-    @Override
-    public ListenableFuture<Void> close() {
-      return Futures.immediateFuture(null);
-    }
-
-    @Override
-    public BuildEventArtifactUploader getUploader() {
-      throw new IllegalStateException();
-    }
-
-    List<BuildEvent> getEvents() {
-      return events;
-    }
-
-    List<BuildEventStreamProtos.BuildEvent> getEventProtos() {
-      return eventsAsProtos;
-    }
-  }
 
   private static class GenericOrderEvent implements BuildEventWithOrderConstraint {
     private final BuildEventId id;

@@ -13,10 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
+import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
 import java.io.IOException;
 import java.util.Collection;
 
 /** Handle to a service that consumes metadata about uploaded analysis values. */
+@SkybridgeInterface
 public interface RemoteAnalysisMetadataWriter {
   /** Adds the cached targets into the metadata table */
   boolean addTopLevelTargets(

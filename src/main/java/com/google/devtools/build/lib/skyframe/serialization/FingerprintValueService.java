@@ -19,10 +19,10 @@ import static java.util.concurrent.Executors.newSingleThreadExecutor;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Throwables;
+import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore.InMemoryFingerprintValueStore;
-import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.WriteStatus;
+import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.SparseAggregateWriteStatus;
 import com.google.devtools.build.lib.util.DecimalBucketer;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.protobuf.ByteString;
@@ -61,12 +61,6 @@ public final class FingerprintValueService implements KeyValueWriter {
   private final DecimalBucketer getLatencyMicros = new DecimalBucketer();
   private final DecimalBucketer setLatencyMicros = new DecimalBucketer();
 
-  @VisibleForTesting
-  public static FingerprintValueService createForTesting() {
-    return createForTesting(
-        FingerprintValueStore.inMemoryStore(), FingerprintValueCache.SyncMode.NOT_LINKED);
-  }
-
   /**
    * Returns an instance that uses a {@link FingerprintValueStore} that indicates a missing entry by
    * returning null, which is what analysis caching expects.
@@ -77,13 +71,19 @@ public final class FingerprintValueService implements KeyValueWriter {
   }
 
   @VisibleForTesting
+  public static FingerprintValueService createForTesting() {
+    return createForTesting(
+        new InMemoryFingerprintValueStore(), FingerprintValueCache.SyncMode.NOT_LINKED);
+  }
+
+  @VisibleForTesting
   public static FingerprintValueService createForTesting(FingerprintValueStore store) {
     return createForTesting(store, FingerprintValueCache.SyncMode.NOT_LINKED);
   }
 
   @VisibleForTesting
   public static FingerprintValueService createForTesting(FingerprintValueCache.SyncMode mode) {
-    return createForTesting(FingerprintValueStore.inMemoryStore(), mode);
+    return createForTesting(new InMemoryFingerprintValueStore(), mode);
   }
 
   private static FingerprintValueService createForTesting(
@@ -141,17 +141,46 @@ public final class FingerprintValueService implements KeyValueWriter {
     store.shutdown();
   }
 
+  public Fingerprinter getFingerprinter() {
+    return fingerprinter;
+  }
+
   /** Delegates to {@link FingerprintValueStore#put}. */
   @Override
   public WriteStatus put(KeyBytesProvider fingerprint, byte[] serializedBytes) {
     Instant before = Instant.now();
-    WriteStatus putStatus = store.put(fingerprint, serializedBytes);
-    putStatus.addListener(
+    WriteStatus rawStatus = store.put(fingerprint, serializedBytes);
+    WriteStatus finalStatus;
+
+    if (store.isSparseAggregationSupported()
+        && !rawStatus.isDone()) { // Skip if the status is already done.
+      // Wrap to enable sparse callback edges.
+      // TODO(shahan): avoid FutureCallback here by using a custom wrapper class.
+      var wrapper = new SparseAggregateWriteStatus();
+      Futures.addCallback(
+          rawStatus,
+          new FutureCallback<Boolean>() {
+            @Override
+            public void onSuccess(Boolean result) {
+              wrapper.notifyWriteSucceeded(result);
+            }
+
+            @Override
+            public void onFailure(Throwable t) {
+              wrapper.notifyWriteFailed(t);
+            }
+          },
+          directExecutor());
+      finalStatus = wrapper;
+    } else {
+      finalStatus = rawStatus;
+    }
+    finalStatus.addListener(
         () ->
             setLatencyMicros.add(
                 TimeUnit.NANOSECONDS.toMicros(Duration.between(before, Instant.now()).toNanos())),
         directExecutor());
-    return putStatus;
+    return finalStatus;
   }
 
   public FingerprintValueStore.Stats getStats() {

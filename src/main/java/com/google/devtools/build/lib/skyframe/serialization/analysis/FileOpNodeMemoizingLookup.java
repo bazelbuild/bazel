@@ -18,11 +18,16 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture.EmptyFileOpNode.EMPTY_FILE_OP_NODE;
 
+import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
+import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
+import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfiguredTarget;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.concurrent.QuiescingFuture;
 import com.google.devtools.build.lib.skyframe.AbstractNestedFileOpNodes;
 import com.google.devtools.build.lib.skyframe.FileKey;
@@ -30,11 +35,13 @@ import com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture;
 import com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture.FileOpNode;
 import com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture.FileOpNodeOrEmpty;
 import com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture.FutureFileOpNode;
+import com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture.RemoteFileOpNode;
 import com.google.devtools.build.lib.skyframe.NonRuleConfiguredTargetValue;
-import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.InMemoryGraph;
 import com.google.devtools.build.skyframe.InMemoryNodeEntry;
 import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.SkyValue;
+import com.google.protobuf.ByteString;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
@@ -76,31 +83,88 @@ import javax.annotation.Nullable;
  * overwriting of the configured target doesn't affect correctness either because each action
  * directly references the invalidation data created by its respective build.
  */
-final class FileOpNodeMemoizingLookup {
+public final class FileOpNodeMemoizingLookup {
+
+  /**
+   * An {@link AbstractValueOrFutureMap} that allows passing in data that it forwards to the
+   * function computing the value from the key.
+   */
+  private final class FileOpNodeMap
+      extends AbstractValueOrFutureMap<
+          SkyKey, FileOpNodeOrFuture, FileOpNodeOrEmpty, FutureFileOpNode> {
+
+    private FileOpNodeMap() {
+      super(new ConcurrentHashMap<>(), FutureFileOpNode::new, FutureFileOpNode.class);
+    }
+
+    private FileOpNodeOrFuture getValueOrFuture(SkyKey key) {
+      return getValueOrFuture(key, null, null);
+    }
+
+    private FileOpNodeOrFuture getValueOrFuture(
+        SkyKey key, @Nullable SkyValue value, @Nullable Iterable<SkyKey> directDeps) {
+      FileOpNodeOrFuture result = getOrCreateValueForSubclasses(key);
+      if (result instanceof FutureFileOpNode future) {
+        if (future.tryTakeOwnership()) {
+          try {
+            return populateFutureFileOpNode(future, value, directDeps);
+          } finally {
+            future.verifyComplete();
+          }
+        }
+      }
+      return result;
+    }
+  }
+
   private final Executor executor;
   private final InMemoryGraph graph;
+  private final ImmutableSet<SkyKey> selectedKeys;
+  private final boolean shouldDiscardMemory;
+  @Nullable // non-null if shouldDiscardMemory is true
+  private final ImmutableSet<PackageIdentifier> referencedPackages;
 
-  private final ValueOrFutureMap<SkyKey, FileOpNodeOrFuture, FileOpNodeOrEmpty, FutureFileOpNode>
-      nodes =
-          new ValueOrFutureMap<>(
-              new ConcurrentHashMap<>(),
-              FutureFileOpNode::new,
-              this::populateFutureFileOpNode,
-              FutureFileOpNode.class);
+  private final FileOpNodeMap nodes = new FileOpNodeMap();
 
-  FileOpNodeMemoizingLookup(Executor executor, InMemoryGraph graph) {
+  FileOpNodeMemoizingLookup(
+      Executor executor,
+      InMemoryGraph graph,
+      ImmutableSet<SkyKey> selectedKeys,
+      boolean shouldDiscardMemory,
+      @Nullable ImmutableSet<PackageIdentifier> referencedPackages) {
     this.executor = executor;
     this.graph = graph;
+    this.selectedKeys = selectedKeys;
+    this.shouldDiscardMemory = shouldDiscardMemory;
+    this.referencedPackages = referencedPackages;
   }
 
   FileOpNodeOrFuture computeNode(ActionLookupKey key) {
     return nodes.getValueOrFuture(key);
   }
 
-  private FileOpNodeOrFuture populateFutureFileOpNode(FutureFileOpNode ownedFuture) {
-    var collector = new FileOpNodeCollector(executor);
+  /**
+   * Computes a node with the specified direct deps and value.
+   *
+   * <p>To be used when the node in question hasn't been committed to Skyframe yet.
+   *
+   * @param key the {@link SkyKey} for which the node should be computed
+   * @param value the value that will be eventually committed to Skyframe under the specified key
+   * @param directDeps the deps of the corresponding Skyframe node. Must be the same as what will be
+   *     committed to Skyframe.
+   */
+  FileOpNodeOrFuture computeNode(ActionLookupKey key, SkyValue value, Iterable<SkyKey> directDeps) {
+    return nodes.getValueOrFuture(key, value, directDeps);
+  }
 
-    accumulateTransitiveFileSystemOperations(ownedFuture.key(), collector);
+  private FileOpNodeOrFuture populateFutureFileOpNode(
+      FutureFileOpNode ownedFuture,
+      @Nullable SkyValue value,
+      @Nullable Iterable<SkyKey> directDeps) {
+    SkyKey key = ownedFuture.key();
+    var collector = new FileOpNodeCollector(executor, key);
+
+    accumulateTransitiveFileSystemOperations(collector, key, value, directDeps);
     collector.notifyAllFuturesAdded();
 
     if (collector.isDone()) {
@@ -113,44 +177,50 @@ final class FileOpNodeMemoizingLookup {
     return ownedFuture.completeWith(collector);
   }
 
-  private void accumulateTransitiveFileSystemOperations(SkyKey key, FileOpNodeCollector collector) {
-    InMemoryNodeEntry nodeEntry = graph.getIfPresent(key);
-    if (nodeEntry == null) {
-      collector.failWith(new MissingSkyframeEntryException(key));
-      return;
+  private void accumulateTransitiveFileSystemOperations(
+      FileOpNodeCollector collector,
+      SkyKey key,
+      @Nullable SkyValue value,
+      @Nullable Iterable<SkyKey> directDeps) {
+    if (directDeps == null) {
+      InMemoryNodeEntry nodeEntry = graph.getIfPresent(key);
+      if (nodeEntry == null) {
+        collector.failWith(new MissingSkyframeEntryException(key));
+        return;
+      }
+      directDeps = nodeEntry.getDirectDeps();
+      value = checkNotNull(nodeEntry.getValue(), key);
     }
 
-    if (key instanceof ActionLookupKey actionLookupKey) {
+    if (key instanceof ActionLookupKey) {
       // If the corresponding value is an InputFileConfiguredTarget, it indicates an execution time
       // file dependency.
-      if ((checkNotNull(nodeEntry.getValue(), actionLookupKey)
-              instanceof NonRuleConfiguredTargetValue nonRuleConfiguredTargetValue)
-          && (nonRuleConfiguredTargetValue.getConfiguredTarget()
-              instanceof InputFileConfiguredTarget inputFileConfiguredTarget)) {
+      if (value instanceof NonRuleConfiguredTargetValue nonRuleConfiguredTargetValue
+          && nonRuleConfiguredTargetValue.getConfiguredTarget()
+              instanceof InputFileConfiguredTarget inputFileConfiguredTarget) {
         // The source artifact's file becomes an execution time dependency of actions owned by
         // configured targets with this InputFileConfiguredTarget as a dependency.
         SourceArtifact source = inputFileConfiguredTarget.getArtifact();
-        var fileKey =
-            FileKey.create(RootedPath.toRootedPath(source.getRoot().getRoot(), source.getPath()));
-        if (graph.getIfPresent(fileKey) != null) {
-          // If the file value is not present in the graph, it means that no action executed
-          // actually depended on that file.
-          //
-          // TODO: b/364831651 - for greater determinism, consider performing additional Skyframe
-          // evaluations for these unused dependencies.
-          collector.setSource(fileKey);
+        var fileKey = FileKey.create(source.getRootedPath());
+        for (SkyKey dep : directDeps) {
+          if (dep.equals(fileKey)) {
+            continue;
+          }
+          switch (dep) {
+            case FileOpNode immediateNode -> collector.addNode(immediateNode);
+            default -> addNodeForKey(dep, collector);
+          }
         }
+
+        collector.setSource(fileKey);
+        return;
       }
     }
 
-    for (SkyKey dep : nodeEntry.getDirectDeps()) {
+    for (SkyKey dep : directDeps) {
       switch (dep) {
-        case FileOpNode immediateNode:
-          collector.addNode(immediateNode);
-          break;
-        default:
-          addNodeForKey(dep, collector);
-          break;
+        case FileOpNode immediateNode -> collector.addNode(immediateNode);
+        default -> addNodeForKey(dep, collector);
       }
     }
   }
@@ -158,31 +228,46 @@ final class FileOpNodeMemoizingLookup {
   private void addNodeForKey(SkyKey key, FileOpNodeCollector collector) {
     // TODO: b/364831651 - This adds all traversed SkyKeys to `nodes`. Consider if certain types
     // should be excluded from memoization.
-    switch (nodes.getValueOrFuture(key)) {
-      case EMPTY_FILE_OP_NODE:
-        break;
-      case FileOpNode node:
-        collector.addNode(node);
-        break;
-      case FutureFileOpNode future:
-        collector.addFuture(future);
-        break;
+
+    // The file dependencies of action execution values are defined through the configured
+    // targets defining their actions. We can skip traversing the action graph.
+    SkyKey dependencyKey =
+        switch (key) {
+          case ActionLookupData lookupData -> lookupData.getActionLookupKey();
+          case DerivedArtifact artifact -> artifact.getArtifactOwner();
+          default -> key;
+        };
+    switch (nodes.getValueOrFuture(dependencyKey)) {
+      case EMPTY_FILE_OP_NODE -> {}
+      case FileOpNode node -> collector.addNode(node);
+      case FutureFileOpNode future -> collector.addFuture(future);
     }
   }
 
-  private static final class FileOpNodeCollector extends QuiescingFuture<FileOpNodeOrEmpty>
+  private final class FileOpNodeCollector extends QuiescingFuture<FileOpNodeOrEmpty>
       implements FutureCallback<FileOpNodeOrEmpty> {
     private final Executor executor;
+    private final SkyKey key;
     private final Set<FileOpNode> nodes = ConcurrentHashMap.newKeySet();
     @Nullable private FileKey sourceFile = null;
 
-    private FileOpNodeCollector(Executor executor) {
+    private FileOpNodeCollector(Executor executor, SkyKey key) {
       super(directExecutor());
       this.executor = executor;
+      this.key = key;
     }
 
     @Override
     protected FileOpNodeOrEmpty getValue() {
+      if (shouldDiscardMemory
+          // PackageIdentifier keys (PackageValues) must not be discarded before any referencing
+          // ConfiguredTarget is serialized. The ConfiguredTargetValueCodec uses the package to
+          // obtain target information. They are cleaned up later using reference counting
+          // after all selected targets that require them are uploaded.
+          && !(key instanceof PackageIdentifier pkgId && referencedPackages.contains(pkgId))
+          && !selectedKeys.contains(key)) {
+        graph.removeIfDone(key);
+      }
       return AbstractNestedFileOpNodes.from(nodes, sourceFile);
     }
 
@@ -224,11 +309,8 @@ final class FileOpNodeMemoizingLookup {
     @Override
     public void onSuccess(FileOpNodeOrEmpty nodeOrEmpty) {
       switch (nodeOrEmpty) {
-        case EMPTY_FILE_OP_NODE:
-          break;
-        case FileOpNode node:
-          addNode(node);
-          break;
+        case EMPTY_FILE_OP_NODE -> {}
+        case FileOpNode node -> addNode(node);
       }
       decrement();
     }
@@ -243,5 +325,12 @@ final class FileOpNodeMemoizingLookup {
     public void onFailure(Throwable t) {
       notifyException(t);
     }
+  }
+
+  public void registerRemoteFingerprint(SkyKey key, ByteString fingerprint) {
+    FileOpNodeOrFuture old = nodes.put(key, new RemoteFileOpNode(fingerprint));
+    // Control only gets here for nodes that have been freshly downloaded. This means that there
+    // must be no corresponding entry in the map.
+    Verify.verify(old == null);
   }
 }

@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
-import com.google.devtools.build.lib.sandbox.CgroupsInfo;
 import com.google.devtools.build.lib.sandbox.LinuxSandboxCommandLineBuilder;
 import com.google.devtools.build.lib.sandbox.LinuxSandboxUtil;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers;
@@ -148,14 +147,6 @@ final class SandboxedWorker extends SingleplexWorker {
     // We put the sandbox inside a unique subdirectory using the worker's ID.
     if (cgroupFactory != null) {
       cgroup = cgroupFactory.create(workerId, ImmutableMap.of());
-    } else if (options.getUseCgroupsOnLinux() || hardenedSandboxOptions != null) {
-      // In the event that the memory limit is 0, we defer to using Blaze's WorkerLifecycleManager
-      // to kill workers rather than cgroup's OOM killer.
-      cgroup =
-          CgroupsInfo.getBlazeSpawnsCgroup()
-              .createIndividualSpawnCgroup(
-                  "worker_sandbox_" + workerId,
-                  hardenedSandboxOptions != null ? hardenedSandboxOptions.memoryLimit() : 0);
     }
 
     // TODO(larsrc): Check that execRoot and outputBase are not under /tmp

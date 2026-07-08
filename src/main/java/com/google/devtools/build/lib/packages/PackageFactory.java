@@ -247,6 +247,7 @@ public final class PackageFactory {
         globber,
         /* enableNameConflictChecking= */ true,
         /* trackFullMacroInformation= */ true,
+        packageValidator,
         packageValidator.getPackageLimits());
   }
 
@@ -277,6 +278,7 @@ public final class PackageFactory {
         globber,
         /* enableNameConflictChecking= */ true,
         /* trackFullMacroInformation= */ true,
+        packageValidator,
         packageValidator.getPackageLimits(),
         buildFile);
   }
@@ -315,6 +317,7 @@ public final class PackageFactory {
         globber,
         /* enableNameConflictChecking= */ true,
         /* trackFullMacroInformation= */ true,
+        packageValidator,
         packageValidator.getPackageLimits());
   }
 

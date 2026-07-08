@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.actions;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 
@@ -44,13 +43,4 @@ public final class LocalHostCapacity {
     return localResources;
   }
 
-  /**
-   * Sets the local host capacity to hardcoded values.
-   *
-   * @param capacity the explicit capacity, or null to use the machine-specific values again
-   */
-  @VisibleForTesting
-  public static void setLocalHostCapacity(ResourceSet capacity) {
-    localHostCapacity = capacity;
-  }
 }

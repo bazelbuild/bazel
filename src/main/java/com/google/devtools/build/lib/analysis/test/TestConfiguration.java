@@ -187,16 +187,6 @@ public class TestConfiguration extends Fragment {
             """)
     public abstract TriState getCacheTestResults();
 
-    @Deprecated
-    @Option(
-        name = "test_result_expiration",
-        defaultValue = "-1", // No expiration by default.
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        metadataTags = {OptionMetadataTag.DEPRECATED},
-        help = "This option is deprecated and has no effect.")
-    public abstract int getTestResultExpiration();
-
     @Option(
         name = "trim_test_configuration",
         defaultValue = "true",

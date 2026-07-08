@@ -17,6 +17,7 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 
 import com.google.devtools.build.lib.profiler.MemoryProfiler.MemoryProfileStableHeapParameters;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.profiler.SlimProfileConfiguration;
 import com.google.devtools.build.lib.runtime.CommandLineEvent.ToolCommandLineEvent;
 import com.google.devtools.build.lib.util.EnvVar;
 import com.google.devtools.build.lib.util.OptionsUtils;
@@ -70,7 +71,7 @@ public abstract class CommonCommandOptions extends OptionsBase {
       help =
           "Selects additional config sections from the rc files; for every <command>, it "
               + "also pulls in the options from <command>:<config> if such a section exists; "
-              + "if this section doesn't exist in any .rc file, Blaze fails with an error. "
+              + "if this section doesn't exist in any .rc file, Bazel fails with an error. "
               + "The config sections and flag combinations they are equivalent to are "
               + "located in the tools/*.blazerc config files.")
   public abstract List<String> getConfigs();
@@ -327,12 +328,14 @@ public abstract class CommonCommandOptions extends OptionsBase {
       name = "slim_profile",
       oldName = "experimental_slim_json_profile",
       defaultValue = "true",
+      converter = SlimProfileConfiguration.SlimProfileConverter.class,
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.BAZEL_MONITORING},
       help =
           "Slims down the size of the JSON profile by merging events if the profile gets "
-              + "too large.")
-  public abstract boolean getSlimProfile();
+              + "too large. Supports boolean values or a size in bytes (e.g. 5M) to start "
+              + "slimming after the profile exceeds that size.")
+  public abstract SlimProfileConfiguration getSlimProfile();
 
   @Option(
       name = "experimental_profile_include_primary_output",
@@ -601,7 +604,7 @@ public abstract class CommonCommandOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
       effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE},
       help =
-          "If false, Blaze will not persist data that allows for invalidation and re-evaluation "
+          "If false, Bazel will not persist data that allows for invalidation and re-evaluation "
               + "on incremental builds in order to save memory on this build. Subsequent builds "
               + "will not have any incrementality with respect to this one. Usually you will want "
               + "to specify --batch when setting this to false.")
@@ -662,7 +665,7 @@ public abstract class CommonCommandOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
       effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE},
       help =
-          "If true, Blaze will remove FileState and DirectoryListingState nodes after related File"
+          "If true, Bazel will remove FileState and DirectoryListingState nodes after related File"
               + " and DirectoryListing node is done to save memory. We expect that it is less"
               + " likely that these nodes will be needed again. If so, the program will re-evaluate"
               + " them.")

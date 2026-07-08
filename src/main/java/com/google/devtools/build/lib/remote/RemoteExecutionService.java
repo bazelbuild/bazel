@@ -65,13 +65,14 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.CommandLines;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.ParamFileActionInput;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.Spawns;
@@ -563,9 +564,17 @@ public class RemoteExecutionService {
 
       ActionKey actionKey = digestUtil.computeActionKey(action);
 
+      ActionExecutionMetadata actionMetadata = spawn.getResourceOwner();
       RequestMetadata metadata =
           TracingMetadataUtils.buildMetadata(
-              buildRequestId, commandId, actionKey.digest().getHash(), spawn.getResourceOwner());
+              buildRequestId,
+              commandId,
+              actionKey.digest().getHash(),
+              actionMetadata != null ? actionMetadata.getMnemonic() : null,
+              actionMetadata != null && actionMetadata.getOwner().getLabel() != null
+                  ? actionMetadata.getOwner().getLabel().getCanonicalForm()
+                  : null,
+              actionMetadata != null ? actionMetadata.getOwner().getConfigurationChecksum() : null);
       RemoteActionExecutionContext remoteActionExecutionContext =
           RemoteActionExecutionContext.create(
               spawn, context, metadata, getWriteCachePolicy(spawn), getReadCachePolicy(spawn));
@@ -940,6 +949,18 @@ public class RemoteExecutionService {
 
   private void createSymlinks(Iterable<SymlinkMetadata> symlinks) throws IOException {
     for (SymlinkMetadata symlink : symlinks) {
+      // Ensure the symlink is materialized inside the exec root. The local path is derived from an
+      // ActionResult output symlink path via execRoot.getRelative(...), which returns an absolute
+      // path verbatim, so without this check an absolute (or otherwise escaping) symlink path would
+      // be created outside the output tree. Output files already enforce containment via
+      // file.path.relativeTo(execRoot) in downloadOutputs(); apply the same guarantee to output
+      // symlinks (including tree-nested symlinks, which also flow through here).
+      if (!symlink.path().startsWith(execRoot)) {
+        throw new IOException(
+            String.format(
+                "Failed to create symlink %s: the output path escapes the output tree %s",
+                symlink.path(), execRoot));
+      }
       Preconditions.checkNotNull(
               symlink.path().getParentDirectory(),
               "Failed creating directory and parents for %s",
@@ -1290,7 +1311,8 @@ public class RemoteExecutionService {
                   file.path().asFragment(),
                   DigestUtil.toBinaryDigest(file.digest()),
                   file.digest().getSizeBytes(),
-                  expirationTime);
+                  expirationTime,
+                  isInMemoryOutputFile);
         }
 
         if (isInMemoryOutputFile) {
@@ -1344,7 +1366,8 @@ public class RemoteExecutionService {
                   file.path().asFragment(),
                   DigestUtil.toBinaryDigest(file.digest()),
                   file.digest().getSizeBytes(),
-                  expirationTime);
+                  expirationTime,
+                  /* inMemoryOutput= */ false);
         }
       }
     }
@@ -2054,8 +2077,8 @@ public class RemoteExecutionService {
     if (!executionOptions.shouldMaterializeParamFiles()) {
       return;
     }
-    for (ActionInput actionInput : spawn.getInputFiles().toList()) {
-      if (actionInput instanceof CommandLines.ParamFileActionInput paramFileActionInput) {
+    for (ActionInput actionInput : spawn.getInputFiles().flatten()) {
+      if (actionInput instanceof ParamFileActionInput paramFileActionInput) {
         paramFileActionInput.atomicallyWriteRelativeTo(execRoot);
       }
     }

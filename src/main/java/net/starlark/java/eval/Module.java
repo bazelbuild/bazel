@@ -360,6 +360,13 @@ public final class Module implements Resolver.Module, TypeTagger.LoadableModule 
     return i != null ? getGlobalTypeByIndex(i) : null;
   }
 
+  @Override
+  @Nullable
+  public TypeConstructor getExportTypeConstructor(String name) {
+    @Nullable Object value = getGlobal(name);
+    return value instanceof TypeConstructor constructorValue ? constructorValue : null;
+  }
+
   /**
    * Sets the value of a global variable based on its index in this module ({@see
    * getIndexOfGlobal}).

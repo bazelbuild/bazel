@@ -194,11 +194,14 @@ public class CommandFailureUtils {
   }
 
   public static String describeCommandFailure(
-      boolean verboseFailures, @Nullable String cwd, DescribableExecutionUnit command) {
+      boolean verboseFailures,
+      boolean expandParamFiles,
+      @Nullable String cwd,
+      DescribableExecutionUnit command) {
     return describeCommandFailure(
         verboseFailures,
         command.getMnemonic(),
-        command.getArguments(),
+        expandParamFiles ? command.getArgumentsWithExpandedParamFiles() : command.getArguments(),
         command.getEnvironment(),
         cwd,
         command.getConfigurationChecksum(),

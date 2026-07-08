@@ -277,9 +277,12 @@ public abstract class MockCcSupport {
             "cc/common/semantics.bzl",
             "cc/find_cc_toolchain.bzl",
             "cc/toolchains/BUILD",
+            "cc/toolchains/actions/BUILD",
             "cc/toolchains/cc_toolchain.bzl",
             "cc/toolchains/cc_toolchain_alias.bzl",
             "cc/toolchains/cc_toolchain_config_info.bzl",
+            "cc/toolchains/features/BUILD",
+            "cc/toolchains/features/legacy/BUILD",
             "cc/toolchains/tool_map.bzl",
             "cc/toolchain_utils.bzl")) {
       try {

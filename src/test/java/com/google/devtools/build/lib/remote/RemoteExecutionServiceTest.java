@@ -81,6 +81,7 @@ import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.RunfilesTree;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.actions.SpawnInputs;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
@@ -253,8 +254,7 @@ public class RemoteExecutionServiceTest {
     executor = mock(RemoteExecutionClient.class);
     when(executor.getServerCapabilities()).thenReturn(remoteExecutorCapabilities);
 
-    RequestMetadata metadata =
-        TracingMetadataUtils.buildMetadata("none", "none", "action-id", null);
+    RequestMetadata metadata = TracingMetadataUtils.buildMetadata("none", "none", "action-id");
     remoteActionExecutionContext = RemoteActionExecutionContext.create(metadata);
   }
 
@@ -1343,6 +1343,34 @@ public class RemoteExecutionServiceTest {
   }
 
   @Test
+  public void downloadOutputs_outputSymlinkEscapingExecRoot_isRejected() throws Exception {
+    // An output symlink whose resolved local path is outside the exec root must be rejected,
+    // mirroring
+    // the containment enforced for output files (file.path.relativeTo(execRoot) throws in
+    // downloadOutputs). The escaping symlink is present only in the result passed to
+    // downloadOutputs;
+    // building the spawn from it would otherwise attempt to create a test artifact for the escaping
+    // path.
+    Spawn spawn =
+        newSpawnFromResult(
+            RemoteActionResult.createFromCache(
+                CachedActionResult.remote(ActionResult.getDefaultInstance())));
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
+    RemoteExecutionService service = newRemoteExecutionService();
+    RemoteAction action = service.buildRemoteAction(spawn, context);
+    createOutputDirectories(spawn);
+    when(remoteOutputChecker.shouldDownloadOutput(ArgumentMatchers.<PathFragment>any(), any()))
+        .thenReturn(true);
+
+    ActionResult.Builder poisoned = ActionResult.newBuilder();
+    poisoned.addOutputSymlinksBuilder().setPath("outputs/../../../escape/link").setTarget("foo");
+    RemoteActionResult poisonedResult =
+        RemoteActionResult.createFromCache(CachedActionResult.remote(poisoned.build()));
+
+    assertThrows(IOException.class, () -> service.downloadOutputs(action, poisonedResult));
+  }
+
+  @Test
   public void downloadOutputs_outputSymlinksCompatibility_success() throws Exception {
     // Test that download outputs works when the action result contains both output_symlinks
     // and output_file_symlinks (or output_directory_symlinks).
@@ -2156,7 +2184,7 @@ public class RemoteExecutionServiceTest {
             /* arguments= */ ImmutableList.of(),
             /* environment= */ ImmutableMap.of(),
             /* executionInfo= */ ImmutableMap.of(REMOTE_EXECUTION_INLINE_OUTPUTS, "outputs/file1"),
-            /* inputs= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+            SpawnInputs.empty(),
             /* tools= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
             /* outputs= */ ImmutableSet.of(a1),
             /* mandatoryOutputs= */ ImmutableSet.of(),

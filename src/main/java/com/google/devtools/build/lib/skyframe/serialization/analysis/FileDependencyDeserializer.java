@@ -352,18 +352,19 @@ final class FileDependencyDeserializer {
       FileDependencies.Builder builder;
       String parentDirectory;
       switch (parentOrMissing) {
-        case null:
+        case null -> {
           parentDirectory = null;
           builder = FileDependencies.builder(basename);
-          break;
-        case AvailableFileDependencies parent:
+        }
+        case AvailableFileDependencies parent -> {
           parentDirectory = parent.resolvedPath();
           builder =
               FileDependencies.builder(getRelative(parentDirectory, basename))
                   .addDependency(parent);
-          break;
-        case MissingFileDependencies unused:
+        }
+        case MissingFileDependencies unused -> {
           return immediateFuture(FileDependencies.newMissingInstance());
+        }
       }
       return processSymlinks(key, data, /* symlinkIndex= */ 0, parentDirectory, builder, store);
     }
@@ -569,9 +570,11 @@ final class FileDependencyDeserializer {
   // ---------- Begin NestedDependencies deserialization implementation ----------
 
   private class WaitForNestedNodeBytes implements AsyncFunction<byte[], NestedDependencies> {
+    private final PackedFingerprint key;
     private final FingerprintValueStore store;
 
-    private WaitForNestedNodeBytes(PackedFingerprint unused, FingerprintValueStore store) {
+    private WaitForNestedNodeBytes(PackedFingerprint key, FingerprintValueStore store) {
+      this.key = key;
       this.store = store;
     }
 
@@ -609,7 +612,7 @@ final class FileDependencyDeserializer {
               sourceCount > 0
                   ? new FileDependencies[sourceCount]
                   : NestedDependencies.EMPTY_SOURCES;
-          var countdown = new PendingElementCountdown(elements, sources);
+          var countdown = new PendingElementCountdown(this.key, elements, sources);
 
           for (int i = 0; i < nestedCount; i++) {
             var key = PackedFingerprint.readFrom(codedIn);
@@ -672,11 +675,14 @@ final class FileDependencyDeserializer {
    * <p>This future completes once all the elements are set.
    */
   private static class PendingElementCountdown extends QuiescingFuture<NestedDependencies> {
+    private final PackedFingerprint key;
     private final FileSystemDependencies[] elements;
     private final FileDependencies[] sources;
 
-    private PendingElementCountdown(FileSystemDependencies[] elements, FileDependencies[] sources) {
+    private PendingElementCountdown(
+        PackedFingerprint key, FileSystemDependencies[] elements, FileDependencies[] sources) {
       super(directExecutor());
+      this.key = key;
       this.elements = elements;
       this.sources = sources;
     }
@@ -705,7 +711,7 @@ final class FileDependencyDeserializer {
 
     @Override
     protected NestedDependencies getValue() {
-      return NestedDependencies.from(elements, sources);
+      return NestedDependencies.from(key, elements, sources);
     }
   }
 

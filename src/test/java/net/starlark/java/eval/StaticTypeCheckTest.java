@@ -23,7 +23,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import javax.annotation.Nullable;
+import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkLibrary;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.syntax.Expression;
 import net.starlark.java.syntax.FileOptions;
@@ -60,6 +62,12 @@ public final class StaticTypeCheckTest {
           .resolveTypeSyntax(true)
           // This lets us construct simpler test cases without wrapper `def` statements.
           .allowToplevelRebinding(true);
+
+  @SuppressWarnings("FieldCanBeFinal")
+  private StarlarkSemantics semantics =
+      StarlarkSemantics.builder()
+          .setBool(StarlarkSemantics.EXPERIMENTAL_STARLARK_STATIC_TYPE_CHECKING, true)
+          .build();
 
   @SuppressWarnings("FieldCanBeFinal")
   private Module module = Module.create();
@@ -180,6 +188,7 @@ public final class StaticTypeCheckTest {
     // no getAssociatedTypeConstructor()
   }
 
+  @StarlarkLibrary
   public static final class DummyLibrary {
     @StarlarkMethod(name = "BadSignature", documented = false, isTypeConstructor = true)
     public BadSignatureTypeBuiltin badSignature() {
@@ -441,5 +450,144 @@ public final class StaticTypeCheckTest {
         "'my_type_value' of type 'MyType' does not have field 'bar'",
         "_: str = my_type_value.bar()");
     assertInvalid("'my_type_value' is not callable; got type 'MyType'", "_: str = my_type_value()");
+  }
+
+  @StarlarkBuiltin(name = "SelfReferentialType")
+  public static final class SelfReferentialType implements StarlarkValue {
+    @StarlarkMethod(
+        name = "self",
+        doc = "...",
+        parameters = {@Param(name = "x", doc = "...")})
+    public SelfReferentialType self(SelfReferentialType x) {
+      return x;
+    }
+  }
+
+  @StarlarkBuiltin(name = "MutuallyReferentialTypeA")
+  public static final class MutuallyReferentialTypeA implements StarlarkValue {
+    @StarlarkMethod(
+        name = "b",
+        doc = "...",
+        parameters = {@Param(name = "x", doc = "...")})
+    public MutuallyReferentialTypeB b(MutuallyReferentialTypeB x) {
+      return x;
+    }
+  }
+
+  @StarlarkBuiltin(name = "MutuallyReferentialTypeB")
+  public static final class MutuallyReferentialTypeB implements StarlarkValue {
+    @StarlarkMethod(
+        name = "a",
+        doc = "...",
+        parameters = {@Param(name = "x", doc = "...")})
+    public MutuallyReferentialTypeA a(MutuallyReferentialTypeA x) {
+      return x;
+    }
+  }
+
+  @Test
+  public void selfReferentialTypes() throws Exception {
+    // Test types of @StalarkBuiltin-annotated classes whose methods depend on the type itself
+    // (whether directly or transitively).
+    module =
+        Module.withPredeclared(
+            StarlarkSemantics.DEFAULT,
+            ImmutableMap.of(
+                "self_ref", new SelfReferentialType(),
+                "mutually_ref_a", new MutuallyReferentialTypeA(),
+                "mutually_ref_b", new MutuallyReferentialTypeB()));
+    assertValid(
+        """
+        x = self_ref.self(self_ref)
+        y = mutually_ref_a.b(mutually_ref_b).a(mutually_ref_a)
+        _unused: bool = True  # ensure file uses type syntax
+        """);
+
+    assertInvalid(
+        "in call to 'self_ref.self()', parameter 'x' got value of type 'int', want"
+            + " 'SelfReferentialType'",
+        """
+        self_ref.self(123)
+        _unused: bool = True
+        """);
+
+    assertInvalid(
+        "cannot assign type 'SelfReferentialType' to 'x' of type 'int'",
+        """
+        x: int = self_ref.self(self_ref)
+        """);
+
+    assertInvalid(
+        "in call to 'mutually_ref_a.b()', parameter 'x' got value of type 'int', want"
+            + " 'MutuallyReferentialTypeB'",
+        """
+        mutually_ref_a.b(123)
+        _unused: bool = True
+        """);
+
+    assertInvalid(
+        "cannot assign type 'MutuallyReferentialTypeB' to 'x' of type 'int'",
+        """
+        x: int = mutually_ref_a.b(mutually_ref_b)
+        """);
+
+    assertInvalid(
+        "in call to 'mutually_ref_b.a()', parameter 'x' got value of type 'int', want"
+            + " 'MutuallyReferentialTypeA'",
+        """
+        mutually_ref_b.a(123)
+        _unused: bool = True
+        """);
+
+    assertInvalid(
+        "cannot assign type 'MutuallyReferentialTypeA' to 'x' of type 'int'",
+        """
+        x: int = mutually_ref_b.a(mutually_ref_a)
+        """);
+  }
+
+  @Test
+  public void typeConstructors_canBeLoaded() throws Exception {
+    Module depModule =
+        Module.withPredeclared(
+            semantics,
+            ImmutableMap.of("_MyIntPredeclared", new TypeConstructorValue(Types.INT_CONSTRUCTOR)));
+    try (Mutability depMutability = Mutability.create("dep")) {
+      StarlarkThread depThread = StarlarkThread.createTransient(depMutability, semantics);
+      var unused =
+          Starlark.execFile(
+              ParserInput.fromLines("MyIntType = _MyIntPredeclared"),
+              options.build(),
+              depModule,
+              depThread);
+    }
+
+    loader = name -> name.equals("dep.bzl") ? depModule : null;
+
+    assertValid(
+        """
+        load("dep.bzl", "MyIntType")
+        x: MyIntType = 123
+        """);
+  }
+
+  @Test
+  public void nonTypeConstructorLoadedValues_cannotBeUsedAsTypeConstructors() throws Exception {
+    Module depModule = Module.create();
+    try (Mutability depMutability = Mutability.create("dep")) {
+      StarlarkThread depThread = StarlarkThread.createTransient(depMutability, semantics);
+      var unused =
+          Starlark.execFile(
+              ParserInput.fromLines("not_a_type = 123"), options.build(), depModule, depThread);
+    }
+
+    loader = name -> name.equals("dep.bzl") ? depModule : null;
+
+    assertInvalid(
+        "local symbol 'not_a_type' cannot be used as a type",
+        """
+        load("dep.bzl", "not_a_type")
+        x: not_a_type = 123
+        """);
   }
 }

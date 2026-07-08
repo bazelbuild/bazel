@@ -843,10 +843,9 @@ public final class CcCompilationContext {
           "Separate module ('%s', '%s') cannot be used without main module",
           separateModule,
           separatePicModule);
-      ImmutableSet.Builder<Artifact> modularPublicHeaders = ImmutableSet.builder();
-      ImmutableSet.Builder<Artifact> modularPrivateHeaders = ImmutableSet.builder();
-      ImmutableSet.Builder<Artifact> allTextualHeaders = ImmutableSet.builder();
-      allTextualHeaders.addAll(textualHeaders);
+      Set<Artifact> modularPublicHeaders = CompactHashSet.create();
+      Set<Artifact> modularPrivateHeaders = CompactHashSet.create();
+      Set<Artifact> allTextualHeaders = CompactHashSet.create(textualHeaders);
       // TODO(djasper): CPP_TEXTUAL_INCLUDEs are currently special cased here and in
       // CppModuleMapAction. These should be moved to a place earlier in the Action construction.
       for (Artifact header : publicHeaders) {
@@ -872,9 +871,9 @@ public final class CcCompilationContext {
           identityToken,
           headerModule,
           picHeaderModule,
-          modularPublicHeaders.build().asList(),
-          modularPrivateHeaders.build().asList(),
-          allTextualHeaders.build().asList(),
+          ImmutableList.copyOf(modularPublicHeaders),
+          ImmutableList.copyOf(modularPrivateHeaders),
+          ImmutableList.copyOf(allTextualHeaders),
           separateModuleHeaders,
           separateModule,
           separatePicModule,

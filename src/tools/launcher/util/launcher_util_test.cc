@@ -140,6 +140,29 @@ TEST_F(LaunchUtilTest, NormalizePathTest) {
   ASSERT_FALSE(NormalizePath(L"c:foo\\bar", &value));
 }
 
+TEST_F(LaunchUtilTest, GetRandomStrLengthTest) {
+  ASSERT_EQ(0u, GetRandomStr(0).length());
+  ASSERT_EQ(1u, GetRandomStr(1).length());
+  ASSERT_EQ(10u, GetRandomStr(10).length());
+  ASSERT_EQ(32u, GetRandomStr(32).length());
+}
+
+TEST_F(LaunchUtilTest, GetRandomStrCharsetTest) {
+  static constexpr std::wstring_view kAlphabet =
+      L"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  std::wstring s = GetRandomStr(256);
+  for (wchar_t c : s) {
+    ASSERT_NE(kAlphabet.find(c), std::wstring_view::npos)
+        << "Unexpected character in random string: " << c;
+  }
+}
+
+TEST_F(LaunchUtilTest, GetRandomStrUniquenessTest) {
+  // Two independent calls should produce different strings with overwhelming
+  // probability (collision chance < 62^-10 ≈ 8e-18 for length 10).
+  ASSERT_NE(GetRandomStr(10), GetRandomStr(10));
+}
+
 TEST_F(LaunchUtilTest, RelativeToTest) {
   wstring value;
   ASSERT_TRUE(RelativeTo(L"c:\\foo\\bar1", L"c:\\foo\\bar2", &value));

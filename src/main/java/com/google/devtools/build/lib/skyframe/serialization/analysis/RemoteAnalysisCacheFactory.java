@@ -20,8 +20,6 @@ import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.ForkJoinPool.commonPool;
 
-import com.google.common.base.Ascii;
-import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -63,9 +61,9 @@ import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.SkycacheMetadataParams;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.ClientId.LongVersionClientId;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheManager.AnalysisDeps;
-import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions.RemoteAnalysisCacheMode;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.util.SerializedAbruptExitException;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.Root.RootCodecDependencies;
 import java.util.Collection;
@@ -98,6 +96,17 @@ public final class RemoteAnalysisCacheFactory {
       RemoteAnalysisCacheDeps disabledDeps = RemoteAnalysisCacheDeps.createDisabled();
       return new AnalysisDeps(
           RemoteAnalysisCacheManager.createDisabled(), disabledDeps, disabledDeps);
+    }
+
+    if (env.getSkyframeExecutor().getSkyfocusState().enabled()) {
+      throw new AbruptExitException(
+          DetailedExitCode.of(
+              FailureDetail.newBuilder()
+                  .setMessage("Skycache and Skyfocus cannot be enabled at the same time.")
+                  .setRemoteAnalysisCaching(
+                      RemoteAnalysisCaching.newBuilder()
+                          .setCode(RemoteAnalysisCaching.Code.INCOMPATIBLE_OPTIONS))
+                  .build()));
     }
 
     if (options.getMode() == RemoteAnalysisCacheMode.UPLOAD
@@ -165,21 +174,24 @@ public final class RemoteAnalysisCacheFactory {
         "Remote analysis caching SkyValue version: %s (actual evaluating version: %s)",
         frontierNodeVersion, workspaceInfoFromDiff.getEvaluatingVersion());
 
-    // Create various objets we need
+    // Create various objects we need
 
     ListenableFuture<ObjectCodecs> objectCodecs = createObjectCodecs(env, topLevelOptions);
 
     RemoteAnalysisCachingServicesSupplier servicesSupplier =
         env.getBlazeWorkspace().remoteAnalysisCachingServicesSupplier();
-    servicesSupplier.configure(options, clientId, env.getCommandId().toString());
+    try {
+      servicesSupplier.configure(
+          env.getOptions(), options.getMode(), clientId, env.getCommandId().toString());
+    } catch (SerializedAbruptExitException e) {
+      throw AbruptExitException.fromSerialized(e);
+    }
 
     // Set up parameters for the metadata store, if needed
 
     SkycacheMetadataParams skycacheMetadataParams = servicesSupplier.getSkycacheMetadataParams();
-    boolean areMetadataQueriesEnabled =
-        skycacheMetadataParams != null && options.getAnalysisCacheEnableMetadataQueries();
 
-    if (areMetadataQueriesEnabled) {
+    if (skycacheMetadataParams != null) {
       skycacheMetadataParams.init(
           workspaceInfoFromDiff.getEvaluatingVersion().getVal(),
           String.format("%s-%s", BlazeVersionInfo.instance().getReleaseName(), blazeInstallMD5),
@@ -187,9 +199,6 @@ public final class RemoteAnalysisCacheFactory {
           env.getUseFakeStampData(),
           userOptions,
           projectSclOptions);
-    }
-
-    if (skycacheMetadataParams != null) {
       skycacheMetadataParams.setConfigurationHash(trimmedTopLevelOptions.checksum());
       skycacheMetadataParams.setOriginalConfigurationOptions(
           getConfigurationOptionsAsStrings(topLevelOptions));
@@ -209,7 +218,12 @@ public final class RemoteAnalysisCacheFactory {
             frontierNodeVersion,
             activeDirectoriesMatcher,
             options.getSerializedFrontierProfile(),
-            options.getSkycacheAnalysisOnly());
+            options.getSkycacheAnalysisOnly(),
+            options.getEmitBepUploadEvents(),
+            env.getBlazeWorkspace().getFingerprinterForAnalysisCaching(),
+            env.getSkyframeExecutor().getEvaluator().getInMemoryGraph(),
+            env.getEventBus(),
+            env.getVersionGetter());
 
     ListenableFuture<AnalysisCacheInvalidator> analysisCacheInvalidator =
         createAnalysisCacheInvalidator(
@@ -217,14 +231,13 @@ public final class RemoteAnalysisCacheFactory {
             clientId,
             frontierNodeVersion,
             objectCodecs,
-            servicesSupplier.getFingerprintValueService(),
+            deps.getFingerprintValueServiceFuture(),
             servicesSupplier.getAnalysisCacheClient(),
             env.getRemoteAnalysisCachingEventListener());
 
     var manager =
         new RemoteAnalysisCacheManager(
             options.getMode(),
-            areMetadataQueriesEnabled,
             env.getReporter(),
             skycacheMetadataParams,
             servicesSupplier.getAnalysisCacheClient(),
@@ -236,28 +249,21 @@ public final class RemoteAnalysisCacheFactory {
     // Bail out if needed
 
     return switch (options.getMode()) {
-      case RemoteAnalysisCacheMode.DUMP_UPLOAD_MANIFEST_ONLY, RemoteAnalysisCacheMode.UPLOAD ->
+      case RemoteAnalysisCacheMode.DUMP_UPLOAD_MANIFEST_ONLY,
+          RemoteAnalysisCacheMode.UPLOAD,
+          RemoteAnalysisCacheMode.ASYNC_UPLOAD ->
           new AnalysisDeps(manager, deps, deps);
-      case RemoteAnalysisCacheMode.DOWNLOAD -> {
+      case RemoteAnalysisCacheMode.DOWNLOAD, RemoteAnalysisCacheMode.BIDI -> {
         RemoteAnalysisCacheClient analysisCacheClient;
         try (SilentCloseable unused = Profiler.instance().profile("initAnalysisCacheClient")) {
           analysisCacheClient = deps.getAnalysisCacheClient();
         }
         if (analysisCacheClient == null) {
-          if (Strings.isNullOrEmpty(options.getAnalysisCacheService())) {
-            env.getReporter()
-                .handle(
-                    Event.warn(
-                        "--experimental_remote_analysis_cache_mode=DOWNLOAD was requested but"
-                            + " --experimental_analysis_cache_service was not specified. Falling"
-                            + " back on local evaluation."));
-          } else {
-            env.getReporter()
-                .handle(
-                    Event.warn(
-                        "Failed to establish connection to AnalysisCacheService. Falling back to"
-                            + " local evaluation."));
-          }
+          env.getReporter()
+              .handle(
+                  Event.warn(
+                      "Failed to establish connection to AnalysisCacheService (or it was not"
+                          + " specified). Falling back to local evaluation."));
           yield new AnalysisDeps(
               RemoteAnalysisCacheManager.createDisabled(),
               RemoteAnalysisCacheDeps.createDisabled(),
@@ -277,7 +283,7 @@ public final class RemoteAnalysisCacheFactory {
       throws InvalidConfigurationException {
     return switch (mode) {
       case DOWNLOAD, OFF -> Optional.empty();
-      case UPLOAD, DUMP_UPLOAD_MANIFEST_ONLY -> {
+      case UPLOAD, DUMP_UPLOAD_MANIFEST_ONLY, BIDI, ASYNC_UPLOAD -> {
         // Upload or Dump mode: allow overriding the project file matcher with the active
         // directories flag.
         List<String> activeDirectoriesFromFlag =
@@ -316,8 +322,7 @@ public final class RemoteAnalysisCacheFactory {
       BlazeDirectories directories,
       BuildOptions topLevelOptions) {
     var roots = ImmutableList.<Root>builder().add(Root.fromPath(directories.getWorkspace()));
-    // TODO: b/406458763 - clean this up
-    if (Ascii.equalsIgnoreCase(directories.getProductName(), "blaze")) {
+    if (directories.isBlaze()) {
       roots.add(Root.fromPath(directories.getBlazeExecRoot()));
     }
 
@@ -369,7 +374,7 @@ public final class RemoteAnalysisCacheFactory {
       ListenableFuture<? extends FingerprintValueService> fingerprintValueService,
       ListenableFuture<? extends RemoteAnalysisCacheClient> analysisCacheClient,
       RemoteAnalysisCachingEventListener eventListener) {
-    if (analysisCacheClient == null) {
+    if (analysisCacheClient == null || fingerprintValueService == null) {
       return immediateFuture(null);
     }
     return Futures.whenAllSucceed(objectCodecs, fingerprintValueService, analysisCacheClient)

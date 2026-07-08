@@ -133,13 +133,6 @@ public interface AndroidConfigurationApi extends StarlarkValue {
   boolean fixedResourceNeverlinking();
 
   @StarlarkMethod(
-      name = "persistent_aar_extractor",
-      structField = true,
-      doc = "",
-      documented = false)
-  boolean persistentAarExtractor();
-
-  @StarlarkMethod(
       name = "persistent_busybox_tools",
       structField = true,
       doc = "",
