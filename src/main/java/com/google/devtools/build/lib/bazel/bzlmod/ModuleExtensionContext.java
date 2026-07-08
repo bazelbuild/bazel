@@ -268,7 +268,9 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
             name = "reproducible",
             doc =
                 "States that this module extension ensures complete reproducibility, thereby it "
-                    + "should not be stored in the lockfile.",
+                    + "should not be stored in the lockfile. The inputs referenced by the module "
+                    + "extension do not have to be reproducible, but the module extension's "
+                    + "output must be.",
             positional = false,
             named = true,
             defaultValue = "False",
