@@ -203,6 +203,37 @@ public class RetrierTest {
   }
 
   @Test
+  public void circuitBreakerExceptionIncludesFailureDetails() throws Exception {
+    // The details reported by the circuit breaker are appended to the exception message.
+    CircuitBreaker cb =
+        new CircuitBreaker() {
+          @Override
+          public State state() {
+            return State.REJECT_CALLS;
+          }
+
+          @Override
+          public void recordFailure() {}
+
+          @Override
+          public void recordSuccess() {}
+
+          @Override
+          public String failureDetails() {
+            return "42 out of 50 remote calls failed";
+          }
+        };
+    Retrier r = new Retrier(() -> new ZeroBackoff(3), RETRY_ALL, retryService, cb);
+
+    CircuitBreakerException e =
+        assertThrows(CircuitBreakerException.class, () -> r.execute(() -> 10));
+    assertThat(e)
+        .hasMessageThat()
+        .isEqualTo(
+            "Call not executed due to a high failure rate. 42 out of 50 remote calls failed");
+  }
+
+  @Test
   public void circuitBreakerCanRecover() throws Exception {
     // Test that a circuit breaker can recover from REJECT_CALLS to ACCEPT_CALLS by
     // utilizing the TRIAL_CALL state.

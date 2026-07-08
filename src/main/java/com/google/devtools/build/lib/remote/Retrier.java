@@ -108,12 +108,24 @@ public class Retrier {
 
     /** Called after an execution succeeded. */
     void recordSuccess();
+
+    /**
+     * Returns a human-readable description of the breaker's current failure statistics (for example
+     * the observed failure rate and the configured threshold), for appending to the {@link
+     * CircuitBreakerException} message when a call is rejected. Returns an empty string when no
+     * details are available.
+     */
+    default String failureDetails() {
+      return "";
+    }
   }
 
   /** Thrown if the call was stopped by a circuit breaker. */
   public static class CircuitBreakerException extends IOException {
-    private CircuitBreakerException() {
-      super("Call not executed due to a high failure rate.");
+    private CircuitBreakerException(String failureDetails) {
+      super(
+          "Call not executed due to a high failure rate."
+              + (failureDetails == null || failureDetails.isEmpty() ? "" : " " + failureDetails));
     }
   }
 
@@ -293,7 +305,7 @@ public class Retrier {
     while (true) {
       State circuitState = circuitBreaker.state();
       if (State.REJECT_CALLS.equals(circuitState)) {
-        throw new CircuitBreakerException();
+        throw new CircuitBreakerException(circuitBreaker.failureDetails());
       }
       try {
         if (Thread.interrupted()) {
@@ -374,7 +386,8 @@ public class Retrier {
       AsyncCallable<T> call, Backoff backoff, @Nullable String rpcId) {
     final State circuitState = circuitBreaker.state();
     if (State.REJECT_CALLS.equals(circuitState)) {
-      return Futures.immediateFailedFuture(new CircuitBreakerException());
+      return Futures.immediateFailedFuture(
+          new CircuitBreakerException(circuitBreaker.failureDetails()));
     }
     try {
       ListenableFuture<T> future =
