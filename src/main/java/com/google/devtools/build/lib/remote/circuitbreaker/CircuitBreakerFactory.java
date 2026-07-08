@@ -19,8 +19,6 @@ import java.util.concurrent.Executors;
 
 /** Factory for {@link Retrier.CircuitBreaker} */
 public class CircuitBreakerFactory {
-  public static final int DEFAULT_MIN_CALL_COUNT_TO_COMPUTE_FAILURE_RATE = 100;
-  public static final int DEFAULT_MIN_FAIL_COUNT_TO_COMPUTE_FAILURE_RATE = 12;
 
   private CircuitBreakerFactory() {}
 
@@ -38,6 +36,8 @@ public class CircuitBreakerFactory {
       return new FailureCircuitBreaker(
           remoteOptions.getRemoteFailureRateThreshold(),
           slidingWindowMillis,
+          remoteOptions.getRemoteMinCallCountToComputeFailureRate(),
+          remoteOptions.getRemoteMinFailCountToComputeFailureRate(),
           slidingWindowMillis > 0 ? Executors.newSingleThreadScheduledExecutor() : null);
     }
     return Retrier.ALLOW_ALL_CALLS;
