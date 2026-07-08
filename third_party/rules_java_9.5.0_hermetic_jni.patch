@@ -1,0 +1,66 @@
+diff --git a/toolchains/default_java_toolchain.bzl b/toolchains/default_java_toolchain.bzl
+index f4f83f6..5229efd 100644
+--- a/toolchains/default_java_toolchain.bzl
++++ b/toolchains/default_java_toolchain.bzl
+@@ -198,6 +198,33 @@ def default_java_toolchain(name, configuration = DEFAULT_TOOLCHAIN_CONFIGURATION
+             target_compatible_with = target_compatible_with,
+         )
+
++def _java_runtime_file_impl(ctx):
++    java_runtime = ctx.toolchains["@bazel_tools//tools/jdk:runtime_toolchain_type"].java_runtime
++    coreutils = ctx.toolchains["@bazel_lib//lib:coreutils_toolchain_type"].coreutils_info
++    args = ctx.actions.args()
++    args.add("cp")
++    args.add(java_runtime.java_home + "/" + ctx.attr.src)
++    args.add(ctx.outputs.out)
++    ctx.actions.run(
++        executable = coreutils.bin,
++        arguments = [args],
++        inputs = java_runtime.files,
++        outputs = [ctx.outputs.out],
++        toolchain = "@bazel_lib//lib:coreutils_toolchain_type",
++    )
++
++_java_runtime_file = rule(
++    implementation = _java_runtime_file_impl,
++    attrs = {
++        "src": attr.string(mandatory = True),
++        "out": attr.output(mandatory = True),
++    },
++    toolchains = [
++        "@bazel_tools//tools/jdk:runtime_toolchain_type",
++        "@bazel_lib//lib:coreutils_toolchain_type",
++    ],
++)
++
+ def java_runtime_files(name, srcs):
+     """Copies the given sources out of the current Java runtime."""
+
+@@ -207,12 +234,10 @@ def java_runtime_files(name, srcs):
+         tags = ["manual"],
+     )
+     for src in srcs:
+-        native.genrule(
++        _java_runtime_file(
+             name = "gen_%s" % src,
+-            srcs = [Label("//toolchains:current_java_runtime")],
+-            toolchains = [Label("//toolchains:current_java_runtime")],
+-            cmd = "cp $(JAVABASE)/%s $@" % src,
+-            outs = [src],
++            src = src,
++            out = src,
+             tags = ["manual"],
+         )
+
+diff --git a/MODULE.bazel b/MODULE.bazel
+index 70e975f..fe16975 100644
+--- a/MODULE.bazel
++++ b/MODULE.bazel
+@@ -15,6 +15,7 @@ archive_override(
+ )
+
+ bazel_dep(name = "bazel_features", version = "1.30.0")
++bazel_dep(name = "bazel_lib", version = "3.2.2")
+ bazel_dep(name = "bazel_skylib", version = "1.6.1")
+ bazel_dep(name = "protobuf", version = "32.1", repo_name = "com_google_protobuf")
+ bazel_dep(name = "zlib", version = "1.3.1.bcr.5")

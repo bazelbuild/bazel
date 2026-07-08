@@ -80,4 +80,9 @@ function test_invalid_two_byte_seq() {
   assert_equals '??' "$(encode '\xc0\xc0')"
 }
 
+function test_without_sed_on_path() {
+  assert_equals 'Simple ascii' \
+    "$(echo 'Simple ascii' | PATH=/does-not-exist "$BASH" "$GENERATE_XML" - - - -)"
+}
+
 run_suite "generate-xml.sh tests"

@@ -1,0 +1,39 @@
+name: Windows remote execution XML reproducer
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-remote-exec:
+    runs-on: windows-2025
+    env:
+      BUILDBUDDY_API_KEY: ${{ secrets.BUILDBUDDY_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Bazel with Linux remote execution
+        shell: pwsh
+        run: |
+          bazelisk build --config=remote `
+            --remote_header=x-buildbuddy-api-key=$env:BUILDBUDDY_API_KEY `
+            //src:bazel
+
+      - name: Run no-XML shell test with the built Bazel
+        shell: pwsh
+        run: |
+          $bazel = Join-Path $env:RUNNER_TEMP bazel-under-test.exe
+          Copy-Item bazel-bin/src/bazel $bazel
+          & $bazel --output_base="$env:RUNNER_TEMP/bazel-remote-test" test `
+            --config=remote `
+            --platforms=@llvm//platforms:linux_amd64 `
+            --remote_header=x-buildbuddy-api-key=$env:BUILDBUDDY_API_KEY `
+            --test_output=all `
+            //src/test/shell/remote_exec:no_xml_test
+          $exitCode = $LASTEXITCODE
+          Get-ChildItem -Recurse "$env:RUNNER_TEMP/bazel-remote-test" -Filter test.log |
+            ForEach-Object { Get-Content $_ }
+          exit $exitCode

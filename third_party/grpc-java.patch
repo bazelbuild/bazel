@@ -3,10 +3,10 @@ Author: David Sanderson <32687193+dws@users.noreply.github.com>
 Date:   Wed Jun 11 17:46:26 2025 -0400
 
     use DefaultInfo in grpc-java
-    
+
     We here address the following obstacles in grpc-java to using Bazel's
     --incompatible_disable_target_default_provider_fields flag:
-    
+
         ERROR: /private/var/tmp/_bazel_dws/7fd3cd5077fbf76d9e2ae421c39ef7ed/external/googleapis+/google/devtools/build/v1/BUILD.bazel:81:18: in _java_grpc_library rule @@googleapis+//google/devtools/build/v1:build_java_grpc:
         Traceback (most recent call last):
                 File "/private/var/tmp/_bazel_dws/7fd3cd5077fbf76d9e2ae421c39ef7ed/external/grpc-java+/java_grpc_library.bzl", line 94, column 30, in _java_rpc_library_impl
@@ -21,14 +21,14 @@ index 630ced383..e7d133a27 100644
 +++ b/java_grpc_library.bzl
 @@ -91,15 +91,15 @@ def _java_rpc_library_impl(ctx):
      srcjar = ctx.actions.declare_file("%s-proto-gensrc.jar" % ctx.label.name)
- 
+
      args = ctx.actions.args()
 -    args.add(toolchain.plugin.files_to_run.executable, format = "--plugin=protoc-gen-rpc-plugin=%s")
 +    args.add(toolchain.plugin[DefaultInfo].files_to_run.executable, format = "--plugin=protoc-gen-rpc-plugin=%s")
      args.add("--rpc-plugin_out={0}:{1}".format(toolchain.plugin_arg, srcjar.path))
      args.add_joined("--descriptor_set_in", descriptor_set_in, join_with = ctx.configuration.host_path_separator)
      args.add_all(srcs, map_each = _path_ignoring_repository)
- 
+
      ctx.actions.run(
 -        inputs = depset(srcs, transitive = [descriptor_set_in, toolchain.plugin.files]),
 +        inputs = depset(srcs, transitive = [descriptor_set_in, toolchain.plugin[DefaultInfo].files]),
@@ -38,3 +38,21 @@ index 630ced383..e7d133a27 100644
          arguments = [args],
          use_default_shell_env = True,
          toolchain = None,
+diff --git a/java_grpc_library.bzl b/java_grpc_library.bzl
+--- a/java_grpc_library.bzl
++++ b/java_grpc_library.bzl
+@@ -94,7 +94,13 @@
+     args = ctx.actions.args()
+     args.add(toolchain.plugin[DefaultInfo].files_to_run.executable, format = "--plugin=protoc-gen-rpc-plugin=%s")
+     args.add("--rpc-plugin_out={0}:{1}".format(toolchain.plugin_arg, srcjar.path))
+-    args.add_joined("--descriptor_set_in", descriptor_set_in, join_with = ctx.configuration.host_path_separator)
++    protoc = toolchain.protoc[DefaultInfo].files_to_run.executable
++    path_separator = ";" if protoc.extension == "exe" else ":"
++    args.add_joined(
++        "--descriptor_set_in",
++        descriptor_set_in,
++        join_with = path_separator,
++    )
+     args.add_all(srcs, map_each = _path_ignoring_repository)
+
+     ctx.actions.run(

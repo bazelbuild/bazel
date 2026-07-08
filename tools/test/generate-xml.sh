@@ -22,58 +22,10 @@ DURATION_IN_SECONDS="$3"
 EXIT_CODE="$4"
 
 function encode_stream {
-  # Replace invalid XML characters and invalid sequence in CDATA
-  # We do this in four steps:
-  #
-  # 1. Add a single whitespace character to the end of every line
-  #
-  # 2. Replace every sequence of legal characters followed by an illegal
-  #    character *or* followed by a legal character at the end of the line with
-  #    the same sequence of legal characters followed by a question mark
-  #    character (replacing the illegal or last character). Since this will
-  #    always replace the last character in a line with a question mark, we
-  #    make sure to append a whitespace in step #1.
-  #
-  #    A character is legal if it is a valid UTF-8 character that is allowed in
-  #    an XML file (this excludes a few control codes, but otherwise allows
-  #    most UTF-8 characters).
-  #
-  #    We can't use sed in UTF-8 mode, because it would fail on the first
-  #    illegal character. Instead, we have to match legal characters by their
-  #    8-bit binary sequences, and also switch sed to an 8-bit mode.
-  #
-  #    The legal UTF codepoint ranges are 9,a,d,20-d7ff,e000-fffd,10000-10ffff,
-  #    which results in the following 8-bit binary UTF-8 matchers:
-  #       [\x9\xa\xd\x20-\x7f]                         <--- (9,A,D,20-7F)
-  #       [\xc0-\xdf][\x80-\xbf]                       <--- (0080-07FF)
-  #       [\xe0-\xec][\x80-\xbf][\x80-\xbf]            <--- (0800-CFFF)
-  #       [\xed][\x80-\x9f][\x80-\xbf]                 <--- (D000-D7FF)
-  #       [\xee][\x80-\xbf][\x80-\xbf]                 <--- (E000-EFFF)
-  #       [\xef][\x80-\xbe][\x80-\xbf]                 <--- (F000-FFEF)
-  #       [\xef][\xbf][\x80-\xbd]                      <--- (FFF0-FFFD)
-  #       [\xf0-\xf7][\x80-\xbf][\x80-\xbf][\x80-\xbf] <--- (010000-10FFFF)
-  #
-  #    We omit \xa and \xd below since sed already splits the input into lines.
-  #
-  # 3. Remove the last character in the line, which we expect to be a
-  #    question mark (that was originally added as a whitespace in step #1).
-  #
-  # 4. Replace the string ']]>' with ']]>]]<![CDATA[>' to prevent escaping the
-  #    surrounding CDATA block.
-  #
-  # Sed supports the necessary operations as of version 4.4, but not in all
-  # earlier versions. Specifically, we have found that sed 4.1.5 is not 8-bit
-  # safe even when set to an 8-bit locale.
-  #
-  # OSX sed does not support escape sequences (\xhh), use echo as workaround.
-  #
-  # Alternatives considered:
-  # Perl - We originally used Perl, but wanted to avoid the dependency.
-  #        Recent versions of Perl now error on invalid utf-8 characters.
-  # tr   - tr only replaces single-byte sequences, so cannot handle utf-8.
-  LC_ALL=C sed -E \
-      -e 's/.*/& /g' \
-      -e 's/(('\
+  if command -v sed >/dev/null; then
+    LC_ALL=C sed -E \
+        -e 's/.*/& /g' \
+        -e 's/(('\
 "$(echo -e '[\x9\x20-\x7f]')|"\
 "$(echo -e '[\xc0-\xdf][\x80-\xbf]')|"\
 "$(echo -e '[\xe0-\xec][\x80-\xbf][\x80-\xbf]')|"\
@@ -81,13 +33,67 @@ function encode_stream {
 "$(echo -e '[\xee-\xef][\x80-\xbf][\x80-\xbf]')|"\
 "$(echo -e '[\xf0][\x80-\x8f][\x80-\xbf][\x80-\xbf]')"\
 ')*)./\1?/g' \
-      -e 's/(.*)\?/\1/g' \
-      -e 's|]]>|]]>]]<![CDATA[>|g'
+        -e 's/(.*)\?/\1/g' \
+        -e 's|]]>|]]>]]<![CDATA[>|g'
+    return
+  fi
+
+  # Use only Bash builtins so this action does not depend on utilities installed
+  # on the execution platform. Match the byte sequences accepted by the former
+  # sed implementation and replace every other byte with a question mark.
+  local LC_ALL=C
+  local line
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    local encoded=""
+    local i=0
+    local length=${#line}
+    while ((i < length)); do
+      local b0 b1=-1 b2=-1 b3=-1 sequence_length=0
+      printf -v b0 '%d' "'${line:i:1}"
+      if ((i + 1 < length)); then
+        printf -v b1 '%d' "'${line:i+1:1}"
+      fi
+      if ((i + 2 < length)); then
+        printf -v b2 '%d' "'${line:i+2:1}"
+      fi
+      if ((i + 3 < length)); then
+        printf -v b3 '%d' "'${line:i+3:1}"
+      fi
+
+      if ((b0 == 9 || b0 == 13 || (b0 >= 32 && b0 <= 127))); then
+        sequence_length=1
+      elif ((b0 >= 192 && b0 <= 223 && b1 >= 128 && b1 <= 191)); then
+        sequence_length=2
+      elif ((
+        ((b0 >= 224 && b0 <= 236) || (b0 >= 238 && b0 <= 239)) &&
+          b1 >= 128 && b1 <= 191 && b2 >= 128 && b2 <= 191
+      )); then
+        sequence_length=3
+      elif ((b0 == 237 && b1 >= 128 && b1 <= 159 && b2 >= 128 && b2 <= 191)); then
+        sequence_length=3
+      elif ((
+        b0 == 240 && b1 >= 128 && b1 <= 143 &&
+          b2 >= 128 && b2 <= 191 && b3 >= 128 && b3 <= 191
+      )); then
+        sequence_length=4
+      fi
+
+      if ((sequence_length > 0)); then
+        encoded+="${line:i:sequence_length}"
+        ((i += sequence_length))
+      else
+        encoded+='?'
+        ((i += 1))
+      fi
+    done
+    encoded="${encoded//]]>/]]>]]<![CDATA[>}"
+    printf '%s\n' "$encoded"
+  done
 }
 
 function encode_as_xml {
   if [ -f "$1" ]; then
-    cat "$1" | encode_stream
+    encode_stream <"$1"
   fi
 }
 
@@ -115,16 +121,15 @@ fi
 
 FAILED=0
 ENCODED_LOG="$(encode_as_xml "${TEST_LOG}")" || FAILED=$?
-cat >"${XML_OUTPUT_FILE}" <<EOF
-<?xml version="1.0" encoding="UTF-8"?>
+printf '%s' "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
 <testsuites>
-  <testsuite name="${test_name}" tests="1" failures="0" errors="${errors}">
-    <testcase name="${test_name}" status="run" duration="${DURATION_IN_SECONDS}" time="${DURATION_IN_SECONDS}">${error_msg}</testcase>
+  <testsuite name=\"${test_name}\" tests=\"1\" failures=\"0\" errors=\"${errors}\">
+    <testcase name=\"${test_name}\" status=\"run\" duration=\"${DURATION_IN_SECONDS}\" time=\"${DURATION_IN_SECONDS}\">${error_msg}</testcase>
       <system-out>
 Generated test.log (if the file is not UTF-8, then this may be unreadable):
 <![CDATA[${ENCODED_LOG}]]>
       </system-out>
     </testsuite>
 </testsuites>
-EOF
+" >"${XML_OUTPUT_FILE}"
 exit "$FAILED"

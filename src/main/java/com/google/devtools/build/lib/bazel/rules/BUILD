@@ -1,3 +1,4 @@
+load("@bazel_lib//lib:copy_file.bzl", "copy_file")
 load("@rules_java//java:defs.bzl", "java_library")
 
 package(
@@ -192,10 +193,10 @@ java_library(
 # We need this redirect target so that the builtins zip can be packaged as a
 # resource next to the BazelRuleClassProvider class (com/google/devtools/...). Otherwise
 # it gets placed under the package path of the original zip target.
-genrule(
+copy_file(
     name = "builtins_bzl_zip",
-    srcs = ["//src/main/starlark/builtins_bzl:builtins_bzl.zip"],
-    outs = ["builtins_bzl.zip"],
-    cmd = "cp $(SRCS) $@",
+    src = "//src/main/starlark/builtins_bzl:builtins_bzl.zip",
+    out = "builtins_bzl.zip",
+    allow_symlink = True,
     visibility = ["//:__pkg__"],
 )

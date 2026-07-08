@@ -15,6 +15,7 @@ module(
 
 bazel_dep(name = "abseil-cpp", version = "20250814.1")
 bazel_dep(name = "bazel_features", version = "1.47.0")
+bazel_dep(name = "bazel_lib", version = "3.2.2")
 bazel_dep(name = "bazel_skylib", version = "1.8.2")
 bazel_dep(name = "blake3", version = "1.8.2.bcr.1")
 bazel_dep(name = "googleapis-grpc-java", version = "1.0.0")
@@ -23,7 +24,8 @@ bazel_dep(name = "googleapis", version = "0.0.0-20250604-de157ca3")
 bazel_dep(name = "googletest", version = "1.17.0.bcr.2", repo_name = "com_google_googletest")
 bazel_dep(name = "grpc-java", version = "1.71.0")
 bazel_dep(name = "grpc", version = "1.76.0.bcr.1", repo_name = "com_github_grpc_grpc")
-bazel_dep(name = "platforms", version = "1.0.0")
+bazel_dep(name = "llvm", version = "0.8.6")
+bazel_dep(name = "platforms", version = "1.1.0")
 bazel_dep(name = "protobuf", version = "33.4", repo_name = "com_google_protobuf")
 bazel_dep(name = "re2", version = "2025-11-05.bcr.1")
 bazel_dep(name = "rules_go", version = "0.59.0")
@@ -37,13 +39,32 @@ bazel_dep(name = "rules_shell", version = "0.6.1")
 bazel_dep(name = "rules_testing", version = "0.9.0")
 bazel_dep(name = "stardoc", version = "0.8.0", repo_name = "io_bazel_skydoc")
 bazel_dep(name = "with_cfg.bzl", version = "0.13.0")
-bazel_dep(name = "zlib", version = "1.3.1.bcr.7")
+bazel_dep(name = "zlib", version = "1.3.1.bcr.8")
 bazel_dep(name = "zstd-jni", version = "1.5.6-9")
 
 # Depend on apple_support first and then rules_cc so that the Xcode toolchain
 # from apple_support wins over the generic Unix toolchain from rules_cc.
 bazel_dep(name = "apple_support", version = "2.3.0")
 bazel_dep(name = "rules_cc", version = "0.2.19")
+
+osx = use_extension("@llvm//extensions:osx.bzl", "osx")
+osx.frameworks(
+    names = [
+        "CFNetwork",
+        "CoreFoundation",
+        "CoreGraphics",
+        "CoreServices",
+        "DiskArbitration",
+        "Foundation",
+        "IOKit",
+        "Kernel",
+        "OSLog",
+        "Security",
+        "SystemConfiguration",
+    ],
+)
+
+register_toolchains("@llvm//toolchain:all")
 
 # The starlark rules in @rules_cc are hidden behind macros but docgen needs to
 # load the rule class directly, so we need to expose the cc_compatibility_proxy
@@ -63,10 +84,42 @@ bazel_dep(name = "onetbb", version = "2022.2.0", repo_name = None)
 
 # bazel_dep overrides
 single_version_override(
+    module_name = "c-ares",
+    patch_strip = 1,
+    patches = ["//third_party:c-ares_1.34.5.bcr.2.patch"],
+    version = "1.34.5.bcr.2",
+)
+
+single_version_override(
+    module_name = "rules_java",
+    patch_strip = 1,
+    patches = ["//third_party:rules_java_9.5.0_hermetic_jni.patch"],
+    version = "9.5.0",
+)
+
+single_version_override(
+    module_name = "llvm",
+    patch_strip = 1,
+    patches = ["//third_party:llvm_0.8.6_hermetic_glibc.patch"],
+    version = "0.8.6",
+)
+
+single_version_override(
     module_name = "rules_jvm_external",
     patch_strip = 1,
-    patches = ["//third_party:rules_jvm_external_6.8_bazel_vendor.patch"],
+    patches = [
+        "//third_party:rules_jvm_external_6.8_bazel_vendor.patch",
+        # TODO: Remove this patch once a new version of rules_jvm_external is released and adopted by Bazel.
+        "//third_party:rules_jvm_external_6.8_exec_jar_tools.patch",
+    ],
     version = "6.8",
+)
+
+single_version_override(
+    module_name = "rules_python",
+    patch_strip = 1,
+    patches = ["//third_party:rules_python_1.7.0_hermetic_zip.patch"],
+    version = "1.7.0",
 )
 
 # TODO(pcloudy): Remove once the next version of rules_graalvm is available.
@@ -84,7 +137,10 @@ single_version_override(
 single_version_override(
     module_name = "zstd-jni",
     patch_strip = 1,
-    patches = ["//third_party:zstd-jni.patch"],
+    patches = [
+        "//third_party:zstd-jni.patch",
+        "//third_party:zstd-jni_hermetic_actions.patch",
+    ],
 )
 
 single_version_override(
@@ -92,6 +148,13 @@ single_version_override(
     patch_strip = 1,
     patches = ["//third_party:googleapis.patch"],
     version = "0.0.0-20250604-de157ca3",
+)
+
+single_version_override(
+    module_name = "grpc",
+    patch_strip = 1,
+    patches = ["//third_party:grpc_1.76.0.bcr.1_hermetic_plugin.patch"],
+    version = "1.76.0.bcr.1",
 )
 
 single_version_override(
@@ -273,10 +336,10 @@ maven.override(
 # Pin to the version in //third_party/asm/... to avoid one-version violations.
 [
     maven.artifact(
-        group = "org.ow2.asm",
         artifact = artifact,
-        version = "9.10",
         force_version = True,
+        group = "org.ow2.asm",
+        version = "9.10",
     )
     for artifact in [
         "asm",
@@ -453,7 +516,6 @@ use_repo(
 bazel_dep(name = "bazel_ci_rules", version = "2.0.0")
 bazel_dep(name = "rules_fuzzing", version = "0.6.0")
 bazel_dep(name = "wabt", version = "1.0.37")
-
 
 rbe = use_extension("@bazel_ci_rules//:rbe_config.bzl", "rbe_config_extension")
 rbe.config(

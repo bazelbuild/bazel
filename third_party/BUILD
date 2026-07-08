@@ -2,6 +2,8 @@ load("@rules_java//java:defs.bzl", "java_binary", "java_import", "java_library",
 load("@rules_license//rules:license.bzl", "license")
 load("//src/tools/bzlmod:utils.bzl", "get_repo_root")
 load("//tools/distributions:distribution_rules.bzl", "distrib_jar_filegroup", "distrib_java_import")
+load(":filter_zip.bzl", "filter_zip")
+load(":proguard_jar.bzl", "proguard_jar")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -320,37 +322,14 @@ java_import(
     jars = [":fastutil_stripped_jar"],
 )
 
-genrule(
+proguard_jar(
     name = "fastutil_stripped_jar",
-    srcs = [
-        "@maven//:it_unimi_dsi_fastutil_file",
-        "@rules_java//toolchains:platformclasspath_nostrip",
-    ],
-    outs = ["fastutil-stripped.jar"],
-    # ProGuard output is silenced below because it prints
-    # ...
-    # Caused by: java.net.UnknownHostException: bk-docker-3gmr: Temporary failure in name resolution
-    # ...
-    # when running in the Bazel sandbox, which throws off bazel_determinism_test.
-    cmd = """
-    $(location :proguard_bin) \
-        -injars $(execpath @maven//:it_unimi_dsi_fastutil_file) \
-        -outjars $@ \
-        -libraryjars $(execpath @rules_java//toolchains:platformclasspath_nostrip) \
-        @$(location //tools:fastutil.proguard) > /dev/null
-    # Null out the file times stored in the jar to make the output reproducible.
-    TMPDIR=$$(mktemp -d)
-    trap 'rm -rf $$TMPDIR' EXIT
-    unzip -q $@ -d $$TMPDIR
-    rm $@
-    find $$TMPDIR -type f -print0 | xargs -0 touch -t 198001010000.00
-    OUTPUT="$$(pwd)/$@"
-    (cd $$TMPDIR && find . -type f | LC_ALL=C sort | zip -qDX0r@ "$$OUTPUT")
-    """,
-    tools = [
-        ":proguard_bin",
-        "//tools:fastutil.proguard",
-    ],
+    src = "@maven//:it_unimi_dsi_fastutil_file",
+    out = "fastutil-stripped.jar",
+    config = "//tools:fastutil.proguard",
+    library_jar = "@rules_java//toolchains:platformclasspath_nostrip",
+    proguard = ":proguard_bin_deploy.jar",
+    zipper = "//third_party/ijar:zipper",
 )
 
 java_binary(
@@ -522,40 +501,75 @@ alias(
 )
 
 UNNECESSARY_DYNAMIC_LIBRARIES = select({
-    "//src/conditions:windows": "*.so *.jnilib",
-    "//src/conditions:darwin": "*.so *.dll *.pyd",
-    "//src/conditions:linux_x86_64": "*.jnilib *.dll *.pyd",
-    "//src/conditions:linux_s390x": "*.jnilib *.dll *.pyd",
+    "//src/conditions:windows": [
+        "*.so",
+        "*.jnilib",
+    ],
+    "//src/conditions:darwin": [
+        "*.so",
+        "*.dll",
+        "*.pyd",
+    ],
+    "//src/conditions:linux_x86_64": [
+        "*.jnilib",
+        "*.dll",
+        "*.pyd",
+    ],
+    "//src/conditions:linux_s390x": [
+        "*.jnilib",
+        "*.dll",
+        "*.pyd",
+    ],
     # The .so file is an x86/s390x one, so we can just remove it if the CPU is not x86/s390x
-    "//src/conditions:arm": "*.so *.jnilib *.dll *.pyd",
-    "//src/conditions:linux_aarch64": "*.so *.jnilib *.dll *.pyd",
-    "//src/conditions:linux_ppc": "*.so *.jnilib *.dll *.pyd",
-    "//src/conditions:freebsd": "*.so *.jnilib *.dll *.pyd",
-    "//src/conditions:openbsd": "*.so *.jnilib *.dll *.pyd",
+    "//src/conditions:arm": [
+        "*.so",
+        "*.jnilib",
+        "*.dll",
+        "*.pyd",
+    ],
+    "//src/conditions:linux_aarch64": [
+        "*.so",
+        "*.jnilib",
+        "*.dll",
+        "*.pyd",
+    ],
+    "//src/conditions:linux_ppc": [
+        "*.so",
+        "*.jnilib",
+        "*.dll",
+        "*.pyd",
+    ],
+    "//src/conditions:freebsd": [
+        "*.so",
+        "*.jnilib",
+        "*.dll",
+        "*.pyd",
+    ],
+    "//src/conditions:openbsd": [
+        "*.so",
+        "*.jnilib",
+        "*.dll",
+        "*.pyd",
+    ],
     # Default is to play it safe -- better have a big binary than a slow binary
-    #   The empty string means nothing is to be removed from the library;
-    #   the rule command tests for the empty string explictly to avoid
-    #   zip erroring when it finds nothing to remove.
-    "//conditions:default": "",
+    "//conditions:default": [],
 })
 
 # Remove native libraries that are for a platform different from the one we are
 # building Bazel for.
-genrule(
+filter_zip(
     name = "filter_netty_dynamic_libs",
-    srcs = select({
-        "//src/conditions:darwin_arm64": ["@maven//:io_netty_netty_tcnative_boringssl_static_osx_aarch_64_file"],
-        "//src/conditions:darwin_x86_64": ["@maven//:io_netty_netty_tcnative_boringssl_static_osx_x86_64_file"],
-        "//src/conditions:linux_aarch64": ["@maven//:io_netty_netty_tcnative_boringssl_static_linux_aarch_64_file"],
-        "//src/conditions:linux_x86_64": ["@maven//:io_netty_netty_tcnative_boringssl_static_linux_x86_64_file"],
-        "//src/conditions:windows": ["@maven//:io_netty_netty_tcnative_boringssl_static_windows_x86_64_file"],
-        "//conditions:default": [],
+    src = select({
+        "//src/conditions:darwin_arm64": "@maven//:io_netty_netty_tcnative_boringssl_static_osx_aarch_64_file",
+        "//src/conditions:darwin_x86_64": "@maven//:io_netty_netty_tcnative_boringssl_static_osx_x86_64_file",
+        "//src/conditions:linux_aarch64": "@maven//:io_netty_netty_tcnative_boringssl_static_linux_aarch_64_file",
+        "//src/conditions:linux_x86_64": "@maven//:io_netty_netty_tcnative_boringssl_static_linux_x86_64_file",
+        "//src/conditions:windows": "@maven//:io_netty_netty_tcnative_boringssl_static_windows_x86_64_file",
+        "//conditions:default": "@maven//:io_netty_netty_tcnative_boringssl_static_linux_x86_64_file",
     }),
-    outs = ["netty_tcnative/netty-tcnative-filtered.jar"],
-    cmd = "cp $< $@ && " +
-          # Make sure we can write the output file, even if the input isn't writable.
-          "chmod +w $@ && " +
-          "zip -qd $@ */license/* " + UNNECESSARY_DYNAMIC_LIBRARIES,
+    out = "netty_tcnative/netty-tcnative-filtered.jar",
+    exclude_patterns = ["*/license/*"] + UNNECESSARY_DYNAMIC_LIBRARIES,
+    zipper = "//third_party/ijar:zipper",
 )
 
 distrib_java_import(
