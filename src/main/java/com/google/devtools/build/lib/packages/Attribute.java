@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
-import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassNamePredicate;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.packages.Type.LabelClass;
@@ -1438,24 +1437,24 @@ public final class Attribute implements Comparable<Attribute> {
      * {@code rule}.
      */
     StarlarkComputedDefault computePossibleValues(
-        Attribute attr, RuleOrMacroInstance rule, EventHandler eventHandler)
+        Attribute attr, RuleOrMacroInstance rule, TargetDefinitionContext targetDefinitionContext)
         throws InterruptedException, CannotPrecomputeDefaultsException {
       if (!(rule instanceof Rule target) || anyDependencyExplicitlySpecified(rule)) {
-        return computePossibleValuesInternal(attr, rule, eventHandler);
+        return computePossibleValuesInternal(attr, rule, targetDefinitionContext);
       }
 
       // None of the dependency attributes were specified. Share a single instance.
       RuleClass ruleClass = target.getRuleClassObject();
       StarlarkComputedDefault result = defaultInstances.get(ruleClass);
       if (result == null) {
-        result = computePossibleValuesInternal(attr, rule, eventHandler);
+        result = computePossibleValuesInternal(attr, rule, targetDefinitionContext);
         result = firstNonNull(defaultInstances.putIfAbsent(ruleClass, result), result);
       }
       return result;
     }
 
     private StarlarkComputedDefault computePossibleValuesInternal(
-        Attribute attr, RuleOrMacroInstance rule, EventHandler eventHandler)
+        Attribute attr, RuleOrMacroInstance rule, TargetDefinitionContext targetDefinitionContext)
         throws InterruptedException, CannotPrecomputeDefaultsException {
       StarlarkComputedDefaultTemplate owner = StarlarkComputedDefaultTemplate.this;
       AtomicReference<EvalException> caughtEvalExceptionIfAny = new AtomicReference<>();
@@ -1465,7 +1464,7 @@ public final class Attribute implements Comparable<Attribute> {
             @Override
             public Object compute(AttributeMap map) throws InterruptedException {
               try {
-                return owner.computeValue(eventHandler, map);
+                return owner.computeValue(targetDefinitionContext, map);
               } catch (EvalException ex) {
                 caughtEvalExceptionIfAny.compareAndSet(null, ex);
                 return null;
@@ -1499,14 +1498,14 @@ public final class Attribute implements Comparable<Attribute> {
                 "Cannot compute default value of attribute '%s' in rule '%s': ",
                 attr.getPublicName(), rule.getLabel());
         String error = msg + ex.getMessage();
-        rule.reportError(error, eventHandler);
+        rule.reportError(error, targetDefinitionContext);
         throw new CannotPrecomputeDefaultsException(error);
       }
       return StarlarkComputedDefault.create(
           dependencies, dependencyTypesBuilder.build(), lookupTable);
     }
 
-    private Object computeValue(EventHandler eventHandler, AttributeMap rule)
+    private Object computeValue(TargetDefinitionContext targetDefinitionContext, AttributeMap rule)
         throws EvalException, InterruptedException {
       Map<String, Object> attrValues = new HashMap<>();
       for (String attrName : rule.getAttributeNames()) {
@@ -1520,15 +1519,16 @@ public final class Attribute implements Comparable<Attribute> {
           }
         }
       }
-      return invokeCallback(eventHandler, attrValues);
+      return invokeCallback(targetDefinitionContext, attrValues);
     }
 
-    private Object invokeCallback(EventHandler eventHandler, Map<String, Object> attrValues)
+    private Object invokeCallback(
+        TargetDefinitionContext targetDefinitionContext, Map<String, Object> attrValues)
         throws EvalException, InterruptedException {
       Structure attrs =
           StructProvider.STRUCT.create(
               attrValues, "No such regular (non computed) attribute '%s'.");
-      Object uncheckedResult = callback.call(eventHandler, attrs);
+      Object uncheckedResult = callback.call(targetDefinitionContext.getLocalEventHandler(), attrs);
       try {
         Object result =
             type.cast(

@@ -21,7 +21,6 @@ import static com.google.common.base.Preconditions.checkState;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterators;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Package.Declarations;
 import com.google.devtools.build.lib.util.HashCodes;
 import java.util.Arrays;
@@ -548,5 +547,5 @@ public abstract class RuleOrMacroInstance implements DependencyFilter.AttributeI
     return getPackageDeclarations().getPackageArgs();
   }
 
-  abstract void reportError(String message, EventHandler eventHandler);
+  abstract void reportError(String message, TargetDefinitionContext targetDefinitionContext);
 }

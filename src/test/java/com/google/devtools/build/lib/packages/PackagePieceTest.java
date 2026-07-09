@@ -240,6 +240,8 @@ def fail_impl(name, visibility, **kwargs):
             /* noImplicitFileExport= */ true,
             /* simplifyUnconditionalSelectsInRuleAttrs= */ StarlarkSemantics.DEFAULT.getBool(
                 BuildLanguageOptions.INCOMPATIBLE_SIMPLIFY_UNCONDITIONAL_SELECTS_IN_RULE_ATTRS),
+            /* symbolicMacroStrictAttrs= */ StarlarkSemantics.DEFAULT.getBool(
+                BuildLanguageOptions.INCOMPATIBLE_SYMBOLIC_MACRO_STRICT_ATTRS),
             /* repositoryMapping= */ RepositoryMapping.EMPTY,
             /* mainRepositoryMapping= */ null,
             /* cpuBoundSemaphore= */ null,
@@ -265,6 +267,8 @@ def fail_impl(name, visibility, **kwargs):
         parentIdentifier,
         /* simplifyUnconditionalSelectsInRuleAttrs= */ StarlarkSemantics.DEFAULT.getBool(
             BuildLanguageOptions.INCOMPATIBLE_SIMPLIFY_UNCONDITIONAL_SELECTS_IN_RULE_ATTRS),
+        /* symbolicMacroStrictAttrs= */ StarlarkSemantics.DEFAULT.getBool(
+            BuildLanguageOptions.INCOMPATIBLE_SYMBOLIC_MACRO_STRICT_ATTRS),
         /* mainRepositoryMapping= */ null,
         /* cpuBoundSemaphore= */ null,
         PackageOverheadEstimator.NOOP_ESTIMATOR,

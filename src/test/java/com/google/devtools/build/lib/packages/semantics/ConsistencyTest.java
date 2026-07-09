@@ -156,6 +156,7 @@ public class ConsistencyTest {
         "--incompatible_run_shell_command_string=" + rand.nextBoolean(),
         "--incompatible_unambiguous_label_stringification=" + rand.nextBoolean(),
         "--incompatible_resolve_select_keys_eagerly=" + rand.nextBoolean(),
+        "--incompatible_symbolic_macro_strict_attrs=" + rand.nextBoolean(),
         "--internal_starlark_flag_test_canary=" + rand.nextBoolean(),
         "--internal_starlark_utf_8_byte_strings=" + rand.nextBoolean(),
         "--max_computation_steps=" + rand.nextLong());
@@ -204,6 +205,7 @@ public class ConsistencyTest {
         .setBool(
             BuildLanguageOptions.INCOMPATIBLE_UNAMBIGUOUS_LABEL_STRINGIFICATION, rand.nextBoolean())
         .setBool(BuildLanguageOptions.INCOMPATIBLE_RESOLVE_SELECT_KEYS_EAGERLY, rand.nextBoolean())
+        .setBool(BuildLanguageOptions.INCOMPATIBLE_SYMBOLIC_MACRO_STRICT_ATTRS, rand.nextBoolean())
         .setBool(StarlarkSemantics.PRINT_TEST_MARKER, rand.nextBoolean())
         .setBool(StarlarkSemantics.INTERNAL_BAZEL_ONLY_UTF_8_BYTE_STRINGS, rand.nextBoolean())
         .set(BuildLanguageOptions.MAX_COMPUTATION_STEPS, rand.nextLong())

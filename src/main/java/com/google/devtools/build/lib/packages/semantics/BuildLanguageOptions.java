@@ -610,6 +610,17 @@ public abstract class BuildLanguageOptions extends OptionsBase {
   public abstract boolean getExperimentalStarlarkTypeSyntax();
 
   @Option(
+      name = "incompatible_symbolic_macro_strict_attrs",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "If enabled, invalid attribute values in symbolic macros are treated as an error and fail"
+              + " the build, matching the behavior of rules.")
+  public abstract boolean getIncompatibleSymbolicMacroStrictAttrs();
+
+  @Option(
       name = "experimental_starlark_static_type_checking",
       defaultValue = FlagConstants.DEFAULT_EXPERIMENTAL_STARLARK_TYPE_CHECKING,
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -903,6 +914,8 @@ public abstract class BuildLanguageOptions extends OptionsBase {
             .set(MAX_COMPUTATION_STEPS, getMaxComputationSteps())
             .set(NESTED_SET_DEPTH_LIMIT, getNestedSetDepthLimit())
             .setBool(
+                INCOMPATIBLE_SYMBOLIC_MACRO_STRICT_ATTRS, getIncompatibleSymbolicMacroStrictAttrs())
+            .setBool(
                 INCOMPATIBLE_DISABLE_STARLARK_HOST_TRANSITIONS,
                 getIncompatibleDisableStarlarkHostTransitions())
             .setBool(
@@ -1127,6 +1140,8 @@ public abstract class BuildLanguageOptions extends OptionsBase {
       "-experimental_repository_ctx_wasm_compilation";
   public static final String INCOMPATIBLE_RESOLVE_SELECT_KEYS_EAGERLY =
       "-incompatible_resolve_select_keys_eagerly";
+  public static final String INCOMPATIBLE_SYMBOLIC_MACRO_STRICT_ATTRS =
+      "-incompatible_symbolic_macro_strict_attrs";
 
   // non-booleans
   public static final StarlarkSemantics.Key<List<String>> INCOMPATIBLE_DISABLE_TRANSITIONS_OPTIONS =
