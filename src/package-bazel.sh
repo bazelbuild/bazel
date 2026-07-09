@@ -19,6 +19,12 @@ set -euo pipefail
 # This script creates the Bazel archive that Bazel client unpacks and then
 # starts the server from.
 
+NATIVE_SERVER=0
+if [[ "${1:-}" == "--native-server" ]]; then
+  NATIVE_SERVER=1
+  shift
+fi
+
 WORKDIR="$(pwd)"
 OUT=$1; shift
 EMBEDDED_TOOLS=$1; shift
@@ -41,9 +47,21 @@ FILE_LIST="$ROOT/file.list"
 mkdir -p "${PACKAGE_DIR}"
 trap "rm -fr ${ROOT}" EXIT
 
-cp $* ${PACKAGE_DIR}
+for input in "$@"; do
+  if [[ $NATIVE_SERVER -eq 1 && "${input##*/}" == "build-output.json" ]]; then
+    continue
+  fi
+  cp "$input" "$PACKAGE_DIR"
+done
 
-if [[ $DEV_BUILD -eq 0 ]]; then
+if [[ $NATIVE_SERVER -eq 1 ]]; then
+  # The native image already contains the server classes. Read the label from
+  # the deploy jar, but do not spend time recompressing or packaging the jar.
+  bazel_label="$(\
+    (unzip -p "$DEPLOY_JAR" build-data.properties \
+      | grep '^build.label=' | cut -d'=' -f2- | tr -d '\n') \
+      || echo -n 'no_version')"
+elif [[ $DEV_BUILD -eq 0 ]]; then
   # Unpack the deploy jar for postprocessing and for "re-compressing" to save
   # ~10% of final binary size.
   mkdir -p $RECOMP
@@ -81,16 +99,20 @@ fi
 # Make a list of the files in the order we want them inside the final zip.
 (
   cd $PACKAGE_DIR
-  # The server jar needs to be the first binary we extract.
-  # This is how the Bazel client knows which .jar to pass to the JVM.
-  echo A-server.jar
+  if [[ $NATIVE_SERVER -eq 0 ]]; then
+    # The server jar needs to be the first binary we extract. This is how the
+    # Bazel client knows which .jar to pass to the JVM.
+    echo A-server.jar
+  fi
   find . -type f | sort
   # And install_base_key must be last.
   echo install_base_key
 ) > $FILE_LIST
 
 # Move these after the 'find' above.
-cp $DEPLOY_JAR $PACKAGE_DIR/A-server.jar
+if [[ $NATIVE_SERVER -eq 0 ]]; then
+  cp $DEPLOY_JAR $PACKAGE_DIR/A-server.jar
+fi
 cp $INSTALL_BASE_KEY $PACKAGE_DIR/install_base_key
 
 # Zero timestamps.
