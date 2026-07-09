@@ -163,3 +163,9 @@ sh_test(
         "@rules_java//toolchains:current_java_runtime",
     ],
 )
+
+test_suite(
+    name = "native_image_core_tests",
+    tests = [":remote_execution_test"],
+    visibility = ["//visibility:public"],
+)
