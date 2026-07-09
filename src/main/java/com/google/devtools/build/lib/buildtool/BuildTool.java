@@ -1078,23 +1078,22 @@ public class BuildTool {
     }
 
     // TODO(b/529634169): make this exhaustive.
-    switch (dependenciesProvider.mode()) {
-      case UPLOAD, ASYNC_UPLOAD ->
-          reportRemoteAnalysisServiceStats(
-              dependenciesProvider.getFingerprintValueService(),
-              dependenciesProvider.getAnalysisCacheClient());
-
-      case DOWNLOAD, BIDI -> {
-        reportRemoteAnalysisServiceStats(
-            dependenciesProvider.getFingerprintValueService(),
-            dependenciesProvider.getAnalysisCacheClient());
-        reportRemoteAnalysisCachingStats();
-        env.getSkyframeExecutor()
-            .syncRemoteAnalysisCachingState(
-                env.getRemoteAnalysisCachingEventListener().getSkyValueVersion(),
-                env.getRemoteAnalysisCachingEventListener().getClientId());
-      }
-      case DUMP_UPLOAD_MANIFEST_ONLY, OFF -> {}
+    RemoteAnalysisCacheMode mode = dependenciesProvider.mode();
+    if (mode == RemoteAnalysisCacheMode.UPLOAD || mode == RemoteAnalysisCacheMode.ASYNC_UPLOAD) {
+      reportRemoteAnalysisServiceStats(
+          dependenciesProvider.getFingerprintValueService(),
+          dependenciesProvider.getAnalysisCacheClient());
+    } else if (mode == RemoteAnalysisCacheMode.DOWNLOAD || mode == RemoteAnalysisCacheMode.BIDI) {
+      reportRemoteAnalysisServiceStats(
+          dependenciesProvider.getFingerprintValueService(),
+          dependenciesProvider.getAnalysisCacheClient());
+      reportRemoteAnalysisCachingStats();
+      env.getSkyframeExecutor()
+          .syncRemoteAnalysisCachingState(
+              env.getRemoteAnalysisCachingEventListener().getSkyValueVersion(),
+              env.getRemoteAnalysisCachingEventListener().getClientId());
+    } else {
+      // do nothing
     }
   }
 
