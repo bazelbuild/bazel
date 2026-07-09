@@ -168,12 +168,15 @@ class UrlRewriterConfig {
                       + line,
                   location);
             }
-            if (!UrlRewriter.isValidUrlEncodeSyntax(parts.get(2))) {
+            String matchPattern = parts.get(1);
+            String rewritePattern = parts.get(2);
+            if (!UrlRewriter.isValidUrlEncodeSyntax(rewritePattern)) {
               throw new UrlRewriterParseException(
-                  "Invalid urlencode syntax in `rewrite` replacement: " + parts.get(2), location);
+                  "Invalid urlencode syntax in `rewrite` replacement: " + rewritePattern, location);
             }
+            Pattern pattern;
             try {
-              rewrites.put(Pattern.compile(parts.get(1)), parts.get(2));
+              pattern = Pattern.compile(matchPattern);
             } catch (PatternSyntaxException e) {
               throw new UrlRewriterParseException(
                   "Invalid regex in `rewrite`: "
@@ -181,10 +184,21 @@ class UrlRewriterConfig {
                       + " at index "
                       + e.getIndex()
                       + " in `"
-                      + parts.get(1)
+                      + matchPattern
                       + "`",
                   location);
             }
+            try {
+              UrlRewriter.validateReplacement(pattern, rewritePattern);
+            } catch (IndexOutOfBoundsException | IllegalArgumentException e) {
+              throw new UrlRewriterParseException(
+                  "Invalid rewrite pattern `"
+                      + rewritePattern
+                      + "` in `rewrite`: "
+                      + e.getMessage(),
+                  location);
+            }
+            rewrites.put(pattern, rewritePattern);
           }
           case ALL_BLOCKED_MESSAGE_DIRECTIVE -> {
             if (parts.size() == 1) {
