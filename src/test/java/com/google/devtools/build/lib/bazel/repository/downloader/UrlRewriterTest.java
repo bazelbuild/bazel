@@ -306,6 +306,30 @@ public class UrlRewriterTest {
   }
 
   @Test
+  public void ioErrorReadingConfigIsReportedAsParseError() throws Exception {
+    // Defense in depth: a failure that is not one of the malformed inputs parseConfig recognizes
+    // (here, an I/O error, which it wraps in an UncheckedIOException) must still surface as a
+    // UrlRewriterParseException rather than escaping as an uncaught exception and terminating Bazel
+    // with an internal error and no diagnostic.
+    Reader throwsOnRead =
+        new Reader() {
+          @Override
+          public int read(char[] cbuf, int off, int len) throws IOException {
+            throw new IOException("simulated read failure");
+          }
+
+          @Override
+          public void close() {}
+        };
+    UrlRewriterParseException e =
+        assertThrows(
+            UrlRewriterParseException.class,
+            () -> new UrlRewriterConfig("/some/file", throwsOnRead));
+    assertThat(e.getMessage()).contains("Failed to parse downloader config file `/some/file`");
+    assertThat(e).hasCauseThat().hasMessageThat().contains("simulated read failure");
+  }
+
+  @Test
   public void noAllBlockedMessage() throws Exception {
     String config = "";
     UrlRewriterConfig munger = new UrlRewriterConfig("/some/file", new StringReader(config));
