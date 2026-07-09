@@ -291,7 +291,7 @@ class TestBase(absltest.TestCase):
     os.makedirs(abspath)
     return abspath
 
-  def ScratchFile(self, path, lines=None, executable=False):
+  def ScratchFile(self, path, lines=None, executable=False, mode='w'):
     """Creates a file under the test's scratch directory.
 
     Args:
@@ -300,6 +300,7 @@ class TestBase(absltest.TestCase):
       lines: [string]; the contents of the file (newlines are added
         automatically)
       executable: bool; whether to make the file executable
+      mode: string; fopen mode for the file
     Returns:
       The absolute path of the scratch file.
     Raises:
@@ -314,7 +315,7 @@ class TestBase(absltest.TestCase):
     if os.path.exists(abspath) and not os.path.isfile(abspath):
       raise IOError('"%s" (%s) exists and is not a file' % (path, abspath))
     self.ScratchDir(os.path.dirname(path))
-    with open(abspath, 'w', encoding='utf-8') as f:
+    with open(abspath, mode, encoding='utf-8') as f:
       if lines:
         for l in lines:
           f.write(l)
