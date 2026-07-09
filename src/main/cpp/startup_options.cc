@@ -674,6 +674,10 @@ void StartupOptions::AddJVMLoggingArguments(std::vector<string>* result) const {
   }
 }
 
+void StartupOptions::AddServerLoggingArguments(std::vector<string>* result) const {
+  AddJVMLoggingArguments(result);
+}
+
 blaze_exit_code::ExitCode StartupOptions::AddJVMMemoryArguments(
     const blaze_util::Path&, std::vector<string>*, const vector<string>&,
     string*) const {
