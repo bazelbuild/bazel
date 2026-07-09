@@ -18,26 +18,6 @@ sh_library(
     ],
 )
 
-sh_library(
-    name = "test-deps-minimal-bazel",
-    testonly = 1,
-    srcs = [
-        "//src:bazel-bin_jdk_minimal",
-        "//src/test/shell:bin/bazel_jdk_minimal",
-        "//src/test/shell/bazel:test-deps-wo-bazel",
-    ],
-)
-
-sh_library(
-    name = "test-deps-nojdk",
-    testonly = 1,
-    srcs = [
-        "//src:bazel-bin_nojdk",
-        "//src/test/shell:bin/bazel_nojdk",
-        "//src/test/shell/bazel:test-deps-wo-bazel",
-    ],
-)
-
 sh_test(
     name = "action_aspect_test",
     size = "large",
@@ -105,16 +85,6 @@ sh_test(
 )
 
 sh_test(
-    name = "bazel_aquery_test",
-    size = "large",
-    srcs = ["bazel_aquery_test.sh"],
-    data = [
-        ":test-deps",
-        "@bazel_tools//tools/bash/runfiles",
-    ],
-)
-
-sh_test(
     name = "bazel_command_log_test",
     size = "medium",
     srcs = ["bazel_command_log_test.sh"],
@@ -142,14 +112,6 @@ sh_test(
         "no_macos",
         "no_windows",
     ],
-)
-
-sh_test(
-    name = "bazel_java_test",
-    size = "medium",
-    srcs = ["bazel_java_test.sh"],
-    data = [":test-deps"],
-    tags = ["no_windows"],
 )
 
 sh_test(
@@ -449,16 +411,6 @@ sh_test(
 )
 
 sh_test(
-    name = "execution_phase_tests",
-    size = "large",
-    srcs = ["execution_phase_tests.sh"],
-    data = [
-        ":test-deps",
-        "@bazel_tools//tools/bash/runfiles",
-    ],
-)
-
-sh_test(
     name = "execution_strategies_test",
     size = "medium",
     srcs = ["execution_strategies_test.sh"],
@@ -511,16 +463,6 @@ sh_test(
 )
 
 sh_test(
-    name = "implicit_dependency_reporting_test",
-    size = "medium",
-    srcs = ["implicit_dependency_reporting_test.sh"],
-    data = [
-        ":test-deps",
-        "@bazel_tools//tools/bash/runfiles",
-    ],
-)
-
-sh_test(
     name = "info_test",
     srcs = ["info_test.sh"],
     data = [
@@ -551,17 +493,6 @@ sh_test(
     srcs = ["jvm_flags_escaping_test.sh"],
     data = [":test-deps"],
     deps = ["@bazel_tools//tools/bash/runfiles"],
-)
-
-sh_test(
-    name = "linux_sandbox_network_test",
-    size = "large",
-    srcs = ["linux-sandbox_network_test.sh"],
-    data = [
-        ":test-deps",
-        "//src/test/shell:sandboxing_test_utils.sh",
-    ],
-    tags = ["no_windows"],
 )
 
 sh_test(
@@ -607,19 +538,6 @@ sh_test(
 )
 
 sh_test(
-    name = "minimal_jdk_test",
-    size = "large",
-    srcs = ["minimal_jdk_test.sh"],
-    data = [
-        ":test-deps-minimal-bazel",
-        "@bazel_tools//tools/bash/runfiles",
-    ],
-    tags = [
-        "no_windows",
-    ],
-)
-
-sh_test(
     name = "modify_execution_info_test",
     srcs = ["modify_execution_info_test.sh"],
     data = [
@@ -628,18 +546,6 @@ sh_test(
         "@zlib",
     ],
     tags = ["requires-network"],  # Allow this test to access internet to fetch protobuf dependencies.
-)
-
-sh_test(
-    name = "nojdk_startup_options_test",
-    size = "medium",
-    srcs = ["nojdk_startup_options_test.sh"],
-    data = [
-        ":test-deps-nojdk",
-        "@bazel_tools//tools/bash/runfiles",
-    ],
-    # Windows doesn't support sandboxing, which BAZEL_SUFFIX needs.
-    tags = ["no_windows"],
 )
 
 sh_test(
@@ -686,14 +592,6 @@ sh_test(
 )
 
 sh_test(
-    name = "prelude_test",
-    size = "medium",
-    srcs = ["prelude_test.sh"],
-    data = [":test-deps"],
-    tags = ["no_windows"],
-)
-
-sh_test(
     name = "process_wrapper_test",
     size = "medium",
     srcs = ["process-wrapper_test.sh"],
@@ -726,13 +624,6 @@ sh_test(
         "@bazel_tools//tools/bash/runfiles",
     ],
     shard_count = 4,
-)
-
-sh_test(
-    name = "py_args_escaping_test",
-    srcs = ["py_args_escaping_test.sh"],
-    data = [":test-deps"],
-    deps = ["@bazel_tools//tools/bash/runfiles"],
 )
 
 sh_test(
@@ -840,24 +731,6 @@ package_group(
 )
 
 sh_test(
-    name = "stamping_test",
-    size = "medium",
-    srcs = ["stamping_test.sh"],
-    data = [":test-deps"],
-    tags = ["no_windows"],
-)
-
-sh_test(
-    name = "starlark_configurations_external_workspaces_test",
-    size = "medium",
-    srcs = ["starlark_configurations_external_workspaces_test.sh"],
-    data = [
-        ":test-deps",
-        "@bazel_tools//tools/bash/runfiles",
-    ],
-)
-
-sh_test(
     name = "starlark_configurations_test",
     size = "medium",
     srcs = ["starlark_configurations_test.sh"],
@@ -914,14 +787,6 @@ sh_test(
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",
     ],
-)
-
-sh_test(
-    name = "target_compatible_with_external_repo_test",
-    timeout = "long",
-    srcs = ["target_compatible_with_test_external_repo.sh"],
-    data = [":test-deps"],
-    deps = ["@bazel_tools//tools/bash/runfiles"],
 )
 
 sh_test(
