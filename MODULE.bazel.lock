@@ -371,6 +371,64 @@
   },
   "selectedYankedVersions": {},
   "moduleExtensions": {
+    "//:repositories.bzl%async_profiler_repos": {
+      "general": {
+        "bzlTransitiveDigest": "y2ybE2+3Pj9xvfBcsDwq4qg//eCHp0/Ma0/lpU7TeVc=",
+        "usagesDigest": "7jreou9WV8qOgoUM+8bYvk7WC5dIlxvYXDi24CckXQQ=",
+        "recordedInputs": [
+          "REPO_MAPPING:,async_profiler +async_profiler_repos+async_profiler",
+          "REPO_MAPPING:,async_profiler_linux_arm64 +async_profiler_repos+async_profiler_linux_arm64",
+          "REPO_MAPPING:,async_profiler_linux_x64 +async_profiler_repos+async_profiler_linux_x64",
+          "REPO_MAPPING:,async_profiler_macos +async_profiler_repos+async_profiler_macos",
+          "REPO_MAPPING:,bazel_tools bazel_tools"
+        ],
+        "generatedRepoSpecs": {
+          "async_profiler": {
+            "repoRuleId": "@@bazel_tools//tools/build_defs/repo:http.bzl%http_file",
+            "attributes": {
+              "downloaded_file_path": "async-profiler.jar",
+              "integrity": "sha256-hwOrB7gKRnaucBvdJPD/PMONf0OuJEHOlXtFFyOFh+c=",
+              "urls": [
+                "https://github.com/async-profiler/async-profiler/releases/download/v4.4/async-profiler.jar"
+              ]
+            }
+          },
+          "async_profiler_linux_arm64": {
+            "repoRuleId": "@@bazel_tools//tools/build_defs/repo:http.bzl%http_archive",
+            "attributes": {
+              "build_file_content": "\nload(\"@bazel_skylib//rules:copy_file.bzl\", \"copy_file\")\n\ncopy_file(\n    name = \"libasyncProfiler\",\n    src = \"libasyncProfiler.so\",\n    out = \"linux-arm64/libasyncProfiler.so\",\n    visibility = [\"//visibility:public\"],\n)\n",
+              "integrity": "sha256-hv+XtENqzNtte7ZcHPbjinVvIDepIZlNj6HcuX0dxTw=",
+              "strip_prefix": "async-profiler-4.4-linux-arm64/lib",
+              "urls": [
+                "https://github.com/async-profiler/async-profiler/releases/download/v4.4/async-profiler-4.4-linux-arm64.tar.gz"
+              ]
+            }
+          },
+          "async_profiler_linux_x64": {
+            "repoRuleId": "@@bazel_tools//tools/build_defs/repo:http.bzl%http_archive",
+            "attributes": {
+              "build_file_content": "\nload(\"@bazel_skylib//rules:copy_file.bzl\", \"copy_file\")\n\ncopy_file(\n    name = \"libasyncProfiler\",\n    src = \"libasyncProfiler.so\",\n    out = \"linux-x64/libasyncProfiler.so\",\n    visibility = [\"//visibility:public\"],\n)\n",
+              "integrity": "sha256-EjPyb8lXU+dc4yczu8r48L7cLAmLDnmK+Hk1sIpjsk4=",
+              "strip_prefix": "async-profiler-4.4-linux-x64/lib",
+              "urls": [
+                "https://github.com/async-profiler/async-profiler/releases/download/v4.4/async-profiler-4.4-linux-x64.tar.gz"
+              ]
+            }
+          },
+          "async_profiler_macos": {
+            "repoRuleId": "@@bazel_tools//tools/build_defs/repo:http.bzl%http_archive",
+            "attributes": {
+              "build_file_content": "\nload(\"@bazel_skylib//rules:copy_file.bzl\", \"copy_file\")\n\ncopy_file(\n    name = \"libasyncProfiler\",\n    src = \"libasyncProfiler.dylib\",\n    out = \"macos/libasyncProfiler.so\",\n    visibility = [\"//visibility:public\"],\n)\n",
+              "integrity": "sha256-YXfr5W0IjRFuG0NmGPGLMxa55BiF/nQ1Ofa8KXpIcjk=",
+              "strip_prefix": "async-profiler-4.4-macos/lib",
+              "urls": [
+                "https://github.com/async-profiler/async-profiler/releases/download/v4.4/async-profiler-4.4-macos.zip"
+              ]
+            }
+          }
+        }
+      }
+    },
     "@@bazel_ci_rules+//:rbe_config.bzl%rbe_config_extension": {
       "general": {
         "bzlTransitiveDigest": "9+l/EBrynYwo8/gokt6U/+ZoE2tIACzH5rOoPfI01wE=",
