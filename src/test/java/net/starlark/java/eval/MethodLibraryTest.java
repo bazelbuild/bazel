@@ -312,6 +312,19 @@ public final class MethodLibraryTest {
   }
 
   @Test
+  public void testKeyFunctionMayMutateInputList() throws Exception {
+    ev.new Scenario()
+        .setUp(
+            "a = list(range(10))",
+            "def mutating_key(x):",
+            "  a.pop()",
+            "  return x")
+        .testEval("min(a, key = mutating_key)", "0")
+        .testEval("max(a, key = mutating_key)", "9")
+        .testEval("sorted(a, key = mutating_key)", "[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]");
+  }
+
+  @Test
   public void testDictionaryCopy() throws Exception {
     ev.new Scenario()
         .setUp("x = {1 : 2}", "y = dict(x)")

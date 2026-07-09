@@ -14,7 +14,6 @@
 
 package net.starlark.java.eval;
 
-import static com.google.common.collect.Streams.stream;
 import static java.util.Comparator.comparing;
 
 import com.google.common.base.Ascii;
@@ -113,11 +112,13 @@ class MethodLibrary {
       throws EvalException, InterruptedException {
     // Args can either be a list of items to compare, or a singleton list whose element is an
     // iterable of items to compare. In either case, there must be at least one item to compare.
-    Iterable<?> items = (args.size() == 1) ? Starlark.toIterable(args.get(0)) : args;
+    Object items = (args.size() == 1) ? args.get(0) : args;
     try {
       if (keyFn.isPresent()) {
         try {
-          return stream(items)
+          // Snapshot before calling user Starlark code so key functions can mutate the original
+          // iterable without invalidating Java's iterator.
+          return Arrays.stream(Starlark.toArray(items))
               .map(value -> ValueWithComparisonKey.make(value, keyFn.get(), thread))
               .max(comparing(ValueWithComparisonKey::getComparisonKey, maxOrdering))
               .get()
@@ -128,7 +129,7 @@ class MethodLibrary {
           throw new AssertionError("Got invalid ValueWithComparisonKey.KeyCallException", ex);
         }
       } else {
-        return maxOrdering.max(items);
+        return maxOrdering.max(Starlark.toIterable(items));
       }
     } catch (ClassCastException ex) {
       throw new EvalException(ex.getMessage()); // e.g. unsupported comparison: int <=> string
