@@ -415,7 +415,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     Package pkg = getPackage("pkg");
     assertThat(pkg).isNotNull();
     assertThat(pkg.containsErrors()).isTrue();
-    assertContainsEvent("unexpected positional arguments");
+    assertContainsEvent("does not accept positional arguments, but got 1");
   }
 
   @Test
