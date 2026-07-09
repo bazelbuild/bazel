@@ -87,6 +87,8 @@ def _repo_cache_tar_impl(ctx):
         ),
     )
 
+    return ctx.repo_metadata(reproducible = True)
+
 _repo_cache_tar_attrs = {
     "lockfile": attr.label(default = Label("//:MODULE.bazel.lock")),
     "dirname": attr.string(default = "repository_cache"),
