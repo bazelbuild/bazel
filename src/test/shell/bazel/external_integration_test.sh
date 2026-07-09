@@ -646,6 +646,45 @@ EOF
   expect_log "Tra-la!"
 }
 
+function test_http_file_downloaded_file_path_root_alias() {
+  local test_file=$TEST_TMPDIR/AvailablePortFinder.java
+  echo "class AvailablePortFinder {}" >$test_file
+  local sha256=$(sha256sum $test_file | cut -f 1 -d ' ')
+
+  cd ${WORKSPACE_DIR}
+  cat > $(setup_module_dot_bazel) <<EOF
+http_file = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
+http_file(
+    name = "available_port_finder",
+    downloaded_file_path = "AvailablePortFinder.java",
+    urls = ["file://$test_file"],
+    sha256 = "$sha256",
+)
+EOF
+
+  mkdir -p test
+  cat > test/BUILD <<'EOF'
+genrule(
+    name = "copy_by_downloaded_file_name",
+    srcs = ["@available_port_finder//:AvailablePortFinder.java"],
+    outs = ["root_alias.txt"],
+    cmd = "cp $(location @available_port_finder//:AvailablePortFinder.java) $@",
+)
+
+genrule(
+    name = "copy_by_canonical_filegroup",
+    srcs = ["@available_port_finder//file"],
+    outs = ["canonical_filegroup.txt"],
+    cmd = "cp $(location @available_port_finder//file) $@",
+)
+EOF
+
+  bazel build //test:copy_by_downloaded_file_name //test:copy_by_canonical_filegroup \
+    >& $TEST_log || fail "Expected build to succeed"
+  assert_contains "class AvailablePortFinder" bazel-bin/test/root_alias.txt
+  assert_contains "class AvailablePortFinder" bazel-bin/test/canonical_filegroup.txt
+}
+
 function test_http_timeout() {
   serve_timeout
 
