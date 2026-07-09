@@ -396,7 +396,17 @@ use_repo(
 cc_configure = use_extension("@rules_cc//cc:extensions.bzl", "cc_configure_extension")
 use_repo(cc_configure, "local_config_cc")
 
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_file = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
+
+# TODO: Use rules_graalvm's repository rule once its release map covers GraalVM 25.x.
+http_archive(
+    name = "graalvm_25_1_3_linux_x64",
+    build_file = "//third_party:graalvm_25_1_3_linux_x64.BUILD",
+    sha256 = "efcb8984be5f72ecf8615641bec720c825a6889957f0b98d95123f563ff77c86",
+    strip_prefix = "graalvm-25.1.3+9.1",
+    urls = ["https://download.oracle.com/graalvm/25i1/archive/graalvm-jdk-25i1-25.0.3_linux-x64_bin.tar.gz"],
+)
 
 # DO NOT UPDATE the jq versions, they are used to verify compatibility with old and new versions.
 http_file(
