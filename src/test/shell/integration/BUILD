@@ -489,6 +489,21 @@ sh_test(
 )
 
 sh_test(
+    name = "java_sandboxing_test",
+    size = "medium",
+    srcs = ["java_sandboxing_test.sh"],
+    data = [
+        ":test-deps",
+    ],
+    shard_count = 4,
+    # These are CPU-heavy due to running a large amount of analysis.
+    tags = [
+        "cpu:4",
+        "no_windows",
+    ],
+)
+
+sh_test(
     name = "jvm_flags_escaping_test",
     srcs = ["jvm_flags_escaping_test.sh"],
     data = [":test-deps"],
@@ -549,6 +564,18 @@ sh_test(
 )
 
 sh_test(
+    name = "nestedset_as_skykey_test",
+    size = "medium",
+    timeout = "long",
+    srcs = ["nestedset_as_skykey_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+    shard_count = 2,
+)
+
+sh_test(
     name = "nonincremental_builds_test",
     size = "medium",
     srcs = ["nonincremental_builds_test.sh"],
@@ -562,12 +589,38 @@ sh_test(
 )
 
 sh_test(
+    name = "output_filter_test",
+    size = "medium",
+    timeout = "long",
+    srcs = ["output_filter_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+    tags = [
+        "no_windows",
+    ],
+)
+
+sh_test(
     name = "outputs_test",
     size = "medium",
     srcs = ["outputs_test.sh"],
     data = [
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",
+    ],
+)
+
+sh_test(
+    name = "param_file_flag_per_line_test",
+    srcs = ["param_file_flag_per_line_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+    tags = [
+        "no_windows",
     ],
 )
 
@@ -818,6 +871,18 @@ sh_test(
 )
 
 sh_test(
+    name = "thread_dump_test",
+    srcs = ["thread_dump_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+    tags = [
+        "no_windows",
+    ],
+)
+
+sh_test(
     name = "toolchain_test",
     size = "large",
     srcs = ["toolchain_test.sh"],
@@ -881,6 +946,18 @@ sh_test(
     ],
     tags = [
         "exclusive",
+        "no_windows",
+    ],
+)
+
+sh_test(
+    name = "workspace_status_test",
+    srcs = ["workspace_status_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+    tags = [
         "no_windows",
     ],
 )

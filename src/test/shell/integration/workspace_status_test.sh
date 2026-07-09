@@ -77,11 +77,12 @@ function test_workspace_status_invalidation() {
 
 # Regression test for bug 4095015.
 function test_false_and_verbose_failures() {
+    add_rules_cc MODULE.bazel
     mkdir -p x || fail "mkdir x failed"
     echo 'load("@rules_cc//cc:cc_library.bzl", "cc_library")' > x/BUILD
     echo "cc_library(name='x')" >> x/BUILD
 
-    blaze build --workspace_status_command=/bin/false --verbose_failures //x \
+    bazel build --workspace_status_command=/bin/false --verbose_failures //x \
         >& "$TEST_log" && fail "Expected build to fail".
     # Tolerate Bazel/Blaze differences in failure message.
     expect_log "Failed to determine"
@@ -90,6 +91,7 @@ function test_false_and_verbose_failures() {
 }
 
 function test_that_script_is_run_from_workspace_directory() {
+    add_rules_cc MODULE.bazel
     mkdir -p x || fail "mkdir x failed"
     echo 'load("@rules_cc//cc:cc_library.bzl", "cc_library")' > x/BUILD
     echo "cc_library(name='x')" >> x/BUILD
