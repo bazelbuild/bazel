@@ -168,8 +168,11 @@ class UrlRewriterConfig {
                       + line,
                   location);
             }
+            String matchPattern = parts.get(1);
+            String rewritePattern = parts.get(2);
+            Pattern pattern;
             try {
-              rewrites.put(Pattern.compile(parts.get(1)), parts.get(2));
+              pattern = Pattern.compile(matchPattern);
             } catch (PatternSyntaxException e) {
               throw new UrlRewriterParseException(
                   "Invalid regex in `rewrite`: "
@@ -177,10 +180,31 @@ class UrlRewriterConfig {
                       + " at index "
                       + e.getIndex()
                       + " in `"
-                      + parts.get(1)
+                      + matchPattern
                       + "`",
                   location);
             }
+            // The replacement string is expanded lazily by java.util.regex.Matcher, only when a URL
+            // is actually rewritten during a download. Validate it eagerly here so that a malformed
+            // replacement (e.g. `$3` when the pattern has two groups, or a trailing `$`) surfaces
+            // as a config parse error, rather than silently aborting a later download with an
+            // uncaught exception and no error message. Wrapping the (already valid) pattern so that
+            // it always matches lets Matcher's replacement parser flag the exact same error and we
+            // surface it here at parse time.
+            try {
+              var unused =
+                  Pattern.compile("(?:" + matchPattern + ")|.*")
+                      .matcher("")
+                      .replaceFirst(rewritePattern);
+            } catch (IndexOutOfBoundsException | IllegalArgumentException e) {
+              throw new UrlRewriterParseException(
+                  "Invalid rewrite pattern `"
+                      + rewritePattern
+                      + "` in `rewrite`: "
+                      + e.getMessage(),
+                  location);
+            }
+            rewrites.put(pattern, rewritePattern);
           }
           case ALL_BLOCKED_MESSAGE_DIRECTIVE -> {
             if (parts.size() == 1) {
