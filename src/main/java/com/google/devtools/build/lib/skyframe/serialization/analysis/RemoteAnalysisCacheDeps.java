@@ -258,11 +258,15 @@ public class RemoteAnalysisCacheDeps
     return analysisCacheClient.get();
   }
 
+  @Override
   @Nullable
-  private FileOpNodeMemoizingLookup getFileOpNodes() throws InterruptedException {
+  public FileOpNodeMemoizingLookup getFileOpNodes() throws InterruptedException {
+    checkEnabled();
+
     if (fileOpNodes != null) {
       return fileOpNodes;
     }
+
     FingerprintValueService fingerprintValueService = getFingerprintValueService();
     if (fingerprintValueService == null) {
       return null;
@@ -294,7 +298,7 @@ public class RemoteAnalysisCacheDeps
       return null;
     }
     ObjectCodecs codecs = getObjectCodecs();
-    FileOpNodeMemoizingLookup fileOp = getFileOpNodes();
+    FileOpNodeMemoizingLookup fileOp = Preconditions.checkNotNull(getFileOpNodes());
 
     synchronized (this) {
       if (skyValueRetriever == null) {
@@ -318,7 +322,7 @@ public class RemoteAnalysisCacheDeps
       return null;
     }
     ObjectCodecs codecs = getObjectCodecs();
-    FileOpNodeMemoizingLookup fileOp = getFileOpNodes();
+    FileOpNodeMemoizingLookup fileOp = Preconditions.checkNotNull(getFileOpNodes());
 
     synchronized (this) {
       if (skycacheUploadClient == null) {

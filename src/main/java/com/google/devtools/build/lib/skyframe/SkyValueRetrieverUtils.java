@@ -116,7 +116,7 @@ public final class SkyValueRetrieverUtils {
       SkyValue value,
       Environment env)
       throws InterruptedException {
-    if (!cachingDeps.mode().isAsyncUploadEnabled()) {
+    if (!cachingDeps.mode().isAsyncUpload()) {
       return;
     }
 

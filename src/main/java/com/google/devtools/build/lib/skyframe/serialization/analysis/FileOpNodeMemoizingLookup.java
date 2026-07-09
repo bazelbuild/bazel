@@ -119,12 +119,12 @@ public final class FileOpNodeMemoizingLookup {
 
   private final Executor executor;
   private final InMemoryGraph graph;
-  private final ImmutableSet<SkyKey> selectedKeys;
-  private final boolean shouldDiscardMemory;
-  @Nullable // non-null if shouldDiscardMemory is true
-  private final ImmutableSet<PackageIdentifier> referencedPackages;
-
   private final FileOpNodeMap nodes = new FileOpNodeMap();
+
+  private ImmutableSet<SkyKey> selectedKeys;
+  private boolean shouldDiscardMemory;
+  @Nullable // non-null if shouldDiscardMemory is true
+  private ImmutableSet<PackageIdentifier> referencedPackages;
 
   FileOpNodeMemoizingLookup(
       Executor executor,
@@ -134,6 +134,15 @@ public final class FileOpNodeMemoizingLookup {
       @Nullable ImmutableSet<PackageIdentifier> referencedPackages) {
     this.executor = executor;
     this.graph = graph;
+    this.selectedKeys = selectedKeys;
+    this.shouldDiscardMemory = shouldDiscardMemory;
+    this.referencedPackages = referencedPackages;
+  }
+
+  void setMemoryReclamationParameters(
+      ImmutableSet<SkyKey> selectedKeys,
+      boolean shouldDiscardMemory,
+      @Nullable ImmutableSet<PackageIdentifier> referencedPackages) {
     this.selectedKeys = selectedKeys;
     this.shouldDiscardMemory = shouldDiscardMemory;
     this.referencedPackages = referencedPackages;

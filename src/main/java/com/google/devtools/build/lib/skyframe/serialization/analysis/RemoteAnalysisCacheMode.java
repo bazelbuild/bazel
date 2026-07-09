@@ -33,11 +33,18 @@ public final class RemoteAnalysisCacheMode {
   public static final RemoteAnalysisCacheMode DOWNLOAD = new RemoteAnalysisCacheMode("DOWNLOAD");
 
   /** Both fetches and serializes Skyframe analysis nodes during the build. */
-  public static final RemoteAnalysisCacheMode BIDI = new RemoteAnalysisCacheMode("BIDI");
+  public static final RemoteAnalysisCacheMode ASYNC_BIDI =
+      new RemoteAnalysisCacheMode("ASYNC_BIDI");
 
   /** Serializes and uploads Skyframe analysis nodes during the build (no download). */
   public static final RemoteAnalysisCacheMode ASYNC_UPLOAD =
       new RemoteAnalysisCacheMode("ASYNC_UPLOAD");
+
+  /**
+   * Fetches analysis nodes during the build and serializes/uploads analysis nodes after the build
+   * command finishes.
+   */
+  public static final RemoteAnalysisCacheMode BIDI = new RemoteAnalysisCacheMode("BIDI");
 
   /** Disabled. */
   public static final RemoteAnalysisCacheMode OFF = new RemoteAnalysisCacheMode("OFF");
@@ -50,19 +57,27 @@ public final class RemoteAnalysisCacheMode {
 
   /** Returns true if the selected mode needs to connect to a backend. */
   public boolean requiresBackendConnectivity() {
-    return this == UPLOAD || this == DOWNLOAD || this == BIDI || this == ASYNC_UPLOAD;
+    return isUploadEnabled() || isRetrievalEnabled();
   }
 
   public boolean isRetrievalEnabled() {
-    return this == DOWNLOAD || this == BIDI;
-  }
-
-  public boolean isAsyncUploadEnabled() {
-    return this == BIDI || this == ASYNC_UPLOAD;
+    return this == DOWNLOAD || this == ASYNC_BIDI || this == BIDI;
   }
 
   public boolean isUploadEnabled() {
-    return this == BIDI || this == ASYNC_UPLOAD || this == UPLOAD;
+    return isSyncUpload() || isAsyncUpload();
+  }
+
+  public boolean isBidirectional() {
+    return isRetrievalEnabled() && isUploadEnabled();
+  }
+
+  public boolean isSyncUpload() {
+    return this == UPLOAD || this == BIDI;
+  }
+
+  public boolean isAsyncUpload() {
+    return this == ASYNC_BIDI || this == ASYNC_UPLOAD;
   }
 
   /**
@@ -71,10 +86,11 @@ public final class RemoteAnalysisCacheMode {
    * <p>{@link DOWNLOAD} serializes keys, but not values.
    */
   public boolean serializesValues() {
-    return this == UPLOAD
-        || this == DUMP_UPLOAD_MANIFEST_ONLY
-        || this == BIDI
-        || this == ASYNC_UPLOAD;
+    if (isUploadEnabled()) {
+      return true;
+    }
+
+    return this == DUMP_UPLOAD_MANIFEST_ONLY;
   }
 
   @Override
@@ -84,7 +100,7 @@ public final class RemoteAnalysisCacheMode {
 
   @SuppressWarnings("JdkImmutableCollections")
   private static final List<RemoteAnalysisCacheMode> values =
-      List.of(UPLOAD, DUMP_UPLOAD_MANIFEST_ONLY, DOWNLOAD, BIDI, ASYNC_UPLOAD, OFF);
+      List.of(UPLOAD, DUMP_UPLOAD_MANIFEST_ONLY, DOWNLOAD, ASYNC_BIDI, ASYNC_UPLOAD, BIDI, OFF);
 
   public static List<RemoteAnalysisCacheMode> values() {
     return values;

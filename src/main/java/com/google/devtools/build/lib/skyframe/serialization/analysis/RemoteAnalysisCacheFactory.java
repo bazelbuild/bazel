@@ -109,8 +109,7 @@ public final class RemoteAnalysisCacheFactory {
                   .build()));
     }
 
-    if (options.getMode() == RemoteAnalysisCacheMode.UPLOAD
-        || options.getMode() == RemoteAnalysisCacheMode.DUMP_UPLOAD_MANIFEST_ONLY) {
+    if (options.getMode().serializesValues()) {
       CoreOptions coreOptions = topLevelOptions.get(CoreOptions.class);
       if (coreOptions != null && !coreOptions.getCheckVisibility()) {
         throw new AbruptExitException(
@@ -248,12 +247,7 @@ public final class RemoteAnalysisCacheFactory {
 
     // Bail out if needed
 
-    RemoteAnalysisCacheMode mode = options.getMode();
-    if (mode == RemoteAnalysisCacheMode.DUMP_UPLOAD_MANIFEST_ONLY
-        || mode == RemoteAnalysisCacheMode.UPLOAD
-        || mode == RemoteAnalysisCacheMode.ASYNC_UPLOAD) {
-      return new AnalysisDeps(manager, deps, deps);
-    } else if (mode == RemoteAnalysisCacheMode.DOWNLOAD || mode == RemoteAnalysisCacheMode.BIDI) {
+    if (options.getMode().isRetrievalEnabled()) {
       RemoteAnalysisCacheClient analysisCacheClient;
       try (SilentCloseable unused = Profiler.instance().profile("initAnalysisCacheClient")) {
         analysisCacheClient = deps.getAnalysisCacheClient();
@@ -270,8 +264,10 @@ public final class RemoteAnalysisCacheFactory {
             RemoteAnalysisCacheDeps.createDisabled());
       }
       return new AnalysisDeps(manager, deps, deps);
+    } else if (options.getMode().serializesValues()) {
+      return new AnalysisDeps(manager, deps, deps);
     } else {
-      throw new IllegalStateException("Unknown RemoteAnalysisCacheMode: " + mode);
+      throw new IllegalStateException("Unknown RemoteAnalysisCacheMode: " + options.getMode());
     }
   }
 
@@ -280,35 +276,37 @@ public final class RemoteAnalysisCacheFactory {
       Optional<PathFragmentPrefixTrie> maybeProjectFileMatcher,
       RemoteAnalysisCacheMode mode)
       throws InvalidConfigurationException {
-    if (!mode.serializesValues()) {
-      return Optional.empty();
-    }
-    // Upload or Dump mode: allow overriding the project file matcher with the active
-    // directories flag.
-    List<String> activeDirectoriesFromFlag =
-        env.getOptions().getOptions(SkyfocusOptions.class).getActiveDirectories();
-    var result = maybeProjectFileMatcher;
-    if (!activeDirectoriesFromFlag.isEmpty()) {
-      env.getReporter()
-          .handle(
-              Event.warn(
-                  "Specifying --experimental_active_directories will override the active"
-                      + " directories specified in the PROJECT.scl file"));
-      try {
-        result = Optional.of(PathFragmentPrefixTrie.of(activeDirectoriesFromFlag));
-      } catch (PathFragmentPrefixTrieException e) {
-        throw new InvalidConfigurationException(
-            "Active directories configuration error: " + e.getMessage(), Code.INVALID_PROJECT);
+    if (mode.serializesValues()) {
+      // Upload or Dump mode: allow overriding the project file matcher with the active
+      // directories flag.
+      List<String> activeDirectoriesFromFlag =
+          env.getOptions().getOptions(SkyfocusOptions.class).getActiveDirectories();
+      var result = maybeProjectFileMatcher;
+      if (!activeDirectoriesFromFlag.isEmpty()) {
+        env.getReporter()
+            .handle(
+                Event.warn(
+                    "Specifying --experimental_active_directories will override the active"
+                        + " directories specified in the PROJECT.scl file"));
+        try {
+          result = Optional.of(PathFragmentPrefixTrie.of(activeDirectoriesFromFlag));
+        } catch (PathFragmentPrefixTrieException e) {
+          throw new InvalidConfigurationException(
+              "Active directories configuration error: " + e.getMessage(), Code.INVALID_PROJECT);
+        }
       }
-    }
 
-    if (result.isEmpty() || !result.get().hasIncludedPaths()) {
-      env.getReporter()
-          .handle(
-              Event.warn("No active directories were found. Falling back on full serialization."));
+      if (result.isEmpty() || !result.get().hasIncludedPaths()) {
+        env.getReporter()
+            .handle(
+                Event.warn(
+                    "No active directories were found. Falling back on full serialization."));
+        return Optional.empty();
+      }
+      return result;
+    } else {
       return Optional.empty();
     }
-    return result;
   }
 
   private static ObjectCodecs initAnalysisObjectCodecs(

@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture.FileOpNode;
 import com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture.FileOpNodeOrEmpty;
 import com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture.FutureFileOpNode;
 import com.google.devtools.build.lib.skyframe.serialization.AsyncSerializationTask;
+import com.google.devtools.build.lib.skyframe.serialization.DeserializedSkyValue;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
 import com.google.devtools.build.lib.skyframe.serialization.FrontierNodeVersion;
 import com.google.devtools.build.lib.skyframe.serialization.KeyValueWriter;
@@ -236,7 +237,8 @@ final class SelectedEntrySerializer {
       EventBus eventBus,
       ProfileCollector profileCollector,
       SerializationStats serializationStats,
-      boolean emitUploadedEvents)
+      boolean emitUploadedEvents,
+      FileOpNodeMemoizingLookup fileOpNodes)
       throws InterruptedException {
     ImmutableMap<PackageIdentifier, AtomicInteger> packageRefcounts = null;
     if (shouldDiscardMemory) {
@@ -254,13 +256,8 @@ final class SelectedEntrySerializer {
               });
       packageRefcounts = ImmutableMap.copyOf(tempRefcounts);
     }
-    var fileOpNodes =
-        new FileOpNodeMemoizingLookup(
-            fingerprintValueService.getExecutor(),
-            graph,
-            selection,
-            shouldDiscardMemory,
-            shouldDiscardMemory ? packageRefcounts.keySet() : null);
+    fileOpNodes.setMemoryReclamationParameters(
+        selection, shouldDiscardMemory, shouldDiscardMemory ? packageRefcounts.keySet() : null);
     var fileDependencySerializer =
         new FileDependencySerializer(
             versionGetter,
@@ -332,17 +329,20 @@ final class SelectedEntrySerializer {
   }
 
   public void upload(SkyKey key) throws InterruptedException {
+    InMemoryNodeEntry entry = graph.getIfPresent(key);
+    if (entry != null && entry.getValue() instanceof DeserializedSkyValue) {
+      return;
+    }
     // TODO: b/371508153 - only upload nodes that were freshly computed by this invocation and
     // unaffected by local, un-submitted changes.
     writeStatuses.selectedEntryStartingCapped();
     try {
       switch (key) {
         case ActionLookupKey actionLookupKey -> {
-          serializationStats.registerAnalysisNode();
-          InMemoryNodeEntry entry = graph.getIfPresent(actionLookupKey);
           if (entry == null) {
             throw new MissingSkyframeEntryException(actionLookupKey);
           }
+          serializationStats.registerAnalysisNode();
           uploadAnalysisEntry(actionLookupKey, entry.getValue(), entry.getDirectDeps());
         }
         case ActionLookupData lookupData -> {

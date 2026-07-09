@@ -55,6 +55,9 @@ public interface SerializationDependenciesProvider {
   @Nullable
   RemoteAnalysisMetadataWriter getMetadataWriter() throws InterruptedException;
 
+  @Nullable
+  FileOpNodeMemoizingLookup getFileOpNodes() throws InterruptedException;
+
   void waitForUploadCompletion() throws InterruptedException, ExecutionException;
 
   boolean shouldMinimizeMemory();

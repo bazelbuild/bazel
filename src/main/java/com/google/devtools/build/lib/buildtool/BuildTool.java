@@ -104,7 +104,6 @@ import com.google.devtools.build.lib.skyframe.serialization.SkycacheMetadataPara
 import com.google.devtools.build.lib.skyframe.serialization.analysis.FrontierSerializer;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheClient;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheFactory;
-import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheMode;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheReaderDepsProvider;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisMetadataWriter;
@@ -1077,23 +1076,17 @@ public class BuildTool {
       return;
     }
 
-    // TODO(b/529634169): make this exhaustive.
-    RemoteAnalysisCacheMode mode = dependenciesProvider.mode();
-    if (mode == RemoteAnalysisCacheMode.UPLOAD || mode == RemoteAnalysisCacheMode.ASYNC_UPLOAD) {
+    if (dependenciesProvider.mode().requiresBackendConnectivity()) {
       reportRemoteAnalysisServiceStats(
           dependenciesProvider.getFingerprintValueService(),
           dependenciesProvider.getAnalysisCacheClient());
-    } else if (mode == RemoteAnalysisCacheMode.DOWNLOAD || mode == RemoteAnalysisCacheMode.BIDI) {
-      reportRemoteAnalysisServiceStats(
-          dependenciesProvider.getFingerprintValueService(),
-          dependenciesProvider.getAnalysisCacheClient());
+    }
+    if (dependenciesProvider.mode().isRetrievalEnabled()) {
       reportRemoteAnalysisCachingStats();
       env.getSkyframeExecutor()
           .syncRemoteAnalysisCachingState(
               env.getRemoteAnalysisCachingEventListener().getSkyValueVersion(),
               env.getRemoteAnalysisCachingEventListener().getClientId());
-    } else {
-      // do nothing
     }
   }
 
@@ -1294,7 +1287,7 @@ public class BuildTool {
 
     checkState(serializationDependenciesProvider.mode().serializesValues());
 
-    if (serializationDependenciesProvider.mode().isAsyncUploadEnabled()) {
+    if (serializationDependenciesProvider.mode().isAsyncUpload()) {
       try {
         serializationDependenciesProvider.waitForUploadCompletion();
       } catch (ExecutionException e) {
@@ -1327,7 +1320,7 @@ public class BuildTool {
       }
     }
 
-    if (serializationDependenciesProvider.mode() == RemoteAnalysisCacheMode.UPLOAD) {
+    if (serializationDependenciesProvider.mode().isSyncUpload()) {
       tryWriteSkycacheMetadata(serializationDependenciesProvider);
     }
   }

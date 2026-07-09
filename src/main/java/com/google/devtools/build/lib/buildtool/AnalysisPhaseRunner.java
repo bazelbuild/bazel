@@ -73,7 +73,6 @@ import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TestAnalyzedE
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetAnalyzedEvent;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetSkippedEvent;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
-import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheMode;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheReaderDepsProvider;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions;
@@ -221,12 +220,11 @@ public final class AnalysisPhaseRunner {
     if (env.getCommand().buildPhase().executes()) {
       // RemoteAnalysisCachingOptions is never null because it's a build command flag, and this
       // method only runs for build commands.
-      RemoteAnalysisCacheMode mode =
-          env.getOptions().getOptions(RemoteAnalysisCachingOptions.class).getMode();
-      if (mode == RemoteAnalysisCacheMode.DUMP_UPLOAD_MANIFEST_ONLY
-          || mode == RemoteAnalysisCacheMode.UPLOAD) {
+      var mode = env.getOptions().getOptions(RemoteAnalysisCachingOptions.class).getMode();
+      if (mode.serializesValues()) {
         featureFlags.add(ANALYSIS_CACHING_UPLOAD);
-      } else if (mode == RemoteAnalysisCacheMode.DOWNLOAD) {
+      }
+      if (mode.isRetrievalEnabled()) {
         featureFlags.add(ANALYSIS_CACHING_DOWNLOAD);
       }
     }
