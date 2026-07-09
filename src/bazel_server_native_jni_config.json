@@ -1,0 +1,169 @@
+[
+  {
+    "name": "com.google.devtools.build.lib.unix.NativePosixFilesService$Stat",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.google.devtools.build.lib.unix.NativePosixFilesService$Dirent",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.google.devtools.build.lib.unix.NativePosixFilesService$Dirent$Type",
+    "allDeclaredConstructors": true,
+    "allDeclaredFields": true
+  },
+  {
+    "name": "com.google.devtools.build.lib.unix.NativePosixFilesException",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.google.devtools.build.lib.unix.NativePosixFilesException$PosixError",
+    "allDeclaredConstructors": true,
+    "allDeclaredFields": true
+  },
+  {
+    "name": "com.google.devtools.build.lib.unix.NativePosixFilesServiceImpl",
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "com.google.devtools.build.lib.platform.PlatformNativeDepsServiceImpl",
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "com.google.devtools.build.lib.skyframe.FsEventsNativeDepsServiceImpl",
+    "allDeclaredMethods": true,
+    "fields": [
+      {
+        "name": "nativePointer"
+      }
+    ]
+  },
+  {
+    "name": "java.util.concurrent.CountDownLatch",
+    "methods": [
+      {
+        "name": "countDown",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "java.util.function.IntConsumer",
+    "methods": [
+      {
+        "name": "accept",
+        "parameterTypes": [
+          "int"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "com.google.devtools.build.lib.vfs.FileAccessException",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.google.devtools.build.lib.vfs.FileSymlinkLoopException",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "java.io.FileDescriptor",
+    "allDeclaredConstructors": true,
+    "allDeclaredFields": true
+  },
+  {
+    "name": "java.io.FileNotFoundException",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "java.io.IOException",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "java.lang.AssertionError",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "java.lang.IllegalArgumentException",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "java.lang.NullPointerException",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "java.lang.OutOfMemoryError",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "java.lang.String",
+    "allDeclaredFields": true
+  },
+  {
+    "name": "java.lang.UnsupportedOperationException",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "java.net.SocketTimeoutException",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "net.starlark.java.eval.CpuProfilerNativeSupportImpl",
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "com.github.luben.zstd.Zstd",
+    "allDeclaredFields": true,
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "com.github.luben.zstd.ZstdOutputStreamNoFinalizer",
+    "allDeclaredFields": true,
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "com.github.luben.zstd.ZstdInputStreamNoFinalizer",
+    "allDeclaredFields": true,
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "com.github.luben.zstd.ZstdBufferDecompressingStreamNoFinalizer",
+    "allDeclaredFields": true,
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "com.github.luben.zstd.ZstdDirectBufferCompressingStreamNoFinalizer",
+    "allDeclaredFields": true,
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "com.github.luben.zstd.ZstdDirectBufferDecompressingStreamNoFinalizer",
+    "allDeclaredFields": true,
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "com.github.luben.zstd.ZstdCompressCtx",
+    "allDeclaredFields": true,
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "com.github.luben.zstd.ZstdDecompressCtx",
+    "allDeclaredFields": true,
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "com.github.luben.zstd.ZstdDictCompress",
+    "allDeclaredFields": true,
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "com.github.luben.zstd.ZstdDictDecompress",
+    "allDeclaredFields": true,
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "com.github.luben.zstd.ZstdFrameProgression",
+    "allDeclaredFields": true,
+    "allDeclaredMethods": true
+  }
+]
