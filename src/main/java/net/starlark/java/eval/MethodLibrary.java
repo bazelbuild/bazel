@@ -14,10 +14,7 @@
 
 package net.starlark.java.eval;
 
-import static java.util.Comparator.comparing;
-
 import com.google.common.base.Ascii;
-import com.google.common.base.Throwables;
 import com.google.common.collect.Ordering;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -115,19 +112,24 @@ class MethodLibrary {
     Object items = (args.size() == 1) ? args.get(0) : args;
     try {
       if (keyFn.isPresent()) {
-        try {
-          // Snapshot before calling user Starlark code so key functions can mutate the original
-          // iterable without invalidating Java's iterator.
-          return Arrays.stream(Starlark.toArray(items))
-              .map(value -> ValueWithComparisonKey.make(value, keyFn.get(), thread))
-              .max(comparing(ValueWithComparisonKey::getComparisonKey, maxOrdering))
-              .get()
-              .getValue();
-        } catch (ValueWithComparisonKey.KeyCallException ex) {
-          Throwables.throwIfInstanceOf(ex.getCause(), EvalException.class);
-          Throwables.throwIfInstanceOf(ex.getCause(), InterruptedException.class);
-          throw new AssertionError("Got invalid ValueWithComparisonKey.KeyCallException", ex);
+        // Snapshot before calling user Starlark code so key functions can mutate the original
+        // iterable without invalidating Java's iterator.
+        Object[] array = Starlark.toArray(items);
+        if (array.length == 0) {
+          throw new NoSuchElementException();
         }
+        StarlarkCallable key = keyFn.get();
+        Object bestValue = array[0];
+        Object bestKey = Starlark.positionalOnlyCall(thread, key, bestValue);
+        for (int i = 1; i < array.length; i++) {
+          Object value = array[i];
+          Object comparisonKey = Starlark.positionalOnlyCall(thread, key, value);
+          if (maxOrdering.compare(comparisonKey, bestKey) > 0) {
+            bestValue = value;
+            bestKey = comparisonKey;
+          }
+        }
+        return bestValue;
       } else {
         return maxOrdering.max(Starlark.toIterable(items));
       }
@@ -135,51 +137,6 @@ class MethodLibrary {
       throw new EvalException(ex.getMessage()); // e.g. unsupported comparison: int <=> string
     } catch (NoSuchElementException ex) {
       throw new EvalException("expected at least one item", ex);
-    }
-  }
-
-  /**
-   * Original value decorated with its comparison key; storing the comparison key alongside the
-   * value ensures that we call the comparison key computation function only once per original value
-   * (which is important in case the function has side effects).
-   */
-  private static final class ValueWithComparisonKey {
-    private final Object value;
-    private final Object comparisonKey;
-
-    private ValueWithComparisonKey(Object value, Object comparisonKey) {
-      this.value = value;
-      this.comparisonKey = comparisonKey;
-    }
-
-    /**
-     * @throws KeyCallException wrapping the exception thrown by the underlying {@link
-     *     Starlark#positionalOnlyCall} call if it threw.
-     */
-    static ValueWithComparisonKey make(
-        Object value, StarlarkCallable keyFn, StarlarkThread thread) {
-      try {
-        return new ValueWithComparisonKey(value, Starlark.positionalOnlyCall(thread, keyFn, value));
-      } catch (EvalException | InterruptedException ex) {
-        throw new KeyCallException(ex);
-      }
-    }
-
-    Object getValue() {
-      return value;
-    }
-
-    Object getComparisonKey() {
-      return comparisonKey;
-    }
-
-    /**
-     * An unchecked exception wrapping an exception thrown by {@link Starlark#positionalOnlyCall}.
-     */
-    private static final class KeyCallException extends RuntimeException {
-      KeyCallException(Exception cause) {
-        super(cause);
-      }
     }
   }
 
