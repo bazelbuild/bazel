@@ -1771,13 +1771,13 @@ EOF
   expect_log 'plain http.*missing checksum'
 
   # After adding a good checksum, we expect success
-  ed MODULE.bazel <<EOF
-/url
-a
-sha256 = "$sha256",
-.
-w
-q
+  cat > MODULE.bazel <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+  name="ext",
+  url = "http://127.0.0.1:$nc_port/x.tar",
+  sha256 = "$sha256",
+)
 EOF
   bazel build //:it || fail "Expected success one the checksum is given"
 
