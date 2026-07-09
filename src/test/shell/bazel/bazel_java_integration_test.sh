@@ -26,6 +26,30 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
 DEFAULT_JAVA_RUNTIME_VERSION="remotejdk25"
 
 function test_server_javabase() {
+  if [[ -n "${BAZEL_NATIVE_IMAGE_TEST:-}" ]]; then
+    # Keep the option compatible with shared rc files without consulting or
+    # executing a JVM that the native server does not need.
+    local fake_javabase="$PWD/test_server_javabase"
+    local java_marker="$PWD/native_image_invoked_java"
+    mkdir -p "$fake_javabase/bin"
+    cat >"$fake_javabase/bin/java" <<EOF
+#!/usr/bin/env bash
+touch "$java_marker"
+exit 86
+EOF
+    chmod +x "$fake_javabase/bin/java"
+
+    bazel --batch --server_javabase="$fake_javabase" version >"$TEST_log" 2>&1 \
+      || fail "native-image Bazel rejected --server_javabase"
+    [[ ! -e "$java_marker" ]] \
+      || fail "native-image Bazel invoked the configured server JVM"
+
+    bazel --batch --server_javabase="$fake_javabase" info >"$TEST_log" 2>&1 \
+      || fail "native-image bazel info failed"
+    expect_log "^java-home: unknown$"
+    return
+  fi
+
   mkdir -p test_server_javabase/bin
   MAGIC="the cake is a lie"
 

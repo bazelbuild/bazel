@@ -1,3 +1,4 @@
+load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
 load("@bazel_skylib//rules:write_file.bzl", "write_file")
 load("@rules_shell//shell:sh_library.bzl", "sh_library")
 load("@rules_shell//shell:sh_test.bzl", "sh_test")
@@ -16,14 +17,33 @@ filegroup(
     visibility = ["//src/test/shell:__pkg__"],
 )
 
+bool_flag(
+    name = "use_native_bazel",
+    build_setting_default = False,
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "do_use_native_bazel",
+    flag_values = {"use_native_bazel": str(True)},
+    visibility = ["//visibility:public"],
+)
+
 sh_library(
     name = "test-deps",
     testonly = 1,
     srcs = [
         ":test-deps-wo-bazel",
-        "//src:bazel",
-        "//src/test/shell:bin/bazel",
-    ],
+    ] + select({
+        ":do_use_native_bazel": [
+            "//src:bazel_native",
+            "//src/test/shell:bin/bazel_native",
+        ],
+        "//conditions:default": [
+            "//src:bazel",
+            "//src/test/shell:bin/bazel",
+        ],
+    }),
     visibility = [
         "//src/main/starlark/tests/builtins_bzl:__subpackages__",
         "//src/test/shell:__subpackages__",
@@ -1477,11 +1497,18 @@ sh_test(
     size = "large",
     srcs = ["minimal_jdk_test.sh"],
     data = [
-        "//src:bazel-bin_jdk_minimal",
-        "//src/test/shell:bin/bazel_jdk_minimal",
         "//src/test/shell/bazel:test-deps-wo-bazel",
         "@bazel_tools//tools/bash/runfiles",
-    ],
+    ] + select({
+        ":do_use_native_bazel": [
+            "//src:bazel_native",
+            "//src/test/shell:bin/bazel_native",
+        ],
+        "//conditions:default": [
+            "//src:bazel-bin_jdk_minimal",
+            "//src/test/shell:bin/bazel_jdk_minimal",
+        ],
+    }),
     tags = [
         "no_windows",
     ],
@@ -1492,12 +1519,19 @@ sh_test(
     size = "medium",
     srcs = ["nojdk_startup_options_test.sh"],
     data = [
-        "//src:bazel-bin_nojdk",
-        "//src/test/shell:bin/bazel_nojdk",
         "//src/test/shell/bazel:test-deps-wo-bazel",
         "@bazel_tools//tools/bash/runfiles",
         "@rules_java//toolchains:current_java_runtime",
-    ],
+    ] + select({
+        ":do_use_native_bazel": [
+            "//src:bazel_native",
+            "//src/test/shell:bin/bazel_native",
+        ],
+        "//conditions:default": [
+            "//src:bazel-bin_nojdk",
+            "//src/test/shell:bin/bazel_nojdk",
+        ],
+    }),
     env = {
         "JAVA_ROOTPATH": "$(JAVA_ROOTPATH)",
     },

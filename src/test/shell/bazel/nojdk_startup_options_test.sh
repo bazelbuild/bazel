@@ -64,6 +64,11 @@ function test_autodetect_server_javabase() {
 
 # Test that nojdk bazel fails with --noautodetect_server_javabase
 function test_noautodetect_server_javabase() {
+  if [[ -n "${BAZEL_NATIVE_IMAGE_TEST:-}" ]]; then
+    bazel --noautodetect_server_javabase version &> $TEST_log \
+      || fail "Native-image Bazel should not require a server javabase"
+    return
+  fi
   bazel --noautodetect_server_javabase version &> $TEST_log && fail "Should fail"
   expect_log "FATAL: Could not find embedded or explicit server javabase, and --noautodetect_server_javabase is set."
 }

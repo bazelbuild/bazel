@@ -569,28 +569,67 @@ function test_empty_command() {
 }
 
 function test_local_startup_timeout() {
-  local output_base=$(bazel info output_base 2>"$TEST_log") ||
-    fail "bazel info failed"
+  local output_base
+  local server_pid_file=""
+  local logging_fifo=""
+  if [[ -n "${BAZEL_NATIVE_IMAGE_TEST:-}" ]]; then
+    output_base="$TEST_TMPDIR/native_startup_timeout_output"
+    server_pid_file="$output_base/server/server.pid.txt"
+    logging_fifo="$TEST_TMPDIR/native_logging_config"
+    rm -rf "$output_base"
+    rm -f "$logging_fifo"
+    mkfifo "$logging_fifo"
 
-  # --host-jvm_debug will cause the server to block, forcing the client
-  # into the timeout condition.
-  bazel --host_jvm_args="-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=localhost:41687" \
-      --local_startup_timeout_secs=1 2>"$TEST_log" &
+    # Block native startup while LogManager reads its configuration. The
+    # server remains alive but cannot create its command port.
+    BAZEL_NATIVE_IMAGE_SERVER_ARGS="-Djava.util.logging.config.file=$logging_fifo" \
+      bazel --output_base="$output_base" --local_startup_timeout_secs=1 info \
+        >"$TEST_log" 2>&1 &
+  else
+    output_base=$(bazel info output_base 2>"$TEST_log") ||
+      fail "bazel info failed"
+
+    # JDWP suspends the JVM before it creates the command server.
+    bazel --host_jvm_args="-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=localhost:41687" \
+        --local_startup_timeout_secs=1 2>"$TEST_log" &
+  fi
+
+  local client_pid="$!"
   local timeout=20
-  while true; do
-    local jobs_output=$(jobs)
-    [[ $jobs_output =~ Exit ]] && break
-    [[ $jobs_output =~ Done ]] && fail "bazel should have exited non-zero"
-
-    timeout="$(( ${timeout} - 1 ))"
-    [[ "${timeout}" -gt 0 ]] || {
-      kill -9 %1
-      wait %1
+  while kill -0 "$client_pid" 2>/dev/null; do
+    timeout="$((timeout - 1))"
+    if [[ "$timeout" -le 0 ]]; then
+      kill -9 "$client_pid" 2>/dev/null || true
+      wait "$client_pid" 2>/dev/null || true
+      if [[ -s "$server_pid_file" ]]; then
+        kill -9 "$(cat "$server_pid_file")" 2>/dev/null || true
+      fi
       fail "--local_startup_timeout_secs was not respected"
-    }
-    # Wait for the client to exit.
+    fi
     sleep 1
   done
+
+  local exit_code=0
+  wait "$client_pid" || exit_code=$?
+
+  if [[ -n "${BAZEL_NATIVE_IMAGE_TEST:-}" ]]; then
+    local server_pid=""
+    local server_was_alive=0
+    if [[ -s "$server_pid_file" ]]; then
+      server_pid="$(cat "$server_pid_file")"
+      if kill -0 "$server_pid" 2>/dev/null; then
+        server_was_alive=1
+        kill -9 "$server_pid" 2>/dev/null || true
+      fi
+    fi
+    rm -f "$logging_fifo"
+    assert_equals 37 "$exit_code"
+    assert_equals 1 "$server_was_alive"
+    expect_log "after 1 seconds"
+    expect_not_log "Server crashed during startup"
+  else
+    [[ "$exit_code" -ne 0 ]] || fail "bazel should have exited non-zero"
+  fi
 
   expect_log "Starting local.*server (.*) and connecting to it"
   expect_log "FATAL: couldn't connect to server"
@@ -810,6 +849,20 @@ function test_client_is_quiet_by_default() {
 }
 
 function test_sigquit() {
+  local -r original_server_pid="$(bazel --client_debug info server_pid)"
+  local jvm_out
+  if [[ -n "${BAZEL_NATIVE_IMAGE_TEST:-}" \
+        && -n "${BAZEL_NATIVE_IMAGE_CAPTURE_SERVER_LOGS:-}" \
+        && -n "${TEST_UNDECLARED_OUTPUTS_DIR:-}" ]]; then
+    jvm_out="${BAZEL_NATIVE_IMAGE_SERVER_JVM_OUT:-${TEST_UNDECLARED_OUTPUTS_DIR}/native-image-server/jvm.out}"
+  else
+    jvm_out="$(bazel --client_debug info output_base)/server/jvm.out"
+  fi
+  local old_log_size=0
+  if [[ -f "$jvm_out" ]]; then
+    old_log_size="$(wc -c <"$jvm_out")"
+  fi
+
   # Use a FIFO to spoonfeed the Bazel server.
   mkdir -p a && mkfifo a/BUILD || fail "couldn't create fifo a"
   mkdir -p b && mkfifo b/BUILD || fail "couldn't create fifo b"
@@ -832,11 +885,23 @@ function test_sigquit() {
   wait "$subshell_pid" || fail "Couldn't wait"
   rm -rf a b
 
-  # Get the jvm.out location.
-  local -r jvm_out="$(bazel --client_debug info output_base)/server/jvm.out"
-
   # Look for a distinctive string indicating the presence of a thread dump.
-  assert_contains "Full thread dump" "$jvm_out"
+  local sigquit_log="$TEST_TMPDIR/sigquit.log"
+  local timeout=20
+  while true; do
+    tail -c "+$((old_log_size + 1))" "$jvm_out" >"$sigquit_log"
+    grep -q "Full thread dump" "$sigquit_log" && break
+    timeout="$((timeout - 1))"
+    [[ "$timeout" -gt 0 ]] || fail "SIGQUIT did not produce a thread dump"
+    sleep 1
+  done
+  assert_contains "Full thread dump" "$sigquit_log"
+
+  if [[ -n "${BAZEL_NATIVE_IMAGE_TEST:-}" ]]; then
+    grep -qx "Full thread dump:" "$sigquit_log" \
+      || fail "native-image thread dump header was not found"
+    assert_equals "$original_server_pid" "$(bazel --client_debug info server_pid)"
+  fi
 }
 
 function scrape_client_pid() {
