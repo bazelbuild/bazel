@@ -336,6 +336,11 @@ genrule(
     }),
 )
 
+py_binary(
+    name = "bazel_server_native_image_configs",
+    srcs = ["bazel_server_native_image_configs.py"],
+)
+
 [bazel_binary(
     name = "bazel-bin" + suffix,
     out = "bazel" + suffix,
