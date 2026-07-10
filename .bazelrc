@@ -96,7 +96,10 @@ common:ci-linux --test_env=TEST_INSTALL_BASE=/var/lib/buildkite-agent/bazeltest/
 common:ci-linux --test_env=REPOSITORY_CACHE=/var/lib/buildkite-agent/bazeltest/repo_cache
 common:ci-linux --test_env=REMOTE_NETWORK_ADDRESS=bazel.build:80
 test:ci-linux --sandbox_writable_path=/var/lib/buildkite-agent/bazeltest
-test:ci-linux --sandbox_default_allow_network=false
+# Allow network access from within the sandbox so that tests which spawn a child
+# Bazel that downloads hermetic toolchains (e.g. cc_integration_test using the
+# llvm module) can fetch them.
+test:ci-linux --sandbox_default_allow_network=true
 
 ## For macOS
 common:ci-macos --config=ci-common

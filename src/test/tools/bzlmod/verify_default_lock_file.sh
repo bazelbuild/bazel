@@ -37,11 +37,15 @@ expected_modules=(
   abseil-cpp
   apple_support
   bazel_features
+  bazel_lib
   bazel_skylib
   buildozer
+  gawk
   googletest
   jsoncpp
+  llvm
   nlohmann_json
+  package_metadata
   platforms
   protobuf
   pybind11_bazel
@@ -60,6 +64,8 @@ expected_modules=(
   rules_swift
   stardoc
   swift_argument_parser
+  tar.bzl
+  with_cfg.bzl
   zlib
 )
 
