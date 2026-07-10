@@ -824,9 +824,13 @@ sh_test(
 )
 
 sh_test(
-    name = "stub_finds_runfiles_test",
+    name = "stub_finds_runfiles_local_test",
     size = "medium",
     srcs = ["stub_finds_runfiles_test.sh"],
+    args = [
+        "standalone",
+        "local",
+    ],
     data = [":test-deps"],
     tags = [
         "no_windows",
