@@ -78,14 +78,6 @@ py_binary(
     deps = [":create_embedded_tools_lib"],
 )
 
-# Script for turning builtins_bzl sources into a zip file for unioning into the
-# package zip / install base.
-sh_binary(
-    name = "zip_builtins",
-    srcs = ["zip_builtins.sh"],
-    visibility = ["//src/main/starlark/builtins_bzl:__pkg__"],
-)
-
 # The tools Bazel uses to compile Java.
 # TODO(#6316): Gradually remove the targets here.
 JAVA_TOOLS = [
