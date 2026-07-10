@@ -28,6 +28,17 @@ java_test(
 )
 
 java_test(
+    name = "JavaHomeInfoItemTest",
+    size = "small",
+    srcs = ["JavaHomeInfoItemTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/runtime/commands/info",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
     name = "RemoteRequestedInfoItemHandlerTest",
     size = "small",
     srcs = ["RemoteRequestedInfoItemHandlerTest.java"],
