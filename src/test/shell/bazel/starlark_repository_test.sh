@@ -3213,7 +3213,7 @@ function test_load_and_execute_wasm() {
   cat >test.bzl <<EOF
 def _impl(repository_ctx):
   wasm_file = "$exec_wasm"
-  wasm_module = repository_ctx.load_wasm("$exec_wasm")
+  wasm_module = repository_ctx.load_wasm("$exec_wasm", compile=False)
 
   result_ok = repository_ctx.execute_wasm(wasm_module, "run_ok", input="")
   print('result_ok.output: %r' % (result_ok.output,))
@@ -3231,7 +3231,8 @@ def _impl(repository_ctx):
 repo = repository_rule(implementation=_impl, local=True)
 EOF
 
-  bazel build --experimental_repository_ctx_execute_wasm @foo//:bar >& $TEST_log \
+  bazel build --experimental_repository_ctx_execute_wasm \
+    --experimental_repository_ctx_wasm_compilation @foo//:bar >& $TEST_log \
     || fail "Expected build to succeed"
 
   expect_log 'result_ok.output: "ok"'
