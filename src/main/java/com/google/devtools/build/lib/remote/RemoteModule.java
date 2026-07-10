@@ -373,8 +373,20 @@ public final class RemoteModule extends BlazeModule {
           buildRequestId,
           invocationId,
           env.getSkyframeExecutor().getEvaluator(),
-          remoteOptions.getRemoteCacheTtl());
+          remoteOptions.getRemoteCacheTtl(),
+          rewindingEnabled(env));
     }
+  }
+
+  /**
+   * Returns whether a file lost from the remote repo contents cache can be recovered by rewinding
+   * the fetch of the repo containing it, mirroring the condition under which Skyframe accepts
+   * resets.
+   */
+  private static boolean rewindingEnabled(CommandEnvironment env) {
+    var buildRequestOptions = env.getOptions().getOptions(BuildRequestOptions.class);
+    // Commands that don't build, such as `fetch`, have no build request options.
+    return buildRequestOptions != null && buildRequestOptions.getRewindLostInputs();
   }
 
   @Override

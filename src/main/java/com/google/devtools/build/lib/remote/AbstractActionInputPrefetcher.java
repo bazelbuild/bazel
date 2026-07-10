@@ -24,6 +24,7 @@ import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 import static com.google.devtools.build.lib.remote.util.Utils.mergeBulkTransfer;
 import static io.reactivex.rxjava3.core.Completable.concat;
 
+import build.bazel.remote.execution.v2.Digest;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
@@ -52,7 +53,10 @@ import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.remote.common.BulkTransferException;
+import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.util.AsyncTaskCache;
+import com.google.devtools.build.lib.skyframe.rewinding.LostRemoteRepoFileException;
 import com.google.devtools.build.lib.util.TempPathGenerator;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSymlinkLoopException;
@@ -411,6 +415,20 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
         directExecutor());
   }
 
+  /** Returns the digest of a file that the remote cache has lost from a repo. */
+  private static Digest lostDigest(LostRemoteRepoFileException e) {
+    for (Throwable cause = e.getCause(); cause != null; cause = cause.getCause()) {
+      if (cause instanceof BulkTransferException bulkTransferException) {
+        for (Throwable suppressed : bulkTransferException.getSuppressed()) {
+          if (suppressed instanceof CacheNotFoundException cacheNotFound) {
+            return cacheNotFound.getMissingDigest();
+          }
+        }
+      }
+    }
+    return Digest.getDefaultInstance();
+  }
+
   private ListenableFuture<Void> prefetchFile(
       @Nullable ActionExecutionMetadata action,
       SetMultimap<Path, Path> directoriesByTreeRoot,
@@ -441,7 +459,14 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
         // contents may only be available in memory and must be materialized to the local file
         // system for local actions to access them.
         if (inputPath.getFileSystem() instanceof SubtreeMaterializer subtreeMaterializer) {
-          subtreeMaterializer.ensureSubtreeMaterialized(inputPath.asFragment());
+          try {
+            subtreeMaterializer.ensureSubtreeMaterialized(inputPath.asFragment());
+          } catch (LostRemoteRepoFileException e) {
+            // Report the source directory itself as lost so that rewinding recovers it by
+            // refetching the repo containing it, just like a lost regular file input.
+            throw new BulkTransferException(
+                new CacheNotFoundException(lostDigest(e), input.getExecPath()));
+          }
         }
         return immediateVoidFuture();
       }

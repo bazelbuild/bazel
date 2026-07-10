@@ -70,6 +70,7 @@ import com.google.devtools.build.lib.skyframe.PackageFunctionWithMultipleGlobDep
 import com.google.devtools.build.lib.skyframe.RepoFileFunction.BadRepoFileException;
 import com.google.devtools.build.lib.skyframe.RepoPackageArgsFunction.RepoPackageArgsValue;
 import com.google.devtools.build.lib.skyframe.StarlarkBuiltinsFunction.BuiltinsFailedException;
+import com.google.devtools.build.lib.skyframe.rewinding.RepoRewinding;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.DetailedIOException;
@@ -80,6 +81,7 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunction.Environment.SkyKeyComputeState;
+import com.google.devtools.build.skyframe.SkyFunction.Reset;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -366,6 +368,28 @@ public abstract class PackageFunction implements SkyFunction {
   @Nullable
   @Override
   public SkyValue compute(SkyKey key, Environment env)
+      throws PackageFunctionException, InterruptedException {
+    try {
+      return computeInternal(key, env);
+    } catch (PackageFunctionException e) {
+      // The BUILD file may live in a cached repo whose contents the remote cache has lost.
+      // Rewinding its fetch runs the repo rule again, which restores the file.
+      Reset reset = RepoRewinding.resetForLostRepoFile(key, packageIdOf(key), e);
+      if (reset != null) {
+        return reset;
+      }
+      throw e;
+    }
+  }
+
+  private static PackageIdentifier packageIdOf(SkyKey key) {
+    return key.argument() instanceof PackageIdentifier id
+        ? id
+        : ((PackagePieceIdentifier.ForBuildFile) key.argument()).getPackageIdentifier();
+  }
+
+  @Nullable
+  private SkyValue computeInternal(SkyKey key, Environment env)
       throws PackageFunctionException, InterruptedException {
     PackageIdentifier packageId;
     @Nullable PackagePieceIdentifier.ForBuildFile packagePieceId;
