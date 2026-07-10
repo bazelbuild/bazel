@@ -26,6 +26,8 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.RandomAccessFile;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
@@ -204,8 +206,8 @@ public final class LocalJobserverTest {
   /** Drains up to {@code max} tokens, waiting up to 10s for the manager to fill the pool. */
   private static int drainUpTo(FileInputStream in, int max) throws IOException, InterruptedException {
     byte[] buf = new byte[max];
-    int[] got = {0};
-    IOException[] error = {null};
+    AtomicInteger got = new AtomicInteger();
+    AtomicReference<IOException> error = new AtomicReference<>();
     Thread reader =
         new Thread(
             () -> {
@@ -218,9 +220,9 @@ public final class LocalJobserverTest {
                   }
                   off += n;
                 }
-                got[0] = off;
+                got.set(off);
               } catch (IOException e) {
-                error[0] = e;
+                error.set(e);
               }
             },
             "fifo-drain");
@@ -231,10 +233,10 @@ public final class LocalJobserverTest {
       reader.interrupt();
       throw new IOException("timeout draining jobserver fifo");
     }
-    if (error[0] != null) {
-      throw error[0];
+    if (error.get() != null) {
+      throw error.get();
     }
-    return got[0];
+    return got.get();
   }
 
   private void awaitOutstanding(int expected) throws InterruptedException {
