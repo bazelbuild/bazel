@@ -200,6 +200,9 @@ copy_file(
         urls = ["https://github.com/async-profiler/async-profiler/releases/download/v4.4/async-profiler-4.4-macos.zip"],
     )
 
+    # NOTE: This is reproducible but the distdir scripts want it in the lockfile
+    return ctx.extension_metadata(reproducible = False)
+
 # This is an extension (instead of use_repo_rule usages) only to create a
 # lockfile entry for the distribution repo module extension.
 async_profiler_repos = module_extension(_async_profiler_repos)
