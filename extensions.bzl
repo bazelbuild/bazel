@@ -31,14 +31,17 @@ def _bazel_build_deps(ctx):
         name = "bootstrap_repo_cache",
         repos = DIST_ARCHIVE_REPOS,
         dirname = "derived/repository_cache",
-        module_files = [
-            "//:MODULE.bazel",
-            "//third_party:remoteapis/MODULE.bazel",
-            "//src:MODULE.tools",
+        lockfiles = [
+            "//:MODULE.bazel.lock",
+            "//src/test/tools/bzlmod:MODULE.bazel.lock",
         ],
     )
     BAZEL_TOOLS_DEPS_REPOS = parse_bazel_module_repos(ctx, ctx.path(Label("//src/test/tools/bzlmod:MODULE.bazel.lock")))
-    repo_cache_tar(name = "bazel_tools_repo_cache", repos = BAZEL_TOOLS_DEPS_REPOS, lockfile = "//src/test/tools/bzlmod:MODULE.bazel.lock")
+    repo_cache_tar(
+        name = "bazel_tools_repo_cache",
+        repos = BAZEL_TOOLS_DEPS_REPOS,
+        lockfiles = ["//src/test/tools/bzlmod:MODULE.bazel.lock"],
+    )
     graalvm_repository(
         name = "graalvm_ce",
         distribution = "ce",
