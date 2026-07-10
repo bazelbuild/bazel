@@ -28,7 +28,7 @@ import build.bazel.remote.execution.v2.Tree;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Lists;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
@@ -69,7 +69,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
-import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
@@ -335,12 +334,12 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
     markerFileSibling.renameTo(markerFile);
   }
 
-  private void prefetch(List<PathFragment> paths) throws IOException, InterruptedException {
+  private void prefetch(Iterable<PathFragment> paths) throws IOException, InterruptedException {
     var unused =
         getFromFuture(
             inputPrefetcher.prefetchFilesInterruptibly(
                 /* action= */ null,
-                Lists.transform(paths, ActionInputHelper::fromPath),
+                Iterables.transform(paths, ActionInputHelper::fromPath),
                 actionInput -> externalFs.getMetadata(actionInput.getExecPath()),
                 ActionInputPrefetcher.Priority.CRITICAL,
                 ActionInputPrefetcher.Reason.INPUTS));
@@ -383,17 +382,14 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
       root = root.resolveSymbolicLinks();
     }
     collectAndCreateDirectories(root, files, symlinks, new HashSet<>());
-    prefetch(ImmutableList.copyOf(files));
+    prefetch(files);
     // Create symlinks last as some platforms don't allow creating a symlink to a non-existent
     // target.
-    prefetch(ImmutableList.copyOf(symlinks));
+    prefetch(symlinks);
   }
 
   private void collectAndCreateDirectories(
-      Path dir,
-      Set<PathFragment> files,
-      Set<PathFragment> symlinks,
-      Set<PathFragment> visitedDirs)
+      Path dir, Set<PathFragment> files, Set<PathFragment> symlinks, Set<PathFragment> visitedDirs)
       throws IOException {
     if (!visitedDirs.add(dir.asFragment())) {
       return;
@@ -415,6 +411,9 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
             // Dangling symlinks and symlink loops are reproduced verbatim.
             continue;
           }
+          // TODO(#30160): RepositoryUtils.replantSymlinks currently ensures that all symlinks
+          // within a remotely cacheable external repo stay within that repo. If that changes, new
+          // logic has to be added here to prefetch such files correctly.
           if (target.isDirectory(Symlinks.NOFOLLOW)) {
             collectAndCreateDirectories(target, files, symlinks, visitedDirs);
           } else {
