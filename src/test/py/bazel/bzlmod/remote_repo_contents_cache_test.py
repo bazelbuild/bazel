@@ -941,6 +941,252 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
         extra_flags=['--sandbox_base=' + tmpdir]
     )
 
+  def testUseSourceDirectoryInBuildRule_actionDoesNotUseCache(self):
+    # Regression test for https://github.com/bazelbuild/bazel/issues/30217.
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            (
+                '  rctx.file("BUILD", "filegroup(name=\'sysroot_dir\','
+                ' srcs=[\'sysroot\'], visibility=[\'//visibility:public\'])")'
+            ),
+            '  rctx.file("sysroot/include/data.txt", "source-directory-data")',
+            # Verify that empty directories are materialized correctly.
+            '  rctx.file("sysroot/empty_dir/.keep")',
+            '  rctx.delete("sysroot/empty_dir/.keep")',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+    self.ScratchFile(
+        'main/BUILD.bazel',
+        [
+            'genrule(',
+            '  name = "read_source_directory",',
+            '  srcs = ["@my_repo//:sysroot_dir"],',
+            '  outs = ["out.txt"],',
+            (
+                '  cmd = "cat $(location @my_repo//:sysroot_dir)/include/'
+                'data.txt > $@",'
+            ),
+            '  tags = ["no-cache"],',
+            ')',
+        ],
+    )
+
+    repo_dir = self.RepoDir('my_repo')
+    out = self.Path('bazel-bin/main/out.txt')
+
+    # First fetch: not cached
+    _, _, stderr = self.RunBazel(['build', '//main:read_source_directory'])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    with open(out) as f:
+      self.assertEqual(f.read(), 'source-directory-data')
+
+    # After expunging: the repo is a remote cache hit and is not fully
+    # materialized, but the no-cache action still runs locally and must be able
+    # to read the files below the source directory it depends on.
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(['build', '//main:read_source_directory'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'BUILD')))
+    self.assertTrue(
+        os.path.exists(os.path.join(repo_dir, 'sysroot/include/data.txt'))
+    )
+    self.assertTrue(os.path.isdir(os.path.join(repo_dir, 'sysroot/empty_dir')))
+    with open(out) as f:
+      self.assertEqual(f.read(), 'source-directory-data')
+
+  def testUseSourceDirectoryWithSymlinksInBuildRule_actionDoesNotUseCache(
+      self,
+  ):
+    # Regression test for https://github.com/bazelbuild/bazel/issues/30217 with
+    # symlinks below the source directory that point out of it, at a file and a
+    # directory that are not themselves inputs of the action.
+    if self.IsWindows():
+      self.ScratchFile(
+          '.bazelrc',
+          ['startup --windows_enable_symlinks'],
+          mode='a',
+      )
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            (
+                '  rctx.file("BUILD", "filegroup(name=\'sysroot_dir\','
+                ' srcs=[\'sysroot\'], visibility=[\'//visibility:public\'])")'
+            ),
+            '  rctx.file("shared/data.txt", "shared-data\\n")',
+            '  rctx.file("shared/dir/nested.txt", "nested-data\\n")',
+            '  rctx.symlink("shared/data.txt", "sysroot/link_to_file.txt")',
+            '  rctx.symlink("shared/dir", "sysroot/link_to_dir")',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+    self.ScratchFile(
+        'main/BUILD.bazel',
+        [
+            'genrule(',
+            '  name = "read_source_directory",',
+            '  srcs = ["@my_repo//:sysroot_dir"],',
+            '  outs = ["out.txt"],',
+            (
+                '  cmd = "cat $(location @my_repo//:sysroot_dir)/'
+                'link_to_file.txt $(location @my_repo//:sysroot_dir)/'
+                'link_to_dir/nested.txt > $@",'
+            ),
+            '  tags = ["no-cache"],',
+            ')',
+        ],
+    )
+
+    repo_dir = self.RepoDir('my_repo')
+    out = self.Path('bazel-bin/main/out.txt')
+
+    # First fetch: not cached
+    _, _, stderr = self.RunBazel(['build', '//main:read_source_directory'])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    with open(out) as f:
+      self.assertEqual(f.read(), 'shared-data\nnested-data\n')
+
+    # After expunging: the repo is a remote cache hit and is not fully
+    # materialized, but the no-cache action still runs locally and must be able
+    # to read all files reachable through the source directory it depends on,
+    # including via symlinks that point out of it.
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(['build', '//main:read_source_directory'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'BUILD')))
+    self.assertTrue(
+        os.path.islink(os.path.join(repo_dir, 'sysroot/link_to_file.txt'))
+    )
+    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'shared/data.txt')))
+    self.assertTrue(
+        os.path.exists(os.path.join(repo_dir, 'shared/dir/nested.txt'))
+    )
+    with open(out) as f:
+      self.assertEqual(f.read(), 'shared-data\nnested-data\n')
+
+  def testUseSourceDirectoryAndFileInputsInBuildRule_actionsDoNotUseCache(
+      self,
+  ):
+    # A source directory input can overlap with regular source file inputs of
+    # other actions (e.g. via glob). Both are materialized out of the remote
+    # repo contents cache in the same build, through subtree materialization
+    # and per-file prefetching respectively, and must not conflict.
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            (
+                '  rctx.file("BUILD", "filegroup(name=\'sysroot_dir\','
+                ' srcs=[\'sysroot\'], visibility=[\'//visibility:public\'])\\n'
+                'exports_files(glob([\'sysroot/**\']))")'
+            ),
+            (
+                '  rctx.file("sysroot/include/data.txt",'
+                ' "source-directory-data\\n")'
+            ),
+            '  rctx.file("sysroot/include/other.txt", "file-input-data\\n")',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+    self.ScratchFile(
+        'main/BUILD.bazel',
+        [
+            'genrule(',
+            '  name = "read_source_directory",',
+            '  srcs = ["@my_repo//:sysroot_dir"],',
+            '  outs = ["dir_out.txt"],',
+            (
+                '  cmd = "cat $(location @my_repo//:sysroot_dir)/include/'
+                'data.txt $(location @my_repo//:sysroot_dir)/include/'
+                'other.txt > $@",'
+            ),
+            '  tags = ["no-cache"],',
+            ')',
+            'genrule(',
+            '  name = "read_files",',
+            (
+                '  srcs = ["@my_repo//:sysroot/include/data.txt",'
+                ' "@my_repo//:sysroot/include/other.txt"],'
+            ),
+            '  outs = ["files_out.txt"],',
+            (
+                '  cmd = "cat $(location @my_repo//:sysroot/include/data.txt)'
+                ' $(location @my_repo//:sysroot/include/other.txt) > $@",'
+            ),
+            '  tags = ["no-cache"],',
+            ')',
+        ],
+    )
+
+    repo_dir = self.RepoDir('my_repo')
+    dir_out = self.Path('bazel-bin/main/dir_out.txt')
+    files_out = self.Path('bazel-bin/main/files_out.txt')
+    expected = 'source-directory-data\nfile-input-data\n'
+
+    # First fetch: not cached
+    _, _, stderr = self.RunBazel(
+        ['build', '//main:read_source_directory', '//main:read_files']
+    )
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    with open(dir_out) as f:
+      self.assertEqual(f.read(), expected)
+    with open(files_out) as f:
+      self.assertEqual(f.read(), expected)
+
+    # After expunging: the repo is a remote cache hit and both no-cache actions
+    # run locally in the same build, materializing the same files through the
+    # source directory subtree walk and per-file prefetching respectively.
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(
+        ['build', '//main:read_source_directory', '//main:read_files']
+    )
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'BUILD')))
+    self.assertTrue(
+        os.path.exists(os.path.join(repo_dir, 'sysroot/include/data.txt'))
+    )
+    self.assertTrue(
+        os.path.exists(os.path.join(repo_dir, 'sysroot/include/other.txt'))
+    )
+    with open(dir_out) as f:
+      self.assertEqual(f.read(), expected)
+    with open(files_out) as f:
+      self.assertEqual(f.read(), expected)
+
   def testUseRepoSymlinkInBuildRule_actionDoesNotUseCache(self):
     # Regression test for https://github.com/bazelbuild/bazel/issues/29656.
     if self.IsWindows():

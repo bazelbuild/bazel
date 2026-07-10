@@ -732,6 +732,7 @@ java_library(
         ":abstract_action_input_prefetcher",
         ":combined_cache",
         ":remote_action_file_system",
+        ":subtree_materializer",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_input_helper",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
@@ -862,6 +863,7 @@ java_library(
     srcs = ["AbstractActionInputPrefetcher.java"],
     deps = [
         ":remote_output_checker",
+        ":subtree_materializer",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_input",
         "//src/main/java/com/google/devtools/build/lib/actions:action_output_directory_helper",
@@ -880,6 +882,14 @@ java_library(
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party:rxjava3",
+    ],
+)
+
+java_library(
+    name = "subtree_materializer",
+    srcs = ["SubtreeMaterializer.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
     ],
 )
 
