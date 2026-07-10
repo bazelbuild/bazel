@@ -217,6 +217,7 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
               /* wallTimeInMs= */ 0,
               /* preserveExecutableBit= */ true);
       var result = manifest.upload(context, cache, reporter, /* force= */ false);
+      remoteFs.repoContentsUploaded(repoName);
       // Relative repository-root symlinks have no directory Tree to install.
       if (result.getOutputDirectoriesCount() != 1) {
         return;
@@ -257,6 +258,11 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
       SkyFunction.Environment env)
       throws IOException, InterruptedException {
     if (!(repoDir.getFileSystem() instanceof RemoteExternalOverlayFileSystem remoteFs)) {
+      return false;
+    }
+    if (remoteFs.shouldRefetch(repoName)) {
+      // The cached repo contents referenced files that are no longer available in the remote
+      // cache. Fetching the repo again uploads its contents, including the lost files.
       return false;
     }
 
