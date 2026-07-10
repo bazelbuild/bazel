@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.skyframe.serialization.analysis;
 import static com.google.devtools.build.lib.skyframe.serialization.ErrorMessageHelper.getErrorMessage;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
@@ -36,6 +35,7 @@ import com.google.devtools.build.skyframe.InMemoryGraph;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import javax.annotation.Nullable;
 
@@ -94,11 +94,15 @@ public final class SkycacheUploadClient {
         // This is an analysis-phase entry, we need the direct deps of this entry, which is not
         // committed to Skyframe yet, so we pluck them out of the environment of the SkyFunction
         GroupedDeps temporaryDirectDeps = env.getTemporaryDirectDeps();
-        Iterable<SkyKey> deps =
-            temporaryDirectDeps == null
-                ? env.getNewlyRequestedDeps()
-                : Iterables.concat(
-                    temporaryDirectDeps.getAllElementsAsIterable(), env.getNewlyRequestedDeps());
+        Set<SkyKey> newlyRequestedDeps = env.getNewlyRequestedDeps();
+        ImmutableList<SkyKey> deps =
+            temporaryDirectDeps.isEmpty()
+                ? ImmutableList.copyOf(newlyRequestedDeps)
+                : ImmutableList.<SkyKey>builderWithExpectedSize(
+                        temporaryDirectDeps.numElements() + newlyRequestedDeps.size())
+                    .addAll(temporaryDirectDeps.getAllElementsAsIterable())
+                    .addAll(newlyRequestedDeps)
+                    .build();
         selectedEntrySerializer.uploadAnalysisEntry(analysisKey, value, deps);
       } else {
         // This is an execution-phase entry. We need the deps of its owner, which should be
