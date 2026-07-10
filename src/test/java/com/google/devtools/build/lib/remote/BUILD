@@ -1,4 +1,5 @@
 load("@rules_java//java:defs.bzl", "java_library", "java_test")
+load("//src:java_opt_binary.bzl", "java_opt_binary")
 
 package(
     default_applicable_licenses = ["//:license"],
@@ -63,6 +64,7 @@ java_library(
             "RemoteActionFileSystemTestBase.java",
             "BuildWithoutTheBytesIntegrationTest.java",
             "BuildWithoutTheBytesIntegrationTestBase.java",
+            "ChunkedTransferBenchmark.java",
             "ChunkedCacheIntegrationTest.java",
             "ChunkedDiskCacheIntegrationTest.java",
             "DiskCacheIntegrationTest.java",
@@ -201,6 +203,25 @@ java_test(
     runtime_deps = [
         ":RemoteTests_lib",
         "//src/test/java/com/google/devtools/build/lib:test_runner",
+    ],
+)
+
+java_opt_binary(
+    name = "ChunkedTransferBenchmark",
+    srcs = ["ChunkedTransferBenchmark.java"],
+    main_class = "org.openjdk.jmh.Main",
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/clock",
+        "//src/main/java/com/google/devtools/build/lib/remote",
+        "//src/main/java/com/google/devtools/build/lib/remote/chunking",
+        "//src/main/java/com/google/devtools/build/lib/remote/common",
+        "//src/main/java/com/google/devtools/build/lib/remote/util:digest_utils",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
+        "//third_party:guava",
+        "//third_party:jmh",
+        "//third_party:mockito",
+        "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
     ],
 )
 
