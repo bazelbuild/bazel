@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import java.io.IOException;
 
 /** Exception indicating an attempt to access a package which is not found or does not exist. */
@@ -22,6 +23,11 @@ public class RepositoryFetchException extends NoSuchPackageException {
 
   public RepositoryFetchException(PackageIdentifier packageIdentifier, String message) {
     super(packageIdentifier, message);
+  }
+
+  public RepositoryFetchException(
+      PackageIdentifier packageIdentifier, String message, DetailedExitCode detailedExitCode) {
+    super(packageIdentifier, message, detailedExitCode);
   }
 
   public RepositoryFetchException(
