@@ -2125,7 +2125,9 @@ Strip the given number of leading components from file paths on extraction. Only
             doc =
                 """
                 Whether to compile the WebAssembly module, which improves runtime performance
-                but takes longer than loading without compilation.
+                but takes longer than loading without compilation. Compilation is not supported
+                when Bazel runs as a GraalVM native image; in that case this parameter is ignored
+                and the module is interpreted.
                 """),
         @Param(
             name = "allocate_fn",

@@ -120,14 +120,20 @@ final class StarlarkWasmModule implements StarlarkValue {
     this.wasmModule = wasmModule;
     this.allocFnName = allocFnName;
     this.hasInitializeFn = hasInitializeFn(wasmModule);
-    if (compile) {
-      this.machineFactory = MachineFactoryCompiler.builder(wasmModule)
-          .withInterpreterFallback(InterpreterFallback.SILENT)
-          .withCache(compilationCache)
-          .compile();
+    // Chicory compilation defines Java classes at runtime, which native-image does not support.
+    if (compile && !isNativeImage()) {
+      this.machineFactory =
+          MachineFactoryCompiler.builder(wasmModule)
+              .withInterpreterFallback(InterpreterFallback.SILENT)
+              .withCache(compilationCache)
+              .compile();
     } else {
       this.machineFactory = InterpreterMachine::new;
     }
+  }
+
+  private static boolean isNativeImage() {
+    return System.getProperty("org.graalvm.nativeimage.imagecode") != null;
   }
 
   private static boolean hasInitializeFn(WasmModule wasmModule) {
