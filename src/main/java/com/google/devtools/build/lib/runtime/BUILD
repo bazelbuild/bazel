@@ -261,6 +261,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//src/main/java/com/google/devtools/build/lib/metrics:garbage-collection-metrics-util",
         "//src/main/protobuf:memory_pressure_java_proto",
+        "//third_party:flogger",
         "//third_party:guava",
     ],
 )

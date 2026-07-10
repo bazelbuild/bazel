@@ -28,6 +28,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.Subscribe;
+import com.google.common.testing.TestLogHandler;
 import com.sun.management.GarbageCollectionNotificationInfo;
 import com.sun.management.GcInfo;
 import java.lang.management.GarbageCollectorMXBean;
@@ -35,6 +36,9 @@ import java.lang.management.MemoryUsage;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.LogRecord;
+import java.util.logging.Logger;
 import javax.management.Notification;
 import javax.management.NotificationEmitter;
 import org.junit.Before;
@@ -86,6 +90,29 @@ public final class MemoryPressureListenerTest {
         () ->
             MemoryPressureListener.createFromBeans(
                 ImmutableList.of(mockUselessBean), directExecutor()));
+  }
+
+  @Test
+  public void createFromBeans_noGcBeansCreatesNoopListenerAndWarns() {
+    TestLogHandler handler = new TestLogHandler();
+    Logger logger = Logger.getLogger(MemoryPressureListener.class.getName());
+    logger.addHandler(handler);
+    try {
+      MemoryPressureListener underTest =
+          MemoryPressureListener.createFromBeans(ImmutableList.of(), directExecutor());
+
+      underTest.initForInvocation(
+          eventBus, mock(GcThrashingDetector.class), mock(GcChurningDetector.class));
+      underTest.reset();
+
+      assertThat(handler.getStoredLogRecords()).hasSize(1);
+      LogRecord warning = handler.getStoredLogRecords().get(0);
+      assertThat(warning.getLevel()).isEqualTo(Level.WARNING);
+      assertThat(warning.getMessage())
+          .contains("optional caches cannot be limited based on heap usage");
+    } finally {
+      logger.removeHandler(handler);
+    }
   }
 
   @Test
