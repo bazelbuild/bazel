@@ -169,7 +169,7 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
       String predeclaredInputHash,
       ExtendedEventHandler reporter)
       throws InterruptedException {
-    if (!(fetchedRepoDir.getFileSystem() instanceof RemoteExternalOverlayFileSystem)) {
+    if (!(fetchedRepoDir.getFileSystem() instanceof RemoteExternalOverlayFileSystem remoteFs)) {
       return;
     }
     var context = buildContext(repoName, CacheOp.UPLOAD);
@@ -214,6 +214,7 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
                   /* wallTimeInMs= */ 0,
                   /* preserveExecutableBit= */ true)
               .upload(context, cache, reporter);
+      remoteFs.repoContentsUploaded(repoName);
     } catch (ExecException | IOException e) {
       reporter.handle(
           Event.warn(
@@ -246,6 +247,11 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
       SkyFunction.Environment env)
       throws IOException, InterruptedException {
     if (!(repoDir.getFileSystem() instanceof RemoteExternalOverlayFileSystem remoteFs)) {
+      return false;
+    }
+    if (remoteFs.shouldRefetch(repoName)) {
+      // The cached repo contents referenced files that are no longer available in the remote
+      // cache. Fetching the repo again uploads its contents, including the lost files.
       return false;
     }
 
