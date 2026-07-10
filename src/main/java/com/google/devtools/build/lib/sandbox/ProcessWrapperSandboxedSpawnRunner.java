@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.sandbox;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.exec.LocalJobserver;
 import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
@@ -74,7 +75,9 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
     sandboxExecRoot.createDirectoryAndParents();
 
     ImmutableMap<String, String> environment =
-        localEnvProvider.rewriteLocalEnv(spawn.getEnvironment(), binTools, "/tmp");
+        LocalJobserver.instance()
+            .maybeAddJobserver(
+                localEnvProvider.rewriteLocalEnv(spawn.getEnvironment(), binTools, "/tmp"), spawn);
 
     Duration timeout = context.getTimeout();
     ProcessWrapper.CommandLineBuilder commandLineBuilder =

@@ -392,6 +392,25 @@ public abstract class ExecutionOptions extends OptionsBase {
   public abstract boolean getExperimentalCpuLoadScheduling();
 
   @Option(
+      name = "experimental_local_jobserver",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help =
+          "If enabled, Bazel runs a GNU-make-style jobserver sized to the CPUs not currently"
+              + " reserved by running actions, and points locally executed actions that declare the"
+              + " 'supports-jobserver' execution requirement at it via MAKEFLAGS (a fifo on"
+              + " Linux/macOS, a named semaphore on Windows). Jobserver-aware tools such as rustc"
+              + " and make then dynamically expand their internal parallelism into idle cores and"
+              + " shrink it when Bazel schedules more actions. Bazel emits the modern 'fifo' auth"
+              + " style, so a tagged tool must be able to parse it (make < 4.4 will fail). Local"
+              + " execution only: remote spawns never see MAKEFLAGS. The 'supports-jobserver' tag"
+              + " is a promise that an action's outputs and exit status do not depend on how many"
+              + " tokens it receives. On Windows the held-token estimate is coarser; pair this flag"
+              + " with --experimental_cpu_load_scheduling there.")
+  public abstract boolean getExperimentalLocalJobserver();
+
+  @Option(
       name = "experimental_cpu_load_scheduling_window_size",
       defaultValue = "5000ms",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,

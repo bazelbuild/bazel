@@ -51,6 +51,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.Collection;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
@@ -159,6 +160,43 @@ public final class ResourceManagerTest {
         /* multiplex= */ false,
         /* cancellable= */ false,
         WorkerProtocolFormat.PROTO);
+  }
+
+  @Test
+  public void heldJobserverTokensCountAsUsedCpu() throws Exception {
+    manager.setAvailableResources(
+        ResourceSet.create(/* memoryMb= */ 1000.0, /* cpu= */ 4.0, /* localTestCount= */ 0));
+    manager.resetResourceUsage();
+    Map.Entry<String, Double> oneCpu = Map.entry(ResourceSet.CPU, 1.0);
+
+    // No tokens held (default supplier reports 0): a 1-CPU action fits in 4 CPUs
+    assertThat(manager.isCpuAvailable(oneCpu)).isTrue();
+
+    // Tools holding 4 CPUs' worth of jobserver tokens leave no room
+    manager.setHeldCpuTokensSupplier(() -> 4);
+    assertThat(manager.isCpuAvailable(oneCpu)).isFalse();
+
+    // Returning one token frees a CPU and the action fits again
+    manager.setHeldCpuTokensSupplier(() -> 3);
+    assertThat(manager.isCpuAvailable(oneCpu)).isTrue();
+  }
+
+  @Test
+  public void heldJobserverTokensIgnoredUnderCpuLoadScheduling() throws Exception {
+    manager.setAvailableResources(
+        ResourceSet.create(/* memoryMb= */ 1000.0, /* cpu= */ 4.0, /* localTestCount= */ 0));
+    manager.resetResourceUsage();
+    when(machineLoadProvider.getCurrentCpuUsage()).thenReturn(0.0);
+    manager.initializeCpuLoadFunctionality(
+        machineLoadProvider, /* cpuLoadScheduling= */ true, Duration.ofSeconds(5));
+
+    // Under cpu-load scheduling the held-token count must NOT gate admission: token holders'
+    // threads already appear in the measured machine load, so counting them here too would
+    // double-count. A wildly high held count is therefore ignored. This is exactly why the Windows
+    // backend (whose held-token estimate is coarse and can undercount) is meant to be paired with
+    // --experimental_cpu_load_scheduling: on that path the coarse estimate is never consulted.
+    manager.setHeldCpuTokensSupplier(() -> 1000);
+    assertThat(manager.isCpuAvailable(Map.entry(ResourceSet.CPU, 1.0))).isTrue();
   }
 
   @Test

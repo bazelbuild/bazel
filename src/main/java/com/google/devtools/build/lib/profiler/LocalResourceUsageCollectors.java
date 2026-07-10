@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Multiset;
 import com.google.devtools.build.lib.actions.ResourceEstimator;
 import com.google.devtools.build.lib.bugreport.BugReporter;
+import com.google.devtools.build.lib.exec.LocalJobserver;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.unix.ProcMeminfoParser;
 import com.google.devtools.build.lib.util.OS;
@@ -80,6 +81,7 @@ public class LocalResourceUsageCollectors {
         (OperatingSystemMXBean) ManagementFactory.getOperatingSystemMXBean();
     MemoryMXBean memoryBean = ManagementFactory.getMemoryMXBean();
     Profiler.instance().registerCounterSeriesCollector(new LocalCpuUsageCollector(osBean));
+    Profiler.instance().registerCounterSeriesCollector(new LocalJobserverTokensCollector());
     Profiler.instance()
         .registerCounterSeriesCollector(new LocalMemoryUsageCollector(memoryBean, bugReporter));
     Profiler.instance().registerCounterSeriesCollector(new SystemCpuUsageCollector(osBean));
@@ -137,6 +139,24 @@ public class LocalResourceUsageCollectors {
       double cpuLevel = (nextCpuTimeNanos - previousCpuTimeNanos) / deltaNanos;
       previousCpuTimeNanos = nextCpuTimeNanos;
       consumer.accept(LOCAL_CPU_USAGE, cpuLevel);
+    }
+  }
+
+  static class LocalJobserverTokensCollector implements CounterSeriesCollector {
+    private static final CounterSeriesTask JOBSERVER_TOKENS =
+        new CounterSeriesTask(
+            "Jobserver tokens outstanding",
+            "jobserver tokens",
+            CounterSeriesTask.Color.THREAD_STATE_RUNNING);
+
+    @Override
+    public void collect(double deltaNanos, BiConsumer<CounterSeriesTask, Double> consumer) {
+      // Only emit while the jobserver is active, so a profile taken without
+      // --experimental_local_jobserver gets no empty lane (an unemitted series creates none).
+      LocalJobserver jobserver = LocalJobserver.instance();
+      if (jobserver.isActive()) {
+        consumer.accept(JOBSERVER_TOKENS, (double) jobserver.getOutstandingTokens());
+      }
     }
   }
 

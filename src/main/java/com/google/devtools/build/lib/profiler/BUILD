@@ -22,6 +22,7 @@ java_library(
         ":system_network_stats_service",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
+        "//src/main/java/com/google/devtools/build/lib/exec:local_jobserver",
         "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
         "//src/main/java/com/google/devtools/build/lib/unix:procmeminfo_parser",
         "//src/main/java/com/google/devtools/build/lib/util:os",

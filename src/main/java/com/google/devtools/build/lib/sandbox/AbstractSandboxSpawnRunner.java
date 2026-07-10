@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
+import com.google.devtools.build.lib.exec.LocalJobserver;
 import com.google.devtools.build.lib.exec.SpawnExecutingEvent;
 import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.exec.SpawnSchedulingEvent;
@@ -397,6 +398,11 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
           writablePaths,
           Preconditions.checkNotNull(env.get("TMPDIR")),
           "Cannot resolve symlinks in TMPDIR because it doesn't exist: \"%s\"");
+    }
+
+    String jobserverDir = LocalJobserver.instance().getFifoDirForEnv(env);
+    if (jobserverDir != null) {
+      writablePaths.add(sandboxExecRoot.getFileSystem().getPath(jobserverDir));
     }
 
     FileSystem fileSystem = sandboxExecRoot.getFileSystem();

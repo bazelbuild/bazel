@@ -282,6 +282,15 @@ public class ExecutionRequirements {
 
   public static final String SUPPORTS_MULTIPLEX_SANDBOXING = "supports-multiplex-sandboxing";
 
+  /**
+   * If an action's tool understands the
+   * <a href="https://www.gnu.org/software/make/manual/html_node/Job-Slots.html">GNU make jobserver
+   * protocol</a> and wishes to coordinate its internal parallelism with the rest of the build.
+   *
+   * <p>Only affects local execution.
+   */
+  public static final String SUPPORTS_JOBSERVER = "supports-jobserver";
+
   /** Denotes what the type of worker protocol the worker uses. */
   public enum WorkerProtocolFormat {
     JSON,
