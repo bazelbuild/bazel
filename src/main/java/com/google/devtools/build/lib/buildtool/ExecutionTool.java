@@ -366,8 +366,7 @@ public class ExecutionTool {
       configureResourceManager(
           env.getLocalResourceManager(),
           request,
-          env.getOutputBase().getRelative("jobserver").getPathString(),
-          env.getReporter());
+          env.getOutputBase().getRelative("jobserver").getPathString());
     }
 
     announceEnteringDirIfEmacs();
@@ -488,8 +487,7 @@ public class ExecutionTool {
         configureResourceManager(
             env.getLocalResourceManager(),
             request,
-            env.getOutputBase().getRelative("jobserver").getPathString(),
-            env.getReporter());
+            env.getOutputBase().getRelative("jobserver").getPathString());
       }
 
       MemoryProfiler.instance().markPhase(ProfilePhase.EXECUTE);
@@ -996,14 +994,11 @@ public class ExecutionTool {
 
   @VisibleForTesting
   public static void configureResourceManager(ResourceManager resourceMgr, BuildRequest request) {
-    configureResourceManager(resourceMgr, request, null, null);
+    configureResourceManager(resourceMgr, request, null);
   }
 
   private static void configureResourceManager(
-      ResourceManager resourceMgr,
-      BuildRequest request,
-      @Nullable String jobserverDir,
-      @Nullable Reporter reporter) {
+      ResourceManager resourceMgr, BuildRequest request, @Nullable String jobserverDir) {
     ExecutionOptions options = request.getOptions(ExecutionOptions.class);
     resourceMgr.setAvailableResources(
         ResourceSet.create(
@@ -1018,16 +1013,6 @@ public class ExecutionTool {
 
     resourceMgr.setAllowOneActionOnResourceUnavailable(
         options.getAllowOneActionOnResourceUnavailable());
-
-    if (options.getExperimentalLocalJobserver()
-        && OS.getCurrent() == OS.WINDOWS
-        && !options.getExperimentalCpuLoadScheduling()
-        && reporter != null) {
-      reporter.handle(
-          Event.warn(
-              "--experimental_local_jobserver on Windows tracks held tokens only coarsely;"
-                  + " pair it with --experimental_cpu_load_scheduling for accurate scheduling."));
-    }
 
     LocalJobserver.Backend jobserverBackend = null;
     if (options.getExperimentalLocalJobserver() && jobserverDir != null) {

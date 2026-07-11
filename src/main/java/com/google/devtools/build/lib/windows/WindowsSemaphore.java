@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.windows;
 
 import com.google.devtools.build.lib.jni.JniLoader;
+import java.io.IOException;
 import javax.annotation.Nullable;
 
 /**
@@ -54,9 +55,18 @@ public final class WindowsSemaphore {
 
   /**
    * Attempts to take one token with a zero-timeout {@code WaitForSingleObject}. Returns true if a
-   * token was acquired (and thus removed from the semaphore's count), false if none was available.
+   * token was acquired (and thus removed from the semaphore's count), false if none was available,
+   * and throws if the wait itself failed.
    */
-  public static native boolean tryAcquire(long handle);
+  public static boolean tryAcquire(long handle) throws IOException {
+    return switch (tryAcquire0(handle)) {
+      case 1 -> true;
+      case 0 -> false;
+      default -> throw new IOException("WaitForSingleObject failed");
+    };
+  }
+
+  private static native int tryAcquire0(long handle);
 
   /** Closes the semaphore handle via {@code CloseHandle}. */
   public static native void close(long handle);

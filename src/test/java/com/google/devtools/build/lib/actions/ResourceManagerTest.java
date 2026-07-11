@@ -190,11 +190,7 @@ public final class ResourceManagerTest {
     manager.initializeCpuLoadFunctionality(
         machineLoadProvider, /* cpuLoadScheduling= */ true, Duration.ofSeconds(5));
 
-    // Under cpu-load scheduling the held-token count must NOT gate admission: token holders'
-    // threads already appear in the measured machine load, so counting them here too would
-    // double-count. A wildly high held count is therefore ignored. This is exactly why the Windows
-    // backend (whose held-token estimate is coarse and can undercount) is meant to be paired with
-    // --experimental_cpu_load_scheduling: on that path the coarse estimate is never consulted.
+    // Token holders already appear in measured load, so also charging them here would double-count.
     manager.setHeldCpuTokensSupplier(() -> 1000);
     assertThat(manager.isCpuAvailable(Map.entry(ResourceSet.CPU, 1.0))).isTrue();
   }

@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.windows;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
@@ -24,6 +25,7 @@ import com.google.devtools.build.lib.exec.WindowsJobserverBackend;
 import com.google.devtools.build.lib.exec.util.SpawnBuilder;
 import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.util.OS;
+import java.io.IOException;
 import org.junit.After;
 import org.junit.Rule;
 import org.junit.Test;
@@ -57,7 +59,7 @@ public final class WindowsJobserverTest {
   }
 
   @Test
-  public void releaseThenAcquireDrainsExactlyTheReleasedTokens() {
+  public void releaseThenAcquireDrainsExactlyTheReleasedTokens() throws Exception {
     Long created = WindowsSemaphore.createSemaphore(uniqueName(), 4);
     assertThat(created).isNotNull();
     handle = created;
@@ -87,7 +89,7 @@ public final class WindowsJobserverTest {
   }
 
   @Test
-  public void aSecondHandleToTheSameNameSharesTheSameKernelSemaphore() {
+  public void aSecondHandleToTheSameNameSharesTheSameKernelSemaphore() throws Exception {
     String name = uniqueName();
     Long created = WindowsSemaphore.createSemaphore(name, 4);
     assertThat(created).isNotNull();
@@ -106,6 +108,34 @@ public final class WindowsJobserverTest {
       assertThat(WindowsSemaphore.tryAcquire(clientHandle)).isFalse();
     } finally {
       WindowsSemaphore.close(clientHandle);
+    }
+  }
+
+  @Test
+  public void tryAcquire_invalidHandleThrows() {
+    assertThrows(IOException.class, () -> WindowsSemaphore.tryAcquire(0));
+  }
+
+  @Test
+  public void backendRefreshesHeldCountOnSteadyTick() throws Exception {
+    WindowsJobserverBackend backend =
+        new WindowsJobserverBackend(tmp.newFolder("backend").getPath());
+    String name = backend.start();
+    Long client = WindowsSemaphore.createSemaphore(name, 1);
+    assertThat(client).isNotNull();
+    long clientHandle = client;
+    try {
+      assertThat(backend.tick(1)).isEqualTo(0);
+      assertThat(WindowsSemaphore.tryAcquire(clientHandle)).isTrue();
+
+      // The target did not shrink, but the backend must still observe the client's held token.
+      assertThat(backend.tick(1)).isEqualTo(1);
+
+      assertThat(WindowsSemaphore.release(clientHandle, 1)).isTrue();
+      assertThat(backend.tick(1)).isEqualTo(0);
+    } finally {
+      WindowsSemaphore.close(clientHandle);
+      backend.close();
     }
   }
 

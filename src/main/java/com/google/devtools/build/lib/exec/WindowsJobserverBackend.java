@@ -21,16 +21,10 @@ import javax.annotation.Nullable;
 /**
  * The Windows {@link LocalJobserver.Backend}: a named semaphore.
  *
- * <p>Forward-only pool sizing: grow toward the idle-CPU target with {@code ReleaseSemaphore} and
- * shrink with best-effort, non-blocking {@code WaitForSingleObject(handle, 0)} polls, since Windows
- * has no documented way to read a semaphore's count without mutating it. A failed shrink means a
- * tool currently holds that token, so the number of failures on a shrink tick is the held-token
- * estimate. Unlike the fifo backend's exact per-tick accounting, this is only refreshed while
- * shrinking and so is coarser; it is left unchanged on grow/steady ticks rather than guessed at.
- * That is why it is recommended to pair this feature with {@code
- * --experimental_cpu_load_scheduling} on Windows, under which held tokens are not consulted for
- *  admission at all (see {@code ResourceManager#isCpuAvailable}) — token holders' threads already
- *  show up in the measured system load.
+ * <p>Windows has no documented non-mutating semaphore-count query, so each tick non-blockingly
+ * drains the available tokens, derives the held count from the distributed total, and releases
+ * only the tokens needed for the new target. This briefly withholds idle tokens from clients but
+ * gives the same per-tick accounting as the fifo backend without relying on undocumented APIs.
  */
 public final class WindowsJobserverBackend implements LocalJobserver.Backend {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
@@ -40,9 +34,7 @@ public final class WindowsJobserverBackend implements LocalJobserver.Backend {
   private long handle;
   private boolean open;
   private int maxTokens;
-  private long granted = 0;
-  private long reclaimed = 0;
-  private int lastHeld = 0;
+  private int outstanding;
 
   public WindowsJobserverBackend(String dirPath) {
     this.dirPath = dirPath;
@@ -69,28 +61,21 @@ public final class WindowsJobserverBackend implements LocalJobserver.Backend {
   }
 
   @Override
-  public int tick(int targetTokens) {
-    long outstanding = granted - reclaimed;
-    long delta = targetTokens - outstanding;
-    int held = lastHeld;
-    if (delta > 0) {
-      int grow = (int) Math.min(delta, maxTokens - outstanding);
-      if (grow > 0 && WindowsSemaphore.release(handle, grow)) {
-        granted += grow;
-      }
-    } else if (delta < 0) {
-      int toReclaim = (int) -delta;
-      int failed = 0;
-      for (int i = 0; i < toReclaim; i++) {
-        if (WindowsSemaphore.tryAcquire(handle)) {
-          reclaimed++;
-        } else {
-          failed++;
-        }
-      }
-      held = failed;
+  public int tick(int targetTokens) throws IOException {
+    int available = 0;
+    while (available < outstanding && WindowsSemaphore.tryAcquire(handle)) {
+      available++;
     }
-    lastHeld = held;
+    int held = outstanding - available;
+    int target = Math.max(0, Math.min(targetTokens, maxTokens));
+    int desired = Math.max(0, target - held);
+    outstanding = held;
+    if (desired > 0) {
+      if (!WindowsSemaphore.release(handle, desired)) {
+        throw new IOException("ReleaseSemaphore failed");
+      }
+      outstanding += desired;
+    }
     return held;
   }
 

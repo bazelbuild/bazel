@@ -406,8 +406,7 @@ public abstract class ExecutionOptions extends OptionsBase {
               + " style, so a tagged tool must be able to parse it (make < 4.4 will fail). Local"
               + " execution only: remote spawns never see MAKEFLAGS. The 'supports-jobserver' tag"
               + " is a promise that an action's outputs and exit status do not depend on how many"
-              + " tokens it receives. On Windows the held-token estimate is coarser; pair this flag"
-              + " with --experimental_cpu_load_scheduling there.")
+              + " tokens it receives.")
   public abstract boolean getExperimentalLocalJobserver();
 
   @Option(

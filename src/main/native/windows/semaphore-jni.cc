@@ -39,11 +39,14 @@ Java_com_google_devtools_build_lib_windows_WindowsSemaphore_release0(
              : JNI_FALSE;
 }
 
-extern "C" JNIEXPORT jboolean JNICALL
-Java_com_google_devtools_build_lib_windows_WindowsSemaphore_tryAcquire(
+extern "C" JNIEXPORT jint JNICALL
+Java_com_google_devtools_build_lib_windows_WindowsSemaphore_tryAcquire0(
     JNIEnv* env, jclass clazz, jlong handle) {
   DWORD result = WaitForSingleObject(reinterpret_cast<HANDLE>(handle), 0);
-  return result == WAIT_OBJECT_0 ? JNI_TRUE : JNI_FALSE;
+  if (result == WAIT_OBJECT_0) {
+    return 1;
+  }
+  return result == WAIT_TIMEOUT ? 0 : -1;
 }
 
 extern "C" JNIEXPORT void JNICALL
