@@ -27,9 +27,7 @@ import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.util.OS;
 import java.io.IOException;
 import org.junit.After;
-import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
@@ -39,8 +37,6 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 @TestSpec(supportedOs = OS.WINDOWS)
 public final class WindowsJobserverTest {
-
-  @Rule public final TemporaryFolder tmp = new TemporaryFolder();
 
   private long handle;
   private boolean hasHandle;
@@ -118,8 +114,7 @@ public final class WindowsJobserverTest {
 
   @Test
   public void backendRefreshesHeldCountOnSteadyTick() throws Exception {
-    WindowsJobserverBackend backend =
-        new WindowsJobserverBackend(tmp.newFolder("backend").getPath());
+    WindowsJobserverBackend backend = new WindowsJobserverBackend();
     String name = backend.start();
     Long client = WindowsSemaphore.createSemaphore(name, 1);
     assertThat(client).isNotNull();
@@ -140,13 +135,23 @@ public final class WindowsJobserverTest {
   }
 
   @Test
+  public void backendNamesAreUnique() throws Exception {
+    WindowsJobserverBackend first = new WindowsJobserverBackend();
+    WindowsJobserverBackend second = new WindowsJobserverBackend();
+    try {
+      assertThat(first.start()).isNotEqualTo(second.start());
+    } finally {
+      first.close();
+      second.close();
+    }
+  }
+
+  @Test
   public void injectsBareSemaphoreNameForTaggedSpawn() throws Exception {
     // A ResourceManager reporting no idle CPU keeps the manager thread quiet, so this asserts the
     // synchronously-set auth string without racing the poll loop.
     LocalJobserver.instance()
-        .configure(
-            new WindowsJobserverBackend(tmp.newFolder("jobserver").getPath()),
-            new ResourceManager());
+        .configure(new WindowsJobserverBackend(), new ResourceManager());
 
     Spawn tagged =
         new SpawnBuilder("cmd")
@@ -164,9 +169,7 @@ public final class WindowsJobserverTest {
   @Test
   public void shutdownDisablesInjection() throws Exception {
     LocalJobserver.instance()
-        .configure(
-            new WindowsJobserverBackend(tmp.newFolder("jobserver").getPath()),
-            new ResourceManager());
+        .configure(new WindowsJobserverBackend(), new ResourceManager());
     LocalJobserver.instance().shutdown();
 
     Spawn tagged =

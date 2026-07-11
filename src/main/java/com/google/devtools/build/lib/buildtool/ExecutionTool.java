@@ -1018,7 +1018,7 @@ public class ExecutionTool {
     if (options.getExperimentalLocalJobserver() && jobserverDir != null) {
       jobserverBackend =
           OS.getCurrent() == OS.WINDOWS
-              ? new WindowsJobserverBackend(jobserverDir)
+              ? new WindowsJobserverBackend()
               : new PosixJobserverBackend(jobserverDir);
     }
     try {

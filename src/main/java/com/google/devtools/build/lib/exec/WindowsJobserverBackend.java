@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.exec;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.windows.WindowsSemaphore;
 import java.io.IOException;
+import java.util.UUID;
 import javax.annotation.Nullable;
 
 /**
@@ -29,20 +30,14 @@ import javax.annotation.Nullable;
 public final class WindowsJobserverBackend implements LocalJobserver.Backend {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
-  private final String dirPath;
-
   private long handle;
   private boolean open;
   private int maxTokens;
   private int outstanding;
 
-  public WindowsJobserverBackend(String dirPath) {
-    this.dirPath = dirPath;
-  }
-
   @Override
   public String start() throws IOException {
-    String name = "bazel-jobserver-" + Integer.toHexString(dirPath.hashCode());
+    String name = "bazel-jobserver-" + UUID.randomUUID();
     int max = Runtime.getRuntime().availableProcessors();
     Long h = WindowsSemaphore.createSemaphore(name, max);
     if (h == null) {
