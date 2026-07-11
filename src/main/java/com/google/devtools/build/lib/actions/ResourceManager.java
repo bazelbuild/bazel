@@ -729,7 +729,6 @@ public class ResourceManager implements ResourceEstimator {
     double requested =
         resource.getValue() * MIN_NECESSARY_RATIO.getOrDefault(key, DEFAULT_MIN_NECESSARY_RATIO);
     double available = availableResources.get(key);
-    double used = usedResources.getOrDefault(key, 0.0) + heldCpuTokens.getAsInt();
 
     if (cpuLoadScheduling) {
       double currentUsage = machineLoadProvider.getCurrentCpuUsage();
@@ -741,6 +740,7 @@ public class ResourceManager implements ResourceEstimator {
       return isAvailable(available, windowEstimation + currentUsage, requested, key);
     }
 
+    double used = usedResources.getOrDefault(key, 0.0) + heldCpuTokens.getAsInt();
     return isAvailable(available, used, requested, key);
   }
 

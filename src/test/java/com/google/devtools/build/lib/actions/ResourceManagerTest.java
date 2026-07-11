@@ -191,7 +191,10 @@ public final class ResourceManagerTest {
         machineLoadProvider, /* cpuLoadScheduling= */ true, Duration.ofSeconds(5));
 
     // Token holders already appear in measured load, so also charging them here would double-count.
-    manager.setHeldCpuTokensSupplier(() -> 1000);
+    manager.setHeldCpuTokensSupplier(
+        () -> {
+          throw new AssertionError("held-token supplier should not be consulted");
+        });
     assertThat(manager.isCpuAvailable(Map.entry(ResourceSet.CPU, 1.0))).isTrue();
   }
 
