@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.actions;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assume.assumeTrue;
 
 import com.google.common.collect.ImmutableMap;
@@ -69,6 +70,16 @@ public final class LocalJobserverTest {
     File dir = tmp.newFolder("jobserver");
     jobserver.configure(new PosixJobserverBackend(dir.getPath()), new ResourceManager());
     return dir;
+  }
+
+  @Test
+  public void fifoPathWithWhitespaceIsRejected() {
+    File dir = new File(tmp.getRoot(), "jobserver with space");
+
+    IOException error =
+        assertThrows(IOException.class, () -> new PosixJobserverBackend(dir.getPath()).start());
+
+    assertThat(error).hasMessageThat().contains("whitespace-free");
   }
 
   @Test

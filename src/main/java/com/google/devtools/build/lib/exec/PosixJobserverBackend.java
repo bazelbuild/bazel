@@ -51,6 +51,10 @@ public final class PosixJobserverBackend implements LocalJobserver.Backend {
 
   @Override
   public String start() throws IOException {
+    if (dirPath.chars().anyMatch(Character::isWhitespace)) {
+      // MAKEFLAGS has no interoperable escaping for whitespace in fifo auth paths.
+      throw new IOException("local jobserver requires a whitespace-free output base path");
+    }
     File dir = new File(dirPath);
     if (!dir.isDirectory() && !dir.mkdirs()) {
       throw new IOException("cannot create jobserver directory " + dirPath);
