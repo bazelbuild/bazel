@@ -62,7 +62,7 @@ public final class WindowsJobserverBackend implements LocalJobserver.Backend {
       available++;
     }
     int held = outstanding - available;
-    int target = Math.max(0, Math.min(targetTokens, maxTokens));
+    int target = Math.min(targetTokens, maxTokens);
     int desired = Math.max(0, target - held);
     outstanding = held;
     if (desired > 0) {
