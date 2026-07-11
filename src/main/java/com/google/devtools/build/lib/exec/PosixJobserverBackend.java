@@ -30,7 +30,6 @@ import javax.annotation.Nullable;
  * <p>Accounting is exact every tick: of the {@code written - drained} tokens this manager has
  * handed to the fifo, the ones still sitting in it (counted via a non-blocking drain) are
  * unclaimed, so {@code written - drained - inFifo} are held by running tools.
- *
  */
 public final class PosixJobserverBackend implements LocalJobserver.Backend {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
@@ -104,20 +103,6 @@ public final class PosixJobserverBackend implements LocalJobserver.Backend {
       out.flush();
     }
     return held;
-  }
-
-  @Override
-  public void wakeForShutdown() {
-    if (out == null) {
-      return;
-    }
-    try {
-      // Unblock the manager if it is parked in a token-reclaiming read.
-      out.write('+');
-      out.flush();
-    } catch (IOException e) {
-      logger.atWarning().withCause(e).log("Failed to nudge jobserver manager");
-    }
   }
 
   @Override

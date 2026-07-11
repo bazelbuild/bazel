@@ -75,11 +75,6 @@ public final class WindowsJobserverBackend implements LocalJobserver.Backend {
   }
 
   @Override
-  public void wakeForShutdown() {
-    // The semaphore backend never blocks in tick(), so its poll loop wakes on its own.
-  }
-
-  @Override
   public void close() {
     if (!open) {
       return;

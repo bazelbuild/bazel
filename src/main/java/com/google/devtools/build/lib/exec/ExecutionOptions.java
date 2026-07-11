@@ -398,15 +398,15 @@ public abstract class ExecutionOptions extends OptionsBase {
       effectTags = {OptionEffectTag.EXECUTION},
       help =
           "If enabled, Bazel runs a GNU-make-style jobserver sized to the CPUs not currently"
-              + " reserved by running actions, and points locally executed actions that declare the"
-              + " 'supports-jobserver' execution requirement at it via MAKEFLAGS (a fifo on"
+              + " reserved by running actions, and points standalone local actions that declare"
+              + " the 'supports-jobserver' execution requirement at it via MAKEFLAGS (a fifo on"
               + " Linux/macOS, a named semaphore on Windows). Jobserver-aware tools such as rustc"
               + " and make then dynamically expand their internal parallelism into idle cores and"
-              + " shrink it when Bazel schedules more actions. Bazel emits the modern 'fifo' auth"
-              + " style, so a tagged tool must be able to parse it (make < 4.4 will fail). Local"
-              + " execution only: remote spawns never see MAKEFLAGS. The 'supports-jobserver' tag"
-              + " is a promise that an action's outputs and exit status do not depend on how many"
-              + " tokens it receives.")
+              + " shrink it when Bazel schedules more actions. On POSIX Bazel emits the modern"
+              + " 'fifo' auth style, so a tagged tool must be able to parse it (make < 4.4 will"
+              + " fail). Remote and persistent-worker spawns never see MAKEFLAGS. The"
+              + " 'supports-jobserver' tag is a promise that an action's outputs and exit status"
+              + " do not depend on how many tokens it receives.")
   public abstract boolean getExperimentalLocalJobserver();
 
   @Option(

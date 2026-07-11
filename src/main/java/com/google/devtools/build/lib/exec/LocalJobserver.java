@@ -28,15 +28,20 @@ import javax.annotation.Nullable;
  * A GNU make protocol jobserver whose token count continuously tracks Bazel's idle local CPU
  * capacity.
  *
- * <p>Local actions that declare {@link ExecutionRequirements#SUPPORTS_JOBSERVER} get a {@code
- * MAKEFLAGS} environment variable pointing at the jobserver (a fifo on Linux/macOS, a named
+ * <p>Standalone local actions that declare {@link ExecutionRequirements#SUPPORTS_JOBSERVER} get a
+ * {@code MAKEFLAGS} environment variable pointing at the jobserver (a fifo on Linux/macOS, a named
  * semaphore on Windows; see {@link Backend}). Jobserver-aware tools such as {@code rustc} and
  * {@code make} take a token for every thread of parallelism beyond their first implicit one, and
- * give it back when the thread finishes. The auth style emitted is {@code fifo:}; GNU make < 4.4
- * aborts rather than ignores it, so tagging an action is a promise about the tool's version too
- * (see {@link ExecutionRequirements#SUPPORTS_JOBSERVER}). Bazel keeps the number of distributed
- * tokens equal to the number of CPUs not currently reserved by running actions, so internal tool
- * parallelism expands to use idle cores and contracts when Bazel wants to schedule more actions.
+ * give it back when the thread finishes. On POSIX the emitted auth style is {@code fifo:}; GNU make
+ * < 4.4 aborts rather than ignores it, so tagging an action is a promise about the tool's version
+ * too (see {@link ExecutionRequirements#SUPPORTS_JOBSERVER}). Bazel continuously retargets the
+ * distributed tokens to the number of CPUs not currently reserved by running actions, so internal
+ * tool parallelism expands to use idle cores and contracts when Bazel wants to schedule more
+ * actions. This assumes the action reserves the CPU used by its implicit slot.
+ *
+ * <p>Only held tokens are charged to {@link ResourceManager}; idle tokens in the pool are
+ * reclaimable. A tool can take an idle token in the same poll window that Bazel admits another
+ * action, causing bounded oversubscription until that token is returned.
  *
  * <p>This class is a <b>platform-agnostic coordinator</b>. It owns the poll loop, publishes the
  * held-token count to {@link ResourceManager}, and injects {@code MAKEFLAGS}; the actual primitive
@@ -46,7 +51,7 @@ import javax.annotation.Nullable;
  *
  * <p>The jobserver's auth string is deliberately not part of any action cache key: it is injected
  * by local spawn runners after cache lookup, like TMPDIR, and never appears in the {@link Spawn}'s
- * declared environment. Remote spawns never see {@code MAKEFLAGS} at all.
+ * declared environment. Remote and persistent-worker spawns never see {@code MAKEFLAGS}.
  *
  * <p>The instance is a process-wide singleton because there is exactly one local token pool per
  * Bazel server.
@@ -88,13 +93,9 @@ public final class LocalJobserver {
     /**
      * Resizes the token pool toward {@code targetTokens} (growing or shrinking as needed) and
      * returns the current held-token estimate: tokens taken by tools and not yet returned. Called
-     * once per poll tick. May block briefly if a client races the manager for a token being
-     * reclaimed.
+     * once per poll tick.
      */
     int tick(int targetTokens) throws IOException;
-
-    /** Unblocks a {@link #tick} parked in a blocking reclaim, so shutdown can proceed. */
-    void wakeForShutdown();
 
     /** Releases all resources. */
     void close();
@@ -156,7 +157,6 @@ public final class LocalJobserver {
     writableDir = null;
     running = false;
     if (manager != null) {
-      backend.wakeForShutdown();
       manager.interrupt();
       try {
         manager.join(1000);
@@ -195,7 +195,7 @@ public final class LocalJobserver {
    * backend has no filesystem presence (i.e. the Windows named semaphore).
    */
   @Nullable
-  public String getFifoDirForEnv(Map<String, String> env) {
+  public String getWritableDirForEnv(Map<String, String> env) {
     String dir = writableDir;
     String auth = jobserverAuth;
     String makeflags = env.get(MAKEFLAGS);
@@ -229,6 +229,8 @@ public final class LocalJobserver {
     int lastOutstanding = 0;
     try {
       while (running) {
+        // A tool's implicit slot is the CPU already reserved by its Bazel action; tokens represent
+        // only additional parallel work.
         int target = Math.max(0, (int) rm.getIdleCpuForJobserver());
         int held = b.tick(target);
         outstandingTokens = held;

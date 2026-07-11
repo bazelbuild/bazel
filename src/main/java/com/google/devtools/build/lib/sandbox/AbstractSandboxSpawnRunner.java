@@ -400,9 +400,9 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
           "Cannot resolve symlinks in TMPDIR because it doesn't exist: \"%s\"");
     }
 
-    String jobserverDir = LocalJobserver.instance().getFifoDirForEnv(env);
-    if (jobserverDir != null) {
-      writablePaths.add(sandboxExecRoot.getFileSystem().getPath(jobserverDir));
+    String jobserverWritableDir = LocalJobserver.instance().getWritableDirForEnv(env);
+    if (jobserverWritableDir != null) {
+      writablePaths.add(sandboxExecRoot.getFileSystem().getPath(jobserverWritableDir));
     }
 
     FileSystem fileSystem = sandboxExecRoot.getFileSystem();

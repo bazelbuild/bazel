@@ -287,7 +287,11 @@ public class ExecutionRequirements {
    * <a href="https://www.gnu.org/software/make/manual/html_node/Job-Slots.html">GNU make jobserver
    * protocol</a> and wishes to coordinate its internal parallelism with the rest of the build.
    *
-   * <p>Only affects local execution.
+   * <p>This tag promises that the action's outputs and exit status do not depend on its token
+   * count: the injected {@code MAKEFLAGS} is deliberately absent from the action cache key. On
+   * POSIX, the tool must accept the {@code fifo:} auth style (GNU make 4.4 or newer).
+   *
+   * <p>Only affects standalone local execution; remote and persistent-worker strategies ignore it.
    */
   public static final String SUPPORTS_JOBSERVER = "supports-jobserver";
 

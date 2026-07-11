@@ -163,7 +163,7 @@ public final class WindowsJobserverTest {
     String makeflags = env.get(LocalJobserver.MAKEFLAGS);
     assertThat(makeflags).startsWith("--jobserver-auth=bazel-jobserver-");
     assertThat(makeflags).doesNotContain("fifo:");
-    assertThat(LocalJobserver.instance().getFifoDirForEnv(env)).isNull();
+    assertThat(LocalJobserver.instance().getWritableDirForEnv(env)).isNull();
   }
 
   @Test

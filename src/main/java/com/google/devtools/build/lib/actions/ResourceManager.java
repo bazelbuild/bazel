@@ -582,7 +582,8 @@ public class ResourceManager implements ResourceEstimator {
 
   /**
    * CPUs not reserved by running actions, i.e. the capacity the {@code LocalJobserver} may hand out
-   * as tokens.
+   * as tokens. Held jobserver tokens are subtracted by the backend when it resizes the pool, not
+   * here.
    */
   public synchronized double getIdleCpuForJobserver() {
     if (availableResources == null) {

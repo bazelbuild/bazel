@@ -113,16 +113,16 @@ public final class LocalJobserverTest {
   }
 
   @Test
-  public void getFifoDirForEnv_returnsWritableDirWhenEnvReferencesJobserver() throws Exception {
+  public void getWritableDirForEnv_returnsDirWhenEnvReferencesJobserver() throws Exception {
     File dir = configureQuiet();
     ImmutableMap<String, String> env = jobserver.maybeAddJobserver(ImmutableMap.of(), taggedSpawn());
-    assertThat(jobserver.getFifoDirForEnv(env)).isEqualTo(dir.getPath());
+    assertThat(jobserver.getWritableDirForEnv(env)).isEqualTo(dir.getPath());
   }
 
   @Test
-  public void getFifoDirForEnv_nullWhenEnvDoesNotReferenceJobserver() throws Exception {
+  public void getWritableDirForEnv_nullWhenEnvDoesNotReferenceJobserver() throws Exception {
     configureQuiet();
-    assertThat(jobserver.getFifoDirForEnv(ImmutableMap.of("PATH", "/usr/bin"))).isNull();
+    assertThat(jobserver.getWritableDirForEnv(ImmutableMap.of("PATH", "/usr/bin"))).isNull();
   }
 
   @Test
