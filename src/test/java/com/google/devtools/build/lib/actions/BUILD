@@ -130,6 +130,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/exec:posix_jobserver_backend",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/test/java/com/google/devtools/build/lib/exec/util",
+        "//src/test/java/com/google/devtools/build/lib/testutil:TestThread",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",

@@ -20,12 +20,17 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.exec.LocalJobserver;
 import com.google.devtools.build.lib.exec.PosixJobserverBackend;
 import com.google.devtools.build.lib.exec.util.SpawnBuilder;
+import com.google.devtools.build.lib.testutil.TestThread;
 import com.google.devtools.build.lib.util.OS;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.RandomAccessFile;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.After;
@@ -157,6 +162,54 @@ public final class LocalJobserverTest {
   }
 
   @Test
+  public void heldTokensFromParallelActionsThrottleAdditionalAction() throws Exception {
+    ResourceManager rm = new ResourceManager();
+    rm.setAvailableResources(
+        ResourceSet.create(/* memoryMb= */ 1000.0, /* cpu= */ 4.0, /* tests= */ 0));
+    File dir = tmp.newFolder("jobserver");
+    jobserver.configure(new PosixJobserverBackend(dir.getPath()), rm);
+    rm.setHeldCpuTokensSupplier(jobserver::getOutstandingTokens);
+
+    CountDownLatch releaseActions = new CountDownLatch(1);
+    List<TestThread> actions = new ArrayList<>();
+    try (RandomAccessFile client = new RandomAccessFile(new File(dir, "fifo"), "rw")) {
+      FileInputStream in = new FileInputStream(client.getFD());
+      FileOutputStream out = new FileOutputStream(client.getFD());
+
+      CountDownLatch firstAcquired = new CountDownLatch(1);
+      actions.add(startOneCpuAction(rm, firstAcquired, releaseActions));
+      assertThat(firstAcquired.await(5, TimeUnit.SECONDS)).isTrue();
+      assertThat(drainUpTo(in, 1)).isEqualTo(1);
+      awaitOutstanding(1);
+
+      CountDownLatch secondAcquired = new CountDownLatch(1);
+      actions.add(startOneCpuAction(rm, secondAcquired, releaseActions));
+      assertThat(secondAcquired.await(5, TimeUnit.SECONDS)).isTrue();
+      assertThat(drainUpTo(in, 1)).isEqualTo(1);
+      awaitOutstanding(2);
+
+      CountDownLatch thirdAcquired = new CountDownLatch(1);
+      actions.add(startOneCpuAction(rm, thirdAcquired, releaseActions));
+      awaitWaitCount(rm, 1);
+      assertThat(thirdAcquired.getCount()).isEqualTo(1);
+
+      // Returning one token frees enough CPU for the queued action.
+      out.write('+');
+      out.flush();
+      assertThat(thirdAcquired.await(5, TimeUnit.SECONDS)).isTrue();
+
+      out.write('+');
+      out.flush();
+      awaitOutstanding(0);
+    } finally {
+      releaseActions.countDown();
+      for (TestThread action : actions) {
+        action.joinAndAssertState(5_000);
+      }
+    }
+  }
+
+  @Test
   public void deadManagerThreadStopsChargingHeldTokens() throws Exception {
     FaultyResourceManager rm = new FaultyResourceManager();
     File dir = tmp.newFolder("jobserver");
@@ -245,6 +298,33 @@ public final class LocalJobserverTest {
       Thread.sleep(20);
     }
     assertThat(jobserver.getOutstandingTokens()).isEqualTo(expected);
+  }
+
+  private static TestThread startOneCpuAction(
+      ResourceManager rm, CountDownLatch acquired, CountDownLatch release) {
+    TestThread action =
+        new TestThread(
+            () -> {
+              try (ResourceManager.ResourceHandle unused =
+                  rm.acquireResources(
+                      taggedSpawn().getResourceOwner(),
+                      ResourceSet.create(
+                          /* memoryMb= */ 0.0, /* cpu= */ 1.0, /* localTestCount= */ 0),
+                      ResourceManager.ResourcePriority.LOCAL)) {
+                acquired.countDown();
+                release.await();
+              }
+            });
+    action.start();
+    return action;
+  }
+
+  private static void awaitWaitCount(ResourceManager rm, int expected) throws InterruptedException {
+    long deadline = System.currentTimeMillis() + 5_000;
+    while (rm.getWaitCount() != expected && System.currentTimeMillis() < deadline) {
+      Thread.sleep(20);
+    }
+    assertThat(rm.getWaitCount()).isEqualTo(expected);
   }
 
   /** A ResourceManager whose waiting-request re-admission always throws. */
