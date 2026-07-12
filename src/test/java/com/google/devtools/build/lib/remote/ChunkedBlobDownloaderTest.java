@@ -27,6 +27,8 @@ import build.bazel.remote.execution.v2.SplitBlobResponse;
 import com.google.common.primitives.Bytes;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.devtools.build.lib.metrics.RemoteCacheCdcEvent;
+import com.google.devtools.build.lib.remote.CombinedCache.CdcChunk;
 import com.google.devtools.build.lib.remote.chunking.ChunkingConfig;
 import com.google.devtools.build.lib.remote.chunking.FastCdcChunkingConfig;
 import com.google.devtools.build.lib.remote.common.BlobNotSplittableException;
@@ -154,6 +156,168 @@ public class ChunkedBlobDownloaderTest {
     downloader.downloadChunked(context, blobDigest, out);
 
     assertThat(out.toByteArray()).isEqualTo(chunkData);
+  }
+
+  @Test
+  public void downloadChunked_reportsDiskCacheAndRemoteChunks() throws Exception {
+    byte[] diskChunkData = new byte[] {1, 2, 3};
+    byte[] remoteChunkData = new byte[] {4, 5, 6, 7};
+    Digest diskChunkDigest = DIGEST_UTIL.compute(diskChunkData);
+    Digest remoteChunkDigest = DIGEST_UTIL.compute(remoteChunkData);
+    Digest blobDigest = DIGEST_UTIL.compute(new byte[] {1, 2, 3, 4, 5, 6, 7});
+    when(grpcCacheClient.splitBlob(any(), eq(blobDigest), any()))
+        .thenReturn(
+            Futures.immediateFuture(
+                SplitBlobResponse.newBuilder()
+                    .addChunkDigests(diskChunkDigest)
+                    .addChunkDigests(remoteChunkDigest)
+                    .build()));
+    when(combinedCache.downloadCdcChunk(any(), eq(diskChunkDigest)))
+        .thenReturn(
+            Futures.immediateFuture(
+                new CdcChunk(
+                    diskChunkData,
+                    /* diskCacheHit= */ true,
+                    /* diskCacheLookupAttempted= */ true)));
+    when(combinedCache.downloadCdcChunk(any(), eq(remoteChunkDigest)))
+        .thenReturn(
+            Futures.immediateFuture(
+                new CdcChunk(
+                    remoteChunkData,
+                    /* diskCacheHit= */ false,
+                    /* diskCacheLookupAttempted= */ true)));
+    List<RemoteCacheCdcEvent> metricsEvents = new ArrayList<>();
+    ChunkedBlobDownloader metricsDownloader =
+        new ChunkedBlobDownloader(
+            grpcCacheClient,
+            combinedCache,
+            CHUNKING_CONFIG,
+            DIGEST_UTIL,
+            new ChunkLocationMap(),
+            metricsEvents::add);
+
+    ByteArrayOutputStream out = new ByteArrayOutputStream();
+    metricsDownloader.downloadChunked(context, blobDigest, out);
+
+    assertThat(out.toByteArray()).isEqualTo(new byte[] {1, 2, 3, 4, 5, 6, 7});
+    assertThat(metricsEvents).hasSize(1);
+    RemoteCacheCdcEvent.Download metrics = (RemoteCacheCdcEvent.Download) metricsEvents.getFirst();
+    assertThat(metrics.outcome()).isEqualTo(RemoteCacheCdcEvent.Outcome.SUCCESS);
+    assertThat(metrics.blobBytes()).isEqualTo(7);
+    assertThat(metrics.chunkReferences()).isEqualTo(2);
+    assertThat(metrics.diskCacheHitChunks()).isEqualTo(1);
+    assertThat(metrics.diskCacheHitBytes()).isEqualTo(3);
+    assertThat(metrics.diskCacheMissChunks()).isEqualTo(1);
+    assertThat(metrics.diskCacheMissBytes()).isEqualTo(4);
+    assertThat(metrics.remoteChunks()).isEqualTo(1);
+    assertThat(metrics.remoteBytes()).isEqualTo(4);
+  }
+
+  @Test
+  public void downloadChunked_localFileReuse_doesNotReportCacheTraffic() throws Exception {
+    byte[] data = new byte[] {1, 2, 3};
+    Digest digest = DIGEST_UTIL.compute(data);
+    when(grpcCacheClient.splitBlob(any(), eq(digest), any()))
+        .thenReturn(
+            Futures.immediateFuture(
+                SplitBlobResponse.newBuilder().addChunkDigests(digest).build()));
+    when(combinedCache.downloadCdcChunk(any(), eq(digest)))
+        .thenReturn(
+            Futures.immediateFuture(
+                new CdcChunk(
+                    data, /* diskCacheHit= */ false, /* diskCacheLookupAttempted= */ false)));
+    List<RemoteCacheCdcEvent> metricsEvents = new ArrayList<>();
+    ChunkedBlobDownloader metricsDownloader =
+        new ChunkedBlobDownloader(
+            grpcCacheClient,
+            combinedCache,
+            CHUNKING_CONFIG,
+            DIGEST_UTIL,
+            new ChunkLocationMap(),
+            metricsEvents::add);
+    Path firstFile = tmpDir.getChild("metrics-first-output");
+    try (LazyFileOutputStream out = new LazyFileOutputStream(firstFile)) {
+      metricsDownloader.downloadChunked(context, digest, out);
+    }
+
+    ByteArrayOutputStream out = new ByteArrayOutputStream();
+    metricsDownloader.downloadChunked(context, digest, out);
+
+    assertThat(out.toByteArray()).isEqualTo(data);
+    verify(combinedCache, times(1)).downloadCdcChunk(any(), eq(digest));
+    verify(combinedCache, never()).downloadBlob(any(), any(Digest.class));
+    assertThat(metricsEvents).hasSize(2);
+    assertThat(metricsEvents.get(1))
+        .isEqualTo(
+            new RemoteCacheCdcEvent.Download(
+                RemoteCacheCdcEvent.Outcome.SUCCESS,
+                /* blobBytes= */ 3,
+                /* chunkReferences= */ 1,
+                /* diskCacheHitChunks= */ 0,
+                /* diskCacheHitBytes= */ 0,
+                /* diskCacheMissChunks= */ 0,
+                /* diskCacheMissBytes= */ 0,
+                /* remoteChunks= */ 0,
+                /* remoteBytes= */ 0));
+  }
+
+  @Test
+  public void downloadChunked_notSplittable_reportsFallback() {
+    Digest digest = DIGEST_UTIL.compute(new byte[] {1, 2, 3});
+    when(grpcCacheClient.splitBlob(any(), eq(digest), any()))
+        .thenReturn(null)
+        .thenReturn(Futures.immediateFuture(SplitBlobResponse.getDefaultInstance()));
+    List<RemoteCacheCdcEvent> metricsEvents = new ArrayList<>();
+    ChunkedBlobDownloader metricsDownloader =
+        new ChunkedBlobDownloader(
+            grpcCacheClient,
+            combinedCache,
+            CHUNKING_CONFIG,
+            DIGEST_UTIL,
+            new ChunkLocationMap(),
+            metricsEvents::add);
+
+    // Both an unsupported SplitBlob RPC and a blob with no chunk metadata permit fallback.
+    for (int i = 0; i < 2; i++) {
+      assertThrows(
+          BlobNotSplittableException.class,
+          () -> metricsDownloader.downloadChunked(context, digest, new ByteArrayOutputStream()));
+    }
+
+    assertThat(metricsEvents).hasSize(2);
+    for (RemoteCacheCdcEvent event : metricsEvents) {
+      assertThat(((RemoteCacheCdcEvent.Download) event).outcome())
+          .isEqualTo(RemoteCacheCdcEvent.Outcome.FALLBACK);
+    }
+    verify(combinedCache, never()).downloadCdcChunk(any(), any(Digest.class));
+  }
+
+  @Test
+  public void downloadChunked_missingChunk_reportsFailure() {
+    Digest digest = DIGEST_UTIL.compute(new byte[] {1, 2, 3});
+    when(grpcCacheClient.splitBlob(any(), eq(digest), any()))
+        .thenReturn(
+            Futures.immediateFuture(
+                SplitBlobResponse.newBuilder().addChunkDigests(digest).build()));
+    when(combinedCache.downloadCdcChunk(any(), eq(digest)))
+        .thenReturn(Futures.immediateFailedFuture(new CacheNotFoundException(digest)));
+    List<RemoteCacheCdcEvent> metricsEvents = new ArrayList<>();
+    ChunkedBlobDownloader metricsDownloader =
+        new ChunkedBlobDownloader(
+            grpcCacheClient,
+            combinedCache,
+            CHUNKING_CONFIG,
+            DIGEST_UTIL,
+            new ChunkLocationMap(),
+            metricsEvents::add);
+
+    assertThrows(
+        CacheNotFoundException.class,
+        () -> metricsDownloader.downloadChunked(context, digest, new ByteArrayOutputStream()));
+
+    assertThat(metricsEvents).hasSize(1);
+    assertThat(((RemoteCacheCdcEvent.Download) metricsEvents.getFirst()).outcome())
+        .isEqualTo(RemoteCacheCdcEvent.Outcome.FAILURE);
   }
 
   @Test
