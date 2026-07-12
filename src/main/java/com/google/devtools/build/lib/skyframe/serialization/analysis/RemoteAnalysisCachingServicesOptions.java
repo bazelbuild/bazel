@@ -70,7 +70,7 @@ public abstract class RemoteAnalysisCachingServicesOptions extends OptionsBase {
       name = "experimental_remote_analysis_cache_max_write_concurrency",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-      defaultValue = "100",
+      defaultValue = "16",
       converter = PositiveIntegerConverter.class,
       help = "Max write concurrency for remote analysis caching RPCs.")
   public abstract int getMaxWriteConcurrency();
