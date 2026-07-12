@@ -24,6 +24,11 @@ java_library(
 )
 
 java_library(
+    name = "remote_cache_cdc_event",
+    srcs = ["RemoteCacheCdcEvent.java"],
+)
+
+java_library(
     name = "metrics_module",
     srcs = glob(
         ["*.java"],
@@ -35,6 +40,7 @@ java_library(
     deps = [
         ":event",
         ":memory-use-recorder",
+        ":remote_cache_cdc_event",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:analysis_graph_stats_event",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_phase_complete_event",

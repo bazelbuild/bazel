@@ -38,9 +38,11 @@ java_test(
     srcs = ["MetricsCollectorTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_phase_started_event",
         "//src/main/java/com/google/devtools/build/lib/analysis:view_creation_failed_exception",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
         "//src/main/java/com/google/devtools/build/lib/clock",
+        "//src/main/java/com/google/devtools/build/lib/metrics:remote_cache_cdc_event",
         "//src/main/java/com/google/devtools/build/lib/metrics:event",
         "//src/main/java/com/google/devtools/build/lib/metrics:metrics_module",
         "//src/main/java/com/google/devtools/build/lib/profiler:memory_profiler",

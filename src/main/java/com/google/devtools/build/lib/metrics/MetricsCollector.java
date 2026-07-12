@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Bui
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.PackageMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.RemoteAnalysisCacheStatistics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.RemoteAnalysisCacheStatistics.Entry;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.RemoteCacheCdcMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.TargetMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.TimingMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.WorkerMetrics;
@@ -125,6 +126,7 @@ class MetricsCollector {
   private final ArtifactMetrics.Builder artifactMetrics = ArtifactMetrics.newBuilder();
   private final BuildGraphMetrics.Builder buildGraphMetrics = BuildGraphMetrics.newBuilder();
   private final DynamicExecutionStats dynamicExecutionStats = new DynamicExecutionStats();
+  private final RemoteCacheCdcStats remoteCacheCdcStats = new RemoteCacheCdcStats();
   private final SpawnStats spawnStats = new SpawnStats();
   // Skymeld-specific: we don't have an ExecutionStartingEvent for skymeld, so we have to use
   // TopLevelTargetExecutionStartedEvent. This AtomicBoolean is so that we only account for the
@@ -337,6 +339,15 @@ class MetricsCollector {
     timingMetrics.setCriticalPathTime(protoDuration);
   }
 
+  @AllowConcurrentEvents
+  @Subscribe
+  public void onRemoteCacheCdcEvent(RemoteCacheCdcEvent event) {
+    switch (event) {
+      case RemoteCacheCdcEvent.Upload upload -> remoteCacheCdcStats.record(upload);
+      case RemoteCacheCdcEvent.Download download -> remoteCacheCdcStats.record(download);
+    }
+  }
+
   @SuppressWarnings("unused")
   @Subscribe
   private void logActionCacheStatistics(PostableActionCacheStats stats) {
@@ -373,6 +384,7 @@ class MetricsCollector {
             .addAllWorkerMetrics(workerMetrics)
             .setWorkerPoolMetrics(createWorkerPoolMetrics(workerProcessMetrics))
             .setDynamicExecutionMetrics(dynamicExecutionStats.toMetrics())
+            .setRemoteCacheCdcMetrics(remoteCacheCdcStats.toMetrics())
             .setRemoteAnalysisCacheStatistics(remoteAnalysisCacheStatistics);
 
     NetworkMetrics networkMetrics = NetworkMetricsCollector.instance().collectMetrics();
@@ -381,6 +393,97 @@ class MetricsCollector {
     }
 
     return buildMetrics.build();
+  }
+
+  private static final class RemoteCacheCdcStats {
+    private long uploadAttempts;
+    private long uploadSuccesses;
+    private long uploadFailures;
+    private long logicalBytes;
+    private long chunkReferences;
+    private long bytesReused;
+    private long chunkReferencesReused;
+    private long downloadAttempts;
+    private long downloadSuccesses;
+    private long downloadFallbacks;
+    private long downloadFailures;
+    private long downloadLogicalBytes;
+    private long downloadChunkReferences;
+    private long diskCacheHitChunks;
+    private long diskCacheHitBytes;
+    private long diskCacheMissChunks;
+    private long diskCacheMissBytes;
+    private long remoteChunks;
+    private long remoteBytes;
+    private boolean frozen;
+
+    synchronized void record(RemoteCacheCdcEvent.Upload event) {
+      if (frozen) {
+        return;
+      }
+      uploadAttempts++;
+      if (event.outcome() == RemoteCacheCdcEvent.Outcome.FAILURE) {
+        uploadFailures++;
+        return;
+      }
+      uploadSuccesses++;
+      logicalBytes += event.blobBytes();
+      chunkReferences += event.chunkReferences();
+      bytesReused += Math.max(0, event.blobBytes() - event.remoteMissingChunkBytes());
+      chunkReferencesReused +=
+          Math.max(0, event.chunkReferences() - event.remoteMissingChunks());
+    }
+
+    synchronized void record(RemoteCacheCdcEvent.Download event) {
+      if (frozen) {
+        return;
+      }
+      downloadAttempts++;
+      switch (event.outcome()) {
+        case FALLBACK -> {
+          downloadFallbacks++;
+          return;
+        }
+        case FAILURE -> {
+          downloadFailures++;
+          return;
+        }
+        case SUCCESS -> downloadSuccesses++;
+      }
+      downloadLogicalBytes += event.blobBytes();
+      downloadChunkReferences += event.chunkReferences();
+      diskCacheHitChunks += event.diskCacheHitChunks();
+      diskCacheHitBytes += event.diskCacheHitBytes();
+      diskCacheMissChunks += event.diskCacheMissChunks();
+      diskCacheMissBytes += event.diskCacheMissBytes();
+      remoteChunks += event.remoteChunks();
+      remoteBytes += event.remoteBytes();
+    }
+
+    synchronized RemoteCacheCdcMetrics toMetrics() {
+      frozen = true;
+      return RemoteCacheCdcMetrics.newBuilder()
+          .setUploadAttempts(uploadAttempts)
+          .setUploadSuccesses(uploadSuccesses)
+          .setUploadFailures(uploadFailures)
+          .setDownloadAttempts(downloadAttempts)
+          .setDownloadSuccesses(downloadSuccesses)
+          .setDownloadFallbacks(downloadFallbacks)
+          .setDownloadFailures(downloadFailures)
+          .setUploadLogicalBytes(logicalBytes)
+          .setUploadChunkReferences(chunkReferences)
+          .setUploadBytesReused(bytesReused)
+          .setUploadChunkReferencesReused(chunkReferencesReused)
+          .setDownloadLogicalBytes(downloadLogicalBytes)
+          .setDownloadChunkReferences(downloadChunkReferences)
+          .setDownloadDiskCacheHitChunks(diskCacheHitChunks)
+          .setDownloadDiskCacheHitBytes(diskCacheHitBytes)
+          .setDownloadDiskCacheMissChunks(diskCacheMissChunks)
+          .setDownloadDiskCacheMissBytes(diskCacheMissBytes)
+          .setDownloadRemoteChunks(remoteChunks)
+          .setDownloadRemoteBytes(remoteBytes)
+          .build();
+    }
   }
 
   private Distribution computeDistributionProto(List<Bucket> buckets) {

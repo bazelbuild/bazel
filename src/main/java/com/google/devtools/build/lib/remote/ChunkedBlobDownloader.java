@@ -20,7 +20,12 @@ import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.SplitBlobResponse;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.metrics.RemoteCacheCdcEvent;
+import com.google.devtools.build.lib.metrics.RemoteCacheCdcEvent.Download;
+import com.google.devtools.build.lib.metrics.RemoteCacheCdcEvent.Outcome;
+import com.google.devtools.build.lib.remote.CombinedCache.CdcChunk;
 import com.google.devtools.build.lib.remote.chunking.ChunkingConfig;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
@@ -34,6 +39,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.function.Consumer;
 import javax.annotation.Nullable;
 
 /** Downloads blobs by fetching chunks through a per-blob sliding window via the SplitBlob API. */
@@ -47,16 +53,27 @@ public class ChunkedBlobDownloader {
   private final CombinedCache combinedCache;
   private final DigestUtil digestUtil;
   private final long maxChunkSize;
+  @Nullable private final Consumer<RemoteCacheCdcEvent> metricsSink;
 
   public ChunkedBlobDownloader(
       GrpcCacheClient grpcCacheClient,
       CombinedCache combinedCache,
       ChunkingConfig chunkingConfig,
       DigestUtil digestUtil) {
+    this(grpcCacheClient, combinedCache, chunkingConfig, digestUtil, /* metricsSink= */ null);
+  }
+
+  public ChunkedBlobDownloader(
+      GrpcCacheClient grpcCacheClient,
+      CombinedCache combinedCache,
+      ChunkingConfig chunkingConfig,
+      DigestUtil digestUtil,
+      @Nullable Consumer<RemoteCacheCdcEvent> metricsSink) {
     this.grpcCacheClient = grpcCacheClient;
     this.combinedCache = combinedCache;
     this.digestUtil = digestUtil;
     this.maxChunkSize = chunkingConfig.maxChunkSize();
+    this.metricsSink = metricsSink;
   }
 
   /**
@@ -67,16 +84,62 @@ public class ChunkedBlobDownloader {
   public void downloadChunked(
       RemoteActionExecutionContext context, Digest blobDigest, OutputStream out)
       throws IOException, InterruptedException {
-    @Nullable DigestOutputStream digestOut = null;
-    if (grpcCacheClient.shouldVerifyDownloads()) {
-      digestOut = digestUtil.newDigestOutputStream(out);
-      out = digestOut;
-    }
+    List<Digest> chunkDigests = List.of();
+    DownloadStats downloadStats = new DownloadStats();
+    Outcome outcome = Outcome.FAILURE;
+    try {
+      @Nullable DigestOutputStream digestOut = null;
+      if (grpcCacheClient.shouldVerifyDownloads()) {
+        digestOut = digestUtil.newDigestOutputStream(out);
+        out = digestOut;
+      }
 
-    List<Digest> chunkDigests = getChunkDigests(context, blobDigest);
-    downloadAndReassembleChunks(context, chunkDigests, out);
-    if (digestOut != null) {
-      Utils.verifyBlobContents(blobDigest, digestOut.digest());
+      chunkDigests = getChunkDigests(context, blobDigest);
+      downloadAndReassembleChunks(context, chunkDigests, out, downloadStats);
+      if (digestOut != null) {
+        Utils.verifyBlobContents(blobDigest, digestOut.digest());
+      }
+      outcome = Outcome.SUCCESS;
+    } catch (CacheNotFoundException e) {
+      outcome = Outcome.FALLBACK;
+      throw e;
+    } finally {
+      if (metricsSink != null) {
+        metricsSink.accept(
+            new Download(
+                outcome,
+                blobDigest.getSizeBytes(),
+                chunkDigests.size(),
+                downloadStats.diskCacheHitChunks,
+                downloadStats.diskCacheHitBytes,
+                downloadStats.diskCacheMissChunks,
+                downloadStats.diskCacheMissBytes,
+                downloadStats.remoteChunks,
+                downloadStats.remoteBytes));
+      }
+    }
+  }
+
+  private static final class DownloadStats {
+    private long diskCacheHitChunks;
+    private long diskCacheHitBytes;
+    private long diskCacheMissChunks;
+    private long diskCacheMissBytes;
+    private long remoteChunks;
+    private long remoteBytes;
+
+    void record(CdcChunk chunk) {
+      if (chunk.diskCacheHit()) {
+        diskCacheHitChunks++;
+        diskCacheHitBytes += chunk.data().length;
+      } else {
+        if (chunk.diskCacheLookupAttempted()) {
+          diskCacheMissChunks++;
+          diskCacheMissBytes += chunk.data().length;
+        }
+        remoteChunks++;
+        remoteBytes += chunk.data().length;
+      }
     }
   }
 
@@ -137,10 +200,10 @@ public class ChunkedBlobDownloader {
 
   private static final class PendingDownload {
     private final Digest digest;
-    private final ListenableFuture<byte[]> future;
+    private final ListenableFuture<CdcChunk> future;
     private final List<Integer> chunkIndices = new ArrayList<>(1);
 
-    PendingDownload(Digest digest, ListenableFuture<byte[]> future, int firstChunkIndex) {
+    PendingDownload(Digest digest, ListenableFuture<CdcChunk> future, int firstChunkIndex) {
       this.digest = digest;
       this.future = future;
       chunkIndices.add(firstChunkIndex);
@@ -154,7 +217,7 @@ public class ChunkedBlobDownloader {
       return digest;
     }
 
-    ListenableFuture<byte[]> future() {
+    ListenableFuture<CdcChunk> future() {
       return future;
     }
 
@@ -164,9 +227,12 @@ public class ChunkedBlobDownloader {
   }
 
   private void downloadAndReassembleChunks(
-      RemoteActionExecutionContext context, List<Digest> chunkDigests, OutputStream out)
+      RemoteActionExecutionContext context,
+      List<Digest> chunkDigests,
+      OutputStream out,
+      DownloadStats downloadStats)
       throws IOException, InterruptedException {
-    new DownloadSession(context, chunkDigests, out).run();
+    new DownloadSession(context, chunkDigests, out, downloadStats).run();
   }
 
   private final class DownloadSession {
@@ -178,14 +244,19 @@ public class ChunkedBlobDownloader {
     private final RemoteActionExecutionContext context;
     private final List<Digest> chunkDigests;
     private final OutputStream out;
+    private final DownloadStats downloadStats;
     private int nextToStart = 0;
     private int nextToWrite = 0;
 
     DownloadSession(
-        RemoteActionExecutionContext context, List<Digest> chunkDigests, OutputStream out) {
+        RemoteActionExecutionContext context,
+        List<Digest> chunkDigests,
+        OutputStream out,
+        DownloadStats downloadStats) {
       this.context = context;
       this.chunkDigests = chunkDigests;
       this.out = out;
+      this.downloadStats = downloadStats;
     }
 
     void run() throws IOException, InterruptedException {
@@ -219,9 +290,22 @@ public class ChunkedBlobDownloader {
     }
 
     private void startDownload(Digest chunkDigest, int chunkIndex) {
+      ListenableFuture<CdcChunk> future;
+      if (metricsSink == null) {
+        future =
+            Futures.transform(
+                combinedCache.downloadBlob(context, chunkDigest),
+                data ->
+                    new CdcChunk(
+                        data,
+                        /* diskCacheHit= */ false,
+                        /* diskCacheLookupAttempted= */ false),
+                directExecutor());
+      } else {
+        future = combinedCache.downloadCdcChunk(context, chunkDigest);
+      }
       PendingDownload download =
-          new PendingDownload(
-              chunkDigest, combinedCache.downloadBlob(context, chunkDigest), chunkIndex);
+          new PendingDownload(chunkDigest, future, chunkIndex);
       activeDownloads.put(chunkDigest, download);
       download.future().addListener(() -> completedDownloads.add(download), directExecutor());
     }
@@ -237,7 +321,9 @@ public class ChunkedBlobDownloader {
     private void processCompletedDownload(PendingDownload download)
         throws IOException, InterruptedException {
       activeDownloads.remove(download.digest());
-      byte[] chunkData = getFromFuture(download.future());
+      CdcChunk chunk = getFromFuture(download.future());
+      downloadStats.record(chunk);
+      byte[] chunkData = chunk.data();
       for (int chunkIndex : download.chunkIndices()) {
         if (chunkIndex == nextToWrite) {
           out.write(chunkData);
