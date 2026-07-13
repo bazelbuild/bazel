@@ -2875,6 +2875,21 @@ public class RemoteExecutionServiceTest {
   }
 
   @Test
+  public void workerPropertiesNotAddedUnlessMarkToolInputsSet() throws Exception {
+    Spawn spawn =
+        new SpawnBuilder("some/path/cmd")
+            .withExecutionInfo(ExecutionRequirements.SUPPORTS_WORKERS, "1")
+            .withExecutionInfo(ExecutionRequirements.REQUIRES_WORKER_PROTOCOL, "json")
+            .build();
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
+    RemoteExecutionService service = newRemoteExecutionService();
+
+    RemoteAction remoteAction = service.buildRemoteAction(spawn, context);
+
+    assertThat(remoteAction.getAction().getPlatform().getPropertiesList()).isEmpty();
+  }
+
+  @Test
   public void buildRemoteActionWithScrubbing() throws Exception {
     var keptInput = ActionsTestUtil.createArtifact(artifactRoot, "kept_input");
     fakeFileCache.createScratchInput(keptInput, "kept");

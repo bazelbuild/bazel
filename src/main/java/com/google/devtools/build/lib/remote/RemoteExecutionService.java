@@ -532,11 +532,11 @@ public class RemoteExecutionService {
       if (toolSignature != null) {
         additionalPropertiesBuilder.put(
             PlatformProperties.PERSISTENT_WORKER_KEY, toolSignature.key);
-      }
-      if (spawn.getExecutionInfo().containsKey(ExecutionRequirements.REQUIRES_WORKER_PROTOCOL)) {
-        additionalPropertiesBuilder.put(
-            PlatformProperties.PERSISTENT_WORKER_PROTOCOL,
-            spawn.getExecutionInfo().get(ExecutionRequirements.REQUIRES_WORKER_PROTOCOL));
+        if (spawn.getExecutionInfo().containsKey(ExecutionRequirements.REQUIRES_WORKER_PROTOCOL)) {
+          additionalPropertiesBuilder.put(
+              PlatformProperties.PERSISTENT_WORKER_PROTOCOL,
+              spawn.getExecutionInfo().get(ExecutionRequirements.REQUIRES_WORKER_PROTOCOL));
+        }
       }
       platform =
           PlatformUtils.getPlatformProto(spawn, remoteOptions, additionalPropertiesBuilder.build());
