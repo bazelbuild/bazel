@@ -90,7 +90,9 @@ bool WaitableProcess::Create(const std::wstring& argv0,
   }
 
   std::wstring argv0short;
-  error_msg = AsExecutablePathForCreateProcess(argv0, &argv0short);
+  std::wstring extended_path;
+  error_msg =
+      AsExecutablePathForCreateProcess(argv0, &argv0short, &extended_path);
   if (!error_msg.empty()) {
     *error = MakeErrorMessage(WSTR(__FILE__), __LINE__,
                               L"WaitableProcess::Create", argv0, error_msg);
@@ -172,7 +174,8 @@ bool WaitableProcess::Create(const std::wstring& argv0,
   STARTUPINFOEXW info;
   attr_list->InitStartupInfoExW(&info);
   if (!CreateProcessW(
-          /* lpApplicationName */ nullptr,
+          /* lpApplicationName */ extended_path.empty() ? nullptr
+                                                        : extended_path.c_str(),
           /* lpCommandLine */ mutable_commandline.get(),
           /* lpProcessAttributes */ nullptr,
           /* lpThreadAttributes */ nullptr,
