@@ -19,7 +19,7 @@
 # binaries pipeline was previously run and generated java_tools artifacts at
 # a commit hash.
 #
-# The script is using gsutil to copy artifacts.
+# The script is using gcloud storage to copy artifacts.
 #
 # Mandatory flags:
 # --java_tools_version  The version number of the java_tools to be released.
@@ -84,7 +84,7 @@ for platform in "linux" "windows" "darwin_x86_64" "darwin_arm64"; do
     mirror_url=${mirror_prefix}/${release_artifact}
     urls='"mirror_url" : "'${mirror_url}'", "github_url" : "'${github_url}'"'
   else
-    tmp_url=$(gsutil ls -lh ${gcs_bucket}/tmp/build/${commit_hash}/java/java_tools_${platform}* | sort -k 2 | grep gs -m 1 | awk '{print $4}')
+    tmp_url=$(gcloud storage ls -l ${gcs_bucket}/tmp/build/${commit_hash}/java/java_tools_${platform}* | sort -k 2 | grep gs -m 1 | awk '{print $3}')
 
     # Make the generated artifact a release candidate for the current platform.
     # Don't overwrite existing file.
@@ -98,7 +98,7 @@ for platform in "linux" "windows" "darwin_x86_64" "darwin_arm64"; do
   # java_tools in Bazel).
   # Don't overwrite existing file.
   local_zip="$tmp_dir/java_tools$platform.zip"
-  gsutil -q cp -n ${gcs_bucket}/${rc_url} ${local_zip}
+  gcloud --quiet storage cp -n ${gcs_bucket}/${rc_url} ${local_zip}
   file_hash=$(sha256sum ${local_zip} | cut -d' ' -f1)
 
   platform_output+='"java_tools_'${platform}'" : {'${urls}', "sha": "'${file_hash}'"},'
@@ -122,7 +122,7 @@ if [[ $release == "true" ]]; then
   mirror_url=${mirror_prefix}/${release_artifact}
   urls='"mirror_url" : "'${mirror_url}'", "github_url" : "'${github_url}'"'
 else
-  tmp_url=$(gsutil ls -lh ${gcs_bucket}/tmp/build/${commit_hash}/java/java_tools-* | sort -k 2 | grep gs -m 1 | awk '{print $4}')
+  tmp_url=$(gcloud storage ls -l ${gcs_bucket}/tmp/build/${commit_hash}/java/java_tools-* | sort -k 2 | grep gs -m 1 | awk '{print $3}')
 
   gsutil -q cp -n ${tmp_url} "${gcs_bucket}/${rc_url}"
 
@@ -139,7 +139,7 @@ fi
 # java_tools in Bazel).
 # Don't overwrite existing file.
 local_zip="$tmp_dir/java_tools.zip"
-gsutil -q cp -n ${gcs_bucket}/${rc_url} ${local_zip}
+gcloud --quiet storage cp -n ${gcs_bucket}/${rc_url} ${local_zip}
 file_hash=$(sha256sum ${local_zip} | cut -d' ' -f1)
 
 java_tools_output='"java_tools" : {'${urls}', "sha" : "'${file_hash}'"}'
