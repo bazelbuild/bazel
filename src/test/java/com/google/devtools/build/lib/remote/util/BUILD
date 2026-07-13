@@ -71,10 +71,12 @@ java_library(
         ":free_port_finder",
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/lib/util:os",
+        "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party:junit4",
+        "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
         "@rules_java//java/runfiles",
     ],
 )

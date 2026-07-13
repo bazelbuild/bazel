@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialModule;
 import com.google.devtools.build.lib.dynamic.DynamicExecutionModule;
 import com.google.devtools.build.lib.remote.options.RemoteStartupOptions;
-import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.IntegrationTestUtils;
 import com.google.devtools.build.lib.remote.util.IntegrationTestUtils.WorkerInstance;
 import com.google.devtools.build.lib.runtime.BlazeModule;
@@ -1082,17 +1081,7 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
         "  cmd = 'sleep 2 && cat $(location :foo) > $@ && echo bar >> $@',",
         ")");
     addOptions("--experimental_remote_cache_ttl=1s", "--experimental_remote_cache_lease_extension");
-    var content = "foo".getBytes(UTF_8);
-    var hashCode = getFileSystem().getDigestFunction().getHashFunction().hashBytes(content);
-    var digest = DigestUtil.buildDigest(hashCode.asBytes(), content.length).getHash();
-    // Calculate the blob path in CAS. This is specific to the remote worker. See
-    // {@link DiskCacheClient#getPath()}.
-    var blobPath =
-        getFileSystem()
-            .getPath(worker.getCasPath())
-            .getChild("cas")
-            .getChild(digest.substring(0, 2))
-            .getChild(digest);
+    var blobPath = getFileSystem().getPath(worker.getCasBlobPath("foo".getBytes(UTF_8)));
     var mtimes = Sets.newConcurrentHashSet();
     // Observe the mtime of the blob in background.
     var thread =
@@ -1115,6 +1104,56 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     thread.join();
     // We should be able to observe more than 1 mtime if the server extends the lease.
     assertThat(mtimes.size()).isGreaterThan(1);
+  }
+
+  @Test
+  public void actionRewinding_lostInputWithStaleActionCacheEntry_recovers() throws Exception {
+    // The unverified worker serves cached action results even if the blobs they reference are
+    // missing from the CAS, emulating a remote cache without integrity checks. Rewinding must not
+    // accept such an action result for a rewound action, as it would reinstate the stale metadata
+    // of the lost blob instead of regenerating it.
+    var unverifiedWorker = IntegrationTestUtils.createWorker("--noaction_cache_integrity_check");
+    try (var ignored = unverifiedWorker.start()) {
+      addOptions("--remote_executor=grpc://localhost:" + unverifiedWorker.getPort());
+      enableActionRewinding();
+      write(
+          "a/BUILD",
+          """
+        genrule(
+            name = "foo",
+            srcs = [],
+            outs = ["foo.out"],
+            cmd = "echo -n foo > $@",
+        )
+
+        genrule(
+            name = "bar",
+            srcs = [
+                ":foo",
+                "bar.in",
+            ],
+            outs = ["bar.out"],
+            cmd = "cat $(location :foo) $(location bar.in) > $@",
+        )
+        """);
+      write("a/bar.in", "bar");
+
+      buildTarget("//a:bar");
+
+      // Delete the blob backing foo.out from the CAS while keeping all action cache entries.
+      unverifiedWorker.evictBlob("foo".getBytes(UTF_8));
+      if (useDiskCache) {
+        // Prevent the disk cache from restoring the deleted blob.
+        addOptions("--disk_cache=" + UUID.randomUUID());
+      }
+
+      // Invalidate only //a:bar so that its execution discovers the lost input and rewinds //a:foo.
+      write("a/bar.in", "bar2");
+      setDownloadToplevel();
+      buildTarget("//a:bar");
+
+      assertValidOutputFile("a/bar.out", "foobar2\n");
+    }
   }
 
   @Test
