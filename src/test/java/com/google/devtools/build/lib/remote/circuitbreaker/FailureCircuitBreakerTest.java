@@ -32,7 +32,10 @@ public class FailureCircuitBreakerTest {
     final int failureRateThreshold = 10;
     final int windowInterval = 100;
     FailureCircuitBreaker failureCircuitBreaker =
-        new FailureCircuitBreaker(failureRateThreshold, windowInterval);
+        new FailureCircuitBreaker(
+            failureRateThreshold,
+            windowInterval,
+            CircuitBreakerFactory.DEFAULT_MIN_CALL_COUNT_TO_COMPUTE_FAILURE_RATE);
 
     List<Runnable> listOfSuccessAndFailureCalls = new ArrayList<>();
     for (int index = 0; index < failureRateThreshold; index++) {
@@ -69,7 +72,7 @@ public class FailureCircuitBreakerTest {
     final int minCallToComputeFailure =
         CircuitBreakerFactory.DEFAULT_MIN_CALL_COUNT_TO_COMPUTE_FAILURE_RATE;
     FailureCircuitBreaker failureCircuitBreaker =
-        new FailureCircuitBreaker(failureRateThreshold, windowInterval);
+        new FailureCircuitBreaker(failureRateThreshold, windowInterval, minCallToComputeFailure);
 
     // make half failure call, half success call and number of total call less than
     // minCallToComputeFailure.

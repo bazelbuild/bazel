@@ -34,7 +34,8 @@ public class CircuitBreakerFactory {
     if (remoteOptions.circuitBreakerStrategy == RemoteOptions.CircuitBreakerStrategy.FAILURE) {
       return new FailureCircuitBreaker(
           remoteOptions.remoteFailureRateThreshold,
-          (int) remoteOptions.remoteFailureWindowInterval.toMillis());
+          (int) remoteOptions.remoteFailureWindowInterval.toMillis(),
+          remoteOptions.remoteMinCallCountToComputeFailureRate);
     }
     return Retrier.ALLOW_ALL_CALLS;
   }

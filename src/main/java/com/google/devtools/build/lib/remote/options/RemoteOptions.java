@@ -736,6 +736,17 @@ public final class RemoteOptions extends CommonRemoteOptions {
   public Duration remoteFailureWindowInterval;
 
   @Option(
+      name = "experimental_remote_min_call_count_to_compute_failure_rate",
+      defaultValue = "100",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help =
+          "The minimum number of remote calls that must be observed within the failure window"
+              + " before the circuit breaker computes the failure rate and may trip. Only takes"
+              + " effect with --experimental_circuit_breaker_strategy=failure.")
+  public int remoteMinCallCountToComputeFailureRate;
+
+  @Option(
       name = "experimental_remote_cache_lease_extension",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.REMOTE,

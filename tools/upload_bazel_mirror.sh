@@ -63,5 +63,5 @@ curl -L --fail --output "${versioned_archive}" "${url}"
 
 # Upload the tarball to GCS.
 # -n for no-clobber, so we don't overwrite existing files
-gsutil cp -n "${versioned_archive}" \
+gcloud storage cp -n "${versioned_archive}" \
   "gs://bazel-mirror/github.com/bazelbuild/${REPO}/archive/${VERSION}.tar.gz"

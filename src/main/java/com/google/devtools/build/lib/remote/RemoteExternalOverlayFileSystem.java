@@ -55,6 +55,7 @@ import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import java.io.ByteArrayInputStream;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InterruptedIOException;
@@ -593,6 +594,16 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
   public void createFSDependentHardLink(PathFragment linkPath, PathFragment originalPath)
       throws IOException {
     fsForPath(originalPath).createFSDependentHardLink(linkPath, originalPath);
+  }
+
+  @Override
+  public File getIoFile(PathFragment path) {
+    return fsForPath(path).getIoFile(path);
+  }
+
+  @Override
+  public java.nio.file.Path getNioPath(PathFragment path) {
+    return fsForPath(path).getNioPath(path);
   }
 
   @Override
