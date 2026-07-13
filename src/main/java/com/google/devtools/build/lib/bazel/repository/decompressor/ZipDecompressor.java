@@ -84,6 +84,7 @@ public class ZipDecompressor implements Decompressor {
     boolean foundPrefix = false;
     // Store link, target info of symlinks, we create them after regular files are extracted.
     Map<Path, PathFragment> symlinks = new HashMap<>();
+    HostPathCollisionChecker collisionChecker = HostPathCollisionChecker.create();
 
     try (ZipReader reader = new ZipReader(descriptor.archivePath().getPathFile())) {
       Collection<ZipFileEntry> entries = reader.entries();
@@ -101,7 +102,8 @@ public class ZipDecompressor implements Decompressor {
         if (Objects.equals(pathFragment, PathFragment.EMPTY_FRAGMENT)) {
           continue;
         }
-        extractZipEntry(reader, entry, destinationDirectory, pathFragment, prefix, symlinks);
+        extractZipEntry(
+            reader, entry, destinationDirectory, pathFragment, prefix, symlinks, collisionChecker);
       }
 
       if (prefix.isPresent() && !foundPrefix) {
@@ -129,7 +131,8 @@ public class ZipDecompressor implements Decompressor {
       Path destinationDirectory,
       PathFragment strippedRelativePath,
       Optional<String> prefix,
-      Map<Path, PathFragment> symlinks)
+      Map<Path, PathFragment> symlinks,
+      HostPathCollisionChecker collisionChecker)
       throws IOException, InterruptedException {
     if (strippedRelativePath.isAbsolute()) {
       throw new IOException(
@@ -147,6 +150,9 @@ public class ZipDecompressor implements Decompressor {
     outputPath.getParentDirectory().createDirectoryAndParents();
     boolean isDirectory = (permissions & S_IFDIR) == S_IFDIR;
     boolean isSymlink = (permissions & S_IFLNK) == S_IFLNK;
+    if (!isDirectory) {
+      collisionChecker.checkAndRecord(strippedRelativePath);
+    }
     if (isDirectory) {
       outputPath.createDirectoryAndParents();
     } else if (isSymlink) {
