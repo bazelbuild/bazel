@@ -647,8 +647,9 @@ static std::string GetSimpleLogHandlerProps(
          "com.google.devtools.build.lib.util.SimpleLogHandler.prefix=" +
          java_log.AsJvmArgument() +
          "\n"
-         "com.google.devtools.build.lib.util.SimpleLogHandler.limit=1024000\n"
-         "com.google.devtools.build.lib.util.SimpleLogHandler.total_limit="
+         "com.google.devtools.build.lib.util.SimpleLogHandler.rotate_limit_bytes"
+         "=1024000\n"
+         "com.google.devtools.build.lib.util.SimpleLogHandler.total_limit_bytes="
          "20971520\n"  // 20 MB.
          "com.google.devtools.build.lib.util.SimpleLogHandler.formatter=" +
          java_logging_formatter + "\n";
