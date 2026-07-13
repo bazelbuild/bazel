@@ -632,13 +632,14 @@ public class RewindingTestsHelper {
     assertThat(rewoundArtifactOwnerLabels(rewoundKeys)).containsExactly("//test:rule1");
   }
 
-  public final void runIneffectiveRewindingResultsInLostInputTooManyTimes() throws Exception {
+  public final void runIneffectiveRewindingResultsInLostInputTooManyTimes(int maxRepeatedLostInputs)
+      throws Exception {
     // This test sets up two genrules, and makes the several execution attempts of rule2 fail,
     // saying that the file produced by rule1 is missing. The last time rule2 fails because of the
     // same lost input, rewinding is not attempted, and the build fails with a
-    // LOST_INPUT_TOO_MANY_TIMES detailed exit code.
-    int maxRepeatedLostInputs =
-        Options.getDefaults(BuildRequestOptions.class).getMaxRepeatedLostInputs();
+    // LOST_INPUT_TOO_MANY_TIMES detailed exit code. The repeated-loss limit is set via
+    // --experimental_max_repeated_lost_inputs so this exercises both the default and a lower limit.
+    testCase.addOptions("--experimental_max_repeated_lost_inputs=" + maxRepeatedLostInputs);
     writeTwoGenrulePackage(testCase);
 
     // Store a reference to the input so that we can match the exception message. The output
@@ -692,56 +693,6 @@ public class RewindingTestsHelper {
     assertOnlyActionsRewound(rewoundKeys);
     assertThat(Iterables.frequency(rewoundArtifactOwnerLabels(rewoundKeys), "//test:rule1"))
         .isEqualTo(maxRepeatedLostInputs);
-  }
-
-  /**
-   * Like {@link #runIneffectiveRewindingResultsInLostInputTooManyTimes}, but verifies that {@code
-   * --experimental_max_repeated_lost_inputs} overrides the default repeated-loss limit: rewinding
-   * gives up, and the build fails with {@link ActionRewinding.Code#LOST_INPUT_TOO_MANY_TIMES},
-   * after the configured number of repeated losses rather than the default.
-   */
-  public final void runLostInputTooManyTimesLimitIsConfigurable() throws Exception {
-    int maxRepeatedLostInputs = 2;
-    testCase.addOptions("--experimental_max_repeated_lost_inputs=" + maxRepeatedLostInputs);
-    writeTwoGenrulePackage(testCase);
-
-    // Fail rule2 with the same lost input one more time than the configured limit allows.
-    AtomicReference<ActionInput> intermediate = new AtomicReference<>();
-    for (int i = 0; i <= maxRepeatedLostInputs; i++) {
-      addSpawnShim(
-          "Executing genrule //test:rule2",
-          (spawn, context) -> {
-            intermediate.set(SpawnInputUtils.getInputWithName(spawn, "intermediate.txt"));
-            return ExecResult.ofException(
-                new LostInputsExecException(
-                    ImmutableSetMultimap.of("fakedigest/10", intermediate.get())));
-          });
-    }
-
-    RecordingBugReporter bugReporter = testCase.recordBugReportsAndReinitialize();
-    BuildFailedException e =
-        assertThrows(BuildFailedException.class, () -> testCase.buildTarget("//test:rule2"));
-    assertThat(e.getDetailedExitCode().getFailureDetail().getActionRewinding().getCode())
-        .isEqualTo(ActionRewinding.Code.LOST_INPUT_TOO_MANY_TIMES);
-
-    // The give-up (and bug report) happens at the configured limit + 1, not the default 20 + 1.
-    String errorDetail =
-        String.format(
-            "lost input too many times (#%s) for the same action. lostInput: %s, "
-                + "lostInput digest: fakedigest/10, "
-                + "failedAction: action 'Executing genrule //test:rule2'",
-            maxRepeatedLostInputs + 1, intermediate.get());
-    assertThat(e.getDetailedExitCode().getFailureDetail().getMessage()).contains(errorDetail);
-    assertThat(Iterables.getOnlyElement(bugReporter.getExceptions()))
-        .hasMessageThat()
-        .contains(errorDetail);
-
-    // rule2 executed once per loss: the configured rewinds plus the final give-up attempt.
-    // With the default limit this would be 21; the configured limit of 2 makes it 3.
-    assertThat(
-            Iterables.frequency(
-                getExecutedSpawnDescriptions(), "Executing genrule //test:rule2"))
-        .isEqualTo(maxRepeatedLostInputs + 1);
   }
 
   /**

@@ -199,14 +199,9 @@ public final class RewindingTest extends BuildIntegrationTestCase {
   }
 
   @Test
-  public void ineffectiveRewindingResultsInLostInputTooManyTimes() throws Exception {
-    helper.runIneffectiveRewindingResultsInLostInputTooManyTimes();
-    assertOutputForRule2NotCreated();
-  }
-
-  @Test
-  public void lostInputTooManyTimesLimitIsConfigurable() throws Exception {
-    helper.runLostInputTooManyTimesLimitIsConfigurable();
+  public void ineffectiveRewindingResultsInLostInputTooManyTimes(
+      @TestParameter({"2", "20"}) int maxRepeatedLostInputs) throws Exception {
+    helper.runIneffectiveRewindingResultsInLostInputTooManyTimes(maxRepeatedLostInputs);
     assertOutputForRule2NotCreated();
   }
 
