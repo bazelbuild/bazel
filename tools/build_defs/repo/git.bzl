@@ -40,10 +40,10 @@ def _clone_or_update_repo(ctx):
         (ctx.attr.commit and ctx.attr.branch)):
         fail("At most one of commit, tag, or branch may be provided")
 
-    root = ctx.path(".")
-    directory = str(root)
+    checkout_path = _checkout_path(ctx)
+    directory = str(checkout_path)
     if ctx.attr.strip_prefix:
-        directory = root.get_child(".tmp_git_root")
+        directory = str(checkout_path.get_child(".tmp_git_root"))
 
     git_ = git_repo(ctx, directory)
 
@@ -52,12 +52,32 @@ def _clone_or_update_repo(ctx):
         if not ctx.path(dest_link).exists:
             fail("strip_prefix at {} does not exist in repo".format(ctx.attr.strip_prefix))
         for item in ctx.path(dest_link).readdir():
-            ctx.symlink(item, root.get_child(item.basename))
+            ctx.symlink(item, checkout_path.get_child(item.basename))
 
     if ctx.attr.shallow_since:
         return {"commit": git_.commit, "shallow_since": git_.shallow_since}
     else:
         return {"commit": git_.commit}
+
+def _checkout_path(ctx):
+    """
+    Returns the path where the git repository will be checked out.
+
+    The path returned will be the repository directory. If `add_prefix` is set,
+    the additional prefix subdirectory path is appended to the repository
+    directory. If the directory escapes the "root" repository, eg. an uplevel
+    reference '..', the method will fail.
+    """
+    root = ctx.path(".")
+    if ctx.attr.add_prefix:
+        add_prefix_root = root.get_child(ctx.attr.add_prefix)
+        if not str(add_prefix_root).startswith(str(root)):
+            fail(
+                "add_prefix '%s' escaped the base directory of '%s': '%s'" %
+                (ctx.attr.add_prefix, str(root), str(add_prefix_root)),
+            )
+        return add_prefix_root
+    return root
 
 def _update_git_attrs(orig, keys, override):
     result = update_attrs(orig, keys, override)
@@ -119,6 +139,15 @@ _common_attrs = {
     "strip_prefix": attr.string(
         default = "",
         doc = "A directory prefix to strip from the extracted files.",
+    ),
+    "add_prefix": attr.string(
+        default = "",
+        doc = """Destination directory relative to the repository directory.
+
+The git repo will be cloned into this directory, after applying `strip_prefix`
+(if any) to the file paths within the repo. For example, file
+`foo-1.2.3/src/foo.h` will be cloned to `bar/src/foo.h` if `add_prefix = "bar"`
+and `strip_prefix = "foo-1.2.3"`.""",
     ),
     "patches": attr.label_list(
         default = [],
@@ -232,10 +261,12 @@ def _git_repository_implementation(ctx):
             integrity = ctx.attr.remote_module_file_integrity,
         )
 
+    checkout_path = _checkout_path(ctx)
+    dot_git_path = checkout_path.get_child(".git")
     if ctx.attr.strip_prefix:
-        ctx.delete(ctx.path(".tmp_git_root/.git"))
-    else:
-        ctx.delete(ctx.path(".git"))
+        dot_git_path = checkout_path.get_child(".tmp_git_root/.git")
+    ctx.delete(dot_git_path)
+
     if ctx.attr.commit:
         return ctx.repo_metadata(reproducible = True)
     return ctx.repo_metadata(attrs_for_reproducibility = _update_git_attrs(ctx.attr, _common_attrs.keys(), update))

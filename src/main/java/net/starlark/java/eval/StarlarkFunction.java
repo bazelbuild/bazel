@@ -83,6 +83,10 @@ public final class StarlarkFunction implements StarlarkCallable {
     module.setGlobalByIndex(globalIndex[progIndex], value);
   }
 
+  void setGlobalDeclaredType(int progIndex, StarlarkType type) {
+    module.setGlobalTypeByIndex(globalIndex[progIndex], type);
+  }
+
   // Gets the value of a global variable, given its index in this function's compiled Program.
   @Nullable
   Object getGlobal(int progIndex) {
@@ -99,7 +103,7 @@ public final class StarlarkFunction implements StarlarkCallable {
   }
 
   @Override
-  public StarlarkType getStarlarkType() {
+  public StarlarkType getStarlarkType(StarlarkSemantics semantics) {
     if (typeTable == null) {
       return Types.ANY;
     }
@@ -555,10 +559,11 @@ public final class StarlarkFunction implements StarlarkCallable {
           thread
               .getSemantics()
               .getBool(StarlarkSemantics.EXPERIMENTAL_STARLARK_DYNAMIC_TYPE_CHECKING);
-      Types.CallableType functionType =
-          dynamicTyping && owner.getStarlarkType() instanceof Types.CallableType
-              ? (Types.CallableType) owner.getStarlarkType()
-              : null;
+      Types.CallableType functionType = null;
+      if (dynamicTyping
+          && owner.getStarlarkType(thread.getSemantics()) instanceof Types.CallableType ct) {
+        functionType = ct;
+      }
 
       // Argument value dynamic type check, if enabled.
       if (functionType != null) {
@@ -567,12 +572,12 @@ public final class StarlarkFunction implements StarlarkCallable {
             continue; // the default value is already type checked
           }
           StarlarkType parameterType = functionType.getParameterTypeByPos(i);
-          if (!TypeChecker.isValueSubtypeOf(locals[i], parameterType)) {
+          if (!TypeChecker.isValueSubtypeOf(locals[i], parameterType, thread.getSemantics())) {
             throw Starlark.errorf(
                 "in call to %s(), parameter '%s' got value of type '%s', want '%s'",
                 owner.getName(),
                 owner.getParameterNames().get(i),
-                Starlark.getStarlarkType(locals[i]),
+                Starlark.getStarlarkType(locals[i], thread.getSemantics()),
                 parameterType);
           }
         }
@@ -596,10 +601,13 @@ public final class StarlarkFunction implements StarlarkCallable {
 
       // Return value dynamic type check, if enabled.
       if (functionType != null) {
-        if (!TypeChecker.isValueSubtypeOf(returnValue, functionType.getReturnType())) {
+        if (!TypeChecker.isValueSubtypeOf(
+            returnValue, functionType.getReturnType(), thread.getSemantics())) {
           throw Starlark.errorf(
               "%s(): returns value of type '%s', declares '%s'",
-              owner.getName(), Starlark.getStarlarkType(returnValue), functionType.getReturnType());
+              owner.getName(),
+              Starlark.getStarlarkType(returnValue, thread.getSemantics()),
+              functionType.getReturnType());
         }
       }
 

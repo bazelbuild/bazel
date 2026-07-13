@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.Serializat
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -476,7 +477,7 @@ public abstract class ImplicitOutputsFunction {
     }
 
     static ParsedTemplate parse(String rawTemplate) {
-      List<String> placeholders = Lists.newArrayList();
+      List<String> placeholders = new ArrayList<>();
       String formatStr = createPlaceholderSubstitutionFormatString(rawTemplate, placeholders);
       if (placeholders.isEmpty()) {
         placeholders = ImmutableList.of();

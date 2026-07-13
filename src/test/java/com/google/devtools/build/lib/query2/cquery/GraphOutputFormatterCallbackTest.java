@@ -16,8 +16,8 @@ package com.google.devtools.build.lib.query2.cquery;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventBusEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment;
@@ -71,7 +71,7 @@ public class GraphOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
     options.setIncludeToolDeps(false);
     options.setIncludeImplicitDeps(false);
     options.setIncludeNoDepDeps(false);
-    this.reporter = new Reporter(new EventBus(), events::add);
+    this.reporter = new Reporter(EventBusEventHandler.createWithNewEventBus(), events::add);
   }
 
   private ImmutableList<String> getOutput(String queryExpression) throws Exception {

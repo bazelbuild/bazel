@@ -50,6 +50,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkLibrary;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.Module;
@@ -242,6 +243,7 @@ public class StarlarkDocumentationTest {
    * shows up.
    */
   @GlobalMethods(environment = Environment.BZL)
+  @StarlarkLibrary
   @SuppressWarnings("unused")
   private static class MockGlobalLibrary {
     @StarlarkMethod(

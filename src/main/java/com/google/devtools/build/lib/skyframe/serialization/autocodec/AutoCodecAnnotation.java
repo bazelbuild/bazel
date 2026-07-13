@@ -18,6 +18,7 @@ import static com.google.devtools.build.lib.skyframe.serialization.autocodec.Typ
 import static java.util.Arrays.stream;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec.MemoizationEquality;
 import java.util.Optional;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.type.MirroredTypeException;
@@ -30,13 +31,15 @@ record AutoCodecAnnotation(
     boolean checkClassExplicitlyAllowed,
     ImmutableList<? extends TypeMirror> explicitlyAllowClass,
     Optional<TypeMirror> deserializedInterface,
-    boolean autoRegister) {
+    boolean autoRegister,
+    MemoizationEquality memoizationEquality) {
   static AutoCodecAnnotation of(AutoCodec annotation, ProcessingEnvironment env) {
     return new AutoCodecAnnotation(
         annotation.checkClassExplicitlyAllowed(),
         getExplicitlyAllowClass(annotation, env),
         getDeserializedInterface(annotation, env),
-        annotation.autoRegister());
+        annotation.autoRegister(),
+        annotation.memoizationEquality());
   }
 
   private static ImmutableList<? extends TypeMirror> getExplicitlyAllowClass(

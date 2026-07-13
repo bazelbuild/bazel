@@ -24,6 +24,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -133,7 +134,9 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
   }
 
   ImmutableMap<Artifact, FileArtifactValue> getAllArtifactData() {
-    return ImmutableMap.copyOf(artifactData);
+    return ImmutableMap.<Artifact, FileArtifactValue>builderWithExpectedSize(artifactData.size())
+        .putAll(ImmutableSortedMap.copyOf(artifactData))
+        .buildOrThrow();
   }
 
   /**
@@ -141,7 +144,10 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
    * TreeArtifactValue#MISSING_TREE_ARTIFACT}.
    */
   ImmutableMap<Artifact, TreeArtifactValue> getAllTreeArtifactData() {
-    return ImmutableMap.copyOf(treeArtifactData);
+    return ImmutableMap.<Artifact, TreeArtifactValue>builderWithExpectedSize(
+            treeArtifactData.size())
+        .putAll(ImmutableSortedMap.copyOf(treeArtifactData))
+        .buildOrThrow();
   }
 
   /**

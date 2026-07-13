@@ -19,6 +19,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 
 import com.google.common.eventbus.Subscribe;
 import com.google.common.flogger.GoogleLogger;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetInterner;
 import com.google.devtools.build.lib.runtime.MemoryPressure.MemoryPressureStats;
 import com.google.devtools.build.lib.runtime.MemoryPressureEvent;
 import com.google.devtools.build.lib.runtime.MemoryPressureOptions;
@@ -96,6 +97,7 @@ public final class HighWaterMarkLimiter {
 
     skyframeExecutor.dropUnnecessaryTemporarySkyframeState();
     syscallCache.clear();
+    NestedSetInterner.clear();
   }
 
   /** Populate fields about cache drops. */

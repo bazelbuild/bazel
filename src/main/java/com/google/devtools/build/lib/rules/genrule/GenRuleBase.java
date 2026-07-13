@@ -20,7 +20,6 @@ import static com.google.devtools.build.lib.analysis.constraints.ConstraintConst
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLines;
@@ -55,6 +54,7 @@ import com.google.devtools.build.lib.util.OnDemandString;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.ForOverride;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -157,7 +157,7 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
           }
         };
 
-    Map<String, String> executionInfo = Maps.newLinkedHashMap();
+    Map<String, String> executionInfo = new LinkedHashMap<>();
     executionInfo.putAll(TargetUtils.getExecutionInfo(ruleContext.getRule()));
 
     if (ruleContext.attributes().get("local", Type.BOOLEAN)) {

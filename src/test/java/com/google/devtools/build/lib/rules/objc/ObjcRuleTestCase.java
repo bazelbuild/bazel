@@ -45,8 +45,6 @@ import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.util.MockObjcSupport;
-import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions;
-import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.testutil.Scratch;
@@ -68,9 +66,6 @@ import org.junit.Before;
  * simply call a check... method) across several rule types.
  */
 public abstract class ObjcRuleTestCase extends BuildViewTestCase {
-  protected static final DottedVersion DEFAULT_IOS_SDK_VERSION =
-      DottedVersion.fromStringUnchecked(AppleCommandLineOptions.DEFAULT_IOS_SDK_VERSION);
-
   protected static final String OUTPUTDIR = TestConstants.PRODUCT_NAME + "-out//bin";
 
   private static final Provider.Key APPLE_EXECUTABLE_BINARY_PROVIDER_KEY =

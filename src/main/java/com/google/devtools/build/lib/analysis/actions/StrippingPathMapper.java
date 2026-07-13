@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.analysis.actions;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.AbstractAction;
@@ -27,11 +28,15 @@ import com.google.devtools.build.lib.actions.CommandLine.SimpleArgChunk;
 import com.google.devtools.build.lib.actions.CommandLineItem;
 import com.google.devtools.build.lib.actions.CommandLineItem.ExceptionlessMapFn;
 import com.google.devtools.build.lib.actions.CommandLineItem.MapFn;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.VirtualActionInput;
 import com.google.devtools.build.lib.starlarkbuildapi.FileRootApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.io.IOException;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Objects;
@@ -83,6 +88,7 @@ public final class StrippingPathMapper implements PathMapper {
   public static final String GUID = "8eb2ad5a-85d4-435b-858f-5c192e91997d";
 
   private static final String FIXED_CONFIG_SEGMENT = "cfg";
+  private static final String ARCHIVED_TREE_ARTIFACTS_SEGMENT = ":archived_tree_artifacts";
 
   private final PathFragment outputRoot;
   private final String mnemonic;
@@ -126,16 +132,19 @@ public final class StrippingPathMapper implements PathMapper {
    *
    * @param action the action to potentially strip paths from
    * @param isStarlarkAction whether the action is a Starlark action
+   * @param inputMetadataProvider provider to verify colliding inputs have identical digests
    * @return a {@link StrippingPathMapper} if the action supports it, else {@link Optional#empty()}.
    */
-  static Optional<PathMapper> tryCreate(AbstractAction action, boolean isStarlarkAction) {
+  static Optional<PathMapper> tryCreate(
+      AbstractAction action,
+      boolean isStarlarkAction,
+      @Nullable InputMetadataProvider inputMetadataProvider) {
     PathFragment outputRoot = action.getPrimaryOutput().getExecPath().subFragment(0, 1);
-    // Additional artifacts to map are not part of the action's inputs, but may still lead to
-    // path collisions after stripping. It is thus important to include them in this check.
     if (isPathStrippable(
         Iterables.concat(
             action.getInputs().toList(), action.getAdditionalArtifactsForPathMapping().toList()),
-        outputRoot)) {
+        outputRoot,
+        inputMetadataProvider)) {
       return Optional.of(
           new StrippingPathMapper(
               action.getPrimaryOutput(), action.getMnemonic(), isStarlarkAction));
@@ -159,11 +168,9 @@ public final class StrippingPathMapper implements PathMapper {
 
   @Override
   public int computeExecPathLengthDiff(DerivedArtifact artifact) {
-    String unmappedPath = artifact.getExecPathString();
-    // bazel-out/k8-fastbuild/... is mapped to bazel-out/${FIXED_CONFIG_SEGMENT}/...
-    int firstSlash = outputRoot.getPathString().length() + 1;
-    int secondSlash = unmappedPath.indexOf('/', firstSlash + 1);
-    return (secondSlash - firstSlash) - FIXED_CONFIG_SEGMENT.length();
+    PathFragment execPath = artifact.getExecPath();
+    int configIndex = getConfigSegmentIndex(execPath);
+    return execPath.getSegment(configIndex).length() - FIXED_CONFIG_SEGMENT.length();
   }
 
   @Override
@@ -280,21 +287,23 @@ public final class StrippingPathMapper implements PathMapper {
      * <p>Supports strings with multiple output paths in arbitrary places. For example
      * "/path/to/compiler bazel-out/x86-fastbuild/foo src/my.src -Dbazel-out/arm-opt/bar".
      *
+     * <p>Also supports special archived tree artifact paths containing colons (e.g.,
+     * "bazel-out/:archived_tree_artifacts/k8-fastbuild/...").
+     *
      * <p>Doesn't strip paths that would be non-existent without config prefixes. For example, these
      * are unchanged: "bazel-out/x86-fastbuild", "bazel-out;foo", "/path/to/compiler bazel-out".
      *
      * @param outputRoot root segment of output paths (e.g. "bazel-out")
      */
     private static Pattern stripPathsPattern(String outputRoot) {
-      // Match "bazel-out" followed by a slash followed by any combination of word characters, "_",
-      // and "-", followed by another slash. This would miss substrings like
-      // "bazel-out/k8-fastbuild". But those don't represent actual outputs (all outputs would have
-      // to have names beneath that path). So we're not trying to replace those.
-      return Pattern.compile(outputRoot + "/[\\w_-]+/");
+      // Match "bazel-out" followed by a slash, an optional ":archived_tree_artifacts/" prefix group
+      // captured in group 1, followed by the configuration segment (any combination of word
+      // characters, "_", ".", and "-"), and another slash.
+      return Pattern.compile(outputRoot + "/(" + ARCHIVED_TREE_ARTIFACTS_SEGMENT + "/)?[\\w_.-]+/");
     }
 
-    public String strip(String str) {
-      return pattern.matcher(str).replaceAll(outputRoot + "/" + FIXED_CONFIG_SEGMENT + "/");
+    String strip(String str) {
+      return pattern.matcher(str).replaceAll(outputRoot + "/$1" + FIXED_CONFIG_SEGMENT + "/");
     }
   }
 
@@ -316,47 +325,94 @@ public final class StrippingPathMapper implements PathMapper {
   }
 
   /**
+   * Returns whether the given execution path belongs to an archived tree artifact.
+   *
+   * <p>Archived tree artifacts are compressed directory outputs stored in zip format that prepend a
+   * virtual directory prefix segment {@value #ARCHIVED_TREE_ARTIFACTS_SEGMENT} immediately after
+   * the output root (e.g., {@code bazel-out/:archived_tree_artifacts/k8-fastbuild/...}).
+   */
+  private static boolean isArchivedTreeArtifactPath(PathFragment execPath) {
+    return execPath.segmentCount() > 2
+        && execPath.getSegment(1).equals(ARCHIVED_TREE_ARTIFACTS_SEGMENT);
+  }
+
+  /**
+   * Returns the segment index inside the execution path where the configuration prefix is located.
+   *
+   * <p>For standard output artifacts, the configuration segment is at index 1 (e.g. {@code
+   * bazel-out/k8-fastbuild/bin/...}). For archived tree artifacts, the configuration segment is
+   * shifted to index 2 due to the injected virtual prefix directory.
+   */
+  private static int getConfigSegmentIndex(PathFragment execPath) {
+    return isArchivedTreeArtifactPath(execPath) ? 2 : 1;
+  }
+
+  /**
    * Is this action safe to strip?
    *
    * <p>This is distinct from whether we <b>should</b> strip it. An action is stripped if a) the
    * action is explicitly supported (see {@link PathMappers#SUPPORTED_MNEMONICS}) and b) it's safe
    * to do that (for example, the action doesn't have two inputs in different configurations that
-   * would resolve to the same path if prefixes were removed).
+   * would resolve to the same path if prefixes were removed and have different content).
+   *
+   * <p>Collisions between inputs from different configurations that map to the same root-relative
+   * path are allowed if they have the same file digest.
    *
    * <p>This method checks b).
    */
-  private static boolean isPathStrippable(
-      Iterable<? extends ActionInput> actionInputs, PathFragment outputRoot) {
-    // For qualifying action types, check that no inputs or outputs would clash if config segments
-    // were removed, e.g. "bazel-out/k8-fastbuild/bin/foo" and
-    // "bazel-out/k8-fastbuild-ST-1234/bin/foo".
-    //
-    // A more clever algorithm could remap these with custom prefixes - "bazel-out/1/bin/foo" and
-    // "bazel-out/2/bin/foo" - if experience shows that would help.
+  @VisibleForTesting
+  static boolean isPathStrippable(
+      Iterable<? extends ActionInput> actionInputs,
+      PathFragment outputRoot,
+      @Nullable InputMetadataProvider inputMetadataProvider) {
     HashMap<PathFragment, ActionInput> rootRelativePaths = new HashMap<>();
     for (ActionInput input : actionInputs) {
       if (!isOutputPath(input, outputRoot)) {
         continue;
       }
+      PathFragment execPath = input.getExecPath();
+      int configIndex = getConfigSegmentIndex(execPath);
+      // Extract root-relative path after the configuration segment.
       // For "bazel-out/k8-fastbuild/bin/foo/bar", get "bin/foo/bar".
-      if (!rootRelativePaths
-          .computeIfAbsent(input.getExecPath().subFragment(2), k -> input)
-          .equals(input)) {
+      PathFragment rootRelativePath = execPath.subFragment(configIndex + 1);
+      ActionInput previous = rootRelativePaths.computeIfAbsent(rootRelativePath, k -> input);
+      if (!previous.equals(input) && !haveSameDigest(previous, input, inputMetadataProvider)) {
         return false;
       }
     }
     return true;
   }
 
-  /*
-   * Strips the configuration prefix from an output artifact's exec path.
-   */
+  /** Returns true if the two inputs have the same file digest. */
+  private static boolean haveSameDigest(
+      ActionInput a, ActionInput b, @Nullable InputMetadataProvider inputMetadataProvider) {
+    if (inputMetadataProvider == null) {
+      return false;
+    }
+    try {
+      FileArtifactValue metadataA = inputMetadataProvider.getInputMetadata(a);
+      FileArtifactValue metadataB = inputMetadataProvider.getInputMetadata(b);
+      if (metadataA == null || metadataB == null) {
+        return false;
+      }
+      byte[] digestA = metadataA.getDigest();
+      byte[] digestB = metadataB.getDigest();
+      if (digestA == null || digestB == null) {
+        return false;
+      }
+      return Arrays.equals(digestA, digestB);
+    } catch (IOException e) {
+      return false;
+    }
+  }
+
   private static PathFragment strip(PathFragment execPath) {
+    int configIndex = getConfigSegmentIndex(execPath);
     return execPath
-        .subFragment(0, 1)
+        .subFragment(0, configIndex)
         // Keep the config segment, but replace it with a fixed string to improve cacheability while
         // still preserving the general segment structure of the execpath.
         .getRelative(FIXED_CONFIG_SEGMENT)
-        .getRelative(execPath.subFragment(2));
+        .getRelative(execPath.subFragment(configIndex + 1));
   }
 }

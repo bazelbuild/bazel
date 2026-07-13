@@ -50,10 +50,14 @@ public class TypesTest {
     assertNotLt(t2, t1);
   }
 
-  /** Asserts {@code t1} and {@code t2} are assignable in both directions. */
-  private static void assertLtAndGt(StarlarkType t1, StarlarkType t2) {
-    assertLt(t1, t2);
-    assertLt(t2, t1);
+  /** Asserts that the given types are assignable in both directions. */
+  private static void assertLtAndGt(StarlarkType... types) {
+    for (int i = 0; i < types.length - 1; i++) {
+      for (int j = i + 1; j < types.length; j++) {
+        assertLt(types[i], types[j]);
+        assertLt(types[j], types[i]);
+      }
+    }
   }
 
   /** Asserts that the given types are *not* assignable in either direction. */
@@ -317,17 +321,34 @@ public class TypesTest {
     assertLtAndGt(
         Types.struct(ImmutableMap.of("f", Types.INT)),
         Types.struct(ImmutableMap.of("f", Types.ANY)));
+    assertStrictLtChain(
+        Types.partialStruct(ImmutableMap.of("f", Types.INT)),
+        Types.struct(ImmutableMap.of("f", Types.INT)));
 
     // Order of fields is irrelevant.
     assertLtAndGt(
         Types.struct(ImmutableMap.of("f", Types.INT, "g", Types.BOOL)),
         Types.struct(ImmutableMap.of("g", Types.BOOL, "f", Types.INT)));
+    assertLtAndGt(
+        Types.partialStruct(ImmutableMap.of("f", Types.INT, "g", Types.BOOL)),
+        Types.partialStruct(ImmutableMap.of("g", Types.BOOL, "f", Types.INT)));
 
     assertIncomparable(
         Types.struct(ImmutableMap.of("f", Types.INT, "g", Types.INT)),
         Types.struct(ImmutableMap.of("f", Types.INT, "h", Types.INT)));
 
+    assertLtAndGt(
+        Types.STRUCT_OF_ANY,
+        Types.partialStruct(ImmutableMap.of("f", Types.ANY)),
+        Types.partialStruct(ImmutableMap.of("f", Types.INT)),
+        Types.partialStruct(ImmutableMap.of("f", Types.INT, "g", Types.INT)),
+        Types.partialStruct(ImmutableMap.of("f", Types.INT, "h", Types.INT)));
+    assertIncomparable(
+        Types.partialStruct(ImmutableMap.of("f", Types.INT)),
+        Types.partialStruct(ImmutableMap.of("f", Types.FLOAT)));
+
     assertStrictLtChain(
+        Types.STRUCT_OF_ANY,
         Types.struct(ImmutableMap.of("f", Types.INT, "g", Types.STR, "h", Types.BOOL)),
         Types.struct(ImmutableMap.of("f", Types.INT, "h", Types.ANY)),
         Types.struct(ImmutableMap.of("f", Types.union(Types.INT, Types.FLOAT))),

@@ -269,32 +269,13 @@ public class StarlarkOptionsParser {
         }
       }
 
-      // TODO: b/384058698 - use NonConfigurableAttributeMapper to ensure "scope" isn't selectable.
-      var attrMap = RawAttributeMapper.of(buildSettingTarget.getAssociatedRule());
-      String scopeType = ScopeType.DEFAULT.toString();
-      if (attrMap.isAttributeValueExplicitlySpecified("scope")) {
-        scopeType = attrMap.get("scope", Type.STRING);
-        if (!ScopeType.allowedAttributeValues().contains(scopeType.toLowerCase(Locale.ROOT))
-            && !scopeType.startsWith(Scope.CUSTOM_EXEC_SCOPE_PREFIX)) {
-          throw new OptionsParsingException(
-              String.format(
-                  "Can't load flag --%s: Invalid \"scope\" attribute value \"%s\". Allowed values:"
-                      + " [%s].",
-                  buildSetting,
-                  scopeType,
-                  ScopeType.allowedAttributeValues().stream()
-                      .map(s -> "\"" + s + "\"")
-                      .collect(joining(", "))));
-        }
-      }
+      String scopeType = getScopeType(buildSettingTarget);
       scopeTypeMap.put(buildSetting, scopeType);
       nativeOptionsParser.setScopesAttributes(ImmutableMap.copyOf(scopeTypeMap));
-
       if (scopeType.startsWith(Scope.CUSTOM_EXEC_SCOPE_PREFIX)) {
         customExecFlags.add(scopeType.substring(Scope.CUSTOM_EXEC_SCOPE_PREFIX.length()));
-        scopeTypeMap.put(scopeType.substring(Scope.CUSTOM_EXEC_SCOPE_PREFIX.length()), scopeType);
       }
-
+      var attrMap = RawAttributeMapper.of(buildSettingTarget.getAssociatedRule());
       if (attrMap.isAttributeValueExplicitlySpecified("on_leave_scope")) {
         var onLeaveScopeValue = attrMap.get("on_leave_scope", buildSettingObject.getType());
         onLeaveScopeMap.put(buildSetting, onLeaveScopeValue);
@@ -312,8 +293,9 @@ public class StarlarkOptionsParser {
       }
 
       // get the default value for the custom exec flag if it's not set yet.
-      parsedOptions.put(customExecFlag, getDefaultValueForAnyBuildSetting(customExecFlag));
-      scopeTypeMap.put(customExecFlag, ScopeType.TARGET);
+      Target customExecFlagTarget = loadBuildSetting(customExecFlag);
+      parsedOptions.put(customExecFlag, getDefaultValueForAnyBuildSetting(customExecFlagTarget));
+      scopeTypeMap.put(customExecFlag, getScopeType(customExecFlagTarget));
     }
 
     nativeOptionsParser.setStarlarkOptions(
@@ -326,9 +308,7 @@ public class StarlarkOptionsParser {
     return true;
   }
 
-  public Object getDefaultValueForAnyBuildSetting(String buildSetting)
-      throws InterruptedException, OptionsParsingException {
-    Target buildSettingTarget = loadBuildSetting(buildSetting);
+  private static Object getDefaultValueForAnyBuildSetting(Target buildSettingTarget) {
     BuildSetting buildSettingObject =
         buildSettingTarget.getAssociatedRule().getRuleClassObject().getBuildSetting();
     Object defaultValue =
@@ -337,6 +317,28 @@ public class StarlarkOptionsParser {
       return ImmutableList.of(Objects.requireNonNull(defaultValue));
     }
     return defaultValue;
+  }
+
+  private static String getScopeType(Target buildSettingTarget) throws OptionsParsingException {
+    // TODO: b/384058698 - use NonConfigurableAttributeMapper to ensure "scope" isn't selectable.
+    var attrMap = RawAttributeMapper.of(buildSettingTarget.getAssociatedRule());
+    String scopeType = ScopeType.DEFAULT.toString();
+    if (attrMap.isAttributeValueExplicitlySpecified("scope")) {
+      scopeType = attrMap.get("scope", Type.STRING);
+      if (!ScopeType.allowedAttributeValues().contains(scopeType.toLowerCase(Locale.ROOT))
+          && !scopeType.startsWith(Scope.CUSTOM_EXEC_SCOPE_PREFIX)) {
+        throw new OptionsParsingException(
+            String.format(
+                "Can't load flag --%s: Invalid \"scope\" attribute value \"%s\". Allowed values:"
+                    + " [%s].",
+                buildSettingTarget.getLabel().getCanonicalForm(),
+                scopeType,
+                ScopeType.allowedAttributeValues().stream()
+                    .map(s -> "\"" + s + "\"")
+                    .collect(joining(", "))));
+      }
+    }
+    return scopeType;
   }
 
   /**

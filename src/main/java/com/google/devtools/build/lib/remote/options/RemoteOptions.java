@@ -155,7 +155,8 @@ public abstract class RemoteOptions extends CommonRemoteOptions {
   public abstract void setRemoteCache(String value);
 
   @Option(
-      name = "experimental_remote_downloader",
+      name = "remote_downloader",
+      oldName = "experimental_remote_downloader",
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
@@ -169,7 +170,8 @@ public abstract class RemoteOptions extends CommonRemoteOptions {
   public abstract void setRemoteDownloader(String value);
 
   @Option(
-      name = "experimental_remote_downloader_local_fallback",
+      name = "remote_downloader_local_fallback",
+      oldName = "experimental_remote_downloader_local_fallback",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
@@ -179,7 +181,8 @@ public abstract class RemoteOptions extends CommonRemoteOptions {
   public abstract void setRemoteDownloaderLocalFallback(boolean value);
 
   @Option(
-      name = "experimental_remote_downloader_propagate_credentials",
+      name = "remote_downloader_propagate_credentials",
+      oldName = "experimental_remote_downloader_propagate_credentials",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
@@ -318,6 +321,8 @@ public abstract class RemoteOptions extends CommonRemoteOptions {
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Whether --remote_local_fallback applies to --remote_cache.")
   public abstract boolean getRemoteLocalFallbackForRemoteCache();
+
+  public abstract void setRemoteLocalFallbackForRemoteCache(boolean value);
 
   @Deprecated
   @Option(
@@ -787,6 +792,34 @@ public abstract class RemoteOptions extends CommonRemoteOptions {
               + " (s), and milliseconds (ms). If the unit is omitted, the value is interpreted as"
               + " seconds.")
   public abstract Duration getRemoteFailureWindowInterval();
+
+  @Option(
+      name = "experimental_remote_min_call_count_to_compute_failure_rate",
+      defaultValue = "100",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help =
+          "The minimum number of remote calls that must be observed within the failure window"
+              + " before the circuit breaker computes the failure rate. The rate is computed (and"
+              + " the breaker may trip) once either this many total calls or"
+              + " --experimental_remote_min_fail_count_to_compute_failure_rate failures are"
+              + " observed. Only takes effect with"
+              + " --experimental_circuit_breaker_strategy=failure.")
+  public abstract int getRemoteMinCallCountToComputeFailureRate();
+
+  @Option(
+      name = "experimental_remote_min_fail_count_to_compute_failure_rate",
+      defaultValue = "12",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help =
+          "The minimum number of failed remote calls that must be observed within the failure"
+              + " window before the circuit breaker computes the failure rate. The rate is computed"
+              + " (and the breaker may trip) once either this many failures or"
+              + " --experimental_remote_min_call_count_to_compute_failure_rate total calls are"
+              + " observed. Only takes effect with"
+              + " --experimental_circuit_breaker_strategy=failure.")
+  public abstract int getRemoteMinFailCountToComputeFailureRate();
 
   @Option(
       name = "experimental_remote_cache_lease_extension",

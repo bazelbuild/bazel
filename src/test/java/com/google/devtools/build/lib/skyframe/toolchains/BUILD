@@ -168,6 +168,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/analysis:toolchain_collection",
         "//src/main/java/com/google/devtools/build/lib/analysis:toolchain_context",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:dependency_evaluation_exception",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:toolchain_type_requirement",
         "//src/main/java/com/google/devtools/build/lib/analysis/producers",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages",

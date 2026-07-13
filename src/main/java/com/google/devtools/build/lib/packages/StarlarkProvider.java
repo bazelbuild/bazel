@@ -75,9 +75,9 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
 
   @Nullable private final String documentation;
 
-  // For schemaful providers, the sorted list of allowed field names.
-  // The requirement for sortedness comes from StarlarkInfoWithSchema and lets us bisect the fields.
-  @Nullable private final ImmutableList<String> fields;
+  // For schemaful providers, a map of field names to their index (position in the schema). Sorted
+  // by field name.
+  @Nullable private final ImmutableMap<String, Integer> fields;
 
   // For schemaful providers, an optional map from field names to documentation strings (if any). In
   // accordance with the provider() Starlark API, either all schema fields have documentation
@@ -235,7 +235,16 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
       Object keyOrIdentityToken) {
     this.location = location;
     this.documentation = documentation;
-    this.fields = schema != null ? ImmutableList.sortedCopyOf(schema.keySet()) : null;
+    if (schema != null) {
+      ImmutableList<String> sortedFields = ImmutableList.sortedCopyOf(schema.keySet());
+      ImmutableMap.Builder<String, Integer> fieldsBuilder = ImmutableMap.builder();
+      for (int i = 0; i < sortedFields.size(); i++) {
+        fieldsBuilder.put(sortedFields.get(i), i);
+      }
+      this.fields = fieldsBuilder.buildOrThrow();
+    } else {
+      this.fields = null;
+    }
     this.schema = schema;
     this.init = init;
     this.keyOrIdentityToken = keyOrIdentityToken;
@@ -300,7 +309,7 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
           Starlark.callViaArgumentProcessor(thread, owner.init, initArgumentProcessor);
       Dict<String, Object> kwargs =
           Dict.cast(initResult, String.class, Object.class, "return value of provider init()");
-      return factory.createFromMap(kwargs, thread);
+      return factory.createFromMap(kwargs);
     }
   }
 
@@ -338,7 +347,7 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
 
     @Override
     public Object call(StarlarkThread thread) throws EvalException, InterruptedException {
-      return factory.createFromArgs(thread);
+      return factory.createFromArgs();
     }
   }
 
@@ -351,10 +360,9 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
       this.thread = thread;
     }
 
-    abstract StarlarkInfo createFromArgs(StarlarkThread thread) throws EvalException;
+    abstract StarlarkInfo createFromArgs() throws EvalException;
 
-    abstract StarlarkInfo createFromMap(Map<String, Object> map, StarlarkThread thread)
-        throws EvalException;
+    abstract StarlarkInfo createFromMap(Map<String, Object> map) throws EvalException;
 
     abstract void addNamedArg(String name, Object value) throws EvalException;
   }
@@ -446,7 +454,7 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
    * schemaless.
    */
   @Nullable
-  public ImmutableList<String> getFields() {
+  public ImmutableMap<String, Integer> getFields() {
     return fields;
   }
 
@@ -535,63 +543,48 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
   }
 
   /**
-   * For schemaful providers, given a value to store in the field identified by {@code index},
-   * returns a possibly optimized version of the value. The result (optimized or not) should be
-   * decoded by {@link #retrieveOptimizedField}.
+   * For schemaful providers, if the value is a {@link Depset}, tries to unwrap it to its underlying
+   * {@link NestedSet} to save memory.
    *
-   * <p>Mutable values are never optimized.
+   * <p>The unwrapped {@link NestedSet} must be wrapped back into a {@link Depset} by {@link
+   * #rewrapDepset} upon retrieval.
    */
-  Object optimizeField(int index, Object value) {
-    if (value instanceof Depset depset) {
-      Preconditions.checkArgument(depsetTypePredictor != null);
-      if (depset.isEmpty()) {
-        // Most empty depsets have the empty (null) type. We can't store this type because it
-        // would clash with whatever the actual element type is for non-empty depsets in that
-        // field. So instead just store the optimized (unwrapped) NestedSet without any type
-        // information, and assume it's the empty type upon retrieval.
-        //
-        // This only loses information in the relatively rare case of a native-constructed empty
-        // depset with a type restriction (e.g. empty set of artifacts). In that scenario, an
-        // empty depset retrieved from the provider may "incorrectly" allow itself to participate
-        // in a union with depsets of other types, whereas the original depset would trigger a
-        // Starlark eval error. This is a user-observable difference but a very minor one; the
-        // hazard would be logical errors that are masked by the provider machinery but triggered
-        // by a refactoring of Starlark code. See TODO in Depset#of(Class, NestedSet) for notes
-        // about eliminating this semantic confusion.
-        //
-        // This problem shouldn't arise for non-empty depsets since distinct non-empty element
-        // types are not compatible with one another (i.e. there's no Depset<Any> schema).
-        return depset.getSet();
-      }
-      Class<?> elementClass = depset.getElementClass();
-      Class<?> witness = depsetTypePredictor.compareAndExchange(index, null, elementClass);
-      if (witness == elementClass || witness == null) {
-        return depset.getSet();
-      }
+  Object maybeUnwrapDepset(int index, Depset depset) {
+    Preconditions.checkArgument(depsetTypePredictor != null);
+    if (depset.isEmpty()) {
+      // Most empty depsets have the empty (null) type. We can't store this type because it
+      // would clash with whatever the actual element type is for non-empty depsets in that
+      // field. So instead just store the optimized (unwrapped) NestedSet without any type
+      // information, and assume it's the empty type upon retrieval.
+      //
+      // This only loses information in the relatively rare case of a native-constructed empty
+      // depset with a type restriction (e.g. empty set of artifacts). In that scenario, an
+      // empty depset retrieved from the provider may "incorrectly" allow itself to participate
+      // in a union with depsets of other types, whereas the original depset would trigger a
+      // Starlark eval error. This is a user-observable difference but a very minor one; the
+      // hazard would be logical errors that are masked by the provider machinery but triggered
+      // by a refactoring of Starlark code. See TODO in Depset#of(Class, NestedSet) for notes
+      // about eliminating this semantic confusion.
+      //
+      // This problem shouldn't arise for non-empty depsets since distinct non-empty element
+      // types are not compatible with one another (i.e. there's no Depset<Any> schema).
+      return depset.getSet();
     }
-    return value;
+    Class<?> elementClass = depset.getElementClass();
+    Class<?> witness = depsetTypePredictor.compareAndExchange(index, null, elementClass);
+    if (witness == elementClass || witness == null) {
+      return depset.getSet();
+    }
+    return depset;
   }
 
-  Object retrieveOptimizedField(int index, Object value) {
-    if (value instanceof NestedSet<?>) {
-      // We subvert Depset.of()'s static type checking for consistency between the type token and
-      // NestedSet type. This is safe because these values came from a previous Depset, so we
-      // already know they're consistent.
-      @SuppressWarnings("unchecked")
-      NestedSet<Object> nestedSet = (NestedSet<Object>) value;
-      if (nestedSet.isEmpty()) {
-        // This matches empty depsets created in Starlark with `depset()`.
-        return Depset.of(Object.class, nestedSet);
-      }
-      @SuppressWarnings("unchecked") // can't parameterize Class literal by a non-raw type
-      Depset depset = Depset.of((Class<Object>) depsetTypePredictor.get(index), nestedSet);
-      return depset;
-    }
-    return value;
-  }
-
-  boolean isOptimised(int index, Object value) {
-    return value instanceof NestedSet<?>;
+  /**
+   * For schemaful providers, wraps a {@link NestedSet} back into a {@link Depset} using the
+   * predicted element type.
+   */
+  Depset rewrapDepset(int index, NestedSet<?> nestedSet) {
+    Class<?> type = nestedSet.isEmpty() ? Object.class : depsetTypePredictor.get(index);
+    return Depset.rewrap(type, nestedSet);
   }
 
   Object getKeyOrIdentityToken() {

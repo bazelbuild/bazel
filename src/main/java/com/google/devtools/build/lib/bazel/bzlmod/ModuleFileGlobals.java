@@ -40,6 +40,7 @@ import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkLibrary;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
@@ -57,6 +58,7 @@ import net.starlark.java.syntax.Location;
 
 /** A collection of global Starlark build API functions that apply to MODULE.bazel files. */
 @GlobalMethods(environment = Environment.MODULE)
+@StarlarkLibrary
 public class ModuleFileGlobals {
 
   /* Valid bazel compatibility argument must 1) start with (<,<=,>,>=,-);

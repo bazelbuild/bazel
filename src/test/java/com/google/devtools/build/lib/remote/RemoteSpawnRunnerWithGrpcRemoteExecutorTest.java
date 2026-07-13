@@ -58,9 +58,9 @@ import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
-import com.google.common.eventbus.EventBus;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -72,6 +72,7 @@ import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.actions.SpawnInputs;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
@@ -79,6 +80,7 @@ import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.events.EventBusEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.util.FakeOwner;
@@ -151,7 +153,7 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
   private static final DigestUtil DIGEST_UTIL =
       new DigestUtil(SyscallCache.NO_CACHE, DigestHashFunction.SHA256);
 
-  private final Reporter reporter = new Reporter(new EventBus());
+  private final Reporter reporter = new Reporter(EventBusEventHandler.createWithNewEventBus());
   private final MutableHandlerRegistry serviceRegistry = new MutableHandlerRegistry();
   private FileSystem fs;
   private Path execRoot;
@@ -225,8 +227,9 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
             ImmutableList.of("/bin/echo", "Hi!"),
             ImmutableMap.of("VARIABLE", "value"),
             /* executionInfo= */ ImmutableMap.<String, String>of(),
-            /* inputs= */ NestedSetBuilder.create(
-                Order.STABLE_ORDER, ActionInputHelper.fromPath("input")),
+            SpawnInputs.of(
+                NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+                ImmutableList.of(ActionInputHelper.fromPath("input"))),
             /* tools= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
             /* outputs= */ ImmutableSet.of(
                 new ActionInput() {
@@ -307,7 +310,10 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
               public Single<ChannelConnectionWithServerCapabilities> create() {
                 ManagedChannel ch =
                     InProcessChannelBuilder.forName(fakeServerName)
-                        .intercept(TracingMetadataUtils.newExecHeadersInterceptor(remoteOptions))
+                        .intercept(
+                            TracingMetadataUtils.newExecHeadersInterceptor(
+                                remoteOptions.getRemoteHeaders(),
+                                remoteOptions.getRemoteExecHeaders()))
                         .directExecutor()
                         .build();
                 ServerCapabilities caps =
@@ -371,7 +377,8 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
             DIGEST_UTIL);
 
     inputDigest =
-        fakeFileCache.createScratchInput(simpleSpawn.getInputFiles().getSingleton(), "xyz");
+        fakeFileCache.createScratchInput(
+            Iterables.getOnlyElement(simpleSpawn.getInputFiles().flatten()), "xyz");
     command =
         Command.newBuilder()
             .addAllArguments(
@@ -1576,7 +1583,7 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
   private FakeSpawnExecutionContext getSpawnContext(Spawn spawn) {
     var actionInputFetcher =
         new RemoteActionInputFetcher(
-            new Reporter(new EventBus()),
+            new Reporter(EventBusEventHandler.createWithNewEventBus()),
             "none",
             "none",
             remoteCache,

@@ -25,10 +25,10 @@ import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.ChangedFilesMessage;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.buildtool.util.SkyframeIntegrationTestBase;
+import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
-import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.vfs.DelegateFileSystem;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -162,7 +162,7 @@ public class LocalDiffAwarenessIntegrationTest extends SkyframeIntegrationTestBa
   }
 
   @Test
-  public void changedFile_statFails_throwsError() throws Exception {
+  public void changedFile_statFails_errorDeferredUntilBuild() throws Exception {
     write("foo/BUILD", "genrule(name='foo', outs=['out'], cmd='echo hello > $@')");
     buildTarget("//foo");
     assertContents("hello", "//foo");
@@ -170,12 +170,12 @@ public class LocalDiffAwarenessIntegrationTest extends SkyframeIntegrationTestBa
     IOException injectedException = new IOException("oh no!");
     throwOnNextStatIfFound.put(buildFile.asFragment(), injectedException);
 
-    AbruptExitException e =
+    var e =
         assertThrows(
-            AbruptExitException.class,
+            TargetParsingException.class,
             () -> buildTargetWithRetryUntilSeesChange("//foo", "foo/BUILD"));
 
-    assertThat(e).hasCauseThat().hasCauseThat().hasCauseThat().isInstanceOf(IOException.class);
+    assertThat(e).hasMessageThat().contains(injectedException.getMessage());
   }
 
   @Test

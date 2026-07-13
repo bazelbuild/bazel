@@ -23,7 +23,9 @@ java_library(
     ],
     runtime_deps = [
         "//src/main/java/com/google/devtools/build/lib/bazel:modules",
-        "//src/main/java/com/google/devtools/build/lib/bazel/rules",
+        "//src/main/java/com/google/devtools/build/lib/bazel/rules:bazel_rule_class_provider",
+        "//src/main/java/com/google/devtools/build/lib/bazel/rules:bazel_rules_module",
+        "//src/main/java/com/google/devtools/build/lib/bazel/rules:bazel_strategy_module",
     ],
 )
 
@@ -129,6 +131,7 @@ java_library(
         "//src/test/java/com/google/devtools/build/lib/testutil",
         "//src/test/java/com/google/devtools/build/lib/testutil:JunitUtils",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
+        "//src/test/java/com/google/devtools/build/lib/testutil:TestServices",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
         "//src/test/java/com/google/devtools/build/lib/vfs/util",
         "//src/test/java/com/google/devtools/build/skyframe:testutil",

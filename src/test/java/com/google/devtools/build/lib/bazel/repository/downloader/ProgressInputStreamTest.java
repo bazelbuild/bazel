@@ -26,8 +26,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
-import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventBusEventHandler;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
@@ -49,7 +49,7 @@ public class ProgressInputStreamTest {
   private final ManualClock clock = new ManualClock();
   private final EventHandler eventHandler = mock(EventHandler.class);
   private final ExtendedEventHandler extendedEventHandler =
-      new Reporter(new EventBus(), eventHandler);
+      new Reporter(EventBusEventHandler.createWithNewEventBus(), eventHandler);
   private final InputStream delegate = mock(InputStream.class);
   private final URI url = URI.create("http://lol.example");
   private ProgressInputStream stream =

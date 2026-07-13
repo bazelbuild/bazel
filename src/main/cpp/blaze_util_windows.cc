@@ -325,11 +325,13 @@ BOOL WINAPI ConsoleCtrlHandler(_In_ DWORD ctrlType) {
 void SignalHandler::Install(const string& product_name,
                             const blaze_util::Path& output_base,
                             const ServerProcessInfo* server_process_info,
-                            SignalHandler::Callback cancel_server) {
+                            SignalHandler::Callback cancel_server,
+                            SignalHandler::Callback terminal_size_changed) {
   product_name_ = product_name;
   output_base_ = output_base;
   server_process_info_ = server_process_info;
   cancel_server_ = cancel_server;
+  terminal_size_changed_ = terminal_size_changed;
   ::SetConsoleCtrlHandler(&ConsoleCtrlHandler, TRUE);
 }
 

@@ -97,7 +97,8 @@ public abstract class PostAnalysisQueryProcessor<T> implements BuildTool.Analysi
               FailureDetail.newBuilder()
                   .setMessage(
                       "Queries based on analysis results are not allowed if incrementality state"
-                          + " is not being kept")
+                          + " is not being kept. Pass --track_incremental_state to enable this"
+                          + " feature.")
                   .setQuery(Query.newBuilder().setCode(Query.Code.ANALYSIS_QUERY_PREREQ_UNMET))
                   .build()));
     }

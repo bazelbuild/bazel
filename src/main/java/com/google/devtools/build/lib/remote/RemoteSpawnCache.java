@@ -93,9 +93,17 @@ final class RemoteSpawnCache implements SpawnCache {
 
     Stopwatch totalTime = Stopwatch.createStarted();
 
-    RemoteAction action =
-        remoteExecutionService.buildRemoteAction(
-            spawn, context, MerkleTreeComputer.BlobPolicy.DISCARD);
+    RemoteAction action;
+    try {
+      action =
+          remoteExecutionService.buildRemoteAction(
+              spawn, context, MerkleTreeComputer.BlobPolicy.DISCARD);
+    } catch (RemoteExecutionCapabilitiesException e) {
+      if (options.getRemoteLocalFallbackForRemoteCache() && options.getRemoteLocalFallback()) {
+        return SpawnCache.NO_RESULT_NO_STORE;
+      }
+      throw createExecExceptionFromRemoteExecutionCapabilitiesException(e);
+    }
     SpawnMetrics.Builder spawnMetrics =
         SpawnMetrics.Builder.forRemoteExec()
             .setInputBytes(action.getInputBytes())

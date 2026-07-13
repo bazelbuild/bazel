@@ -17,7 +17,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
-import com.google.common.collect.Lists;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import javax.annotation.Nullable;
@@ -65,7 +65,7 @@ public final class MultiExecutorQueueVisitor extends AbstractQueueVisitor
     this.executionPhaseTasksGoAhead = executionPhaseExecutorService == null;
 
     if (executionPhaseExecutorService != null) {
-      queuedPendingGoAhead = Lists.newArrayList();
+      queuedPendingGoAhead = new ArrayList<>();
     }
   }
 

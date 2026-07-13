@@ -21,7 +21,6 @@ import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
-import net.starlark.java.syntax.Location;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -80,18 +79,15 @@ public class ToolchainInfoTest extends BuildViewTestCase {
   }
 
   @Test
-  public void toolchainInfo_equalsTester() throws Exception {
+  public void toolchainInfo_equalsTester() {
     new EqualsTester()
         .addEqualityGroup(
             // Base case.
-            new ToolchainInfo(
-                ImmutableMap.<String, Object>of("foo", "val1", "bar", "val2"), Location.BUILTIN),
-            new ToolchainInfo(
-                ImmutableMap.<String, Object>of("foo", "val1", "bar", "val2"), Location.BUILTIN))
+            new ToolchainInfo(ImmutableMap.of("foo", "val1", "bar", "val2")),
+            new ToolchainInfo(ImmutableMap.of("foo", "val1", "bar", "val2")))
         .addEqualityGroup(
             // Different data.
-            new ToolchainInfo(
-                ImmutableMap.<String, Object>of("foo", "val1", "bar", "val3"), Location.BUILTIN))
+            new ToolchainInfo(ImmutableMap.of("foo", "val1", "bar", "val3")))
         .testEquals();
   }
 }

@@ -23,7 +23,6 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.Clock;
@@ -57,7 +56,6 @@ import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
-import java.util.zip.GZIPOutputStream;
 import javax.annotation.Nullable;
 
 /** Blaze internal profiler implementation. */
@@ -255,6 +253,7 @@ public final class TraceProfilerServiceImpl implements TraceProfilerService {
       Clock clock,
       long execStartTimeNanos,
       boolean slimProfile,
+      long slimProfileSizeLimit,
       boolean includePrimaryOutput,
       boolean includeTargetLabel,
       boolean includeConfiguration,
@@ -282,19 +281,15 @@ public final class TraceProfilerServiceImpl implements TraceProfilerService {
 
     JsonTraceFileWriter writer = null;
     if (stream != null && format != null) {
+      SlimProfileConfiguration slimProfileConfig =
+          slimProfile
+              ? (slimProfileSizeLimit > 0
+                  ? SlimProfileConfiguration.afterSize(slimProfileSizeLimit)
+                  : SlimProfileConfiguration.always())
+              : SlimProfileConfiguration.disabled();
       writer =
-          switch (format) {
-            case JSON_TRACE_FILE_FORMAT ->
-                new JsonTraceFileWriter(
-                    stream, execStartTimeNanos, slimProfile, outputBase, buildID);
-            case JSON_TRACE_FILE_COMPRESSED_FORMAT ->
-                new JsonTraceFileWriter(
-                    new GZIPOutputStream(stream),
-                    execStartTimeNanos,
-                    slimProfile,
-                    outputBase,
-                    buildID);
-          };
+          new JsonTraceFileWriter(
+              stream, execStartTimeNanos, slimProfileConfig, outputBase, buildID, format);
       writer.start();
     }
     this.writerRef.set(writer);
@@ -698,7 +693,7 @@ public final class TraceProfilerServiceImpl implements TraceProfilerService {
   private final MultiLaneGenerator multiLaneGenerator = new MultiLaneGenerator();
 
   private class MultiLaneGenerator {
-    private final Map<String, LaneGenerator> laneGenerators = Maps.newConcurrentMap();
+    private final Map<String, LaneGenerator> laneGenerators = new ConcurrentHashMap<>();
 
     /**
      * @return the lane if it's active, otherwise null.

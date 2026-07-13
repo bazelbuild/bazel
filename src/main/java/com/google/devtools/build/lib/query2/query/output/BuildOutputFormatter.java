@@ -41,6 +41,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.function.BiPredicate;
 import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 
@@ -196,11 +197,19 @@ public class BuildOutputFormatter extends AbstractUnorderedFormatter {
       } else if (value instanceof TriState triState) {
         value = triState.toInt();
       }
+
       return new Printer() {
         // Print labels in their canonical form.
         @Override
         public Printer repr(Object o, StarlarkSemantics semantics) {
-          return super.repr(o instanceof Label label ? labelPrinter.toString(label) : o, semantics);
+          return switch (o) {
+            case String str -> appendPrettyQuoted(str);
+            case Label label -> super.repr(labelPrinter.toString(label), semantics);
+            // Nulls can appear e.g. from BuildType.Selector#mapCopy in `reconsructSelect`; a None
+            // value will be mapped to null if the attr type's default value is null.
+            case null -> super.repr(Starlark.NONE, semantics);
+            default -> super.repr(o, semantics);
+          };
         }
       }.repr(value, StarlarkSemantics.DEFAULT).toString();
     }

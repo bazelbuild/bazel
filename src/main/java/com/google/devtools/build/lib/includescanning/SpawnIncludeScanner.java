@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.actions.SpawnInputs;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -196,6 +197,11 @@ public class SpawnIncludeScanner {
     @Override
     public boolean discoversInputs() {
       throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean allowsStrategyRegexpMatching() {
+      return false;
     }
 
     @Override
@@ -425,7 +431,7 @@ public class SpawnIncludeScanner {
   }
 
   private static final class GrepIncludesSpawn extends BaseSpawn {
-    private final NestedSet<Artifact> inputs;
+    private final SpawnInputs inputs;
     private final ImmutableSet<ActionInput> outputs;
 
     GrepIncludesSpawn(
@@ -437,12 +443,13 @@ public class SpawnIncludeScanner {
         ActionInput output) {
       super(
           arguments, /* environment= */ ImmutableMap.of(), executionInfo, action, LOCAL_RESOURCES);
-      this.inputs = NestedSetBuilder.create(Order.STABLE_ORDER, grepIncludes, input);
+      this.inputs =
+          SpawnInputs.of(NestedSetBuilder.create(Order.STABLE_ORDER, grepIncludes, input));
       this.outputs = ImmutableSet.of(output);
     }
 
     @Override
-    public NestedSet<Artifact> getInputFiles() {
+    public SpawnInputs getInputFiles() {
       return inputs;
     }
 

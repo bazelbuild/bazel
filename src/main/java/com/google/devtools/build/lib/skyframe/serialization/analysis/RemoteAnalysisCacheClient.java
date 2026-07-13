@@ -14,54 +14,54 @@
 
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.devtools.build.lib.skyframe.serialization.analysis.proto.TopLevelTargetsMatchStatus;
-import com.google.devtools.build.lib.util.DecimalBucketer;
+import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
+import com.google.devtools.build.lib.util.Bucket;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import com.google.protobuf.ByteString;
+import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 
 /** Interface to the remote analysis cache. */
+@SkybridgeInterface
 public interface RemoteAnalysisCacheClient {
 
   /** Timeout when accessing the future in order to shutdown the client. */
   int SHUTDOWN_TIMEOUT_IN_SECONDS = 5;
 
-
-
   /** The key for memoizing top-level targets lookup results. */
+  @SkybridgeInterface
   record TopLevelTargetsCacheKey(
       long evaluatingVersion,
       String configurationHash,
       boolean useFakeStampData,
       String blazeVersion) {}
 
-  /** Usage statistics. */
+  /**
+   * Usage statistics.
+   *
+   * @param matchStatus maps to
+   *     com.google.devtools.build.lib.skyframe.serialization.analysis.proto.TopLevelTargetsMatchStatus.
+   *     See {@link LookupTopLevelTargetsResult} for more details.
+   */
+  @SkybridgeInterface
   record Stats(
       long bytesSent,
       long bytesReceived,
       long requestsSent,
       long batches,
-      ImmutableList<DecimalBucketer.Bucket> latencyMicros,
-      ImmutableList<DecimalBucketer.Bucket> batchLatencyMicros,
-      TopLevelTargetsMatchStatus matchStatus) {}
+      List<Bucket> latencyMicros,
+      List<Bucket> batchLatencyMicros,
+      int matchStatus) {}
 
+  @SuppressWarnings("JdkImmutableCollections") // Keep the SkybridgeInterface simple.
   Stats EMPTY_STATS =
       new Stats(
-          0,
-          0,
-          0,
-          0,
-          ImmutableList.of(),
-          ImmutableList.of(),
-          TopLevelTargetsMatchStatus.MATCH_STATUS_UNSPECIFIED);
-
-
+          0, 0, 0, 0, List.of(), List.of(),
+          0); // TopLevelTargetsMatchStatus.MATCH_STATUS_UNSPECIFIED
 
   /** Looks up an entry in the remote analysis cache based on a serialized key. */
-  ListenableFuture<LookupResult> lookup(ByteString key);
+  ListenableFuture<LookupResult> lookup(byte[] key);
 
   /** Returns the usage statistics. */
   Stats getStats();

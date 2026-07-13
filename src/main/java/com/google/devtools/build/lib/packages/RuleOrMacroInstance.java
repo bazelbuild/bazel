@@ -21,7 +21,6 @@ import static com.google.common.base.Preconditions.checkState;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterators;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Package.Declarations;
 import com.google.devtools.build.lib.util.HashCodes;
 import java.util.Arrays;
@@ -38,7 +37,7 @@ import javax.annotation.Nullable;
  */
 public abstract class RuleOrMacroInstance implements DependencyFilter.AttributeInfoProvider {
 
-  static final String NAME = RuleClass.NAME_ATTRIBUTE.getName();
+  private static final String NAME = RuleClass.NAME_ATTRIBUTE.getName();
   static final String GENERATOR_NAME = "generator_name";
 
   static final String GENERATOR_FUNCTION = "generator_function";
@@ -46,26 +45,8 @@ public abstract class RuleOrMacroInstance implements DependencyFilter.AttributeI
 
   private static final int ATTR_SIZE_THRESHOLD = 126;
 
-  /**
-   * For {@link Rule}s, the length of this instance's generator name if it is a prefix of its name,
-   * otherwise zero. For {@link MacroInstance}s, always zero since they never have a generator name.
-   *
-   * <p>The generator name of a rule is the {@code name} parameter passed to a legacy macro that
-   * instantiates the rule. Most rules instantiated via legacy macro follow this pattern:
-   *
-   * <pre>{@code
-   * def some_macro(name):
-   *   some_rule(name = name + '_some_suffix')
-   * }</pre>
-   *
-   * thus resulting in a generator name which is a prefix of the rule name. In such a case, we save
-   * memory by storing the length of the generator name instead of the string. Note that this saves
-   * memory from both the storage in {@link #attrValues} and the string itself (if it is not
-   * otherwise retained). This optimization works because this field does not push the shallow heap
-   * cost of {@link Rule} beyond an 8-byte threshold. If it did, this optimization would be a net
-   * loss.
-   */
-  int generatorNamePrefixLength = 0;
+  private static final Object[] EMPTY_OBJECT_ARRAY = new Object[0];
+  private static final byte[] EMPTY_BYTE_ARRAY = new byte[0];
 
   RuleOrMacroInstance(Label label, int attrCount) {
     this.label = checkNotNull(label);
@@ -107,15 +88,14 @@ public abstract class RuleOrMacroInstance implements DependencyFilter.AttributeI
    */
   private byte[] attrBytes;
 
-  Label label;
+  final Label label;
 
   /**
    * Returns true if the subset of this object's fields which are defined in this class equal those
    * of {@code other}. Intended for use by {@code equals()} implementations in subclasses.
    */
-  protected boolean equalsHelper(RuleOrMacroInstance other) {
-    return generatorNamePrefixLength == other.generatorNamePrefixLength
-        && Arrays.equals(attrValues, other.attrValues)
+  boolean equalsHelper(RuleOrMacroInstance other) {
+    return Arrays.equals(attrValues, other.attrValues)
         && Arrays.equals(attrBytes, other.attrBytes)
         && Objects.equals(label, other.label);
   }
@@ -124,8 +104,8 @@ public abstract class RuleOrMacroInstance implements DependencyFilter.AttributeI
    * Returns hash code of the subset of this object's fields which are defined in this class.
    * Intended for use by {@code hashCode()} implementations in subclasses.
    */
-  protected int hashCodeHelper() {
-    return HashCodes.hashObjects(generatorNamePrefixLength, label)
+  int hashCodeHelper() {
+    return label.hashCode()
         + HashCodes.MULTIPLIER
             * (Arrays.hashCode(attrValues) + HashCodes.MULTIPLIER * Arrays.hashCode(attrBytes));
   }
@@ -172,35 +152,12 @@ public abstract class RuleOrMacroInstance implements DependencyFilter.AttributeI
     return getAttributeProvider().hasAttr(attrName, type);
   }
 
-  /**
-   * Copies attribute values from the given rule or macro instance to this rule or macro instance.
-   */
-  void copyAttributesFrom(RuleOrMacroInstance ruleOrMacroInstance) {
-    Preconditions.checkArgument(
-        getAttributeProvider().equals(ruleOrMacroInstance.getAttributeProvider()),
-        "Rule class mismatch: (this=%s, given=%s)",
-        getAttributeProvider(),
-        ruleOrMacroInstance.getAttributeProvider());
-    Preconditions.checkArgument(
-        ruleOrMacroInstance.isFrozen(), "Not frozen: %s", ruleOrMacroInstance);
-    checkState(!isFrozen(), "Already frozen: %s", this);
-    this.attrValues = ruleOrMacroInstance.attrValues;
-    this.attrBytes = ruleOrMacroInstance.attrBytes;
-  }
-
   void setAttributeValue(Attribute attribute, Object value, boolean explicit) {
     Preconditions.checkState(!isFrozen(), "Already frozen: %s", this);
     String attrName = attribute.getName();
     if (attrName.equals(NAME)) {
       // Avoid unnecessarily storing the name in attrValues - it's stored in the label.
       return;
-    }
-    if (attrName.equals(GENERATOR_NAME)) {
-      String generatorName = (String) value;
-      if (getName().startsWith(generatorName)) {
-        generatorNamePrefixLength = generatorName.length();
-        return;
-      }
     }
     Integer attrIndex = getAttributeProvider().getAttributeIndex(attrName);
     Preconditions.checkArgument(
@@ -327,9 +284,7 @@ public abstract class RuleOrMacroInstance implements DependencyFilter.AttributeI
     if (attrName.equals(NAME)) {
       return true;
     }
-    if ((attrName.equals(GENERATOR_FUNCTION)
-            || attrName.equals(GENERATOR_LOCATION)
-            || attrName.equals(GENERATOR_NAME))
+    if ((attrName.equals(GENERATOR_FUNCTION) || attrName.equals(GENERATOR_LOCATION))
         && isRuleInstance()) {
       return isRuleCreatedInMacro();
     }
@@ -356,7 +311,7 @@ public abstract class RuleOrMacroInstance implements DependencyFilter.AttributeI
   public abstract boolean isRuleCreatedInMacro();
 
   /** Returns index into {@link #attrBytes} for {@code attrIndex}, or -1 if not found */
-  int binarySearchAttrBytes(int start, int attrIndex, int mask) {
+  private int binarySearchAttrBytes(int start, int attrIndex, int mask) {
     // Binary search, treating values as unsigned bytes.
     int lo = start;
     int hi = attrBytes.length - 1;
@@ -374,7 +329,7 @@ public abstract class RuleOrMacroInstance implements DependencyFilter.AttributeI
     return -1;
   }
 
-  void checkAttrType(String attrName, Type<?> requestedType, Attribute attr) {
+  private void checkAttrType(String attrName, Type<?> requestedType, Attribute attr) {
     if (requestedType != attr.getType()) {
       throw new IllegalArgumentException(
           "Attribute "
@@ -439,6 +394,11 @@ public abstract class RuleOrMacroInstance implements DependencyFilter.AttributeI
 
   private void freezeSmall(BitSet indicesToStore) {
     int numToStore = indicesToStore.cardinality();
+    if (numToStore == 0) {
+      this.attrValues = EMPTY_OBJECT_ARRAY;
+      this.attrBytes = EMPTY_BYTE_ARRAY;
+      return;
+    }
     Object[] compactValues = new Object[numToStore];
     byte[] compactBytes = new byte[numToStore];
 
@@ -461,7 +421,7 @@ public abstract class RuleOrMacroInstance implements DependencyFilter.AttributeI
   private void freezeLarge(BitSet indicesToStore) {
     int numToStore = indicesToStore.cardinality();
     int bitSetSize = attrBytes.length;
-    Object[] compactValues = new Object[numToStore];
+    Object[] compactValues = numToStore == 0 ? EMPTY_OBJECT_ARRAY : new Object[numToStore];
     byte[] compactBytes = Arrays.copyOf(attrBytes, bitSetSize + numToStore);
 
     int attrIndex = 0;
@@ -482,7 +442,7 @@ public abstract class RuleOrMacroInstance implements DependencyFilter.AttributeI
     FROZEN_LARGE
   }
 
-  AttrState getAttrState() {
+  private AttrState getAttrState() {
     // This check works because the name attribute is never stored, so the compact representation
     // of attrValues will always have length < attr count.
     int attrCount = getAttributeProvider().getAttributeCount();
@@ -587,5 +547,5 @@ public abstract class RuleOrMacroInstance implements DependencyFilter.AttributeI
     return getPackageDeclarations().getPackageArgs();
   }
 
-  abstract void reportError(String message, EventHandler eventHandler);
+  abstract void reportError(String message, TargetDefinitionContext targetDefinitionContext);
 }

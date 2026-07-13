@@ -109,6 +109,7 @@ public class RemoteOutputService implements OutputService {
   public void updateActionFileSystemContext(
       ActionExecutionMetadata action,
       FileSystem actionFileSystem,
+      InputMetadataProvider inputMetadataProvider,
       OutputMetadataStore outputMetadataStore) {
     ((RemoteActionFileSystem) actionFileSystem).updateContext(action);
   }

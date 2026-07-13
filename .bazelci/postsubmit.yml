@@ -1,4 +1,5 @@
 ---
+check_docs: 1
 tasks:
   rockylinux8:
     shell_commands:
@@ -127,6 +128,9 @@ tasks:
       - mkdir $HOME/bazeltest
       - ln -sf $OUTPUT_BASE/external $HOME/bazeltest/external
       - if [ -n "${UPDATE_BAZEL_LOCK_FILE:-}" ]; then bazel mod deps --lockfile_mode=update; fi
+    environment:
+      ANDROID_HOME: ""
+      ANDROID_NDK_HOME: ""
     build_flags:
       - "--config=ci-macos"
     build_targets:
@@ -197,7 +201,6 @@ tasks:
       - "--config=ci-windows"
     test_targets:
       - "//src:embedded_tools_size_test"
-      - "//src/main/starlark/tests/builtins_bzl/..."
       - "//src/test/cpp/..."
       - "//src/test/java/com/google/devtools/build/lib/..."
       - "//src/test/java/com/google/devtools/build/skyframe/..."
@@ -238,8 +241,8 @@ tasks:
       - "//src:bazel_nojdk.exe"
     include_json_profile:
       - build
-  rbe_ubuntu2004:
-    platform: ubuntu2004
+  rbe_ubuntu2404:
+    platform: ubuntu2404
     name: "RBE"
     shell_commands:
       - if [ -n "${UPDATE_BAZEL_LOCK_FILE:-}" ]; then bazel mod deps --lockfile_mode=update; fi
@@ -260,7 +263,6 @@ tasks:
     test_targets:
       - "//scripts/..."
       - "//src/java_tools/..."
-      - "//src/main/starlark/tests/builtins_bzl/..."
       - "//src/test/..."
       - "//src/tools/execlog/..."
       - "//src/tools/one_version/..."

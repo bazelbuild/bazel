@@ -16,6 +16,7 @@ package net.starlark.java.eval;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 import com.google.common.collect.ImmutableList;
@@ -151,7 +152,7 @@ s ^= set([3, 4])        # s now equals set([2, 4])
 operations that attempt to update it will fail.
 """)
 public final class StarlarkSet<E> extends AbstractSet<E>
-    implements Mutability.Freezable, StarlarkMembershipTestable, StarlarkIterable<E> {
+    implements Mutability.Freezable, StarlarkMembershipTestable, StarlarkIterable<E>, Compactable {
 
   public static TypeConstructor getAssociatedTypeConstructor() {
     return Types.SET_CONSTRUCTOR;
@@ -160,7 +161,7 @@ public final class StarlarkSet<E> extends AbstractSet<E>
   private static final StarlarkSet<?> EMPTY = new StarlarkSet<>(ImmutableSet.of());
 
   // Either LinkedHashSet<E> or ImmutableSet<E>.
-  private final Set<E> contents;
+  private Set<E> contents;
   // Number of active iterators (unused once frozen).
   private transient int iteratorCount; // transient for serialization by Bazel
 
@@ -803,11 +804,14 @@ s.symmetric_difference_update([2, 3])  # None; s == set([1, 3])
   }
 
   @Override
-  public StarlarkType getStarlarkType() {
+  public StarlarkType getStarlarkType(StarlarkSemantics semantics) {
     // TODO(ilist@): store the type for non-homogeneous sets
-    return isEmpty()
-        ? Types.set(Types.ANY)
-        : Types.set(Types.union(stream().map(Starlark::getStarlarkType).collect(toImmutableSet())));
+    if (isEmpty()) {
+      return mutability().isFrozen() ? Types.set(Types.NEVER) : Types.set(Types.ANY);
+    }
+    return Types.set(
+        Types.union(
+            stream().map(e -> Starlark.getStarlarkType(e, semantics)).collect(toImmutableSet())));
   }
 
   /**
@@ -899,5 +903,12 @@ s.symmetric_difference_update([2, 3])  # None; s == set([1, 3])
   @Override
   public boolean retainAll(Collection<?> c) {
     throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public StarlarkValue unsafeOptimizeMemoryLayout() {
+    checkState(mutability.isFrozen());
+    this.contents = ImmutableSet.copyOf(contents);
+    return this;
   }
 }

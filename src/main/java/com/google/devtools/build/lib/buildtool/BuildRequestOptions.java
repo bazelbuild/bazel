@@ -374,7 +374,7 @@ public abstract class BuildRequestOptions extends OptionsBase {
   @Option(
       name = "rewind_lost_inputs",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.EXECUTION},
       help = "Whether to use action rewinding to recover from lost inputs.")
   public abstract boolean getRewindLostInputs();
@@ -481,17 +481,6 @@ public abstract class BuildRequestOptions extends OptionsBase {
               + " PROJECT.scl, which can be found by walking up the target's packagge path. See"
               + " b/324126745.")
   public abstract boolean getEnforceProjectConfigs();
-
-  @Option(
-      name = "experimental_skyframe_error_handling_refactor",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL, OptionMetadataTag.HIDDEN},
-      effectTags = {OptionEffectTag.NO_OP},
-      help =
-          "Used solely for the safe rollout of simplifying Skyframe error handling. This will be "
-              + " removed once the rollout is complete (expected timeframe: 1 release)")
-  public abstract boolean getSkyframeErrorHandlingRefactor();
 
   @Option(
       name = "experimental_aquery_dump_after_build_format",

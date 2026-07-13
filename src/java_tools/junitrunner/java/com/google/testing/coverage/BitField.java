@@ -203,6 +203,15 @@ public class BitField {
     return bytes.length * 8;
   }
 
+  /**
+   * Returns whether this bit field is empty.
+   *
+   * @return whether length of bit field is zero
+   */
+  public boolean isEmpty() {
+    return sizeInBits() == 0;
+  }
+
   public boolean any() {
     for (int i = 0; i < bytes.length; i++) {
       if (bytes[i] != (byte) 0) {

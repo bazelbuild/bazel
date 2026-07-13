@@ -31,7 +31,6 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.auth.Credentials;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.eventbus.EventBus;
 import com.google.common.truth.extensions.proto.ProtoTruth;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
@@ -42,6 +41,7 @@ import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelperEnvironment;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialModule;
 import com.google.devtools.build.lib.authandtls.credentialhelper.GetCredentialsResponse;
+import com.google.devtools.build.lib.events.EventBusEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
@@ -454,9 +454,9 @@ public final class RemoteModuleTest {
     Credentials credentials =
         RemoteModule.createCredentials(
             CredentialHelperEnvironment.newBuilder()
-                .setEventReporter(new Reporter(new EventBus()))
+                .setEventReporter(new Reporter(EventBusEventHandler.createWithNewEventBus()))
                 .setWorkspacePath(fileSystem.getPath("/workspace"))
-                .setClientEnvironment(ImmutableMap.of("NETRC", netrc))
+                .setClientEnvironment(() -> ImmutableMap.of("NETRC", netrc))
                 .setHelperExecutionTimeout(Duration.ZERO)
                 .build(),
             credentialCache,
@@ -616,6 +616,20 @@ public final class RemoteModuleTest {
         .isEqualTo(diskCacheDir.getPathString());
     assertThat(idleTask.getGarbageCollector().getPolicy())
         .isEqualTo(new CollectionPolicy(Optional.of(1234567890L), Optional.of(Duration.ofDays(7))));
+  }
+
+  @Test
+  public void repositoryRemoteHelpersFactory_initializedForDiskCacheOnlyPath() throws Exception {
+    // Regression test: non-gRPC caches must still register the
+    // RepositoryRemoteHelpersFactory delegate so repo rules can use the remote
+    // contents cache.
+    var diskCacheDir = TestUtils.createUniqueTmpDir(null);
+    remoteOptions.setDiskCache(diskCacheDir.asFragment());
+
+    beforeCommand();
+
+    assertThat(remoteModule.getRepositoryRemoteHelpersFactoryDelegate().createRepoContentsCache())
+        .isNotNull();
   }
 
   @CanIgnoreReturnValue

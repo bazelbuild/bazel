@@ -147,7 +147,7 @@ public abstract class StarlarkExecGroupCollection implements ExecGroupCollection
    * The starlark object that is returned by ctx.exec_groups[<name>]. Gives information about that
    * exec group.
    */
-  public record StarlarkExecGroupContext(@Override ToolchainContextApi toolchains)
+  public record StarlarkExecGroupContext(ToolchainContextApi toolchains)
       implements ExecGroupContextApi {
     public StarlarkExecGroupContext {
       requireNonNull(toolchains, "toolchains");

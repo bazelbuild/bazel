@@ -81,6 +81,7 @@ import io.grpc.Status.Code;
 import io.grpc.protobuf.StatusProto;
 import java.io.IOException;
 import java.time.Duration;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
@@ -184,13 +185,18 @@ public class RemoteSpawnRunner implements SpawnRunner {
     boolean acceptCachedResult = remoteExecutionService.getReadCachePolicy(spawn).allowAnyCache();
     boolean uploadLocalResults = remoteExecutionService.getWriteCachePolicy(spawn).allowAnyCache();
 
-    RemoteAction action =
-        remoteExecutionService.buildRemoteAction(
-            spawn,
-            context,
-            remoteOptions.getRemoteDiscardMerkleTrees()
-                ? MerkleTreeComputer.BlobPolicy.DISCARD
-                : MerkleTreeComputer.BlobPolicy.KEEP);
+    RemoteAction action;
+    try {
+      action =
+          remoteExecutionService.buildRemoteAction(
+              spawn,
+              context,
+              remoteOptions.getRemoteDiscardMerkleTrees()
+                  ? MerkleTreeComputer.BlobPolicy.DISCARD
+                  : MerkleTreeComputer.BlobPolicy.KEEP);
+    } catch (RemoteExecutionCapabilitiesException e) {
+      return execLocallyAndUploadOrFail(null, spawn, context, uploadLocalResults, e);
+    }
 
     context.setDigest(digestUtil.asSpawnLogProto(action.getActionKey()));
 
@@ -555,7 +561,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
   }
 
   private SpawnResult execLocallyAndUploadOrFail(
-      RemoteAction action,
+      @Nullable RemoteAction action,
       Spawn spawn,
       SpawnExecutionContext context,
       boolean uploadLocalResults,
@@ -677,10 +683,16 @@ public class RemoteSpawnRunner implements SpawnRunner {
 
   @VisibleForTesting
   SpawnResult execLocallyAndUpload(
-      RemoteAction action, Spawn spawn, SpawnExecutionContext context, boolean uploadLocalResults)
+      @Nullable RemoteAction action,
+      Spawn spawn,
+      SpawnExecutionContext context,
+      boolean uploadLocalResults)
       throws ExecException, IOException, InterruptedException {
     SpawnResult result = execLocally(spawn, context);
-    if (uploadLocalResults && Status.SUCCESS.equals(result.status()) && result.exitCode() == 0) {
+    if (action != null
+        && uploadLocalResults
+        && Objects.equals(result.status(), Status.SUCCESS)
+        && result.exitCode() == 0) {
       remoteExecutionService.uploadOutputs(
           action, result, () -> {}, remoteOptions.getGuardAgainstConcurrentChanges());
     }

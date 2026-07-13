@@ -66,12 +66,6 @@ import org.junit.rules.TestName;
 public abstract class SkycacheIntegrationTestBase extends BuildIntegrationTestCase
     implements SkycacheIntegrationTestHelpers {
 
-  protected static final String UPLOAD_MODE_OPTION =
-      "--experimental_remote_analysis_cache_mode=upload";
-  protected static final String DOWNLOAD_MODE_OPTION =
-      "--experimental_remote_analysis_cache_mode=download";
-  protected static final String DUMP_MANIFEST_MODE_OPTION =
-      "--experimental_remote_analysis_cache_mode=dump_upload_manifest_only";
 
   @Rule public TestName testName = new TestName();
 

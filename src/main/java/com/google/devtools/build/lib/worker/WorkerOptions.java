@@ -14,9 +14,11 @@
 package com.google.devtools.build.lib.worker;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.util.RamResourceConverter;
 import com.google.devtools.build.lib.util.ResourceConverter;
+import com.google.devtools.common.options.BooleanStyleOption;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionSetConverter;
@@ -29,6 +31,7 @@ import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsClass;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.time.Duration;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -73,6 +76,37 @@ public abstract class WorkerOptions extends OptionsBase {
     @Override
     public String getTypeDescription() {
       return "[name=]value, where value is " + ResourceConverter.FLAG_SYNTAX;
+    }
+  }
+
+  /**
+   * Parses a "[mnemonic=]bool" assignment. An input with no '=' (a bare boolean) uses the empty
+   * string as the key, which sets the value for all mnemonics. See {@link
+   * WorkerOptions#getWorkerSandboxingMap}.
+   *
+   * <p>Implements {@link BooleanStyleOption} so that the legacy boolean-only forms remain valid:
+   * bare {@code --worker_sandboxing} (parsed as {@code "1"}) and {@code --noworker_sandboxing}
+   * (parsed as {@code "0"}) both resolve to the empty-mnemonic default.
+   */
+  public static class MnemonicBooleanConverter
+      extends Converter.Contextless<Map.Entry<String, Boolean>> implements BooleanStyleOption {
+
+    private static final Converters.BooleanConverter VALUE_CONVERTER =
+        new Converters.BooleanConverter();
+
+    @Override
+    public Map.Entry<String, Boolean> convert(String input) throws OptionsParsingException {
+      int pos = input.indexOf('=');
+      if (pos < 0) {
+        return Maps.immutableEntry("", VALUE_CONVERTER.convert(input));
+      }
+      return Maps.immutableEntry(
+          input.substring(0, pos), VALUE_CONVERTER.convert(input.substring(pos + 1)));
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "[mnemonic=]value, where value is a boolean";
     }
   }
 
@@ -153,16 +187,38 @@ public abstract class WorkerOptions extends OptionsBase {
 
   @Option(
       name = "worker_sandboxing",
-      defaultValue = "false",
+      converter = MnemonicBooleanConverter.class,
+      allowMultiple = true,
+      defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       effectTags = {OptionEffectTag.EXECUTION},
       help =
-          "If enabled, singleplex workers will run in a sandboxed environment. Singleplex workers"
-              + " are always sandboxed when running under the dynamic execution strategy,"
-              + " irrespective of this flag.")
-  public abstract boolean getWorkerSandboxing();
+          "If enabled, singleplex workers will run in a sandboxed environment. This may be set as"
+              + " a plain boolean (the traditional --worker_sandboxing / --noworker_sandboxing"
+              + " forms still work), or as [mnemonic=]value to enable or disable sandboxing per"
+              + " worker-key mnemonic; a value with no mnemonic applies to all mnemonics. Later"
+              + " values override earlier ones for the mnemonics they affect. Singleplex workers"
+              + " are always sandboxed when running under the dynamic execution strategy or with"
+              + " path mapping, irrespective of this flag.")
+  public abstract List<Map.Entry<String, Boolean>> getWorkerSandboxing();
 
-  public abstract void setWorkerSandboxing(boolean value);
+  public abstract void setWorkerSandboxing(List<Map.Entry<String, Boolean>> value);
+
+  /**
+   * Resolves {@link #getWorkerSandboxing} into a map from mnemonic to whether sandboxing is
+   * enabled, with later values overriding earlier ones for the mnemonics they affect. The
+   * empty-string key holds the current value for mnemonics without a later explicit entry.
+   */
+  public ImmutableMap<String, Boolean> getWorkerSandboxingMap() {
+    Map<String, Boolean> map = new LinkedHashMap<>();
+    for (Map.Entry<String, Boolean> entry : getWorkerSandboxing()) {
+      if (entry.getKey().isEmpty()) {
+        map.clear();
+      }
+      map.put(entry.getKey(), entry.getValue());
+    }
+    return ImmutableMap.copyOf(map);
+  }
 
   @Option(
       name = "worker_multiplex",

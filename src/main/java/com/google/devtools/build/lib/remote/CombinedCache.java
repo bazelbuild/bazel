@@ -46,10 +46,9 @@ import com.google.devtools.build.lib.remote.common.OutputDigestMismatchException
 import com.google.devtools.build.lib.remote.common.ProgressStatusListener;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
+import com.google.devtools.build.lib.remote.common.RemoteCacheClient.Blob;
 import com.google.devtools.build.lib.remote.disk.DiskCacheClient;
-import com.google.devtools.build.lib.remote.util.AsyncTaskCache;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
-import com.google.devtools.build.lib.remote.util.RxFutures;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution.Code;
@@ -60,7 +59,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.ByteString;
 import io.netty.util.AbstractReferenceCounted;
-import io.reactivex.rxjava3.core.Completable;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -69,6 +67,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -96,7 +95,6 @@ public class CombinedCache extends AbstractReferenceCounted {
       SpawnCheckingCacheEvent.create("remote-cache");
 
   private final CountDownLatch closeCountDownLatch = new CountDownLatch(1);
-  protected final AsyncTaskCache.NoResult<Digest> casUploadCache = AsyncTaskCache.NoResult.create();
 
   private final ListeningExecutorService virtualThreadExecutor =
       MoreExecutors.listeningDecorator(
@@ -128,7 +126,8 @@ public class CombinedCache extends AbstractReferenceCounted {
         synchronized (this) {
           config = ChunkingConfig.fromServerCapabilities(getRemoteServerCapabilities());
           if (config != null) {
-            downloader = new ChunkedBlobDownloader(grpcClient, CombinedCache.this);
+            downloader =
+                new ChunkedBlobDownloader(grpcClient, CombinedCache.this, config, digestUtil);
             uploader = new ChunkedBlobUploader(grpcClient, CombinedCache.this, config, digestUtil);
           }
           initialized = true;
@@ -364,11 +363,6 @@ public class CombinedCache extends AbstractReferenceCounted {
    */
   public ListenableFuture<Void> uploadFile(
       RemoteActionExecutionContext context, Digest digest, Path file) {
-    return uploadFile(context, digest, file, /* force= */ false);
-  }
-
-  protected ListenableFuture<Void> uploadFile(
-      RemoteActionExecutionContext context, Digest digest, Path file, boolean force) {
     if (digest.getSizeBytes() == 0) {
       return COMPLETED_SUCCESS;
     }
@@ -389,19 +383,10 @@ public class CombinedCache extends AbstractReferenceCounted {
     if (remoteCacheClient != null && context.getWriteCachePolicy().allowRemoteCache()) {
       if (chunkingSupported && digest.getSizeBytes() > chunking.config().chunkingThreshold()) {
         remoteCacheFuture =
-            virtualThreadExecutor.submit(
-                () -> {
-                  chunking.uploader().uploadChunked(context, digest, file);
-                  return null;
-                });
+            remoteCacheClient.dedupUpload(
+                digest, () -> uploadChunked(context, digest, file), /* force= */ false);
       } else {
-        Completable upload =
-            casUploadCache.execute(
-                digest,
-                RxFutures.toCompletable(
-                    () -> remoteCacheClient.uploadFile(context, digest, file), directExecutor()),
-                force);
-        remoteCacheFuture = RxFutures.toListenableFuture(upload);
+        remoteCacheFuture = remoteCacheClient.uploadFile(context, digest, file, /* force= */ false);
       }
     }
 
@@ -409,42 +394,50 @@ public class CombinedCache extends AbstractReferenceCounted {
         .call(() -> null, directExecutor());
   }
 
+  private ListenableFuture<Void> uploadChunked(
+      RemoteActionExecutionContext context, Digest digest, Path file) {
+    return virtualThreadExecutor.submit(
+        () -> {
+          chunking.uploader().uploadChunked(context, digest, file);
+          return null;
+        });
+  }
+
   /**
-   * Upload sequence of bytes to the remote cache.
+   * Uploads a sequence of bytes to the cache.
    *
    * <p>Trying to upload the same BLOB multiple times concurrently, results in only one upload being
    * performed.
    *
    * @param context the context for the action.
-   * @param digest the digest of the file.
+   * @param digest the digest of the BLOB.
    * @param data the BLOB to upload.
    */
   public ListenableFuture<Void> uploadBlob(
       RemoteActionExecutionContext context, Digest digest, ByteString data) {
-    return uploadBlob(context, digest, data, /* force= */ false);
+    return uploadBlob(context, digest, (Blob) data::newInput);
   }
 
-  protected ListenableFuture<Void> uploadBlob(
-      RemoteActionExecutionContext context, Digest digest, ByteString data, boolean force) {
+  /**
+   * Uploads a blob to the cache from a repeatable stream supplier.
+   *
+   * <p>The supplier may be opened more than once, including concurrently when both disk and remote
+   * cache writes are enabled.
+   */
+  public ListenableFuture<Void> uploadBlob(
+      RemoteActionExecutionContext context, Digest digest, Blob blob) {
     if (digest.getSizeBytes() == 0) {
       return COMPLETED_SUCCESS;
     }
 
     ListenableFuture<Void> diskCacheFuture = Futures.immediateVoidFuture();
     if (diskCacheClient != null && context.getWriteCachePolicy().allowDiskCache()) {
-      diskCacheFuture = diskCacheClient.uploadBlob(digest, data);
+      diskCacheFuture = diskCacheClient.uploadBlob(digest, blob);
     }
 
     ListenableFuture<Void> remoteCacheFuture = Futures.immediateVoidFuture();
     if (remoteCacheClient != null && context.getWriteCachePolicy().allowRemoteCache()) {
-      Completable upload =
-          casUploadCache.execute(
-              digest,
-              RxFutures.toCompletable(
-                  () -> remoteCacheClient.uploadBlob(context, digest, data), directExecutor()),
-              force);
-
-      remoteCacheFuture = RxFutures.toListenableFuture(upload);
+      remoteCacheFuture = remoteCacheClient.uploadBlob(context, digest, blob, /* force= */ false);
     }
 
     return Futures.whenAllSucceed(diskCacheFuture, remoteCacheFuture)
@@ -805,8 +798,9 @@ public class CombinedCache extends AbstractReferenceCounted {
     if (diskCacheClient != null) {
       diskCacheClient.close();
     }
-    casUploadCache.shutdown();
+    virtualThreadExecutor.shutdown();
     if (remoteCacheClient != null) {
+      remoteCacheClient.shutdownUploads();
       remoteCacheClient.close();
     }
 
@@ -827,13 +821,19 @@ public class CombinedCache extends AbstractReferenceCounted {
 
   /** Waits for active network I/Os to finish. */
   public void awaitTermination() throws InterruptedException {
-    casUploadCache.awaitTermination();
+    if (remoteCacheClient != null) {
+      remoteCacheClient.awaitUploadTermination();
+    }
     closeCountDownLatch.await();
+    virtualThreadExecutor.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
   }
 
   /** Shuts the cache down and cancels active network I/Os. */
   public void shutdownNow() {
-    casUploadCache.shutdownNow();
+    if (remoteCacheClient != null) {
+      remoteCacheClient.shutdownUploadsNow();
+    }
+    virtualThreadExecutor.shutdownNow();
   }
 
   public static FailureDetail createFailureDetail(String message, Code detailedCode) {

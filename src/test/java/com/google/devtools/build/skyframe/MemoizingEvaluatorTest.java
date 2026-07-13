@@ -37,13 +37,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.eventbus.EventBus;
 import com.google.common.testing.GcFinalization;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.events.DelegatingEventHandler;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventBusEventHandler;
 import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
@@ -165,7 +165,7 @@ public abstract class MemoizingEvaluatorTest {
 
   private void initializeReporter() {
     eventCollector = new EventCollector();
-    reporter = new Reporter(new EventBus(), eventCollector);
+    reporter = new Reporter(EventBusEventHandler.createWithNewEventBus(), eventCollector);
     tester.resetPlayedEvents();
   }
 

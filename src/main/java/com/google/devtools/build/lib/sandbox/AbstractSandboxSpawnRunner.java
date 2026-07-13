@@ -73,6 +73,7 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
 
   private final SandboxOptions sandboxOptions;
   private final boolean verboseFailures;
+  private final boolean expandParamFiles;
   private final ImmutableSet<Path> inaccessiblePaths;
   protected final BinTools binTools;
   private final Path execRoot;
@@ -82,8 +83,9 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
 
   public AbstractSandboxSpawnRunner(CommandEnvironment cmdEnv) {
     this.sandboxOptions = cmdEnv.getOptions().getOptions(SandboxOptions.class);
-    this.verboseFailures =
-        cmdEnv.getOptions().getOptions(ExecutionOptions.class).getVerboseFailures();
+    ExecutionOptions executionOptions = cmdEnv.getOptions().getOptions(ExecutionOptions.class);
+    this.verboseFailures = executionOptions.getVerboseFailures();
+    this.expandParamFiles = executionOptions.getExpandParamFiles();
     this.inaccessiblePaths =
         sandboxOptions.getInaccessiblePaths(cmdEnv.getRuntime().getFileSystem());
     this.binTools = cmdEnv.getBlazeWorkspace().getBinTools();
@@ -187,10 +189,16 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
   private String makeFailureMessage(Spawn originalSpawn, SandboxedSpawn sandbox) {
     if (sandboxOptions.getSandboxDebug()) {
       return CommandFailureUtils.describeCommandFailure(
-          true, sandbox.getSandboxExecRoot().getPathString(), sandbox);
+          /* verboseFailures= */ true,
+          /* expandParamFiles= */ false,
+          sandbox.getSandboxExecRoot().getPathString(),
+          sandbox);
     } else {
       return CommandFailureUtils.describeCommandFailure(
-              verboseFailures, sandbox.getSandboxExecRoot().getPathString(), originalSpawn)
+              verboseFailures,
+              expandParamFiles,
+              sandbox.getSandboxExecRoot().getPathString(),
+              originalSpawn)
           + SANDBOX_DEBUG_SUGGESTION;
     }
   }

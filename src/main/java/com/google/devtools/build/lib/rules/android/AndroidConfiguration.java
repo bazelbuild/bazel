@@ -485,17 +485,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     public abstract boolean getFixedResourceNeverlinking();
 
     @Option(
-        name = "experimental_persistent_aar_extractor",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
-        effectTags = {
-          OptionEffectTag.EXECUTION,
-        },
-        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-        help = "Enable persistent aar extractor by using workers.")
-    public abstract boolean getPersistentAarExtractor();
-
-    @Option(
         name = "persistent_android_resource_processor",
         defaultValue = "null",
         documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
@@ -663,18 +652,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
         help = "Tracking flag for when multiplexed dexing and desugaring workers are enabled.")
     public abstract boolean getPersistentMultiplexDexDesugar();
 
-    @Option(
-        name = "experimental_remove_r_classes_from_instrumentation_test_jar",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {
-          OptionEffectTag.CHANGES_INPUTS,
-        },
-        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-        help =
-            "If enabled and the test instruments an application, all the R classes from the test's "
-                + "deploy jar will be removed.")
-    public abstract boolean getRemoveRClassesFromInstrumentationTestJar();
 
     @Option(
         name = "legacy_main_dex_list_generator",
@@ -740,12 +717,10 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   private final boolean compressJavaResources;
   private final boolean exportsManifestDefault;
   private final boolean fixedResourceNeverlinking;
-  private final boolean persistentAarExtractor;
   private final boolean persistentBusyboxTools;
   private final boolean persistentMultiplexBusyboxTools;
   private final boolean persistentDexDesugar;
   private final boolean persistentMultiplexDexDesugar;
-  private final boolean removeRClassesFromInstrumentationTestJar;
   private final Label legacyMainDexListGenerator;
   private final Label optimizingDexer;
   private final boolean getJavaResourcesFromOptimizedJar;
@@ -775,13 +750,10 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     this.compressJavaResources = options.getCompressJavaResources();
     this.exportsManifestDefault = options.getExportsManifestDefault();
     this.fixedResourceNeverlinking = options.getFixedResourceNeverlinking();
-    this.persistentAarExtractor = options.getPersistentAarExtractor();
     this.persistentBusyboxTools = options.getPersistentBusyboxTools();
     this.persistentMultiplexBusyboxTools = options.getPersistentMultiplexBusyboxTools();
     this.persistentDexDesugar = options.getPersistentDexDesugar();
     this.persistentMultiplexDexDesugar = options.getPersistentMultiplexDexDesugar();
-    this.removeRClassesFromInstrumentationTestJar =
-        options.getRemoveRClassesFromInstrumentationTestJar();
     this.legacyMainDexListGenerator = options.getLegacyMainDexListGenerator();
     this.optimizingDexer = options.getOptimizingDexer();
     this.getJavaResourcesFromOptimizedJar = options.getJavaResourcesFromOptimizedJar();
@@ -906,11 +878,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   }
 
   @Override
-  public boolean persistentAarExtractor() {
-    return persistentAarExtractor;
-  }
-
-  @Override
   public boolean persistentBusyboxTools() {
     return persistentBusyboxTools;
   }
@@ -943,10 +910,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     if (configurationDistinguisher.suffix != null) {
       ctx.addToMnemonic(configurationDistinguisher.suffix);
     }
-  }
-
-  public boolean removeRClassesFromInstrumentationTestJar() {
-    return removeRClassesFromInstrumentationTestJar;
   }
 
   @Override

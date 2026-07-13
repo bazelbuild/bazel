@@ -35,9 +35,9 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
-import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
+import com.google.devtools.build.lib.actions.ParamFileActionInput;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.RunfilesTree;
@@ -2074,7 +2074,11 @@ public abstract class SpawnLogContextTestBase {
 
   @Test
   public void testSpawnMetrics() throws Exception {
-    SpawnMetrics metrics = SpawnMetrics.Builder.forLocalExec().setTotalTimeInMs(1).build();
+    SpawnMetrics metrics =
+        SpawnMetrics.Builder.forLocalExec()
+            .setTotalTimeInMs(1)
+            .setMeasuredMemoryPeakBytes(42L)
+            .build();
 
     SpawnLogContext context = createSpawnLogContext();
 
@@ -2093,6 +2097,7 @@ public abstract class SpawnLogContextTestBase {
             .setMetrics(
                 Protos.SpawnMetrics.newBuilder()
                     .setTotalTime(millisToProto(1))
+                    .setMeasuredMemoryPeakBytes(42L)
                     .setStartTime(Timestamps.fromDate(Date.from(now))))
             .build());
   }

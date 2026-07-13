@@ -237,6 +237,11 @@ public abstract class Args implements CommandLineArgsApi {
       // (as this class no longe behaves exactly like a frozen Args object)
       throw Starlark.errorf("cannot modify frozen value");
     }
+
+    @Override
+    public CommandLineArgsApi setParamFileName(String path) throws EvalException {
+      throw Starlark.errorf("cannot modify frozen value");
+    }
   }
 
   /** Args module. */
@@ -271,6 +276,7 @@ public abstract class Args implements CommandLineArgsApi {
     private ParameterFileType parameterFileType = null;
     private String flagFormatString;
     private boolean alwaysUseParamFile;
+    @Nullable private String paramFileName;
 
     @Override
     public ParameterFileType getParameterFileType() {
@@ -286,7 +292,8 @@ public abstract class Args implements CommandLineArgsApi {
         ParamFileInfo.Builder builder =
             ParamFileInfo.builder(getParameterFileType())
                 .setFlagFormatString(flagFormatString)
-                .setUseAlways(alwaysUseParamFile);
+                .setUseAlways(alwaysUseParamFile)
+                .setParamFileName(paramFileName);
         return builder.setFlagsOnly(flagPerLine).build();
       }
     }
@@ -590,6 +597,14 @@ public abstract class Args implements CommandLineArgsApi {
       }
       this.parameterFileType = parameterFileType;
       this.flagPerLine = flagPerLine;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    @Override
+    public CommandLineArgsApi setParamFileName(String path) throws EvalException {
+      Starlark.checkMutable(this);
+      this.paramFileName = path;
       return this;
     }
 

@@ -136,6 +136,7 @@ java_library(
     deps = [
         ":build_options",
         ":core_options",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//src/main/java/com/google/devtools/common/options",
     ],
 )
@@ -373,10 +374,15 @@ java_library(
     deps = [
         ":build_options",
         ":fragment_options",
+        ":scope",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:guava",
+        "//third_party:jsr305",
+        "@com_google_protobuf//:protobuf_java",
     ],
 )
 

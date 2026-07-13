@@ -110,7 +110,12 @@ public class TestCollatz {
 EOF
 
   bazel coverage --test_output=all //:test &>$TEST_log || fail "Coverage for //:test failed"
-  cat $TEST_log
+
+  # Regression test for https://github.com/bazelbuild/bazel/issues/28637
+  # Verifies that the coverage runtime classpath uses correct runfiles paths,
+  # i.e., workspace-local jars are found by singlejar without errors.
+  assert_not_contains "Cannot open input jar" "$TEST_log"
+
   local coverage_file_path="$( get_coverage_file_path_from_test_log )"
 
   local expected_result="SF:src/main/com/example/Collatz.java

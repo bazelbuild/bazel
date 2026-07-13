@@ -11,6 +11,7 @@ filegroup(
     name = "srcs",
     testonly = 0,
     srcs = glob(["**"]),
+    visibility = ["//src:__subpackages__"],
 )
 
 java_library(
@@ -27,7 +28,7 @@ java_library(
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/remote/chunking",
-        "//src/main/java/com/google/devtools/build/lib/remote/util:digest_utils",
+        "//src/main/java/com/google/devtools/build/lib/remote/util:digest_util",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//third_party:guava",
         "//third_party:junit4",
@@ -52,7 +53,7 @@ java_opt_binary(
     main_class = "org.openjdk.jmh.Main",
     deps = [
         "//src/main/java/com/google/devtools/build/lib/remote/chunking",
-        "//src/main/java/com/google/devtools/build/lib/remote/util:digest_utils",
+        "//src/main/java/com/google/devtools/build/lib/remote/util:digest_util",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs/bazel",
         "//third_party:jmh",

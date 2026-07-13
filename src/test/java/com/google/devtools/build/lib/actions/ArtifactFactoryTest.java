@@ -21,7 +21,6 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -128,6 +127,40 @@ public class ArtifactFactoryTest {
     Artifact a1 = artifactFactory.getSourceArtifact(alienRelative, alienRoot);
     Artifact a2 = artifactFactory.resolveSourceArtifact(alienRelative, MAIN);
     assertThat(a1).isSameInstanceAs(a2);
+  }
+
+  @Test
+  public void testGetPathFromSourceExecPath_inExternalRepo() throws Exception {
+    Root externalRoot = Root.fromPath(scratch.dir("/external/alien"));
+    Path sourceFile = scratch.file("/external/alien/pkg/header.h", "");
+    ImmutableMap<PackageIdentifier, Root> packageRoots =
+        ImmutableMap.of(
+            PackageIdentifier.create("alien", PathFragment.create("pkg")), externalRoot);
+    artifactFactory.setPackageRoots(packageRoots::get);
+
+    Path path =
+        artifactFactory.getPathFromSourceExecPath(
+            execRoot, PathFragment.create("external/alien/pkg/header.h"));
+
+    assertThat(path).isEqualTo(sourceFile);
+    assertThat(path.isFile()).isTrue();
+  }
+
+  @Test
+  public void testGetPathFromSourceExecPath_externalRepoPackageDirectory() throws Exception {
+    Root externalRoot = Root.fromPath(scratch.dir("/external/alien"));
+    Path packageDirectory = scratch.dir("/external/alien/pkg");
+    ImmutableMap<PackageIdentifier, Root> packageRoots =
+        ImmutableMap.of(
+            PackageIdentifier.create("alien", PathFragment.create("pkg")), externalRoot);
+    artifactFactory.setPackageRoots(packageRoots::get);
+
+    Path path =
+        artifactFactory.getPathFromSourceExecPath(
+            execRoot, PathFragment.create("external/alien/pkg"));
+
+    assertThat(path).isEqualTo(packageDirectory);
+    assertThat(path.isDirectory()).isTrue();
   }
 
   @Test
@@ -438,7 +471,7 @@ public class ArtifactFactoryTest {
   }
 
   private static class MockPackageRootResolver implements PackageRootResolver {
-    private final Map<PathFragment, Root> packageRoots = Maps.newHashMap();
+    private final Map<PathFragment, Root> packageRoots = new HashMap<>();
 
     public void setPackageRoots(Map<PackageIdentifier, Root> packageRoots) {
       for (Map.Entry<PackageIdentifier, Root> packageRoot : packageRoots.entrySet()) {

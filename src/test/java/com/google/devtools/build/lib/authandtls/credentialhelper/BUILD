@@ -30,6 +30,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/authandtls/credentialhelper",
         "//src/main/java/com/google/devtools/build/lib/authandtls/credentialhelper:credential_module",
         "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/events:event_bus_event_handler",
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
         "//src/main/java/com/google/devtools/build/lib/shell:windows_subprocess_factory",
         "//src/main/java/com/google/devtools/build/lib/util:os",

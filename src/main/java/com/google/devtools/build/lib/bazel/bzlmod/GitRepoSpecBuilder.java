@@ -76,6 +76,11 @@ public class GitRepoSpecBuilder {
   }
 
   @CanIgnoreReturnValue
+  public GitRepoSpecBuilder setAddPrefix(String addPrefix) {
+    return setAttr("add_prefix", addPrefix);
+  }
+
+  @CanIgnoreReturnValue
   public GitRepoSpecBuilder setRemotePatches(ImmutableMap<String, String> remotePatches) {
     return setAttr("remote_patches", remotePatches);
   }

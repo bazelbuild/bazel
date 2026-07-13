@@ -126,6 +126,7 @@ import com.google.devtools.build.lib.standalone.StandaloneModule;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestFileOutErr;
+import com.google.devtools.build.lib.testutil.TestServices;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.CommandBuilder;
@@ -650,7 +651,7 @@ public abstract class BuildIntegrationTestCase {
             .addBlazeModule(connectivityModule)
             .addBlazeModule(new SkymeldModule())
             .addBlazeModule(new CredentialModule());
-    for (BlazeService service : TestConstants.BLAZE_SERVICES) {
+    for (BlazeService service : TestServices.BLAZE_SERVICES) {
       builder.addBlazeService(service);
     }
     getSpawnModules().forEach(builder::addBlazeModule);
@@ -706,7 +707,10 @@ public abstract class BuildIntegrationTestCase {
         "--noshow_progress",
 
         // Don't use ijars, because we don't have the executable in these tests
-        "--nouse_ijars");
+        "--nouse_ijars",
+
+        // Disable system network usage collection so we don't need the SystemNetworkStatsService.
+        "--noexperimental_collect_system_network_usage");
 
     runtimeWrapper.addOptions("--experimental_extended_sanity_checks");
     runtimeWrapper.addOptions(TestConstants.PRODUCT_SPECIFIC_FLAGS);
@@ -1070,14 +1074,18 @@ public abstract class BuildIntegrationTestCase {
       command.execute(outErr.getOutputStream(), outErr.getErrorStream());
     } catch (AbnormalTerminationException e) { // non-zero exit or signal or I/O problem
       IntegrationTestExecException e2 =
-          new IntegrationTestExecException(CommandUtils.describeCommandFailure(verboseFailures, e));
+          new IntegrationTestExecException(
+              CommandUtils.describeCommandFailure(
+                  verboseFailures, /* expandParamFiles= */ false, e));
       e2.initCause(e); // We don't pass cause=e to the ExecException constructor
       // since we don't want it to contribute to the exception
       // message again; it's already in describeCommandFailure().
       throw e2;
     } catch (CommandException e) {
       IntegrationTestExecException e2 =
-          new IntegrationTestExecException(CommandUtils.describeCommandFailure(verboseFailures, e));
+          new IntegrationTestExecException(
+              CommandUtils.describeCommandFailure(
+                  verboseFailures, /* expandParamFiles= */ false, e));
       e2.initCause(e); // We don't pass cause=e to the ExecException constructor
       // since we don't want it to contribute to the exception
       // message again; it's already in describeCommandFailure().

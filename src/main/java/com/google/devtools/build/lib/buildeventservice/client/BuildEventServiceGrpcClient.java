@@ -95,8 +95,7 @@ public class BuildEventServiceGrpcClient implements BuildEventServiceClient {
                   TracingMetadataUtils.buildMetadata(
                       commandContext.buildId(),
                       commandContext.invocationId(),
-                      "publish_lifecycle_event",
-                      /* actionMetadata= */ null)))
+                      "publish_lifecycle_event")))
           .publishLifecycleEvent(request);
     } catch (StatusRuntimeException e) {
       Throwables.throwIfInstanceOf(Throwables.getRootCause(e), InterruptedException.class);
@@ -121,8 +120,7 @@ public class BuildEventServiceGrpcClient implements BuildEventServiceClient {
                       TracingMetadataUtils.buildMetadata(
                           commandContext.buildId(),
                           commandContext.invocationId(),
-                          "publish_build_tool_event_stream",
-                          /* actionMetadata= */ null)))
+                          "publish_build_tool_event_stream")))
               .publishBuildToolEventStream(
                   new StreamObserver<PublishBuildToolEventStreamResponse>() {
                     @Override
@@ -173,11 +171,14 @@ public class BuildEventServiceGrpcClient implements BuildEventServiceClient {
 
     @Override
     public void abortStream(AbortReason reason, @Nullable String description) {
-      Status status =
-          switch (reason) {
-            case CANCELLED -> Status.CANCELLED;
-            case FAILED_PRECONDITION -> Status.FAILED_PRECONDITION;
-          };
+      Status status;
+      if (reason == AbortReason.CANCELLED) {
+        status = Status.CANCELLED;
+      } else if (reason == AbortReason.FAILED_PRECONDITION) {
+        status = Status.FAILED_PRECONDITION;
+      } else {
+        status = Status.UNKNOWN;
+      }
       if (description != null) {
         status = status.withDescription(description);
       }

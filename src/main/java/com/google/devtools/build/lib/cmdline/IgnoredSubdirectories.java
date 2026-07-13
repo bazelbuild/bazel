@@ -38,7 +38,7 @@ import javax.annotation.Nullable;
 /** A set of subdirectories to ignore during target pattern matching or globbing. */
 public final class IgnoredSubdirectories {
   public static final IgnoredSubdirectories EMPTY =
-      new IgnoredSubdirectories(ImmutableSet.of(), ImmutableList.of());
+      new IgnoredSubdirectories(ImmutableSet.of(), ImmutableList.of(), ImmutableSet.of());
 
   private static final Splitter SLASH_SPLITTER = Splitter.on("/");
 
@@ -49,6 +49,7 @@ public final class IgnoredSubdirectories {
   // allocate new objects.
   private final ImmutableList<String> patterns;
   private final ImmutableList<String[]> splitPatterns;
+  private final ImmutableSet<PathFragment> traversalExclusions;
 
   private static class Codec implements ObjectCodec<IgnoredSubdirectories> {
     private static final Codec INSTANCE = new Codec();
@@ -64,6 +65,7 @@ public final class IgnoredSubdirectories {
         throws SerializationException, IOException {
       context.serialize(obj.prefixes, codedOut);
       context.serialize(obj.patterns, codedOut);
+      context.serialize(obj.traversalExclusions, codedOut);
     }
 
     @Override
@@ -72,36 +74,50 @@ public final class IgnoredSubdirectories {
         throws SerializationException, IOException {
       ImmutableSet<PathFragment> prefixes = context.deserialize(codedIn);
       ImmutableList<String> patterns = context.deserialize(codedIn);
+      ImmutableSet<PathFragment> traversalExclusions = context.deserialize(codedIn);
 
-      return new IgnoredSubdirectories(prefixes, patterns);
+      return new IgnoredSubdirectories(prefixes, patterns, traversalExclusions);
     }
   }
 
   private IgnoredSubdirectories(
-      ImmutableSet<PathFragment> prefixes, ImmutableList<String> patterns) {
+      ImmutableSet<PathFragment> prefixes,
+      ImmutableList<String> patterns,
+      ImmutableSet<PathFragment> traversalExclusions) {
     this.prefixes = prefixes;
     this.patterns = patterns;
     this.splitPatterns =
         patterns.stream()
             .map(p -> Iterables.toArray(SLASH_SPLITTER.split(p), String.class))
             .collect(toImmutableList());
+    this.traversalExclusions = traversalExclusions;
   }
 
   public static IgnoredSubdirectories of(ImmutableSet<PathFragment> prefixes) {
-    return of(prefixes, ImmutableList.of());
+    return of(prefixes, ImmutableList.of(), ImmutableSet.of());
   }
 
   public static IgnoredSubdirectories of(
       ImmutableSet<PathFragment> prefixes, ImmutableList<String> patterns) {
-    if (prefixes.isEmpty() && patterns.isEmpty()) {
+    return of(prefixes, patterns, ImmutableSet.of());
+  }
+
+  public static IgnoredSubdirectories of(
+      ImmutableSet<PathFragment> prefixes,
+      ImmutableList<String> patterns,
+      ImmutableSet<PathFragment> traversalExclusions) {
+    if (prefixes.isEmpty() && patterns.isEmpty() && traversalExclusions.isEmpty()) {
       return EMPTY;
     }
 
     for (PathFragment prefix : prefixes) {
       Preconditions.checkArgument(!prefix.isAbsolute());
     }
+    for (PathFragment exclusion : traversalExclusions) {
+      Preconditions.checkArgument(!exclusion.isAbsolute());
+    }
 
-    return new IgnoredSubdirectories(prefixes, patterns);
+    return new IgnoredSubdirectories(prefixes, patterns, traversalExclusions);
   }
 
   public IgnoredSubdirectories withPrefix(PathFragment prefix) {
@@ -113,20 +129,35 @@ public final class IgnoredSubdirectories {
     ImmutableList<String> prefixedPatterns =
         patterns.stream().map(p -> prefix + "/" + p).collect(toImmutableList());
 
-    return new IgnoredSubdirectories(prefixedPrefixes, prefixedPatterns);
+    ImmutableSet<PathFragment> prefixedTraversalExclusions =
+        traversalExclusions.stream().map(prefix::getRelative).collect(toImmutableSet());
+
+    return new IgnoredSubdirectories(
+        prefixedPrefixes, prefixedPatterns, prefixedTraversalExclusions);
   }
 
   public IgnoredSubdirectories union(IgnoredSubdirectories other) {
     return new IgnoredSubdirectories(
         ImmutableSet.<PathFragment>builder().addAll(prefixes).addAll(other.prefixes).build(),
-        ImmutableList.copyOf(
-            ImmutableSet.<String>builder().addAll(patterns).addAll(other.patterns).build()));
+        ImmutableSet.<String>builder().addAll(patterns).addAll(other.patterns).build().asList(),
+        ImmutableSet.<PathFragment>builder()
+            .addAll(traversalExclusions)
+            .addAll(other.traversalExclusions)
+            .build());
+  }
+
+  public IgnoredSubdirectories withTraversalExclusions(
+      ImmutableSet<PathFragment> traversalExclusions) {
+    return new IgnoredSubdirectories(this.prefixes, this.patterns, traversalExclusions);
   }
 
   /** Filters out entries that cannot match anything under {@code directory}. */
   public IgnoredSubdirectories filterForDirectory(PathFragment directory) {
     ImmutableSet<PathFragment> filteredPrefixes =
         prefixes.stream().filter(p -> p.startsWith(directory)).collect(toImmutableSet());
+
+    ImmutableSet<PathFragment> filteredTraversalExclusions =
+        traversalExclusions.stream().filter(p -> p.startsWith(directory)).collect(toImmutableSet());
 
     String[] splitDirectory =
         Iterables.toArray(SLASH_SPLITTER.split(directory.getPathString()), String.class);
@@ -137,7 +168,8 @@ public final class IgnoredSubdirectories {
       }
     }
 
-    return new IgnoredSubdirectories(filteredPrefixes, filteredPatterns.build());
+    return new IgnoredSubdirectories(
+        filteredPrefixes, filteredPatterns.build(), filteredTraversalExclusions);
   }
 
   public ImmutableSet<PathFragment> prefixes() {
@@ -185,6 +217,19 @@ public final class IgnoredSubdirectories {
     return null;
   }
 
+  /** Returns true if the directory matches any traversal exclusion or standard ignored entry. */
+  public boolean matchingEntryForTraversal(PathFragment directory) {
+    if (matchingEntry(directory) != null) {
+      return true;
+    }
+    for (PathFragment exclusion : traversalExclusions) {
+      if (directory.startsWith(exclusion)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   @Override
   public boolean equals(Object other) {
     if (!(other instanceof IgnoredSubdirectories)) {
@@ -194,12 +239,13 @@ public final class IgnoredSubdirectories {
     // splitPatterns is a function of patterns so it's enough to check if patterns is equal
     IgnoredSubdirectories that = (IgnoredSubdirectories) other;
     return Objects.equals(this.prefixes, that.prefixes)
-        && Objects.equals(this.patterns, that.patterns);
+        && Objects.equals(this.patterns, that.patterns)
+        && Objects.equals(this.traversalExclusions, that.traversalExclusions);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(prefixes, patterns);
+    return Objects.hash(prefixes, patterns, traversalExclusions);
   }
 
   @Override
@@ -207,6 +253,7 @@ public final class IgnoredSubdirectories {
     return MoreObjects.toStringHelper("IgnoredSubdirectories")
         .add("prefixes", prefixes)
         .add("patterns", patterns)
+        .add("traversalExclusions", traversalExclusions)
         .toString();
   }
 }

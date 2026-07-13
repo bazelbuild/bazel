@@ -20,6 +20,8 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.google.devtools.build.lib.remote.Retrier.CircuitBreaker.State;
+import com.google.devtools.build.lib.remote.options.RemoteOptions;
+import com.google.devtools.common.options.Options;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -32,6 +34,8 @@ import org.junit.runners.JUnit4;
 
 @RunWith(JUnit4.class)
 public class FailureCircuitBreakerTest {
+
+  private final RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
 
   @Test
   // Suppress unchecked warnings because any(Callable.class) uses a raw type,
@@ -68,7 +72,12 @@ public class FailureCircuitBreakerTest {
               return null;
             });
     FailureCircuitBreaker failureCircuitBreaker =
-        new FailureCircuitBreaker(failureRateThreshold, windowInterval, mockScheduler);
+        new FailureCircuitBreaker(
+            failureRateThreshold,
+            windowInterval,
+            remoteOptions.getRemoteMinCallCountToComputeFailureRate(),
+            remoteOptions.getRemoteMinFailCountToComputeFailureRate(),
+            mockScheduler);
 
     List<Runnable> listOfSuccessAndFailureCalls = new ArrayList<>();
     for (int index = 0; index < failureRateThreshold; index++) {
@@ -104,11 +113,15 @@ public class FailureCircuitBreakerTest {
   public void testRecordFailure_minCallCriteriaNotMet() throws InterruptedException {
     final int failureRateThreshold = 0;
     final int windowInterval = 100;
-    final int minCallToComputeFailure =
-        CircuitBreakerFactory.DEFAULT_MIN_CALL_COUNT_TO_COMPUTE_FAILURE_RATE;
+    final int minCallToComputeFailure = remoteOptions.getRemoteMinCallCountToComputeFailureRate();
     ScheduledExecutorService mockScheduler = mock(ScheduledExecutorService.class);
     FailureCircuitBreaker failureCircuitBreaker =
-        new FailureCircuitBreaker(failureRateThreshold, windowInterval, mockScheduler);
+        new FailureCircuitBreaker(
+            failureRateThreshold,
+            windowInterval,
+            remoteOptions.getRemoteMinCallCountToComputeFailureRate(),
+            remoteOptions.getRemoteMinFailCountToComputeFailureRate(),
+            mockScheduler);
 
     // make success calls, failure call and number of total calls less than
     // minCallToComputeFailure.
@@ -127,11 +140,15 @@ public class FailureCircuitBreakerTest {
   public void testRecordFailure_minFailCriteriaNotMet() throws InterruptedException {
     final int failureRateThreshold = 10;
     final int windowInterval = 100;
-    final int minFailToComputeFailure =
-        CircuitBreakerFactory.DEFAULT_MIN_FAIL_COUNT_TO_COMPUTE_FAILURE_RATE;
+    final int minFailToComputeFailure = remoteOptions.getRemoteMinFailCountToComputeFailureRate();
     ScheduledExecutorService mockScheduler = mock(ScheduledExecutorService.class);
     FailureCircuitBreaker failureCircuitBreaker =
-        new FailureCircuitBreaker(failureRateThreshold, windowInterval, mockScheduler);
+        new FailureCircuitBreaker(
+            failureRateThreshold,
+            windowInterval,
+            remoteOptions.getRemoteMinCallCountToComputeFailureRate(),
+            remoteOptions.getRemoteMinFailCountToComputeFailureRate(),
+            mockScheduler);
 
     // make number of failure calls less than minFailToComputeFailure.
     for (int index = 0; index < minFailToComputeFailure - 1; index++) {

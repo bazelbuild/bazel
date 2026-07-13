@@ -576,6 +576,7 @@ public class Package extends Packageoid {
       Optional<String> associatedModuleVersion,
       boolean noImplicitFileExport,
       boolean simplifyUnconditionalSelectsInRuleAttrs,
+      boolean symbolicMacroStrictAttrs,
       RepositoryMapping repositoryMapping,
       RepositoryMapping mainRepositoryMapping,
       @Nullable Semaphore cpuBoundSemaphore,
@@ -586,6 +587,7 @@ public class Package extends Packageoid {
       @Nullable Globber globber,
       boolean enableNameConflictChecking,
       boolean trackFullMacroInformation,
+      PackageValidator packageValidator,
       PackageLimits packageLimits) {
     return new Builder(
         Metadata.builder()
@@ -603,6 +605,7 @@ public class Package extends Packageoid {
         packageSettings.precomputeTransitiveLoads(),
         noImplicitFileExport,
         simplifyUnconditionalSelectsInRuleAttrs,
+        symbolicMacroStrictAttrs,
         mainRepositoryMapping,
         cpuBoundSemaphore,
         packageOverheadEstimator,
@@ -610,6 +613,7 @@ public class Package extends Packageoid {
         globber,
         enableNameConflictChecking,
         trackFullMacroInformation,
+        packageValidator,
         packageLimits);
   }
 
@@ -620,6 +624,7 @@ public class Package extends Packageoid {
       Declarations declarations,
       boolean noImplicitFileExport,
       boolean simplifyUnconditionalSelectsInRuleAttrs,
+      boolean symbolicMacroStrictAttrs,
       RepositoryMapping mainRepositoryMapping,
       @Nullable Semaphore cpuBoundSemaphore,
       PackageOverheadEstimator packageOverheadEstimator,
@@ -627,6 +632,7 @@ public class Package extends Packageoid {
       @Nullable Globber globber,
       boolean enableNameConflictChecking,
       boolean trackFullMacroInformation,
+      PackageValidator packageValidator,
       PackageLimits packageLimits,
       InputFile buildFile) {
     Builder builder =
@@ -637,6 +643,7 @@ public class Package extends Packageoid {
             packageSettings.precomputeTransitiveLoads(),
             noImplicitFileExport,
             simplifyUnconditionalSelectsInRuleAttrs,
+            symbolicMacroStrictAttrs,
             mainRepositoryMapping,
             cpuBoundSemaphore,
             packageOverheadEstimator,
@@ -644,6 +651,7 @@ public class Package extends Packageoid {
             globber,
             enableNameConflictChecking,
             trackFullMacroInformation,
+            packageValidator,
             packageLimits);
     checkArgument(
         buildFile.getPackageMetadata().packageIdentifier().equals(metadata.packageIdentifier()));
@@ -989,6 +997,7 @@ public class Package extends Packageoid {
         boolean precomputeTransitiveLoads,
         boolean noImplicitFileExport,
         boolean simplifyUnconditionalSelectsInRuleAttrs,
+        boolean symbolicMacroStrictAttrs,
         RepositoryMapping mainRepositoryMapping,
         @Nullable Semaphore cpuBoundSemaphore,
         PackageOverheadEstimator packageOverheadEstimator,
@@ -997,12 +1006,14 @@ public class Package extends Packageoid {
         boolean enableNameConflictChecking,
         boolean trackFullMacroInformation,
         boolean enableTargetMapSnapshotting,
+        PackageValidator packageValidator,
         PackageLimits packageLimits) {
       super(
           metadata,
           pkg,
           symbolGenerator,
           simplifyUnconditionalSelectsInRuleAttrs,
+          symbolicMacroStrictAttrs,
           mainRepositoryMapping,
           cpuBoundSemaphore,
           packageOverheadEstimator,
@@ -1014,7 +1025,7 @@ public class Package extends Packageoid {
           packageLimits);
       this.precomputeTransitiveLoads = precomputeTransitiveLoads;
       this.noImplicitFileExport = noImplicitFileExport;
-      if (metadata.getName().startsWith("javatests/")) {
+      if (packageValidator.defaultTestOnly(metadata.packageIdentifier())) {
         mergePackageArgsFrom(PackageArgs.builder().setDefaultTestOnly(true));
       }
       // Add target for the BUILD file itself.
@@ -1126,6 +1137,7 @@ public class Package extends Packageoid {
         boolean precomputeTransitiveLoads,
         boolean noImplicitFileExport,
         boolean simplifyUnconditionalSelectsInRuleAttrs,
+        boolean symbolicMacroStrictAttrs,
         RepositoryMapping mainRepositoryMapping,
         @Nullable Semaphore cpuBoundSemaphore,
         PackageOverheadEstimator packageOverheadEstimator,
@@ -1133,6 +1145,7 @@ public class Package extends Packageoid {
         @Nullable Globber globber,
         boolean enableNameConflictChecking,
         boolean trackFullMacroInformation,
+        PackageValidator packageValidator,
         PackageLimits packageLimits) {
       super(
           metadata,
@@ -1141,6 +1154,7 @@ public class Package extends Packageoid {
           precomputeTransitiveLoads,
           noImplicitFileExport,
           simplifyUnconditionalSelectsInRuleAttrs,
+          symbolicMacroStrictAttrs,
           mainRepositoryMapping,
           cpuBoundSemaphore,
           packageOverheadEstimator,
@@ -1149,6 +1163,7 @@ public class Package extends Packageoid {
           enableNameConflictChecking,
           trackFullMacroInformation,
           /* enableTargetMapSnapshotting= */ true,
+          packageValidator,
           packageLimits);
     }
 
@@ -1376,7 +1391,14 @@ public class Package extends Packageoid {
     }
   }
 
-  /** A collection of data that is known before BUILD file evaluation even begins. */
+  /**
+   * A collection of data that is known before BUILD file evaluation even begins.
+   *
+   * <p><b>Important:</b> Tracking of transitive packages relies on a {@link
+   * com.google.devtools.build.lib.collect.nestedset.NestedSet<Metadata>}, so this class must have a
+   * cheap {@link #hashCode()}. Some fields, such as {@link #repositoryMapping}, would be cheap to
+   * hash for Blaze but not Bazel.
+   */
   // TODO(bazel-team): move to Packageoid.java or to its own file to reduce size of Package.java?
   @AutoCodec
   public record Metadata(
@@ -1393,6 +1415,13 @@ public class Package extends Packageoid {
       @Nullable ConfigSettingVisibilityPolicy configSettingVisibilityPolicy,
       boolean succinctTargetNotFoundErrors,
       Root sourceRoot) {
+
+    // See class-level Javadoc for an explanation of why we need this.
+    @Override
+    public int hashCode() {
+      // Within a single build a package is uniquely identified by its PackageIdentifier.
+      return packageIdentifier.hashCode();
+    }
 
     public static Builder builder() {
       return new AutoBuilder_Package_Metadata_Builder();

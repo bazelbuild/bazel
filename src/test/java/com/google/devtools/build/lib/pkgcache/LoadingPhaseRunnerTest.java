@@ -32,7 +32,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
-import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -86,6 +85,7 @@ import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -811,6 +811,32 @@ public final class LoadingPhaseRunnerTest {
     TargetPatternPhaseValue result = assertNoErrors(tester.loadTests("//cc:all_tests"));
     assertThat(result.getTargetLabels())
         .containsExactlyElementsIn(getLabels("//cc:test1", "//cc:test2"));
+  }
+
+  // Regression test for b/489243968.
+  @Test
+  public void testStarlarkRuleNamedTestSuite_notExpandedLikeTestSuite() throws Exception {
+    tester.addFile(
+        "test_suite.bzl",
+        """
+        # Custom Starlark rule whose name happens to be test_suite.
+        test_suite = rule(
+            implementation = lambda ctx: [],
+        )
+        """);
+
+    tester.addFile(
+        "BUILD",
+        """
+        load(":test_suite.bzl", "test_suite")
+
+        test_suite(name = "not_a_real_test_suite")
+        """);
+
+    TargetPatternPhaseValue result = assertNoErrors(tester.loadTests("//:not_a_real_test_suite"));
+    assertThat(result.getTargetLabels())
+        .containsExactlyElementsIn(getLabels("//:not_a_real_test_suite"));
+    assertThat(result.getTestsToRunLabels()).isEmpty();
   }
 
   @Test
@@ -1822,6 +1848,7 @@ public final class LoadingPhaseRunnerTest {
           defaultBuildLanguageOptions(),
           UUID.randomUUID(),
           ImmutableMap.of(),
+          /* repoEnv= */ ImmutableMap.of(),
           QuiescingExecutorsImpl.forTesting(),
           new TimestampGranularityMonitor(clock));
       skyframeExecutor.setActionEnv(ImmutableMap.of());
@@ -2038,7 +2065,7 @@ public final class LoadingPhaseRunnerTest {
    * IOException instead of the usual behavior.
    */
   private static final class CustomInMemoryFs extends InMemoryFileSystem {
-    private final Map<PathFragment, IOException> pathsToErrorOnGetInputStream = Maps.newHashMap();
+    private final Map<PathFragment, IOException> pathsToErrorOnGetInputStream = new HashMap<>();
 
     CustomInMemoryFs(ManualClock manualClock) {
       super(manualClock, DigestHashFunction.SHA256);

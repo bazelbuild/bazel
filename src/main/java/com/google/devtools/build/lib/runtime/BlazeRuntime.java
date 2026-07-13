@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.buildtool.CommandPrecompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ProfilerStartedEvent;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.Clock;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetInterner;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.OutputFilter;
@@ -444,7 +445,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       }
       ImmutableSet<ProfilerTask> profiledTasks = profiledTasksBuilder.build();
       if (!profiledTasks.isEmpty()) {
-        if (commandOptions.getSlimProfile() && commandOptions.getIncludePrimaryOutput()) {
+        if (commandOptions.getSlimProfile().isEnabled()
+            && commandOptions.getIncludePrimaryOutput()) {
           eventHandler.handle(
               Event.warn(
                   "Enabling both --slim_profile and"
@@ -485,7 +487,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
                 recordFullProfilerData,
                 clock,
                 execStartTimeNanos,
-                /* slimProfile= */ commandOptions.getSlimProfile(),
+                /* slimProfile= */ commandOptions.getSlimProfile().isEnabled(),
+                /* slimProfileSizeLimit= */ commandOptions.getSlimProfile().getSizeLimit(),
                 /* includePrimaryOutput= */ commandOptions.getIncludePrimaryOutput(),
                 /* includeTargetLabel= */ commandOptions.getProfileIncludeTargetLabel(),
                 /* includeConfiguration= */ commandOptions.getProfileIncludeTargetConfiguration(),
@@ -830,7 +833,9 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     if (otherThreadWonExitCode != null) {
       finalCommandResult = BlazeCommandResult.detailedExitCode(otherThreadWonExitCode);
     }
-    env.getBlazeWorkspace().clearEventBus();
+    env.getSkyframeExecutor().setEventBus(null);
+    env.getSkyframeExecutor().setOutputService(null);
+    NestedSetInterner.clear();
 
     // Some module's commandComplete() relies on the stoppage of profiler. And it is impossible the
     // profiler is needed after all `BlazeModule.afterCommand`s are executed.
@@ -852,7 +857,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       finalCommandResult = BlazeCommandResult.withIdleTasks(finalCommandResult, idleTasks);
     }
 
-    env.getReporter().clearEventBus();
+    env.getReporter().cleanup();
     actionKeyContext.clear();
     DebugLoggerConfigurator.flushServerLog();
     storedExitCode.set(null);
@@ -1016,7 +1021,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
   static CommandLineOptions splitStartupOptions(
       Iterable<OptionsSupplier> suppliers, String... args) {
     List<String> prefixes = new ArrayList<>();
-    List<OptionDefinition> startupOptions = Lists.newArrayList();
+    List<OptionDefinition> startupOptions = new ArrayList<>();
     for (Class<? extends OptionsBase> defaultOptions :
         BlazeCommandUtils.getStartupOptions(suppliers)) {
       startupOptions.addAll(OptionDefinition.getOptionDefinitions(defaultOptions));

@@ -509,10 +509,7 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
         def swift_binary_impl(ctx):
             apple_toolchain = apple_common.apple_toolchain()
             sdk_dir = apple_toolchain.sdk_dir()
-            platform_developer_framework_dir = \\
-                apple_toolchain.platform_developer_framework_dir(ctx.fragments.apple)
             return MyInfo(
-                platform_developer_framework_dir = platform_developer_framework_dir,
                 sdk_dir = sdk_dir,
             )
 
@@ -540,13 +537,8 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
         getConfiguredTarget("//test_starlark/apple_starlark:my_target");
     StructImpl myInfo = getMyInfoFromTarget(starlarkTarget);
 
-    String platformDevFrameworksDir = (String) myInfo.getValue("platform_developer_framework_dir");
     String sdkDir = (String) myInfo.getValue("sdk_dir");
 
-    assertThat(platformDevFrameworksDir)
-        .isEqualTo(
-            "__BAZEL_XCODE_DEVELOPER_DIR__"
-                + "/Platforms/iPhoneSimulator.platform/Developer/Library/Frameworks");
     assertThat(sdkDir).isEqualTo("__BAZEL_XCODE_SDKROOT__");
   }
 
@@ -606,42 +598,30 @@ swift_binary = rule(
         """);
 
     useConfiguration(
-        "--ios_sdk_version=1.1",
         "--ios_minimum_os=1.0",
-        "--watchos_sdk_version=2.1",
         "--watchos_minimum_os=2.0",
-        "--tvos_sdk_version=3.1",
         "--tvos_minimum_os=3.0",
-        "--macos_sdk_version=4.1",
         "--minimum_os_version=5.1");
     ConfiguredTarget starlarkTarget =
         getConfiguredTarget("//test_starlark/apple_starlark:my_target");
     StructImpl myInfo = getMyInfoFromTarget(starlarkTarget);
 
-    assertThat(myInfo.getValue("ios_sdk_version")).isEqualTo("1.1");
     assertThat(myInfo.getValue("ios_minimum_os")).isEqualTo("1.0");
-    assertThat(myInfo.getValue("watchos_sdk_version")).isEqualTo("2.1");
     assertThat(myInfo.getValue("watchos_minimum_os")).isEqualTo("2.0");
-    assertThat(myInfo.getValue("tvos_sdk_version")).isEqualTo("3.1");
     assertThat(myInfo.getValue("tvos_minimum_os")).isEqualTo("3.0");
-    assertThat(myInfo.getValue("macos_sdk_version")).isEqualTo("4.1");
     assertThat(myInfo.getValue("visionos_minimum_os")).isEqualTo("5.1");
 
     useConfiguration(
-        "--ios_sdk_version=1.1",
-        "--watchos_sdk_version=2.1",
-        "--tvos_sdk_version=3.1",
-        "--macos_sdk_version=4.1");
+        "--ios_minimum_os=1.1",
+        "--watchos_minimum_os=2.1",
+        "--tvos_minimum_os=3.1",
+        "--macos_minimum_os=4.1");
     starlarkTarget = getConfiguredTarget("//test_starlark/apple_starlark:my_target");
     myInfo = getMyInfoFromTarget(starlarkTarget);
 
-    assertThat(myInfo.getValue("ios_sdk_version")).isEqualTo("1.1");
     assertThat(myInfo.getValue("ios_minimum_os")).isEqualTo("1.1");
-    assertThat(myInfo.getValue("watchos_sdk_version")).isEqualTo("2.1");
     assertThat(myInfo.getValue("watchos_minimum_os")).isEqualTo("2.1");
-    assertThat(myInfo.getValue("tvos_sdk_version")).isEqualTo("3.1");
     assertThat(myInfo.getValue("tvos_minimum_os")).isEqualTo("3.1");
-    assertThat(myInfo.getValue("macos_sdk_version")).isEqualTo("4.1");
   }
 
   @Test

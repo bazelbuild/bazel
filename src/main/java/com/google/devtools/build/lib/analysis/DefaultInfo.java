@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.common.base.MoreObjects.firstNonNull;
+
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.configuredtargets.AbstractConfiguredTarget;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
@@ -33,23 +35,23 @@ public abstract class DefaultInfo extends NativeInfo implements DefaultInfoApi {
   /** Singleton instance of the provider type for {@link DefaultInfo}. */
   public static final DefaultInfoProvider PROVIDER = new DefaultInfoProvider();
 
+  private final Location location;
+
+  private DefaultInfo(@Nullable Location location) {
+    this.location = firstNonNull(location, Location.BUILTIN);
+  }
+
   /**
-   * @deprecated Temporary, don't use it.
+   * Returns the source location where this DefaultInfo was created, or {@link Location#BUILTIN} if
+   * it was instantiated by Java code. Used only for error reporting.
    */
-  @Deprecated // TODO(b/308767456): remove it
-  public static DefaultInfo createEmpty(Location location) {
-    return new DefaultDefaultInfo(location, null, null, null, null, null, null);
+  public final Location getCreationLocation() {
+    return location;
   }
 
   @Override
   public DefaultInfoProvider getProvider() {
     return PROVIDER;
-  }
-
-  private DefaultInfo() {}
-
-  private DefaultInfo(Location loc) {
-    super(loc);
   }
 
   /**
@@ -147,6 +149,7 @@ public abstract class DefaultInfo extends NativeInfo implements DefaultInfoApi {
     private final AbstractConfiguredTarget target;
 
     DelegatingDefaultInfo(AbstractConfiguredTarget target) {
+      super(Location.BUILTIN);
       this.target = target;
     }
 

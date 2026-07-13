@@ -488,7 +488,9 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         CommandFailureUtils.describeCommand(
             CommandDescriptionForm.COMPLETE,
             showSubcommands.prettyPrintArgs,
-            spawn.getArguments(),
+            executor.expandsParamFiles()
+                ? spawn.getArgumentsWithExpandedParamFiles()
+                : spawn.getArguments(),
             spawn.getEnvironment(),
             /* environmentVariablesToClear= */ null,
             getExecRoot().getPathString(),
@@ -536,7 +538,14 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
 
   @Override
   public void close() throws IOException {
-    fileOutErr.close();
+    // Ensure that we close both fileOutErr and actionFileSystem even if one throws.
+    try {
+      fileOutErr.close();
+    } finally {
+      if (actionFileSystem instanceof Closeable closeable) {
+        closeable.close();
+      }
+    }
   }
 
   private ActionExecutionContext withInputMetadataProvider(

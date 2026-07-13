@@ -56,11 +56,11 @@ public final class ImmutableDeserializationContext extends DeserializationContex
   @Nullable
   public <T> T deserializeLeaf(CodedInputStream codedIn, LeafObjectCodec<T> codec)
       throws SerializationException, IOException {
-    int tag = codedIn.readSInt32();
-    if (tag == 0) {
+    int typedTag = codedIn.readRawVarint32();
+    if (typedTag == 0) {
       return null;
     }
-    Object maybeConstant = codec.safeCast(maybeGetConstantByTag(tag));
+    Object maybeConstant = codec.safeCast(maybeGetConstantByTag(typedTag));
     if (maybeConstant != null) {
       return codec.safeCast(maybeConstant);
     }

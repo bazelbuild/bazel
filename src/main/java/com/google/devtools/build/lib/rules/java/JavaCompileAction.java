@@ -22,13 +22,10 @@ import static java.util.stream.Collectors.joining;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
-import com.google.common.collect.BiMap;
-import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -53,6 +50,7 @@ import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.actions.SpawnInputs;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
@@ -83,8 +81,8 @@ import com.google.protobuf.ExtensionRegistry;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -237,6 +235,9 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
     actionKeyContext.addNestedSetToFingerprint(fp, transitiveInputs);
     getEnvironment().addTo(fp);
     fp.addStringMap(executionInfo);
+    fp.addBoolean(
+        outputDepsProto != null
+            && configuration.getFragment(JavaConfiguration.class).inmemoryJdepsFiles());
     PathMappers.addToFingerprint(
         getMnemonic(),
         getExecutionInfo(),
@@ -287,7 +288,10 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
     CustomCommandLine.Builder classpathLine = CustomCommandLine.builder();
     PathMapper pathMapper =
         PathMappers.create(
-            this, PathMappers.getOutputPathsMode(configuration), /* isStarlarkAction= */ false);
+            this,
+            PathMappers.getOutputPathsMode(configuration),
+            /* isStarlarkAction= */ false,
+            actionExecutionContext.getInputMetadataProvider());
 
     if (fallback) {
       classpathLine.addExecPaths("--classpath", transitiveInputs);
@@ -324,7 +328,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
             .build();
     return new JavaSpawn(
         expandedCommandLines,
-        getEffectiveEnvironment(actionExecutionContext.getClientEnv()),
+        getEffectiveEnvironment(actionExecutionContext.getClientEnv(), pathMapper),
         getExecutionInfo(),
         inputs,
         /* onlyMandatoryOutput= */ fallback ? null : outputDepsProto,
@@ -335,7 +339,10 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
       throws CommandLineExpansionException, InterruptedException {
     PathMapper pathMapper =
         PathMappers.create(
-            this, PathMappers.getOutputPathsMode(configuration), /* isStarlarkAction= */ false);
+            this,
+            PathMappers.getOutputPathsMode(configuration),
+            /* isStarlarkAction= */ false,
+            actionExecutionContext.getInputMetadataProvider());
     CommandLines.ExpandedCommandLines expandedCommandLines =
         getCommandLines()
             .expand(
@@ -345,20 +352,11 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
                 configuration.getCommandLineLimits());
     return new JavaSpawn(
         expandedCommandLines,
-        getEffectiveEnvironment(actionExecutionContext.getClientEnv()),
+        getEffectiveEnvironment(actionExecutionContext.getClientEnv(), pathMapper),
         getExecutionInfo(),
         getInputs(),
         /* onlyMandatoryOutput= */ null,
         pathMapper);
-  }
-
-  @Override
-  public ImmutableMap<String, String> getEffectiveEnvironment(Map<String, String> clientEnv) {
-    ActionEnvironment env = getEnvironment();
-    LinkedHashMap<String, String> effectiveEnvironment =
-        Maps.newLinkedHashMapWithExpectedSize(env.estimatedSize());
-    env.resolve(effectiveEnvironment, clientEnv);
-    return ImmutableMap.copyOf(effectiveEnvironment);
   }
 
   private ActionExecutionException wrapIOException(IOException e, String message) {
@@ -566,7 +564,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
   }
 
   private final class JavaSpawn extends BaseSpawn {
-    private final NestedSet<ActionInput> inputs;
+    private final SpawnInputs inputs;
     private final Artifact onlyMandatoryOutput;
     private final PathMapper pathMapper;
 
@@ -584,15 +582,12 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
           JavaCompileAction.this,
           LOCAL_RESOURCES);
       this.onlyMandatoryOutput = onlyMandatoryOutput;
-      this.inputs =
-          NestedSetBuilder.<ActionInput>fromNestedSet(inputs)
-              .addAll(expandedCommandLines.getParamFiles())
-              .build();
+      this.inputs = SpawnInputs.of(inputs, expandedCommandLines.getParamFiles());
       this.pathMapper = pathMapper;
     }
 
     @Override
-    public NestedSet<? extends ActionInput> getInputFiles() {
+    public SpawnInputs getInputFiles() {
       return inputs;
     }
 
@@ -746,19 +741,21 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
     }
 
     // For each of the action's generated inputs, revert its mapped path back to its original path.
-    BiMap<String, PathFragment> mappedToOriginalPath = HashBiMap.create();
+    HashMap<String, PathFragment> mappedToOriginalPath = new HashMap<>();
+    HashSet<String> originalPaths = new HashSet<>();
     for (Artifact actionInput :
         Iterables.concat(actionInputs.toList(), additionalArtifactsForPathMapping.toList())) {
       if (actionInput.isSourceArtifact()) {
         continue;
       }
       String mappedPath = pathMapper.getMappedExecPathString(actionInput);
+      originalPaths.add(actionInput.getExecPath().getPathString());
       PathFragment previousPath = mappedToOriginalPath.put(mappedPath, actionInput.getExecPath());
       if (previousPath != null && !previousPath.equals(actionInput.getExecPath())) {
-        throw new IllegalStateException(
-            String.format(
-                "Duplicate mapped path %s derived from %s and %s",
-                mappedPath, actionInput.getExecPath(), mappedToOriginalPath.get(mappedPath)));
+        // Multiple inputs from different configs map to the same path. This is allowed when they
+        // have identical content (checked by StrippingPathMapper.isPathStrippable). Pick any
+        // original path for jdeps rewriting.
+        mappedToOriginalPath.put(mappedPath, previousPath);
       }
     }
 
@@ -777,7 +774,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
       // we can leave it as is. For entirely unexpected paths, we still report an error.
       if (originalPath == null
           && pathOnExecutor.subFragment(0, 1).equals(outputRoot)
-          && !mappedToOriginalPath.containsValue(pathOnExecutor)) {
+          && !originalPaths.contains(pathOnExecutor.getPathString())) {
         throw new IllegalStateException(
             String.format(
                 "Missing original path for mapped path %s in %s%njdeps: %s%npath map: %s",

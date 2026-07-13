@@ -94,9 +94,9 @@ import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheDeps;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheManager;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheMode;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheReaderDepsProvider;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider;
-import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions.RemoteAnalysisCacheMode;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.RegexFilter;
@@ -261,7 +261,7 @@ public class BuildView {
     BuildOptions topLevelConfigurationTrimmedOfTestOptions;
     boolean shouldDiscardAnalysisCache;
     if (skyframeExecutor.getAndIncrementAnalysisCount() != 0
-        && remoteAnalysisCachingDependenciesProvider.mode() == RemoteAnalysisCacheMode.UPLOAD) {
+        && remoteAnalysisCachingDependenciesProvider.mode().isSyncUpload()) {
       throw new AbruptExitException(
           DetailedExitCode.of(
               FailureDetail.newBuilder()
@@ -347,7 +347,6 @@ public class BuildView {
       buildConfigurationsCreatedCallback.run(topLevelConfig);
     }
 
-
     skyframeBuildView.setConfiguration(topLevelConfig, targetOptions, shouldDiscardAnalysisCache);
 
     eventBus.post(new MakeEnvironmentEvent(topLevelConfig.getMakeEnvironment()));
@@ -431,8 +430,9 @@ public class BuildView {
                 /* shouldDiscardAnalysisCache= */ discardAnalysisCacheAfterAnalysis,
                 // Analysis uploads happen after the build and use the syscall cache, so it should
                 // not be cleared mid-build. The cache is still cleared upon command completion.
-                /* shouldClearSyscallCache= */ remoteAnalysisCachingDependenciesProvider.mode()
-                    != RemoteAnalysisCacheMode.UPLOAD,
+                /* shouldClearSyscallCache= */ !remoteAnalysisCachingDependenciesProvider
+                    .mode()
+                    .isSyncUpload(),
                 buildDriverKeyTestContext,
                 skymeldAnalysisOverlapPercentage);
       } else {
@@ -449,8 +449,7 @@ public class BuildView {
                 executors,
                 checkForActionConflicts);
         setArtifactRoots(skyframeAnalysisResult.getPackageRoots());
-        if (skyframeExecutor.getRemoteAnalysisCachingDependenciesProvider().mode()
-            == RemoteAnalysisCacheMode.UPLOAD) {
+        if (skyframeExecutor.getRemoteAnalysisCachingDependenciesProvider().mode().isSyncUpload()) {
           skyframeExecutor.clearPackageValues();
         }
       }
@@ -658,7 +657,7 @@ public class BuildView {
       throws InterruptedException {
     ImmutableSet<Label> testsToRun = loadingResult.getTestsToRunLabels();
     Set<ConfiguredTarget> configuredTargets =
-        Sets.newLinkedHashSet(skyframeAnalysisResult.getConfiguredTargets());
+        new LinkedHashSet<>(skyframeAnalysisResult.getConfiguredTargets());
     ImmutableMap<AspectKey, ConfiguredAspect> aspects = skyframeAnalysisResult.getAspects();
 
     Set<ConfiguredTarget> allTargetsToTest = null;

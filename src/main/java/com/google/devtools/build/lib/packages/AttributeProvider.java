@@ -18,7 +18,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
 import com.google.devtools.build.lib.packages.Attribute.StarlarkComputedDefaultTemplate;
 import com.google.devtools.build.lib.packages.Attribute.StarlarkComputedDefaultTemplate.CannotPrecomputeDefaultsException;
@@ -169,13 +168,7 @@ public class AttributeProvider {
 
     BitSet definedAttrIndices =
         populateDefinedRuleAttributeValues(
-            ruleOrMacroInstance,
-            targetDefinitionContext.getLabelConverter(),
-            attributeValues,
-            failOnUnknownAttributes,
-            targetDefinitionContext.getListInterner(),
-            targetDefinitionContext.getLocalEventHandler(),
-            targetDefinitionContext.simplifyUnconditionalSelectsInRuleAttrs());
+            ruleOrMacroInstance, attributeValues, failOnUnknownAttributes, targetDefinitionContext);
     populateDefaultRuleAttributeValues(
         ruleOrMacroInstance, targetDefinitionContext, definedAttrIndices, isStarlark);
     // Now that all attributes are bound to values, collect and store configurable attribute keys.
@@ -195,12 +188,13 @@ public class AttributeProvider {
    */
   private <T> BitSet populateDefinedRuleAttributeValues(
       RuleOrMacroInstance ruleOrMacroInstance,
-      LabelConverter labelConverter,
       AttributeValues<T> attributeValues,
       boolean failOnUnknownAttributes,
-      Interner<ImmutableList<?>> listInterner,
-      EventHandler eventHandler,
-      boolean simplifyUnconditionalSelects) {
+      TargetDefinitionContext targetDefinitionContext) {
+    LabelConverter labelConverter = targetDefinitionContext.getLabelConverter();
+    Interner<ImmutableList<?>> listInterner = targetDefinitionContext.getListInterner();
+    boolean simplifyUnconditionalSelects =
+        targetDefinitionContext.simplifyUnconditionalSelectsInRuleAttrs();
     BitSet definedAttrIndices = new BitSet();
     for (T attributeAccessor : attributeValues.getAttributeAccessors()) {
       String attributeName = attributeValues.getName(attributeAccessor);
@@ -232,7 +226,7 @@ public class AttributeProvider {
                         .filter(Attribute::isDocumented)
                         .map(Attribute::getName)
                         .collect(ImmutableList.toImmutableList()))),
-            eventHandler);
+            targetDefinitionContext);
         continue;
       }
       // Ignore all None values (after reporting an error)
@@ -263,7 +257,7 @@ public class AttributeProvider {
         } catch (ConversionException e) {
           ruleOrMacroInstance.reportError(
               String.format("%s: %s", ruleOrMacroInstance.getLabel(), e.getMessage()),
-              eventHandler);
+              targetDefinitionContext);
           continue;
         }
         // Ignore select({"//conditions:default": None}) values for attr types with null default.
@@ -281,13 +275,13 @@ public class AttributeProvider {
           nativeAttributeValue = RuleVisibility.validateAndSimplify(vis);
         } catch (EvalException e) {
           ruleOrMacroInstance.reportError(
-              ruleOrMacroInstance.getLabel() + " " + e.getMessage(), eventHandler);
+              ruleOrMacroInstance.getLabel() + " " + e.getMessage(), targetDefinitionContext);
         }
       }
 
       boolean explicit = attributeValues.isExplicitlySpecified(attributeAccessor);
       ruleOrMacroInstance.setAttributeValue(attr, nativeAttributeValue, explicit);
-      checkAllowedValues(ruleOrMacroInstance, attr, eventHandler);
+      checkAllowedValues(ruleOrMacroInstance, attr, targetDefinitionContext);
       definedAttrIndices.set(attrIndex);
     }
     return definedAttrIndices;
@@ -324,7 +318,7 @@ public class AttributeProvider {
                 attr.getName(),
                 owner,
                 ruleOrMacroInstance.isRuleInstance() ? "rule" : "macro"),
-            targetDefinitionContext.getLocalEventHandler());
+            targetDefinitionContext);
       }
 
       // Macros don't have computed defaults or special logic for licenses or distributions.
@@ -378,7 +372,6 @@ public class AttributeProvider {
                   ? License.NO_LICENSE
                   : targetDefinitionContext.getPartialPackageArgs().license(),
               /* explicit= */ false);
-
         }
         // Don't store default values, querying materializes them at read time.
       }
@@ -422,8 +415,7 @@ public class AttributeProvider {
       Object defaultValue = attr.getDefaultValue(null);
       if (defaultValue instanceof StarlarkComputedDefaultTemplate template) {
         valueToSet =
-            template.computePossibleValues(
-                attr, ruleOrMacroInstance, targetDefinitionContext.getLocalEventHandler());
+            template.computePossibleValues(attr, ruleOrMacroInstance, targetDefinitionContext);
       } else if (defaultValue instanceof ComputedDefault computedDefault) {
         // Compute all possible values to verify that the ComputedDefault is well-defined. This
         // was previously done implicitly as part of visiting all labels to check for null-ness in
@@ -476,7 +468,9 @@ public class AttributeProvider {
    * errors for each of the invalid values are reported.
    */
   private static void checkAllowedValues(
-      RuleOrMacroInstance ruleOrMacroInstance, Attribute attribute, EventHandler eventHandler) {
+      RuleOrMacroInstance ruleOrMacroInstance,
+      Attribute attribute,
+      TargetDefinitionContext targetDefinitionContext) {
     if (attribute.checkAllowedValues()) {
       PredicateWithMessage<Object> allowedValues = attribute.getAllowedValues();
       Iterable<?> values =
@@ -490,10 +484,9 @@ public class AttributeProvider {
                   ruleOrMacroInstance.getLabel(),
                   attribute.getName(),
                   allowedValues.getErrorReason(value)),
-              eventHandler);
+              targetDefinitionContext);
         }
       }
     }
   }
-  
 }

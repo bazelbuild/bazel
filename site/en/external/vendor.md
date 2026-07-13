@@ -104,6 +104,22 @@ Note that vendoring all dependencies has a few **disadvantages**:
 
 Therefore, consider vendoring for specific targets first.
 
+### Vendor tools for Bazel subcommands {:#vendor-tools-for-subcommands}
+
+Some Bazel subcommands (such as `bazel mod tidy`) have implicit tool
+dependencies that are not reachable from user build targets, so they are
+**not** included by `bazel vendor //...`. To vendor those tools as well, add
+the `@bazel_tools//tools:tools_for_bazel_subcommands` filegroup to your
+vendor invocation:
+
+```none
+bazel vendor //... @bazel_tools//tools:tools_for_bazel_subcommands
+```
+
+This is required if you plan to run commands like `bazel mod tidy` in an
+offline or hermetic environment (for example with `--vendor_dir` and
+`--nofetch`).
+
 ## Configure vendor mode with VENDOR.bazel {:#configure-vendor-mode}
 
 You can control how given repos are handled with the VENDOR.bazel file located

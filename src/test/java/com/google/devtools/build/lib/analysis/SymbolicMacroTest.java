@@ -2343,6 +2343,71 @@ my_macro = macro(
 """);
   }
 
+  @Test
+  public void invalidAttributeValues_failPackage() throws Exception {
+    setBuildLanguageOptions("--incompatible_symbolic_macro_strict_attrs");
+    scratch.file(
+        "pkg/macro.bzl",
+        """
+        def _macro_impl(name, visibility, **kwargs):
+            pass
+
+        my_macro = macro(
+            implementation = _macro_impl,
+            attrs = {
+                "val": attr.string(values = ["foo", "bar"]),
+            },
+        )
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load(":macro.bzl", "my_macro")
+
+        my_macro(
+            name = "macro_inst",
+            val = "invalid_value",
+        )
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    Package pkg = getPackage("pkg");
+    assertThat(pkg).isNotNull();
+    assertThat(pkg.containsErrors()).isTrue();
+    assertContainsEvent("invalid value in 'val' attribute");
+  }
+
+  @Test
+  public void invalidAttributeValues_doNotFailPackage_withoutFlag() throws Exception {
+    setBuildLanguageOptions("--noincompatible_symbolic_macro_strict_attrs");
+    scratch.file(
+        "pkg/macro.bzl",
+        """
+        def _macro_impl(name, visibility, **kwargs):
+            pass
+
+        my_macro = macro(
+            implementation = _macro_impl,
+            attrs = {
+                "val": attr.string(values = ["foo", "bar"]),
+            },
+        )
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load(":macro.bzl", "my_macro")
+
+        my_macro(
+            name = "macro_inst",
+            val = "invalid_value",
+        )
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    assertPackageNotInError(getPackage("pkg"));
+  }
+
   private void assertMacroHasAttributes(MacroInstance macro, ImmutableList<String> attributeNames) {
     for (String attributeName : attributeNames) {
       assertThat(

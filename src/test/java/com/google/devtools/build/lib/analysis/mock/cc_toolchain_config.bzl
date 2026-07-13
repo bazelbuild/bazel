@@ -99,6 +99,7 @@ _FEATURE_NAMES = struct(
     static_linking_mode = "static_linking_mode",
     archive_param_file = "archive_param_file",
     compiler_param_file = "compiler_param_file",
+    compiler_param_file_on_demand = "compiler_param_file_on_demand",
     gcc_quoting_for_param_files = "gcc_quoting_for_param_files",
     objcopy_embed_flags = "objcopy_embed_flags",
     ld_embed_flags = "ld_embed_flags",
@@ -904,6 +905,11 @@ _compiler_param_file_feature = feature(
     enabled = True,
 )
 
+_compiler_param_file_on_demand_feature = feature(
+    name = _FEATURE_NAMES.compiler_param_file_on_demand,
+    enabled = True,
+)
+
 _gcc_quoting_for_param_files_feature = feature(
     name = _FEATURE_NAMES.gcc_quoting_for_param_files,
     enabled = True,
@@ -1441,6 +1447,7 @@ _feature_name_to_feature = {
     _FEATURE_NAMES.targets_windows: _targets_windows_feature,
     _FEATURE_NAMES.archive_param_file: _archive_param_file_feature,
     _FEATURE_NAMES.compiler_param_file: _compiler_param_file_feature,
+    _FEATURE_NAMES.compiler_param_file_on_demand: _compiler_param_file_on_demand_feature,
     _FEATURE_NAMES.gcc_quoting_for_param_files: _gcc_quoting_for_param_files_feature,
     _FEATURE_NAMES.module_maps: _module_maps_feature,
     _FEATURE_NAMES.static_link_cpp_runtimes: _static_link_cpp_runtimes_feature,

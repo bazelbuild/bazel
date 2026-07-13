@@ -17,6 +17,7 @@ import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableClassToInstanceMap;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec.MemoizationEquality;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedOutputStream;
@@ -137,10 +138,11 @@ import javax.annotation.Nullable;
 abstract class MemoizingSerializationContext extends SerializationContext {
   private static final int NO_VALUE = -1;
 
-  private final Reference2IntOpenHashMap<Object> table = new Reference2IntOpenHashMap<>();
+  /** For memoizing {@link MemoizationEquality#BY_REFERENCE}. */
+  private final Reference2IntOpenHashMap<Object> referenceTable = new Reference2IntOpenHashMap<>();
 
-  /** Table for types serialized with {@link LeafObjectCodec}, using value-based equality. */
-  private final Object2IntOpenHashMap<Object> leafTable = new Object2IntOpenHashMap<>();
+  /** For memoizing {@link MemoizationEquality#BY_VALUE}. */
+  private final Object2IntOpenHashMap<Object> valueTable = new Object2IntOpenHashMap<>();
 
   private final Set<Class<?>> explicitlyAllowedClasses = new HashSet<>();
 
@@ -153,8 +155,8 @@ abstract class MemoizingSerializationContext extends SerializationContext {
   MemoizingSerializationContext(
       ObjectCodecRegistry codecRegistry, ImmutableClassToInstanceMap<Object> dependencies) {
     super(codecRegistry, dependencies);
-    table.defaultReturnValue(NO_VALUE);
-    leafTable.defaultReturnValue(NO_VALUE);
+    referenceTable.defaultReturnValue(NO_VALUE);
+    valueTable.defaultReturnValue(NO_VALUE);
   }
 
   static byte[] serializeToBytes(
@@ -210,19 +212,22 @@ abstract class MemoizingSerializationContext extends SerializationContext {
     if (writeIfNullOrConstant(obj, codedOut)) {
       return;
     }
-    int maybePrevious = getMemoizedIndex(obj, /* isLeafType= */ true);
+    int maybePrevious = getMemoizedIndex(obj, codec.getMemoizationEquality(obj));
     if (maybePrevious != NO_VALUE) {
-      // There was a previous entry. Writes a backreference, subtracting 2 to avoid 0 (which
-      // indicates null), and -1 (which indicates an immediate value).
-      codedOut.writeSInt32NoTag(-maybePrevious - 2);
+      int tagWithType = WireType.Backreference.INSTANCE.getTypedTagNumber(maybePrevious);
+      codedOut.writeUInt32NoTag(tagWithType);
       return;
     }
-    // A new entry was added, emits -1 to signal an immediate value, then serializes the value.
-    codedOut.writeSInt32NoTag(-1);
+    // A new entry was added. Emits typedTag `(CodecWireType.UNSTABLE, 1)` to signal an immediate
+    // value, then serializes the value. Note that this placeholder value is *not actually going to
+    // be decoded later using UNSTABLE codec #1*. We just need an unambiguous signal for an
+    // immediate value.
+    int tagWithType = WireType.CodecWireType.UNSTABLE.getTypedTagNumber(1);
+    codedOut.writeUInt32NoTag(tagWithType);
     codec.serialize((LeafSerializationContext) this, obj, codedOut);
     // By necessity, a LeafCodec is treated like MEMOIZE_AFTER because when deserializing, the
     // value will only be available as a backreference after its deserialization is complete.
-    int unusedId = memoize(obj, /* isLeafType= */ true);
+    int unusedId = memoize(obj, codec.getMemoizationEquality(obj));
   }
 
   @Override
@@ -246,38 +251,38 @@ abstract class MemoizingSerializationContext extends SerializationContext {
   @Override
   final void serializeWithCodec(ObjectCodec<Object> codec, Object obj, CodedOutputStream codedOut)
       throws SerializationException, IOException {
-    switch (codec.getStrategy()) {
-      case MEMOIZE_BEFORE:
-        {
-          // Deserialization can determine the value of the tag from the size of its memo table so
-          // the tag does not need to be written to the stream.
-          memoize(obj, /* isLeafType= */ false); // LeafObjectCodec is always MEMOIZE_AFTER.
-          codec.serialize(this, obj, codedOut);
-          break;
-        }
-      case MEMOIZE_AFTER:
-        {
-          codec.serialize(this, obj, codedOut);
-          boolean isLeafType = codec instanceof LeafObjectCodec;
-          // If serializing the children caused the parent object itself to be serialized due to a
-          // cycle, then there's now a memo entry for the parent. Don't overwrite it with a new id.
-          int cylicallyCreatedId = getMemoizedIndex(obj, isLeafType);
-          int id = (cylicallyCreatedId != NO_VALUE) ? cylicallyCreatedId : memoize(obj, isLeafType);
-          codedOut.writeInt32NoTag(id);
-          break;
-        }
+    switch (codec.getMemoizationTiming()) {
+      case BEFORE -> {
+        // Deserialization can determine the value of the tag from the size of its memo table so
+        // the tag does not need to be written to the stream.
+        memoize(obj, codec.getMemoizationEquality(obj));
+        codec.serialize(this, obj, codedOut);
+      }
+      case AFTER -> {
+        codec.serialize(this, obj, codedOut);
+        // If serializing the children caused the parent object itself to be serialized due to a
+        // cycle, then there's now a memo entry for the parent. Don't overwrite it with a new id.
+        int cylicallyCreatedId = getMemoizedIndex(obj, codec.getMemoizationEquality(obj));
+        int id =
+            cylicallyCreatedId != NO_VALUE
+                ? cylicallyCreatedId
+                : memoize(obj, codec.getMemoizationEquality(obj));
+        int tagWithType = WireType.Backreference.INSTANCE.getTypedTagNumber(id);
+        codedOut.writeUInt32NoTag(tagWithType);
+      }
     }
   }
 
   @Override
   final boolean writeBackReferenceIfMemoized(
-      Object obj, CodedOutputStream codedOut, boolean isLeafType) throws IOException {
-    int memoizedIndex = getMemoizedIndex(obj, isLeafType);
+      Object obj, CodedOutputStream codedOut, MemoizationEquality memoizationEquality)
+      throws IOException {
+    int memoizedIndex = getMemoizedIndex(obj, memoizationEquality);
     if (memoizedIndex == NO_VALUE) {
       return false;
     }
-    // Subtracts 1 so it will be negative and not collide with null.
-    codedOut.writeSInt32NoTag(-memoizedIndex - 1);
+    int typedTag = WireType.Backreference.INSTANCE.getTypedTagNumber(memoizedIndex);
+    codedOut.writeUInt32NoTag(typedTag);
     return true;
   }
 
@@ -290,8 +295,11 @@ abstract class MemoizingSerializationContext extends SerializationContext {
    * If the value is already memoized, return its on-the-wire id; otherwise returns {@link
    * #NO_VALUE}.
    */
-  private int getMemoizedIndex(Object value, boolean isLeafType) {
-    return isLeafType ? leafTable.getInt(value) : table.getInt(value);
+  private int getMemoizedIndex(Object value, MemoizationEquality memoizationEquality) {
+    return switch (memoizationEquality) {
+      case BY_REFERENCE -> referenceTable.getInt(value);
+      case BY_VALUE -> valueTable.getInt(value);
+    };
   }
 
   /**
@@ -300,10 +308,14 @@ abstract class MemoizingSerializationContext extends SerializationContext {
    * <p>{@code value} must not already be present.
    */
   @CanIgnoreReturnValue // may be called for side effect
-  private int memoize(Object value, boolean isLeafType) {
+  private int memoize(Object value, MemoizationEquality memoizationEquality) {
     // Ids count sequentially from 0.
-    int newId = table.size() + leafTable.size();
-    int maybePrevious = isLeafType ? leafTable.put(value, newId) : table.put(value, newId);
+    int newId = referenceTable.size() + valueTable.size();
+    int maybePrevious =
+        switch (memoizationEquality) {
+          case BY_REFERENCE -> referenceTable.put(value, newId);
+          case BY_VALUE -> valueTable.put(value, newId);
+        };
     checkState(maybePrevious == NO_VALUE, "Memoized object '%s' multiple times", value);
     return newId;
   }

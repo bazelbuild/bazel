@@ -14,30 +14,24 @@
 package net.starlark.java.syntax;
 
 /**
- * Syntax node for a non-negative float literal. (Negative floats are parsed as a {@link
- * UnaryOperatorExpression} operating on a positive {@link FloatLiteral} argument.)
+ * Syntax node for a float literal. The literal's value may be negative, since the parser simplifies
+ * a unary minus operation applied on a positive float literal into a negative float literal.
  */
-// TODO: #28385 - consider optimizing negative float literals to be FloatLiteral.
 public final class FloatLiteral extends Expression {
-  private final String raw;
   private final int tokenOffset;
+  private final int endOffset;
   private final double value;
 
-  FloatLiteral(FileLocations locs, String raw, int tokenOffset, double value) {
+  FloatLiteral(FileLocations locs, int tokenOffset, int endOffset, double value) {
     super(locs, Kind.FLOAT_LITERAL);
-    this.raw = raw;
     this.tokenOffset = tokenOffset;
+    this.endOffset = endOffset;
     this.value = value;
   }
 
   /** Returns the value denoted by this literal. */
   public double getValue() {
     return value;
-  }
-
-  /** Returns the raw source text of the literal. */
-  public String getRaw() {
-    return raw;
   }
 
   @Override
@@ -47,7 +41,7 @@ public final class FloatLiteral extends Expression {
 
   @Override
   public int getEndOffset() {
-    return tokenOffset + raw.length();
+    return endOffset;
   }
 
   @Override

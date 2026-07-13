@@ -39,6 +39,8 @@ public class TypeTaggerTest {
   private Module module =
       TestUtils.Module.withUniversalTypesAnd("struct", Types.STRUCT_CONSTRUCTOR);
 
+  private TypeTagger.Loader loader = null;
+
   /** Extracts an expression string to a type in an empty environment. */
   private StarlarkType extractType(String type) throws Exception {
     Expression expr = Expression.parseTypeExpression(ParserInput.fromLines(type), options.build());
@@ -68,6 +70,38 @@ public class TypeTaggerTest {
       return typeTable().getType(function);
     }
 
+    /** Returns the type of a global. Does not support vars that are bound in a list assignment. */
+    @Nullable
+    private StarlarkType getType(String name) {
+      for (Statement stmt : file().getStatements()) {
+        switch (stmt) {
+          case AssignmentStatement assign -> {
+            if (assign.getLHS() instanceof Identifier id && id.getName().equals(name)) {
+              return typeTable().getType(id.getBinding());
+            }
+          }
+          case DefStatement def -> {
+            if (def.getIdentifier().getName().equals(name)) {
+              return typeTable().getType(def.getResolvedFunction());
+            }
+          }
+          case TypeAliasStatement typeAlias -> {
+            // TODO: #27370 - give type aliases' values a sensible type.
+            if (typeAlias.getIdentifier().getName().equals(name)) {
+              return typeTable().getType(typeAlias.getIdentifier().getBinding());
+            }
+          }
+          case VarStatement var -> {
+            if (var.getIdentifier().getName().equals(name)) {
+              return typeTable().getType(var.getIdentifier().getBinding());
+            }
+          }
+          default -> {}
+        }
+      }
+      return null;
+    }
+
     /** Returns the type of a {@code def}'s resolved function. */
     @Nullable
     private Types.CallableType getType(DefStatement def) {
@@ -94,7 +128,7 @@ public class TypeTaggerTest {
     assertThat(file.errors()).isEmpty();
     Resolver.resolveFile(file, module);
     assertThat(file.errors()).isEmpty();
-    TypeTable typeTable = TypeTagger.tagFile(file, module);
+    TypeTable typeTable = TypeTagger.tagFile(file, module, loader);
     return new Result(file, typeTable);
   }
 
@@ -245,10 +279,16 @@ public class TypeTaggerTest {
     assertThat(extractType("struct[{'foo': int, 'bar': list[str]}]"))
         .isEqualTo(Types.struct(ImmutableMap.of("foo", Types.INT, "bar", Types.list(Types.STR))));
 
-    assertExtractTypeFails("struct", "struct[] accepts exactly 1 argument but got 0");
+    assertThat(extractType("struct")).isEqualTo(Types.STRUCT_OF_ANY);
+    assertThat(extractType("struct[{'foo': int}, ...]"))
+        .isEqualTo(Types.partialStruct(ImmutableMap.of("foo", Types.INT)));
+
+    assertExtractTypeFails("struct[...]", "in application to struct, got '...', expected a dict");
     assertExtractTypeFails(
-        "struct[{'a': int}, {'b': str}]", "struct[] accepts exactly 1 argument but got 2");
-    assertExtractTypeFails("struct[int]", "in application to struct, got 'int', expected a dict");
+        "struct[{'a': int}, int]",
+        "in application to struct, got 'int' for optional argument #2, expected '...'");
+    assertExtractTypeFails(
+        "struct[{'a': int}, ..., ...]", "struct[] accepts at most 2 arguments but got 3");
     // Just like for eval-time dict literals, keys must be unique.
     assertExtractTypeFails(
         "struct[{'foo': int, 'foo': bool}]", "dictionary expression has duplicate key: \"foo\"");
@@ -681,5 +721,91 @@ public class TypeTaggerTest {
                 return (lambda w: w)(nested(x))
             """)
         .isFalse();
+  }
+
+  @Test
+  public void loadStatement() throws Exception {
+    loader = importName -> TestUtils.LoadableModule.of("typed", Types.INT, "untyped", Types.ANY);
+    Result result = tagFile("load('//x:x.bzl', local_t = 'typed', local_u = 'untyped')");
+    LoadStatement loadStmt = getFirstStatement(LoadStatement.class, result.file());
+
+    assertThat(loadStmt.getBindings().stream().map(b -> result.getType(b.getLocalName())))
+        .containsExactly(Types.INT, Types.ANY)
+        .inOrder();
+  }
+
+  @Test
+  public void loadStatement_requiresWorkingLoader() throws Exception {
+    loader = null;
+    assertInvalid(
+        "load statements are not supported because no module loader has been defined",
+        "load('//x:x.bzl', 'x')");
+  }
+
+  @Test
+  public void loadStatement_requiresLoadableModule() throws Exception {
+    loader = importName -> null;
+    assertInvalid("module '//x:x.bzl' not found", "load('//x:x.bzl', 'x')");
+  }
+
+  @Test
+  public void loadStatement_requiresExportedGlobal() throws Exception {
+    loader = importName -> TestUtils.LoadableModule.of();
+    assertInvalid("module '//x:x.bzl' does not contain symbol 'x'", "load('//x:x.bzl', 'x')");
+  }
+
+  @Test
+  public void loadStatement_loadsTypeConstructor() throws Exception {
+    loader =
+        importName ->
+            TestUtils.LoadableModule.ofTypesAndConstructors(
+                "numeric", Types.ANY, Types.wrapType("numeric", Types.NUMERIC));
+    Result result =
+        tagFile(
+            """
+            load("//x:x.bzl", "numeric")
+            x: numeric = 1
+            """);
+    assertThat(result.getType("x")).isEqualTo(Types.NUMERIC);
+  }
+
+  @Test
+  public void loadedTypeConstructor_cannotBeRebound() throws Exception {
+    loader =
+        importName ->
+            TestUtils.LoadableModule.ofTypesAndConstructors(
+                "numeric", Types.ANY, Types.wrapType("numeric", Types.NUMERIC));
+    options.allowToplevelRebinding(true).loadBindsGlobally(true);
+
+    // TODO: #27370 - Arguably, these should all be allowed unless the loaded symbol is used in a
+    // type expression in the file.
+    assertInvalid(
+        ":2:1: type 'numeric' redeclared",
+        """
+        load("//x:x.bzl", "numeric")
+        type numeric = int
+        """);
+
+    assertInvalid(
+        ":2:1: type 'numeric' redeclared",
+        """
+        load("//x:x.bzl", "numeric")
+        numeric = 123
+        """);
+
+    assertInvalid(
+        ":2:1: type 'numeric' redeclared",
+        """
+        load("//x:x.bzl", "numeric")
+        foo, bar, numeric = 123, 456, 789
+        """);
+
+    assertInvalid(
+        ":2:1: type 'numeric' redeclared",
+        """
+        load("//x:x.bzl", "numeric")
+        def numeric(x):
+            return cast(int|float, x)
+        """);
   }
 }

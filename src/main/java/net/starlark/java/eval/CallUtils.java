@@ -14,17 +14,25 @@
 
 package net.starlark.java.eval;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.primitives.Booleans.falseFirst;
+import static java.util.Comparator.comparing;
+
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.Arrays;
-import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkAnnotations;
+import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.syntax.StarlarkType;
 import net.starlark.java.syntax.TypeConstructor;
+import net.starlark.java.syntax.TypeContext;
 import net.starlark.java.syntax.Types;
 
 /**
@@ -53,10 +61,12 @@ public final class CallUtils {
       new ConcurrentHashMap<>();
 
   public static BuiltinManager getBuiltinManager(StarlarkSemantics semantics) {
-    BuiltinManager manager = managerForSemantics.get(semantics.getBuiltinManagerCacheKey());
+    // TODO: b/513244797 - Eliminate need for getBuiltinManagerCacheKey.
+    StarlarkSemantics key = semantics.getBuiltinManagerCacheKey();
+    BuiltinManager manager = managerForSemantics.get(key);
     if (manager == null) {
       manager = new BuiltinManager(semantics);
-      BuiltinManager prev = managerForSemantics.putIfAbsent(semantics, manager);
+      BuiltinManager prev = managerForSemantics.putIfAbsent(key, manager);
       if (prev != null) {
         manager = prev; // first thread wins
       }
@@ -65,22 +75,20 @@ public final class CallUtils {
   }
 
   /**
-   * Describes the Starlark methods available for a particular Java class under a particular {@link
-   * StarlarkSemantics}.
+   * Describes the Starlark methods - meaning methods annotated with {@link StarlarkMethod} -
+   * available for a particular Java class under a particular {@link StarlarkSemantics}.
    *
-   * <p>Generally, but not always (e.g. in the case of compilations of global functions like {@link
-   * MethodLibrary}), instances of the Java class are valid as Starlark values.
+   * <p>Generally, instances of this class are valid as Starlark values, and the class itself is
+   * generally annotated with {@link StarlarkBuiltin}. However, there are exceptions. For example,
+   * compilations of global functions, such as {@link MethodLibrary}, are not Starlark values. Some
+   * internal {@link StarlarkValue} implementations, such as {@link Starlark.UnboundMarker}, do not
+   * have a {@link StarlarkBuiltin} annotation. And {@link StringModule} cannot be used as a valid
+   * Starlark value despite having a {@link StarlarkBuiltin} annotation.
    *
    * <p>Although a {@code ClassDescriptor} does not directly embed the {@code StarlarkSemantics},
    * its contents vary based on them. In contrast, {@link MethodDescriptor} and {@link
    * ParamDescriptor} do not vary with the semantics.
    */
-  // TODO(bazel-team): For context on whether descriptors should depend on the StarlarkSemantics,
-  // see #25743 and the discussion in cl/742265869. The history of this is that eliminating the
-  // dependence on semantics made it simpler to obtain type information and avoid an overreliance on
-  // StarlarkSemantics#DEFAULT. But embedding a semantics may make it simpler to give precise static
-  // type information that takes into account flag-guarding. For the moment it suffices to store a
-  // semantics in BuiltinFunction.
   private static class ClassDescriptor {
     /** The manager that created this descriptor. Used for obtaining method type information. */
     @SuppressWarnings("UnusedVariable") // TODO: #28325 - Use it for obtaining StarlarkTypes.
@@ -116,6 +124,71 @@ public final class CallUtils {
      * <p>See {@link StarlarkMethod#isTypeConstructor}.
      */
     @Nullable TypeConstructor typeConstructor;
+
+    /**
+     * The value of {@link ClassStarlarkType#getSupertypes} for this class's {@link
+     * ClassStarlarkType} if it exists (i.e. if the {@link ClassStarlarkType} is non-null); or null
+     * otherwise.
+     *
+     * <p>Needs to be stored outside the {@link ClassStarlarkType} to avoid circular dependencies
+     * between a {@link ClassStarlarkType} and its methods' args/returns types.
+     */
+    @Nullable ImmutableList<StarlarkType> classStarlarkTypeSupertypes;
+  }
+
+  private static final class ClassStarlarkType extends StarlarkType {
+    private final String name;
+    private final Class<?> clazz;
+    private final BuiltinManager manager;
+
+    private ClassStarlarkType(String name, Class<?> clazz, BuiltinManager manager) {
+      this.name = name;
+      this.clazz = clazz;
+      this.manager = manager;
+    }
+
+    // TODO: #28325 - Populate supertypes where possible. If a class implements eval.Sequence, its
+    // ClassStarlarkType should have `Sequence` as a supertype. The StarlarkType hierarchy should be
+    // compatible with the Java inheritance hierarchy.
+    static ImmutableList<StarlarkType> buildSupertypes(
+        Class<?> clazz, ClassDescriptor classDescriptor) {
+      ImmutableList.Builder<StarlarkType> builder = ImmutableList.builder();
+      if (classDescriptor.selfCall != null) {
+        // Values of a self-call type are callable, with the self-call method's signature.
+        builder.add(classDescriptor.selfCall.getStarlarkType());
+      }
+      if (StarlarkAnnotations.isAssignableToStructType(clazz)) {
+        // Values of struct-like types are assignable to a struct type whose fields are the
+        // class's structfield annotated methods.
+        // TODO: #28325 - Do we need to support partial structs?
+        ImmutableMap.Builder<String, StarlarkType> fields = ImmutableMap.builder();
+        classDescriptor.methods.forEach(
+            (methodName, desc) -> {
+              if (desc.isStructField()) {
+                fields.put(methodName, desc.getStarlarkType());
+              }
+            });
+        builder.add(Types.struct(fields.buildOrThrow()));
+      }
+      return builder.build();
+    }
+
+    @Override
+    public ImmutableList<StarlarkType> getSupertypes() {
+      return checkNotNull(manager.getClassDescriptor(clazz).classStarlarkTypeSupertypes);
+    }
+
+    @Override
+    @Nullable
+    public StarlarkType getField(String name, TypeContext context) {
+      @Nullable MethodDescriptor method = manager.getClassDescriptor(clazz).methods.get(name);
+      return method == null ? null : method.getStarlarkType();
+    }
+
+    @Override
+    public String toString() {
+      return name;
+    }
   }
 
   /**
@@ -140,8 +213,35 @@ public final class CallUtils {
           }
         };
 
+    private final ClassValue<ClassStarlarkType> classStarlarkTypeCache =
+        new ClassValue<ClassStarlarkType>() {
+          @Override
+          @Nullable
+          protected ClassStarlarkType computeValue(Class<?> clazz) {
+            if (!wantClassStarlarkType(clazz)) {
+              return null;
+            }
+            // TODO: #28325 - Use a superclass's/interface's ClassStarlarkType where it makes sense.
+            // In particular, classes sharing the same most-proximate StarlarkBuiltin and the same
+            // set of methods should share the same ClassStarlarkType.
+            @Nullable StarlarkBuiltin annotation = StarlarkAnnotations.getStarlarkBuiltin(clazz);
+            String typeName = annotation != null ? annotation.name() : clazz.getSimpleName();
+            return new ClassStarlarkType(typeName, clazz, BuiltinManager.this);
+          }
+        };
+
     private BuiltinManager(StarlarkSemantics semantics) {
       this.semantics = semantics;
+    }
+
+    /**
+     * Returns the Starlark type to be used for valid Starlark values of the given class which
+     * doesn't override {@link StarlarkValue#getStarlarkType}; or null if it (or one of its
+     * superclasses) does override {@link StarlarkValue#getStarlarkType}.
+     */
+    @Nullable
+    StarlarkType getClassStarlarkType(Class<?> clazz) {
+      return classStarlarkTypeCache.get(clazz);
     }
 
     StarlarkSemantics getSemantics() {
@@ -149,8 +249,8 @@ public final class CallUtils {
     }
 
     /**
-     * Returns the {@link ClassDescriptor} for the given {@link StarlarkSemantics} and {@link
-     * Class}.
+     * Returns the {@link ClassDescriptor} for the given {@link Class}, under the BuiltinManager's
+     * {@link StarlarkSemantics}.
      *
      * <p>This method is a hotspot! It's called on every function call and field access. A single
      * `bazel build` invocation can make tens or even hundreds of millions of calls to this method.
@@ -208,19 +308,19 @@ public final class CallUtils {
 
   private static ClassDescriptor buildClassDescriptor(BuiltinManager manager, Class<?> clazz) {
     MethodDescriptor selfCall = null;
-    ImmutableMap.Builder<String, MethodDescriptor> methods = ImmutableMap.builder();
+    LinkedHashMap<String, MethodDescriptor> methods = new LinkedHashMap<>();
 
     TypeConstructor typeConstructor = getAssociatedTypeConstructor(clazz);
 
-    // Sort methods by Java name, for determinism.
+    // Sort non-synthetic methods ahead of synthetic ones, then by Java name for determinism. A
+    // public method inherited from a non-public superclass is exposed by Class.getMethods() only as
+    // a synthetic bridge, so synthetic methods must not be skipped outright; processing
+    // non-synthetic methods first lets a real method (with its non-erased signature) win over its
+    // bridge, while a bridge still provides any name no non-synthetic method does.
     Method[] classMethods = clazz.getMethods();
-    Arrays.sort(classMethods, Comparator.comparing(Method::getName));
+    Arrays.sort(
+        classMethods, comparing(Method::isSynthetic, falseFirst()).thenComparing(Method::getName));
     for (Method method : classMethods) {
-      // Synthetic methods lead to false multiple matches
-      if (method.isSynthetic()) {
-        continue;
-      }
-
       // annotated?
       StarlarkMethod callable = StarlarkAnnotations.getStarlarkMethod(method);
       if (callable == null) {
@@ -239,24 +339,58 @@ public final class CallUtils {
 
       // self-call method?
       if (callable.selfCall()) {
-        if (selfCall != null) {
+        if (selfCall == null) {
+          selfCall = descriptor;
+        } else if (!method.isSynthetic()) {
+          // Two distinct selfCall methods. (A synthetic bridge of the same method -- e.g. from a
+          // covariant return override -- is not a conflict and is simply ignored.)
           throw new IllegalArgumentException(
               String.format("Class %s has two selfCall methods defined", clazz.getName()));
         }
-        selfCall = descriptor;
         continue;
       }
 
       // regular method
-      methods.put(callable.name(), descriptor);
+      methods.putIfAbsent(callable.name(), descriptor);
     }
 
     ClassDescriptor classDescriptor = new ClassDescriptor();
     classDescriptor.manager = manager;
     classDescriptor.selfCall = selfCall;
-    classDescriptor.methods = methods.buildOrThrow();
+    classDescriptor.methods = ImmutableMap.copyOf(methods);
     classDescriptor.typeConstructor = typeConstructor;
+    if (wantClassStarlarkType(clazz)) {
+      classDescriptor.classStarlarkTypeSupertypes =
+          ClassStarlarkType.buildSupertypes(clazz, classDescriptor);
+    }
     return classDescriptor;
+  }
+
+  /**
+   * Returns true if a {@link ClassStarlarkType} should be generated for the given class. This is
+   * the case if the class is a {@link StarlarkValue} and does not override {@link
+   * StarlarkValue#getStarlarkType}.
+   */
+  private static boolean wantClassStarlarkType(Class<?> clazz) {
+    if (!StarlarkValue.class.isAssignableFrom(clazz)) {
+      return false;
+    }
+    @Nullable StarlarkBuiltin annotation = StarlarkAnnotations.getStarlarkBuiltin(clazz);
+    if (annotation == null) {
+      return true;
+    }
+    Method getter;
+    try {
+      // LINT.IfChange
+      getter = clazz.getMethod("getStarlarkType", StarlarkSemantics.class);
+      // LINT.ThenChange(//src/main/java/net/starlark/java/eval/StarlarkValue.java)
+    } catch (NoSuchMethodException e) {
+      // All StarlarkBuiltin-annotated classes must implement StarlarkValue and thus have a
+      // getStarlarkType method.
+      throw new IllegalStateException(
+          String.format("%s missing getStarlarkType(StarlarkSemantics) method", clazz), e);
+    }
+    return getter.getDeclaringClass().equals(StarlarkValue.class);
   }
 
   /**

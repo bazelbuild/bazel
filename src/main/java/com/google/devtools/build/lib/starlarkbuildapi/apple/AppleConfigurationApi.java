@@ -63,38 +63,6 @@ public interface AppleConfigurationApi extends StarlarkValue {
   String getXcodeVersionFlag() throws EvalException;
 
   @StarlarkMethod(
-      name = "ios_sdk_version_flag",
-      documented = false,
-      structField = true,
-      allowReturnNones = true)
-  @Nullable
-  DottedVersionApi<?> iosSdkVersionFlag() throws EvalException;
-
-  @StarlarkMethod(
-      name = "macos_sdk_version_flag",
-      documented = false,
-      structField = true,
-      allowReturnNones = true)
-  @Nullable
-  DottedVersionApi<?> macOsSdkVersionFlag() throws EvalException;
-
-  @StarlarkMethod(
-      name = "tvos_sdk_version_flag",
-      documented = false,
-      structField = true,
-      allowReturnNones = true)
-  @Nullable
-  DottedVersionApi<?> tvOsSdkVersionFlag() throws EvalException;
-
-  @StarlarkMethod(
-      name = "watchos_sdk_version_flag",
-      documented = false,
-      structField = true,
-      allowReturnNones = true)
-  @Nullable
-  DottedVersionApi<?> watchOsSdkVersionFlag() throws EvalException;
-
-  @StarlarkMethod(
       name = "ios_minimum_os_flag",
       documented = false,
       structField = true,

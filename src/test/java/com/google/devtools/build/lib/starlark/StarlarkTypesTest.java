@@ -13,7 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.starlark;
 
+import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
+import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkMethod;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -21,6 +27,38 @@ import org.junit.runners.JUnit4;
 /** Tests for Starlark types. */
 @RunWith(JUnit4.class)
 public class StarlarkTypesTest extends BuildViewTestCase {
+
+  @StarlarkBuiltin(name = "TestStructApiImpl")
+  private static final class TestStructApiImpl implements StructApi {
+    private final int answer;
+
+    private TestStructApiImpl(int answer) {
+      this.answer = answer;
+    }
+
+    @StarlarkMethod(name = "answer", doc = "A field", structField = true)
+    public int answer() {
+      return answer;
+    }
+
+    @StarlarkMethod(
+        name = "plus",
+        doc = "Not a field",
+        parameters = {
+          @Param(name = "other"),
+        })
+    public TestStructApiImpl plus(TestStructApiImpl other) {
+      return new TestStructApiImpl(this.answer + other.answer);
+    }
+  }
+
+  @Override
+  protected ConfiguredRuleClassProvider createRuleClassProvider() {
+    ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
+    TestRuleClassProvider.addStandardRules(builder);
+    builder.addBzlToplevel("test_struct_api_impl", new TestStructApiImpl(42));
+    return builder.build();
+  }
 
   @Test
   public void experimentalStarlarkTypes_on_allowsTypeAnnotations() throws Exception {
@@ -235,5 +273,55 @@ public class StarlarkTypesTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     getTarget("//test:BUILD");
     assertContainsEvent("in call to f(), parameter 'x' got value of type 'str', want 'int'");
+  }
+
+  @Test
+  public void structReturnType() throws Exception {
+    setBuildLanguageOptions(
+        "--experimental_starlark_type_syntax", "--experimental_starlark_static_type_checking");
+
+    scratch.file(
+        "good/good.bzl",
+        """
+        def f(s: struct[{"x": int}]):
+            return s.x + 1
+
+        good = f(struct(x = 1))
+        """);
+    scratch.file("good/BUILD", "load('good.bzl', 'good')");
+    getConfiguredTarget("//good:BUILD");
+    assertNoEvents();
+
+    scratch.file("bad/bad.bzl", "bad: int = struct(x = 1)");
+    scratch.file("bad/BUILD", "load('bad.bzl', 'bad')");
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//bad:BUILD");
+    assertContainsEvent("cannot assign type 'struct' to 'bad' of type 'int'");
+  }
+
+  @Test
+  public void structApiImplementations_assignableToStructType() throws Exception {
+    setBuildLanguageOptions(
+        "--experimental_starlark_type_syntax", "--experimental_starlark_static_type_checking");
+
+    scratch.file(
+        "good/good.bzl",
+        """
+        good: struct[{"answer": int}] = test_struct_api_impl.plus(test_struct_api_impl)
+        """);
+    scratch.file("good/BUILD", "load('good.bzl', 'good')");
+    getConfiguredTarget("//good:BUILD");
+    assertNoEvents();
+
+    scratch.file(
+        "bad/bad.bzl",
+        """
+        bad: struct[{"answer": float}] = test_struct_api_impl.plus(test_struct_api_impl)
+        """);
+    scratch.file("bad/BUILD", "load('bad.bzl', 'bad')");
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//bad:BUILD");
+    assertContainsEvent(
+        "cannot assign type 'TestStructApiImpl' to 'bad' of type 'struct[{\"answer\": float}]'");
   }
 }

@@ -124,7 +124,7 @@ public final class RunCommandLineTest {
                 -u UNSET_ME_TOO \\
                 ENV_VAR=val \\
                 ENV_VAR_WITH_SPACES='foo bar' \\
-              executable argv1 'arg w spaces' "$@"\
+              executable argv1 'arg w spaces' "$@"
             """);
   }
 
@@ -141,7 +141,7 @@ public final class RunCommandLineTest {
             ImmutableList.of("executable", "argv1", "arg w spaces"));
     assertThat(result)
         .isEqualTo(
-            """
+"""
 #!/bin/bash
 cd workingDir && \\
   exec env \\
@@ -149,7 +149,7 @@ cd workingDir && \\
     -u UNSET_ME_TOO \\
     ENV_VAR=val \\
     ENV_VAR_WITH_SPACES='foo bar' \\
-  /bin/bash -c 'unescaped run-under prefix && executable argv1 '\\''arg w spaces'\\''' "$@"\
+  /bin/bash -c 'unescaped run-under prefix && executable argv1 '\\''arg w spaces'\\''' "$@"
 """);
   }
 
@@ -175,7 +175,7 @@ cd workingDir && \\
               SET UNSET_ME_TOO=
               SET ENV_VAR=val
               SET ENV_VAR_WITH_SPACES=foo bar
-              /bin/bash -c 'echo hello && C:\\executable argv1 "arg w spaces"' %*\
+              /bin/bash -c 'echo hello && C:\\executable argv1 "arg w spaces"' %*
             """);
   }
 
@@ -199,7 +199,7 @@ cd workingDir && \\
               SET UNSET_ME_TOO=
               SET ENV_VAR=val
               SET ENV_VAR_WITH_SPACES=foo bar
-              C:\\executable argv1 "arg w spaces" %*\
+              C:\\executable argv1 "arg w spaces" %*
             """);
   }
 }

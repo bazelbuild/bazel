@@ -208,6 +208,10 @@ public final class PackageFactory {
     return ruleClassProvider;
   }
 
+  public PackageLoadingListener getPackageLoadingListener() {
+    return packageLoadingListener;
+  }
+
   // This function is public only for the benefit of skyframe.PackageFunction,
   // which is morally part of lib.packages, so that it can create empty packages
   // in case of error before BUILD execution. Do not call it from anywhere else.
@@ -234,6 +238,7 @@ public final class PackageFactory {
         starlarkSemantics.getBool(BuildLanguageOptions.INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT),
         starlarkSemantics.getBool(
             BuildLanguageOptions.INCOMPATIBLE_SIMPLIFY_UNCONDITIONAL_SELECTS_IN_RULE_ATTRS),
+        starlarkSemantics.getBool(BuildLanguageOptions.INCOMPATIBLE_SYMBOLIC_MACRO_STRICT_ATTRS),
         repositoryMapping,
         mainRepositoryMapping,
         cpuBoundSemaphore,
@@ -243,6 +248,7 @@ public final class PackageFactory {
         globber,
         /* enableNameConflictChecking= */ true,
         /* trackFullMacroInformation= */ true,
+        packageValidator,
         packageValidator.getPackageLimits());
   }
 
@@ -266,6 +272,7 @@ public final class PackageFactory {
         starlarkSemantics.getBool(BuildLanguageOptions.INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT),
         starlarkSemantics.getBool(
             BuildLanguageOptions.INCOMPATIBLE_SIMPLIFY_UNCONDITIONAL_SELECTS_IN_RULE_ATTRS),
+        starlarkSemantics.getBool(BuildLanguageOptions.INCOMPATIBLE_SYMBOLIC_MACRO_STRICT_ATTRS),
         mainRepositoryMapping,
         cpuBoundSemaphore,
         packageOverheadEstimator,
@@ -273,6 +280,7 @@ public final class PackageFactory {
         globber,
         /* enableNameConflictChecking= */ true,
         /* trackFullMacroInformation= */ true,
+        packageValidator,
         packageValidator.getPackageLimits(),
         buildFile);
   }
@@ -302,6 +310,7 @@ public final class PackageFactory {
         starlarkSemantics.getBool(BuildLanguageOptions.INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT),
         starlarkSemantics.getBool(
             BuildLanguageOptions.INCOMPATIBLE_SIMPLIFY_UNCONDITIONAL_SELECTS_IN_RULE_ATTRS),
+        starlarkSemantics.getBool(BuildLanguageOptions.INCOMPATIBLE_SYMBOLIC_MACRO_STRICT_ATTRS),
         repositoryMapping,
         mainRepositoryMapping,
         cpuBoundSemaphore,
@@ -311,6 +320,7 @@ public final class PackageFactory {
         globber,
         /* enableNameConflictChecking= */ true,
         /* trackFullMacroInformation= */ true,
+        packageValidator,
         packageValidator.getPackageLimits());
   }
 
@@ -333,6 +343,7 @@ public final class PackageFactory {
         parentIdentifier,
         starlarkSemantics.getBool(
             BuildLanguageOptions.INCOMPATIBLE_SIMPLIFY_UNCONDITIONAL_SELECTS_IN_RULE_ATTRS),
+        starlarkSemantics.getBool(BuildLanguageOptions.INCOMPATIBLE_SYMBOLIC_MACRO_STRICT_ATTRS),
         mainRepositoryMapping,
         cpuBoundSemaphore,
         packageOverheadEstimator,

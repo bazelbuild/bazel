@@ -40,7 +40,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 @AutoCodec
 public record SingleVersionOverride(
     Version version,
-    @Override String registry,
+    String registry,
     ImmutableList<Label> patches,
     ImmutableList<String> patchCmds,
     int patchStrip)
@@ -65,5 +65,4 @@ public record SingleVersionOverride(
       int patchStrip) {
     return new SingleVersionOverride(version, registry, patches, patchCmds, patchStrip);
   }
-
 }

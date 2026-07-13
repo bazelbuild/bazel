@@ -52,6 +52,7 @@ import java.io.InputStream;
 import java.util.UUID;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkInt;
+import net.starlark.java.syntax.Types;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -87,6 +88,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
             options,
             UUID.randomUUID(),
             ImmutableMap.of(),
+            /* repoEnv= */ ImmutableMap.of(),
             QuiescingExecutorsImpl.forTesting(),
             new TimestampGranularityMonitor(BlazeClock.instance()));
     skyframeExecutor.setActionEnv(ImmutableMap.of());
@@ -1202,13 +1204,35 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
     setBuildLanguageOptions(
         "--experimental_starlark_type_syntax", "--experimental_starlark_static_type_checking");
     scratch.file("a/BUILD");
-    scratch.file("a/foo.bzl", "x: list[int] = [1, 2, 3]");
+    scratch.file("a/foo.bzl", "x: list[int]|list[str] = [1, 2, 3]");
     SkyKey key = key("//a:foo.bzl");
 
     EvaluationResult<BzlLoadValue> result =
         SkyframeExecutorTestUtils.evaluate(
             getSkyframeExecutor(), key, /* keepGoing= */ false, reporter);
     assertThatEvaluationResult(result).hasNoError();
+    assertThat(result.get(key).getModule().getExportType("x"))
+        .isEqualTo(Types.union(Types.list(Types.INT), Types.list(Types.STR)));
+  }
+
+  @Test
+  public void testStaticTypeChecker_transitiveDeps() throws Exception {
+    setBuildLanguageOptions(
+        "--experimental_starlark_type_syntax", "--experimental_starlark_static_type_checking");
+    scratch.file("a/BUILD");
+    scratch.file("a/foo.bzl", "x: list[int] | list[str] = [1, 2, 3]");
+    scratch.file(
+        "a/bar.bzl",
+        """
+        load(":foo.bzl", "x")
+        y: list[int] = x
+        """);
+    reporter.removeHandler(failFastHandler);
+
+    SkyKey key = key("//a:bar.bzl");
+    SkyframeExecutorTestUtils.evaluate(
+        getSkyframeExecutor(), key, /* keepGoing= */ false, reporter);
+    assertContainsEvent("cannot assign type 'list[int]|list[str]' to 'y' of type 'list[int]'");
   }
 
   @Test

@@ -26,8 +26,7 @@ import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.exec.util.FakeActionInputFileCache;
-import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
-import com.google.devtools.build.lib.rules.java.JavaInfo;
+import com.google.devtools.build.lib.rules.java.JavaCompileAction;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import net.starlark.java.eval.Dict;
@@ -77,32 +76,29 @@ public class PathMappersTest extends BuildViewTestCase {
         )
         """);
 
-    ConfiguredTarget configuredTarget = getConfiguredTarget("//java/com/google/test:a");
-    Artifact compiledArtifact =
-        JavaInfo.getProvider(JavaCompilationArgsProvider.class, configuredTarget)
-            .directCompileTimeJars()
-            .toList()
-            .get(0);
-    SpawnAction action = (SpawnAction) getGeneratingAction(compiledArtifact);
-    Spawn spawn =
-        action.getSpawn(
-            new ActionExecutionContextBuilder()
-                .setMetadataProvider(new FakeActionInputFileCache())
-                .build());
+    JavaCompileAction action =
+        (JavaCompileAction) getGeneratingActionForLabel("//java/com/google/test:liba.jar");
+    PathMapper pathMapper =
+        PathMappers.create(
+            action,
+            PathMappers.getOutputPathsMode(targetConfig),
+            /* isStarlarkAction= */ false,
+            /* inputMetadataProvider= */ null);
 
-    assertThat(spawn.getPathMapper().isNoop()).isFalse();
+    assertThat(pathMapper.isNoop()).isFalse();
     String outDir = analysisMock.getProductName() + "-out";
     assertThat(
-            spawn.getArguments().stream()
+            action.getCommandLines().allArguments(pathMapper).stream()
                 .filter(arg -> arg.contains("java/com/google/test/"))
                 .collect(toImmutableList()))
         .containsExactly(
             "java/com/google/test/A.java",
             format("%s/cfg/bin/java/com/google/test/B.java", outDir),
             format("%s/cfg/bin/java/com/google/test/C.java", outDir),
-            format("%s/cfg/bin/java/com/google/test/liba-hjar.jar", outDir),
-            format("%s/cfg/bin/java/com/google/test/liba-hjar.jdeps", outDir),
-            format("%s/cfg/bin/java/com/google/test/liba-tjar.jar", outDir),
+            format("%s/cfg/bin/java/com/google/test/liba.jar", outDir),
+            format("%s/cfg/bin/java/com/google/test/liba-native-header.jar", outDir),
+            format("%s/cfg/bin/java/com/google/test/liba.jar_manifest_proto", outDir),
+            format("%s/cfg/bin/java/com/google/test/liba.jdeps", outDir),
             format("-XepOpt:foo:bar=%s/cfg/bin/java/com/google/test/B.java", outDir),
             format(
                 "-XepOpt:baz=%s/cfg/bin/java/com/google/test/C.java,%s/cfg/bin/java/com/google/test/B.java",
@@ -309,5 +305,81 @@ public class PathMappersTest extends BuildViewTestCase {
         .isEqualTo(PathFragment.create("pkg/file"));
     assertThat(pathMapper.map(PathFragment.create("bazel-out/k8-fastbuild-ST-12345/bin/pkg/file")))
         .isEqualTo(PathFragment.create("bazel-out/pm-k8-fastbuild-ST-12345/bin/pkg/file"));
+  }
+
+  @Test
+  public void starlarkRule_archivedTreePaths() throws Exception {
+    String outDir = analysisMock.getProductName() + "-out";
+    scratch.file("defs/BUILD");
+    scratch.file(
+        "defs/defs.bzl",
+        """
+        def my_rule_impl(ctx):
+            out = ctx.actions.declare_file(ctx.label.name)
+            args = ctx.actions.args()
+            args.add(out)
+            args.add("--input")
+            args.add("%1$s/k8-fastbuild/bin/pkg/standard.js")
+            args.add("--input")
+            args.add("%1$s/:archived_tree_artifacts/k8-fastbuild/bin/pkg/tree.zip")
+            ctx.actions.run(
+                executable = ctx.executable.tool.path,
+                arguments = [args],
+                outputs = [out],
+                tools = [ctx.executable.tool],
+                mnemonic = "Android",  # Using a supported mnemonic to enable path-stripping.
+                execution_requirements = {"supports-path-mapping": "1"},
+            )
+            return DefaultInfo(files = depset([out]))
+        my_rule = rule(
+            implementation = my_rule_impl,
+            attrs = {
+                "tool": attr.label(
+                    default = "//foo:script",
+                    cfg = "exec",
+                    executable = True,
+                ),
+            },
+        )
+        """
+            .formatted(outDir));
+    scratch.file(
+        "foo/BUILD",
+        """
+        load('//test_defs:foo_binary.bzl', 'foo_binary')
+        foo_binary(
+            name = 'script',
+            srcs = ['script.sh'],
+            visibility = ['//visibility:public'],
+        )
+        """);
+    scratch.file(
+        "BUILD",
+        """
+        load("//defs:defs.bzl", "my_rule")
+        my_rule(name = "my_rule")
+        """);
+
+    ConfiguredTarget configuredTarget = getConfiguredTarget("//:my_rule");
+    Artifact outputArtifact =
+        configuredTarget.getProvider(FileProvider.class).getFilesToBuild().toList().get(0);
+    SpawnAction action = (SpawnAction) getGeneratingAction(outputArtifact);
+    Spawn spawn =
+        action.getSpawn(
+            new ActionExecutionContextBuilder()
+                .setMetadataProvider(new FakeActionInputFileCache())
+                .build());
+
+    assertThat(spawn.getPathMapper().isNoop()).isFalse();
+
+    assertThat(spawn.getArguments())
+        .containsExactly(
+            "%s/cfg/bin/foo/script".formatted(outDir),
+            "%s/cfg/bin/my_rule".formatted(outDir),
+            "--input",
+            "%s/cfg/bin/pkg/standard.js".formatted(outDir),
+            "--input",
+            "%s/:archived_tree_artifacts/cfg/bin/pkg/tree.zip".formatted(outDir))
+        .inOrder();
   }
 }

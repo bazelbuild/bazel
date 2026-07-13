@@ -18,13 +18,13 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 
-import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventBusEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.packages.RuleTransitionData;
@@ -61,7 +61,7 @@ public class TransitionsOutputFormatterTest extends ConfiguredTargetQueryTest {
     options.setIncludeImplicitDeps(false);
     options.setIncludeNoDepDeps(false);
     helper.setQuerySettings(Setting.INCLUDE_ASPECTS);
-    this.reporter = new Reporter(new EventBus(), events::add);
+    this.reporter = new Reporter(EventBusEventHandler.createWithNewEventBus(), events::add);
   }
 
   @Test
@@ -179,9 +179,7 @@ public class TransitionsOutputFormatterTest extends ConfiguredTargetQueryTest {
   @Test
   public void testTransitions_noTransitions() throws Exception {
     setUpRules();
-    writeFile(
-        "test/BUILD",
-        "simple_rule(name = 'foo')");
+    writeFile("test/BUILD", "simple_rule(name = 'foo')");
 
     List<String> result = getOutput("//test:foo", Transitions.NONE);
     assertThat(result).isEmpty();
@@ -267,8 +265,7 @@ public class TransitionsOutputFormatterTest extends ConfiguredTargetQueryTest {
             MockRule.define(
                 "simple_rule",
                 (builder, env) ->
-                    builder
-                        .add(attr("deps", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE)));
+                    builder.add(attr("deps", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE)));
 
     this.ruleClassProvider =
         setRuleClassProviders(ruleWithTransitions, simpleRule)

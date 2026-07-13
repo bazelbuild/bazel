@@ -19,15 +19,19 @@ import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.eventbus.Subscribe;
 import com.google.common.flogger.GoogleLogger;
+import com.google.devtools.build.lib.analysis.AnalysisPhaseCompleteEvent;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.bugreport.BugReporter;
+import com.google.devtools.build.lib.buildtool.buildevent.ExecutionStartingEvent;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.InfoItem;
 import com.google.devtools.build.lib.runtime.ServerBuilder;
+import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.SomeExecutionStartedEvent;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -92,6 +96,12 @@ public final class PostGCMemoryUseRecorder implements NotificationListener {
   @GuardedBy("this")
   private Optional<PeakHeap> peakHeapTenuredSpace = Optional.empty();
 
+  @GuardedBy("this")
+  private Optional<PeakHeap> peakHeapTotalDuringExecution = Optional.empty();
+
+  @GuardedBy("this")
+  private Optional<PeakHeap> peakHeapTenuredSpaceDuringExecution = Optional.empty();
+
   // Set to true iff a GarbageCollectionNotification reported that we were using no memory.
   @GuardedBy("this")
   private boolean memoryUsageReportedZero = false;
@@ -100,6 +110,12 @@ public final class PostGCMemoryUseRecorder implements NotificationListener {
   private Map<String, Long> garbageStats = new HashMap<>();
 
   private final BugReporter bugReporter;
+
+  @GuardedBy("this")
+  private boolean analysisComplete;
+
+  @GuardedBy("this")
+  private boolean executionStarted;
 
   @VisibleForTesting
   PostGCMemoryUseRecorder(Iterable<GarbageCollectorMXBean> mxBeans, BugReporter bugReporter) {
@@ -114,12 +130,35 @@ public final class PostGCMemoryUseRecorder implements NotificationListener {
     this.bugReporter = bugReporter;
   }
 
+  @Subscribe
+  private synchronized void analysisComplete(AnalysisPhaseCompleteEvent event) {
+    analysisComplete = true;
+  }
+
+  @Subscribe
+  private synchronized void executionStartedSkymeld(SomeExecutionStartedEvent event) {
+    executionStarted = true;
+  }
+
+  @Subscribe
+  private synchronized void executionStartedNonSkymeld(ExecutionStartingEvent event) {
+    executionStarted = true;
+  }
+
   public synchronized Optional<PeakHeap> getPeakPostGcHeap() {
     return peakHeapTotal;
   }
 
   public synchronized Optional<PeakHeap> getPeakPostGcHeapTenuredSpace() {
     return peakHeapTenuredSpace;
+  }
+
+  public synchronized Optional<PeakHeap> getPeakPostGcHeapDuringExecution() {
+    return peakHeapTotalDuringExecution;
+  }
+
+  public synchronized Optional<PeakHeap> getPeakPostGcHeapTenuredSpaceDuringExecution() {
+    return peakHeapTenuredSpaceDuringExecution;
   }
 
   public synchronized boolean wasMemoryUsageReportedZero() {
@@ -136,19 +175,32 @@ public final class PostGCMemoryUseRecorder implements NotificationListener {
   public synchronized void reset() {
     peakHeapTotal = Optional.empty();
     peakHeapTenuredSpace = Optional.empty();
+    peakHeapTotalDuringExecution = Optional.empty();
+    peakHeapTenuredSpaceDuringExecution = Optional.empty();
     memoryUsageReportedZero = false;
     garbageStats = new HashMap<>();
+    analysisComplete = false;
+    executionStarted = false;
   }
 
   private synchronized void updatePostGCHeapMemoryUsed(
       long usedTotal, long usedTenuredSpace, long timestampMillis) {
-    if (!peakHeapTotal.isPresent() || usedTotal > peakHeapTotal.get().bytes()) {
-      peakHeapTotal = Optional.of(PeakHeap.create(usedTotal, timestampMillis));
+    peakHeapTotal = updatePeak(peakHeapTotal, usedTotal, timestampMillis);
+    peakHeapTenuredSpace = updatePeak(peakHeapTenuredSpace, usedTenuredSpace, timestampMillis);
+    if (analysisComplete && executionStarted) {
+      peakHeapTotalDuringExecution =
+          updatePeak(peakHeapTotalDuringExecution, usedTotal, timestampMillis);
+      peakHeapTenuredSpaceDuringExecution =
+          updatePeak(peakHeapTenuredSpaceDuringExecution, usedTenuredSpace, timestampMillis);
     }
-    if (!peakHeapTenuredSpace.isPresent()
-        || usedTenuredSpace > peakHeapTenuredSpace.get().bytes()) {
-      peakHeapTenuredSpace = Optional.of(PeakHeap.create(usedTenuredSpace, timestampMillis));
+  }
+
+  private static Optional<PeakHeap> updatePeak(
+      Optional<PeakHeap> currentPeak, long newBytes, long timestampMillis) {
+    if (currentPeak.isEmpty() || newBytes > currentPeak.get().bytes()) {
+      return Optional.of(PeakHeap.create(newBytes, timestampMillis));
     }
+    return currentPeak;
   }
 
   private synchronized void updateMemoryUsageReportedZero(boolean value) {
@@ -239,6 +291,7 @@ public final class PostGCMemoryUseRecorder implements NotificationListener {
     public void beforeCommand(CommandEnvironment env) {
       if (!env.getCommandName().equals("info")) {
         PostGCMemoryUseRecorder.get().reset();
+        env.getEventBus().register(PostGCMemoryUseRecorder.get());
       }
     }
   }

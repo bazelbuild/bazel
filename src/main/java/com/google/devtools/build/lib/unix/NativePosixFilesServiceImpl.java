@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.unix;
 
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.jni.JniLoader;
-import java.io.IOException;
+import javax.annotation.Nullable;
 
 /** Implementation of {@link NativePosixFilesService}. */
 public final class NativePosixFilesServiceImpl implements NativePosixFilesService {
@@ -28,57 +28,59 @@ public final class NativePosixFilesServiceImpl implements NativePosixFilesServic
   }
 
   @Override
-  public native String readlink(String path) throws IOException;
+  @Nullable
+  public native String readlink(String path) throws NativePosixFilesException;
 
   @Override
-  public native void chmod(String path, int mode) throws IOException;
+  public native void chmod(String path, int mode) throws NativePosixFilesException;
 
   @Override
-  public native void symlink(String oldpath, String newpath) throws IOException;
+  public native void symlink(String oldpath, String newpath) throws NativePosixFilesException;
 
   @Override
-  public native void link(String oldpath, String newpath) throws IOException;
+  public native void link(String oldpath, String newpath) throws NativePosixFilesException;
 
   @Override
-  public Stat stat(String path, StatErrorHandling errorHandling) throws IOException {
+  public Stat stat(String path, StatErrorHandling errorHandling) throws NativePosixFilesException {
     return stat(path, errorHandling.getCode());
   }
 
-  private native Stat stat(String path, char errorHandling) throws IOException;
+  private native Stat stat(String path, char errorHandling) throws NativePosixFilesException;
 
   @Override
-  public Stat lstat(String path, StatErrorHandling errorHandling) throws IOException {
+  public Stat lstat(String path, StatErrorHandling errorHandling) throws NativePosixFilesException {
     return lstat(path, errorHandling.getCode());
   }
 
-  private native Stat lstat(String path, char errorHandling) throws IOException;
+  private native Stat lstat(String path, char errorHandling) throws NativePosixFilesException;
 
   @Override
-  public native void utimensat(String path, boolean now, long epochMilli) throws IOException;
+  public native void utimensat(String path, boolean now, long epochMilli)
+      throws NativePosixFilesException;
 
   @Override
-  public native boolean mkdir(String path, int mode) throws IOException;
+  public native boolean mkdir(String path, int mode) throws NativePosixFilesException;
 
   @Override
-  public native Dirent[] readdir(String path) throws IOException;
+  public native Dirent[] readdir(String path) throws NativePosixFilesException;
 
   @Override
-  public native void rename(String oldpath, String newpath) throws IOException;
+  public native void rename(String oldpath, String newpath) throws NativePosixFilesException;
 
   @Override
-  public native boolean remove(String path) throws IOException;
+  public native boolean remove(String path) throws NativePosixFilesException;
 
   @Override
-  public native void mkfifo(String path, int mode) throws IOException;
+  public native void mkfifo(String path, int mode) throws NativePosixFilesException;
 
   @Override
-  public native byte[] getxattr(String path, String name) throws IOException;
+  public native byte[] getxattr(String path, String name) throws NativePosixFilesException;
 
   @Override
-  public native byte[] lgetxattr(String path, String name) throws IOException;
+  public native byte[] lgetxattr(String path, String name) throws NativePosixFilesException;
 
   @Override
-  public native void deleteTreesBelow(String dir) throws IOException;
+  public native void deleteTreesBelow(String dir) throws NativePosixFilesException;
 
   /** Logs a path string that does not have a Latin-1 coder. Called from JNI. */
   private static void logBadPath(String path) {

@@ -220,11 +220,12 @@ public final class AnalysisPhaseRunner {
     if (env.getCommand().buildPhase().executes()) {
       // RemoteAnalysisCachingOptions is never null because it's a build command flag, and this
       // method only runs for build commands.
-      switch (env.getOptions().getOptions(RemoteAnalysisCachingOptions.class).getMode()) {
-        case DUMP_UPLOAD_MANIFEST_ONLY -> featureFlags.add(ANALYSIS_CACHING_UPLOAD);
-        case UPLOAD -> featureFlags.add(ANALYSIS_CACHING_UPLOAD);
-        case DOWNLOAD -> featureFlags.add(ANALYSIS_CACHING_DOWNLOAD);
-        case OFF -> {}
+      var mode = env.getOptions().getOptions(RemoteAnalysisCachingOptions.class).getMode();
+      if (mode.serializesValues()) {
+        featureFlags.add(ANALYSIS_CACHING_UPLOAD);
+      }
+      if (mode.isRetrievalEnabled()) {
+        featureFlags.add(ANALYSIS_CACHING_DOWNLOAD);
       }
     }
 

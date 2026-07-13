@@ -36,7 +36,6 @@ import com.google.bytestream.ByteStreamProto.WriteResponse;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
-import com.google.common.collect.Sets;
 import com.google.common.hash.HashCode;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
@@ -76,6 +75,8 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
@@ -143,8 +144,7 @@ public class ByteStreamUploaderTest {
         TracingMetadataUtils.buildMetadata(
             "none",
             "none",
-            DIGEST_UTIL.asActionKey(Digest.getDefaultInstance()).digest().getHash(),
-            null);
+            DIGEST_UTIL.asActionKey(Digest.getDefaultInstance()).digest().getHash());
     context = RemoteActionExecutionContext.create(metadata);
 
     retryService = MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
@@ -832,7 +832,7 @@ public class ByteStreamUploaderTest {
             /* digestFunction= */ DigestFunction.Value.SHA256);
 
     int numUploads = 10;
-    Map<HashCode, byte[]> blobsByHash = Maps.newHashMap();
+    Map<HashCode, byte[]> blobsByHash = new HashMap<>();
     Map<Digest, Chunker> chunkers = Maps.newHashMapWithExpectedSize(numUploads);
     Random rand = new Random();
     for (int i = 0; i < numUploads; i++) {
@@ -904,7 +904,7 @@ public class ByteStreamUploaderTest {
 
     CustomFileTracker customFileTracker = new CustomFileTracker(maximumOpenFiles);
     int numUploads = 1000;
-    Map<HashCode, byte[]> blobsByHash = Maps.newHashMap();
+    Map<HashCode, byte[]> blobsByHash = new HashMap<>();
     Map<Digest, Chunker> chunkers = Maps.newHashMapWithExpectedSize(numUploads);
     Random rand = new Random();
     for (int i = 0; i < numUploads; i++) {
@@ -942,7 +942,7 @@ public class ByteStreamUploaderTest {
     assertThat(uploader.getOpenedFilePermits()).isNull();
 
     int numUploads = 10;
-    Map<HashCode, byte[]> blobsByHash = Maps.newHashMap();
+    Map<HashCode, byte[]> blobsByHash = new HashMap<>();
     Map<Digest, Chunker> chunkers = Maps.newHashMapWithExpectedSize(numUploads);
     Random rand = new Random();
     for (int i = 0; i < numUploads; i++) {
@@ -980,7 +980,7 @@ public class ByteStreamUploaderTest {
 
     List<String> toUpload = ImmutableList.of("aaaaaaaaaa", "bbbbbbbbbb", "cccccccccc");
     Map<Digest, Chunker> chunkers = Maps.newHashMapWithExpectedSize(toUpload.size());
-    Map<String, Integer> uploadsFailed = Maps.newHashMap();
+    Map<String, Integer> uploadsFailed = new HashMap<>();
     for (String s : toUpload) {
       Chunker chunker = Chunker.builder().setInput(s.getBytes(UTF_8)).setChunkSize(3).build();
       Digest digest = DIGEST_UTIL.computeAsUtf8(s);
@@ -1058,8 +1058,7 @@ public class ByteStreamUploaderTest {
           TracingMetadataUtils.buildMetadata(
               "build-req-id",
               "command-id",
-              DIGEST_UTIL.asActionKey(actionDigest).digest().getHash(),
-              null);
+              DIGEST_UTIL.asActionKey(actionDigest).digest().getHash());
       RemoteActionExecutionContext remoteActionExecutionContext =
           RemoteActionExecutionContext.create(metadata);
       uploads.add(
@@ -1669,6 +1668,116 @@ public class ByteStreamUploaderTest {
     assertThat(numUploads.get()).isEqualTo(1);
   }
 
+  @Test
+  public void compressedUploadAcceptsUncompressedSizeAsCommittedSize() throws Exception {
+    // Some servers (e.g. Google's RBE, Kajiya) report the uncompressed blob size as the
+    // committed_size of a successful compressed write rather than the compressed byte count. The
+    // uploader must accept this and not fail with "compressed write incomplete".
+    RemoteRetrier retrier =
+        TestUtils.newRemoteRetrier(
+            () -> mockBackoff, (e) -> Result.TRANSIENT_FAILURE, retryService);
+    ByteStreamUploader uploader =
+        new ByteStreamUploader(
+            INSTANCE_NAME,
+            referenceCountedChannel,
+            CallCredentialsProvider.NO_CREDENTIALS,
+            /* callTimeoutSecs= */ 60,
+            retrier,
+            /* maximumOpenFiles= */ -1,
+            /* digestFunction= */ DigestFunction.Value.SHA256);
+
+    // Random data is incompressible, so the compressed byte count exceeds the uncompressed size.
+    // That keeps the two distinct, so a committed_size equal to the uncompressed size genuinely
+    // exercises the new acceptance branch rather than the compressed-count check.
+    byte[] blob = new byte[CHUNK_SIZE * 2 + 1];
+    new Random().nextBytes(blob);
+
+    Chunker chunker =
+        Chunker.builder().setInput(blob).setCompressed(true).setChunkSize(CHUNK_SIZE).build();
+    Digest digest = DIGEST_UTIL.compute(blob);
+
+    serviceRegistry.addService(
+        new ByteStreamImplBase() {
+          @Override
+          public StreamObserver<WriteRequest> write(StreamObserver<WriteResponse> streamObserver) {
+            return new StreamObserver<WriteRequest>() {
+              @Override
+              public void onNext(WriteRequest writeRequest) {}
+
+              @Override
+              public void onError(Throwable throwable) {
+                fail("onError should never be called.");
+              }
+
+              @Override
+              public void onCompleted() {
+                // Respond with the uncompressed size rather than the compressed byte count.
+                streamObserver.onNext(
+                    WriteResponse.newBuilder().setCommittedSize(blob.length).build());
+                streamObserver.onCompleted();
+              }
+            };
+          }
+        });
+
+    uploadBlob(uploader, context, digest, chunker);
+
+    // This test should not have triggered any retries.
+    Mockito.verifyNoInteractions(mockBackoff);
+  }
+
+  @Test
+  public void compressedUploadRejectsUnexpectedCommittedSize() throws Exception {
+    // A committed_size that is neither -1, the compressed byte count, nor the uncompressed size is
+    // still rejected as an incomplete write.
+    RemoteRetrier retrier =
+        TestUtils.newRemoteRetrier(
+            () -> mockBackoff, (e) -> Result.TRANSIENT_FAILURE, retryService);
+    ByteStreamUploader uploader =
+        new ByteStreamUploader(
+            INSTANCE_NAME,
+            referenceCountedChannel,
+            CallCredentialsProvider.NO_CREDENTIALS,
+            /* callTimeoutSecs= */ 60,
+            retrier,
+            /* maximumOpenFiles= */ -1,
+            /* digestFunction= */ DigestFunction.Value.SHA256);
+
+    byte[] blob = new byte[CHUNK_SIZE * 2 + 1];
+    new Random().nextBytes(blob);
+
+    Chunker chunker =
+        Chunker.builder().setInput(blob).setCompressed(true).setChunkSize(CHUNK_SIZE).build();
+    Digest digest = DIGEST_UTIL.compute(blob);
+
+    serviceRegistry.addService(
+        new ByteStreamImplBase() {
+          @Override
+          public StreamObserver<WriteRequest> write(StreamObserver<WriteResponse> streamObserver) {
+            return new StreamObserver<WriteRequest>() {
+              @Override
+              public void onNext(WriteRequest writeRequest) {}
+
+              @Override
+              public void onError(Throwable throwable) {
+                fail("onError should never be called.");
+              }
+
+              @Override
+              public void onCompleted() {
+                streamObserver.onNext(
+                    WriteResponse.newBuilder().setCommittedSize(blob.length + 1).build());
+                streamObserver.onCompleted();
+              }
+            };
+          }
+        });
+
+    IOException e =
+        assertThrows(IOException.class, () -> uploadBlob(uploader, context, digest, chunker));
+    assertThat(e).hasMessageThat().contains("compressed write incomplete");
+  }
+
   /**
    * Uploads a BLOB, as provided by the {@link Chunker}, to the remote {@code ByteStream} service.
    * The call blocks until the upload is complete, or throws an {@link Exception} in case of error.
@@ -1761,7 +1870,7 @@ public class ByteStreamUploaderTest {
   static class MaybeFailOnceUploadService extends ByteStreamImplBase {
 
     private final Map<HashCode, byte[]> blobsByHash;
-    private final Set<HashCode> uploadsFailedOnce = Collections.synchronizedSet(Sets.newHashSet());
+    private final Set<HashCode> uploadsFailedOnce = Collections.synchronizedSet(new HashSet<>());
     private final Random rand = new Random();
 
     MaybeFailOnceUploadService(Map<HashCode, byte[]> blobsByHash) {

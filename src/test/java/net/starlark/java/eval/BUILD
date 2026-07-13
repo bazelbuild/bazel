@@ -13,6 +13,7 @@ filegroup(
 java_test(
     name = "EvalTests",
     srcs = [
+        "CompactImmutableDictTest.java",
         "DynamicTypeCheckTest.java",
         "EvalTests.java",  # (suite)
         "EvalUtilsTest.java",

@@ -1,4 +1,5 @@
 common --enable_platform_specific_config
+common --@rules_python//python/config_settings:bootstrap_impl=script
 
 # Either consumed as @remoteapis or as files.
 common --deleted_packages=third_party/remoteapis
@@ -13,14 +14,14 @@ common:remote_shared --jobs=100
 common:remote_shared --action_env=PATH=/bin:/usr/bin:/usr/local/bin
 
 # Configuration to build and test Bazel on RBE on Ubuntu 20.04
-common:ubuntu2004 --extra_toolchains=@rbe_ubuntu2004//config:cc-toolchain
-common:ubuntu2004 --extra_execution_platforms=//:rbe_ubuntu2004_platform,//:rbe_ubuntu2004_highcpu_platform
-common:ubuntu2004 --host_platform=//:rbe_ubuntu2004_platform
-common:ubuntu2004 --platforms=//:rbe_ubuntu2004_platform
-common:ubuntu2004 --config=remote_shared
+common:ubuntu2404 --extra_toolchains=@rbe_ubuntu2404//config:cc-toolchain
+common:ubuntu2404 --extra_execution_platforms=//:rbe_ubuntu2404_platform,//:rbe_ubuntu2404_highcpu_platform
+common:ubuntu2404 --host_platform=//:rbe_ubuntu2404_platform
+common:ubuntu2404 --platforms=//:rbe_ubuntu2404_platform
+common:ubuntu2404 --config=remote_shared
 
 # Alias
-common:remote --config=ubuntu2004
+common:remote --config=ubuntu2404
 
 common:macos --host_macos_minimum_os=10.13
 common:macos --macos_minimum_os=10.13
@@ -45,8 +46,13 @@ common:linux --per_file_copt=external/.*@-w
 common:linux --host_per_file_copt=external/.*@-w
 common:macos --per_file_copt=external/.*@-w
 common:macos --host_per_file_copt=external/.*@-w
-common:windows --per_file_copt=external/.*@/w
-common:windows --host_per_file_copt=external/.*@/w
+# Silence specific noisy warnings for external repos
+# Note that we silence individual warnings here. This is tedious and brittle,
+# but avoids the enormous log spam from passing /w or /W0 to MSVC, since that
+# overrides the default /W3 warning level. MSVC creates even more warnings for
+# this behavior.
+common:windows --per_file_copt=external/.*@/wd4047,/wd4624,/wd4267,/wd4244,/wd4715,/wd4312,/wd4805,/wd4700,/wd4722
+common:windows --host_per_file_copt=external/.*@/wd4047,/wd4624,/wd4267,/wd4244,/wd4715,/wd4312,/wd4805,/wd4700,/wd4722
 
 # Enable Protobuf MSVC support on Windows
 common:windows --define=protobuf_allow_msvc=true

@@ -25,6 +25,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:server_directories",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/events:event_bus_event_handler",
         "//src/main/java/com/google/devtools/build/lib/exec:bin_tools",
         "//src/main/java/com/google/devtools/build/lib/exec:blaze_executor",
         "//src/main/java/com/google/devtools/build/lib/exec:execution_options",

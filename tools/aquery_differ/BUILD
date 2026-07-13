@@ -13,7 +13,7 @@
 # limitations under the License.
 
 load("@rules_python//python:defs.bzl", "py_binary", "py_library")
-load("//tools/python:private/py_test_alias.bzl", "py_test_alias")
+load("@rules_python//python:py_test.bzl", "py_test")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -49,7 +49,7 @@ py_library(
     ],
 )
 
-py_test_alias(
+py_test(
     name = "aquery_differ_test",
     srcs = ["aquery_differ_test.py"],
     deps = [

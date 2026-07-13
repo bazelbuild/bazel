@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionOutputDirectoryHelper;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FileStateType;
 import com.google.devtools.build.lib.actions.VirtualActionInput;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
@@ -83,6 +84,11 @@ public class RemoteActionInputFetcher extends AbstractActionInputPrefetcher {
 
   @Override
   protected boolean canDownloadFile(Path path, FileArtifactValue metadata) {
+    // Only files and directories have remote-only content that can be downloaded.
+    if (metadata.getType() != FileStateType.REGULAR_FILE
+        && metadata.getType() != FileStateType.DIRECTORY) {
+      return false;
+    }
     // When action rewinding is enabled, an action that had remote metadata at some point during the
     // build may have been re-executed locally to regenerate lost inputs, but may then be rewound
     // again and thus have its (now local) outputs deleted. In this case, we need to download the
@@ -115,7 +121,11 @@ public class RemoteActionInputFetcher extends AbstractActionInputPrefetcher {
               case INPUTS -> "input";
               case OUTPUTS -> "output";
             },
-            action);
+            action != null ? action.getMnemonic() : null,
+            action != null && action.getOwner().getLabel() != null
+                ? action.getOwner().getLabel().getCanonicalForm()
+                : null,
+            action != null ? action.getOwner().getConfigurationChecksum() : null);
     RemoteActionExecutionContext context = RemoteActionExecutionContext.create(requestMetadata);
 
     Digest digest = DigestUtil.buildDigest(metadata.getDigest(), metadata.getSize());

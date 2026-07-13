@@ -112,7 +112,12 @@ public final class TypeChecker extends NodeVisitor {
   private StarlarkType getType(Identifier id) {
     Resolver.Binding binding = id.getBinding();
     checkNotNull(binding);
-    StarlarkType type = typeTable.getType(binding);
+    StarlarkType type =
+        switch (binding.getScope()) {
+          case UNIVERSAL -> checkNotNull(typeContext.getUniversalSymbolType(binding.getName()));
+          case PREDECLARED -> checkNotNull(typeContext.getPredeclaredSymbolType(binding.getName()));
+          default -> typeTable.getType(binding);
+        };
     return type != null ? type : Types.ANY;
   }
 
@@ -260,24 +265,14 @@ public final class TypeChecker extends NodeVisitor {
   }
 
   /**
-   * Returns the integer value of an expression if it's an integer value (or a unary expression
-   * negating an integer value) which can be exactly represented as a Java integer, or null
-   * otherwise (in particular, if the expression itself is null).
+   * Returns the integer value of an expression if it's an integer value which can be exactly
+   * represented as a Java integer, or null otherwise (in particular, if the expression itself is
+   * null).
    */
-  // TODO: #28037 - Consider allowing more complicated static expressions, e.g. binary operators on
-  // integers.
   @Nullable
   private static Integer getIntValueExact(@Nullable Expression expr) {
     if (expr instanceof IntLiteral intLiteral) {
       return intLiteral.getIntValueExact();
-    } else if (expr instanceof UnaryOperatorExpression unop
-        && unop.getOperator() == TokenKind.MINUS
-        && unop.getX() instanceof IntLiteral negatedIntLiteral) {
-      // We may want to simplify negative integer literals to be IntLiteral; see #28385.
-      Integer x = negatedIntLiteral.getIntValueExact();
-      if (x != null) {
-        return -x; // safe since x >= 0
-      }
     }
     return null;
   }
@@ -608,7 +603,7 @@ public final class TypeChecker extends NodeVisitor {
         returnTypes.add(Types.ANY);
         continue;
       }
-      Types.CallableType callable = callFunctionElemType instanceof Types.CallableType c ? c : null;
+      @Nullable Types.CallableType callable = toCallableType(callFunctionElemType);
       if (callable == null) {
         errorf(
             call.getFunction(),
@@ -780,6 +775,23 @@ public final class TypeChecker extends NodeVisitor {
       }
       return Types.union(values);
     }
+  }
+
+  /**
+   * Returns {@code t} if it is a {@link Types.CallableType}; or its callable supertype otherwise
+   * (e.g. for self-call builtins); or null if it is not callable.
+   */
+  @Nullable
+  private Types.CallableType toCallableType(StarlarkType t) {
+    if (t instanceof Types.CallableType callableType) {
+      return callableType;
+    }
+    for (StarlarkType supertype : t.getSupertypes()) {
+      if (supertype instanceof Types.CallableType callableType) {
+        return callableType;
+      }
+    }
+    return null;
   }
 
   /**

@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.packages.metrics;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.collect.ImmutableCollection;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.BzlMetrics;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.BzlMetrics.BzlFileMetrics;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.protobuf.Duration;
 import java.util.Collection;
@@ -32,6 +34,9 @@ public interface PackageMetricsRecorder {
 
   /** Records the metrics for a given package. */
   void recordMetrics(PackageIdentifier pkgId, PackageLoadMetrics metrics);
+
+  /** Records the metrics for a single bzl file. */
+  void recordBzlMetrics(BzlFileMetrics metrics);
 
   /**
    * Returns a {@code Map<PackageIdentifier, Duration>} of recorded load durations. This may contain
@@ -80,6 +85,9 @@ public interface PackageMetricsRecorder {
 
   /** If Type is ALL returns metrics for all Packages loaded. */
   Collection<PackageLoadMetrics> getPackageLoadMetrics();
+
+  /** Returns recorded bzl metrics. */
+  BzlMetrics getBzlMetrics();
 
   /* TODO(twerth): Remove method after migration is complete. */
   default ImmutableCollection<PackageMetrics> getPackageMetrics() {

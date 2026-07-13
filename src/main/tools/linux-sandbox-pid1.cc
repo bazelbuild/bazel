@@ -40,6 +40,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+#include <ctime>
 #include <string>
 #include <unordered_set>
 
@@ -400,7 +401,24 @@ static void MakeFilesystemMostlyReadOnly() {
 
     PRINT_DEBUG("remount %s: %s", (mountFlags & MS_RDONLY) ? "ro" : "rw",
                 ent->mnt_dir);
-    if (mount(nullptr, ent->mnt_dir, nullptr, mountFlags, nullptr) < 0) {
+    // The remount races with concurrent path lookups elsewhere on the host:
+    // walking through a symlink calls touch_atime(), which briefly bumps the
+    // per-mount writer counter (mnt_get_write_access -> mnt_inc_writers).
+    // MS_BIND|MS_REMOUNT|MS_RDONLY goes through mnt_hold_writers() which
+    // returns -EBUSY if that counter is non-zero. The window is tiny but on
+    // active mounts (especially "/") it can sometimes hit. Retry on EBUSY.
+    // This behavior mimics runc's handling of EBUSY during readonly remounts:
+    // https://github.com/opencontainers/runc/blob/eb7eaf19b6eec5d1143b257057899e4a7b738c81/libcontainer/rootfs_linux.go#L1305-L1309
+    int rc;
+    for (int i = 0; i < 5; ++i) {
+      rc = mount(nullptr, ent->mnt_dir, nullptr, mountFlags, nullptr);
+      if (rc == 0 || errno != EBUSY || i == 4) break;
+      struct timespec delay;
+      delay.tv_sec = 0;
+      delay.tv_nsec = 100 * 1000 * 1000;  // 100 milliseconds
+      nanosleep(&delay, nullptr);
+    }
+    if (rc < 0) {
       // If we get EACCES or EPERM, this might be a mount-point for which we
       // don't have read access. Not much we can do about this, but it also
       // won't do any harm, so let's go on. The same goes for EINVAL or ENOENT,

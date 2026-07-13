@@ -18,6 +18,7 @@ java_library(
     srcs = glob(["*.java"]),
     deps = [
         "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/events:event_bus_event_handler",
         "//src/main/java/com/google/devtools/build/lib/util/io:out-err",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/java/net/starlark/java/syntax",
@@ -46,9 +47,11 @@ java_library(
     srcs = glob(["util/*.java"]) + ["EventTestTemplate.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/events:event_bus_event_handler",
         "//src/main/java/com/google/devtools/build/lib/util/io:out-err",
         "//src/main/java/net/starlark/java/syntax",
         "//src/test/java/com/google/devtools/build/lib/testutil:JunitUtils",
+        "//third_party:error_prone_annotations",
         "//third_party:guava",
         "//third_party:junit4",
     ],

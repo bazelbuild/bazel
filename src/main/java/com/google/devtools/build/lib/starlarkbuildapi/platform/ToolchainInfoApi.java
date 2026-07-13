@@ -22,7 +22,6 @@ import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.StarlarkThread;
 
 /** Info object representing data about a specific toolchain. */
 @StarlarkBuiltin(
@@ -45,9 +44,7 @@ public interface ToolchainInfoApi extends StructApi {
         doc = "The <code>ToolchainInfo</code> constructor.",
         documented = false,
         extraKeywords = @Param(name = "kwargs", doc = "Dictionary of additional entries."),
-        selfCall = true,
-        useStarlarkThread = true)
-    ToolchainInfoApi toolchainInfo(Dict<String, Object> kwargs, StarlarkThread thread)
-        throws EvalException;
+        selfCall = true)
+    ToolchainInfoApi toolchainInfo(Dict<String, Object> kwargs) throws EvalException;
   }
 }

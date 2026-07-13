@@ -24,13 +24,8 @@ CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-test_strategy="standalone"
-genrule_strategy="local"
-if [ $# -ge 1 ]; then
-  test_strategy=$1
-  genrule_strategy=$1
-  shift
-fi
+test_strategy=$1
+genrule_strategy=$2
 
 #### HELPER FUNCTIONS ##################################################
 

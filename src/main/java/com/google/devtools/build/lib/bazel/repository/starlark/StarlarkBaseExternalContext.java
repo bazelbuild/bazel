@@ -296,7 +296,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
 
   // There is no unregister(). We don't have that many futures in each repository and it just
   // introduces the failure mode of erroneously unregistering async work that's not done.
-  private final void registerAsyncTask(AsyncTask task) {
+  private void registerAsyncTask(AsyncTask task) {
     asyncTasks.add(task);
   }
 
@@ -542,8 +542,10 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
   private StructImpl calculateDownloadResult(Optional<Checksum> checksum, Path downloadedPath)
       throws InterruptedException, RepositoryFunctionException {
     Checksum finalChecksum;
+    long size;
     try {
       finalChecksum = calculateChecksum(checksum, downloadedPath);
+      size = downloadedPath.getFileSize();
     } catch (IOException e) {
       throw new RepositoryFunctionException(
           new IOException(
@@ -559,7 +561,8 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
     if (finalChecksum.getKeyType() == KeyType.SHA256) {
       out.put("sha256", finalChecksum.toString());
     }
-    return StarlarkInfo.create(StructProvider.STRUCT, out.buildOrThrow(), Location.BUILTIN);
+    out.put("size_bytes", StarlarkInt.of(size));
+    return StarlarkInfo.create(StructProvider.STRUCT, out.buildOrThrow());
   }
 
   private class PendingDownload implements StarlarkValue, AsyncTask {
@@ -653,7 +656,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
       if (pendingDownload.allowFail) {
         ImmutableMap<String, Object> struct =
             ImmutableMap.of("success", false, "error", e.toString());
-        return StarlarkInfo.create(StructProvider.STRUCT, struct, Location.BUILTIN);
+        return StarlarkInfo.create(StructProvider.STRUCT, struct);
       } else {
         throw new RepositoryFunctionException(e, Transience.TRANSIENT);
       }
@@ -679,7 +682,8 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
 Downloads a file to the output path for the provided url and returns a struct \
 containing <code>success</code>, a flag which is <code>true</code> if the \
 download completed successfully, and if successful, a hash of the file \
-with the fields <code>sha256</code> and <code>integrity</code>. If the value \
+with the fields <code>sha256</code> and <code>integrity</code>, as well as \
+<code>size_bytes</code>, which contains the size of the downloaded file in bytes as an integer. If the value \
 of the <code>success</code> field is false, the <code>error</code> field will be set \
 with a message indicating why the download failed. The message in the <code>error</code> \
 field is for debugging purposes only and should not be relied upon as a stable API (the \
@@ -901,7 +905,8 @@ When <code>sha256</code> or <code>integrity</code> is user specified, setting an
 Downloads a file to the output path for the provided url, extracts it, and returns a \
 struct containing <code>success</code>, a flag which is <code>true</code> if the \
 download completed successfully, and if successful, a hash of the file with the \
-fields <code>sha256</code> and <code>integrity</code>. If the value \
+fields <code>sha256</code> and <code>integrity</code>, as well as the <code>size_bytes</code> \
+of the downloaded file in bytes as an integer. If the value \
 of the <code>success</code> field is false, the <code>error</code> field will be set \
 with a message indicating why the download failed. The message in the <code>error</code> \
 field is for debugging purposes only and should not be relied upon as a stable API (the \
@@ -1154,7 +1159,7 @@ Strip the given number of leading components from file paths on extraction. Only
       if (allowFail) {
         ImmutableMap<String, Object> struct =
             ImmutableMap.of("success", false, "error", e.toString());
-        return StarlarkInfo.create(StructProvider.STRUCT, struct, Location.BUILTIN);
+        return StarlarkInfo.create(StructProvider.STRUCT, struct);
       } else {
         throw new RepositoryFunctionException(e, Transience.TRANSIENT);
       }
@@ -2112,6 +2117,17 @@ Strip the given number of leading components from file paths on extraction. Only
             },
             doc = "Path of the WebAssembly module to load."),
         @Param(
+            name = "compile",
+            defaultValue = "True",
+            positional = false,
+            named = true,
+            enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_REPOSITORY_CTX_WASM_COMPILATION,
+            doc =
+                """
+                Whether to compile the WebAssembly module, which improves runtime performance
+                but takes longer than loading without compilation.
+                """),
+        @Param(
             name = "allocate_fn",
             defaultValue = "'allocate'",
             positional = false,
@@ -2146,19 +2162,22 @@ Strip the given number of leading components from file paths on extraction. Only
                 """)
       })
   public StarlarkWasmModule loadWasm(
-      Object path, String allocateFn, String watch, StarlarkThread thread)
+      Object path, boolean compile, String allocateFn, String watch, StarlarkThread thread)
       throws EvalException, RepositoryFunctionException, InterruptedException {
     StarlarkPath p = getPath(path);
 
     WorkspaceRuleEvent w =
         WorkspaceRuleEvent.newLoadWasmEvent(
-            p.toString(), allocateFn, identifyingStringForLogging, thread.getCallerLocation());
+            p.toString(),
+            compile,
+            allocateFn,
+            identifyingStringForLogging,
+            thread.getCallerLocation());
     env.getListener().post(w);
     maybeWatch(p, ShouldWatch.fromString(watch));
-
     try {
       byte[] moduleContent = FileSystemUtils.readContent(p.getPath());
-      return new StarlarkWasmModule(p, path, moduleContent, allocateFn);
+      return new StarlarkWasmModule(p, path, moduleContent, compile, allocateFn);
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }
@@ -2292,7 +2311,10 @@ func(
       if (wasmModule == null) {
         maybeWatch(path, ShouldWatch.fromString(watch));
         byte[] moduleContent = FileSystemUtils.readContent(path.getPath());
-        wasmModule = new StarlarkWasmModule(path, pathOrModule, moduleContent, "allocate");
+        boolean compile =
+            starlarkSemantics.getBool(
+                BuildLanguageOptions.EXPERIMENTAL_REPOSITORY_CTX_WASM_COMPILATION);
+        wasmModule = new StarlarkWasmModule(path, pathOrModule, moduleContent, compile, "allocate");
       }
       return wasmModule.execute(function, inputBytes, timeout, memLimit);
     } catch (IOException e) {

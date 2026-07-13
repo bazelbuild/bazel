@@ -37,7 +37,6 @@ import com.google.devtools.build.lib.skyframe.serialization.FrontierNodeVersion;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.PackedFingerprint;
 import com.google.devtools.build.skyframe.SkyKey;
-import com.google.protobuf.ByteString;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
@@ -202,15 +201,13 @@ public final class AnalysisCacheInvalidator {
     // 3. Submit the fingerprint to the analysis cache service
     ListenableFuture<LookupResult> responseFuture =
         Futures.transformAsync(
-            fingerprint,
-            f -> analysisCacheClient.lookup(ByteString.copyFrom(f.toBytes())),
-            ForkJoinPool.commonPool());
+            fingerprint, f -> analysisCacheClient.lookup(f.toBytes()), ForkJoinPool.commonPool());
 
     // 4. Transform result to return keys that should be invalidated (i.e.
     // empty response, cache miss)
     return Futures.transform(
         responseFuture,
-        response -> response.value().isEmpty() ? Optional.of(key) : Optional.empty(),
+        response -> (response.value().length == 0) ? Optional.of(key) : Optional.empty(),
         directExecutor());
   }
 }

@@ -24,7 +24,6 @@ import static org.mockito.Mockito.when;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
 import com.google.devtools.build.lib.skyframe.DiffAwareness.View;
@@ -36,6 +35,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.OptionsProvider;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -442,7 +442,7 @@ public class DiffAwarenessManagerTest {
 
   private static class DiffAwarenessFactoryStub implements DiffAwareness.Factory {
 
-    private final Map<Root, DiffAwareness> diffAwarenesses = Maps.newHashMap();
+    private final Map<Root, DiffAwareness> diffAwarenesses = new HashMap<>();
 
     public void inject(Root pathEntry, DiffAwareness diffAwareness) {
       diffAwarenesses.put(pathEntry, diffAwareness);

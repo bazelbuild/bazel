@@ -115,7 +115,7 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
     // An exception to this is when somepath is used at the top level of the query expression.
     boolean lexicographicallySortOutput =
         QueryOutputUtils.lexicographicallySortOutput(queryOptions, formatter)
-            && !expr.isTopLevelSomePathFunction();
+            && !expr.isSomePathFunction();
 
     OutputStream out;
     if (formatter.canBeBuffered()) {

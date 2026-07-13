@@ -15,9 +15,14 @@ package com.google.devtools.build.lib.skyframe.serialization;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.CommonOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.FakeDirectories;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -52,6 +57,48 @@ public class CoreOptionsSerializationTest {
               assertThat(((CoreOptions) deserialized).getCheckVisibility()).isTrue();
             })
         .addDependency(BuildOptions.class, buildOptions)
+        .runTests();
+  }
+
+  @Test
+  public void emptyOptionsRoundTrip_toSameInstance_withCustomCoreOptionsCodec() throws Exception {
+    BuildOptions original = CommonOptions.EMPTY_OPTIONS;
+
+    // Simulates the reader build passing --check_visibility=false.
+    BuildOptions readerOptions = BuildOptions.of(ImmutableList.of(CoreOptions.class));
+    readerOptions.get(CoreOptions.class).setCheckVisibility(false);
+
+    ObjectCodecRegistry.Builder registryBuilder = AutoRegistry.get().getBuilder();
+    for (ObjectCodec<?> codec : SerializationRegistrySetupHelpers.analysisCachingCodecs()) {
+      registryBuilder.add(codec);
+    }
+
+    registryBuilder.addReferenceConstants(
+        SerializationRegistrySetupHelpers.makeReferenceConstants(
+            FakeDirectories.BLAZE_DIRECTORIES,
+            new ConfiguredRuleClassProvider.Builder()
+                .setToolsRepository(RepositoryName.createUnvalidated("bazel_tools"))
+                .build(),
+            "root"));
+    ObjectCodecRegistry registry = registryBuilder.build();
+
+    // Inject the reader options.
+    ImmutableClassToInstanceMap<Object> dependencies =
+        ImmutableClassToInstanceMap.of(BuildOptions.class, readerOptions);
+
+    ObjectCodecs codecs = new ObjectCodecs(registry, dependencies);
+
+    SerializationTester tester = new SerializationTester(original);
+    tester.setObjectCodecs(codecs);
+
+    tester
+        .makeMemoizingAndAllowFutureBlocking(true)
+        .setVerificationFunction(
+            (orig, deserialized) -> {
+              // Check that EMPTY_OPTIONS remain untainted by the custom CoreOptions
+              // check_visibility trimming.
+              assertThat(deserialized).isSameInstanceAs(orig);
+            })
         .runTests();
   }
 }

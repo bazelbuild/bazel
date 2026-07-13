@@ -104,7 +104,6 @@ import com.google.devtools.build.lib.skyframe.SkyframeExecutor.ConfigureTargetsR
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.FailureToRetrieveIntrospectedValueException;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.TopLevelActionConflictReport;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
-import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions.RemoteAnalysisCacheMode;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.DetailedExitCode.DetailedExitCodeComparator;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
@@ -120,6 +119,7 @@ import com.google.devtools.build.skyframe.WalkableGraph;
 import com.google.devtools.common.options.OptionDefinition;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -491,7 +491,7 @@ public final class SkyframeBuildView {
     // Sometimes there are action conflicts, but the actions aren't actually required to run by the
     // build. In such cases, the conflict should still be reported to the user.
     // See OutputArtifactConflictTest#unusedActionsStillConflict.
-    Set<String> reportedActionConflictExceptions = Sets.newHashSet();
+    Set<String> reportedActionConflictExceptions = new HashSet<>();
     for (Entry<ActionAnalysisMetadata, ActionConflictException> bad : actionConflicts.entrySet()) {
       ActionConflictException ace = bad.getValue();
       var detailedExitCode = ace.getDetailedExitCode();
@@ -940,8 +940,7 @@ public final class SkyframeBuildView {
           buildResultListener.getAnalyzedTargets(),
           buildResultListener.getAnalyzedAspects().keySet());
     }
-    if (skyframeExecutor.getRemoteAnalysisCachingDependenciesProvider().mode()
-        == RemoteAnalysisCacheMode.UPLOAD) {
+    if (skyframeExecutor.getRemoteAnalysisCachingDependenciesProvider().mode().isSyncUpload()) {
       skyframeExecutor.clearPackageValues();
     }
 
@@ -1041,7 +1040,7 @@ public final class SkyframeBuildView {
       boolean keepGoing)
       throws ViewCreationFailedException, InterruptedException {
     // ArtifactPrefixConflictExceptions come in pairs, and only one should be reported.
-    Set<String> reportedActionConflictExceptions = Sets.newHashSet();
+    Set<String> reportedActionConflictExceptions = new HashSet<>();
 
     // Sometimes a conflicting action can't be traced to a top level target via
     // TopLevelActionConflictReport. We therefore need to print the errors from the conflicts
@@ -1372,7 +1371,8 @@ public final class SkyframeBuildView {
       @Nullable ToolchainCollection<ResolvedToolchainContext> toolchainContexts,
       @Nullable NestedSet<Package.Metadata> transitivePackages,
       ExecGroupCollection.Builder execGroupCollectionBuilder,
-      boolean crashIfExecutionPhase)
+      boolean crashIfExecutionPhase,
+      boolean dependsOnFileKey)
       throws InterruptedException,
           ActionConflictException,
           InvalidExecGroupException,
@@ -1411,7 +1411,8 @@ public final class SkyframeBuildView {
         toolchainContexts,
         transitivePackages,
         execGroupCollectionBuilder,
-        starlarkExecTransition.orElse(null));
+        starlarkExecTransition.orElse(null),
+        dependsOnFileKey);
   }
 
   /**

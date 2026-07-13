@@ -20,11 +20,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListenableFutureTask;
-import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore.InMemoryFingerprintValueStore;
 import com.google.devtools.build.lib.skyframe.serialization.NotNestedSet.NestedArrayCodec;
 import com.google.devtools.build.lib.skyframe.serialization.NotNestedSet.NotNestedSetCodec;
 import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.SettableWriteStatus;
-import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.WriteStatus;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
@@ -339,9 +337,10 @@ public final class SharedValueSerializationContextTest {
 
     var unused = codecs.serializeMemoizedAndBlocking(fingerprintValueService, new NotNestedSet(a));
 
-    ImmutableList<byte[]> storeValues = ImmutableList.copyOf(store.fingerprintToContents.values());
+    ImmutableList<ByteString> storeValues =
+        ImmutableList.copyOf(store.fingerprintToContents.values());
     assertThat(storeValues).hasSize(1);
-    assertThat(storeValues.get(0)).hasLength(compress ? 23 : 1007);
+    assertThat(storeValues.get(0).toByteArray()).hasLength(compress ? 24 : 1007);
   }
 
   /** Test data for {@link #errorInSharedPut}. */

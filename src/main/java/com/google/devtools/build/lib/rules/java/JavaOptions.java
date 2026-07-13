@@ -335,17 +335,6 @@ public abstract class JavaOptions extends FragmentOptions {
   public abstract boolean getEnforceOneVersionOnJavaTests();
 
   @Option(
-      name = "experimental_add_test_support_to_compile_time_deps",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help =
-          "Flag to help transition away from adding test support libraries to the compile-time"
-              + " deps of Java test rules.")
-  public abstract boolean getAddTestSupportToCompileTimeDeps();
-
-  @Option(
       name = "experimental_run_android_lint_on_java_rules",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
@@ -442,13 +431,4 @@ public abstract class JavaOptions extends FragmentOptions {
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help = "Enable experimental jspecify integration.")
   public abstract boolean getExperimentalEnableJspecify();
-
-  @Option(
-      name = "experimental_java_test_auto_create_deploy_jar",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help = "DO NOT USE")
-  public abstract boolean getAutoCreateDeployJarForJavaTests();
 }

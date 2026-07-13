@@ -14,6 +14,8 @@
 
 package net.starlark.java.syntax;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
@@ -168,6 +170,81 @@ public final class TestUtils {
     @Nullable
     public StarlarkType getSetFieldType(String name) {
       return null;
+    }
+
+    @Override
+    @Nullable
+    public StarlarkType getPredeclaredSymbolType(String name) {
+      return predeclared.contains(name) ? Types.ANY : null;
+    }
+
+    @Override
+    @Nullable
+    public StarlarkType getUniversalSymbolType(String name) {
+      throw new UnsupportedOperationException("universal types not supported");
+    }
+  }
+
+  /** A static {@link TypeTagger.LoadableModule} implementation, for tests of the type checker. */
+  public static class LoadableModule implements TypeTagger.LoadableModule {
+    private final ImmutableMap<String, StarlarkType> exports;
+    private final ImmutableMap<String, TypeConstructor> typeConstructors;
+
+    public LoadableModule(
+        Map<String, StarlarkType> exports, Map<String, TypeConstructor> typeConstructors) {
+      checkArgument(
+          typeConstructors.keySet().stream().allMatch(exports::containsKey),
+          "type constructor names must be a subset of export names");
+      this.exports = ImmutableMap.copyOf(exports);
+      this.typeConstructors = ImmutableMap.copyOf(typeConstructors);
+    }
+
+    /** Creates a LoadableModule with exports expressed as flattened name-type pairs. */
+    public static LoadableModule of(Object... args) {
+      checkArgument(args.length % 2 == 0);
+      ImmutableMap.Builder<String, StarlarkType> exports = ImmutableMap.builder();
+      for (int i = 0; i < args.length; i += 2) {
+        exports.put((String) args[i], (StarlarkType) args[i + 1]);
+      }
+      return new LoadableModule(exports.buildOrThrow(), ImmutableMap.of());
+    }
+
+    /**
+     * Creates a LoadableModule with exports expressed as flattened name-type-constructor triples.
+     */
+    public static LoadableModule ofTypesAndConstructors(Object... args) {
+      checkArgument(args.length % 3 == 0);
+      ImmutableMap.Builder<String, StarlarkType> exports = ImmutableMap.builder();
+      ImmutableMap.Builder<String, TypeConstructor> typeConstructors = ImmutableMap.builder();
+      for (int i = 0; i < args.length; i += 3) {
+        exports.put((String) args[i], (StarlarkType) args[i + 1]);
+        if (args[i + 2] != null) {
+          typeConstructors.put((String) args[i], (TypeConstructor) args[i + 2]);
+        }
+      }
+      return new LoadableModule(exports.buildOrThrow(), typeConstructors.buildOrThrow());
+    }
+
+    @Override
+    public Set<String> getExports() {
+      return exports.keySet();
+    }
+
+    @Override
+    public boolean hasExport(String name) {
+      return exports.containsKey(name);
+    }
+
+    @Override
+    @Nullable
+    public StarlarkType getExportType(String name) {
+      return exports.get(name);
+    }
+
+    @Override
+    @Nullable
+    public TypeConstructor getExportTypeConstructor(String name) {
+      return typeConstructors.get(name);
     }
   }
 }

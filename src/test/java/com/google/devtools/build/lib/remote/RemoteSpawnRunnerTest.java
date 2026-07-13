@@ -49,7 +49,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
-import com.google.common.eventbus.EventBus;
 import com.google.common.io.ByteStreams;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
@@ -61,8 +60,9 @@ import com.google.devtools.build.lib.actions.ActionOutputDirectoryHelper;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
-import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
+import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
+import com.google.devtools.build.lib.actions.ParamFileActionInput;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
@@ -74,6 +74,7 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.events.EventBusEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.AbstractSpawnStrategy;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
@@ -91,6 +92,7 @@ import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.OperationObserver;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
+import com.google.devtools.build.lib.remote.common.RemoteExecutionCapabilitiesException;
 import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver.SiblingRepositoryLayoutResolver;
@@ -148,7 +150,7 @@ public class RemoteSpawnRunnerTest {
 
   @Mock private RemoteOutputChecker remoteOutputChecker; // download nothing by default.
 
-  private final Reporter reporter = new Reporter(new EventBus());
+  private final Reporter reporter = new Reporter(EventBusEventHandler.createWithNewEventBus());
   private static final ImmutableMap<String, String> NO_CACHE =
       ImmutableMap.of(ExecutionRequirements.NO_CACHE, "");
   private ListeningScheduledExecutorService retryService;
@@ -270,7 +272,7 @@ public class RemoteSpawnRunnerTest {
 
     var actionInputFetcher =
         new RemoteActionInputFetcher(
-            new Reporter(new EventBus()),
+            new Reporter(EventBusEventHandler.createWithNewEventBus()),
             "none",
             "none",
             cache,
@@ -441,6 +443,50 @@ public class RemoteSpawnRunnerTest {
         .execLocallyAndUpload(any(), eq(spawn), eq(policy), /* uploadLocalResults= */ eq(true));
     verify(service).uploadOutputs(any(), eq(result), any(), any());
     verify(service, never()).downloadOutputs(any(), any());
+  }
+
+  @Test
+  public void remoteLocalFallback_buildRemoteActionFailure() throws Exception {
+    remoteOptions.setRemoteLocalFallback(true);
+
+    RemoteSpawnRunner runner = spy(newSpawnRunner());
+    RemoteExecutionService service = runner.getRemoteExecutionService();
+    doThrow(new RemoteExecutionCapabilitiesException(new IOException("capabilities failed")))
+        .when(service)
+        .buildRemoteAction(any(), any(), any());
+
+    Spawn spawn = newSimpleSpawn();
+    SpawnExecutionContext policy = getSpawnContext(spawn);
+
+    SpawnResult localResult =
+        new SpawnResult.Builder()
+            .setExitCode(0)
+            .setStatus(Status.SUCCESS)
+            .setRunnerName("local")
+            .build();
+    when(localRunner.exec(spawn, policy)).thenReturn(localResult);
+
+    SpawnResult result = runner.exec(spawn, policy);
+
+    assertThat(result).isEqualTo(localResult);
+    verify(localRunner).exec(spawn, policy);
+    verify(service, never()).uploadOutputs(any(), any(), any(), any());
+  }
+
+  @Test
+  public void buildRemoteActionFailure_noLocalFallback_shouldThrow() throws Exception {
+    remoteOptions.setRemoteLocalFallback(false);
+
+    RemoteSpawnRunner runner = spy(newSpawnRunner());
+    RemoteExecutionService service = runner.getRemoteExecutionService();
+    doThrow(new RemoteExecutionCapabilitiesException(new IOException("capabilities failed")))
+        .when(service)
+        .buildRemoteAction(any(), any(), any());
+
+    Spawn spawn = newSimpleSpawn();
+    SpawnExecutionContext policy = getSpawnContext(spawn);
+
+    assertThrows(ExecException.class, () -> runner.exec(spawn, policy));
   }
 
   @Test

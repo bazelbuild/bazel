@@ -25,8 +25,6 @@ java_library(
     deps = [
         "//third_party:guava",
         "//src/main/java/com/google/devtools/build/docgen/annot",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/core",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/platform",
         "//src/main/java/net/starlark/java/annot",

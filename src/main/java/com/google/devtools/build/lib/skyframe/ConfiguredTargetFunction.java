@@ -69,8 +69,8 @@ import com.google.devtools.build.lib.skyframe.SkyframeExecutor.BuildViewProvider
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalContext;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.SerializableSkyKeyComputeState;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheMode;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheReaderDepsProvider;
-import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions.RemoteAnalysisCacheMode;
 import com.google.devtools.build.lib.skyframe.toolchains.ToolchainException;
 import com.google.devtools.build.lib.skyframe.toolchains.UnloadedToolchainContext;
 import com.google.devtools.build.lib.util.DetailedExitCode;
@@ -381,8 +381,12 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               state.computeDependenciesState.transitivePackages(),
               /* crashIfExecutionPhase= */ !remoteCachingDependencies.mode().isRetrievalEnabled(),
               remoteCachingDependencies.mode());
-      if (ans != null && analysisProgress != null) {
-        analysisProgress.doneConfigureTarget();
+      if (ans != null) {
+        if (analysisProgress != null) {
+          analysisProgress.doneConfigureTarget();
+        }
+        SkyValueRetrieverUtils.tryUploadAsync(
+            remoteCachingDependencies, configuredTargetKey, ans, env);
       }
       return ans;
     } catch (IncompatibleTargetChecker.IncompatibleTargetException e) {
@@ -461,7 +465,8 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               toolchainContexts,
               transitivePackages,
               execGroupCollectionBuilder,
-              crashIfExecutionPhase);
+              crashIfExecutionPhase,
+              remoteAnalysisCacheMode.isUploadEnabled());
     } catch (MissingDepException e) {
       Preconditions.checkState(env.valuesMissing(), e.getMessage());
       return null;
@@ -522,7 +527,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
           configuredTarget);
       // If this is a Skycache download build, we check if it's an alias. For remote values, the
       // package isn't present but the target data is present
-      if (remoteAnalysisCacheMode == RemoteAnalysisCacheMode.DOWNLOAD
+      if (remoteAnalysisCacheMode.isRetrievalEnabled()
           && configuredTarget instanceof AliasConfiguredTarget alias) {
         ConfiguredTargetValue configuredTargetValue =
             (ConfiguredTargetValue) env.getValue(alias.getActual().getLookupKey());

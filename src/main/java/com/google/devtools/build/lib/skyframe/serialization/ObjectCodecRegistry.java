@@ -14,6 +14,9 @@
 
 package com.google.devtools.build.lib.skyframe.serialization;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Streams.stream;
 import static java.util.Comparator.comparing;
@@ -37,6 +40,7 @@ import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -57,11 +61,14 @@ public class ObjectCodecRegistry {
   private final boolean allowDefaultCodec;
 
   private final ConcurrentMap<Class<?>, CodecDescriptor> classMappedCodecs;
-  private final ImmutableList<CodecDescriptor> tagMappedCodecs;
+  private final ImmutableList<CodecDescriptor> unstableTagMappedCodecs;
+  private final ImmutableList<CodecDescriptor> stablePublicTagMappedCodecs;
+  private final ImmutableList<CodecDescriptor> stablePrivateTagMappedCodecs;
 
-  private final int referenceConstantsStartTag;
   private final IdentityHashMap<Object, Integer> referenceConstantsMap;
-  private final ImmutableList<Object> referenceConstants;
+  private final ImmutableList<Object> unstableReferenceConstants;
+  private final ImmutableList<ConstantDescriptor> stablePublicReferenceConstants;
+  private final ImmutableList<ConstantDescriptor> stablePrivateReferenceConstants;
 
   /** This is sorted, but we need index-based access. */
   private final ImmutableList<String> classNames;
@@ -71,8 +78,12 @@ public class ObjectCodecRegistry {
   @Nullable private final byte[] checksum;
 
   private ObjectCodecRegistry(
-      ImmutableSet<ObjectCodec<?>> memoizingCodecs,
-      ImmutableList<Object> referenceConstants,
+      ImmutableSet<ObjectCodec<?>> unstableCodecs,
+      @Nullable ImmutableList<CodecDescriptor> stablePublicCodecs,
+      @Nullable ImmutableList<CodecDescriptor> stablePrivateCodecs,
+      ImmutableList<Object> unstableReferenceConstants,
+      @Nullable ImmutableList<ConstantDescriptor> stablePublicReferenceConstants,
+      @Nullable ImmutableList<ConstantDescriptor> stablePrivateReferenceConstants,
       ImmutableSortedSet<String> classNames,
       ImmutableList<String> excludedClassNamePrefixes,
       boolean allowDefaultCodec,
@@ -87,31 +98,76 @@ public class ObjectCodecRegistry {
       checksum =
           CodedOutputStream.newInstance(
               new DigestOutputStream(ByteStreams.nullOutputStream(), messageDigest),
-              /*bufferSize=*/ 1024);
+              /* bufferSize= */ 1024);
       checksum.writeBoolNoTag(allowDefaultCodec);
     }
     this.allowDefaultCodec = allowDefaultCodec;
 
     int nextTag = 1; // 0 is reserved for null.
+    // Codec initialization.
     this.classMappedCodecs =
         new ConcurrentHashMap<>(
-            memoizingCodecs.size(), 0.75f, Runtime.getRuntime().availableProcessors());
+            unstableCodecs.size(), 0.75f, Runtime.getRuntime().availableProcessors());
     ImmutableList.Builder<CodecDescriptor> tagMappedMemoizingCodecsBuilder =
-        ImmutableList.builderWithExpectedSize(memoizingCodecs.size());
+        ImmutableList.builderWithExpectedSize(unstableCodecs.size());
     nextTag =
         processCodecs(
-            memoizingCodecs, nextTag, tagMappedMemoizingCodecsBuilder, classMappedCodecs, checksum);
-    this.tagMappedCodecs = tagMappedMemoizingCodecsBuilder.build();
+            unstableCodecs, nextTag, tagMappedMemoizingCodecsBuilder, classMappedCodecs, checksum);
+    this.unstableTagMappedCodecs = tagMappedMemoizingCodecsBuilder.build();
 
-    referenceConstantsStartTag = nextTag;
-    referenceConstantsMap = new IdentityHashMap<>();
-    for (Object constant : referenceConstants) {
-      referenceConstantsMap.put(constant, nextTag);
-      addToChecksum(checksum, nextTag, constant.getClass().getName());
-      nextTag++;
+    if (stablePublicCodecs != null) {
+      for (CodecDescriptor codec : stablePublicCodecs) {
+        classMappedCodecs.put(codec.codec().getEncodedClass(), codec);
+        for (Class<?> otherClass : codec.codec().additionalEncodedClasses()) {
+          classMappedCodecs.put(otherClass, codec);
+        }
+      }
+      this.stablePublicTagMappedCodecs = stablePublicCodecs;
+    } else {
+      this.stablePublicTagMappedCodecs = ImmutableList.of();
     }
-    this.referenceConstants = referenceConstants;
 
+    if (stablePrivateCodecs != null) {
+      for (CodecDescriptor codec : stablePrivateCodecs) {
+        classMappedCodecs.put(codec.codec().getEncodedClass(), codec);
+        for (Class<?> otherClass : codec.codec().additionalEncodedClasses()) {
+          classMappedCodecs.put(otherClass, codec);
+        }
+      }
+      this.stablePrivateTagMappedCodecs = stablePrivateCodecs;
+    } else {
+      this.stablePrivateTagMappedCodecs = ImmutableList.of();
+    }
+    // Reference constant initialization.
+    referenceConstantsMap = new IdentityHashMap<>();
+    {
+      int unstableConstantTag = 0;
+      for (Object constant : unstableReferenceConstants) {
+        referenceConstantsMap.put(
+            constant, WireType.ConstantWireType.UNSTABLE.getTypedTagNumber(unstableConstantTag));
+        addToChecksum(checksum, unstableConstantTag, constant.getClass().getName());
+        unstableConstantTag++;
+      }
+      this.unstableReferenceConstants = unstableReferenceConstants;
+    }
+    // If an unstableReferenceConstant also appears in a stable reference list, the stable tag will
+    // be used.
+    if (stablePublicReferenceConstants != null) {
+      for (ConstantDescriptor constant : stablePublicReferenceConstants) {
+        referenceConstantsMap.put(constant.constant(), constant.getTypedTagNumber());
+      }
+      this.stablePublicReferenceConstants = stablePublicReferenceConstants;
+    } else {
+      this.stablePublicReferenceConstants = ImmutableList.of();
+    }
+    if (stablePrivateReferenceConstants != null) {
+      for (ConstantDescriptor constant : stablePrivateReferenceConstants) {
+        referenceConstantsMap.put(constant.constant(), constant.getTypedTagNumber());
+      }
+      this.stablePrivateReferenceConstants = stablePrivateReferenceConstants;
+    } else {
+      this.stablePrivateReferenceConstants = ImmutableList.of();
+    }
     this.classNames =
         classNames.stream()
             .filter((str) -> isAllowed(str, excludedClassNamePrefixes))
@@ -163,35 +219,77 @@ public class ObjectCodecRegistry {
   }
 
   @Nullable
-  Object maybeGetConstantByTag(int tag) {
-    if (referenceConstantsStartTag <= tag
-        && tag < referenceConstantsStartTag + referenceConstants.size()) {
-      return referenceConstants.get(tag - referenceConstantsStartTag);
-    }
-    return null;
+  Object maybeGetConstantByTag(int typedTag) throws SerializationException {
+    int wireType = WireType.getWireTypeIndex(typedTag);
+    // Micro optimization: switching on compile-time constants to get a jump table.
+    return switch (wireType) {
+      case WireType.UNSTABLE_CONSTANT_VALUE -> {
+        int tag = WireType.getTagNumber(typedTag);
+        if (tag < unstableReferenceConstants.size()) {
+          yield unstableReferenceConstants.get(tag);
+        }
+        yield null;
+      }
+      case WireType.STABLE_CONSTANT_VALUE ->
+          getStableReferenceConstantValue(stablePublicReferenceConstants, typedTag);
+      case WireType.STABLE_PRIVATE_CONSTANT_VALUE ->
+          getStableReferenceConstantValue(stablePrivateReferenceConstants, typedTag);
+      case WireType.BACKREFERENCE_VALUE,
+          WireType.UNSTABLE_CODEC_VALUE,
+          WireType.STABLE_CODEC_VALUE,
+          WireType.STABLE_PRIVATE_CODEC_VALUE ->
+          null;
+      default -> {
+        throw new SerializationException("Unknown wire type: " + wireType);
+      }
+    };
   }
 
   @Nullable
   public Integer maybeGetTagForConstant(Object object) {
-    return referenceConstantsMap.get(object);
+    @Nullable Integer tag = referenceConstantsMap.get(object);
+    if (tag == null) {
+      return null;
+    }
+    return tag;
   }
 
   /** Returns the {@link CodecDescriptor} associated with the supplied tag. */
-  CodecDescriptor getCodecDescriptorByTag(int tag) throws SerializationException.NoCodecException {
-    int tagOffset = tag - 1; // 0 reserved for null
-    if (tagOffset < 0) {
-      throw new SerializationException.NoCodecException("No codec available for tag " + tag);
-    }
-    if (tagOffset < tagMappedCodecs.size()) {
-      return tagMappedCodecs.get(tagOffset);
-    }
-
-    tagOffset -= tagMappedCodecs.size();
-    tagOffset -= referenceConstants.size();
-    if (!allowDefaultCodec || tagOffset < 0 || tagOffset >= classNames.size()) {
-      throw new SerializationException.NoCodecException("No codec available for tag " + tag);
-    }
-    return getDynamicCodecDescriptor(classNames.get(tagOffset), /*type=*/ null);
+  CodecDescriptor getCodecDescriptorByTag(int typedTag)
+      throws SerializationException.NoCodecException {
+    int wireType = WireType.getWireTypeIndex(typedTag);
+    int tag = WireType.getTagNumber(typedTag);
+    // Micro optimization: switching on compile-time constants to get a jump table.
+    return switch (wireType) {
+      case WireType.UNSTABLE_CODEC_VALUE -> {
+        int tagOffset = tag - 1; // 0 reserved for null
+        if (tagOffset < 0) {
+          throw new SerializationException.NoCodecException("No codec available for tag " + tag);
+        }
+        if (tagOffset < unstableTagMappedCodecs.size()) {
+          yield unstableTagMappedCodecs.get(tagOffset);
+        }
+        tagOffset -= unstableTagMappedCodecs.size();
+        if (!allowDefaultCodec || tagOffset < 0 || tagOffset >= classNames.size()) {
+          throw new SerializationException.NoCodecException(
+              "No unstable codec available for tag " + tag);
+        }
+        yield getDynamicCodecDescriptor(classNames.get(tagOffset), /* type= */ null);
+      }
+      case WireType.STABLE_CODEC_VALUE ->
+          getCodecDescriptorForTag(stablePublicTagMappedCodecs, tag);
+      case WireType.STABLE_PRIVATE_CODEC_VALUE ->
+          getCodecDescriptorForTag(stablePrivateTagMappedCodecs, tag);
+      case WireType.BACKREFERENCE_VALUE,
+          WireType.UNSTABLE_CONSTANT_VALUE,
+          WireType.STABLE_CONSTANT_VALUE,
+          WireType.STABLE_PRIVATE_CONSTANT_VALUE ->
+          throw new SerializationException.NoCodecException(
+              "called getCodecDescriptorByTag for WireType: " + WireType.fromValue(wireType));
+      default ->
+          throw new SerializationException.NoCodecException(
+              "No codec available for tag " + tag + " with wire type " + wireType);
+    };
   }
 
   /**
@@ -215,12 +313,26 @@ public class ObjectCodecRegistry {
   public Builder getBuilder() {
     Builder builder = newBuilder();
     builder.setAllowDefaultCodec(allowDefaultCodec);
-    for (Map.Entry<Class<?>, CodecDescriptor> entry : classMappedCodecs.entrySet()) {
-      builder.add(entry.getValue().codec());
+    for (CodecDescriptor codecDescriptor : classMappedCodecs.values()) {
+      if (codecDescriptor.wireType() == WireType.CodecWireType.UNSTABLE) {
+        builder.add(codecDescriptor.codec());
+      }
+    }
+    if (!stablePublicTagMappedCodecs.isEmpty()) {
+      builder.setStablePublicCodecDescriptors(stablePublicTagMappedCodecs);
+    }
+    if (!stablePrivateTagMappedCodecs.isEmpty()) {
+      builder.setStablePrivateCodecDescriptors(stablePrivateTagMappedCodecs);
     }
 
-    for (Object constant : referenceConstants) {
+    for (Object constant : unstableReferenceConstants) {
       builder.addReferenceConstant(constant);
+    }
+    if (!stablePublicReferenceConstants.isEmpty()) {
+      builder.setStablePublicReferenceConstantDescriptors(stablePublicReferenceConstants);
+    }
+    if (!stablePrivateReferenceConstants.isEmpty()) {
+      builder.setStablePrivateReferenceConstantDescriptors(stablePrivateReferenceConstants);
     }
 
     for (String className : classNames) {
@@ -233,25 +345,80 @@ public class ObjectCodecRegistry {
     return classNames;
   }
 
+  /** Returns the codec value associated with the given tag, checking for unused tag numbers. */
+  private static CodecDescriptor getCodecDescriptorForTag(
+      ImmutableList<CodecDescriptor> tagMappedCodecs, int tag)
+      throws SerializationException.NoCodecException {
+    if (tag < tagMappedCodecs.size()) {
+      return tagMappedCodecs.get(tag);
+    }
+    throw new SerializationException.NoCodecException("No codec available for tag " + tag);
+  }
+
+  /** Returns the constant value associated with the given tag, checking for unused tag numbers. */
+  private static Object getStableReferenceConstantValue(
+      ImmutableList<ConstantDescriptor> stableReferenceConstantList, int typedTag)
+      throws SerializationException {
+    int tag = WireType.getTagNumber(typedTag);
+    if (tag >= stableReferenceConstantList.size()) {
+      throw new SerializationException("Unknown constant tag: " + tag);
+    }
+    return stableReferenceConstantList.get(tag).constant();
+  }
+
   /**
    * Describes encoding logic.
    *
+   * @param wireType The codec wire type of the codec.
    * @param tag Unique identifier for the associated codec. Intended to be used as a compact
    *     on-the-wire representation of an encoded object's type. Returns a value ≥ 1. 0 is a special
-   *     tag representing null while negative numbers are reserved for backreferences.
+   *     tag representing null.
    * @param codec The underlying codec.
    */
-  record CodecDescriptor(int tag, ObjectCodec<?> codec) {
+  record CodecDescriptor(WireType.CodecWireType wireType, int tag, ObjectCodec<?> codec) {
     CodecDescriptor {
       // Check that the tag is not a reserved value.
-      Preconditions.checkArgument(tag >= 1);
+      int minTag = wireType == WireType.CodecWireType.UNSTABLE ? 1 : 0;
+      Preconditions.checkArgument(tag >= minTag);
+    }
+
+    /** Returns the combined wire type and tag number for this codec descriptor. */
+    int getTypedTagNumber() {
+      return wireType.getTypedTagNumber(tag);
+    }
+  }
+
+  /**
+   * Describes encoding logic.
+   *
+   * @param wireType The wire type of the reference constant.
+   * @param tag Unique identifier for the associated constant. Intended to be used as a compact
+   *     on-the-wire representation of an encoded object's type. *May* be zero, unlike in {@link
+   *     CodecDescriptor}.
+   * @param constant The underlying constant.
+   */
+  public record ConstantDescriptor(WireType.ConstantWireType wireType, int tag, Object constant) {
+
+    public ConstantDescriptor {
+      // Check that the tag is not a reserved value.
+      Preconditions.checkArgument(tag >= 0);
+    }
+
+    /** Returns the combined wire type and tag number for this constant descriptor. */
+    int getTypedTagNumber() {
+      return wireType.getTypedTagNumber(tag);
     }
   }
 
   /** Builder for {@link ObjectCodecRegistry}. */
   public static class Builder {
-    private final Map<Class<?>, ObjectCodec<?>> codecs = new HashMap<>();
-    private final ImmutableList.Builder<Object> referenceConstantsBuilder = ImmutableList.builder();
+    private final Map<Class<?>, ObjectCodec<?>> unstableCodecs = new HashMap<>();
+    private ImmutableList<CodecDescriptor> stablePublicCodecs = null;
+    private ImmutableList<CodecDescriptor> stablePrivateCodecs = null;
+    private final ImmutableList.Builder<Object> unstableReferenceConstantsBuilder =
+        ImmutableList.builder();
+    private ImmutableList<ConstantDescriptor> stablePublicReferenceConstants = null;
+    private ImmutableList<ConstantDescriptor> stablePrivateReferenceConstants = null;
     private final ImmutableSortedSet.Builder<String> classNames = ImmutableSortedSet.naturalOrder();
     private final ImmutableList.Builder<String> excludedClassNamePrefixes = ImmutableList.builder();
     private boolean allowDefaultCodec = true;
@@ -263,8 +430,47 @@ public class ObjectCodecRegistry {
      */
     @CanIgnoreReturnValue
     public Builder add(ObjectCodec<?> codec) {
-      codecs.put(codec.getEncodedClass(), codec);
+      unstableCodecs.put(codec.getEncodedClass(), codec);
       return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder setStablePublicCodecs(List<ObjectCodec<?>> newStablePublicCodecs) {
+      return setStablePublicCodecDescriptors(
+          makeCodecDescriptors(newStablePublicCodecs, WireType.CodecWireType.STABLE_PUBLIC));
+    }
+
+    @CanIgnoreReturnValue
+    public Builder setStablePrivateCodecs(List<ObjectCodec<?>> newStablePrivateCodecs) {
+      return setStablePrivateCodecDescriptors(
+          makeCodecDescriptors(newStablePrivateCodecs, WireType.CodecWireType.STABLE_PRIVATE));
+    }
+
+    @CanIgnoreReturnValue
+    Builder setStablePublicCodecDescriptors(ImmutableList<CodecDescriptor> newStablePublicCodecs) {
+      checkState(stablePublicCodecs == null, "Cannot set stable public codec descriptors twice");
+      newStablePublicCodecs.forEach(
+          c -> checkArgument(c.wireType() == WireType.CodecWireType.STABLE_PUBLIC));
+      stablePublicCodecs = newStablePublicCodecs;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    Builder setStablePrivateCodecDescriptors(
+        ImmutableList<CodecDescriptor> newStablePrivateCodecs) {
+      checkState(stablePrivateCodecs == null, "Cannot set stable private codec descriptors twice");
+      newStablePrivateCodecs.forEach(
+          c -> checkArgument(c.wireType() == WireType.CodecWireType.STABLE_PRIVATE));
+      stablePrivateCodecs = newStablePrivateCodecs;
+      return this;
+    }
+
+    private static ImmutableList<CodecDescriptor> makeCodecDescriptors(
+        List<ObjectCodec<?>> referenceCodecs, WireType.CodecWireType wireType) {
+      return Streams.mapWithIndex(
+              referenceCodecs.stream(),
+              (o, i) -> new CodecDescriptor(wireType, (int) i, checkNotNull(o)))
+          .collect(toImmutableList());
     }
 
     /**
@@ -300,14 +506,62 @@ public class ObjectCodecRegistry {
      */
     @CanIgnoreReturnValue
     public Builder addReferenceConstant(Object object) {
-      referenceConstantsBuilder.add(object);
+      unstableReferenceConstantsBuilder.add(object);
       return this;
     }
 
     @CanIgnoreReturnValue
     public Builder addReferenceConstants(Iterable<?> referenceConstants) {
-      referenceConstantsBuilder.addAll(referenceConstants);
+      unstableReferenceConstantsBuilder.addAll(referenceConstants);
       return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder setStablePublicReferenceConstants(
+        List<Object> newStablePublicReferenceConstants) {
+      return setStablePublicReferenceConstantDescriptors(
+          makeConstantDescriptors(
+              newStablePublicReferenceConstants, WireType.ConstantWireType.STABLE_PUBLIC));
+    }
+
+    @CanIgnoreReturnValue
+    public Builder setStablePrivateReferenceConstants(
+        List<Object> newStablePrivateReferenceConstants) {
+      return setStablePrivateReferenceConstantDescriptors(
+          makeConstantDescriptors(
+              newStablePrivateReferenceConstants, WireType.ConstantWireType.STABLE_PRIVATE));
+    }
+
+    @CanIgnoreReturnValue
+    Builder setStablePublicReferenceConstantDescriptors(
+        ImmutableList<ConstantDescriptor> newStablePublicReferenceConstants) {
+      checkState(
+          stablePublicReferenceConstants == null,
+          "Cannot set stable public reference constant descriptors twice");
+      newStablePublicReferenceConstants.forEach(
+          c -> checkArgument(c.wireType() == WireType.ConstantWireType.STABLE_PUBLIC));
+      stablePublicReferenceConstants = newStablePublicReferenceConstants;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    Builder setStablePrivateReferenceConstantDescriptors(
+        ImmutableList<ConstantDescriptor> newStablePrivateReferenceConstants) {
+      checkState(
+          stablePrivateReferenceConstants == null,
+          "Cannot set stable private reference constant descriptors twice");
+      newStablePrivateReferenceConstants.forEach(
+          c -> checkArgument(c.wireType() == WireType.ConstantWireType.STABLE_PRIVATE));
+      stablePrivateReferenceConstants = newStablePrivateReferenceConstants;
+      return this;
+    }
+
+    private static ImmutableList<ConstantDescriptor> makeConstantDescriptors(
+        List<Object> referenceConstants, WireType.ConstantWireType wireType) {
+      return Streams.mapWithIndex(
+              referenceConstants.stream(),
+              (o, i) -> new ConstantDescriptor(wireType, (int) i, checkNotNull(o)))
+          .collect(toImmutableList());
     }
 
     @CanIgnoreReturnValue
@@ -329,11 +583,16 @@ public class ObjectCodecRegistry {
     }
 
     public ObjectCodecRegistry build() {
+      var classNamesBuilt = classNames.build();
       try {
         return new ObjectCodecRegistry(
-            ImmutableSet.copyOf(codecs.values()),
-            referenceConstantsBuilder.build(),
-            classNames.build(),
+            ImmutableSet.copyOf(unstableCodecs.values()),
+            stablePublicCodecs,
+            stablePrivateCodecs,
+            unstableReferenceConstantsBuilder.build(),
+            stablePublicReferenceConstants,
+            stablePrivateReferenceConstants,
+            classNamesBuilt,
             excludedClassNamePrefixes.build(),
             allowDefaultCodec,
             computeChecksum);
@@ -360,7 +619,8 @@ public class ObjectCodecRegistry {
                 (codec, idx) ->
                     // idx is small enough to be casted from long to int without loss of
                     // information.
-                    new CodecDescriptor((int) idx + nextTag, codec))
+                    new CodecDescriptor(
+                        WireType.CodecWireType.UNSTABLE, (int) idx + nextTag, codec))
             .collect(toImmutableList());
 
     // Then, perform checksumming and check that there's a unique codec descriptor for each encoded
@@ -442,7 +702,7 @@ public class ObjectCodecRegistry {
       if (MessageLite.class.isAssignableFrom(type)) {
         return createCodecDescriptorForProto(tag, type);
       }
-      return new CodecDescriptor(tag, new DynamicCodec(type));
+      return new CodecDescriptor(WireType.CodecWireType.UNSTABLE, tag, new DynamicCodec(type));
     } catch (ReflectiveOperationException e) {
       new SerializationException("Could not create codec for type: " + className, e)
           .printStackTrace();
@@ -452,12 +712,15 @@ public class ObjectCodecRegistry {
 
   @SuppressWarnings({"unchecked", "rawtypes"})
   private static CodecDescriptor createCodecDescriptorForEnum(int tag, Class<?> enumType) {
-    return new CodecDescriptor(tag, new EnumCodec(enumType));
+    return new CodecDescriptor(WireType.CodecWireType.UNSTABLE, tag, new EnumCodec(enumType));
   }
 
   @SuppressWarnings("unchecked")
   private static CodecDescriptor createCodecDescriptorForProto(int tag, Class<?> protoType) {
-    return new CodecDescriptor(tag, new MessageLiteCodec((Class<? extends MessageLite>) protoType));
+    return new CodecDescriptor(
+        WireType.CodecWireType.UNSTABLE,
+        tag,
+        new MessageLiteCodec((Class<? extends MessageLite>) protoType));
   }
 
   private CodecDescriptor getDynamicCodecDescriptor(String className, @Nullable Class<?> type)
@@ -497,9 +760,12 @@ public class ObjectCodecRegistry {
         .add("checksum", checksum)
         .add("allowDefaultCodec", allowDefaultCodec)
         .add("classMappedCodecs.size", classMappedCodecs.size())
-        .add("tagMappedCodecs.size", tagMappedCodecs.size())
-        .add("referenceConstantsStartTag", referenceConstantsStartTag)
-        .add("referenceConstants.size", referenceConstants.size())
+        .add("unstableTagMappedCodecs.size", unstableTagMappedCodecs.size())
+        .add("stablePublicTagMappedCodecs.size", stablePublicTagMappedCodecs.size())
+        .add("stablePrivateTagMappedCodecs.size", stablePrivateTagMappedCodecs.size())
+        .add("referenceConstants.size", unstableReferenceConstants.size())
+        .add("stablePublicReferenceConstants.size", stablePublicReferenceConstants.size())
+        .add("stablePrivateReferenceConstants.size", stablePrivateReferenceConstants.size())
         .add("classNames.size", classNames.size())
         .add("dynamicCodecs.size", dynamicCodecs.size())
         .toString();

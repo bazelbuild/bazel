@@ -74,6 +74,7 @@ import com.google.devtools.build.lib.server.FailureDetails.FailAction.Code;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
+import com.google.devtools.build.lib.skyframe.FileKey;
 import com.google.devtools.build.lib.skyframe.IncrementalArtifactConflictFinder;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import java.util.LinkedHashSet;
@@ -229,7 +230,8 @@ public final class ConfiguredTargetFactory {
       @Nullable ToolchainCollection<ResolvedToolchainContext> toolchainContexts,
       @Nullable NestedSet<Package.Metadata> transitivePackages,
       ExecGroupCollection.Builder execGroupCollectionBuilder,
-      @Nullable StarlarkAttributeTransitionProvider starlarkExecTransition)
+      @Nullable StarlarkAttributeTransitionProvider starlarkExecTransition,
+      boolean dependsOnFileKey)
       throws InterruptedException,
           ActionConflictException,
           InvalidExecGroupException,
@@ -332,6 +334,17 @@ public final class ConfiguredTargetFactory {
                   .setLabel(target.getLabel())
                   .setConfiguration(config)
                   .build());
+      if (dependsOnFileKey) {
+        // This code branch is here because in the current implementation, the invalidation data for
+        // actions in the remote analysis cache is stored with the configured targets / aspects and
+        // is found by a simple "get if present" lookup in the Skyframe graph. With async analysis
+        // caching, this doesn't work because analysis nodes usually get uploaded before any actions
+        // execute.
+        if (analysisEnvironment.getSkyframeEnv().getValue(FileKey.create(artifact.getRootedPath()))
+            == null) {
+          return null;
+        }
+      }
       return new InputFileConfiguredTarget(targetContext, artifact);
     } else if (target instanceof PackageGroup packageGroup) {
       TargetContext targetContext =

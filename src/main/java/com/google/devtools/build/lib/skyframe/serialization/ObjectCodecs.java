@@ -24,6 +24,7 @@ import com.google.protobuf.CodedOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.List;
+import java.util.function.BiConsumer;
 import javax.annotation.Nullable;
 
 /**
@@ -258,15 +259,26 @@ public class ObjectCodecs {
   public Object deserializeWithSkyframe(
       FingerprintValueService fingerprintValueService, ByteString data)
       throws SerializationException {
-    return deserializeWithSkyframe(fingerprintValueService, data.newCodedInput());
+    CodedInputStream codedIn = data.newCodedInput();
+    return SharedValueDeserializationContext.deserializeWithSkyframe(
+        getCodecRegistry(), getDependencies(), fingerprintValueService, codedIn);
   }
 
   @Nullable
   public Object deserializeWithSkyframe(
       FingerprintValueService fingerprintValueService, CodedInputStream codedIn)
       throws SerializationException {
+    return deserializeWithSkyframe(fingerprintValueService, codedIn, /* debugContext= */ null);
+  }
+
+  @Nullable
+  public Object deserializeWithSkyframe(
+      FingerprintValueService fingerprintValueService,
+      CodedInputStream codedIn,
+      @Nullable DebugContext debugContext)
+      throws SerializationException {
     return SharedValueDeserializationContext.deserializeWithSkyframe(
-        getCodecRegistry(), getDependencies(), fingerprintValueService, codedIn);
+        getCodecRegistry(), getDependencies(), fingerprintValueService, codedIn, debugContext);
   }
 
   static Object deserializeStreamFully(CodedInputStream codedIn, DeserializationContext context)
@@ -323,4 +335,11 @@ public class ObjectCodecs {
         .putAll(dependencyOverrides)
         .build();
   }
+
+  /** Information needed to emit debugging information. */
+  public record DebugContext(
+      // The fingerprint of the object requesting the deserialization
+      PackedFingerprint fingerprint,
+      // Receiver for the outgoing shared value dependency edges
+      BiConsumer<PackedFingerprint, PackedFingerprint> edgeReceiver) {}
 }

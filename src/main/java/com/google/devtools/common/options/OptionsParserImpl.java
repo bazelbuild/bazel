@@ -62,6 +62,7 @@ class OptionsParserImpl {
     private ArgsPreProcessor argsPreProcessor = args -> args;
     private final ArrayList<String> skippedPrefixes = new ArrayList<>();
     private boolean ignoreInternalOptions = true;
+    private boolean isFirstRoundOfParsing = false;
     @Nullable private String aliasFlag = null;
     @Nullable private Object conversionContext = null;
     private final Map<String, String> aliases = new HashMap<>();
@@ -121,6 +122,12 @@ class OptionsParserImpl {
       return this;
     }
 
+    @CanIgnoreReturnValue
+    public Builder isFirstRoundOfParsing(boolean isFirstRoundOfParsing) {
+      this.isFirstRoundOfParsing = isFirstRoundOfParsing;
+      return this;
+    }
+
     /** Returns a newly-initialized {@link OptionsParserImpl}. */
     public OptionsParserImpl build() {
       return new OptionsParserImpl(
@@ -130,7 +137,8 @@ class OptionsParserImpl {
           this.ignoreInternalOptions,
           this.aliasFlag,
           this.conversionContext,
-          this.aliases);
+          this.aliases,
+          this.isFirstRoundOfParsing);
     }
   }
 
@@ -186,6 +194,7 @@ class OptionsParserImpl {
   private final boolean ignoreInternalOptions;
   @Nullable private final String aliasFlag;
   @Nullable private final Object conversionContext;
+  private final boolean isFirstRoundOfParsing;
 
   /**
    * This option is used to collect skipped arguments while preserving the relative ordering between
@@ -221,7 +230,8 @@ class OptionsParserImpl {
       boolean ignoreInternalOptions,
       @Nullable String aliasFlag,
       @Nullable Object conversionContext,
-      Map<String, String> aliases) {
+      Map<String, String> aliases,
+      boolean isFirstRoundOfParsing) {
     this.optionsData = optionsData;
     this.argsPreProcessor = argsPreProcessor;
     this.skippedPrefixes = skippedPrefixes;
@@ -229,6 +239,7 @@ class OptionsParserImpl {
     this.aliasFlag = aliasFlag;
     this.conversionContext = conversionContext;
     this.flagAliasMappings = aliases;
+    this.isFirstRoundOfParsing = isFirstRoundOfParsing;
   }
 
   /** Returns the {@link OptionsData} used in this instance. */
@@ -780,7 +791,6 @@ class OptionsParserImpl {
             getWithFallback(OptionsData::getOptionDefinitionFromName, name, fallbackData);
         booleanValue = false;
         if (lookupResult != null) {
-          // TODO(bazel-team): Add tests for these cases.
           if (!lookupResult.definition.usesBooleanValueSyntax()) {
             throw new OptionsParsingException(
                 "Illegal use of 'no' prefix on non-boolean option: " + arg, arg);
@@ -799,6 +809,9 @@ class OptionsParserImpl {
 
     // Do not recognize internal options, which are treated as if they did not exist.
     if (lookupResult == null || shouldIgnoreOption(lookupResult.definition)) {
+      if (isFirstRoundOfParsing) {
+        return new ParsedOptionDescriptionOrIgnoredArgs(Optional.empty(), Optional.of(arg));
+      }
       String suggestion;
       // Do not offer suggestions for short-form options.
       if (arg.startsWith("--")) {

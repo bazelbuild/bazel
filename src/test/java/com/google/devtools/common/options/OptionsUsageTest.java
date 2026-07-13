@@ -305,12 +305,12 @@ public final class OptionsUsageTest {
     assertThat(getTerminalUsageWithoutTags("test_list_converters", HelpVerbosity.LONG))
         .isEqualTo(
             "  --test_list_converters (a list of strings; may be used multiple times)\n"
-                + "    a repeatable flag that accepts lists, but doesn't want to have lists of \n"
+                + "    a repeatable flag that accepts lists, but doesn't want to have lists of\n"
                 + "    lists as a final type\n");
     assertThat(getTerminalUsageWithTags("test_list_converters", HelpVerbosity.LONG))
         .isEqualTo(
             "  --test_list_converters (a list of strings; may be used multiple times)\n"
-                + "    a repeatable flag that accepts lists, but doesn't want to have lists of \n"
+                + "    a repeatable flag that accepts lists, but doesn't want to have lists of\n"
                 + "    lists as a final type\n"
                 + "      Tags: no_op\n");
   }
@@ -360,13 +360,13 @@ public final class OptionsUsageTest {
             "  --test_expansion\n"
                 + "    this expands to an alphabet soup.\n"
                 + "      Expands to: --noexpanded_a --expanded_b=false --expanded_c 42 --\n"
-                + "      expanded_d bar \n");
+                + "      expanded_d bar\n");
     assertThat(getTerminalUsageWithTags("test_expansion", HelpVerbosity.LONG))
         .isEqualTo(
             "  --test_expansion\n"
                 + "    this expands to an alphabet soup.\n"
                 + "      Expands to: --noexpanded_a --expanded_b=false --expanded_c 42 --\n"
-                + "      expanded_d bar \n"
+                + "      expanded_d bar\n"
                 + "      Tags: no_op\n");
   }
 
@@ -436,13 +436,13 @@ public final class OptionsUsageTest {
             "  --test_recursive_expansion_top_level\n"
                 + "    Lets the children do all the work.\n"
                 + "      Expands to: --test_recursive_expansion_middle1 --\n"
-                + "      test_recursive_expansion_middle2 \n");
+                + "      test_recursive_expansion_middle2\n");
     assertThat(getTerminalUsageWithTags("test_recursive_expansion_top_level", HelpVerbosity.LONG))
         .isEqualTo(
             "  --test_recursive_expansion_top_level\n"
                 + "    Lets the children do all the work.\n"
                 + "      Expands to: --test_recursive_expansion_middle1 --\n"
-                + "      test_recursive_expansion_middle2 \n"
+                + "      test_recursive_expansion_middle2\n"
                 + "      Tags: no_op\n");
   }
 
@@ -497,13 +497,13 @@ public final class OptionsUsageTest {
             "  --test_expansion_to_repeatable\n"
                 + "    Go forth and multiply, they said.\n"
                 + "      Expands to: --test_multiple_string=expandedFirstValue --\n"
-                + "      test_multiple_string=expandedSecondValue \n");
+                + "      test_multiple_string=expandedSecondValue\n");
     assertThat(getTerminalUsageWithTags("test_expansion_to_repeatable", HelpVerbosity.LONG))
         .isEqualTo(
             "  --test_expansion_to_repeatable\n"
                 + "    Go forth and multiply, they said.\n"
                 + "      Expands to: --test_multiple_string=expandedFirstValue --\n"
-                + "      test_multiple_string=expandedSecondValue \n"
+                + "      test_multiple_string=expandedSecondValue\n"
                 + "      Tags: no_op\n");
   }
 
@@ -557,14 +557,14 @@ public final class OptionsUsageTest {
         .isEqualTo(
             "  --test_implicit_requirement (a string; default: \"direct implicit\")\n"
                 + "    this option really needs that other one, isolation of purpose has failed.\n"
-                + "      Using this option will also add: --implicit_requirement_a=implicit \n"
-                + "      requirement, required \n");
+                + "      Using this option will also add: --implicit_requirement_a=implicit\n"
+                + "      requirement, required\n");
     assertThat(getTerminalUsageWithTags("test_implicit_requirement", HelpVerbosity.LONG))
         .isEqualTo(
             "  --test_implicit_requirement (a string; default: \"direct implicit\")\n"
                 + "    this option really needs that other one, isolation of purpose has failed.\n"
-                + "      Using this option will also add: --implicit_requirement_a=implicit \n"
-                + "      requirement, required \n"
+                + "      Using this option will also add: --implicit_requirement_a=implicit\n"
+                + "      requirement, required\n"
                 + "      Tags: no_op\n");
   }
 
@@ -613,17 +613,17 @@ public final class OptionsUsageTest {
                 - list
                 1. ordered
                 2. list
-               \s
+
                 paragraph 1
-               \s
+
                 paragraph 2
-               \s
+
                 `<HTML> "syntax" 'within' &codeblocks&`
-               \s
+
                 [ref]: /url (title)
                 [shorthand reference link]: /url (title)
                 [`complex` shorthand reference link]: /url (title)
-               \s
+
             """);
   }
 
@@ -659,5 +659,32 @@ public final class OptionsUsageTest {
             <p><code>&lt;HTML&gt; &quot;syntax&quot; 'within' &amp;codeblocks&amp;</code></p>
             </dd>
             """);
+  }
+
+  @Test
+  public void deleteTrailingWhitespace() {
+    StringBuilder sb1 = new StringBuilder("foo   ");
+    OptionsUsage.deleteTrailingWhitespace(sb1);
+    assertThat(sb1.toString()).isEqualTo("foo");
+
+    StringBuilder sb2 = new StringBuilder("foo");
+    OptionsUsage.deleteTrailingWhitespace(sb2);
+    assertThat(sb2.toString()).isEqualTo("foo");
+
+    StringBuilder sb3 = new StringBuilder("   ");
+    OptionsUsage.deleteTrailingWhitespace(sb3);
+    assertThat(sb3.toString()).isEmpty();
+
+    StringBuilder sb4 = new StringBuilder("");
+    OptionsUsage.deleteTrailingWhitespace(sb4);
+    assertThat(sb4.toString()).isEmpty();
+
+    StringBuilder sb5 = new StringBuilder("foo \t   ");
+    OptionsUsage.deleteTrailingWhitespace(sb5);
+    assertThat(sb5.toString()).isEqualTo("foo");
+
+    StringBuilder sb6 = new StringBuilder("foo\n  ");
+    OptionsUsage.deleteTrailingWhitespace(sb6);
+    assertThat(sb6.toString()).isEqualTo("foo\n");
   }
 }

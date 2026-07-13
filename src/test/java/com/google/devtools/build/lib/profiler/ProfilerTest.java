@@ -111,6 +111,7 @@ public final class ProfilerTest {
         BlazeClock.instance(),
         BlazeClock.nanoTime(),
         /* slimProfile= */ false,
+        /* slimProfileSizeLimit= */ -1,
         /* includePrimaryOutput= */ false,
         /* includeTargetLabel= */ false,
         /* includeConfiguration */ false,
@@ -129,6 +130,7 @@ public final class ProfilerTest {
         BlazeClock.instance(),
         BlazeClock.nanoTime(),
         /* slimProfile= */ false,
+        /* slimProfileSizeLimit= */ -1,
         /* includePrimaryOutput= */ false,
         /* includeTargetLabel= */ false,
         /* includeConfiguration */ false,
@@ -232,6 +234,7 @@ public final class ProfilerTest {
         clock,
         clock.nanoTime(),
         /* slimProfile= */ false,
+        /* slimProfileSizeLimit= */ -1,
         /* includePrimaryOutput= */ false,
         /* includeTargetLabel= */ false,
         /* includeConfiguration */ false,
@@ -328,6 +331,7 @@ public final class ProfilerTest {
         clock,
         clock.nanoTime(),
         /* slimProfile= */ false,
+        /* slimProfileSizeLimit= */ -1,
         /* includePrimaryOutput= */ false,
         /* includeTargetLabel= */ false,
         /* includeConfiguration */ false,
@@ -363,6 +367,7 @@ public final class ProfilerTest {
         BlazeClock.instance(),
         BlazeClock.instance().nanoTime(),
         /* slimProfile= */ false,
+        /* slimProfileSizeLimit= */ -1,
         /* includePrimaryOutput= */ false,
         /* includeTargetLabel= */ false,
         /* includeConfiguration */ false,
@@ -486,6 +491,7 @@ public final class ProfilerTest {
         BlazeClock.instance(),
         BlazeClock.instance().nanoTime(),
         /* slimProfile= */ false,
+        /* slimProfileSizeLimit= */ -1,
         /* includePrimaryOutput= */ false,
         /* includeTargetLabel= */ false,
         /* includeConfiguration */ false,
@@ -682,6 +688,7 @@ public final class ProfilerTest {
         badClock,
         initialNanoTime,
         /* slimProfile= */ false,
+        /* slimProfileSizeLimit= */ -1,
         /* includePrimaryOutput= */ false,
         /* includeTargetLabel= */ false,
         /* includeConfiguration */ false,
@@ -726,6 +733,7 @@ public final class ProfilerTest {
         BlazeClock.instance(),
         BlazeClock.instance().nanoTime(),
         /* slimProfile= */ false,
+        /* slimProfileSizeLimit= */ -1,
         /* includePrimaryOutput= */ false,
         /* includeTargetLabel= */ false,
         /* includeConfiguration */ false,
@@ -755,6 +763,7 @@ public final class ProfilerTest {
         BlazeClock.instance(),
         BlazeClock.instance().nanoTime(),
         /* slimProfile= */ false,
+        /* slimProfileSizeLimit= */ -1,
         /* includePrimaryOutput= */ false,
         /* includeTargetLabel= */ false,
         /* includeConfiguration */ false,
@@ -779,6 +788,7 @@ public final class ProfilerTest {
         clock,
         clock.nanoTime(),
         /* slimProfile= */ false,
+        /* slimProfileSizeLimit= */ -1,
         /* includePrimaryOutput= */ true,
         /* includeTargetLabel= */ false,
         /* includeConfiguration */ false,
@@ -818,6 +828,7 @@ public final class ProfilerTest {
         clock,
         clock.nanoTime(),
         /* slimProfile= */ false,
+        /* slimProfileSizeLimit= */ -1,
         /* includePrimaryOutput= */ false,
         /* includeTargetLabel= */ true,
         /* includeConfiguration */ false,
@@ -857,6 +868,7 @@ public final class ProfilerTest {
         clock,
         clock.nanoTime(),
         /* slimProfile= */ false,
+        /* slimProfileSizeLimit= */ -1,
         /* includePrimaryOutput= */ false,
         /* includeTargetLabel= */ false,
         /* includeConfiguration */ true,
@@ -877,7 +889,8 @@ public final class ProfilerTest {
         .hasSize(1);
   }
 
-  private ByteArrayOutputStream getJsonProfileOutputStream(boolean slimProfile) throws IOException {
+  private ByteArrayOutputStream getJsonProfileOutputStream(SlimProfileConfiguration slimProfile)
+      throws IOException {
     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
     profiler.start(
         getAllProfilerTasks(),
@@ -888,7 +901,8 @@ public final class ProfilerTest {
         false,
         BlazeClock.instance(),
         BlazeClock.instance().nanoTime(),
-        slimProfile,
+        slimProfile.isEnabled(),
+        slimProfile.getSizeLimit(),
         /* includePrimaryOutput= */ false,
         /* includeTargetLabel= */ false,
         /* includeConfiguration */ false,
@@ -910,11 +924,13 @@ public final class ProfilerTest {
 
   @Test
   public void testSlimProfileSize() throws Exception {
-    ByteArrayOutputStream fatOutputStream = getJsonProfileOutputStream(/* slimProfile= */ false);
+    ByteArrayOutputStream fatOutputStream =
+        getJsonProfileOutputStream(SlimProfileConfiguration.disabled());
     String fatOutput = fatOutputStream.toString();
     assertThat(fatOutput).doesNotContain("x foo");
 
-    ByteArrayOutputStream slimOutputStream = getJsonProfileOutputStream(/* slimProfile= */ true);
+    ByteArrayOutputStream slimOutputStream =
+        getJsonProfileOutputStream(SlimProfileConfiguration.always());
     String slimOutput = slimOutputStream.toString();
     assertThat(slimOutput).contains("x foo");
 
@@ -1199,5 +1215,99 @@ public final class ProfilerTest {
             .toArray();
 
     assertThat(events).isEmpty();
+  }
+
+  @Test
+  public void testSlimProfileAfterSizeLimit() throws Exception {
+    ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+    long sizeLimit = 10 * 1024; // 10 KB
+    profiler.start(
+        getAllProfilerTasks(),
+        outputStream,
+        JSON_TRACE_FILE_FORMAT,
+        "dummy_output_base",
+        UUID.randomUUID(),
+        false,
+        clock,
+        clock.nanoTime(),
+        /* slimProfile= */ true,
+        /* slimProfileSizeLimit= */ sizeLimit,
+        /* includePrimaryOutput= */ false,
+        /* includeTargetLabel= */ false,
+        /* includeConfiguration= */ false,
+        /* collectTaskHistograms= */ true);
+
+    long curTime = clock.nanoTime();
+    for (int i = 0; i < 200; i++) {
+      clock.advanceMillis(1);
+      profiler.logSimpleTask(curTime, clock.nanoTime(), ProfilerTask.INFO, "event_" + i);
+      curTime = clock.nanoTime();
+    }
+    profiler.stop();
+
+    JsonProfile jsonProfile = new JsonProfile(new ByteArrayInputStream(outputStream.toByteArray()));
+    List<TraceEvent> events = jsonProfile.getTraceEvents();
+
+    // Verify that merging happened (we should have "various events")
+    boolean hasMergedEvents = events.stream().anyMatch(e -> e.name().contains("various events"));
+    assertThat(hasMergedEvents).isTrue();
+
+    // Verify that early events are present individually
+    boolean hasFirstEvent = events.stream().anyMatch(e -> "event_0".equals(e.name()));
+    assertThat(hasFirstEvent).isTrue();
+
+    // Verify that late events are merged (not present individually)
+    boolean hasLastEvent = events.stream().anyMatch(e -> "event_199".equals(e.name()));
+    assertThat(hasLastEvent).isFalse();
+  }
+
+  @Test
+  public void testSlimProfileAfterSizeLimitCompressed() throws Exception {
+    ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+    long sizeLimit = 2 * 1024; // 2 KB (compressed limit)
+    profiler.start(
+        getAllProfilerTasks(),
+        outputStream,
+        TraceProfilerService.Format.JSON_TRACE_FILE_COMPRESSED_FORMAT,
+        "dummy_output_base",
+        UUID.randomUUID(),
+        false,
+        clock,
+        clock.nanoTime(),
+        /* slimProfile= */ true,
+        /* slimProfileSizeLimit= */ sizeLimit,
+        /* includePrimaryOutput= */ false,
+        /* includeTargetLabel= */ false,
+        /* includeConfiguration= */ false,
+        /* collectTaskHistograms= */ true);
+
+    long curTime = clock.nanoTime();
+    for (int i = 0; i < 5000; i++) {
+      clock.advanceMillis(1);
+      profiler.logSimpleTask(curTime, clock.nanoTime(), ProfilerTask.INFO, "event_" + i);
+      curTime = clock.nanoTime();
+    }
+    profiler.stop();
+
+    ByteArrayInputStream bais = new ByteArrayInputStream(outputStream.toByteArray());
+    ByteArrayOutputStream decompressedOut = new ByteArrayOutputStream();
+    try (java.util.zip.GZIPInputStream gzipIn = new java.util.zip.GZIPInputStream(bais)) {
+      com.google.common.io.ByteStreams.copy(gzipIn, decompressedOut);
+    }
+    JsonProfile jsonProfile =
+        new JsonProfile(new ByteArrayInputStream(decompressedOut.toByteArray()));
+    List<TraceEvent> events = jsonProfile.getTraceEvents();
+
+    // Verify that merging happened (we should have "various events")
+    boolean hasMergedEvents = events.stream().anyMatch(e -> e.name().contains("various events"));
+    assertThat(hasMergedEvents).isTrue();
+
+    // Verify that early events are present individually
+    boolean hasFirstEvent = events.stream().anyMatch(e -> "event_0".equals(e.name()));
+    assertThat(hasFirstEvent).isTrue();
+
+    // Verify that late events are merged (not present individually)
+    boolean hasLastEvent = events.stream().anyMatch(e -> "event_4999".equals(e.name()));
+    assertThat(hasLastEvent).isFalse();
   }
 }

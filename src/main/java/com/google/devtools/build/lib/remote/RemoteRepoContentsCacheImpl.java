@@ -105,7 +105,8 @@ import javax.annotation.Nullable;
  * "least recently added" eviction when the size of action result exceeds a certain threshold.
  */
 public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCache {
-  private static final UUID GUID = UUID.fromString("f4a165a9-5557-45a7-bf25-230b6d42393a");
+  // Salts all cache keys; change it whenever previously cached entries may no longer be valid.
+  private static final UUID GUID = UUID.fromString("0336b325-9db8-4592-a5eb-79b4970bc4ce");
   private static final String MARKER_FILE_PATH = ".recorded_inputs";
   private static final String REPO_DIRECTORY_PATH = "repo_contents";
   private static final Splitter SPLIT_ON_SPACE = Splitter.on(' ');
@@ -303,8 +304,7 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
 
   private RemoteActionExecutionContext buildContext(RepositoryName repoName, CacheOp cacheOp) {
     var metadata =
-        TracingMetadataUtils.buildMetadata(
-            buildRequestId, commandId, repoName.getName(), /* actionMetadata= */ null);
+        TracingMetadataUtils.buildMetadata(buildRequestId, commandId, repoName.getName());
     // Don't upload local repo contents to the disk cache as the (local) `--repo_contents_cache` is
     // a better alternative for local caching. Do write through the disk cache for downloads from
     // the remote cache to speed up future usage.

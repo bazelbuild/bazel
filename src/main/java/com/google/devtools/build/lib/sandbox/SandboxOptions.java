@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.sandbox;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.util.RamResourceConverter;
@@ -55,7 +54,7 @@ public abstract class SandboxOptions extends OptionsBase {
     @Override
     public ImmutableMap.Entry<String, String> convert(String input) throws OptionsParsingException {
 
-      List<String> paths = Lists.newArrayList();
+      List<String> paths = new ArrayList<>();
       for (String path : input.split("(?<!\\\\):")) { // Split on ':' but not on '\:'
         if (path != null && !path.trim().isEmpty()) {
           paths.add(path.replace("\\:", ":"));
@@ -367,10 +366,9 @@ public abstract class SandboxOptions extends OptionsBase {
       converter = ResourceConverter.AssignmentConverter.class,
       allowMultiple = true,
       help =
-          "If > 0, each Linux sandbox will be limited to the given amount"
-              + " for the specified resource. Requires --incompatible_use_new_cgroup_implementation"
-              + " and overrides --experimental_sandbox_memory_limit_mb."
-              + " Requires cgroups v1 or v2 and permissions for the users to the cgroups dir.")
+          "If > 0, each Linux sandbox will be limited to the given amount for the specified"
+              + " resource. This overrides --experimental_sandbox_memory_limit_mb. Requires cgroups"
+              + " v1 or v2 and permissions for the users to the cgroups dir.")
   public abstract List<Map.Entry<String, Double>> getLimits();
 
   public ImmutableMap<String, Double> getLimitsMap() {
@@ -379,17 +377,6 @@ public abstract class SandboxOptions extends OptionsBase {
         .putAll(getLimits())
         .buildKeepingLast();
   }
-
-  @Option(
-      name = "incompatible_use_new_cgroup_implementation",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
-      effectTags = {OptionEffectTag.EXECUTION},
-      converter = BooleanConverter.class,
-      help =
-          "If true, use the new implementation for cgroups. The old implementation only supports"
-              + " the memory controller and ignores the value of --experimental_sandbox_limits.")
-  public abstract boolean getUseNewCgroupImplementation();
 
   @Option(
       name = "experimental_sandbox_enforce_resources_regexp",
