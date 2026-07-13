@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.pkgcache.LoadingPhaseCompleteEvent;
 import com.google.devtools.build.lib.runtime.UiOptions.UseCurses;
+import com.google.devtools.build.lib.server.TerminalSizeMonitor;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.io.OutErr;
@@ -90,6 +91,10 @@ public class UiEventHandlerTest {
   }
 
   void createUiEventHandler(EventKind outputKind) {
+    createUiEventHandler(outputKind, TerminalSizeMonitor.NOOP);
+  }
+
+  void createUiEventHandler(EventKind outputKind, TerminalSizeMonitor terminalSizeMonitor) {
     uiOptions.setEventKindFilters(ImmutableList.of());
     output.flush();
     output.flushed.clear();
@@ -110,7 +115,8 @@ public class UiEventHandlerTest {
             new EventBus(),
             /* workspacePathFragment= */ null,
             skymeldMode,
-            /* newStatsSummary= */ false);
+            /* newStatsSummary= */ false,
+            terminalSizeMonitor);
     uiEventHandler.mainRepoMappingComputationStarted(new MainRepoMappingComputationStartingEvent());
     uiEventHandler.buildStarted(
         BuildStartingEvent.create(
@@ -339,6 +345,24 @@ public class UiEventHandlerTest {
     }
 
     @Test
+    public void terminalSizeChangeRefreshesProgressBarWithNewWidth() {
+      TerminalSizeMonitor terminalSizeMonitor = new TerminalSizeMonitor();
+      uiOptions.setShowProgress(true);
+      uiOptions.setUseCursesEnum(UseCurses.YES);
+      createUiEventHandler(EventKind.STDERR, terminalSizeMonitor);
+      uiEventHandler.mainRepoMappingComputationStarted(
+          new MainRepoMappingComputationStartingEvent());
+      output.flushed.clear();
+
+      terminalSizeMonitor.updateTerminalSize(/* columns= */ 12, /* rows= */ 24);
+      assertThat(output.flushed.getLast()).contains(CLEAR_PROGRESS_BAR);
+      output.flushed.clear();
+
+      terminalSizeMonitor.updateTerminalSize(/* columns= */ 80, /* rows= */ 24);
+      assertThat(countOccurrences(output.flushed.getLast(), CLEAR_PROGRESS_BAR)).isAtLeast(2);
+    }
+
+    @Test
     public void progressOff_disableProgressReturnsFalse() throws Exception {
       uiOptions.setShowProgress(false);
       createUiEventHandler();
@@ -362,6 +386,16 @@ public class UiEventHandlerTest {
         }
       };
     }
+  }
+
+  private static int countOccurrences(String haystack, String needle) {
+    int count = 0;
+    int index = 0;
+    while ((index = haystack.indexOf(needle, index)) != -1) {
+      count++;
+      index += needle.length();
+    }
+    return count;
   }
 
   private static final class FlushCollectingOutputStream extends OutputStream {

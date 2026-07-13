@@ -241,6 +241,9 @@ class BlazeServer final {
   // connected state.
   void Cancel();
 
+  // Notifies the server that the client terminal size may have changed.
+  void TerminalSizeChanged();
+
   // Returns information about the actual server process and its configuration.
   const ServerProcessInfo &ProcessInfo() const { return process_info_; }
 
@@ -248,7 +251,13 @@ class BlazeServer final {
   std::optional<LockHandle> install_base_lock_;
   std::optional<LockHandle> output_base_lock_;
 
-  enum CancelThreadAction { NOTHING, JOIN, CANCEL, COMMAND_ID_RECEIVED };
+  enum CancelThreadAction {
+    NOTHING,
+    JOIN,
+    CANCEL,
+    COMMAND_ID_RECEIVED,
+    TERMINAL_SIZE_CHANGED
+  };
 
   std::unique_ptr<CommandServer::Stub> client_;
   std::string request_cookie_;
@@ -269,6 +278,7 @@ class BlazeServer final {
   void CancelThread();
   void SendAction(CancelThreadAction action);
   void SendCancelMessage();
+  void SendTerminalSizeMessage(int columns);
 
   ServerProcessInfo process_info_;
   const int connect_timeout_secs_;
@@ -1186,6 +1196,8 @@ static void EnsureCorrectRunningVersion(const StartupOptions &startup_options,
 
 static void CancelServer() { blaze_server->Cancel(); }
 
+static void TerminalSizeChanged() { blaze_server->TerminalSizeChanged(); }
+
 // Runs the launcher in client/server mode. Ensures that there's indeed a
 // running server, then forwards the user's command to the server and the
 // server's response back to the user. Does not return - exits via exit or
@@ -1244,9 +1256,9 @@ static ATTRIBUTE_NORETURN void RunClientServerMode(
   const DurationMillis client_startup_duration(logging_info->start_time_ms,
                                                GetMillisecondsMonotonic());
 
-  SignalHandler::Get().Install(startup_options.product_name,
-                               startup_options.output_base,
-                               &server->ProcessInfo(), CancelServer);
+  SignalHandler::Get().Install(
+      startup_options.product_name, startup_options.output_base,
+      &server->ProcessInfo(), CancelServer, TerminalSizeChanged);
   SignalHandler::Get().PropagateSignalOrExit(server->Communicate(
       option_processor.GetCommand(), option_processor.GetCommandArguments(),
       startup_options.invocation_policy,
@@ -1816,6 +1828,8 @@ bool BlazeServer::Connect() {
 // - CANCEL. If the command ID is already available, a cancel request is sent.
 // - COMMAND_ID_RECEIVED. The client learned the command ID from the server.
 //   If there is a pending cancellation request, it is acted upon.
+// - TERMINAL_SIZE_CHANGED. The client terminal size may have changed. If the
+//   command ID is already available, a terminal size update is sent.
 //
 // The only data the cancellation thread shares with the main thread is the
 // file descriptor for receiving commands and command_id_, the latter of which
@@ -1834,6 +1848,15 @@ void BlazeServer::CancelThread() {
   bool running = true;
   bool cancel = false;
   bool command_id_received = false;
+  bool terminal_size_change_pending = false;
+  int last_sent_terminal_columns = GetTerminalColumns();
+  auto send_terminal_size_if_changed = [&]() {
+    int columns = GetTerminalColumns();
+    if (columns > 0 && columns != last_sent_terminal_columns) {
+      SendTerminalSizeMessage(columns);
+      last_sent_terminal_columns = columns;
+    }
+  };
   while (running) {
     char buf;
 
@@ -1860,6 +1883,10 @@ void BlazeServer::CancelThread() {
           SendCancelMessage();
           cancel = false;
         }
+        if (terminal_size_change_pending) {
+          send_terminal_size_if_changed();
+          terminal_size_change_pending = false;
+        }
         break;
 
       case CancelThreadAction::CANCEL:
@@ -1867,6 +1894,14 @@ void BlazeServer::CancelThread() {
           SendCancelMessage();
         } else {
           cancel = true;
+        }
+        break;
+
+      case CancelThreadAction::TERMINAL_SIZE_CHANGED:
+        if (command_id_received) {
+          send_terminal_size_if_changed();
+        } else {
+          terminal_size_change_pending = true;
         }
         break;
     }
@@ -1888,6 +1923,26 @@ void BlazeServer::SendCancelMessage() {
   if (!status.ok()) {
     BAZEL_LOG(USER) << "\nCould not interrupt server: (" << status.error_code()
                     << ") " << status.error_message().c_str() << "\n";
+  }
+}
+
+void BlazeServer::SendTerminalSizeMessage(int columns) {
+  std::unique_lock<std::mutex> lock(cancel_thread_mutex_);  // NOLINT
+
+  command_server::TerminalSizeRequest request;
+  request.set_cookie(request_cookie_);
+  request.set_command_id(command_id_);
+  request.set_columns(columns);
+  grpc::ClientContext context;
+  context.set_deadline(std::chrono::system_clock::now() +
+                       std::chrono::seconds(10));
+  command_server::TerminalSizeResponse response;
+  grpc::Status status =
+      client_->UpdateTerminalSize(&context, request, &response);
+  if (!status.ok()) {
+    BAZEL_LOG(INFO) << "Could not update terminal size: ("
+                    << status.error_code() << ") "
+                    << status.error_message().c_str();
   }
 }
 
@@ -2035,6 +2090,8 @@ unsigned int BlazeServer::Communicate(
 
     if (response.cookie() != response_cookie_) {
       BAZEL_LOG(USER) << "\nServer response cookie invalid, exiting";
+      SendAction(CancelThreadAction::JOIN);
+      cancel_thread.join();
       return blaze_exit_code::INTERNAL_ERROR;
     }
 
@@ -2162,6 +2219,11 @@ void BlazeServer::SendAction(CancelThreadAction action) {
 void BlazeServer::Cancel() {
   assert(Connected());
   SendAction(CancelThreadAction::CANCEL);
+}
+
+void BlazeServer::TerminalSizeChanged() {
+  assert(Connected());
+  SendAction(CancelThreadAction::TERMINAL_SIZE_CHANGED);
 }
 
 }  // namespace blaze
