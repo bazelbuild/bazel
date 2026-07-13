@@ -61,10 +61,6 @@ public interface FingerprintValueStore {
    */
   WriteStatus put(KeyBytesProvider fingerprint, byte[] serializedBytes);
 
-  /** Returns whether the WriteStatuses from {@link #put} can be sparsely aggregated. */
-  default boolean isSparseAggregationSupported() {
-    return false;
-  }
 
   /**
    * Retrieves the serialized bytes associated with {@code fingerprint}.

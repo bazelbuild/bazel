@@ -19,10 +19,8 @@ import static java.util.concurrent.Executors.newSingleThreadExecutor;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Throwables;
-import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.SparseAggregateWriteStatus;
 import com.google.devtools.build.lib.util.DecimalBucketer;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.protobuf.ByteString;
@@ -149,38 +147,13 @@ public final class FingerprintValueService implements KeyValueWriter {
   @Override
   public WriteStatus put(KeyBytesProvider fingerprint, byte[] serializedBytes) {
     Instant before = Instant.now();
-    WriteStatus rawStatus = store.put(fingerprint, serializedBytes);
-    WriteStatus finalStatus;
-
-    if (store.isSparseAggregationSupported()
-        && !rawStatus.isDone()) { // Skip if the status is already done.
-      // Wrap to enable sparse callback edges.
-      // TODO(shahan): avoid FutureCallback here by using a custom wrapper class.
-      var wrapper = new SparseAggregateWriteStatus();
-      Futures.addCallback(
-          rawStatus,
-          new FutureCallback<Boolean>() {
-            @Override
-            public void onSuccess(Boolean result) {
-              wrapper.notifyWriteSucceeded(result);
-            }
-
-            @Override
-            public void onFailure(Throwable t) {
-              wrapper.notifyWriteFailed(t);
-            }
-          },
-          directExecutor());
-      finalStatus = wrapper;
-    } else {
-      finalStatus = rawStatus;
-    }
-    finalStatus.addListener(
+    WriteStatus status = store.put(fingerprint, serializedBytes);
+    status.addListener(
         () ->
             setLatencyMicros.add(
                 TimeUnit.NANOSECONDS.toMicros(Duration.between(before, Instant.now()).toNanos())),
         directExecutor());
-    return finalStatus;
+    return status;
   }
 
   public FingerprintValueStore.Stats getStats() {
