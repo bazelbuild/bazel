@@ -77,6 +77,7 @@ public abstract class CompressedTarFunction implements Decompressor {
     Set<String> availablePrefixes = new HashSet<>();
     // Store link, target info of symlinks, we create them after regular files are extracted.
     Map<Path, PathFragment> symlinks = new LinkedHashMap<>();
+    HostPathCollisionChecker collisionChecker = HostPathCollisionChecker.create();
 
     try (InputStream compressedInputStream = descriptor.archivePath().getInputStream();
         InputStream decompressorStream =
@@ -123,6 +124,7 @@ public abstract class CompressedTarFunction implements Decompressor {
         if (entry.isDirectory()) {
           filePath.createDirectoryAndParents();
         } else {
+          collisionChecker.checkAndRecord(strippedRelativePath);
           if (entry.isSymbolicLink() || entry.isLink()) {
             PathFragment targetName =
                 maybeDeprefixSymlink(

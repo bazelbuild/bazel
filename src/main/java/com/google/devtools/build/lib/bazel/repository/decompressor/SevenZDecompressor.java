@@ -50,6 +50,7 @@ public class SevenZDecompressor implements Decompressor {
     int stripComponents = descriptor.stripComponents();
     ImmutableMap<String, String> renameFiles = descriptor.renameFiles();
     boolean foundPrefix = false;
+    HostPathCollisionChecker collisionChecker = HostPathCollisionChecker.create();
 
     try (SevenZFile sevenZFile =
         SevenZFile.builder().setFile(descriptor.archivePath().getPathFile()).get()) {
@@ -86,7 +87,8 @@ public class SevenZDecompressor implements Decompressor {
         if (entryPath.skip()) {
           continue;
         }
-        extract7zEntry(sevenZFile, entry, destinationDirectory, entryPath.getPathFragment());
+        extract7zEntry(
+            sevenZFile, entry, destinationDirectory, entryPath.getPathFragment(), collisionChecker);
       }
 
       if (!prefix.isEmpty() && !foundPrefix) {
@@ -107,7 +109,8 @@ public class SevenZDecompressor implements Decompressor {
       SevenZFile sevenZFile,
       SevenZArchiveEntry entry,
       Path destinationDirectory,
-      PathFragment strippedRelativePath)
+      PathFragment strippedRelativePath,
+      HostPathCollisionChecker collisionChecker)
       throws IOException, InterruptedException {
     if (strippedRelativePath.isAbsolute()) {
       throw new IOException(
@@ -126,6 +129,7 @@ public class SevenZDecompressor implements Decompressor {
     if (isDirectory) {
       outputPath.createDirectoryAndParents();
     } else {
+      collisionChecker.checkAndRecord(strippedRelativePath);
       try (InputStream input = sevenZFile.getInputStream(entry);
           OutputStream output = outputPath.getOutputStream()) {
         ByteStreams.copy(input, output);
