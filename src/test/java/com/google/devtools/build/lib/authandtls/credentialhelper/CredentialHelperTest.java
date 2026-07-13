@@ -78,7 +78,7 @@ public class CredentialHelperTest {
         CredentialHelperEnvironment.newBuilder()
             .setEventReporter(reporter)
             .setWorkspacePath(fs.getPath(TEST_WORKSPACE_PATH))
-            .setClientEnvironment(ImmutableMap.copyOf(clientEnv))
+            .setClientEnvironment(() -> ImmutableMap.copyOf(clientEnv))
             .setHelperExecutionTimeout(timeout)
             .build(),
         URI.create(uri));
