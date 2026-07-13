@@ -44,14 +44,16 @@ public class FailureCircuitBreaker implements Retrier.CircuitBreaker {
    *     circuit breaker in given time window.
    * @param slidingWindowSize the size of the sliding window in milliseconds to calculate the number
    *     of failures.
+   * @param minCallCountToComputeFailureRate the minimum number of calls within the window before the
+   *     failure rate is computed and the breaker may trip.
    */
-  public FailureCircuitBreaker(int failureRateThreshold, int slidingWindowSize) {
+  public FailureCircuitBreaker(
+      int failureRateThreshold, int slidingWindowSize, int minCallCountToComputeFailureRate) {
     this.failures = new AtomicInteger(0);
     this.successes = new AtomicInteger(0);
     this.failureRateThreshold = failureRateThreshold;
     this.slidingWindowSize = slidingWindowSize;
-    this.minCallCountToComputeFailureRate =
-        CircuitBreakerFactory.DEFAULT_MIN_CALL_COUNT_TO_COMPUTE_FAILURE_RATE;
+    this.minCallCountToComputeFailureRate = minCallCountToComputeFailureRate;
     this.state = State.ACCEPT_CALLS;
     this.scheduledExecutor =
         slidingWindowSize > 0 ? Executors.newSingleThreadScheduledExecutor() : null;
