@@ -1,3 +1,27 @@
+## Release 10.0.0-pre.20260621.2 (2026-07-13)
+
+```
+Baseline: 66f385645e351a55415b4ae341d6cd2e7ab6d4e4
+```
+
+New features:
+
+  - The `and_then` method on `transition`s can be used to compose
+    transitions. Both Starlark transitions and native transitions
+    (e.g. `config.exec()`) are supported.
+
+Important changes:
+
+  - Bazel no longer limits the size of gRPC messages received from
+    the remote executor or cache.
+  - External repos are no longer refetched whenever they contribute
+    inputs to an action using the hermetic Linux sandbox.
+  - Enable TCP keepalive by default for gRPC connections with
+    reasonable defaults
+  - Remove CoptsFilter. rules_cc 0.2.19 no longer uses it..
+
+This release contains contributions from many people at Google, as well as Ashutosh0x, Benjamin Peterson, Fabian Meumertzheim, Kapunahele Wong, Keith Smiley, Shrey Shah, Tamir Duberstein, vadim.
+
 ## Release 10.0.0-pre.20260614.4 (2026-06-24)
 
 ```
