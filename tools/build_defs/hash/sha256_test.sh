@@ -26,9 +26,9 @@ source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
 # --- end runfiles.bash initialization v2 ---
 
 if [[ "$(uname -s | tr [:upper:] [:lower:])" =~ msys* ]]; then
-  declare -r EXE_EXT=".exe"
+  SHA256=(python "$(rlocation io_bazel/tools/build_defs/hash/sha256.py)")
 else
-  declare -r EXE_EXT=""
+  SHA256=("$(rlocation io_bazel/tools/build_defs/hash/sha256)")
 fi
 
 DIR=$(mktemp -d "${TEST_TMPDIR}/test.XXXXXXXX")
@@ -45,7 +45,7 @@ for i in {1..22}; do
   cp input.txt tmp.txt
 done
 
-"$(rlocation io_bazel/tools/build_defs/hash/sha256${EXE_EXT})" \
+"${SHA256[@]}" \
   "$DIR/input.txt" "$DIR/output.txt"
 
 expected=b89e2ebd615b1d32be9cec7bf687f3a00476835fe2ea8fb560394d79f420390c

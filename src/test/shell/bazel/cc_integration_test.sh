@@ -1773,6 +1773,11 @@ function test_cc_test_no_target_coverage_dep() {
 remote_coverage_tools_extension = use_extension("@bazel_tools//tools/test:extensions.bzl", "remote_coverage_tools_extension")
 use_repo(remote_coverage_tools_extension, "remote_coverage_tools")
 EOF
+  # Use host Python because CI test sandboxes cannot download the hermetic
+  # Python runtime. rules_python 1.7.0 does not export
+  # runtime_env_toolchain_interpreter.sh.
+  add_to_bazelrc "common --extra_toolchains=@@rules_python+//python/runtime_env_toolchains:all"
+  add_to_bazelrc "common --noincompatible_no_implicit_file_export"
 
   local package="${FUNCNAME[0]}"
   mkdir -p "${package}"
@@ -1800,6 +1805,11 @@ function test_cc_test_no_coverage_tools_dep_without_coverage() {
 remote_coverage_tools_extension = use_extension("@bazel_tools//tools/test:extensions.bzl", "remote_coverage_tools_extension")
 use_repo(remote_coverage_tools_extension, "remote_coverage_tools")
 EOF
+  # Use host Python because CI test sandboxes cannot download the hermetic
+  # Python runtime. rules_python 1.7.0 does not export
+  # runtime_env_toolchain_interpreter.sh.
+  add_to_bazelrc "common --extra_toolchains=@@rules_python+//python/runtime_env_toolchains:all"
+  add_to_bazelrc "common --noincompatible_no_implicit_file_export"
 
   # Regression test for https://github.com/bazelbuild/bazel/issues/16961 and
   # https://github.com/bazelbuild/bazel/issues/15088.
