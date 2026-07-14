@@ -1194,6 +1194,96 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
     stderr = '\n'.join(stderr)
     self.assertNotIn('JUST FETCHED', stderr)
 
+  def testMaterializedRepoIsNotRefetchedWhenEvictedFromCache(self):
+    # A repo restored from the remote repo contents cache is injected into an
+    # in-memory overlay file system. When a file is later materialized on disk,
+    # a contents proxy is recorded on its injected metadata. The proxy lets the
+    # next build recognize the materialized file (which has no fast digest on
+    # the local file system) as unchanged; without it, the file is compared by
+    # contents proxy rather than digest, is considered modified, and the repo
+    # is spuriously invalidated. To make such an invalidation observable,
+    # the remote cache is evicted first, so a refetch can no longer be served
+    # silently from the cache and must visibly re-run the repo rule.
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+            'other_repo = use_repo_rule("//:other_repo.bzl", "other_repo")',
+            'other_repo(name = "other", data_file = "@my_repo//:data.txt")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  rctx.file("BUILD", "exports_files([\'data.txt\'])")',
+            '  rctx.file("data.txt", "hello")',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+    self.ScratchFile(
+        'other_repo.bzl',
+        [
+            'def _other_repo_impl(rctx):',
+            # Reading my_repo's data.txt forces full materialization of
+            # my_repo, recording a contents proxy on each materialized file.
+            # other is not reproducible, so it is always refetched
+            # and re-triggers materialization.
+            '  rctx.file("BUILD", "filegroup(name=\'haha\')")',
+            (
+                '  rctx.file("data_copy.txt",'
+                ' rctx.read(rctx.path(rctx.attr.data_file)))'
+            ),
+            '  return rctx.repo_metadata()',
+            (
+                'other_repo = repository_rule(_other_repo_impl,'
+                ' attrs={"data_file": attr.label()})'
+            ),
+        ],
+    )
+    self.ScratchFile(
+        'main/BUILD.bazel',
+        [
+            'genrule(',
+            '  name = "use_data",',
+            '  srcs = ["@my_repo//:data.txt"],',
+            '  outs = ["out.txt"],',
+            '  cmd = "cat $< > $@",',
+            '  tags = ["no-cache"],',
+            ')',
+        ],
+    )
+
+    # Cold build: fetch my_repo and upload it to the remote repo contents cache.
+    _, _, stderr = self.RunBazel(['build', '//main:use_data'])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+
+    # Restore my_repo from the cache into the overlay; the genrule reads
+    # data.txt while it is still
+    # overlay-resident, so its metadata is the injected remote metadata.
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(['build', '//main:use_data'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+
+    # Fully materialize my_repo onto the local disk (other reads its files),
+    # which records a contents
+    # proxy on the injected metadata and evicts the repo from the overlay.
+    self.RunBazel(['build', '@other//:haha'])
+
+    # Evict everything from the remote cache. After this, my_repo can no longer
+    # be silently restored
+    # from the cache: any refetch must visibly re-run its repo rule.
+    self.ClearRemoteCache()
+
+    # Incremental build: the materialized repo file is recognized as unchanged
+    # via its contents proxy, so my_repo is neither invalidated nor refetched.
+    _, _, stderr = self.RunBazel(['build', '//main:use_data'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+
 
 if __name__ == '__main__':
   absltest.main()
