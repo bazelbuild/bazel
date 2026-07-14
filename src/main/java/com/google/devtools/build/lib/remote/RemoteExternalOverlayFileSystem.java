@@ -722,8 +722,10 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
         return nativeFs.getInputStream(path);
       }
       var relativePath = path.relativeTo(externalDirectory);
-      var info =
-          (RemoteActionFileSystem.RemoteInMemoryFileInfo) stat(path, /* followSymlinks= */ true);
+      if (!(stat(path, /* followSymlinks= */ true)
+          instanceof RemoteActionFileSystem.RemoteInMemoryFileInfo info)) {
+        throw Errno.EISDIR.exception(path);
+      }
       reporter.post(
           new ExtendedEventHandler.FetchProgress() {
             @Override
@@ -791,14 +793,11 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
 
     @Override
     public byte[] getDigest(PathFragment path) throws IOException {
-      var info =
-          (RemoteActionFileSystem.RemoteInMemoryFileInfo) stat(path, /* followSymlinks= */ true);
-      return info.getMetadata().getDigest();
-    }
-
-    @Override
-    public synchronized byte[] getFastDigest(PathFragment path) throws IOException {
-      return getDigest(path);
+      // All regular files in this file system are remote files, whose digest is known in advance
+      // and returned by the base implementation of getFastDigest, which also correctly reports
+      // errors such as EISDIR for paths that don't resolve to regular files. The base
+      // implementation of getDigest would instead download the file contents to hash them.
+      return getFastDigest(path);
     }
   }
 }
