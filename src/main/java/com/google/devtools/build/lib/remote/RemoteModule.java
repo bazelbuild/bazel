@@ -382,6 +382,26 @@ public final class RemoteModule extends BlazeModule {
     credentialModule = Preconditions.checkNotNull(runtime.getBlazeModule(CredentialModule.class));
   }
 
+  /**
+   * Opens the gRPC log at {@code path} for writing.
+   *
+   * <p>When the command is retried in-process after a transient remote cache error (see {@code
+   * --experimental_remote_cache_eviction_retries}), {@code attemptNumber} is greater than 1 and the
+   * log written by the previous attempt is still at {@code path}. Truncating it would discard the
+   * log of the very attempt that hit the cache eviction, which is exactly the one worth debugging.
+   * Instead, rename the existing file to {@code <path>.<previous attempt number>} so every
+   * attempt's log is preserved. See https://github.com/bazelbuild/bazel/issues/18695.
+   */
+  @VisibleForTesting
+  static AsynchronousMessageOutputStream<LogEntry> openRpcLogFile(Path path, int attemptNumber)
+      throws IOException {
+    if (attemptNumber > 1 && path.exists()) {
+      path.renameTo(
+          path.getParentDirectory().getChild(path.getBaseName() + "." + (attemptNumber - 1)));
+    }
+    return new AsynchronousMessageOutputStream<>(path);
+  }
+
   @Override
   public void beforeCommand(CommandEnvironment env) throws AbruptExitException {
     Preconditions.checkState(actionContextProvider == null, "actionContextProvider must be null");
@@ -686,8 +706,9 @@ public final class RemoteModule extends BlazeModule {
     if (remoteOptions.getRemoteGrpcLog() != null) {
       try {
         rpcLogFile =
-            new AsynchronousMessageOutputStream<>(
-                env.getWorkingDirectory().getRelative(remoteOptions.getRemoteGrpcLog()));
+            openRpcLogFile(
+                env.getWorkingDirectory().getRelative(remoteOptions.getRemoteGrpcLog()),
+                env.getAttemptNumber());
       } catch (IOException e) {
         handleInitFailure(env, e, Code.RPC_LOG_FAILURE);
         return false;
