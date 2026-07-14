@@ -189,6 +189,7 @@ java_library(
         "//src/main/protobuf:bazel_output_service_java_grpc",
         "//src/main/protobuf:bazel_output_service_java_proto",
         "//src/main/protobuf:cache_salt_java_proto",
+        "//src/main/protobuf:execution_statistics_java_proto",
         "//src/main/protobuf:failure_details_java_proto",
         "//src/main/protobuf:invocation_policy_java_proto",
         "//src/main/protobuf:remote_execution_log_java_proto",
