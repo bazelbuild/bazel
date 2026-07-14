@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.remote;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -23,12 +22,14 @@ import static com.google.devtools.build.lib.remote.util.RxFutures.toCompletable;
 import static com.google.devtools.build.lib.remote.util.RxFutures.toListenableFuture;
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 import static com.google.devtools.build.lib.remote.util.Utils.mergeBulkTransfer;
-import static java.util.Objects.requireNonNull;
+import static io.reactivex.rxjava3.core.Completable.concat;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.Futures;
@@ -45,6 +46,7 @@ import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValueWithMaterializationData;
 import com.google.devtools.build.lib.actions.FileContentsProxy;
+import com.google.devtools.build.lib.actions.FileStateType;
 import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
@@ -55,11 +57,13 @@ import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.util.AsyncTaskCache;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.util.TempPathGenerator;
+import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSymlinkLoopException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.OutputPermissions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Symlinks;
 import io.reactivex.rxjava3.core.Completable;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -208,16 +212,20 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
 
   private final DirectoryTracker directoryTracker = new DirectoryTracker();
 
-  /** A symlink in the output tree. */
-  record Symlink(PathFragment linkExecPath, PathFragment targetExecPath) {
+  /**
+   * A symlink in the output tree that either points to another artifact's absolute path or
+   * represents an unresolved symlink with its target path preserved verbatim.
+   */
+  record Symlink(Path linkPath, PathFragment targetPath) {
     Symlink {
-      requireNonNull(linkExecPath, "linkExecPath");
-      requireNonNull(targetExecPath, "targetExecPath");
-      checkArgument(!linkExecPath.equals(targetExecPath));
+      checkNotNull(linkPath, "linkPath");
+      checkNotNull(targetPath, "targetPath");
+      checkArgument(
+          !linkPath.asFragment().equals(targetPath), "linkPath and targetPath must differ");
     }
 
-    static Symlink of(PathFragment linkExecPath, PathFragment targetExecPath) {
-      return new Symlink(linkExecPath, targetExecPath);
+    Path resolveOne() throws IOException {
+      return resolveOneSymlink(linkPath, targetPath);
     }
   }
 
@@ -245,6 +253,17 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
    */
   protected Path execRoot() {
     return execRootSupplier.get();
+  }
+
+  /**
+   * Returns whether the given path lives under the external repository root. Unlike {@link
+   * #execRoot()}, this can be evaluated during external repository materialization, where the exec
+   * root isn't available yet.
+   */
+  private boolean isUnderExternalRepoRoot(Path path) {
+    return path.asFragment()
+        .startsWith(
+            outputBase.getRelative(LabelConstants.EXTERNAL_REPOSITORY_LOCATION).asFragment());
   }
 
   /**
@@ -412,16 +431,29 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       PathFragment execPath = input.getExecPath();
 
       FileArtifactValue metadata = metadataSupplier.getMetadata(input);
-      if (metadata == null || !canDownloadFile(resolveExecPath(execPath), metadata)) {
+      if (metadata == null) {
         return immediateVoidFuture();
       }
+      Path inputPath = resolveExecPath(execPath);
+      var symlinks = getSymlinks(input, inputPath, metadata, metadataSupplier);
+      // On Windows, the type of symlink depends on the target file and the target may have to
+      // exist, so we plant symlinks in reverse order and only after any download has completed.
+      var plantSymlinks = concat(Lists.transform(symlinks.reverse(), this::plantSymlink));
+      if (!canDownloadFile(inputPath, metadata)) {
+        // If the artifact is a declared ("unresolved") symlink, it can't be "downloaded", but the
+        // symlink logic above creates it.
+        return toListenableFuture(plantSymlinks);
+      }
 
-      @Nullable Symlink symlink = maybeGetSymlink(action, input, metadata, metadataSupplier);
-
-      if (symlink != null) {
-        checkState(execPath.startsWith(symlink.linkExecPath()));
-        execPath =
-            symlink.targetExecPath().getRelative(execPath.relativeTo(symlink.linkExecPath()));
+      if (!symlinks.isEmpty()) {
+        // Symlink may track the parent of a TreeFileArtifact, so the parent relative path has to be
+        // translated relative to it.
+        var parentRelativePath = inputPath.relativeTo(symlinks.getFirst().linkPath());
+        inputPath =
+            inputPath
+                .getFileSystem()
+                .getPath(
+                    symlinks.getLast().resolveOne().asFragment().getRelative(parentRelativePath));
       }
 
       @Nullable PathFragment treeRootExecPath = maybeGetTreeRoot(action, input, metadataSupplier);
@@ -429,7 +461,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       Completable result =
           downloadFileNoCheckRx(
                   action,
-                  resolveExecPath(execPath),
+                  inputPath,
                   treeRootExecPath != null ? resolveExecPath(treeRootExecPath) : null,
                   dirsWithOutputPermissions,
                   input,
@@ -445,11 +477,8 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
                       return Completable.error(cacheNotFoundException);
                     }
                     return Completable.error(t);
-                  });
-
-      if (symlink != null) {
-        result = result.andThen(plantSymlink(symlink));
-      }
+                  })
+              .andThen(plantSymlinks);
 
       return toListenableFuture(result);
     } catch (IOException | InterruptedException e) {
@@ -488,18 +517,20 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   }
 
   /**
-   * Returns the symlink to be planted in the output tree for artifacts that are prefetched into a
-   * different location.
+   * Returns the symlinks to be planted on disk for inputs that are prefetched into a different
+   * location, ordered from the input path to the final target.
    *
    * <p>Some artifacts (notably, those created by {@code ctx.actions.symlink}) are materialized in
    * the output tree as a symlink to another artifact, as indicated by the {@link
-   * FileArtifactValue#getMaterializationExecPath()} field in their (or their parent tree
-   * artifact's) metadata.
+   * FileArtifactValue#getMaterializationExecPath()} field in their (or their parent tree artifact's)
+   * metadata.
+   *
+   * <p>Paths in external repos backed by the remote repo contents cache may be (part of) a chain of
+   * symlinks created by the repo rule, which has to be reproduced verbatim on disk.
    */
-  @Nullable
-  private Symlink maybeGetSymlink(
-      ActionExecutionMetadata action,
+  private ImmutableList<Symlink> getSymlinks(
       ActionInput input,
+      Path inputPath,
       FileArtifactValue metadata,
       MetadataSupplier metadataSupplier)
       throws IOException, InterruptedException {
@@ -507,28 +538,50 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       SpecialArtifact treeArtifact = treeFile.getParent();
       FileArtifactValue treeMetadata = metadataSupplier.getMetadata(treeArtifact);
       if (treeMetadata == null) {
-        if (!treeFile.isChildOfDeclaredDirectory() && action.getOutputs().contains(treeFile)) {
-          // If this file is produced by an action template, the full tree artifact metadata might
-          // not be available yet. However, we know with certainty that the file is not materialized
-          // as a symlink.
-          return null;
-        }
-        throw new IllegalStateException(
-            String.format(
-                "input %s belongs to a tree artifact whose metadata is missing", treeFile));
+        // There are two cases where tree metadata is legitimately not available:
+        // (1) If the file is the output of an action expanded from an action template. In this
+        //     case, the symlink optimization is intentionally not supported.
+        // (2) If the file is part of an input fileset. In this case, a symlink has already been
+        //     created, but we're currently unable to prefetch the file(s) it points to.
+        // TODO: b/401575099 - Treating fileset more like runfiles could make the tree metadata
+        //  available for case (2).
+        return ImmutableList.of();
       }
-      return maybeGetSymlink(action, treeArtifact, treeMetadata, metadataSupplier);
+      return getSymlinks(treeArtifact, treeArtifact.getPath(), treeMetadata, metadataSupplier);
+    }
+    if ((metadata.isRemote() || metadata.getType() == FileStateType.SYMLINK)
+        && isUnderExternalRepoRoot(inputPath)) {
+      // A path in an external repo, e.g. a source artifact consumed by an action or a file
+      // prefetched during the materialization of an external repo. It may be (part of) a chain of
+      // symlinks created by the repo rule, which has to be reproduced verbatim on disk.
+      var symlinkChain = ImmutableList.<Symlink>builder();
+      FileStatus stat;
+      Path currentPath = inputPath;
+      var maxAttempt = 32;
+      while ((stat = currentPath.statIfFound(Symlinks.NOFOLLOW)) != null && stat.isSymbolicLink()) {
+        if (maxAttempt-- == 0) {
+          throw new FileSymlinkLoopException(inputPath.asFragment());
+        }
+        var symlink = new Symlink(currentPath, currentPath.readSymbolicLink());
+        symlinkChain.add(symlink);
+        currentPath = symlink.resolveOne();
+      }
+      return symlinkChain.build();
     }
     PathFragment execPath = input.getExecPath();
     PathFragment materializationExecPath = metadata.getMaterializationExecPath().orElse(execPath);
-    if (!materializationExecPath.equals(execPath)) {
-      return Symlink.of(execPath, materializationExecPath);
+    if (materializationExecPath.equals(execPath)) {
+      return ImmutableList.of();
     }
-    return null;
+    return ImmutableList.of(
+        new Symlink(inputPath, resolveExecPath(materializationExecPath).asFragment()));
   }
 
-  private Path resolveOneSymlink(Path path) throws IOException {
-    var targetPathFragment = path.readSymbolicLink();
+  private static Path resolveOneSymlink(Path path, @Nullable PathFragment targetPathFragment)
+      throws IOException {
+    if (targetPathFragment == null) {
+      targetPathFragment = path.readSymbolicLink();
+    }
     if (targetPathFragment.isAbsolute()) {
       return path.getFileSystem().getPath(targetPathFragment);
     } else {
@@ -545,7 +598,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     //      FileNotFoundException because we want to download output to that target path.
     var maxAttempt = 32;
     while (path.isSymbolicLink() && maxAttempt-- > 0) {
-      var resolvedPath = resolveOneSymlink(path);
+      var resolvedPath = resolveOneSymlink(path, /* targetPathFragment= */ null);
       if (resolvedPath.asFragment().equals(path.asFragment())) {
         throw new FileSymlinkLoopException(path.asFragment());
       }
@@ -569,7 +622,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     // If the path to be prefetched is a non-dangling symlink, prefetch its target path instead.
     // Note that this only applies to symlinks created by spawns (or, currently, with the internal
     // version of BwoB); symlinks created in-process through an ActionFileSystem should have already
-    // been resolved into their materializationExecPath in maybeGetSymlink.
+    // been resolved into their materializationExecPath in getSymlinks.
     try {
       if (treeRoot != null) {
         var treeRootRelativePath = path.relativeTo(treeRoot);
@@ -737,19 +790,23 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   }
 
   private Completable plantSymlink(Symlink symlink) {
+    Path linkPath = symlink.linkPath().forHostFileSystem();
     return downloadCache.execute(
-        resolveExecPath(symlink.linkExecPath()),
+        linkPath,
         Completable.defer(
             () -> {
-              Path link = resolveExecPath(symlink.linkExecPath());
-              Path target = resolveExecPath(symlink.targetExecPath());
+              if (isUnderExternalRepoRoot(symlink.linkPath())) {
+                // If the symlink is a source file in an external repo, its parent directory may not
+                // exist yet.
+                checkNotNull(linkPath.getParentDirectory()).createDirectoryAndParents();
+              }
               // Delete the link path if it already exists. This is the case for tree artifacts,
               // whose root directory is created before the action runs.
-              link.delete();
-              link.createSymbolicLink(target);
+              linkPath.delete();
+              linkPath.createSymbolicLink(symlink.targetPath());
               return Completable.complete();
             }),
-        forceRefetch(resolveExecPath(symlink.linkExecPath())));
+        forceRefetch(linkPath));
   }
 
   public ImmutableSet<Path> downloadedFiles() {
