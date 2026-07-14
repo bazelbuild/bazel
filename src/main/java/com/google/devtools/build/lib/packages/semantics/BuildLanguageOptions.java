@@ -395,6 +395,21 @@ public abstract class BuildLanguageOptions extends OptionsBase {
   public abstract boolean getIncompatibleNoAttrLicense();
 
   @Option(
+      name = "incompatible_require_matching_aspect_hints_providers",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "If set to true, targets in the aspect_hints attribute must satisfy the providers"
+              + " required by at least one aspect's required_aspect_hints_providers. That is, for"
+              + " each target C in a target P's aspect_hints attribute, C will be made a"
+              + " dependency of P only if there is at least one aspect A being applied to P where"
+              + " C's rule class declares providers that satifies A's "
+              + " required_aspect_hints_providers.")
+  public abstract boolean getIncompatibleRequireMatchingAspectHintsProviders();
+
+  @Option(
       name = "incompatible_no_implicit_file_export",
       defaultValue = FlagConstants.DEFAULT_INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT,
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -897,6 +912,9 @@ public abstract class BuildLanguageOptions extends OptionsBase {
                 INCOMPATIBLE_JAVA_INFO_MERGE_RUNTIME_MODULE_FLAGS,
                 getIncompatibleJavaInfoMergeRuntimeModuleFlags())
             .setBool(INCOMPATIBLE_NO_ATTR_LICENSE, getIncompatibleNoAttrLicense())
+            .setBool(
+                INCOMPATIBLE_REQUIRE_MATCHING_ASPECT_HINTS_PROVIDERS,
+                getIncompatibleRequireMatchingAspectHintsProviders())
             .setBool(INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT, getIncompatibleNoImplicitFileExport())
             .setBool(INCOMPATIBLE_NO_RULE_OUTPUTS_PARAM, getIncompatibleNoRuleOutputsParam())
             .setBool(INCOMPATIBLE_RUN_SHELL_COMMAND_STRING, getIncompatibleRunShellCommandString())
@@ -1093,6 +1111,8 @@ public abstract class BuildLanguageOptions extends OptionsBase {
   public static final String INCOMPATIBLE_JAVA_INFO_MERGE_RUNTIME_MODULE_FLAGS =
       "-incompatible_java_info_merge_runtime_module_flags";
   public static final String INCOMPATIBLE_NO_ATTR_LICENSE = "+incompatible_no_attr_license";
+  public static final String INCOMPATIBLE_REQUIRE_MATCHING_ASPECT_HINTS_PROVIDERS =
+      "-incompatible_require_matching_aspect_hints_providers";
   public static final String INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT =
       FlagConstants.DEFAULT_INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT_NAME;
   public static final String INCOMPATIBLE_NO_RULE_OUTPUTS_PARAM =

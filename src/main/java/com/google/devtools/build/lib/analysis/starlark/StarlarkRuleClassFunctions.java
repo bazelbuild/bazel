@@ -199,7 +199,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
               "$dependency_resolution_base_rule", RuleClassType.ABSTRACT, true, baseRule)
           .setDependencyResolutionRule()
           .removeAttribute(":action_listener")
-          .removeAttribute("aspect_hints")
+          .removeAttribute(RuleClass.ASPECT_HINTS_ATTR)
           .removeAttribute("toolchains")
           .removeAttribute(RuleClass.EXEC_COMPATIBLE_WITH_ATTR)
           .removeAttribute(RuleClass.EXEC_GROUP_COMPATIBLE_WITH_ATTR)
@@ -215,7 +215,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       new RuleClass.Builder("$materializer_base_rule", RuleClassType.ABSTRACT, true, baseRule)
           .setIsMaterializerRule(true)
           .removeAttribute(":action_listener")
-          .removeAttribute("aspect_hints")
+          .removeAttribute(RuleClass.ASPECT_HINTS_ATTR)
           .removeAttribute("toolchains")
           .removeAttribute(RuleClass.EXEC_COMPATIBLE_WITH_ATTR)
           .removeAttribute(RuleClass.EXEC_GROUP_COMPATIBLE_WITH_ATTR)
@@ -1326,6 +1326,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       Dict<?, ?> attrs,
       Sequence<?> requiredProvidersArg,
       Sequence<?> requiredAspectProvidersArg,
+      Sequence<?> requiredAspectHintsProvidersArg,
       Sequence<?> providesArg,
       Sequence<?> requiredAspects,
       Object rawPropagationPredicate,
@@ -1501,6 +1502,8 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
         StarlarkAttrModule.buildProviderPredicate(requiredProvidersArg, "required_providers"),
         StarlarkAttrModule.buildProviderPredicate(
             requiredAspectProvidersArg, "required_aspect_providers"),
+        StarlarkAttrModule.buildProviderPredicate(
+            requiredAspectHintsProvidersArg, "required_aspect_hints_providers"),
         StarlarkAttrModule.getStarlarkProviderIdentifiers(providesArg, "provides"),
         requiredParams.build(),
         ImmutableSet.copyOf(Sequence.cast(requiredAspects, StarlarkAspect.class, "requires")),

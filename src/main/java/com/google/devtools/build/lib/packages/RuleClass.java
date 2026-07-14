@@ -150,6 +150,9 @@ public class RuleClass implements RuleClassData {
 
   public static final String APPLICABLE_METADATA_ATTR_ALT = "applicable_licenses";
 
+  /** The attribute that declares the list of aspect hints that apply to this target. */
+  public static final String ASPECT_HINTS_ATTR = "aspect_hints";
+
   public static final String DEFAULT_TEST_RUNNER_EXEC_GROUP_NAME = "test";
   public static final DeclaredExecGroup DEFAULT_TEST_RUNNER_EXEC_GROUP =
       DeclaredExecGroup.builder()
@@ -2226,6 +2229,7 @@ public class RuleClass implements RuleClassData {
    * #getRuleDefinitionEnvironmentLabel()} and {@link #getStarlarkExtensionLabel()} may differ.
    */
   // TODO(b/366027483): unify starlarkExtensionLabel and ruleDefinitionEnvironmentLabel.
+  @Override
   @Nullable
   public Label getRuleDefinitionEnvironmentLabel() {
     return ruleDefinitionEnvironmentLabel;
