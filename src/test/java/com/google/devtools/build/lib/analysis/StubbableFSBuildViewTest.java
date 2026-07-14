@@ -76,9 +76,18 @@ public class StubbableFSBuildViewTest extends BuildViewTestBase {
     assertThat(result.hasError()).isTrue();
     assertThat(result.getFailureDetail().getMessage())
         .contains("command succeeded, but not all targets were analyzed");
-    assertThat(recorder.events).hasSize(1);
+    // Bazel 8.x predates 97a31fd305, which removed the direct
+    // TopLevelAspectsKey -> ConfiguredTargetKey dependency. With that dependency
+    // present, this test observes both error paths: the TopLevelAspectsKey event
+    // has no root causes, while the ConfiguredTargetKey event does.
+    assertThat(recorder.events).hasSize(2);
+    ImmutableList<AnalysisFailureEvent> eventsWithRootCauses =
+        recorder.events.stream()
+            .filter(event -> !event.getRootCauses().isEmpty())
+            .collect(ImmutableList.toImmutableList());
+    assertThat(eventsWithRootCauses).hasSize(1);
     assertThat(
-            Iterables.getOnlyElement(recorder.events)
+            Iterables.getOnlyElement(eventsWithRootCauses)
                 .getRootCauses()
                 .getSingleton()
                 .getDetailedExitCode()
