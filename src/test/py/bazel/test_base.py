@@ -16,6 +16,7 @@
 
 """Bazel Python integration test framework."""
 
+import hashlib
 import os
 import shutil
 import socket
@@ -471,6 +472,21 @@ class TestBase(absltest.TestCase):
     shutil.rmtree(self._cas_path)
     # The worker needs the CAS path as well as the tmp dir to exist.
     os.makedirs(os.path.join(self._cas_path, 'tmp'))
+
+  def DeleteCasEntry(self, content):
+    """Deletes the CAS entry of the "local remote worker" with the given content.
+
+    Args:
+      content: bytes; the contents of the CAS entry to delete.
+
+    Returns:
+      str: the path of the deleted CAS entry.
+    """
+    digest = hashlib.sha256(content).hexdigest()
+    blob_path = os.path.join(self._cas_path, 'cas', digest[:2], digest)
+    self.assertTrue(os.path.exists(blob_path))
+    os.remove(blob_path)
+    return blob_path
 
   def RunProgram(
       self,
