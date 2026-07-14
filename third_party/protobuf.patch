@@ -1,8 +1,30 @@
+diff --git a/MODULE.bazel b/MODULE.bazel
+index a490e51b27..d5b3e174b7 100644
+--- a/MODULE.bazel
++++ b/MODULE.bazel
+@@ -40,7 +40,7 @@ bazel_dep(name = "rules_kotlin", version = "2.3.20")
+ bazel_dep(name = "rules_license", version = "1.0.0")
+ bazel_dep(name = "rules_pkg", version = "1.0.1")
+ bazel_dep(name = "rules_python", version = "1.6.0")
+-bazel_dep(name = "rules_rust", version = "0.69.0")
++bazel_dep(name = "rules_rust", version = "0.69.0", dev_dependency = True)
+ 
+ bazel_dep(name = "rules_ruby", version = "0.20.1", dev_dependency = True)
+ 
+@@ -194,7 +194,7 @@ rust.toolchain(
+     versions = ["1.85.0"],
+ )
+ 
+-crate = use_extension("@rules_rust//crate_universe:extension.bzl", "crate")
++crate = use_extension("@rules_rust//crate_universe:extension.bzl", "crate", dev_dependency = True)
+ crate.spec(
+     package = "googletest",
+     version = ">0.0.0",
 diff --git a/java/core/BUILD.bazel b/java/core/BUILD.bazel
-index 2a38c7475..e7736a675 100644
+index 4cbd4732c1..2e789054c8 100644
 --- a/java/core/BUILD.bazel
 +++ b/java/core/BUILD.bazel
-@@ -186,10 +186,7 @@ protobuf_java_export(
+@@ -183,10 +183,7 @@ protobuf_java_export(
  protobuf_java_library(
      name = "lite_runtime_only",
      srcs = LITE_SRCS,
@@ -14,38 +36,6 @@ index 2a38c7475..e7736a675 100644
  )
  
  proto_library(
-diff --git a/upb/BUILD b/upb/BUILD
-index 426bf9124..fd17ac96c 100644
---- a/upb/BUILD
-+++ b/upb/BUILD
-@@ -115,6 +115,26 @@ cc_library(
-     visibility = ["//hpb/bazel:__pkg__"],
- )
- 
-+# Aliases ######################################################################
-+
-+alias(
-+    name = "base",
-+    actual = "//upb/base",
-+    visibility = ["//visibility:public"],
-+)
-+
-+alias(
-+    name = "mem",
-+    actual = "//upb/mem",
-+    visibility = ["//visibility:public"],
-+)
-+
-+alias(
-+    name = "message",
-+    actual = "//upb/message",
-+    visibility = ["//visibility:public"],
-+)
-+
- # Amalgamation #################################################################
- 
- upb_amalgamation(
-
 diff --git a/src/google/protobuf/compiler/java/full/message.cc b/src/google/protobuf/compiler/java/full/message.cc
 index 819f20a44b..e3f7b82701 100644
 --- a/src/google/protobuf/compiler/java/full/message.cc
@@ -76,7 +66,7 @@ index 819f20a44b..e3f7b82701 100644
 -          "\n");
 -      return;
 -    }
-
+ 
 -    printer->Print("private transient byte memoizedIsInitialized = -1;\n");
 +  // If the message transitively has no required fields or extensions,
 +  // isInitialized() is always true.
@@ -94,18 +84,53 @@ index 819f20a44b..e3f7b82701 100644
 +        "\n");
 +    return;
    }
-
+ 
 +  printer->Print("private transient byte memoizedIsInitialized = -1;\n");
 +
    printer->Print(
        "@java.lang.Override\n"
        "public final boolean isInitialized() {\n");
+diff --git a/upb/BUILD b/upb/BUILD
+index 4ce905cbbf..d8e701c131 100644
+--- a/upb/BUILD
++++ b/upb/BUILD
+@@ -125,6 +125,26 @@ cc_library(
+     visibility = ["//hpb/bazel:__pkg__"],
+ )
+ 
++# Aliases ######################################################################
++
++alias(
++    name = "base",
++    actual = "//upb/base",
++    visibility = ["//visibility:public"],
++)
++
++alias(
++    name = "mem",
++    actual = "//upb/mem",
++    visibility = ["//visibility:public"],
++)
++
++alias(
++    name = "message",
++    actual = "//upb/message",
++    visibility = ["//visibility:public"],
++)
++
+ # Amalgamation #################################################################
+ 
+ upb_amalgamation(
 diff --git a/upb_generator/minitable/generator.cc b/upb_generator/minitable/generator.cc
+index 54f8490ce4..801c58a8b2 100644
 --- a/upb_generator/minitable/generator.cc
 +++ b/upb_generator/minitable/generator.cc
-@@ -297,4 +297,4 @@
+@@ -297,7 +297,7 @@ void WriteExtension(const DefPoolPair& pools, upb::FieldDefPtr ext,
    if (!options.one_output_per_message) {
      output("static ");
    }
 -  output("const upb_MiniTableExtension $0_obj = {\n  ", ExtensionVarName(ext));
 +  output("const UPB_RETAIN upb_MiniTableExtension $0_obj = {\n  ", ExtensionVarName(ext));
+   output("$0,\n", FieldInitializer(pools, ext));
+   output("  $0,\n", GetSub(ext, true, options));
+   output("  &$0,\n", MessageVarName(ext.containing_type()));
