@@ -17,9 +17,9 @@ import static com.google.devtools.build.lib.analysis.constraints.ConstraintConst
 import static com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT;
 
 import com.google.common.base.Joiner;
-import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Interner;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Action;
@@ -81,12 +81,9 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.SymlinkTargetType;
 import com.google.protobuf.GeneratedMessage;
 import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
@@ -111,8 +108,8 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
   private int runShellOutputCounter = 0;
 
   private static final ResourceSet DEFAULT_RESOURCE_SET = ResourceSet.createWithRamCpu(250, 1);
-  private static final Set<String> validResources =
-      new HashSet<>(Arrays.asList(ResourceSet.CPU, ResourceSet.MEMORY, "local_test"));
+  private static final ImmutableSet<String> validResources =
+      ImmutableSet.of(ResourceSet.CPU, ResourceSet.MEMORY, "local_test");
 
   public StarlarkActionFactory(StarlarkActionContext context) {
     this.context = context;
@@ -905,19 +902,11 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     return DeclaredExecGroup.DEFAULT_EXEC_GROUP_NAME;
   }
 
-  private static class StarlarkActionResourceSetBuilder implements ResourceSetOrBuilder {
+  private record StarlarkActionResourceSetBuilder(
+      StarlarkCallable fn, String mnemonic, StarlarkSemantics semantics)
+      implements ResourceSetOrBuilder {
     private static final Interner<StarlarkActionResourceSetBuilder> resourceSetBuilderInterner =
         BlazeInterners.newWeakInterner();
-    private final StarlarkCallable fn;
-    private final String mnemonic;
-    private final StarlarkSemantics semantics;
-
-    private StarlarkActionResourceSetBuilder(
-        StarlarkCallable fn, String mnemonic, StarlarkSemantics semantics) {
-      this.fn = fn;
-      this.mnemonic = mnemonic;
-      this.semantics = semantics;
-    }
 
     public static StarlarkActionResourceSetBuilder create(
         StarlarkCallable fn, String mnemonic, StarlarkSemantics semantics) {
@@ -937,25 +926,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
         StarlarkInt inputInt = StarlarkInt.of(inputsSize);
         Object response =
             Starlark.positionalOnlyCall(thread, this.fn, os.getCanonicalName(), inputInt);
-        Map<String, Object> resourceSetMapRaw =
-            Dict.cast(response, String.class, Object.class, "resource_set");
-
-        if (!validResources.containsAll(resourceSetMapRaw.keySet())) {
-          String message =
-              String.format(
-                  "Illegal resource keys: (%s)",
-                  Joiner.on(",").join(Sets.difference(resourceSetMapRaw.keySet(), validResources)));
-          throw new EvalException(message);
-        }
-
-        return ResourceSet.create(
-            getNumericOrDefault(
-                resourceSetMapRaw, ResourceSet.MEMORY, DEFAULT_RESOURCE_SET.getMemoryMb()),
-            getNumericOrDefault(
-                resourceSetMapRaw, ResourceSet.CPU, DEFAULT_RESOURCE_SET.getCpuUsage()),
-            (int)
-                getNumericOrDefault(
-                    resourceSetMapRaw, "local_test", DEFAULT_RESOURCE_SET.getLocalTestCount()));
+        return parseResourceSetFromDict(response);
       } catch (EvalException e) {
         throw new UserExecException(
             FailureDetail.newBuilder()
@@ -987,24 +958,6 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
           String.format(
               "Illegal resource value type for key %s: got %s, want int or float",
               key, Starlark.type(value)));
-    }
-
-    @Override
-    public boolean equals(Object o) {
-      if (this == o) {
-        return true;
-      }
-      if (!(o instanceof StarlarkActionResourceSetBuilder that)) {
-        return false;
-      }
-      return Objects.equal(fn, that.fn)
-          && Objects.equal(mnemonic, that.mnemonic)
-          && Objects.equal(semantics, that.semantics);
-    }
-
-    @Override
-    public int hashCode() {
-      return Objects.hashCode(fn, mnemonic, semantics);
     }
   }
 
