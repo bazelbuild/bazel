@@ -578,7 +578,12 @@ public final class RemoteModule extends BlazeModule {
         CircuitBreakerFactory.createCircuitBreaker(remoteOptions);
     RemoteRetrier retrier =
         new RemoteRetrier(
-            remoteOptions, RemoteRetrier.RETRIABLE_GRPC_ERRORS, retryScheduler, circuitBreaker);
+            remoteOptions,
+            RemoteRetrier.RETRIABLE_GRPC_ERRORS,
+            retryScheduler,
+            circuitBreaker,
+            // Resolved lazily: rpcLogFile is created further below, after this retrier.
+            () -> rpcLogFile);
 
     if (!Strings.isNullOrEmpty(remoteOptions.remoteOutputService)) {
       var bazelOutputServiceChannel =
@@ -754,7 +759,8 @@ public final class RemoteModule extends BlazeModule {
                 remoteOptions,
                 RemoteRetrier.RETRIABLE_GRPC_ERRORS, // Handle NOT_FOUND internally
                 retryScheduler,
-                circuitBreaker);
+                circuitBreaker,
+                () -> rpcLogFile);
         remoteExecutor =
             new ExperimentalGrpcRemoteExecutor(
                 remoteOptions, execChannel.retain(), callCredentialsProvider, execRetrier);
@@ -764,7 +770,8 @@ public final class RemoteModule extends BlazeModule {
                 remoteOptions,
                 RemoteRetrier.RETRIABLE_GRPC_EXEC_ERRORS,
                 retryScheduler,
-                circuitBreaker);
+                circuitBreaker,
+                () -> rpcLogFile);
         remoteExecutor =
             new GrpcRemoteExecutor(execChannel.retain(), callCredentialsProvider, execRetrier);
       }

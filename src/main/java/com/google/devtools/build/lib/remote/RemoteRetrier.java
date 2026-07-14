@@ -19,12 +19,17 @@ import static java.lang.Math.max;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
+import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
+import com.google.devtools.build.lib.remote.logging.RemoteExecutionLog.LogEntry;
+import com.google.devtools.build.lib.remote.logging.RemoteExecutionLog.RetrySummary;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
+import com.google.devtools.build.lib.util.io.MessageOutputStream;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
 import java.io.IOException;
 import java.time.Duration;
+import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Predicate;
@@ -33,6 +38,16 @@ import javax.annotation.Nullable;
 
 /** Specific retry logic for remote execution/caching. */
 public class RemoteRetrier extends Retrier {
+
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+
+  /**
+   * Supplies the gRPC log sink to which a terminal marker is written on retry exhaustion, or {@code
+   * null} for retriers that don't participate in gRPC logging (e.g. the HTTP cache retrier). It is
+   * resolved lazily because the log file is created after some retriers are constructed, and
+   * returns {@code null} while --remote_grpc_log is unset.
+   */
+  @Nullable private final Supplier<MessageOutputStream<LogEntry>> grpcLogSinkSupplier;
 
   @Nullable
   private static Status fromException(Exception e) {
@@ -73,12 +88,27 @@ public class RemoteRetrier extends Retrier {
       ListeningScheduledExecutorService retryScheduler,
       CircuitBreaker circuitBreaker) {
     this(
+        options, shouldRetry, retryScheduler, circuitBreaker, /* grpcLogSinkSupplier= */ null);
+  }
+
+  /**
+   * Options constructor that wires in a gRPC log sink, so this retrier emits a terminal marker on
+   * retry exhaustion. Used for the gRPC cache/exec retriers; the HTTP retrier uses the 4-arg form.
+   */
+  public RemoteRetrier(
+      RemoteOptions options,
+      Predicate<? super Exception> shouldRetry,
+      ListeningScheduledExecutorService retryScheduler,
+      CircuitBreaker circuitBreaker,
+      @Nullable Supplier<MessageOutputStream<LogEntry>> grpcLogSinkSupplier) {
+    this(
         options.remoteMaxRetryAttempts > 0
             ? () -> new ExponentialBackoff(options)
             : () -> RETRIES_DISABLED,
         shouldRetry,
         retryScheduler,
-        circuitBreaker);
+        circuitBreaker,
+        grpcLogSinkSupplier);
   }
 
   public RemoteRetrier(
@@ -86,7 +116,27 @@ public class RemoteRetrier extends Retrier {
       Predicate<? super Exception> shouldRetry,
       ListeningScheduledExecutorService retryScheduler,
       CircuitBreaker circuitBreaker) {
+    this(
+        backoff,
+        shouldRetry,
+        retryScheduler,
+        circuitBreaker,
+        /* grpcLogSinkSupplier= */ (Supplier<MessageOutputStream<LogEntry>>) null);
+  }
+
+  /**
+   * Full constructor carrying the gRPC log sink. Reached via the {@link RemoteOptions} constructor
+   * in production and used directly by same-package tests. Package-private so the sink seam is not
+   * part of the public API.
+   */
+  RemoteRetrier(
+      Supplier<Backoff> backoff,
+      Predicate<? super Exception> shouldRetry,
+      ListeningScheduledExecutorService retryScheduler,
+      CircuitBreaker circuitBreaker,
+      @Nullable Supplier<MessageOutputStream<LogEntry>> grpcLogSinkSupplier) {
     super(backoff, shouldRetry, retryScheduler, circuitBreaker);
+    this.grpcLogSinkSupplier = grpcLogSinkSupplier;
   }
 
   @VisibleForTesting
@@ -97,6 +147,7 @@ public class RemoteRetrier extends Retrier {
       CircuitBreaker circuitBreaker,
       Sleeper sleeper) {
     super(backoff, shouldRetry, retryScheduler, circuitBreaker, sleeper);
+    this.grpcLogSinkSupplier = null;
   }
 
   /**
@@ -123,6 +174,45 @@ public class RemoteRetrier extends Retrier {
       Throwables.throwIfInstanceOf(e, InterruptedException.class);
       Throwables.throwIfUnchecked(e);
       throw new RuntimeException(e);
+    }
+  }
+
+  @Override
+  @Nullable
+  protected String newRpcId() {
+    // Participate in gRPC logging (propagate rpc_id/attempt_number and emit a terminal marker) only
+    // when a log sink is wired in and --remote_grpc_log is actually set.
+    return (grpcLogSinkSupplier != null && grpcLogSinkSupplier.get() != null)
+        ? UUID.randomUUID().toString()
+        : null;
+  }
+
+  @Override
+  protected void onRetriesExhausted(Exception e, Backoff backoff, @Nullable String rpcId) {
+    if (rpcId == null || grpcLogSinkSupplier == null) {
+      return;
+    }
+    MessageOutputStream<LogEntry> sink = grpcLogSinkSupplier.get();
+    if (sink == null) {
+      return;
+    }
+    // Emit an explicit terminal marker, correlated to its attempt entries via rpc_id, so post-retry
+    // failures are identifiable without inferring them from the attempt chain. It carries no status
+    // (the attempt entries already do), so it doesn't inflate error counts.
+    LogEntry marker =
+        LogEntry.newBuilder()
+            .setRpcId(rpcId)
+            .setRetrySummary(
+                RetrySummary.newBuilder()
+                    .setRetryAttempts(backoff.getRetryAttempts())
+                    .setRetriesExhausted(true))
+            .build();
+    try {
+      sink.write(marker);
+    } catch (IOException | RuntimeException ex) {
+      // e.g. the log file is already closed; mirror LoggingInterceptor's defensive handling.
+      logger.atWarning().withCause(ex).log(
+          "Unable to write terminal RPC log entry for rpc_id %s", rpcId);
     }
   }
 
