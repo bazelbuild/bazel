@@ -38,6 +38,8 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
+import java.util.List;
+import java.util.ListIterator;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
@@ -206,8 +208,10 @@ public class ResourceManager implements ResourceEstimator {
   // be initialized to 1 during creation in the acquire() method.
   // We use LinkedList because we will need to remove elements from the middle frequently in the
   // middle of iterating through the list.
+  // localRequests is kept sorted by scheduling priority (highest first) so that
+  // processWaitingRequests can try to satisfy higher-priority requests first.
   @SuppressWarnings("JdkObsolete")
-  private final Deque<WaitingRequest> localRequests = new LinkedList<>();
+  private final List<WaitingRequest> localRequests = new LinkedList<>();
 
   @SuppressWarnings("JdkObsolete")
   private final Deque<WaitingRequest> dynamicWorkerRequests = new LinkedList<>();
@@ -263,6 +267,9 @@ public class ResourceManager implements ResourceEstimator {
   private int runningActions = 0;
   // Collects the information about the load of a machine.
   private MachineLoadProvider machineLoadProvider;
+
+  /** If set, tests with larger size are given priority in resource acquisition. */
+  private boolean prioritizeTestBySize;
 
   public void initializeCpuLoadFunctionality(
       MachineLoadProvider machineLoadProvider, boolean cpuLoadScheduling, Duration windowSize) {
@@ -358,6 +365,11 @@ public class ResourceManager implements ResourceEstimator {
       ResourcePriority getPriority,
       int getId) {}
   ;
+
+  /** Sets whether to prioritize tests by size in resource allocation. */
+  public void setPrioritizeTestBySize(boolean prioritizeTestBySize) {
+    this.prioritizeTestBySize = prioritizeTestBySize;
+  }
 
   /**
    * Acquires requested resource set. Will block if resource is not available. NB! This method must
@@ -502,14 +514,18 @@ public class ResourceManager implements ResourceEstimator {
    */
   private synchronized ResourceLatch acquire(ResourceRequest request)
       throws IOException, InterruptedException, UserExecException {
-    if (areResourcesAvailable(request.getResourceSet())) {
+    ResourceSet resources = request.getResourceSet();
+    // Fast path: grant immediately only when no higher-priority requests are waiting.
+    // This ensures that during a burst of requests, the priority queue is respected.
+    if (areResourcesAvailable(resources)
+        && (!prioritizeTestBySize || !hasHigherPriorityWaiting(resources, request.getPriority()))) {
       Worker worker = incrementResources(request);
       return new ResourceLatch(/* latch= */ null, worker);
     }
     WaitingRequest waitingRequest =
         new WaitingRequest(request, new ResourceLatch(new CountDownLatch(1), /* worker= */ null));
     switch (request.getPriority()) {
-      case LOCAL -> localRequests.addLast(waitingRequest);
+      case LOCAL -> enqueueLocal(waitingRequest);
       case DYNAMIC_WORKER ->
           // Dynamic requests should be LIFO, because we are more likely to win the race on newer
           // actions.
@@ -519,7 +535,63 @@ public class ResourceManager implements ResourceEstimator {
           // actions.
           dynamicStandaloneRequests.addFirst(waitingRequest);
     }
+    if (prioritizeTestBySize && areResourcesAvailable(resources)) {
+      processAllWaitingRequests();
+    }
     return waitingRequest.getResourceLatch();
+  }
+
+  private void enqueueLocal(WaitingRequest request) {
+    if (prioritizeTestBySize) {
+      insertByPriority(localRequests, request);
+    } else {
+      localRequests.add(request);
+    }
+  }
+
+  private boolean hasHigherPriorityWaiting(ResourceSet resources, ResourcePriority priority) {
+    if (priority != ResourcePriority.LOCAL || localRequests.isEmpty()) {
+      return false;
+    }
+    int myPriority = resources.getSchedulingPriority();
+    if (myPriority == 0) {
+      return false;
+    }
+    return localRequests
+            .get(0)
+            .getResourceRequest()
+            .getResourceSet()
+            .getSchedulingPriority()
+        > myPriority;
+  }
+
+  /**
+   * Inserts a request into the list maintaining descending order by scheduling priority. Requests
+   * with the same priority preserve FIFO order among themselves.
+   *
+   * <p>{@code insertByPriority} is O(n) per insert, so a burst of waiters can be O(n^2) in the
+   * worst case. We chose a sorted {@link LinkedList} over a {@link java.util.PriorityQueue} because
+   * {@link #processWaitingRequests} scans the queue in priority order and may satisfy requests out
+   * of order as different resources become available. A priority queue would not preserve that
+   * traversal order, and head-only polling would change the behavior.
+   *
+   * <p>The waiting queue is bounded by local parallelism, so we expect it to stay small.
+   */
+  private static void insertByPriority(List<WaitingRequest> requests, WaitingRequest request) {
+    int priority = request.getResourceRequest().getResourceSet().getSchedulingPriority();
+    if (priority == 0) {
+      requests.add(request);
+      return;
+    }
+    ListIterator<WaitingRequest> it = requests.listIterator();
+    while (it.hasNext()) {
+      if (it.next().getResourceRequest().getResourceSet().getSchedulingPriority() < priority) {
+        it.previous();
+        it.add(request);
+        return;
+      }
+    }
+    requests.add(request);
   }
 
   /** Release resources and process the queues of waiting threads. */
@@ -563,12 +635,8 @@ public class ResourceManager implements ResourceEstimator {
     processWaitingRequests(dynamicStandaloneRequests);
   }
 
-  private synchronized void processWaitingRequests(Deque<WaitingRequest> requests)
+  private synchronized void processWaitingRequests(Iterable<WaitingRequest> requests)
       throws IOException, InterruptedException, UserExecException {
-    if (requests.isEmpty()) {
-      return;
-    }
-
     Iterator<WaitingRequest> iterator = requests.iterator();
     while (iterator.hasNext()) {
       WaitingRequest request = iterator.next();

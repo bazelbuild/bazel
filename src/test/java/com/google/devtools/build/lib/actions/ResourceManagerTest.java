@@ -55,6 +55,7 @@ import java.util.NoSuchElementException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nullable;
 import org.junit.Before;
@@ -831,6 +832,147 @@ public final class ResourceManagerTest {
   synchronized boolean isAvailable(ResourceManager rm, double ram, double cpu, int localTestCount)
       throws UserExecException {
     return rm.areResourcesAvailable(ResourceSet.create(ram, cpu, localTestCount));
+  }
+
+  @Test
+  @SuppressWarnings("ThreadPriorityCheck")
+  public void testSchedulingPriorityOrdersWaitingRequests() throws Exception {
+    assertThat(manager.inUse()).isFalse();
+    manager.setPrioritizeTestBySize(true);
+
+    // Occupy all CPU so subsequent requests will block.
+    ResourceHandle blocker = acquire(0, 1, 0);
+
+    AtomicInteger order = new AtomicInteger(0);
+
+    // Each needs full CPU (1.0) so they are mutually exclusive, making wake-up order observable.
+    // Low-priority request enqueued first.
+    TestThread lowPriorityThread =
+        new TestThread(
+            () -> {
+              try (ResourceHandle handle =
+                  manager.acquireResources(
+                      resourceOwner, cpuWithPriority(10), ResourcePriority.LOCAL)) {
+                assertThat(order.incrementAndGet()).isEqualTo(2);
+              }
+            });
+
+    // High-priority request enqueued second.
+    TestThread highPriorityThread =
+        new TestThread(
+            () -> {
+              try (ResourceHandle handle =
+                  manager.acquireResources(
+                      resourceOwner, cpuWithPriority(30), ResourcePriority.LOCAL)) {
+                assertThat(order.incrementAndGet()).isEqualTo(1);
+              }
+            });
+
+    lowPriorityThread.start();
+    while (manager.getWaitCount() == 0) {
+      Thread.yield();
+    }
+
+    highPriorityThread.start();
+    while (manager.getWaitCount() < 2) {
+      Thread.yield();
+    }
+
+    // Release the blocker. Both need 1.0 CPU, only 1.0 available, so they run sequentially.
+    // The high-priority request (priority=30) should be satisfied before low (priority=10).
+    blocker.close();
+
+    highPriorityThread.joinAndAssertState(5000);
+    lowPriorityThread.joinAndAssertState(5000);
+    assertThat(manager.inUse()).isFalse();
+  }
+
+  @Test
+  @SuppressWarnings("ThreadPriorityCheck")
+  public void testSchedulingPriorityDisabled_unrelatedResourceAcquiresImmediately() throws Exception {
+    manager.setPrioritizeTestBySize(false);
+
+    ResourceHandle blocker = acquire(0, 1, 0);
+
+    TestThread cpuWaiter =
+        new TestThread(
+            () -> {
+              try (ResourceHandle handle = acquire(0, 1, 0)) {
+                // Blocked waiting for CPU.
+              }
+            });
+    cpuWaiter.start();
+    while (manager.getWaitCount() == 0) {
+      Thread.yield();
+    }
+
+    // Memory is available and unrelated to the waiting CPU request; should not enter the queue.
+    AtomicBoolean memoryAcquired = new AtomicBoolean(false);
+    TestThread memoryThread =
+        new TestThread(
+            () -> {
+              try (ResourceHandle handle =
+                  manager.acquireResources(
+                      resourceOwner, ResourceSet.create(100, 0, 0), ResourcePriority.LOCAL)) {
+                memoryAcquired.set(true);
+              }
+            });
+    memoryThread.start();
+    memoryThread.joinAndAssertState(5000);
+    assertThat(memoryAcquired.get()).isTrue();
+    assertThat(manager.getWaitCount()).isEqualTo(1);
+
+    blocker.close();
+    cpuWaiter.joinAndAssertState(5000);
+  }
+
+  @Test
+  @SuppressWarnings("ThreadPriorityCheck")
+  public void testSchedulingPrioritySamePriority_fifoOrder() throws Exception {
+    manager.setPrioritizeTestBySize(true);
+
+    ResourceHandle blocker = acquire(0, 1, 0);
+    AtomicInteger order = new AtomicInteger(0);
+
+    TestThread firstThread =
+        new TestThread(
+            () -> {
+              try (ResourceHandle handle =
+                  manager.acquireResources(
+                      resourceOwner, cpuWithPriority(20), ResourcePriority.LOCAL)) {
+                assertThat(order.incrementAndGet()).isEqualTo(1);
+              }
+            });
+
+    TestThread secondThread =
+        new TestThread(
+            () -> {
+              try (ResourceHandle handle =
+                  manager.acquireResources(
+                      resourceOwner, cpuWithPriority(20), ResourcePriority.LOCAL)) {
+                assertThat(order.incrementAndGet()).isEqualTo(2);
+              }
+            });
+
+    firstThread.start();
+    while (manager.getWaitCount() == 0) {
+      Thread.yield();
+    }
+    secondThread.start();
+    while (manager.getWaitCount() < 2) {
+      Thread.yield();
+    }
+
+    blocker.close();
+
+    firstThread.joinAndAssertState(5000);
+    secondThread.joinAndAssertState(5000);
+    assertThat(manager.inUse()).isFalse();
+  }
+
+  private static ResourceSet cpuWithPriority(int priority) {
+    return ResourceSet.createWithSchedulingPriority(
+        ImmutableMap.of(ResourceSet.CPU, 1.0), 0, priority);
   }
 
   private static class ResourceOwnerStub implements ActionExecutionMetadata {

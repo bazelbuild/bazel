@@ -57,6 +57,10 @@ public class TestTargetProperties {
     };
   }
 
+  private static int getSchedulingPriorityFromSize(TestSize size) {
+    return (size.ordinal() + 1) * 10;
+  }
+
   private final TestSize size;
   private final TestTimeout timeout;
   private final List<String> tags;
@@ -155,14 +159,16 @@ public class TestTargetProperties {
 
   public ResourceSet getLocalResourceUsage(Label label, boolean usingLocalTestJobs)
       throws UserExecException {
+    int schedulingPriority = getSchedulingPriorityFromSize(size);
     if (usingLocalTestJobs) {
-      return LOCAL_TEST_JOBS_BASED_RESOURCES;
+      return LOCAL_TEST_JOBS_BASED_RESOURCES.withSchedulingPriority(schedulingPriority);
     }
 
     ResourceSet defaultResources = getResourceSetFromSize(size);
     ImmutableMap<String, Double> configResources =
         testConfiguration == null ? ImmutableMap.of() : testConfiguration.getTestResources(size);
-    return defaultResources.withResourceOverrides(configResources);
+    return defaultResources.withResourceOverrides(configResources)
+        .withSchedulingPriority(schedulingPriority);
   }
 
   /**

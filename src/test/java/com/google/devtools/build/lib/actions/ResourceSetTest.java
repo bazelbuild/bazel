@@ -122,4 +122,38 @@ public class ResourceSetTest {
             ImmutableMap.of(), ImmutableMap.of("cpu", 4.0), ImmutableMap.of());
     assertThat(result.getCpuUsage()).isEqualTo(4.0);
   }
+
+  @Test
+  public void create_defaultSchedulingPriorityIsZero() {
+    assertThat(ResourceSet.createWithRamCpu(100, 1).getSchedulingPriority()).isEqualTo(0);
+  }
+
+  @Test
+  public void withSchedulingPriority_setsPriority() {
+    ResourceSet rs = ResourceSet.createWithRamCpu(100, 1).withSchedulingPriority(30);
+    assertThat(rs.getSchedulingPriority()).isEqualTo(30);
+  }
+
+  @Test
+  public void withSchedulingPriority_sameValue_returnsSameInstance() {
+    ResourceSet base = ResourceSet.createWithRamCpu(100, 1).withSchedulingPriority(20);
+    assertThat(base.withSchedulingPriority(20)).isSameInstanceAs(base);
+  }
+
+  @Test
+  public void withResourceOverrides_preservesSchedulingPriority() {
+    ResourceSet base = ResourceSet.createWithRamCpu(100, 1).withSchedulingPriority(30);
+    ResourceSet result = base.withResourceOverrides(ImmutableMap.of("cpu", 4.0));
+    assertThat(result.getSchedulingPriority()).isEqualTo(30);
+    assertThat(result.getCpuUsage()).isEqualTo(4.0);
+  }
+
+  @Test
+  public void createWithSchedulingPriority_setsPriority() {
+    ResourceSet rs =
+        ResourceSet.createWithSchedulingPriority(
+            ImmutableMap.of(ResourceSet.CPU, 1.0), 0, 40);
+    assertThat(rs.getSchedulingPriority()).isEqualTo(40);
+    assertThat(rs.getCpuUsage()).isEqualTo(1.0);
+  }
 }

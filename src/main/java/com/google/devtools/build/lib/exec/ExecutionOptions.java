@@ -421,6 +421,17 @@ public abstract class ExecutionOptions extends OptionsBase {
   }
 
   @Option(
+      name = "experimental_prioritize_test_by_size",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help =
+          "If set, larger / longer-running tests are scheduled before smaller ones. Skyframe"
+              + " enqueues by test timeout; local resource acquisition uses test size priority."
+              + " This can reduce wall-clock time by starting long-running tests earlier.")
+  public abstract boolean getPrioritizeTestBySize();
+
+  @Option(
       name = "cache_computed_file_digests",
       defaultValue = "50000",
       documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
