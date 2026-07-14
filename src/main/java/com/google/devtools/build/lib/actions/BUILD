@@ -526,6 +526,7 @@ java_library(
         ":exec_exception",
         ":localhost_compute_resources",
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/build/lib/worker:worker_key",
         "//src/main/java/com/google/devtools/common/options",
