@@ -77,6 +77,7 @@ public class FailureCircuitBreakerTest {
             windowInterval,
             remoteOptions.getRemoteMinCallCountToComputeFailureRate(),
             remoteOptions.getRemoteMinFailCountToComputeFailureRate(),
+            /* recoveryDelayMillis= */ 0,
             mockScheduler);
 
     List<Runnable> listOfSuccessAndFailureCalls = new ArrayList<>();
@@ -121,6 +122,7 @@ public class FailureCircuitBreakerTest {
             windowInterval,
             remoteOptions.getRemoteMinCallCountToComputeFailureRate(),
             remoteOptions.getRemoteMinFailCountToComputeFailureRate(),
+            /* recoveryDelayMillis= */ 0,
             mockScheduler);
 
     // make success calls, failure call and number of total calls less than
@@ -148,6 +150,7 @@ public class FailureCircuitBreakerTest {
             windowInterval,
             remoteOptions.getRemoteMinCallCountToComputeFailureRate(),
             remoteOptions.getRemoteMinFailCountToComputeFailureRate(),
+            /* recoveryDelayMillis= */ 0,
             mockScheduler);
 
     // make number of failure calls less than minFailToComputeFailure.
@@ -172,6 +175,7 @@ public class FailureCircuitBreakerTest {
             windowInterval,
             /* minCallCountToComputeFailureRate= */ 0,
             /* minFailCountToComputeFailureRate= */ 0,
+            /* recoveryDelayMillis= */ 0,
             mockScheduler);
 
     failureCircuitBreaker.recordSuccess();
@@ -184,5 +188,149 @@ public class FailureCircuitBreakerTest {
     assertThat(details).contains("75.00%");
     assertThat(details).contains("the last 100ms");
     assertThat(details).contains("10% failure rate threshold");
+  }
+
+  /**
+   * Returns a mock scheduler that records the tasks the breaker schedules, splitting them by delay:
+   * recovery-probe tasks (scheduled at {@code recoveryDelayMillis}) go into {@code trialTasks} and
+   * sliding-window decrement tasks (scheduled at the window size) go into {@code windowTasks}. A test
+   * can then run them manually to simulate the recovery delay or the window elapsing.
+   */
+  private static ScheduledExecutorService newRecoveryScheduler(
+      long recoveryDelayMillis, List<Runnable> trialTasks, List<Runnable> windowTasks) {
+    ScheduledExecutorService mockScheduler = mock(ScheduledExecutorService.class);
+    when(mockScheduler.schedule(any(Runnable.class), anyLong(), any(TimeUnit.class)))
+        .thenAnswer(
+            invocation -> {
+              Runnable task = invocation.getArgument(0);
+              long delayMillis = invocation.getArgument(1);
+              if (delayMillis == recoveryDelayMillis) {
+                trialTasks.add(task);
+              } else {
+                windowTasks.add(task);
+              }
+              return null;
+            });
+    return mockScheduler;
+  }
+
+  @Test
+  public void testRecovery_disabledByDefault_breakerStaysOpen() {
+    List<Runnable> trialTasks = Collections.synchronizedList(new ArrayList<>());
+    List<Runnable> windowTasks = Collections.synchronizedList(new ArrayList<>());
+    FailureCircuitBreaker failureCircuitBreaker =
+        new FailureCircuitBreaker(
+            /* failureRateThreshold= */ 0,
+            /* slidingWindowSize= */ 100,
+            /* minCallCountToComputeFailureRate= */ 1,
+            /* minFailCountToComputeFailureRate= */ 1,
+            /* recoveryDelayMillis= */ 0,
+            newRecoveryScheduler(/* recoveryDelayMillis= */ 0, trialTasks, windowTasks));
+
+    // A single failure trips the breaker (0% threshold, min counts of 1).
+    failureCircuitBreaker.recordFailure();
+    assertThat(failureCircuitBreaker.state()).isEqualTo(State.REJECT_CALLS);
+
+    // With recovery disabled, no trial probe is ever scheduled and the breaker stays open.
+    assertThat(trialTasks).isEmpty();
+    assertThat(failureCircuitBreaker.state()).isEqualTo(State.REJECT_CALLS);
+  }
+
+  @Test
+  public void testRecovery_trialProbeSuccessClosesBreaker() {
+    List<Runnable> trialTasks = Collections.synchronizedList(new ArrayList<>());
+    List<Runnable> windowTasks = Collections.synchronizedList(new ArrayList<>());
+    FailureCircuitBreaker failureCircuitBreaker =
+        new FailureCircuitBreaker(
+            /* failureRateThreshold= */ 0,
+            /* slidingWindowSize= */ 100,
+            /* minCallCountToComputeFailureRate= */ 1,
+            /* minFailCountToComputeFailureRate= */ 1,
+            /* recoveryDelayMillis= */ 1000,
+            newRecoveryScheduler(/* recoveryDelayMillis= */ 1000, trialTasks, windowTasks));
+
+    // Trip the breaker; a single recovery probe is scheduled for after the recovery delay.
+    failureCircuitBreaker.recordFailure();
+    assertThat(failureCircuitBreaker.state()).isEqualTo(State.REJECT_CALLS);
+    assertThat(trialTasks).hasSize(1);
+
+    // Before the delay elapses the breaker is still open.
+    assertThat(failureCircuitBreaker.state()).isEqualTo(State.REJECT_CALLS);
+
+    // Simulate the recovery delay elapsing.
+    trialTasks.get(0).run();
+
+    // Exactly one caller gets the trial probe; concurrent callers keep seeing REJECT_CALLS.
+    assertThat(failureCircuitBreaker.state()).isEqualTo(State.TRIAL_CALL);
+    assertThat(failureCircuitBreaker.state()).isEqualTo(State.REJECT_CALLS);
+
+    // The probe succeeds: the breaker closes and normal calls resume.
+    failureCircuitBreaker.recordSuccess();
+    assertThat(failureCircuitBreaker.state()).isEqualTo(State.ACCEPT_CALLS);
+  }
+
+  @Test
+  public void testRecovery_trialProbeFailureReopensAndReschedules() {
+    List<Runnable> trialTasks = Collections.synchronizedList(new ArrayList<>());
+    List<Runnable> windowTasks = Collections.synchronizedList(new ArrayList<>());
+    FailureCircuitBreaker failureCircuitBreaker =
+        new FailureCircuitBreaker(
+            /* failureRateThreshold= */ 0,
+            /* slidingWindowSize= */ 100,
+            /* minCallCountToComputeFailureRate= */ 1,
+            /* minFailCountToComputeFailureRate= */ 1,
+            /* recoveryDelayMillis= */ 1000,
+            newRecoveryScheduler(/* recoveryDelayMillis= */ 1000, trialTasks, windowTasks));
+
+    // Trip the breaker and let the first recovery delay elapse.
+    failureCircuitBreaker.recordFailure();
+    assertThat(trialTasks).hasSize(1);
+    trialTasks.get(0).run();
+    assertThat(failureCircuitBreaker.state()).isEqualTo(State.TRIAL_CALL);
+
+    // The probe fails: the breaker re-opens and schedules another probe.
+    failureCircuitBreaker.recordFailure();
+    assertThat(failureCircuitBreaker.state()).isEqualTo(State.REJECT_CALLS);
+    assertThat(trialTasks).hasSize(2);
+
+    // The next recovery delay elapses and another single probe is offered.
+    trialTasks.get(1).run();
+    assertThat(failureCircuitBreaker.state()).isEqualTo(State.TRIAL_CALL);
+  }
+
+  @Test
+  public void testRecovery_successfulProbeFloorsStaleWindowDecrements() {
+    List<Runnable> trialTasks = Collections.synchronizedList(new ArrayList<>());
+    List<Runnable> windowTasks = Collections.synchronizedList(new ArrayList<>());
+    FailureCircuitBreaker failureCircuitBreaker =
+        new FailureCircuitBreaker(
+            /* failureRateThreshold= */ 0,
+            /* slidingWindowSize= */ 100,
+            /* minCallCountToComputeFailureRate= */ 1,
+            /* minFailCountToComputeFailureRate= */ 1,
+            /* recoveryDelayMillis= */ 1000,
+            newRecoveryScheduler(/* recoveryDelayMillis= */ 1000, trialTasks, windowTasks));
+
+    // Accumulate several failures; the first trips the breaker and each schedules a window decrement.
+    for (int index = 0; index < 5; index++) {
+      failureCircuitBreaker.recordFailure();
+    }
+    assertThat(failureCircuitBreaker.state()).isEqualTo(State.REJECT_CALLS);
+    assertThat(windowTasks).hasSize(5);
+    assertThat(trialTasks).hasSize(1);
+
+    // A probe succeeds and closes the breaker, resetting the failure/success counters to zero.
+    trialTasks.get(0).run();
+    assertThat(failureCircuitBreaker.state()).isEqualTo(State.TRIAL_CALL);
+    failureCircuitBreaker.recordSuccess();
+    assertThat(failureCircuitBreaker.state()).isEqualTo(State.ACCEPT_CALLS);
+
+    // The window decrements scheduled before the reset now fire; flooring keeps the counts at zero
+    // instead of driving them negative...
+    windowTasks.forEach(Runnable::run);
+
+    // ...so a single fresh failure can still trip the breaker again.
+    failureCircuitBreaker.recordFailure();
+    assertThat(failureCircuitBreaker.state()).isEqualTo(State.REJECT_CALLS);
   }
 }

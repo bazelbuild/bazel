@@ -33,12 +33,16 @@ public class CircuitBreakerFactory {
   public static Retrier.CircuitBreaker createCircuitBreaker(final RemoteOptions remoteOptions) {
     if (remoteOptions.getCircuitBreakerStrategy() == RemoteOptions.CircuitBreakerStrategy.FAILURE) {
       int slidingWindowMillis = (int) remoteOptions.getRemoteFailureWindowInterval().toMillis();
+      int recoveryDelayMillis =
+          (int) remoteOptions.getRemoteCircuitBreakerRecoveryDelay().toMillis();
+      boolean needsScheduler = slidingWindowMillis > 0 || recoveryDelayMillis > 0;
       return new FailureCircuitBreaker(
           remoteOptions.getRemoteFailureRateThreshold(),
           slidingWindowMillis,
           remoteOptions.getRemoteMinCallCountToComputeFailureRate(),
           remoteOptions.getRemoteMinFailCountToComputeFailureRate(),
-          slidingWindowMillis > 0 ? Executors.newSingleThreadScheduledExecutor() : null);
+          recoveryDelayMillis,
+          needsScheduler ? Executors.newSingleThreadScheduledExecutor() : null);
     }
     return Retrier.ALLOW_ALL_CALLS;
   }
