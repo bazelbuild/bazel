@@ -416,7 +416,9 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
               consumerOrOwnerLocation.getCanonicalForm());
       if (state.prerequisite.getTargetKind().equals(InputFile.targetKind())) {
         errorMessage +=
-            ". To set the visibility of that source file target, use the exports_files() function";
+            ". To depend on that source file target, either add it to a filegroup() and depend"
+                + " on that filegroup, or else use the exports_files() function to change the"
+                + " source file's visibility";
       }
     } else {
       String dependencyDesc = state.prerequisite.getTargetLabel().getCanonicalForm();
@@ -635,11 +637,16 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
     bullets.add(
         String.format(
             """
-            If you think the dependency%s is legitimate, consider updating its visibility \
-            declaration%s. For more info see https://bazel.build/concepts/visibility.\
+            If you think the dependency%s is legitimate, consider %s. For more info see \
+            https://bazel.build/concepts/visibility.\
             """,
             isSourceFile ? " on this source file" : "",
-            isSourceFile ? " using exports_files()" : ""));
+            isSourceFile
+                ? """
+                either depending on the file via an appropriate filegroup() target, or updating \
+                the file's visibility using exports_files()\
+                """
+                : "updating its visibility declaration"));
   }
 
   private void validateTransitiveVisibility(
