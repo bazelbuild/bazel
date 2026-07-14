@@ -853,6 +853,26 @@ public final class BazelRulesModule extends BlazeModule {
         help = "No-op")
     public abstract boolean getIncompatibleEnableGoToolchainResolution();
 
+    @Deprecated
+    @Option(
+        name = "experimental_execution_graph_enable_edges_from_filewrite_actions",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.DEPRECATED},
+        help = "Deprecated. No-op.")
+    public abstract boolean getExperimentalExecutionGraphEnableEdgesFromFilewriteActions();
+
+    @Deprecated
+    @Option(
+        name = "experimental_execution_graph_include_change_pruned_actions",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.DEPRECATED},
+        help = "Deprecated. No-op.")
+    public abstract boolean getExperimentalExecutionGraphIncludeChangePrunedActions();
+
     /**
      * Option to ease migration away from leaking deps into the compile classpath of tests.
      *
