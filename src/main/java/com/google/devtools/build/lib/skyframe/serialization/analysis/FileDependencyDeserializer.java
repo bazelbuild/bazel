@@ -156,6 +156,12 @@ final class FileDependencyDeserializer {
     this.fingerprinter = fingerprinter;
   }
 
+  public void unsafeClearForTesting() {
+    fileCache.unsafeClearForTesting();
+    listingCache.unsafeClearForTesting();
+    nestedCache.unsafeClearForTesting();
+  }
+
   sealed interface FileDependenciesOrFuture permits FileDependencies, FutureFileDependencies {}
 
   /**
