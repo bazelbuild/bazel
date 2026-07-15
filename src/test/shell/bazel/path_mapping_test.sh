@@ -116,9 +116,9 @@ function test_path_stripping_sandboxed() {
     --strategy=Javac=local,sandboxed \
     //src/main/java/com/example:Main &> $TEST_log || fail "run failed unexpectedly"
   expect_log 'Hello, World!'
-  # JavaToolchainCompileBootClasspath, JavaToolchainCompileClasses, JavaToolchainIjarBootclasspath,
+  # JavaToolchainCompileBootClasspath, JavaToolchainIjarBootclasspath,
   # 1x header compilation and 2x actual compilation.
-  expect_log '6 \(linux\|darwin\|processwrapper\)-sandbox'
+  expect_log '5 \(linux\|darwin\|processwrapper\)-sandbox'
   expect_not_log 'disk cache hit'
 
   bazel run -c opt \
@@ -127,7 +127,7 @@ function test_path_stripping_sandboxed() {
     --strategy=Javac=sandboxed \
     //src/main/java/com/example:Main &> $TEST_log || fail "run failed unexpectedly"
   expect_log 'Hello, World!'
-  expect_log '6 disk cache hit'
+  expect_log '5 disk cache hit'
   expect_not_log '[0-9] \(linux\|darwin\|processwrapper\)-sandbox'
 }
 
@@ -142,9 +142,9 @@ function test_path_stripping_singleplex_worker() {
     --strategy=Javac=worker \
     //src/main/java/com/example:Main &> $TEST_log || fail "run failed unexpectedly"
   expect_log 'Hello, World!'
-  # JavaToolchainCompileBootClasspath, JavaToolchainCompileClasses, JavaToolchainIjarBootclasspath
+  # JavaToolchainCompileBootClasspath, JavaToolchainIjarBootclasspath
   # and header compilation.
-  expect_log '4 \(linux\|darwin\|processwrapper\)-sandbox'
+  expect_log '3 \(linux\|darwin\|processwrapper\)-sandbox'
   # Actual compilation actions.
   expect_log '2 worker'
   expect_not_log 'disk cache hit'
@@ -155,7 +155,7 @@ function test_path_stripping_singleplex_worker() {
     --strategy=Javac=worker \
     //src/main/java/com/example:Main &> $TEST_log || fail "run failed unexpectedly"
   expect_log 'Hello, World!'
-  expect_log '6 disk cache hit'
+  expect_log '5 disk cache hit'
   expect_not_log '[0-9] \(linux\|darwin\|processwrapper\)-sandbox'
   expect_not_log '[0-9] worker'
 }
@@ -183,8 +183,8 @@ EOF
     --java_language_version=17 \
     //src/main/java/com/example:Main &> $TEST_log || fail "run failed unexpectedly"
   expect_log 'Hello, World!'
-  # JavaToolchainCompileBootClasspath, JavaToolchainCompileClasses, JavaToolchainIjarBootclasspath and header compilation.
-  expect_log '4 \(linux\|darwin\|processwrapper\)-sandbox'
+  # JavaToolchainCompileBootClasspath, JavaToolchainIjarBootclasspath and header compilation.
+  expect_log '3 \(linux\|darwin\|processwrapper\)-sandbox'
   # Actual compilation actions.
   expect_log '2 worker'
   expect_not_log 'disk cache hit'
@@ -198,7 +198,7 @@ EOF
     --java_language_version=17 \
     //src/main/java/com/example:Main &> $TEST_log || fail "run failed unexpectedly"
   expect_log 'Hello, World!'
-  expect_log '6 disk cache hit'
+  expect_log '5 disk cache hit'
   expect_not_log '[0-9] \(linux\|darwin\|processwrapper\)-sandbox'
   expect_not_log '[0-9] worker'
 }
@@ -244,8 +244,8 @@ EOF
     --java_language_version=17 \
     //src/main/java/com/example:Main &> $TEST_log || fail "run failed unexpectedly"
   expect_log 'Hello, World!'
-  # Genrule, JavaToolchainCompileBootClasspath, JavaToolchainCompileClasses, JavaToolchainIjarBootclasspath and header compilation
-  expect_log '5 \(linux\|darwin\|processwrapper\)-sandbox'
+  # Genrule, JavaToolchainCompileBootClasspath, JavaToolchainIjarBootclasspath and header compilation
+  expect_log '4 \(linux\|darwin\|processwrapper\)-sandbox'
   # Actual compilation actions.
   expect_log '2 worker'
   expect_not_log 'disk cache hit'
@@ -259,7 +259,7 @@ EOF
     --java_language_version=17 \
     //src/main/java/com/example:Main &> $TEST_log || fail "run failed unexpectedly"
   expect_log 'Hello, World!'
-  expect_log '6 disk cache hit'
+  expect_log '5 disk cache hit'
   expect_not_log '[0-9] \(linux\|darwin\|processwrapper\)-sandbox'
   expect_not_log '[0-9] worker'
 }
@@ -270,9 +270,9 @@ function test_path_stripping_remote() {
     --remote_executor=grpc://localhost:${worker_port} \
     //src/main/java/com/example:Main &> $TEST_log || fail "run failed unexpectedly"
   expect_log 'Hello, World!'
-  # JavaToolchainCompileBootClasspath, JavaToolchainCompileClasses, JavaToolchainIjarBootclasspath,
+  # JavaToolchainCompileBootClasspath, JavaToolchainIjarBootclasspath,
   # 1x header compilation and 2x actual compilation.
-  expect_log '6 remote'
+  expect_log '5 remote'
   expect_not_log 'remote cache hit'
 
   bazel run -c opt \
@@ -280,7 +280,7 @@ function test_path_stripping_remote() {
     --remote_executor=grpc://localhost:${worker_port} \
     //src/main/java/com/example:Main &> $TEST_log || fail "run failed unexpectedly"
   expect_log 'Hello, World!'
-  expect_log '6 remote cache hit'
+  expect_log '5 remote cache hit'
   # Do not match "5 remote cache hit", which is expected.
   expect_not_log '[0-9] remote[^ ]'
 }
@@ -386,9 +386,9 @@ EOF
     //src/main/java/com/example:Main &> $TEST_log || fail "run failed unexpectedly"
   expect_log 'Hello, BazelCon New York!'
   expect_log 'Hello, BazelCon Munich!'
-  # JavaToolchainCompileBootClasspath, JavaToolchainCompileClasses, JavaToolchainIjarBootclasspath
+  # JavaToolchainCompileBootClasspath, JavaToolchainIjarBootclasspath
   # 1x header compilation and 2x actual compilation.
-  expect_log '6 remote'
+  expect_log '5 remote'
   expect_not_log 'remote cache hit'
 
   bazel run -c opt \
@@ -397,9 +397,9 @@ EOF
     //src/main/java/com/example:Main &> $TEST_log || fail "run failed unexpectedly"
   expect_log 'Hello, BazelCon New York!'
   expect_log 'Hello, BazelCon Munich!'
-  # JavaToolchainCompileBootClasspath, JavaToolchainCompileClasses, JavaToolchainIjarBootclasspath
+  # JavaToolchainCompileBootClasspath, JavaToolchainIjarBootclasspath
   # and compilation of the binary.
-  expect_log '4 remote cache hit'
+  expect_log '3 remote cache hit'
   # Do not match "[0-9] remote cache hit", which is expected separately.
   # Header and actual compilation of the library, which doesn't use path stripping as it would
   # result in ambiguous paths due to the multiple configs.
