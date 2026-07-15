@@ -367,7 +367,9 @@ public final class CppCompileActionBuilder implements StarlarkValue {
     NestedSetBuilder<Artifact> realMandatoryInputsBuilder = NestedSetBuilder.compileOrder();
     realMandatoryInputsBuilder.addTransitive(mandatoryInputsBuilder.build());
     realMandatoryInputsBuilder.addAll(getBuiltinIncludeFiles());
-    if (useHeaderModules() && !getShouldScanIncludes()) {
+    // PCM codegen loads imported modules from paths embedded in the primary PCM.
+    if ((useHeaderModules() || CppActionNames.CPP_MODULE_CODEGEN.equals(getActionName()))
+        && !getShouldScanIncludes()) {
       realMandatoryInputsBuilder.addTransitive(ccCompilationContext.getTransitiveModules(usePic));
     }
     ccCompilationContext.addAdditionalInputs(realMandatoryInputsBuilder);

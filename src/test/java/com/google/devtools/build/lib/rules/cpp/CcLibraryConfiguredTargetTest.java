@@ -688,6 +688,54 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     assertNoEvents();
   }
 
+  @Test
+  public void testHeaderModuleCodegenIncludesTransitiveModules() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder().withFeatures("header_modules_feature_configuration"));
+    useConfiguration(
+        "--platforms=" + TestConstants.PLATFORM_LABEL, "--features=header_module_codegen");
+    scratch.file(
+        "module/BUILD",
+        """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+        package(features = ['header_modules', 'header_module_codegen'])
+        cc_library(
+            name = 'a',
+            srcs = ['a.h'],
+            deps = ['b'],
+        )
+        cc_library(
+            name = 'b',
+            srcs = ['b.h'],
+        )
+        """);
+
+    ConfiguredTarget moduleB = getConfiguredTarget("//module:b");
+    ConfiguredTarget moduleA = getConfiguredTarget("//module:a");
+    List<CppCompileAction> compilationSteps =
+        actionsTestUtil()
+            .findTransitivePrerequisitesOf(
+                ActionsTestUtil.getFirstArtifactEndingWith(getFilesToBuild(moduleA), ".a"),
+                CppCompileAction.class);
+    CppCompileAction aModuleCodegenAction =
+        Iterables.getOnlyElement(
+            Iterables.filter(
+                compilationSteps,
+                action ->
+                    action.getOwner().getLabel().equals(moduleA.getLabel())
+                        && CppFileTypes.CPP_MODULE.matches(
+                            action.getSourceFile().getExecPath())));
+
+    assertThat(getHeaderModules(aModuleCodegenAction.getInputs()))
+        .containsAnyOf(
+            getBinArtifact("_objs/b/b.pcm", moduleB),
+            getBinArtifact("_objs/b/b.pic.pcm", moduleB));
+    assertNoEvents();
+  }
+
   private void setupPackagesForSourcesWithSameBaseNameTests() throws Exception {
     scratch.file(
         "foo/BUILD",
