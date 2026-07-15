@@ -1699,8 +1699,10 @@ int Main(int argc, const char *const *argv, WorkspaceLayout *workspace_layout,
   }
 
   if (!workspace_layout->InWorkspace(workspace)) {
-    if (!CanRunOutsideWorkspace(option_processor->GetCommand())) {
+    const string command = option_processor->GetCommand();
+    if (!CanRunOutsideWorkspace(command)) {
       BAZEL_LOG(ERROR) << startup_options->product_name
+                       << (command.empty() ? "" : " '" + command + "'")
                        << " must be invoked from within a workspace (below a"
                        << " directory having a MODULE.bazel file).\n"
                        << "See documentation at"

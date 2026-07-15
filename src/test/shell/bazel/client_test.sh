@@ -33,7 +33,7 @@ function test_fails_before_starting_java_outside_workspace() {
 
   assert_equals 2 "$?"
   [[ ! -e "${install_base}" ]] || fail "Bazel initialized its install base"
-  expect_log "^ERROR: Bazel must be invoked from within a workspace (below a directory having a MODULE\\.bazel file)\\.$"
+  expect_log "^ERROR: Bazel 'build' must be invoked from within a workspace (below a directory having a MODULE\\.bazel file)\\.$"
   expect_log "^See documentation at https://bazel\\.build/concepts/build-ref#workspace$"
   expect_not_log "batch mode"
   expect_not_log "OpenJDK"
