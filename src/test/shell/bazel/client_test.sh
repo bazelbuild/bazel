@@ -23,6 +23,32 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
 
 LOCK_HELPER="$(rlocation io_bazel/src/test/java/com/google/devtools/build/lib/testutil/external_file_system_lock_helper)"
 
+function test_fails_before_starting_java_outside_workspace() {
+  mkdir -p "${TEST_TMPDIR}/outside_workspace"
+  local -r install_base="${TEST_TMPDIR}/outside_install_base"
+
+  (cd "${TEST_TMPDIR}/outside_workspace" && \
+    bazel --install_base="${install_base}" build) &> "$TEST_log" \
+      && fail "Expected failure outside a workspace"
+
+  assert_equals 2 "$?"
+  [[ ! -e "${install_base}" ]] || fail "Bazel initialized its install base"
+  expect_log "^ERROR: Bazel must be invoked from within a workspace (below a directory having a MODULE\\.bazel file)\\.$"
+  expect_log "^See documentation at https://bazel\\.build/concepts/build-ref#workspace$"
+  expect_not_log "batch mode"
+  expect_not_log "OpenJDK"
+}
+
+function test_workspace_independent_command_outside_workspace() {
+  mkdir -p "${TEST_TMPDIR}/outside_workspace"
+
+  (cd "${TEST_TMPDIR}/outside_workspace" && bazel version) &> "$TEST_log" \
+    || fail "Expected version to work outside a workspace"
+
+  expect_log "Build target:"
+  expect_not_log "batch mode"
+}
+
 function test_product_name_with_bazel_info() {
   touch MODULE.bazel
 
