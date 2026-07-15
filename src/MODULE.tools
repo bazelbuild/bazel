@@ -13,6 +13,10 @@ bazel_dep(name = "re2", version = "2025-11-05.bcr.1")
 
 # Enforce a minimal required version
 bazel_dep(name = "bazel_features", version = "1.43.0", repo_name = None)
+# gawk 5.3.2 is pulled in transitively.
+# We use a .bcr version here to use a bazel.build mirror, which is more
+# reliable than the default gnu ftp server.
+bazel_dep(name = "gawk", version = "5.3.2.bcr.7", repo_name = None)
 
 xcode_configure = use_extension("//tools/osx:xcode_configure.bzl", "xcode_configure_extension")
 use_repo(xcode_configure, "local_config_xcode")
