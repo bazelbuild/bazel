@@ -139,7 +139,6 @@ EOF
       --extra_toolchains=@rules_python//python/runtime_env_toolchains:all \
       --extra_toolchains=fake_java_toolchain:all \
       --noincompatible_no_implicit_file_export \
-      --@com_google_protobuf//bazel/flags:prefer_prebuilt_protoc=false \
       src:bazel_nojdk &> "${TEST_log}" || fail "analysis with bootstrapped Bazel failed"
 }
 

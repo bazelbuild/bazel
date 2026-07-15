@@ -28,6 +28,7 @@ DIST_ARCHIVE_REPOS = [
     "abseil-cpp+",
     "apple_support+",
     "bazel_features+",
+    "bazel_lib+",
     "bazel_skylib+",
     "blake3+",
     "c-ares+",

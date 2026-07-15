@@ -57,9 +57,6 @@ common:windows --host_per_file_copt=external/.*@/wd4047,/wd4624,/wd4267,/wd4244,
 # Enable Protobuf MSVC support on Windows
 common:windows --define=protobuf_allow_msvc=true
 
-# Build protoc from source instead of using the prebuilt binary
-common --@com_google_protobuf//bazel/flags:prefer_prebuilt_protoc=false
-
 # Enable Java 21 language features and compile for a Java 25 runtime, matching
 # version of the embedded JDK.
 # Keep in sync with //:java_toolchain_%d.
