@@ -1496,9 +1496,16 @@ sh_test(
         "//src/test/shell:bin/bazel_nojdk",
         "//src/test/shell/bazel:test-deps-wo-bazel",
         "@bazel_tools//tools/bash/runfiles",
+        "@rules_java//toolchains:current_java_runtime",
     ],
+    env = {
+        "JAVA_ROOTPATH": "$(JAVA_ROOTPATH)",
+    },
     # Windows doesn't support sandboxing, which BAZEL_SUFFIX needs.
     tags = ["no_windows"],
+    toolchains = [
+        "@rules_java//toolchains:current_java_runtime",
+    ],
 )
 
 sh_test(

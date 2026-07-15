@@ -46,9 +46,20 @@ export BAZEL_SUFFIX="_nojdk"
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
+setup_javabase
+export JAVA_HOME="${bazel_javabase}"
+export PATH="${JAVA_HOME}/bin:${PATH}"
+
 # Test that nojdk bazel works with --autodetect_server_javabase
 function test_autodetect_server_javabase() {
-  bazel --autodetect_server_javabase version &> $TEST_log || fail "Should pass"
+  bazel --autodetect_server_javabase version &> $TEST_log
+
+  local -r java_home="$(bazel --autodetect_server_javabase info java-home 2>> $TEST_log)"
+  case "${java_home}" in
+    /usr/*|/opt/*)
+      fail "Expected server javabase to be hermetic JDK, but was: ${java_home}"
+      ;;
+  esac
 }
 
 # Test that nojdk bazel fails with --noautodetect_server_javabase
