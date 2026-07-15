@@ -171,6 +171,14 @@ java_library(
 )
 
 java_library(
+    name = "remote_external_overlay_file_system",
+    srcs = ["RemoteExternalOverlayFileSystem.java"],
+    deps = [
+        ":subtree_materializer",
+    ],
+)
+
+java_library(
     name = "ExecutionStatusException",
     srcs = ["ExecutionStatusException.java"],
     deps = [
@@ -249,6 +257,7 @@ java_library(
     srcs = ["AbstractActionInputPrefetcher.java"],
     deps = [
         ":remote_output_checker",
+        ":subtree_materializer",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_output_directory_helper",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
@@ -266,6 +275,14 @@ java_library(
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party:rxjava3",
+    ],
+)
+
+java_library(
+    name = "subtree_materializer",
+    srcs = ["SubtreeMaterializer.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
     ],
 )
 

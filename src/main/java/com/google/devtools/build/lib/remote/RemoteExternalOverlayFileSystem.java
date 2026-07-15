@@ -27,7 +27,7 @@ import build.bazel.remote.execution.v2.Tree;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Lists;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.vfs.DetailedIOException;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
+import com.google.devtools.build.lib.vfs.FileSymlinkLoopException;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -56,6 +57,7 @@ import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import java.io.ByteArrayInputStream;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InterruptedIOException;
@@ -65,7 +67,8 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.List;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
@@ -82,8 +85,8 @@ import javax.annotation.Nullable;
  * <p>Each external repository can either be materialized to the native file system or kept in
  * memory in the {@link RemoteExternalFileSystem}.
  */
-public final class RemoteExternalOverlayFileSystem extends FileSystem {
-
+public final class RemoteExternalOverlayFileSystem extends FileSystem
+    implements SubtreeMaterializer {
   private final PathFragment externalDirectory;
   private final int externalDirectorySegmentCount;
   private final FileSystem nativeFs;
@@ -319,16 +322,7 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
   private void doMaterialize(RepositoryName repo, ExtendedEventHandler reporter)
       throws IOException, InterruptedException {
     reporter.handle(Event.debug("Materializing remote repo %s".formatted(repo)));
-    var repoPath = externalDirectory.getChild(repo.getName());
-    var remoteRepo = externalFs.getPath(repoPath);
-    var walkResult = walk(remoteRepo);
-    for (var directory : walkResult.directories()) {
-      nativeFs.getPath(directory).createDirectory();
-    }
-    prefetch(walkResult.files());
-    // Create symlinks last as some platforms don't allow creating a symlink to a non-existent
-    // target.
-    prefetch(walkResult.symlinks());
+    materializeSubtree(externalDirectory.getChild(repo.getName()));
 
     // After the repo has been copied, atomically materialize the marker file. This ensures that the
     // repo doesn't have to be refetched after the next server restart.
@@ -340,12 +334,12 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
     markerFileSibling.renameTo(markerFile);
   }
 
-  private void prefetch(List<PathFragment> paths) throws IOException, InterruptedException {
+  private void prefetch(Iterable<PathFragment> paths) throws IOException, InterruptedException {
     var unused =
         getFromFuture(
             inputPrefetcher.prefetchFiles(
                 /* action= */ null,
-                Lists.transform(paths, ActionInputHelper::fromPath),
+                Iterables.transform(paths, ActionInputHelper::fromPath),
                 actionInput -> externalFs.getMetadata(actionInput.getExecPath()),
                 ActionInputPrefetcher.Priority.CRITICAL,
                 ActionInputPrefetcher.Reason.INPUTS));
@@ -363,25 +357,70 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
     invalidateRepoDirectories(evaluator, reposToDiscard);
   }
 
-  private record WalkResult(
-      List<PathFragment> files, List<PathFragment> symlinks, List<PathFragment> directories) {}
-
-  private static WalkResult walk(Path root) throws IOException {
-    var result = new WalkResult(new ArrayList<>(), new ArrayList<>(), new ArrayList<>());
-    walk(root, result);
-    return result;
+  /**
+   * Materializes the subtree rooted at the given path to the native file system if it lies in a
+   * repo whose contents are currently only available in memory.
+   *
+   * <p>This is used to make the files below a source directory action input available to local
+   * actions, which access them through the native file system.
+   */
+  @Override
+  public void ensureSubtreeMaterialized(PathFragment path)
+      throws IOException, InterruptedException {
+    if (fsForPath(path) != externalFs) {
+      return;
+    }
+    materializeSubtree(path);
   }
 
-  private static void walk(Path root, WalkResult result) throws IOException {
-    for (var dirent : root.readdir(Symlinks.NOFOLLOW)) {
-      var fromChild = root.getChild(dirent.getName());
+  private void materializeSubtree(PathFragment path) throws IOException, InterruptedException {
+    var files = new LinkedHashSet<PathFragment>();
+    var symlinks = new LinkedHashSet<PathFragment>();
+    var root = externalFs.getPath(path);
+    if (root.isSymbolicLink()) {
+      symlinks.add(path);
+      root = root.resolveSymbolicLinks();
+    }
+    collectAndCreateDirectories(root, files, symlinks, new HashSet<>());
+    prefetch(files);
+    // Create symlinks last as some platforms don't allow creating a symlink to a non-existent
+    // target.
+    prefetch(symlinks);
+  }
+
+  private void collectAndCreateDirectories(
+      Path dir, Set<PathFragment> files, Set<PathFragment> symlinks, Set<PathFragment> visitedDirs)
+      throws IOException {
+    if (!visitedDirs.add(dir.asFragment())) {
+      return;
+    }
+    nativeFs.createDirectoryAndParents(dir.asFragment());
+    for (var dirent : dir.readdir(Symlinks.NOFOLLOW)) {
+      var child = dir.getChild(dirent.getName());
       switch (dirent.getType()) {
-        case FILE -> result.files.add(fromChild.asFragment());
-        case SYMLINK -> result.symlinks.add(fromChild.asFragment());
-        case DIRECTORY -> {
-          result.directories.add(fromChild.asFragment());
-          walk(fromChild, result);
+        case FILE -> files.add(child.asFragment());
+        case SYMLINK -> {
+          symlinks.add(child.asFragment());
+          // The symlink chain is reproduced verbatim on the native file system, but its target may
+          // lie outside the materialized subtree and has to be materialized as well so that the
+          // chain doesn't dangle.
+          Path target;
+          try {
+            target = child.resolveSymbolicLinks();
+          } catch (FileNotFoundException | FileSymlinkLoopException e) {
+            // Dangling symlinks and symlink loops are reproduced verbatim.
+            continue;
+          }
+          // TODO(#30160): RepositoryUtils.replantSymlinks currently ensures that all symlinks
+          // within a remotely cacheable external repo stay within that repo. If that changes, new
+          // logic has to be added here to prefetch such files correctly.
+          if (target.isDirectory(Symlinks.NOFOLLOW)) {
+            collectAndCreateDirectories(target, files, symlinks, visitedDirs);
+          } else {
+            files.add(target.asFragment());
+          }
         }
+        case DIRECTORY -> collectAndCreateDirectories(child, files, symlinks, visitedDirs);
         default -> throw new IOException("Unsupported file type: " + dirent);
       }
     }
