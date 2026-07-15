@@ -167,6 +167,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private final FileSystem fileSystem;
+  private final UUID instanceId;
   private final ImmutableList<BlazeModule> blazeModules;
   private final ImmutableList<BlazeService> blazeServices;
   private final Map<String, BlazeCommand> commandMap = new LinkedHashMap<>();
@@ -215,6 +216,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
 
   private BlazeRuntime(
       FileSystem fileSystem,
+      UUID instanceId,
       QueryEnvironmentFactory queryEnvironmentFactory,
       ImmutableList<QueryFunction> queryFunctions,
       ImmutableList<OutputFormatter> queryOutputFormatters,
@@ -240,6 +242,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       FileSystemLock installBaseLock) {
     // Server state
     this.fileSystem = fileSystem;
+    this.instanceId = instanceId;
     this.blazeModules = blazeModules;
     this.blazeServices = blazeServices;
     overrideCommands(commands);
@@ -546,6 +549,14 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
 
   public FileSystem getFileSystem() {
     return fileSystem;
+  }
+
+  /**
+   * Returns the ID of this Bazel server instance. It is stable for the lifetime of the server and
+   * changes when the server restarts.
+   */
+  public UUID getInstanceId() {
+    return instanceId;
   }
 
   public BlazeWorkspace getWorkspace() {
@@ -1808,6 +1819,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       BlazeRuntime runtime =
           new BlazeRuntime(
               fileSystem,
+              instanceId,
               serverBuilder.getQueryEnvironmentFactory(),
               serverBuilder.getQueryFunctions(),
               serverBuilder.getQueryOutputFormatters(),
