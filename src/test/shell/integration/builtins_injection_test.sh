@@ -47,6 +47,12 @@ source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
 rm -f tools/build_rules/{blaze_prelude,prelude_bazel}
 
 function test_injection() {
+  # Remove references to Google's --python_launcher and --host_python_launcher
+  # flags, which require extra Python and C++ setup to work.
+  if [ -f .blazerc ]; then
+    sed -i '/python_launcher/d' .blazerc
+  fi
+
   # //pkg prints _builtins_dummy when loaded.
   mkdir pkg
   cat > pkg/BUILD <<'EOF'
