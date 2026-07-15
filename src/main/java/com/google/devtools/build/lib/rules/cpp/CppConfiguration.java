@@ -586,11 +586,6 @@ public final class CppConfiguration extends Fragment
                 "Cannot instrument and optimize for FDO at the same time. Remove one of the "
                     + "'--fdo_instrument' and '--fdo_optimize/--fdo_profile' options"));
       }
-      if (!cppOptions.getCoptList().contains("-Wno-error")) {
-        // This is effectively impossible. --fdo_instrument adds this value, and only invocation
-        // policy could remove it.
-        reporter.handle(Event.error("Cannot instrument FDO without --copt including -Wno-error."));
-      }
     }
 
     // This is an assertion check vs. user error because users can't trigger this state.

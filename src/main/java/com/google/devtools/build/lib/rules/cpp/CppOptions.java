@@ -386,7 +386,6 @@ public abstract class CppOptions extends FragmentOptions {
   @Option(
       name = "fdo_instrument",
       defaultValue = "null",
-      implicitRequirements = {"--copt=-Wno-error"},
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =
@@ -421,7 +420,6 @@ public abstract class CppOptions extends FragmentOptions {
   @Option(
       name = "cs_fdo_instrument",
       defaultValue = "null",
-      implicitRequirements = {"--copt=-Wno-error"},
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =
