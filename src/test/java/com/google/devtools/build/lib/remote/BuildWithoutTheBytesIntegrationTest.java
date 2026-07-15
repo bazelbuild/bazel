@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.readContent;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
+import static org.junit.Assume.assumeFalse;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
@@ -53,6 +54,18 @@ import org.junit.runner.RunWith;
 @RunWith(TestParameterInjector.class)
 public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesIntegrationTestBase {
   @ClassRule @Rule public static final WorkerInstance worker = IntegrationTestUtils.createWorker();
+
+  // A second worker that injects a transient UNAVAILABLE on the first armed ByteStream.Read, used
+  // only by the circuit-breaker recovery tests below. All other tests keep using `worker`.
+  @ClassRule @Rule
+  public static final WorkerInstance failingWorker =
+      IntegrationTestUtils.createFailFirstReadWorker(/* n= */ 1);
+
+  // The failing worker logs this to stderr each time it injects a read failure (see
+  // FailFirstNInterceptor in RemoteWorker). The recovery tests match on it to prove a transient
+  // failure was actually delivered; keep it in sync with the worker's message.
+  private static final String INJECTED_READ_FAILURE_LOG =
+      "INJECTED_UNAVAILABLE google.bytestream.ByteStream/Read";
 
   @TestParameter public boolean useDiskCache;
 
@@ -524,6 +537,121 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
 
     // Assert: target was successfully built
     assertValidOutputFile("a/bar.out", "foo\nupdated bar\n");
+  }
+
+  private void writeFooBarForCircuitBreaker() throws Exception {
+    write(
+        "a/BUILD",
+        """
+        genrule(
+            name = "foo",
+            srcs = ["foo.in"],
+            outs = ["foo.out"],
+            cmd = "cat $(SRCS) > $@",
+        )
+
+        genrule(
+            name = "bar",
+            srcs = [
+                "foo.out",
+                "bar.in",
+            ],
+            outs = ["bar.out"],
+            cmd = "cat $(SRCS) > $@",
+            tags = ["no-remote-exec"],
+        )
+        """);
+    write("a/foo.in", "foo");
+    write("a/bar.in", "bar");
+  }
+
+  /**
+   * Populates the remote cache on the fault-injecting worker and leaves foo.out remote-only, so a
+   * later build of //a:bar must prefetch it. Routes --remote_executor at the failing worker both
+   * before and after restartServer(), which re-runs setupOptions and would otherwise reset it to
+   * the pristine worker.
+   */
+  private void setupRemoteOnlyFooOutOnFailingWorker() throws Exception {
+    String failingExecutor = "--remote_executor=grpc://localhost:" + failingWorker.getPort();
+    addOptions(failingExecutor);
+    writeFooBarForCircuitBreaker();
+
+    buildTarget("//a:bar");
+    getOutputPath("a/foo.out").delete();
+    getOutputPath("a/bar.out").delete();
+    getOutputBase().getRelative("action_cache").deleteTreesBelow();
+    restartServer();
+    addOptions(failingExecutor);
+
+    buildTarget("//a:bar");
+    assertOutputDoesNotExist("a/foo.out");
+  }
+
+  /**
+   * Asserts the failing worker delivered at least one injected read failure since {@code
+   * previousStderrLength} (captured just before the build) — i.e. the breaker actually saw a
+   * transient remote failure, so a green build is meaningful rather than vacuous.
+   */
+  private static void assertReadFailureInjectedSince(int previousStderrLength) {
+    assertThat(failingWorker.getStderr().substring(previousStderrLength))
+        .contains(INJECTED_READ_FAILURE_LOG);
+  }
+
+  @Test
+  public void remoteCircuitBreakerRecovers_whenPrefetchingInput_succeedsWithActionRewinding()
+      throws Exception {
+    // A disk cache would serve foo.out locally and bypass the failing remote read.
+    assumeFalse(useDiskCache);
+    setupRemoteOnlyFooOutOnFailingWorker();
+
+    // Act: enable the failure breaker with a short recovery delay, arm a single transient read
+    // failure, and force bar to re-prefetch the remote-only foo.out. The prefetch read trips the
+    // breaker; with --remote_retries=0 that becomes a lost input and drives action rewinding, and
+    // the breaker re-closes on a trial probe during the rewind so the build recovers.
+    addOptions(
+        "--experimental_circuit_breaker_strategy=failure",
+        "--experimental_remote_min_fail_count_to_compute_failure_rate=1",
+        "--experimental_remote_min_call_count_to_compute_failure_rate=1",
+        "--experimental_remote_failure_rate_threshold=1",
+        "--experimental_remote_circuit_breaker_recovery_delay=1ms",
+        "--remote_retries=0");
+    enableActionRewinding();
+    write("a/bar.in", "updated bar");
+    int stderrLenBefore = failingWorker.getStderr().length();
+    failingWorker.armReadFailures();
+
+    buildTarget("//a:bar");
+
+    // Assert: a transient failure was actually delivered (the breaker tripped) and, thanks to
+    // recovery, the build still succeeded with the correct output.
+    assertReadFailureInjectedSince(stderrLenBefore);
+    assertValidOutputFile("a/bar.out", "foo\nupdated bar\n");
+  }
+
+  @Test
+  public void remoteCircuitBreakerTrips_whenPrefetchingInput_recoveryDisabled_fails()
+      throws Exception {
+    assumeFalse(useDiskCache);
+    setupRemoteOnlyFooOutOnFailingWorker();
+
+    // Act: same as the recovery test, but recovery is disabled (delay defaults to 0), so the
+    // tripped breaker stays open for the rest of the build and the rewound re-execution is rejected.
+    addOptions(
+        "--experimental_circuit_breaker_strategy=failure",
+        "--experimental_remote_min_fail_count_to_compute_failure_rate=1",
+        "--experimental_remote_min_call_count_to_compute_failure_rate=1",
+        "--experimental_remote_failure_rate_threshold=1",
+        "--remote_retries=0");
+    enableActionRewinding();
+    write("a/bar.in", "updated bar");
+    int stderrLenBefore = failingWorker.getStderr().length();
+    failingWorker.armReadFailures();
+
+    var error = assertThrows(BuildFailedException.class, () -> buildTarget("//a:bar"));
+
+    // Assert: the breaker tripped and, without recovery, the build failed with a remote error.
+    assertReadFailureInjectedSince(stderrLenBefore);
+    assertThat(error.getDetailedExitCode().getExitCode().getNumericExitCode()).isEqualTo(34);
   }
 
   @Test
