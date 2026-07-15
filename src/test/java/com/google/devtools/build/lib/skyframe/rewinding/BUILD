@@ -64,7 +64,7 @@ java_test(
     name = "RewindingTest",
     timeout = "long",
     srcs = ["RewindingTest.java"],
-    shard_count = 12,
+    shard_count = 24,
     runtime_deps = [
         "//third_party/grpc-java:grpc-jar",
     ],

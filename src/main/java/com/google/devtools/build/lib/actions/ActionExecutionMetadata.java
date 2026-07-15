@@ -117,6 +117,14 @@ public interface ActionExecutionMetadata extends ActionAnalysisMetadata {
   }
 
   /**
+   * Returns true if this action represents an aggregator that groups multiple inputs together into
+   * a single collection (like runfiles or filesets) rather than a single file-to-file propagation.
+   */
+  default boolean isAggregator() {
+    return false;
+  }
+
+  /**
    * Returns true if the action may modify spawn outputs after the spawn has executed.
    *
    * <p>If this returns true, any kind of spawn output caching or reuse needs to happen

@@ -62,6 +62,7 @@ public final class RewindingTest extends BuildIntegrationTestCase {
   @TestParameter private boolean trackIncrementalState;
   @TestParameter private boolean keepGoing;
   @TestParameter private boolean skymeld;
+  @TestParameter private boolean precise;
 
   @ClassRule @Rule public static final WorkerInstance worker = IntegrationTestUtils.createWorker();
 
@@ -125,7 +126,8 @@ public final class RewindingTest extends BuildIntegrationTestCase {
         "--experimental_remote_cache_eviction_retries=0",
         "--track_incremental_state=" + trackIncrementalState,
         "--keep_going=" + keepGoing,
-        "--experimental_merged_skyframe_analysis_execution=" + skymeld);
+        "--experimental_merged_skyframe_analysis_execution=" + skymeld,
+        "--experimental_precise_rewinding=" + precise);
     runtimeWrapper.registerSubscriber(actionEventRecorder);
     runtimeWrapper.registerSubscriber(this);
   }
