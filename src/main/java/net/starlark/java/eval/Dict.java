@@ -869,6 +869,13 @@ public abstract sealed class Dict<K, V>
       return false;
     }
 
+    @Override
+    public StarlarkList<?> items(StarlarkThread thread) {
+      Set<K> keySet = super.keySet();
+      accessedKeys.addAll(keySet);
+      return super.items(thread);
+    }
+
     @Nullable
     @Override
     @SuppressWarnings("unchecked") // Present keys must be of type K.

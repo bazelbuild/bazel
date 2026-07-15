@@ -84,6 +84,21 @@ public final class ImmutableKeyTrackingDictTest {
   }
 
   @Test
+  public void items_reportsAllKeys() throws Exception {
+    Mutability mu = Mutability.create("test");
+    StarlarkThread thread = StarlarkThread.createTransient(mu, StarlarkSemantics.DEFAULT);
+    StarlarkList<?> items = dict.items(thread);
+    assertThat((Iterable<?>) items)
+        .containsExactly(
+            Tuple.pair("a", StarlarkInt.of(1)),
+            Tuple.pair("b", StarlarkInt.of(2)),
+            Tuple.pair("c", StarlarkInt.of(3)),
+            Tuple.pair("d", StarlarkInt.of(4)))
+        .inOrder();
+    assertThat(dict.getAccessedKeys()).isEqualTo(dict.keySet());
+  }
+
+  @Test
   public void iteration_reportsAllKeys() {
     for (String key : dict) {
       assertThat(key).isAnyOf("a", "b", "c", "d");
