@@ -33,6 +33,7 @@ DIST_ARCHIVE_REPOS = [
     "blake3+",
     "c-ares+",
     "envoy_api+",
+    "gawk+",
     "googleapis+",
     "googleapis-grpc-java+",
     "googleapis-java+",
