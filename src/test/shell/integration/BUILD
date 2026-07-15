@@ -120,7 +120,10 @@ sh_test(
         "//src/test/java/com/google/devtools/build/lib/worker:ExampleWorker_deploy.jar",
     ],
     exec_group_compatible_with = {
-        "test": ["//:highcpu_machine"],
+        "test": [
+            "//:highcpu_machine",
+            "//:mount_capable",
+        ],
     },
     shard_count = 10,
     tags = [
@@ -566,6 +569,9 @@ sh_test(
         "//src/main/tools:linux-sandbox",
         "//src/test/shell:sandboxing_test_utils",
     ],
+    exec_group_compatible_with = {
+        "test": ["//:mount_capable"],
+    },
     shard_count = 2,
     tags = [
         "no_macos",
@@ -801,7 +807,10 @@ sh_test(
         "//src/test/shell:sandboxing_test_utils",
     ],
     exec_group_compatible_with = {
-        "test": ["//:highcpu_machine"],
+        "test": [
+            "//:highcpu_machine",
+            "//:mount_capable",
+        ],
     },
     shard_count = 4,
     tags = ["no_windows"],
