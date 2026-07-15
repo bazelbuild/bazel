@@ -67,7 +67,7 @@ java_test(
     timeout = "long",
     srcs = ["RewindingTest.java"],
     jvm_flags = ["-Djava.lang.Thread.allowVirtualThreads=true"],
-    shard_count = 12,
+    shard_count = 24,
     deps = [
         ":rewinding_tests_helper",
         "//src/main/java/com/google/devtools/build/lib:runtime",

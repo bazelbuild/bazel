@@ -252,6 +252,7 @@ public final class SkyframeActionExecutor {
   private OutputService outputService;
   private boolean finalizeActions;
   private boolean rewindingEnabled;
+  private boolean preciseRewindingEnabled;
   private boolean invocationRetriesEnabled;
   private final Supplier<ImmutableList<Root>> sourceRootSupplier;
 
@@ -353,6 +354,7 @@ public final class SkyframeActionExecutor {
     // Cache some option values for performance, since we consult them on every action.
     this.finalizeActions = buildRequestOptions.finalizeActions;
     this.rewindingEnabled = buildRequestOptions.rewindLostInputs;
+    this.preciseRewindingEnabled = buildRequestOptions.experimentalPreciseRewinding;
     this.invocationRetriesEnabled =
         options.getOptions(ExecutionOptions.class).remoteRetryOnTransientCacheError > 0;
     this.outputService = checkNotNull(outputService);
@@ -439,6 +441,10 @@ public final class SkyframeActionExecutor {
 
   public boolean rewindingEnabled() {
     return rewindingEnabled;
+  }
+
+  public boolean preciseRewindingEnabled() {
+    return preciseRewindingEnabled;
   }
 
   public boolean invocationRetriesEnabled() {
