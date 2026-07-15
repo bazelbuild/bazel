@@ -28,6 +28,8 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.RandomAccessFile;
+import java.nio.file.Files;
+import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Collection;
 import java.util.Date;
@@ -575,6 +577,73 @@ public class ZipReaderTest {
     }
     try (ZipReader reader = new ZipReader(test, UTF_8, true)) {
       assertThat(reader.size()).isEqualTo(0x00ff);
+    }
+  }
+
+  @Test
+  public void testEocdSignatureNearBufferBoundary() throws IOException {
+    // Create a standard valid zip file to be manipulated below into a self-extracting (SFX)
+    // archive.
+    File zipFile = tmp.newFile("valid.zip");
+    byte[] content = "hello".getBytes(UTF_8);
+    CRC32 crc = new CRC32();
+    crc.update(content);
+    try (ZipWriter writer = new ZipWriter(new FileOutputStream(zipFile), UTF_8, false)) {
+      ZipFileEntry entry = new ZipFileEntry("foo.txt");
+      entry.setTime(ZipUtil.DOS_EPOCH);
+      entry.setCrc(crc.getValue());
+      entry.setSize(content.length);
+      entry.setCompressedSize(content.length);
+      writer.putNextEntry(entry);
+      writer.write(content);
+    }
+
+    byte[] zipBytes = Files.readAllBytes(zipFile.toPath());
+    // Prepend 5 bytes (simulating an executable stub in a self-extracting zip archive) to push the
+    // EOCD signature position in the 64-byte buffer to index 47, causing
+    // signatureLocation + COMMENT_LENGTH_OFFSET (47 + 20 = 67) to cross the 64-byte buffer limit.
+    int preambleLength = 5;
+    byte[] sfxBytes = new byte[preambleLength + zipBytes.length];
+    System.arraycopy(zipBytes, 0, sfxBytes, preambleLength, zipBytes.length);
+
+    File sfxFile = tmp.newFile("sfx.exe");
+    Files.write(sfxFile.toPath(), sfxBytes);
+
+    // Initializing ZipReader parses the EOCD header. This verifies that signatureLocation + 20
+    // falling across the 64-byte buffer boundary is handled gracefully without throwing an
+    // ArrayIndexOutOfBoundsException.
+    try (ZipReader reader = new ZipReader(sfxFile, UTF_8)) {
+      assertThat(reader.entries()).hasSize(1);
+      ZipFileEntry entry = reader.getEntry("foo.txt");
+      assertThat(entry).isNotNull();
+      assertThat(entry.getCrc()).isEqualTo(crc.getValue());
+      assertThat(entry.getSize()).isEqualTo(content.length);
+    }
+  }
+
+  @Test
+  public void testEocdWithZipCommentInSmallBuffer() throws IOException {
+    File zipFile = tmp.newFile("comment.zip");
+    byte[] content = "hello".getBytes(UTF_8);
+    CRC32 crc = new CRC32();
+    crc.update(content);
+    byte[] comment = new byte[120];
+    Arrays.fill(comment, (byte) 'a');
+    String commentString = new String(comment, UTF_8);
+    try (ZipWriter writer = new ZipWriter(new FileOutputStream(zipFile), UTF_8, false)) {
+      ZipFileEntry entry = new ZipFileEntry("foo.txt");
+      entry.setTime(ZipUtil.DOS_EPOCH);
+      entry.setCrc(crc.getValue());
+      entry.setSize(content.length);
+      entry.setCompressedSize(content.length);
+      writer.putNextEntry(entry);
+      writer.write(content);
+      writer.setComment(commentString);
+    }
+
+    try (ZipReader reader = new ZipReader(zipFile, UTF_8)) {
+      assertThat(reader.entries()).hasSize(1);
+      assertThat(reader.getComment()).isEqualTo(commentString);
     }
   }
 }
