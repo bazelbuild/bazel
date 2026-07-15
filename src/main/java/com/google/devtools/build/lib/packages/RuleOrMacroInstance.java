@@ -14,20 +14,21 @@
 
 package com.google.devtools.build.lib.packages;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkPositionIndex;
 import static com.google.common.base.Preconditions.checkState;
 
-import com.google.common.base.Preconditions;
+import com.google.common.collect.Interner;
 import com.google.common.collect.Iterators;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.packages.Package.Declarations;
 import com.google.devtools.build.lib.util.HashCodes;
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.List;
-import java.util.Objects;
 import javax.annotation.Nullable;
 
 /**
@@ -43,16 +44,9 @@ public abstract class RuleOrMacroInstance implements DependencyFilter.AttributeI
   static final String GENERATOR_FUNCTION = "generator_function";
   static final String GENERATOR_LOCATION = "generator_location";
 
-  private static final int ATTR_SIZE_THRESHOLD = 126;
-
   private static final Object[] EMPTY_OBJECT_ARRAY = new Object[0];
-  private static final byte[] EMPTY_BYTE_ARRAY = new byte[0];
-
-  RuleOrMacroInstance(Label label, int attrCount) {
-    this.label = checkNotNull(label);
-    this.attrValues = new Object[attrCount];
-    this.attrBytes = new byte[bitSetSize(attrCount)];
-  }
+  private static final int[] EMPTY_INT_ARRAY = new int[0];
+  private static final BitSet emptyBitSet = new BitSet(0);
 
   /**
    * Stores attribute values, taking on one of two shapes:
@@ -69,26 +63,24 @@ public abstract class RuleOrMacroInstance implements DependencyFilter.AttributeI
   private Object[] attrValues;
 
   /**
-   * Holds bits of metadata about attributes, taking on one of three shapes:
+   * Holds metadata about attributes, taking on one of two shapes:
    *
    * <ol>
-   *   <li>While the rule or macro instance is mutable, contains one bit for each attribute
-   *       indicating whether it was explicitly set.
-   *   <li>After {@link #freeze} for rules or macros with fewer than 126 attributes (extremely
-   *       common case), contains one byte dedicated to each value in the compact representation of
-   *       {@link #attrValues}, at corresponding array indices. The first bit indicates whether the
-   *       attribute was explicitly set. The remaining 7 bits represent the attribute's index (as
-   *       per {@link AttributeProvider#getAttributeIndex}). See {@link #freezeSmall}.
-   *   <li>After {@link #freeze} for rules with 126 or more attributes (rare case), contains the
-   *       full set of bytes from the mutable representation, followed by the index of each
-   *       attribute stored in the compact representation of {@link #attrValues}. Because attribute
-   *       indices may require a full byte, there is no room to pack the explicit bit as we do for
-   *       the small case. See {@link #freezeLarge}.
+   *   <li>While the rule or macro instance is mutable, contains only a {@link BitSet} tracking
+   *       which attribute indices were set explicitly.
+   *   <li>After {@link #freeze}, additionally contains an {@linkplain AttributeMetadata#index
+   *       index} of which attributes are stored in {@link #attrValues}.
    * </ol>
    */
-  private byte[] attrBytes;
+  private AttributeMetadata attrMetadata;
 
   final Label label;
+
+  RuleOrMacroInstance(Label label, int attrCount) {
+    this.label = checkNotNull(label);
+    this.attrValues = new Object[attrCount];
+    this.attrMetadata = AttributeMetadata.mutable(attrCount);
+  }
 
   /**
    * Returns true if the subset of this object's fields which are defined in this class equal those
@@ -96,8 +88,8 @@ public abstract class RuleOrMacroInstance implements DependencyFilter.AttributeI
    */
   boolean equalsHelper(RuleOrMacroInstance other) {
     return Arrays.equals(attrValues, other.attrValues)
-        && Arrays.equals(attrBytes, other.attrBytes)
-        && Objects.equals(label, other.label);
+        && attrMetadata.equals(other.attrMetadata)
+        && label.equals(other.label);
   }
 
   /**
@@ -107,7 +99,7 @@ public abstract class RuleOrMacroInstance implements DependencyFilter.AttributeI
   int hashCodeHelper() {
     return label.hashCode()
         + HashCodes.MULTIPLIER
-            * (Arrays.hashCode(attrValues) + HashCodes.MULTIPLIER * Arrays.hashCode(attrBytes));
+            * (Arrays.hashCode(attrValues) + HashCodes.MULTIPLIER * attrMetadata.hashCode());
   }
 
   /**
@@ -153,21 +145,22 @@ public abstract class RuleOrMacroInstance implements DependencyFilter.AttributeI
   }
 
   void setAttributeValue(Attribute attribute, Object value, boolean explicit) {
-    Preconditions.checkState(!isFrozen(), "Already frozen: %s", this);
+    checkState(!isFrozen(), "Already frozen: %s", this);
     String attrName = attribute.getName();
     if (attrName.equals(NAME)) {
       // Avoid unnecessarily storing the name in attrValues - it's stored in the label.
       return;
     }
     Integer attrIndex = getAttributeProvider().getAttributeIndex(attrName);
-    Preconditions.checkArgument(
+    checkArgument(
         attrIndex != null,
         "Attribute %s is not valid for this %s",
         attrName,
         isRuleInstance() ? "rule" : "macro");
     if (explicit) {
-      checkState(!getExplicitBit(attrIndex), "Attribute %s already explicitly set", attrName);
-      setExplicitBit(attrIndex);
+      checkState(
+          !attrMetadata.getExplicit(attrIndex), "Attribute %s already explicitly set", attrName);
+      attrMetadata.setExplicit(attrIndex);
     }
     attrValues[attrIndex] = value;
   }
@@ -237,21 +230,18 @@ public abstract class RuleOrMacroInstance implements DependencyFilter.AttributeI
   Object getAttrIfStored(int attrIndex) {
     int attrCount = getAttributeProvider().getAttributeCount();
     checkPositionIndex(attrIndex, attrCount - 1);
-    return switch (getAttrState()) {
-      case MUTABLE -> attrValues[attrIndex];
-      case FROZEN_SMALL -> {
-        int index = binarySearchAttrBytes(0, attrIndex, 0x7f);
-        yield index < 0 ? null : attrValues[index];
-      }
-      case FROZEN_LARGE -> {
-        if (attrBytes.length == 0) {
-          yield null;
-        }
-        int bitSetSize = bitSetSize(attrCount);
-        int index = binarySearchAttrBytes(bitSetSize, attrIndex, 0xff);
-        yield index < 0 ? null : attrValues[index - bitSetSize];
-      }
-    };
+    if (!isFrozen()) {
+      return attrValues[attrIndex];
+    }
+    int index = Arrays.binarySearch(attrMetadata.index, attrIndex);
+    if (index >= 0) {
+      return attrValues[index];
+    }
+    if (attrMetadata.getExplicit(attrIndex)) {
+      Attribute attr = getAttributeProvider().getAttribute(attrIndex);
+      return attr.getDefaultValueUnchecked();
+    }
+    return null;
   }
 
   /**
@@ -292,13 +282,7 @@ public abstract class RuleOrMacroInstance implements DependencyFilter.AttributeI
     if (attrIndex == null) {
       return false;
     }
-    return switch (getAttrState()) {
-      case MUTABLE, FROZEN_LARGE -> getExplicitBit(attrIndex);
-      case FROZEN_SMALL -> {
-        int index = binarySearchAttrBytes(0, attrIndex, 0x7f);
-        yield index >= 0 && (attrBytes[index] & 0x80) != 0;
-      }
-    };
+    return attrMetadata.getExplicit(attrIndex);
   }
 
   /* Returns true iff this is a rule instance (v. macro). */
@@ -309,25 +293,6 @@ public abstract class RuleOrMacroInstance implements DependencyFilter.AttributeI
    * Always false for macro instances; sometimes true for rules.
    */
   public abstract boolean isRuleCreatedInMacro();
-
-  /** Returns index into {@link #attrBytes} for {@code attrIndex}, or -1 if not found */
-  private int binarySearchAttrBytes(int start, int attrIndex, int mask) {
-    // Binary search, treating values as unsigned bytes.
-    int lo = start;
-    int hi = attrBytes.length - 1;
-    while (hi >= lo) {
-      int mid = (lo + hi) / 2;
-      int midAttrIndex = attrBytes[mid] & mask;
-      if (midAttrIndex == attrIndex) {
-        return mid;
-      } else if (midAttrIndex < attrIndex) {
-        lo = mid + 1;
-      } else {
-        hi = mid - 1;
-      }
-    }
-    return -1;
-  }
 
   private void checkAttrType(String attrName, Type<?> requestedType, Attribute attr) {
     if (requestedType != attr.getType()) {
@@ -348,17 +313,17 @@ public abstract class RuleOrMacroInstance implements DependencyFilter.AttributeI
   /**
    * Returns {@code true} if this rule or macro's attributes are immutable.
    *
-   * <p>Frozen instances optimize for space by omitting storage for non-explicit attribute values
-   * that match the {@link Attribute} default. If {@link #getAttrIfStored} returns {@code null}, the
-   * value should be taken from either {@link Attribute#getLateBoundDefault} for late-bound defaults
-   * or {@link Attribute#getDefaultValue} for all other attributes (including computed defaults).
+   * <p>Frozen instances optimize for space by omitting storage for attribute values that match the
+   * {@link Attribute} default. If {@link #getAttrIfStored} returns {@code null}, the value should
+   * be taken from either {@link Attribute#getLateBoundDefault} for late-bound defaults or {@link
+   * Attribute#getDefaultValue} for all other attributes (including computed defaults).
    *
    * <p>Mutable instances have no such optimization. During rule creation, this allows for
    * distinguishing whether a computed default (which may depend on other unset attributes) is
    * available.
    */
   boolean isFrozen() {
-    return getAttrState() != AttrState.MUTABLE;
+    return attrMetadata.index != null;
   }
 
   /** Makes this rule or macro's attributes immutable and compacts their representation. */
@@ -367,109 +332,113 @@ public abstract class RuleOrMacroInstance implements DependencyFilter.AttributeI
       return;
     }
 
-    BitSet indicesToStore = new BitSet();
+    AttributeProvider provider = getAttributeProvider();
+    int numToStore = 0;
     for (int i = 0; i < attrValues.length; i++) {
       Object value = attrValues[i];
       if (value == null) {
         continue;
       }
-      if (!getExplicitBit(i)) {
-        Attribute attr = getAttributeProvider().getAttribute(i);
-        if (value.equals(attr.getDefaultValueUnchecked())) {
-          // Non-explicit value matches the attribute's default. Save space by omitting storage.
-          continue;
-        }
+      if (value.equals(provider.getAttribute(i).getDefaultValueUnchecked())) {
+        attrValues[i] = null;
+        continue;
       }
-      indicesToStore.set(i);
+      numToStore++;
     }
 
-    if (getAttributeProvider().getAttributeCount() < ATTR_SIZE_THRESHOLD) {
-      freezeSmall(indicesToStore);
+    if (numToStore == 0) {
+      this.attrValues = EMPTY_OBJECT_ARRAY;
+      this.attrMetadata = AttributeMetadata.frozen(EMPTY_INT_ARRAY, attrMetadata.explicit);
     } else {
-      freezeLarge(indicesToStore);
+      Object[] compactValues = new Object[numToStore];
+      int[] index = new int[numToStore];
+
+      int destIdx = 0;
+      for (int i = 0; i < attrValues.length; i++) {
+        Object value = attrValues[i];
+        if (value != null) {
+          index[destIdx] = i;
+          compactValues[destIdx] = value;
+          destIdx++;
+        }
+      }
+
+      this.attrValues = compactValues;
+      this.attrMetadata = AttributeMetadata.frozen(index, attrMetadata.explicit);
     }
+
     // Sanity check to ensure mutable vs frozen is distinguishable.
     checkState(isFrozen(), "Freeze unsuccessful");
   }
 
-  private void freezeSmall(BitSet indicesToStore) {
-    int numToStore = indicesToStore.cardinality();
-    if (numToStore == 0) {
-      this.attrValues = EMPTY_OBJECT_ARRAY;
-      this.attrBytes = EMPTY_BYTE_ARRAY;
-      return;
-    }
-    Object[] compactValues = new Object[numToStore];
-    byte[] compactBytes = new byte[numToStore];
+  /**
+   * Encapsulates attribute metadata (index mapping of non-default attribute values and tracking of
+   * which attributes were explicitly set).
+   *
+   * <p>Target declarations across a codebase frequently follow uniform usage patterns (e.g.,
+   * setting the same common subsets of explicit and non-default attributes for a given rule class),
+   * so the duplication rate among frozen {@code AttributeMetadata} instances is high. Interning
+   * these instances achieves significant heap savings.
+   */
+  private static final class AttributeMetadata {
+    private static final Interner<AttributeMetadata> interner = BlazeInterners.newWeakInterner();
 
-    int attrIndex = 0;
-    for (int i = 0; i < numToStore; i++) {
-      attrIndex = indicesToStore.nextSetBit(attrIndex);
-      byte byteValue = (byte) (0x7f & attrIndex);
-      if (getExplicitBit(attrIndex)) {
-        byteValue = (byte) (byteValue | 0x80);
+    static AttributeMetadata mutable(int attrCount) {
+      return new AttributeMetadata(null, new BitSet(attrCount));
+    }
+
+    static AttributeMetadata frozen(int[] index, BitSet explicit) {
+      if (explicit.isEmpty()) {
+        explicit = emptyBitSet;
+      } else if (explicit.size() - explicit.length() >= Long.SIZE) {
+        // More words allocated than necessary. Copy to a more compact BitSet.
+        BitSet compacted = new BitSet(explicit.length());
+        compacted.or(explicit);
+        explicit = compacted;
       }
-      compactBytes[i] = byteValue;
-      compactValues[i] = attrValues[attrIndex];
-      attrIndex++;
+      return interner.intern(new AttributeMetadata(index, explicit));
     }
 
-    this.attrValues = compactValues;
-    this.attrBytes = compactBytes;
-  }
+    /**
+     * When mutable, this is {@code null}. When frozen, this is a sorted array of the attribute
+     * indices with non-default values. The corresponding values are stored in {@link #attrValues}
+     * at the exact same array offset (i.e., {@code attrValues[i]} is the value for attribute index
+     * {@code index[i]}).
+     */
+    @Nullable private final int[] index;
 
-  private void freezeLarge(BitSet indicesToStore) {
-    int numToStore = indicesToStore.cardinality();
-    int bitSetSize = attrBytes.length;
-    Object[] compactValues = numToStore == 0 ? EMPTY_OBJECT_ARRAY : new Object[numToStore];
-    byte[] compactBytes = Arrays.copyOf(attrBytes, bitSetSize + numToStore);
+    /** Tracks the indices of attributes which were explicitly specified. */
+    private final BitSet explicit;
 
-    int attrIndex = 0;
-    for (int i = 0; i < numToStore; i++) {
-      attrIndex = indicesToStore.nextSetBit(attrIndex);
-      compactBytes[i + bitSetSize] = (byte) attrIndex;
-      compactValues[i] = attrValues[attrIndex];
-      attrIndex++;
+    AttributeMetadata(@Nullable int[] index, BitSet explicit) {
+      this.index = index;
+      this.explicit = checkNotNull(explicit);
     }
 
-    this.attrValues = compactValues;
-    this.attrBytes = compactBytes;
-  }
-
-  enum AttrState {
-    MUTABLE,
-    FROZEN_SMALL,
-    FROZEN_LARGE
-  }
-
-  private AttrState getAttrState() {
-    // This check works because the name attribute is never stored, so the compact representation
-    // of attrValues will always have length < attr count.
-    int attrCount = getAttributeProvider().getAttributeCount();
-    if (attrValues.length == attrCount) {
-      return AttrState.MUTABLE;
+    @Override
+    public boolean equals(Object obj) {
+      if (this == obj) {
+        return true;
+      }
+      if (!(obj instanceof AttributeMetadata other)) {
+        return false;
+      }
+      return Arrays.equals(index, other.index) && explicit.equals(other.explicit);
     }
-    return attrCount < ATTR_SIZE_THRESHOLD ? AttrState.FROZEN_SMALL : AttrState.FROZEN_LARGE;
-  }
 
-  /** Calculates the number of bytes necessary to have an explicit bit for each attribute. */
-  private static int bitSetSize(int attrCount) {
-    // ceil(attrCount / 8)
-    return (attrCount + 7) / 8;
-  }
+    @Override
+    public int hashCode() {
+      return Arrays.hashCode(index) + HashCodes.MULTIPLIER * explicit.hashCode();
+    }
 
-  private boolean getExplicitBit(int attrIndex) {
-    int byteIndex = attrIndex / 8;
-    int bitIndex = attrIndex % 8;
-    byte byteValue = attrBytes[byteIndex];
-    return (byteValue & (1 << bitIndex)) != 0;
-  }
+    boolean getExplicit(int attrIndex) {
+      return explicit.get(attrIndex);
+    }
 
-  private void setExplicitBit(int attrIndex) {
-    int byteIndex = attrIndex / 8;
-    int bitIndex = attrIndex % 8;
-    byte byteValue = attrBytes[byteIndex];
-    attrBytes[byteIndex] = (byte) (byteValue | (1 << bitIndex));
+    void setExplicit(int attrIndex) {
+      checkState(index == null, "Cannot mutate explicit attributes when frozen");
+      explicit.set(attrIndex);
+    }
   }
 
   /**
@@ -484,10 +453,10 @@ public abstract class RuleOrMacroInstance implements DependencyFilter.AttributeI
       return null;
     }
     Object attrValue = getAttrIfStored(index);
-    if (!(attrValue instanceof BuildType.SelectorList)) {
+    if (!(attrValue instanceof BuildType.SelectorList<?> selectorList)) {
       return null;
     }
-    if (((BuildType.SelectorList<?>) attrValue).getOriginalType() != type) {
+    if (selectorList.getOriginalType() != type) {
       throw new IllegalArgumentException(
           "Attribute "
               + attributeName
@@ -498,7 +467,7 @@ public abstract class RuleOrMacroInstance implements DependencyFilter.AttributeI
               + " rule "
               + label);
     }
-    return (BuildType.SelectorList<T>) attrValue;
+    return (BuildType.SelectorList<T>) selectorList;
   }
 
   /**
@@ -507,9 +476,6 @@ public abstract class RuleOrMacroInstance implements DependencyFilter.AttributeI
    */
   public abstract RuleVisibility getDefaultVisibility();
 
-  /**
-   * Implementation of {@link #getRawVisibility} that avoids constructing a {@code RuleVisibility}.
-   */
   @Nullable
   @SuppressWarnings("unchecked")
   private List<Label> getRawVisibilityLabels() {
