@@ -14,8 +14,8 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi;
 
-import com.google.devtools.build.docgen.annot.GlobalMethods;
-import com.google.devtools.build.docgen.annot.GlobalMethods.Environment;
+import com.google.devtools.build.docgen.annot.GlobalMethodDocs;
+import com.google.devtools.build.docgen.annot.GlobalMethodDocs.Environment;
 import com.google.devtools.build.docgen.annot.StarlarkConstructor;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
@@ -36,7 +36,7 @@ import net.starlark.java.eval.StarlarkThread;
  * Interface for a global Starlark library containing rule-related helper and registration
  * functions.
  */
-@GlobalMethods(environment = Environment.BZL)
+@GlobalMethodDocs(environment = Environment.BZL)
 @StarlarkLibrary
 public interface StarlarkRuleFunctionsApi {
 

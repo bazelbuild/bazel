@@ -16,8 +16,8 @@ package com.google.devtools.build.lib.collect.nestedset;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.docgen.annot.DocCategory;
-import com.google.devtools.build.docgen.annot.GlobalMethods;
-import com.google.devtools.build.docgen.annot.GlobalMethods.Environment;
+import com.google.devtools.build.docgen.annot.GlobalMethodDocs;
+import com.google.devtools.build.docgen.annot.GlobalMethodDocs.Environment;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import java.util.List;
@@ -578,7 +578,7 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
   }
 
   /** The user-facing API to the {@code depset} callable. */
-  @GlobalMethods(environment = {Environment.BUILD, Environment.BZL})
+  @GlobalMethodDocs(environment = {Environment.BUILD, Environment.BZL})
   @StarlarkLibrary
   public static final class DepsetLibrary {
 
