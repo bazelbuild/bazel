@@ -995,6 +995,35 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         .isEqualTo(ResourceSet.create(512, 4, 0));
     assertThat(action.getResourceSetOrBuilder().buildResourceSet(OS.DARWIN, 100))
         .isEqualTo(ResourceSet.create(512, 4, 0));
+    // The action retains a compact representation rather than a full ResourceSet.
+    assertThat(action.getResourceSetOrBuilder()).isNotInstanceOf(ResourceSet.class);
+  }
+
+  @Test
+  public void testCreateStarlarkActionArgumentsWithResourceSet_dictInterned() throws Exception {
+    StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    setRuleContext(ruleContext);
+
+    ev.exec(
+        "ruleContext.actions.run(",
+        "  inputs = ruleContext.files.srcs,",
+        "  outputs = [ruleContext.files.srcs[0]],",
+        "  resource_set = {\"cpu\": 3, \"memory\": 0},",
+        "  executable = 'executable')",
+        "ruleContext.actions.run(",
+        "  inputs = ruleContext.files.srcs,",
+        "  outputs = [ruleContext.files.srcs[1]],",
+        "  resource_set = {\"cpu\": 3, \"memory\": 0},",
+        "  executable = 'executable')");
+    ImmutableList<StarlarkAction> actions =
+        ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions().stream()
+            .map(StarlarkAction.class::cast)
+            .collect(toImmutableList());
+    assertThat(actions).hasSize(2);
+
+    // With no memory bound and an integral CPU bound, the compact representation is interned.
+    assertThat(actions.get(0).getResourceSetOrBuilder())
+        .isSameInstanceAs(actions.get(1).getResourceSetOrBuilder());
   }
 
   @Test
