@@ -574,6 +574,16 @@ public final class BazelRulesModule extends BlazeModule {
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "Deprecated. No-op.")
     public abstract String getJsonLog();
+
+    @Deprecated
+    @Option(
+        name = "incompatible_multi_release_deploy_jars",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE, OptionMetadataTag.DEPRECATED},
+        help = "Deprecated no-op.")
+    public abstract boolean getMultiReleaseDeployJars();
   }
 
   /** This is where deprecated Bazel-specific options only used by the build command go to die. */
