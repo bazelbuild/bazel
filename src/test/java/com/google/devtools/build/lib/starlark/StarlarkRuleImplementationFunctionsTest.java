@@ -693,6 +693,65 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
   }
 
   @Test
+  public void testExpandLocationLazy_rendersSameAsEager() throws Exception {
+    setBuildLanguageOptions("--experimental_lazy_location_expansion");
+    ev.setSemantics("--experimental_lazy_location_expansion");
+    StarlarkRuleContext ruleContext = createRuleContext("//foo:bar");
+    setRuleContext(ruleContext);
+
+    String input =
+        "before $(location :jl) $(rootpath :jl) $(rlocationpath :jl) middle $(locations :gl)"
+            + " $(unknown) end";
+    String eager = (String) ev.eval("ruleContext.expand_location('" + input + "')");
+    CommandLine commandLine =
+        getCommandLine(
+            "args = ruleContext.actions.args()",
+            "args.add(ruleContext.expand_location('" + input + "', lazy = True))");
+
+    assertThat(commandLine.arguments()).containsExactly(eager);
+  }
+
+  @Test
+  public void testExpandLocationLazy_isNotAString() throws Exception {
+    setBuildLanguageOptions("--experimental_lazy_location_expansion");
+    ev.setSemantics("--experimental_lazy_location_expansion");
+    StarlarkRuleContext ruleContext = createRuleContext("//foo:bar");
+    setRuleContext(ruleContext);
+
+    Object lazy = ev.eval("ruleContext.expand_location('$(location :jl)', lazy = True)");
+
+    assertThat(lazy).isNotInstanceOf(String.class);
+  }
+
+  @Test
+  public void testExpandLocationLazy_fingerprint() throws Exception {
+    setBuildLanguageOptions("--experimental_lazy_location_expansion");
+    ev.setSemantics("--experimental_lazy_location_expansion");
+    setRuleContext(createRuleContext("//foo:bar"));
+
+    CommandLine commandLine1 =
+        getCommandLine(
+            "args = ruleContext.actions.args()",
+            "args.add(ruleContext.expand_location('a $(location :jl)', lazy = True))");
+    CommandLine commandLine1Again =
+        getCommandLine(
+            "args = ruleContext.actions.args()",
+            "args.add(ruleContext.expand_location('a $(location :jl)', lazy = True))");
+    CommandLine commandLine2 =
+        getCommandLine(
+            "args = ruleContext.actions.args()",
+            "args.add(ruleContext.expand_location('b $(location :jl)', lazy = True))");
+    CommandLine commandLine3 =
+        getCommandLine(
+            "args = ruleContext.actions.args()",
+            "args.add(ruleContext.expand_location('a $(rootpath :jl)', lazy = True))");
+
+    assertThat(getDigest(commandLine1)).isEqualTo(getDigest(commandLine1Again));
+    assertThat(getDigest(commandLine1)).isNotEqualTo(getDigest(commandLine2));
+    assertThat(getDigest(commandLine1)).isNotEqualTo(getDigest(commandLine3));
+  }
+
+  @Test
   public void testExpandLocationWithShortPathsIsPrivateAPI() throws Exception {
     scratch.file(
         "abc/rule.bzl",

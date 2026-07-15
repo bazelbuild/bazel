@@ -27,6 +27,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.LocationExpander.LocationFunction.PathType;
+import com.google.devtools.build.lib.analysis.starlark.LazyLocationExpansion;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.Label.PackageContext;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
@@ -237,6 +238,58 @@ public final class LocationExpander {
     return expand(attrValue, new AttributeErrorReporter(ruleErrorConsumer, attrName));
   }
 
+  /**
+   * Expands the location expressions in the given value into a lazily rendered {@link
+   * LazyLocationExpansion} instead of an eagerly expanded string. Literal segments and unknown
+   * functions are rendered directly from the original string; only the resolved artifacts and a
+   * compact site layout are retained.
+   *
+   * @throws IllegalStateException if a location expression is invalid, with the same message that
+   *     {@link #expand} would report
+   */
+  public LazyLocationExpansion expandLazily(String value) {
+    List<Integer> layout = new ArrayList<>();
+    List<Object> values = new ArrayList<>();
+    int restart = 0;
+    while (true) {
+      int start = value.indexOf("$(", restart);
+      if (start == -1) {
+        break;
+      }
+      int nextWhitespace = value.indexOf(' ', start);
+      if (nextWhitespace == -1) {
+        break;
+      }
+      String fname = value.substring(start + 2, nextWhitespace);
+      LocationFunction function = functions.get(fname);
+      if (function == null) {
+        restart = start + 2;
+        continue;
+      }
+
+      int end = value.indexOf(')', nextWhitespace);
+      if (end == -1) {
+        throw new IllegalStateException(
+            String.format("unterminated $(%s) expression", fname));
+      }
+
+      String functionValue = value.substring(nextWhitespace + 1, end).trim();
+      Collection<Artifact> artifacts =
+          function.resolveLazily(functionValue, repositoryMapping, workspaceRunfilesDirectory);
+      layout.add(start);
+      layout.add(end + 1);
+      layout.add(function.pathTypeMode());
+      values.add(
+          artifacts.size() == 1
+              ? artifacts.iterator().next()
+              : ImmutableList.copyOf(artifacts));
+
+      restart = end + 1;
+    }
+    return new LazyLocationExpansion(
+        value, layout.stream().mapToInt(Integer::intValue).toArray(), values.toArray());
+  }
+
   @VisibleForTesting
   static final class LocationFunction {
     enum PathType {
@@ -276,18 +329,49 @@ public final class LocationExpander {
      */
     public String apply(
         String arg, RepositoryMapping repositoryMapping, String workspaceRunfilesDirectory) {
-      Label label;
+      Set<String> paths =
+          resolveLabel(parseLabel(arg, repositoryMapping), workspaceRunfilesDirectory);
+      return joinPaths(paths);
+    }
+
+    /**
+     * Resolves the label-like string to the artifacts it expands to, applying the same validation
+     * (and throwing the same exceptions) as {@link #apply}, but without retaining any rendered
+     * paths.
+     */
+    Collection<Artifact> resolveLazily(
+        String arg, RepositoryMapping repositoryMapping, String workspaceRunfilesDirectory) {
+      Label label = parseLabel(arg, repositoryMapping);
+      Collection<Artifact> artifacts = locationMapSupplier.get().get(label);
+      if (artifacts == null) {
+        throw new IllegalStateException(
+            String.format(
+                "label '%s' in %s expression is not a declared prerequisite of this rule",
+                label, functionName()));
+      }
+      // Rendered only for validation; the strings are not retained.
+      var unused = resolveLabel(label, workspaceRunfilesDirectory);
+      return artifacts;
+    }
+
+    /** Returns the {@link LazyLocationExpansion} mode corresponding to this function. */
+    int pathTypeMode() {
+      return switch (pathType) {
+        case LOCATION -> LazyLocationExpansion.MODE_LOCATION;
+        case EXEC -> LazyLocationExpansion.MODE_EXEC;
+        case RLOCATION -> LazyLocationExpansion.MODE_RLOCATION;
+      };
+    }
+
+    private Label parseLabel(String arg, RepositoryMapping repositoryMapping) {
       try {
-        label =
-            Label.parseWithPackageContext(
-                arg, PackageContext.of(root.getPackageIdentifier(), repositoryMapping));
+        return Label.parseWithPackageContext(
+            arg, PackageContext.of(root.getPackageIdentifier(), repositoryMapping));
       } catch (LabelSyntaxException e) {
         throw new IllegalStateException(
             String.format(
                 "invalid label in %s expression: %s", functionName(), e.getMessage()), e);
       }
-      Set<String> paths = resolveLabel(label, workspaceRunfilesDirectory);
-      return joinPaths(paths);
     }
 
     /** Returns all target location(s) of the given label. */

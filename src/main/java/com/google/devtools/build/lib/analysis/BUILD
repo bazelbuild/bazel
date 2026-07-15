@@ -178,6 +178,7 @@ java_library(
         ":rule_error_consumer",
         ":run_environment_info",
         ":starlark/args",
+        ":starlark/starlark_custom_command_line",
         ":starlark/bazel_build_api_globals",
         ":starlark/function_transition_util",
         ":starlark/starlark_api_provider",
@@ -1781,11 +1782,16 @@ java_library(
 
 java_library(
     name = "starlark/starlark_custom_command_line",
-    srcs = ["starlark/StarlarkCustomCommandLine.java"],
+    srcs = [
+        "starlark/LazyLocationExpansion.java",
+        "starlark/StarlarkCustomCommandLine.java",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:commandline_item",
+        "//src/main/java/net/starlark/java/annot",
+        "//src/main/java/com/google/devtools/build/lib/util:shell_escaper",
         "//src/main/java/com/google/devtools/build/lib/actions:fileset_output_symlink",
         "//src/main/java/com/google/devtools/build/lib/actions:fileset_output_tree",
         "//src/main/java/com/google/devtools/build/lib/actions:param_file_action_input",
