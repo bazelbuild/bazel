@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.remote.circuitbreaker;
 import com.google.devtools.build.lib.remote.Retrier;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 
 /** Factory for {@link Retrier.CircuitBreaker} */
 public class CircuitBreakerFactory {
@@ -42,8 +43,23 @@ public class CircuitBreakerFactory {
           remoteOptions.getRemoteMinCallCountToComputeFailureRate(),
           remoteOptions.getRemoteMinFailCountToComputeFailureRate(),
           recoveryDelayMillis,
-          needsScheduler ? Executors.newSingleThreadScheduledExecutor() : null);
+          needsScheduler ? newScheduler() : null);
     }
     return Retrier.ALLOW_ALL_CALLS;
+  }
+
+  /**
+   * Returns a single-threaded scheduler for the breaker's window-decrement and recovery-probe tasks.
+   * The worker is a daemon so a per-build breaker never keeps the server alive; it is a platform
+   * thread because these are trivial, non-blocking tasks driven by a delay queue, which virtual
+   * threads do not suit.
+   */
+  private static ScheduledExecutorService newScheduler() {
+    return Executors.newSingleThreadScheduledExecutor(
+        runnable -> {
+          Thread thread = new Thread(runnable, "remote-circuit-breaker");
+          thread.setDaemon(true);
+          return thread;
+        });
   }
 }
