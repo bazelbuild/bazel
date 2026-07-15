@@ -19,13 +19,10 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.common.base.Equivalence;
-import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.Nullable;
 
 /** Interner for {@link NestedSet} instances. */
 public class NestedSetInterner {
-  private static final AtomicBoolean enabled = new AtomicBoolean(true);
-
   private final Cache<Equivalence.Wrapper<NestedSet<?>>, NestedSet<?>> cache;
   private final Equivalence<NestedSet<?>> equivalence;
 
@@ -124,17 +121,8 @@ public class NestedSetInterner {
             }
           });
 
-  /** Enables or disables interning. */
-  // TODO: b/522370193 - Figure out if this is actually needed.
-  public static void setEnabled(boolean enabled) {
-    NestedSetInterner.enabled.set(enabled);
-  }
-
   /** Interns a {@link NestedSet} instance. */
   public static <T> NestedSet<T> intern(NestedSet<T> nestedSet) {
-    if (!enabled.get()) {
-      return nestedSet;
-    }
     NestedSetInterner interner = getInterner(nestedSet);
     if (interner == null) {
       return nestedSet;
@@ -146,9 +134,6 @@ public class NestedSetInterner {
 
   /** Interns a {@link NestedSet} instance wrapped by a {@link Depset}. */
   public static NestedSet<?> internDepset(NestedSet<?> nestedSet, Class<?> elementClass) {
-    if (!enabled.get()) {
-      return nestedSet;
-    }
     if (getInterner(elementClass) != null) {
       return nestedSet; // We would have already interned when the NestedSet was built.
     }
