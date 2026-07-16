@@ -41,18 +41,45 @@ def _clone_or_update_repo(ctx):
         fail("At most one of commit, tag, or branch may be provided")
 
     checkout_path = _checkout_path(ctx)
-    directory = str(checkout_path)
-    if ctx.attr.strip_prefix:
-        directory = str(checkout_path.get_child(".tmp_git_root"))
-
-    git_ = git_repo(ctx, directory)
+    git_ = git_repo(ctx, str(checkout_path))
 
     if ctx.attr.strip_prefix:
-        dest_link = "{}/{}".format(directory, ctx.attr.strip_prefix)
-        if not ctx.path(dest_link).exists:
+        strip_prefix_path = checkout_path.get_child(ctx.attr.strip_prefix)
+        if not strip_prefix_path.exists:
             fail("strip_prefix at {} does not exist in repo".format(ctx.attr.strip_prefix))
-        for item in ctx.path(dest_link).readdir():
-            ctx.symlink(item, checkout_path.get_child(item.basename))
+        if not strip_prefix_path.is_dir:
+            fail("strip_prefix at {} is not a directory".format(ctx.attr.strip_prefix))
+
+        strip_prefix_path = strip_prefix_path.realpath
+        checkout_realpath = checkout_path.realpath
+        strip_prefix_realpath = str(strip_prefix_path).lower()
+        git_metadata_path = str(checkout_realpath.get_child(".git")).lower()
+        if (strip_prefix_realpath == git_metadata_path or
+            strip_prefix_realpath.startswith(git_metadata_path + "/")):
+            fail("strip_prefix at {} refers to Git metadata".format(ctx.attr.strip_prefix))
+        if strip_prefix_path != checkout_realpath:
+            if not str(strip_prefix_path).startswith(str(checkout_realpath) + "/"):
+                fail("strip_prefix at {} escaped the checkout directory".format(ctx.attr.strip_prefix))
+
+            existing_entries = {
+                entry.basename.lower(): True
+                for entry in checkout_path.readdir() + strip_prefix_path.readdir()
+            }
+            strip_prefix_tmp_name = ".bazel_git_strip_prefix"
+            for _ in existing_entries:
+                if strip_prefix_tmp_name not in existing_entries:
+                    break
+                strip_prefix_tmp_name += "_"
+            strip_prefix_tmp_path = checkout_path.get_child(strip_prefix_tmp_name)
+
+            # Keep the selected subtree while removing the rest of the checkout.
+            ctx.rename(strip_prefix_path, strip_prefix_tmp_path)
+            for entry in checkout_path.readdir():
+                if entry.basename != strip_prefix_tmp_name:
+                    ctx.delete(entry)
+            for entry in strip_prefix_tmp_path.readdir():
+                ctx.rename(entry, checkout_path.get_child(entry.basename))
+            ctx.delete(strip_prefix_tmp_path)
 
     if ctx.attr.shallow_since:
         return {"commit": git_.commit, "shallow_since": git_.shallow_since}
@@ -261,11 +288,7 @@ def _git_repository_implementation(ctx):
             integrity = ctx.attr.remote_module_file_integrity,
         )
 
-    checkout_path = _checkout_path(ctx)
-    dot_git_path = checkout_path.get_child(".git")
-    if ctx.attr.strip_prefix:
-        dot_git_path = checkout_path.get_child(".tmp_git_root/.git")
-    ctx.delete(dot_git_path)
+    ctx.delete(_checkout_path(ctx).get_child(".git"))
 
     if ctx.attr.commit:
         return ctx.repo_metadata(reproducible = True)
