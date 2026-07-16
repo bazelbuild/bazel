@@ -1345,10 +1345,11 @@ bool ArchiveUndeclaredOutputs(const UndeclaredOutputs& undecl) {
 
 // Creates the Undeclared Outputs Annotations file.
 //
-// This file is a concatenation of every *.part file directly under
+// This file is a concatenation of every file with `suffix` directly under
 // `undecl_annot_dir`. The file is written to `output`.
 bool CreateUndeclaredOutputsAnnotations(const Path& undecl_annot_dir,
-                                        const Path& output) {
+                                        const Path& output,
+                                        const std::wstring& suffix) {
   if (undecl_annot_dir.Get().empty()) {
     // The directory's environment variable
     // (TEST_UNDECLARED_OUTPUTS_ANNOTATIONS_DIR) was probably undefined, nothing
@@ -1362,8 +1363,12 @@ bool CreateUndeclaredOutputsAnnotations(const Path& undecl_annot_dir,
                     undecl_annot_dir.Get());
     return false;
   }
-  // There are no *.part files under `undecl_annot_dir`, nothing to do.
-  if (files.empty()) {
+  const auto is_annotation = [&suffix](const FileInfo& file) {
+    return !file.IsDirectory() && file.RelativePath().size() >= suffix.size() &&
+           file.RelativePath().rfind(suffix) ==
+               file.RelativePath().size() - suffix.size();
+  };
+  if (std::none_of(files.begin(), files.end(), is_annotation)) {
     return true;
   }
 
@@ -1374,9 +1379,7 @@ bool CreateUndeclaredOutputsAnnotations(const Path& undecl_annot_dir,
   }
 
   for (const auto& e : files) {
-    if (!e.IsDirectory() &&
-        e.RelativePath().rfind(L".part") == e.RelativePath().size() - 5) {
-      // Only consume "*.part" files.
+    if (is_annotation(e)) {
       Path path;
       if (!path.Set(undecl_annot_dir.Get() + L"\\" + e.RelativePath()) ||
           !AppendFileTo(path, e.Size(), handle)) {
@@ -1948,11 +1951,15 @@ int TestWrapperMain(int argc, wchar_t** argv) {
 
   Duration test_duration;
   int result = RunSubprocess(executable, args, test_outerr, &test_duration);
+  Path annotations_pb;
   if (!CreateXmlLog(xml_log, test_outerr, test_duration, result,
                     DeleteAfterwards::kEnabled, MainType::kTestWrapperMain) ||
       !ArchiveUndeclaredOutputs(undecl) ||
       !CreateUndeclaredOutputsAnnotations(undecl.annotations_dir,
-                                          undecl.annotations)) {
+                                          undecl.annotations, L".part") ||
+      !annotations_pb.Set(undecl.annotations.Get() + L".pb") ||
+      !CreateUndeclaredOutputsAnnotations(undecl.annotations_dir,
+                                          annotations_pb, L".pb")) {
     return 1;
   }
   return result;
@@ -2019,7 +2026,7 @@ bool TestOnly_CreateUndeclaredOutputsAnnotations(
   Path root, output;
   return blaze_util::IsAbsolute(abs_root) && root.Set(abs_root) &&
          blaze_util::IsAbsolute(abs_output) && output.Set(abs_output) &&
-         CreateUndeclaredOutputsAnnotations(root, output);
+         CreateUndeclaredOutputsAnnotations(root, output, L".part");
 }
 
 bool TestOnly_AsMixedPath(const std::wstring& path, std::string* result) {
