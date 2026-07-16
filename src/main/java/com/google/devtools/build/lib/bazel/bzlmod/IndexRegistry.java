@@ -642,6 +642,11 @@ public class IndexRegistry implements Registry {
           YankedVersionsValue.create(
               Optional.of(ImmutableMap.of(selectedModuleKey.version(), yankedInfo))));
     }
+    if (knownFileHashesMode == KnownFileHashesMode.ENFORCE) {
+      // metadata.json is mutable and can't be fetched in error mode. If source.json is missing
+      // from the lockfile, its later fetch will report the actionable missing-checksum error.
+      return Optional.of(YankedVersionsValue.NONE_YANKED);
+    }
     if (knownFileHashes.containsKey(getSourceJsonUrl(selectedModuleKey))) {
       // If the source.json hash is recorded in the lockfile, we know that the module was selected
       // when the lockfile was created. Since it does not appear in the list of selected yanked
@@ -656,9 +661,6 @@ public class IndexRegistry implements Registry {
     }
     // The lockfile does not contain sufficient information to determine the "yanked" status of the
     // module - network access to the registry is required.
-    // Note that this point can't (and must not) be reached with --lockfile_mode=error: The lockfile
-    // records the source.json hashes of all selected modules and the result of selection is fully
-    // determined by the lockfile.
     return Optional.empty();
   }
 
