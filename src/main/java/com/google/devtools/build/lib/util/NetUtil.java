@@ -65,7 +65,7 @@ public final class NetUtil {
    */
   private static String computeShortHostName() {
     try {
-      return InetAddress.getLocalHost().getHostName();
+      return StringEncoding.platformToInternal(InetAddress.getLocalHost().getHostName());
     } catch (UnknownHostException e) {
       return "unknown";
     }
