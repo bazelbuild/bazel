@@ -564,4 +564,51 @@ function test_cc_test_coverage_gcov() {
     fi
 }
 
+function test_cc_coverage_tool_failures_fail_collection() {
+    local failing_tool="$PWD/failing_coverage_tool"
+    cat > "$failing_tool" <<'EOF'
+#!/usr/bin/env bash
+if [[ "$1" == "--version" ]]; then
+  echo "gcov (GCC) 8.0.0"
+  exit 0
+fi
+echo "fake coverage tool failed: $1" >&2
+exit 1
+EOF
+    chmod +x "$failing_tool"
+
+    touch "$COVERAGE_DIR_VAR/test.profraw"
+    if (COVERAGE_DIR="$COVERAGE_DIR_VAR" \
+        COVERAGE_MANIFEST="$COVERAGE_MANIFEST_VAR" \
+        GENERATE_LLVM_LCOV="1" \
+        LLVM_PROFDATA="$failing_tool" \
+        LLVM_COV="true" \
+        "$COLLECT_CC_COVERAGE_SCRIPT") >& "$TEST_log"; then
+      fail "Expected llvm-profdata failure to fail coverage collection"
+    fi
+    expect_log "fake coverage tool failed: merge"
+
+    if (COVERAGE_DIR="$COVERAGE_DIR_VAR" \
+        COVERAGE_MANIFEST="$COVERAGE_MANIFEST_VAR" \
+        GENERATE_LLVM_LCOV="1" \
+        LLVM_PROFDATA="true" \
+        LLVM_COV="$failing_tool" \
+        "$COLLECT_CC_COVERAGE_SCRIPT") >& "$TEST_log"; then
+      fail "Expected llvm-cov failure to fail coverage collection"
+    fi
+    expect_log "fake coverage tool failed: export"
+
+    rm "$COVERAGE_DIR_VAR/test.profraw"
+    if (COVERAGE_DIR="$COVERAGE_DIR_VAR" \
+        COVERAGE_GCOV_PATH="$failing_tool" \
+        ROOT="$ROOT_VAR" \
+        COVERAGE_MANIFEST="$COVERAGE_MANIFEST_VAR" \
+        BAZEL_CC_COVERAGE_TOOL="GCOV" \
+        "$COLLECT_CC_COVERAGE_SCRIPT") >& "$TEST_log"; then
+      fail "Expected gcov failure to fail coverage collection"
+    fi
+    expect_log "fake coverage tool failed: -i"
+    [[ ! -L "$COVERAGE_DIR_VAR/gcov" ]] || fail "Expected gcov symlink to be removed"
+}
+
 run_suite "Testing tools/test/collect_cc_coverage.sh"
