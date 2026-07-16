@@ -543,5 +543,63 @@ EOF
   [[ -e $coverage_file_path ]] || fail "Cannot find extra file"
 }
 
+# Regression test for https://github.com/bazelbuild/bazel/issues/29848
+# Running `bazel coverage` on a target set containing a test rule whose
+# configuration transition disables coverage (collect_code_coverage=False)
+# used to crash with a NullPointerException in CoverageReportActionBuilder
+# because the test's CoverageParams (and thus ActionOwner) is null.
+function test_coverage_with_null_coverage_action_owner() {
+  add_rules_shell "MODULE.bazel"
+
+  # A Starlark test rule that uses an incoming transition to disable coverage.
+  # This results in null CoverageParams and null ActionOwner for coverage.
+  cat <<'EOF' > defs.bzl
+def _disable_coverage_impl(settings, attr):
+    return {"//command_line_option:collect_code_coverage": False}
+
+_disable_coverage = transition(
+    implementation = _disable_coverage_impl,
+    inputs = [],
+    outputs = ["//command_line_option:collect_code_coverage"],
+)
+
+def _nocov_test_impl(ctx):
+    script = ctx.actions.declare_file(ctx.label.name + ".sh")
+    ctx.actions.write(script, "#!/bin/sh\nexit 0\n", is_executable = True)
+    return [DefaultInfo(executable = script)]
+
+nocov_test = rule(
+    implementation = _nocov_test_impl,
+    test = True,
+    cfg = _disable_coverage,
+    attrs = {
+        "_allowlist_function_transition": attr.label(
+            default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
+        ),
+    },
+)
+EOF
+
+  cat <<'EOF' > BUILD
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+load(":defs.bzl", "nocov_test")
+
+sh_test(
+    name = "real_test",
+    srcs = ["real_test.sh"],
+)
+
+nocov_test(name = "nocov_test")
+EOF
+
+  cat <<'EOF' > real_test.sh
+#!/usr/bin/env bash
+echo "hello"
+EOF
+  chmod +x real_test.sh
+
+  bazel coverage //:all &>"$TEST_log" \
+      || fail "bazel coverage should not crash with null coverage action owner"
+}
 
 run_suite "test tests"
