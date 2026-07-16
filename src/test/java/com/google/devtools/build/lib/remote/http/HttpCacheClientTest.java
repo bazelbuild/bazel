@@ -110,6 +110,7 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.IntFunction;
 import javax.annotation.Nullable;
 import javax.net.ssl.SSLContext;
@@ -452,6 +453,68 @@ public class HttpCacheClientTest {
                       /* force= */ false)));
     } finally {
       testServer.stop(server);
+    }
+  }
+
+  @Test(timeout = 30000)
+  public void uploadsRetryAfterTimeout() throws Exception {
+    ServerChannel server = null;
+    HttpCacheClient blobStore = null;
+    ListeningScheduledExecutorService retryScheduler =
+        MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
+    try {
+      UploadRetryHandler handler = new UploadRetryHandler();
+      server = testServer.start(handler);
+
+      RemoteRetrier retrier =
+          new RemoteRetrier(
+              () -> new Retrier.ZeroBackoff(1),
+              HttpCacheClient.HTTP_RESULT_CLASSIFIER,
+              retryScheduler,
+              Retrier.ALLOW_ALL_CALLS);
+      blobStore =
+          createHttpBlobStore(
+              server,
+              /* timeoutSeconds= */ 1,
+              /* remoteVerifyDownloads= */ true,
+              /* creds= */ null,
+              Options.getDefaults(AuthAndTLSOptions.class),
+              Optional.of(retrier));
+      ByteString data = ByteString.copyFromUtf8("File Contents");
+      Digest digest = DIGEST_UTIL.compute(data.toByteArray());
+
+      getFromFuture(
+          blobStore.uploadBlob(remoteActionExecutionContext, digest, data, /* force= */ false));
+      getFromFuture(
+          blobStore.uploadActionResult(
+              remoteActionExecutionContext,
+              new ActionKey(digest),
+              ActionResult.newBuilder().setExitCode(1).build()));
+
+      assertThat(handler.requests.get()).isEqualTo(4);
+    } finally {
+      if (blobStore != null) {
+        blobStore.close();
+      }
+      retryScheduler.shutdownNow();
+      testServer.stop(server);
+    }
+  }
+
+  @Sharable
+  private static final class UploadRetryHandler
+      extends SimpleChannelInboundHandler<FullHttpRequest> {
+    private final AtomicInteger requests = new AtomicInteger();
+
+    @Override
+    protected void channelRead0(ChannelHandlerContext ctx, FullHttpRequest request) {
+      if (requests.incrementAndGet() % 2 == 1) {
+        return;
+      }
+      FullHttpResponse response =
+          new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK);
+      HttpUtil.setContentLength(response, 0);
+      ctx.writeAndFlush(response);
     }
   }
 
