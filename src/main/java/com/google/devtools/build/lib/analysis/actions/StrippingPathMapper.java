@@ -142,7 +142,11 @@ public final class StrippingPathMapper implements PathMapper {
     PathFragment outputRoot = action.getPrimaryOutput().getExecPath().subFragment(0, 1);
     if (isPathStrippable(
         Iterables.concat(
-            action.getInputs().toList(), action.getAdditionalArtifactsForPathMapping().toList()),
+            action.getInputs().toList(),
+            action.getAdditionalArtifactsForPathMapping().toList(),
+            action.discoversInputs()
+                ? action.getAllowedDerivedInputs().toList()
+                : ImmutableSet.of()),
         outputRoot,
         inputMetadataProvider)) {
       return Optional.of(
