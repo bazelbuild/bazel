@@ -71,7 +71,6 @@ DIST_ARCHIVE_REPOS = [
     "async_profiler_linux_arm64",
     "async_profiler_linux_x64",
     "async_profiler_macos",
-    "bazel_lib",
 ]]
 
 ##################################################################################
