@@ -334,8 +334,7 @@ final class FileDependencyDeserializer {
 
     return switch (getFileDependencies(parentKey, store)) {
       case FileDependencies parent -> waitForParent.apply(parent);
-      case FutureFileDependencies future ->
-          Futures.transformAsync(future, waitForParent, directExecutor());
+      case FutureFileDependencies future -> Futures.transformAsync(future, waitForParent, executor);
     };
   }
 
@@ -434,7 +433,7 @@ final class FileDependencyDeserializer {
     return switch (getFileDependencies(newParentKey, store)) {
       case FileDependencies resolvedParent -> waitForSymlinkParent.apply(resolvedParent);
       case FutureFileDependencies future ->
-          Futures.transformAsync(future, waitForSymlinkParent, directExecutor());
+          Futures.transformAsync(future, waitForSymlinkParent, executor);
     };
   }
 
@@ -626,7 +625,7 @@ final class FileDependencyDeserializer {
               case NestedDependencies dependencies -> elements[i] = dependencies;
               case FutureNestedDependencies future -> {
                 countdown.registerPendingElement();
-                Futures.addCallback(future, new WaitingForElement(i, countdown), directExecutor());
+                Futures.addCallback(future, new WaitingForElement(i, countdown), executor);
               }
             }
           }
@@ -638,7 +637,7 @@ final class FileDependencyDeserializer {
               case FileDependencies dependencies -> elements[i] = dependencies;
               case FutureFileDependencies future -> {
                 countdown.registerPendingElement();
-                Futures.addCallback(future, new WaitingForElement(i, countdown), directExecutor());
+                Futures.addCallback(future, new WaitingForElement(i, countdown), executor);
               }
             }
           }
@@ -650,7 +649,7 @@ final class FileDependencyDeserializer {
               case ListingDependencies dependencies -> elements[i] = dependencies;
               case FutureListingDependencies future -> {
                 countdown.registerPendingElement();
-                Futures.addCallback(future, new WaitingForElement(i, countdown), directExecutor());
+                Futures.addCallback(future, new WaitingForElement(i, countdown), executor);
               }
             }
           }
@@ -661,7 +660,7 @@ final class FileDependencyDeserializer {
               case FileDependencies dependencies -> sources[i] = dependencies;
               case FutureFileDependencies future -> {
                 countdown.registerPendingElement();
-                Futures.addCallback(future, new WaitingForSource(i, countdown), directExecutor());
+                Futures.addCallback(future, new WaitingForSource(i, countdown), executor);
               }
             }
           }
