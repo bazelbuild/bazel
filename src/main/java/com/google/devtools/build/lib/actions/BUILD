@@ -400,6 +400,7 @@ java_library(
         ":fileset_output_symlink",
         "//src/main/java/com/google/devtools/build/lib/skyframe:tree_artifact_value",
         "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/util:hash_codes",
         "//third_party:guava",
     ],
 )

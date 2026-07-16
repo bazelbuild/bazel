@@ -215,6 +215,10 @@ public final class ActionInputMap implements InputMetadataProvider {
       RunfilesArtifactValue runfilesMetadata = getRunfilesMetadata(input);
       return runfilesMetadata == null ? null : runfilesMetadata.getMetadata();
     }
+    if (isFileset(input)) {
+      FilesetOutputTree filesetOutput = getFileset(input);
+      return filesetOutput == null ? null : filesetOutput.getMetadata();
+    }
 
     if (input instanceof TreeFileArtifact treeFileArtifact) {
       SpecialArtifact parent = treeFileArtifact.getParent();
