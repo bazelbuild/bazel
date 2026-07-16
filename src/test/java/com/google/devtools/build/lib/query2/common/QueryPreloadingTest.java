@@ -557,4 +557,61 @@ public class QueryPreloadingTest extends QueryPreloadingTestCase {
     assertLabelsVisited(
         ImmutableSet.of("//hassub:zzz"), ImmutableSet.of("//hassub:zzz"), !KEEP_GOING);
   }
+
+  @Test
+  public void testPreloadingCycleNoKeepGoingDoesNotCorruptSubsequentEvaluationAfterBuildFileChange()
+      throws Exception {
+    reporter.removeHandler(failFastHandler); // expect errors
+
+    scratch.file(
+        "pkg_cycle/BUILD",
+        """
+        load('//test_defs:foo_library.bzl', 'foo_library')
+        foo_library(name = 'cycle_a', deps = ['cycle_b'])
+        foo_library(name = 'cycle_b', deps = ['cycle_a'])
+        """);
+    scratch.file(
+        "pkg_good/BUILD",
+        """
+        load('//test_defs:foo_library.bzl', 'foo_library')
+        foo_library(name = 'good', deps = ['good_dep'])
+        foo_library(name = 'good_dep')
+        """);
+    scratch.file(
+        "pkg_top/BUILD",
+        """
+        load('//test_defs:foo_library.bzl', 'foo_library')
+        foo_library(name = 'top', deps = ['//pkg_cycle:cycle_a', '//pkg_good:good'])
+        """);
+
+    assertLabelsVisited(
+        ImmutableSet.of("//pkg_top:top"), ImmutableSet.of("//pkg_top:top"), !KEEP_GOING);
+
+    // Now fix the cycle in pkg_cycle/BUILD and perform a subsequent evaluation on //pkg_top:top.
+    // Regression test for b/456225011: when detectCycles=false and keepGoing=false during
+    // preloadTransitiveTargets, ShortCircuitingCycleDetector must not mark cycle nodes as DONE.
+    // If they were prematurely marked DONE with a dummy non-cycle exception instead of being left
+    // inflight and deleted, a subsequent evaluation after a BUILD file change can hit incomplete
+    // or corrupted graph state (e.g. missing transitive dependencies like //pkg_good:good_dep that
+    // were stopped mid-flight during the initial nokeep_going preloading).
+    scratch.overwriteFile(
+        "pkg_cycle/BUILD",
+        """
+        load('//test_defs:foo_library.bzl', 'foo_library')
+        foo_library(name = 'cycle_a', deps = ['cycle_b'])
+        foo_library(name = 'cycle_b')
+        """);
+    syncPackages();
+
+    reporter.addHandler(failFastHandler);
+    assertLabelsVisited(
+        ImmutableSet.of(
+            "//pkg_top:top",
+            "//pkg_cycle:cycle_a",
+            "//pkg_cycle:cycle_b",
+            "//pkg_good:good",
+            "//pkg_good:good_dep"),
+        ImmutableSet.of("//pkg_top:top"),
+        !KEEP_GOING);
+  }
 }
