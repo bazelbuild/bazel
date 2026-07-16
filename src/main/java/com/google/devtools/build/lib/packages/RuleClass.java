@@ -124,12 +124,12 @@ public class RuleClass implements RuleClassData {
           .build();
 
   /**
-   * Maximum attributes per RuleClass. Current value was chosen to be high enough to be considered a
-   * non-breaking change for reasonable use. It was also chosen to be low enough to give significant
-   * headroom before hitting limits imposed by the compact attribute value storage strategy in
-   * {@link Rule}.
+   * Maximum attributes per RuleClass or {@link MacroClass}. Current value was chosen to be high
+   * enough to be considered a non-breaking change for reasonable use. It was also chosen to be low
+   * enough to give significant headroom before hitting limits imposed by the compact attribute
+   * value storage strategy in {@link Rule}.
    */
-  private static final int MAX_ATTRIBUTES = 200;
+  public static final int MAX_ATTRIBUTES = 200;
 
   /**
    * Maximum attribute name length. Chosen to accommodate existing and prevent extreme outliers from
@@ -2229,8 +2229,8 @@ public class RuleClass implements RuleClassData {
    * #getRuleDefinitionEnvironmentLabel()} and {@link #getStarlarkExtensionLabel()} may differ.
    */
   // TODO(b/366027483): unify starlarkExtensionLabel and ruleDefinitionEnvironmentLabel.
-  @Override
   @Nullable
+  @Override
   public Label getRuleDefinitionEnvironmentLabel() {
     return ruleDefinitionEnvironmentLabel;
   }

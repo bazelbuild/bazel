@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.StoredEventHandler;
+import com.google.devtools.build.lib.packages.MacroClass.TooManyAttributesException;
 import com.google.devtools.build.lib.packages.Package.Builder.PackageSettings;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.TargetRecorder.MacroFrame;
@@ -256,7 +257,7 @@ def fail_impl(name, visibility, **kwargs):
         .setLoads(ImmutableList.of());
   }
 
-  private PackagePiece.ForMacro.Builder minimalMacroPieceBuilder(
+  private static PackagePiece.ForMacro.Builder minimalMacroPieceBuilder(
       MacroInstance macro,
       PackagePieceIdentifier parentIdentifier,
       PackagePiece.ForBuildFile pieceForBuildFile) {
@@ -291,14 +292,14 @@ def fail_impl(name, visibility, **kwargs):
     return rule;
   }
 
-  private MacroClass noopMacroClass(String name) {
+  private MacroClass noopMacroClass(String name) throws TooManyAttributesException {
     return new MacroClass.Builder(noopMacroImplementation)
         .setName(name)
         .setDefiningBzlLabel(FAKE_BZL_LABEL)
         .build();
   }
 
-  private MacroClass failMacroClass(String name) {
+  private MacroClass failMacroClass(String name) throws TooManyAttributesException {
     return new MacroClass.Builder(failMacroImplementation)
         .setName(name)
         .setDefiningBzlLabel(FAKE_BZL_LABEL)
@@ -306,7 +307,7 @@ def fail_impl(name, visibility, **kwargs):
   }
 
   @CanIgnoreReturnValue
-  private MacroInstance addMacro(
+  private static MacroInstance addMacro(
       TargetDefinitionContext targetDefinitionContext,
       MacroClass macroClass,
       String macroInstanceName)

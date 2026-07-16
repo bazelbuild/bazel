@@ -85,6 +85,7 @@ import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.StarlarkIm
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.StarlarkImplicitOutputsFunctionWithMap;
 import com.google.devtools.build.lib.packages.LabelConverter;
 import com.google.devtools.build.lib.packages.MacroClass;
+import com.google.devtools.build.lib.packages.MacroClass.TooManyAttributesException;
 import com.google.devtools.build.lib.packages.MacroInstance;
 import com.google.devtools.build.lib.packages.PredicateWithMessage;
 import com.google.devtools.build.lib.packages.Rule;
@@ -1656,7 +1657,11 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       checkState(builder != null && macroClass == null);
       builder.setName(exportedName);
       builder.setDefiningBzlLabel(starlarkLabel);
-      this.macroClass = builder.build();
+      try {
+        this.macroClass = builder.build();
+      } catch (TooManyAttributesException ex) {
+        handler.handle(Event.error(exportedLocation, ex.getMessage()));
+      }
       this.builder = null;
       checkArgument(
           identityToken.getOwner().getLabel().equals(starlarkLabel),

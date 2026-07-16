@@ -64,7 +64,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
     }
   }
 
-  private void assertPackageNotInError(@Nullable Package pkg) {
+  private static void assertPackageNotInError(@Nullable Package pkg) {
     assertThat(pkg).isNotNull();
     assertThat(pkg.containsErrors()).isFalse();
   }
@@ -96,7 +96,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
    * Retrieves the visibility labels of the macro with the given id, which must exist in the
    * package.
    */
-  private static ImmutableList<String> getMacroVisibility(Package pkg, String id) throws Exception {
+  private static ImmutableList<String> getMacroVisibility(Package pkg, String id) {
     return asStringList(getMacroById(pkg, id).getActualVisibility());
   }
 
@@ -2408,7 +2408,33 @@ my_macro = macro(
     assertPackageNotInError(getPackage("pkg"));
   }
 
-  private void assertMacroHasAttributes(MacroInstance macro, ImmutableList<String> attributeNames) {
+  @Test
+  public void tooManyAttributesDeclared_failsWithEvent() throws Exception {
+    scratch.file(
+        "pkg/foo.bzl",
+        "N = %d".formatted(RuleClass.MAX_ATTRIBUTES + 1),
+        """
+        def _impl(name, visibility):
+            pass
+        my_macro = macro(
+            implementation = _impl,
+            attrs = {"attr_%d" % i: attr.string() for i in range(N)},
+        )
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load(":foo.bzl", "my_macro")
+        my_macro(name = "abc")
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    assertThat(getPackage("pkg")).isNull();
+    assertContainsEvent("Macro class my_macro declared too many attributes");
+  }
+
+  private static void assertMacroHasAttributes(
+      MacroInstance macro, ImmutableList<String> attributeNames) {
     for (String attributeName : attributeNames) {
       assertThat(
               macro.getMacroClass().getAttributeProvider().getAttributeByNameMaybe(attributeName))
@@ -2416,7 +2442,7 @@ my_macro = macro(
     }
   }
 
-  private void assertMacroDoesNotHaveAttributes(
+  private static void assertMacroDoesNotHaveAttributes(
       MacroInstance macro, ImmutableList<String> attributeNames) {
     for (String attributeName : attributeNames) {
       assertThat(
