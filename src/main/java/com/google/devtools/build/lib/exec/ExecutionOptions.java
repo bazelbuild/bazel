@@ -275,7 +275,7 @@ public abstract class ExecutionOptions extends OptionsBase {
   @Option(
       name = "test_tmpdir",
       defaultValue = "null",
-      converter = OptionsUtils.PathFragmentConverter.class,
+      converter = OptionsUtils.EmptyToNullPathFragmentConverter.class,
       documentationCategory = OptionDocumentationCategory.TESTING,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Specifies the base temporary directory for 'bazel test' to use.")
