@@ -37,6 +37,7 @@ expected_modules=(
   abseil-cpp
   apple_support
   bazel_features
+  bazel_lib
   bazel_skylib
   buildozer
   googletest
