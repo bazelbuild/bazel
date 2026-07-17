@@ -664,10 +664,10 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
       return;
     }
 
-    for (PackageSpecificationProvider transitiveVisibilityDeclaration :
+    for (TransitiveVisibilityProvider.Requirement requirement :
         tvProvider.getTransitiveVisibility()) {
       if (!Allowlist.isAvailableFor(
-          transitiveVisibilityDeclaration.getPackageSpecifications(),
+          requirement.getAllowedPackages().getPackageSpecifications(),
           contextBuilder.getRule().getLabel())) {
         contextBuilder.attributeError(
             attribute.getName(),

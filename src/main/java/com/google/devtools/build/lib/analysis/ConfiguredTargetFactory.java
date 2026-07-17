@@ -186,7 +186,7 @@ public final class ConfiguredTargetFactory {
   }
 
   @Nullable
-  private PackageSpecificationProvider getTransitiveVisibilityForCurrentPackage(
+  private TransitiveVisibilityProvider.Requirement getTransitiveVisibilityForCurrentPackage(
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap,
       EventHandler reporter,
       Target target) {
@@ -206,8 +206,9 @@ public final class ConfiguredTargetFactory {
               String.format(
                   "Label '%s' in transitive_visibility does not refer to a package group",
                   tvLabel)));
+      return null;
     }
-    return provider;
+    return new TransitiveVisibilityProvider.Requirement(provider, tvLabel);
   }
 
   /**
@@ -275,7 +276,7 @@ public final class ConfiguredTargetFactory {
     // have no config, so we can't check whether --experimental_enforce_transitive_visibility is
     // set. Some unnecessary memory cost here, but no enforcement because we'll also check for the
     // flag where the provider is read.
-    PackageSpecificationProvider transitiveVisibility =
+    TransitiveVisibilityProvider.Requirement transitiveVisibility =
         (config != null && config.enforceTransitiveVisibility()) || target instanceof InputFile
             ? getTransitiveVisibilityForCurrentPackage(
                 prerequisiteMap, analysisEnvironment.getEventHandler(), target)

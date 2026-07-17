@@ -1453,7 +1453,10 @@ public class RuleContext extends TargetContext
     private ConfigConditions configConditions;
     private Mutability mutability;
     private NestedSet<PackageGroupContents> visibility;
-    @Nullable private PackageSpecificationProvider transitiveVisibilityImposedByThisPackage;
+
+    @Nullable
+    private TransitiveVisibilityProvider.Requirement transitiveVisibilityImposedByThisPackage;
+
     private ToolchainCollection<ResolvedToolchainContext> toolchainContexts;
     private ToolchainCollection<AspectBaseTargetResolvedToolchainContext>
         baseTargetToolchainContexts;
@@ -1646,7 +1649,7 @@ public class RuleContext extends TargetContext
 
     @CanIgnoreReturnValue
     public Builder setTransitiveVisibilityImposedByThisPackage(
-        @Nullable PackageSpecificationProvider transitiveVisibility) {
+        @Nullable TransitiveVisibilityProvider.Requirement transitiveVisibility) {
       this.transitiveVisibilityImposedByThisPackage = transitiveVisibility;
       return this;
     }

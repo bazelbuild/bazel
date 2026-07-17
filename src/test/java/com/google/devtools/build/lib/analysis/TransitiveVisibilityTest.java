@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.analysis;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.cmdline.Label;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -285,12 +286,37 @@ public class TransitiveVisibilityTest extends BuildViewTestCase {
             + " dependencies that does not allow //a:a");
   }
 
+  @Test
+  public void targetWithMultipleTransitiveVisibilities_hasAllLabels() throws Exception {
+    useConfiguration("--experimental_enforce_transitive_visibility=true");
+    scratch.file(
+        "d1/BUILD",
+        "package(transitive_visibility = ':tv_d1')",
+        "package_group(name = 'tv_d1', packages = ['//...'])",
+        "genrule(name = 'd1', outs = ['d1.out'], cmd = 'touch $@')");
+    scratch.file(
+        "d2/BUILD",
+        "package(transitive_visibility = ':tv_d2')",
+        "package_group(name = 'tv_d2', packages = ['//...'])",
+        "genrule(name = 'd2', outs = ['d2.out'], cmd = 'touch $@')");
+    scratch.file(
+        "pkg/BUILD",
+        "genrule(name = 'target', srcs = ['//d1', '//d2'], outs = ['target.out'], cmd = 'touch"
+            + " $@')");
+
+    ConfiguredTarget target = getConfiguredTarget("//pkg:target");
+    TransitiveVisibilityProvider provider = target.getProvider(TransitiveVisibilityProvider.class);
+    assertThat(provider).isNotNull();
+    assertThat(provider.getTransitiveVisibilityLabels())
+        .containsExactly(Label.parseCanonical("//d1:tv_d1"), Label.parseCanonical("//d2:tv_d2"));
+  }
+
   private void assertTransitiveVisibilityContainsPackages(
       TransitiveVisibilityProvider provider, String... packages) throws Exception {
     assertThat(provider).isNotNull();
     for (String pkg : packages) {
-      for (PackageSpecificationProvider restrictionSet : provider.getTransitiveVisibility()) {
-        assertThat(restrictionSet.targetInAllowlist(pkg)).isTrue();
+      for (TransitiveVisibilityProvider.Requirement decl : provider.getTransitiveVisibility()) {
+        assertThat(decl.getAllowedPackages().targetInAllowlist(pkg)).isTrue();
       }
     }
   }
