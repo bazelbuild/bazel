@@ -886,6 +886,19 @@ public final class BazelRulesModule extends BlazeModule {
   @OptionsClass
   public abstract static class AllCommandGraveyardOptions extends OptionsBase {
 
+    /**
+     * @deprecated flag is a no-op, will be deleted in a future Bazel release
+     */
+    @Deprecated
+    @Option(
+        name = "incompatible_enable_cc_toolchain_resolution",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE, OptionMetadataTag.DEPRECATED},
+        help = "Deprecated no-op.")
+    public abstract boolean getEnableCcToolchainResolution();
+
     @Deprecated
     @Option(
         name = "incompatible_autoload_externally",
