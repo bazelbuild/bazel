@@ -94,7 +94,7 @@ public abstract class CompressedTarFunction implements Decompressor {
         entryName = renameFiles.getOrDefault(entryName, entryName);
         StripPrefixedPath entryPath =
             StripPrefixedPath.maybeDeprefix(
-                entryName.getBytes(ISO_8859_1), prefix, stripComponents);
+                entryName.getBytes(ISO_8859_1), prefix.orElse(""), stripComponents);
         foundPrefix = foundPrefix || entryPath.foundPrefix();
 
         if (prefix.isPresent() && !foundPrefix) {
@@ -128,7 +128,7 @@ public abstract class CompressedTarFunction implements Decompressor {
             PathFragment targetName =
                 maybeDeprefixSymlink(
                     toRawBytesString(entry.getLinkName()).getBytes(ISO_8859_1),
-                    prefix,
+                    prefix.orElse(""),
                     stripComponents,
                     descriptor.destinationPath(),
                     // Hard link target paths should be relative to the extraction directory.

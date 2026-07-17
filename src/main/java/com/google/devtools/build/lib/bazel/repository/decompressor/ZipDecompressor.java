@@ -92,7 +92,7 @@ public class ZipDecompressor implements Decompressor {
         String entryName = entry.getName();
         entryName = renameFiles.getOrDefault(entryName, entryName);
         StripPrefixedPath entryPath =
-            StripPrefixedPath.maybeDeprefix(entryName.getBytes(UTF_8), prefix, stripComponents);
+            StripPrefixedPath.maybeDeprefix(entryName.getBytes(UTF_8), prefix.orElse(""), stripComponents);
         foundPrefix = foundPrefix || entryPath.foundPrefix();
         if (entryPath.skip()) {
           continue;
@@ -111,7 +111,7 @@ public class ZipDecompressor implements Decompressor {
         Set<String> prefixes = new HashSet<>();
         for (ZipFileEntry entry : entries) {
           StripPrefixedPath entryPath =
-              StripPrefixedPath.maybeDeprefix(entry.getName().getBytes(UTF_8), Optional.empty(), 0);
+              StripPrefixedPath.maybeDeprefix(entry.getName().getBytes(UTF_8), "", 0);
           CouldNotFindPrefixException.maybeMakePrefixSuggestion(entryPath.getPathFragment())
               .ifPresent(prefixes::add);
         }
@@ -175,7 +175,7 @@ public class ZipDecompressor implements Decompressor {
       symlinks.put(
           outputPath,
           maybeDeprefixSymlink(
-              buffer, prefix, stripComponents, destinationDirectory, /* forceExtractRootRelative= */ false));
+              buffer, prefix.orElse(""), stripComponents, destinationDirectory, /* forceExtractRootRelative= */ false));
     } else {
       try (InputStream input = reader.getInputStream(entry);
           OutputStream output = outputPath.getOutputStream()) {

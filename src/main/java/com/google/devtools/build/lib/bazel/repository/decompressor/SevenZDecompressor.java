@@ -83,7 +83,7 @@ public class SevenZDecompressor implements Decompressor {
         }
         entryName = renameFiles.getOrDefault(entryName, entryName);
         StripPrefixedPath entryPath =
-            StripPrefixedPath.maybeDeprefix(entryName.getBytes(UTF_8), prefix, stripComponents);
+            StripPrefixedPath.maybeDeprefix(entryName.getBytes(UTF_8), prefix.orElse(""), stripComponents);
         foundPrefix = foundPrefix || entryPath.foundPrefix();
         if (entryPath.skip()) {
           continue;
@@ -95,7 +95,7 @@ public class SevenZDecompressor implements Decompressor {
         Set<String> prefixes = new HashSet<>();
         for (SevenZArchiveEntry entry : entries) {
           StripPrefixedPath entryPath =
-              StripPrefixedPath.maybeDeprefix(entry.getName().getBytes(UTF_8), Optional.empty(), 0);
+              StripPrefixedPath.maybeDeprefix(entry.getName().getBytes(UTF_8), "", 0);
           CouldNotFindPrefixException.maybeMakePrefixSuggestion(entryPath.getPathFragment())
               .ifPresent(prefixes::add);
         }

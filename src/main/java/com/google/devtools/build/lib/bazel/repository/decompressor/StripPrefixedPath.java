@@ -51,9 +51,9 @@ public final class StripPrefixedPath {
    *
    * Only one of <code>prefix</code> or <code>stripComponents</code> is allowed.
    */
-  public static StripPrefixedPath maybeDeprefix(byte[] entry, Optional<String> prefix, int stripComponents) {
+  public static StripPrefixedPath maybeDeprefix(byte[] entry, String prefix, int stripComponents) {
     Preconditions.checkNotNull(entry);
-    Preconditions.checkArgument(!(prefix.isPresent() && !prefix.get().isEmpty() && stripComponents != 0),
+    Preconditions.checkArgument(!(!prefix.isEmpty() && stripComponents != 0),
         "Only one of prefix or strip_components can be set.");
 
     PathFragment entryPath = relativize(entry);
@@ -64,14 +64,14 @@ public final class StripPrefixedPath {
     }
   }
 
-  private static StripPrefixedPath maybeStripPrefix(PathFragment entryPath, Optional<String> prefix) {
+  private static StripPrefixedPath maybeStripPrefix(PathFragment entryPath, String prefix) {
     if (prefix.isEmpty()) {
       return new StripPrefixedPath(entryPath, false, false);
     }
 
     // Bazel parses Starlark files, which are the ultimate source of prefixes, as Latin-1
     // (ISO-8859-1).
-    PathFragment prefixPath = relativize(prefix.get().getBytes(ISO_8859_1));
+    PathFragment prefixPath = relativize(prefix.getBytes(ISO_8859_1));
     boolean found = false;
     boolean skip = false;
     if (entryPath.startsWith(prefixPath)) {
@@ -116,7 +116,7 @@ public final class StripPrefixedPath {
   }
 
   public static PathFragment maybeDeprefixSymlink(
-      byte[] rawTarget, Optional<String> prefix, int stripComponents, Path root) {
+      byte[] rawTarget, String prefix, int stripComponents, Path root) {
     return maybeDeprefixSymlink(rawTarget, prefix, stripComponents, root, false);
   }
 
@@ -144,11 +144,11 @@ public final class StripPrefixedPath {
    */
   public static PathFragment maybeDeprefixSymlink(
       byte[] rawTarget,
-      Optional<String> prefix,
+      String prefix,
       int stripComponents,
       Path root,
       boolean forceExtractRootRelative) {
-    Preconditions.checkArgument(!(prefix.isPresent() && !prefix.get().isEmpty() && stripComponents != 0),
+    Preconditions.checkArgument(!(!prefix.isEmpty() && stripComponents != 0),
         "Only one of prefix or strip_components can be set.");
     boolean wasAbsolute = createPathFragment(rawTarget).isAbsolute();
     if (wasAbsolute || forceExtractRootRelative) {
