@@ -271,7 +271,7 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
     var repoDirectory = finalEntry.repoDirectory();
     var repoDirectoryContentFuture =
         transformAsync(
-            cache.downloadBlob(
+            cache.downloadBlobAsByteString(
                 context, REPO_DIRECTORY_PATH, /* execPath= */ null, repoDirectory.getTreeDigest()),
             (treeBytes) -> immediateFuture(Tree.parseFrom(treeBytes)),
             directExecutor());

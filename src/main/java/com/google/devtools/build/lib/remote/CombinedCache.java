@@ -469,6 +469,28 @@ public class CombinedCache extends AbstractReferenceCounted {
     return Futures.transform(download, (v) -> bOut.toByteArray(), directExecutor());
   }
 
+  /**
+   * Downloads a blob with content hash {@code digest} and stores its content in memory.
+   *
+   * <p>Unlike {@link #downloadBlob(RemoteActionExecutionContext, String, PathFragment, Digest)},
+   * the content is returned as a {@link ByteString} without an extra copy of the downloaded bytes.
+   *
+   * @return a future that completes after the download completes (succeeds / fails). If successful,
+   *     the content is stored in the future's {@link ByteString}.
+   */
+  public ListenableFuture<ByteString> downloadBlobAsByteString(
+      RemoteActionExecutionContext context,
+      String blobName,
+      @Nullable PathFragment execPath,
+      Digest digest) {
+    if (digest.getSizeBytes() == 0) {
+      return immediateFuture(ByteString.empty());
+    }
+    ByteString.Output bOut = ByteString.newOutput((int) digest.getSizeBytes());
+    var download = downloadBlob(context, blobName, execPath, digest, bOut);
+    return Futures.transform(download, (v) -> bOut.toByteString(), directExecutor());
+  }
+
   private ListenableFuture<Void> downloadBlob(
       RemoteActionExecutionContext context,
       String blobName,
