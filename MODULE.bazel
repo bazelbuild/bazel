@@ -453,6 +453,15 @@ use_repo(
     "async_profiler_macos",
 )
 
+# Needed during bootstrap compilation. The module extension here is explicitly
+# marked non-reproducible so that it gets included into the lock file and
+# therefore included into the distfile.
+dist_repos = use_extension("//:repositories.bzl", "dist_repos")
+use_repo(
+    dist_repos,
+    "bats_core",
+)
+
 # =========================================
 # Other Bazel testing dependencies
 # =========================================

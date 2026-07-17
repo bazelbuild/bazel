@@ -18,7 +18,7 @@
 
 load("@rules_graalvm//graalvm:repositories.bzl", "graalvm_repository")
 load("//:distdir.bzl", "repo_cache_tar")
-load("//:repositories.bzl", "DIST_ARCHIVE_REPOS", "bats_core_deps", "embedded_jdk_repositories")
+load("//:repositories.bzl", "DIST_ARCHIVE_REPOS", "embedded_jdk_repositories")
 load("//src/tools/bzlmod:utils.bzl", "parse_bazel_module_repos")
 load("//tools/distributions/debian:deps.bzl", "debian_deps")
 
@@ -54,7 +54,6 @@ def _bazel_build_deps(ctx):
         java_version = "25",
         version = "25.0.3",
     )
-    bats_core_deps()
     return ctx.extension_metadata(reproducible = True)
 
 bazel_build_deps = module_extension(implementation = _bazel_build_deps)
