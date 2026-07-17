@@ -468,6 +468,14 @@ public class InMemoryFileSystem extends FileSystem {
 
   @Override
   public boolean createDirectory(PathFragment path) throws IOException {
+    return createDirectory(path, /* expectedChildCount= */ -1);
+  }
+
+  /**
+   * Like {@link #createDirectory(PathFragment)}, but if the directory is created and {@code
+   * expectedChildCount} is non-negative, presizes its entry map for that number of children.
+   */
+  public boolean createDirectory(PathFragment path, int expectedChildCount) throws IOException {
     if (isRootDirectory(path)) {
       throw Errno.EACCES.exception(path);
     }
@@ -484,7 +492,8 @@ public class InMemoryFileSystem extends FileSystem {
         }
         return false;
       }
-      error = insertChildDirectory(parent, new InMemoryDirectoryInfo(clock), name);
+      error =
+          insertChildDirectory(parent, new InMemoryDirectoryInfo(clock, expectedChildCount), name);
     }
     if (error != null) {
       throw error.exception(path);

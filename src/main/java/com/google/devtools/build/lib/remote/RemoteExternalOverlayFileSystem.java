@@ -215,6 +215,7 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
             .collect(
                 toImmutableMap(cache.digestUtil::compute, directory -> directory, (a, b) -> a));
     var filesToPrefetch = new ArrayList<PathFragment>();
+    externalFs.createDirectoryAndParents(repoDir.getParentDirectory());
     injectRecursively(
         externalFs,
         repoDir,
@@ -251,7 +252,10 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
       Consumer<PathFragment> filesToPrefetch,
       Instant expirationTime)
       throws IOException {
-    fs.createDirectoryAndParents(path);
+    // The parent directory always exists at this point: the repo's parent is created by
+    // injectRemoteRepo and subdirectories are only visited after their parent has been created.
+    fs.createDirectory(
+        path, dir.getFilesCount() + dir.getSymlinksCount() + dir.getDirectoriesCount());
     for (var file : dir.getFilesList()) {
       var filePath = path.getRelative(unicodeToInternal(file.getName()));
       if (shouldPrefetch(filePath)) {
