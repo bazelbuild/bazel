@@ -40,6 +40,7 @@ DIST_ARCHIVE_REPOS = [
     "grpc+",
     "grpc-java+",
     "opencensus-cpp+",
+    "package_metadata+",
     "platforms",
     "protobuf+",
     "protoc-gen-validate+",
