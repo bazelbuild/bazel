@@ -47,7 +47,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.SequencedMap;
 import java.util.Set;
-import javax.annotation.Nullable;
 
 /**
  * A diff class for BuildOptions. Fields are meant to be populated and returned by {@link
@@ -65,13 +64,7 @@ public final class OptionsDiff {
       Map<Label, Object> starlarkFirst,
       Map<Label, Object> starlarkSecond,
       List<Label> extraStarlarkOptionsFirst,
-      SequencedMap<Label, Object> extraStarlarkOptionsSecond,
-      Map<Label, Scope.ScopeType> extraStarlarkOptionsSecondScopes,
-      Map<Label, Object> extraStarlarkOptionsSecondOnLeaveValues,
-      Map<Label, Scope.ScopeType> starlarkFirstScopes,
-      Map<Label, Scope.ScopeType> starlarkSecondScopes,
-      Map<Label, Object> starlarkFirstOnLeaveValues,
-      Map<Label, Object> starlarkSecondOnLeaveValues) {
+      SequencedMap<Label, Object> extraStarlarkOptionsSecond) {
     this.differingOptions.putAll(differingOptions);
     this.first.putAll(first);
     this.second.putAll(second);
@@ -81,12 +74,6 @@ public final class OptionsDiff {
     this.starlarkSecond.putAll(starlarkSecond);
     this.extraStarlarkOptionsFirst.addAll(extraStarlarkOptionsFirst);
     this.extraStarlarkOptionsSecond.putAll(extraStarlarkOptionsSecond);
-    this.extraStarlarkOptionsSecondScopes.putAll(extraStarlarkOptionsSecondScopes);
-    this.extraStarlarkOptionsSecondOnLeaveValues.putAll(extraStarlarkOptionsSecondOnLeaveValues);
-    this.starlarkFirstScopes.putAll(starlarkFirstScopes);
-    this.starlarkSecondScopes.putAll(starlarkSecondScopes);
-    this.starlarkFirstOnLeaveValues.putAll(starlarkFirstOnLeaveValues);
-    this.starlarkSecondOnLeaveValues.putAll(starlarkSecondOnLeaveValues);
     this.hasStarlarkOptions =
         !this.starlarkFirst.isEmpty()
             || !this.starlarkSecond.isEmpty()
@@ -158,10 +145,6 @@ public final class OptionsDiff {
     // Compare Starlark options for the two classes.
     ImmutableMap<Label, Object> starlarkFirst = first.getStarlarkOptions();
     ImmutableMap<Label, Object> starlarkSecond = second.getStarlarkOptions();
-    ImmutableMap<Label, Scope.ScopeType> scopesFirst = first.getScopeTypeMap();
-    ImmutableMap<Label, Scope.ScopeType> scopesSecond = second.getScopeTypeMap();
-    ImmutableMap<Label, Object> onLeaveFirst = first.getOnLeaveScopeValues();
-    ImmutableMap<Label, Object> onLeaveSecond = second.getOnLeaveScopeValues();
 
     Set<Label> allStarlarkKeys = new LinkedHashSet<>();
     allStarlarkKeys.addAll(starlarkFirst.keySet());
@@ -169,53 +152,12 @@ public final class OptionsDiff {
 
     for (Label buildSetting : allStarlarkKeys) {
       if (!starlarkFirst.containsKey(buildSetting)) {
-        diff.addExtraSecondStarlarkOption(
-            buildSetting,
-            starlarkSecond.get(buildSetting),
-            scopesSecond.get(buildSetting),
-            onLeaveSecond.get(buildSetting));
+        diff.addExtraSecondStarlarkOption(buildSetting, starlarkSecond.get(buildSetting));
       } else if (!starlarkSecond.containsKey(buildSetting)) {
         diff.addExtraFirstStarlarkOption(buildSetting);
-      } else {
-        boolean valuesDifferent =
-            !starlarkFirst.get(buildSetting).equals(starlarkSecond.get(buildSetting));
-        boolean scopesDifferent =
-            !Objects.equals(scopesFirst.get(buildSetting), scopesSecond.get(buildSetting));
-        boolean onLeavesDifferent =
-            !Objects.equals(onLeaveFirst.get(buildSetting), onLeaveSecond.get(buildSetting));
-
-        // If the values are different, we report the diff for the values, scopes, and on-leave
-        // values. If the values are the same, we only report the diff for the
-        // scopes and on-leave values. The reason for this is that @{link
-        // OutputPathMnemonicComputer} calls @{link getChangedStarlarkOptions}
-        // to compute the configuration segment of output paths. We want the
-        // metadata to be in the diff for serialization purposes but metadata
-        // should not affect the configuration segment (ST-<hash>) of output
-        // paths.
-        if (valuesDifferent) {
-          diff.putStarlarkDiff(
-              buildSetting,
-              starlarkFirst.get(buildSetting),
-              starlarkSecond.get(buildSetting),
-              scopesFirst.get(buildSetting),
-              scopesSecond.get(buildSetting),
-              onLeaveFirst.get(buildSetting),
-              onLeaveSecond.get(buildSetting));
-        } else if (scopesDifferent || onLeavesDifferent) {
-          if (scopesFirst.containsKey(buildSetting)) {
-            diff.starlarkFirstScopes.put(buildSetting, scopesFirst.get(buildSetting));
-          }
-          if (scopesSecond.containsKey(buildSetting)) {
-            diff.starlarkSecondScopes.put(buildSetting, scopesSecond.get(buildSetting));
-          }
-          if (onLeaveFirst.containsKey(buildSetting)) {
-            diff.starlarkFirstOnLeaveValues.put(buildSetting, onLeaveFirst.get(buildSetting));
-          }
-          if (onLeaveSecond.containsKey(buildSetting)) {
-            diff.starlarkSecondOnLeaveValues.put(buildSetting, onLeaveSecond.get(buildSetting));
-          }
-          diff.hasStarlarkOptions = true;
-        }
+      } else if (!starlarkFirst.get(buildSetting).equals(starlarkSecond.get(buildSetting))) {
+        diff.putStarlarkDiff(
+            buildSetting, starlarkFirst.get(buildSetting), starlarkSecond.get(buildSetting));
       }
     }
     return diff;
@@ -244,17 +186,6 @@ public final class OptionsDiff {
 
   private final List<Label> extraStarlarkOptionsFirst = new ArrayList<>();
   private final SequencedMap<Label, Object> extraStarlarkOptionsSecond = new LinkedHashMap<>();
-
-  // Starlark option metadata difference maps
-  private final SequencedMap<Label, Scope.ScopeType> extraStarlarkOptionsSecondScopes =
-      new LinkedHashMap<>();
-  private final SequencedMap<Label, Object> extraStarlarkOptionsSecondOnLeaveValues =
-      new LinkedHashMap<>();
-
-  private final SequencedMap<Label, Scope.ScopeType> starlarkFirstScopes = new LinkedHashMap<>();
-  private final SequencedMap<Label, Scope.ScopeType> starlarkSecondScopes = new LinkedHashMap<>();
-  private final SequencedMap<Label, Object> starlarkFirstOnLeaveValues = new LinkedHashMap<>();
-  private final SequencedMap<Label, Object> starlarkSecondOnLeaveValues = new LinkedHashMap<>();
 
   private boolean hasStarlarkOptions = false;
 
@@ -305,28 +236,9 @@ public final class OptionsDiff {
     extraSecondFragments.add(options);
   }
 
-  private void putStarlarkDiff(
-      Label buildSetting,
-      Object firstValue,
-      Object secondValue,
-      @Nullable Scope.ScopeType firstScope,
-      @Nullable Scope.ScopeType secondScope,
-      @Nullable Object firstOnLeave,
-      @Nullable Object secondOnLeave) {
+  private void putStarlarkDiff(Label buildSetting, Object firstValue, Object secondValue) {
     starlarkFirst.put(buildSetting, firstValue);
     starlarkSecond.put(buildSetting, secondValue);
-    if (firstScope != null) {
-      starlarkFirstScopes.put(buildSetting, firstScope);
-    }
-    if (secondScope != null) {
-      starlarkSecondScopes.put(buildSetting, secondScope);
-    }
-    if (firstOnLeave != null) {
-      starlarkFirstOnLeaveValues.put(buildSetting, firstOnLeave);
-    }
-    if (secondOnLeave != null) {
-      starlarkSecondOnLeaveValues.put(buildSetting, secondOnLeave);
-    }
     hasStarlarkOptions = true;
   }
 
@@ -335,40 +247,9 @@ public final class OptionsDiff {
     hasStarlarkOptions = true;
   }
 
-  private void addExtraSecondStarlarkOption(
-      Label buildSetting, Object value, @Nullable Scope.ScopeType scope, @Nullable Object onLeave) {
+  private void addExtraSecondStarlarkOption(Label buildSetting, Object value) {
     extraStarlarkOptionsSecond.put(buildSetting, value);
-    if (scope != null) {
-      extraStarlarkOptionsSecondScopes.put(buildSetting, scope);
-    }
-    if (onLeave != null) {
-      extraStarlarkOptionsSecondOnLeaveValues.put(buildSetting, onLeave);
-    }
     hasStarlarkOptions = true;
-  }
-
-  public Map<Label, Scope.ScopeType> getExtraStarlarkOptionsSecondScopes() {
-    return extraStarlarkOptionsSecondScopes;
-  }
-
-  public Map<Label, Object> getExtraStarlarkOptionsSecondOnLeaveValues() {
-    return extraStarlarkOptionsSecondOnLeaveValues;
-  }
-
-  public Map<Label, Scope.ScopeType> getStarlarkFirstScopes() {
-    return starlarkFirstScopes;
-  }
-
-  public Map<Label, Scope.ScopeType> getStarlarkSecondScopes() {
-    return starlarkSecondScopes;
-  }
-
-  public Map<Label, Object> getStarlarkFirstOnLeaveValues() {
-    return starlarkFirstOnLeaveValues;
-  }
-
-  public Map<Label, Object> getStarlarkSecondOnLeaveValues() {
-    return starlarkSecondOnLeaveValues;
   }
 
   /**
@@ -417,13 +298,7 @@ public final class OptionsDiff {
         && starlarkFirst.isEmpty()
         && starlarkSecond.isEmpty()
         && extraStarlarkOptionsFirst.isEmpty()
-        && extraStarlarkOptionsSecond.isEmpty()
-        && extraStarlarkOptionsSecondScopes.isEmpty()
-        && extraStarlarkOptionsSecondOnLeaveValues.isEmpty()
-        && starlarkFirstScopes.isEmpty()
-        && starlarkSecondScopes.isEmpty()
-        && starlarkFirstOnLeaveValues.isEmpty()
-        && starlarkSecondOnLeaveValues.isEmpty();
+        && extraStarlarkOptionsSecond.isEmpty();
   }
 
   public String prettyPrint() {
@@ -444,38 +319,7 @@ public final class OptionsDiff {
         (option, value) ->
             toReturn.add(option.getOptionName() + ":" + value + " -> " + second.get(option)));
     starlarkFirst.forEach(
-        (option, value) -> {
-          Object secondVal = starlarkSecond.get(option);
-          boolean valuesDiff = !Objects.equals(value, secondVal);
-
-          Scope.ScopeType scopeFirst = starlarkFirstScopes.get(option);
-          Scope.ScopeType scopeSecond = starlarkSecondScopes.get(option);
-          boolean scopesDiff = !Objects.equals(scopeFirst, scopeSecond);
-
-          Object onLeaveFirst = starlarkFirstOnLeaveValues.get(option);
-          Object onLeaveSecond = starlarkSecondOnLeaveValues.get(option);
-          boolean onLeavesDiff = !Objects.equals(onLeaveFirst, onLeaveSecond);
-
-          if (valuesDiff) {
-            toReturn.add(option + ":" + value + " -> " + secondVal);
-          } else {
-            StringBuilder explanation = new StringBuilder();
-            explanation
-                .append(option)
-                .append(": value is ")
-                .append(value)
-                .append(" (differs due to: ");
-            List<String> causes = new ArrayList<>();
-            if (scopesDiff) {
-              causes.add("scope: " + scopeFirst + " -> " + scopeSecond);
-            }
-            if (onLeavesDiff) {
-              causes.add("onLeave: " + onLeaveFirst + " -> " + onLeaveSecond);
-            }
-            explanation.append(String.join(", ", causes)).append(")");
-            toReturn.add(explanation.toString());
-          }
-        });
+        (option, value) -> toReturn.add(option + ":" + value + " -> " + starlarkSecond.get(option)));
     extraStarlarkOptionsFirst.forEach(option -> toReturn.add("Removed Starlark option: " + option));
     extraStarlarkOptionsSecond.forEach(
         (option, value) -> toReturn.add("Added Starlark option: " + option + " -> " + value));
@@ -530,31 +374,14 @@ public final class OptionsDiff {
       builder.removeStarlarkOption(label);
     }
 
-    // 5. Inject extra Starlark options and their metadata introduced in B
+    // 5. Inject extra Starlark options introduced in B
     for (Map.Entry<Label, Object> entry : diff.extraStarlarkOptionsSecond.entrySet()) {
       builder.addStarlarkOption(entry.getKey(), entry.getValue());
     }
 
-    for (Map.Entry<Label, Scope.ScopeType> entry :
-        diff.extraStarlarkOptionsSecondScopes.entrySet()) {
-      builder.addScopeType(entry.getKey(), entry.getValue());
-    }
-
-    for (Map.Entry<Label, Object> entry : diff.extraStarlarkOptionsSecondOnLeaveValues.entrySet()) {
-      builder.addOnLeaveScopeValue(entry.getKey(), entry.getValue());
-    }
-
-    // 6. Overwrite differing Starlark options and their metadata
+    // 6. Overwrite differing Starlark options
     for (Map.Entry<Label, Object> entry : diff.starlarkSecond.entrySet()) {
       builder.addStarlarkOption(entry.getKey(), entry.getValue());
-    }
-
-    for (Map.Entry<Label, Scope.ScopeType> entry : diff.starlarkSecondScopes.entrySet()) {
-      builder.addScopeType(entry.getKey(), entry.getValue());
-    }
-
-    for (Map.Entry<Label, Object> entry : diff.starlarkSecondOnLeaveValues.entrySet()) {
-      builder.addOnLeaveScopeValue(entry.getKey(), entry.getValue());
     }
 
     return builder.build();
@@ -576,14 +403,7 @@ public final class OptionsDiff {
         && starlarkFirst.equals(other.starlarkFirst)
         && starlarkSecond.equals(other.starlarkSecond)
         && extraStarlarkOptionsFirst.equals(other.extraStarlarkOptionsFirst)
-        && extraStarlarkOptionsSecond.equals(other.extraStarlarkOptionsSecond)
-        && extraStarlarkOptionsSecondScopes.equals(other.extraStarlarkOptionsSecondScopes)
-        && extraStarlarkOptionsSecondOnLeaveValues.equals(
-            other.extraStarlarkOptionsSecondOnLeaveValues)
-        && starlarkFirstScopes.equals(other.starlarkFirstScopes)
-        && starlarkSecondScopes.equals(other.starlarkSecondScopes)
-        && starlarkFirstOnLeaveValues.equals(other.starlarkFirstOnLeaveValues)
-        && starlarkSecondOnLeaveValues.equals(other.starlarkSecondOnLeaveValues);
+        && extraStarlarkOptionsSecond.equals(other.extraStarlarkOptionsSecond);
   }
 
   @Override
@@ -597,13 +417,7 @@ public final class OptionsDiff {
         starlarkFirst,
         starlarkSecond,
         extraStarlarkOptionsFirst,
-        extraStarlarkOptionsSecond,
-        extraStarlarkOptionsSecondScopes,
-        extraStarlarkOptionsSecondOnLeaveValues,
-        starlarkFirstScopes,
-        starlarkSecondScopes,
-        starlarkFirstOnLeaveValues,
-        starlarkSecondOnLeaveValues);
+        extraStarlarkOptionsSecond);
   }
 
   /** Serializable reference to an OptionDefinition. */
@@ -753,24 +567,6 @@ public final class OptionsDiff {
       context.serialize(obj.starlarkSecond, codedOut);
       context.serialize(ImmutableList.copyOf(obj.extraStarlarkOptionsFirst), codedOut);
       context.serialize(obj.extraStarlarkOptionsSecond, codedOut);
-      context.serialize(obj.extraStarlarkOptionsSecondScopes, codedOut);
-      context.serialize(obj.extraStarlarkOptionsSecondOnLeaveValues, codedOut);
-
-      Map<Label, Scope.ScopeType> starlarkFirstScopesCensored = new LinkedHashMap<>();
-      for (Label label : obj.starlarkFirstScopes.keySet()) {
-        starlarkFirstScopesCensored.put(label, new Scope.ScopeType("default"));
-      }
-      context.serialize(starlarkFirstScopesCensored, codedOut);
-
-      context.serialize(obj.starlarkSecondScopes, codedOut);
-
-      Map<Label, Object> starlarkFirstOnLeaveValuesCensored = new LinkedHashMap<>();
-      for (Label label : obj.starlarkFirstOnLeaveValues.keySet()) {
-        starlarkFirstOnLeaveValuesCensored.put(label, "RESET");
-      }
-      context.serialize(starlarkFirstOnLeaveValuesCensored, codedOut);
-
-      context.serialize(obj.starlarkSecondOnLeaveValues, codedOut);
     }
 
     @Override
@@ -788,12 +584,6 @@ public final class OptionsDiff {
       context.deserialize(codedIn, builder, Builder::setStarlarkSecond);
       context.deserialize(codedIn, builder, Builder::setExtraStarlarkOptionsFirst);
       context.deserialize(codedIn, builder, Builder::setExtraStarlarkOptionsSecond);
-      context.deserialize(codedIn, builder, Builder::setExtraStarlarkOptionsSecondScopes);
-      context.deserialize(codedIn, builder, Builder::setExtraStarlarkOptionsSecondOnLeaveValues);
-      context.deserialize(codedIn, builder, Builder::setStarlarkFirstScopes);
-      context.deserialize(codedIn, builder, Builder::setStarlarkSecondScopes);
-      context.deserialize(codedIn, builder, Builder::setStarlarkFirstOnLeaveValues);
-      context.deserialize(codedIn, builder, Builder::setStarlarkSecondOnLeaveValues);
 
       return builder;
     }
@@ -811,12 +601,6 @@ public final class OptionsDiff {
       private Map<Label, Object> starlarkSecond;
       private List<Label> extraStarlarkOptionsFirst;
       private Map<Label, Object> extraStarlarkOptionsSecond;
-      private Map<Label, Scope.ScopeType> extraStarlarkOptionsSecondScopes;
-      private Map<Label, Object> extraStarlarkOptionsSecondOnLeaveValues;
-      private Map<Label, Scope.ScopeType> starlarkFirstScopes;
-      private Map<Label, Scope.ScopeType> starlarkSecondScopes;
-      private Map<Label, Object> starlarkFirstOnLeaveValues;
-      private Map<Label, Object> starlarkSecondOnLeaveValues;
 
       private static void setDifferingOptionsRef(Builder b, Object v) {
         b.differingOptionsRef = (Map<Class<? extends FragmentOptions>, List<OptionRef>>) v;
@@ -852,30 +636,6 @@ public final class OptionsDiff {
 
       private static void setExtraStarlarkOptionsSecond(Builder b, Object v) {
         b.extraStarlarkOptionsSecond = (Map<Label, Object>) v;
-      }
-
-      private static void setExtraStarlarkOptionsSecondScopes(Builder b, Object v) {
-        b.extraStarlarkOptionsSecondScopes = (Map<Label, Scope.ScopeType>) v;
-      }
-
-      private static void setExtraStarlarkOptionsSecondOnLeaveValues(Builder b, Object v) {
-        b.extraStarlarkOptionsSecondOnLeaveValues = (Map<Label, Object>) v;
-      }
-
-      private static void setStarlarkFirstScopes(Builder b, Object v) {
-        b.starlarkFirstScopes = (Map<Label, Scope.ScopeType>) v;
-      }
-
-      private static void setStarlarkSecondScopes(Builder b, Object v) {
-        b.starlarkSecondScopes = (Map<Label, Scope.ScopeType>) v;
-      }
-
-      private static void setStarlarkFirstOnLeaveValues(Builder b, Object v) {
-        b.starlarkFirstOnLeaveValues = (Map<Label, Object>) v;
-      }
-
-      private static void setStarlarkSecondOnLeaveValues(Builder b, Object v) {
-        b.starlarkSecondOnLeaveValues = (Map<Label, Object>) v;
       }
 
       @Override
@@ -914,13 +674,7 @@ public final class OptionsDiff {
             starlarkFirst,
             starlarkSecond,
             extraStarlarkOptionsFirst,
-            extraStarlarkOptionsSecondMap,
-            extraStarlarkOptionsSecondScopes,
-            extraStarlarkOptionsSecondOnLeaveValues,
-            starlarkFirstScopes,
-            starlarkSecondScopes,
-            starlarkFirstOnLeaveValues,
-            starlarkSecondOnLeaveValues);
+            extraStarlarkOptionsSecondMap);
       }
     }
   }
