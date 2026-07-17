@@ -226,6 +226,19 @@ public final class PathCanonicalizerTest {
   }
 
   @Test
+  public void testClearPathDescendingThroughSymlinkInvalidatesIt() throws Exception {
+    createSymlink("/a/b", "/d");
+    createNonSymlink("/d/c");
+    assertSuccess("/a/b/c", "/d/c");
+
+    fs.getPath(pathFragment("/a/b")).delete();
+    createNonSymlink("/a/b/c");
+    canonicalizer.clearPrefix(pathFragment("/a/b/c"));
+
+    assertSuccess("/a/b/c", "/a/b/c");
+  }
+
+  @Test
   public void testSymlinkSelfLoop() throws Exception {
     createSymlink("/a/b", "/a/b");
     assertFailure(FileSymlinkLoopException.class, "/a/b");
