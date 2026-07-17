@@ -855,7 +855,7 @@ public abstract class RemoteOptions extends CommonRemoteOptions {
               + " affected actions.\n\n"
               + "In order to successfully use this feature, you likely want to set a custom"
               + " --host_platform together with --experimental_platform_in_output_dir (to normalize"
-              + " output prefixes).")
+              + " output prefixes). An empty value disables scrubbing.")
   public abstract Scrubber getScrubber();
 
   public abstract void setScrubber(Scrubber value);
@@ -915,7 +915,11 @@ public abstract class RemoteOptions extends CommonRemoteOptions {
   private static final class ScrubberConverter extends Converter.Contextless<Scrubber> {
 
     @Override
+    @Nullable
     public Scrubber convert(String path) throws OptionsParsingException {
+      if (path.isEmpty()) {
+        return null;
+      }
       try {
         return Scrubber.parse(path);
       } catch (Scrubber.ConfigParseException e) {
