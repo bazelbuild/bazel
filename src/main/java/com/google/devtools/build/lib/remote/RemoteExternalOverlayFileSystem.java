@@ -165,13 +165,11 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
     // be refetched to recover files that the remote cache has lost. This wouldn't be safe to do
     // eagerly as ongoing repo rule evaluations may still refer to the in-memory content and
     // refetching is not atomic.
+    reposWithLostFiles.forEach(this::evictInMemoryRepo);
     materializations.forEach(
         1,
         (repoName, materializationState) ->
-            materializationState.state() == Future.State.SUCCESS
-                    || reposWithLostFiles.contains(repoName)
-                ? repoName
-                : null,
+            materializationState.state() == Future.State.SUCCESS ? repoName : null,
         this::evictInMemoryRepo);
     invalidateRepoDirectories(evaluator, reposWithLostFiles);
     reposWithLostFiles.clear();
@@ -295,6 +293,24 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
       }
       injectRecursively(fs, subdirPath, subdir, childMap, filesToPrefetch, expirationTime);
     }
+  }
+
+  /**
+   * Returns the contents of the marker file for the given repo if its contents are currently
+   * available in the in-memory file system, or null otherwise.
+   */
+  @Nullable
+  public String getInjectedRepoMarkerFileContents(RepositoryName repo) {
+    String markerFileContent = markerFileContents.get(repo.getName());
+    if (markerFileContent == null) {
+      return null;
+    }
+    // The repo contents may have been deleted (e.g. due to refetching) without the in-memory
+    // bookkeeping having been cleaned up yet (see fsForPath).
+    if (!externalFs.getPath(externalDirectory.getChild(repo.getName())).exists()) {
+      return null;
+    }
+    return markerFileContent;
   }
 
   /**

@@ -253,6 +253,29 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
     if (!context.getReadCachePolicy().allowRemoteCache()) {
       return false;
     }
+
+    // The repo may already have been injected earlier in this invocation, e.g. if its fetch was
+    // restarted due to memory pressure. In that case, reuse the injected contents if they are
+    // still up-to-date instead of looking them up and reinjecting them, which would be both
+    // slower and destructive: reinjection starts by deleting the repo directory, including the
+    // native copies of prefetched files, which the prefetcher's per-invocation download cache
+    // would not restore.
+    String injectedMarkerFileContent = remoteFs.getInjectedRepoMarkerFileContents(repoName);
+    if (injectedMarkerFileContent != null) {
+      var maybeRecordedInputs =
+          DigestWriter.readMarkerFile(injectedMarkerFileContent, predeclaredInputHash);
+      if (maybeRecordedInputs.isPresent()) {
+        var injectedOutdatedReason =
+            RepoRecordedInput.isAnyValueOutdated(env, directories, maybeRecordedInputs.get());
+        if (env.valuesMissing()) {
+          return false;
+        }
+        if (injectedOutdatedReason.isEmpty()) {
+          return true;
+        }
+      }
+    }
+
     var finalEntry = fetchFinalCacheEntry(env, context, predeclaredInputHash);
     if (env.valuesMissing() || finalEntry == null) {
       return false;
