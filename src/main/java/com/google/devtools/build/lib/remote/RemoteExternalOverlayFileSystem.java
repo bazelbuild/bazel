@@ -363,7 +363,13 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
                 Iterables.transform(paths, ActionInputHelper::fromPath),
                 actionInput -> externalFs.getMetadata(actionInput.getExecPath()),
                 ActionInputPrefetcher.Priority.CRITICAL,
-                ActionInputPrefetcher.Reason.INPUTS));
+                ActionInputPrefetcher.Reason.INPUTS,
+                // A repo may be reinjected within the same invocation after injectRemoteRepo
+                // deleted the native copies of its prefetched files (e.g. when its fetch is
+                // restarted due to memory pressure). The prefetcher's download cache would
+                // consider these files downloaded already, so force it to verify them against
+                // the local file system.
+                /* forceDownload= */ true));
   }
 
   /**

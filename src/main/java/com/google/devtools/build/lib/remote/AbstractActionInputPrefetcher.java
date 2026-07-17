@@ -347,6 +347,26 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       MetadataSupplier metadataSupplier,
       Priority priority,
       Reason reason) {
+    return prefetchFilesInterruptibly(
+        action, inputs, metadataSupplier, priority, reason, /* forceDownload= */ false);
+  }
+
+  /**
+   * Fetches remotely stored action outputs and stores them under their path in the output base.
+   *
+   * <p>This method is similar to #prefetchFilesInterruptibly() above, but if {@code forceDownload}
+   * is set, files and symlinks are verified against the local file system even if a download for
+   * their path has already completed within this invocation, restoring them if they went missing.
+   *
+   * @return a future that is completed once all downloads have finished.
+   */
+  public ListenableFuture<Void> prefetchFilesInterruptibly(
+      @Nullable ActionExecutionMetadata action,
+      Iterable<? extends ActionInput> inputs,
+      MetadataSupplier metadataSupplier,
+      Priority priority,
+      Reason reason,
+      boolean forceDownload) {
     List<ActionInput> files = new ArrayList<>();
 
     for (ActionInput input : inputs) {
@@ -378,7 +398,14 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     try (var s = Profiler.instance().profile("compose prefetches")) {
       for (var file : files) {
         transfers.add(
-            prefetchFile(action, directoriesByTreeRoot, metadataSupplier, file, priority, reason));
+            prefetchFile(
+                action,
+                directoriesByTreeRoot,
+                metadataSupplier,
+                file,
+                priority,
+                reason,
+                forceDownload));
       }
     }
 
@@ -417,7 +444,8 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       MetadataSupplier metadataSupplier,
       ActionInput input,
       Priority priority,
-      Reason reason) {
+      Reason reason,
+      boolean forceDownload) {
     try {
       if (input instanceof VirtualActionInput virtualActionInput) {
         prefetchVirtualActionInput(virtualActionInput);
@@ -449,7 +477,9 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       var symlinks = getSymlinks(input, inputPath, metadata, metadataSupplier);
       // On Windows, the type of symlink depends on the target file and the target may have to
       // exist, so we plant symlinks in reverse order and only after any download has completed.
-      var plantSymlinks = concat(Lists.transform(symlinks.reverse(), this::plantSymlink));
+      var plantSymlinks =
+          concat(
+              Lists.transform(symlinks.reverse(), symlink -> plantSymlink(symlink, forceDownload)));
 
       if (!canDownloadFile(inputPath, metadata)) {
         // If the artifact is a declared ("unresolved") symlink, it can't be "downloaded", but the
@@ -480,7 +510,8 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
                   input,
                   metadata,
                   priority,
-                  reason)
+                  reason,
+                  forceDownload)
               .andThen(plantSymlinks);
 
       return toListenableFuture(result);
@@ -623,7 +654,8 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       ActionInput actionInput,
       FileArtifactValue metadata,
       Priority priority,
-      Reason reason) {
+      Reason reason,
+      boolean forceDownload) {
     // If the path to be prefetched is a non-dangling symlink, prefetch its target path instead.
     // Note that this only applies to symlinks created by spawns (or, currently, with the internal
     // version of BwoB); symlinks created in-process through an ActionFileSystem should have already
@@ -692,7 +724,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
               }
               return Completable.complete();
             }),
-        forceRefetch(finalPath));
+        forceDownload || forceRefetch(finalPath));
   }
 
   private void finalizeDownload(
@@ -786,7 +818,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     }
   }
 
-  private Completable plantSymlink(Symlink symlink) {
+  private Completable plantSymlink(Symlink symlink, boolean forceDownload) {
     Path linkPath = symlink.linkPath().forHostFileSystem();
     return downloadCache.execute(
         linkPath,
@@ -803,7 +835,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
               linkPath.createSymbolicLink(symlink.targetPath());
               return Completable.complete();
             }),
-        forceRefetch(linkPath));
+        forceDownload || forceRefetch(linkPath));
   }
 
   public ImmutableSet<Path> downloadedFiles() {
