@@ -19,19 +19,28 @@ import net.starlark.java.syntax.StarlarkType;
 import net.starlark.java.syntax.TypeConstructor;
 
 /**
- * A {@link StarlarkValue} wrapper for a {@link TypeConstructor}. Allows Starlark-defined type
- * constructors to be passed from the static type tagging/checking system to the eval phase.
+ * A {@link StarlarkValue} wrapping a {@link TypeConstructor}. This is used as the runtime value of
+ * certain symbols that represent Starlark-defined types, such as type aliases.
  *
  * <p>Not all Starlark values that can be used as type constructors are instances of this class. For
  * example, builtin symbols like {@code list} and {@code dict} are instead instances of {@link
  * BuiltinFunction.BuiltinTypeFunction}.
  */
-public final class TypeConstructorValue implements StarlarkValue, TypeConstructor {
+public sealed class TypeConstructorValue implements StarlarkValue, TypeConstructor
+    permits TypeConstructorValue.AllowingNullary {
   public static final StarlarkType TYPE = new Type();
 
   private final TypeConstructor typeConstructor;
 
-  public TypeConstructorValue(TypeConstructor typeConstructor) {
+  public static TypeConstructorValue of(TypeConstructor constructor) {
+    if (constructor instanceof TypeConstructor.AllowingNullary allowingNullary) {
+      return new AllowingNullary(allowingNullary, allowingNullary.createStarlarkType());
+    } else {
+      return new TypeConstructorValue(constructor);
+    }
+  }
+
+  private TypeConstructorValue(TypeConstructor typeConstructor) {
     this.typeConstructor = typeConstructor;
   }
 
@@ -51,9 +60,28 @@ public final class TypeConstructorValue implements StarlarkValue, TypeConstructo
   }
 
   @Override
-  public StarlarkType createStarlarkType(ImmutableList<TypeConstructor.Arg> argsTuple)
+  public StarlarkType createStarlarkType(ImmutableList<TypeConstructor.Term> argsTuple)
       throws TypeConstructor.Failure {
     return typeConstructor.createStarlarkType(argsTuple);
+  }
+
+  /**
+   * A {@link TypeConstructorValue} whose {@link TypeConstructor} may be invoked without type
+   * arguments and may be used in {@code isinstance()} checks.
+   */
+  private static final class AllowingNullary extends TypeConstructorValue
+      implements StarlarkTypeValue {
+    private final StarlarkType nullaryType;
+
+    private AllowingNullary(TypeConstructor constructor, StarlarkType nullaryType) {
+      super(constructor);
+      this.nullaryType = nullaryType;
+    }
+
+    @Override
+    public boolean hasInstance(Object value, StarlarkSemantics semantics) {
+      return StarlarkType.assignableFrom(nullaryType, Starlark.getStarlarkType(value, semantics));
+    }
   }
 
   /** The type of {@link StarlarkTypeConstructorValue}-s. */

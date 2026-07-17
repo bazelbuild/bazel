@@ -2407,4 +2407,33 @@ public final class TypeCheckerTest {
         y[0] = x
         """);
   }
+
+  @Test
+  public void typeAlias_bidirectionallyAssignableToFullyWrittenType() throws Exception {
+    assertValid(
+        """
+        type int_or_str = int | str
+        type int_or[T] = int | T
+
+        def foo(a: int | str): pass
+        def bar(a: int_or_str): pass
+        def baz(a: int_or[str]): pass
+
+        x: int_or_str
+        y: int | str
+        z: int_or[str]
+
+        foo(x)
+        foo(y)
+        foo(z)
+
+        bar(x)
+        bar(y)
+        bar(z)
+
+        baz(x)
+        baz(y)
+        baz(z)
+        """);
+  }
 }

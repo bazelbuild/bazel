@@ -58,7 +58,7 @@ public final class StructProvider extends BuiltinProvider<StarlarkInfo>
   }
 
   @Override
-  public StarlarkType createStarlarkType(ImmutableList<TypeConstructor.Arg> argsTuple)
+  public StarlarkType createStarlarkType(ImmutableList<TypeConstructor.Term> argsTuple)
       throws TypeConstructor.Failure {
     return Types.STRUCT_CONSTRUCTOR.createStarlarkType(argsTuple);
   }
