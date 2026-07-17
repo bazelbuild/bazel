@@ -13,16 +13,15 @@
 // limitations under the License.
 package com.google.devtools.build.lib.vfs;
 
+import com.google.devtools.build.lib.testutil.TestThread;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.util.FileSystems;
-
+import java.io.File;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
-import java.io.File;
-import java.io.IOException;
 
 /**
  * (Slow) tests of FileSystem under concurrency.
@@ -31,7 +30,6 @@ import java.io.IOException;
  */
 @RunWith(JUnit4.class)
 public class FileSystemConcurrencyTest {
-
   Path workingDir;
 
   @Before
@@ -44,54 +42,36 @@ public class FileSystemConcurrencyTest {
 
   @Test
   public void testConcurrentSymlinkModifications() throws Exception {
-    final Path xFile = workingDir.getRelative("file");
+    Path xFile = workingDir.getRelative("file");
     FileSystemUtils.createEmptyFile(xFile);
 
-    final Path xLinkToFile = workingDir.getRelative("link");
+    Path xLinkToFile = workingDir.getRelative("link");
 
-    // "Boxed" for pass-by-reference.
-    final boolean[] run = { true };
-    final IOException[] exception = { null };
-    Thread createThread = new Thread() {
-      @Override
-      public void run() {
-        while (run[0]) {
-          if (!xLinkToFile.exists()) {
-            try {
-              xLinkToFile.createSymbolicLink(xFile);
-            } catch (IOException e) {
-              exception[0] = e;
-              return;
-            }
-          }
-        }
-      }
-    };
-    Thread deleteThread = new Thread() {
-      @Override
-      public void run() {
-        while (run[0]) {
-          if (xLinkToFile.exists(Symlinks.NOFOLLOW)) {
-            try {
-              xLinkToFile.delete();
-            } catch (IOException e) {
-              exception[0] = e;
-              return;
-            }
-          }
-        }
-      }
-    };
+    AtomicBoolean run = new AtomicBoolean(true);
+    TestThread createThread =
+        new TestThread(
+            () -> {
+              while (run.get()) {
+                if (!xLinkToFile.exists()) {
+                  xLinkToFile.createSymbolicLink(xFile);
+                }
+              }
+            });
+    TestThread deleteThread =
+        new TestThread(
+            () -> {
+              while (run.get()) {
+                if (xLinkToFile.exists(Symlinks.NOFOLLOW)) {
+                  xLinkToFile.delete();
+                }
+              }
+            });
     createThread.start();
     deleteThread.start();
     Thread.sleep(1000);
-    run[0] = false;
-    createThread.join(0);
-    deleteThread.join(0);
-
-    if (exception[0] != null) {
-      throw exception[0];
-    }
+    run.set(false);
+    createThread.joinAndAssertState(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
+    deleteThread.joinAndAssertState(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
   }
 
 }

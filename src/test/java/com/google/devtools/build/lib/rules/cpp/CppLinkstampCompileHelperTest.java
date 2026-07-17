@@ -23,9 +23,11 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
+import com.google.devtools.build.lib.rules.cpp.CcCommon.Language;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import java.util.List;
 import org.junit.Test;
@@ -43,22 +45,28 @@ public class CppLinkstampCompileHelperTest extends BuildViewTestCase {
         .ccSupport()
         .setupCcToolchainConfig(
             mockToolsConfig, CcToolchainConfig.builder().withSysroot("/usr/local/custom-sysroot"));
+    setBuildLanguageOptions("--noincompatible_unambiguous_label_stringification");
     useConfiguration();
     scratch.file(
         "x/BUILD",
-        "cc_binary(",
-        "  name = 'foo',",
-        "  deps = ['a'],",
-        ")",
-        "cc_library(",
-        "  name = 'a',",
-        "  srcs = [ 'a.cc' ],",
-        "  linkstamp = 'ls.cc',",
-        ")");
+        """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+        cc_binary(
+            name = "foo",
+            deps = ["a"],
+        )
+
+        cc_library(
+            name = "a",
+            srcs = ["a.cc"],
+            linkstamp = "ls.cc",
+        )
+        """);
 
     ConfiguredTarget target = getConfiguredTarget("//x:foo");
     Artifact executable = getExecutable(target);
-    CppLinkAction generatingAction = (CppLinkAction) getGeneratingAction(executable);
+    SpawnAction generatingAction = (SpawnAction) getGeneratingAction(executable);
 
     Artifact compiledLinkstamp =
         ActionsTestUtil.getFirstArtifactEndingWith(generatingAction.getInputs(), "ls.o");
@@ -66,9 +74,9 @@ public class CppLinkstampCompileHelperTest extends BuildViewTestCase {
         (CppCompileAction) getGeneratingAction(compiledLinkstamp);
 
     CcToolchainProvider ccToolchainProvider =
-        getConfiguredTarget(
-                ruleClassProvider.getToolsRepository() + "//tools/cpp:current_cc_toolchain")
-            .get(CcToolchainProvider.PROVIDER);
+        CcToolchainProvider.getFromTarget(
+            getConfiguredTarget(
+                ruleClassProvider.getToolsRepository() + "//tools/cpp:current_cc_toolchain"));
 
     List<String> arguments = linkstampCompileAction.getArguments();
     assertThatArgumentsAreValid(
@@ -86,11 +94,11 @@ public class CppLinkstampCompileHelperTest extends BuildViewTestCase {
     assertThat(arguments).contains("-DGPLATFORM=\"" + platform + "\"");
     assertThat(arguments).contains("-I.");
     String correctG3BuildTargetPattern = "-DG3_BUILD_TARGET=\".*" + buildTargetNameSuffix + "\"";
-    assertWithMessage("in " + arguments + " flag matching " + correctG3BuildTargetPattern)
+    assertWithMessage("in %s flag matching %s", arguments, correctG3BuildTargetPattern)
         .that(Iterables.tryFind(arguments, (arg) -> arg.matches(correctG3BuildTargetPattern)))
         .isPresent();
     String fdoStampPattern = "-D" + CppConfiguration.FDO_STAMP_MACRO + "=\".*\"";
-    assertWithMessage("in " + arguments + " flag matching " + fdoStampPattern)
+    assertWithMessage("in %s flag matching %s", arguments, fdoStampPattern)
         .that(Iterables.tryFind(arguments, (arg) -> arg.matches(fdoStampPattern)))
         .isAbsent();
   }
@@ -102,23 +110,29 @@ public class CppLinkstampCompileHelperTest extends BuildViewTestCase {
         .ccSupport()
         .setupCcToolchainConfig(
             mockToolsConfig, CcToolchainConfig.builder().withSysroot("/usr/local/custom-sysroot"));
+    setBuildLanguageOptions("--noincompatible_unambiguous_label_stringification");
     useConfiguration();
     scratch.file(
         "x/BUILD",
-        "cc_binary(",
-        "  name = 'libfoo.so',",
-        "  deps = ['a'],",
-        "  linkshared = 1,",
-        ")",
-        "cc_library(",
-        "  name = 'a',",
-        "  srcs = [ 'a.cc' ],",
-        "  linkstamp = 'ls.cc',",
-        ")");
+        """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+        cc_binary(
+            name = "libfoo.so",
+            linkshared = 1,
+            deps = ["a"],
+        )
+
+        cc_library(
+            name = "a",
+            srcs = ["a.cc"],
+            linkstamp = "ls.cc",
+        )
+        """);
 
     ConfiguredTarget target = getConfiguredTarget("//x:libfoo.so");
     Artifact executable = getExecutable(target);
-    CppLinkAction generatingAction = (CppLinkAction) getGeneratingAction(executable);
+    SpawnAction generatingAction = (SpawnAction) getGeneratingAction(executable);
     Artifact compiledLinkstamp =
         ActionsTestUtil.getFirstArtifactEndingWith(generatingAction.getInputs(), "ls.o");
     assertThat(generatingAction.getInputs().toList()).contains(compiledLinkstamp);
@@ -126,9 +140,9 @@ public class CppLinkstampCompileHelperTest extends BuildViewTestCase {
     CppCompileAction linkstampCompileAction =
         (CppCompileAction) getGeneratingAction(compiledLinkstamp);
     CcToolchainProvider ccToolchainProvider =
-        getConfiguredTarget(
-                ruleClassProvider.getToolsRepository() + "//tools/cpp:current_cc_toolchain")
-            .get(CcToolchainProvider.PROVIDER);
+        CcToolchainProvider.getFromTarget(
+            getConfiguredTarget(
+                ruleClassProvider.getToolsRepository() + "//tools/cpp:current_cc_toolchain"));
 
     List<String> arguments = linkstampCompileAction.getArguments();
     assertThatArgumentsAreValid(
@@ -150,18 +164,23 @@ public class CppLinkstampCompileHelperTest extends BuildViewTestCase {
     useConfiguration("--force_pic");
     scratch.file(
         "x/BUILD",
-        "cc_binary(",
-        "  name = 'foo',",
-        "  deps = ['a'],",
-        ")",
-        "cc_library(",
-        "  name = 'a',",
-        "  srcs = [ 'a.cc' ],",
-        "  linkstamp = 'ls.cc',",
-        ")");
+        """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+        cc_binary(
+            name = "foo",
+            deps = ["a"],
+        )
+
+        cc_library(
+            name = "a",
+            srcs = ["a.cc"],
+            linkstamp = "ls.cc",
+        )
+        """);
     ConfiguredTarget target = getConfiguredTarget("//x:foo");
     Artifact executable = getExecutable(target);
-    CppLinkAction generatingAction = (CppLinkAction) getGeneratingAction(executable);
+    SpawnAction generatingAction = (SpawnAction) getGeneratingAction(executable);
     Artifact compiledLinkstamp =
         ActionsTestUtil.getFirstArtifactEndingWith(generatingAction.getInputs(), "ls.o");
     assertThat(generatingAction.getInputs().toList()).contains(compiledLinkstamp);
@@ -176,18 +195,23 @@ public class CppLinkstampCompileHelperTest extends BuildViewTestCase {
     useConfiguration("--fdo_instrument=foo");
     scratch.file(
         "x/BUILD",
-        "cc_binary(",
-        "  name = 'foo',",
-        "  deps = ['a'],",
-        ")",
-        "cc_library(",
-        "  name = 'a',",
-        "  srcs = [ 'a.cc' ],",
-        "  linkstamp = 'ls.cc',",
-        ")");
+        """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+        cc_binary(
+            name = "foo",
+            deps = ["a"],
+        )
+
+        cc_library(
+            name = "a",
+            srcs = ["a.cc"],
+            linkstamp = "ls.cc",
+        )
+        """);
     ConfiguredTarget target = getConfiguredTarget("//x:foo");
     Artifact executable = getExecutable(target);
-    CppLinkAction generatingAction = (CppLinkAction) getGeneratingAction(executable);
+    SpawnAction generatingAction = (SpawnAction) getGeneratingAction(executable);
     Artifact compiledLinkstamp =
         ActionsTestUtil.getFirstArtifactEndingWith(generatingAction.getInputs(), "ls.o");
     assertThat(generatingAction.getInputs().toList()).contains(compiledLinkstamp);
@@ -209,32 +233,37 @@ public class CppLinkstampCompileHelperTest extends BuildViewTestCase {
   public void testLinkstampCompileDependsOnAllCcBinaryLinkingInputs() throws Exception {
     scratch.file(
         "x/BUILD",
-        "cc_binary(",
-        "  name = 'foo',",
-        "  deps = ['bar'],",
-        "  srcs = [ 'main.cc' ],",
-        ")",
-        "cc_library(",
-        "  name = 'bar',",
-        "  srcs = [ 'bar.cc' ],",
-        "  linkstamp = 'ls.cc',",
-        ")");
+        """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+        cc_binary(
+            name = "foo",
+            srcs = ["main.cc"],
+            deps = ["bar"],
+        )
+
+        cc_library(
+            name = "bar",
+            srcs = ["bar.cc"],
+            linkstamp = "ls.cc",
+        )
+        """);
     useConfiguration();
 
     ConfiguredTarget target = getConfiguredTarget("//x:foo");
     Artifact executable = getExecutable(target);
-    CcToolchainProvider toolchain =
-        CppHelper.getToolchainUsingDefaultCcToolchainAttribute(getRuleContext(target));
+    CcToolchainProvider toolchain = CppHelper.getToolchain(getRuleContext(target));
     CppConfiguration cppConfiguration = getRuleContext(target).getFragment(CppConfiguration.class);
     FeatureConfiguration featureConfiguration =
         CcCommon.configureFeaturesOrThrowEvalException(
             /* requestedFeatures= */ ImmutableSet.of(),
             /* unsupportedFeatures= */ ImmutableSet.of(),
+            Language.CPP,
             toolchain,
             cppConfiguration);
-    boolean usePic = CppHelper.usePicForBinaries(toolchain, cppConfiguration, featureConfiguration);
+    boolean usePic = CppHelper.usePicForBinaries(cppConfiguration, featureConfiguration);
 
-    CppLinkAction generatingAction = (CppLinkAction) getGeneratingAction(executable);
+    SpawnAction generatingAction = (SpawnAction) getGeneratingAction(executable);
 
     Artifact compiledLinkstamp =
         ActionsTestUtil.getFirstArtifactEndingWith(generatingAction.getInputs(), "ls.o");
@@ -258,19 +287,24 @@ public class CppLinkstampCompileHelperTest extends BuildViewTestCase {
     useConfiguration("--copt=-foo_copt_from_option");
     scratch.file(
         "x/BUILD",
-        "cc_binary(",
-        "  name = 'foo',",
-        "  deps = ['a'],",
-        "  copts = [ '-bar_copt_from_attribute' ],",
-        ")",
-        "cc_library(",
-        "  name = 'a',",
-        "  srcs = [ 'a.cc' ],",
-        "  linkstamp = 'ls.cc',",
-        ")");
+        """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+        cc_binary(
+            name = "foo",
+            copts = ["-bar_copt_from_attribute"],
+            deps = ["a"],
+        )
+
+        cc_library(
+            name = "a",
+            srcs = ["a.cc"],
+            linkstamp = "ls.cc",
+        )
+        """);
     ConfiguredTarget target = getConfiguredTarget("//x:foo");
     Artifact executable = getExecutable(target);
-    CppLinkAction generatingAction = (CppLinkAction) getGeneratingAction(executable);
+    SpawnAction generatingAction = (SpawnAction) getGeneratingAction(executable);
     Artifact compiledLinkstamp =
         ActionsTestUtil.getFirstArtifactEndingWith(generatingAction.getInputs(), "ls.o");
     assertThat(generatingAction.getInputs().toList()).contains(compiledLinkstamp);
@@ -285,20 +319,25 @@ public class CppLinkstampCompileHelperTest extends BuildViewTestCase {
     useConfiguration("--copt=-foo_copt_from_option");
     scratch.file(
         "x/BUILD",
-        "cc_binary(",
-        "  name = 'foo',",
-        "  deps = ['a'],",
-        "  copts = [ '-bar_copt_from_attribute' ],",
-        ")",
-        "cc_library(",
-        "  name = 'a',",
-        "  srcs = [ 'a.cc' ],",
-        "  linkstamp = 'ls.cc',",
-        "  copts = [ '-baz_copt_from_attribute' ],",
-        ")");
+        """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+        cc_binary(
+            name = "foo",
+            copts = ["-bar_copt_from_attribute"],
+            deps = ["a"],
+        )
+
+        cc_library(
+            name = "a",
+            srcs = ["a.cc"],
+            copts = ["-baz_copt_from_attribute"],
+            linkstamp = "ls.cc",
+        )
+        """);
     ConfiguredTarget target = getConfiguredTarget("//x:foo");
     Artifact executable = getExecutable(target);
-    CppLinkAction generatingAction = (CppLinkAction) getGeneratingAction(executable);
+    SpawnAction generatingAction = (SpawnAction) getGeneratingAction(executable);
     Artifact compiledLinkstamp =
         ActionsTestUtil.getFirstArtifactEndingWith(generatingAction.getInputs(), "ls.o");
     assertThat(generatingAction.getInputs().toList()).contains(compiledLinkstamp);
@@ -307,5 +346,46 @@ public class CppLinkstampCompileHelperTest extends BuildViewTestCase {
         (CppCompileAction) getGeneratingAction(compiledLinkstamp);
     assertThat(linkstampCompileAction.getArguments()).doesNotContain("-bar_copt_from_attribute");
     assertThat(linkstampCompileAction.getArguments()).doesNotContain("-baz_copt_from_attribute");
+  }
+
+  @Test
+  public void testLinkstampCompileIsUsingMemProf() throws Exception {
+    useConfiguration(
+        "--compilation_mode=opt", "--features=memprof_optimize", "--fdo_profile=//x:prof");
+    scratch.file(
+        "x/BUILD",
+        """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+        load("@rules_cc//cc/toolchains:fdo_profile.bzl", "fdo_profile")
+        cc_binary(
+            name = "foo",
+            deps = ["a"],
+        )
+
+        cc_library(
+            name = "a",
+            srcs = ["a.cc"],
+            linkstamp = "ls.cc",
+        )
+
+        fdo_profile(
+          name = "prof",
+          profile = "out.afdo",
+          memprof_profile = "memprof.zip",
+        )
+        """);
+    ConfiguredTarget target = getConfiguredTarget("//x:foo");
+    Artifact executable = getExecutable(target);
+    SpawnAction generatingAction = (SpawnAction) getGeneratingAction(executable);
+    Artifact compiledLinkstamp =
+        ActionsTestUtil.getFirstArtifactEndingWith(generatingAction.getInputs(), "ls.o");
+    assertThat(generatingAction.getInputs().toList()).contains(compiledLinkstamp);
+
+    CppCompileAction linkstampCompileAction =
+        (CppCompileAction) getGeneratingAction(compiledLinkstamp);
+    CompileCommandLine cmdline = linkstampCompileAction.getCompileCommandLine();
+    CcToolchainVariables variables = cmdline.getVariables();
+    assertThat(variables.isAvailable("is_using_memprof")).isTrue();
   }
 }

@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import net.starlark.java.eval.SymbolGenerator;
 import net.starlark.java.syntax.Location;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -41,11 +42,16 @@ public class RequiredProvidersTest {
       new BuiltinProvider<StructImpl>("p_native", StructImpl.class) {};
 
   private static final StarlarkProvider P_STARLARK =
-      StarlarkProvider.createUnexportedSchemaless(Location.BUILTIN);
+      StarlarkProvider.builder(Location.BUILTIN)
+          .buildWithIdentityToken(SymbolGenerator.create("test").generate());
 
   static {
     try {
-      P_STARLARK.export(ev -> {}, Label.create("foo/bar", "x.bzl"), "p_starlark");
+      P_STARLARK.export(
+          ev -> {},
+          Label.create("foo/bar", "x.bzl"),
+          "p_starlark",
+          Location.fromFile("/workspace/foo/bar/x.bzl"));
     } catch (LabelSyntaxException e) {
       throw new AssertionError(e);
     }
@@ -55,8 +61,6 @@ public class RequiredProvidersTest {
       StarlarkProviderIdentifier.forKey(P_NATIVE.getKey());
   private static final StarlarkProviderIdentifier ID_STARLARK =
       StarlarkProviderIdentifier.forKey(P_STARLARK.getKey());
-  private static final StarlarkProviderIdentifier ID_LEGACY =
-      StarlarkProviderIdentifier.forLegacy("p_legacy");
 
   private static boolean satisfies(AdvertisedProviderSet providers,
       RequiredProviders requiredProviders) {
@@ -81,11 +85,6 @@ public class RequiredProvidersTest {
                 AdvertisedProviderSet.builder().addBuiltin(P1.class).build(),
                 RequiredProviders.acceptAnyBuilder().build()))
         .isTrue();
-    assertThat(
-            satisfies(
-                AdvertisedProviderSet.builder().addStarlark("p1").build(),
-                RequiredProviders.acceptAnyBuilder().build()))
-        .isTrue();
   }
 
   @Test
@@ -101,7 +100,7 @@ public class RequiredProvidersTest {
         .isFalse();
     assertThat(
             satisfies(
-                AdvertisedProviderSet.builder().addStarlark("p1").build(),
+                AdvertisedProviderSet.builder().build(),
                 RequiredProviders.acceptNoneBuilder().build()))
         .isFalse();
   }
@@ -141,38 +140,13 @@ public class RequiredProvidersTest {
   public void starlarkProvidersAllMatch() {
     AdvertisedProviderSet providerSet =
         AdvertisedProviderSet.builder()
-            .addStarlark(ID_LEGACY)
             .addStarlark(ID_NATIVE)
             .addStarlark(ID_STARLARK)
             .build();
     assertThat(
             validateStarlark(
-                providerSet,
-                NO_PROVIDERS_REQUIRED,
-                ImmutableSet.of(ID_LEGACY, ID_STARLARK, ID_NATIVE)))
+                providerSet, NO_PROVIDERS_REQUIRED, ImmutableSet.of(ID_STARLARK, ID_NATIVE)))
         .isTrue();
-  }
-
-  @Test
-  public void starlarkProvidersBranchMatch() {
-    assertThat(
-            validateStarlark(
-                AdvertisedProviderSet.builder().addStarlark(ID_LEGACY).build(),
-                NO_PROVIDERS_REQUIRED,
-                ImmutableSet.of(ID_LEGACY),
-                ImmutableSet.of(ID_NATIVE)))
-        .isTrue();
-  }
-
-  @Test
-  public void starlarkProvidersNoMatch() {
-    assertThat(
-            validateStarlark(
-                AdvertisedProviderSet.builder().addStarlark(ID_STARLARK).build(),
-                "'p_legacy' or 'p_native'",
-                ImmutableSet.of(ID_LEGACY),
-                ImmutableSet.of(ID_NATIVE)))
-        .isFalse();
   }
 
   @Test
@@ -183,12 +157,25 @@ public class RequiredProvidersTest {
         .isEqualTo("no providers accepted");
     assertThat(
             RequiredProviders.acceptAnyBuilder()
-                .addStarlarkSet(ImmutableSet.of(ID_LEGACY, ID_STARLARK))
                 .addStarlarkSet(ImmutableSet.of(ID_STARLARK))
                 .addBuiltinSet(ImmutableSet.of(P1.class, P2.class))
                 .build()
                 .getDescription())
-        .isEqualTo("[P1, P2] or ['p_legacy', 'p_starlark'] or 'p_starlark'");
+        .isEqualTo("[P1, P2] or 'p_starlark'");
+  }
+
+  @Test
+  public void getStarlarkProviders() {
+    assertThat(RequiredProviders.acceptAnyBuilder().build().getStarlarkProviders()).isEmpty();
+    assertThat(RequiredProviders.acceptNoneBuilder().build().getStarlarkProviders()).isEmpty();
+    assertThat(
+            RequiredProviders.acceptAnyBuilder()
+                .addStarlarkSet(ImmutableSet.of(ID_STARLARK))
+                .addBuiltinSet(ImmutableSet.of(P1.class, P2.class))
+                .addBuiltinSet(ImmutableSet.of(P3.class))
+                .build()
+                .getStarlarkProviders())
+        .containsExactly(ImmutableSet.of(ID_STARLARK));
   }
 
   @SafeVarargs

@@ -14,9 +14,12 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.cpp;
 
+import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
+import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.StarlarkInfo;
+import com.google.devtools.build.lib.starlarkbuildapi.BuildConfigurationApi;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkActionFactoryApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleContextApi;
@@ -30,6 +33,8 @@ import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.StarlarkCallable;
+import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 import net.starlark.java.eval.Tuple;
@@ -37,25 +42,15 @@ import net.starlark.java.eval.Tuple;
 /** Utilites related to C++ support. */
 @StarlarkBuiltin(
     name = "cc_common",
+    category = DocCategory.TOP_LEVEL_MODULE,
     doc = "Utilities for C++ compilation, linking, and command line generation.")
 public interface CcModuleApi<
         StarlarkActionFactoryT extends StarlarkActionFactoryApi,
         FileT extends FileApi,
-        FdoContextT extends FdoContextApi<?>,
-        CcToolchainProviderT extends CcToolchainProviderApi<FeatureConfigurationT, ?, FdoContextT>,
         FeatureConfigurationT extends FeatureConfigurationApi,
-        CompilationContextT extends CcCompilationContextApi<FileT>,
-        LtoBackendArtifactsT extends LtoBackendArtifactsApi<FileT>,
-        LinkerInputT extends LinkerInputApi<LibraryToLinkT, LtoBackendArtifactsT, FileT>,
-        LinkingContextT extends CcLinkingContextApi<?>,
-        LibraryToLinkT extends LibraryToLinkApi<FileT, LtoBackendArtifactsT>,
         CcToolchainVariablesT extends CcToolchainVariablesApi,
         ConstraintValueT extends ConstraintValueInfoApi,
-        StarlarkRuleContextT extends StarlarkRuleContextApi<ConstraintValueT>,
-        CcToolchainConfigInfoT extends CcToolchainConfigInfoApi,
-        CompilationOutputsT extends CcCompilationOutputsApi<FileT>,
-        DebugInfoT extends CcDebugInfoContextApi,
-        CppModuleMapT extends CppModuleMapApi<FileT>>
+        StarlarkRuleContextT extends StarlarkRuleContextApi<ConstraintValueT>>
     extends StarlarkValue {
 
   @StarlarkMethod(
@@ -70,31 +65,616 @@ public interface CcModuleApi<
   @StarlarkMethod(
       name = "do_not_use_tools_cpp_compiler_present",
       doc =
-          "Do not use this field, its only puprose is to help with migration from "
+          "Do not use this field, its only purpose is to help with migration from "
               + "config_setting.values{'compiler') to "
               + "config_settings.flag_values{'@bazel_tools//tools/cpp:compiler'}",
       structField = true)
   default void compilerFlagExists() {}
 
+  // LINT.IfChange(compile_api)
   @StarlarkMethod(
-      name = "configure_features",
-      doc = "Creates a feature_configuration instance. Requires the cpp configuration fragment.",
+      name = "compile",
+      doc =
+          "Should be used for C++ compilation. Returns tuple of "
+              + "(<code>CompilationContext</code>, <code>CcCompilationOutputs</code>).",
+      useStarlarkThread = true,
       parameters = {
         @Param(
-            name = "ctx",
+            name = "actions",
+            positional = false,
+            named = true,
+            doc = "<code>actions</code> object."),
+        @Param(
+            name = "feature_configuration",
+            doc = "<code>feature_configuration</code> to be queried.",
+            positional = false,
+            named = true),
+        @Param(
+            name = "cc_toolchain",
+            doc = "<code>CcToolchainInfo</code> provider to be used.",
+            positional = false,
+            named = true),
+        @Param(
+            name = "srcs",
+            doc = "The list of source files to be compiled.",
+            positional = false,
+            named = true,
+            defaultValue = "[]"),
+        @Param(
+            name = "public_hdrs",
+            doc =
+                "List of headers needed for compilation of srcs and may be included by dependent "
+                    + "rules transitively.",
+            positional = false,
+            named = true,
+            defaultValue = "[]"),
+        @Param(
+            name = "private_hdrs",
+            doc =
+                "List of headers needed for compilation of srcs and NOT to be included by"
+                    + " dependent rules.",
+            positional = false,
+            named = true,
+            defaultValue = "[]"),
+        @Param(
+            name = "textual_hdrs",
+            positional = false,
+            named = true,
+            allowedTypes = {
+              @ParamType(type = Sequence.class, generic1 = FileApi.class),
+              @ParamType(type = Depset.class)
+            },
+            documented = false,
+            defaultValue = "[]"),
+        @Param(
+            name = "additional_exported_hdrs",
+            positional = false,
+            named = true,
+            documented = false,
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
+            defaultValue = "unbound"),
+        @Param(
+            name = "includes",
+            doc =
+                "Search paths for header files referenced both by angle bracket and quotes. "
+                    + "Usually passed with -I. Propagated to dependents transitively.",
+            positional = false,
+            named = true,
+            defaultValue = "[]",
+            allowedTypes = {@ParamType(type = Sequence.class), @ParamType(type = Depset.class)}),
+        @Param(
+            name = "loose_includes",
+            documented = false,
+            positional = false,
+            named = true,
+            defaultValue = "unbound",
+            allowedTypes = {@ParamType(type = Sequence.class), @ParamType(type = NoneType.class)}),
+        @Param(
+            name = "local_includes",
+            doc =
+                "Search paths for header files referenced by angle brackets and quotes. "
+                    + "Usually passed with -I. Not propagated to dependents transitively.",
+            positional = false,
+            named = true,
+            defaultValue = "[]",
+            allowedTypes = {@ParamType(type = Sequence.class), @ParamType(type = Depset.class)}),
+        @Param(
+            name = "quote_includes",
+            doc =
+                "Search paths for header files referenced by quotes, "
+                    + "e.g. #include \"foo/bar/header.h\". They can be either relative to the exec "
+                    + "root or absolute. Usually passed with -iquote. Propagated to dependents "
+                    + "transitively.",
+            positional = false,
+            named = true,
+            defaultValue = "[]"),
+        @Param(
+            name = "system_includes",
+            doc =
+                "Search paths for header files referenced by angle brackets, e.g. #include"
+                    + " &lt;foo/bar/header.h&gt;. They can be either relative to the exec root or"
+                    + " absolute. Usually passed with -isystem. Propagated to dependents "
+                    + "transitively.",
+            positional = false,
+            named = true,
+            defaultValue = "[]"),
+        @Param(
+            name = "framework_includes",
+            doc =
+                "Search paths for header files from Apple frameworks. They can be either relative "
+                    + "to the exec root or absolute. Usually passed with -F. Propagated to "
+                    + "dependents transitively.",
+            positional = false,
+            named = true,
+            defaultValue = "[]"),
+        @Param(
+            name = "defines",
+            doc =
+                "Set of defines needed to compile this target. Each define is a string. Propagated"
+                    + " to dependents transitively.",
+            positional = false,
+            named = true,
+            defaultValue = "[]"),
+        @Param(
+            name = "local_defines",
+            doc =
+                "Set of defines needed to compile this target. Each define is a string. Not"
+                    + " propagated to dependents transitively.",
+            positional = false,
+            named = true,
+            defaultValue = "[]"),
+        @Param(
+            name = "include_prefix",
+            doc =
+                "The prefix to add to the paths of the headers of this rule. When set, the "
+                    + "headers in the hdrs attribute of this rule are accessible at is the "
+                    + "value of this attribute prepended to their repository-relative path. "
+                    + "The prefix in the strip_include_prefix attribute is removed before this "
+                    + "prefix is added.",
+            positional = false,
+            named = true,
+            defaultValue = "''"),
+        @Param(
+            name = "strip_include_prefix",
+            doc =
+                "The prefix to strip from the paths of the headers of this rule. When set, the"
+                    + " headers in the hdrs attribute of this rule are accessible at their path"
+                    + " with this prefix cut off. If it's a relative path, it's taken as a"
+                    + " package-relative one. If it's an absolute one, it's understood as a"
+                    + " repository-relative path. The prefix in the include_prefix attribute is"
+                    + " added after this prefix is stripped.",
+            positional = false,
+            named = true,
+            defaultValue = "''"),
+        @Param(
+            name = "user_compile_flags",
+            doc = "Additional list of compilation options.",
+            positional = false,
+            named = true,
+            defaultValue = "[]"),
+        @Param(
+            name = "conly_flags",
+            doc = "Additional list of compilation options for C compiles.",
+            positional = false,
+            named = true,
+            defaultValue = "[]"),
+        @Param(
+            name = "cxx_flags",
+            doc = "Additional list of compilation options for C++ compiles.",
+            positional = false,
+            named = true,
+            defaultValue = "[]"),
+        @Param(
+            name = "compilation_contexts",
+            doc = "Headers from dependencies used for compilation.",
+            positional = false,
+            named = true,
+            defaultValue = "[]"),
+        @Param(
+            name = "implementation_compilation_contexts",
+            documented = false,
+            positional = false,
+            defaultValue = "unbound",
+            allowedTypes = {
+              @ParamType(type = Sequence.class, generic1 = CcCompilationContextApi.class),
+              @ParamType(type = NoneType.class)
+            },
+            named = true),
+        @Param(
+            name = "progress_message_prefix",
+            doc = "An additional string to identify actions for logging.",
+            positional = false,
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
+            named = true),
+        @Param(
+            name = "name",
+            doc =
+                "This is used for naming the output artifacts of actions created by this "
+                    + "method. See also the `main_output` arg.",
+            positional = false,
+            named = true),
+        @Param(
+            name = "disallow_pic_outputs",
+            doc = "Whether PIC outputs should be created.",
+            positional = false,
+            named = true,
+            defaultValue = "False"),
+        @Param(
+            name = "disallow_nopic_outputs",
+            doc = "Whether NOPIC outputs should be created.",
+            positional = false,
+            named = true,
+            defaultValue = "False"),
+        @Param(
+            name = "additional_include_scanning_roots",
+            documented = false,
+            positional = false,
+            named = true,
+            defaultValue = "[]"),
+        @Param(
+            name = "additional_inputs",
+            doc = "List of additional files needed for compilation of srcs",
+            positional = false,
+            named = true,
+            defaultValue = "[]"),
+        @Param(
+            name = "module_map",
+            positional = false,
+            documented = false,
+            defaultValue = "unbound",
+            allowedTypes = {
+              @ParamType(type = CppModuleMapApi.class),
+              @ParamType(type = NoneType.class)
+            },
+            named = true),
+        @Param(
+            name = "additional_module_maps",
+            positional = false,
+            documented = false,
+            defaultValue = "unbound",
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = CppModuleMapApi.class)},
+            named = true),
+        @Param(
+            name = "do_not_generate_module_map",
+            positional = false,
+            named = true,
+            documented = false,
+            allowedTypes = {@ParamType(type = Boolean.class)},
+            defaultValue = "unbound"),
+        @Param(
+            name = "code_coverage_enabled",
+            positional = false,
+            named = true,
+            documented = false,
+            allowedTypes = {@ParamType(type = Boolean.class)},
+            defaultValue = "unbound"),
+        @Param(
+            name = "hdrs_checking_mode",
+            positional = false,
+            named = true,
+            documented = false,
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
+            defaultValue = "unbound"),
+        @Param(
+            name = "variables_extension",
+            positional = false,
+            named = true,
+            documented = false,
+            allowedTypes = {@ParamType(type = Dict.class)},
+            defaultValue = "unbound"),
+        @Param(
+            name = "language",
+            positional = false,
+            named = true,
+            documented = false,
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
+            defaultValue = "unbound"),
+        @Param(
+            name = "purpose",
+            documented = false,
+            positional = false,
+            named = true,
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
+            defaultValue = "unbound"),
+        @Param(
+            name = "separate_module_headers",
+            documented = false,
+            positional = false,
+            named = true,
+            allowedTypes = {@ParamType(type = Sequence.class)},
+            defaultValue = "unbound"),
+        @Param(
+            name = "module_interfaces",
+            doc =
+                "The list of module interfaces source files to be compiled. Note: this is an"
+                    + " experimental feature, only enabled with --experimental_cpp_modules",
+            positional = false,
+            named = true,
+            defaultValue = "unbound"),
+        @Param(
+            name = "non_compilation_additional_inputs",
+            positional = false,
+            named = true,
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = FileApi.class)},
+            documented = false,
+            defaultValue = "unbound"),
+      })
+  default Tuple compile(
+      StarlarkActionFactoryT starlarkActionFactoryApi,
+      FeatureConfigurationT starlarkFeatureConfiguration,
+      Info starlarkCcToolchainProvider,
+      Sequence<?> sourcesUnchecked, // <Artifact> expected
+      Sequence<?> publicHeadersUnchecked, // <Artifact> expected
+      Sequence<?> privateHeadersUnchecked, // <Artifact> expected
+      Object textualHeadersStarlarkObject,
+      Object additionalExportedHeadersObject,
+      Object starlarkIncludes,
+      Object starlarkLooseIncludes,
+      Object starlarkLocalIncludes,
+      Sequence<?> quoteIncludes, // <String> expected
+      Sequence<?> systemIncludes, // <String> expected
+      Sequence<?> frameworkIncludes, // <String> expected
+      Sequence<?> defines, // <String> expected
+      Sequence<?> localDefines, // <String> expected
+      String includePrefix,
+      String stripIncludePrefix,
+      Sequence<?> userCompileFlags, // <String> expected
+      Sequence<?> conlyFlags, // <String> expected
+      Sequence<?> cxxFlags, // <String> expected
+      Sequence<?> ccCompilationContexts, // <CcCompilationContext> expected
+      Object implementationCcCompilationContextsObject,
+      Object progressMessagePrefixObject,
+      String name,
+      boolean disallowPicOutputs,
+      boolean disallowNopicOutputs,
+      Sequence<?> additionalIncludeScanningRoots, // <Artifact> expected
+      Sequence<?> additionalInputs, // <Artifact> expected
+      Object moduleMapNoneable,
+      Object additionalModuleMapsNoneable,
+      Object doNotGenerateModuleMapObject,
+      Object codeCoverageEnabledObject,
+      Object hdrsCheckingModeObject,
+      Object variablesExtension,
+      Object languageObject,
+      Object purposeObject,
+      Object separateModuleHeadersObject,
+      Sequence<?> moduleInterfacesUnchecked, // <Artifact> expected
+      Object nonCompilationAdditionalInputsObject,
+      StarlarkThread thread)
+      throws EvalException, InterruptedException {
+    throw new UnsupportedOperationException();
+  }
+
+  // LINT.ThenChange(@rules_cc//cc/private/compile/compile.bzl:compile_api)
+
+  @StarlarkMethod(
+      name = "link",
+      doc = "Should be used for C++ transitive linking.",
+      useStarlarkThread = true,
+      parameters = {
+        @Param(
+            name = "actions",
+            positional = false,
+            named = true,
+            doc = "<code>actions</code> object."),
+        @Param(
+            name = "name",
+            doc = "This is used for naming the output artifacts of actions created by this method.",
+            positional = false,
+            named = true),
+        @Param(
+            name = "feature_configuration",
+            doc = "<code>feature_configuration</code> to be queried.",
+            positional = false,
+            named = true),
+        @Param(
+            name = "cc_toolchain",
+            doc = "<code>CcToolchainInfo</code> provider to be used.",
+            positional = false,
+            named = true),
+        @Param(
+            name = "language",
+            doc = "Only C++ supported for now. Do not use this parameter.",
+            positional = false,
+            named = true,
+            defaultValue = "'c++'"),
+        @Param(
+            name = "output_type",
+            doc = "Can be either 'executable' or 'dynamic_library'.",
+            positional = false,
+            named = true,
+            defaultValue = "'executable'"),
+        @Param(
+            name = "link_deps_statically",
+            doc = "True to link dependencies statically, False dynamically.",
+            positional = false,
+            named = true,
+            defaultValue = "True"),
+        @Param(
+            name = "compilation_outputs",
+            doc = "Compilation outputs containing object files to link.",
             positional = false,
             named = true,
             defaultValue = "None",
             allowedTypes = {
-              @ParamType(type = StarlarkRuleContextApi.class),
-              @ParamType(type = NoneType.class),
-            },
-            doc = "The rule context."),
+              @ParamType(type = CcCompilationOutputsApi.class),
+              @ParamType(type = NoneType.class)
+            }),
+        @Param(
+            name = "linking_contexts",
+            doc =
+                "Linking contexts from dependencies to be linked into the linking context "
+                    + "generated by this rule.",
+            positional = false,
+            named = true,
+            defaultValue = "[]"),
+        @Param(
+            name = "user_link_flags",
+            doc = "Additional list of linker options.",
+            positional = false,
+            named = true,
+            defaultValue = "[]"),
+        @Param(
+            name = "stamp",
+            doc =
+                "Whether to include build information in the linked executable, if output_type is "
+                    + "'executable'. If 1, build information is always included. If 0 (the "
+                    + "default build information is always excluded. If -1, uses the default "
+                    + "behavior, which may be overridden by the --[no]stamp flag. This should be "
+                    + "unset (or set to 0) when generating the executable output for test rules.",
+            positional = false,
+            named = true,
+            defaultValue = "0"),
+        @Param(
+            name = "additional_inputs",
+            doc = "For additional inputs to the linking action, e.g.: linking scripts.",
+            positional = false,
+            named = true,
+            defaultValue = "[]",
+            allowedTypes = {
+              @ParamType(type = Sequence.class),
+              @ParamType(type = Depset.class),
+            }),
+        @Param(
+            name = "additional_outputs",
+            doc = "For additional outputs to the linking action, e.g.: map files.",
+            positional = false,
+            named = true,
+            allowedTypes = {@ParamType(type = Sequence.class)},
+            defaultValue = "[]"),
+        @Param(
+            name = "variables_extension",
+            positional = false,
+            named = true,
+            doc =
+                "Additional variables to pass to the toolchain configuration when create link "
+                    + "command line.",
+            allowedTypes = {@ParamType(type = Dict.class)},
+            defaultValue = "{}"),
+        @Param(
+            name = "use_test_only_flags",
+            documented = false,
+            positional = false,
+            named = true,
+            allowedTypes = {@ParamType(type = Boolean.class)},
+            defaultValue = "unbound"),
+        @Param(
+            name = "never_link",
+            positional = false,
+            named = true,
+            documented = false,
+            allowedTypes = {@ParamType(type = Boolean.class)},
+            defaultValue = "unbound"),
+        @Param(
+            name = "test_only_target",
+            positional = false,
+            named = true,
+            documented = false,
+            allowedTypes = {@ParamType(type = Boolean.class)},
+            defaultValue = "unbound"),
+        @Param(
+            name = "native_deps",
+            positional = false,
+            named = true,
+            documented = false,
+            allowedTypes = {@ParamType(type = Boolean.class)},
+            defaultValue = "unbound"),
+        @Param(
+            name = "whole_archive",
+            positional = false,
+            named = true,
+            documented = false,
+            allowedTypes = {@ParamType(type = Boolean.class)},
+            defaultValue = "unbound"),
+        @Param(
+            name = "additional_linkstamp_defines",
+            positional = false,
+            named = true,
+            documented = false,
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
+            defaultValue = "unbound"),
+        @Param(
+            name = "always_link",
+            positional = false,
+            named = true,
+            documented = false,
+            allowedTypes = {@ParamType(type = Boolean.class)},
+            defaultValue = "unbound"),
+        @Param(
+            name = "main_output",
+            doc =
+                "Name of the main output artifact that will be produced by the linker. "
+                    + "Only set this if the default name generation does not match you needs "
+                    + "For output_type=executable, this is the final executable filename. "
+                    + "For output_type=dynamic_library, this is the shared library filename. "
+                    + "If not specified, then one will be computed based on `name` and "
+                    + "`output_type`",
+            positional = false,
+            named = true,
+            documented = false,
+            defaultValue = "unbound",
+            allowedTypes = {@ParamType(type = FileApi.class), @ParamType(type = NoneType.class)}),
+        @Param(
+            name = "use_shareable_artifact_factory",
+            documented = false,
+            positional = false,
+            named = true,
+            defaultValue = "unbound",
+            allowedTypes = {@ParamType(type = Boolean.class)}),
+        @Param(
+            name = "build_config",
+            documented = false,
+            positional = false,
+            named = true,
+            defaultValue = "unbound",
+            allowedTypes = {
+              @ParamType(type = BuildConfigurationApi.class),
+              @ParamType(type = NoneType.class)
+            }),
+        @Param(
+            name = "emit_interface_shared_library",
+            doc =
+                "When 'output_type' is 'dynamic_library' and this parameter is set to True, an"
+                    + " interface shared library will be generated during linking. On Windows the"
+                    + " interface shared library will always be generated regardless of this"
+                    + " parameter since it is a requirement for linking",
+            positional = false,
+            named = true,
+            documented = false,
+            allowedTypes = {@ParamType(type = Boolean.class)},
+            defaultValue = "unbound"),
+      })
+  default CcLinkingOutputsApi<FileT> link(
+      StarlarkActionFactoryT starlarkActionFactoryApi,
+      String name,
+      FeatureConfigurationT starlarkFeatureConfiguration,
+      Info starlarkCcToolchainProvider,
+      String language,
+      String outputType,
+      boolean linkDepsStatically,
+      Object compilationOutputs,
+      Sequence<?> linkingContexts, // <CcLinkingContextApi> expected
+      Sequence<?> userLinkFlags, // <String> expected
+      StarlarkInt stamp,
+      Object additionalInputs, // <FileT> expected
+      Object linkerOutputs,
+      Object variablesExtension,
+      Object useTestOnlyFlags,
+      Object neverLink,
+      Object testOnlyTarget,
+      Object nativeDeps,
+      Object wholeArchive,
+      Object additionalLinkstampDefines,
+      Object alwaysLink,
+      Object mainOutput,
+      Object useShareableArtifactFactory,
+      Object buildConfig,
+      Object emitInterfaceSharedLibrary,
+      StarlarkThread thread)
+      throws InterruptedException, EvalException {
+    throw new UnsupportedOperationException();
+  }
+
+  @StarlarkMethod(
+      name = "configure_features",
+      doc = "Creates a feature_configuration instance. Requires the cpp configuration fragment.",
+      parameters = {
+        @Param(name = "ctx", positional = false, named = true, doc = "The rule context."),
         @Param(
             name = "cc_toolchain",
             doc = "cc_toolchain for which we configure features.",
             positional = false,
             named = true),
+        @Param(
+            name = "language",
+            positional = false,
+            named = true,
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class),
+            },
+            defaultValue = "None",
+            doc = "The language to configure for: either c++ or objc (default c++)"),
         @Param(
             name = "requested_features",
             doc = "List of features to be enabled.",
@@ -108,12 +688,100 @@ public interface CcModuleApi<
             named = true,
             defaultValue = "[]"),
       })
-  FeatureConfigurationT configureFeatures(
-      Object ruleContextOrNone,
-      CcToolchainProviderT toolchain,
+  default FeatureConfigurationT configureFeatures(
+      StarlarkRuleContextT ruleContext,
+      Info toolchain,
+      Object languageObject,
       Sequence<?> requestedFeatures, // <String> expected
-      Sequence<?> unsupportedFeatures) // <String> expected
-      throws EvalException;
+      Sequence<?> unsupportedFeatures) { // <String> expected
+
+    throw new UnsupportedOperationException();
+  }
+
+  @StarlarkMethod(
+      name = "create_lto_compilation_context",
+      doc = "Create LTO compilation context",
+      parameters = {
+        @Param(
+            name = "objects",
+            doc = "map of full object to index object",
+            positional = false,
+            named = true,
+            defaultValue = "{}")
+      })
+  default LtoCompilationContextApi createLtoCompilationContextFromStarlark(
+      Dict<?, ?> objectsObject) {
+    throw new UnsupportedOperationException();
+  }
+
+  @StarlarkMethod(
+      name = "create_compilation_outputs",
+      doc = "Create compilation outputs object.",
+      parameters = {
+        @Param(
+            name = "objects",
+            doc = "List of object files.",
+            positional = false,
+            named = true,
+            defaultValue = "None",
+            allowedTypes = {
+              @ParamType(type = Depset.class),
+              @ParamType(type = NoneType.class),
+            }),
+        @Param(
+            name = "pic_objects",
+            doc = "List of pic object files.",
+            positional = false,
+            named = true,
+            defaultValue = "None",
+            allowedTypes = {
+              @ParamType(type = Depset.class),
+              @ParamType(type = NoneType.class),
+            }),
+        @Param(
+            name = "lto_compilation_context",
+            documented = false,
+            positional = false,
+            named = true,
+            defaultValue = "unbound"),
+        @Param(
+            name = "dwo_objects",
+            documented = false,
+            doc = "Compilation outputs containing dwo files of debuginfo for fission builds.",
+            positional = false,
+            named = true,
+            allowedTypes = {
+              @ParamType(type = Depset.class),
+            }),
+        @Param(
+            name = "pic_dwo_objects",
+            doc = "Compilation outputs containing dwo files of debuginfo for pic fission builds.",
+            documented = false,
+            positional = false,
+            named = true,
+            allowedTypes = {
+              @ParamType(type = Depset.class),
+            }),
+      })
+  default CcCompilationOutputsApi<FileT> createCompilationOutputsFromStarlark(
+      Object objectsObject,
+      Object picObjectsObject,
+      Object ltoCopmilationContextObject,
+      Object dwoObjectsObject,
+      Object picDwoObjectsObject) {
+    throw new UnsupportedOperationException();
+  }
+
+  @StarlarkMethod(
+      name = "merge_compilation_outputs",
+      doc = "Merge compilation outputs.",
+      parameters = {
+        @Param(name = "compilation_outputs", positional = false, named = true, defaultValue = "[]"),
+      })
+  default CcCompilationOutputsApi<FileT> mergeCcCompilationOutputsFromStarlark(
+      Sequence<?> compilationOutputs) { // <CompilationOutputsT> expected
+    throw new UnsupportedOperationException();
+  }
 
   @StarlarkMethod(
       name = "get_tool_for_action",
@@ -133,8 +801,11 @@ public interface CcModuleApi<
                     + "action_names.bzl)",
             named = true,
             positional = false),
-      })
-  String getToolForAction(FeatureConfigurationT featureConfiguration, String actionName);
+      },
+      useStarlarkThread = true)
+  String getToolForAction(
+      FeatureConfigurationT featureConfiguration, String actionName, StarlarkThread thread)
+      throws EvalException;
 
   @StarlarkMethod(
       name = "get_execution_requirements",
@@ -154,9 +825,11 @@ public interface CcModuleApi<
                     + "action_names.bzl)",
             named = true,
             positional = false),
-      })
+      },
+      useStarlarkThread = true)
   Sequence<String> getExecutionRequirements(
-      FeatureConfigurationT featureConfiguration, String actionName);
+      FeatureConfigurationT featureConfiguration, String actionName, StarlarkThread thread)
+      throws EvalException;
 
   @StarlarkMethod(
       name = "is_enabled",
@@ -172,8 +845,13 @@ public interface CcModuleApi<
             doc = "Name of the feature.",
             named = true,
             positional = false),
-      })
-  boolean isEnabled(FeatureConfigurationT featureConfiguration, String featureName);
+      },
+      useStarlarkThread = true)
+  default boolean isEnabled(
+      FeatureConfigurationT featureConfiguration, String featureName, StarlarkThread thread)
+      throws EvalException {
+    throw new UnsupportedOperationException();
+  }
 
   @StarlarkMethod(
       name = "action_is_enabled",
@@ -189,8 +867,11 @@ public interface CcModuleApi<
             doc = "Name of the action_config.",
             named = true,
             positional = false),
-      })
-  boolean actionIsEnabled(FeatureConfigurationT featureConfiguration, String actionName);
+      },
+      useStarlarkThread = true)
+  boolean actionIsEnabled(
+      FeatureConfigurationT featureConfiguration, String actionName, StarlarkThread thread)
+      throws EvalException;
 
   @StarlarkMethod(
       name = "get_memory_inefficient_command_line",
@@ -219,11 +900,13 @@ public interface CcModuleApi<
             doc = "Build variables to be used for template expansions.",
             named = true,
             positional = false),
-      })
+      },
+      useStarlarkThread = true)
   Sequence<String> getCommandLine(
       FeatureConfigurationT featureConfiguration,
       String actionName,
-      CcToolchainVariablesT variables)
+      CcToolchainVariablesT variables,
+      StarlarkThread thread)
       throws EvalException;
 
   @StarlarkMethod(
@@ -249,11 +932,13 @@ public interface CcModuleApi<
             doc = "Build variables to be used for template expansion.",
             positional = false,
             named = true),
-      })
+      },
+      useStarlarkThread = true)
   Dict<String, String> getEnvironmentVariable(
       FeatureConfigurationT featureConfiguration,
       String actionName,
-      CcToolchainVariablesT variables)
+      CcToolchainVariablesT variables,
+      StarlarkThread thread)
       throws EvalException;
 
   @StarlarkMethod(
@@ -273,23 +958,33 @@ public interface CcModuleApi<
         @Param(
             name = "source_file",
             doc =
-                "Optional source file for the compilation. Please prefer passing source_file here "
-                    + "over appending it to the end of the command line generated from "
+                "Optional source file path for the compilation. Please prefer passing source_file "
+                    + "here over appending it to the end of the command line generated from "
                     + "cc_common.get_memory_inefficient_command_line, as then it's in the power of "
                     + "the toolchain author to properly specify and position compiler flags.",
             named = true,
             positional = false,
-            defaultValue = "None"),
+            defaultValue = "None",
+            allowedTypes = {
+              @ParamType(type = FileApi.class),
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class),
+            }),
         @Param(
             name = "output_file",
             doc =
-                "Optional output file of the compilation. Please prefer passing output_file here "
-                    + "over appending it to the end of the command line generated from "
+                "Optional output file path of the compilation. Please prefer passing output_file "
+                    + "here over appending it to the end of the command line generated from "
                     + "cc_common.get_memory_inefficient_command_line, as then it's in the power of "
                     + "the toolchain author to properly specify and position compiler flags.",
             named = true,
             positional = false,
-            defaultValue = "None"),
+            defaultValue = "None",
+            allowedTypes = {
+              @ParamType(type = FileApi.class),
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class),
+            }),
         @Param(
             name = "user_compile_flags",
             doc = "List of additional compilation flags (copts).",
@@ -392,10 +1087,38 @@ public interface CcModuleApi<
             doc = "Unused.",
             named = true,
             positional = false,
-            defaultValue = "False")
+            defaultValue = "False"),
+        @Param(
+            name = "variables_extension",
+            doc = "A dictionary of additional variables used by compile actions.",
+            named = true,
+            positional = false,
+            allowedTypes = {@ParamType(type = Dict.class)},
+            defaultValue = "unbound"),
+        @Param(
+            name = "strip_opts",
+            documented = false,
+            positional = false,
+            named = true,
+            defaultValue = "unbound",
+            allowedTypes = {
+              @ParamType(type = Sequence.class, generic1 = String.class),
+              @ParamType(type = NoneType.class),
+            }),
+        @Param(
+            name = "input_file",
+            documented = false,
+            named = true,
+            positional = false,
+            defaultValue = "unbound",
+            allowedTypes = {
+              @ParamType(type = FileApi.class),
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class),
+            }),
       })
-  CcToolchainVariablesT getCompileBuildVariables(
-      CcToolchainProviderT ccToolchainProvider,
+  default CcToolchainVariablesT getCompileBuildVariables(
+      Info ccToolchainProvider,
       FeatureConfigurationT featureConfiguration,
       Object sourceFile,
       Object outputFile,
@@ -409,8 +1132,12 @@ public interface CcModuleApi<
       Object thinLtoInputBitcodeFile,
       Object thinLtoOutputObjectFile,
       boolean usePic,
-      boolean addLegacyCxxOptions)
-      throws EvalException;
+      boolean addLegacyCxxOptions,
+      Object variablesExtension,
+      Object stripOpts,
+      Object inputFile) {
+    throw new UnsupportedOperationException();
+  }
 
   @StarlarkMethod(
       name = "create_link_variables",
@@ -431,22 +1158,22 @@ public interface CcModuleApi<
             doc = "Depset of directories where linker will look for libraries at link time.",
             positional = false,
             named = true,
-            defaultValue = "None",
-            allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = Depset.class)}),
+            defaultValue = "[]",
+            allowedTypes = {@ParamType(type = Depset.class)}),
         @Param(
             name = "runtime_library_search_directories",
             doc = "Depset of directories where loader will look for libraries at runtime.",
             positional = false,
             named = true,
-            defaultValue = "None",
-            allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = Depset.class)}),
+            defaultValue = "[]",
+            allowedTypes = {@ParamType(type = Depset.class)}),
         @Param(
             name = "user_link_flags",
             doc = "List of additional link flags (linkopts).",
             positional = false,
             named = true,
-            defaultValue = "None",
-            allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = Sequence.class)}),
+            defaultValue = "[]",
+            allowedTypes = {@ParamType(type = Sequence.class)}),
         @Param(
             name = "output_file",
             doc = "Optional output file path.",
@@ -456,12 +1183,6 @@ public interface CcModuleApi<
         @Param(
             name = "param_file",
             doc = "Optional param file path.",
-            named = true,
-            positional = false,
-            defaultValue = "None"),
-        @Param(
-            name = "def_file",
-            doc = "Optional .def file path.",
             named = true,
             positional = false,
             defaultValue = "None"),
@@ -490,7 +1211,7 @@ public interface CcModuleApi<
         @Param(
             name = "must_keep_debug",
             doc =
-                "When set to True, bazel will expose 'strip_debug_symbols' variable, which is "
+                "When set to False, bazel will expose 'strip_debug_symbols' variable, which is "
                     + "usually used to use the linker to strip debug symbols from the output file.",
             named = true,
             positional = false,
@@ -508,30 +1229,31 @@ public interface CcModuleApi<
             named = true,
             positional = false,
             defaultValue = "True"),
-      })
-  CcToolchainVariablesT getLinkBuildVariables(
-      CcToolchainProviderT ccToolchainProvider,
+      },
+      useStarlarkThread = true)
+  default CcToolchainVariablesT getLinkBuildVariables(
+      Info ccToolchainProvider,
       FeatureConfigurationT featureConfiguration,
       Object librarySearchDirectories,
       Object runtimeLibrarySearchDirectories,
       Object userLinkFlags,
       Object outputFile,
       Object paramFile,
-      Object defFile,
       boolean isUsingLinkerNotArchiver,
       boolean isCreatingSharedLibrary,
       boolean mustKeepDebug,
       boolean useTestOnlyFlags,
-      boolean isStaticLinkingMode)
-      throws EvalException;
+      boolean isStaticLinkingMode,
+      StarlarkThread thread) {
+    throw new UnsupportedOperationException();
+  }
 
-  @StarlarkMethod(name = "empty_variables", documented = false)
-  CcToolchainVariablesT getVariables();
+  @StarlarkMethod(name = "empty_variables", documented = false, useStarlarkThread = true)
+  CcToolchainVariablesT getVariables(StarlarkThread thread) throws EvalException;
 
   @StarlarkMethod(
       name = "create_library_to_link",
       doc = "Creates <code>LibraryToLink</code>",
-      useStarlarkThread = true,
       parameters = {
         @Param(
             name = "actions",
@@ -541,11 +1263,13 @@ public interface CcModuleApi<
         @Param(
             name = "feature_configuration",
             doc = "<code>feature_configuration</code> to be queried.",
+            defaultValue = "None",
             positional = false,
             named = true),
         @Param(
             name = "cc_toolchain",
             doc = "<code>CcToolchainInfo</code> provider to be used.",
+            defaultValue = "None",
             positional = false,
             named = true),
         @Param(
@@ -605,6 +1329,12 @@ public interface CcModuleApi<
             defaultValue = "unbound",
             allowedTypes = {@ParamType(type = Sequence.class, generic1 = FileApi.class)}),
         @Param(
+            name = "lto_compilation_context",
+            documented = false,
+            positional = false,
+            named = true,
+            defaultValue = "None"),
+        @Param(
             name = "alwayslink",
             doc = "Whether to link the static library/objects in the --whole_archive block.",
             positional = false,
@@ -636,7 +1366,7 @@ public interface CcModuleApi<
             named = true,
             defaultValue = "unbound"),
       })
-  LibraryToLinkT createLibraryLinkerInput(
+  default LibraryToLinkApi createLibraryLinkerInput(
       Object actions,
       Object featureConfiguration,
       Object ccToolchainProvider,
@@ -646,17 +1376,18 @@ public interface CcModuleApi<
       Object interfaceLibrary,
       Object picObjectFiles, // Sequence<Artifact> expected
       Object nopicObjectFiles, // Sequence<Artifact> expected
+      Object ltoCopmilationContextObject,
       boolean alwayslink,
       String dynamicLibraryPath,
       String interfaceLibraryPath,
-      Object mustKeepDebug,
-      StarlarkThread thread)
-      throws EvalException, InterruptedException;
+      Object mustKeepDebug)
+      throws EvalException, InterruptedException {
+    throw new UnsupportedOperationException();
+  }
 
   @StarlarkMethod(
       name = "create_linker_input",
       doc = "Creates a <code>LinkerInput</code>.",
-      useStarlarkThread = true,
       parameters = {
         @Param(
             name = "owner",
@@ -672,11 +1403,20 @@ public interface CcModuleApi<
             allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = Depset.class)}),
         @Param(
             name = "user_link_flags",
-            doc = "Depset of user link flags passed as strings.",
+            doc =
+                "User link flags passed as strings. Accepts either [String], [[String]] or"
+                    + " depset(String). The latter is discouraged as it's only kept for"
+                    + " compatibility purposes, the depset is flattened. If you want to propagate"
+                    + " user_link_flags via unflattened depsets() wrap them in a LinkerInput so"
+                    + " that they are not flattened till the end.",
             positional = false,
             named = true,
             defaultValue = "None",
-            allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = Depset.class)}),
+            allowedTypes = {
+              @ParamType(type = NoneType.class),
+              @ParamType(type = Depset.class, generic1 = String.class),
+              @ParamType(type = Sequence.class, generic1 = String.class)
+            }),
         @Param(
             name = "additional_inputs",
             doc = "For additional inputs to the linking action, e.g.: linking scripts.",
@@ -692,94 +1432,59 @@ public interface CcModuleApi<
             defaultValue = "unbound",
             allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = Depset.class)}),
       })
-  LinkerInputT createLinkerInput(
+  default LinkerInputApi<FileT> createLinkerInput(
       Label owner,
       Object librariesToLinkObject,
       Object userLinkFlagsObject,
       Object nonCodeInputs,
-      Object linkstamps,
-      StarlarkThread thread)
-      throws EvalException, InterruptedException;
+      Object linkstamps) {
+    throw new UnsupportedOperationException();
+  }
 
   @StarlarkMethod(
       name = "check_experimental_cc_shared_library",
       doc = "DO NOT USE. This is to guard use of cc_shared_library.",
       useStarlarkThread = true,
       documented = false)
-  void checkExperimentalCcSharedLibrary(StarlarkThread thread) throws EvalException;
+  boolean checkExperimentalCcSharedLibrary(StarlarkThread thread) throws EvalException;
 
   @StarlarkMethod(
-      name = "check_experimental_starlark_cc_import",
-      doc = "DO NOT USE. This is to guard use of cc_import.bzl",
-      documented = false,
-      parameters = {
-        @Param(
-            name = "actions",
-            positional = false,
-            named = true,
-            doc = "<code>actions</code> object."),
-      })
-  void checkExperimentalStarlarkCcImport(StarlarkActionFactoryT starlarkActionFactoryApi)
-      throws EvalException;
+      name = "incompatible_disable_objc_library_transition",
+      useStarlarkThread = true,
+      documented = false)
+  boolean getIncompatibleDisableObjcLibraryTransition(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(
+      name = "add_go_exec_groups_to_binary_rules",
+      useStarlarkThread = true,
+      documented = false)
+  boolean addGoExecGroupsToBinaryRules(StarlarkThread thread) throws EvalException;
 
   @StarlarkMethod(
       name = "create_linking_context",
       doc = "Creates a <code>LinkingContext</code>.",
-      useStarlarkThread = true,
       parameters = {
         @Param(
             name = "linker_inputs",
             doc = "Depset of <code>LinkerInput</code>.",
             positional = false,
             named = true,
-            defaultValue = "None",
-            allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = Depset.class)}),
+            allowedTypes = {@ParamType(type = Depset.class)}),
         @Param(
-            name = "libraries_to_link",
-            doc = "List of <code>LibraryToLink</code>.",
-            positional = false,
-            named = true,
-            disableWithFlag = BuildLanguageOptions.INCOMPATIBLE_REQUIRE_LINKER_INPUT_CC_API,
-            defaultValue = "None",
-            valueWhenDisabled = "None",
-            allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = Sequence.class)}),
-        @Param(
-            name = "user_link_flags",
-            doc = "List of user link flags passed as strings.",
-            positional = false,
-            named = true,
-            disableWithFlag = BuildLanguageOptions.INCOMPATIBLE_REQUIRE_LINKER_INPUT_CC_API,
-            defaultValue = "None",
-            valueWhenDisabled = "None",
-            allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = Sequence.class)}),
-        @Param(
-            name = "additional_inputs",
-            doc = "For additional inputs to the linking action, e.g.: linking scripts.",
-            positional = false,
-            named = true,
-            disableWithFlag = BuildLanguageOptions.INCOMPATIBLE_REQUIRE_LINKER_INPUT_CC_API,
-            defaultValue = "None",
-            valueWhenDisabled = "None",
-            allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = Sequence.class)}),
-        @Param(
-            name = "go_link_c_archive",
+            name = "extra_link_time_library",
             documented = false,
             positional = false,
             named = true,
             defaultValue = "unbound",
             allowedTypes = {
-              @ParamType(type = ExtraLinkTimeLibraryApi.class),
+              @ParamType(type = StarlarkInfo.class),
               @ParamType(type = NoneType.class)
-            })
+            }),
       })
-  LinkingContextT createCcLinkingInfo(
-      Object linkerInputs,
-      Object librariesToLinkObject,
-      Object userLinkFlagsObject,
-      Object nonCodeInputs, // <FileT> expected
-      Object goLinkCArchive,
-      StarlarkThread thread)
-      throws EvalException, InterruptedException;
+  default CcLinkingContextApi createCcLinkingInfo(
+      Depset linkerInputs, Object extraLinkTimeLibraryObject) throws EvalException {
+    throw new UnsupportedOperationException();
+  }
 
   @StarlarkMethod(
       name = "merge_cc_infos",
@@ -802,15 +1507,16 @@ public interface CcModuleApi<
             named = true,
             defaultValue = "[]")
       })
-  CcInfoApi<FileT> mergeCcInfos(
+  default Object mergeCcInfos(
       Sequence<?> directCcInfos, // <CcInfoApi> expected
-      Sequence<?> ccInfos) // <CcInfoApi> expected
-      throws EvalException;
+      Sequence<?> ccInfos // <CcInfoApi> expected
+      ) {
+    throw new UnsupportedOperationException("only for documentation");
+  }
 
   @StarlarkMethod(
       name = "create_compilation_context",
       doc = "Creates a <code>CompilationContext</code>.",
-      useStarlarkThread = true,
       parameters = {
         @Param(
             name = "headers",
@@ -885,13 +1591,79 @@ public interface CcModuleApi<
             named = true,
             defaultValue = "[]"),
         @Param(
-            name = "purpose",
+            name = "module_map",
+            documented = false,
+            positional = false,
+            named = true,
+            defaultValue = "unbound"),
+        @Param(
+            name = "external_includes",
+            documented = false,
+            positional = false,
+            named = true,
+            defaultValue = "unbound"),
+        @Param(
+            name = "virtual_to_original_headers",
+            documented = false,
+            positional = false,
+            named = true,
+            defaultValue = "unbound"),
+        @Param(
+            name = "dependent_cc_compilation_contexts",
+            documented = false,
+            positional = false,
+            named = true,
+            defaultValue = "unbound"),
+        @Param(
+            name = "exported_dependent_cc_compilation_contexts",
+            documented = false,
+            positional = false,
+            named = true,
+            defaultValue = "unbound"),
+        @Param(
+            name = "non_code_inputs",
+            documented = false,
+            positional = false,
+            named = true,
+            defaultValue = "unbound"),
+        @Param(
+            name = "pic_header_module",
+            documented = false,
+            positional = false,
+            named = true,
+            defaultValue = "unbound"),
+        @Param(
+            name = "header_module",
+            documented = false,
+            positional = false,
+            named = true,
+            defaultValue = "unbound"),
+        @Param(
+            name = "separate_module_headers",
+            documented = false,
+            positional = false,
+            named = true,
+            defaultValue = "unbound"),
+        @Param(
+            name = "separate_module",
+            documented = false,
+            positional = false,
+            named = true,
+            defaultValue = "unbound"),
+        @Param(
+            name = "separate_pic_module",
+            documented = false,
+            positional = false,
+            named = true,
+            defaultValue = "unbound"),
+        @Param(
+            name = "add_public_headers_to_modular_headers",
             documented = false,
             positional = false,
             named = true,
             defaultValue = "unbound"),
       })
-  CompilationContextT createCcCompilationContext(
+  default CcCompilationContextApi<FileT> createCcCompilationContext(
       Object headers,
       Object systemIncludes,
       Object includes,
@@ -902,27 +1674,32 @@ public interface CcModuleApi<
       Sequence<?> directTextualHdrs,
       Sequence<?> directPublicHdrs,
       Sequence<?> directPrivateHdrs,
-      Object purpose,
-      StarlarkThread thread)
-      throws EvalException;
+      Object moduleMap,
+      Object externalIncludes,
+      Object virtualToOriginalHeaders,
+      Sequence<?> dependentCcCompilationContexts,
+      Sequence<?> exportedDependentCcCompilationContexts,
+      Sequence<?> nonCodeInputs,
+      Object picHeaderModule,
+      Object headerModule,
+      Sequence<?> separateModuleHeaders,
+      Object separateModule,
+      Object separatePicModule,
+      Object addPublicHeadersToModularHeaders) {
+    throw new UnsupportedOperationException("only for documentation");
+  }
 
   @StarlarkMethod(
       name = "create_module_map",
       documented = false,
       doc = "Creates a <code>CcModuleMap</code>.",
-      useStarlarkThread = true,
       parameters = {
         @Param(name = "file", positional = false, named = true),
-        @Param(
-            name = "umbrella_header",
-            positional = false,
-            named = true,
-            defaultValue = "None",
-            allowedTypes = {@ParamType(type = FileApi.class), @ParamType(type = NoneType.class)}),
         @Param(name = "name", positional = false, named = true),
       })
-  CppModuleMapT createCppModuleMap(
-      FileT file, Object umbrellaHeader, String name, StarlarkThread thread) throws EvalException;
+  default CppModuleMapApi<FileT> createCppModuleMap(FileT file, String name) {
+    throw new UnsupportedOperationException("only for documentation");
+  }
 
   // TODO(b/65151735): Remove when cc_flags is entirely set from features.
   // This should only be called from the cc_flags_supplier rule.
@@ -935,21 +1712,14 @@ public interface CcModuleApi<
             doc = "C++ toolchain provider to be used.",
             positional = false,
             named = true)
-      })
-  String legacyCcFlagsMakeVariable(CcToolchainProviderT ccToolchain);
-
-  @StarlarkMethod(
-      name = "is_cc_toolchain_resolution_enabled_do_not_use",
-      documented = false,
-      parameters = {
-        @Param(name = "ctx", positional = false, named = true, doc = "The rule context."),
       },
-      doc = "Returns true if the --incompatible_enable_cc_toolchain_resolution flag is enabled.")
-  boolean isCcToolchainResolutionEnabled(StarlarkRuleContextT ruleContext);
+      useStarlarkThread = true)
+  String legacyCcFlagsMakeVariable(Info ccToolchain, StarlarkThread thread) throws EvalException;
 
   @StarlarkMethod(
       name = "create_cc_toolchain_config_info",
       doc = "Creates a <code>CcToolchainConfigInfo</code> provider",
+      useStarlarkThread = true,
       parameters = {
         @Param(name = "ctx", positional = false, named = true, doc = "The rule context."),
         @Param(
@@ -958,24 +1728,72 @@ public interface CcModuleApi<
             named = true,
             defaultValue = "[]",
             doc =
-                "A list of <a href=\"https://github.com/bazelbuild/bazel/blob/master/tools/cpp/"
-                    + "cc_toolchain_config_lib.bzl#L336\">features</a>."),
+                "Contains all flag specifications for one"
+                    + " feature.<p>Arguments:</p><p><code>name</code>: The feature's name. It is"
+                    + " possible to introduce a feature without a change to Bazel by adding a"
+                    + " 'feature' section to the toolchain and adding the corresponding string as"
+                    + " feature in the <code>BUILD</code> file.</p><p><code>enabled</code>: If"
+                    + " 'True', this feature is enabled unless a rule type explicitly marks it as"
+                    + " unsupported.</p><p><code>flag_sets</code>: A FlagSet list. If the given"
+                    + " feature is enabled, the flag sets will be applied for the actions are"
+                    + " specified for. </p><p><code>env_sets</code>: an EnvSet list. If the given"
+                    + " feature is enabled, the env sets will be applied for the actions they are"
+                    + " specified for. </p><p><code>requires</code>: A list of feature sets"
+                    + " defining when this feature is supported by the  toolchain. The feature is"
+                    + " supported if any of the feature sets fully apply, that is, when all"
+                    + " features of a feature set are enabled. If <code>requires</code> is omitted,"
+                    + " the feature is supported independently of which other features are enabled."
+                    + " Use this for example to filter flags depending on the build mode enabled"
+                    + " (opt / fastbuild / dbg). </p><p><code>implies</code>: A string list of"
+                    + " features or action configs that are automatically enabled when this feature"
+                    + " is enabled. If any of the implied features or action configs cannot be"
+                    + " enabled, this feature will (silently) not be enabled either."
+                    + " </p><p><code>provides</code>: A list of names this feature conflicts with."
+                    + " </p>A feature cannot be enabled if:</br>- <code>provides</code> contains"
+                    + " the name of a different feature or action config that we want to"
+                    + " enable.</br>- <code>provides</code> contains the same value as a 'provides'"
+                    + " in a different feature or action config that we want to enable. Use this in"
+                    + " order to ensure that incompatible features cannot be accidentally activated"
+                    + " at the same time, leading to hard to diagnose compiler errors."),
         @Param(
             name = "action_configs",
             positional = false,
             named = true,
             defaultValue = "[]",
             doc =
-                "A list of <a href=\"https://github.com/bazelbuild/bazel/blob/master/tools/cpp/"
-                    + "cc_toolchain_config_lib.bzl#L461\">action_configs</a>."),
+                "An action config corresponds to a Bazel action, and allows selection of a tool"
+                    + " based on activated features. Action config activation occurs by the same"
+                    + " semantics as features: a feature can 'require' or 'imply' an action config"
+                    + " in the same way that it would another"
+                    + " feature.<p>Arguments:</p><p><code>action_name</code>: The name of the Bazel"
+                    + " action that this config applies to, e.g. 'c-compile' or"
+                    + " 'c-module-compile'.</p><p><code>enabled</code>: If 'True', this action is"
+                    + " enabled unless a rule type explicitly marks it as"
+                    + " unsupported.</p><p><code>tools</code>: The tool applied to the action will"
+                    + " be the first tool with a feature set that matches the feature"
+                    + " configuration.  An error will be thrown if no tool matches a provided"
+                    + " feature configuration - for that reason, it's a good idea to provide a"
+                    + " default tool with an empty feature set.</p><p><code>flag_sets</code>: If"
+                    + " the given action config is enabled, the flag sets will be applied to the"
+                    + " corresponding action.</p><p><code>implies</code>: A list of features or"
+                    + " action configs that are automatically enabled when this action config is"
+                    + " enabled. If any of the implied features or action configs cannot be"
+                    + " enabled, this action config will (silently) not be enabled either.</p>"),
         @Param(
             name = "artifact_name_patterns",
             positional = false,
             named = true,
             defaultValue = "[]",
             doc =
-                "A list of <a href=\"https://github.com/bazelbuild/bazel/blob/master/tools/cpp/"
-                    + "cc_toolchain_config_lib.bzl#L516\">artifact_name_patterns</a>."),
+                "The name for an artifact of a given category of input or output artifacts to an"
+                    + " action.<p>Arguments:</p><p><code>category_name</code>: The category of"
+                    + " artifacts that this selection applies to. This field is compared against a"
+                    + " list of categories defined in Bazel. Example categories include"
+                    + " \"linked_output\" or the artifact for this selection. Together with the"
+                    + " extension it is used to create an artifact name based on the target"
+                    + " name.</p><p><code>extension</code>: The extension for creating the artifact"
+                    + " for this selection. Together with the prefix it is used to create an"
+                    + " artifact name based on the target name.</p>"),
         @Param(
             name = "cxx_builtin_include_directories",
             positional = false,
@@ -1003,54 +1821,84 @@ public interface CcModuleApi<
         @Param(
             name = "host_system_name",
             positional = false,
+            defaultValue = "None",
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
             named = true,
-            doc = "The system name which is required by the toolchain to run."),
+            doc = "Ignored."),
         @Param(
             name = "target_system_name",
             positional = false,
+            defaultValue = "None",
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
             named = true,
-            doc = "The GNU System Name."),
+            doc =
+                "Deprecated. The GNU System Name. The string is exposed to"
+                    + " CcToolchainInfo.target_gnu_system_name."),
         @Param(
             name = "target_cpu",
             positional = false,
+            defaultValue = "None",
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
             named = true,
-            doc = "The target architecture string."),
+            doc =
+                "Deprecated: Use cpu based constraints instead. If the string is \"k8\", "
+                    + "`target_cpu` will be omitted from the filename of raw FDO profile data."),
         @Param(
             name = "target_libc",
             positional = false,
+            defaultValue = "None",
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
             named = true,
-            doc = "The libc version string (e.g. \"glibc-2.2.2\")."),
+            doc =
+                "Deprecated: Use OS based constraints instead. The libc version string (e.g."
+                    + " \"glibc-2.2.2\"). If the string is \"macosx\", platform is assumed to be"
+                    + " MacOS. Otherwise, Linux. The string is exposed to CcToolchainInfo.libc."),
         @Param(
             name = "compiler",
             positional = false,
             named = true,
-            doc = "The compiler version string (e.g. \"gcc-4.1.1\")."),
+            doc =
+                "The compiler string (e.g. \"gcc\"). The current toolchain's compiler"
+                    + " is exposed to `@bazel_tools//tools/cpp:compiler (compiler_flag)` as a flag"
+                    + " value. Targets that require compiler-specific flags can use the"
+                    + " config_settings in"
+                    + " https://github.com/bazelbuild/rules_cc/blob/main/cc/compiler/BUILD in"
+                    + " select() statements or create custom config_setting if the existing"
+                    + " settings don't suffice."),
         @Param(
             name = "abi_version",
             positional = false,
+            defaultValue = "None",
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
             named = true,
-            doc = "The abi in use, which is a gcc version. E.g.: \"gcc-3.4\""),
+            doc =
+                "The abi in use, which is a gcc version. E.g.: \"gcc-3.4\". The string is set to"
+                    + " C++ toolchain variable ABI."),
         @Param(
             name = "abi_libc_version",
             positional = false,
+            defaultValue = "None",
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
             named = true,
-            doc = "The glibc version used by the abi we're using."),
+            doc =
+                "The glibc version used by the abi we're using. The string is set to C++ toolchain"
+                    + " variable ABI_LIBC_VERSION."),
         @Param(
             name = "tool_paths",
             positional = false,
             named = true,
             defaultValue = "[]",
             doc =
-                "A list of <a href=\"https://github.com/bazelbuild/bazel/blob/master/tools/cpp/"
-                    + "cc_toolchain_config_lib.bzl#L400\">tool_paths</a>."),
+                "Tool locations.<p>Arguments:</p><p><code>name</code>: Name of the"
+                    + " tool.</p><p><code>path</code>: Location of the tool; Can be absolute path"
+                    + " (in case of non hermetic toolchain), or path relative to the cc_toolchain's"
+                    + " package.</p>"),
         @Param(
             name = "make_variables",
             positional = false,
             named = true,
             defaultValue = "[]",
-            doc =
-                "A list of <a href=\"https://github.com/bazelbuild/bazel/blob/master/tools/cpp/"
-                    + "cc_toolchain_config_lib.bzl#L86\">make_variables</a>."),
+            doc = "A make variable that is made accessible to rules."),
         @Param(
             name = "builtin_sysroot",
             positional = false,
@@ -1060,40 +1908,34 @@ public interface CcModuleApi<
             doc =
                 "The built-in sysroot. If this attribute is not present, Bazel does not "
                     + "allow using a different sysroot, i.e. through the --grte_top option."),
-        @Param(
-            name = "cc_target_os",
-            positional = false,
-            defaultValue = "None",
-            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
-            named = true,
-            doc = "Internal purpose only, do not use."),
       })
-  CcToolchainConfigInfoT ccToolchainConfigInfoFromStarlark(
+  default void ccToolchainConfigInfoFromStarlark(
       StarlarkRuleContextT starlarkRuleContext,
       Sequence<?> features, // <StructApi> expected
       Sequence<?> actionConfigs, // <StructApi> expected
       Sequence<?> artifactNamePatterns, // <StructApi> expected
       Sequence<?> cxxBuiltInIncludeDirectories, // <String> expected
       String toolchainIdentifier,
-      String hostSystemName,
-      String targetSystemName,
-      String targetCpu,
-      String targetLibc,
+      Object hostSystemName,
+      Object targetSystemName,
+      Object targetCpu,
+      Object targetLibc,
       String compiler,
-      String abiVersion,
-      String abiLibcVersion,
+      Object abiVersion,
+      Object abiLibcVersion,
       Sequence<?> toolPaths, // <StructApi> expected
       Sequence<?> makeVariables, // <StructApi> expected
       Object builtinSysroot,
-      Object ccTargetOs)
-      throws EvalException;
+      StarlarkThread thread) {
+    throw new UnsupportedOperationException("only for documentation");
+  }
 
   @StarlarkMethod(
       name = "create_linking_context_from_compilation_outputs",
       doc =
           "Should be used for creating library rules that can propagate information downstream in"
               + " order to be linked later by a top level rule that does transitive linking to"
-              + " create an executable or dynamic library. Returns tuple of "
+              + " create an executable or a dynamic library. Returns tuple of "
               + "(<code>CcLinkingContext</code>, <code>CcLinkingOutputs</code>).",
       useStarlarkThread = true,
       parameters = {
@@ -1102,6 +1944,13 @@ public interface CcModuleApi<
             positional = false,
             named = true,
             doc = "<code>actions</code> object."),
+        @Param(
+            name = "name",
+            doc =
+                "This is used for naming the output artifacts of actions created by this "
+                    + "method.",
+            positional = false,
+            named = true),
         @Param(
             name = "feature_configuration",
             doc = "<code>feature_configuration</code> to be queried.",
@@ -1113,49 +1962,11 @@ public interface CcModuleApi<
             positional = false,
             named = true),
         @Param(
-            name = "compilation_outputs",
-            doc = "Compilation outputs containing object files to link.",
-            positional = false,
-            named = true),
-        @Param(
-            name = "user_link_flags",
-            doc = "Additional list of linking options.",
-            positional = false,
-            named = true,
-            defaultValue = "[]"),
-        @Param(
-            name = "linking_contexts",
-            doc =
-                "Libraries from dependencies. These libraries will be linked into the output "
-                    + "artifact of the link() call, be it a binary or a library.",
-            positional = false,
-            named = true,
-            defaultValue = "[]"),
-        @Param(
-            name = "name",
-            doc =
-                "This is used for naming the output artifacts of actions created by this "
-                    + "method.",
-            positional = false,
-            named = true),
-        @Param(
             name = "language",
             doc = "Only C++ supported for now. Do not use this parameter.",
             positional = false,
             named = true,
             defaultValue = "'c++'"),
-        @Param(
-            name = "alwayslink",
-            doc = "Whether this library should always be linked.",
-            positional = false,
-            named = true,
-            defaultValue = "False"),
-        @Param(
-            name = "additional_inputs",
-            doc = "For additional inputs to the linking action, e.g.: linking scripts.",
-            positional = false,
-            named = true,
-            defaultValue = "[]"),
         @Param(
             name = "disallow_static_libraries",
             doc = "Whether static libraries should be created.",
@@ -1169,98 +1980,135 @@ public interface CcModuleApi<
             named = true,
             defaultValue = "False"),
         @Param(
-            name = "grep_includes",
+            name = "compilation_outputs",
+            doc = "Compilation outputs containing object files to link.",
+            positional = false,
+            named = true),
+        @Param(
+            name = "linking_contexts",
+            doc =
+                "Libraries from dependencies. These libraries will be linked into the output "
+                    + "artifact of the link() call, be it a binary or a library.",
             positional = false,
             named = true,
-            defaultValue = "None",
-            allowedTypes = {@ParamType(type = FileApi.class), @ParamType(type = NoneType.class)}),
+            defaultValue = "[]"),
+        @Param(
+            name = "user_link_flags",
+            doc = "Additional list of linking options.",
+            positional = false,
+            named = true,
+            defaultValue = "[]"),
+        @Param(
+            name = "alwayslink",
+            doc = "Whether this library should always be linked.",
+            positional = false,
+            named = true,
+            defaultValue = "False"),
+        @Param(
+            name = "additional_inputs",
+            doc = "For additional inputs to the linking action, e.g.: linking scripts.",
+            positional = false,
+            named = true,
+            defaultValue = "[]"),
         @Param(
             name = "variables_extension",
+            doc =
+                "Additional variables to pass to the toolchain configuration when creating link"
+                    + " command line.",
+            positional = false,
+            named = true,
+            allowedTypes = {@ParamType(type = Dict.class)},
+            defaultValue = "unbound"),
+        @Param(
+            name = "stamp",
             positional = false,
             named = true,
             documented = false,
-            allowedTypes = {@ParamType(type = Dict.class)},
+            defaultValue = "unbound"),
+        @Param(
+            name = "linked_dll_name_suffix",
+            positional = false,
+            named = true,
+            documented = false,
+            defaultValue = "unbound"),
+        @Param(
+            name = "test_only_target",
+            positional = false,
+            named = true,
+            documented = false,
+            allowedTypes = {@ParamType(type = Boolean.class)},
             defaultValue = "unbound"),
       })
-  Tuple createLinkingContextFromCompilationOutputs(
+  default Tuple createLinkingContextFromCompilationOutputs(
       StarlarkActionFactoryT starlarkActionFactoryApi,
-      FeatureConfigurationT starlarkFeatureConfiguration,
-      CcToolchainProviderT starlarkCcToolchainProvider,
-      CompilationOutputsT compilationOutputs,
-      Sequence<?> userLinkFlags, // <String> expected
-      Sequence<?> linkingContexts, // <LinkingContextT> expected
       String name,
+      FeatureConfigurationT starlarkFeatureConfiguration,
+      Info starlarkCcToolchainProvider,
       String language,
-      boolean alwayslink,
-      Sequence<?> additionalInputs, // <FileT> expected
       boolean disallowStaticLibraries,
       boolean disallowDynamicLibraries,
-      Object grepIncludes,
+      CcCompilationOutputsApi<?> compilationOutputs,
+      Sequence<?> linkingContexts, // <CcLinkingContextApi> expected
+      Sequence<?> userLinkFlags, // <String> expected
+      boolean alwayslink,
+      Sequence<?> additionalInputs, // <FileT> expected
       Object variablesExtension,
+      Object stamp,
+      Object linkedDllNameSuffix,
+      Object testOnlyTarget,
       StarlarkThread thread)
-      throws InterruptedException, EvalException;
+      throws InterruptedException, EvalException {
+    throw new UnsupportedOperationException();
+  }
 
   @StarlarkMethod(
-      name = "create_debug_context",
-      doc = "Create debug context",
+      name = "merge_compilation_contexts",
+      doc = "Merges multiple <code>CompilationContexts</code>s into one.",
+      parameters = {
+        @Param(
+            name = "compilation_contexts",
+            doc =
+                "List of <code>CompilationContexts</code>s to be merged. The headers of each "
+                    + "context will be exported by the direct fields in the returned provider.",
+            positional = false,
+            named = true,
+            defaultValue = "[]"),
+      })
+  default CcCompilationContextApi<FileT> mergeCompilationContexts(
+      Sequence<?> compilationContexts // <CcCompilationContextApi> expected
+      ) {
+    throw new UnsupportedOperationException();
+  }
+
+  @StarlarkMethod(
+      name = "get_tool_requirement_for_action",
       documented = false,
       useStarlarkThread = true,
       parameters = {
-        @Param(name = "compilation_outputs", positional = true, named = false, defaultValue = "[]"),
+        @Param(name = "feature_configuration", positional = false, named = true),
+        @Param(name = "action_name", named = true, positional = false),
       })
-  DebugInfoT createCcDebugInfoFromStarlark(
-      CompilationOutputsT compilationOutputs, StarlarkThread thread) throws EvalException;
-
-  @StarlarkMethod(
-      name = "merge_debug_context",
-      doc = "Merge debug contexts",
-      documented = false,
-      useStarlarkThread = true,
-      parameters = {
-        @Param(name = "debug_contexts", defaultValue = "[]"),
-      })
-  DebugInfoT mergeCcDebugInfoFromStarlark(
-      Sequence<?> debugInfos, // <DebugInfoT> expected
-      StarlarkThread thread)
+  Sequence<String> getToolRequirementForAction(
+      FeatureConfigurationT featureConfiguration, String actionName, StarlarkThread thread)
       throws EvalException;
 
   @StarlarkMethod(
-      name = "create_lto_backend_artifacts",
+      name = "create_extra_link_time_library",
       documented = false,
-      useStarlarkThread = true,
+      doc =
+          "Creates a custom ExtraLinkTimeLibrary object. Extra keyword arguments are passed to the"
+              + " provided build function when build_libraries is called. Arguments that are"
+              + " depsets will be added transitively when these are combined via"
+              + " cc_common.merge_cc_infos. For arguments that are not depsets, only one copy will"
+              + " be maintained.",
       parameters = {
-        @Param(name = "ctx", positional = false, named = true, documented = false),
-        @Param(
-            name = "lto_output_root_prefix",
-            positional = false,
-            named = true,
-            documented = false),
-        @Param(name = "bitcode_file", positional = false, named = true, documented = false),
-        @Param(
-            name = "feature_configuration",
-            positional = false,
-            named = true,
-            documented = false),
-        @Param(name = "cc_toolchain", positional = false, named = true, documented = false),
-        @Param(name = "fdo_context", positional = false, named = true, documented = false),
-        @Param(name = "use_pic", positional = false, named = true, documented = false),
-        @Param(
-            name = "should_create_per_object_debug_info",
-            positional = false,
-            named = true,
-            documented = false),
-        @Param(name = "argv", positional = false, named = true, documented = false),
-      })
-  LtoBackendArtifactsT createLtoBackendArtifacts(
-      StarlarkRuleContextT starlarkRuleContext,
-      String ltoOutputRootPrefixString,
-      FileT bitcodeFile,
-      FeatureConfigurationT featureConfigurationForStarlark,
-      CcToolchainProviderT ccToolchain,
-      FdoContextT fdoContext,
-      boolean usePic,
-      boolean shouldCreatePerObjectDebugInfo,
-      Sequence<?> argv,
-      StarlarkThread thread)
-      throws EvalException;
+        @Param(name = "build_library_func", positional = false, named = true),
+      },
+      extraKeywords = @Param(name = "data"),
+      useStarlarkThread = true)
+  default Object createExtraLinkTimeLibrary(
+      StarlarkCallable buildLibraryFunc, Dict<String, Object> dataSetsMap, StarlarkThread thread)
+      throws EvalException {
+    throw new UnsupportedOperationException();
+  }
 }

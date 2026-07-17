@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import io.netty.channel.ChannelPromise;
 import io.netty.channel.embedded.EmbeddedChannel;
 import io.netty.handler.codec.http.HttpHeaderNames;
@@ -35,9 +36,10 @@ import org.junit.runners.JUnit4;
 
 /** Tests for {@link AbstractHttpHandlerTest}. */
 @RunWith(JUnit4.class)
+@SuppressWarnings("FutureReturnValueIgnored")
 public abstract class AbstractHttpHandlerTest {
-
-  private static final DigestUtil DIGEST_UTIL = new DigestUtil(DigestHashFunction.SHA256);
+  private static final DigestUtil DIGEST_UTIL =
+      new DigestUtil(SyscallCache.NO_CACHE, DigestHashFunction.SHA256);
   private static final Digest DIGEST = DIGEST_UTIL.computeAsUtf8("foo");
 
   @Test
@@ -132,6 +134,29 @@ public abstract class AbstractHttpHandlerTest {
     HttpRequest request = ch.readOutbound();
     assertThat(request.headers().get("key1")).isEqualTo("value1");
     assertThat(request.headers().get("key2")).isEqualTo("value2");
+    assertThat(request.headers().get(HttpHeaderNames.ACCEPT)).isEqualTo("*/*");
+  }
+
+  @Test
+  public void extraHeadersOverridesDefaultAccept() throws Exception {
+    URI uri = new URI("http://does.not.exist:8080/foo");
+    ImmutableList<Entry<String, String>> remoteHeaders =
+        ImmutableList.of(
+            Maps.immutableEntry("key1", "value1"),
+            Maps.immutableEntry("key2", "value2"),
+            Maps.immutableEntry("Accept", "application/octet-stream"));
+
+    EmbeddedChannel ch =
+        new EmbeddedChannel(new HttpDownloadHandler(/* credentials= */ null, remoteHeaders));
+    DownloadCommand cmd =
+        new DownloadCommand(uri, /* casDownload= */ true, DIGEST, new ByteArrayOutputStream());
+    ChannelPromise writePromise = ch.newPromise();
+    ch.writeOneOutbound(cmd, writePromise);
+
+    HttpRequest request = ch.readOutbound();
+    assertThat(request.headers().get("key1")).isEqualTo("value1");
+    assertThat(request.headers().get("key2")).isEqualTo("value2");
+    assertThat(request.headers().get(HttpHeaderNames.ACCEPT)).isEqualTo("application/octet-stream");
   }
 
   @Test

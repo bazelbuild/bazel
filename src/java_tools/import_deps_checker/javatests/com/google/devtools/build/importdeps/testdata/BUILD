@@ -12,7 +12,9 @@ licenses(["notice"])  # Apache 2.0
 filegroup(
     name = "srcs",
     testonly = False,
-    srcs = glob(["**"]),
+    srcs = glob(["**"]) + [
+        "//src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata/j_p_l:srcs",
+    ],
 )
 
 java_library(
@@ -59,6 +61,11 @@ java_import(
     jars = ["LibraryModuleInfo.jar"],
 )
 
+java_import(
+    name = "testdata_condy",
+    jars = ["Condy.jar"],
+)
+
 java_library(
     name = "OneAnnotationValue",
     srcs = ["OneAnnotationValue.java"],
@@ -68,4 +75,9 @@ java_library(
 java_library(
     name = "StringAnnotation",
     srcs = ["StringAnnotation.java"],
+)
+
+java_library(
+    name = "InvokePolymorphic",
+    srcs = ["InvokePolymorphic.java"],
 )

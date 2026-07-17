@@ -17,9 +17,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.io.ProcessPackageDirectoryException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicy;
 import com.google.devtools.build.lib.skyframe.PrepareDepsOfTargetsUnderDirectoryValue.PrepareDepsOfTargetsUnderDirectoryKey;
+import com.google.devtools.build.lib.skyframe.ProcessPackageDirectory.ProcessPackageDirectorySkyFunctionException;
+import com.google.devtools.build.skyframe.GraphTraversingHelper;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -38,7 +41,9 @@ public class PrepareDepsOfTargetsUnderDirectoryFunction implements SkyFunction {
   }
 
   @Override
-  public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
+  @Nullable
+  public SkyValue compute(SkyKey skyKey, Environment env)
+      throws InterruptedException, ProcessPackageDirectorySkyFunctionException {
     PrepareDepsOfTargetsUnderDirectoryKey argument =
         (PrepareDepsOfTargetsUnderDirectoryKey) skyKey.argument();
     final FilteringPolicy filteringPolicy = argument.getFilteringPolicy();
@@ -73,16 +78,12 @@ public class PrepareDepsOfTargetsUnderDirectoryFunction implements SkyFunction {
                       filteringPolicy)),
               keysToRequest);
     }
-    env.getValuesOrThrow(keysToRequest, NoSuchPackageException.class);
-    if (env.valuesMissing()) {
-      return null;
-    }
-    return PrepareDepsOfTargetsUnderDirectoryValue.INSTANCE;
-  }
-
-  @Nullable
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
+    return GraphTraversingHelper.declareDependenciesAndCheckIfValuesMissing(
+            env,
+            keysToRequest,
+            NoSuchPackageException.class,
+            ProcessPackageDirectoryException.class)
+        ? null
+        : PrepareDepsOfTargetsUnderDirectoryValue.INSTANCE;
   }
 }

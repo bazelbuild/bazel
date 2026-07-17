@@ -28,7 +28,6 @@ win_cc_test(
     deps = [
         ":util",
         "//src/main/native/windows:lib-file",
-        "@bazel_tools//tools/cpp/runfiles",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -40,21 +39,4 @@ win_cc_test(
         ":data_parser",
         "@com_google_googletest//:gtest_main",
     ],
-)
-
-test_suite(
-    name = "windows_tests",
-    tags = [
-        "-no_windows",
-        "-slow",
-    ],
-    visibility = ["//visibility:private"],
-)
-
-test_suite(
-    name = "all_windows_tests",
-    tests = [
-        ":windows_tests",
-    ],
-    visibility = ["//src/tools/launcher:__pkg__"],
 )

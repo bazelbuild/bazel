@@ -13,8 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.ConfigurationId;
+import static com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.configurationIdMessage;
+
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.causes.AnalysisFailedCause;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.causes.LabelCause;
@@ -28,11 +29,7 @@ import com.google.devtools.build.lib.util.DetailedExitCode;
 import javax.annotation.Nullable;
 
 /** An exception indicating that there was a problem creating an aspect. */
-public final class AspectCreationException extends Exception implements SaneAnalysisException {
-  private static ConfigurationId toId(BuildConfiguration config) {
-    return config == null ? null : config.getEventId().getConfiguration();
-  }
-
+public final class AspectCreationException extends AbstractSaneAnalysisException {
   private final NestedSet<Cause> causes;
   // TODO(b/138456686): if warranted by a need for finer-grained details, replace the constructors
   //  that specify the general Code.ASPECT_CREATION_FAILED
@@ -48,18 +45,20 @@ public final class AspectCreationException extends Exception implements SaneAnal
   public AspectCreationException(
       String message,
       Label currentTarget,
-      @Nullable BuildConfiguration configuration,
+      @Nullable BuildConfigurationValue configuration,
       DetailedExitCode detailedExitCode) {
     this(
         message,
         NestedSetBuilder.<Cause>stableOrder()
-            .add(new AnalysisFailedCause(currentTarget, toId(configuration), detailedExitCode))
+            .add(
+                new AnalysisFailedCause(
+                    currentTarget, configurationIdMessage(configuration), detailedExitCode))
             .build(),
         detailedExitCode);
   }
 
   public AspectCreationException(
-      String message, Label currentTarget, @Nullable BuildConfiguration configuration) {
+      String message, Label currentTarget, @Nullable BuildConfigurationValue configuration) {
     this(
         message,
         currentTarget,

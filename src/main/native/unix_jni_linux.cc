@@ -12,15 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "src/main/native/unix_jni.h"
-
 #include <errno.h>
+#include <jni.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/xattr.h>
 
 #include <string>
+
+#include "src/main/native/unix_jni.h"
 
 namespace blaze_jni {
 
@@ -42,35 +44,15 @@ std::string ErrorMessage(int error_number) {
 #endif
 }
 
-int portable_fstatat(
-    int dirfd, char *name, portable_stat_struct *statbuf, int flags) {
-  return fstatat64(dirfd, name, statbuf, flags);
-}
-
-int StatSeconds(const portable_stat_struct &statbuf, StatTimes t) {
+uint64_t StatEpochMilliseconds(const portable_stat_struct &statbuf,
+                               StatTimes t) {
   switch (t) {
     case STAT_ATIME:
-      return statbuf.st_atim.tv_sec;
+      return statbuf.st_atim.tv_sec * 1000L + statbuf.st_atim.tv_nsec / 1000000;
     case STAT_CTIME:
-      return statbuf.st_ctim.tv_sec;
+      return statbuf.st_ctim.tv_sec * 1000L + statbuf.st_ctim.tv_nsec / 1000000;
     case STAT_MTIME:
-      return statbuf.st_mtim.tv_sec;
-    default:
-      CHECK(false);
-  }
-  return 0;
-}
-
-int StatNanoSeconds(const portable_stat_struct &statbuf, StatTimes t) {
-  switch (t) {
-    case STAT_ATIME:
-      return statbuf.st_atim.tv_nsec;
-    case STAT_CTIME:
-      return statbuf.st_ctim.tv_nsec;
-    case STAT_MTIME:
-      return statbuf.st_mtim.tv_nsec;
-    default:
-      CHECK(false);
+      return statbuf.st_mtim.tv_sec * 1000L + statbuf.st_mtim.tv_nsec / 1000000;
   }
   return 0;
 }
@@ -89,11 +71,6 @@ ssize_t portable_lgetxattr(const char *path, const char *name, void *value,
   return result;
 }
 
-int portable_sysctlbyname(const char *name_chars, long *mibp, size_t *sizep) {
-  errno = ENOSYS;
-  return -1;
-}
-
 int portable_push_disable_sleep() {
   // Currently not supported.
   return -1;
@@ -104,21 +81,55 @@ int portable_pop_disable_sleep() {
   return -1;
 }
 
-int portable_suspend_count() {
+void portable_start_suspend_monitoring() {
+  // Currently not implemented.
+}
+
+void portable_start_thermal_monitoring() {
+  // Currently not implemented.
+}
+
+int portable_thermal_load() {
   // Currently not implemented.
   return 0;
 }
 
-int portable_memory_pressure_warning_count() {
+void portable_start_system_load_advisory_monitoring() {
   // Currently not implemented.
-  // https://www.kernel.org/doc/Documentation/cgroup-v1/memory.txt
+}
+
+int portable_system_load_advisory() {
+  // Currently not implemented.
   return 0;
 }
 
-int portable_memory_pressure_critical_count() {
+void portable_start_memory_pressure_monitoring() {
   // Currently not implemented.
   // https://www.kernel.org/doc/Documentation/cgroup-v1/memory.txt
-  return 0;
+}
+
+MemoryPressureLevel portable_memory_pressure() {
+  // Currently not implemented.
+  return MemoryPressureLevelNormal;
+}
+
+void portable_start_disk_space_monitoring() {
+  // Currently not implemented.
+}
+
+void portable_start_cpu_speed_monitoring() {
+  // Currently not implemented.
+}
+
+int portable_cpu_speed() {
+  // Currently not implemented.
+  return -1;
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_google_devtools_build_lib_profiler_SystemNetworkStatsServiceImpl_getNetIoCountersNative(
+    JNIEnv* env, jclass clazz, jobject counters_map) {
+  // Currently not implemented.
 }
 
 }  // namespace blaze_jni

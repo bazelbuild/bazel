@@ -21,9 +21,7 @@ import static org.junit.Assert.fail;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.buildtool.util.GoogleBuildIntegrationTestCase;
-import com.google.devtools.build.lib.testutil.Suite;
-import com.google.devtools.build.lib.testutil.TestSpec;
+import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.util.io.RecordingOutErr;
 import org.junit.Before;
@@ -32,12 +30,11 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /**
- * Tests that concern the transitive closure of data dependencies.
- * Regression testing for bug 1022571.
+ * Tests that concern the transitive closure of data dependencies. Regression testing for bug
+ * 1022571.
  */
-@TestSpec(size = Suite.MEDIUM_TESTS)
 @RunWith(JUnit4.class)
-public abstract class TransitiveDataDependencyTest extends GoogleBuildIntegrationTestCase {
+public abstract class TransitiveDataDependencyTest extends BuildIntegrationTestCase {
 
   /**
    * Hook for subclasses to define which executor we use.  (The two concrete
@@ -58,16 +55,26 @@ public abstract class TransitiveDataDependencyTest extends GoogleBuildIntegratio
 
   @Test
   public void testTransitiveDataDepIsBuilt() throws Exception {
-    write("data/BUILD",
-          "cc_library(name = 'needsdata', data = [':data_bin'])",
-          "cc_binary(name = 'data_bin', srcs = ['data_bin.c'])");
+    write(
+        "data/BUILD",
+        """
+        cc_library(
+            name = "needsdata",
+            data = [":data_bin"],
+        )
+
+        cc_binary(
+            name = "data_bin",
+            srcs = ["data_bin.c"],
+        )
+        """);
     write("data/data_bin.c", "int main() { return 0; }");
 
     buildTarget("//data:needsdata");
     ConfiguredTarget dataLibTarget = getConfiguredTarget("//data:data_bin");
     assertThat(getFilesToBuild(dataLibTarget).toList()).isNotEmpty();
     for (Artifact dataOut : getFilesToBuild(dataLibTarget).toList()) {
-      assertWithMessage("Missing output: " + dataOut.getPath())
+      assertWithMessage("Missing output: %s", dataOut.getPath())
           .that(dataOut.getPath().exists())
           .isTrue();
     }
@@ -126,10 +133,20 @@ public abstract class TransitiveDataDependencyTest extends GoogleBuildIntegratio
 
   @Test
   public void testMissingInputFilesKeepGoing() throws Exception {
-    write("data/BUILD",
-        "# Comment line",
-        "cc_library(name = 'needsdata1', data = [':data_file1'])",
-        "cc_library(name = 'needsdata2', data = [':data_file2'])");
+    write(
+        "data/BUILD",
+        """
+        # Comment line
+        cc_library(
+            name = "needsdata1",
+            data = [":data_file1"],
+        )
+
+        cc_library(
+            name = "needsdata2",
+            data = [":data_file2"],
+        )
+        """);
     write("data/data_file2", "data_file2 exists");
 
     RecordingOutErr recOutErr = new RecordingOutErr();

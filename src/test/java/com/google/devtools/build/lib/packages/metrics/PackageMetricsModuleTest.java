@@ -47,7 +47,7 @@ public class PackageMetricsModuleTest {
         .isInstanceOf(ExtremaPackageMetricsRecorder.class);
     ExtremaPackageMetricsRecorder ext =
         (ExtremaPackageMetricsRecorder) listener.getPackageMetricsRecorder();
-    assertThat(ext.getNumPackageToTrack()).isEqualTo(100);
+    assertThat(ext.getNumPackagesToTrack()).isEqualTo(100);
   }
 
   @Test
@@ -58,7 +58,7 @@ public class PackageMetricsModuleTest {
         .isInstanceOf(ExtremaPackageMetricsRecorder.class);
     ExtremaPackageMetricsRecorder ext =
         (ExtremaPackageMetricsRecorder) listener.getPackageMetricsRecorder();
-    assertThat(ext.getNumPackageToTrack()).isEqualTo(0);
+    assertThat(ext.getNumPackagesToTrack()).isEqualTo(0);
   }
 
   @Test

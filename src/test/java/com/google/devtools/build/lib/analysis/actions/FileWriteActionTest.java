@@ -18,7 +18,7 @@ import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.NULL_AC
 
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.util.LazyString;
+import com.google.devtools.build.lib.util.OnDemandString;
 import java.util.Random;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -77,8 +77,8 @@ public class FileWriteActionTest extends FileWriteActionTestCase {
   public void testFileWriteActionWithLazyString() throws Exception {
     Artifact outputArtifact = getBinArtifactWithNoOwner("destination.txt");
     final String backingString = "Hello world";
-    LazyString contents =
-        new LazyString() {
+    OnDemandString contents =
+        new OnDemandString() {
           @Override
           public String toString() {
             return backingString;
@@ -127,7 +127,7 @@ public class FileWriteActionTest extends FileWriteActionTestCase {
     Artifact outputArtifact = getBinArtifactWithNoOwner("destination.txt");
     final String backingContents = generateLongRandomString();
 
-    class ForceCountingLazyString extends LazyString {
+    class ForceCountingOnDemandString extends OnDemandString {
       public int forced = 0;
 
       @Override
@@ -136,7 +136,7 @@ public class FileWriteActionTest extends FileWriteActionTestCase {
         return backingContents;
       }
     }
-    ForceCountingLazyString contents = new ForceCountingLazyString();
+    ForceCountingOnDemandString contents = new ForceCountingOnDemandString();
     FileWriteAction action =
         FileWriteAction.create(
             NULL_ACTION_OWNER,

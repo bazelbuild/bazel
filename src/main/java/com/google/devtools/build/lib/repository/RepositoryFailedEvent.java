@@ -24,32 +24,29 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Bui
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
-import com.google.devtools.build.lib.events.ExtendedEventHandler.ProgressLike;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import java.util.Collection;
 
 /**
  * Event indicating that a failure is related to a given external repository; this is in particular
  * the case, if fetching that repository failed.
  */
-public class RepositoryFailedEvent implements ProgressLike, BuildEvent {
-  private final String repo;
+public final class RepositoryFailedEvent implements BuildEvent {
+  private final RepositoryName repo;
   private final String message;
 
-  public RepositoryFailedEvent(String repo, String message) {
+  public RepositoryFailedEvent(RepositoryName repo, String message) {
     this.repo = repo;
     this.message = message;
   }
 
-  public String getRepo() {
+  public RepositoryName getRepo() {
     return repo;
   }
 
   @Override
   public BuildEventId getEventId() {
-    String strippedRepoName = repo;
-    if (strippedRepoName.startsWith("@")) {
-      strippedRepoName = strippedRepoName.substring(1);
-    }
+    String strippedRepoName = repo.getName();
     try {
       Label label = Label.create(EXTERNAL_PACKAGE_IDENTIFIER, strippedRepoName);
       return BuildEventIdUtil.unconfiguredLabelId(label);
@@ -63,7 +60,7 @@ public class RepositoryFailedEvent implements ProgressLike, BuildEvent {
 
   @Override
   public Collection<BuildEventId> getChildrenEvents() {
-    return ImmutableList.<BuildEventId>of();
+    return ImmutableList.of();
   }
 
   @Override

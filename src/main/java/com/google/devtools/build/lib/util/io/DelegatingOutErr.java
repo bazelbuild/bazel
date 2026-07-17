@@ -84,6 +84,20 @@ public final class DelegatingOutErr extends OutErr {
     }
 
     @Override
+    public void write(byte[] b, int off, int len) throws IOException {
+      for (OutputStream sink : sinks) {
+        sink.write(b, off, len);
+      }
+    }
+
+    @Override
+    public void write(byte[] b) throws IOException {
+      for (OutputStream sink : sinks) {
+        sink.write(b);
+      }
+    }
+
+    @Override
     public void close() throws IOException {
       // Ensure that we close all sinks even if one throws.
       IOException firstException = null;
@@ -108,20 +122,6 @@ public final class DelegatingOutErr extends OutErr {
     public void flush() throws IOException {
       for (OutputStream sink : sinks) {
         sink.flush();
-      }
-    }
-
-    @Override
-    public void write(byte[] b, int off, int len) throws IOException {
-      for (OutputStream sink : sinks) {
-        sink.write(b, off, len);
-      }
-    }
-
-    @Override
-    public void write(byte[] b) throws IOException {
-      for (OutputStream sink : sinks) {
-        sink.write(b);
       }
     }
   }

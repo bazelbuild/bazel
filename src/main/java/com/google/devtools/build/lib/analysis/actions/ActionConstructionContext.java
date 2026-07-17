@@ -13,15 +13,15 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.actions;
 
-import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
+import com.google.devtools.build.lib.actions.ActionRegistry;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -34,13 +34,10 @@ import javax.annotation.Nullable;
  *
  * <p>This a "native" equivalent of Starlark's `ctx.actions`.
  */
-public interface ActionConstructionContext {
+public interface ActionConstructionContext extends ActionRegistry {
 
   /** Returns the bin directory for constructed actions. */
   ArtifactRoot getBinDirectory();
-
-  /** Returns the internal directory (used for middlemen) for constructed actions. */
-  ArtifactRoot getMiddlemanDirectory();
 
   /**
    * Returns the action owner that should be used for the default execution group's execution
@@ -58,13 +55,11 @@ public interface ActionConstructionContext {
   /** Returns the action key context. */
   ActionKeyContext getActionKeyContext();
 
-  /** Returns the {@link BuildConfiguration} for which the given rule is analyzed. */
-  BuildConfiguration getConfiguration();
+  /** Returns the {@link BuildConfigurationValue} for which the given rule is analyzed. */
+  BuildConfigurationValue getConfiguration();
 
   /** The current analysis environment. */
   AnalysisEnvironment getAnalysisEnvironment();
-
-  void registerAction(ActionAnalysisMetadata action);
 
   /**
    * Creates an artifact under a given root with the given root-relative path.

@@ -16,13 +16,20 @@ package com.google.devtools.build.lib.rules.test;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ResourceSet;
+import com.google.devtools.build.lib.actions.SimpleSpawn;
+import com.google.devtools.build.lib.actions.SpawnInputs;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
 import com.google.devtools.build.lib.analysis.test.TestTargetProperties;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -30,39 +37,91 @@ import org.junit.runners.JUnit4;
 /** Tests for {@link TestTargetProperties}. */
 @RunWith(JUnit4.class)
 public class TestTargetPropertiesTest extends BuildViewTestCase {
+
+  /** Creates a spawn from a test action, mirroring what StandaloneTestStrategy does. */
+  private static SimpleSpawn createTestSpawn(TestRunnerAction action) {
+    ImmutableList<ActionInput> outputs = ImmutableList.copyOf(action.getSpawnOutputs());
+    return new SimpleSpawn(
+        action,
+        /* arguments= */ ImmutableList.of(),
+        /* environment= */ ImmutableMap.of(),
+        /* executionInfo= */ action.getExecutionInfo(),
+        /* inputs= */ SpawnInputs.of(action.getInputs()),
+        /* tools= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+        outputs,
+        /* mandatoryOutputs= */ null,
+        () ->
+            action.getTestProperties().getLocalResourceUsage(action.getOwner().getLabel(), false));
+  }
+
   @Test
   public void testTestWithCpusTagHasCorrectLocalResourcesEstimate() throws Exception {
     scratch.file("tests/test.sh", "#!/bin/bash", "exit 0");
     scratch.file(
         "tests/BUILD",
-        "sh_test(",
-        "  name = 'test',",
-        "  size = 'small',",
-        "  srcs = ['test.sh'],",
-        "  tags = ['cpu:4'],",
-        ")");
+        """
+        load('//test_defs:foo_test.bzl', 'foo_test')
+        foo_test(
+            name = "test",
+            size = "small",
+            srcs = ["test.sh"],
+            tags = ["cpu:4"],
+        )
+        """);
     ConfiguredTarget testTarget = getConfiguredTarget("//tests:test");
     TestRunnerAction testAction =
         (TestRunnerAction)
             getGeneratingAction(TestProvider.getTestStatusArtifacts(testTarget).get(0));
-    ResourceSet localResourceUsage =
-        testAction
-            .getTestProperties()
-            .getLocalResourceUsage(testAction.getOwner().getLabel(), false);
+    ResourceSet localResourceUsage = createTestSpawn(testAction).getLocalResources();
     assertThat(localResourceUsage.getCpuUsage()).isEqualTo(4.0);
   }
 
   @Test
-  public void testTestWithExclusiveRunLocallyByDefault() throws Exception {
+  public void testTestResourcesFlag() throws Exception {
     scratch.file("tests/test.sh", "#!/bin/bash", "exit 0");
     scratch.file(
         "tests/BUILD",
-        "sh_test(",
-        "  name = 'test',",
-        "  size = 'small',",
-        "  srcs = ['test.sh'],",
-        "  tags = ['exclusive'],",
-        ")");
+        """
+        load('//test_defs:foo_test.bzl', 'foo_test')
+        foo_test(
+            name = "test",
+            size = "medium",
+            srcs = ["test.sh"],
+            tags = ["resources:gpu:4"],
+        )
+        """);
+    useConfiguration(
+        "--default_test_resources=memory=10,20,30,40",
+        "--default_test_resources=cpu=1,2,3,4",
+        "--default_test_resources=gpu=1",
+        "--default_test_resources=cpu=5");
+    ConfiguredTarget testTarget = getConfiguredTarget("//tests:test");
+    TestRunnerAction testAction =
+        (TestRunnerAction)
+            getGeneratingAction(TestProvider.getTestStatusArtifacts(testTarget).get(0));
+    ResourceSet localResourceUsage = createTestSpawn(testAction).getLocalResources();
+    // Tags-specified resources overrides --default_test_resources=gpu.
+    assertThat(localResourceUsage.getResources()).containsEntry("gpu", 4.0);
+    // The last-specified value of --default_test_resources=cpu is used.
+    assertThat(localResourceUsage.getCpuUsage()).isEqualTo(5.0);
+    assertThat(localResourceUsage.getMemoryMb()).isEqualTo(20);
+  }
+
+  @Test
+  public void testTestWithExclusiveRunLocallyByDefault() throws Exception {
+    useConfiguration("--noincompatible_exclusive_test_sandboxed");
+    scratch.file("tests/test.sh", "#!/bin/bash", "exit 0");
+    scratch.file(
+        "tests/BUILD",
+        """
+        load('//test_defs:foo_test.bzl', 'foo_test')
+        foo_test(
+            name = "test",
+            size = "small",
+            srcs = ["test.sh"],
+            tags = ["exclusive"],
+        )
+        """);
     ConfiguredTarget testTarget = getConfiguredTarget("//tests:test");
     TestRunnerAction testAction =
         (TestRunnerAction)
@@ -72,17 +131,43 @@ public class TestTargetPropertiesTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testTestWithExclusiveDisablesRemoteExecution() throws Exception {
-    useConfiguration("--incompatible_exclusive_test_sandboxed");
+  public void testTestWithExclusiveIfRunLocally_notTaggedLocal() throws Exception {
+    useConfiguration("--noincompatible_exclusive_test_sandboxed");
     scratch.file("tests/test.sh", "#!/bin/bash", "exit 0");
     scratch.file(
         "tests/BUILD",
-        "sh_test(",
-        "  name = 'test',",
-        "  size = 'small',",
-        "  srcs = ['test.sh'],",
-        "  tags = ['exclusive'],",
-        ")");
+        """
+        load('//test_defs:foo_test.bzl', 'foo_test')
+        foo_test(
+            name = "test",
+            size = "small",
+            srcs = ["test.sh"],
+            tags = ["exclusive-if-local"],
+        )
+        """);
+    ConfiguredTarget testTarget = getConfiguredTarget("//tests:test");
+    TestRunnerAction testAction =
+        (TestRunnerAction)
+            getGeneratingAction(TestProvider.getTestStatusArtifacts(testTarget).get(0));
+    // "exclusive" tests become local when TestTargetProperties adds local executionInfo.
+    // Ensure this is not the case for "exclusive-if-local"
+    assertThat(testAction.getExecutionInfo()).isEmpty();
+  }
+
+  @Test
+  public void testTestWithExclusiveDisablesRemoteExecution() throws Exception {
+    scratch.file("tests/test.sh", "#!/bin/bash", "exit 0");
+    scratch.file(
+        "tests/BUILD",
+        """
+        load('//test_defs:foo_test.bzl', 'foo_test')
+        foo_test(
+            name = "test",
+            size = "small",
+            srcs = ["test.sh"],
+            tags = ["exclusive"],
+        )
+        """);
     ConfiguredTarget testTarget = getConfiguredTarget("//tests:test");
     TestRunnerAction testAction =
         (TestRunnerAction)
@@ -92,17 +177,46 @@ public class TestTargetPropertiesTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testTestWithExclusiveIfRunLocally_notTaggedNoRemote() throws Exception {
+    scratch.file("tests/test.sh", "#!/bin/bash", "exit 0");
+    scratch.file(
+        "tests/BUILD",
+        """
+        load('//test_defs:foo_test.bzl', 'foo_test')
+        foo_test(
+            name = "test",
+            size = "small",
+            srcs = ["test.sh"],
+            tags = ["exclusive-if-local"],
+        )
+        """);
+    ConfiguredTarget testTarget = getConfiguredTarget("//tests:test");
+    TestRunnerAction testAction =
+        (TestRunnerAction)
+            getGeneratingAction(TestProvider.getTestStatusArtifacts(testTarget).get(0));
+    // "exclusive" tests become local when TestTargetProperties adds a no-remote-exec requirement
+    // to the execution info. Ensure this is not the case for "exclusive-if-local"
+    assertThat(testAction.getExecutionInfo()).isEmpty();
+  }
+
+  @Test
   public void testTestWithExclusiveAndLocalRunLocally() throws Exception {
     useConfiguration("--incompatible_exclusive_test_sandboxed");
     scratch.file("tests/test.sh", "#!/bin/bash", "exit 0");
     scratch.file(
         "tests/BUILD",
-        "sh_test(",
-        "  name = 'test',",
-        "  size = 'small',",
-        "  srcs = ['test.sh'],",
-        "  tags = ['exclusive', 'local'],",
-        ")");
+        """
+        load('//test_defs:foo_test.bzl', 'foo_test')
+        foo_test(
+            name = "test",
+            size = "small",
+            srcs = ["test.sh"],
+            tags = [
+                "exclusive",
+                "local",
+            ],
+        )
+        """);
     ConfiguredTarget testTarget = getConfiguredTarget("//tests:test");
     TestRunnerAction testAction =
         (TestRunnerAction)

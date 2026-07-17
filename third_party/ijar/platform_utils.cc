@@ -122,4 +122,9 @@ bool make_dirs(const char* path, unsigned int mode) {
   return blaze_util::MakeDirectories(spath, mode);
 }
 
+std::string normalize_path(const char* path) {
+  blaze_util::Path path_obj(path);
+  return path_obj.AsPrintablePath();
+}
+
 }  // namespace devtools_ijar

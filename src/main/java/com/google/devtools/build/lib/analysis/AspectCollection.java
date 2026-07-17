@@ -13,12 +13,17 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis;
 
-import com.google.auto.value.AutoValue;
+import static java.util.Objects.requireNonNull;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
+import com.google.devtools.build.lib.skyframe.AspectKeyCreator;
+import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -144,6 +149,9 @@ import java.util.Map;
  */
 @Immutable
 public final class AspectCollection {
+  /** The name of the native aspect that collects validation outputs. */
+  public static final String VALIDATION_ASPECT_NAME = "ValidateTarget";
+
   /** aspects that should be visible to a dependency */
   private final ImmutableSet<AspectDeps> usedAspects;
 
@@ -173,11 +181,18 @@ public final class AspectCollection {
 
   @Override
   public boolean equals(Object obj) {
-    if (!(obj instanceof AspectCollection)) {
+    if (!(obj instanceof AspectCollection that)) {
       return false;
     }
-    AspectCollection that = (AspectCollection) obj;
     return this.usedAspects.equals(that.usedAspects);
+  }
+
+  public ImmutableList<AspectKey> createAspectKeys(ConfiguredTargetKey baseKey) {
+    Map<AspectDescriptor, AspectKey> descriptorToAspectKey = new HashMap<>();
+    for (AspectCollection.AspectDeps aspectDeps : getUsedAspects()) {
+      buildAspectKey(aspectDeps, descriptorToAspectKey, baseKey);
+    }
+    return ImmutableList.copyOf(descriptorToAspectKey.values());
   }
 
   /**
@@ -196,16 +211,49 @@ public final class AspectCollection {
    * <p>(a list of (dependent aspect, visible) pairs would work, though and the code would probably
    * be somewhat simpler)
    */
-  @AutoValue
-  public abstract static class AspectDeps {
-    public abstract AspectDescriptor getAspect();
-
-    public abstract ImmutableList<AspectDeps> getUsedAspects();
+  public record AspectDeps(AspectDescriptor aspect, ImmutableList<AspectDeps> usedAspects) {
+    public AspectDeps {
+      requireNonNull(aspect, "aspect");
+      requireNonNull(usedAspects, "usedAspects");
+    }
 
     private static AspectDeps create(
         AspectDescriptor aspect, ImmutableList<AspectDeps> usedAspects) {
-      return new AutoValue_AspectCollection_AspectDeps(aspect, usedAspects);
+      return new AspectDeps(aspect, usedAspects);
     }
+  }
+
+  /**
+   * Creates an {@link AspectKey} for the given root aspect, {@code aspectDeps}.
+   *
+   * <p>Converts the DAG of {@link AspectDescriptor}s rooted at {@code aspectDeps} into an
+   * isomorphic DAG of {@link AspectKey} with corresponding {@link AspectKey#getAspectDescriptor}
+   * values. All resulting {@link AspectKey}s have {@link AspectKey#getBaseConfiguredTargetKey}
+   * equal to {@code baseKey}.
+   *
+   * <p>As a side effect, {@code visited} is populated with all the DAG nodes with each map entry
+   * value's descriptor matching the map entry key.
+   */
+  @CanIgnoreReturnValue
+  public static AspectKey buildAspectKey(
+      AspectDeps aspectDeps,
+      Map<AspectDescriptor, AspectKey> visited,
+      ConfiguredTargetKey baseKey) {
+    AspectDescriptor aspect = aspectDeps.aspect();
+    AspectKey aspectKey = visited.get(aspect);
+    if (aspectKey != null) {
+      return aspectKey;
+    }
+
+    ImmutableList<AspectDeps> usedAspects = aspectDeps.usedAspects();
+    var usedAspectKeys = ImmutableList.<AspectKey>builderWithExpectedSize(usedAspects.size());
+    for (AspectCollection.AspectDeps usedAspect : usedAspects) {
+      usedAspectKeys.add(buildAspectKey(usedAspect, visited, baseKey));
+    }
+
+    aspectKey = AspectKeyCreator.createAspectKey(aspect, usedAspectKeys.build(), baseKey);
+    visited.put(aspect, aspectKey);
+    return aspectKey;
   }
 
   public static AspectCollection createForTests(AspectDescriptor... descriptors) {
@@ -236,8 +284,9 @@ public final class AspectCollection {
     // Calculate all needed aspects. Already discovered aspects are in key set of deps.
     // 1) Start from the end of the path. The aspect only sees other aspects that are
     //    before it
-    // 2) Otherwise, check whether 'aspect' is visible to any already seen aspects. If it is visible
-    //    to 'depAspect', add the 'aspect' to a list of aspects visible to 'depAspect'.
+    // 2) Otherwise, check whether 'aspect' is visible to or required by any already seen aspects.
+    // If it is visible to 'depAspect' or explicitly required by it, add the 'aspect' to a list of
+    // aspects visible to 'depAspect'.
     // At the end of this algorithm, key set of 'deps' contains the original aspect list in reverse
     // (since we iterate the original list in reverse).
     //
@@ -246,8 +295,14 @@ public final class AspectCollection {
         ImmutableList.copyOf(aspectMap.entrySet()).reverse()) {
       for (AspectDescriptor depAspectDescriptor : deps.keySet()) {
         Aspect depAspect = aspectMap.get(depAspectDescriptor);
-        if (depAspect.getDefinition().getRequiredProvidersForAspects()
-            .isSatisfiedBy(aspect.getValue().getDefinition().getAdvertisedProviders())) {
+        // As any aspect can add validation outputs, the special validation aspect that collects
+        // their outputs has to depend on all aspects.
+        if (depAspect
+                .getDefinition()
+                .getRequiredProvidersForAspects()
+                .isSatisfiedBy(aspect.getValue().getDefinition().getAdvertisedProviders())
+            || depAspect.getDefinition().requires(aspect.getValue())
+            || depAspect.getAspectClass().getName().equals(VALIDATION_ASPECT_NAME)) {
           deps.get(depAspectDescriptor).add(aspect.getKey());
         }
       }
@@ -287,12 +342,12 @@ public final class AspectCollection {
   }
 
   /**
-   * Detect inconsistent duplicate occurrence of an aspect on the path.
-   * There is a previous occurrence of {@code aspect} in {@code seenAspects}.
+   * Detect inconsistent duplicate occurrence of an aspect on the path. There is a previous
+   * occurrence of {@code aspect} in {@code seenAspects}.
    *
-   * If in between that previous occurrence and the newly discovered occurrence
-   * there is an aspect that is visible to {@code aspect}, then the second occurrence
-   * is inconsistent - the set of aspects it sees is different from the first one.
+   * <p>If in between that previous occurrence and the newly discovered occurrence there is an
+   * aspect that is visible to or required by {@code aspect}, then the second occurrence is
+   * inconsistent - the set of aspects it sees is different from the first one.
    */
   private static void validateDuplicateAspect(Aspect aspect, ArrayList<Aspect> seenAspects)
       throws AspectCycleOnPathException {
@@ -303,8 +358,11 @@ public final class AspectCollection {
         return;
       }
 
-      if (aspect.getDefinition().getRequiredProvidersForAspects()
-          .isSatisfiedBy(seenAspect.getDefinition().getAdvertisedProviders())) {
+      if (aspect
+              .getDefinition()
+              .getRequiredProvidersForAspects()
+              .isSatisfiedBy(seenAspect.getDefinition().getAdvertisedProviders())
+          || aspect.getDefinition().requires(seenAspect)) {
         throw new AspectCycleOnPathException(aspect.getDescriptor(), seenAspect.getDescriptor());
       }
     }

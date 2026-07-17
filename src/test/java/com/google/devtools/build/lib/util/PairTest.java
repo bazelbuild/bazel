@@ -42,7 +42,7 @@ public class PairTest {
     Pair<Object, Object> p = Pair.of(null, null);
     assertThat(p.first).isNull();
     assertThat(p.second).isNull();
-    p.hashCode(); // Should not throw.
+    int unused = p.hashCode(); // Should not throw.
     new EqualsTester().addEqualityGroup(p).testEquals();
   }
 }

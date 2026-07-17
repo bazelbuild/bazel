@@ -28,6 +28,7 @@ public interface AqueryOutputHandler extends AutoCloseable {
   /** Defines the types of proto output this class can handle. */
   enum OutputType {
     BINARY("proto"),
+    DELIMITED_BINARY("streamed_proto"),
     TEXT("textproto"),
     JSON("jsonproto");
 
@@ -45,10 +46,13 @@ public interface AqueryOutputHandler extends AutoCloseable {
       switch (string) {
         case "proto":
           return BINARY;
+        case "streamed_proto":
+          return DELIMITED_BINARY;
         case "textproto":
           return TEXT;
         case "jsonproto":
           return JSON;
+        default: // fall out
       }
       throw new InvalidAqueryOutputFormatException("Invalid aquery output format: " + string);
     }

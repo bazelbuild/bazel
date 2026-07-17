@@ -2,7 +2,10 @@
 
 load("@rules_java//java:defs.bzl", "java_library")
 
-licenses(["notice"])
+package(
+    default_applicable_licenses = ["//:license"],
+    default_visibility = ["//src:__subpackages__"],
+)
 
 filegroup(
     name = "srcs",
@@ -18,12 +21,15 @@ java_library(
         "AssignmentStatement.java",
         "BinaryOperatorExpression.java",
         "CallExpression.java",
+        "CastExpression.java",
         "Comment.java",
         "Comprehension.java",
         "ConditionalExpression.java",
         "DefStatement.java",
         "DictExpression.java",
+        "DocComments.java",
         "DotExpression.java",
+        "Ellipsis.java",
         "Expression.java",
         "ExpressionStatement.java",
         "FileLocations.java",
@@ -35,6 +41,7 @@ java_library(
         "IfStatement.java",
         "IndexExpression.java",
         "IntLiteral.java",
+        "IsInstanceExpression.java",
         "LambdaExpression.java",
         "Lexer.java",
         "ListExpression.java",
@@ -51,11 +58,22 @@ java_library(
         "ReturnStatement.java",
         "SliceExpression.java",
         "StarlarkFile.java",
+        "StarlarkType.java",
         "Statement.java",
         "StringLiteral.java",
         "SyntaxError.java",
+        "SyntaxUtils.java",
         "TokenKind.java",
+        "TypeAliasStatement.java",
+        "TypeApplication.java",
+        "TypeChecker.java",
+        "TypeConstructor.java",
+        "TypeContext.java",
+        "TypeTable.java",
+        "TypeTagger.java",
+        "Types.java",
         "UnaryOperatorExpression.java",
+        "VarStatement.java",
     ],
     visibility = ["//src/main/java/net/starlark/java:clients"],
     # Do not add Bazel or Google dependencies here!

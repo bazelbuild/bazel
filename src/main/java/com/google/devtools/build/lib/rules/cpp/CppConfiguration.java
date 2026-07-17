@@ -14,11 +14,8 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
-import com.google.common.base.Preconditions;
-import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
@@ -32,46 +29,30 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.packages.BazelModuleContext;
-import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions;
-import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions.AppleBitcodeMode;
-import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
-import com.google.devtools.build.lib.rules.apple.AppleConfiguration.AppleCpus;
-import com.google.devtools.build.lib.rules.apple.ApplePlatform;
+import com.google.devtools.build.lib.packages.BuiltinRestriction;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CppConfigurationApi;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.util.EnumMap;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.Module;
+import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkThread;
 
 /**
- * This class represents the C/C++ parts of the {@link BuildConfiguration}, including the host
+ * This class represents the C/C++ parts of the {@link BuildConfigurationValue}, including the exec
  * architecture, target architecture, compiler version, and a standard library version.
  */
 @Immutable
-@RequiresOptions(options = {AppleCommandLineOptions.class, CppOptions.class})
+@RequiresOptions(options = {CppOptions.class})
 public final class CppConfiguration extends Fragment
     implements CppConfigurationApi<InvalidConfigurationException> {
-  /**
-   * String indicating a Mac system, for example when used in a crosstool configuration's host or
-   * target system name.
-   */
-  public static final String MAC_SYSTEM_NAME = "x86_64-apple-macosx";
+  private static final String BAZEL_TOOLS_REPO = "@bazel_tools";
 
   /** String constant for CC_FLAGS make variable name */
   public static final String CC_FLAGS_MAKE_VARIABLE_NAME = "CC_FLAGS";
-
-  /**
-   * Packages that can use the extended parameters in CppConfiguration See javadoc for {@link
-   * com.google.devtools.build.lib.rules.cpp.CcModule}
-   */
-  public static final ImmutableList<String> EXPANDED_CC_CONFIGURATION_API_ALLOWLIST =
-      ImmutableList.of();
 
   /** An enumeration of all the tools that comprise a toolchain. */
   public enum Tool {
@@ -157,23 +138,18 @@ public final class CppConfiguration extends Fragment
    */
   public static final String FDO_STAMP_MACRO = "BUILD_FDO_TYPE";
 
-  // TODO(lberki): This is only used for determining the output directory name.
-  // Unfortunately, we can't move it easily to OutputDirectories.buildMnemonic() because the CPU is
-  // currently in the middle of the name of the configuration directory (e.g. it comes after the
-  // Android configuration)
-  private final String cpu;
-
-  private final PathFragment fdoPath;
+  private final String fdoPath;
   private final Label fdoOptimizeLabel;
 
-  private final PathFragment csFdoAbsolutePath;
-  private final PathFragment propellerOptimizeAbsoluteCCProfile;
-  private final PathFragment propellerOptimizeAbsoluteLdProfile;
+  private final String csFdoAbsolutePath;
+  private final String propellerOptimizeAbsoluteCCProfile;
+  private final String propellerOptimizeAbsoluteLdProfile;
 
   private final ImmutableList<String> conlyopts;
 
   private final ImmutableList<String> copts;
   private final ImmutableList<String> cxxopts;
+  private final ImmutableList<String> objcopts;
 
   private final ImmutableList<String> linkopts;
   private final ImmutableList<String> ltoindexOptions;
@@ -185,46 +161,32 @@ public final class CppConfiguration extends Fragment
   private final boolean stripBinaries;
   private final CompilationMode compilationMode;
   private final boolean collectCodeCoverage;
-  private final boolean isToolConfigurationDoNotUseWillBeRemovedFor129045294;
 
   private final boolean appleGenerateDsym;
-  private final AppleBitcodeMode appleBitcodeMode;
 
   public CppConfiguration(BuildOptions options) throws InvalidConfigurationException {
     CppOptions cppOptions = options.get(CppOptions.class);
 
     CoreOptions commonOptions = options.get(CoreOptions.class);
-    CompilationMode compilationMode = commonOptions.compilationMode;
+    CompilationMode compilationMode = commonOptions.getCompilationMode();
 
     ImmutableList.Builder<String> linkoptsBuilder = ImmutableList.builder();
-    linkoptsBuilder.addAll(cppOptions.linkoptList);
-    if (cppOptions.experimentalOmitfp) {
+    linkoptsBuilder.addAll(cppOptions.getLinkoptList());
+    if (cppOptions.getExperimentalOmitfp()) {
       linkoptsBuilder.add("-Wl,--eh-frame-hdr");
     }
 
-    PathFragment fdoPath = null;
-    Label fdoProfileLabel = null;
-    if (cppOptions.getFdoOptimize() != null) {
-      if (cppOptions.getFdoOptimize().startsWith("//")) {
-        try {
-          fdoProfileLabel = Label.parseAbsolute(cppOptions.getFdoOptimize(), ImmutableMap.of());
-        } catch (LabelSyntaxException e) {
-          throw new InvalidConfigurationException(e);
-        }
-      } else {
-        fdoPath = PathFragment.create(cppOptions.getFdoOptimize());
-        try {
-          // We don't check for file existence, but at least the filename should be well-formed.
-          FileSystemUtils.checkBaseName(fdoPath.getBaseName());
-        } catch (IllegalArgumentException e) {
-          throw new InvalidConfigurationException(e);
-        }
-      }
-    }
+    FdoPathData fdoPathData = FdoPathData.get(cppOptions);
 
     PathFragment csFdoAbsolutePath = null;
-    if (cppOptions.csFdoAbsolutePathForBuild != null) {
-      csFdoAbsolutePath = PathFragment.create(cppOptions.csFdoAbsolutePathForBuild);
+    if (cppOptions.getCsFdoAbsolutePathForBuild() != null) {
+      if (!cppOptions.getEnableFdoProfileAbsolutePath()) {
+        throw new InvalidConfigurationException(
+            "Please use --cs_fdo_optimize instead of an absolute path set with"
+                + " --cs_fdo_absolute_path.Using absolute paths may be temporary reenabled with"
+                + " --enable_fdo_profile_absolute_path");
+      }
+      csFdoAbsolutePath = PathFragment.create(cppOptions.getCsFdoAbsolutePathForBuild());
       if (!csFdoAbsolutePath.isAbsolute()) {
         throw new InvalidConfigurationException(
             "Path of '"
@@ -239,9 +201,15 @@ public final class CppConfiguration extends Fragment
     }
 
     PathFragment propellerOptimizeAbsoluteCCProfile = null;
-    if (cppOptions.propellerOptimizeAbsoluteCCProfile != null) {
+    if (cppOptions.getPropellerOptimizeAbsoluteCCProfile() != null) {
+      if (!cppOptions.getEnablePropellerOptimizeAbsolutePath()) {
+        throw new InvalidConfigurationException(
+            "Please use --propeller_optimize instead of an absolute path set with"
+                + " --propeller_optimize_absolute_cc_profile. Using absolute paths may be temporary"
+                + " reenabled with --enable_propeller_optimize_absolute_paths");
+      }
       propellerOptimizeAbsoluteCCProfile =
-          PathFragment.create(cppOptions.propellerOptimizeAbsoluteCCProfile);
+          PathFragment.create(cppOptions.getPropellerOptimizeAbsoluteCCProfile());
       if (!propellerOptimizeAbsoluteCCProfile.isAbsolute()) {
         throw new InvalidConfigurationException(
             "Path of '"
@@ -256,9 +224,15 @@ public final class CppConfiguration extends Fragment
     }
 
     PathFragment propellerOptimizeAbsoluteLdProfile = null;
-    if (cppOptions.propellerOptimizeAbsoluteLdProfile != null) {
+    if (cppOptions.getPropellerOptimizeAbsoluteLdProfile() != null) {
+      if (!cppOptions.getEnablePropellerOptimizeAbsolutePath()) {
+        throw new InvalidConfigurationException(
+            "Please use --propeller_optimize instead of an absolute path set with"
+                + " --propeller_optimize_absolute_ld_profile. Using absolute paths may be temporary"
+                + " reenabled with --enable_fdo_profile_absolute_path");
+      }
       propellerOptimizeAbsoluteLdProfile =
-          PathFragment.create(cppOptions.propellerOptimizeAbsoluteLdProfile);
+          PathFragment.create(cppOptions.getPropellerOptimizeAbsoluteLdProfile());
       if (!propellerOptimizeAbsoluteLdProfile.isAbsolute()) {
         throw new InvalidConfigurationException(
             "Path of '"
@@ -272,54 +246,84 @@ public final class CppConfiguration extends Fragment
       }
     }
 
-    this.cpu = commonOptions.cpu;
-    this.fdoPath = fdoPath;
-    this.fdoOptimizeLabel = fdoProfileLabel;
-    this.csFdoAbsolutePath = csFdoAbsolutePath;
-    this.propellerOptimizeAbsoluteCCProfile = propellerOptimizeAbsoluteCCProfile;
-    this.propellerOptimizeAbsoluteLdProfile = propellerOptimizeAbsoluteLdProfile;
-    this.conlyopts = ImmutableList.copyOf(cppOptions.conlyoptList);
-    this.copts = ImmutableList.copyOf(cppOptions.coptList);
-    this.cxxopts = ImmutableList.copyOf(cppOptions.cxxoptList);
+    this.fdoPath = fdoPathData.fdoPath() == null ? null : fdoPathData.fdoPath().getPathString();
+    this.fdoOptimizeLabel = fdoPathData.fdoProfileLabel();
+    this.csFdoAbsolutePath = csFdoAbsolutePath == null ? null : csFdoAbsolutePath.getPathString();
+    this.propellerOptimizeAbsoluteCCProfile =
+        propellerOptimizeAbsoluteCCProfile == null
+            ? null
+            : propellerOptimizeAbsoluteCCProfile.getPathString();
+    this.propellerOptimizeAbsoluteLdProfile =
+        propellerOptimizeAbsoluteLdProfile == null
+            ? null
+            : propellerOptimizeAbsoluteLdProfile.getPathString();
+    this.conlyopts = ImmutableList.copyOf(cppOptions.getConlyoptList());
+    this.copts = ImmutableList.copyOf(cppOptions.getCoptList());
+    this.cxxopts = ImmutableList.copyOf(cppOptions.getCxxoptList());
+    this.objcopts = ImmutableList.copyOf(cppOptions.getObjcoptList());
     this.linkopts = linkoptsBuilder.build();
-    this.ltoindexOptions = ImmutableList.copyOf(cppOptions.ltoindexoptList);
-    this.ltobackendOptions = ImmutableList.copyOf(cppOptions.ltobackendoptList);
+    this.ltoindexOptions = ImmutableList.copyOf(cppOptions.getLtoindexoptList());
+    this.ltobackendOptions = ImmutableList.copyOf(cppOptions.getLtobackendoptList());
     this.cppOptions = cppOptions;
     this.stripBinaries =
-        cppOptions.stripBinaries == StripMode.ALWAYS
-            || (cppOptions.stripBinaries == StripMode.SOMETIMES
+        cppOptions.getStripBinaries() == StripMode.ALWAYS
+            || (cppOptions.getStripBinaries() == StripMode.SOMETIMES
                 && compilationMode == CompilationMode.FASTBUILD);
     this.compilationMode = compilationMode;
-    this.collectCodeCoverage = commonOptions.collectCodeCoverage;
-    this.isToolConfigurationDoNotUseWillBeRemovedFor129045294 =
-        commonOptions.isHost || commonOptions.isExec;
-    this.appleGenerateDsym =
-        (cppOptions.appleGenerateDsym
-            || (cppOptions.appleEnableAutoDsymDbg && compilationMode == CompilationMode.DBG));
-    this.appleBitcodeMode =
-        computeAppleBitcodeMode(options.get(AppleCommandLineOptions.class), commonOptions);
+    this.collectCodeCoverage = commonOptions.getCollectCodeCoverage();
+    this.appleGenerateDsym = cppOptions.getAppleGenerateDsym();
   }
 
-  private static AppleBitcodeMode computeAppleBitcodeMode(
-      AppleCommandLineOptions options, CoreOptions commonOptions) {
-    ApplePlatform.PlatformType applePlatformType =
-        Preconditions.checkNotNull(options.applePlatformType, "applePlatformType");
-    AppleCpus appleCpus = AppleCpus.create(options, commonOptions);
-    EnumMap<ApplePlatform.PlatformType, AppleBitcodeMode> platformBitcodeModes =
-        AppleConfiguration.collectBitcodeModes(options.appleBitcodeMode);
+  private record FdoPathData(PathFragment fdoPath, Label fdoProfileLabel) {
+    private static FdoPathData get(CppOptions cppOptions) throws InvalidConfigurationException {
+      PathFragment fdoPath = null;
+      Label fdoProfileLabel = null;
 
-    return AppleConfiguration.getAppleBitcodeMode(
-        applePlatformType, appleCpus, platformBitcodeModes);
+      if (cppOptions.getFdoOptimize() != null) {
+        try {
+          fdoProfileLabel = Label.parseCanonical(cppOptions.getFdoOptimize());
+          return new FdoPathData(fdoPath, fdoProfileLabel);
+        } catch (LabelSyntaxException ignored) {
+          // This isn't a Label, so just continue trying other flags.
+        }
+
+        if (!cppOptions.getEnableFdoProfileAbsolutePath()) {
+          throw new InvalidConfigurationException(
+              "Please use --fdo_profile instead of an absolute path set with --fdo_optimize. Using"
+                  + " absolute paths may be temporary reenabled with"
+                  + " --enable_fdo_profile_absolute_path");
+        }
+
+        // Try to process the flag value as a path.
+        fdoPath = PathFragment.create(cppOptions.getFdoOptimize());
+        if (!fdoPath.isAbsolute()) {
+          throw new InvalidConfigurationException(
+              "Path of '"
+                  + fdoPath.getPathString()
+                  + "' in --fdo_optimize has to be either an absolute path or a label.");
+        }
+        try {
+          // We don't check for file existence, but at least the filename should be well-formed.
+          FileSystemUtils.checkBaseName(fdoPath.getBaseName());
+        } catch (IllegalArgumentException e) {
+          throw new InvalidConfigurationException(e);
+        }
+      }
+      return new FdoPathData(fdoPath, fdoProfileLabel);
+    }
   }
 
-  /** Returns the label of the <code>cc_compiler</code> rule for the C++ configuration. */
-  @StarlarkConfigurationField(
-      name = "cc_toolchain",
-      doc = "The label of the target describing the C++ toolchain",
-      defaultLabel = "//tools/cpp:crosstool",
-      defaultInToolRepository = true)
-  public Label getRuleProvidingCcToolchainProvider() {
-    return cppOptions.crosstoolTop;
+  @Nullable
+  @StarlarkConfigurationField(name = "zipper", doc = "The zipper label for FDO.")
+  public Label getFdoZipper() {
+    if (getFdoOptimizeLabel() != null
+        || getFdoProfileLabel() != null
+        || fdoPath != null
+        || getMemProfProfileLabel() != null
+        || getXFdoProfileLabel() != null) {
+      return Label.parseCanonicalUnchecked(BAZEL_TOOLS_REPO + "//tools/zip:unzip_fdo");
+    }
+    return null;
   }
 
   /** Returns the configured current compilation mode. */
@@ -327,16 +331,21 @@ public final class CppConfiguration extends Fragment
     return compilationMode;
   }
 
-  public boolean hasSharedLinkOption() {
-    return linkopts.contains("-shared");
+  @StarlarkMethod(name = "compilation_mode", useStarlarkThread = true, documented = false)
+  public String getCompilationModeForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return compilationMode.toString();
   }
 
-  /** Returns the set of command-line LTO indexing options. */
-  public ImmutableList<String> getLtoIndexOptions() {
+  @StarlarkMethod(name = "lto_index_options", documented = false, useStarlarkThread = true)
+  public ImmutableList<String> getLtoIndexOptionsForStarlark(StarlarkThread thread)
+      throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
     return ltoindexOptions;
   }
 
   /** Returns the set of command-line LTO backend options. */
+  @StarlarkMethod(name = "lto_backend_options", documented = false, structField = true)
   public ImmutableList<String> getLtoBackendOptions() {
     return ltobackendOptions;
   }
@@ -347,39 +356,33 @@ public final class CppConfiguration extends Fragment
       allowReturnNones = true)
   @Nullable
   public String getMinimumOsVersion() {
-    return cppOptions.minimumOsVersion;
+    return cppOptions.getMinimumOsVersion();
   }
 
   /** Returns the value of the --dynamic_mode flag. */
   public DynamicMode getDynamicModeFlag() {
-    return cppOptions.dynamicMode;
+    return cppOptions.getDynamicMode();
   }
 
   @StarlarkMethod(
       name = "dynamic_mode",
       doc = "Whether C/C++ binaries/tests were requested to be linked dynamically.")
   public String getDynamicModeFlagString() {
-    return cppOptions.dynamicMode.name();
-  }
-
-  public boolean isFdo() {
-    return cppOptions.isFdo();
-  }
-
-  public boolean isCSFdo() {
-    return cppOptions.isCSFdo();
+    return cppOptions.getDynamicMode().name();
   }
 
   public boolean useArgsParamsFile() {
-    return cppOptions.useArgsParamsFile;
-  }
-
-  public boolean useCcTestFeature() {
-    return cppOptions.enableCcTestFeature;
+    return cppOptions.getUseArgsParamsFile();
   }
 
   /** Returns whether or not to strip the binaries. */
   public boolean shouldStripBinaries() {
+    return stripBinaries;
+  }
+
+  @Override
+  public boolean shouldStripBinariesForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
     return stripBinaries;
   }
 
@@ -388,12 +391,24 @@ public final class CppConfiguration extends Fragment
    * binary by this build.
    */
   public ImmutableList<String> getStripOpts() {
-    return ImmutableList.copyOf(cppOptions.stripoptList);
+    return ImmutableList.copyOf(cppOptions.getStripoptList());
+  }
+
+  @Override
+  public Sequence<String> getStripOptsStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return StarlarkList.immutableCopyOf(getStripOpts());
   }
 
   /** Returns whether temporary outputs from gcc will be saved. */
   public boolean getSaveTemps() {
-    return cppOptions.saveTemps;
+    return cppOptions.getSaveTemps();
+  }
+
+  @Override
+  public boolean getSaveTempsForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return getSaveTemps();
   }
 
   /**
@@ -401,7 +416,7 @@ public final class CppConfiguration extends Fragment
    * compiled file matches the regular expression.
    */
   public ImmutableList<PerLabelOptions> getPerFileCopts() {
-    return ImmutableList.copyOf(cppOptions.perFileCopts);
+    return ImmutableList.copyOf(cppOptions.getPerFileCopts());
   }
 
   /**
@@ -409,7 +424,7 @@ public final class CppConfiguration extends Fragment
    * object matches the regular expression.
    */
   public ImmutableList<PerLabelOptions> getPerFileLtoBackendOpts() {
-    return ImmutableList.copyOf(cppOptions.perFileLtoBackendOpts);
+    return ImmutableList.copyOf(cppOptions.getPerFileLtoBackendOpts());
   }
 
   /** Returns the custom malloc library label. */
@@ -417,23 +432,30 @@ public final class CppConfiguration extends Fragment
   @StarlarkConfigurationField(
       name = "custom_malloc",
       doc = "The label specified in --custom_malloc")
+  @Nullable
   public Label customMalloc() {
-    return cppOptions.customMalloc;
+    return cppOptions.getCustomMalloc();
   }
 
   /** Returns whether we are processing headers in dependencies of built C++ targets. */
   public boolean processHeadersInDependencies() {
-    return cppOptions.processHeadersInDependencies;
+    return cppOptions.getProcessHeadersInDependencies();
   }
 
   /** Returns true if --fission contains the current compilation mode. */
   public boolean fissionIsActiveForCurrentCompilationMode() {
-    return cppOptions.fissionModes.contains(compilationMode);
+    return cppOptions.getFissionModes().contains(compilationMode);
   }
 
   /** Returns true if --build_test_dwp is set on this build. */
   public boolean buildTestDwpIsActivated() {
-    return cppOptions.buildTestDwp;
+    return cppOptions.getBuildTestDwp();
+  }
+
+  @Override
+  public boolean buildTestDwpIsActivatedStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return buildTestDwpIsActivated();
   }
 
   /**
@@ -443,43 +465,57 @@ public final class CppConfiguration extends Fragment
    * applied (i.e. make no special provisions for pic code).
    */
   public boolean forcePic() {
-    return cppOptions.forcePic;
+    return cppOptions.getForcePic();
   }
 
   /** Returns true if --start_end_lib is set on this build. */
   public boolean startEndLibIsRequested() {
-    return cppOptions.useStartEndLib;
+    return cppOptions.getUseStartEndLib();
   }
 
-  /** @return value from --compiler option, null if the option was not passed. */
-  @Nullable
-  public String getCompilerFromOptions() {
-    return cppOptions.cppCompiler;
+  @StarlarkMethod(name = "start_end_lib", documented = false, useStarlarkThread = true)
+  public boolean startEndLibIsRequestedForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return cppOptions.getUseStartEndLib();
   }
 
-  public boolean legacyWholeArchive() {
-    return cppOptions.legacyWholeArchive;
+  public boolean experimentalLinkStaticLibrariesOnce() {
+    return cppOptions.getExperimentalLinkStaticLibrariesOnce();
   }
 
-  public boolean removeLegacyWholeArchive() {
-    return cppOptions.removeLegacyWholeArchive;
+  @StarlarkMethod(name = "legacy_whole_archive", documented = false, useStarlarkThread = true)
+  public boolean legacyWholeArchiveForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return cppOptions.getLegacyWholeArchive();
+  }
+
+  @StarlarkMethod(
+      name = "incompatible_remove_legacy_whole_archive",
+      documented = false,
+      useStarlarkThread = true)
+  public boolean removeLegacyWholeArchiveForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return cppOptions.getRemoveLegacyWholeArchive();
   }
 
   public boolean getInmemoryDotdFiles() {
-    return cppOptions.inmemoryDotdFiles;
-  }
-
-  public boolean getParseHeadersSkippedIfCorrespondingSrcsFound() {
-    return cppOptions.parseHeadersSkippedIfCorrespondingSrcsFound;
+    return cppOptions.getInmemoryDotdFiles();
   }
 
   public boolean getUseInterfaceSharedLibraries() {
-    return cppOptions.useInterfaceSharedObjects;
+    return cppOptions.getUseInterfaceSharedObjects();
+  }
+
+  @StarlarkMethod(name = "interface_shared_objects", documented = false, useStarlarkThread = true)
+  public boolean getUseInterfaceSharedLibrariesforStarlark(StarlarkThread thread)
+      throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return cppOptions.getUseInterfaceSharedObjects();
   }
 
   /** Returns whether this configuration will use libunwind for stack unwinding. */
   public boolean isOmitfp() {
-    return cppOptions.experimentalOmitfp;
+    return cppOptions.getExperimentalOmitfp();
   }
 
   /** Returns flags passed to Bazel by --copt option. */
@@ -508,6 +544,12 @@ public final class CppConfiguration extends Fragment
     return conlyopts;
   }
 
+  /** Returns flags passed to Bazel by --objccopt option. */
+  @Override
+  public ImmutableList<String> getObjcopts() {
+    return objcopts;
+  }
+
   /** Returns flags passed to Bazel by --linkopt option. */
   @Override
   public ImmutableList<String> getLinkopts() {
@@ -518,8 +560,8 @@ public final class CppConfiguration extends Fragment
   public void reportInvalidOptions(EventHandler reporter, BuildOptions buildOptions) {
     CppOptions cppOptions = buildOptions.get(CppOptions.class);
     if (stripBinaries) {
-      boolean warn = cppOptions.coptList.contains("-g");
-      for (PerLabelOptions opt : cppOptions.perFileCopts) {
+      boolean warn = cppOptions.getCoptList().contains("-g");
+      for (PerLabelOptions opt : cppOptions.getPerFileCopts()) {
         warn |= opt.getOptions().contains("-g");
       }
       if (warn) {
@@ -533,291 +575,328 @@ public final class CppConfiguration extends Fragment
     }
 
     // FDO
-    if (cppOptions.getFdoOptimize() != null && cppOptions.fdoProfileLabel != null) {
+    if (cppOptions.getFdoOptimize() != null && cppOptions.getFdoProfileLabel() != null) {
       reporter.handle(Event.error("Both --fdo_optimize and --fdo_profile specified"));
     }
 
-    if (cppOptions.fdoInstrumentForBuild != null) {
-      if (cppOptions.getFdoOptimize() != null || cppOptions.fdoProfileLabel != null) {
+    if (cppOptions.getFdoInstrumentForBuild() != null) {
+      if (cppOptions.getFdoOptimize() != null || cppOptions.getFdoProfileLabel() != null) {
         reporter.handle(
             Event.error(
                 "Cannot instrument and optimize for FDO at the same time. Remove one of the "
                     + "'--fdo_instrument' and '--fdo_optimize/--fdo_profile' options"));
       }
-      if (!cppOptions.coptList.contains("-Wno-error")) {
-        // This is effectively impossible. --fdo_instrument adds this value, and only invocation
-        // policy could remove it.
-        reporter.handle(Event.error("Cannot instrument FDO without --copt including -Wno-error."));
-      }
     }
 
     // This is an assertion check vs. user error because users can't trigger this state.
-    Verify.verify(
-        !(buildOptions.get(CoreOptions.class).isHost && cppOptions.isFdo()),
-        "FDO state should not propagate to the host configuration");
+    // TODO(b/253313672): uncomment the below and check tests don't fail. This was originally set
+    // check the exec configuration doesn't apply FDO settings. With the host configuration gone
+    // we should migrate this check to the exec config. Since there's a chance of breakage it's best
+    // to test this as its own dedicated change.
+    // Verify.verify(
+    //   !(buildOptions.get(CoreOptions.class).isExec && cppOptions.isFdo()),
+    // "FDO state should not propagate to the exec configuration");
   }
 
   @Override
-  public String getOutputDirectoryName() {
-    String result = cpu;
-    if (!cppOptions.outputDirectoryTag.isEmpty()) {
-      result += "-" + cppOptions.outputDirectoryTag;
+  public void processForOutputPathMnemonic(OutputDirectoriesContext ctx)
+      throws Fragment.OutputDirectoriesContext.AddToMnemonicException {
+    ctx.markAsExplicitInOutputPathFor("cc_output_directory_tag");
+    if (!cppOptions.getOutputDirectoryTag().isEmpty()) {
+      ctx.addToMnemonic(cppOptions.getOutputDirectoryTag());
     }
-
-    return result;
   }
 
   /** Returns true if we should share identical native libraries between different targets. */
   public boolean shareNativeDeps() {
-    return cppOptions.shareNativeDeps;
+    return cppOptions.getShareNativeDeps();
   }
 
   public boolean isStrictSystemIncludes() {
-    return cppOptions.strictSystemIncludes;
+    return cppOptions.getStrictSystemIncludes();
   }
 
+  @Nullable
   String getFdoInstrument() {
-    if (isToolConfigurationDoNotUseWillBeRemovedFor129045294()) {
-      // We don't want FDO in the host configuration
-      return null;
-    }
-    return cppOptions.fdoInstrumentForBuild;
+    return cppOptions.getFdoInstrumentForBuild();
   }
 
-  /**
-   * @deprecated Unsafe because it returns a value from target configuration even in the host
-   *     configuration.
-   */
-  @Deprecated
-  PathFragment getFdoPathUnsafeSinceItCanReturnValueFromWrongConfiguration() {
-    return fdoPath;
+  @StarlarkMethod(
+      name = "fdo_path",
+      documented = false,
+      useStarlarkThread = true,
+      allowReturnNones = true)
+  @Nullable
+  public String getFdoPathForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return fdoPath == null ? null : fdoPath.toString();
   }
 
-  /**
-   * @deprecated Unsafe because it returns a value from target configuration even in the host
-   *     configuration.
-   */
-  @Deprecated
-  Label getFdoOptimizeLabelUnsafeSinceItCanReturnValueFromWrongConfiguration() {
+  @StarlarkConfigurationField(name = "fdo_optimize", doc = "The label specified in --fdo_optimize")
+  public Label getFdoOptimizeLabel() {
     return fdoOptimizeLabel;
   }
 
   public String getCSFdoInstrument() {
-    return cppOptions.csFdoInstrumentForBuild;
+    return cppOptions.getCsFdoInstrumentForBuild();
   }
 
-  public PathFragment getCSFdoAbsolutePath() {
+  @Nullable
+  @Override
+  public String csFdoInstrumentStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return getCSFdoInstrument();
+  }
+
+  @StarlarkMethod(
+      name = "cs_fdo_path",
+      documented = false,
+      useStarlarkThread = true,
+      allowReturnNones = true)
+  @Nullable
+  public String getCsFdoPathForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
     return csFdoAbsolutePath;
   }
 
-  public PathFragment getPropellerOptimizeAbsoluteCCProfile() {
+  @StarlarkMethod(
+      name = "propeller_optimize_absolute_cc_profile",
+      documented = false,
+      useStarlarkThread = true,
+      allowReturnNones = true)
+  @Nullable
+  public String getPropellerOptimizeAbsoluteCcProfileForStarlark(StarlarkThread thread)
+      throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
     return propellerOptimizeAbsoluteCCProfile;
   }
 
-  public PathFragment getPropellerOptimizeAbsoluteLdProfile() {
+  @StarlarkMethod(
+      name = "propeller_optimize_absolute_ld_profile",
+      documented = false,
+      allowReturnNones = true,
+      useStarlarkThread = true)
+  @Nullable
+  public String getPropellerOptimizeAbsoluteLdProfileForStarlark(StarlarkThread thread)
+      throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
     return propellerOptimizeAbsoluteLdProfile;
   }
 
-  Label getFdoPrefetchHintsLabel() {
-    if (isToolConfigurationDoNotUseWillBeRemovedFor129045294()) {
-      // We don't want FDO in the host configuration
-      return null;
-    }
-    return getFdoPrefetchHintsLabelUnsafeSinceItCanReturnValueFromWrongConfiguration();
-  }
-
-  /**
-   * @deprecated Unsafe because it returns a value from target configuration even in the host
-   *     configuration.
-   */
-  @Deprecated
-  Label getFdoPrefetchHintsLabelUnsafeSinceItCanReturnValueFromWrongConfiguration() {
+  @StarlarkConfigurationField(
+      name = "fdo_prefetch_hints",
+      doc = "The label specified in --fdo_prefetch_hints")
+  @StarlarkMethod(
+      name = "_fdo_prefetch_hints_label",
+      documented = false,
+      allowReturnNones = true,
+      structField = true)
+  @Nullable
+  public Label getFdoPrefetchHintsLabel() {
     return cppOptions.getFdoPrefetchHintsLabel();
   }
 
-  /**
-   * @deprecated Unsafe because it returns a value from target configuration even in the host
-   *     configuration.
-   */
-  @Deprecated
-  Label getFdoProfileLabelUnsafeSinceItCanReturnValueFromWrongConfiguration() {
-    return cppOptions.fdoProfileLabel;
+  @StarlarkConfigurationField(name = "fdo_profile", doc = "The label specified in --fdo_profile")
+  public Label getFdoProfileLabel() {
+    return cppOptions.getFdoProfileLabel();
   }
 
+  @StarlarkConfigurationField(
+      name = "cs_fdo_profile",
+      doc = "The label specified in --cs_fdo_profile")
   public Label getCSFdoProfileLabel() {
-    return cppOptions.csFdoProfileLabel;
+    return cppOptions.getCsFdoProfileLabel();
   }
 
+  @Nullable
+  @StarlarkConfigurationField(
+      name = "propeller_optimize",
+      doc = "The label specified in --propeller_optimize")
   public Label getPropellerOptimizeLabel() {
-    return cppOptions.propellerOptimizeLabel;
-  }
-
-  /**
-   * @deprecated Unsafe because it returns a value from target configuration even in the host
-   *     configuration.
-   */
-  @Deprecated
-  Label getPropellerOptimizeLabelUnsafeSinceItCanReturnValueFromWrongConfiguration() {
-    if (cppOptions.fdoInstrumentForBuild != null || cppOptions.csFdoInstrumentForBuild != null) {
+    if (cppOptions.getFdoInstrumentForBuild() != null
+        || cppOptions.getCsFdoInstrumentForBuild() != null) {
       return null;
     }
     return cppOptions.getPropellerOptimizeLabel();
   }
 
-  /**
-   * @deprecated Unsafe because it returns a value from target configuration even in the host
-   *     configuration.
-   */
-  @Deprecated
-  Label getXFdoProfileLabelUnsafeSinceItCanReturnValueFromWrongConfiguration() {
-    if (cppOptions.fdoOptimizeForBuild != null
-        || cppOptions.fdoInstrumentForBuild != null
-        || cppOptions.fdoProfileLabel != null
+  @Nullable
+  @StarlarkConfigurationField(name = "xbinary_fdo", doc = "The label specified in --xbinary_fdo")
+  public Label getXFdoProfileLabel() {
+    if (cppOptions.getFdoOptimizeForBuild() != null
+        || cppOptions.getFdoInstrumentForBuild() != null
+        || cppOptions.getFdoProfileLabel() != null
         || collectCodeCoverage) {
       return null;
     }
 
-    return cppOptions.xfdoProfileLabel;
+    return cppOptions.getXfdoProfileLabel();
   }
 
-  public boolean isFdoAbsolutePathEnabled() {
-    return cppOptions.enableFdoProfileAbsolutePath;
+  @Nullable
+  @StarlarkConfigurationField(
+      name = "memprof_profile",
+      doc = "The memprof profile label for cc_toolchain rule")
+  public Label getMemProfProfileLabel() {
+    return cppOptions.getMemProfProfileLabel();
   }
 
   public boolean useLLVMCoverageMapFormat() {
-    return cppOptions.useLLVMCoverageMapFormat;
+    return cppOptions.getUseLLVMCoverageMapFormat();
   }
 
-  public boolean removeCpuCompilerCcToolchainAttributes() {
-    return cppOptions.removeCpuCompilerCcToolchainAttributes;
-  }
-
-  public static PathFragment computeDefaultSysroot(String builtInSysroot) {
-    if (builtInSysroot.isEmpty()) {
-      return null;
-    }
-    return PathFragment.create(builtInSysroot);
+  @StarlarkMethod(
+      name = "use_llvm_coverage_map_format",
+      documented = false,
+      useStarlarkThread = true)
+  public boolean useLlvmCoverageMapFormatStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return useLLVMCoverageMapFormat();
   }
 
   /**
    * Returns the value of the libc top-level directory (--grte_top) as specified on the command line
    */
+  @StarlarkConfigurationField(name = "libc_top", doc = "The libc_top label for cc_toolchain.")
   public Label getLibcTopLabel() {
-    return cppOptions.libcTopLabel;
+    return cppOptions.getLibcTopLabel();
   }
 
-  /**
-   * Returns the value of the libc top-level directory (--grte_top) as specified on the command line
-   */
-  public Label getTargetLibcTopLabel() {
-    if (!isToolConfigurationDoNotUseWillBeRemovedFor129045294()) {
-      // This isn't for a platform-enabled C++ toolchain (legacy C++ toolchains evaluate in the
-      // target configuration while platform-enabled toolchains evaluate in the host/exec
-      // configuration). targetLibcTopLabel is only intended for platform-enabled toolchains and can
-      // cause errors otherwise.
-      //
-      // For example: if a legacy-configured toolchain inherits a --grte_top pointing to an Android
-      // runtime alias that select()s on a target Android CPU and an iOS dep changes the CPU to an
-      // iOS CPU, the alias resolution fails. Legacy toolchains should read --grte_top through
-      // libcTopLabel (which changes along with the iOS CPU change), not this.
-      return null;
-    }
-    return cppOptions.targetLibcTopLabel;
+  @Override
+  public Label getLibcTopLabelStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return getLibcTopLabel();
   }
 
-  public boolean enableLegacyCcProvider() {
-    return !cppOptions.disableLegacyCcProvider;
+  @Override
+  public boolean shareNativeDepsStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return shareNativeDeps();
   }
 
+  @StarlarkMethod(name = "_dont_enable_host_nonhost", documented = false, structField = true)
   public boolean dontEnableHostNonhost() {
-    return cppOptions.dontEnableHostNonhost;
-  }
-
-  public boolean requireCtxInConfigureFeatures() {
-    return cppOptions.requireCtxInConfigureFeatures;
+    return cppOptions.getDontEnableHostNonhost();
   }
 
   public boolean collectCodeCoverage() {
     return collectCodeCoverage;
   }
 
-  /** @deprecated this is only a temporary workaround, will be removed by b/129045294. */
-  // TODO(b/129045294): Remove at first opportunity
-  @Deprecated
-  boolean isToolConfigurationDoNotUseWillBeRemovedFor129045294() {
-    return isToolConfigurationDoNotUseWillBeRemovedFor129045294;
-  }
-
-  public boolean enableCcToolchainResolution() {
-    return cppOptions.enableCcToolchainResolution;
-  }
-
   public boolean saveFeatureState() {
-    return cppOptions.saveFeatureState;
+    return cppOptions.getSaveFeatureState();
   }
 
-  public boolean useStandaloneLtoIndexingCommandLines() {
-    return cppOptions.useStandaloneLtoIndexingCommandLines;
-  }
-
-  public boolean useSpecificToolFiles() {
-    return cppOptions.useSpecificToolFiles;
+  @StarlarkMethod(
+      name = "incompatible_use_specific_tool_files",
+      documented = false,
+      useStarlarkThread = true)
+  public boolean useSpecificToolFilesForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return true;
   }
 
   public boolean disableNoCopts() {
-    return cppOptions.disableNoCopts;
+    return cppOptions.getDisableNoCopts();
   }
 
-  public boolean loadCcRulesFromBzl() {
-    return cppOptions.loadCcRulesFromBzl;
+  @Override
+  public boolean disableNocoptsStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return disableNoCopts();
   }
 
-  public boolean validateTopLevelHeaderInclusions() {
-    return cppOptions.validateTopLevelHeaderInclusions;
-  }
-
+  @Override
   public boolean appleGenerateDsym() {
     return appleGenerateDsym;
   }
 
-  public boolean experimentalStarlarkCcImport() {
-    return cppOptions.experimentalStarlarkCcImport;
-  }
-
-  public boolean strictHeaderCheckingFromStarlark() {
-    return cppOptions.forceStrictHeaderCheckFromStarlark;
-  }
-
   public boolean useCppCompileHeaderMnemonic() {
-    return cppOptions.useCppCompileHeaderMnemonic;
+    return cppOptions.getUseCppCompileHeaderMnemonic();
   }
 
   public boolean generateLlvmLCov() {
-    return cppOptions.generateLlvmLcov;
+    return cppOptions.getGenerateLlvmLcov();
   }
 
-  public boolean objcShouldScanIncludes() {
-    return cppOptions.objcScanIncludes;
+  /** Returns true iff we should do "include scanning" during this build. */
+  public boolean shouldScanIncludes() {
+    return cppOptions.getIncludeScanning() || cppOptions.getIncludeScanningInternal();
   }
 
-  public boolean objcShouldGenerateDotdFiles() {
-    return cppOptions.objcGenerateDotdFiles;
+  @StarlarkMethod(name = "include_scanning", documented = false, useStarlarkThread = true)
+  public boolean shouldScanIncludesForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return shouldScanIncludes();
+  }
+
+  @StarlarkMethod(name = "should_generate_dotd_files", documented = false, useStarlarkThread = true)
+  public boolean shouldGenerateDotdFilesStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return cppOptions.getGenerateDotdFiles();
+  }
+
+  @StarlarkMethod(
+      name = "objc_should_generate_dotd_files",
+      documented = false,
+      useStarlarkThread = true)
+  public boolean objcShouldGenerateDotdFilesStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return cppOptions.getObjcGenerateDotdFiles();
   }
 
   @Override
-  public boolean macosSetInstallName() {
-    return cppOptions.macosSetInstallName;
+  public boolean objcGenerateLinkmap() {
+    return cppOptions.getObjcGenerateLinkmap();
+  }
+
+  public boolean objcEnableBinaryStripping() {
+    return cppOptions.getObjcEnableBinaryStripping();
+  }
+
+  @StarlarkMethod(
+      name = "objc_enable_binary_stripping",
+      documented = false,
+      useStarlarkThread = true)
+  public boolean objcEnableBinaryStrippingForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return cppOptions.getObjcEnableBinaryStripping();
+  }
+
+  @StarlarkMethod(
+      name = "experimental_cc_implementation_deps",
+      documented = false,
+      useStarlarkThread = true)
+  public boolean experimentalCcImplementationDepsForStarlark(StarlarkThread thread)
+      throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return experimentalCcImplementationDeps();
+  }
+
+  @StarlarkMethod(name = "experimental_cpp_modules", documented = false, useStarlarkThread = true)
+  public boolean experimentalCppModulesForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return experimentalCppModules();
+  }
+
+  public boolean experimentalCcImplementationDeps() {
+    return cppOptions.getExperimentalCcImplementationDeps();
+  }
+
+  public boolean experimentalCppModules() {
+    return cppOptions.getExperimentalCppModules();
+  }
+
+  public boolean getExperimentalCppCompileResourcesEstimation() {
+    return cppOptions.getExperimentalCppCompileResourcesEstimation();
   }
 
   private static void checkInExpandedApiAllowlist(StarlarkThread thread, String feature)
       throws EvalException {
-    String rulePackage =
-        ((BazelModuleContext) Module.ofInnermostEnclosingStarlarkFunction(thread).getClientData())
-            .label()
-            .getPackageName();
-    if (!EXPANDED_CC_CONFIGURATION_API_ALLOWLIST.contains(rulePackage)) {
-      throw Starlark.errorf(
-          "Rule in '%s' cannot use '%s' in CppConfiguration", rulePackage, feature);
+    try {
+      BuiltinRestriction.failIfCalledOutsideDefaultAllowlist(thread);
+    } catch (EvalException e) {
+      throw Starlark.errorf("%s (feature '%s' in CppConfiguration)", e.getMessage(), feature);
     }
   }
 
@@ -833,6 +912,7 @@ public final class CppConfiguration extends Fragment
     return generateLlvmLCov();
   }
 
+  @Nullable
   @Override
   public String fdoInstrumentStarlark(StarlarkThread thread) throws EvalException {
     checkInExpandedApiAllowlist(thread, "fdo_instrument");
@@ -841,31 +921,43 @@ public final class CppConfiguration extends Fragment
 
   @Override
   public boolean processHeadersInDependenciesStarlark(StarlarkThread thread) throws EvalException {
-    checkInExpandedApiAllowlist(thread, "process_headers_in_dependencies");
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
     return processHeadersInDependencies();
   }
 
   @Override
   public boolean saveFeatureStateStarlark(StarlarkThread thread) throws EvalException {
-    checkInExpandedApiAllowlist(thread, "save_feature_state");
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
     return saveFeatureState();
   }
 
   @Override
   public boolean fissionActiveForCurrentCompilationModeStarlark(StarlarkThread thread)
       throws EvalException {
-    checkInExpandedApiAllowlist(thread, "fission_active_for_current_compilation_mode");
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
     return fissionIsActiveForCurrentCompilationMode();
   }
 
-  /**
-   * Returns the bitcode mode to use for compilation.
-   *
-   * <p>Users can control bitcode mode using the {@code apple_bitcode} build flag, but bitcode will
-   * be disabled for all simulator architectures regardless of this flag.
-   */
   @Override
-  public AppleBitcodeMode getAppleBitcodeMode() {
-    return appleBitcodeMode;
+  public boolean getExperimentalLinkStaticLibrariesOnce(StarlarkThread thread)
+      throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return experimentalLinkStaticLibrariesOnce();
+  }
+
+  @Override
+  public boolean objcShouldStripBinary() {
+    return objcEnableBinaryStripping() && getCompilationMode() == CompilationMode.OPT;
+  }
+
+  @StarlarkConfigurationField(name = "proto_profile_path")
+  public Label getProtoProfilePath() {
+    return cppOptions.getProtoProfilePath();
+  }
+
+  @StarlarkMethod(name = "proto_profile", useStarlarkThread = true, documented = false)
+  public boolean getProtoProfile(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return cppOptions.getProtoProfile();
   }
 }

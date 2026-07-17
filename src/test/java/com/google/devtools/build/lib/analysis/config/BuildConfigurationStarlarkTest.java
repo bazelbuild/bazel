@@ -14,8 +14,9 @@
 package com.google.devtools.build.lib.analysis.config;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
+import static org.junit.Assert.assertThrows;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -27,7 +28,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests for {@link BuildConfiguration}'s integration with Starlark. */
+/** Tests for {@link BuildConfigurationValue}'s integration with Starlark. */
 @RunWith(JUnit4.class)
 public final class BuildConfigurationStarlarkTest extends BuildViewTestCase {
 
@@ -37,26 +38,127 @@ public final class BuildConfigurationStarlarkTest extends BuildViewTestCase {
     scratch.file("examples/rule/BUILD");
     scratch.file(
         "examples/rule/config_test.bzl",
-        "MyInfo = provider()",
-        "def _test_rule_impl(ctx):",
-        "   return MyInfo(test_env = ctx.configuration.test_env)",
-        "test_rule = rule(implementation = _test_rule_impl,",
-        "   attrs = {},",
-        ")");
+        """
+        MyInfo = provider()
+
+        def _test_rule_impl(ctx):
+            out = ctx.actions.declare_file(ctx.label.name)
+            ctx.actions.write(out, "exit 0", is_executable = True)
+            return [
+                DefaultInfo(executable = out),
+                MyInfo(test_env = ctx.configuration.test_env),
+            ]
+
+        my_test = rule(
+            implementation = _test_rule_impl,
+            attrs = {},
+            test = True,
+        )
+        """);
 
     scratch.file(
         "examples/config_starlark/BUILD",
-        "package(default_visibility = ['//visibility:public'])",
-        "load('//examples/rule:config_test.bzl', 'test_rule')",
-        "test_rule(",
-        "    name = 'my_target',",
-        ")");
+        """
+        load("//examples/rule:config_test.bzl", "my_test")
+
+        package(default_visibility = ["//visibility:public"])
+
+        my_test(
+            name = "my_target",
+        )
+        """);
 
     ConfiguredTarget starlarkTarget = getConfiguredTarget("//examples/config_starlark:my_target");
     Provider.Key key =
         new StarlarkProvider.Key(
-            Label.parseAbsolute("//examples/rule:config_test.bzl", ImmutableMap.of()), "MyInfo");
+            keyForBuild(Label.parseCanonical("//examples/rule:config_test.bzl")), "MyInfo");
     StructImpl myInfo = (StructImpl) starlarkTarget.get(key);
     assertThat(((Dict) myInfo.getValue("test_env")).get("TEST_ENV_VAR")).isEqualTo("my_value");
+  }
+
+  @Test
+  public void testIsToolConfiguration() throws Exception {
+    scratch.file(
+        "example/BUILD",
+        """
+        load(":rule.bzl", "custom_rule")
+
+        custom_rule(name = "custom")
+        """);
+
+    scratch.file(
+        "example/rule.bzl",
+        """
+        def _impl(ctx):
+            if ctx.configuration.is_tool_configuration():
+                fail("should not be tool configuration")
+            return [DefaultInfo()]
+
+        custom_rule = rule(implementation = _impl)
+        """);
+
+    getConfiguredTarget("//example:custom");
+  }
+
+  @Test
+  public void testRunfilesEnabledIsPrivateApi() throws Exception {
+    scratch.file(
+        "example/BUILD",
+        """
+        load(":rule.bzl", "custom_rule")
+
+        custom_rule(name = "custom")
+        """);
+
+    scratch.file(
+        "example/rule.bzl",
+        """
+        def _impl(ctx):
+            ctx.configuration.runfiles_enabled()
+            return [DefaultInfo()]
+
+        custom_rule = rule(implementation = _impl)
+        """);
+
+    AssertionError e =
+        assertThrows(AssertionError.class, () -> getConfiguredTarget("//example:custom"));
+    assertThat(e).hasMessageThat().contains("file '//example:rule.bzl' cannot use private API");
+  }
+
+  @Test
+  public void testShortId() throws Exception {
+    scratch.file(
+        "example/BUILD",
+        """
+        load(":rule.bzl", "custom_rule")
+
+        custom_rule(name = "custom")
+        """);
+
+    scratch.file(
+        "example/rule.bzl",
+        """
+        MyInfo = provider()
+
+        def _impl(ctx):
+            return [MyInfo(short_id = ctx.configuration.short_id)]
+
+        custom_rule = rule(implementation = _impl)
+        """);
+
+    ConfiguredTarget target = getConfiguredTarget("//example:custom");
+    Provider.Key key =
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//example:rule.bzl")), "MyInfo");
+    StructImpl myInfo = (StructImpl) target.get(key);
+    String firstShortId = (String) myInfo.getValue("short_id");
+    assertThat(firstShortId).isEqualTo(target.getConfigurationKey().getOptions().shortId());
+
+    useConfiguration("--compilation_mode=dbg");
+    target = getConfiguredTarget("//example:custom");
+    myInfo = (StructImpl) target.get(key);
+    String secondShortId = (String) myInfo.getValue("short_id");
+    assertThat(secondShortId).isEqualTo(target.getConfigurationKey().getOptions().shortId());
+
+    assertThat(firstShortId).isNotEqualTo(secondShortId);
   }
 }

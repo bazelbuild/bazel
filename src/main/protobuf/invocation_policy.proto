@@ -13,7 +13,10 @@
 // limitations under the License.
 
 syntax = "proto2";
+
 package blaze.invocation_policy;
+
+import "src/main/protobuf/strategy_policy.proto";
 
 // option java_api_version = 2;
 option java_package = "com.google.devtools.build.lib.runtime.proto";
@@ -26,6 +29,8 @@ message InvocationPolicy {
   // requirements, only the final policy on a specific flag will be enforced
   // onto the user's command line.
   repeated FlagPolicy flag_policies = 1;
+
+  optional blaze.strategy_policy.StrategyPolicy strategy_policy = 2;
 }
 
 // A policy for controlling the value of a flag.
@@ -57,11 +62,13 @@ message FlagPolicy {
     DisallowValues disallow_values = 5;
     AllowValues allow_values = 6;
   }
+
+  optional string custom_error_message = 7;
 }
 
 message SetValue {
   // Use this value for the specified flag, overriding any default or user-set
-  // value (unless append is set to true for repeatable flags).
+  // value (unless behavior = APPEND for repeatable flags).
   //
   // This field is repeated for repeatable flags. It is an error to set
   // multiple values for a flag that is not actually a repeatable flag.
@@ -69,7 +76,7 @@ message SetValue {
   //
   // If the flag allows multiple values, all of its values are replaced with the
   // value or values from the policy (i.e., no diffing or merging is performed),
-  // unless the append field (see below) is set to true.
+  // unless behavior = APPEND (see below).
   //
   // Note that some flags are tricky. For example, some flags look like boolean
   // flags, but are actually Void expansion flags that expand into other flags.
@@ -100,16 +107,32 @@ message SetValue {
   // may fail to parse or result in an unexpected value.
   repeated string flag_value = 1;
 
-  // Whether to allow this policy to be overridden by user-specified values.
-  // When set, if the user specified a value for this flag, use the value
-  // from the user, otherwise use the value specified in this policy.
-  optional bool overridable = 2;
+  // Obsolete overridable and append fields.
+  reserved 2, 3;
 
-  // If true, and if the flag named in the policy is a repeatable flag, then
-  // the values listed in flag_value do not replace all the user-set or default
-  // values of the flag, but instead append to them. If the flag is not
-  // repeatable, then this has no effect.
-  optional bool append = 3;
+  enum Behavior {
+    UNDEFINED = 0;
+    // Change the flag value but allow it to be overridden by explicit settings
+    // from command line/config expansion/rc files.
+    // Matching old flag values: append = false, overridable = true.
+    ALLOW_OVERRIDES = 1;
+    // Append a new value for a repeatable flag, leave old values and allow
+    // further overrides.
+    // Matching old flag values: append = true, overridable = false.
+    APPEND = 2;
+    // Set a final value of the flag. Any overrides provided by the user for
+    // this flag will be silently ignored.
+    // Matching old flag values: append = false, overridable = false.
+    FINAL_VALUE_IGNORE_OVERRIDES = 3;
+    // Set a final value of the flag and throw an error if the user provides
+    // an override.
+    // Matching old flag values: append = false, overridable = false.
+    FINAL_VALUE_THROW_ON_OVERRIDE = 4;
+  }
+
+  // Defines how invocation policy should interact with user settings for the
+  // same flag.
+  optional Behavior behavior = 4;
 }
 
 message UseDefault {

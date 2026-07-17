@@ -1,0 +1,32 @@
+// Copyright 2025 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+edition = "2023";
+
+package devtools_blaze_proto;
+
+option java_package = "com.google.devtools.build.lib.skyframe.serialization.analysis.proto";
+option java_multiple_files = true;
+option java_outer_classname = "AnalysisCacheServiceMissReason";
+
+enum MissReason {
+  MISS_REASON_UNSPECIFIED = 0;
+  MISS_REASON_SKYVALUE_MISS = 1;
+  MISS_REASON_REFERENCED_OBJECT_MISS = 2;
+  MISS_REASON_INVALIDATED = 3;
+  // The lookup was not attempted. This is only set by the client.
+  MISS_REASON_NOT_ATTEMPTED = 4;
+  // There was an infrastructure failure during the lookup.
+  MISS_REASON_INFRA_FAILURE = 5;
+}

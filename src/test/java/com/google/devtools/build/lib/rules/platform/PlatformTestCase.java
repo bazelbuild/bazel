@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -57,15 +58,17 @@ public class PlatformTestCase extends BuildViewTestCase {
     private String defaultConstraintValue = null;
 
     public ConstraintBuilder(String name) {
-      this.label = Label.parseAbsoluteUnchecked(name);
+      this.label = Label.parseCanonicalUnchecked(name);
     }
 
+    @CanIgnoreReturnValue
     public ConstraintBuilder defaultConstraintValue(String defaultConstraintValue) {
       this.defaultConstraintValue = defaultConstraintValue;
       this.constraintValues.add(defaultConstraintValue);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public ConstraintBuilder addConstraintValue(String constraintValue) {
       this.constraintValues.add(constraintValue);
       return this;
@@ -104,30 +107,34 @@ public class PlatformTestCase extends BuildViewTestCase {
     private final Label label;
     private final List<String> constraintValues = new ArrayList<>();
     private Label parentLabel = null;
-    private String remoteExecutionProperties = "";
     private ImmutableMap<String, String> execProperties;
+    private List<String> flags = new ArrayList<>();
 
     public PlatformBuilder(String name) {
-      this.label = Label.parseAbsoluteUnchecked(name);
+      this.label = Label.parseCanonicalUnchecked(name);
     }
 
+    @CanIgnoreReturnValue
     public PlatformBuilder setParent(String parentLabel) {
-      this.parentLabel = Label.parseAbsoluteUnchecked(parentLabel);
+      this.parentLabel = Label.parseCanonicalUnchecked(parentLabel);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public PlatformBuilder addConstraint(String value) {
       this.constraintValues.add(value);
       return this;
     }
 
-    public PlatformBuilder setRemoteExecutionProperties(String value) {
-      this.remoteExecutionProperties = value;
+    @CanIgnoreReturnValue
+    public PlatformBuilder setExecProperties(ImmutableMap<String, String> value) {
+      this.execProperties = value;
       return this;
     }
 
-    public PlatformBuilder setExecProperties(ImmutableMap<String, String> value) {
-      this.execProperties = value;
+    @CanIgnoreReturnValue
+    public PlatformBuilder addFlags(String... flags) {
+      this.flags.addAll(ImmutableList.copyOf(flags));
       return this;
     }
 
@@ -143,15 +150,19 @@ public class PlatformTestCase extends BuildViewTestCase {
         lines.add("    ':" + name + "',");
       }
       lines.add("  ],");
-      if (!Strings.isNullOrEmpty(remoteExecutionProperties)) {
-        lines.add("  remote_execution_properties = '" + remoteExecutionProperties + "',");
-      }
       if (execProperties != null && !execProperties.isEmpty()) {
         lines.add("  exec_properties = { ");
         for (Map.Entry<String, String> entry : execProperties.entrySet()) {
           lines.add("    \"" + entry.getKey() + "\": \"" + entry.getValue() + "\",");
         }
         lines.add("  }");
+      }
+      if (!flags.isEmpty()) {
+        lines.add("  flags = [");
+        for (String flag : flags) {
+          lines.add("    '" + flag + "',");
+        }
+        lines.add("  ],");
       }
       lines.add(")");
 

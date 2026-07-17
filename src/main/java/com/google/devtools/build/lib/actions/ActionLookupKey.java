@@ -13,8 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
+import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.skyframe.CPUHeavySkyKey;
 import com.google.devtools.build.skyframe.SkyKey;
+import javax.annotation.Nullable;
 
 /**
  * {@link SkyKey} for an "analysis object": either an {@link ActionLookupValue} or a {@link
@@ -22,10 +24,32 @@ import com.google.devtools.build.skyframe.SkyKey;
  *
  * <p>Whether a configured target creates actions cannot be inferred from its {@link
  * com.google.devtools.build.lib.cmdline.Label} without performing analysis, so this class is used
- * for both types. Non-{@link ActionLookupValue} nodes are not accessed during the execution phase.
+ * for both types. Only {@link ActionLookupValue} nodes are accessed during the execution phase.
  *
  * <p>All subclasses of {@link ActionLookupValue} "own" artifacts with {@link ArtifactOwner}s that
  * are subclasses of {@link ActionLookupKey}. This allows callers to easily find the value key,
  * while remaining agnostic to what action lookup values actually exist.
  */
-public interface ActionLookupKey extends ArtifactOwner, CPUHeavySkyKey {}
+public interface ActionLookupKey extends ArtifactOwner, CPUHeavySkyKey {
+  /**
+   * Returns the {@link BuildConfigurationKey} for the configuration associated with this key, or
+   * {@code null} if this key has no associated configuration.
+   */
+  @Nullable
+  BuildConfigurationKey getConfigurationKey();
+
+  /**
+   * Returns {@code true} if the actions <em>may</em> own shareable actions, as determined by {@link
+   * ActionLookupData#valueIsShareable}.
+   *
+   * <p>Returns {@code false} for some non-standard keys such as the build info key and coverage
+   * report key.
+   *
+   * <p>A return of {@code true} still requires checking {@link ActionLookupData#valueIsShareable}
+   * to determine whether the individual action can be shared - notably, for a test target,
+   * compilation actions are shareable, but test actions are not.
+   */
+  default boolean mayOwnShareableActions() {
+    return getLabel() != null;
+  }
+}

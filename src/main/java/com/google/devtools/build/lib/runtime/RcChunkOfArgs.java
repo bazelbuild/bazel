@@ -35,8 +35,7 @@ final class RcChunkOfArgs {
 
   @Override
   public boolean equals(Object o) {
-    if (o instanceof RcChunkOfArgs) {
-      RcChunkOfArgs other = (RcChunkOfArgs) o;
+    if (o instanceof RcChunkOfArgs other) {
       return getRcFile().equals(other.getRcFile()) && getArgs().equals(other.getArgs());
     }
     return false;

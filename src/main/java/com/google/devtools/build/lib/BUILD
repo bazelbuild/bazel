@@ -38,70 +38,71 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/authandtls:srcs",
         "//src/main/java/com/google/devtools/build/lib/bazel:srcs",
         "//src/main/java/com/google/devtools/build/lib/bugreport:srcs",
-        "//src/main/java/com/google/devtools/build/lib/buildeventservice/client:srcs",
         "//src/main/java/com/google/devtools/build/lib/buildeventservice:srcs",
+        "//src/main/java/com/google/devtools/build/lib/buildeventservice/client:srcs",
+        "//src/main/java/com/google/devtools/build/lib/buildeventstream:srcs",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:srcs",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/transports:srcs",
-        "//src/main/java/com/google/devtools/build/lib/buildeventstream:srcs",
+        "//src/main/java/com/google/devtools/build/lib/buildtool:srcs",
+        "//src/main/java/com/google/devtools/build/lib/buildtool/buildevent:srcs",
         "//src/main/java/com/google/devtools/build/lib/causes:srcs",
         "//src/main/java/com/google/devtools/build/lib/clock:srcs",
         "//src/main/java/com/google/devtools/build/lib/cmdline:srcs",
-        "//src/main/java/com/google/devtools/build/lib/collect/compacthashmap:srcs",
-        "//src/main/java/com/google/devtools/build/lib/collect/compacthashset:srcs",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset:srcs",
         "//src/main/java/com/google/devtools/build/lib/collect:srcs",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset:srcs",
         "//src/main/java/com/google/devtools/build/lib/concurrent:srcs",
         "//src/main/java/com/google/devtools/build/lib/dynamic:srcs",
         "//src/main/java/com/google/devtools/build/lib/events:srcs",
         "//src/main/java/com/google/devtools/build/lib/exec:srcs",
-        "//src/main/java/com/google/devtools/build/lib/io:srcs",
         "//src/main/java/com/google/devtools/build/lib/graph:srcs",
+        "//src/main/java/com/google/devtools/build/lib/io:srcs",
         "//src/main/java/com/google/devtools/build/lib/jni:srcs",
         "//src/main/java/com/google/devtools/build/lib/metrics:srcs",
         "//src/main/java/com/google/devtools/build/lib/network:srcs",
         "//src/main/java/com/google/devtools/build/lib/packages:srcs",
         "//src/main/java/com/google/devtools/build/lib/packages/metrics:srcs",
+        "//src/main/java/com/google/devtools/build/lib/packages/producers:srcs",
         "//src/main/java/com/google/devtools/build/lib/packages/semantics:srcs",
         "//src/main/java/com/google/devtools/build/lib/pkgcache:srcs",
         "//src/main/java/com/google/devtools/build/lib/platform:srcs",
-        "//src/main/java/com/google/devtools/build/lib/profiler/callcounts:srcs",
-        "//src/main/java/com/google/devtools/build/lib/profiler/memory:srcs",
         "//src/main/java/com/google/devtools/build/lib/profiler:srcs",
+        "//src/main/java/com/google/devtools/build/lib/profiler/memory:srcs",
+        "//src/main/java/com/google/devtools/build/lib/query2:srcs",
         "//src/main/java/com/google/devtools/build/lib/query2/common:srcs",
         "//src/main/java/com/google/devtools/build/lib/query2/compat:srcs",
         "//src/main/java/com/google/devtools/build/lib/query2/engine:srcs",
         "//src/main/java/com/google/devtools/build/lib/query2/query/aspectresolvers:srcs",
         "//src/main/java/com/google/devtools/build/lib/query2/query/output:srcs",
-        "//src/main/java/com/google/devtools/build/lib/query2:srcs",
         "//src/main/java/com/google/devtools/build/lib/remote:srcs",
         "//src/main/java/com/google/devtools/build/lib/repository:srcs",
         "//src/main/java/com/google/devtools/build/lib/rules:srcs",
+        "//src/main/java/com/google/devtools/build/lib/runtime:srcs",
         "//src/main/java/com/google/devtools/build/lib/runtime/commands:srcs",
         "//src/main/java/com/google/devtools/build/lib/runtime/events:srcs",
         "//src/main/java/com/google/devtools/build/lib/runtime/mobileinstall:srcs",
         "//src/main/java/com/google/devtools/build/lib/sandbox:srcs",
+        "//src/main/java/com/google/devtools/build/lib/sandbox/cgroups:srcs",
         "//src/main/java/com/google/devtools/build/lib/server:srcs",
         "//src/main/java/com/google/devtools/build/lib/shell:srcs",
+        "//src/main/java/com/google/devtools/build/lib/skybridge:srcs",
         "//src/main/java/com/google/devtools/build/lib/skyframe:srcs",
+        "//src/main/java/com/google/devtools/build/lib/standalone:srcs",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi:srcs",
         "//src/main/java/com/google/devtools/build/lib/starlarkdebug/module:srcs",
         "//src/main/java/com/google/devtools/build/lib/starlarkdebug/proto:srcs",
         "//src/main/java/com/google/devtools/build/lib/starlarkdebug/server:srcs",
-        "//src/main/java/net/starlark/java/annot/processor:srcs",
-        "//src/main/java/net/starlark/java/annot:srcs",
-        "//src/main/java/net/starlark/java/eval:srcs",
-        "//src/main/java/net/starlark/java/syntax:srcs",
-        "//src/main/java/net/starlark/java:srcs",
-        "//src/main/java/com/google/devtools/build/lib/ssd:srcs",
-        "//src/main/java/com/google/devtools/build/lib/standalone:srcs",
+        "//src/main/java/com/google/devtools/build/lib/starlarkdocextract:srcs",
+        "//src/main/java/com/google/devtools/build/lib/starlarkprofiler:srcs",
         "//src/main/java/com/google/devtools/build/lib/supplier:srcs",
         "//src/main/java/com/google/devtools/build/lib/testing/common:srcs",
+        "//src/main/java/com/google/devtools/build/lib/testing/vfs:srcs",
         "//src/main/java/com/google/devtools/build/lib/unix:srcs",
         "//src/main/java/com/google/devtools/build/lib/unsafe:srcs",
         "//src/main/java/com/google/devtools/build/lib/util:srcs",
         "//src/main/java/com/google/devtools/build/lib/versioning:srcs",
-        "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs:srcs",
         "//src/main/java/com/google/devtools/build/lib/vfs:srcs",
+        "//src/main/java/com/google/devtools/build/lib/vfs/bazel:srcs",
+        "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs:srcs",
         "//src/main/java/com/google/devtools/build/lib/windows:srcs",
         "//src/main/java/com/google/devtools/build/lib/worker:srcs",
         "//src/main/java/com/google/devtools/build/skyframe:srcs",
@@ -113,313 +114,11 @@ filegroup(
     ],
 )
 
-########################################################################
-#
-# The "foundation" library (concurrent, events, util, vfs, inmemoryfs, options)
-# Filesystem abstraction, event reporting, options parsing, I/O routines.
-#
-
-# These packages apparently depend on :foundation. I have no idea why, but to
-# avoid breaking them, I allow them to depend on it.
-java_library(
-    name = "foundation",
-    exports = [
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//src/main/java/com/google/devtools/build/lib/events",
-        "//src/main/java/com/google/devtools/build/lib/util",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//src/main/java/com/google/devtools/common/options",
-    ],
-)
-
-java_library(
-    name = "syntax",
-    srcs = [],
-    visibility = ["//visibility:public"],
-    exports = [
-        "//src/main/java/net/starlark/java/eval",
-        "//src/main/java/net/starlark/java/syntax",
-    ],
-)
-
-# Deprecated: This target has been moved. Depend on the actual target instead.
-java_library(
-    name = "shared-base-rules",
-    exports = [
-        "//src/main/java/com/google/devtools/build/lib/rules:nativedeps",
-        "//src/main/java/com/google/devtools/build/lib/rules/android",
-        "//src/main/java/com/google/devtools/build/lib/rules/java:java-compilation",
-        "//src/main/java/com/google/devtools/build/lib/rules/java:java-rules",
-        "//src/main/java/com/google/devtools/build/lib/rules/proto",
-        "//src/main/java/com/google/devtools/build/lib/rules/python",
-    ],
-)
-
-java_library(
-    name = "build-request-options",
-    srcs = ["buildtool/BuildRequestOptions.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
-        "//src/main/java/com/google/devtools/build/lib/util",
-        "//src/main/java/com/google/devtools/build/lib/util:resource_converter",
-        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//src/main/java/com/google/devtools/common/options",
-        "//third_party:flogger",
-        "//third_party:guava",
-        "//third_party:jsr305",
-    ],
-)
-
-java_library(
-    name = "runtime/blaze_server_startup_options",
-    srcs = ["runtime/BlazeServerStartupOptions.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/util",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//src/main/java/com/google/devtools/common/options",
-        "//third_party:guava",
-    ],
-)
-
-java_library(
-    name = "runtime/safe_request_logging",
-    srcs = ["runtime/SafeRequestLogging.java"],
-)
-
-java_library(
-    name = "keep-going-option",
-    srcs = ["runtime/KeepGoingOption.java"],
-    deps = ["//src/main/java/com/google/devtools/common/options"],
-)
-
-java_library(
-    name = "loading-phase-threads-option",
-    srcs = ["runtime/LoadingPhaseThreadsOption.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
-        "//src/main/java/com/google/devtools/build/lib/util:TestType",
-        "//src/main/java/com/google/devtools/build/lib/util:resource_converter",
-        "//src/main/java/com/google/devtools/common/options",
-        "//third_party:flogger",
-    ],
-)
-
-java_library(
-    name = "runtime/blaze_command_result",
-    srcs = [
-        "runtime/BlazeCommandResult.java",
-    ],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/bugreport",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//src/main/java/com/google/devtools/build/lib/util:crash_failure_details",
-        "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
-        "//src/main/java/com/google/devtools/build/lib/util:exit_code",
-        "//src/main/protobuf:any_java_proto",
-        "//src/main/protobuf:command_server_java_proto",
-        "//src/main/protobuf:failure_details_java_proto",
-        "//third_party:guava",
-        "//third_party:jsr305",
-    ],
-)
-
-java_library(
-    name = "runtime/build_event_streamer_utils",
-    srcs = ["runtime/BuildEventStreamerUtils.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
-        "//src/main/protobuf:test_status_java_proto",
-    ],
-)
-
-java_library(
-    name = "runtime/command_dispatcher",
-    srcs = [
-        "runtime/CommandDispatcher.java",
-    ],
-    deps = [
-        ":runtime/blaze_command_result",
-        "//src/main/java/com/google/devtools/build/lib/util",
-        "//src/main/java/com/google/devtools/build/lib/util/io:out-err",
-        "//src/main/protobuf:any_java_proto",
-        "//src/main/protobuf:invocation_policy_java_proto",
-    ],
-)
-
-java_library(
-    name = "runtime",
-    srcs = glob(
-        [
-            "runtime/*.java",
-            "buildtool/*.java",
-            "buildtool/buildevent/*.java",
-        ],
-        exclude = [
-            "buildtool/BuildRequestOptions.java",
-            "runtime/BlazeCommandResult.java",
-            "runtime/CommandDispatcher.java",
-            "runtime/KeepGoingOption.java",
-            "runtime/LoadingPhaseThreadsOption.java",
-        ],
-    ),
-    deps = [
-        ":build-request-options",
-        ":keep-going-option",
-        ":loading-phase-threads-option",
-        ":runtime/blaze_command_result",
-        ":runtime/command_dispatcher",
-        "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
-        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
-        "//src/main/java/com/google/devtools/build/lib/actions:commandline_item",
-        "//src/main/java/com/google/devtools/build/lib/actions:execution_requirements",
-        "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
-        "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
-        "//src/main/java/com/google/devtools/build/lib/actions:middleman_type",
-        "//src/main/java/com/google/devtools/build/lib/actions:package_roots",
-        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
-        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_options",
-        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_phase_complete_event",
-        "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
-        "//src/main/java/com/google/devtools/build/lib/analysis:blaze_version_info",
-        "//src/main/java/com/google/devtools/build/lib/analysis:build_info_event",
-        "//src/main/java/com/google/devtools/build/lib/analysis:build_view",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/build_configuration",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/build_options",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/core_option_converters",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/core_options",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/invalid_configuration_exception",
-        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
-        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target_value",
-        "//src/main/java/com/google/devtools/build/lib/analysis:file_provider",
-        "//src/main/java/com/google/devtools/build/lib/analysis:no_build_event",
-        "//src/main/java/com/google/devtools/build/lib/analysis:no_build_request_finished_event",
-        "//src/main/java/com/google/devtools/build/lib/analysis:server_directories",
-        "//src/main/java/com/google/devtools/build/lib/analysis:test/coverage_report_action_factory",
-        "//src/main/java/com/google/devtools/build/lib/analysis:top_level_artifact_context",
-        "//src/main/java/com/google/devtools/build/lib/analysis:transitive_info_collection",
-        "//src/main/java/com/google/devtools/build/lib/analysis:view_creation_failed_exception",
-        "//src/main/java/com/google/devtools/build/lib/analysis:workspace_status_action",
-        "//src/main/java/com/google/devtools/build/lib/bazel/repository/downloader",
-        "//src/main/java/com/google/devtools/build/lib/bugreport",
-        "//src/main/java/com/google/devtools/build/lib/buildeventstream",
-        "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
-        "//src/main/java/com/google/devtools/build/lib/buildeventstream/transports",
-        "//src/main/java/com/google/devtools/build/lib/clock",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/cmdline:LabelValidator",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//src/main/java/com/google/devtools/build/lib/events",
-        "//src/main/java/com/google/devtools/build/lib/exec:bin_tools",
-        "//src/main/java/com/google/devtools/build/lib/exec:blaze_executor",
-        "//src/main/java/com/google/devtools/build/lib/exec:check_up_to_date_filter",
-        "//src/main/java/com/google/devtools/build/lib/exec:execution_options",
-        "//src/main/java/com/google/devtools/build/lib/exec:executor_builder",
-        "//src/main/java/com/google/devtools/build/lib/exec:executor_lifecycle_listener",
-        "//src/main/java/com/google/devtools/build/lib/exec:module_action_context_registry",
-        "//src/main/java/com/google/devtools/build/lib/exec:remote_local_fallback_registry",
-        "//src/main/java/com/google/devtools/build/lib/exec:single_build_file_cache",
-        "//src/main/java/com/google/devtools/build/lib/exec:spawn_cache",
-        "//src/main/java/com/google/devtools/build/lib/exec:spawn_strategy_registry",
-        "//src/main/java/com/google/devtools/build/lib/exec:spawn_strategy_resolver",
-        "//src/main/java/com/google/devtools/build/lib/exec:symlink_tree_strategy",
-        "//src/main/java/com/google/devtools/build/lib/exec:test_log_helper",
-        "//src/main/java/com/google/devtools/build/lib/exec/local:options",
-        "//src/main/java/com/google/devtools/build/lib/jni",
-        "//src/main/java/com/google/devtools/build/lib/metrics:event",
-        "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/packages/semantics",
-        "//src/main/java/com/google/devtools/build/lib/pkgcache",
-        "//src/main/java/com/google/devtools/build/lib/platform:suspend_counter",
-        "//src/main/java/com/google/devtools/build/lib/profiler",
-        "//src/main/java/com/google/devtools/build/lib/profiler:google-auto-profiler-utils",
-        "//src/main/java/com/google/devtools/build/lib/profiler/memory:allocationtracker",
-        "//src/main/java/com/google/devtools/build/lib/query2",
-        "//src/main/java/com/google/devtools/build/lib/query2:aquery-utils",
-        "//src/main/java/com/google/devtools/build/lib/query2/engine",
-        "//src/main/java/com/google/devtools/build/lib/query2/query/output",
-        "//src/main/java/com/google/devtools/build/lib/runtime/events",
-        "//src/main/java/com/google/devtools/build/lib/server",
-        "//src/main/java/com/google/devtools/build/lib/server:pid_file_watcher",
-        "//src/main/java/com/google/devtools/build/lib/server:rpc_server",
-        "//src/main/java/com/google/devtools/build/lib/server:shutdown_hooks",
-        "//src/main/java/com/google/devtools/build/lib/server/signal",
-        "//src/main/java/com/google/devtools/build/lib/shell",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:action_execution_inactivity_watchdog",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:actiongraph/v2/aquery_output_handler",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:aspect_value_key",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:build_configuration_value",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:builder",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:configuration_phase_started_event",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_key",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_progress_receiver",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:detailed_exceptions",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:diff_awareness",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:execution_finished_event",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:loading_phase_started_event",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:managed_directories_knowledge",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:package_progress_receiver",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:package_value",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:precomputed_value",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:sky_value_dirtiness_checker",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:target_pattern_phase_value",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:top_down_action_cache",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:workspace_info",
-        "//src/main/java/com/google/devtools/build/lib/unix",
-        "//src/main/java/com/google/devtools/build/lib/util",
-        "//src/main/java/com/google/devtools/build/lib/util:TestType",
-        "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
-        "//src/main/java/com/google/devtools/build/lib/util:crash_failure_details",
-        "//src/main/java/com/google/devtools/build/lib/util:custom_exit_code_publisher",
-        "//src/main/java/com/google/devtools/build/lib/util:custom_failure_detail_publisher",
-        "//src/main/java/com/google/devtools/build/lib/util:debug-logger-configurator",
-        "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
-        "//src/main/java/com/google/devtools/build/lib/util:exit_code",
-        "//src/main/java/com/google/devtools/build/lib/util:interrupted_failure_details",
-        "//src/main/java/com/google/devtools/build/lib/util:logging",
-        "//src/main/java/com/google/devtools/build/lib/util:os",
-        "//src/main/java/com/google/devtools/build/lib/util:process",
-        "//src/main/java/com/google/devtools/build/lib/util:string",
-        "//src/main/java/com/google/devtools/build/lib/util/io",
-        "//src/main/java/com/google/devtools/build/lib/util/io:out-err",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//src/main/java/com/google/devtools/build/lib/vfs:output_service",
-        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//src/main/java/com/google/devtools/build/lib/windows",
-        "//src/main/java/com/google/devtools/build/skyframe",
-        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-        "//src/main/java/com/google/devtools/common/options",
-        "//src/main/java/com/google/devtools/common/options:invocation_policy",
-        "//src/main/java/net/starlark/java/eval",
-        "//src/main/java/net/starlark/java/syntax",
-        "//src/main/protobuf:action_cache_java_proto",
-        "//src/main/protobuf:analysis_java_proto",
-        "//src/main/protobuf:any_java_proto",
-        "//src/main/protobuf:command_line_java_proto",
-        "//src/main/protobuf:command_server_java_proto",
-        "//src/main/protobuf:failure_details_java_proto",
-        "//src/main/protobuf:invocation_policy_java_proto",
-        "//src/main/protobuf:option_filters_java_proto",
-        "//src/main/protobuf:test_status_java_proto",
-        "//third_party:auto_value",
-        "//third_party:error_prone_annotations",
-        "//third_party:flogger",
-        "//third_party:guava",
-        "//third_party:jsr305",
-        "@com_google_protobuf//:protobuf_java",
-        "@com_google_protobuf//java/util",
-    ],
-)
-
 java_library(
     name = "all-build-rules",
     exports = [
         "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/analysis:legacy_exports",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/graph",
         "//src/main/java/com/google/devtools/build/lib/rules:legacy_exports",
@@ -427,28 +126,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/common/options",
-        "//third_party:guava",
-    ],
-)
-
-########################################################################
-#
-# The Blaze query language, revision 2: query2.
-#
-
-java_library(
-    name = "query2",
-    exports = [
-        ":foundation",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//src/main/java/com/google/devtools/build/lib/events",
-        "//src/main/java/com/google/devtools/build/lib/graph",
-        "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/query2",
-        "//src/main/java/com/google/devtools/build/lib/util",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//src/main/java/com/google/devtools/common/options",
-        "//src/main/protobuf:build_java_proto",
         "//third_party:guava",
     ],
 )
@@ -470,26 +147,45 @@ filegroup(
 
 filegroup(
     name = "docs_embedded_in_sources",
-    srcs = glob(["**/*.java"]) + [
+    srcs = [
         "//src/main/java/com/google/devtools/build/lib/analysis:srcs",
+        "//src/main/java/com/google/devtools/build/lib/bazel/rules:srcs",
+        "//src/main/java/com/google/devtools/build/lib/buildtool:srcs",
         "//src/main/java/com/google/devtools/build/lib/exec:srcs",
         "//src/main/java/com/google/devtools/build/lib/repository:srcs",
         "//src/main/java/com/google/devtools/build/lib/rules:srcs",
-        "//src/main/java/com/google/devtools/build/lib/bazel/rules:srcs",
+        "//src/main/java/com/google/devtools/build/lib/runtime:srcs",
     ],
 )
 
 genrule(
     name = "gen_buildencyclopedia",
-    srcs = [":docs_embedded_in_sources"],
+    srcs = [
+        ":docs_embedded_in_sources",
+        "//src/main/java/com/google/devtools/build/docgen:bazel_link_map",
+        "//src/main/starlark/docgen:gen_be_proto_stardoc_proto",
+        "//src/main/starlark/docgen:gen_be_java_stardoc_proto",
+        "//src/main/starlark/docgen:gen_be_cpp_stardoc_proto",
+        "//src/main/starlark/docgen:gen_be_objc_stardoc_proto",
+        "//src/main/starlark/docgen:gen_be_python_stardoc_proto",
+        "//src/main/starlark/docgen:gen_be_shell_stardoc_proto",
+    ],
     outs = ["build-encyclopedia.zip"],
     cmd = (
         "mkdir -p $(@D)/be && " +
         "$(location //src/main/java/com/google/devtools/build/docgen:docgen_bin)" +
-        " --product_name=bazel" +
+        " --link_map_path=$(location //src/main/java/com/google/devtools/build/docgen:bazel_link_map)" +
         " --provider=com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider" +
+        " --input_root=$$PWD" +
         " --input_dir=$$PWD/src/main/java/com/google/devtools/build/lib" +
-        " --output_dir=$(@D)/be &&" +
+        " --be_stardoc_proto=$(location //src/main/starlark/docgen:gen_be_proto_stardoc_proto)" +
+        " --be_stardoc_proto=$(location //src/main/starlark/docgen:gen_be_java_stardoc_proto)" +
+        " --be_stardoc_proto=$(location //src/main/starlark/docgen:gen_be_cpp_stardoc_proto)" +
+        " --be_stardoc_proto=$(location //src/main/starlark/docgen:gen_be_objc_stardoc_proto)" +
+        " --be_stardoc_proto=$(location //src/main/starlark/docgen:gen_be_python_stardoc_proto)" +
+        " --be_stardoc_proto=$(location //src/main/starlark/docgen:gen_be_shell_stardoc_proto)" +
+        " --output_dir=$(@D)/be" +
+        " --create_toc=true &&" +
         "zip -qj $@ $(@D)/be/*"
     ),
     tools = [
@@ -508,17 +204,17 @@ genrule(
     outs = ["command-line-reference.html"],
     cmd = (
         "cat $(location //site:command-line-reference-prefix.html) > $@ && " +
-        "TMP=`mktemp -d /tmp/tmp.XXXXXXXXXX` && " +
+        "TMP=$$(mktemp -d $${TMPDIR:-/tmp}/tmp.XXXXXXXXXX) && " +
         # TODO(#11179): Remove when the stub template fix is released.
         "export JARBIN=$(JAVABASE)/bin/jar && " +
         "$(location //src/main/java/com/google/devtools/build/lib/bazel:BazelServer) " +
         "--batch " +
         "--install_base=$${TMP} --output_base=$${TMP}/output/ --output_user_root=$${TMP} " +
         "--failure_detail_out=$${TMP}/output/failure_detail.rawproto " +
-        "help everything-as-html >> $@ 2>/dev/null && " +
+        "help everything-as-html >> $@ 2>$${TMP}/stderr && " +
         "cat $(location //site:command-line-reference-suffix.html) >> $@"
     ),
-    toolchains = ["@bazel_tools//tools/jdk:current_host_java_runtime"],
+    toolchains = ["@rules_java//toolchains:current_host_java_runtime"],
     tools = [
         "//src/main/java/com/google/devtools/build/lib/bazel:BazelServer",
     ],
@@ -527,10 +223,101 @@ genrule(
 
 genrule(
     name = "gen_skylarklibrary",
+    srcs = ["//src/main/java/com/google/devtools/build/docgen:bazel_link_map"],
     outs = ["skylark-library.zip"],
     cmd = "mkdir -p $(@D)/skylark-lib &&" +
-          "$(location //src/main/java/com/google/devtools/build/docgen:skydoc_bin) $(@D)/skylark-lib" +
-          " && zip -qj $@ $(@D)/skylark-lib/*",
+          "$(location //src/main/java/com/google/devtools/build/docgen:skydoc_bin)" +
+          " $(@D)/skylark-lib" +
+          " --link_map_path=$(location //src/main/java/com/google/devtools/build/docgen:bazel_link_map)" +
+          " --create_toc=true" +
+          " && OUTPUT=$$PWD/$@" +
+          " && pushd $(@D)/skylark-lib" +
+          " && zip -qr $$OUTPUT ." +
+          " && popd",
     tools = ["//src/main/java/com/google/devtools/build/docgen:skydoc_bin"],
     visibility = ["//site:__pkg__"],
+)
+
+genrule(
+    name = "gen_reference_docs",
+    srcs = [
+        ":build-encyclopedia.zip",
+        ":command-line-reference.html",
+        ":skylark-library.zip",
+        "//tools/build_defs/repo:doc",
+    ],
+    outs = ["reference-docs.zip"],
+    cmd = "mkdir -p $(@D)/gen_docs/reference/be && " +
+          "cp $(location :command-line-reference.html) $(@D)/gen_docs/reference/ && " +
+          "unzip -q -d $(@D)/gen_docs/reference/be/ $(location :build-encyclopedia.zip) && " +
+          "mkdir -p $(@D)/gen_docs/rules/lib/repo && " +
+          "unzip -q -d $(@D)/gen_docs/rules/lib/ $(location :skylark-library.zip) && " +
+          "tar -xf $(location //tools/build_defs/repo:doc) -C $(@D)/gen_docs/rules/lib/repo/ && " +
+          # Ugly hack: we want to preserve paths relative to gen_docs/,
+          # which means we have to temporarily cd into that directory and zip with -r.
+          "pushd $(@D)/gen_docs && " +
+          "zip -qr tmp.zip . && " +
+          "popd && mv $(@D)/gen_docs/tmp.zip $@",
+    visibility = ["//scripts/docs:__pkg__"],
+)
+
+# TODO: replace gen_reference_docs with this target once the docs migration is done.
+genrule(
+    name = "gen_mdx_reference_docs",
+    srcs = [
+        ":build-encyclopedia.zip",
+        ":command-line-reference.html",
+        ":skylark-library.zip",
+        "//tools/build_defs/repo:doc",
+    ],
+    outs = ["mdx-reference-docs.zip"],
+    cmd = "mkdir -p $(@D)/html_for_mdx/reference/be && " +
+          "cp $(location :command-line-reference.html) $(@D)/html_for_mdx/reference/ && " +
+          "unzip -q -d $(@D)/html_for_mdx/reference/be/ $(location :build-encyclopedia.zip) && " +
+          "mkdir -p $(@D)/html_for_mdx/rules/lib/repo && " +
+          "unzip -q -d $(@D)/html_for_mdx/rules/lib/ $(location :skylark-library.zip) && " +
+          "tar -xf $(location //tools/build_defs/repo:doc) -C $(@D)/html_for_mdx/rules/lib/repo/ && " +
+          "mkdir -p $(@D)/mdx_docs && " +
+          "$(location //scripts/docs:docs2mdx) --in_dir $(@D)/html_for_mdx --out_dir $(@D)/mdx_docs && " +
+          # Ugly hack: we want to preserve paths relative to mdx_docs/,
+          # which means we have to temporarily cd into that directory and zip with -r.
+          "pushd $(@D)/mdx_docs && " +
+          "zip -qr tmp.zip . && " +
+          "popd && mv $(@D)/mdx_docs/tmp.zip $@",
+    tools = [
+        "//scripts/docs:docs2mdx",
+    ],
+    visibility = ["//scripts/docs:__pkg__"],
+)
+
+genrule(
+    name = "gen_api_proto",
+    srcs = [
+        "//src/main/java/com/google/devtools/build/docgen:bazel_link_map",
+        "//src/main/starlark/docgen:gen_be_proto_stardoc_proto",
+        "//src/main/starlark/docgen:gen_be_java_stardoc_proto",
+        "//src/main/starlark/docgen:gen_be_cpp_stardoc_proto",
+        "//src/main/starlark/docgen:gen_be_objc_stardoc_proto",
+        "//src/main/starlark/docgen:gen_be_python_stardoc_proto",
+        "//src/main/starlark/docgen:gen_be_shell_stardoc_proto",
+        ":docs_embedded_in_sources",
+    ],
+    outs = ["builtin.pb"],
+    cmd = (
+        "$(location //src/main/java/com/google/devtools/build/docgen:api_exporter)" +
+        " --output_file=$@" +
+        " --link_map_path=$(location //src/main/java/com/google/devtools/build/docgen:bazel_link_map) " +
+        " --provider=com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider" +
+        " --input_root=$$PWD" +
+        " --input_dir=$$PWD/src/main/java/com/google/devtools/build/lib" +
+        " --be_stardoc_proto=$(location //src/main/starlark/docgen:gen_be_proto_stardoc_proto)" +
+        " --be_stardoc_proto=$(location //src/main/starlark/docgen:gen_be_java_stardoc_proto)" +
+        " --be_stardoc_proto=$(location //src/main/starlark/docgen:gen_be_cpp_stardoc_proto)" +
+        " --be_stardoc_proto=$(location //src/main/starlark/docgen:gen_be_objc_stardoc_proto)" +
+        " --be_stardoc_proto=$(location //src/main/starlark/docgen:gen_be_python_stardoc_proto)" +
+        " --be_stardoc_proto=$(location //src/main/starlark/docgen:gen_be_shell_stardoc_proto)"
+    ),
+    tools = [
+        "//src/main/java/com/google/devtools/build/docgen:api_exporter",
+    ],
 )

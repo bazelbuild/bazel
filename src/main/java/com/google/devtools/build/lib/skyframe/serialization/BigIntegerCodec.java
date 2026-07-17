@@ -11,7 +11,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 package com.google.devtools.build.lib.skyframe.serialization;
 
 import com.google.protobuf.CodedInputStream;
@@ -20,7 +19,7 @@ import java.io.IOException;
 import java.math.BigInteger;
 
 /** Codec for {@link BigInteger}. */
-public final class BigIntegerCodec implements ObjectCodec<BigInteger> {
+public final class BigIntegerCodec extends LeafObjectCodec<BigInteger> {
 
   @Override
   public Class<? extends BigInteger> getEncodedClass() {
@@ -28,13 +27,14 @@ public final class BigIntegerCodec implements ObjectCodec<BigInteger> {
   }
 
   @Override
-  public void serialize(SerializationContext context, BigInteger obj, CodedOutputStream codedOut)
+  public void serialize(
+      LeafSerializationContext context, BigInteger obj, CodedOutputStream codedOut)
       throws IOException {
     codedOut.writeByteArrayNoTag(obj.toByteArray());
   }
 
   @Override
-  public BigInteger deserialize(DeserializationContext context, CodedInputStream codedIn)
+  public BigInteger deserialize(LeafDeserializationContext context, CodedInputStream codedIn)
       throws SerializationException, IOException {
     return new BigInteger(codedIn.readByteArray());
   }

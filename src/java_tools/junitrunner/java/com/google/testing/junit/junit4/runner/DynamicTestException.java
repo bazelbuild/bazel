@@ -25,9 +25,8 @@ public class DynamicTestException extends Exception {
   private final Description test;
 
   /**
-   * Constructs a {@code DynamicTestFailureException} that indicates a
-   * dynamically-discovered test, specified as a (@link Description}, failed
-   * due to the specified {@code cause}.
+   * Constructs a {@code DynamicTestFailureException} that indicates a dynamically-discovered test,
+   * specified as a {@link Description}, failed due to the specified {@code cause}.
    */
   public DynamicTestException(Description test, Throwable cause) {
     super(cause);

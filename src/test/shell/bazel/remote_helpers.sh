@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
@@ -16,6 +16,8 @@
 
 set -eu
 
+setup_javabase
+
 # Serves $1 as a file on localhost:$nc_port.  Sets the following variables:
 #   * nc_port - the port nc is listening on.
 #   * nc_log - the path to nc's log.
@@ -29,7 +31,7 @@ function serve_file() {
   cd "${TEST_TMPDIR}"
   port_file=server-port.$$
   rm -f $port_file
-  python $python_server always $file_name > $port_file &
+  python3 $python_server always $file_name > $port_file &
   nc_pid=$!
   while ! grep started $port_file; do sleep 1; done
   nc_port=$(head -n 1 $port_file)
@@ -38,8 +40,7 @@ function serve_file() {
   cd -
 }
 
-# Serves $1 as a file on localhost:$nc_port insisting on authentication (but
-# accepting any credentials.
+# Serves $1 as a file on localhost:$nc_port expecting authentication.
 #   * nc_port - the port nc is listening on.
 #   * nc_log - the path to nc's log.
 #   * nc_pid - the PID of nc.
@@ -52,7 +53,7 @@ function serve_file_auth() {
   cd "${TEST_TMPDIR}"
   port_file=server-port.$$
   rm -f $port_file
-  python $python_server auth $file_name > $port_file &
+  python3 $python_server auth $file_name > $port_file &
   nc_pid=$!
   while ! grep started $port_file; do sleep 1; done
   nc_port=$(head -n 1 $port_file)
@@ -143,7 +144,7 @@ function serve_redirect() {
   # while loop below too early because of finding the string "started" in the
   # old file (and thus potentially even getting an outdated port information).
   rm -f $port_file
-  python $python_server redirect $1 > $port_file &
+  python3 $python_server redirect $1 > $port_file &
   redirect_pid=$!
   while ! grep started $port_file; do sleep 1; done
   redirect_port=$(head -n 1 $port_file)
@@ -158,7 +159,7 @@ function serve_not_found() {
   port_file=server-port.$$
   cd "${TEST_TMPDIR}"
   rm -f $port_file
-  python $python_server 404 > $port_file &
+  python3 $python_server 404 > $port_file &
   nc_pid=$!
   while ! grep started $port_file; do sleep 1; done
   nc_port=$(head -n 1 $port_file)
@@ -167,16 +168,38 @@ function serve_not_found() {
   cd -
 }
 
-# Simulates a server timeing out while trying to generate a response.
+# Simulates a server timing out while trying to generate a response.
 function serve_timeout() {
   port_file=server-port.$$
   cd "${TEST_TMPDIR}"
   rm -f $port_file
-  python $python_server timeout  > $port_file &
+  python3 $python_server timeout  > $port_file &
   nc_pid=$!
   while ! grep started $port_file; do sleep 1; done
   nc_port=$(head -n 1 $port_file)
   fileserver_port=$nc_port
+  cd -
+}
+
+# Serves a HTTP 200 Ok response with headers dumped into the file
+# Args:
+#  $1: required; path to the file
+#  $2: optional; path to the file where headers will be written to.
+function serve_file_header_dump() {
+  file_name=served_file.$$
+  cat $1 > "${TEST_TMPDIR}/$file_name"
+  nc_log="${TEST_TMPDIR}/nc.log"
+  rm -f $nc_log
+  touch $nc_log
+  cd "${TEST_TMPDIR}"
+  port_file=server-port.$$
+  rm -f $port_file
+  python3 $python_server always $file_name --dump_headers ${2:-"headers.json"} > $port_file &
+  nc_pid=$!
+  while ! grep started $port_file; do sleep 1; done
+  nc_port=$(head -n 1 $port_file)
+  fileserver_port=$nc_port
+  wait_for_server_startup
   cd -
 }
 
@@ -232,7 +255,7 @@ function startup_server() {
   cd $fileserver_root
   port_file=server-port.$$
   rm -f $port_file
-  python $python_server > $port_file &
+  python3 $python_server > $port_file &
   fileserver_pid=$!
   while ! grep started $port_file; do sleep 1; done
   fileserver_port=$(head -n 1 $port_file)
@@ -243,7 +266,7 @@ function startup_server() {
 function startup_auth_server() {
   port_file=server-port.$$
   rm -f $port_file
-  python $python_server auth > $port_file &
+  python3 $python_server auth > $port_file &
   fileserver_pid=$!
   while ! grep started $port_file; do sleep 1; done
   fileserver_port=$(head -n 1 $port_file)
@@ -256,10 +279,70 @@ function shutdown_server() {
   [ -z "${fileserver_pid:-}" ] || kill $fileserver_pid || true
   [ -z "${redirect_pid:-}" ] || kill $redirect_pid || true
   [ -z "${nc_pid:-}" ] || kill $nc_pid || true
+  # Wait for processes to fully terminate to release file handles (especially on Windows)
+  [ -z "${fileserver_pid:-}" ] || wait $fileserver_pid 2>/dev/null || true
+  [ -z "${redirect_pid:-}" ] || wait $redirect_pid 2>/dev/null || true
+  [ -z "${nc_pid:-}" ] || wait $nc_pid 2>/dev/null || true
   [ -z "${nc_log:-}" ] || cat $nc_log
   [ -z "${redirect_log:-}" ] || cat $redirect_log
 }
 
 function kill_nc() {
   shutdown_server
+}
+
+# Sets up a credential helper binary at ${TEST_TMPDIR}/credhelper and resets
+# the call counter. The argument gives the credential expiry in seconds.
+function setup_credential_helper() {
+  local -r expiry=$1
+
+  # Each call atomically writes one byte to this file.
+  # The file can be read later determine how many calls were made.
+  cat > "${TEST_TMPDIR}/credhelper.callcount_${TEST_SHARD_INDEX:-0}"
+
+  cat > "${TEST_TMPDIR}/credhelper" <<'EOF'
+#!/usr/bin/env python3
+import datetime
+import json
+import os
+import sys
+
+# Neither count nor add headers to requests to the BCR.
+uri = json.load(sys.stdin)["uri"]
+if uri.startswith("https://bcr.bazel.build/"):
+  print("{}")
+  sys.exit(0)
+
+shard = os.environ.get("TEST_SHARD_INDEX", "0")
+path = os.path.join(os.environ["TEST_TMPDIR"], "credhelper.callcount_" + shard)
+fd = os.open(path, os.O_WRONLY|os.O_CREAT|os.O_APPEND)
+os.write(fd, b"1")
+os.close(fd)
+
+expires = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(seconds=__EXPIRY__)
+
+# Must match //src/test/shell/bazel/testing_server.py.
+res = {
+  "headers": {
+    "Authorization": ["Bearer TOKEN"],
+  },
+  "expires": expires.isoformat(timespec="seconds")
+}
+
+print(json.dumps(res))
+EOF
+
+  # Replace the expiry placeholder.
+  inplace-sed "s/__EXPIRY__/$expiry/" "${TEST_TMPDIR}/credhelper"
+
+  chmod +x "${TEST_TMPDIR}/credhelper"
+}
+
+# Asserts how many times the credential helper was called.
+function expect_credential_helper_calls() {
+  local -r expected=$1
+  local -r actual=$(wc -c "${TEST_TMPDIR}/credhelper.callcount_${TEST_SHARD_INDEX:-0}" | awk '{print $1}')
+  if [[ "$expected" != "$actual" ]]; then
+    fail "expected $expected instead of $actual credential helper calls"
+  fi
 }

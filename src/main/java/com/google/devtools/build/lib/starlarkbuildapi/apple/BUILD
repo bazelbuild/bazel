@@ -8,7 +8,10 @@
 
 load("@rules_java//java:defs.bzl", "java_library")
 
-package(default_visibility = ["//src:__subpackages__"])
+package(
+    default_applicable_licenses = ["//:license"],
+    default_visibility = ["//src:__subpackages__"],
+)
 
 filegroup(
     name = "srcs",
@@ -20,15 +23,12 @@ java_library(
     name = "apple",
     srcs = glob(["*.java"]),
     deps = [
-        "//third_party:guava",
         "//src/main/java/com/google/devtools/build/docgen/annot",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/core",
-        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/platform",
         "//src/main/java/net/starlark/java/annot",
-        # TODO(b/80307387): Remove dependency on Depset.
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/net/starlark/java/eval",
-        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
+        "//third_party:guava",
         "//third_party:jsr305",
     ],
 )

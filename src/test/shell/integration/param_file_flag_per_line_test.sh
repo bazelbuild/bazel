@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2019 The Bazel Authors. All rights reserved.
 #
@@ -42,23 +42,10 @@ fi
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-case "$(uname -s | tr [:upper:] [:lower:])" in
-msys*|mingw*|cygwin*)
-  declare -r is_windows=true
-  ;;
-*)
-  declare -r is_windows=false
-  ;;
-esac
-
-if "$is_windows"; then
-  export MSYS_NO_PATHCONV=1
-  export MSYS2_ARG_CONV_EXCL="*"
-fi
-
 add_to_bazelrc "build --package_path=%workspace%"
 
 function test_param_file_flag_per_line() {
+  add_rules_python MODULE.bazel
   mkdir -p package
 
   # Python binary to copy positional args and param file to output
@@ -127,6 +114,7 @@ EOF
 
   cat > package/BUILD <<EOF
 load(":lib.bzl", "flag_per_line")
+load("@rules_python//python:py_binary.bzl", "py_binary")
 
 py_binary(
     name = "flag_copy",

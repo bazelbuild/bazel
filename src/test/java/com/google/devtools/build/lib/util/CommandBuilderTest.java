@@ -17,30 +17,25 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
-import java.util.Arrays;
+import com.google.common.collect.ImmutableMap;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Tests for the {@link CommandBuilder} class.
- */
+/** Tests for the {@link CommandBuilder} class. */
 @RunWith(JUnit4.class)
 public class CommandBuilderTest {
 
   private CommandBuilder linuxBuilder() {
-    return new CommandBuilder(OS.LINUX).useTempDir();
+    return new CommandBuilder(OS.LINUX, ImmutableMap.of()).useTempDir();
   }
 
   private CommandBuilder winBuilder() {
-    return new CommandBuilder(OS.WINDOWS).useTempDir();
+    return new CommandBuilder(OS.WINDOWS, ImmutableMap.of()).useTempDir();
   }
 
   private void assertArgv(CommandBuilder builder, String... expected) {
-    assertThat(builder.build().getCommandLineElements())
-        .asList()
-        .containsExactlyElementsIn(Arrays.asList(expected))
-        .inOrder();
+    assertThat(builder.build().getArguments()).containsExactlyElementsIn(expected).inOrder();
   }
 
   private void assertWinCmdArgv(CommandBuilder builder, String expected) {
@@ -61,8 +56,8 @@ public class CommandBuilderTest {
     assertArgv(linuxBuilder().addArg("abc").useShell(true), "/bin/sh", "-c", "abc");
     assertArgv(linuxBuilder().addArg("abc def").useShell(true), "/bin/sh", "-c", "abc def");
     assertArgv(linuxBuilder().addArgs("abc", "def").useShell(true), "/bin/sh", "-c", "abc def");
-    assertArgv(linuxBuilder().addArgs("/bin/sh", "-c", "abc").useShell(true),
-        "/bin/sh", "-c", "abc");
+    assertArgv(
+        linuxBuilder().addArgs("/bin/sh", "-c", "abc").useShell(true), "/bin/sh", "-c", "abc");
     assertArgv(linuxBuilder().addArgs("/bin/sh", "-c"), "/bin/sh", "-c");
     assertArgv(linuxBuilder().addArgs("/bin/bash", "-c"), "/bin/bash", "-c");
     assertArgv(linuxBuilder().addArgs("/bin/sh", "-c").useShell(true), "/bin/sh", "-c");
@@ -90,10 +85,11 @@ public class CommandBuilderTest {
   @Test
   public void failureScenarios() {
     assertFailure(linuxBuilder(), "At least one argument is expected");
-    assertFailure(new CommandBuilder(OS.UNKNOWN).useTempDir().addArg("a"),
+    assertFailure(
+        new CommandBuilder(OS.UNKNOWN, ImmutableMap.of()).useTempDir().addArg("a"),
         "Unidentified operating system");
-    assertFailure(new CommandBuilder(OS.LINUX).addArg("a"),
+    assertFailure(
+        new CommandBuilder(OS.LINUX, ImmutableMap.of()).addArg("a"),
         "Working directory must be set");
   }
-
 }

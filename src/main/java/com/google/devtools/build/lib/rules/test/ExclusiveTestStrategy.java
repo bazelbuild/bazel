@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.test;
 
-import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.collect.ImmutableMultimap;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ExecException;
@@ -31,9 +31,13 @@ import java.io.IOException;
  * <p>This strategy should be registered with a command line identifier of 'exclusive' which will
  * trigger behavior in SkyframeExecutor to schedule test execution sequentially after non-test
  * actions. This ensures streamed test output is not polluted by other action output.
+ *
+ * <p>Note: It's expected that this strategy is largely identical to the one it wraps. Most of the
+ * behavior specific to the 'exclusive' strategy is enabled based on the value of the <code>
+ * --test_strategy</code> flag, not instance methods of this class.
  */
 public class ExclusiveTestStrategy implements TestActionContext {
-  private TestActionContext parent;
+  private final TestActionContext parent;
 
   public ExclusiveTestStrategy(TestActionContext parent) {
     this.parent = parent;
@@ -53,14 +57,18 @@ public class ExclusiveTestStrategy implements TestActionContext {
 
   @Override
   public TestResult newCachedTestResult(
-      Path execRoot, TestRunnerAction action, TestResultData cached) throws IOException {
-    return parent.newCachedTestResult(execRoot, action, cached);
+      Path execRoot,
+      TestRunnerAction action,
+      TestResultData cachedResult,
+      ImmutableMultimap<String, Path> testOutputs)
+      throws IOException {
+    return parent.newCachedTestResult(execRoot, action, cachedResult, testOutputs);
   }
 
   @Override
-  public ListenableFuture<Void> getTestCancelFuture(ActionOwner owner, int shard) {
+  public AttemptGroup getAttemptGroup(ActionOwner owner, int shard) {
     // TODO(ulfjack): Exclusive tests run sequentially, and this feature exists to allow faster
     //  aborts of concurrent actions. It's not clear what, if anything, we should do here.
-    return null;
+    return AttemptGroup.NOOP;
   }
 }

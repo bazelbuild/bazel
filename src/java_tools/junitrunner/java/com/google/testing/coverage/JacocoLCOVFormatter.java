@@ -15,23 +15,11 @@ package com.google.testing.coverage;
 
 
 import com.google.common.collect.ImmutableSet;
+import com.google.testing.coverage.CoverageData.BranchData;
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.util.Collection;
-import java.util.List;
 import java.util.Map;
-import java.util.TreeMap;
-import org.jacoco.core.analysis.IBundleCoverage;
-import org.jacoco.core.analysis.IClassCoverage;
-import org.jacoco.core.analysis.ICounter;
-import org.jacoco.core.analysis.IMethodCoverage;
-import org.jacoco.core.analysis.IPackageCoverage;
-import org.jacoco.core.analysis.ISourceFileCoverage;
-import org.jacoco.core.data.ExecutionData;
-import org.jacoco.core.data.SessionInfo;
-import org.jacoco.report.IReportGroupVisitor;
-import org.jacoco.report.IReportVisitor;
-import org.jacoco.report.ISourceFileLocator;
+import java.util.Optional;
 
 /**
  * Simple lcov formatter to be used with lcov_merger.par.
@@ -40,161 +28,90 @@ import org.jacoco.report.ISourceFileLocator;
  */
 public class JacocoLCOVFormatter {
 
-  // Exec paths of the uninstrumented files that are being analyzed. This is helpful for files in
-  // jars passed through java_import or some custom rule where blaze doesn't have enough context to
-  // compute the right paths, but relies on these pre-computed exec paths.
-  // Exec paths can be provided in two formats, either as a plain string or as a delimited
-  // string mapping source file paths to class paths.
-  private final ImmutableSet<String> execPathsOfUninstrumentedFiles;
-
+  // The delimiter between the provided "exec path" and the source file name if an explicit mapping
+  // is provided via an "execPath//sourcePath" line in the paths-for-coverage.txt file.
   private static final String EXEC_PATH_DELIMITER = "///";
 
-  public JacocoLCOVFormatter(ImmutableSet<String> execPathsOfUninstrumentedFiles) {
-    this.execPathsOfUninstrumentedFiles = execPathsOfUninstrumentedFiles;
+  // The "exec paths" of files that may have coverage data. A source file may have a computed path
+  // of "com/google/.../Foo.java" (corresponding to the class path) but the actual path is likely to
+  // be "java/com/google/.../Foo.java" or similar. That is, it will have an additional prefix.
+  // We use this set to remap the source file path to the actual path.
+  private final ImmutableSet<String> sourceExecPaths;
+
+  public JacocoLCOVFormatter(ImmutableSet<String> sourceExecPaths) {
+    this.sourceExecPaths = sourceExecPaths;
   }
 
-  public JacocoLCOVFormatter() {
-    this.execPathsOfUninstrumentedFiles = ImmutableSet.of();
+  /**
+   * Writes the given coverage data to the given writer in LCOV format.
+   *
+   * @param writer the writer to write the coverage data to
+   * @param coverageData a map of source file name to the coverage data for that file.
+   * @throws IOException if an error occurs while writing the coverage data
+   */
+  public void writeCoverageData(PrintWriter writer, Map<String, CoverageData> coverageData)
+      throws IOException {
+    for (Map.Entry<String, CoverageData> entry : coverageData.entrySet()) {
+      Optional<String> execPath = getExecPath(entry.getKey());
+      if (!execPath.isPresent()) {
+        continue;
+      }
+      CoverageData coverage = entry.getValue();
+      writeSourceFile(writer, execPath.get(), coverage);
+    }
+    writer.flush();
   }
 
-  public IReportVisitor createVisitor(
-      PrintWriter output, final Map<String, BranchCoverageDetail> branchCoverageDetail) {
-    return new IReportVisitor() {
-
-      private Map<String, Map<String, IClassCoverage>> sourceToClassCoverage = new TreeMap<>();
-      private Map<String, ISourceFileCoverage> sourceToFileCoverage = new TreeMap<>();
-
-      private String getExecPathForEntryName(String fileName) {
-        if (execPathsOfUninstrumentedFiles.isEmpty()) {
-          return fileName;
+  private Optional<String> getExecPath(String sourceFile) {
+    String matchingFileName = sourceFile.startsWith("/") ? sourceFile : "/" + sourceFile;
+    for (String execPath : sourceExecPaths) {
+      if (execPath.contains(EXEC_PATH_DELIMITER)) {
+        String[] parts = execPath.split(EXEC_PATH_DELIMITER, 2);
+        if (parts.length != 2) {
+          continue;
         }
-
-        String matchingFileName = fileName.startsWith("/") ? fileName : "/" + fileName;
-        for (String execPath : execPathsOfUninstrumentedFiles) {
-          if (execPath.contains(EXEC_PATH_DELIMITER)) {
-            String[] parts = execPath.split(EXEC_PATH_DELIMITER, 2);
-            if (parts.length != 2) {
-              continue;
-            }
-            if (parts[1].equals(matchingFileName)) {
-              return parts[0];
-            }
-          } else if (execPath.endsWith(matchingFileName)) {
-            return execPath;
-          }
+        if (parts[1].equals(matchingFileName)) {
+          return Optional.of(parts[0]);
         }
-        return null;
+      } else if (execPath.endsWith(matchingFileName) || execPath.equals(sourceFile)) {
+        return Optional.of(execPath);
       }
+    }
+    return Optional.empty();
+  }
 
-      @Override
-      public void visitInfo(List<SessionInfo> sessionInfos, Collection<ExecutionData> executionData)
-          throws IOException {}
+  private void writeSourceFile(PrintWriter writer, String sourceFile, CoverageData coverage) {
+    writer.printf("SF:%s\n", sourceFile);
 
-      @Override
-      public void visitEnd() throws IOException {
-        for (String sourceFile : sourceToClassCoverage.keySet()) {
-          processSourceFile(output, sourceFile);
-        }
-      }
+    for (String methodName : coverage.getMethods()) {
+      int line = coverage.getMethodLine(methodName);
+      boolean executed = coverage.isMethodExecuted(methodName);
+      writer.printf("FN:%d,%s\n", line, methodName);
+      writer.printf("FNDA:%d,%s\n", executed ? 1 : 0, methodName);
+    }
 
-      @Override
-      public void visitBundle(IBundleCoverage bundle, ISourceFileLocator locator)
-          throws IOException {
-        // Jacoco's API is geared towards HTML/XML reports which have a hierarchical nature. The
-        // following loop would call the report generators for packages, classes, methods, and
-        // finally link the source view (which would be generated by walking the actual source file
-        // and annotating the coverage data). For lcov, we don't really need the source file, but
-        // we need to output FN/FNDA pairs with method coverage, which means we need to index this
-        // information and process everything at the end.
-        for (IPackageCoverage pkgCoverage : bundle.getPackages()) {
-          for (IClassCoverage clsCoverage : pkgCoverage.getClasses()) {
-            String fileName =
-                getExecPathForEntryName(
-                    clsCoverage.getPackageName() + "/" + clsCoverage.getSourceFileName());
-            if (fileName == null) {
-              continue;
-            }
-            if (!sourceToClassCoverage.containsKey(fileName)) {
-              sourceToClassCoverage.put(fileName, new TreeMap<String, IClassCoverage>());
-            }
-            sourceToClassCoverage.get(fileName).put(clsCoverage.getName(), clsCoverage);
-          }
-          for (ISourceFileCoverage srcCoverage : pkgCoverage.getSourceFiles()) {
-            String sourceName =
-                getExecPathForEntryName(srcCoverage.getPackageName() + "/" + srcCoverage.getName());
-            if (sourceName != null) {
-              sourceToFileCoverage.put(sourceName, srcCoverage);
-            }
+    for (Integer line : coverage.linesWithBranches()) {
+      BranchData branchData = coverage.getBranches(line);
+      int numBranches = branchData.size();
+      boolean executed = branchData.anyBranchTaken();
+      if (executed) {
+        for (int branchIdx = 0; branchIdx < numBranches; branchIdx++) {
+          // We haven't got execution counts for branches; just record if they were hit or not.
+          if (branchData.isBranchTaken(branchIdx)) {
+            writer.printf("BRDA:%d,%d,%d,%d\n", line, 0, branchIdx, 1); // executed, taken
+          } else {
+            writer.printf("BRDA:%d,%d,%d,%d\n", line, 0, branchIdx, 0); // executed, not taken
           }
         }
-      }
-
-      @Override
-      public IReportGroupVisitor visitGroup(String name) throws IOException {
-        return null;
-      }
-
-      private void processSourceFile(PrintWriter writer, String sourceFile) {
-        writer.printf("SF:%s\n", sourceFile);
-
-        ISourceFileCoverage srcCoverage = sourceToFileCoverage.get(sourceFile);
-        if (srcCoverage != null) {
-          // List methods, including methods from nested classes, in FN/FNDA pairs
-          for (IClassCoverage clsCoverage : sourceToClassCoverage.get(sourceFile).values()) {
-            for (IMethodCoverage mthCoverage : clsCoverage.getMethods()) {
-              String name = constructFunctionName(mthCoverage, clsCoverage.getName());
-              writer.printf("FN:%d,%s\n", mthCoverage.getFirstLine(), name);
-              writer.printf("FNDA:%d,%s\n", mthCoverage.getMethodCounter().getCoveredCount(), name);
-            }
-          }
-
-          // List branches
-          for (IClassCoverage clsCoverage : sourceToClassCoverage.get(sourceFile).values()) {
-            BranchCoverageDetail detail = branchCoverageDetail.get(clsCoverage.getName());
-            if (detail != null) {
-              for (int line : detail.linesWithBranches()) {
-                int numBranches = detail.getBranches(line);
-                boolean executed = detail.getExecutedBit(line);
-                if (executed) {
-                  for (int branchIdx = 0; branchIdx < numBranches; branchIdx++) {
-                    // We haven't got execution counts for branches; just record if they were hit or
-                    // not.
-                    if (detail.getTakenBit(line, branchIdx)) {
-                      writer.printf("BRDA:%d,%d,%d,%d\n", line, 0, branchIdx, 1); // executed, taken
-                    } else {
-                      writer.printf(
-                          "BRDA:%d,%d,%d,%d\n", line, 0, branchIdx, 0); // executed, not taken
-                    }
-                  }
-                } else {
-                  for (int branchIdx = 0; branchIdx < numBranches; branchIdx++) {
-                    writer.printf("BRDA:%d,%d,%d,%s\n", line, 0, branchIdx, "-"); // not executed
-                  }
-                }
-              }
-            }
-          }
-
-          // List of DA entries matching source lines
-          int firstLine = srcCoverage.getFirstLine();
-          int lastLine = srcCoverage.getLastLine();
-          for (int line = firstLine; line <= lastLine; line++) {
-            ICounter instructionCounter = srcCoverage.getLine(line).getInstructionCounter();
-            if (instructionCounter.getTotalCount() != 0) {
-              // All we can do is say if a line was hit, we do not have execution counts.
-              int execCount = instructionCounter.getCoveredCount() > 0 ? 1 : 0;
-              writer.printf("DA:%d,%d\n", line, execCount);
-            }
-          }
+      } else {
+        for (int branchIdx = 0; branchIdx < numBranches; branchIdx++) {
+          writer.printf("BRDA:%d,%d,%d,%s\n", line, 0, branchIdx, "-"); // not executed
         }
-        writer.println("end_of_record");
       }
-
-      private String constructFunctionName(IMethodCoverage mthCoverage, String clsName) {
-        // The lcov spec doesn't of course cover Java formats, so we output the method signature.
-        // lcov_merger doesn't seem to care about these entries.
-        return clsName + "::" + mthCoverage.getName() + " " + mthCoverage.getDesc();
-      }
-    };
+    }
+    for (int line : coverage.getInstrumentedLines()) {
+      writer.printf("DA:%d,%d\n", line, coverage.isLineExecuted(line) ? 1 : 0);
+    }
+    writer.println("end_of_record");
   }
 }

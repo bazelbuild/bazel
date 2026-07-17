@@ -14,7 +14,9 @@
 
 """Example C++ API usage"""
 
-load("@bazel_tools//tools/cpp:toolchain_utils.bzl", "find_cpp_toolchain")
+load("@bazel_tools//tools/cpp:toolchain_utils.bzl", "find_cpp_toolchain", "use_cpp_toolchain")
+load("@rules_cc//cc/common:cc_common.bzl", "cc_common")
+load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
 
 def _filter_none(input_list):
     filtered_list = []
@@ -98,11 +100,9 @@ cc_lib = rule(
         "system_includes": attr.string_list(),
         "defines": attr.string_list(),
         "alwayslink": attr.bool(default = False),
-        "_cc_toolchain": attr.label(default = "@bazel_tools//tools/cpp:current_cc_toolchain"),
     },
     fragments = ["cpp"],
-    incompatible_use_toolchain_transition = True,
-    toolchains = ["@bazel_tools//tools/cpp:toolchain_type"],
+    toolchains = use_cpp_toolchain(),
 )
 
 def _cc_bin_impl(ctx):
@@ -197,9 +197,7 @@ cc_bin = rule(
             ),
             providers = [CcInfo],
         ),
-        "_cc_toolchain": attr.label(default = "@bazel_tools//tools/cpp:current_cc_toolchain"),
     },
     fragments = ["cpp"],
-    incompatible_use_toolchain_transition = True,
-    toolchains = ["@bazel_tools//tools/cpp:toolchain_type"],
+    toolchains = use_cpp_toolchain(),
 )

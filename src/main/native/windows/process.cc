@@ -18,8 +18,8 @@
 
 #include "src/main/native/windows/process.h"
 
+#include <versionhelpers.h>
 #include <windows.h>
-#include <VersionHelpers.h>
 
 #include <memory>
 #include <sstream>
@@ -32,19 +32,6 @@ static std::wstring ToString(const T& e) {
   std::wstringstream s;
   s << e;
   return s.str();
-}
-
-static bool DupeHandle(HANDLE h, AutoHandle* out, std::wstring* error) {
-  HANDLE dup;
-  if (!DuplicateHandle(GetCurrentProcess(), h, GetCurrentProcess(), &dup, 0,
-                       TRUE, DUPLICATE_SAME_ACCESS)) {
-    DWORD err = GetLastError();
-    *error =
-        MakeErrorMessage(WSTR(__FILE__), __LINE__, L"DupeHandle", L"", err);
-    return false;
-  }
-  *out = dup;
-  return true;
 }
 
 bool WaitableProcess::Create(const std::wstring& argv0,
@@ -90,7 +77,9 @@ bool WaitableProcess::Create(const std::wstring& argv0,
   }
 
   std::wstring argv0short;
-  error_msg = AsExecutablePathForCreateProcess(argv0, &argv0short);
+  std::wstring extended_path;
+  error_msg =
+      AsExecutablePathForCreateProcess(argv0, &argv0short, &extended_path);
   if (!error_msg.empty()) {
     *error = MakeErrorMessage(WSTR(__FILE__), __LINE__,
                               L"WaitableProcess::Create", argv0, error_msg);
@@ -113,7 +102,7 @@ bool WaitableProcess::Create(const std::wstring& argv0,
     return false;
   }
 
-  JOBOBJECT_EXTENDED_LIMIT_INFORMATION job_info = {0};
+  JOBOBJECT_EXTENDED_LIMIT_INFORMATION job_info = {};
   job_info.BasicLimitInformation.LimitFlags =
       JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
   if (!SetInformationJobObject(job_, JobObjectExtendedLimitInformation,
@@ -172,7 +161,8 @@ bool WaitableProcess::Create(const std::wstring& argv0,
   STARTUPINFOEXW info;
   attr_list->InitStartupInfoExW(&info);
   if (!CreateProcessW(
-          /* lpApplicationName */ nullptr,
+          /* lpApplicationName */ extended_path.empty() ? nullptr
+                                                        : extended_path.c_str(),
           /* lpCommandLine */ mutable_commandline.get(),
           /* lpProcessAttributes */ nullptr,
           /* lpThreadAttributes */ nullptr,

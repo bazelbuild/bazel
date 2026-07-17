@@ -17,18 +17,18 @@ package com.google.devtools.build.lib.shell;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.util.StringEncoding;
+import com.google.devtools.build.lib.util.TestType;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.File;
 import java.io.IOException;
 import java.util.Map;
 import javax.annotation.Nullable;
 
-/**
- * A builder class that starts a subprocess.
- */
+/** A builder class that starts a subprocess. */
+@SuppressWarnings("NonFinalStaticField")
 public class SubprocessBuilder {
-  /**
-   * What to do with an output stream of the process.
-   */
+  /** What to do with an output stream of the process. */
   public enum StreamAction {
     /** Redirect to a file */
     REDIRECT,
@@ -41,6 +41,7 @@ public class SubprocessBuilder {
   }
 
   private final SubprocessFactory factory;
+  private final ImmutableMap<String, String> clientEnv;
   private ImmutableList<String> argv;
   private ImmutableMap<String, String> env;
   private StreamAction stdoutAction;
@@ -51,24 +52,42 @@ public class SubprocessBuilder {
   private long timeoutMillis;
   private boolean redirectErrorStream;
 
-  static SubprocessFactory defaultFactory = JavaSubprocessFactory.INSTANCE;
+  // We make this field non-final to allow it to be set to the Windows-specific implementation,
+  // therefore avoiding the direct dependency on the WindowsSubprocessFactory.
+  private static SubprocessFactory defaultFactory = JavaSubprocessFactory.INSTANCE;
+  private static boolean defaultFactoryOverridden = false;
+
+  /** Sets the default factory class for creating subprocesses. */
+  public static void setDefaultSubprocessFactory(SubprocessFactory factory) {
+    if (defaultFactoryOverridden && !TestType.isInTest()) {
+      throw new IllegalStateException("SubprocessFactory has already been set.");
+    }
+    SubprocessBuilder.defaultFactory = factory;
+    defaultFactoryOverridden = true;
+  }
 
   /**
-   * Sets the default factory class for creating subprocesses. Passing {@code null} resets it to the
-   * initial state.
+   * Creates a new subprocess builder.
+   *
+   * @param clientEnv the environment variables of the Bazel client, which will be inherited by the
+   *     subprocess unless {@link #setEnv} is called with a non-null argument
    */
-  public static void setDefaultSubprocessFactory(SubprocessFactory factory) {
-    SubprocessBuilder.defaultFactory = factory != null ? factory : JavaSubprocessFactory.INSTANCE;
+  public SubprocessBuilder(Map<String, String> clientEnv) {
+    this(clientEnv, defaultFactory);
   }
 
-  public SubprocessBuilder() {
-    this(defaultFactory);
-  }
-
-  public SubprocessBuilder(SubprocessFactory factory) {
+  /**
+   * Creates a new subprocess builder.
+   *
+   * @param clientEnv the environment variables of the Bazel client, which will be inherited by the
+   *     subprocess unless {@link #setEnv} is called with a non-null argument
+   * @param factory the subprocess factory to use, only used for testing
+   */
+  public SubprocessBuilder(Map<String, String> clientEnv, SubprocessFactory factory) {
     stdoutAction = StreamAction.STREAM;
     stderrAction = StreamAction.STREAM;
     this.factory = factory;
+    this.clientEnv = ImmutableMap.copyOf(clientEnv);
   }
 
   /**
@@ -92,10 +111,11 @@ public class SubprocessBuilder {
    * @throws IllegalArgumentException if argv is empty, or its first element (which becomes
    *     this.argv[0]) is neither an absolute path nor just a single file name
    */
+  @CanIgnoreReturnValue
   public SubprocessBuilder setArgv(ImmutableList<String> argv) {
     this.argv = Preconditions.checkNotNull(argv);
     Preconditions.checkArgument(!this.argv.isEmpty());
-    File argv0 = new File(this.argv.get(0));
+    File argv0 = new File(StringEncoding.internalToPlatform(this.argv.get(0)));
     Preconditions.checkArgument(
         argv0.isAbsolute() || argv0.getParent() == null,
         "argv[0] = '%s'; it should be either absolute or just a single file name"
@@ -109,9 +129,10 @@ public class SubprocessBuilder {
   }
 
   /**
-   * Sets the environment passed to the child process. If null, inherit the environment of the
-   * server.
+   * Sets the environment passed to the child process. If null, inherit the client environment
+   * passed to the constructor. The default is to inherit.
    */
+  @CanIgnoreReturnValue
   public SubprocessBuilder setEnv(@Nullable Map<String, String> env) {
     this.env = env == null ? null : ImmutableMap.copyOf(env);
     return this;
@@ -130,6 +151,7 @@ public class SubprocessBuilder {
    *
    * <p>It can also be redirected to a file using {@link #setStdout(File)}.
    */
+  @CanIgnoreReturnValue
   public SubprocessBuilder setStdout(StreamAction action) {
     if (action == StreamAction.REDIRECT) {
       throw new IllegalStateException();
@@ -143,12 +165,14 @@ public class SubprocessBuilder {
    * Sets the file stdout is appended to. If null, the stdout will be available as an input stream
    * on the resulting object representing the process.
    */
+  @CanIgnoreReturnValue
   public SubprocessBuilder setStdout(File file) {
     this.stdoutAction = StreamAction.REDIRECT;
     this.stdoutFile = file;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public SubprocessBuilder setTimeoutMillis(long timeoutMillis) {
     this.timeoutMillis = timeoutMillis;
     return this;
@@ -167,24 +191,11 @@ public class SubprocessBuilder {
   }
 
   /**
-   * Tells the object what to do with stderr: either stream as a {@code InputStream} or discard.
-   *
-   * <p>It can also be redirected to a file using {@link #setStderr(File)}.
-   */
-  public SubprocessBuilder setStderr(StreamAction action) {
-    if (action == StreamAction.REDIRECT) {
-      throw new IllegalStateException();
-    }
-    this.stderrAction = action;
-    this.stderrFile = null;
-    return this;
-  }
-
-  /**
    * Sets the file stderr is appended to. If null, the stderr will be available as an input stream
    * on the resulting object representing the process. When {@code redirectErrorStream} is set to
    * True, this method has no effect.
    */
+  @CanIgnoreReturnValue
   public SubprocessBuilder setStderr(File file) {
     this.stderrAction = StreamAction.REDIRECT;
     this.stderrFile = file;
@@ -209,6 +220,7 @@ public class SubprocessBuilder {
    * makes it easier to correlate error messages with the corresponding output. The initial value is
    * {@code false}.
    */
+  @CanIgnoreReturnValue
   public SubprocessBuilder redirectErrorStream(boolean redirectErrorStream) {
     this.redirectErrorStream = redirectErrorStream;
     return this;
@@ -218,12 +230,15 @@ public class SubprocessBuilder {
     return workingDirectory;
   }
 
-  /**
-   * Sets the current working directory. If null, it will be that of this process.
-   */
+  /** Sets the current working directory. If null, it will be that of this process. */
+  @CanIgnoreReturnValue
   public SubprocessBuilder setWorkingDirectory(File workingDirectory) {
     this.workingDirectory = workingDirectory;
     return this;
+  }
+
+  ImmutableMap<String, String> getClientEnv() {
+    return clientEnv;
   }
 
   public Subprocess start() throws IOException {

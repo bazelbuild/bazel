@@ -21,13 +21,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
-import javax.inject.Inject;
 
 /**
  * Writes the JUnit test nodes and their results into Ant-JUnit XML. Ant-JUnit XML is not a
- * standardized format. For this implementation the
- * <a href="http://windyroad.com.au/dl/Open%20Source/JUnit.xsd">XML schema</a> that is generally
- * referred to as the best available source was used as a reference.
+ * standardized format. For this implementation the <a
+ * href="https://github.com/windyroad/JUnit-Schema/blob/1.0.0/JUnit.xsd">XML schema</a> that is
+ * generally referred to as the best available source was used as a reference.
  */
 public final class AntXmlResultWriter implements XmlResultWriter {
   private static final String JUNIT_ELEMENT_TESTSUITES = "testsuites";
@@ -38,6 +37,7 @@ public final class AntXmlResultWriter implements XmlResultWriter {
   private static final String JUNIT_ELEMENT_PROPERTY = "property";
   private static final String JUNIT_ELEMENT_TESTCASE = "testcase";
   private static final String JUNIT_ELEMENT_FAILURE = "failure";
+  private static final String JUNIT_ELEMENT_SKIPPED = "skipped";
 
   private static final String JUNIT_ATTR_TESTSUITE_ERRORS = "errors";
   private static final String JUNIT_ATTR_TESTSUITE_FAILURES = "failures";
@@ -58,7 +58,6 @@ public final class AntXmlResultWriter implements XmlResultWriter {
 
   private int testSuiteId;
 
-  @Inject
   public AntXmlResultWriter() {}
 
   @Override
@@ -113,7 +112,7 @@ public final class AntXmlResultWriter implements XmlResultWriter {
   private void writeTestCases(XmlWriter writer, TestResult result,
       Iterable<Throwable> parentFailures) throws IOException {
     for (TestResult child : result.getChildResults()) {
-      if (child.getStatus() == TestResult.Status.FILTERED) {
+      if (child.getStatus().equals(TestResult.Status.FILTERED)) {
         continue;
       }
       if (child.getChildResults().isEmpty()) {
@@ -173,6 +172,12 @@ public final class AntXmlResultWriter implements XmlResultWriter {
 
     for (Throwable failure : result.getFailures()) {
       writeThrowableToXmlWriter(writer, failure);
+    }
+
+    if (result.getStatus().equals(TestResult.Status.SKIPPED)
+        || result.getStatus().equals(TestResult.Status.SUPPRESSED)) {
+      writer.startElement(JUNIT_ELEMENT_SKIPPED);
+      writer.endElement();
     }
 
     writer.endElement();

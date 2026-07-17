@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.packages;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
 import net.starlark.java.eval.StarlarkValue;
+import net.starlark.java.syntax.Location;
 
 /**
  * {@link StarlarkValue}s that need special handling when they are exported from an extension file.
@@ -31,7 +32,8 @@ public interface StarlarkExportable extends StarlarkValue {
 
   /**
    * Notify the value that it is exported from {@code extensionLabel} extension with name {@code
-   * exportedName}.
+   * exportedName} at {@code exportedLocation}.
    */
-  void export(EventHandler handler, Label extensionLabel, String exportedName);
+  void export(
+      EventHandler handler, Label extensionLabel, String exportedName, Location exportedLocation);
 }

@@ -26,16 +26,14 @@
 #include <string>
 #include <vector>
 
-#include "gtest/gtest.h"
 #include "src/main/cpp/util/path_platform.h"
 #include "src/main/cpp/util/strings.h"
 #include "src/main/native/windows/util.h"
-#include "tools/cpp/runfiles/runfiles.h"
+#include "gtest/gtest.h"
 
 namespace bazel {
 namespace launcher {
 
-using bazel::tools::cpp::runfiles::Runfiles;
 using std::getenv;
 using std::ios;
 using std::ofstream;
@@ -140,6 +138,29 @@ TEST_F(LaunchUtilTest, NormalizePathTest) {
   ASSERT_TRUE(NormalizePath(L"c://foo//bar", &value));
   ASSERT_EQ(L"c:\\foo\\bar", value);
   ASSERT_FALSE(NormalizePath(L"c:foo\\bar", &value));
+}
+
+TEST_F(LaunchUtilTest, GetRandomStrLengthTest) {
+  ASSERT_EQ(0u, GetRandomStr(0).length());
+  ASSERT_EQ(1u, GetRandomStr(1).length());
+  ASSERT_EQ(10u, GetRandomStr(10).length());
+  ASSERT_EQ(32u, GetRandomStr(32).length());
+}
+
+TEST_F(LaunchUtilTest, GetRandomStrCharsetTest) {
+  static constexpr std::wstring_view kAlphabet =
+      L"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  std::wstring s = GetRandomStr(256);
+  for (wchar_t c : s) {
+    ASSERT_NE(kAlphabet.find(c), std::wstring_view::npos)
+        << "Unexpected character in random string: " << c;
+  }
+}
+
+TEST_F(LaunchUtilTest, GetRandomStrUniquenessTest) {
+  // Two independent calls should produce different strings with overwhelming
+  // probability (collision chance < 62^-10 ≈ 8e-18 for length 10).
+  ASSERT_NE(GetRandomStr(10), GetRandomStr(10));
 }
 
 TEST_F(LaunchUtilTest, RelativeToTest) {

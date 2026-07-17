@@ -16,10 +16,8 @@ package com.google.devtools.build.lib.testutil;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.util.OS;
-
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.Set;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -42,111 +40,35 @@ public class BazelTestSuiteBuilder {
         .addPackageRecursive("com.google.devtools.build.lib");
   }
 
-  /** A predicate that succeeds only for LARGE tests. */
-  public static final Predicate<Class<?>> TEST_IS_LARGE =
-      hasSize(Suite.LARGE_TESTS);
-
-  /** A predicate that succeeds only for MEDIUM tests. */
-  public static final Predicate<Class<?>> TEST_IS_MEDIUM =
-      hasSize(Suite.MEDIUM_TESTS);
-
-  /** A predicate that succeeds only for SMALL tests. */
-  public static final Predicate<Class<?>> TEST_IS_SMALL =
-      hasSize(Suite.SMALL_TESTS);
-
-  /** A predicate that succeeds only for non-flaky tests. */
-  public static final Predicate<Class<?>> TEST_IS_FLAKY = new Predicate<Class<?>>() {
-    @Override
-    public boolean apply(Class<?> testClass) {
-      return Suite.isFlaky(testClass);
-    }
-  };
-
-  /** A predicate that succeeds only for non-local-only tests. */
-  public static final Predicate<Class<?>> TEST_IS_LOCAL_ONLY =
-      new Predicate<Class<?>>() {
-        @Override
-        public boolean apply(Class<?> testClass) {
-          return Suite.isLocalOnly(testClass);
-        }
-      };
-
   /** A predicate that succeeds only if the test supports the current operating system. */
   public static final Predicate<Class<?>> TEST_SUPPORTS_CURRENT_OS =
       new Predicate<Class<?>>() {
         @Override
         public boolean apply(Class<?> testClass) {
-          ImmutableSet<OS> supportedOs = ImmutableSet.copyOf(Suite.getSupportedOs(testClass));
+          ImmutableSet<OS> supportedOs = ImmutableSet.copyOf(getSupportedOs(testClass));
           return supportedOs.isEmpty() || supportedOs.contains(OS.getCurrent());
         }
       };
 
-
-  private static Predicate<Class<?>> hasSize(final Suite size) {
-    return new Predicate<Class<?>>() {
-      @Override
-      public boolean apply(Class<?> testClass) {
-        return Suite.getSize(testClass) == size;
-      }
-    };
-  }
-
-  protected static Predicate<Class<?>> inSuite(final String suiteName) {
-    return new Predicate<Class<?>>() {
-      @Override
-      public boolean apply(Class<?> testClass) {
-        return Suite.getSuiteName(testClass).equalsIgnoreCase(suiteName);
-      }
-    };
+  /** Given a class, determine the list of operating systems its tests can run under. */
+  private static OS[] getSupportedOs(Class<?> clazz) {
+    return getAnnotationElementOrDefault(clazz, "supportedOs");
   }
 
   /**
-   * Given a TestCase subclass, returns its designated suite annotation, if
-   * any, or the empty string otherwise.
+   * Returns the value of the given element in the {@link TestSpec} annotation of the given class,
+   * or the default value of that element if the class doesn't have a {@link TestSpec} annotation.
    */
-  public static String getSuite(Class<?> clazz) {
+  @SuppressWarnings("unchecked")
+  private static <T> T getAnnotationElementOrDefault(Class<?> clazz, String elementName) {
     TestSpec spec = clazz.getAnnotation(TestSpec.class);
-    return spec == null ? "" : spec.suite();
-  }
-
-  /**
-   * Returns a predicate over TestCases that is true iff the TestCase has a
-   * TestSpec annotation whose suite="..." value (a comma-separated list of
-   * tags) matches all of the query operators specified in the system property
-   * {@code blaze.suite}.  The latter is also a comma-separated list, but of
-   * query operators, each of which is either the name of a tag which must be
-   * present (e.g. "foo"), or the !-prefixed name of a tag that must be absent
-   * (e.g. "!foo").
-   */
-  public static Predicate<Class<?>> matchesSuiteQuery() {
-    final String suiteProperty = System.getProperty("blaze.suite");
-    if (suiteProperty == null) {
-      throw new IllegalArgumentException("blaze.suite property not found");
+    try {
+      Method method = TestSpec.class.getMethod(elementName);
+      return spec != null ? (T) method.invoke(spec) : (T) method.getDefaultValue();
+    } catch (NoSuchMethodException e) {
+      throw new IllegalStateException("no such element " + elementName, e);
+    } catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
+      throw new IllegalStateException("can't invoke accessor for element " + elementName, e);
     }
-    final Set<String> queryTokens = splitCommas(suiteProperty);
-    return new Predicate<Class<?>>() {
-      @Override
-      public boolean apply(Class<?> testClass) {
-        // Return true iff every queryToken is satisfied by suiteTags.
-        Set<String> suiteTags = splitCommas(getSuite(testClass));
-        for (String queryToken : queryTokens) {
-          if (queryToken.startsWith("!")) { // forbidden tag
-            if (suiteTags.contains(queryToken.substring(1))) {
-              return false;
-            }
-          } else { // mandatory tag
-            if (!suiteTags.contains(queryToken)) {
-              return false;
-            }
-          }
-        }
-        return true;
-      }
-    };
   }
-
-  private static Set<String> splitCommas(String s) {
-    return new HashSet<>(Arrays.asList(s.split(",")));
-  }
-
 }

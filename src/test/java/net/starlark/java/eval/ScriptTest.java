@@ -14,6 +14,7 @@
 
 package net.starlark.java.eval;
 
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.base.Splitter;
@@ -22,13 +23,16 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Files;
 import com.google.errorprone.annotations.FormatMethod;
 import java.io.File;
+import java.nio.charset.Charset;
 import java.util.HashMap;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkLibrary;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.lib.json.Json;
 import net.starlark.java.syntax.FileOptions;
@@ -36,6 +40,7 @@ import net.starlark.java.syntax.ParserInput;
 import net.starlark.java.syntax.SyntaxError;
 
 /** Script-based tests of Starlark evaluator. */
+@StarlarkLibrary
 public final class ScriptTest {
 
   // Tests for Starlark.
@@ -89,7 +94,25 @@ public final class ScriptTest {
       useStarlarkThread = true)
   public Object assertEq(Object x, Object y, StarlarkThread thread) throws EvalException {
     if (!x.equals(y)) {
-      reportErrorf(thread, "assert_eq: %s != %s", Starlark.repr(x), Starlark.repr(y));
+      if (x instanceof String xStr && y instanceof String yStr) {
+        Charset encoding =
+            thread.getSemantics().getBool(StarlarkSemantics.INTERNAL_BAZEL_ONLY_UTF_8_BYTE_STRINGS)
+                ? ISO_8859_1
+                : UTF_8;
+        reportErrorf(
+            thread,
+            "assert_eq: %s (%s) != %s (%s)",
+            Starlark.repr(x, StarlarkSemantics.DEFAULT),
+            HexFormat.of().formatHex(xStr.getBytes(encoding)),
+            Starlark.repr(y, StarlarkSemantics.DEFAULT),
+            HexFormat.of().formatHex(yStr.getBytes(encoding)));
+      } else {
+        reportErrorf(
+            thread,
+            "assert_eq: %s != %s",
+            Starlark.repr(x, StarlarkSemantics.DEFAULT),
+            Starlark.repr(y, StarlarkSemantics.DEFAULT));
+      }
     }
     return Starlark.NONE;
   }
@@ -173,6 +196,7 @@ public final class ScriptTest {
 
   private static boolean ok = true;
 
+  @SuppressWarnings("deprecation") // intentional use of ParserInput.fromLatin1()
   public static void main(String[] args) throws Exception {
     File root = new File("third_party/bazel"); // blaze
     if (!root.exists()) {
@@ -223,15 +247,27 @@ public final class ScriptTest {
         }
 
         // parse & execute
-        ParserInput input = ParserInput.fromString(buf.toString(), file.toString());
+        boolean utf8ByteStrings =
+            Boolean.getBoolean("net.starlark.java.eval.ScriptTest.utf8ByteStrings");
+        ParserInput input;
+        if (utf8ByteStrings) {
+
+          input = ParserInput.fromLatin1(buf.toString().getBytes(UTF_8), file.toString());
+        } else {
+          input = ParserInput.fromString(buf.toString(), file.toString());
+        }
         ImmutableMap.Builder<String, Object> predeclared = ImmutableMap.builder();
         Starlark.addMethods(predeclared, new ScriptTest()); // e.g. assert_eq
-        predeclared.put("json", Json.INSTANCE);
+        predeclared.put("json", Json.INSTANCE).put("_utf8_byte_strings", utf8ByteStrings);
 
-        StarlarkSemantics semantics = StarlarkSemantics.DEFAULT;
-        Module module = Module.withPredeclared(semantics, predeclared.build());
+        StarlarkSemantics.Builder semanticsBuilder = StarlarkSemantics.builder();
+        if (utf8ByteStrings) {
+          semanticsBuilder.setBool(StarlarkSemantics.INTERNAL_BAZEL_ONLY_UTF_8_BYTE_STRINGS, true);
+        }
+        StarlarkSemantics semantics = semanticsBuilder.build();
+        Module module = Module.withPredeclared(semantics, predeclared.buildOrThrow());
         try (Mutability mu = Mutability.createAllowingShallowFreeze("test")) {
-          StarlarkThread thread = new StarlarkThread(mu, semantics);
+          StarlarkThread thread = StarlarkThread.createTransient(mu, semantics);
           thread.setThreadLocal(Reporter.class, ScriptTest::reportError);
           Starlark.execFile(input, FileOptions.DEFAULT, module, thread);
 
@@ -252,7 +288,7 @@ public final class ScriptTest {
           //
           // TODO(adonovan): the old logic checks only that each error is matched
           // by at least one expectation. Instead, ensure that errors
-          // and expections match exactly. Furthermore, look only at errors
+          // and exceptions match exactly. Furthermore, look only at errors
           // whose stack has a frame with a file/line that matches the expectation.
           // This requires inspecting EvalException stack.
           // (There can be at most one dynamic error per chunk.
@@ -294,6 +330,10 @@ public final class ScriptTest {
     stack = stack.subList(0, stack.size() - 1); // pop the built-in function
     for (StarlarkThread.CallStackEntry fr : stack) {
       System.err.printf("%s: called from %s\n", fr.location, fr.name);
+    }
+    if (thread.getSemantics().getBool(StarlarkSemantics.INTERNAL_BAZEL_ONLY_UTF_8_BYTE_STRINGS)) {
+      // Reencode the message for display.
+      message = new String(message.getBytes(ISO_8859_1), UTF_8);
     }
     System.err.println("Error: " + message);
     ok = false;
@@ -343,14 +383,14 @@ public final class ScriptTest {
     }
 
     @Override
-    public void repr(Printer p) {
+    public void repr(Printer p, StarlarkSemantics semantics) {
       // This repr function prints only the fields.
       // Any methods are still accessible through dir/getattr/hasattr.
       p.append(Starlark.type(this));
       p.append("(");
       String sep = "";
       for (Map.Entry<String, Object> e : fields.entrySet()) {
-        p.append(sep).append(e.getKey()).append(" = ").repr(e.getValue());
+        p.append(sep).append(e.getKey()).append(" = ").repr(e.getValue(), semantics);
         sep = ", ";
       }
       p.append(")");

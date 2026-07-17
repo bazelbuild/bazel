@@ -14,34 +14,95 @@
 
 package com.google.devtools.build.lib.buildeventservice;
 
-import com.google.auto.value.AutoValue;
+import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
+
+import com.google.auth.Credentials;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
+import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelperEnvironment;
+import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialModule;
 import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient;
 import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceGrpcClient;
+import com.google.devtools.build.lib.runtime.BlazeRuntime;
+import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
+import com.google.devtools.common.options.OptionsParsingResult;
+import io.grpc.ClientInterceptor;
 import io.grpc.ManagedChannel;
+import io.grpc.Metadata;
+import io.grpc.auth.MoreCallCredentials;
+import io.grpc.stub.MetadataUtils;
 import java.io.IOException;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Set;
+import javax.annotation.Nullable;
 
-/**
- * Bazel's BES module.
- */
+/** Bazel's BES module. */
 public class BazelBuildEventServiceModule
     extends BuildEventServiceModule<BuildEventServiceOptions> {
 
-  @AutoValue
-  abstract static class BackendConfig {
-    abstract String besBackend();
+  record BackendConfig(
+      String besBackend,
+      @Nullable String besProxy,
+      ImmutableList<Map.Entry<String, String>> besHeaders,
+      AuthAndTLSOptions authAndTLSOptions) {
+    BackendConfig {
+      requireNonNull(besBackend, "besBackend");
+      requireNonNull(besHeaders, "besHeaders");
+      requireNonNull(authAndTLSOptions, "authAndTLSOptions");
+    }
 
-    abstract AuthAndTLSOptions authAndTLSOptions();
+    static BackendConfig create(
+        BuildEventServiceOptions besOptions, AuthAndTLSOptions authAndTLSOptions) {
+      return new BackendConfig(
+          besOptions.getBesBackend(),
+          besOptions.getBesProxy(),
+          ImmutableMap.<String, String>builder()
+              .putAll(besOptions.getBesHeaders())
+              .buildKeepingLast()
+              .entrySet()
+              .asList(),
+          authAndTLSOptions);
+    }
   }
 
   private BuildEventServiceClient client;
   private BackendConfig config;
+
+  /**
+   * Client environment of the most recently started command.
+   *
+   * <p>A cached {@link BuildEventServiceClient} can outlive the command that created it, so its
+   * credential helper must not capture a per-command {@link CommandEnvironment}. Instead it reads
+   * the environment through {@link #latestClientEnv()}, which {@link #getBesClient} refreshes at
+   * the start of every command (including when a cached client is returned). {@code volatile}
+   * because the helper may run on a gRPC I/O thread.
+   */
+  private volatile ImmutableMap<String, String> latestClientEnv = ImmutableMap.of();
+
+  private ImmutableMap<String, String> latestClientEnv() {
+    return latestClientEnv;
+  }
+
+  private CredentialModule credentialModule;
+
+  @Override
+  public void workspaceInit(
+      BlazeRuntime runtime, BlazeDirectories directories, WorkspaceBuilder builder) {
+    Preconditions.checkState(credentialModule == null, "credentialModule must be null");
+    credentialModule = Preconditions.checkNotNull(runtime.getBlazeModule(CredentialModule.class));
+  }
 
   @Override
   protected Class<BuildEventServiceOptions> optionsClass() {
@@ -49,28 +110,88 @@ public class BazelBuildEventServiceModule
   }
 
   @Override
+  protected ImmutableSet<String> getBesKeywords(
+      String commandName,
+      BuildEventServiceOptions besOptions,
+      @Nullable OptionsParsingResult startupOptionsProvider) {
+    List<String> userKeywords = besOptions.getBesKeywords();
+    List<String> systemKeywords = besOptions.getBesSystemKeywords();
+    ImmutableSet.Builder<String> builder =
+        ImmutableSet.<String>builder()
+            .add("protocol_name=BEP")
+            .add("command_name=" + commandName)
+            .addAll(systemKeywords);
+    for (String userKeyword : userKeywords) {
+      builder.add("user_keyword=" + userKeyword);
+    }
+    return builder.build();
+  }
+
+  @Override
   protected BuildEventServiceClient getBesClient(
-      BuildEventServiceOptions besOptions, AuthAndTLSOptions authAndTLSOptions) throws IOException {
-    BackendConfig newConfig =
-        new AutoValue_BazelBuildEventServiceModule_BackendConfig(
-            besOptions.besBackend, authAndTLSOptions);
+      CommandEnvironment env,
+      BuildEventServiceOptions besOptions,
+      AuthAndTLSOptions authAndTLSOptions)
+      throws IOException {
+    // Refresh for every command, including when a cached client is returned below, so credential
+    // helpers observe the current command's environment (e.g. a rotated auth token).
+    latestClientEnv = env.getClientEnv();
+    BackendConfig newConfig = BackendConfig.create(besOptions, authAndTLSOptions);
     if (client == null || !Objects.equals(config, newConfig)) {
       clearBesClient();
+      checkState(config == null, "config should be null");
+      checkState(client == null, "client should be null");
+
+      Credentials credentials =
+          GoogleAuthUtils.newCredentials(
+              CredentialHelperEnvironment.newBuilder()
+                  .setEventReporter(env.getReporter())
+                  .setWorkspacePath(env.getWorkspace())
+                  .setClientEnvironment(this::latestClientEnv)
+                  .setHelperExecutionTimeout(authAndTLSOptions.getCredentialHelperTimeout())
+                  .build(),
+              credentialModule.getCredentialCache(),
+              env.getCommandLinePathFactory(),
+              env.getRuntime().getFileSystem(),
+              newConfig.authAndTLSOptions());
+
       config = newConfig;
       client =
           new BuildEventServiceGrpcClient(
-              newGrpcChannel(besOptions, authAndTLSOptions),
-              GoogleAuthUtils.newCallCredentials(authAndTLSOptions));
+              newGrpcChannel(config),
+              credentials != null ? MoreCallCredentials.from(credentials) : null,
+              makeGrpcInterceptor(config));
     }
     return client;
   }
 
+  @Nullable
+  private static ClientInterceptor makeGrpcInterceptor(BackendConfig config) {
+    if (config.besHeaders().isEmpty()) {
+      return null;
+    }
+    return MetadataUtils.newAttachHeadersInterceptor(makeGrpcMetadata(config));
+  }
+
+  @VisibleForTesting
+  static Metadata makeGrpcMetadata(BackendConfig config) {
+    Metadata extraHeaders = new Metadata();
+    for (Entry<String, String> header : config.besHeaders()) {
+      extraHeaders.put(
+          Metadata.Key.of(header.getKey(), Metadata.ASCII_STRING_MARSHALLER), header.getValue());
+    }
+    return extraHeaders;
+  }
+
   // newGrpcChannel is only defined so it can be overridden in tests to not use a real network link.
   @VisibleForTesting
-  protected ManagedChannel newGrpcChannel(
-      BuildEventServiceOptions besOptions, AuthAndTLSOptions authAndTLSOptions) throws IOException {
+  protected ManagedChannel newGrpcChannel(BackendConfig config) throws IOException {
     return GoogleAuthUtils.newChannel(
-        besOptions.besBackend, besOptions.besProxy, authAndTLSOptions, /* interceptors= */ null);
+        /* executor= */ null,
+        config.besBackend(),
+        config.besProxy(),
+        config.authAndTLSOptions(),
+        /* interceptors= */ null);
   }
 
   @Override
@@ -80,6 +201,9 @@ public class BazelBuildEventServiceModule
     }
     this.client = null;
     this.config = null;
+    // Do not reset latestClientEnv here: an in-flight credential lookup on a gRPC I/O thread may
+    // call the supplier after clearBesClient() returns, and an empty map would give it no
+    // PATH/HOME.
   }
 
   private static final ImmutableSet<String> ALLOWED_COMMANDS =
@@ -101,12 +225,12 @@ public class BazelBuildEventServiceModule
 
   @Override
   protected String getInvocationIdPrefix() {
-    if (Strings.isNullOrEmpty(besOptions.besResultsUrl)) {
+    if (Strings.isNullOrEmpty(besOptions.getBesResultsUrl())) {
       return "";
     }
-    return besOptions.besResultsUrl.endsWith("/")
-        ? besOptions.besResultsUrl
-        : besOptions.besResultsUrl + "/";
+    return besOptions.getBesResultsUrl().endsWith("/")
+        ? besOptions.getBesResultsUrl()
+        : besOptions.getBesResultsUrl() + "/";
   }
 
   @Override

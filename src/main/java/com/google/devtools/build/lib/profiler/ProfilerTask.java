@@ -13,21 +13,25 @@
 // limitations under the License.
 package com.google.devtools.build.lib.profiler;
 
+import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
 import java.time.Duration;
 
 /**
- * All possible types of profiler tasks. Each type also defines description and
- * minimum duration in nanoseconds for it to be recorded as separate event and
- * not just be aggregated into the parent event.
+ * All possible types of profiler tasks. Each type also defines description and minimum duration in
+ * nanoseconds for it to be recorded as separate event and not just be aggregated into the parent
+ * event.
  */
+@SkybridgeInterface
 public enum ProfilerTask {
   PHASE("build phase marker"),
   ACTION("action processing"),
+  DISCOVER_INPUTS("discover inputs"),
   ACTION_CHECK("action dependency checking", Threshold.TEN_MILLIS),
   ACTION_LOCK("action resource lock", Threshold.TEN_MILLIS),
-  ACTION_RELEASE("action resource release", Threshold.TEN_MILLIS),
   ACTION_UPDATE("update action information", Threshold.TEN_MILLIS),
   ACTION_COMPLETE("complete action execution"),
+  ACTION_REWINDING("prepare action rewind plan"),
+  BZLMOD("bazel module processing"),
   INFO("general information"),
   CREATE_PACKAGE("package creation"),
   REMOTE_EXECUTION("remote action execution"),
@@ -38,10 +42,11 @@ public enum ProfilerTask {
       Threshold.FIFTY_MILLIS,
       /* collectsSlowestInstances= */ true),
   UPLOAD_TIME("Remote execution upload time", Threshold.FIFTY_MILLIS),
-  PROCESS_TIME("Remote execution process wall time", Threshold.FIFTY_MILLIS),
+  REMOTE_PROCESS_TIME("Remote execution process wall time", Threshold.FIFTY_MILLIS),
   REMOTE_QUEUE("Remote execution queuing time", Threshold.FIFTY_MILLIS),
   REMOTE_SETUP("Remote execution setup", Threshold.FIFTY_MILLIS),
   FETCH("Remote execution file fetching", Threshold.FIFTY_MILLIS),
+  LOCAL_PROCESS_TIME("Local execution process wall time", Threshold.FIFTY_MILLIS),
   VFS_STAT("VFS stat", Threshold.TEN_MILLIS, /* collectsSlowestInstances= */ true),
   VFS_DIR("VFS readdir", Threshold.TEN_MILLIS, /* collectsSlowestInstances= */ true),
   VFS_READLINK("VFS readlink", Threshold.TEN_MILLIS, /* collectsSlowestInstances= */ true),
@@ -64,19 +69,35 @@ public enum ProfilerTask {
   CRITICAL_PATH("critical path"),
   CRITICAL_PATH_COMPONENT("critical path component"),
   HANDLE_GC_NOTIFICATION("gc notification"),
-  ACTION_COUNTS("action counters"),
-  LOCAL_CPU_USAGE("cpu counters"),
-  LOCAL_MEMORY_USAGE("memory counters"),
+  LOCAL_ACTION_COUNTS("action count (local)"),
   STARLARK_PARSER("Starlark Parser", Threshold.FIFTY_MILLIS),
   STARLARK_USER_FN("Starlark user function call", Threshold.FIFTY_MILLIS),
   STARLARK_BUILTIN_FN("Starlark builtin function call", Threshold.FIFTY_MILLIS),
   STARLARK_USER_COMPILED_FN("Starlark compiled user function call", Threshold.FIFTY_MILLIS),
   STARLARK_REPOSITORY_FN("Starlark repository function call", Threshold.FIFTY_MILLIS),
+  STARLARK_THREAD_CONTEXT("Starlark thread context", Threshold.FIFTY_MILLIS),
   ACTION_FS_STAGING("Staging per-action file system"),
   REMOTE_CACHE_CHECK("remote action cache check"),
-  REMOTE_DOWNLOAD("remote output download"),
+  REMOTE_DOWNLOAD("remote output download", Threshold.TEN_MILLIS),
   REMOTE_NETWORK("remote network"),
   FILESYSTEM_TRAVERSAL("filesystem traversal"),
+  WORKER_EXECUTION("local execution in worker"),
+  WORKER_SETUP("setting up inputs for worker"),
+  WORKER_BORROW("borrowing a worker"),
+  WORKER_WORKING("waiting for response from worker"),
+  WORKER_COPYING_OUTPUTS("copying outputs from worker"),
+  CREDENTIAL_HELPER("calling credential helper"),
+  CONFLICT_CHECK("Conflict checking"),
+  DYNAMIC_LOCK("Acquiring dynamic execution output lock", Threshold.FIFTY_MILLIS),
+  REPOSITORY_FETCH("Fetching repository"),
+  REPOSITORY_VENDOR("Vendoring repository"),
+  REPO_CACHE_GC_WAIT("blocked on repo contents cache GC", Threshold.TEN_MILLIS),
+  SPAWN_LOG("logging spawn", Threshold.TEN_MILLIS),
+  RPC("RPC"),
+  SKYCACHE("Skycache"),
+  WASM_LOAD("load WebAssembly module"),
+  WASM_EXEC("execute WebAssembly function"),
+
   UNKNOWN("Unknown event");
 
   private static class Threshold {
@@ -84,18 +105,18 @@ public enum ProfilerTask {
     private static final Duration FIFTY_MILLIS = Duration.ofMillis(50);
   }
 
-  // Size of the ProfilerTask value space.
-  public static final int TASK_COUNT = ProfilerTask.values().length;
-
   /** Human readable description for the task. */
   public final String description;
+
   /**
    * Threshold for skipping tasks in the profile in nanoseconds, unless --record_full_profiler_data
    * is used.
    */
   public final long minDuration;
+
   /** Whether this task collects the slowest instances. */
   public final boolean collectsSlowestInstances;
+
   /** True if the metric records VFS operations */
   private final boolean vfs;
 

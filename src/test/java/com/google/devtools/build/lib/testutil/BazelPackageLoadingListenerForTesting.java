@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.testutil;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
@@ -24,10 +26,13 @@ import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageLoadingListener;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.pkgcache.PackageOptions.LazyMacroExpansionPackages;
+import com.google.devtools.build.lib.skyframe.PrecomputedValue.Injected;
 import com.google.devtools.build.lib.skyframe.packages.BazelPackageLoader;
 import com.google.devtools.build.lib.skyframe.packages.PackageLoader;
 import com.google.devtools.build.lib.vfs.Root;
-import java.util.OptionalLong;
+import com.google.devtools.build.skyframe.SkyFunction;
+import com.google.devtools.build.skyframe.SkyFunctionName;
 import net.starlark.java.eval.StarlarkSemantics;
 
 /**
@@ -37,41 +42,55 @@ import net.starlark.java.eval.StarlarkSemantics;
 public class BazelPackageLoadingListenerForTesting implements PackageLoadingListener {
   private final ConfiguredRuleClassProvider ruleClassProvider;
   private final BlazeDirectories directories;
+  private final ImmutableList<Injected> extraPrecomputedValues;
+  private final ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions;
 
   public BazelPackageLoadingListenerForTesting(
-      ConfiguredRuleClassProvider ruleClassProvider, BlazeDirectories directories) {
+      ConfiguredRuleClassProvider ruleClassProvider,
+      BlazeDirectories directories,
+      ImmutableList<Injected> extraPrecomputedValues,
+      ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions) {
     this.ruleClassProvider = ruleClassProvider;
     this.directories = directories;
+    this.extraPrecomputedValues = extraPrecomputedValues;
+    this.extraSkyFunctions = extraSkyFunctions;
   }
 
   @Override
   public void onLoadingCompleteAndSuccessful(
       Package pkg,
       StarlarkSemantics starlarkSemantics,
-      long loadTimeNanos,
-      OptionalLong packageOverhead) {
-    sanityCheckBazelPackageLoader(pkg, ruleClassProvider, starlarkSemantics);
+      LazyMacroExpansionPackages lazyMacroExpansionPackages,
+      Metrics metrics) {
+    sanityCheckBazelPackageLoader(
+        pkg, ruleClassProvider, starlarkSemantics, lazyMacroExpansionPackages);
   }
 
   private PackageLoader makeFreshPackageLoader(
-      ConfiguredRuleClassProvider ruleClassProvider, StarlarkSemantics starlarkSemantics) {
+      ConfiguredRuleClassProvider ruleClassProvider,
+      StarlarkSemantics starlarkSemantics,
+      LazyMacroExpansionPackages lazyMacroExpansionPackages) {
     return BazelPackageLoader.builder(
             Root.fromPath(directories.getWorkspace()),
             directories.getInstallBase(),
             directories.getOutputBase())
         .setStarlarkSemantics(starlarkSemantics)
         .setRuleClassProvider(ruleClassProvider)
+        .addExtraPrecomputedValues(extraPrecomputedValues)
+        .addExtraSkyFunctions(extraSkyFunctions)
+        .setLazyMacroExpansionPackages(lazyMacroExpansionPackages)
         .build();
   }
 
   private void sanityCheckBazelPackageLoader(
       Package pkg,
       ConfiguredRuleClassProvider ruleClassProvider,
-      StarlarkSemantics starlarkSemantics) {
+      StarlarkSemantics starlarkSemantics,
+      LazyMacroExpansionPackages lazyMacroExpansionPackages) {
     PackageIdentifier pkgId = pkg.getPackageIdentifier();
     Package newlyLoadedPkg;
     try (PackageLoader packageLoader =
-        makeFreshPackageLoader(ruleClassProvider, starlarkSemantics)) {
+        makeFreshPackageLoader(ruleClassProvider, starlarkSemantics, lazyMacroExpansionPackages)) {
       newlyLoadedPkg = packageLoader.loadPackage(pkg.getPackageIdentifier());
     } catch (InterruptedException e) {
       return;

@@ -13,15 +13,20 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
-import com.google.common.base.Preconditions;
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
+import static com.google.common.base.Preconditions.checkNotNull;
+
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.LoadingCache;
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.Interner;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.AsyncDeserializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.DeferredObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec.MemoizationEquality;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
+import com.google.devtools.build.lib.util.HashCodes;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
@@ -29,10 +34,11 @@ import java.io.IOException;
 /**
  * An instance of a given {@code AspectClass} with loaded definition and parameters.
  *
- * This is an aspect equivalent of {@link Rule} class for build rules.
+ * <p>This is an aspect equivalent of {@link Rule} class for build rules.
  *
- * Note: this class does not have {@code equals()} and {@code hashCode()} redefined, so should
- * not be used in SkyKeys.
+ * <p>Note: equality is only implemented for purposes of interning. It delegates to {@link
+ * AspectDefinition} equality, which is not overridden. For this reason, this class should not be
+ * used in SkyKeys - use {@link AspectDescriptor} instead.
  */
 @Immutable
 public final class Aspect implements DependencyFilter.AttributeInfoProvider {
@@ -42,40 +48,28 @@ public final class Aspect implements DependencyFilter.AttributeInfoProvider {
    *
    * <p>The native aspects are loaded with blaze and are not stateful. Reference equality works fine
    * in this case.
-   *
-   * <p>Caching of Starlark aspects is not yet implemented.
    */
   private static final LoadingCache<
           NativeAspectClass, LoadingCache<AspectParameters, AspectDefinition>>
       definitionCache =
-          CacheBuilder.newBuilder()
+          Caffeine.newBuilder()
               .build(
-                  CacheLoader.from(
-                      nativeAspectClass ->
-                          CacheBuilder.newBuilder()
-                              .build(
-                                  CacheLoader.from(
-                                      aspectParameters ->
-                                          nativeAspectClass.getDefinition(aspectParameters)))));
+                  nativeAspectClass ->
+                      Caffeine.newBuilder().build(nativeAspectClass::getDefinition));
+
+  private static final Interner<Aspect> interner = BlazeInterners.newWeakInterner();
 
   private final AspectDescriptor aspectDescriptor;
   private final AspectDefinition aspectDefinition;
 
-  private Aspect(
-      AspectClass aspectClass,
-      AspectDefinition aspectDefinition,
-      AspectParameters parameters) {
-    this.aspectDescriptor = new AspectDescriptor(
-        Preconditions.checkNotNull(aspectClass),
-        Preconditions.checkNotNull(parameters));
-    this.aspectDefinition = Preconditions.checkNotNull(aspectDefinition);
+  private Aspect(AspectDescriptor aspectDescriptor, AspectDefinition aspectDefinition) {
+    this.aspectDescriptor = checkNotNull(aspectDescriptor);
+    this.aspectDefinition = checkNotNull(aspectDefinition);
   }
 
-  public static Aspect forNative(
-      NativeAspectClass nativeAspectClass, AspectParameters parameters) {
-    AspectDefinition definition =
-        definitionCache.getUnchecked(nativeAspectClass).getUnchecked(parameters);
-    return new Aspect(nativeAspectClass, definition, parameters);
+  public static Aspect forNative(NativeAspectClass nativeAspectClass, AspectParameters parameters) {
+    AspectDefinition definition = definitionCache.get(nativeAspectClass).get(parameters);
+    return createInterned(nativeAspectClass, definition, parameters);
   }
 
   public static Aspect forNative(NativeAspectClass nativeAspectClass) {
@@ -86,30 +80,32 @@ public final class Aspect implements DependencyFilter.AttributeInfoProvider {
       StarlarkAspectClass starlarkAspectClass,
       AspectDefinition aspectDefinition,
       AspectParameters parameters) {
-    return new Aspect(starlarkAspectClass, aspectDefinition, parameters);
+    return createInterned(starlarkAspectClass, aspectDefinition, parameters);
   }
 
-  /**
-   * Returns the aspectClass required for building the aspect.
-   */
+  @VisibleForTesting
+  public static Aspect createUninternedForTesting(
+      AspectDescriptor aspectDescriptor, AspectDefinition aspectDefinition) {
+    return new Aspect(aspectDescriptor, aspectDefinition);
+  }
+
+  private static Aspect createInterned(
+      AspectClass aspectClass, AspectDefinition definition, AspectParameters parameters) {
+    return interner.intern(new Aspect(AspectDescriptor.of(aspectClass, parameters), definition));
+  }
+
+  /** Returns the aspectClass required for building the aspect. */
   public AspectClass getAspectClass() {
     return aspectDescriptor.getAspectClass();
   }
 
-  /**
-   * Returns parameters for evaluation of the aspect.
-   */
+  /** Returns parameters for evaluation of the aspect. */
   public AspectParameters getParameters() {
     return aspectDescriptor.getParameters();
   }
 
   public AspectDescriptor getDescriptor() {
     return aspectDescriptor;
-  }
-
-  @Override
-  public String toString() {
-    return String.format("Aspect %s", aspectDescriptor.toString());
   }
 
   public AspectDefinition getDefinition() {
@@ -122,8 +118,40 @@ public final class Aspect implements DependencyFilter.AttributeInfoProvider {
     return false;
   }
 
-  /** {@link ObjectCodec} for {@link Aspect}. */
-  static class AspectCodec implements ObjectCodec<Aspect> {
+  @Override
+  public String toString() {
+    return "Aspect " + aspectDescriptor;
+  }
+
+  @Override
+  public int hashCode() {
+    return HashCodes.hashObjects(aspectDescriptor, aspectDefinition);
+  }
+
+  @Override
+  public boolean equals(Object obj) {
+    if (this == obj) {
+      return true;
+    }
+    if (!(obj instanceof Aspect)) {
+      return false;
+    }
+
+    Aspect that = (Aspect) obj;
+    return aspectDescriptor.equals(that.aspectDescriptor)
+        && aspectDefinition.equals(that.aspectDefinition);
+  }
+
+  /**
+   * Codec for {@link Aspect}.
+   *
+   * <p>This codec calls {@link Aspect#forNative} and {@link Aspect#forStarlark} as the final step
+   * in serialization, which is important for interning. It also optimizes the way that native
+   * aspects are serialized by taking advantage of the fact that native aspect definitions can be
+   * determined from their descriptors alone.
+   */
+  @SuppressWarnings("unused") // Used reflectively.
+  private static final class AspectCodec extends DeferredObjectCodec<Aspect> {
     @Override
     public Class<Aspect> getEncodedClass() {
       return Aspect.class;
@@ -132,28 +160,70 @@ public final class Aspect implements DependencyFilter.AttributeInfoProvider {
     @Override
     public void serialize(SerializationContext context, Aspect obj, CodedOutputStream codedOut)
         throws SerializationException, IOException {
-      context.serialize(obj.getDescriptor(), codedOut);
-      boolean nativeAspect = obj.getDescriptor().getAspectClass() instanceof NativeAspectClass;
-      codedOut.writeBoolNoTag(nativeAspect);
-      if (!nativeAspect) {
+      AspectDescriptor descriptor = obj.getDescriptor();
+      boolean isNativeAspect = descriptor.getAspectClass() instanceof NativeAspectClass;
+      codedOut.writeBoolNoTag(isNativeAspect);
+      context.serialize(descriptor, codedOut);
+      if (!isNativeAspect) {
         context.serialize(obj.getDefinition(), codedOut);
       }
     }
 
     @Override
-    public Aspect deserialize(DeserializationContext context, CodedInputStream codedIn)
+    public MemoizationEquality getMemoizationEquality(Aspect obj) {
+      return MemoizationEquality.BY_VALUE;
+    }
+
+    @Override
+    public DeferredValue<Aspect> deserializeDeferred(
+        AsyncDeserializationContext context, CodedInputStream codedIn)
         throws SerializationException, IOException {
-      AspectDescriptor aspectDescriptor = context.deserialize(codedIn);
       if (codedIn.readBool()) {
+        var builder = new AspectDeserializationBuilderForNative();
+        context.deserialize(codedIn, builder, AspectDeserializationBuilderForNative::setDescriptor);
+        return builder;
+      }
+      var builder = new AspectDeserializationBuilderForStarlark();
+      context.deserialize(codedIn, builder, AspectDeserializationBuilderForStarlark::setDescriptor);
+      context.deserialize(codedIn, builder, AspectDeserializationBuilderForStarlark::setDefinition);
+      return builder;
+    }
+
+    private static class AspectDeserializationBuilderForNative implements DeferredValue<Aspect> {
+      private AspectDescriptor descriptor;
+
+      @Override
+      public Aspect call() {
         return forNative(
-            (NativeAspectClass) aspectDescriptor.getAspectClass(),
-            aspectDescriptor.getParameters());
-      } else {
-        AspectDefinition aspectDefinition = context.deserialize(codedIn);
+            (NativeAspectClass) descriptor.getAspectClass(), descriptor.getParameters());
+      }
+
+      private static void setDescriptor(
+          AspectDeserializationBuilderForNative builder, Object value) {
+        builder.descriptor = (AspectDescriptor) value;
+      }
+    }
+
+    private static class AspectDeserializationBuilderForStarlark implements DeferredValue<Aspect> {
+      private AspectDescriptor descriptor;
+      private AspectDefinition definition;
+
+      @Override
+      public Aspect call() {
         return forStarlark(
-            (StarlarkAspectClass) aspectDescriptor.getAspectClass(),
-            aspectDefinition,
-            aspectDescriptor.getParameters());
+            (StarlarkAspectClass) descriptor.getAspectClass(),
+            definition,
+            descriptor.getParameters());
+      }
+
+      private static void setDescriptor(
+          AspectDeserializationBuilderForStarlark builder, Object value) {
+        builder.descriptor = (AspectDescriptor) value;
+      }
+
+      private static void setDefinition(
+          AspectDeserializationBuilderForStarlark builder, Object value) {
+        builder.definition = (AspectDefinition) value;
       }
     }
   }

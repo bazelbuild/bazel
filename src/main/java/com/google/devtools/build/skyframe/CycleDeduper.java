@@ -40,8 +40,8 @@ class CycleDeduper<T> {
   public boolean alreadySeen(ImmutableList<T> cycle) {
     ImmutableSet<T> cycleMembers = ImmutableSet.copyOf(cycle);
     Preconditions.checkState(!cycle.isEmpty());
-    Preconditions.checkState(cycle.size() == cycleMembers.size(),
-        "cycle doesn't have unique members: " + cycle);
+    Preconditions.checkState(
+        cycle.size() == cycleMembers.size(), "cycle doesn't have unique members: %s", cycle);
 
     if (knownCyclesByMembers.containsEntry(cycleMembers, cycle)) {
       return true;

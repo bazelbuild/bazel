@@ -176,7 +176,9 @@ public class VanillaJavaBuilder implements Closeable {
                 new PrintWriter(output, true),
                 fileManager,
                 diagnosticCollector,
-                JavacOptions.removeBazelSpecificFlags(optionsParser.getJavacOpts()),
+                JavacOptions.removeBazelSpecificFlags(
+                    JavacOptions.normalizeOptionsWithNormalizers(
+                        optionsParser.getJavacOpts(), new JavacOptions.ReleaseOptionNormalizer())),
                 ImmutableList.<String>of() /*classes*/,
                 sources);
         setProcessors(optionsParser, fileManager, task);
@@ -307,8 +309,7 @@ public class VanillaJavaBuilder implements Closeable {
     if (optionsParser.getGeneratedSourcesOutputJar() == null) {
       return;
     }
-    JarCreator jar = new JarCreator(optionsParser.getGeneratedSourcesOutputJar());
-    jar.setNormalize(true);
+    JarCreator jar = new JarCreator(Path.of(optionsParser.getGeneratedSourcesOutputJar()));
     jar.setCompression(optionsParser.compressJar());
     jar.addDirectory(sourceGenDir);
     jar.execute();
@@ -319,9 +320,8 @@ public class VanillaJavaBuilder implements Closeable {
     if (optionsParser.getNativeHeaderOutput() == null) {
       return;
     }
-    JarCreator jar = new JarCreator(optionsParser.getNativeHeaderOutput());
+    JarCreator jar = new JarCreator(Path.of(optionsParser.getNativeHeaderOutput()));
     try {
-      jar.setNormalize(true);
       jar.setCompression(optionsParser.compressJar());
       jar.addDirectory(nativeHeaderDir);
     } finally {
@@ -331,8 +331,7 @@ public class VanillaJavaBuilder implements Closeable {
 
   /** Writes the class output jar, including any resource entries. */
   private static void writeOutput(Path classDir, OptionsParser optionsParser) throws IOException {
-    JarCreator jar = new JarCreator(optionsParser.getOutputJar());
-    jar.setNormalize(true);
+    JarCreator jar = new JarCreator(Path.of(optionsParser.getOutputJar()));
     jar.setCompression(optionsParser.compressJar());
     jar.addDirectory(classDir);
     jar.execute();
@@ -370,7 +369,7 @@ public class VanillaJavaBuilder implements Closeable {
 
     @Override
     public CharSequence getCharContent(boolean ignoreEncodingErrors) throws IOException {
-      return new String(Files.readAllBytes(path), UTF_8);
+      return Files.readString(path);
     }
   }
 

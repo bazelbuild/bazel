@@ -19,7 +19,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.nio.channels.ReadableByteChannel;
+import java.nio.channels.SeekableByteChannel;
 
 /**
  * This interface represents a mutable file stored in an InMemoryFileSystem.
@@ -55,9 +55,7 @@ public abstract class FileInfo extends InMemoryContentInfo {
 
   public abstract InputStream getInputStream() throws IOException;
 
-  public ReadableByteChannel createReadableByteChannel() {
-    throw new UnsupportedOperationException();
-  }
+  public abstract SeekableByteChannel createReadWriteByteChannel() throws IOException;
 
   public abstract byte[] getxattr(String name) throws IOException;
 

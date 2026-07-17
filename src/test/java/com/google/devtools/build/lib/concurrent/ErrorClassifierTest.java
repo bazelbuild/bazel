@@ -28,11 +28,15 @@ public class ErrorClassifierTest {
   public void testErrorClassificationNaturalOrder() {
     ErrorClassification[] values = ErrorClassification.values();
     Arrays.sort(values);
-    assertThat(values).asList().containsExactly(
-        ErrorClassification.NOT_CRITICAL,
-        ErrorClassification.CRITICAL,
-        ErrorClassification.CRITICAL_AND_LOG,
-        ErrorClassification.AS_CRITICAL_AS_POSSIBLE).inOrder();
+    assertThat(values)
+        .asList()
+        .containsExactly(
+            ErrorClassification.NOT_CRITICAL,
+            ErrorClassification.NOT_CRITICAL_HIGHER_PRIORITY,
+            ErrorClassification.CRITICAL,
+            ErrorClassification.CRITICAL_AND_LOG,
+            ErrorClassification.AS_CRITICAL_AS_POSSIBLE)
+        .inOrder();
   }
 }
 

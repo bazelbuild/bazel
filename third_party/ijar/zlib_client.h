@@ -16,7 +16,9 @@
 #define THIRD_PARTY_IJAR_ZLIB_CLIENT_H_
 
 #include <limits.h>
+
 #include <limits>
+#include <stdexcept>
 
 #include "third_party/ijar/common.h"
 

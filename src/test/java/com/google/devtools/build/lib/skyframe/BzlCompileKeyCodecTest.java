@@ -32,8 +32,8 @@ public final class BzlCompileKeyCodecTest {
     SerializationTester serializationTester =
         new SerializationTester(
             BzlCompileValue.EMPTY_PRELUDE_KEY,
-            BzlCompileValue.keyForBuildPrelude(root, Label.parseAbsoluteUnchecked("//a:a")),
-            BzlCompileValue.key(root, Label.parseAbsoluteUnchecked("//a:a")));
+            BzlCompileValue.keyForBuildPrelude(root, Label.parseCanonicalUnchecked("//a:a")),
+            BzlCompileValue.key(root, Label.parseCanonicalUnchecked("//a:a")));
     FsUtils.addDependencies(serializationTester);
     // Indirectly test that deserialization does interning by verifying that the deserialized
     // instance is the same as the serialized one.

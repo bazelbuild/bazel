@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2016 The Bazel Authors. All rights reserved.
 #
@@ -43,25 +43,17 @@ fi
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-case "$(uname -s | tr [:upper:] [:lower:])" in
-msys*|mingw*|cygwin*)
-  declare -r is_windows=true
-  ;;
-*)
-  declare -r is_windows=false
-  ;;
-esac
-
-if "$is_windows"; then
-  export MSYS_NO_PATHCONV=1
-  export MSYS2_ARG_CONV_EXCL="*"
-fi
+function set_up() {
+  add_rules_java MODULE.bazel
+  add_rules_cc MODULE.bazel
+  add_rules_shell MODULE.bazel
+}
 
 function test_output_filter_cc() {
   # "test warning filter for C compilation"
   local -r pkg=$FUNCNAME
 
-  if $is_windows; then
+  if is_windows; then
     local -r copts=\"/W3\"
   else
     local -r copts=""
@@ -69,11 +61,11 @@ function test_output_filter_cc() {
 
   mkdir -p $pkg/cc/main
   cat > $pkg/cc/main/BUILD <<EOF
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 cc_library(
     name = "cc",
     srcs = ["main.c"],
-    copts = [$copts],
-    nocopts = "-Werror",
+    copts = [$copts "-Wno-error"],
 )
 EOF
 
@@ -85,21 +77,21 @@ int main(void)
 #ifdef _WIN32
   // MSVC does not support the #warning directive.
   int unused_variable__triggers_a_warning;  // triggers C4101
-#else  // not COMPILER_MSVC
+#else  // not _WIN32
   // GCC/Clang support #warning.
 #warning("triggers_a_warning")
-#endif  // COMPILER_MSVC
+#endif  // _WIN32
   printf("%s", "Hello, World!\n");
   return 0;
 }
 EOF
 
-  bazel build --output_filter="dummy" --noincompatible_disable_nocopts \
+  bazel build --output_filter="dummy" \
       $pkg/cc/main:cc >&"$TEST_log" || fail "build failed"
   expect_not_log "triggers_a_warning"
 
   echo "/* adding a comment forces recompilation */" >> $pkg/cc/main/main.c
-  bazel build --noincompatible_disable_nocopts $pkg/cc/main:cc >&"$TEST_log" \
+  bazel build $pkg/cc/main:cc >&"$TEST_log" \
       || fail "build failed"
   expect_log "triggers_a_warning"
 }
@@ -110,6 +102,7 @@ function test_output_filter_java() {
 
   mkdir -p $pkg/java/main
   cat >$pkg/java/main/BUILD <<EOF
+load("@rules_java//java:java_binary.bzl", "java_binary")
 java_binary(name = 'main',
     deps = ['//$pkg/java/hello_library'],
     srcs = ['Main.java'],
@@ -130,6 +123,7 @@ EOF
 
   mkdir -p $pkg/java/hello_library
   cat >$pkg/java/hello_library/BUILD <<EOF
+load("@rules_java//java:java_library.bzl", "java_library")
 package(default_visibility=['//visibility:public'])
 java_library(name = 'hello_library',
              srcs = ['HelloLibrary.java'],
@@ -172,6 +166,7 @@ function test_test_output_printed() {
 
   mkdir -p $pkg/foo/bar
   cat >$pkg/foo/bar/BUILD <<EOF
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(name='test',
         srcs=['test.sh'])
 EOF
@@ -188,87 +183,11 @@ EOF
   expect_log "PASS.*: //$pkg/foo/bar:test"
 }
 
-function test_output_filter_build() {
-  # "test output filter for BUILD files"
-  local -r pkg=$FUNCNAME
-
-  mkdir -p $pkg/foo/bar
-  cat >$pkg/foo/bar/BUILD <<EOF
-# Trigger sh_binary in deps of sh_binary warning.
-sh_binary(name='red',
-          srcs=['tomato.skin'])
-sh_binary(name='tomato',
-          srcs=['tomato.pulp'],
-          deps=[':red'])
-EOF
-
-  touch $pkg/foo/bar/tomato.{skin,pulp}
-  chmod +x $pkg/foo/bar/tomato.{skin,pulp}
-
-  # check that we do get a deprecation warning
-  bazel build //$pkg/foo/bar:tomato >&"$TEST_log" || fail "build failed"
-  expect_log "is unexpected here"
-
-  # check that we do get a deprecation warning if we select the target
-
-  echo "# add comment to trigger rebuild" >> $pkg/foo/bar/tomato.skin
-  echo "# add comment to trigger rebuild" >> $pkg/foo/bar/tomato.pulp
-  bazel build --output_filter=$pkg/foo/bar:tomato //$pkg/foo/bar:tomato >&"$TEST_log" \
-    || fail "build failed"
-  expect_log "is unexpected here"
-
-  # check that we do not get a deprecation warning if we select another target
-  echo "# add another comment" >> $pkg/foo/bar/tomato.skin
-  echo "# add another comment" >> $pkg/foo/bar/tomato.pulp
-  bazel build --output_filter=$pkg/foo/bar/:red //$pkg/foo/bar:tomato >&"$TEST_log" \
-    || fail "build failed"
-  expect_not_log "is unexpected here"
-}
-
-function test_output_filter_build_hostattribute() {
-  # "test that output filter also applies to host attributes"
-  local -r pkg=$FUNCNAME
-
-  # What do you get in bars?
-  mkdir -p $pkg/bar
-
-  cat >$pkg/bar/BUILD <<EOF
-# Trigger sh_binary in deps of sh_binary warning.
-sh_binary(name='red',
-          srcs=['tomato.skin'])
-sh_binary(name='tomato',
-          srcs=['tomato.pulp'],
-          deps=[':red'])
-
-# Booze, obviously.
-genrule(name='bloody_mary',
-        srcs=['vodka'],
-        outs=['fun'],
-        tools=[':tomato'],
-        cmd='cp \$< \$@')
-EOF
-
-  touch $pkg/bar/tomato.{skin,pulp}
-  chmod +x $pkg/bar/tomato.{skin,pulp}
-  echo Moskowskaya > $pkg/bar/vodka
-
-  # Check that we do get a deprecation warning
-  bazel build //$pkg/bar:bloody_mary >&"$TEST_log" || fail "build failed"
-  expect_log "is unexpected here"
-
-  # Check that the warning is disabled if we do not want to see it
-  echo "# add comment to trigger rebuild" >> $pkg/bar/tomato.skin
-  echo "# add comment to trigger rebuild" >> $pkg/bar/tomato.pulp
-
-  bazel build //$pkg/bar:bloody_mary --output_filter='nothing' >&"$TEST_log" \
-    || fail "build failed"
-  expect_not_log "is unexpected here"
-}
-
 function test_output_filter_does_not_apply_to_test_output() {
   local -r pkg=$FUNCNAME
   mkdir -p $pkg/geflugel
   cat >$pkg/geflugel/BUILD <<EOF
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(name='mockingbird', srcs=['mockingbird.sh'])
 sh_test(name='hummingbird', srcs=['hummingbird.sh'])
 EOF
@@ -300,10 +219,12 @@ function test_filters_deprecated_targets() {
 
   mkdir -p $pkg/{relativity,ether}
   cat > $pkg/relativity/BUILD <<EOF
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 cc_binary(name = 'relativity', srcs = ['relativity.cc'], deps = ['//$pkg/ether'])
 EOF
 
   cat > $pkg/ether/BUILD <<EOF
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 cc_library(name = 'ether', srcs = ['ether.cc'], deprecation = 'Disproven',
            visibility = ['//visibility:public'])
 EOF
@@ -336,11 +257,17 @@ EOF
   local status_cmd="$TEST_TMPDIR/status_cmd.sh"
 
   cat >"$status_cmd" <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 
 echo 'STATUS_COMMAND_RAN' >&2
 EOF
   chmod +x "$status_cmd" || fail "Failed to mark $status_cmd executable"
+
+  bazel build --workspace_status_command="$status_cmd" \
+      --auto_output_filter=none \
+      "//$pkg:foo" >&"$TEST_log" \
+      || fail "Expected success"
+  expect_log STATUS_COMMAND_RAN
 
   bazel build --workspace_status_command="$status_cmd" \
       --auto_output_filter=packages \

@@ -30,7 +30,7 @@ public final class CheckUpToDateFilter implements Predicate<Action> {
    * --check_tests_up_to_date options. Returns a singleton if possible.
    */
   public static Predicate<Action> fromOptions(ExecutionOptions options) {
-    if (!options.testCheckUpToDate && !options.checkUpToDate) {
+    if (!options.getTestCheckUpToDate() && !options.getCheckUpToDate()) {
       return Predicates.alwaysTrue();
     }
     return new CheckUpToDateFilter(options);
@@ -46,12 +46,12 @@ public final class CheckUpToDateFilter implements Predicate<Action> {
   private CheckUpToDateFilter(ExecutionOptions options) {
     // If we want to check whether test is up-to-date, we should disallow
     // test execution.
-    this.allowTestActionExecution = !options.testCheckUpToDate;
+    this.allowTestActionExecution = !options.getTestCheckUpToDate();
 
     // Build action execution should be prohibited in two cases - if we are
     // checking whether build is up-to-date or if we are checking that tests
     // are up-to-date (and test execution is not allowed).
-    this.allowBuildActionExecution = allowTestActionExecution && !options.checkUpToDate;
+    this.allowBuildActionExecution = allowTestActionExecution && !options.getCheckUpToDate();
   }
 
   /**
@@ -59,11 +59,7 @@ public final class CheckUpToDateFilter implements Predicate<Action> {
    */
   @Override
   public boolean apply(Action action) {
-    if (action instanceof AlwaysOutOfDateAction) {
-      // Always allow fileset manifest action to execute because it identifies files included
-      // in the fileset during execution time.
-      return true;
-    } else if (action instanceof TestRunnerAction) {
+    if (action instanceof TestRunnerAction) {
       return allowTestActionExecution;
     } else {
       return allowBuildActionExecution;

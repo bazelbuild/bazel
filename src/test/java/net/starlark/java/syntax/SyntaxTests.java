@@ -27,7 +27,11 @@ import org.junit.runners.Suite;
   NodeVisitorTest.class,
   ParserInputTest.class,
   ParserTest.class,
+  ProgramTest.class,
   ResolverTest.class,
   StarlarkFileTest.class,
+  TypeCheckerTest.class,
+  TypeTaggerTest.class,
+  TypesTest.class,
 })
 public class SyntaxTests {}

@@ -1,6 +1,9 @@
 load("@rules_java//java:defs.bzl", "java_library")
 
-package(default_visibility = ["//src:__subpackages__"])
+package(
+    default_applicable_licenses = ["//:license"],
+    default_visibility = ["//src:__subpackages__"],
+)
 
 filegroup(
     name = "srcs",
@@ -13,34 +16,71 @@ filegroup(
 java_library(
     name = "nestedset",
     srcs = [
+        "DeferredNestedSetCodec.java",
         "Depset.java",
+        "NestedArrayCodec.java",
         "NestedSet.java",
         "NestedSetBuilder.java",
         "NestedSetCodecWithStore.java",
-        "NestedSetExpander.java",
+        "NestedSetInterner.java",
+        "NestedSetSerializationCache.java",
         "NestedSetStore.java",
         "NestedSetVisitor.java",
         "Order.java",
     ],
     deps = [
+        ":is_artifact_for_nested_set",
+        ":nested_sets_should_be_interned_by_equality",
         "//src/main/java/com/google/devtools/build/docgen/annot",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
+        "//src/main/java/com/google/devtools/build/lib/collect:concurrent_identity_set",
         "//src/main/java/com/google/devtools/build/lib/collect/compacthashset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:constants",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:fingerprint_value_store",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:write_status",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:write_statuses",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
-        "//src/main/java/com/google/devtools/build/lib/util:exit_code",
         "//src/main/java/net/starlark/java/annot",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/protobuf:failure_details_java_proto",
-        "//third_party:auto_value",
+        "//third_party:caffeine",
         "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
-        "//third_party/protobuf:protobuf_java",
+        "@com_google_protobuf//:protobuf_java",
+    ],
+)
+
+java_library(
+    name = "is_artifact_for_nested_set",
+    srcs = ["IsArtifactForNestedSet.java"],
+)
+
+java_library(
+    name = "nested_sets_should_be_interned_by_equality",
+    srcs = ["NestedSetsShouldBeInternedByEquality.java"],
+)
+
+java_library(
+    name = "artifact_nested_set_key",
+    srcs = [
+        "ArtifactNestedSetKey.java",
+    ],
+    deps = [
+        ":nestedset",
+        "//src/main/java/com/google/devtools/build/lib/actions:action_input",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
+        "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//third_party:guava",
     ],
 )
 
@@ -51,7 +91,6 @@ java_library(
     deps = [
         ":nestedset",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
         "//third_party:guava",
         "//third_party:truth",
@@ -61,6 +100,7 @@ java_library(
 java_library(
     name = "fingerprint_cache",
     srcs = [
+        "DigestDeduper.java",
         "DigestMap.java",
         "NestedSetFingerprintCache.java",
     ],
@@ -70,5 +110,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )

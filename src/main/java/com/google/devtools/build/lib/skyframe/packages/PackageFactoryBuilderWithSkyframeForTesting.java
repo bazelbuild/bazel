@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 
 /**
  * A {@link PackageFactory.BuilderForTesting} that also allows specification of some skyframe
@@ -29,12 +30,14 @@ public abstract class PackageFactoryBuilderWithSkyframeForTesting
   protected ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions = ImmutableMap.of();
   protected ImmutableList<PrecomputedValue.Injected> extraPrecomputedValues = ImmutableList.of();
 
+  @CanIgnoreReturnValue
   public PackageFactoryBuilderWithSkyframeForTesting setExtraSkyFunctions(
       ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions) {
     this.extraSkyFunctions = extraSkyFunctions;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public PackageFactoryBuilderWithSkyframeForTesting setExtraPrecomputeValues(
       Iterable<PrecomputedValue.Injected> extraPrecomputedValues) {
     this.extraPrecomputedValues = ImmutableList.copyOf(extraPrecomputedValues);

@@ -52,24 +52,24 @@ class Inflater {
 
   void reset() { inflateReset(&zstream_); }
 
-  void DataToInflate(const uint8_t *in_buffer, uint32_t in_buffer_length) {
-    zstream_.next_in = const_cast<uint8_t *>(in_buffer);
+  void DataToInflate(const uint8_t* in_buffer, uint32_t in_buffer_length) {
+    zstream_.next_in = const_cast<uint8_t*>(in_buffer);
     zstream_.avail_in = in_buffer_length;
   }
 
-  int Inflate(uint8_t *out_buffer, uint32_t out_buffer_length) {
+  int Inflate(uint8_t* out_buffer, uint32_t out_buffer_length) {
     zstream_.next_out = out_buffer;
     zstream_.avail_out = out_buffer_length;
     return inflate(&zstream_, Z_SYNC_FLUSH);
   }
 
-  const uint8_t *next_in() const { return zstream_.next_in; }
+  const uint8_t* next_in() const { return zstream_.next_in; }
   uint64_t total_in() const { return zstream_.total_in; }
 
   uint32_t available_out() const { return zstream_.avail_out; }
   uint64_t total_out() const { return zstream_.total_out; }
 
-  const char *error_message() const { return zstream_.msg; }
+  const char* error_message() const { return zstream_.msg; }
 
  private:
   z_stream zstream_;
@@ -96,8 +96,8 @@ struct Deflater : z_stream {
 
   ~Deflater() { deflateEnd(this); }
 
-  int Deflate(const uint8_t *data, uint32_t data_size, int flag) {
-    next_in = const_cast<uint8_t *>(data);
+  int Deflate(const uint8_t* data, uint32_t data_size, int flag) {
+    next_in = const_cast<uint8_t*>(data);
     avail_in = data_size;
     return deflate(this, flag);
   }

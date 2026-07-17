@@ -33,7 +33,6 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.Nullable;
-import javax.inject.Inject;
 import org.junit.runner.Description;
 import org.junit.runner.manipulation.Filter;
 
@@ -182,6 +181,23 @@ public class TestSuiteModel {
       } else {
         test.testFailure(throwable, now());
       }
+    } else {
+      // this is a test case dynamically added by the suite runner (such as mockito)
+      TestSuiteNode testSuite =
+          (TestSuiteNode)
+              rootNode.getChildren().stream()
+                  .filter(node -> node instanceof TestSuiteNode)
+                  .filter(
+                      node ->
+                          node.getDescription().getTestClass().equals(description.getTestClass()))
+                  .findAny()
+                  .orElseThrow(() -> new IllegalStateException("expected to find test suite node"));
+      TestCaseNode testCase = new TestCaseNode(description, testSuite);
+      testsMap.put(description, testCase);
+      testCaseMap.put(description, testCase);
+      testSuite.addTestCase(testCase);
+      // since this is the first time we're learning of this, the timing data will be incorrect :(
+      testCase.testFailure(throwable, now());
     }
   }
 
@@ -285,7 +301,6 @@ public class TestSuiteModel {
     private Filter shardingFilter = Filter.ALL;
     private boolean buildWasCalled = false;
 
-    @Inject
     public Builder(
         TestClock testClock,
         ShardingFilters shardingFilters,

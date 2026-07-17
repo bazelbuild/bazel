@@ -13,13 +13,19 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
+import static com.google.common.collect.ImmutableListMultimap.toImmutableListMultimap;
+
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
+import com.google.devtools.build.lib.events.EventHandler;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.eval.StarlarkValue;
 
 /**
  * A placeholder action that, at execution time, expands into a list of {@link Action}s to be
@@ -28,13 +34,13 @@ import javax.annotation.Nullable;
  * <p>ActionTemplate is for users who want to dynamically register Actions operating on individual
  * {@link TreeFileArtifact} inside input and output TreeArtifacts at execution time.
  *
- * <p>It takes in one TreeArtifact and generates one or more output TreeArtifacts. The following
- * happens at execution time for ActionTemplate:
+ * <p>It takes in one or more input TreeArtifacts and generates one or more output TreeArtifacts.
+ * The following happens at execution time for ActionTemplate:
  *
  * <ol>
- *   <li>Input TreeArtifact is resolved.
- *   <li>Given the set of {@link TreeFileArtifact}s inside input TreeArtifact, generate actions with
- *       outputs inside output TreeArtifact(s).
+ *   <li>Input TreeArtifact(s) are resolved.
+ *   <li>Given the set of {@link TreeFileArtifact}s inside each input TreeArtifact, generate actions
+ *       with outputs inside output TreeArtifact(s).
  *   <li>All expanded {@link Action}s are executed and their output {@link TreeFileArtifact}s
  *       collected.
  *   <li>Output TreeArtifact(s) are resolved.
@@ -54,61 +60,50 @@ import javax.annotation.Nullable;
  *       not have artifact or artifact path prefix conflicts.
  * </ol>
  */
-public interface ActionTemplate<T extends Action> extends ActionAnalysisMetadata {
-
-  /** An exception signalling that the template expansion failed during execution phase */
-  class ActionTemplateExpansionException extends Exception {
-
-    public ActionTemplateExpansionException(String cause) {
-      super(cause);
-    }
-
-    public ActionTemplateExpansionException(Throwable cause) {
-      super(cause);
-    }
-  }
-
+public interface ActionTemplate<T extends Action> extends ActionAnalysisMetadata, StarlarkValue {
   /**
-   * Given a set of input TreeFileArtifacts resolved at execution time, returns a list of expanded
+   * Given a list of input TreeFileArtifacts resolved at execution time, returns a list of expanded
    * actions to be executed.
    *
    * <p>Each of the expanded actions' outputs must be a {@link TreeFileArtifact} owned by {@code
    * artifactOwner} with a parent in {@link #getOutputs}. This is generally satisfied by calling
    * {@link TreeFileArtifact#createTemplateExpansionOutput}.
    *
-   * @param inputTreeFileArtifacts the set of {@link TreeFileArtifact}s inside {@link
-   *     #getInputTreeArtifact}
+   * @param inputTreeFileArtifacts a list of {@link TreeFileArtifact}s from the input
+   *     TreeArtifact(s). Use {@link TreeFileArtifact#getParent()} to identify which input {@link
+   *     TreeArtifact} the tree file artifact is from.
    * @param artifactOwner the {@link ArtifactOwner} of the generated output {@link
    *     TreeFileArtifact}s
+   * @param eventHandler the {@link EventHandler} to report events to.
    * @return a list of expanded {@link Action}s to execute
    */
   ImmutableList<T> generateActionsForInputArtifacts(
-      ImmutableSet<TreeFileArtifact> inputTreeFileArtifacts, ActionLookupKey artifactOwner)
-      throws ActionTemplateExpansionException;
+      ImmutableList<TreeFileArtifact> inputTreeFileArtifacts,
+      ActionLookupKey artifactOwner,
+      EventHandler eventHandler)
+      throws ActionConflictException, ActionExecutionException, InterruptedException;
 
-  /** Returns the input TreeArtifact. */
-  SpecialArtifact getInputTreeArtifact();
+  /** Returns the input TreeArtifacts. */
+  ImmutableList<SpecialArtifact> getInputTreeArtifacts();
 
-  /** Returns the output TreeArtifact. */
-  SpecialArtifact getOutputTreeArtifact();
+  /**
+   * Helper method to partition/denormalize the flattened list of input {@link TreeFileArtifact}s
+   * into a list multimap of input {@link SpecialArtifact} -> children {@link TreeFileArtifact}s.
+   */
+  public static ImmutableListMultimap<SpecialArtifact, TreeFileArtifact>
+      getInputTreeArtifactsToChildren(ImmutableList<TreeFileArtifact> inputTreeArtifacts) {
+    return inputTreeArtifacts.stream()
+        .collect(toImmutableListMultimap(TreeFileArtifact::getParent, x -> x));
+  }
 
   @Override
   default SpecialArtifact getPrimaryInput() {
-    return getInputTreeArtifact();
-  }
-
-  /**
-   * By default, returns just {@link #getOutputTreeArtifact}, but may be overridden with additional
-   * tree artifacts.
-   */
-  @Override
-  default ImmutableSet<Artifact> getOutputs() {
-    return ImmutableSet.of(getOutputTreeArtifact());
+    return getInputTreeArtifacts().get(0);
   }
 
   @Override
-  default SpecialArtifact getPrimaryOutput() {
-    return getOutputTreeArtifact();
+  default Artifact getPrimaryOutput() {
+    return getOutputs().iterator().next();
   }
 
   @Override
@@ -120,5 +115,15 @@ public interface ActionTemplate<T extends Action> extends ActionAnalysisMetadata
   @Nullable
   default PlatformInfo getExecutionPlatform() {
     return null;
+  }
+
+  @Override
+  default void repr(Printer printer, StarlarkSemantics semantics) {
+    printer.append(prettyPrint());
+  }
+
+  @Override
+  default boolean isImmutable() {
+    return true;
   }
 }

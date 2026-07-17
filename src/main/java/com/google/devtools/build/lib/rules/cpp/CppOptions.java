@@ -13,45 +13,56 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.cpp;
 
+import static com.google.common.base.Preconditions.checkState;
+import static java.util.stream.Collectors.joining;
+
 import com.google.common.base.Splitter;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.EmptyToNullLabelConverter;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelConverter;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
-import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.DynamicMode;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.StripMode;
-import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
+import com.google.devtools.common.options.OptionsClass;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.List;
 import javax.annotation.Nullable;
 
 /** Command-line options for C++. */
-public class CppOptions extends FragmentOptions {
+@OptionsClass
+public abstract class CppOptions extends FragmentOptions {
   /** Converts a comma-separated list of compilation mode settings to a properly typed List. */
-  public static class FissionOptionConverter implements Converter<List<CompilationMode>> {
+  public static class FissionOptionConverter extends Converter.Contextless<List<CompilationMode>> {
+    private static final CompilationMode.Converter modeConverter = new CompilationMode.Converter();
+
+    public FissionOptionConverter() {
+      for (CompilationMode mode : CompilationMode.values()) {
+        String modeString = modeConverter.reverseForStarlark(mode);
+        // Check that 'yes' and 'no' are round-trippable.
+        checkState(
+            !modeString.equals("yes") && !modeString.equals("no"),
+            "The special values 'yes' and 'no' must not occur in the underlying %s enum",
+            CompilationMode.class);
+      }
+    }
+
     @Override
     public List<CompilationMode> convert(String input) throws OptionsParsingException {
       ImmutableSet.Builder<CompilationMode> modes = ImmutableSet.builder();
       if (input.equals("yes")) { // Special case: enable all modes.
         modes.add(CompilationMode.values());
       } else if (!input.equals("no")) { // "no" is another special case that disables all modes.
-        CompilationMode.Converter modeConverter = new CompilationMode.Converter();
         for (String mode : Splitter.on(',').split(input)) {
-          modes.add(modeConverter.convert(mode));
+          modes.add(modeConverter.convert(mode, /* conversionContext= */ null));
         }
       }
       return modes.build().asList();
@@ -60,6 +71,27 @@ public class CppOptions extends FragmentOptions {
     @Override
     public String getTypeDescription() {
       return "a set of compilation modes";
+    }
+
+    @Override
+    public boolean starlarkConvertible() {
+      return true;
+    }
+
+    @Override
+    public String reverseForStarlark(Object converted) {
+      @SuppressWarnings("unchecked") // option and converter must match
+      List<CompilationMode> list = (List<CompilationMode>) converted;
+      // Canonicalize an empty list of modes as --fission=no, and a full list as --fission=yes. The
+      // choice of canonicalization is arbitrary, but 'yes'/'no' are readable and very widely used
+      // in practice.
+      if (list.isEmpty()) {
+        return "no";
+      } else if (ImmutableSet.copyOf(list).size() == CompilationMode.values().length) {
+        return "yes";
+      } else {
+        return list.stream().map(CompilationMode::toString).collect(joining(","));
+      }
     }
   }
 
@@ -77,18 +109,16 @@ public class CppOptions extends FragmentOptions {
     }
   }
 
-  private static final String LIBC_RELATIVE_LABEL = ":everything";
-
   /**
    * Converts a String, which is a package label into a label that can be used for a LibcTop object.
    */
   public static class LibcTopLabelConverter implements Converter<Label> {
+    private static final LabelConverter LABEL_CONVERTER = new LabelConverter();
+
+    @Nullable
     @Override
-    public Label convert(String input) throws OptionsParsingException {
-      if (input.equals(TARGET_LIBC_TOP_NOT_YET_SET)) {
-        return Label.createUnvalidated(
-            PackageIdentifier.EMPTY_PACKAGE_ID, TARGET_LIBC_TOP_NOT_YET_SET);
-      } else if (input.equals("default")) {
+    public Label convert(String input, Object conversionContext) throws OptionsParsingException {
+      if (input.equals("default")) {
         // This is needed for defining config_setting() values, the syntactic form
         // of which must be a String, to match absence of a --grte_top option.
         // "--grte_top=default" works on the command-line too,
@@ -97,12 +127,8 @@ public class CppOptions extends FragmentOptions {
       } else if (!input.startsWith("//")) {
         throw new OptionsParsingException("Not a label");
       }
-      try {
-        return Label.parseAbsolute(input, ImmutableMap.of())
-            .getRelativeWithRemapping(LIBC_RELATIVE_LABEL, ImmutableMap.of());
-      } catch (LabelSyntaxException e) {
-        throw new OptionsParsingException(e.getMessage());
-      }
+      return Label.createUnvalidated(
+          LABEL_CONVERTER.convert(input, conversionContext).getPackageIdentifier(), "everything");
     }
 
     @Override
@@ -111,18 +137,20 @@ public class CppOptions extends FragmentOptions {
     }
   }
 
+  // @Deprecated
+  // TODO(https://github.com/bazelbuild/bazel/pull/26854): figure out how to deprecate
+  // this without warning spam because of a globally set bazelrc.
   @Option(
       name = "crosstool_top",
       defaultValue = "@bazel_tools//tools/cpp:toolchain",
       converter = LabelConverter.class,
-      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {
-        OptionEffectTag.LOADING_AND_ANALYSIS,
-        OptionEffectTag.CHANGES_INPUTS,
-        OptionEffectTag.AFFECTS_OUTPUTS
+        OptionEffectTag.NO_OP,
       },
-      help = "The label of the crosstool package to be used for compiling C++ code.")
-  public Label crosstoolTop;
+      metadataTags = {OptionMetadataTag.HIDDEN},
+      help = "No-op flag. Will be removed in a future release.")
+  public abstract Label getCrosstoolTop();
 
   @Option(
       name = "compiler",
@@ -130,28 +158,19 @@ public class CppOptions extends FragmentOptions {
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.EXECUTION},
       help = "The C++ compiler to use for compiling the target.")
-  public String cppCompiler;
-
-  @Option(
-      name = "host_compiler",
-      defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.EXECUTION},
-      help =
-          "The C++ compiler to use for host compilation. It is ignored if --host_crosstool_top "
-              + "is not set.")
-  public String hostCppCompiler;
+  public abstract String getCppCompiler();
 
   // This is different from --platform_suffix in that that one is designed to facilitate the
   // migration to toolchains and this one is designed to eliminate the C++ toolchain identifier
   // from the output directory path.
+  // TODO(blaze-configurability-team): Deprecate this when legacy output directory scheme is gone.
   @Option(
       name = "cc_output_directory_tag",
       defaultValue = "",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help = "Specifies a suffix to be added to the configuration directory.")
-  public String outputDirectoryTag;
+  public abstract String getOutputDirectoryTag();
 
   @Option(
       name = "minimum_os_version",
@@ -160,7 +179,7 @@ public class CppOptions extends FragmentOptions {
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
       help = "The minimum OS version which your compilation targets.")
   @Nullable
-  public String minimumOsVersion;
+  public abstract String getMinimumOsVersion();
 
   // O intrepid reaper of unused options: Be warned that the [no]start_end_lib
   // option, however tempting to remove, has a use case. Look in our telemetry data.
@@ -175,7 +194,7 @@ public class CppOptions extends FragmentOptions {
       },
       metadataTags = {OptionMetadataTag.HIDDEN},
       help = "Use the --start-lib/--end-lib ld options if supported by the toolchain.")
-  public boolean useStartEndLib;
+  public abstract boolean getUseStartEndLib();
 
   @Option(
       name = "interface_shared_objects",
@@ -189,7 +208,7 @@ public class CppOptions extends FragmentOptions {
       help =
           "Use interface shared objects if supported by the toolchain. "
               + "All ELF toolchains currently support this setting.")
-  public boolean useInterfaceSharedObjects;
+  public abstract boolean getUseInterfaceSharedObjects();
 
   @Option(
       name = "fission",
@@ -205,7 +224,7 @@ public class CppOptions extends FragmentOptions {
           "Specifies which compilation modes use fission for C++ compilations and links.  May be"
               + " any combination of {'fastbuild', 'dbg', 'opt'} or the special values 'yes'  to"
               + " enable all modes and 'no' to disable all modes.")
-  public List<CompilationMode> fissionModes;
+  public abstract List<CompilationMode> getFissionModes();
 
   @Option(
       name = "build_test_dwp",
@@ -215,7 +234,7 @@ public class CppOptions extends FragmentOptions {
       help =
           "If enabled, when building C++ tests statically and with fission the .dwp file "
               + " for the test binary will be automatically built as well.")
-  public boolean buildTestDwp;
+  public abstract boolean getBuildTestDwp();
 
   @Option(
       name = "dynamic_mode",
@@ -228,24 +247,7 @@ public class CppOptions extends FragmentOptions {
               + "Bazel will choose whether to link dynamically.  'fully' means all libraries "
               + "will be linked dynamically. 'off' means that all libraries will be linked "
               + "in mostly static mode.")
-  public DynamicMode dynamicMode;
-
-  @Option(
-      name = "incompatible_avoid_conflict_dlls",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help =
-          "If enabled, all C++ dynamic linked libraries (DLLs) generated by cc_library on Windows "
-              + "will be renamed to name_{hash}.dll where hash is calculated based on "
-              + "the RepositoryName and the DLL's package path. This option is useful "
-              + "when you have one package which depends on severals cc_library with the same name "
-              + "(e.g //foo/bar1:utils and //foo/bar2:utils).")
-  public boolean renameDLL;
+  public abstract DynamicMode getDynamicMode();
 
   @Option(
       name = "force_pic",
@@ -256,7 +258,7 @@ public class CppOptions extends FragmentOptions {
           "If enabled, all C++ compilations produce position-independent code (\"-fPIC\"),"
               + " links prefer PIC pre-built libraries over non-PIC libraries, and links produce"
               + " position-independent executables (\"-pie\").")
-  public boolean forcePic;
+  public abstract boolean getForcePic();
 
   @Option(
       name = "process_headers_in_dependencies",
@@ -266,7 +268,7 @@ public class CppOptions extends FragmentOptions {
       help =
           "When building a target //a:a, process headers in all targets that //a:a depends "
               + "on (if header processing is enabled for the toolchain).")
-  public boolean processHeadersInDependencies;
+  public abstract boolean getProcessHeadersInDependencies();
 
   @Option(
       name = "copt",
@@ -275,7 +277,7 @@ public class CppOptions extends FragmentOptions {
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.AFFECTS_OUTPUTS},
       help = "Additional options to pass to gcc.")
-  public List<String> coptList;
+  public abstract List<String> getCoptList();
 
   @Option(
       name = "cxxopt",
@@ -284,7 +286,7 @@ public class CppOptions extends FragmentOptions {
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.AFFECTS_OUTPUTS},
       help = "Additional option to pass to gcc when compiling C++ source files.")
-  public List<String> cxxoptList;
+  public abstract List<String> getCxxoptList();
 
   @Option(
       name = "conlyopt",
@@ -293,7 +295,16 @@ public class CppOptions extends FragmentOptions {
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.AFFECTS_OUTPUTS},
       help = "Additional option to pass to gcc when compiling C source files.")
-  public List<String> conlyoptList;
+  public abstract List<String> getConlyoptList();
+
+  @Option(
+      name = "objccopt",
+      allowMultiple = true,
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
+      help = "Additional options to pass to gcc when compiling Objective-C/C++ source files.")
+  public abstract List<String> getObjcoptList();
 
   @Option(
       name = "linkopt",
@@ -302,7 +313,7 @@ public class CppOptions extends FragmentOptions {
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.AFFECTS_OUTPUTS},
       help = "Additional option to pass to gcc when linking.")
-  public List<String> linkoptList;
+  public abstract List<String> getLinkoptList();
 
   @Option(
       name = "ltoindexopt",
@@ -311,7 +322,7 @@ public class CppOptions extends FragmentOptions {
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.AFFECTS_OUTPUTS},
       help = "Additional option to pass to the LTO indexing step (under --features=thin_lto).")
-  public List<String> ltoindexoptList;
+  public abstract List<String> getLtoindexoptList();
 
   @Option(
       name = "ltobackendopt",
@@ -320,7 +331,7 @@ public class CppOptions extends FragmentOptions {
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.AFFECTS_OUTPUTS},
       help = "Additional option to pass to the LTO backend step (under --features=thin_lto).")
-  public List<String> ltobackendoptList;
+  public abstract List<String> getLtobackendoptList();
 
   @Option(
       name = "stripopt",
@@ -329,7 +340,7 @@ public class CppOptions extends FragmentOptions {
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.AFFECTS_OUTPUTS},
       help = "Additional options to pass to strip when generating a '<name>.stripped' binary.")
-  public List<String> stripoptList;
+  public abstract List<String> getStripoptList();
 
   @Option(
       name = "custom_malloc",
@@ -340,22 +351,25 @@ public class CppOptions extends FragmentOptions {
           "Specifies a custom malloc implementation. This setting overrides malloc "
               + "attributes in build rules.",
       converter = LabelConverter.class)
-  public Label customMalloc;
+  public abstract Label getCustomMalloc();
 
+  // @Deprecated
+  // TODO(https://github.com/bazelbuild/bazel/pull/26854): figure out how to deprecate
+  // this without warning spam because of a globally set bazelrc.
   @Option(
       name = "legacy_whole_archive",
       defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.AFFECTS_OUTPUTS},
-      metadataTags = {OptionMetadataTag.DEPRECATED},
+      metadataTags = {OptionMetadataTag.HIDDEN},
       help =
           "Deprecated, superseded by --incompatible_remove_legacy_whole_archive "
               + "(see https://github.com/bazelbuild/bazel/issues/7362 for details). "
               + "When on, use --whole-archive for cc_binary rules that have "
-              + "linkshared=1 and either linkstatic=1 or '-static' in linkopts. "
+              + "linkshared=True and either linkstatic=True or '-static' in linkopts. "
               + "This is for backwards compatibility only. "
               + "A better alternative is to use alwayslink=1 where required.")
-  public boolean legacyWholeArchive;
+  public abstract boolean getLegacyWholeArchive();
 
   @Option(
       name = "strip",
@@ -367,19 +381,18 @@ public class CppOptions extends FragmentOptions {
               + " (using \"-Wl,--strip-debug\").  The default value of 'sometimes'"
               + " means strip iff --compilation_mode=fastbuild.",
       converter = StripModeConverter.class)
-  public StripMode stripBinaries;
+  public abstract StripMode getStripBinaries();
 
   @Option(
       name = "fdo_instrument",
       defaultValue = "null",
-      implicitRequirements = {"--copt=-Wno-error"},
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =
           "Generate binaries with FDO instrumentation. With Clang/LLVM compiler, it also accepts"
               + " the directory name under which the raw profile file(s) will be dumped at"
               + " runtime.")
-  public String fdoInstrumentForBuild;
+  public abstract String getFdoInstrumentForBuild();
 
   @Option(
       name = "fdo_optimize",
@@ -388,33 +401,32 @@ public class CppOptions extends FragmentOptions {
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =
           "Use FDO profile information to optimize compilation. Specify the name "
-              + "of the zip file containing the .gcda file tree, or an afdo file containing "
-              + "an auto profile. This flag also accepts files specified as labels, for "
-              + "example //foo/bar:file.afdo. Such labels must refer to input files; you may "
-              + "need to add an exports_files directive to the corresponding package to make "
-              + "the file visible to Bazel. It also accepts a raw or an indexed LLVM profile file. "
-              + "This flag will be superseded by fdo_profile rule.")
-  public String fdoOptimizeForBuild;
+              + "of a zip file containing a .gcda file tree, an afdo file containing "
+              + "an auto profile, or an LLVM profile file. This flag also accepts files "
+              + "specified as labels (e.g. `//foo/bar:file.afdo` - you may need to add "
+              + "an `exports_files` directive to the corresponding package) and labels "
+              + "pointing to `fdo_profile` targets. This flag will be superseded by the "
+              + "`fdo_profile` rule.")
+  public abstract String getFdoOptimizeForBuild();
 
   /**
    * Returns the --fdo_optimize value if FDO is specified and active for this configuration, the
    * default value otherwise.
    */
   public String getFdoOptimize() {
-    return fdoOptimizeForBuild;
+    return getFdoOptimizeForBuild();
   }
 
   @Option(
       name = "cs_fdo_instrument",
       defaultValue = "null",
-      implicitRequirements = {"--copt=-Wno-error"},
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =
           "Generate binaries with context sensitive FDO instrumentation. With Clang/LLVM compiler, "
               + "it also accepts the directory name under which the raw profile file(s) will be "
               + "dumped at runtime.")
-  public String csFdoInstrumentForBuild;
+  public abstract String getCsFdoInstrumentForBuild();
 
   @Option(
       name = "cs_fdo_absolute_path",
@@ -425,7 +437,7 @@ public class CppOptions extends FragmentOptions {
           "Use CSFDO profile information to optimize compilation. Specify the absolute path name "
               + "of the zip file containing the profile file, a raw or an indexed "
               + "LLVM profile file.")
-  public String csFdoAbsolutePathForBuild;
+  public abstract String getCsFdoAbsolutePathForBuild();
 
   @Option(
       name = "xbinary_fdo",
@@ -438,7 +450,7 @@ public class CppOptions extends FragmentOptions {
               + "of default cross binary profile. When the option is used together with "
               + "--fdo_instrument/--fdo_optimize/--fdo_profile, those options will always "
               + "prevail as if xbinary_fdo is never specified. ")
-  public Label xfdoProfileLabel;
+  public abstract Label getXfdoProfileLabel();
 
   @Option(
       name = "fdo_prefetch_hints",
@@ -448,22 +460,22 @@ public class CppOptions extends FragmentOptions {
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help = "Use cache prefetch hints.")
-  public Label fdoPrefetchHintsLabel;
+  public abstract Label getFdoPrefetchHintsLabel();
 
   /** Returns the --fdo_prefetch_hints value. */
-  public Label getFdoPrefetchHintsLabel() {
-    return fdoPrefetchHintsLabel;
+  public Label getFdoPrefetchHintsLabelValue() {
+    return getFdoPrefetchHintsLabel();
   }
 
   @Option(
       name = "fdo_profile",
       defaultValue = "null",
       category = "flags",
-      converter = LabelConverter.class,
+      converter = EmptyToNullLabelConverter.class,
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help = "The fdo_profile representing the profile to be used for optimization.")
-  public Label fdoProfileLabel;
+  public abstract Label getFdoProfileLabel();
 
   @Option(
       name = "cs_fdo_profile",
@@ -475,31 +487,41 @@ public class CppOptions extends FragmentOptions {
       help =
           "The cs_fdo_profile representing the context sensitive profile to be used for"
               + " optimization.")
-  public Label csFdoProfileLabel;
+  public abstract Label getCsFdoProfileLabel();
 
   @Option(
-      name = "enable_fdo_profile_absolute_path",
+      name = "enable_remaining_fdo_absolute_paths",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      help = "If set, use of fdo_absolute_profile_path will raise an error.")
-  public boolean enableFdoProfileAbsolutePath;
+      help = "If set, any use of absolute paths for FDO will raise an error.")
+  public abstract boolean getEnableFdoProfileAbsolutePath();
+
+  @Option(
+      name = "enable_propeller_optimize_absolute_paths",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help = "If set, any use of absolute paths for propeller optimize will raise an error.")
+  public abstract boolean getEnablePropellerOptimizeAbsolutePath();
 
   @Option(
       name = "propeller_optimize_absolute_cc_profile",
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      help = "Absolute path name of cc_profile file for Propeller Optimized builds.")
-  public String propellerOptimizeAbsoluteCCProfile;
+      help = "Absolute path name of cc_profile file for Propeller Optimized builds.",
+      deprecationWarning = "Deprecated. Use --propeller_optimize instead.")
+  public abstract String getPropellerOptimizeAbsoluteCCProfile();
 
   @Option(
       name = "propeller_optimize_absolute_ld_profile",
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      help = "Absolute path name of ld_profile file for Propeller Optimized builds.")
-  public String propellerOptimizeAbsoluteLdProfile;
+      help = "Absolute path name of ld_profile file for Propeller Optimized builds.",
+      deprecationWarning = "Deprecated. Use --propeller_optimize instead.")
+  public abstract String getPropellerOptimizeAbsoluteLdProfile();
 
   @Option(
       name = "propeller_optimize",
@@ -508,12 +530,59 @@ public class CppOptions extends FragmentOptions {
       category = "flags",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.AFFECTS_OUTPUTS},
-      help = "The layout file for propeller code layout optimizations.")
-  public Label propellerOptimizeLabel;
+      help =
+          "Use Propeller profile information to optimize the build target."
+              + "A propeller profile must consist of at least one of two files, a cc profile "
+              + "and a ld profile.  This flag accepts a build label which must refer to "
+              + "the propeller profile input files. For example, the BUILD file that "
+              + "defines the label, in a/b/BUILD:"
+              + "propeller_optimize("
+              + "    name = \"propeller_profile\","
+              + "    cc_profile = \"propeller_cc_profile.txt\","
+              + "    ld_profile = \"propeller_ld_profile.txt\","
+              + ")"
+              + "An exports_files directive may have to be added to the corresponding package "
+              + "to make these files visible to Bazel. The option must be used as: "
+              + "--propeller_optimize=//a/b:propeller_profile")
+  public abstract Label getPropellerOptimizeLabel();
 
-  public Label getPropellerOptimizeLabel() {
-    return propellerOptimizeLabel;
+  public Label getPropellerOptimizeLabelValue() {
+    return getPropellerOptimizeLabel();
   }
+
+  @Option(
+      name = "memprof_profile",
+      defaultValue = "null",
+      converter = LabelConverter.class,
+      category = "flags",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help = "Use memprof profile.")
+  public abstract Label getMemProfProfileLabel();
+
+  /** Returns the --memprof_profile value. */
+  public Label getMemProfProfileLabelValue() {
+    return getMemProfProfileLabel();
+  }
+
+  @Option(
+      name = "proto_profile",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
+      defaultValue = "true",
+      help = "Whether to pass profile_path to the proto compiler.")
+  public abstract boolean getProtoProfile();
+
+  @Option(
+      name = "proto_profile_path",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
+      defaultValue = "null",
+      converter = LabelConverter.class,
+      help =
+          "The profile to pass to the proto compiler as profile_path. If unset, but "
+              + " --proto_profile is true (the default), infers the path from --fdo_optimize.")
+  public abstract Label getProtoProfilePath();
 
   @Option(
       name = "save_temps",
@@ -524,7 +593,7 @@ public class CppOptions extends FragmentOptions {
           "If set, temporary outputs from gcc will be saved.  "
               + "These include .s files (assembler code), .i files (preprocessed C) and "
               + ".ii files (preprocessed C++).")
-  public boolean saveTemps;
+  public abstract boolean getSaveTemps();
 
   @Option(
       name = "per_file_copt",
@@ -545,7 +614,7 @@ public class CppOptions extends FragmentOptions {
               + "--per_file_copt=//foo/.*\\.cc,-//foo/bar\\.cc@-O0 adds the -O0 "
               + "command line option to the gcc command line of all cc files in //foo/ "
               + "except bar.cc.")
-  public List<PerLabelOptions> perFileCopts;
+  public abstract List<PerLabelOptions> getPerFileCopts();
 
   @Option(
       name = "per_file_ltobackendopt",
@@ -565,34 +634,7 @@ public class CppOptions extends FragmentOptions {
               + "--per_file_ltobackendopt=//foo/.*\\.o,-//foo/bar\\.o@-O0 adds the -O0 "
               + "command line option to the LTO backend command line of all o files in //foo/ "
               + "except bar.o.")
-  public List<PerLabelOptions> perFileLtoBackendOpts;
-
-  /**
-   * The value of "--crosstool_top" to use for building tools.
-   *
-   * <p>We want to make sure this stays bound to the top-level configuration when not explicitly set
-   * (as opposed to a configuration that comes out of a transition). Otherwise we risk using the
-   * wrong crosstool (i.e., trying to build tools with an Android-specific crosstool).
-   *
-   * <p>To accomplish this, we initialize this to null and, if it isn't explicitly set, use {@link
-   * #getNormalized} to rewrite it to {@link #crosstoolTop}. Blaze always evaluates top-level
-   * configurations first, so they'll trigger this. But no followup transitions can.
-   */
-  @Option(
-      name = "host_crosstool_top",
-      defaultValue = "null",
-      converter = LabelConverter.class,
-      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-      effectTags = {
-        OptionEffectTag.LOADING_AND_ANALYSIS,
-        OptionEffectTag.CHANGES_INPUTS,
-        OptionEffectTag.AFFECTS_OUTPUTS
-      },
-      help =
-          "By default, the --crosstool_top and --compiler options are also used "
-              + "for the host configuration. If this flag is provided, Bazel uses the default libc "
-              + "and compiler for the given crosstool_top.")
-  public Label hostCrosstoolTop;
+  public abstract List<PerLabelOptions> getPerFileLtoBackendOpts();
 
   @Option(
       name = "host_copt",
@@ -600,8 +642,10 @@ public class CppOptions extends FragmentOptions {
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.AFFECTS_OUTPUTS},
-      help = "Additional options to pass to gcc for host tools.")
-  public List<String> hostCoptList;
+      help =
+          "Additional options to pass to the C compiler for tools built in the exec"
+              + " configurations.")
+  public abstract List<String> getHostCoptList();
 
   @Option(
       name = "host_cxxopt",
@@ -609,8 +653,10 @@ public class CppOptions extends FragmentOptions {
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.AFFECTS_OUTPUTS},
-      help = "Additional options to pass to gcc for host tools.")
-  public List<String> hostCxxoptList;
+      help =
+          "Additional options to pass to C++ compiler for tools built in the exec"
+              + " configurations.")
+  public abstract List<String> getHostCxxoptList();
 
   @Option(
       name = "host_conlyopt",
@@ -618,8 +664,32 @@ public class CppOptions extends FragmentOptions {
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.AFFECTS_OUTPUTS},
-      help = "Additional option to pass to gcc when compiling C source files for host tools.")
-  public List<String> hostConlyoptList;
+      help =
+          "Additional option to pass to the C compiler when compiling C (but not C++) source files"
+              + " in the exec configurations.")
+  public abstract List<String> getHostConlyoptList();
+
+  @Option(
+      name = "host_per_file_copt",
+      allowMultiple = true,
+      converter = PerLabelOptions.PerLabelOptionsConverter.class,
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.AFFECTS_OUTPUTS},
+      help =
+          "Additional options to selectively pass to the C/C++ compiler when "
+              + "compiling certain files in the exec configurations. "
+              + "This option can be passed multiple times. "
+              + "Syntax: regex_filter@option_1,option_2,...,option_n. Where regex_filter stands "
+              + "for a list of include and exclude regular expression patterns (Also see "
+              + "--instrumentation_filter). option_1 to option_n stand for "
+              + "arbitrary command line options. If an option contains a comma it has to be "
+              + "quoted with a backslash. Options can contain @. Only the first @ is used to "
+              + "split the string. Example: "
+              + "--host_per_file_copt=//foo/.*\\.cc,-//foo/bar\\.cc@-O0 adds the -O0 "
+              + "command line option to the gcc command line of all cc files in //foo/ "
+              + "except bar.cc.")
+  public abstract List<PerLabelOptions> getHostPerFileCoptsList();
 
   @Option(
       name = "host_linkopt",
@@ -627,8 +697,9 @@ public class CppOptions extends FragmentOptions {
       allowMultiple = true,
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.AFFECTS_OUTPUTS},
-      help = "Additional option to pass to gcc when linking host tools.")
-  public List<String> hostLinkoptList;
+      help =
+          "Additional option to pass to linker when linking tools in the exec" + " configurations.")
+  public abstract List<String> getHostLinkoptList();
 
   @Option(
       name = "grte_top",
@@ -639,7 +710,7 @@ public class CppOptions extends FragmentOptions {
       help =
           "A label to a checked-in libc library. The default value is selected by the crosstool "
               + "toolchain, and you almost never need to override it.")
-  public Label libcTopLabel;
+  public abstract Label getLibcTopLabel();
 
   @Option(
       name = "host_grte_top",
@@ -649,50 +720,12 @@ public class CppOptions extends FragmentOptions {
       effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.AFFECTS_OUTPUTS},
       help =
           "If specified, this setting overrides the libc top-level directory (--grte_top) "
-              + "for the host configuration.")
-  public Label hostLibcTopLabel;
-
-  /** See {@link #targetLibcTopLabel} documentation. * */
-  private static final String TARGET_LIBC_TOP_NOT_YET_SET = "TARGET LIBC TOP NOT YET SET";
-
-  /**
-   * This is a fake option used to pass data from target configuration to the host configuration.
-   * It's a horrible hack that will be removed once toolchain-transitions are implemented.
-   *
-   * <p>We want to make sure this stays bound to the top-level configuration (as opposed to a
-   * configuration that comes out of a transition). Otherwise we risk multiple exec configurations
-   * writing to the same path and creating C++ action conflicts (C++ actions can not be shared
-   * across configurations: see {@link ActionAnalysisMetadata#isShareable}). {@link
-   * com.google.devtools.build.lib.rules.android.AndroidSplitTransition}, for example, changes
-   * {@link #libcTopLabel} to an Android-specific variant.
-   *
-   * <p>To accomplish this, we initialize this to a special value that means "I haven't been set
-   * yet" and use {@link #getNormalized} to rewrite it to {@link #libcTopLabel} <b>only</b> from
-   * that default. Blaze always evaluates top-level configurations first, so they'll trigger this.
-   * But no followup transitions can.
-   *
-   * <p>It's not sufficient to use null for the default. That wouldn't handle the case of the
-   * top-level {@link #libcTopLabel} being null and {@link
-   * com.google.devtools.build.lib.rules.android.AndroidConfiguration.Options#androidLibcTopLabel}
-   * being non-null.
-   */
-  // TODO(b/129045294): Remove once toolchain-transitions are implemented.
-  @Option(
-      name = "target libcTop label",
-      defaultValue = TARGET_LIBC_TOP_NOT_YET_SET,
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      converter = LibcTopLabelConverter.class,
-      effectTags = {
-        OptionEffectTag.LOSES_INCREMENTAL_STATE,
-        OptionEffectTag.AFFECTS_OUTPUTS,
-        OptionEffectTag.LOADING_AND_ANALYSIS
-      },
-      metadataTags = {OptionMetadataTag.INTERNAL})
-  public Label targetLibcTopLabel;
+              + "for the exec configuration.")
+  public abstract Label getHostLibcTopLabel();
 
   @Option(
       name = "experimental_inmemory_dotd_files",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
       effectTags = {
         OptionEffectTag.LOADING_AND_ANALYSIS,
@@ -703,17 +736,7 @@ public class CppOptions extends FragmentOptions {
       help =
           "If enabled, C++ .d files will be passed through in memory directly from the remote "
               + "build nodes instead of being written to disk.")
-  public boolean inmemoryDotdFiles;
-
-  @Option(
-      name = "experimental_parse_headers_skipped_if_corresponding_srcs_found",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
-      help =
-          "If enabled, the parse_headers feature does not create a separate header compile action "
-              + "if a source with the same basename is found in the same target.")
-  public boolean parseHeadersSkippedIfCorrespondingSrcsFound;
+  public abstract boolean getInmemoryDotdFiles();
 
   @Option(
       name = "experimental_omitfp",
@@ -724,7 +747,7 @@ public class CppOptions extends FragmentOptions {
       help =
           "If true, use libunwind for stack unwinding, and compile with "
               + "-fomit-frame-pointer and -fasynchronous-unwind-tables.")
-  public boolean experimentalOmitfp;
+  public abstract boolean getExperimentalOmitfp();
 
   @Option(
       name = "share_native_deps",
@@ -734,7 +757,7 @@ public class CppOptions extends FragmentOptions {
       help =
           "If true, native libraries that contain identical functionality "
               + "will be shared among different targets")
-  public boolean shareNativeDeps;
+  public abstract boolean getShareNativeDeps();
 
   @Option(
       name = "strict_system_includes",
@@ -744,7 +767,7 @@ public class CppOptions extends FragmentOptions {
       help =
           "If true, headers found through system include paths (-isystem) are also required to be "
               + "declared.")
-  public boolean strictSystemIncludes;
+  public abstract boolean getStrictSystemIncludes();
 
   @Option(
       name = "experimental_use_llvm_covmap",
@@ -759,143 +782,38 @@ public class CppOptions extends FragmentOptions {
       help =
           "If specified, Bazel will generate llvm-cov coverage map information rather than "
               + "gcov when collect_code_coverage is enabled.")
-  public boolean useLLVMCoverageMapFormat;
+  public abstract boolean getUseLLVMCoverageMapFormat();
 
   @Option(
       name = "incompatible_dont_enable_host_nonhost_crosstool_features",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help =
           "If true, Bazel will not enable 'host' and 'nonhost' features in the c++ toolchain "
               + "(see https://github.com/bazelbuild/bazel/issues/7407 for more information).")
-  public boolean dontEnableHostNonhost;
-
-  @Option(
-      name = "incompatible_make_thinlto_command_lines_standalone",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help =
-          "If true, Bazel will not reuse C++ link action command lines for lto indexing command "
-              + "lines (see https://github.com/bazelbuild/bazel/issues/6791 for more information).")
-  public boolean useStandaloneLtoIndexingCommandLines;
-
-  @Option(
-      name = "incompatible_require_ctx_in_configure_features",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help =
-          "If true, Bazel will require 'ctx' parameter in to cc_common.configure_features "
-              + "(see https://github.com/bazelbuild/bazel/issues/7793 for more information).")
-  public boolean requireCtxInConfigureFeatures;
-
-  @Option(
-      name = "incompatible_validate_top_level_header_inclusions",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help =
-          "If true, Bazel will also validate top level directory header inclusions "
-              + "(see https://github.com/bazelbuild/bazel/issues/10047 for more information).")
-  public boolean validateTopLevelHeaderInclusions;
+  public abstract boolean getDontEnableHostNonhost();
 
   @Option(
       name = "incompatible_remove_legacy_whole_archive",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help =
           "If true, Bazel will not link library dependencies as whole archive by default "
               + "(see https://github.com/bazelbuild/bazel/issues/7362 for migration instructions).")
-  public boolean removeLegacyWholeArchive;
-
-  @Option(
-      name = "incompatible_remove_cpu_and_compiler_attributes_from_cc_toolchain",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help =
-          "If true, Bazel will complain when cc_toolchain.cpu and cc_toolchain.compiler attributes "
-              + "are set "
-              + "(see https://github.com/bazelbuild/bazel/issues/7075 for migration instructions).")
-  public boolean removeCpuCompilerCcToolchainAttributes;
-
-  @Option(
-      name = "incompatible_disable_expand_if_all_available_in_flag_set",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help =
-          "If true, Bazel will not allow specifying expand_if_all_available in flag_sets"
-              + "(see https://github.com/bazelbuild/bazel/issues/7008 for migration instructions).")
-  public boolean disableExpandIfAllAvailableInFlagSet;
-
-  @Option(
-      name = "experimental_includes_attribute_subpackage_traversal",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.EXECUTION},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help =
-          "If a cc target has loose headers checking, disabled layering check and an "
-              + "includes attribute set, it is allowed to include anything under its folder, even "
-              + "across subpackage boundaries.")
-  public boolean experimentalIncludesAttributeSubpackageTraversal;
-
-  @Option(
-      name = "incompatible_disable_legacy_cc_provider",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help = "If true, the legacy provider accessible by 'dep.cc.' is removed. See #7036.")
-  // TODO(b/122328491): Document migration steps. See #7036.
-  public boolean disableLegacyCcProvider;
+  public abstract boolean getRemoveLegacyWholeArchive();
 
   @Option(
       name = "incompatible_enable_cc_toolchain_resolution",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help = "If true, cc rules use toolchain resolution to find the cc_toolchain.")
-  public boolean enableCcToolchainResolution;
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help = "No-op flag. Will be removed in a future release.")
+  public abstract boolean getEnableCcToolchainResolutionNoOp();
 
   @Option(
       name = "experimental_save_feature_state",
@@ -904,75 +822,18 @@ public class CppOptions extends FragmentOptions {
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help = "Save the state of enabled and requested feautres as an output of compilation.")
-  public boolean saveFeatureState;
-
-  @Option(
-      name = "incompatible_use_specific_tool_files",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help =
-          "Use cc toolchain's compiler_files, as_files, and ar_files as inputs to appropriate "
-              + "actions. See https://github.com/bazelbuild/bazel/issues/8531")
-  public boolean useSpecificToolFiles;
-
-  @Option(
-      name = "incompatible_disable_static_cc_toolchains",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help =
-          "@bazel_tools//tools/cpp:default-toolchain target was removed."
-              + "See https://github.com/bazelbuild/bazel/issues/8546.")
-  public boolean disableStaticCcToolchains;
+  public abstract boolean getSaveFeatureState();
 
   @Option(
       name = "incompatible_disable_nocopts",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES,
-      },
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help =
           "When enabled, it removes nocopts attribute from C++ rules. See"
               + " https://github.com/bazelbuild/bazel/issues/8706 for details.")
-  public boolean disableNoCopts;
-
-  @Option(
-      name = "incompatible_enable_cc_test_feature",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES,
-      },
-      help =
-          "When enabled, it switches Crosstool to use feature 'is_cc_test' rather than"
-              + " the link-time build variable of the same name.")
-  public boolean enableCcTestFeature;
-
-  @Option(
-      name = "incompatible_load_cc_rules_from_bzl",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help = "No-op flag. Will be removed in a future release.")
-  public boolean loadCcRulesFromBzl;
+  public abstract boolean getDisableNoCopts();
 
   @Option(
       name = "apple_generate_dsym",
@@ -980,72 +841,44 @@ public class CppOptions extends FragmentOptions {
       documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.ACTION_COMMAND_LINES},
       help = "Whether to generate debug symbol(.dSYM) file(s).")
-  public boolean appleGenerateDsym;
+  public abstract boolean getAppleGenerateDsym();
 
   @Option(
-      name = "apple_enable_auto_dsym_dbg",
+      name = "objc_generate_linkmap",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.ACTION_COMMAND_LINES},
-      help = "Whether to force enable generating debug symbol(.dSYM) file(s) for dbg builds.")
-  public boolean appleEnableAutoDsymDbg;
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help = "Specifies whether to generate a linkmap file.")
+  public abstract boolean getObjcGenerateLinkmap();
 
   @Option(
-      name = "experimental_starlark_cc_import",
+      name = "objc_enable_binary_stripping",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
-      effectTags = {
-        OptionEffectTag.LOADING_AND_ANALYSIS,
-      },
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help = "If enabled, the Starlark version of cc_import can be used.")
-  public boolean experimentalStarlarkCcImport;
-
-  @Option(
-      name = "incompatible_force_strict_header_check_from_starlark",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.CHANGES_INPUTS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help = "If enabled, set strict header checking in the Starlark API")
-  public boolean forceStrictHeaderCheckFromStarlark;
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
+      help =
+          "Whether to perform symbol and dead-code strippings on linked binaries. Binary "
+              + "strippings will be performed if both this flag and --compilation_mode=opt are "
+              + "specified.")
+  public abstract boolean getObjcEnableBinaryStripping();
 
   @Option(
       name = "experimental_generate_llvm_lcov",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help = "If true, coverage for clang will generate an LCOV report.")
-  public boolean generateLlvmLcov;
+  public abstract boolean getGenerateLlvmLcov();
 
   @Option(
       name = "incompatible_use_cpp_compile_header_mnemonic",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.EXECUTION},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help = "If enabled, give distinguishing mnemonic to header processing actions")
-  public boolean useCppCompileHeaderMnemonic;
-
-  @Option(
-      name = "incompatible_macos_set_install_name",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help =
-          "Whether to explicitly set `-install_name` when creating dynamic libraries. "
-              + "See https://github.com/bazelbuild/bazel/issues/12370")
-  public boolean macosSetInstallName;
+  public abstract boolean getUseCppCompileHeaderMnemonic();
 
   @Option(
       name = "experimental_use_cpp_compile_action_args_params_file",
@@ -1056,10 +889,10 @@ public class CppOptions extends FragmentOptions {
         OptionMetadataTag.EXPERIMENTAL,
       },
       help = "If enabled, write CppCompileAction exposed action.args to parameters file.")
-  public boolean useArgsParamsFile;
+  public abstract boolean getUseArgsParamsFile();
 
   @Option(
-      name = "experimental_objc_include_scanning",
+      name = "experimental_unsupported_and_brittle_include_scanning",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
       effectTags = {
@@ -1067,8 +900,50 @@ public class CppOptions extends FragmentOptions {
         OptionEffectTag.EXECUTION,
         OptionEffectTag.CHANGES_INPUTS
       },
-      help = "Whether to perform include scanning for objective C/C++.")
-  public boolean objcScanIncludes;
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "Whether to narrow inputs to C/C++ compilation by parsing #include lines from input"
+              + " files. This can improve performance and incrementality by decreasing the size of"
+              + " compilation input trees. However, it can also break builds because the include"
+              + " scanner does not fully implement C preprocessor semantics. In particular, it does"
+              + " not understand dynamic #include directives and ignores preprocessor conditional"
+              + " logic. Use at your own risk. Any issues relating to this flag that are filed will"
+              + " be closed."
+              + " At Google without this flag your build will most likely fail.")
+  public abstract boolean getIncludeScanning();
+
+  @Option(
+      name = "cc_include_scanning",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
+      effectTags = {
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.EXECUTION,
+        OptionEffectTag.CHANGES_INPUTS
+      },
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "Whether to narrow inputs to C/C++ compilation by parsing #include lines from input"
+              + " files. This can improve performance and incrementality by decreasing the size of"
+              + " compilation input trees. However, it can also break builds because the include"
+              + " scanner does not fully implement C preprocessor semantics. In particular, it does"
+              + " not understand dynamic #include directives and ignores preprocessor conditional"
+              + " logic. Use at your own risk. Any issues relating to this flag that are filed will"
+              + " be closed."
+              + " At Google without this flag your build will most likely fail.")
+  public abstract boolean getIncludeScanningInternal();
+
+  @Option(
+      name = "cc_dotd_files",
+      documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
+      effectTags = {
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.EXECUTION,
+        OptionEffectTag.CHANGES_INPUTS
+      },
+      defaultValue = "true",
+      help = "Whether to generate and analyze .d files.")
+  public abstract boolean getGenerateDotdFiles();
 
   @Option(
       name = "objc_use_dotd_pruning",
@@ -1078,114 +953,62 @@ public class CppOptions extends FragmentOptions {
       help =
           "If set, .d files emitted by clang will be used to prune the set of inputs passed into "
               + "objc compiles.")
-  public boolean objcGenerateDotdFiles;
+  public abstract boolean getObjcGenerateDotdFiles();
 
-  /** See {@link #targetLibcTopLabel} documentation. * */
-  @Override
-  public FragmentOptions getNormalized() {
-    CppOptions newOptions = (CppOptions) this.clone();
-    boolean changed = false;
-    if (targetLibcTopLabel != null
-        && targetLibcTopLabel.getName().equals(TARGET_LIBC_TOP_NOT_YET_SET)) {
-      newOptions.targetLibcTopLabel = libcTopLabel;
-      changed = true;
-    }
-    if (hostCrosstoolTop == null) {
-      // Default to the initial target crosstoolTop.
-      newOptions.hostCrosstoolTop = crosstoolTop;
-      // Reset this, also, to maintain the invariant that host_compiler is ignored if
-      // host_crosstool_top is unset.
-      newOptions.hostCppCompiler = cppCompiler;
-      changed = true;
-    }
-    if (changed) {
-      return newOptions;
-    }
-    return this;
-  }
+  @Option(
+      name = "experimental_cc_implementation_deps",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+      },
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help = "If enabled, cc_library targets can use attribute `implementation_deps`.")
+  public abstract boolean getExperimentalCcImplementationDeps();
 
-  @Override
-  public FragmentOptions getHost() {
-    CppOptions host = (CppOptions) getDefault();
+  @Option(
+      name = "experimental_cpp_modules",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.EXECUTION,
+        OptionEffectTag.CHANGES_INPUTS
+      },
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "Enables experimental C++20 modules support. Use it with `module_interfaces` attribute on"
+              + " `cc_binary` and `cc_library`. While the support is behind the experimental flag,"
+              + " there are no guarantees about incompatible changes to it or even keeping the"
+              + " support in the future. Consider those risks when using it.")
+  public abstract boolean getExperimentalCppModules();
 
-    host.crosstoolTop = hostCrosstoolTop;
-    host.cppCompiler = hostCppCompiler;
+  @Option(
+      name = "experimental_link_static_libraries_once",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+      },
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.EXPERIMENTAL,
+      },
+      help =
+          "If enabled, cc_shared_library will link all libraries statically linked into it, that"
+              + " should only be linked once.")
+  public abstract boolean getExperimentalLinkStaticLibrariesOnce();
 
-    // hostLibcTop doesn't default to the target's libcTop.
-    // Only an explicit command-line option will change it.
-    // The default is whatever the host's crosstool (which might have been specified
-    // by --host_crosstool_top, or --crosstool_top as a fallback) says it should be.
-    host.libcTopLabel = hostLibcTopLabel;
-    // TODO(b/129045294): Remove once toolchain-transitions are implemented.
-    host.targetLibcTopLabel = targetLibcTopLabel;
-
-    // -g0 is the default, but allowMultiple options cannot have default values so we just pass
-    // -g0 first and let the user options override it.
-    ImmutableList.Builder<String> coptListBuilder = ImmutableList.builder();
-    ImmutableList.Builder<String> cxxoptListBuilder = ImmutableList.builder();
-    // Don't add -g0 if the host platform is Windows.
-    // Note that host platform is not necessarily the platform bazel is running on (foundry)
-    if (OS.getCurrent() != OS.WINDOWS) {
-      coptListBuilder.add("-g0");
-      cxxoptListBuilder.add("-g0");
-    }
-    host.coptList = coptListBuilder.addAll(hostCoptList).build();
-    host.cxxoptList = cxxoptListBuilder.addAll(hostCxxoptList).build();
-    host.conlyoptList = ImmutableList.copyOf(hostConlyoptList);
-    host.linkoptList = ImmutableList.copyOf(hostLinkoptList);
-
-    host.useStartEndLib = useStartEndLib;
-    host.stripBinaries = StripMode.ALWAYS;
-    host.fdoOptimizeForBuild = fdoOptimizeForBuild;
-    host.fdoProfileLabel = fdoProfileLabel;
-    host.csFdoProfileLabel = csFdoProfileLabel;
-    host.xfdoProfileLabel = xfdoProfileLabel;
-    host.inmemoryDotdFiles = inmemoryDotdFiles;
-
-    host.enableFdoProfileAbsolutePath = enableFdoProfileAbsolutePath;
-    host.disableExpandIfAllAvailableInFlagSet = disableExpandIfAllAvailableInFlagSet;
-    host.disableLegacyCcProvider = disableLegacyCcProvider;
-    host.removeCpuCompilerCcToolchainAttributes = removeCpuCompilerCcToolchainAttributes;
-    host.enableCcToolchainResolution = enableCcToolchainResolution;
-    host.removeLegacyWholeArchive = removeLegacyWholeArchive;
-    host.dontEnableHostNonhost = dontEnableHostNonhost;
-    host.requireCtxInConfigureFeatures = requireCtxInConfigureFeatures;
-    host.useStandaloneLtoIndexingCommandLines = useStandaloneLtoIndexingCommandLines;
-    host.useSpecificToolFiles = useSpecificToolFiles;
-    host.disableStaticCcToolchains = disableStaticCcToolchains;
-    host.disableNoCopts = disableNoCopts;
-    host.loadCcRulesFromBzl = loadCcRulesFromBzl;
-    host.validateTopLevelHeaderInclusions = validateTopLevelHeaderInclusions;
-    host.parseHeadersSkippedIfCorrespondingSrcsFound = parseHeadersSkippedIfCorrespondingSrcsFound;
-    host.strictSystemIncludes = strictSystemIncludes;
-    host.useArgsParamsFile = useArgsParamsFile;
-
-    // Save host options for further use.
-    host.hostCoptList = hostCoptList;
-    host.hostConlyoptList = hostConlyoptList;
-    host.hostCppCompiler = hostCppCompiler;
-    host.hostCrosstoolTop = hostCrosstoolTop;
-    host.hostCxxoptList = hostCxxoptList;
-    host.hostLibcTopLabel = hostLibcTopLabel;
-    host.hostLinkoptList = hostLinkoptList;
-
-    host.experimentalStarlarkCcImport = experimentalStarlarkCcImport;
-
-    host.macosSetInstallName = macosSetInstallName;
-
-    return host;
-  }
-
-  /** Returns true if targets under this configuration should apply FDO. */
-  public boolean isFdo() {
-    return getFdoOptimize() != null || fdoInstrumentForBuild != null || fdoProfileLabel != null;
-  }
-
-  /** Returns true if targets under this configuration should apply CSFdo. */
-  public boolean isCSFdo() {
-    return (getFdoOptimize() != null || fdoProfileLabel != null)
-        && (csFdoInstrumentForBuild != null
-            || csFdoProfileLabel != null
-            || csFdoAbsolutePathForBuild != null);
-  }
+  @Option(
+      name = "experimental_cpp_compile_resource_estimation",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {
+        OptionEffectTag.EXECUTION,
+      },
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "If enabled, will estimate precise resource usage for local execution of"
+              + " CppCompileAction.")
+  public abstract boolean getExperimentalCppCompileResourcesEstimation();
 }

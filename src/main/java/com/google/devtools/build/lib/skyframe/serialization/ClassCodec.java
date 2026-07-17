@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.skyframe.serialization;
 
+import static com.google.devtools.build.lib.skyframe.serialization.strings.UnsafeStringCodec.stringCodec;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.protobuf.CodedInputStream;
@@ -21,7 +23,13 @@ import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 
 /** Codec for {@link Class}. */
-class ClassCodec implements ObjectCodec<Class<?>> {
+class ClassCodec extends LeafObjectCodec<Class<?>> {
+  private static final ClassCodec INSTANCE = new ClassCodec();
+
+  static ClassCodec classCodec() {
+    return INSTANCE;
+  }
+
   @SuppressWarnings("unchecked")
   @Override
   public Class<Class<?>> getEncodedClass() {
@@ -29,29 +37,28 @@ class ClassCodec implements ObjectCodec<Class<?>> {
   }
 
   @Override
-  public void serialize(SerializationContext context, Class<?> obj, CodedOutputStream codedOut)
+  public void serialize(LeafSerializationContext context, Class<?> obj, CodedOutputStream codedOut)
       throws SerializationException, IOException {
     codedOut.writeBoolNoTag(obj.isPrimitive());
     if (obj.isPrimitive()) {
       codedOut.writeInt32NoTag(Preconditions.checkNotNull(PRIMITIVE_CLASS_INDEX_MAP.get(obj), obj));
     } else {
-      context.serialize(obj.getName(), codedOut);
+      context.serializeLeaf(obj.getName(), stringCodec(), codedOut);
     }
   }
 
   @Override
-  public Class<?> deserialize(DeserializationContext context, CodedInputStream codedIn)
+  public Class<?> deserialize(LeafDeserializationContext context, CodedInputStream codedIn)
       throws SerializationException, IOException {
     boolean isPrimitive = codedIn.readBool();
     if (isPrimitive) {
       return PRIMITIVE_CLASS_INDEX_MAP.inverse().get(codedIn.readInt32());
-    } else {
-      String className = context.deserialize(codedIn);
-      try {
-        return Class.forName(className);
-      } catch (ClassNotFoundException e) {
-        throw new SerializationException("Couldn't find class for " + className, e);
-      }
+    }
+    String className = context.deserializeLeaf(codedIn, stringCodec());
+    try {
+      return Class.forName(className);
+    } catch (ClassNotFoundException e) {
+      throw new SerializationException("Couldn't find class for " + className, e);
     }
   }
 
@@ -66,5 +73,5 @@ class ClassCodec implements ObjectCodec<Class<?>> {
           .put(double.class, 7)
           .put(boolean.class, 8)
           .put(void.class, 9)
-          .build();
+          .buildOrThrow();
 }

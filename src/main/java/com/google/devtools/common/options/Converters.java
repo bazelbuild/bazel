@@ -13,41 +13,36 @@
 // limitations under the License.
 package com.google.devtools.common.options;
 
-import static com.google.devtools.common.options.OptionsParser.STARLARK_SKIPPED_PREFIXES;
-
+import com.github.benmanes.caffeine.cache.CaffeineSpec;
 import com.google.common.base.Ascii;
 import com.google.common.base.Splitter;
-import com.google.common.base.Strings;
-import com.google.common.cache.CacheBuilderSpec;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
+import com.google.devtools.build.lib.util.StringEncoding;
 import java.time.Duration;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.OptionalInt;
 import java.util.logging.Level;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
+import javax.annotation.Nullable;
 
 /** Some convenient converters used by blaze. Note: These are specific to blaze. */
 public final class Converters {
-  /**
-   * The name of the flag used for shorthand aliasing in blaze. {@see
-   * com.google.devtools.build.lib.analysis.config.CoreOptions#commandLineFlagAliases} for the
-   * option definition.
-   */
-  public static final String BLAZE_ALIASING_FLAG = "flag_alias";
 
-  private static final ImmutableList<String> ENABLED_REPS =
-      ImmutableList.of("true", "1", "yes", "t", "y");
+  private static final ImmutableSet<String> ENABLED_REPS =
+      ImmutableSet.of("true", "1", "yes", "t", "y");
 
-  private static final ImmutableList<String> DISABLED_REPS =
-      ImmutableList.of("false", "0", "no", "f", "n");
+  private static final ImmutableSet<String> DISABLED_REPS =
+      ImmutableSet.of("false", "0", "no", "f", "n");
 
   /** Standard converter for booleans. Accepts common shorthands/synonyms. */
-  public static class BooleanConverter implements Converter<Boolean> {
+  public static class BooleanConverter extends Converter.Contextless<Boolean> {
     @Override
     public Boolean convert(String input) throws OptionsParsingException {
       if (input == null) {
@@ -70,7 +65,7 @@ public final class Converters {
   }
 
   /** Standard converter for Strings. */
-  public static class StringConverter implements Converter<String> {
+  public static class StringConverter extends Converter.Contextless<String> {
     @Override
     public String convert(String input) {
       return input;
@@ -82,14 +77,36 @@ public final class Converters {
     }
   }
 
+  /**
+   * Converter that treats an empty string as {@code null}, and passes any other value through
+   * unchanged. Useful for optional flags that have {@code defaultValue = "null"} so that an empty
+   * value on the command line resets the flag to its unset state instead of being interpreted as a
+   * literal empty string.
+   */
+  public static class EmptyToNullStringConverter extends Converter.Contextless<String> {
+    @Override
+    @Nullable
+    public String convert(String input) {
+      if (input.isEmpty()) {
+        return null;
+      }
+      return input;
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "a string; empty to unset";
+    }
+  }
+
   /** Standard converter for integers. */
-  public static class IntegerConverter implements Converter<Integer> {
+  public static class IntegerConverter extends Converter.Contextless<Integer> {
     @Override
     public Integer convert(String input) throws OptionsParsingException {
       try {
         return Integer.decode(input);
       } catch (NumberFormatException e) {
-        throw new OptionsParsingException("'" + input + "' is not an int");
+        throw new OptionsParsingException("'" + input + "' is not an int", e);
       }
     }
 
@@ -100,13 +117,13 @@ public final class Converters {
   }
 
   /** Standard converter for longs. */
-  public static class LongConverter implements Converter<Long> {
+  public static class LongConverter extends Converter.Contextless<Long> {
     @Override
     public Long convert(String input) throws OptionsParsingException {
       try {
         return Long.decode(input);
       } catch (NumberFormatException e) {
-        throw new OptionsParsingException("'" + input + "' is not a long");
+        throw new OptionsParsingException("'" + input + "' is not a long", e);
       }
     }
 
@@ -117,13 +134,13 @@ public final class Converters {
   }
 
   /** Standard converter for doubles. */
-  public static class DoubleConverter implements Converter<Double> {
+  public static class DoubleConverter extends Converter.Contextless<Double> {
     @Override
     public Double convert(String input) throws OptionsParsingException {
       try {
         return Double.parseDouble(input);
       } catch (NumberFormatException e) {
-        throw new OptionsParsingException("'" + input + "' is not a double");
+        throw new OptionsParsingException("'" + input + "' is not a double", e);
       }
     }
 
@@ -134,9 +151,13 @@ public final class Converters {
   }
 
   /** Standard converter for TriState values. */
-  public static class TriStateConverter implements Converter<TriState> {
+  public static class TriStateConverter extends EnumConverter<TriState> {
+    public TriStateConverter() {
+      super(TriState.class, "tri-state (auto, yes, no) option value");
+    }
+
     @Override
-    public TriState convert(String input) throws OptionsParsingException {
+    public TriState convert(@Nullable String input) throws OptionsParsingException {
       if (input == null) {
         return TriState.AUTO;
       }
@@ -150,7 +171,8 @@ public final class Converters {
       if (DISABLED_REPS.contains(input)) {
         return TriState.NO;
       }
-      throw new OptionsParsingException("'" + input + "' is not a boolean");
+      throw new OptionsParsingException(
+          "Not a valid %s: '%s' (should be auto or a boolean)".formatted(typeName, input));
     }
 
     @Override
@@ -163,7 +185,7 @@ public final class Converters {
    * Standard "converter" for Void. Should not actually be invoked. For instance, expansion flags
    * are usually Void-typed and do not invoke the converter.
    */
-  public static class VoidConverter implements Converter<Void> {
+  public static class VoidConverter extends Converter.Contextless<Void> {
     @Override
     public Void convert(String input) throws OptionsParsingException {
       if (input == null || input.equals("null")) {
@@ -179,8 +201,8 @@ public final class Converters {
   }
 
   /** Standard converter for the {@link java.time.Duration} type. */
-  public static class DurationConverter implements Converter<Duration> {
-    private final Pattern durationRegex = Pattern.compile("^([0-9]+)(d|h|m|s|ms)$");
+  public static class DurationConverter extends Converter.Contextless<Duration> {
+    private static final Pattern DURATION_REGEX = Pattern.compile("^([0-9]+)(d|h|m|s|ms|ns)$");
 
     @Override
     public Duration convert(String input) throws OptionsParsingException {
@@ -188,7 +210,7 @@ public final class Converters {
       if ("0".equals(input)) {
         return Duration.ZERO;
       }
-      Matcher m = durationRegex.matcher(input);
+      Matcher m = DURATION_REGEX.matcher(input);
       if (!m.matches()) {
         throw new OptionsParsingException("Illegal duration '" + input + "'.");
       }
@@ -205,6 +227,8 @@ public final class Converters {
           return Duration.ofSeconds(duration);
         case "ms":
           return Duration.ofMillis(duration);
+        case "ns":
+          return Duration.ofNanos(duration);
         default:
           throw new IllegalStateException(
               "This must not happen. Did you update the regex without the switch case?");
@@ -251,8 +275,9 @@ public final class Converters {
     return buf.length() == 0 ? "nothing" : buf.toString();
   }
 
-  public static class SeparatedOptionListConverter implements Converter<List<String>> {
-
+  /** Converter for a list of options, separated by some separator character. */
+  public static class SeparatedOptionListConverter
+      extends Converter.Contextless<ImmutableList<String>> {
     private final String separatorDescription;
     private final Splitter splitter;
     private final boolean allowEmptyValues;
@@ -265,8 +290,8 @@ public final class Converters {
     }
 
     @Override
-    public List<String> convert(String input) throws OptionsParsingException {
-      List<String> result =
+    public ImmutableList<String> convert(String input) throws OptionsParsingException {
+      ImmutableList<String> result =
           input.isEmpty() ? ImmutableList.of() : ImmutableList.copyOf(splitter.split(input));
       if (!allowEmptyValues && result.contains("")) {
         // If the list contains exactly the empty string, it means an empty value was passed and we
@@ -287,12 +312,47 @@ public final class Converters {
     }
   }
 
+  /**
+   * Converter for options separated by some separator character, where order and count do not
+   * matter, i.e. semantically it is a set, not a list.
+   */
+  public static class SeparatedOptionSetConverter extends SeparatedOptionListConverter {
+    private final String separatorDescription;
+
+    protected SeparatedOptionSetConverter(
+        char separator, String separatorDescription, boolean allowEmptyValues) {
+      super(separator, separatorDescription, allowEmptyValues);
+      this.separatorDescription = separatorDescription;
+    }
+
+    @Override
+    public ImmutableList<String> convert(String input) throws OptionsParsingException {
+      ImmutableList<String> result = super.convert(input);
+      return result.stream().distinct().sorted().collect(ImmutableList.toImmutableList());
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return separatorDescription + "-separated set of options";
+    }
+  }
+
+  /**
+   * Converter for comma separated values, where
+   * <li>order and multiplicity preserved
+   * <li>empty values are preserved
+   */
   public static class CommaSeparatedOptionListConverter extends SeparatedOptionListConverter {
     public CommaSeparatedOptionListConverter() {
       super(',', "comma", true);
     }
   }
 
+  /**
+   * Converter for comma separated values, where
+   * <li>order and multiplicity preserved
+   * <li>empty values are filtered out
+   */
   public static class CommaSeparatedNonEmptyOptionListConverter
       extends SeparatedOptionListConverter {
     public CommaSeparatedNonEmptyOptionListConverter() {
@@ -300,44 +360,64 @@ public final class Converters {
     }
   }
 
+  /**
+   * Converter for colon separated values, where
+   * <li>order and multiplicity preserved
+   * <li>empty values are preserved
+   */
   public static class ColonSeparatedOptionListConverter extends SeparatedOptionListConverter {
     public ColonSeparatedOptionListConverter() {
       super(':', "colon", true);
     }
   }
 
-  public static class LogLevelConverter implements Converter<Level> {
+  /**
+   * Converter for colon separated values, where
+   * <li>order and multiplicity are assumed to not matter
+   * <li>empty values are preserved
+   */
+  public static class CommaSeparatedOptionSetConverter extends SeparatedOptionSetConverter {
+    public CommaSeparatedOptionSetConverter() {
+      super(',', "comma", true);
+    }
+  }
 
-    public static final Level[] LEVELS =
-        new Level[] {
-          Level.OFF, Level.SEVERE, Level.WARNING, Level.INFO, Level.FINE, Level.FINER, Level.FINEST
-        };
+  /** Converter for {@link Level}. */
+  public static class LogLevelConverter extends Converter.Contextless<Level> {
+
+    static final ImmutableList<Level> LEVELS =
+        ImmutableList.of(
+            Level.OFF,
+            Level.SEVERE,
+            Level.WARNING,
+            Level.INFO,
+            Level.FINE,
+            Level.FINER,
+            Level.FINEST);
 
     @Override
     public Level convert(String input) throws OptionsParsingException {
       try {
         int level = Integer.parseInt(input);
-        return LEVELS[level];
+        return LEVELS.get(level);
       } catch (NumberFormatException | ArrayIndexOutOfBoundsException e) {
-        throw new OptionsParsingException("Not a log level: " + input);
+        throw new OptionsParsingException("Not a log level: " + input, e);
       }
     }
 
     @Override
     public String getTypeDescription() {
-      return "0 <= an integer <= " + (LEVELS.length - 1);
+      return "0 <= an integer <= " + (LEVELS.size() - 1);
     }
   }
 
   /** Checks whether a string is part of a set of strings. */
-  public static class StringSetConverter implements Converter<String> {
+  public static class StringSetConverter extends Converter.Contextless<String> {
 
-    // TODO(bazel-team): if this class never actually contains duplicates, we could s/List/Set/
-    // here.
-    private final List<String> values;
+    private final ImmutableSet<String> values;
 
     public StringSetConverter(String... values) {
-      this.values = ImmutableList.copyOf(values);
+      this.values = ImmutableSet.copyOf(values);
     }
 
     @Override
@@ -356,12 +436,13 @@ public final class Converters {
   }
 
   /** Checks whether a string is a valid regex pattern and compiles it. */
-  public static class RegexPatternConverter implements Converter<RegexPatternOption> {
+  public static class RegexPatternConverter extends Converter.Contextless<RegexPatternOption> {
 
     @Override
     public RegexPatternOption convert(String input) throws OptionsParsingException {
       try {
-        return RegexPatternOption.create(Pattern.compile(input));
+        return RegexPatternOption.create(
+            Pattern.compile(StringEncoding.internalToUnicode(input), Pattern.DOTALL));
       } catch (PatternSyntaxException e) {
         throw new OptionsParsingException("Not a valid regular expression: " + e.getMessage());
       }
@@ -373,30 +454,8 @@ public final class Converters {
     }
   }
 
-  /** Limits the length of a string argument. */
-  public static class LengthLimitingConverter implements Converter<String> {
-    private final int maxSize;
-
-    public LengthLimitingConverter(int maxSize) {
-      this.maxSize = maxSize;
-    }
-
-    @Override
-    public String convert(String input) throws OptionsParsingException {
-      if (input.length() > maxSize) {
-        throw new OptionsParsingException("Input must be " + getTypeDescription());
-      }
-      return input;
-    }
-
-    @Override
-    public String getTypeDescription() {
-      return "a string <= " + maxSize + " characters";
-    }
-  }
-
   /** Checks whether an integer is in the given range. */
-  public static class RangeConverter implements Converter<Integer> {
+  public static class RangeConverter extends Converter.Contextless<Integer> {
     final int minValue;
     final int maxValue;
 
@@ -408,7 +467,7 @@ public final class Converters {
     @Override
     public Integer convert(String input) throws OptionsParsingException {
       try {
-        Integer value = Integer.parseInt(input);
+        int value = Integer.parseInt(input);
         if (value < minValue) {
           throw new OptionsParsingException("'" + input + "' should be >= " + minValue);
         } else if (value < minValue || value > maxValue) {
@@ -416,7 +475,7 @@ public final class Converters {
         }
         return value;
       } catch (NumberFormatException e) {
-        throw new OptionsParsingException("'" + input + "' is not an int");
+        throw new OptionsParsingException("'" + input + "' is not an int", e);
       }
     }
 
@@ -445,7 +504,7 @@ public final class Converters {
    * Assignments are expected to have the form "name=value", where names and values are defined to
    * be as permissive as possible.
    */
-  public static class AssignmentConverter implements Converter<Map.Entry<String, String>> {
+  public static class AssignmentConverter extends Converter.Contextless<Map.Entry<String, String>> {
 
     @Override
     public Map.Entry<String, String> convert(String input) throws OptionsParsingException {
@@ -465,43 +524,21 @@ public final class Converters {
     }
   }
 
-  /**
-   * A converter for command line flag aliases. It does additional validation on the name and value
-   * of the assignment to ensure they conform to the naming limitations.
-   */
-  public static class FlagAliasConverter extends AssignmentConverter {
+  /** A converter for for assignments from a string value to a float value. */
+  public static class StringToDoubleAssignmentConverter
+      extends Converter.Contextless<Map.Entry<String, Double>> {
+    private static final AssignmentConverter baseConverter = new AssignmentConverter();
 
     @Override
-    public Map.Entry<String, String> convert(String input) throws OptionsParsingException {
-      Map.Entry<String, String> entry = super.convert(input);
-      String shortForm = entry.getKey();
-      String longForm = entry.getValue();
-
-      String cmdLineAlias = "--" + BLAZE_ALIASING_FLAG + "=" + input;
-
-      if (!Pattern.matches("([\\w])*", shortForm)) {
-        throw new OptionsParsingException(
-            shortForm + " should only consist of word characters to be a valid alias name.",
-            cmdLineAlias);
-      }
-      if (longForm.contains("=")) {
-        throw new OptionsParsingException(
-            "--" + BLAZE_ALIASING_FLAG + " does not support flag value assignment.", cmdLineAlias);
-      }
-
-      // Remove this check if native options are permitted to be aliased
-      longForm = "--" + longForm;
-      if (STARLARK_SKIPPED_PREFIXES.stream().noneMatch(longForm::startsWith)) {
-        throw new OptionsParsingException(
-            "--" + BLAZE_ALIASING_FLAG + " only supports Starlark build settings.", cmdLineAlias);
-      }
-
-      return entry;
+    public Map.Entry<String, Double> convert(String input)
+        throws OptionsParsingException, NumberFormatException {
+      Map.Entry<String, String> stringEntry = baseConverter.convert(input);
+      return Maps.immutableEntry(stringEntry.getKey(), Double.parseDouble(stringEntry.getValue()));
     }
 
     @Override
     public String getTypeDescription() {
-      return "a 'name=value' flag alias";
+      return "a named float, 'name=value'";
     }
   }
 
@@ -532,7 +569,8 @@ public final class Converters {
     }
 
     @Override
-    public Map.Entry<K, List<V>> convert(String input) throws OptionsParsingException {
+    public Map.Entry<K, List<V>> convert(String input, @Nullable Object conversionContext)
+        throws OptionsParsingException {
       int pos = input.indexOf("=");
       if (allowEmptyKeys == AllowEmptyKeys.NO && pos <= 0) {
         throw new OptionsParsingException(
@@ -553,9 +591,10 @@ public final class Converters {
       }
       ImmutableList.Builder<V> convertedValues = ImmutableList.builder();
       for (String value : values) {
-        convertedValues.add(valueConverter.convert(value));
+        convertedValues.add(valueConverter.convert(value, conversionContext));
       }
-      return Maps.immutableEntry(keyConverter.convert(key), convertedValues.build());
+      return Maps.immutableEntry(
+          keyConverter.convert(key, conversionContext), convertedValues.build());
     }
   }
 
@@ -571,77 +610,20 @@ public final class Converters {
       super(new StringConverter(), new StringConverter(), AllowEmptyKeys.YES);
     }
 
+    public Map.Entry<String, List<String>> convert(String input) throws OptionsParsingException {
+      return convert(input, /* conversionContext= */ null);
+    }
+
     @Override
     public String getTypeDescription() {
       return "a '[name=]value1[,..,valueN]' assignment";
     }
   }
 
-  /**
-   * A converter for variable assignments from the parameter list of a blaze command invocation.
-   * Assignments are expected to have the form "name[=value]", where names and values are defined to
-   * be as permissive as possible and value part can be optional (in which case it is considered to
-   * be null).
-   */
-  public static class OptionalAssignmentConverter implements Converter<Map.Entry<String, String>> {
-
-    @Override
-    public Map.Entry<String, String> convert(String input) throws OptionsParsingException {
-      int pos = input.indexOf('=');
-      if (pos == 0 || input.length() == 0) {
-        throw new OptionsParsingException(
-            "Variable definitions must be in the form of a 'name=value' or 'name' assignment");
-      } else if (pos < 0) {
-        return Maps.immutableEntry(input, null);
-      }
-      String name = input.substring(0, pos);
-      String value = input.substring(pos + 1);
-      return Maps.immutableEntry(name, value);
-    }
-
-    @Override
-    public String getTypeDescription() {
-      return "a 'name=value' assignment with an optional value part";
-    }
-  }
-
-  /**
-   * A converter for named integers of the form "[name=]value". When no name is specified, an empty
-   * string is used for the key.
-   */
-  public static class NamedIntegersConverter implements Converter<Map.Entry<String, Integer>> {
-
-    @Override
-    public Map.Entry<String, Integer> convert(String input) throws OptionsParsingException {
-      int pos = input.indexOf('=');
-      if (pos == 0 || input.length() == 0) {
-        throw new OptionsParsingException(
-            "Specify either 'value' or 'name=value', where 'value' is an integer");
-      } else if (pos < 0) {
-        try {
-          return Maps.immutableEntry("", Integer.parseInt(input));
-        } catch (NumberFormatException e) {
-          throw new OptionsParsingException("'" + input + "' is not an int");
-        }
-      }
-      String name = input.substring(0, pos);
-      String value = input.substring(pos + 1);
-      try {
-        return Maps.immutableEntry(name, Integer.parseInt(value));
-      } catch (NumberFormatException e) {
-        throw new OptionsParsingException("'" + value + "' is not an int");
-      }
-    }
-
-    @Override
-    public String getTypeDescription() {
-      return "an integer or a named integer, 'name=value'";
-    }
-  }
-
-  public static class HelpVerbosityConverter extends EnumConverter<OptionsParser.HelpVerbosity> {
+  /** A {@link Converter} for {@link HelpVerbosity}. */
+  public static class HelpVerbosityConverter extends EnumConverter<HelpVerbosity> {
     public HelpVerbosityConverter() {
-      super(OptionsParser.HelpVerbosity.class, "--help_verbosity setting");
+      super(HelpVerbosity.class, "--help_verbosity setting");
     }
   }
 
@@ -654,23 +636,81 @@ public final class Converters {
     }
   }
 
-  /**
-   * A {@link Converter} for {@link CacheBuilderSpec}. The spec may be empty, in which case this
-   * converter returns null.
-   */
-  public static class CacheBuilderSpecConverter implements Converter<CacheBuilderSpec> {
+  /** Same as {@link PercentageConverter} but also supports being unset. */
+  public static class OptionalPercentageConverter extends Converter.Contextless<OptionalInt> {
+    public static final String UNSET = "-1";
+    private static final PercentageConverter PERCENTAGE_CONVERTER = new PercentageConverter();
+
     @Override
-    public CacheBuilderSpec convert(String spec) throws OptionsParsingException {
+    public String getTypeDescription() {
+      return "an integer";
+    }
+
+    @Override
+    public OptionalInt convert(String input) throws OptionsParsingException {
+      return input.equals(UNSET)
+          ? OptionalInt.empty()
+          : OptionalInt.of(PERCENTAGE_CONVERTER.convert(input));
+    }
+  }
+
+  /**
+   * A {@link Converter} for {@link com.github.benmanes.caffeine.cache.CaffeineSpec}. The spec may
+   * be empty, in which case this converter returns null.
+   */
+  public static final class CaffeineSpecConverter extends Converter.Contextless<CaffeineSpec> {
+    @Override
+    public CaffeineSpec convert(String spec) throws OptionsParsingException {
       try {
-        return Strings.isNullOrEmpty(spec) ? null : CacheBuilderSpec.parse(spec);
+        return CaffeineSpec.parse(spec);
       } catch (IllegalArgumentException e) {
-        throw new OptionsParsingException("Failed to parse CacheBuilderSpec: " + e.getMessage(), e);
+        throw new OptionsParsingException("Failed to parse CaffeineSpec: " + e.getMessage(), e);
       }
     }
 
     @Override
     public String getTypeDescription() {
-      return "Converts to a CacheBuilderSpec, or null if the input is empty";
+      return "Converts to a CaffeineSpec, or null if the input is empty";
+    }
+  }
+
+  /** A {@link Converter} for a size in bytes with an optional multiplier suffix. */
+  public static final class ByteSizeConverter extends Converter.Contextless<Long> {
+    private static final Pattern PATTERN =
+        Pattern.compile("(?<value>[0-9]+)(?<multiplier>[KMGT]?)");
+
+    private static final ImmutableMap<String, Long> MULTIPLIER_MAP =
+        ImmutableMap.of(
+            "K",
+            1024L,
+            "M",
+            1024L * 1024L,
+            "G",
+            1024L * 1024L * 1024L,
+            "T",
+            1024L * 1024L * 1024L * 1024L);
+
+    @Override
+    public Long convert(String input) throws OptionsParsingException {
+      Matcher m = PATTERN.matcher(input);
+      if (!m.matches()) {
+        throw new OptionsParsingException("Invalid size: " + input);
+      }
+      try {
+        long value = Long.parseLong(m.group("value"));
+        String mult = m.group("multiplier");
+        if (!mult.isEmpty()) {
+          value = Math.multiplyExact(value, (long) MULTIPLIER_MAP.get(mult));
+        }
+        return value;
+      } catch (NumberFormatException | ArithmeticException e) {
+        throw new OptionsParsingException("Invalid size: " + input, e);
+      }
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "a size in bytes, optionally followed by a K, M, G or T multiplier";
     }
   }
 }

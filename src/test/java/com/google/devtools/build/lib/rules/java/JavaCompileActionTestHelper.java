@@ -86,10 +86,6 @@ public final class JavaCompileActionTestHelper {
     return getOptions(javac).getSourcePath();
   }
 
-  public static List<String> getBootclasspath(JavaCompileAction javac) throws Exception {
-    return getOptions(javac).getBootClassPath();
-  }
-
   /** Returns the JavaBuilder command line, up to the main class or deploy jar. */
   public static List<String> getJavacCommand(JavaCompileAction action) throws Exception {
     List<String> args = action.getCommandLines().allArguments();

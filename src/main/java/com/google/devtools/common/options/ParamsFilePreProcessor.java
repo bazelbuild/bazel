@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.common.options;
 
+import com.google.common.collect.Lists;
+import com.google.devtools.common.options.OptionsParser.ArgAndFallbackData;
 import java.io.IOException;
 import java.nio.file.FileSystem;
 import java.nio.file.Path;
@@ -49,18 +51,22 @@ public abstract class ParamsFilePreProcessor implements ArgsPreProcessor {
    * @throws OptionsParsingException if the path does not exist.
    */
   @Override
-  public List<String> preProcess(List<String> args) throws OptionsParsingException {
-    if (!args.isEmpty() && args.get(0).startsWith("@")) {
+  public List<ArgAndFallbackData> preProcess(List<ArgAndFallbackData> args)
+      throws OptionsParsingException {
+    if (!args.isEmpty() && args.get(0).arg.startsWith("@")) {
       if (args.size() > 1) {
         throw new OptionsParsingException(
-            String.format(TOO_MANY_ARGS_ERROR_MESSAGE_FORMAT, args), args.get(0));
+            String.format(
+                TOO_MANY_ARGS_ERROR_MESSAGE_FORMAT,
+                Lists.transform(args, argAndFallbackData -> argAndFallbackData.arg)),
+            args.get(0).arg);
       }
-      Path path = fs.getPath(args.get(0).substring(1));
+      Path path = fs.getPath(args.get(0).arg.substring(1));
       try {
-        return parse(path);
+        return ArgAndFallbackData.wrapWithFallbackData(parse(path), args.get(0).fallbackData);
       } catch (RuntimeException | IOException e) {
         throw new OptionsParsingException(
-            String.format(ERROR_MESSAGE_FORMAT, path, e.getMessage()), args.get(0), e);
+            String.format(ERROR_MESSAGE_FORMAT, path, e.getMessage()), args.get(0).arg, e);
       }
     }
     return args;

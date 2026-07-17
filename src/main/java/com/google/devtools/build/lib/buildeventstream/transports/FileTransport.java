@@ -24,11 +24,13 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import com.google.devtools.build.lib.buildeventservice.BuildEventServiceOptions.BesUploadMode;
 import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
+import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions.OutputGroupFileModes;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
@@ -66,6 +68,7 @@ abstract class FileTransport implements BuildEventTransport {
   private final BuildEventArtifactUploader uploader;
   private final SequentialWriter writer;
   private final ArtifactGroupNamer namer;
+  private final BesUploadMode besUploadMode;
 
   private final ScheduledExecutorService timeoutExecutor =
       MoreExecutors.listeningDecorator(
@@ -76,12 +79,14 @@ abstract class FileTransport implements BuildEventTransport {
       BufferedOutputStream outputStream,
       BuildEventProtocolOptions options,
       BuildEventArtifactUploader uploader,
-      ArtifactGroupNamer namer) {
+      ArtifactGroupNamer namer,
+      BesUploadMode besUploadMode) {
     this.uploader = uploader;
     this.options = options;
     this.writer =
         new SequentialWriter(outputStream, this::serializeEvent, uploader, timeoutExecutor);
     this.namer = namer;
+    this.besUploadMode = besUploadMode;
   }
 
   @ThreadSafe
@@ -170,8 +175,7 @@ abstract class FileTransport implements BuildEventTransport {
       // Print a more useful error message when the upload times out.
       // An {@link ExecutionException} may be wrapping a {@link TimeoutException} if the
       // Future was created with {@link Futures#withTimeout}.
-      if (e instanceof ExecutionException
-          && e.getCause() instanceof TimeoutException) {
+      if (e instanceof ExecutionException && e.getCause() instanceof TimeoutException) {
         message = "Unable to write all BEP events to file due to timeout";
       } else {
         message =
@@ -186,7 +190,7 @@ abstract class FileTransport implements BuildEventTransport {
                       .build()),
               e));
       pendingWrites.clear();
-      logger.atSevere().withCause(e).log(message);
+      logger.atSevere().withCause(e).log("%s", message);
     }
 
     private static BuildProgress.Code getBuildProgressCode(Throwable e) {
@@ -210,12 +214,8 @@ abstract class FileTransport implements BuildEventTransport {
       if (closeFuture.isDone()) {
         return;
       }
-      try {
-        pendingWrites.clear();
-        pendingWrites.put(CLOSE_EVENT_FUTURE);
-      } catch (InterruptedException e) {
-        logger.atSevere().withCause(e).log("Failed to immediately close the sequential writer.");
-      }
+      pendingWrites.clear();
+      pendingWrites.add(CLOSE_EVENT_FUTURE);
     }
 
     ListenableFuture<Void> close() {
@@ -234,13 +234,7 @@ abstract class FileTransport implements BuildEventTransport {
           },
           MoreExecutors.directExecutor());
 
-      try {
-        pendingWrites.put(CLOSE_EVENT_FUTURE);
-      } catch (InterruptedException e) {
-        closeNow();
-        logger.atSevere().withCause(e).log("Failed to close the sequential writer.");
-        closeFuture.set(null);
-      }
+      pendingWrites.add(CLOSE_EVENT_FUTURE);
       return closeFuture;
     }
 
@@ -289,6 +283,9 @@ abstract class FileTransport implements BuildEventTransport {
         results -> {
           BuildEventContext context =
               new BuildEventContext() {
+                private final OutputGroupFileModes outputGroupModes =
+                    options.getOutputGroupFileModesMapping();
+
                 @Override
                 public PathConverter pathConverter() {
                   return Futures.getUnchecked(converterFuture);
@@ -302,6 +299,11 @@ abstract class FileTransport implements BuildEventTransport {
                 @Override
                 public BuildEventProtocolOptions getOptions() {
                   return options;
+                }
+
+                @Override
+                public OutputGroupFileMode getFileModeForOutputGroup(String outputGroup) {
+                  return outputGroupModes.getMode(outputGroup);
                 }
               };
           try {
@@ -320,6 +322,11 @@ abstract class FileTransport implements BuildEventTransport {
   }
 
   @Override
+  public BesUploadMode getBesUploadMode() {
+    return besUploadMode;
+  }
+
+  @Override
   public BuildEventArtifactUploader getUploader() {
     return uploader;
   }
@@ -329,4 +336,3 @@ abstract class FileTransport implements BuildEventTransport {
     return writer.getFlushInterval();
   }
 }
-

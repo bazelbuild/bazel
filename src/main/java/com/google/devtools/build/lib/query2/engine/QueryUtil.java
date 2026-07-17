@@ -13,13 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.engine;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.query2.engine.QueryEnvironment.MutableMap;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskCallable;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskFuture;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ThreadSafeMutableSet;
@@ -33,18 +34,18 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-import javax.annotation.Nullable;
 
 /** Several query utilities to make easier to work with query callbacks and uniquifiers. */
 public final class QueryUtil {
 
   private QueryUtil() { }
 
-  /** A {@link Callback} that can aggregate all the partial results into one set. */
-  public interface AggregateAllCallback<T, S extends Set<T>> extends Callback<T> {
-    /** Returns a {@link Set} of all the results. */
-    S getResult();
+  /** A {@link Callback} that can aggregate all the partial results into a single value. */
+  public interface AggregateAllCallback<T, V> extends Callback<T> {
+    /** Returns a value representing a combination of all the partial results. */
+    V getResult();
   }
 
   /** A {@link OutputFormatterCallback} that is also a {@link AggregateAllCallback}. */
@@ -230,31 +231,6 @@ public final class QueryUtil {
     }
   }
 
-  /**
-   * A {@link MutableMap} implementation that uses a {@link KeyExtractor} for determining equality
-   * of its keys.
-   */
-  public static class MutableKeyExtractorBackedMapImpl<T, K, V> implements MutableMap<T, V> {
-    private final KeyExtractor<T, K> extractor;
-    private final HashMap<K, V> map;
-
-    public MutableKeyExtractorBackedMapImpl(KeyExtractor<T, K> extractor) {
-      this.extractor = extractor;
-      this.map = new HashMap<>();
-    }
-
-    @Override
-    @Nullable
-    public V get(T key) {
-      return map.get(extractor.extractKey(key));
-    }
-
-    @Override
-    public V put(T key, V value) {
-      return map.put(extractor.extractKey(key), value);
-    }
-  }
-
   /** A {@link Uniquifier} whose methods do not throw {@link QueryException}. */
   public interface NonExceptionalUniquifier<T> extends Uniquifier<T> {
     @Override
@@ -341,7 +317,7 @@ public final class QueryUtil {
   /** A trivial {@link MinDepthUniquifier} implementation. */
   public static class MinDepthUniquifierImpl<T, K> implements MinDepthUniquifier<T> {
     private final KeyExtractor<T, K> extractor;
-    private final ConcurrentMap<K, AtomicInteger> alreadySeenAtDepth;
+    private final ConcurrentMap<K, KeyState> alreadySeenAtDepth;
 
     public MinDepthUniquifierImpl(KeyExtractor<T, K> extractor, int concurrencyLevel) {
       this.extractor = extractor;
@@ -363,17 +339,17 @@ public final class QueryUtil {
 
     @Override
     public boolean uniqueAtDepthLessThanOrEqualTo(T newElement, int depth) {
-      AtomicInteger newDepth = new AtomicInteger(depth);
-      AtomicInteger previousDepth =
-          alreadySeenAtDepth.putIfAbsent(extractor.extractKey(newElement), newDepth);
-      if (previousDepth == null) {
+      KeyState newState = new KeyState(new AtomicInteger(depth), new AtomicBoolean(false));
+      KeyState previousState =
+          alreadySeenAtDepth.putIfAbsent(extractor.extractKey(newElement), newState);
+      if (previousState == null) {
         return true;
       }
-      if (depth < previousDepth.get()) {
-        synchronized (previousDepth) {
-          if (depth < previousDepth.get()) {
+      if (depth < previousState.depth.get()) {
+        synchronized (previousState) {
+          if (depth < previousState.depth.get()) {
             // We've seen the element before, but never at a depth this shallow.
-            previousDepth.set(depth);
+            previousState.depth.set(depth);
             return true;
           }
         }
@@ -383,10 +359,23 @@ public final class QueryUtil {
 
     @Override
     public boolean uniqueAtDepthLessThanOrEqualToPure(T newElement, int depth) {
-      AtomicInteger previousDepth = alreadySeenAtDepth.get(extractor.extractKey(newElement));
-      return previousDepth != null
-          ? depth < previousDepth.get()
-          : true;
+      KeyState previousState = alreadySeenAtDepth.get(extractor.extractKey(newElement));
+      return previousState == null || depth < previousState.depth.get();
     }
+
+    @Override
+    public boolean uniqueForOutput(T element) {
+      KeyState keyState = alreadySeenAtDepth.get(extractor.extractKey(element));
+      checkNotNull(keyState, "Must visit an element before outputting that element.");
+      return !keyState.hasBeenOutput.getAndSet(true);
+    }
+
+    @Override
+    public int uniqueElementsCount() {
+      return alreadySeenAtDepth.size();
+    }
+
+    /** State tracked for each key tracked by the uniquifier. */
+    private record KeyState(AtomicInteger depth, AtomicBoolean hasBeenOutput) {}
   }
 }

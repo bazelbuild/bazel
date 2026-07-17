@@ -19,12 +19,11 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimaps;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import java.util.List;
 import java.util.Optional;
@@ -44,7 +43,7 @@ public class TargetContext {
 
   private final AnalysisEnvironment env;
   private final Target target;
-  private final BuildConfiguration configuration;
+  private final BuildConfigurationValue configuration;
 
   /**
    * This only contains prerequisites that are not declared in rule attributes, with the exception
@@ -55,6 +54,8 @@ public class TargetContext {
 
   private final NestedSet<PackageGroupContents> visibility;
 
+  @Nullable private final PackageSpecificationProvider transitiveVisibilityImposedByThisPackage;
+
   /**
    * The constructor is intentionally package private.
    *
@@ -63,15 +64,17 @@ public class TargetContext {
   TargetContext(
       AnalysisEnvironment env,
       Target target,
-      BuildConfiguration configuration,
+      BuildConfigurationValue configuration,
       Set<ConfiguredTargetAndData> directPrerequisites,
-      NestedSet<PackageGroupContents> visibility) {
+      NestedSet<PackageGroupContents> visibility,
+      @Nullable PackageSpecificationProvider transitiveVisibility) {
     this.env = env;
     this.target = target;
     this.configuration = configuration;
     this.directPrerequisites =
-        Multimaps.index(directPrerequisites, prereq -> prereq.getTarget().getLabel());
+        Multimaps.index(directPrerequisites, ConfiguredTargetAndData::getTargetLabel);
     this.visibility = visibility;
+    this.transitiveVisibilityImposedByThisPackage = transitiveVisibility;
   }
 
   public AnalysisEnvironment getAnalysisEnvironment() {
@@ -90,22 +93,28 @@ public class TargetContext {
     return target.getLabel();
   }
 
+  public Label.PackageContext getPackageContext() {
+    return Label.PackageContext.of(
+        getLabel().getPackageIdentifier(), target.getPackageMetadata().repositoryMapping());
+  }
+
   /**
    * Returns the configuration for this target. This may return null if the target is supposed to be
    * configuration-independent (like an input file, or a visibility rule). However, this is
    * guaranteed to be non-null for rules and for output files.
    */
   @Nullable
-  public BuildConfiguration getConfiguration() {
+  public BuildConfigurationValue getConfiguration() {
     return configuration;
-  }
-
-  public BuildConfigurationValue.Key getConfigurationKey() {
-    return BuildConfigurationValue.key(configuration);
   }
 
   public NestedSet<PackageGroupContents> getVisibility() {
     return visibility;
+  }
+
+  @Nullable
+  public PackageSpecificationProvider getTransitiveVisibilityImposedByThisPackage() {
+    return transitiveVisibilityImposedByThisPackage;
   }
 
   /**
@@ -115,7 +124,7 @@ public class TargetContext {
    */
   @Nullable
   public TransitiveInfoCollection findDirectPrerequisite(
-      Label label, Optional<BuildConfiguration> config) {
+      Label label, Optional<BuildConfigurationValue> config) {
     if (directPrerequisites.containsKey(label)) {
       List<ConfiguredTargetAndData> prerequisites = directPrerequisites.get(label);
       // If the config is present, find the prereq with that configuration. Otherwise, return the

@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.buildtool;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
@@ -28,12 +29,12 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ExtraActionArtifactsProvider;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.extra.ExtraActionSpec;
-import com.google.devtools.build.lib.buildtool.util.GoogleBuildIntegrationTestCase;
+import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.includescanning.IncludeScanningModule;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
-import com.google.devtools.build.lib.testutil.Suite;
-import com.google.devtools.build.lib.testutil.TestSpec;
+import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -47,14 +48,16 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Tests the the action_listener/extra_action feature.
- * (--experimental_action_listener blaze option)
- */
-@TestSpec(size = Suite.MEDIUM_TESTS)
+/** Tests the action_listener/extra_action feature. (--experimental_action_listener blaze option) */
 @RunWith(JUnit4.class)
-public class ActionListenerIntegrationTest extends GoogleBuildIntegrationTestCase {
-  protected final ActionKeyContext actionKeyContext = new ActionKeyContext();
+public final class ActionListenerIntegrationTest extends BuildIntegrationTestCase {
+
+  private final ActionKeyContext actionKeyContext = new ActionKeyContext();
+
+  @Override
+  protected BlazeRuntime.Builder getRuntimeBuilder() throws Exception {
+    return super.getRuntimeBuilder().addBlazeModule(new IncludeScanningModule());
+  }
 
   private Map<ConfiguredTarget, Iterable<Artifact.DerivedArtifact>> getExtraArtifactMap() {
     Map<ConfiguredTarget, Iterable<Artifact.DerivedArtifact>> result = new LinkedHashMap<>();
@@ -153,7 +156,7 @@ public class ActionListenerIntegrationTest extends GoogleBuildIntegrationTestCas
         assertThat(artifactOwningExtraAction).isNotNull();
 
         Set<Artifact> extraActionInputs = artifactOwningExtraAction.getInputs().toSet();
-        Set<Artifact> actionOutputs = Sets.newHashSet(action.getOutputs());
+        Set<Artifact> actionOutputs = new HashSet<>(action.getOutputs());
         if (shouldDependOnOutput) {
           // If the extra_action has require_action_output set, all of the outputs of the
           // shadowed action should be part of the extra_action's inputs.
@@ -185,14 +188,16 @@ public class ActionListenerIntegrationTest extends GoogleBuildIntegrationTestCas
 
   @Test
   public void testBasicActionListener() throws Exception {
-    write("nobuild/BUILD",
+    write(
+        "nobuild/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_library')",
         "java_library(name= 'javalib',",
         "             srcs=[])",
         "extra_action(name = 'baz',",
         "             out_templates = ['$(OWNER_LABEL_DIGEST)_$(ACTION_ID).tst'],",
-        "             cmd = " +
-        "                 'echo $(EXTRA_ACTION_FILE)>$(output $(OWNER_LABEL_DIGEST)" +
-            "_$(ACTION_ID).tst)')",
+        "             cmd = "
+            + "                 'echo $(EXTRA_ACTION_FILE)>$(output $(OWNER_LABEL_DIGEST)"
+            + "_$(ACTION_ID).tst)')",
         "action_listener(name = 'bar',",
         "                mnemonics = ['Javac'],",
         "                extra_actions = [':baz'])");
@@ -210,15 +215,17 @@ public class ActionListenerIntegrationTest extends GoogleBuildIntegrationTestCas
 
    @Test
    public void testActionListenerThatRequiresActionOutputs() throws Exception {
-    write("nobuild/BUILD",
+    write(
+        "nobuild/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_library')",
         "java_library(name= 'javalib',",
         "             srcs=[])",
         "extra_action(name = 'baz',",
         "             out_templates = ['$(OWNER_LABEL_DIGEST)_$(ACTION_ID).tst'],",
         "             requires_action_output = 1,",
-        "             cmd = " +
-        "                 'echo $(EXTRA_ACTION_FILE)>$(output $(OWNER_LABEL_DIGEST)" +
-        "_$(ACTION_ID).tst)')",
+        "             cmd = "
+            + "                 'echo $(EXTRA_ACTION_FILE)>$(output $(OWNER_LABEL_DIGEST)"
+            + "_$(ACTION_ID).tst)')",
         "action_listener(name = 'bar',",
         "                mnemonics = ['Javac'],",
         "                extra_actions = [':baz'])");
@@ -236,16 +243,18 @@ public class ActionListenerIntegrationTest extends GoogleBuildIntegrationTestCas
 
   @Test
   public void testFilteredActionListener() throws Exception {
-    write("filtered/BUILD",
+    write(
+        "filtered/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_library')",
         "java_library(name= 'a',",
         "             srcs=[])",
         "java_library(name= 'b',",
         "             exports=[':a'])",
         "extra_action(name = 'baz',",
         "             out_templates = ['$(OWNER_LABEL_DIGEST)_$(ACTION_ID).tst'],",
-        "             cmd = " +
-        "                 'echo $(EXTRA_ACTION_FILE)>$(output $(OWNER_LABEL_DIGEST)" +
-            "_$(ACTION_ID).tst)')",
+        "             cmd = "
+            + "                 'echo $(EXTRA_ACTION_FILE)>$(output $(OWNER_LABEL_DIGEST)"
+            + "_$(ACTION_ID).tst)')",
         "action_listener(name = 'bar',",
         "                mnemonics = ['Javac'],",
         "                extra_actions = [':baz'])");
@@ -265,16 +274,18 @@ public class ActionListenerIntegrationTest extends GoogleBuildIntegrationTestCas
 
   @Test
   public void testTopLevelOnlyActionListener() throws Exception {
-    write("filtered/BUILD",
+    write(
+        "filtered/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_library')",
         "java_library(name= 'a',",
         "             srcs=[])",
         "java_library(name= 'b',",
         "             exports=[':a'])",
         "extra_action(name = 'baz',",
         "             out_templates = ['$(OWNER_LABEL_DIGEST)_$(ACTION_ID).tst'],",
-        "             cmd = " +
-        "                 'echo $(EXTRA_ACTION_FILE)>$(output $(OWNER_LABEL_DIGEST)" +
-            "_$(ACTION_ID).tst)')",
+        "             cmd = "
+            + "                 'echo $(EXTRA_ACTION_FILE)>$(output $(OWNER_LABEL_DIGEST)"
+            + "_$(ACTION_ID).tst)')",
         "action_listener(name = 'bar',",
         "                mnemonics = ['Javac'],",
         "                extra_actions = [':baz'])");
@@ -296,13 +307,14 @@ public class ActionListenerIntegrationTest extends GoogleBuildIntegrationTestCas
   public void testCcTestActionListener() throws Exception {
     write("nobuild/main.cc",
         "int  main() { return 0; }");
-    write("nobuild/BUILD",
+    write(
+        "nobuild/BUILD",
+        "load('@rules_cc//cc:cc_test.bzl', 'cc_test')",
         "cc_test(name= 'cctest',",
         "             srcs=['main.cc'])",
         "extra_action(name = 'baz',",
         "             out_templates = ['$(ACTION_ID).tst'],",
-        "             cmd = " +
-        "                 'echo $(EXTRA_ACTION_FILE)>$(output $(ACTION_ID).tst)')",
+        "             cmd = 'echo $(EXTRA_ACTION_FILE)>$(output $(ACTION_ID).tst)')",
         "action_listener(name = 'bar',",
         "                mnemonics = ['CppCompile'],",
         "                extra_actions = [':baz'])");
@@ -387,13 +399,14 @@ public class ActionListenerIntegrationTest extends GoogleBuildIntegrationTestCas
 
   @Test
   public void testActionListenerNotEnabled() throws Exception {
-    write("nobuild/BUILD",
+    write(
+        "nobuild/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_library')",
         "java_library(name= 'javalib',",
         "             srcs=[])",
         "extra_action(name = 'baz',",
         "             out_templates = ['$(ACTION_ID).tst'],",
-        "             cmd = " +
-            "'echo $(EXTRA_ACTION_FILE)>$(output $(ACTION_ID).tst)')",
+        "             cmd = " + "'echo $(EXTRA_ACTION_FILE)>$(output $(ACTION_ID).tst)')",
         "action_listener(name = 'bar',",
         "                mnemonics = ['Javac'],",
         "                extra_actions = [':baz'])");
@@ -410,12 +423,20 @@ public class ActionListenerIntegrationTest extends GoogleBuildIntegrationTestCas
 
   @Test
   public void testBuildActionListener() throws Exception {
-    write("nobuild/BUILD",
-      "extra_action(name = 'action',",
-      "             cmd = '')",
-      "action_listener(name = 'listener',",
-      "                mnemonics = ['Foo'],",
-      "                extra_actions = [':action'])");
+    write(
+        "nobuild/BUILD",
+        """
+        extra_action(
+            name = "action",
+            cmd = "",
+        )
+
+        action_listener(
+            name = "listener",
+            extra_actions = [":action"],
+            mnemonics = ["Foo"],
+        )
+        """);
     buildTarget("//nobuild:listener");
     // Confirm target exists.
     getExistingConfiguredTarget("//nobuild:listener");
@@ -423,11 +444,20 @@ public class ActionListenerIntegrationTest extends GoogleBuildIntegrationTestCas
 
   @Test
   public void testNotActionListenerLabel() throws Exception {
-    write("nobuild/BUILD",
-        "java_library(name= 'javalib1',",
-        "             srcs=[])",
-        "java_library(name= 'javalib2',",
-        "             srcs=[])");
+    write(
+        "nobuild/BUILD",
+        """
+        load("@rules_java//java:defs.bzl", "java_library")
+        java_library(
+            name = "javalib1",
+            srcs = [],
+        )
+
+        java_library(
+            name = "javalib2",
+            srcs = [],
+        )
+        """);
     addOptions("--experimental_action_listener=//nobuild:javalib1");
     try {
       buildTarget("//nobuild:javalib2");
@@ -442,25 +472,29 @@ public class ActionListenerIntegrationTest extends GoogleBuildIntegrationTestCas
 
   @Test
   public void testInvalidActionListenerLabel() throws Exception {
-    write("nobuild/BUILD",
-        "java_library(name= 'javalib',",
-        "             srcs=[])");
-    try {
-      createOptionsParser().parse("--experimental_action_listener='this is \\not\\ a valid label'");
-      Assert.fail("expected failure");
-    } catch (OptionsParsingException ope) {
-      assertThat(ope)
-          .hasMessageThat()
-          .isEqualTo(
-              String.format(
-                  "While parsing option %s='%s': invalid package name ''%s'': "
-                      + "package names may contain "
-                      + "A-Z, a-z, 0-9, or any of ' !\"#$%%&'()*+,-./;<=>?[]^_`{|}~' "
-                      + "(most 7-bit ascii characters except 0-31, 127, ':', or '\\')",
-                  "--experimental_action_listener",
-                  "this is \\not\\ a valid label",
-                  "this is \\not\\ a valid label"));
-    }
+    write(
+        "nobuild/BUILD",
+        """
+        load("@rules_java//java:defs.bzl", "java_library")
+        java_library(
+            name = "javalib",
+            srcs = [],
+        )
+        """);
+    addOptions("--experimental_action_listener='this is \\not\\ a valid label'");
+    OptionsParsingException expected =
+        assertThrows(OptionsParsingException.class, () -> buildTarget("//nobuild:javalib"));
+    assertThat(expected)
+        .hasMessageThat()
+        .isEqualTo(
+            String.format(
+                "While parsing option %s='%s': invalid package name ''%s'': "
+                    + "package names may contain "
+                    + "A-Z, a-z, 0-9, or any of ' !\"#$%%&'()*+,-./;<=>?[]^_`{|}~' "
+                    + "(any ASCII character except 0-31, 127, ':', or '\\')",
+                "--experimental_action_listener",
+                "this is \\not\\ a valid label",
+                "this is \\not\\ a valid label"));
   }
 
   /**
@@ -468,15 +502,30 @@ public class ActionListenerIntegrationTest extends GoogleBuildIntegrationTestCas
    */
   @Test
   public void testNonUniqueOutputs() throws Exception {
-    write("nobuild/BUILD",
-        "java_library(name= 'javalib',",
-        "             srcs=[])",
-        "extra_action(name = 'baz',",
-        "             out_templates = ['test.tst'],",
-        "             cmd = 'echo $(output test.tst)')",
-        "action_listener(name = 'bar',",
-        "                mnemonics = ['Javac', 'JavaSourceJar'],",
-        "                extra_actions = [':baz'])");
+    write(
+        "nobuild/BUILD",
+        """
+        load("@rules_java//java:defs.bzl", "java_library")
+        java_library(
+            name = "javalib",
+            srcs = [],
+        )
+
+        extra_action(
+            name = "baz",
+            cmd = "echo $(output test.tst)",
+            out_templates = ["test.tst"],
+        )
+
+        action_listener(
+            name = "bar",
+            extra_actions = [":baz"],
+            mnemonics = [
+                "Javac",
+                "JavaSourceJar",
+            ],
+        )
+        """);
 
     addOptions("--experimental_action_listener=//nobuild:bar");
 
@@ -487,7 +536,94 @@ public class ActionListenerIntegrationTest extends GoogleBuildIntegrationTestCas
       assertThat(vcfe)
           .hasMessageThat()
           .contains(
-              String.format("Analysis of target '%s' failed; build aborted", "//nobuild:javalib"));
+              "file 'extra_actions/nobuild/baz/nobuild/test.tst' is generated by these conflicting"
+                  + " actions:");
     }
+  }
+
+  /**
+   * Regression test for b/236308456.
+   *
+   * <p>Actions for {@code :shared1} and {@code :shared2} both produce {@code foo/shared.h}. {@code
+   * :mid} propagates a dependency on the header via {@code :shared1_lib}, while {@code :top}
+   * depends on the header via {@code :shared2_lib}. This leads to the extra action for {@code :top}
+   * discovering two inputs with the same exec path but different owners.
+   */
+  @Test
+  public void extraActionDiscoversBothSharedArtifacts() throws Exception {
+    write(
+        "foo/defs.bzl",
+        """
+        def _shared_header_impl(ctx):
+            header = ctx.actions.declare_file("shared.h")
+            ctx.actions.write(header, "")
+            return DefaultInfo(files = depset([header]))
+
+        shared_header = rule(implementation = _shared_header_impl)
+        """);
+    write(
+        "foo/BUILD",
+        """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+        load(":defs.bzl", "shared_header")
+
+        shared_header(name = "shared1")
+
+        shared_header(name = "shared2")
+
+        cc_library(
+            name = "shared1_lib",
+            hdrs = [":shared1"],
+        )
+
+        cc_library(
+            name = "shared2_lib",
+            hdrs = [":shared2"],
+        )
+
+        cc_library(
+            name = "mid",
+            hdrs = ["mid.h"],
+            deps = [":shared1_lib"],
+        )
+
+        # Order of top's deps matters to reproduce the crash.
+        cc_library(
+            name = "top",
+            hdrs = ["top.h"],
+            deps = [
+                ":mid",
+                ":shared2_lib",
+            ],
+        )
+
+        extra_action(
+            name = "extra",
+            cmd = "touch $(output $(ACTION_ID).out)",
+            out_templates = ["$(ACTION_ID).out"],
+        )
+
+        action_listener(
+            name = "listener",
+            extra_actions = [":extra"],
+            mnemonics = ["CppCompileHeader"],
+        )
+        """);
+    write("foo/mid.h", "#include \"foo/shared.h\"");
+    write(
+        "foo/top.h",
+        // A system include (<string>) is necessary to reproduce the crash, since otherwise the
+        // shared header would be last in the ActionExecutionFunction#addDiscoveredInputs loop.
+        "#include <string>",
+        "#include \"foo/mid.h\"",
+        "#include \"foo/shared.h\"");
+    addOptions(
+        "--cc_dotd_files",
+        "--features=-use_header_modules",
+        "--features=parse_headers",
+        "--features=cc_include_scanning",
+        "--incompatible_use_cpp_compile_header_mnemonic",
+        "--experimental_action_listener=//foo:listener");
+    buildTarget("//foo:top");
   }
 }

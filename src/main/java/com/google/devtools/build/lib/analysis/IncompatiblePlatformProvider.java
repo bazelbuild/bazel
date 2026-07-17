@@ -14,14 +14,18 @@
 
 package com.google.devtools.build.lib.analysis;
 
-import com.google.auto.value.AutoValue;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.IncompatiblePlatformProviderApi;
+import java.util.Comparator;
 import javax.annotation.Nullable;
 
 /**
@@ -34,13 +38,35 @@ import javax.annotation.Nullable;
  * <p>This provider is able to keep track of _why_ the corresponding target is considered
  * incompatible. If the target is incompatible because the target platform didn't satisfy one of the
  * constraints in target_compatible_with, then all the relevant constraints are accessible via
- * {@code getConstraintsResponsibleForIncompatibility()}. On the other hand, if the corresponding
- * target is incompatible because one of its dependencies is incompatible, then all the incompatible
+ * {@code getConstraintsResponsibleForIncompatibility()}. If the target is incompatible because one
+ * of the <code>config_setting</code> targets in target_compatible_with didn't match, then all the
+ * relevant config_setting labels are accessible via {@code
+ * getConfigSettingsResponsibleForIncompatibility()}. On the other hand, if the corresponding target
+ * is incompatible because one of its dependencies is incompatible, then all the incompatible
  * dependencies are available via {@code getTargetResponsibleForIncompatibility()}.
+ *
+ * @param targetPlatform Returns the target platform of the target that was incompatible.
+ * @param targetsResponsibleForIncompatibility Returns the incompatible dependencies that caused
+ *     this provider to be present.
+ *     <p>This may be null. If it is null, then at least one of {@code
+ *     getConstraintsResponsibleForIncompatibility()} and {@code
+ *     getConfigSettingsResponsibleForIncompatibility()} is guaranteed to be non-null. It will have
+ *     at least one element in it if it is not null.
+ * @param constraintsResponsibleForIncompatibility Returns the constraints that the target platform
+ *     didn't satisfy.
+ *     <p>This may be null. It will have at least one element in it if it is not null.
+ *     <p>The list is sorted based on the stringified label of each constraint.
+ * @param configSettingsResponsibleForIncompatibility Returns the config_settings that didn't match.
+ *     <p>This may be null. It will have at least one element in it if it is not null.
+ *     <p>The list is sorted based on the stringified label of each config_setting.
  */
 @Immutable
-@AutoValue
-public abstract class IncompatiblePlatformProvider
+@AutoCodec
+public record IncompatiblePlatformProvider(
+    @Nullable Label targetPlatform,
+    @Nullable ImmutableList<ConfiguredTarget> targetsResponsibleForIncompatibility,
+    @Nullable ImmutableList<ConstraintValueInfo> constraintsResponsibleForIncompatibility,
+    @Nullable ImmutableList<Label> configSettingsResponsibleForIncompatibility)
     implements Info, IncompatiblePlatformProviderApi {
   /** Name used in Starlark for accessing this provider. */
   public static final String STARLARK_NAME = "IncompatiblePlatformProvider";
@@ -56,17 +82,53 @@ public abstract class IncompatiblePlatformProvider
   }
 
   public static IncompatiblePlatformProvider incompatibleDueToTargets(
+      @Nullable Label targetPlatform,
       ImmutableList<ConfiguredTarget> targetsResponsibleForIncompatibility) {
     Preconditions.checkNotNull(targetsResponsibleForIncompatibility);
     Preconditions.checkArgument(!targetsResponsibleForIncompatibility.isEmpty());
-    return new AutoValue_IncompatiblePlatformProvider(targetsResponsibleForIncompatibility, null);
+    return new IncompatiblePlatformProvider(
+        targetPlatform, targetsResponsibleForIncompatibility, null, null);
   }
 
   public static IncompatiblePlatformProvider incompatibleDueToConstraints(
-      ImmutableList<ConstraintValueInfo> constraints) {
+      @Nullable Label targetPlatform, ImmutableList<ConstraintValueInfo> constraints) {
+    return incompatibleDueToConstraintsAndConfigSettings(
+        targetPlatform, constraints, ImmutableList.of());
+  }
+
+  public static IncompatiblePlatformProvider incompatibleDueToConfigSettings(
+      @Nullable Label targetPlatform, ImmutableList<Label> configSettings) {
+    return incompatibleDueToConstraintsAndConfigSettings(
+        targetPlatform, ImmutableList.of(), configSettings);
+  }
+
+  public static IncompatiblePlatformProvider incompatibleDueToConstraintsAndConfigSettings(
+      @Nullable Label targetPlatform,
+      ImmutableList<ConstraintValueInfo> constraints,
+      ImmutableList<Label> configSettings) {
     Preconditions.checkNotNull(constraints);
-    Preconditions.checkArgument(!constraints.isEmpty());
-    return new AutoValue_IncompatiblePlatformProvider(null, constraints);
+    Preconditions.checkNotNull(configSettings);
+    Preconditions.checkArgument(!constraints.isEmpty() || !configSettings.isEmpty());
+
+    // Deduplicate and sort the list of incompatible constraints. Doing it here means that everyone
+    // inspecting this provider doesn't have to deal with it.
+    constraints =
+        constraints.stream()
+            .sorted(Comparator.comparing(ConstraintValueInfo::label))
+            .distinct()
+            .collect(toImmutableList());
+
+    configSettings =
+        configSettings.stream()
+            .sorted(Comparator.naturalOrder())
+            .distinct()
+            .collect(toImmutableList());
+
+    return new IncompatiblePlatformProvider(
+        targetPlatform,
+        null,
+        constraints.isEmpty() ? null : constraints,
+        configSettings.isEmpty() ? null : configSettings);
   }
 
   @Override
@@ -74,21 +136,4 @@ public abstract class IncompatiblePlatformProvider
     return true; // immutable and Starlark-hashable
   }
 
-  /**
-   * Returns the incompatible dependencies that caused this provider to be present.
-   *
-   * <p>This may be null. If it is null, then {@code getConstraintsResponsibleForIncompatibility()}
-   * is guaranteed to be non-null. It will have at least one element in it if it is not null.
-   */
-  @Nullable
-  public abstract ImmutableList<ConfiguredTarget> targetsResponsibleForIncompatibility();
-
-  /**
-   * Returns the constraints that the target platform didn't satisfy.
-   *
-   * <p>This may be null. If it is null, then {@code getTargetsResponsibleForIncompatibility()} is
-   * guaranteed to be non-null. It will have at least one element in it if it is not null.
-   */
-  @Nullable
-  public abstract ImmutableList<ConstraintValueInfo> constraintsResponsibleForIncompatibility();
 }

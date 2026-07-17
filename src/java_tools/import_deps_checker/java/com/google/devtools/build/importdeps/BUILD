@@ -46,18 +46,15 @@ java_binary(
         "-XX:+IgnoreUnrecognizedVMOptions",
         "--add-opens=java.base/java.nio=ALL-UNNAMED",
         "--add-opens=java.base/java.lang=ALL-UNNAMED",
+        # TODO: remove after https://github.com/protocolbuffers/protobuf/issues/20760 is fixed
+        "--sun-misc-unsafe-memory-access=allow",
     ],
     main_class = "com.google.devtools.build.importdeps.Main",
-    visibility = [
-        "//src/java_tools/import_deps_checker:__subpackages__",
-        "//tools/android:__pkg__",
-        "//tools/android/runtime_deps:__pkg__",
-    ],
     deps = [
         ":import_deps_checker",
-        "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:deps_java_proto",
         "//src/main/protobuf:worker_protocol_java_proto",
         "//third_party:guava",
+        "@maven//:args4j_args4j",
     ],
 )

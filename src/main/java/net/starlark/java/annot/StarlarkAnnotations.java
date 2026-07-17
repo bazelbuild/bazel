@@ -14,7 +14,6 @@
 
 package net.starlark.java.annot;
 
-import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
 import javax.annotation.Nullable;
 
@@ -55,44 +54,91 @@ public final class StarlarkAnnotations {
   }
 
   /**
-   * Searches a class or interface's class hierarchy for the given class annotation.
+   * Information extracted by walking a class's ancestors' {@link StarlarkBuiltin} annotations.
    *
-   * <p>If the given class annotation appears multiple times within the class hierachy, this chooses
-   * the annotation on the most-specified class in the hierarchy.
+   * @param starlarkBuiltinAncestor the most-specified ancestor annotated with {@link
+   *     StarlarkBuiltin}. (It is guaranteed that if two ancestors both define the annotation, one
+   *     of them is a subtype of the other.)
+   * @param assignableToStructType whether any {@code StarlarkBuiltin}-annotated ancestor has set
+   *     {@link StarlarkBuiltin#isStructType} to true.
+   */
+  private record ClassInfo(Class<?> starlarkBuiltinAncestor, boolean assignableToStructType) {}
+
+  // A map from a class to its ClassInfo.
+  private static final ClassValue<ClassInfo> classInfos =
+      new ClassValue<ClassInfo>() {
+        @Override
+        protected ClassInfo computeValue(Class<?> type) {
+          return buildClassInfo(type);
+        }
+      };
+
+  /**
+   * Searches a class or interface's class hierarchy for {@link StarlarkBuiltin} annotations.
    *
-   * @return the best-fit class that declares the annotation, or null if no class in the hierarchy
-   *     declares it
+   * <p>If the {@link StarlarkBuiltin} annotation appears multiple times within the class hierarchy,
+   * the returned {@link ClassInfo} will contain the annotation of the most-specified class in the
+   * hierarchy; and {@link ClassInfo#assignableToStructType} will be true if any of the annotations
+   * have {@code assignableToStructType=true}.
+   *
+   * @return a {@link ClassInfo} with {@link ClassInfo#starlarkBuiltinAncestor} set to the best-fit
+   *     class that declares a {@link StarlarkBuiltin} annotation; returns null if no class in the
+   *     hierarchy declares the annotation.
    * @throws IllegalArgumentException if the most-specified class in the hierarchy having the
    *     annotation is not unique
    */
   @Nullable
-  private static Class<?> findAnnotatedAncestor(
-      Class<?> classObj, Class<? extends Annotation> annotation) {
-    if (classObj.isAnnotationPresent(annotation)) {
-      return classObj;
+  private static ClassInfo buildClassInfo(Class<?> classObj) {
+    @Nullable Class<?> bestCandidate = null;
+    boolean assignable = false;
+
+    if (classObj.isAnnotationPresent(StarlarkBuiltin.class)) {
+      bestCandidate = classObj;
+      assignable = classObj.getAnnotation(StarlarkBuiltin.class).isStructType();
     }
-    Class<?> bestCandidate = null;
-    Class<?> superclass = classObj.getSuperclass();
+
+    // Note that moreSpecific imposes a linear relationship between competing ancestors, so
+    // `bestCandidate` and `assignable` are consistent.
+    @Nullable Class<?> superclass = classObj.getSuperclass();
     if (superclass != null) {
-      Class<?> result = findAnnotatedAncestor(superclass, annotation);
-      bestCandidate = moreSpecific(result, bestCandidate);
+      @Nullable ClassInfo result = classInfos.get(superclass);
+      if (result != null) {
+        bestCandidate = moreSpecific(result.starlarkBuiltinAncestor(), bestCandidate);
+        assignable |= result.assignableToStructType();
+      }
     }
     for (Class<?> interfaceObj : classObj.getInterfaces()) {
-      Class<?> result = findAnnotatedAncestor(interfaceObj, annotation);
-      bestCandidate = moreSpecific(result, bestCandidate);
+      @Nullable ClassInfo result = classInfos.get(interfaceObj);
+      if (result != null) {
+        bestCandidate = moreSpecific(result.starlarkBuiltinAncestor(), bestCandidate);
+        assignable |= result.assignableToStructType();
+      }
     }
-    return bestCandidate;
+    return bestCandidate != null ? new ClassInfo(bestCandidate, assignable) : null;
   }
 
   /**
-   * Returns the {@link StarlarkBuiltin} annotation for the given class, if it exists, and
-   * null otherwise. The first annotation found will be returned, starting with {@code classObj}
-   * and following its base classes and interfaces recursively.
+   * Returns the {@link StarlarkBuiltin} annotation for the given class or interface. If the
+   * annotation is not found directly, its ancestor classes and interfaces are searched, and in case
+   * multiple annotations are found, the one on the most derived class or interface is used.
+   *
+   * <p>Returns null if no annotation is found in the class hierarchy.
    */
   @Nullable
   public static StarlarkBuiltin getStarlarkBuiltin(Class<?> classObj) {
-    Class<?> cls = findAnnotatedAncestor(classObj, StarlarkBuiltin.class);
-    return cls == null ? null : cls.getAnnotation(StarlarkBuiltin.class);
+    @Nullable ClassInfo classInfo = classInfos.get(classObj);
+    return classInfo != null
+        ? classInfo.starlarkBuiltinAncestor().getAnnotation(StarlarkBuiltin.class)
+        : null;
+  }
+
+  /**
+   * Returns true if the given classObj or any of its interfaces or supertypes has {@code
+   * assignableToStructType} marked in its {@link StarlarkBuiltin} annotation.
+   */
+  public static boolean isAssignableToStructType(Class<?> classObj) {
+    @Nullable ClassInfo classInfo = classInfos.get(classObj);
+    return classInfo != null && classInfo.assignableToStructType();
   }
 
   /**
@@ -102,7 +148,8 @@ public final class StarlarkAnnotations {
    */
   @Nullable
   public static Class<?> getParentWithStarlarkBuiltin(Class<?> classObj) {
-    return findAnnotatedAncestor(classObj, StarlarkBuiltin.class);
+    @Nullable ClassInfo classInfo = classInfos.get(classObj);
+    return classInfo != null ? classInfo.starlarkBuiltinAncestor() : null;
   }
 
   /**

@@ -16,10 +16,13 @@ package com.google.devtools.build.lib.remote.http;
 import static com.google.common.base.Preconditions.checkState;
 
 import com.google.auth.Credentials;
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPromise;
+import io.netty.handler.codec.compression.Zstd;
 import io.netty.handler.codec.http.DefaultFullHttpRequest;
 import io.netty.handler.codec.http.HttpContent;
 import io.netty.handler.codec.http.HttpHeaderNames;
@@ -33,14 +36,18 @@ import io.netty.handler.codec.http.HttpUtil;
 import io.netty.handler.codec.http.HttpVersion;
 import io.netty.handler.codec.http.LastHttpContent;
 import io.netty.handler.timeout.ReadTimeoutException;
+import io.netty.util.AsciiString;
 import io.netty.util.internal.StringUtil;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.ArrayList;
 import java.util.Map.Entry;
 
 /** ChannelHandler for downloads. */
 final class HttpDownloadHandler extends AbstractHttpHandler<HttpObject> {
+
+  private static final String ACCEPT_ENCODING = getAcceptEncoding();
 
   private OutputStream out;
   private boolean keepAlive = HttpVersion.HTTP_1_1.isKeepAliveDefault();
@@ -51,6 +58,8 @@ final class HttpDownloadHandler extends AbstractHttpHandler<HttpObject> {
   private long contentLength = -1;
   /** the path header in the http request */
   private String path;
+  /** the bytes to skip in a full or chunked response */
+  private long skipBytes;
 
   public HttpDownloadHandler(
       Credentials credentials, ImmutableList<Entry<String, String>> extraHttpHeaders) {
@@ -72,8 +81,8 @@ final class HttpDownloadHandler extends AbstractHttpHandler<HttpObject> {
     }
     checkState(userPromise != null, "response before request");
 
-    if (msg instanceof HttpResponse) {
-      response = (HttpResponse) msg;
+    if (msg instanceof HttpResponse httpResponse) {
+      response = httpResponse;
       if (!response.protocolVersion().equals(HttpVersion.HTTP_1_1)) {
         HttpException error =
             new HttpException(
@@ -105,6 +114,19 @@ final class HttpDownloadHandler extends AbstractHttpHandler<HttpObject> {
 
       ByteBuf content = ((HttpContent) msg).content();
       int readableBytes = content.readableBytes();
+      if (skipBytes > 0) {
+        int skipNow;
+        if (skipBytes < readableBytes) {
+          // readableBytes is an int, meaning skipBytes < readableBytes <= INT_MAX.
+          // So, this conversion is safe.
+          skipNow = (int) skipBytes;
+        } else {
+          skipNow = readableBytes;
+        }
+        content.readerIndex(content.readerIndex() + skipNow);
+        skipBytes -= skipNow;
+        readableBytes = readableBytes - skipNow;
+      }
       content.readBytes(out, readableBytes);
       bytesReceived += readableBytes;
       if (msg instanceof LastHttpContent) {
@@ -128,19 +150,20 @@ final class HttpDownloadHandler extends AbstractHttpHandler<HttpObject> {
       throws Exception {
     checkState(userPromise == null, "handler can't be shared between pipelines.");
     userPromise = promise;
-    if (!(msg instanceof DownloadCommand)) {
+    if (!(msg instanceof DownloadCommand cmd)) {
       failAndResetUserPromise(
           new IllegalArgumentException(
               "Unsupported message type: " + StringUtil.simpleClassName(msg)));
       return;
     }
-    DownloadCommand cmd = (DownloadCommand) msg;
     out = cmd.out();
     path = constructPath(cmd.uri(), cmd.digest().getHash(), cmd.casDownload());
+    skipBytes = cmd.offset();
     HttpRequest request = buildRequest(path, constructHost(cmd.uri()));
     addCredentialHeaders(request, cmd.uri());
     addExtraRemoteHeaders(request);
     addUserAgentHeader(request);
+    addAcceptHeaders(request);
     ctx.writeAndFlush(request)
         .addListener(
             (f) -> {
@@ -164,8 +187,7 @@ final class HttpDownloadHandler extends AbstractHttpHandler<HttpObject> {
         new DefaultFullHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, path);
     httpRequest.headers().set(HttpHeaderNames.HOST, host);
     httpRequest.headers().set(HttpHeaderNames.CONNECTION, HttpHeaderValues.KEEP_ALIVE);
-    httpRequest.headers().set(HttpHeaderNames.ACCEPT, "*/*");
-    httpRequest.headers().set(HttpHeaderNames.ACCEPT_ENCODING, HttpHeaderValues.GZIP);
+    httpRequest.headers().set(HttpHeaderNames.ACCEPT_ENCODING, ACCEPT_ENCODING);
     return httpRequest;
   }
 
@@ -216,5 +238,15 @@ final class HttpDownloadHandler extends AbstractHttpHandler<HttpObject> {
       downloadSucceeded = false;
       response = null;
     }
+  }
+
+  private static String getAcceptEncoding() {
+    ArrayList<AsciiString> acceptEncoding =
+        Lists.newArrayList(
+            HttpHeaderValues.GZIP, HttpHeaderValues.DEFLATE, HttpHeaderValues.SNAPPY);
+    if (Zstd.isAvailable()) {
+      acceptEncoding.add(HttpHeaderValues.ZSTD);
+    }
+    return Joiner.on(",").join(acceptEncoding);
   }
 }

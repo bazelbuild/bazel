@@ -20,23 +20,26 @@ import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL_LIST;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Ordering;
+import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
+import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
-import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.NonconfiguredAttributeMapper;
 import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.lib.packages.RuleTransitionData;
 
 /**
  * A transition factory for trimming feature flags manually via an attribute which specifies the
  * feature flags used by transitive dependencies.
  */
-public class ConfigFeatureFlagTaggedTrimmingTransitionFactory implements TransitionFactory<Rule> {
+public class ConfigFeatureFlagTaggedTrimmingTransitionFactory
+    implements TransitionFactory<RuleTransitionData> {
 
   /** Applies manual trimming to the given set of flags. */
   public static final class ConfigFeatureFlagTaggedTrimmingTransition implements PatchTransition {
@@ -58,10 +61,9 @@ public class ConfigFeatureFlagTaggedTrimmingTransitionFactory implements Transit
 
     @Override
     public BuildOptions patch(BuildOptionsView options, EventHandler eventHandler) {
-      if (!(options.contains(ConfigFeatureFlagOptions.class)
-          && options.get(ConfigFeatureFlagOptions.class)
-              .enforceTransitiveConfigsForConfigFeatureFlag
-          && options.get(CoreOptions.class).useDistinctHostConfiguration)) {
+      var configFeatureFlagOptions = options.get(ConfigFeatureFlagOptions.class);
+      if (configFeatureFlagOptions == null
+          || !configFeatureFlagOptions.getEnforceTransitiveConfigsForConfigFeatureFlag()) {
         return options.underlying();
       }
       return FeatureFlagValue.trimFlagValues(options.underlying(), flags);
@@ -69,8 +71,10 @@ public class ConfigFeatureFlagTaggedTrimmingTransitionFactory implements Transit
 
     @Override
     public boolean equals(Object other) {
-      return other instanceof ConfigFeatureFlagTaggedTrimmingTransition
-          && this.flags.equals(((ConfigFeatureFlagTaggedTrimmingTransition) other).flags);
+      return other
+              instanceof
+              ConfigFeatureFlagTaggedTrimmingTransition configFeatureFlagTaggedTrimmingTransition
+          && this.flags.equals(configFeatureFlagTaggedTrimmingTransition.flags);
     }
 
     @Override
@@ -91,23 +95,38 @@ public class ConfigFeatureFlagTaggedTrimmingTransitionFactory implements Transit
   }
 
   @Override
-  public PatchTransition create(Rule rule) {
-    NonconfigurableAttributeMapper attrs = NonconfigurableAttributeMapper.of(rule);
-    RuleClass ruleClass = rule.getRuleClassObject();
+  public PatchTransition create(RuleTransitionData ruleData) {
+    NonconfiguredAttributeMapper attrs = NonconfiguredAttributeMapper.of(ruleData.rule());
+    RuleClass ruleClass = ruleData.rule().getRuleClassObject();
+
+    if (AliasProvider.mayBeAlias(ruleData.rule())) {
+      // As a convenience, do not require transitive_config to be set for alias rule.
+      return NoTransition.INSTANCE;
+    }
+
     if (ruleClass.getName().equals(ConfigRuleClasses.ConfigFeatureFlagRule.RULE_NAME)) {
-      return new ConfigFeatureFlagTaggedTrimmingTransition(ImmutableSortedSet.of(rule.getLabel()));
+      return new ConfigFeatureFlagTaggedTrimmingTransition(
+          ImmutableSortedSet.of(ruleData.rule().getLabel()));
     }
 
     ImmutableSortedSet.Builder<Label> requiredLabelsBuilder =
         new ImmutableSortedSet.Builder<>(Ordering.natural());
     if (attrs.isAttributeValueExplicitlySpecified(attributeName)
         && !attrs.get(attributeName, NODEP_LABEL_LIST).isEmpty()) {
-      requiredLabelsBuilder.addAll(attrs.get(attributeName, NODEP_LABEL_LIST));
+      // Entries starting with //command_line_option[:/] represent native options and are not
+      // relevant for this transition. Non-existent flags already do not error so this skipping
+      // is done out of an abundance of caution and as a statement of intent for the future.
+      for (Label entry : attrs.get(attributeName, NODEP_LABEL_LIST)) {
+        String packageName = entry.getPackageName();
+        if (packageName.equals("command_line_option")
+            || packageName.startsWith("command_line_option/")) {
+          continue;
+        }
+        requiredLabelsBuilder.add(entry);
+      }
     }
-    if (ruleClass.getTransitionFactory() instanceof ConfigFeatureFlagTransitionFactory) {
-      String settingAttribute =
-          ((ConfigFeatureFlagTransitionFactory) ruleClass.getTransitionFactory())
-              .getAttributeName();
+    if (ruleClass.getTransitionFactory() instanceof ConfigFeatureFlagTransitionFactory cfft) {
+      String settingAttribute = cfft.getAttributeName();
       // Because the process of setting a flag also creates a dependency on that flag, we need to
       // include all the set flags, even if they aren't actually declared as used by this rule.
       requiredLabelsBuilder.addAll(attrs.get(settingAttribute, LABEL_KEYED_STRING_DICT).keySet());
@@ -119,5 +138,10 @@ public class ConfigFeatureFlagTaggedTrimmingTransitionFactory implements Transit
     }
 
     return new ConfigFeatureFlagTaggedTrimmingTransition(requiredLabels);
+  }
+
+  @Override
+  public TransitionType transitionType() {
+    return TransitionType.RULE;
   }
 }

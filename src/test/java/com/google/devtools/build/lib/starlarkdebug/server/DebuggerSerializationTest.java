@@ -30,6 +30,7 @@ import java.util.stream.Collectors;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkValue;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -60,8 +61,7 @@ public final class DebuggerSerializationTest {
   public void testSimpleNestedSet() {
     Set<String> children = ImmutableSet.of("a", "b");
     Depset set =
-        Depset.of(
-            Depset.ElementType.STRING, NestedSetBuilder.stableOrder().addAll(children).build());
+        Depset.of(String.class, NestedSetBuilder.<String>stableOrder().addAll(children).build());
 
     Value value = getValueProto("name", set);
 
@@ -90,7 +90,7 @@ public final class DebuggerSerializationTest {
     ImmutableSet<String> directChildren = ImmutableSet.of("a", "b");
     Depset outerSet =
         Depset.of(
-            Depset.ElementType.STRING,
+            String.class,
             NestedSetBuilder.<String>linkOrder()
                 .addAll(directChildren)
                 .addTransitive(innerNestedSet)
@@ -216,7 +216,7 @@ public final class DebuggerSerializationTest {
 
   private static class DummyType implements StarlarkValue {
     @Override
-    public void repr(Printer printer) {
+    public void repr(Printer printer, StarlarkSemantics semantics) {
       printer.append("DummyType");
     }
 
@@ -225,9 +225,6 @@ public final class DebuggerSerializationTest {
       return true;
     }
 
-    public boolean anotherMethod() {
-      return false;
-    }
   }
 
   @Test
@@ -241,7 +238,7 @@ public final class DebuggerSerializationTest {
 
   private static class DummyTypeWithException implements StarlarkValue {
     @Override
-    public void repr(Printer printer) {
+    public void repr(Printer printer, StarlarkSemantics semantics) {
       printer.append("DummyTypeWithException");
     }
 
@@ -255,14 +252,11 @@ public final class DebuggerSerializationTest {
       throw new IllegalArgumentException();
     }
 
-    public boolean anotherMethod() {
-      return false;
-    }
   }
 
   private static void assertTypeAndDescription(Object object, Value value) {
     assertThat(value.getType()).isEqualTo(Starlark.type(object));
-    assertThat(value.getDescription()).isEqualTo(Starlark.repr(object));
+    assertThat(value.getDescription()).isEqualTo(Starlark.repr(object, StarlarkSemantics.DEFAULT));
   }
 
   // Type, description, and ID are implementation dependent.

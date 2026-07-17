@@ -14,9 +14,14 @@
 package com.google.devtools.build.lib.query2.testutil;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.eventbus.EventBus;
+import com.google.devtools.build.lib.bazel.bzlmod.ModuleKey;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventBusEventHandler;
 import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.Reporter;
@@ -24,6 +29,9 @@ import com.google.devtools.build.lib.query2.common.UniverseScope;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
 import com.google.devtools.build.lib.query2.testutil.AbstractQueryTest.QueryHelper;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
+import com.google.devtools.build.lib.util.AbruptExitException;
+import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Arrays;
 
 /** Partial {@link QueryHelper} implementation for settings storage and event handling. */
@@ -36,10 +44,25 @@ public abstract class AbstractQueryHelper<T> implements QueryHelper<T> {
   protected boolean orderedResults = true;
   protected UniverseScope universeScope = UniverseScope.EMPTY;
 
+  public static final RepositoryMapping DEFAULT_MAIN_REPO_MAPPING =
+      RepositoryMapping.create(
+          ImmutableMap.of(
+              "",
+              RepositoryName.MAIN,
+              "bazel_tools",
+              RepositoryName.BAZEL_TOOLS,
+              "platforms",
+              RepositoryName.createUnvalidated("platforms")),
+          RepositoryName.MAIN);
+  protected TargetPattern.Parser mainRepoTargetParser;
+
   @Override
   public void setUp() throws Exception {
     eventCollector = new EventCollector(EventKind.ERRORS_AND_WARNINGS);
-    reporter = new Reporter(new EventBus(), eventCollector);
+    reporter = new Reporter(EventBusEventHandler.createWithNewEventBus(), eventCollector);
+    mainRepoTargetParser =
+        new TargetPattern.Parser(
+            PathFragment.EMPTY_FRAGMENT, RepositoryName.MAIN, DEFAULT_MAIN_REPO_MAPPING);
   }
 
   public Reporter getReporter() {
@@ -96,5 +119,29 @@ public abstract class AbstractQueryHelper<T> implements QueryHelper<T> {
   @Override
   public Iterable<Event> getEvents() {
     return eventCollector;
+  }
+
+  @Override
+  public void addModule(ModuleKey key, String... moduleFileLines) {
+    throw new IllegalStateException("Cannot call this on non-bzlmod-enabled query environments.");
+  }
+
+  @Override
+  public Path getModuleRoot() {
+    throw new IllegalStateException("Cannot call this on non-bzlmod-enabled query environments.");
+  }
+
+  @Override
+  public void setMainRepoTargetParser(RepositoryMapping mapping) {
+    this.mainRepoTargetParser =
+        new TargetPattern.Parser(
+            PathFragment.EMPTY_FRAGMENT,
+            RepositoryName.MAIN,
+            mapping.withAdditionalMappings(DEFAULT_MAIN_REPO_MAPPING));
+  }
+
+  @Override
+  public void maybeHandleDiffs() throws AbruptExitException, InterruptedException {
+    // Do nothing.
   }
 }

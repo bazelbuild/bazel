@@ -1,3 +1,9 @@
+load("@rules_java//java:java_binary.bzl", "java_binary")
+load("@rules_java//java:java_library.bzl", "java_library")
+load("@rules_java//java:java_test.bzl", "java_test")
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 package(default_visibility = ["//visibility:__pkg__"])
 
 licenses(["notice"])  # Apache License 2.0
@@ -9,20 +15,14 @@ sh_test(
     size = "enormous",
     srcs = ["ijar_test.sh"],
     args = [
-        "$(JAVABASE)/bin/javac",
-        "$(JAVABASE)/bin/java",
-        "$(JAVABASE)/bin/jar",
-        "$(JAVABASE)/bin/javap",
+        "$(JAVABASE)",
         "$(location //third_party/ijar)",
-        "$(location //third_party/java/jdk/langtools:javac_jar)",
         # We assume unzip and zip to be on the path
         "unzip",
         "zip",
         "$(location :zip_count)",
     ],
     data = [
-        "testenv.sh",
-        "//src/test/shell:bashunit",
         "//third_party/ijar",
         "A.java",
         "B.java",
@@ -34,7 +34,10 @@ sh_test(
         # This is a precompiled .jar file because it needs to be compiled with JDK 11.
         # TODO(cushon): build from source once we have a JDK 11
         "nestmates/nestmates.jar",
+        "records/records.jar",
+        "sealed/sealed.jar",
         ":source_debug_extension.jar",
+        ":duplicated_unsupported_attribute.jar",
         ":keep_for_compile_lib.jar",
         ":largest_regular.jar",
         ":smallest_zip64.jar",
@@ -45,14 +48,16 @@ sh_test(
         # Intentionally bad test JAR: file count in central directory
         # wrong.
         "libwrongcentraldir.jar",
+        ":dynamic_constant.jar",
+        "@bazel_tools//tools/bash/runfiles",
         "@bazel_tools//tools/jdk:current_java_runtime",
-        "//third_party/java/jdk/langtools:javac_jar",
     ],
     shard_count = 5,
     tags = ["zip"],
     toolchains = [
         "@bazel_tools//tools/jdk:current_java_runtime",
     ],
+    deps = [":testenv"],
 )
 
 sh_test(
@@ -65,12 +70,18 @@ sh_test(
         "unzip",
         "zip",
     ],
-    data = [
-        "testenv.sh",
-        "//src/test/shell:bashunit",
-        "//third_party/ijar:zipper",
-    ],
+    data = ["//third_party/ijar:zipper"],
     tags = ["zip"],
+    deps = [":testenv"],
+)
+
+sh_library(
+    name = "testenv",
+    srcs = ["testenv.sh"],
+    deps = [
+        "//src/test/shell:bashunit",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
 )
 
 java_library(
@@ -204,9 +215,40 @@ genrule(
     tools = ["gen_source_debug_extension"],
 )
 
+java_binary(
+    name = "gen_duplicated_unsupported_attribute",
+    srcs = ["GenDuplicatedUnsupportedAttribute.java"],
+    main_class = "test.GenDuplicatedUnsupportedAttribute",
+    deps = ["//third_party:asm"],
+)
+
+genrule(
+    name = "gen_duplicated_unsupported_attribute_jar",
+    srcs = [],
+    outs = ["duplicated_unsupported_attribute.jar"],
+    cmd = "$(location :gen_duplicated_unsupported_attribute) $@",
+    tools = ["gen_duplicated_unsupported_attribute"],
+)
+
+java_binary(
+    name = "gen_dynamic_constant",
+    srcs = ["GenDynamicConstant.java"],
+    main_class = "test.GenDynamicConstant",
+    deps = ["//third_party:asm"],
+)
+
+genrule(
+    name = "gen_dynamic_constant_jar",
+    srcs = [],
+    outs = ["dynamic_constant.jar"],
+    cmd = "$(location :gen_dynamic_constant) $@",
+    tools = [":gen_dynamic_constant"],
+)
+
 java_library(
     name = "local_and_anonymous_lib",
     srcs = ["LocalAndAnonymous.java"],
+    javacopts = ["-source 8 -target 8"],
 )
 
 genrule(
@@ -334,6 +376,51 @@ genrule(
     tools = [":GenJarWithManifestSections"],
 )
 
+java_binary(
+    name = "GenMetaInfTransitive",
+    testonly = 1,
+    srcs = ["GenMetaInfTransitive.java"],
+    main_class = "GenMetaInfTransitive",
+    deps = ["//third_party:guava"],
+)
+
+genrule(
+    name = "meta_inf_transitive",
+    testonly = 1,
+    outs = ["meta_inf_transitive.jar"],
+    cmd = "$(location :GenMetaInfTransitive) $@",
+    tools = [":GenMetaInfTransitive"],
+)
+
+genrule(
+    name = "meta_inf_transitive-interface",
+    testonly = 1,
+    srcs = [":meta_inf_transitive.jar"],
+    outs = ["meta_inf_transitive-interface.jar"],
+    cmd = "$(location //third_party/ijar) $< $@",
+    tools = ["//third_party/ijar"],
+)
+
+genrule(
+    name = "multirelease",
+    testonly = True,
+    srcs = ["Object.java"],
+    outs = ["multirelease.jar"],
+    cmd = "$(JAVABASE)/bin/jar --create --file $@ --release 9 $<",
+    toolchains = [
+        "@bazel_tools//tools/jdk:current_java_runtime",
+    ],
+)
+
+genrule(
+    name = "multirelease-interface",
+    testonly = True,
+    srcs = [":multirelease.jar"],
+    outs = ["multirelease-interface.jar"],
+    cmd = "$(location //third_party/ijar) $< $@",
+    tools = ["//third_party/ijar"],
+)
+
 java_test(
     name = "IjarTests",
     size = "small",
@@ -364,7 +451,9 @@ java_test(
         ":kotlin_module-interface.jar",
         ":liblocal_and_anonymous_lib.jar",
         ":local_and_anonymous-interface.jar",
+        ":meta_inf_transitive-interface",
         ":module_info-interface.jar",
+        ":multirelease-interface.jar",
         ":scala_tasty-interface.jar",
     ],
     tags = ["zip"],
@@ -402,7 +491,7 @@ java_binary(
         ("largest_regular", 65535),
         ("smallest_zip64", 65536),
         ("definitely_zip64", 70000),
-        ("empty_zip", 1),
+        ("empty_zip", 0),
     ]
 ]
 

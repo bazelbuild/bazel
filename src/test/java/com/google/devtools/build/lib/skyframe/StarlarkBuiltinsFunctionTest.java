@@ -45,8 +45,8 @@ public class StarlarkBuiltinsFunctionTest extends BuildViewTestCase {
         new ConfiguredRuleClassProvider.Builder()
             .addRuleDefinition(OVERRIDABLE_RULE)
             .addRuleDefinition(JUST_A_RULE)
-            .addStarlarkAccessibleTopLevels("overridable_symbol", "original_value")
-            .addStarlarkAccessibleTopLevels("just_a_symbol", "another_value");
+            .addBzlToplevel("overridable_symbol", "original_value")
+            .addBzlToplevel("just_a_symbol", "another_value");
     TestRuleClassProvider.addStandardRules(builder);
     return builder.build();
   }
@@ -233,9 +233,11 @@ public class StarlarkBuiltinsFunctionTest extends BuildViewTestCase {
         "pkg/BUILD", //
         "load(':dummy.bzl', 'dummy_symbol')");
     scratch.file(
-        "pkg/dummy.bzl", //
-        "_builtins",
-        "dummy_symbol = None");
+        "pkg/dummy.bzl",
+        """
+        _builtins
+        dummy_symbol = None
+        """);
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//pkg:BUILD");

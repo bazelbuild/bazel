@@ -18,50 +18,39 @@ import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
-import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
+import java.util.List;
 
 /** Provides Bazel startup flags. */
 public class BazelStartupOptionsModule extends BlazeModule {
   /** Bazelrc file flags. */
-  public static final class Options extends OptionsBase {
+  @OptionsClass
+  public abstract static class Options extends OptionsBase {
     @Option(
         name = "bazelrc",
+        allowMultiple = true,
         defaultValue = "null", // NOTE: purely decorative, rc files are read by the client.
         documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
         effectTags = {OptionEffectTag.CHANGES_INPUTS},
         valueHelp = "<path>",
         help =
-            "The location of the user .bazelrc file containing default values of "
-                + "Bazel options. "
-                + "/dev/null indicates that all further `--bazelrc`s will be ignored, "
-                + "which is useful to disable the search for a user rc file, "
-                + "e.g. in release builds.\n"
-                + "This option can also be specified multiple times.\n"
-                + "E.g. with "
-                + "`--bazelrc=x.rc --bazelrc=y.rc --bazelrc=/dev/null --bazelrc=z.rc`,\n"
-                + "  1) x.rc and y.rc are read.\n"
-                + "  2) z.rc is ignored due to the prior /dev/null.\n"
-                + "If unspecified, Bazel uses the first .bazelrc file it finds in "
-                + "the following two locations: the workspace directory, then the user's home "
-                + "directory.\n"
-                + "Note: command line options will always supersede any option in bazelrc.")
-    public String blazerc;
+            """
+            The location of the user .bazelrc file containing default values of Bazel options.
+            `/dev/null` indicates that all further `--bazelrc`s will be ignored, which is useful to
+            disable the search for a user rc file, e.g. in release builds.
 
-    // TODO(b/36168162): Remove this after the transition period is ower. This now only serves to
-    // provide accurate warnings about which old files are being missed.
-    @Option(
-        name = "master_bazelrc",
-        defaultValue = "true", // NOTE: purely decorative, rc files are read by the client.
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.NO_OP},
-        metadataTags = {OptionMetadataTag.DEPRECATED},
-        help =
-            "If this option is false, the master bazelrcs are not read. Otherwise, Bazel looks for "
-                + "master rcs in three locations, reading them all, in order: "
-                + "$workspace/tools/bazel.rc, a .bazelrc file near the bazel binary, and the "
-                + "global rc, /etc/bazel.bazelrc.")
-    public boolean masterBlazerc;
+            This option can also be specified multiple times. e.g. with
+            `--bazelrc=x.rc --bazelrc=y.rc --bazelrc=/dev/null --bazelrc=z.rc`.
+            1. `x.rc` and `y.rc` are read.
+            2. `z.rc` is ignored due to the prior `/dev/null`.
+            If unspecified, Bazel uses the first `.bazelrc` file it finds in
+            the following two locations: the workspace directory, then the user's home
+            directory.
+
+            Note: command line options will always supersede any option in bazelrc.
+            """)
+    public abstract List<String> getBlazerc();
 
     // For the system_rc, it can be /etc/bazel.bazelrc, or a special Windows value, or can be
     // custom-set by the Bazel distributor. We don't list a known path in the help output in order
@@ -72,23 +61,23 @@ public class BazelStartupOptionsModule extends BlazeModule {
         documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
         effectTags = {OptionEffectTag.CHANGES_INPUTS},
         help = "Whether or not to look for the system-wide bazelrc.")
-    public boolean systemRc;
+    public abstract boolean getSystemRc();
 
     @Option(
         name = "workspace_rc",
         defaultValue = "true", // NOTE: purely decorative, rc files are read by the client.
         documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
         effectTags = {OptionEffectTag.CHANGES_INPUTS},
-        help = "Whether or not to look for the workspace bazelrc file at $workspace/.bazelrc")
-    public boolean workspaceRc;
+        help = "Whether or not to look for the workspace bazelrc file at `$workspace/.bazelrc`")
+    public abstract boolean getWorkspaceRc();
 
     @Option(
         name = "home_rc",
         defaultValue = "true", // NOTE: purely decorative, rc files are read by the client.
         documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
         effectTags = {OptionEffectTag.CHANGES_INPUTS},
-        help = "Whether or not to look for the home bazelrc file at $HOME/.bazelrc")
-    public boolean homeRc;
+        help = "Whether or not to look for the home bazelrc file at `$HOME/.bazelrc`")
+    public abstract boolean getHomeRc();
   }
 
   @Override

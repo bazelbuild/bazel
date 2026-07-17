@@ -14,14 +14,15 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.configurationIdMessage;
 
 import com.google.common.collect.HashMultimap;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 import com.google.common.eventbus.Subscribe;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.ConfigurationId;
 import com.google.devtools.build.lib.causes.AnalysisFailedCause;
@@ -32,8 +33,7 @@ import com.google.devtools.build.lib.server.FailureDetails.Analysis;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading.Code;
-import com.google.devtools.build.lib.testutil.Suite;
-import com.google.devtools.build.lib.testutil.TestSpec;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -44,7 +44,6 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /** Analysis failure reporting tests. */
-@TestSpec(size = Suite.SMALL_TESTS)
 @RunWith(JUnit4.class)
 public class AnalysisFailureReportingTest extends AnalysisTestCase {
   private final AnalysisFailureEventCollector collector = new AnalysisFailureEventCollector();
@@ -61,19 +60,19 @@ public class AnalysisFailureReportingTest extends AnalysisTestCase {
     eventBus.register(collector);
   }
 
-  private static ConfigurationId toId(BuildConfiguration config) {
-    return config == null ? null : config.getEventId().getConfiguration();
-  }
-
   @Test
   public void testMissingRequiredAttribute() throws Exception {
     scratch.file(
         "foo/BUILD",
-        "genrule(name = 'foo',", // missing "out" attribute
-        "        cmd = '')");
+        """
+        genrule(
+            name = "foo",  # missing "out" attribute
+            cmd = "",
+        )
+        """);
     AnalysisResult result = update(eventBus, defaultFlags().with(Flag.KEEP_GOING), "//foo");
     assertThat(result.hasError()).isTrue();
-    Label topLevel = Label.parseAbsoluteUnchecked("//foo");
+    Label topLevel = Label.parseCanonicalUnchecked("//foo");
 
     assertThat(collector.events.keySet()).containsExactly(topLevel);
 
@@ -84,35 +83,64 @@ public class AnalysisFailureReportingTest extends AnalysisTestCase {
     assertThat(cause).isInstanceOf(LoadingFailedCause.class);
     assertThat(cause.getLabel()).isEqualTo(topLevel);
     assertThat(((LoadingFailedCause) cause).getMessage())
-        .isEqualTo("Target '//foo:foo' contains an error and its package is in error");
+        .isEqualTo(
+            "Target '//foo:foo' contains an error and its package is in error: //foo:foo: missing"
+                + " value for mandatory attribute 'outs' in 'genrule' rule");
   }
 
   @Test
   public void testMissingDependency() throws Exception {
     scratch.file(
         "foo/BUILD",
-        "genrule(name = 'foo',",
-        "        tools = ['//bar'],",
-        "        cmd = 'command',",
-        "        outs = ['foo.txt'])");
+        """
+        genrule(
+            name = "foo",
+            outs = ["foo.txt"],
+            cmd = "command",
+            tools = ["//bar"],
+        )
+        """);
     AnalysisResult result = update(eventBus, defaultFlags().with(Flag.KEEP_GOING), "//foo");
     assertThat(result.hasError()).isTrue();
-    Label topLevel = Label.parseAbsoluteUnchecked("//foo");
-    Label causeLabel = Label.parseAbsoluteUnchecked("//bar");
+    Label topLevel = Label.parseCanonicalUnchecked("//foo");
+    Label causeLabel = Label.parseCanonicalUnchecked("//bar");
     assertThat(collector.events.keySet()).containsExactly(topLevel);
     assertThat(collector.events.get(topLevel))
         .containsExactly(
             new AnalysisFailedCause(
                 causeLabel,
-                toId(
-                    Iterables.getOnlyElement(result.getTopLevelTargetsWithConfigs())
-                        .getConfiguration()),
+                collector.getOnlyConfigurationId(),
                 createPackageLoadingDetailedExitCode(
                     "BUILD file not found in any of the following"
                         + " directories. Add a BUILD file to a directory to mark it as a"
                         + " package.\n"
-                        + " - /workspace/bar",
+                        + " - bar",
                     Code.BUILD_FILE_MISSING)));
+  }
+
+  @Test
+  public void testExpanderFailure() throws Exception {
+    scratch.file(
+        "test/BUILD",
+        """
+        genrule(
+            name = "bad",
+            outs = ["bad.out"],
+            cmd = "cp $< $@",  # Error to use $< with no srcs
+        )
+        """);
+    AnalysisResult result = update(eventBus, defaultFlags().with(Flag.KEEP_GOING), "//test:bad");
+    assertThat(result.hasError()).isTrue();
+    Label topLevel = Label.parseCanonicalUnchecked("//test:bad");
+    assertThat(collector.events.keySet()).containsExactly(topLevel);
+    assertThat(collector.events)
+        .valuesForKey(topLevel)
+        .containsExactly(
+            new AnalysisFailedCause(
+                topLevel,
+                collector.getOnlyConfigurationId(),
+                createAnalysisDetailedExitCode(
+                    "in cmd attribute of genrule rule //test:bad: variable '$<' : no input file")));
   }
 
   /**
@@ -122,11 +150,23 @@ public class AnalysisFailureReportingTest extends AnalysisTestCase {
    */
   @Test
   public void testSymlinkCycleReportedExactlyOnce() throws Exception {
-    scratch.file("gp/BUILD", "sh_library(name = 'gp', deps = ['//p'])");
-    scratch.file("p/BUILD", "sh_library(name = 'p', deps = ['//c'])");
-    scratch.file("c/BUILD", "sh_library(name = 'c', deps = ['//cycles1'])");
+    scratch.file(
+        "gp/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name = 'gp', deps = ['//p'])");
+    scratch.file(
+        "p/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name = 'p', deps = ['//c'])");
+    scratch.file(
+        "c/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name = 'c', deps = ['//cycles1'])");
     Path cycles1BuildFilePath =
-        scratch.file("cycles1/BUILD", "sh_library(name = 'cycles1', srcs = glob(['*.sh']))");
+        scratch.file(
+            "cycles1/BUILD",
+            "load('//test_defs:foo_library.bzl', 'foo_library')",
+            "foo_library(name = 'cycles1', srcs = glob(['*.sh']))");
     cycles1BuildFilePath
         .getParentDirectory()
         .getRelative("cycles1.sh")
@@ -135,68 +175,70 @@ public class AnalysisFailureReportingTest extends AnalysisTestCase {
     AnalysisResult result = update(eventBus, defaultFlags().with(Flag.KEEP_GOING), "//gp");
     assertThat(result.hasError()).isTrue();
 
-    Label topLevel = Label.parseAbsoluteUnchecked("//gp");
+    Label topLevel = Label.parseCanonicalUnchecked("//gp");
     String message =
         "Symlink issue while evaluating globs: Symlink cycle:" + " /workspace/cycles1/cycles1.sh";
     Code code = Code.EVAL_GLOBS_SYMLINK_ERROR;
     assertThat(collector.events.get(topLevel))
         .containsExactly(
             new AnalysisFailedCause(
-                Label.parseAbsolute("//cycles1", ImmutableMap.of()),
-                toId(
-                    Iterables.getOnlyElement(result.getTopLevelTargetsWithConfigs())
-                        .getConfiguration()),
+                Label.parseCanonical("//cycles1"),
+                collector.getOnlyConfigurationId(),
                 createPackageLoadingDetailedExitCode(message, code)));
   }
 
   @Test
   public void testVisibilityError() throws Exception {
-    scratch.file("foo/BUILD", "sh_library(name = 'foo', deps = ['//bar'])");
-    scratch.file("bar/BUILD", "sh_library(name = 'bar', visibility = ['//visibility:private'])");
+    scratch.file(
+        "foo/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name = 'foo', deps = ['//bar'])");
+    scratch.file(
+        "bar/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name = 'bar', visibility = ['//visibility:private'])");
 
     AnalysisResult result = update(eventBus, defaultFlags().with(Flag.KEEP_GOING), "//foo");
     assertThat(result.hasError()).isTrue();
 
-    Label topLevel = Label.parseAbsoluteUnchecked("//foo");
+    Label topLevel = Label.parseCanonicalUnchecked("//foo");
     assertThat(collector.events.get(topLevel))
         .containsExactly(
             new AnalysisFailedCause(
-                Label.parseAbsolute("//foo", ImmutableMap.of()),
-                toId(
-                    Iterables.getOnlyElement(result.getTopLevelTargetsWithConfigs())
-                        .getConfiguration()),
+                Label.parseCanonical("//foo"),
+                collector.getOnlyConfigurationId(),
                 createAnalysisDetailedExitCode(
-                    "in sh_library rule //foo:foo: target '//bar:bar' is not visible from"
-                        + " target '//foo:foo'. Check the visibility declaration of the"
-                        + " former target if you think the dependency is legitimate")));
+                    "in foo_library rule //foo:foo: "
+                        + createVisibilityErrorMessage(
+                            "target '//bar:bar'", "target '//foo:foo'"))));
   }
 
   @Test
   public void testFileVisibilityError() throws Exception {
-    scratch.file("foo/BUILD", "sh_library(name = 'foo', srcs = ['//bar:bar.sh'])");
+    scratch.file("foo/BUILD", "filegroup(name = 'foo', srcs = ['//bar:bar.sh'])");
     scratch.file("bar/BUILD", "exports_files(['bar.sh'], visibility = ['//visibility:private'])");
     scratch.file("bar/bar.sh");
 
     AnalysisResult result = update(eventBus, defaultFlags().with(Flag.KEEP_GOING), "//foo");
     assertThat(result.hasError()).isTrue();
 
-    Label topLevel = Label.parseAbsoluteUnchecked("//foo");
+    Label topLevel = Label.parseCanonicalUnchecked("//foo");
     assertThat(collector.events)
         .valuesForKey(topLevel)
         .containsExactly(
             new AnalysisFailedCause(
-                Label.parseAbsolute("//foo", ImmutableMap.of()),
-                toId(
-                    Iterables.getOnlyElement(result.getTopLevelTargetsWithConfigs())
-                        .getConfiguration()),
+                Label.parseCanonical("//foo"),
+                collector.getOnlyConfigurationId(),
                 DetailedExitCode.of(
                     FailureDetail.newBuilder()
                         .setMessage(
-                            "in sh_library rule //foo:foo: target '//bar:bar.sh' is not visible"
-                                + " from target '//foo:foo'. Check the visibility declaration of"
-                                + " the former target if you think the dependency is legitimate."
-                                + " To set the visibility of that source file target, use the"
-                                + " exports_files() function")
+                            "in filegroup rule //foo:foo: "
+                                + createVisibilityErrorMessage(
+                                    "target '//bar:bar.sh'", "target '//foo:foo'")
+                                + ". To depend on that source file target, either add it to a"
+                                + " filegroup() and depend on that filegroup, or else use the"
+                                + " exports_files() function to change the source file's"
+                                + " visibility")
                         .setAnalysis(
                             Analysis.newBuilder()
                                 .setCode(Analysis.Code.CONFIGURED_VALUE_CREATION_FAILED))
@@ -205,8 +247,14 @@ public class AnalysisFailureReportingTest extends AnalysisTestCase {
 
   @Test
   public void testVisibilityErrorNoKeepGoing() throws Exception {
-    scratch.file("foo/BUILD", "sh_test(name = 'foo', srcs = ['test.sh'], deps = ['//bar'])");
-    scratch.file("bar/BUILD", "sh_library(name = 'bar', visibility = ['//visibility:private'])");
+    scratch.file(
+        "foo/BUILD",
+        "load('//test_defs:foo_test.bzl', 'foo_test')",
+        "foo_test(name = 'foo', srcs = ['test.sh'], deps = ['//bar'])");
+    scratch.file(
+        "bar/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name = 'bar', visibility = ['//visibility:private'])");
 
     try {
       update(eventBus, defaultFlags(), "//foo");
@@ -214,22 +262,17 @@ public class AnalysisFailureReportingTest extends AnalysisTestCase {
       // Ignored; we check for the correct eventbus event below.
     }
 
-    Label topLevel = Label.parseAbsoluteUnchecked("//foo");
-    BuildConfiguration expectedConfig =
-        Iterables.getOnlyElement(
-            skyframeExecutor
-                .getSkyframeBuildView()
-                .getBuildConfigurationCollection()
-                .getTargetConfigurations());
+    Label topLevel = Label.parseCanonicalUnchecked("//foo");
+    BuildConfigurationValue expectedConfig =
+        skyframeExecutor.getSkyframeBuildView().getBuildConfiguration();
     String message =
-        "in sh_test rule //foo:foo: target '//bar:bar' is not visible from"
-            + " target '//foo:foo'. Check the visibility declaration of the"
-            + " former target if you think the dependency is legitimate";
+        "in foo_test rule //foo:foo: "
+            + createVisibilityErrorMessage("target '//bar:bar'", "target '//foo:foo'");
     assertThat(collector.events.get(topLevel))
         .containsExactly(
             new AnalysisFailedCause(
-                Label.parseAbsolute("//foo", ImmutableMap.of()),
-                toId(expectedConfig),
+                Label.parseCanonical("//foo"),
+                configurationIdMessage(expectedConfig),
                 createAnalysisDetailedExitCode(message)));
   }
 
@@ -265,14 +308,31 @@ public class AnalysisFailureReportingTest extends AnalysisTestCase {
   public static class AnalysisFailureEventCollector {
     private final Multimap<Label, Cause> events = HashMultimap.create();
 
-    Multimap<Label, Cause> causesByLabel() {
-      Multimap<Label, Cause> result = HashMultimap.create();
-      return result;
-    }
-
     @Subscribe
     public void failureEvent(AnalysisFailureEvent event) {
-      events.putAll(event.getFailedTarget().getLabel(), event.getRootCauses().toList());
+      ConfiguredTargetKey failedTarget = event.getFailedTarget();
+      events.putAll(failedTarget.getLabel(), event.getRootCauses().toList());
     }
+
+    private ConfigurationId getOnlyConfigurationId() {
+      // Analysis errors after the target's configuration has been determined are reported using a
+      // possibly transitioned ID which is hard to retrieve from the graph if analysis of that
+      // target fails. This method simply extracts them from the event ID.
+      return getOnlyElement(events.entries())
+          .getValue()
+          .getIdProto()
+          .getConfiguredLabel()
+          .getConfiguration();
+    }
+  }
+
+  private static String createVisibilityErrorMessage(String from, String to) {
+    return String.format(
+        "Visibility error:\n"
+            + "%s is not visible from\n"
+            + "%s\n"
+            + "Recommendation: modify the visibility declaration if you think the dependency"
+            + " is legitimate. For more info see https://bazel.build/concepts/visibility",
+        from, to);
   }
 }

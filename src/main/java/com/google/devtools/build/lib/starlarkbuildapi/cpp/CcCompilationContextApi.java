@@ -17,11 +17,10 @@ package com.google.devtools.build.lib.starlarkbuildapi.cpp;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
+import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
-import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.StarlarkList;
-import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 
 /**
@@ -29,7 +28,7 @@ import net.starlark.java.eval.StarlarkValue;
  */
 @StarlarkBuiltin(
     name = "CompilationContext",
-    category = DocCategory.PROVIDER,
+    category = DocCategory.BUILTIN,
     doc =
         "Immutable store of information needed for C++ compilation that is aggregated across "
             + "dependencies.")
@@ -38,7 +37,8 @@ public interface CcCompilationContextApi<FileT extends FileApi> extends Starlark
       name = "defines",
       doc =
           "Returns the set of defines needed to compile this target. Each define is a string."
-              + " These values are propagated to the target's transitive dependencies.",
+              + " These values are propagated to the target's transitive dependents, that is, "
+              + "any rules that depend on this target.",
       structField = true)
   Depset getStarlarkDefines();
 
@@ -46,7 +46,7 @@ public interface CcCompilationContextApi<FileT extends FileApi> extends Starlark
       name = "local_defines",
       doc =
           "Returns the set of defines needed to compile this target. Each define is a string."
-              + " These values are not propagated to the target's transitive dependencies.",
+              + " These values are not propagated to the target's transitive dependents.",
       structField = true)
   Depset getStarlarkNonTransitiveDefines();
 
@@ -80,6 +80,14 @@ public interface CcCompilationContextApi<FileT extends FileApi> extends Starlark
               + " bracket and quotes. Usually passed with -I.",
       structField = true)
   Depset getStarlarkIncludeDirs();
+
+  @StarlarkMethod(
+      name = "external_includes",
+      doc =
+          "Returns the set of search paths (as strings) for external header files referenced by"
+              + " angle bracket. Usually passed with -isystem.",
+      structField = true)
+  Depset getStarlarkExternalIncludeDirs();
 
   @StarlarkMethod(
       name = "quote_includes",
@@ -122,8 +130,49 @@ public interface CcCompilationContextApi<FileT extends FileApi> extends Starlark
   StarlarkList<FileT> getStarlarkDirectTextualHeaders();
 
   @StarlarkMethod(
-      name = "transitive_compilation_prerequisites",
+      name = "validation_artifacts",
+      doc = "Returns the set of validation artifacts.",
+      structField = true)
+  Depset getStarlarkValidationArtifacts();
+
+  @StarlarkMethod(name = "_modules_info_files", structField = true, documented = false)
+  Depset getStarlarkModulesInfoFiles();
+
+  @StarlarkMethod(name = "_pic_modules_info_files", structField = true, documented = false)
+  Depset getStarlarkPicModulesInfoFiles();
+
+  @StarlarkMethod(name = "_module_files", structField = true, documented = false)
+  Depset getStarlarkModuleFiles();
+
+  @StarlarkMethod(name = "_pic_module_files", structField = true, documented = false)
+  Depset getStarlarkPicModuleFiles();
+
+  @StarlarkMethod(name = "_transitive_modules", structField = true, documented = false)
+  Depset getStarlarkTransitiveModules();
+
+  @StarlarkMethod(name = "_transitive_pic_modules", structField = true, documented = false)
+  Depset getStarlarkTransitivePicModules();
+
+  @StarlarkMethod(name = "_virtual_to_original_headers", structField = true, documented = false)
+  Depset getStarlarkVirtualToOriginalHeaders();
+
+  @StarlarkMethod(
+      name = "_module_map",
+      structField = true,
       documented = false,
-      useStarlarkThread = true)
-  Depset getStarlarkTransitiveCompilationPrerequisites(StarlarkThread thread) throws EvalException;
+      allowReturnNones = true)
+  @Nullable
+  CppModuleMapApi<FileT> getStarlarkModuleMap();
+
+  @StarlarkMethod(name = "_direct_module_maps", structField = true, documented = false)
+  public Depset getDirectModuleMapsForStarlark();
+
+  @StarlarkMethod(name = "_exporting_module_maps", structField = true, documented = false)
+  StarlarkList<CppModuleMapApi<FileT>> getStarlarkExportingModuleMaps();
+
+  @StarlarkMethod(name = "_non_code_inputs", structField = true, documented = false)
+  Depset getNonCodeInputsForStarlark();
+
+  @StarlarkMethod(name = "_header_info", structField = true, documented = false)
+  StarlarkValue getHeaderInfo();
 }

@@ -39,10 +39,10 @@ filegroup(
     name = "srcs",
     testonly = 0,
     srcs = glob(["**"]) + [
-        "//src/test/java/com/google/devtools/build/lib/blackbox/framework:srcs",
         "//src/test/java/com/google/devtools/build/lib/blackbox/bazel:srcs",
-        "//src/test/java/com/google/devtools/build/lib/blackbox/tests:srcs",
+        "//src/test/java/com/google/devtools/build/lib/blackbox/framework:srcs",
         "//src/test/java/com/google/devtools/build/lib/blackbox/junit:srcs",
+        "//src/test/java/com/google/devtools/build/lib/blackbox/tests:srcs",
     ],
     visibility = ["//src/test/java/com/google/devtools/build/lib:__pkg__"],
 )

@@ -70,6 +70,26 @@ public class SafeRequestLoggingTest {
   }
 
   @Test
+  public void testGetRequestLogStringStripsApparentTokenValues() {
+    assertThat(
+            SafeRequestLogging.getRequestLogString(
+                ImmutableList.of(
+                    "--client_env=service_ToKEn=notprinted", "--client_env=other=isprinted")))
+        .isEqualTo(
+            "[--client_env=service_ToKEn=__private_value_removed__, --client_env=other=isprinted]");
+  }
+
+  @Test
+  public void testGetRequestLogStringStripsApparentApiKeyValues() {
+    assertThat(
+            SafeRequestLogging.getRequestLogString(
+                ImmutableList.of(
+                    "--client_env=MY_API_KEY=notprinted", "--client_env=other=isprinted")))
+        .isEqualTo(
+            "[--client_env=MY_API_KEY=__private_value_removed__, --client_env=other=isprinted]");
+  }
+
+  @Test
   public void testGetRequestLogIgnoresSensitiveTermsInValues() {
     assertThat(SafeRequestLogging.getRequestLogString(ImmutableList.of("--client_env=ok=COOKIE")))
         .isEqualTo("[--client_env=ok=COOKIE]");

@@ -14,19 +14,20 @@
 
 package com.google.devtools.build.lib.analysis.platform;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.ToolchainTypeInfoApi;
+import com.google.devtools.build.lib.util.HashCodes;
 import java.util.Objects;
+import javax.annotation.Nullable;
 import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.StarlarkSemantics;
 
 /** A provider that supplies information about a specific toolchain type. */
 @Immutable
-@AutoCodec
 public class ToolchainTypeInfo extends NativeInfo implements ToolchainTypeInfoApi {
   /** Name used in Starlark for accessing this provider. */
   public static final String STARLARK_NAME = "ToolchainTypeInfo";
@@ -36,14 +37,20 @@ public class ToolchainTypeInfo extends NativeInfo implements ToolchainTypeInfoAp
       new BuiltinProvider<ToolchainTypeInfo>(STARLARK_NAME, ToolchainTypeInfo.class) {};
 
   private final Label typeLabel;
+  @Nullable private final String noneFoundError;
 
-  public static ToolchainTypeInfo create(Label typeLabel) {
-    return new ToolchainTypeInfo(typeLabel);
+  public static ToolchainTypeInfo create(Label typeLabel, @Nullable String noneFoundError) {
+    return new ToolchainTypeInfo(typeLabel, noneFoundError);
   }
 
-  @VisibleForSerialization
-  ToolchainTypeInfo(Label typeLabel) {
+  @VisibleForTesting
+  public static ToolchainTypeInfo create(Label typeLabel) {
+    return new ToolchainTypeInfo(typeLabel, /* noneFoundError= */ null);
+  }
+
+  private ToolchainTypeInfo(Label typeLabel, String noneFoundError) {
     this.typeLabel = typeLabel;
+    this.noneFoundError = noneFoundError;
   }
 
   @Override
@@ -56,23 +63,28 @@ public class ToolchainTypeInfo extends NativeInfo implements ToolchainTypeInfoAp
     return typeLabel;
   }
 
+  @Nullable
+  public String noneFoundError() {
+    return noneFoundError;
+  }
+
   @Override
-  public void repr(Printer printer) {
-    Printer.format(printer, "ToolchainTypeInfo(%s)", typeLabel);
+  public void repr(Printer printer, StarlarkSemantics semantics) {
+    printer.append(String.format("ToolchainTypeInfo(%s)", typeLabel));
   }
 
   @Override
   public int hashCode() {
-    return Objects.hashCode(typeLabel);
+    return HashCodes.hashObjects(typeLabel, noneFoundError);
   }
 
   @Override
   public boolean equals(Object other) {
-    if (!(other instanceof ToolchainTypeInfo)) {
+    if (!(other instanceof ToolchainTypeInfo otherToolchainTypeInfo)) {
       return false;
     }
 
-    ToolchainTypeInfo otherToolchainTypeInfo = (ToolchainTypeInfo) other;
-    return Objects.equals(typeLabel, otherToolchainTypeInfo.typeLabel);
+    return Objects.equals(typeLabel, otherToolchainTypeInfo.typeLabel)
+        && Objects.equals(noneFoundError, otherToolchainTypeInfo.noneFoundError);
   }
 }

@@ -71,13 +71,17 @@ public class SymlinkedSandboxedSpawnTest {
             ImmutableMap.of(),
             new SandboxInputs(
                 ImmutableMap.of(PathFragment.create("such/input.txt"), helloTxt),
-                ImmutableSet.of(),
+                ImmutableMap.of(),
                 ImmutableMap.of()),
             SandboxOutputs.create(
                 ImmutableSet.of(PathFragment.create("very/output.txt")), ImmutableSet.of()),
             ImmutableSet.of(execRoot.getRelative("wow/writable")),
             new SynchronousTreeDeleter(),
-            /* statisticsPath= */ null);
+            /* sandboxDebugPath= */ null,
+            /* statisticsPath= */ null,
+            /* interactiveDebugArguments= */ null,
+            "SomeMnemonic",
+            /* targetLabel= */ null);
 
     symlinkedExecRoot.createFileSystem();
 
@@ -99,12 +103,16 @@ public class SymlinkedSandboxedSpawnTest {
             execRoot,
             ImmutableList.of("/bin/true"),
             ImmutableMap.of(),
-            new SandboxInputs(ImmutableMap.of(), ImmutableSet.of(), ImmutableMap.of()),
+            new SandboxInputs(ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of()),
             SandboxOutputs.create(
                 ImmutableSet.of(outputFile.relativeTo(execRoot)), ImmutableSet.of()),
             ImmutableSet.of(),
             new SynchronousTreeDeleter(),
-            /* statisticsPath= */ null);
+            /* sandboxDebugPath= */ null,
+            /* statisticsPath= */ null,
+            /* interactiveDebugArguments= */ null,
+            "SomeMnemonic",
+            /* targetLabel= */ null);
     symlinkedExecRoot.createFileSystem();
 
     FileSystemUtils.createEmptyFile(outputFile);

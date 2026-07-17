@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.actions;
 
-import java.util.List;
+import com.google.common.collect.ImmutableCollection;
 
 /** Registry providing access to dynamic spawn strategies for both remote and local modes. */
 public interface DynamicStrategyRegistry extends ActionContext {
@@ -34,13 +34,18 @@ public interface DynamicStrategyRegistry extends ActionContext {
     public String toString() {
       return name;
     }
+
+    public DynamicMode other() {
+      return this == REMOTE ? LOCAL : REMOTE;
+    }
   }
 
   /**
    * Returns the spawn strategy implementations that {@linkplain SpawnStrategy#canExec can execute}
    * the given spawn in the order that they were registered for the provided dynamic mode.
    */
-  List<SandboxedSpawnStrategy> getDynamicSpawnActionContexts(Spawn spawn, DynamicMode dynamicMode);
+  ImmutableCollection<SandboxedSpawnStrategy> getDynamicSpawnActionContexts(
+      Spawn spawn, DynamicMode dynamicMode);
 
   /**
    * Notifies all strategies applying to at least one mnemonic (including the empty all-catch one)

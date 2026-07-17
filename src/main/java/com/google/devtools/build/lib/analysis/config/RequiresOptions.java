@@ -25,9 +25,12 @@ import java.lang.annotation.Target;
  * <p>Blaze instantiates {@link Fragment} with a {@link BuildOptions} that only contains the {@link
  * FragmentOptions} specified here.
  */
-@Target({ElementType.TYPE})
+@Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
 public @interface RequiresOptions {
-  /** By default, fragments require no options. */
+  /** The options required by the annotated fragment. By default, fragments require no options. */
   Class<? extends FragmentOptions>[] options() default {};
+
+  /** Whether the annotated fragment requires access to starlark options. */
+  boolean starlark() default false;
 }

@@ -16,22 +16,17 @@ package com.google.devtools.build.lib.vfs;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.hash.Hasher;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.FileType;
+import com.google.devtools.build.lib.util.StringEncoding;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import java.io.OutputStream;
-import java.io.Serializable;
-import java.nio.channels.ReadableByteChannel;
+import java.nio.channels.SeekableByteChannel;
 import java.util.ArrayList;
 import java.util.Collection;
 import javax.annotation.Nullable;
@@ -54,29 +49,16 @@ import javax.annotation.Nullable;
  * slashes ('/') even on Windows, so backslashes '\' get converted to forward slashes during
  * normalization.
  *
- * <p>Mac and Windows file paths are case insensitive. Case is preserved.
+ * <p>All paths are case-sensitive.
  */
 @ThreadSafe
 @AutoCodec
-public class Path implements Comparable<Path>, Serializable, FileType.HasFileType {
-  private static FileSystem fileSystemForSerialization;
+public class Path implements Comparable<Path>, FileType.HasFileType {
+  @SuppressWarnings("GoodTime-ApiWithNumericTimeUnit")
+  public static final long NOW_SENTINEL_TIME = -1L;
 
-  /**
-   * We need to specify used FileSystem. In this case we can save memory during the serialization.
-   */
-  public static void setFileSystemForSerialization(FileSystem fileSystem) {
-    fileSystemForSerialization = fileSystem;
-  }
-
-  /**
-   * Returns FileSystem that we are using.
-   */
-  public static FileSystem getFileSystemForSerialization() {
-    return fileSystemForSerialization;
-  }
-
-  private PathFragment pathFragment;
-  private FileSystem fileSystem;
+  private final PathFragment pathFragment;
+  private final FileSystem fileSystem;
 
   /** Creates a local path that is specific to the host OS. */
   static Path create(String path, FileSystem fileSystem) {
@@ -113,6 +95,19 @@ public class Path implements Comparable<Path>, Serializable, FileType.HasFileTyp
    */
   public String getBaseName() {
     return pathFragment.getBaseName();
+  }
+
+  /**
+   * Returns a {@link Path} formed by appending {@code newName} to this {@link Path}'s parent
+   * directory. If this {@link Path} has zero segments, returns {@code null}. If {@code newName} is
+   * absolute, the value of {@code this} will be ignored and a {@link Path} corresponding to {@code
+   * newName} will be returned. This is consistent with the behavior of {@link
+   * #getRelative(String)}.
+   */
+  @Nullable
+  public Path replaceName(String newName) {
+    Path parent = getParentDirectory();
+    return parent != null ? parent.getRelative(newName) : null;
   }
 
   /** Synonymous with {@link Path#getRelative(String)}. */
@@ -170,7 +165,7 @@ public class Path implements Comparable<Path>, Serializable, FileType.HasFileTyp
   }
 
   /**
-   * Returns whether this path is an ancestor of another path.
+   * Returns whether another path is an ancestor of this path.
    *
    * <p>A path is considered an ancestor of itself.
    */
@@ -182,7 +177,19 @@ public class Path implements Comparable<Path>, Serializable, FileType.HasFileTyp
   }
 
   /**
-   * Returns whether this path is an ancestor of another path.
+   * Returns whether another path is an ancestor of this path, ignoring case.
+   *
+   * <p>A path is considered an ancestor of itself.
+   */
+  public boolean startsWithIgnoringCase(Path other) {
+    if (fileSystem != other.fileSystem) {
+      return false;
+    }
+    return pathFragment.startsWithIgnoringCase(other.pathFragment);
+  }
+
+  /**
+   * Returns whether another path is an ancestor of this path.
    *
    * <p>A path is considered an ancestor of itself.
    *
@@ -210,24 +217,24 @@ public class Path implements Comparable<Path>, Serializable, FileType.HasFileTyp
     if (this == o) {
       return true;
     }
-    if (!(o instanceof Path)) {
+    if (!(o instanceof Path other)) {
       return false;
     }
-    Path other = (Path) o;
     return fileSystem == other.fileSystem && pathFragment.equals(other.pathFragment);
   }
 
   @Override
   public int hashCode() {
     // Do not include file system for efficiency.
-    // In practice we never construct paths from different file systems.
+    // In practice, we don't expect paths on different file systems to be contained in the same
+    // collection.
     return pathFragment.hashCode();
   }
 
   @Override
   public int compareTo(Path o) {
     // If they are on different file systems, the file system decides the ordering.
-    FileSystem otherFs = o.getFileSystem();
+    FileSystem otherFs = o.fileSystem;
     if (!fileSystem.equals(otherFs)) {
       int thisFileSystemHash = System.identityHashCode(fileSystem);
       int otherFileSystemHash = System.identityHashCode(otherFs);
@@ -238,6 +245,24 @@ public class Path implements Comparable<Path>, Serializable, FileType.HasFileTyp
       }
     }
     return pathFragment.compareTo(o.pathFragment);
+  }
+
+  /**
+   * Returns the same path on the file system that the current file system is based on, if any.
+   * Otherwise, returns the current path unchanged.
+   *
+   * <p>For an action file system, this should return the on-disk component (or the result of
+   * getHostFileSystem() on that component if it is itself a composite file system).
+   *
+   * <p>Note that the returned path may still reference an in-memory file system (in tests, for
+   * example), but should be treated as being on the "native" file system for the host machine.
+   */
+  public Path forHostFileSystem() {
+    var hostFs = fileSystem.getHostFileSystem();
+    if (hostFs.equals(fileSystem)) {
+      return this;
+    }
+    return Path.create(asFragment(), hostFs);
   }
 
   /** Returns true iff this path denotes an existing file of any kind. Follows symbolic links. */
@@ -295,16 +320,6 @@ public class Path implements Comparable<Path>, Serializable, FileType.HasFileTyp
     return fileSystem.stat(asFragment(), true);
   }
 
-  /** Like stat(), but returns null on file-nonexistence instead of throwing. */
-  public FileStatus statNullable() {
-    return statNullable(Symlinks.FOLLOW);
-  }
-
-  /** Like stat(), but returns null on file-nonexistence instead of throwing. */
-  public FileStatus statNullable(Symlinks symlinks) {
-    return fileSystem.statNullable(asFragment(), symlinks.toBoolean());
-  }
-
   /**
    * Returns the status of a file, optionally following symbolic links.
    *
@@ -319,9 +334,31 @@ public class Path implements Comparable<Path>, Serializable, FileType.HasFileTyp
   }
 
   /**
+   * Like stat(), but returns null in case of any error instead of throwing.
+   *
+   * <p>Use {@link #statIfFound()} instead to throw for errors due to any causes other than
+   * non-existence.
+   */
+  public FileStatus statNullable() {
+    return statNullable(Symlinks.FOLLOW);
+  }
+
+  /**
+   * Like stat(), but returns null in case of any error instead of throwing.
+   *
+   * <p>Use {@link #statIfFound(Symlinks)} instead to throw for errors due to any causes other than
+   * non-existence.
+   */
+  public FileStatus statNullable(Symlinks symlinks) {
+    return fileSystem.statNullable(asFragment(), symlinks.toBoolean());
+  }
+
+  /**
    * Like {@link #stat}, but may return null if the file is not found (corresponding to {@code
    * ENOENT} and {@code ENOTDIR} in Unix's stat(2) function) instead of throwing. Follows symbolic
    * links.
+   *
+   * <p>Use {@link #statNullable(Symlinks)} instead to ignore all types of errors.
    */
   public FileStatus statIfFound() throws IOException {
     return fileSystem.statIfFound(asFragment(), true);
@@ -330,6 +367,8 @@ public class Path implements Comparable<Path>, Serializable, FileType.HasFileTyp
   /**
    * Like {@link #stat}, but may return null if the file is not found (corresponding to {@code
    * ENOENT} and {@code ENOTDIR} in Unix's stat(2) function) instead of throwing.
+   *
+   * <p>Use {@link #statNullable(Symlinks)} instead to ignore all types of errors.
    *
    * @param followSymlinks if {@link Symlinks#FOLLOW}, and this path denotes a symbolic link, the
    *     link is dereferenced until a file other than a symbolic link is found
@@ -408,7 +447,7 @@ public class Path implements Comparable<Path>, Serializable, FileType.HasFileTyp
    * @throws FileNotFoundException If the file cannot be found or created.
    * @throws IOException If a different error occurs.
    */
-  public OutputStream getOutputStream() throws IOException, FileNotFoundException {
+  public OutputStream getOutputStream() throws IOException {
     return getOutputStream(false);
   }
 
@@ -420,33 +459,67 @@ public class Path implements Comparable<Path>, Serializable, FileType.HasFileTyp
    * @throws FileNotFoundException If the file cannot be found or created.
    * @throws IOException If a different error occurs.
    */
-  public OutputStream getOutputStream(boolean append) throws IOException, FileNotFoundException {
+  public OutputStream getOutputStream(boolean append) throws IOException {
     return fileSystem.getOutputStream(asFragment(), append);
   }
 
   /**
-   * Creates a directory with the name of the current path, not following symbolic links. Returns
-   * normally iff the directory exists after the call: true if the directory was created by this
-   * call, false if the directory was already in existence. Throws an exception if the directory
-   * could not be created for any reason.
+   * Returns an output stream to the file denoted by the current path, creating it and truncating it
+   * if necessary. The stream is opened for writing.
    *
-   * @throws IOException if the directory creation failed for any reason
+   * @param append whether to open the file in append mode.
+   * @param internal whether the file is a Bazel internal file.
+   * @throws FileNotFoundException If the file cannot be found or created.
+   * @throws IOException If a different error occurs.
+   */
+  public OutputStream getOutputStream(boolean append, boolean internal) throws IOException {
+    return fileSystem.getOutputStream(asFragment(), append, internal);
+  }
+
+  /**
+   * Ensures that a directory exists with the name of the current path, not following symbolic
+   * links. If necessary, creates the directory.
+   *
+   * @throws IOException if the directory creation failed
+   * @return whether the directory was created by this call
    */
   public boolean createDirectory() throws IOException {
     return fileSystem.createDirectory(asFragment());
   }
 
   /**
-   * Ensures that the directory with the name of the current path and all its ancestor directories
-   * exist.
+   * Ensures that a directory exists with the name of the current path, following symbolic links. If
+   * necessary, creates the directory and any missing ancestor directories.
    *
-   * <p>Does not return whether the directory already existed or was created by some other
-   * concurrent call to this method.
-   *
-   * @throws IOException if the directory creation failed for any reason
+   * @throws IOException if the directory creation failed
    */
   public void createDirectoryAndParents() throws IOException {
     fileSystem.createDirectoryAndParents(asFragment());
+  }
+
+  /**
+   * Returns the path of a new temporary directory with the given prefix created under the given
+   * parent path, but <b>not</b> necessarily with secure permissions.
+   */
+  public Path createTempDirectory(String prefix) throws IOException {
+    return fileSystem.getPath(fileSystem.createTempDirectory(asFragment(), prefix));
+  }
+
+  /**
+   * Creates a symbolic link with the name of the current path, following symbolic links. The
+   * referent of the created symlink is is the absolute path "target"; it is not possible to create
+   * relative symbolic links via this method.
+   *
+   * <p>The {@code type} argument denotes the file type of the target, if known. Some filesystems
+   * require this information to correctly create a symlink. This argument may be ignored if the
+   * target can be observed to exist and is of a different type.
+   *
+   * @param type the target file type
+   * @throws IOException if the creation of the symbolic link was unsuccessful for any reason
+   */
+  public void createSymbolicLink(Path target, SymlinkTargetType type) throws IOException {
+    checkSameFileSystem(target);
+    fileSystem.createSymbolicLink(asFragment(), target.asFragment(), type);
   }
 
   /**
@@ -457,8 +530,23 @@ public class Path implements Comparable<Path>, Serializable, FileType.HasFileTyp
    * @throws IOException if the creation of the symbolic link was unsuccessful for any reason
    */
   public void createSymbolicLink(Path target) throws IOException {
-    checkSameFileSystem(target);
-    fileSystem.createSymbolicLink(asFragment(), target.asFragment());
+    createSymbolicLink(target, SymlinkTargetType.UNSPECIFIED);
+  }
+
+  /**
+   * Creates a symbolic link with the name of the current path, following symbolic links. The
+   * referent of the created symlink is is the path fragment "target", which may be absolute or
+   * relative.
+   *
+   * <p>The {@code type} argument denotes the file type of the target, if known. Some filesystems
+   * require this information to correctly create a symlink. This argument may be ignored if the
+   * target can be observed to exist and is of a different type.
+   *
+   * @param type the target file type
+   * @throws IOException if the creation of the symbolic link was unsuccessful for any reason
+   */
+  public void createSymbolicLink(PathFragment target, SymlinkTargetType type) throws IOException {
+    fileSystem.createSymbolicLink(asFragment(), target, type);
   }
 
   /**
@@ -469,7 +557,7 @@ public class Path implements Comparable<Path>, Serializable, FileType.HasFileTyp
    * @throws IOException if the creation of the symbolic link was unsuccessful for any reason
    */
   public void createSymbolicLink(PathFragment target) throws IOException {
-    fileSystem.createSymbolicLink(asFragment(), target);
+    createSymbolicLink(target, SymlinkTargetType.UNSPECIFIED);
   }
 
   /**
@@ -481,8 +569,8 @@ public class Path implements Comparable<Path>, Serializable, FileType.HasFileTyp
    * an {@link UnsupportedOperationException} if the link points to a non-existent file.
    *
    * @return the content (i.e. target) of the symbolic link
-   * @throws IOException if the current path is not a symbolic link, or the contents of the link
-   *     could not be read for any reason
+   * @throws FileSystem.NotASymlinkException if the current path is not a symbolic link.
+   * @throws IOException if the contents of the link could not be read for any reason
    */
   public PathFragment readSymbolicLink() throws IOException {
     return fileSystem.readSymbolicLink(asFragment());
@@ -493,8 +581,8 @@ public class Path implements Comparable<Path>, Serializable, FileType.HasFileTyp
    * are intentionally left underspecified otherwise to permit efficient implementations.
    *
    * @return the content (i.e. target) of the symbolic link
-   * @throws IOException if the current path is not a symbolic link, or the contents of the link
-   *     could not be read for any reason
+   * @throws FileSystem.NotASymlinkException if the current path is not a symbolic link.
+   * @throws IOException if the contents of the link could not be read for any reason
    */
   public PathFragment readSymbolicLinkUnchecked() throws IOException {
     return fileSystem.readSymbolicLinkUnchecked(asFragment());
@@ -523,13 +611,18 @@ public class Path implements Comparable<Path>, Serializable, FileType.HasFileTyp
   }
 
   /**
-   * Renames the file denoted by the current path to the location "target", not following symbolic
-   * links.
+   * Atomically renames the file denoted by the current path to the location "target", not following
+   * symbolic links.
    *
    * <p>Files cannot be atomically renamed across devices; copying is required. Use {@link
-   * FileSystemUtils#copyFile} followed by {@link Path#delete}.
+   * FileSystemUtils#moveFile(Path, Path)} instead.
    *
-   * @throws IOException if the rename failed for any reason
+   * <p>A non-directory cannot be renamed into an existing directory, or vice-versa. A directory can
+   * be renamed into an existing directory if and only if the latter is empty.
+   *
+   * @throws FileNotFoundException if the file denoted by the current path does not exist, or the
+   *     parent directory of the target path does not exist
+   * @throws IOException if the rename failed for any other reason
    */
   public void renameTo(Path target) throws IOException {
     checkSameFileSystem(target);
@@ -625,14 +718,14 @@ public class Path implements Comparable<Path>, Serializable, FileType.HasFileTyp
 
   /**
    * Sets the modification time of the file denoted by the current path. Follows symbolic links. If
-   * newTime is -1, the current time according to the kernel is used; this may differ from the JVM's
-   * clock.
+   * newTime is {@link #NOW_SENTINEL_TIME}, the current time according to the kernel is used; this
+   * may differ from the JVM's clock.
    *
    * <p>Caveat: many filesystems store file times in seconds, so do not rely on the millisecond
    * precision.
    *
-   * @param newTime time, in milliseconds since the UNIX epoch, or -1L, meaning use the kernel's
-   *     current time
+   * @param newTime time, in milliseconds since the UNIX epoch, or {@link #NOW_SENTINEL_TIME},
+   *     meaning use the kernel's current time
    * @throws IOException if the modification time for the file could not be set for any reason
    */
   public void setLastModifiedTime(long newTime) throws IOException {
@@ -680,69 +773,6 @@ public class Path implements Comparable<Path>, Serializable, FileType.HasFileTyp
   }
 
   /**
-   * Return a string representation, as hexadecimal digits, of some hash of the directory.
-   *
-   * <p>The hash itself is computed according to the design document
-   * https://github.com/bazelbuild/proposals/blob/master/designs/2018-07-13-repository-hashing.md
-   * and takes enough information into account, to detect the typical non-reproducibility
-   * of source-like repository rules, while leaving out what will change from invocation to
-   * invocation of a repository rule (in particular file owners) and can reasonably be ignored
-   * when considering if a repository is "the same source tree".
-   *
-   * @return a string representation of the bash of the directory
-   * @throws IOException if the digest could not be computed for any reason
-   */
-  public String getDirectoryDigest() throws IOException {
-    ImmutableList<String> entries =
-        ImmutableList.sortedCopyOf(fileSystem.getDirectoryEntries(asFragment()));
-    Hasher hasher = fileSystem.getDigestFunction().getHashFunction().newHasher();
-    for (String entry : entries) {
-      Path path = this.getChild(entry);
-      FileStatus stat = path.stat(Symlinks.NOFOLLOW);
-      hasher.putUnencodedChars(entry);
-      if (stat.isFile()) {
-        if (path.isExecutable()) {
-          hasher.putChar('x');
-        } else {
-          hasher.putChar('-');
-        }
-        hasher.putBytes(DigestUtils.getDigestWithManualFallback(path, stat.getSize()));
-      } else if (stat.isDirectory()) {
-        hasher.putChar('d').putUnencodedChars(path.getDirectoryDigest());
-      } else if (stat.isSymbolicLink()) {
-        PathFragment link = path.readSymbolicLink();
-        if (link.isAbsolute()) {
-          try {
-            Path resolved = path.resolveSymbolicLinks();
-            if (resolved.isFile()) {
-              if (resolved.isExecutable()) {
-                hasher.putChar('x');
-              } else {
-                hasher.putChar('-');
-              }
-              hasher.putBytes(DigestUtils.getDigestWithManualFallbackWhenSizeUnknown(resolved));
-            } else {
-              // link to a non-file: include the link itself in the hash
-              hasher.putChar('l').putUnencodedChars(link.toString());
-            }
-          } catch (IOException e) {
-            // dangling link: include the link itself in the hash
-            hasher.putChar('l').putUnencodedChars(link.toString());
-          }
-        } else {
-          // relative link: include the link itself in the hash
-          hasher.putChar('l').putUnencodedChars(link.toString());
-        }
-      } else {
-        // Neither file, nor directory, nor symlink. So do not include further information
-        // in the hash, asuming it will not be used during the BUILD anyway.
-        hasher.putChar('s');
-      }
-    }
-    return hasher.hash().toString();
-  }
-
-  /**
    * Opens the file denoted by this path, following symbolic links, for reading, and returns an
    * input stream to it.
    *
@@ -753,23 +783,22 @@ public class Path implements Comparable<Path>, Serializable, FileType.HasFileTyp
   }
 
   /**
-   * Opens the file denoted by this path, following symbolic links, for reading, and returns a file
-   * channel for it.
+   * Opens the file denoted by this path, following symbolic links, for reading and writing and
+   * returns a file channel for it.
    *
-   * @throws IOException if the file was not found or could not be opened for reading
+   * <p>Truncates the file, therefore it cannot be used to read already existing files.
    */
-  public ReadableByteChannel createReadableByteChannel() throws IOException {
-    return fileSystem.createReadableByteChannel(asFragment());
+  public SeekableByteChannel createReadWriteByteChannel() throws IOException {
+    return fileSystem.createReadWriteByteChannel(asFragment());
   }
 
   /**
    * Returns a java.io.File representation of this path.
    *
-   * <p>Caveat: the result may be useless if this path's getFileSystem() is not
-   * the UNIX filesystem.
+   * <p>Caveat: the result may be useless if this path's getFileSystem() is not the UNIX filesystem.
    */
   public File getPathFile() {
-    return new File(getPathString());
+    return new File(StringEncoding.internalToPlatform(getPathString()));
   }
 
   /**
@@ -779,7 +808,7 @@ public class Path implements Comparable<Path>, Serializable, FileType.HasFileTyp
    * @throws FileNotFoundException if the file does not exist, a dangling symbolic link was
    *     encountered, or the file's metadata could not be read
    */
-  public boolean isWritable() throws IOException, FileNotFoundException {
+  public boolean isWritable() throws IOException {
     return fileSystem.isWritable(asFragment());
   }
 
@@ -866,18 +895,8 @@ public class Path implements Comparable<Path>, Serializable, FileType.HasFileTyp
   private void checkSameFileSystem(Path that) {
     if (this.fileSystem != that.fileSystem) {
       throw new IllegalArgumentException(
-          "Files are on different filesystems: " + this + ", " + that);
+          "Files are on different filesystems: %s (on %s), %s (on %s)"
+              .formatted(this, this.fileSystem, that, that.fileSystem));
     }
-  }
-
-  private void writeObject(ObjectOutputStream out) throws IOException {
-    checkState(
-        fileSystem == fileSystemForSerialization, "%s %s", fileSystem, fileSystemForSerialization);
-    out.writeUTF(pathFragment.getPathString());
-  }
-
-  private void readObject(ObjectInputStream in) throws IOException {
-    pathFragment = PathFragment.createAlreadyNormalized(in.readUTF());
-    fileSystem = fileSystemForSerialization;
   }
 }

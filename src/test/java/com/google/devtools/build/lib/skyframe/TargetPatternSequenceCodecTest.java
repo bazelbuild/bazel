@@ -15,14 +15,11 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.skyframe.PrepareDepsOfPatternsValue.TargetPatternSequence;
-import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.protobuf.CodedOutputStream;
-import java.io.ByteArrayOutputStream;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -45,23 +42,21 @@ public final class TargetPatternSequenceCodecTest {
 
   @Test
   public void testPatternsOrderSignificant() throws Exception {
-    SerializationContext writeContext = new SerializationContext(ImmutableClassToInstanceMap.of());
-
-    ByteArrayOutputStream outputBytes = new ByteArrayOutputStream();
-    CodedOutputStream codedOut = CodedOutputStream.newInstance(outputBytes);
-    writeContext.serialize(
-        TargetPatternSequence.create(ImmutableList.of("uno", "dos"), PathFragment.create("tres")),
-        codedOut);
-    codedOut.flush();
-    byte[] serialized1 = outputBytes.toByteArray();
+    ObjectCodecs codecs = new ObjectCodecs();
+    byte[] serialized1 =
+        codecs
+            .serialize(
+                TargetPatternSequence.create(
+                    ImmutableList.of("uno", "dos"), PathFragment.create("tres")))
+            .toByteArray();
     assertThat(serialized1).asList().isNotEmpty();
-    outputBytes.reset();
-    codedOut = CodedOutputStream.newInstance(outputBytes);
-    writeContext.serialize(
-        TargetPatternSequence.create(ImmutableList.of("dos", "uno"), PathFragment.create("tres")),
-        codedOut);
-    codedOut.flush();
-    byte[] serialized2 = outputBytes.toByteArray();
+
+    byte[] serialized2 =
+        codecs
+            .serialize(
+                TargetPatternSequence.create(
+                    ImmutableList.of("dos", "uno"), PathFragment.create("tres")))
+            .toByteArray();
     assertThat(serialized2).asList().isNotEmpty();
     assertThat(serialized1).isNotEqualTo(serialized2);
   }

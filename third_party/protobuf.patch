@@ -1,0 +1,78 @@
+diff --git a/java/core/BUILD.bazel b/java/core/BUILD.bazel
+index 2a38c7475..e7736a675 100644
+--- a/java/core/BUILD.bazel
++++ b/java/core/BUILD.bazel
+@@ -186,10 +186,7 @@ protobuf_java_export(
+ protobuf_java_library(
+     name = "lite_runtime_only",
+     srcs = LITE_SRCS,
+-    visibility = [
+-        "//java/kotlin:__pkg__",
+-        "//java/lite:__pkg__",
+-    ],
++    visibility = ["//visibility:public"],
+ )
+ 
+ proto_library(
+diff --git a/upb/BUILD b/upb/BUILD
+index 426bf9124..fd17ac96c 100644
+--- a/upb/BUILD
++++ b/upb/BUILD
+@@ -115,6 +115,26 @@ cc_library(
+     visibility = ["//hpb/bazel:__pkg__"],
+ )
+ 
++# Aliases ######################################################################
++
++alias(
++    name = "base",
++    actual = "//upb/base",
++    visibility = ["//visibility:public"],
++)
++
++alias(
++    name = "mem",
++    actual = "//upb/mem",
++    visibility = ["//visibility:public"],
++)
++
++alias(
++    name = "message",
++    actual = "//upb/message",
++    visibility = ["//visibility:public"],
++)
++
+ # Amalgamation #################################################################
+ 
+ upb_amalgamation(
+diff --git a/src/google/protobuf/compiler/java/full/message.cc b/src/google/protobuf/compiler/java/full/message.cc
+index dd290f98c..1f100c568 100644
+--- a/src/google/protobuf/compiler/java/full/message.cc
++++ b/src/google/protobuf/compiler/java/full/message.cc
+@@ -842,7 +842,25 @@ void ImmutableMessageGenerator::GenerateIsInitialized(io::Printer* printer) {
+   // Memoizes whether the protocol buffer is fully initialized (has all
+   // required fields). -1 means not yet computed. 0 means false and 1 means
+   // true.
+-  printer->Print("private byte memoizedIsInitialized = -1;\n");
++
++  // If the message transitively has no required fields or extensions,
++  // isInitialized() is always true.
++  if (!HasRequiredFields(descriptor_)) {
++    printer->Print(
++        "/**\n"
++        "  * @deprecated This always returns true for this type as it \n"
++        "  *   does not transitively contain any required fields.\n"
++        "  */\n"
++        "@java.lang.Deprecated\n"
++        "@java.lang.Override\n"
++        "public final boolean isInitialized() {\n"
++        "  return true;\n"
++        "}\n"
++        "\n");
++    return;
++  }
++
++  printer->Print("private transient byte memoizedIsInitialized = -1;\n");
+   printer->Print(
+       "@java.lang.Override\n"
+       "public final boolean isInitialized() {\n");

@@ -18,19 +18,17 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.SymlinkDefinition;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.vfs.Path;
 import java.util.Set;
-import java.util.function.Function;
 
 /** Base class for symlinks to output roots. Used only by {@link OutputDirectoryLinksUtils}. */
 class ConfigSymlink implements SymlinkDefinition {
   @FunctionalInterface
   interface ConfigPathGetter {
-    ArtifactRoot apply(BuildConfiguration configuration, RepositoryName repositoryName);
+    ArtifactRoot apply(BuildConfigurationValue configuration, RepositoryName repositoryName);
   }
 
   private final String suffix;
@@ -42,15 +40,14 @@ class ConfigSymlink implements SymlinkDefinition {
   }
 
   @Override
-  public String getLinkName(String symlinkPrefix, String productName, String workspaceBaseName) {
+  public String getLinkName(String symlinkPrefix, String workspaceBaseName) {
     return symlinkPrefix + suffix;
   }
 
   @Override
   public ImmutableSet<Path> getLinkPaths(
       BuildRequestOptions buildRequestOptions,
-      Set<BuildConfiguration> targetConfigs,
-      Function<BuildOptions, BuildConfiguration> configGetter,
+      Set<BuildConfigurationValue> targetConfigs,
       RepositoryName repositoryName,
       Path outputPath,
       Path execRoot) {

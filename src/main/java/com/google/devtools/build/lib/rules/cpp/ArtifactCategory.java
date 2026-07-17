@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.collect.ImmutableList;
 
+// LINT.IfChange
 /**
  * A category of artifacts that are candidate input/output to an action, for which the toolchain can
  * select a single artifact.
@@ -22,14 +23,19 @@ import com.google.common.collect.ImmutableList;
 public enum ArtifactCategory {
   STATIC_LIBRARY("lib", ".a", ".lib"),
   ALWAYSLINK_STATIC_LIBRARY("lib", ".lo", ".lo.lib"),
-  DYNAMIC_LIBRARY("lib", ".so", ".dylib", ".dll"),
-  EXECUTABLE("", "", ".exe"),
-  INTERFACE_LIBRARY("lib", ".ifso", ".tbd", ".if.lib"),
+  DYNAMIC_LIBRARY("lib", ".so", ".dylib", ".dll", ".pyd", ".wasm"),
+  EXECUTABLE("", "", ".exe", ".wasm"),
+  INTERFACE_LIBRARY("lib", ".ifso", ".tbd", ".if.lib", ".lib"),
   PIC_FILE("", ".pic"),
   INCLUDED_FILE_LIST("", ".d"),
+  SERIALIZED_DIAGNOSTICS_FILE("", ".dia"),
   OBJECT_FILE("", ".o", ".obj"),
   PIC_OBJECT_FILE("", ".pic.o"),
-  CPP_MODULE("", ".pcm"),
+  CPP_MODULE("", ".pcm", ".gcm", ".ifc"),
+  CPP_MODULES_INFO("", ".CXXModules.json"),
+  CPP_MODULES_DDI("", ".ddi"),
+  CPP_MODULES_MODMAP("", ".modmap"),
+  CPP_MODULES_MODMAP_INPUT("", ".modmap.input"),
   GENERATED_ASSEMBLY("", ".s", ".asm"),
   PROCESSED_HEADER("", ".processed"),
   GENERATED_HEADER("", ".h"),
@@ -42,7 +48,7 @@ public enum ArtifactCategory {
 
   private final String defaultPrefix;
   private final String defaultExtension;
-  private final String starlarkName;
+
   // The extensions allowed for this artifact name pattern, Bazel should recognized them as
   // corresponding file type in CppFileTypes.java
   final ImmutableList<String> allowedExtensions;
@@ -58,12 +64,6 @@ public enum ArtifactCategory {
             .add(defaultExtension)
             .add(extraAllowedExtensions)
             .build();
-
-    this.starlarkName = toString().toLowerCase();
-  }
-
-  public String getStarlarkName() {
-    return starlarkName;
   }
 
   /** Returns the name of the category. */
@@ -83,3 +83,4 @@ public enum ArtifactCategory {
     return allowedExtensions;
   }
 }
+// LINT.ThenChange(//src/main/starlark/builtins_bzl/common/cc/cc_helper_internal.bzl)

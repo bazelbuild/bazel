@@ -24,6 +24,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 import net.starlark.java.syntax.Location;
+import net.starlark.java.syntax.Resolver.Binding;
+import net.starlark.java.syntax.Resolver.ComprehensionBinding;
+import net.starlark.java.syntax.TypeTagger;
 
 /**
  * An StarlarkThread represents a Starlark thread.
@@ -58,11 +61,15 @@ public final class StarlarkThread {
   // the lifetime of this thread.
   final AtomicInteger cpuTicks = new AtomicInteger();
   @Nullable private CpuProfiler profiler;
-  StarlarkThread savedThread; // saved StarlarkThread, when profiling reentrant evaluation
+  private StarlarkThread savedThread; // saved StarlarkThread, when profiling reentrant evaluation
 
   private final Map<Class<?>, Object> threadLocals = new HashMap<>();
 
+  private final SymbolGenerator<?> symbolGenerator;
+
   private boolean interruptible = true;
+
+  private final CallUtils.BuiltinManager builtinManager;
 
   long steps; // count of logical computation steps executed so far
   long stepLimit = Long.MAX_VALUE; // limit on logical computation steps
@@ -78,12 +85,29 @@ public final class StarlarkThread {
   }
 
   /**
+   * Increments the thread's number of executed Starlark computation steps by a specified delta.
+   * Intended to be used by callers that perform custom off-thread computation and that want to
+   * limit the sum of in-thread and off-thread computation steps to a common {@link
+   * #getMaxExecutionSteps} budget.
+   */
+  public void incrementExecutedSteps(long delta) {
+    this.steps += delta;
+  }
+
+  /**
    * Sets the maximum number of Starlark computation steps that may be executed by this thread (see
    * {@link #getExecutedSteps}). When the step counter reaches or exceeds this value, execution
    * fails with an EvalException.
    */
   public void setMaxExecutionSteps(long steps) {
     this.stepLimit = steps;
+  }
+
+  /**
+   * Returns the maximum number of Starlark computation steps that may be executed by this thread.
+   */
+  public long getMaxExecutionSteps() {
+    return stepLimit;
   }
 
   /**
@@ -134,7 +158,7 @@ public final class StarlarkThread {
     private Location loc;
 
     // Indicates that setErrorLocation has been called already and the error
-    // location (loc) should not be overrwritten.
+    // location (loc) should not be overwritten.
     private boolean errorLocationSet;
 
     // The locals of this frame, if fn is a StarlarkFunction, otherwise null.
@@ -142,7 +166,7 @@ public final class StarlarkThread {
     // values, or wrapped in StarlarkFunction.Cells if shared with a nested function.
     @Nullable Object[] locals;
 
-    @Nullable private Object profileSpan; // current span of walltime call profiler
+    private long profileStartTimeNanos; // start time nanos of walltime call profiler
 
     private Frame(StarlarkThread thread, StarlarkCallable fn) {
       this.thread = thread;
@@ -164,7 +188,7 @@ public final class StarlarkThread {
     void setErrorLocation(Location loc) {
       if (!errorLocationSet) {
         errorLocationSet = true;
-        setLocation(loc);
+        this.loc = loc;
       }
     }
 
@@ -185,15 +209,30 @@ public final class StarlarkThread {
       if (fn instanceof StarlarkFunction) {
         for (int i = 0; i < locals.length; i++) {
           Object local = locals[i];
+          if (local instanceof StarlarkFunction.Cell) {
+            local = ((StarlarkFunction.Cell) local).x;
+          }
           if (local != null) {
-            if (local instanceof StarlarkFunction.Cell) {
-              local = ((StarlarkFunction.Cell) local).x;
+            Binding binding = ((StarlarkFunction) fn).rfn.getLocals().get(i);
+            if (binding instanceof ComprehensionBinding comprehensionBinding
+                && !comprehensionBinding.inScope(loc)) {
+              // Ignore comprehension variables when outside their comprehension's lexical scope.
+              continue;
             }
-            env.put(((StarlarkFunction) fn).rfn.getLocals().get(i).getName(), local);
+            env.put(binding.getName(), local);
           }
         }
       }
-      return env.build();
+      // TODO(https://github.com/bazelbuild/bazel/issues/24931): comprehension variables are stored
+      // in their enclosing function's locals, and can shadow the function's proper local variables
+      // (as well as variables of their enclosing comprehension, since comprehensions can nest).
+      // When this happens, we emit only the last comprehension binding which has the frame's `loc`
+      // within its lexical scope (relying on the fact that when comprehensions are nested, the
+      // resolver places inner comprehensions' variables after outer comprehensions' variables in
+      // the function's locals list). However, this makes it impossible to examine the shadowed
+      // variables' values in the debugger. The real fix would be to push a new debugger frame when
+      // in a comprehension.
+      return env.buildKeepingLast();
     }
 
     @Override
@@ -214,6 +253,8 @@ public final class StarlarkThread {
   /** Loader for Starlark load statements. Null if loading is disallowed. */
   @Nullable private Loader loader = null;
 
+  private UncheckedExceptionContext uncheckedExceptionContext = () -> "";
+
   /** Stack of active function calls. */
   private final ArrayList<Frame> callstack = new ArrayList<>();
 
@@ -222,6 +263,30 @@ public final class StarlarkThread {
 
   /** Pushes a function onto the call stack. */
   void push(StarlarkCallable fn) {
+    // Poll for newly installed CPU profiler.
+    if (profiler == null) {
+      this.profiler = CpuProfiler.get();
+      if (profiler != null) {
+        // Associated current Java thread with this StarlarkThread.
+        // (Save the previous association so we can restore it later.)
+        this.savedThread = CpuProfiler.setStarlarkThread(this);
+      }
+    }
+
+    if (profiler != null) {
+      if (callstack.isEmpty()) {
+        // If this is the top-level frame, reset the CPU tick counter.
+        cpuTicks.set(0);
+      } else {
+        // Record CPU ticks already accrued by the current frame, as otherwise they'd be
+        // misattributed to the next frame.
+        int ticks = cpuTicks.getAndSet(0);
+        if (ticks > 0) {
+          profiler.addEvent(ticks, callstack);
+        }
+      }
+    }
+
     Frame fr = new Frame(this, fn);
     callstack.add(fr);
 
@@ -235,18 +300,7 @@ public final class StarlarkThread {
     // Start wall-time call profile span.
     CallProfiler callProfiler = StarlarkThread.callProfiler;
     if (callProfiler != null) {
-      fr.profileSpan = callProfiler.start(fn);
-    }
-
-    // Poll for newly installed CPU profiler.
-    if (profiler == null) {
-      this.profiler = CpuProfiler.get();
-      if (profiler != null) {
-        cpuTicks.set(0);
-        // Associated current Java thread with this StarlarkThread.
-        // (Save the previous association so we can restore it later.)
-        this.savedThread = CpuProfiler.setStarlarkThread(this);
-      }
+      fr.profileStartTimeNanos = callProfiler.start();
     }
   }
 
@@ -258,7 +312,7 @@ public final class StarlarkThread {
     if (profiler != null) {
       int ticks = cpuTicks.getAndSet(0);
       if (ticks > 0) {
-        profiler.addEvent(ticks, getDebugCallStack());
+        profiler.addEvent(ticks, callstack);
       }
 
       // If this is the final pop in this thread,
@@ -275,8 +329,10 @@ public final class StarlarkThread {
 
     // End wall-time profile span.
     CallProfiler callProfiler = StarlarkThread.callProfiler;
-    if (callProfiler != null && fr.profileSpan != null) {
-      callProfiler.end(fr.profileSpan);
+    if (callProfiler != null && fr.profileStartTimeNanos >= 0) {
+      // Only record the context once since it is the same for all frames.
+      var contextDescription = last == 0 ? getContextDescription() : null;
+      callProfiler.end(fr.profileStartTimeNanos, fr.fn, contextDescription);
     }
 
     // Notify debug tools of the thread's last pop.
@@ -319,19 +375,38 @@ public final class StarlarkThread {
    * named module, or null if not found.
    */
   @FunctionalInterface
-  public interface Loader {
+  public interface Loader extends TypeTagger.Loader {
+    @Override
     @Nullable
     Module load(String module);
   }
 
   /** Returns the loader for Starlark load statements. */
-  Loader getLoader() {
+  public Loader getLoader() {
     return loader;
   }
 
   /** Sets the behavior of Starlark load statements executed by this thread. */
   public void setLoader(Loader loader) {
     this.loader = Preconditions.checkNotNull(loader);
+  }
+
+  /**
+   * Supplies additional context to append to the message of {@link Starlark.UncheckedEvalException}
+   * or {@link Starlark.UncheckedEvalError}.
+   */
+  // TODO(brandjon): This seems unnecessary. Instead of implementing a hook that is mutated after
+  // thread is constructed, we should be able to just attach this information at construction time.
+  public interface UncheckedExceptionContext {
+    String getContextForUncheckedException();
+  }
+
+  public void setUncheckedExceptionContext(UncheckedExceptionContext uncheckedExceptionContext) {
+    this.uncheckedExceptionContext = Preconditions.checkNotNull(uncheckedExceptionContext);
+  }
+
+  public String getContextDescription() {
+    return uncheckedExceptionContext.getContextForUncheckedException();
   }
 
   /** Reports whether {@code fn} has been recursively reentered within this thread. */
@@ -365,7 +440,7 @@ public final class StarlarkThread {
    * <p>Every use of this function is a hack to work around the lack of proper local vs global
    * identifier resolution at top level.
    */
-  boolean toplevel() {
+  private boolean toplevel() {
     return callstack.size() < 2;
   }
 
@@ -375,16 +450,52 @@ public final class StarlarkThread {
   }
 
   /**
-   * Constructs a StarlarkThread.
+   * Creates a StarlarkThread.
    *
    * @param mu the (non-frozen) mutability of values created by this thread.
-   * @param semantics the StarlarkSemantics for this thread.
+   * @param semantics the StarlarkSemantics for this thread. Note that it is generally a code smell
+   *     to use {@link StarlarkSemantics#DEFAULT} if the application permits customizing the
+   *     semantics (e.g. via command line flags). Usually, all Starlark evaluation contexts within
+   *     the same application would use the same {@code StarlarkSemantics} instance.
+   * @param contextDescription a short description of this evaluation, added as context when an
+   *     exception is thrown as well as in profiles. The empty String can be used as a default
+   *     value.
+   * @param symbolGenerator a supplier of deterministic, stable IDs for objects created by this
+   *     thread
    */
-  public StarlarkThread(Mutability mu, StarlarkSemantics semantics) {
-    Preconditions.checkArgument(!mu.isFrozen());
-    this.mutability = mu;
+  // TODO(bazel-team): Consider merging contextDescription into the symbolGenerator.
+  public static StarlarkThread create(
+      Mutability mu,
+      StarlarkSemantics semantics,
+      String contextDescription,
+      SymbolGenerator<?> symbolGenerator) {
+    return new StarlarkThread(mu, semantics, contextDescription, symbolGenerator);
+  }
+
+  /**
+   * Creates a StarlarkThread with an empty {@code contextDescription} and transient {@code
+   * symbolGenerator}.
+   *
+   * <p>See comments at {@link SymbolGenerator#createTransient} for when this is applicable.
+   */
+  public static StarlarkThread createTransient(Mutability mu, StarlarkSemantics semantics) {
+    return new StarlarkThread(
+        mu, semantics, /* contextDescription= */ "", SymbolGenerator.createTransient());
+  }
+
+  private StarlarkThread(
+      Mutability mu,
+      StarlarkSemantics semantics,
+      String contextDescription,
+      SymbolGenerator<?> symbolGenerator) {
+    this.mutability = Preconditions.checkNotNull(mu);
     this.semantics = semantics;
     this.allowRecursion = semantics.getBool(StarlarkSemantics.ALLOW_RECURSION);
+    if (!contextDescription.isEmpty()) {
+      setUncheckedExceptionContext(() -> contextDescription);
+    }
+    this.symbolGenerator = symbolGenerator;
+    this.builtinManager = CallUtils.getBuiltinManager(semantics);
   }
 
   /**
@@ -401,7 +512,7 @@ public final class StarlarkThread {
   /** A hook for notifications of assignments at top level. */
   @FunctionalInterface
   public interface PostAssignHook {
-    void assign(String name, Object value);
+    void assign(String name, Location nameStartLocation, Object value);
   }
 
   public StarlarkSemantics getSemantics() {
@@ -409,19 +520,45 @@ public final class StarlarkThread {
   }
 
   /** Reports whether this thread is allowed to make recursive calls. */
-  public boolean isRecursionAllowed() {
+  boolean isRecursionAllowed() {
     return allowRecursion;
   }
 
   // Implementation of Debug.getCallStack.
   // Intentionally obscured to steer most users to the simpler getCallStack.
   ImmutableList<Debug.Frame> getDebugCallStack() {
-    return ImmutableList.<Debug.Frame>copyOf(callstack);
+    return ImmutableList.copyOf(callstack);
+  }
+
+  @Nullable
+  StarlarkFunction getInnermostEnclosingStarlarkFunction(int depth) {
+    Preconditions.checkArgument(depth >= 0);
+    for (int i = callstack.size() - 1; i >= 0; i--) {
+      Debug.Frame fr = callstack.get(i);
+      if (fr.getFunction() instanceof StarlarkFunction) {
+        if (depth == 0) {
+          return (StarlarkFunction) fr.getFunction();
+        }
+        depth--;
+      }
+    }
+    return null;
   }
 
   /** Returns the size of the callstack. This is needed for the debugger. */
   int getCallStackSize() {
     return callstack.size();
+  }
+
+  /**
+   * The value of {@link CallStackEntry#name} for the implicit function that executes the top-level
+   * statements of a file.
+   */
+  public static final String TOP_LEVEL = "<toplevel>";
+
+  /** Creates a new {@link CallStackEntry}. */
+  public static CallStackEntry callStackEntry(String name, Location location) {
+    return new CallStackEntry(name, location);
   }
 
   /**
@@ -433,14 +570,31 @@ public final class StarlarkThread {
     public final String name;
     public final Location location;
 
-    public CallStackEntry(String name, Location location) {
-      this.location = location;
-      this.name = name;
+    private CallStackEntry(String name, Location location) {
+      this.name = Preconditions.checkNotNull(name);
+      this.location = Preconditions.checkNotNull(location);
     }
 
     @Override
     public String toString() {
       return name + "@" + location;
+    }
+
+    @Override
+    public int hashCode() {
+      return 31 * name.hashCode() + location.hashCode();
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (!(o instanceof CallStackEntry)) {
+        return false;
+      }
+      CallStackEntry that = (CallStackEntry) o;
+      return name.equals(that.name) && location.equals(that.location);
     }
   }
 
@@ -451,11 +605,24 @@ public final class StarlarkThread {
    * indefinitely and safely shared with other threads.
    */
   public ImmutableList<CallStackEntry> getCallStack() {
-    ImmutableList.Builder<CallStackEntry> stack = ImmutableList.builder();
+    ImmutableList.Builder<CallStackEntry> stack =
+        ImmutableList.builderWithExpectedSize(callstack.size());
     for (Frame fr : callstack) {
-      stack.add(new CallStackEntry(fr.fn.getName(), fr.loc));
+      stack.add(callStackEntry(fr.fn.getName(), fr.loc));
     }
     return stack.build();
+  }
+
+  /** Sets the given throwable's stack trace to a Java-style version of {@link #getCallStack}. */
+  void fillInStackTrace(Throwable throwable) {
+    StackTraceElement[] trace = new StackTraceElement[callstack.size()];
+    for (int i = 0; i < callstack.size(); i++) {
+      Frame frame = callstack.get(i);
+      trace[trace.length - i - 1] =
+          new StackTraceElement(
+              "<starlark>", frame.fn.getName(), frame.loc.file(), frame.loc.line());
+    }
+    throwable.setStackTrace(trace);
   }
 
   @Override
@@ -475,14 +642,37 @@ public final class StarlarkThread {
 
   /** CallProfiler records the start and end wall times of function calls. */
   public interface CallProfiler {
-    Object start(StarlarkCallable fn);
+    long start();
 
-    void end(Object span);
+    /**
+     * Records the end time of a function call.
+     *
+     * @param threadContext an optional description of the context in which the function is called.
+     *     Only non-null for the outermost function in a call stack.
+     */
+    @SuppressWarnings("GoodTime") // This code is very performance sensitive.
+    void end(long startTimeNanos, StarlarkCallable fn, @Nullable String threadContext);
   }
 
   /** Installs a global hook that will be notified of function calls. */
   public static void setCallProfiler(@Nullable CallProfiler p) {
     callProfiler = p;
+  }
+
+  public SymbolGenerator.Symbol<?> getNextIdentityToken() {
+    return symbolGenerator.generate();
+  }
+
+  public SymbolGenerator<?> getSymbolGenerator() {
+    return symbolGenerator;
+  }
+
+  Object getOwner() {
+    return symbolGenerator.getOwner();
+  }
+
+  CallUtils.BuiltinManager getBuiltinManager() {
+    return builtinManager;
   }
 
   @Nullable private static CallProfiler callProfiler = null;

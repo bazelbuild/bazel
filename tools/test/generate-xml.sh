@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Copyright 2018 The Bazel Authors. All rights reserved.
 #
@@ -21,7 +21,6 @@ XML_OUTPUT_FILE="$2"
 DURATION_IN_SECONDS="$3"
 EXIT_CODE="$4"
 
-# Keep this in sync with test-setup.sh!
 function encode_stream {
   # Replace invalid XML characters and invalid sequence in CDATA
   # We do this in four steps:

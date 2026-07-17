@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2020 The Bazel Authors. All rights reserved.
 #
@@ -43,30 +43,16 @@ fi
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-# `uname` returns the current platform, e.g "MSYS_NT-10.0" or "Linux".
-# `tr` converts all upper case letters to lower case.
-# `case` matches the result if the `uname | tr` expression to string prefixes
-# that use the same wildcards as names do in Bash, i.e. "msys*" matches strings
-# starting with "msys", and "*" matches everything (it's the default case).
-case "$(uname -s | tr [:upper:] [:lower:])" in
-msys*)
-  # As of 2018-08-14, Bazel on Windows only supports MSYS Bash.
-  declare -r is_windows=true
-  ;;
-*)
-  declare -r is_windows=false
-  ;;
-esac
-
-if "$is_windows"; then
-  # Disable MSYS path conversion that converts path-looking command arguments to
-  # Windows paths (even if they arguments are not in fact paths).
-  export MSYS_NO_PATHCONV=1
-  export MSYS2_ARG_CONV_EXCL="*"
-fi
-
+# use an empty prelude else no build succeeds without injection
+rm -f tools/build_rules/{blaze_prelude,prelude_bazel}
 
 function test_injection() {
+  # Remove references to Google's --python_launcher and --host_python_launcher
+  # flags, which require extra Python and C++ setup to work.
+  if [ -f .blazerc ]; then
+    sed -i '/python_launcher/d' .blazerc
+  fi
+
   # //pkg prints _builtins_dummy when loaded.
   mkdir pkg
   cat > pkg/BUILD <<'EOF'
@@ -92,7 +78,18 @@ exported_toplevels = {"_builtins_dummy": "alternate value"}
 exported_rules = {}
 exported_to_java = {}
 EOF
-
+  # Override the default exec transition (which is in builtins) to avoid
+  # interfering with builtins injection.
+  mkdir exec
+  cat > exec/BUILD <<'EOF'
+EOF
+  cat > exec/dummy_exec_platforms.bzl <<'EOF'
+noop = transition(
+    implementation = lambda settings, attr: { '//command_line_option:is exec configuration': True },
+    inputs = [],
+    outputs = ['//command_line_option:is exec configuration']
+)
+EOF
 
   # With injection disabled.
   #
@@ -102,29 +99,33 @@ EOF
   # without injection may break. (That may also mean we have to update this test
   # at some point, so that the other builtins roots are based on the one in the
   # install base, instead of being virtually empty.)
-  bazel build //pkg:BUILD --experimental_builtins_dummy=true \
+  bazel build --nobuild //pkg:BUILD --experimental_builtins_dummy=true \
       --experimental_builtins_bzl_path= \
+      --experimental_exec_config=//exec:dummy_exec_platforms.bzl%noop \
       &>"$TEST_log" || fail "bazel build failed"
   expect_log "dummy :: original value"
 
   # Using the builtins root that's bundled with bazel.
-  bazel build //pkg:BUILD --experimental_builtins_dummy=true \
+  bazel build --nobuild //pkg:BUILD --experimental_builtins_dummy=true \
       --experimental_builtins_bzl_path=%bundled% \
+      --experimental_exec_config=//exec:dummy_exec_platforms.bzl%noop \
       &>"$TEST_log" || fail "bazel build failed"
   # "overridden value" comes from the exports.bzl in production Bazel.
   expect_log "dummy :: overridden value"
 
   # Using the builtins root located within the client workspace, as if we're
   # running Bazel in its own source tree.
-  bazel build //pkg:BUILD --experimental_builtins_dummy=true \
+  bazel build --nobuild //pkg:BUILD --experimental_builtins_dummy=true \
       --experimental_builtins_bzl_path=%workspace% \
+      --experimental_exec_config=//exec:dummy_exec_platforms.bzl%noop \
       &>"$TEST_log" || fail "bazel build failed"
   expect_log "dummy :: workspace value"
 
   # Using the builtins root at the path given to the flag. (Need not be within
   # workspace, though this one is.)
-  bazel build //pkg:BUILD --experimental_builtins_dummy=true \
+  bazel build --nobuild //pkg:BUILD --experimental_builtins_dummy=true \
       --experimental_builtins_bzl_path=alternate \
+      --experimental_exec_config=//exec:dummy_exec_platforms.bzl%noop \
       &>"$TEST_log" || fail "bazel build failed"
   expect_log "dummy :: alternate value"
 
@@ -134,8 +135,9 @@ exported_toplevels = {"_builtins_dummy": "second alternate value"}
 exported_rules = {}
 exported_to_java = {}
 EOF
-  bazel build //pkg:BUILD --experimental_builtins_dummy=true \
+  bazel build --nobuild //pkg:BUILD --experimental_builtins_dummy=true \
       --experimental_builtins_bzl_path=alternate \
+      --experimental_exec_config=//exec:dummy_exec_platforms.bzl%noop \
       &>"$TEST_log" || fail "bazel build failed"
   expect_log "dummy :: second alternate value"
 

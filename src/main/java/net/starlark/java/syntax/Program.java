@@ -13,7 +13,13 @@
 // limitations under the License.
 package net.starlark.java.syntax;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import java.util.HashSet;
+import javax.annotation.Nullable;
 
 /**
  * An opaque, executable representation of a valid Starlark program. Programs may
@@ -22,16 +28,51 @@ import com.google.common.collect.ImmutableList;
  */
 public final class Program {
 
+  private final FileOptions options;
   private final Resolver.Function body;
   private final ImmutableList<String> loads;
   private final ImmutableList<Location> loadLocations;
+  private final ImmutableMap<String, DocComments> docCommentsMap;
+  private final ImmutableList<Comment> unusedDocCommentLines;
+  // Set by withTypeTable()
+  @Nullable private final TypeTable typeTable;
 
   private Program(
-      Resolver.Function body, ImmutableList<String> loads, ImmutableList<Location> loadLocations) {
+      FileOptions options,
+      Resolver.Function body,
+      ImmutableList<String> loads,
+      ImmutableList<Location> loadLocations,
+      ImmutableMap<String, DocComments> docCommentsMap,
+      ImmutableList<Comment> unusedDocCommentLines,
+      @Nullable TypeTable typeTable) {
+    Preconditions.checkArgument(
+        loads.size() == loadLocations.size(), "each load must have a corresponding location");
+
     // TODO(adonovan): compile here.
+    this.options = options;
     this.body = body;
     this.loads = loads;
     this.loadLocations = loadLocations;
+    this.docCommentsMap = docCommentsMap;
+    this.unusedDocCommentLines = unusedDocCommentLines;
+    this.typeTable = typeTable;
+  }
+
+  /** Returns a copy of this program with the specified type table. */
+  public Program withTypeTable(@Nullable TypeTable typeTable) {
+    return new Program(
+        this.options,
+        this.body,
+        this.loads,
+        this.loadLocations,
+        this.docCommentsMap,
+        this.unusedDocCommentLines,
+        typeTable);
+  }
+
+  /** Returns the file options under which this program was parsed and compiled. */
+  public FileOptions getOptions() {
+    return options;
   }
 
   // TODO(adonovan): eliminate once Eval no longer needs access to syntax.
@@ -55,14 +96,57 @@ public final class Program {
   }
 
   /**
-   * Resolves a file syntax tree in the specified environment and compiles it to a Program. This
-   * operation mutates the syntax tree, both by resolving identifiers and recording local variables,
-   * and in case of error, by appending to {@code file.errors()}.
+   * Returns a map from global variable names to Sphinx autodoc-style doc comments associated with
+   * the variable's declarations; global variables without a doc comment are not included in the
+   * map.
+   */
+  public ImmutableMap<String, DocComments> getDocCommentsMap() {
+    return docCommentsMap;
+  }
+
+  /** Returns the list of doc comments not associated with any global variable. */
+  public ImmutableList<Comment> getUnusedDocCommentLines() {
+    return unusedDocCommentLines;
+  }
+
+  /**
+   * Returns true if this program does not contain any top-level expressions that could mutate
+   * collections (e.g., calls, index assignments, or augmented assignments).
    *
+   * <p>This is a heuristic used by the evaluator to safely optimize collection literals (lists and
+   * dicts) into compact, immutable implementations to save memory.
+   */
+  public boolean isMutationFreeAtTopLevel() {
+    return body.isMutationFreeAtTopLevel();
+  }
+
+  /**
+   * Returns the static type table of this compiled program, or null if type resolution was not
+   * performed.
+   */
+  @Nullable
+  public TypeTable getTypeTable() {
+    return typeTable;
+  }
+
+  /**
+   * Resolves a file syntax tree in the specified environment and compiles it to a Program. This
+   * operation mutates the syntax tree by:
+   *
+   * <ul>
+   *   <li>resolving identifiers to bindings,
+   *   <li>resolving type information,
+   *   <li>recording local variables, and
+   *   <li>in case of error, appending to {@code file.errors()}.
+   * </ul>
+   *
+   * @param loader A loader for processing load() statements; used by type tagging/checking; must be
+   *     specified if type tagging is enabled and the file contains load() statements.
    * @throws SyntaxError.Exception in case of resolution error, or if the syntax tree already
    *     contained syntax scan/parse errors. Resolution errors are added to {@code file.errors()}.
    */
-  public static Program compileFile(StarlarkFile file, Resolver.Module env)
+  public static Program compileFile(
+      StarlarkFile file, Resolver.Module env, @Nullable TypeTagger.Loader loader)
       throws SyntaxError.Exception {
     Resolver.resolveFile(file, env);
     if (!file.ok()) {
@@ -73,15 +157,37 @@ public final class Program {
     ImmutableList.Builder<String> loads = ImmutableList.builder();
     ImmutableList.Builder<Location> loadLocations = ImmutableList.builder();
     for (Statement stmt : file.getStatements()) {
-      if (stmt instanceof LoadStatement) {
-        LoadStatement load = (LoadStatement) stmt;
+      if (stmt instanceof LoadStatement load) {
         String module = load.getImport().getValue();
         loads.add(module);
         loadLocations.add(load.getImport().getLocation());
       }
     }
 
-    return new Program(file.getResolvedFunction(), loads.build(), loadLocations.build());
+    // Find unused doc comments.
+    ImmutableMap<String, DocComments> docCommentsMap = ImmutableMap.copyOf(file.docCommentsMap);
+    HashSet<Comment> usedDocCommentLines = new HashSet<>();
+    for (DocComments docComments : docCommentsMap.values()) {
+      usedDocCommentLines.addAll(docComments.getLines());
+    }
+    ImmutableList<Comment> unusedDocCommentLines =
+        file.getComments().stream()
+            .filter(c -> c.hasDocCommentPrefix() && !usedDocCommentLines.contains(c))
+            .collect(toImmutableList());
+
+    return new Program(
+        file.getOptions(),
+        file.getResolvedFunction(),
+        loads.build(),
+        loadLocations.build(),
+        docCommentsMap,
+        unusedDocCommentLines,
+        /* typeTable= */ null);
+  }
+
+  public static Program compileFile(StarlarkFile file, Resolver.Module env)
+      throws SyntaxError.Exception {
+    return compileFile(file, env, /* loader= */ null);
   }
 
   /**
@@ -94,6 +200,13 @@ public final class Program {
   public static Program compileExpr(Expression expr, Resolver.Module module, FileOptions options)
       throws SyntaxError.Exception {
     Resolver.Function body = Resolver.resolveExpr(expr, module, options);
-    return new Program(body, /*loads=*/ ImmutableList.of(), /*loadLocations=*/ ImmutableList.of());
+    return new Program(
+        options,
+        body,
+        /* loads= */ ImmutableList.of(),
+        /* loadLocations= */ ImmutableList.of(),
+        /* docCommentsMap= */ ImmutableMap.of(),
+        /* unusedDocCommentLines= */ ImmutableList.of(),
+        /* typeTable= */ null);
   }
 }

@@ -33,6 +33,7 @@ public class ToolchainTypeTest extends BuildViewTestCase {
   public void testCcTargetsDependOnCcToolchainAutomatically() throws Exception {
     scratch.file(
         "a/BUILD",
+        "load('@rules_cc//cc/toolchains:cc_toolchain.bzl', 'cc_toolchain')",
         "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')",
         "filegroup(",
         "   name='empty')",
@@ -71,7 +72,11 @@ public class ToolchainTypeTest extends BuildViewTestCase {
 
     // for cc_library, cc_binary, and cc_test, we check that $(TARGET_CPU) is a valid Make variable
     ConfiguredTarget cclibrary =
-        ScratchAttributeWriter.fromLabelString(this, "cc_library", "//cclib")
+        ScratchAttributeWriter.fromLabelString(
+                this,
+                "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+                "cc_library",
+                "//cclib")
             .setList("srcs", "a.cc")
             .setList("copts", "foobar-$(ABI)")
             .write();
@@ -80,7 +85,11 @@ public class ToolchainTypeTest extends BuildViewTestCase {
     assertThat(compileAction.getArguments()).contains("foobar-mock-abi-version-for-k8");
 
     ConfiguredTarget ccbinary =
-        ScratchAttributeWriter.fromLabelString(this, "cc_binary", "//ccbin")
+        ScratchAttributeWriter.fromLabelString(
+                this,
+                "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
+                "cc_binary",
+                "//ccbin")
             .setList("srcs", "a.cc")
             .setList("copts", "foobar-$(ABI)")
             .write();
@@ -89,7 +98,11 @@ public class ToolchainTypeTest extends BuildViewTestCase {
     assertThat(compileAction.getArguments()).contains("foobar-mock-abi-version-for-k8");
 
     ConfiguredTarget cctest =
-        ScratchAttributeWriter.fromLabelString(this, "cc_test", "//cctest")
+        ScratchAttributeWriter.fromLabelString(
+                this,
+                "load('@rules_cc//cc:cc_test.bzl', 'cc_test')",
+                "cc_test",
+                "//cctest")
             .setList("srcs", "a.cc")
             .setList("copts", "foobar-$(ABI)")
             .write();

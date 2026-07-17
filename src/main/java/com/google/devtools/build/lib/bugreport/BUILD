@@ -1,6 +1,9 @@
 load("@rules_java//java:defs.bzl", "java_library")
 
-package(default_visibility = ["//src:__subpackages__"])
+package(
+    default_applicable_licenses = ["//:license"],
+    default_visibility = ["//src:__subpackages__"],
+)
 
 filegroup(
     name = "srcs",
@@ -19,7 +22,9 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:custom_exit_code_publisher",
         "//src/main/java/com/google/devtools/build/lib/util:custom_failure_detail_publisher",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
+        "//src/main/java/com/google/devtools/build/lib/util:exit_code",
         "//src/main/java/com/google/devtools/build/lib/util:logging",
+        "//third_party:error_prone_annotations",
         "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",

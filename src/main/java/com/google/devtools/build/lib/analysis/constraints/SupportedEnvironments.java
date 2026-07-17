@@ -16,23 +16,39 @@ package com.google.devtools.build.lib.analysis.constraints;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.Map;
 
 /** Standard {@link SupportedEnvironmentsProvider} implementation. */
-@AutoCodec
-public class SupportedEnvironments implements SupportedEnvironmentsProvider {
+public final class SupportedEnvironments implements SupportedEnvironmentsProvider {
+
+  static final SupportedEnvironments EMPTY =
+      new SupportedEnvironments(
+          EnvironmentCollection.EMPTY, EnvironmentCollection.EMPTY, ImmutableMap.of());
+
+  public static SupportedEnvironments create(
+      EnvironmentCollection staticEnvironments,
+      EnvironmentCollection refinedEnvironments,
+      Map<Label, RemovedEnvironmentCulprit> removedEnvironmentCulprits) {
+    if (staticEnvironments.isEmpty()
+        && refinedEnvironments.isEmpty()
+        && removedEnvironmentCulprits.isEmpty()) {
+      return EMPTY;
+    }
+    return new SupportedEnvironments(
+        staticEnvironments, refinedEnvironments, ImmutableMap.copyOf(removedEnvironmentCulprits));
+  }
+
   private final EnvironmentCollection staticEnvironments;
   private final EnvironmentCollection refinedEnvironments;
   private final ImmutableMap<Label, RemovedEnvironmentCulprit> removedEnvironmentCulprits;
 
-  public SupportedEnvironments(
+  private SupportedEnvironments(
       EnvironmentCollection staticEnvironments,
       EnvironmentCollection refinedEnvironments,
-      Map<Label, RemovedEnvironmentCulprit> removedEnvironmentCulprits) {
+      ImmutableMap<Label, RemovedEnvironmentCulprit> removedEnvironmentCulprits) {
     this.staticEnvironments = staticEnvironments;
     this.refinedEnvironments = refinedEnvironments;
-    this.removedEnvironmentCulprits = ImmutableMap.copyOf(removedEnvironmentCulprits);
+    this.removedEnvironmentCulprits = removedEnvironmentCulprits;
   }
 
   @Override

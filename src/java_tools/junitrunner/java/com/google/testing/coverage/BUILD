@@ -24,30 +24,33 @@ java_binary(
         ":JacocoCoverageLib",
         ":bitfield",
         "//third_party:guava",
-        "//third_party/java/jacoco:blaze-agent-0.8.6",
-        "//third_party/java/jacoco:core-0.8.6",
-        "//third_party/java/jacoco:report-0.8.6",
+        "//third_party/java/jacoco:blaze-agent",
+        "//third_party/java/jacoco:core",
+        "//third_party/java/jacoco:report",
     ],
 )
 
 java_library(
     name = "JacocoCoverageLib",
     srcs = [
-        "BranchCoverageDetail.java",
-        "BranchDetailAnalyzer.java",
-        "BranchExp.java",
+        "BranchExpression.java",
         "ClassProbesMapper.java",
-        "CovExp.java",
+        "CoverageAnalyzer.java",
+        "CoverageData.java",
+        "CoverageExpression.java",
         "JacocoLCOVFormatter.java",
+        "MethodInfo.java",
         "MethodProbesMapper.java",
-        "ProbeExp.java",
+        "NullExpression.java",
+        "ProbeExpression.java",
     ],
     deps = [
         ":bitfield",
+        "//third_party:auto_value",
         "//third_party:guava",
-        "//third_party/java/jacoco:blaze-agent-0.8.6",
-        "//third_party/java/jacoco:core-0.8.6",
-        "//third_party/java/jacoco:report-0.8.6",
+        "//third_party/java/jacoco:blaze-agent",
+        "//third_party/java/jacoco:core",
+        "//third_party/java/jacoco:report",
     ],
 )
 
@@ -73,10 +76,10 @@ genrule(
         "rm -fr \"$${JARJAR}\"",
     ]),
     tags = ["manual"],
-    toolchains = ["@bazel_tools//tools/jdk:current_host_java_runtime"],
+    toolchains = ["@rules_java//toolchains:current_host_java_runtime"],
     tools = [
         "//src/tools/singlejar",
         "//third_party/jarjar:jarjar_command_deploy.jar",
-        "@bazel_tools//tools/jdk:current_host_java_runtime",
+        "@rules_java//toolchains:current_host_java_runtime",
     ],
 )

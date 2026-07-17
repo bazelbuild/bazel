@@ -12,26 +12,34 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import unittest
-
+from absl.testing import absltest
 from src.test.py.bazel import test_base
 
 
 class BazelServerModeTest(test_base.TestBase):
 
   def testBazelServerMode(self):
-    self.ScratchFile('WORKSPACE')
+    self.ScratchFile('MODULE.bazel')
 
-    exit_code, stdout, stderr = self.RunBazel(['info', 'server_pid'])
-    self.AssertExitCode(exit_code, 0, stderr)
+    _, stdout, _ = self.RunBazel(['info', 'server_pid'])
     pid1 = stdout[0]
-
-    exit_code, stdout, stderr = self.RunBazel(['info', 'server_pid'])
-    self.AssertExitCode(exit_code, 0, stderr)
+    _, stdout, _ = self.RunBazel(['info', 'server_pid'])
     pid2 = stdout[0]
-
     self.assertEqual(pid1, pid2)
+
+  def testBazelServerModeStressTest(self):
+    self.ScratchFile('MODULE.bazel')
+
+    last_pid = None
+    for _ in range(10):
+      _, stdout, _ = self.RunBazel(
+          ['--ignore_all_rc_files', 'info', 'server_pid']
+      )
+      new_pid = stdout[0]
+      if last_pid is not None:
+        self.assertEqual(last_pid, new_pid)
+      last_pid = new_pid
 
 
 if __name__ == '__main__':
-  unittest.main()
+  absltest.main()

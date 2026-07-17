@@ -13,6 +13,9 @@
 # limitations under the License.
 """Helpers to create golden tests, to minimize code duplication."""
 
+load("@rules_java//java/common:java_info.bzl", "JavaInfo")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 def _compile_time_jars(ctx):
     jars = depset([], transitive = [dep[JavaInfo].transitive_compile_time_jars for dep in ctx.attr.deps])
     return [DefaultInfo(
@@ -95,8 +98,7 @@ def create_golden_test(
     ]
 
     args.append("--rule_label=:%s" % name)
-
-    native.sh_test(
+    sh_test(
         name = name,
         srcs = ["golden_test.sh"],
         args = args,

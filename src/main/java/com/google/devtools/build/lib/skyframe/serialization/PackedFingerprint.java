@@ -1,0 +1,136 @@
+// Copyright 2024 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+package com.google.devtools.build.lib.skyframe.serialization;
+
+import static com.google.common.base.Preconditions.checkArgument;
+import static java.nio.charset.StandardCharsets.UTF_8;
+
+import com.google.common.annotations.VisibleForTesting;
+import com.google.errorprone.annotations.Keep;
+import com.google.protobuf.CodedInputStream;
+import com.google.protobuf.CodedOutputStream;
+import java.io.IOException;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.VarHandle;
+import java.nio.ByteOrder;
+import java.util.HexFormat;
+
+/**
+ * A compact in-memory representation of a 128-bit fingerprint.
+ *
+ * <p>A wrapper around the bytes in unavoidable because a {@code byte[]} doesn't implement
+ * values-equality. Storing the bytes in longs is more direct and consumes less memory.
+ *
+ * @param lo the lower 64-bits of the fingerprint
+ * @param hi the upper 64-bits of the fingerprint
+ */
+public record PackedFingerprint(long lo, long hi)
+    implements KeyBytesProvider, Comparable<PackedFingerprint> {
+  /** Number of bytes in the serialized representation of a fingerprint. */
+  public static final int BYTES = 16;
+
+  private static final HexFormat HEX_FORMAT = HexFormat.of().withLowerCase();
+
+  /**
+   * Constructs a fingerprint directly from {@code bytes}.
+   *
+   * @throws IllegalArgumentException if {@code bytes} is not length {@link #BYTES}.
+   */
+  public static PackedFingerprint fromBytes(byte[] bytes) {
+    checkArgument(bytes.length == BYTES, bytes.length);
+    return new PackedFingerprint(
+        (long) LONG_ARRAY_HANDLE.get(bytes, 0), (long) LONG_ARRAY_HANDLE.get(bytes, 8));
+  }
+
+  /** Reads a fingerprint from {@code codedIn} that was written by {@link #writeTo}. */
+  public static PackedFingerprint readFrom(CodedInputStream codedIn) throws IOException {
+    return new PackedFingerprint(codedIn.readFixed64(), codedIn.readFixed64());
+  }
+
+  @VisibleForTesting
+  public static PackedFingerprint getFingerprintForTesting(String key) {
+    return FingerprintValueService.NONPROD_FINGERPRINTER.fingerprint(key.getBytes(UTF_8));
+  }
+
+  /** Produces the {@code byte[]} representation of this fingerprint. */
+  @Override
+  public byte[] toBytes() {
+    byte[] result = new byte[BYTES];
+    copyTo(result, 0);
+    return result;
+  }
+
+  public String toHex() {
+    return HEX_FORMAT.formatHex(toBytes());
+  }
+
+  /** Concatenates {@code bytes} to the {@code byte[]} representation of this fingerprint. */
+  @Override
+  public byte[] concat(byte[] bytes) {
+    byte[] result = new byte[BYTES + bytes.length];
+    copyTo(result, 0);
+    System.arraycopy(bytes, 0, result, 16, bytes.length);
+    return result;
+  }
+
+  /** Copies the fingerprint bytes to {@code bytes} starting at the given {@code offset}. */
+  public void copyTo(byte[] bytes, int offset) {
+    LONG_ARRAY_HANDLE.set(bytes, offset, lo);
+    LONG_ARRAY_HANDLE.set(bytes, offset + 8, hi);
+  }
+
+  /** Writes fingerprint data to {@code codedOut} such that it can be read by {@link #readFrom}. */
+  public void writeTo(CodedOutputStream codedOut) throws IOException {
+    codedOut.writeFixed64NoTag(lo);
+    codedOut.writeFixed64NoTag(hi);
+  }
+
+  @Override
+  public int hashCode() {
+    return (int) lo;
+  }
+
+  @Override
+  public int compareTo(PackedFingerprint o) {
+    int result = Long.compare(hi, o.hi);
+    if (result == 0) {
+      return Long.compare(lo, o.lo);
+    }
+    return result;
+  }
+
+  @Keep
+  private static class Codec extends LeafObjectCodec<PackedFingerprint> {
+    @Override
+    public Class<PackedFingerprint> getEncodedClass() {
+      return PackedFingerprint.class;
+    }
+
+    @Override
+    public void serialize(
+        LeafSerializationContext context, PackedFingerprint obj, CodedOutputStream codedOut)
+        throws IOException {
+      obj.writeTo(codedOut);
+    }
+
+    @Override
+    public PackedFingerprint deserialize(
+        LeafDeserializationContext context, CodedInputStream codedIn) throws IOException {
+      return PackedFingerprint.readFrom(codedIn);
+    }
+  }
+
+  private static final VarHandle LONG_ARRAY_HANDLE =
+      MethodHandles.byteArrayViewVarHandle(long[].class, ByteOrder.nativeOrder());
+}

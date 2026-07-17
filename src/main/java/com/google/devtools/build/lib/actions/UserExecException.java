@@ -38,4 +38,8 @@ public class UserExecException extends ExecException {
   protected FailureDetail getFailureDetail(String message) {
     return failureDetail.toBuilder().setMessage(message).build();
   }
+
+  public FailureDetail getFailureDetail() {
+    return failureDetail;
+  }
 }

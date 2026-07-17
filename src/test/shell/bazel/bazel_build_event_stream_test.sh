@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2016 The Bazel Authors. All rights reserved.
 #
@@ -43,32 +43,10 @@ source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
 
 #### SETUP #############################################################
 
-# `uname` returns the current platform, e.g "MSYS_NT-10.0" or "Linux".
-# `tr` converts all upper case letters to lower case.
-# `case` matches the result if the `uname | tr` expression to string prefixes
-# that use the same wildcards as names do in Bash, i.e. "msys*" matches strings
-# starting with "msys", and "*" matches everything (it's the default case).
-case "$(uname -s | tr [:upper:] [:lower:])" in
-msys*)
-  # As of 2019-01-15, Bazel on Windows only supports MSYS Bash.
-  declare -r is_windows=true
-  ;;
-*)
-  declare -r is_windows=false
-  ;;
-esac
-
-if "$is_windows"; then
-  # Disable MSYS path conversion that converts path-looking command arguments to
-  # Windows paths (even if they arguments are not in fact paths).
-  export MSYS_NO_PATHCONV=1
-  export MSYS2_ARG_CONV_EXCL="*"
-fi
-
 function set_up() {
   mkdir -p pkg
   touch remote_file
-  if $is_windows; then
+  if is_windows; then
     # Windows needs "file:///c:/foo/bar".
     FILE_URL="file:///$(cygpath -m "$PWD")/remote_file"
   else
@@ -76,8 +54,8 @@ function set_up() {
     FILE_URL="file://${PWD}/remote_file"
   fi
 
-  cat > WORKSPACE <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
+  cat > MODULE.bazel <<EOF
+http_file = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
 http_file(name="remote", urls=["${FILE_URL}"])
 EOF
   cat > pkg/BUILD <<'EOF'
@@ -91,7 +69,6 @@ EOF
 }
 
 #### TESTS #############################################################
-
 
 function test_fetch_test() {
   # We expect the "fetch" command to generate at least a minimally useful
@@ -153,8 +130,8 @@ function test_query() {
 function test_fetch_failure() {
   # We expect that if a build is failing due to an error fetching an external
   # repository, we get a reasonable attribution of the root cause.
-  cat > WORKSPACE <<'EOF'
-load("//:failing_repo.bzl", "failing")
+  cat > MODULE.bazel <<'EOF'
+failing = use_repo_rule("//:failing_repo.bzl", "failing")
 
 failing(name="remote")
 EOF
@@ -185,9 +162,169 @@ EOF
   bazel build -k --build_event_text_file=$TEST_log  //pkg:main //pkg:main2 \
     && fail "expected failure" || :
 
-  expect_log 'label: "//external:remote"'
+  # TODO: https://github.com/bazelbuild/bazel/issues/23240
+  # Create a new event id type that doesn't use "//external"
+  expect_log 'label: "//external:+failing+remote"'
   expect_log 'description:.*This is the error message'
-  expect_not_log 'label.*@remote//file'
+  expect_not_log 'label.*@+failing+remote//file'
+}
+
+function test_residue_in_run_bep(){
+  add_rules_shell "MODULE.bazel"
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+sh_binary(
+    name = 'arg',
+    srcs = ['arg.sh'],
+)
+EOF
+
+  cat > a/arg.sh <<'EOF'
+#!/usr/bin/env bash
+
+COUNTER=1
+for i in "$@"; do
+  echo "ARG $COUNTER": $i;
+  COUNTER=$(($COUNTER+1))
+done
+EOF
+
+  chmod +x a/arg.sh
+  bazel run --experimental_run_bep_event_include_residue=true \
+   --build_event_json_file=bep.json //a:arg -- 'arg1' 'arg2' \
+    >&"$TEST_log" || fail "run failed"
+
+  expect_log "ARG 1: arg1"
+  expect_log "ARG 2: arg2"
+
+  ls >& "$TEST_log"
+  cat bep.json >> "$TEST_log"
+
+  expect_log "execRequest"
+  expect_log "argv"
+  expect_log "arg1"
+  expect_log "arg2"
+}
+
+function test_no_residue_in_run_bep(){
+  add_rules_shell "MODULE.bazel"
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+sh_binary(
+    name = 'arg',
+    srcs = ['arg.sh'],
+)
+EOF
+
+  cat > a/arg.sh <<'EOF'
+#!/usr/bin/env bash
+
+COUNTER=1
+for i in "$@"; do
+  echo "ARG $COUNTER": $i;
+  COUNTER=$(($COUNTER+1))
+done
+EOF
+
+  chmod +x a/arg.sh
+  bazel run --build_event_json_file=bep.json \
+  --experimental_run_bep_event_include_residue=false //a:arg -- \
+    'arg1' 'arg2' \
+    >&"$TEST_log" || fail "run failed"
+
+  expect_log "ARG 1: arg1"
+  expect_log "ARG 2: arg2"
+
+  ls >& "$TEST_log"
+  cat bep.json >> "$TEST_log"
+
+  expect_log "//a:arg"
+  expect_log "execRequest"
+  expect_log "argv"
+  expect_log "REDACTED"
+  expect_not_log "arg1"
+  expect_not_log "arg2"
+}
+
+
+function test_residue_in_run_test_bep(){
+  add_rules_shell "MODULE.bazel"
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+sh_test(
+    name = 'arg',
+    srcs = ['arg_test.sh'],
+)
+EOF
+
+  cat > a/arg_test.sh <<'EOF'
+#!/usr/bin/env bash
+
+COUNTER=1
+for i in "$@"; do
+  echo "ARG $COUNTER": $i;
+  (( COUNTER++ ))
+done
+EOF
+
+  chmod +x a/arg_test.sh
+  bazel run --experimental_run_bep_event_include_residue=true \
+   --build_event_json_file=bep.json //a:arg -- 'arg1' 'arg2' \
+    >&"$TEST_log" || fail "run failed"
+
+  expect_log "ARG 1: arg1"
+  expect_log "ARG 2: arg2"
+
+  ls >& "$TEST_log"
+  cat bep.json >> "$TEST_log"
+
+  expect_log "execRequest"
+  expect_log "argv"
+  expect_log "arg1"
+  expect_log "arg2"
+}
+
+function test_no_residue_in_run_test_bep(){
+  add_rules_shell "MODULE.bazel"
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+sh_test(
+    name = 'arg',
+    srcs = ['arg_test.sh'],
+)
+EOF
+
+  cat > a/arg_test.sh <<'EOF'
+#!/usr/bin/env bash
+
+COUNTER=1
+for i in "$@"; do
+  echo "ARG $COUNTER": $i;
+  (( COUNTER++ ))
+done
+EOF
+
+  chmod +x a/arg_test.sh
+  bazel run --build_event_json_file=bep.json \
+  --experimental_run_bep_event_include_residue=false //a:arg -- \
+    'arg1' 'arg2' \
+    >&"$TEST_log" || fail "run failed"
+
+  expect_log "ARG 1: arg1"
+  expect_log "ARG 2: arg2"
+
+  ls >& "$TEST_log"
+  cat bep.json >> "$TEST_log"
+
+  expect_log "execRequest"
+  expect_log "argv"
+  expect_log "REDACTED"
+  expect_not_log "arg1"
+  expect_not_log "arg2"
 }
 
 run_suite "Bazel-specific integration tests for the build-event stream"

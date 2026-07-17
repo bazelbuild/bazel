@@ -33,70 +33,65 @@ public class OptionsTest {
 
   private static final String[] NO_ARGS = {};
 
-  public static class HttpOptions extends OptionsBase {
+  @OptionsClass
+  public abstract static class HttpOptions extends OptionsBase {
 
     @Option(
-      name = "host",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "www.google.com",
-      help = "The URL at which the server will be running."
-    )
-    public String host;
+        name = "host",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "www.google.com",
+        help = "The URL at which the server will be running.")
+    public abstract String getHost();
 
     @Option(
-      name = "port",
-      abbrev = 'p',
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "80",
-      help = "The port at which the server will be running."
-    )
-    public int port;
+        name = "port",
+        abbrev = 'p',
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "80",
+        help = "The port at which the server will be running.")
+    public abstract int getPort();
 
     @Option(
-      name = "debug",
-      abbrev = 'd',
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "false",
-      help = "debug"
-    )
-    public boolean isDebugging;
+        name = "debug",
+        abbrev = 'd',
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "false",
+        help = "debug")
+    public abstract boolean getIsDebugging();
 
     @Option(
-      name = "tristate",
-      abbrev = 't',
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "auto",
-      help = "tri-state option returning auto by default"
-    )
-    public TriState triState;
+        name = "tristate",
+        abbrev = 't',
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "auto",
+        help = "tri-state option returning auto by default")
+    public abstract TriState getTriState();
 
     @Option(
-      name = "special",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "null",
-      expansion = {"--host=special.google.com", "--port=8080"}
-    )
-    public Void special;
+        name = "special",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "null",
+        expansion = {"--host=special.google.com", "--port=8080"})
+    public abstract Void getSpecial();
   }
 
   @Test
   public void paragraphFill() throws Exception {
-    // TODO(bazel-team): don't include trailing space after last word in line.
     String input = "The quick brown fox jumps over the lazy dog.";
 
     assertThat(OptionsUsage.paragraphFill(input, 2, 13))
-        .isEqualTo("  The quick \n  brown fox \n  jumps over \n  the lazy \n" + "  dog.");
+        .isEqualTo("  The quick\n  brown fox\n  jumps over\n  the lazy\n" + "  dog.");
     assertThat(OptionsUsage.paragraphFill(input, 3, 19))
-        .isEqualTo("   The quick brown \n   fox jumps over \n   the lazy dog.");
+        .isEqualTo("   The quick brown\n   fox jumps over\n   the lazy dog.");
 
     String input2 = "The quick brown fox jumps\nAnother paragraph.";
     assertThat(OptionsUsage.paragraphFill(input2, 2, 23))
-        .isEqualTo("  The quick brown fox \n  jumps\n  Another paragraph.");
+        .isEqualTo("  The quick brown fox\n  jumps\n  Another paragraph.");
   }
 
   @Test
@@ -105,10 +100,10 @@ public class OptionsTest {
     String[] remainingArgs = options.getRemainingArgs();
     HttpOptions webFlags = options.getOptions();
 
-    assertThat(webFlags.host).isEqualTo("www.google.com");
-    assertThat(webFlags.port).isEqualTo(80);
-    assertThat(webFlags.isDebugging).isFalse();
-    assertThat(webFlags.triState).isEqualTo(TriState.AUTO);
+    assertThat(webFlags.getHost()).isEqualTo("www.google.com");
+    assertThat(webFlags.getPort()).isEqualTo(80);
+    assertThat(webFlags.getIsDebugging()).isFalse();
+    assertThat(webFlags.getTriState()).isEqualTo(TriState.AUTO);
     assertThat(remainingArgs).hasLength(0);
   }
 
@@ -176,9 +171,9 @@ public class OptionsTest {
     String[] remainingArgs = options.getRemainingArgs();
     HttpOptions webFlags = options.getOptions();
 
-    assertThat(webFlags.host).isEqualTo("google.com");
-    assertThat(webFlags.port).isEqualTo(8080);
-    assertThat(webFlags.isDebugging).isTrue();
+    assertThat(webFlags.getHost()).isEqualTo("google.com");
+    assertThat(webFlags.getPort()).isEqualTo(8080);
+    assertThat(webFlags.getIsDebugging()).isTrue();
     assertThat(remainingArgs).hasLength(0);
   }
 
@@ -191,9 +186,9 @@ public class OptionsTest {
     String[] remainingArgs = options.getRemainingArgs();
     HttpOptions webFlags = options.getOptions();
 
-    assertThat(webFlags.host).isEqualTo("google.com");
-    assertThat(webFlags.port).isEqualTo(8080);
-    assertThat(webFlags.isDebugging).isTrue();
+    assertThat(webFlags.getHost()).isEqualTo("google.com");
+    assertThat(webFlags.getPort()).isEqualTo(8080);
+    assertThat(webFlags.getIsDebugging()).isTrue();
     assertThat(remainingArgs).hasLength(0);
   }
 
@@ -202,8 +197,8 @@ public class OptionsTest {
     Options<HttpOptions> options =
         Options.parse(HttpOptions.class, new String[]{"--nodebug", "--notristate"});
     HttpOptions webFlags = options.getOptions();
-    assertThat(webFlags.isDebugging).isFalse();
-    assertThat(webFlags.triState).isEqualTo(TriState.NO);
+    assertThat(webFlags.getIsDebugging()).isFalse();
+    assertThat(webFlags.getTriState()).isEqualTo(TriState.NO);
   }
 
   @Test
@@ -211,8 +206,8 @@ public class OptionsTest {
     Options<HttpOptions> options =
         Options.parse(HttpOptions.class, new String[]{"-d-", "-t-"});
     HttpOptions webFlags = options.getOptions();
-    assertThat(webFlags.isDebugging).isFalse();
-    assertThat(webFlags.triState).isEqualTo(TriState.NO);
+    assertThat(webFlags.getIsDebugging()).isFalse();
+    assertThat(webFlags.getTriState()).isEqualTo(TriState.NO);
   }
 
   @Test
@@ -220,8 +215,8 @@ public class OptionsTest {
     Options<HttpOptions> options =
         Options.parse(HttpOptions.class, new String[]{"--debug=0", "--tristate=0"});
     HttpOptions webFlags = options.getOptions();
-    assertThat(webFlags.isDebugging).isFalse();
-    assertThat(webFlags.triState).isEqualTo(TriState.NO);
+    assertThat(webFlags.getIsDebugging()).isFalse();
+    assertThat(webFlags.getTriState()).isEqualTo(TriState.NO);
   }
 
   @Test
@@ -229,8 +224,8 @@ public class OptionsTest {
     Options<HttpOptions> options =
         Options.parse(HttpOptions.class, new String[]{"--debug=1", "--tristate=1"});
     HttpOptions webFlags = options.getOptions();
-    assertThat(webFlags.isDebugging).isTrue();
-    assertThat(webFlags.triState).isEqualTo(TriState.YES);
+    assertThat(webFlags.getIsDebugging()).isTrue();
+    assertThat(webFlags.getTriState()).isEqualTo(TriState.YES);
   }
 
   @Test
@@ -276,7 +271,7 @@ public class OptionsTest {
     String[] args = {"--port=80", "--port", "81"};
     Options<HttpOptions> options = Options.parse(HttpOptions.class, args);
     HttpOptions webFlags = options.getOptions();
-    assertThat(webFlags.port).isEqualTo(81);
+    assertThat(webFlags.getPort()).isEqualTo(81);
   }
 
   @Test
@@ -284,7 +279,7 @@ public class OptionsTest {
     String[] args = {"--port=80", "-p", "81"};
     Options<HttpOptions> options = Options.parse(HttpOptions.class, args);
     HttpOptions webFlags = options.getOptions();
-    assertThat(webFlags.port).isEqualTo(81);
+    assertThat(webFlags.getPort()).isEqualTo(81);
   }
 
   @Test
@@ -342,25 +337,24 @@ public class OptionsTest {
         .contains("  --special\n      Expands to: --host=special.google.com --port=8080");
   }
 
-  public static class NullTestOptions extends OptionsBase {
+  @OptionsClass
+  public abstract static class NullTestOptions extends OptionsBase {
     @Option(
-      name = "host",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "null",
-      help = "The URL at which the server will be running."
-    )
-    public String host;
+        name = "host",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "null",
+        help = "The URL at which the server will be running.")
+    public abstract String getHost();
 
     @Option(
-      name = "none",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "null",
-      expansion = {"--host=www.google.com"},
-      help = "An expanded option."
-    )
-    public Void none;
+        name = "none",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "null",
+        expansion = {"--host=www.google.com"},
+        help = "An expanded option.")
+    public abstract Void getNone();
   }
 
   @Test
@@ -375,7 +369,7 @@ public class OptionsTest {
             "  --none\n" + "    An expanded option.\n" + "      Expands to: --host=www.google.com");
   }
 
-  public static class MyURLConverter implements Converter<URL> {
+  public static class MyURLConverter extends Converter.Contextless<URL> {
 
     @Override
     public URL convert(String input) throws OptionsParsingException {
@@ -394,16 +388,16 @@ public class OptionsTest {
 
   }
 
-  public static class UsesCustomConverter extends OptionsBase {
+  @OptionsClass
+  public abstract static class UsesCustomConverter extends OptionsBase {
 
     @Option(
-      name = "url",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "http://www.google.com/",
-      converter = MyURLConverter.class
-    )
-    public URL url;
+        name = "url",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "http://www.google.com/",
+        converter = MyURLConverter.class)
+    public abstract URL getUrl();
   }
 
   @Test
@@ -411,7 +405,7 @@ public class OptionsTest {
     Options<UsesCustomConverter> options =
       Options.parse(UsesCustomConverter.class, new String[0]);
     URL expected = new URL("http://www.google.com/");
-    assertThat(options.getOptions().url).isEqualTo(expected);
+    assertThat(options.getOptions().getUrl()).isEqualTo(expected);
   }
 
   @Test
@@ -435,27 +429,51 @@ public class OptionsTest {
   }
 
   @Test
-  public void unknownBooleanOption() {
+  public void unknownBooleanOptionNegativeForm() {
     OptionsParsingException e =
         assertThrows(
             OptionsParsingException.class,
             () -> Options.parse(HttpOptions.class, new String[] {"--no-debug"}));
-    assertThat(e).hasMessageThat().isEqualTo("Unrecognized option: --no-debug");
+    assertThat(e)
+        .hasMessageThat()
+        .isEqualTo("Unrecognized option: --no-debug (did you mean '--nodebug'?)");
   }
 
-  public static class J extends OptionsBase {
+  @Test
+  public void unknownOption() {
+    OptionsParsingException e =
+        assertThrows(
+            OptionsParsingException.class,
+            () -> Options.parse(HttpOptions.class, new String[] {"--pert"}));
+    assertThat(e)
+        .hasMessageThat()
+        .isEqualTo("Unrecognized option: --pert (did you mean '--port'?)");
+  }
+
+  @Test
+  public void unknownBooleanOptionPositiveForm() {
+    OptionsParsingException e =
+        assertThrows(
+            OptionsParsingException.class,
+            () -> Options.parse(HttpOptions.class, new String[] {"--dbg"}));
+    assertThat(e)
+        .hasMessageThat()
+        .isEqualTo("Unrecognized option: --dbg (did you mean '--debug'?)");
+  }
+
+  @OptionsClass
+  public abstract static class J extends OptionsBase {
     @Option(
-      name = "j",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "null"
-    )
-    public String string;
+        name = "j",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "null")
+    public abstract String getString();
   }
   @Test
   public void nullDefaultForReferenceTypeOption() throws Exception {
     J options = Options.parse(J.class, NO_ARGS).getOptions();
-    assertThat(options.string).isNull();
+    assertThat(options.getString()).isNull();
   }
 
   @Test
@@ -463,30 +481,30 @@ public class OptionsTest {
     HttpOptions options =
         Options.parse(HttpOptions.class,
                       new String[] { "--host", "null" }).getOptions();
-    assertThat(options.host).isEqualTo("null");
+    assertThat(options.getHost()).isEqualTo("null");
   }
 
   @Test
   public void nonDecimalRadicesForIntegerOptions() throws Exception {
     Options<HttpOptions> options =
         Options.parse(HttpOptions.class, new String[] { "--port", "0x51"});
-    assertThat(options.getOptions().port).isEqualTo(81);
+    assertThat(options.getOptions().getPort()).isEqualTo(81);
   }
 
   @Test
   public void expansionOptionSimple() throws Exception {
     Options<HttpOptions> options =
       Options.parse(HttpOptions.class, new String[] {"--special"});
-    assertThat(options.getOptions().host).isEqualTo("special.google.com");
-    assertThat(options.getOptions().port).isEqualTo(8080);
+    assertThat(options.getOptions().getHost()).isEqualTo("special.google.com");
+    assertThat(options.getOptions().getPort()).isEqualTo(8080);
   }
 
   @Test
   public void expansionOptionOverride() throws Exception {
     Options<HttpOptions> options =
       Options.parse(HttpOptions.class, new String[] {"--port=90", "--special", "--host=foo"});
-    assertThat(options.getOptions().host).isEqualTo("foo");
-    assertThat(options.getOptions().port).isEqualTo(8080);
+    assertThat(options.getOptions().getHost()).isEqualTo("foo");
+    assertThat(options.getOptions().getPort()).isEqualTo(8080);
   }
 
   @Test
@@ -498,24 +516,97 @@ public class OptionsTest {
     assertThat(options1.getOptions()).isEqualTo(options2.getOptions());
   }
 
-  @Test
-  public void usageForExpansionFunction() {
-    // Expect that the usage text contains the expansion appropriate to the options bases that were
-    // loaded into the options parser.
-    String usage = Options.getUsage(TestOptions.class);
-    assertThat(usage)
-        .contains(
-            "  --prefix_expansion\n"
-                + "    Expands to all options with a specific prefix.\n"
-                + "      Expands to: --specialexp_bar --specialexp_foo");
+  /** Dummy options base class. */
+  @OptionsClass
+  public abstract static class FooOptions extends OptionsBase {
+    @Option(
+        name = "foo",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "false")
+    public abstract boolean getFoo();
+  }
+
+  /** Dummy options derived class. */
+  @OptionsClass
+  public abstract static class BazOptions extends FooOptions {
+    @Option(
+        name = "bar",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "true")
+    public abstract boolean getBar();
+
+    @Option(
+        name = "baz",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "5")
+    public abstract int getBaz();
   }
 
   @Test
-  public void expansionFunction() throws Exception {
-    Options<TestOptions> options1 =
-        Options.parse(TestOptions.class, new String[] {"--prefix_expansion"});
-    Options<TestOptions> options2 =
-        Options.parse(TestOptions.class, new String[] {"--specialexp_foo", "--specialexp_bar"});
-    assertThat(options1.getOptions()).isEqualTo(options2.getOptions());
+  public void convertToMap_basic() {
+    FooOptions foo = Options.getDefaults(FooOptions.class);
+    assertThat(Options.toMap(foo)).containsExactly("foo", false);
+  }
+
+  @Test
+  public void convertToMap_inheritance() {
+    // Static type is base class, dynamic type is derived. We still get the derived fields.
+    FooOptions foo = Options.getDefaults(BazOptions.class);
+    assertThat(Options.toMap(foo)).containsExactly("bar", true, "baz", 5, "foo", false).inOrder();
+  }
+
+  /**
+   * Dummy options class for checking alphabetizing.
+   *
+   * <p>Note that field name order differs from option name order.
+   */
+  @OptionsClass
+  public abstract static class AlphaOptions extends OptionsBase {
+
+    @Option(
+        name = "c",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "0")
+    public abstract int getV();
+
+    @Option(
+        name = "d",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "0")
+    public abstract int getW();
+
+    @Option(
+        name = "a",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "0")
+    public abstract int getX();
+
+    @Option(
+        name = "e",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "0")
+    public abstract int getY();
+
+    @Option(
+        name = "b",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "0")
+    public abstract int getZ();
+  }
+
+  @Test
+  public void convertToMap_alphabeticalOrder() {
+    AlphaOptions alpha = Options.getDefaults(AlphaOptions.class);
+    assertThat(Options.toMap(alpha))
+        .containsExactly("a", 0, "b", 0, "c", 0, "d", 0, "e", 0)
+        .inOrder();
   }
 }

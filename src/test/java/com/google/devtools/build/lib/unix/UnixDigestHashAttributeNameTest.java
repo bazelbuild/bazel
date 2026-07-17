@@ -20,9 +20,10 @@ import com.google.devtools.build.lib.vfs.DigestUtils;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemTest;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import org.junit.Test;
 
-/** Test for {@link com.google.devtools.build.lib.unix.UnixFileSystem#getFastDigest}. */
+/** Test for {@link FileSystem#getFastDigest}. */
 public class UnixDigestHashAttributeNameTest extends FileSystemTest {
   private static final byte[] FAKE_DIGEST = {
     0x18, 0x5f, 0x3d, 0x33, 0x22, 0x71, 0x7e, 0x25,
@@ -41,13 +42,13 @@ public class UnixDigestHashAttributeNameTest extends FileSystemTest {
     // Instead of actually trying to access this file, a call to getxattr() should be made. We
     // intercept this call and return a fake extended attribute value, thereby causing the checksum
     // computation to be skipped entirely.
-    assertThat(DigestUtils.getDigestWithManualFallback(absolutize("myfile"), 123))
+    assertThat(DigestUtils.getDigestWithManualFallback(absolutize("myfile"), SyscallCache.NO_CACHE))
         .isEqualTo(FAKE_DIGEST);
   }
 
   private class FakeAttributeFileSystem extends UnixFileSystem {
-    public FakeAttributeFileSystem(DigestHashFunction hashFunction) {
-      super(hashFunction, "user.checksum.sha256");
+    FakeAttributeFileSystem(DigestHashFunction hashFunction) {
+      super(hashFunction, "user.checksum.sha256", new NativePosixFilesServiceImpl());
     }
 
     @Override

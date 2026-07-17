@@ -16,60 +16,50 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
-import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
-import com.google.devtools.build.lib.packages.StructImpl;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
-import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
+import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.StarlarkValue;
 
 /** Pluggable C++ compilation semantics. */
 public interface CppSemantics extends StarlarkValue {
-  /**
-   * Called before a C++ compile action is built.
-   *
-   * <p>Gives the semantics implementation the opportunity to change compile actions at the last
-   * minute.
-   */
-  void finalizeCompileActionBuilder(
-      BuildConfiguration configuration,
-      FeatureConfiguration featureConfiguration,
-      CppCompileActionBuilder actionBuilder,
-      RuleErrorConsumer ruleErrorConsumer);
 
-  /** Determines the applicable mode of headers checking for the passed in ruleContext. */
-  HeadersCheckingMode determineHeadersCheckingMode(RuleContext ruleContext);
-
-  /** Determines the applicable mode of headers checking in Starlark. */
-  HeadersCheckingMode determineStarlarkHeadersCheckingMode(
-      RuleContext ruleContext, CppConfiguration cppConfiguration, CcToolchainProvider toolchain);
-
-  /**
-   * Returns if include scanning is allowed.
-   *
-   * <p>If false, {@link CppCompileActionBuilder#setShouldScanIncludes(boolean)} has no effect.
-   */
-  boolean allowIncludeScanning();
-
-  /** Returns true iff this build should perform .d input pruning. */
-  boolean needsDotdInputPruning(BuildConfiguration configuration);
-
-  void validateAttributes(RuleContext ruleContext);
-
-  default void validateDeps(RuleContext ruleContext) {}
-
-  /** Returns true iff this build requires include validation. */
-  boolean needsIncludeValidation();
-
-  /** Provider for cc_shared_libraries * */
-  StructImpl getCcSharedLibraryInfo(TransitiveInfoCollection dep);
+  // Transformed by Copybara on export
+  String RULES_CC_PREFIX = "@rules_cc+//";
 
   /** No-op in Bazel */
+  @StarlarkMethod(
+      name = "validate_layering_check_features",
+      documented = false,
+      parameters = {
+        @Param(name = "ctx", named = true),
+        @Param(name = "cc_toolchain", named = true),
+        @Param(name = "unsupported_features", named = true),
+      })
+  default void validateLayeringCheckFeaturesForStarlark(
+      StarlarkRuleContext ruleContext, Info ccToolchainInfo, Sequence<?> unsupportedFeatures)
+      throws EvalException {
+    try {
+      validateLayeringCheckFeatures(
+          ruleContext.getRuleContext(),
+          ruleContext.getAspectDescriptor(),
+          CcToolchainProvider.wrap(ccToolchainInfo),
+          ImmutableSet.copyOf(
+              Sequence.cast(unsupportedFeatures, String.class, "unsupported_features")));
+    } catch (RuleErrorException e) {
+      throw new EvalException(e);
+    }
+  }
+
   void validateLayeringCheckFeatures(
       RuleContext ruleContext,
       AspectDescriptor aspectDescriptor,
       CcToolchainProvider ccToolchain,
-      ImmutableSet<String> unsupportedFeatures);
+      ImmutableSet<String> unsupportedFeatures)
+      throws EvalException;
 }

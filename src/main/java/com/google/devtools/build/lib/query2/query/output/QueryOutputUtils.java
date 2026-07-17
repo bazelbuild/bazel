@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.query2.query.output;
 import com.google.common.hash.HashFunction;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.graph.Digraph;
+import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
@@ -36,14 +37,14 @@ public class QueryOutputUtils {
 
   public static boolean lexicographicallySortOutput(
       QueryOptions queryOptions, OutputFormatter formatter) {
-    return queryOptions.orderOutput == OrderOutput.AUTO
-        && queryOptions.lexicographicalOutput
+    return queryOptions.getOrderOutput() == OrderOutput.AUTO
         && formatter instanceof StreamedFormatter;
   }
 
   public static boolean shouldStreamUnorderedOutput(
       QueryOptions queryOptions, OutputFormatter formatter) {
-    return queryOptions.orderOutput == OrderOutput.NO && formatter instanceof StreamedFormatter;
+    return queryOptions.getOrderOutput() == OrderOutput.NO
+        && formatter instanceof StreamedFormatter;
   }
 
   public static boolean shouldStreamResults(QueryOptions queryOptions, OutputFormatter formatter) {
@@ -59,7 +60,8 @@ public class QueryOutputUtils {
       OutputStream outputStream,
       AspectResolver aspectResolver,
       @Nullable EventHandler eventHandler,
-      HashFunction hashFunction)
+      HashFunction hashFunction,
+      LabelPrinter labelPrinter)
       throws IOException, InterruptedException {
     /*
      * This is not really streaming, but we are using the streaming interface for writing into the
@@ -71,7 +73,7 @@ public class QueryOutputUtils {
       streamedFormatter.setOptions(queryOptions, aspectResolver, hashFunction);
       streamedFormatter.setEventHandler(eventHandler);
       OutputFormatterCallback.processAllTargets(
-          streamedFormatter.createPostFactoStreamCallback(outputStream, queryOptions),
+          streamedFormatter.createPostFactoStreamCallback(outputStream, queryOptions, labelPrinter),
           targetsResult);
     } else {
       @SuppressWarnings("unchecked")
@@ -85,7 +87,13 @@ public class QueryOutputUtils {
 
       try (SilentCloseable closeable = Profiler.instance().profile("formatter.output")) {
         formatter.output(
-            queryOptions, subgraph, outputStream, aspectResolver, eventHandler, hashFunction);
+            queryOptions,
+            subgraph,
+            outputStream,
+            aspectResolver,
+            eventHandler,
+            hashFunction,
+            labelPrinter);
       }
     }
   }

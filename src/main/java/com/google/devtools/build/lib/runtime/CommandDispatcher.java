@@ -13,12 +13,17 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
+import com.google.devtools.build.lib.server.IdleTask;
+import com.google.devtools.build.lib.server.TerminalSizeMonitor;
 import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.lib.util.io.CommandExtensionReporter;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.protobuf.Any;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 /**
  * Dispatches to the commands; that is, given a command line, this abstraction looks up the
@@ -32,6 +37,12 @@ public interface CommandDispatcher {
     ERROR_OUT, // Return with an error
   }
 
+  /** How much output to emit on the console. */
+  enum UiVerbosity {
+    QUIET, // Only errors
+    NORMAL, // Everything
+  }
+
   /**
    * Executes a single command. Returns a {@link BlazeCommandResult} to indicate either an exit
    * code, the desire to shut down the server, or that a given binary should be executed by the
@@ -42,9 +53,46 @@ public interface CommandDispatcher {
       List<String> args,
       OutErr outErr,
       LockingMode lockingMode,
+      UiVerbosity uiVerbosity,
       String clientDescription,
       long firstContactTimeMillis,
       Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc,
-      List<Any> commandExtensions)
+      Supplier<ImmutableList<IdleTask.Result>> idleTaskResultsSupplier,
+      List<Any> commandExtensions,
+      CommandExtensionReporter commandExtensionReporter)
       throws InterruptedException;
+
+  /**
+   * Executes a single command with a monitor carrying terminal size updates from the client.
+   *
+   * <p>The default implementation ignores terminal size updates so tests and embedders that do not
+   * render Bazel's terminal UI do not need to implement this overload.
+   */
+  default BlazeCommandResult exec(
+      InvocationPolicy invocationPolicy,
+      List<String> args,
+      OutErr outErr,
+      LockingMode lockingMode,
+      UiVerbosity uiVerbosity,
+      String clientDescription,
+      long firstContactTimeMillis,
+      Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc,
+      Supplier<ImmutableList<IdleTask.Result>> idleTaskResultsSupplier,
+      List<Any> commandExtensions,
+      CommandExtensionReporter commandExtensionReporter,
+      TerminalSizeMonitor terminalSizeMonitor)
+      throws InterruptedException {
+    return exec(
+        invocationPolicy,
+        args,
+        outErr,
+        lockingMode,
+        uiVerbosity,
+        clientDescription,
+        firstContactTimeMillis,
+        startupOptionsTaggedWithBazelRc,
+        idleTaskResultsSupplier,
+        commandExtensions,
+        commandExtensionReporter);
+  }
 }

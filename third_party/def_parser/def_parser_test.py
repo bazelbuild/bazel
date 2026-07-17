@@ -13,14 +13,18 @@
 # limitations under the License.
 
 import os
-import unittest
+from absl.testing import absltest
 from src.test.py.bazel import test_base
 
 class DEFParserTest(test_base.TestBase):
 
   def createAndBuildProjectFiles(self):
-    self.ScratchFile('WORKSPACE')
-    self.ScratchFile('BUILD', ['cc_library(name="hello", srcs=["x.cc"])'])
+    self.ScratchFile('MODULE.bazel')
+    self.AddBazelDep('rules_cc')
+    self.ScratchFile('BUILD', [
+        'load("@rules_cc//cc:cc_library.bzl", "cc_library")',
+        'cc_library(name="hello", srcs=["x.cc"])'
+    ])
     self.ScratchFile('x.cc', [
         '#include <stdio.h>',
         'int hello_data;',
@@ -41,7 +45,7 @@ class DEFParserTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 0, stderr)
     bazel_bin = stdout[0]
 
-    objfile = os.path.join(bazel_bin, '_objs', 'hello', 'x.o')
+    objfile = os.path.join(bazel_bin, '_objs', 'hello', 'x.obj')
     self.assertTrue(os.path.isfile(objfile))
     output_def = self.Path('x.def');
     self.RunProgram([self.Rlocation('io_bazel/third_party/def_parser/def_parser.exe'), output_def, 'my_x.dll', objfile])
@@ -63,7 +67,7 @@ class DEFParserTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 0, stderr)
     bazel_bin = stdout[0]
 
-    objfile = os.path.join(bazel_bin, '_objs', 'hello', 'x.o')
+    objfile = os.path.join(bazel_bin, '_objs', 'hello', 'x.obj')
     self.assertTrue(os.path.isfile(objfile))
     objfilelist = self.ScratchFile('objfilelist', [objfile])
 
@@ -88,7 +92,7 @@ class DEFParserTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 0, stderr)
     bazel_bin = stdout[0]
 
-    objfile = os.path.join(bazel_bin, '_objs', 'hello', 'x.o')
+    objfile = os.path.join(bazel_bin, '_objs', 'hello', 'x.obj')
     self.assertTrue(os.path.isfile(objfile))
     output_def = self.Path('x.def');
     self.RunProgram([self.Rlocation('io_bazel/third_party/def_parser/def_parser.exe'), output_def, 'my_x.dll', objfile])
@@ -105,4 +109,4 @@ class DEFParserTest(test_base.TestBase):
       self.assertIn('hello_world', def_content)
 
 if __name__ == '__main__':
-  unittest.main()
+  absltest.main()

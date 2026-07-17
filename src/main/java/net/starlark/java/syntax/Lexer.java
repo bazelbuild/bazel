@@ -17,6 +17,7 @@ package net.starlark.java.syntax;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -36,18 +37,17 @@ final class Lexer {
   TokenKind kind;
   int start; // start offset
   int end; // end offset
-  String raw; // source text of token
   Object value; // String, Integer/Long/BigInteger, or Double value of token
 
   // --- end of parser-visible fields ---
 
   private final List<SyntaxError> errors;
 
+  private final FileOptions options;
+
   // Input buffer and position
   private final char[] buffer;
   private int pos;
-
-  private final FileOptions options;
 
   // The stack of enclosing indentation levels in spaces.
   // The first (outermost) element is always zero.
@@ -55,8 +55,9 @@ final class Lexer {
 
   private final ImmutableList.Builder<Comment> comments = ImmutableList.builder();
 
-  // The number of unclosed open-parens ("(", '{', '[') at the current point in
-  // the stream. Whitespace is handled differently when this is nonzero.
+  // The number of unclosed open-parens ("(", '{', '[') at the current point in the stream.
+  // When this is nonzero, whitespace is handled differently and doc comments are treated as
+  // ordinary comments.
   private int openParenStackDepth = 0;
 
   // True after a NEWLINE token. In other words, we are outside an
@@ -65,6 +66,10 @@ final class Lexer {
 
   // Number of saved INDENT (>0) or OUTDENT (<0) tokens detected but not yet returned.
   private int dents;
+
+  // True iff no token other than whitespace or comments (NEWLINE, INDENT, OUTDENT, or
+  // DOC_COMMENT_BLOCK, or DOC_COMMENT_TRAILING) has been emitted since the last newline.
+  private boolean lineOnlyWhitespaceOrComments;
 
   // Characters that can come immediately prior to an '=' character to generate
   // a different token
@@ -82,18 +87,19 @@ final class Lexer {
           .put('^', TokenKind.CARET_EQUALS)
           .put('&', TokenKind.AMPERSAND_EQUALS)
           .put('|', TokenKind.PIPE_EQUALS)
-          .build();
+          .buildOrThrow();
 
   // Constructs a lexer which tokenizes the parser input.
   // Errors are appended to errors.
-  Lexer(ParserInput input, FileOptions options, List<SyntaxError> errors) {
+  Lexer(ParserInput input, List<SyntaxError> errors, FileOptions options) {
     this.locs = FileLocations.create(input.getContent(), input.getFile());
-    this.options = options;
     this.buffer = input.getContent();
     this.pos = 0;
     this.errors = errors;
+    this.options = options;
     this.checkIndentation = true;
     this.dents = 0;
+    this.lineOnlyWhitespaceOrComments = true;
 
     indentStack.push(0);
   }
@@ -103,17 +109,25 @@ final class Lexer {
   }
 
   /**
-   * Reads the next token, updating the Lexer's token fields. It is an error to call nextToken after
-   * an EOF token.
+   * Reads the next token, updating the Lexer's token fields. The end state is EOF, after which any
+   * further calls to {@code nextToken()} will produce only EOF.
    */
   void nextToken() {
-    boolean afterNewline = kind == TokenKind.NEWLINE;
+    boolean afterNewline = kind == TokenKind.NEWLINE || kind == TokenKind.DOC_COMMENT_BLOCK;
     tokenize();
     Preconditions.checkState(kind != null);
 
-    // Like Python, always end with a NEWLINE token, even if no '\n' in input:
+    // Always end with a NEWLINE (or DOC_COMMENT_BLOCK) token, even if no '\n' in input, to simplify
+    // parser's logic. (Note that Python also always ends with a NEWLINE.)
     if (kind == TokenKind.EOF && !afterNewline) {
       kind = TokenKind.NEWLINE;
+    }
+    if (kind != TokenKind.NEWLINE
+        && kind != TokenKind.INDENT
+        && kind != TokenKind.OUTDENT
+        && kind != TokenKind.DOC_COMMENT_BLOCK
+        && kind != TokenKind.DOC_COMMENT_TRAILING) {
+      lineOnlyWhitespaceOrComments = false;
     }
   }
 
@@ -135,14 +149,17 @@ final class Lexer {
     this.start = start;
     this.end = end;
     this.value = null;
-    this.raw = null;
   }
 
   // setValue sets the value associated with a STRING, FLOAT, INT,
   // IDENTIFIER, or COMMENT token, and records the raw text of the token.
   private void setValue(Object value) {
     this.value = value;
-    this.raw = bufferSlice(start, end);
+  }
+
+  /** Returns the raw input text associated with the current token. */
+  String getRaw() {
+    return bufferSlice(start, end);
   }
 
   /**
@@ -151,6 +168,7 @@ final class Lexer {
    * <p>UNIX newlines are assumed (LF). Carriage returns are always ignored.
    */
   private void newline() {
+    lineOnlyWhitespaceOrComments = true;
     if (openParenStackDepth > 0) {
       newlineInsideExpression(); // in an expression: ignore space
     } else {
@@ -171,9 +189,15 @@ final class Lexer {
     }
   }
 
-  /** Computes indentation (updates dent) and advances pos. */
+  /**
+   * Computes indentation (updates dent) and advances {@link #pos} to the first character that is
+   * neither whitespace nor a non-doc comment, after first skipping any lines consisting only of
+   * whitespace and/or non-doc comments.
+   *
+   * <p>Invoked at the beginning of a file or after a newline (except inside parenthised
+   * expressions).
+   */
   private void computeIndentation() {
-    // we're in a stmt: suck up space at beginning of next line
     int indentLen = 0;
     while (pos < buffer.length) {
       char c = buffer[pos];
@@ -190,11 +214,14 @@ final class Lexer {
         indentLen = 0;
         pos++;
       } else if (c == '#') { // line containing only indented comment
-        int oldPos = pos;
-        while (pos < buffer.length && c != '\n') {
-          c = buffer[pos++];
+        if (peek(1) == ':' && openParenStackDepth == 0) {
+          // Doc comment. Caller must process it and emit the token for it (and, if this is a
+          // DOC_COMMENT_TRAILING, also emit the token for the following newline).
+          return;
         }
-        addComment(oldPos, pos - 1);
+        int oldPos = pos;
+        scanToNewline();
+        addComment(oldPos, pos);
         indentLen = 0;
       } else { // printing character
         break;
@@ -297,6 +324,15 @@ final class Lexer {
             case '\n':
               // ignore end of line character
               break;
+            case 'a':
+              literal.append('\u0007');
+              break;
+            case 'b':
+              literal.append('\b');
+              break;
+            case 'f':
+              literal.append('\f');
+              break;
             case 'n':
               literal.append('\n');
               break;
@@ -305,6 +341,9 @@ final class Lexer {
               break;
             case 't':
               literal.append('\t');
+              break;
+            case 'v':
+              literal.append('\u000b');
               break;
             case '\\':
               literal.append('\\');
@@ -341,31 +380,18 @@ final class Lexer {
                 }
                 if (octal > 0xff) {
                   error("octal escape sequence out of range (maximum is \\377)", pos - 1);
+                } else if (options.stringLiteralsAreAsciiOnly() && octal >= 0x80) {
+                  error("octal escape sequence denotes non-ASCII character", pos - 1);
                 }
                 literal.append((char) (octal & 0xff));
                 break;
               }
-            case 'a':
-            case 'b':
-            case 'f':
             case 'N':
             case 'u':
             case 'U':
-            case 'v':
-            case 'x':
-              // exists in Python but not implemented in Blaze => error
-              error("invalid escape sequence: \\" + c, pos - 1);
-              break;
             default:
               // unknown char escape => "\literal"
-              if (options.restrictStringEscapes()) {
-                error(
-                    "invalid escape sequence: \\"
-                        + c
-                        + ". You can enable unknown escape sequences by passing the flag"
-                        + " --incompatible_restrict_string_escapes=false",
-                    pos - 1);
-              }
+              error("invalid escape sequence: \\" + c + ". Use '\\\\' to insert '\\'.", pos - 1);
               literal.append('\\');
               literal.append(c);
               break;
@@ -385,6 +411,9 @@ final class Lexer {
           break;
         default:
           literal.append(c);
+          if (options.stringLiteralsAreAsciiOnly() && c >= 0x80) {
+            error("string literal contains non-ASCII character", pos - 1);
+          }
           break;
       }
     }
@@ -446,6 +475,15 @@ final class Lexer {
             // close-quote, all done.
             setToken(TokenKind.STRING, literalStartPos, pos);
             setValue(bufferSlice(contentStartPos, pos - 1));
+            // If we're requiring ASCII-only, do another scan for validation.
+            if (options.stringLiteralsAreAsciiOnly()) {
+              for (int i = contentStartPos; i < pos - 1; i++) {
+                if (buffer[i] >= 0x80) {
+                  // Can report multiple errors per string literal.
+                  error("string literal contains non-ASCII character", i);
+                }
+              }
+            }
             return;
           }
           break;
@@ -464,7 +502,60 @@ final class Lexer {
     setValue(bufferSlice(contentStartPos, pos));
   }
 
+  /**
+   * Scans a doc comment block.
+   *
+   * <ul>
+   *   <li>ON ENTRY: 'pos' is at newline (or EOF) terminating the doc comment's first line.
+   *   <li>ON EXIT: for a doc comment block, 'pos' is the index of the first following non-comment,
+   *       non-whitespace character (or of EOF); for a trailing doc comment, 'pos' is unchanged.
+   * </ul>
+   */
+  private void docComments(Comment first, int firstStartPos, boolean isBlock) {
+    int lastEndPos = pos;
+    ArrayList<Comment> docComments = new ArrayList<>();
+    docComments.add(first);
+    if (isBlock) {
+      int prevLine = first.getStartLocation().line();
+      while (peek(0) == '\n') {
+        checkIndentation = false;
+        computeIndentation();
+        if (peek(0) != '#' || peek(1) != ':') {
+          // Not a doc comment; terminate the doc comment block.
+          break;
+        }
+        int line = locs.getLocation(pos).line();
+        if (line != prevLine + 1) {
+          // We are at "#:", but computeIndentation() skipped one or more lines containing only
+          // whitespace and non-doc comments. Terminate the doc comment block.
+          break;
+        }
+        prevLine = line;
+        int startPos = pos;
+        scanToNewline();
+        Comment comment = addComment(startPos, pos);
+        lastEndPos = pos;
+        docComments.add(comment);
+      }
+      setToken(TokenKind.DOC_COMMENT_BLOCK, firstStartPos, lastEndPos);
+    } else {
+      setToken(TokenKind.DOC_COMMENT_TRAILING, firstStartPos, lastEndPos);
+    }
+    setValue(new DocComments(docComments));
+  }
+
+  private void scanToNewline() {
+    for (; pos < buffer.length; pos++) {
+      if (buffer[pos] == '\n') {
+        break;
+      }
+    }
+  }
+
   private static final Map<String, TokenKind> keywordMap = new HashMap<>();
+
+  /** Additional keywords that are only recognized if --experimental_starlark_type_syntax is set. */
+  private static final Map<String, TokenKind> typeSyntaxExtraKeywordMap = new HashMap<>();
 
   static {
     keywordMap.put("and", TokenKind.AND);
@@ -498,6 +589,9 @@ final class Lexer {
     keywordMap.put("while", TokenKind.WHILE);
     keywordMap.put("with", TokenKind.WITH);
     keywordMap.put("yield", TokenKind.YIELD);
+
+    typeSyntaxExtraKeywordMap.put("cast", TokenKind.CAST);
+    typeSyntaxExtraKeywordMap.put("isinstance", TokenKind.ISINSTANCE);
   }
 
   /**
@@ -508,10 +602,20 @@ final class Lexer {
    */
   private void identifierOrKeyword() {
     int oldPos = pos - 1;
-    String id = scanIdentifier();
+    // We intern identifiers and keywords to avoid retaining redundant String objects via the AST.
+    //
+    // The parser handles interning of string literal values. Benchmarking did not show significant
+    // benefit to any further internment. See discussion on Google-internal cl/385193833 for
+    // details.
+    String id = scanIdentifier().intern();
     TokenKind kind = keywordMap.get(id);
+    if (kind == null && options.allowTypeSyntax()) {
+      kind = typeSyntaxExtraKeywordMap.get(id);
+    }
     if (kind == null) {
       setToken(TokenKind.IDENTIFIER, oldPos, pos);
+      // setValue allocates a new String for the raw text, but it's not retained so we don't
+      // bother interning it.
       setValue(id);
     } else {
       setToken(kind, oldPos, pos);
@@ -582,8 +686,9 @@ final class Lexer {
   }
 
   /**
-   * Performs tokenization of the character buffer of file contents provided to the constructor. At
-   * least one token will be added to the tokens queue.
+   * Scans for one token starting at the current position in the character buffer of file contents
+   * provided to the constructor. Updates the current token, and sets {@link #pos} to the next
+   * scanning position.
    */
   private void tokenize() {
     if (checkIndentation) {
@@ -670,7 +775,12 @@ final class Lexer {
           setToken(TokenKind.PLUS, pos - 1, pos);
           break;
         case '-':
-          setToken(TokenKind.MINUS, pos - 1, pos);
+          if (peek(0) == '>') {
+            setToken(TokenKind.RARROW, pos - 1, pos + 1);
+            pos += 1;
+          } else {
+            setToken(TokenKind.MINUS, pos - 1, pos);
+          }
           break;
         case '|':
           setToken(TokenKind.PIPE, pos - 1, pos);
@@ -729,15 +839,11 @@ final class Lexer {
           break;
         case '#':
           int oldPos = pos - 1;
-          while (pos < buffer.length) {
-            c = buffer[pos];
-            if (c == '\n') {
-              break;
-            } else {
-              pos++;
-            }
+          scanToNewline();
+          Comment comment = addComment(oldPos, pos);
+          if (comment.hasDocCommentPrefix() && openParenStackDepth == 0) {
+            docComments(comment, oldPos, /* isBlock= */ lineOnlyWhitespaceOrComments);
           }
-          addComment(oldPos, pos);
           break;
         case '\'':
         case '\"':
@@ -754,10 +860,10 @@ final class Lexer {
             }
           }
 
-          // int or float literal, or dot
+          // int or float literal, or dot, or ellipsis
           if (c == '.' || isdigit(c)) {
             pos--; // unconsume
-            scanNumberOrDot(c);
+            scanNumberOrDotOrEllipsis(c);
             break;
           }
 
@@ -785,22 +891,28 @@ final class Lexer {
     setToken(TokenKind.EOF, pos, pos);
   }
 
-  // Scans a number (INT or FLOAT) or DOT.
+  // Scans a number (INT or FLOAT) or DOT or ELLIPSIS.
   // Precondition: c == peek(0) (a dot or digit)
   //
   // TODO(adonovan): make this the precondition for all scan functions;
-  // currenly most assume their argument c has been consumed already.
-  private void scanNumberOrDot(int c) {
+  // currently most assume their argument c has been consumed already.
+  private void scanNumberOrDotOrEllipsis(int c) {
     int start = this.pos;
     boolean fraction = false;
     boolean exponent = false;
 
     if (c == '.') {
-      // dot or start of fraction
+      // dot or ellipsis or start of fraction
       if (!isdigit(peek(1))) {
-        pos++; // consume '.'
-        setToken(TokenKind.DOT, start, pos);
-        return;
+        if (peek(1) == '.' && peek(2) == '.') {
+          pos += 3; // consume '...'
+          setToken(TokenKind.ELLIPSIS, start, pos);
+          return;
+        } else {
+          pos++; // consume '.'
+          setToken(TokenKind.DOT, start, pos);
+          return;
+        }
       }
       fraction = true;
 
@@ -923,19 +1035,19 @@ final class Lexer {
   }
 
   /**
-   * Returns parts of the source buffer based on offsets
-   *
-   * @param start the beginning offset for the slice
-   * @param end the offset immediately following the slice
-   * @return the text at offset start with length end - start
+   * Returns a string containing the part of the source buffer beginning at offset {@code start} and
+   * ending immediately before offset {@code end} (so the length of the resulting string is {@code
+   * end - start}).
    */
   String bufferSlice(int start, int end) {
     return new String(this.buffer, start, end - start);
   }
 
   // TODO(adonovan): don't retain comments unconditionally.
-  private void addComment(int start, int end) {
+  private Comment addComment(int start, int end) {
     String content = bufferSlice(start, end);
-    comments.add(new Comment(locs, start, content));
+    Comment comment = new Comment(locs, start, content);
+    comments.add(comment);
+    return comment;
   }
 }

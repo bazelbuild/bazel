@@ -14,10 +14,10 @@
 package com.google.devtools.build.lib.analysis;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
-import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.skyframe.ToolchainContextKey;
+import com.google.devtools.build.lib.skyframe.toolchains.ToolchainContextKey;
 
 /** Represents the data needed for a specific target's use of toolchains and platforms. */
 public interface ToolchainContext {
@@ -31,7 +31,7 @@ public interface ToolchainContext {
   PlatformInfo targetPlatform();
 
   /** Returns the toolchain types that were requested. */
-  ImmutableSet<ToolchainTypeInfo> requiredToolchainTypes();
+  ImmutableSet<ToolchainTypeRequirement> toolchainTypes();
 
   /** Returns the labels of the specific toolchains being used. */
   ImmutableSet<Label> resolvedToolchainLabels();

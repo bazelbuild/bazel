@@ -68,7 +68,7 @@ exe_test = rule(
     attrs = {
         "src": attr.label(
             allow_single_file = True,
-            cfg = "host",
+            cfg = "exec",
             executable = True,
         ),
     },

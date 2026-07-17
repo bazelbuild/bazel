@@ -14,12 +14,12 @@
 
 package com.google.devtools.common.options;
 
+import static java.util.Arrays.stream;
 import static java.util.stream.Collectors.toList;
 
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.util.Classpath;
 import com.google.devtools.build.lib.util.Classpath.ClassPathException;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 import org.junit.Rule;
@@ -36,7 +36,7 @@ import org.junit.runners.Parameterized.Parameters;
  * {@link Option}-annotated field is considered to be in <i>Prod</i> code if its declaring class and
  * all its enclosing classes do not have {@link RunWith} annotation.
  *
- * @see OptionDefinition#getDefaultValue()
+ * @see OptionDefinition#getDefaultValue
  */
 @RunWith(Parameterized.class)
 public class OptionDefaultValueConversionTest {
@@ -53,7 +53,7 @@ public class OptionDefaultValueConversionTest {
     thrown = ExpectedException.none();
 
     // act
-    optionDefinitionUnderTest.getDefaultValue();
+    optionDefinitionUnderTest.getDefaultValue(/*conversionContext=*/ null);
   }
 
   @Parameters
@@ -63,10 +63,14 @@ public class OptionDefaultValueConversionTest {
 
       List<OptionDefinition> optionDefinitions =
           allClasses.stream()
+              // This package contains classes that reference other classes that aren't available
+              // without manual setup.
+              .filter(
+                  c -> !c.getPackageName().equals("com.google.devtools.build.lib.profiler.memory"))
               .filter(c -> !isTestClass(c))
-              .flatMap(c -> Arrays.stream(c.getFields()))
+              .flatMap(c -> stream(c.getMethods()))
               .filter(f -> f.isAnnotationPresent(Option.class))
-              .map(OptionDefinition::extractOptionDefinition)
+              .map(MethodOptionDefinition::from)
               .collect(toList());
       logger.atFine().log(
           "Found %d Option-annotated fields in Prod code", optionDefinitions.size());

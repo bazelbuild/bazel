@@ -15,12 +15,12 @@ package com.google.devtools.build.lib.metrics;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.runtime.BlazeModule;
-import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -30,24 +30,41 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class MetricsModule extends BlazeModule {
 
   /** Metrics options. */
-  public static final class Options extends OptionsBase {
+  @OptionsClass
+  public abstract static class Options extends OptionsBase {
     @Option(
-        name = "bep_publish_used_heap_size_post_build",
+        name = "experimental_record_metrics_for_all_mnemonics",
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.LOGGING,
         effectTags = {OptionEffectTag.UNKNOWN},
         help =
-            "When set we collect and publish used_heap_size_post_build "
-                + "from build_event_stream.proto. This forces a full GC and is off by default.")
-    public boolean bepPublishUsedHeapSizePostBuild;
+            "Controls the output of BEP ActionSummary and BuildGraphMetrics, limiting the number of"
+                + " mnemonics in ActionData and number of entries reported in"
+                + " BuildGraphMetrics.AspectCount/RuleClassCount. By default the number of types is"
+                + " limited to the top 20, by number of executed actions for ActionData, and"
+                + " instances for RuleClass and Asepcts. Setting this option will write statistics"
+                + " for all mnemonics, rule classes and aspects.")
+    public abstract boolean getRecordMetricsForAllMnemonics();
+
+    @Option(
+        name = "experimental_record_skyframe_metrics",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.LOGGING,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help =
+            "Controls the output of BEP BuildGraphMetrics, including expensive "
+                + "to compute skyframe metrics about Skykeys, RuleClasses and Aspects. "
+                + "With this flag set to false BuildGraphMetrics.rule_count and aspect "
+                + "fields will not be populated in the BEP.")
+    public abstract boolean getRecordSkyframeMetrics();
   }
 
   private final AtomicInteger numAnalyses = new AtomicInteger();
   private final AtomicInteger numBuilds = new AtomicInteger();
 
   @Override
-  public Iterable<Class<? extends OptionsBase>> getCommandOptions(Command command) {
-    return "build".equals(command.name()) ? ImmutableList.of(Options.class) : ImmutableList.of();
+  public Iterable<Class<? extends OptionsBase>> getCommonCommandOptions() {
+    return ImmutableList.of(Options.class);
   }
 
   /**
@@ -63,7 +80,4 @@ public class MetricsModule extends BlazeModule {
   public void beforeCommand(CommandEnvironment env) {
     MetricsCollector.installInEnv(env, numAnalyses, numBuilds);
   }
-
-  @Override
-  public void afterCommand() {}
 }

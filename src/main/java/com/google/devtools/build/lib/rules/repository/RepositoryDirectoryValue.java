@@ -14,238 +14,92 @@
 
 package com.google.devtools.build.lib.rules.repository;
 
-import com.google.common.base.Objects;
-import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.concurrent.BlazeInterners;
-import com.google.devtools.build.lib.skyframe.DirectoryListingValue;
+import com.google.devtools.build.lib.skyframe.PrecomputedValue.Precomputed;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.AbstractSkyKey;
+import com.google.devtools.build.skyframe.NotComparableSkyValue;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.SkyValue;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Map;
-import javax.annotation.Nullable;
+import java.util.Optional;
 
-/** A local view of an external repository. */
-public abstract class RepositoryDirectoryValue implements SkyValue {
-  /**
-   * Returns whether the repository exists or not. If this return false, then the methods below will
-   * throw.
-   */
-  public abstract boolean repositoryExists();
+/**
+ * The result of fetching a repo.
+ *
+ * <p>Note that we explicitly disable change pruning here by extending {@link
+ * NotComparableSkyValue}. The reason is that, after fetching a repo successfully, the resultant
+ * {@link Success} object does not capture the newly fetched contents of the repo (note that it only
+ * contains the path and some other minor metadata), which means that with change pruning, dependent
+ * SkyValues would simply think the repo hasn't changed and not get re-evaluated. Without change
+ * pruning, we force dependent SkyValues to be marked dirty whenever a repo is re-fetched.
+ */
+public sealed interface RepositoryDirectoryValue extends NotComparableSkyValue {
 
-  /**
-   * Returns the path to the directory containing the repository's contents. This directory is
-   * guaranteed to exist. It may contain a full Bazel repository (with a WORKSPACE file,
-   * directories, and BUILD files) or simply contain a file (or set of files) for, say, a jar from
-   * Maven.
-   */
-  public abstract Path getPath();
-
-  public abstract boolean isFetchingDelayed();
+  Precomputed<Boolean> FETCH_DISABLED = new Precomputed<>("fetch_disabled");
+  String FORCE_FETCH_DISABLED = "";
+  Precomputed<String> FORCE_FETCH = new Precomputed<>("dependency_for_force_fetching_repository");
+  Precomputed<String> FORCE_FETCH_CONFIGURE =
+      new Precomputed<>("dependency_for_force_fetching_configure_repositories");
+  Precomputed<Boolean> IS_VENDOR_COMMAND = new Precomputed<>("is_vendor_command");
+  Precomputed<Optional<Path>> VENDOR_DIRECTORY = new Precomputed<>("vendor_directory");
 
   /**
-   * Returns the set of relative (to the workspace root) paths to managed directories for this
-   * repository. We need to keep this information in a value, since managed directories are part of
-   * the repository definition.
+   * Represents a successful repository lookup.
+   *
+   * @param root Returns the root containing the repository's contents. This directory is guaranteed
+   *     to exist.
+   * @param excludeFromVendoring Returns if this repo should be excluded from vendoring. The value
+   *     is true for local as well as configure repos.
    */
-  public abstract ImmutableSet<PathFragment> getManagedDirectories();
+  @AutoCodec
+  record Success(Root root, boolean excludeFromVendoring) implements RepositoryDirectoryValue {}
 
-  /** Represents a successful repository lookup. */
-  public static final class SuccessfulRepositoryDirectoryValue extends RepositoryDirectoryValue {
-    private final Path path;
-    private final boolean fetchingDelayed;
-    @Nullable private final byte[] digest;
-    @Nullable private final DirectoryListingValue sourceDir;
-    private final ImmutableMap<SkyKey, SkyValue> fileValues;
-    private final ImmutableSet<PathFragment> managedDirectories;
-
-    private SuccessfulRepositoryDirectoryValue(
-        Path path,
-        boolean fetchingDelayed,
-        DirectoryListingValue sourceDir,
-        byte[] digest,
-        ImmutableMap<SkyKey, SkyValue> fileValues,
-        ImmutableSet<PathFragment> managedDirectories) {
-      this.path = path;
-      this.fetchingDelayed = fetchingDelayed;
-      this.sourceDir = sourceDir;
-      this.digest = digest;
-      this.fileValues = fileValues;
-      this.managedDirectories = managedDirectories;
-    }
-
-    @Override
-    public boolean repositoryExists() {
-      return true;
-    }
-
-    @Override
-    public Path getPath() {
-      return path;
-    }
-
-    @Override
-    public boolean isFetchingDelayed() {
-      return fetchingDelayed;
-    }
-
-    @Override
-    public ImmutableSet<PathFragment> getManagedDirectories() {
-      return managedDirectories;
-    }
-
-    @Override
-    public boolean equals(Object other) {
-      if (this == other) {
-        return true;
-      }
-
-      if (other instanceof SuccessfulRepositoryDirectoryValue) {
-        SuccessfulRepositoryDirectoryValue otherValue = (SuccessfulRepositoryDirectoryValue) other;
-        return Objects.equal(path, otherValue.path)
-            && Objects.equal(sourceDir, otherValue.sourceDir)
-            && Arrays.equals(digest, otherValue.digest)
-            && Objects.equal(fileValues, otherValue.fileValues)
-            && Objects.equal(managedDirectories, otherValue.managedDirectories);
-      }
-      return false;
-    }
-
-    @Override
-    public int hashCode() {
-      return Objects.hashCode(
-          path, sourceDir, Arrays.hashCode(digest), fileValues, managedDirectories);
-    }
-
-    @Override
-    public String toString() {
-      return path.getPathString();
-    }
-  }
-
-  /** Represents an unsuccessful repository lookup. */
-  public static final class NoRepositoryDirectoryValue extends RepositoryDirectoryValue {
-    private NoRepositoryDirectoryValue() {}
-
-    @Override
-    public boolean repositoryExists() {
-      return false;
-    }
-
-    @Override
-    public Path getPath() {
-      throw new IllegalStateException();
-    }
-
-    @Override
-    public boolean isFetchingDelayed() {
-      throw new IllegalStateException();
-    }
-
-    @Override
-    public ImmutableSet<PathFragment> getManagedDirectories() {
-      throw new IllegalStateException();
-    }
-  }
-
-  public static final NoRepositoryDirectoryValue NO_SUCH_REPOSITORY_VALUE =
-      new NoRepositoryDirectoryValue();
+  /**
+   * Represents an unsuccessful repository lookup, because the repo doesn't exist.
+   *
+   * @param errorMsg For an unsuccessful repository lookup, gets a detailed error message that is
+   *     suitable for reporting to a user.
+   */
+  @AutoCodec
+  record Failure(String errorMsg) implements RepositoryDirectoryValue {}
 
   /** Creates a key from the given repository name. */
-  public static Key key(RepositoryName repository) {
+  static Key key(RepositoryName repository) {
     return Key.create(repository);
   }
 
   /** The SkyKey for retrieving the local directory of an external repository. */
-  @AutoCodec.VisibleForSerialization
+  @VisibleForSerialization
   @AutoCodec
-  public static class Key extends AbstractSkyKey<RepositoryName> {
-    private static final Interner<Key> interner = BlazeInterners.newWeakInterner();
+  class Key extends AbstractSkyKey<RepositoryName> {
+    private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
 
     private Key(RepositoryName arg) {
       super(arg);
     }
 
-    @AutoCodec.VisibleForSerialization
-    @AutoCodec.Instantiator
-    static Key create(RepositoryName arg) {
+    private static Key create(RepositoryName arg) {
       return interner.intern(new Key(arg));
+    }
+
+    @VisibleForSerialization
+    @AutoCodec.Interner
+    static Key intern(Key key) {
+      return interner.intern(key);
     }
 
     @Override
     public SkyFunctionName functionName() {
       return SkyFunctions.REPOSITORY_DIRECTORY;
     }
-  }
 
-  public static Builder builder() {
-    return new Builder();
-  }
-
-  /** A builder to create a {@link RepositoryDirectoryValue}. */
-  public static class Builder {
-    private Path path = null;
-    private boolean fetchingDelayed = false;
-    private byte[] digest = null;
-    private DirectoryListingValue sourceDir = null;
-    private Map<SkyKey, SkyValue> fileValues = ImmutableMap.of();
-    private ImmutableSet<PathFragment> managedDirectories = ImmutableSet.of();
-
-    private Builder() {}
-
-    public Builder setPath(Path path) {
-      this.path = path;
-      return this;
-    }
-
-    public Builder setFetchingDelayed() {
-      this.fetchingDelayed = true;
-      return this;
-    }
-
-    public Builder setDigest(byte[] digest) {
-      this.digest = digest;
-      return this;
-    }
-
-    public Builder setSourceDir(DirectoryListingValue sourceDir) {
-      this.sourceDir = sourceDir;
-      return this;
-    }
-
-    public Builder setFileValues(Map<SkyKey, SkyValue> fileValues) {
-      this.fileValues = fileValues;
-      return this;
-    }
-
-    public Builder setManagedDirectories(Collection<PathFragment> managedDirectories) {
-      this.managedDirectories = ImmutableSet.copyOf(managedDirectories);
-      return this;
-    }
-
-    public SuccessfulRepositoryDirectoryValue build() {
-      Preconditions.checkNotNull(path, "Repository path must be specified!");
-      // Only if fetching is delayed then we are allowed to have a null digest.
-      if (!this.fetchingDelayed) {
-        Preconditions.checkNotNull(digest, "Repository marker digest must be specified!");
-      }
-      return new SuccessfulRepositoryDirectoryValue(
-          path,
-          fetchingDelayed,
-          sourceDir,
-          digest,
-          ImmutableMap.copyOf(fileValues),
-          managedDirectories);
+    @Override
+    public SkyKeyInterner<Key> getSkyKeyInterner() {
+      return interner;
     }
   }
 }

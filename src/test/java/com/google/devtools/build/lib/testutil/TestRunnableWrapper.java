@@ -14,8 +14,6 @@
 package com.google.devtools.build.lib.testutil;
 
 import com.google.common.base.Throwables;
-import com.google.devtools.build.lib.concurrent.ThrowableRecordingRunnableWrapper;
-
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**

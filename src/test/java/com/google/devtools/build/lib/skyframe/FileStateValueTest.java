@@ -33,14 +33,12 @@ public class FileStateValueTest {
   @Test
   public void testCodec() throws Exception {
     new SerializationTester(
-            new FileStateValue.RegularFileStateValue(
-                /*size=*/ 1, /*digest=*/ new byte[] {1, 2, 3}, /*contentsProxy=*/ null),
-            new FileStateValue.RegularFileStateValue(
-                /*size=*/ 1, /*digest=*/ new byte[0], /*contentsProxy=*/ null),
-            new FileStateValue.RegularFileStateValue(
-                /*size=*/ 1,
-                /*digest=*/ null,
-                makeFileContentsProxy(/* ctime= */ 2, /* nodeId= */ 42)),
+            new FileStateValue.RegularFileStateValueWithDigest(
+                /* size= */ 1, /* digest= */ new byte[] {1, 2, 3}),
+            new FileStateValue.RegularFileStateValueWithDigest(
+                /* size= */ 1, /* digest= */ new byte[0]),
+            new FileStateValue.RegularFileStateValueWithContentsProxy(
+                /* size= */ 1, makeFileContentsProxy(/* ctime= */ 2, /* nodeId= */ 42)),
             new FileStateValue.SpecialFileStateValue(
                 makeFileContentsProxy(/* ctime= */ 4, /* nodeId= */ 84)),
             FileStateValue.DIRECTORY_FILE_STATE_NODE,

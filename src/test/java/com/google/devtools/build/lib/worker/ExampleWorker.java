@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.worker;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.base.Ascii;
@@ -30,12 +31,15 @@ import com.google.gson.stream.JsonReader;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.PrintStream;
 import java.io.PrintWriter;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -46,6 +50,7 @@ import java.util.UUID;
 import java.util.function.BiFunction;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 
 /** An example implementation of a worker process that is used for integration tests. */
 public final class ExampleWorker {
@@ -53,7 +58,7 @@ public final class ExampleWorker {
   static final Pattern FLAG_FILE_PATTERN = Pattern.compile("(?:@|--?flagfile=)(.+)");
 
   // A UUID that uniquely identifies this running worker process.
-  static final UUID workerUuid = UUID.randomUUID();
+  static final UUID WORKER_UUID = UUID.randomUUID();
 
   // A counter that increases with each work unit processed.
   static int workUnitCounter = 1;
@@ -80,35 +85,56 @@ public final class ExampleWorker {
     }
 
     @Override
+    @SuppressWarnings("SystemExitOutsideMain")
     public void processRequests() throws IOException {
+      ByteArrayOutputStream captured = new ByteArrayOutputStream();
+      WorkerIO workerIO = new WorkerIO(System.in, System.out, System.err, captured, captured);
+
       while (true) {
         WorkRequest request = messageProcessor.readWorkRequest();
         if (request == null) {
           break;
         }
+
         currentRequest = request;
         inputs.clear();
         for (Input input : request.getInputsList()) {
           inputs.put(input.getPath(), input.getDigest().toStringUtf8());
         }
-        if (poisoned && workerOptions.hardPoison) {
+        if (poisoned && workerOptions.getHardPoison()) {
           throw new IllegalStateException("I'm a very poisoned worker and will just crash.");
         }
-        if (request.getRequestId() != 0) {
-          Thread t = createResponseThread(request);
-          t.start();
+        if (request.getCancel()) {
+          respondToCancelRequest(request);
         } else {
-          respondToRequest(request, new RequestInfo());
+          startResponseThread(workerIO, request);
         }
-        if (workerOptions.exitAfter > 0 && workUnitCounter > workerOptions.exitAfter) {
-          System.exit(0);
+        if (workerOptions.getExitAfter() > 0) {
+          try {
+            while (!activeRequests.isEmpty()) {
+              Thread.sleep(1);
+            }
+          } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+          }
+          if (workUnitCounter > workerOptions.getExitAfter()) {
+            System.exit(0);
+          }
         }
+      }
+
+      try {
+        // Unwrap the system streams placing the original streams back
+        workerIO.close();
+      } catch (Exception e) {
+        workerIO.getOriginalErrorStream().println(e.getMessage());
       }
     }
   }
 
   public static void main(String[] args) throws Exception {
     if (ImmutableSet.copyOf(args).contains("--persistent_worker")) {
+      System.err.printf("Worker args: %s\n", String.join(" ", args));
       OptionsParser parser =
           OptionsParser.builder()
               .optionsClasses(ExampleWorkerOptions.class)
@@ -116,7 +142,7 @@ public final class ExampleWorker {
               .build();
       parser.parse(args);
       workerOptions = parser.getOptions(ExampleWorkerOptions.class);
-      WorkerProtocolFormat protocolFormat = workerOptions.workerProtocol;
+      WorkerProtocolFormat protocolFormat = workerOptions.getWorkerProtocol();
       messageProcessor = null;
       switch (protocolFormat) {
         case JSON:
@@ -146,7 +172,7 @@ public final class ExampleWorker {
     PrintStream originalStdOut = System.out;
     PrintStream originalStdErr = System.err;
 
-    if (workerOptions.waitForCancel) {
+    if (workerOptions.getWaitForCancel()) {
       try {
         WorkRequest workRequest = messageProcessor.readWorkRequest();
         if (workRequest.getRequestId() != currentRequest.getRequestId()) {
@@ -184,6 +210,10 @@ public final class ExampleWorker {
         }
       } else {
         try {
+          if (currentRequest.getVerbosity() > 0) {
+            originalStdErr.println("VERBOSE: Pretending to do work.");
+            originalStdErr.println("VERBOSE: Running in " + new File(".").getAbsolutePath());
+          }
           parseOptionsAndLog(args);
         } catch (Exception e) {
           e.printStackTrace();
@@ -196,7 +226,7 @@ public final class ExampleWorker {
       currentRequest = null;
     }
 
-    if (workerOptions.exitDuring > 0 && workUnitCounter > workerOptions.exitDuring) {
+    if (workerOptions.getExitDuring() > 0 && workUnitCounter > workerOptions.getExitDuring()) {
       System.exit(0);
     }
 
@@ -210,7 +240,7 @@ public final class ExampleWorker {
         System.exit(1);
       }
     }
-    if (workerOptions.poisonAfter > 0 && workUnitCounter > workerOptions.poisonAfter) {
+    if (workerOptions.getPoisonAfter() > 0 && workUnitCounter > workerOptions.getPoisonAfter()) {
       poisoned = true;
     }
     return 0;
@@ -234,44 +264,67 @@ public final class ExampleWorker {
 
     List<String> outputs = new ArrayList<>();
 
-    if (options.writeUUID) {
-      outputs.add("UUID " + workerUuid);
+    if (options.getWriteUUID()) {
+      outputs.add("UUID " + WORKER_UUID);
     }
 
-    if (options.writeCounter) {
+    if (options.getWriteCounter()) {
       outputs.add("COUNTER " + workUnitCounter++);
     }
 
     String residueStr = Joiner.on(' ').join(parser.getResidue());
-    if (options.uppercase) {
+    if (options.getUppercase()) {
       residueStr = Ascii.toUpperCase(residueStr);
     }
     outputs.add(residueStr);
 
-    if (options.printInputs) {
+    if (options.getPrintInputs()) {
       for (Map.Entry<String, String> input : inputs.entrySet()) {
         outputs.add("INPUT " + input.getKey() + " " + input.getValue());
       }
     }
 
-    if (options.printRequests) {
+    if (!options.getPrintDirListing().isEmpty()) {
+      Path rootDir = Path.of(options.getPrintDirListing());
+      try (Stream<Path> paths = Files.walk(rootDir, Integer.MAX_VALUE)) {
+        for (Path path : paths.collect(toImmutableList())) {
+          outputs.add(String.format("DIRENT %s %s", rootDir.relativize(path), getInode(path)));
+        }
+      }
+    }
+
+    if (options.getPrintRequests()) {
       outputs.add("REQUEST: " + currentRequest);
     }
 
-    if (options.printEnv) {
+    if (options.getPrintEnv()) {
       for (Map.Entry<String, String> entry : System.getenv().entrySet()) {
         outputs.add(entry.getKey() + "=" + entry.getValue());
       }
     }
 
+    if (options.getWorkTime() != null) {
+      try {
+        Thread.sleep(options.getWorkTime().toMillis());
+      } catch (InterruptedException e) {
+        System.err.printf(
+            "Interrupted while pretending to work for %d millis%n",
+            options.getWorkTime().toMillis());
+      }
+    }
+
     String outputStr = Joiner.on('\n').join(outputs);
-    if (options.outputFile.isEmpty()) {
+    if (options.getOutputFile().isEmpty()) {
       System.out.println(outputStr);
     } else {
-      try (PrintStream outputFile = new PrintStream(options.outputFile)) {
+      try (PrintStream outputFile = new PrintStream(options.getOutputFile())) {
         outputFile.println(outputStr);
       }
     }
+  }
+
+  private static long getInode(Path path) throws IOException {
+    return (long) Files.getAttribute(path, "unix:ino", LinkOption.NOFOLLOW_LINKS);
   }
 
   private ExampleWorker() {}

@@ -1,0 +1,165 @@
+// Copyright 2023 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+package com.google.devtools.build.lib.skyframe.serialization.autocodec;
+
+import static com.google.common.base.Preconditions.checkNotNull;
+
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.squareup.javapoet.ClassName;
+import com.squareup.javapoet.MethodSpec;
+import com.squareup.javapoet.TypeName;
+import com.squareup.javapoet.TypeSpec;
+import javax.annotation.Nullable;
+import javax.lang.model.element.Name;
+import javax.lang.model.type.TypeMirror;
+
+/**
+ * Generates code for a specific field.
+ *
+ * <p>Always stores a handle to the field in a variable named {@link #getHandleName}.
+ */
+abstract class FieldGenerator {
+  /**
+   * A string that should never occur in user code identifiers.
+   *
+   * <p>This is used to create unique identifiers that won't collide.
+   */
+  private static final String GENERATED_TAG = "$AutoCodec$";
+
+  private static final String HANDLE_SUFFIX = "_handle";
+
+  private final Name parameterName;
+  private final TypeMirror type;
+  private final TypeName typeName;
+  private final ClassName parentName;
+  private final int hierarchyLevel;
+  private final String namePrefix;
+
+  /**
+   * Constructor.
+   *
+   * @param parameterName name of the field being serialized
+   * @param type type of the field being serialized
+   * @param typeName Javapoet "type" of the parameter derived from {@code type}. A {@code
+   *     ProcessingEnvironment} is needed to retrieve this so it is retained for simplicity.
+   * @param parentName class name of field's parent or object being serialized. In the usual case,
+   *     the field refers to a member variable of a particular class, its parent. If no such member
+   *     variable can be found, a getter, matching on name and type may be used instead. In that
+   *     case, {@code parentName} refers to the type of the enclosing object being serialized.
+   * @param hierarchyLevel a variable could occur in either the class being serialized or in one of
+   *     its ancestor classes. This is 0 for the class itself, 1 for its superclass, and so on. It
+   *     is used to avoid naming collisions, particularly in the case of shadowed variables. This is
+   *     0 if field retrieval uses a getter.
+   */
+  FieldGenerator(
+      Name parameterName,
+      TypeMirror type,
+      TypeName typeName,
+      ClassName parentName,
+      int hierarchyLevel) {
+    this.parameterName = checkNotNull(parameterName);
+    this.type = checkNotNull(type);
+    this.typeName = checkNotNull(typeName);
+    this.parentName = checkNotNull(parentName);
+    this.hierarchyLevel = hierarchyLevel;
+    this.namePrefix = parameterName + GENERATED_TAG + hierarchyLevel;
+  }
+
+  /** Name of the field being serialized. */
+  final Name getParameterName() {
+    return parameterName;
+  }
+
+  /** Type of the field being serialized. */
+  final TypeMirror getType() {
+    return type;
+  }
+
+  /** {@link TypeName} of the field being serialized, derived from {@link #getType}. */
+  final TypeName getTypeName() {
+    return typeName;
+  }
+
+  final int getHierarchyLevel() {
+    return hierarchyLevel;
+  }
+
+  /** Any created member variables should start with this prefix. */
+  final String getNamePrefix() {
+    return namePrefix;
+  }
+
+  /** The name of the enclosing class, used in generated code. */
+  final ClassName getParentName() {
+    return parentName;
+  }
+
+  /**
+   * Name for a handle to the associated field.
+   *
+   * <p>A handle can either be a {@link java.lang.invoke.VarHandle} or a field offset.
+   *
+   * @return name of the handle member variable
+   */
+  // TODO: b/331765692 - cleanup use of field offsets
+  final String getHandleName() {
+    return namePrefix + HANDLE_SUFFIX;
+  }
+
+  /** Getter name, if a getter is used to retrieve the field. */
+  @Nullable
+  String getGetterName() {
+    return null;
+  }
+
+  /**
+   * Defines the handle field.
+   *
+   * <p>Adds the field to the {@code classBuilder} and assigns its value in {@code constructor}.
+   */
+  abstract void generateHandleMember(TypeSpec.Builder classBuilder, MethodSpec.Builder constructor);
+
+  /**
+   * Generates any additional member variables needed for this field.
+   *
+   * <p>To avoid collisions, field specific field names should be prefixed with {@link #namePrefix}.
+   *
+   * <p>The *offset* field is already generated by {@link #generateHandleMember}.
+   */
+  void generateAdditionalMemberVariables(TypeSpec.Builder classBuilder) {}
+
+  /**
+   * Adds field specific code to the constructor.
+   *
+   * <p>Many implementations don't need to do anything here given that the offset is already
+   * initialized by {@link #generateHandleMember}.
+   */
+  void generateConstructorCode(MethodSpec.Builder constructor) {}
+
+  /**
+   * Adds {@link ObjectCodec#serialize} code to serialize this field.
+   *
+   * <p>Implementations may assume that the parameters of {@link ObjectCodec#serialize} are present
+   * in the generated method's scope and may be referenced.
+   */
+  abstract void generateSerializeCode(MethodSpec.Builder serialize);
+
+  /**
+   * Adds field specific deserialize code.
+   *
+   * <p>Implementations may assume the presence of parameters of {@link
+   * AsyncObjectCodec#deserializeAsync}.
+   */
+  abstract void generateDeserializeCode(MethodSpec.Builder deserialize);
+}

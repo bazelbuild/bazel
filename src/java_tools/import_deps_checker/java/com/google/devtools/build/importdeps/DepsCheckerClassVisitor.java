@@ -18,10 +18,13 @@ import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.importdeps.ClassInfo.MemberInfo;
+import org.objectweb.asm.Opcodes;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Optional;
 import javax.annotation.Nullable;
 import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.ClassVisitor;
+import org.objectweb.asm.ConstantDynamic;
 import org.objectweb.asm.FieldVisitor;
 import org.objectweb.asm.Handle;
 import org.objectweb.asm.Label;
@@ -43,7 +46,7 @@ public class DepsCheckerClassVisitor extends ClassVisitor {
   private final DepsCheckerMethodVisitor defaultMethodChecker = new DepsCheckerMethodVisitor();
 
   public DepsCheckerClassVisitor(ClassCache classCache, ResultCollector resultCollector) {
-    super(Opcodes.ASM7);
+    super(Opcodes.ASM9);
     this.classCache = classCache;
     this.resultCollector = resultCollector;
   }
@@ -103,7 +106,7 @@ public class DepsCheckerClassVisitor extends ClassVisitor {
       checkDescriptor(desc);
 
       if (!resultCollector.getCheckMissingMembers()) {
-        return;  // No point in doing the expensive stuff below
+        return; // No point in doing the expensive stuff below
       }
 
       // TODO(kmb): Consider removing this entirely so we don't have to track members at all
@@ -198,7 +201,7 @@ public class DepsCheckerClassVisitor extends ClassVisitor {
       }
       ClassInfo info = state.classInfo().get();
       if (!info.directDep()) {
-        resultCollector.addIndirectDep(info.jarPath());
+        resultCollector.addIndirectDep(internalName, info.jarPath());
       }
     }
     return state;
@@ -229,9 +232,10 @@ public class DepsCheckerClassVisitor extends ClassVisitor {
   private class DepsCheckerAnnotationVisitor extends AnnotationVisitor {
 
     DepsCheckerAnnotationVisitor() {
-      super(Opcodes.ASM7);
+      super(Opcodes.ASM9);
     }
 
+    @CanIgnoreReturnValue
     @Override
     public AnnotationVisitor visitAnnotation(String name, String desc) {
       checkDescriptor(desc);
@@ -270,7 +274,7 @@ public class DepsCheckerClassVisitor extends ClassVisitor {
   private class DepsCheckerFieldVisitor extends FieldVisitor {
 
     DepsCheckerFieldVisitor() {
-      super(Opcodes.ASM7);
+      super(Opcodes.ASM9);
     }
 
     @Override
@@ -291,7 +295,7 @@ public class DepsCheckerClassVisitor extends ClassVisitor {
   private class DepsCheckerMethodVisitor extends MethodVisitor {
 
     DepsCheckerMethodVisitor() {
-      super(Opcodes.ASM7);
+      super(Opcodes.ASM9);
     }
 
     @Override
@@ -337,8 +341,88 @@ public class DepsCheckerClassVisitor extends ClassVisitor {
 
     @Override
     public void visitMethodInsn(int opcode, String owner, String name, String desc, boolean itf) {
-      checkMember(owner, name, desc);
+      if (!isMethodHandle(opcode, owner, name) && !isVarHandle(opcode, owner, name)) {
+        checkMember(owner, name, desc);
+      }
       super.visitMethodInsn(opcode, owner, name, desc, itf);
+    }
+
+    private boolean isMethodHandle(int opcode, String owner, String name) {
+      if (opcode != Opcodes.INVOKEVIRTUAL) {
+        return false;
+      }
+      if (!owner.equals("java/lang/invoke/MethodHandle")) {
+        return false;
+      }
+      switch (name) {
+        case "invoke":
+        case "invokeExact":
+          break;
+        default:
+          return false;
+      }
+      return true;
+    }
+
+    private boolean isVarHandle(int opcode, String owner, String name) {
+      if (opcode != Opcodes.INVOKEVIRTUAL) {
+        return false;
+      }
+      if (!owner.equals("java/lang/invoke/VarHandle")) {
+        return false;
+      }
+      switch (name) {
+        case "compareAndExchange":
+        case "compareAndExchangeAcquire":
+        case "compareAndExchangeRelease":
+        case "compareAndSet":
+        case "get":
+        case "getAcquire":
+        case "getAndAdd":
+        case "getAndAddAcquire":
+        case "getAndAddRelease":
+        case "getAndBitwiseAnd":
+        case "getAndBitwiseAndAcquire":
+        case "getAndBitwiseAndRelease":
+        case "getAndBitwiseOr":
+        case "getAndBitwiseOrAcquire":
+        case "getAndBitwiseOrRelease":
+        case "getAndBitwiseXor":
+        case "getAndBitwiseXorAcquire":
+        case "getAndBitwiseXorRelease":
+        case "getAndSet":
+        case "getAndSetAcquire":
+        case "getAndSetRelease":
+        case "getOpaque":
+        case "getVolatile":
+        case "set":
+        case "setOpaque":
+        case "setRelease":
+        case "setVolatile":
+        case "weakCompareAndSet":
+        case "weakCompareAndSetAcquire":
+        case "weakCompareAndSetPlain":
+        case "weakCompareAndSetRelease":
+          break;
+        default:
+          return false;
+      }
+      return true;
+    }
+
+    private void checkDynamicType(Object value) {
+      switch (value) {
+        case Type type -> checkType(type);
+        case Handle handle -> checkHandle(handle);
+        case ConstantDynamic constantDynamic -> checkConstantDynamic(constantDynamic);
+        default -> {
+          if (PRIMITIVE_TYPES.contains(value.getClass())) {
+            checkType(Type.getType(value.getClass()));
+            return;
+          }
+          throw new UnsupportedOperationException("Unsupported bsmarg type: " + value);
+        }
+      }
     }
 
     @Override
@@ -346,19 +430,7 @@ public class DepsCheckerClassVisitor extends ClassVisitor {
       checkDescriptor(desc);
       checkHandle(bsm);
       for (Object bsmArg : bsmArgs) {
-        if (bsmArg instanceof Type) {
-          checkType(((Type) bsmArg)); // Class literals.
-          continue;
-        }
-        if (PRIMITIVE_TYPES.contains(bsmArg.getClass())) {
-          checkType(Type.getType(bsmArg.getClass()));
-          continue;
-        }
-        if (bsmArg instanceof Handle) {
-          checkHandle((Handle) bsmArg);
-          continue;
-        }
-        throw new UnsupportedOperationException("Unsupported bsmarg type: " + bsmArg);
+        checkDynamicType(bsmArg);
       }
       super.visitInvokeDynamicInsn(name, desc, bsm, bsmArgs);
     }
@@ -367,15 +439,19 @@ public class DepsCheckerClassVisitor extends ClassVisitor {
       checkMember(handle.getOwner(), handle.getName(), handle.getDesc());
     }
 
+    private void checkConstantDynamic(ConstantDynamic constantDynamic) {
+      checkDescriptor(constantDynamic.getDescriptor());
+      checkHandle(constantDynamic.getBootstrapMethod());
+      for (int i = 0; i < constantDynamic.getBootstrapMethodArgumentCount(); i++) {
+        Object bsmArg = constantDynamic.getBootstrapMethodArgument(i);
+        checkDynamicType(bsmArg);
+      }
+      super.visitLdcInsn(constantDynamic);
+    }
+
     @Override
     public void visitLdcInsn(Object value) {
-      if (value instanceof Type) {
-        checkType((Type) value); // Class literals
-      } else if (value instanceof Handle) {
-        checkHandle((Handle) value);
-      } else {
-        checkState(PRIMITIVE_TYPES.contains(value.getClass()));
-      }
+      checkDynamicType(value);
       super.visitLdcInsn(value);
     }
 

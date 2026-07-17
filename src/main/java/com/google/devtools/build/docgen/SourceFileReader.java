@@ -31,6 +31,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
+import javax.annotation.Nullable;
 
 /**
  * A helper class to read and process documentations for rule classes and attributes
@@ -42,11 +43,13 @@ public class SourceFileReader {
   private ListMultimap<String, RuleDocumentationAttribute> attributeDocEntries;
   private final ConfiguredRuleClassProvider ruleClassProvider;
   private final String javaSourceFilePath;
+  private final String sourceUrl;
 
   public SourceFileReader(
-      ConfiguredRuleClassProvider ruleClassProvider, String javaSourceFilePath) {
+      ConfiguredRuleClassProvider ruleClassProvider, String javaSourceFilePath, String sourceUrl) {
     this.ruleClassProvider = ruleClassProvider;
     this.javaSourceFilePath = javaSourceFilePath;
+    this.sourceUrl = sourceUrl;
   }
 
   /**
@@ -204,8 +207,9 @@ public class SourceFileReader {
                     ruleType,
                     ruleFamily,
                     sb.toString(),
-                    getLineCnt(),
                     javaSourceFilePath,
+                    getLineCnt(),
+                    sourceUrl,
                     flags,
                     familySummary));
             sb = new StringBuilder();
@@ -249,8 +253,8 @@ public class SourceFileReader {
                     ruleClassProvider.getRuleClassDefinition(ruleName).getClass(),
                     attributeName,
                     sb.toString(),
-                    startLineCnt,
                     javaSourceFilePath,
+                    startLineCnt,
                     flags));
             sb = new StringBuilder();
             inBlazeAttributeDocs = false;
@@ -337,6 +341,7 @@ public class SourceFileReader {
     return line;
   }
 
+  @Nullable
   private static BufferedReader createReader(String filePath) throws IOException {
     File file = new File(filePath);
     if (file.exists()) {

@@ -14,109 +14,128 @@
 
 package com.google.devtools.build.lib.authandtls;
 
+import static java.util.Objects.requireNonNull;
+
+import com.google.common.base.Preconditions;
+import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.Converters.DurationConverter;
+import com.google.devtools.common.options.Converters.EmptyToNullStringConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
+import com.google.devtools.common.options.OptionsParsingException;
+import java.net.IDN;
 import java.time.Duration;
 import java.util.List;
+import java.util.Optional;
 
-/**
- * Common options for authentication and TLS.
- */
-public class AuthAndTLSOptions extends OptionsBase {
+/** Common options for authentication and TLS. */
+@OptionsClass
+public abstract class AuthAndTLSOptions extends OptionsBase {
   @Option(
-    name = "google_default_credentials",
-    oldName = "auth_enabled",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help =
-        "Whether to use 'Google Application Default Credentials' for authentication."
-            + " See https://cloud.google.com/docs/authentication for details. Disabled by default."
-  )
-  public boolean useGoogleDefaultCredentials;
+      name = "google_default_credentials",
+      oldName = "auth_enabled",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          """
+          Whether to use 'Google Application Default Credentials' for authentication.
+          See [Authentication methods at Google - Google Cloud][gc-auth-methods] for details.
+          Disabled by default.
 
-  @Option(
-    name = "google_auth_scopes",
-    oldName = "auth_scope",
-    defaultValue = "https://www.googleapis.com/auth/cloud-platform",
-    converter = CommaSeparatedOptionListConverter.class,
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "A comma-separated list of Google Cloud authentication scopes."
-  )
-  public List<String> googleAuthScopes;
+          [gc-auth-methods]: https://cloud.google.com/docs/authentication
+          """)
+  public abstract boolean getUseGoogleDefaultCredentials();
+
+  public abstract void setUseGoogleDefaultCredentials(boolean value);
 
   @Option(
-    name = "google_credentials",
-    oldName = "auth_credentials",
-    defaultValue = "null",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help =
-        "Specifies the file to get authentication credentials from. See "
-            + "https://cloud.google.com/docs/authentication for details."
-  )
-  public String googleCredentials;
+      name = "google_auth_scopes",
+      oldName = "auth_scope",
+      defaultValue = "https://www.googleapis.com/auth/cloud-platform",
+      converter = CommaSeparatedOptionListConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "A comma-separated list of Google Cloud authentication scopes.")
+  public abstract List<String> getGoogleAuthScopes();
+
+  public abstract void setGoogleAuthScopes(List<String> value);
+
+  @Option(
+      name = "google_credentials",
+      oldName = "auth_credentials",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Specifies the file to get authentication credentials from. See "
+              + "https://cloud.google.com/docs/authentication for details.")
+  public abstract String getGoogleCredentials();
+
+  public abstract void setGoogleCredentials(String value);
 
   @Option(
       name = "tls_certificate",
       defaultValue = "null",
+      converter = EmptyToNullStringConverter.class,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
-      help = "Specify a path to a TLS certificate that is trusted to sign server certificates.")
-  public String tlsCertificate;
+      help =
+          "Specify a path to a TLS certificate that is trusted to sign server certificates."
+              + " An empty value resets the flag to its default.")
+  public abstract String getTlsCertificate();
 
   @Option(
       name = "tls_client_certificate",
       defaultValue = "null",
+      converter = EmptyToNullStringConverter.class,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "Specify the TLS client certificate to use; you also need to provide a client key to "
-              + "enable client authentication.")
-  public String tlsClientCertificate;
+              + "enable client authentication. An empty value resets the flag to its default.")
+  public abstract String getTlsClientCertificate();
 
   @Option(
       name = "tls_client_key",
       defaultValue = "null",
+      converter = EmptyToNullStringConverter.class,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "Specify the TLS client key to use; you also need to provide a client certificate to "
-              + "enable client authentication.")
-  public String tlsClientKey;
+              + "enable client authentication. An empty value resets the flag to its default.")
+  public abstract String getTlsClientKey();
 
   @Option(
-    name = "tls_authority_override",
-    defaultValue = "null",
-    metadataTags = {OptionMetadataTag.HIDDEN},
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help =
-        "TESTING ONLY! Can be used with a self-signed certificate to consider the specified "
-            + "value a valid TLS authority."
-  )
-  public String tlsAuthorityOverride;
+      name = "tls_authority_override",
+      defaultValue = "null",
+      metadataTags = {OptionMetadataTag.HIDDEN},
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "TESTING ONLY! Can be used with a self-signed certificate to consider the specified "
+              + "value a valid TLS authority.")
+  public abstract String getTlsAuthorityOverride();
 
   @Option(
       name = "grpc_keepalive_time",
-      defaultValue = "null",
+      defaultValue = "60s",
       converter = DurationConverter.class,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
-          "Configures keep-alive pings for outgoing gRPC connections. If this is set, then "
-              + "Bazel sends pings after this much time of no read operations on the connection, "
-              + "but only if there is at least one pending gRPC call. Times are treated as second "
-              + "granularity; it is an error to set a value less than one second. By default, "
-              + "keep-alive pings are disabled. You should coordinate with the service owner "
-              + "before enabling this setting.")
-  public Duration grpcKeepaliveTime;
+          """
+          Configures keep-alive pings for outgoing gRPC connections. If this is set, then Bazel
+          sends pings after this much time of no read operations on the connection, but
+          only if there is at least one pending gRPC call. The value 0 disables the keep-alives.
+          """)
+  public abstract Duration getGrpcKeepaliveTime();
 
   @Option(
       name = "grpc_keepalive_timeout",
@@ -125,10 +144,203 @@ public class AuthAndTLSOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
-          "Configures a keep-alive timeout for outgoing gRPC connections. If keep-alive pings are "
-              + "enabled with --grpc_keepalive_time, then Bazel times out a connection if it does "
-              + "not receive a ping reply after this much time. Times are treated as second "
-              + "granularity; it is an error to set a value less than one second. If keep-alive "
-              + "pings are disabled, then this setting is ignored.")
-  public Duration grpcKeepaliveTimeout;
+          """
+          Configures a keep-alive timeout for outgoing gRPC connections. If keep-alive pings are
+          enabled with `--grpc_keepalive_time`, then Bazel times out a connection if it does
+          not receive a ping reply after this much time. Times are treated as second
+          granularity; it is an error to set a value less than one second. If keep-alive
+          pings are disabled, then this setting is ignored.
+          """)
+  public abstract Duration getGrpcKeepaliveTimeout();
+
+  @Option(
+      name = "grpc_tcp_keepalive",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          """
+          Whether to enable TCP keep-alive (the SO_KEEPALIVE socket option) for outgoing gRPC
+          connections. This operates at the transport layer and is independent of the
+          application-level keep-alive pings configured with `--grpc_keepalive_time`. When enabled,
+          the keep-alive behavior is controlled by `--grpc_tcp_keepalive_time`,
+          `--grpc_tcp_keepalive_interval` and `--grpc_tcp_keepalive_count`.
+          """)
+  public abstract boolean getGrpcTcpKeepalive();
+
+  @Option(
+      name = "grpc_tcp_keepalive_time",
+      defaultValue = "60s",
+      converter = DurationConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          """
+          When `--grpc_tcp_keepalive` is enabled, the amount of idle time on a gRPC connection
+          before the first TCP keep-alive probe is sent (TCP_KEEPIDLE). Has no effect if TCP
+          keep-alive is disabled.
+          """)
+  public abstract Duration getGrpcTcpKeepaliveTime();
+
+  @Option(
+      name = "grpc_tcp_keepalive_interval",
+      defaultValue = "10s",
+      converter = DurationConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          """
+          When `--grpc_tcp_keepalive` is enabled, the amount of time between successive TCP
+          keep-alive probes (TCP_KEEPINTVL). Has no effect if TCP keep-alive is disabled.
+          """)
+  public abstract Duration getGrpcTcpKeepaliveInterval();
+
+  @Option(
+      name = "grpc_tcp_keepalive_count",
+      defaultValue = "3",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          """
+          When `--grpc_tcp_keepalive` is enabled, the number of unacknowledged TCP keep-alive probes
+          to send before considering the connection dead (TCP_KEEPCNT). Has no effect if TCP
+          keep-alive is disabled.
+          """)
+  public abstract int getGrpcTcpKeepaliveCount();
+
+  @Option(
+      name = "credential_helper",
+      oldName = "experimental_credential_helper",
+      defaultValue = "null",
+      allowMultiple = true,
+      converter = CredentialHelperOptionConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          """
+          Configures a credential helper conforming to the [Credential Helper Specification][ch-spec]
+          to use for retrieving authorization credentials for repository
+          fetching, remote caching and execution, and the build event service.
+
+          The path to the credential helper may be absolute, relative to the PATH environment variable,
+          or %workspace%-relative. The path may be optionally prefixed by a scope followed by an '='.
+          The scope is a domain name, optionally with a single leading '*' wildcard component. A helper
+          applies to URIs matching its scope, with more specific scopes preferred. If a helper has no
+          scope, it applies to every URI.
+
+          Credentials supplied by a helper take precedence over credentials supplied by
+          `--google_default_credentials`, `--google_credentials`, a `.netrc` file, or the
+           auth parameter to `repository_ctx.download()` and
+          `repository_ctx.download_and_extract()`.
+
+          May be specified multiple times to set up multiple helpers.
+
+          See [Configuring Bazel's Credential Helper - Engflow Blog][ch-example] for instructions.
+
+          [ch-spec]: https://github.com/EngFlow/credential-helper-spec
+          [ch-example]: https://blog.engflow.com/2023/10/09/configuring-bazels-credential-helper/
+          """)
+  public abstract List<CredentialHelperOption> getCredentialHelpers();
+
+  @Option(
+      name = "credential_helper_timeout",
+      oldName = "experimental_credential_helper_timeout",
+      defaultValue = "10s",
+      converter = DurationConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          """
+          Configures the timeout for a credential helper.
+
+          Credential helpers failing to respond within this timeout will fail the invocation.
+          """)
+  public abstract Duration getCredentialHelperTimeout();
+
+  @Option(
+      name = "credential_helper_cache_duration",
+      oldName = "experimental_credential_helper_cache_duration",
+      defaultValue = "30m",
+      converter = DurationConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "How long to cache credentials for if the credential helper doesn't return an expiration"
+              + " time. Changing the value of this flag clears the cache.")
+  public abstract Duration getCredentialHelperCacheTimeout();
+
+  public abstract void setCredentialHelperCacheTimeout(Duration value);
+
+  /**
+   * One of the values of the `--credential_helper` flag.
+   *
+   * @param scope Returns the scope of the credential helper (if any).
+   *     <p>The scope is a valid ASCII domain name with an optional leading '.*' wildcard.
+   * @param path Returns the (unparsed) path of the credential helper.
+   */
+  public record CredentialHelperOption(Optional<String> scope, String path) {
+    public CredentialHelperOption {
+      requireNonNull(scope, "scope");
+      requireNonNull(path, "path");
+    }
+
+  }
+
+  /** A {@link Converter} for the `--credential_helper` flag. */
+  public static final class CredentialHelperOptionConverter
+      extends Converter.Contextless<CredentialHelperOption> {
+    public static final CredentialHelperOptionConverter INSTANCE =
+        new CredentialHelperOptionConverter();
+
+    @Override
+    public String getTypeDescription() {
+      return "Path to a credential helper.";
+    }
+
+    @Override
+    public CredentialHelperOption convert(String input) throws OptionsParsingException {
+      Preconditions.checkNotNull(input);
+
+      int pos = input.indexOf('=');
+      if (pos >= 0) {
+        String scope = parseScope(input.substring(0, pos));
+        String path = parsePath(input.substring(pos + 1));
+        return new CredentialHelperOption(Optional.of(scope), path);
+      }
+
+      // `input` does not specify a scope.
+      return new CredentialHelperOption(Optional.empty(), parsePath(input));
+    }
+
+    private String parseScope(String scope) throws OptionsParsingException {
+      if (scope.isEmpty()) {
+        throw new OptionsParsingException("Credential helper scope must not be empty");
+      }
+      String wildcard = "";
+      String domainName = scope;
+      if (scope.startsWith("*.") && scope.length() > 2) {
+        wildcard = "*.";
+        domainName = scope.substring(2);
+      }
+      try {
+        // Check that the domain name is either ASCII and conforming to RFC 1122 and RFC 1123,
+        // or non-ASCII and conforming to RFC 3490. In the latter case, convert it to Punycode.
+        // See https://en.wikipedia.org/wiki/Punycode.
+        return wildcard + IDN.toASCII(domainName, IDN.USE_STD3_ASCII_RULES);
+      } catch (IllegalArgumentException e) {
+        throw new OptionsParsingException(
+            "Credential helper scope '"
+                + scope
+                + "' must be a valid domain name with an optional leading '*.' wildcard",
+            e);
+      }
+    }
+
+    private String parsePath(String path) throws OptionsParsingException {
+      if (path.isEmpty()) {
+        throw new OptionsParsingException("Credential helper path must not be empty");
+      }
+      return path;
+    }
+  }
 }

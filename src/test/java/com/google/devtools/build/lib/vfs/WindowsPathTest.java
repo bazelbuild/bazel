@@ -53,8 +53,8 @@ public class WindowsPathTest extends PathAbstractTest {
   @Test
   public void testEqualsAndHashcodeWindows() {
     new EqualsTester()
-        .addEqualityGroup(create("/a/b"), create("/A/B"))
-        .addEqualityGroup(create("c:/a/b"), create("C:\\A\\B"))
+        .addEqualityGroup(create("/a/b"))
+        .addEqualityGroup(create("c:/a/b"))
         .addEqualityGroup(create("C:/something/else"))
         .testEquals();
   }
@@ -77,9 +77,24 @@ public class WindowsPathTest extends PathAbstractTest {
     assertThat(create("C:/").startsWith(create("C:/"))).isTrue();
     assertThat(create("C:/foo").startsWith(create("C:/"))).isTrue();
     assertThat(create("C:/foo").startsWith(create("D:/"))).isFalse();
+  }
 
-    // Case insensitivity test
-    assertThat(create("C:/foo/bar").startsWith(create("C:/FOO"))).isTrue();
+  @Test
+  public void testStartsWithIgnoringCaseWindows() {
+    assertThat(create("C:/").startsWithIgnoringCase(create("C:/"))).isTrue();
+    assertThat(create("C:/").startsWithIgnoringCase(create("c:/"))).isTrue();
+    assertThat(create("c:/").startsWithIgnoringCase(create("C:/"))).isTrue();
+    assertThat(create("c:/").startsWithIgnoringCase(create("c:/"))).isTrue();
+
+    assertThat(create("C:/foo").startsWithIgnoringCase(create("C:/"))).isTrue();
+    assertThat(create("C:/foo").startsWithIgnoringCase(create("c:/"))).isTrue();
+    assertThat(create("c:/foo").startsWithIgnoringCase(create("C:/"))).isTrue();
+    assertThat(create("c:/foo").startsWithIgnoringCase(create("c:/"))).isTrue();
+
+    assertThat(create("C:/foo").startsWithIgnoringCase(create("D:/"))).isFalse();
+    assertThat(create("C:/foo").startsWithIgnoringCase(create("d:/"))).isFalse();
+    assertThat(create("c:/foo").startsWithIgnoringCase(create("D:/"))).isFalse();
+    assertThat(create("c:/foo").startsWithIgnoringCase(create("d:/"))).isFalse();
   }
 
   @Test
@@ -99,8 +114,6 @@ public class WindowsPathTest extends PathAbstractTest {
   @Test
   public void testRelativeToWindows() {
     assertThat(create("C:/foo").relativeTo(create("C:/")).getPathString()).isEqualTo("foo");
-    // Case insensitivity test
-    assertThat(create("C:/foo/bar").relativeTo(create("C:/FOO")).getPathString()).isEqualTo("bar");
     assertThrows(IllegalArgumentException.class, () -> create("D:/foo").relativeTo(create("C:/")));
   }
 

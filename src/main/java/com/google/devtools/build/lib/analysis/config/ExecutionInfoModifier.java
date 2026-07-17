@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.analysis.config;
 
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
+
 import com.google.auto.value.AutoValue;
 import com.google.auto.value.extension.memoized.Memoized;
 import com.google.common.base.Splitter;
@@ -21,6 +23,7 @@ import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.common.options.Converters.RegexPatternConverter;
 import com.google.devtools.common.options.OptionsParsingException;
+import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -38,6 +41,7 @@ public abstract class ExecutionInfoModifier {
   private static final ExecutionInfoModifier EMPTY = create("", ImmutableList.of());
 
   abstract String option();
+
   abstract ImmutableList<Expression> expressions();
 
   @AutoValue
@@ -58,7 +62,7 @@ public abstract class ExecutionInfoModifier {
 
   /** Constructs an instance of ExecutionInfoModifier by parsing an option string. */
   public static class Converter
-      implements com.google.devtools.common.options.Converter<ExecutionInfoModifier> {
+      extends com.google.devtools.common.options.Converter.Contextless<ExecutionInfoModifier> {
     @Override
     public ExecutionInfoModifier convert(String input) throws OptionsParsingException {
       if (Strings.isNullOrEmpty(input)) {
@@ -77,7 +81,7 @@ public abstract class ExecutionInfoModifier {
                 // Convert to get a useful exception if it's not a valid pattern, but use the regex
                 // (see comment in Expression)
                 new RegexPatternConverter()
-                    .convert(specMatcher.group("pattern"))
+                    .convert(specMatcher.group("pattern"), /* conversionContext= */ null)
                     .regexPattern()
                     .pattern(),
                 specMatcher.group("sign").equals("-"),
@@ -90,6 +94,16 @@ public abstract class ExecutionInfoModifier {
     public String getTypeDescription() {
       return "regex=[+-]key,regex=[+-]key,...";
     }
+
+    @Override
+    public boolean starlarkConvertible() {
+      return true;
+    }
+
+    @Override
+    public String reverseForStarlark(Object converted) {
+      return ((ExecutionInfoModifier) converted).option();
+    }
   }
 
   private static ExecutionInfoModifier create(String input, ImmutableList<Expression> expressions) {
@@ -99,14 +113,46 @@ public abstract class ExecutionInfoModifier {
   /**
    * Determines whether the given {@code mnemonic} (e.g. "CppCompile") matches any of the patterns.
    */
-  public boolean matches(String mnemonic) {
-    return expressions().stream().anyMatch(expr -> expr.pattern().matcher(mnemonic).matches());
+  boolean matches(String mnemonic) {
+    return expressions().stream()
+        .anyMatch(expr -> expr.pattern().matcher(internalToUnicode(mnemonic)).matches());
+  }
+
+  /** Checks whether the {@code executionInfoList} matches the {@code mnemonic}. */
+  public static boolean matches(
+      List<ExecutionInfoModifier> executionInfoList, boolean isAdditive, String mnemonic) {
+    if (executionInfoList.isEmpty()) {
+      return false;
+    }
+
+    if (isAdditive) {
+      return executionInfoList.stream().anyMatch(eim -> eim.matches(mnemonic));
+    } else {
+      return executionInfoList.getLast().matches(mnemonic);
+    }
+  }
+
+  /** Applies {@code executionInfoList} to the given {@code executionInfo}. */
+  public static void apply(
+      List<ExecutionInfoModifier> executionInfoList,
+      boolean isAdditive,
+      String mnemonic,
+      Map<String, String> executionInfo) {
+    if (executionInfoList.isEmpty()) {
+      return;
+    }
+
+    if (isAdditive) {
+      executionInfoList.forEach(eim -> eim.apply(mnemonic, executionInfo));
+    } else {
+      executionInfoList.getLast().apply(mnemonic, executionInfo);
+    }
   }
 
   /** Modifies the given map of {@code executionInfo} to add or remove the keys for this option. */
   void apply(String mnemonic, Map<String, String> executionInfo) {
     for (Expression expr : expressions()) {
-      if (expr.pattern().matcher(mnemonic).matches()) {
+      if (expr.pattern().matcher(internalToUnicode(mnemonic)).matches()) {
         if (expr.remove()) {
           executionInfo.remove(expr.key());
         } else {

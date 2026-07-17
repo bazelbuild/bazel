@@ -13,6 +13,7 @@
 // limitations under the License.
 package net.starlark.java.annot;
 
+import com.google.errorprone.annotations.Keep;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -80,8 +81,13 @@ import java.lang.annotation.Target;
  * unless the method is marked as {@link #allowReturnNones}, in which case {@link Starlark#fromJava}
  * converts the Java null value to {@link Starlark#NONE}. This feature prevents a method whose
  * declared (and documented) result type is T from unexpectedly returning a value of type NoneType.
+ *
+ * <p>The annotated method may throw any checked or unchecked exceptions. When it is invoked,
+ * unchecked exceptions, {@code EvalException}s, and {@code InterruptedException}s are passed
+ * through; all other (checked) exceptions are wrapped in an {@code EvalException} and thrown.
  */
 // TODO(adonovan): rename to StarlarkAttribute and factor Starlark{Method,Field} as subinterfaces.
+@Keep
 @Target({ElementType.METHOD})
 @Retention(RetentionPolicy.RUNTIME)
 public @interface StarlarkMethod {
@@ -138,7 +144,7 @@ public @interface StarlarkMethod {
    *
    * <p>If this is left as default, it is an error for the caller to pass any named arguments not
    * explicitly declared by the method signature. If this is defined, all additional named arguments
-   * are passed as elements of a {@link Dict<String, Object>} to the method.
+   * are passed as elements of a {@code Dict<String, Object>} to the method.
    *
    * <p>See Python's <code>**kwargs</code> (http://thepythonguru.com/python-args-and-kwargs/).
    *
@@ -183,6 +189,27 @@ public @interface StarlarkMethod {
    * StarlarkThread} parameter provides access to the semantics, and more.
    */
   boolean useStarlarkSemantics() default false;
+
+  /**
+   * Whether this method can act as a type in a type expression.
+   *
+   * <p>An example would be the {@code list} builtin symbol.
+   *
+   * <p>If true, the class identified by the Java method's return type is taken to be the Java class
+   * whose instances are Starlark values of this Starlark type. For example, {@code list()} is
+   * implemented by {@link MethodLibrary#list}, whose return type is {@link StarlarkList}, and
+   * instances of {@code StarlarkList} are Starlark values of the {@code list} type.
+   *
+   * <p>The return type's class must define a static method with the signature:
+   *
+   * <pre>
+   *     public static TypeConstructor getAssociatedTypeConstructor() {...}
+   * </pre>
+   *
+   * which is reflectively invoked to identify the appropriate type constructor (e.g. {@link
+   * Types#LIST_CONSTRUCTOR}) that will be called when this method appears in a type application.
+   */
+  boolean isTypeConstructor() default false;
 
   /**
    * If non-empty, the annotated method will only be callable if the given semantic flag is true.

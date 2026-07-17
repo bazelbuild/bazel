@@ -56,11 +56,10 @@ public class TestTimeoutTest {
   public void testAllTimesHaveSuggestions() throws Exception {
     for (int timeout = 0; timeout < ETERNAL.getTimeoutSeconds(); timeout++) {
       TestTimeout suggested = getSuggestedTestTimeout(timeout);
-      assertWithMessage("No suggested TestTimeout found for timeout " + timeout)
+      assertWithMessage("No suggested TestTimeout found for timeout %s", timeout)
           .that(suggested)
           .isNotNull();
-      assertWithMessage(
-              "Suggested timeout " + suggested + " is not in the fuzzy range for " + timeout)
+      assertWithMessage("Suggested timeout %s is not in the fuzzy range for %s", suggested, timeout)
           .that(suggested.isInRangeFuzzy(timeout))
           .isTrue();
     }
@@ -90,7 +89,7 @@ public class TestTimeoutTest {
       for (TestTimeout testTimeout : Arrays.asList(SHORT, MODERATE, LONG, ETERNAL)) {
         truthValues.add(testTimeout.isInRangeFuzzy(timeout));
       }
-      assertWithMessage("Timeout " + timeout + " is not in any fuzzy range.")
+      assertWithMessage("Timeout %s is not in any fuzzy range.", timeout)
           .that(truthValues)
           .contains(true);
     }

@@ -18,7 +18,7 @@ import static com.google.devtools.build.lib.shell.ShellUtils.prettyPrintArgv;
 import static com.google.devtools.build.lib.shell.ShellUtils.tokenize;
 import static org.junit.Assert.fail;
 
-import com.google.common.collect.Lists;
+import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -36,20 +36,21 @@ public class ShellUtilsWithBashTest {
 
     // Assert that pretty-print is correct, i.e. dual to the actual /bin/sh
     // tokenization.  This test assumes no newlines in the input:
-    String[] execArgs = {
-      "/bin/sh",
-      "-c",
-      "for i in " + shellCommand + "; do echo \"$i\"; done" // tokenize, one word per line
-    };
+    var execArgs =
+        ImmutableList.of(
+            "/bin/sh",
+            "-c",
+            "for i in " + shellCommand + "; do echo \"$i\"; done" // tokenize, one word per line
+            );
     String stdout = null;
     try {
-      stdout = new String(new Command(execArgs).execute().getStdout());
+      stdout = new String(new Command(execArgs, System.getenv()).execute().getStdout());
     } catch (Exception e) {
       fail("/bin/sh failed:\n" + in + "\n" + shellCommand + "\n" + e.getMessage());
     }
     // We can't use stdout.split("\n") here,
     // because String.split() ignores trailing empty strings.
-    ArrayList<String> words = Lists.newArrayList();
+    ArrayList<String> words = new ArrayList<>();
     int index;
     while ((index = stdout.indexOf('\n')) >= 0) {
       words.add(stdout.substring(0, index));

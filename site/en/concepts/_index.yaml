@@ -1,0 +1,45 @@
+book_path: /_book.yaml
+project_path: /_project.yaml
+title: Understanding Bazel
+landing_page:
+  nav: left
+  rows:
+  - background: BAZEL_THEME
+    options:
+    - hero
+    - description-50
+    - no-image-background
+    - padding-large
+    items:
+    - image_path: "/images/placeholder_960.png"
+      heading: Understanding Bazel
+      description: >
+        Gain context around Bazel design decisions, learn vital concepts, and understand Bazel releases and versioning.
+  - options:
+    - cards
+    background: grey
+    items:
+    - heading: Read about the build system
+      classname: fully-clickable
+      path: /basics/
+      description: >
+        Discover a short history of how artifact-based build systems evolved to enable scale, speed, and hermeticity.
+      icon:
+        name: info
+        position: top
+    - heading: Understand fundamental concepts
+      classname: fully-clickable
+      path: /concepts/build-ref
+      description: >
+        Learn foundational concepts including source code layout, BUILD file syntax, and the types of rules and dependencies.
+      icon:
+        name: menu_book
+        position: top
+    - heading: Check releases and updates
+      classname: fully-clickable
+      path: /release/
+      description: >
+        See Bazel's Long Term Support including release notes, policies, timelines, announcements, and testing.
+      icon:
+        name: feed
+        position: top

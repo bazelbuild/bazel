@@ -13,16 +13,25 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
+import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Maps;
 import com.google.common.flogger.GoogleLogger;
+import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.skyframe.DiffAwareness.View;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.skyframe.IntVersion;
 import com.google.devtools.common.options.OptionsProvider;
+import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import javax.annotation.Nullable;
 
 /**
@@ -36,7 +45,20 @@ public final class DiffAwarenessManager {
   // The manager attempts to instantiate these in the order in which they are passed to the
   // constructor; this is critical in the case where a factory always succeeds.
   private final ImmutableList<? extends DiffAwareness.Factory> diffAwarenessFactories;
-  private Map<Root, DiffAwarenessState> currentDiffAwarenessStates = Maps.newHashMap();
+
+  /** The unique key to retrieve a DiffAwarenessState. */
+  @AutoValue
+  abstract static class StateKey {
+    private static StateKey create(Root root, IgnoredSubdirectories ignoredPaths) {
+      return new AutoValue_DiffAwarenessManager_StateKey(root, ignoredPaths);
+    }
+
+    abstract Root root();
+
+    abstract IgnoredSubdirectories ignoredPaths();
+  }
+
+  private final Map<StateKey, DiffAwarenessState> currentDiffAwarenessStates = new HashMap<>();
 
   public DiffAwarenessManager(Iterable<? extends DiffAwareness.Factory> diffAwarenessFactories) {
     this.diffAwarenessFactories = ImmutableList.copyOf(diffAwarenessFactories);
@@ -44,12 +66,18 @@ public final class DiffAwarenessManager {
 
   private static class DiffAwarenessState {
     private final DiffAwareness diffAwareness;
+
     /**
-     * The {@link View} that should be the baseline for the next {@link #getDiff} call, or
-     * {@code null} if the next {@link #getDiff} will be the first incremental one.
+     * The {@link View} that should be the baseline for the next {@link #getDiff} call, or {@code
+     * null} if the next {@link #getDiff} will be the first incremental one.
      */
-    @Nullable
-    private View baselineView;
+    @Nullable private View baselineView;
+
+    /**
+     * Cached new {@link View} from a call to {@link #getEvaluatingVersionDiff}, for the next {@link
+     * #getDiff} call.
+     */
+    @Nullable private View cachedNewView;
 
     private DiffAwarenessState(DiffAwareness diffAwareness, @Nullable View baselineView) {
       this.diffAwareness = diffAwareness;
@@ -80,51 +108,110 @@ public final class DiffAwarenessManager {
   }
 
   /**
+   * Represents old and new evaluating versions as per {@link
+   * WorkspaceInfoFromDiff#getEvaluatingVersion}.
+   */
+  public record EvaluatingVersionDiff(IntVersion from, IntVersion to) implements Postable {
+    public EvaluatingVersionDiff {
+      checkNotNull(from);
+      checkNotNull(to);
+    }
+
+    public long getNumericalDiff() {
+      return to.getVal() - from.getVal();
+    }
+  }
+
+  /**
+   * Returns an {@link EvaluatingVersionDiff} corresponding to the current diff.
+   *
+   * <p>Returns an empty optional if there is no baseline view or if the views do not support
+   * evaluating versions.
+   */
+  Optional<EvaluatingVersionDiff> getEvaluatingVersionDiff(
+      Root pathEntry, OptionsProvider options) {
+    DiffAwarenessState diffAwarenessState =
+        maybeGetDiffAwarenessState(pathEntry, IgnoredSubdirectories.EMPTY, options);
+    if (diffAwarenessState == null || diffAwarenessState.baselineView == null) {
+      return Optional.empty();
+    }
+
+    WorkspaceInfoFromDiff baselineWorkspaceInfo =
+        diffAwarenessState.baselineView.getWorkspaceInfo();
+    if (baselineWorkspaceInfo == null) {
+      return Optional.empty();
+    }
+
+    View newView;
+    try (SilentCloseable c = Profiler.instance().profile("diffAwareness.getCurrentView")) {
+      newView = diffAwarenessState.diffAwareness.getCurrentView(options);
+      diffAwarenessState.cachedNewView = newView;
+    } catch (BrokenDiffAwarenessException e) {
+      return Optional.empty();
+    }
+
+    WorkspaceInfoFromDiff newWorkspaceInfo = newView.getWorkspaceInfo();
+    if (newWorkspaceInfo == null) {
+      return Optional.empty();
+    }
+
+    return Optional.of(
+        new EvaluatingVersionDiff(
+            baselineWorkspaceInfo.getEvaluatingVersion(), newWorkspaceInfo.getEvaluatingVersion()));
+  }
+
+  /**
    * Gets the set of changed files since the last call with this path entry, or {@code
    * ModifiedFileSet.EVERYTHING_MODIFIED} if this is the first such call.
    */
   public ProcessableModifiedFileSet getDiff(
-      EventHandler eventHandler, Root pathEntry, OptionsProvider options) {
-    DiffAwarenessState diffAwarenessState = maybeGetDiffAwarenessState(pathEntry);
+      EventHandler eventHandler,
+      Root pathEntry,
+      IgnoredSubdirectories ignoredPaths,
+      OptionsProvider options)
+      throws InterruptedException {
+    DiffAwarenessState diffAwarenessState =
+        maybeGetDiffAwarenessState(pathEntry, ignoredPaths, options);
     if (diffAwarenessState == null) {
       return BrokenProcessableModifiedFileSet.INSTANCE;
     }
     DiffAwareness diffAwareness = diffAwarenessState.diffAwareness;
-    View newView;
-    try {
-      newView = diffAwareness.getCurrentView(options);
-    } catch (BrokenDiffAwarenessException e) {
-      handleBrokenDiffAwareness(eventHandler, pathEntry, e);
-      return BrokenProcessableModifiedFileSet.INSTANCE;
+
+    View newView = diffAwarenessState.cachedNewView;
+    if (newView == null) {
+      try (SilentCloseable c = Profiler.instance().profile("diffAwareness.getCurrentView")) {
+        newView = diffAwarenessState.diffAwareness.getCurrentView(options);
+      } catch (BrokenDiffAwarenessException e) {
+        handleBrokenDiffAwareness(eventHandler, pathEntry, ignoredPaths, e);
+        return BrokenProcessableModifiedFileSet.INSTANCE;
+      }
+    } else {
+      diffAwarenessState.cachedNewView = null;
     }
 
     View baselineView = diffAwarenessState.baselineView;
-    if (baselineView == null) {
-      logger.atInfo().log("Initial baseline view for %s is %s", pathEntry, newView);
-      diffAwarenessState.baselineView = newView;
-      return new InitialModifiedFileSet(newView.getWorkspaceInfo());
-    }
-
     ModifiedFileSet diff;
     logger.atInfo().log(
         "About to compute diff between %s and %s for %s", baselineView, newView, pathEntry);
-    try {
+    try (SilentCloseable c = Profiler.instance().profile("diffAwareness.getDiff")) {
       diff = diffAwareness.getDiff(baselineView, newView);
     } catch (BrokenDiffAwarenessException e) {
-      handleBrokenDiffAwareness(eventHandler, pathEntry, e);
+      handleBrokenDiffAwareness(eventHandler, pathEntry, ignoredPaths, e);
       return BrokenProcessableModifiedFileSet.INSTANCE;
     } catch (IncompatibleViewException e) {
       throw new IllegalStateException(pathEntry + " " + baselineView + " " + newView, e);
     }
 
-    ProcessableModifiedFileSet result = new ProcessableModifiedFileSetImpl(diff, pathEntry,
-        newView);
-    return result;
+    return new ProcessableModifiedFileSetImpl(diff, pathEntry, ignoredPaths, newView);
   }
 
   private void handleBrokenDiffAwareness(
-      EventHandler eventHandler, Root pathEntry, BrokenDiffAwarenessException e) {
-    currentDiffAwarenessStates.remove(pathEntry);
+      EventHandler eventHandler,
+      Root pathEntry,
+      IgnoredSubdirectories ignoredPaths,
+      BrokenDiffAwarenessException e) {
+    StateKey stateKey = StateKey.create(pathEntry, ignoredPaths);
+    currentDiffAwarenessStates.remove(stateKey);
     logger.atInfo().withCause(e).log("Broken diff awareness for %s", pathEntry);
     eventHandler.handle(Event.warn(e.getMessage() + "... temporarily falling back to manually "
         + "checking files for changes"));
@@ -135,18 +222,21 @@ public final class DiffAwarenessManager {
    * current one, or otherwise {@code null} if no factory could make a fresh one.
    */
   @Nullable
-  private DiffAwarenessState maybeGetDiffAwarenessState(Root pathEntry) {
-    DiffAwarenessState diffAwarenessState = currentDiffAwarenessStates.get(pathEntry);
+  private DiffAwarenessState maybeGetDiffAwarenessState(
+      Root pathEntry, IgnoredSubdirectories ignoredPaths, OptionsProvider options) {
+    StateKey stateKey = StateKey.create(pathEntry, ignoredPaths);
+    DiffAwarenessState diffAwarenessState = currentDiffAwarenessStates.get(stateKey);
     if (diffAwarenessState != null) {
       return diffAwarenessState;
     }
+
     for (DiffAwareness.Factory factory : diffAwarenessFactories) {
-      DiffAwareness newDiffAwareness = factory.maybeCreate(pathEntry);
+      DiffAwareness newDiffAwareness = factory.maybeCreate(pathEntry, ignoredPaths, options);
       if (newDiffAwareness != null) {
         logger.atInfo().log(
             "Using %s DiffAwareness strategy for %s", newDiffAwareness.name(), pathEntry);
         diffAwarenessState = new DiffAwarenessState(newDiffAwareness, /*baselineView=*/null);
-        currentDiffAwarenessStates.put(pathEntry, diffAwarenessState);
+        currentDiffAwarenessStates.put(stateKey, diffAwarenessState);
         return diffAwarenessState;
       }
     }
@@ -163,10 +253,16 @@ public final class DiffAwarenessManager {
      */
     private final View nextView;
 
+    private final IgnoredSubdirectories ignoredPaths;
+
     private ProcessableModifiedFileSetImpl(
-        ModifiedFileSet modifiedFileSet, Root pathEntry, View nextView) {
+        ModifiedFileSet modifiedFileSet,
+        Root pathEntry,
+        IgnoredSubdirectories ignoredPaths,
+        View nextView) {
       this.modifiedFileSet = modifiedFileSet;
       this.pathEntry = pathEntry;
+      this.ignoredPaths = ignoredPaths;
       this.nextView = nextView;
     }
 
@@ -183,9 +279,11 @@ public final class DiffAwarenessManager {
 
     @Override
     public void markProcessed() {
-      DiffAwarenessState diffAwarenessState = currentDiffAwarenessStates.get(pathEntry);
+      StateKey stateKey = StateKey.create(pathEntry, ignoredPaths);
+      DiffAwarenessState diffAwarenessState = currentDiffAwarenessStates.get(stateKey);
       if (diffAwarenessState != null) {
         diffAwarenessState.baselineView = nextView;
+        diffAwarenessState.cachedNewView = null;
       }
     }
   }
@@ -208,30 +306,5 @@ public final class DiffAwarenessManager {
 
     @Override
     public void markProcessed() {}
-  }
-
-  /** Modified file set for a clean build. */
-  private static class InitialModifiedFileSet implements ProcessableModifiedFileSet {
-
-    @Nullable private final WorkspaceInfoFromDiff workspaceInfo;
-
-    InitialModifiedFileSet(@Nullable WorkspaceInfoFromDiff workspaceInfo) {
-      this.workspaceInfo = workspaceInfo;
-    }
-
-    @Override
-    public ModifiedFileSet getModifiedFileSet() {
-      return ModifiedFileSet.EVERYTHING_MODIFIED;
-    }
-
-    @Nullable
-    @Override
-    public WorkspaceInfoFromDiff getWorkspaceInfo() {
-      return workspaceInfo;
-    }
-
-    @Override
-    public void markProcessed() {
-    }
   }
 }

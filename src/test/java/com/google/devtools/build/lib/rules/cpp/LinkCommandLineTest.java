@@ -15,35 +15,33 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
+import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
-import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.exec.util.FakeActionInputFileCache;
+import com.google.devtools.build.lib.packages.StarlarkInfo;
+import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.LibraryToLinkValue;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.SequenceBuilder;
-import com.google.devtools.build.lib.rules.cpp.CppActionConfigs.CppPlatform;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
-import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
+import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.testutil.TestUtils;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
-import java.io.IOException;
-import java.util.Arrays;
-import java.util.Collection;
 import java.util.List;
+import net.starlark.java.eval.StarlarkList;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -53,65 +51,71 @@ import org.junit.runners.JUnit4;
  * presence of certain build variables.
  */
 @RunWith(JUnit4.class)
-public final class LinkCommandLineTest extends BuildViewTestCase {
+public final class LinkCommandLineTest extends LinkBuildVariablesTestCase {
 
-  private Artifact scratchArtifact(String s) {
-    Path execRoot = outputBase.getRelative("exec");
-    String outSegment = "root";
-    Path outputRoot = execRoot.getRelative(outSegment);
-    ArtifactRoot root = ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, outSegment);
-    try {
-      return ActionsTestUtil.createArtifact(
-          root, scratch.overwriteFile(outputRoot.getRelative(s).toString()));
-    } catch (IOException e) {
-      throw new RuntimeException(e);
-    }
-  }
-
-  private CcToolchainVariables.Builder getMockBuildVariables() {
-    return getMockBuildVariables(ImmutableList.<String>of());
+  private static CcToolchainVariables.Builder getMockBuildVariables() {
+    return getMockBuildVariables(ImmutableList.of());
   }
 
   private static CcToolchainVariables.Builder getMockBuildVariables(
       ImmutableList<String> linkstampOutputs) {
     CcToolchainVariables.Builder result = CcToolchainVariables.builder();
 
-    result.addStringVariable(LinkBuildVariables.GENERATE_INTERFACE_LIBRARY.getVariableName(), "no");
-    result.addStringVariable(
-        LinkBuildVariables.INTERFACE_LIBRARY_INPUT.getVariableName(), "ignored");
-    result.addStringVariable(
-        LinkBuildVariables.INTERFACE_LIBRARY_OUTPUT.getVariableName(), "ignored");
-    result.addStringVariable(
-        LinkBuildVariables.INTERFACE_LIBRARY_BUILDER.getVariableName(), "ignored");
+    result.addVariable(LinkBuildVariables.GENERATE_INTERFACE_LIBRARY.getVariableName(), "no");
+    result.addVariable(LinkBuildVariables.INTERFACE_LIBRARY_INPUT.getVariableName(), "ignored");
+    result.addVariable(LinkBuildVariables.INTERFACE_LIBRARY_OUTPUT.getVariableName(), "ignored");
+    result.addVariable(LinkBuildVariables.INTERFACE_LIBRARY_BUILDER.getVariableName(), "ignored");
     result.addStringSequenceVariable(
         LinkBuildVariables.LINKSTAMP_PATHS.getVariableName(), linkstampOutputs);
 
     return result;
   }
 
+  private CcToolchainFeatures buildMockFeatures() throws Exception {
+    scratch.overwriteFile(
+        "crosstool.bzl",
+        "load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')",
+        "def _impl(ctx):",
+        "    return cc_common.create_cc_toolchain_config_info(",
+        "        ctx = ctx,",
+        "        toolchain_identifier = 'toolchain',",
+        "        host_system_name = 'host',",
+        "        target_system_name = 'target',",
+        "        target_cpu = 'cpu',",
+        "        target_libc = 'libc',",
+        "        compiler = 'compiler',",
+        "    )",
+        "",
+        "cc_toolchain_config_rule = rule(implementation = _impl)");
+
+    scratch.overwriteFile(
+        "BUILD",
+        "load(':crosstool.bzl', 'cc_toolchain_config_rule')",
+        "load('//bazel_internal/test_rules/cc:ctf_rule.bzl', 'cc_toolchain_features')",
+        "cc_toolchain_features(name = 'f', config = ':r')",
+        "cc_toolchain_config_rule(name = 'r')");
+
+    scratch.overwriteFile("bazel_internal/test_rules/cc/BUILD");
+    scratch.overwriteFile(
+        "bazel_internal/test_rules/cc/ctf_rule.bzl",
+        """
+        load('@rules_cc//cc/toolchains:cc_toolchain_config_info.bzl', 'CcToolchainConfigInfo')
+        load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')
+        MyInfo = provider()
+        def _impl(ctx):
+          return [MyInfo(f = cc_common.cc_toolchain_features(
+                    toolchain_config_info = ctx.attr.config[CcToolchainConfigInfo],
+                    tools_directory = "",
+                  ))]
+        cc_toolchain_features = rule(_impl, attrs = {"config":attr.label()})
+        """);
+    ConfiguredTarget target = getConfiguredTarget("//:f");
+    assertThat(target).isNotNull();
+    return (CcToolchainFeatures) getStarlarkProvider(target, "MyInfo").getValue("f");
+  }
+
   private FeatureConfiguration getMockFeatureConfiguration() throws Exception {
-    ImmutableList<CToolchain.Feature> features =
-        new ImmutableList.Builder<CToolchain.Feature>()
-            .addAll(
-                CppActionConfigs.getLegacyFeatures(
-                    CppPlatform.LINUX,
-                    ImmutableSet.of(),
-                    "MOCK_LINKER_TOOL",
-                    /* supportsEmbeddedRuntimes= */ true,
-                    /* supportsInterfaceSharedLibraries= */ false))
-            .addAll(CppActionConfigs.getFeaturesToAppearLastInFeaturesList(ImmutableSet.of()))
-            .build();
-
-    ImmutableList<CToolchain.ActionConfig> actionConfigs =
-        CppActionConfigs.getLegacyActionConfigs(
-            CppPlatform.LINUX,
-            "MOCK_GCC_TOOL",
-            "MOCK_AR_TOOL",
-            "MOCK_STRIP_TOOL",
-            /* supportsInterfaceSharedLibraries= */ false,
-            /* existingActionConfigNames= */ ImmutableSet.of());
-
-    return CcToolchainTestHelper.buildFeatures(features, actionConfigs)
+    return buildMockFeatures()
         .getFeatureConfiguration(
             ImmutableSet.of(
                 Link.LinkTargetType.EXECUTABLE.getActionName(),
@@ -136,22 +140,6 @@ public final class LinkCommandLineTest extends BuildViewTestCase {
     return minimalConfiguration(getMockBuildVariables());
   }
 
-  private void assertError(String expectedSubstring, LinkCommandLine.Builder builder) {
-    RuntimeException e = assertThrows(RuntimeException.class, () -> builder.build());
-    assertThat(e).hasMessageThat().contains(expectedSubstring);
-  }
-
-  @Test
-  public void testStaticLinkWithBuildInfoHeadersIsError() throws Exception {
-    assertError(
-        "build info headers may only be present",
-        minimalConfiguration()
-            .setLinkTargetType(LinkTargetType.STATIC_LIBRARY)
-            .setLinkingMode(LinkingMode.STATIC)
-            .setBuildInfoHeaderArtifacts(
-                ImmutableList.of(scratchArtifact("FakeBuildInfoHeaderArtifact1"))));
-  }
-
   /**
    * Tests that when linking without linkstamps, the exec command is the same as the link command.
    */
@@ -160,9 +148,8 @@ public final class LinkCommandLineTest extends BuildViewTestCase {
     LinkCommandLine linkConfig =
         minimalConfiguration()
             .setActionName(LinkTargetType.EXECUTABLE.getActionName())
-            .setLinkTargetType(LinkTargetType.EXECUTABLE)
             .build();
-    List<String> rawLinkArgv = linkConfig.getRawLinkArgv();
+    List<String> rawLinkArgv = linkConfig.arguments();
     assertThat(linkConfig.arguments()).isEqualTo(rawLinkArgv);
   }
 
@@ -172,10 +159,8 @@ public final class LinkCommandLineTest extends BuildViewTestCase {
     LinkCommandLine linkConfig =
         minimalConfiguration()
             .forceToolPath("foo/bar/gcc")
-            .setLinkTargetType(LinkTargetType.NODEPS_DYNAMIC_LIBRARY)
-            .setLinkingMode(LinkingMode.STATIC)
             .build();
-    List<String> argv = linkConfig.getRawLinkArgv();
+    List<String> argv = linkConfig.arguments();
     for (String arg : argv) {
       assertThat(arg).doesNotContain("print-symbol-counts");
     }
@@ -185,20 +170,16 @@ public final class LinkCommandLineTest extends BuildViewTestCase {
   public void testLibrariesToLink() throws Exception {
     CcToolchainVariables.Builder variables =
         getMockBuildVariables()
-            .addCustomBuiltVariable(
+            .addVariable(
                 LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName(),
-                new SequenceBuilder()
-                    .addValue(LibraryToLinkValue.forStaticLibrary("foo", false))
-                    .addValue(LibraryToLinkValue.forStaticLibrary("bar", true)));
+                ImmutableList.of(forStaticLibrary("foo", false), forStaticLibrary("bar", true)));
 
     LinkCommandLine linkConfig =
         minimalConfiguration(variables)
             .forceToolPath("foo/bar/gcc")
             .setActionName(LinkTargetType.NODEPS_DYNAMIC_LIBRARY.getActionName())
-            .setLinkTargetType(LinkTargetType.NODEPS_DYNAMIC_LIBRARY)
-            .setLinkingMode(LinkingMode.STATIC)
             .build();
-    String commandLine = Joiner.on(" ").join(linkConfig.getRawLinkArgv());
+    String commandLine = Joiner.on(" ").join(linkConfig.arguments());
     assertThat(commandLine).matches(".*foo -Wl,-whole-archive bar -Wl,-no-whole-archive.*");
   }
 
@@ -213,42 +194,50 @@ public final class LinkCommandLineTest extends BuildViewTestCase {
     LinkCommandLine linkConfig =
         minimalConfiguration(variables)
             .setActionName(LinkTargetType.NODEPS_DYNAMIC_LIBRARY.getActionName())
-            .setLinkTargetType(LinkTargetType.NODEPS_DYNAMIC_LIBRARY)
-            .setLinkingMode(LinkingMode.STATIC)
             .build();
-    assertThat(linkConfig.getRawLinkArgv()).containsAtLeast("-Lfoo", "-Lbar").inOrder();
+    assertThat(linkConfig.arguments()).containsAtLeast("-Lfoo", "-Lbar").inOrder();
   }
 
   @Test
   public void testLinkerParamFileForStaticLibrary() throws Exception {
     CcToolchainVariables.Builder variables =
         getMockBuildVariables()
-            .addStringVariable(
-                LinkBuildVariables.LINKER_PARAM_FILE.getVariableName(), "foo/bar.param");
+            .addVariable(
+                LinkBuildVariables.LINKER_PARAM_FILE.getVariableName(),
+                "LINKER_PARAM_FILE_PLACEHOLDER");
 
     LinkCommandLine linkConfig =
         minimalConfiguration(variables)
             .setActionName(LinkTargetType.STATIC_LIBRARY.getActionName())
-            .setLinkTargetType(LinkTargetType.STATIC_LIBRARY)
-            .setLinkingMode(Link.LinkingMode.STATIC)
+            .setSplitCommandLine(true)
             .build();
-    assertThat(linkConfig.getRawLinkArgv()).contains("@foo/bar.param");
+    assertThat(linkConfig.getCommandLines().unpack().get(1).paramFileInfo.always()).isTrue();
   }
 
   @Test
   public void testLinkerParamFileForDynamicLibrary() throws Exception {
     CcToolchainVariables.Builder variables =
         getMockBuildVariables()
-            .addStringVariable(
-                LinkBuildVariables.LINKER_PARAM_FILE.getVariableName(), "foo/bar.param");
+            .addVariable(
+                LinkBuildVariables.LINKER_PARAM_FILE.getVariableName(),
+                "LINKER_PARAM_FILE_PLACEHOLDER");
 
     LinkCommandLine linkConfig =
         minimalConfiguration(variables)
             .setActionName(LinkTargetType.NODEPS_DYNAMIC_LIBRARY.getActionName())
-            .setLinkTargetType(LinkTargetType.NODEPS_DYNAMIC_LIBRARY)
-            .setLinkingMode(Link.LinkingMode.STATIC)
+            .setSplitCommandLine(true)
             .build();
-    assertThat(linkConfig.getRawLinkArgv()).contains("@foo/bar.param");
+    assertThat(linkConfig.getCommandLines().unpack().get(1).paramFileInfo.always()).isTrue();
+  }
+
+  @Test
+  public void testCustomParamFileName() throws Exception {
+    LinkCommandLine linkConfig =
+        minimalConfiguration(getMockBuildVariables())
+            .setParamFileName("custom.params")
+            .setSplitCommandLine(true)
+            .build();
+    assertThat(linkConfig.getParamFileInfo().getParamFileName()).isEqualTo("custom.params");
   }
 
   private List<String> basicArgv(LinkTargetType targetType) throws Exception {
@@ -260,8 +249,6 @@ public final class LinkCommandLineTest extends BuildViewTestCase {
     LinkCommandLine linkConfig =
         minimalConfiguration(variables)
             .setActionName(targetType.getActionName())
-            .setLinkTargetType(targetType)
-            .setLinkingMode(LinkingMode.STATIC)
             .build();
     return linkConfig.arguments();
   }
@@ -280,8 +267,7 @@ public final class LinkCommandLineTest extends BuildViewTestCase {
     assertThat(basicArgv(LinkTargetType.ALWAYS_LINK_PIC_STATIC_LIBRARY)).doesNotContain(pieArg);
 
     CcToolchainVariables.Builder picVariables =
-        getMockBuildVariables()
-            .addStringVariable(LinkBuildVariables.FORCE_PIC.getVariableName(), "");
+        getMockBuildVariables().addVariable(LinkBuildVariables.FORCE_PIC.getVariableName(), "");
     // Enabled:
     useConfiguration("--force_pic");
     assertThat(basicArgv(LinkTargetType.EXECUTABLE, picVariables)).contains(pieArg);
@@ -298,45 +284,48 @@ public final class LinkCommandLineTest extends BuildViewTestCase {
   @Test
   public void testSplitStaticLinkCommand() throws Exception {
     useConfiguration("--nostart_end_lib");
-    Artifact paramFile = scratchArtifact("some/file.params");
     LinkCommandLine linkConfig =
         minimalConfiguration(
                 getMockBuildVariables()
-                    .addStringVariable(
+                    .addVariable(
                         LinkBuildVariables.OUTPUT_EXECPATH.getVariableName(), "a/FakeOutput")
-                    .addStringVariable(
-                        LinkBuildVariables.LINKER_PARAM_FILE.getVariableName(), "some/file.params"))
+                    .addVariable(
+                        LinkBuildVariables.LINKER_PARAM_FILE.getVariableName(),
+                        "LINKER_PARAM_FILE_PLACEHOLDER"))
             .setActionName(LinkTargetType.STATIC_LIBRARY.getActionName())
-            .setLinkTargetType(LinkTargetType.STATIC_LIBRARY)
             .forceToolPath("foo/bar/ar")
-            .setParamFile(paramFile)
+            .setSplitCommandLine(true)
+            .setParameterFileType(ParameterFileType.UNQUOTED)
             .build();
-    Pair<List<String>, List<String>> result = linkConfig.splitCommandline();
-    assertThat(result.first).isEqualTo(Arrays.asList("foo/bar/ar", "@some/file.params"));
-    assertThat(result.second).isEqualTo(Arrays.asList("rcsD", "a/FakeOutput"));
+    assertThat(linkConfig.getCommandLines().unpack().get(0).commandLine.arguments())
+        .containsExactly("foo/bar/ar");
+    assertThat(linkConfig.getCommandLines().unpack().get(1).paramFileInfo.always()).isTrue();
+    assertThat(linkConfig.getParamCommandLine(null, PathMapper.NOOP))
+        .containsExactly("rcsD", "a/FakeOutput")
+        .inOrder();
   }
 
   @Test
   public void testSplitDynamicLinkCommand() throws Exception {
     useConfiguration("--nostart_end_lib");
-    Artifact paramFile = scratchArtifact("some/file.params");
     LinkCommandLine linkConfig =
         minimalConfiguration(
                 getMockBuildVariables()
-                    .addStringVariable(
+                    .addVariable(
                         LinkBuildVariables.OUTPUT_EXECPATH.getVariableName(), "a/FakeOutput")
-                    .addStringVariable(
+                    .addVariable(
                         LinkBuildVariables.LINKER_PARAM_FILE.getVariableName(), "some/file.params")
                     .addStringSequenceVariable(
                         LinkBuildVariables.USER_LINK_FLAGS.getVariableName(), ImmutableList.of("")))
             .setActionName(LinkTargetType.DYNAMIC_LIBRARY.getActionName())
-            .setLinkTargetType(LinkTargetType.DYNAMIC_LIBRARY)
             .forceToolPath("foo/bar/linker")
-            .setParamFile(paramFile)
+            .setSplitCommandLine(true)
             .build();
-    Pair<List<String>, List<String>> result = linkConfig.splitCommandline();
-    assertThat(result.first).containsExactly("foo/bar/linker", "@some/file.params").inOrder();
-    assertThat(result.second).containsExactly("-shared", "-o", "a/FakeOutput", "").inOrder();
+    assertThat(linkConfig.getCommandLines().unpack().get(0).commandLine.arguments())
+        .containsExactly("foo/bar/linker");
+    assertThat(linkConfig.getParamCommandLine(null, PathMapper.NOOP))
+        .containsExactly("-shared", "-o", "a/FakeOutput", "")
+        .inOrder();
   }
 
   @Test
@@ -345,42 +334,39 @@ public final class LinkCommandLineTest extends BuildViewTestCase {
     LinkCommandLine linkConfig =
         minimalConfiguration(
                 getMockBuildVariables()
-                    .addStringVariable(
+                    .addVariable(
                         LinkBuildVariables.OUTPUT_EXECPATH.getVariableName(), "a/FakeOutput"))
             .forceToolPath("foo/bar/ar")
             .setActionName(LinkTargetType.STATIC_LIBRARY.getActionName())
-            .setLinkTargetType(LinkTargetType.STATIC_LIBRARY)
             .build();
-    List<String> result = linkConfig.getRawLinkArgv();
-    assertThat(result).isEqualTo(Arrays.asList("foo/bar/ar", "rcsD", "a/FakeOutput"));
+    List<String> result = linkConfig.arguments();
+    assertThat(result).containsExactly("rcsD", "a/FakeOutput").inOrder();
+    assertThat(linkConfig.getLinkerPathString()).isEqualTo("foo/bar/ar");
   }
 
   @Test
   public void testSplitAlwaysLinkLinkCommand() throws Exception {
     CcToolchainVariables.Builder variables =
         CcToolchainVariables.builder()
-            .addStringVariable(CcCommon.SYSROOT_VARIABLE_NAME, "/usr/grte/v1")
-            .addStringVariable(LinkBuildVariables.OUTPUT_EXECPATH.getVariableName(), "a/FakeOutput")
-            .addStringVariable(
-                LinkBuildVariables.LINKER_PARAM_FILE.getVariableName(), "some/file.params")
-            .addCustomBuiltVariable(
+            .addVariable(SYSROOT_VARIABLE_NAME, "/usr/grte/v1")
+            .addVariable(LinkBuildVariables.OUTPUT_EXECPATH.getVariableName(), "a/FakeOutput")
+            .addVariable(LinkBuildVariables.LINKER_PARAM_FILE.getVariableName(), "some/file.params")
+            .addVariable(
                 LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName(),
-                new CcToolchainVariables.SequenceBuilder()
-                    .addValue(LibraryToLinkValue.forObjectFile("foo.o", false))
-                    .addValue(LibraryToLinkValue.forObjectFile("bar.o", false)));
+                ImmutableList.of(forObjectFile("foo.o", false), forObjectFile("bar.o", false)));
 
-    Artifact paramFile = scratchArtifact("some/file.params");
     LinkCommandLine linkConfig =
         minimalConfiguration(variables)
             .setActionName(LinkTargetType.ALWAYS_LINK_STATIC_LIBRARY.getActionName())
-            .setLinkTargetType(LinkTargetType.ALWAYS_LINK_STATIC_LIBRARY)
             .forceToolPath("foo/bar/ar")
-            .setParamFile(paramFile)
+            .setSplitCommandLine(true)
             .build();
-    Pair<List<String>, List<String>> result = linkConfig.splitCommandline();
 
-    assertThat(result.first).isEqualTo(Arrays.asList("foo/bar/ar", "@some/file.params"));
-    assertThat(result.second).isEqualTo(Arrays.asList("rcsD", "a/FakeOutput", "foo.o", "bar.o"));
+    assertThat(linkConfig.getCommandLines().unpack().get(0).commandLine.arguments())
+        .containsExactly("foo/bar/ar");
+    assertThat(linkConfig.getParamCommandLine(null, PathMapper.NOOP))
+        .containsExactly("rcsD", "a/FakeOutput", "foo.o", "bar.o")
+        .inOrder();
   }
 
   private SpecialArtifact createTreeArtifact(String name) {
@@ -388,10 +374,10 @@ public final class LinkCommandLineTest extends BuildViewTestCase {
     Path execRoot = fs.getPath(TestUtils.tmpDir());
     PathFragment execPath = PathFragment.create("out").getRelative(name);
     return ActionsTestUtil.createTreeArtifactWithGeneratingAction(
-        ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "out"), execPath);
+        ArtifactRoot.asDerivedRoot(execRoot, RootType.OUTPUT, "out"), execPath);
   }
 
-  private void verifyArguments(
+  private static void verifyArguments(
       Iterable<String> arguments,
       Iterable<String> allowedArguments,
       Iterable<String> disallowedArguments) {
@@ -406,52 +392,80 @@ public final class LinkCommandLineTest extends BuildViewTestCase {
     TreeFileArtifact library0 = TreeFileArtifact.createTreeOutput(testTreeArtifact, "library0.o");
     TreeFileArtifact library1 = TreeFileArtifact.createTreeOutput(testTreeArtifact, "library1.o");
 
-    ArtifactExpander expander =
-        new ArtifactExpander() {
-          @Override
-          public void expand(Artifact artifact, Collection<? super Artifact> output) {
-            if (artifact.equals(testTreeArtifact)) {
-              output.add(library0);
-              output.add(library1);
-            }
-          };
-        };
+    // We don't read the tree artifact or its contents, so MISSING_FILE_MARKER is OK
+    TreeArtifactValue treeArtifactValue =
+        TreeArtifactValue.newBuilder(testTreeArtifact)
+            .putChild(library0, FileArtifactValue.MISSING_FILE_MARKER)
+            .putChild(library1, FileArtifactValue.MISSING_FILE_MARKER)
+            .build();
+
+    FakeActionInputFileCache fakeActionInputFileCache = new FakeActionInputFileCache();
+    fakeActionInputFileCache.putTreeArtifact(testTreeArtifact, treeArtifactValue);
 
     Iterable<String> treeArtifactsPaths = ImmutableList.of(testTreeArtifact.getExecPathString());
     Iterable<String> treeFileArtifactsPaths =
         ImmutableList.of(library0.getExecPathString(), library1.getExecPathString());
 
-    Artifact paramFile = scratchArtifact("some/file.params");
-
     LinkCommandLine linkConfig =
         minimalConfiguration(
                 getMockBuildVariables()
-                    .addStringVariable(
+                    .addVariable(
                         LinkBuildVariables.LINKER_PARAM_FILE.getVariableName(), "some/file.params")
-                    .addCustomBuiltVariable(
+                    .addVariable(
                         LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName(),
-                        new CcToolchainVariables.SequenceBuilder()
-                            .addValue(
-                                LibraryToLinkValue.forObjectFileGroup(
-                                    ImmutableList.of(testTreeArtifact), false))))
+                        ImmutableList.of(
+                            forObjectFileGroup(ImmutableList.of(testTreeArtifact), false))))
             .forceToolPath("foo/bar/gcc")
             .setActionName(LinkTargetType.STATIC_LIBRARY.getActionName())
-            .setLinkTargetType(LinkTargetType.STATIC_LIBRARY)
-            .setLinkingMode(Link.LinkingMode.STATIC)
-            .setParamFile(paramFile)
+            .setSplitCommandLine(true)
             .build();
 
     // Should only reference the tree artifact.
-    verifyArguments(linkConfig.arguments(null), treeArtifactsPaths, treeFileArtifactsPaths);
-    verifyArguments(linkConfig.getRawLinkArgv(null), treeArtifactsPaths, treeFileArtifactsPaths);
     verifyArguments(
-        linkConfig.paramCmdLine().arguments(null), treeArtifactsPaths, treeFileArtifactsPaths);
+        linkConfig.arguments(null, PathMapper.NOOP), treeArtifactsPaths, treeFileArtifactsPaths);
+    verifyArguments(linkConfig.arguments(), treeArtifactsPaths, treeFileArtifactsPaths);
+    verifyArguments(
+        linkConfig.getParamCommandLine(null, PathMapper.NOOP),
+        treeArtifactsPaths,
+        treeFileArtifactsPaths);
 
     // Should only reference tree file artifacts.
-    verifyArguments(linkConfig.arguments(expander), treeFileArtifactsPaths, treeArtifactsPaths);
     verifyArguments(
-        linkConfig.getRawLinkArgv(expander), treeFileArtifactsPaths, treeArtifactsPaths);
+        linkConfig.arguments(fakeActionInputFileCache, PathMapper.NOOP),
+        treeFileArtifactsPaths,
+        treeArtifactsPaths);
     verifyArguments(
-        linkConfig.paramCmdLine().arguments(expander), treeFileArtifactsPaths, treeArtifactsPaths);
+        linkConfig.arguments(fakeActionInputFileCache, PathMapper.NOOP),
+        treeFileArtifactsPaths,
+        treeArtifactsPaths);
+    verifyArguments(
+        linkConfig.getParamCommandLine(fakeActionInputFileCache, PathMapper.NOOP),
+        treeFileArtifactsPaths,
+        treeArtifactsPaths);
+  }
+
+  private StarlarkInfo forStaticLibrary(String name, boolean isWholeArchive) {
+    return StructProvider.STRUCT.create(
+        ImmutableMap.of("type", "static_library", "name", name, "is_whole_archive", isWholeArchive),
+        "");
+  }
+
+  private StarlarkInfo forObjectFile(String path, boolean isWholeArchive) {
+    return StructProvider.STRUCT.create(
+        ImmutableMap.of("type", "object_file", "name", path, "is_whole_archive", isWholeArchive),
+        "");
+  }
+
+  private StarlarkInfo forObjectFileGroup(
+      ImmutableList<Artifact> objectFiles, boolean isWholeArchive) {
+    return StructProvider.STRUCT.create(
+        ImmutableMap.of(
+            "type",
+            "object_file_group",
+            "object_files",
+            StarlarkList.immutableCopyOf(objectFiles),
+            "is_whole_archive",
+            isWholeArchive),
+        "");
   }
 }

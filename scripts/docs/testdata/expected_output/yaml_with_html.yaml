@@ -1,0 +1,17 @@
+book_path: /versions/6.6.6/_book.yaml
+project_path: /_project.yaml
+title: Reference
+landing_page:
+  nav: left
+  rows:
+  - background: BAZEL_THEME
+    options:
+    - hero
+    - description-50
+    - no-image-background
+    - padding-large
+    items:
+    - image_path: "/versions/6.6.6/images/placeholder_960.png"
+      heading: Reference
+      description: >
+        Look up commands, queries, and terminology necessary to working with <a href="/versions/6.6.6/guide">Bazel</a>.

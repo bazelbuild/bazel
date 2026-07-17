@@ -32,9 +32,12 @@ public interface OptionsParsingResult extends OptionsProvider {
   OptionValueDescription getOptionValueDescription(String name);
 
   /**
-   * Returns an immutable copy of the residue, that is, the arguments that
-   * have not been parsed.
+   * Returns an immutable copy of all arguments that were skipped because they matched a skipped
+   * prefix.
    */
+  List<String> getSkippedArgs();
+
+  /** Returns an immutable copy of the residue, that is, the arguments that have not been parsed. */
   List<String> getResidue();
 
   /**
@@ -92,6 +95,10 @@ public interface OptionsParsingResult extends OptionsProvider {
   // TODO(b/150222792): make this aware of Starlark options
   List<OptionValueDescription> asListOfOptionValues();
 
+  /** Returns all non-default option values, including implicit options. */
+  // TODO(b/150222792): make this aware of Starlark options
+  List<OptionValueDescription> allOptionValues();
+
   /**
    * Canonicalizes the list of options that this OptionsParser has parsed.
    *
@@ -108,4 +115,7 @@ public interface OptionsParsingResult extends OptionsProvider {
    * are the aliases and the values are the actual flag names.
    */
   Map<String, String> getAliases();
+
+  /** Returns true if there were no errors during options parsing. */
+  boolean success();
 }

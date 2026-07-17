@@ -16,7 +16,10 @@ package com.google.devtools.build.lib.skyframe.actiongraph.v2;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AnalysisProtosV2.DepSetOfFiles;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet.Node;
 import java.io.IOException;
+import java.util.HashSet;
+import java.util.Set;
 
 /** Cache for NestedSets in the action graph. */
 public class KnownNestedSets extends BaseCache<Object, DepSetOfFiles> {
@@ -37,8 +40,14 @@ public class KnownNestedSets extends BaseCache<Object, DepSetOfFiles> {
       throws IOException, InterruptedException {
     NestedSet<?> nestedSet = (NestedSet) nestedSetObject;
     DepSetOfFiles.Builder depSetBuilder = DepSetOfFiles.newBuilder().setId(id);
+
+    // Some malformed NestedSets have duplicate non-leaf child subsets. This does not add any
+    // meaningful info and sometimes even corrupt the proto3 output. More context: b/186193294.
+    Set<Node> visited = new HashSet<>();
     for (NestedSet<?> succ : nestedSet.getNonLeaves()) {
-      depSetBuilder.addTransitiveDepSetIds(this.dataToIdAndStreamOutputProto(succ));
+      if (visited.add(succ.toNode())) {
+        depSetBuilder.addTransitiveDepSetIds(this.dataToIdAndStreamOutputProto(succ));
+      }
     }
     for (Object elem : nestedSet.getLeaves()) {
       depSetBuilder.addDirectArtifactIds(

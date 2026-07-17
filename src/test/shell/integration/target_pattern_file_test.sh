@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2020 The Bazel Authors. All rights reserved.
 #
@@ -40,41 +40,24 @@ fi
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-# `uname` returns the current platform, e.g "MSYS_NT-10.0" or "Linux".
-# `tr` converts all upper case letters to lower case.
-# `case` matches the result if the `uname | tr` expression to string prefixes
-# that use the same wildcards as names do in Bash, i.e. "msys*" matches strings
-# starting with "msys", and "*" matches everything (it's the default case).
-case "$(uname -s | tr [:upper:] [:lower:])" in
-msys*)
-  # As of 2018-08-14, Bazel on Windows only supports MSYS Bash.
-  declare -r is_windows=true
-  ;;
-*)
-  declare -r is_windows=false
-  ;;
-esac
-
-if "$is_windows"; then
-  # Disable MSYS path conversion that converts path-looking command arguments to
-  # Windows paths (even if they arguments are not in fact paths).
-  export MSYS_NO_PATHCONV=1
-  export MSYS2_ARG_CONV_EXCL="*"
-fi
-
 add_to_bazelrc "build --package_path=%workspace%"
 
 #### SETUP #############################################################
 
 function setup() {
+  add_rules_shell "MODULE.bazel"
   cat >BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 genrule(name = "x", outs = ["x.out"], cmd = "echo true > $@", executable = True)
 sh_test(name = "y", srcs = ["x.out"])
 EOF
 
   cat >build.params <<'EOF'
-//:x
+# Test comment
+//:x # Trailing comment
 //:y
+#
 EOF
 }
 
@@ -98,6 +81,19 @@ function test_target_pattern_file_and_cli_pattern() {
   setup
   bazel build --target_pattern_file=build.params -- //:x >& $TEST_log && fail "Expected failure"
   expect_log "ERROR: Command-line target pattern and --target_pattern_file cannot both be specified"
+}
+
+function test_target_pattern_file_unicode() {
+  mkdir -p foo
+  cat > foo/BUILD <<'EOF'
+filegroup(name = "äöüÄÖÜß🌱")
+EOF
+
+  echo "//foo:äöüÄÖÜß🌱" > my_targets || fail "Could not write my_query"
+  bazel build --target_pattern_file=my_targets >& $TEST_log || fail "Expected success"
+  # expect_log doesn't work on Windows
+  # See https://github.com/bazelbuild/bazel/issues/28924
+  [[ "$(< "$TEST_log")" == *"//foo:äöüÄÖÜß🌱"* ]] || fail "Emoji target not found in log"
 }
 
 run_suite "Tests for using target_pattern_file"

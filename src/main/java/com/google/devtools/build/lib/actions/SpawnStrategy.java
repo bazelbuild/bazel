@@ -37,35 +37,8 @@ public interface SpawnStrategy {
   ImmutableList<SpawnResult> exec(Spawn spawn, ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException;
 
-  /**
-   * Executes the given spawn, possibly asynchronously, and returns a SpawnContinuation to represent
-   * the execution. Otherwise all requirements from {@link #exec} apply.
-   */
-  default SpawnContinuation beginExecution(
-      Spawn spawn, ActionExecutionContext actionExecutionContext) throws InterruptedException {
-    try {
-      return SpawnContinuation.immediate(exec(spawn, actionExecutionContext));
-    } catch (ExecException e) {
-      return SpawnContinuation.failedWithExecException(e);
-    }
-  }
-
-  /**
-   * Returns whether this SpawnActionContext supports executing the given Spawn. This does not allow
-   * using the legacy fallback to local execution controlled by the {@code
-   * --incompatible_legacy_local_fallback} flag.
-   */
+  /** Returns whether this SpawnActionContext supports executing the given Spawn. */
   boolean canExec(Spawn spawn, ActionContext.ActionContextRegistry actionContextRegistry);
-
-  /**
-   * Returns true if this SpawnActionContext supports executing the given Spawn through a legacy
-   * fallback system. This will only be used if no SpawnActionContexts were able to execute it by
-   * normal means.
-   */
-  default boolean canExecWithLegacyFallback(
-      Spawn spawn, ActionContext.ActionContextRegistry actionContextRegistry) {
-    return false;
-  }
 
   /**
    * Performs any actions conditional on this strategy not only being registered but triggered as

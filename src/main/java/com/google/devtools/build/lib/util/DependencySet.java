@@ -14,27 +14,33 @@
 
 package com.google.devtools.build.lib.util;
 
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
+
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.io.PrintStream;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import javax.annotation.Nullable;
 
 /**
- * Representation of a set of file dependencies for a given output file. There
- * are generally one input dependency and a bunch of include dependencies. The
- * files are stored as {@code Path}s and may be relative or absolute.
- * <p>
- * The serialized format read and written is equivalent and compatible with the
- * ".d" file produced by the -MM for a given out (.o) file.
- * <p>
- * The file format looks like:
+ * Representation of a set of file dependencies for a given output file. There are generally one
+ * input dependency and a bunch of include dependencies. The files are stored as {@code Path}s and
+ * may be relative or absolute.
+ *
+ * <p>The serialized format read and written is equivalent and compatible with the ".d" file
+ * produced by the -MM for a given out (.o) file.
+ *
+ * <p>The file format looks like:
  *
  * <pre>
  * {outfile}:  \
@@ -49,18 +55,15 @@ import java.util.concurrent.atomic.AtomicReference;
 public final class DependencySet {
 
   /**
-   * The set of dependent files that this DependencySet embodies. They are all
-   * Path with the same FileSystem  A tree set is used to ensure that we
-   * write them out in a consistent order.
+   * The set of dependent files that this DependencySet embodies. They are all Path with the same
+   * FileSystem A tree set is used to ensure that we write them out in a consistent order.
    */
   private final Collection<Path> dependencies = new ArrayList<>();
 
   private final Path root;
   private String outputFileName;
 
-  /**
-   * Get output file name for which dependencies are included in this DependencySet.
-   */
+  /** Get output file name for which dependencies are included in this DependencySet. */
   public String getOutputFileName() {
     return outputFileName;
   }
@@ -69,24 +72,22 @@ public final class DependencySet {
     this.outputFileName = outputFileName;
   }
 
-  /**
-   * Constructs a new empty DependencySet instance.
-   */
+  /** Constructs a new empty DependencySet instance. */
   public DependencySet(Path root) {
     this.root = root;
   }
 
   /**
-   * Gets an unmodifiable view of the set of dependencies in {@link Path} form
-   * from this DependencySet instance.
+   * Gets an unmodifiable view of the set of dependencies in {@link Path} form from this
+   * DependencySet instance.
    */
   public Collection<Path> getDependencies() {
     return Collections.unmodifiableCollection(dependencies);
   }
 
   /**
-   * Adds a given collection of dependencies in Path form to this DependencySet
-   * instance. Paths are converted to root-relative
+   * Adds a given collection of dependencies in Path form to this DependencySet instance. Paths are
+   * converted to root-relative
    */
   @VisibleForTesting // only called from DependencySetTest
   public void addDependencies(Collection<Path> deps) {
@@ -96,9 +97,7 @@ public final class DependencySet {
     }
   }
 
-  /**
-   * Adds a given dependency to this DependencySet instance.
-   */
+  /** Adds a given dependency to this DependencySet instance. */
   private void addDependency(String dep) {
     dep = translatePath(dep);
     Path depPath = root.getRelative(dep);
@@ -109,12 +108,10 @@ public final class DependencySet {
     if (OS.getCurrent() != OS.WINDOWS) {
       return path;
     }
-    return WindowsPath.translateWindowsPath(path);
+    return WindowsPath.removeWorkspace(WindowsPath.translateWindowsPath(path));
   }
 
-  /**
-   * Reads a dotd file into this DependencySet instance.
-   */
+  /** Reads a dotd file into this DependencySet instance. */
   public DependencySet read(Path dotdFile) throws IOException {
     byte[] content = FileSystemUtils.readContent(dotdFile);
     try {
@@ -130,6 +127,7 @@ public final class DependencySet {
    * <p>Performance-critical! In large C++ builds there are lots of .d files to read, and some of
    * them reach into hundreds of kilobytes.
    */
+  @CanIgnoreReturnValue
   public DependencySet process(byte[] content) throws IOException {
     final int n = content.length;
     if (n > 0 && content[n - 1] != '\n') {
@@ -145,13 +143,12 @@ public final class DependencySet {
     for (int r = 0; r < n; ) {
       final byte c = content[r++];
       switch (c) {
-
         case ' ':
           // If we haven't yet seen the colon delimiting the target name,
           // keep scanning.  We do this to cope with "foo.o : \" which is
           // valid Makefile syntax produced by the cuda compiler.
           if (sawTarget && w > 0) {
-            addDependency(new String(content, 0, w, StandardCharsets.UTF_8));
+            addDependency(new String(content, 0, w, ISO_8859_1));
             w = 0;
           }
           continue;
@@ -165,10 +162,10 @@ public final class DependencySet {
           // (Arguably if !sawTarget && w > 0 we should report an error,
           // as that suggests the .d file is malformed.)
           if (sawTarget && w > 0) {
-            addDependency(new String(content, 0, w, StandardCharsets.UTF_8));
+            addDependency(new String(content, 0, w, ISO_8859_1));
           }
           w = 0;
-          sawTarget = false;  // reset for new line
+          sawTarget = false; // reset for new line
           continue;
 
         case ':':
@@ -179,27 +176,27 @@ public final class DependencySet {
             case '\n':
             case '\r':
               if (w > 0) {
-                outputFileName = new String(content, 0, w, StandardCharsets.UTF_8);
+                outputFileName = new String(content, 0, w, ISO_8859_1);
                 w = 0;
                 sawTarget = true;
               }
               continue;
             default:
-              content[w++] = c;  // copy a colon to filename
+              content[w++] = c; // copy a colon to filename
               continue;
           }
 
         case '\\':
           // Peek ahead at the next character.
           switch (content[r]) {
-            // Backslashes are taken literally except when followed by whitespace.
-            // See the Windows tests for some of the nonsense we have to tolerate.
+              // Backslashes are taken literally except when followed by whitespace.
+              // See the Windows tests for some of the nonsense we have to tolerate.
             case ' ':
-              content[w++] = ' ';  // copy a space to the filename
-              ++r;  // skip over the space
+              content[w++] = ' '; // copy a space to the filename
+              ++r; // skip over the space
               continue;
             case '\n':
-              ++r;  // skip over the newline
+              ++r; // skip over the newline
               continue;
             case '\r':
               // One backslash can escape \r\n, so peek one more character.
@@ -208,7 +205,7 @@ public final class DependencySet {
               }
               continue;
             default:
-              content[w++] = c;  // copy a backlash to the filename
+              content[w++] = c; // copy a backlash to the filename
               continue;
           }
 
@@ -222,15 +219,14 @@ public final class DependencySet {
 
         default:
           content[w++] = c;
-
       }
     }
     return this;
   }
 
   /**
-   * Writes this DependencySet object for a specified output file under the root
-   * dir, and with a given suffix.
+   * Writes this DependencySet object for a specified output file under the root dir, and with a
+   * given suffix.
    */
   public void write(Path outFile, String suffix) throws IOException {
     Path dotdFile =
@@ -239,7 +235,7 @@ public final class DependencySet {
     try (PrintStream out = new PrintStream(dotdFile.getOutputStream())) {
       out.print(outFile.relativeTo(root) + ": ");
       for (Path d : dependencies) {
-        out.print(" \\\n  " + d.getPathString());  // should already be root relative
+        out.print(" \\\n  " + d.getPathString()); // should already be root relative
       }
       out.println();
     }
@@ -247,8 +243,8 @@ public final class DependencySet {
 
   @Override
   public boolean equals(Object other) {
-    return other instanceof DependencySet
-        && ((DependencySet) other).dependencies.equals(dependencies);
+    return other instanceof DependencySet dependencySet
+        && dependencySet.dependencies.equals(dependencies);
   }
 
   @Override
@@ -259,17 +255,24 @@ public final class DependencySet {
   private static final class WindowsPath {
     private static final AtomicReference<String> UNIX_ROOT = new AtomicReference<>(null);
 
+    private static final Pattern EXECROOT_BASE_HEADER_PATTERN =
+        Pattern.compile(".*execroot[\\\\/](?<headerPath>.*)");
+
+    private static String removeWorkspace(String path) {
+      Matcher m = EXECROOT_BASE_HEADER_PATTERN.matcher(path);
+      if (m.matches()) {
+        path = "../" + m.group("headerPath");
+      }
+      return path;
+    }
+
     private static String translateWindowsPath(String path) {
       int n = path.length();
       if (n == 0 || path.charAt(0) != '/') {
         return path;
       }
       if (n >= 2 && isAsciiLetter(path.charAt(1)) && (n == 2 || path.charAt(2) == '/')) {
-        StringBuilder sb = new StringBuilder(path.length());
-        sb.append(Character.toUpperCase(path.charAt(1)));
-        sb.append(":/");
-        sb.append(path, 2, path.length());
-        return sb.toString();
+        return Ascii.toUpperCase(path.charAt(1)) + ":/" + path.substring(2);
       } else {
         String unixRoot = getUnixRoot();
         return unixRoot + path;
@@ -290,7 +293,7 @@ public final class DependencySet {
               String.format(
                   "\"%1$s\" JVM flag is not set. Use the --host_jvm_args flag. "
                       + "For example: "
-                      + "\"--host_jvm_args=-D%1$s=c:/tools/msys64\".",
+                      + "\"--host_jvm_args=-D%1$s=c:/msys64\".",
                   jvmFlag));
         }
         value = value.replace('\\', '/');
@@ -302,9 +305,10 @@ public final class DependencySet {
       return value;
     }
 
+    @Nullable
     private static String determineUnixRoot(String jvmArgName) {
       // Get the path from a JVM flag, if specified.
-      String path = System.getProperty(jvmArgName);
+      String path = StringEncoding.platformToInternal(System.getProperty(jvmArgName));
       if (path == null) {
         return null;
       }

@@ -13,10 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.vfs;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-
+import com.google.devtools.build.lib.events.Event;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.util.List;
 import java.util.Objects;
-
+import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
@@ -25,11 +28,48 @@ import javax.annotation.Nullable;
  * information about some specific subset of files. {@link #EVERYTHING_MODIFIED} can be used to
  * indicate that all files of interest have been modified.
  */
-public final class ModifiedFileSet {
+public class ModifiedFileSet {
 
+  /**
+   * Allows issuing instructions to clean up the client. This could be in order to revert the client
+   * back to its baseline (hypothetical use case) or a real use case at the time of writing this
+   * comment which is to clean up Skycache violations of files modified outside of the project's
+   * frontier compared to the baseline.
+   */
+  @Nullable
+  public String getInstructionsMessage(Set<String> modified) {
+    return null;
+  }
+
+  @Nullable
+  public String getInstructionsPrelude(Set<String> modified) {
+    return null;
+  }
+
+  /**
+   * Returns events related to this modified file set, for example, files whose state violates some
+   * condition or require a warning.
+   */
+  public List<Event> getMessages() {
+    return ImmutableList.of();
+  }
+
+  // When everything is modified that naturally includes all directories.
   public static final ModifiedFileSet EVERYTHING_MODIFIED = new ModifiedFileSet(null);
-  public static final ModifiedFileSet NOTHING_MODIFIED = new ModifiedFileSet(
-      ImmutableSet.<PathFragment>of());
+
+  /**
+   * Special case of {@link #EVERYTHING_MODIFIED}, which indicates that the entire tree has been
+   * deleted.
+   */
+  public static final ModifiedFileSet EVERYTHING_DELETED =
+      new ModifiedFileSet(null) {
+        @Override
+        public boolean treatEverythingAsDeleted() {
+          return true;
+        }
+      };
+
+  public static final ModifiedFileSet NOTHING_MODIFIED = new ModifiedFileSet(ImmutableSet.of());
 
   @Nullable private final ImmutableSet<PathFragment> modified;
 
@@ -38,6 +78,16 @@ public final class ModifiedFileSet {
    */
   public boolean treatEverythingAsModified() {
     return modified == null;
+  }
+
+  /**
+   * Returns whether the diff indicates the whole tree has been deleted.
+   *
+   * <p>This precludes any optimizations like skipping invalidation when we do not check modified
+   * outputs.
+   */
+  public boolean treatEverythingAsDeleted() {
+    return false;
   }
 
   /**
@@ -57,21 +107,24 @@ public final class ModifiedFileSet {
     if (o == this) {
       return true;
     }
-    if (!(o instanceof ModifiedFileSet)) {
+    if (!(o instanceof ModifiedFileSet other)) {
       return false;
     }
-    ModifiedFileSet other = (ModifiedFileSet) o;
-    return Objects.equals(modified, other.modified);
+    return treatEverythingAsModified() == other.treatEverythingAsModified()
+        && treatEverythingAsDeleted() == other.treatEverythingAsDeleted()
+        && Objects.equals(modified, other.modified);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hashCode(modified);
+    return 31 * Objects.hashCode(modified) + Boolean.hashCode(treatEverythingAsDeleted());
   }
 
   @Override
   public String toString() {
-    if (this.equals(EVERYTHING_MODIFIED)) {
+    if (this.equals(EVERYTHING_DELETED)) {
+      return "EVERYTHING_DELETED";
+    } else if (this.equals(EVERYTHING_MODIFIED)) {
       return "EVERYTHING_MODIFIED";
     } else if (this.equals(NOTHING_MODIFIED)) {
       return "NOTHING_MODIFIED";
@@ -80,27 +133,26 @@ public final class ModifiedFileSet {
     }
   }
 
-  private ModifiedFileSet(ImmutableSet<PathFragment> modified) {
+  protected ModifiedFileSet(ImmutableSet<PathFragment> modified) {
     this.modified = modified;
   }
 
-  /**
-   * The builder for {@link ModifiedFileSet}.
-   */
+  /** The builder for {@link ModifiedFileSet}. */
   public static class Builder {
-    private final ImmutableSet.Builder<PathFragment> setBuilder =
-        ImmutableSet.<PathFragment>builder();
+    private final ImmutableSet.Builder<PathFragment> setBuilder = ImmutableSet.builder();
 
     public ModifiedFileSet build() {
       ImmutableSet<PathFragment> modified = setBuilder.build();
       return modified.isEmpty() ? NOTHING_MODIFIED : new ModifiedFileSet(modified);
     }
 
+    @CanIgnoreReturnValue
     public Builder modify(PathFragment pathFragment) {
       setBuilder.add(pathFragment);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder modifyAll(Iterable<PathFragment> pathFragments) {
       setBuilder.addAll(pathFragments);
       return this;
@@ -109,21 +161,5 @@ public final class ModifiedFileSet {
 
   public static Builder builder() {
     return new Builder();
-  }
-
-  public static ModifiedFileSet union(ModifiedFileSet mfs1, ModifiedFileSet mfs2) {
-    if (mfs1.treatEverythingAsModified() || mfs2.treatEverythingAsModified()) {
-      return ModifiedFileSet.EVERYTHING_MODIFIED;
-    }
-    if (mfs1.equals(ModifiedFileSet.NOTHING_MODIFIED)) {
-      return mfs2;
-    }
-    if (mfs2.equals(ModifiedFileSet.NOTHING_MODIFIED)) {
-      return mfs1;
-    }
-    return ModifiedFileSet.builder()
-        .modifyAll(mfs1.modifiedSourceFiles())
-        .modifyAll(mfs2.modifiedSourceFiles())
-        .build();
   }
 }

@@ -19,7 +19,9 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.clock.BlazeClock;
+import com.google.devtools.build.lib.vfs.UnixGlob.FilesystemOps;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import com.google.devtools.build.lib.vfs.util.TestUnixGlobPathDiscriminator;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
@@ -44,7 +46,7 @@ public class RecursiveGlobTest {
                          "foo/baz/quip/wiz",
                          "food/baz/wiz",
                          "fool/baz/wiz")) {
-      FileSystemUtils.createDirectoryAndParents(tmpPath.getRelative(dir));
+      tmpPath.getRelative(dir).createDirectoryAndParents();
     }
     FileSystemUtils.createEmptyFile(tmpPath.getRelative("foo/bar/wiz/file"));
   }
@@ -103,9 +105,10 @@ public class RecursiveGlobTest {
 
   @Test
   public void testDoubleStarGlobWithNonExistentBase() throws Exception {
-    Collection<Path> globResult = UnixGlob.forPath(fileSystem.getPath("/does/not/exist"))
-        .addPattern("**")
-        .globInterruptible();
+    Collection<Path> globResult =
+        new UnixGlob.Builder(fileSystem.getPath("/does/not/exist"), FilesystemOps.DIRECT)
+            .addPattern("**")
+            .globInterruptible();
     assertThat(globResult).isEmpty();
   }
 
@@ -117,10 +120,10 @@ public class RecursiveGlobTest {
   private void assertGlobMatches(String pattern, String... expecteds)
       throws Exception {
     assertThat(
-        new UnixGlob.Builder(tmpPath)
-            .addPatterns(pattern)
-            .globInterruptible())
-    .containsExactlyElementsIn(resolvePaths(expecteds));
+            new UnixGlob.Builder(tmpPath, FilesystemOps.DIRECT)
+                .addPatterns(pattern)
+                .globInterruptible())
+        .containsExactlyElementsIn(resolvePaths(expecteds));
   }
 
   private Set<Path> resolvePaths(String... relativePaths) {
@@ -136,10 +139,12 @@ public class RecursiveGlobTest {
 
   @Test
   public void testRecursiveGlobsAreOptimized() throws Exception {
-    long numGlobTasks = new UnixGlob.Builder(tmpPath)
-        .addPattern("**")
-        .setExcludeDirectories(false)
-        .globInterruptibleAndReturnNumGlobTasksForTesting();
+    long numGlobTasks =
+        new UnixGlob.Builder(tmpPath, FilesystemOps.DIRECT)
+            .addPattern("**")
+            .setPathDiscriminator(
+                new TestUnixGlobPathDiscriminator(p -> true, (p, isDir) -> !isDir))
+            .globInterruptibleAndReturnNumGlobTasksForTesting();
 
     // The old glob implementation used to use 41 total glob tasks.
     // Yes, checking for an exact value here is super brittle, but it lets us catch performance
@@ -154,7 +159,10 @@ public class RecursiveGlobTest {
     UnixGlob.BadPattern e =
         assertThrows(
             UnixGlob.BadPattern.class,
-            () -> new UnixGlob.Builder(tmpPath).addPattern(pattern).globInterruptible());
+            () ->
+                new UnixGlob.Builder(tmpPath, FilesystemOps.DIRECT)
+                    .addPattern(pattern)
+                    .globInterruptible());
     assertThat(e).hasMessageThat().containsMatch("recursive wildcard must be its own segment");
   }
 

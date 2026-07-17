@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.query2.aquery;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Multimap;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.regex.Pattern;
 
 /** Encapsulate the action filters parsed from aquery command. */
@@ -62,6 +63,7 @@ public class AqueryActionFilter {
       filterMap = HashMultimap.create();
     }
 
+    @CanIgnoreReturnValue
     public Builder put(String key, Pattern value) {
       filterMap.put(key, value);
       return this;

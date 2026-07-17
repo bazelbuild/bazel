@@ -16,23 +16,22 @@ package com.google.devtools.build.lib.packages;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.OptionsParsingException;
-
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
 /**
- * Converter that translates a string of the form "value1,value2,-value3,value4"
- * into a corresponding set of allowed Enum values.
+ * Converter that translates a string of the form "value1,value2,-value3,value4" into a
+ * corresponding set of allowed Enum values.
  *
- * <p>Values preceded by '-' are excluded from this set. So "value1,-value2,value3"
- * translates to the set [EnumType.value1, EnumType.value3].
+ * <p>Values preceded by '-' are excluded from this set. So "value1,-value2,value3" translates to
+ * the set [EnumType.value1, EnumType.value3].
  *
- * <p>If *all* values are exclusions (e.g. "-value1,-value2,-value3"), the returned
- * set contains all values for the Enum type *except* those specified.
+ * <p>If *all* values are exclusions (e.g. "-value1,-value2,-value3"), the returned set contains all
+ * values for the Enum type *except* those specified.
  */
-class EnumFilterConverter<E extends Enum<E>> implements Converter<Set<E>> {
+class EnumFilterConverter<E extends Enum<E>> extends Converter.Contextless<Set<E>> {
 
   private final Set<String> allowedValues = new LinkedHashSet<>();
   private final Class<E> typeClass;
@@ -44,7 +43,7 @@ class EnumFilterConverter<E extends Enum<E>> implements Converter<Set<E>> {
    * @param typeClass this should be E.class (Java generics can't infer that directly)
    * @param userFriendlyName a user-friendly description of this enum type
    */
-  public EnumFilterConverter(Class<E> typeClass, String userFriendlyName) {
+  EnumFilterConverter(Class<E> typeClass, String userFriendlyName) {
     this.typeClass = typeClass;
     this.prettyEnumName = userFriendlyName;
     for (E value : EnumSet.allOf(typeClass)) {
@@ -55,7 +54,7 @@ class EnumFilterConverter<E extends Enum<E>> implements Converter<Set<E>> {
   /**
    * Returns the set of allowed values for the option.
    *
-   * Implements {@link #convert(String)}.
+   * <p>Implements {@link Converter#convert(String, Object)}.
    */
   @Override
   public Set<E> convert(String input) throws OptionsParsingException {

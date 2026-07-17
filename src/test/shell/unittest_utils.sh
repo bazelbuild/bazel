@@ -16,8 +16,7 @@
 
 #### Set up the test environment.
 
-# Enable errexit with pretty stack traces.
-enable_errexit
+set -euo pipefail
 
 cat_jvm_log () {
   if [[ "$log_content" =~ \
@@ -166,7 +165,7 @@ capture_test_stderr () {
 
 # Force XML_OUTPUT_FILE to an existing path
 if [[ -z "${XML_OUTPUT_FILE:-}" ]]; then
-  XML_OUTPUT_FILE=${TEST_TMPDIR}/ouput.xml
+  XML_OUTPUT_FILE=${TEST_TMPDIR}/output.xml
 fi
 
 # Functions to provide easy access to external repository outputs in the sibling

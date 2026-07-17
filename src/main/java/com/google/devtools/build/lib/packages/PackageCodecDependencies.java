@@ -20,7 +20,7 @@ public interface PackageCodecDependencies {
   PackageSerializerInterface getPackageSerializer();
 
   /** Simplest implementation of PackageCodecDependencies. */
-  public static class SimplePackageCodecDependencies implements PackageCodecDependencies {
+  class SimplePackageCodecDependencies implements PackageCodecDependencies {
     private final PackageSerializerInterface packageSerializer;
 
     public SimplePackageCodecDependencies(PackageSerializerInterface packageSerializer) {

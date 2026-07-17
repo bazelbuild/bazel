@@ -66,6 +66,9 @@ int WaitChildWithRusage(pid_t pid, struct rusage *rusage,
 // Write execution statistics to a file.
 void WriteStatsToFile(struct rusage *rusage, const std::string &stats_path);
 
+// Write contents to a file.
+void WriteFile(const std::string &filename, const char *fmt, ...);
+
 // Waits for a process to terminate but does *not* collect its exit status.
 //
 // Note that the process' zombie status may not be available immediately after
@@ -95,5 +98,13 @@ int WaitForProcessGroupToTerminate(pid_t pgid);
 //
 // May not be implemented on all platforms.
 int TerminateAndWaitForAll(pid_t pid);
+
+// Blocks and waits on a pipe for the a signal to proceed from the other process
+// `SignalPipe()`.
+void WaitPipe(int *pipe);
+
+// Signals to the other process blocked with a read `WaitPipe()` on the pipe
+// that it can proceed by writing a byte to the pipe.
+void SignalPipe(int *pipe);
 
 #endif  // PROCESS_TOOLS_H__

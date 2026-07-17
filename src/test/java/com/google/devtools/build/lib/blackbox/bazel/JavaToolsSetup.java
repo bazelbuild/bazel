@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.blackbox.bazel;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.blackbox.framework.BlackBoxTestContext;
-import com.google.devtools.build.lib.blackbox.framework.PathUtils;
 import com.google.devtools.build.lib.blackbox.framework.ToolsSetup;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -40,16 +39,5 @@ public class JavaToolsSetup implements ToolsSetup {
       Files.copy(buildFiles.get(0), buildFile);
       assertThat(buildFile.toFile().setWritable(true)).isTrue();
     }
-
-    String packageSubpath = JavaToolsSetup.class.getPackage().getName().replace('.', '/');
-    Path langToolsJar =
-        RunfilesUtil.find(String.format("io_bazel/src/test/java/%s/langtools.jar", packageSubpath));
-    Files.copy(langToolsJar, jdkDirectory.resolve("langtools.jar"));
-    PathUtils.writeBuild(
-        jdkDirectory, "filegroup(name = \"test-langtools\", srcs = [\"langtools.jar\"])");
-
-    PathUtils.copyTree(
-        RunfilesUtil.find("io_bazel/third_party/java/jdk/langtools/BUILD").getParent(),
-        context.getWorkDir().resolve("third_party/java/jdk/langtools"));
   }
 }

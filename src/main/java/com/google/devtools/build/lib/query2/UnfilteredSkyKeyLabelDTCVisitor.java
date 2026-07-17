@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.query2;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSetMultimap;
 import com.google.devtools.build.lib.query2.ParallelVisitorUtils.QueryVisitorFactory;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.AggregateAllCallback;
 import com.google.devtools.build.lib.query2.engine.Uniquifier;
@@ -28,12 +29,9 @@ class UnfilteredSkyKeyLabelDTCVisitor extends AbstractUnfilteredLabelDTCVisitor<
       SkyQueryEnvironment env,
       Uniquifier<SkyKey> uniquifier,
       int processResultsBatchSize,
+      ImmutableSetMultimap<SkyKey, SkyKey> extraGlobalDeps,
       AggregateAllCallback<SkyKey, ImmutableSet<SkyKey>> aggregateAllCallback) {
-    super(
-        env,
-        uniquifier,
-        processResultsBatchSize,
-        aggregateAllCallback);
+    super(env, uniquifier, processResultsBatchSize, extraGlobalDeps, aggregateAllCallback);
   }
 
   @Override
@@ -46,22 +44,25 @@ class UnfilteredSkyKeyLabelDTCVisitor extends AbstractUnfilteredLabelDTCVisitor<
     private final Uniquifier<SkyKey> uniquifier;
     private final AggregateAllCallback<SkyKey, ImmutableSet<SkyKey>> aggregateAllCallback;
     private final int processResultsBatchSize;
+    private final ImmutableSetMultimap<SkyKey, SkyKey> extraGlobalDeps;
 
     Factory(
         SkyQueryEnvironment env,
         Uniquifier<SkyKey> uniquifier,
         int processResultsBatchSize,
+        ImmutableSetMultimap<SkyKey, SkyKey> extraGlobalDeps,
         AggregateAllCallback<SkyKey, ImmutableSet<SkyKey>> aggregateAllCallback) {
       this.env = env;
       this.uniquifier = uniquifier;
       this.processResultsBatchSize = processResultsBatchSize;
+      this.extraGlobalDeps = extraGlobalDeps;
       this.aggregateAllCallback = aggregateAllCallback;
     }
 
     @Override
     public UnfilteredSkyKeyLabelDTCVisitor create() {
       return new UnfilteredSkyKeyLabelDTCVisitor(
-          env, uniquifier, processResultsBatchSize, aggregateAllCallback);
+          env, uniquifier, processResultsBatchSize, extraGlobalDeps, aggregateAllCallback);
     }
   }
 }

@@ -15,6 +15,7 @@
 package com.google.devtools.coverageoutputgenerator;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -79,46 +80,61 @@ public class LcovMergerFlagsTest {
     assertThat(flags.filterSources()).containsExactly("first_filter", "second_filter");
   }
 
-  @Test(expected = IllegalArgumentException.class)
+  @Test
   public void parseFlagsTestCoverageDirAndReportsFile() {
-    LcovMergerFlags.parseFlags(
-        new String[] {"--reports_file=my_reports_file", "--coverage_dir=my_coverage_dir"});
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            LcovMergerFlags.parseFlags(
+                new String[] {"--reports_file=my_reports_file", "--coverage_dir=my_coverage_dir"}));
   }
 
-  @Test(expected = IllegalArgumentException.class)
+  @Test
   public void parseFlagsTestEmptyFlags() {
-    LcovMergerFlags.parseFlags(new String[] {});
+    assertThrows(IllegalArgumentException.class, () -> LcovMergerFlags.parseFlags(new String[] {}));
   }
 
-  @Test(expected = IllegalArgumentException.class)
+  @Test
   public void parseFlagsTestNoOutputFile() {
-    LcovMergerFlags.parseFlags(
-        new String[] {
-          "--reports_file=my_reports_file",
-        });
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            LcovMergerFlags.parseFlags(
+                new String[] {
+                  "--reports_file=my_reports_file",
+                }));
   }
 
-  @Test(expected = IllegalArgumentException.class)
+  @Test
   public void parseFlagsTestUnknownFlag() {
-    LcovMergerFlags.parseFlags(
-        new String[] {
-          "--fake_flag=my_reports_file",
-        });
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            LcovMergerFlags.parseFlags(
+                new String[] {
+                  "--fake_flag=my_reports_file",
+                }));
   }
 
-  @Test(expected = IllegalArgumentException.class)
+  @Test
   public void parseFlagsTestInvalidFlagValue() {
-    LcovMergerFlags.parseFlags(
-        new String[] {
-          "--reports_file", "--output_file=my_file",
-        });
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            LcovMergerFlags.parseFlags(
+                new String[] {
+                  "--reports_file", "--output_file=my_file",
+                }));
   }
 
-  @Test(expected = IllegalArgumentException.class)
+  @Test
   public void parseFlagsTestInvalidFlagValueWithoutDashes() {
-    LcovMergerFlags.parseFlags(
-        new String[] {
-          "reports_file", "--output_file=my_file",
-        });
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            LcovMergerFlags.parseFlags(
+                new String[] {
+                  "reports_file", "--output_file=my_file",
+                }));
   }
 }

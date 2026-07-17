@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.testutil;
 
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.File;
@@ -42,7 +41,7 @@ public class TestFileOutErr extends FileOutErr {
     InMemoryFileSystem inMemFS = new InMemoryFileSystem(DigestHashFunction.SHA256);
     Path directory = inMemFS.getPath(root.getPath());
     try {
-      FileSystemUtils.createDirectoryAndParents(directory);
+      directory.createDirectoryAndParents();
     } catch (IOException e) {
       throw new IllegalStateException(e);
     }

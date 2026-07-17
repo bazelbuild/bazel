@@ -1,4 +1,3 @@
-# Lint as: python3
 # Copyright 2020 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -22,12 +21,11 @@ import subprocess
 from typing import Callable
 from typing import List
 from typing import Tuple
-# Do not edit this line. Copybara replaces it with PY2 migration helper.
 from frozendict import frozendict
-from tools.ctexplain.types import Configuration
-from tools.ctexplain.types import ConfiguredTarget
-from tools.ctexplain.types import HostConfiguration
-from tools.ctexplain.types import NullConfiguration
+from tools.ctexplain.ctexplain_types import Configuration
+from tools.ctexplain.ctexplain_types import ConfiguredTarget
+from tools.ctexplain.ctexplain_types import HostConfiguration
+from tools.ctexplain.ctexplain_types import NullConfiguration
 
 
 def run_bazel_in_client(args: List[str]) -> Tuple[int, List[str], List[str]]:

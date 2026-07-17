@@ -14,19 +14,28 @@
 
 package com.google.devtools.build.lib.skyframe.serialization;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /** Basic tests for {@link Label}'s codec. */
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public class LabelCodecTest {
 
   @Test
-  public void testCodec() throws Exception {
-    new SerializationTester(Label.parseAbsolute("//foo/bar:baz", ImmutableMap.of())).runTests();
+  public void testCodec(@TestParameter boolean useSharedValues) throws Exception {
+    var tester = new SerializationTester(Label.parseCanonical("//foo/bar:baz"));
+
+    if (useSharedValues) {
+      tester
+          .addCodec(new ValueSharingAdapter<>(Label.deferredCodec()))
+          .makeMemoizingAndAllowFutureBlocking(true);
+    }
+
+    tester.runTests();
   }
+
 }

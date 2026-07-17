@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.exec;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.base.Strings;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -60,8 +59,8 @@ public class StreamedTestOutputTest {
     try (StreamedTestOutput underTest =
         new StreamedTestOutput(OutErr.create(out, err), fileSystem.getPath("/myfile"))) {}
 
-    assertThat(out.toString(StandardCharsets.UTF_8.name())).isEqualTo("random\nlines\n");
-    assertThat(err.toString(StandardCharsets.UTF_8.name())).isEmpty();
+    assertThat(out.toString(StandardCharsets.UTF_8)).isEqualTo("random\nlines\n");
+    assertThat(err.toString(StandardCharsets.UTF_8)).isEmpty();
   }
 
   @Test
@@ -81,19 +80,15 @@ public class StreamedTestOutputTest {
     try (StreamedTestOutput underTest =
         new StreamedTestOutput(OutErr.create(out, err), fileSystem.getPath("/myfile"))) {}
 
-    assertThat(out.toString(StandardCharsets.UTF_8.name()))
-        .isEqualTo(String.format("included%nlines%n"));
-    assertThat(err.toString(StandardCharsets.UTF_8.name())).isEmpty();
+    assertThat(out.toString(StandardCharsets.UTF_8)).isEqualTo("included\nlines\n");
+    assertThat(err.toString(StandardCharsets.UTF_8)).isEmpty();
   }
 
   @Test
   public void testWatcherDoneAfterClose() throws IOException {
     Path watchedPath = fileSystem.getPath("/myfile");
     FileSystemUtils.writeLinesAs(
-        watchedPath,
-        StandardCharsets.UTF_8,
-        TestLogHelper.HEADER_DELIMITER,
-        Strings.repeat("x", 10 << 20));
+        watchedPath, StandardCharsets.UTF_8, TestLogHelper.HEADER_DELIMITER, "x".repeat(10 << 20));
     StreamedTestOutput underTest =
         new StreamedTestOutput(
             OutErr.create(ByteStreams.nullOutputStream(), ByteStreams.nullOutputStream()),
@@ -106,10 +101,7 @@ public class StreamedTestOutputTest {
   public void testInterruptWaitsForWatcherToClose() throws IOException {
     Path watchedPath = fileSystem.getPath("/myfile");
     FileSystemUtils.writeLinesAs(
-        watchedPath,
-        StandardCharsets.UTF_8,
-        TestLogHelper.HEADER_DELIMITER,
-        Strings.repeat("x", 10 << 20));
+        watchedPath, StandardCharsets.UTF_8, TestLogHelper.HEADER_DELIMITER, "x".repeat(10 << 20));
 
     StreamedTestOutput underTest =
         new StreamedTestOutput(
@@ -143,7 +135,7 @@ public class StreamedTestOutputTest {
       assertThat(Thread.interrupted()).isTrue();
     }
 
-    assertThat(out.toString(StandardCharsets.UTF_8.name())).isEqualTo("blahblahblah");
-    assertThat(err.toString(StandardCharsets.UTF_8.name())).isEmpty();
+    assertThat(out.toString(StandardCharsets.UTF_8)).isEqualTo("blahblahblah");
+    assertThat(err.toString(StandardCharsets.UTF_8)).isEmpty();
   }
 }

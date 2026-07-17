@@ -1,6 +1,9 @@
 load("@rules_java//java:defs.bzl", "java_test")
 
-package(default_visibility = ["//src/java_tools/buildjar:buildjar_package_group"])
+package(
+    default_applicable_licenses = ["//:license"],
+    default_visibility = ["//src/java_tools/buildjar:buildjar_package_group"],
+)
 
 filegroup(
     name = "srcs",
@@ -14,6 +17,17 @@ java_test(
     deps = [
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar:vanilla_java_builder",
         "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "JavacWorkDirStrippingTest",
+    srcs = ["JavacWorkDirStrippingTest.java"],
+    deps = [
+        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/plugins:dependency",
+        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/plugins:processing",
         "//third_party:junit4",
         "//third_party:truth",
     ],

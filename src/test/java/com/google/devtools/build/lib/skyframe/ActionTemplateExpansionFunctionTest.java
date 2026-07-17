@@ -18,11 +18,13 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
+import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupData;
@@ -37,13 +39,11 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
-import com.google.devtools.build.lib.actions.ArtifactPrefixConflictException;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.BasicActionLookupValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.actions.MiddlemanType;
-import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.InjectedActionLookupKey;
 import com.google.devtools.build.lib.actions.util.TestAction.DummyAction;
@@ -53,6 +53,7 @@ import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate.Output
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue.ActionTemplateExpansionKey;
@@ -60,14 +61,16 @@ import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.skyframe.Differencer.DiffWithDelta.Delta;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
+import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.SequencedRecordingDifferencer;
-import com.google.devtools.build.skyframe.SequentialBuildDriver;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -84,15 +87,14 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
 
   private final Map<Artifact, TreeArtifactValue> artifactValueMap = new LinkedHashMap<>();
   private final SequencedRecordingDifferencer differencer = new SequencedRecordingDifferencer();
-  private final SequentialBuildDriver driver =
-      new SequentialBuildDriver(
-          new InMemoryMemoizingEvaluator(
-              ImmutableMap.of(
-                  Artifact.ARTIFACT,
-                  new DummyArtifactFunction(artifactValueMap),
-                  SkyFunctions.ACTION_TEMPLATE_EXPANSION,
-                  new ActionTemplateExpansionFunction(new ActionKeyContext())),
-              differencer));
+  private final MemoizingEvaluator evaluator =
+      new InMemoryMemoizingEvaluator(
+          ImmutableMap.of(
+              Artifact.ARTIFACT,
+              new DummyArtifactFunction(artifactValueMap),
+              SkyFunctions.ACTION_TEMPLATE_EXPANSION,
+              new ActionTemplateExpansionFunction(new ActionKeyContext())),
+          differencer);
 
   @Before
   public void setUp() {
@@ -135,12 +137,7 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
         createAndPopulateTreeArtifact("inputTreeArtifact", "child0", "child1", "child2");
     SpecialArtifact outputTreeArtifact = createTreeArtifact("outputTreeArtifact");
 
-    OutputPathMapper mapper = new OutputPathMapper() {
-      @Override
-      public PathFragment parentRelativeOutputPath(TreeFileArtifact inputTreeFileArtifact) {
-        return PathFragment.create("conflict_path");
-      }
-    };
+    OutputPathMapper mapper = artifact -> PathFragment.create("conflict_path");
     SpawnActionTemplate spawnActionTemplate =
         new SpawnActionTemplate.Builder(inputTreeArtifact, outputTreeArtifact)
             .setExecutable(PathFragment.create("/bin/cp"))
@@ -148,7 +145,12 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
             .setOutputPathMapper(mapper)
             .build(ActionsTestUtil.NULL_ACTION_OWNER);
 
-    assertThrows(ActionConflictException.class, () -> evaluate(spawnActionTemplate));
+    ActionConflictException e =
+        assertThrows(ActionConflictException.class, () -> evaluate(spawnActionTemplate));
+    assertThat(e)
+        .hasMessageThat()
+        .contains(
+            "file 'outputTreeArtifact/conflict_path' is generated by these conflicting actions");
   }
 
   @Test
@@ -157,26 +159,22 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
         createAndPopulateTreeArtifact("inputTreeArtifact", "child0", "child1", "child2");
     SpecialArtifact outputTreeArtifact = createTreeArtifact("outputTreeArtifact");
 
-    OutputPathMapper mapper = new OutputPathMapper() {
-      private int i = 0;
-      @Override
-      public PathFragment parentRelativeOutputPath(TreeFileArtifact inputTreeFileArtifact) {
-        PathFragment path;
-        switch (i) {
-          case 0:
-            path = PathFragment.create("path_prefix");
-            break;
-          case 1:
-            path = PathFragment.create("path_prefix/conflict");
-            break;
-          default:
-            path = inputTreeFileArtifact.getParentRelativePath();
-        }
+    OutputPathMapper mapper =
+        new OutputPathMapper() {
+          private int i = 0;
 
-        ++i;
-        return path;
-      }
-    };
+          @Override
+          public PathFragment parentRelativeOutputPath(TreeFileArtifact inputTreeFileArtifact) {
+            PathFragment path =
+                switch (i) {
+                  case 0 -> PathFragment.create("path_prefix");
+                  case 1 -> PathFragment.create("path_prefix/conflict");
+                  default -> inputTreeFileArtifact.getParentRelativePath();
+                };
+            ++i;
+            return path;
+          }
+        };
     SpawnActionTemplate spawnActionTemplate =
         new SpawnActionTemplate.Builder(inputTreeArtifact, outputTreeArtifact)
             .setExecutable(PathFragment.create("/bin/cp"))
@@ -184,7 +182,9 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
             .setOutputPathMapper(mapper)
             .build(ActionsTestUtil.NULL_ACTION_OWNER);
 
-    assertThrows(ArtifactPrefixConflictException.class, () -> evaluate(spawnActionTemplate));
+    ActionConflictException e =
+        assertThrows(ActionConflictException.class, () -> evaluate(spawnActionTemplate));
+    assertThat(e).hasMessageThat().contains("is a prefix of the other");
   }
 
   @Test
@@ -196,8 +196,9 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
         new TestActionTemplate(inputTree, outputTree) {
           @Override
           public ImmutableList<DummyAction> generateActionsForInputArtifacts(
-              ImmutableSet<TreeFileArtifact> inputTreeFileArtifacts,
-              ActionLookupKey artifactOwner) {
+              ImmutableList<TreeFileArtifact> inputTreeFileArtifacts,
+              ActionLookupKey artifactOwner,
+              EventHandler eventHandler) {
             return ImmutableList.of();
           }
 
@@ -205,7 +206,7 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
           public ImmutableSet<Artifact> getOutputs() {
             return ImmutableSet.of(
                 outputTree,
-                new DerivedArtifact(
+                DerivedArtifact.create(
                     outputTree.getRoot(),
                     outputTree.getRoot().getExecPath().getRelative("not_tree"),
                     outputTree.getArtifactOwner()));
@@ -229,8 +230,9 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
         new TestActionTemplate(inputTree, outputTree) {
           @Override
           public ImmutableList<DummyAction> generateActionsForInputArtifacts(
-              ImmutableSet<TreeFileArtifact> inputTreeFileArtifacts,
-              ActionLookupKey artifactOwner) {
+              ImmutableList<TreeFileArtifact> inputTreeFileArtifacts,
+              ActionLookupKey artifactOwner,
+              EventHandler eventHandler) {
             TreeFileArtifact input = Iterables.getOnlyElement(inputTreeFileArtifacts);
             TreeFileArtifact outputWithWrongOwner =
                 TreeFileArtifact.createTemplateExpansionOutput(
@@ -257,11 +259,12 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
         new TestActionTemplate(inputTree, outputTree) {
           @Override
           public ImmutableList<DummyAction> generateActionsForInputArtifacts(
-              ImmutableSet<TreeFileArtifact> inputTreeFileArtifacts,
-              ActionLookupKey artifactOwner) {
+              ImmutableList<TreeFileArtifact> inputTreeFileArtifacts,
+              ActionLookupKey artifactOwner,
+              EventHandler eventHandler) {
             TreeFileArtifact input = Iterables.getOnlyElement(inputTreeFileArtifacts);
             Artifact notTreeFileArtifact =
-                new DerivedArtifact(
+                DerivedArtifact.create(
                     input.getRoot(),
                     input.getRoot().getExecPath().getRelative("a.txt"),
                     artifactOwner);
@@ -287,8 +290,9 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
         new TestActionTemplate(inputTree, outputTree) {
           @Override
           public ImmutableList<DummyAction> generateActionsForInputArtifacts(
-              ImmutableSet<TreeFileArtifact> inputTreeFileArtifacts,
-              ActionLookupKey artifactOwner) {
+              ImmutableList<TreeFileArtifact> inputTreeFileArtifacts,
+              ActionLookupKey artifactOwner,
+              EventHandler eventHandler) {
             TreeFileArtifact input = Iterables.getOnlyElement(inputTreeFileArtifacts);
             TreeFileArtifact outputUnderWrongTree =
                 TreeFileArtifact.createTemplateExpansionOutput(
@@ -302,7 +306,10 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
     assertThat(e)
         .hasCauseThat()
         .hasMessageThat()
-        .contains(template + " generated an action with an output under an undeclared tree");
+        .contains(
+            template
+                + " generated an action with an output File:[[<execution_root>]out]undeclared/child"
+                + " under an undeclared tree not in [File:[[<execution_root>]out]output]");
   }
 
   @Test
@@ -315,8 +322,9 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
         new TestActionTemplate(inputTree, outputTree) {
           @Override
           public ImmutableList<DummyAction> generateActionsForInputArtifacts(
-              ImmutableSet<TreeFileArtifact> inputTreeFileArtifacts,
-              ActionLookupKey artifactOwner) {
+              ImmutableList<TreeFileArtifact> inputTreeFileArtifacts,
+              ActionLookupKey artifactOwner,
+              EventHandler eventHandler) {
             TreeFileArtifact input = Iterables.getOnlyElement(inputTreeFileArtifacts);
             return ImmutableList.of(
                 new DummyAction(
@@ -338,41 +346,76 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
     evaluate(template);
   }
 
+  @Test
+  public void canUseMultipleInputTrees() throws Exception {
+    SpecialArtifact inputTree1 = createAndPopulateTreeArtifact("input1", "child1", "child2");
+    SpecialArtifact inputTree2 = createAndPopulateTreeArtifact("input2", "child1", "child2");
+    SpecialArtifact outputTree = createTreeArtifact("output");
+
+    ActionTemplate<DummyAction> template =
+        new TestActionTemplate(ImmutableList.of(inputTree1, inputTree2), outputTree) {
+          @Override
+          public ImmutableList<DummyAction> generateActionsForInputArtifacts(
+              ImmutableList<TreeFileArtifact> inputTreeFileArtifacts,
+              ActionLookupKey artifactOwner,
+              EventHandler eventHandler) {
+            ImmutableList.Builder<DummyAction> actions = ImmutableList.builder();
+            ImmutableListMultimap<SpecialArtifact, TreeFileArtifact> inputTreeArtifactsToChildren =
+                ActionTemplate.getInputTreeArtifactsToChildren(inputTreeFileArtifacts);
+            int i = 0;
+            for (SpecialArtifact inputTreeArtifact : getInputTreeArtifacts()) {
+              actions.add(
+                  new DummyAction(
+                      NestedSetBuilder.<Artifact>wrap(
+                          Order.STABLE_ORDER, inputTreeArtifactsToChildren.get(inputTreeArtifact)),
+                      TreeFileArtifact.createTemplateExpansionOutput(
+                          outputTree, "child-" + i++, artifactOwner)));
+            }
+            return actions.build();
+          }
+        };
+    evaluate(template);
+  }
+
   private static final ActionLookupKey CTKEY = new InjectedActionLookupKey("key");
 
   private ImmutableList<Action> evaluate(ActionTemplate<?> actionTemplate) throws Exception {
     ActionLookupValue ctValue = createActionLookupValue(actionTemplate);
 
-    differencer.inject(CTKEY, ctValue);
+    differencer.inject(CTKEY, Delta.justNew(ctValue));
     ActionTemplateExpansionKey templateKey = ActionTemplateExpansionValue.key(CTKEY, 0);
     EvaluationContext evaluationContext =
         EvaluationContext.newBuilder()
             .setKeepGoing(false)
-            .setNumThreads(SkyframeExecutor.DEFAULT_THREAD_COUNT)
+            .setParallelism(SkyframeExecutor.DEFAULT_THREAD_COUNT)
             .setEventHandler(NullEventHandler.INSTANCE)
             .build();
     EvaluationResult<ActionTemplateExpansionValue> result =
-        driver.evaluate(ImmutableList.of(templateKey), evaluationContext);
+        evaluator.evaluate(ImmutableList.of(templateKey), evaluationContext);
     if (result.hasError()) {
       throw result.getError().getException();
     }
     ActionTemplateExpansionValue actionTemplateExpansionValue = result.get(templateKey);
     ImmutableList.Builder<Action> actionList = ImmutableList.builder();
-    for (int i = 0; i < actionTemplateExpansionValue.getNumActions(); i++) {
+    for (int i = 0; i < actionTemplateExpansionValue.getActions().size(); i++) {
       actionList.add(actionTemplateExpansionValue.getAction(i));
     }
     return actionList.build();
   }
 
-  private static ActionLookupValue createActionLookupValue(ActionTemplate<?> actionTemplate) {
-    return new BasicActionLookupValue(
-        Actions.GeneratingActions.fromSingleAction(actionTemplate, CTKEY));
+  private static ActionLookupValue createActionLookupValue(ActionTemplate<?> actionTemplate)
+      throws ActionConflictException,
+          InterruptedException,
+          Actions.ArtifactGeneratedByOtherRuleException {
+    ImmutableList<ActionAnalysisMetadata> actions = ImmutableList.of(actionTemplate);
+    Actions.assignOwnersAndThrowIfConflict(new ActionKeyContext(), actions, CTKEY);
+    return new BasicActionLookupValue(actions);
   }
 
   private SpecialArtifact createTreeArtifact(String path) {
     PathFragment execPath = PathFragment.create("out").getRelative(path);
-    return new SpecialArtifact(
-        ArtifactRoot.asDerivedRoot(rootDirectory, RootType.Output, "out"),
+    return SpecialArtifact.create(
+        ArtifactRoot.asDerivedRoot(rootDirectory, RootType.OUTPUT, "out"),
         execPath,
         CTKEY,
         SpecialArtifactType.TREE);
@@ -407,32 +450,34 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
     public SkyValue compute(SkyKey skyKey, Environment env) {
       return Preconditions.checkNotNull(artifactValueMap.get(skyKey));
     }
-
-    @Override
-    public String extractTag(SkyKey skyKey) {
-      return null;
-    }
   }
 
   private abstract static class TestActionTemplate implements ActionTemplate<DummyAction> {
-    private final SpecialArtifact inputTreeArtifact;
+    private final ImmutableList<SpecialArtifact> inputTreeArtifacts;
     private final SpecialArtifact outputTreeArtifact;
 
     TestActionTemplate(SpecialArtifact inputTreeArtifact, SpecialArtifact outputTreeArtifact) {
-      Preconditions.checkArgument(inputTreeArtifact.isTreeArtifact(), inputTreeArtifact);
+      this(ImmutableList.of(inputTreeArtifact), outputTreeArtifact);
+    }
+
+    TestActionTemplate(
+        ImmutableList<SpecialArtifact> inputTreeArtifacts, SpecialArtifact outputTreeArtifact) {
+      for (SpecialArtifact inputTreeArtifact : inputTreeArtifacts) {
+        Preconditions.checkArgument(inputTreeArtifact.isTreeArtifact(), inputTreeArtifact);
+      }
       Preconditions.checkArgument(outputTreeArtifact.isTreeArtifact(), outputTreeArtifact);
-      this.inputTreeArtifact = inputTreeArtifact;
+      this.inputTreeArtifacts = inputTreeArtifacts;
       this.outputTreeArtifact = outputTreeArtifact;
     }
 
     @Override
-    public SpecialArtifact getInputTreeArtifact() {
-      return inputTreeArtifact;
+    public ImmutableList<SpecialArtifact> getInputTreeArtifacts() {
+      return inputTreeArtifacts;
     }
 
     @Override
-    public SpecialArtifact getOutputTreeArtifact() {
-      return outputTreeArtifact;
+    public ImmutableSet<Artifact> getOutputs() {
+      return ImmutableSet.of(outputTreeArtifact);
     }
 
     @Override
@@ -452,9 +497,11 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
 
     @Override
     public String getKey(
-        ActionKeyContext actionKeyContext, @Nullable Artifact.ArtifactExpander artifactExpander) {
+        ActionKeyContext actionKeyContext, @Nullable InputMetadataProvider inputMetadataProvider) {
       Fingerprint fp = new Fingerprint();
-      fp.addPath(inputTreeArtifact.getPath());
+      for (SpecialArtifact inputTreeArtifact : inputTreeArtifacts) {
+        fp.addPath(inputTreeArtifact.getPath());
+      }
       fp.addPath(outputTreeArtifact.getPath());
       return fp.hexDigestAndReset();
     }
@@ -476,11 +523,21 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
 
     @Override
     public NestedSet<Artifact> getInputs() {
-      return NestedSetBuilder.create(Order.STABLE_ORDER, inputTreeArtifact);
+      return NestedSetBuilder.wrap(Order.STABLE_ORDER, inputTreeArtifacts);
     }
 
     @Override
-    public Iterable<String> getClientEnvironmentVariables() {
+    public NestedSet<Artifact> getOriginalInputs() {
+      return getInputs();
+    }
+
+    @Override
+    public NestedSet<Artifact> getSchedulingDependencies() {
+      return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+    }
+
+    @Override
+    public Collection<String> getClientEnvironmentVariables() {
       return ImmutableList.of();
     }
 
@@ -497,17 +554,7 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
 
     @Override
     public NestedSet<Artifact> getMandatoryInputs() {
-      return NestedSetBuilder.create(Order.STABLE_ORDER, inputTreeArtifact);
-    }
-
-    @Override
-    public boolean shouldReportPathPrefixConflict(ActionAnalysisMetadata action) {
-      return false;
-    }
-
-    @Override
-    public MiddlemanType getActionType() {
-      return MiddlemanType.NORMAL;
+      return NestedSetBuilder.wrap(Order.STABLE_ORDER, inputTreeArtifacts);
     }
 
     @Override

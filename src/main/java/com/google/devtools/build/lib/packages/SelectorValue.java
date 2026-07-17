@@ -13,16 +13,17 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
+import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import java.util.Map;
+import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.HasBinary;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkValue;
 import net.starlark.java.syntax.TokenKind;
 
@@ -42,7 +43,6 @@ import net.starlark.java.syntax.TokenKind;
     name = "selector",
     doc = "A selector between configuration-dependent values.",
     documented = false)
-@AutoCodec
 public final class SelectorValue implements StarlarkValue, HasBinary {
 
   // TODO(adonovan): combine Selector{List,Value} and BuildType.SelectorList.
@@ -52,9 +52,9 @@ public final class SelectorValue implements StarlarkValue, HasBinary {
   private final Class<?> type;
   private final String noMatchError;
 
-  SelectorValue(Map<?, ?> dictionary, String noMatchError) {
+  SelectorValue(ImmutableMap<?, ?> dictionary, String noMatchError) {
     Preconditions.checkArgument(!dictionary.isEmpty());
-    this.dictionary = ImmutableMap.copyOf(dictionary);
+    this.dictionary = dictionary;
     // TODO(adonovan): doesn't this assume all the elements have the same type?
     this.type = Iterables.getFirst(dictionary.values(), null).getClass();
     this.noMatchError = noMatchError;
@@ -78,19 +78,41 @@ public final class SelectorValue implements StarlarkValue, HasBinary {
 
   @Override
   public String toString() {
-    return Starlark.repr(this);
+    return Starlark.repr(this, StarlarkSemantics.DEFAULT);
   }
 
   @Override
+  @Nullable
   public SelectorList binaryOp(TokenKind op, Object that, boolean thisLeft) throws EvalException {
-    if (op == TokenKind.PLUS) {
-      return thisLeft ? SelectorList.concat(this, that) : SelectorList.concat(that, this);
-    }
-    return null;
+    return SelectorList.of(this).binaryOp(op, that, thisLeft);
   }
 
   @Override
-  public void repr(Printer printer) {
-    printer.append("select(").repr(dictionary).append(")");
+  public void repr(Printer printer, StarlarkSemantics semantics) {
+    printer.append("select(").repr(dictionary, semantics).append(")");
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (!(o instanceof SelectorValue that)) {
+      return false;
+    }
+    // TODO(bazel-team): We probably have some inconsistencies here. 1) We're not checking the
+    // order of the dictionary, which is relevant to matching semantics. 2) We're checking the
+    // type, which depends on the concrete type of the first entry's value, which could be a
+    // subtype that is not semantically meaningful to the user. These problems are probably best
+    // solved by merging this class into the BuildType-land equivalent, with normalization that
+    // removes subtype distinctions by copying into standard attribute types.
+    return Objects.equal(dictionary, that.dictionary)
+        && Objects.equal(type, that.type)
+        && Objects.equal(noMatchError, that.noMatchError);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hashCode(dictionary, type, noMatchError);
   }
 }

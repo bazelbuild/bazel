@@ -23,16 +23,16 @@ import java.util.Map;
  * Exports test properties to the test XML.
  */
 public class TestPropertyExporter {
-  /*
-   * The global {@code TestPropertyExporter}, which writes the properties into
-   * the test XML if the test is running from the command line.<p>
+  /**
+   * The global {@code TestPropertyExporter}, which writes the properties into the test XML if the
+   * test is running from the command line.
    *
-   * If you have test infrastructure that needs to export properties, consider
-   * injecting an instance of {@code TestPropertyExporter}. Your tests can
-   * use one of the static methods in this class to create a fake instance.
+   * <p>If you have test infrastructure that needs to export properties, consider injecting an
+   * instance of {@code TestPropertyExporter}. Your tests can use one of the static methods in this
+   * class to create a fake instance.
    */
-  public static final TestPropertyExporter INSTANCE = new TestPropertyExporter(
-      new DefaultCallback());
+  public static final TestPropertyExporter INSTANCE =
+      new TestPropertyExporter(new DefaultCallback());
 
   // Set to 1000 so that it will play nice with code that doesn't use exportRepeatedProperty
   // yet.

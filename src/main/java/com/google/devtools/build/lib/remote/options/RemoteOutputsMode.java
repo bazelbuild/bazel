@@ -32,13 +32,4 @@ public enum RemoteOutputsMode {
    * outputs are generally not downloaded (See {@link #MINIMAL}.
    */
   TOPLEVEL;
-
-  /** Returns {@code true} iff action outputs should always be downloaded. */
-  public boolean downloadAllOutputs() {
-    return this == ALL;
-  }
-
-  public boolean downloadToplevelOutputsOnly() {
-    return this == TOPLEVEL;
-  }
 }

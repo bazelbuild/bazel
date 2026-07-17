@@ -16,14 +16,9 @@ package com.google.devtools.build.lib.starlarkbuildapi.cpp;
 
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
-import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
-import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.Sequence;
-import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 
@@ -34,45 +29,18 @@ import net.starlark.java.eval.StarlarkValue;
     doc =
         "Immutable store of information needed for C++ linking that is aggregated across "
             + "dependencies.")
-public interface CcLinkingContextApi<FileT extends FileApi> extends StarlarkValue {
-  @StarlarkMethod(
-      name = "user_link_flags",
-      doc = "Returns the list of user link flags passed as strings.",
-      disableWithFlag = BuildLanguageOptions.INCOMPATIBLE_REQUIRE_LINKER_INPUT_CC_API,
-      structField = true)
-  Sequence<String> getStarlarkUserLinkFlags();
-
-  @StarlarkMethod(
-      name = "libraries_to_link",
-      doc =
-          "Returns the depset of <code>LibraryToLink</code>. May return a list but this is"
-              + "deprecated. See #8118.",
-      disableWithFlag = BuildLanguageOptions.INCOMPATIBLE_REQUIRE_LINKER_INPUT_CC_API,
-      structField = true,
-      useStarlarkSemantics = true)
-  Object getStarlarkLibrariesToLink(StarlarkSemantics semantics);
-
-  @StarlarkMethod(
-      name = "additional_inputs",
-      doc = "Returns the depset of additional inputs, e.g.: linker scripts.",
-      disableWithFlag = BuildLanguageOptions.INCOMPATIBLE_REQUIRE_LINKER_INPUT_CC_API,
-      structField = true)
-  Depset getStarlarkNonCodeInputs();
-
+public interface CcLinkingContextApi extends StarlarkValue {
   @StarlarkMethod(
       name = "linker_inputs",
       doc = "Returns the depset of linker inputs.",
       structField = true)
-  Depset getStarlarkLinkerInputs();
+  public default Depset getStarlarkLinkerInputs() {
+    throw new UnsupportedOperationException();
+  }
 
-  @StarlarkMethod(name = "linkstamps", documented = false, useStarlarkThread = true)
-  Depset getLinkstampsForStarlark(StarlarkThread thread) throws EvalException;
-
-  @StarlarkMethod(
-      name = "go_link_c_archive",
-      documented = false,
-      allowReturnNones = true,
-      useStarlarkThread = true)
-  @Nullable
-  ExtraLinkTimeLibraryApi getGoLinkCArchiveForStarlark(StarlarkThread thread) throws EvalException;
+  @StarlarkMethod(name = "extra_link_time_libraries", documented = false, useStarlarkThread = true)
+  public default Object getExtraLinkTimeLibrariesForStarlark(StarlarkThread thread)
+      throws EvalException {
+    throw new UnsupportedOperationException();
+  }
 }

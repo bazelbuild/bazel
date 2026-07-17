@@ -1,4 +1,4 @@
-load("//tools/python:private/defs.bzl", "py_test")
+load("@rules_python//python:defs.bzl", "py_test")
 load(":utils.bzl", "expand_pyversion_template")
 
 package(default_visibility = ["//visibility:public"])
@@ -11,17 +11,17 @@ filegroup(
 )
 
 filegroup(
-    name = "embedded_tools",
-    srcs = glob(["**"]) + [
-        "//tools/python/runfiles:embedded_tools",
+    name = "bzl_srcs",
+    srcs = glob(["*.bzl"]) + [
+        "private/py_test_alias.bzl",
     ],
     visibility = ["//tools:__pkg__"],
 )
 
-test_suite(
-    name = "all_windows_tests",
-    tests = [
-        "//tools/python/runfiles:all_windows_tests",
+filegroup(
+    name = "embedded_tools",
+    srcs = glob(["**"]) + [
+        "//tools/python/runfiles:embedded_tools",
     ],
     visibility = ["//tools:__pkg__"],
 )
@@ -40,8 +40,8 @@ py_test(
     name = "pywrapper_test",
     srcs = ["pywrapper_test.py"],
     data = [
-        ":py2wrapper.sh",
-        ":py2wrapper_nonstrict.sh",
+        ":py3wrapper.sh",
+        ":py3wrapper_nonstrict.sh",
     ],
     deps = ["//src/test/py/bazel:test_base"],
 )

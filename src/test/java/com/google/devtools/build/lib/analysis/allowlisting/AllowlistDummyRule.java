@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.analysis.allowlisting;
 
-import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
+import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.analysis.Allowlist;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import javax.annotation.Nullable;
 
 /** Definition of a test rule that uses allowlists. */
 public final class AllowlistDummyRule {
@@ -36,11 +37,12 @@ public final class AllowlistDummyRule {
                   (builder, env) ->
                       builder.add(
                           Allowlist.getAttributeFromAllowlistName("dummy")
-                              .value(Label.parseAbsoluteUnchecked("//allowlist:allowlist"))));
+                              .value(Label.parseCanonicalUnchecked("//allowlist:allowlist"))));
 
   /** Has to be public to make factory initialization logic happy. **/
   public static class RuleFactory implements RuleConfiguredTargetFactory {
     @Override
+    @Nullable
     public ConfiguredTarget create(RuleContext ruleContext)
         throws InterruptedException, RuleErrorException, ActionConflictException {
       if (!Allowlist.isAvailable(ruleContext, "dummy")) {

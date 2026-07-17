@@ -24,7 +24,7 @@ import java.util.function.Function;
  * <p>Just as with {@link Pair}, this class is immutable, supports nullable values, and is
  * completely devoid of Bazel-business-logic-specific semantics. Avoid using it in public APIs.
  *
- * <p>This class is a a simple implementation of a general purpose "sum" type. In type theory, sum
+ * <p>This class is a simple implementation of a general purpose "sum" type. In type theory, sum
  * types are the duals of product types -- the corresponding observation here is that {@link Either}
  * is the dual of {@link Pair}.
  */

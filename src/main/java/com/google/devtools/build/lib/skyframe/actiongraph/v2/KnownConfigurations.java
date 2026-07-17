@@ -33,6 +33,7 @@ public class KnownConfigurations extends BaseCache<BuildEvent, Configuration> {
         .setChecksum(config.getEventId().getConfiguration().getId())
         .setMnemonic(configProto.getMnemonic())
         .setPlatformName(configProto.getPlatformName())
+        .setIsTool(configProto.getIsTool())
         .setId(id)
         .build();
   }

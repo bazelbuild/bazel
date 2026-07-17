@@ -23,6 +23,7 @@ import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 import java.util.Map;
 
 /**
@@ -39,13 +40,14 @@ import java.util.Map;
  *
  * <p>The same relationship holds between {@link HostJvmStartupOptions} and the launcher.
  */
-public class BlazeServerStartupOptions extends OptionsBase {
+@OptionsClass
+public abstract class BlazeServerStartupOptions extends OptionsBase {
   /**
    * Converter for the <code>option_sources</code> option. Takes a string in the form of
    * "option_name1:source1:option_name2:source2:.." and converts it into an option name to source
    * map.
    */
-  public static class OptionSourcesConverter implements Converter<Map<String, String>> {
+  public static class OptionSourcesConverter extends Converter.Contextless<Map<String, String>> {
     private String unescape(String input) {
       return input.replace("_C", ":").replace("_U", "_");
     }
@@ -54,7 +56,7 @@ public class BlazeServerStartupOptions extends OptionsBase {
     public Map<String, String> convert(String input) {
       ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
       if (input.isEmpty()) {
-        return builder.build();
+        return builder.buildOrThrow();
       }
 
       String[] elements = input.split(":");
@@ -66,7 +68,7 @@ public class BlazeServerStartupOptions extends OptionsBase {
         }
         builder.put(unescape(name), unescape(value));
       }
-      return builder.build();
+      return builder.buildOrThrow();
     }
 
     @Override
@@ -90,7 +92,7 @@ public class BlazeServerStartupOptions extends OptionsBase {
       metadataTags = {OptionMetadataTag.HIDDEN},
       converter = OptionsUtils.PathFragmentConverter.class,
       help = "This launcher option is intended for use only by tests.")
-  public PathFragment installBase;
+  public abstract PathFragment getInstallBase();
 
   /*
    * The installation MD5 - a content hash of the blaze binary (includes the Blaze deploy JAR and
@@ -103,7 +105,18 @@ public class BlazeServerStartupOptions extends OptionsBase {
       effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.BAZEL_MONITORING},
       metadataTags = {OptionMetadataTag.HIDDEN},
       help = "This launcher option is intended for use only by tests.")
-  public String installMD5;
+  public abstract String getInstallMD5();
+
+  @Option(
+      name = "lock_install_base",
+      defaultValue = "false", // NOTE: only for documentation, value is always passed by the client.
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      metadataTags = {OptionMetadataTag.HIDDEN},
+      help =
+          "Whether the server should hold a lock on the install base while running, to prevent"
+              + " another server from attempting to garbage collect it.")
+  public abstract boolean getLockInstallBase();
 
   /* Note: The help string in this option applies to the client code; not
    * the server code. The server code will only accept a non-empty path; it's
@@ -127,7 +140,7 @@ public class BlazeServerStartupOptions extends OptionsBase {
               + "however, with this option you may have multiple output bases per workspace and "
               + "thereby run multiple builds for the same client on the same machine concurrently. "
               + "See 'bazel help shutdown' on how to shutdown a Bazel server.")
-  public PathFragment outputBase;
+  public abstract PathFragment getOutputBase();
 
   @Option(
       name = "output_user_root",
@@ -140,7 +153,7 @@ public class BlazeServerStartupOptions extends OptionsBase {
           "The user-specific directory beneath which all build outputs are written; by default, "
               + "this is a function of $USER, but by specifying a constant, build outputs can be "
               + "shared between collaborating users.")
-  public PathFragment outputUserRoot;
+  public abstract PathFragment getOutputUserRoot();
 
   /**
    * Note: This option is only used by the C++ client, never by the Java server. It is included here
@@ -157,7 +170,7 @@ public class BlazeServerStartupOptions extends OptionsBase {
       help =
           "The location to write the server's JVM's output. If unset then defaults to a location "
               + "in output_base.")
-  public PathFragment serverJvmOut;
+  public abstract PathFragment getServerJvmOut();
 
   // Note: The help string in this option applies to the client code; not the server code. The
   // server code will only accept a non-empty path; it's the responsibility of the client to compute
@@ -173,7 +186,7 @@ public class BlazeServerStartupOptions extends OptionsBase {
           "If set, specifies a location to write a failure_detail protobuf message if the server"
               + " experiences a failure and cannot report it via gRPC, as normal. Otherwise, the"
               + " location will be ${OUTPUT_BASE}/failure_detail.rawproto.")
-  public PathFragment failureDetailOut;
+  public abstract PathFragment getFailureDetailOut();
 
   @Option(
       name = "workspace_directory",
@@ -185,7 +198,7 @@ public class BlazeServerStartupOptions extends OptionsBase {
       help =
           "The root of the workspace, that is, the directory that Bazel uses as the root of the "
               + "build. This flag is only to be set by the bazel client.")
-  public PathFragment workspaceDirectory;
+  public abstract PathFragment getWorkspaceDirectory();
 
   @Option(
       name = "default_system_javabase",
@@ -197,7 +210,7 @@ public class BlazeServerStartupOptions extends OptionsBase {
       help =
           "The root of the user's local JDK install, to be used as the default target javabase"
               + " and as a fall-back host_javabase. This is not the embedded JDK.")
-  public PathFragment defaultSystemJavabase;
+  public abstract PathFragment getDefaultSystemJavabase();
 
   @Option(
       name = "max_idle_secs",
@@ -211,7 +224,7 @@ public class BlazeServerStartupOptions extends OptionsBase {
           "The number of seconds the build server will wait idling before shutting down. Zero"
               + " means that the server will never shutdown. This is only read on server-startup,"
               + " changing this option will not cause the server to restart.")
-  public int maxIdleSeconds;
+  public abstract int getMaxIdleSeconds();
 
   @Option(
       name = "shutdown_on_low_sys_mem",
@@ -220,9 +233,10 @@ public class BlazeServerStartupOptions extends OptionsBase {
       effectTags = {OptionEffectTag.EAGERNESS_TO_EXIT, OptionEffectTag.LOSES_INCREMENTAL_STATE},
       help =
           "If max_idle_secs is set and the build server has been idle for a while, shut down the "
-              + "server when the system is low on free RAM. Linux only.")
-  public boolean shutdownOnLowSysMem;
+              + "server when the system is low on free RAM. Linux and MacOS only.")
+  public abstract boolean getShutdownOnLowSysMem();
 
+  @Deprecated
   @Option(
       name = "batch",
       defaultValue = "false",
@@ -237,7 +251,7 @@ public class BlazeServerStartupOptions extends OptionsBase {
               + "the standard client/server mode. This is deprecated and will be removed, please "
               + "prefer shutting down the server explicitly if you wish to avoid lingering "
               + "servers.")
-  public boolean batch;
+  public abstract boolean getBatch();
 
   @Option(
       name = "block_for_lock",
@@ -247,7 +261,7 @@ public class BlazeServerStartupOptions extends OptionsBase {
       help =
           "When --noblock_for_lock is passed, Bazel does not wait for a running command to "
               + "complete, but instead exits immediately.")
-  public boolean blockForLock;
+  public abstract boolean getBlockForLock();
 
   @Option(
       name = "io_nice_level",
@@ -260,7 +274,7 @@ public class BlazeServerStartupOptions extends OptionsBase {
               + "sys_ioprio_set system call. 0 is highest priority, 7 is lowest. The anticipatory "
               + "scheduler may only honor up to priority 4. If set to a negative value, then Bazel "
               + "does not perform a system call.")
-  public int ioNiceLevel;
+  public abstract int getIoNiceLevel();
 
   @Option(
       name = "batch_cpu_scheduling",
@@ -272,7 +286,7 @@ public class BlazeServerStartupOptions extends OptionsBase {
               + "workloads that are non-interactive, but do not want to lower their nice value. "
               + "See 'man 2 sched_setscheduler'. If false, then Bazel does not perform a system "
               + "call.")
-  public boolean batchCpuScheduling;
+  public abstract boolean getBatchCpuScheduling();
 
   @Option(
       name = "ignore_all_rc_files",
@@ -282,7 +296,7 @@ public class BlazeServerStartupOptions extends OptionsBase {
       help =
           "Disables all rc files, regardless of the values of other rc-modifying flags, even if "
               + "these flags come later in the list of startup options.")
-  public boolean ignoreAllRcFiles;
+  public abstract boolean getIgnoreAllRcFiles();
 
   @Option(
       name = "fatal_event_bus_exceptions",
@@ -290,8 +304,11 @@ public class BlazeServerStartupOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.EAGERNESS_TO_EXIT, OptionEffectTag.LOSES_INCREMENTAL_STATE},
       deprecationWarning = "Will be enabled by default and removed soon",
-      help = "No-op: please use --fatal_event_bus_exceptions_exclusions instead")
-  public boolean fatalEventBusExceptions;
+      help =
+          "Whether or not to exit if an exception is thrown by an internal EventBus handler. No-op"
+              + " if --fatal_async_exceptions_exclusions is available; that flag's behavior is"
+              + " preferentially used.")
+  public abstract boolean getFatalEventBusExceptions();
 
   @Option(
       name = "option_sources",
@@ -301,20 +318,7 @@ public class BlazeServerStartupOptions extends OptionsBase {
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       metadataTags = {OptionMetadataTag.HIDDEN},
       help = "")
-  public Map<String, String> optionSources;
-
-  // TODO(bazel-team): In order to make it easier to have local watchers in open source Bazel,
-  // turn this into a non-startup option.
-  @Option(
-      name = "watchfs",
-      defaultValue = "false", // NOTE: only for documentation, value is always passed by the client.
-      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      metadataTags = OptionMetadataTag.DEPRECATED,
-      help =
-          "If true, %{product} tries to use the operating system's file watch service for local "
-              + "changes instead of scanning every file for a change.")
-  public boolean watchFS;
+  public abstract Map<String, String> getOptionSources();
 
   // This option is only passed in --batch mode. The value is otherwise passed as part of the
   // server request.
@@ -324,10 +328,10 @@ public class BlazeServerStartupOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.CHANGES_INPUTS},
       help =
-          "A base64-encoded-binary-serialized or text-formated "
+          "A base64-encoded-binary-serialized or text-formatted "
               + "invocation_policy.InvocationPolicy proto. Unlike other options, it is an error to "
               + "specify --invocation_policy multiple times.")
-  public String invocationPolicy;
+  public abstract String getInvocationPolicy();
 
   @Option(
       name = "command_port",
@@ -338,7 +342,7 @@ public class BlazeServerStartupOptions extends OptionsBase {
         OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION
       },
       help = "Port to start up the gRPC command server on. If 0, let the kernel choose.")
-  public int commandPort;
+  public abstract int getCommandPort();
 
   @Option(
       name = "product_name",
@@ -354,16 +358,19 @@ public class BlazeServerStartupOptions extends OptionsBase {
           "The name of the build system. It is used as part of the name of the generated "
               + "directories (e.g. productName-bin for binaries) as well as for printing error "
               + "messages and logging")
-  public String productName;
+  public abstract String getProductName();
 
-  // TODO(ulfjack): Make this a command option.
+  // TODO: b/231429363 - Remove this option definition when deleting it from the cpp launcher in six
+  // months.
   @Option(
       name = "write_command_log",
       defaultValue = "true", // NOTE: only for documentation, value is always passed by the client.
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOSES_INCREMENTAL_STATE},
-      help = "Whether or not to write the command.log file")
-  public boolean writeCommandLog;
+      help =
+          "WARNING: This option is deprecated and will be removed soon. Please use the command"
+              + " option instead.")
+  public abstract boolean getWriteCommandLog();
 
   @Option(
       name = "client_debug",
@@ -373,7 +380,17 @@ public class BlazeServerStartupOptions extends OptionsBase {
       help =
           "If true, log debug information from the client to stderr. Changing this option will not "
               + "cause the server to restart.")
-  public boolean clientDebug;
+  public abstract boolean getClientDebug();
+
+  @Option(
+      name = "quiet",
+      defaultValue = "false", // NOTE: only for documentation, actual flag is in UiOptions
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
+      help =
+          "If true, no informational messages are emitted on the console, only errors. Changing "
+              + "this option will not cause the server to restart.")
+  public abstract boolean getQuiet();
 
   @Option(
       name = "preemptible",
@@ -381,7 +398,7 @@ public class BlazeServerStartupOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
       effectTags = {OptionEffectTag.EAGERNESS_TO_EXIT},
       help = "If true, the command can be preempted if another command is started.")
-  public boolean preemptible;
+  public abstract boolean getPreemptible();
 
   @Option(
       name = "connect_timeout_secs",
@@ -389,7 +406,7 @@ public class BlazeServerStartupOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
       effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
       help = "The amount of time the client waits for each attempt to connect to the server")
-  public int connectTimeoutSecs;
+  public abstract int getConnectTimeoutSecs();
 
   @Option(
       name = "local_startup_timeout_secs",
@@ -397,35 +414,19 @@ public class BlazeServerStartupOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
       effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
       help = "The maximum amount of time the client waits to connect to the server")
-  public int localStartupTimeoutSecs;
+  public abstract int getLocalStartupTimeoutSecs();
 
-  // TODO(b/109764197): Add OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS & remove the
-  // experimental tag once this has been tested and is ready for use.
   @Option(
       name = "digest_function",
       defaultValue = "null",
       converter = DigestHashFunction.DigestFunctionConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
       effectTags = {
         OptionEffectTag.LOSES_INCREMENTAL_STATE,
         OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION
       },
-      metadataTags = OptionMetadataTag.EXPERIMENTAL,
       help = "The hash function to use when computing file digests.")
-  public DigestHashFunction digestHashFunction;
-
-  @Deprecated
-  @Option(
-      name = "expand_configs_in_place",
-      defaultValue = "true", // NOTE: only for documentation, value is always passed by the client.
-      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
-      effectTags = {OptionEffectTag.NO_OP},
-      metadataTags = {OptionMetadataTag.DEPRECATED},
-      deprecationWarning = "This option is now a no-op and will soon be deleted.",
-      help =
-          "Changed the expansion of --config flags to be done in-place, as opposed to in a fixed "
-              + "point expansion between normal rc options and command-line specified options.")
-  public boolean expandConfigsInPlace;
+  public abstract DigestHashFunction getDigestHashFunction();
 
   @Option(
       name = "idle_server_tasks",
@@ -436,7 +437,7 @@ public class BlazeServerStartupOptions extends OptionsBase {
         OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS,
       },
       help = "Run System.gc() when the server is idle")
-  public boolean idleServerTasks;
+  public abstract boolean getIdleServerTasks();
 
   @Option(
       name = "unlimit_coredumps",
@@ -450,7 +451,7 @@ public class BlazeServerStartupOptions extends OptionsBase {
               + " (including the JVM) and the client possible under common conditions. Stick this"
               + " flag in your bazelrc once and forget about it so that you get coredumps when you"
               + " actually encounter a condition that triggers them.")
-  public boolean unlimitCoredumps;
+  public abstract boolean getUnlimitCoredumps();
 
   @Option(
       name = "macos_qos_class",
@@ -464,7 +465,7 @@ public class BlazeServerStartupOptions extends OptionsBase {
               + "flag has no effect on all other platforms but is supported to ensure rc files "
               + "can be shared among them without changes. Possible values are: user-interactive, "
               + "user-initiated, default, utility, and background.")
-  public String macosQosClass;
+  public abstract String getMacosQosClass();
 
   @Option(
       name = "windows_enable_symlinks",
@@ -475,7 +476,7 @@ public class BlazeServerStartupOptions extends OptionsBase {
           "If true, real symbolic links will be created on Windows instead of file copying. "
               + "Requires Windows developer mode to be enabled and Windows 10 version 1703 or "
               + "greater.")
-  public boolean enableWindowsSymlinks;
+  public abstract boolean getEnableWindowsSymlinks();
 
   @Option(
       name = "unix_digest_hash_attribute_name",
@@ -488,7 +489,7 @@ public class BlazeServerStartupOptions extends OptionsBase {
               + "can be used to reduce disk I/O and CPU load caused by hash computation. This "
               + "extended attribute is checked on all source files and output files, meaning "
               + "that it causes a significant number of invocations of the getxattr() system call.")
-  public String unixDigestHashAttributeName;
+  public abstract String getUnixDigestHashAttributeName();
 
   @Option(
       name = "autodetect_server_javabase",
@@ -498,5 +499,79 @@ public class BlazeServerStartupOptions extends OptionsBase {
       help =
           "When --noautodetect_server_javabase is passed, Bazel does not fall back to the local "
               + "JDK for running the bazel server and instead exits.")
-  public boolean autodetectServerJavabase;
+  public abstract boolean getAutodetectServerJavabase();
+
+  /**
+   * Note: This option is only used by the C++ client, never by the Java server. It is included here
+   * to make sure that the option is documented in the help output, which is auto-generated by Java
+   * code. This also helps ensure that the server is killed if the value of this option changes.
+   */
+  @Option(
+      name = "experimental_cgroup_parent",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {
+        OptionEffectTag.BAZEL_MONITORING,
+        OptionEffectTag.EXECUTION,
+      },
+      valueHelp = "<path>",
+      help =
+          "The cgroup where to start the bazel server as an absolute path. The server "
+              + "process will be started in the specified cgroup for each supported controller. "
+              + "For example, if the value of this flag is /build/bazel and the cpu and memory "
+              + "controllers are mounted respectively on /sys/fs/cgroup/cpu and "
+              + "/sys/fs/cgroup/memory, the server will be started in the cgroups "
+              + "/sys/fs/cgroup/cpu/build/bazel and /sys/fs/cgroup/memory/build/bazel."
+              + "It is not an error if the specified cgroup is not writable for one or more "
+              + "of the controllers. This options does not have any effect on "
+              + "platforms that do not support cgroups.")
+  public abstract String getCgroupParent();
+
+  /**
+   * Note: This option is only used by the C++ client, never by the Java server. It is included here
+   * to make sure that the option is documented in the help output, which is auto-generated by Java
+   * code. This also helps ensure that the server is killed if the value of this option changes.
+   */
+  @Option(
+      name = "experimental_run_in_user_cgroup",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {
+        OptionEffectTag.BAZEL_MONITORING,
+        OptionEffectTag.EXECUTION,
+      },
+      help =
+          "If true, the Bazel server will be run with systemd-run, and the user will own the"
+              + " cgroup. This flag only takes effect on Linux.")
+  public abstract boolean getRunInUserCgroup();
+
+  /**
+   * Note: This option is only used by the C++ client, never by the Java server. It is included here
+   * to make sure that the option is documented in the help output, which is auto-generated by Java
+   * code. This also helps ensure that the server is killed if the value of this option changes.
+   */
+  @Option(
+      name = "extra_classpath",
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {
+        OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION,
+      },
+      help =
+          "A colon-separated list of classpath entries to be added to the classpath of the Bazel"
+              + " server.")
+  public abstract String getExtraClasspath();
+
+  @Option(
+      name = "experimental_use_compact_object_headers",
+      defaultValue = "true", // NOTE: only for documentation, value is always passed by the client.
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {
+        OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION,
+        OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS,
+      },
+      help =
+          "Use compact object headers in the JVM. Enabled by default for Bazel when "
+              + "using the embedded JDK. This can reduce memory usage by 5-7%.")
+  public abstract boolean getUseCompactObjectHeaders();
 }

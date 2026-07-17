@@ -14,30 +14,46 @@
 
 package com.google.devtools.build.lib.packages;
 
+import com.google.devtools.build.lib.pkgcache.PackageOptions.LazyMacroExpansionPackages;
+import com.google.devtools.build.lib.vfs.RootedPath;
 import java.util.List;
-import java.util.OptionalLong;
 import net.starlark.java.eval.StarlarkSemantics;
 
 /** Listener for package-loading events. */
 public interface PackageLoadingListener {
 
-  PackageLoadingListener NOOP_LISTENER = (pkg, semantics, loadTimeNanos, packageOverhead) -> {};
+  PackageLoadingListener NOOP_LISTENER =
+      (pkg, semantics, lazyMacroExpansionPackages, metrics) -> {};
 
   /** Returns a {@link PackageLoadingListener} from a composed of the input listeners. */
   static PackageLoadingListener create(List<PackageLoadingListener> listeners) {
-    switch (listeners.size()) {
-      case 0:
-        return NOOP_LISTENER;
-      case 1:
-        return listeners.get(0);
-      default:
-        return (pkg, semantics, loadTimeNanos, packageOverhead) -> {
-          for (PackageLoadingListener listener : listeners) {
-            listener.onLoadingCompleteAndSuccessful(pkg, semantics, loadTimeNanos, packageOverhead);
-          }
-        };
-    }
+    return switch (listeners.size()) {
+      case 0 -> NOOP_LISTENER;
+      case 1 -> listeners.get(0);
+      default ->
+          (pkg, semantics, lazyMacroExpansionPackages, metrics) -> {
+            for (PackageLoadingListener listener : listeners) {
+              listener.onLoadingCompleteAndSuccessful(
+                  pkg, semantics, lazyMacroExpansionPackages, metrics);
+            }
+          };
+    };
   }
+
+  /**
+   * Metrics about loading a single package.
+   *
+   * @param loadTimeNanos the wall time, in ns, that it took to load the package. More precisely,
+   *     this is the wall time of the call to {@link PackageFactory#createPackageFromAst}. Notably,
+   *     this does not include the time to read and parse the package's BUILD file, nor the time to
+   *     read, parse, or evaluate any of the transitively loaded .bzl files, and it includes time
+   *     the OS thread is runnable but not running.
+   * @param globFilesystemOperationCost cost of the filesystem operations performed across all
+   *     <code>glob</code> calls while loading the package. <code>stat</code> operations cost <code>
+   *     1</code> and <code>readdir</code> operations cost <code>1 + D</code>, where <code>D</code>
+   *     is the number of dirents.
+   */
+  record Metrics(long loadTimeNanos, long globFilesystemOperationCost) {}
 
   /**
    * Called after {@link com.google.devtools.build.lib.skyframe.PackageFunction} has successfully
@@ -45,17 +61,18 @@ public interface PackageLoadingListener {
    *
    * @param pkg the loaded {@link Package}
    * @param starlarkSemantics are the semantics used to load the package
-   * @param loadTimeNanos the wall time, in ns, that it took to load the package. More precisely,
-   *     this is the wall time of the call to {@link PackageFactory#createPackageFromAst}. Notably,
-   *     this does not include the time to read and parse the package's BUILD file, nor the time to
-   *     read, parse, or evaluate any of the transitively loaded .bzl files, and it includes time
-   *     the OS thread is runnable but not running.
-   * @param packageOverhead the package "overhead", if recorded. See {@link
-   *     PackageOverheadEstimator} for details
+   * @param lazyMacroExpansionPackages determines which packages are loaded with lazy symbolic macro
+   *     expansion enabled
    */
   void onLoadingCompleteAndSuccessful(
       Package pkg,
       StarlarkSemantics starlarkSemantics,
-      long loadTimeNanos,
-      OptionalLong packageOverhead);
+      LazyMacroExpansionPackages lazyMacroExpansionPackages,
+      Metrics metrics);
+
+  /**
+   * Called after {@link com.google.devtools.build.lib.skyframe.BzlCompileFunction} has successfully
+   * parsed the file denoted by the given {@link RootedPath}.
+   */
+  default void onBzlCompileCompleteAndSuccessful(RootedPath path, long fileSize) {}
 }

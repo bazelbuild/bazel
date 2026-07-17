@@ -19,7 +19,7 @@ import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 
 /** Codec for {@link Integer}. */
-class IntegerCodec implements ObjectCodec<Integer> {
+class IntegerCodec extends LeafObjectCodec<Integer> {
 
   @Override
   public Class<Integer> getEncodedClass() {
@@ -27,13 +27,13 @@ class IntegerCodec implements ObjectCodec<Integer> {
   }
 
   @Override
-  public void serialize(SerializationContext context, Integer value, CodedOutputStream codedOut)
+  public void serialize(LeafSerializationContext context, Integer value, CodedOutputStream codedOut)
       throws IOException {
     codedOut.writeInt32NoTag(value);
   }
 
   @Override
-  public Integer deserialize(DeserializationContext context, CodedInputStream codedIn)
+  public Integer deserialize(LeafDeserializationContext context, CodedInputStream codedIn)
       throws IOException {
     return codedIn.readInt32();
   }

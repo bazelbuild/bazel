@@ -15,9 +15,11 @@
 package com.google.devtools.build.lib.starlarkbuildapi.apple;
 
 import com.google.devtools.build.docgen.annot.DocCategory;
-import net.starlark.java.annot.Param;
+import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
+import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.StarlarkValue;
 
 /** An interface for a configuration type containing info for Apple platforms and tools. */
@@ -25,15 +27,7 @@ import net.starlark.java.eval.StarlarkValue;
     name = "apple",
     doc = "A configuration fragment for Apple platforms.",
     category = DocCategory.CONFIGURATION_FRAGMENT)
-public interface AppleConfigurationApi<ApplePlatformTypeApiT extends ApplePlatformTypeApi>
-    extends StarlarkValue {
-
-  @StarlarkMethod(
-      name = "ios_cpu",
-      doc =
-          "<b>Deprecated. Use <a href='#single_arch_cpu'>single_arch_cpu</a> instead.</b> "
-              + "The value of ios_cpu for this configuration.")
-  String getIosCpu();
+public interface AppleConfigurationApi extends StarlarkValue {
 
   @StarlarkMethod(
       name = "single_arch_cpu",
@@ -54,34 +48,55 @@ public interface AppleConfigurationApi<ApplePlatformTypeApiT extends ApplePlatfo
       structField = true)
   ApplePlatformApi getSingleArchPlatform();
 
+  @StarlarkMethod(name = "apple_cpus", documented = false, structField = true)
+  StructApi getAppleCpusForStarlark() throws EvalException;
+
+  @StarlarkMethod(name = "apple_platform_type", documented = false, structField = true)
+  String getApplePlatformType();
+
+  @Nullable
   @StarlarkMethod(
-      name = "multi_arch_platform",
-      doc =
-          "The platform of the current configuration for the given platform type. This should only "
-              + "be invoked in a context where multiple architectures may be supported; consider "
-              + "<a href='#single_arch_platform'>single_arch_platform</a> for other cases.",
-      parameters = {
-        @Param(
-            name = "platform_type",
-            positional = true,
-            named = false,
-            doc = "The apple platform type.")
-      })
-  ApplePlatformApi getMultiArchPlatform(ApplePlatformTypeApiT platformType);
+      name = "xcode_version_flag",
+      documented = false,
+      structField = true,
+      allowReturnNones = true)
+  String getXcodeVersionFlag() throws EvalException;
 
   @StarlarkMethod(
-      name = "ios_cpu_platform",
-      doc =
-          "<b>Deprecated. Use <a href='#single_arch_platform'>single_arch_platform</a> or "
-              + "<a href='#multi_arch_platform'>multi_arch_platform</a> instead.</b> "
-              + "The platform given by the ios_cpu flag.")
-  ApplePlatformApi getIosCpuPlatform();
+      name = "ios_minimum_os_flag",
+      documented = false,
+      structField = true,
+      allowReturnNones = true)
+  @Nullable
+  DottedVersionApi<?> iosMinimumOsFlag() throws EvalException;
 
   @StarlarkMethod(
-      name = "bitcode_mode",
-      doc =
-          "Returns the Bitcode mode to use for compilation steps.<p>This field is only valid for"
-              + " device builds; for simulator builds, it always returns <code>'none'</code>.",
-      structField = true)
-  AppleBitcodeModeApi getBitcodeMode();
+      name = "macos_minimum_os_flag",
+      documented = false,
+      structField = true,
+      allowReturnNones = true)
+  @Nullable
+  DottedVersionApi<?> macOsMinimumOsFlag() throws EvalException;
+
+  @StarlarkMethod(
+      name = "tvos_minimum_os_flag",
+      documented = false,
+      structField = true,
+      allowReturnNones = true)
+  @Nullable
+  DottedVersionApi<?> tvOsMinimumOsFlag() throws EvalException;
+
+  @StarlarkMethod(
+      name = "watchos_minimum_os_flag",
+      documented = false,
+      structField = true,
+      allowReturnNones = true)
+  @Nullable
+  DottedVersionApi<?> watchOsMinimumOsFlag() throws EvalException;
+
+  @StarlarkMethod(name = "prefer_mutual_xcode", documented = false, structField = true)
+  public boolean shouldPreferMutualXcode() throws EvalException;
+
+  @StarlarkMethod(name = "include_xcode_exec_requirements", documented = false, structField = true)
+  public boolean includeXcodeExecRequirementsFlag() throws EvalException;
 }

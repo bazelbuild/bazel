@@ -21,7 +21,15 @@ import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.StarlarkValue;
 
 /** Returns information about executables produced by a target and the files needed to run it. */
-@StarlarkBuiltin(name = "FilesToRunProvider", doc = "", category = DocCategory.PROVIDER)
+@StarlarkBuiltin(
+    name = "FilesToRunProvider",
+    doc =
+"""
+Contains information about executables produced by a target and the files needed to run it. This \
+provider can not be created directly, it is an implicit output of executable targets accessible \
+via <a href="../providers/DefaultInfo.html#files_to_run"><code>DefaultInfo.files_to_run</code></a>.
+""",
+    category = DocCategory.PROVIDER)
 public interface FilesToRunProviderApi<FileT extends FileApi> extends StarlarkValue {
 
   @StarlarkMethod(
@@ -39,4 +47,12 @@ public interface FilesToRunProviderApi<FileT extends FileApi> extends StarlarkVa
       allowReturnNones = true)
   @Nullable
   FileT getRunfilesManifest();
+
+  @StarlarkMethod(
+      name = "repo_mapping_manifest",
+      doc = "The repo mapping manifest or None if it does not exist.",
+      structField = true,
+      allowReturnNones = true)
+  @Nullable
+  FileT getRepoMappingManifest();
 }

@@ -16,13 +16,13 @@ package com.google.devtools.build.lib.analysis.util;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableMultiset.toImmutableMultiset;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.Action;
@@ -39,26 +39,23 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BuildView;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.ProviderCollection;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
-import com.google.devtools.build.lib.analysis.config.TransitionResolver;
-import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
-import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfiguredTarget;
-import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition;
+import com.google.devtools.build.lib.bazel.bzlmod.FakeRegistry;
+import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
-import com.google.devtools.build.lib.packages.NoSuchPackageException;
-import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.PackageFactory;
+import com.google.devtools.build.lib.packages.StarlarkInfo;
+import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
@@ -66,11 +63,12 @@ import com.google.devtools.build.lib.pkgcache.LoadingOptions;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
-import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
+import com.google.devtools.build.lib.runtime.BlazeOptionHandler;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.runtime.LoadingPhaseThreadsOption;
+import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
+import com.google.devtools.build.lib.runtime.StarlarkOptionsParser;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
-import com.google.devtools.build.lib.skyframe.BuildInfoCollectionFunction;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
@@ -83,17 +81,22 @@ import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestConstants.InternalTestExecutionMode;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
+import com.google.devtools.build.lib.vfs.DelegatingSyscallCache;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParser;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import com.google.errorprone.annotations.ForOverride;
 import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import org.junit.After;
 import org.junit.Before;
 
 /**
@@ -114,27 +117,21 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
   public enum Flag {
     // The --keep_going flag.
     KEEP_GOING,
-    // The --skyframe_prepare_analysis flag.
-    SKYFRAME_PREPARE_ANALYSIS,
     // Flags for visibility to default to public.
     PUBLIC_VISIBILITY,
     // Flags for CPU to work (be set to k8) in test mode.
     CPU_K8,
     // Flags from TestConstants.PRODUCT_SPECIFIC_FLAGS.
-    PRODUCT_SPECIFIC_FLAGS
+    PRODUCT_SPECIFIC_FLAGS,
   }
 
   /** Helper class to make it easy to enable and disable flags. */
   public static final class FlagBuilder {
     private final Set<Flag> flags = EnumSet.noneOf(Flag.class);
 
+    @CanIgnoreReturnValue
     public FlagBuilder with(Flag flag) {
       flags.add(flag);
-      return this;
-    }
-
-    public FlagBuilder without(Flag flag) {
-      flags.remove(flag);
       return this;
     }
 
@@ -154,7 +151,8 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
   protected final ActionKeyContext actionKeyContext = new ActionKeyContext();
 
   // Note that these configurations are virtual (they use only VFS)
-  private BuildConfigurationCollection masterConfig;
+  private BuildConfigurationValue universeConfig;
+  private BuildConfigurationValue execConfig;
 
   private AnalysisResult analysisResult;
   protected SkyframeExecutor skyframeExecutor = null;
@@ -162,9 +160,14 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
 
   protected AnalysisTestUtil.DummyWorkspaceStatusActionFactory workspaceStatusActionFactory;
   private PathPackageLocator pkgLocator;
+  protected final DelegatingSyscallCache delegatingSyscallCache = new DelegatingSyscallCache();
+
+  protected Path moduleRoot;
+  protected FakeRegistry registry;
 
   @Before
   public final void createMocks() throws Exception {
+    delegatingSyscallCache.setDelegate(SyscallCache.NO_CACHE);
     analysisMock = getAnalysisMock();
     pkgLocator =
         new PathPackageLocator(
@@ -173,21 +176,27 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
             BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY);
     directories =
         new BlazeDirectories(
-            new ServerDirectories(outputBase, outputBase, outputBase),
+            new ServerDirectories(rootDirectory, outputBase, outputBase),
             rootDirectory,
-            /* defaultSystemJavabase= */ null,
             analysisMock.getProductName());
     workspaceStatusActionFactory = new AnalysisTestUtil.DummyWorkspaceStatusActionFactory();
+
+    moduleRoot = scratch.dir("modules");
+    registry = FakeRegistry.DEFAULT_FACTORY.newFakeRegistry(moduleRoot.getPathString());
 
     mockToolsConfig = new MockToolsConfig(rootDirectory);
     analysisMock.setupMockToolsRepository(mockToolsConfig);
     analysisMock.setupMockClient(mockToolsConfig);
-    analysisMock.setupMockWorkspaceFiles(directories.getEmbeddedBinariesRoot());
 
     useRuleClassProvider(analysisMock.createRuleClassProvider());
   }
 
-  protected SkyframeExecutor createSkyframeExecutor(PackageFactory pkgFactory) {
+  @After
+  public final void cleanupInterningPools() {
+    skyframeExecutor.getEvaluator().cleanupInterningPools();
+  }
+
+  private SkyframeExecutor createSkyframeExecutor(PackageFactory pkgFactory) {
     return BazelSkyframeExecutorConstants.newBazelSkyframeExecutorBuilder()
         .setPkgFactory(pkgFactory)
         .setFileSystem(fileSystem)
@@ -195,21 +204,34 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
         .setActionKeyContext(actionKeyContext)
         .setWorkspaceStatusActionFactory(workspaceStatusActionFactory)
         .setExtraSkyFunctions(analysisMock.getSkyFunctions(directories))
+        .setSyscallCache(delegatingSyscallCache)
+        .allowExternalRepositories(allowExternalRepositories())
         .build();
   }
 
-  /**
-   * Changes the rule class provider to be used for the loading and the analysis phase.
-   */
+  @ForOverride
+  protected boolean allowExternalRepositories() {
+    return false;
+  }
+
+  /** Changes the rule class provider to be used for the loading and the analysis phase. */
   protected void useRuleClassProvider(ConfiguredRuleClassProvider ruleClassProvider)
       throws Exception {
     this.ruleClassProvider = ruleClassProvider;
     PackageFactory pkgFactory =
         analysisMock
             .getPackageFactoryBuilderForTesting(directories)
+            .setExtraPrecomputeValues(
+                ImmutableList.<PrecomputedValue.Injected>builder()
+                    .addAll(analysisMock.getPrecomputedValues())
+                    .add(
+                        PrecomputedValue.injected(
+                            ModuleFileFunction.REGISTRIES, ImmutableSet.of(registry.getUrl())))
+                    .build())
             .build(ruleClassProvider, fileSystem);
     useConfiguration();
     skyframeExecutor = createSkyframeExecutor(pkgFactory);
+    skyframeExecutor.setEventBus(new EventBus());
     reinitializeSkyframeExecutor();
     packageManager = skyframeExecutor.getPackageManager();
     buildView = new BuildViewForTesting(directories, ruleClassProvider, skyframeExecutor, null);
@@ -218,28 +240,24 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
   private void reinitializeSkyframeExecutor() {
     SkyframeExecutorTestHelper.process(skyframeExecutor);
     PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
-    packageOptions.showLoadingProgress = true;
-    packageOptions.globbingThreads = 3;
+    packageOptions.setShowLoadingProgress(true);
+    packageOptions.setGlobbingThreads(3);
+    BuildLanguageOptions buildLanguageOptions = Options.getDefaults(BuildLanguageOptions.class);
     skyframeExecutor.preparePackageLoading(
         pkgLocator,
         packageOptions,
-        Options.getDefaults(BuildLanguageOptions.class),
+        buildLanguageOptions,
         UUID.randomUUID(),
         ImmutableMap.of(),
+        /* repoEnv= */ ImmutableMap.of(),
+        QuiescingExecutorsImpl.forTesting(),
         new TimestampGranularityMonitor(BlazeClock.instance()));
     skyframeExecutor.setActionEnv(ImmutableMap.of());
+    skyframeExecutor.injectExtraPrecomputedValues(analysisMock.getPrecomputedValues());
     skyframeExecutor.injectExtraPrecomputedValues(
         ImmutableList.of(
             PrecomputedValue.injected(
-                RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.empty()),
-            PrecomputedValue.injected(
-                RepositoryDelegatorFunction.REPOSITORY_OVERRIDES, ImmutableMap.of()),
-            PrecomputedValue.injected(
-                RepositoryDelegatorFunction.DEPENDENCY_FOR_UNCONDITIONAL_FETCHING,
-                RepositoryDelegatorFunction.DONT_FETCH_UNCONDITIONALLY),
-            PrecomputedValue.injected(
-                BuildInfoCollectionFunction.BUILD_INFO_FACTORIES,
-                ruleClassProvider.getBuildInfoFactoriesAsMap())));
+                ModuleFileFunction.REGISTRIES, ImmutableSet.of(registry.getUrl()))));
   }
 
   /** Resets the SkyframeExecutor, as if a clean had been executed. */
@@ -257,10 +275,10 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
   }
 
   /**
-   * Sets host and target configuration using the specified options, falling back to the default
+   * Sets exec and target configuration using the specified options, falling back to the default
    * options for unspecified ones, and recreates the build view.
    */
-  public final void useConfiguration(String... args) throws Exception {
+  public void useConfiguration(String... args) throws Exception {
     optionsParser =
         OptionsParser.builder()
             .optionsClasses(
@@ -274,7 +292,8 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
                         KeepGoingOption.class,
                         LoadingPhaseThreadsOption.class,
                         LoadingOptions.class),
-                    ruleClassProvider.getConfigurationOptions()))
+                    ruleClassProvider.getFragmentRegistry().getOptionsClasses()))
+            .skipStarlarkOptionPrefixes()
             .build();
     if (defaultFlags().contains(Flag.PUBLIC_VISIBILITY)) {
       optionsParser.parse("--default_visibility=public");
@@ -285,9 +304,23 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     if (defaultFlags().contains(Flag.PRODUCT_SPECIFIC_FLAGS)) {
       optionsParser.parse(TestConstants.PRODUCT_SPECIFIC_FLAGS);
     }
+    optionsParser.parse(TestConstants.PRODUCT_SPECIFIC_BUILD_LANG_OPTIONS);
     optionsParser.parse(args);
 
-    buildOptions = ruleClassProvider.createBuildOptions(optionsParser);
+    if (!optionsParser.getSkippedArgs().isEmpty()) {
+      var done =
+          StarlarkOptionsParser.builder()
+              .buildSettingLoader(
+                  new BlazeOptionHandler.SkyframeExecutorTargetLoader(
+                      skyframeExecutor, PathFragment.EMPTY_FRAGMENT, reporter))
+              .nativeOptionsParser(optionsParser)
+              .build()
+              .parse();
+      Preconditions.checkState(done);
+    }
+
+    buildOptions =
+        BuildOptions.of(ruleClassProvider.getFragmentRegistry().getOptionsClasses(), optionsParser);
   }
 
   protected FlagBuilder defaultFlags() {
@@ -303,29 +336,23 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
 
     if (action != null) {
       Preconditions.checkState(
-          action instanceof Action,
-          "%s is not a proper Action object",
-          action.prettyPrint());
+          action instanceof Action, "%s is not a proper Action object", action.prettyPrint());
       return (Action) action;
     } else {
       return null;
     }
   }
 
-  protected BuildConfigurationCollection getBuildConfigurationCollection() {
-    return masterConfig;
-  }
-
   /**
-   * Returns the target configuration for the most recent build, as created in Blaze's
-   * master configuration creation phase.
+   * Returns the target configuration for the most recent build, as created in Blaze's primary
+   * configuration creation phase.
    */
-  protected BuildConfiguration getTargetConfiguration() throws InterruptedException {
-    return Iterables.getOnlyElement(masterConfig.getTargetConfigurations());
+  protected BuildConfigurationValue getTargetConfiguration() throws InterruptedException {
+    return universeConfig;
   }
 
-  protected BuildConfiguration getHostConfiguration() {
-    return masterConfig.getHostConfiguration();
+  protected BuildConfigurationValue getExecConfiguration() {
+    return execConfig;
   }
 
   protected final void ensureUpdateWasCalled() {
@@ -336,8 +363,9 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
   protected AnalysisResult update(
       EventBus eventBus,
       FlagBuilder config,
-      ImmutableSet<String> explicitTargetPatterns,
+      ImmutableSet<Label> explicitTargetPatterns,
       ImmutableList<String> aspects,
+      ImmutableMap<String, String> aspectsParameters,
       String... labels)
       throws Exception {
     Set<Flag> flags = config.flags;
@@ -347,20 +375,19 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     AnalysisOptions viewOptions = optionsParser.getOptions(AnalysisOptions.class);
     // update --keep_going option if test requested it.
     boolean keepGoing = flags.contains(Flag.KEEP_GOING);
-    boolean discardAnalysisCache = viewOptions.discardAnalysisCache;
-    viewOptions.skyframePrepareAnalysis = flags.contains(Flag.SKYFRAME_PREPARE_ANALYSIS);
+    boolean discardAnalysisCache = viewOptions.getDiscardAnalysisCache();
 
     PackageOptions packageOptions = optionsParser.getOptions(PackageOptions.class);
     PathPackageLocator pathPackageLocator =
         PathPackageLocator.create(
             outputBase,
-            packageOptions.packagePath,
+            packageOptions.getPackagePath(),
             reporter,
             rootDirectory.asFragment(),
             rootDirectory,
             BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY);
-    packageOptions.showLoadingProgress = true;
-    packageOptions.globbingThreads = 7;
+    packageOptions.setShowLoadingProgress(true);
+    packageOptions.setGlobbingThreads(7);
 
     BuildLanguageOptions buildLanguageOptions =
         optionsParser.getOptions(BuildLanguageOptions.class);
@@ -371,6 +398,8 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
         buildLanguageOptions,
         UUID.randomUUID(),
         ImmutableMap.of(),
+        /* repoEnv= */ ImmutableMap.of(),
+        QuiescingExecutorsImpl.forTesting(),
         new TimestampGranularityMonitor(BlazeClock.instance()));
     skyframeExecutor.setActionEnv(ImmutableMap.of());
     skyframeExecutor.invalidateFilesUnderPathForTesting(
@@ -384,17 +413,15 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
             loadingOptions,
             LOADING_PHASE_THREADS,
             keepGoing,
-            /*determineTests=*/ false);
+            /* determineTests= */ false);
 
-    BuildRequestOptions requestOptions = optionsParser.getOptions(BuildRequestOptions.class);
-    ImmutableSortedSet<String> multiCpu = ImmutableSortedSet.copyOf(requestOptions.multiCpus);
     analysisResult =
         buildView.update(
             loadingResult,
             buildOptions,
-            multiCpu,
             explicitTargetPatterns,
             aspects,
+            aspectsParameters,
             viewOptions,
             keepGoing,
             LOADING_PHASE_THREADS,
@@ -405,35 +432,61 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
       buildView.clearAnalysisCache(
           analysisResult.getTargetsToBuild(), analysisResult.getAspectsMap().keySet());
     }
-    masterConfig = analysisResult.getConfigurationCollection();
+
+    universeConfig = analysisResult.getConfiguration();
+    scratch.overwriteFile("platform/BUILD", "platform(name = 'exec')");
+    execConfig =
+        skyframeExecutor.getConfiguration(
+            reporter,
+            AnalysisTestUtil.execOptions(universeConfig.getOptions(), skyframeExecutor, reporter),
+            /* keepGoing= */ false);
+
     return analysisResult;
   }
 
   protected AnalysisResult update(
       EventBus eventBus, FlagBuilder config, ImmutableList<String> aspects, String... labels)
       throws Exception {
-    return update(eventBus, config, /*explicitTargetPatterns=*/ ImmutableSet.of(), aspects, labels);
+    return update(
+        eventBus,
+        config,
+        /* explicitTargetPatterns= */ ImmutableSet.of(),
+        aspects,
+        /* aspectsParameters= */ ImmutableMap.of(),
+        labels);
   }
 
   protected AnalysisResult update(EventBus eventBus, FlagBuilder config, String... labels)
       throws Exception {
-    return update(eventBus, config, /*aspects=*/ ImmutableList.of(), labels);
+    return update(eventBus, config, /* aspects= */ ImmutableList.of(), labels);
   }
 
   protected AnalysisResult update(FlagBuilder config, String... labels) throws Exception {
-    return update(new EventBus(), config, /*aspects=*/ ImmutableList.of(), labels);
+    return update(new EventBus(), config, /* aspects= */ ImmutableList.of(), labels);
   }
 
-  /**
-   * Update the BuildView: syncs the package cache; loads and analyzes the given labels.
-   */
+  /** Update the BuildView: syncs the package cache; loads and analyzes the given labels. */
   protected AnalysisResult update(String... labels) throws Exception {
-    return update(new EventBus(), defaultFlags(), /*aspects=*/ ImmutableList.of(), labels);
+    return update(new EventBus(), defaultFlags(), /* aspects= */ ImmutableList.of(), labels);
   }
 
   protected AnalysisResult update(ImmutableList<String> aspects, String... labels)
       throws Exception {
     return update(new EventBus(), defaultFlags(), aspects, labels);
+  }
+
+  protected AnalysisResult update(
+      ImmutableList<String> aspects,
+      ImmutableMap<String, String> aspectsParameters,
+      String... labels)
+      throws Exception {
+    return update(
+        new EventBus(),
+        defaultFlags(),
+        /* explicitTargetPatterns= */ ImmutableSet.of(),
+        aspects,
+        aspectsParameters,
+        labels);
   }
 
   protected ConfiguredTargetAndData getConfiguredTargetAndTarget(String label)
@@ -442,19 +495,17 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
   }
 
   protected ConfiguredTargetAndData getConfiguredTargetAndTarget(
-      String label, BuildConfiguration config) {
+      String label, BuildConfigurationValue config) {
     ensureUpdateWasCalled();
     Label parsedLabel;
     try {
-      parsedLabel = Label.parseAbsolute(label, ImmutableMap.of());
+      parsedLabel = Label.parseCanonical(label);
     } catch (LabelSyntaxException e) {
       throw new AssertionError(e);
     }
     try {
       return skyframeExecutor.getConfiguredTargetAndDataForTesting(reporter, parsedLabel, config);
-    } catch (StarlarkTransition.TransitionException
-        | InvalidConfigurationException
-        | InterruptedException e) {
+    } catch (InterruptedException e) {
       throw new AssertionError(e);
     }
   }
@@ -462,14 +513,14 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
   protected Target getTarget(String label) throws InterruptedException {
     try {
       return SkyframeExecutorTestUtils.getExistingTarget(
-          skyframeExecutor, Label.parseAbsolute(label, ImmutableMap.of()));
+          skyframeExecutor, Label.parseCanonical(label));
     } catch (LabelSyntaxException e) {
       throw new AssertionError(e);
     }
   }
 
   protected final ConfiguredTargetAndData getConfiguredTargetAndData(
-      String label, BuildConfiguration configuration) {
+      String label, BuildConfigurationValue configuration) {
     ensureUpdateWasCalled();
     return getConfiguredTargetForSkyframe(label, configuration);
   }
@@ -480,7 +531,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
   }
 
   protected final ConfiguredTarget getConfiguredTarget(
-      String label, BuildConfiguration configuration) {
+      String label, BuildConfigurationValue configuration) {
     ConfiguredTargetAndData result = getConfiguredTargetAndData(label, configuration);
     return result == null ? null : result.getConfiguredTarget();
   }
@@ -494,35 +545,22 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
   }
 
   private ConfiguredTargetAndData getConfiguredTargetForSkyframe(
-      String label, BuildConfiguration configuration) {
+      String label, BuildConfigurationValue configuration) {
     Label parsedLabel;
     try {
-      parsedLabel = Label.parseAbsolute(label, ImmutableMap.of());
+      parsedLabel = Label.parseCanonical(label);
     } catch (LabelSyntaxException e) {
       throw new AssertionError(e);
     }
     try {
-      // Need to emulate the activities of the top-level trimming transition since not going
-      // through sufficiently normal evaluation channels.
-      Target target = skyframeExecutor.getPackageManager().getTarget(reporter, parsedLabel);
-      ConfigurationTransition transition =
-          TransitionResolver.evaluateTransition(
-              configuration,
-              NoTransition.INSTANCE,
-              target,
-              ruleClassProvider.getTrimmingTransitionFactory());
       return skyframeExecutor.getConfiguredTargetAndDataForTesting(
-          reporter, parsedLabel, configuration, transition);
-    } catch (StarlarkTransition.TransitionException
-        | InvalidConfigurationException
-        | InterruptedException
-        | NoSuchPackageException
-        | NoSuchTargetException e) {
+          reporter, parsedLabel, configuration);
+    } catch (InterruptedException e) {
       throw new AssertionError(e);
     }
   }
 
-  protected final BuildConfiguration getConfiguration(ConfiguredTarget ct) {
+  protected final BuildConfigurationValue getConfiguration(ConfiguredTarget ct) {
     return skyframeExecutor.getConfiguration(reporter, ct.getConfigurationKey());
   }
 
@@ -550,8 +588,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     ActionLookupValue actionLookupValue;
     try {
       actionLookupValue =
-          (ActionLookupValue)
-              skyframeExecutor.getEvaluatorForTesting().getExistingValue(actionLookupKey);
+          (ActionLookupValue) skyframeExecutor.getEvaluator().getExistingValue(actionLookupKey);
     } catch (InterruptedException e) {
       throw new IllegalStateException(e);
     }
@@ -569,11 +606,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
         .getDerivedArtifact(
             label.getPackageFragment().getRelative(packageRelativePath),
             getTargetConfiguration().getBinDirectory(label.getRepository()),
-            ConfiguredTargetKey.builder()
-                .setConfiguredTarget(owner)
-                .setConfiguration(
-                    skyframeExecutor.getConfiguration(reporter, owner.getConfigurationKey()))
-                .build());
+            ConfiguredTargetKey.fromConfiguredTarget(owner));
   }
 
   protected Set<ActionLookupKey> getSkyframeEvaluatedTargetKeys() {
@@ -591,7 +624,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
         targetsWithCounts.entrySet().stream()
             .collect(
                 toImmutableMap(
-                    entry -> Label.parseAbsoluteUnchecked(entry.getKey()), Map.Entry::getValue));
+                    entry -> Label.parseCanonicalUnchecked(entry.getKey()), Map.Entry::getValue));
     ImmutableMap<Label, Integer> actual =
         expected.keySet().stream().collect(toImmutableMap(label -> label, actualSet::count));
     assertThat(actual).containsExactlyEntriesIn(expected);
@@ -617,7 +650,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
    * Makes {@code rules} available in tests, in addition to all the rules available to Blaze at
    * running time (e.g., java_library).
    *
-   * Also see {@link AnalysisTestCase#setRulesAndAspectsAvailableInTests(Iterable, Iterable)}.
+   * <p>Also see {@link AnalysisTestCase#setRulesAndAspectsAvailableInTests(Iterable, Iterable)}.
    */
   protected void setRulesAvailableInTests(RuleDefinition... rules) throws Exception {
     // Not all of these aspects are needed for all tests, but it makes it simple to offer them all.
@@ -633,6 +666,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
             TestAspects.EXTRA_ATTRIBUTE_ASPECT,
             TestAspects.PACKAGE_GROUP_ATTRIBUTE_ASPECT,
             TestAspects.COMPUTED_ATTRIBUTE_ASPECT,
+            TestAspects.FILE_PROVIDER_ASPECT,
             TestAspects.FOO_PROVIDER_ASPECT,
             TestAspects.ASPECT_REQUIRING_PROVIDER_SETS,
             TestAspects.WARNING_ASPECT,
@@ -641,14 +675,12 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
   }
 
   /**
-   * Makes {@code aspects} and {@code rules} available in tests, in addition to
-   * all the rules available to Blaze at running time (e.g., java_library).
+   * Makes {@code aspects} and {@code rules} available in tests, in addition to all the rules
+   * available to Blaze at running time (e.g., java_library).
    */
   protected final void setRulesAndAspectsAvailableInTests(
-      Iterable<NativeAspectClass> aspects,
-      Iterable<RuleDefinition> rules) throws Exception {
-    ConfiguredRuleClassProvider.Builder builder =
-        new ConfiguredRuleClassProvider.Builder();
+      Iterable<NativeAspectClass> aspects, Iterable<RuleDefinition> rules) throws Exception {
+    ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
     TestRuleClassProvider.addStandardRules(builder);
     for (NativeAspectClass aspect : aspects) {
       builder.addNativeAspectClass(aspect);
@@ -659,5 +691,30 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
 
     useRuleClassProvider(builder.build());
     update();
+  }
+
+  /**
+   * Retrieves Starlark provider from a configured target.
+   *
+   * <p>Assuming that the provider is defined in the same bzl file as the rule.
+   */
+  protected StarlarkInfo getStarlarkProvider(ConfiguredTarget target, String providerSymbol)
+      throws Exception {
+    return getStarlarkProvider(
+        target,
+        getTarget(target.getLabel().toString())
+            .getAssociatedRule()
+            .getRuleClassObject()
+            .getRuleDefinitionEnvironmentLabel()
+            .toString(),
+        providerSymbol);
+  }
+
+  /** Retrieves Starlark provider from a configured target or aspect. */
+  protected StarlarkInfo getStarlarkProvider(
+      ProviderCollection target, String label, String providerSymbol) throws Exception {
+    StarlarkProvider.Key key =
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical(label)), providerSymbol);
+    return (StarlarkInfo) target.get(key);
   }
 }

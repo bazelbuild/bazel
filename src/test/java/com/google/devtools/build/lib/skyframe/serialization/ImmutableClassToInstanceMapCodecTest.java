@@ -20,9 +20,9 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.RoundTripping;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester.VerificationFunction;
-import com.google.devtools.build.lib.skyframe.serialization.testutils.TestUtils;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
@@ -59,11 +59,11 @@ public class ImmutableClassToInstanceMapCodecTest {
         assertThrows(
             SerializationException.class,
             () ->
-                TestUtils.toBytesMemoized(
+                RoundTripping.toBytesMemoized(
                     ImmutableClassToInstanceMap.of(Dummy.class, new Dummy()),
                     AutoRegistry.get()
                         .getBuilder()
-                        .add(new DummyThrowingCodec(/*throwsOnSerialization=*/ true))
+                        .add(new DummyThrowingCodec(/* throwsOnSerialization= */ true))
                         .build()));
     assertThat(expected)
         .hasMessageThat()
@@ -77,16 +77,10 @@ public class ImmutableClassToInstanceMapCodecTest {
             .getBuilder()
             .add(new DummyThrowingCodec(/*throwsOnSerialization=*/ false))
             .build();
-    ByteString data =
-        TestUtils.toBytes(
-            new SerializationContext(registry, ImmutableClassToInstanceMap.of()),
-            ImmutableClassToInstanceMap.of(Dummy.class, new Dummy()));
+    ObjectCodecs codecs = new ObjectCodecs(registry);
+    ByteString data = codecs.serialize(ImmutableClassToInstanceMap.of(Dummy.class, new Dummy()));
     SerializationException expected =
-        assertThrows(
-            SerializationException.class,
-            () ->
-                TestUtils.fromBytes(
-                    new DeserializationContext(registry, ImmutableClassToInstanceMap.of()), data));
+        assertThrows(SerializationException.class, () -> codecs.deserialize(data));
     assertThat(expected)
         .hasMessageThat()
         .containsMatch("Exception while deserializing value for key 'class .*\\$Dummy'");

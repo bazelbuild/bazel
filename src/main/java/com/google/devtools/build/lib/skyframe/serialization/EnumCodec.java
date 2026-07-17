@@ -21,7 +21,7 @@ import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 
 /** Codec for an enum. */
-public class EnumCodec<T extends Enum<T>> implements ObjectCodec<T> {
+public class EnumCodec<T extends Enum<T>> extends LeafObjectCodec<T> {
 
   private final Class<T> enumClass;
 
@@ -41,14 +41,14 @@ public class EnumCodec<T extends Enum<T>> implements ObjectCodec<T> {
   }
 
   @Override
-  public void serialize(SerializationContext context, T value, CodedOutputStream codedOut)
+  public void serialize(LeafSerializationContext context, T value, CodedOutputStream codedOut)
       throws IOException {
     Preconditions.checkNotNull(value, "Enum value for %s is null", enumClass);
     codedOut.writeEnumNoTag(value.ordinal());
   }
 
   @Override
-  public T deserialize(DeserializationContext context, CodedInputStream codedIn)
+  public T deserialize(LeafDeserializationContext context, CodedInputStream codedIn)
       throws SerializationException, IOException {
     int ordinal = codedIn.readEnum();
     try {

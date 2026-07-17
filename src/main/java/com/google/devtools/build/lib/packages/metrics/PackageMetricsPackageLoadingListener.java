@@ -13,18 +13,21 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages.metrics;
 
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.BzlMetrics.BzlFileMetrics;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageLoadingListener;
+import com.google.devtools.build.lib.pkgcache.PackageOptions.LazyMacroExpansionPackages;
+import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.protobuf.util.Durations;
-import java.util.OptionalLong;
 import javax.annotation.concurrent.GuardedBy;
 import net.starlark.java.eval.StarlarkSemantics;
 
 /** Tracks per-invocation extreme package loading events. */
 public class PackageMetricsPackageLoadingListener implements PackageLoadingListener {
 
-  @GuardedBy("this")
-  private PackageMetricsRecorder recorder = null;
+  private volatile PackageMetricsRecorder recorder;
+
+  private boolean publishPackageMetricsInBep = false;
 
   @GuardedBy("PackageMetricsPackageLoadingListener.class")
   private static PackageMetricsPackageLoadingListener instance = null;
@@ -41,37 +44,61 @@ public class PackageMetricsPackageLoadingListener implements PackageLoadingListe
   }
 
   @Override
-  public synchronized void onLoadingCompleteAndSuccessful(
+  public void onLoadingCompleteAndSuccessful(
       Package pkg,
       StarlarkSemantics starlarkSemantics,
-      long loadTimeNanos,
-      OptionalLong packageOverhead) {
-    if (recorder == null) {
+      LazyMacroExpansionPackages lazyMacroExpansionPackages,
+      Metrics metrics) {
+    PackageMetricsRecorder currentRecorder = recorder;
+    if (currentRecorder == null) {
       // Micro-optimization - no need to track.
       return;
     }
 
-    PackageMetrics.Builder builder =
-        PackageMetrics.newBuilder()
-            .setLoadDuration(Durations.fromNanos(loadTimeNanos))
+    PackageLoadMetrics.Builder builder =
+        PackageLoadMetrics.newBuilder()
+            .setLoadDuration(Durations.fromNanos(metrics.loadTimeNanos()))
+            .setGlobFilesystemOperationCost(metrics.globFilesystemOperationCost())
             .setComputationSteps(pkg.getComputationSteps())
             .setNumTargets(pkg.getTargets().size())
-            .setNumTransitiveLoads(pkg.getStarlarkFileDependencies().size());
+            .setNumTransitiveLoads(pkg.getDeclarations().countTransitivelyLoadedStarlarkFiles());
 
-    if (packageOverhead.isPresent()) {
-      builder.setPackageOverhead(packageOverhead.getAsLong());
+    if (pkg.getPackageOverhead().isPresent()) {
+      builder.setPackageOverhead(pkg.getPackageOverhead().getAsLong());
     }
 
-    recorder.recordMetrics(pkg.getPackageIdentifier(), builder.build());
+    currentRecorder.recordMetrics(pkg.getPackageIdentifier(), builder.build());
+  }
+
+  @Override
+  public void onBzlCompileCompleteAndSuccessful(RootedPath path, long fileSize) {
+    PackageMetricsRecorder currentRecorder = recorder;
+    if (currentRecorder == null) {
+      return;
+    }
+
+    currentRecorder.recordBzlMetrics(
+        BzlFileMetrics.newBuilder()
+            .setPath(path.getRootRelativePath().getPathString())
+            .setSize(fileSize)
+            .build());
   }
 
   /** Set the PackageMetricsRecorder for this listener. */
-  public synchronized void setPackageMetricsRecorder(PackageMetricsRecorder recorder) {
+  public void setPackageMetricsRecorder(PackageMetricsRecorder recorder) {
     this.recorder = recorder;
   }
 
+  public void setPublishPackageMetricsInBep(boolean publishPackageMetricsInBep) {
+    this.publishPackageMetricsInBep = publishPackageMetricsInBep;
+  }
+
+  public boolean getPublishPackageMetricsInBep() {
+    return publishPackageMetricsInBep;
+  }
+
   /** Returns the PackageMetricsRecorder, if any, for the PackageLoadingListener. */
-  public synchronized PackageMetricsRecorder getPackageMetricsRecorder() {
+  public PackageMetricsRecorder getPackageMetricsRecorder() {
     return recorder;
   }
 }

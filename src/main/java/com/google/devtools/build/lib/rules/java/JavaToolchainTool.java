@@ -14,30 +14,43 @@
 
 package com.google.devtools.build.lib.rules.java;
 
-import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER;
 
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.auto.value.AutoValue;
-import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.CommandLine;
-import com.google.devtools.build.lib.analysis.AliasProvider;
-import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
-import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
-import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.StructImpl;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
 
 /** An executable tool that is part of {@code java_toolchain}. */
 @AutoValue
-@AutoCodec
 public abstract class JavaToolchainTool {
+
+  @Nullable
+  static JavaToolchainTool fromStarlark(
+      @Nullable StructImpl struct, JavaToolchainProvider toolchain) throws RuleErrorException {
+    if (struct == null) {
+      return null;
+    }
+    try {
+      return create(
+          struct.getValue("tool", FilesToRunProvider.class),
+          Depset.noneableCast(struct.getValue("data"), Artifact.class, "data"),
+          Depset.noneableCast(struct.getValue("jvm_opts"), String.class, "jvm_opts"),
+          toolchain);
+    } catch (EvalException e) {
+      throw new RuleErrorException(e);
+    }
+  }
 
   /** The executable, possibly a {@code _deploy.jar}. */
   public abstract FilesToRunProvider tool();
@@ -46,85 +59,104 @@ public abstract class JavaToolchainTool {
   public abstract NestedSet<Artifact> data();
 
   /**
-   * JVM flags to invoke the tool with, or empty if it is not a {@code _deploy.jar}. Location
-   * expansion is performed on these flags using the inputs in {@link #data}.
+   * JVM flags to invoke the tool with. Location expansion is performed on these flags using the
+   * inputs in {@link #data}.
    */
-  public abstract ImmutableList<String> jvmOpts();
+  public abstract NestedSet<String> jvmOpts();
 
-  @Nullable
-  static JavaToolchainTool fromRuleContext(
-      RuleContext ruleContext,
-      String toolAttribute,
-      String dataAttribute,
-      String jvmOptsAttribute) {
-    FilesToRunProvider tool = ruleContext.getExecutablePrerequisite(toolAttribute);
-    if (tool == null) {
-      return null;
-    }
-    NestedSetBuilder<Artifact> dataArtifacts = NestedSetBuilder.stableOrder();
-    ImmutableMap.Builder<Label, ImmutableCollection<Artifact>> locations = ImmutableMap.builder();
-    for (TransitiveInfoCollection data : ruleContext.getPrerequisites(dataAttribute)) {
-      NestedSet<Artifact> files = data.getProvider(FileProvider.class).getFilesToBuild();
-      dataArtifacts.addTransitive(files);
-      locations.put(AliasProvider.getDependencyLabel(data), files.toList());
-    }
-    ImmutableList<String> jvmOpts =
-        ruleContext.getExpander().withExecLocations(locations.build()).list(jvmOptsAttribute);
-    return create(tool, dataArtifacts.build(), jvmOpts);
-  }
+  /** The {@code java_toolchain} this tool belongs to. */
+  public abstract JavaToolchainProvider toolchain();
 
-  @Nullable
-  static JavaToolchainTool fromFilesToRunProvider(@Nullable FilesToRunProvider executable) {
-    if (executable == null) {
-      return null;
+  private record CommandLineKey(
+      Artifact executable,
+      ImmutableList<String> jvmOpts,
+      @Nullable PathFragment javaBinary,
+      @Nullable ImmutableList<String> toolchainJvmOpts) {
+    static CommandLineKey from(
+        Artifact executable, NestedSet<String> jvmOpts, JavaToolchainProvider toolchain)
+        throws RuleErrorException {
+      ImmutableList<String> jvmOptsList = jvmOpts.toList();
+      if (!executable.getExtension().equals("jar")) {
+        return new CommandLineKey(executable, jvmOptsList, null, null);
+      }
+      return new CommandLineKey(
+          executable,
+          jvmOptsList,
+          toolchain.getJavaRuntime().javaBinaryExecPathFragment(),
+          toolchain.getJvmOptions().toList());
     }
-    return create(executable, NestedSetBuilder.emptySet(STABLE_ORDER), ImmutableList.of());
-  }
-
-  @AutoCodec.Instantiator
-  static JavaToolchainTool create(
-      FilesToRunProvider tool, NestedSet<Artifact> data, ImmutableList<String> jvmOpts) {
-    return new AutoValue_JavaToolchainTool(tool, data, jvmOpts);
   }
 
   /**
-   * Builds the executable command line for the tool and adds its inputs to the given input builder.
+   * Cache for the {@link CustomCommandLine} for a given tool.
+   *
+   * <p>Using weak values since the main benefit is to share the command line between different
+   * actions, in which case the {@link CustomCommandLine} object remains strongly reachable anyway.
+   */
+  private static final LoadingCache<CommandLineKey, CustomCommandLine> commandLineCache =
+      Caffeine.newBuilder().weakValues().build(JavaToolchainTool::buildCommandLine);
+
+  private static JavaToolchainTool create(
+      FilesToRunProvider tool,
+      NestedSet<Artifact> data,
+      NestedSet<String> jvmOpts,
+      JavaToolchainProvider toolchain) {
+    return new AutoValue_JavaToolchainTool(tool, data, jvmOpts, toolchain);
+  }
+
+  /**
+   * Returns the executable command line for the tool.
    *
    * <p>For a Java command, the executable command line will include {@code java -jar deploy.jar} as
    * well as any JVM flags.
    *
-   * @param command the executable command line builder for the tool
    * @param toolchain {@code java_toolchain} for the action being constructed
-   * @param inputs inputs for the action being constructed
    */
-  void buildCommandLine(
-      CustomCommandLine.Builder command,
-      JavaToolchainProvider toolchain,
-      NestedSetBuilder<Artifact> inputs) {
+  CustomCommandLine getCommandLine() throws RuleErrorException {
+    return commandLineCache.get(
+        CommandLineKey.from(tool().getExecutable(), jvmOpts(), toolchain()));
+  }
+
+  private static CustomCommandLine buildCommandLine(CommandLineKey key) {
+    CustomCommandLine.Builder command = CustomCommandLine.builder();
+
+    if (key.javaBinary() == null) {
+      command = command.addExecPath(key.executable()).addAll(key.jvmOpts());
+    } else {
+      command
+          .addPath(key.javaBinary())
+          .addAll(key.toolchainJvmOpts())
+          .addAll(key.jvmOpts())
+          .add("-jar")
+          .addPath(key.executable().getExecPath());
+    }
+
+    return command.build();
+  }
+
+  /** Adds its inputs for the tool to provided input builder. */
+  void addInputs(NestedSetBuilder<Artifact> inputs) throws RuleErrorException {
     inputs.addTransitive(data());
     Artifact executable = tool().getExecutable();
-    if (!executable.getExtension().equals("jar")) {
-      command.addExecPath(executable);
-      inputs.addTransitive(tool().getFilesToRun());
-    } else {
-      inputs.add(executable).addTransitive(toolchain.getJavaRuntime().javaBaseInputsMiddleman());
-      command
-          .addPath(toolchain.getJavaRuntime().javaBinaryExecPathFragment())
-          .addAll(toolchain.getJvmOptions())
-          .addAll(jvmOpts())
-          .add("-jar")
-          .addPath(executable.getExecPath());
+    // The runfiles of the tool are not added. If this is desired, add getFilesToRun() to inputs
+    // instead.
+    inputs.add(executable);
+    if (executable.getExtension().equals("jar")) {
+      inputs.addTransitive(toolchain().getJavaRuntime().javaBaseInputs());
     }
   }
 
-  /**
-   * Builds the executable command line for the tool and adds its inputs to the given builder, see
-   * also {@link #buildCommandLine(CustomCommandLine.Builder, JavaToolchainProvider,
-   * NestedSetBuilder)}.
-   */
-  CommandLine buildCommandLine(JavaToolchainProvider toolchain, NestedSetBuilder<Artifact> inputs) {
-    CustomCommandLine.Builder command = CustomCommandLine.builder();
-    buildCommandLine(command, toolchain, inputs);
-    return command.build();
+  public JavaToolchainTool withAdditionalJvmFlags(NestedSet<String> additionalJvmFlags) {
+    if (additionalJvmFlags.isEmpty()) {
+      return this;
+    }
+    return create(
+        tool(),
+        data(),
+        NestedSetBuilder.<String>stableOrder()
+            .addTransitive(jvmOpts())
+            .addTransitive(additionalJvmFlags)
+            .build(),
+        toolchain());
   }
 }

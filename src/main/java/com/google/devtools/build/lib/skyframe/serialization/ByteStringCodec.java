@@ -20,7 +20,7 @@ import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 
 /** Codec for {@link ByteString}. */
-public class ByteStringCodec implements ObjectCodec<ByteString> {
+public class ByteStringCodec extends LeafObjectCodec<ByteString> {
 
   @Override
   public Class<? extends ByteString> getEncodedClass() {
@@ -28,14 +28,15 @@ public class ByteStringCodec implements ObjectCodec<ByteString> {
   }
 
   @Override
-  public void serialize(SerializationContext context, ByteString obj, CodedOutputStream codedOut)
-      throws SerializationException, IOException {
-    codedOut.writeByteArrayNoTag(obj.toByteArray());
+  public void serialize(
+      LeafSerializationContext context, ByteString obj, CodedOutputStream codedOut)
+      throws IOException {
+    codedOut.writeBytesNoTag(obj);
   }
 
   @Override
-  public ByteString deserialize(DeserializationContext context, CodedInputStream codedIn)
-      throws SerializationException, IOException {
-    return ByteString.copyFrom(codedIn.readByteArray());
+  public ByteString deserialize(LeafDeserializationContext context, CodedInputStream codedIn)
+      throws IOException {
+    return codedIn.readBytes();
   }
 }

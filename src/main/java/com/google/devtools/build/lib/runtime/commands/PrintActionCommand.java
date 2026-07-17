@@ -13,15 +13,15 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime.commands;
 
+import static com.google.devtools.build.lib.runtime.Command.BuildPhase.ANALYZES;
+
 import com.google.common.base.Predicate;
-import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
-import com.google.devtools.build.lib.actions.MiddlemanType;
 import com.google.devtools.build.lib.actions.extra.DetailedExtraActionInfo;
 import com.google.devtools.build.lib.actions.extra.ExtraActionSummary;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -59,32 +59,29 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.protobuf.TextFormat;
-import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
-/**
- * Implements 'blaze print_action' by finding the Configured target[s] for the file[s] listed.
- *
- */
-@Command(name = "print_action",
-         builds = true,
-         inherits = {BuildCommand.class},
-         options = {PrintActionCommand.PrintActionOptions.class},
-         help = "resource:print_action.txt",
-         shortDescription = "Prints the command line args for compiling a file.",
-         completion = "label",
-         allowResidue = true,
-         canRunInOutputDirectory = true)
+/** Implements 'blaze print_action' by finding the Configured target[s] for the file[s] listed. */
+@Command(
+    name = "print_action",
+    buildPhase = ANALYZES,
+    inheritsOptionsFrom = {BuildCommand.class},
+    options = {PrintActionCommand.PrintActionOptions.class},
+    help = "resource:print_action.txt",
+    shortDescription = "Prints the command line args for compiling a file.",
+    completion = "label",
+    allowResidue = true)
 public final class PrintActionCommand implements BlazeCommand {
 
-  /**
-   * Options for print_action, used to parse command-line arguments.
-   */
-  public static class PrintActionOptions extends OptionsBase {
+  /** Options for print_action, used to parse command-line arguments. */
+  @OptionsClass
+  public abstract static class PrintActionOptions extends OptionsBase {
     @Option(
         name = "print_action_mnemonics",
         allowMultiple = true,
@@ -94,7 +91,7 @@ public final class PrintActionCommand implements BlazeCommand {
         help =
             "Lists which mnemonics to filter print_action data by, no filtering takes place "
                 + "when left empty.")
-    public List<String> printActionMnemonics = new ArrayList<>();
+    public abstract List<String> getPrintActionMnemonics();
   }
 
   @Override
@@ -103,9 +100,13 @@ public final class PrintActionCommand implements BlazeCommand {
         options.getOptions(LoadingOptions.class);
 
     PrintActionOptions printActionOptions = options.getOptions(PrintActionOptions.class);
-    PrintActionRunner runner = new PrintActionRunner(loadingOptions.compileOneDependency, options,
-        env.getReporter().getOutErr(),
-        options.getResidue(), Sets.newHashSet(printActionOptions.printActionMnemonics));
+    PrintActionRunner runner =
+        new PrintActionRunner(
+            loadingOptions.getCompileOneDependency(),
+            options,
+            env.getReporter().getOutErr(),
+            options.getResidue(),
+            new HashSet<>(printActionOptions.getPrintActionMnemonics()));
     return BlazeCommandResult.detailedExitCode(runner.printActionsForTargets(env));
   }
 
@@ -132,7 +133,7 @@ public final class PrintActionCommand implements BlazeCommand {
       this.options = options;
       this.outErr = outErr;
       this.requestedTargets = requestedTargets;
-      keepGoing = options.getOptions(KeepGoingOption.class).keepGoing;
+      keepGoing = options.getOptions(KeepGoingOption.class).getKeepGoing();
       summaryBuilder = ExtraActionSummary.newBuilder();
       actionMnemonicMatcher = new Predicate<ActionAnalysisMetadata>() {
         @Override
@@ -189,7 +190,7 @@ public final class PrintActionCommand implements BlazeCommand {
               .setTargets(targets)
               .setStartTimeMillis(env.getCommandStartTime())
               .build();
-      BuildResult result = new BuildTool(env).processRequest(request, null);
+      BuildResult result = new BuildTool(env).processRequest(request, null, options);
       if (hasFatalBuildFailure(result)) {
         return result;
       }
@@ -321,43 +322,6 @@ public final class PrintActionCommand implements BlazeCommand {
   }
 
   /**
-   * C++ headers are not plain vanilla action inputs: they do not show up in Action.getInputs(),
-   * since the actual set of header files is the one discovered during include scanning.
-   *
-   * <p>However, since there is a scheduling dependency on the header files, we can use the system
-   * to implement said scheduling dependency to figure them out. Thus, we go a-fishing in the action
-   * graph reaching through scheduling dependency middlemen: one of these exists for each {@code
-   * CcCompilationContext} in the transitive closure of the rule.
-   */
-  private static void expandRecursiveHelper(
-      ActionGraph actionGraph,
-      Iterable<Artifact> artifacts,
-      Set<Artifact> visited,
-      Set<Artifact> result) {
-    for (Artifact artifact : artifacts) {
-      if (!visited.add(artifact)) {
-        continue;
-      }
-      if (!artifact.isMiddlemanArtifact()) {
-        result.add(artifact);
-        continue;
-      }
-
-      ActionAnalysisMetadata middlemanAction = actionGraph.getGeneratingAction(artifact);
-      if (middlemanAction.getActionType() != MiddlemanType.SCHEDULING_DEPENDENCY_MIDDLEMAN) {
-        continue;
-      }
-
-      expandRecursiveHelper(actionGraph, middlemanAction.getInputs().toList(), visited, result);
-    }
-  }
-
-  private static void expandRecursive(ActionGraph actionGraph, Iterable<Artifact> artifacts,
-      Set<Artifact> result) {
-    expandRecursiveHelper(actionGraph, artifacts, Sets.<Artifact>newHashSet(), result);
-  }
-
-  /**
    * A stateful filter that keeps track of which files have already been covered. This makes it such
    * that blaze only prints out one action protobuf per file. This is important for headers. In
    * addition, this also handles C++ header files, which are not considered to be action inputs by
@@ -383,12 +347,11 @@ public final class PrintActionCommand implements BlazeCommand {
         return false;
       }
       // Check all the inputs for the configured target against the file we want argv for.
-      Set<Artifact> expandedArtifacts = Sets.newHashSet();
-      expandRecursive(
-          env.getSkyframeExecutor().getActionGraph(env.getReporter()),
-          action.getInputs().toList(),
-          expandedArtifacts);
-      for (Artifact input : expandedArtifacts) {
+      LinkedHashSet<Artifact> artifacts = new LinkedHashSet<>();
+      artifacts.addAll(action.getInputs().toList());
+      artifacts.addAll(action.getSchedulingDependencies().toList());
+
+      for (Artifact input : artifacts) {
         if (filesDesired.remove(input.getRootRelativePath().getSafePathString())) {
           return actionMnemonicMatcher.apply(action);
         }
@@ -413,7 +376,8 @@ public final class PrintActionCommand implements BlazeCommand {
           ConfiguredAttributeMapper.of(
                   rule,
                   configuredTarget.getConfigConditions(),
-                  configuredTarget.getConfigurationChecksum())
+                  configuredTarget.getConfigurationChecksum(),
+                  /*alwaysSucceed=*/ false)
               .get("hdrs", BuildType.LABEL_LIST);
       if (hdrs != null) {
         for (Label hdrLabel : hdrs) {

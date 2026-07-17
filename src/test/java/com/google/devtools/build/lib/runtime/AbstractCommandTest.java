@@ -23,6 +23,7 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.util.ArrayList;
@@ -39,32 +40,31 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class AbstractCommandTest {
 
-  public static class FooOptions extends OptionsBase {
+  @OptionsClass
+  public abstract static class FooOptions extends OptionsBase {
     @Option(
-      name = "foo",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "0"
-    )
-    public int foo;
+        name = "foo",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "0")
+    public abstract int getFoo();
   }
 
-  public static class BarOptions extends OptionsBase {
+  @OptionsClass
+  public abstract static class BarOptions extends OptionsBase {
     @Option(
-      name = "bar",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "42"
-    )
-    public int foo;
+        name = "bar",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "42")
+    public abstract int getFoo();
 
     @Option(
-      name = "baz",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "oops"
-    )
-    public String baz;
+        name = "baz",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "oops")
+    public abstract String getBaz();
   }
 
   private static class ConcreteCommand implements BlazeCommand {
@@ -97,8 +97,7 @@ public class AbstractCommandTest {
         .build();
 
     assertThat(
-            BlazeCommandUtils.getOptions(
-                TestCommand.class, ImmutableList.<BlazeModule>of(), ruleClassProvider))
+            BlazeCommandUtils.getOptions(TestCommand.class, ImmutableList.of(), ruleClassProvider))
         .containsExactlyElementsIn(optionClassesWithDefault(FooOptions.class, BarOptions.class));
   }
 
@@ -110,8 +109,12 @@ public class AbstractCommandTest {
   @Command(name = "a", options = {FooOptions.class}, shortDescription = "", help = "")
   private static class CommandA extends ConcreteCommand {}
 
-  @Command(name = "b", options = {BarOptions.class}, inherits = {CommandA.class},
-           shortDescription = "", help = "")
+  @Command(
+      name = "b",
+      options = {BarOptions.class},
+      inheritsOptionsFrom = {CommandA.class},
+      shortDescription = "",
+      help = "")
   private static class CommandB extends ConcreteCommand {}
 
   @Test
@@ -119,13 +122,9 @@ public class AbstractCommandTest {
     ConfiguredRuleClassProvider ruleClassProvider = new ConfiguredRuleClassProvider.Builder()
         .setToolsRepository(TestConstants.TOOLS_REPOSITORY)
         .build();
-    assertThat(
-            BlazeCommandUtils.getOptions(
-                CommandA.class, ImmutableList.<BlazeModule>of(), ruleClassProvider))
+    assertThat(BlazeCommandUtils.getOptions(CommandA.class, ImmutableList.of(), ruleClassProvider))
         .containsExactlyElementsIn(optionClassesWithDefault(FooOptions.class));
-    assertThat(
-            BlazeCommandUtils.getOptions(
-                CommandB.class, ImmutableList.<BlazeModule>of(), ruleClassProvider))
+    assertThat(BlazeCommandUtils.getOptions(CommandB.class, ImmutableList.of(), ruleClassProvider))
         .containsExactlyElementsIn(optionClassesWithDefault(FooOptions.class, BarOptions.class));
   }
 
@@ -134,6 +133,7 @@ public class AbstractCommandTest {
     Collections.addAll(result, optionClasses);
     result.add(UiOptions.class);
     result.add(CommonCommandOptions.class);
+    result.add(KeepStateAfterBuildOption.class);
     result.add(ClientOptions.class);
     result.add(BuildLanguageOptions.class);
     return result;

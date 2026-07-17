@@ -1,14 +1,16 @@
 # Execution Log Parser
 
-This tool is used to inspect and parse the Bazel execution logs.
+This tool is used to inspect and parse the Bazel execution logs. Currently
+supported formats are `binary`, `json`, and `compact`.
+
 To generate the execution log, run e.g.:
 
         bazel build \
-            --execution_log_binary_file=/tmp/exec.log :hello_world
+            --execution_log_compact_file=/tmp/exec.log :hello_world
 
-Then build the parser and run it.
+Then build the parser and run it:
 
-        bazel build src/tools/execlog:all
+        bazel build src/tools/execlog:parser
         bazel-bin/src/tools/execlog/parser --log_path=/tmp/exec.log
 
 This will simply print the log contents to stdout in text form.
@@ -44,3 +46,21 @@ are put at the end of `/tmp/exec2.log.txt`.
 Note that this reordering makes it easier to see differences using text-based
 diffing tools, but may break the logical sequence of actions in
 `/tmp/exec2.log.txt`.
+
+# Execution Log Converter
+
+This tool is used to convert between Bazel execution log formats.
+Currently supported formats are `binary`, `json`, and `compact`.
+
+For example, to convert from the binary format to the JSON format:
+
+        bazel build src/tools/execlog:converter
+        bazel-bin/src/tools/execlog/converter \
+            --input binary:/tmp/binary.log --output json:/tmp/json.log
+
+By default, the output will be in the same order as the input. To sort in a
+deterministic order, use `--sort`.
+
+For large log files, you might need to increase the JVM heap size. To do so,
+pass a corresponding `--jvm_flag`, for example `--jvm_flag=-Xmx4g` for 4GB of heap.
+

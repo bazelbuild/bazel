@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.runtime.commands.info;
 
 import com.google.common.base.Supplier;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.InfoItem;
 import java.util.Map;
@@ -31,7 +31,8 @@ public final class ClientEnv extends InfoItem {
   }
 
   @Override
-  public byte[] get(Supplier<BuildConfiguration> configurationSupplier, CommandEnvironment env) {
+  public byte[] get(
+      Supplier<BuildConfigurationValue> configurationSupplier, CommandEnvironment env) {
     String result = "";
     for (Map.Entry<String, String> entry : env.getAllowlistedActionEnv().entrySet()) {
       // TODO(bazel-team): as the syntax of our rc-files does not support to express new-lines in

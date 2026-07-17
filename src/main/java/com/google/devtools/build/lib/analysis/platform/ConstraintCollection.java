@@ -20,6 +20,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.stream.Collectors.joining;
 
 import com.google.auto.value.AutoValue;
+import com.google.auto.value.extension.memoized.Memoized;
 import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
@@ -29,10 +30,9 @@ import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.ConstraintCollectionApi;
 import com.google.devtools.build.lib.util.Fingerprint;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Objects;
@@ -47,10 +47,13 @@ import net.starlark.java.eval.StarlarkSemantics;
 
 /** A collection of constraint values. */
 @Immutable
-@AutoCodec
 @AutoValue
 public abstract class ConstraintCollection
     implements ConstraintCollectionApi<ConstraintSettingInfo, ConstraintValueInfo> {
+
+  @Override
+  @Memoized
+  public abstract int hashCode();
 
   /** A builder class to help create instances of {@link ConstraintCollection}. */
   public static final class Builder {
@@ -61,14 +64,10 @@ public abstract class ConstraintCollection
     private Builder() {}
 
     /** Sets the parent {@link ConstraintCollection} of this instance. */
+    @CanIgnoreReturnValue
     public Builder parent(@Nullable ConstraintCollection parent) {
       this.parent = parent;
       return this;
-    }
-
-    /** Adds the given constraints to the current collection. */
-    public Builder addConstraints(Map<ConstraintSettingInfo, ConstraintValueInfo> constraints) {
-      return addConstraints(constraints.values());
     }
 
     /** Adds the given constraints to the current collection. */
@@ -77,6 +76,7 @@ public abstract class ConstraintCollection
     }
 
     /** Adds the given constraints to the current collection. */
+    @CanIgnoreReturnValue
     public Builder addConstraints(Iterable<ConstraintValueInfo> constraints) {
       constraintValues.addAll(constraints);
       return this;
@@ -96,15 +96,6 @@ public abstract class ConstraintCollection
   /** Returns a new {@link Builder} suitable for creating {@link ConstraintCollection} instances. */
   public static Builder builder() {
     return new Builder();
-  }
-
-  @AutoCodec.Instantiator
-  @VisibleForSerialization
-  static ConstraintCollection create(
-      @Nullable ConstraintCollection parent,
-      ImmutableMap<ConstraintSettingInfo, ConstraintValueInfo> constraints)
-      throws DuplicateConstraintException {
-    return builder().parent(parent).addConstraints(constraints).build();
   }
 
   @Override
@@ -245,7 +236,12 @@ public abstract class ConstraintCollection
 
   @Override
   public Object getIndex(StarlarkSemantics semantics, Object key) throws EvalException {
-    return get(convertKey(key));
+    ConstraintSettingInfo constraintSettingInfo = convertKey(key);
+    Object result = get(constraintSettingInfo);
+    if (result == null) {
+      return Starlark.NONE;
+    }
+    return result;
   }
 
   @Override
@@ -256,15 +252,15 @@ public abstract class ConstraintCollection
   // It's easier to use the Starlark repr as a string form, not what AutoValue produces.
   @Override
   public final String toString() {
-    return Starlark.str(this);
+    return Starlark.repr(this, StarlarkSemantics.DEFAULT);
   }
 
   @Override
-  public void repr(Printer printer) {
+  public void repr(Printer printer, StarlarkSemantics semantics) {
     printer.append("<");
     if (parent() != null) {
       printer.append("parent: ");
-      parent().repr(printer);
+      parent().repr(printer, semantics);
       printer.append(", ");
     }
     printer.append("[");
@@ -293,6 +289,16 @@ public abstract class ConstraintCollection
     constraints().values().forEach(constraintValue -> constraintValue.addTo(fp));
   }
 
+  /**
+   * Validates that the given constraints do not contain conflicting values.
+   *
+   * <p>Checks that no {@link ConstraintSettingInfo} has multiple different {@link
+   * ConstraintValueInfo} values. Multiple instances of the same constraint value are allowed.
+   *
+   * @param constraintValues the constraints to validate
+   * @throws DuplicateConstraintException if multiple different constraint values exist for the same
+   *     constraint setting
+   */
   public static void validateConstraints(Iterable<ConstraintValueInfo> constraintValues)
       throws DuplicateConstraintException {
     // Collect the constraints by the settings.
@@ -301,12 +307,14 @@ public abstract class ConstraintCollection
             .collect(
                 toImmutableListMultimap(ConstraintValueInfo::constraint, Functions.identity()));
 
-    // Find settings with duplicate values.
+    // Find different constraint values targeting the same constraint setting.
+    // Ignore multiple instances of the same constraint value.
     ImmutableListMultimap<ConstraintSettingInfo, ConstraintValueInfo> duplicates =
         constraints.asMap().entrySet().stream()
-            .filter(e -> e.getValue().size() > 1)
+            .filter(e -> e.getValue().stream().distinct().count() > 1)
             .collect(
-                flatteningToImmutableListMultimap(Map.Entry::getKey, e -> e.getValue().stream()));
+                flatteningToImmutableListMultimap(
+                    Map.Entry::getKey, e -> e.getValue().stream().distinct()));
 
     if (!duplicates.isEmpty()) {
       throw new DuplicateConstraintException(duplicates);

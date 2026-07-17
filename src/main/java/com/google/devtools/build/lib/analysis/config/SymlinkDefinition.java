@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.vfs.Path;
 import java.util.Set;
-import java.util.function.Function;
 
 /** Represents a single kind of convenience symlink ({@code bazel-bin}, etc.). */
 public interface SymlinkDefinition {
@@ -30,7 +29,7 @@ public interface SymlinkDefinition {
    * <p>Note that this is independent of the target configuration(s) that may help determine the
    * symlink's destination.
    */
-  String getLinkName(String symlinkPrefix, String productName, String workspaceBaseName);
+  String getLinkName(String symlinkPrefix, String workspaceBaseName);
 
   /**
    * Returns a set of candidate destination paths for the symlink.
@@ -43,17 +42,13 @@ public interface SymlinkDefinition {
    *     point to.
    * @param targetConfigs the configurations for which symlinks should be created. If these have
    *     conflicting requirements, multiple candidates are returned.
-   * @param configGetter used to compute derived configurations, if needed. This is used for
-   *     symlinks that link to the output directories of configs that are related to, but not
-   *     included in, {@code targetConfigs}.
    * @param repositoryName the repository name.
    * @param outputPath the output path.
    * @param execRoot the exec root.
    */
   ImmutableSet<Path> getLinkPaths(
       BuildRequestOptions buildRequestOptions,
-      Set<BuildConfiguration> targetConfigs,
-      Function<BuildOptions, BuildConfiguration> configGetter,
+      Set<BuildConfigurationValue> targetConfigs,
       RepositoryName repositoryName,
       Path outputPath,
       Path execRoot);

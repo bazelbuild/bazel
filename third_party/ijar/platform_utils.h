@@ -28,7 +28,7 @@ namespace devtools_ijar {
 // Platform-independent stat data.
 struct Stat {
   // Total size of the file in bytes.
-  int total_size;
+  u8 total_size;
   // The Unix file mode from the stat.st_mode field.
   mode_t file_mode;
   // True if this is a directory.
@@ -71,6 +71,10 @@ std::string get_cwd();
 // Returns true if all directories were created and permissions set.
 // Returns false upon failure and reports the error to stderr.
 bool make_dirs(const char* path, unsigned int perm);
+
+// Returns a normalized version of `path` that doesn't contain path traversal
+// characters. Must not be passed to a filesystem API.
+std::string normalize_path(const char* path);
 
 }  // namespace devtools_ijar
 

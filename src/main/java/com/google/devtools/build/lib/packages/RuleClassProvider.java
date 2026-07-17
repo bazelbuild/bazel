@@ -17,11 +17,9 @@ package com.google.devtools.build.lib.packages;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.packages.RuleClass.Builder.ThirdPartyLicenseExistencePolicy;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.vfs.Root;
 import java.util.Map;
-import net.starlark.java.eval.StarlarkThread;
 
 /**
  * The collection of the supported build rules. Provides an StarlarkThread for Starlark rule
@@ -32,7 +30,19 @@ public interface RuleClassProvider extends RuleDefinitionEnvironment {
   /** Label referencing the prelude file. */
   Label getPreludeLabel();
 
-  /** The default runfiles prefix (may be overwritten by the WORKSPACE file). */
+  /** Returns true if a package location is considered to be experimental. */
+  boolean isPackageUnderExperimental(PackageIdentifier packageIdentifier);
+
+  /** Returns true if a package location is considered to be under prototypes. */
+  boolean isPackageUnderPrototypes(PackageIdentifier packageIdentifier);
+
+  /**
+   * Returns true if the given non-experimental, non-prototype package is allowed to depend on (via
+   * target visibility or .bzl load visibility) prototype packages.
+   */
+  boolean mayPackageDependOnPrototypes(PackageIdentifier packageIdentifier);
+
+  /** The runfiles prefix. */
   String getRunfilesPrefix();
 
   /**
@@ -54,68 +64,16 @@ public interface RuleClassProvider extends RuleDefinitionEnvironment {
   String getBuiltinsBzlPackagePathInSource();
 
   /** Returns a map from rule names to rule class objects. */
-  Map<String, RuleClass> getRuleClassMap();
-
-  /**
-   * Stores a BazelStarlarkContext in the specified StarlarkThread about to initialize a .bzl file.
-   *
-   * <p>A .bzl file loaded by (or indirectly by) a BUILD file may differ semantically from the same
-   * file loaded on behalf of a WORKSPACE file, because of the repository mapping and native module;
-   * these differences much be accounted for by caching.
-   *
-   * @param thread StarlarkThread in which to store the context.
-   * @param label the label of the .bzl file
-   * @param repoMapping map of RepositoryNames to be remapped
-   */
-  void setStarlarkThreadContext(
-      StarlarkThread thread, Label label, ImmutableMap<RepositoryName, RepositoryName> repoMapping);
-
-  /**
-   * Returns all the predeclared top-level symbols (for .bzl files) that belong to native rule sets,
-   * and hence are allowed to be overridden by builtins-injection.
-   *
-   * <p>For example, {@code CcInfo} is included, but {@code rule()} is not.
-   *
-   * @see StarlarkBuiltinsFunction
-   */
-  ImmutableMap<String, Object> getNativeRuleSpecificBindings();
-
-  /**
-   * Returns the set of symbols to be made available to {@code @_builtins} .bzl files under the
-   * _builtins.internal object.
-   *
-   * <p>These symbols are not exposed to user .bzl code and do not constitute a public or stable API
-   * (unless exposed through another means).
-   */
-  ImmutableMap<String, Object> getStarlarkBuiltinsInternals();
-
-  /**
-   * Returns the Starlark builtins registered with this RuleClassProvider.
-   *
-   * <p>Does not account for builtins injection. Excludes universal bindings (e.g. True, len).
-   *
-   * <p>See {@link BazelStarlarkEnvironment#getUninjectedBuildBzlNativeBindings} for the canonical
-   * determination of the bzl environment (before injection).
-   */
-  ImmutableMap<String, Object> getEnvironment();
+  ImmutableMap<String, RuleClass> getRuleClassMap();
 
   /** Returns a map from aspect names to aspect factory objects. */
   Map<String, NativeAspectClass> getNativeAspectClassMap();
 
   /**
-   * Returns the default content that should be added at the beginning of the WORKSPACE file.
-   *
-   * <p>Used to provide external dependencies for built-in rules. Rules defined here can be
-   * overwritten in the WORKSPACE file in the actual workspace.
+   * Returns the {@link BazelStarlarkEnvironment}, which is the final determiner of the BUILD and
+   * .bzl environment (with and without builtins injection).
    */
-  String getDefaultWorkspacePrefix();
-
-  /**
-   * Returns the default content that should be added at the end of the WORKSPACE file.
-   *
-   * <p>Used to load Starlark repository in the bazel_tools repository.
-   */
-  String getDefaultWorkspaceSuffix();
+  BazelStarlarkEnvironment getBazelStarlarkEnvironment();
 
   /** Retrieves an aspect from the aspect factory map using the key provided */
   NativeAspectClass getNativeAspectClass(String key);
@@ -124,8 +82,5 @@ public interface RuleClassProvider extends RuleDefinitionEnvironment {
    * Retrieves a {@link Map} from Starlark configuration fragment name to configuration fragment
    * class.
    */
-  Map<String, Class<?>> getConfigurationFragmentMap();
-
-  /** Returns the policy on checking that third-party rules have licenses. */
-  ThirdPartyLicenseExistencePolicy getThirdPartyLicenseExistencePolicy();
+  ImmutableMap<String, Class<?>> getConfigurationFragmentMap();
 }

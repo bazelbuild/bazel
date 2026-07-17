@@ -59,8 +59,8 @@ class UnzipProcessor : public ZipExtractorProcessor {
 
   virtual ~UnzipProcessor() {}
 
-  virtual void Process(const char* filename, const u4 attr,
-                       const u1* data, const size_t size);
+  virtual void Process(const char *filename, u4 attr, const u1 *data,
+                       size_t size);
   virtual bool Accept(const char* filename, const u4 attr) {
     // All entry files are accepted by default.
     if (file_names.empty()) {
@@ -128,8 +128,20 @@ void UnzipProcessor::Process(const char* filename, const u4 attr,
   }
   if (extract_) {
     char path[PATH_MAX];
-    if (!concat_path(path, sizeof(path), output_root_, output_file_name) ||
-        !make_dirs(path, perm) ||
+    if (!concat_path(path, sizeof(path), output_root_, output_file_name)) {
+      abort();
+    }
+    std::string normalized_root = normalize_path(output_root_);
+    std::string normalized = normalize_path(path);
+    if (normalized.compare(0, normalized_root.size(), normalized_root) != 0) {
+      fprintf(stderr,
+              "paths in the zip may not end up outside of the output "
+              "directory: %s vs "
+              "%s\n",
+              path, normalized.c_str());
+      abort();
+    }
+    if (!make_dirs(path, perm) ||
         (!isdir && !write_file(path, perm, data, size))) {
       abort();
     }
@@ -248,15 +260,25 @@ char **read_filelist(char *filename) {
     return NULL;
   }
 
+  if (file_stat.total_size == 0) {
+    char** filelist = static_cast<char**>(malloc(sizeof(char*)));
+    filelist[0] = NULL;
+    return filelist;
+  }
+
   char *data = static_cast<char *>(malloc(file_stat.total_size));
   if (!read_file(filename, data, file_stat.total_size)) {
     return NULL;
   }
 
   int nb_entries = 1;
-  for (int i = 0; i < file_stat.total_size; i++) {
+  for (u8 i = 0; i < file_stat.total_size; i++) {
     if (data[i] == '\n') {
       nb_entries++;
+    }
+    if (nb_entries == INT_MAX) {
+      fprintf(stderr, "too many input files");
+      return NULL;
     }
   }
 
@@ -271,7 +293,7 @@ char **read_filelist(char *filename) {
   // Create the corresponding array
   int j = 1;
   filelist[0] = content;
-  for (int i = 0; i < file_stat.total_size; i++) {
+  for (u8 i = 0; i < file_stat.total_size; i++) {
     if (content[i] == '\n') {
       content[i] = 0;
       if (i + 1 < file_stat.total_size) {

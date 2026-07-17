@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.query2.query.output;
 import com.google.common.hash.HashFunction;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.graph.Digraph;
+import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.QueryException;
@@ -23,14 +24,10 @@ import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.query.aspectresolvers.AspectResolver;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.io.Serializable;
 import javax.annotation.Nullable;
 
-/**
- * Interface for classes which order, format and print the result of a Blaze
- * graph query.
- */
-public abstract class OutputFormatter implements Serializable {
+/** Interface for classes which order, format and print the result of a Blaze graph query. */
+public abstract class OutputFormatter {
 
   /** Returns the user-visible name of the output formatter. */
   public abstract String getName();
@@ -62,6 +59,7 @@ public abstract class OutputFormatter implements Serializable {
       OutputStream out,
       AspectResolver aspectProvider,
       @Nullable EventHandler eventHandler,
-      HashFunction hashFunction)
+      HashFunction hashFunction,
+      LabelPrinter labelPrinter)
       throws IOException, InterruptedException;
 }

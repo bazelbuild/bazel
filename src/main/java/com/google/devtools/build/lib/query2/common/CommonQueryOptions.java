@@ -13,7 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.common;
 
-import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
 import com.google.devtools.build.lib.query2.query.aspectresolvers.AspectResolver;
 import com.google.devtools.build.lib.query2.query.aspectresolvers.AspectResolver.Mode;
@@ -25,12 +26,15 @@ import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
+import net.starlark.java.eval.StarlarkSemantics;
 
 /** Options shared between blaze query implementations. */
-public class CommonQueryOptions extends OptionsBase {
+@OptionsClass
+public abstract class CommonQueryOptions extends OptionsBase {
 
   @Option(
       name = "universe_scope",
@@ -41,14 +45,14 @@ public class CommonQueryOptions extends OptionsBase {
       help =
           "A comma-separated set of target patterns (additive and subtractive). The query may be"
               + " performed in the universe defined by the transitive closure of the specified"
-              + " targets. This option is used for the query and cquery commands. \n"
+              + " targets. This option is used for the query and cquery commands.\n"
               + "For cquery, the input to this option is the targets all answers are built under"
               + " and so this option may affect configurations and transitions. If this option is"
               + " not specified, the top-level targets are assumed to be the targets parsed from"
               + " the query expression. Note: For cquery, not specifying this option may cause the"
               + " build to break if targets parsed from the query expression are not buildable"
               + " with top-level options.")
-  public List<String> universeScope;
+  public abstract List<String> getUniverseScope();
 
   @Option(
       name = "line_terminator_null",
@@ -56,15 +60,15 @@ public class CommonQueryOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.QUERY,
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
       help = "Whether each format is terminated with \\0 instead of newline.")
-  public boolean lineTerminatorNull;
+  public abstract boolean getLineTerminatorNull();
 
   /** Ugly workaround since line terminator option default has to be constant expression. */
   public String getLineTerminator() {
-    if (lineTerminatorNull) {
+    if (getLineTerminatorNull()) {
       return "\0";
     }
 
-    return System.lineSeparator();
+    return "\n";
   }
 
   @Option(
@@ -78,10 +82,10 @@ public class CommonQueryOptions extends OptionsBase {
               + " --universe_scope value inferred for a query expression that uses universe-scoped"
               + " functions (e.g.`allrdeps`) may not be what you want, so you should use this"
               + " option only if you know what you are doing. See"
-              + " https://docs.bazel.build/versions/master/query.html#sky-query for details and"
+              + " https://bazel.build/reference/query#sky-query for details and"
               + " examples. If --universe_scope is set, then this option's value is ignored. Note:"
               + " this option applies only to `query` (i.e. not `cquery`).")
-  public boolean inferUniverseScope;
+  public abstract boolean getInferUniverseScope();
 
   @Option(
       name = "tool_deps",
@@ -90,18 +94,20 @@ public class CommonQueryOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.QUERY,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
       help =
-          "Query: If disabled, dependencies on 'host configuration' or 'execution' targets will"
-              + " not be included in the dependency graph over which the query operates. A 'host"
+          "Query: If disabled, dependencies on 'exec configuration' will"
+              + " not be included in the dependency graph over which the query operates. An 'exec"
               + " configuration' dependency edge, such as the one from any 'proto_library' rule to"
               + " the Protocol Compiler, usually points to a tool executed during the build rather"
-              + " than a part of the same 'target' program. \n"
-              + "Cquery: If disabled, filters out all configured targets which cross a host or"
+              + " than a part of the same 'target' program.\n"
+              + "Cquery: If disabled, filters out all configured targets which cross an"
               + " execution transition from the top-level target that discovered this configured"
               + " target. That means if the top-level target is in the target configuration, only"
               + " configured targets also in the target configuration will be returned. If the"
-              + " top-level target is in the host configuration, only host configured targets will"
+              + " top-level target is in the exec configuration, only exec configured targets will"
               + " be returned. This option will NOT exclude resolved toolchains.")
-  public boolean includeToolDeps;
+  public abstract boolean getIncludeToolDeps();
+
+  public abstract void setIncludeToolDeps(boolean value);
 
   @Option(
       name = "implicit_deps",
@@ -113,7 +119,9 @@ public class CommonQueryOptions extends OptionsBase {
               + "which the query operates. An implicit dependency is one that is not explicitly "
               + "specified in the BUILD file but added by bazel. For cquery, this option controls "
               + "filtering resolved toolchains.")
-  public boolean includeImplicitDeps;
+  public abstract boolean getIncludeImplicitDeps();
+
+  public abstract void setIncludeImplicitDeps(boolean value);
 
   @Option(
       name = "nodep_deps",
@@ -125,7 +133,9 @@ public class CommonQueryOptions extends OptionsBase {
               + "over which the query operates. A common example of a \"nodep\" attribute is "
               + "\"visibility\". Run and parse the output of `info build-language` to learn about "
               + "all the \"nodep\" attributes in the build language.")
-  public boolean includeNoDepDeps;
+  public abstract boolean getIncludeNoDepDeps();
+
+  public abstract void setIncludeNoDepDeps(boolean value);
 
   @Option(
       name = "include_aspects",
@@ -135,45 +145,89 @@ public class CommonQueryOptions extends OptionsBase {
       help =
           "aquery, cquery: whether to include aspect-generated actions in the output. "
               + "query: no-op (aspects are always followed).")
-  public boolean useAspects;
+  public abstract boolean getUseAspects();
+
+  @Option(
+      name = "incompatible_package_group_includes_double_slash",
+      defaultValue = FlagConstants.DEFAULT_INCOMPATIBLE_PACKAGE_GROUP_INCLUDES_DOUBLE_SLASH,
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "If enabled, when outputting package_group's `packages` attribute, the leading `//`"
+              + " will not be omitted.")
+  public abstract boolean getIncompatiblePackageGroupIncludesDoubleSlash();
+
+  public abstract void setIncompatiblePackageGroupIncludesDoubleSlash(boolean value);
+
+  @Option(
+      name = "incompatible_package_group_build_output",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help = "If enabled, `blaze query --output=build` will output `package_group` targets.")
+  public abstract boolean getIncompatiblePackageGroupBuildOutput();
+
+  public abstract void setIncompatiblePackageGroupBuildOutput(boolean value);
+
+  @Option(
+      name = "experimental_explicit_aspects",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help =
+          "aquery, cquery: whether to include aspect-generated actions in the output. "
+              + "query: no-op (aspects are always followed).")
+  public abstract boolean getExplicitAspects();
 
   /** Return the current options as a set of QueryEnvironment settings. */
   public Set<Setting> toSettings() {
     Set<Setting> settings = EnumSet.noneOf(Setting.class);
-    if (!includeToolDeps) {
+    if (!getIncludeToolDeps()) {
       settings.add(Setting.ONLY_TARGET_DEPS);
     }
-    if (!includeImplicitDeps) {
+    if (!getIncludeImplicitDeps()) {
       settings.add(Setting.NO_IMPLICIT_DEPS);
     }
-    if (!includeNoDepDeps) {
+    if (!getIncludeNoDepDeps()) {
       settings.add(Setting.NO_NODEP_DEPS);
     }
-    if (useAspects) {
+    if (getUseAspects()) {
       settings.add(Setting.INCLUDE_ASPECTS);
+    }
+    if (getExplicitAspects()) {
+      settings.add(Setting.EXPLICIT_ASPECTS);
     }
     return settings;
   }
 
-  ///////////////////////////////////////////////////////////
-  // LOCATION OUTPUT FORMATTER OPTIONS                     //
-  ///////////////////////////////////////////////////////////
-
-  // TODO(tanzhengwei): Clean up in next major release
   @Option(
-      name = "incompatible_display_source_file_location",
-      defaultValue = "true",
+      name = "consistent_labels",
+      defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.QUERY,
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
       help =
-          "False by default, displays the target of the source file. "
-              + "If true, displays the location of line 1 of source files in location outputs. "
-              + "This flag only exists for migration purposes.")
-  public boolean displaySourceFileLocation;
+          "If enabled, every query command emits labels as if by the Starlark `str`"
+              + " function applied to a `Label` instance. This is useful for tools that"
+              + " need to match the output of different query commands and/or labels emitted by"
+              + " rules. If not enabled, output formatters are free to emit apparent repository"
+              + " names (relative to the main repository) instead to make the output more"
+              + " readable.")
+  public abstract boolean getEmitConsistentLabels();
+
+  public LabelPrinter getLabelPrinter(
+      StarlarkSemantics starlarkSemantics, RepositoryMapping mainRepoMapping) {
+    return getEmitConsistentLabels()
+        ? LabelPrinter.starlark(starlarkSemantics)
+        : LabelPrinter.displayForm(mainRepoMapping);
+  }
+
+  public LabelPrinter getLabelPrinterLegacy(StarlarkSemantics starlarkSemantics) {
+    return getEmitConsistentLabels()
+        ? LabelPrinter.starlark(starlarkSemantics)
+        : LabelPrinter.LEGACY;
+  }
 
   ///////////////////////////////////////////////////////////
   // PROTO OUTPUT FORMATTER OPTIONS                        //
@@ -189,7 +243,9 @@ public class CommonQueryOptions extends OptionsBase {
               + "By default, the location output is an absolute path and will not be consistent "
               + "across machines. You can set this option to true to have a consistent result "
               + "across machines.")
-  public boolean relativeLocations;
+  public abstract boolean getRelativeLocations();
+
+  public abstract void setRelativeLocations(boolean value);
 
   @Option(
       name = "proto:locations",
@@ -197,7 +253,9 @@ public class CommonQueryOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.QUERY,
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
       help = "Whether to output location information in proto output at all.")
-  public boolean protoIncludeLocations;
+  public abstract boolean getProtoIncludeLocations();
+
+  public abstract void setProtoIncludeLocations(boolean value);
 
   @Option(
       name = "proto:default_values",
@@ -207,7 +265,9 @@ public class CommonQueryOptions extends OptionsBase {
       help =
           "If true, attributes whose value is not explicitly specified in the BUILD file are "
               + "included; otherwise they are omitted. This option is applicable to --output=proto")
-  public boolean protoIncludeDefaultValues;
+  public abstract boolean getProtoIncludeDefaultValues();
+
+  public abstract void setProtoIncludeDefaultValues(boolean value);
 
   @Option(
       name = "proto:flatten_selects",
@@ -218,7 +278,9 @@ public class CommonQueryOptions extends OptionsBase {
           "If enabled, configurable attributes created by select() are flattened. For list types "
               + "the flattened representation is a list containing each value of the select map "
               + "exactly once. Scalar types are flattened to null.")
-  public boolean protoFlattenSelects;
+  public abstract boolean getProtoFlattenSelects();
+
+  public abstract void setProtoFlattenSelects(boolean value);
 
   @Option(
       name = "proto:output_rule_attrs",
@@ -230,7 +292,9 @@ public class CommonQueryOptions extends OptionsBase {
           "Comma separated list of attributes to include in output. Defaults to all attributes. "
               + "Set to empty string to not output any attribute. "
               + "This option is applicable to --output=proto.")
-  public List<String> protoOutputRuleAttributes = ImmutableList.of("all");
+  public abstract List<String> getProtoOutputRuleAttributes();
+
+  public abstract void setProtoOutputRuleAttributes(List<String> value);
 
   @Option(
       name = "proto:rule_inputs_and_outputs",
@@ -238,7 +302,9 @@ public class CommonQueryOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.QUERY,
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
       help = "Whether or not to populate the rule_input and rule_output fields.")
-  public boolean protoIncludeRuleInputsAndOutputs;
+  public abstract boolean getProtoIncludeRuleInputsAndOutputs();
+
+  public abstract void setProtoIncludeRuleInputsAndOutputs(boolean value);
 
   @Option(
       name = "proto:include_synthetic_attribute_hash",
@@ -246,7 +312,9 @@ public class CommonQueryOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.QUERY,
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
       help = "Whether or not to calculate and populate the $internal_attr_hash attribute.")
-  public boolean protoIncludeSyntheticAttributeHash;
+  public abstract boolean getProtoIncludeSyntheticAttributeHash();
+
+  public abstract void setProtoIncludeSyntheticAttributeHash(boolean value);
 
   @Option(
       name = "proto:instantiation_stack",
@@ -256,7 +324,9 @@ public class CommonQueryOptions extends OptionsBase {
       help =
           "Populate the instantiation call stack of each rule. "
               + "Note that this requires the stack to be present")
-  public boolean protoIncludeInstantiationStack;
+  public abstract boolean getProtoIncludeInstantiationStack();
+
+  public abstract void setProtoIncludeInstantiationStack(boolean value);
 
   @Option(
       name = "proto:definition_stack",
@@ -266,7 +336,42 @@ public class CommonQueryOptions extends OptionsBase {
       help =
           "Populate the definition_stack proto field, which records for each rule instance the "
               + "Starlark call stack at the moment the rule's class was defined.")
-  public boolean protoIncludeDefinitionStack;
+  public abstract boolean getProtoIncludeDefinitionStack();
+
+  @Option(
+      name = "proto:include_starlark_rule_env",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help =
+          "Use the starlark environment in the value of the generated $internal_attr_hash"
+              + " attribute. This ensures that the starlark rule definition (and its transitive"
+              + " imports) are part of this identifier.")
+  public abstract boolean getProtoIncludeStarlarkRuleEnv();
+
+  @Option(
+      name = "proto:include_attribute_source_aspects",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help =
+          "Populate the source_aspect_name proto field of each Attribute with the source aspect "
+              + "that the attribute came from (empty string if it did not).")
+  public abstract boolean getProtoIncludeAttributeSourceAspects();
+
+  @Option(
+      name = "proto:rule_classes",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help =
+          "Populate the rule_class_key field of each rule; and for the first rule with a given"
+              + " rule_class_key, also populate its rule_class_info proto field. The rule_class_key"
+              + " field uniquely identifies a rule class, and the rule_class_info field is a"
+              + " Stardoc-format rule class API definition.")
+  public abstract boolean getProtoRuleClasses();
+
+  public abstract void setProtoRuleClasses(boolean value);
 
   /** An enum converter for {@code AspectResolver.Mode} . Should be used internally only. */
   public static class AspectResolutionModeConverter extends EnumConverter<Mode> {
@@ -291,7 +396,9 @@ public class CommonQueryOptions extends OptionsBase {
               + "a single target thus making it slower than the other modes. Also note that even "
               + "precise mode is not completely precise: the decision whether to compute an aspect "
               + "is decided in the analysis phase, which is not run during 'bazel query'.")
-  public AspectResolver.Mode aspectDeps;
+  public abstract AspectResolver.Mode getAspectDeps();
+
+  public abstract void setAspectDeps(AspectResolver.Mode value);
 
   ///////////////////////////////////////////////////////////
   // GRAPH OUTPUT FORMATTER OPTIONS                        //
@@ -306,7 +413,9 @@ public class CommonQueryOptions extends OptionsBase {
           "The maximum length of the label string for a graph node in the output.  Longer labels"
               + " will be truncated; -1 means no truncation.  This option is only applicable to"
               + " --output=graph.")
-  public int graphNodeStringLimit;
+  public abstract int getGraphNodeStringLimit();
+
+  public abstract void setGraphNodeStringLimit(int value);
 
   @Option(
       name = "graph:factored",
@@ -317,5 +426,32 @@ public class CommonQueryOptions extends OptionsBase {
           "If true, then the graph will be emitted 'factored', i.e. topologically-equivalent nodes "
               + "will be merged together and their labels concatenated. This option is only "
               + "applicable to --output=graph.")
-  public boolean graphFactored;
+  public abstract boolean getGraphFactored();
+
+  public abstract void setGraphFactored(boolean value);
+
+  ///////////////////////////////////////////////////////////
+  // INPUT / OUTPUT OPTIONS                                //
+  ///////////////////////////////////////////////////////////
+
+  @Option(
+      name = "query_file",
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.CHANGES_INPUTS},
+      help =
+          "If set, query will read the query from the file named here, rather than on the command "
+              + "line. It is an error to specify a file here as well as a command-line query.")
+  public abstract String getQueryFile();
+
+  @Option(
+      name = "output_file",
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help =
+          "When specified, query results will be written directly to this file, and nothing will be"
+              + " printed to Bazel's standard output stream (stdout). In benchmarks, this is"
+              + " generally faster than `bazel query &gt; file`.")
+  public abstract String getOutputFile();
 }

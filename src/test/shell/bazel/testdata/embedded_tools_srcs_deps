@@ -7,8 +7,8 @@
 //third_party/ijar:platform_utils
 //third_party/def_parser:def_parser
 //third_party/def_parser:def_parser_lib
-//third_party/zlib:zlib_checked_in
 //src/tools/launcher:launcher
+//src/tools/launcher:launcher_maker
 //src/tools/launcher:python_launcher
 //src/tools/launcher:java_launcher
 //src/tools/launcher:bash_launcher
@@ -23,3 +23,12 @@
 //src/main/cpp/util:port
 //src/main/cpp/util:blaze_exit_code
 //src/main/cpp/util:logging
+//tools/cpp/modules_tools:aggregate-ddi
+//tools/cpp/modules_tools:aggregate-ddi-lib
+//tools/cpp/modules_tools:common
+//tools/cpp/modules_tools:generate-modmap
+//tools/cpp/modules_tools:generate-modmap-lib
+@@rules_cc+//:empty_lib
+@@rules_cc+//:link_extra_lib
+@@rules_cc+//cc/runfiles:runfiles
+@@zlib+//:z

@@ -18,6 +18,8 @@ java_test(
     name = "fail",
     srcs = ["Fail.java"],
     main_class = "com.example.myproject.Fail",
+    # Intentional failure for demonstration purposes.
+    tags = ["manual"],
 )
 
 filegroup(

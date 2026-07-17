@@ -13,14 +13,21 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.testutil;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.devtools.build.lib.testutil.FoundationTestCase.failFastHandler;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
+import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
+import com.google.devtools.build.lib.bazel.bzlmod.ModuleKey;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.util.MockObjcSupport;
 import com.google.devtools.build.lib.packages.util.MockProtoSupport;
@@ -29,6 +36,7 @@ import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment.TopLevelConfigurations;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
+import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ThreadSafeMutableSet;
 import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryParser;
@@ -37,22 +45,28 @@ import com.google.devtools.build.lib.query2.engine.QueryUtil;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.AggregateAllOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.testutil.AbstractQueryTest.QueryHelper;
 import com.google.devtools.build.lib.server.FailureDetails.Query;
+import com.google.devtools.build.lib.skyframe.AspectKeyCreator;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutorWrappingWalkableGraph;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import java.io.IOException;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
+import java.util.AbstractSet;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Comparator;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Function;
 import org.junit.After;
 import org.junit.Before;
 
@@ -72,8 +86,8 @@ public abstract class PostAnalysisQueryHelper<T> extends AbstractQueryHelper<T> 
   public void setUp() throws Exception {
     super.setUp();
     parserPrefix = PathFragment.EMPTY_FRAGMENT;
-    analysisHelper = new AnalysisHelper();
     wholeTestUniverse = false;
+    this.analysisHelper = new AnalysisHelper();
     // Reverse the @Before method list, so that superclass is called before subclass.
     for (Method method :
         Lists.reverse(getMethodsAnnotatedWith(AnalysisHelper.class, Before.class))) {
@@ -84,7 +98,8 @@ public abstract class PostAnalysisQueryHelper<T> extends AbstractQueryHelper<T> 
     MockObjcSupport.setup(mockToolsConfig);
   }
 
-  public void cleanUp() {
+  @Override
+  public final void cleanUp() {
     for (Method method : getMethodsAnnotatedWith(AnalysisHelper.class, After.class)) {
       try {
         method.invoke(analysisHelper);
@@ -96,6 +111,10 @@ public abstract class PostAnalysisQueryHelper<T> extends AbstractQueryHelper<T> 
 
   MockToolsConfig getMockToolsConfig() {
     return analysisHelper.getMockToolsConfig();
+  }
+
+  void setSyscallCache(SyscallCache syscallCache) {
+    this.analysisHelper.setSyscallCache(syscallCache);
   }
 
   public boolean isWholeTestUniverse() {
@@ -119,15 +138,12 @@ public abstract class PostAnalysisQueryHelper<T> extends AbstractQueryHelper<T> 
   }
 
   @Override
-  public void setBlockUniverseEvaluationErrors(boolean blockUniverseEvaluationErrors) {}
-
-  @Override
   public Path getRootDirectory() {
     return analysisHelper.getRootDirectory();
   }
 
   @Override
-  public PathFragment getIgnoredPackagePrefixesFile() {
+  public PathFragment getIgnoredSubdirectoriesFile() {
     return PathFragment.EMPTY_FRAGMENT;
   }
 
@@ -151,7 +167,9 @@ public abstract class PostAnalysisQueryHelper<T> extends AbstractQueryHelper<T> 
 
   @Override
   public void writeFile(String fileName, String... lines) throws IOException {
-    analysisHelper.getScratch().file(fileName, lines);
+    analysisHelper
+        .getScratch()
+        .file(getRootDirectory().getRelative(fileName).getPathString(), lines);
   }
 
   public Scratch getScratch() {
@@ -164,7 +182,9 @@ public abstract class PostAnalysisQueryHelper<T> extends AbstractQueryHelper<T> 
 
   @Override
   public void overwriteFile(String fileName, String... lines) throws IOException {
-    analysisHelper.getScratch().overwriteFile(fileName, lines);
+    analysisHelper
+        .getScratch()
+        .overwriteFile(getRootDirectory().getRelative(fileName).getPathString(), lines);
   }
 
   @Override
@@ -172,7 +192,7 @@ public abstract class PostAnalysisQueryHelper<T> extends AbstractQueryHelper<T> 
     Path rootDirectory = getRootDirectory();
     Path linkPath = rootDirectory.getRelative(link);
     Path targetPath = rootDirectory.getRelative(target);
-    FileSystemUtils.createDirectoryAndParents(linkPath.getParentDirectory());
+    linkPath.getParentDirectory().createDirectoryAndParents();
     FileSystemUtils.ensureSymbolicLink(linkPath, targetPath);
   }
 
@@ -182,7 +202,12 @@ public abstract class PostAnalysisQueryHelper<T> extends AbstractQueryHelper<T> 
   }
 
   public PostAnalysisQueryEnvironment<T> getPostAnalysisQueryEnvironment(
-      Collection<String> universe) throws QueryException, InterruptedException {
+      Collection<String> universe) throws Exception {
+    return getPostAnalysisQueryEnvironment(universe, ImmutableList.of());
+  }
+
+  public PostAnalysisQueryEnvironment<T> getPostAnalysisQueryEnvironment(
+      Collection<String> universe, Iterable<String> aspects) throws Exception {
     if (ImmutableList.copyOf(universe)
         .equals(ImmutableList.of(PostAnalysisQueryTest.DEFAULT_UNIVERSE))) {
       throw new QueryException(
@@ -190,19 +215,30 @@ public abstract class PostAnalysisQueryHelper<T> extends AbstractQueryHelper<T> 
               + "or setting explicitly through query helper.",
           Query.Code.QUERY_UNKNOWN);
     }
-    AnalysisResult analysisResult;
-    try {
-      analysisResult = analysisHelper.update(universe.toArray(new String[0]));
-    } catch (Exception e) {
-      throw new QueryException(e.getMessage(), Query.Code.QUERY_UNKNOWN);
-    }
+    AnalysisResult analysisResult =
+        analysisHelper.update(ImmutableList.copyOf(aspects), universe.toArray(new String[0]));
     WalkableGraph walkableGraph =
         SkyframeExecutorWrappingWalkableGraph.of(analysisHelper.getSkyframeExecutor());
+    ImmutableMap<String, BuildConfigurationValue> transitiveConfigurations =
+        getTransitiveConfigurations(
+            analysisHelper.getSkyframeExecutor().getTransitiveConfigurationKeys(), walkableGraph);
 
     return getPostAnalysisQueryEnvironment(
         walkableGraph,
         new TopLevelConfigurations(analysisResult.getTopLevelTargetsWithConfigs()),
-        analysisHelper.getSkyframeExecutor().getTransitiveConfigurationKeys());
+        transitiveConfigurations,
+        analysisResult.getAspectsMap());
+  }
+
+  private static ImmutableMap<String, BuildConfigurationValue> getTransitiveConfigurations(
+      Collection<SkyKey> transitiveConfigurationKeys, WalkableGraph graph)
+      throws InterruptedException {
+    // BuildConfigurationKey and BuildConfigurationValue should be 1:1
+    // so merge function intentionally omitted
+    return graph.getSuccessfulValues(transitiveConfigurationKeys).values().stream()
+        .map(BuildConfigurationValue.class::cast)
+        .sorted(Comparator.comparing(BuildConfigurationValue::checksum))
+        .collect(toImmutableMap(BuildConfigurationValue::checksum, Function.identity()));
   }
 
   /**
@@ -212,18 +248,20 @@ public abstract class PostAnalysisQueryHelper<T> extends AbstractQueryHelper<T> 
    *     search over
    * @param topLevelConfigurations the configurations used to build the top-level targets in a
    *     query's universe scope
-   * @param transitiveConfigurationKeys all configurations available in the build graph (including
-   *     those produced by configuration transitions in the top-level targets' transitive deps)
+   * @param transitiveConfigurations all configurations available in the build graph (including
+   *     those produced by configuration transitions in the top-level targets' transitive deps),
+   *     keyed by the configurations' checksums
+   * @param topLevelAspects the top-level aspects to apply
    */
   protected abstract PostAnalysisQueryEnvironment<T> getPostAnalysisQueryEnvironment(
       WalkableGraph walkableGraph,
       TopLevelConfigurations topLevelConfigurations,
-      Collection<SkyKey> transitiveConfigurationKeys)
+      ImmutableMap<String, BuildConfigurationValue> transitiveConfigurations,
+      ImmutableMap<AspectKeyCreator.AspectKey, ConfiguredAspect> topLevelAspects)
       throws InterruptedException;
 
   @Override
-  public ResultAndTargets<T> evaluateQuery(String query)
-      throws QueryException, InterruptedException {
+  public ResultAndTargets<T> evaluateQuery(String query) throws Exception {
     PostAnalysisQueryEnvironment<T> env =
         getPostAnalysisQueryEnvironment(getUniverseScopeAsStringList());
     AggregateAllOutputFormatterCallback<T, ?> callback =
@@ -239,8 +277,7 @@ public abstract class PostAnalysisQueryHelper<T> extends AbstractQueryHelper<T> 
       // Expect the user to provide valid syntax.
       throw new IllegalArgumentException(e);
     }
-    Set<T> targets = env.createThreadSafeMutableSet();
-    targets.addAll(callback.getResult());
+    Set<T> targets = new OrderedThreadSafeImmutableSet<>(env, callback.getResult());
     return new ResultAndTargets<>(queryEvalResult, targets);
   }
 
@@ -276,15 +313,39 @@ public abstract class PostAnalysisQueryHelper<T> extends AbstractQueryHelper<T> 
     analysisHelper.useConfiguration(args);
   }
 
+  @Override
+  public void addModule(ModuleKey key, String... moduleFileLines) {
+    analysisHelper.addModule(key, moduleFileLines);
+  }
+
+  @Override
+  public Path getModuleRoot() {
+    return analysisHelper.getModuleRoot();
+  }
+
+  @Override
+  public void setMainRepoTargetParser(RepositoryMapping mapping) {
+    this.mainRepoTargetParser =
+        new TargetPattern.Parser(
+            parserPrefix,
+            RepositoryName.MAIN,
+            mapping.withAdditionalMappings(DEFAULT_MAIN_REPO_MAPPING));
+  }
+
   /** Helper class that provides a framework for testing {@code PostAnalysisQueryHelper} */
   public static class AnalysisHelper extends AnalysisTestCase {
     Path getRootDirectory() {
       return rootDirectory;
     }
 
+    Path getModuleRoot() {
+      return moduleRoot;
+    }
+
     @Override
-    protected AnalysisResult update(String... labels) throws Exception {
-      return super.update(labels);
+    protected AnalysisResult update(ImmutableList<String> aspects, String... labels)
+        throws Exception {
+      return super.update(aspects, labels);
     }
 
     protected SkyframeExecutor getSkyframeExecutor() {
@@ -303,14 +364,17 @@ public abstract class PostAnalysisQueryHelper<T> extends AbstractQueryHelper<T> 
       return reporter;
     }
 
-    @Override
-    protected BuildConfiguration getTargetConfiguration() throws InterruptedException {
-      return super.getTargetConfiguration();
+    private void setSyscallCache(SyscallCache syscallCache) {
+      this.delegatingSyscallCache.setDelegate(syscallCache);
+    }
+
+    private void addModule(ModuleKey key, String... moduleFileLines) {
+      registry.addModule(key, moduleFileLines);
     }
 
     @Override
-    public BuildConfiguration getHostConfiguration() {
-      return super.getHostConfiguration();
+    protected BuildConfigurationValue getTargetConfiguration() throws InterruptedException {
+      return super.getTargetConfiguration();
     }
 
     @Override
@@ -318,6 +382,47 @@ public abstract class PostAnalysisQueryHelper<T> extends AbstractQueryHelper<T> 
         throws Exception {
       super.useRuleClassProvider(ruleClassProvider);
       update();
+    }
+  }
+
+  private static class OrderedThreadSafeImmutableSet<T> extends AbstractSet<T> {
+    private final ThreadSafeMutableSet<T> targetSet;
+    private final List<T> orderedTargetList;
+
+    private OrderedThreadSafeImmutableSet(QueryEnvironment<T> env, Set<T> targets) {
+      this.targetSet = env.createThreadSafeMutableSet();
+      this.orderedTargetList = new ArrayList<>(targets.size());
+
+      for (T target : targets) {
+        if (targetSet.add(target)) {
+          orderedTargetList.add(target);
+        }
+      }
+    }
+
+    @Override
+    public Iterator<T> iterator() {
+      return orderedTargetList.iterator();
+    }
+
+    @Override
+    public int size() {
+      return targetSet.size();
+    }
+
+    @Override
+    public boolean add(T element) {
+      throw new IllegalStateException("Add operation on immutable set is not supported.");
+    }
+
+    @Override
+    public boolean contains(Object obj) {
+      return targetSet.contains(obj);
+    }
+
+    @Override
+    public boolean remove(Object obj) {
+      throw new IllegalStateException("Remove operation on immutable set is not supported.");
     }
   }
 }

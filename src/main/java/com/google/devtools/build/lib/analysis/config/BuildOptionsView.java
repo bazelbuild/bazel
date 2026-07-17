@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis.config;
 
 import com.google.common.base.Preconditions;
 import java.util.Set;
+import javax.annotation.Nullable;
 
 /**
  * Wrapper for {@link BuildOptions} that only permits {@link BuildOptions#get} calls to {@link
@@ -39,6 +40,7 @@ public class BuildOptionsView implements Cloneable {
    * Wrapper for {@link BuildOptions#get} that throws an {@link IllegalArgumentException} if the
    * given {@link FragmentOptions} isn't in the "permitted" set.
    */
+  @Nullable
   public <T extends FragmentOptions> T get(Class<T> optionsClass) {
     return options.get(checkFragment(optionsClass));
   }

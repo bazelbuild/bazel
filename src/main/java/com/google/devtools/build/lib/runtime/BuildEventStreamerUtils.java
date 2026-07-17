@@ -39,6 +39,8 @@ public final class BuildEventStreamerUtils {
         return BuildEventStreamProtos.TestStatus.FAILED;
       case TIMEOUT:
         return BuildEventStreamProtos.TestStatus.TIMEOUT;
+      case FAILED_TO_BUILD:
+        return BuildEventStreamProtos.TestStatus.FAILED_TO_BUILD;
       case INCOMPLETE:
         return BuildEventStreamProtos.TestStatus.INCOMPLETE;
       case REMOTE_FAILURE:

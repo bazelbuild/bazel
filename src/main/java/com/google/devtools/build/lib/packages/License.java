@@ -14,15 +14,15 @@
 
 package com.google.devtools.build.lib.packages;
 
-import com.google.common.collect.ImmutableMap;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
+import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.starlarkbuildapi.LicenseApi;
 import java.util.Collection;
 import java.util.Collections;
@@ -30,21 +30,23 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.stream.Stream;
 import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.StarlarkSemantics;
 
 /** Support for license and distribution checking. */
 @Immutable
 @ThreadSafe
-@AutoCodec
 public final class License implements LicenseApi {
   private final ImmutableSet<LicenseType> licenseTypes;
   private final ImmutableSet<Label> exceptions;
+  private static final String EXCEPTION_PREFIX = "exception=";
 
   /**
    * The error that's thrown if a build file contains an invalid license string.
    */
   public static class LicenseParsingException extends Exception {
-    public LicenseParsingException(String s) {
+    LicenseParsingException(String s) {
       super(s);
     }
   }
@@ -87,53 +89,7 @@ public final class License implements LicenseApi {
   public static final License NO_LICENSE =
       new License(ImmutableSet.of(LicenseType.NONE), ImmutableSet.of());
 
-  /**
-   * A default instance of Distributions which is used for packages which
-   * have no "distribs" declaration. If nothing is declared, we opt for the
-   * most permissive kind of distribution, which is the internal-only distrib.
-   */
-  public static final Set<DistributionType> DEFAULT_DISTRIB =
-      Collections.singleton(DistributionType.INTERNAL);
-
-  /**
-   * The types of distribution that are supported.
-   */
-  public enum DistributionType {
-    INTERNAL,
-    WEB,
-    CLIENT,
-    EMBEDDED
-  }
-
-  /**
-   * Parses a set of strings declaring distribution types.
-   *
-   * @param distStrings strings containing distribution declarations from BUILD
-   *        files
-   * @return a new, unmodifiable set of DistributionTypes
-   * @throws LicenseParsingException
-   */
-  public static Set<DistributionType> parseDistributions(Collection<String> distStrings)
-      throws LicenseParsingException {
-    if (distStrings.isEmpty()) {
-      return Collections.unmodifiableSet(EnumSet.of(DistributionType.INTERNAL));
-    } else {
-      Set<DistributionType> result = EnumSet.noneOf(DistributionType.class);
-      for (String distStr : distStrings) {
-        try {
-          DistributionType dist = DistributionType.valueOf(distStr.toUpperCase(Locale.ENGLISH));
-          result.add(dist);
-        } catch (IllegalArgumentException e) {
-          throw new LicenseParsingException("Invalid distribution type '" + distStr + "'");
-        }
-      }
-      return Collections.unmodifiableSet(result);
-    }
-  }
-
-  @AutoCodec.Instantiator
-  @VisibleForSerialization
-  License(ImmutableSet<LicenseType> licenseTypes, ImmutableSet<Label> exceptions) {
+  private License(ImmutableSet<LicenseType> licenseTypes, ImmutableSet<Label> exceptions) {
     // Defensive copy is done in .of()
     this.licenseTypes = licenseTypes;
     this.exceptions = exceptions;
@@ -167,10 +123,9 @@ public final class License implements LicenseApi {
     Set<LicenseType> licenseTypes = EnumSet.noneOf(LicenseType.class);
     Set<Label> exceptions = Sets.newTreeSet();
     for (String str : licStrings) {
-      if (str.startsWith("exception=")) {
+      if (str.startsWith(EXCEPTION_PREFIX)) {
         try {
-          Label label =
-              Label.parseAbsolute(str.substring("exception=".length()), ImmutableMap.of());
+          Label label = Label.parseCanonical(str.substring(EXCEPTION_PREFIX.length()));
           exceptions.add(label);
         } catch (LabelSyntaxException e) {
           throw new LicenseParsingException(e.getMessage());
@@ -217,9 +172,9 @@ public final class License implements LicenseApi {
   @Override
   public String toString() {
     if (exceptions.isEmpty()) {
-      return licenseTypes.toString().toLowerCase();
+      return Ascii.toLowerCase(licenseTypes.toString());
     } else {
-      return licenseTypes.toString().toLowerCase() + " with exceptions " + exceptions;
+      return Ascii.toLowerCase(licenseTypes.toString()) + " with exceptions " + exceptions;
     }
   }
 
@@ -248,8 +203,22 @@ public final class License implements LicenseApi {
     return true; // licences are Starlark-hashable
   }
 
+  /**
+   * Represents the License as a canonically ordered list of strings that can be parsed by {@link
+   * License#parseLicense} to get back an equal License.
+   */
   @Override
-  public void repr(Printer printer) {
-    printer.append(this.toString());
+  public void repr(Printer printer, StarlarkSemantics semantics) {
+    // The order of license types is guaranteed to be canonical by EnumSet, and the order of
+    // exceptions is guaranteed to be lexicographic order by TreeSet.
+    printer.printList(
+        Stream.concat(
+                licenseTypes.stream().map(licenseType -> Ascii.toLowerCase(licenseType.toString())),
+                exceptions.stream().map(label -> EXCEPTION_PREFIX + label.getCanonicalForm()))
+            .collect(toImmutableList()),
+        "[",
+        ", ",
+        "]",
+        semantics);
   }
 }

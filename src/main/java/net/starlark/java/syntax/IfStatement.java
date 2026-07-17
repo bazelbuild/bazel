@@ -33,7 +33,7 @@ public final class IfStatement extends Statement {
       int ifOffset,
       Expression condition,
       List<Statement> thenBlock) {
-    super(locs);
+    super(locs, Kind.IF);
     this.token = token;
     this.ifOffset = ifOffset;
     this.condition = condition;
@@ -88,10 +88,5 @@ public final class IfStatement extends Statement {
   @Override
   public void accept(NodeVisitor visitor) {
     visitor.visit(this);
-  }
-
-  @Override
-  public Kind kind() {
-    return Kind.IF;
   }
 }

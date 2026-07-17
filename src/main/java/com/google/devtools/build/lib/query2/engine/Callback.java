@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.engine;
 
-import com.google.devtools.build.lib.concurrent.BatchCallback;
+import com.google.devtools.build.lib.cmdline.BatchCallback;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 
 /**

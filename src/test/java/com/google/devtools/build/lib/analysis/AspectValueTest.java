@@ -13,10 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.skyframe.serialization.testutils.RoundTripping.roundTripMemoized;
+
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.testing.EqualsTester;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.analysis.util.TestAspects;
 import com.google.devtools.build.lib.analysis.util.TestAspects.AttributeAspect;
@@ -25,8 +27,10 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
-import com.google.devtools.build.lib.skyframe.AspectValueKey;
-import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
+import com.google.devtools.build.lib.skyframe.AspectKeyCreator;
+import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
+import com.google.devtools.build.lib.skyframe.serialization.AutoRegistry;
 import com.google.devtools.build.skyframe.SkyKey;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -34,16 +38,16 @@ import org.junit.runners.JUnit4;
 
 /** Tests for {@link AspectValue}. */
 @RunWith(JUnit4.class)
-public class AspectValueTest extends AnalysisTestCase {
+public final class AspectValueTest extends AnalysisTestCase {
 
   @Test
   public void keyEquality() throws Exception {
     update();
-    BuildConfiguration c1 = getTargetConfiguration();
-    BuildConfiguration c2 = getHostConfiguration();
-    Label l1 = Label.parseAbsolute("//a:l1", ImmutableMap.of());
-    Label l1b = Label.parseAbsolute("//a:l1", ImmutableMap.of());
-    Label l2 = Label.parseAbsolute("//a:l2", ImmutableMap.of());
+    BuildConfigurationValue c1 = getTargetConfiguration();
+    BuildConfigurationValue c2 = getExecConfiguration();
+    Label l1 = Label.parseCanonical("//a:l1");
+    Label l1b = Label.parseCanonical("//a:l1");
+    Label l2 = Label.parseCanonical("//a:l2");
     AspectParameters i1 = new AspectParameters.Builder()
         .addAttribute("foo", "bar")
         .build();
@@ -58,191 +62,119 @@ public class AspectValueTest extends AnalysisTestCase {
     ExtraAttributeAspect a2 = TestAspects.EXTRA_ATTRIBUTE_ASPECT;
 
     // label: //a:l1 or //a:l2
-    // aspectConfiguration: target or host
-    // baseConfiguration: target or host
+    // baseConfiguration: target or exec
     // aspect: Attribute or ExtraAttribute
     // parameters: bar or baz
 
     new EqualsTester()
         .addEqualityGroup(
-            createKey(l1, c1, a1, i1, c1),
-            createKey(l1, c1, a1, i1b, c1),
-            createKey(l1, c1, a1b, i1, c1),
-            createKey(l1, c1, a1b, i1b, c1),
-            createKey(l1b, c1, a1, i1, c1),
-            createKey(l1b, c1, a1, i1b, c1),
-            createKey(l1b, c1, a1b, i1, c1),
-            createKey(l1b, c1, a1b, i1b, c1))
+            createKey(l1, c1, a1, i1),
+            createKey(l1, c1, a1, i1b),
+            createKey(l1, c1, a1b, i1),
+            createKey(l1, c1, a1b, i1b),
+            createKey(l1b, c1, a1, i1),
+            createKey(l1b, c1, a1, i1b),
+            createKey(l1b, c1, a1b, i1),
+            createKey(l1b, c1, a1b, i1b))
         .addEqualityGroup(
-            createKey(l1, c1, a1, i2, c1),
-            createKey(l1, c1, a1b, i2, c1),
-            createKey(l1b, c1, a1, i2, c1),
-            createKey(l1b, c1, a1b, i2, c1))
+            createKey(l1, c1, a1, i2),
+            createKey(l1, c1, a1b, i2),
+            createKey(l1b, c1, a1, i2),
+            createKey(l1b, c1, a1b, i2))
         .addEqualityGroup(
-            createKey(l1, c1, a2, i1, c1),
-            createKey(l1, c1, a2, i1b, c1),
-            createKey(l1b, c1, a2, i1, c1),
-            createKey(l1b, c1, a2, i1b, c1))
+            createKey(l1, c1, a2, i1),
+            createKey(l1, c1, a2, i1b),
+            createKey(l1b, c1, a2, i1),
+            createKey(l1b, c1, a2, i1b))
+        .addEqualityGroup(createKey(l1, c1, a2, i2), createKey(l1b, c1, a2, i2))
         .addEqualityGroup(
-            createKey(l1, c1, a2, i2, c1),
-            createKey(l1b, c1, a2, i2, c1))
+            createKey(l1, c2, a1, i1),
+            createKey(l1, c2, a1, i1b),
+            createKey(l1, c2, a1b, i1),
+            createKey(l1, c2, a1b, i1b),
+            createKey(l1b, c2, a1, i1),
+            createKey(l1b, c2, a1, i1b),
+            createKey(l1b, c2, a1b, i1),
+            createKey(l1b, c2, a1b, i1b))
         .addEqualityGroup(
-            createKey(l1, c2, a1, i1, c1),
-            createKey(l1, c2, a1, i1b, c1),
-            createKey(l1, c2, a1b, i1, c1),
-            createKey(l1, c2, a1b, i1b, c1),
-            createKey(l1b, c2, a1, i1, c1),
-            createKey(l1b, c2, a1, i1b, c1),
-            createKey(l1b, c2, a1b, i1, c1),
-            createKey(l1b, c2, a1b, i1b, c1))
+            createKey(l1, c2, a1, i2),
+            createKey(l1, c2, a1b, i2),
+            createKey(l1b, c2, a1, i2),
+            createKey(l1b, c2, a1b, i2))
         .addEqualityGroup(
-            createKey(l1, c2, a1, i2, c1),
-            createKey(l1, c2, a1b, i2, c1),
-            createKey(l1b, c2, a1, i2, c1),
-            createKey(l1b, c2, a1b, i2, c1))
+            createKey(l1, c2, a2, i1),
+            createKey(l1, c2, a2, i1b),
+            createKey(l1b, c2, a2, i1),
+            createKey(l1b, c2, a2, i1b))
+        .addEqualityGroup(createKey(l1, c2, a2, i2), createKey(l1b, c2, a2, i2))
         .addEqualityGroup(
-            createKey(l1, c2, a2, i1, c1),
-            createKey(l1, c2, a2, i1b, c1),
-            createKey(l1b, c2, a2, i1, c1),
-            createKey(l1b, c2, a2, i1b, c1))
+            createKey(l2, c1, a1, i1),
+            createKey(l2, c1, a1, i1b),
+            createKey(l2, c1, a1b, i1),
+            createKey(l2, c1, a1b, i1b))
+        .addEqualityGroup(createKey(l2, c1, a1, i2), createKey(l2, c1, a1b, i2))
+        .addEqualityGroup(createKey(l2, c1, a2, i1), createKey(l2, c1, a2, i1b))
+        .addEqualityGroup(createKey(l2, c1, a2, i2))
         .addEqualityGroup(
-            createKey(l1, c2, a2, i2, c1),
-            createKey(l1b, c2, a2, i2, c1))
+            createKey(l2, c2, a1, i1),
+            createKey(l2, c2, a1, i1b),
+            createKey(l2, c2, a1b, i1),
+            createKey(l2, c2, a1b, i1b))
+        .addEqualityGroup(createKey(l2, c2, a1, i2), createKey(l2, c2, a1b, i2))
+        .addEqualityGroup(createKey(l2, c2, a2, i1), createKey(l2, c2, a2, i1b))
+        .addEqualityGroup(createKey(l2, c2, a2, i2))
         .addEqualityGroup(
-            createKey(l1, c1, a1, i1, c2),
-            createKey(l1, c1, a1, i1b, c2),
-            createKey(l1, c1, a1b, i1, c2),
-            createKey(l1, c1, a1b, i1b, c2),
-            createKey(l1b, c1, a1, i1, c2),
-            createKey(l1b, c1, a1, i1b, c2),
-            createKey(l1b, c1, a1b, i1, c2),
-            createKey(l1b, c1, a1b, i1b, c2))
+            createDerivedKey(l1, c1, a1, i1, a2, i2), createDerivedKey(l1, c1, a1, i1b, a2, i2))
         .addEqualityGroup(
-            createKey(l1, c1, a1, i2, c2),
-            createKey(l1, c1, a1b, i2, c2),
-            createKey(l1b, c1, a1, i2, c2),
-            createKey(l1b, c1, a1b, i2, c2))
-        .addEqualityGroup(
-            createKey(l1, c1, a2, i1, c2),
-            createKey(l1, c1, a2, i1b, c2),
-            createKey(l1b, c1, a2, i1, c2),
-            createKey(l1b, c1, a2, i1b, c2))
-        .addEqualityGroup(
-            createKey(l1, c1, a2, i2, c2),
-            createKey(l1b, c1, a2, i2, c2))
-        .addEqualityGroup(
-            createKey(l1, c2, a1, i1, c2),
-            createKey(l1, c2, a1, i1b, c2),
-            createKey(l1, c2, a1b, i1, c2),
-            createKey(l1, c2, a1b, i1b, c2),
-            createKey(l1b, c2, a1, i1, c2),
-            createKey(l1b, c2, a1, i1b, c2),
-            createKey(l1b, c2, a1b, i1, c2),
-            createKey(l1b, c2, a1b, i1b, c2))
-        .addEqualityGroup(
-            createKey(l1, c2, a1, i2, c2),
-            createKey(l1, c2, a1b, i2, c2),
-            createKey(l1b, c2, a1, i2, c2),
-            createKey(l1b, c2, a1b, i2, c2))
-        .addEqualityGroup(
-            createKey(l1, c2, a2, i1, c2),
-            createKey(l1, c2, a2, i1b, c2),
-            createKey(l1b, c2, a2, i1, c2),
-            createKey(l1b, c2, a2, i1b, c2))
-        .addEqualityGroup(
-            createKey(l1, c2, a2, i2, c2),
-            createKey(l1b, c2, a2, i2, c2))
-        .addEqualityGroup(
-            createKey(l2, c1, a1, i1, c1),
-            createKey(l2, c1, a1, i1b, c1),
-            createKey(l2, c1, a1b, i1, c1),
-            createKey(l2, c1, a1b, i1b, c1))
-        .addEqualityGroup(
-            createKey(l2, c1, a1, i2, c1),
-            createKey(l2, c1, a1b, i2, c1))
-        .addEqualityGroup(
-            createKey(l2, c1, a2, i1, c1),
-            createKey(l2, c1, a2, i1b, c1))
-        .addEqualityGroup(
-            createKey(l2, c1, a2, i2, c1))
-        .addEqualityGroup(
-            createKey(l2, c2, a1, i1, c1),
-            createKey(l2, c2, a1, i1b, c1),
-            createKey(l2, c2, a1b, i1, c1),
-            createKey(l2, c2, a1b, i1b, c1))
-        .addEqualityGroup(
-            createKey(l2, c2, a1, i2, c1),
-            createKey(l2, c2, a1b, i2, c1))
-        .addEqualityGroup(
-            createKey(l2, c2, a2, i1, c1),
-            createKey(l2, c2, a2, i1b, c1))
-        .addEqualityGroup(
-            createKey(l2, c2, a2, i2, c1))
-        .addEqualityGroup(
-            createKey(l2, c1, a1, i1, c2),
-            createKey(l2, c1, a1, i1b, c2),
-            createKey(l2, c1, a1b, i1, c2),
-            createKey(l2, c1, a1b, i1b, c2))
-        .addEqualityGroup(
-            createKey(l2, c1, a1, i2, c2),
-            createKey(l2, c1, a1b, i2, c2))
-        .addEqualityGroup(
-            createKey(l2, c1, a2, i1, c2),
-            createKey(l2, c1, a2, i1b, c2))
-        .addEqualityGroup(
-            createKey(l2, c1, a2, i2, c2))
-        .addEqualityGroup(
-            createKey(l2, c2, a1, i1, c2),
-            createKey(l2, c2, a1, i1b, c2),
-            createKey(l2, c2, a1b, i1, c2),
-            createKey(l2, c2, a1b, i1b, c2))
-        .addEqualityGroup(
-            createKey(l2, c2, a1, i2, c2),
-            createKey(l2, c2, a1b, i2, c2))
-        .addEqualityGroup(
-            createKey(l2, c2, a2, i1, c2),
-            createKey(l2, c2, a2, i1b, c2))
-        .addEqualityGroup(
-            createKey(l2, c2, a2, i2, c2))
-        .addEqualityGroup(
-            createDerivedKey(l1, c1, a1, i1, c1, a2, i2, c2),
-            createDerivedKey(l1, c1, a1, i1b, c1, a2, i2, c2)
-        )
-        .addEqualityGroup(
-            createDerivedKey(l1, c1, a2, i1, c1, a1, i2, c2),
-            createDerivedKey(l1, c1, a2, i1b, c1, a1, i2, c2)
-        )
+            createDerivedKey(l1, c1, a2, i1, a1, i2), createDerivedKey(l1, c1, a2, i1b, a1, i2))
         .testEquals();
   }
 
-  private static SkyKey createKey(
-      Label label, BuildConfiguration baseConfiguration, NativeAspectClass aspectClass,
-      AspectParameters parameters, BuildConfiguration aspectConfiguration) {
-    return AspectValueKey.createAspectKey(
-        label,
-        baseConfiguration,
-        new AspectDescriptor(aspectClass, parameters),
-        aspectConfiguration);
+  @Test
+  public void roundTrippingEmptyAspectParameters_outputsSingleInstance() throws Exception {
+    var subject =
+        ImmutableList.of(
+            new AspectParameters.Builder().build(), new AspectParameters.Builder().build());
+    // Empty parameters has its own singleton serialization constant.
+    assertThat(subject.get(0)).isSameInstanceAs(subject.get(1));
+    var deserialized = roundTripMemoized(subject, AutoRegistry.get());
+    // It's preserved by round tripping.
+    assertThat(deserialized.get(0)).isSameInstanceAs(subject.get(0));
+    assertThat(deserialized.get(1)).isSameInstanceAs(subject.get(0));
+  }
+
+  @Test
+  public void roundTripping_mergesEquivalentAspectParameters() throws Exception {
+    var subject =
+        ImmutableList.of(
+            new AspectParameters.Builder().addAttribute("abc", "def").build(),
+            new AspectParameters.Builder().addAttribute("abc", "def").build());
+    assertThat(subject.get(0)).isNotSameInstanceAs(subject.get(1));
+    var deserialized = roundTripMemoized(subject, AutoRegistry.get());
+    assertThat(deserialized.get(0)).isSameInstanceAs(deserialized.get(1));
+  }
+
+  private static AspectKey createKey(
+      Label label,
+      BuildConfigurationValue baseConfiguration,
+      NativeAspectClass aspectClass,
+      AspectParameters parameters) {
+    return AspectKeyCreator.createAspectKey(
+        AspectDescriptor.of(aspectClass, parameters),
+        ConfiguredTargetKey.builder().setLabel(label).setConfiguration(baseConfiguration).build());
   }
 
   private static SkyKey createDerivedKey(
-      Label label, BuildConfiguration baseConfiguration,
-      NativeAspectClass aspectClass1, AspectParameters parameters1,
-      BuildConfiguration aspectConfiguration1,
-      NativeAspectClass aspectClass2, AspectParameters parameters2,
-      BuildConfiguration aspectConfiguration2) {
-    AspectKey baseKey =
-        AspectValueKey.createAspectKey(
-            label,
-            baseConfiguration,
-            new AspectDescriptor(aspectClass1, parameters1),
-            aspectConfiguration1);
-    return AspectValueKey.createAspectKey(
-        label,
-        baseConfiguration,
+      Label label,
+      BuildConfigurationValue baseConfiguration,
+      NativeAspectClass aspectClass1,
+      AspectParameters parameters1,
+      NativeAspectClass aspectClass2,
+      AspectParameters parameters2) {
+    AspectKey baseKey = createKey(label, baseConfiguration, aspectClass1, parameters1);
+    return AspectKeyCreator.createAspectKey(
+        AspectDescriptor.of(aspectClass2, parameters2),
         ImmutableList.of(baseKey),
-        new AspectDescriptor(aspectClass2, parameters2),
-        aspectConfiguration2);
+        ConfiguredTargetKey.builder().setLabel(label).setConfiguration(baseConfiguration).build());
   }
-
 }

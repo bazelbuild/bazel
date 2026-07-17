@@ -1,4 +1,4 @@
-// Copyright 2018 The Bazel Authors. All rights reserved.
+// Copyright 2025 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,127 +17,249 @@ package com.google.devtools.coverageoutputgenerator;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
-import com.google.common.base.VerifyException;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map.Entry;
+import java.util.NoSuchElementException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Unit tests for {@BranchCoverageData}. */
 @RunWith(JUnit4.class)
-public class BranchCoverageTest {
+public final class BranchCoverageTest {
 
   @Test
-  public void testNoBlockBranchSemantics() {
-    BranchCoverage b0 = BranchCoverage.create(3, 0);
-    BranchCoverage b1 = BranchCoverage.create(3, 1);
-    BranchCoverage b2 = BranchCoverage.create(3, 2);
+  public void testSimpleRetrieval() throws Exception {
+    BranchCoverage branchCoverage = BranchCoverage.create();
+    branchCoverage.addBranch(1, "", "0", false, 0);
+    branchCoverage.addBranch(1, "", "1", false, 0);
+    branchCoverage.addBranch(4, "", "0", true, 0);
+    branchCoverage.addBranch(4, "", "1", true, 2);
+    branchCoverage.addBranch(4, "", "2", true, 1);
 
-    assertThat(b0.lineNumber()).isEqualTo(3);
-    assertThat(b0.evaluated()).isFalse();
-    assertThat(b0.wasExecuted()).isFalse();
-    assertThat(b0.nrOfExecutions()).isEqualTo(0);
-
-    assertThat(b1.lineNumber()).isEqualTo(3);
-    assertThat(b1.evaluated()).isTrue();
-    assertThat(b1.wasExecuted()).isFalse();
-    assertThat(b1.nrOfExecutions()).isEqualTo(1);
-
-    assertThat(b2.lineNumber()).isEqualTo(3);
-    assertThat(b2.evaluated()).isTrue();
-    assertThat(b2.wasExecuted()).isTrue();
-    assertThat(b2.nrOfExecutions()).isEqualTo(2);
+    assertThat(branchCoverage.get(1, "", "0"))
+        .isEqualTo(BranchCoverageItem.create(1, "", "0", false, 0));
+    assertThat(branchCoverage.get(1, "", "1"))
+        .isEqualTo(BranchCoverageItem.create(1, "", "1", false, 0));
+    assertThat(branchCoverage.get(4, "", "0"))
+        .isEqualTo(BranchCoverageItem.create(4, "", "0", true, 0));
+    assertThat(branchCoverage.get(4, "", "1"))
+        .isEqualTo(BranchCoverageItem.create(4, "", "1", true, 2));
+    assertThat(branchCoverage.get(4, "", "2"))
+        .isEqualTo(BranchCoverageItem.create(4, "", "2", true, 1));
   }
 
   @Test
-  public void testNoBlockBranchInvalidValuesFail() {
-    assertThrows(VerifyException.class, () -> BranchCoverage.create(3, -1));
-    assertThrows(VerifyException.class, () -> BranchCoverage.create(3, 4));
+  public void testNonExistentBranchReturnsNull() throws Exception {
+    BranchCoverage branchCoverage = BranchCoverage.create();
+    branchCoverage.addBranch(1, "", "0", false, 0);
+    branchCoverage.addBranch(1, "", "1", false, 0);
+
+    assertThat(branchCoverage.get(1, "", "2")).isNull();
+    assertThat(branchCoverage.get(1, "1", "0")).isNull();
+    assertThat(branchCoverage.get(2, "", "0")).isNull();
   }
 
   @Test
-  public void testMergesBranchesWithBlockBranchEvaluated() {
-    BranchCoverage b1 = BranchCoverage.createWithBlockAndBranch(1, "3", "2", true, 3);
-    BranchCoverage b2 = BranchCoverage.createWithBlockAndBranch(1, "3", "2", true, 0);
-    BranchCoverage b3 = BranchCoverage.createWithBlockAndBranch(1, "3", "2", true, 2);
+  public void testIterator() throws Exception {
+    BranchCoverage branchCoverage = BranchCoverage.create();
+    branchCoverage.addBranch(1, "", "0", false, 0);
+    branchCoverage.addBranch(1, "", "1", false, 0);
+    branchCoverage.addBranch(4, "", "0", true, 0);
+    branchCoverage.addBranch(4, "", "1", true, 2);
+    branchCoverage.addBranch(4, "", "2", true, 1);
+    branchCoverage.addBranch(7, "id", "0", false, 0);
+    branchCoverage.addBranch(7, "id", "1", false, 0);
+    branchCoverage.addBranch(7, "id", "2", false, 0);
 
-    BranchCoverage m1 = BranchCoverage.merge(b1, b2);
-    BranchCoverage m2 = BranchCoverage.merge(m1, b3);
+    Iterator<Entry<BranchCoverageKey, BranchCoverageItem>> it = branchCoverage.iterator();
+    HashMap<BranchCoverageKey, BranchCoverageItem> result = new HashMap<>();
+    while (it.hasNext()) {
+      Entry<BranchCoverageKey, BranchCoverageItem> entry = it.next();
+      result.put(entry.getKey(), entry.getValue());
+    }
 
-    assertThat(m1.lineNumber()).isEqualTo(1);
-    assertThat(m1.blockNumber()).isEqualTo("3");
-    assertThat(m1.branchNumber()).isEqualTo("2");
-    assertThat(m1.evaluated()).isTrue();
-    assertThat(m1.nrOfExecutions()).isEqualTo(3);
-    assertThat(m2.evaluated()).isTrue();
-    assertThat(m2.nrOfExecutions()).isEqualTo(5);
+    assertThat(result)
+        .containsExactly(
+            BranchCoverageKey.create(1, "", "0"),
+            BranchCoverageItem.create(1, "", "0", false, 0),
+            BranchCoverageKey.create(1, "", "1"),
+            BranchCoverageItem.create(1, "", "1", false, 0),
+            BranchCoverageKey.create(4, "", "0"),
+            BranchCoverageItem.create(4, "", "0", true, 0),
+            BranchCoverageKey.create(4, "", "1"),
+            BranchCoverageItem.create(4, "", "1", true, 2),
+            BranchCoverageKey.create(4, "", "2"),
+            BranchCoverageItem.create(4, "", "2", true, 1),
+            BranchCoverageKey.create(7, "id", "0"),
+            BranchCoverageItem.create(7, "id", "0", false, 0),
+            BranchCoverageKey.create(7, "id", "1"),
+            BranchCoverageItem.create(7, "id", "1", false, 0),
+            BranchCoverageKey.create(7, "id", "2"),
+            BranchCoverageItem.create(7, "id", "2", false, 0));
   }
 
   @Test
-  public void testMergeBranchesWithBlockBranchNotEvaluated() {
-    BranchCoverage b1 = BranchCoverage.createWithBlockAndBranch(1, "2", "0", false, 0);
-    BranchCoverage b2 = BranchCoverage.createWithBlockAndBranch(1, "2", "0", false, 0);
+  public void testExhaustedIteratorThrows() throws Exception {
+    BranchCoverage branchCoverage = BranchCoverage.create();
+    branchCoverage.addBranch(1, "", "0", false, 0);
 
-    BranchCoverage merged = BranchCoverage.merge(b1, b2);
+    Iterator<Entry<BranchCoverageKey, BranchCoverageItem>> it = branchCoverage.iterator();
 
-    assertThat(merged.lineNumber()).isEqualTo(1);
-    assertThat(merged.blockNumber()).isEqualTo("2");
-    assertThat(merged.branchNumber()).isEqualTo("0");
-    assertThat(merged.evaluated()).isFalse();
-    assertThat(merged.nrOfExecutions()).isEqualTo(0);
+    assertThat(it.hasNext()).isTrue();
+    it.next();
+    assertThat(it.hasNext()).isFalse();
+    assertThrows(NoSuchElementException.class, () -> it.next());
   }
 
   @Test
-  public void testMergeBranchesWithBlockBranchMixedEvaluated() {
-    BranchCoverage b1 = BranchCoverage.createWithBlockAndBranch(1, "2", "0", false, 0);
-    BranchCoverage b2 = BranchCoverage.createWithBlockAndBranch(1, "2", "0", true, 0);
+  public void testCopy() throws Exception {
+    BranchCoverage branchCoverage = BranchCoverage.create();
+    branchCoverage.addBranch(1, "", "0", false, 0);
+    branchCoverage.addBranch(1, "", "1", false, 0);
+    branchCoverage.addBranch(4, "", "0", true, 0);
+    branchCoverage.addBranch(4, "", "1", true, 2);
 
-    BranchCoverage merged = BranchCoverage.merge(b1, b2);
+    BranchCoverage copy = BranchCoverage.copy(branchCoverage);
+    HashMap<BranchCoverageKey, BranchCoverageItem> result = new HashMap<>();
+    for (Entry<BranchCoverageKey, BranchCoverageItem> entry : copy) {
+      result.put(entry.getKey(), entry.getValue());
+    }
 
-    assertThat(merged.lineNumber()).isEqualTo(1);
-    assertThat(merged.blockNumber()).isEqualTo("2");
-    assertThat(merged.branchNumber()).isEqualTo("0");
-    assertThat(merged.evaluated()).isTrue();
-    assertThat(merged.nrOfExecutions()).isEqualTo(0);
+    assertThat(result)
+        .containsExactly(
+            BranchCoverageKey.create(1, "", "0"),
+            BranchCoverageItem.create(1, "", "0", false, 0),
+            BranchCoverageKey.create(1, "", "1"),
+            BranchCoverageItem.create(1, "", "1", false, 0),
+            BranchCoverageKey.create(4, "", "0"),
+            BranchCoverageItem.create(4, "", "0", true, 0),
+            BranchCoverageKey.create(4, "", "1"),
+            BranchCoverageItem.create(4, "", "1", true, 2));
   }
 
   @Test
-  public void testMergesWithNoBlockBranch() {
-    BranchCoverage b1 = BranchCoverage.create(3, 1);
-    BranchCoverage b2 = BranchCoverage.create(3, 0);
-    BranchCoverage b3 = BranchCoverage.create(3, 2);
+  public void testRepeatedBranchesAreMerged() throws Exception {
+    BranchCoverage branchCoverage = BranchCoverage.create();
+    branchCoverage.addBranch(1, "", "0", false, 0);
+    branchCoverage.addBranch(1, "", "0", false, 0);
+    branchCoverage.addBranch(1, "", "0", true, 1);
+    branchCoverage.addBranch(1, "", "0", true, 2);
+    branchCoverage.addBranch(2, "", "0", false, 0);
+    branchCoverage.addBranch(2, "", "0", false, 0);
 
-    BranchCoverage m1 = BranchCoverage.merge(b1, b2);
-    BranchCoverage m2 = BranchCoverage.merge(m1, b3);
-
-    assertThat(m1.nrOfExecutions()).isEqualTo(1);
-    assertThat(m1.wasExecuted()).isFalse();
-    assertThat(m1.evaluated()).isTrue();
-    assertThat(m2.lineNumber()).isEqualTo(3);
-    assertThat(m2.blockNumber()).isEmpty();
-    assertThat(m2.branchNumber()).isEmpty();
-    assertThat(m2.nrOfExecutions()).isEqualTo(2);
-    assertThat(m2.wasExecuted()).isTrue();
-    assertThat(m2.evaluated()).isTrue();
+    assertThat(branchCoverage.get(1, "", "0"))
+        .isEqualTo(BranchCoverageItem.create(1, "", "0", true, 3));
+    assertThat(branchCoverage.get(2, "", "0"))
+        .isEqualTo(BranchCoverageItem.create(2, "", "0", false, 0));
   }
 
   @Test
-  public void testDifferentLineNumbersFail() {
-    BranchCoverage b1 = BranchCoverage.create(2, 1);
-    BranchCoverage b2 = BranchCoverage.create(3, 2);
-    assertThrows(VerifyException.class, () -> BranchCoverage.merge(b1, b2));
+  public void testMerge() throws Exception {
+    BranchCoverage branchCoverage1 = BranchCoverage.create();
+    branchCoverage1.addBranch(1, "", "0", false, 0);
+    branchCoverage1.addBranch(1, "", "1", false, 0);
+    branchCoverage1.addBranch(4, "", "0", true, 0);
+    branchCoverage1.addBranch(4, "", "1", true, 2);
+    branchCoverage1.addBranch(6, "", "0", true, 1);
+    branchCoverage1.addBranch(6, "id", "1", true, 0);
+    BranchCoverage branchCoverage2 = BranchCoverage.create();
+    branchCoverage2.addBranch(1, "", "0", true, 1);
+    branchCoverage2.addBranch(1, "", "1", true, 2);
+    branchCoverage2.addBranch(4, "", "0", true, 3);
+    branchCoverage2.addBranch(4, "", "1", true, 4);
+    branchCoverage2.addBranch(7, "id", "0", true, 5);
+    branchCoverage2.addBranch(7, "id", "1", true, 6);
+
+    BranchCoverage merged = BranchCoverage.merge(branchCoverage1, branchCoverage2);
+    HashMap<BranchCoverageKey, BranchCoverageItem> result = new HashMap<>();
+    for (Entry<BranchCoverageKey, BranchCoverageItem> entry : merged) {
+      result.put(entry.getKey(), entry.getValue());
+    }
+
+    assertThat(result)
+        .containsExactly(
+            BranchCoverageKey.create(1, "", "0"),
+            BranchCoverageItem.create(1, "", "0", true, 1),
+            BranchCoverageKey.create(1, "", "1"),
+            BranchCoverageItem.create(1, "", "1", true, 2),
+            BranchCoverageKey.create(4, "", "0"),
+            BranchCoverageItem.create(4, "", "0", true, 3),
+            BranchCoverageKey.create(4, "", "1"),
+            BranchCoverageItem.create(4, "", "1", true, 6),
+            BranchCoverageKey.create(6, "", "0"),
+            BranchCoverageItem.create(6, "", "0", true, 1),
+            BranchCoverageKey.create(6, "id", "1"),
+            BranchCoverageItem.create(6, "id", "1", true, 0),
+            BranchCoverageKey.create(7, "id", "0"),
+            BranchCoverageItem.create(7, "id", "0", true, 5),
+            BranchCoverageKey.create(7, "id", "1"),
+            BranchCoverageItem.create(7, "id", "1", true, 6));
   }
 
   @Test
-  public void testDifferentBlockNumbersFail() {
-    BranchCoverage b1 = BranchCoverage.createWithBlockAndBranch(1, "3", "2", true, 1);
-    BranchCoverage b2 = BranchCoverage.createWithBlockAndBranch(1, "2", "2", true, 1);
-    assertThrows(VerifyException.class, () -> BranchCoverage.merge(b1, b2));
+  public void testContainsKey() throws Exception {
+    BranchCoverage branchCoverage = BranchCoverage.create();
+    branchCoverage.addBranch(1, "", "0", false, 0);
+    branchCoverage.addBranch(1, "", "1", false, 0);
+
+    assertThat(branchCoverage.containsKey(1, "", "0")).isTrue();
+    assertThat(branchCoverage.containsKey(1, "", "1")).isTrue();
+    assertThat(branchCoverage.containsKey(1, "", "2")).isFalse();
+    assertThat(branchCoverage.containsKey(1, "1", "0")).isFalse();
+    assertThat(branchCoverage.containsKey(2, "", "0")).isFalse();
   }
 
   @Test
-  public void testDifferentBranchNumbersFail() {
-    BranchCoverage b1 = BranchCoverage.createWithBlockAndBranch(1, "3", "2", true, 1);
-    BranchCoverage b2 = BranchCoverage.createWithBlockAndBranch(1, "3", "3", true, 1);
-    assertThrows(VerifyException.class, () -> BranchCoverage.merge(b1, b2));
+  public void testGetKeys() throws Exception {
+    BranchCoverage branchCoverage = BranchCoverage.create();
+    branchCoverage.addBranch(1, "1", "0", false, 0);
+    branchCoverage.addBranch(1, "1", "1", false, 0);
+    branchCoverage.addBranch(4, "", "0", true, 0);
+    branchCoverage.addBranch(4, "", "1", true, 2);
+    branchCoverage.addBranch(4, "", "2", true, 1);
+    branchCoverage.addBranch(7, "id", "0", false, 0);
+    branchCoverage.addBranch(7, "id", "1", false, 0);
+    branchCoverage.addBranch(7, "id", "2", false, 0);
+
+    assertThat(branchCoverage.getKeys())
+        .containsExactly(
+            BranchCoverageKey.create(1, "1", "0"),
+            BranchCoverageKey.create(1, "1", "1"),
+            BranchCoverageKey.create(4, "", "0"),
+            BranchCoverageKey.create(4, "", "1"),
+            BranchCoverageKey.create(4, "", "2"),
+            BranchCoverageKey.create(7, "id", "0"),
+            BranchCoverageKey.create(7, "id", "1"),
+            BranchCoverageKey.create(7, "id", "2"));
+  }
+
+  @Test
+  public void testExtremeLineNumbers() throws Exception {
+    BranchCoverage branchCoverage = BranchCoverage.create();
+    String blockId = "abcdefghijklmnopqrstuvwxyz";
+    branchCoverage.addBranch(Integer.MAX_VALUE, blockId, "1234567890", false, 0);
+    branchCoverage.addBranch(Integer.MAX_VALUE, blockId, "12345678901", false, 0);
+
+    assertThat(branchCoverage.get(Integer.MAX_VALUE, blockId, "1234567890"))
+        .isEqualTo(BranchCoverageItem.create(Integer.MAX_VALUE, blockId, "1234567890", false, 0));
+    assertThat(branchCoverage.get(Integer.MAX_VALUE, blockId, "12345678901"))
+        .isEqualTo(BranchCoverageItem.create(Integer.MAX_VALUE, blockId, "12345678901", false, 0));
+  }
+
+  @Test
+  public void testLargeNumberOfBranches() throws Exception {
+    BranchCoverage branchCoverage = BranchCoverage.create();
+    for (int i = 0; i < 100000; i++) {
+      int lineNumber = (i / 100) + 1;
+      branchCoverage.addBranch(lineNumber, "", String.valueOf(i), false, 0);
+    }
+
+    assertThat(branchCoverage.size()).isEqualTo(100000);
+    for (int i = 0; i < 100000; i++) {
+      int lineNumber = (i / 100) + 1;
+      assertThat(branchCoverage.get(lineNumber, "", String.valueOf(i)))
+          .isEqualTo(BranchCoverageItem.create(lineNumber, "", String.valueOf(i), false, 0));
+    }
   }
 }

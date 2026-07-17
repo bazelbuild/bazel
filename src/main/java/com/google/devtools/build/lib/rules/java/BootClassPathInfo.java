@@ -13,155 +13,95 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.java;
 
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.BuiltinProvider;
-import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
-import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
-import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
-import javax.annotation.Nullable;
-import net.starlark.java.annot.Param;
-import net.starlark.java.annot.ParamType;
-import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkMethod;
-import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.NoneType;
-import net.starlark.java.eval.Sequence;
-import net.starlark.java.eval.Starlark;
-import net.starlark.java.eval.StarlarkThread;
-import net.starlark.java.eval.StarlarkValue;
-import net.starlark.java.syntax.Location;
+import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.StructImpl;
+import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.Optional;
 
 /** Information about the system APIs for a Java compilation. */
-@AutoCodec
 @Immutable
-public class BootClassPathInfo extends NativeInfo implements StarlarkValue {
+public class BootClassPathInfo extends StarlarkInfoWrapper {
 
-  /** Provider singleton constant. */
-  public static final Provider PROVIDER = new Provider();
+  private static final BootClassPathInfo EMPTY =
+      new BootClassPathInfo(null) {
+        @Override
+        public NestedSet<Artifact> bootclasspath() {
+          return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+        }
 
-  /** Provider class for {@link BootClassPathInfo} objects. */
-  @StarlarkBuiltin(name = "Provider", documented = false, doc = "")
-  public static class Provider extends BuiltinProvider<BootClassPathInfo> implements ProviderApi {
-    private Provider() {
-      super("BootClassPathInfo", BootClassPathInfo.class);
-    }
+        @Override
+        public NestedSet<Artifact> auxiliary() {
+          return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+        }
 
-    @StarlarkMethod(
-        name = "BootClassPathInfo",
-        doc = "The <code>BootClassPathInfo</code> constructor.",
-        documented = false,
-        parameters = {
-          @Param(name = "bootclasspath", positional = false, named = true, defaultValue = "[]"),
-          @Param(name = "auxiliary", positional = false, named = true, defaultValue = "[]"),
-          @Param(
-              name = "system",
-              positional = false,
-              named = true,
-              allowedTypes = {
-                @ParamType(type = FileApi.class),
-                @ParamType(type = NoneType.class),
-              },
-              defaultValue = "None"),
-        },
-        selfCall = true,
-        useStarlarkThread = true)
-    public BootClassPathInfo bootClassPathInfo(
-        Sequence<?> bootClassPathList,
-        Sequence<?> auxiliaryList,
-        Object systemOrNone,
-        StarlarkThread thread)
-        throws EvalException {
-      return new BootClassPathInfo(
-          getBootClassPath(bootClassPathList),
-          getAuxiliary(auxiliaryList),
-          getSystem(systemOrNone),
-          thread.getCallerLocation());
-    }
+        @Override
+        public NestedSet<Artifact> systemInputs() {
+          return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+        }
 
-    private static NestedSet<Artifact> getBootClassPath(Sequence<?> bootClassPathList)
-        throws EvalException {
-      return NestedSetBuilder.wrap(
-          Order.STABLE_ORDER, Sequence.cast(bootClassPathList, Artifact.class, "bootclasspath"));
-    }
+        @Override
+        public Optional<PathFragment> systemPath() {
+          return Optional.empty();
+        }
 
-    private static NestedSet<Artifact> getAuxiliary(Sequence<?> auxiliaryList)
-        throws EvalException {
-      return NestedSetBuilder.wrap(
-          Order.STABLE_ORDER, Sequence.cast(auxiliaryList, Artifact.class, "auxiliary"));
-    }
+        @Override
+        public boolean isEmpty() {
+          return true;
+        }
+      };
 
-    private static Artifact getSystem(Object systemOrNone) throws EvalException {
-      if (systemOrNone == Starlark.NONE) {
-        return null;
-      }
-      if (systemOrNone instanceof Artifact) {
-        return (Artifact) systemOrNone;
-      }
-      throw Starlark.errorf("for system, got %s, want File or None", Starlark.type(systemOrNone));
-    }
-  }
-
-  private final NestedSet<Artifact> bootclasspath;
-  private final NestedSet<Artifact> auxiliary;
-  @Nullable private final Artifact system;
-
-  @VisibleForSerialization
-  @AutoCodec.Instantiator
-  public BootClassPathInfo(
-      NestedSet<Artifact> bootclasspath,
-      NestedSet<Artifact> auxiliary,
-      Artifact system,
-      Location creationLocation) {
-    super(creationLocation);
-    this.bootclasspath = bootclasspath;
-    this.auxiliary = auxiliary;
-    this.system = system;
-  }
-
-  @Override
-  public Provider getProvider() {
-    return PROVIDER;
-  }
-
-  public static BootClassPathInfo create(NestedSet<Artifact> bootclasspath) {
-    return new BootClassPathInfo(
-        bootclasspath, NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER), null, null);
-  }
+  // Ensures that we use a canonical Optional<PathFragment> instance per system path to save memory.
+  private static final LoadingCache<String, Optional<PathFragment>> systemPathCache =
+      Caffeine.newBuilder().weakKeys().build(s -> Optional.of(PathFragment.create(s)));
 
   public static BootClassPathInfo empty() {
-    return new BootClassPathInfo(
-        NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER),
-        NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER),
-        null,
-        null);
+    return EMPTY;
+  }
+
+  private BootClassPathInfo(StructImpl underlying) {
+    super(underlying);
+  }
+
+  public static BootClassPathInfo wrap(Info info) throws RuleErrorException {
+    return new BootClassPathInfo((StructImpl) info);
   }
 
   /** The jar files containing classes for system APIs, i.e. a Java <= 8 bootclasspath. */
-  public NestedSet<Artifact> bootclasspath() {
-    return bootclasspath;
+  public NestedSet<Artifact> bootclasspath() throws RuleErrorException {
+    return getUnderlyingNestedSet("bootclasspath", Artifact.class);
   }
 
   /**
    * The jar files containing extra classes for system APIs that should not be put in the system
    * image to support split-package compilation scenarios.
    */
-  public NestedSet<Artifact> auxiliary() {
-    return auxiliary;
+  public NestedSet<Artifact> auxiliary() throws RuleErrorException {
+    return getUnderlyingNestedSet("_auxiliary", Artifact.class);
+  }
+
+  /** Contents of the directory that is passed to the javac >= 9 {@code --system} flag. */
+  public NestedSet<Artifact> systemInputs() throws RuleErrorException {
+    return getUnderlyingNestedSet("_system_inputs", Artifact.class);
   }
 
   /** An argument to the javac >= 9 {@code --system} flag. */
-  @Nullable
-  public Artifact system() {
-    return system;
+  public Optional<PathFragment> systemPath() throws RuleErrorException {
+    String s = getUnderlyingValue("_system_path", String.class);
+    return s != null ? systemPathCache.get(s) : Optional.empty();
   }
 
-  public boolean isEmpty() {
-    return bootclasspath.isEmpty();
+  public boolean isEmpty() throws RuleErrorException {
+    return bootclasspath().isEmpty()
+        && auxiliary().isEmpty()
+        && systemInputs().isEmpty()
+        && systemPath().isEmpty();
   }
 }

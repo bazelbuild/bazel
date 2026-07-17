@@ -18,29 +18,18 @@ import static com.google.testing.junit.runner.util.TestIntegrationsRunnerIntegra
 
 /** Exports test TestIntegrations to the test XML. */
 public class TestIntegrationsExporter {
-  /*
-   * The global {@code TestIntegrationsExporter}, which writes the properties into
-   * the test XML if the test is running from the command line.
+  /**
+   * The global {@code TestIntegrationsExporter}, which writes the properties into the test XML if
+   * the test is running from the command line.
    *
-   * <p>If you have test infrastructure that needs to export properties, consider
-   * injecting an instance of {@code TestIntegrationsExporter}. Your tests can
-   * use one of the static methods in this class to create a fake instance.
+   * <p>If you have test infrastructure that needs to export properties, consider injecting an
+   * instance of {@code TestIntegrationsExporter}. Your tests can use one of the static methods in
+   * this class to create a fake instance.
    */
   public static final TestIntegrationsExporter INSTANCE =
       new TestIntegrationsExporter(new DefaultCallback());
 
   private final Callback callback;
-
-  /**
-   * Creates a fake {@code TestIntegrationsExporter} instance, passing values to the passed-in
-   * callback.
-   *
-   * @param callback Callback to use when values are exported
-   * @return exporter instance
-   */
-  public static TestIntegrationsExporter createFake(final Callback callback) {
-    return new TestIntegrationsExporter(callback);
-  }
 
   protected TestIntegrationsExporter(Callback callback) {
     this.callback = callback;

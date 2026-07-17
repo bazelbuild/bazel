@@ -20,7 +20,9 @@ import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -30,7 +32,7 @@ public final class DocstringUtils {
   private DocstringUtils() {} // uninstantiable
 
   /**
-   * Parses a docstring.
+   * Parses a trimmed docstring.
    *
    * <p>The format of the docstring is as follows
    *
@@ -58,7 +60,12 @@ public final class DocstringUtils {
    * """
    * }</pre>
    *
-   * @param docstring a docstring of the format described above
+   * <p>We expect the docstring to already be trimmed and dedented to a minimal common indentation
+   * level by {@link Starlark#trimDocString} or an equivalent PEP-257 style trim() implementation;
+   * note that {@link StarlarkFunction#getDocumentation} returns a correctly trimmed and dedented
+   * doc string.
+   *
+   * @param doc a docstring of the format described above
    * @param parseErrors a list to which parsing error messages are written
    * @return the parsed docstring information
    */
@@ -74,12 +81,16 @@ public final class DocstringUtils {
 
     /** The one-line summary at the start of the docstring. */
     final String summary;
+
     /** Documentation of function parameters from the 'Args:' section. */
     final List<ParameterDoc> parameters;
+
     /** Documentation of the return value from the 'Returns:' section, or empty if there is none. */
     final String returns;
+
     /** Deprecation warning from the 'Deprecated:' section, or empty if there is none. */
     final String deprecated;
+
     /** Rest of the docstring that is not part of any of the special sections above. */
     final String longDescription;
 
@@ -95,7 +106,6 @@ public final class DocstringUtils {
       this.deprecated = deprecated;
       this.longDescription = longDescription;
     }
-
 
     /** Returns the one-line summary of the docstring. */
     public String getSummary() {
@@ -130,8 +140,8 @@ public final class DocstringUtils {
     }
 
     /**
-     * Returns the documentation of the return value from the 'Returns:' section, or empty if
-     * there is none.
+     * Returns the documentation of the return value from the 'Returns:' section, or empty if there
+     * is none.
      */
     public String getReturns() {
       return returns;
@@ -166,64 +176,32 @@ public final class DocstringUtils {
   }
 
   private static class DocstringParser {
-    private final String docstring;
-    /** Start offset of the current line. */
-    private int startOfLineOffset = 0;
-    /** End offset of the current line. */
-    private int endOfLineOffset = 0;
-    /** Current line number within the docstring. */
-    private int lineNumber = 0;
     /**
-     * The indentation of the docstring literal in the source file.
-     *
-     * <p>Every line except the first one must be indented by at least that many spaces.
+     * Current line number within the docstring, 1-based; 0 indicates that parsing has not started;
+     * {@code lineNumber > lines.size()} indicates EOF.
      */
-    private int baselineIndentation = 0;
-    /** Whether there was a blank line before the current line. */
-    private boolean blankLineBefore = false;
+    private int lineNumber = 0;
+
     /** Whether we've seen a special section, e.g. 'Args:', already. */
     private boolean specialSectionsStarted = false;
-    /** List of all parsed lines in the docstring so far, including all indentation. */
-    private ArrayList<String> originalLines = new ArrayList<>();
-    /**
-     * The current line in the docstring with the baseline indentation removed.
-     *
-     * <p>If the indentation of a docstring line is less than the expected {@link
-     * #baselineIndentation}, only the existing indentation is stripped; none of the remaining
-     * characters are cut off.
-     */
+
+    /** List of all parsed lines in the docstring. */
+    private final ImmutableList<String> lines;
+
+    /** Iterator over lines. */
+    private final Iterator<String> linesIter;
+
+    /** The current line in the docstring. */
     private String line = "";
+
     /** Errors that occurred so far. */
     private final List<DocstringParseError> errors = new ArrayList<>();
 
     private DocstringParser(String docstring) {
-      this.docstring = docstring;
-
-      // Infer the indentation level:
-      // the smallest amount of leading whitespace
-      // common to all non-blank lines except the first.
-      int indentation = Integer.MAX_VALUE;
-      boolean first = true;
-      for (String line : Splitter.on("\n").split(docstring)) {
-        // ignore first line
-        if (first) {
-          first = false;
-          continue;
-        }
-        // count leading spaces
-        int i;
-        for (i = 0; i < line.length() && line.charAt(i) == ' '; i++) {}
-        if (i != line.length()) {
-          indentation = Math.min(indentation, i);
-        }
-      }
-      if (indentation == Integer.MAX_VALUE) {
-        indentation = 0;
-      }
-
+      this.lines = ImmutableList.copyOf(Splitter.on("\n").split(docstring));
+      this.linesIter = lines.iterator();
+      // Load the summary line
       nextLine();
-      // the indentation is only relevant for the following lines, not the first one:
-      this.baselineIndentation = indentation;
     }
 
     /**
@@ -232,69 +210,19 @@ public final class DocstringUtils {
      * @return whether there are lines remaining to be parsed
      */
     private boolean nextLine() {
-      if (startOfLineOffset >= docstring.length()) {
-        return false;
-      }
-      blankLineBefore = line.trim().isEmpty();
-      startOfLineOffset = endOfLineOffset;
-      if (startOfLineOffset >= docstring.length()) {
-        // Previous line was the last; previous line had no trailing newline character.
-        line = "";
-        return false;
-      }
-      // If not the first line, advance start past the newline character. In the case where there is
-      // no more content, then the previous line was the second-to-last line and this last line is
-      // empty.
-      if (docstring.charAt(startOfLineOffset) == '\n') {
-        startOfLineOffset += 1;
-      }
-      lineNumber++;
-      endOfLineOffset = docstring.indexOf('\n', startOfLineOffset);
-      if (endOfLineOffset < 0) {
-        endOfLineOffset = docstring.length();
-      }
-      String originalLine = docstring.substring(startOfLineOffset, endOfLineOffset);
-      originalLines.add(originalLine);
-      int indentation = getIndentation(originalLine);
-      if (endOfLineOffset == docstring.length() && startOfLineOffset != 0) {
-        if (!originalLine.trim().isEmpty()) {
-          error("closing docstring quote should be on its own line, indented the same as the "
-              + "opening quote");
-        } else if (indentation != baselineIndentation) {
-          error("closing docstring quote should be indented the same as the opening quote");
-        }
-      }
-      if (originalLine.trim().isEmpty()) {
-        line = "";
+      if (linesIter.hasNext()) {
+        line = linesIter.next();
+        lineNumber++;
+        return true;
       } else {
-        if (indentation < baselineIndentation) {
-          error(
-              "line indented too little (here: "
-                  + indentation
-                  + " spaces; expected: "
-                  + baselineIndentation
-                  + " spaces)");
-          startOfLineOffset += indentation;
-        } else {
-          startOfLineOffset += baselineIndentation;
-        }
-        line = docstring.substring(startOfLineOffset, endOfLineOffset);
+        line = "";
+        lineNumber = lines.size() + 1;
+        return false;
       }
-      return true;
-    }
-
-    /**
-     * Returns whether the current line is the last one in the docstring.
-     *
-     * <p>It is possible for both this function and {@link #eof} to return true if all content has
-     * been exhausted, or if the last line is empty.
-     */
-    private boolean onLastLine() {
-      return endOfLineOffset >= docstring.length();
     }
 
     private boolean eof() {
-      return startOfLineOffset >= docstring.length();
+      return lineNumber > lines.size();
     }
 
     private static int getIndentation(String line) {
@@ -310,7 +238,7 @@ public final class DocstringUtils {
     }
 
     private void error(int lineNumber, String message) {
-      errors.add(new DocstringParseError(message, lineNumber, originalLines.get(lineNumber - 1)));
+      errors.add(new DocstringParseError(message, lineNumber, lines.get(lineNumber - 1)));
     }
 
     private void parseArgumentSection(
@@ -375,9 +303,7 @@ public final class DocstringUtils {
                       + "  <documentation here>\n\n"
                       + "For more details, please have a look at the documentation.");
             }
-            if (!(onLastLine() && line.trim().isEmpty())) {
-              longDescriptionLines.add(line);
-            }
+            longDescriptionLines.add(line);
             nextLine();
         }
       }
@@ -390,16 +316,13 @@ public final class DocstringUtils {
 
     private void checkSectionStart(boolean duplicateSection) {
       specialSectionsStarted = true;
-      if (!blankLineBefore) {
-        error("section should be preceded by a blank line");
-      }
       if (duplicateSection) {
         error("duplicate '" + line + "' section");
       }
     }
 
     private String checkForNonStandardDeprecation(String line) {
-      if (line.toLowerCase().startsWith("deprecated:") || line.contains("DEPRECATED")) {
+      if (line.toLowerCase(Locale.ROOT).startsWith("deprecated:") || line.contains("DEPRECATED")) {
         error(
             "use a 'Deprecated:' section for deprecations, similar to a 'Returns:' section:\n\n"
                 + "Deprecated:\n"
@@ -428,9 +351,6 @@ public final class DocstringUtils {
         }
         int actualIndentation = getIndentation(line);
         if (actualIndentation == 0) {
-          if (!blankLineBefore) {
-            error("end of 'Args' section without blank line");
-          }
           break;
         }
         String trimmedLine;
@@ -511,9 +431,6 @@ public final class DocstringUtils {
         if (line.isEmpty()) {
           trimmedLine = line;
         } else if (getIndentation(line) == 0) {
-          if (!blankLineBefore) {
-            error("end of section without blank line");
-          }
           break;
         } else {
           if (getIndentation(line) < 2) {
@@ -562,7 +479,10 @@ public final class DocstringUtils {
       return message;
     }
 
-    /** Returns the line number in the containing Starlark file which contains this error. */
+    /**
+     * Returns the line number (skipping leading blank lines, if any) in the original doc string
+     * which contains this error.
+     */
     public int getLineNumber() {
       return lineNumber;
     }

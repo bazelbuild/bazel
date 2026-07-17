@@ -18,13 +18,11 @@ import static com.google.devtools.build.lib.packages.RuleClass.Builder.STARLARK_
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
+import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.actions.Actions;
-import com.google.devtools.build.lib.actions.Actions.GeneratingActions;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.constraints.ConstraintSemantics;
@@ -32,6 +30,7 @@ import com.google.devtools.build.lib.analysis.constraints.EnvironmentCollection;
 import com.google.devtools.build.lib.analysis.constraints.SupportedEnvironments;
 import com.google.devtools.build.lib.analysis.constraints.SupportedEnvironmentsProvider;
 import com.google.devtools.build.lib.analysis.constraints.SupportedEnvironmentsProvider.RemovedEnvironmentCulprit;
+import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.test.AnalysisTestActionBuilder;
 import com.google.devtools.build.lib.analysis.test.AnalysisTestResultInfo;
 import com.google.devtools.build.lib.analysis.test.ExecutionInfo;
@@ -39,7 +38,6 @@ import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.analysis.test.TestActionBuilder;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
-import com.google.devtools.build.lib.analysis.test.TestEnvironmentInfo;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.analysis.test.TestProvider.TestParams;
 import com.google.devtools.build.lib.analysis.test.TestTagsProvider;
@@ -47,59 +45,50 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.packages.AllowlistChecker;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildSetting;
+import com.google.devtools.build.lib.packages.BuiltinRestriction;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.Provider;
-import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Type.LabelClass;
-import java.util.Collection;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.function.Consumer;
+import java.util.function.Predicate;
 import javax.annotation.Nullable;
-import net.starlark.java.eval.EvalException;
-import net.starlark.java.syntax.Location;
 
 /**
  * Builder class for analyzed rule instances.
  *
  * <p>This is used to tell Bazel which {@link TransitiveInfoProvider}s are produced by the analysis
- * of a configured target. For more information about analysis, see
- * {@link com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory}.
+ * of a configured target. For more information about analysis, see {@link
+ * RuleConfiguredTargetFactory}.
  *
- * @see com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory
+ * @see RuleConfiguredTargetFactory
  */
 public final class RuleConfiguredTargetBuilder {
   private final RuleContext ruleContext;
   private final TransitiveInfoProviderMapBuilder providersBuilder =
       new TransitiveInfoProviderMapBuilder();
-  private final Map<String, NestedSetBuilder<Artifact>> outputGroupBuilders = new TreeMap<>();
+  private final TreeMap<String, NestedSetBuilder<Artifact>> outputGroupBuilders = new TreeMap<>();
   private final ImmutableList.Builder<Artifact> additionalTestActionTools =
       new ImmutableList.Builder<>();
 
   /** These are supported by all configured targets and need to be specially handled. */
   private NestedSet<Artifact> filesToBuild = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
 
-  private NestedSetBuilder<Artifact> filesToRunBuilder = NestedSetBuilder.stableOrder();
   private RunfilesSupport runfilesSupport;
-  private Runfiles persistentTestRunnerRunfiles;
   private Artifact executable;
-  private ImmutableSet<ActionAnalysisMetadata> actionsWithoutExtraAction = ImmutableSet.of();
-  private final LinkedHashSet<String> ruleImplSpecificRequiredConfigFragments =
-      new LinkedHashSet<>();
-  private boolean propagateValidationActionOutputGroup = true;
+  private final ImmutableSet<ActionAnalysisMetadata> actionsWithoutExtraAction = ImmutableSet.of();
 
   public RuleConfiguredTargetBuilder(RuleContext ruleContext) {
     this.ruleContext = ruleContext;
-    // Avoid building validations in analysis tests (b/143988346)
-    propagateValidationActionOutputGroup = !ruleContext.getRule().isAnalysisTest();
-    add(LicensesProvider.class, LicensesProviderImpl.of(ruleContext));
-    add(VisibilityProvider.class, new VisibilityProviderImpl(ruleContext.getVisibility()));
   }
 
   /**
@@ -115,27 +104,58 @@ public final class RuleConfiguredTargetBuilder {
     if (ruleContext.getConfiguration().enforceConstraints()) {
       checkConstraints();
     }
+
+    for (AllowlistChecker allowlistChecker :
+        ruleContext.getRule().getRuleClassObject().getAllowlistCheckers()) {
+      handleAllowlistChecker(allowlistChecker);
+    }
+    if (ruleContext.getConfiguration().enforceTransitiveVisibility()) {
+      // Gather the transitive_visibility from this target's package and deps.
+      // If there are any, propagate their union in a TransitiveVisibilityProvider.
+      // One packageSpecificationProvider is created for each package_group, corresponding to the
+      // restrictions imposed by a single bottom level dependency.
+      ImmutableSet.Builder<PackageSpecificationProvider> tvBuilder = ImmutableSet.builder();
+      if (ruleContext.getTransitiveVisibilityImposedByThisPackage() != null) {
+        tvBuilder.add(ruleContext.getTransitiveVisibilityImposedByThisPackage());
+      }
+      for (String attributeName : ruleContext.attributes().getAttributeNames()) {
+        Attribute attribute = ruleContext.attributes().getAttributeDefinition(attributeName);
+        if (attribute.getType().getLabelClass() == LabelClass.DEPENDENCY) {
+          for (TransitiveInfoCollection dep : ruleContext.getPrerequisites(attributeName)) {
+            TransitiveVisibilityProvider provider =
+                dep.getProvider(TransitiveVisibilityProvider.class);
+            if (provider != null) {
+              tvBuilder.addAll(provider.getTransitiveVisibility());
+            }
+          }
+        }
+      }
+      ImmutableSet<PackageSpecificationProvider> finalTransitiveVisibility = tvBuilder.build();
+      if (!finalTransitiveVisibility.isEmpty()) {
+        addProvider(new TransitiveVisibilityProvider(finalTransitiveVisibility));
+      }
+    }
+
     if (ruleContext.hasErrors() && !allowAnalysisFailures) {
       return null;
     }
 
     maybeAddRequiredConfigFragmentsProvider();
 
-    NestedSetBuilder<Artifact> runfilesMiddlemenBuilder = NestedSetBuilder.stableOrder();
-    if (runfilesSupport != null) {
-      runfilesMiddlemenBuilder.add(runfilesSupport.getRunfilesMiddleman());
-      runfilesMiddlemenBuilder.addTransitive(runfilesSupport.getRunfiles().getExtraMiddlemen());
-    }
-    NestedSet<Artifact> runfilesMiddlemen = runfilesMiddlemenBuilder.build();
+    NestedSet<Artifact> runfilesTrees =
+        runfilesSupport != null
+            ? NestedSetBuilder.create(Order.STABLE_ORDER, runfilesSupport.getRunfilesTreeArtifact())
+            : NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+
     FilesToRunProvider filesToRunProvider =
-        new FilesToRunProvider(
-            buildFilesToRun(runfilesMiddlemen, filesToBuild), runfilesSupport, executable);
-    addProvider(new FileProvider(filesToBuild));
+        FilesToRunProvider.create(
+            buildFilesToRun(runfilesTrees, filesToBuild), runfilesSupport, executable);
+    addProvider(FileProvider.of(filesToBuild));
     addProvider(filesToRunProvider);
 
     if (runfilesSupport != null) {
       // If a binary is built, build its runfiles, too
-      addOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL, runfilesMiddlemen);
+      addOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL, runfilesTrees);
     } else if (providersBuilder.contains(RunfilesProvider.class)) {
       // If we don't have a RunfilesSupport (probably because this is not a binary rule), we still
       // want to build the files this rule contributes to runfiles of dependent rules so that we
@@ -152,7 +172,7 @@ public final class RuleConfiguredTargetBuilder {
               .getAllArtifacts());
     }
 
-    if (propagateValidationActionOutputGroup) {
+    if (propagateValidationActionOutputGroup()) {
       propagateTransitiveValidationOutputGroups();
     }
 
@@ -160,8 +180,8 @@ public final class RuleConfiguredTargetBuilder {
     // rule doesn't configure InstrumentedFilesInfo. This needs to be done for non-test rules
     // as well, but should be done before initializeTestProvider, which uses that.
     if (ruleContext.getConfiguration().isCodeCoverageEnabled()
-        && ruleContext.getConfiguration().experimentalForwardInstrumentedFilesInfoByDefault()
-        && !providersBuilder.contains(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR.getKey())) {
+        && !providersBuilder.contains(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR.getKey())
+        && !providersBuilder.contains(ToolchainInfo.PROVIDER.getKey())) {
       addNativeDeclaredProvider(InstrumentedFilesCollector.forwardAll(ruleContext));
     }
     // Create test action and artifacts if target was successfully initialized
@@ -181,18 +201,15 @@ public final class RuleConfiguredTargetBuilder {
       }
     }
 
-    ExtraActionArtifactsProvider extraActionsProvider =
-        createExtraActionProvider(actionsWithoutExtraAction, ruleContext);
-    add(ExtraActionArtifactsProvider.class, extraActionsProvider);
+    // Only add {@link ExtraActionProvider} if extra action listeners are applied
+    if (!ruleContext.getConfiguration().getActionListeners().isEmpty()) {
+      ExtraActionArtifactsProvider extraActionsProvider =
+          createExtraActionProvider(actionsWithoutExtraAction, ruleContext);
+      add(ExtraActionArtifactsProvider.class, extraActionsProvider);
+    }
 
     if (!outputGroupBuilders.isEmpty()) {
-      ImmutableMap.Builder<String, NestedSet<Artifact>> outputGroups = ImmutableMap.builder();
-      for (Map.Entry<String, NestedSetBuilder<Artifact>> entry : outputGroupBuilders.entrySet()) {
-        outputGroups.put(entry.getKey(), entry.getValue().build());
-      }
-
-      OutputGroupInfo outputGroupInfo = new OutputGroupInfo(outputGroups.build());
-      addNativeDeclaredProvider(outputGroupInfo);
+      addNativeDeclaredProvider(OutputGroupInfo.fromBuilders(outputGroupBuilders));
     }
 
     if (ruleContext.getConfiguration().evaluatingForAnalysisTest()) {
@@ -209,11 +226,11 @@ public final class RuleConfiguredTargetBuilder {
 
     if (ruleContext.getRule().hasAnalysisTestTransition()) {
       NestedSet<Label> labels = transitiveLabels();
-      int depCount = labels.toList().size();
+      int depCount = labels.memoizedFlattenAndGetSize();
       if (depCount > ruleContext.getConfiguration().analysisTestingDepsLimit()) {
         ruleContext.ruleError(
             String.format(
-                "analysis test rule excedeed maximum dependency edge count. "
+                "analysis test rule exceeded maximum dependency edge count. "
                     + "Count: %s. Limit is %s. This limit is imposed on analysis test rules which "
                     + "use analysis_test_transition attribute transitions. Exceeding this limit "
                     + "indicates either the analysis_test has too many dependencies, or the "
@@ -257,37 +274,68 @@ public final class RuleConfiguredTargetBuilder {
     }
 
     AnalysisEnvironment analysisEnvironment = ruleContext.getAnalysisEnvironment();
-    GeneratingActions generatingActions =
-        Actions.assignOwnersAndFilterSharedActionsAndThrowActionConflict(
-            analysisEnvironment.getActionKeyContext(),
-            analysisEnvironment.getRegisteredActions(),
-            ruleContext.getOwner(),
-            ((Rule) ruleContext.getTarget()).getOutputFiles());
-    return new RuleConfiguredTarget(
-        ruleContext,
-        providers,
-        generatingActions.getActions(),
-        generatingActions.getArtifactsByOutputLabel());
+    ImmutableList<ActionAnalysisMetadata> actions = analysisEnvironment.getRegisteredActions();
+    try {
+      Actions.assignOwnersAndThrowIfConflictToleratingSharedActions(
+          analysisEnvironment.getActionKeyContext(), actions, ruleContext.getOwner());
+    } catch (Actions.ArtifactGeneratedByOtherRuleException e) {
+      ruleContext.ruleError(e.getMessage());
+      return null;
+    }
+
+    if (ruleContext.getConflictFinder() != null) {
+      for (ActionAnalysisMetadata action : actions) {
+        ruleContext.getConflictFinder().conflictCheckPerAction(action);
+      }
+    }
+    return new RuleConfiguredTarget(ruleContext, providers, actions);
+  }
+
+  private boolean propagateValidationActionOutputGroup() {
+    return !ruleContext.getRule().isAnalysisTest();
+  }
+
+  /** Actually process */
+  private void handleAllowlistChecker(AllowlistChecker allowlistChecker) {
+    if (allowlistChecker.attributeSetTrigger() != null
+        && !ruleContext
+            .getRule()
+            .isAttributeValueExplicitlySpecified(allowlistChecker.attributeSetTrigger())) {
+      return;
+    }
+    boolean passing =
+        switch (allowlistChecker.locationCheck()) {
+          case INSTANCE -> Allowlist.isAvailable(ruleContext, allowlistChecker.allowlistAttr());
+          case DEFINITION ->
+              Allowlist.isAvailableBasedOnRuleLocation(
+                  ruleContext, allowlistChecker.allowlistAttr());
+          case INSTANCE_OR_DEFINITION ->
+              Allowlist.isAvailable(ruleContext, allowlistChecker.allowlistAttr())
+                  || Allowlist.isAvailableBasedOnRuleLocation(
+                      ruleContext, allowlistChecker.allowlistAttr());
+        };
+    if (!passing) {
+      ruleContext.ruleError(allowlistChecker.errorMessage());
+    }
   }
 
   /**
    * Adds {@link RequiredConfigFragmentsProvider} if {@link
    * CoreOptions#includeRequiredConfigFragmentsProvider} isn't {@link
-   * CoreOptions.IncludeConfigFragmentsEnum#OFF}.
+   * CoreOptions.IncludeConfigFragmentsEnum#OFF} and if the provider is not already present.
    *
-   * <p>See {@link com.google.devtools.build.lib.analysis.config.RequiredFragmentsUtil} for a
-   * description of the meaning of this provider's content. That class contains methods that
-   * populate the results of {@link RuleContext#getRequiredConfigFragments} and {@link
-   * #ruleImplSpecificRequiredConfigFragments}.
+   * <p>For Stalark rules the provider is already added in {@link
+   * com.google.devtools.build.lib.analysis.starlark.StarlarkRuleConfiguredTargetUtil}.
+   *
+   * <p>See {@link RequiredFragmentsUtil} for a description of the meaning of this provider's
+   * content. That class contains methods that populate the results of {@link
+   * RuleContext#getRequiredConfigFragments}.
    */
+  // TODO(blaze-team): Simplify the conditional logic and make it easier to understand.
   private void maybeAddRequiredConfigFragmentsProvider() {
-    if (ruleContext.shouldIncludeRequiredConfigFragmentsProvider()) {
-      addProvider(
-          new RequiredConfigFragmentsProvider(
-              ImmutableSet.<String>builder()
-                  .addAll(ruleContext.getRequiredConfigFragments())
-                  .addAll(ruleImplSpecificRequiredConfigFragments)
-                  .build()));
+    if (ruleContext.shouldIncludeRequiredConfigFragmentsProvider()
+        && !providersBuilder.contains(RequiredConfigFragmentsProvider.class)) {
+      addProvider(ruleContext.getRequiredConfigFragments());
     }
   }
 
@@ -314,21 +362,53 @@ public final class RuleConfiguredTargetBuilder {
    *
    * <p>This is done within {@link RuleConfiguredTargetBuilder} so that every rule always and
    * automatically propagates the validation action output group.
-   *
-   * <p>Note that in addition to {@link LabelClass.DEPENDENCY}, there is also {@link
-   * LabelClass.FILESET_ENTRY}, however the fileset implementation takes care of propagating the
-   * validation action output group itself.
    */
-  private void propagateTransitiveValidationOutputGroups() {
+  private void propagateTransitiveValidationOutputGroups() throws InterruptedException {
+    if (outputGroupBuilders.containsKey(OutputGroupInfo.VALIDATION_TRANSITIVE)) {
+      Label rdeLabel =
+          ruleContext.getRule().getRuleClassObject().getRuleDefinitionEnvironmentLabel();
+      // only allow native and builtins to override transitive validation propagation
+      if (rdeLabel != null
+          && BuiltinRestriction.isNotAllowed(
+              rdeLabel,
+              ruleContext.getAnalysisEnvironment().getMainRepoMapping(),
+              BuiltinRestriction.INTERNAL_STARLARK_API_ALLOWLIST)) {
+        ruleContext.ruleError(rdeLabel + " cannot access the _transitive_validation private API");
+        return;
+      }
+      addOutputGroup(
+          OutputGroupInfo.VALIDATION,
+          outputGroupBuilders.remove(OutputGroupInfo.VALIDATION_TRANSITIVE).build());
+    } else {
+      collectTransitiveValidationOutputGroups(
+          ruleContext,
+          unused -> true,
+          validationArtifacts -> addOutputGroup(OutputGroupInfo.VALIDATION, validationArtifacts));
+    }
+  }
 
+  /**
+   * Collects the validation action output groups from every dependency-type attribute of the given
+   * target that matches the given predicate and passes them to the given consumer.
+   *
+   * <p>This function can be used to implement custom validation action propagation logic that for
+   * example ignores some attributes.
+   */
+  public static void collectTransitiveValidationOutputGroups(
+      RuleContext ruleContext,
+      Predicate<String> includeAttribute,
+      Consumer<NestedSet<Artifact>> consumer) {
     for (String attributeName : ruleContext.attributes().getAttributeNames()) {
-
-      Attribute attribute = ruleContext.attributes().getAttributeDefinition(attributeName);
+      if (!includeAttribute.test(attributeName)) {
+        continue;
+      }
 
       // Validation actions for tools, or from implicit deps should
       // not fail the overall build, since those dependencies should have their own builds
       // and tests that should surface any failing validations.
-      if (!attribute.getTransitionFactory().isTool()
+      Attribute attribute = ruleContext.attributes().getAttributeDefinition(attributeName);
+      if (!attribute.skipValidations()
+          && !attribute.isToolDependency()
           && !attribute.isImplicit()
           && attribute.getType().getLabelClass() == LabelClass.DEPENDENCY) {
 
@@ -339,7 +419,7 @@ public final class RuleConfiguredTargetBuilder {
               outputGroup.getOutputGroup(OutputGroupInfo.VALIDATION);
 
           if (!validationArtifacts.isEmpty()) {
-            addOutputGroup(OutputGroupInfo.VALIDATION, validationArtifacts);
+            consumer.accept(validationArtifacts);
           }
         }
       }
@@ -348,39 +428,42 @@ public final class RuleConfiguredTargetBuilder {
 
   /**
    * Compute the artifacts to put into the {@link FilesToRunProvider} for this target. These are the
-   * filesToBuild, any artifacts added by the rule with {@link #addFilesToRun}, and the runfiles'
-   * middlemen if they exists.
+   * filesToBuild, the runfiles tree of the rule if it exists, as well as the executable.
    */
   private NestedSet<Artifact> buildFilesToRun(
-      NestedSet<Artifact> runfilesMiddlemen, NestedSet<Artifact> filesToBuild) {
-    filesToRunBuilder.addTransitive(filesToBuild);
-    filesToRunBuilder.addTransitive(runfilesMiddlemen);
+      NestedSet<Artifact> runfilesTrees, NestedSet<Artifact> filesToBuild) {
+    var builder =
+        NestedSetBuilder.<Artifact>stableOrder()
+            .addTransitive(filesToBuild)
+            .addTransitive(runfilesTrees);
     if (executable != null && ruleContext.getRule().getRuleClassObject().isStarlark()) {
-      filesToRunBuilder.add(executable);
+      builder.add(executable);
     }
-    return filesToRunBuilder.build();
+    return builder.build();
   }
 
   /**
-   * Invokes Blaze's constraint enforcement system: checks that this rule's dependencies
-   * support its environments and reports appropriate errors if violations are found. Also
-   * publishes this rule's supported environments for the rules that depend on it.
+   * Invokes Blaze's constraint enforcement system: checks that this rule's dependencies support its
+   * environments and reports appropriate errors if violations are found. Also publishes this rule's
+   * supported environments for the rules that depend on it.
    */
   private void checkConstraints() {
     if (!ruleContext.getRule().getRuleClassObject().supportsConstraintChecking()) {
       return;
     }
-    ConstraintSemantics<RuleContext> constraintSemantics = ruleContext.getConstraintSemantics();
+    ConstraintSemantics<RuleContext> constraintSemantics =
+        ruleContext.getRuleClassProvider().getConstraintSemantics();
     EnvironmentCollection supportedEnvironments =
         constraintSemantics.getSupportedEnvironments(ruleContext);
     if (supportedEnvironments != null) {
       EnvironmentCollection.Builder refinedEnvironments = new EnvironmentCollection.Builder();
       Map<Label, RemovedEnvironmentCulprit> removedEnvironmentCulprits = new LinkedHashMap<>();
-      constraintSemantics.checkConstraints(ruleContext, supportedEnvironments, refinedEnvironments,
-          removedEnvironmentCulprits);
-      add(SupportedEnvironmentsProvider.class,
-          new SupportedEnvironments(supportedEnvironments, refinedEnvironments.build(),
-              removedEnvironmentCulprits));
+      constraintSemantics.checkConstraints(
+          ruleContext, supportedEnvironments, refinedEnvironments, removedEnvironmentCulprits);
+      add(
+          SupportedEnvironmentsProvider.class,
+          SupportedEnvironments.create(
+              supportedEnvironments, refinedEnvironments.build(), removedEnvironmentCulprits));
     }
   }
 
@@ -393,9 +476,10 @@ public final class RuleConfiguredTargetBuilder {
       ruleContext.attributeError("shard_count", "Must not be negative.");
     }
     if (explicitShardCount > 50) {
-      ruleContext.attributeError("shard_count",
+      ruleContext.attributeError(
+          "shard_count",
           "Having more than 50 shards is indicative of poor test organization. "
-          + "Please reduce the number of shards.");
+              + "Please reduce the number of shards.");
     }
     TestActionBuilder testActionBuilder =
         new TestActionBuilder(ruleContext)
@@ -404,55 +488,15 @@ public final class RuleConfiguredTargetBuilder {
                     providersBuilder.getProvider(
                         InstrumentedFilesInfo.STARLARK_CONSTRUCTOR.getKey()));
 
-    TestEnvironmentInfo environmentProvider =
-        (TestEnvironmentInfo)
-            providersBuilder.getProvider(TestEnvironmentInfo.PROVIDER.getKey());
-    if (environmentProvider != null) {
-      testActionBuilder.addExtraEnv(environmentProvider.getEnvironment());
-    }
-
     TestParams testParams =
         testActionBuilder
             .setFilesToRunProvider(filesToRunProvider)
-            .setPersistentTestRunnerRunfiles(persistentTestRunnerRunfiles)
             .addTools(additionalTestActionTools.build())
             .setExecutionRequirements(
                 (ExecutionInfo) providersBuilder.getProvider(ExecutionInfo.PROVIDER.getKey()))
-            .setShardCount(explicitShardCount)
             .build();
     return new TestProvider(testParams);
   }
-
-  /**
-   * Add files required to run the target. Artifacts from {@link #setFilesToBuild} and the runfiles
-   * middleman, if any, are added automatically.
-   */
-  public RuleConfiguredTargetBuilder addFilesToRun(NestedSet<Artifact> files) {
-    filesToRunBuilder.addTransitive(files);
-    return this;
-  }
-
-  /** Add a specific provider. */
-  public <T extends TransitiveInfoProvider> RuleConfiguredTargetBuilder addProvider(
-      TransitiveInfoProvider provider) {
-    providersBuilder.add(provider);
-    return this;
-  }
-
-  /** Add a collection of specific providers. */
-  public <T extends TransitiveInfoProvider> RuleConfiguredTargetBuilder addProviders(
-      Iterable<TransitiveInfoProvider> providers) {
-    providersBuilder.addAll(providers);
-    return this;
-  }
-
-  /** Add a collection of specific providers. */
-  public <T extends TransitiveInfoProvider> RuleConfiguredTargetBuilder addProviders(
-      TransitiveInfoProviderMap providers) {
-    providersBuilder.addAll(providers);
-    return this;
-  }
-
 
   /**
    * Add a specific provider with a given value.
@@ -465,22 +509,24 @@ public final class RuleConfiguredTargetBuilder {
   }
 
   /** Add a specific provider with a given value. */
+  @CanIgnoreReturnValue
   public <T extends TransitiveInfoProvider> RuleConfiguredTargetBuilder addProvider(
       Class<? extends T> key, T value) {
-    Preconditions.checkNotNull(key);
-    Preconditions.checkNotNull(value);
     providersBuilder.put(key, value);
     return this;
   }
 
-  /**
-   * Add a Starlark transitive info. The provider value must be safe (i.e. a String, a Boolean, an
-   * Integer, an Artifact, a Label, None, a Java TransitiveInfoProvider or something composed from
-   * these in Starlark using lists, sets, structs or dicts). Otherwise an EvalException is thrown.
-   */
-  public RuleConfiguredTargetBuilder addStarlarkTransitiveInfo(
-      String name, Object value, Location loc) throws EvalException {
-    providersBuilder.put(name, value);
+  /** Adds a specific provider. */
+  @CanIgnoreReturnValue
+  public RuleConfiguredTargetBuilder addProvider(TransitiveInfoProvider provider) {
+    providersBuilder.add(provider);
+    return this;
+  }
+
+  /** Add a collection of specific providers. */
+  @CanIgnoreReturnValue
+  public RuleConfiguredTargetBuilder addProviders(TransitiveInfoProviderMap providers) {
+    providersBuilder.addAll(providers);
     return this;
   }
 
@@ -493,6 +539,7 @@ public final class RuleConfiguredTargetBuilder {
    *
    * <p>Use {@link #addNativeDeclaredProvider(Info)} in definitions of native rules.
    */
+  @CanIgnoreReturnValue
   public RuleConfiguredTargetBuilder addStarlarkDeclaredProvider(Info provider) {
     Provider constructor = provider.getProvider();
     // Starlark providers are already exported (enforced by SRCTU.getProviderKey).
@@ -514,6 +561,7 @@ public final class RuleConfiguredTargetBuilder {
    *
    * <p>Use {@link #addStarlarkDeclaredProvider(Info)} for Starlark rule implementations.
    */
+  @CanIgnoreReturnValue
   public RuleConfiguredTargetBuilder addNativeDeclaredProviders(Iterable<Info> providers) {
     for (Info provider : providers) {
       addNativeDeclaredProvider(provider);
@@ -527,6 +575,7 @@ public final class RuleConfiguredTargetBuilder {
    *
    * <p>Use {@link #addStarlarkDeclaredProvider(Info)} for Starlark rule implementations.
    */
+  @CanIgnoreReturnValue
   public RuleConfiguredTargetBuilder addNativeDeclaredProvider(Info provider) {
     Provider constructor = provider.getProvider();
     Preconditions.checkState(constructor.isExported());
@@ -551,14 +600,14 @@ public final class RuleConfiguredTargetBuilder {
   }
 
   /** Add a Starlark transitive info. The provider value must be safe. */
+  @CanIgnoreReturnValue
   public RuleConfiguredTargetBuilder addStarlarkTransitiveInfo(String name, Object value) {
     providersBuilder.put(name, value);
     return this;
   }
 
-  /**
-   * Set the runfiles support for executable targets.
-   */
+  /** Set the runfiles support for executable targets. */
+  @CanIgnoreReturnValue
   public RuleConfiguredTargetBuilder setRunfilesSupport(
       RunfilesSupport runfilesSupport, Artifact executable) {
     this.runfilesSupport = runfilesSupport;
@@ -566,27 +615,16 @@ public final class RuleConfiguredTargetBuilder {
     return this;
   }
 
-  public RuleConfiguredTargetBuilder setPersistentTestRunnerRunfiles(Runfiles testSupportRunfiles) {
-    this.persistentTestRunnerRunfiles = testSupportRunfiles;
-    return this;
-  }
-
+  @CanIgnoreReturnValue
   public RuleConfiguredTargetBuilder addTestActionTools(List<Artifact> tools) {
     this.additionalTestActionTools.addAll(tools);
     return this;
   }
 
-  /**
-   * Set the files to build.
-   */
+  /** Set the files to build. */
+  @CanIgnoreReturnValue
   public RuleConfiguredTargetBuilder setFilesToBuild(NestedSet<Artifact> filesToBuild) {
     this.filesToBuild = filesToBuild;
-    return this;
-  }
-
-  /** Sets whether to propagate the validation actions output group. This is true by default. */
-  public RuleConfiguredTargetBuilder setPropagateValidationActionOutputGroup(boolean propagate) {
-    this.propagateValidationActionOutputGroup = propagate;
     return this;
   }
 
@@ -601,39 +639,27 @@ public final class RuleConfiguredTargetBuilder {
     return result;
   }
 
-  /**
-   * Adds a set of files to an output group.
-   */
+  /** Adds a set of files to an output group. */
+  @CanIgnoreReturnValue
   public RuleConfiguredTargetBuilder addOutputGroup(String name, NestedSet<Artifact> artifacts) {
     getOutputGroupBuilder(name).addTransitive(artifacts);
     return this;
   }
 
-  /**
-   * Adds a file to an output group.
-   */
+  /** Adds a file to an output group. */
+  @CanIgnoreReturnValue
   public RuleConfiguredTargetBuilder addOutputGroup(String name, Artifact artifact) {
     getOutputGroupBuilder(name).add(artifact);
     return this;
   }
 
-  /**
-   * Adds multiple output groups.
-   */
+  /** Adds multiple output groups. */
+  @CanIgnoreReturnValue
   public RuleConfiguredTargetBuilder addOutputGroups(Map<String, NestedSet<Artifact>> groups) {
     for (Map.Entry<String, NestedSet<Artifact>> group : groups.entrySet()) {
       getOutputGroupBuilder(group.getKey()).addTransitive(group.getValue());
     }
 
-    return this;
-  }
-
-  /**
-   * Supplements {@link #maybeAddRequiredConfigFragmentsProvider} with rule implementation-specific
-   * requirements.
-   */
-  public RuleConfiguredTargetBuilder addRequiredConfigFragments(Collection<String> fragments) {
-    ruleImplSpecificRequiredConfigFragments.addAll(fragments);
     return this;
   }
 
@@ -646,10 +672,10 @@ public final class RuleConfiguredTargetBuilder {
    * to be very small. The small-size of analysis tests are enforced by evaluating the size of this
    * object.
    */
-  private static class TransitiveLabelsInfo implements TransitiveInfoProvider {
+  private static final class TransitiveLabelsInfo implements TransitiveInfoProvider {
     private final NestedSet<Label> labels;
 
-    public TransitiveLabelsInfo(NestedSet<Label> labels) {
+    TransitiveLabelsInfo(NestedSet<Label> labels) {
       this.labels = labels;
     }
 

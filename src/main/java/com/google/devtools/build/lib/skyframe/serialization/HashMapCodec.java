@@ -11,44 +11,83 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 package com.google.devtools.build.lib.skyframe.serialization;
+
+import static com.google.devtools.build.lib.skyframe.serialization.MapHelpers.deserializeMapEntries;
+import static com.google.devtools.build.lib.skyframe.serialization.MapHelpers.serializeMapEntries;
 
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
-import java.util.Map;
 
-/** {@link ObjectCodec} for {@link HashMap} that returns {@link LinkedHashMap} for determinism. */
-final class HashMapCodec<K, V> implements ObjectCodec<HashMap<K, V>> {
-  @SuppressWarnings({"unchecked", "rawtypes"}) // Raw Map.
+/**
+ * {@link ObjectCodec} for {@link HashMap} that returns {@link LinkedHashMap} for determinism.
+ *
+ * <p>This type transformation is safe because {@link LinkedHashMap} is a subclass of {@link
+ * HashMap}.
+ */
+@SuppressWarnings({"unchecked", "rawtypes", "NonApiType"})
+final class HashMapCodec extends AsyncObjectCodec<HashMap> {
   @Override
-  public Class<HashMap<K, V>> getEncodedClass() {
-    return (Class<HashMap<K, V>>) (Class<? extends HashMap>) HashMap.class;
+  public Class<HashMap> getEncodedClass() {
+    return HashMap.class;
   }
 
   @Override
-  public void serialize(SerializationContext context, HashMap<K, V> obj, CodedOutputStream codedOut)
+  public void serialize(SerializationContext context, HashMap obj, CodedOutputStream codedOut)
       throws SerializationException, IOException {
     codedOut.writeInt32NoTag(obj.size());
-    for (Map.Entry<K, V> entry : obj.entrySet()) {
-      context.serialize(entry.getKey(), codedOut);
-      context.serialize(entry.getValue(), codedOut);
-    }
+    serializeMapEntries(context, obj, codedOut);
   }
 
   @Override
-  public LinkedHashMap<K, V> deserialize(DeserializationContext context, CodedInputStream codedIn)
+  public HashMap deserializeAsync(AsyncDeserializationContext context, CodedInputStream codedIn)
       throws SerializationException, IOException {
     int size = codedIn.readInt32();
     // Load factor is 0.75, so we need an initial capacity of 4/3 actual size to avoid rehashing.
-    LinkedHashMap<K, V> result = new LinkedHashMap<>(4 * size / 3);
-    for (int i = 0; i < size; i++) {
-      result.put(context.deserialize(codedIn), context.deserialize(codedIn));
+    LinkedHashMap result = new LinkedHashMap(4 * size / 3);
+
+    context.registerInitialValue(result);
+    if (size == 0) {
+      return result;
     }
+
+    populateMap(context, codedIn, result, size);
+
     return result;
   }
 
+  static void populateMap(
+      AsyncDeserializationContext context, CodedInputStream codedIn, LinkedHashMap map, int size)
+      throws SerializationException, IOException {
+    EntryBuffer buffer = new EntryBuffer(map, size);
+    deserializeMapEntries(
+        context, codedIn, buffer.keys, buffer.values, /* done= */ (Runnable) buffer);
+  }
+
+  /**
+   * Buffers the keys and values until all are available, then populates the map.
+   *
+   * <p>This approach is thread-safe.
+   */
+  private static class EntryBuffer implements Runnable {
+    private final LinkedHashMap result;
+    private final Object[] keys;
+    private final Object[] values;
+
+    private EntryBuffer(LinkedHashMap result, int size) {
+      this.result = result;
+      this.keys = new Object[size];
+      this.values = new Object[size];
+    }
+
+    @Override
+    public void run() {
+      for (int i = 0; i < keys.length; i++) {
+        result.put(keys[i], values[i]);
+      }
+    }
+  }
 }

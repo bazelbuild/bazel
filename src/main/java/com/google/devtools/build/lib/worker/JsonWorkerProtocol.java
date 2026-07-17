@@ -48,7 +48,10 @@ final class JsonWorkerProtocol implements WorkerProtocolImpl {
 
   @Override
   public void putRequest(WorkRequest request) throws IOException {
+    // WorkRequests are serialized according to ndjson spec.
+    // https://github.com/ndjson/ndjson-spec
     jsonPrinter.appendTo(request, jsonWriter);
+    jsonWriter.append("\n");
     jsonWriter.flush();
   }
 
@@ -92,7 +95,7 @@ final class JsonWorkerProtocol implements WorkerProtocolImpl {
             requestId = reader.nextInt();
             break;
           default:
-            // As per https://docs.bazel.build/versions/master/creating-workers.html#work-responses,
+            // As per https://bazel.build/docs/creating-workers#work-responses,
             // unknown fields are ignored.
             reader.skipValue();
         }

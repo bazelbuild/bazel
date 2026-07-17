@@ -13,15 +13,26 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static com.google.common.base.Throwables.throwIfUnchecked;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.bugreport.BugReport;
+import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.QueryExceptionMarkerInterface;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
+import com.google.devtools.build.lib.cmdline.SignedTargetPattern;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.io.InconsistentFilesystemException;
+import com.google.devtools.build.lib.io.ProcessPackageDirectoryException;
+import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
@@ -31,7 +42,7 @@ import com.google.devtools.build.lib.pkgcache.TargetPatternPreloader;
 import com.google.devtools.build.lib.server.FailureDetails.TargetPatterns;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
 import com.google.devtools.build.lib.util.DetailedExitCode;
-import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.DetailedIOException;
 import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -41,21 +52,22 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 
 /** Skyframe-based target pattern parsing. */
-final class SkyframeTargetPatternEvaluator implements TargetPatternPreloader {
+public final class SkyframeTargetPatternEvaluator implements TargetPatternPreloader {
   private final SkyframeExecutor skyframeExecutor;
 
-  SkyframeTargetPatternEvaluator(SkyframeExecutor skyframeExecutor) {
+  public SkyframeTargetPatternEvaluator(SkyframeExecutor skyframeExecutor) {
     this.skyframeExecutor = skyframeExecutor;
   }
 
   @Override
   public Map<String, Collection<Target>> preloadTargetPatterns(
       ExtendedEventHandler eventHandler,
-      PathFragment relativeWorkingDirectory,
+      TargetPattern.Parser mainRepoTargetParser,
       Collection<String> patterns,
       boolean keepGoing)
       throws TargetParsingException, InterruptedException {
@@ -65,7 +77,7 @@ final class SkyframeTargetPatternEvaluator implements TargetPatternPreloader {
     for (String pattern : patterns) {
       Preconditions.checkArgument(!pattern.startsWith("-"));
       PatternLookup patternLookup =
-          createPatternLookup(relativeWorkingDirectory, eventHandler, pattern, keepGoing);
+          createPatternLookup(mainRepoTargetParser, eventHandler, pattern, keepGoing);
       if (patternLookup == null) {
         resultBuilder.put(pattern, ImmutableSet.of());
       } else {
@@ -77,6 +89,12 @@ final class SkyframeTargetPatternEvaluator implements TargetPatternPreloader {
     EvaluationResult<SkyValue> result =
         skyframeExecutor.targetPatterns(
             allKeys, SkyframeExecutor.DEFAULT_THREAD_COUNT, keepGoing, eventHandler);
+    Exception catastrophe = result.getCatastrophe();
+    if (catastrophe != null) {
+      throwIfInstanceOf(catastrophe, TargetParsingException.class);
+      throwIfUnchecked(catastrophe);
+      throw wrapException(catastrophe, result);
+    }
     WalkableGraph walkableGraph = Preconditions.checkNotNull(result.getWalkableGraph(), result);
     for (PatternLookup patternLookup : patternLookups) {
       SkyKey key = patternLookup.skyKey;
@@ -98,32 +116,39 @@ final class SkyframeTargetPatternEvaluator implements TargetPatternPreloader {
         String rawPattern = patternLookup.pattern;
         ErrorInfo error = result.errorMap().get(key);
         if (error == null) {
-          Preconditions.checkState(!keepGoing);
+          if (keepGoing) {
+            BugReport.sendBugReport(
+                new IllegalStateException(
+                    "No error for a non-catastrophic keep-going build: " + key + ", " + result));
+          }
           continue;
         }
         String errorMessage;
         TargetParsingException targetParsingException;
         if (error.getException() != null) {
-          // This exception could be a TargetParsingException, a NoSuchPackageException, or
-          // potentially a lower-level exception. If the exception is the former two, then the
-          // DetailedExitCode can be extracted from the exception.
+          // This exception could be a TargetParsingException for a target pattern, a
+          // NoSuchPackageException for a label (or package wildcard), or potentially a lower-level
+          // exception if there is a bug in error handling.
           Exception exception = error.getException();
           errorMessage = exception.getMessage();
-          targetParsingException =
-              DetailedException.getDetailedExitCode(exception) != null
-                  ? new TargetParsingException(
-                      errorMessage, exception, DetailedException.getDetailedExitCode(exception))
-                  : new TargetParsingException(
-                      errorMessage, TargetPatterns.Code.CANNOT_PRELOAD_TARGET);
-        } else if (!error.getCycleInfo().isEmpty()) {
+          if (exception instanceof TargetParsingException tpe) {
+            targetParsingException = tpe;
+          } else {
+            targetParsingException = wrapException(exception, key);
+          }
+        } else {
+          Preconditions.checkState(
+              !error.getCycleInfo().isEmpty(),
+              "No exception or cycle %s %s %s",
+              key,
+              error,
+              result);
           errorMessage = "cycles detected during target parsing";
           targetParsingException =
               new TargetParsingException(errorMessage, TargetPatterns.Code.CYCLE);
           skyframeExecutor
               .getCyclesReporter()
               .reportCycles(error.getCycleInfo(), key, eventHandler);
-        } else {
-          throw new IllegalStateException(error.toString());
         }
         if (keepGoing) {
           eventHandler.handle(createPatternParsingError(targetParsingException, rawPattern));
@@ -135,18 +160,41 @@ final class SkyframeTargetPatternEvaluator implements TargetPatternPreloader {
         resultBuilder.put(patternLookup.pattern, ImmutableSet.of());
       }
     }
-    return resultBuilder.build();
+    return resultBuilder.buildOrThrow();
   }
 
-  private PatternLookup createPatternLookup(
-      PathFragment offset,
+  private static TargetParsingException wrapException(Exception exception, Object debugging) {
+    if (exception instanceof NoSuchPackageException noSuchPackageException) {
+      // Transform NoSuchPackageException into TargetParsingException to avoid triggering
+      // non-fatal bug reports on user errors (e.g. broken BUILD files).
+      return new TargetParsingException(
+          exception.getMessage(), exception, noSuchPackageException.getDetailedExitCode());
+    }
+    if (exception instanceof DetailedIOException detailedException) {
+      return new TargetParsingException(
+          detailedException.getMessage(), exception, detailedException.getDetailedExitCode());
+    }
+    BugReport.sendNonFatalBugReport(
+        new IllegalStateException("Unexpected exception: " + debugging, exception));
+    String message = "Target parsing failed due to unexpected exception: " + exception.getMessage();
+    DetailedExitCode detailedExitCode = DetailedException.getDetailedExitCode(exception);
+    return detailedExitCode != null
+        ? new TargetParsingException(message, exception, detailedExitCode)
+        : new TargetParsingException(message, exception, TargetPatterns.Code.CANNOT_PRELOAD_TARGET);
+  }
+
+  @Nullable
+  private static PatternLookup createPatternLookup(
+      TargetPattern.Parser mainRepoTargetParser,
       ExtendedEventHandler eventHandler,
       String targetPattern,
       boolean keepGoing)
       throws TargetParsingException {
     try {
       TargetPatternKey key =
-          TargetPatternValue.key(targetPattern, FilteringPolicies.NO_FILTER, offset);
+          TargetPatternValue.key(
+              SignedTargetPattern.parse(targetPattern, mainRepoTargetParser),
+              FilteringPolicies.NO_FILTER);
       return isSimple(key.getParsedPattern())
           ? new SimpleLookup(targetPattern, key)
           : new NormalLookup(targetPattern, key);
@@ -215,7 +263,7 @@ final class SkyframeTargetPatternEvaluator implements TargetPatternPreloader {
         SkyValue value,
         WalkableGraph walkableGraph,
         boolean keepGoing)
-        throws InterruptedException {
+        throws InterruptedException, TargetParsingException {
       TargetPatternValue resultValue = (TargetPatternValue) value;
       ResolvedTargets<Label> results = resultValue.getTargets();
       resultBuilder.addLabelsOfPositivePattern(results);
@@ -227,11 +275,10 @@ final class SkyframeTargetPatternEvaluator implements TargetPatternPreloader {
     private final TargetPattern targetPattern;
 
     private SimpleLookup(String pattern, TargetPatternKey key) {
-      this(
-          pattern, PackageValue.key(key.getParsedPattern().getDirectory()), key.getParsedPattern());
+      this(pattern, key.getParsedPattern().getDirectory(), key.getParsedPattern());
     }
 
-    private SimpleLookup(String pattern, PackageValue.Key key, TargetPattern targetPattern) {
+    private SimpleLookup(String pattern, PackageIdentifier key, TargetPattern targetPattern) {
       super(pattern, key);
       this.targetPattern = targetPattern;
     }
@@ -250,18 +297,25 @@ final class SkyframeTargetPatternEvaluator implements TargetPatternPreloader {
                   ImmutableMap.of(pkg.getPackageIdentifier(), pkg)),
               eventHandler,
               FilteringPolicies.NO_FILTER,
-              /* packageSemaphore= */ null);
+              /* packageSemaphore= */ null,
+              /* maxConcurrentGetTargetsTasks= */ Optional.empty(),
+              SimplePackageIdentifierBatchingCallback::new);
       AtomicReference<Collection<Target>> result = new AtomicReference<>();
-      targetPattern.eval(
-          resolver,
-          /*ignoredSubdirectories=*/ ImmutableSet::of,
-          /*excludedSubdirectories=*/ ImmutableSet.of(),
-          partialResult ->
-              result.set(
-                  partialResult instanceof Collection
-                      ? (Collection<Target>) partialResult
-                      : ImmutableSet.copyOf(partialResult)),
-          TargetParsingException.class);
+      try {
+        targetPattern.eval(
+            resolver,
+            /* ignoredSubdirectories= */ () -> IgnoredSubdirectories.EMPTY,
+            /* excludedSubdirectories= */ ImmutableSet.of(),
+            partialResult ->
+                result.set(
+                    partialResult instanceof Collection
+                        ? (Collection<Target>) partialResult
+                        : ImmutableSet.copyOf(partialResult)),
+            QueryExceptionMarkerInterface.MarkerRuntimeException.class);
+      } catch (ProcessPackageDirectoryException | InconsistentFilesystemException e) {
+        throw new IllegalStateException(
+            "PackageBackedRecursivePackageProvider doesn't throw for " + targetPattern, e);
+      }
       return result.get();
     }
   }

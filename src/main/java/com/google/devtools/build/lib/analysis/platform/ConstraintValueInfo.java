@@ -18,33 +18,31 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
+import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider.MatchResult;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.ConstraintValueInfoApi;
 import com.google.devtools.build.lib.util.Fingerprint;
 import java.util.Objects;
 import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.StarlarkSemantics;
 
 /** Provider for a platform constraint value that fulfills a {@link ConstraintSettingInfo}. */
 @Immutable
-@AutoCodec
 public class ConstraintValueInfo extends NativeInfo implements ConstraintValueInfoApi {
   /** Name used in Starlark for accessing this provider. */
   public static final String STARLARK_NAME = "ConstraintValueInfo";
 
   /** Provider singleton constant. */
   public static final BuiltinProvider<ConstraintValueInfo> PROVIDER =
-      new BuiltinProvider<ConstraintValueInfo>(STARLARK_NAME, ConstraintValueInfo.class) {};
+      new BuiltinProvider<>(STARLARK_NAME, ConstraintValueInfo.class) {};
 
   private final ConstraintSettingInfo constraint;
   private final Label label;
 
-  @VisibleForSerialization
-  ConstraintValueInfo(ConstraintSettingInfo constraint, Label label) {
+  private ConstraintValueInfo(ConstraintSettingInfo constraint, Label label) {
     this.constraint = constraint;
     this.label = label;
   }
@@ -77,25 +75,29 @@ public class ConstraintValueInfo extends NativeInfo implements ConstraintValueIn
    * method.
    */
   public ConfigMatchingProvider configMatchingProvider(PlatformInfo platformInfo) {
+    ConstraintValueInfo platformValue = platformInfo.constraints().get(this.constraint());
     return ConfigMatchingProvider.create(
         label,
         ImmutableMultimap.of(),
         ImmutableMap.of(),
-        // Technically a select() on a constraint_value requires PlatformConfiguration, since that's
-        // used to build the platform this checks against. But platformInfo's existence implies
-        // the owning target already depends on PlatformConfiguration. And we can't reference
-        // PlatformConfiguration.class here without a build dependency cycle.
         ImmutableSet.of(),
-        platformInfo.constraints().hasConstraintValue(this));
+        computeMatchResult(platformValue));
+  }
+
+  private MatchResult computeMatchResult(ConstraintValueInfo platformValue) {
+    return this.equals(platformValue)
+        ? MatchResult.MATCH
+        : new MatchResult.NoMatch(
+            MatchResult.NoMatch.Diff.what(constraint().label())
+                .want(label().getName())
+                .got(platformValue != null ? platformValue.label().getName() : "<unset>")
+                .build());
   }
 
   @Override
-  public void repr(Printer printer) {
+  public void repr(Printer printer, StarlarkSemantics semantics) {
     Printer.format(
-        printer,
-        "ConstraintValueInfo(setting=%s, %s)",
-        constraint.label().toString(),
-        label.toString());
+        printer, semantics, "ConstraintValueInfo(setting=%s, %s)", constraint.label(), label);
   }
 
   /** Returns a new {@link ConstraintValueInfo} with the given data. */
@@ -111,12 +113,10 @@ public class ConstraintValueInfo extends NativeInfo implements ConstraintValueIn
 
   @Override
   public boolean equals(Object o) {
-    if (!(o instanceof ConstraintValueInfo)) {
+    if (!(o instanceof ConstraintValueInfo that)) {
       return false;
     }
-    ConstraintValueInfo that = (ConstraintValueInfo) o;
-    return Objects.equals(constraint, that.constraint)
-        && Objects.equals(label, that.label);
+    return Objects.equals(constraint, that.constraint) && Objects.equals(label, that.label);
   }
 
   @Override

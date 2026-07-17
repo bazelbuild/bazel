@@ -26,8 +26,11 @@ import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.AspectParameters;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
+import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
+import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.util.Pair;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -35,19 +38,19 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Tests for {@link AspectCollection}
- */
+/** Tests for {@link AspectCollection} */
 @RunWith(JUnit4.class)
 public class AspectCollectionTest {
-  /**
-   * a3 wants a1 and a2, a1 and a2 want no one, path is a1, a2, a3.
-   */
+  private final Provider.Key a1Key = new BuiltinProvider<>("a1", StructImpl.class) {}.getKey();
+  private final Provider.Key a2Key = new BuiltinProvider<>("a2", StructImpl.class) {}.getKey();
+  private final Provider.Key a3Key = new BuiltinProvider<>("a3", StructImpl.class) {}.getKey();
+
+  /** a3 wants a1 and a2, a1 and a2 want no one, path is a1, a2, a3. */
   @Test
   public void linearAspectPath1() throws Exception {
-    Aspect a1 = createAspect("a1");
-    Aspect a2 = createAspect("a2");
-    Aspect a3 = createAspect("a3", "a1", "a2");
+    Aspect a1 = createAspect(a1Key);
+    Aspect a2 = createAspect(a2Key);
+    Aspect a3 = createAspect(a3Key, a1Key, a2Key);
     AspectCollection collection = AspectCollection.create(ImmutableList.of(a1, a2, a3));
     validateAspectCollection(
         collection,
@@ -57,14 +60,12 @@ public class AspectCollectionTest {
         expectDeps(a2));
   }
 
-  /**
-   * a3 wants a2, a2 wants a1, a1 wants no one, path is a1, a2, a3.
-   */
+  /** a3 wants a2, a2 wants a1, a1 wants no one, path is a1, a2, a3. */
   @Test
   public void linearAspectPath2() throws Exception {
-    Aspect a1 = createAspect("a1");
-    Aspect a2 = createAspect("a2", "a1");
-    Aspect a3 = createAspect("a3", "a2");
+    Aspect a1 = createAspect(a1Key);
+    Aspect a2 = createAspect(a2Key, a1Key);
+    Aspect a3 = createAspect(a3Key, a2Key);
     AspectCollection collection = AspectCollection.create(ImmutableList.of(a1, a2, a3));
     validateAspectCollection(
         collection,
@@ -74,14 +75,12 @@ public class AspectCollectionTest {
         expectDeps(a1));
   }
 
-  /**
-   * a3 wants a1, a1 wants a2,  path is a1, a2, a3, so a2 comes after a1.
-   */
+  /** a3 wants a1, a1 wants a2, path is a1, a2, a3, so a2 comes after a1. */
   @Test
   public void validateOrder() throws Exception {
-    Aspect a1 = createAspect("a1", "a2");
-    Aspect a2 = createAspect("a2");
-    Aspect a3 = createAspect("a3", "a1");
+    Aspect a1 = createAspect(a1Key, a2Key);
+    Aspect a2 = createAspect(a2Key);
+    Aspect a3 = createAspect(a3Key, a1Key);
     AspectCollection collection = AspectCollection.create(ImmutableList.of(a1, a2, a3));
     validateAspectCollection(
         collection,
@@ -91,14 +90,12 @@ public class AspectCollectionTest {
         expectDeps(a3, a1));
   }
 
-  /**
-   * a3 wants a1, a1 wants a2, a2 wants a1, path is a1, a2, a3, so a2 comes after a1.
-   */
+  /** a3 wants a1, a1 wants a2, a2 wants a1, path is a1, a2, a3, so a2 comes after a1. */
   @Test
   public void validateOrder2() throws Exception {
-    Aspect a1 = createAspect("a1", "a2");
-    Aspect a2 = createAspect("a2", "a1");
-    Aspect a3 = createAspect("a3", "a1");
+    Aspect a1 = createAspect(a1Key, a2Key);
+    Aspect a2 = createAspect(a2Key, a1Key);
+    Aspect a3 = createAspect(a3Key, a1Key);
     AspectCollection collection = AspectCollection.create(ImmutableList.of(a1, a2, a3));
     validateAspectCollection(
         collection,
@@ -108,14 +105,12 @@ public class AspectCollectionTest {
         expectDeps(a3, a1));
   }
 
-  /**
-   * a3 wants itself.
-   */
+  /** a3 wants itself. */
   @Test
   public void recursive() throws Exception {
-    Aspect a1 = createAspect("a1");
-    Aspect a2 = createAspect("a2");
-    Aspect a3 = createAspect("a3", "a3");
+    Aspect a1 = createAspect(a1Key);
+    Aspect a2 = createAspect(a2Key);
+    Aspect a3 = createAspect(a3Key, a3Key);
     AspectCollection collection = AspectCollection.create(ImmutableList.of(a1, a2, a3));
     validateAspectCollection(
         collection, ImmutableList.of(a1, a2, a3), expectDeps(a1), expectDeps(a2), expectDeps(a3));
@@ -124,9 +119,9 @@ public class AspectCollectionTest {
   /** a2 wants a1, a3 wants nothing. */
   @Test
   public void threeAspects() throws Exception {
-    Aspect a1 = createAspect("a1");
-    Aspect a2 = createAspect("a2", "a1");
-    Aspect a3 = createAspect("a3");
+    Aspect a1 = createAspect(a1Key);
+    Aspect a2 = createAspect(a2Key, a1Key);
+    Aspect a3 = createAspect(a3Key);
     AspectCollection collection = AspectCollection.create(ImmutableList.of(a1, a2, a3));
     validateAspectCollection(
         collection,
@@ -139,13 +134,13 @@ public class AspectCollectionTest {
   /**
    * a2 wants a1, a3 wants a1 and a2, the path is [a2, a1, a2, a3], so a2 occurs twice.
    *
-   * First occurrence of a2 would not see a1, but the second would: that is an error.
+   * <p>First occurrence of a2 would not see a1, but the second would: that is an error.
    */
   @Test
-  public void duplicateAspect()  throws Exception {
-    Aspect a1 = createAspect("a1");
-    Aspect a2 = createAspect("a2", "a1");
-    Aspect a3 = createAspect("a3", "a2", "a1");
+  public void duplicateAspect() throws Exception {
+    Aspect a1 = createAspect(a1Key);
+    Aspect a2 = createAspect(a2Key, a1Key);
+    Aspect a3 = createAspect(a3Key, a2Key, a1Key);
     AspectCycleOnPathException e =
         assertThrows(
             AspectCycleOnPathException.class,
@@ -157,13 +152,13 @@ public class AspectCollectionTest {
   /**
    * a2 wants a1, a3 wants a2, the path is [a2, a1, a2, a3], so a2 occurs twice.
    *
-   * First occurrence of a2 would not see a1, but the second would: that is an error.
+   * <p>First occurrence of a2 would not see a1, but the second would: that is an error.
    */
   @Test
   public void duplicateAspect2() throws Exception {
-    Aspect a1 = createAspect("a1");
-    Aspect a2 = createAspect("a2", "a1");
-    Aspect a3 = createAspect("a3", "a2");
+    Aspect a1 = createAspect(a1Key);
+    Aspect a2 = createAspect(a2Key, a1Key);
+    Aspect a3 = createAspect(a3Key, a2Key);
     AspectCycleOnPathException e =
         assertThrows(
             AspectCycleOnPathException.class,
@@ -173,15 +168,14 @@ public class AspectCollectionTest {
   }
 
   /**
-   *  a3 wants a1 and a2, a2 does not want a1.
-   *  The path is [a2, a1, a2, a3], so a2 occurs twice.
-   *  Second occurrence of a2 is consistent with the first.
+   * a3 wants a1 and a2, a2 does not want a1. The path is [a2, a1, a2, a3], so a2 occurs twice.
+   * Second occurrence of a2 is consistent with the first.
    */
   @Test
   public void duplicateAspect2a() throws Exception {
-    Aspect a1 = createAspect("a1");
-    Aspect a2 = createAspect("a2");
-    Aspect a3 = createAspect("a3", "a1", "a2");
+    Aspect a1 = createAspect(a1Key);
+    Aspect a2 = createAspect(a2Key);
+    Aspect a3 = createAspect(a3Key, a1Key, a2Key);
 
     AspectCollection collection = AspectCollection.create(ImmutableList.of(a2, a1, a2, a3));
 
@@ -193,16 +187,15 @@ public class AspectCollectionTest {
         expectDeps(a3, a2, a1));
   }
 
-
   /**
    * a2 wants a1, a3 wants a1 and a2, a1 wants a2. the path is [a2, a1, a2, a3], so a2 occurs twice.
    * First occurrence of a2 does not see a1, but the second does => error.
    */
   @Test
   public void duplicateAspect3() throws Exception {
-    Aspect a1 = createAspect("a1", "a2");
-    Aspect a2 = createAspect("a2", "a1");
-    Aspect a3 = createAspect("a3", "a1", "a2");
+    Aspect a1 = createAspect(a1Key, a2Key);
+    Aspect a2 = createAspect(a2Key, a1Key);
+    Aspect a3 = createAspect(a3Key, a1Key, a2Key);
     AspectCycleOnPathException e =
         assertThrows(
             AspectCycleOnPathException.class,
@@ -212,15 +205,14 @@ public class AspectCollectionTest {
   }
 
   /**
-   * a2 wants a1, a3 wants a2, a1 wants a2. the path is [a2, a1, a2, a3], so a2 occurs twice.
-   * First occurrence of a2 does not see a1, but the second does => error.
-   * a1 disappears.
+   * a2 wants a1, a3 wants a2, a1 wants a2. the path is [a2, a1, a2, a3], so a2 occurs twice. First
+   * occurrence of a2 does not see a1, but the second does => error. a1 disappears.
    */
   @Test
   public void duplicateAspect4() throws Exception {
-    Aspect a1 = createAspect("a1", "a2");
-    Aspect a2 = createAspect("a2", "a1");
-    Aspect a3 = createAspect("a3", "a2");
+    Aspect a1 = createAspect(a1Key, a2Key);
+    Aspect a2 = createAspect(a2Key, a1Key);
+    Aspect a3 = createAspect(a3Key, a2Key);
     AspectCycleOnPathException e =
         assertThrows(
             AspectCycleOnPathException.class,
@@ -235,9 +227,9 @@ public class AspectCollectionTest {
    */
   @Test
   public void duplicateAspect5() throws Exception {
-    Aspect a1 = createAspect("a1", "a2");
-    Aspect a2 = createAspect("a2");
-    Aspect a3 = createAspect("a3", "a2");
+    Aspect a1 = createAspect(a1Key, a2Key);
+    Aspect a2 = createAspect(a2Key);
+    Aspect a3 = createAspect(a3Key, a2Key);
     AspectCollection collection = AspectCollection.create(ImmutableList.of(a2, a1, a2, a3));
     validateAspectCollection(
         collection,
@@ -246,7 +238,6 @@ public class AspectCollectionTest {
         expectDeps(a1, a2),
         expectDeps(a3, a2));
   }
-
 
   private static Pair<Aspect, ImmutableList<Aspect>> expectDeps(Aspect a, Aspect... deps) {
     return Pair.of(a, ImmutableList.copyOf(deps));
@@ -258,7 +249,7 @@ public class AspectCollectionTest {
       ImmutableList<Aspect> expectedUsedAspects,
       Pair<Aspect, ImmutableList<Aspect>>... expectedPaths) {
 
-    assertThat(Iterables.transform(collection.getUsedAspects(), AspectDeps::getAspect))
+    assertThat(Iterables.transform(collection.getUsedAspects(), AspectDeps::aspect))
         .containsExactlyElementsIn(Iterables.transform(expectedUsedAspects, Aspect::getDescriptor))
         .inOrder();
     validateAspectPaths(
@@ -279,7 +270,7 @@ public class AspectCollectionTest {
     for (Pair<Aspect, ImmutableList<Aspect>> expected : expectedList) {
       assertThat(allPaths).containsKey(expected.first.getDescriptor());
       AspectDeps aspectPath = allPaths.get(expected.first.getDescriptor());
-      assertThat(Iterables.transform(aspectPath.getUsedAspects(), AspectDeps::getAspect))
+      assertThat(Iterables.transform(aspectPath.usedAspects(), AspectDeps::aspect))
           .containsExactlyElementsIn(Iterables.transform(expected.second, Aspect::getDescriptor))
           .inOrder();
       expectedKeys.add(expected.first.getDescriptor());
@@ -295,14 +286,14 @@ public class AspectCollectionTest {
    */
   private static void collectAndValidateAspectDeps(AspectDeps aspectDeps,
       HashMap<AspectDescriptor, AspectDeps> allDeps) {
-    if (allDeps.containsKey(aspectDeps.getAspect())) {
-      assertWithMessage(String.format("Two different deps for aspect %s", aspectDeps.getAspect()))
-          .that(allDeps.get(aspectDeps.getAspect()))
+    if (allDeps.containsKey(aspectDeps.aspect())) {
+      assertWithMessage("Two different deps for aspect %s", aspectDeps.aspect())
+          .that(allDeps.get(aspectDeps.aspect()))
           .isSameInstanceAs(aspectDeps);
       return;
     }
-    allDeps.put(aspectDeps.getAspect(), aspectDeps);
-    for (AspectDeps path : aspectDeps.getUsedAspects()) {
+    allDeps.put(aspectDeps.aspect(), aspectDeps);
+    for (AspectDeps path : aspectDeps.usedAspects()) {
       collectAndValidateAspectDeps(path, allDeps);
     }
   }
@@ -311,13 +302,13 @@ public class AspectCollectionTest {
    * Creates an aspect with a class named {@code className} advertizing a provider {@code className}
    * that requires any of providers {@code requiredAspects}.
    */
-  private Aspect createAspect(final String className, String... requiredAspects) {
+  private Aspect createAspect(final Provider.Key className, Provider.Key... requiredAspects) {
     ImmutableList.Builder<ImmutableSet<StarlarkProviderIdentifier>> requiredProvidersBuilder =
         ImmutableList.builder();
 
-    for (String requiredAspect : requiredAspects) {
+    for (Provider.Key requiredAspect : requiredAspects) {
       requiredProvidersBuilder.add(
-          ImmutableSet.of((StarlarkProviderIdentifier.forLegacy(requiredAspect))));
+          ImmutableSet.of(StarlarkProviderIdentifier.forKey(requiredAspect)));
     }
     final ImmutableList<ImmutableSet<StarlarkProviderIdentifier>> requiredProviders =
         requiredProvidersBuilder.build();
@@ -325,15 +316,14 @@ public class AspectCollectionTest {
         new NativeAspectClass() {
           @Override
           public String getName() {
-            return className;
+            return className.toString();
           }
 
           @Override
           public AspectDefinition getDefinition(AspectParameters aspectParameters) {
             return AspectDefinition.builder(this)
                 .requireAspectsWithProviders(requiredProviders)
-                .advertiseProvider(
-                    ImmutableList.of(StarlarkProviderIdentifier.forLegacy(className)))
+                .advertiseProvider(ImmutableList.of(StarlarkProviderIdentifier.forKey(className)))
                 .build();
           }
         });

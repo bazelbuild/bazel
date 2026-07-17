@@ -14,17 +14,19 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static java.util.Objects.requireNonNull;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.analysis.config.HostTransition;
+import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
+import javax.annotation.Nullable;
 
 /**
  * Class used for implementing allowlists using package groups.
@@ -47,7 +49,7 @@ public final class Allowlist {
   public static Attribute.Builder<Label> getAttributeFromAllowlistName(String allowlistName) {
     String attributeName = getAttributeNameFromAllowlistName(allowlistName).iterator().next();
     return attr(attributeName, LABEL)
-        .cfg(HostTransition.createFactory())
+        .cfg(ExecutionTransitionFactory.createFactory())
         .mandatoryBuiltinProviders(ImmutableList.of(PackageSpecificationProvider.class));
   }
 
@@ -97,6 +99,15 @@ public final class Allowlist {
 
   public static PackageSpecificationProvider fetchPackageSpecificationProvider(
       RuleContext ruleContext, String allowlistName) {
+    return checkNotNull(
+        fetchPackageSpecificationProviderOrNull(ruleContext, allowlistName),
+        "Allowlist argument for %s not found",
+        allowlistName);
+  }
+
+  @Nullable
+  public static PackageSpecificationProvider fetchPackageSpecificationProviderOrNull(
+      RuleContext ruleContext, String allowlistName) {
     for (String attributeName : getAttributeNameFromAllowlistName(allowlistName)) {
       if (!ruleContext.isAttrDefined(attributeName, LABEL)) {
         continue;
@@ -104,23 +115,10 @@ public final class Allowlist {
       Preconditions.checkArgument(ruleContext.isAttrDefined(attributeName, LABEL), attributeName);
       TransitiveInfoCollection packageGroup = ruleContext.getPrerequisite(attributeName);
       PackageSpecificationProvider packageSpecificationProvider =
-          packageGroup.getProvider(PackageSpecificationProvider.class);
+          packageGroup.get(PackageSpecificationProvider.PROVIDER);
       return requireNonNull(packageSpecificationProvider, packageGroup.getLabel().toString());
     }
-    throw new AssertionError();
-  }
-
-  /**
-   * Returns whether the given label is in the allowlist provided.
-   *
-   * @param allowlist the allowlist provided
-   * @param relevantLabel the label to check for in the allowlist.
-   */
-  public static boolean isAvailableForAllowlist(
-      TransitiveInfoCollection allowlist, Label relevantLabel) {
-    PackageSpecificationProvider packageSpecificationProvider =
-        allowlist.getProvider(PackageSpecificationProvider.class);
-    return isAvailableFor(packageSpecificationProvider.getPackageSpecifications(), relevantLabel);
+    return null;
   }
 
   /**

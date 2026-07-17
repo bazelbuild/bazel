@@ -15,13 +15,14 @@ package com.google.devtools.build.lib.remote.common;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ActionInputHelper;
+import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.io.IOException;
 import java.util.SortedMap;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * A {@link RemotePathResolver} is used to resolve input/output paths for remote execution from
@@ -30,17 +31,19 @@ import java.util.SortedMap;
 public interface RemotePathResolver {
 
   /**
-   * Returns the {@code workingDirectory} for a remote action. Empty string if working directory is
-   * the input root.
+   * Returns the {@code workingDirectory} for a remote action. Empty if working directory is the
+   * input root.
    */
-  String getWorkingDirectory();
+  PathFragment getWorkingDirectory();
 
   /**
    * Returns a {@link SortedMap} which maps from input paths for remote action to {@link
    * ActionInput}.
    */
-  SortedMap<PathFragment, ActionInput> getInputMapping(SpawnExecutionContext context)
-      throws IOException;
+  default SortedMap<PathFragment, ActionInput> getInputMapping(
+      SpawnExecutionContext context, boolean willAccessRepeatedly) {
+    return context.getInputMapping(getWorkingDirectory(), willAccessRepeatedly);
+  }
 
   /** Resolves the output path relative to input root for the given {@link Path}. */
   String localPathToOutputPath(Path path);
@@ -64,11 +67,8 @@ public interface RemotePathResolver {
    */
   Path outputPathToLocalPath(String outputPath);
 
-  /** Resolves the local {@link Path} for the {@link ActionInput}. */
-  default Path outputPathToLocalPath(ActionInput actionInput) {
-    String outputPath = localPathToOutputPath(actionInput.getExecPath());
-    return outputPathToLocalPath(outputPath);
-  }
+  /** Returns the exec path for the given local path. */
+  PathFragment localPathToExecPath(PathFragment localPath);
 
   /** Creates the default {@link RemotePathResolver}. */
   static RemotePathResolver createDefault(Path execRoot) {
@@ -88,14 +88,8 @@ public interface RemotePathResolver {
     }
 
     @Override
-    public String getWorkingDirectory() {
-      return "";
-    }
-
-    @Override
-    public SortedMap<PathFragment, ActionInput> getInputMapping(SpawnExecutionContext context)
-        throws IOException {
-      return context.getInputMapping(PathFragment.EMPTY_FRAGMENT);
+    public PathFragment getWorkingDirectory() {
+      return PathFragment.EMPTY_FRAGMENT;
     }
 
     @Override
@@ -114,8 +108,8 @@ public interface RemotePathResolver {
     }
 
     @Override
-    public Path outputPathToLocalPath(ActionInput actionInput) {
-      return ActionInputHelper.toInputPath(actionInput, execRoot);
+    public PathFragment localPathToExecPath(PathFragment localPath) {
+      return localPath.relativeTo(execRoot.asFragment());
     }
   }
 
@@ -124,46 +118,28 @@ public interface RemotePathResolver {
    * Use parent directory of {@code execRoot} and set {@code workingDirectory} to the base name of
    * {@code execRoot}.
    *
-   * <p>The paths of outputs are relative to {@code workingDirectory} if {@code
-   * --incompatible_remote_output_paths_relative_to_input_root} is not set, otherwise, relative to
-   * input root.
+   * <p>The paths of outputs are relative to {@code workingDirectory}.
    */
   class SiblingRepositoryLayoutResolver implements RemotePathResolver {
 
     private final Path execRoot;
-    private final boolean incompatibleRemoteOutputPathsRelativeToInputRoot;
+    private final PathFragment workingDirectory;
 
     public SiblingRepositoryLayoutResolver(Path execRoot) {
-      this(execRoot, /* incompatibleRemoteOutputPathsRelativeToInputRoot= */ false);
-    }
-
-    public SiblingRepositoryLayoutResolver(
-        Path execRoot, boolean incompatibleRemoteOutputPathsRelativeToInputRoot) {
       this.execRoot = execRoot;
-      this.incompatibleRemoteOutputPathsRelativeToInputRoot =
-          incompatibleRemoteOutputPathsRelativeToInputRoot;
-    }
-
-    @Override
-    public String getWorkingDirectory() {
-      return execRoot.getBaseName();
-    }
-
-    @Override
-    public SortedMap<PathFragment, ActionInput> getInputMapping(SpawnExecutionContext context)
-        throws IOException {
       // The "root directory" of the action from the point of view of RBE is the parent directory of
       // the execroot locally. This is so that paths of artifacts in external repositories don't
       // start with an uplevel reference.
-      return context.getInputMapping(PathFragment.create(checkNotNull(getWorkingDirectory())));
+      this.workingDirectory = PathFragment.create(checkNotNull(execRoot.getBaseName()));
+    }
+
+    @Override
+    public PathFragment getWorkingDirectory() {
+      return workingDirectory;
     }
 
     private Path getBase() {
-      if (incompatibleRemoteOutputPathsRelativeToInputRoot) {
-        return execRoot.getParentDirectory();
-      } else {
-        return execRoot;
-      }
+      return execRoot;
     }
 
     @Override
@@ -182,8 +158,72 @@ public interface RemotePathResolver {
     }
 
     @Override
-    public Path outputPathToLocalPath(ActionInput actionInput) {
-      return ActionInputHelper.toInputPath(actionInput, execRoot);
+    public PathFragment localPathToExecPath(PathFragment localPath) {
+      return localPath.relativeTo(getBase().asFragment());
     }
+  }
+
+  /**
+   * Adapts a given base {@link RemotePathResolver} to also apply a {@link PathMapper} to map (and
+   * inverse map) paths.
+   */
+  static RemotePathResolver createMapped(
+      RemotePathResolver base, Path execRoot, PathMapper pathMapper) {
+    if (pathMapper.isNoop()) {
+      return base;
+    }
+    return new RemotePathResolver() {
+      private final ConcurrentHashMap<PathFragment, PathFragment> inverse =
+          new ConcurrentHashMap<>();
+
+      @Override
+      public PathFragment getWorkingDirectory() {
+        return base.getWorkingDirectory();
+      }
+
+      @Override
+      public SortedMap<PathFragment, ActionInput> getInputMapping(
+          SpawnExecutionContext context, boolean willAccessRepeatedly) {
+        return base.getInputMapping(context, willAccessRepeatedly);
+      }
+
+      @Override
+      public String localPathToOutputPath(Path path) {
+        return localPathToOutputPath(path.relativeTo(execRoot));
+      }
+
+      @Override
+      public String localPathToOutputPath(PathFragment execPath) {
+        return base.localPathToOutputPath(map(execPath));
+      }
+
+      @Override
+      public Path outputPathToLocalPath(String outputPath) {
+        return execRoot.getRelative(
+            inverseMap(base.outputPathToLocalPath(outputPath).relativeTo(execRoot)));
+      }
+
+      @Override
+      public PathFragment localPathToExecPath(PathFragment localPath) {
+        return base.localPathToExecPath(localPath);
+      }
+
+      private PathFragment map(PathFragment path) {
+        PathFragment mappedPath = pathMapper.map(path);
+        PathFragment previousPath = inverse.put(mappedPath, path);
+        Preconditions.checkState(
+            previousPath == null || previousPath.equals(path),
+            "Two different paths %s and %s map to the same path %s",
+            previousPath,
+            path,
+            mappedPath);
+        return mappedPath;
+      }
+
+      private PathFragment inverseMap(PathFragment path) {
+        return Preconditions.checkNotNull(
+            inverse.get(path), "Failed to find original path for mapped path %s", path);
+      }
+    };
   }
 }

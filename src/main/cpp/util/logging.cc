@@ -15,13 +15,11 @@
 // This file is based off the logging work by the protobuf team
 #include "src/main/cpp/util/logging.h"
 
-#include <cstdio>
 #include <cstdlib>
 #include <iostream>
 #include <memory>
 
 #include "src/main/cpp/util/exit_code.h"
-#include "src/main/cpp/util/strings.h"
 
 namespace blaze_util {
 
@@ -80,9 +78,9 @@ void LogMessage::Finish() {
     // If no custom handler was provided, never print INFO messages,
     // but USER should always be printed, as should warnings and errors.
     if (level_ == LOGLEVEL_USER) {
-      std::cerr << message << std::endl;
+      std::cerr << message << '\n';
     } else if (level_ > LOGLEVEL_USER) {
-      std::cerr << LogLevelName(level_) << ": " << message << std::endl;
+      std::cerr << LogLevelName(level_) << ": " << message << '\n';
     }
 
     if (level_ == LOGLEVEL_FATAL) {
@@ -100,14 +98,15 @@ void SetLogHandler(std::unique_ptr<LogHandler> new_handler) {
   internal::log_handler_ = std::move(new_handler);
 }
 
-void SetLoggingOutputStream(std::unique_ptr<std::ostream> output_stream) {
+void SetLoggingDetail(LoggingDetail detail, std::ostream* debug_stream) {
   if (internal::log_handler_ != nullptr) {
-    internal::log_handler_->SetOutputStream(std::move(output_stream));
+    internal::log_handler_->SetLoggingDetail(detail, debug_stream);
   }
 }
-void SetLoggingOutputStreamToStderr() {
+
+void CloseLogging() {
   if (internal::log_handler_ != nullptr) {
-    internal::log_handler_->SetOutputStreamToStderr();
+    internal::log_handler_->Close();
   }
 }
 

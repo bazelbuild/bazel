@@ -18,25 +18,19 @@ import static java.util.stream.Collectors.joining;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
-import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionException;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
-import com.google.devtools.build.lib.rules.cpp.LinkBuildVariables;
-import com.google.devtools.build.lib.rules.cpp.LinkCommandLine;
+import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.util.Arrays;
-import java.util.List;
 
 /**
  * Creates mock BUILD files required for the C/C++ rules.
@@ -45,19 +39,14 @@ public abstract class MockCcSupport {
 
   /** Filter to remove implicit crosstool artifact and module map inputs of C/C++ rules. */
   public static final Predicate<Artifact> CC_ARTIFACT_FILTER =
-      new Predicate<Artifact>() {
-        @Override
-        public boolean apply(Artifact artifact) {
-          String basename = artifact.getExecPath().getBaseName();
-          String pathString = artifact.getExecPathString();
-          return !pathString.startsWith("third_party/crosstool/")
-              && !pathString.startsWith("tools/cpp/link_dynamic_library")
-              && !pathString.startsWith("tools/cpp/build_interface_so")
-              && !(pathString.contains("/internal/_middlemen") && basename.contains("crosstool"))
-              && !pathString.startsWith("_bin/build_interface_so")
-              && !pathString.endsWith(".cppmap")
-              && !pathString.startsWith("tools/cpp/grep-includes");
-        }
+      artifact -> {
+        String pathString = artifact.getExecPathString();
+        return !pathString.startsWith("third_party/crosstool/")
+            && !pathString.startsWith("tools/cpp/link_dynamic_library")
+            && !pathString.startsWith("tools/cpp/build_interface_so")
+            && !pathString.startsWith("_bin/build_interface_so")
+            && !pathString.endsWith(".cppmap")
+            && !pathString.startsWith("tools/cpp/grep-includes");
       };
 
   /** This feature will prevent bazel from patching the crosstool. */
@@ -88,6 +77,12 @@ public abstract class MockCcSupport {
 
   public static final String SPLIT_FUNCTIONS = "split_functions";
 
+  public static final String FSAFDO = "fsafdo";
+
+  public static final String IMPLICIT_FSAFDO = "implicit_fsafdo";
+
+  public static final String ENABLE_FSAFDO = "enable_fsafdo";
+
   public static final ImmutableList<String> STATIC_LINK_TWEAKED_ARTIFACT_NAME_PATTERN =
       ImmutableList.of("static_library", "lib", ".lib");
 
@@ -100,6 +95,9 @@ public abstract class MockCcSupport {
   public static final String EMPTY_CC_TOOLCHAIN =
       Joiner.on("\n")
           .join(
+              "load(\"@rules_cc//cc/toolchains:cc_toolchain_config_info.bzl\","
+                  + " \"CcToolchainConfigInfo\")",
+              "load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')",
               "def _impl(ctx):",
               "    return cc_common.create_cc_toolchain_config_info(",
               "                ctx = ctx,",
@@ -167,17 +165,13 @@ public abstract class MockCcSupport {
         }
       };
 
-  /** Returns the additional linker options for this link. */
-  public static ImmutableList<String> getLinkopts(LinkCommandLine linkCommandLine)
-      throws ExpansionException {
-    if (linkCommandLine
-        .getBuildVariables()
-        .isAvailable(LinkBuildVariables.USER_LINK_FLAGS.getVariableName())) {
-      return CcToolchainVariables.toStringList(
-          linkCommandLine.getBuildVariables(),
-          LinkBuildVariables.USER_LINK_FLAGS.getVariableName());
-    } else {
-      return ImmutableList.of();
+  public static MockCcSupport get() {
+    try {
+      Class<?> providerClass = Class.forName(TestConstants.MOCK_CC_SUPPORT_CLASS);
+      Field instanceField = providerClass.getField("INSTANCE");
+      return ((MockCcSupport) instanceField.get(null));
+    } catch (Exception e) {
+      throw new IllegalStateException(e);
     }
   }
 
@@ -190,23 +184,17 @@ public abstract class MockCcSupport {
 
   public void setupCcToolchainConfigForCpu(MockToolsConfig config, String... cpus)
       throws IOException {
-    if (config.isRealFileSystem()) {
-      String crosstoolTopPath = getRealFilesystemCrosstoolTopPath();
-      config.linkTools(getRealFilesystemTools(crosstoolTopPath));
-      writeToolchainsForRealFilesystemTools(config, crosstoolTopPath);
-    } else {
-      ImmutableList.Builder<CcToolchainConfig> toolchainConfigBuilder = ImmutableList.builder();
-      toolchainConfigBuilder.add(CcToolchainConfig.getDefaultCcToolchainConfig());
-      for (String cpu : cpus) {
-        toolchainConfigBuilder.add(CcToolchainConfig.getCcToolchainConfigForCpu(cpu));
-      }
-      new Crosstool(config, getMockCrosstoolPath(), getMockCrosstoolLabel())
-          .setCcToolchainFile(readCcToolchainConfigFile())
-          .setSupportedArchs(getCrosstoolArchs())
-          .setToolchainConfigs(toolchainConfigBuilder.build())
-          .setSupportsHeaderParsing(true)
-          .write();
+
+    ImmutableList.Builder<CcToolchainConfig> toolchainConfigBuilder = ImmutableList.builder();
+    toolchainConfigBuilder.add(CcToolchainConfig.getDefaultCcToolchainConfig());
+    for (String cpu : cpus) {
+      toolchainConfigBuilder.add(CcToolchainConfig.getCcToolchainConfigForCpu(cpu));
     }
+    setupCcToolchainConfig(config, toolchainConfigBuilder.build());
+  }
+
+  protected boolean shouldUseRealFileSystemCrosstool() {
+    return true;
   }
 
   public void setupCcToolchainConfig(MockToolsConfig config) throws IOException {
@@ -215,15 +203,28 @@ public abstract class MockCcSupport {
 
   public void setupCcToolchainConfig(
       MockToolsConfig config, CcToolchainConfig.Builder ccToolchainConfig) throws IOException {
-    if (config.isRealFileSystem()) {
+    setupCcToolchainConfig(config, ImmutableList.of(ccToolchainConfig.build()));
+  }
+
+  public void setupCcToolchainConfig(
+      MockToolsConfig config, ImmutableList.Builder<CcToolchainConfig> toolchainConfigBuilder)
+      throws IOException {
+    setupCcToolchainConfig(config, toolchainConfigBuilder.build());
+  }
+
+  void setupCcToolchainConfig(
+      MockToolsConfig config, ImmutableList<CcToolchainConfig> ccToolchainConfigs)
+      throws IOException {
+    if (config.isRealFileSystem() && shouldUseRealFileSystemCrosstool()) {
       String crosstoolTopPath = getRealFilesystemCrosstoolTopPath();
-      config.linkTools(getRealFilesystemTools(crosstoolTopPath));
+      config.linkTools(getRealFilesystemToolsToLink(crosstoolTopPath));
+      config.copyTools(getRealFilesystemToolsToCopy(crosstoolTopPath));
       writeToolchainsForRealFilesystemTools(config, crosstoolTopPath);
     } else {
       new Crosstool(config, getMockCrosstoolPath(), getMockCrosstoolLabel())
           .setCcToolchainFile(readCcToolchainConfigFile())
           .setSupportedArchs(getCrosstoolArchs())
-          .setToolchainConfigs(ImmutableList.of(ccToolchainConfig.build()))
+          .setToolchainConfigs(ccToolchainConfigs)
           .setSupportsHeaderParsing(true)
           .write();
     }
@@ -237,7 +238,7 @@ public abstract class MockCcSupport {
         "toolchains/BUILD",
         "toolchain(",
         "    name = 'k8-toolchain',",
-        "    toolchain = '//" + crosstoolTopPath + ":cc-compiler-k8-llvm',",
+        "    toolchain = '//" + crosstoolTopPath + ":cc-compiler-k8-llvm.k8',",
         "    toolchain_type = '" + TestConstants.TOOLS_REPOSITORY + "//tools/cpp:toolchain_type',",
         "    target_compatible_with = [",
         "        '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:x86_64',",
@@ -246,14 +247,14 @@ public abstract class MockCcSupport {
         ")",
         "toolchain(",
         "    name = 'arm-toolchain',",
-        "    toolchain = '//" + crosstoolTopPath + ":cc-compiler-arm-llvm',",
+        "    toolchain = '//" + crosstoolTopPath + ":cc-compiler-arm-llvm.k8',",
         "    toolchain_type = '" + TestConstants.TOOLS_REPOSITORY + "//tools/cpp:toolchain_type',",
         "    target_compatible_with = [",
-        "        '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:arm',",
+        "        '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:armv7',",
         "        '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:android',",
         "    ],",
         ")");
-    config.append("WORKSPACE", "register_toolchains('//toolchains:all')");
+    config.append("MODULE.bazel", "register_toolchains('//toolchains:all')");
   }
 
   protected void setupRulesCc(MockToolsConfig config) throws IOException {
@@ -262,16 +263,53 @@ public abstract class MockCcSupport {
             "cc/BUILD",
             "cc/defs.bzl",
             "cc/action_names.bzl",
+            "cc/cc_binary.bzl",
+            "cc/cc_import.bzl",
+            "cc/cc_library.bzl",
+            "cc/cc_test.bzl",
             "cc/cc_toolchain_config_lib.bzl",
+            "cc/objc_import.bzl",
+            "cc/objc_library.bzl",
+            "cc/common/BUILD",
+            "cc/common/cc_common.bzl",
+            "cc/common/cc_helper.bzl",
+            "cc/common/cc_shared_library_info.bzl",
+            "cc/common/semantics.bzl",
             "cc/find_cc_toolchain.bzl",
-            "cc/toolchain_utils.bzl",
-            "cc/private/rules_impl/BUILD")) {
+            "cc/toolchains/BUILD",
+            "cc/toolchains/actions/BUILD",
+            "cc/toolchains/cc_toolchain.bzl",
+            "cc/toolchains/cc_toolchain_alias.bzl",
+            "cc/toolchains/cc_toolchain_config_info.bzl",
+            "cc/toolchains/features/BUILD",
+            "cc/toolchains/features/legacy/BUILD",
+            "cc/toolchains/tool_map.bzl",
+            "cc/toolchain_utils.bzl")) {
       try {
-        config.create(
-            TestConstants.RULES_CC_REPOSITORY_SCRATCH + path,
-            ResourceLoader.readFromResources(TestConstants.RULES_CC_REPOSITORY_EXECROOT + path));
+        String content =
+            ResourceLoader.readFromResources(TestConstants.RULES_CC_REPOSITORY_EXECROOT + path);
+        config.overwrite("third_party/bazel_rules/rules_cc/" + path, content);
       } catch (Exception e) {
         throw new RuntimeException("Couldn't read rules_cc file from " + path, e);
+      }
+    }
+
+    // We handle these files separately and ignore errors since some files are only present in Bazel
+    // or Blaze contexts.
+    for (String path :
+        ImmutableList.of(
+            "cc/private/rules_impl/BUILD",
+            "cc/private/rules_impl/native.bzl",
+            "cc/private/rules_impl/blaze.bzl",
+            "cc/private/rules_impl/wrappers/BUILD",
+            "cc/private/rules_impl/native_cc_common.bzl",
+            "cc/private/rules_impl/native_providers.bzl")) {
+      try {
+        config.overwrite(
+            "third_party/bazel_rules/rules_cc/" + path,
+            ResourceLoader.readFromResources(TestConstants.RULES_CC_REPOSITORY_EXECROOT + path));
+      } catch (Exception e) {
+        // ignore
       }
     }
 
@@ -283,8 +321,29 @@ public abstract class MockCcSupport {
         TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/build_defs/cc/action_names.bzl",
         ResourceLoader.readFromResources(
             TestConstants.RULES_CC_REPOSITORY_EXECROOT + "cc/action_names.bzl"));
+    config.create(
+        TestConstants.RULES_CC_REPOSITORY_EXECROOT + "BUILD",
+        "filegroup(name='license', visibility=['//visibility:public'])");
     config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/build_defs/cc/BUILD");
+    config.create(
+        TestConstants.TOOLS_REPOSITORY_SCRATCH + "third_party/gloop/tools/build_defs/cc/BUILD");
     config.append(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/cpp/BUILD", "");
+
+    // These could be a distinct method
+    config.create(
+        TestConstants.TOOLS_REPOSITORY_SCRATCH + TestConstants.MOCK_LICENSE_SCRATCH + "BUILD",
+        "filegroup(name='license', visibility=['//visibility:public'])");
+    config.create(
+        TestConstants.TOOLS_REPOSITORY_SCRATCH
+            + TestConstants.MOCK_LICENSE_SCRATCH
+            + "rules/BUILD");
+    config.create(
+        TestConstants.TOOLS_REPOSITORY_SCRATCH
+            + TestConstants.MOCK_LICENSE_SCRATCH
+            + "rules/license.bzl",
+        "def license(name, **kwargs):",
+        "    pass",
+        "");
   }
 
   protected static void createParseHeadersAndLayeringCheckWhitelist(MockToolsConfig config)
@@ -321,14 +380,8 @@ public abstract class MockCcSupport {
   public abstract String getMockCrosstoolPath();
 
   public static PackageIdentifier getMockCrosstoolsTop() {
-    try {
-      return PackageIdentifier.create(
-          RepositoryName.create(TestConstants.TOOLS_REPOSITORY),
-          PathFragment.create(TestConstants.MOCK_CC_CROSSTOOL_PATH));
-    } catch (LabelSyntaxException e) {
-      Verify.verify(false);
-      throw new AssertionError(e);
-    }
+    return PackageIdentifier.create(
+        TestConstants.TOOLS_REPOSITORY, PathFragment.create(TestConstants.MOCK_CC_CROSSTOOL_PATH));
   }
 
   protected String readCcToolchainConfigFile() throws IOException {
@@ -340,7 +393,9 @@ public abstract class MockCcSupport {
 
   protected abstract ImmutableList<String> getCrosstoolArchs();
 
-  protected abstract String[] getRealFilesystemTools(String crosstoolTop);
+  protected abstract String[] getRealFilesystemToolsToLink(String crosstoolTop);
+
+  protected abstract String[] getRealFilesystemToolsToCopy(String crosstoolTop);
 
   protected abstract String getRealFilesystemCrosstoolTopPath();
 
@@ -349,22 +404,30 @@ public abstract class MockCcSupport {
   }
 
   public void writeMacroFile(MockToolsConfig config) throws IOException {
-    List<String> ruleNames =
-        ImmutableList.of(
-            "cc_library",
-            "cc_binary",
-            "cc_test",
-            "cc_import",
-            "objc_import",
-            "objc_library",
-            "cc_toolchain",
-            "cc_toolchain_suite",
-            "fdo_profile",
-            "fdo_prefetch_hints",
-            "cc_proto_library");
+    ImmutableList.Builder<String> ruleNamesBuilder =
+        ImmutableList.<String>builder()
+            .add(
+                "cc_library",
+                "cc_binary",
+                "cc_test",
+                "cc_import",
+                "objc_import",
+                "objc_library",
+                "cc_toolchain",
+                "fdo_profile",
+                "fdo_prefetch_hints");
+    if (TestConstants.PRODUCT_NAME.equals("bazel")) {
+      ruleNamesBuilder.add("cc_proto_library");
+    }
+    ImmutableList<String> ruleNames = ruleNamesBuilder.build();
     config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "third_party/cc_rules/macros/BUILD", "");
 
     StringBuilder macros = new StringBuilder();
+    macros.append("load('@rules_cc//cc:defs.bzl'");
+    for (String ruleName : ruleNames) {
+      macros.append(", _").append(ruleName).append("='").append(ruleName).append("'");
+    }
+    macros.append(")\n");
     for (String ruleName : ruleNames) {
       Joiner.on("\n")
           .appendTo(
@@ -375,7 +438,7 @@ public abstract class MockCcSupport {
                   + " ['__CC_RULES_MIGRATION_DO_NOT_USE_WILL_BREAK__']",
               "    else:",
               "        attrs['tags'] = ['__CC_RULES_MIGRATION_DO_NOT_USE_WILL_BREAK__']",
-              "    native." + ruleName + "(**attrs)");
+              "    _" + ruleName + "(**attrs)");
       macros.append("\n");
     }
     config.create(
@@ -400,5 +463,83 @@ public abstract class MockCcSupport {
     Joiner.on(",").appendTo(loadStatement, quotedRuleNames.build());
     loadStatement.append(")");
     return loadStatement.toString();
+  }
+
+  public static void writeCcRuntimeToolchains(Scratch scratch) throws IOException {
+    scratch.file(
+        "runtimes/toolchain.bzl",
+        """
+        BuildSettingInfo = provider(fields = ["value"])
+
+        def _bool_flag_impl(ctx):
+            return BuildSettingInfo(value = ctx.build_setting_value)
+
+        bool_flag = rule(
+            implementation = _bool_flag_impl,
+            build_setting = config.bool(),
+        )
+
+        def _include_runtimes_transition_impl(_settings, _attr):
+            return {"//runtimes:include_runtimes": False}
+
+        _include_runtimes_transition = transition(
+            implementation = _include_runtimes_transition_impl,
+            inputs = [],
+            outputs = ["//runtimes:include_runtimes"],
+        )
+        CcRuntimesInfo = provider(fields = ["runtimes", "copts"])
+
+        def _cc_runtimes_toolchain_impl(ctx):
+            return [platform_common.ToolchainInfo(
+                cc_runtimes_info = CcRuntimesInfo(
+                    runtimes = ctx.attr.runtimes,
+                    copts = ctx.attr.copts,
+                ),
+            )]
+
+        cc_runtimes_toolchain = rule(
+            implementation = _cc_runtimes_toolchain_impl,
+            attrs = {
+                "runtimes": attr.label_list(cfg = _include_runtimes_transition),
+                "copts": attr.string_list(),
+            },
+        )
+        """);
+
+    scratch.file(
+        "runtimes/BUILD",
+        """
+        load("//runtimes:toolchain.bzl", "bool_flag", "cc_runtimes_toolchain")
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
+        bool_flag(
+            name = "include_runtimes",
+            build_setting_default = True,
+        )
+
+        config_setting(
+            name = "include_runtimes_config",
+            flag_values = {":include_runtimes": "True"},
+        )
+
+        cc_library(
+            name = "runtime",
+            srcs = ["runtime.cc"],
+            hdrs = ["runtime.h"],
+        )
+
+        cc_runtimes_toolchain(
+            name = "runtimes_toolchain",
+            copts = ["-Iruntimes"],
+            runtimes = [":runtime"],
+        )
+
+        toolchain(
+            name = "toolchain",
+            target_settings = [":include_runtimes_config"],
+            toolchain = ":runtimes_toolchain",
+            toolchain_type = "//tools/cpp:cc_runtimes_toolchain_type",
+        )
+        """);
   }
 }

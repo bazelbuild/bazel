@@ -22,7 +22,6 @@ import java.lang.reflect.Field;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.Set;
-import javax.lang.model.util.SimpleTypeVisitor7;
 import javax.tools.JavaFileObject;
 
 /**
@@ -37,17 +36,19 @@ public class ImplicitDependencyExtractor {
   /** Map collecting dependency information, used for the proto output */
   private final Map<Path, Deps.Dependency> depsMap;
 
-  private final TypeVisitor typeVisitor = new TypeVisitor();
   private final Set<Path> platformJars;
+  private final Path workDir;
 
   /**
    * ImplicitDependencyExtractor does not guarantee any ordering of the reported dependencies.
    * Clients should preserve the original classpath ordering if trying to minimize their classpaths
    * using this information.
    */
-  public ImplicitDependencyExtractor(Map<Path, Deps.Dependency> depsMap, Set<Path> platformJars) {
+  public ImplicitDependencyExtractor(
+      Map<Path, Deps.Dependency> depsMap, Set<Path> platformJars, Path workDir) {
     this.depsMap = depsMap;
     this.platformJars = platformJars;
+    this.workDir = workDir;
   }
 
   /**
@@ -63,12 +64,6 @@ public class ImplicitDependencyExtractor {
    */
   public void accumulate(Context context, Set<ClassSymbol> roots) {
     Symtab symtab = Symtab.instance(context);
-
-    // Collect transitive references for root types
-    for (ClassSymbol root : roots) {
-      root.type.accept(typeVisitor, null);
-    }
-
     // Collect all other partially resolved types
     for (ClassSymbol cs : symtab.getAllClasses()) {
       // When recording we want to differentiate between jar references through completed symbols
@@ -112,7 +107,7 @@ public class ImplicitDependencyExtractor {
           path,
           Deps.Dependency.newBuilder()
               .setKind(completed ? Deps.Dependency.Kind.IMPLICIT : Deps.Dependency.Kind.INCOMPLETE)
-              .setPath(path.toString())
+              .setPath(DependencyModule.stripWorkDir(workDir, path))
               .build());
     }
   }
@@ -130,9 +125,5 @@ public class ImplicitDependencyExtractor {
     } catch (ReflectiveOperationException e) {
       throw new LinkageError(e.getMessage(), e);
     }
-  }
-
-  private static class TypeVisitor extends SimpleTypeVisitor7<Void, Void> {
-    // TODO(bazel-team): Override the visitor methods we're interested in.
   }
 }

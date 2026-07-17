@@ -37,7 +37,7 @@ import com.google.common.collect.ImmutableList;
 public final class Comprehension extends Expression {
 
   /** For or If */
-  public abstract static class Clause extends Node {
+  public abstract static sealed class Clause extends Node permits For, If {
     Clause(FileLocations locs) {
       super(locs);
     }
@@ -124,7 +124,7 @@ public final class Comprehension extends Expression {
       Node body,
       ImmutableList<Clause> clauses,
       int rbracketOffset) {
-    super(locs);
+    super(locs, Kind.COMPREHENSION);
     this.isDict = isDict;
     this.lbracketOffset = lbracketOffset;
     this.body = body;
@@ -162,10 +162,4 @@ public final class Comprehension extends Expression {
   public void accept(NodeVisitor visitor) {
     visitor.visit(this);
   }
-
-  @Override
-  public Kind kind() {
-    return Kind.COMPREHENSION;
-  }
-
 }

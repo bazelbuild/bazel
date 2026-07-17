@@ -14,19 +14,21 @@
 
 package com.google.devtools.build.lib.packages;
 
+import com.google.common.base.Function;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.StarlarkSemantics;
 
 /** A natively-defined aspect that is may be referenced by Starlark attribute definitions. */
 public abstract class StarlarkNativeAspect extends NativeAspectClass implements StarlarkAspect {
-  @Override
-  public void repr(Printer printer) {
-    printer.append("<native aspect>");
-  }
+  @SerializationConstant @VisibleForSerialization
+  static final Function<Rule, AspectParameters> EMPTY_FUNCTION = input -> AspectParameters.EMPTY;
 
   @Override
-  public void attachToAttribute(Attribute.Builder<?> attrBuilder) {
-    attrBuilder.aspect(this);
+  public void repr(Printer printer, StarlarkSemantics semantics) {
+    printer.append("<native aspect>");
   }
 
   @Override
@@ -37,5 +39,10 @@ public abstract class StarlarkNativeAspect extends NativeAspectClass implements 
   @Override
   public ImmutableSet<String> getParamAttributes() {
     return ImmutableSet.of();
+  }
+
+  @Override
+  public Function<Rule, AspectParameters> getDefaultParametersExtractor() {
+    return EMPTY_FUNCTION;
   }
 }

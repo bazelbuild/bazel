@@ -13,16 +13,18 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.config.transitions;
 
-import com.google.auto.value.AutoValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
+import com.google.devtools.build.lib.starlarkbuildapi.config.ConfigurationTransitionApi;
 
 /** No-op configuration transition. */
 public final class NoTransition implements PatchTransition {
 
-  @AutoCodec public static final NoTransition INSTANCE = new NoTransition();
+  @SerializationConstant public static final NoTransition INSTANCE = new NoTransition();
+  private static final TransitionFactory<? extends TransitionFactory.Data> FACTORY_INSTANCE =
+      new Factory<>();
 
   private NoTransition() {}
 
@@ -32,24 +34,40 @@ public final class NoTransition implements PatchTransition {
   }
 
   /** Returns a {@link TransitionFactory} instance that generates the no transition. */
-  public static <T> TransitionFactory<T> createFactory() {
-    return new AutoValue_NoTransition_Factory<>();
+  public static <T extends TransitionFactory.Data> TransitionFactory<T> getFactory() {
+    @SuppressWarnings("unchecked")
+    TransitionFactory<T> castFactory = (TransitionFactory<T>) FACTORY_INSTANCE;
+    return castFactory;
   }
 
   /**
    * Returns {@code true} if the given {@link TransitionFactory} is an instance of the no
    * transition.
    */
-  public static <T> boolean isInstance(TransitionFactory<T> instance) {
+  public static <T extends TransitionFactory.Data> boolean isInstance(
+      TransitionFactory<T> instance) {
     return instance instanceof Factory;
   }
 
+  /**
+   * Returns {@code true} if the given {@link ConfigurationTransition} is an instance of the no
+   * transition.
+   */
+  public static boolean isInstance(ConfigurationTransition transition) {
+    return transition instanceof NoTransition;
+  }
+
   /** A {@link TransitionFactory} implementation that generates the no transition. */
-  @AutoValue
-  abstract static class Factory<T> implements TransitionFactory<T> {
+  record Factory<T extends TransitionFactory.Data>()
+      implements TransitionFactory<T>, ConfigurationTransitionApi {
     @Override
     public ConfigurationTransition create(T unused) {
       return INSTANCE;
+    }
+
+    @Override
+    public TransitionType transitionType() {
+      return TransitionType.ANY;
     }
   }
 }

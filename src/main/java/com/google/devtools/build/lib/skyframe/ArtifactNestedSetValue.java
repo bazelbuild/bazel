@@ -15,19 +15,19 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.skyframe.SkyValue;
+import com.google.devtools.build.skyframe.NotComparableSkyValue;
 
 /**
- * Represent a "promise" that the Artifacts under a NestedSet is evaluated by Skyframe and the
- * ValueOrException is available in {@link ArtifactNestedSetFunction#artifactToSkyValueMap}.
+ * Represent a "promise" that the Artifacts under a NestedSet are evaluated by Skyframe.
+ *
+ * <p>Implements {@link NotComparableSkyValue} to prohibit value-based change pruning.
  */
 @Immutable
 @ThreadSafe
-public final class ArtifactNestedSetValue implements SkyValue {
+public enum ArtifactNestedSetValue implements NotComparableSkyValue {
+  /** All artifacts in this nested set are present. */
+  ALL_PRESENT,
 
-  @Override
-  public boolean dataIsShareable() {
-    // This is just a promise that data is available in memory. Not meant for cross-server sharing.
-    return false;
-  }
+  /** Some artifacts in this nested set are missing. */
+  SOME_MISSING,
 }

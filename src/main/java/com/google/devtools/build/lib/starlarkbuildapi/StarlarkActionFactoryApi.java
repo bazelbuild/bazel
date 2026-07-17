@@ -15,8 +15,8 @@
 package com.google.devtools.build.lib.starlarkbuildapi;
 
 import com.google.devtools.build.docgen.annot.DocCategory;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
@@ -25,6 +25,8 @@ import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.StarlarkCallable;
+import net.starlark.java.eval.StarlarkFunction;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 
@@ -33,28 +35,101 @@ import net.starlark.java.eval.StarlarkValue;
     name = "actions",
     category = DocCategory.BUILTIN,
     doc =
-        "Module providing functions to create actions. "
-            + "Access this module using <a href=\"ctx.html#actions\"><code>ctx.actions</code></a>.")
+        "Module providing functions to create actions. Access this module using <a"
+            + " href=\"../builtins/ctx.html#actions\"><code>ctx.actions</code></a>.")
 public interface StarlarkActionFactoryApi extends StarlarkValue {
+
+  static final String TRANSFORM_VERSION_FUNC_DOC =
+      "A Starlark callback method which takes <code>dict</code> as an input and  returns"
+          + " <code>dict</code> as an output. The input <code>dict</code> is generated"
+          + " from <a"
+          + " href='https://bazel.build/rules/lib/builtins/ctx#version_file'>ctx.version_file</a>."
+          + " The output <code>dict</code> needs to contain the user translated key-value"
+          + " pairs. Output <code>dict</code> will serve as a substitutions"
+          + " dictionary for template expansion.";
+  static final String TRANSFORM_INFO_FUNC_DOC =
+      "A Starlark callback method which takes <code>dict</code> as an input and  returns"
+          + " <code>dict</code> as an output. The input <code>dict</code> is generated"
+          + " from <a"
+          + " href='https://bazel.build/rules/lib/builtins/ctx#info_file'>ctx.info_file</a>,"
+          + " the output <code>dict</code> needs to contain the user translated key-value"
+          + " pairs. Output <code>dict</code> will serve as a substitutions"
+          + " dictionary for template expansion.";
+  static final String TEMPLATE_DOC =
+      "A <code>template</code> file according to which the output <code>dict</code> from"
+          + " <code>transform_func</code> will be formatted and written to a file.";
+  static final String INFO_OUTPUT_DOC =
+      "Name of the output file of the action. File will be created under generating rule's"
+          + " directory, similar to what <code>ctx.actions.declare_file</code> does.";
+  static final String VERSION_OUTPUT_DOC =
+      "Name of the output file of the action. File will be created under generating rule's"
+          + " directory, similar to what <code>ctx.actions.declare_file</code> does. Due to its"
+          + " volatile nature the output file of this action is special cased in Bazel, similar to"
+          + " <code>ctx.version_file</code>. Therefore changes in this file will not retrigger"
+          + " actions depending on it.";
+  static final String TOOLS_ARG_DOC =
+"""
+List or <a href="../builtins/depset.html"><code>depset</code></a> of any tools needed by the \
+action. Tools are executable inputs that may have their own runfiles which are automatically made \
+available to the action. \
+<p>
+When a list is provided, it can be a heterogenous collection of:
+<ul>
+    <li><code>File</code>s</li>
+    <li><code>FilesToRunProvider</code> instances</li>
+    <li><code>depset</code>s of <code>File</code>s</li>
+</ul>
+<code>File</code>s from <a href="../builtins/ctx#executable"><code>ctx.executable</code></a> \
+and <code>FilesToRunProvider</code>s which are directly in the list will have their runfiles \
+automatically added. All tools are implicitly added as inputs.
+</p>
+""";
+  static final String MAP_DIRECTORY_IMPLEMENTATION_DOC =
+"""
+A Starlark function that gets called after input directories have been built to generate actions
+that output files to the specified output directories. This function is passed the following
+arguments:
+
+<ul>
+  <li><code>template_ctx</code> (positional): A <a
+      href='../builtins/template_ctx.html'><code>template_ctx</code></a> object that can be used to
+      create actions.</li>
+  <li><code>input_directories</code> (keyword-only): A dictionary mapping from the string keys of
+      the <code>input_directories</code> argument of <code>actions.map_directory()</code> to their
+      values' corresponding <a href='../builtins/ExpandedDirectory.html'><code>ExpandedDirectory</code></a>
+      objects.</li>
+  <li><code>output_directories</code> (keyword-only): The value of the
+      <code>output_directories</code> argument of <code>actions.map_directory()</code>; a
+      dictionary mapping from strings to output directories.</li>
+  <li><code>additional_inputs</code> (keyword-only): The value of the
+      <code>additional_inputs</code> argument of <code>actions.map_directory()</code>; a
+      dictionary mapping from strings to input files.</li>
+  <li><code>tools</code> (keyword-only): The value of the <code>tools</code> argument of
+      <code>actions.map_directory()</code>; a dictionary mapping from strings to tools.</li>
+  <li><code>additional_params</code> (keyword-only): The value of the
+      <code>additional_params</code> argument of <code>actions.map_directory()</code>; a
+      dictionary mapping from strings to strings, booleans, or integers.</li>
+</ul>
+
+This function must be top-level, i.e. lambdas and nested functions are not allowed.
+""";
 
   @StarlarkMethod(
       name = "declare_file",
       doc =
-          "Declares that the rule or aspect creates a file with the given filename. "
-              + "If <code>sibling</code> is not specified, the file name is relative to the "
-              + "package "
-              + "directory, otherwise the file is in the same directory as <code>sibling</code>. "
-              + "Files cannot be created outside of the current package."
-              + "<p>Remember that in addition to declaring a file, you must separately create an "
-              + "action that emits the file. Creating that action will require passing the "
-              + "returned <code>File</code> object to the action's construction function."
-              + "<p>Note that <a href='../rules.$DOC_EXT#files'>predeclared output files</a> do "
-              + "not "
-              + "need to be (and cannot be) declared using this function. You can obtain their "
-              + "<code>File</code> objects from "
-              + "<a href=\"ctx.html#outputs\"><code>ctx.outputs</code></a> instead. "
-              + "<a href=\"https://github.com/bazelbuild/examples/tree/master/rules/"
-              + "computed_dependencies/hash.bzl\">See example of use</a>.",
+          "Declares that the rule or aspect creates a file with the given filename. If"
+              + " <code>sibling</code> is not specified, the file name is relative to the package"
+              + " directory, otherwise the file is in the same directory as <code>sibling</code>."
+              + " Files cannot be created outside of the current package.<p>Remember that in"
+              + " addition to declaring a file, you must separately create an action that emits the"
+              + " file. Creating that action will require passing the returned <code>File</code>"
+              + " object to the action's construction function.<p>Note that <a"
+              + " href='https://bazel.build/extending/rules#files'>predeclared output files</a> do"
+              + " not need to be (and cannot be) declared using this function. You can obtain their"
+              + " <code>File</code> objects from <a"
+              + " href=\"../builtins/ctx.html#outputs\"><code>ctx.outputs</code></a> instead. <a"
+              + " href=\"https://github.com/bazelbuild/examples/tree/main/rules/computed_dependencies/hash.bzl\">See"
+              + " example of use</a>.",
       parameters = {
         @Param(
             name = "filename",
@@ -84,7 +159,9 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
               + "current package. You must create an action that generates the directory. "
               + "The contents of the directory are not directly accessible from Starlark, "
               + "but can be expanded in an action command with "
-              + "<a href=\"Args.html#add_all\"><code>Args.add_all()</code></a>.",
+              + "<a href=\"../builtins/Args.html#add_all\"><code>Args.add_all()</code></a>. "
+              + "Only regular files and directories can be in the expanded contents of a "
+              + "declare_directory.",
       parameters = {
         @Param(
             name = "filename",
@@ -110,13 +187,10 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
   @StarlarkMethod(
       name = "declare_symlink",
       doc =
-          "<p><b>Experimental</b>. This parameter is experimental and may change at any "
-              + "time. Please do not depend on it. It may be enabled on an experimental basis by "
-              + "setting <code>--experimental_allow_unresolved_symlinks</code></p> <p>Declares "
-              + "that the rule or aspect creates a symlink with the given name in the current "
-              + "package. You must create an action that generates this symlink. Bazel will never "
-              + "dereference this symlink and will transfer it verbatim to sandboxes or remote "
-              + "executors.",
+          "Declares that the rule or aspect creates a symlink with the given name in the current"
+              + " package. You must create an action that generates this symlink. Bazel will never"
+              + " dereference this symlink and will transfer it verbatim to sandboxes or remote"
+              + " executors. Symlinks inside tree artifacts are not currently supported.",
       parameters = {
         @Param(
             name = "filename",
@@ -164,18 +238,21 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
   @StarlarkMethod(
       name = "symlink",
       doc =
-          "Creates an action that writes a symlink in the file system."
-              + "<p>This function must be called with exactly one of <code>target_file</code> and "
-              + "<code>target_path</code> specified.</p>"
-              + "<p>If <code>target_file</code> is used, then <code>output</code> must be declared "
-              + "as a regular file (such as by using "
-              + "<a href=\"#declare_file\"><code>declare_file()</code></a>). It will actually be "
-              + "created as a symlink that points to the path of <code>target_file</code>.</p>"
-              + "<p>If <code>target_path</code> is used instead, then <code>output</code> must be "
-              + "declared as a symlink (such as by using "
-              + "<a href=\"#declare_symlink\"><code>declare_symlink()</code></a>). In this case, "
-              + "the symlink will point to whatever the content of <code>target_path</code> is. "
-              + "This can be used to create a dangling symlink.</p>",
+          "Creates an action that writes a symlink in the file system.<p>This function must be"
+              + " called with exactly one of <code>target_file</code> or <code>target_path</code>"
+              + " specified.</p><p>When you use <code>target_file</code>, declare"
+              + " <code>output</code> with <a"
+              + " href=\"#declare_file\"><code>declare_file()</code></a> or <a"
+              + " href=\"#declare_directory\"><code>declare_directory()</code></a> and match the"
+              + " type of <code>target_file</code>. This makes the symlink point to"
+              + " <code>target_file</code>. Bazel invalidates the output of this action whenever"
+              + " the target of the symlink or its contents change.</p><p>Otherwise, when you use"
+              + " <code>target_path</code>, declare <code>output</code> with <a"
+              + " href=\"#declare_symlink\"><code>declare_symlink()</code></a>). In this case, the"
+              + " symlink points to <code>target_path</code>. Bazel never resolves the symlink"
+              + " and the output of this action is invalidated only when the text contents of the"
+              + " symlink (that is, the value of <code>readlink()</code>) changes. In particular,"
+              + " this can be used to create a dangling symlink.</p>",
       parameters = {
         @Param(
             name = "output",
@@ -202,9 +279,23 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
             positional = false,
             defaultValue = "None",
             doc =
-                "(Experimental) The exact path that the output symlink will point to. No "
-                    + "normalization or other processing is applied. Access to this feature "
-                    + "requires setting <code>--experimental_allow_unresolved_symlinks</code>."),
+                "The exact path that the output symlink will point to. No normalization or other "
+                    + "processing is applied."),
+        @Param(
+            name = "target_type",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class),
+            },
+            named = true,
+            positional = false,
+            defaultValue = "None",
+            doc =
+                "May only be used with <code>target_path</code>, not <code>target_file</code>. If"
+                    + " specified, it must be one of 'file' or 'directory', indicating the target"
+                    + " path's expected type.<p>On Windows, this determines which kind of"
+                    + " filesystem object to create (junction for a directory, symlink for a file)."
+                    + " It has no effect on other operating systems."),
         @Param(
             name = "is_executable",
             named = true,
@@ -227,14 +318,24 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
             named = true,
             positional = false,
             defaultValue = "None",
-            doc = "Progress message to show to the user during the build.")
-      })
+            doc = "Progress message to show to the user during the build."),
+        @Param(
+            name = "use_exec_root_for_source",
+            named = true,
+            positional = false,
+            defaultValue = "unbound",
+            documented = false)
+      },
+      useStarlarkThread = true)
   void symlink(
       FileApi output,
       Object targetFile,
       Object targetPath,
+      Object targetType,
       Boolean isExecutable,
-      Object progressMessage)
+      Object progressMessage,
+      Object useExecRootForSourceObject,
+      StarlarkThread thread)
       throws EvalException;
 
   @StarlarkMethod(
@@ -253,23 +354,52 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
               @ParamType(type = CommandLineArgsApi.class)
             },
             doc =
-                "the contents of the file. "
-                    + "May be a either a string or an "
-                    + "<a href=\"actions.html#args\"><code>actions.args()</code></a> object.",
+                "the contents of the file. May be a either a string or an <a"
+                    + " href=\"#args\"><code>actions.args()</code></a>"
+                    + " object.",
             named = true),
         @Param(
             name = "is_executable",
             defaultValue = "False",
             doc = "Whether the output file should be executable.",
-            named = true)
+            named = true),
+        @Param(
+            name = "mnemonic",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class),
+            },
+            defaultValue = "None",
+            named = true,
+            positional = false,
+        doc = "A one-word description of the action, for example, CppCompile or GoLink."),
+        @Param(
+            name = "execution_requirements",
+            allowedTypes = {
+              @ParamType(type = Dict.class),
+              @ParamType(type = NoneType.class),
+            },
+            defaultValue = "None",
+            named = true,
+            positional = false,
+            doc =
+                "Information for scheduling the action. See "
+                    + "<a href=\"${link common-definitions#common.tags}\">tags</a> "
+                    + "for useful keys."),
       })
-  void write(FileApi output, Object content, Boolean isExecutable) throws EvalException;
+  void write(
+      FileApi output,
+      Object content,
+      Boolean isExecutable,
+      Object mnemonicUnchecked,
+      Object executionRequirementsUnchecked)
+      throws EvalException, InterruptedException;
 
   @StarlarkMethod(
       name = "run",
       doc =
           "Creates an action that runs an executable. "
-              + "<a href=\"https://github.com/bazelbuild/examples/tree/master/rules/"
+              + "<a href=\"https://github.com/bazelbuild/examples/tree/main/rules/"
               + "actions_run/execute.bzl\">See example of use</a>.",
       parameters = {
         @Param(
@@ -325,10 +455,7 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
             defaultValue = "unbound",
             named = true,
             positional = false,
-            doc =
-                "List or depset of any tools needed by the action. Tools are inputs with "
-                    + "additional "
-                    + "runfiles that are automatically made available to the action."),
+            doc = TOOLS_ARG_DOC),
         @Param(
             name = "arguments",
             // TODO(#13365): improve the @ParamType annotation once it can support multiple
@@ -340,7 +467,7 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
             doc =
                 "Command line arguments of the action. "
                     + "Must be a list of strings or "
-                    + "<a href=\"actions.html#args\"><code>actions.args()</code></a> objects."),
+                    + "<a href=\"#args\"><code>actions.args()</code></a> objects."),
         @Param(
             name = "mnemonic",
             allowedTypes = {
@@ -350,7 +477,7 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
             defaultValue = "None",
             named = true,
             positional = false,
-            doc = "A one-word description of the action, for example, CppCompile or GoLink."),
+        doc = "A one-word description of the action, for example, CppCompile or GoLink."),
         @Param(
             name = "progress_message",
             allowedTypes = {
@@ -361,14 +488,24 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
             named = true,
             positional = false,
             doc =
-                "Progress message to show to the user during the build, "
-                    + "for example, \"Compiling foo.cc to create foo.o\"."),
+                "Progress message to show to the user during the build, for example, \"Compiling"
+                    + " foo.cc to create foo.o\". The message may contain <code>%{label}</code>,"
+                    + " <code>%{input}</code>, or <code>%{output}</code> patterns, which are"
+                    + " substituted with label string, first input, or output's path,"
+                    + " respectively. Prefer to use patterns instead of static strings, because"
+                    + " the former are more efficient."),
         @Param(
             name = "use_default_shell_env",
             defaultValue = "False",
             named = true,
             positional = false,
-            doc = "Whether the action should use the built in shell environment or not."),
+            doc =
+                "Whether the action should use the default shell environment, which consists of a"
+                    + " few OS-dependent variables as well as variables set via <a"
+                    + " href=\"/reference/command-line-reference#flag--action_env\"><code>--action_env</code></a>.<p>If"
+                    + " both <code>use_default_shell_env</code> and <code>env</code> are set to"
+                    + " <code>True</code>, values set in <code>env</code> will overwrite the"
+                    + " default shell environment."),
         @Param(
             name = "env",
             allowedTypes = {
@@ -378,7 +515,11 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
             defaultValue = "None",
             named = true,
             positional = false,
-            doc = "Sets the dictionary of environment variables."),
+            doc =
+                "Sets the dictionary of environment variables.<p>If both"
+                    + " <code>use_default_shell_env</code> and <code>env</code> are set to"
+                    + " <code>True</code>, values set in <code>env</code> will overwrite the"
+                    + " default shell environment."),
         @Param(
             name = "execution_requirements",
             allowedTypes = {
@@ -390,7 +531,7 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
             positional = false,
             doc =
                 "Information for scheduling the action. See "
-                    + "<a href=\"$BE_ROOT/common-definitions.html#common.tags\">tags</a> "
+                    + "<a href=\"${link common-definitions#common.tags}\">tags</a> "
                     + "for useful keys."),
         @Param(
             // TODO(bazel-team): The name here isn't accurate anymore.
@@ -404,9 +545,7 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
             defaultValue = "None",
             named = true,
             positional = false,
-            doc =
-                "(Experimental) sets the input runfiles metadata; "
-                    + "they are typically generated by resolve_command."),
+            doc = "Legacy argument. Ignored."),
         @Param(
             name = "exec_group",
             allowedTypes = {
@@ -416,11 +555,8 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
             defaultValue = "None",
             named = true,
             positional = false,
-            enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_EXEC_GROUPS,
-            valueWhenDisabled = "None",
-            // TODO(b/151742236) update this doc when this becomes non-experimental.
             doc =
-                "(Experimental) runs the action on the given exec group's execution platform. If"
+                "Runs the action on the given exec group's execution platform. If"
                     + " none, uses the target's default execution platform."),
         @Param(
             name = "shadowed_action",
@@ -430,13 +566,53 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
             defaultValue = "None",
             named = true,
             positional = false,
-            enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_SHADOWED_ACTION,
-            valueWhenDisabled = "None",
             doc =
-                "(Experimental) runs the action using the given shadowed action's inputs and"
+                "Runs the action using the given shadowed action's inputs and"
                     + " environment added to the action's inputs list and environment. The action"
                     + " environment can overwrite any of the shadowed action's environment"
                     + " variables. If none, uses only the action's inputs and given environment."),
+        @Param(
+            name = "resource_set",
+            allowedTypes = {
+              @ParamType(type = StarlarkCallable.class),
+              @ParamType(type = Dict.class),
+              @ParamType(type = NoneType.class),
+            },
+            defaultValue = "None",
+            named = true,
+            positional = false,
+            doc =
+                "A callback function or dictionary used to estimate resource usage at execution"
+                    + " time if this action is run locally.<p>If a dictionary is passed directly,"
+                    + " it may contain the following entries, each of which may be a float or an"
+                    + " int:<ul><li>\"cpu\": number of CPUs; default 1<li>\"memory\": in MB;"
+                    + " default 250<li>\"local_test\": number of local tests; default 1</ul><p>If a"
+                    + " callback function is passed, it accepts two positional arguments: a string"
+                    + " representing an OS name (e.g. \"osx\"), and an integer representing the"
+                    + " number of inputs to the action. It must return a dictionary with the same"
+                    + " entries described above. The callback must be top-level (lambda and nested"
+                    + " functions aren't allowed).<p>If this parameter is set to <code>None</code>,"
+                    + " the default values are used."),
+        @Param(
+            name = "toolchain",
+            allowedTypes = {
+              @ParamType(type = Label.class),
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class),
+            },
+            defaultValue = "unbound",
+            named = true,
+            positional = false,
+            doc =
+                "<p>Toolchain type of the executable or tools used in this action.</p><p>If"
+                    + " executable and tools are not coming from a toolchain, set this parameter to"
+                    + " `None`.</p><p>If executable and tools are coming from a toolchain,"
+                    + " toolchain type must be set so that the action executes on the correct"
+                    + " execution platform.</p><p>Note that the rule which creates this action"
+                    + " needs to define this toolchain inside its 'rule()' function.</p><p>When"
+                    + " `toolchain` and `exec_group` parameters are both set, `exec_group` will be"
+                    + " used. An error is raised in case the `exec_group` doesn't specify the same"
+                    + " toolchain.</p>"),
       })
   void run(
       Sequence<?> outputs,
@@ -452,14 +628,16 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
       Object executionRequirementsUnchecked,
       Object inputManifestsUnchecked,
       Object execGroupUnchecked,
-      Object shadowedAction)
-      throws EvalException;
+      Object shadowedAction,
+      Object resourceSetUnchecked,
+      Object toolchainUnchecked)
+      throws EvalException, InterruptedException;
 
   @StarlarkMethod(
       name = "run_shell",
       doc =
           "Creates an action that runs a shell command. "
-              + "<a href=\"https://github.com/bazelbuild/examples/tree/master/rules/"
+              + "<a href=\"https://github.com/bazelbuild/examples/tree/main/rules/"
               + "shell_command/rules.bzl\">See example of use</a>.",
       parameters = {
         @Param(
@@ -487,10 +665,7 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
             defaultValue = "unbound",
             named = true,
             positional = false,
-            doc =
-                "List or depset of any tools needed by the action. Tools are inputs with "
-                    + "additional runfiles that are automatically made available to the action. "
-                    + "The list can contain Files or FilesToRunProvider instances."),
+            doc = TOOLS_ARG_DOC),
         @Param(
             name = "arguments",
             // TODO(#13365): improve the @ParamType annotation once it can support multiple
@@ -501,7 +676,7 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
             positional = false,
             doc =
                 "Command line arguments of the action. Must be a list of strings or "
-                    + "<a href=\"actions.html#args\"><code>actions.args()</code></a> objects."
+                    + "<a href=\"#args\"><code>actions.args()</code></a> objects."
                     + ""
                     + "<p>Bazel passes the elements in this attribute as arguments to the command."
                     + "The command can access these arguments using shell variable substitutions "
@@ -522,7 +697,7 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
             defaultValue = "None",
             named = true,
             positional = false,
-            doc = "A one-word description of the action, for example, CppCompile or GoLink."),
+        doc = "A one-word description of the action, for example, CppCompile or GoLink."),
         @Param(
             name = "command",
             allowedTypes = {
@@ -540,7 +715,7 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
                     + "elements in <code>arguments</code> are made available to the command as "
                     + "<code>$1</code>, <code>$2</code> (or <code>%1</code>, <code>%2</code> if "
                     + "using Windows batch), etc. If <code>arguments</code> contains "
-                    + "any <a href=\"actions.html#args\"><code>actions.args()</code></a> objects, "
+                    + "any <a href=\"#args\"><code>actions.args()</code></a> objects, "
                     + "their contents are appended one by one to the command line, so "
                     + "<code>$</code><i>i</i> can refer to individual strings within an Args "
                     + "object. Note that if an Args object of unknown size is passed as part of "
@@ -567,14 +742,24 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
             named = true,
             positional = false,
             doc =
-                "Progress message to show to the user during the build, "
-                    + "for example, \"Compiling foo.cc to create foo.o\"."),
+                "Progress message to show to the user during the build, for example, \"Compiling"
+                    + " foo.cc to create foo.o\". The message may contain <code>%{label}</code>,"
+                    + " <code>%{input}</code>, or <code>%{output}</code> patterns, which are"
+                    + " substituted with label string, first input, or output's path,"
+                    + " respectively. Prefer to use patterns instead of static strings, because"
+                    + " the former are more efficient."),
         @Param(
             name = "use_default_shell_env",
             defaultValue = "False",
             named = true,
             positional = false,
-            doc = "Whether the action should use the built in shell environment or not."),
+            doc =
+                "Whether the action should use the default shell environment, which consists of a"
+                    + " few OS-dependent variables as well as variables set via <a"
+                    + " href=\"/reference/command-line-reference#flag--action_env\"><code>--action_env</code></a>.<p>If"
+                    + " both <code>use_default_shell_env</code> and <code>env</code> are set to"
+                    + " <code>True</code>, values set in <code>env</code> will overwrite the"
+                    + " default shell environment."),
         @Param(
             name = "env",
             allowedTypes = {
@@ -584,7 +769,11 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
             defaultValue = "None",
             named = true,
             positional = false,
-            doc = "Sets the dictionary of environment variables."),
+            doc =
+                "Sets the dictionary of environment variables.<p>If both"
+                    + " <code>use_default_shell_env</code> and <code>env</code> are set to"
+                    + " <code>True</code>, values set in <code>env</code> will overwrite the"
+                    + " default shell environment."),
         @Param(
             name = "execution_requirements",
             allowedTypes = {
@@ -596,7 +785,7 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
             positional = false,
             doc =
                 "Information for scheduling the action. See "
-                    + "<a href=\"$BE_ROOT/common-definitions.html#common.tags\">tags</a> "
+                    + "<a href=\"${link common-definitions#common.tags}\">tags</a> "
                     + "for useful keys."),
         @Param(
             // TODO(bazel-team): The name here isn't accurate anymore.
@@ -610,9 +799,7 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
             defaultValue = "None",
             named = true,
             positional = false,
-            doc =
-                "(Experimental) sets the input runfiles metadata; "
-                    + "they are typically generated by resolve_command."),
+            doc = "Legacy argument. Ignored."),
         @Param(
             name = "exec_group",
             allowedTypes = {
@@ -622,11 +809,8 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
             defaultValue = "None",
             named = true,
             positional = false,
-            enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_EXEC_GROUPS,
-            valueWhenDisabled = "None",
-            // TODO(b/151742236) update this doc when this becomes non-experimental.
             doc =
-                "(Experimental) runs the action on the given exec group's execution platform. If"
+                "Runs the action on the given exec group's execution platform. If"
                     + " none, uses the target's default execution platform."),
         @Param(
             name = "shadowed_action",
@@ -636,12 +820,43 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
             defaultValue = "None",
             named = true,
             positional = false,
-            enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_SHADOWED_ACTION,
-            valueWhenDisabled = "None",
             doc =
-                "(Experimental) runs the action using the given shadowed action's discovered inputs"
+                "Runs the action using the given shadowed action's discovered inputs"
                     + " added to the action's inputs list. If none, uses only the action's"
                     + " inputs."),
+        @Param(
+            name = "resource_set",
+            allowedTypes = {
+              @ParamType(type = StarlarkCallable.class),
+              @ParamType(type = Dict.class),
+              @ParamType(type = NoneType.class),
+            },
+            defaultValue = "None",
+            named = true,
+            positional = false,
+            doc =
+                "A callback function or dictionary for estimating resource usage if run locally."
+                    + " See <a href=\"#run.resource_set\"><code>ctx.actions.run()</code></a>."),
+        @Param(
+            name = "toolchain",
+            allowedTypes = {
+              @ParamType(type = Label.class),
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class),
+            },
+            defaultValue = "unbound",
+            named = true,
+            positional = false,
+            doc =
+                "<p>Toolchain type of the executable or tools used in this action.</p><p>If"
+                    + " executable and tools are not coming from a toolchain, set this parameter to"
+                    + " `None`.</p><p>If executable and tools are coming from a toolchain,"
+                    + " toolchain type must be set so that the action executes on the correct"
+                    + " execution platform.</p><p>Note that the rule which creates this action"
+                    + " needs to define this toolchain inside its 'rule()' function.</p><p>When"
+                    + " `toolchain` and `exec_group` parameters are both set, `exec_group` will be"
+                    + " used. An error is raised in case the `exec_group` doesn't specify the same"
+                    + " toolchain.</p>"),
       })
   void runShell(
       Sequence<?> outputs,
@@ -656,8 +871,194 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
       Object executionRequirementsUnchecked,
       Object inputManifestsUnchecked,
       Object execGroupUnchecked,
-      Object shadowedAction)
-      throws EvalException;
+      Object shadowedAction,
+      Object resourceSetUnchecked,
+      Object toolchainUnchecked)
+      throws EvalException, InterruptedException;
+
+  @StarlarkMethod(
+      name = "map_directory",
+      doc =
+          "Creates multiple actions based on the files within one or more input directories, to"
+              + " output one or more output directories.",
+      parameters = {
+        @Param(
+            name = "input_directories",
+            allowedTypes = {
+              @ParamType(type = Dict.class, generic1 = FileApi.class),
+            },
+            named = true,
+            positional = false,
+            doc =
+                "A dictionary mapping of strings to input directories, as declared by"
+                    + " <code>ctx.actions.declare_directory()</code> (only directories are allowed"
+                    + " as values here). The values specify the directories that we want expanded"
+                    + " to access their files in the implementation function. The keys (strings)"
+                    + " act as identifiers to easily reference a specific directory in the"
+                    + " implementation function."),
+        @Param(
+            name = "additional_inputs",
+            allowedTypes = {
+              @ParamType(type = Dict.class),
+            },
+            defaultValue = "{}",
+            named = true,
+            positional = false,
+            doc =
+                "A dictionary of mapping of strings to additional inputs (only files,"
+                    + " FilesToRunProvider(s) and Depset(s) are allowed here). The values specify"
+                    + " any additional inputs that we want to make accessible to actions created by"
+                    + " the implementation function. The keys (strings) act as identifiers to"
+                    + " easily reference a specific input from within the implementation"
+                    + " function."),
+        @Param(
+            name = "output_directories",
+            allowedTypes = {
+              @ParamType(type = Dict.class, generic1 = FileApi.class),
+            },
+            named = true,
+            positional = false,
+            doc =
+                "A dictionary mapping of strings to output directories, as declared by"
+                    + " <code>ctx.actions.declare_directory()</code>. The values specify the output"
+                    + " directories that we want to generate by the actions created by the"
+                    + " implementation function. The keys (strings) act as identifiers to easily"
+                    + " reference a specific output directory from within the implementation"
+                    + " function."),
+        @Param(
+            name = "tools",
+            allowedTypes = {
+              @ParamType(type = Dict.class),
+            },
+            named = true,
+            positional = false,
+            doc =
+                "A dictionary mapping of strings to tools (only files, FilesToRunProvider(s) and"
+                    + " Depset(s) are allowed here). The values specify the tools that we want to"
+                    + " make accessible to actions created by the implementation function. The keys"
+                    + " (strings) act as identifiers to easily reference a specific tool from"
+                    + " within the implementation function."),
+        @Param(
+            name = "additional_params",
+            allowedTypes = {
+              @ParamType(type = Dict.class),
+            },
+            defaultValue = "{}",
+            named = true,
+            positional = false,
+            doc =
+                "A dictionary mapping of strings to additional parameters. The values specify any"
+                    + " additional parameters that we want to make accessible to the implementation"
+                    + " function that could be used to influence its behavior. The keys (strings)"
+                    + " act as identifiers to easily reference a specific parameter from within the"
+                    + " implementation function."),
+        @Param(
+            name = "execution_requirements",
+            allowedTypes = {
+              @ParamType(type = Dict.class),
+              @ParamType(type = NoneType.class),
+            },
+            defaultValue = "None",
+            named = true,
+            positional = false,
+            doc =
+                "Information for scheduling the created actions. See "
+                    + "<a href=\"${link common-definitions#common.tags}\">tags</a> "
+                    + "for useful keys."),
+        @Param(
+            name = "exec_group",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class),
+            },
+            defaultValue = "None",
+            named = true,
+            positional = false,
+            doc =
+                "Run the created actions on the given exec group's execution platform. If"
+                    + " none, uses the target's default execution platform."),
+        @Param(
+            name = "toolchain",
+            allowedTypes = {
+              @ParamType(type = Label.class),
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class),
+            },
+            defaultValue = "None",
+            named = true,
+            positional = false,
+            doc =
+                "<p>Toolchain type of the executable or tools used by the created actions.</p><p>If"
+                    + " executable and tools are not coming from a toolchain, set this parameter to"
+                    + " <code>None</code>.</p><p>If executable and tools are coming from a"
+                    + " toolchain, toolchain type must be set so that the created actions execute"
+                    + " on the correct execution platform.</p><p>Note that the rule which creates"
+                    + " these actions needs to define this toolchain inside its 'rule()'"
+                    + " function.</p><p>When <code>toolchain</code> and <code>exec_group</code>"
+                    + " parameters are both set, <code>exec_group</code> will be used. An error is"
+                    + " raised in case the <code>exec_group</code> doesn't specify the same"
+                    + " toolchain.</p>"),
+        @Param(
+            name = "use_default_shell_env",
+            defaultValue = "False",
+            named = true,
+            positional = false,
+            doc =
+                "Whether the created actions should use the default shell environment, which"
+                    + " consists of a few OS-dependent variables as well as variables set via <a"
+                    + " href=\"/reference/command-line-reference#flag--action_env\"><code>--action_env</code></a>.<p>If"
+                    + " both <code>use_default_shell_env</code> and <code>env</code> are set to"
+                    + " <code>True</code>, values set in <code>env</code> will overwrite the"
+                    + " default shell environment."),
+        @Param(
+            name = "env",
+            allowedTypes = {
+              @ParamType(type = Dict.class),
+              @ParamType(type = NoneType.class),
+            },
+            defaultValue = "None",
+            named = true,
+            positional = false,
+            doc =
+                "Sets the dictionary of environment variables.<p>If both"
+                    + " <code>use_default_shell_env</code> and <code>env</code> are set to"
+                    + " <code>True</code>, values set in <code>env</code> will overwrite the"
+                    + " default shell environment."),
+        @Param(
+            name = "mnemonic",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class),
+            },
+            defaultValue = "None",
+            named = true,
+            positional = false,
+            doc =
+                "A one-word description of the created actions, for example, CppCompile or"
+                    + " GoLink."),
+        @Param(
+            name = "implementation",
+            allowedTypes = {@ParamType(type = StarlarkFunction.class)},
+            named = true,
+            positional = false,
+            doc = MAP_DIRECTORY_IMPLEMENTATION_DOC),
+      },
+      useStarlarkThread = true)
+  public void mapDirectory(
+      Dict<?, ?> inputDirectories,
+      Dict<?, ?> additionalInputs,
+      Dict<?, ?> outputDirectories,
+      Dict<?, ?> tools,
+      Dict<?, ?> additionalKwargs,
+      Object executionRequirementsUnchecked,
+      Object execGroupUnchecked,
+      Object toolchainUnchecked,
+      Boolean useDefaultShellEnv,
+      Object envUnchecked,
+      Object mnemonicUnchecked,
+      StarlarkFunction implementation,
+      StarlarkThread thread)
+      throws EvalException, InterruptedException;
 
   @StarlarkMethod(
       name = "expand_template",
@@ -669,7 +1070,7 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
               + "result of a previous substitution), it is replaced with the associated value. "
               + "There is no special syntax for the keys. You may, for example, use curly braces "
               + "to avoid conflicts (for example, <code>{KEY}</code>). "
-              + "<a href=\"https://github.com/bazelbuild/examples/blob/master/rules/"
+              + "<a href=\"https://github.com/bazelbuild/examples/blob/main/rules/"
               + "expand_template/hello.bzl\">"
               + "See example of use</a>.",
       parameters = {
@@ -687,16 +1088,28 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
             name = "substitutions",
             named = true,
             positional = false,
+            defaultValue = "{}",
             doc = "Substitutions to make when expanding the template."),
         @Param(
             name = "is_executable",
             defaultValue = "False",
             named = true,
             positional = false,
-            doc = "Whether the output file should be executable.")
+            doc = "Whether the output file should be executable."),
+        @Param(
+            name = "computed_substitutions",
+            named = true,
+            positional = false,
+            allowedTypes = {@ParamType(type = TemplateDictApi.class)},
+            defaultValue = "unbound",
+            doc = "Substitutions to make when expanding the template.")
       })
   void expandTemplate(
-      FileApi template, FileApi output, Dict<?, ?> substitutionsUnchecked, Boolean executable)
+      FileApi template,
+      FileApi output,
+      Dict<?, ?> substitutionsUnchecked,
+      Boolean executable,
+      Object computedSubstitutions)
       throws EvalException;
 
   @StarlarkMethod(
@@ -704,4 +1117,98 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
       doc = "Returns an Args object that can be used to build memory-efficient command lines.",
       useStarlarkThread = true)
   CommandLineArgsApi args(StarlarkThread thread);
+
+  @StarlarkMethod(
+      name = "template_dict",
+      doc = "Returns a TemplateDict object for memory-efficient template expansion.")
+  TemplateDictApi templateDict();
+
+  @StarlarkMethod(
+      name = "declare_shareable_artifact",
+      parameters = {
+        @Param(name = "path"),
+        @Param(name = "artifact_root", defaultValue = "unbound"),
+      },
+      documented = false,
+      useStarlarkThread = true)
+  FileApi createShareableArtifact(String path, Object root, StarlarkThread thread)
+      throws EvalException;
+
+  @StarlarkMethod(
+      name = "transform_version_file",
+      documented = false,
+      doc =
+          "Similar to <a href=\"#transform_info_file\">transform_info_file</a>, but transforms <a"
+              + " href='https://bazel.build/rules/lib/builtins/ctx#version_file'>ctx.version_file</a>.",
+      parameters = {
+        @Param(
+            name = "transform_func",
+            doc = TRANSFORM_VERSION_FUNC_DOC,
+            allowedTypes = {@ParamType(type = StarlarkFunction.class)},
+            positional = false,
+            named = true),
+        @Param(
+            name = "template",
+            doc = TEMPLATE_DOC,
+            allowedTypes = {@ParamType(type = FileApi.class)},
+            positional = false,
+            named = true),
+        @Param(
+            name = "output_file_name",
+            doc = VERSION_OUTPUT_DOC,
+            allowedTypes = {@ParamType(type = String.class)},
+            positional = false,
+            named = true),
+      },
+      useStarlarkThread = true)
+  FileApi transformVersionFile(
+      Object transformFuncObject,
+      Object templateObject,
+      String outputFileName,
+      StarlarkThread thread)
+      throws InterruptedException, EvalException;
+
+  @StarlarkMethod(
+      name = "transform_info_file",
+      documented = false,
+      doc =
+          "Transforms <a"
+              + " href='https://bazel.build/rules/lib/builtins/ctx#info_file'>ctx.info_file</a> to"
+              + " a language-consumable file and writes its contents to <code>output</code>. Keys"
+              + " and values are transformed by calling the <code>transform_func</code> Starlark"
+              + " method, and the output file format is generated according to the"
+              + " <code>template</code>. Use this call to create an action in an auxiliary rule."
+              + " Create a single target for an auxiliary rule which is then used as an implicit"
+              + " dependency for the main rule. Main rule is the one which needs the transformed"
+              + " <code>info_file</code>. The auxiliary rule should also declare"
+              + " <code>output</code> file to which transformed content is written. The"
+              + " <code>output</code> file is then provided to the dependant main rule. This will"
+              + " avoid action conflicts and duplicated file generations.",
+      parameters = {
+        @Param(
+            name = "transform_func",
+            doc = TRANSFORM_INFO_FUNC_DOC,
+            allowedTypes = {@ParamType(type = StarlarkFunction.class)},
+            positional = false,
+            named = true),
+        @Param(
+            name = "template",
+            doc = TEMPLATE_DOC,
+            allowedTypes = {@ParamType(type = FileApi.class)},
+            positional = false,
+            named = true),
+        @Param(
+            name = "output_file_name",
+            doc = INFO_OUTPUT_DOC,
+            allowedTypes = {@ParamType(type = String.class)},
+            positional = false,
+            named = true),
+      },
+      useStarlarkThread = true)
+  FileApi transformInfoFile(
+      Object transformFuncObject,
+      Object templateObject,
+      String outputFileName,
+      StarlarkThread thread)
+      throws InterruptedException, EvalException;
 }

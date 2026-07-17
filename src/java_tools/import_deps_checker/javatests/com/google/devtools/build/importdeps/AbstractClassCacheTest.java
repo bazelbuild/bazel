@@ -36,6 +36,7 @@ public abstract class AbstractClassCacheTest {
           .map(s -> PACKAGE_NAME + s)
           .collect(ImmutableList.toImmutableList());
 
+
   final Path libraryJar = getPathFromSystemProperty("classcache.test.Library");
   final ImmutableList<String> libraryJarPositives =
       ImmutableList.<String>builder().add("Library")
@@ -86,6 +87,8 @@ public abstract class AbstractClassCacheTest {
           PACKAGE_NAME + "LibraryInterface$InterfaceBar");
 
   final Path libraryModuleInfoJar = getPathFromSystemProperty("classcache.test.LibraryModuleInfo");
+
+  final Path condyJar = getPathFromSystemProperty("classcache.test.Condy");
 
   static Path getPathFromSystemProperty(String propertyName) {
     String path =

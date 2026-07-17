@@ -13,19 +13,21 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.test;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
+import com.google.devtools.build.lib.packages.BuiltinRestriction;
 import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.starlarkbuildapi.test.InstrumentedFilesInfoApi;
-import com.google.devtools.build.lib.util.Pair;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.Tuple;
 
 /** An implementation class for the InstrumentedFilesProvider interface. */
-@AutoCodec
 public final class InstrumentedFilesInfo extends NativeInfo implements InstrumentedFilesInfoApi {
   /** Singleton provider instance for {@link InstrumentedFilesInfo}. */
   public static final InstrumentedFilesProvider STARLARK_CONSTRUCTOR =
@@ -33,33 +35,29 @@ public final class InstrumentedFilesInfo extends NativeInfo implements Instrumen
 
   public static final InstrumentedFilesInfo EMPTY =
       new InstrumentedFilesInfo(
-          NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
-          NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
-          NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
-          NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
-          NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
-          NestedSetBuilder.<Pair<String, String>>emptySet(Order.COMPILE_ORDER),
+          NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+          NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+          NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+          NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+          ImmutableMap.of(),
           NestedSetBuilder.emptySet(Order.STABLE_ORDER));
 
   private final NestedSet<Artifact> instrumentedFiles;
   private final NestedSet<Artifact> instrumentationMetadataFiles;
-  private final NestedSet<Artifact> baselineCoverageFiles;
   private final NestedSet<Artifact> baselineCoverageArtifacts;
   private final NestedSet<Artifact> coverageSupportFiles;
-  private final NestedSet<Pair<String, String>> coverageEnvironment;
-  private final NestedSet<Pair<String, String>> reportedToActualSources;
+  private final ImmutableMap<String, String> coverageEnvironment;
+  private final NestedSet<Tuple> reportedToActualSources;
 
-  public InstrumentedFilesInfo(
+  InstrumentedFilesInfo(
       NestedSet<Artifact> instrumentedFiles,
       NestedSet<Artifact> instrumentationMetadataFiles,
-      NestedSet<Artifact> baselineCoverageFiles,
       NestedSet<Artifact> baselineCoverageArtifacts,
       NestedSet<Artifact> coverageSupportFiles,
-      NestedSet<Pair<String, String>> coverageEnvironment,
-      NestedSet<Pair<String, String>> reportedToActualSources) {
+      ImmutableMap<String, String> coverageEnvironment,
+      NestedSet<Tuple> reportedToActualSources) {
     this.instrumentedFiles = instrumentedFiles;
     this.instrumentationMetadataFiles = instrumentationMetadataFiles;
-    this.baselineCoverageFiles = baselineCoverageFiles;
     this.baselineCoverageArtifacts = baselineCoverageArtifacts;
     this.coverageSupportFiles = coverageSupportFiles;
     this.coverageEnvironment = coverageEnvironment;
@@ -78,7 +76,7 @@ public final class InstrumentedFilesInfo extends NativeInfo implements Instrumen
 
   @Override
   public Depset getInstrumentedFilesForStarlark() {
-    return Depset.of(Artifact.TYPE, getInstrumentedFiles());
+    return Depset.of(Artifact.class, instrumentedFiles);
   }
 
   /** Returns a collection of instrumentation metadata files. */
@@ -88,25 +86,12 @@ public final class InstrumentedFilesInfo extends NativeInfo implements Instrumen
 
   @Override
   public Depset getInstrumentationMetadataFilesForStarlark() {
-    return Depset.of(Artifact.TYPE, getInstrumentationMetadataFiles());
+    return Depset.of(Artifact.class, instrumentationMetadataFiles);
   }
 
   /**
-   * The transitive closure of instrumented source files for which baseline coverage should be
-   * generated. In general, this is a subset of the instrumented source files: it only contains
-   * instrumented source files from rules that support baseline coverage.
-   */
-  // TODO(ulfjack): Change this to a single Artifact. Also change how it's generated. It's better to
-  // generate actions such that each action only covers the source files of a single rule, in
-  // particular because baseline coverage is language-specific (it requires a parser for the
-  // specific language), and we don't want to depend on all language parsers from any single rule.
-  public NestedSet<Artifact> getBaselineCoverageInstrumentedFiles() {
-    return baselineCoverageFiles;
-  }
-
-  /**
-   * The output artifact of the baseline coverage action; this is only ever a single artifact, which
-   * contains baseline coverage for the entire transitive closure of source files.
+   * Returns the output artifacts of the {@link BaselineCoverageAction}s for the transitive closure
+   * of source files.
    */
   public NestedSet<Artifact> getBaselineCoverageArtifacts() {
     return baselineCoverageArtifacts;
@@ -122,8 +107,21 @@ public final class InstrumentedFilesInfo extends NativeInfo implements Instrumen
     return coverageSupportFiles;
   }
 
+  @Override
+  public Depset getCoverageSupportFilesForStarlark(StarlarkThread thread) throws EvalException {
+    BuiltinRestriction.failIfCalledOutsideDefaultAllowlist(thread);
+    return Depset.of(Artifact.class, coverageSupportFiles);
+  }
+
   /** Environment variables that need to be set for tests collecting code coverage. */
-  public NestedSet<Pair<String, String>> getCoverageEnvironment() {
+  public ImmutableMap<String, String> getCoverageEnvironment() {
+    return coverageEnvironment;
+  }
+
+  @Override
+  public ImmutableMap<String, String> getCoverageEnvironmentForStarlark(StarlarkThread thread)
+      throws EvalException {
+    BuiltinRestriction.failIfCalledOutsideDefaultAllowlist(thread);
     return coverageEnvironment;
   }
 
@@ -137,7 +135,7 @@ public final class InstrumentedFilesInfo extends NativeInfo implements Instrumen
    * "bazel-out/k8-fastbuild/bin/include/common/_virtual_includes/strategy/strategy.h", but its
    * actual source path is "include/common/strategy.h".
    */
-  public NestedSet<Pair<String, String>> getReportedToActualSources() {
+  NestedSet<Tuple> getReportedToActualSources() {
     return reportedToActualSources;
   }
 

@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.io.CharStreams;
 import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStreamReader;
@@ -49,7 +50,7 @@ public class FlagPerLineTest extends BuildViewTestCase {
   public void initArgs() throws Exception {
     args = Args.newArgs(mutability, getStarlarkSemantics());
     args.setParamFileFormat("flag_per_line");
-    thread = new StarlarkThread(mutability, getStarlarkSemantics());
+    thread = StarlarkThread.createTransient(mutability, getStarlarkSemantics());
   }
 
   @Test
@@ -76,6 +77,7 @@ public class FlagPerLineTest extends BuildViewTestCase {
         /* uniquify= */ false,
         /* expandDirectories= */ false,
         /* terminateWith= */ Starlark.NONE,
+        /* allowClosure= */ false,
         thread);
     // Absl would reject this line, but it's what we generate.
     expectLines("--foo bar baz");
@@ -93,6 +95,7 @@ public class FlagPerLineTest extends BuildViewTestCase {
         /* uniquify= */ false,
         /* expandDirectories= */ false,
         /* terminateWith= */ Starlark.NONE,
+        /* allowClosure= */ false,
         thread);
     // Absl interprets this as a single value "bar baz" for the flag "--foo",
     // which is probably not what was intended.
@@ -111,6 +114,7 @@ public class FlagPerLineTest extends BuildViewTestCase {
         /* omitIfEmpty= */ true, // the default
         /* uniquify= */ false,
         /* expandDirectories= */ false,
+        /* allowClosure= */ false,
         thread);
     // Absl would reject this line, but it's what we generate.
     expectLines("--foo,bar,baz");
@@ -128,8 +132,30 @@ public class FlagPerLineTest extends BuildViewTestCase {
         /* omitIfEmpty= */ true,
         /* uniquify= */ false,
         /* expandDirectories= */ false,
+        /* allowClosure= */ false,
         thread);
     expectLines("--foo=bar,baz,woof");
+  }
+
+  /** Tests that an add_all (empty and omitted) following two adds works. */
+  @Test
+  public void args_combinedOmittedAddAllAndAdd() throws Exception {
+    args.addAll(
+        /* argNameOrValue= */ "", // ignored
+        /* values= */ StarlarkList.of(null),
+        /* mapEach= */ Starlark.NONE,
+        /* formatEach= */ Starlark.NONE,
+        /* beforeEach= */ Starlark.NONE,
+        /* omitIfEmpty= */ true, // the default
+        /* uniquify= */ false,
+        /* expandDirectories= */ false,
+        /* terminateWith= */ Starlark.NONE,
+        /* allowClosure= */ false,
+        thread);
+    args.addArgument("--foo1", "bar", /* format= */ Starlark.NONE, thread);
+    args.addArgument("--foo2", "bar", /* format= */ Starlark.NONE, thread);
+
+    expectLines("--foo1=bar", "--foo2=bar");
   }
 
   private void expectLines(String... lines) throws Exception {
@@ -141,7 +167,9 @@ public class FlagPerLineTest extends BuildViewTestCase {
     byte[] bytes;
     try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
       ParameterFile.writeParameterFile(
-          outputStream, args.build().arguments(), args.getParameterFileType(), UTF_8);
+          outputStream,
+          args.build(() -> RepositoryMapping.EMPTY).arguments(),
+          args.getParameterFileType());
       bytes = outputStream.toByteArray();
     }
     try (ByteArrayInputStream inputStream = new ByteArrayInputStream(bytes);

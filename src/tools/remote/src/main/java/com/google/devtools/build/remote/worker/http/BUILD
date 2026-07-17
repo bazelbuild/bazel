@@ -1,7 +1,14 @@
+load("@rules_java//java:defs.bzl", "java_library")
+
+package(
+    default_applicable_licenses = ["//:license"],
+    default_visibility = ["//:__subpackages__"],
+)
+
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
-    visibility = ["//src/tools/remote/src/main/java/com/google/devtools/build/remote/worker:__pkg__"],
+    visibility = ["//src:__subpackages__"],
 )
 
 java_library(
@@ -12,7 +19,9 @@ java_library(
         "//src/tools/remote:__subpackages__",
     ],
     deps = [
+        "//third_party:flogger",
         "//third_party:guava",
+        "//third_party:jsr305",
         "//third_party:netty",
     ],
 )

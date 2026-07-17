@@ -11,8 +11,10 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 package com.google.devtools.build.lib.skyframe.serialization;
+
+import static com.google.devtools.build.lib.skyframe.serialization.HashMapCodec.populateMap;
+import static com.google.devtools.build.lib.skyframe.serialization.MapHelpers.serializeMapEntries;
 
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
@@ -23,38 +25,38 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /** {@link ObjectCodec} for {@link java.util.Collections.UnmodifiableMap}. */
-final class UnmodifiableMapCodec<K, V> implements ObjectCodec<Map<K, V>> {
-  private final Map<K, V> empty = Collections.unmodifiableMap(new HashMap<>());
+@SuppressWarnings({"unchecked", "rawtypes", "NonApiType"})
+final class UnmodifiableMapCodec extends AsyncObjectCodec<Map> {
+  @SuppressWarnings("ConstantCaseForConstants")
+  private static final Map EMPTY = Collections.unmodifiableMap(new HashMap());
 
-  @SuppressWarnings("unchecked")
   @Override
-  public Class<Map<K, V>> getEncodedClass() {
-    return (Class<Map<K, V>>) empty.getClass();
+  public Class getEncodedClass() {
+    return EMPTY.getClass();
   }
 
   @Override
-  public void serialize(SerializationContext context, Map<K, V> obj, CodedOutputStream codedOut)
+  public void serialize(SerializationContext context, Map obj, CodedOutputStream codedOut)
       throws SerializationException, IOException {
     codedOut.writeInt32NoTag(obj.size());
-    for (Map.Entry<K, V> entry : obj.entrySet()) {
-      context.serialize(entry.getKey(), codedOut);
-      context.serialize(entry.getValue(), codedOut);
-    }
+    serializeMapEntries(context, obj, codedOut);
   }
 
   @Override
-  public Map<K, V> deserialize(DeserializationContext context, CodedInputStream codedIn)
+  public Map deserializeAsync(AsyncDeserializationContext context, CodedInputStream codedIn)
       throws SerializationException, IOException {
     int size = codedIn.readInt32();
     if (size == 0) {
-      return empty;
+      return EMPTY;
     }
-    // Load factor is 0.75, so we need an initial capacity of 4/3 actual size to avoid rehashing.
-    LinkedHashMap<K, V> result = new LinkedHashMap<>(4 * size / 3);
-    for (int i = 0; i < size; i++) {
-      result.put(context.deserialize(codedIn), context.deserialize(codedIn));
-    }
-    return Collections.unmodifiableMap(result);
-  }
 
+    // Load factor is 0.75, so we need an initial capacity of 4/3 actual size to avoid rehashing.
+    LinkedHashMap map = new LinkedHashMap(4 * size / 3);
+
+    Map result = Collections.unmodifiableMap(map);
+    context.registerInitialValue(result);
+
+    populateMap(context, codedIn, map, size);
+    return result;
+  }
 }

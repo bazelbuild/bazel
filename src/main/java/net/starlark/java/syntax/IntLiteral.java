@@ -14,17 +14,27 @@
 package net.starlark.java.syntax;
 
 import java.math.BigInteger;
+import javax.annotation.Nullable;
 
-/** Syntax node for an int literal. */
+/**
+ * Syntax node for an int literal. The literal's value may be negative, since the parser simplifies
+ * a unary minus operation applied on a positive int literal into a negative int literal.
+ */
 public final class IntLiteral extends Expression {
-  private final String raw;
   private final int tokenOffset;
+  private final int endOffset;
   private final Number value; // = Integer | Long | BigInteger
 
-  IntLiteral(FileLocations locs, String raw, int tokenOffset, Number value) {
-    super(locs);
-    this.raw = raw;
+  /**
+   * Constructs an IntLiteral.
+   *
+   * <p>{@code value} must be either an Integer or Long or BigInteger, and the smallest type capable
+   * of exactly representing the number must be used.
+   */
+  IntLiteral(FileLocations locs, int tokenOffset, int endOffset, Number value) {
+    super(locs, Kind.INT_LITERAL);
     this.tokenOffset = tokenOffset;
+    this.endOffset = endOffset;
     this.value = value;
   }
 
@@ -36,9 +46,13 @@ public final class IntLiteral extends Expression {
     return value;
   }
 
-  /** Returns the raw source text of the literal. */
-  public String getRaw() {
-    return raw;
+  /**
+   * Returns the value denoted by this literal as an Integer, or null if it can't be represented
+   * exactly.
+   */
+  @Nullable
+  public Integer getIntValueExact() {
+    return value instanceof Integer intValue ? intValue : null;
   }
 
   @Override
@@ -48,17 +62,12 @@ public final class IntLiteral extends Expression {
 
   @Override
   public int getEndOffset() {
-    return tokenOffset + raw.length();
+    return endOffset;
   }
 
   @Override
   public void accept(NodeVisitor visitor) {
     visitor.visit(this);
-  }
-
-  @Override
-  public Kind kind() {
-    return Kind.INT_LITERAL;
   }
 
   /**

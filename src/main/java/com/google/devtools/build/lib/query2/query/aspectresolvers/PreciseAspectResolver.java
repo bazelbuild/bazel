@@ -13,8 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.query.aspectresolvers;
 
+import com.google.common.collect.ImmutableCollection;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
-import com.google.common.collect.LinkedListMultimap;
+import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -30,6 +32,7 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageProvider;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
@@ -49,27 +52,33 @@ public class PreciseAspectResolver implements AspectResolver {
   }
 
   @Override
-  public ImmutableMultimap<Attribute, Label> computeAspectDependencies(
+  public ImmutableMap<Aspect, ImmutableMultimap<Attribute, Label>> computeAspectDependencies(
       Target target, DependencyFilter dependencyFilter) throws InterruptedException {
-    if (!(target instanceof Rule)) {
-      return ImmutableMultimap.of();
+    if (!(target instanceof Rule rule)) {
+      return ImmutableMap.of();
     }
-    Rule rule = (Rule) target;
     if (!rule.hasAspects()) {
-      return ImmutableMultimap.of();
+      return ImmutableMap.of();
     }
-    Multimap<Attribute, Label> result = LinkedListMultimap.create();
+
+    LinkedHashMap<Aspect, ImmutableMultimap<Attribute, Label>> results = new LinkedHashMap<>();
     Multimap<Attribute, Label> transitions =
         rule.getTransitions(DependencyFilter.NO_NODEP_ATTRIBUTES);
     for (Attribute attribute : transitions.keySet()) {
       for (Aspect aspect : attribute.getAspects(rule)) {
         if (hasDepThatSatisfies(aspect, transitions.get(attribute))) {
+          ImmutableSetMultimap.Builder<Attribute, Label> attributeLabelsBuilder =
+              ImmutableSetMultimap.builder();
           AspectDefinition.forEachLabelDepFromAllAttributesOfAspect(
-              rule, aspect, dependencyFilter, result::put);
+              aspect, dependencyFilter, attributeLabelsBuilder::put);
+          ImmutableSetMultimap<Attribute, Label> attributeLabels = attributeLabelsBuilder.build();
+          if (!attributeLabels.isEmpty()) {
+            results.put(aspect, attributeLabels);
+          }
         }
       }
     }
-    return ImmutableMultimap.copyOf(result);
+    return ImmutableMap.copyOf(results);
   }
 
   private boolean hasDepThatSatisfies(Aspect aspect, Iterable<Label> labelDeps)
@@ -95,33 +104,44 @@ public class PreciseAspectResolver implements AspectResolver {
     return false;
   }
 
+  private ImmutableCollection<Target> getSiblingTargets(Target buildFile)
+      throws InterruptedException {
+    try {
+      return packageProvider.getSiblingTargetsInPackage(eventHandler, buildFile);
+    } catch (NoSuchPackageException e) {
+      // If we fail to expand the full package (e.g. because a package piece for a symbolic macro
+      // is in error), fall back to iterating only over the targets in the BUILD file's package
+      // piece. The error encountered will be reported in the eventHandler.
+      return buildFile.getPackageoid().getTargets().values();
+    }
+  }
+
   @Override
-  public Set<Label> computeBuildFileDependencies(Package pkg) throws InterruptedException {
+  public Set<Label> computeBuildFileDependencies(Target buildFile) throws InterruptedException {
     Set<Label> result = new LinkedHashSet<>();
-    result.addAll(pkg.getStarlarkFileDependencies());
+    buildFile.getPackageDeclarations().visitLoadGraph(result::add);
 
     Set<PackageIdentifier> dependentPackages = new LinkedHashSet<>();
-    // First compute with packages can possibly affect the aspect attributes of this package:
+    // First compute what packages can possibly affect the aspect attributes of this package:
     // Iterate over all rules...
-    for (Target target : pkg.getTargets().values()) {
+    for (Target target : getSiblingTargets(buildFile)) {
 
-      if (!(target instanceof Rule)) {
+      if (!(target instanceof Rule rule)) {
         continue;
       }
 
       // ...figure out which direct dependencies can possibly have aspects attached to them...
       Multimap<Attribute, Label> depsWithPossibleAspects =
-          ((Rule) target)
-              .getTransitions(
-                  (Rule rule, Attribute attribute) -> {
-                    for (Aspect aspectWithParameters : attribute.getAspects(rule)) {
-                      if (!aspectWithParameters.getDefinition().getAttributes().isEmpty()) {
-                        return true;
-                      }
-                    }
+          rule.getTransitions(
+              (infoProvider, attribute) -> {
+                for (Aspect aspectWithParameters : attribute.getAspects(rule)) {
+                  if (!aspectWithParameters.getDefinition().getAttributes().isEmpty()) {
+                    return true;
+                  }
+                }
 
-                    return false;
-                  });
+                return false;
+              });
 
       // ...and add the package of the aspect.
       for (Label depLabel : depsWithPossibleAspects.values()) {
@@ -134,7 +154,7 @@ public class PreciseAspectResolver implements AspectResolver {
       try {
         result.add(Label.create(packageIdentifier, "BUILD"));
         Package dependentPackage = packageProvider.getPackage(eventHandler, packageIdentifier);
-        result.addAll(dependentPackage.getStarlarkFileDependencies());
+        dependentPackage.getDeclarations().visitLoadGraph(result::add);
       } catch (NoSuchPackageException e) {
         // If the package is not found, just add its BUILD file, which is already done above.
         // Hopefully this error is not raised when there is a syntax error in a subincluded file

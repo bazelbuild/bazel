@@ -1,4 +1,5 @@
-package(default_visibility = ["//visibility:public"])
+load("@rules_python//python:py_binary.bzl", "py_binary")
+load("@rules_python//python:py_library.bzl", "py_library")
 
 py_library(
     name = "lib",
@@ -11,7 +12,15 @@ py_binary(
     deps = [":lib"],
 )
 
+py_binary(
+    name = "runfile",
+    srcs = ["runfile.py"],
+    data = ["//examples:runfile.txt"],
+    deps = ["@rules_python//python/runfiles"],
+)
+
 filegroup(
     name = "srcs",
     srcs = ["BUILD"] + glob(["**/*.py"]),
+    visibility = ["//examples:__pkg__"],
 )

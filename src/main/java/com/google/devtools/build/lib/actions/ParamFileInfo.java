@@ -14,12 +14,13 @@
 
 package com.google.devtools.build.lib.actions;
 
-import static java.nio.charset.StandardCharsets.ISO_8859_1;
-
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
-import java.nio.charset.Charset;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Objects;
+import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
 /**
@@ -29,27 +30,25 @@ import javax.annotation.concurrent.Immutable;
 @Immutable
 public final class ParamFileInfo {
   private final ParameterFileType fileType;
-  private final Charset charset;
   private final String flagFormatString;
   private final boolean always;
   private final boolean flagsOnly;
+  @Nullable private final String paramFileName;
+
+  private static final Interner<ParamFileInfo> paramFileInfoInterner =
+      BlazeInterners.newWeakInterner();
 
   private ParamFileInfo(Builder builder) {
     this.fileType = Preconditions.checkNotNull(builder.fileType);
-    this.charset = Preconditions.checkNotNull(builder.charset);
     this.flagFormatString = Preconditions.checkNotNull(builder.flagFormatString);
     this.always = builder.always;
     this.flagsOnly = builder.flagsOnly;
+    this.paramFileName = builder.paramFileName;
   }
 
   /** Returns the file type. */
   public ParameterFileType getFileType() {
     return fileType;
-  }
-
-  /** Returns the charset. */
-  public Charset getCharset() {
-    return charset;
   }
 
   /** Returns the format string for the params filename on the command line (typically "@%s"). */
@@ -70,9 +69,15 @@ public final class ParamFileInfo {
     return flagsOnly;
   }
 
+  /** Returns the custom name for the parameter file, or null if it should be derived. */
+  @Nullable
+  public String getParamFileName() {
+    return paramFileName;
+  }
+
   @Override
   public int hashCode() {
-    return Objects.hash(charset, flagFormatString, fileType, always);
+    return Objects.hash(flagFormatString, fileType, always, flagsOnly, paramFileName);
   }
 
   @Override
@@ -80,14 +85,14 @@ public final class ParamFileInfo {
     if (this == obj) {
       return true;
     }
-    if (!(obj instanceof ParamFileInfo)) {
+    if (!(obj instanceof ParamFileInfo other)) {
       return false;
     }
-    ParamFileInfo other = (ParamFileInfo) obj;
     return fileType.equals(other.fileType)
-        && charset.equals(other.charset)
         && flagFormatString.equals(other.flagFormatString)
-        && always == other.always;
+        && always == other.always
+        && flagsOnly == other.flagsOnly
+        && Objects.equals(paramFileName, other.paramFileName);
   }
 
   public static Builder builder(ParameterFileType parameterFileType) {
@@ -97,19 +102,13 @@ public final class ParamFileInfo {
   /** Builder for a ParamFileInfo. */
   public static class Builder {
     private final ParameterFileType fileType;
-    private Charset charset = ISO_8859_1;
     private String flagFormatString = "@%s";
     private boolean always;
     private boolean flagsOnly;
+    @Nullable private String paramFileName;
 
     private Builder(ParameterFileType fileType) {
       this.fileType = fileType;
-    }
-
-    /** Sets the encoding to write the parameter file with. */
-    public Builder setCharset(Charset charset) {
-      this.charset = charset;
-      return this;
     }
 
     /**
@@ -118,12 +117,14 @@ public final class ParamFileInfo {
      * <p>The format string must have a single "%s" that will be replaced by the execution path to
      * the param file.
      */
+    @CanIgnoreReturnValue
     public Builder setFlagFormatString(String flagFormatString) {
       this.flagFormatString = flagFormatString;
       return this;
     }
 
     /** Set whether the parameter file is always used, regardless of parameter file length. */
+    @CanIgnoreReturnValue
     public Builder setUseAlways(boolean always) {
       this.always = always;
       return this;
@@ -133,13 +134,21 @@ public final class ParamFileInfo {
      * If true, only the flags will be spilled to the file, leaving positional args on the command
      * line. (Default is false.)
      */
+    @CanIgnoreReturnValue
     public Builder setFlagsOnly(boolean flagsOnly) {
       this.flagsOnly = flagsOnly;
       return this;
     }
 
+    /** Sets the custom name for the parameter file. */
+    @CanIgnoreReturnValue
+    public Builder setParamFileName(String paramFileName) {
+      this.paramFileName = paramFileName;
+      return this;
+    }
+
     public ParamFileInfo build() {
-      return new ParamFileInfo(this);
+      return paramFileInfoInterner.intern(new ParamFileInfo(this));
     }
   }
 }

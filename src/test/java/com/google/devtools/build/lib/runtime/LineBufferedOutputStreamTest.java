@@ -16,9 +16,6 @@ package com.google.devtools.build.lib.runtime;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
-import com.google.common.base.Strings;
-import com.google.devtools.build.lib.testutil.Suite;
-import com.google.devtools.build.lib.testutil.TestSpec;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
@@ -31,7 +28,6 @@ import org.junit.runners.JUnit4;
 /**
  * Unit tests for {@link LineBufferedOutputStream} .
  */
-@TestSpec(size = Suite.SMALL_TESTS)
 @RunWith(JUnit4.class)
 public class LineBufferedOutputStreamTest {
   private static class MockOutputStream extends OutputStream {
@@ -67,7 +63,7 @@ public class LineBufferedOutputStreamTest {
 
   @Test
   public void testLineBuffering() throws Exception {
-    String large = Strings.repeat("a", 100);
+    String large = "a".repeat(100);
 
     assertThat(lineBuffer("foo\nbar")).containsExactly("foo\n", "bar");
     assertThat(lineBuffer("foobarfoobar")).containsExactly("foobar", "foobar");
@@ -84,11 +80,11 @@ public class LineBufferedOutputStreamTest {
   @Test
   public void testIOErrorOnWrappedStream() throws Exception {
     MockOutputStream mos = new MockOutputStream();
-    LineBufferedOutputStream cut = new LineBufferedOutputStream(mos, 4);
-    mos.throwException = true;
-    assertThrows(IOException.class, () -> cut.write("aaaa".getBytes(StandardCharsets.UTF_8)));
-    cut.write("a".getBytes(StandardCharsets.UTF_8));
-    cut.close();
+    try (LineBufferedOutputStream cut = new LineBufferedOutputStream(mos, 4)) {
+      mos.throwException = true;
+      assertThrows(IOException.class, () -> cut.write("aaaa".getBytes(StandardCharsets.UTF_8)));
+      cut.write("a".getBytes(StandardCharsets.UTF_8));
+    }
     assertThat(mos.writes).containsExactly("aaaa", "a");
   }
 }

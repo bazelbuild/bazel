@@ -26,7 +26,7 @@
 
 namespace {
 
-using bazel::tools::cpp::runfiles::Runfiles;
+using rules_cc::cc::runfiles::Runfiles;
 using singlejar_test_util::AllocateFile;
 using singlejar_test_util::OutputFilePath;
 using singlejar_test_util::VerifyZip;
@@ -37,10 +37,10 @@ class OutputHugeJarTest : public ::testing::Test {
  protected:
   void SetUp() override { runfiles.reset(Runfiles::CreateForTest()); }
 
-  void CreateOutput(const string &out_path, const std::vector<string> &args) {
-    const char *option_list[100] = {"--output", out_path.c_str()};
+  void CreateOutput(const string& out_path, const std::vector<string>& args) {
+    const char* option_list[100] = {"--output", out_path.c_str()};
     int nargs = 2;
-    for (auto &arg : args) {
+    for (auto& arg : args) {
       if (arg.empty()) {
         continue;
       }
@@ -53,11 +53,11 @@ class OutputHugeJarTest : public ::testing::Test {
     }
     fprintf(stderr, "\n");
     options_.ParseCommandLine(nargs, option_list);
-    ASSERT_EQ(0, output_jar_.Doit(&options_));
+    OutputJar output_jar_(&options_);
+    ASSERT_EQ(0, output_jar_.Doit());
     EXPECT_EQ(0, VerifyZip(out_path));
   }
 
-  OutputJar output_jar_;
   Options options_;
   std::unique_ptr<Runfiles> runfiles;
 };

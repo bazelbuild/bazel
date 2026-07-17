@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.common.options;
 
+import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -21,13 +22,14 @@ import java.lang.annotation.Target;
 /**
  * An interface for annotating fields in classes (derived from OptionsBase) that are options.
  *
- * <p>The fields of this annotation have matching getters in {@link OptionDefinition}. Please do not
- * access these fields directly, but instead go through that class.
+ * <p>The fields of this annotation have matching getters in {@link MethodOptionDefinition}. Please
+ * do not access these fields directly, but instead go through that class.
  *
  * <p>A number of checks are run on an Option's fields' values at compile time. See {@link
  * com.google.devtools.common.options.processor.OptionProcessor} for details.
  */
-@Target(ElementType.FIELD)
+@SkybridgeInterface
+@Target({ElementType.FIELD, ElementType.METHOD})
 @Retention(RetentionPolicy.RUNTIME)
 public @interface Option {
   /** The name of the option ("--name"). */
@@ -37,8 +39,8 @@ public @interface Option {
   char abbrev() default '\0';
 
   /**
-   * A help string for the usage information. Note that this should be in plain text (no HTML tags,
-   * for example).
+   * A help string for the usage information. Note that this should be in plain text or markdown (no
+   * HTML tags, for example). HTML syntax will be escaped in `bazel help everything-as-html`.
    */
   String help() default "";
 
@@ -123,9 +125,12 @@ public @interface Option {
    * an object or a simple type. The default is to use the builtin converters ({@link
    * Converters#DEFAULT_CONVERTERS}). Custom converters must implement the {@link Converter}
    * interface.
+   *
+   * <p>This class will be instantiated reflectively using a nullary constructor. Provided class
+   * does not have to be visible in the {@linkplain com.google.devtools.common.options options}
+   * package, e.g. private classes are allowed.
    */
-  @SuppressWarnings({"unchecked", "rawtypes"})
-  // Can't figure out how to coerce Converter.class into Class<? extends Converter<?>>
+  @SuppressWarnings("rawtypes")
   Class<? extends Converter> converter() default Converter.class;
 
   /**
@@ -155,17 +160,6 @@ public @interface Option {
   String[] expansion() default {};
 
   /**
-   * A mechanism for specifying an expansion that is a function of the parser's {@link
-   * IsolatedOptionsData}. This can be used to create an option that expands to different strings
-   * depending on what other options the parser knows about.
-   *
-   * <p>If provided (i.e. not {@link ExpansionFunction}{@code .class}), the {@code expansion} field
-   * must not be set. The mechanism of expansion is as if the {@code expansion} field were set to
-   * whatever the return value of this function is.
-   */
-  Class<? extends ExpansionFunction> expansionFunction() default ExpansionFunction.class;
-
-  /**
    * Additional options that need to be implicitly added for this option.
    *
    * <p>Nothing guarantees that these options are not overridden by later or higher-priority values
@@ -192,4 +186,7 @@ public @interface Option {
    * that the old name is deprecated and the new name should be used.
    */
   String oldName() default "";
+
+  /** If the option is referred to by its {@link #oldName()}, emit a warning. */
+  boolean oldNameWarning() default true;
 }

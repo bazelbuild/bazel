@@ -15,9 +15,10 @@
 package com.google.devtools.build.lib.runtime.commands.info;
 
 import com.google.common.base.Supplier;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.InfoItem;
+import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.vfs.Path;
 
 /** Info item for the location of the Java runtime. */
@@ -27,8 +28,13 @@ public final class JavaHomeInfoItem extends InfoItem {
   }
 
   @Override
-  public byte[] get(Supplier<BuildConfiguration> configurationSupplier, CommandEnvironment env) {
-    String javaHome = System.getProperty("java.home");
+  public byte[] get(
+      Supplier<BuildConfigurationValue> configurationSupplier, CommandEnvironment env) {
+    String javaHomeProperty = System.getProperty("java.home");
+    if (javaHomeProperty == null) {
+      return print("unknown");
+    }
+    String javaHome = StringEncoding.platformToInternal(javaHomeProperty);
     if (javaHome == null) {
       return print("unknown");
     }

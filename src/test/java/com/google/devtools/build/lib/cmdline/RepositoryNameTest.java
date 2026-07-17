@@ -17,14 +17,15 @@ package com.google.devtools.build.lib.cmdline;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import net.starlark.java.eval.EvalException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Tests for @{link RepositoryName}.
- */
+/** Tests for {@link RepositoryName}. */
 @RunWith(JUnit4.class)
 public class RepositoryNameTest {
 
@@ -36,37 +37,98 @@ public class RepositoryNameTest {
 
   @Test
   public void testValidateRepositoryName() throws Exception {
-    assertThat(RepositoryName.create("@foo").toString()).isEqualTo("@foo");
-    assertThat(RepositoryName.create("").toString()).isEmpty();
-    assertThat(RepositoryName.create("@foo_bar").toString()).isEqualTo("@foo_bar");
-    assertThat(RepositoryName.create("@foo-bar").toString()).isEqualTo("@foo-bar");
-    assertThat(RepositoryName.create("@foo.bar").toString()).isEqualTo("@foo.bar");
-    assertThat(RepositoryName.create("@..foo").toString()).isEqualTo("@..foo");
-    assertThat(RepositoryName.create("@foo..").toString()).isEqualTo("@foo..");
-    assertThat(RepositoryName.create("@.foo").toString()).isEqualTo("@.foo");
+    assertThat(RepositoryName.create("foo").getName()).isEqualTo("foo");
+    assertThat(RepositoryName.create("").getName()).isEqualTo("");
+    assertThat(RepositoryName.create("")).isSameInstanceAs(RepositoryName.MAIN);
+    assertThat(RepositoryName.create("foo_bar").getName()).isEqualTo("foo_bar");
+    assertThat(RepositoryName.create("foo-bar").getName()).isEqualTo("foo-bar");
+    assertThat(RepositoryName.create("foo.bar").getName()).isEqualTo("foo.bar");
+    assertThat(RepositoryName.create("..foo").getName()).isEqualTo("..foo");
+    assertThat(RepositoryName.create("foo..").getName()).isEqualTo("foo..");
+    assertThat(RepositoryName.create(".foo").getName()).isEqualTo(".foo");
+    assertThat(RepositoryName.create("foo+bar").getName()).isEqualTo("foo+bar");
 
-    assertNotValid("x", "workspace names must start with '@'");
-    assertNotValid("@.", "workspace names are not allowed to be '@.'");
-    assertNotValid("@..", "workspace names are not allowed to be '@..'");
-    assertNotValid("@foo/bar", "workspace names may contain only A-Z, a-z, 0-9, '-', '_' and '.'");
-    assertNotValid("@foo@", "workspace names may contain only A-Z, a-z, 0-9, '-', '_' and '.'");
-    assertNotValid("@foo\0", "workspace names may contain only A-Z, a-z, 0-9, '-', '_' and '.'");
+    assertNotValid(".", "repo names are not allowed to be '.'");
+    assertNotValid("..", "repo names are not allowed to be '..'");
+    assertNotValid("foo/bar", "repo names may contain only A-Z, a-z, 0-9, '-', '_', '.' and '+'");
+    assertNotValid("foo@", "repo names may contain only A-Z, a-z, 0-9, '-', '_', '.' and '+'");
+    assertNotValid("foo\0", "repo names may contain only A-Z, a-z, 0-9, '-', '_', '.' and '+'");
+  }
+
+  @Test
+  public void validateUserProvidedRepoName() throws Exception {
+    RepositoryName.validateUserProvidedRepoName("foo");
+    RepositoryName.validateUserProvidedRepoName("foo_bar");
+    RepositoryName.validateUserProvidedRepoName("foo-bar");
+    RepositoryName.validateUserProvidedRepoName("foo.bar");
+    RepositoryName.validateUserProvidedRepoName("foo..");
+    RepositoryName.validateUserProvidedRepoName("foo.33");
+
+    assertThrows(EvalException.class, () -> RepositoryName.validateUserProvidedRepoName(".foo"));
+    assertThrows(EvalException.class, () -> RepositoryName.validateUserProvidedRepoName("_foo"));
+    assertThrows(EvalException.class, () -> RepositoryName.validateUserProvidedRepoName("foo/bar"));
+    assertThrows(EvalException.class, () -> RepositoryName.validateUserProvidedRepoName("@foo"));
   }
 
   @Test
   public void testRunfilesDir() throws Exception {
-    assertThat(RepositoryName.create("@foo").getRunfilesPath())
+    assertThat(RepositoryName.create("foo").getRunfilesPath())
         .isEqualTo(PathFragment.create("../foo"));
-    assertThat(RepositoryName.create("@").getRunfilesPath())
-        .isEqualTo(PathFragment.EMPTY_FRAGMENT);
-    assertThat(RepositoryName.create("").getRunfilesPath())
-        .isEqualTo(PathFragment.EMPTY_FRAGMENT);
+    assertThat(RepositoryName.create("").getRunfilesPath()).isEqualTo(PathFragment.EMPTY_FRAGMENT);
   }
 
   @Test
   public void testGetDefaultCanonicalForm() throws Exception {
     assertThat(RepositoryName.create("").getCanonicalForm()).isEqualTo("");
-    assertThat(RepositoryName.create("@").getCanonicalForm()).isEqualTo("");
-    assertThat(RepositoryName.create("@foo").getCanonicalForm()).isEqualTo("@foo");
+    assertThat(RepositoryName.create("foo").getCanonicalForm()).isEqualTo("@@foo");
+  }
+
+  @Test
+  public void testGetDisplayForm() throws Exception {
+    RepositoryMapping repositoryMapping =
+        RepositoryMapping.create(
+            ImmutableMap.of("local", RepositoryName.create("canonical")), RepositoryName.MAIN);
+
+    assertThat(RepositoryName.create("").getDisplayForm(repositoryMapping)).isEmpty();
+    assertThat(RepositoryName.create("canonical").getDisplayForm(repositoryMapping))
+        .isEqualTo("@local");
+    assertThat(RepositoryName.create("other").getDisplayForm(repositoryMapping))
+        .isEqualTo("@@other");
+
+    assertThat(
+            RepositoryName.create("")
+                .toNonVisible(RepositoryName.create("owner"))
+                .getDisplayForm(repositoryMapping))
+        .isEqualTo("@@[unknown repo '' requested from @@owner]");
+    assertThat(
+            RepositoryName.create("local")
+                .toNonVisible(RepositoryName.create("owner"))
+                .getDisplayForm(repositoryMapping))
+        .isEqualTo("@@[unknown repo 'local' requested from @@owner]");
+  }
+
+  @Test
+  public void testGetDisplayFormWithNullMapping() throws Exception {
+    assertThat(RepositoryName.create("").getDisplayForm(null)).isEmpty();
+    assertThat(RepositoryName.create("canonical").getDisplayForm(null)).isEqualTo("@@canonical");
+
+    assertThat(
+            RepositoryName.create("")
+                .toNonVisible(RepositoryName.create("owner"))
+                .getDisplayForm(null))
+        .isEqualTo("@@[unknown repo '' requested from @@owner]");
+    assertThat(
+            RepositoryName.create("canonical")
+                .toNonVisible(RepositoryName.create("owner"))
+                .getDisplayForm(null))
+        .isEqualTo("@@[unknown repo 'canonical' requested from @@owner]");
+  }
+
+  @Test
+  public void testSerialization() throws Exception {
+    new SerializationTester(
+            RepositoryName.create("foo"),
+            RepositoryName.create("foo").toNonVisible(RepositoryName.create("owner")))
+        .runTests();
   }
 }

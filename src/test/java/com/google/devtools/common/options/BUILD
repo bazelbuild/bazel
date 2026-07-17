@@ -1,14 +1,15 @@
 load("@rules_java//java:defs.bzl", "java_library", "java_test")
 
 package(
+    default_applicable_licenses = ["//:license"],
     default_visibility = ["//src:__subpackages__"],
 )
 
 filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
-        "//src/test/java/com/google/devtools/common/options/testing:srcs",
         "//src/test/java/com/google/devtools/common/options/processor:srcs",
+        "//src/test/java/com/google/devtools/common/options/testing:srcs",
     ],
     visibility = ["//src:__subpackages__"],
 )
@@ -21,7 +22,7 @@ java_library(
         "TestOptions.java",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_server_startup_options",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/java/com/google/devtools/common/options:invocation_policy",
         "//src/main/protobuf:invocation_policy_java_proto",
@@ -42,7 +43,9 @@ java_test(
     deps = [
         ":testutils",
         "//src/main/java/com/google/devtools/build/lib/util:classpath",
+        "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
         "//src/main/java/com/google/devtools/common/options",
+        "//src/main/java/com/google/devtools/common/options:html_utils",
         "//src/main/java/com/google/devtools/common/options:invocation_policy",
         "//src/main/java/com/google/devtools/common/options/testing",
         "//src/main/protobuf:invocation_policy_java_proto",
@@ -52,25 +55,9 @@ java_test(
         "//third_party:guava",
         "//third_party:guava-testlib",
         "//third_party:jimfs",
+        "//third_party:jsr305",
         "//third_party:junit4",
-        "//third_party:mockito",
         "//third_party:truth",
-    ],
-)
-
-test_suite(
-    name = "windows_tests",
-    tags = [
-        "-no_windows",
-        "-slow",
-    ],
-)
-
-test_suite(
-    name = "all_windows_tests",
-    tests = [
-        ":windows_tests",
-        "//src/test/java/com/google/devtools/common/options/processor:all_windows_tests",
-        "//src/test/java/com/google/devtools/common/options/testing:all_windows_tests",
+        "@maven//:com_google_testparameterinjector_test_parameter_injector",
     ],
 )

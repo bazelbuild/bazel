@@ -1,0 +1,64 @@
+commit 07d43c2655c595b4a6fb6eab685c9a9a052ddee6
+Author: Tiago Quelhas <tjgq@google.com>
+Date:   Mon Sep 16 15:12:33 2024 +0200
+
+    fix: avoid using deprecated ctx.resolve_tools
+
+    See https://github.com/bazelbuild/bazel/issues/22249 for context.
+
+    Signed-off-by: Tiago Quelhas <tjgq@google.com>
+
+diff --git a/internal/native_image/rules.bzl b/internal/native_image/rules.bzl
+index 0d0a2ce..ca84a91 100644
+--- a/internal/native_image/rules.bzl
++++ b/internal/native_image/rules.bzl
+@@ -37,41 +37,28 @@ def _build_action_message(ctx):
+     return (_mode_label[ctx.attr.optimization_mode or "default"])
+
+ def _graal_binary_implementation(ctx):
+-    graal_attr = ctx.attr.native_image_tool
+-    extra_tool_deps = []
+-    gvm_toolchain = None
++    graal_attr = ctx.executable.native_image_tool
++
+     classpath_depset = depset(transitive = [
+         dep[JavaInfo].transitive_runtime_jars
+         for dep in ctx.attr.deps
+     ])
+
+-    graal = None
+     direct_inputs = []
+     transitive_inputs = [classpath_depset]
+
+     # resolve via toolchains
+-    info = ctx.toolchains[_GVM_TOOLCHAIN_TYPE].graalvm
+-
+-    # but fall back to explicitly-provided tool, which should override, with the
+-    # remainder of the resolved toolchain present
+-    resolved_graal = graal_attr or info.native_image_bin
+-    gvm_toolchain = info
+-    extra_tool_deps.append(info.gvm_files)
++    gvm_toolchain = ctx.toolchains[_GVM_TOOLCHAIN_TYPE].graalvm
+
+-    graal_inputs, _ = ctx.resolve_tools(tools = [
+-        resolved_graal,
+-    ] + extra_tool_deps)
+-
+-    graal = graal_inputs.to_list()[0]
++    # if a native-image tool is explicitly provided, it should override the one
++    # provided by the toolchain, but not the rest of the files it provides
++    graal = graal_attr or gvm_toolchain.native_image_bin.files_to_run
+
+     # add toolchain files to transitive inputs
+     transitive_inputs.append(gvm_toolchain.gvm_files[DefaultInfo].files)
+
+-    # if we're using an explicit tool, add it to the direct inputs
+-    if graal:
+-        direct_inputs.append(graal)
+-    else:
+-        # still failed to resolve: cannot resolve via either toolchains or attributes.
++    if not graal:
++        # cannot resolve via either toolchains or attributes.
+         fail("""
+             No `native-image` tool found. Please either define a `native_image_tool` in your target,
+             or install a GraalVM `native-image` toolchain.

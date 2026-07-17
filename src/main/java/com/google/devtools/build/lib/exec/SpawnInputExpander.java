@@ -13,30 +13,22 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec;
 
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
-import com.google.devtools.build.lib.actions.Artifact.MissingExpansionException;
+import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
-import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.actions.FilesetManifest;
-import com.google.devtools.build.lib.actions.FilesetManifest.RelativeSymlinkBehavior;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
-import com.google.devtools.build.lib.actions.MetadataProvider;
-import com.google.devtools.build.lib.actions.RunfilesSupplier;
+import com.google.devtools.build.lib.actions.FilesetOutputTree;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
+import com.google.devtools.build.lib.actions.PathMapper;
+import com.google.devtools.build.lib.actions.RunfilesTree;
 import com.google.devtools.build.lib.actions.Spawn;
-import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.actions.SpawnInputs;
+import com.google.devtools.build.lib.actions.VirtualActionInput;
+import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.io.IOException;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.SortedMap;
@@ -47,210 +39,211 @@ import java.util.TreeMap;
  * performs no I/O operations, but only rearranges the files according to how the runfiles should be
  * laid out.
  */
-public class SpawnInputExpander {
-  private final Path execRoot;
-  private final boolean strict;
-  private final RelativeSymlinkBehavior relSymlinkBehavior;
+public final class SpawnInputExpander {
 
-  /**
-   * Creates a new instance. If strict is true, then the expander checks for directories in runfiles
-   * and throws an exception if it finds any. Otherwise it silently ignores directories in runfiles
-   * and adds a mapping for them. At this time, directories in filesets are always silently added as
-   * mappings.
-   *
-   * <p>Directories in inputs are a correctness issue: Bazel only tracks dependencies at the action
-   * level, and it does not track dependencies on directories. Making a directory available to a
-   * spawn even though it's contents are not tracked as dependencies leads to incorrect incremental
-   * builds, since changes to the contents do not trigger action invalidation.
-   *
-   * <p>As such, all spawn strategies should always be strict and not make directories available to
-   * the subprocess. However, that's a breaking change, and therefore we make it depend on this flag
-   * for now.
-   */
-  public SpawnInputExpander(Path execRoot, boolean strict) {
-    this(execRoot, strict, RelativeSymlinkBehavior.ERROR);
+  private final boolean expandArchivedTreeArtifacts;
+
+  public SpawnInputExpander() {
+    this(/* expandArchivedTreeArtifacts= */ true);
   }
 
-  /**
-   * Creates a new instance. If strict is true, then the expander checks for directories in runfiles
-   * and throws an exception if it finds any. Otherwise it silently ignores directories in runfiles
-   * and adds a mapping for them. At this time, directories in filesets are always silently added as
-   * mappings.
-   *
-   * <p>Directories in inputs are a correctness issue: Bazel only tracks dependencies at the action
-   * level, and it does not track dependencies on directories. Making a directory available to a
-   * spawn even though it's contents are not tracked as dependencies leads to incorrect incremental
-   * builds, since changes to the contents do not trigger action invalidation.
-   *
-   * <p>As such, all spawn strategies should always be strict and not make directories available to
-   * the subprocess. However, that's a breaking change, and therefore we make it depend on this flag
-   * for now.
-   */
-  public SpawnInputExpander(
-      Path execRoot, boolean strict, RelativeSymlinkBehavior relSymlinkBehavior) {
-    this.execRoot = execRoot;
-    this.strict = strict;
-    this.relSymlinkBehavior = relSymlinkBehavior;
+  public SpawnInputExpander(boolean expandArchivedTreeArtifacts) {
+    this.expandArchivedTreeArtifacts = expandArchivedTreeArtifacts;
   }
 
-  private void addMapping(
-      Map<PathFragment, ActionInput> inputMappings,
+  private static void addMapping(
+      Map<PathFragment, ActionInput> inputMap,
       PathFragment targetLocation,
       ActionInput input,
       PathFragment baseDirectory) {
     Preconditions.checkArgument(!targetLocation.isAbsolute(), targetLocation);
-    inputMappings.put(baseDirectory.getRelative(targetLocation), input);
+    inputMap.put(baseDirectory.getRelative(targetLocation), input);
   }
 
-  /** Adds runfiles inputs from runfilesSupplier to inputMappings. */
   @VisibleForTesting
-  void addRunfilesToInputs(
+  void addSingleRunfilesTreeToInputs(
+      RunfilesTree runfilesTree,
       Map<PathFragment, ActionInput> inputMap,
-      RunfilesSupplier runfilesSupplier,
-      MetadataProvider actionFileCache,
-      ArtifactExpander artifactExpander,
-      PathFragment baseDirectory)
-      throws IOException {
-    Map<PathFragment, Map<PathFragment, Artifact>> rootsAndMappings =
-        runfilesSupplier.getMappings();
+      InputMetadataProvider inputMetadataProvider,
+      PathMapper pathMapper,
+      PathFragment baseDirectory) {
+    addSingleRunfilesTreeToInputs(
+        inputMap,
+        runfilesTree.getExecPath(),
+        runfilesTree.getMapping(),
+        inputMetadataProvider,
+        pathMapper,
+        baseDirectory);
+  }
 
-    for (Map.Entry<PathFragment, Map<PathFragment, Artifact>> rootAndMappings :
-        rootsAndMappings.entrySet()) {
-      PathFragment root = rootAndMappings.getKey();
-      Preconditions.checkState(!root.isAbsolute(), root);
-      for (Map.Entry<PathFragment, Artifact> mapping : rootAndMappings.getValue().entrySet()) {
-        PathFragment location = root.getRelative(mapping.getKey());
-        Artifact localArtifact = mapping.getValue();
-        if (localArtifact != null) {
-          Preconditions.checkState(!localArtifact.isMiddlemanArtifact());
-          if (localArtifact.isTreeArtifact()) {
-            List<ActionInput> expandedInputs =
-                ActionInputHelper.expandArtifacts(
-                    NestedSetBuilder.create(Order.STABLE_ORDER, localArtifact), artifactExpander);
-            for (ActionInput input : expandedInputs) {
-              addMapping(
-                  inputMap,
-                  location.getRelative(((TreeFileArtifact) input).getParentRelativePath()),
-                  input,
-                  baseDirectory);
-            }
-          } else if (localArtifact.isFileset()) {
-            ImmutableList<FilesetOutputSymlink> filesetLinks;
-            try {
-              filesetLinks = artifactExpander.getFileset(localArtifact);
-            } catch (MissingExpansionException e) {
-              throw new IllegalStateException(e);
-            }
-            addFilesetManifest(location, localArtifact, filesetLinks, inputMap, baseDirectory);
-          } else {
-            if (strict) {
-              failIfDirectory(actionFileCache, localArtifact);
-            }
-            addMapping(inputMap, location, localArtifact, baseDirectory);
-          }
+  /**
+   * Gathers the mapping for a single runfiles tree into {@code inputMap}.
+   *
+   * <p>This should not be a public interface, it's only there to support legacy code until we
+   * figure out how not to call this method (or else how to make this method more palatable)
+   */
+  public void addSingleRunfilesTreeToInputs(
+      Map<PathFragment, ActionInput> inputMap,
+      PathFragment root,
+      Map<PathFragment, Artifact> mappings,
+      InputMetadataProvider inputMetadataProvider,
+      PathMapper pathMapper,
+      PathFragment baseDirectory) {
+    Preconditions.checkArgument(!root.isAbsolute(), root);
+    for (Map.Entry<PathFragment, Artifact> mapping : mappings.entrySet()) {
+      PathFragment location = root.getRelative(mapping.getKey());
+      Artifact artifact = mapping.getValue();
+      if (artifact == null) {
+        addMapping(
+            inputMap,
+            mapForRunfiles(pathMapper, root, location),
+            VirtualActionInput.EMPTY_MARKER,
+            baseDirectory);
+        continue;
+      }
+      Preconditions.checkArgument(!artifact.isRunfilesTree(), artifact);
+      if (artifact.isTreeArtifact()) {
+        TreeArtifactValue treeArtifactValue = inputMetadataProvider.getTreeMetadata(artifact);
+        ArchivedTreeArtifact archivedTreeArtifact =
+            expandArchivedTreeArtifacts ? null : treeArtifactValue.getArchivedArtifact();
+        if (archivedTreeArtifact != null) {
+          addMapping(
+              inputMap,
+              mapForRunfiles(pathMapper, root, location),
+              archivedTreeArtifact,
+              baseDirectory);
+        } else if (treeArtifactValue.getChildren().isEmpty()) {
+          addMapping(inputMap, mapForRunfiles(pathMapper, root, location), artifact, baseDirectory);
         } else {
-          addMapping(inputMap, location, VirtualActionInput.EMPTY_MARKER, baseDirectory);
+          for (TreeFileArtifact input : treeArtifactValue.getChildren()) {
+            addMapping(
+                inputMap,
+                mapForRunfiles(pathMapper, root, location)
+                    .getRelative(input.getParentRelativePath()),
+                input,
+                baseDirectory);
+          }
         }
+      } else if (artifact.isFileset()) {
+        // TODO(bazel-team): Add path mapping support for filesets.
+        FilesetOutputTree filesetOutput = inputMetadataProvider.getFileset(artifact);
+        addFilesetManifest(location, artifact, filesetOutput, inputMap, baseDirectory);
+      } else {
+        addMapping(inputMap, mapForRunfiles(pathMapper, root, location), artifact, baseDirectory);
       }
     }
   }
 
-  /** Adds runfiles inputs from runfilesSupplier to inputMappings. */
-  public Map<PathFragment, ActionInput> addRunfilesToInputs(
-      RunfilesSupplier runfilesSupplier,
-      MetadataProvider actionFileCache,
-      ArtifactExpander artifactExpander,
-      PathFragment baseDirectory)
-      throws IOException {
-    Map<PathFragment, ActionInput> inputMap = new HashMap<>();
-    addRunfilesToInputs(
-        inputMap, runfilesSupplier, actionFileCache, artifactExpander, baseDirectory);
-    return inputMap;
-  }
-
-  private static void failIfDirectory(MetadataProvider actionFileCache, ActionInput input)
-      throws IOException {
-    FileArtifactValue metadata = actionFileCache.getMetadata(input);
-    if (metadata != null && !metadata.getType().isFile()) {
-      throw new IOException("Not a file: " + input.getExecPathString());
-    }
-  }
-
   @VisibleForTesting
-  void addFilesetManifests(
-      Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetMappings,
-      Map<PathFragment, ActionInput> inputMappings,
-      PathFragment baseDirectory)
-      throws IOException {
-    for (Artifact fileset : filesetMappings.keySet()) {
-      addFilesetManifest(
-          fileset.getExecPath(),
-          fileset,
-          filesetMappings.get(fileset),
-          inputMappings,
-          baseDirectory);
+  static void addFilesetManifests(
+      Map<Artifact, FilesetOutputTree> filesetMappings,
+      Map<PathFragment, ActionInput> inputMap,
+      PathFragment baseDirectory) {
+    for (Map.Entry<Artifact, FilesetOutputTree> entry : filesetMappings.entrySet()) {
+      Artifact fileset = entry.getKey();
+      addFilesetManifest(fileset.getExecPath(), fileset, entry.getValue(), inputMap, baseDirectory);
     }
   }
 
-  void addFilesetManifest(
+  private static void addFilesetManifest(
       PathFragment location,
       Artifact filesetArtifact,
-      ImmutableList<FilesetOutputSymlink> filesetLinks,
-      Map<PathFragment, ActionInput> inputMappings,
-      PathFragment baseDirectory)
-      throws IOException {
-    Preconditions.checkState(filesetArtifact.isFileset(), filesetArtifact);
-    FilesetManifest filesetManifest =
-        FilesetManifest.constructFilesetManifest(filesetLinks, location, relSymlinkBehavior);
-
-      for (Map.Entry<PathFragment, String> mapping : filesetManifest.getEntries().entrySet()) {
-        String value = mapping.getValue();
-      ActionInput artifact =
-          value == null
-              ? VirtualActionInput.EMPTY_MARKER
-              : ActionInputHelper.fromPath(execRoot.getRelative(value).getPathString());
-      addMapping(inputMappings, mapping.getKey(), artifact, baseDirectory);
-      }
+      FilesetOutputTree filesetOutput,
+      Map<PathFragment, ActionInput> inputMap,
+      PathFragment baseDirectory) {
+    Preconditions.checkArgument(filesetArtifact.isFileset(), filesetArtifact);
+    for (FilesetOutputSymlink link : filesetOutput.symlinks()) {
+      addMapping(inputMap, location.getRelative(link.name()), link.target(), baseDirectory);
+    }
   }
 
   private void addInputs(
       Map<PathFragment, ActionInput> inputMap,
-      Spawn spawn,
-      ArtifactExpander artifactExpander,
+      SpawnInputs inputFiles,
+      InputMetadataProvider inputMetadataProvider,
+      PathMapper pathMapper,
       PathFragment baseDirectory) {
+    // Actions that accept TreeArtifacts as inputs generally expect the directory corresponding
+    // to the artifact to be created, even if it is empty. We explicitly keep empty TreeArtifacts
+    // here to signal consumers that they should create the directory.
     List<ActionInput> inputs =
-        ActionInputHelper.expandArtifacts(spawn.getInputFiles(), artifactExpander);
+        InputMetadataProvider.expandArtifacts(
+            inputMetadataProvider,
+            inputFiles.flatten(),
+            /* keepEmptyTreeArtifacts= */ true,
+            /* keepRunfilesTrees= */ true);
     for (ActionInput input : inputs) {
-      addMapping(inputMap, input.getExecPath(), input, baseDirectory);
+      switch (input) {
+        case TreeFileArtifact child -> {
+          Artifact parent = child.getParent();
+          PathFragment parentPath = pathMapper.map(parent.getExecPath());
+          addMapping(
+              inputMap,
+              // If the PathMapper was no-op for the parent, we can use the child's exec path and
+              // avoid path concatenation.
+              parentPath.equals(parent.getExecPath())
+                  ? child.getExecPath()
+                  : parentPath.getRelative(child.getParentRelativePath()),
+              input,
+              baseDirectory);
+        }
+        case Artifact runfilesTreeArtifact when runfilesTreeArtifact.isRunfilesTree() ->
+            addSingleRunfilesTreeToInputs(
+                inputMetadataProvider.getRunfilesMetadata(runfilesTreeArtifact).getRunfilesTree(),
+                inputMap,
+                inputMetadataProvider,
+                pathMapper,
+                baseDirectory);
+        case Artifact fileset when fileset.isFileset() ->
+            addFilesetManifest(
+                fileset.getExecPath(),
+                fileset,
+                inputMetadataProvider.getFileset(fileset),
+                inputMap,
+                baseDirectory);
+        default -> addMapping(inputMap, pathMapper.map(input.getExecPath()), input, baseDirectory);
+      }
     }
   }
 
   /**
    * Convert the inputs and runfiles of the given spawn to a map from exec-root relative paths to
-   * {@link ActionInput}s. The returned map does not contain tree artifacts as they are expanded to
-   * file artifacts.
+   * {@link ActionInput}s. The returned map does not contain non-empty tree artifacts as they are
+   * expanded to file artifacts. Tree artifacts that would expand to the empty set under the
+   * provided {@link InputMetadataProvider} are left untouched so that their corresponding empty
+   * directories can be created.
    *
-   * <p>The returned map never contains {@code null} values; it uses {@link #EMPTY_FILE} for empty
-   * files, which is an instance of {@link
-   * com.google.devtools.build.lib.actions.cache.VirtualActionInput}.
+   * <p>The returned map never contains {@code null} values.
    *
    * <p>The returned map contains all runfiles, but not the {@code MANIFEST}.
    */
   public SortedMap<PathFragment, ActionInput> getInputMapping(
-      Spawn spawn,
-      ArtifactExpander artifactExpander,
-      PathFragment baseDirectory,
-      MetadataProvider actionInputFileCache)
-      throws IOException {
+      Spawn spawn, InputMetadataProvider inputMetadataProvider, PathFragment baseDirectory) {
     TreeMap<PathFragment, ActionInput> inputMap = new TreeMap<>();
-    addInputs(inputMap, spawn, artifactExpander, baseDirectory);
-    addRunfilesToInputs(
+    addInputs(
         inputMap,
-        spawn.getRunfilesSupplier(),
-        actionInputFileCache,
-        artifactExpander,
+        spawn.getInputFiles(),
+        inputMetadataProvider,
+        spawn.getPathMapper(),
         baseDirectory);
-    addFilesetManifests(spawn.getFilesetMappings(), inputMap, baseDirectory);
     return inputMap;
+  }
+
+  private static PathFragment mapForRunfiles(
+      PathMapper pathMapper, PathFragment runfilesDir, PathFragment execPath) {
+    if (pathMapper.isNoop()) {
+      return execPath;
+    }
+    String runfilesDirName = runfilesDir.getBaseName();
+    Preconditions.checkArgument(runfilesDirName.endsWith(".runfiles"));
+    // Derive the path of the executable, apply the path mapping to it and then rederive the path
+    // of the runfiles dir.
+    PathFragment executable =
+        runfilesDir.replaceName(
+            runfilesDirName.substring(0, runfilesDirName.length() - ".runfiles".length()));
+    return pathMapper
+        .map(executable)
+        .replaceName(runfilesDirName)
+        .getRelative(execPath.relativeTo(runfilesDir));
   }
 }

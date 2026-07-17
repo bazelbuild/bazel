@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2016 The Bazel Authors. All rights reserved.
 #
@@ -22,6 +22,7 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
 function test_run_local() {
+  add_rules_shell "MODULE.bazel"
   mkdir -p dir
   cat > emptyfile
 
@@ -37,6 +38,8 @@ EOF
   chmod +x dir/test_local.sh
 
   cat <<EOF > dir/BUILD
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 sh_test(
   name = "localtest",
   srcs = [ "test_local.sh" ],

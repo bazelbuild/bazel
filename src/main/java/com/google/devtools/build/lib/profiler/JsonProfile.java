@@ -14,7 +14,8 @@
 
 package com.google.devtools.build.lib.profiler;
 
-import com.google.auto.value.AutoValue;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
+
 import com.google.devtools.build.lib.profiler.statistics.PhaseSummaryStatistics;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonToken;
@@ -24,7 +25,6 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.List;
 import java.util.zip.GZIPInputStream;
@@ -47,8 +47,7 @@ public final class JsonProfile {
 
   public JsonProfile(InputStream inputStream) throws IOException {
     try (JsonReader reader =
-        new JsonReader(
-            new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8)))) {
+        new JsonReader(new BufferedReader(new InputStreamReader(inputStream, ISO_8859_1)))) {
       if (reader.peek() == JsonToken.BEGIN_OBJECT) {
         reader.beginObject();
         while (reader.hasNext()) {
@@ -73,7 +72,7 @@ public final class JsonProfile {
               if (ProfilerTask.PHASE.description.equals(traceEvent.category())) {
                 if (lastPhaseEvent != null) {
                   phaseSummaryStatistics.addProfilePhase(
-                      ProfilePhase.getPhaseFromDescription(lastPhaseEvent.name()),
+                      getPhaseFromDescription(lastPhaseEvent.name()),
                       traceEvent.timestamp().minus(lastPhaseEvent.timestamp()));
                 }
                 lastPhaseEvent = traceEvent;
@@ -81,7 +80,7 @@ public final class JsonProfile {
             }
             if (lastPhaseEvent != null) {
               phaseSummaryStatistics.addProfilePhase(
-                  ProfilePhase.getPhaseFromDescription(lastPhaseEvent.name()),
+                  getPhaseFromDescription(lastPhaseEvent.name()),
                   maxEndTime.minus(lastPhaseEvent.timestamp()));
             }
           } else {
@@ -89,6 +88,9 @@ public final class JsonProfile {
           }
         }
       }
+    }
+    if (traceEvents == null) {
+      throw new IOException("Corrupted profile file: couldn't find 'traceEvents'.");
     }
   }
 
@@ -107,17 +109,10 @@ public final class JsonProfile {
     String outputBase = null;
     while (reader.hasNext()) {
       switch (reader.nextName()) {
-        case "build_id":
-          buildId = reader.nextString();
-          break;
-        case "date":
-          date = reader.nextString();
-          break;
-        case "output_base":
-          outputBase = reader.nextString();
-          break;
-        default:
-          reader.skipValue();
+        case "build_id" -> buildId = reader.nextString();
+        case "date" -> date = reader.nextString();
+        case "output_base" -> outputBase = reader.nextString();
+        default -> reader.skipValue();
       }
     }
     reader.endObject();
@@ -139,20 +134,35 @@ public final class JsonProfile {
   }
 
   /** Value class to hold build metadata (id, date, output base) if available. */
-  @AutoValue
-  public abstract static class BuildMetadata {
+  public record BuildMetadata(
+      @Nullable String buildId, @Nullable String date, @Nullable String outputBase) {
     public static BuildMetadata create(
         @Nullable String buildId, @Nullable String date, @Nullable String outputBase) {
-      return new AutoValue_JsonProfile_BuildMetadata(buildId, date, outputBase);
+      return new BuildMetadata(buildId, date, outputBase);
     }
+  }
 
-    @Nullable
-    public abstract String buildId();
-
-    @Nullable
-    public abstract String date();
-
-    @Nullable
-    public abstract String outputBase();
+  private static ProfilePhase getPhaseFromDescription(String description) {
+    if (ProfilePhase.LAUNCH.description.equals(description)) {
+      return ProfilePhase.LAUNCH;
+    } else if (ProfilePhase.INIT.description.equals(description)) {
+      return ProfilePhase.INIT;
+    } else if (ProfilePhase.TARGET_PATTERN_EVAL.description.equals(description)) {
+      return ProfilePhase.TARGET_PATTERN_EVAL;
+    } else if (ProfilePhase.ANALYZE.description.equals(description)) {
+      return ProfilePhase.ANALYZE;
+    } else if (ProfilePhase.ANALYZE_AND_EXECUTE.description.equals(description)) {
+      return ProfilePhase.ANALYZE_AND_EXECUTE;
+    } else if (ProfilePhase.LICENSE.description.equals(description)) {
+      return ProfilePhase.LICENSE;
+    } else if (ProfilePhase.PREPARE.description.equals(description)) {
+      return ProfilePhase.PREPARE;
+    } else if (ProfilePhase.EXECUTE.description.equals(description)) {
+      return ProfilePhase.EXECUTE;
+    } else if (ProfilePhase.FINISH.description.equals(description)) {
+      return ProfilePhase.FINISH;
+    } else {
+      return ProfilePhase.UNKNOWN;
+    }
   }
 }

@@ -46,7 +46,7 @@ int _main(int argc, char** argv) {
     cerr << "ERROR[" << __FILE__ << "]: " << error << endl;
     return 1;
   }
-  string path = runfiles->Rlocation("foo_ws/bar/bar-cc-data.txt");
+  string path = runfiles->Rlocation("_main/bar/bar-cc-data.txt");
   if (!is_file(path)) {
     return 1;
   }

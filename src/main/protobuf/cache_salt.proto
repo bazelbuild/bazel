@@ -1,0 +1,43 @@
+// Copyright 2023 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package tools.protos;
+
+option java_package = "com.google.devtools.build.lib.remote.salt";
+option java_multiple_files = true;
+
+// Additional information that should be taken into account when computing the
+// disk or remote cache key for a spawn, thereby ensuring that spawns remain
+// distinct.
+message CacheSalt {
+  // Whether or not the spawn may be executed remotely, if remote
+  // execution were to be enabled. This ensures that adding/removing the
+  // "no-remote-exec" tag from a target forces a local/remote rebuild.
+  bool may_be_executed_remotely = 1;
+
+  // Requires the execution service do NOT share caches across different
+  // workspaces.
+  string workspace = 2;
+
+  message ScrubSalt {
+    // A unique value used to bust the cache for scrubbed spawns.
+    string salt = 1;
+  }
+
+  // Ensures that a scrubbed spawn can never collide with a non-scrubbed one.
+  // See the documentation for the --experimental_remote_scrub_config flag.
+  ScrubSalt scrub_salt = 3;
+}

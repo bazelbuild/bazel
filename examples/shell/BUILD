@@ -1,3 +1,7 @@
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 package(default_visibility = ["//visibility:public"])
 
 sh_binary(
@@ -27,6 +31,13 @@ sh_test(
         ":lib",
         "@bazel_tools//tools/bash/runfiles",
     ],
+)
+
+sh_binary(
+    name = "runfile",
+    srcs = ["runfile.sh"],
+    data = ["//examples:runfile.txt"],
+    use_bash_launcher = True,
 )
 
 filegroup(

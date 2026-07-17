@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
 import com.google.devtools.build.lib.packages.AttributeFormatter;
 import com.google.devtools.build.lib.packages.BuildType.SelectorList;
+import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -56,13 +57,15 @@ class SyntheticAttributeHashCalculator {
       Rule rule,
       Map<Attribute, Build.Attribute> serializedAttributes,
       Object extraDataForAttrHash,
-      HashFunction hashFunction) {
+      HashFunction hashFunction,
+      boolean includeAttributeSourceAspects,
+      boolean includeStarlarkRuleEnv) {
     HashingOutputStream hashingOutputStream =
         new HashingOutputStream(hashFunction, ByteStreams.nullOutputStream());
     CodedOutputStream codedOut = CodedOutputStream.newInstance(hashingOutputStream);
 
     RuleClass ruleClass = rule.getRuleClassObject();
-    if (ruleClass.isStarlark()) {
+    if (ruleClass.isStarlark() && includeStarlarkRuleEnv) {
       try {
         codedOut.writeByteArrayNoTag(
             Preconditions.checkNotNull(ruleClass.getRuleDefinitionEnvironmentDigest(), rule));
@@ -82,9 +85,8 @@ class SyntheticAttributeHashCalculator {
 
       Object valueToHash = rawAttributeMapper.getRawAttributeValue(rule, attr);
 
-      if (valueToHash instanceof ComputedDefault) {
+      if (valueToHash instanceof ComputedDefault computedDefault) {
         // ConfiguredDefaults need special handling to detect changes in evaluated values.
-        ComputedDefault computedDefault = (ComputedDefault) valueToHash;
         if (!computedDefault.dependencies().isEmpty()) {
           // TODO(b/29038463): We're skipping computed defaults that depend on other configurable
           // attributes because there currently isn't a way to evaluate such a computed default;
@@ -118,7 +120,10 @@ class SyntheticAttributeHashCalculator {
                 attr,
                 valueToHash,
                 /* explicitlySpecified= */ false, // We care about value, not how it was set.
-                /*encodeBooleanAndTriStateAsIntegerAndString=*/ false);
+                /* encodeBooleanAndTriStateAsIntegerAndString= */ false,
+                /* sourceAspect= */ null,
+                includeAttributeSourceAspects,
+                LabelPrinter.legacy());
       } else {
         attrPb = serializedAttributes.get(attr);
       }
@@ -132,7 +137,7 @@ class SyntheticAttributeHashCalculator {
 
     try {
       // Rules can be considered changed when the containing package goes in/out of error.
-      codedOut.writeBoolNoTag(rule.getPackage().containsErrors());
+      codedOut.writeBoolNoTag(rule.getPackageoid().containsErrors());
     } catch (IOException e) {
       throw new IllegalStateException("Unexpected IO failure writing to digest stream", e);
     }

@@ -1,0 +1,86 @@
+// Copyright 2023 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package remote_scrubbing;
+
+option java_package = "com.google.devtools.build.lib.remote";
+
+// Describes when and how to scrub remote cache keys.
+// See the documentation for the --experimental_remote_scrubbing_config flag.
+message Config {
+  // Describes a set of actions. An action must pass all criteria to match.
+  message Matcher {
+    // A regex matching the rule kind of the action owner.
+    // Use .* if a partial match is desired.
+    // If empty, matches every kind.
+    string kind = 4;
+    // A regex matching the canonical label of the action owner.
+    // Use .* if a partial match is desired.
+    // If empty, matches every label.
+    string label = 1;
+    // A regex matching the action mnemonic.
+    // Use .* if a partial match is desired.
+    // If empty, matches every mnemonic.
+    string mnemonic = 2;
+    // Whether to match actions built for a tool configuration.
+    // The default is to match only actions built for non-tool configurations.
+    bool match_tools = 3;
+  }
+
+  // Describes a string replacement.
+  message Replacement {
+    // A regex matching a substring to be replaced.
+    string source = 1;
+    // The string to replace the first matching substring with.
+    string target = 2;
+  }
+
+  // Describes a transformation to be applied to the cache key.
+  message Transform {
+    // A list of regexes matching an input path.
+    // An input whose path (relative to the execution root) exactly matches at
+    // least one of the regexes will be omitted from the cache key.
+    // Use .* if a partial match is desired.
+    repeated string omitted_inputs = 1;
+
+    // A list of replacements to be applied to each command line argument.
+    // Each replacement is successively applied to the command line argument,
+    // operating on the result of the previous replacement.
+    repeated Replacement arg_replacements = 2;
+
+    // An arbitrary value to be included in the remote cache key.
+    // It may be used to forcefully invalidate cache entries.
+    string salt = 3;
+  }
+
+  // Describes a set of transformations to be applied against a set of actions.
+  message Rule {
+    // A matcher for actions this rule applies to.
+    Matcher matcher = 1;
+    // The transformation applied by this rule.
+    Transform transform = 2;
+  }
+
+  // A list of configuration rules.
+  // For every action, the last matching rule is applied, and the remainder are
+  // ignored. Therefore, more specific rules should be specified last.
+  //
+  // Beware that every matcher is potentially applied to every action, and
+  // every transform is potentially applied to every input of a matching action,
+  // so a large number of rules containing costly regexes may have a noticeable
+  // impact on build performance.
+  repeated Rule rules = 1;
+}

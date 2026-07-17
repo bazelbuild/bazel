@@ -25,9 +25,4 @@ class TestUtil {
   public static void assertArrayEquals(byte[] expected, byte[] actual) {
     assertThat(actual).isEqualTo(expected);
   }
-
-  public static void assertArrayEquals(Object[] expected, Object[] actual) {
-    assertThat(actual).isEqualTo(expected);
-  }
-
 }

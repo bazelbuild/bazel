@@ -23,28 +23,19 @@ public enum TriState {
   AUTO;
 
   public int toInt() {
-    switch (this) {
-      case YES:
-        return 1;
-      case NO:
-        return 0;
-      case AUTO:
-        return -1;
-      default:
-        throw new IllegalStateException();
-    }
+    return switch (this) {
+      case YES -> 1;
+      case NO -> 0;
+      case AUTO -> -1;
+    };
   }
 
   public static TriState fromInt(int n) {
-    switch (n) {
-      case 1:
-        return YES;
-      case 0:
-        return NO;
-      case -1:
-        return AUTO;
-      default:
-        throw new IllegalArgumentException("TriState must be -1, 0, or 1");
-    }
+    return switch (n) {
+      case 1 -> YES;
+      case 0 -> NO;
+      case -1 -> AUTO;
+      default -> throw new IllegalArgumentException("TriState must be -1, 0, or 1");
+    };
   }
 }

@@ -1,5 +1,6 @@
-load("//:distdir_deps.bzl", "gen_workspace_stanza")
-load("//tools/python:private/defs.bzl", "py_test")
+load("@rules_python//python:defs.bzl", "py_test")
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 
 package(default_visibility = ["//visibility:private"])
 
@@ -8,9 +9,11 @@ exports_files([
     "bin/bazel_jdk_minimal",
     "bin/bazel_nojdk",
     "integration_test_setup.sh",
+    "platform_utils.sh",
     "sandboxing_test_utils.sh",
     "unittest.bash",
     "shell_utils.sh",
+    "testenv.sh",
 ])
 
 filegroup(
@@ -22,25 +25,17 @@ filegroup(
     visibility = ["//src:__pkg__"],
 )
 
-gen_workspace_stanza(
-    name = "testenv_sh",
-    out = "testenv.sh",
-    repos = [
-        "rules_cc",
-        "rules_java",
-        "rules_proto",
-    ],
-    template = "testenv.sh.tmpl",
-    visibility = ["//visibility:public"],
-)
-
 sh_library(
     name = "bashunit",
     srcs = [
         "unittest.bash",
         "unittest_utils.sh",
     ],
-    data = [":testenv.sh"],
+    data = [
+        ":testenv.sh",
+        "//src/test/tools/bzlmod:MODULE.bazel.lock",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
     visibility = ["//visibility:public"],
 )
 
@@ -67,6 +62,12 @@ sh_library(
     visibility = ["//src/test/shell/integration:__pkg__"],
 )
 
+sh_library(
+    name = "sandboxing_test_utils",
+    srcs = ["sandboxing_test_utils.sh"],
+    visibility = ["//src/test/shell/integration:__pkg__"],
+)
+
 sh_test(
     name = "shell_utils_test",
     srcs = ["shell_utils_test.sh"],
@@ -90,23 +91,4 @@ sh_test(
     tags = [
         "no_windows",  # test asserts symlink behavior
     ],
-)
-
-test_suite(
-    name = "windows_tests",
-    tags = [
-        "-no_windows",
-        "-slow",
-    ],
-    visibility = ["//visibility:private"],
-)
-
-test_suite(
-    name = "all_windows_tests",
-    tests = [
-        ":windows_tests",
-        "//src/test/shell/bazel:all_windows_tests",
-        "//src/test/shell/integration:all_windows_tests",
-    ],
-    visibility = ["//src:__pkg__"],
 )

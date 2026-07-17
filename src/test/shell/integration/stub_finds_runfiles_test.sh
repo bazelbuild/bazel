@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2016 The Bazel Authors. All rights reserved.
 #
@@ -24,19 +24,24 @@ CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-test_strategy="standalone"
-genrule_strategy="local"
-if [ $# -ge 1 ]; then
-  test_strategy=$1
-  genrule_strategy=$1
-  shift
-fi
+test_strategy=$1
+genrule_strategy=$2
 
 #### HELPER FUNCTIONS ##################################################
 
 function set_up() {
+  add_rules_java "MODULE.bazel"
+  add_rules_python "MODULE.bazel"
+  add_rules_shell "MODULE.bazel"
   mkdir -p pkg pkg/java
   cat > pkg/BUILD << 'EOF'
+load("@rules_java//java:java_binary.bzl", "java_binary")
+load("@rules_java//java:java_test.bzl", "java_test")
+load("@rules_python//python:py_binary.bzl", "py_binary")
+load("@rules_python//python:py_test.bzl", "py_test")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+
 java_binary(name = "javabin",
             main_class = "test.ExitZero",
             srcs = [ "java/ExitZero.java", ])
@@ -45,9 +50,11 @@ java_test(name = "javatest",
           use_testrunner = 0,
           srcs = [ "java/ExitZero.java", ])
 py_binary(name = "pybin",
-          srcs = [ "pybin.py", ])
+          srcs = [ "pybin.py", ],
+)
 py_test(name = "pytest",
-        srcs = [ "pytest.py", ])
+        srcs = [ "pytest.py", ],
+)
 sh_binary(name = "sh_runs_javabin",
           srcs = [ "sh_runs_javabin.sh", ],
           data = [ ":javabin", ])

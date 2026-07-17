@@ -130,10 +130,6 @@ public final class FutureCommandResult {
     }
   }
 
-  public void cancel() {
-    process.destroy();
-  }
-
   public boolean isDone() {
     return process.finished();
   }

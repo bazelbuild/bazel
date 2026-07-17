@@ -28,13 +28,14 @@
 static std::atomic_int g_sleep_stack{0};
 
 /*
- * Class:     com_google_devtools_build_lib_platform_SleepPreventionModule_SleepPrevention
- * Method:    pushDisableSleep
+ * Class:
+ * com_google_devtools_build_lib_platform_PlatformNativeDepsServiceImpl
+ * Method:    pushDisableSleepNative
  * Signature: ()I
  */
 extern "C" JNIEXPORT jint JNICALL
-Java_com_google_devtools_build_lib_platform_SleepPreventionModule_00024SleepPrevention_pushDisableSleep(
-    JNIEnv *, jclass) {
+Java_com_google_devtools_build_lib_platform_PlatformNativeDepsServiceImpl_pushDisableSleepNative(
+    JNIEnv*, jclass) {
   if (g_sleep_stack++ == 0) {
       SetThreadExecutionState(
           ES_CONTINUOUS | ES_SYSTEM_REQUIRED | ES_AWAYMODE_REQUIRED);
@@ -43,13 +44,14 @@ Java_com_google_devtools_build_lib_platform_SleepPreventionModule_00024SleepPrev
 }
 
 /*
- * Class:     com.google.devtools.build.lib.platform.SleepPreventionModule.SleepPrevention
- * Method:    popDisableSleep
+ * Class:
+ * com.google.devtools.build.lib.platform.PlatformNativeDepsServiceImpl
+ * Method:    popDisableSleepNative
  * Signature: ()I
  */
 extern "C" JNIEXPORT jint JNICALL
-Java_com_google_devtools_build_lib_platform_SleepPreventionModule_00024SleepPrevention_popDisableSleep(
-    JNIEnv *, jclass) {
+Java_com_google_devtools_build_lib_platform_PlatformNativeDepsServiceImpl_popDisableSleepNative(
+    JNIEnv*, jclass) {
   int stack_value = --g_sleep_stack;
   assert(stack_value >= 0);
   if (stack_value == 0) {

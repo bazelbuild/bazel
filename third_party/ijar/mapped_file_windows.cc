@@ -94,12 +94,6 @@ MappedInputFile::~MappedInputFile() {
   delete impl_;
 }
 
-void MappedInputFile::Discard(size_t bytes) {
-  // This is not supported on Windows for now. I'm not sure if we can unmap
-  // parts of an existing view and that this is necessary for Windows at all.
-  // At any rate, this only matters for >2GB (or maybe >4GB?) input files.
-}
-
 int MappedInputFile::Close() {
   if (!UnmapViewOfFile(buffer_)) {
     string errormsg = blaze_util::GetLastErrorString();

@@ -20,7 +20,6 @@ package blaze;
 
 option java_multiple_files = true;
 option java_package = "com.google.devtools.build.lib.actions.extra";
-// option cc_api_version = 2;
 // option java_api_version = 2;
 
 // A list of extra actions and metadata for the print_action command.
@@ -43,6 +42,7 @@ message DetailedExtraActionInfo {
   // of the files that are actually required), or we could run the include
   // scanner and add those files here.
   optional string triggering_file = 1;
+
   // The actual action.
   required ExtraActionInfo action = 2;
 }
@@ -70,16 +70,20 @@ message ExtraActionInfo {
   // These are the aspect parameters of the last aspect
   // in 'aspects' (8) field.
   map<string, StringList> aspect_parameters = 7 [deprecated = true];
+
   message StringList {
     option deprecated = true;
+
     repeated string value = 1;
   }
 
   message AspectDescriptor {
     // Corresponds to AspectDescriptor.getName()
     optional string aspect_name = 1;
+
     // Corresponds to AspectDescriptor.getParameters()
     map<string, StringList> aspect_parameters = 2;
+
     message StringList {
       repeated string value = 1;
     }
@@ -99,6 +103,7 @@ message ExtraActionInfo {
 message EnvironmentVariable {
   // It is possible that this name is not a valid variable identifier.
   required string name = 1;
+
   // The value is unescaped and unquoted.
   required string value = 2;
 }
@@ -111,6 +116,7 @@ message SpawnInfo {
   }
 
   repeated string argument = 1;
+
   // A list of environment variables and their values. No order is enforced.
   repeated EnvironmentVariable variable = 2;
   repeated string input_file = 4;
@@ -128,10 +134,12 @@ message CppCompileInfo {
   repeated string compiler_option = 2;
   optional string source_file = 3;
   optional string output_file = 4;
+
   // Due to header discovery, this won't include headers unless the build is
   // actually performed. If set, this field will include the value of
   // "source_file" in addition to the headers.
   repeated string sources_and_headers = 5;
+
   // A list of environment variables and their values. No order is enforced.
   repeated EnvironmentVariable variable = 6;
 }
@@ -150,6 +158,7 @@ message CppLinkInfo {
   optional string link_staticness = 5;
   repeated string link_stamp = 6;
   repeated string build_info_header_artifact = 7;
+
   // The list of command line options used for running the linking tool.
   repeated string link_opt = 8;
 }

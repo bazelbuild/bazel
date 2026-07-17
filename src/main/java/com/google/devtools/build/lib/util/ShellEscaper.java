@@ -63,6 +63,8 @@ public final class ShellEscaper extends Escaper {
           .or(CharMatcher.inRange('a', 'z')) // that would also accept non-ASCII digits and
           .or(CharMatcher.inRange('A', 'Z')) // letters.
           .precomputed();
+  private static final CharMatcher SAFECHAR_MATCHER_WITH_TILDE =
+      SAFECHAR_MATCHER.or(CharMatcher.is('~')).precomputed();
 
   /**
    * Escapes a string by adding strong (single) quotes around it if necessary.
@@ -98,9 +100,13 @@ public final class ShellEscaper extends Escaper {
       // gets treated as a separate argument.
       return "''";
     } else {
-      return SAFECHAR_MATCHER.matchesAllOf(s)
-          ? s
-          : "'" + STRONGQUOTE_ESCAPER.escape(s) + "'";
+      if (SAFECHAR_MATCHER.matchesAllOf(s)) {
+        return s;
+      }
+      if (SAFECHAR_MATCHER_WITH_TILDE.matchesAllOf(s) && s.charAt(0) != '~') {
+        return s;
+      }
+      return "'" + STRONGQUOTE_ESCAPER.escape(s) + "'";
     }
   }
 

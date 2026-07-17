@@ -1,0 +1,203 @@
+// Copyright 2022 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package com.google.devtools.build.lib.skyframe;
+
+import com.google.common.base.Function;
+import com.google.common.base.Preconditions;
+import com.google.common.base.Predicate;
+import com.google.common.base.Predicates;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.bazel.bzlmod.BazelDepGraphValue;
+import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionValue;
+import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtensionId;
+import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue;
+import com.google.devtools.build.lib.bazel.repository.RepoDefinitionValue;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.repository.RequestRepositoryInformationEvent;
+import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
+import com.google.devtools.build.lib.vfs.FileStateKey;
+import com.google.devtools.build.skyframe.CycleInfo;
+import com.google.devtools.build.skyframe.CyclesReporter;
+import com.google.devtools.build.skyframe.SkyKey;
+
+/** Reports cycles introduced by module extensions and .bzl files where they are declared. */
+public class BzlmodRepoCycleReporter implements CyclesReporter.SingleCycleReporter {
+
+  private static final Predicate<SkyKey> IS_BZL_LOAD =
+      SkyFunctions.isSkyFunction(SkyFunctions.BZL_LOAD);
+
+  private static final Predicate<SkyKey> IS_PACKAGE_LOOKUP =
+      SkyFunctions.isSkyFunction(SkyFunctions.PACKAGE_LOOKUP);
+
+  private static final Predicate<SkyKey> IS_CONTAINING_PACKAGE =
+      SkyFunctions.isSkyFunction(SkyFunctions.CONTAINING_PACKAGE_LOOKUP);
+
+  private static final Predicate<SkyKey> IS_REPOSITORY_DIRECTORY =
+      SkyFunctions.isSkyFunction(SkyFunctions.REPOSITORY_DIRECTORY);
+
+  private static final Predicate<SkyKey> IS_REPO_DEFINITION =
+      SkyFunctions.isSkyFunction(RepoDefinitionValue.REPO_DEFINITION);
+
+  private static final Predicate<SkyKey> IS_EXTENSION_IMPL =
+      SkyFunctions.isSkyFunction(SkyFunctions.SINGLE_EXTENSION_EVAL);
+
+  private static final Predicate<SkyKey> IS_EXTENSION_VALIDATION =
+      SkyFunctions.isSkyFunction(SkyFunctions.SINGLE_EXTENSION);
+
+  private static final Predicate<SkyKey> IS_REPO_MAPPING =
+      SkyFunctions.isSkyFunction(SkyFunctions.REPOSITORY_MAPPING);
+
+  private static final Predicate<SkyKey> IS_MODULE_EXTENSION_REPO_MAPPING_ENTRIES =
+      SkyFunctions.isSkyFunction(SkyFunctions.MODULE_EXTENSION_REPO_MAPPING_ENTRIES);
+
+  private static final Predicate<SkyKey> IS_PACKAGE =
+      SkyFunctions.isSkyFunction(SkyFunctions.PACKAGE);
+
+  private static final Predicate<SkyKey> IS_MODULE_RESOLUTION =
+      SkyFunctions.isSkyFunction(SkyFunctions.BAZEL_MODULE_RESOLUTION);
+
+  private static final Predicate<SkyKey> IS_DEP_GRAPH =
+      SkyFunctions.isSkyFunction(SkyFunctions.BAZEL_DEP_GRAPH);
+
+  private static final Predicate<SkyKey> IS_MODULE_FILE =
+      SkyFunctions.isSkyFunction(SkyFunctions.MODULE_FILE);
+
+  private static final Predicate<SkyKey> IS_FILE = SkyFunctions.isSkyFunction(SkyFunctions.FILE);
+
+  private static final Predicate<SkyKey> IS_FILE_STATE =
+      SkyFunctions.isSkyFunction(FileStateKey.FILE_STATE);
+
+  private static void requestRepoDefinitions(
+      ExtendedEventHandler eventHandler, Iterable<SkyKey> repos) {
+    for (SkyKey repo : repos) {
+      if (repo instanceof RepositoryDirectoryValue.Key) {
+        eventHandler.post(
+            new RequestRepositoryInformationEvent(
+                ((RepositoryDirectoryValue.Key) repo).argument().getName()));
+      }
+    }
+  }
+
+  @Override
+  public boolean maybeReportCycle(
+      SkyKey topLevelKey,
+      CycleInfo cycleInfo,
+      boolean alreadyReported,
+      ExtendedEventHandler eventHandler) {
+    ImmutableList<SkyKey> cycle = cycleInfo.getCycle();
+    if (alreadyReported) {
+      return true;
+    }
+
+    // This cycle reporter is aimed to handle cycles between any chaining of general .bzl
+    // files, extension-generated repositories, extension evaluations, and the .bzl files where
+    // they are declared. The state machine that describes this kind of cycles is:
+    //    ________________________
+    //   V                        |
+    // PACKAGE -> REPOSITORY -> EXT -> BZL_LOAD -
+    //                   ^                   ^   \
+    //                   |___________________|___|
+    // TODO(andreisolo): Figure out how to detect and print this kind of cycles more specifically.
+    if (Iterables.all(
+            cycle,
+            Predicates.or(
+                IS_REPOSITORY_DIRECTORY,
+                IS_PACKAGE_LOOKUP,
+                IS_REPO_DEFINITION,
+                IS_EXTENSION_IMPL,
+                IS_EXTENSION_VALIDATION,
+                IS_BZL_LOAD,
+                IS_CONTAINING_PACKAGE,
+                IS_REPO_MAPPING,
+                IS_MODULE_EXTENSION_REPO_MAPPING_ENTRIES,
+                IS_PACKAGE,
+                IS_MODULE_RESOLUTION,
+                IS_DEP_GRAPH,
+                IS_MODULE_FILE,
+                IS_FILE,
+                IS_FILE_STATE))
+        && Iterables.any(
+            cycle, Predicates.or(IS_REPOSITORY_DIRECTORY, IS_REPO_DEFINITION, IS_EXTENSION_IMPL))) {
+      StringBuilder cycleMessage =
+          new StringBuilder(
+              "Circular definition of repositories generated by module extensions or files in"
+                  + " external repositories:");
+      Iterable<SkyKey> repos =
+          Iterables.filter(
+              cycle,
+              Predicates.or(
+                  IS_REPOSITORY_DIRECTORY,
+                  IS_EXTENSION_IMPL,
+                  IS_BZL_LOAD,
+                  IS_REPO_MAPPING,
+                  IS_MODULE_RESOLUTION,
+                  IS_DEP_GRAPH,
+                  IS_MODULE_FILE));
+      Function<Object, String> printer =
+          rawInput -> {
+            SkyKey input = (SkyKey) rawInput;
+            if (input instanceof RepositoryDirectoryValue.Key) {
+              return ((RepositoryDirectoryValue.Key) input).argument().toString();
+            } else if (input.argument() instanceof ModuleExtensionId id) {
+              return "module extension " + id;
+            } else if (input.argument() instanceof RepositoryMappingValue.Key key) {
+              return String.format("repository mapping of %s", key.repoName());
+            } else if (input.argument() == BazelModuleResolutionValue.KEY) {
+              return "module resolution";
+            } else if (input.argument() == BazelDepGraphValue.KEY) {
+              return "module dependency graph";
+            } else if (input.argument() instanceof ModuleFileValue.Key) {
+              return "module file of " + input.argument();
+            } else if (input instanceof FileKey fileKey) {
+              return "file " + fileKey.argument();
+            } else if (input instanceof FileStateKey fileStateKey) {
+              return "file state " + fileStateKey.argument();
+            } else {
+              Preconditions.checkArgument(input.argument() instanceof BzlLoadValue.Key);
+              return ((BzlLoadValue.Key) input.argument()).getLabel().toString();
+            }
+          };
+      AbstractLabelCycleReporter.printCycle(ImmutableList.copyOf(repos), cycleMessage, printer);
+      eventHandler.handle(Event.error(null, cycleMessage.toString()));
+      // To help debugging, request that the information be printed about where the respective
+      // repositories were defined.
+      requestRepoDefinitions(eventHandler, repos);
+      return true;
+    } else if (Iterables.any(cycle, IS_BZL_LOAD)) {
+      Label fileLabel =
+          ((BzlLoadValue.Key) Iterables.getLast(Iterables.filter(cycle, IS_BZL_LOAD))).getLabel();
+      final String errorMessage =
+          String.format(
+              "Failed to load .bzl file '%s': possible dependency cycle detected.\n", fileLabel);
+      eventHandler.handle(Event.error(null, errorMessage));
+      return true;
+    } else if (Iterables.any(cycle, IS_PACKAGE_LOOKUP)) {
+      PackageIdentifier pkg =
+          (PackageIdentifier)
+              Iterables.getLast(Iterables.filter(cycle, IS_PACKAGE_LOOKUP)).argument();
+      eventHandler.handle(
+          Event.error(
+              null,
+              String.format(
+                  "cannot load package '%s': possible dependency cycle detected.\n", pkg)));
+      return true;
+    }
+    return false;
+  }
+}

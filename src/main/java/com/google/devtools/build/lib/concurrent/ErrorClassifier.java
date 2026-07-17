@@ -24,11 +24,16 @@ public abstract class ErrorClassifier {
    * <p>N.B. - These enum values are ordered from least severe to most severe.
    */
   public enum ErrorClassification {
-    /** Other running actions should be left alone.*/
+    /** Other running actions should be left alone. */
     NOT_CRITICAL,
-    /** All running actions should be stopped.*/
+    /**
+     * Other running actions should be left alone, but the error should be prioritized over {@link
+     * #NOT_CRITICAL}.
+     */
+    NOT_CRITICAL_HIGHER_PRIORITY,
+    /** All running actions should be stopped. */
     CRITICAL,
-    /** Same as {@link #CRITICAL}, but also log the error.*/
+    /** Same as {@link #CRITICAL}, but also log the error. */
     CRITICAL_AND_LOG,
     /** Same as {@link #CRITICAL_AND_LOG}, but is even worse. */
     AS_CRITICAL_AS_POSSIBLE

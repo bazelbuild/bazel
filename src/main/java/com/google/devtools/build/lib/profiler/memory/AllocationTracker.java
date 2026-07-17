@@ -14,23 +14,25 @@
 
 package com.google.devtools.build.lib.profiler.memory;
 
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.MapMaker;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ConditionallyThreadCompatible;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleFunction;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.monitoring.runtime.instrumentation.Sampler;
 import com.google.perftools.profiles.ProfileProto.Function;
 import com.google.perftools.profiles.ProfileProto.Line;
 import com.google.perftools.profiles.ProfileProto.Profile;
 import com.google.perftools.profiles.ProfileProto.Sample;
 import com.google.perftools.profiles.ProfileProto.ValueType;
-import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
@@ -92,7 +94,8 @@ public final class AllocationTracker implements Sampler, Debug.ThreadHook {
     }
   }
 
-  private final Map<Object, AllocationSample> allocations = new MapMaker().weakKeys().makeMap();
+  private final Cache<Object, AllocationSample> allocations =
+      Caffeine.newBuilder().weakKeys().build();
   private final int samplePeriod;
   private final int sampleVariance;
   private boolean enabled = true;
@@ -202,6 +205,7 @@ public final class AllocationTracker implements Sampler, Debug.ThreadHook {
       return bytes;
     }
 
+    @CanIgnoreReturnValue
     public RuleBytes addBytes(long bytes) {
       this.bytes += bytes;
       return this;
@@ -248,7 +252,7 @@ public final class AllocationTracker implements Sampler, Debug.ThreadHook {
     System.gc();
 
     // Get loading phase memory for rules.
-    for (AllocationSample sample : allocations.values()) {
+    for (AllocationSample sample : allocations.asMap().values()) {
       RuleFunction rule = getRule(sample);
       if (rule != null) {
         RuleClass ruleClass = rule.getRuleClass();
@@ -258,7 +262,7 @@ public final class AllocationTracker implements Sampler, Debug.ThreadHook {
       }
     }
     // Get analysis phase memory for rules and aspects
-    for (AllocationSample sample : allocations.values()) {
+    for (AllocationSample sample : allocations.asMap().values()) {
       if (sample.ruleClass != null) {
         String key = sample.ruleClass.getKey();
         RuleBytes ruleBytes =
@@ -277,14 +281,14 @@ public final class AllocationTracker implements Sampler, Debug.ThreadHook {
   }
 
   /** Dumps all Starlark analysis time allocations to a pprof-compatible file. */
-  public void dumpStarlarkAllocations(String path) throws IOException {
+  public void dumpStarlarkAllocations(OutputStream outputStream) throws IOException {
     // Make sure we don't track our own allocations
     enabled = false;
     System.gc();
     Profile profile = buildMemoryProfile();
-    try (GZIPOutputStream outputStream = new GZIPOutputStream(new FileOutputStream(path))) {
-      profile.writeTo(outputStream);
-      outputStream.finish();
+    try (GZIPOutputStream gzipOutputStream = new GZIPOutputStream(outputStream)) {
+      profile.writeTo(gzipOutputStream);
+      gzipOutputStream.finish();
     }
     enabled = true;
   }
@@ -299,7 +303,7 @@ public final class AllocationTracker implements Sampler, Debug.ThreadHook {
             .setType(stringTable.get("memory"))
             .setUnit(stringTable.get("bytes"))
             .build());
-    for (AllocationSample sample : allocations.values()) {
+    for (AllocationSample sample : allocations.asMap().values()) {
       // Skip empty callstacks
       if (sample.callstack.isEmpty()) {
         continue;

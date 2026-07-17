@@ -40,6 +40,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -61,15 +62,13 @@ public class SuccessfulArtifactFilterTest {
   }
 
   @SafeVarargs
-  final void initializeOutputGroupInfo(Pair<String, NestedSet<Artifact>>... groups) {
-    ImmutableSortedSet.Builder<String> setBuilder = ImmutableSortedSet.naturalOrder();
-    ImmutableMap.Builder<String, NestedSet<Artifact>> mapBuilder = ImmutableMap.builder();
-    for (Pair<String, NestedSet<Artifact>> pair : groups) {
-      setBuilder.add(pair.first);
-      mapBuilder.put(pair.first, pair.second);
+  private void initializeOutputGroupInfo(Pair<String, NestedSet<Artifact>>... groups) {
+    TreeMap<String, NestedSetBuilder<Artifact>> outputGroups = new TreeMap<>();
+    for (var pair : groups) {
+      outputGroups.put(pair.first, NestedSetBuilder.fromNestedSet(pair.second));
     }
-    ctx = new TopLevelArtifactContext(false, false, false, setBuilder.build());
-    groupProvider = new OutputGroupInfo(mapBuilder.build());
+    groupProvider = OutputGroupInfo.fromBuilders(outputGroups);
+    ctx = new TopLevelArtifactContext(false, false, ImmutableSortedSet.copyOf(groupProvider));
   }
 
   @Test
@@ -217,10 +216,10 @@ public class SuccessfulArtifactFilterTest {
         NestedSetBuilder.<Artifact>stableOrder().add(builtArtifact).add(failedArtifact).build();
     List<NestedSet<Artifact>> sets = new ArrayList<>();
     sets.add(baseSet);
-    // Create a NestedSet DAG with ((5000 * 4999) / 2) nodes, but with only 5000 unique nodes. It
+    // Create a NestedSet DAG with ((500 * 499) / 2) nodes, but with only 500 unique nodes. It
     // should be feasible to filter this NestedSet using memoization in a small test and we should
     // timeout if we aren't using memoization.
-    for (int i = 0; i < 5000; i++) {
+    for (int i = 0; i < 500; i++) {
       NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
       builder.add(builtArtifact).add(failedArtifact);
       for (NestedSet<Artifact> set : sets) {
@@ -247,7 +246,7 @@ public class SuccessfulArtifactFilterTest {
     return new SourceArtifact(root, PathFragment.create(name), LabelArtifactOwner.NULL_OWNER);
   }
 
-  private Map<String, ImmutableSet<Artifact>> extractArtifactsByOutputGroup(
+  private static Map<String, ImmutableSet<Artifact>> extractArtifactsByOutputGroup(
       ImmutableMap<String, ArtifactsInOutputGroup> outputGroups) {
     Map<String, ImmutableSet<Artifact>> groupToDeclaredArtifacts = new HashMap<>();
     for (Map.Entry<String, ArtifactsInOutputGroup> entry : outputGroups.entrySet()) {

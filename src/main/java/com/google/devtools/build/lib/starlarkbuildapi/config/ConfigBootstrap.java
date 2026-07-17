@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.starlarkbuildapi.config;
 
 import com.google.common.collect.ImmutableMap.Builder;
-import com.google.devtools.build.lib.starlarkbuildapi.StarlarkConfigApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.Bootstrap;
 import net.starlark.java.eval.Starlark;
 

@@ -19,6 +19,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
@@ -42,19 +43,20 @@ public abstract class AbstractConstraintsTest extends BuildViewTestCase {
       this.name = name;
     }
 
+    @CanIgnoreReturnValue
     public EnvironmentGroupMaker setEnvironments(String... environments) {
       this.environments = ImmutableSet.copyOf(environments);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public EnvironmentGroupMaker setDefaults(String... environments) {
       this.defaults = ImmutableSet.copyOf(environments);
       return this;
     }
 
-    /**
-     * Declares that env1 fulfills env2.
-     */
+    /** Declares that env1 fulfills env2. */
+    @CanIgnoreReturnValue
     public EnvironmentGroupMaker setFulfills(String env1, String env2) {
       fulfillsMap.put(env1, env2);
       return this;
@@ -81,14 +83,11 @@ public abstract class AbstractConstraintsTest extends BuildViewTestCase {
    * Returns a rule definition of the given name, type and custom attribute settings.
    */
   protected static String getRuleDef(String ruleType, String ruleName, String... customAttributes) {
-    String ruleDef =
-        ruleType + "(\n"
-        + "    name = '" + ruleName + "',\n"
-        + "    srcs = ['" + ruleName + ".sh'],\n";
+    String ruleDef = ruleType + "(name = '" + ruleName + "',";
     for (String customAttribute : customAttributes) {
-      ruleDef += "    " + customAttribute + ",\n";
+      ruleDef += "    " + customAttribute + ",";
     }
-    ruleDef += ")\n";
+    ruleDef += ")";
     return ruleDef;
   }
 
@@ -105,19 +104,18 @@ public abstract class AbstractConstraintsTest extends BuildViewTestCase {
   }
 
   /**
-   * The core constraint semantics check that if rule A depends on rule B, B must support all of
-   * A's environments. To model this in the tests below, we construct two rules: a "depending"
-   * rule (i.e. A) that depends on a "dependency" rule (i.e. B). Each test can construct its
-   * own instance of these rules with its own environments specifications by calling this method
-   * and {@link #getDependencyRule} with appropriate environment settings passed in as custom
-   * attributes.
+   * The core constraint semantics check that if rule A depends on rule B, B must support all of A's
+   * environments. To model this in the tests below, we construct two rules: a "depending" rule
+   * (i.e. A) that depends on a "dependency" rule (i.e. B). Each test can construct its own instance
+   * of these rules with its own environments specifications by calling this method and {@link
+   * #getDependencyRule} with appropriate environment settings passed in as custom attributes.
    *
    * <p>This method constructs and returns the depending rule (i.e. A).
    */
   protected static String getDependingRule(String... customAttributes) {
     List<String> attrsAsList = Lists.newArrayList(customAttributes);
-    attrsAsList.add(getAttrDef("deps", "dep"));
-    return getRuleDef("sh_library", "main", attrsAsList.toArray(new String[0]));
+    attrsAsList.add(getAttrDef("srcs", "dep"));
+    return getRuleDef("filegroup", "main", attrsAsList.toArray(new String[0]));
   }
 
   /**
@@ -126,7 +124,7 @@ public abstract class AbstractConstraintsTest extends BuildViewTestCase {
    * valid.
    */
   protected static String getDependencyRule(String... customAttributes) {
-    return getRuleDef("sh_library", "dep", customAttributes);
+    return getRuleDef("filegroup", "dep", customAttributes);
   }
 
   /**
@@ -149,7 +147,7 @@ public abstract class AbstractConstraintsTest extends BuildViewTestCase {
    */
   protected Collection<Label> supportedEnvironments(String ruleName, String ruleDef)
       throws Exception {
-    return (new RuleContextConstraintSemantics())
+    return  new RuleContextConstraintSemantics()
         .getSupportedEnvironments(
             getRuleContext(scratchConfiguredTarget("hello", ruleName, ruleDef)))
         .getEnvironments();

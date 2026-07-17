@@ -14,31 +14,24 @@
 package com.google.devtools.build.lib.buildtool;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertContainsEvent;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertDoesNotContainEvent;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
-import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.EventKind;
-import com.google.devtools.build.lib.testutil.Suite;
-import com.google.devtools.build.lib.testutil.TestSpec;
+import com.google.devtools.build.lib.unix.NativePosixFilesServiceImpl;
 import com.google.devtools.build.lib.unix.UnixFileSystem;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Test for progress reporting.
- */
-@TestSpec(size = Suite.MEDIUM_TESTS)
+/** Test for progress reporting. */
 @RunWith(JUnit4.class)
 public class ProgressReportingTest extends BuildIntegrationTestCase {
   private enum PathOp {
@@ -50,22 +43,17 @@ public class ProgressReportingTest extends BuildIntegrationTestCase {
     void accept(PathFragment path, PathOp op);
   }
 
-  private Receiver receiver;
-
-  @Before
-  public final void getIgnoreReceiver() throws Exception  {
-    receiver = (x, y) -> {};
-  }
+  private Receiver receiver = (x, y) -> {};
 
   @Override
-  protected boolean realFileSystem() {
-    // Must have real filesystem for MockTools to give us an environment we can execute actions in.
-    return true;
+  protected ImmutableSet<EventKind> additionalEventsToCollect() {
+    return ImmutableSet.of(EventKind.PROGRESS, EventKind.START);
   }
 
   @Override
   protected FileSystem createFileSystem() {
-    return new UnixFileSystem(DigestHashFunction.SHA256, /*hashAttributeName=*/ "") {
+    return new UnixFileSystem(
+        DigestHashFunction.SHA256, /* hashAttributeName= */ "", new NativePosixFilesServiceImpl()) {
       private void recordAccess(PathOp op, PathFragment path) {
         if (receiver != null) {
           receiver.accept(path, op);
@@ -73,7 +61,7 @@ public class ProgressReportingTest extends BuildIntegrationTestCase {
       }
 
       @Override
-      protected boolean delete(PathFragment path) throws IOException {
+      public boolean delete(PathFragment path) throws IOException {
         recordAccess(PathOp.DELETE, path);
         return super.delete(path);
       }
@@ -81,42 +69,42 @@ public class ProgressReportingTest extends BuildIntegrationTestCase {
   }
 
   /**
-   * Tests that [for host] tags are added to the progress messages of actions in the
-   * host configuration, but not in the target configuration.
+   * Tests that [for tool] tags are added to the progress messages of actions in the exec
+   * configuration, but not in the target configuration.
    */
   @Test
   public void testAdditionalInfo() throws Exception {
     AnalysisMock.get().pySupport().setup(mockToolsConfig);
-    write("x/BUILD",
-        "py_binary(name = 'bin',",
-        "          srcs = ['bin.py'])",
+    write(
+        "x/BUILD",
+        "genrule(name = 'tool',",
+        "          outs = ['sometool'],",
+        "          cmd = 'touch $@')",
         "genrule(name = 'x',",
-        "        outs = ['out']," +
-        "        cmd = 'echo test > $@'," +
-        "        tools = [':bin'])");
-    write("x/bin.py");
-
-    EventCollector collector = new EventCollector(EventKind.START);
-    events.addHandler(collector);
+        "        outs = ['out'],"
+            + "        cmd = 'echo test > $@',"
+            + "        tools = [':tool'])");
 
     buildTarget("//x");
 
-    assertContainsEvent(collector, "Expanding template x/bin [for host]");
-    assertContainsEvent(collector, "Creating source manifest for //x:bin [for host]");
-    assertContainsEvent(collector,
-        "Creating runfiles tree blaze-out/host/bin/x/bin.runfiles [for host]");
-    assertContainsEvent(collector, "Executing genrule //x:x");
-    assertDoesNotContainEvent(collector, "Executing genrule //x:x [for host]");
+    assertContainsEvent("Executing genrule //x:tool [for tool]");
+    assertContainsEvent("Executing genrule //x:x");
+    assertDoesNotContainEvent("Executing genrule //x:x [for tool]");
   }
 
   @Test
   public void testPreparingMessage() throws Exception {
-    write("x/BUILD",
-        "genrule(name = 'x',",
-        "        outs = ['slowdelete'],",
-        "        cmd = 'touch $@')");
+    write(
+        "x/BUILD",
+        """
+        genrule(
+            name = "x",
+            outs = ["slowdelete"],
+            cmd = "touch $@",
+        )
+        """);
     buildTarget("//x");
-    final Path output = Iterables.getOnlyElement(getArtifacts("//x:x")).getPath();
+    Path output = Iterables.getOnlyElement(getArtifacts("//x:x")).getPath();
     assertThat(output.delete()).isTrue();
     receiver =
         (path, op) -> {
@@ -132,39 +120,42 @@ public class ProgressReportingTest extends BuildIntegrationTestCase {
           }
         };
     addOptions("--progress_report_interval=1");
-    EventCollector collector = new EventCollector(EventKind.PROGRESS);
-    events.addHandler(collector);
 
     buildTarget("//x");
-    assertContainsEvent(collector, "Preparing:");
-    assertContainsEvent(collector, "Executing genrule //x:x");
+    assertContainsEvent("Preparing:");
+    assertContainsEvent("Executing genrule //x:x");
   }
 
   @Test
   public void testWaitForResources() throws Exception {
-    write("x/BUILD",
-        "genrule(name = 'x',",
-        "        outs = ['x.out'],",
-        "        local = 1,",
-        "        cmd = 'sleep 3; touch $@')",
-        "genrule(name = 'y',",
-        "        outs = ['y.out'],",
-        "        local = 1,",
-        "        cmd = 'sleep 3; touch $@')"
-        );
+    write(
+        "x/BUILD",
+        """
+        genrule(
+            name = "x",
+            outs = ["x.out"],
+            cmd = "sleep 3; touch $@",
+            local = 1,
+        )
+
+        genrule(
+            name = "y",
+            outs = ["y.out"],
+            cmd = "sleep 3; touch $@",
+            local = 1,
+        )
+        """);
     // GenRuleAction currently specifies 300,1.0,0.0. If that changes, this may have to be changed
     // in order to keep exactly one genrule running at a time.
     addOptions(
         "--progress_report_interval=1",
-        "--local_ram_resources=1000",
-        "--local_cpu_resources=1",
+        "--local_resources=cpu=1",
+        "--local_resources=memory=1000",
         "--show_progress_rate_limit=-1");
-    EventCollector collector = new EventCollector(EventKind.PROGRESS);
-    events.addHandler(collector);
     buildTarget("//x:x", "//x:y");
 
-    assertContainsEvent(collector, "Scheduling:");
-    assertContainsEvent(collector, "Executing genrule //x:x");
-    assertContainsEvent(collector, "Executing genrule //x:y");
+    assertContainsEvent("Scheduling:");
+    assertContainsEvent("Executing genrule //x:x");
+    assertContainsEvent("Executing genrule //x:y");
   }
 }

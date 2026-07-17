@@ -19,11 +19,3 @@ filegroup(
     srcs = ["//tools/bash/runfiles:embedded_tools"],
     visibility = ["//tools:__pkg__"],
 )
-
-test_suite(
-    name = "all_windows_tests",
-    tests = [
-        "//tools/bash/runfiles:all_windows_tests",
-    ],
-    visibility = ["//tools:__pkg__"],
-)

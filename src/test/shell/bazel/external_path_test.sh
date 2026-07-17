@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2018 The Bazel Authors. All rights reserved.
 #
@@ -29,7 +29,8 @@ repo_with_local_include() {
   # Generate a repository, in the current working directory, with a target
   # //src:hello that includes a file via a local path.
 
-  create_workspace_with_default_repos WORKSPACE
+  setup_module_dot_bazel
+  add_rules_cc MODULE.bazel
   mkdir src
   cat > src/main.c <<'EOF'
 #include <stdio.h>
@@ -45,6 +46,7 @@ EOF
 #define GREETING "Hello World"
 EOF
   cat > src/BUILD <<'EOF'
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 cc_binary(
   name="hello",
   srcs=["main.c", "consts/greeting.h"],
@@ -57,7 +59,7 @@ library_with_local_include() {
   # is a library with headers that include via paths relative to the root of
   # that repository
 
-  create_workspace_with_default_repos WORKSPACE
+  setup_module_dot_bazel
   mkdir lib
   cat > lib/lib.h <<'EOF'
 #include "lib/constants.h"
@@ -77,6 +79,7 @@ int greet(char *s) {
 }
 EOF
   cat > lib/BUILD <<EOF
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 cc_library(
   name="lib",
   srcs=["lib.c"],
@@ -115,14 +118,15 @@ test_local_paths_remote() {
 
   mkdir main
   cd main
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  cat >> $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="remote",
   strip_prefix="remote",
   urls=["file://${WRKDIR}/remote.tar"],
 )
 EOF
+  add_rules_cc MODULE.bazel
 
   bazel build @remote//src:hello || fail "Expected build to succeed"
   bazel run @remote//src:hello | grep 'Hello World' \
@@ -130,7 +134,7 @@ EOF
 }
 
 test_lib_paths_main() {
-  # Verify that libaries from the main repository can be used via include
+  # Verify that libraries from the main repository can be used via include
   # path relative to their repository root and that they may refer to other
   # truly source files from the same library via paths relative to their
   # repository root.
@@ -142,7 +146,6 @@ test_lib_paths_main() {
   cd main
   library_with_local_include
 
-  create_workspace_with_default_repos WORKSPACE
   cat > main.c <<'EOF'
 #include "lib/lib.h"
 
@@ -151,7 +154,9 @@ int main(int argc, char **argv) {
   return 0;
 }
 EOF
+  add_rules_cc MODULE.bazel
   cat > BUILD <<'EOF'
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 cc_binary(
   name="hello",
   srcs=["main.c"],
@@ -165,7 +170,7 @@ EOF
 }
 
 test_lib_paths_remote() {
-  # Verify that libaries from an external repository can be used via include
+  # Verify that libraries from an external repository can be used via include
   # path relative to their repository root and that they may refer to other
   # truly source files from the same library via paths relative to their
   # repository root.
@@ -180,8 +185,8 @@ test_lib_paths_remote() {
 
   mkdir main
   cd main
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  cat >> $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="remote",
   strip_prefix="remote",
@@ -196,7 +201,9 @@ int main(int argc, char **argv) {
   return 0;
 }
 EOF
+  add_rules_cc MODULE.bazel
   cat > BUILD <<'EOF'
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 cc_binary(
   name="hello",
   srcs=["main.c"],
@@ -210,7 +217,7 @@ EOF
 }
 
 test_lib_paths_all_remote() {
-  # Verify that libaries from an external repository can be used by another
+  # Verify that libraries from an external repository can be used by another
   # external repository via include path relative to their repository root and
   # that they may refer to other truly source files from the same library via
   # paths relative to their repository root.
@@ -234,6 +241,7 @@ int main(int argc, char **argv) {
 }
 EOF
   cat > BUILD <<'EOF'
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 cc_binary(
   name="hello",
   srcs=["main.c"],
@@ -246,8 +254,8 @@ EOF
 
   mkdir main
   cd main
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  cat >> $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="remotelib",
   strip_prefix="remotelib",
@@ -259,6 +267,7 @@ http_archive(
   urls=["file://${WRKDIR}/remotemain.tar"],
 )
 EOF
+  add_rules_cc MODULE.bazel
   bazel build @remotemain//:hello || fail "Expected build to succeed"
   bazel run @remotemain//:hello | grep 'Hello World' \
       || fail "Expected output 'Hello World'"
@@ -268,6 +277,7 @@ repo_with_local_path_reference() {
   # create, in the current working directory, a package called
   # withpath, that contains rule depending on hard-code path relative
   # to the repository root.
+  setup_module_dot_bazel
   mkdir -p withpath
   cat > withpath/BUILD <<'EOF'
 genrule(
@@ -295,7 +305,6 @@ test_fixed_path_local() {
 
   mkdir main
   cd main
-  create_workspace_with_default_repos WORKSPACE
   repo_with_local_path_reference
 
   bazel build //withpath:it || fail "Expected success"
@@ -314,8 +323,8 @@ DISABLED_test_fixed_path_remote() {
 
   mkdir main
   cd main
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  cat >> $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="remote",
   strip_prefix="remote",
@@ -330,6 +339,7 @@ repo_with_local_implicit_dependencies() {
   # that has an implicit dependency on a target in the same repository;
   # the point here is that this dependency can be named without knowledge
   #  of the repository name.
+  setup_module_dot_bazel
   mkdir -p rule
   cat > rule/BUILD <<'EOF'
 exports_files(["to_upper.sh"])
@@ -355,7 +365,7 @@ to_upper = rule(
   implementation = _to_upper_impl,
   attrs = {
     "src" : attr.label(allow_files=True),
-    "_toupper_sh" : attr.label(cfg="host", allow_files=True,
+    "_toupper_sh" : attr.label(cfg="exec", allow_files=True,
                                default = Label("//rule:to_upper.sh")),
   },
   outputs = {"upper": "%{name}.txt"},
@@ -369,7 +379,6 @@ test_local_rules() {
 
   mkdir main
   cd main
-  create_workspace_with_default_repos WORKSPACE
   repo_with_local_implicit_dependencies
   mkdir call
   echo hello world > call/hello.txt
@@ -398,8 +407,8 @@ test_remote_rules() {
 
   mkdir main
   cd main
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  cat >> $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="r",
   strip_prefix="remote",
@@ -447,8 +456,8 @@ EOF
 
   mkdir main
   cd main
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  cat >> $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="a",
   strip_prefix="a",
@@ -468,6 +477,7 @@ repo_with_embedded_paths() {
   # create, in the current working directory, a package called rule
   # that has an implicit dependency on a target in the same repository
   # that is referred-to by an embedded path.
+  setup_module_dot_bazel
   mkdir -p rule
   cat > rule/preamb.html <<'EOF'
 <html>
@@ -508,12 +518,12 @@ to_html = rule(
   implementation = _to_html_impl,
   attrs = {
     "src" : attr.label(allow_files=True),
-    "_to_html" : attr.label(cfg="host", allow_files=True,
+    "_to_html" : attr.label(cfg="exec", allow_files=True,
                                default = Label("//rule:to_html")),
     # knowledge of which paths are embedded is duplicated here!
-    "_preamb" : attr.label(cfg="host", allow_files=True,
+    "_preamb" : attr.label(cfg="exec", allow_files=True,
                                default = Label("//rule:preamb.html")),
-    "_postamb" : attr.label(cfg="host", allow_files=True,
+    "_postamb" : attr.label(cfg="exec", allow_files=True,
                                default = Label("//rule:postamb.html")),
   },
   outputs = {"upper": "%{name}.html"},
@@ -528,7 +538,6 @@ test_embedded_local() {
   cd "${WRKDIR}"
 
   mkdir main
-  create_workspace_with_default_repos WORKSPACE
   repo_with_embedded_paths
   mkdir call
   cat > call/plain.txt <<'EOF'
@@ -560,8 +569,8 @@ test_embedded_remote() {
 
   mkdir main
   cd main
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  cat >> $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="r",
   strip_prefix="remote",
@@ -613,8 +622,8 @@ EOF
 
   mkdir main
   cd main
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  cat >> $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="r",
   strip_prefix="r",
@@ -662,10 +671,10 @@ add_preamb = rule(
   implementation = _add_preamb_impl,
   attrs = {
     "src" : attr.label(allow_files=True),
-    "_add_preamb" : attr.label(cfg="host", allow_files=True,
+    "_add_preamb" : attr.label(cfg="exec", allow_files=True,
                                default = Label("//rule:add_preamb")),
     # knowledge of which paths are embedded is duplicated here!
-    "_preamb" : attr.label(cfg="host", allow_files=True,
+    "_preamb" : attr.label(cfg="exec", allow_files=True,
                                default = Label("@data//:file.txt")),
   },
   outputs = {"with_preamb": "%{name}.txt"},
@@ -675,7 +684,7 @@ EOF
 
 repo_data_file() {
   # Create, in the current directory, an archive of a data repository containing
-  # //:file.txt, and add a corresponding entry to ./main/WORKSPACE.
+  # //:file.txt, and add a corresponding entry to ./main/MODULE.bazel.
   mkdir data
   cat > data/file.txt <<'EOF'
 Copyright ...
@@ -685,8 +694,8 @@ exports_files(["file.txt"], visibility = ["//visibility:public"])
 EOF
   tar cvf data.tar data
   rm -rf data
-  cat >> main/WORKSPACE <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  cat >> $(setup_module_dot_bazel "main/MODULE.bazel") <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="data",
   strip_prefix="data",
@@ -733,7 +742,7 @@ test_embedded_foreign_paths_remote() {
   (cd rule && repo_with_embedded_foreign_path)
   tar cvf rule.tar rule
   rm -rf rule
-  cat >> main/WORKSPACE <<EOF
+  cat >> main/MODULE.bazel <<EOF
 http_archive(
   name="rule",
   strip_prefix="rule",

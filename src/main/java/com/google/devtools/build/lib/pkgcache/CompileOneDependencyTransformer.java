@@ -13,14 +13,17 @@
 // limitations under the License.
 package com.google.devtools.build.lib.pkgcache;
 
-import com.google.common.collect.Lists;
-import com.google.common.collect.Sets;
+import com.google.common.base.Predicate;
+import com.google.common.base.Predicates;
+import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.analysis.config.FeatureSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.FileTarget;
+import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.Package;
@@ -28,22 +31,41 @@ import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.server.FailureDetails.TargetPatterns;
+import com.google.devtools.build.lib.util.FileType;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
 
-/**
- * Implementation of --compile_one_dependency.
- */
+/** Implementation of --compile_one_dependency. */
 public final class CompileOneDependencyTransformer {
-  private final TargetProvider targetProvider;
+  private final PackageProvider packageProvider;
 
-  public CompileOneDependencyTransformer(TargetProvider targetProvider) {
-    this.targetProvider = targetProvider;
+  private static final FileType CC_FILE_TYPE = FileType.of(".cc", ".h", ".c");
+  private static final FileType JAVA_FILE_TYPE = FileType.of(".java");
+  private static final FileType PYTHON_FILE_TYPE = FileType.of(".py");
+
+  private static final ImmutableMap<String, Predicate<String>> PREFERRED_RULES =
+      ImmutableMap.of(
+          "cc_library",
+          CC_FILE_TYPE,
+          "cc_binary",
+          CC_FILE_TYPE,
+          "cc_test",
+          CC_FILE_TYPE,
+          "java_library",
+          JAVA_FILE_TYPE,
+          "py_library",
+          PYTHON_FILE_TYPE);
+
+  public CompileOneDependencyTransformer(PackageProvider packageProvider) {
+    this.packageProvider = packageProvider;
   }
 
   /**
@@ -63,13 +85,115 @@ public final class CompileOneDependencyTransformer {
     return builder.build();
   }
 
+  private Target transformCompileOneDependency(ExtendedEventHandler eventHandler, Target target)
+      throws TargetParsingException, InterruptedException {
+    if (!(target instanceof FileTarget)) {
+      throw new TargetParsingException(
+          "--compile_one_dependency target '" + target.getLabel() + "' must be a file",
+          TargetPatterns.Code.TARGET_MUST_BE_A_FILE);
+    }
+
+    Rule result = null;
+    Iterable<Rule> orderedRuleList;
+    try {
+      orderedRuleList = getOrderedRuleList(packageProvider.getPackage(eventHandler, target));
+    } catch (NoSuchPackageException e) {
+      // Only possible if lazy macro expansion is enabled, and an error was encountered when loading
+      // a different package piece of this package.
+      throw new TargetParsingException(
+          "Package of --compile_one_dependency target '"
+              + target.getLabel()
+              + "' could not be loaded",
+          e,
+          e.getDetailedExitCode());
+    }
+    for (Rule rule : orderedRuleList) {
+      Set<Label> labels = getInputLabels(rule);
+      if (listContainsFile(eventHandler, labels, target.getLabel(), new HashSet<Label>())) {
+        if (PREFERRED_RULES
+            .getOrDefault(rule.getRuleClass(), Predicates.alwaysFalse())
+            .apply(target.getName())) {
+          result = rule;
+          break;
+        }
+        if (result == null) {
+          result = rule;
+        }
+      }
+    }
+
+    if (result == null) {
+      throw new TargetParsingException(
+          "Couldn't find dependency on target '" + target.getLabel() + "'",
+          TargetPatterns.Code.DEPENDENCY_NOT_FOUND);
+    }
+
+    // We want a rule where some action processes the input.
+    // We should avoid cc_library rules that describe a set of headers but don't compile them.
+
+    // If parse_headers is (probably) enabled, then this rule has a CppCompileHeader action.
+    if (hasParseHeadersHeuristic(result)) {
+      return result;
+    }
+    // If the rule has source targets, return it: one of those sources will parse the header.
+    if (result.getRuleClassObject().getAttributeProvider().hasAttr("srcs", BuildType.LABEL_LIST)
+        && !RawAttributeMapper.of(result).getMergedValues("srcs", BuildType.LABEL_LIST).isEmpty()) {
+      return result;
+    }
+
+    // Else, find a rule in the same package that has 'result' as a dependency.
+    for (Rule rule : orderedRuleList) {
+      RawAttributeMapper attributes = RawAttributeMapper.of(rule);
+      // We don't know which path to follow for configurable attributes, so skip them.
+      if (attributes.isConfigurable("deps") || attributes.isConfigurable("srcs")) {
+        continue;
+      }
+      RuleClass ruleClass = rule.getRuleClassObject();
+      if (ruleClass.getAttributeProvider().hasAttr("deps", BuildType.LABEL_LIST)
+          && ruleClass.getAttributeProvider().hasAttr("srcs", BuildType.LABEL_LIST)) {
+        for (Label dep : attributes.get("deps", BuildType.LABEL_LIST)) {
+          if (dep.equals(result.getLabel())) {
+            if (!attributes.get("srcs", BuildType.LABEL_LIST).isEmpty()) {
+              return rule;
+            }
+          }
+        }
+      }
+    }
+
+    return result;
+  }
+
+  boolean hasParseHeadersHeuristic(Rule rule) {
+    // We want to know whether the "parse_headers" toolchain feature is enabled or disabled.
+    // At load time we can't really know, so check for the common static configuration sources.
+    // (We ignore parse_headers being disabled through the toolchain & by rule implementations).
+
+    FeatureSet mergedFeatures = rule.getPackageDeclarations().getPackageArgs().features();
+    RawAttributeMapper ruleAttrs = RawAttributeMapper.of(rule);
+    if (ruleAttrs.has("features", Types.STRING_LIST) && !ruleAttrs.isConfigurable("features")) {
+      FeatureSet ruleFeatures = FeatureSet.parse(ruleAttrs.get("features", Types.STRING_LIST));
+      mergedFeatures = FeatureSet.merge(mergedFeatures, ruleFeatures);
+    }
+
+    if (mergedFeatures.on().contains("parse_headers")) {
+      return true;
+    }
+    if (mergedFeatures.off().contains("parse_headers")) {
+      return false;
+    }
+
+    // We assume parse_headers is on globally, unless disabled locally.
+    return true;
+  }
+
   /**
-   * Returns a list of rules in the given package sorted by BUILD file order. When
-   * multiple rules depend on a target, we choose the first match in this list (after
-   * filtering for preferred dependencies - see below).
+   * Returns a list of rules in the given package sorted by BUILD file order. When multiple rules
+   * depend on a target, we choose the first match in this list (after filtering for preferred
+   * dependencies - see below).
    */
   private Iterable<Rule> getOrderedRuleList(Package pkg) {
-    List<Rule> orderedList = Lists.newArrayList();
+    List<Rule> orderedList = new ArrayList<>();
     for (Rule rule : pkg.getTargets(Rule.class)) {
       orderedList.add(rule);
     }
@@ -87,7 +211,7 @@ public final class CompileOneDependencyTransformer {
       Collection<Label> srcLabels,
       Label source,
       Set<Label> visitedRuleLabels)
-      throws TargetParsingException, InterruptedException {
+      throws InterruptedException {
     if (srcLabels.contains(source)) {
       return true;
     }
@@ -95,18 +219,24 @@ public final class CompileOneDependencyTransformer {
       if (!visitedRuleLabels.add(label)) {
         continue;
       }
+
       Target target = null;
       try {
-        target = targetProvider.getTarget(eventHandler, label);
+        target = packageProvider.getTarget(eventHandler, label);
       } catch (NoSuchThingException e) {
         // Just ignore failing sources/packages. We could report them here, but as long as we do
         // early return, the presence of this error would then be determined by the order of items
         // in the srcs attribute. A proper error will be created by the subsequent loading.
       }
+
       if (target == null || target instanceof FileTarget) {
         continue;
       }
       Rule targetRule = target.getAssociatedRule();
+      if (targetRule == null) {
+        continue;
+      }
+
       if ("filegroup".equals(targetRule.getRuleClass())) {
         RawAttributeMapper attributeMapper = RawAttributeMapper.of(targetRule);
         Collection<Label> srcs = attributeMapper.getMergedValues("srcs", BuildType.LABEL_LIST);
@@ -123,66 +253,6 @@ public final class CompileOneDependencyTransformer {
       }
     }
     return false;
-  }
-
-  private Target transformCompileOneDependency(ExtendedEventHandler eventHandler, Target target)
-      throws TargetParsingException, InterruptedException {
-    if (!(target instanceof FileTarget)) {
-      throw new TargetParsingException(
-          "--compile_one_dependency target '" + target.getLabel() + "' must be a file",
-          TargetPatterns.Code.TARGET_MUST_BE_A_FILE);
-    }
-
-    Rule result = null;
-    Iterable<Rule> orderedRuleList = getOrderedRuleList(target.getPackage());
-    for (Rule rule : orderedRuleList) {
-      Set<Label> labels = getInputLabels(rule);
-      if (listContainsFile(eventHandler, labels, target.getLabel(), Sets.<Label>newHashSet())) {
-        if (rule.getRuleClassObject().isPreferredDependency(target.getName())) {
-          result = rule;
-          break;
-        }
-        if (result == null) {
-          result = rule;
-        }
-      }
-    }
-
-    if (result == null) {
-      throw new TargetParsingException(
-          "Couldn't find dependency on target '" + target.getLabel() + "'",
-          TargetPatterns.Code.DEPENDENCY_NOT_FOUND);
-    }
-
-    // TODO(djasper): Check whether parse_headers is disabled and just return if not.
-    // If the rule has source targets, return it.
-    if (result.getRuleClassObject().hasAttr("srcs", BuildType.LABEL_LIST)
-        && !RawAttributeMapper.of(result).getMergedValues("srcs", BuildType.LABEL_LIST).isEmpty()) {
-      return result;
-    }
-
-    // Try to find a rule in the same package that has 'result' as a dependency.
-    for (Rule rule : orderedRuleList) {
-      RawAttributeMapper attributes = RawAttributeMapper.of(rule);
-      // We don't know which path to follow for configurable attributes, so skip them.
-      if (attributes.isConfigurable("deps")
-          || attributes.isConfigurable("srcs")) {
-        continue;
-      }
-      RuleClass ruleClass = rule.getRuleClassObject();
-      if (ruleClass.hasAttr("deps", BuildType.LABEL_LIST)
-          && ruleClass.hasAttr("srcs", BuildType.LABEL_LIST)) {
-        for (Label dep : attributes.get("deps", BuildType.LABEL_LIST)) {
-          if (dep.equals(result.getLabel())) {
-            if (!attributes.get("srcs", BuildType.LABEL_LIST).isEmpty()) {
-              return rule;
-            }
-          }
-        }
-      }
-    }
-    
-    return result;
   }
 
   /** Returns all labels that are contained in direct compile time inputs of {@code rule}. */

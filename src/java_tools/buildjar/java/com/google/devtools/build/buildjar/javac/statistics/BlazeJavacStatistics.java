@@ -13,15 +13,15 @@
 // limitations under the License.
 package com.google.devtools.build.buildjar.javac.statistics;
 
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.auto.value.AutoValue;
-import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.sun.tools.javac.util.Context;
 import java.time.Duration;
 import java.util.Optional;
-import java.util.concurrent.ExecutionException;
 
 /**
  * A class representing statistics for an invocation of {@link
@@ -35,20 +35,17 @@ public abstract class BlazeJavacStatistics {
 
   // Weak refs to contexts we've init'ed into
   private static final Cache<Context, Builder> contextsInitialized =
-      CacheBuilder.newBuilder().weakKeys().build();
+      Caffeine.newBuilder().weakKeys().build();
 
   public static void preRegister(Context context) {
-    try {
-      contextsInitialized.get(
-          context,
-          () -> {
-            Builder instance = newBuilder();
-            context.put(Builder.class, instance);
-            return instance;
-          });
-    } catch (ExecutionException e) {
-      throw new IllegalStateException(e);
-    }
+    var unused =
+        contextsInitialized.get(
+            context,
+            c -> {
+              Builder instance = newBuilder();
+              c.put(Builder.class, instance);
+              return instance;
+            });
   }
 
   public static BlazeJavacStatistics empty() {
@@ -67,7 +64,13 @@ public abstract class BlazeJavacStatistics {
 
   public abstract Optional<Duration> totalErrorProneTime();
 
+  public abstract Optional<Duration> errorProneInitializationTime();
+
   public abstract ImmutableMap<String, Duration> bugpatternTiming();
+
+  public abstract Optional<Duration> totalProcessorTime();
+
+  public abstract ImmutableMap<String, Duration> processorTiming();
 
   public abstract ImmutableSet<String> processors();
 
@@ -104,7 +107,13 @@ public abstract class BlazeJavacStatistics {
 
     public abstract Builder totalErrorProneTime(Duration totalErrorProneTime);
 
+    public abstract Builder errorProneInitializationTime(Duration errorProneInitializationTime);
+
+    public abstract Builder totalProcessorTime(Duration totalProcessorTime);
+
     abstract ImmutableMap.Builder<String, Duration> bugpatternTimingBuilder();
+
+    abstract ImmutableMap.Builder<String, Duration> processorTimingBuilder();
 
     abstract ImmutableMap.Builder<AuxiliaryDataSource, byte[]> auxiliaryDataBuilder();
 
@@ -118,8 +127,15 @@ public abstract class BlazeJavacStatistics {
 
     public abstract Builder transitiveClasspathFallback(boolean fallback);
 
+    @CanIgnoreReturnValue
     public Builder addBugpatternTiming(String key, Duration value) {
       bugpatternTimingBuilder().put(key, value);
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder addProcessorTiming(String key, Duration value) {
+      processorTimingBuilder().put(key, value);
       return this;
     }
 
@@ -134,11 +150,13 @@ public abstract class BlazeJavacStatistics {
      * the byte[] data type. If we find a way to make this more safe, we would prefer to use a
      * protobuf ByteString instead for its immutability.
      */
+    @CanIgnoreReturnValue
     public Builder addAuxiliaryData(AuxiliaryDataSource key, byte[] serializedData) {
       auxiliaryDataBuilder().put(key, serializedData.clone());
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addProcessor(String processor) {
       processorsBuilder().add(processor);
       return this;

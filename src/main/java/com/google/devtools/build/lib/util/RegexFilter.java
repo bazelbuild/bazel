@@ -16,12 +16,12 @@ package com.google.devtools.build.lib.util;
 
 import com.google.common.base.Joiner;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.TreeSet;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
@@ -34,13 +34,14 @@ import javax.annotation.Nullable;
  * <p>String is considered to be included into the filter if it does not match any of the excluded
  * regex expressions and if it matches at least one included regex expression.
  */
-@AutoCodec
 @Immutable
 public final class RegexFilter implements Predicate<String> {
   // Null inclusion or exclusion pattern means those patterns are not used.
   @Nullable private final Pattern inclusionPattern;
   @Nullable private final Pattern exclusionPattern;
   private final int hashCode;
+
+  @Nullable private final String originalInput;
 
   /**
    * Converts from a comma-separated list of regex expressions with optional -/+ prefix into the
@@ -50,10 +51,18 @@ public final class RegexFilter implements Predicate<String> {
    * <p>Order of expressions is not important. Empty entries are ignored. '-' marks an excluded
    * expression.
    */
-  public static class RegexFilterConverter implements Converter<RegexFilter> {
+  public static class RegexFilterConverter extends Converter.Contextless<RegexFilter> {
 
     @Override
     public RegexFilter convert(String input) throws OptionsParsingException {
+
+      if (input.startsWith("--")) {
+        throw new OptionsParsingException(
+            String.format(
+                "Failed to build filter: value looks like another flag (%s). Either"
+                    + " escape the value with \"\\-\\-\", or pass an explicit value to the flag.",
+                input));
+      }
       List<String> inclusionList = new ArrayList<>();
       List<String> exclusionList = new ArrayList<>();
 
@@ -69,10 +78,10 @@ public final class RegexFilter implements Predicate<String> {
       }
 
       try {
-        return new RegexFilter(inclusionList, exclusionList);
+        return new RegexFilter(inclusionList, exclusionList, input);
       } catch (PatternSyntaxException e) {
-        throw new OptionsParsingException("Failed to build valid regular expression: "
-            + e.getMessage());
+        throw new OptionsParsingException(
+            "Failed to build valid regular expression: " + e.getMessage());
       }
     }
 
@@ -89,32 +98,41 @@ public final class RegexFilter implements Predicate<String> {
    * <p>Null {@code inclusionPattern} or {@code exclusionPattern} means that inclusion or exclusion
    * matching will not be applied, respectively.
    */
-  @AutoCodec.Instantiator
-  RegexFilter(@Nullable Pattern inclusionPattern, @Nullable Pattern exclusionPattern) {
+  private RegexFilter(
+      @Nullable Pattern inclusionPattern,
+      @Nullable Pattern exclusionPattern,
+      @Nullable String originalInput) {
     this.inclusionPattern = inclusionPattern;
     this.exclusionPattern = exclusionPattern;
+    this.originalInput = originalInput;
     this.hashCode =
         Objects.hash(
             inclusionPattern == null ? null : inclusionPattern.pattern(),
             exclusionPattern == null ? null : exclusionPattern.pattern());
   }
 
+  private RegexFilter(List<String> inclusions, List<String> exclusions, String originalInput) {
+    this(takeUnionOfRegexes(inclusions), takeUnionOfRegexes(exclusions), originalInput);
+  }
+
   /** Creates new RegexFilter using provided inclusion and exclusion path lists. */
   public RegexFilter(List<String> inclusions, List<String> exclusions) {
-    this(takeUnionOfRegexes(inclusions), takeUnionOfRegexes(exclusions));
+    this(inclusions, exclusions, /* originalInput= */ null);
   }
 
   /**
    * Converts a list of regex expressions into a single regex representing its union or null when
    * the list is empty.
    */
+  @Nullable
   private static Pattern takeUnionOfRegexes(List<String> regexList) {
     if (regexList.isEmpty()) {
       return null;
     }
+    TreeSet<String> deduped = new TreeSet<>(regexList);
     // Wraps each individual regex into an independent group, then combines them using '|' and
     // wraps the result in a non-capturing group.
-    return Pattern.compile("(?:(?>" + Joiner.on(")|(?>").join(regexList) + "))");
+    return Pattern.compile("(?:(?>" + Joiner.on(")|(?>").join(deduped) + "))");
   }
 
   /**
@@ -136,16 +154,6 @@ public final class RegexFilter implements Predicate<String> {
     return isIncluded(value);
   }
 
-  @Nullable
-  public String getInclusionRegex() {
-    return inclusionPattern == null ? null : inclusionPattern.pattern();
-  }
-
-  @Nullable
-  public String getExclusionRegex() {
-    return exclusionPattern == null ? null : exclusionPattern.pattern();
-  }
-
   @Override
   public String toString() {
     StringBuilder builder = new StringBuilder();
@@ -162,16 +170,26 @@ public final class RegexFilter implements Predicate<String> {
     return builder.toString();
   }
 
+  /**
+   * RegexFilter doesn't serialize cleanly: {@code
+   * !RegexFilter.convert(".*").toString().equals(".")}.
+   *
+   * <p>This method provides the ability to reproduce the original input string.
+   */
+  @Nullable
+  public String toOriginalString() {
+    return originalInput;
+  }
+
   @Override
   public boolean equals(Object other) {
     if (this == other) {
       return true;
     }
-    if (!(other instanceof RegexFilter)) {
+    if (!(other instanceof RegexFilter otherFilter)) {
       return false;
     }
 
-    RegexFilter otherFilter = (RegexFilter) other;
     if (this.exclusionPattern == null ^ otherFilter.exclusionPattern == null) {
       return false;
     }

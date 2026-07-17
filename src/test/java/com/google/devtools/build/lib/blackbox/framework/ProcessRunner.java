@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.blackbox.framework;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.flogger.LazyArgs;
@@ -77,6 +78,18 @@ final class ProcessRunner {
     ProcessBuilder processBuilder = new ProcessBuilder(commandParts);
     processBuilder.directory(parameters.workingDirectory());
     parameters.environment().ifPresent(map -> processBuilder.environment().putAll(map));
+    // Always clear the variables used for runfiles discovery so that the process doesn't inherit
+    // them from the Bazel test environment.
+    processBuilder
+        .environment()
+        .keySet()
+        .removeAll(
+            ImmutableSet.of(
+                "RUNFILES_DIR",
+                "RUNFILES_MANIFEST_FILE",
+                "RUNFILES_MANIFEST_ONLY",
+                "JAVA_RUNFILES",
+                "PYTHON_RUNFILES"));
 
     parameters.redirectOutput().ifPresent(path -> processBuilder.redirectOutput(path.toFile()));
     parameters.redirectError().ifPresent(path -> processBuilder.redirectError(path.toFile()));

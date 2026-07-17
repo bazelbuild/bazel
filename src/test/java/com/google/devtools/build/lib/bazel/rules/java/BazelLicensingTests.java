@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.bazel.rules.java;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-import com.google.devtools.build.lib.packages.License;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -27,20 +26,37 @@ import org.junit.runners.JUnit4;
 public class BazelLicensingTests extends BuildViewTestCase {
   @Test
   public void testJavaPluginAllowsOutputLicenseDeclaration() throws Exception {
-    scratch.file("ise/BUILD",
-        "licenses(['restricted'])",
-        "java_library(name = 'dependency',",
-        "             srcs = ['dependency.java'])",
-        "java_plugin(name = 'plugin',",
-        "            deps = [':dependency'],",
-        "            srcs = ['plugin.java'],",
-        "            output_licenses = ['unencumbered'])");
+    scratch.file(
+        "ise/BUILD",
+        """
+        load("@rules_java//java:defs.bzl", "java_library", "java_plugin")
+        licenses(["restricted"])
 
-    scratch.file("gsa/BUILD",
-        "licenses(['unencumbered'])",
-        "java_library(name = 'library',",
-        "             srcs = ['library.java'],",
-        "             plugins = ['//ise:plugin'])");
+        java_library(
+            name = "dependency",
+            srcs = ["dependency.java"],
+        )
+
+        java_plugin(
+            name = "plugin",
+            srcs = ["plugin.java"],
+            output_licenses = ["unencumbered"],
+            deps = [":dependency"],
+        )
+        """);
+
+    scratch.file(
+        "gsa/BUILD",
+        """
+        load("@rules_java//java:defs.bzl", "java_library")
+        licenses(["unencumbered"])
+
+        java_library(
+            name = "library",
+            srcs = ["library.java"],
+            plugins = ["//ise:plugin"],
+        )
+        """);
 
     assertThat(getConfiguredTarget("//gsa:library")).isNotNull();
     assertNoEvents();

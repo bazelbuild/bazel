@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2016 The Bazel Authors. All rights reserved.
 #
@@ -41,18 +41,7 @@ fi
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-case "$(uname -s | tr [:upper:] [:lower:])" in
-msys*|mingw*|cygwin*)
-  declare -r is_windows=true
-  ;;
-*)
-  declare -r is_windows=false
-  ;;
-esac
-
-if "$is_windows"; then
-  export MSYS_NO_PATHCONV=1
-  export MSYS2_ARG_CONV_EXCL="*"
+if is_windows; then
   declare -r WORKSPACE_STATUS="$(cygpath -m "$(mktemp -d "${TEST_TMPDIR}/wscXXXXXXXX")/wsc.bat")"
   touch "$WORKSPACE_STATUS"
 else
@@ -64,9 +53,6 @@ fi
 add_to_bazelrc "build --workspace_status_command=\"$WORKSPACE_STATUS\" --nostamp"
 add_to_bazelrc "build --show_progress_rate_limit=-1"
 add_to_bazelrc "build --genrule_strategy=local"
-
-# Match progress messages like [42 / 1,337]
-declare -r PROGRESS_RX="\[[0-9, /]\+\]"
 
 # Run a command with a timeout, kill it if too slow or hanging.
 #
@@ -119,43 +105,6 @@ EOF
   expect_log "$MATCHER"
 }
 
-function assert_show_task_finish() {
-  local -r show="$1"  # either "show" or "noshow"
-  local -r pkg="$2"
-
-  cat >${pkg}/BUILD <<'EOF'
-genrule(
-    name = "x",
-    outs = ["x.out"],
-    cmd = "touch $@",
-)
-EOF
-
-  bazel build "//${pkg}:x" "--${show}_task_finish" \
-      --experimental_ui_debug_all_events --color=no \
-      --curses=no --nocache_test_results >& "$TEST_log" || fail "bazel test"
-
-  expect_log "START.*: $PROGRESS_RX Executing genrule //${pkg}:x"
-  if [ "$show" == "show" ]; then
-    expect_log "FINISH.*: $PROGRESS_RX Executing genrule //${pkg}:x"
-  else
-    # Negative matching should be as permissive as possible.
-    expect_not_log "DONE"
-  fi
-}
-
-function test_show_task_finish() {
-  local -r pkg="${FUNCNAME[0]}"
-  mkdir "$pkg" || fail "mkdir $pkg"
-  assert_show_task_finish "show" "$pkg"
-}
-
-function test_noshow_task_finish() {
-  local -r pkg="${FUNCNAME[0]}"
-  mkdir "$pkg" || fail "mkdir $pkg"
-  assert_show_task_finish "noshow" "$pkg"
-}
-
 function test_action_counters_dont_account_for_actions_without_progress_msg() {
   local -r pkg="${FUNCNAME[0]}"
   mkdir "$pkg" || fail "mkdir $pkg"
@@ -186,7 +135,7 @@ EOF
   # waiting" message. Do not modify the workspace status writer action
   # implementation to have a progress message, because it breaks all kinds of
   # things.
-  if "$is_windows"; then
+  if is_windows; then
     local -r wsc="$(cygpath -m "$(mktemp -d "${TEST_TMPDIR}/wscXXXXXXXX")/wsc.bat")"
     # Wait for an event that never comes, give up after 5 seconds (exits with
     # nonzero), then "cd ." to reset %ERRORLEVEL%.
@@ -198,7 +147,7 @@ EOF
   fi
 
   bazel build "//${pkg}:x" --experimental_ui_debug_all_events \
-      --show_task_finish --color=no --curses=no \
+      --color=no --curses=no \
       --workspace_status_command="$wsc" \
       --progress_report_interval=1 \
       >& "$TEST_log" || fail "build failed"
@@ -218,13 +167,18 @@ EOF
   # It may happen that Skyframe does not discover (enque) the workspace status
   # writer action immediately, so the counter may initially report 3 total
   # actions instead of 4.
-  expect_log "START.*: \[0 / [34]\] Executing genrule //${pkg}:z\s*$"
-  expect_log "FINISH.*: \[1 / [34]\] Executing genrule //${pkg}:z\s*$"
-  expect_log "START.*: \[1 / [34]\] Executing genrule //${pkg}:y\s*$"
-  expect_log "FINISH.*: \[2 / [34]\] Executing genrule //${pkg}:y\s*$"
-  expect_log "START.*: \[2 / 4\] Executing genrule //${pkg}:x\s*$"
-  expect_log "FINISH.*: \[3 / 4\] Executing genrule //${pkg}:x\s*$"
-  expect_log "PROGRESS.*: \[3 / 4\] Still waiting for 1 job to complete:"
+  # It's also possible that the workspace status action is done before any other
+  # action, especially in Skymeld mode.
+  expect_log "START.*: \[[01] / [34]\] Executing genrule //${pkg}:z\s*$"
+  expect_log "FINISH.*: \[[12] / [34]\] Executing genrule //${pkg}:z\s*$"
+  expect_log "START.*: \[[12] / [34]\] Executing genrule //${pkg}:y\s*$"
+  expect_log "FINISH.*: \[[23] / [34]\] Executing genrule //${pkg}:y\s*$"
+  expect_log "START.*: \[[23] / 4\] Executing genrule //${pkg}:x\s*$"
+  expect_log "FINISH.*: \[[34] / 4\] Executing genrule //${pkg}:x\s*$"
+  # No counter here since there's theoretically no guarantee that that workspace
+  # status action would still be running after the above actions have finished.
+  # This is especially true if we're running in Skymeld mode.
+  expect_log "PROGRESS.*: .* Still waiting for 1 job to complete:"
 
   # Open-source Bazel calls this file stable-status.txt, Google internal version
   # calls it build-info.txt.
@@ -277,14 +231,14 @@ EOF
 
   echo "input-clean" > "${pkg}/input"
   bazel build "//${pkg}:x" --experimental_ui_debug_all_events \
-      --show_task_finish --color=no --curses=no \
+      --color=no --curses=no \
       >& "$TEST_log" || fail "build failed"
   expect_log_once "FINISH.*: \[[89] / 9\] Executing genrule //${pkg}:x"
   expect_log_n "FINISH.*: \[[1-9] / 9\] Executing genrule //${pkg}:.*" 8
 
   echo "input-incremental" > "${pkg}/input"
   bazel build "//${pkg}:x" --experimental_ui_debug_all_events \
-      --show_task_finish --color=no --curses=no \
+      --color=no --curses=no \
       >& "$TEST_log" || fail "build failed"
   expect_log_once "FINISH.*: \[[89] / 9\] Executing genrule //${pkg}:x"
   expect_log_n "FINISH.*: \[[1-9] / 9\] Executing genrule //${pkg}:.*" 2
@@ -325,7 +279,7 @@ EOF
   # Give enough head room so that the test won't break again if we tweak
   # our assumptions about local resource usage.
   bazel build --experimental_ui_debug_all_events -j 2 \
-      --local_ram_resources=2048000 --local_cpu_resources=32 \
+      --local_resources=memory=2048000 --local_resources=cpu=32 \
       -k -s "//${pkg}:"{top,longrun} --progress_report_interval=1 \
       >& "$TEST_log" && fail "build succeeded"
   expect_log "\[3 / 4\] Still waiting for 1 job to complete:"
@@ -374,24 +328,27 @@ EOF
   # last one might be the workspace status writer action).
   echo "input-clean" > "${pkg}/input"
   bazel build "//${pkg}:x" --experimental_ui_debug_all_events \
-      --show_task_finish --color=no --curses=no \
+      --color=no --curses=no \
       >& "$TEST_log" || fail "build failed"
   expect_log_once "FINISH.*: \[[89] / 9\] Executing genrule //${pkg}:x"
   expect_log_n "FINISH.*: \[[1-9] / 9\] Executing genrule //${pkg}:.*" 8
 
   echo "input-incremental" > "${pkg}/input"
   bazel build "//${pkg}:x" --experimental_ui_debug_all_events \
-      --show_task_finish --color=no --curses=no \
+      --color=no --curses=no \
       >& "$TEST_log" || fail "build failed"
   expect_log_once "FINISH.*: \[[12] / 9\] Executing genrule //${pkg}:dep1"
   expect_log_once "FINISH.*:.* Executing genrule .*"
 }
 
 function test_counts_exclusive_tests_in_total_work() {
+  add_rules_shell "MODULE.bazel"
+
   local -r pkg="${FUNCNAME[0]}"
   mkdir "$pkg" || fail "mkdir $pkg"
 
   cat >"${pkg}/BUILD" <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 [sh_test(
     name = "t%d" % i,
     srcs = ["test.sh"],
@@ -401,7 +358,7 @@ EOF
   echo "#!$(which true)" > "${pkg}/test.sh"
   chmod +x "${pkg}/test.sh"
 
-  bazel test --nocache_test_results --show_task_finish \
+  bazel test --nocache_test_results \
       "//${pkg}:all" --color=no --curses=no >& "$TEST_log" \
       || fail "build failed"
 

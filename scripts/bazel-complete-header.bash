@@ -37,9 +37,9 @@
 # of tests/benchmarks locally with 'bazel run'.
 
 _bazel_completion_use_query() {
-  _bazel__is_true "${BAZEL_COMPLETION_USE_QUERY}"
+  _bazel__is_true "${BAZEL_COMPLETION_USE_QUERY-}"
 }
 
 _bazel_completion_allow_tests_for_run() {
-  _bazel__is_true "${BAZEL_COMPLETION_ALLOW_TESTS_FOR_RUN}"
+  _bazel__is_true "${BAZEL_COMPLETION_ALLOW_TESTS_FOR_RUN-}"
 }

@@ -1,0 +1,23 @@
+name: release-helper
+on:
+  issue_comment:
+    types: [created, edited]
+permissions:
+  contents: read
+
+jobs:
+  release-helper:
+    if: startsWith(github.event.comment.body, '@bazel-io ')
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: audit
+
+      - name: Run helper
+        uses: bazelbuild/continuous-integration/actions/release-helper@8fae15fdb0532109a35cae0ca16041fc424c0a9b # master
+        with:
+          token: ${{ secrets.BAZEL_IO_TOKEN }}

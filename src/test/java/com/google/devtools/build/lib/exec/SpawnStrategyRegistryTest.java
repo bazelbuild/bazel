@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec;
 
-
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
@@ -29,12 +28,16 @@ import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnStrategy;
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.exec.util.FakeOwner;
+import com.google.devtools.build.lib.runtime.proto.MnemonicPolicy;
+import com.google.devtools.build.lib.runtime.proto.StrategyPolicy;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.RegexFilter;
+import java.util.List;
 import javax.annotation.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -46,6 +49,8 @@ public class SpawnStrategyRegistryTest {
 
   private static final RegexFilter ELLO_MATCHER =
       new RegexFilter(ImmutableList.of("ello"), ImmutableList.of());
+  private static final RegexFilter LLO_MATCHER =
+      new RegexFilter(ImmutableList.of("llo"), ImmutableList.of());
 
   private static void noopEventHandler(Event event) {}
 
@@ -81,6 +86,102 @@ public class SpawnStrategyRegistryTest {
                 createSpawnWithMnemonicAndDescription("mnem", ""),
                 SpawnStrategyRegistryTest::noopEventHandler))
         .containsExactly(strategy2, strategy1);
+  }
+
+  @Test
+  public void testStrategyPolicyAppliedToPerMnemonicStrategies() throws Exception {
+    NoopStrategy strategy1 = new NoopStrategy("1");
+    NoopStrategy strategy2 = new NoopStrategy("2");
+    StrategyPolicy strategyPolicyProto =
+        StrategyPolicy.newBuilder()
+            .setMnemonicPolicy(MnemonicPolicy.newBuilder().addDefaultAllowlist("foo"))
+            .build();
+
+    SpawnStrategyRegistry strategyRegistry =
+        SpawnStrategyRegistry.builder(strategyPolicyProto)
+            .registerStrategy(strategy1, "foo")
+            .registerStrategy(strategy2, "bar")
+            .addMnemonicFilter("some-mnemonic", ImmutableList.of("bar", "foo"))
+            .build();
+
+    assertThat(
+            strategyRegistry.getStrategies(
+                createSpawnWithMnemonicAndDescription("some-mnemonic", ""),
+                SpawnStrategyRegistryTest::noopEventHandler))
+        .containsExactly(strategy1);
+  }
+
+  @Test
+  public void strategyPolicyAppliedToPerDefaulttrategies() throws Exception {
+    NoopStrategy strategy1 = new NoopStrategy("1");
+    NoopStrategy strategy2 = new NoopStrategy("2");
+    StrategyPolicy strategyPolicyProto =
+        StrategyPolicy.newBuilder()
+            .setMnemonicPolicy(MnemonicPolicy.newBuilder().addDefaultAllowlist("foo"))
+            .build();
+    SpawnStrategyRegistry strategyRegistry =
+        SpawnStrategyRegistry.builder(strategyPolicyProto)
+            .registerStrategy(strategy1, "foo")
+            .registerStrategy(strategy2, "bar")
+            .build();
+
+    List<? extends SpawnStrategy> strategies =
+        strategyRegistry.getStrategies(
+            createSpawnWithMnemonicAndDescription("some-mnemonic", ""),
+            SpawnStrategyRegistryTest::noopEventHandler);
+
+    assertThat(strategies).containsExactly(strategy1);
+  }
+
+  @Test
+  public void strategyPolicyAppliedToRegexpFilter_sanitizeStrategy() throws Exception {
+    NoopStrategy strategy1 = new NoopStrategy("1");
+    NoopStrategy strategy2 = new NoopStrategy("2");
+    StrategyPolicy strategyPolicyProto =
+        StrategyPolicy.newBuilder()
+            .setMnemonicPolicy(MnemonicPolicy.newBuilder().addDefaultAllowlist("foo"))
+            .build();
+    SpawnStrategyRegistry strategyRegistry =
+        SpawnStrategyRegistry.builder(strategyPolicyProto)
+            .registerStrategy(strategy1, "foo")
+            .registerStrategy(strategy2, "bar")
+            .addDescriptionFilter(ELLO_MATCHER, ImmutableList.of("foo", "bar"))
+            .build();
+
+    List<? extends SpawnStrategy> strategies =
+        strategyRegistry.getStrategies(
+            createSpawnWithMnemonicAndDescription("regex-mnemonic", "hello"),
+            SpawnStrategyRegistryTest::noopEventHandler);
+
+    assertThat(strategies).containsExactly(strategy1);
+  }
+
+  @Test
+  public void strategyPolicyAppliedToRegexpFilter_fallbackToDefaultStrategy() throws Exception {
+    NoopStrategy strategy1 = new NoopStrategy("1");
+    NoopStrategy strategy2 = new NoopStrategy("2");
+    NoopStrategy strategy3 = new NoopStrategy("3");
+    StrategyPolicy strategyPolicyProto =
+        StrategyPolicy.newBuilder()
+            .setMnemonicPolicy(
+                MnemonicPolicy.newBuilder().addAllDefaultAllowlist(ImmutableList.of("foo", "baz")))
+            .build();
+    SpawnStrategyRegistry strategyRegistry =
+        SpawnStrategyRegistry.builder(strategyPolicyProto)
+            .registerStrategy(strategy1, "foo")
+            .registerStrategy(strategy2, "bar")
+            .registerStrategy(strategy3, "baz")
+            .addDescriptionFilter(ELLO_MATCHER, ImmutableList.of("foo"))
+            .addDescriptionFilter(LLO_MATCHER, ImmutableList.of("bar"))
+            .addMnemonicFilter("regex-mnemonic", ImmutableList.of("baz"))
+            .build();
+
+    List<? extends SpawnStrategy> strategies =
+        strategyRegistry.getStrategies(
+            createSpawnWithMnemonicAndDescription("regex-mnemonic", "hello"),
+            SpawnStrategyRegistryTest::noopEventHandler);
+
+    assertThat(strategies).containsExactly(strategy3);
   }
 
   @Test
@@ -157,6 +258,7 @@ public class SpawnStrategyRegistryTest {
         .containsExactly(strategy2);
   }
 
+  /** If an action matches multiple filters, the latter one gets the priority. */
   @Test
   public void testMultipleDescriptionFilter() throws Exception {
     NoopStrategy strategy1 = new NoopStrategy("1");
@@ -166,9 +268,7 @@ public class SpawnStrategyRegistryTest {
             .registerStrategy(strategy1, "foo")
             .registerStrategy(strategy2, "bar")
             .addDescriptionFilter(ELLO_MATCHER, ImmutableList.of("foo"))
-            .addDescriptionFilter(
-                new RegexFilter(ImmutableList.of("ll"), ImmutableList.of()),
-                ImmutableList.of("bar"))
+            .addDescriptionFilter(LLO_MATCHER, ImmutableList.of("bar"))
             .build();
 
     assertThat(
@@ -176,6 +276,68 @@ public class SpawnStrategyRegistryTest {
                 createSpawnWithMnemonicAndDescription("", "hello"),
                 SpawnStrategyRegistryTest::noopEventHandler))
         .containsExactly(strategy2);
+  }
+
+  /**
+   * This demonstrate that the latter description filter overrides preceding one of same regexp.
+   * filter=val_1 filter=val_2 is equivalent to filter=val_2
+   */
+  @Test
+  public void testDuplicatedDescriptionFilter() throws Exception {
+    NoopStrategy strategy1 = new NoopStrategy("1");
+    NoopStrategy strategy2 = new NoopStrategy("2");
+    SpawnStrategyRegistry strategyRegistry =
+        SpawnStrategyRegistry.builder()
+            .registerStrategy(strategy1, "foo")
+            .registerStrategy(strategy2, "bar")
+            .addDescriptionFilter(ELLO_MATCHER, ImmutableList.of("foo"))
+            .addDescriptionFilter(ELLO_MATCHER, ImmutableList.of("bar"))
+            .build();
+
+    assertThat(
+            strategyRegistry.getStrategies(
+                createSpawnWithMnemonicAndDescription("", "hello"),
+                SpawnStrategyRegistryTest::noopEventHandler))
+        .containsExactly(strategy2);
+  }
+
+  @Test
+  public void testPlatformFilter() throws Exception {
+    NoopStrategy strategy1 = new NoopStrategy("1");
+    NoopStrategy strategy2 = new NoopStrategy("2");
+    SpawnStrategyRegistry strategyRegistry =
+        SpawnStrategyRegistry.builder()
+            .registerStrategy(strategy1, "foo")
+            .registerStrategy(strategy2, "bar")
+            .addExecPlatformFilter(
+                PlatformInfo.EMPTY_PLATFORM_INFO.label(), ImmutableList.of("foo"))
+            .build();
+
+    assertThat(
+            strategyRegistry.getStrategies(
+                createSpawnWithMnemonicAndDescription("", ""),
+                SpawnStrategyRegistryTest::noopEventHandler))
+        .containsExactly(strategy1);
+  }
+
+  /** Tests that platform filters not affect the strategy ordering. */
+  @Test
+  public void testPlatformFilterOrder() throws Exception {
+    NoopStrategy strategy1 = new NoopStrategy("1");
+    NoopStrategy strategy2 = new NoopStrategy("2");
+    SpawnStrategyRegistry strategyRegistry =
+        SpawnStrategyRegistry.builder()
+            .registerStrategy(strategy1, "foo")
+            .registerStrategy(strategy2, "bar")
+            .addExecPlatformFilter(
+                PlatformInfo.EMPTY_PLATFORM_INFO.label(), ImmutableList.of("bar", "foo"))
+            .build();
+
+    assertThat(
+            strategyRegistry.getStrategies(
+                createSpawnWithMnemonicAndDescription("", ""),
+                SpawnStrategyRegistryTest::noopEventHandler))
+        .containsExactly(strategy1, strategy2);
   }
 
   @Test
@@ -243,25 +405,6 @@ public class SpawnStrategyRegistryTest {
   }
 
   @Test
-  public void testImplicitDefaultWithDuplicateIdentifiers() throws Exception {
-    NoopStrategy strategy1 = new NoopStrategy("1");
-    NoopStrategy strategy2 = new NoopStrategy("2");
-    NoopStrategy strategy3 = new NoopStrategy("3");
-    SpawnStrategyRegistry strategyRegistry =
-        SpawnStrategyRegistry.builder()
-            .registerStrategy(strategy1, "foo")
-            .registerStrategy(strategy2, "bar")
-            .registerStrategy(strategy3, "foo")
-            .build();
-
-    assertThat(
-            strategyRegistry.getStrategies(
-                createSpawnWithMnemonicAndDescription("", ""),
-                SpawnStrategyRegistryTest::noopEventHandler))
-        .containsExactly(strategy1, strategy2, strategy3);
-  }
-
-  @Test
   public void testMnemonicStrategyNotPresent() {
     NoopStrategy strategy1 = new NoopStrategy("1");
     AbruptExitException exception =
@@ -276,6 +419,25 @@ public class SpawnStrategyRegistryTest {
     assertThat(exception).hasMessageThat().containsMatch("bar.*Valid.*foo");
   }
 
+  /** Don't throw an error if any of the replaced strategies was not registered. */
+  @Test
+  public void testDescriptionStrategyReplacedNotPresent() throws Exception {
+    NoopStrategy strategy1 = new NoopStrategy("1");
+    SpawnStrategyRegistry strategyRegistry =
+        SpawnStrategyRegistry.builder()
+            .registerStrategy(strategy1, "foo")
+            .addDescriptionFilter(ELLO_MATCHER, ImmutableList.of("bar", "foo"))
+            .addDescriptionFilter(ELLO_MATCHER, ImmutableList.of("foo"))
+            .build();
+
+    assertThat(
+            strategyRegistry.getStrategies(
+                createSpawnWithMnemonicAndDescription("", "hello"),
+                SpawnStrategyRegistryTest::noopEventHandler))
+        .containsExactly(strategy1);
+  }
+
+  /** Throw error when some of strategies were not registered. */
   @Test
   public void testDescriptionStrategyNotPresent() {
     NoopStrategy strategy1 = new NoopStrategy("1");
@@ -286,6 +448,23 @@ public class SpawnStrategyRegistryTest {
                 SpawnStrategyRegistry.builder()
                     .registerStrategy(strategy1, "foo")
                     .addDescriptionFilter(ELLO_MATCHER, ImmutableList.of("bar", "foo"))
+                    .build());
+
+    assertThat(exception)
+        .hasMessageThat()
+        .containsMatch("'bar' was requested.*Valid values are: \\[foo\\]");
+  }
+
+  @Test
+  public void testDescriptionStrategyAllNotPresent() {
+    NoopStrategy strategy1 = new NoopStrategy("1");
+    AbruptExitException exception =
+        assertThrows(
+            AbruptExitException.class,
+            () ->
+                SpawnStrategyRegistry.builder()
+                    .registerStrategy(strategy1, "foo")
+                    .addDescriptionFilter(ELLO_MATCHER, ImmutableList.of("bar", "food"))
                     .build());
 
     assertThat(exception).hasMessageThat().containsMatch("bar.*Valid.*foo");
@@ -359,6 +538,35 @@ public class SpawnStrategyRegistryTest {
   }
 
   @Test
+  public void testDynamicStrategiesHonorStrategyPolicy() throws Exception {
+    NoopStrategy remoteStrategy = new NoopSandboxedStrategy("remote");
+    NoopStrategy localStrategy = new NoopSandboxedStrategy("local");
+    SpawnStrategyRegistry strategyRegistry =
+        SpawnStrategyRegistry.builder(
+                StrategyPolicy.newBuilder()
+                    .setDynamicRemotePolicy(
+                        MnemonicPolicy.newBuilder().addDefaultAllowlist("remote"))
+                    .setDynamicLocalPolicy(MnemonicPolicy.newBuilder().addDefaultAllowlist("local"))
+                    .build())
+            .registerStrategy(remoteStrategy, "remote")
+            .registerStrategy(localStrategy, "local")
+            // Pointlessly register both strategies in order to test that policy filters them.
+            .addDynamicLocalStrategies(ImmutableMap.of("mnem", ImmutableList.of("remote", "local")))
+            .addDynamicRemoteStrategies(
+                ImmutableMap.of("mnem", ImmutableList.of("remote", "local")))
+            .build();
+
+    assertThat(
+            strategyRegistry.getDynamicSpawnActionContexts(
+                createSpawnWithMnemonicAndDescription("mnem", ""), DynamicMode.REMOTE))
+        .containsExactly(remoteStrategy);
+    assertThat(
+            strategyRegistry.getDynamicSpawnActionContexts(
+                createSpawnWithMnemonicAndDescription("mnem", ""), DynamicMode.LOCAL))
+        .containsExactly(localStrategy);
+  }
+
+  @Test
   public void testRemoteLocalFallback() throws Exception {
     NoopAbstractStrategy strategy1 = new NoopAbstractStrategy("1");
     NoopAbstractStrategy strategy2 = new NoopAbstractStrategy("2");
@@ -369,7 +577,10 @@ public class SpawnStrategyRegistryTest {
             .setRemoteLocalFallbackStrategyIdentifier("bar")
             .build();
 
-    assertThat(strategyRegistry.getRemoteLocalFallbackStrategy()).isEqualTo(strategy2);
+    assertThat(
+            strategyRegistry.getRemoteLocalFallbackStrategy(
+                createSpawnWithMnemonicAndDescription("", "")))
+        .isEqualTo(strategy2);
   }
 
   @Test
@@ -393,7 +604,10 @@ public class SpawnStrategyRegistryTest {
     SpawnStrategyRegistry strategyRegistry =
         SpawnStrategyRegistry.builder().registerStrategy(strategy1, "foo").build();
 
-    assertThat(strategyRegistry.getRemoteLocalFallbackStrategy()).isNull();
+    assertThat(
+            strategyRegistry.getRemoteLocalFallbackStrategy(
+                createSpawnWithMnemonicAndDescription("", "")))
+        .isNull();
   }
 
   @Test
@@ -481,7 +695,7 @@ public class SpawnStrategyRegistryTest {
     assertThat(strategy7.usedCalled).isEqualTo(0);
   }
 
-  private Spawn createSpawnWithMnemonicAndDescription(String mnemonic, String description) {
+  private static Spawn createSpawnWithMnemonicAndDescription(String mnemonic, String description) {
     return new SimpleSpawn(
         new FakeOwner(mnemonic, description, "//dummy:label"),
         ImmutableList.of(),
@@ -544,8 +758,8 @@ public class SpawnStrategyRegistryTest {
     private final String name;
     private int usedCalled = 0;
 
-    public NoopAbstractStrategy(String name) {
-      super(null, null, /*verboseFailures=*/ true);
+    NoopAbstractStrategy(String name) {
+      super(null, null);
       this.name = name;
     }
 

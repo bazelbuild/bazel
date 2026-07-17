@@ -215,7 +215,7 @@ public final class ZipFileEntry {
     if (size < 0) {
       throw new IllegalArgumentException("invalid entry size");
     }
-    if (size > 0xffffffffL) {
+    if (size >= 0xffffffffL) {
       featureSet.add(Feature.ZIP64_SIZE);
     } else {
       featureSet.remove(Feature.ZIP64_SIZE);
@@ -239,7 +239,7 @@ public final class ZipFileEntry {
     if (csize < 0) {
       throw new IllegalArgumentException("invalid entry size");
     }
-    if (csize > 0xffffffffL) {
+    if (csize >= 0xffffffffL) {
       featureSet.add(Feature.ZIP64_CSIZE);
     } else {
       featureSet.remove(Feature.ZIP64_CSIZE);
@@ -377,7 +377,7 @@ public final class ZipFileEntry {
     if (localHeaderOffset < 0) {
       throw new IllegalArgumentException("invalid local header offset");
     }
-    if (localHeaderOffset > 0xffffffffL) {
+    if (localHeaderOffset >= 0xffffffffL) {
       featureSet.add(Feature.ZIP64_OFFSET);
     } else {
       featureSet.remove(Feature.ZIP64_OFFSET);

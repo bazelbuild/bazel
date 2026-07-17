@@ -14,17 +14,17 @@
 
 package com.google.devtools.build.lib.skyframe.serialization;
 
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
-import java.util.List;
+import javax.annotation.Nullable;
 
 /**
  * Generic object serialization/deserialization. Implementations should serialize values
  * deterministically.
  */
-public interface ObjectCodec<T> {
+public interface ObjectCodec<T> extends ProfilerLocationProvider {
   /**
    * Returns the class of the objects serialized/deserialized by this codec.
    *
@@ -38,6 +38,16 @@ public interface ObjectCodec<T> {
    */
   Class<? extends T> getEncodedClass();
 
+  @Override
+  default String getLocationText() {
+    Class<?> encodedClass = getEncodedClass();
+    String name = encodedClass.getCanonicalName();
+    if (name == null) {
+      name = encodedClass.getName(); // anonymous classes have a name, but no canonical name
+    }
+    return name + "(" + getClass().getCanonicalName() + ")";
+  }
+
   /**
    * Returns additional subtypes of {@code T} that may be serialized/deserialized using this codec
    * without loss of information.
@@ -47,13 +57,59 @@ public interface ObjectCodec<T> {
    * dispatcher may choose to use this codec for the subtype, rather than raise {@link
    * SerializationException.NoCodecException}.
    *
+   * <p>If the additional subtype already has an existing codec registered with {@link
+   * ObjectCodec#getEncodedClass()}, this codec will take precedence and overwrite the other codec.
+   *
    * <p>This method should not be used if the codec's serialization and deserialization methods
    * perform their own dispatching to other codecs for subtypes of {@code T}.
    *
    * <p>{@code T} itself should not be included in the returned list.
    */
-  default List<Class<? extends T>> additionalEncodedClasses() {
-    return ImmutableList.of();
+  default ImmutableSet<Class<? extends T>> additionalEncodedClasses() {
+    return ImmutableSet.of();
+  }
+
+  /**
+   * Whether the codec should be considered for automatic registration by {@link CodecScanner}.
+   *
+   * <p>In order to qualify for automatic registration, the class must have a name ending in {@code
+   * Codec} and have a parameterless constructor. If either of these prerequisites are not met,
+   * {@link CodecScanner} will silently skip the codec even if this method returns {@code true}.
+   */
+  default boolean autoRegister() {
+    return true;
+  }
+
+  /**
+   * The type of codec to generate.
+   *
+   * <p>This determines how the codec is registered in the {@link
+   * com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry}.
+   */
+  public enum CodecType {
+    UNSTABLE_CODEC,
+    STABLE_PUBLIC_CODEC,
+    STABLE_PRIVATE_CODEC
+  }
+
+  /**
+   * Returns the type of codec to generate.
+   *
+   * <p>This determines how the codec is registered in the {@link
+   * com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry}.
+   */
+  default WireType.CodecWireType codecType() {
+    return WireType.CodecWireType.UNSTABLE;
+  }
+
+  /**
+   * Returns the stable tag for the codec.
+   *
+   * <p>This is only used for stable codecs.
+   */
+  default int stableTag() {
+    throw new UnsupportedOperationException(
+        "Only stable codecs have a stable tag. This codec type is " + codecType());
   }
 
   /**
@@ -63,7 +119,7 @@ public interface ObjectCodec<T> {
    *     serialization process
    * @param obj the object to serialize
    * @param codedOut the {@link CodedOutputStream} to write this object into. Implementations need
-   *     not call {@link CodedOutputStream#flush()}, this should be handled by the caller.
+   *     not call {@link CodedOutputStream#flush}, this should be handled by the caller.
    * @throws SerializationException on failure to serialize
    * @throws IOException on {@link IOException} during serialization
    */
@@ -83,45 +139,19 @@ public interface ObjectCodec<T> {
   T deserialize(DeserializationContext context, CodedInputStream codedIn)
       throws SerializationException, IOException;
 
-  /**
-   * Returns the memoization strategy for this codec.
-   *
-   * <p>If set to {@link MemoizationStrategy#MEMOIZE_BEFORE}, then {@link
-   * DeserializationContext#registerInitialValue} must be called first in the {@link #deserialize}
-   * method, before delegating to any other codecs.
-   *
-   * <p>Implementations of this method should just return a constant, since the choice of strategy
-   * is usually intrinsic to {@link T}.
-   */
-  default MemoizationStrategy getStrategy() {
-    return MemoizationStrategy.MEMOIZE_AFTER;
-  }
-
-  /** Indicates how an {@link ObjectCodec} is memoized. */
-  enum MemoizationStrategy {
-    /**
-     * Indicates that memoization is not directly used by this codec.
-     *
-     * <p>Codecs with this strategy will always serialize payloads, never backreferences, even if
-     * the same value has been serialized before. This does not apply to other codecs that are
-     * delegated to within this codec. Deserialization behaves analogously.
-     *
-     * <p>This strategy is useful for codecs that write very little data themselves, but that still
-     * delegate to other codecs.
-     */
-    DO_NOT_MEMOIZE,
-
+  /** Indicates when an {@link ObjectCodec} is memoized. */
+  enum MemoizationTiming {
     /**
      * Indicates that the value is memoized before recursing to its children, so that it is
-     * available to form cyclic references from its children. If this strategy is used, {@link
+     * available to form cyclic references from its children. If this timing is used, {@link
      * DeserializationContext#registerInitialValue} must be called during the {@link #deserialize}
      * method.
      *
      * <p>This should be used for all types where it is feasible to provide an initial value. Any
-     * cycle that does not go through at least one {@code MEMOIZE_BEFORE} type of value (e.g., a
+     * cycle that does not go through at least one {@code BEFORE} type of value (e.g., a
      * pathological self-referential tuple) is unserializable.
      */
-    MEMOIZE_BEFORE,
+    BEFORE,
 
     /**
      * Indicates that the value is memoized after recursing to its children, so that it cannot be
@@ -131,6 +161,75 @@ public interface ObjectCodec<T> {
      * <p>This is typically used for immutable types, since they cannot be created by mutating an
      * initial value.
      */
-    MEMOIZE_AFTER
+    AFTER
+  }
+
+  /**
+   * Returns the memoization timing for this codec.
+   *
+   * <p>If set to {@link MemoizationTiming#BEFORE}, then {@link
+   * DeserializationContext#registerInitialValue} must be called first in the {@link #deserialize}
+   * method, before delegating to any other codecs.
+   *
+   * <p>Implementations of this method should just return a constant, since the choice of timing is
+   * usually intrinsic to {@link T}.
+   */
+  default MemoizationTiming getMemoizationTiming() {
+    return MemoizationTiming.AFTER;
+  }
+
+  /** Indicates whether memoization should use reference equality or value equality. */
+  enum MemoizationEquality {
+    /** Memoize using reference identity ({@code ==} and {@link System#identityHashCode}). */
+    BY_REFERENCE,
+    /**
+     * Memoize using value equality ({@link Object#equals} and {@link Object#hashCode}).
+     *
+     * <p>Can be used to ensure deterministic serialization for interned objects.
+     */
+    BY_VALUE
+  }
+
+  /**
+   * Returns the memoization equality strategy for the given object.
+   *
+   * <p>By default, returns {@link MemoizationEquality#BY_REFERENCE}.
+   */
+  default MemoizationEquality getMemoizationEquality(T obj) {
+    return MemoizationEquality.BY_REFERENCE;
+  }
+
+  /**
+   * Checks that {@code obj} is assignable to either {@link #getEncodedClass} or one of the {@link
+   * #additionalEncodedClasses}.
+   */
+  @SuppressWarnings("unchecked")
+  default T safeCast(@Nullable Object obj) throws SerializationException {
+    if (obj == null) {
+      return null;
+    }
+    Class<?> type = obj.getClass();
+    if (getEncodedClass().isAssignableFrom(type)) {
+      return (T) obj;
+    }
+    ImmutableSet<Class<? extends T>> additionalTypes = additionalEncodedClasses();
+    if (additionalTypes.contains(obj)) {
+      return (T) obj;
+    }
+    for (Class<?> expectedType : additionalTypes) {
+      if (expectedType.isAssignableFrom(type)) {
+        return (T) obj;
+      }
+    }
+    throw new SerializationException(
+        "Object "
+            + obj
+            + ") has type "
+            + type.getName()
+            + " but expected type one of "
+            + ImmutableSet.builder()
+                .add(getEncodedClass())
+                .addAll(additionalEncodedClasses())
+                .build());
   }
 }

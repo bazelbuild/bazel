@@ -29,7 +29,7 @@ public final class LambdaExpression extends Expression {
 
   LambdaExpression(
       FileLocations locs, int lambdaOffset, ImmutableList<Parameter> parameters, Expression body) {
-    super(locs);
+    super(locs, Kind.LAMBDA);
     this.lambdaOffset = lambdaOffset;
     this.parameters = Preconditions.checkNotNull(parameters);
     this.body = Preconditions.checkNotNull(body);
@@ -66,10 +66,5 @@ public final class LambdaExpression extends Expression {
   @Override
   public void accept(NodeVisitor visitor) {
     visitor.visit(this);
-  }
-
-  @Override
-  public Kind kind() {
-    return Kind.LAMBDA;
   }
 }

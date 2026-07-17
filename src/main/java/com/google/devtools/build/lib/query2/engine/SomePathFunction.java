@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskCal
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskFuture;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ThreadSafeMutableSet;
 import java.util.List;
+import java.util.OptionalInt;
 
 /**
  * A somepath(x, y) query expression, which computes the set of nodes on some arbitrary path from a
@@ -32,9 +33,8 @@ import java.util.List;
  *
  * <pre>expr ::= SOMEPATH '(' expr ',' expr ')'</pre>
  */
-class SomePathFunction implements QueryFunction {
-  SomePathFunction() {
-  }
+public class SomePathFunction implements QueryFunction {
+  public SomePathFunction() {}
 
   @Override
   public String getName() {
@@ -52,12 +52,27 @@ class SomePathFunction implements QueryFunction {
   }
 
   @Override
+  public boolean requiresEdges() {
+    return true;
+  }
+
+  @Override
   public <T> QueryTaskFuture<Void> eval(
       final QueryEnvironment<T> env,
       QueryExpressionContext<T> context,
       final QueryExpression expression,
       List<Argument> args,
       final Callback<T> callback) {
+    if (env instanceof StreamableQueryEnvironment) {
+      return ((StreamableQueryEnvironment<T>) env)
+          .somePath(
+              args.get(0).getExpression(),
+              args.get(1).getExpression(),
+              context,
+              callback,
+              expression);
+    }
+
     final QueryTaskFuture<ThreadSafeMutableSet<T>> fromValueFuture =
         QueryUtil.evalAll(env, context, args.get(0).getExpression());
     final QueryTaskFuture<ThreadSafeMutableSet<T>> toValueFuture =
@@ -90,16 +105,19 @@ class SomePathFunction implements QueryFunction {
             ThreadSafeMutableSet<T> fromValue = fromValueFuture.getIfSuccessful();
             ThreadSafeMutableSet<T> toValue = toValueFuture.getIfSuccessful();
 
-            env.buildTransitiveClosure(expression, fromValue, Integer.MAX_VALUE);
+            env.buildTransitiveClosure(expression, fromValue, OptionalInt.empty());
 
+            ThreadSafeMutableSet<T> visited = env.createThreadSafeMutableSet();
             for (T x : fromValue) {
-              // TODO(b/122548314): if x was already seen as part of a previous node's tc, we should
-              // skip it here. That's subsumed by the TODO below.
+              // Fast-path: If x was already visited in a previous iteration without finding a
+              // path to "to", then its transitive closure is a subset of visited and contains
+              // no nodes in "to". Thus, x cannot reach "to" and can be safely skipped.
+              if (visited.contains(x)) {
+                continue;
+              }
               ThreadSafeMutableSet<T> xSet = env.createThreadSafeMutableSet();
               xSet.add(x);
-              // TODO(b/122548314): this transitive closure building should stop at any nodes that
-              // have already been visited.
-              ThreadSafeMutableSet<T> xtc = env.getTransitiveClosure(xSet, context);
+              ThreadSafeMutableSet<T> xtc = env.getTransitiveClosure(xSet, context, visited);
               SetView<T> result;
               if (xtc.size() > toValue.size()) {
                 result = Sets.intersection(toValue, xtc);

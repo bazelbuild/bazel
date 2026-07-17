@@ -1,4 +1,3 @@
-# Lint as: python2, python3
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,19 +13,14 @@
 # limitations under the License.
 """Archive manipulation library for the Docker rules."""
 
-# pylint: disable=g-import-not-at-top
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-import gzip
-import io
 import os
 import tarfile
-import six
 
 # Use a deterministic mtime that doesn't confuse other programs.
 # See: https://github.com/bazelbuild/bazel/issues/1299
 PORTABLE_MTIME = 946684800  # 2000-01-01 00:00:00.000 UTC
+
+DEFAULT_MTIME = 0  # The posix beginning of time
 
 
 class TarFileWriter(object):
@@ -37,44 +31,22 @@ class TarFileWriter(object):
 
   def __init__(self,
                name,
-               compression='',
                root_directory='./',
-               default_mtime=None,
                preserve_tar_mtimes=False):
     """TarFileWriter wraps tarfile.open().
 
     Args:
       name: the tar file name.
-      compression: compression type: bzip2, bz2, gz, tgz.
       root_directory: virtual root to prepend to elements in the archive.
-      default_mtime: default mtime to use for elements in the archive.
-          May be an integer or the value 'portable' to use the date
-          2000-01-01, which is compatible with non *nix OSes'.
       preserve_tar_mtimes: if true, keep file mtimes from input tar file.
     """
-    if compression in ['bzip2', 'bz2']:
-      mode = 'w:bz2'
-    else:
-      mode = 'w:'
-    self.gz = compression in ['tgz', 'gz']
+    mode = 'w:'
     self.name = name
-    self.root_directory = six.ensure_str(root_directory).rstrip('/')
+    self.root_directory = root_directory.rstrip('/')
 
     self.preserve_mtime = preserve_tar_mtimes
 
-    if default_mtime is None:
-      self.default_mtime = 0
-    elif default_mtime == 'portable':
-      self.default_mtime = PORTABLE_MTIME
-    else:
-      self.default_mtime = int(default_mtime)
-
     self.fileobj = None
-    if self.gz:
-      # The Tarfile class doesn't allow us to specify gzip's mtime attribute.
-      # Instead, we manually re-implement gzopen from tarfile.py and set mtime.
-      self.fileobj = gzip.GzipFile(
-          filename=name, mode='w', compresslevel=9, mtime=self.default_mtime)
     self.tar = tarfile.open(name=name, mode=mode, fileobj=self.fileobj)
     self.members = set([])
     self.directories = set([])
@@ -113,11 +85,11 @@ class TarFileWriter(object):
       TarFileWriter.Error: when the recursion depth has exceeded the
                            `depth` argument.
     """
-    if not (name == self.root_directory or six.ensure_str(name).startswith('/')
+    if not (name == self.root_directory or name.startswith('/')
             or name.startswith(self.root_directory + '/')):
       name = os.path.join(self.root_directory, name)
     if mtime is None:
-      mtime = self.default_mtime
+      mtime = DEFAULT_MTIME
     if os.path.isdir(path):
       # Remove trailing '/' (index -1 => last character)
       if name[-1] == '/':
@@ -126,7 +98,7 @@ class TarFileWriter(object):
       # The x bit is set only to if the read bit is set.
       dirmode = (mode | ((0o444 & mode) >> 2)) if mode else mode
       self.add_file(
-          six.ensure_str(name) + '/',
+          name + '/',
           tarfile.DIRTYPE,
           uid=uid,
           gid=gid,
@@ -158,8 +130,7 @@ class TarFileWriter(object):
 
   def _addfile(self, info, fileobj=None):
     """Add a file in the tar file if there is no conflict."""
-    if not six.ensure_str(
-        info.name).endswith('/') and info.type == tarfile.DIRTYPE:
+    if not info.name.endswith('/') and info.type == tarfile.DIRTYPE:
       # Enforce the ending / for directories so we correctly deduplicate.
       info.name += '/'
     if info.name not in self.members:
@@ -172,7 +143,6 @@ class TarFileWriter(object):
   def add_file(self,
                name,
                kind=tarfile.REGTYPE,
-               content=None,
                link=None,
                file_content=None,
                uid=0,
@@ -186,7 +156,6 @@ class TarFileWriter(object):
     Args:
       name: the name of the file to add.
       kind: the type of the file to add, see tarfile.*TYPE.
-      content: a textual content to put in the file.
       link: if the file is a link, the destination of the link.
       file_content: file to read the content from. Provide either this
           one or `content` to specifies a content for the file.
@@ -209,7 +178,7 @@ class TarFileWriter(object):
       if name in self.directories:
         return
     if mtime is None:
-      mtime = self.default_mtime
+      mtime = DEFAULT_MTIME
 
     components = name.rsplit('/', 1)
     if len(components) > 1:
@@ -235,11 +204,7 @@ class TarFileWriter(object):
       tarinfo.mode = mode
     if link:
       tarinfo.linkname = link
-    if content:
-      content_bytes = six.ensure_binary(content, 'utf-8')
-      tarinfo.size = len(content_bytes)
-      self._addfile(tarinfo, io.BytesIO(content_bytes))
-    elif file_content:
+    if file_content:
       with open(file_content, 'rb') as f:
         tarinfo.size = os.fstat(f.fileno()).st_size
         self._addfile(tarinfo, f)
@@ -247,93 +212,6 @@ class TarFileWriter(object):
       if kind == tarfile.DIRTYPE:
         self.directories.add(name)
       self._addfile(tarinfo)
-
-  def add_tar(self,
-              tar,
-              rootuid=None,
-              rootgid=None,
-              numeric=False,
-              name_filter=None,
-              root=None):
-    """Merge a tar content into the current tar, stripping timestamp.
-
-    Args:
-      tar: the name of tar to extract and put content into the current tar.
-      rootuid: user id that we will pretend is root (replaced by uid 0).
-      rootgid: group id that we will pretend is root (replaced by gid 0).
-      numeric: set to true to strip out name of owners (and just use the
-          numeric values).
-      name_filter: filter out file by names. If not none, this method will be
-          called for each file to add, given the name and should return true if
-          the file is to be added to the final tar and false otherwise.
-      root: place all non-absolute content under given root directory, if not
-          None.
-
-    Raises:
-      TarFileWriter.Error: if an error happens when uncompressing the tar file.
-    """
-    if root and root[0] not in ['/', '.']:
-      # Root prefix should start with a '/', adds it if missing
-      root = '/' + six.ensure_str(root)
-    compression = os.path.splitext(tar)[-1][1:]
-    if compression == 'tgz':
-      compression = 'gz'
-    elif compression == 'bzip2':
-      compression = 'bz2'
-    elif compression not in ['gz', 'bz2']:
-      compression = ''
-    if compression in ['gz', 'bz2']:
-      # prevent performance issues due to accidentally-introduced seeks
-      # during intar traversal by opening in "streaming" mode. gz, bz2
-      # are supported natively by python 2.7 and 3.x
-      inmode = 'r|' + six.ensure_str(compression)
-    else:
-      inmode = 'r:' + six.ensure_str(compression)
-    intar = tarfile.open(name=tar, mode=inmode)
-    for tarinfo in intar:
-      if name_filter is None or name_filter(tarinfo.name):
-        if not self.preserve_mtime:
-          tarinfo.mtime = self.default_mtime
-        if rootuid is not None and tarinfo.uid == rootuid:
-          tarinfo.uid = 0
-          tarinfo.uname = 'root'
-        if rootgid is not None and tarinfo.gid == rootgid:
-          tarinfo.gid = 0
-          tarinfo.gname = 'root'
-        if numeric:
-          tarinfo.uname = ''
-          tarinfo.gname = ''
-
-        name = tarinfo.name
-        if (not name.startswith('/') and
-            not name.startswith(self.root_directory)):
-          name = os.path.join(self.root_directory, name)
-        if root is not None:
-          if name.startswith('.'):
-            name = '.' + root + name.lstrip('.')
-            # Add root dir with same permissions if missing. Note that
-            # add_file deduplicates directories and is safe to call here.
-            self.add_file('.' + root,
-                          tarfile.DIRTYPE,
-                          uid=tarinfo.uid,
-                          gid=tarinfo.gid,
-                          uname=tarinfo.uname,
-                          gname=tarinfo.gname,
-                          mtime=tarinfo.mtime,
-                          mode=0o755)
-          # Relocate internal hardlinks as well to avoid breaking them.
-          link = tarinfo.linkname
-          if link.startswith('.') and tarinfo.type == tarfile.LNKTYPE:
-            tarinfo.linkname = '.' + root + link.lstrip('.')
-        tarinfo.name = name
-
-        if tarinfo.isfile():
-          # use extractfile(tarinfo) instead of tarinfo.name to preserve
-          # seek position in intar
-          self._addfile(tarinfo, intar.extractfile(tarinfo))
-        else:
-          self._addfile(tarinfo)
-    intar.close()
 
   def close(self):
     """Close the output tar file.

@@ -25,46 +25,49 @@ import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionPriority.PriorityCategory;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.util.Arrays;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /** Test for {@link OptionsUtils}. */
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public class OptionsUtilsTest {
 
-  public static class IntrospectionExample extends OptionsBase {
+  @OptionsClass
+  public abstract static class IntrospectionExample extends OptionsBase {
     @Option(
         name = "alpha",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "alpha")
-    public String alpha;
+    public abstract String getAlpha();
 
     @Option(
         name = "beta",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "beta")
-    public String beta;
+    public abstract String getBeta();
 
     @Option(
         name = "gamma",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "gamma")
-    public String gamma;
+    public abstract String getGamma();
 
     @Option(
         name = "delta",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "delta")
-    public String delta;
+    public abstract String getDelta();
 
     @Option(
         name = "echo",
@@ -72,7 +75,7 @@ public class OptionsUtilsTest {
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "echo")
-    public String echo;
+    public abstract String getEcho();
   }
 
   @Test
@@ -98,20 +101,21 @@ public class OptionsUtilsTest {
         .inOrder();
   }
 
-  public static class BooleanOpts extends OptionsBase {
+  @OptionsClass
+  public abstract static class BooleanOpts extends OptionsBase {
     @Option(
         name = "b_one",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "true")
-    public boolean bOne;
+    public abstract boolean getBOne();
 
     @Option(
         name = "b_two",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "false")
-    public boolean bTwo;
+    public abstract boolean getBTwo();
   }
 
   @Test
@@ -125,8 +129,8 @@ public class OptionsUtilsTest {
 
     parser = OptionsParser.builder().optionsClasses(BooleanOpts.class).build();
     parser.parse(PriorityCategory.COMMAND_LINE, null, Arrays.asList("--b_one=true", "--b_two=0"));
-    assertThat(parser.getOptions(BooleanOpts.class).bOne).isTrue();
-    assertThat(parser.getOptions(BooleanOpts.class).bTwo).isFalse();
+    assertThat(parser.getOptions(BooleanOpts.class).getBOne()).isTrue();
+    assertThat(parser.getOptions(BooleanOpts.class).getBTwo()).isFalse();
     assertThat(OptionsUtils.asShellEscapedString(parser)).isEqualTo("--b_one --nob_two");
     assertThat(OptionsUtils.asArgumentList(parser))
         .containsExactly("--b_one", "--nob_two")
@@ -192,23 +196,21 @@ public class OptionsUtilsTest {
   }
 
   @Test
-  public void emptyPathFragmentToNull() throws Exception {
-    assertThat(new OptionsUtils.EmptyToNullRelativePathFragmentConverter().convert("")).isNull();
+  public void absolutePathFragmentConverter_convertsAbsolutePath(
+      @TestParameter({"/", "/dir/file"}) String path) throws Exception {
+    OptionsUtils.AbsolutePathFragmentConverter converter =
+        new OptionsUtils.AbsolutePathFragmentConverter();
+    assertThat(converter.convert(path)).isEqualTo(PathFragment.create(path));
   }
 
   @Test
-  public void absolutePathFragmentThrows() throws Exception {
-    OptionsParsingException exception =
-        assertThrows(
-            OptionsParsingException.class,
-            () -> new OptionsUtils.EmptyToNullRelativePathFragmentConverter().convert("/abs"));
+  public void absolutePathFragmentConverter_failsForRelativePath() {
+    OptionsUtils.AbsolutePathFragmentConverter converter =
+        new OptionsUtils.AbsolutePathFragmentConverter();
 
-    assertThat(exception).hasMessageThat().contains("/abs");
-  }
+    OptionsParsingException e =
+        assertThrows(OptionsParsingException.class, () -> converter.convert("relative/path"));
 
-  @Test
-  public void relativePathFragment() throws Exception {
-    assertThat(new OptionsUtils.EmptyToNullRelativePathFragmentConverter().convert("path/to/me"))
-        .isEqualTo(PathFragment.create("path/to/me"));
+    assertThat(e).hasMessageThat().isEqualTo("Not an absolute path: 'relative/path'");
   }
 }

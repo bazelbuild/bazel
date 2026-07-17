@@ -20,27 +20,34 @@ import java.util.Objects;
 
 /**
  * In case we can't get a fast digest from the filesystem, we store this metadata as a proxy to the
- * file contents. Currently it is a pair of a relevant timestamp and a "node id". On Linux the
- * former is the ctime and the latter is the inode number. We might want to add the device number in
- * the future.
+ * file contents. Currently it is up to two timestamps and a "node id". On Linux, macOS and Windows
+ * we use both ctime and mtime, on Linux and macOS also the inode number. On other OSes, only the
+ * mtime is used. We might want to add the device number in the future.
  *
- * <p>For a Linux example of why mtime alone is insufficient, note that 'mv' preserves timestamps.
- * So if files 'a' and 'b' initially have the same timestamp, then we would think 'b' is unchanged
- * after the user executes `mv a b` between two builds.
+ * <p>For a Linux example of why mtime alone is insufficient, note that 'mv' preserves mtime. So if
+ * files 'a' and 'b' initially have the same timestamp, then we would think 'b' is unchanged after
+ * the user executes `mv a b` between two builds.
+ *
+ * <p>On Linux we also need mtime for hardlinking sandbox, since updating the inode reference
+ * counter preserves mtime, but updates ctime. isModified() call can be used to compare two
+ * FileContentsProxys of hardlinked files.
  */
 public final class FileContentsProxy {
   private final long ctime;
+  private final long mtime;
   private final long nodeId;
 
-  private FileContentsProxy(long ctime, long nodeId) {
+  public FileContentsProxy(long ctime, long mtime, long nodeId) {
     this.ctime = ctime;
+    this.mtime = mtime;
     this.nodeId = nodeId;
   }
 
   public static FileContentsProxy create(FileStatus stat) throws IOException {
-    // Note: there are file systems that return mtime for this call instead of ctime, such as the
-    // WindowsFileSystem.
-    return new FileContentsProxy(stat.getLastChangeTime(), stat.getNodeId());
+    return new FileContentsProxy(
+        // Note: there are file systems that return mtime for getLastChangeTime() instead of ctime,
+        // such as the JavaIoFileSystem.
+        stat.getLastChangeTime(), stat.getLastModifiedTime(), stat.getNodeId());
   }
 
   @Override
@@ -49,21 +56,35 @@ public final class FileContentsProxy {
       return true;
     }
 
-    if (!(other instanceof FileContentsProxy)) {
+    if (!(other instanceof FileContentsProxy that)) {
       return false;
     }
 
-    FileContentsProxy that = (FileContentsProxy) other;
-    return ctime == that.ctime && nodeId == that.nodeId;
+    return ctime == that.ctime && mtime == that.mtime && nodeId == that.nodeId;
+  }
+
+  /**
+   * Can be used when hardlink reference counter changes should not be considered a file
+   * modification. Is only comparing mtime and not ctime and is therefore not detecting changed
+   * metadata like permission.
+   */
+  @SuppressWarnings("ReferenceEquality")
+  public boolean isModified(FileContentsProxy other) {
+    if (other == this) {
+      return false;
+    }
+    // true if nodeId are different or inode has a new mtime
+    return nodeId != other.nodeId || mtime != other.mtime;
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(ctime, nodeId);
+    return Objects.hash(ctime, mtime, nodeId);
   }
 
   void addToFingerprint(Fingerprint fp) {
     fp.addLong(ctime);
+    fp.addLong(mtime);
     fp.addLong(nodeId);
   }
 
@@ -73,6 +94,6 @@ public final class FileContentsProxy {
   }
 
   public String prettyPrint() {
-    return String.format("ctime of %d and nodeId of %d", ctime, nodeId);
+    return String.format("ctime of %d and mtime of %d and nodeId of %d", ctime, mtime, nodeId);
   }
 }

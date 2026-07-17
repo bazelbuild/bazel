@@ -13,12 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.lib.vfs;
 
-import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.util.StringEncoding;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -26,9 +28,11 @@ import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.LinkOption;
 import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
-import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
+import javax.annotation.Nullable;
 
 /**
  * A FileSystem that does not use any JNI and hence, does not require a shared library be present at
@@ -39,45 +43,35 @@ import java.util.Collection;
  * system call - they all are associated with the VFS_STAT task.
  */
 @ThreadSafe
-public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
+public class JavaIoFileSystem extends DiskBackedFileSystem {
   private static final LinkOption[] NO_LINK_OPTION = new LinkOption[0];
   // This isn't generally safe; we rely on the file system APIs not modifying the array.
   private static final LinkOption[] NOFOLLOW_LINKS_OPTION =
-      new LinkOption[] { LinkOption.NOFOLLOW_LINKS };
+      new LinkOption[] {LinkOption.NOFOLLOW_LINKS};
 
   private final Clock clock;
-
-  protected static final String ERR_IS_DIRECTORY = " (Is a directory)";
-  protected static final String ERR_DIRECTORY_NOT_EMPTY = " (Directory not empty)";
-  protected static final String ERR_FILE_EXISTS = " (File exists)";
-  protected static final String ERR_NO_SUCH_FILE_OR_DIR = " (No such file or directory)";
-  protected static final String ERR_NOT_A_DIRECTORY = " (Not a directory)";
 
   public JavaIoFileSystem(DigestHashFunction hashFunction) {
     super(hashFunction);
     this.clock = new JavaClock();
   }
 
-  @VisibleForTesting
-  JavaIoFileSystem(Clock clock, DigestHashFunction hashFunction) {
-    super(hashFunction);
-    this.clock = clock;
-  }
-
-  protected File getIoFile(PathFragment path) {
-    return new File(path.toString());
+  @Override
+  public File getIoFile(PathFragment path) {
+    return new File(StringEncoding.internalToPlatform(path.getPathString()));
   }
 
   /**
    * Returns a {@link java.nio.file.Path} representing the same path as provided {@code path}.
    *
-   * <p>Note: while it's possible to use {@link #getIoFile(PathFragment)} in combination with {@link
-   * File#toPath()} to achieve essentially the same, using this method is preferable because it
-   * avoids extra allocations and does not lose track of the underlying Java filesystem, which is
-   * useful for some in-memory filesystem implementations like JimFS.
+   * <p>Note: while it's possible to use {@link FileSystem#getIoFile(PathFragment)} in combination
+   * with {@link File#toPath()} to achieve essentially the same, using this method is preferable
+   * because it avoids extra allocations and does not lose track of the underlying Java filesystem,
+   * which is useful for some in-memory filesystem implementations like JimFS.
    */
-  protected java.nio.file.Path getNioPath(PathFragment path) {
-    return Paths.get(path.toString());
+  @Override
+  public java.nio.file.Path getNioPath(PathFragment path) {
+    return Paths.get(StringEncoding.internalToPlatform(path.getPathString()));
   }
 
   private LinkOption[] linkOpts(boolean followSymlinks) {
@@ -85,10 +79,10 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
   }
 
   @Override
-  protected Collection<String> getDirectoryEntries(PathFragment path) throws IOException {
+  public Collection<String> getDirectoryEntries(PathFragment path) throws IOException {
     File file = getIoFile(path);
-    String[] entries = null;
-    long startTime = Profiler.nanoTimeMaybe();
+    String[] entries;
+    long startTime = Profiler.instance().nanoTimeMaybe();
     try {
       entries = file.list();
       if (entries == null) {
@@ -99,48 +93,42 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
         }
       }
     } finally {
-      profiler.logSimpleTask(startTime, ProfilerTask.VFS_DIR, file.getPath());
+      Profiler.instance().logSimpleTask(startTime, ProfilerTask.VFS_DIR, file.getPath());
     }
-    Collection<String> result = new ArrayList<>(entries.length);
-    for (String entry : entries) {
-      if (!entry.equals(".") && !entry.equals("..")) {
-        result.add(entry);
-      }
-    }
-    return result;
+    return Lists.transform(Arrays.asList(entries), StringEncoding::platformToInternal);
   }
 
   @Override
-  protected boolean exists(PathFragment path, boolean followSymlinks) {
-    long startTime = Profiler.nanoTimeMaybe();
+  public boolean exists(PathFragment path, boolean followSymlinks) {
+    long startTime = Profiler.instance().nanoTimeMaybe();
     try {
       java.nio.file.Path nioPath = getNioPath(path);
       return Files.exists(nioPath, linkOpts(followSymlinks));
     } catch (InvalidPathException e) {
       return false;
     } finally {
-      profiler.logSimpleTask(startTime, ProfilerTask.VFS_STAT, path.toString());
+      Profiler.instance().logSimpleTask(startTime, ProfilerTask.VFS_STAT, path.toString());
     }
   }
 
   @Override
-  protected boolean isReadable(PathFragment path) throws IOException {
+  public boolean isReadable(PathFragment path) throws IOException {
     File file = getIoFile(path);
-    long startTime = Profiler.nanoTimeMaybe();
+    long startTime = Profiler.instance().nanoTimeMaybe();
     try {
       if (!file.exists()) {
         throw new FileNotFoundException(path + ERR_NO_SUCH_FILE_OR_DIR);
       }
       return file.canRead();
     } finally {
-      profiler.logSimpleTask(startTime, ProfilerTask.VFS_STAT, file.getPath());
+      Profiler.instance().logSimpleTask(startTime, ProfilerTask.VFS_STAT, file.getPath());
     }
   }
 
   @Override
-  protected boolean isWritable(PathFragment path) throws IOException {
+  public boolean isWritable(PathFragment path) throws IOException {
     File file = getIoFile(path);
-    long startTime = Profiler.nanoTimeMaybe();
+    long startTime = Profiler.instance().nanoTimeMaybe();
     try {
       if (!file.exists()) {
         if (linkExists(file)) {
@@ -151,31 +139,33 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
       }
       return file.canWrite();
     } finally {
-      profiler.logSimpleTask(startTime, ProfilerTask.VFS_STAT, file.getPath());
+      Profiler.instance().logSimpleTask(startTime, ProfilerTask.VFS_STAT, file.getPath());
     }
   }
 
   @Override
-  protected boolean isExecutable(PathFragment path) throws IOException {
+  public boolean isExecutable(PathFragment path) throws IOException {
     File file = getIoFile(path);
-    long startTime = Profiler.nanoTimeMaybe();
+    long startTime = Profiler.instance().nanoTimeMaybe();
     try {
       if (!file.exists()) {
         throw new FileNotFoundException(path + ERR_NO_SUCH_FILE_OR_DIR);
       }
       return file.canExecute();
     } finally {
-      profiler.logSimpleTask(startTime, ProfilerTask.VFS_STAT, file.getPath());
+      Profiler.instance().logSimpleTask(startTime, ProfilerTask.VFS_STAT, file.getPath());
     }
   }
 
   @Override
-  protected void setReadable(PathFragment path, boolean readable) throws IOException {
+  public void setReadable(PathFragment path, boolean readable) throws IOException {
     File file = getIoFile(path);
     if (!file.exists()) {
       throw new FileNotFoundException(path + ERR_NO_SUCH_FILE_OR_DIR);
     }
-    file.setReadable(readable);
+    if (!file.setReadable(readable) && readable) {
+      throw new IOException(String.format("Failed to make %s readable", path));
+    }
   }
 
   @Override
@@ -184,16 +174,20 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
     if (!file.exists()) {
       throw new FileNotFoundException(path + ERR_NO_SUCH_FILE_OR_DIR);
     }
-    file.setWritable(writable);
+    if (!file.setWritable(writable) && writable) {
+      throw new IOException(String.format("Failed to make %s writable", path));
+    }
   }
 
   @Override
-  protected void setExecutable(PathFragment path, boolean executable) throws IOException {
+  public void setExecutable(PathFragment path, boolean executable) throws IOException {
     File file = getIoFile(path);
     if (!file.exists()) {
       throw new FileNotFoundException(path + ERR_NO_SUCH_FILE_OR_DIR);
     }
-    file.setExecutable(executable);
+    if (!file.setExecutable(executable) && executable) {
+      throw new IOException(String.format("Failed to make %s executable", path));
+    }
   }
 
   @Override
@@ -212,8 +206,8 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
   }
 
   @Override
-  public boolean isFilePathCaseSensitive() {
-    return true;
+  public boolean mayBeCaseOrNormalizationInsensitive() {
+    return OS.getCurrent() == OS.DARWIN || OS.getCurrent() == OS.WINDOWS;
   }
 
   @Override
@@ -223,7 +217,7 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
       return true;
     }
 
-    if (fileIsSymbolicLink(file)) {
+    if (fileIsSymbolicLink(file.toPath())) {
       throw new IOException(path + ERR_FILE_EXISTS);
     }
     if (file.isDirectory()) {
@@ -252,7 +246,7 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
     } catch (java.nio.file.FileAlreadyExistsException e) {
       // Files.createDirectories will handle this case normally, but if the existing
       // file is a symlink to a directory then it still throws. Swallow this.
-      if (!isDirectory(path, /*followSymlinks=*/ true)) {
+      if (!isDirectory(path, /* followSymlinks= */ true)) {
         throw e;
       }
     }
@@ -277,80 +271,66 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
   }
 
   @Override
-  protected void createSymbolicLink(PathFragment linkPath, PathFragment targetFragment)
+  public void createSymbolicLink(
+      PathFragment linkPath, PathFragment targetFragment, SymlinkTargetType type)
       throws IOException {
     java.nio.file.Path nioPath = getNioPath(linkPath);
     try {
-      Files.createSymbolicLink(nioPath, Paths.get(targetFragment.getSafePathString()));
-    } catch (java.nio.file.FileAlreadyExistsException e) {
-      throw new IOException(linkPath + ERR_FILE_EXISTS);
-    } catch (java.nio.file.AccessDeniedException e) {
-      throw new IOException(linkPath + ERR_PERMISSION_DENIED);
-    } catch (java.nio.file.NoSuchFileException e) {
-      throw new FileNotFoundException(linkPath + ERR_NO_SUCH_FILE_OR_DIR);
+      // Files.createSymbolicLink does not let us specify the target type.
+      Files.createSymbolicLink(
+          nioPath,
+          Paths.get(StringEncoding.internalToPlatform(targetFragment.getSafePathString())));
+    } catch (IOException e) {
+      throw translateNioToIoException(linkPath, e);
     }
   }
 
   @Override
-  protected PathFragment readSymbolicLink(PathFragment path) throws IOException {
+  public PathFragment readSymbolicLink(PathFragment path) throws IOException {
     java.nio.file.Path nioPath = getNioPath(path);
-    long startTime = Profiler.nanoTimeMaybe();
+    long startTime = Profiler.instance().nanoTimeMaybe();
     try {
       String link = Files.readSymbolicLink(nioPath).toString();
-      return PathFragment.create(link);
-    } catch (java.nio.file.NotLinkException e) {
-      throw new NotASymlinkException(path);
-    } catch (java.nio.file.NoSuchFileException e) {
-      throw new FileNotFoundException(path + ERR_NO_SUCH_FILE_OR_DIR);
+      return PathFragment.create(StringEncoding.platformToInternal(link));
+    } catch (IOException e) {
+      throw translateNioToIoException(path, e);
     } finally {
-      profiler.logSimpleTask(startTime, ProfilerTask.VFS_READLINK, path.getPathString());
+      Profiler.instance().logSimpleTask(startTime, ProfilerTask.VFS_READLINK, path.getPathString());
     }
   }
 
   @Override
   public void renameTo(PathFragment sourcePath, PathFragment targetPath) throws IOException {
-    File sourceFile = getIoFile(sourcePath);
-    File targetFile = getIoFile(targetPath);
-    if (!sourceFile.renameTo(targetFile)) {
-      if (!sourceFile.exists()) {
-        throw new FileNotFoundException(sourcePath + ERR_NO_SUCH_FILE_OR_DIR);
-      }
-      if (targetFile.exists()) {
-        if (targetFile.isDirectory() && targetFile.list().length > 0) {
-          throw new IOException(targetPath + ERR_DIRECTORY_NOT_EMPTY);
-        } else if (sourceFile.isDirectory() && targetFile.isFile()) {
-          throw new IOException(sourcePath + " -> " + targetPath + ERR_NOT_A_DIRECTORY);
-        } else if (sourceFile.isFile() && targetFile.isDirectory()) {
-          throw new IOException(sourcePath + " -> " + targetPath + ERR_IS_DIRECTORY);
-        } else {
-          throw new IOException(sourcePath + " -> " + targetPath  + ERR_PERMISSION_DENIED);
-        }
-      } else {
-        throw new FileAccessException(sourcePath + " -> " + targetPath + ERR_PERMISSION_DENIED);
-      }
+    java.nio.file.Path source = getNioPath(sourcePath);
+    java.nio.file.Path target = getNioPath(targetPath);
+    try {
+      Files.move(
+          source, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+    } catch (IOException e) {
+      throw translateNioToIoException(sourcePath, e);
     }
   }
 
   @Override
-  protected long getFileSize(PathFragment path, boolean followSymlinks) throws IOException {
-    long startTime = Profiler.nanoTimeMaybe();
+  public long getFileSize(PathFragment path, boolean followSymlinks) throws IOException {
+    long startTime = Profiler.instance().nanoTimeMaybe();
     try {
       return stat(path, followSymlinks).getSize();
     } finally {
-      profiler.logSimpleTask(startTime, ProfilerTask.VFS_STAT, path.getPathString());
+      Profiler.instance().logSimpleTask(startTime, ProfilerTask.VFS_STAT, path.getPathString());
     }
   }
 
   @Override
-  protected boolean delete(PathFragment path) throws IOException {
+  public boolean delete(PathFragment path) throws IOException {
     java.nio.file.Path nioPath = getNioPath(path);
-    long startTime = Profiler.nanoTimeMaybe();
+    long startTime = Profiler.instance().nanoTimeMaybe();
     try {
       return Files.deleteIfExists(nioPath);
     } catch (java.nio.file.DirectoryNotEmptyException e) {
-      throw new IOException(path.getPathString() + ERR_DIRECTORY_NOT_EMPTY);
+      throw new IOException(path.getPathString() + ERR_DIRECTORY_NOT_EMPTY, e);
     } catch (java.nio.file.AccessDeniedException e) {
-      throw new IOException(path.getPathString() + ERR_PERMISSION_DENIED);
+      throw new IOException(path.getPathString() + ERR_PERMISSION_DENIED, e);
     } catch (java.nio.file.AtomicMoveNotSupportedException
         | java.nio.file.FileAlreadyExistsException
         | java.nio.file.FileSystemLoopException
@@ -378,29 +358,30 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
         throw new IOException(path.getPathString() + ": unexpected FileSystemException", e);
       }
     } finally {
-      profiler.logSimpleTask(startTime, ProfilerTask.VFS_DELETE, path.getPathString());
+      Profiler.instance().logSimpleTask(startTime, ProfilerTask.VFS_DELETE, path.getPathString());
     }
   }
 
   @Override
-  protected long getLastModifiedTime(PathFragment path, boolean followSymlinks) throws IOException {
+  public long getLastModifiedTime(PathFragment path, boolean followSymlinks) throws IOException {
     File file = getIoFile(path);
-    long startTime = Profiler.nanoTimeMaybe();
+    long startTime = Profiler.instance().nanoTimeMaybe();
     try {
       return stat(path, followSymlinks).getLastModifiedTime();
     } finally {
-      profiler.logSimpleTask(startTime, ProfilerTask.VFS_STAT, file.getPath());
+      Profiler.instance().logSimpleTask(startTime, ProfilerTask.VFS_STAT, file.getPath());
     }
   }
 
-  protected boolean fileIsSymbolicLink(File file) {
-    return Files.isSymbolicLink(file.toPath());
+  protected boolean fileIsSymbolicLink(java.nio.file.Path file) {
+    return Files.isSymbolicLink(file);
   }
 
   @Override
   public void setLastModifiedTime(PathFragment path, long newTime) throws IOException {
     File file = getIoFile(path);
-    if (!file.setLastModified(newTime == -1L ? clock.currentTimeMillis() : newTime)) {
+    if (!file.setLastModified(
+        newTime == Path.NOW_SENTINEL_TIME ? clock.currentTimeMillis() : newTime)) {
       if (!file.exists()) {
         throw new FileNotFoundException(path + ERR_NO_SUCH_FILE_OR_DIR);
       } else if (!file.getParentFile().canWrite()) {
@@ -412,13 +393,13 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
   }
 
   @Override
-  protected byte[] getDigest(PathFragment path) throws IOException {
+  public byte[] getDigest(PathFragment path) throws IOException {
     String name = path.toString();
-    long startTime = Profiler.nanoTimeMaybe();
+    long startTime = Profiler.instance().nanoTimeMaybe();
     try {
       return super.getDigest(path);
     } finally {
-      profiler.logSimpleTask(startTime, ProfilerTask.VFS_MD5, name);
+      Profiler.instance().logSimpleTask(startTime, ProfilerTask.VFS_MD5, name);
     }
   }
 
@@ -431,7 +412,7 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
    * case of permission issues).
    */
   @Override
-  protected FileStatus stat(PathFragment path, boolean followSymlinks) throws IOException {
+  public FileStatus stat(PathFragment path, boolean followSymlinks) throws IOException {
     java.nio.file.Path nioPath = getNioPath(path);
     final BasicFileAttributes attributes;
     try {
@@ -440,55 +421,57 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
     } catch (java.nio.file.FileSystemException e) {
       throw new FileNotFoundException(path + ERR_NO_SUCH_FILE_OR_DIR);
     }
-    FileStatus status =  new FileStatus() {
-      @Override
-      public boolean isFile() {
-        return attributes.isRegularFile() || isSpecialFile();
-      }
+    FileStatus status =
+        new FileStatus() {
+          @Override
+          public boolean isFile() {
+            return attributes.isRegularFile() || isSpecialFile();
+          }
 
-      @Override
-      public boolean isSpecialFile() {
-        return attributes.isOther();
-      }
+          @Override
+          public boolean isSpecialFile() {
+            return attributes.isOther();
+          }
 
-      @Override
-      public boolean isDirectory() {
-        return attributes.isDirectory();
-      }
+          @Override
+          public boolean isDirectory() {
+            return attributes.isDirectory();
+          }
 
-      @Override
-      public boolean isSymbolicLink() {
-        return attributes.isSymbolicLink();
-      }
+          @Override
+          public boolean isSymbolicLink() {
+            return attributes.isSymbolicLink();
+          }
 
-      @Override
-      public long getSize() throws IOException {
-        return attributes.size();
-      }
+          @Override
+          public long getSize() {
+            return attributes.size();
+          }
 
-      @Override
-      public long getLastModifiedTime() throws IOException {
-        return attributes.lastModifiedTime().toMillis();
-      }
+          @Override
+          public long getLastModifiedTime() {
+            return attributes.lastModifiedTime().toMillis();
+          }
 
-      @Override
-      public long getLastChangeTime() {
-        // This is the best we can do with Java NIO...
-        return attributes.lastModifiedTime().toMillis();
-      }
+          @Override
+          public long getLastChangeTime() {
+            // This is the best we can do with Java NIO...
+            return attributes.lastModifiedTime().toMillis();
+          }
 
-      @Override
-      public long getNodeId() {
-        // TODO(bazel-team): Consider making use of attributes.fileKey().
-        return -1;
-      }
-    };
+          @Override
+          public long getNodeId() {
+            // TODO(bazel-team): Consider making use of attributes.fileKey().
+            return -1;
+          }
+        };
 
     return status;
   }
 
   @Override
-  protected FileStatus statIfFound(PathFragment path, boolean followSymlinks) {
+  @Nullable
+  public FileStatus statIfFound(PathFragment path, boolean followSymlinks) {
     try {
       return stat(path, followSymlinks);
     } catch (FileNotFoundException e) {
@@ -505,10 +488,8 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
   }
 
   @Override
-  protected void createFSDependentHardLink(PathFragment linkPath, PathFragment originalPath)
+  public void createFSDependentHardLink(PathFragment linkPath, PathFragment originalPath)
       throws IOException {
-    Files.createLink(
-        java.nio.file.Paths.get(linkPath.toString()),
-        java.nio.file.Paths.get(originalPath.toString()));
+    Files.createLink(getNioPath(linkPath), getNioPath(originalPath));
   }
 }

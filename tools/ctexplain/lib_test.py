@@ -1,4 +1,3 @@
-# Lint as: python3
 # Copyright 2020 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,14 +11,15 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Tests for lib.py."""
+
+# pylint: disable=g-bad-todo
+# pylint: disable=g-generic-assert
 import unittest
 from src.test.py.bazel import test_base
-# Do not edit this line. Copybara replaces it with PY2 migration helper..third_party.bazel.tools.ctexplain.bazel_api as bazel_api
-# Do not edit this line. Copybara replaces it with PY2 migration helper..third_party.bazel.tools.ctexplain.lib as lib
-from tools.ctexplain.types import Configuration
-from tools.ctexplain.types import HostConfiguration
-from tools.ctexplain.types import NullConfiguration
+import tools.ctexplain.bazel_api as bazel_api
+from tools.ctexplain.ctexplain_types import Configuration
+from tools.ctexplain.ctexplain_types import NullConfiguration
+import tools.ctexplain.lib as lib
 
 
 class LibTest(test_base.TestBase):
@@ -30,7 +30,6 @@ class LibTest(test_base.TestBase):
     test_base.TestBase.setUp(self)
     self._bazel = bazel_api.BazelApi(self.RunBazel)
     self.ScratchFile('WORKSPACE')
-    self.CreateWorkspaceWithDefaultRepos('repo/WORKSPACE')
 
   def tearDown(self):
     test_base.TestBase.tearDown(self)
@@ -41,7 +40,7 @@ class LibTest(test_base.TestBase):
         '    pass',
         'rule_with_host_dep = rule(',
         '    implementation = _impl,',
-        '    attrs = { "host_deps": attr.label_list(cfg = "host") })',
+        '    attrs = { "host_deps": attr.label_list(cfg = "exec") })',
     ])
     self.ScratchFile('testapp/BUILD', [
         'load("//testapp:defs.bzl", "rule_with_host_dep")',
@@ -56,8 +55,9 @@ class LibTest(test_base.TestBase):
                          ['//testapp:a', '//testapp:h', '//testapp:h.src'])
     # Don't use assertIsInstance because we don't want to match subclasses.
     self.assertEqual(Configuration, type(cts[0].config))
-    self.assertEqual('HOST', cts[1].config_hash)
-    self.assertIsInstance(cts[1].config, HostConfiguration)
+    # TODO: Bazel no longer has the concept of a host config. Fix the test.
+    # self.assertEqual('HOST', cts[1].config_hash)
+    # self.assertIsInstance(cts[1].config, HostConfiguration)
     self.assertEqual('null', cts[2].config_hash)
     self.assertIsInstance(cts[2].config, NullConfiguration)
 
@@ -67,7 +67,7 @@ class LibTest(test_base.TestBase):
         '    pass',
         'rule_with_host_dep = rule(',
         '    implementation = _impl,',
-        '    attrs = { "host_deps": attr.label_list(cfg = "host") })',
+        '    attrs = { "host_deps": attr.label_list(cfg = "exec") })',
     ])
     self.ScratchFile('testapp/BUILD', [
         'load("//testapp:defs.bzl", "rule_with_host_dep")',
@@ -81,9 +81,12 @@ class LibTest(test_base.TestBase):
 
     # Even though the build references //testapp:other twice, it only appears
     # once.
-    self.assertListEqual(
-        [ct.label for ct in cts],
-        ['//testapp:a', '//testapp:h', '//testapp:other', '//testapp:h.src'])
+    self.assertListEqual(  # pylint: disable=g-generic-assert
+        sorted([ct.label for ct in cts]),
+        sorted(
+            ['//testapp:a', '//testapp:other', '//testapp:h', '//testapp:h.src']
+        ),
+    )
 
 
 if __name__ == '__main__':

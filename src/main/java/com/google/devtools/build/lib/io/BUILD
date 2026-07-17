@@ -1,8 +1,9 @@
 load("@rules_java//java:defs.bzl", "java_library")
 
-package(default_visibility = ["//src:__subpackages__"])
-
-licenses(["notice"])
+package(
+    default_applicable_licenses = ["//:license"],
+    default_visibility = ["//src:__subpackages__"],
+)
 
 filegroup(
     name = "srcs",
@@ -13,6 +14,18 @@ filegroup(
 java_library(
     name = "inconsistent_filesystem_exception",
     srcs = ["InconsistentFilesystemException.java"],
+)
+
+java_library(
+    name = "process_package_directory_exception",
+    srcs = ["ProcessPackageDirectoryException.java"],
+    deps = [
+        ":inconsistent_filesystem_exception",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:detailed_exceptions",
+        "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/protobuf:failure_details_java_proto",
+    ],
 )
 
 java_library(
@@ -47,7 +60,7 @@ java_library(
     srcs = ["FileSymlinkCycleUniquenessFunction.java"],
     deps = [
         ":abstract_chain_uniqueness_function",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
@@ -60,7 +73,7 @@ java_library(
     srcs = ["FileSymlinkInfiniteExpansionException.java"],
     deps = [
         ":file_symlink_exception",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//third_party:guava",
     ],
@@ -71,7 +84,7 @@ java_library(
     srcs = ["FileSymlinkInfiniteExpansionUniquenessFunction.java"],
     deps = [
         ":abstract_chain_uniqueness_function",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",

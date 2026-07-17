@@ -20,6 +20,7 @@ import static java.nio.file.StandardOpenOption.APPEND;
 import static java.nio.file.StandardOpenOption.CREATE;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.ImmutableSet;
@@ -33,12 +34,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
-import java.io.Reader;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.net.URL;
 import java.net.URLClassLoader;
-import java.net.URLDecoder;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.HashMap;
@@ -55,11 +54,7 @@ import java.util.jar.Manifest;
 import org.jacoco.agent.rt.IAgent;
 import org.jacoco.agent.rt.RT;
 import org.jacoco.core.analysis.Analyzer;
-import org.jacoco.core.analysis.CoverageBuilder;
-import org.jacoco.core.analysis.IBundleCoverage;
 import org.jacoco.core.tools.ExecFileLoader;
-import org.jacoco.report.IReportVisitor;
-import org.jacoco.report.ISourceFileLocator;
 import sun.misc.Unsafe;
 
 /**
@@ -122,93 +117,34 @@ public class JacocoCoverageRunner {
     execFileLoader = new ExecFileLoader();
     execFileLoader.load(executionData);
 
-    // Run the structure analyzer on a single class folder or jar file to build up the coverage
-    // model. Typically you would create a bundle for each class folder and each jar you want in
-    // your report. If you have more than one bundle you may need to add a grouping node to the
-    // report. The lcov formatter doesn't seem to care, and we're only using one bundle anyway.
-    final IBundleCoverage bundleCoverage = analyzeStructure();
-
-    final Map<String, BranchCoverageDetail> branchDetails = analyzeBranch();
-    createReport(bundleCoverage, branchDetails);
+    final Map<String, CoverageData> coverageData = analyze();
+    createReport(coverageData);
   }
 
   @VisibleForTesting
-  void createReport(
-      final IBundleCoverage bundleCoverage, final Map<String, BranchCoverageDetail> branchDetails)
-      throws IOException {
+  void createReport(final Map<String, CoverageData> coverageData) throws IOException {
     JacocoLCOVFormatter formatter = new JacocoLCOVFormatter(createPathsSet());
     try (PrintWriter writer =
         new PrintWriter(newBufferedWriter(reportFile.toPath(), UTF_8, CREATE, APPEND))) {
-      final IReportVisitor visitor = formatter.createVisitor(writer, branchDetails);
-
-      // Initialize the report with all of the execution and session information. At this point the
-      // report doesn't know about the structure of the report being created.
-      visitor.visitInfo(
-          execFileLoader.getSessionInfoStore().getInfos(),
-          execFileLoader.getExecutionDataStore().getContents());
-
-      // Populate the report structure with the bundle coverage information.
-      // Call visitGroup if you need groups in your report.
-
-      // Note the API requires a sourceFileLocator because the HTML and XML formatters display a
-      // page of code annotated with coverage information. Having the source files is not actually
-      // needed for generating the lcov report.
-      visitor.visitBundle(
-          bundleCoverage,
-          new ISourceFileLocator() {
-
-            @Override
-            public Reader getSourceFile(String packageName, String fileName) throws IOException {
-              return null;
-            }
-
-            @Override
-            public int getTabWidth() {
-              return 0;
-            }
-          });
-
-      // Signal end of structure information to allow report to write all information out
-      visitor.visitEnd();
+      formatter.writeCoverageData(writer, coverageData);
     }
   }
 
-  @VisibleForTesting
-  IBundleCoverage analyzeStructure() throws IOException {
-    final CoverageBuilder coverageBuilder = new CoverageBuilder();
-    final Analyzer analyzer = new Analyzer(execFileLoader.getExecutionDataStore(), coverageBuilder);
+  private Map<String, CoverageData> analyze() throws IOException {
+    final CoverageAnalyzer analyzer = new CoverageAnalyzer(execFileLoader.getExecutionDataStore());
+
+    Map<String, CoverageData> result = new TreeMap<>();
     Set<String> alreadyInstrumentedClasses = new HashSet<>();
     if (uninstrumentedClasses == null) {
       for (File classesJar : classesJars) {
         analyzeUninstrumentedClassesFromJar(analyzer, classesJar, alreadyInstrumentedClasses);
+        result.putAll(analyzer.getCoverage());
       }
     } else {
       for (Map.Entry<String, byte[]> entry : uninstrumentedClasses.entrySet()) {
         analyzer.analyzeClass(entry.getValue(), entry.getKey());
       }
-    }
-
-    // TODO(bazel-team): Find out where the name of the bundle can pop out in the report.
-    return coverageBuilder.getBundle("isthisevenused");
-  }
-
-  // Additional pass to process the branch details of the classes
-  private Map<String, BranchCoverageDetail> analyzeBranch() throws IOException {
-    final BranchDetailAnalyzer analyzer =
-        new BranchDetailAnalyzer(execFileLoader.getExecutionDataStore());
-
-    Map<String, BranchCoverageDetail> result = new TreeMap<>();
-    Set<String> alreadyInstrumentedClasses = new HashSet<>();
-    if (uninstrumentedClasses == null) {
-      for (File classesJar : classesJars) {
-        analyzeUninstrumentedClassesFromJar(analyzer, classesJar, alreadyInstrumentedClasses);
-        result.putAll(analyzer.getBranchDetails());
-      }
-    } else {
-      for (Map.Entry<String, byte[]> entry : uninstrumentedClasses.entrySet()) {
-        analyzer.analyzeClass(entry.getValue(), entry.getKey());
-      }
-      result.putAll(analyzer.getBranchDetails());
+      result.putAll(analyzer.getCoverage());
     }
     return result;
   }
@@ -360,15 +296,33 @@ public class JacocoCoverageRunner {
     return convertedMetadataFiles.build();
   }
 
-  private static URL[] getUrls(ClassLoader classLoader, boolean wasWrappedJar) {
+  private static URL[] getUrls(ClassLoader classLoader, boolean jarIsWrapped, String wrappedJar) {
+    // jarIsWrapped is a legacy parameter; it should be removed once we are sure Bazel will no
+    // longer set JACOCO_IS_JAR_WRAPPED in java_stub_template
     URL[] urls = getClassLoaderUrls(classLoader);
+    if (urls == null || urls.length == 0) {
+      return urls;
+    }
     // If the classpath was too long then a temporary top-level jar is created containing nothing
-    // but a manifest with
-    // the original classpath. Those are the URLs we are looking for.
-    if (wasWrappedJar && urls != null && urls.length == 1) {
+    // but a manifest with the original classpath. Those are the URLs we are looking for.
+    URL classPathUrl = null;
+    if (!Strings.isNullOrEmpty(wrappedJar)) {
+      for (URL url : urls) {
+        if (url.getPath().endsWith(wrappedJar)) {
+          classPathUrl = url;
+        }
+      }
+      if (classPathUrl == null) {
+        System.err.println("Classpath JAR " + wrappedJar + " not provided");
+        return null;
+      }
+    } else if (jarIsWrapped && urls.length == 1) {
+      classPathUrl = urls[0];
+    }
+    if (classPathUrl != null) {
       try {
         String jarClassPath =
-            new JarInputStream(urls[0].openStream())
+            new JarInputStream(classPathUrl.openStream())
                 .getManifest()
                 .getMainAttributes()
                 .getValue("Class-Path");
@@ -398,8 +352,17 @@ public class JacocoCoverageRunner {
         field.setAccessible(true);
         Unsafe unsafe = (Unsafe) field.get(null);
 
-        // jdk.internal.loader.ClassLoaders.AppClassLoader.ucp
-        Field ucpField = classLoader.getClass().getDeclaredField("ucp");
+        Field ucpField;
+        try {
+          // Java 9-15:
+          // jdk.internal.loader.ClassLoaders.AppClassLoader.ucp
+          ucpField = classLoader.getClass().getDeclaredField("ucp");
+        } catch (NoSuchFieldException e) {
+          // Java 16+:
+          // jdk.internal.loader.BuiltinClassLoader.ucp
+          // https://github.com/openjdk/jdk/commit/03a4df0acd103702e52dcd01c3f03fda4d7b04f5#diff-32cc12c0e3172fe5f2da1f65a75fa1cb920c39040d06323c83ad2c4d84e095aaL147
+          ucpField = classLoader.getClass().getSuperclass().getDeclaredField("ucp");
+        }
         long ucpFieldOffset = unsafe.objectFieldOffset(ucpField);
         Object ucpObject = unsafe.getObject(classLoader, ucpFieldOffset);
 
@@ -419,6 +382,7 @@ public class JacocoCoverageRunner {
   public static void main(String[] args) throws Exception {
     String metadataFile = System.getenv("JACOCO_METADATA_JAR");
     String jarWrappedValue = System.getenv("JACOCO_IS_JAR_WRAPPED");
+    String wrappedJarValue = System.getenv("CLASSPATH_JAR");
     boolean wasWrappedJar = jarWrappedValue != null ? !jarWrappedValue.equals("0") : false;
 
     File[] metadataFiles = null;
@@ -426,11 +390,11 @@ public class JacocoCoverageRunner {
     final HashMap<String, byte[]> uninstrumentedClasses = new HashMap<>();
     ImmutableSet.Builder<String> pathsForCoverageBuilder = new ImmutableSet.Builder<>();
     ClassLoader classLoader = ClassLoader.getSystemClassLoader();
-    URL[] urls = getUrls(classLoader, wasWrappedJar);
+    URL[] urls = getUrls(classLoader, wasWrappedJar, wrappedJarValue);
     if (urls != null) {
       metadataFiles = new File[urls.length];
       for (int i = 0; i < urls.length; i++) {
-        String file = URLDecoder.decode(urls[i].getFile(), "UTF-8");
+        String file = urls[i].toURI().getPath();
         metadataFiles[i] = new File(file);
         // Special case for when there is only one deploy jar on the classpath.
         if (file.endsWith("_deploy.jar")) {

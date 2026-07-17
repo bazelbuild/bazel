@@ -13,7 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.vfs.util;
 
-import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.build.lib.unix.NativePosixFilesServiceImpl;
+import com.google.devtools.build.lib.unix.UnixFileSystem;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -28,15 +29,10 @@ public final class FileSystems {
   /** Constructs a platform native (Unix or Windows) file system. */
   public static FileSystem getNativeFileSystem(DigestHashFunction digestHashFunction) {
     if (OS.getCurrent() == OS.WINDOWS) {
-      return new WindowsFileSystem(digestHashFunction, /*createSymbolicLinks=*/ false);
-    }
-    try {
-      return Class.forName(TestConstants.TEST_REAL_UNIX_FILE_SYSTEM)
-          .asSubclass(FileSystem.class)
-          .getDeclaredConstructor(DigestHashFunction.class, String.class)
-          .newInstance(digestHashFunction, TestConstants.TEST_UNIX_HASH_ATTRIBUTE);
-    } catch (Exception e) {
-      throw new IllegalStateException(e);
+      return new WindowsFileSystem(digestHashFunction, /* createSymbolicLinks= */ true);
+    } else {
+      return new UnixFileSystem(
+          digestHashFunction, /* hashAttributeName= */ "", new NativePosixFilesServiceImpl());
     }
   }
 

@@ -17,10 +17,7 @@ import build.bazel.remote.execution.v2.RequestMetadata;
 import build.bazel.remote.execution.v2.ToolDetails;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
-import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import io.grpc.ClientInterceptor;
 import io.grpc.Context;
 import io.grpc.Contexts;
@@ -48,10 +45,23 @@ public class TracingMetadataUtils {
       ProtoUtils.keyForProto(RequestMetadata.getDefaultInstance());
 
   public static RequestMetadata buildMetadata(
+      String buildRequestId, String commandId, String actionId) {
+    return buildMetadata(
+        buildRequestId,
+        commandId,
+        actionId,
+        /* mnemonic= */ null,
+        /* label= */ null,
+        /* configurationId= */ null);
+  }
+
+  public static RequestMetadata buildMetadata(
       String buildRequestId,
       String commandId,
       String actionId,
-      @Nullable ActionExecutionMetadata actionMetadata) {
+      @Nullable String mnemonic,
+      @Nullable String label,
+      @Nullable String configurationId) {
     Preconditions.checkNotNull(buildRequestId);
     Preconditions.checkNotNull(commandId);
     Preconditions.checkNotNull(actionId);
@@ -64,13 +74,14 @@ public class TracingMetadataUtils {
                 ToolDetails.newBuilder()
                     .setToolName("bazel")
                     .setToolVersion(BlazeVersionInfo.instance().getVersion()));
-    if (actionMetadata != null) {
-      builder.setActionMnemonic(actionMetadata.getMnemonic());
-      Label label = actionMetadata.getOwner().getLabel();
-      if (label != null) {
-        builder.setTargetId(label.getCanonicalForm());
-      }
-      builder.setConfigurationId(actionMetadata.getOwner().getConfigurationChecksum());
+    if (mnemonic != null) {
+      builder.setActionMnemonic(mnemonic);
+    }
+    if (label != null) {
+      builder.setTargetId(label);
+    }
+    if (configurationId != null) {
+      builder.setConfigurationId(configurationId);
     }
     return builder.build();
   }
@@ -99,7 +110,8 @@ public class TracingMetadataUtils {
    * Extracts a {@link RequestMetadata} from a {@link Metadata} and returns it if it exists. If it
    * does not exist, returns {@code null}.
    */
-  public static @Nullable RequestMetadata requestMetadataFromHeaders(Metadata headers) {
+  @Nullable
+  public static RequestMetadata requestMetadataFromHeaders(Metadata headers) {
     return headers.get(METADATA_KEY);
   }
 
@@ -117,21 +129,24 @@ public class TracingMetadataUtils {
     return metadata;
   }
 
-  public static ClientInterceptor newCacheHeadersInterceptor(RemoteOptions options) {
-    Metadata metadata = newMetadataForHeaders(options.remoteHeaders);
-    metadata.merge(newMetadataForHeaders(options.remoteCacheHeaders));
+  public static ClientInterceptor newCacheHeadersInterceptor(
+      List<Entry<String, String>> remoteHeaders, List<Entry<String, String>> cacheHeaders) {
+    Metadata metadata = newMetadataForHeaders(remoteHeaders);
+    metadata.merge(newMetadataForHeaders(cacheHeaders));
     return MetadataUtils.newAttachHeadersInterceptor(metadata);
   }
 
-  public static ClientInterceptor newDownloaderHeadersInterceptor(RemoteOptions options) {
-    Metadata metadata = newMetadataForHeaders(options.remoteHeaders);
-    metadata.merge(newMetadataForHeaders(options.remoteDownloaderHeaders));
+  public static ClientInterceptor newDownloaderHeadersInterceptor(
+      List<Entry<String, String>> remoteHeaders, List<Entry<String, String>> downloaderHeaders) {
+    Metadata metadata = newMetadataForHeaders(remoteHeaders);
+    metadata.merge(newMetadataForHeaders(downloaderHeaders));
     return MetadataUtils.newAttachHeadersInterceptor(metadata);
   }
 
-  public static ClientInterceptor newExecHeadersInterceptor(RemoteOptions options) {
-    Metadata metadata = newMetadataForHeaders(options.remoteHeaders);
-    metadata.merge(newMetadataForHeaders(options.remoteExecHeaders));
+  public static ClientInterceptor newExecHeadersInterceptor(
+      List<Entry<String, String>> remoteHeaders, List<Entry<String, String>> execHeaders) {
+    Metadata metadata = newMetadataForHeaders(remoteHeaders);
+    metadata.merge(newMetadataForHeaders(execHeaders));
     return MetadataUtils.newAttachHeadersInterceptor(metadata);
   }
 

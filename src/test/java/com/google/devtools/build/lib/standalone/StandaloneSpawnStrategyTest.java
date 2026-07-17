@@ -21,27 +21,26 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
-import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext.LostInputsCheck;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
-import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
+import com.google.devtools.build.lib.actions.DiscoveredModulesPruner;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
+import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil.NullAction;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetExpander;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.events.EventBusEventHandler;
 import com.google.devtools.build.lib.events.PrintingEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.BinTools;
@@ -54,17 +53,19 @@ import com.google.devtools.build.lib.exec.local.LocalExecutionOptions;
 import com.google.devtools.build.lib.exec.local.LocalSpawnRunner;
 import com.google.devtools.build.lib.exec.util.TestExecutorBuilder;
 import com.google.devtools.build.lib.integration.util.IntegrationMock;
+import com.google.devtools.build.lib.shell.WindowsSubprocessFactory;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.util.FileSystems;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParser;
 import java.io.IOException;
-import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import org.junit.Before;
@@ -73,23 +74,20 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import org.mockito.Mockito;
 
-/**
- * Test StandaloneSpawnStrategy.
- */
+/** Test StandaloneSpawnStrategy. */
 @RunWith(JUnit4.class)
 public class StandaloneSpawnStrategyTest {
-  private static final ArtifactExpander SIMPLE_ARTIFACT_EXPANDER =
-      new ArtifactExpander() {
-        @Override
-        public void expand(Artifact artifact, Collection<? super Artifact> output) {
-          output.add(artifact);
-        }
-      };
+  static {
+    WindowsSubprocessFactory.maybeInstallWindowsSubprocessFactory();
+  }
+
   private static final String WINDOWS_SYSTEM_DRIVE = "C:";
   private static final String CMD_EXE = getWinSystemBinary("cmd.exe");
 
-  private Reporter reporter =
-      new Reporter(new EventBus(), PrintingEventHandler.ERRORS_AND_WARNINGS_TO_STDERR);
+  private final Reporter reporter =
+      new Reporter(
+          EventBusEventHandler.createWithNewEventBus(),
+          PrintingEventHandler.ERRORS_AND_WARNINGS_TO_STDERR);
   private BlazeExecutor executor;
   private FileSystem fileSystem;
   private FileOutErr outErr;
@@ -129,7 +127,6 @@ public class StandaloneSpawnStrategyTest {
         new BlazeDirectories(
             new ServerDirectories(outputBase, outputBase, outputBase),
             workspaceDir,
-            /* defaultSystemJavabase= */ null,
             "mock-product-name");
     // This call implicitly symlinks the integration bin tools into the exec root.
     IntegrationMock.get().getIntegrationBinTools(fileSystem, directories);
@@ -138,25 +135,24 @@ public class StandaloneSpawnStrategyTest {
     optionsParser.parse("--verbose_failures");
     LocalExecutionOptions localExecutionOptions = Options.getDefaults(LocalExecutionOptions.class);
 
-    ResourceManager resourceManager = ResourceManager.instanceForTestingOnly();
+    ResourceManager resourceManager = new ResourceManager();
     resourceManager.setAvailableResources(
-        ResourceSet.create(/*memoryMb=*/1, /*cpuUsage=*/1, /*localTestCount=*/1));
+        ResourceSet.create(/* memoryMb= */ 1, /* cpu= */ 1, /* localTestCount= */ 1));
     Path execRoot = directories.getExecRoot(TestConstants.WORKSPACE_NAME);
     BinTools binTools = BinTools.forIntegrationTesting(directories, ImmutableList.of());
     StandaloneSpawnStrategy strategy =
         new StandaloneSpawnStrategy(
-            execRoot,
             new LocalSpawnRunner(
                 execRoot,
                 localExecutionOptions,
                 resourceManager,
                 (env, binTools1, fallbackTmpDir) -> ImmutableMap.copyOf(env),
                 binTools,
-                /*processWrapper=*/ null,
+                /* processWrapper= */ null,
                 Mockito.mock(RunfilesTreeUpdater.class)),
-            /*verboseFailures=*/ false);
+            Options.getDefaults(ExecutionOptions.class));
     this.executor =
-        new TestExecutorBuilder(fileSystem, directories, binTools)
+        new TestExecutorBuilder(fileSystem, directories)
             .addStrategy(strategy, "standalone")
             .setDefaultStrategies("standalone")
             .build();
@@ -164,20 +160,21 @@ public class StandaloneSpawnStrategyTest {
     executor.getExecRoot().createDirectoryAndParents();
   }
 
-  private Spawn createSpawn(String... arguments) {
+  private static Spawn createSpawn(String... arguments) {
     return new SimpleSpawn(
         new ActionsTestUtil.NullAction(),
         ImmutableList.copyOf(arguments),
-        /*environment=*/ ImmutableMap.of(),
-        /*executionInfo=*/ ImmutableMap.of(),
-        /*inputs=*/ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-        /*outputs=*/ ImmutableSet.of(),
+        /* environment= */ ImmutableMap.of(),
+        /* executionInfo= */ ImmutableMap.of(),
+        /* inputs= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+        /* outputs= */ ImmutableSet.of(),
         ResourceSet.ZERO);
   }
 
   private String out() {
     return outErr.outAsLatin1();
   }
+
   private String err() {
     return outErr.errAsLatin1();
   }
@@ -201,27 +198,30 @@ public class StandaloneSpawnStrategyTest {
     Path execRoot = executor.getExecRoot();
     return new ActionExecutionContext(
         executor,
-        new SingleBuildFileCache(execRoot.getPathString(), execRoot.getFileSystem()),
+        new SingleBuildFileCache(
+            execRoot.getPathString(),
+            PathFragment.create("dummy-output-path"),
+            execRoot.getFileSystem(),
+            SyscallCache.NO_CACHE),
         ActionInputPrefetcher.NONE,
         new ActionKeyContext(),
-        /*metadataHandler=*/ null,
-        /*rewindingEnabled=*/ false,
+        /* outputMetadataStore= */ null,
+        /* rewindingEnabled= */ false,
         LostInputsCheck.NONE,
         outErr,
         reporter,
-        /*clientEnv=*/ ImmutableMap.of(),
-        /*topLevelFilesets=*/ ImmutableMap.of(),
-        SIMPLE_ARTIFACT_EXPANDER,
-        /*actionFileSystem=*/ null,
-        /*skyframeDepsResult=*/ null,
-        NestedSetExpander.DEFAULT);
+        /* clientEnv= */ System.getenv(),
+        /* actionFileSystem= */ null,
+        DiscoveredModulesPruner.DEFAULT,
+        SyscallCache.NO_CACHE,
+        ThreadStateReceiver.NULL_INSTANCE);
   }
 
   @Test
   public void testBinFalseYieldsException() {
     ExecException e = assertThrows(ExecException.class, () -> run(createSpawn(getFalseCommand())));
-    assertWithMessage("got: " + e.getMessage())
-        .that(e.getMessage().contains("failed: error executing command"))
+    assertWithMessage("got: %s", e.getMessage())
+        .that(e.getMessage().contains("failed: error executing Null command"))
         .isTrue();
   }
 
@@ -278,10 +278,10 @@ public class StandaloneSpawnStrategyTest {
             OS.getCurrent() == OS.WINDOWS
                 ? ImmutableList.of(CMD_EXE, "/c", "set")
                 : ImmutableList.of("/usr/bin/env"),
-            /*environment=*/ ImmutableMap.of("foo", "bar", "baz", "boo"),
-            /*executionInfo=*/ ImmutableMap.of(),
-            /*inputs=*/ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-            /*outputs=*/ ImmutableSet.of(),
+            /* environment= */ ImmutableMap.of("foo", "bar", "baz", "boo"),
+            /* executionInfo= */ ImmutableMap.of(),
+            /* inputs= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+            /* outputs= */ ImmutableSet.of(),
             ResourceSet.ZERO);
     run(spawn);
     HashSet<String> environment = Sets.newHashSet(out().split(System.lineSeparator()));
@@ -317,9 +317,10 @@ public class StandaloneSpawnStrategyTest {
   public void testVerboseFailures() {
     ExecException e = assertThrows(ExecException.class, () -> run(createSpawn(getFalseCommand())));
     ActionExecutionException actionExecutionException =
-        e.toActionExecutionException(new NullAction());
-    assertWithMessage("got: " + actionExecutionException.getMessage())
-        .that(actionExecutionException.getMessage().contains("failed: error executing command"))
+        ActionExecutionException.fromExecException(e, new NullAction());
+    assertWithMessage("got: %s", actionExecutionException.getMessage())
+        .that(
+            actionExecutionException.getMessage().contains("failed: error executing Null command"))
         .isTrue();
   }
 }

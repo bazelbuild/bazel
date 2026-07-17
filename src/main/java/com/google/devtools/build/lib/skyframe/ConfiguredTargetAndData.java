@@ -14,65 +14,104 @@
 
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
+
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.packages.AdvertisedProviderSet;
+import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
+import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.packages.TargetData;
+import com.google.devtools.build.lib.packages.TestTimeout;
+import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.SkyValue;
-import java.util.Map;
+import com.google.devtools.build.skyframe.SkyframeLookupResult;
+import java.util.Comparator;
+import java.util.Set;
 import javax.annotation.Nullable;
+import net.starlark.java.syntax.Location;
 
 /**
  * A container class for a {@link ConfiguredTarget} and associated data, {@link Target}, {@link
- * BuildConfiguration}, and transition keys. In the future, {@link ConfiguredTarget} objects will no
- * longer contain their associated {@link BuildConfiguration}. Consumers that need the {@link
- * Target} or {@link BuildConfiguration} must therefore have access to one of these objects.
+ * BuildConfigurationValue}, and transition keys. In the future, {@link ConfiguredTarget} objects
+ * will no longer contain their associated {@link BuildConfigurationValue}. Consumers that need the
+ * {@link Target} or {@link BuildConfigurationValue} must therefore have access to one of these
+ * objects.
  *
  * <p>These objects are intended to be short-lived, never stored in Skyframe, since they pair three
  * heavyweight objects, a {@link ConfiguredTarget}, a {@link Target} (which holds a {@link
- * com.google.devtools.build.lib.packages.Package}), and a {@link BuildConfiguration}.
+ * com.google.devtools.build.lib.packages.Package}), and a {@link BuildConfigurationValue}.
  */
 public class ConfiguredTargetAndData {
+  /**
+   * Orders split dependencies by configuration.
+   *
+   * <p>Requires non-null configurations.
+   */
+  public static final Comparator<ConfiguredTargetAndData> SPLIT_DEP_ORDERING =
+      new SplitDependencyComparator();
+
   private final ConfiguredTarget configuredTarget;
-  private final Target target;
-  private final BuildConfiguration configuration;
+
+  // TODO(b/297857068): Remove transient, serializing this by creating a projection of the
+  // underlying target.
+  /** A {@link Target} when locally derived but a lightweight projection when fetched remotely. */
+  private final transient TargetData target;
+
+  @Nullable // Null iff configuredTarget's configuration key is null.
+  private final BuildConfigurationValue configuration;
   private final ImmutableList<String> transitionKeys;
 
   @VisibleForTesting
   public ConfiguredTargetAndData(
       ConfiguredTarget configuredTarget,
-      Target target,
-      BuildConfiguration configuration,
+      TargetData target,
+      @Nullable BuildConfigurationValue configuration,
       ImmutableList<String> transitionKeys) {
+    this(configuredTarget, target, configuration, transitionKeys, /*checkConsistency=*/ true);
+  }
+
+  private ConfiguredTargetAndData(
+      ConfiguredTarget configuredTarget,
+      TargetData target,
+      @Nullable BuildConfigurationValue configuration,
+      ImmutableList<String> transitionKeys,
+      boolean checkConsistency) {
     this.configuredTarget = configuredTarget;
     this.target = target;
     this.configuration = configuration;
     this.transitionKeys = transitionKeys;
-    Preconditions.checkState(
+    if (!checkConsistency) {
+      return;
+    }
+    checkState(
         configuredTarget.getLabel().equals(target.getLabel()),
         "Unable to construct ConfiguredTargetAndData:"
             + " ConfiguredTarget's label %s is not equal to Target's label %s",
         configuredTarget.getLabel(),
         target.getLabel());
-    BuildConfigurationValue.Key innerConfigurationKey = configuredTarget.getConfigurationKey();
+    BuildConfigurationKey innerConfigurationKey = configuredTarget.getConfigurationKey();
     if (configuration == null) {
-      Preconditions.checkState(
+      checkState(
           innerConfigurationKey == null,
           "Non-null configuration key for %s but configuration is null (%s)",
           configuredTarget,
           target);
     } else {
-      BuildConfigurationValue.Key configurationKey = BuildConfigurationValue.key(configuration);
-      Preconditions.checkState(
-          innerConfigurationKey.equals(configurationKey),
-          "Configurations don't match: %s %s %s (%s %s)",
-          configurationKey,
+      checkState(
+          innerConfigurationKey.getOptions().equals(configuration.getOptions()),
+          "Configurations don't match: %s %s (%s %s)",
           innerConfigurationKey,
           configuration,
           configuredTarget,
@@ -80,39 +119,56 @@ public class ConfiguredTargetAndData {
     }
   }
 
-  @Nullable
-  static ConfiguredTargetAndData fromConfiguredTargetInSkyframe(
-      ConfiguredTarget ct, SkyFunction.Environment env) throws InterruptedException {
-    BuildConfiguration configuration = null;
-    ImmutableSet<SkyKey> packageAndMaybeConfiguration;
-    PackageValue.Key packageKey = PackageValue.key(ct.getLabel().getPackageIdentifier());
-    BuildConfigurationValue.Key configurationKeyMaybe = ct.getConfigurationKey();
-    if (configurationKeyMaybe == null) {
-      packageAndMaybeConfiguration = ImmutableSet.of(packageKey);
-    } else {
-      packageAndMaybeConfiguration = ImmutableSet.of(packageKey, configurationKeyMaybe);
-    }
-    Map<SkyKey, SkyValue> packageAndMaybeConfigurationValues =
-        env.getValues(packageAndMaybeConfiguration);
-    // Don't test env.valuesMissing(), because values may already be missing from the caller.
-    PackageValue packageValue = (PackageValue) packageAndMaybeConfigurationValues.get(packageKey);
-    if (packageValue == null) {
-      return null;
+  /**
+   * Wraps an existing {@link ConfiguredTarget} by looking up auxiliary data in Skyframe.
+   *
+   * <p>Assumes that for locally analyzed targets, since the given {@link ConfiguredTarget} is done,
+   * then its associated {@link PackageValue} and {@link BuildConfigurationValue} (if applicable)
+   * are done too.
+   *
+   * <p>For remotely cached targets, the given {@link ConfiguredTargetValue} is assumed to have a
+   * projection of {@link TargetData} already, so the {@link PackageValue} lookup is not needed.
+   */
+  static ConfiguredTargetAndData fromExistingConfiguredTargetInSkyframe(
+      ConfiguredTargetValue ctv, SkyFunction.Environment env) throws InterruptedException {
+    ConfiguredTarget ct = ctv.getConfiguredTarget();
+    PackageIdentifier packageKey = ct.getLabel().getPackageIdentifier();
+    BuildConfigurationKey configurationKeyMaybe = ct.getConfigurationKey();
+
+    // Deserialized ConfiguredTargetValues already have a projection of TargetData.
+    TargetData targetData = ctv.getTargetData();
+    BuildConfigurationValue configuration = null;
+
+    ImmutableSet.Builder<SkyKey> keysBuilder = ImmutableSet.builder();
+    if (targetData == null) {
+      keysBuilder.add(packageKey);
     }
     if (configurationKeyMaybe != null) {
-      BuildConfigurationValue buildConfigurationValue =
-          (BuildConfigurationValue) packageAndMaybeConfigurationValues.get(configurationKeyMaybe);
-      if (buildConfigurationValue == null) {
-        return null;
+      keysBuilder.add(configurationKeyMaybe);
+    }
+
+    ImmutableSet<SkyKey> keys = keysBuilder.build();
+    if (!keys.isEmpty()) {
+      SkyframeLookupResult lookupResult = env.getValuesAndExceptions(keys);
+
+      // Don't test env.valuesMissing(), because values may already be missing from the caller.
+      if (targetData == null) {
+        PackageValue packageValue = (PackageValue) lookupResult.get(packageKey);
+        checkNotNull(packageValue, "Missing package for %s (%s)", ct, packageKey);
+        try {
+          targetData = packageValue.getPackage().getTarget(ct.getLabel().getName());
+        } catch (NoSuchTargetException e) {
+          throw new IllegalStateException("Failed to retrieve target for " + ct, e);
+        }
       }
-      configuration = buildConfigurationValue.getConfiguration();
+
+      if (configurationKeyMaybe != null) {
+        configuration = (BuildConfigurationValue) lookupResult.get(configurationKeyMaybe);
+        checkNotNull(configuration, "Missing configuration for %s (%s)", ct, configurationKeyMaybe);
+      }
     }
-    try {
-      return new ConfiguredTargetAndData(
-          ct, packageValue.getPackage().getTarget(ct.getLabel().getName()), configuration, null);
-    } catch (NoSuchTargetException e) {
-      throw new IllegalStateException("Failed to retrieve target for " + ct, e);
-    }
+
+    return new ConfiguredTargetAndData(ct, targetData, configuration, null);
   }
 
   /**
@@ -126,12 +182,27 @@ public class ConfiguredTargetAndData {
     return new ConfiguredTargetAndData(maybeNew, target, configuration, transitionKeys);
   }
 
-  public Target getTarget() {
-    return target;
+  /**
+   * Variation of {@link #fromConfiguredTarget} that doesn't check the new target has the same
+   * configuration as the original.
+   *
+   * <p>Intended for trimming (like {@code --trim_test_configuration}).
+   */
+  public ConfiguredTargetAndData fromConfiguredTargetNoCheck(ConfiguredTarget maybeNew) {
+    if (configuredTarget.equals(maybeNew)) {
+      return this;
+    }
+    return new ConfiguredTargetAndData(maybeNew, target, configuration, transitionKeys, false);
   }
 
-  public BuildConfiguration getConfiguration() {
+  @Nullable
+  public BuildConfigurationValue getConfiguration() {
     return configuration;
+  }
+
+  @Nullable
+  public BuildConfigurationKey getConfigurationKey() {
+    return configuredTarget.getConfigurationKey();
   }
 
   public ConfiguredTarget getConfiguredTarget() {
@@ -140,5 +211,146 @@ public class ConfiguredTargetAndData {
 
   public ImmutableList<String> getTransitionKeys() {
     return transitionKeys;
+  }
+
+  public Label getTargetLabel() {
+    return target.getLabel();
+  }
+
+  public Location getLocation() {
+    return target.getLocation();
+  }
+
+  public String getTargetKind() {
+    return target.getTargetKind();
+  }
+
+  public boolean isForDependencyResolution() {
+    return target.isForDependencyResolution();
+  }
+
+  /** Returns the rule class name if the target is a rule and "" otherwise. */
+  public String getRuleClass() {
+    return target.getRuleClass();
+  }
+
+  /** Returns the rule tags attribute value if the target is a rule and null otherwise. */
+  @Nullable
+  public ImmutableList<String> getOnlyTagsAttribute() {
+    return target.getOnlyTagsAttribute();
+  }
+
+  /** Returns the rule tags if the target is a rule and an empty set otherwise. */
+  public Set<String> getRuleTags() {
+    return target.getRuleTags();
+  }
+
+  public boolean isTargetRule() {
+    return target.isRule();
+  }
+
+  public boolean isTargetFile() {
+    return target.isFile();
+  }
+
+  public boolean isTargetInputFile() {
+    return target.isInputFile();
+  }
+
+  public boolean isTargetOutputFile() {
+    return target.isOutputFile();
+  }
+
+  /** The generating rule's label if the target is an {@link OutputFile} otherwise null. */
+  @Nullable
+  public Label getGeneratingRuleLabel() {
+    return target.getGeneratingRuleLabel();
+  }
+
+  /** The input file path if the target is an {@link InputFile} otherwise null. */
+  @Nullable
+  public Path getInputPath() {
+    return target.getInputPath();
+  }
+
+  /** Any deprecation warning of the associated rule (maybe generating) otherwise null. */
+  @Nullable
+  public String getDeprecationWarning() {
+    return target.getDeprecationWarning();
+  }
+
+  /** True if the target is a testonly rule or an output file generated by a testonly rule. */
+  public boolean isTestOnly() {
+    return target.isTestOnly();
+  }
+
+  /** True if the underlying target is a materializer rule. */
+  public boolean isMaterializerRule() {
+    return target.isMaterializerRule();
+  }
+
+  public AdvertisedProviderSet getTargetAdvertisedProviders() {
+    // TODO(shahan): If this is an output file, refers to the providers of the generating rule.
+    // However, in such cases, aspects are not permitted to have required providers. Consider
+    // short-circuiting the logic for that case.
+    return target.getAdvertisedProviders();
+  }
+
+  @Nullable
+  public TestTimeout getTestTimeout() {
+    return target.getTestTimeout();
+  }
+
+  @Nullable // non-null if the target is a Starlark-defined rule
+  public Label getRuleDefinitionEnvironmentLabel() {
+    return target.getRuleDefinitionEnvironmentLabel();
+  }
+
+  public ConfiguredTargetAndData copyWithClearedTransitionKeys() {
+    if (transitionKeys.isEmpty()) {
+      return this;
+    }
+    return copyWithTransitionKeys(ImmutableList.of());
+  }
+
+  public ConfiguredTargetAndData copyWithTransitionKeys(ImmutableList<String> keys) {
+    return new ConfiguredTargetAndData(configuredTarget, target, configuration, keys);
+  }
+
+  /**
+   * This should only be used in testing.
+   *
+   * <p>Distributed implementations of prerequisites do not contain targets, but only a bare minimum
+   * of fields needed by consumers.
+   */
+  @VisibleForTesting
+  public Target getTargetForTesting() {
+    return (Target) target;
+  }
+
+  @VisibleForTesting
+  public ConfiguredAttributeMapper getAttributeMapperForTesting() {
+    return ConfiguredAttributeMapper.of(
+        (Rule) target, configuredTarget.getConfigConditions(), configuration);
+  }
+
+  @Override
+  public String toString() {
+    return "ConfiguredTargetAndData(target=%s, configuration=%s)"
+        .formatted(configuredTarget.getLabel(), configuration);
+  }
+
+  private static final class SplitDependencyComparator
+      implements Comparator<ConfiguredTargetAndData> {
+    @Override
+    public int compare(ConfiguredTargetAndData o1, ConfiguredTargetAndData o2) {
+      BuildConfigurationValue first = o1.getConfiguration();
+      BuildConfigurationValue second = o2.getConfiguration();
+      int result = first.getMnemonic().compareTo(second.getMnemonic());
+      if (result != 0) {
+        return result;
+      }
+      return first.checksum().compareTo(second.checksum());
+    }
   }
 }

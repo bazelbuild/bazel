@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2019 The Bazel Authors. All rights reserved.
 #
@@ -30,7 +30,7 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
 # repo structure:
 # ${WORKSPACE_DIR}/
 #   vinegar/
-#     WORKSPACE
+#     MODULE.bazel
 #       local_repository
 #     rules.bzl
 #       rule_with_external_dep
@@ -61,7 +61,6 @@ rule_with_transition = rule(
     implementation = _rule_with_transition_impl,
     attrs = {
         "dep": attr.label(cfg = my_transition),
-        "_allowlist_function_transition": attr.label(default = "@bazel_tools//tools/allowlists/function_transition_allowlist"),
     }
 )
 EOF
@@ -74,7 +73,8 @@ EOF
 
   cd ${WORKSPACE_DIR}
   mkdir -p vinegar
-  cat > WORKSPACE <<EOF
+  cat > MODULE.bazel <<EOF
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(name = 'secret_ingredient', path = "${repo2}")
 EOF
   cat > vinegar/rules.bzl <<EOF
@@ -143,7 +143,7 @@ EOF
 
   bazel build //vinegar \
     >& $TEST_log && fail "Expected failure"
-  expect_log "_allowlist_function_transition attribute (@bazel_tools//tools/allowlists/bad:bad)"
+  expect_log "_allowlist_function_transition attribute (@@bazel_tools//tools/allowlists/bad:bad)"
   expect_log "does not have the expected value //tools/allowlists/function_transition_allowlist:function_transition_allowlist"
 }
 
@@ -189,7 +189,6 @@ rule_with_transition = rule(
     implementation = _rule_with_transition_impl,
     attrs = {
         "dep" : attr.label(cfg = my_transition),
-        "_allowlist_function_transition": attr.label(default = "@//tools/allowlists/function_transition_allowlist"),
     }
 )
 EOF

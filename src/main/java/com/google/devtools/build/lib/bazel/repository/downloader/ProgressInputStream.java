@@ -22,8 +22,9 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.URL;
+import java.net.URI;
 import java.util.Locale;
+import java.util.OptionalLong;
 import java.util.concurrent.atomic.AtomicLong;
 import javax.annotation.WillCloseWhenClosed;
 
@@ -50,9 +51,20 @@ final class ProgressInputStream extends InputStream {
       this.eventHandler = eventHandler;
     }
 
-    InputStream create(@WillCloseWhenClosed InputStream delegate, URL url, URL originalUrl) {
+    InputStream create(
+        @WillCloseWhenClosed InputStream delegate,
+        URI url,
+        URI originalUrl,
+        OptionalLong totalBytes) {
       return new ProgressInputStream(
-          locale, clock, eventHandler, PROGRESS_INTERVAL_MS, delegate, url, originalUrl);
+          locale,
+          clock,
+          eventHandler,
+          PROGRESS_INTERVAL_MS,
+          delegate,
+          url,
+          originalUrl,
+          totalBytes);
     }
   }
 
@@ -61,8 +73,9 @@ final class ProgressInputStream extends InputStream {
   private final ExtendedEventHandler eventHandler;
   private final InputStream delegate;
   private final long intervalMs;
-  private final URL url;
-  private final URL originalUrl;
+  private final URI url;
+  private final URI originalUrl;
+  private final OptionalLong totalBytes;
   private final AtomicLong toto = new AtomicLong();
   private final AtomicLong nextEvent;
 
@@ -72,8 +85,9 @@ final class ProgressInputStream extends InputStream {
       ExtendedEventHandler eventHandler,
       long intervalMs,
       InputStream delegate,
-      URL url,
-      URL originalUrl) {
+      URI url,
+      URI originalUrl,
+      OptionalLong totalBytes) {
     Preconditions.checkArgument(intervalMs >= 0);
     this.locale = locale;
     this.clock = clock;
@@ -82,8 +96,9 @@ final class ProgressInputStream extends InputStream {
     this.delegate = delegate;
     this.url = url;
     this.originalUrl = originalUrl;
+    this.totalBytes = totalBytes;
     this.nextEvent = new AtomicLong(clock.currentTimeMillis() + intervalMs);
-    eventHandler.post(new DownloadProgressEvent(originalUrl, url, 0, false));
+    eventHandler.post(new DownloadProgressEvent(originalUrl, url, 0, totalBytes, false));
   }
 
   @Override
@@ -112,7 +127,7 @@ final class ProgressInputStream extends InputStream {
   @Override
   public void close() throws IOException {
     delegate.close();
-    eventHandler.post(new DownloadProgressEvent(originalUrl, url, toto.get(), true));
+    eventHandler.post(new DownloadProgressEvent(originalUrl, url, toto.get(), totalBytes, true));
   }
 
   private void reportProgress(long bytesRead) {
@@ -121,10 +136,10 @@ final class ProgressInputStream extends InputStream {
       return;
     }
     String via = "";
-    if (!url.getHost().equals(originalUrl.getHost())) {
+    if (url.getHost() != null && !url.getHost().equals(originalUrl.getHost())) {
       via = " via " + url.getHost();
     }
-    eventHandler.post(new DownloadProgressEvent(originalUrl, url, bytesRead, false));
+    eventHandler.post(new DownloadProgressEvent(originalUrl, url, bytesRead, totalBytes, false));
     eventHandler.handle(
         Event.progress(
             String.format(locale, "Downloading %s%s: %,d bytes", originalUrl, via, bytesRead)));

@@ -18,16 +18,17 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 import java.util.List;
 
 /**
  * Options that will be evaluated by the blaze client startup code only.
  *
- * The only reason we have this interface is that we'd like to print a nice
- * help page for the client startup options. These options do not affect the
- * server's behavior in any way.
+ * <p>The only reason we have this interface is that we'd like to print a nice help page for the
+ * client startup options. These options do not affect the server's behavior in any way.
  */
-public class HostJvmStartupOptions extends OptionsBase {
+@OptionsClass
+public abstract class HostJvmStartupOptions extends OptionsBase {
 
   @Option(
       name = "server_javabase",
@@ -36,7 +37,7 @@ public class HostJvmStartupOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Path to the JVM used to execute Bazel itself.")
-  public String serverJavabase;
+  public abstract String getServerJavabase();
 
   @Option(
       name = "host_jvm_args",
@@ -46,33 +47,19 @@ public class HostJvmStartupOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Flags to pass to the JVM executing Blaze.")
-  public List<String> hostJvmArgs;
+  public abstract List<String> getHostJvmArgs();
 
   @Option(
-      name = "host_jvm_profile",
-      defaultValue = "", // NOTE: purely decorative!  See BlazeServerStartupOptions.
-      valueHelp = "<profiler_name>",
+      name = "host_jvm_debug",
+      defaultValue = "null", // NOTE: purely decorative!  See BlazeServerStartupOptions.
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
-          "Convenience option to add some profiler/debugger-specific JVM startup flags. "
-              + "Bazel has a list of known values that it maps to hard-coded JVM startup flags, "
-              + "possibly searching some hardcoded paths for certain files.")
-  public String hostJvmProfile;
-
-  @Option(
-    name = "host_jvm_debug",
-    defaultValue = "null", // NOTE: purely decorative!  See BlazeServerStartupOptions.
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help =
-        "Convenience option to add some additional JVM startup flags, which cause "
-            + "the JVM to wait during startup until you connect from a JDWP-compliant debugger "
-            + "(like Eclipse) to port 5005.",
-    expansion = {
-      "--host_jvm_args=-Xdebug",
-      "--host_jvm_args=-Xrunjdwp:transport=dt_socket,server=y,address=5005",
-    }
-  )
-  public Void hostJvmDebug;
+          "Convenience option to add some additional JVM startup flags, which cause "
+              + "the JVM to wait during startup until you connect from a JDWP-compliant debugger "
+              + "(like Eclipse) to port 5005.",
+      expansion = {
+        "--host_jvm_args=-agentlib:jdwp=transport=dt_socket,server=y,address=5005",
+      })
+  public abstract Void getHostJvmDebug();
 }

@@ -15,11 +15,15 @@ package com.google.devtools.build.lib.runtime;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.SubscriberExceptionHandler;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
+import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
@@ -35,7 +39,6 @@ import com.google.devtools.build.lib.packages.PackageLoadingListener;
 import com.google.devtools.build.lib.packages.PackageOverheadEstimator;
 import com.google.devtools.build.lib.packages.PackageValidator;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
-import com.google.devtools.build.lib.skyframe.TopDownActionCache;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.io.OutErr;
@@ -43,28 +46,29 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.devtools.common.options.OptionsProvider;
+import java.util.Optional;
 import java.util.UUID;
 import javax.annotation.Nullable;
 
 /**
- * A module Bazel can load at the beginning of its execution. Modules are supplied with extension
- * points to augment the functionality at specific, well-defined places.
+ * Provides the ability to augment the functionality of the Logical Component (LC).
  *
- * <p>The constructors of individual Bazel modules should be empty. All work should be done in the
- * methods (e.g. {@link #blazeStartup}).
+ * <p>The augmentation is done by implementing one or more of the methods in this class, which are
+ * called at well-defined points during the server's lifecycle.
+ *
+ * <p>The set of modules is passed into {@link BlazeRuntime#main} and is fixed for the lifetime of
+ * the server. A module can be obtained by calling {@link BlazeRuntime#getBlazeModule}.
+ *
+ * <p>The constructors of individual Bazel modules must take no arguments and be empty. All work
+ * should be done in the methods (e.g. {@link #blazeStartup}).
  */
-public abstract class BlazeModule {
+public abstract class BlazeModule implements OptionsSupplier {
 
-  /**
-   * Returns the extra startup options this module contributes.
-   *
-   * <p>This method will be called at the beginning of Blaze startup (before {@link #globalInit}).
-   * The startup options need to be parsed very early in the process, which requires this to be
-   * separate from {@link #serverInit}.
-   */
+  @Override
   public Iterable<Class<? extends OptionsBase>> getStartupOptions() {
     return ImmutableList.of();
   }
@@ -74,34 +78,43 @@ public abstract class BlazeModule {
    * #blazeStartup}.
    *
    * @param startupOptions the server's startup options
+   * @param blazeServices the available services
    * @throws AbruptExitException to shut down the server immediately
    */
-  public void globalInit(OptionsParsingResult startupOptions) throws AbruptExitException {}
+  public void globalInit(OptionsParsingResult startupOptions, Iterable<BlazeService> blazeServices)
+      throws AbruptExitException {}
 
   /**
-   * Returns the file system implementation used by Bazel. It is an error if more than one module
-   * returns a file system. If all return null, the default unix file system is used.
+   * Returns the file system implementation used by Bazel.
+   *
+   * <p>Exactly one module must return a non-null value from this method, or an error will occur.
    *
    * <p>This method will be called at the beginning of Bazel startup (in-between {@link #globalInit}
    * and {@link #blazeStartup}).
    *
    * @param startupOptions the server's startup options
-   * @param realExecRootBase absolute path fragment of the actual, underlying execution root
    */
-  public ModuleFileSystem getFileSystem(
-      OptionsParsingResult startupOptions, PathFragment realExecRootBase)
+  @Nullable
+  public ModuleFileSystem getFileSystem(OptionsParsingResult startupOptions)
       throws AbruptExitException {
     return null;
   }
 
   /**
-   * Returns the {@link TopDownActionCache} used by Bazel. It is an error if more than one module
-   * returns a top-down action cache. If all modules return null, there will be no top-down caching.
+   * Returns the file system implementation used by Bazel to read or write build artifacts.
+   *
+   * <p>At most one module may return a non-null value from this method, or an error will occur. If
+   * no module returns a non-null value, the file system returned by {@link #getFileSystem} from
+   * this or another module will be used.
    *
    * <p>This method will be called at the beginning of Bazel startup (in-between {@link #globalInit}
    * and {@link #blazeStartup}).
+   *
+   * @param fileSystem the file system returned by {@link #getFileSystem} from this or another
+   *     module
    */
-  public TopDownActionCache getTopDownActionCache() {
+  @Nullable
+  public FileSystem getFileSystemForBuildArtifacts(FileSystem fileSystem) {
     return null;
   }
 
@@ -110,17 +123,21 @@ public abstract class BlazeModule {
   public abstract static class ModuleFileSystem {
     public abstract FileSystem fileSystem();
 
-    /** Non-null if this filesystem virtualizes the execroot folder. */
-    @Nullable
-    abstract Path virtualExecRootBase();
+    /**
+     * Present if this filesystem virtualizes the source root. See {@link
+     * ServerDirectories#getVirtualSourceRoot}.
+     */
+    abstract Optional<Root> virtualSourceRoot();
 
-    public static ModuleFileSystem create(
-        FileSystem fileSystem, @Nullable Path virtualExecRootBase) {
-      return new AutoValue_BlazeModule_ModuleFileSystem(fileSystem, virtualExecRootBase);
+    public static ModuleFileSystem createWithVirtualization(
+        FileSystem fileSystem, PathFragment virtualSourceRoot) {
+      return new AutoValue_BlazeModule_ModuleFileSystem(
+          fileSystem, Optional.of(Root.fromPath(fileSystem.getPath(virtualSourceRoot))));
     }
 
     public static ModuleFileSystem create(FileSystem fileSystem) {
-      return create(fileSystem, null);
+      return new AutoValue_BlazeModule_ModuleFileSystem(
+          fileSystem, /* virtualSourceRoot= */ Optional.empty());
     }
   }
 
@@ -138,7 +155,7 @@ public abstract class BlazeModule {
   }
 
   /**
-   * Called when Bazel starts up after {@link #getStartupOptions}, {@link #globalInit}, and {@link
+   * Called when Bazel starts up after {@link #getStartupOptions}, {@link #globalInit} and {@link
    * #getFileSystem}.
    *
    * @param startupOptions the server's startup options
@@ -206,54 +223,30 @@ public abstract class BlazeModule {
    * Returns additional listeners to the console output stream. Called at the beginning of each
    * command (after #beforeCommand).
    */
-  @SuppressWarnings("unused")
   @Nullable
   public OutErr getOutputListener() {
     return null;
   }
 
   /**
-   * Returns the output service to be used. It is an error if more than one module returns an output
-   * service.
+   * Returns the {@link OutputService} to be used.
    *
-   * <p>This method will be called at the beginning of each command (after #beforeCommand).
+   * <p>It is an error if more than one module returns a non-null output service. If all modules
+   * return {@code null}, then {@link com.google.devtools.build.lib.vfs.LocalOutputService} will be
+   * used.
+   *
+   * <p>This method is called at the beginning of each command (after {@link #beforeCommand}).
    */
-  @SuppressWarnings("unused")
   public OutputService getOutputService() throws AbruptExitException {
     return null;
   }
 
-  /**
-   * Returns extra options this module contributes to a specific command. Note that option
-   * inheritance applies: if this method returns a non-empty list, then the returned options are
-   * added to every command that depends on this command.
-   *
-   * <p>This method may be called at any time, and the returned value may be cached. Implementations
-   * must be thread-safe and never return different lists for the same command object. Typical
-   * implementations look like this:
-   *
-   * <pre>
-   * return "build".equals(command.name())
-   *     ? ImmutableList.<Class<? extends OptionsBase>>of(MyOptions.class)
-   *     : ImmutableList.<Class<? extends OptionsBase>>of();
-   * </pre>
-   *
-   * Note that this example adds options to all commands that inherit from the build command.
-   *
-   * <p>This method is also used to generate command-line documentation; in order to avoid
-   * duplicated options descriptions, this method should never return the same options class for two
-   * different commands if one of them inherits the other.
-   *
-   * <p>If you want to add options to all commands, override {@link #getCommonCommandOptions}
-   * instead.
-   *
-   * @param command the command
-   */
-  public Iterable<Class<? extends OptionsBase>> getCommandOptions(Command command) {
+  @Override
+  public Iterable<Class<? extends OptionsBase>> getCommandOptions(String commandName) {
     return ImmutableList.of();
   }
 
-  /** Returns extra options this module contributes to all commands. */
+  @Override
   public Iterable<Class<? extends OptionsBase>> getCommonCommandOptions() {
     return ImmutableList.of();
   }
@@ -273,6 +266,27 @@ public abstract class BlazeModule {
       BuildOptions buildOptions,
       AnalysisResult analysisResult)
       throws InterruptedException, ViewCreationFailedException {}
+
+  /**
+   * Called after Bazel analyzes a single top-level target.
+   *
+   * @param env the command environment
+   * @param request the build request
+   * @param buildOptions the build's top-level options
+   * @param configuredTarget the analyzed top-level target
+   */
+  public void afterTopLevelTargetAnalysis(
+      CommandEnvironment env,
+      BuildRequest request,
+      BuildOptions buildOptions,
+      ConfiguredTarget configuredTarget)
+      throws InterruptedException, ViewCreationFailedException {}
+
+  public void afterSingleAspectAnalysis(BuildRequest request, ConfiguredAspect configuredTarget) {}
+
+  public void afterSingleTestAnalysis(BuildRequest request, ConfiguredTarget configuredTarget) {}
+
+  public void coverageArtifactsKnown(ImmutableSet<Artifact> coverageArtifacts) {}
 
   /**
    * Called when Bazel initializes the action execution subsystem. This is called once per build if
@@ -340,6 +354,10 @@ public abstract class BlazeModule {
    *
    * <p>If you are also implementing {@link #blazeShutdownOnCrash}, consider putting the common
    * shutdown code in the latter and calling that other hook from here.
+   *
+   * <p>This is also called after each test case in {@link
+   * com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase} and can be used to avoid
+   * leaking resources when this module instance is thrown away between tests.
    */
   public void blazeShutdown() {}
 
@@ -424,6 +442,11 @@ public abstract class BlazeModule {
       PackageSettings packageSettings,
       ConfiguredRuleClassProvider ruleClassProvider,
       FileSystem fs) {
+    return null;
+  }
+
+  @Nullable
+  public String getSlowThreadInterruptMessageSuffix() {
     return null;
   }
 

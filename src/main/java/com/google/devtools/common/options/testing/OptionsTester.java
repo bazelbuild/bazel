@@ -21,7 +21,10 @@ import com.google.common.collect.ImmutableListMultimap;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.lang.reflect.AccessibleObject;
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 
 /**
@@ -52,17 +55,39 @@ public final class OptionsTester {
     return builder.build();
   }
 
+  private static ImmutableList<Method> getAllMethods(Class<? extends OptionsBase> optionsClass) {
+    ImmutableList.Builder<Method> builder = ImmutableList.builder();
+    Class<? extends OptionsBase> current = optionsClass;
+    while (!OptionsBase.class.equals(current)) {
+      builder.add(current.getDeclaredMethods());
+      Class<? extends OptionsBase> superclass =
+          current.getSuperclass().asSubclass(OptionsBase.class);
+      current = superclass;
+    }
+    return builder.build();
+  }
+
   /**
    * Tests that there are no non-Option instance fields. Fields not annotated with @Option will not
    * be considered for equality.
    */
-  public OptionsTester testAllInstanceFieldsAnnotatedWithOption() {
+  @CanIgnoreReturnValue
+  public OptionsTester testAllOptions() {
     for (Field field : getAllFields(optionsClass)) {
       if (!Modifier.isStatic(field.getModifiers())) {
         assertWithMessage(
-                field
-                    + " is missing an @Option annotation; it will not be considered for equality.")
+                "%s is missing an @Option annotation; it will not be considered for equality.",
+                field)
             .that(field.getAnnotation(Option.class))
+            .isNotNull();
+      }
+    }
+    for (Method method : getAllMethods(optionsClass)) {
+      if (Modifier.isAbstract(method.getModifiers()) && method.getName().startsWith("get")) {
+        assertWithMessage(
+                "%s is missing an @Option annotation; it will not be considered for equality.",
+                method)
+            .that(method.getAnnotation(Option.class))
             .isNotNull();
       }
     }
@@ -78,9 +103,10 @@ public final class OptionsTester {
    * <p>Note that testConvert is not actually run on the ConverterTesters; it is expected that they
    * are run elsewhere.
    */
+  @CanIgnoreReturnValue
   public OptionsTester testAllDefaultValuesTestedBy(ConverterTesterMap testers) {
-    ImmutableListMultimap.Builder<Class<? extends Converter<?>>, Field> converterClassesBuilder =
-        ImmutableListMultimap.builder();
+    ImmutableListMultimap.Builder<Class<? extends Converter<?>>, AccessibleObject>
+        converterClassesBuilder = ImmutableListMultimap.builder();
     for (Field field : getAllFields(optionsClass)) {
       Option option = field.getAnnotation(Option.class);
       if (option != null && !Converter.class.equals(option.converter())) {
@@ -90,23 +116,29 @@ public final class OptionsTester {
         converterClassesBuilder.put(converter, field);
       }
     }
-    ImmutableListMultimap<Class<? extends Converter<?>>, Field> converterClasses =
+    for (Method method : getAllMethods(optionsClass)) {
+      Option option = method.getAnnotation(Option.class);
+      if (option != null && !Converter.class.equals(option.converter())) {
+        @SuppressWarnings("unchecked") // converter is rawtyped; see comment on Option.converter()
+        Class<? extends Converter<?>> converter =
+            (Class<? extends Converter<?>>) option.converter();
+        converterClassesBuilder.put(converter, method);
+      }
+    }
+    ImmutableListMultimap<Class<? extends Converter<?>>, AccessibleObject> converterClasses =
         converterClassesBuilder.build();
     for (Class<? extends Converter<?>> converter : converterClasses.keySet()) {
       assertWithMessage(
-              "Converter " + converter.getCanonicalName() + " has no corresponding ConverterTester")
+              "Converter %s has no corresponding ConverterTester", converter.getCanonicalName())
           .that(testers)
           .containsKey(converter);
-      for (Field field : converterClasses.get(converter)) {
-        Option option = field.getAnnotation(Option.class);
-        if (!option.allowMultiple() && !"null".equals(option.defaultValue())) {
+      for (AccessibleObject member : converterClasses.get(converter)) {
+        Option option = member.getAnnotation(Option.class);
+        if (option != null && !option.allowMultiple() && !option.defaultValue().equals("null")) {
           assertWithMessage(
-                  "Default value \""
-                      + option.defaultValue()
-                      + "\" on "
-                      + field
-                      + " is not tested in the corresponding ConverterTester for "
-                      + converter.getCanonicalName())
+                  "Default value \"%s\" on %s is not tested in the corresponding ConverterTester"
+                      + " for %s",
+                  option.defaultValue(), member, converter.getCanonicalName())
               .that(testers.get(converter).hasTestForInput(option.defaultValue()))
               .isTrue();
         }

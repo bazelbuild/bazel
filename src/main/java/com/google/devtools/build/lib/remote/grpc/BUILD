@@ -1,10 +1,9 @@
 load("@rules_java//java:defs.bzl", "java_library")
 
 package(
+    default_applicable_licenses = ["//:license"],
     default_visibility = ["//src:__subpackages__"],
 )
-
-licenses(["notice"])
 
 filegroup(
     name = "srcs",
@@ -16,10 +15,11 @@ java_library(
     name = "grpc",
     srcs = glob(["*.java"]),
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//third_party:guava",
         "//third_party:jsr305",
+        "//third_party:netty",
         "//third_party:rxjava3",
-        "//third_party/grpc:grpc-jar",
+        "//third_party/grpc-java:grpc-jar",
     ],
 )

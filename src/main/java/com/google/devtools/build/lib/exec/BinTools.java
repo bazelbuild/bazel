@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.exec;
 
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -21,17 +22,18 @@ import com.google.common.hash.Hasher;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
+import com.google.devtools.build.lib.actions.VirtualActionInput;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
-import com.google.protobuf.ByteString;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.concurrent.locks.ReentrantLock;
 import javax.annotation.Nullable;
 
 /**
@@ -40,32 +42,18 @@ import javax.annotation.Nullable;
  */
 public final class BinTools {
   private final Path embeddedBinariesRoot;
-  private final ImmutableList<String> embeddedTools;
   private final ImmutableMap<String, ActionInput> actionInputs;
 
-  private BinTools(BlazeDirectories directories, ImmutableList<String> tools) {
-    this(directories.getEmbeddedBinariesRoot(), tools);
-  }
-
-  private BinTools(Path embeddedBinariesRoot, ImmutableList<String> tools) {
+  private BinTools(Path embeddedBinariesRoot, ImmutableList<String> embeddedToolNames) {
     this.embeddedBinariesRoot = embeddedBinariesRoot;
-    ImmutableList.Builder<String> builder = ImmutableList.builder();
-    // Files under embedded_tools shouldn't be copied to under _bin dir
-    // They won't be used during action execution time.
-    for (String tool : tools) {
-      if (!tool.startsWith("embedded_tools/")) {
-        builder.add(tool);
-      }
-    }
-    this.embeddedTools = builder.build();
 
-    ImmutableMap.Builder<String, ActionInput> result = ImmutableMap.builder();
-    for (String embeddedPath : embeddedTools) {
-      Path path = getEmbeddedPath(embeddedPath);
-      PathFragment execPath =  PathFragment.create("_bin").getRelative(embeddedPath);
-      result.put(embeddedPath, new PathActionInput(path, execPath));
+    ImmutableMap.Builder<String, ActionInput> builder = ImmutableMap.builder();
+    for (String toolName : embeddedToolNames) {
+      Path path = embeddedBinariesRoot.getRelative(toolName);
+      PathFragment execPath = PathFragment.create("_bin").getRelative(toolName);
+      builder.put(toolName, new PathActionInput(path, execPath));
     }
-    actionInputs = result.build();
+    actionInputs = builder.buildOrThrow();
   }
 
 
@@ -74,9 +62,15 @@ public final class BinTools {
    * into which said binaries were extracted by the launcher.
    */
   public static BinTools forProduction(BlazeDirectories directories) throws IOException {
+    Path embeddedBinariesRoot = directories.getEmbeddedBinariesRoot();
+    // All tools of interest are in the root directory, so don't scan subdirectories.
     ImmutableList.Builder<String> builder = ImmutableList.builder();
-    scanDirectoryRecursively(builder, directories.getEmbeddedBinariesRoot(), "");
-    return new BinTools(directories, builder.build());
+    for (Dirent dirent : embeddedBinariesRoot.readdir(Symlinks.NOFOLLOW)) {
+      if (dirent.getType() == Dirent.Type.FILE) {
+        builder.add(dirent.getName());
+      }
+    }
+    return new BinTools(embeddedBinariesRoot, builder.build());
   }
 
   /**
@@ -84,7 +78,7 @@ public final class BinTools {
    */
   @VisibleForTesting
   public static BinTools empty(BlazeDirectories directories) {
-    return new BinTools(directories, ImmutableList.of());
+    return new BinTools(directories.getEmbeddedBinariesRoot(), ImmutableList.of());
   }
 
   /**
@@ -93,16 +87,6 @@ public final class BinTools {
   @VisibleForTesting
   public static BinTools forEmbeddedBin(Path embeddedBinariesRoot, Iterable<String> tools) {
     return new BinTools(embeddedBinariesRoot, ImmutableList.copyOf(tools));
-  }
-
-  /**
-   * Creates an instance for testing without actually symlinking the tools.
-   *
-   * <p>Used for tests that need a set of embedded tools to be present, but not the actual files.
-   */
-  @VisibleForTesting
-  public static BinTools forUnitTesting(BlazeDirectories directories, Iterable<String> tools) {
-    return new BinTools(directories, ImmutableList.copyOf(tools));
   }
 
   /**
@@ -122,30 +106,7 @@ public final class BinTools {
   @VisibleForTesting
   public static BinTools forIntegrationTesting(
       BlazeDirectories directories, Iterable<String> tools) {
-    return new BinTools(directories, ImmutableList.copyOf(tools));
-  }
-
-  private static void scanDirectoryRecursively(
-      ImmutableList.Builder<String> result, Path root, String relative) throws IOException {
-    for (Dirent dirent : root.readdir(Symlinks.NOFOLLOW)) {
-      String childRelative = relative.isEmpty()
-          ? dirent.getName()
-          : relative + "/" + dirent.getName();
-      switch (dirent.getType()) {
-        case FILE:
-          result.add(childRelative);
-          break;
-
-        case DIRECTORY:
-          scanDirectoryRecursively(result, root.getChild(dirent.getName()), childRelative);
-          break;
-
-        default:
-          // Nothing to do here -- we ignore symlinks, since they should not be present in the
-          // embedded binaries tree.
-          break;
-      }
-    }
+    return new BinTools(directories.getEmbeddedBinariesRoot(), ImmutableList.copyOf(tools));
   }
 
   /**
@@ -157,17 +118,22 @@ public final class BinTools {
 
   @Nullable
   public Path getEmbeddedPath(String embedPath) {
-    if (!embeddedTools.contains(embedPath)) {
+    if (!actionInputs.containsKey(embedPath)) {
       return null;
     }
     return embeddedBinariesRoot.getRelative(embedPath);
   }
 
   /** An ActionInput pointing at an absolute path. */
-  public static final class PathActionInput implements VirtualActionInput {
+  @VisibleForTesting
+  public static final class PathActionInput extends VirtualActionInput {
+    private final ReentrantLock lock = new ReentrantLock();
     private final Path path;
     private final PathFragment execPath;
-    private FileArtifactValue metadata;
+    private volatile FileArtifactValue metadata;
+
+    /** Contains the digest of the input once it has been written. */
+    private volatile byte[] digest;
 
     public PathActionInput(Path path, PathFragment execPath) {
       this.path = path;
@@ -182,24 +148,39 @@ public final class BinTools {
     }
 
     @Override
-    public boolean isSymlink() {
-      // There are no unresolved symlinks embedded in the binary. We don't need them (embedded
-      // binaries are just a few simple tools) and zip doesn't support them anyway.
-      return false;
+    @CanIgnoreReturnValue
+    protected byte[] atomicallyWriteTo(Path outputPath) throws IOException {
+      // The embedded tools do not change, but we need to be sure they're written out without race
+      // conditions. We rely on the fact that no two {@link PathActionInput} instances refer to the
+      // same file to use in-memory synchronization and avoid writing to a temporary file first.
+      if (digest == null || !outputPath.exists()) {
+        lock.lock();
+        try {
+          if (digest == null || !outputPath.exists()) {
+            outputPath.getParentDirectory().createDirectoryAndParents();
+            digest = writeTo(outputPath);
+            // Some of the embedded tools are executable.
+            outputPath.setExecutable(true);
+          }
+        } finally {
+          lock.unlock();
+        }
+      }
+      return digest;
     }
 
     @Override
-    public ByteString getBytes() throws IOException {
-      ByteString.Output out = ByteString.newOutput();
-      writeTo(out);
-      return out.toByteString();
-    }
-
-    @Override
-    public synchronized FileArtifactValue getMetadata() throws IOException {
+    public FileArtifactValue getMetadata() throws IOException {
       // We intentionally delay hashing until it is necessary.
       if (metadata == null) {
-        metadata = hash(path);
+        lock.lock();
+        try {
+          if (metadata == null) {
+            metadata = hash(path);
+          }
+        } finally {
+          lock.unlock();
+        }
       }
       return metadata;
     }

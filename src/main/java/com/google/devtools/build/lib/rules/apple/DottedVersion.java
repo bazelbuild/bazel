@@ -22,14 +22,15 @@ import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.starlarkbuildapi.apple.DottedVersionApi;
 import java.util.ArrayList;
 import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
+import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkValue;
 
 /**
@@ -77,7 +78,6 @@ import net.starlark.java.eval.StarlarkValue;
  * <p>This class is immutable and can safely be shared among threads.
  */
 @Immutable
-@AutoCodec
 public final class DottedVersion implements DottedVersionApi<DottedVersion> {
   /**
    * Wrapper class for {@link DottedVersion} whose {@link #equals(Object)} method is string
@@ -112,7 +112,7 @@ public final class DottedVersion implements DottedVersionApi<DottedVersion> {
     }
 
     @Override
-    public void repr(Printer printer) {
+    public void repr(Printer printer, StarlarkSemantics semantics) {
       printer.append(version.toString());
     }
 
@@ -140,10 +140,12 @@ public final class DottedVersion implements DottedVersionApi<DottedVersion> {
     }
   }
 
+  @Nullable
   public static DottedVersion maybeUnwrap(DottedVersion.Option option) {
     return option != null ? option.get() : null;
   }
 
+  @Nullable
   public static Option option(DottedVersion version) {
     return version == null ? null : new Option(version);
   }
@@ -261,8 +263,7 @@ public final class DottedVersion implements DottedVersionApi<DottedVersion> {
   private final String stringRepresentation;
   private final int numOriginalComponents;
 
-  @AutoCodec.VisibleForSerialization
-  DottedVersion(
+  private DottedVersion(
       ImmutableList<Component> components, String stringRepresentation, int numOriginalComponents) {
     this.components = components;
     this.stringRepresentation = stringRepresentation;
@@ -358,6 +359,10 @@ public final class DottedVersion implements DottedVersionApi<DottedVersion> {
   }
 
   @Override
+  @StarlarkMethod(
+      name = "to_string",
+      doc = "Returns the string representation of a dotted version.",
+      structField = true)
   public String toString() {
     return stringRepresentation;
   }
@@ -387,19 +392,16 @@ public final class DottedVersion implements DottedVersionApi<DottedVersion> {
   }
 
   @Override
-  public void repr(Printer printer) {
+  public void repr(Printer printer, StarlarkSemantics semantics) {
     printer.append(stringRepresentation);
   }
 
-  @AutoCodec.VisibleForSerialization
-  @AutoCodec
-  static final class Component implements Comparable<Component> {
+  private static final class Component implements Comparable<Component> {
     private final int firstNumber;
     @Nullable private final String alphaSequence;
     private final int secondNumber;
     private final String stringRepresentation;
 
-    @AutoCodec.VisibleForSerialization
     Component(
         int firstNumber,
         @Nullable String alphaSequence,

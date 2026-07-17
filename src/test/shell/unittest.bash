@@ -52,12 +52,11 @@
 # respectively.  Similarly, "cleanup" and "timeout" may be redefined,
 # and these function are called upon exit (of any kind) or a timeout.
 #
-# The user can pass --test_arg to blaze test to select specific tests
-# to run. Specifying --test_arg multiple times allows to select several
-# tests to be run in the given order. Additionally the user may define
-# TESTS=(test_foo test_bar ...) to specify a subset of test functions to
-# execute, for example, a working set during debugging. By default, all
-# functions called test_* will be executed.
+# The user can pass --test_filter to blaze test to select specific tests
+# to run with Bash globs. A union of tests matching any of the provided globs
+# will be run. Additionally the user may define TESTS=(test_foo test_bar ...) to
+# specify a subset of test functions to execute, for example, a working set
+# during debugging. By default, all functions called test_* will be executed.
 #
 # This file provides utilities for assertions over the output of a
 # command.  The output of the command under test is directed to the
@@ -77,28 +76,12 @@
 # This framework implements the "test sharding protocol".
 #
 
-[ -n "$BASH_VERSION" ] ||
+[[ -n "$BASH_VERSION" ]] ||
   { echo "unittest.bash only works with bash!" >&2; exit 1; }
 
 export BAZEL_SHELL_TEST=1
 
 DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-
-#### Configuration variables (may be overridden by testenv.sh or the suite):
-
-# This function may be called by testenv.sh or a test suite to enable errexit
-# in a way that enables us to print pretty stack traces when something fails.
-function enable_errexit() {
-  set -o errtrace
-  set -eu
-  trap __test_terminated_err ERR
-}
-
-function disable_errexit() {
-  set +o errtrace
-  set +eu
-  trap - ERR
-}
 
 # Load the environment support utilities.
 source "${DIR}/unittest_utils.sh" || { echo "unittest_utils.sh not found" >&2; exit 1; }
@@ -122,12 +105,48 @@ TESTS=()                        # A subset or "working set" of test
                                 # functions that should be run.  By
                                 # default, all tests called test_* are
                                 # run.
-if [ $# -gt 0 ]; then
+
+_TEST_FILTERS=()                # List of globs to use to filter the tests.
+                                # If non-empty, all tests matching at least one
+                                # of the globs are run and test list provided in
+                                # the arguments is ignored if present.
+
+__in_tear_down=0                # Indicates whether we are in `tear_down` phase
+                                # of test. Used to avoid re-entering `tear_down`
+                                # on failures within it.
+
+# These variables are used for handling test shards that are manually defined
+# via the define_test_shard() function.
+
+_test_shards=()                 # Array of overall test shards. Each array
+                                # element is a string containing the names of
+                                # the test methods in the shard, separated by
+                                # spaces.
+
+_test_shard_count=0             # Number of overall test shards.
+
+_manual_test_shards=()          # Array of manually defined test shards.
+
+_manual_test_shard_count=0      # Number of manual test shards.
+
+_manual_sharded_bool_prefix="_manual_sharded_bool_"  # Prefix for bool variables
+                                # that mark whether a test method is manually
+                                # sharded. The actual bool variables are named
+                                # like <prefix><test_method> and are set using
+                                # printf -v. This is used because bash 3.2
+                                # (MacOS) doesn't support associative arrays.
+
+if (( $# > 0 )); then
+  (
+    IFS=':'
+    echo "WARNING: Passing test names in arguments (--test_arg) is deprecated, please use --test_filter='$*' instead." >&2
+  )
+
   # Legacy behavior is to ignore missing regexp, but with errexit
   # the following line fails without || true.
   # TODO(dmarting): maybe we should revisit the way of selecting
   # test with that framework (use Bazel's environment variable instead).
-  TESTS=($(for i in $@; do echo $i; done | grep ^test_ || true))
+  TESTS=($(for i in "$@"; do echo $i; done | grep ^test_ || true))
   if (( ${#TESTS[@]} == 0 )); then
     echo "WARNING: Arguments do not specify tests!" >&2
   fi
@@ -135,8 +154,12 @@ fi
 # TESTBRIDGE_TEST_ONLY contains the value of --test_filter, if any. We want to
 # preferentially use that instead of $@ to determine which tests to run.
 if [[ ${TESTBRIDGE_TEST_ONLY:-} != "" ]]; then
-  # Split TESTBRIDGE_TEST_ONLY on comma and put the results into an array.
-  IFS=',' read -r -a TESTS <<< "$TESTBRIDGE_TEST_ONLY"
+  if (( ${#TESTS[@]} != 0 )); then
+    echo "WARNING: Both --test_arg and --test_filter specified, ignoring --test_arg" >&2
+    TESTS=()
+  fi
+  # Split TESTBRIDGE_TEST_ONLY on colon and store it in `_TEST_FILTERS` array.
+  IFS=':' read -r -a _TEST_FILTERS <<< "$TESTBRIDGE_TEST_ONLY"
 fi
 
 TEST_verbose="true"             # Whether or not to be verbose.  A
@@ -146,7 +169,7 @@ TEST_verbose="true"             # Whether or not to be verbose.  A
 TEST_script="$0"                # Full path to test script
 # Check if the script path is absolute, if not prefix the PWD.
 if [[ ! "$TEST_script" = /* ]]; then
-  TEST_script="$(pwd)/$0"
+  TEST_script="${PWD}/$0"
 fi
 
 
@@ -154,7 +177,7 @@ fi
 
 function __show_log() {
     echo "-- Test log: -----------------------------------------------------------"
-    [[ -e $TEST_log ]] && cat $TEST_log || echo "(Log file did not exist.)"
+    [[ -e $TEST_log ]] && cat "$TEST_log" || echo "(Log file did not exist.)"
     echo "------------------------------------------------------------------------"
 }
 
@@ -163,10 +186,12 @@ function __show_log() {
 function __pad() {
     local title=$1
     local pad=$2
+    # Ignore the subshell error -- `head` closes the fd before reading to the
+    # end, therefore the subshell will get SIGPIPE while stuck in `write`.
     {
-        echo -n "$pad$pad $title "
+        echo -n "${pad}${pad} ${title} "
         printf "%80s" " " | tr ' ' "$pad"
-    } | head -c 80
+    } | head -c 80 || true
     echo
 }
 
@@ -224,14 +249,24 @@ function testenv_tear_down() {
 # $TEST_log.
 function fail() {
     __show_log >&2
-    echo "$TEST_name FAILED: $*." >&2
-    echo "$@" >$TEST_TMPDIR/__fail
+    echo "${TEST_name} FAILED: $*." >&2
+    # Keep the original error message if we fail in `tear_down` after a failure.
+    [[ "${TEST_passed}" == "true" ]] && echo "$@" >"$TEST_TMPDIR"/__fail
     TEST_passed="false"
     __show_stack
     # Cleanup as we are leaving the subshell now
+    __run_tear_down_after_failure
+    exit 1
+}
+
+function __run_tear_down_after_failure() {
+    # Skip `tear_down` after a failure in `tear_down` to prevent infinite
+    # recursion.
+    (( __in_tear_down )) && return
+    __in_tear_down=1
+    echo -e "\nTear down:\n" >&2
     tear_down
     testenv_tear_down
-    exit 1
 }
 
 # Usage: warn <message>
@@ -241,11 +276,11 @@ function fail() {
 # the stack because they just add noise.)
 function warn() {
     __show_log >&2
-    echo "$TEST_name WARNING: $1." >&2
+    echo "${TEST_name} WARNING: $1." >&2
     __show_stack
 
-    if [ -n "${TEST_WARNINGS_OUTPUT_FILE:-}" ]; then
-      echo "$TEST_name WARNING: $1." >> "$TEST_WARNINGS_OUTPUT_FILE"
+    if [[ -n "${TEST_WARNINGS_OUTPUT_FILE:-}" ]]; then
+      echo "${TEST_name} WARNING: $1." >> "$TEST_WARNINGS_OUTPUT_FILE"
     fi
 }
 
@@ -259,12 +294,12 @@ __show_stack() {
     local trace_found=0
 
     # Skip over active calls within this module:
-    while (( i < ${#FUNCNAME[@]} )) && [[ ${BASH_SOURCE[i]:-} == ${BASH_SOURCE[0]} ]]; do
+    while (( i < ${#FUNCNAME[@]} )) && [[ ${BASH_SOURCE[i]:-} == "${BASH_SOURCE[0]}" ]]; do
        (( ++i ))
     done
 
     # Show all calls until the next one within this module (typically run_suite):
-    while (( i < ${#FUNCNAME[@]} )) && [[ ${BASH_SOURCE[i]:-} != ${BASH_SOURCE[0]} ]]; do
+    while (( i < ${#FUNCNAME[@]} )) && [[ ${BASH_SOURCE[i]:-} != "${BASH_SOURCE[0]}" ]]; do
         # Read online docs for BASH_LINENO to understand the strange offset.
         # Undefined can occur in the BASH_SOURCE stack apparently when one exits from a subshell
         echo "${BASH_SOURCE[i]:-"Unknown"}:${BASH_LINENO[i - 1]:-"Unknown"}: in call to ${FUNCNAME[i]:-"Unknown"}" >&2
@@ -272,16 +307,15 @@ __show_stack() {
         trace_found=1
     done
 
-    [ $trace_found = 1 ] || echo "[Stack trace not available]" >&2
+    (( trace_found )) || echo "[Stack trace not available]" >&2
 }
 
 # Usage: expect_log <regexp> [error-message]
-# Asserts that $TEST_log matches regexp.  Prints the contents of
-# $TEST_log and the specified (optional) error message otherwise, and
-# returns non-zero.
+# Asserts that $TEST_log matches regexp.  On failure prints the specified
+# (optional) error message, and returns non-zero.
 function expect_log() {
     local pattern=$1
-    local message=${2:-Expected regexp "$pattern" not found}
+    local message=${2:-"Expected regexp '$pattern' not found"}
     grep -sq -- "$pattern" $TEST_log && return 0
 
     fail "$message"
@@ -289,11 +323,11 @@ function expect_log() {
 }
 
 # Usage: expect_log_warn <regexp> [error-message]
-# Warns if $TEST_log does not match regexp.  Prints the contents of
-# $TEST_log and the specified (optional) error message on mismatch.
+# Warns if $TEST_log does not match regexp.  On failure prints the specified
+# (optional) warning message, and returns non-zero.
 function expect_log_warn() {
     local pattern=$1
-    local message=${2:-Expected regexp "$pattern" not found}
+    local message=${2:-"Expected regexp '$pattern' not found"}
     grep -sq -- "$pattern" $TEST_log && return 0
 
     warn "$message"
@@ -302,35 +336,35 @@ function expect_log_warn() {
 
 # Usage: expect_log_once <regexp> [error-message]
 # Asserts that $TEST_log contains one line matching <regexp>.
-# Prints the contents of $TEST_log and the specified (optional)
-# error message otherwise, and returns non-zero.
+# On failure prints the specified (optional) error message, and returns
+# non-zero.
 function expect_log_once() {
     local pattern=$1
-    local message=${2:-Expected regexp "$pattern" not found exactly once}
+    local message=${2:-"Expected regexp '$pattern' not found exactly once"}
     expect_log_n "$pattern" 1 "$message"
 }
 
 # Usage: expect_log_n <regexp> <count> [error-message]
 # Asserts that $TEST_log contains <count> lines matching <regexp>.
-# Prints the contents of $TEST_log and the specified (optional)
-# error message otherwise, and returns non-zero.
+# On failure prints the specified (optional) error message, and returns
+# non-zero.
 function expect_log_n() {
     local pattern=$1
     local expectednum=${2:-1}
-    local message=${3:-Expected regexp "$pattern" not found exactly $expectednum times}
+    local message=${3:-"Expected regexp '$pattern' not found exactly $expectednum times"}
     local count=$(grep -sc -- "$pattern" $TEST_log)
-    [[ $count = $expectednum ]] && return 0
-    fail "$message"
+    (( count == expectednum )) && return 0
+    fail "$message (found $count times instead)"
     return 1
 }
 
 # Usage: expect_not_log <regexp> [error-message]
-# Asserts that $TEST_log does not match regexp.  Prints the contents
-# of $TEST_log and the specified (optional) error message otherwise, and
-# returns non-zero.
+# Asserts that $TEST_log does not match regexp.
+# On failure prints the specified (optional) error message, and returns
+# non-zero.
 function expect_not_log() {
     local pattern=$1
-    local message=${2:-Unexpected regexp "$pattern" found}
+    local message=${2:-"Unexpected regexp '$pattern' found"}
     grep -sq -- "$pattern" $TEST_log || return 0
 
     fail "$message"
@@ -340,7 +374,7 @@ function expect_not_log() {
 # Usage: expect_query_targets <arguments>
 # Checks that log file contains exactly the targets in the argument list.
 function expect_query_targets() {
-  for arg in $@; do
+  for arg in "$@"; do
     expect_log_once "^$arg$"
   done
 
@@ -351,20 +385,20 @@ function expect_query_targets() {
 
 # Usage: expect_log_with_timeout <regexp> <timeout> [error-message]
 # Waits for the given regexp in the $TEST_log for up to timeout seconds.
-# Prints the contents of $TEST_log and the specified (optional)
-# error message otherwise, and returns non-zero.
+# On failure prints the specified (optional) error message, and returns
+# non-zero.
 function expect_log_with_timeout() {
     local pattern=$1
     local timeout=$2
-    local message=${3:-Regexp "$pattern" not found in "$timeout" seconds}
+    local message=${3:-"Regexp '$pattern' not found in $timeout seconds"}
     local count=0
-    while [ $count -lt $timeout ]; do
-      grep -sq -- "$pattern" $TEST_log && return 0
+    while (( count < timeout )); do
+      grep -sq -- "$pattern" "$TEST_log" && return 0
       let count=count+1
       sleep 1
     done
 
-    grep -sq -- "$pattern" $TEST_log && return 0
+    grep -sq -- "$pattern" "$TEST_log" && return 0
     fail "$message"
     return 1
 }
@@ -378,15 +412,15 @@ function expect_cmd_with_timeout() {
     local cmd="$2"
     local timeout=${3:-10}
     local count=0
-    while [ $count -lt $timeout ]; do
+    while (( count < timeout )); do
       local actual="$($cmd)"
-      [ "$expected" = "$actual" ] && return 0
-      let count=count+1
+      [[ "$expected" == "$actual" ]] && return 0
+      (( ++count ))
       sleep 1
     done
 
-    [ "$expected" = "$actual" ] && return 0
-    fail "Expected '$expected' within ${timeout}s, was '$actual'"
+    [[ "$expected" == "$actual" ]] && return 0
+    fail "Expected '${expected}' within ${timeout}s, was '${actual}'"
     return 1
 }
 
@@ -402,7 +436,7 @@ function assert_one_of() {
     local actual=${args[last_arg_index]}
     unset args[last_arg_index]
     for expected_item in "${args[@]}"; do
-      [ "$expected_item" = "$actual" ] && return 0
+      [[ "$expected_item" == "$actual" ]] && return 0
     done;
 
     fail "Expected one of '${args[*]}', was '$actual'"
@@ -421,7 +455,7 @@ function assert_not_one_of() {
     local actual=${args[last_arg_index]}
     unset args[last_arg_index]
     for expected_item in "${args[@]}"; do
-      if [ "$expected_item" = "$actual" ]; then
+      if [[ "$expected_item" == "$actual" ]]; then
         fail "'${args[*]}' contains '$actual'"
         return 1
       fi
@@ -431,48 +465,51 @@ function assert_not_one_of() {
 }
 
 # Usage: assert_equals <expected> <actual>
-# Asserts [ expected = actual ].
+# Asserts [[ expected == actual ]].
 function assert_equals() {
     local expected=$1 actual=$2
-    [ "$expected" = "$actual" ] && return 0
+    [[ "$expected" == "$actual" ]] && return 0
 
-    fail "Expected '$expected', was '$actual'"
+    local context=""
+    if [[ "$#" -eq "3" ]]
+    then
+      context="${3}: "
+    fi
+    fail "${context}Expected '$expected', was '$actual'"
     return 1
 }
 
 # Usage: assert_not_equals <unexpected> <actual>
-# Asserts [ unexpected != actual ].
+# Asserts [[ unexpected != actual ]].
 function assert_not_equals() {
     local unexpected=$1 actual=$2
-    [ "$unexpected" != "$actual" ] && return 0;
+    [[ "$unexpected" != "$actual" ]] && return 0;
 
-    fail "Expected not '$unexpected', was '$actual'"
+    fail "Expected not '${unexpected}', was '${actual}'"
     return 1
 }
 
 # Usage: assert_contains <regexp> <file> [error-message]
-# Asserts that file matches regexp.  Prints the contents of
-# file and the specified (optional) error message otherwise, and
-# returns non-zero.
+# Asserts that file matches regexp.  On failure copies the file to undeclared
+# outputs, prints the specified (optional) error message, and returns non-zero.
 function assert_contains() {
     local pattern=$1
     local file=$2
-    local message=${3:-Expected regexp "$pattern" not found in "$file"}
+    local message=${3:-"Expected regexp '$pattern' not found in '$file'"}
     grep -sq -- "$pattern" "$file" && return 0
 
-    cat "$file" >&2
-    fail "$message"
+    fail "$message" $(__copy_to_undeclared_outputs "$file")
     return 1
 }
 
 # Usage: assert_not_contains <regexp> <file> [error-message]
-# Asserts that file does not match regexp.  Prints the contents of
-# file and the specified (optional) error message otherwise, and
-# returns non-zero.
+# Asserts that file does not match regexp.  On failure copies the file to
+# undeclared outputs, prints the specified (optional) error message, and returns
+# non-zero.
 function assert_not_contains() {
     local pattern=$1
     local file=$2
-    local message=${3:-Expected regexp "$pattern" found in "$file"}
+    local message=${3:-"Expected regexp '$pattern' found in '$file'"}
 
     if [[ -f "$file" ]]; then
       grep -sq -- "$pattern" "$file" || return 0
@@ -481,8 +518,7 @@ function assert_not_contains() {
       return 1
     fi
 
-    cat "$file" >&2
-    fail "$message"
+    fail "$message" $(__copy_to_undeclared_outputs "$file")
     return 1
 }
 
@@ -490,7 +526,7 @@ function assert_contains_n() {
     local pattern=$1
     local expectednum=${2:-1}
     local file=$3
-    local message=${4:-Expected regexp "$pattern" not found exactly $expectednum times}
+    local message=${4:-"Expected regexp '$pattern' not found exactly $expectednum times in '$file'"}
     local count
     if [[ -f "$file" ]]; then
       count=$(grep -sc -- "$pattern" "$file")
@@ -498,28 +534,161 @@ function assert_contains_n() {
       fail "$file is not a file: $message"
       return 1
     fi
-    [[ $count = $expectednum ]] && return 0
+    (( count == expectednum )) && return 0
 
-    cat "$file" >&2
+    fail "$message" $(__copy_to_undeclared_outputs "$file")
+    return 1
+}
+
+# Usage: assert_exists <file> [error-message]
+# Asserts that the file exists.
+function assert_exists() {
+    local file=$1
+    local message=${2:-"Expected '$file' to exist"}
+    if [[ -f "$file" ]]; then
+        return 0
+    fi
+
     fail "$message"
     return 1
+}
+
+# Usage: assert_not_exists <file> [error-message]
+# Asserts that the file does not exist.
+function assert_not_exists() {
+    local file=$1
+    local message=${2:-"Expected '$file' to not exist"}
+    if ! [[ -f "$file" ]]; then
+        return 0
+    fi
+
+    fail "$message"
+    return 1
+}
+
+# Usage: assert_empty_file <file> [error-message]
+# Asserts that the file exists and is empty. On failure copies the file to
+# undeclared outputs, prints the specified (optional) error message, and returns
+# non-zero.
+function assert_empty_file() {
+    local file=$1
+    local message=${2:-"Expected '$file' to exist and be empty"}
+    if [[ -f "$file" && ! -s "$file" ]]; then
+        return 0
+    fi
+
+    fail "$message" $(__copy_to_undeclared_outputs "$file")
+    return 1
+}
+
+# Usage: assert_nonempty_file <file> [error-message]
+# Asserts that the file exists and is nonempty. On failure copies the file to
+# undeclared outputs, prints the specified (optional) error message, and returns
+# non-zero.
+function assert_nonempty_file() {
+    local file=$1
+    local message=${2:-"Expected '$file' to exist and be nonempty"}
+    if [[ -f "$file" && -s "$file" ]]; then
+        return 0
+    fi
+
+    fail "$message" $(__copy_to_undeclared_outputs "$file")
+    return 1
+}
+
+# Copies $1 to undeclared outputs with a unique path and logs the mapping
+# between the original file and the new file.
+function __copy_to_undeclared_outputs() {
+  local name=$(basename "$1")
+  local testdir="${TEST_UNDECLARED_OUTPUTS_DIR}/${TEST_name}"
+  mkdir -p "$testdir"
+  local unique_dir=$(mktemp -d -p "$testdir" XXX)
+  local newname="${unique_dir}/${name}"
+  cp "$1" "$newname"
+  echo "Copied '$1' to '$newname'"
 }
 
 # Updates the global variables TESTS if
 # sharding is enabled, i.e. ($TEST_TOTAL_SHARDS > 0).
 function __update_shards() {
-    [ -z "${TEST_TOTAL_SHARDS-}" ] && return 0
+    [[ -z "${TEST_TOTAL_SHARDS-}" ]] && return 0
 
-    [ "$TEST_TOTAL_SHARDS" -gt 0 ] ||
-      { echo "Invalid total shards $TEST_TOTAL_SHARDS" >&2; exit 1; }
+    (( TEST_TOTAL_SHARDS > 0 )) ||
+      { echo "Invalid total shards ${TEST_TOTAL_SHARDS}" >&2; exit 1; }
 
-    [ "$TEST_SHARD_INDEX" -lt 0 -o "$TEST_SHARD_INDEX" -ge  "$TEST_TOTAL_SHARDS" ] &&
-      { echo "Invalid shard $shard_index" >&2; exit 1; }
+    (( TEST_SHARD_INDEX < 0 || TEST_SHARD_INDEX >= TEST_TOTAL_SHARDS )) &&
+      { echo "Invalid shard ${TEST_SHARD_INDEX}" >&2; exit 1; }
 
-    TESTS=$(for test in "${TESTS[@]}"; do echo "$test"; done |
-      awk "NR % $TEST_TOTAL_SHARDS == $TEST_SHARD_INDEX")
+    [[ -z "${TEST_SHARD_STATUS_FILE-}" ]] || touch "$TEST_SHARD_STATUS_FILE"
 
-    [ -z "${TEST_SHARD_STATUS_FILE-}" ] || touch "$TEST_SHARD_STATUS_FILE"
+    __evaluate_manual_sharding
+    __evaluate_remaining_sharding
+    IFS=$' \t\n' read -ra TESTS <<< "${_test_shards[TEST_SHARD_INDEX]}"
+}
+
+function __evaluate_manual_sharding() {
+  if (( _manual_test_shard_count > TEST_TOTAL_SHARDS )); then
+    echo "More manual shards (${_manual_test_shard_count}) defined than"\
+        "total shards (${TEST_TOTAL_SHARDS})" >&2
+    exit 1;
+  fi
+  local shard_idx=0
+  _test_shard_count=_manual_test_shard_count
+  for (( shard_idx=0; shard_idx < _manual_test_shard_count; shard_idx++))
+  do
+    for test in ${_manual_test_shards[shard_idx]}; do
+      grep -q -- "$test" <<<${TESTS[@]} ||
+        { echo "define_manual_shard(): '$test' not found in TESTS" >&2
+          exit 1; }
+    done
+    _test_shards[shard_idx]="${_manual_test_shards[shard_idx]}"
+  done
+}
+
+function __evaluate_remaining_sharding() {
+  local test_count=0
+  local unshardable_tests=""
+  local available_shards=$((${TEST_TOTAL_SHARDS} - ${_manual_test_shard_count}))
+  local shard_idx=_manual_test_shard_count
+  while (( shard_idx < TEST_TOTAL_SHARDS )); do
+     _test_shards[shard_idx]=""
+     let shard_idx+=1
+  done
+  for test in ${TESTS[@]}; do
+    _varname="${_manual_sharded_bool_prefix}${test}"
+    if [[ -n "${!_varname-}" ]]; then
+      continue
+    fi
+    if (( available_shards > 0 )); then
+      let shard_idx=$test_count%available_shards+_manual_test_shard_count 1
+      _test_shards[shard_idx]="${_test_shards[shard_idx]} ${test}"
+      let test_count+=1
+    else
+      unshardable_tests="${unshardable_tests} ${test}"
+    fi
+  done
+  if [[ -n "${unshardable_tests}" ]]; then
+    echo "There were tests with no explicit shards and every shard was"\
+        "manually defined. Increase shard count, assign an explicit shard"\
+        "to these tests or remove some manual shards. Affected tests:"\
+        "${unshardable_tests}" >&2
+    exit 1;
+  fi
+}
+
+# Usage: define_test_shard <test_name> <test_name> ...
+# Makes one of the test shards contain exactly the given tests, if the test
+# runs in shards. For non-sharded test execution, this is a no-op.
+function define_test_shard() {
+    for test in "$@"; do
+      _varname="${_manual_sharded_bool_prefix}${test}"
+      if [[ -n "${!_varname-}" ]]; then
+        echo "define_test_shard(): '$test' already in a shard" >&2
+        exit 1;
+      fi
+      printf -v "${_manual_sharded_bool_prefix}${test}" "%s" "1"
+    done
+    _manual_test_shards[_manual_test_shard_count++]="$*"
 }
 
 # Usage: __test_terminated <signal-number>
@@ -554,9 +723,8 @@ function __test_terminated_err() {
     __show_stack
     # If $TEST_name is still empty, the test suite failed before we even started
     # to run tests, so we shouldn't call tear_down.
-    if [[ ! -z "$TEST_name" ]]; then
-      tear_down
-      testenv_tear_down
+    if [[ -n "$TEST_name" ]]; then
+      __run_tear_down_after_failure
     fi
     exit 1
 }
@@ -577,23 +745,18 @@ function __trap_with_arg() {
 function __log_to_test_report() {
     local node="$1"
     local block="$2"
-    if [[ ! -e "$XML_OUTPUT_FILE" ]]; then
+    local xml
+    if [[ -e "$XML_OUTPUT_FILE" ]]; then
+        xml="$(cat "$XML_OUTPUT_FILE")"
+    else
         local xml_header='<?xml version="1.0" encoding="UTF-8"?>'
-        echo "$xml_header<testsuites></testsuites>" > $XML_OUTPUT_FILE
+        xml="${xml_header}<testsuites></testsuites>"
     fi
 
-    # replace match on node with block and match
-    # replacement expression only needs escaping for quotes
-    perl -e "\
-\$input = @ARGV[0]; \
-\$/=undef; \
-open FILE, '+<$XML_OUTPUT_FILE'; \
-\$content = <FILE>; \
-if (\$content =~ /($node.*)\$/) { \
-  seek FILE, 0, 0; \
-  print FILE \$\` . \$input . \$1; \
-}; \
-close FILE" "$block"
+    local prefix="${xml%%${node}*}"  # Remove everything from node to the end
+    local position=${#prefix}  # Length of prefix = position of node in xml
+    local suffix="${xml:${position}}"  # Everything from node to the end
+    echo "${prefix}${block}${suffix}" > "$XML_OUTPUT_FILE"  # Insert block
 }
 
 # Usage: <total> <passed>
@@ -606,40 +769,39 @@ function __finish_test_report() {
 
     # Update the xml output with the suite name and total number of
     # passed/failed tests.
-    cat $XML_OUTPUT_FILE | \
+    cat "$XML_OUTPUT_FILE" | \
       sed \
         "s/<testsuites>/<testsuites tests=\"$total\" failures=\"0\" errors=\"$failed\">/" | \
       sed \
         "s/<testsuite>/<testsuite name=\"${suite_name}\" tests=\"$total\" failures=\"0\" errors=\"$failed\">/" \
-        > $XML_OUTPUT_FILE.bak
+        > "${XML_OUTPUT_FILE}.bak"
 
-    rm -f $XML_OUTPUT_FILE
-    mv $XML_OUTPUT_FILE.bak $XML_OUTPUT_FILE
+    rm -f "$XML_OUTPUT_FILE"
+    mv "${XML_OUTPUT_FILE}.bak" "$XML_OUTPUT_FILE"
 }
 
 # Multi-platform timestamp function
 UNAME=$(uname -s | tr 'A-Z' 'a-z')
-if [ "$UNAME" = "linux" ] || [[ "$UNAME" =~ msys_nt* ]]; then
+if [[ "$UNAME" == "linux" ]] || [[ "$UNAME" =~ msys_nt* ]]; then
     function timestamp() {
       echo $(($(date +%s%N)/1000000))
     }
-elif [[ "$UNAME" = "openbsd" ]]; then
-    function timestamp() {
-      # OpenBSD does not have %N, so Python is the best we can do.
-      python3 -c 'import time; print(int(round(time.time() * 1000)))'
-    }
 else
     function timestamp() {
-      # OS X and FreeBSD do not have %N, so Python is the best we can do.
-      python -c 'import time; print(int(round(time.time() * 1000)))'
+      # macOS and BSDs do not have %N, so Python is the best we can do.
+      # LC_ALL=C works around python 3.8 and 3.9 crash on macOS when the
+      # filesystem encoding is unspecified (e.g. when LANG=en_US).
+      local PYTHON=python
+      command -v python3 &> /dev/null && PYTHON=python3
+      LC_ALL=C "${PYTHON}" -c 'import time; print(int(round(time.time() * 1000)))'
     }
 fi
 
 function get_run_time() {
   local ts_start=$1
   local ts_end=$2
-  run_time_ms=$((${ts_end}-${ts_start}))
-  echo $(($run_time_ms/1000)).${run_time_ms: -3}
+  run_time_ms=$((ts_end - ts_start))
+  echo $((run_time_ms / 1000)).${run_time_ms: -3}
 }
 
 # Usage: run_tests <suite-comment>
@@ -649,13 +811,13 @@ function run_suite() {
   local message="$1"
   # The name of the suite should be the script being run, which
   # will be the filename with the ".sh" extension removed.
-  local suite_name="$(basename $0)"
+  local suite_name="$(basename "$0")"
 
   echo >&2
   echo "$message" >&2
   echo >&2
 
-  __log_to_test_report "<\/testsuites>" "<testsuite></testsuite>"
+  __log_to_test_report "</testsuites>" "<testsuite></testsuite>"
 
   local total=0
   local passed=0
@@ -664,10 +826,32 @@ function run_suite() {
 
   # If the user didn't specify an explicit list of tests (e.g. a
   # working set), use them all.
-  if [ ${#TESTS[@]} -eq 0 ]; then
+  if (( ${#TESTS[@]} == 0 )); then
     # Even if there aren't any tests, this needs to succeed.
-    TESTS=$(declare -F | awk '{print $3}' | grep ^test_ || true)
-  elif [ -n "${TEST_WARNINGS_OUTPUT_FILE:-}" ]; then
+    local all_tests=()
+    IFS=$'\n' read -d $'\0' -ra all_tests < <(
+        declare -F | awk '{print $3}' | grep ^test_ || true; echo -en '\0')
+
+    if (( "${#_TEST_FILTERS[@]}" == 0 )); then
+      # Use ${array[@]+"${array[@]}"} idiom to avoid errors when running with
+      # Bash version <= 4.4 with `nounset` when `all_tests` is empty (
+      # https://github.com/bminor/bash/blob/a0c0a00fc419b7bc08202a79134fcd5bc0427071/CHANGES#L62-L63).
+      TESTS=("${all_tests[@]+${all_tests[@]}}")
+    else
+      for t in "${all_tests[@]+${all_tests[@]}}"; do
+        local matches=0
+        for f in "${_TEST_FILTERS[@]}"; do
+          # We purposely want to glob match.
+          # shellcheck disable=SC2053
+          [[ "$t" = $f ]] && matches=1 && break
+        done
+        if (( matches )); then
+          TESTS+=("$t")
+        fi
+      done
+    fi
+
+  elif [[ -n "${TEST_WARNINGS_OUTPUT_FILE:-}" ]]; then
     if grep -q "TESTS=" "$TEST_script" ; then
       echo "TESTS variable overridden in sh_test. Please remove before submitting" \
         >> "$TEST_WARNINGS_OUTPUT_FILE"
@@ -675,64 +859,88 @@ function run_suite() {
   fi
 
   # Reset TESTS in the common case where it contains a single empty string.
-  if [ -z "${TESTS[*]}" ]; then
+  if [[ -z "${TESTS[*]-}" ]]; then
     TESTS=()
   fi
   local original_tests_size=${#TESTS[@]}
 
   __update_shards
 
-  if [[ "${#TESTS[@]}" -ne 0 ]]; then
+  if [[ ${#TESTS[@]} -ne 0 ]]; then
     for TEST_name in ${TESTS[@]}; do
-      >$TEST_log # Reset the log.
+      if [[ "${TESTBRIDGE_TEST_RUNNER_FAIL_FAST:-0}" == "1" && "$TEST_passed" == "false" ]]; then
+        echo "Skipping test '$TEST_name' due to previous failure and --test_runner_fail_fast set." >&2
+        continue
+      fi
+
+      >"$TEST_log" # Reset the log.
       TEST_passed="true"
 
-      total=$(($total + 1))
+      (( ++total ))
       if [[ "$TEST_verbose" == "true" ]]; then
           date >&2
-          __pad $TEST_name '*' >&2
+          __pad "$TEST_name" '*' >&2
       fi
 
       local run_time="0.0"
-      rm -f $TEST_TMPDIR/{__ts_start,__ts_end}
+      rm -f "${TEST_TMPDIR}"/{__ts_start,__ts_end}
 
-      if [ "$(type -t $TEST_name)" = function ]; then
+      if [[ "$(type -t "$TEST_name")" == function ]]; then
         # Save exit handlers eventually set.
         local SAVED_ATEXIT="$ATEXIT";
         ATEXIT=
 
         # Run test in a subshell.
-        rm -f $TEST_TMPDIR/__err_handled
+        rm -f "${TEST_TMPDIR}"/__err_handled
         __trap_with_arg __test_terminated INT KILL PIPE TERM ABRT FPE ILL QUIT SEGV
+
+        # Remember -o pipefail value and disable it for the subshell result
+        # collection.
+        if [[ "${SHELLOPTS}" =~ (^|:)pipefail(:|$) ]]; then
+          local __opt_switch=-o
+        else
+          local __opt_switch=+o
+        fi
+        set +o pipefail
         (
-          timestamp >$TEST_TMPDIR/__ts_start
+          set "${__opt_switch}" pipefail
+          # if errexit is enabled, make sure we run cleanup and collect the log.
+          if [[ "$-" = *e* ]]; then
+            set -E
+            trap __test_terminated_err ERR
+          fi
+          timestamp >"${TEST_TMPDIR}"/__ts_start
           testenv_set_up
           set_up
-          eval $TEST_name
+          eval "$TEST_name"
+          __in_tear_down=1
           tear_down
           testenv_tear_down
-          timestamp >$TEST_TMPDIR/__ts_end
-          test $TEST_passed == "true"
-        ) 2>&1 | tee $TEST_TMPDIR/__log
+          timestamp >"${TEST_TMPDIR}"/__ts_end
+          test "$TEST_passed" == "true"
+        ) 2>&1 | tee "${TEST_TMPDIR}"/__log
         # Note that tee will prevent the control flow continuing if the test
         # spawned any processes which are still running and have not closed
         # their stdout.
 
         test_subshell_status=${PIPESTATUS[0]}
-        if [ "$test_subshell_status" != 0 ]; then
+        set "${__opt_switch}" pipefail
+        if (( test_subshell_status != 0 )); then
           TEST_passed="false"
           # Ensure that an end time is recorded in case the test subshell
           # terminated prematurely.
-          [ -f $TEST_TMPDIR/__ts_end ] || timestamp >$TEST_TMPDIR/__ts_end
+          [[ -f "$TEST_TMPDIR"/__ts_end ]] || timestamp >"$TEST_TMPDIR"/__ts_end
         fi
 
         # Calculate run time for the testcase.
-        local ts_start=$(cat $TEST_TMPDIR/__ts_start)
-        local ts_end=$(cat $TEST_TMPDIR/__ts_end)
+        local ts_start
+        ts_start=$(<"${TEST_TMPDIR}"/__ts_start)
+        local ts_end
+        ts_end=$(<"${TEST_TMPDIR}"/__ts_end)
         run_time=$(get_run_time $ts_start $ts_end)
 
         # Eventually restore exit handlers.
-        if [ -n "$SAVED_ATEXIT" ]; then
+        if [[ -n "$SAVED_ATEXIT" ]]; then
           ATEXIT="$SAVED_ATEXIT"
           trap "$ATEXIT" EXIT
         fi
@@ -752,40 +960,39 @@ function run_suite() {
 
       if [[ "$TEST_passed" == "true" ]]; then
         if [[ "$TEST_verbose" == "true" ]]; then
-          echo -e "${green}PASSED${no_color}: $TEST_name" >&2
+          echo -e "${green}PASSED${no_color}: ${TEST_name}" >&2
         fi
-        passed=$(($passed + 1))
-        testcase_tag="<testcase name=\"$TEST_name\" status=\"run\" time=\"$run_time\" classname=\"\"></testcase>"
+        (( ++passed ))
+        testcase_tag="<testcase name=\"${TEST_name}\" status=\"run\" time=\"${run_time}\" classname=\"\"></testcase>"
       else
-        echo -e "${red}FAILED${no_color}: $TEST_name" >&2
+        echo -e "${red}FAILED${no_color}: ${TEST_name}" >&2
         # end marker in CDATA cannot be escaped, we need to split the CDATA sections
-        log=$(cat $TEST_TMPDIR/__log | sed 's/]]>/]]>]]&gt;<![CDATA[/g')
-        fail_msg=$(cat $TEST_TMPDIR/__fail 2> /dev/null || echo "No failure message")
+        log=$(sed 's/]]>/]]>]]&gt;<![CDATA[/g' "${TEST_TMPDIR}"/__log)
+        fail_msg=$(cat "${TEST_TMPDIR}"/__fail 2> /dev/null || echo "No failure message")
         # Replacing '&' with '&amp;', '<' with '&lt;', '>' with '&gt;', and '"' with '&quot;'
-        escaped_fail_msg=$(echo $fail_msg | sed 's/&/\&amp;/g' | sed 's/</\&lt;/g' | sed 's/>/\&gt;/g' | sed 's/"/\&quot;/g')
-        testcase_tag="<testcase name=\"$TEST_name\" status=\"run\" time=\"$run_time\" classname=\"\"><error message=\"$escaped_fail_msg\"><![CDATA[$log]]></error></testcase>"
+        escaped_fail_msg=$(echo "$fail_msg" | sed 's/&/\&amp;/g' | sed 's/</\&lt;/g' | sed 's/>/\&gt;/g' | sed 's/"/\&quot;/g')
+        testcase_tag="<testcase name=\"${TEST_name}\" status=\"run\" time=\"${run_time}\" classname=\"\"><error message=\"${escaped_fail_msg}\"><![CDATA[${log}]]></error></testcase>"
       fi
 
       if [[ "$TEST_verbose" == "true" ]]; then
           echo >&2
       fi
-      __log_to_test_report "<\/testsuite>" "$testcase_tag"
+      __log_to_test_report "</testsuite>" "$testcase_tag"
     done
   fi
 
   __finish_test_report "$suite_name" $total $passed
-  __pad "$passed / $total tests passed." '*' >&2
-  if [ $original_tests_size -eq 0 ]; then
+  __pad "${passed} / ${total} tests passed." '*' >&2
+  if (( original_tests_size == 0 )); then
     __pad "No tests found." '*'
     exit 1
-  elif [ $total -eq 0 ]; then
+  elif (( total != passed )); then
+    __pad "There were errors." '*' >&2
+    exit 1
+  elif (( total == 0 )); then
     __pad "No tests executed due to sharding. Check your test's shard_count." '*'
     __pad "Succeeding anyway." '*'
   fi
-  [ $total = $passed ] || {
-    __pad "There were errors." '*'
-    exit 1
-  } >&2
 
   exit 0
 }

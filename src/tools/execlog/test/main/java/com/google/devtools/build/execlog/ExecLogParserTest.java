@@ -15,13 +15,18 @@ package com.google.devtools.build.execlog;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.devtools.build.execlog.ExecLogParser.FilteringLogParser;
-import com.google.devtools.build.execlog.ExecLogParser.Parser;
-import com.google.devtools.build.execlog.ExecLogParser.ReorderingParser;
+import com.github.luben.zstd.ZstdOutputStream;
+import com.google.devtools.build.execlog.ExecLogParser.FilteredStream;
+import com.google.devtools.build.execlog.ExecLogParser.OrderedStream;
+import com.google.devtools.build.lib.exec.Protos.ExecLogEntry;
 import com.google.devtools.build.lib.exec.Protos.SpawnExec;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.InputStream;
+import com.google.devtools.build.lib.exec.SpawnLogReconstructor;
+import com.google.devtools.build.lib.util.io.MessageInputStream;
+import com.google.devtools.build.lib.util.io.MessageInputStreamWrapper.BinaryInputStreamWrapper;
+import com.google.devtools.build.lib.util.io.MessageInputStreamWrapper.JsonInputStreamWrapper;
+import com.google.devtools.build.lib.util.io.MessageOutputStreamWrapper.BinaryOutputStreamWrapper;
+import com.google.devtools.build.lib.util.io.MessageOutputStreamWrapper.JsonOutputStreamWrapper;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -33,149 +38,186 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public final class ExecLogParserTest {
 
-  private InputStream toInputStream(List<SpawnExec> list) throws Exception {
-    ByteArrayOutputStream bos = new ByteArrayOutputStream();
-    for (SpawnExec spawnExec : list) {
-      spawnExec.writeDelimitedTo(bos);
+  @Test
+  public void detectCompactFormat() throws Exception {
+    var path = Files.createTempFile("compact", ".tmp");
+    try (var out = new ZstdOutputStream(Files.newOutputStream(path))) {
+      ExecLogEntry.newBuilder()
+          .setInvocation(ExecLogEntry.Invocation.newBuilder().setHashFunctionName("SHA256"))
+          .build()
+          .writeDelimitedTo(out);
+      ExecLogEntry.newBuilder()
+          .setSpawn(ExecLogEntry.Spawn.newBuilder().addArgs("/bin/true"))
+          .build()
+          .writeDelimitedTo(out);
     }
 
-    return new ByteArrayInputStream(bos.toByteArray());
+    try (var stream = ExecLogParser.getMessageInputStream(path.toString())) {
+      assertThat(stream).isInstanceOf(SpawnLogReconstructor.class);
+      assertThat(stream.read())
+          .isEqualTo(SpawnExec.newBuilder().addCommandArgs("/bin/true").build());
+    }
   }
 
   @Test
-  public void getNextEmpty() throws Exception {
-    FilteringLogParser p = new FilteringLogParser(toInputStream(new ArrayList<SpawnExec>()), null);
-    assertThat(p.getNext()).isNull();
+  public void detectJsonFormat() throws Exception {
+    var path = Files.createTempFile("json", ".tmp");
+    try (var out = new JsonOutputStreamWrapper<SpawnExec>(Files.newOutputStream(path))) {
+      out.write(SpawnExec.newBuilder().addCommandArgs("/bin/true").build());
+    }
+
+    try (var stream = ExecLogParser.getMessageInputStream(path.toString())) {
+      assertThat(stream).isInstanceOf(JsonInputStreamWrapper.class);
+      assertThat(stream.read())
+          .isEqualTo(SpawnExec.newBuilder().addCommandArgs("/bin/true").build());
+    }
   }
 
   @Test
-  public void getNextEmptyWithRunner() throws Exception {
-    FilteringLogParser p =
-        new FilteringLogParser(toInputStream(new ArrayList<SpawnExec>()), "local");
-    assertThat(p.getNext()).isNull();
+  public void detectBinaryFormat() throws Exception {
+    var path = Files.createTempFile("binary", ".tmp");
+    try (var out = new BinaryOutputStreamWrapper<SpawnExec>(Files.newOutputStream(path))) {
+      out.write(SpawnExec.newBuilder().addCommandArgs("/bin/true").build());
+    }
+
+    try (var stream = ExecLogParser.getMessageInputStream(path.toString())) {
+      assertThat(stream).isInstanceOf(BinaryInputStreamWrapper.class);
+      assertThat(stream.read())
+          .isEqualTo(SpawnExec.newBuilder().addCommandArgs("/bin/true").build());
+    }
   }
 
   @Test
-  public void getNextSingleSpawn() throws Exception {
+  public void readEmpty() throws Exception {
+    FilteredStream p = new FilteredStream(new FakeStream(new ArrayList<SpawnExec>()), null);
+    assertThat(p.read()).isNull();
+  }
+
+  @Test
+  public void readEmptyWithRunner() throws Exception {
+    FilteredStream p = new FilteredStream(new FakeStream(new ArrayList<SpawnExec>()), "local");
+    assertThat(p.read()).isNull();
+  }
+
+  @Test
+  public void readSingleSpawn() throws Exception {
     SpawnExec e = SpawnExec.newBuilder().setRunner("runs").addCommandArgs("command").build();
-    FilteringLogParser p = new FilteringLogParser(toInputStream(Arrays.asList(e)), null);
-    assertThat(p.getNext()).isEqualTo(e);
-    assertThat(p.getNext()).isNull();
+    FilteredStream p = new FilteredStream(new FakeStream(Arrays.asList(e)), null);
+    assertThat(p.read()).isEqualTo(e);
+    assertThat(p.read()).isNull();
   }
 
   @Test
-  public void getNextSingleSpawnRunnerMatch() throws Exception {
+  public void readSingleSpawnRunnerMatch() throws Exception {
     SpawnExec e = SpawnExec.newBuilder().setRunner("runs").addCommandArgs("command").build();
-    FilteringLogParser p = new FilteringLogParser(toInputStream(Arrays.asList(e)), "runs");
-    assertThat(p.getNext()).isEqualTo(e);
-    assertThat(p.getNext()).isNull();
+    FilteredStream p = new FilteredStream(new FakeStream(Arrays.asList(e)), "runs");
+    assertThat(p.read()).isEqualTo(e);
+    assertThat(p.read()).isNull();
   }
 
   @Test
-  public void getNextSingleSpawnRunnerNoMatch() throws Exception {
+  public void readSingleSpawnRunnerNoMatch() throws Exception {
     SpawnExec e = SpawnExec.newBuilder().setRunner("runs").addCommandArgs("command").build();
-    FilteringLogParser p = new FilteringLogParser(toInputStream(Arrays.asList(e)), "run");
-    assertThat(p.getNext()).isNull();
+    FilteredStream p = new FilteredStream(new FakeStream(Arrays.asList(e)), "run");
+    assertThat(p.read()).isNull();
   }
 
   @Test
-  public void getNextManyMatches() throws Exception {
+  public void readManyMatches() throws Exception {
     SpawnExec e = SpawnExec.newBuilder().setRunner("run1").addCommandArgs("com1").build();
     SpawnExec e2 = SpawnExec.newBuilder().setRunner("r").addCommandArgs("com2").build();
     SpawnExec e3 = SpawnExec.newBuilder().setRunner("run1").addCommandArgs("com3").build();
     SpawnExec e4 = SpawnExec.newBuilder().setRunner("run1").addCommandArgs("com4").build();
     SpawnExec e5 = SpawnExec.newBuilder().setRunner("ru").addCommandArgs("com5").build();
-    FilteringLogParser p =
-        new FilteringLogParser(toInputStream(Arrays.asList(e, e2, e3, e4, e5)), "run1");
-    assertThat(p.getNext()).isEqualTo(e);
-    assertThat(p.getNext()).isEqualTo(e3);
-    assertThat(p.getNext()).isEqualTo(e4);
-    assertThat(p.getNext()).isNull();
+    FilteredStream p = new FilteredStream(new FakeStream(Arrays.asList(e, e2, e3, e4, e5)), "run1");
+    assertThat(p.read()).isEqualTo(e);
+    assertThat(p.read()).isEqualTo(e3);
+    assertThat(p.read()).isEqualTo(e4);
+    assertThat(p.read()).isNull();
   }
 
   @Test
-  public void getNextManyMatches1() throws Exception {
+  public void readManyMatches1() throws Exception {
     SpawnExec e = SpawnExec.newBuilder().setRunner("run1").addCommandArgs("com1").build();
     SpawnExec e2 = SpawnExec.newBuilder().setRunner("r").addCommandArgs("com2").build();
     SpawnExec e3 = SpawnExec.newBuilder().setRunner("run1").addCommandArgs("com3").build();
     SpawnExec e4 = SpawnExec.newBuilder().setRunner("run1").addCommandArgs("com4").build();
     SpawnExec e5 = SpawnExec.newBuilder().setRunner("ru").addCommandArgs("com5").build();
-    FilteringLogParser p =
-        new FilteringLogParser(toInputStream(Arrays.asList(e, e2, e3, e4, e5)), "r");
-    assertThat(p.getNext()).isEqualTo(e2);
-    assertThat(p.getNext()).isNull();
+    FilteredStream p = new FilteredStream(new FakeStream(Arrays.asList(e, e2, e3, e4, e5)), "r");
+    assertThat(p.read()).isEqualTo(e2);
+    assertThat(p.read()).isNull();
   }
 
   @Test
-  public void getNextManyMatches2() throws Exception {
+  public void readManyMatches2() throws Exception {
     SpawnExec e = SpawnExec.newBuilder().setRunner("run1").addCommandArgs("com1").build();
     SpawnExec e2 = SpawnExec.newBuilder().setRunner("r").addCommandArgs("com2").build();
     SpawnExec e3 = SpawnExec.newBuilder().setRunner("run1").addCommandArgs("com3").build();
     SpawnExec e4 = SpawnExec.newBuilder().setRunner("run1").addCommandArgs("com4").build();
     SpawnExec e5 = SpawnExec.newBuilder().setRunner("ru").addCommandArgs("com5").build();
-    FilteringLogParser p =
-        new FilteringLogParser(toInputStream(Arrays.asList(e, e2, e3, e4, e5)), "ru");
-    assertThat(p.getNext()).isEqualTo(e5);
-    assertThat(p.getNext()).isNull();
+    FilteredStream p = new FilteredStream(new FakeStream(Arrays.asList(e, e2, e3, e4, e5)), "ru");
+    assertThat(p.read()).isEqualTo(e5);
+    assertThat(p.read()).isNull();
   }
 
   @Test
-  public void getNextManyButNoMatch() throws Exception {
+  public void readManyButNoMatch() throws Exception {
     SpawnExec e = SpawnExec.newBuilder().setRunner("run1").addCommandArgs("com1").build();
     SpawnExec e2 = SpawnExec.newBuilder().setRunner("r").addCommandArgs("com2").build();
     SpawnExec e3 = SpawnExec.newBuilder().setRunner("run1").addCommandArgs("com3").build();
     SpawnExec e4 = SpawnExec.newBuilder().setRunner("run1").addCommandArgs("com4").build();
     SpawnExec e5 = SpawnExec.newBuilder().setRunner("ru").addCommandArgs("com5").build();
-    FilteringLogParser p =
-        new FilteringLogParser(toInputStream(Arrays.asList(e, e2, e3, e4, e5)), "none");
-    assertThat(p.getNext()).isNull();
+    FilteredStream p = new FilteredStream(new FakeStream(Arrays.asList(e, e2, e3, e4, e5)), "none");
+    assertThat(p.read()).isNull();
   }
 
   @Test
-  public void getNextManyNoMatcher() throws Exception {
+  public void readManyNoMatcher() throws Exception {
     SpawnExec e = SpawnExec.newBuilder().setRunner("run1").addCommandArgs("com1").build();
     SpawnExec e2 = SpawnExec.newBuilder().setRunner("r").addCommandArgs("com2").build();
     SpawnExec e3 = SpawnExec.newBuilder().setRunner("run1").addCommandArgs("com3").build();
     SpawnExec e4 = SpawnExec.newBuilder().setRunner("run1").addCommandArgs("com4").build();
     SpawnExec e5 = SpawnExec.newBuilder().setRunner("ru").addCommandArgs("com5").build();
-    FilteringLogParser p =
-        new FilteringLogParser(toInputStream(Arrays.asList(e, e2, e3, e4, e5)), null);
-    assertThat(p.getNext()).isEqualTo(e);
-    assertThat(p.getNext()).isEqualTo(e2);
-    assertThat(p.getNext()).isEqualTo(e3);
-    assertThat(p.getNext()).isEqualTo(e4);
-    assertThat(p.getNext()).isEqualTo(e5);
-    assertThat(p.getNext()).isNull();
+    FilteredStream p = new FilteredStream(new FakeStream(Arrays.asList(e, e2, e3, e4, e5)), null);
+    assertThat(p.read()).isEqualTo(e);
+    assertThat(p.read()).isEqualTo(e2);
+    assertThat(p.read()).isEqualTo(e3);
+    assertThat(p.read()).isEqualTo(e4);
+    assertThat(p.read()).isEqualTo(e5);
+    assertThat(p.read()).isNull();
   }
 
-  private static class FakeParser implements Parser {
+  private static class FakeStream implements MessageInputStream<SpawnExec> {
     List<SpawnExec> inputs;
     int i;
 
-    public FakeParser(List<SpawnExec> ex) {
+    public FakeStream(List<SpawnExec> ex) {
       this.inputs = ex;
       i = 0;
     }
 
     @Override
-    public SpawnExec getNext() {
+    public SpawnExec read() {
       if (i >= inputs.size()) {
         return null;
       }
       return inputs.get(i++);
     }
+
+    @Override
+    public void close() {}
   };
 
-  public static FakeParser fakeParserFromStrings(List<String> strings) {
+  public static FakeStream fakeParserFromStrings(List<String> strings) {
     ArrayList<SpawnExec> ins = new ArrayList<>(strings.size());
     for (String s : strings) {
       ins.add(SpawnExec.newBuilder().addCommandArgs(s).addListedOutputs(s).build());
     }
-    return new FakeParser(ins);
+    return new FakeStream(ins);
   }
 
-  public static ReorderingParser.Golden getGolden(List<String> keys) {
-    ReorderingParser.Golden result = new ReorderingParser.Golden();
+  public static OrderedStream.Golden getGolden(List<String> keys) {
+    OrderedStream.Golden result = new OrderedStream.Golden();
     for (String s : keys) {
       SpawnExec e = SpawnExec.newBuilder().addListedOutputs(s).build();
       result.addSpawnExec(e);
@@ -185,12 +227,12 @@ public final class ExecLogParserTest {
 
   public void test(List<String> golden, List<String> input, List<String> expectedOutput)
       throws Exception {
-    ReorderingParser p = new ReorderingParser(getGolden(golden), fakeParserFromStrings(input));
+    OrderedStream p = new OrderedStream(getGolden(golden), fakeParserFromStrings(input));
 
     List<String> got = new ArrayList<>();
 
     SpawnExec ex;
-    while ((ex = p.getNext()) != null) {
+    while ((ex = p.read()) != null) {
       assertThat(ex.getCommandArgsCount()).isEqualTo(1);
       got.add(ex.getCommandArgs(0));
     }
@@ -299,14 +341,13 @@ public final class ExecLogParserTest {
     SpawnExec a = SpawnExec.newBuilder().addListedOutputs("a").addCommandArgs("acom").build();
     SpawnExec b = SpawnExec.newBuilder().addListedOutputs("b").addCommandArgs("bcom").build();
     SpawnExec c = SpawnExec.newBuilder().addListedOutputs("c").addCommandArgs("ccom").build();
-    Parser input = new FakeParser(Arrays.asList(c, b, a));
+    MessageInputStream<SpawnExec> input = new FakeStream(Arrays.asList(c, b, a));
 
-    ReorderingParser p = new ReorderingParser(getGolden(golden), input);
+    OrderedStream p = new OrderedStream(getGolden(golden), input);
 
-    assertThat(p.getNext()).isEqualTo(a);
-    assertThat(p.getNext()).isEqualTo(b);
-    assertThat(p.getNext()).isEqualTo(c);
-    assertThat(p.getNext()).isNull();
+    assertThat(p.read()).isEqualTo(a);
+    assertThat(p.read()).isEqualTo(b);
+    assertThat(p.read()).isEqualTo(c);
+    assertThat(p.read()).isNull();
   }
 }
-

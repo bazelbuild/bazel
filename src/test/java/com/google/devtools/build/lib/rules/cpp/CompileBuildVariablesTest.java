@@ -18,11 +18,15 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.actions.PathMapper;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
 import com.google.devtools.build.lib.packages.util.MockPlatformSupport;
+import com.google.devtools.build.lib.packages.util.MockToolsConfig;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -33,34 +37,46 @@ import org.junit.runners.JUnit4;
 /** Tests that {@code CppCompileAction} is populated with the correct build variables. */
 @RunWith(JUnit4.class)
 public class CompileBuildVariablesTest extends BuildViewTestCase {
+  /** Name of the build variable for the sysroot path variable name. */
+  public static final String SYSROOT_VARIABLE_NAME = "sysroot";
 
-  private CppCompileAction getCppCompileAction(final String label, final String name) throws
-      Exception {
+  /** Name of the build variable for the minimum_os_version being targeted. */
+  public static final String MINIMUM_OS_VERSION_VARIABLE_NAME = "minimum_os_version";
+
+  private CppCompileAction getCppCompileAction(ConfiguredTarget target, final String name)
+      throws Exception {
     return (CppCompileAction)
         getGeneratingAction(
             Iterables.find(
-                getGeneratingAction(getFilesToBuild(getConfiguredTarget(label)).getSingleton())
-                    .getInputs()
-                    .toList(),
+                getGeneratingAction(getFilesToBuild(target).getSingleton()).getInputs().toList(),
                 (artifact) -> artifact.getExecPath().getBaseName().startsWith(name)));
   }
 
   /** Returns active build variables for a compile action of given type for given target. */
   protected CcToolchainVariables getCompileBuildVariables(String label, String name)
       throws Exception {
-    return getCppCompileAction(label, name).getCompileCommandLine().getVariables();
+    return getCppCompileAction(getConfiguredTarget(label), name)
+        .getCompileCommandLine()
+        .getVariables();
   }
 
   @Test
   public void testPresenceOfBasicVariables() throws Exception {
-    scratch.file("x/BUILD", "cc_binary(name = 'bin', srcs = ['bin.cc'])");
+    scratch.file(
+        "x/BUILD",
+        "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
+        "cc_binary(name = 'bin', srcs = ['bin.cc'])");
     scratch.file("x/bin.cc");
 
     CcToolchainVariables variables = getCompileBuildVariables("//x:bin", "bin");
 
-    assertThat(variables.getStringVariable(CompileBuildVariables.SOURCE_FILE.getVariableName()))
+    assertThat(
+            variables.getStringVariable(
+                CompileBuildVariables.SOURCE_FILE.getVariableName(), PathMapper.NOOP))
         .contains("x/bin.cc");
-    assertThat(variables.getStringVariable(CompileBuildVariables.OUTPUT_FILE.getVariableName()))
+    assertThat(
+            variables.getStringVariable(
+                CompileBuildVariables.OUTPUT_FILE.getVariableName(), PathMapper.NOOP))
         .contains("_objs/bin/bin");
   }
 
@@ -68,14 +84,17 @@ public class CompileBuildVariablesTest extends BuildViewTestCase {
   public void testPresenceOfConfigurationCompileFlags() throws Exception {
     useConfiguration("--copt=-foo");
 
-    scratch.file("x/BUILD", "cc_binary(name = 'bin', srcs = ['bin.cc'], copts = ['-bar'],)");
+    scratch.file(
+        "x/BUILD",
+        "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
+        "cc_binary(name = 'bin', srcs = ['bin.cc'], copts = ['-bar'],)");
     scratch.file("x/bin.cc");
 
     CcToolchainVariables variables = getCompileBuildVariables("//x:bin", "bin");
 
     ImmutableList<String> userCopts =
         CcToolchainVariables.toStringList(
-            variables, CompileBuildVariables.USER_COMPILE_FLAGS.getVariableName());
+            variables, CompileBuildVariables.USER_COMPILE_FLAGS.getVariableName(), PathMapper.NOOP);
     assertThat(userCopts)
         .containsAtLeastElementsIn(ImmutableList.<String>of("-foo", "-bar"))
         .inOrder();
@@ -85,29 +104,106 @@ public class CompileBuildVariablesTest extends BuildViewTestCase {
   public void testPresenceOfUserCompileFlags() throws Exception {
     useConfiguration();
 
-    scratch.file("x/BUILD", "cc_binary(name = 'bin', srcs = ['bin.cc'], copts = ['-foo'])");
+    scratch.file(
+        "x/BUILD",
+        "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
+        "cc_binary(name = 'bin', srcs = ['bin.cc'], copts = ['-foo'])");
     scratch.file("x/bin.cc");
 
     CcToolchainVariables variables = getCompileBuildVariables("//x:bin", "bin");
 
     ImmutableList<String> copts =
         CcToolchainVariables.toStringList(
-            variables, CompileBuildVariables.USER_COMPILE_FLAGS.getVariableName());
+            variables, CompileBuildVariables.USER_COMPILE_FLAGS.getVariableName(), PathMapper.NOOP);
     assertThat(copts).contains("-foo");
   }
 
   @Test
-  public void testPerFileCoptsAreInUserCompileFlags() throws Exception {
-    scratch.file("x/BUILD", "cc_binary(name = 'bin', srcs = ['bin.cc'])");
-    scratch.file("x/bin.cc");
-    useConfiguration("--per_file_copt=//x:bin@-foo", "--per_file_copt=//x:bar\\.cc@-bar");
+  public void testPresenceOfConlyFlags() throws Exception {
+    useConfiguration(
+        "--conlyopt=-foo", "--cxxopt=-not-passed", "--per_file_copt=//x:bin@-per-file");
+
+    scratch.file(
+        "x/BUILD",
+        "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
+        "cc_binary(name = 'bin', srcs = ['bin.c'], copts = ['-bar'], conlyopts = ['-baz'], cxxopts"
+            + " = ['-not-passed'])");
+    scratch.file("x/bin.c");
 
     CcToolchainVariables variables = getCompileBuildVariables("//x:bin", "bin");
 
     ImmutableList<String> copts =
         CcToolchainVariables.toStringList(
-            variables, CompileBuildVariables.USER_COMPILE_FLAGS.getVariableName());
+            variables, CompileBuildVariables.USER_COMPILE_FLAGS.getVariableName(), PathMapper.NOOP);
+    assertThat(copts)
+        .containsExactlyElementsIn(ImmutableList.<String>of("-foo", "-bar", "-baz", "-per-file"))
+        .inOrder();
+  }
+
+  @Test
+  public void testCxxFlagsOrder() throws Exception {
+    useConfiguration(
+        "--cxxopt=-foo", "--conlyopt=-not-passed", "--per_file_copt=//x:bin@-per-file");
+
+    scratch.file(
+        "x/BUILD",
+        "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
+        "cc_binary(name = 'bin', srcs = ['bin.cc'], copts = ['-bar'], cxxopts = ['-baz'], conlyopts"
+            + " = ['-not-passed'])");
+    scratch.file("x/bin.cc");
+
+    CcToolchainVariables variables = getCompileBuildVariables("//x:bin", "bin");
+
+    ImmutableList<String> copts =
+        CcToolchainVariables.toStringList(
+            variables, CompileBuildVariables.USER_COMPILE_FLAGS.getVariableName(), PathMapper.NOOP);
+    assertThat(copts)
+        .containsExactlyElementsIn(ImmutableList.<String>of("-foo", "-bar", "-baz", "-per-file"))
+        .inOrder();
+  }
+
+  @Test
+  public void testPerFileCoptsAreInUserCompileFlags() throws Exception {
+    scratch.file(
+        "x/BUILD",
+        "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
+        "cc_binary(name = 'bin', srcs = ['bin.cc'])");
+    scratch.file("x/bin.cc");
+    useConfiguration(
+        "--per_file_copt=//x:bin@-foo",
+        "--per_file_copt=//x:bar\\.cc@-bar",
+        "--host_per_file_copt=//x:bin@-baz");
+
+    CcToolchainVariables variables = getCompileBuildVariables("//x:bin", "bin");
+
+    ImmutableList<String> copts =
+        CcToolchainVariables.toStringList(
+            variables, CompileBuildVariables.USER_COMPILE_FLAGS.getVariableName(), PathMapper.NOOP);
     assertThat(copts).containsExactly("-foo").inOrder();
+  }
+
+  @Test
+  public void testHostPerFileCoptsAreInUserCompileFlags() throws Exception {
+    scratch.file(
+        "x/BUILD",
+        "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
+        "cc_binary(name = 'bin', srcs = ['bin.cc'])");
+    scratch.file("x/bin.cc");
+    useConfiguration(
+        "--host_per_file_copt=//x:bin@-foo",
+        "--host_per_file_copt=//x:bar\\.cc@-bar",
+        "--per_file_copt=//x:bin@-baz");
+
+    ConfiguredTarget target = getConfiguredTarget("//x:bin", getExecConfiguration());
+    CcToolchainVariables variables =
+        getCppCompileAction(target, "bin").getCompileCommandLine().getVariables();
+
+    ImmutableList<String> copts =
+        CcToolchainVariables.toStringList(
+            variables, CompileBuildVariables.USER_COMPILE_FLAGS.getVariableName(), PathMapper.NOOP);
+    assertThat(copts).contains("-foo");
+    assertThat(copts).doesNotContain("-bar");
+    assertThat(copts).doesNotContain("-baz");
   }
 
   @Test
@@ -118,27 +214,36 @@ public class CompileBuildVariablesTest extends BuildViewTestCase {
             mockToolsConfig, CcToolchainConfig.builder().withSysroot("/usr/local/custom-sysroot"));
     useConfiguration();
 
-    scratch.file("x/BUILD", "cc_binary(name = 'bin', srcs = ['bin.cc'])");
+    scratch.file(
+        "x/BUILD",
+        "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
+        "cc_binary(name = 'bin', srcs = ['bin.cc'])");
     scratch.file("x/bin.cc");
 
     CcToolchainVariables variables = getCompileBuildVariables("//x:bin", "bin");
 
-    assertThat(variables.getStringVariable(CcCommon.SYSROOT_VARIABLE_NAME))
+    assertThat(variables.getStringVariable(SYSROOT_VARIABLE_NAME, PathMapper.NOOP))
         .isEqualTo("/usr/local/custom-sysroot");
   }
 
   @Test
   public void testTargetSysrootWithoutPlatforms() throws Exception {
-    useConfiguration("--grte_top=//target_libc", "--host_grte_top=//host_libc");
+    useConfiguration(
+        "--grte_top=//target_libc",
+        "--host_grte_top=//host_libc",
+        "--noincompatible_enable_cc_toolchain_resolution");
 
-    scratch.file("x/BUILD", "cc_binary(name = 'bin', srcs = ['bin.cc'])");
+    scratch.file(
+        "x/BUILD",
+        "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
+        "cc_binary(name = 'bin', srcs = ['bin.cc'])");
     scratch.file("x/bin.cc");
     scratch.file("target_libc/BUILD", "filegroup(name = 'everything')");
     scratch.file("host_libc/BUILD", "filegroup(name = 'everything')");
 
     CcToolchainVariables variables = getCompileBuildVariables("//x:bin", "bin");
 
-    assertThat(variables.getStringVariable(CcCommon.SYSROOT_VARIABLE_NAME))
+    assertThat(variables.getStringVariable(SYSROOT_VARIABLE_NAME, PathMapper.NOOP))
         .isEqualTo("target_libc");
   }
 
@@ -153,14 +258,17 @@ public class CompileBuildVariablesTest extends BuildViewTestCase {
         "--grte_top=//target_libc",
         "--host_grte_top=//host_libc");
 
-    scratch.file("x/BUILD", "cc_binary(name = 'bin', srcs = ['bin.cc'])");
+    scratch.file(
+        "x/BUILD",
+        "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
+        "cc_binary(name = 'bin', srcs = ['bin.cc'])");
     scratch.file("x/bin.cc");
     scratch.file("target_libc/BUILD", "filegroup(name = 'everything')");
     scratch.file("host_libc/BUILD", "filegroup(name = 'everything')");
 
     CcToolchainVariables variables = getCompileBuildVariables("//x:bin", "bin");
 
-    assertThat(variables.getStringVariable(CcCommon.SYSROOT_VARIABLE_NAME))
+    assertThat(variables.getStringVariable(SYSROOT_VARIABLE_NAME, PathMapper.NOOP))
         .isEqualTo("target_libc");
   }
 
@@ -173,14 +281,18 @@ public class CompileBuildVariablesTest extends BuildViewTestCase {
             CcToolchainConfig.builder().withFeatures(CppRuleClasses.PER_OBJECT_DEBUG_INFO));
     useConfiguration("--fission=yes");
 
-    scratch.file("x/BUILD", "cc_binary(name = 'bin', srcs = ['bin.cc'])");
+    scratch.file(
+        "x/BUILD",
+        "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
+        "cc_binary(name = 'bin', srcs = ['bin.cc'])");
     scratch.file("x/bin.cc");
 
     CcToolchainVariables variables = getCompileBuildVariables("//x:bin", "bin");
 
     assertThat(
             variables.getStringVariable(
-                CompileBuildVariables.PER_OBJECT_DEBUG_INFO_FILE.getVariableName()))
+                CompileBuildVariables.PER_OBJECT_DEBUG_INFO_FILE.getVariableName(),
+                PathMapper.NOOP))
         .isNotNull();
   }
 
@@ -193,13 +305,17 @@ public class CompileBuildVariablesTest extends BuildViewTestCase {
             CcToolchainConfig.builder().withFeatures(CppRuleClasses.PER_OBJECT_DEBUG_INFO));
     useConfiguration("--fission=yes");
 
-    scratch.file("x/BUILD", "cc_binary(name = 'bin', srcs = ['bin.cc'])");
+    scratch.file(
+        "x/BUILD",
+        "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
+        "cc_binary(name = 'bin', srcs = ['bin.cc'])");
     scratch.file("x/bin.cc");
 
     CcToolchainVariables variables = getCompileBuildVariables("//x:bin", "bin");
 
     assertThat(
-            variables.getStringVariable(CompileBuildVariables.IS_USING_FISSION.getVariableName()))
+            variables.getStringVariable(
+                CompileBuildVariables.IS_USING_FISSION.getVariableName(), PathMapper.NOOP))
         .isNotNull();
   }
 
@@ -218,7 +334,10 @@ public class CompileBuildVariablesTest extends BuildViewTestCase {
                     CppRuleClasses.THIN_LTO));
     useConfiguration("--fission=yes", "--features=thin_lto");
 
-    scratch.file("x/BUILD", "cc_binary(name = 'bin', srcs = ['bin.cc'])");
+    scratch.file(
+        "x/BUILD",
+        "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
+        "cc_binary(name = 'bin', srcs = ['bin.cc'])");
     scratch.file("x/bin.cc");
 
     RuleConfiguredTarget target = (RuleConfiguredTarget) getConfiguredTarget("//x:bin");
@@ -263,14 +382,18 @@ public class CompileBuildVariablesTest extends BuildViewTestCase {
             CcToolchainConfig.builder().withFeatures(CppRuleClasses.PER_OBJECT_DEBUG_INFO));
     useConfiguration("--fission=yes");
 
-    scratch.file("x/BUILD", "cc_binary(name = 'bin', srcs = ['bin.cc'])");
+    scratch.file(
+        "x/BUILD",
+        "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
+        "cc_binary(name = 'bin', srcs = ['bin.cc'])");
     scratch.file("x/bin.cc");
 
     CcToolchainVariables variables = getCompileBuildVariables("//x:bin", "bin");
 
     assertThat(
             variables.getStringVariable(
-                CompileBuildVariables.PER_OBJECT_DEBUG_INFO_FILE.getVariableName()))
+                CompileBuildVariables.PER_OBJECT_DEBUG_INFO_FILE.getVariableName(),
+                PathMapper.NOOP))
         .isNotNull();
   }
 
@@ -281,60 +404,99 @@ public class CompileBuildVariablesTest extends BuildViewTestCase {
         .setupCcToolchainConfig(
             mockToolsConfig, CcToolchainConfig.builder().withFeatures("min_os_version_flag"));
     useConfiguration("--minimum_os_version=6");
-    scratch.file("x/BUILD", "cc_binary(name = 'bin', srcs = ['bin.cc'])");
+    scratch.file(
+        "x/BUILD",
+        "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
+        "cc_binary(name = 'bin', srcs = ['bin.cc'])");
     scratch.file("x/bin.cc");
 
     CcToolchainVariables variables = getCompileBuildVariables("//x:bin", "bin");
-    assertThat(variables.getStringVariable(CcCommon.MINIMUM_OS_VERSION_VARIABLE_NAME))
+    assertThat(variables.getStringVariable(MINIMUM_OS_VERSION_VARIABLE_NAME, PathMapper.NOOP))
         .isEqualTo("6");
   }
 
   @Test
   public void testExternalIncludePathsVariable() throws Exception {
+    if (!analysisMock.isThisBazel()) {
+      return;
+    }
     AnalysisMock.get()
         .ccSupport()
         .setupCcToolchainConfig(
             mockToolsConfig,
             CcToolchainConfig.builder().withFeatures(CppRuleClasses.EXTERNAL_INCLUDE_PATHS));
-    useConfiguration("--features=external_include_paths");
-    scratch.appendFile("WORKSPACE", "local_repository(", "    name = 'pkg',", "    path = '/foo')");
+    useConfiguration(
+        "--features=external_include_paths",
+        "--platforms=" + TestConstants.PLATFORM_LABEL,
+        "--experimental_platform_in_output_dir",
+        String.format(
+            "--experimental_override_name_platform_in_output_dir=%s=k8",
+            TestConstants.PLATFORM_LABEL));
+    scratch.appendFile(
+        "MODULE.bazel",
+        "bazel_dep(name = 'pkg')",
+        "local_path_override(module_name = 'pkg', path = '/foo')");
     getSkyframeExecutor()
         .invalidateFilesUnderPathForTesting(
             reporter,
-            new ModifiedFileSet.Builder().modify(PathFragment.create("WORKSPACE")).build(),
+            new ModifiedFileSet.Builder().modify(PathFragment.create("MODULE.bazel")).build(),
             Root.fromPath(rootDirectory));
 
-    scratch.file("/foo/WORKSPACE", "workspace(name = 'pkg')");
+    scratch.file("/foo/MODULE.bazel", "module(name = 'pkg')");
+    AnalysisMock.get().ccSupport().setup(new MockToolsConfig(scratch.resolve("/foo")));
     scratch.file(
-        "/foo/BUILD",
-        "cc_library(name = 'foo',",
-        "           hdrs = ['foo.hpp'])",
-        "cc_library(name = 'foo2',",
-        "           hdrs = ['foo.hpp'],",
-        "           include_prefix = 'prf')");
+        "/foo/third_party/BUILD",
+        """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+        cc_library(
+            name = "foo",
+            hdrs = ["foo.hpp"],
+        )
+
+        cc_library(
+            name = "foo2",
+            hdrs = ["foo.hpp"],
+            include_prefix = "prf",
+        )
+        """);
     scratch.file(
         "x/BUILD",
-        "cc_library(name = 'bar',",
-        "           hdrs = ['bar.hpp'])",
-        "cc_binary(name = 'bin',",
-        "          srcs = ['bin.cc'],",
-        "          deps = ['bar', '@pkg//:foo', '@pkg//:foo2'])");
+        """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+        cc_library(
+            name = "bar",
+            hdrs = ["bar.hpp"],
+        )
+
+        cc_binary(
+            name = "bin",
+            srcs = ["bin.cc"],
+            deps = [
+                "bar",
+                "@pkg//third_party:foo",
+                "@pkg//third_party:foo2",
+            ],
+        )
+        """);
 
     CcToolchainVariables variables = getCompileBuildVariables("//x:bin", "bin");
 
     ImmutableList.Builder<String> entries =
         ImmutableList.<String>builder()
             .add(
-                "/k8-fastbuild/bin/external/pkg/_virtual_includes/foo2",
-                "external/pkg",
-                "/k8-fastbuild/bin/external/pkg");
+                "/k8-fastbuild/bin/external/pkg+/third_party/_virtual_includes/foo2",
+                "external/pkg+",
+                "/k8-fastbuild/bin/external/pkg+");
     if (analysisMock.isThisBazel()) {
       entries.add("external/bazel_tools", "/k8-fastbuild/bin/external/bazel_tools");
     }
 
     assertThat(
             CcToolchainVariables.toStringList(
-                    variables, CompileBuildVariables.EXTERNAL_INCLUDE_PATHS.getVariableName())
+                    variables,
+                    CompileBuildVariables.EXTERNAL_INCLUDE_PATHS.getVariableName(),
+                    PathMapper.NOOP)
                 .stream()
                 .map(x -> removeOutDirectory(x))
                 .collect(ImmutableList.toImmutableList()))

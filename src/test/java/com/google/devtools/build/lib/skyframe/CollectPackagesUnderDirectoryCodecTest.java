@@ -15,11 +15,11 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.skyframe.CollectPackagesUnderDirectoryValue.NoErrorCollectPackagesUnderDirectoryValue;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.FsUtils;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.RoundTripping;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
-import com.google.devtools.build.lib.skyframe.serialization.testutils.TestUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -37,27 +37,18 @@ public final class CollectPackagesUnderDirectoryCodecTest {
         new SerializationTester(
             NoErrorCollectPackagesUnderDirectoryValue.EMPTY,
             CollectPackagesUnderDirectoryValue.ofNoError(
-                true,
-                ImmutableMap.of(
-                    rootedPath("/a", "b"), true,
-                    rootedPath("/c", "d"), false)),
+                true, ImmutableList.of(rootedPath("/a", "b"))),
             CollectPackagesUnderDirectoryValue.ofNoError(
-                false,
-                ImmutableMap.of(
-                    rootedPath("/a", "b"), false,
-                    rootedPath("/c", "d"), true)),
+                false, ImmutableList.of(rootedPath("/c", "d"))),
             CollectPackagesUnderDirectoryValue.ofError(
-                "my error message",
-                ImmutableMap.of(
-                    rootedPath("/a", "b"), false,
-                    rootedPath("/c", "d"), true)));
+                "my error message", ImmutableList.of(rootedPath("/c", "d"))));
     FsUtils.addDependencies(serializationTester);
     serializationTester.runTests();
   }
 
   @Test
   public void testEmptyDeserializesToSingletonValue() throws Exception {
-    assertThat(TestUtils.roundTrip(NoErrorCollectPackagesUnderDirectoryValue.EMPTY))
+    assertThat(RoundTripping.roundTrip(NoErrorCollectPackagesUnderDirectoryValue.EMPTY))
         .isSameInstanceAs(NoErrorCollectPackagesUnderDirectoryValue.EMPTY);
   }
 

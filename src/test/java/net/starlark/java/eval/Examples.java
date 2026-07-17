@@ -16,13 +16,14 @@ package net.starlark.java.eval;
 import com.google.common.collect.ImmutableMap;
 import java.io.IOException;
 import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkLibrary;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.syntax.FileOptions;
 import net.starlark.java.syntax.ParserInput;
 import net.starlark.java.syntax.Program;
-import net.starlark.java.syntax.Resolver;
 import net.starlark.java.syntax.StarlarkFile;
 import net.starlark.java.syntax.SyntaxError;
+import net.starlark.java.syntax.TestUtils;
 
 /**
  * Examples of typical API usage of the Starlark interpreter.<br>
@@ -51,7 +52,7 @@ final class Examples {
     // The try-with-resources statement ensures that all values become frozen
     // after execution.
     try (Mutability mu = Mutability.create(input.getFile())) {
-      StarlarkThread thread = new StarlarkThread(mu, StarlarkSemantics.DEFAULT);
+      StarlarkThread thread = StarlarkThread.createTransient(mu, StarlarkSemantics.DEFAULT);
       Starlark.execFile(input, FileOptions.DEFAULT, module, thread);
     }
 
@@ -73,7 +74,7 @@ final class Examples {
 
     // Resolve, compile, and execute the expression.
     try (Mutability mu = Mutability.create(input.getFile())) {
-      StarlarkThread thread = new StarlarkThread(mu, StarlarkSemantics.DEFAULT);
+      StarlarkThread thread = StarlarkThread.createTransient(mu, StarlarkSemantics.DEFAULT);
       return Starlark.eval(input, FileOptions.DEFAULT, module, thread);
     }
   }
@@ -90,7 +91,7 @@ final class Examples {
 
     // Compile the program, with additional predeclared environment bindings.
     // TODO(adonovan): supply Starlark.UNIVERSE somehow.
-    Program prog = Program.compileFile(file, Resolver.moduleWithPredeclared("zero", "square"));
+    Program prog = Program.compileFile(file, TestUtils.Module.withPredeclared("zero", "square"));
 
     // . . .
 
@@ -103,7 +104,7 @@ final class Examples {
     // names provided during compilation.
     Module module = Module.withPredeclared(StarlarkSemantics.DEFAULT, makeEnvironment());
     try (Mutability mu = Mutability.create(prog.getFilename())) {
-      StarlarkThread thread = new StarlarkThread(mu, StarlarkSemantics.DEFAULT);
+      StarlarkThread thread = StarlarkThread.createTransient(mu, StarlarkSemantics.DEFAULT);
       Starlark.execFileProgram(prog, module, thread);
     }
     return module;
@@ -114,13 +115,14 @@ final class Examples {
     ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
     env.put("zero", 0);
     Starlark.addMethods(env, new MyFunctions(), StarlarkSemantics.DEFAULT); // adds 'square'
-    return env.build();
+    return env.buildOrThrow();
   }
 
   /**
    * The annotated methods of this class are added to the environment by {@link
    * Starlark#addMethods}.
    */
+  @StarlarkLibrary
   static final class MyFunctions {
     @StarlarkMethod(
         name = "square",

@@ -17,10 +17,13 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.SpawnActionExecutionException;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 
 /**
  * A specialization of {@link ExecException} that indicates something went wrong when trying to
@@ -65,5 +68,12 @@ public class SpawnExecException extends ExecException {
   @Override
   protected FailureDetail getFailureDetail(String message) {
     return checkNotNull(result.failureDetail(), this);
+  }
+
+  public SpawnActionExecutionException toActionExecutionException(Action action) {
+    String message = getMessageForActionExecutionException();
+    DetailedExitCode code =
+        DetailedExitCode.of(this.getFailureDetail(action.describe() + " failed: " + message));
+    return new SpawnActionExecutionException(this, message, action, code, getSpawnResult());
   }
 }

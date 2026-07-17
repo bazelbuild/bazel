@@ -20,6 +20,7 @@ import com.google.common.hash.HashFunction;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.graph.Node;
+import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.query.aspectresolvers.AspectResolver;
 import com.google.devtools.build.lib.query2.query.output.QueryOptions.OrderOutput;
@@ -58,7 +59,8 @@ class MaxrankOutputFormatter extends OutputFormatter {
       OutputStream out,
       AspectResolver aspectResolver,
       EventHandler eventHandler,
-      HashFunction hashFunction)
+      HashFunction hashFunction,
+      LabelPrinter labelPrinter)
       throws IOException {
     // In order to handle cycles correctly, we need work on the strong
     // component graph, as cycles should be treated a "clump" of nodes all on
@@ -93,7 +95,7 @@ class MaxrankOutputFormatter extends OutputFormatter {
         output.add(new RankAndLabel(rank, y.getLabel().getLabel()));
       }
     }
-    if (options.orderOutput == OrderOutput.FULL) {
+    if (options.getOrderOutput() == OrderOutput.FULL) {
       // Use the natural order for RankAndLabels, which breaks ties alphabetically.
       Collections.sort(output);
     } else {
@@ -102,7 +104,7 @@ class MaxrankOutputFormatter extends OutputFormatter {
     final String lineTerm = options.getLineTerminator();
     PrintStream printStream = new PrintStream(out);
     for (RankAndLabel item : output) {
-      printStream.print(item + lineTerm);
+      printStream.print(item.toString(labelPrinter) + lineTerm);
     }
     flushAndCheckError(printStream);
   }

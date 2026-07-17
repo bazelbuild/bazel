@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2020 The Bazel Authors. All rights reserved.
 #
@@ -22,11 +22,20 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
 function write_files {
+  add_rules_cc MODULE.bazel
   mkdir -p hello || fail "mkdir hello failed"
   cat >hello/BUILD <<EOF
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 cc_binary(
   name = 'hello',
   srcs = ['hello.cc'],
+  deps = [":hello_lib"],
+)
+
+cc_library(
+  name = 'hello_header_only',
+  hdrs = ['hello_header_only.h'],
   deps = [":hello_lib"],
 )
 
@@ -35,12 +44,19 @@ cc_library(
   srcs = ["hello_private.h", "hellolib.cc"],
   hdrs = ["hello.h"],
   deps = [":base"],
+  implementation_deps = [":implementation"],
 )
 
 cc_library(
   name = "base",
   srcs = ["base.cc"],
   hdrs = ["base.h"],
+)
+
+cc_library(
+  name = "implementation",
+  srcs = ["implementation.cc"],
+  hdrs = ["implementation.h"],
 )
 EOF
   cat >hello/hello.h <<EOF
@@ -64,11 +80,25 @@ int base() {
 }
 EOF
 
+  cat >hello/implementation.h <<EOF
+int implementation();
+EOF
+
+  cat >hello/implementation.cc <<EOF
+#include "implementation.h"
+
+int implementation() {
+  return 42;
+}
+EOF
+
   cat >hello/hellolib.cc <<EOF
 #include "hello.h"
 #include "base.h"
+#include "implementation.h"
 
 int helloPrivate() {
+  implementation();
   return base();
 }
 
@@ -95,16 +125,28 @@ int main() {
 }
 #endif
 EOF
+
+  cat >hello/hello_header_only.h <<EOF
+#ifdef private_header
+#include "hello_private.h"
+int func() {
+  return helloPrivate() - 42;
+}
+#elif defined layering_violation
+#include "base.h"
+int func() {
+  return base() - 42;
+}
+#else
+#include "hello.h"
+int func() {
+  return hello() - 42;
+}
+#endif
+EOF
 }
 
-# TODO(hlopko): Add a test for a "toplevel" header-only library
-#   once we have parse_headers support in cc_configure.
 function test_bazel_layering_check() {
-  if is_darwin; then
-    echo "This test doesn't run on Darwin. Skipping."
-    return
-  fi
-
   local -r clang_tool=$(which clang)
   if [[ ! -x ${clang_tool:-/usr/bin/clang_tool} ]]; then
     echo "clang not installed. Skipping test."
@@ -114,7 +156,7 @@ function test_bazel_layering_check() {
   write_files
 
   CC="${clang_tool}" bazel build \
-    //hello:hello --linkopt=-fuse-ld=gold --features=layering_check \
+    //hello:hello --features=layering_check \
     &> "${TEST_log}" || fail "Build with layering_check failed"
 
   bazel-bin/hello/hello || fail "the built binary failed to run"
@@ -127,22 +169,64 @@ function test_bazel_layering_check() {
     fail "module map files were not generated"
   fi
 
-  # Specifying -fuse-ld=gold explicitly to override -fuse-ld=/usr/bin/ld.gold
-  # passed in by cc_configure because Ubuntu-16.04 ships with an old
-  # clang version that doesn't accept that.
+  CC="${clang_tool}" bazel build \
+    //hello:hello --copt=-DFORCE_REBUILD=1 \
+    --spawn_strategy=local --features=layering_check \
+    &> "${TEST_log}" || fail "Build with layering_check failed without sandboxing"
+
   CC="${clang_tool}" bazel build \
     --copt=-D=private_header \
-    //hello:hello --linkopt=-fuse-ld=gold --features=layering_check \
+    //hello:hello --features=layering_check \
     &> "${TEST_log}" && fail "Build of private header violation with "\
     "layering_check should have failed"
   expect_log "use of private header from outside its module: 'hello_private.h'"
 
   CC="${clang_tool}" bazel build \
     --copt=-D=layering_violation \
-    //hello:hello --linkopt=-fuse-ld=gold --features=layering_check \
+    //hello:hello --features=layering_check \
     &> "${TEST_log}" && fail "Build of private header violation with "\
     "layering_check should have failed"
   expect_log "module //hello:hello does not depend on a module exporting "\
+    "'base.h'"
+}
+
+function test_bazel_layering_check_header_only() {
+  local -r clang_tool=$(which clang)
+  if [[ ! -x ${clang_tool:-/usr/bin/clang_tool} ]]; then
+    echo "clang not installed. Skipping test."
+    return
+  fi
+
+  write_files
+
+  CC="${clang_tool}" bazel build \
+    //hello:hello_header_only --features=layering_check --features=parse_headers \
+    -s --process_headers_in_dependencies \
+    &> "${TEST_log}" || fail "Build with layering_check + parse_headers failed"
+
+  if [[ ! -e bazel-bin/hello/hello_header_only.cppmap ]]; then
+    fail "module map file for hello_header_only was not generated"
+  fi
+
+  if [[ ! -e bazel-bin/hello/hello_lib.cppmap ]]; then
+    fail "module map file for hello_lib was not generated"
+  fi
+
+  CC="${clang_tool}" bazel build \
+    --copt=-D=private_header \
+    //hello:hello_header_only --features=layering_check --features=parse_headers \
+    --process_headers_in_dependencies \
+    &> "${TEST_log}" && fail "Build of private header violation with "\
+    "layering_check + parse_headers should have failed"
+  expect_log "use of private header from outside its module: 'hello_private.h'"
+
+  CC="${clang_tool}" bazel build \
+    --copt=-D=layering_violation \
+    //hello:hello_header_only --features=layering_check --features=parse_headers \
+    --process_headers_in_dependencies \
+    &> "${TEST_log}" && fail "Build of private header violation with "\
+    "layering_check + parse_headers should have failed"
+  expect_log "module //hello:hello_header_only does not depend on a module exporting "\
     "'base.h'"
 }
 

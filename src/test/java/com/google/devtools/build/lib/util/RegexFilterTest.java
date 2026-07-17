@@ -61,7 +61,7 @@ public class RegexFilterTest {
   @Test
   public void inclusions() throws Exception {
     createFilter("a/b,+^c,_test$");
-    assertThat(filter.toString()).isEqualTo("(?:(?>a/b)|(?>^c)|(?>_test$))");
+    assertThat(filter.toString()).isEqualTo("(?:(?>^c)|(?>_test$)|(?>a/b))");
     assertIncluded("a/b");
     assertIncluded("a/b/c");
     assertIncluded("c");
@@ -78,7 +78,7 @@ public class RegexFilterTest {
   @Test
   public void exclusions() throws Exception {
     createFilter("-a/b,-^c,-_test$");
-    assertThat(filter.toString()).isEqualTo("-(?:(?>a/b)|(?>^c)|(?>_test$))");
+    assertThat(filter.toString()).isEqualTo("-(?:(?>^c)|(?>_test$)|(?>a/b))");
     assertExcluded("a/b");
     assertExcluded("a/b/c");
     assertExcluded("c");
@@ -96,7 +96,7 @@ public class RegexFilterTest {
   public void inclusionsAndExclusions() throws Exception {
     createFilter("a,-^c,,-,+,d,+a/b/c,-a/b,a/b/d");
     assertThat(filter.toString())
-        .isEqualTo("(?:(?>a)|(?>d)|(?>a/b/c)|(?>a/b/d)),-(?:(?>^c)|(?>a/b))");
+        .isEqualTo("(?:(?>a)|(?>a/b/c)|(?>a/b/d)|(?>d)),-(?:(?>^c)|(?>a/b))");
     assertIncluded("a");
     assertIncluded("a/c");
     assertExcluded("a/b");
@@ -157,5 +157,22 @@ public class RegexFilterTest {
                 .map(RegexFilterTest::safeCreateFilter)
                 .collect(toImmutableList()))
         .runTests();
+  }
+
+  @Test
+  public void initialDoubleDash_error() {
+    OptionsParsingException e =
+        assertThrows(OptionsParsingException.class, () -> createFilter("--compilation_mode"));
+    assertThat(e)
+        .hasMessageThat()
+        .contains(
+            "Failed to build filter: value looks like another flag (--compilation_mode). Either"
+                + " escape the value with \"\\-\\-\", or pass an explicit value to the flag.");
+  }
+
+  @Test
+  public void initialDoubleDash_escaped() throws OptionsParsingException {
+    createFilter("\\-\\-compilation_mode");
+    assertIncluded("--compilation_mode");
   }
 }

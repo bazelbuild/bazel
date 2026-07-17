@@ -16,30 +16,32 @@ package com.google.devtools.build.lib.rules.filegroup;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.MiddlemanProvider;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.configuredtargets.FileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.util.FileType;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
-/**
- * Tests for {@link Filegroup}.
- */
-@RunWith(JUnit4.class)
+/** Tests for {@link Filegroup}. */
+@RunWith(TestParameterInjector.class)
 public class FilegroupConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void testGroup() throws Exception {
-    scratch.file("nevermore/BUILD",
-        "filegroup(name  = 'staticdata',",
-        "          srcs = ['staticdata/spam.txt', 'staticdata/good.txt'])");
+    scratch.file(
+        "nevermore/BUILD",
+        """
+        filegroup(name  = 'staticdata',
+                  srcs = ['staticdata/spam.txt', 'staticdata/good.txt'])
+        """);
     ConfiguredTarget groupTarget = getConfiguredTarget("//nevermore:staticdata");
     assertThat(ActionsTestUtil.prettyArtifactNames(getFilesToBuild(groupTarget)))
         .containsExactly("nevermore/staticdata/spam.txt", "nevermore/staticdata/good.txt");
@@ -49,12 +51,15 @@ public class FilegroupConfiguredTargetTest extends BuildViewTestCase {
   public void testDependencyGraph() throws Exception {
     scratch.file(
         "java/com/google/test/BUILD",
-        "java_binary(name  = 'test_app',",
-        "    resources = [':data'],",
-        "    create_executable = 0,",
-        "    srcs  = ['InputFile.java', 'InputFile2.java'])",
-        "filegroup(name  = 'data',",
-        "          srcs = ['b.txt', 'a.txt'])");
+        """
+        load("@rules_java//java:defs.bzl", "java_binary")
+        java_binary(name  = 'test_app',
+            resources = [':data'],
+            create_executable = 0,
+            srcs  = ['InputFile.java', 'InputFile2.java'])
+        filegroup(name  = 'data',
+                  srcs = ['b.txt', 'a.txt'])
+        """);
     FileConfiguredTarget appOutput =
         getFileConfiguredTarget("//java/com/google/test:test_app.jar");
     assertThat(actionsTestUtil().predecessorClosureOf(appOutput.getArtifact(), FileType.of(".txt")))
@@ -75,18 +80,25 @@ public class FilegroupConfiguredTargetTest extends BuildViewTestCase {
   }
 
   private void writeTest() throws IOException {
-    scratch.file("another/BUILD",
-        "filegroup(name  = 'another',",
-        "          srcs = ['another.txt'])");
-    scratch.file("test/BUILD",
-        "filegroup(name  = 'a',",
-        "          srcs = ['a.txt'])",
-        "filegroup(name  = 'b',",
-        "          srcs = ['a.txt'])",
-        "filegroup(name  = 'c',",
-        "          srcs = ['a', 'b.txt'])",
-        "filegroup(name  = 'd',",
-        "          srcs = ['//another:another.txt'])");
+    scratch.file(
+        "another/BUILD",
+        """
+        exports_files(['another.txt'])
+        filegroup(name  = 'another',
+                  srcs = ['another.txt'])
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        filegroup(name  = 'a',
+                  srcs = ['a.txt'])
+        filegroup(name  = 'b',
+                  srcs = ['a.txt'])
+        filegroup(name  = 'c',
+                  srcs = ['a', 'b.txt'])
+        filegroup(name  = 'd',
+                  srcs = ['//another:another.txt'])
+        """);
   }
 
   @Test
@@ -132,10 +144,13 @@ public class FilegroupConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void testNoDuplicate() throws Exception {
-    scratch.file("x/BUILD",
-                "filegroup(name = 'a', srcs = ['file'])",
-                "filegroup(name = 'b', srcs = ['file'])",
-                "filegroup(name = 'c', srcs = [':a', ':b'])");
+    scratch.file(
+        "x/BUILD",
+        """
+        filegroup(name = 'a', srcs = ['file'])
+        filegroup(name = 'b', srcs = ['file'])
+        filegroup(name = 'c', srcs = [':a', ':b'])
+        """);
     assertThat(ActionsTestUtil.prettyArtifactNames(getFilesToBuild(getConfiguredTarget("//x:c"))))
         .containsExactly("x/file");
   }
@@ -157,6 +172,7 @@ public class FilegroupConfiguredTargetTest extends BuildViewTestCase {
     scratch.file("pkg/c.java");
     scratch.file(
         "pkg/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_library')",
         "java_library(name='lib_a', srcs=['a.java'])",
         "java_library(name='lib_b', srcs=['b.java'], deps = [':lib_c'])",
         "java_library(name='lib_c', srcs=['c.java'])",
@@ -176,6 +192,7 @@ public class FilegroupConfiguredTargetTest extends BuildViewTestCase {
     scratch.file("pkg/c.java");
     scratch.file(
         "pkg/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_library')",
         "java_library(name='lib_a', srcs=['a.java'])",
         "java_library(name='lib_b', srcs=['b.java'], deps = [':lib_c'])",
         "java_library(name='lib_c', srcs=['c.java'])",
@@ -193,6 +210,7 @@ public class FilegroupConfiguredTargetTest extends BuildViewTestCase {
     scratch.file("pkg/a.cc");
     scratch.file(
         "pkg/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
         "cc_library(name='lib_a', srcs=['a.cc'])",
         String.format(
             "filegroup(name='group', srcs=[':lib_a'], output_group='%s')",
@@ -205,20 +223,85 @@ public class FilegroupConfiguredTargetTest extends BuildViewTestCase {
   }
 
   @Test
-  public void create_disableMiddlemanArtifact() throws Exception {
-    useConfiguration("--noexperimental_enable_aggregating_middleman");
-    scratch.file("foo/BUILD", "filegroup(name = 'foo', srcs = ['foo/spam.txt'])");
-    ConfiguredTarget target = getConfiguredTarget("//foo:foo");
+  public void testDefaultInfo(@TestParameter boolean filegroupRunfilesForData) throws Exception {
+    scratch.file(
+        "x/defs.bzl",
+        """
+        def _default_info_impl(ctx):
+            files = depset(transitive = [t[DefaultInfo].files for t in ctx.attr.files])
+            default_runfiles = ctx.runfiles(transitive_files = depset(transitive = [t[DefaultInfo].files for t in ctx.attr.default_runfiles]))
+            data_runfiles = ctx.runfiles(transitive_files = depset(transitive = [t[DefaultInfo].files for t in ctx.attr.data_runfiles]))
+            return [
+                DefaultInfo(
+                    files = files,
+                    default_runfiles = default_runfiles,
+                    data_runfiles = data_runfiles,
+                )
+            ]
+        default_info = rule(
+            implementation = _default_info_impl,
+            attrs = {
+                "files": attr.label_list(allow_files=True),
+                "default_runfiles": attr.label_list(allow_files=True),
+                "data_runfiles": attr.label_list(allow_files=True),
+            },
+        )
+        """);
+    scratch.file(
+        "x/BUILD",
+        """
+        load(":defs.bzl", "default_info")
 
-    assertThat(target.getProvider(MiddlemanProvider.class)).isNull();
-  }
+        default_info(
+            name = "default_info_srcs",
+            files = ["srcs_files_file"],
+            default_runfiles = ["srcs_default_runfiles_file"],
+            data_runfiles = ["srcs_data_runfiles_file"],
+        )
 
-  @Test
-  public void create_enableMiddlemanArtifact() throws Exception {
-    useConfiguration("--experimental_enable_aggregating_middleman");
-    scratch.file("foo/BUILD", "filegroup(name = 'foo', srcs = ['foo/spam.txt'])");
-    ConfiguredTarget target = getConfiguredTarget("//foo:foo");
+        default_info(
+            name = "default_info_data",
+            files = ["data_files"],
+            default_runfiles = ["data_default_runfiles_file"],
+            data_runfiles = ["data_data_runfiles_file"],
+        )
 
-    assertThat(target.getProvider(MiddlemanProvider.class)).isNotNull();
+        filegroup(
+            name = "filegroup",
+            srcs = [
+                ":default_info_srcs",
+                "srcs_file",
+            ],
+            data = [
+                ":default_info_data",
+                "data_file",
+            ],
+        )
+        """);
+
+    useConfiguration("--incompatible_filegroup_runfiles_for_data=" + filegroupRunfilesForData);
+    var filegroup = getConfiguredTarget("//x:filegroup");
+
+    assertThat(ActionsTestUtil.prettyArtifactNames(getFilesToBuild(filegroup)))
+        .containsExactly("x/srcs_file", "x/srcs_files_file");
+    assertThat(ActionsTestUtil.prettyArtifactNames(getDefaultRunfiles(filegroup).getArtifacts()))
+        .containsExactly(
+            "x/srcs_default_runfiles_file",
+            "x/data_file",
+            "x/data_files",
+            "x/data_data_runfiles_file");
+    var expectedDataRunfiles =
+        ImmutableSet.<String>builder()
+            .add(
+                "x/srcs_file",
+                "x/srcs_files_file",
+                "x/data_file",
+                "x/data_files",
+                "x/data_data_runfiles_file");
+    if (filegroupRunfilesForData) {
+      expectedDataRunfiles.add("x/srcs_data_runfiles_file");
+    }
+    assertThat(ActionsTestUtil.prettyArtifactNames(getDataRunfiles(filegroup).getArtifacts()))
+        .containsExactlyElementsIn(expectedDataRunfiles.build());
   }
 }

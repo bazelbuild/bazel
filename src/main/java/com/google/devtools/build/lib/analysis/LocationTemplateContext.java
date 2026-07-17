@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.analysis.LocationExpander.LocationFunction;
 import com.google.devtools.build.lib.analysis.stringtemplate.ExpansionException;
 import com.google.devtools.build.lib.analysis.stringtemplate.TemplateContext;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import java.util.Collection;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -48,22 +48,23 @@ import javax.annotation.Nullable;
 final class LocationTemplateContext implements TemplateContext {
   private final TemplateContext delegate;
   private final ImmutableMap<String, LocationFunction> functions;
-  private final ImmutableMap<RepositoryName, RepositoryName> repositoryMapping;
+  private final RepositoryMapping repositoryMapping;
   private final boolean windowsPath;
+  private final String workspaceRunfilesDirectory;
 
   private LocationTemplateContext(
       TemplateContext delegate,
       Label root,
       Supplier<Map<Label, Collection<Artifact>>> locationMap,
       boolean execPaths,
-      boolean legacyExternalRunfiles,
-      ImmutableMap<RepositoryName, RepositoryName> repositoryMapping,
-      boolean windowsPath) {
+      RepositoryMapping repositoryMapping,
+      boolean windowsPath,
+      String workspaceRunfilesDirectory) {
     this.delegate = delegate;
-    this.functions =
-        LocationExpander.allLocationFunctions(root, locationMap, execPaths, legacyExternalRunfiles);
+    this.functions = LocationExpander.allLocationFunctions(root, locationMap, execPaths);
     this.repositoryMapping = repositoryMapping;
     this.windowsPath = windowsPath;
+    this.workspaceRunfilesDirectory = workspaceRunfilesDirectory;
   }
 
   public LocationTemplateContext(
@@ -72,17 +73,18 @@ final class LocationTemplateContext implements TemplateContext {
       @Nullable ImmutableMap<Label, ImmutableCollection<Artifact>> labelMap,
       boolean execPaths,
       boolean allowData,
+      boolean collectSrcs,
       boolean windowsPath) {
     this(
         delegate,
         ruleContext.getLabel(),
         // Use a memoizing supplier to avoid eagerly building the location map.
         Suppliers.memoize(
-            () -> LocationExpander.buildLocationMap(ruleContext, labelMap, allowData)),
+            () -> LocationExpander.buildLocationMap(ruleContext, labelMap, allowData, collectSrcs)),
         execPaths,
-        ruleContext.getConfiguration().legacyExternalRunfiles(),
-        ruleContext.getRule().getPackage().getRepositoryMapping(),
-        windowsPath);
+        ruleContext.getRule().getPackageMetadata().repositoryMapping(),
+        windowsPath,
+        ruleContext.getWorkspaceName());
   }
 
   @Override
@@ -107,7 +109,7 @@ final class LocationTemplateContext implements TemplateContext {
     try {
       LocationFunction f = functions.get(name);
       if (f != null) {
-        return f.apply(param, repositoryMapping);
+        return f.apply(param, repositoryMapping, workspaceRunfilesDirectory);
       }
     } catch (IllegalStateException e) {
       throw new ExpansionException(e.getMessage(), e);

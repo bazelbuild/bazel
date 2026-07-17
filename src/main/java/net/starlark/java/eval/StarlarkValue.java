@@ -14,8 +14,31 @@
 
 package net.starlark.java.eval;
 
+import javax.annotation.Nullable;
+import net.starlark.java.syntax.StarlarkType;
+
 /** Base interface for all Starlark values besides boxed Java primitives. */
 public interface StarlarkValue {
+
+  /**
+   * Returns the type of this Starlark value, or null if no information is provided.
+   *
+   * <p>This method should not be called directly in client code. The canonical way to obtain the
+   * type of a value is {@link Starlark#getStarlarkType}, which injects information obtained in
+   * other ways (e.g. from annotations).
+   *
+   * <p>Overrides of this method should not return null: if this method is overridden, it indicates
+   * to the machinery processing {@link net.starlark.java.annot.StarlarkBuiltin} annotations that
+   * the annotated class doesn't need an auto-generated {@link StarlarkType} implementation.
+   * Therefore, a null return in an override will cause {@link Starlark#getStarlarkType} to fall
+   * back to reporting the type as {@code Any}.
+   */
+  // LINT.IfChange // Callutils#buildClassDescriptor looks for this specific method signature.
+  @Nullable
+  default StarlarkType getStarlarkType(StarlarkSemantics semantics) {
+    // LINT.ThenChange(//src/main/java/net/starlark/java/eval/CallUtils.java)
+    return null;
+  }
 
   /**
    * Prints an official representation of object x.
@@ -26,7 +49,7 @@ public interface StarlarkValue {
    *
    * @param printer a printer to be used for formatting nested values.
    */
-  default void repr(Printer printer) {
+  default void repr(Printer printer, StarlarkSemantics semantics) {
     printer.append("<unknown object ").append(getClass().getName()).append(">");
   }
 
@@ -37,8 +60,8 @@ public interface StarlarkValue {
    *
    * @param printer a printer to be used for formatting nested values.
    */
-  default void str(Printer printer) {
-    repr(printer);
+  default void str(Printer printer, StarlarkSemantics semantics) {
+    repr(printer, semantics);
   }
 
   /**
@@ -53,8 +76,8 @@ public interface StarlarkValue {
    *
    * @param printer a printer to be used for formatting nested values.
    */
-  default void debugPrint(Printer printer) {
-    str(printer);
+  default void debugPrint(Printer printer, StarlarkThread thread) {
+    str(printer, thread.getSemantics());
   }
 
   /** Returns the truth-value of this Starlark value. */

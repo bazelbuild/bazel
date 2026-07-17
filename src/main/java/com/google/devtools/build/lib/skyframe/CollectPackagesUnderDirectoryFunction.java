@@ -13,11 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.skyframe.ProcessPackageDirectory.ProcessPackageDirectorySkyFunctionException;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -41,7 +41,8 @@ public class CollectPackagesUnderDirectoryFunction implements SkyFunction {
   }
 
   @Override
-  public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
+  public SkyValue compute(SkyKey skyKey, Environment env)
+      throws InterruptedException, ProcessPackageDirectorySkyFunctionException {
     return new MyTraversalFunction(directories)
         .visitDirectory((RecursivePkgKey) skyKey.argument(), env);
   }
@@ -63,7 +64,7 @@ public class CollectPackagesUnderDirectoryFunction implements SkyFunction {
     protected SkyKey getSkyKeyForSubdirectory(
         RepositoryName repository,
         RootedPath subdirectory,
-        ImmutableSet<PathFragment> excludedSubdirectoriesBeneathSubdirectory) {
+        IgnoredSubdirectories excludedSubdirectoriesBeneathSubdirectory) {
       return CollectPackagesUnderDirectoryValue.key(
           repository, subdirectory, excludedSubdirectoriesBeneathSubdirectory);
     }
@@ -72,7 +73,7 @@ public class CollectPackagesUnderDirectoryFunction implements SkyFunction {
     protected CollectPackagesUnderDirectoryValue aggregateWithSubdirectorySkyValues(
         MyPackageDirectoryConsumer consumer, Map<SkyKey, SkyValue> subdirectorySkyValues) {
       // Aggregate the child subdirectory package state.
-      ImmutableMap.Builder<RootedPath, Boolean> builder = ImmutableMap.builder();
+      ImmutableList.Builder<RootedPath> builder = ImmutableList.builder();
       for (SkyKey key : subdirectorySkyValues.keySet()) {
         RecursivePkgKey recursivePkgKey = (RecursivePkgKey) key.argument();
         CollectPackagesUnderDirectoryValue collectPackagesValue =
@@ -81,15 +82,15 @@ public class CollectPackagesUnderDirectoryFunction implements SkyFunction {
         boolean packagesOrErrorsInSubdirectory =
             collectPackagesValue.isDirectoryPackage()
                 || collectPackagesValue.getErrorMessage() != null
-                || Iterables.contains(
-                    collectPackagesValue
-                        .getSubdirectoryTransitivelyContainsPackagesOrErrors()
-                        .values(),
-                    Boolean.TRUE);
+                || !collectPackagesValue
+                    .getSubdirectoryTransitivelyContainsPackagesOrErrors()
+                    .isEmpty();
 
-        builder.put(recursivePkgKey.getRootedPath(), packagesOrErrorsInSubdirectory);
+        if (packagesOrErrorsInSubdirectory) {
+          builder.add(recursivePkgKey.getRootedPath());
+        }
       }
-      ImmutableMap<RootedPath, Boolean> subdirectories = builder.build();
+      ImmutableList<RootedPath> subdirectories = builder.build();
       String errorMessage = consumer.getErrorMessage();
       if (errorMessage != null) {
         return CollectPackagesUnderDirectoryValue.ofError(errorMessage, subdirectories);
@@ -125,11 +126,5 @@ public class CollectPackagesUnderDirectoryFunction implements SkyFunction {
     String getErrorMessage() {
       return errorMessage;
     }
-  }
-
-  @Nullable
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
   }
 }

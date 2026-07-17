@@ -286,15 +286,6 @@ public final class StarlarkMethodProcessorTest {
   }
 
   @Test
-  public void testDisabledValueParamNoToggle() throws Exception {
-    assertAbout(javaSource())
-        .that(getFile("DisabledValueParamNoToggle.java"))
-        .processedWith(new StarlarkMethodProcessor())
-        .failsToCompile()
-        .withErrorContaining("Parameter 'two' has valueWhenDisabled set, but is always enabled");
-  }
-
-  @Test
   public void testToggledKwargsParam() throws Exception {
     assertAbout(javaSource())
         .that(getFile("ToggledKwargsParam.java"))
@@ -304,14 +295,13 @@ public final class StarlarkMethodProcessorTest {
   }
 
   @Test
-  public void testToggledParamNoDisabledValue() throws Exception {
+  public void testToggledParamNoDefaultValue() throws Exception {
     assertAbout(javaSource())
-        .that(getFile("ToggledParamNoDisabledValue.java"))
+        .that(getFile("ToggledParamNoDefaultValue.java"))
         .processedWith(new StarlarkMethodProcessor())
         .failsToCompile()
         .withErrorContaining(
-            "Parameter 'two' may be disabled by semantic flag, "
-                + "thus valueWhenDisabled must be set");
+            "Parameter 'two' may be disabled by semantic flag, thus defaultValue must be set");
   }
 
   @Test
@@ -343,5 +333,23 @@ public final class StarlarkMethodProcessorTest {
         .processedWith(new StarlarkMethodProcessor())
         .failsToCompile()
         .withErrorContaining("Parameter 'one' must be documented because it is positional");
+  }
+
+  @Test
+  public void testStarlarkBuiltinAndLibraryCombined() throws Exception {
+    assertAbout(javaSource())
+        .that(getFile("StarlarkBuiltinAndLibraryCombined.java"))
+        .processedWith(new StarlarkMethodProcessor())
+        .failsToCompile()
+        .withErrorContaining("also has or inherits StarlarkLibrary");
+  }
+
+  @Test
+  public void testStarlarkBuiltinAndLibraryInherited() throws Exception {
+    assertAbout(javaSource())
+        .that(getFile("StarlarkBuiltinAndLibraryInherited.java"))
+        .processedWith(new StarlarkMethodProcessor())
+        .failsToCompile()
+        .withErrorContaining("also has or inherits StarlarkBuiltin");
   }
 }

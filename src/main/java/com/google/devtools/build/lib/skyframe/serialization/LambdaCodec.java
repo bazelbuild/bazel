@@ -11,8 +11,9 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 package com.google.devtools.build.lib.skyframe.serialization;
+
+import static com.google.devtools.build.lib.unsafe.UnsafeProvider.getFieldOffset;
 
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
@@ -33,16 +34,18 @@ import java.lang.reflect.Method;
  * Because {@link Serializable} is an interface, not a class, this codec will never be chosen for
  * any object without special-casing.
  */
-class LambdaCodec implements ObjectCodec<Serializable> {
-  private final Method readResolveMethod;
+class LambdaCodec extends DeferredObjectCodec<Serializable> {
+  private static final Method READ_RESOLVE_METHOD;
+  private static final long SERIALIZED_LAMBDA_OFFSET;
 
-  LambdaCodec() {
+  static {
     try {
-      this.readResolveMethod = SerializedLambda.class.getDeclaredMethod("readResolve");
-    } catch (NoSuchMethodException e) {
-      throw new IllegalStateException(e);
+      READ_RESOLVE_METHOD = SerializedLambda.class.getDeclaredMethod("readResolve");
+      SERIALIZED_LAMBDA_OFFSET = getFieldOffset(LambdaSupplier.class, "serializedLambda");
+    } catch (ReflectiveOperationException e) {
+      throw new ExceptionInInitializerError(e);
     }
-    readResolveMethod.setAccessible(true);
+    READ_RESOLVE_METHOD.setAccessible(true);
   }
 
   static boolean isProbablyLambda(Class<?> type) {
@@ -81,13 +84,24 @@ class LambdaCodec implements ObjectCodec<Serializable> {
   }
 
   @Override
-  public Serializable deserialize(DeserializationContext context, CodedInputStream codedIn)
+  public DeferredValue<Serializable> deserializeDeferred(
+      AsyncDeserializationContext context, CodedInputStream codedIn)
       throws SerializationException, IOException {
-    SerializedLambda serializedLambda = context.deserialize(codedIn);
-    try {
-      return (Serializable) readResolveMethod.invoke(serializedLambda);
-    } catch (ReflectiveOperationException e) {
-      throw new IllegalStateException("Error read-resolving " + serializedLambda, e);
+    LambdaSupplier supplier = new LambdaSupplier();
+    context.deserialize(codedIn, supplier, SERIALIZED_LAMBDA_OFFSET);
+    return supplier;
+  }
+
+  private static class LambdaSupplier implements DeferredValue<Serializable> {
+    private SerializedLambda serializedLambda;
+
+    @Override
+    public Serializable call() {
+      try {
+        return (Serializable) READ_RESOLVE_METHOD.invoke(serializedLambda);
+      } catch (ReflectiveOperationException e) {
+        throw new IllegalStateException("Error read-resolving " + serializedLambda, e);
+      }
     }
   }
 }

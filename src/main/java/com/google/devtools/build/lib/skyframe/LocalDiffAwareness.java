@@ -14,10 +14,13 @@
 
 package com.google.devtools.build.lib.skyframe;
 
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -25,10 +28,12 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
+import com.google.devtools.common.options.OptionsProvider;
 import java.io.IOException;
-import java.nio.file.FileSystems;
 import java.nio.file.Path;
 import java.util.Set;
+import javax.annotation.Nullable;
 
 /**
  * File system watcher for local filesystems. It's able to provide a list of changed files between
@@ -40,10 +45,9 @@ import java.util.Set;
  * {@link WatchServiceDiffAwareness}.
  */
 public abstract class LocalDiffAwareness implements DiffAwareness {
-  /**
-   * Option to enable / disable local diff awareness.
-   */
-  public static final class Options extends OptionsBase {
+  /** Option to enable / disable local diff awareness. */
+  @OptionsClass
+  public abstract static class Options extends OptionsBase {
     @Option(
         name = "watchfs",
         defaultValue = "false",
@@ -53,8 +57,12 @@ public abstract class LocalDiffAwareness implements DiffAwareness {
             "On Linux/macOS: If true, %{product} tries to use the operating system's file watch "
                 + "service for local changes instead of scanning every file for a change. On "
                 + "Windows: this flag currently is a non-op but can be enabled in conjunction "
-                + "with --experimental_windows_watchfs.")
-    public boolean watchFS;
+                + "with --experimental_windows_watchfs. On any OS: The behavior is undefined "
+                + "if your workspace is on a network file system, and files are edited on a "
+                + "remote machine.")
+    public abstract boolean getWatchFS();
+
+    public abstract void setWatchFS(boolean value);
 
     @Option(
         name = "experimental_windows_watchfs",
@@ -64,24 +72,30 @@ public abstract class LocalDiffAwareness implements DiffAwareness {
         help =
             "If true, experimental Windows support for --watchfs is enabled. Otherwise --watchfs"
                 + "is a non-op on Windows. Make sure to also enable --watchfs.")
-    public boolean windowsWatchFS;
+    public abstract boolean getWindowsWatchFS();
   }
 
   /** Factory for creating {@link LocalDiffAwareness} instances. */
   public static class Factory implements DiffAwareness.Factory {
-    private final ImmutableList<String> prefixBlacklist;
+    private final ImmutableList<String> excludedNetworkFileSystemsPrefixes;
+    private final FsEventsNativeDepsService fsEventsNativeDepsService;
 
     /**
      * Creates a new factory; the file system watcher may not work on all file systems, particularly
-     * for network file systems. The prefix blacklist can be used to blacklist known paths that
-     * point to network file systems.
+     * for network file systems. The prefix list can be used to exclude known paths that point to
+     * network file systems.
      */
-    public Factory(ImmutableList<String> prefixBlacklist) {
-      this.prefixBlacklist = prefixBlacklist;
+    public Factory(
+        ImmutableList<String> excludedNetworkFileSystemsPrefixes,
+        FsEventsNativeDepsService fsEventsNativeDepsService) {
+      this.excludedNetworkFileSystemsPrefixes = excludedNetworkFileSystemsPrefixes;
+      this.fsEventsNativeDepsService = fsEventsNativeDepsService;
     }
 
     @Override
-    public DiffAwareness maybeCreate(Root pathEntry) {
+    @Nullable
+    public DiffAwareness maybeCreate(
+        Root pathEntry, IgnoredSubdirectories ignoredPaths, OptionsProvider optionsProvider) {
       com.google.devtools.build.lib.vfs.Path resolvedPathEntry;
       try {
         resolvedPathEntry = pathEntry.asPath().resolveSymbolicLinks();
@@ -89,19 +103,21 @@ public abstract class LocalDiffAwareness implements DiffAwareness {
         return null;
       }
       PathFragment resolvedPathEntryFragment = resolvedPathEntry.asFragment();
-      // There's no good way to automatically detect network file systems. We rely on a blacklist
-      // for now (and maybe add a command-line option in the future?).
-      for (String prefix : prefixBlacklist) {
+      // There's no good way to automatically detect network file systems. We rely on a list of
+      // paths to exclude for now (and maybe add a command-line option in the future?).
+      for (String prefix : excludedNetworkFileSystemsPrefixes) {
         if (resolvedPathEntryFragment.startsWith(PathFragment.create(prefix))) {
           return null;
         }
       }
+      Path watchRoot =
+          Path.of(StringEncoding.internalToPlatform(resolvedPathEntryFragment.getPathString()));
       // On OSX uses FsEvents due to https://bugs.openjdk.java.net/browse/JDK-7133447
       if (OS.getCurrent() == OS.DARWIN) {
-        return new MacOSXFsEventsDiffAwareness(resolvedPathEntryFragment.toString());
+        return new MacOSXFsEventsDiffAwareness(watchRoot, ignoredPaths, fsEventsNativeDepsService);
       }
 
-      return new WatchServiceDiffAwareness(resolvedPathEntryFragment.toString());
+      return new WatchServiceDiffAwareness(watchRoot, ignoredPaths);
     }
   }
 
@@ -124,10 +140,10 @@ public abstract class LocalDiffAwareness implements DiffAwareness {
   private int numGetCurrentViewCalls = 0;
 
   /** Root directory to watch. This is an absolute path. */
-  protected final Path watchRootPath;
+  protected final Path watchRoot;
 
-  protected LocalDiffAwareness(String watchRoot) {
-    this.watchRootPath = FileSystems.getDefault().getPath(watchRoot);
+  protected LocalDiffAwareness(Path watchRoot) {
+    this.watchRoot = watchRoot;
   }
 
   /**
@@ -170,8 +186,12 @@ public abstract class LocalDiffAwareness implements DiffAwareness {
   }
 
   @Override
-  public ModifiedFileSet getDiff(View oldView, View newView)
+  public ModifiedFileSet getDiff(@Nullable View oldView, View newView)
       throws IncompatibleViewException, BrokenDiffAwarenessException {
+    if (oldView == null) {
+      return ModifiedFileSet.EVERYTHING_MODIFIED;
+    }
+
     SequentialView oldSequentialView;
     SequentialView newSequentialView;
     try {
@@ -186,12 +206,13 @@ public abstract class LocalDiffAwareness implements DiffAwareness {
 
     ModifiedFileSet.Builder resultBuilder = ModifiedFileSet.builder();
     for (Path modifiedPath : newSequentialView.modifiedAbsolutePaths) {
-      if (!modifiedPath.startsWith(watchRootPath)) {
+      if (!modifiedPath.startsWith(watchRoot)) {
         throw new BrokenDiffAwarenessException(
-            String.format("%s is not under %s", modifiedPath, watchRootPath));
+            String.format("%s is not under %s", modifiedPath, watchRoot));
       }
       PathFragment relativePath =
-          PathFragment.create(watchRootPath.relativize(modifiedPath).toString());
+          PathFragment.create(
+              StringEncoding.platformToInternal(watchRoot.relativize(modifiedPath).toString()));
       if (!relativePath.isEmpty()) {
         resultBuilder.modify(relativePath);
       }

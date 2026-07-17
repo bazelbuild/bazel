@@ -16,13 +16,16 @@ package com.google.devtools.build.lib.query2.cquery;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventBusEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment;
+import com.google.devtools.build.lib.query2.common.CqueryNode;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryParser;
+import com.google.devtools.common.options.Options;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.util.ArrayList;
@@ -45,31 +48,38 @@ public class GraphOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
   public final void defineSimpleRule() throws Exception {
     writeFile(
         "defs/defs.bzl",
-        "def _impl(ctx):",
-        "  pass",
-        "simple_rule = rule(",
-        "  implementation = _impl,",
-        "  attrs = {",
-        "    'deps': attr.label_list(allow_files = True),",
-        "    'host_deps': attr.label_list(cfg = 'host')",
-        "  }",
-        ")");
+        """
+        def _impl(ctx):
+            pass
+
+        simple_rule = rule(
+            implementation = _impl,
+            attrs = {
+                "deps": attr.label_list(allow_files = True),
+                "tool_deps": attr.label_list(cfg = "exec"),
+            },
+        )
+        """);
     writeFile("defs/BUILD");
   }
 
   @Before
   public final void setUpCqueryOptions() {
-    this.options = new CqueryOptions();
-    options.graphNodeStringLimit = 512;
-    this.reporter = new Reporter(new EventBus(), events::add);
+    this.options = Options.getDefaults(CqueryOptions.class);
+    options.setGraphNodeStringLimit(512);
+    options.setGraphFactored(false);
+    options.setIncludeToolDeps(false);
+    options.setIncludeImplicitDeps(false);
+    options.setIncludeNoDepDeps(false);
+    this.reporter = new Reporter(EventBusEventHandler.createWithNewEventBus(), events::add);
   }
 
-  private List<String> getOutput(String queryExpression) throws Exception {
+  private ImmutableList<String> getOutput(String queryExpression) throws Exception {
     QueryExpression expression = QueryParser.parse(queryExpression, getDefaultFunctions());
     Set<String> targetPatternSet = new LinkedHashSet<>();
     expression.collectTargetPatterns(targetPatternSet);
     helper.setQuerySettings(Setting.NO_IMPLICIT_DEPS);
-    PostAnalysisQueryEnvironment<KeyedConfiguredTarget> env =
+    PostAnalysisQueryEnvironment<CqueryNode> env =
         ((ConfiguredTargetQueryHelper) helper).getPostAnalysisQueryEnvironment(targetPatternSet);
 
     ByteArrayOutputStream output = new ByteArrayOutputStream();
@@ -80,9 +90,10 @@ public class GraphOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
             new PrintStream(output),
             getHelper().getSkyframeExecutor(),
             env.getAccessor(),
-            ct -> env.getFwdDeps(ImmutableList.of(ct)));
+            ct -> env.getFwdDeps(ImmutableList.of(ct)),
+            LabelPrinter.legacy());
     env.evaluateQuery(expression, callback);
-    return Arrays.asList(output.toString().split(System.lineSeparator()));
+    return ImmutableList.copyOf(output.toString().split("\n"));
   }
 
   /** Convenience method for easily injecting a config hash into an expected output sequence. */
@@ -96,11 +107,26 @@ public class GraphOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
   public void basicGraph() throws Exception {
     writeFile(
         "test/BUILD",
-        "load('//defs:defs.bzl', 'simple_rule')",
-        "simple_rule(name = 'a', deps = [':b', ':c'])",
-        "simple_rule(name = 'b', deps = [':d'])",
-        "simple_rule(name = 'c')",
-        "simple_rule(name = 'd')");
+        """
+        load("//defs:defs.bzl", "simple_rule")
+
+        simple_rule(
+            name = "a",
+            deps = [
+                ":b",
+                ":c",
+            ],
+        )
+
+        simple_rule(
+            name = "b",
+            deps = [":d"],
+        )
+
+        simple_rule(name = "c")
+
+        simple_rule(name = "d")
+        """);
     List<String> output = getOutput("deps(//test:a)");
     String firstNode = output.get(2);
     String configHash = firstNode.substring(firstNode.indexOf("(") + 1, firstNode.length() - 2);
@@ -122,14 +148,32 @@ public class GraphOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
 
   @Test
   public void factorEquivalentNodes() throws Exception {
-    options.graphFactored = true;
+    options.setGraphFactored(true);
     writeFile(
         "test/BUILD",
-        "load('//defs:defs.bzl', 'simple_rule')",
-        "simple_rule(name = 'a', deps = [':b', ':c'])",
-        "simple_rule(name = 'b', deps = [':d'])",
-        "simple_rule(name = 'c', deps = [':d'])",
-        "simple_rule(name = 'd')");
+        """
+        load("//defs:defs.bzl", "simple_rule")
+
+        simple_rule(
+            name = "a",
+            deps = [
+                ":b",
+                ":c",
+            ],
+        )
+
+        simple_rule(
+            name = "b",
+            deps = [":d"],
+        )
+
+        simple_rule(
+            name = "c",
+            deps = [":d"],
+        )
+
+        simple_rule(name = "d")
+        """);
     List<String> output = getOutput("deps(//test:a)");
     String firstNode = output.get(2);
     String configHash = firstNode.substring(firstNode.indexOf("(") + 1, firstNode.length() - 2);
@@ -148,18 +192,32 @@ public class GraphOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
   }
 
   @Test
-  public void nullAndHostDeps() throws Exception {
+  public void nullAndToolDeps() throws Exception {
     writeFile(
         "test/BUILD",
-        "load('//defs:defs.bzl', 'simple_rule')",
-        "simple_rule(name = 'a', deps = [':b', ':file.src'], host_deps = [':host_dep'])",
-        "simple_rule(name = 'b')",
-        "simple_rule(name = 'host_dep')");
+        """
+        load("//defs:defs.bzl", "simple_rule")
+
+        simple_rule(
+            name = "a",
+            tool_deps = [":tool_dep"],
+            deps = [
+                ":b",
+                ":file.src",
+            ],
+        )
+
+        simple_rule(name = "b")
+
+        simple_rule(name = "tool_dep")
+        """);
     writeFile("test/file.src");
-    List<String> output = getOutput("deps(//test:a)");
+    ImmutableList<String> output = getOutput("deps(//test:a)" + getDependencyCorrection());
     String firstNode = output.get(2);
     String configHash = firstNode.substring(firstNode.indexOf("(") + 1, firstNode.length() - 2);
-    assertThat(getOutput("deps(//test:a)"))
+    String toolNode = output.get(6);
+    String execConfigHash = toolNode.substring(toolNode.indexOf("(") + 1, toolNode.length() - 2);
+    assertThat(output)
         .isEqualTo(
             withConfigHash(
                 configHash,
@@ -168,8 +226,8 @@ public class GraphOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
                 "  \"//test:a (%s)\"",
                 "  \"//test:a (%s)\" -> \"//test:b (%s)\"",
                 "  \"//test:a (%s)\" -> \"//test:file.src (null)\"",
-                "  \"//test:a (%s)\" -> \"//test:host_dep (HOST)\"",
-                "  \"//test:host_dep (HOST)\"",
+                "  \"//test:a (%s)\" -> \"//test:tool_dep (" + execConfigHash + ")\"",
+                "  \"//test:tool_dep (" + execConfigHash + ")\"",
                 "  \"//test:file.src (null)\"",
                 "  \"//test:b (%s)\"",
                 "}"));
@@ -179,14 +237,26 @@ public class GraphOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
   public void selectsResolvedAndRemoved() throws Exception {
     writeFile(
         "test/BUILD",
-        "load('//defs:defs.bzl', 'simple_rule')",
-        "config_setting(name = 'use_a', define_values = {'a': '1'})",
-        "simple_rule(name = 'a', deps = select({",
-        "    ':use_a': [':dep_with_a'],",
-        "    '//conditions:default': [':default_dep'],",
-        "}))",
-        "simple_rule(name = 'dep_with_a')",
-        "simple_rule(name = 'default_dep')");
+        """
+        load("//defs:defs.bzl", "simple_rule")
+
+        config_setting(
+            name = "use_a",
+            define_values = {"a": "1"},
+        )
+
+        simple_rule(
+            name = "a",
+            deps = select({
+                ":use_a": [":dep_with_a"],
+                "//conditions:default": [":default_dep"],
+            }),
+        )
+
+        simple_rule(name = "dep_with_a")
+
+        simple_rule(name = "default_dep")
+        """);
     getHelper().useConfiguration("--define", "a=1");
     List<String> output = getOutput("deps(//test:a)");
     String firstNode = output.get(2);

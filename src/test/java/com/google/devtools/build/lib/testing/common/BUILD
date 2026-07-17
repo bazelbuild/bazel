@@ -1,17 +1,28 @@
 load("@rules_java//java:defs.bzl", "java_test")
 
 package(
-    default_testonly = 1,
+    default_applicable_licenses = ["//:license"],
+    default_testonly = True,
     default_visibility = ["//src:__subpackages__"],
 )
 
-licenses(["notice"])
-
 filegroup(
     name = "srcs",
-    testonly = 0,
+    testonly = False,
     srcs = glob(["**"]),
     visibility = ["//src:__subpackages__"],
+)
+
+java_test(
+    name = "DirectoryListingHelperTest",
+    srcs = ["DirectoryListingHelperTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/testing/common:directory_listing_helper",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/test/java/com/google/devtools/build/lib/testutil",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
 )
 
 java_test(

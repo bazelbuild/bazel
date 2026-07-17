@@ -11,30 +11,33 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 package com.google.devtools.build.lib.util.io;
 
-import com.google.common.base.Preconditions;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import com.google.protobuf.Message;
 import com.google.protobuf.util.JsonFormat;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
 
-/** Creating a MessageOutputStream from an OutputStream */
+/** Creates a MessageOutputStream from an OutputStream. */
 public class MessageOutputStreamWrapper {
-  /** Outputs the messages in binary format */
-  public static class BinaryOutputStreamWrapper implements MessageOutputStream {
+
+  private MessageOutputStreamWrapper() {}
+
+  /** Writes the messages in length-delimited protobuf wire format. */
+  public static class BinaryOutputStreamWrapper<T extends Message>
+      implements MessageOutputStream<T> {
     private final OutputStream stream;
 
     public BinaryOutputStreamWrapper(OutputStream stream) {
-      this.stream = Preconditions.checkNotNull(stream);
+      this.stream = checkNotNull(stream);
     }
 
     @Override
-    public void write(Message m) throws IOException {
-      Preconditions.checkNotNull(m);
+    public void write(T m) throws IOException {
+      checkNotNull(m);
       m.writeDelimitedTo(stream);
     }
 
@@ -44,64 +47,26 @@ public class MessageOutputStreamWrapper {
     }
   }
 
-  /** Outputs the messages in JSON text format */
-  public static class JsonOutputStreamWrapper implements MessageOutputStream {
+  /** Writes the messages in concatenated JSON text format. */
+  public static class JsonOutputStreamWrapper<T extends Message> implements MessageOutputStream<T> {
+    private static final JsonFormat.Printer PRINTER =
+        JsonFormat.printer().alwaysPrintFieldsWithNoPresence();
+
     private final OutputStream stream;
-    private final JsonFormat.Printer printer = JsonFormat.printer().includingDefaultValueFields();
 
     public JsonOutputStreamWrapper(OutputStream stream) {
-      Preconditions.checkNotNull(stream);
-      this.stream = stream;
+      this.stream = checkNotNull(stream);
     }
 
     @Override
-    public void write(Message m) throws IOException {
-      Preconditions.checkNotNull(m);
-      stream.write(printer.print(m).getBytes(StandardCharsets.UTF_8));
+    public void write(T m) throws IOException {
+      checkNotNull(m);
+      stream.write(PRINTER.print(m).getBytes(UTF_8));
     }
 
     @Override
     public void close() throws IOException {
       stream.close();
-    }
-  }
-
-  /** Outputs the messages in JSON text format */
-  public static class MessageOutputStreamCollection implements MessageOutputStream {
-    private final ArrayList<MessageOutputStream> streams = new ArrayList<>();
-
-    public boolean isEmpty() {
-      return streams.isEmpty();
-    }
-
-    public void addStream(MessageOutputStream m) {
-      streams.add(m);
-    }
-
-    @Override
-    public void write(Message m) throws IOException {
-      for (MessageOutputStream stream : streams) {
-        stream.write(m);
-      }
-    }
-
-    @Override
-    public void close() throws IOException {
-      IOException firstException = null;
-      for (MessageOutputStream stream : streams) {
-        try {
-          stream.close();
-        } catch (IOException e) {
-          if (firstException == null) {
-            firstException = e;
-          } else {
-            firstException.addSuppressed(e);
-          }
-        }
-      }
-      if (firstException != null) {
-        throw firstException;
-      }
     }
   }
 }

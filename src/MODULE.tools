@@ -1,0 +1,57 @@
+# NOTE: When editing this file, also update the lockfile.
+#   bazel run //src/test/tools/bzlmod:update_default_lock_file
+#   bazel mod deps --lockfile_mode=update
+
+module(name = "bazel_tools")
+
+bazel_dep(name = "rules_license", version = "1.0.0")
+
+bazel_dep(name = "buildozer", version = "8.5.1")
+bazel_dep(name = "platforms", version = "1.0.0")
+bazel_dep(name = "zlib", version = "1.3.1.bcr.5")
+bazel_dep(name = "re2", version = "2025-11-05.bcr.1")
+
+# Enforce a minimal required version
+bazel_dep(name = "bazel_features", version = "1.43.0", repo_name = None)
+
+xcode_configure = use_extension("//tools/osx:xcode_configure.bzl", "xcode_configure_extension")
+use_repo(xcode_configure, "local_config_xcode")
+
+java_toolchains = use_extension("@rules_java//java:extensions.bzl", "toolchains")
+use_repo(
+    java_toolchains,
+    "local_jdk",
+    "remote_java_tools",
+)
+
+remote_coverage_tools_extension = use_extension("//tools/test:extensions.bzl", "remote_coverage_tools_extension")
+use_repo(remote_coverage_tools_extension, "remote_coverage_tools")
+
+# Used by bazel mod tidy (see BazelModTidyFunction).
+buildozer_binary = use_extension("@buildozer//:buildozer_binary.bzl", "buildozer_binary")
+use_repo(buildozer_binary, "buildozer_binary")
+
+# Dependencies used to auto-load removed symbols and rules from Bazel (due to Starlarkification)
+# See also:  --incompatible_autoload_externally, AutoloadSymbols
+# TODO: because autoloads are removed, these dependencies are no longer needed.
+bazel_dep(name = "protobuf", version = "33.4", repo_name = "com_google_protobuf")
+bazel_dep(name = "rules_java", version = "9.7.0")
+bazel_dep(name = "rules_cc", version = "0.2.18")
+bazel_dep(name = "rules_python", version = "1.7.0")
+bazel_dep(name = "rules_shell", version = "0.6.1")
+bazel_dep(name = "apple_support", version = "2.3.0") # xcode_configure needs it
+bazel_dep(name = "rules_apple", version = "4.1.0", repo_name = None) # version bump, older versions contribute lockfile entries
+bazel_dep(name = "rules_swift", version = "3.1.2", repo_name = None) # version bump, older versions don't load CcInfo
+bazel_dep(name = "abseil-cpp", version = "20250814.1", repo_name = None) # version bump, fixes errors with older compilers
+# add rules_android
+
+winsdk_configure = use_repo_rule("//tools/res:winsdk_configure.bzl", "winsdk_configure")
+
+winsdk_configure(name = "local_config_winsdk")
+
+register_toolchains(
+    "//tools/launcher:all",
+    "//tools/test:all",
+    "@local_config_winsdk//:all",
+    "//tools/res:empty_rc_toolchain",
+)

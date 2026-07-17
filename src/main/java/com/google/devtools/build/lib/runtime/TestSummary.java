@@ -13,16 +13,16 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Multimap;
-import com.google.common.collect.MultimapBuilder;
 import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.analysis.test.TestProvider.TestParams;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
@@ -41,14 +41,17 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import com.google.devtools.build.lib.view.test.TestStatus.FailedTestCasesStatus;
 import com.google.devtools.build.lib.view.test.TestStatus.TestCase;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.util.Durations;
 import com.google.protobuf.util.Timestamps;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
 /**
@@ -66,19 +69,19 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
     private TestSummary summary;
     private boolean built;
 
-    private Builder() {
-      summary = new TestSummary();
+    private Builder(ConfiguredTarget target) {
+      summary = new TestSummary(target);
       built = false;
     }
 
     void mergeFrom(TestSummary existingSummary) {
       // Yuck, manually fill in fields.
-      summary.shardRunStatuses =
-          MultimapBuilder.hashKeys().arrayListValues().build(existingSummary.shardRunStatuses);
+      for (int i = 0; i < existingSummary.shardRunStatuses.size(); i++) {
+        summary.shardRunStatuses.get(i).addAll(existingSummary.shardRunStatuses.get(i));
+      }
       summary.firstStartTimeMillis = existingSummary.firstStartTimeMillis;
       summary.lastStopTimeMillis = existingSummary.lastStopTimeMillis;
       summary.totalRunDurationMillis = existingSummary.totalRunDurationMillis;
-      setTarget(existingSummary.target);
       setConfiguration(existingSummary.configuration);
       setStatus(existingSummary.status);
       addCoverageFiles(existingSummary.coverageFiles);
@@ -97,7 +100,6 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
       setActionRan(existingSummary.actionRan);
       setNumCached(existingSummary.numCached);
       setRanRemotely(existingSummary.ranRemotely);
-      setWasUnreportedWrongSize(existingSummary.wasUnreportedWrongSize);
       mergeSystemFailure(existingSummary.getSystemFailure());
     }
 
@@ -107,7 +109,7 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
       if (built) {
         built = false;
         TestSummary lastSummary = summary;
-        summary = new TestSummary();
+        summary = new TestSummary(lastSummary.target);
         mergeFrom(lastSummary);
       }
     }
@@ -116,64 +118,67 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
     // However, since it can alter the summary member, inlining it in an
     // assignment to a property of summary was unsafe.
     private void checkMutation(Object value) {
-      Preconditions.checkNotNull(value);
+      checkNotNull(value);
       checkMutation();
     }
 
-    public Builder setTarget(ConfiguredTarget target) {
-      checkMutation(target);
-      summary.target = target;
-      return this;
-    }
-
-    public Builder setConfiguration(BuildConfiguration configuration) {
+    @CanIgnoreReturnValue
+    public Builder setConfiguration(BuildConfigurationValue configuration) {
       checkMutation(configuration);
-      summary.configuration = Preconditions.checkNotNull(configuration, summary);
+      summary.configuration = checkNotNull(configuration, summary);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setStatus(BlazeTestStatus status) {
       checkMutation(status);
       summary.status = status;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setSkipped(boolean skipped) {
       checkMutation(skipped);
       summary.skipped = skipped;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addCoverageFiles(List<Path> coverageFiles) {
       checkMutation(coverageFiles);
       summary.coverageFiles.addAll(coverageFiles);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addPassedLogs(List<Path> passedLogs) {
       checkMutation(passedLogs);
       summary.passedLogs.addAll(passedLogs);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addPassedLog(Path passedLog) {
       checkMutation(passedLog);
       summary.passedLogs.add(passedLog);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addFailedLogs(List<Path> failedLogs) {
       checkMutation(failedLogs);
       summary.failedLogs.addAll(failedLogs);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addFailedLog(Path failedLog) {
       checkMutation(failedLog);
       summary.failedLogs.add(failedLog);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder collectTestCases(@Nullable TestCase testCase) {
       // Maintain the invariant: failedTestCases + totalUnknownTestCases <= totalTestCases
       if (testCase == null) {
@@ -209,12 +214,22 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
         // Don't count test cases that were not run.
         return 0;
       }
-      if (testCase.getStatus() != TestCase.Status.PASSED) {
-        this.summary.failedTestCases.add(testCase);
+      switch (testCase.getStatus()) {
+        case PASSED -> this.summary.passedTestCases.add(testCase);
+        case SKIPPED -> this.summary.skippedTestCases.add(testCase);
+        default -> this.summary.failedTestCases.add(testCase);
       }
+
       return 1;
     }
 
+    public Builder addPassedTestCases(List<TestCase> testCases) {
+      checkMutation(testCases);
+      summary.passedTestCases.addAll(testCases);
+      return this;
+    }
+
+    @CanIgnoreReturnValue
     public Builder addFailedTestCases(List<TestCase> testCases, FailedTestCasesStatus status) {
       checkMutation(status);
       checkMutation(testCases);
@@ -244,12 +259,14 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addTestTimes(List<Long> testTimes) {
       checkMutation(testTimes);
       summary.testTimes.addAll(testTimes);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder mergeTiming(long startTimeMillis, long runDurationMillis) {
       checkMutation();
       summary.firstStartTimeMillis = Math.min(summary.firstStartTimeMillis, startTimeMillis);
@@ -259,12 +276,14 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addWarnings(List<String> warnings) {
       checkMutation(warnings);
       summary.warnings.addAll(warnings);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setActionRan(boolean actionRan) {
       checkMutation();
       summary.actionRan = actionRan;
@@ -277,30 +296,28 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
      * @param numCached number of results cached locally or remotely
      * @return this Builder
      */
+    @CanIgnoreReturnValue
     public Builder setNumCached(int numCached) {
       checkMutation();
       summary.numCached = numCached;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setNumLocalActionCached(int numLocalActionCached) {
       checkMutation();
       summary.numLocalActionCached = numLocalActionCached;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setRanRemotely(boolean ranRemotely) {
       checkMutation();
       summary.ranRemotely = ranRemotely;
       return this;
     }
 
-    public Builder setWasUnreportedWrongSize(boolean wasUnreportedWrongSize) {
-      checkMutation();
-      summary.wasUnreportedWrongSize = wasUnreportedWrongSize;
-      return this;
-    }
-
+    @CanIgnoreReturnValue
     public Builder mergeSystemFailure(@Nullable DetailedExitCode systemFailure) {
       checkMutation();
       summary.systemFailure =
@@ -314,10 +331,18 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
      *
      * @return an immutable view of the statuses associated with the shard, with the new element.
      */
-    public List<BlazeTestStatus> addShardStatus(int shardNumber, BlazeTestStatus status) {
-      Preconditions.checkState(summary.shardRunStatuses.put(shardNumber, status),
-          "shardRunStatuses must allow duplicate statuses");
-      return ImmutableList.copyOf(summary.shardRunStatuses.get(shardNumber));
+    public ImmutableList<BlazeTestStatus> addShardStatus(int shardNumber, BlazeTestStatus status) {
+      List<BlazeTestStatus> statuses = summary.shardRunStatuses.get(shardNumber);
+      statuses.add(status);
+      return ImmutableList.copyOf(statuses);
+    }
+
+    /** Records new attempts for the given shard of the target. */
+    @CanIgnoreReturnValue
+    public Builder addShardAttempts(int shardNumber, int newAtttempts) {
+      checkMutation();
+      summary.shardAttempts[shardNumber] += newAtttempts;
+      return this;
     }
 
     /**
@@ -341,8 +366,8 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
      * incompletely-built TestSummary. Used to pass Builders around directly.
      */
     TestSummary peek() {
-      Preconditions.checkNotNull(summary.target, "Target cannot be null");
-      Preconditions.checkNotNull(summary.status, "Status cannot be null");
+      checkNotNull(summary.target, "Target cannot be null");
+      checkNotNull(summary.status, "Status cannot be null");
       return summary;
     }
 
@@ -358,18 +383,21 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
     }
   }
 
-  private ConfiguredTarget target;
-  private BuildConfiguration configuration;
+  private final ConfiguredTarget target;
+  // Currently only populated if --runs_per_test_detects_flakes is enabled.
+  private final ImmutableList<ArrayList<BlazeTestStatus>> shardRunStatuses;
+
+  private BuildConfigurationValue configuration;
   private BlazeTestStatus status;
   private boolean skipped;
-  // Currently only populated if --runs_per_test_detects_flakes is enabled.
-  private Multimap<Integer, BlazeTestStatus> shardRunStatuses = ArrayListMultimap.create();
+  private final int[] shardAttempts;
   private int numCached;
   private int numLocalActionCached;
   private boolean actionRan;
   private boolean ranRemotely;
-  private boolean wasUnreportedWrongSize;
   private List<TestCase> failedTestCases = new ArrayList<>();
+  private final List<TestCase> passedTestCases = new ArrayList<>();
+  private final List<TestCase> skippedTestCases = new ArrayList<>();
   private List<Path> passedLogs = new ArrayList<>();
   private List<Path> failedLogs = new ArrayList<>();
   private List<String> warnings = new ArrayList<>();
@@ -384,14 +412,23 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
   @Nullable private DetailedExitCode systemFailure;
 
   // Don't allow public instantiation; go through the Builder.
-  private TestSummary() {
+  private TestSummary(ConfiguredTarget target) {
+    this.target = target;
+    TestParams testParams = getTestParams();
+    int sz = Math.max(testParams.getShards(), 1);
+    shardAttempts = new int[sz];
+    shardRunStatuses = createAndInitialize(testParams.runsDetectsFlakes() ? sz : 0);
   }
 
-  /**
-   * Creates a new Builder allowing construction of a new TestSummary object.
-   */
-  public static Builder newBuilder() {
-    return new Builder();
+  private static ImmutableList<ArrayList<BlazeTestStatus>> createAndInitialize(int sz) {
+    return Stream.generate(() -> new ArrayList<BlazeTestStatus>(1))
+        .limit(sz)
+        .collect(toImmutableList());
+  }
+
+  /** Creates a new Builder allowing construction of a new TestSummary object. */
+  public static Builder newBuilder(ConfiguredTarget target) {
+    return new Builder(target);
   }
 
   public Label getLabel() {
@@ -402,7 +439,7 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
     return target;
   }
 
-  public BuildConfiguration getConfiguration() {
+  public BuildConfigurationValue getConfiguration() {
     return configuration;
   }
 
@@ -456,20 +493,24 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
     return ranRemotely;
   }
 
-  public boolean wasUnreportedWrongSize() {
-    return wasUnreportedWrongSize;
-  }
-
   public int getTotalTestCases() {
     return totalTestCases;
   }
 
-  public int getUnkownTestCases() {
+  public int getUnknownTestCases() {
     return totalUnknownTestCases;
   }
 
   public List<TestCase> getFailedTestCases() {
     return failedTestCases;
+  }
+
+  public List<TestCase> getSkippedTestCases() {
+    return skippedTestCases;
+  }
+
+  public List<TestCase> getPassedTestCases() {
+    return passedTestCases;
   }
 
   public List<Path> getCoverageFiles() {
@@ -535,6 +576,10 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
     return testTimes;
   }
 
+  public int getNumAttempts() {
+    return Arrays.stream(this.shardAttempts).max().getAsInt();
+  }
+
   public int getNumCached() {
     return numCached;
   }
@@ -587,11 +632,14 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
   @Override
   public ImmutableList<LocalFile> referencedLocalFiles() {
     ImmutableList.Builder<LocalFile> localFiles = ImmutableList.builder();
+    // TODO(b/199940216): Can we populate metadata for these files?
     for (Path path : getFailedLogs()) {
-      localFiles.add(new LocalFile(path, LocalFileType.FAILED_TEST_OUTPUT));
+      localFiles.add(
+          new LocalFile(path, LocalFileType.FAILED_TEST_OUTPUT, /* artifactMetadata= */ null));
     }
     for (Path path : getPassedLogs()) {
-      localFiles.add(new LocalFile(path, LocalFileType.SUCCESSFUL_TEST_OUTPUT));
+      localFiles.add(
+          new LocalFile(path, LocalFileType.SUCCESSFUL_TEST_OUTPUT, /* artifactMetadata= */ null));
     }
     return localFiles.build();
   }
@@ -599,12 +647,13 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
   @Override
   public BuildEventStreamProtos.BuildEvent asStreamProto(BuildEventContext converters) {
     PathConverter pathConverter = converters.pathConverter();
-    TestParams testParams = target.getProvider(TestProvider.class).getTestParams();
+    TestParams testParams = getTestParams();
     BuildEventStreamProtos.TestSummary.Builder summaryBuilder =
         BuildEventStreamProtos.TestSummary.newBuilder()
             .setOverallStatus(BuildEventStreamerUtils.bepStatus(status))
             .setTotalNumCached(getNumCached())
             .setTotalRunCount(totalRuns())
+            .setAttemptCount(getNumAttempts())
             .setRunCount(testParams.getRuns())
             .setShardCount(testParams.getShards())
             .setFirstStartTime(Timestamps.fromMillis(firstStartTimeMillis))
@@ -626,5 +675,9 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
       }
     }
     return GenericBuildEvent.protoChaining(this).setTestSummary(summaryBuilder.build()).build();
+  }
+
+  private TestParams getTestParams() {
+    return checkNotNull(target.getProvider(TestProvider.class).getTestParams(), target);
   }
 }

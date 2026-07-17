@@ -13,7 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.events;
 
+import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -21,14 +23,21 @@ import java.util.List;
 public class StoredEventHandler implements ExtendedEventHandler {
 
   private final List<Event> events = new ArrayList<>();
-  private final List<ExtendedEventHandler.Postable> posts = new ArrayList<>();
+  private final List<Postable> posts = new ArrayList<>();
   private boolean hasErrors;
+
+  /** Returns the events and clears the internal storage. */
+  public synchronized ImmutableList<Event> getAndClearEvents() {
+    ImmutableList<Event> eventsCopy = ImmutableList.copyOf(events);
+    clear();
+    return eventsCopy;
+  }
 
   public synchronized ImmutableList<Event> getEvents() {
     return ImmutableList.copyOf(events);
   }
 
-  public synchronized ImmutableList<ExtendedEventHandler.Postable> getPosts() {
+  public synchronized ImmutableList<Postable> getPosts() {
     return ImmutableList.copyOf(posts);
   }
 
@@ -37,7 +46,6 @@ public class StoredEventHandler implements ExtendedEventHandler {
     return events.isEmpty() && posts.isEmpty();
   }
 
-
   @Override
   public synchronized void handle(Event e) {
     hasErrors |= e.getKind() == EventKind.ERROR;
@@ -45,21 +53,17 @@ public class StoredEventHandler implements ExtendedEventHandler {
   }
 
   @Override
-  public synchronized void post(ExtendedEventHandler.Postable e) {
+  public synchronized void post(Postable e) {
     posts.add(e);
   }
 
   /** Replay all events stored in this object on the given eventHandler, in the same order. */
   public synchronized void replayOn(ExtendedEventHandler eventHandler) {
     Event.replayEventsOn(eventHandler, events);
-    for (ExtendedEventHandler.Postable obj : posts) {
-      eventHandler.post(obj);
-    }
+    Postable.replayPostsOn(eventHandler, posts);
   }
 
-  /**
-   * Returns whether any of the events on this objects were errors.
-   */
+  /** Returns whether any of the events on this objects were errors. */
   public synchronized boolean hasErrors() {
     return hasErrors;
   }
@@ -68,5 +72,14 @@ public class StoredEventHandler implements ExtendedEventHandler {
     events.clear();
     posts.clear();
     hasErrors = false;
+  }
+
+  @Override
+  public String toString() {
+    return MoreObjects.toStringHelper(this)
+        .add("events", events)
+        .add("posts", posts)
+        .add("hasErrors", hasErrors)
+        .toString();
   }
 }

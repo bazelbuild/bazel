@@ -19,8 +19,8 @@ import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import java.util.ArrayList;
 import java.util.List;
 import javax.annotation.concurrent.Immutable;
@@ -28,8 +28,9 @@ import javax.annotation.concurrent.Immutable;
 /** A base class for FileType matchers. */
 @Immutable
 public abstract class FileType implements Predicate<String> {
+
   // A special file type
-  @AutoCodec @VisibleForSerialization
+  @SerializationConstant @VisibleForSerialization
   public static final FileType NO_EXTENSION =
       new FileType() {
         @Override
@@ -51,19 +52,16 @@ public abstract class FileType implements Predicate<String> {
     return of(ImmutableList.copyOf(extensions));
   }
 
-  @AutoCodec.VisibleForSerialization
-  @AutoCodec
-  static final class SingletonFileType extends FileType {
+  private static final class SingletonFileType extends FileType {
     private final String ext;
 
-    @AutoCodec.VisibleForSerialization
     SingletonFileType(String ext) {
       this.ext = ext;
     }
 
     @Override
     public boolean apply(String path) {
-      return path.endsWith(ext);
+      return hasExtension(path, ext);
     }
 
     @Override
@@ -72,25 +70,16 @@ public abstract class FileType implements Predicate<String> {
     }
   }
 
-  @AutoCodec.VisibleForSerialization
-  @AutoCodec
-  static final class ListFileType extends FileType {
+  private static final class ListFileType extends FileType {
     private final ImmutableList<String> extensions;
 
-    @AutoCodec.VisibleForSerialization
     ListFileType(ImmutableList<String> extensions) {
       this.extensions = Preconditions.checkNotNull(extensions);
     }
 
     @Override
     public boolean apply(String path) {
-      // Do not use an iterator based for loop here as that creates excessive garbage.
-      for (int i = 0; i < extensions.size(); i++) {
-        if (path.endsWith(extensions.get(i))) {
-          return true;
-        }
-      }
-      return false;
+      return hasAnyExtension(path, extensions);
     }
 
     @Override
@@ -105,8 +94,8 @@ public abstract class FileType implements Predicate<String> {
 
     @Override
     public boolean equals(Object obj) {
-      return (obj instanceof ListFileType
-          && this.extensions.equals(((ListFileType) obj).extensions));
+      return obj instanceof ListFileType listFileType
+          && this.extensions.equals(listFileType.extensions);
     }
   }
 
@@ -118,6 +107,36 @@ public abstract class FileType implements Predicate<String> {
   /** Returns true if the file matches. Subclasses are expected to handle a full path. */
   @Override
   public abstract boolean apply(String path);
+
+  /** Returns true if the given path has the given extension. */
+  // TODO(bazel-team): When Starlarkifying this method, consider replacing with a mechanism that
+  //  doesn't depend on the host OS. For example, ".lib" and ".LIB" could be accepted on all OSes
+  //  for C++ rules by listing both variants explicitly without also allowind ".LiB".
+  public static boolean hasExtension(String path, String ext) {
+    // TODO: This logic is flawed:
+    //  * it applies to Windows but not macOS, even though both may have case-insensitive file
+    // systems;
+    //  * it doesn't take the actual file system case sensitivity into account;
+    //  * it doesn't behave correctly with remote execution when host OS != exec OS.
+    if (OS.getCurrent() == OS.WINDOWS) {
+      // No need to convert from internal String encoding to Unicode strings since all extensions
+      // are ASCII.
+      return path.regionMatches(true, path.length() - ext.length(), ext, 0, ext.length());
+    } else {
+      return path.endsWith(ext);
+    }
+  }
+
+  /** Returns true if the given path has any of the given extensions. */
+  public static boolean hasAnyExtension(String path, ImmutableList<String> extensions) {
+    // Do not use an iterator-based for loop here as that creates excessive garbage.
+    for (int i = 0; i < extensions.size(); i++) {
+      if (hasExtension(path, extensions.get(i))) {
+        return true;
+      }
+    }
+    return false;
+  }
 
   /**
    * Get a list of filename extensions this matcher handles. The first entry in the list (if
@@ -164,7 +183,7 @@ public abstract class FileType implements Predicate<String> {
       final Iterable<T> items, FileType... fileTypes) {
     Preconditions.checkState(fileTypes.length > 0, "Must specify at least one file type");
     final FileTypeSet fileTypeSet = FileTypeSet.of(fileTypes);
-    for (T item : items)  {
+    for (T item : items) {
       if (fileTypeSet.matches(item.filePathForFileTypeMatcher())) {
         return true;
       }
@@ -261,7 +280,7 @@ public abstract class FileType implements Predicate<String> {
   public static <T extends HasFileType> List<T> filterList(
       final Iterable<T> items, final FileType fileType) {
     List<T> result = new ArrayList<>();
-    for (T item : items)  {
+    for (T item : items) {
       if (fileType.matches(item.filePathForFileTypeMatcher())) {
         result.add(item);
       }
@@ -276,7 +295,7 @@ public abstract class FileType implements Predicate<String> {
   public static <T extends HasFileType> List<T> filterList(
       final Iterable<T> items, final FileTypeSet fileTypeSet) {
     List<T> result = new ArrayList<>();
-    for (T item : items)  {
+    for (T item : items) {
       if (fileTypeSet.matches(item.filePathForFileTypeMatcher())) {
         result.add(item);
       }

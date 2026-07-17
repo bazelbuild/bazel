@@ -1,0 +1,213 @@
+// Copyright 2025 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+package com.google.devtools.build.lib.skyframe.serialization.analysis;
+
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static java.util.concurrent.TimeUnit.MICROSECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
+
+import com.google.common.base.Stopwatch;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.flogger.GoogleLogger;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.RemoteAnalysisCacheStatistics.InvalidationLookupMetrics;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.skyframe.serialization.AsyncSerializationTask;
+import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
+import com.google.devtools.build.lib.skyframe.serialization.FrontierNodeVersion;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
+import com.google.devtools.build.lib.skyframe.serialization.PackedFingerprint;
+import com.google.devtools.build.skyframe.SkyKey;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.TimeoutException;
+import java.util.function.Supplier;
+
+/**
+ * Helper class for checking which keys should be invalidated using a remote analysis cache service.
+ */
+public final class AnalysisCacheInvalidator {
+
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+
+  private final RemoteAnalysisCacheClient analysisCacheClient;
+  private final ObjectCodecs codecs;
+  private final FingerprintValueService fingerprintService;
+  private final ExtendedEventHandler eventHandler;
+  private final RemoteAnalysisCachingEventListener eventListener;
+  private final FrontierNodeVersion currentVersion;
+  private final ClientId currentClientId;
+
+  public AnalysisCacheInvalidator(
+      RemoteAnalysisCacheClient analysisCacheClient,
+      ObjectCodecs objectCodecs,
+      FingerprintValueService fingerprintValueService,
+      FrontierNodeVersion currentVersion,
+      ClientId currentClientId,
+      ExtendedEventHandler eventHandler,
+      RemoteAnalysisCachingEventListener eventListener) {
+    this.analysisCacheClient = checkNotNull(analysisCacheClient, "analysisCacheClient");
+    this.codecs = checkNotNull(objectCodecs, "objectCodecs");
+    this.fingerprintService = checkNotNull(fingerprintValueService, "fingerprintValueService");
+    this.currentVersion = checkNotNull(currentVersion, "currentVersion");
+    this.currentClientId = checkNotNull(currentClientId, "currentClientId");
+    this.eventHandler = checkNotNull(eventHandler, "eventHandler");
+    this.eventListener = checkNotNull(eventListener, "eventListener");
+  }
+
+  /**
+   * Looks up the given keys in the analysis cache service to determine which ones should be
+   * invalidated.
+   *
+   * @param keysToLookupSupplier The supplier of set of SkyKeys to check.
+   * @return The subset of keysToLookup that got a cache miss should be invalidated locally.
+   */
+  public ImmutableSet<SkyKey> lookupKeysToInvalidate(
+      Supplier<ImmutableSet<SkyKey>> keysToLookupSupplier,
+      RemoteAnalysisCachingServerState serverState)
+      throws InterruptedException {
+    var previousVersion = serverState.version();
+    if (previousVersion == null) {
+      // TODO: b/439857268 - it looks like this can happen if the previous build was interrupted,
+      // but the exact way that leads to the previous version being unset is not entirely clear.
+      logger.atWarning().log(
+          "Skycache: no previous version was found during invalidation check. Invalidating"
+              + " everything");
+      return keysToLookupSupplier.get(); // invalidate everything
+    }
+
+    if (!previousVersion.equals(currentVersion)) {
+      logger.atInfo().log(
+          "Skycache: Version changed during invalidation check. Previous version: %s, current"
+              + " version: %s.",
+          previousVersion, currentVersion);
+      return keysToLookupSupplier.get(); // everything must be invalidated
+    }
+
+    if (Objects.equals(currentClientId, serverState.clientId())) {
+      // The current client state is the same as the previous client state, so
+      // no invalidation is needed because all deserialized keys are still valid.
+      return ImmutableSet.of();
+    }
+
+    ImmutableSet<SkyKey> keysToLookup = keysToLookupSupplier.get();
+
+    if (keysToLookup.isEmpty()) {
+      logger.atInfo().log("Skycache: No keys to lookup for invalidation check.");
+      return ImmutableSet.of();
+    }
+
+    Stopwatch stopwatch = Stopwatch.createStarted();
+
+    ImmutableList<ListenableFuture<Optional<SkyKey>>> futures;
+    try (SilentCloseable unused = Profiler.instance().profile("submitInvalidationLookups")) {
+      futures =
+          keysToLookup.parallelStream()
+              .map(this::submitInvalidationLookup)
+              .collect(toImmutableList());
+    }
+
+    try (SilentCloseable unused = Profiler.instance().profile("waitInvalidationLookups")) {
+      ImmutableSet<SkyKey> keysToInvalidate;
+      InvalidationLookupMetrics.Status status = null;
+      int numInvalidatedKeys = 0;
+      try {
+        keysToInvalidate =
+            Futures.allAsList(futures).get(10, SECONDS).stream()
+                // Flatten Optionals, keeping only non-empty ones (keys to invalidate)
+                .flatMap(Optional::stream)
+                .collect(toImmutableSet());
+        status = InvalidationLookupMetrics.Status.OK;
+        numInvalidatedKeys = keysToInvalidate.size();
+      } catch (ExecutionException e) {
+        status = InvalidationLookupMetrics.Status.ERROR;
+        numInvalidatedKeys = keysToLookup.size();
+        logger.atWarning().withCause(e).log(
+            "Skycache: Error waiting for analysis cache responses during invalidation check."
+                + " Invalidating everything.");
+        return keysToLookup;
+      } catch (TimeoutException e) {
+        status = InvalidationLookupMetrics.Status.TIMED_OUT;
+        numInvalidatedKeys = keysToLookup.size();
+        logger.atWarning().log(
+            "Skycache: Timeout waiting for analysis cache responses during invalidation check."
+                + " Invalidating everything.");
+        return keysToLookup;
+      } finally {
+        stopwatch.stop();
+        if (status != null) {
+          eventListener.setInvalidationLookupMetrics(
+              InvalidationLookupMetrics.newBuilder()
+                  .setLatencyMicros(stopwatch.elapsed(MICROSECONDS))
+                  .setStatus(status)
+                  .setNumKeys(keysToLookup.size())
+                  .setNumInvalidatedKeys(numInvalidatedKeys)
+                  .build());
+        }
+      }
+      eventHandler.handle(
+          Event.info(
+              String.format(
+                  "Skycache: Invalidation lookup took %s. %s/%s keys will be invalidated.",
+                  stopwatch, keysToInvalidate.size(), futures.size())));
+      return keysToInvalidate;
+    }
+  }
+
+  /**
+   * Checks if the given node should be invalidated by submitting the node's fingerprint to the
+   * analysis cache.
+   *
+   * <p>Returns the node's SkyKey if the node should be invalidated (i.e. cache miss), otherwise
+   * returns an empty Optional.
+   *
+   * <p>Note: only lookup SkyKeys that were deserialized! Sending a key that was never serialized
+   * will result in a cache miss for every build.
+   */
+  private ListenableFuture<Optional<SkyKey>> submitInvalidationLookup(SkyKey key) {
+    // 1. Serialize the key
+    AsyncSerializationTask serializeKeyTask =
+        codecs.serializeMemoizedAsync(fingerprintService, key, null);
+    serializeKeyTask.run();
+
+    // 2. Compute the fingerprint from the serialized blob
+    ListenableFuture<PackedFingerprint> fingerprint =
+        Futures.transform(
+            serializeKeyTask,
+            k -> fingerprintService.fingerprint(currentVersion.concat(k.getObject().toByteArray())),
+            ForkJoinPool.commonPool());
+
+    // 3. Submit the fingerprint to the analysis cache service
+    ListenableFuture<LookupResult> responseFuture =
+        Futures.transformAsync(
+            fingerprint, f -> analysisCacheClient.lookup(f.toBytes()), ForkJoinPool.commonPool());
+
+    // 4. Transform result to return keys that should be invalidated (i.e.
+    // empty response, cache miss)
+    return Futures.transform(
+        responseFuture,
+        response -> (response.value().length == 0) ? Optional.of(key) : Optional.empty(),
+        directExecutor());
+  }
+}

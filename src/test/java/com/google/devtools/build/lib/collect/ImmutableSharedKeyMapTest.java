@@ -15,24 +15,51 @@
 package com.google.devtools.build.lib.collect;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.TruthJUnit.assume;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.testing.EqualsTester;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /** Tests for {@link ImmutableSharedKeyMap}. */
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public final class ImmutableSharedKeyMapTest {
 
+  private enum CreationMode {
+    BUILDER {
+      @Override
+      <K, V> ImmutableSharedKeyMap<K, V> createFrom(ImmutableMap<K, V> map) {
+        var builder = ImmutableSharedKeyMap.<K, V>builder();
+        map.forEach(builder::put);
+        return builder.build();
+      }
+    },
+    COPY_OF {
+      @Override
+      <K, V> ImmutableSharedKeyMap<K, V> createFrom(ImmutableMap<K, V> map) {
+        return ImmutableSharedKeyMap.copyOf(map);
+      }
+    };
+
+    abstract <K, V> ImmutableSharedKeyMap<K, V> createFrom(ImmutableMap<K, V> map);
+  }
+
+  @TestParameter private CreationMode creationMode;
+
+  private <K, V> ImmutableSharedKeyMap<K, V> createFrom(ImmutableMap<K, V> map) {
+    return creationMode.createFrom(map);
+  }
+
   @Test
-  public void testBasicFunctionality() throws Exception {
+  public void testBasicFunctionality() {
     Object valueA = new Object();
     Object valueB = new Object();
-    ImmutableSharedKeyMap<String, Object> map =
-        ImmutableSharedKeyMap.<String, Object>builder().put("a", valueA).put("b", valueB).build();
+    var immutableMap = ImmutableMap.of("a", valueA, "b", valueB);
+    ImmutableSharedKeyMap<String, Object> map = createFrom(immutableMap);
 
     assertThat(map.get("a")).isSameInstanceAs(valueA);
     assertThat(map.get("b")).isSameInstanceAs(valueB);
@@ -43,41 +70,36 @@ public final class ImmutableSharedKeyMapTest {
     for (String key : map) {
       iterationCopy.put(key, map.get(key));
     }
-    assertThat(iterationCopy.build()).isEqualTo(ImmutableMap.of("a", valueA, "b", valueB));
+    assertThat(iterationCopy.buildOrThrow()).isEqualTo(immutableMap);
 
     ImmutableMap.Builder<String, Object> arrayIterationCopy = ImmutableMap.builder();
     for (int i = 0; i < map.size(); ++i) {
       arrayIterationCopy.put(map.keyAt(i), map.valueAt(i));
     }
-    assertThat(arrayIterationCopy.build()).isEqualTo(ImmutableMap.of("a", valueA, "b", valueB));
+    assertThat(arrayIterationCopy.buildOrThrow()).isEqualTo(immutableMap);
   }
 
   @Test
-  public void testEquality() throws Exception {
-    ImmutableSharedKeyMap<String, Object> emptyMap =
-        ImmutableSharedKeyMap.<String, Object>builder().build();
+  public void testEquality() {
+    ImmutableSharedKeyMap<String, Object> emptyMap = createFrom(ImmutableMap.of());
 
     Object valueA = new Object();
     Object valueB = new Object();
 
     ImmutableSharedKeyMap<String, Object> map =
-        ImmutableSharedKeyMap.<String, Object>builder().put("a", valueA).put("b", valueB).build();
+        createFrom(ImmutableMap.of("a", valueA, "b", valueB));
 
     // Two identically ordered maps are equal
     ImmutableSharedKeyMap<String, Object> exactCopy =
-        ImmutableSharedKeyMap.<String, Object>builder().put("a", valueA).put("b", valueB).build();
+        createFrom(ImmutableMap.of("a", valueA, "b", valueB));
 
     // The map is order sensitive, so different insertion orders aren't equal
     ImmutableSharedKeyMap<String, Object> oppositeOrderMap =
-        ImmutableSharedKeyMap.<String, Object>builder().put("b", valueB).put("a", valueA).build();
+        createFrom(ImmutableMap.of("b", valueB, "a", valueA));
 
     Object valueC = new Object();
     ImmutableSharedKeyMap<String, Object> biggerMap =
-        ImmutableSharedKeyMap.<String, Object>builder()
-            .put("a", valueA)
-            .put("b", valueB)
-            .put("c", valueC)
-            .build();
+        createFrom(ImmutableMap.of("a", valueA, "b", valueB, "c", valueC));
 
     new EqualsTester()
         .addEqualityGroup(emptyMap)
@@ -88,7 +110,10 @@ public final class ImmutableSharedKeyMapTest {
   }
 
   @Test
-  public void testMultipleIdenticalKeysThrowsException() throws Exception {
+  public void duplicateKeyPassedToBuilder_throws() {
+    // This test only makes sense with the builder since copyOf takes a map which is duplicate-free.
+    assume().that(creationMode).isEqualTo(CreationMode.BUILDER);
+
     Object valueA = new Object();
     Object valueB = new Object();
     Object valueC = new Object();
@@ -98,10 +123,10 @@ public final class ImmutableSharedKeyMapTest {
             .put("key", valueB)
             .put("key", valueC);
 
-    assertThrows(IllegalArgumentException.class, () -> map.build());
+    assertThrows(IllegalArgumentException.class, map::build);
   }
 
-  private static class SameHashCodeClass {
+  private static final class SameHashCodeClass {
     @Override
     public int hashCode() {
       return 0;
@@ -109,16 +134,13 @@ public final class ImmutableSharedKeyMapTest {
   }
 
   @Test
-  public void testTwoKeysWithTheSameHashCode() throws Exception {
+  public void twoKeysWithTheSameHashCode() {
     SameHashCodeClass keyA = new SameHashCodeClass();
     SameHashCodeClass keyB = new SameHashCodeClass();
     Object valueA = new Object();
     Object valueB = new Object();
     ImmutableSharedKeyMap<SameHashCodeClass, Object> map =
-        ImmutableSharedKeyMap.<SameHashCodeClass, Object>builder()
-            .put(keyA, valueA)
-            .put(keyB, valueB)
-            .build();
+        createFrom(ImmutableMap.of(keyA, valueA, keyB, valueB));
     assertThat(map.get(keyA)).isSameInstanceAs(valueA);
     assertThat(map.get(keyB)).isSameInstanceAs(valueB);
   }

@@ -17,6 +17,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.HashMultiset;
 import com.google.common.collect.Multiset;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Set;
 import java.util.concurrent.Semaphore;
 
@@ -83,6 +84,7 @@ public abstract class MultisetSemaphore<T> {
      * Sets the maximum number of unique values for which permits can be held at once in the
      * to-be-constructed {@link MultisetSemaphore}.
      */
+    @CanIgnoreReturnValue
     public Builder maxNumUniqueValues(int maxNumUniqueValues) {
       Preconditions.checkState(
           maxNumUniqueValues > 0,

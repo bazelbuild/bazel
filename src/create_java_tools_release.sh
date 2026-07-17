@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Copyright 2019 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -19,7 +19,7 @@
 # binaries pipeline was previously run and generated java_tools artifacts at
 # a commit hash.
 #
-# The script is using gsutil to copy artifacts.
+# The script is using gcloud storage to copy artifacts.
 #
 # Mandatory flags:
 # --java_tools_version  The version number of the java_tools to be released.
@@ -49,6 +49,11 @@
 
 set -euo pipefail
 
+function fail() {
+  echo $@ > /dev/stderr
+  exit 1
+}
+
 # Parsing the flags.
 while [[ -n "$@" ]]; do
   arg="$1"; shift
@@ -58,7 +63,7 @@ while [[ -n "$@" ]]; do
     "--commit_hash") commit_hash="$val" ;;
     "--rc") rc="$val" ;;
     "--release") release="$val" ;;
-    *) echo "Flag $arg is not recognized." && exit 1 ;;
+    *) fail "Flag $arg is not recognized." ;;
   esac
 done
 
@@ -68,31 +73,51 @@ tmp_dir=$(mktemp -d -t 'tmp_bazel_zip_files_XXXXXX')
 trap "rm -fr $tmp_dir" EXIT
 
 gcs_bucket="gs://bazel-mirror/bazel_java_tools"
+mirror_prefix="https://mirror.bazel.build/bazel_java_tools"
+github_prefix="https://github.com/bazelbuild/java_tools/releases/download"
 
-for platform in "linux" "windows" "darwin"; do
+function copy_or_fail_if_target_exists() {
+  src_path=$1
+  target_path=$2
+  already_exists=$(gcloud storage objects describe ${target_path} &>/dev/null && echo "yes" || echo "no")
+  if [[ "${already_exists}" == "yes" ]]; then
+    fail "${target_path} already exists, did you mean to create a fresh RC / release?"
+  else
+    gcloud --quiet storage cp -n ${src_path} ${target_path}
+  fi
+}
+
+for platform in "linux" "linux_aarch64" "windows" "darwin_x86_64" "darwin_arm64"; do
   rc_url="release_candidates/java/v${java_tools_version}/java_tools_${platform}-v${java_tools_version}-rc${rc}.zip"
 
   if [[ $release == "true" ]]; then
     release_artifact="releases/java/v${java_tools_version}/java_tools_${platform}-v${java_tools_version}.zip"
     # Make release candidate the release artifact for the current platform.
     # Don't overwrite existing file.
-    gsutil -q cp -n "${gcs_bucket}/${rc_url}" "${gcs_bucket}/${release_artifact}"
+    copy_or_fail_if_target_exists "${gcs_bucket}/${rc_url}" "${gcs_bucket}/${release_artifact}"
+
+    github_url="${github_prefix}/java_v${java_tools_version}/java_tools_${platform}-v${java_tools_version}.zip"
+    mirror_url=${mirror_prefix}/${release_artifact}
+    urls='"mirror_url" : "'${mirror_url}'", "github_url" : "'${github_url}'"'
   else
-    tmp_url=$(gsutil ls -lh ${gcs_bucket}/tmp/build/${commit_hash}/java/java_tools_${platform}* | sort -k 2 | grep gs -m 1 | awk '{print $4}')
+    tmp_url=$(gcloud storage ls -l ${gcs_bucket}/tmp/build/${commit_hash}/java/java_tools_${platform}* | sort -k 2 | grep gs -m 1 | awk '{print $3}')
 
     # Make the generated artifact a release candidate for the current platform.
     # Don't overwrite existing file.
-    gsutil -q cp -n ${tmp_url} "${gcs_bucket}/${rc_url}"
-    release_artifact="${rc_url}"
+    copy_or_fail_if_target_exists "${tmp_url}" "${gcs_bucket}/${rc_url}"
+
+    mirror_url=${mirror_prefix}/${rc_url}
+    urls='"mirror_url" : "'${mirror_url}'"'
   fi
 
   # Download the file locally to compute its sha256sum (needed to update the
   # java_tools in Bazel).
   # Don't overwrite existing file.
   local_zip="$tmp_dir/java_tools$platform.zip"
-  gsutil -q cp -n ${gcs_bucket}/${rc_url} ${local_zip}
+  gcloud --quiet storage cp -n ${gcs_bucket}/${rc_url} ${local_zip}
   file_hash=$(sha256sum ${local_zip} | cut -d' ' -f1)
-  echo "${release_artifact} ${file_hash}"
+
+  platform_output+='"java_tools_'${platform}'" : {'${urls}', "sha": "'${file_hash}'"},'
 done
 
 rc_url="release_candidates/java/v${java_tools_version}/java_tools-v${java_tools_version}-rc${rc}.zip"
@@ -103,28 +128,39 @@ if [[ $release == "true" ]]; then
   release_sources_artifact="releases/java/v${java_tools_version}/sources/java_tools-v${java_tools_version}.zip"
   # Make release candidate the release artifact for the current platform.
   # Don't overwrite existing file.
-  gsutil -q cp -n "${gcs_bucket}/${rc_url}" "${gcs_bucket}/${release_artifact}"
+  copy_or_fail_if_target_exists "${gcs_bucket}/${rc_url}" "${gcs_bucket}/${release_artifact}"
 
   # Copy the associated zip file that contains the sources of the release zip.
   # Don't overwrite existing file.
-  gsutil -q cp -n "${gcs_bucket}/${rc_sources_url}" "${gcs_bucket}/${release_sources_artifact}"
+  copy_or_fail_if_target_exists "${gcs_bucket}/${rc_sources_url}" "${gcs_bucket}/${release_sources_artifact}"
+
+  github_url="${github_prefix}/java_v${java_tools_version}/java_tools-v${java_tools_version}.zip"
+  mirror_url=${mirror_prefix}/${release_artifact}
+  urls='"mirror_url" : "'${mirror_url}'", "github_url" : "'${github_url}'"'
 else
-  tmp_url=$(gsutil ls -lh ${gcs_bucket}/tmp/build/${commit_hash}/java/java_tools-* | sort -k 2 | grep gs -m 1 | awk '{print $4}')
+  tmp_url=$(gcloud storage ls -l ${gcs_bucket}/tmp/build/${commit_hash}/java/java_tools-* | sort -k 2 | grep gs -m 1 | awk '{print $3}')
 
-  gsutil -q cp -n ${tmp_url} "${gcs_bucket}/${rc_url}"
-  release_artifact="${rc_url}"
+  copy_or_fail_if_target_exists "${tmp_url}" "${gcs_bucket}/${rc_url}"
 
   # Copy the associated zip file that contains the sources of the release zip.
   # Don't overwrite existing file.
-  tmp_sources_url=$(gsutil ls -lh ${gcs_bucket}/tmp/sources/${commit_hash}/java/java_tools-* | sort -k 2 | grep gs -m 1 | awk '{print $4}')
-  gsutil -q cp -n ${tmp_sources_url} ${gcs_bucket}/${rc_sources_url}
+  tmp_sources_url=$(gcloud storage ls -l ${gcs_bucket}/tmp/sources/${commit_hash}/java/java_tools-* | sort -k 2 | grep gs -m 1 | awk '{print $3}')
+  copy_or_fail_if_target_exists "${tmp_sources_url}" "${gcs_bucket}/${rc_sources_url}"
+
+  mirror_url=${mirror_prefix}/${rc_url}
+  urls='"mirror_url" : "'${mirror_url}'"'
 fi
 
 # Download the file locally to compute its sha256sum (needed to update the
 # java_tools in Bazel).
 # Don't overwrite existing file.
 local_zip="$tmp_dir/java_tools.zip"
-gsutil -q cp -n ${gcs_bucket}/${rc_url} ${local_zip}
+gcloud --quiet storage cp -n ${gcs_bucket}/${rc_url} ${local_zip}
 file_hash=$(sha256sum ${local_zip} | cut -d' ' -f1)
-echo "${release_artifact} ${file_hash}"
 
+java_tools_output='"java_tools" : {'${urls}', "sha" : "'${file_hash}'"}'
+artifacts='"artifacts" : {'${platform_output}' '${java_tools_output}'}'
+version='"version" : "v'${java_tools_version}'"'
+release='"release" : "'${release}'"'
+provenance='"source_revision" : "'${commit_hash}'"'
+echo "{${version}, ${provenance}, ${release}, ${artifacts}}" | jq

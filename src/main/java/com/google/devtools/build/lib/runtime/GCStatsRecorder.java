@@ -35,7 +35,7 @@ public class GCStatsRecorder {
       initialData.put(name, new GCStat(name, mxBean.getCollectionCount(),
           mxBean.getCollectionTime()));
     }
-    this.initialData = initialData.build();
+    this.initialData = initialData.buildOrThrow();
   }
 
   public Iterable<GCStat> getCurrentGcStats() {

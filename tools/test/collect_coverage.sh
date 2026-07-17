@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Copyright 2016 The Bazel Authors. All rights reserved.
 #
@@ -49,6 +49,16 @@ function resolve_links() {
   fi
 }
 
+# tw.exe prefixes the runfiles env variables so that this script can find its
+# own runfiles, which are not part of the test's runfiles.
+for name in RUNFILES_DIR RUNFILES_MANIFEST_FILE JAVA_RUNFILES PYTHON_RUNFILES; do
+  wrapper_name="BAZEL_COVERAGE_INTERNAL_${name}"
+  if [[ -n "${!wrapper_name}" ]]; then
+    export ${name}="${!wrapper_name}"
+    unset BAZEL_COVERAGE_INTERNAL_${name}
+  fi
+done
+
 if [[ -z "$COVERAGE_MANIFEST" ]]; then
   echo --
   echo Coverage runner: \$COVERAGE_MANIFEST is not set
@@ -86,15 +96,6 @@ export JAVA_COVERAGE_FILE=$COVERAGE_DIR/jvcov.dat
 export COVERAGE=1
 export BULK_COVERAGE_RUN=1
 
-
-for name in "$LCOV_MERGER"; do
-  if [[ ! -e $name ]]; then
-    echo --
-    echo Coverage runner: cannot locate file $name
-    exit 1
-  fi
-done
-
 # Setting up the environment for executing the C++ tests.
 if [[ -z "$GCOV_PREFIX_STRIP" ]]; then
   # TODO: GCOV_PREFIX_STRIP=3 is incorrect on MacOS in the default setup
@@ -102,6 +103,11 @@ if [[ -z "$GCOV_PREFIX_STRIP" ]]; then
 fi
 export GCOV_PREFIX="${COVERAGE_DIR}"
 export LLVM_PROFILE_FILE="${COVERAGE_DIR}/%h-%p-%m.profraw"
+if [[ -n "$LLVM_PROFILE_CONTINUOUS_MODE" ]]; then
+  # %c enables continuous mode but expands out to nothing, so the position
+  # within LLVM_PROFILE_FILE does not matter.
+  export LLVM_PROFILE_FILE="${LLVM_PROFILE_FILE}%c"
+fi
 
 # In coverage mode for Java, we need to merge the runtime classpath before
 # running the tests. JacocoCoverageRunner uses this merged jar in order
@@ -140,7 +146,7 @@ if [[ ! -z "${JAVA_RUNTIME_CLASSPATH_FOR_COVERAGE}" ]]; then
   # Append the runfiles prefix to all the relative paths found in
   # JAVA_RUNTIME_CLASSPATH_FOR_COVERAGE, to invoke SingleJar with the
   # absolute paths.
-  RUNFILES_PREFIX="$TEST_SRCDIR/"
+  RUNFILES_PREFIX="$TEST_SRCDIR/$TEST_WORKSPACE/"
   cat "$JAVA_RUNTIME_CLASSPATH_FOR_COVERAGE" | sed "s@^@$RUNFILES_PREFIX@" >> "$single_jar_params_file"
 
   # Invoke SingleJar. This will create JACOCO_METADATA_JAR.
@@ -173,6 +179,9 @@ fi
 # ------------------EXPERIMENTAL---------------------
 # After this point we can run the code necessary for the coverage spawn
 
+# Make sure no binaries run later produce coverage data.
+unset LLVM_PROFILE_FILE
+
 if [[ "$SPLIT_COVERAGE_POST_PROCESSING" == "1" && "$IS_COVERAGE_SPAWN" == "0" ]]; then
   exit 0
 fi
@@ -183,9 +192,30 @@ fi
 # TODO(bazel-team): cd should be avoided.
 cd $ROOT
 # Call the C++ code coverage collection script.
-if [[ "$CC_CODE_COVERAGE_SCRIPT" ]]; then
-    eval "${CC_CODE_COVERAGE_SCRIPT}"
+if [[ -n "$GENERATE_LLVM_LCOV" && "$CC_CODE_COVERAGE_SCRIPT" ]]; then
+    if ! eval "${CC_CODE_COVERAGE_SCRIPT}" && test -z "${IGNORE_COVERAGE_COLLECTION_FAILURES:-}"; then
+      echo "error: coverage collection script failed" >&2
+      exit 1
+    fi
 fi
+
+if [[ -z "$LCOV_MERGER" ]]; then
+  # this can happen if a rule returns an InstrumentedFilesInfo (which all do
+  # following 5b216b2) but does not define an _lcov_merger attribute.
+  # Unfortunately, we cannot simply stop this script being called in this case
+  # due to conflicts with how things work within Google.
+  # The file creation is required because TestActionBuilder has already declared
+  # it.
+  exit 0
+fi
+
+for name in "$LCOV_MERGER"; do
+  if [[ ! -e $name ]]; then
+    echo --
+    echo Coverage runner: cannot locate file $name
+    exit 1
+  fi
+done
 
 # Export the command line that invokes LcovMerger with the flags:
 # --coverage_dir          The absolute path of the directory where the
@@ -220,7 +250,7 @@ LCOV_MERGER_CMD="${LCOV_MERGER} --coverage_dir=${COVERAGE_DIR} \
   --filter_sources=/usr/bin/.+ \
   --filter_sources=/usr/lib/.+ \
   --filter_sources=/usr/include.+ \
-  --filter_sources=.*external/.+ \
+  --filter_sources=/Applications/.+ \
   --source_file_manifest=${COVERAGE_MANIFEST}"
 
 if [[ $COVERAGE_REPORTED_TO_ACTUAL_SOURCES_FILE ]]; then
@@ -234,7 +264,7 @@ if [[ $DISPLAY_LCOV_CMD ]] ; then
   echo "-----------------"
 fi
 
-# JAVA_RUNFILES is set to the runfiles of the test, which does not necessarily
-# contain a JVM (it does only if the test has a Java binary somewhere). So let
-# the LCOV merger discover where its own runfiles tree is.
-JAVA_RUNFILES= exec $LCOV_MERGER_CMD
+# Runfiles variables are set to the runfiles of the test, which does not contain
+# the runfiles of the LCOV merger. Unset them so that it can find its own
+# runfiles tree.
+JAVA_RUNFILES= RUNFILES_DIR= RUNFILES_MANIFEST_FILE= exec $LCOV_MERGER_CMD

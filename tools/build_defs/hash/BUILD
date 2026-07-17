@@ -1,4 +1,5 @@
-load("//tools/python:private/defs.bzl", "py_binary")
+load("@rules_python//python:py_binary.bzl", "py_binary")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 
 licenses(["notice"])  # Apache 2.0
 
@@ -8,9 +9,14 @@ filegroup(
     visibility = ["//tools/build_defs:__pkg__"],
 )
 
-exports_files(
-    ["README.md"],
-    visibility = ["//site:__pkg__"],
+filegroup(
+    name = "embedded_tools",
+    srcs = [
+        "BUILD.tools",
+        "hash.bzl",
+        "sha256.py",
+    ],
+    visibility = ["//tools/build_defs:__pkg__"],
 )
 
 py_binary(
@@ -30,19 +36,4 @@ sh_test(
     srcs = ["sha256_test.sh"],
     data = ["sha256"],
     deps = ["@bazel_tools//tools/bash/runfiles"],
-)
-
-test_suite(
-    name = "windows_tests",
-    tags = [
-        "-no_windows",
-        "-slow",
-    ],
-    visibility = ["//visibility:private"],
-)
-
-test_suite(
-    name = "all_windows_tests",
-    tests = [":windows_tests"],
-    visibility = ["//tools/build_defs:__pkg__"],
 )

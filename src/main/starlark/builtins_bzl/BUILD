@@ -5,6 +5,8 @@
 # Because we use globs to gather builtins sources, there should be no
 # subpackages here.
 
+load("//src:builtins_zip.bzl", "builtins_zip")
+
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
@@ -13,17 +15,12 @@ filegroup(
 
 # A zipfile containing the builtins_bzl/ directory, to be bundled as a Java
 # resource with BazelRuleClassProvider.
-genrule(
+builtins_zip(
     name = "builtins_bzl_zip",
     srcs = glob(["**/*.bzl"]),
-    outs = ["builtins_bzl.zip"],
-    # builtins_zip.sh zip output builtins_root files...
-    cmd = "$(location //src:zip_builtins)" +
-          " ''" +  # system zip
-          " $@ src/main/starlark/builtins_bzl $(SRCS)",
-    output_to_bindir = 1,
-    tools = ["//src:zip_builtins"],
+    out = "builtins_bzl.zip",
     visibility = [
         "//src/main/java/com/google/devtools/build/lib/bazel/rules:__pkg__",
     ],
+    zipper = "//third_party/ijar:zipper",
 )

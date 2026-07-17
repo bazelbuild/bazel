@@ -24,30 +24,30 @@ import java.io.PrintWriter;
 public class DotOutputVisitor<T> implements GraphVisitor<T> {
 
   /**
-   *  Constructs a dot output visitor.
+   * Constructs a dot output visitor.
    *
-   *  The visitor writes to writer 'out', and rendering node labels as
-   *  strings using the specified displayer, 'disp'.
+   * <p>The visitor writes to writer 'out', and rendering node labels as strings using the specified
+   * displayer, 'disp'.
    */
-  public DotOutputVisitor(PrintWriter out, LabelSerializer<T> disp) {
-    // assert disp != null;
-    // assert out != null;
+  public DotOutputVisitor(PrintWriter out, String lineTerminator, LabelSerializer<T> disp) {
     this.out = out;
+    this.lineTerminator = lineTerminator;
     this.disp = disp;
   }
 
   private final LabelSerializer<T> disp;
   protected final PrintWriter out;
+  protected final String lineTerminator;
   private boolean closeAtEnd = false;
 
   @Override
   public void beginVisit() {
-    out.println("digraph mygraph {");
+    out.printf("digraph mygraph {%s", lineTerminator);
   }
 
   @Override
   public void endVisit() {
-    out.println("}");
+    out.printf("}%s", lineTerminator);
     out.flush();
     if (closeAtEnd) {
       out.close();
@@ -56,13 +56,11 @@ public class DotOutputVisitor<T> implements GraphVisitor<T> {
 
   @Override
   public void visitEdge(Node<T> lhs, Node<T> rhs) {
-    String s_lhs = disp.serialize(lhs);
-    String s_rhs = disp.serialize(rhs);
-    out.println("  \"" + s_lhs + "\" -> \"" + s_rhs + "\"");
+    out.printf("  \"%s\" -> \"%s\"%s", disp.serialize(lhs), disp.serialize(rhs), lineTerminator);
   }
 
   @Override
   public void visitNode(Node<T> node) {
-    out.println("  \"" + disp.serialize(node) + "\"");
+    out.printf("  \"%s\"%s", disp.serialize(node), lineTerminator);
   }
 }

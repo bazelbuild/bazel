@@ -17,7 +17,9 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
 import com.google.common.jimfs.Jimfs;
+import com.google.devtools.common.options.OptionsParser.ArgAndFallbackData;
 import java.io.IOException;
 import java.nio.file.FileSystem;
 import java.nio.file.Path;
@@ -58,21 +60,21 @@ public class ParamsFilePreProcessorTest {
 
   @Test
   public void testNoArgs() throws OptionsParsingException {
-    List<String> args = paramsFilePreProcessor.preProcess(ImmutableList.of());
+    List<String> args = preProcess(paramsFilePreProcessor, ImmutableList.of());
     assertThat(args).isEmpty();
   }
 
   @Test
   public void testNoParamsFile() throws OptionsParsingException {
     List<String> rawArgs = ImmutableList.of("--foo", "foo val");
-    List<String> args = paramsFilePreProcessor.preProcess(rawArgs);
+    List<String> args = preProcess(paramsFilePreProcessor, rawArgs);
     assertThat(args).containsExactlyElementsIn(rawArgs).inOrder();
   }
 
   @Test
   public void testParamsFileNotFirst() throws OptionsParsingException {
     List<String> rawArgs = ImmutableList.of("--foo", "foo val", "@paramsFile");
-    List<String> args = paramsFilePreProcessor.preProcess(rawArgs);
+    List<String> args = preProcess(paramsFilePreProcessor, rawArgs);
     assertThat(args).containsExactlyElementsIn(rawArgs).inOrder();
   }
 
@@ -81,7 +83,7 @@ public class ParamsFilePreProcessorTest {
     List<String> rawArgs = ImmutableList.of("@paramsFile", "--foo", "foo val");
     OptionsParsingException expected =
         assertThrows(
-            OptionsParsingException.class, () -> paramsFilePreProcessor.preProcess(rawArgs));
+            OptionsParsingException.class, () -> preProcess(paramsFilePreProcessor, rawArgs));
     assertThat(expected)
         .hasMessageThat()
         .isEqualTo(
@@ -101,7 +103,7 @@ public class ParamsFilePreProcessorTest {
     OptionsParsingException expected =
         assertThrows(
             OptionsParsingException.class,
-            () -> exceptionParser.preProcess(ImmutableList.of("@" + paramsFileName)));
+            () -> preProcess(exceptionParser, ImmutableList.of("@" + paramsFileName)));
     assertThat(expected)
         .hasMessageThat()
         .isEqualTo(
@@ -113,7 +115,14 @@ public class ParamsFilePreProcessorTest {
 
   @Test
   public void testParamsFile() throws OptionsParsingException {
-    List<String> args = paramsFilePreProcessor.preProcess(ImmutableList.of("@paramsFile"));
+    List<String> args = preProcess(paramsFilePreProcessor, ImmutableList.of("@paramsFile"));
     assertThat(args).containsExactlyElementsIn(PARAM_FILE_ARGS).inOrder();
+  }
+
+  private static List<String> preProcess(ParamsFilePreProcessor preProcessor, List<String> args)
+      throws OptionsParsingException {
+    return Lists.transform(
+        preProcessor.preProcess(ArgAndFallbackData.wrapWithFallbackData(args, null)),
+        argAndFallbackData -> argAndFallbackData.arg);
   }
 }

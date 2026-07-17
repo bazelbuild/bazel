@@ -13,21 +13,29 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote;
 
-import com.google.devtools.build.lib.remote.grpc.ChannelConnectionFactory;
-import com.google.devtools.build.lib.remote.grpc.ChannelConnectionFactory.ChannelConnection;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+
+import build.bazel.remote.execution.v2.ServerCapabilities;
+import com.google.common.base.Throwables;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.remote.ChannelConnectionWithServerCapabilitiesFactory.ChannelConnectionWithServerCapabilities;
 import com.google.devtools.build.lib.remote.grpc.DynamicConnectionPool;
 import com.google.devtools.build.lib.remote.grpc.SharedConnectionFactory.SharedConnection;
-import io.grpc.CallOptions;
+import com.google.devtools.build.lib.remote.util.RxFutures;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.grpc.Channel;
-import io.grpc.ClientCall;
-import io.grpc.ForwardingClientCall;
-import io.grpc.ForwardingClientCallListener;
-import io.grpc.Metadata;
-import io.grpc.MethodDescriptor;
-import io.grpc.Status;
 import io.netty.util.AbstractReferenceCounted;
 import io.netty.util.ReferenceCounted;
+import io.reactivex.rxjava3.annotations.CheckReturnValue;
+import io.reactivex.rxjava3.core.Single;
+import io.reactivex.rxjava3.core.SingleObserver;
+import io.reactivex.rxjava3.core.SingleSource;
+import io.reactivex.rxjava3.disposables.Disposable;
+import io.reactivex.rxjava3.functions.Function;
 import java.io.IOException;
+import java.util.concurrent.ExecutionException;
 
 /**
  * A wrapper around a {@link DynamicConnectionPool} exposing {@link Channel} and a reference count.
@@ -36,7 +44,7 @@ import java.io.IOException;
  *
  * <p>See {@link ReferenceCounted} for more information about reference counting.
  */
-public class ReferenceCountedChannel extends Channel implements ReferenceCounted {
+public class ReferenceCountedChannel implements ReferenceCounted {
   private final DynamicConnectionPool dynamicConnectionPool;
   private final AbstractReferenceCounted referenceCounted =
       new AbstractReferenceCounted() {
@@ -55,59 +63,112 @@ public class ReferenceCountedChannel extends Channel implements ReferenceCounted
         }
       };
 
-  public ReferenceCountedChannel(ChannelConnectionFactory connectionFactory) {
+  public ReferenceCountedChannel(ChannelConnectionWithServerCapabilitiesFactory connectionFactory) {
+    this(connectionFactory, /* maxConnections= */ 0);
+  }
+
+  public ReferenceCountedChannel(
+      ChannelConnectionWithServerCapabilitiesFactory connectionFactory, int maxConnections) {
     this.dynamicConnectionPool =
-        new DynamicConnectionPool(connectionFactory, connectionFactory.maxConcurrency());
+        new DynamicConnectionPool(
+            connectionFactory, connectionFactory.maxConcurrency(), maxConnections);
+  }
+
+  public ServerCapabilities getServerCapabilities() throws IOException {
+    try (var s = Profiler.instance().profile("getServerCapabilities")) {
+      return blockingGet(
+          withChannelConnection(ChannelConnectionWithServerCapabilities::getServerCapabilities));
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new IOException(e);
+    }
   }
 
   public boolean isShutdown() {
     return dynamicConnectionPool.isClosed();
   }
 
-  /** A {@link ClientCall} which call {@link SharedConnection#close()} after the RPC is closed. */
-  static class ConnectionCleanupCall<ReqT, RespT>
-      extends ForwardingClientCall.SimpleForwardingClientCall<ReqT, RespT> {
-    private final SharedConnection connection;
-
-    protected ConnectionCleanupCall(ClientCall<ReqT, RespT> delegate, SharedConnection connection) {
-      super(delegate);
-      this.connection = connection;
-    }
-
+  /**
+   * A specialized {@link Function} that can only throw {@link IOException} and {@link
+   * InterruptedException}.
+   */
+  @FunctionalInterface
+  public interface IOFunction<T, R> extends Function<T, R> {
     @Override
-    public void start(Listener<RespT> responseListener, Metadata headers) {
-      super.start(
-          new ForwardingClientCallListener.SimpleForwardingClientCallListener<RespT>(
-              responseListener) {
-            @Override
-            public void onClose(Status status, Metadata trailers) {
-              super.onClose(status, trailers);
+    R apply(T t) throws IOException, InterruptedException;
+  }
 
-              try {
-                connection.close();
-              } catch (IOException e) {
-                throw new AssertionError(e.getMessage(), e);
-              }
-            }
-          },
-          headers);
+  @CheckReturnValue
+  public <T> ListenableFuture<T> withChannelFuture(
+      IOFunction<Channel, ? extends ListenableFuture<T>> source) {
+    return RxFutures.toListenableFuture(
+        withChannel(channel -> RxFutures.toSingle(() -> source.apply(channel), directExecutor())));
+  }
+
+  public <T> T withChannelBlocking(IOFunction<Channel, T> source)
+      throws IOException, InterruptedException {
+    return blockingGet(withChannel(channel -> Single.just(source.apply(channel))));
+  }
+
+  // prevents rxjava silent possible wrap of RuntimeException and misinterpretation
+  private <T> T blockingGet(Single<T> single) throws IOException, InterruptedException {
+    SettableFuture<T> future = SettableFuture.create();
+    single.subscribe(
+        new SingleObserver<T>() {
+          @Override
+          public void onError(Throwable t) {
+            future.setException(t);
+          }
+
+          @Override
+          public void onSuccess(T t) {
+            future.set(t);
+          }
+
+          @Override
+          public void onSubscribe(Disposable d) {
+            future.addListener(
+                () -> {
+                  if (future.isCancelled()) {
+                    d.dispose();
+                  }
+                },
+                directExecutor());
+          }
+        });
+
+    try {
+      return future.get();
+    } catch (ExecutionException e) {
+      Throwable cause = e.getCause();
+      Throwables.throwIfInstanceOf(cause, IOException.class);
+      Throwables.throwIfInstanceOf(cause, InterruptedException.class);
+      Throwables.throwIfUnchecked(cause);
+      throw new IllegalStateException("Unexpected exception type", cause);
     }
   }
 
-  @Override
-  public <RequestT, ResponseT> ClientCall<RequestT, ResponseT> newCall(
-      MethodDescriptor<RequestT, ResponseT> methodDescriptor, CallOptions callOptions) {
-    SharedConnection sharedConnection = dynamicConnectionPool.create().blockingGet();
-    ChannelConnection connection = (ChannelConnection) sharedConnection.getUnderlyingConnection();
-    return new ConnectionCleanupCall<>(
-        connection.getChannel().newCall(methodDescriptor, callOptions), sharedConnection);
+  @CheckReturnValue
+  public <T> Single<T> withChannel(Function<Channel, ? extends SingleSource<? extends T>> source) {
+    return withChannelConnection(channelConnection -> source.apply(channelConnection.getChannel()));
   }
 
-  @Override
-  public String authority() {
-    SharedConnection sharedConnection = dynamicConnectionPool.create().blockingGet();
-    ChannelConnection connection = (ChannelConnection) sharedConnection.getUnderlyingConnection();
-    return connection.getChannel().authority();
+  private <T> Single<T> withChannelConnection(
+      Function<ChannelConnectionWithServerCapabilities, ? extends SingleSource<? extends T>>
+          source) {
+    return dynamicConnectionPool
+        .create()
+        .flatMap(
+            sharedConnection ->
+                Single.using(
+                    () -> sharedConnection,
+                    conn -> {
+                      var connection =
+                          (ChannelConnectionWithServerCapabilities)
+                              sharedConnection.getUnderlyingConnection();
+                      return source.apply(connection);
+                    },
+                    SharedConnection::close));
   }
 
   @Override
@@ -115,24 +176,28 @@ public class ReferenceCountedChannel extends Channel implements ReferenceCounted
     return referenceCounted.refCnt();
   }
 
+  @CanIgnoreReturnValue
   @Override
   public ReferenceCountedChannel retain() {
     referenceCounted.retain();
     return this;
   }
 
+  @CanIgnoreReturnValue
   @Override
   public ReferenceCountedChannel retain(int increment) {
     referenceCounted.retain(increment);
     return this;
   }
 
+  @CanIgnoreReturnValue
   @Override
   public ReferenceCounted touch() {
     referenceCounted.touch();
     return this;
   }
 
+  @CanIgnoreReturnValue
   @Override
   public ReferenceCounted touch(Object hint) {
     referenceCounted.touch(hint);

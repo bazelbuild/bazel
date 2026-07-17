@@ -19,6 +19,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.util.Classpath;
 import com.google.devtools.build.lib.util.Classpath.ClassPathException;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.lang.reflect.Modifier;
 import java.util.Comparator;
 import java.util.LinkedHashSet;
@@ -34,35 +35,22 @@ public final class TestSuiteBuilder {
 
   private Set<Class<?>> testClasses = Sets.newTreeSet(new TestClassNameComparator());
   private Predicate<Class<?>> matchClassPredicate = Predicates.alwaysTrue();
-  private final boolean tolerateEmptyTestSuites;
-
-  public TestSuiteBuilder() {
-    tolerateEmptyTestSuites = false;
-  }
 
   /**
-   * @param tolerateEmptyTestSuites set this to true to add an empty test which passes to the suite.
-   *     Its better for Test Suites to fail when they create an empty set of classes to test, so new
-   *     suites should avoid setting this to true.
+   * Adds the tests found (directly) in class {@code c} to the set of tests this builder will
+   * search.
    */
-  public TestSuiteBuilder(boolean tolerateEmptyTestSuites) {
-    this.tolerateEmptyTestSuites = tolerateEmptyTestSuites;
-  }
-
-  /**
-   * Adds the tests found (directly) in class {@code c} to the set of tests
-   * this builder will search.
-   */
+  @CanIgnoreReturnValue
   public TestSuiteBuilder addTestClass(Class<?> c) {
     testClasses.add(c);
     return this;
   }
 
   /**
-   * Adds all the test classes (top-level or nested) found in package
-   * {@code pkgName} or its subpackages to the set of tests this builder will
-   * search.
+   * Adds all the test classes (top-level or nested) found in package {@code pkgName} or its
+   * subpackages to the set of tests this builder will search.
    */
+  @CanIgnoreReturnValue
   public TestSuiteBuilder addPackageRecursive(String pkgName) {
     for (Class<?> c : getClassesRecursive(pkgName)) {
       addTestClass(c);
@@ -79,14 +67,13 @@ public final class TestSuiteBuilder {
         }
       }
     } catch (ClassPathException e) {
-      throw new AssertionError("Cannot retrive classes: " + e.getMessage());
+      throw new AssertionError("Cannot retrieve classes: " + e.getMessage());
     }
     return result;
   }
 
-  /**
-   * Specifies a predicate returns false for classes we want to exclude.
-   */
+  /** Specifies a predicate returns false for classes we want to exclude. */
+  @CanIgnoreReturnValue
   public TestSuiteBuilder matchClasses(Predicate<Class<?>> predicate) {
     matchClassPredicate = predicate;
     return this;
@@ -100,11 +87,6 @@ public final class TestSuiteBuilder {
     Set<Class<?>> result = new LinkedHashSet<>();
     for (Class<?> testClass : Iterables.filter(testClasses, matchClassPredicate)) {
       result.add(testClass);
-    }
-    if (tolerateEmptyTestSuites && result.isEmpty()) {
-      // We have some cases where the resulting test suite is empty, which some of our test
-      // infrastructure treats as an error.
-      result.add(TautologyTest.class);
     }
     return result;
   }
@@ -143,15 +125,6 @@ public final class TestSuiteBuilder {
     @Override
     public int compare(Class<?> o1, Class<?> o2) {
       return o1.getName().compareTo(o2.getName());
-    }
-  }
-
-  /**
-   * A test that does nothing and always passes. We have some cases where an empty test suite is
-   * treated as an error, so we use this test to make sure that the test suite is always non-empty.
-   */
-  public static class TautologyTest extends TestCase {
-    public void testThatNothingHappens() {
     }
   }
 }

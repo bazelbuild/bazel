@@ -17,6 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.packages.Globber;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.FsUtils;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -34,17 +35,17 @@ public class GlobDescriptorTest {
     SerializationTester serializationTester =
         new SerializationTester(
                 GlobDescriptor.create(
-                    PackageIdentifier.create("@foo", PathFragment.create("//bar")),
+                    PackageIdentifier.create("foo", PathFragment.create("//bar")),
                     Root.fromPath(FsUtils.TEST_FILESYSTEM.getPath("/packageRoot")),
                     PathFragment.create("subdir"),
                     "pattern",
-                    /*excludeDirs=*/ false),
+                    Globber.Operation.FILES_AND_DIRS),
                 GlobDescriptor.create(
-                    PackageIdentifier.create("@bar", PathFragment.create("//foo")),
+                    PackageIdentifier.create("bar", PathFragment.create("//foo")),
                     Root.fromPath(FsUtils.TEST_FILESYSTEM.getPath("/anotherPackageRoot")),
                     PathFragment.create("anotherSubdir"),
                     "pattern",
-                    /*excludeDirs=*/ true))
+                    Globber.Operation.FILES))
             .setVerificationFunction(GlobDescriptorTest::verifyEquivalent);
     FsUtils.addDependencies(serializationTester);
     serializationTester.runTests();
@@ -58,26 +59,28 @@ public class GlobDescriptorTest {
   public void testCreateReturnsInternedInstances() throws LabelSyntaxException {
     GlobDescriptor original =
         GlobDescriptor.create(
-            PackageIdentifier.create("@foo", PathFragment.create("//bar")),
+            PackageIdentifier.create("foo", PathFragment.create("//bar")),
             Root.fromPath(FsUtils.TEST_FILESYSTEM.getPath("/packageRoot")),
             PathFragment.create("subdir"),
             "pattern",
-            /*excludeDirs=*/ false);
+            Globber.Operation.FILES_AND_DIRS);
 
-    GlobDescriptor sameCopy = GlobDescriptor.create(
-        original.getPackageId(),
-        original.getPackageRoot(),
-        original.getSubdir(),
-        original.getPattern(),
-        original.excludeDirs());
+    GlobDescriptor sameCopy =
+        GlobDescriptor.create(
+            original.getPackageId(),
+            original.getPackageRoot(),
+            original.getSubdir(),
+            original.getPattern(),
+            original.globberOperation());
     assertThat(sameCopy).isSameInstanceAs(original);
 
-    GlobDescriptor diffCopy = GlobDescriptor.create(
-        original.getPackageId(),
-        original.getPackageRoot(),
-        original.getSubdir(),
-        original.getPattern(),
-        !original.excludeDirs());
+    GlobDescriptor diffCopy =
+        GlobDescriptor.create(
+            original.getPackageId(),
+            original.getPackageRoot(),
+            original.getSubdir(),
+            original.getPattern(),
+            Globber.Operation.FILES);
     assertThat(diffCopy).isNotEqualTo(original);
   }
 

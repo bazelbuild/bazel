@@ -11,54 +11,88 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 package com.google.devtools.build.lib.skyframe.serialization;
 
+import static sun.misc.Unsafe.ARRAY_OBJECT_BASE_OFFSET;
+import static sun.misc.Unsafe.ARRAY_OBJECT_INDEX_SCALE;
+
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableTable;
 import com.google.common.collect.Table.Cell;
+
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
-import java.util.Set;
 
 /** Codec for {@link ImmutableTable}. */
-public class ImmutableTableCodec<R, C, V> implements ObjectCodec<ImmutableTable<R, C, V>> {
+@SuppressWarnings({"rawtypes", "unchecked"})
+public class ImmutableTableCodec extends DeferredObjectCodec<ImmutableTable> {
 
-  @SuppressWarnings("unchecked")
   @Override
-  public Class<ImmutableTable<R, C, V>> getEncodedClass() {
-    // Compiler doesn't like to do a direct cast.
-    return (Class<ImmutableTable<R, C, V>>) ((Class<?>) ImmutableTable.class);
+  public Class<ImmutableTable> getEncodedClass() {
+    return ImmutableTable.class;
   }
 
   @Override
   public void serialize(
-      SerializationContext context, ImmutableTable<R, C, V> object, CodedOutputStream codedOut)
+      SerializationContext context, ImmutableTable object, CodedOutputStream codedOut)
       throws SerializationException, IOException {
-    Set<Cell<R, C, V>> cellSet = object.cellSet();
+    ImmutableSet<Cell> cellSet = object.cellSet();
     codedOut.writeInt32NoTag(cellSet.size());
-    for (Cell<R, C, V> cell : cellSet) {
+    for (Cell cell : cellSet) {
       context.serialize(cell.getRowKey(), codedOut);
       context.serialize(cell.getColumnKey(), codedOut);
       context.serialize(cell.getValue(), codedOut);
     }
   }
 
+  // TODO: b/386384684 - remove Unsafe usage
   @Override
-  public ImmutableTable<R, C, V> deserialize(
-      DeserializationContext context, CodedInputStream codedIn)
+  public DeferredValue<ImmutableTable> deserializeDeferred(
+      AsyncDeserializationContext context, CodedInputStream codedIn)
       throws SerializationException, IOException {
-    int length = codedIn.readInt32();
-    if (length < 0) {
-      throw new SerializationException("Expected non-negative length: " + length);
+    int size = codedIn.readInt32();
+    if (size < 0) {
+      throw new SerializationException("Expected non-negative size: " + size);
     }
-    ImmutableTable.Builder<R, C, V> builder = ImmutableTable.builder();
-    for (int i = 0; i < length; i++) {
-      builder.put(
-          /*rowKey=*/ context.deserialize(codedIn),
-          /*columnKey=*/ context.deserialize(codedIn),
-          /*value=*/ context.deserialize(codedIn));
+    if (size == 0) {
+      return ImmutableTable::of;
     }
-    return builder.build();
+
+    EntryBuffer buffer = new EntryBuffer(size);
+    long offset = ARRAY_OBJECT_BASE_OFFSET;
+    for (int i = 0; i < size; i++) {
+      context.deserialize(codedIn, buffer.rowKeys, offset);
+      context.deserialize(codedIn, buffer.columnKeys, offset);
+      context.deserialize(codedIn, buffer.values, offset);
+      offset += ARRAY_OBJECT_INDEX_SCALE;
+    }
+    return buffer;
+  }
+
+  private static final class EntryBuffer implements DeferredValue<ImmutableTable> {
+    private final Object[] rowKeys;
+    private final Object[] columnKeys;
+    private final Object[] values;
+
+    private EntryBuffer(int size) {
+      this.rowKeys = new Object[size];
+      this.columnKeys = new Object[size];
+      this.values = new Object[size];
+    }
+
+    @Override
+    public ImmutableTable call() {
+      ImmutableTable.Builder builder = ImmutableTable.builder();
+      for (int i = 0; i < size(); i++) {
+        builder.put(
+            /* rowKey= */ rowKeys[i], /* columnKey= */ columnKeys[i], /* value= */ values[i]);
+      }
+      return builder.buildOrThrow();
+    }
+
+    private int size() {
+      return rowKeys.length;
+    }
   }
 }

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
@@ -41,7 +41,11 @@ function __git_commit_subject() {
 
 # Returns the branch name of the current git repository
 function git_get_branch() {
-  git symbolic-ref --short HEAD
+  # Case 1 works when a release branch was checked out,
+  # whereas the second case works if we're in "detached HEAD" state,
+  # which can happen on CI.
+  # If in detached HEAD, try using BUILDKITE_BRANCH if available, otherwise fallback to git branch.
+  git symbolic-ref --short HEAD 2>/dev/null || { [[ -n "${BUILDKITE_BRANCH:-}" ]] && echo "${BUILDKITE_BRANCH}" || git branch --remote --contains | cut -d "/" -f2; }
 }
 
 # Returns the tag name of the current git repository
@@ -57,14 +61,29 @@ function git_commit_msg() {
 # Extract the release candidate number from the git branch name
 function get_release_candidate() {
   # Match rcX and return X
-  git_get_branch 2>/dev/null | grep -Po "(?<=rc)([0-9]|\.)*$" || true
+  git_get_branch | grep -Po "(?<=rc)([0-9]|\.)*$" || true
 }
 
 # Extract the release name from the git branch name
 function get_release_name() {
-  # Match branch name release-X.X.X-rcY and return X.X.X
-  # or match tag name X.X.X and return X.X.X
-  git_get_branch 2>/dev/null | grep -Po "(?<=release-)([0-9]|\.)*(?=rc)" || git_get_tag | grep -Po "^([0-9]|\.)*$" || true
+  # Match branch name release-X.X.X[-pre.XXXXXXXX.X]rcY and return X.X.X[-pre.XXXXXXXX.X]
+  # or match tag name X.X.X[-pre.XXXXXXXX.X] and return X.X.X[-pre.XXXXXXXX.X]
+   git_get_branch | grep -Po "(?<=release-)([0-9]|\.)*(-pre\.[0-9]{8}(\.[0-9]+){1,2})?(?=rc)?" || git_get_tag | grep -Po "^([0-9]|\.)*(-pre\.[0-9]{8}(\.[0-9]+){1,2})?$" || true
+}
+
+# Returns whether this is a rolling release (or an RCs of one)
+function is_rolling_release() {
+  if [[ "$(get_release_name)" =~ [0-9]+\.[0-9]+\.[0-9]+-pre\.[0-9]{8}\.[0-9]+(\.[0-9]+)?$ ]]; then
+    echo 1
+  else
+    echo 0
+  fi
+}
+
+# Returns the name of the LTS release that belongs to the current rolling release
+function get_lts_name() {
+  local release_name="$(get_release_name)"
+  echo "${release_name}" | grep -oE "^([0-9]+\.[0-9]+\.[0-9]+)"
 }
 
 # Get the list of commit hashes between two revisions

@@ -14,9 +14,9 @@
 package com.google.devtools.build.lib.authandtls;
 
 import static com.google.common.base.Predicates.not;
-import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
+import static java.util.Objects.requireNonNull;
 
-import com.google.auto.value.AutoValue;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.authandtls.Netrc.Credential;
@@ -49,26 +49,26 @@ public class NetrcParser {
 
   interface Token {}
 
-  @AutoValue
-  abstract static class ItemToken implements Token {
+  record ItemToken(String item) implements Token {
+    ItemToken {
+      requireNonNull(item, "item");
+    }
+
     public static ItemToken create(String item) {
-      return new AutoValue_NetrcParser_ItemToken(item);
+      return new ItemToken(item);
     }
 
-    abstract String item();
   }
 
-  @AutoValue
-  abstract static class NewlineToken implements Token {
+  record NewlineToken() implements Token {
     public static NewlineToken create() {
-      return new AutoValue_NetrcParser_NewlineToken();
+      return new NewlineToken();
     }
   }
 
-  @AutoValue
-  abstract static class CommentToken implements Token {
+  record CommentToken() implements Token {
     public static CommentToken create() {
-      return new AutoValue_NetrcParser_CommentToken();
+      return new CommentToken();
     }
   }
 
@@ -77,7 +77,7 @@ public class NetrcParser {
     private final Queue<Token> tokens = new ArrayDeque<>();
 
     TokenStream(InputStream inputStream) throws IOException {
-      bufferedReader = new BufferedReader(new InputStreamReader(inputStream, UTF_8));
+      bufferedReader = new BufferedReader(new InputStreamReader(inputStream, ISO_8859_1));
       processLine();
     }
 
@@ -137,27 +137,25 @@ public class NetrcParser {
     boolean done = false;
     while (!done && tokenStream.hasNext()) {
       Token token = tokenStream.next();
-      if (token instanceof ItemToken) {
-        String item = ((ItemToken) token).item();
+      if (token instanceof ItemToken itemToken) {
+        String item = itemToken.item();
         switch (item) {
-          case MACHINE:
+          case MACHINE -> {
             String machine = nextItem(tokenStream);
             Credential credential = parseCredentialForMachine(tokenStream, machine);
             credentialMap.put(machine, credential);
-            break;
-          case MACDEF:
-            skipMacdef(tokenStream);
-            break;
-          case DEFAULT:
+          }
+          case MACDEF -> skipMacdef(tokenStream);
+          case DEFAULT -> {
             defaultCredential = parseCredentialForMachine(tokenStream, DEFAULT);
             // There can be only one default token, and it must be after all machine tokens.
             done = true;
-            break;
-          default:
-            throw new IOException(
-                String.format(
-                    "Unexpected token: %s (expecting %s, %s or %s)",
-                    item, MACHINE, MACDEF, DEFAULT));
+          }
+          default ->
+              throw new IOException(
+                  String.format(
+                      "Unexpected token: %s (expecting %s, %s or %s)",
+                      item, MACHINE, MACDEF, DEFAULT));
         }
       }
     }
@@ -168,8 +166,8 @@ public class NetrcParser {
   private static String nextItem(TokenStream tokenStream) throws IOException {
     while (tokenStream.hasNext()) {
       Token token = tokenStream.next();
-      if (token instanceof ItemToken) {
-        return ((ItemToken) token).item();
+      if (token instanceof ItemToken itemToken) {
+        return itemToken.item();
       }
     }
 
@@ -185,31 +183,26 @@ public class NetrcParser {
     while (!done && tokenStream.hasNext()) {
       // Peek rather than taking next token since we probably won't process it
       Token token = tokenStream.peek();
-      if (token instanceof ItemToken) {
-        String item = ((ItemToken) token).item();
+      if (token instanceof ItemToken(String item)) {
         switch (item) {
-          case LOGIN:
+          case LOGIN -> {
             tokenStream.next();
             builder.setLogin(nextItem(tokenStream));
-            break;
-          case PASSWORD:
+          }
+          case PASSWORD -> {
             tokenStream.next();
             builder.setPassword(nextItem(tokenStream));
-            break;
-          case ACCOUNT:
+          }
+          case ACCOUNT -> {
             tokenStream.next();
             builder.setAccount(nextItem(tokenStream));
-            break;
-          case MACHINE:
-          case MACDEF:
-          case DEFAULT:
-            done = true;
-            break;
-          default:
-            throw new IOException(
-                String.format(
-                    "Unexpected item: %s (expecting %s, %s, %s, %s, %s or %s)",
-                    item, LOGIN, PASSWORD, ACCOUNT, MACHINE, MACDEF, DEFAULT));
+          }
+          case MACHINE, MACDEF, DEFAULT -> done = true;
+          default ->
+              throw new IOException(
+                  String.format(
+                      "Unexpected item: %s (expecting %s, %s, %s, %s, %s or %s)",
+                      item, LOGIN, PASSWORD, ACCOUNT, MACHINE, MACDEF, DEFAULT));
         }
       } else {
         tokenStream.next();

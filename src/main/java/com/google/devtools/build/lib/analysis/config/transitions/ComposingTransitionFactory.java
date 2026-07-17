@@ -15,6 +15,14 @@ package com.google.devtools.build.lib.analysis.config.transitions;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider;
+import com.google.devtools.build.lib.analysis.config.BuildOptionDetails;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
+import com.google.devtools.build.lib.events.EventHandler;
+import java.util.Map;
+import java.util.Objects;
 
 /**
  * A transition factory that composes two other transition factories in an ordered sequence.
@@ -29,60 +37,67 @@ import com.google.common.base.Preconditions;
  * </pre>
  */
 @AutoValue
-public abstract class ComposingTransitionFactory<T> implements TransitionFactory<T> {
+public abstract class ComposingTransitionFactory<T extends TransitionFactory.Data>
+    implements TransitionFactory<T> {
 
   /**
    * Creates a {@link ComposingTransitionFactory} that applies the given factories in sequence:
    * {@code fromOptions -> transition1 -> transition2 -> toOptions }.
    *
    * <p>Note that this method checks for transition factories that cannot be composed, such as if
-   * one of the transitions is {@link NoTransition} or the host transition, and returns an
-   * efficiently composed transition.
+   * one of the transitions is {@link NoTransition}, and returns an efficiently composed transition.
    */
-  public static <T> TransitionFactory<T> of(
-      TransitionFactory<T> transitionFactory1, TransitionFactory<T> transitionFactory2) {
-
+  public static <T extends TransitionFactory.Data> TransitionFactory<T> of(
+      TransitionFactory<T> transitionFactory1, TransitionFactory<T> transitionFactory2)
+      throws IncompatibleTransitionsException {
     Preconditions.checkNotNull(transitionFactory1);
     Preconditions.checkNotNull(transitionFactory2);
-    Preconditions.checkArgument(
-        !transitionFactory1.isSplit() || !transitionFactory2.isSplit(),
-        "can't compose two split transition factories");
-
-    if (isFinal(transitionFactory1)) {
-      // Since no other transition can be composed with transitionFactory1, use it directly.
-      return transitionFactory1;
-    } else if (NoTransition.isInstance(transitionFactory1)) {
-      // Since transitionFactory1 causes no changes, use transitionFactory2 directly.
-      return transitionFactory2;
+    if (!transitionFactory1
+        .transitionType()
+        .isCompatibleWith(transitionFactory2.transitionType())) {
+      throw new IncompatibleTransitionsException(
+          "transition types must be compatible, got %s and %s"
+              .formatted(transitionFactory1.transitionType(), transitionFactory2.transitionType()));
+    }
+    if (transitionFactory1.isTool() && transitionFactory2.isTool()) {
+      throw new IncompatibleTransitionsException("can't compose two exec transitions");
     }
 
-    if (NoTransition.isInstance(transitionFactory2)) {
+    if (NoTransition.isInstance(transitionFactory1)) {
+      // Since transitionFactory1 causes no changes, use transitionFactory2 directly.
+      return transitionFactory2;
+    } else if (NoTransition.isInstance(transitionFactory2)) {
       // Since transitionFactory2 causes no changes, use transitionFactory1 directly.
       return transitionFactory1;
-    } else if (isFinal(transitionFactory2)) {
-      // When the second transition is null or a HOST transition, there's no need to compose. But
-      // this also
-      // improves performance: host transitions are common, and ConfiguredTargetFunction has special
-      // optimized logic to handle them. If they were buried in the last segment of a
-      // ComposingTransition, those optimizations wouldn't trigger.
-      return transitionFactory2;
     }
 
     return create(transitionFactory1, transitionFactory2);
   }
 
-  private static <T> boolean isFinal(TransitionFactory<T> transitionFactory) {
-    return NullTransition.isInstance(transitionFactory) || transitionFactory.isHost();
+  /**
+   * Use {@link #of} instead unless the two transition factories are statically guaranteed to be
+   * compatible.
+   */
+  public static <T extends TransitionFactory.Data> TransitionFactory<T> ofUnchecked(
+      TransitionFactory<T> transitionFactory1, TransitionFactory<T> transitionFactory2) {
+    try {
+      return of(transitionFactory1, transitionFactory2);
+    } catch (IncompatibleTransitionsException e) {
+      throw new IllegalArgumentException(e);
+    }
   }
 
-  private static <T> TransitionFactory<T> create(
+  /** Thrown when two {@link TransitionFactory} instances cannot be composed. */
+  public static final class IncompatibleTransitionsException extends Exception {
+    IncompatibleTransitionsException(String message) {
+      super(message);
+    }
+  }
+
+  private static <T extends TransitionFactory.Data> TransitionFactory<T> create(
       TransitionFactory<T> transitionFactory1, TransitionFactory<T> transitionFactory2) {
     return new AutoValue_ComposingTransitionFactory<T>(transitionFactory1, transitionFactory2);
   }
-
-  abstract TransitionFactory<T> transitionFactory1();
-
-  abstract TransitionFactory<T> transitionFactory2();
 
   @Override
   public ConfigurationTransition create(T data) {
@@ -92,9 +107,17 @@ public abstract class ComposingTransitionFactory<T> implements TransitionFactory
   }
 
   @Override
-  public boolean isHost() {
-    return transitionFactory1().isHost() || transitionFactory2().isHost();
+  public TransitionType transitionType() {
+    // The two types are compatible, so at most one of them is non-ANY; return the more specific
+    // one.
+    return transitionFactory1().transitionType() == TransitionType.ANY
+        ? transitionFactory2().transitionType()
+        : transitionFactory1().transitionType();
   }
+
+  abstract TransitionFactory<T> transitionFactory1();
+
+  abstract TransitionFactory<T> transitionFactory2();
 
   @Override
   public boolean isTool() {
@@ -104,5 +127,105 @@ public abstract class ComposingTransitionFactory<T> implements TransitionFactory
   @Override
   public boolean isSplit() {
     return transitionFactory1().isSplit() || transitionFactory2().isSplit();
+  }
+
+  @Override
+  public void visit(Visitor<T> visitor) {
+    this.transitionFactory1().visit(visitor);
+    this.transitionFactory2().visit(visitor);
+  }
+
+  /** A configuration transition that composes two other transitions in an ordered sequence. */
+  private static final class ComposingTransition implements ConfigurationTransition {
+    private final ConfigurationTransition transition1;
+    private final ConfigurationTransition transition2;
+
+    /**
+     * Creates a {@link ComposingTransition} that applies the sequence: {@code fromOptions ->
+     * transition1 -> transition2 -> toOptions }.
+     */
+    private ComposingTransition(
+        ConfigurationTransition transition1, ConfigurationTransition transition2) {
+      this.transition1 = transition1;
+      this.transition2 = transition2;
+    }
+
+    @Override
+    public void addRequiredFragments(
+        RequiredConfigFragmentsProvider.Builder requiredFragments,
+        BuildOptionDetails optionDetails) {
+      // At first glance this code looks wrong. A composing transition applies transition2 over
+      // transition1's outputs, not the original options. We don't have to worry about that here
+      // because the reason we pass the options is so Starlark transitions can map individual flags
+      // like "//command_line_option:copts" to the fragments that own them. This doesn't depend on
+      // the
+      // flags' values. This is fortunate, because it producers simpler, faster code and cleaner
+      // interfaces.
+      transition1.addRequiredFragments(requiredFragments, optionDetails);
+      transition2.addRequiredFragments(requiredFragments, optionDetails);
+    }
+
+    @Override
+    public ImmutableMap<String, BuildOptions> apply(
+        BuildOptionsView buildOptions, EventHandler eventHandler) throws InterruptedException {
+      ImmutableMap.Builder<String, BuildOptions> toOptions = ImmutableMap.builder();
+      Map<String, BuildOptions> transition1Output =
+          transition1.apply(
+              TransitionUtil.restrict(transition1, buildOptions.underlying()), eventHandler);
+      for (Map.Entry<String, BuildOptions> entry1 : transition1Output.entrySet()) {
+        Map<String, BuildOptions> transition2Output =
+            transition2.apply(
+                TransitionUtil.restrict(transition2, entry1.getValue()), eventHandler);
+        for (Map.Entry<String, BuildOptions> entry2 : transition2Output.entrySet()) {
+          toOptions.put(composeKeys(entry1.getKey(), entry2.getKey()), entry2.getValue());
+        }
+      }
+      return toOptions.buildOrThrow();
+    }
+
+    @Override
+    public String reasonForOverride() {
+      return "Basic abstraction for combining other transitions";
+    }
+
+    @Override
+    public String getName() {
+      return "(" + transition1.getName() + " + " + transition2.getName() + ")";
+    }
+
+    // Override to allow recursive visiting.
+    @Override
+    public <E extends Exception> void visit(Visitor<E> visitor) throws E {
+      this.transition1.visit(visitor);
+      this.transition2.visit(visitor);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(transition1, transition2);
+    }
+
+    @Override
+    public boolean equals(Object other) {
+      return other instanceof ComposingTransition composingTransition
+          && composingTransition.transition1.equals(this.transition1)
+          && ((ComposingTransition) other).transition2.equals(this.transition2);
+    }
+
+    /**
+     * Composes a new key out of two given keys. If either transition is a patch (1:1) its
+     * placeholder {@code PATCH_TRANSITION_KEY} is absorbed; if both transitions split, the keys are
+     * joined by a comma so the composition produces the cross product of their splits (e.g. keys
+     * {@code "a"} and {@code "x"} compose to {@code "a,x"}).
+     */
+    private static String composeKeys(String key1, String key2) {
+      if (key1.equals(PATCH_TRANSITION_KEY)) {
+        return key2;
+      }
+      if (key2.equals(PATCH_TRANSITION_KEY)) {
+        return key1;
+      }
+      return key1 + "," + key2;
+    }
   }
 }

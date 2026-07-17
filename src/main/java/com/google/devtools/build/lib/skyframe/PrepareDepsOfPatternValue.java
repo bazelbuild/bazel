@@ -14,18 +14,17 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Interner;
+import com.google.devtools.build.lib.cmdline.SignedTargetPattern;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.cmdline.TargetPattern.Type;
-import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
 import com.google.devtools.build.lib.server.FailureDetails.TargetPatterns;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
-import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternSkyKeyOrException;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.skyframe.AbstractSkyKey;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -33,25 +32,24 @@ import com.google.devtools.build.skyframe.SkyValue;
 import java.util.List;
 
 /**
- * The value returned by {@link PrepareDepsOfPatternFunction}. Because that function is
- * invoked only for its side effect (i.e. ensuring the graph contains targets matching the
- * pattern and its transitive dependencies), this value carries no information.
+ * The value returned by {@link PrepareDepsOfPatternFunction}. Because that function is invoked only
+ * for its side effect (i.e. ensuring the graph contains targets matching the pattern and its
+ * transitive dependencies), this value carries no information.
  *
  * <p>Because the returned value is always equal to objects that share its type, this value and the
  * {@link PrepareDepsOfPatternFunction} which computes it are incompatible with change pruning. It
- * should only be requested by consumers who do not require reevaluation when
- * {@link PrepareDepsOfPatternFunction} is reevaluated. Safe consumers include, e.g., top-level
- * consumers, and other functions which invoke {@link PrepareDepsOfPatternFunction} solely for its
+ * should only be requested by consumers who do not require reevaluation when {@link
+ * PrepareDepsOfPatternFunction} is reevaluated. Safe consumers include, e.g., top-level consumers,
+ * and other functions which invoke {@link PrepareDepsOfPatternFunction} solely for its
  * side-effects.
  */
 public class PrepareDepsOfPatternValue implements SkyValue {
   // Note that this value does not guarantee singleton-like reference equality because we use Java
   // deserialization. Java deserialization can create other instances.
-  @AutoCodec
+  @SerializationConstant
   public static final PrepareDepsOfPatternValue INSTANCE = new PrepareDepsOfPatternValue();
 
-  private PrepareDepsOfPatternValue() {
-  }
+  private PrepareDepsOfPatternValue() {}
 
   @Override
   public boolean equals(Object o) {
@@ -83,25 +81,25 @@ public class PrepareDepsOfPatternValue implements SkyValue {
    *
    * @param patterns The list of patterns, e.g. [//foo/..., -//foo/biz/...]. If a pattern's first
    *     character is "-", it is treated as a negative pattern.
-   * @param offset The offset to apply to relative target patterns.
+   * @param mainRepoTargetParser The target pattern parser configured with the specified offset and
+   *     the main repository mapping.
    */
   @ThreadSafe
   public static PrepareDepsOfPatternSkyKeysAndExceptions keys(
-      List<String> patterns, PathFragment offset) {
+      List<String> patterns, TargetPattern.Parser mainRepoTargetParser) {
     ImmutableList.Builder<PrepareDepsOfPatternSkyKeyValue> resultValuesBuilder =
         ImmutableList.builder();
     ImmutableList.Builder<PrepareDepsOfPatternSkyKeyException> resultExceptionsBuilder =
         ImmutableList.builder();
-    Iterable<TargetPatternSkyKeyOrException> keysMaybe =
-        TargetPatternValue.keys(patterns, FilteringPolicies.NO_FILTER, offset);
     ImmutableList.Builder<TargetPatternKey> targetPatternKeysBuilder = ImmutableList.builder();
-    for (TargetPatternSkyKeyOrException keyMaybe : keysMaybe) {
+    for (String pattern : patterns) {
       try {
-        SkyKey key = keyMaybe.getSkyKey();
-        targetPatternKeysBuilder.add((TargetPatternKey) key.argument());
+        targetPatternKeysBuilder.add(
+            TargetPatternValue.key(
+                SignedTargetPattern.parse(pattern, mainRepoTargetParser),
+                FilteringPolicies.NO_FILTER));
       } catch (TargetParsingException e) {
-        resultExceptionsBuilder.add(
-            new PrepareDepsOfPatternSkyKeyException(e, keyMaybe.getOriginalPattern()));
+        resultExceptionsBuilder.add(new PrepareDepsOfPatternSkyKeyException(e, pattern));
       }
     }
     // This code path is evaluated only for query universe preloading, and the quadratic cost of
@@ -133,8 +131,8 @@ public class PrepareDepsOfPatternValue implements SkyValue {
   }
 
   /**
-   * A pair of {@link Iterable<PrepareDepsOfPatternSkyKeyValue>} and
-   * {@link Iterable<PrepareDepsOfPatternSkyKeyException>}.
+   * A pair of {@link Iterable<PrepareDepsOfPatternSkyKeyValue>} and {@link
+   * Iterable<PrepareDepsOfPatternSkyKeyException>}.
    */
   public static class PrepareDepsOfPatternSkyKeysAndExceptions {
     private final Iterable<PrepareDepsOfPatternSkyKeyValue> values;
@@ -162,8 +160,8 @@ public class PrepareDepsOfPatternValue implements SkyValue {
     private final TargetParsingException exception;
     private final String originalPattern;
 
-    public PrepareDepsOfPatternSkyKeyException(TargetParsingException exception,
-        String originalPattern) {
+    public PrepareDepsOfPatternSkyKeyException(
+        TargetParsingException exception, String originalPattern) {
       this.exception = exception;
       this.originalPattern = originalPattern;
     }
@@ -194,25 +192,26 @@ public class PrepareDepsOfPatternValue implements SkyValue {
 
     @AutoCodec
     static class Key extends AbstractSkyKey<TargetPatternKey> {
-      private static final Interner<Key> interner = BlazeInterners.newWeakInterner();
+      private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
 
       private Key(TargetPatternKey arg) {
         super(arg);
       }
 
-      @AutoCodec.VisibleForSerialization
+      @VisibleForSerialization
       @AutoCodec.Instantiator
       static Key create(TargetPatternKey arg) {
         return interner.intern(new Key(arg));
       }
 
-      TargetPatternKey getTargetPatternKey() {
-        return arg;
-      }
-
       @Override
       public SkyFunctionName functionName() {
         return SkyFunctions.PREPARE_DEPS_OF_PATTERN;
+      }
+
+      @Override
+      public SkyKeyInterner<Key> getSkyKeyInterner() {
+        return interner;
       }
     }
   }

@@ -5,7 +5,7 @@ java_library(
     srcs = ["DocstringUtils.java"],
     visibility = [
         # For docstring parsing libraries.
-        "//src/main/java/com/google/devtools/build/skydoc:__subpackages__",
+        "//src/main/java/com/google/devtools/build/lib/starlarkdocextract:__subpackages__",
         "//src/tools/skylark/java/com/google/devtools/skylark/skylint:__subpackages__",
         "//src/tools/skylark/javatests/com/google/devtools/skylark/skylint:__subpackages__",
     ],

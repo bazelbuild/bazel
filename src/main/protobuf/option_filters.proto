@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 syntax = "proto3";
+
 package options;
 
 // option java_api_version = 2;
@@ -52,5 +53,11 @@ enum OptionMetadataTag {
   DEPRECATED = 2;
   HIDDEN = 3;
   INTERNAL = 4;
-  TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES = 5;
+  reserved "TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES";
+  reserved 5;
+  reserved "EXPLICIT_IN_OUTPUT_PATH";
+  reserved 6;
+  reserved "IMMUTABLE";
+  reserved 7;
+  NON_CONFIGURABLE = 8;
 }

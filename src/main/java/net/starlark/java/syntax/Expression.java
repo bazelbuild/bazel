@@ -30,35 +30,41 @@ public abstract class Expression extends Node {
    */
   public enum Kind {
     BINARY_OPERATOR,
+    CALL,
+    CAST,
     COMPREHENSION,
     CONDITIONAL,
     DICT_EXPR,
     DOT,
-    CALL,
+    ELLIPSIS,
     FLOAT_LITERAL,
     IDENTIFIER,
     INDEX,
     INT_LITERAL,
+    ISINSTANCE,
     LAMBDA,
     LIST_EXPR,
     SLICE,
     STRING_LITERAL,
     UNARY_OPERATOR,
+    TYPE_APPLICATION,
   }
 
-  Expression(FileLocations locs) {
+  // Materialize kind as a field so its accessor can be non-virtual.
+  private final Kind kind;
+
+  Expression(FileLocations locs, Kind kind) {
     super(locs);
+    this.kind = kind;
   }
 
   /**
    * Kind of the expression. This is similar to using instanceof, except that it's more efficient
    * and can be used in a switch/case.
    */
-  public abstract Kind kind();
-
-  /** Parses an expression with the default options. */
-  public static Expression parse(ParserInput input) throws SyntaxError.Exception {
-    return parse(input, FileOptions.DEFAULT);
+  // Final to avoid cost of virtual call (see #12967).
+  public final Kind kind() {
+    return kind;
   }
 
   /** Parses an expression. */
@@ -67,4 +73,24 @@ public abstract class Expression extends Node {
     return Parser.parseExpression(input, options);
   }
 
+  /** Parses an expression with default options. */
+  public static Expression parse(ParserInput input) throws SyntaxError.Exception {
+    return parse(input, FileOptions.DEFAULT);
+  }
+
+  /**
+   * Parses a type expression.
+   *
+   * @param options parsing options; note that {@link FileOptions#allowStarlarkTypeSyntax} doesn't
+   *     need to be set - this method supports Starlark types implicitly.
+   */
+  public static Expression parseTypeExpression(ParserInput input, FileOptions options)
+      throws SyntaxError.Exception {
+    return Parser.parseTypeExpression(input, options);
+  }
+
+  /** Parses a type expression with default options. */
+  public static Expression parseTypeExpression(ParserInput input) throws SyntaxError.Exception {
+    return parseTypeExpression(input, FileOptions.DEFAULT);
+  }
 }

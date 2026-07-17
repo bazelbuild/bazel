@@ -18,6 +18,7 @@ import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -199,7 +200,7 @@ public abstract class ExpanderTestBase {
   public void nestingValidation() {
     for (Order ordering : Order.values()) {
       NestedSet<String> a = prepareBuilder("a", "b").build();
-      NestedSetBuilder<String> b = new NestedSetBuilder<>(ordering);
+      NestedSetBuilder<String> b = NestedSetBuilder.newBuilder(ordering);
       try {
         b.addTransitive(a);
         if (ordering != expanderOrder() && ordering != Order.STABLE_ORDER) {
@@ -214,19 +215,19 @@ public abstract class ExpanderTestBase {
   }
 
   private NestedSetBuilder<String> prepareBuilder(String... directMembers) {
-    NestedSetBuilder<String> builder = new NestedSetBuilder<>(expanderOrder());
+    NestedSetBuilder<String> builder = NestedSetBuilder.newBuilder(expanderOrder());
     builder.addAll(Lists.newArrayList(directMembers));
     return builder;
   }
 
   protected final void assertSetContents(List<String> expected, NestedSet<String> set) {
-    assertThat(Lists.newArrayList(set.toList())).isEqualTo(expected);
-    assertThat(Lists.newArrayList(set.toSet())).isEqualTo(expected);
+    assertThat(new ArrayList<>(set.toList())).isEqualTo(expected);
+    assertThat(new ArrayList<>(set.toSet())).isEqualTo(expected);
   }
 
   protected final void assertCollectionsEqual(
       Collection<String> expected, Collection<String> actual) {
-    assertThat(Lists.newArrayList(actual)).isEqualTo(Lists.newArrayList(expected));
+    assertThat(new ArrayList<>(actual)).isEqualTo(new ArrayList<>(expected));
   }
 
   /**

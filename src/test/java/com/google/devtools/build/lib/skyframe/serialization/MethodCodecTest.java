@@ -27,11 +27,17 @@ import org.junit.runners.JUnit4;
 public class MethodCodecTest {
   @Test
   public void smoke() throws Exception {
-    new SerializationTester(
-            ImmutableList.<Method>builder()
-                .add(String.class.getMethods())
-                .add(List.class.getMethods())
-                .build())
-        .runTests();
+    var methods = new ImmutableList.Builder<Method>();
+    getMethods(String.class, methods);
+    getMethods(List.class, methods);
+    new SerializationTester(methods.build()).runTests();
+  }
+
+  private static void getMethods(Class<?> clazz, ImmutableList.Builder<Method> out)
+      throws NoSuchMethodException {
+    for (var method : clazz.getMethods()) {
+      Class<?> declaringClass = method.getDeclaringClass();
+      out.add(declaringClass.getDeclaredMethod(method.getName(), method.getParameterTypes()));
+    }
   }
 }

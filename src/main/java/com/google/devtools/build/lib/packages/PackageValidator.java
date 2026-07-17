@@ -15,14 +15,14 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.packages.PackageLoadingListener.Metrics;
 import com.google.devtools.build.lib.util.DetailedExitCode;
-import java.util.OptionalLong;
 
 /** Provides loaded-package validation functionality. */
 public interface PackageValidator {
 
   /** No-op implementation of {@link PackageValidator}. */
-  PackageValidator NOOP_VALIDATOR = (pkg, overhead, eventHandler) -> {};
+  PackageValidator NOOP_VALIDATOR = (pkg, metrics, eventHandler) -> {};
 
   /** Thrown when a package is deemed invalid. */
   class InvalidPackageException extends NoSuchPackageException {
@@ -36,10 +36,31 @@ public interface PackageValidator {
     }
   }
 
+  /** Thrown when a package piece is deemed invalid. */
+  class InvalidPackagePieceException extends NoSuchPackagePieceException {
+    public InvalidPackagePieceException(PackagePieceIdentifier packagePieceId, String message) {
+      super(packagePieceId, message);
+    }
+
+    public InvalidPackagePieceException(
+        PackagePieceIdentifier packagePieceId, String message, DetailedExitCode detailedExitCode) {
+      super(packagePieceId, message, detailedExitCode);
+    }
+  }
+
+  default Package.Builder.PackageLimits getPackageLimits() {
+    return Package.Builder.PackageLimits.DEFAULTS;
+  }
+
+  /** Returns whether the package should default to testonly. */
+  default boolean defaultTestOnly(PackageIdentifier packageIdentifier) {
+    return packageIdentifier.getPackageFragment().getPathString().startsWith("javatests/");
+  }
+
   /**
    * Validates a loaded package. Throws {@link InvalidPackageException} if the package is deemed
    * invalid.
    */
-  void validate(Package pkg, OptionalLong packageOverhead, ExtendedEventHandler eventHandler)
+  void validate(Package pkg, Metrics metrics, ExtendedEventHandler eventHandler)
       throws InvalidPackageException;
 }

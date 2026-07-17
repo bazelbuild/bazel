@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.FileWriteStrategy;
 import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
-import com.google.devtools.build.lib.exec.RunfilesTreeUpdater;
 import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
 import com.google.devtools.build.lib.exec.StandaloneTestStrategy;
@@ -38,6 +37,7 @@ import com.google.devtools.build.lib.rules.test.ExclusiveTestStrategy;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.ProcessWrapper;
+import com.google.devtools.build.lib.runtime.TestSummaryOptions;
 import com.google.devtools.build.lib.vfs.Path;
 
 /**
@@ -56,16 +56,20 @@ public class StandaloneModule extends BlazeModule {
     registryBuilder.register(CppIncludeScanningContext.class, new DummyCppIncludeScanningContext());
 
     ExecutionOptions executionOptions = env.getOptions().getOptions(ExecutionOptions.class);
+    TestSummaryOptions testSummaryOptions = env.getOptions().getOptions(TestSummaryOptions.class);
+    if (testSummaryOptions == null) {
+      // It is possible, though unlikely, that the test summary options have not been set.
+      // This can happen if a test runner is being run without the test command having been used.
+      testSummaryOptions = TestSummaryOptions.DEFAULTS;
+    }
     Path testTmpRoot =
         TestStrategy.getTmpRoot(env.getWorkspace(), env.getExecRoot(), executionOptions);
     TestActionContext testStrategy =
-        new StandaloneTestStrategy(
-            executionOptions,
-            env.getBlazeWorkspace().getBinTools(),
-            testTmpRoot);
-    registryBuilder.register(TestActionContext.class, testStrategy, "standalone");
+        new StandaloneTestStrategy(executionOptions, testSummaryOptions, testTmpRoot);
+    // Keep the standalone test strategy last so that it is the default one.
     registryBuilder.register(
         TestActionContext.class, new ExclusiveTestStrategy(testStrategy), "exclusive");
+    registryBuilder.register(TestActionContext.class, testStrategy, "standalone");
     registryBuilder.register(FileWriteActionContext.class, new FileWriteStrategy(), "local");
     registryBuilder.register(
         TemplateExpansionContext.class, new LocalTemplateExpansionStrategy(), "local");
@@ -82,18 +86,15 @@ public class StandaloneModule extends BlazeModule {
             LocalEnvProvider.forCurrentOs(env.getClientEnv()),
             env.getBlazeWorkspace().getBinTools(),
             ProcessWrapper.fromCommandEnvironment(env),
-            // TODO(buchgr): Replace singleton by a command-scoped RunfilesTreeUpdater
-            RunfilesTreeUpdater.INSTANCE);
+            env.getRunfilesTreeUpdater());
 
-    boolean verboseFailures =
-        checkNotNull(env.getOptions().getOptions(ExecutionOptions.class)).verboseFailures;
+    ExecutionOptions executionOptions =
+        checkNotNull(env.getOptions().getOptions(ExecutionOptions.class));
     // Order of strategies passed to builder is significant - when there are many strategies that
     // could potentially be used and a spawnActionContext doesn't specify which one it wants, the
     // last one from strategies list will be used
     registryBuilder.registerStrategy(
-        new StandaloneSpawnStrategy(env.getExecRoot(), localSpawnRunner, verboseFailures),
-        "standalone",
-        "local");
+        new StandaloneSpawnStrategy(localSpawnRunner, executionOptions), "standalone", "local");
 
     // This makes the "standalone" strategy the default Spawn strategy, unless it is overridden by a
     // later BlazeModule.

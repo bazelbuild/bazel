@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.LocationExpander.LocationFunction;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import java.util.ArrayList;
 import java.util.List;
@@ -58,22 +59,25 @@ public class LocationExpanderTest {
   }
 
   private LocationExpander makeExpander(RuleErrorConsumer ruleErrorConsumer) throws Exception {
-    LocationFunction f1 = new LocationFunctionBuilder("//a", false)
-        .setExecPaths(false)
-        .add("//a", "/exec/src/a")
-        .build();
+    LocationFunction f1 =
+        new LocationFunctionBuilder("//a", false)
+            .setPathType(LocationFunction.PathType.LOCATION)
+            .add("//a", "/exec/src/a")
+            .build();
 
-    LocationFunction f2 = new LocationFunctionBuilder("//b", true)
-        .setExecPaths(false)
-        .add("//b", "/exec/src/b")
-        .build();
+    LocationFunction f2 =
+        new LocationFunctionBuilder("//b", true)
+            .setPathType(LocationFunction.PathType.LOCATION)
+            .add("//b", "/exec/src/b")
+            .build();
 
     return new LocationExpander(
         ruleErrorConsumer,
         ImmutableMap.<String, LocationFunction>of(
             "location", f1,
             "locations", f2),
-        ImmutableMap.of());
+        RepositoryMapping.EMPTY,
+        "workspace");
   }
 
   private String expand(String input) throws Exception {
@@ -124,19 +128,21 @@ public class LocationExpanderTest {
 
   @Test
   public void expansionWithRepositoryMapping() throws Exception {
-    LocationFunction f1 = new LocationFunctionBuilder("//a", false)
-        .setExecPaths(false)
-        .add("@bar//a", "/exec/src/a")
-        .build();
+    LocationFunction f1 =
+        new LocationFunctionBuilder("//a", false)
+            .setPathType(LocationFunction.PathType.LOCATION)
+            .add("@bar//a", "/exec/src/a")
+            .build();
 
-    ImmutableMap<RepositoryName, RepositoryName> repositoryMapping = ImmutableMap.of(
-        RepositoryName.create("@foo"),
-        RepositoryName.create("@bar"));
+    ImmutableMap<String, RepositoryName> repositoryMapping =
+        ImmutableMap.of("foo", RepositoryName.create("bar"));
 
-    LocationExpander locationExpander = new LocationExpander(
-        new Capture(),
-        ImmutableMap.<String, LocationFunction>of("location", f1),
-        repositoryMapping);
+    LocationExpander locationExpander =
+        new LocationExpander(
+            new Capture(),
+            ImmutableMap.<String, LocationFunction>of("location", f1),
+            RepositoryMapping.create(repositoryMapping, RepositoryName.MAIN),
+            "workspace");
 
     String value = locationExpander.expand("$(location @foo//a)");
     assertThat(value).isEqualTo("src/a");

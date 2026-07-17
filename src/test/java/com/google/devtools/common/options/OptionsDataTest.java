@@ -19,7 +19,6 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.truth.Correspondence;
-import com.google.devtools.common.options.OptionsParser.ConstructionException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -32,45 +31,45 @@ import org.junit.runners.JUnit4;
 public class OptionsDataTest {
 
   private static IsolatedOptionsData construct(Class<? extends OptionsBase> optionsClass)
-      throws OptionsParser.ConstructionException {
-    return IsolatedOptionsData.from(ImmutableList.<Class<? extends OptionsBase>>of(optionsClass));
+      throws ConstructionException {
+    return IsolatedOptionsData.from(
+        ImmutableList.of(optionsClass), /* allowDuplicatesParsingEquivalently= */ false);
   }
 
   private static IsolatedOptionsData construct(
-      Class<? extends OptionsBase> optionsClass1,
-      Class<? extends OptionsBase> optionsClass2)
-      throws OptionsParser.ConstructionException {
+      Class<? extends OptionsBase> optionsClass1, Class<? extends OptionsBase> optionsClass2)
+      throws ConstructionException {
     return IsolatedOptionsData.from(
-        ImmutableList.<Class<? extends OptionsBase>>of(optionsClass1, optionsClass2));
+        ImmutableList.of(optionsClass1, optionsClass2),
+        /* allowDuplicatesParsingEquivalently= */ false);
   }
 
   private static IsolatedOptionsData construct(
       Class<? extends OptionsBase> optionsClass1,
       Class<? extends OptionsBase> optionsClass2,
       Class<? extends OptionsBase> optionsClass3)
-      throws OptionsParser.ConstructionException {
+      throws ConstructionException {
     return IsolatedOptionsData.from(
-        ImmutableList.<Class<? extends OptionsBase>>of(
-            optionsClass1, optionsClass2, optionsClass3));
+        ImmutableList.of(optionsClass1, optionsClass2, optionsClass3),
+        /* allowDuplicatesParsingEquivalently= */ false);
   }
 
   /** Dummy options class. */
-  public static class ExampleNameConflictOptions extends OptionsBase {
+  @OptionsClass
+  public abstract static class ExampleNameConflictOptions extends OptionsBase {
     @Option(
-      name = "foo",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "1"
-    )
-    public int foo;
+        name = "foo",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "1")
+    public abstract int getFoo();
 
     @Option(
-      name = "foo",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "I should conflict with foo"
-    )
-    public String anotherFoo;
+        name = "foo",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "I should conflict with foo")
+    public abstract String getAnotherFoo();
   }
 
   @Test
@@ -87,25 +86,25 @@ public class OptionsDataTest {
   }
 
   /** Dummy options class. */
-  public static class ExampleIntegerFooOptions extends OptionsBase {
+  @OptionsClass
+  public abstract static class ExampleIntegerFooOptions extends OptionsBase {
     @Option(
-      name = "foo",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "5"
-    )
-    public int foo;
+        name = "foo",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "5")
+    public abstract int getFoo();
   }
 
   /** Dummy options class. */
-  public static class ExampleBooleanFooOptions extends OptionsBase {
+  @OptionsClass
+  public abstract static class ExampleBooleanFooOptions extends OptionsBase {
     @Option(
-      name = "foo",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "false"
-    )
-    public boolean foo;
+        name = "foo",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "false")
+    public abstract boolean getFoo();
   }
 
   @Test
@@ -122,14 +121,14 @@ public class OptionsDataTest {
   }
 
   /** Dummy options class. */
-  public static class ExamplePrefixedFooOptions extends OptionsBase {
+  @OptionsClass
+  public abstract static class ExamplePrefixedFooOptions extends OptionsBase {
     @Option(
-      name = "nofoo",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "false"
-    )
-    public boolean noFoo;
+        name = "nofoo",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "false")
+    public abstract boolean getNoFoo();
   }
 
   @Test
@@ -162,15 +161,15 @@ public class OptionsDataTest {
   }
 
   /** Dummy options class. */
-  public static class ExampleBarWasNamedFooOption extends OptionsBase {
+  @OptionsClass
+  public abstract static class ExampleBarWasNamedFooOption extends OptionsBase {
     @Option(
-      name = "bar",
-      oldName = "foo",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "false"
-    )
-    public boolean bar;
+        name = "bar",
+        oldName = "foo",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "false")
+    public abstract boolean getBar();
   }
 
   @Test
@@ -203,15 +202,15 @@ public class OptionsDataTest {
   }
 
   /** Dummy options class. */
-  public static class ExampleBarWasNamedNoFooOption extends OptionsBase {
+  @OptionsClass
+  public abstract static class ExampleBarWasNamedNoFooOption extends OptionsBase {
     @Option(
-      name = "bar",
-      oldName = "nofoo",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "false"
-    )
-    public boolean bar;
+        name = "bar",
+        oldName = "nofoo",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "false")
+    public abstract boolean getBar();
   }
 
   @Test
@@ -244,15 +243,15 @@ public class OptionsDataTest {
   }
 
   /** Dummy options class. */
-  public static class ExampleFooBooleanConflictsWithOwnOldName extends OptionsBase {
+  @OptionsClass
+  public abstract static class ExampleFooBooleanConflictsWithOwnOldName extends OptionsBase {
     @Option(
-      name = "nofoo",
-      oldName = "foo",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "false"
-    )
-    public boolean foo;
+        name = "nofoo",
+        oldName = "foo",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "false")
+    public abstract boolean getFoo();
   }
 
   @Test
@@ -271,23 +270,22 @@ public class OptionsDataTest {
   }
 
   /** Dummy options class. */
-  public static class OldNameToCanonicalNameConflictExample extends OptionsBase {
+  @OptionsClass
+  public abstract static class OldNameToCanonicalNameConflictExample extends OptionsBase {
     @Option(
-      name = "new_name",
-      oldName = "old_name",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "defaultValue"
-    )
-    public String flag1;
+        name = "new_name",
+        oldName = "old_name",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "defaultValue")
+    public abstract String getFlag1();
 
     @Option(
-      name = "old_name",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "defaultValue"
-    )
-    public String flag2;
+        name = "old_name",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "defaultValue")
+    public abstract String getFlag2();
   }
 
   @Test
@@ -306,24 +304,23 @@ public class OptionsDataTest {
   }
 
   /** Dummy options class. */
-  public static class OldNameConflictExample extends OptionsBase {
+  @OptionsClass
+  public abstract static class OldNameConflictExample extends OptionsBase {
     @Option(
-      name = "new_name",
-      oldName = "old_name",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "defaultValue"
-    )
-    public String flag1;
+        name = "new_name",
+        oldName = "old_name",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "defaultValue")
+    public abstract String getFlag1();
 
     @Option(
-      name = "another_name",
-      oldName = "old_name",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "defaultValue"
-    )
-    public String flag2;
+        name = "another_name",
+        oldName = "old_name",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "defaultValue")
+    public abstract String getFlag2();
   }
 
   @Test
@@ -342,7 +339,7 @@ public class OptionsDataTest {
   }
 
   /** Dummy options class. */
-  public static class StringConverter implements Converter<String> {
+  public static class StringConverter extends Converter.Contextless<String> {
     @Override
     public String convert(String input) {
       return input;
@@ -358,88 +355,82 @@ public class OptionsDataTest {
    * Dummy options class.
    *
    * <p>Option name order is different from field name order.
-   * 
+   *
    * <p>There are four fields to increase the likelihood of a non-deterministic order being noticed.
    */
-  public static class FieldNamesDifferOptions extends OptionsBase {
+  @OptionsClass
+  public abstract static class FieldNamesDifferOptions extends OptionsBase {
 
     @Option(
-      name = "foo",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "0"
-    )
-    public int aFoo;
+        name = "foo",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "0")
+    public abstract int getAFoo();
 
     @Option(
-      name = "bar",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "0"
-    )
-    public int bBar;
+        name = "bar",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "0")
+    public abstract int getBBar();
 
     @Option(
-      name = "baz",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "0"
-    )
-    public int cBaz;
+        name = "baz",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "0")
+    public abstract int getCBaz();
 
     @Option(
-      name = "qux",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "0"
-    )
-    public int dQux;
+        name = "qux",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "0")
+    public abstract int getDQux();
   }
 
   /** Dummy options class. */
-  public static class EndOfAlphabetOptions extends OptionsBase {
+  @OptionsClass
+  public abstract static class EndOfAlphabetOptions extends OptionsBase {
     @Option(
-      name = "X",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "0"
-    )
-    public int x;
+        name = "X",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "0")
+    public abstract int getX();
 
     @Option(
-      name = "Y",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "0"
-    )
-    public int y;
+        name = "Y",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "0")
+    public abstract int getY();
   }
 
   /** Dummy options class. */
-  public static class ReverseOrderedOptions extends OptionsBase {
+  @OptionsClass
+  public abstract static class ReverseOrderedOptions extends OptionsBase {
     @Option(
-      name = "C",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "0"
-    )
-    public int c;
+        name = "C",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "0")
+    public abstract int getC();
 
     @Option(
-      name = "B",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "0"
-    )
-    public int b;
+        name = "B",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "0")
+    public abstract int getB();
 
     @Option(
-      name = "A",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "0"
-    )
-    public int a;
+        name = "A",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "0")
+    public abstract int getA();
   }
 
   @Test
@@ -538,23 +529,22 @@ public class OptionsDataTest {
   }
 
   /** Dummy options class. */
-  public static class ValidExpansionOptions extends OptionsBase {
+  @OptionsClass
+  public abstract static class ValidExpansionOptions extends OptionsBase {
     @Option(
-      name = "foo",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "1"
-    )
-    public int foo;
+        name = "foo",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "1")
+    public abstract int getFoo();
 
     @Option(
-      name = "bar",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "null",
-      expansion = {"--foo=42"}
-    )
-    public Void bar;
+        name = "bar",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "null",
+        expansion = {"--foo=42"})
+    public abstract Void getBar();
   }
 
   @Test

@@ -13,7 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime.commands;
 
+import static com.google.devtools.build.lib.runtime.Command.BuildPhase.LOADS;
+
 import com.google.common.hash.HashFunction;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
@@ -54,7 +57,9 @@ import java.util.Set;
 /** Command line wrapper for executing a query with blaze. */
 @Command(
     name = "query",
+    buildPhase = LOADS,
     options = {
+      CoreOptions.class, // for --action_env, which affects the repo env
       PackageOptions.class,
       QueryOptions.class,
       KeepGoingOption.class,
@@ -64,8 +69,7 @@ import java.util.Set;
     shortDescription = "Executes a dependency graph query.",
     allowResidue = true,
     binaryStdOut = true,
-    completion = "label",
-    canRunInOutputDirectory = true)
+    completion = "label")
 public final class QueryCommand extends QueryEnvironmentBasedCommand {
 
   @Override
@@ -111,7 +115,7 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
     // An exception to this is when somepath is used at the top level of the query expression.
     boolean lexicographicallySortOutput =
         QueryOutputUtils.lexicographicallySortOutput(queryOptions, formatter)
-            && !expr.isTopLevelSomePathFunction();
+            && !expr.isSomePathFunction();
 
     OutputStream out;
     if (formatter.canBeBuffered()) {
@@ -131,7 +135,7 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
       StreamedFormatter streamedFormatter = ((StreamedFormatter) formatter);
       streamedFormatter.setOptions(
           queryOptions,
-          queryOptions.aspectDeps.createResolver(env.getPackageManager(), env.getReporter()),
+          queryOptions.getAspectDeps().createResolver(env.getPackageManager(), env.getReporter()),
           hashFunction);
       streamedFormatter.setEventHandler(env.getReporter());
       if (lexicographicallySortOutput) {
@@ -183,9 +187,12 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
               targets,
               formatter,
               out,
-              queryOptions.aspectDeps.createResolver(env.getPackageManager(), env.getReporter()),
+              queryOptions
+                  .getAspectDeps()
+                  .createResolver(env.getPackageManager(), env.getReporter()),
               env.getReporter(),
-              hashFunction);
+              hashFunction,
+              queryEnv.getLabelPrinter());
         } catch (ClosedByInterruptException | InterruptedException e) {
           return reportAndCreateInterruptedResult(env);
         } catch (IOException e) {

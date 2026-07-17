@@ -16,29 +16,21 @@ package com.google.devtools.build.lib.rules.genrule;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
-import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.CommandLineLimits;
 import com.google.devtools.build.lib.actions.CommandLines;
-import com.google.devtools.build.lib.actions.CommandLines.CommandLineLimits;
-import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.RunfilesSupplier;
-import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
+import com.google.devtools.build.lib.analysis.config.CoreOptions.OutputPathsMode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.skyframe.TrackSourceDirectoriesFlag;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import java.util.List;
 
 /**
  * A spawn action for genrules. Genrules are handled specially in that inputs and outputs are
  * checked for directories.
  */
-@AutoCodec
-public class GenRuleAction extends SpawnAction {
+public final class GenRuleAction extends SpawnAction {
 
   public static final String MNEMONIC = "Genrule";
 
@@ -50,39 +42,23 @@ public class GenRuleAction extends SpawnAction {
       CommandLines commandLines,
       ActionEnvironment env,
       ImmutableMap<String, String> executionInfo,
-      RunfilesSupplier runfilesSupplier,
       CharSequence progressMessage) {
     super(
         owner,
         tools,
         inputs,
         outputs,
-        Iterables.getFirst(outputs, null),
         AbstractAction.DEFAULT_RESOURCE_SET,
         commandLines,
-        CommandLineLimits.UNLIMITED,
-        false,
         env,
         executionInfo,
         progressMessage,
-        runfilesSupplier,
         MNEMONIC,
-        false,
-        null,
-        null);
+        OutputPathsMode.OFF);
   }
 
   @Override
-  protected void beforeExecute(ActionExecutionContext actionExecutionContext) throws ExecException {
-    if (!TrackSourceDirectoriesFlag.trackSourceDirectories()) {
-      checkInputsForDirectories(
-          actionExecutionContext.getEventHandler(), actionExecutionContext.getMetadataProvider());
-    }
-  }
-
-  @Override
-  protected void afterExecute(
-      ActionExecutionContext actionExecutionContext, List<SpawnResult> spawnResults) {
-    checkOutputsForDirectories(actionExecutionContext);
+  protected CommandLineLimits getCommandLineLimits() {
+    return CommandLineLimits.UNLIMITED;
   }
 }

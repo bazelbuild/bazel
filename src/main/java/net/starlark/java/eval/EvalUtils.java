@@ -13,8 +13,11 @@
 // limitations under the License.
 package net.starlark.java.eval;
 
-import com.google.common.base.Strings;
 import java.util.IllegalFormatException;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.Set;
+import javax.annotation.Nullable;
 import net.starlark.java.syntax.TokenKind;
 
 /** Internal declarations used by the evaluator. */
@@ -50,26 +53,6 @@ final class EvalUtils {
           "index out of range (index is %d, but sequence has %d elements)", index, length);
     }
     return actualIndex;
-  }
-
-  /**
-   * Returns the effective index denoted by a user-supplied integer. First, if the integer is
-   * negative, the length of the sequence is added to it, so an index of -1 represents the last
-   * element of the sequence. Then, the integer is "clamped" into the inclusive interval [0,
-   * length].
-   */
-  static int toIndex(int index, int length) {
-    if (index < 0) {
-      index += length;
-    }
-
-    if (index < 0) {
-      return 0;
-    } else if (index > length) {
-      return length;
-    } else {
-      return index;
-    }
   }
 
   /** Evaluates an eager binary operation, {@code x op y}. (Excludes AND and OR.) */
@@ -127,6 +110,18 @@ final class EvalUtils {
             // int | int
             return StarlarkInt.or((StarlarkInt) x, (StarlarkInt) y);
           }
+        } else if (x instanceof Map<?, ?> xMap) {
+          if (y instanceof Map<?, ?> yMap) {
+            // map | map (usually dicts)
+            LinkedHashMap<Object, Object> union = new LinkedHashMap<>(xMap);
+            union.putAll(yMap);
+            return mu.isFrozen() ? CompactImmutableDict.copyOf(union) : Dict.wrap(mu, union);
+          }
+        } else if (x instanceof Set && y instanceof Set) {
+          // set | set
+          if (semantics.getBool(StarlarkSemantics.EXPERIMENTAL_ENABLE_STARLARK_SET)) {
+            return StarlarkSet.empty().union(Tuple.of(x, y), starlarkThread);
+          }
         }
         break;
 
@@ -134,6 +129,15 @@ final class EvalUtils {
         if (x instanceof StarlarkInt && y instanceof StarlarkInt) {
           // int & int
           return StarlarkInt.and((StarlarkInt) x, (StarlarkInt) y);
+        } else if (x instanceof Set<?> xSet && y instanceof Set) {
+          // set & set
+          if (semantics.getBool(StarlarkSemantics.EXPERIMENTAL_ENABLE_STARLARK_SET)) {
+            StarlarkSet<?> xStarlarkSet =
+                xSet instanceof StarlarkSet
+                    ? (StarlarkSet<?>) xSet
+                    : StarlarkSet.checkedCopyOf(mu, xSet);
+            return xStarlarkSet.intersection(Tuple.of(y), starlarkThread);
+          }
         }
         break;
 
@@ -141,6 +145,15 @@ final class EvalUtils {
         if (x instanceof StarlarkInt && y instanceof StarlarkInt) {
           // int ^ int
           return StarlarkInt.xor((StarlarkInt) x, (StarlarkInt) y);
+        } else if (x instanceof Set<?> xSet && y instanceof Set) {
+          // set ^ set
+          if (semantics.getBool(StarlarkSemantics.EXPERIMENTAL_ENABLE_STARLARK_SET)) {
+            StarlarkSet<?> xStarlarkSet =
+                xSet instanceof StarlarkSet
+                    ? (StarlarkSet<?>) xSet
+                    : StarlarkSet.checkedCopyOf(mu, xSet);
+            return xStarlarkSet.symmetricDifference(y, starlarkThread);
+          }
         }
         break;
 
@@ -180,12 +193,20 @@ final class EvalUtils {
             double z = xf - ((StarlarkInt) y).toFiniteDouble();
             return StarlarkFloat.of(z);
           }
+        } else if (x instanceof Set<?> xSet && y instanceof Set) {
+          // set - set
+          if (semantics.getBool(StarlarkSemantics.EXPERIMENTAL_ENABLE_STARLARK_SET)) {
+            StarlarkSet<?> xStarlarkSet =
+                xSet instanceof StarlarkSet
+                    ? (StarlarkSet<?>) xSet
+                    : StarlarkSet.checkedCopyOf(mu, xSet);
+            return xStarlarkSet.difference(Tuple.of(y), starlarkThread);
+          }
         }
         break;
 
       case STAR:
-        if (x instanceof StarlarkInt) {
-          StarlarkInt xi = (StarlarkInt) x;
+        if (x instanceof StarlarkInt xi) {
           if (y instanceof StarlarkInt) {
             // int * int
             return StarlarkInt.multiply(xi, (StarlarkInt) y);
@@ -294,14 +315,13 @@ final class EvalUtils {
             return StarlarkFloat.mod(xf, yf);
           }
 
-        } else if (x instanceof String) {
+        } else if (x instanceof String xs) {
           // string % any
-          String xs = (String) x;
           try {
             if (y instanceof Tuple) {
-              return Starlark.formatWithList(xs, (Tuple) y);
+              return Starlark.formatWithList(semantics, xs, (Tuple) y);
             } else {
-              return Starlark.format(xs, y);
+              return Starlark.format(semantics, xs, y);
             }
           } catch (IllegalFormatException ex) {
             throw new EvalException(ex);
@@ -338,8 +358,8 @@ final class EvalUtils {
         return compare(x, y) >= 0;
 
       case IN:
-        if (y instanceof StarlarkIndexable) {
-          return ((StarlarkIndexable) y).containsKey(semantics, x);
+        if (y instanceof StarlarkMembershipTestable) {
+          return ((StarlarkMembershipTestable) y).containsKey(semantics, x);
         } else if (y instanceof StarlarkIndexable.Threaded) {
           return ((StarlarkIndexable.Threaded) y).containsKey(starlarkThread, semantics, x);
         } else if (y instanceof String) {
@@ -391,8 +411,14 @@ final class EvalUtils {
 
   private static String repeatString(String s, StarlarkInt in) throws EvalException {
     int n = in.toInt("repeat");
-    // TODO(adonovan): reject unreasonably large n.
-    return n <= 0 ? "" : Strings.repeat(s, n);
+    if (n <= 0) {
+      return "";
+    } else if ((long) s.length() * (long) n > Integer.MAX_VALUE) {
+      // Would exceed max length of a java String.
+      throw Starlark.errorf("excessive repeat (%d * %d characters)", s.length(), n);
+    } else {
+      return s.repeat(n);
+    }
   }
 
   /** Evaluates a unary operation. */
@@ -434,6 +460,7 @@ final class EvalUtils {
    *
    * @throws EvalException if {@code object} is not a sequence or mapping.
    */
+  @Nullable
   static Object index(StarlarkThread starlarkThread, Object object, Object key)
       throws EvalException {
     Mutability mu = starlarkThread.mutability();
@@ -447,8 +474,7 @@ final class EvalUtils {
       // it should go in the implementations of StarlarkIndexable#getIndex that produce non-Starlark
       // values.
       return result == null ? null : Starlark.fromJava(result, mu);
-    } else if (object instanceof String) {
-      String string = (String) object;
+    } else if (object instanceof String string) {
       int index = Starlark.toInt(key, "string index");
       index = getSequenceIndex(index, string.length());
       return StringModule.memoizedCharToString(string.charAt(index));

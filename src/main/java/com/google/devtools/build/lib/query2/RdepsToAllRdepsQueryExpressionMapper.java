@@ -53,10 +53,11 @@ class RdepsToAllRdepsQueryExpressionMapper extends QueryExpressionMapper<Void> {
                 absoluteUniverseScopePattern,
                 ((TargetLiteral) rdepsUniverseExpression).getPattern());
         switch (eligibility) {
-          case ELIGIBLE_AS_IS:
+          case ELIGIBLE_AS_IS -> {
             return new FunctionExpression(
                 new AllRdepsFunction(), args.subList(1, functionExpression.getArgs().size()));
-          case ELIGIBLE_WITH_FILTERING:
+          }
+          case ELIGIBLE_WITH_FILTERING -> {
             return new FunctionExpression(
                 new KindFunction(),
                 ImmutableList.of(
@@ -65,8 +66,10 @@ class RdepsToAllRdepsQueryExpressionMapper extends QueryExpressionMapper<Void> {
                         new FunctionExpression(
                             new AllRdepsFunction(),
                             args.subList(1, functionExpression.getArgs().size())))));
-          default:
+          }
+          default -> {
             // Do nothing. The return statement at the bottom of the method is what we want.
+          }
         }
       }
     }
@@ -102,15 +105,14 @@ class RdepsToAllRdepsQueryExpressionMapper extends QueryExpressionMapper<Void> {
     }
 
     switch (absoluteUniverseScopePattern.getType()) {
-      case PATH_AS_TARGET:
-      case SINGLE_TARGET:
+      case PATH_AS_TARGET, SINGLE_TARGET -> {
         return absoluteUniverseScopePattern
                 .getOriginalPattern()
                 .equals(absoluteRdepsUniverseTargetPattern.getOriginalPattern())
             ? Eligibility.ELIGIBLE_AS_IS
             : Eligibility.NOT_ELIGIBLE;
-      case TARGETS_IN_PACKAGE:
-      case TARGETS_BELOW_DIRECTORY:
+      }
+      case TARGETS_IN_PACKAGE, TARGETS_BELOW_DIRECTORY -> {
         if (!absoluteUniverseScopePattern
             .getDirectory()
             .equals(absoluteRdepsUniverseTargetPattern.getDirectory())) {
@@ -132,6 +134,7 @@ class RdepsToAllRdepsQueryExpressionMapper extends QueryExpressionMapper<Void> {
             // If the actual universe is wider, then allrdeps would produce wider results.
             // Therefore, we'd want to filter those results.
             : Eligibility.ELIGIBLE_WITH_FILTERING;
+      }
     }
     throw new IllegalStateException(absoluteUniverseScopePattern.getType().toString());
   }

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2017 The Bazel Authors. All rights reserved.
 #
@@ -45,28 +45,19 @@ fi
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-case "$(uname -s | tr [:upper:] [:lower:])" in
-msys*|mingw*|cygwin*)
-  declare -r is_windows=true
-  ;;
-*)
-  declare -r is_windows=false
-  ;;
-esac
-
-if "$is_windows"; then
-  export MSYS_NO_PATHCONV=1
-  export MSYS2_ARG_CONV_EXCL="*"
-fi
-
 add_to_bazelrc "build --package_path=%workspace%"
+
+BIN_DIR=/bin
+if is_darwin; then
+  BIN_DIR=/usr/bin
+fi
 
 #### TESTS #############################################################
 
 function test_workspace_status_with_stderr() {
   local ok="$TEST_TMPDIR/ok.sh"
   cat > "$ok" <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 echo "This is stderr" >&2
 exit 0
 EOF
@@ -80,21 +71,23 @@ EOF
 }
 
 function test_workspace_status_invalidation() {
-  bazel build --stamp --workspace_status_command=/bin/false >& "$TEST_log" \
+  bazel build --stamp --workspace_status_command=${BIN_DIR}/false >& "$TEST_log" \
     && fail "build succeeded"
   # Tolerate Bazel/Blaze differences in failure message.
   expect_log "Failed to determine"
   expect_not_log IllegalStateException # regtest for #806095
-  bazel build --stamp --workspace_status_command=/bin/true >& "$TEST_log" \
+  bazel build --stamp --workspace_status_command=${BIN_DIR}/true >& "$TEST_log" \
     || fail "build failed"
 }
 
 # Regression test for bug 4095015.
 function test_false_and_verbose_failures() {
+    add_rules_cc MODULE.bazel
     mkdir -p x || fail "mkdir x failed"
-    echo "cc_library(name='x')" >x/BUILD
+    echo 'load("@rules_cc//cc:cc_library.bzl", "cc_library")' > x/BUILD
+    echo "cc_library(name='x')" >> x/BUILD
 
-    blaze build --workspace_status_command=/bin/false --verbose_failures //x \
+    bazel build --workspace_status_command=${BIN_DIR}/false --verbose_failures //x \
         >& "$TEST_log" && fail "Expected build to fail".
     # Tolerate Bazel/Blaze differences in failure message.
     expect_log "Failed to determine"
@@ -103,8 +96,10 @@ function test_false_and_verbose_failures() {
 }
 
 function test_that_script_is_run_from_workspace_directory() {
+    add_rules_cc MODULE.bazel
     mkdir -p x || fail "mkdir x failed"
-    echo "cc_library(name='x')" >x/BUILD
+    echo 'load("@rules_cc//cc:cc_library.bzl", "cc_library")' > x/BUILD
+    echo "cc_library(name='x')" >> x/BUILD
 
     local pwdfile="$TEST_TMPDIR/pwdfile"
     echo "pwd >$pwdfile" >myscript && chmod +x myscript

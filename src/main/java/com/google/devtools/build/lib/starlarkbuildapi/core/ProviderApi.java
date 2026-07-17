@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.starlarkbuildapi.core;
 
 import com.google.devtools.build.docgen.annot.DocCategory;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.eval.StarlarkValue;
+import net.starlark.java.eval.StarlarkTypeValue;
 
 /** Interface for provider objects (constructors for {@link StructApi} objects). */
 @StarlarkBuiltin(
@@ -33,12 +33,12 @@ import net.starlark.java.eval.StarlarkValue;
             + "     Note: Some providers, defined internally, do not allow instance creation"
             + "     </li>"
             + "     <li>It is a <i>key</i> to access a provider instance on a"
-            + "        <a href=\"Target.html\">Target</a>"
+            + "        <a href=\"../builtins/Target.html\">Target</a>"
             + "<pre class=\"language-python\">DataInfo = provider()\n"
             + "def _rule_impl(ctx)\n"
             + "  ... ctx.attr.dep[DataInfo]</pre>"
             + "     </li>"
             + "  </ul>"
             + "Create a new <code>Provider</code> using the "
-            + "<a href=\"globals.html#provider\">provider</a> function.")
-public interface ProviderApi extends StarlarkValue {}
+            + "<a href=\"../globals/bzl.html#provider\">provider</a> function.")
+public interface ProviderApi extends StarlarkTypeValue {}

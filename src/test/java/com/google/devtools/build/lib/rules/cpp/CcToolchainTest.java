@@ -15,51 +15,54 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.Truth.assertWithMessage;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.MoreCollectors;
-import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
 import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.packages.util.ResourceLoader;
+import com.google.devtools.build.lib.rules.cpp.CcCommon.Language;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.DynamicMode;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
 import com.google.devtools.build.lib.testutil.TestConstants;
-import com.google.devtools.common.options.OptionsParsingException;
 import java.io.IOException;
-import java.util.Set;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Tests for toolchain features.
- */
+/** Tests for toolchain features. */
 @RunWith(JUnit4.class)
-public class CcToolchainTest extends BuildViewTestCase {
+public final class CcToolchainTest extends BuildViewTestCase {
 
   @Test
   public void testFilesToBuild() throws Exception {
-    scratch.file("a/BUILD", "cc_toolchain_alias(name = 'b')");
+    scratch.file(
+        "a/BUILD",
+        "load('@rules_cc//cc/toolchains:cc_toolchain_alias.bzl',"
+            + " 'cc_toolchain_alias')",
+        "cc_toolchain_alias(name = 'b')");
     ConfiguredTarget b = getConfiguredTarget("//a:b");
     assertThat(ActionsTestUtil.baseArtifactNames(getFilesToBuild(b))).isNotNull();
   }
 
   @Test
   public void testInterfaceSharedObjects() throws Exception {
-    scratch.file("a/BUILD", "cc_toolchain_alias(name = 'b')");
+    scratch.file(
+        "a/BUILD",
+        "load('@rules_cc//cc/toolchains:cc_toolchain_alias.bzl',"
+            + " 'cc_toolchain_alias')",
+        "cc_toolchain_alias(name = 'b')");
     getAnalysisMock()
         .ccSupport()
         .setupCcToolchainConfig(
@@ -70,40 +73,47 @@ public class CcToolchainTest extends BuildViewTestCase {
     invalidatePackages();
 
     ConfiguredTarget target = getConfiguredTarget("//a:b");
-    CcToolchainProvider toolchainProvider = target.get(CcToolchainProvider.PROVIDER);
     assertThat(
-            CppHelper.useInterfaceSharedLibraries(
+            useInterfaceSharedLibraries(
                 getConfiguration(target).getFragment(CppConfiguration.class),
-                toolchainProvider,
                 FeatureConfiguration.EMPTY))
         .isFalse();
 
     useConfiguration();
     invalidatePackages();
     target = getConfiguredTarget("//a:b");
-    toolchainProvider = target.get(CcToolchainProvider.PROVIDER);
     assertThat(
-            CppHelper.useInterfaceSharedLibraries(
+            useInterfaceSharedLibraries(
                 getConfiguration(target).getFragment(CppConfiguration.class),
-                toolchainProvider,
                 FeatureConfiguration.EMPTY))
         .isFalse();
 
     useConfiguration("--nointerface_shared_objects");
     invalidatePackages();
     target = getConfiguredTarget("//a:b");
-    toolchainProvider = target.get(CcToolchainProvider.PROVIDER);
     assertThat(
-            CppHelper.useInterfaceSharedLibraries(
+            useInterfaceSharedLibraries(
                 getConfiguration(target).getFragment(CppConfiguration.class),
-                toolchainProvider,
                 FeatureConfiguration.EMPTY))
         .isFalse();
   }
 
+  /**
+   * Returns true if interface shared objects should be used in the build implied by the given
+   * cppConfiguration and toolchain.
+   */
+  static boolean useInterfaceSharedLibraries(
+      CppConfiguration cppConfiguration, FeatureConfiguration featureConfiguration) {
+    return CcToolchainProvider.supportsInterfaceSharedLibraries(featureConfiguration)
+        && cppConfiguration.getUseInterfaceSharedLibraries();
+  }
+
   @Test
   public void testFission() throws Exception {
-    scratch.file("a/BUILD", "cc_library(name = 'a', srcs = ['a.cc'])");
+    scratch.file(
+        "a/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "cc_library(name = 'a', srcs = ['a.cc'])");
 
     // Default configuration: disabled.
     getAnalysisMock()
@@ -160,37 +170,52 @@ public class CcToolchainTest extends BuildViewTestCase {
         .get()
         .getOutputs()
         .stream()
-        .map(a -> a.getFilename())
+        .map(Artifact::getFilename)
         .collect(ImmutableList.toImmutableList());
   }
 
   @Test
   public void testPic() throws Exception {
-    scratch.file("a/BUILD", "cc_toolchain_alias(name = 'b')");
+    scratch.file(
+        "a/BUILD",
+        "load('@rules_cc//cc/toolchains:cc_toolchain_alias.bzl',"
+            + " 'cc_toolchain_alias')",
+        "cc_toolchain_alias(name = 'b')");
 
-    assertThat(usePicForBinariesWithConfiguration("--cpu=k8")).isFalse();
-    assertThat(usePicForBinariesWithConfiguration("--cpu=k8", "-c", "opt")).isFalse();
+    assertThat(usePicForBinariesWithConfiguration("--platforms=" + TestConstants.PLATFORM_LABEL))
+        .isFalse();
+    assertThat(
+            usePicForBinariesWithConfiguration(
+                "--platforms=" + TestConstants.PLATFORM_LABEL, "-c", "opt"))
+        .isFalse();
+
     getAnalysisMock()
         .ccSupport()
         .setupCcToolchainConfig(
             mockToolsConfig, CcToolchainConfig.builder().withFeatures(CppRuleClasses.SUPPORTS_PIC));
     invalidatePackages();
-    assertThat(usePicForBinariesWithConfiguration("--cpu=k8")).isTrue();
-    assertThat(usePicForBinariesWithConfiguration("--cpu=k8", "-c", "opt")).isFalse();
+
+    assertThat(usePicForBinariesWithConfiguration("--platforms=" + TestConstants.PLATFORM_LABEL))
+        .isTrue();
+    assertThat(
+            usePicForBinariesWithConfiguration(
+                "--platforms=" + TestConstants.PLATFORM_LABEL, "-c", "opt"))
+        .isFalse();
   }
 
   private boolean usePicForBinariesWithConfiguration(String... configuration) throws Exception {
     useConfiguration(configuration);
     ConfiguredTarget target = getConfiguredTarget("//a:b");
-    CcToolchainProvider toolchainProvider = target.get(CcToolchainProvider.PROVIDER);
+    CcToolchainProvider toolchainProvider = CcToolchainProvider.getFromTarget(target);
     CppConfiguration cppConfiguration = getRuleContext(target).getFragment(CppConfiguration.class);
     FeatureConfiguration featureConfiguration =
         CcCommon.configureFeaturesOrThrowEvalException(
             /* requestedFeatures= */ ImmutableSet.of(),
             /* unsupportedFeatures= */ ImmutableSet.of(),
+            Language.CPP,
             toolchainProvider,
             cppConfiguration);
-    return CppHelper.usePicForBinaries(toolchainProvider, cppConfiguration, featureConfiguration);
+    return CppHelper.usePicForBinaries(cppConfiguration, featureConfiguration);
   }
 
   @Test
@@ -198,25 +223,45 @@ public class CcToolchainTest extends BuildViewTestCase {
     scratch.file("a/cc_toolchain_config.bzl", MockCcSupport.EMPTY_CC_TOOLCHAIN);
     scratch.file(
         "a/BUILD",
-        "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')",
-        "filegroup(name='dynamic', srcs=['not-an-so', 'so.so'])",
-        "filegroup(name='static', srcs=['not-an-a', 'a.a'])",
-        "cc_toolchain(",
-        "    name = 'a',",
-        "    toolchain_config = ':toolchain_config',",
-        "    module_map = 'map',",
-        "    ar_files = 'ar-a',",
-        "    as_files = 'as-a',",
-        "    compiler_files = 'compile-a',",
-        "    dwp_files = 'dwp-a',",
-        "    coverage_files = 'gcov-a',",
-        "    linker_files = 'link-a',",
-        "    strip_files = 'strip-a',",
-        "    objcopy_files = 'objcopy-a',",
-        "    all_files = 'all-a',",
-        "    dynamic_runtime_lib = ':dynamic',",
-        "    static_runtime_lib = ':static')",
-        "cc_toolchain_config(name='toolchain_config')");
+        """
+        load("@rules_cc//cc/toolchains:cc_toolchain.bzl", "cc_toolchain")
+        load(":cc_toolchain_config.bzl", "cc_toolchain_config")
+
+        filegroup(
+            name = "dynamic",
+            srcs = [
+                "not-an-so",
+                "so.so",
+            ],
+        )
+
+        filegroup(
+            name = "static",
+            srcs = [
+                "a.a",
+                "not-an-a",
+            ],
+        )
+
+        cc_toolchain(
+            name = "a",
+            all_files = "all-a",
+            ar_files = "ar-a",
+            as_files = "as-a",
+            compiler_files = "compile-a",
+            coverage_files = "gcov-a",
+            dwp_files = "dwp-a",
+            dynamic_runtime_lib = ":dynamic",
+            linker_files = "link-a",
+            module_map = "map",
+            objcopy_files = "objcopy-a",
+            static_runtime_lib = ":static",
+            strip_files = "strip-a",
+            toolchain_config = ":toolchain_config",
+        )
+
+        cc_toolchain_config(name = "toolchain_config")
+        """);
 
     getAnalysisMock()
         .ccSupport()
@@ -233,27 +278,40 @@ public class CcToolchainTest extends BuildViewTestCase {
   public void testDynamicMode() throws Exception {
     scratch.file(
         "a/BUILD",
-        "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')",
-        "filegroup(",
-        "   name='empty')",
-        "filegroup(",
-        "    name = 'banana',",
-        "    srcs = ['banana1', 'banana2'])",
-        "cc_toolchain(",
-        "    name = 'b',",
-        "    toolchain_identifier = 'toolchain-identifier-k8',",
-        "    toolchain_config = ':toolchain_config',",
-        "    all_files = ':banana',",
-        "    ar_files = ':empty',",
-        "    as_files = ':empty',",
-        "    compiler_files = ':empty',",
-        "    dwp_files = ':empty',",
-        "    linker_files = ':empty',",
-        "    strip_files = ':empty',",
-        "    objcopy_files = ':empty',",
-        "    dynamic_runtime_lib = ':empty',",
-        "    static_runtime_lib = ':empty')",
-        "cc_toolchain_config(name='toolchain_config')");
+        """
+        load("@rules_cc//cc/toolchains:cc_toolchain.bzl", "cc_toolchain")
+        load(":cc_toolchain_config.bzl", "cc_toolchain_config")
+
+        filegroup(
+            name = "empty",
+        )
+
+        filegroup(
+            name = "banana",
+            srcs = [
+                "banana1",
+                "banana2",
+            ],
+        )
+
+        cc_toolchain(
+            name = "b",
+            all_files = ":banana",
+            ar_files = ":empty",
+            as_files = ":empty",
+            compiler_files = ":empty",
+            dwp_files = ":empty",
+            dynamic_runtime_lib = ":empty",
+            linker_files = ":empty",
+            objcopy_files = ":empty",
+            static_runtime_lib = ":empty",
+            strip_files = ":empty",
+            toolchain_config = ":toolchain_config",
+            toolchain_identifier = "toolchain-identifier-k8",
+        )
+
+        cc_toolchain_config(name = "toolchain_config")
+        """);
     scratch.file("a/cc_toolchain_config.bzl", MockCcSupport.EMPTY_CC_TOOLCHAIN);
 
     // Check defaults.
@@ -278,9 +336,10 @@ public class CcToolchainTest extends BuildViewTestCase {
 
     assertThat(cppConfiguration.getDynamicModeFlag()).isEqualTo(DynamicMode.FULLY);
 
-    // Check an invalid value for disable_dynamic.
-    OptionsParsingException e =
-        assertThrows(OptionsParsingException.class, () -> useConfiguration("--dynamic_mode=very"));
+    // Check an invalid value for --dynamic_mode.
+    var e =
+        assertThrows(
+            InvalidConfigurationException.class, () -> useConfiguration("--dynamic_mode=very"));
     assertThat(e)
         .hasMessageThat()
         .isEqualTo(
@@ -288,9 +347,13 @@ public class CcToolchainTest extends BuildViewTestCase {
                 + "(should be off, default or fully)");
   }
 
-  public void assertInvalidIncludeDirectoryMessage(String entry, String messageRegex)
+  private void assertInvalidIncludeDirectoryMessage(String entry, String messageRegex)
       throws Exception {
-    scratch.overwriteFile("a/BUILD", "cc_toolchain_alias(name = 'b')");
+    scratch.overwriteFile(
+        "a/BUILD",
+        "load('@rules_cc//cc/toolchains:cc_toolchain_alias.bzl',"
+            + " 'cc_toolchain_alias')",
+        "cc_toolchain_alias(name = 'b')");
     getAnalysisMock()
         .ccSupport()
         .setupCcToolchainConfig(
@@ -307,7 +370,7 @@ public class CcToolchainTest extends BuildViewTestCase {
   public void testInvalidIncludeDirectory() throws Exception {
     assertInvalidIncludeDirectoryMessage("%package(//a", "has an unrecognized %prefix%");
     assertInvalidIncludeDirectoryMessage(
-        "%package(//a:@@a)%", "The package '//a:@@a' is not valid");
+        "%package(//a:@@a)%", "invalid package identifier '//a:@@a': contains ':'");
     assertInvalidIncludeDirectoryMessage(
         "%package(//a)%foo", "The path in the package.*is not valid");
   }
@@ -318,6 +381,7 @@ public class CcToolchainTest extends BuildViewTestCase {
     scratchConfiguredTarget(
         "modules/map",
         "c",
+        "load('@rules_cc//cc/toolchains:cc_toolchain.bzl', 'cc_toolchain')",
         "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')",
         "cc_toolchain(",
         "    name = 'c',",
@@ -344,6 +408,7 @@ public class CcToolchainTest extends BuildViewTestCase {
     scratchConfiguredTarget(
         "modules/map",
         "c",
+        "load('@rules_cc//cc/toolchains:cc_toolchain.bzl', 'cc_toolchain')",
         "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')",
         "cc_toolchain(",
         "    name = 'c',",
@@ -369,6 +434,7 @@ public class CcToolchainTest extends BuildViewTestCase {
         "modules/multiple",
         "c",
         "expected a single artifact",
+        "load('@rules_cc//cc/toolchains:cc_toolchain.bzl', 'cc_toolchain')",
         "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')",
         "filegroup(name = 'multiple-maps', srcs = ['a.cppmap', 'b.cppmap'])",
         "cc_toolchain(",
@@ -376,7 +442,6 @@ public class CcToolchainTest extends BuildViewTestCase {
         "    toolchain_identifier = 'toolchain-identifier-k8',",
         "    toolchain_config = ':toolchain_config',",
         "    module_map = ':multiple-maps',",
-        "    cpu = 'cherry',",
         "    ar_files = 'ar-cherry',",
         "    as_files = 'as-cherry',",
         "    compiler_files = 'compile-cherry',",
@@ -393,9 +458,14 @@ public class CcToolchainTest extends BuildViewTestCase {
 
   @Test
   public void testToolchainAlias() throws Exception {
-    ConfiguredTarget reference = scratchConfiguredTarget("a", "ref",
-        "cc_toolchain_alias(name='ref')");
-    assertThat(reference.get(CcToolchainProvider.PROVIDER.getKey())).isNotNull();
+    ConfiguredTarget reference =
+        scratchConfiguredTarget(
+            "a",
+            "ref",
+            "load('@rules_cc//cc/toolchains:cc_toolchain_alias.bzl',"
+                + " 'cc_toolchain_alias')",
+            "cc_toolchain_alias(name='ref')");
+    assertThat(CcToolchainProvider.getFromTarget(reference)).isNotNull();
   }
 
   @Test
@@ -403,21 +473,33 @@ public class CcToolchainTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     scratch.file(
         "a/BUILD",
-        "cc_toolchain_alias(name = 'b')",
-        "genrule(",
-        "    name ='gen_artifact',",
-        "    outs=['profile.profdata'],",
-        "    cmd='touch $@')");
+        """
+        load("@rules_cc//cc/toolchains:cc_toolchain_alias.bzl", "cc_toolchain_alias")
+        cc_toolchain_alias(name = "b")
+
+        genrule(
+            name = "gen_artifact",
+            outs = ["profile.profdata"],
+            cmd = "touch $@",
+        )
+        """);
     useConfiguration("-c", "opt", "--fdo_optimize=//a:gen_artifact");
     assertThat(getConfiguredTarget("//a:b")).isNull();
-    assertContainsEvent("--fdo_optimize points to a target that is not an input file");
+    assertContainsEvent(
+        "--fdo_optimize points to a target that is not an input file or an fdo_profile rule");
   }
 
   @Test
   public void testFdoOptimizeUnexpectedExtension() throws Exception {
     reporter.removeHandler(failFastHandler);
     scratch.file(
-        "a/BUILD", "cc_toolchain_alias(name = 'b')", "exports_files(['profile.unexpected'])");
+        "a/BUILD",
+        """
+        load("@rules_cc//cc/toolchains:cc_toolchain_alias.bzl", "cc_toolchain_alias")
+        cc_toolchain_alias(name = "b")
+
+        exports_files(["profile.unexpected"])
+        """);
     scratch.file("a/profile.unexpected", "");
     useConfiguration("-c", "opt", "--fdo_optimize=//a:profile.unexpected");
     assertThat(getConfiguredTarget("//a:b")).isNull();
@@ -429,20 +511,33 @@ public class CcToolchainTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     scratch.file(
         "a/BUILD",
-        "cc_toolchain_alias(name = 'b')",
-        "filegroup(",
-        "    name ='profile',",
-        "    srcs=['my_profile.afdo'])");
+        """
+        load("@rules_cc//cc/toolchains:cc_toolchain_alias.bzl", "cc_toolchain_alias")
+        cc_toolchain_alias(name = "b")
+
+        filegroup(
+            name = "profile",
+            srcs = ["my_profile.afdo"],
+        )
+        """);
     scratch.file("my_profile.afdo", "");
     useConfiguration("-c", "opt", "--fdo_optimize=//a:profile");
     assertThat(getConfiguredTarget("//a:b")).isNull();
-    assertContainsEvent("--fdo_optimize points to a target that is not an input file");
+    assertContainsEvent(
+        "--fdo_optimize points to a target that is not an input file or an fdo_profile rule");
   }
 
   @Test
   public void testFdoOptimizeNotCompatibleWithCoverage() throws Exception {
     reporter.removeHandler(failFastHandler);
-    scratch.file("a/BUILD", "cc_toolchain_alias(name = 'b')", "exports_files(['profile.afdo'])");
+    scratch.file(
+        "a/BUILD",
+        """
+        load("@rules_cc//cc/toolchains:cc_toolchain_alias.bzl", "cc_toolchain_alias")
+        cc_toolchain_alias(name = "b")
+
+        exports_files(["profile.afdo"])
+        """);
     scratch.file("a/profile.afdo", "");
     useConfiguration("-c", "opt", "--fdo_optimize=//a:profile.afdo", "--collect_code_coverage");
     assertThat(getConfiguredTarget("//a:b")).isNull();
@@ -452,7 +547,11 @@ public class CcToolchainTest extends BuildViewTestCase {
   @Test
   public void testCSFdoRejectRelativePath() throws Exception {
     reporter.removeHandler(failFastHandler);
-    scratch.file("a/BUILD", "cc_toolchain_alias(name = 'b')");
+    scratch.file(
+        "a/BUILD",
+        "load('@rules_cc//cc/toolchains:cc_toolchain_alias.bzl',"
+            + " 'cc_toolchain_alias')",
+        "cc_toolchain_alias(name = 'b')");
     scratch.file("a/profile.profdata", "");
     scratch.file("a/csprofile.profdata", "");
     Exception e =
@@ -462,7 +561,7 @@ public class CcToolchainTest extends BuildViewTestCase {
                 useConfiguration(
                     "-c",
                     "opt",
-                    "--fdo_optimize=a/profile.profdata",
+                    "--fdo_optimize=/a/profile.profdata",
                     "--cs_fdo_absolute_path=a/csprofile.profdata"));
     assertThat(e).hasMessageThat().contains("in --cs_fdo_absolute_path is not an absolute path");
   }
@@ -472,61 +571,165 @@ public class CcToolchainTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     scratch.file(
         "a/BUILD",
-        "cc_toolchain_alias(name = 'b')",
-        "fdo_profile(name='out.xfdo', profile='profile.xfdo')");
+        """
+        load("@rules_cc//cc/toolchains:cc_toolchain_alias.bzl", "cc_toolchain_alias")
+        cc_toolchain_alias(name = "b")
+
+        genrule(
+            name = "profile.xfdo",
+            outs = ["c.txt"],
+            cmd = "",
+        )
+        """);
     useConfiguration("-c", "opt", "--xbinary_fdo=//a:profile.xfdo");
     assertThat(getConfiguredTarget("//a:b")).isNull();
-    assertContainsEvent("--fdo_profile/--xbinary_fdo input needs to be an fdo_profile rule");
+    assertContainsEvent("does not have mandatory providers: 'FdoProfileInfo'");
   }
 
   @Test
-  public void testXFdoOptimizeRejectAFdoInput() throws Exception {
+  public void testXFdoOptimizeAcceptAFdoInput() throws Exception {
     reporter.removeHandler(failFastHandler);
     scratch.file(
         "a/BUILD",
-        "cc_toolchain_alias(name = 'b')",
-        "fdo_profile(name='out.afdo', profile='profile.afdo')");
+        """
+        load("@rules_cc//cc/toolchains:cc_toolchain_alias.bzl", "cc_toolchain_alias")
+        load("@rules_cc//cc/toolchains:fdo_profile.bzl", "fdo_profile")
+        cc_toolchain_alias(name = "b")
+
+        fdo_profile(
+            name = "out.afdo",
+            profile = "profile.afdo",
+        )
+        """);
     useConfiguration("-c", "opt", "--xbinary_fdo=//a:out.afdo");
-    assertThat(getConfiguredTarget("//a:b")).isNull();
-    assertContainsEvent("--xbinary_fdo cannot accept profile input other than *.xfdo");
+    assertThat(getConfiguredTarget("//a:b")).isNotNull();
+    assertNoEvents();
   }
 
   @Test
-  public void testZipperInclusionDependsOnFdoOptimization() throws Exception {
+  public void testXFdoOptimizeRejectFdoInput() throws Exception {
     reporter.removeHandler(failFastHandler);
     scratch.file(
         "a/BUILD",
-        "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')",
-        "filegroup(",
-        "   name='empty')",
-        "cc_toolchain(",
-        "    name = 'b',",
-        "    toolchain_identifier = 'toolchain-identifier-k8',",
-        "    toolchain_config = ':toolchain_config',",
-        "    all_files = ':empty',",
-        "    ar_files = ':empty',",
-        "    as_files = ':empty',",
-        "    compiler_files = ':empty',",
-        "    dwp_files = ':empty',",
-        "    linker_files = ':empty',",
-        "    strip_files = ':empty',",
-        "    objcopy_files = ':empty')",
-        "cc_toolchain_config(name = 'toolchain_config')");
-    scratch.file("fdo/my_profile.afdo", "");
-    scratch.file(
-        "fdo/BUILD",
-        "exports_files(['my_profile.afdo'])",
-        "fdo_profile(name = 'fdo', profile = ':my_profile.profdata')");
-    scratch.file("a/cc_toolchain_config.bzl", MockCcSupport.EMPTY_CC_TOOLCHAIN);
+        """
+        load("@rules_cc//cc/toolchains:cc_toolchain_alias.bzl", "cc_toolchain_alias")
+        load("@rules_cc//cc/toolchains:fdo_profile.bzl", "fdo_profile")
+        cc_toolchain_alias(name = "b")
+
+        fdo_profile(
+            name = "out.fdo",
+            profile = "profile.profdata",
+        )
+        """);
+    useConfiguration("-c", "opt", "--xbinary_fdo=//a:out.fdo");
+    assertThat(getConfiguredTarget("//a:b")).isNull();
+    assertContainsEvent("--xbinary_fdo only accepts");
+  }
+
+  @Test
+  public void testZipperInclusionDependsOnFdoOptimization_notSet() throws Exception {
+    setUpFdoZipper();
 
     useConfiguration();
     assertThat(getPrerequisites(getConfiguredTarget("//a:b"), ":zipper")).isEmpty();
+  }
+
+  @Test
+  public void testZipperInclusionDependsOnFdoOptimization_viaFdoOptimize_packageLabel()
+      throws Exception {
+    setUpFdoZipper();
+
+    useConfiguration("-c", "opt", "--fdo_optimize=//fdo:fdo");
+    assertThat(getPrerequisites(getConfiguredTarget("//a:b"), ":zipper")).isNotEmpty();
+  }
+
+  @Test
+  public void testZipperInclusionDependsOnFdoOptimization_viaFdoOptimize_packageFile()
+      throws Exception {
+    setUpFdoZipper();
 
     useConfiguration("-c", "opt", "--fdo_optimize=//fdo:my_profile.afdo");
     assertThat(getPrerequisites(getConfiguredTarget("//a:b"), ":zipper")).isNotEmpty();
+  }
+
+  // Regression test for #29002.
+  @Test
+  public void testZipperInclusionDependsOnFdoOptimization_viaFdoOptimize_repoLabel()
+      throws Exception {
+    if (!analysisMock.isThisBazel()) {
+      // Separate repos only work in bazel.
+      return;
+    }
+
+    // Set up a repo with the profile data.
+    scratch.appendFile(
+        "MODULE.bazel",
+        """
+        bazel_dep(name = "fdo")
+        local_path_override(module_name = "fdo", path = "/fdo")
+        """);
+
+    scratch.file("/fdo/MODULE.bazel", "module(name = 'fdo')");
+    setUpFdoZipper("a", "/fdo");
+    invalidatePackages();
+
+    useConfiguration("-c", "opt", "--fdo_optimize=@@fdo+//:fdo");
+    assertThat(getPrerequisites(getConfiguredTarget("//a:b"), ":zipper")).isNotEmpty();
+  }
+
+  @Test
+  public void testZipperInclusionDependsOnFdoOptimization_viaFdoProfile() throws Exception {
+    setUpFdoZipper();
 
     useConfiguration("-c", "opt", "--fdo_profile=//fdo:fdo");
     assertThat(getPrerequisites(getConfiguredTarget("//a:b"), ":zipper")).isNotEmpty();
+  }
+
+  private void setUpFdoZipper() throws IOException {
+    setUpFdoZipper("a", "fdo");
+  }
+
+  private void setUpFdoZipper(String pkgDir, String fdoDir) throws IOException {
+    scratch.file(
+        pkgDir + "/BUILD",
+        """
+        load("@rules_cc//cc/toolchains:cc_toolchain.bzl", "cc_toolchain")
+        load(":cc_toolchain_config.bzl", "cc_toolchain_config")
+
+        filegroup(
+            name = "empty",
+        )
+
+        cc_toolchain(
+            name = "b",
+            all_files = ":empty",
+            ar_files = ":empty",
+            as_files = ":empty",
+            compiler_files = ":empty",
+            dwp_files = ":empty",
+            linker_files = ":empty",
+            objcopy_files = ":empty",
+            strip_files = ":empty",
+            toolchain_config = ":toolchain_config",
+            toolchain_identifier = "toolchain-identifier-k8",
+        )
+
+        cc_toolchain_config(name = "toolchain_config")
+        """);
+    scratch.file(pkgDir + "/cc_toolchain_config.bzl", MockCcSupport.EMPTY_CC_TOOLCHAIN);
+
+    scratch.file(fdoDir + "/my_profile.afdo", "");
+    scratch.file(
+        fdoDir + "/BUILD",
+        """
+        load("@rules_cc//cc/toolchains:fdo_profile.bzl", "fdo_profile")
+        exports_files(["my_profile.afdo"])
+
+        fdo_profile(
+            name = "fdo",
+            profile = ":my_profile.profdata",
+        )
+        """);
   }
 
   private void loadCcToolchainConfigLib() throws IOException {
@@ -542,120 +745,137 @@ public class CcToolchainTest extends BuildViewTestCase {
     loadCcToolchainConfigLib();
     writeStarlarkRule();
 
-    useConfiguration("--cpu=k8");
+    useConfiguration("--platforms=" + TestConstants.PLATFORM_LABEL);
 
-    ConfiguredTarget target = getConfiguredTarget("//a:a");
-    RuleContext ruleContext = getRuleContext(target);
-    CcToolchainProvider toolchainProvider = target.get(CcToolchainProvider.PROVIDER);
-    assertThat(toolchainProvider.getToolPathFragment(Tool.AR, ruleContext).toString())
+    ConfiguredTarget target = getConfiguredTarget("//a:b");
+    CcToolchainProvider toolchainProvider = CcToolchainProvider.getFromTarget(target);
+    assertThat(
+            CcToolchainProvider.getToolPathString(
+                toolchainProvider.getToolPaths(),
+                Tool.AR,
+                toolchainProvider.getCcToolchainLabel(),
+                toolchainProvider.getToolchainIdentifier()))
         .isEqualTo("/absolute/path");
-    assertThat(toolchainProvider.getToolPathFragment(Tool.CPP, ruleContext).toString())
+    assertThat(
+            CcToolchainProvider.getToolPathString(
+                toolchainProvider.getToolPaths(),
+                Tool.CPP,
+                toolchainProvider.getCcToolchainLabel(),
+                toolchainProvider.getToolchainIdentifier()))
         .isEqualTo("a/relative/path");
   }
 
   private void writeStarlarkRule() throws IOException {
     scratch.file(
         "a/BUILD",
-        "load(':crosstool_rule.bzl', 'cc_toolchain_config_rule')",
-        "cc_toolchain_config_rule(name = 'toolchain_config')",
-        "filegroup(",
-        "   name='empty')",
-        "cc_toolchain_suite(",
-        "    name = 'a',",
-        "    toolchains = { 'k8': ':b' },",
-        ")",
-        "cc_toolchain(",
-        "    name = 'b',",
-        "    all_files = ':empty',",
-        "    ar_files = ':empty',",
-        "    as_files = ':empty',",
-        "    compiler_files = ':empty',",
-        "    dwp_files = ':empty',",
-        "    linker_files = ':empty',",
-        "    strip_files = ':empty',",
-        "    objcopy_files = ':empty',",
-        "    toolchain_config = ':toolchain_config')");
+        """
+        load("@rules_cc//cc/toolchains:cc_toolchain.bzl", "cc_toolchain")
+        load(":crosstool_rule.bzl", "cc_toolchain_config_rule")
+
+        cc_toolchain_config_rule(name = "toolchain_config")
+
+        filegroup(
+            name = "empty",
+        )
+
+        cc_toolchain(
+            name = "b",
+            all_files = ":empty",
+            ar_files = ":empty",
+            as_files = ":empty",
+            compiler_files = ":empty",
+            dwp_files = ":empty",
+            linker_files = ":empty",
+            objcopy_files = ":empty",
+            strip_files = ":empty",
+            toolchain_config = ":toolchain_config",
+        )
+        """);
 
     scratch.file(
         "a/crosstool_rule.bzl",
-        "load('//tools/cpp:cc_toolchain_config_lib.bzl',",
-        "        'feature',",
-        "        'action_config',",
-        "        'artifact_name_pattern',",
-        "        'env_entry',",
-        "        'variable_with_value',",
-        "        'make_variable',",
-        "        'feature_set',",
-        "        'with_feature_set',",
-        "        'env_set',",
-        "        'flag_group',",
-        "        'flag_set',",
-        "        'tool_path',",
-        "        'tool')",
-        "",
-        "def _impl(ctx):",
-        "    return cc_common.create_cc_toolchain_config_info(",
-        "                ctx = ctx,",
-        "                features = [feature(name = 'simple_feature'), ",
-        "                            feature(name = 'no_legacy_features')],",
-        "                action_configs = [",
-        "                   action_config(action_name = 'simple_action', enabled=True)",
-        "                ],",
-        "                artifact_name_patterns = [artifact_name_pattern(",
-        "                   category_name = 'static_library',",
-        "                   prefix = 'prefix',",
-        "                   extension = '.a')],",
-        "                cxx_builtin_include_directories = ['dir1', 'dir2', 'dir3'],",
-        "                toolchain_identifier = 'toolchain',",
-        "                host_system_name = 'host',",
-        "                target_system_name = 'target',",
-        "                target_cpu = 'cpu',",
-        "                target_libc = 'libc',",
-        "                compiler = 'compiler',",
-        "                abi_libc_version = 'abi_libc',",
-        "                abi_version = 'banana',",
-        "                tool_paths = [",
-        "                     tool_path(name = 'ar', path = '/absolute/path'),",
-        "                     tool_path(name = 'cpp', path = 'relative/path'),",
-        "                     tool_path(name = 'gcc', path = '/some/path'),",
-        "                     tool_path(name = 'gcov', path = '/some/path'),",
-        "                     tool_path(name = 'gcovtool', path = '/some/path'),",
-        "                     tool_path(name = 'ld', path = '/some/path'),",
-        "                     tool_path(name = 'nm', path = '/some/path'),",
-        "                     tool_path(name = 'objcopy', path = '/some/path'),",
-        "                     tool_path(name = 'objdump', path = '/some/path'),",
-        "                     tool_path(name = 'strip', path = '/some/path'),",
-        "                     tool_path(name = 'dwp', path = '/some/path'),",
-        "                     tool_path(name = 'llvm_profdata', path = '/some/path'),",
-        "                ],",
-        "                cc_target_os = 'os',",
-        "                builtin_sysroot = 'sysroot')",
-        "cc_toolchain_config_rule = rule(",
-        "    implementation = _impl,",
-        "    attrs = {},",
-        "    provides = [CcToolchainConfigInfo],",
-        "    fragments = ['cpp']",
-        ")");
-  }
+        """
+        load("@rules_cc//cc/toolchains:cc_toolchain_config_info.bzl", "CcToolchainConfigInfo")
+        load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')
+        load(
+            "//tools/cpp:cc_toolchain_config_lib.bzl",
+            "action_config",
+            "artifact_name_pattern",
+            "env_entry",
+            "env_set",
+            "feature",
+            "feature_set",
+            "flag_group",
+            "flag_set",
+            "make_variable",
+            "tool",
+            "tool_path",
+            "variable_with_value",
+            "with_feature_set",
+        )
 
-  @Test
-  public void testSupportsDynamicLinkerIsFalseWhenFeatureNotSet() throws Exception {
-    scratch.file("a/BUILD", "cc_toolchain_alias(name = 'b')");
+        def _impl(ctx):
+            return cc_common.create_cc_toolchain_config_info(
+                ctx = ctx,
+                features = [
+                    feature(name = "simple_feature"),
+                    feature(name = "no_legacy_features"),
+                ],
+                action_configs = [
+                    action_config(action_name = "simple_action", enabled = True),
+                ],
+                artifact_name_patterns = [artifact_name_pattern(
+                    category_name = "static_library",
+                    prefix = "prefix",
+                    extension = ".a",
+                )],
+                cxx_builtin_include_directories = ["dir1", "dir2", "dir3"],
+                toolchain_identifier = "toolchain",
+                host_system_name = "host",
+                target_system_name = "target",
+                target_cpu = "cpu",
+                target_libc = "libc",
+                compiler = "compiler",
+                abi_libc_version = "abi_libc",
+                abi_version = "banana",
+                tool_paths = [
+                    tool_path(name = "ar", path = "/absolute/path"),
+                    tool_path(name = "cpp", path = "relative/path"),
+                    tool_path(name = "gcc", path = "/some/path"),
+                    tool_path(name = "gcov", path = "/some/path"),
+                    tool_path(name = "gcovtool", path = "/some/path"),
+                    tool_path(name = "ld", path = "/some/path"),
+                    tool_path(name = "nm", path = "/some/path"),
+                    tool_path(name = "objcopy", path = "/some/path"),
+                    tool_path(name = "objdump", path = "/some/path"),
+                    tool_path(name = "strip", path = "/some/path"),
+                    tool_path(name = "dwp", path = "/some/path"),
+                    tool_path(name = "llvm_profdata", path = "/some/path"),
+                ],
+                cc_target_os = "os",
+                builtin_sysroot = "sysroot",
+            )
 
-    ConfiguredTarget target = getConfiguredTarget("//a:b");
-    CcToolchainProvider toolchainProvider = target.get(CcToolchainProvider.PROVIDER);
-
-    assertThat(toolchainProvider.supportsDynamicLinker(FeatureConfiguration.EMPTY)).isFalse();
+        cc_toolchain_config_rule = rule(
+            implementation = _impl,
+            attrs = {},
+            provides = [CcToolchainConfigInfo],
+            fragments = ["cpp"],
+        )
+        """);
   }
 
   @Test
   public void testSysroot_fromCrosstool_unset() throws Exception {
-    scratch.file("a/BUILD", "cc_toolchain_alias(name = 'b')");
+    scratch.file(
+        "a/BUILD",
+        "load('@rules_cc//cc/toolchains:cc_toolchain_alias.bzl',"
+            + " 'cc_toolchain_alias')",
+        "cc_toolchain_alias(name = 'b')");
     scratch.file("libc1/BUILD", "filegroup(name = 'everything', srcs = ['header1.h'])");
     scratch.file("libc1/header1.h", "#define FOO 1");
-    useConfiguration();
     ConfiguredTarget target = getConfiguredTarget("//a:b");
-    CcToolchainProvider toolchainProvider = target.get(CcToolchainProvider.PROVIDER);
+    CcToolchainProvider toolchainProvider = CcToolchainProvider.getFromTarget(target);
 
     assertThat(toolchainProvider.getSysroot()).isEqualTo("/usr/grte/v1");
   }
@@ -664,49 +884,33 @@ public class CcToolchainTest extends BuildViewTestCase {
   public void correctToolFilesUsed() throws Exception {
     scratch.file(
         "a/BUILD",
-        "cc_toolchain_alias(name = 'a')",
-        "cc_library(name = 'l', srcs = ['l.c'])",
-        "cc_library(name = 'asm', srcs = ['a.s'])",
-        "cc_library(name = 'preprocessed-asm', srcs = ['a.S'])");
+        """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+        load("@rules_cc//cc/toolchains:cc_toolchain_alias.bzl", "cc_toolchain_alias")
+        cc_toolchain_alias(name = "a")
+
+        cc_library(
+            name = "l",
+            srcs = ["l.c"],
+        )
+
+        cc_library(
+            name = "asm",
+            srcs = ["a.s"],
+        )
+
+        cc_library(
+            name = "preprocessed-asm",
+            srcs = ["a.S"],
+        )
+        """);
     getAnalysisMock()
         .ccSupport()
         .setupCcToolchainConfig(
             mockToolsConfig,
             CcToolchainConfig.builder().withFeatures(CppRuleClasses.SUPPORTS_DYNAMIC_LINKER));
-    useConfiguration("--incompatible_use_specific_tool_files");
     ConfiguredTarget target = getConfiguredTarget("//a:a");
-    CcToolchainProvider toolchainProvider = target.get(CcToolchainProvider.PROVIDER);
-    // Check that the mock toolchain tool file sets are an antichain, so that our subset assertions
-    // below are meaningful.
-    ImmutableList<Set<Artifact>> fileGroups =
-        ImmutableList.of(
-            toolchainProvider.getArFiles().toSet(),
-            toolchainProvider.getLinkerFiles().toSet(),
-            toolchainProvider.getCompilerFiles().toSet(),
-            toolchainProvider.getAsFiles().toSet(),
-            toolchainProvider.getAllFiles().toSet());
-    for (int i = 0; i < fileGroups.size(); i++) {
-      assertThat(fileGroups.get(i)).isNotEmpty();
-      for (int j = 0; j < fileGroups.size(); j++) {
-        if (i == j) {
-          continue;
-        }
-        Set<Artifact> one = fileGroups.get(i);
-        Set<Artifact> two = fileGroups.get(j);
-        assertWithMessage(String.format("%s should not contain %s", one, two))
-            .that(one.containsAll(two))
-            .isFalse();
-      }
-    }
-    assertThat(
-            Sets.difference(
-                toolchainProvider.getArFiles().toSet(), toolchainProvider.getLinkerFiles().toSet()))
-        .isNotEmpty();
-    assertThat(
-            Sets.difference(
-                toolchainProvider.getLinkerFiles().toSet(), toolchainProvider.getArFiles().toSet()))
-        .isNotEmpty();
-
+    CcToolchainProvider toolchainProvider = CcToolchainProvider.getFromTarget(target);
     RuleConfiguredTarget libTarget = (RuleConfiguredTarget) getConfiguredTarget("//a:l");
     Artifact staticLib =
         getOutputGroup(libTarget, "archive").toList().stream()
@@ -756,28 +960,6 @@ public class CcToolchainTest extends BuildViewTestCase {
         "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')",
         getAnalysisMock().ccSupport().getMacroLoadStatement(loadMacro, "cc_toolchain"),
         getToolchainRule("a"));
-  }
-
-  @Test
-  public void setupTestCcToolchainSuiteLoadedThroughMacro() throws Exception {
-    setupTestCcToolchainSuiteLoadedThroughMacro(/* loadMacro= */ true);
-    assertThat(getConfiguredTarget("//a:a")).isNotNull();
-    assertNoEvents();
-  }
-
-  private void setupTestCcToolchainSuiteLoadedThroughMacro(boolean loadMacro) throws Exception {
-    scratch.file("a/cc_toolchain_config.bzl", MockCcSupport.EMPTY_CC_TOOLCHAIN);
-    scratch.file(
-        "a/BUILD",
-        "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')",
-        getAnalysisMock()
-            .ccSupport()
-            .getMacroLoadStatement(loadMacro, "cc_toolchain", "cc_toolchain_suite"),
-        "cc_toolchain_suite(",
-        "    name = 'a',",
-        "    toolchains = { 'k8': ':b' },",
-        ")",
-        getToolchainRule("b"));
   }
 
   private static String getToolchainRule(String targetName) {

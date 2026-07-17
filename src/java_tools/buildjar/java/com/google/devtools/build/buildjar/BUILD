@@ -4,17 +4,20 @@ load("//tools/build_rules:java_rules_skylark.bzl", "bootstrap_java_binary", "boo
 # Description:
 #   The Java library builders, which are used by Bazel to compile Java
 #   source code.
-package(default_visibility = ["//src/java_tools/buildjar:buildjar_package_group"])
+package(
+    default_applicable_licenses = ["//:license"],
+    default_visibility = ["//src/java_tools/buildjar:buildjar_package_group"],
+)
 
 filegroup(
     name = "srcs",
     srcs = glob(
         ["**"],
     ) + [
-        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/plugins:srcs",
-        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/statistics:srcs",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/genclass:srcs",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/jarhelper:srcs",
+        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/plugins:srcs",
+        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/statistics:srcs",
     ],
     visibility = ["//src:__subpackages__"],
 )
@@ -48,6 +51,14 @@ java_library(
         ["javac/*.java"],
         exclude = JAVAC_OPTIONS_SRCS,
     ),
+    add_exports = [
+        "jdk.compiler/com.sun.tools.javac.api",
+        "jdk.compiler/com.sun.tools.javac.code",
+        "jdk.compiler/com.sun.tools.javac.comp",
+        "jdk.compiler/com.sun.tools.javac.file",
+        "jdk.compiler/com.sun.tools.javac.main",
+        "jdk.compiler/com.sun.tools.javac.util",
+    ],
     deps = [
         ":invalid_command_line_exception",
         ":javac_options",
@@ -56,7 +67,7 @@ java_library(
         "//third_party:auto_value",
         "//third_party:guava",
         "//third_party:jsr305",
-        "//third_party/java/jdk/langtools:javac",
+        "@com_google_protobuf//:protobuf_java",
     ],
 )
 
@@ -91,6 +102,8 @@ java_library(
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/plugins:processing",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/statistics",
         "//src/main/java/com/google/devtools/build/lib/worker:work_request_handlers",
+        "//third_party:error_prone",
+        "//third_party:error_prone_annotations",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party/java/jacoco:core",
@@ -106,6 +119,7 @@ java_binary(
 java_library(
     name = "javac_options",
     srcs = JAVAC_OPTIONS_SRCS,
+    visibility = ["//visibility:public"],
     deps = [
         "//third_party:auto_value",
         "//third_party:guava",
@@ -155,15 +169,13 @@ bootstrap_java_library(
     name = "starlark-deps",
     srcs = ["//:bootstrap-derived-java-srcs"],
     jars = [
-        "//third_party:auto_value-jars",
         "//:bootstrap-derived-java-jars",
         "//third_party:bootstrap_guava_and_error_prone-jars",
         "//third_party:jsr305-jars",
+        "//third_party:javax_annotations-jars",
         "//third_party/java/jacoco:core-jars",
-        "//third_party/grpc:bootstrap-grpc-jars",
-        "//third_party:tomcat_annotations_api-jars",
     ],
-    neverlink_jars = ["//third_party/java/jdk/langtools:javac_jar"],
+    neverlink_jars = ["//third_party:auto_value-jars"],
     tags = ["manual"],
 )
 
@@ -195,6 +207,7 @@ bootstrap_java_binary(
         "javac/WerrorCustomOption.java",
     ],
     main_class = "com.google.devtools.build.buildjar.VanillaJavaBuilder",
+    neverlink_jars = ["//third_party:auto_value-jars"],
     tags = ["manual"],
     deps = [
         ":starlark-deps",

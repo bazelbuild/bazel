@@ -1,0 +1,173 @@
+// Copyright 2024 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+package com.google.devtools.build.lib.skyframe.serialization.analysis;
+
+import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
+
+import com.google.common.annotations.VisibleForTesting;
+import com.google.devtools.build.lib.skyframe.serialization.PackedFingerprint;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.FileDependencies.AvailableFileDependencies;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.FileDependencies.MissingFileDependencies;
+import java.util.Arrays;
+import java.util.Collection;
+import javax.annotation.Nullable;
+
+/**
+ * A representation of a recursively composable set of {@link FileSystemDependencies}.
+ *
+ * <p>This corresponds to a previously serialized {@link
+ * com.google.devtools.build.lib.skyframe.AbstractNestedFileOpNodes} instance, but this
+ * implementation is mostly decoupled from Bazel code.
+ */
+abstract sealed class NestedDependencies
+    implements FileSystemDependencies, FileDependencyDeserializer.NestedDependenciesOrFuture
+    permits NestedDependencies.AvailableNestedDependencies,
+        NestedDependencies.MissingNestedDependencies {
+
+  @Nullable
+  public abstract PackedFingerprint fingerprint();
+
+  // While formally possible, we don't anticipate analysisDependencies being empty often.
+  // `sources` could be frequently empty.
+  static final FileDependencies[] EMPTY_SOURCES = new FileDependencies[0];
+
+  static NestedDependencies from(
+      FileSystemDependencies[] analysisDependencies, FileDependencies[] sources) {
+    return from(null, analysisDependencies, sources);
+  }
+
+  static NestedDependencies from(
+      @Nullable PackedFingerprint fingerprint,
+      FileSystemDependencies[] analysisDependencies,
+      FileDependencies[] sources) {
+    for (FileSystemDependencies dep : analysisDependencies) {
+      if (dep.isMissingData()) {
+        return new MissingNestedDependencies();
+      }
+    }
+    int size = sources.length;
+    var availableSources = new AvailableFileDependencies[size];
+    for (int i = 0; i < size; i++) {
+      switch (sources[i]) {
+        case AvailableFileDependencies available -> availableSources[i] = available;
+        case MissingFileDependencies unused -> {
+          return new MissingNestedDependencies();
+        }
+      }
+    }
+    return new AvailableNestedDependencies(fingerprint, analysisDependencies, availableSources);
+  }
+
+  @VisibleForTesting
+  static NestedDependencies from(
+      Collection<? extends FileSystemDependencies> analysisDependencies,
+      Collection<FileDependencies> sources) {
+    return from(
+        null,
+        analysisDependencies.toArray(FileSystemDependencies[]::new),
+        sources.toArray(FileDependencies[]::new));
+  }
+
+  @VisibleForTesting
+  static NestedDependencies from(
+      @Nullable PackedFingerprint fingerprint,
+      Collection<? extends FileSystemDependencies> analysisDependencies,
+      Collection<FileDependencies> sources) {
+    return from(
+        fingerprint,
+        analysisDependencies.toArray(FileSystemDependencies[]::new),
+        sources.toArray(FileDependencies[]::new));
+  }
+
+  static NestedDependencies newMissingInstance() {
+    return new MissingNestedDependencies();
+  }
+
+  public static final class AvailableNestedDependencies extends NestedDependencies {
+    // Null when the dependencies are missing and sometimes in testing
+    @Nullable private final PackedFingerprint fingerprint;
+    private final FileSystemDependencies[] analysisDependencies;
+    private final AvailableFileDependencies[] sources;
+
+    private AvailableNestedDependencies(
+        @Nullable PackedFingerprint fingerprint,
+        FileSystemDependencies[] analysisDependencies,
+        AvailableFileDependencies[] sources) {
+      checkArgument(
+          analysisDependencies.length >= 1 || sources.length >= 1,
+          "analysisDependencies and sources both empty");
+      this.fingerprint = fingerprint;
+      this.analysisDependencies = analysisDependencies;
+      this.sources = sources;
+    }
+
+    @Override
+    public boolean isMissingData() {
+      return false;
+    }
+
+    @Nullable
+    @Override
+    public PackedFingerprint fingerprint() {
+      return fingerprint;
+    }
+
+    int analysisDependenciesCount() {
+      return analysisDependencies.length;
+    }
+
+    FileSystemDependencies getAnalysisDependency(int index) {
+      return analysisDependencies[index];
+    }
+
+    int sourcesCount() {
+      return sources.length;
+    }
+
+    AvailableFileDependencies getSource(int index) {
+      return sources[index];
+    }
+
+    @Override
+    public String toString() {
+      return toStringHelper(this)
+          .add("fingerprint", fingerprint)
+          .add("analysisDependencies", Arrays.asList(analysisDependencies))
+          .add("sources", Arrays.asList(sources))
+          .toString();
+    }
+  }
+
+  /**
+   * Signals missing data in the nested set of dependencies.
+   *
+   * <p>This is deliberately not a singleton to avoid a memory leak in the weak-value caches in
+   * {@link FileDependencyDeserializer}.
+   */
+  static final class MissingNestedDependencies extends NestedDependencies {
+    private MissingNestedDependencies() {}
+
+    @Override
+    public boolean isMissingData() {
+      return true;
+    }
+
+    @Nullable
+    @Override
+    public PackedFingerprint fingerprint() {
+      return null;
+    }
+  }
+}

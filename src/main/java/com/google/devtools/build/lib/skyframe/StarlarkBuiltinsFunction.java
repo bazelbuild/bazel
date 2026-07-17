@@ -14,14 +14,13 @@
 
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.BazelStarlarkEnvironment;
 import com.google.devtools.build.lib.packages.BazelStarlarkEnvironment.InjectionException;
-import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
-import com.google.devtools.build.lib.skyframe.BzlLoadFunction.BzlLoadFailedException;
-import com.google.devtools.build.skyframe.RecordingSkyFunctionEnvironment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
@@ -36,7 +35,7 @@ import net.starlark.java.eval.StarlarkSemantics;
 
 // TODO(#11437): Update the design doc to change `@builtins` -> `@_builtins`.
 
-// TODO(#11437): Add support to StarlarkModuleCycleReporter to pretty-print cycles involving
+// TODO(#11437): Add support to BzlLoadCycleReporter to pretty-print cycles involving
 // @_builtins.
 
 // TODO(#11437): Add tombstone feature: If a native symbol is a tombstone object, this signals to
@@ -52,7 +51,8 @@ import net.starlark.java.eval.StarlarkSemantics;
 
 /**
  * A Skyframe function that evaluates the {@code @_builtins} pseudo-repository and reports the
- * values exported by {@link #EXPORTS_ENTRYPOINT}.
+ * values exported by {@link #EXPORTS_ENTRYPOINT}. The {@code @_builtins} pseudo-repository shares a
+ * repo mapping with the {@code @bazel_tools} repository.
  *
  * <p>The process of "builtins injection" refers to evaluating this Skyfunction and applying its
  * result to {@link BzlLoadFunction}'s computation. See also the <a
@@ -60,7 +60,17 @@ import net.starlark.java.eval.StarlarkSemantics;
  * doc</a>:
  *
  * <p>This function has a trivial key, so there can only be one value in the build at a time. It has
- * a single dependency, on the result of evaluating the exports.bzl file to a {@link BzlLoadValue}.
+ * a single dependency on the result of evaluating the exports.bzl file to a {@link BzlLoadValue}.
+ *
+ * <p>This function supports a special "inlining" mode, similar to {@link BzlLoadFunction} (see that
+ * class's javadoc and code comments). Whenever we inline {@link BzlLoadFunction} we also inline
+ * {@link StarlarkBuiltinsFunction} (and {@link StarlarkBuiltinsFunction}'s calls to {@link
+ * BzlLoadFunction} are then themselves inlined!). Similar to {@link BzlLoadFunction}'s inlining, we
+ * cache the result of this computation, and this caching is managed by {@link
+ * BzlLoadFunction.InlineCacheManager}. But since there's only a single {@link
+ * StarlarkBuiltinsValue} node and we don't need to worry about that node's value changing at future
+ * invocations or subsequent versions (see {@link InlineCacheManager#reset} for why), our caching
+ * strategy is much simpler and we don't need to bother inlining deps of the Skyframe subgraph.
  */
 public class StarlarkBuiltinsFunction implements SkyFunction {
 
@@ -71,7 +81,7 @@ public class StarlarkBuiltinsFunction implements SkyFunction {
    * {@code @_builtins} to avoid confusion.)
    */
   static final Label EXPORTS_ENTRYPOINT =
-      Label.parseAbsoluteUnchecked("@_builtins//:exports.bzl"); // unused
+      Label.parseCanonicalUnchecked("@_builtins//:exports.bzl"); // unused
 
   /**
    * Key for loading exports.bzl. Note that {@code keyForBuiltins} (as opposed to {@code
@@ -83,20 +93,19 @@ public class StarlarkBuiltinsFunction implements SkyFunction {
       BzlLoadValue.keyForBuiltins(EXPORTS_ENTRYPOINT);
 
   // Used to obtain the injected environment.
-  private final PackageFactory packageFactory;
+  private final BazelStarlarkEnvironment bazelStarlarkEnvironment;
 
-  public StarlarkBuiltinsFunction(PackageFactory packageFactory) {
-    this.packageFactory = packageFactory;
+  public StarlarkBuiltinsFunction(BazelStarlarkEnvironment bazelStarlarkEnvironment) {
+    this.bazelStarlarkEnvironment = bazelStarlarkEnvironment;
   }
 
   @Override
   @Nullable
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws StarlarkBuiltinsFunctionException, InterruptedException {
-    // skyKey is a singleton, unused.
     try {
       return computeInternal(
-          env, packageFactory, /*inliningState=*/ null, /*bzlLoadFunction=*/ null);
+          env, bazelStarlarkEnvironment, /* inliningState= */ null, /* bzlLoadFunction= */ null);
     } catch (BuiltinsFailedException e) {
       throw new StarlarkBuiltinsFunctionException(e);
     }
@@ -113,23 +122,42 @@ public class StarlarkBuiltinsFunction implements SkyFunction {
    */
   @Nullable
   public static StarlarkBuiltinsValue computeInline(
-      StarlarkBuiltinsValue.Key key, // singleton value, unused
+      StarlarkBuiltinsValue.Key key,
       BzlLoadFunction.InliningState inliningState,
-      PackageFactory packageFactory,
+      BazelStarlarkEnvironment bazelStarlarkEnvironment,
       BzlLoadFunction bzlLoadFunction)
       throws BuiltinsFailedException, InterruptedException {
+    checkNotNull(bzlLoadFunction.inlineCacheManager);
+    StarlarkBuiltinsValue cachedBuiltins = bzlLoadFunction.inlineCacheManager.builtinsRef.get();
+    if (cachedBuiltins != null) {
+      // See the comment in InlineCacheManager#reset for why it's sound to not inline deps of the
+      // entire subgraph here.
+      return cachedBuiltins;
+    }
+
     // See BzlLoadFunction#computeInline and BzlLoadFunction.InliningState for an explanation of the
     // inlining mechanism and its invariants. For our purposes, the Skyframe environment to use
     // comes from inliningState.
-    return computeInternal(
-        inliningState.getEnvironment(), packageFactory, inliningState, bzlLoadFunction);
+    StarlarkBuiltinsValue computedBuiltins =
+        computeInternal(
+            inliningState.getEnvironment(),
+            bazelStarlarkEnvironment,
+            inliningState,
+            bzlLoadFunction);
+    if (computedBuiltins == null) {
+      return null;
+    }
+    // There's a benign race where multiple threads may try to compute-and-cache the single builtins
+    // value. Ensure the value computed by winner of that race gets used by everyone.
+    bzlLoadFunction.inlineCacheManager.builtinsRef.compareAndSet(null, computedBuiltins);
+    return bzlLoadFunction.inlineCacheManager.builtinsRef.get();
   }
 
   // bzlLoadFunction and inliningState are non-null iff using inlining code path.
   @Nullable
   private static StarlarkBuiltinsValue computeInternal(
       Environment env,
-      PackageFactory packageFactory,
+      BazelStarlarkEnvironment bazelStarlarkEnvironment,
       @Nullable BzlLoadFunction.InliningState inliningState,
       @Nullable BzlLoadFunction bzlLoadFunction)
       throws BuiltinsFailedException, InterruptedException {
@@ -141,7 +169,6 @@ public class StarlarkBuiltinsFunction implements SkyFunction {
     if (starlarkSemantics.get(BuildLanguageOptions.EXPERIMENTAL_BUILTINS_BZL_PATH).isEmpty()) {
       return StarlarkBuiltinsValue.createEmpty(starlarkSemantics);
     }
-
     // Load exports.bzl. If we were requested using inlining, make sure to inline the call back into
     // BzlLoadFunction.
     BzlLoadValue exportsValue;
@@ -156,29 +183,38 @@ public class StarlarkBuiltinsFunction implements SkyFunction {
     } catch (BzlLoadFailedException ex) {
       throw BuiltinsFailedException.errorEvaluatingBuiltinsBzls(ex);
     }
-    if (exportsValue == null) {
+
+    if (env.valuesMissing()) {
       return null;
     }
 
-    // Apply declarations of exports.bzl to the native predeclared symbols.
+    // Compute digest of exports.bzl
     byte[] transitiveDigest = exportsValue.getTransitiveDigest();
+
+    // Apply declarations of exports.bzl to the native predeclared symbols.
     Module module = exportsValue.getModule();
-    BazelStarlarkEnvironment starlarkEnv = packageFactory.getBazelStarlarkEnvironment();
     try {
       ImmutableMap<String, Object> exportedToplevels = getDict(module, "exported_toplevels");
       ImmutableMap<String, Object> exportedRules = getDict(module, "exported_rules");
       ImmutableMap<String, Object> exportedToJava = getDict(module, "exported_to_java");
       ImmutableMap<String, Object> predeclaredForBuildBzl =
-          starlarkEnv.createBuildBzlEnvUsingInjection(
+          bazelStarlarkEnvironment.createBuildBzlEnvUsingInjection(
+              exportedToplevels,
+              exportedRules,
+              starlarkSemantics.get(BuildLanguageOptions.EXPERIMENTAL_BUILTINS_INJECTION_OVERRIDE));
+      ImmutableMap<String, Object> predeclaredForModuleBzl =
+          bazelStarlarkEnvironment.createModuleBzlEnvUsingInjection(
               exportedToplevels,
               exportedRules,
               starlarkSemantics.get(BuildLanguageOptions.EXPERIMENTAL_BUILTINS_INJECTION_OVERRIDE));
       ImmutableMap<String, Object> predeclaredForBuild =
-          starlarkEnv.createBuildEnvUsingInjection(
+          bazelStarlarkEnvironment.createBuildEnvUsingInjection(
               exportedRules,
               starlarkSemantics.get(BuildLanguageOptions.EXPERIMENTAL_BUILTINS_INJECTION_OVERRIDE));
+
       return StarlarkBuiltinsValue.create(
           predeclaredForBuildBzl,
+          predeclaredForModuleBzl,
           predeclaredForBuild,
           exportedToJava,
           transitiveDigest,
@@ -203,11 +239,6 @@ public class StarlarkBuiltinsFunction implements SkyFunction {
       throw Starlark.errorf("expected a '%s' dictionary to be defined", dictName);
     }
     return ImmutableMap.copyOf(Dict.cast(value, String.class, Object.class, dictName + " dict"));
-  }
-
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
   }
 
   /**

@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime.commands;
 
+import static com.google.devtools.build.lib.runtime.Command.BuildPhase.EXECUTES;
+
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.packages.TestTimeout;
 import com.google.devtools.build.lib.runtime.Command;
@@ -53,10 +55,8 @@ import com.google.devtools.common.options.OptionsParsingException;
  * tests, because there may be code in the binary that is not linked into any test. Therefore, what
  * we do is to emit a coverage file for every binary, which contains only the files we collect
  * coverage for with no covered lines. The baseline coverage file for a target is at {@code
- * testlogs/PACKAGE/TARGET/baseline_coverage.dat}. Note that it is also generated for binaries and
- * libraries in addition to tests if you pass the {@code --nobuild_tests_only} flag to Bazel.
- *
- * <p>Baseline coverage collection is currently broken.
+ * testlogs/PACKAGE/TARGET/baseline_coverage.dat}, but rules are encouraged to generate their own
+ * baseline coverage files with more meaningful content than just the names of the source files.
  *
  * <p>We track two groups of files for coverage collection for each rule: the set of instrumented
  * files and the set of instrumentation metadata files.
@@ -71,8 +71,8 @@ import com.google.devtools.common.options.OptionsParsingException;
  * set of inputs of test actions if coverage mode is enabled (otherwise the set of metadata files is
  * empty).
  *
- * <p>Whether or not coverage is being collected is stored in the {@code BuildConfiguration}. This
- * is handy because then we have an easy way to change the test action and the action graph
+ * <p>Whether or not coverage is being collected is stored in the {@code BuildConfigurationValue}.
+ * This is handy because then we have an easy way to change the test action and the action graph
  * depending on this bit, but it also means that if this bit is flipped, all targets need to be
  * re-analyzed (note that some languages, e.g. C++ require different compiler options to emit code
  * that can collect coverage, which dominates the time required for analysis).
@@ -104,8 +104,8 @@ import com.google.devtools.common.options.OptionsParsingException;
  */
 @Command(
     name = "coverage",
-    builds = true,
-    inherits = {TestCommand.class},
+    buildPhase = EXECUTES,
+    inheritsOptionsFrom = {TestCommand.class},
     shortDescription = "Generates code coverage report for specified test targets.",
     completion = "label-test",
     help = "resource:coverage.txt",

@@ -38,17 +38,17 @@
 //    parse .class files for this purpose.
 class Java8DesugarDepsChecker : public Combiner {
  public:
-  Java8DesugarDepsChecker(std::function<bool (const std::string&)> known_member,
+  Java8DesugarDepsChecker(std::function<bool(const std::string&)> known_member,
                           bool verbose)
       : Java8DesugarDepsChecker(std::move(known_member), verbose, true) {}
   ~Java8DesugarDepsChecker() override {}
 
-  bool Merge(const CDH *cdh, const LH *lh) override;
+  bool Merge(const CDH* cdh, const LH* lh) override;
 
-  void *OutputEntry(bool compress) override;
+  void* OutputEntry(bool compress) override;
 
  private:
-  Java8DesugarDepsChecker(std::function<bool (const std::string&)> known_member,
+  Java8DesugarDepsChecker(std::function<bool(const std::string&)> known_member,
                           bool verbose, bool fail_on_error)
       : known_member_(std::move(known_member)),
         verbose_(verbose),
@@ -57,9 +57,9 @@ class Java8DesugarDepsChecker : public Combiner {
   /// Computes and caches whether the given interface has default methods.
   /// \param interface_name interface name as it would appear in bytecode, e.g.,
   ///        "java/lang/Runnable"
-  bool HasDefaultMethods(const std::string &interface_name);
+  bool HasDefaultMethods(const std::string& interface_name);
 
-  const std::function<bool (const std::string&)> known_member_;
+  const std::function<bool(const std::string&)> known_member_;
   const bool verbose_;
   const bool fail_on_error_;  // For testing
 

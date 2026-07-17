@@ -1,8 +1,7 @@
 load("@rules_java//java:defs.bzl", "java_test")
 
-licenses(["notice"])
-
 package(
+    default_applicable_licenses = ["//:license"],
     default_testonly = 1,
     default_visibility = ["//src:__subpackages__"],
 )
@@ -20,17 +19,16 @@ java_test(
     srcs = ["PackageMetricsPackageLoadingListenerTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/collect",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/packages/metrics",
-        "//src/main/java/com/google/devtools/build/lib/packages/metrics:package_metrics_java_proto",
+        "//src/main/java/com/google/devtools/build/lib/packages/metrics:package_load_metrics_java_proto",
+        "//src/main/java/com/google/devtools/build/lib/pkgcache:package_options",
         "//src/main/java/net/starlark/java/eval",
-        "//src/main/java/net/starlark/java/syntax",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:mockito",
         "//third_party:truth",
-        "//third_party/protobuf:protobuf_java_util",
+        "@com_google_protobuf//:protobuf_java_util",
     ],
 )
 
@@ -39,8 +37,8 @@ java_test(
     size = "small",
     srcs = ["PackageMetricsModuleTest.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/packages/metrics",
+        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:junit4",
         "//third_party:mockito",

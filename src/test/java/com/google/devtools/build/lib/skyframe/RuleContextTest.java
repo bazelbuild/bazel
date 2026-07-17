@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.analysis.testing.ToolchainContextSubject.assertThat;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -36,13 +35,11 @@ public class RuleContextTest extends ToolchainTestCase {
     useConfiguration("--host_platform=//platforms:linux", "--platforms=//platforms:mac");
     RuleContext ruleContext = getRuleContext(getConfiguredTarget("//x"));
     assertThat(ruleContext.getToolchainContext().resolvedToolchainLabels())
-        .contains(Label.parseAbsolute("//toolchain:toolchain_1_impl", ImmutableMap.of()));
+        .contains(Label.parseCanonical("//toolchain:toolchain_1_impl"));
 
     assertThat(ruleContext.getToolchainContext()).hasToolchainType("//toolchain:test_toolchain");
     ToolchainInfo toolchain =
-        ruleContext
-            .getToolchainContext()
-            .forToolchainType(Label.parseAbsolute("//toolchain:test_toolchain", ImmutableMap.of()));
+        ruleContext.getToolchainInfo(Label.parseCanonical("//toolchain:test_toolchain"));
     assertThat(toolchain.getValue("data")).isEqualTo("foo");
   }
 
@@ -62,5 +59,147 @@ public class RuleContextTest extends ToolchainTestCase {
     RuleContext ruleContext = getRuleContext(getConfiguredTarget("//a"));
     assertThat(ruleContext.targetPlatformHasConstraint(macConstraint)).isFalse();
     assertThat(ruleContext.targetPlatformHasConstraint(linuxConstraint)).isTrue();
+  }
+
+  @Test
+  public void testTestonlyToolchain_allowed() throws Exception {
+    createTestonlyToolchain();
+
+    scratch.file(
+        "p0/BUILD",
+        """
+        load("//foo:rule_def.bzl", "foo_rule")
+
+        foo_rule(
+            name = "p0",
+            testonly = True,
+        )
+        """);
+    // This should succeed.
+    getConfiguredTarget("//p0:p0");
+  }
+
+  @Test
+  public void testTestonlyToolchain_invalid() throws Exception {
+    createTestonlyToolchain();
+
+    checkError(
+        "p0",
+        "p0",
+        // error:
+        "non-test target '//p0:p0' depends on testonly target",
+        // build file:
+        "load('//foo:rule_def.bzl', 'foo_rule')",
+        "foo_rule(",
+        "    name = 'p0',",
+        "    testonly = False,", // False is the default, we set it here for clarity.
+        ")");
+  }
+
+  private void createTestonlyToolchain() throws Exception {
+    // Define a custom rule with a testonly toolchain.
+    scratch.file(
+        "foo/toolchain_def.bzl",
+        """
+        def _impl(ctx):
+            return [platform_common.ToolchainInfo()]
+
+        foo_toolchain = rule(
+            implementation = _impl,
+            attrs = {},
+        )
+        """);
+    scratch.file(
+        "foo/rule_def.bzl",
+        """
+        def _impl(ctx):
+            pass
+
+        foo_rule = rule(
+            implementation = _impl,
+            toolchains = ["//foo:toolchain_type"],
+        )
+        """);
+    scratch.file("foo/BUILD", "toolchain_type(name = 'toolchain_type')");
+    // Create an instance of the toolchain.
+    scratch.file(
+        "bar/BUILD",
+        """
+        load("//foo:toolchain_def.bzl", "foo_toolchain")
+
+        toolchain(
+            name = "foo_toolchain_impl",
+            toolchain = ":foo_toolchain_def",
+            toolchain_type = "//foo:toolchain_type",
+        )
+
+        foo_toolchain(
+            name = "foo_toolchain_def",
+            testonly = True,
+        )
+        """);
+
+    useConfiguration("--extra_toolchains=//bar:all");
+  }
+
+  @Test
+  public void testToolchainTypeVisibilityIsEnforced() throws Exception {
+    scratch.file(
+        "private/BUILD",
+        "toolchain_type(",
+        "    name = 'private_toolchain_type',",
+        "    visibility = ['//private:__pkg__'],",
+        ")");
+
+    checkError(
+        "other_pkg",
+        "my_toolchain",
+        "target '//private:private_toolchain_type' is not visible from\n"
+            + "target '//other_pkg:my_toolchain'",
+        """
+        toolchain(
+            name = 'my_toolchain',
+            toolchain_type = '//private:private_toolchain_type',
+            toolchain = ':impl',
+        )
+        filegroup(name = 'impl')
+        """);
+  }
+
+  @Test
+  public void testPrivateToolchainImplementationCanResolveAnywhere() throws Exception {
+    scratch.file(
+        "private/BUILD",
+        "load('//private:toolchain_def.bzl', 'foo_toolchain')",
+        "toolchain_type(name = 'type', visibility = ['//visibility:public'])",
+        "foo_toolchain(name = 'impl', visibility = ['//visibility:private'])",
+        "toolchain(name = 'toolchain',",
+        "    toolchain_type = ':type',",
+        "    toolchain = ':impl',",
+        "    visibility = ['//visibility:public'],",
+        ")");
+
+    scratch.file(
+        "private/toolchain_def.bzl",
+        "def _impl(ctx):",
+        "    return [platform_common.ToolchainInfo()]",
+        "foo_toolchain = rule(",
+        "    implementation = _impl,",
+        "    attrs = {},",
+        ")");
+
+    scratch.file(
+        "other_pkg/rule.bzl",
+        "def _impl(ctx):",
+        "    return []",
+        "my_rule = rule(",
+        "    implementation = _impl,",
+        "    toolchains = ['//private:type'],",
+        ")");
+
+    scratch.file("other_pkg/BUILD", "load(':rule.bzl', 'my_rule')", "my_rule(name = 'target')");
+
+    useConfiguration("--extra_toolchains=//private:toolchain");
+    getConfiguredTarget("//other_pkg:target");
   }
 }

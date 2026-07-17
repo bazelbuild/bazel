@@ -21,13 +21,13 @@ import static org.junit.Assert.fail;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.ByteStreams;
+import org.objectweb.asm.Opcodes;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
-import java.time.ZoneOffset;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Enumeration;
@@ -43,6 +43,7 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.RoundEnvironment;
+import javax.lang.model.SourceVersion;
 import javax.lang.model.element.TypeElement;
 import javax.tools.Diagnostic;
 import javax.tools.DiagnosticCollector;
@@ -56,7 +57,6 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
-import org.objectweb.asm.Opcodes;
 
 /** JUnit tests for ijar tool. */
 @RunWith(JUnit4.class)
@@ -147,6 +147,12 @@ public class IjarTests {
     task.setProcessors(
         Arrays.asList(
             new AbstractProcessor() {
+
+              @Override
+              public SourceVersion getSupportedSourceVersion() {
+                return SourceVersion.latestSupported();
+              }
+
               @Override
               public Set<String> getSupportedAnnotationTypes() {
                 return Collections.singleton("*");
@@ -234,7 +240,7 @@ public class IjarTests {
                 .put("LocalAndAnonymous$InnerClass", "LocalAndAnonymous")
                 .put("LocalAndAnonymous$NestedClass", "LocalAndAnonymous")
                 .put("LocalAndAnonymous$PrivateInnerClass", "LocalAndAnonymous")
-                .build());
+                .buildOrThrow());
     assertThat(innerClasses(ijar.get("LocalAndAnonymous.class")))
         .containsExactly(
             "LocalAndAnonymous$InnerClass", "LocalAndAnonymous",
@@ -249,6 +255,7 @@ public class IjarTests {
       while (entries.hasMoreElements()) {
         JarEntry je = entries.nextElement();
         if (!je.getName().endsWith(".class")
+            && !je.getName().endsWith(".kotlin_builtins")
             && !je.getName().endsWith(".kotlin_module")
             && !je.getName().endsWith(".tasty")) {
           continue;
@@ -263,14 +270,14 @@ public class IjarTests {
     final Map<String, String> innerClasses = new HashMap<>();
     new ClassReader(bytes)
         .accept(
-            new ClassVisitor(Opcodes.ASM7) {
+            new ClassVisitor(Opcodes.ASM9) {
               @Override
               public void visitInnerClass(
                   String name, String outerName, String innerName, int access) {
                 innerClasses.put(name, String.valueOf(outerName));
               }
             },
-            /*flags=*/ 0);
+            /* parsingOptions= */ 0);
     return innerClasses;
   }
 
@@ -285,12 +292,23 @@ public class IjarTests {
   }
 
   @Test
+  public void multiReleasePreserved() throws Exception {
+    try (JarFile jf = new JarFile("third_party/ijar/test/multirelease-interface.jar")) {
+      assertThat(jf.isMultiRelease()).isTrue();
+    }
+  }
+
+  @Test
   public void kotlinModule() throws Exception {
     Map<String, byte[]> lib = readJar("third_party/ijar/test/kotlin_module-interface.jar");
     assertThat(lib.keySet())
-        .containsExactly("java/lang/String.class", "META-INF/bar.kotlin_module");
-    // ijar passes kotlin modules through unmodified
+        .containsExactly(
+            "java/lang/String.class",
+            "kotlin/kotlin.kotlin_builtins",
+            "META-INF/bar.kotlin_module");
+    // ijar passes kotlin modules and builtins through unmodified
     assertThat(new String(lib.get("META-INF/bar.kotlin_module"), UTF_8)).isEqualTo("hello");
+    assertThat(new String(lib.get("kotlin/kotlin.kotlin_builtins"), UTF_8)).isEqualTo("goodbye");
   }
 
   @Test
@@ -312,9 +330,8 @@ public class IjarTests {
       Attributes attributes = manifest.getMainAttributes();
       assertThat(attributes.getValue("Target-Label")).isEqualTo("//foo:foo");
       assertThat(attributes.getValue("Injecting-Rule-Kind")).isEqualTo("foo_library");
-      assertThat(jf.getEntry(JarFile.MANIFEST_NAME).getLastModifiedTime().toInstant())
-          .isEqualTo(
-              LocalDateTime.of(2010, 1, 1, 0, 0, 0).atZone(ZoneOffset.systemDefault()).toInstant());
+      assertThat(jf.getEntry(JarFile.MANIFEST_NAME).getTimeLocal())
+          .isEqualTo(LocalDateTime.of(2010, 1, 1, 0, 0, 0));
     }
   }
 
@@ -324,9 +341,8 @@ public class IjarTests {
       Manifest manifest = jf.getManifest();
       Attributes attributes = manifest.getMainAttributes();
       assertThat(attributes.getValue("Target-Label")).isEqualTo("//empty");
-      assertThat(jf.getEntry(JarFile.MANIFEST_NAME).getLastModifiedTime().toInstant())
-          .isEqualTo(
-              LocalDateTime.of(2010, 1, 1, 0, 0, 0).atZone(ZoneOffset.systemDefault()).toInstant());
+      assertThat(jf.getEntry(JarFile.MANIFEST_NAME).getTimeLocal())
+          .isEqualTo(LocalDateTime.of(2010, 1, 1, 0, 0, 0));
     }
   }
 
@@ -459,6 +475,12 @@ public class IjarTests {
         Files.readAllBytes(
             Paths.get("third_party/ijar/test/jar-without-manifest-nostrip-idempotence.jar"));
     assertThat(original).isEqualTo(stripped);
+  }
+
+  @Test
+  public void metaInfTtransitive() throws Exception {
+    Map<String, byte[]> lib = readJar("third_party/ijar/test/meta_inf_transitive-interface.jar");
+    assertThat(lib.keySet()).containsExactly("java/lang/String.class");
   }
 
   private static void assertNonManifestFilesBitIdentical(JarFile original, JarFile stripped)

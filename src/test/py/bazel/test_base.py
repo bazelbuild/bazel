@@ -14,15 +14,38 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import locale
+"""Bazel Python integration test framework."""
+
+import hashlib
 import os
+import re
 import shutil
 import socket
 import stat
 import subprocess
 import sys
 import tempfile
-import unittest
+from absl.testing import absltest
+import runfiles
+
+
+def _HasIpv6DefaultRoute():
+  """Returns True if an IPv6 default route exists on Darwin."""
+  try:
+    result = subprocess.run(
+        ['netstat', '-rn', '-f', 'inet6'],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode == 0:
+      for line in result.stdout.splitlines():
+        if line.strip().startswith('default'):
+          return True
+  except (FileNotFoundError, OSError):
+    # netstat not found or failed; assume no IPv6 default route.
+    pass
+  return False
 
 
 class Error(Exception):
@@ -42,7 +65,8 @@ class EnvVarUndefinedError(Error):
     Error.__init__(self, 'Environment variable "%s" is not defined' % name)
 
 
-class TestBase(unittest.TestCase):
+class TestBase(absltest.TestCase):
+  """Bazel Python integration test base."""
 
   _runfiles = None
   _temp = None
@@ -53,36 +77,10 @@ class TestBase(unittest.TestCase):
   _worker_proc = None
   _cas_path = None
 
-  _SHARED_REPOS = (
-      'rules_cc',
-      'rules_java',
-      'rules_proto',
-      'remotejdk11_linux_for_testing',
-      'remotejdk11_linux_aarch64_for_testing',
-      'remotejdk11_linux_ppc64le_for_testing',
-      'remotejdk11_linux_s390x_for_testing',
-      'remotejdk11_macos_for_testing',
-      'remotejdk11_macos_aarch64_for_testing',
-      'remotejdk11_win_for_testing',
-      'remotejdk15_linux_for_testing',
-      'remotejdk15_macos_for_testing',
-      'remotejdk15_macos_aarch64_for_testing',
-      'remotejdk15_win_for_testing',
-      'remotejdk16_linux_for_testing',
-      'remotejdk16_macos_for_testing',
-      'remotejdk16_macos_aarch64_for_testing',
-      'remotejdk16_win_for_testing',
-      'remote_java_tools_for_testing',
-      'remote_java_tools_darwin_for_testing',
-      'remote_java_tools_linux_for_testing',
-      'remote_java_tools_windows_for_testing',
-      'remote_coverage_tools',
-  )
-
   def setUp(self):
-    unittest.TestCase.setUp(self)
+    absltest.TestCase.setUp(self)
     if self._runfiles is None:
-      self._runfiles = TestBase._LoadRunfiles()
+      self._runfiles = runfiles.Create()
     test_tmpdir = TestBase._CreateDirs(TestBase.GetEnv('TEST_TMPDIR'))
     self._tests_root = TestBase._CreateDirs(
         os.path.join(test_tmpdir, 'tests_root'))
@@ -90,20 +88,84 @@ class TestBase(unittest.TestCase):
     self._test_cwd = tempfile.mkdtemp(dir=self._tests_root)
     self._test_bazelrc = os.path.join(self._temp, 'test_bazelrc')
     with open(self._test_bazelrc, 'wt') as f:
-      shared_repo_home = os.environ.get('TEST_REPOSITORY_HOME')
-      if shared_repo_home and os.path.exists(shared_repo_home):
-        for repo in self._SHARED_REPOS:
-          f.write('common --override_repository={}={}\n'.format(
-              repo.replace('_for_testing', ''),
-              os.path.join(shared_repo_home, repo).replace('\\', '/')))
       shared_install_base = os.environ.get('TEST_INSTALL_BASE')
       if shared_install_base:
         f.write('startup --install_base={}\n'.format(shared_install_base))
       shared_repo_cache = os.environ.get('REPOSITORY_CACHE')
       if shared_repo_cache:
         f.write('common --repository_cache={}\n'.format(shared_repo_cache))
-        f.write('common --experimental_repository_cache_hardlinks\n')
+        # TODO(pcloudy): Remove this flag once all dependencies are mirrored.
+        # See https://github.com/bazelbuild/bazel/pull/19549 for more context.
+        f.write(
+            'common'
+            ' --repo_env=BAZEL_HTTP_RULES_URLS_AS_DEFAULT_CANONICAL_ID=0\n'
+        )
+        if TestBase.IsDarwin():
+          # For reducing SSD usage on our physical Mac machines.
+          f.write('common --experimental_repository_cache_hardlinks\n')
+      if TestBase.IsDarwin() and _HasIpv6DefaultRoute():
+        # Prefer IPv6 network on macOS only when an IPv6 default route exists.
+        f.write('startup --host_jvm_args=-Djava.net.preferIPv6Addresses=true\n')
+        f.write('build --jvmopt=-Djava.net.preferIPv6Addresses\n')
+
+      if TestBase.IsWindows():
+        # Use a specific Python toolchain on Windows to avoid blowing up the
+        # size of py_binary and py_test which slowed down tests significantly.
+        # pylint: disable=line-too-long
+        f.write(
+            'common'
+            ' --extra_toolchains=@@rules_python+//python/runtime_env_toolchains:all\n'
+        )
+        python_exe = shutil.which('python.exe').replace('\\', '/')
+        if python_exe:
+          f.write(f'common --python_path="{python_exe}"\n')
+
+    # An empty MODULE.bazel and a corresponding MODULE.bazel.lock will prevent
+    # tests from accessing BCR
+    self.ScratchFile('MODULE.bazel')
+    self.CopyFile(
+        self.Rlocation('io_bazel/src/test/tools/bzlmod/MODULE.bazel.lock'),
+        'MODULE.bazel.lock',
+    )
     os.chdir(self._test_cwd)
+
+  def GetModuleVersionFromDefaultLockFile(self, module):
+    """Extracts the version of a module from the default MODULE.bazel.lock file.
+
+    Args:
+      module: string; the name of the module to look up
+
+    Returns:
+      string; the version of the module
+
+    Raises:
+      Error: if the version is not found for the module
+    """
+    lockfile = self.Rlocation(
+        'io_bazel/src/test/tools/bzlmod/MODULE.bazel.lock'
+    )
+    version = None
+    with open(lockfile, 'r', encoding='utf-8') as f:
+      for line in f:
+        m = re.search(
+            rf'modules/{re.escape(module)}/([^/]*)/source\.json', line
+        )
+        if m:
+          version = m.group(1)
+          break
+    if not version:
+      raise Error(f'Version not found for module {module} in {lockfile}')
+    return version
+
+  def AddBazelDep(self, module, path=''):
+    version = self.GetModuleVersionFromDefaultLockFile(module)
+    self.ScratchFile(
+        os.path.join(path, 'MODULE.bazel'),
+        [
+            f'bazel_dep(name = "{module}", version = "{version}")',
+        ],
+        mode='a',
+    )
 
   def tearDown(self):
     self.RunBazel(['shutdown'])
@@ -158,39 +220,28 @@ class TestBase(unittest.TestCase):
 
   def AssertFileContentContains(self, file_path, entry):
     with open(file_path, 'r') as f:
-      if entry not in f.read():
-        self.fail('File "%s" does not contain "%s"' % (file_path, entry))
+      content = f.read()
+      if entry not in content:
+        self.fail(
+            'File "%s" does not contain "%s":\n%s' % (file_path, entry, content)
+        )
 
   def AssertFileContentNotContains(self, file_path, entry):
     with open(file_path, 'r') as f:
-      if entry in f.read():
-        self.fail('File "%s" does contain "%s"' % (file_path, entry))
+      content = f.read()
+      if entry in content:
+        self.fail(
+            'File "%s" does contain "%s":\n%s' % (file_path, entry, content)
+        )
 
-  def CreateWorkspaceWithDefaultRepos(self, path, lines=None):
-    rule_definition = [
-        'load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")'
-    ]
-    rule_definition.extend(self.GetDefaultRepoRules())
-    self.ScratchFile(path, rule_definition + (lines if lines else []))
-
-  def GetDefaultRepoRules(self):
-    return self.GetCcRulesRepoRule()
-
-  def GetCcRulesRepoRule(self):
-    sha256 = '1d4dbbd1e1e9b57d40bb0ade51c9e882da7658d5bfbf22bbd15b68e7879d761f'
-    strip_pfx = 'rules_cc-8bd6cd75d03c01bb82561a96d9c1f9f7157b13d0'
-    url1 = ('https://mirror.bazel.build/github.com/bazelbuild/rules_cc/'
-            'archive/8bd6cd75d03c01bb82561a96d9c1f9f7157b13d0.zip')
-    url2 = ('https://github.com/bazelbuild/rules_cc/'
-            'archive/8bd6cd75d03c01bb82561a96d9c1f9f7157b13d0.zip')
-    return [
-        'http_archive(',
-        '    name = "rules_cc",',
-        '    sha256 = "%s",' % sha256,
-        '    strip_prefix = "%s",' % strip_pfx,
-        '    urls = ["%s", "%s"],' % (url1, url2),
-        ')',
-    ]
+  def AssertPathIsSymlink(self, path):
+    if self.IsWindows():
+      self.assertTrue(
+          self.IsReparsePoint(path),
+          "Path '%s' is not a symlink or junction" % path,
+      )
+    else:
+      self.assertTrue(os.path.islink(path), "Path '%s' is not a symlink" % path)
 
   @staticmethod
   def GetEnv(name, default=None):
@@ -219,6 +270,11 @@ class TestBase(unittest.TestCase):
     return os.name == 'nt'
 
   @staticmethod
+  def IsDarwin():
+    """Returns true if the current platform is Darwin/macOS."""
+    return sys.platform == 'darwin'
+
+  @staticmethod
   def IsUnix():
     """Returns true if the current platform is Unix (Linux and Mac included)."""
     return os.name == 'posix'
@@ -227,6 +283,20 @@ class TestBase(unittest.TestCase):
   def IsLinux():
     """Returns true if the current platform is Linux."""
     return sys.platform.startswith('linux')
+
+  def IsReparsePoint(self, path):
+    """Returns whether a path is a reparse point (symlink or junction) on Windows.
+
+    Args:
+      path: string; an absolute path to a folder e.g. "C://foo/bar/aaa"
+    """
+    result = subprocess.run(
+        ['fsutil', 'reparsepoint', 'query', path],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return result.returncode == 0 and 'Reparse Tag Value' in result.stdout
 
   def Path(self, path):
     """Returns the absolute path of `path` relative to self._test_cwd.
@@ -247,10 +317,7 @@ class TestBase(unittest.TestCase):
 
   def Rlocation(self, runfile):
     """Returns the absolute path to a runfile."""
-    if TestBase.IsWindows():
-      return self._runfiles.get(runfile)
-    else:
-      return os.path.join(self._runfiles, runfile)
+    return self._runfiles.Rlocation(runfile)
 
   def ScratchDir(self, path):
     """Creates directories under the test's scratch directory.
@@ -274,7 +341,7 @@ class TestBase(unittest.TestCase):
     os.makedirs(abspath)
     return abspath
 
-  def ScratchFile(self, path, lines=None, executable=False):
+  def ScratchFile(self, path, lines=None, executable=False, mode='w'):
     """Creates a file under the test's scratch directory.
 
     Args:
@@ -283,6 +350,7 @@ class TestBase(unittest.TestCase):
       lines: [string]; the contents of the file (newlines are added
         automatically)
       executable: bool; whether to make the file executable
+      mode: string; fopen mode for the file
     Returns:
       The absolute path of the scratch file.
     Raises:
@@ -291,11 +359,13 @@ class TestBase(unittest.TestCase):
     """
     if not path:
       return
+    if lines is not None and not isinstance(lines, list):
+      raise ValueError('expected lines to be a list, got ' + str(type(lines)))
     abspath = self.Path(path)
     if os.path.exists(abspath) and not os.path.isfile(abspath):
       raise IOError('"%s" (%s) exists and is not a file' % (path, abspath))
     self.ScratchDir(os.path.dirname(path))
-    with open(abspath, 'w') as f:
+    with open(abspath, mode, encoding='utf-8') as f:
       if lines:
         for l in lines:
           f.write(l)
@@ -331,7 +401,15 @@ class TestBase(unittest.TestCase):
       os.chmod(abspath, stat.S_IRWXU)
     return abspath
 
-  def RunBazel(self, args, env_remove=None, env_add=None, cwd=None):
+  def RunBazel(
+      self,
+      args,
+      env_remove=None,
+      env_add=None,
+      cwd=None,
+      allow_failure=False,
+      rstrip=False,
+  ):
     """Runs "bazel <args>", waits for it to exit.
 
     Args:
@@ -340,16 +418,27 @@ class TestBase(unittest.TestCase):
         to Bazel
       env_add: {string: string}; optional; environment variables to pass to
         Bazel, won't be removed by env_remove.
-      cwd: [string]; the working directory of Bazel, will be self._test_cwd if
-        not specified.
+      cwd: string; the working directory of Bazel, will be self._test_cwd if not
+        specified.
+      allow_failure: bool; if false, the function checks the return code is 0
+      rstrip: bool; if true, the output is rstripped instead of stripped
+
     Returns:
       (int, [string], [string]) tuple: exit code, stdout lines, stderr lines
     """
-    return self.RunProgram([
-        self.Rlocation('io_bazel/src/bazel'),
-        '--bazelrc=' + self._test_bazelrc,
-        '--nomaster_bazelrc',
-    ] + args, env_remove, env_add, False, cwd)
+    return self.RunProgram(
+        [
+            self.Rlocation('io_bazel/src/bazel'),
+            '--bazelrc=' + self._test_bazelrc,
+        ]
+        + args,
+        env_remove,
+        env_add,
+        False,
+        cwd,
+        allow_failure,
+        rstrip,
+    )
 
   def StartRemoteWorker(self):
     """Runs a "local remote worker" to run remote builds and tests on.
@@ -364,7 +453,7 @@ class TestBase(unittest.TestCase):
       # worker path must be as short as possible so we don't exceed Windows
       # path length limits, so we run straight in TEMP. This should ideally
       # be set to something like C:\temp. On CI this is set to D:\temp.
-      worker_path = TestBase.GetEnv('TEMP')
+      worker_path = tempfile.mkdtemp(dir=TestBase.GetEnv('TEMP'))
       worker_exe = self.Rlocation('io_bazel/src/tools/remote/worker.exe')
     else:
       worker_path = tempfile.mkdtemp(dir=self._tests_root)
@@ -378,13 +467,6 @@ class TestBase(unittest.TestCase):
     s.bind(('', 0))
     port = s.getsockname()[1]
     s.close()
-
-    env_add = {}
-    try:
-      env_add['RUNFILES_MANIFEST_FILE'] = TestBase.GetEnv(
-          'RUNFILES_MANIFEST_FILE')
-    except EnvVarUndefinedError:
-      pass
 
     # Tip: To help debug remote build problems, add the --debug flag below.
     self._worker_proc = subprocess.Popen(
@@ -400,7 +482,8 @@ class TestBase(unittest.TestCase):
         stdout=self._worker_stdout,
         stderr=self._worker_stderr,
         cwd=self._test_cwd,
-        env=self._EnvMap(env_add=env_add))
+        env=self._EnvMap(env_add=self._runfiles.EnvVars()),
+    )
 
     return port
 
@@ -414,8 +497,7 @@ class TestBase(unittest.TestCase):
 
     self._worker_stdout.seek(0)
     stdout_lines = [
-        l.decode(locale.getpreferredencoding()).strip()
-        for l in self._worker_stdout.readlines()
+        l.decode('utf-8').strip() for l in self._worker_stdout.readlines()
     ]
     if stdout_lines:
       print('Local remote worker stdout')
@@ -424,8 +506,7 @@ class TestBase(unittest.TestCase):
 
     self._worker_stderr.seek(0)
     stderr_lines = [
-        l.decode(locale.getpreferredencoding()).strip()
-        for l in self._worker_stderr.readlines()
+        l.decode('utf-8').strip() for l in self._worker_stderr.readlines()
     ]
     if stderr_lines:
       print('Local remote worker stderr')
@@ -434,24 +515,55 @@ class TestBase(unittest.TestCase):
 
     shutil.rmtree(self._cas_path)
 
-  def RunProgram(self,
-                 args,
-                 env_remove=None,
-                 env_add=None,
-                 shell=False,
-                 cwd=None):
+  def ClearRemoteCache(self):
+    """Clears the CAS of the "local remote worker"."""
+    self.assertIsNotNone(self._cas_path)
+    shutil.rmtree(self._cas_path)
+    # The worker needs the CAS path as well as the tmp dir to exist.
+    os.makedirs(os.path.join(self._cas_path, 'tmp'))
+
+  def DeleteCasEntry(self, content):
+    """Deletes the CAS entry of the "local remote worker" with the given content.
+
+    Args:
+      content: bytes; the contents of the CAS entry to delete.
+
+    Returns:
+      str: the path of the deleted CAS entry.
+    """
+    digest = hashlib.sha256(content).hexdigest()
+    blob_path = os.path.join(self._cas_path, 'cas', digest[:2], digest)
+    self.assertTrue(os.path.exists(blob_path))
+    os.remove(blob_path)
+    return blob_path
+
+  def RunProgram(
+      self,
+      args,
+      env_remove=None,
+      env_add=None,
+      shell=False,
+      cwd=None,
+      allow_failure=False,
+      rstrip=False,
+      executable=None,
+  ):
     """Runs a program (args[0]), waits for it to exit.
 
     Args:
       args: [string]; the args to run; args[0] should be the program itself
       env_remove: iterable(string); optional; environment variables to NOT pass
         to the program
-      env_add: {string: string}; optional; environment variables to pass to
-        the program, won't be removed by env_remove.
-      shell: {bool: bool}; optional; whether to use the shell as the program
-        to execute
-      cwd: [string]; the current working dirctory, will be self._test_cwd if not
+      env_add: {string: string}; optional; environment variables to pass to the
+        program, won't be removed by env_remove.
+      shell: {bool: bool}; optional; whether to use the shell as the program to
+        execute
+      cwd: string; the current working directory, will be self._test_cwd if not
         specified.
+      allow_failure: bool; if false, the function checks the return code is 0
+      rstrip: bool; if true, the output is rstripped instead of stripped
+      executable: string or None; executable program to run; use args[0] if None
+
     Returns:
       (int, [string], [string]) tuple: exit code, stdout lines, stderr lines
     """
@@ -459,24 +571,28 @@ class TestBase(unittest.TestCase):
       with tempfile.TemporaryFile(dir=self._test_cwd) as stderr:
         proc = subprocess.Popen(
             args,
+            executable=executable,
             stdout=stdout,
             stderr=stderr,
-            cwd=(cwd if cwd else self._test_cwd),
+            cwd=(str(cwd) if cwd else self._test_cwd),
             env=self._EnvMap(env_remove, env_add),
             shell=shell)
         exit_code = proc.wait()
 
         stdout.seek(0)
         stdout_lines = [
-            l.decode(locale.getpreferredencoding()).strip()
+            l.decode('utf-8').rstrip() if rstrip else l.decode('utf-8').strip()
             for l in stdout.readlines()
         ]
 
         stderr.seek(0)
         stderr_lines = [
-            l.decode(locale.getpreferredencoding()).strip()
+            l.decode('utf-8').rstrip() if rstrip else l.decode('utf-8').strip()
             for l in stderr.readlines()
         ]
+
+        if not allow_failure:
+          self.AssertExitCode(exit_code, 0, stderr_lines, stdout_lines)
 
         return exit_code, stdout_lines, stderr_lines
 
@@ -511,6 +627,17 @@ class TestBase(unittest.TestCase):
     # that by checking for TEST_TMPDIR.
     env['TEST_TMPDIR'] = TestBase.GetEnv('TEST_TMPDIR')
     env['TMP'] = self._temp
+
+    if TestBase.IsDarwin():
+      # Make sure rules_jvm_external works in IPv6-only environments.
+      # Only set a default when an IPv6 default route exists. Preserve any
+      # user-provided COURSIER_OPTS value.
+      existing = os.environ.get('COURSIER_OPTS')
+      if existing is not None:
+        env['COURSIER_OPTS'] = existing
+      elif _HasIpv6DefaultRoute():
+        env['COURSIER_OPTS'] = '-Djava.net.preferIPv6Addresses=true'
+
     if env_remove:
       for e in env_remove:
         if e in env:
@@ -519,30 +646,6 @@ class TestBase(unittest.TestCase):
       for e in env_add:
         env[e] = env_add[e]
     return env
-
-  @staticmethod
-  def _LoadRunfiles():
-    """Loads the runfiles manifest from ${TEST_SRCDIR}/MANIFEST.
-
-    Only necessary to use on Windows, where runfiles are not symlinked in to the
-    runfiles directory, but are written to a MANIFEST file instead.
-
-    Returns:
-      on Windows: {string: string} dictionary, keys are runfiles-relative paths,
-        values are absolute paths that the runfiles entry is mapped to;
-      on other platforms: string; value of $TEST_SRCDIR
-    """
-    test_srcdir = TestBase.GetEnv('TEST_SRCDIR')
-    if not TestBase.IsWindows():
-      return test_srcdir
-
-    result = {}
-    with open(os.path.join(test_srcdir, 'MANIFEST'), 'r') as f:
-      for l in f:
-        tokens = l.strip().split(' ')
-        if len(tokens) == 2:
-          result[tokens[0]] = tokens[1]
-    return result
 
   @staticmethod
   def _CreateDirs(path):

@@ -17,15 +17,16 @@ import com.google.auto.value.AutoValue;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.devtools.build.skyframe.StallableSkykey;
 import java.util.Collection;
 import java.util.Set;
 
 /** The value of a TargetCompletion. Just a sentinel. */
 public class TargetCompletionValue implements SkyValue {
-  @AutoCodec static final TargetCompletionValue INSTANCE = new TargetCompletionValue();
+  @SerializationConstant static final TargetCompletionValue INSTANCE = new TargetCompletionValue();
 
   private TargetCompletionValue() {}
 
@@ -44,20 +45,13 @@ public class TargetCompletionValue implements SkyValue {
         targets,
         ct ->
             TargetCompletionKey.create(
-                ConfiguredTargetKey.builder()
-                    .setConfiguredTarget(ct)
-                    .setConfigurationKey(ct.getConfigurationKey())
-                    .build(),
-                ctx,
-                targetsToTest.contains(ct)));
+                ConfiguredTargetKey.fromConfiguredTarget(ct), ctx, targetsToTest.contains(ct)));
   }
 
   /** {@link com.google.devtools.build.skyframe.SkyKey} for {@link TargetCompletionValue}. */
-  @AutoCodec
   @AutoValue
   public abstract static class TargetCompletionKey
-      implements CompletionFunction.TopLevelActionLookupKey {
-    @AutoCodec.Instantiator
+      implements TopLevelActionLookupKeyWrapper, StallableSkykey {
     static TargetCompletionKey create(
         ConfiguredTargetKey actionLookupKey,
         TopLevelArtifactContext topLevelArtifactContext,
@@ -70,8 +64,13 @@ public class TargetCompletionValue implements SkyValue {
     public abstract ConfiguredTargetKey actionLookupKey();
 
     @Override
-    public SkyFunctionName functionName() {
+    public final SkyFunctionName functionName() {
       return SkyFunctions.TARGET_COMPLETION;
+    }
+
+    @Override
+    public final boolean valueIsShareable() {
+      return false;
     }
 
     abstract boolean willTest();

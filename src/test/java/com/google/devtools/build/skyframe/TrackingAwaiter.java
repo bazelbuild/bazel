@@ -59,12 +59,12 @@ public class TrackingAwaiter {
       // Latch was released. We can ignore the interrupt state.
       return;
     }
-    if (!Thread.currentThread().isInterrupted()) {
-      // Nobody interrupted us, but latch wasn't released. Failure.
-      throw new AssertionError(errorMessage);
-    } else {
+    if (Thread.interrupted()) {
       // We were interrupted before the latch was released. Propagate this interruption.
       throw new InterruptedException();
+    } else {
+      // Nobody interrupted us, but latch wasn't released. Failure.
+      throw new AssertionError(errorMessage);
     }
   }
 

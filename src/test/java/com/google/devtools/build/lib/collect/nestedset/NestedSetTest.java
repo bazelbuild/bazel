@@ -17,6 +17,8 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.Futures.immediateCancelledFuture;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static com.google.devtools.build.lib.collect.nestedset.Order.LINK_ORDER;
+import static com.google.devtools.build.lib.skyframe.serialization.PackedFingerprint.getFingerprintForTesting;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
@@ -24,9 +26,18 @@ import com.google.common.collect.Lists;
 import com.google.common.testing.EqualsTester;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetStore.MissingNestedSetException;
-import com.google.protobuf.ByteString;
+import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
+import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore.MissingFingerprintValueException;
+import com.google.devtools.build.lib.testutil.TestThread;
+import com.google.devtools.build.lib.testutil.TestUtils;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeoutException;
@@ -37,9 +48,13 @@ import org.junit.runners.JUnit4;
 /** Tests for {@link NestedSet}. */
 @RunWith(JUnit4.class)
 public final class NestedSetTest {
+  private final FileSystem fileSystem = new InMemoryFileSystem(DigestHashFunction.SHA256);
+  private final ArtifactRoot artifactRoot =
+      ActionsTestUtil.createArtifactRootFromTwoPaths(
+          fileSystem.getPath("/root1"), fileSystem.getPath("/root1/root2"));
 
-  private static NestedSetBuilder<String> nestedSetBuilder(String... directMembers) {
-    NestedSetBuilder<String> builder = NestedSetBuilder.stableOrder();
+  private static <T> NestedSetBuilder<T> nestedSetBuilder(T... directMembers) {
+    NestedSetBuilder<T> builder = NestedSetBuilder.stableOrder();
     builder.addAll(Lists.newArrayList(directMembers));
     return builder;
   }
@@ -95,22 +110,26 @@ public final class NestedSetTest {
 
   @Test
   public void isEmpty() {
-    NestedSet<String> triviallyEmpty = nestedSetBuilder().build();
+    NestedSet<String> triviallyEmpty = NestedSetTest.<String>nestedSetBuilder().build();
     assertThat(triviallyEmpty.isEmpty()).isTrue();
 
-    NestedSet<String> emptyLevel1 = nestedSetBuilder().addTransitive(triviallyEmpty).build();
+    NestedSet<String> emptyLevel1 =
+        NestedSetTest.<String>nestedSetBuilder().addTransitive(triviallyEmpty).build();
     assertThat(emptyLevel1.isEmpty()).isTrue();
 
-    NestedSet<String> emptyLevel2 = nestedSetBuilder().addTransitive(emptyLevel1).build();
+    NestedSet<String> emptyLevel2 =
+        NestedSetTest.<String>nestedSetBuilder().addTransitive(emptyLevel1).build();
     assertThat(emptyLevel2.isEmpty()).isTrue();
 
     NestedSet<String> triviallyNonEmpty = nestedSetBuilder("mango").build();
     assertThat(triviallyNonEmpty.isEmpty()).isFalse();
 
-    NestedSet<String> nonEmptyLevel1 = nestedSetBuilder().addTransitive(triviallyNonEmpty).build();
+    NestedSet<String> nonEmptyLevel1 =
+        NestedSetTest.<String>nestedSetBuilder().addTransitive(triviallyNonEmpty).build();
     assertThat(nonEmptyLevel1.isEmpty()).isFalse();
 
-    NestedSet<String> nonEmptyLevel2 = nestedSetBuilder().addTransitive(nonEmptyLevel1).build();
+    NestedSet<String> nonEmptyLevel2 =
+        NestedSetTest.<String>nestedSetBuilder().addTransitive(nonEmptyLevel1).build();
     assertThat(nonEmptyLevel2.isEmpty()).isFalse();
   }
 
@@ -248,8 +267,11 @@ public final class NestedSetTest {
         .addEqualityGroup(NestedSetBuilder.<Integer>linkOrder().add(4).build())
         .addEqualityGroup(nestedSetBuilder("4").build()) // Like flat("4").
         .addEqualityGroup(flat(3, 4), flat(3, 4))
-        // Make a couple sets deep enough that shallowEquals() fails.
-        // If this test case fails because you improve the representation, just delete it.
+        // NestedSet<String> gets interned under the hood.
+        .addEqualityGroup(
+            nest(nest(flat("a", "b"), flat("c")), nest(flat("d", "e"), flat("f"))),
+            nest(nest(flat("a", "b"), flat("c")), nest(flat("d", "e"), flat("f"))))
+        // NestedSet<Integer> does not get interned under the hood.
         .addEqualityGroup(nest(nest(flat(3, 4), flat(5)), nest(flat(6, 7), flat(8))))
         .addEqualityGroup(nest(nest(flat(3, 4), flat(5)), nest(flat(6, 7), flat(8))))
         .addEqualityGroup(nest(myRef), nest(myRef), nest(myRef, myRef)) // Set de-duplication.
@@ -302,13 +324,13 @@ public final class NestedSetTest {
 
   private static NestedSet<Integer> createNestedSet(
       Order order, int numDirects, int numTransitives, Order transitiveOrder) {
-    NestedSetBuilder<Integer> builder = new NestedSetBuilder<>(order);
+    NestedSetBuilder<Integer> builder = NestedSetBuilder.newBuilder(order);
 
     for (int direct = 0; direct < numDirects; direct++) {
       builder.add(direct);
     }
     for (int transitive = 0; transitive < numTransitives; transitive++) {
-      builder.addTransitive(new NestedSetBuilder<Integer>(transitiveOrder).add(transitive).build());
+      builder.addTransitive(NestedSet.<Integer>builder(transitiveOrder).add(transitive).build());
     }
     return builder.build();
   }
@@ -362,6 +384,25 @@ public final class NestedSetTest {
   }
 
   @Test
+  public void concurrentMemoizedFlattenAndGetSize() throws Exception {
+    NestedSet<String> deep = NestedSetBuilder.<String>stableOrder().add("a").add("b").build();
+    for (int i = 0; i < 200; ++i) {
+      deep = NestedSetBuilder.<String>stableOrder().addTransitive(deep).add("c").build();
+    }
+    NestedSet<String> underTest = deep;
+    List<TestThread> threads = new ArrayList<>(20);
+    for (int i = 0; i < 20; i++) {
+      threads.add(new TestThread(underTest::memoizedFlattenAndGetSize));
+    }
+    for (TestThread thread : threads) {
+      thread.start();
+    }
+    for (TestThread thread : threads) {
+      thread.joinAndAssertState(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
+    }
+  }
+
+  @Test
   public void hoistingKeepsSetSmall() {
     NestedSet<String> first = NestedSetBuilder.<String>stableOrder().add("a").build();
     NestedSet<String> second = NestedSetBuilder.<String>stableOrder().add("a").build();
@@ -398,14 +439,23 @@ public final class NestedSetTest {
   }
 
   @Test
-  public void toListInterruptibly_propagatesMissingNestedSetException() {
+  public void toListInterruptibly_propagatesMissingFingerprintValueException() {
     NestedSet<String> deserializingNestedSet =
         NestedSet.withFuture(
             Order.STABLE_ORDER,
             UNKNOWN_DEPTH,
             immediateFailedFuture(
-                new MissingNestedSetException(ByteString.copyFromUtf8("fingerprint"))));
-    assertThrows(MissingNestedSetException.class, deserializingNestedSet::toListInterruptibly);
+                new MissingFingerprintValueException(getFingerprintForTesting("fingerprint"))));
+    assertThrows(
+        MissingFingerprintValueException.class, deserializingNestedSet::toListInterruptibly);
+  }
+
+  @Test
+  public void toListInterruptibly_propagatesCancellationAsMissingFingerprintValueException() {
+    NestedSet<String> deserializingNestedSet =
+        NestedSet.withFuture(Order.STABLE_ORDER, UNKNOWN_DEPTH, immediateCancelledFuture());
+    assertThrows(
+        MissingFingerprintValueException.class, deserializingNestedSet::toListInterruptibly);
   }
 
   @Test
@@ -419,15 +469,24 @@ public final class NestedSetTest {
   }
 
   @Test
-  public void toListWithTimeout_propagatesMissingNestedSetException() {
+  public void toListWithTimeout_propagatesMissingFingerprintValueException() {
     NestedSet<String> deserializingNestedSet =
         NestedSet.withFuture(
             Order.STABLE_ORDER,
             UNKNOWN_DEPTH,
             immediateFailedFuture(
-                new MissingNestedSetException(ByteString.copyFromUtf8("fingerprint"))));
+                new MissingFingerprintValueException(getFingerprintForTesting("fingerprint"))));
     assertThrows(
-        MissingNestedSetException.class,
+        MissingFingerprintValueException.class,
+        () -> deserializingNestedSet.toListWithTimeout(Duration.ofNanos(1)));
+  }
+
+  @Test
+  public void toListWithTimeout_propagatesCancellationAsMissingFingerprintValueException() {
+    NestedSet<String> deserializingNestedSet =
+        NestedSet.withFuture(Order.STABLE_ORDER, UNKNOWN_DEPTH, immediateCancelledFuture());
+    assertThrows(
+        MissingFingerprintValueException.class,
         () -> deserializingNestedSet.toListWithTimeout(Duration.ofNanos(1)));
   }
 
@@ -497,37 +556,62 @@ public final class NestedSetTest {
             Order.STABLE_ORDER,
             UNKNOWN_DEPTH,
             immediateFailedFuture(
-                new MissingNestedSetException(ByteString.copyFromUtf8("fingerprint"))));
+                new MissingFingerprintValueException(getFingerprintForTesting("fingerprint"))));
     assertThat(deserializingNestedSet.isReady()).isFalse();
   }
 
   @Test
   public void getApproxDepth() {
-    NestedSet<String> empty = nestedSetBuilder().build();
+    NestedSet<String> empty = NestedSetTest.<String>nestedSetBuilder().build();
     NestedSet<String> justA = nestedSetBuilder("a").build();
     NestedSet<String> justB = nestedSetBuilder("b").build();
-    NestedSet<String> ab = nestedSetBuilder().addTransitive(justA).addTransitive(justB).build();
+    NestedSet<String> ab =
+        NestedSetTest.<String>nestedSetBuilder().addTransitive(justA).addTransitive(justB).build();
 
     assertThat(empty.getApproxDepth()).isEqualTo(0);
     assertThat(
-            nestedSetBuilder().addTransitive(empty).addTransitive(empty).build().getApproxDepth())
+            NestedSetTest.<String>nestedSetBuilder()
+                .addTransitive(empty)
+                .addTransitive(empty)
+                .build()
+                .getApproxDepth())
         .isEqualTo(0);
     assertThat(justA.getApproxDepth()).isEqualTo(1);
     assertThat(justB.getApproxDepth()).isEqualTo(1);
     assertThat(
-            nestedSetBuilder().addTransitive(empty).addTransitive(empty).build().getApproxDepth())
+            NestedSetTest.<String>nestedSetBuilder()
+                .addTransitive(empty)
+                .addTransitive(empty)
+                .build()
+                .getApproxDepth())
         .isEqualTo(0);
     assertThat(
-            nestedSetBuilder().addTransitive(empty).addTransitive(justA).build().getApproxDepth())
+            NestedSetTest.<String>nestedSetBuilder()
+                .addTransitive(empty)
+                .addTransitive(justA)
+                .build()
+                .getApproxDepth())
         .isEqualTo(1);
     assertThat(
-            nestedSetBuilder().addTransitive(justA).addTransitive(empty).build().getApproxDepth())
+            NestedSetTest.<String>nestedSetBuilder()
+                .addTransitive(justA)
+                .addTransitive(empty)
+                .build()
+                .getApproxDepth())
         .isEqualTo(1);
     assertThat(
-            nestedSetBuilder().addTransitive(justA).addTransitive(justA).build().getApproxDepth())
+            NestedSetTest.<String>nestedSetBuilder()
+                .addTransitive(justA)
+                .addTransitive(justA)
+                .build()
+                .getApproxDepth())
         .isEqualTo(1);
     assertThat(
-            nestedSetBuilder().addTransitive(justA).addTransitive(justB).build().getApproxDepth())
+            NestedSetTest.<String>nestedSetBuilder()
+                .addTransitive(justA)
+                .addTransitive(justB)
+                .build()
+                .getApproxDepth())
         .isEqualTo(2);
     assertThat(
             nestedSetBuilder("a", "b", "c")
@@ -537,5 +621,71 @@ public final class NestedSetTest {
                 .build()
                 .getApproxDepth())
         .isEqualTo(3);
+  }
+
+  @Test
+  public void linkOrder_toList_withTransitiveInputAliases_areConsistent() {
+    NestedSet<String> inputA = NestedSetBuilder.create(LINK_ORDER, "A");
+    NestedSet<String> inputB = NestedSetBuilder.create(LINK_ORDER, "B");
+    NestedSet<String> inputC = NestedSetBuilder.create(LINK_ORDER, "C");
+    NestedSet<String> inputB2 = NestedSetBuilder.create(LINK_ORDER, "B");
+
+    NestedSet<String> withDuplicates =
+        NestedSet.<String>builder(LINK_ORDER)
+            .addTransitive(inputA)
+            .addTransitive(inputB)
+            .addTransitive(inputC)
+            .addTransitive(inputB)
+            .build();
+
+    NestedSet<String> withAlias =
+        NestedSet.<String>builder(LINK_ORDER)
+            .addTransitive(inputA)
+            .addTransitive(inputB)
+            .addTransitive(inputC)
+            .addTransitive(inputB2)
+            .build();
+
+    assertThat(withAlias.toList()).isEqualTo(withDuplicates.toList());
+  }
+
+  @Test
+  public void linkOrder_toList_withDuplicateDirectInputs_keepsFirst() {
+    NestedSet<String> duplicateInputs = NestedSetBuilder.create(LINK_ORDER, "A", "B", "C", "A");
+    assertThat(duplicateInputs.toList()).containsExactly("A", "B", "C").inOrder();
+  }
+
+  @Test
+  public void interning_nestedSetOfString_isInterned() {
+    NestedSet<String> nestedSetA = nestedSetBuilder("cat", "dog").build();
+    NestedSet<String> nestedSetB = nestedSetBuilder("cat", "dog").build();
+    assertThat(nestedSetB).isSameInstanceAs(nestedSetA);
+    NestedSetInterner.clear();
+    NestedSet<String> nestedSetC = nestedSetBuilder("cat", "dog").build();
+    assertThat(nestedSetC).isNotSameInstanceAs(nestedSetA);
+  }
+
+  @Test
+  public void interning_nestedSetOfInteger_isNotInterned() {
+    NestedSet<Integer> nestedSetA = nestedSetBuilder(1, 2).build();
+    NestedSet<Integer> nestedSetB = nestedSetBuilder(1, 2).build();
+    assertThat(nestedSetA).isNotSameInstanceAs(nestedSetB);
+  }
+
+  @Test
+  public void interning_nestedSetOfArtifact_isInternedByArtifactIdentity() {
+    Artifact firstInstanceArtifactA = ActionsTestUtil.createArtifact(artifactRoot, "a");
+    Artifact secondInstanceArtifactA = ActionsTestUtil.createArtifact(artifactRoot, "a");
+    Artifact artifactB = ActionsTestUtil.createArtifact(artifactRoot, "b");
+
+    NestedSet<Artifact> firstInstanceNestedSetA = nestedSetBuilder(firstInstanceArtifactA).build();
+    assertThat(nestedSetBuilder(firstInstanceArtifactA).build())
+        .isSameInstanceAs(firstInstanceNestedSetA);
+    assertThat(nestedSetBuilder(secondInstanceArtifactA).build())
+        .isNotSameInstanceAs(firstInstanceNestedSetA);
+    assertThat(nestedSetBuilder(artifactB).build()).isNotSameInstanceAs(firstInstanceNestedSetA);
+    NestedSetInterner.clear();
+    assertThat(nestedSetBuilder(firstInstanceArtifactA).build())
+        .isNotSameInstanceAs(firstInstanceNestedSetA);
   }
 }

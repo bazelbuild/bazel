@@ -19,21 +19,24 @@ import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 import java.util.BitSet;
 
-class BitSetCodec implements ObjectCodec<BitSet> {
+class BitSetCodec extends LeafObjectCodec<BitSet> {
+  private static final LongArrayCodec DELEGATE = new LongArrayCodec();
+
   @Override
   public Class<? extends BitSet> getEncodedClass() {
     return BitSet.class;
   }
 
   @Override
-  public void serialize(SerializationContext context, BitSet obj, CodedOutputStream codedOut)
-      throws SerializationException, IOException {
-    context.serialize(obj.toLongArray(), codedOut);
+  public void serialize(LeafSerializationContext context, BitSet obj, CodedOutputStream codedOut)
+      throws IOException, SerializationException {
+    long[] data = obj.toLongArray();
+    context.serializeLeaf(data, DELEGATE, codedOut);
   }
 
   @Override
-  public BitSet deserialize(DeserializationContext context, CodedInputStream codedIn)
-      throws SerializationException, IOException {
-    return BitSet.valueOf(context.<long[]>deserialize(codedIn));
+  public BitSet deserialize(LeafDeserializationContext context, CodedInputStream codedIn)
+      throws IOException, SerializationException {
+    return BitSet.valueOf(context.deserializeLeaf(codedIn, DELEGATE));
   }
 }

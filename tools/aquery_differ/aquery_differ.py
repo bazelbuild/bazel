@@ -1,4 +1,3 @@
-# Lint as: python2, python3
 # Copyright 2020 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -35,17 +34,13 @@ bazel run //tools/aquery_differ:aquery_differ -- \
 --attrs=inputs
 """
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
 import difflib
 import os
 import sys
 
-# Do not edit this line. Copybara replaces it with PY2 migration helper.
 from absl import app
 from absl import flags
-from six.moves import map
+from google.protobuf import proto
 from google.protobuf import text_format
 from src.main.protobuf import analysis_v2_pb2
 from tools.aquery_differ.resolvers.dep_set_resolver import DepSetResolver
@@ -59,8 +54,12 @@ if os.name != "nt":
 flags.DEFINE_string("before", None, "Aquery output before the change")
 flags.DEFINE_string("after", None, "Aquery output after the change")
 flags.DEFINE_enum(
-    "input_type", "proto", ["proto", "textproto"],
-    "The format of the aquery proto input. One of 'proto' and 'textproto.")
+    "input_type",
+    "proto",
+    ["proto", "textproto", "streamed_proto"],
+    "The format of the aquery proto input. One of 'proto', 'textproto' and"
+    " 'streamed_proto'.",
+)
 flags.DEFINE_multi_enum("attrs", ["cmdline"], ["inputs", "cmdline"],
                         "Attributes of the actions to be compared.")
 flags.DEFINE_integer(
@@ -157,14 +156,14 @@ def _map_output_files_to_input_artifacts(action_graph_container,
 
   output_files_to_input_artifacts = {}
   for i, action in enumerate(actions):
-    input_artifacts = []
+    input_artifacts = set()
 
     for dep_set_id in action.input_dep_set_ids:
-      input_artifacts.extend(
+      input_artifacts.update(
           dep_set_resolver.resolve(id_to_dep_set[dep_set_id]))
 
-    output_files_to_input_artifacts[action_index_to_output_files[i]] = list(
-        sorted(input_artifacts))
+    output_files_to_input_artifacts[action_index_to_output_files[i]] = sorted(
+        list(input_artifacts))
 
   return output_files_to_input_artifacts
 
@@ -261,6 +260,29 @@ def to_absolute_path(path):
       return path
 
 
+def _read_proto(
+    file_path: str, input_type: str
+) -> analysis_v2_pb2.ActionGraphContainer:
+  """Reads an ActionGraphContainer proto from a file."""
+  if input_type == "proto":
+    with open(file_path, "rb") as f:
+      return analysis_v2_pb2.ActionGraphContainer.FromString(f.read())
+  elif input_type == "streamed_proto":
+    result_proto = analysis_v2_pb2.ActionGraphContainer()
+    with open(file_path, "rb") as f:
+      while True:
+        msg = proto.parse_length_prefixed(
+            analysis_v2_pb2.ActionGraphContainer, f
+        )
+        if msg is None:
+          break
+        result_proto.MergeFrom(msg)
+    return result_proto
+  else:
+    with open(file_path, "r") as f:
+      return text_format.Parse(f.read(), analysis_v2_pb2.ActionGraphContainer())
+
+
 def main(unused_argv):
   before_file = to_absolute_path(flags.FLAGS.before)
   after_file = to_absolute_path(flags.FLAGS.after)
@@ -273,22 +295,9 @@ def main(unused_argv):
     max_heap_bytes = max_mem_alloc_mb * 1024 * 1024
     resource.setrlimit(resource.RLIMIT_AS, (max_heap_bytes, max_heap_bytes))
 
-  before_proto = analysis_v2_pb2.ActionGraphContainer()
-  after_proto = analysis_v2_pb2.ActionGraphContainer()
   try:
-    if input_type == "proto":
-      with open(before_file, "rb") as f:
-        before_proto.ParseFromString(f.read())
-      with open(after_file, "rb") as f:
-        after_proto.ParseFromString(f.read())
-    else:
-      with open(before_file, "r") as f:
-        before_text = f.read()
-        text_format.Merge(before_text, before_proto)
-      with open(after_file, "r") as f:
-        after_text = f.read()
-        text_format.Merge(after_text, after_proto)
-
+    before_proto = _read_proto(before_file, input_type)
+    after_proto = _read_proto(after_file, input_type)
     _aquery_diff(before_proto, after_proto, attrs, before_file, after_file)
   except MemoryError:
     print(

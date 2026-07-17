@@ -13,89 +13,83 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.ConfigurationId;
 import com.google.devtools.build.lib.causes.AnalysisFailedCause;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import javax.annotation.Nullable;
+import net.starlark.java.syntax.Location;
 
 /**
  * An exception indicating that there was a problem during the construction of a
  * ConfiguredTargetValue.
  */
-public final class ConfiguredValueCreationException extends Exception
-    implements SaneAnalysisException {
+public final class ConfiguredValueCreationException extends AbstractSaneAnalysisException {
 
-  @Nullable private final BuildEventId configuration;
+  @Nullable private final Location location;
+  private final BuildEventId configuration;
   private final NestedSet<Cause> rootCauses;
   // TODO(b/138456686): if warranted by a need for finer-grained details, replace the constructors
   //  that specify the general Code.CONFIGURED_VALUE_CREATION_FAILED
   private final DetailedExitCode detailedExitCode;
 
-  private ConfiguredValueCreationException(
+  public ConfiguredValueCreationException(
+      @Nullable Location location,
       String message,
-      @Nullable BuildEventId configuration,
-      NestedSet<Cause> rootCauses,
-      DetailedExitCode detailedExitCode) {
+      Label label,
+      BuildEventId configuration,
+      @Nullable NestedSet<Cause> rootCauses,
+      @Nullable DetailedExitCode detailedExitCode) {
     super(message);
+    this.location = location;
     this.configuration = configuration;
-    this.rootCauses = rootCauses;
-    this.detailedExitCode = detailedExitCode;
+    DetailedExitCode exitCode =
+        detailedExitCode != null ? detailedExitCode : createDetailedExitCode(message);
+    this.detailedExitCode = exitCode;
+    this.rootCauses =
+        rootCauses != null
+            ? rootCauses
+            : NestedSetBuilder.create(
+                Order.STABLE_ORDER, createRootCause(label, configuration, exitCode));
   }
 
   public ConfiguredValueCreationException(
+      @Nullable Target target,
+      @Nullable BuildEventId configuration,
       String message,
-      Label currentTarget,
-      @Nullable BuildConfiguration configuration,
-      DetailedExitCode detailedExitCode) {
+      @Nullable NestedSet<Cause> rootCauses,
+      @Nullable DetailedExitCode detailedExitCode) {
     this(
+        target == null ? null : target.getLocation(),
         message,
-        configuration == null ? null : configuration.getEventId(),
-        NestedSetBuilder.<Cause>stableOrder()
-            .add(
-                new AnalysisFailedCause(
-                    currentTarget,
-                    configuration == null ? null : configuration.getEventId().getConfiguration(),
-                    detailedExitCode))
-            .build(),
-        detailedExitCode);
-  }
-
-  public ConfiguredValueCreationException(
-      String message, Label currentTarget, @Nullable BuildConfiguration configuration) {
-    this(
-        message,
-        currentTarget,
+        target.getLabel(),
         configuration,
-        createDetailedExitCode(message, Code.CONFIGURED_VALUE_CREATION_FAILED));
-  }
-
-  public ConfiguredValueCreationException(
-      String message,
-      @Nullable BuildConfiguration configuration,
-      NestedSet<Cause> rootCauses,
-      DetailedExitCode detailedExitCode) {
-    this(
-        message,
-        configuration == null ? null : configuration.getEventId(),
         rootCauses,
         detailedExitCode);
   }
 
-  public ConfiguredValueCreationException(
-      String message, @Nullable BuildConfiguration configuration, NestedSet<Cause> rootCauses) {
+  public ConfiguredValueCreationException(@Nullable Target target, String message) {
     this(
+        target,
+        /* configuration= */ null,
         message,
-        configuration,
-        rootCauses,
-        createDetailedExitCode(message, Code.CONFIGURED_VALUE_CREATION_FAILED));
+        /* rootCauses= */ null,
+        /* detailedExitCode= */ null);
+  }
+
+  @Nullable
+  public Location getLocation() {
+    return location;
   }
 
   public NestedSet<Cause> getRootCauses() {
@@ -112,11 +106,21 @@ public final class ConfiguredValueCreationException extends Exception
     return detailedExitCode;
   }
 
-  private static DetailedExitCode createDetailedExitCode(String message, Analysis.Code code) {
+  private static DetailedExitCode createDetailedExitCode(String message) {
     return DetailedExitCode.of(
         FailureDetail.newBuilder()
             .setMessage(message)
-            .setAnalysis(Analysis.newBuilder().setCode(code))
+            .setAnalysis(Analysis.newBuilder().setCode(Code.CONFIGURED_VALUE_CREATION_FAILED))
             .build());
+  }
+
+  private static AnalysisFailedCause createRootCause(
+      Label label, BuildEventId configuration, DetailedExitCode detailedExitCode) {
+    return new AnalysisFailedCause(
+        label,
+        configuration == null
+            ? ConfigurationId.newBuilder().setId("none").build()
+            : configuration.getConfiguration(),
+        detailedExitCode);
   }
 }

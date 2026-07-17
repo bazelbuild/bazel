@@ -14,21 +14,12 @@
 
 package com.google.devtools.build.lib.packages;
 
+import com.google.common.base.Function;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkAspectApi;
-import net.starlark.java.eval.EvalException;
 
 /** Represents an aspect which can be attached to a Starlark-defined rule attribute. */
 public interface StarlarkAspect extends StarlarkAspectApi {
-
-  /**
-   * Attaches this aspect to an attribute.
-   *
-   * @param attrBuilder the builder of the attribute to add this aspect to
-   * @throws EvalException if this aspect cannot be successfully applied to the given attribute
-   */
-  void attachToAttribute(Attribute.Builder<?> attrBuilder) throws EvalException;
-
   /** Returns the aspect class for this aspect. */
   AspectClass getAspectClass();
 
@@ -37,4 +28,7 @@ public interface StarlarkAspect extends StarlarkAspectApi {
 
   /** Returns the name of this aspect. */
   String getName();
+
+  /** Returns a function to extract the aspect parameters values from its base rule. */
+  Function<Rule, AspectParameters> getDefaultParametersExtractor();
 }

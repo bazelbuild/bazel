@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.analysis.constraints;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
+import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.EnvironmentGroup;
+import javax.annotation.Nullable;
 
 /**
  * Implementation for the environment rule.
@@ -32,6 +33,7 @@ import com.google.devtools.build.lib.packages.EnvironmentGroup;
 public class Environment implements RuleConfiguredTargetFactory {
 
   @Override
+  @Nullable
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
 
@@ -50,11 +52,12 @@ public class Environment implements RuleConfiguredTargetFactory {
     EnvironmentCollection env =
         new EnvironmentCollection.Builder().put(group.getEnvironmentLabels(), label).build();
     return new RuleConfiguredTargetBuilder(ruleContext)
-        .addProvider(SupportedEnvironmentsProvider.class,
-            new SupportedEnvironments(env, env, ImmutableMap.of()))
+        .addProvider(
+            SupportedEnvironmentsProvider.class,
+            SupportedEnvironments.create(env, env, ImmutableMap.of()))
         .addProvider(RunfilesProvider.class, RunfilesProvider.EMPTY)
-        .add(FileProvider.class, FileProvider.EMPTY)
-        .add(FilesToRunProvider.class, FilesToRunProvider.EMPTY)
+        .addProvider(FileProvider.class, FileProvider.EMPTY)
+        .addProvider(FilesToRunProvider.class, FilesToRunProvider.EMPTY)
         .build();
   }
 }

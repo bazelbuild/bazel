@@ -22,10 +22,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.LoggingUtil;
-import com.google.devtools.build.lib.util.StringCanonicalizer;
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -34,11 +32,14 @@ import java.util.RandomAccess;
 import java.util.Set;
 import java.util.logging.Level;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
-import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkInt;
+import net.starlark.java.eval.StarlarkList;
+import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.eval.StarlarkSet;
 
 /**
  * Root of Type symbol hierarchy for values in the build language.
@@ -86,7 +87,7 @@ import net.starlark.java.eval.StarlarkInt;
 // types, both Starlark and native.
 public abstract class Type<T> {
 
-  protected Type() {}
+  Type() {}
 
   /**
    * Converts a legal Starlark value x into an Java value of type T.
@@ -94,52 +95,76 @@ public abstract class Type<T> {
    * <p>x must be directly convertible to this type. This therefore disqualifies "selector
    * expressions" of the form "{ config1: 'value1_of_orig_type', config2: 'value2_of_orig_type; }"
    * (which support configurable attributes). To handle those expressions, see {@link
-   * com.google.devtools.build.lib.packages.BuildType#selectableConvert}.
+   * com.google.devtools.build.lib.packages.BuildType#convertFromBuildLangType}.
    *
    * @param x The Starlark value to convert.
    * @param what An object whose toString method returns a description of the purpose of x.
-   *     Typically it is the name of a function parameter or struct field. The method is called only
-   *     in case of error.
-   * @param context the label of the current BUILD rule; must be non-null if resolution of
-   *     package-relative label strings is required
+   *     Typically, it is the name of a function parameter or struct field. The method is called
+   *     only in case of error.
+   * @param labelConverter the converter to use to convert label literals to Label objects; must be
+   *     non-null if parsing non-canonical label strings is required
    * @throws ConversionException if there was a problem performing the type conversion
    * @throws NullPointerException if x is null.
    */
-  public abstract T convert(Object x, Object what, @Nullable Object context)
+  public abstract T convert(Object x, Object what, @Nullable LabelConverter labelConverter)
       throws ConversionException;
+
+  /**
+   * Copies a Starlark value to an immutable ones and converts label strings to Label objects.
+   *
+   * <p>All Starlark values are also type checked.
+   *
+   * @param x The Starlark value to copy.
+   * @param what An object whose toString method returns a description of the purpose of x.
+   *     Typically, it is the name of a function parameter or struct field. The method is called
+   *     only in case of error.
+   * @param labelConverter the converter to use to convert label literals to Label objects; must be
+   *     non-null if parsing non-canonical label strings is required
+   * @throws ConversionException if the Starlark value doesn't match the type
+   */
+  public Object copyAndLiftStarlarkValue(
+      Object x, Object what, @Nullable LabelConverter labelConverter) throws ConversionException {
+    // Nones are valid as the Starlark representation of the internal null value (used for certain
+    // types' default values).
+    if (x == Starlark.NONE) {
+      return x;
+    }
+    return convert(x, what, labelConverter);
+  }
+
   // TODO(bazel-team): Check external calls (e.g. in PackageFactory), verify they always want
   // this over selectableConvert.
 
   /**
-   * Equivalent to {@link #convert(Object, Object, Object)} where the label is {@code null}.
-   * Useful for converting values to types that do not involve the type {@code LABEL}
-   * and hence do not require the label of the current package.
+   * Equivalent to {@link #convert(Object, Object, LabelConverter)} where the label is {@code null}.
+   * Useful for converting values to types that do not involve the type {@code LABEL}.
    */
   public final T convert(Object x, Object what) throws ConversionException {
     return convert(x, what, null);
   }
 
   /**
-   * Like {@link #convert(Object, Object, Object)}, but converts Starlark {@code None} to given
-   * {@code defaultValue}.
+   * Like {@link #convert(Object, Object, LabelConverter)}, but converts Starlark {@code None} to
+   * given {@code defaultValue}.
    */
   @Nullable
-  public final T convertOptional(Object x, String what, @Nullable Object context, T defaultValue)
+  public final T convertOptional(
+      Object x, String what, @Nullable LabelConverter labelConverter, T defaultValue)
       throws ConversionException {
     if (Starlark.isNullOrNone(x)) {
       return defaultValue;
     }
-    return convert(x, what, context);
+    return convert(x, what, labelConverter);
   }
 
   /**
-   * Like {@link #convert(Object, Object, Object)}, but converts Starlark {@code None} to java
-   * {@code null}.
+   * Like {@link #convert(Object, Object, LabelConverter)}, but converts Starlark {@code None} to
+   * java {@code null}.
    */
   @Nullable
-  public final T convertOptional(Object x, String what, @Nullable Object context)
+  private T convertOptional(Object x, String what, @Nullable LabelConverter labelConverter)
       throws ConversionException {
-    return convertOptional(x, what, context, null);
+    return convertOptional(x, what, labelConverter, null);
   }
 
   /**
@@ -150,7 +175,8 @@ public abstract class Type<T> {
     return convertOptional(x, what, null);
   }
 
-  public abstract T cast(Object value);
+  @Nullable
+  public abstract T cast(@Nullable Object value);
 
   @Override
   public abstract String toString();
@@ -159,27 +185,28 @@ public abstract class Type<T> {
    * Returns the default value for this type; may return null iff no default is defined for this
    * type.
    */
+  @Nullable
   public abstract T getDefaultValue();
 
   /**
-   * Function accepting a (potentially null) {@link Label} and an arbitrary context object. Used by
-   * {@link #visitLabels}.
+   * Function accepting a (potentially null) {@link Label} and a (potentially null) {@link
+   * Attribute} provided as context. Used by {@link #visitLabels}.
    */
-  public interface LabelVisitor<C> {
-    void visit(@Nullable Label label, @Nullable C context);
+  public interface LabelVisitor {
+    void visit(@Nullable Label label, @Nullable Attribute context);
   }
 
   /**
    * Invokes {@code visitor.visit(label, context)} for each {@link Label} {@code label} associated
-   * with {@code value}, which is assumed an instance of this {@link Type}.
+   * with {@code value}, an instance of this {@link Type}.
    *
    * <p>This is used to support reliable label visitation in {@link
-   * com.google.devtools.build.lib.packages.AbstractAttributeMapper#visitLabels}. To preserve that
+   * com.google.devtools.build.lib.packages.AttributeMap#visitAllLabels}. To preserve that
    * reliability, every type should faithfully define its own instance of this method. In other
    * words, be careful about defining default instances in base types that get auto-inherited by
    * their children. Keep all definitions as explicit as possible.
    */
-  public abstract <C> void visitLabels(LabelVisitor<C> visitor, Object value, @Nullable C context);
+  public abstract void visitLabels(LabelVisitor visitor, T value, @Nullable Attribute context);
 
   /** Classifications of labels by their usage. */
   public enum LabelClass {
@@ -192,13 +219,13 @@ public abstract class Type<T> {
      * in cases where doing so would cause a dependency cycle.
      */
     NONDEP_REFERENCE,
+    /**
+     * Used for types which declare a dependency, but the dependency should not be configured. Used
+     * when the label is used only in the loading phase. e.g. genquery.scope
+     */
+    GENQUERY_SCOPE_REFERENCE,
     /** Used for types which use labels to declare an output path. */
     OUTPUT,
-    /**
-     * Used for types which contain Fileset entries, which contain labels but do not produce
-     * normal dependencies.
-     */
-    FILESET_ENTRY
   }
 
   /** Returns the class of labels contained by this type, if any. */
@@ -208,22 +235,23 @@ public abstract class Type<T> {
 
   /**
    * Implementation of concatenation for this type, as if by {@code elements[0] + ... +
-   * elements[n-1]}). Returns null to indicate concatenation isn't supported. This method exists to
-   * support deferred additions {@code select + T} for catenable types T such as string, int, and
-   * list.
+   * elements[n-1]}) for scalars or lists, or {@code elements[0] | ... | elements[n-1]} for dicts.
+   * Returns null to indicate concatenation isn't supported.
+   *
+   * <p>This method exists to support deferred additions {@code select + T} for catenable types T
+   * such as string, int, list, and deferred unions {@code select | T} for map types T.
    */
   public T concat(Iterable<T> elements) {
     return null;
   }
 
   /**
-   * Converts an initialized Type object into a tag set representation.
-   * This operation is only valid for certain sub-Types which are guaranteed
-   * to be properly initialized.
+   * Converts an initialized Type object into a tag set representation. This operation is only valid
+   * for certain sub-Types which are guaranteed to be properly initialized.
    *
    * @param value the actual value
-   * @throws UnsupportedOperationException if the concrete type does not support
-   * tag conversion or if a convertible type has no initialized value.
+   * @throws UnsupportedOperationException if the concrete type does not support tag conversion or
+   *     if a convertible type has no initialized value.
    */
   public Set<String> toTagSet(Object value, String name) {
     String msg = "Attribute " + name + " does not support tag conversion.";
@@ -231,37 +259,30 @@ public abstract class Type<T> {
   }
 
   /** The type of a Starlark integer in the signed 32-bit range. */
-  @AutoCodec public static final Type<StarlarkInt> INTEGER = new IntegerType();
+  @SerializationConstant public static final Type<StarlarkInt> INTEGER = new IntegerType();
 
-  /** The type of a string. */
-  @AutoCodec public static final Type<String> STRING = new StringType();
-
-  /** The type of a boolean. */
-  @AutoCodec public static final Type<Boolean> BOOLEAN = new BooleanType();
-
-  /** The type of a list of not-yet-typed objects. */
-  @AutoCodec public static final ObjectListType OBJECT_LIST = new ObjectListType();
-
-  /** The type of a list of strings. */
-  @AutoCodec public static final ListType<String> STRING_LIST = ListType.create(STRING);
-
-  /** The type of a list of signed 32-bit Starlark integer values. */
-  @AutoCodec public static final ListType<StarlarkInt> INTEGER_LIST = ListType.create(INTEGER);
-
-  /** The type of a dictionary of {@linkplain #STRING strings}. */
-  @AutoCodec
-  public static final DictType<String, String> STRING_DICT = DictType.create(STRING, STRING);
-
-  /** The type of a dictionary of {@linkplain #STRING_LIST label lists}. */
-  @AutoCodec
-  public static final DictType<String, List<String>> STRING_LIST_DICT =
-      DictType.create(STRING, STRING_LIST);
+  /** The type of a string which interns the instance with String#intern. */
+  @SerializationConstant
+  public static final Type<String> STRING = new StringType(/* internString= */ true);
 
   /**
-   *  For ListType objects, returns the type of the elements of the list; for
-   *  all other types, returns null.  (This non-obvious implementation strategy
-   *  is necessitated by the wildcard capture rules of the Java type system,
-   *  which disallow conversion from Type{List{ELEM}} to Type{List{?}}.)
+   * The type of a string which does not intern the string instance.
+   *
+   * <p>When there is only one string instance created in blaze, interning it introduces memory
+   * overhead. So for attribute whose string value tends to not duplicate (for example rule name),
+   * it is preferable not to intern such string values.
+   */
+  @SerializationConstant
+  public static final Type<String> STRING_NO_INTERN = new StringType(/* internString= */ false);
+
+  /** The type of a boolean. */
+  @SerializationConstant public static final Type<Boolean> BOOLEAN = new BooleanType();
+
+  /**
+   * For ListType objects, returns the type of the elements of the list; for all other types,
+   * returns null. (This non-obvious implementation strategy is necessitated by the wildcard capture
+   * rules of the Java type system, which disallow conversion from Type{List{ELEM}} to
+   * Type{List{?}}.)
    */
   public Type<?> getListElementType() {
     return null;
@@ -272,21 +293,30 @@ public abstract class Type<T> {
    * message.
    */
   public static class ConversionException extends EvalException {
-    private static String message(Type<?> type, Object value, @Nullable Object what) {
+    private static String message(String expected, Object value, @Nullable Object what) {
       Printer printer = new Printer();
-      printer.append("expected value of type '").append(type.toString()).append("'");
+      printer.append("expected ").append(expected);
       if (what != null) {
         printer.append(" for ").append(what.toString());
       }
       printer.append(", but got ");
-      printer.repr(value);
+      printer.repr(value, StarlarkSemantics.DEFAULT);
       printer.append(" (").append(Starlark.type(value)).append(")");
       return printer.toString();
     }
 
-    /** Contructs a conversion error. Throws NullPointerException if value is null. */
-    public ConversionException(Type<?> type, Object value, @Nullable Object what) {
-      super(message(type, Preconditions.checkNotNull(value), what));
+    /** Constructs a conversion error. Throws NullPointerException if value is null. */
+    ConversionException(String expected, Object value, @Nullable Object what) {
+      super(message(expected, Preconditions.checkNotNull(value), what));
+    }
+
+    /** Constructs a conversion error. Throws NullPointerException if value is null. */
+    ConversionException(Type<?> type, Object value, @Nullable Object what) {
+      super(
+          message(
+              String.format("value of type '%s'", type.toString()),
+              Preconditions.checkNotNull(value),
+              what));
     }
 
     public ConversionException(String message) {
@@ -300,35 +330,8 @@ public abstract class Type<T> {
    *                                                                  *
    ********************************************************************/
 
-  private static class ObjectType extends Type<Object> {
-    @Override
-    public Object cast(Object value) {
-      return value;
-    }
-
-    @Override
-    public String getDefaultValue() {
-      throw new UnsupportedOperationException(
-          "ObjectType has no default value");
-    }
-
-    @Override
-    public <T> void visitLabels(LabelVisitor<T> visitor, Object value, T context) {
-    }
-
-    @Override
-    public String toString() {
-      return "object";
-    }
-
-    @Override
-    public Object convert(Object x, Object what, Object context) {
-      return Preconditions.checkNotNull(x);
-    }
-  }
-
   // A Starlark integer in the signed 32-bit range (like Java int).
-  private static class IntegerType extends Type<StarlarkInt> {
+  private static final class IntegerType extends Type<StarlarkInt> {
     @Override
     public StarlarkInt cast(Object value) {
       // This cast will fail if passed a java.lang.Integer,
@@ -342,8 +345,7 @@ public abstract class Type<T> {
     }
 
     @Override
-    public <T> void visitLabels(LabelVisitor<T> visitor, Object value, T context) {
-    }
+    public void visitLabels(LabelVisitor visitor, StarlarkInt value, @Nullable Attribute context) {}
 
     @Override
     public String toString() {
@@ -351,9 +353,9 @@ public abstract class Type<T> {
     }
 
     @Override
-    public StarlarkInt convert(Object x, Object what, Object context) throws ConversionException {
-      if (x instanceof StarlarkInt) {
-        StarlarkInt i = (StarlarkInt) x;
+    public StarlarkInt convert(Object x, Object what, LabelConverter labelConverter)
+        throws ConversionException {
+      if (x instanceof StarlarkInt i) {
         try {
           i.toIntUnchecked(); // assert signed 32-bit
         } catch (
@@ -384,7 +386,7 @@ public abstract class Type<T> {
     }
   }
 
-  private static class BooleanType extends Type<Boolean> {
+  private static final class BooleanType extends Type<Boolean> {
     @Override
     public Boolean cast(Object value) {
       return (Boolean) value;
@@ -396,8 +398,7 @@ public abstract class Type<T> {
     }
 
     @Override
-    public <T> void visitLabels(LabelVisitor<T> visitor, Object value, T context) {
-    }
+    public void visitLabels(LabelVisitor visitor, Boolean value, @Nullable Attribute context) {}
 
     @Override
     public String toString() {
@@ -406,27 +407,31 @@ public abstract class Type<T> {
 
     // Conversion to boolean must also tolerate integers of 0 and 1 only.
     @Override
-    public Boolean convert(Object x, Object what, Object context)
+    public Boolean convert(Object x, Object what, LabelConverter labelConverter)
         throws ConversionException {
       if (x instanceof Boolean) {
         return (Boolean) x;
       }
-      int xAsInteger = INTEGER.convert(x, what, context).toIntUnchecked();
-      if (xAsInteger == 0) {
-        return false;
-      } else if (xAsInteger == 1) {
-        return true;
+      try {
+        int xAsInteger = INTEGER.convert(x, what, labelConverter).toIntUnchecked();
+        if (xAsInteger == 0) {
+          return false;
+        } else if (xAsInteger == 1) {
+          return true;
+        }
+      } catch (ConversionException unused) {
+        // Fall through to the `throw` below to display the correct type name.
+        // No need to keep the previous exception, the stack trace is less important than the actual
+        // error message showing allowed values for conversion.
       }
-      throw new ConversionException("boolean is not one of [0, 1]");
+      throw new ConversionException("one of [False, True, 0, 1]", x, what);
     }
 
-    /**
-     * Booleans attributes are converted to tags based on their names.
-     */
+    /** Booleans attributes are converted to tags based on their names. */
     @Override
     public Set<String> toTagSet(Object value, String name) {
       if (value == null) {
-        String msg = "Illegal tag conversion from null on Attribute " + name  + ".";
+        String msg = "Illegal tag conversion from null on Attribute " + name + ".";
         throw new IllegalStateException(msg);
       }
       String tag = (Boolean) value ? name : "no" + name;
@@ -434,7 +439,13 @@ public abstract class Type<T> {
     }
   }
 
-  private static class StringType extends Type<String> {
+  private static final class StringType extends Type<String> {
+    private final boolean internString;
+
+    StringType(boolean internString) {
+      this.internString = internString;
+    }
+
     @Override
     public String cast(Object value) {
       return (String) value;
@@ -446,8 +457,7 @@ public abstract class Type<T> {
     }
 
     @Override
-    public <T> void visitLabels(LabelVisitor<T> visitor, Object value, T context) {
-    }
+    public void visitLabels(LabelVisitor visitor, String value, @Nullable Attribute context) {}
 
     @Override
     public String toString() {
@@ -455,12 +465,12 @@ public abstract class Type<T> {
     }
 
     @Override
-    public String convert(Object x, Object what, Object context)
+    public String convert(Object x, Object what, LabelConverter labelConverter)
         throws ConversionException {
       if (!(x instanceof String)) {
         throw new ConversionException(this, x, what);
       }
-      return StringCanonicalizer.intern((String) x);
+      return internString ? ((String) x).intern() : (String) x;
     }
 
     @Override
@@ -468,9 +478,7 @@ public abstract class Type<T> {
       return Joiner.on("").join(elements);
     }
 
-    /**
-     * A String is representable as a set containing its value.
-     */
+    /** A String is representable as a set containing its value. */
     @Override
     public Set<String> toTagSet(Object value, String name) {
       if (value == null) {
@@ -481,22 +489,18 @@ public abstract class Type<T> {
     }
   }
 
-  /**
-   * A type to support dictionary attributes.
-   */
+  /** A type to support dictionary attributes. */
   public static class DictType<KeyT, ValueT> extends Type<Map<KeyT, ValueT>> {
 
     private final Type<KeyT> keyType;
     private final Type<ValueT> valueType;
-
-    private final Map<KeyT, ValueT> empty = ImmutableMap.of();
-
     private final LabelClass labelClass;
 
     @Override
-    public <T> void visitLabels(LabelVisitor<T> visitor, Object value, T context) {
+    public final void visitLabels(
+        LabelVisitor visitor, Map<KeyT, ValueT> value, @Nullable Attribute context) {
       if (labelClass != LabelClass.NONE) {
-        for (Map.Entry<KeyT, ValueT> entry : cast(value).entrySet()) {
+        for (Map.Entry<KeyT, ValueT> entry : value.entrySet()) {
           keyType.visitLabels(visitor, entry.getKey(), context);
           valueType.visitLabels(visitor, entry.getValue(), context);
         }
@@ -523,7 +527,7 @@ public abstract class Type<T> {
       return new DictType<>(keyType, valueType, labelClass);
     }
 
-    protected DictType(Type<KeyT> keyType, Type<ValueT> valueType, LabelClass labelClass) {
+    DictType(Type<KeyT> keyType, Type<ValueT> valueType, LabelClass labelClass) {
       this.keyType = keyType;
       this.valueType = valueType;
       this.labelClass = labelClass;
@@ -554,48 +558,74 @@ public abstract class Type<T> {
     }
 
     @Override
-    public Map<KeyT, ValueT> convert(Object x, Object what, Object context)
+    public Map<KeyT, ValueT> convert(Object x, Object what, LabelConverter labelConverter)
         throws ConversionException {
+      if (!(x instanceof Map<?, ?> map)) {
+        throw new ConversionException(this, x, what);
+      }
+      ImmutableMap.Builder<KeyT, ValueT> result = ImmutableMap.builderWithExpectedSize(map.size());
+      for (Map.Entry<?, ?> elem : map.entrySet()) {
+        result.put(
+            keyType.convert(elem.getKey(), "dict key element", labelConverter),
+            valueType.convert(elem.getValue(), "dict value element", labelConverter));
+      }
+      // It's possible that #convert() calls transform non-equal keys into equal ones.
+      return result.buildKeepingLast();
+    }
+
+    @Override
+    public Object copyAndLiftStarlarkValue(
+        Object x, Object what, @Nullable LabelConverter labelConverter) throws ConversionException {
       if (!(x instanceof Map)) {
         throw new ConversionException(this, x, what);
       }
       Map<?, ?> o = (Map<?, ?>) x;
       // It's possible that #convert() calls transform non-equal keys into equal ones so we can't
       // just use ImmutableMap.Builder() here (that throws on collisions).
-      LinkedHashMap<KeyT, ValueT> result = new LinkedHashMap<>();
+      LinkedHashMap<Object, Object> result = new LinkedHashMap<>();
       for (Map.Entry<?, ?> elem : o.entrySet()) {
         result.put(
-            keyType.convert(elem.getKey(), "dict key element", context),
-            valueType.convert(elem.getValue(), "dict value element", context));
+            keyType.copyAndLiftStarlarkValue(elem.getKey(), "dict key element", labelConverter),
+            valueType.copyAndLiftStarlarkValue(
+                elem.getValue(), "dict value element", labelConverter));
       }
-      return ImmutableMap.copyOf(result);
+      return Dict.immutableCopyOf(result);
+    }
+
+
+
+    @Override
+    public Map<KeyT, ValueT> concat(Iterable<Map<KeyT, ValueT>> iterable) {
+      ImmutableMap.Builder<KeyT, ValueT> builder = ImmutableMap.builder();
+      for (Map<KeyT, ValueT> map : iterable) {
+        builder.putAll(map);
+      }
+      return builder.buildKeepingLast();
     }
 
     @Override
-    public Map<KeyT, ValueT> getDefaultValue() {
-      return empty;
+    public ImmutableMap<KeyT, ValueT> getDefaultValue() {
+      return ImmutableMap.of();
     }
   }
 
-  /** A type for lists of a given element type */
-  public static class ListType<ElemT> extends Type<List<ElemT>> {
+  /** A parent class for collection types (ListType, SetType). */
+  private abstract static sealed class CollectionType<T extends Iterable<ElemT>, ElemT>
+      extends Type<T> {
 
-    private final Type<ElemT> elemType;
+    final Type<ElemT> elemType;
 
-    private final List<ElemT> empty = ImmutableList.of();
+    private final T empty;
 
-    public static <ELEM> ListType<ELEM> create(Type<ELEM> elemType) {
-      return new ListType<>(elemType);
-    }
-
-    private ListType(Type<ElemT> elemType) {
+    private CollectionType(Type<ElemT> elemType, T empty) {
       this.elemType = elemType;
+      this.empty = empty;
     }
 
     @SuppressWarnings("unchecked")
     @Override
-    public List<ElemT> cast(Object value) {
-      return (List<ElemT>) value;
+    public final T cast(Object value) {
+      return (T) value;
     }
 
     @Override
@@ -609,24 +639,77 @@ public abstract class Type<T> {
     }
 
     @Override
-    public List<ElemT> getDefaultValue() {
+    public T getDefaultValue() {
       return empty;
     }
 
+    /**
+     * A collection is representable as a tag set as the contents of itself expressed as Strings. So
+     * a {@code Iterable<String>} is effectively converted to a {@code Set<String>}.
+     */
     @Override
-    public <T> void visitLabels(LabelVisitor<T> visitor, Object value, T context) {
+    public Set<String> toTagSet(Object items, String name) {
+      if (items == null) {
+        String msg = "Illegal tag conversion from null on Attribute" + name + ".";
+        throw new IllegalStateException(msg);
+      }
+      Set<String> tags = new LinkedHashSet<>();
+      @SuppressWarnings("unchecked")
+      Iterable<ElemT> itemsAsListofElem = (Iterable<ElemT>) items;
+      for (ElemT element : itemsAsListofElem) {
+        tags.add(element.toString());
+      }
+      return tags;
+    }
+
+    /**
+     * Provides a {@link #toString()} description of the context of the value in a collection being
+     * converted. This is preferred over a raw string to avoid uselessly constructing strings which
+     * are never used. This class is mutable (the index is updated).
+     */
+    static class ConversionContext {
+      private final Object what;
+      private int index = 0;
+
+      ConversionContext(Object what) {
+        this.what = what;
+      }
+
+      void update(int index) {
+        this.index = index;
+      }
+
+      @Override
+      public String toString() {
+        return "element " + index + " of " + what;
+      }
+    }
+  }
+
+  /** A type for lists of a given element type */
+  public static final class ListType<ElemT> extends CollectionType<List<ElemT>, ElemT> {
+
+    public static <E> ListType<E> create(Type<E> elemType) {
+      return new ListType<>(elemType);
+    }
+
+    private ListType(Type<ElemT> elemType) {
+      super(elemType, ImmutableList.of());
+    }
+
+    @Override
+    public void visitLabels(LabelVisitor visitor, List<ElemT> value, @Nullable Attribute context) {
       if (elemType.getLabelClass() == LabelClass.NONE) {
         return;
       }
 
-      List<ElemT> elems = cast(value);
       // Hot code path. Optimize for lists with O(1) access to avoid iterator garbage.
-      if (elems instanceof RandomAccess) {
-        for (int i = 0; i < elems.size(); i++) {
-          elemType.visitLabels(visitor, elems.get(i), context);
+      if (value instanceof RandomAccess) {
+        for (int i = 0; i < value.size(); i++) {
+          elemType.visitLabels(visitor, value.get(i), context);
         }
       } else {
-        for (ElemT elem : elems) {
+        for (ElemT elem : value) {
           elemType.visitLabels(visitor, elem, context);
         }
       }
@@ -638,7 +721,7 @@ public abstract class Type<T> {
     }
 
     @Override
-    public List<ElemT> convert(Object x, Object what, Object context)
+    public ImmutableList<ElemT> convert(Object x, Object what, LabelConverter labelConverter)
         throws ConversionException {
       Iterable<?> iterable;
 
@@ -651,23 +734,35 @@ public abstract class Type<T> {
       }
 
       int index = 0;
-      List<ElemT> result = new ArrayList<>(Iterables.size(iterable));
-      ListConversionContext conversionContext = new ListConversionContext(what);
+      ImmutableList.Builder<ElemT> result =
+          ImmutableList.builderWithExpectedSize(Iterables.size(iterable));
+      ConversionContext conversionContext = new ConversionContext(what);
       for (Object elem : iterable) {
         conversionContext.update(index);
-        ElemT converted = elemType.convert(elem, conversionContext, context);
+        ElemT converted = elemType.convert(elem, conversionContext, labelConverter);
         if (converted != null) {
           result.add(converted);
         } else {
           // shouldn't happen but it does, rarely
-          String message = "Converting a list with a null element: "
-              + "element " + index + " of " + what + " in " + context;
-          LoggingUtil.logToRemote(Level.WARNING, message,
-              new ConversionException(message));
+          String message =
+              "Converting a list with a null element: "
+                  + "element "
+                  + index
+                  + " of "
+                  + what
+                  + " in "
+                  + labelConverter;
+          LoggingUtil.logToRemote(Level.WARNING, message, new ConversionException(message));
         }
         ++index;
       }
-      return result;
+      return result.build();
+    }
+
+    @Override
+    public Object copyAndLiftStarlarkValue(
+        Object x, Object what, @Nullable LabelConverter labelConverter) throws ConversionException {
+      return StarlarkList.immutableCopyOf(convert(x, what, labelConverter));
     }
 
     @Override
@@ -678,74 +773,80 @@ public abstract class Type<T> {
       }
       return builder.build();
     }
-
-    /**
-     * A list is representable as a tag set as the contents of itself expressed
-     * as Strings. So a {@code List<String>} is effectively converted to a {@code Set<String>}.
-     */
-    @Override
-    public Set<String> toTagSet(Object items, String name) {
-      if (items == null) {
-        String msg = "Illegal tag conversion from null on Attribute" + name + ".";
-        throw new IllegalStateException(msg);
-      }
-      Set<String> tags = new LinkedHashSet<>();
-      @SuppressWarnings("unchecked")
-      List<ElemT> itemsAsListofElem = (List<ElemT>) items;
-      for (ElemT element : itemsAsListofElem) {
-        tags.add(element.toString());
-      }
-      return tags;
-    }
-
-    /**
-     * Provides a {@link #toString()} description of the context of the value in a list being
-     * converted. This is preferred over a raw string to avoid uselessly constructing strings which
-     * are never used. This class is mutable (the index is updated).
-     */
-    private static class ListConversionContext {
-      private final Object what;
-      private int index = 0;
-
-      ListConversionContext(Object what) {
-        this.what = what;
-      }
-
-      void update(int index) {
-        this.index = index;
-      }
-
-      @Override
-      public String toString() {
-        return "element " + index + " of " + what;
-      }
-
-    }
   }
 
-  /** Type for lists of arbitrary objects */
-  public static class ObjectListType extends ListType<Object> {
+  /** A type for sets of a given element type */
+  public static final class SetType<ElemT> extends CollectionType<Set<ElemT>, ElemT> {
 
-    private static final Type<Object> elemType = new ObjectType();
+    public static <E> SetType<E> create(Type<E> elemType) {
+      return new SetType<>(elemType);
+    }
 
-    private ObjectListType() {
-      super(elemType);
+    private SetType(Type<ElemT> elemType) {
+      super(elemType, ImmutableSet.of());
     }
 
     @Override
-    @SuppressWarnings("unchecked")
-    public List<Object> convert(Object x, Object what, Object context)
+    public void visitLabels(LabelVisitor visitor, Set<ElemT> value, @Nullable Attribute context) {
+      if (elemType.getLabelClass() == LabelClass.NONE) {
+        return;
+      }
+
+      for (ElemT elem : value) {
+        elemType.visitLabels(visitor, elem, context);
+      }
+    }
+
+    @Override
+    public String toString() {
+      return "set(" + elemType + ")";
+    }
+
+    @Override
+    public ImmutableSet<ElemT> convert(Object x, Object what, LabelConverter labelConverter)
         throws ConversionException {
-      // TODO(adonovan): converge on Starlark.toIterable.
-      if (x instanceof Sequence) {
-        return ((Sequence) x).getImmutableList();
-      } else if (x instanceof List) {
-        return (List<Object>) x;
-      } else if (x instanceof Iterable) {
-        return ImmutableList.copyOf((Iterable<?>) x);
-      } else {
+      if (!(x instanceof Set<?> set)) {
         throw new ConversionException(this, x, what);
       }
+
+      int index = 0;
+      ImmutableSet.Builder<ElemT> result = ImmutableSet.builderWithExpectedSize(set.size());
+      ConversionContext conversionContext = new ConversionContext(what);
+      for (Object elem : set) {
+        conversionContext.update(index);
+        ElemT converted = elemType.convert(elem, conversionContext, labelConverter);
+        if (converted != null) {
+          result.add(converted);
+        } else {
+          // shouldn't happen but it does, rarely
+          String message =
+              "Converting a set with a null element: "
+                  + "element "
+                  + index
+                  + " of "
+                  + what
+                  + " in "
+                  + labelConverter;
+          LoggingUtil.logToRemote(Level.WARNING, message, new ConversionException(message));
+        }
+        ++index;
+      }
+      return result.build();
+    }
+
+    @Override
+    public Object copyAndLiftStarlarkValue(
+        Object x, Object what, @Nullable LabelConverter labelConverter) throws ConversionException {
+      return StarlarkSet.immutableCopyOf(convert(x, what, labelConverter));
+    }
+
+    @Override
+    public Set<ElemT> concat(Iterable<Set<ElemT>> elements) {
+      ImmutableSet.Builder<ElemT> builder = ImmutableSet.builder();
+      for (Set<ElemT> set : elements) {
+        builder.addAll(set);
+      }
+      return builder.build();
     }
   }
 }

@@ -15,8 +15,8 @@ package com.google.devtools.build.lib.runtime.commands;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventBusEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.util.OS;
@@ -33,7 +33,7 @@ public class CleanCommandRecommendsAsyncTest {
   private final boolean asyncOnCommandLine;
   private final OS os;
   private final boolean expectSuggestion;
-  private static final String EXPECTED_SUGGESTION = "Consider using --async";
+  private static final String EXPECTED_SUGGESTION = "Use --async";
 
   public CleanCommandRecommendsAsyncTest(
       boolean asyncOnCommandLine, OS os, boolean expectSuggestion) throws Exception {
@@ -50,23 +50,29 @@ public class CleanCommandRecommendsAsyncTest {
           {/* asyncOnCommandLine= */ true, OS.LINUX, false},
           {/* asyncOnCommandLine= */ true, OS.WINDOWS, false},
           {/* asyncOnCommandLine= */ true, OS.DARWIN, false},
+          {/* asyncOnCommandLine= */ true, OS.FREEBSD, false},
+          {/* asyncOnCommandLine= */ true, OS.OPENBSD, false},
+          {/* asyncOnCommandLine= */ true, OS.UNKNOWN, false},
 
           // When --async is not provided, expect the suggestion on platforms that support it.
           {/* asyncOnCommandLine= */ false, OS.LINUX, true},
           {/* asyncOnCommandLine= */ false, OS.WINDOWS, false},
-          {/* asyncOnCommandLine= */ false, OS.DARWIN, false},
+          {/* asyncOnCommandLine= */ false, OS.DARWIN, true},
+          {/* asyncOnCommandLine= */ false, OS.FREEBSD, true},
+          {/* asyncOnCommandLine= */ false, OS.OPENBSD, true},
+          {/* asyncOnCommandLine= */ false, OS.UNKNOWN, false},
         });
   }
 
   @Test
   public void testCleanProvidesExpectedSuggestion() throws Exception {
-    Reporter reporter = new Reporter(new EventBus());
+    Reporter reporter = new Reporter(EventBusEventHandler.createWithNewEventBus());
     StoredEventHandler storedEventHandler = new StoredEventHandler();
     reporter.addHandler(storedEventHandler);
 
     boolean async =
         CleanCommand.canUseAsync(this.asyncOnCommandLine, /* expunge= */ false, os, reporter);
-    if (os != OS.LINUX) {
+    if (os == OS.WINDOWS || os == OS.UNKNOWN) {
       assertThat(async).isFalse();
     }
 

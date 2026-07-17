@@ -32,6 +32,10 @@ public final class CpuProfilerTest {
 
   private CpuProfilerTest() {} // uninstantiable
 
+  static {
+    CpuProfiler.setNativeSupport(new CpuProfilerNativeSupportImpl());
+  }
+
   public static void main(String[] args) throws Exception {
     String pprofCmd = args.length == 0 ? "/bin/pprof" : args[0];
     if (!new File(pprofCmd).exists()) {
@@ -45,7 +49,12 @@ public final class CpuProfilerTest {
     // Start writing profile to temporary file.
     File profile = java.io.File.createTempFile("pprof", ".gz", null);
     OutputStream prof = new FileOutputStream(profile);
-    Starlark.startCpuProfile(prof, Duration.ofMillis(10));
+    boolean success = Starlark.startCpuProfile(prof, Duration.ofMillis(10));
+
+    if (!success) {
+      System.err.println("Failed to start cpu profiler");
+      System.exit(1);
+    }
 
     // This program consumes about 3s of CPU.
     ParserInput input =
@@ -57,7 +66,8 @@ public final class CpuProfilerTest {
             "        g()",
             "",
             "def g():",
-            "    list(range(10000))",
+            "    for _ in range(10):",
+            "        list(range(10000))",
             "    int(3)",
             "    sorted(range(10000))",
             "",
@@ -66,7 +76,7 @@ public final class CpuProfilerTest {
     // Execute the workload.
     Module module = Module.create();
     try (Mutability mu = Mutability.create("test")) {
-      StarlarkThread thread = new StarlarkThread(mu, StarlarkSemantics.DEFAULT);
+      StarlarkThread thread = StarlarkThread.createTransient(mu, StarlarkSemantics.DEFAULT);
       Starlark.execFile(input, FileOptions.DEFAULT, module, thread);
     }
 
@@ -100,7 +110,7 @@ public final class CpuProfilerTest {
     boolean ok = true;
     for (String want : new String[] {"flat%", "sorted", "range"}) {
       if (!got.contains(want)) {
-        System.err.println("pprof output does not contain substring: " + got);
+        System.err.println("pprof output does not contain substring: " + want);
         ok = false;
       }
     }

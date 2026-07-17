@@ -42,16 +42,12 @@ public class OptionFiltersSynchronyTest {
 
       // First check that the tag exists with this value, then that the names are equal.
       assertWithMessage(
-              "OptionEffectTag "
-                  + javaTag
-                  + " does not have a proto equivalent with the same value")
+              "OptionEffectTag %s does not have a proto equivalent with the same value", javaTag)
           .that(protoTag)
           .isNotNull();
       assertWithMessage(
-              "OptionEffectTag "
-                  + javaTag
-                  + " does not have the same name as the proto equivalent "
-                  + protoTag)
+              "OptionEffectTag %s does not have the same name as the proto equivalent %s",
+              javaTag, protoTag)
           .that(javaTag.name())
           .isEqualTo(protoTag.name());
     }
@@ -71,16 +67,12 @@ public class OptionFiltersSynchronyTest {
 
       // First check that the tag exists with this value, then that the names are equal.
       assertWithMessage(
-              "OptionMetadataTag "
-                  + javaTag
-                  + " does not have a proto equivalent with the same value")
+              "OptionMetadataTag %s does not have a proto equivalent with the same value", javaTag)
           .that(protoTag)
           .isNotNull();
       assertWithMessage(
-              "OptionMetadataTag "
-                  + javaTag
-                  + " does not have the same name as the proto equivalent "
-                  + protoTag)
+              "OptionMetadataTag %s does not have the same name as the proto equivalent %s",
+              javaTag, protoTag)
           .that(javaTag.name())
           .isEqualTo(protoTag.name());
     }

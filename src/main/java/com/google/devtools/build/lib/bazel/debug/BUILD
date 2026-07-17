@@ -1,11 +1,12 @@
-load("//tools/build_rules:utilities.bzl", "java_library_srcs")
+load("@com_google_protobuf//bazel:java_proto_library.bzl", "java_proto_library")
+load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")
 load("@rules_java//java:defs.bzl", "java_library")
-load("@rules_java//java:defs.bzl", "java_proto_library")
-load("@rules_proto//proto:defs.bzl", "proto_library")
+load("//tools/build_rules:utilities.bzl", "java_library_srcs")
 
 # Description:
 #   Debugging helpers and modules
 package(
+    default_applicable_licenses = ["//:license"],
     default_visibility =
         ["//src:__subpackages__"],
 )
@@ -43,6 +44,7 @@ java_library(
         ":workspace_log_java_proto",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/net/starlark/java/syntax",
+        "@com_google_protobuf//:protobuf_java",
     ],
 )
 
@@ -52,11 +54,11 @@ java_library(
     deps = [
         ":debugging-options",
         ":workspace-rule-event",
-        "//src/main/java/com/google/devtools/build/lib:runtime",
+        ":workspace_log_java_proto",
         "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
-        "//src/main/java/com/google/devtools/build/lib/util:exit_code",
         "//src/main/java/com/google/devtools/build/lib/util/io",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/common/options",

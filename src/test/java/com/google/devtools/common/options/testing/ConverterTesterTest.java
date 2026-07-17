@@ -31,7 +31,7 @@ public final class ConverterTesterTest {
   @Test
   public void construction_throwsAssertionErrorIfConverterCreationFails() throws Exception {
     try {
-      new ConverterTester(UnconstructableConverter.class);
+      new ConverterTester(UnconstructableConverter.class, /*conversionContext=*/ null);
     } catch (AssertionError expected) {
       assertThat(expected) // AssertionError
           .hasCauseThat() // InvocationTargetException
@@ -44,7 +44,7 @@ public final class ConverterTesterTest {
   }
 
   /** Test converter for construction_throwsAssertionErrorIfConverterCreationFails. */
-  public static final class UnconstructableConverter implements Converter<String> {
+  public static final class UnconstructableConverter extends Converter.Contextless<String> {
     public UnconstructableConverter() {
       throw new UnsupportedOperationException("YOU CAN'T MAKE ME!");
     }
@@ -62,14 +62,15 @@ public final class ConverterTesterTest {
 
   @Test
   public void getConverterClass_returnsConstructorArg() throws Exception {
-    ConverterTester tester = new ConverterTester(Converters.BooleanConverter.class);
+    ConverterTester tester =
+        new ConverterTester(Converters.BooleanConverter.class, /*conversionContext=*/ null);
     assertThat(tester.getConverterClass()).isEqualTo(Converters.BooleanConverter.class);
   }
 
   @Test
   public void hasTestForInput_returnsTrueIffInputPassedToAddEqualityGroup() throws Exception {
     ConverterTester tester =
-        new ConverterTester(Converters.DoubleConverter.class)
+        new ConverterTester(Converters.DoubleConverter.class, /*conversionContext=*/ null)
             .addEqualityGroup("1.0", "1", "1.00")
             .addEqualityGroup("2");
 
@@ -86,7 +87,7 @@ public final class ConverterTesterTest {
   @Test
   public void addEqualityGroup_throwsIfConversionFails() throws Exception {
     ConverterTester tester =
-        new ConverterTester(ThrowingConverter.class)
+        new ConverterTester(ThrowingConverter.class, /*conversionContext=*/ null)
             .addEqualityGroup("okay")
             .addEqualityGroup("also okay", "pretty fine");
     try {
@@ -100,7 +101,7 @@ public final class ConverterTesterTest {
   }
 
   /** Test converter for addEqualityGroup_throwsIfConversionFails. */
-  public static final class ThrowingConverter implements Converter<String> {
+  public static final class ThrowingConverter extends Converter.Contextless<String> {
     @Override
     public String convert(String input) throws OptionsParsingException {
       if ("wrong".equals(input)) {
@@ -117,18 +118,18 @@ public final class ConverterTesterTest {
 
   @Test
   public void testConvert_passesWhenAllInstancesObeyEqualsAndItemsOnlyEqualToOthersInSameGroup() {
-        new ConverterTester(Converters.DoubleConverter.class)
-            .addEqualityGroup("1.0", "1", "1.00")
-            .addEqualityGroup("2", "2", "2.0000", "2.0", "+2")
-            .addEqualityGroup("3")
-            .addEqualityGroup("3.1415")
-            .testConvert();
+    new ConverterTester(Converters.DoubleConverter.class, /*conversionContext=*/ null)
+        .addEqualityGroup("1.0", "1", "1.00")
+        .addEqualityGroup("2", "2", "2.0000", "2.0", "+2")
+        .addEqualityGroup("3")
+        .addEqualityGroup("3.1415")
+        .testConvert();
   }
 
   @Test
   public void testConvert_testsHashCodeConsistencyForConvertedInstance() {
     ConverterTester tester =
-        new ConverterTester(InconsistentHashCodeConverter.class)
+        new ConverterTester(InconsistentHashCodeConverter.class, /*conversionContext=*/ null)
             .addEqualityGroup("input doesn't matter");
     try {
       tester.testConvert();
@@ -159,7 +160,7 @@ public final class ConverterTesterTest {
 
   /** Test converter for testConvert_testsHashCodeConsistencyForConvertedInstance. */
   public static final class InconsistentHashCodeConverter
-      implements Converter<InconsistentHashCode> {
+      extends Converter.Contextless<InconsistentHashCode> {
     @Override
     public InconsistentHashCode convert(String input) throws OptionsParsingException {
       return new InconsistentHashCode();
@@ -174,7 +175,7 @@ public final class ConverterTesterTest {
   @Test
   public void testConvert_testsHashCodeConsistencyForSameConverter() {
     ConverterTester tester =
-        new ConverterTester(IncrementingHashCodeConverter.class)
+        new ConverterTester(IncrementingHashCodeConverter.class, /*conversionContext=*/ null)
             .addEqualityGroup("meaningless input");
     try {
       tester.testConvert();
@@ -208,7 +209,7 @@ public final class ConverterTesterTest {
 
   /** Test converter for testConvert_testsHashCodeConsistencyForSameConverter. */
   public static final class IncrementingHashCodeConverter
-      implements Converter<SettableHashCode> {
+      extends Converter.Contextless<SettableHashCode> {
     private int howManyInstancesHaveIMadeAlready = 0;
 
     @Override
@@ -226,7 +227,7 @@ public final class ConverterTesterTest {
   @Test
   public void testConvert_testsHashCodeConsistencyForDifferentConverters() {
     ConverterTester tester =
-        new ConverterTester(StaticIncrementingHashCodeConverter.class)
+        new ConverterTester(StaticIncrementingHashCodeConverter.class, /*conversionContext=*/ null)
             .addEqualityGroup("some kind of input");
     try {
       tester.testConvert();
@@ -241,7 +242,7 @@ public final class ConverterTesterTest {
 
   /** Test converter for testConvert_testsHashCodeConsistencyForDifferentConverters. */
   public static final class StaticIncrementingHashCodeConverter
-      implements Converter<SettableHashCode> {
+      extends Converter.Contextless<SettableHashCode> {
     private static int howManyInstancesHaveIMadeAlready = 0;
 
     private final int hashCode;
@@ -266,7 +267,7 @@ public final class ConverterTesterTest {
   @Test
   public void testConvert_testsSelfEqualityForConvertedInstance() {
     ConverterTester tester =
-        new ConverterTester(SelfLoathingConverter.class)
+        new ConverterTester(SelfLoathingConverter.class, /*conversionContext=*/ null)
             .addEqualityGroup("self-loathing");
     try {
       tester.testConvert();
@@ -292,7 +293,8 @@ public final class ConverterTesterTest {
   }
 
   /** Test converter for testConvert_testsSelfEqualityForConvertedInstance. */
-  public static final class SelfLoathingConverter implements Converter<SelfLoathingObject> {
+  public static final class SelfLoathingConverter
+      extends Converter.Contextless<SelfLoathingObject> {
     @Override
     public SelfLoathingObject convert(String input) throws OptionsParsingException {
       return new SelfLoathingObject();
@@ -307,7 +309,7 @@ public final class ConverterTesterTest {
   @Test
   public void testConvert_testsEqualityForSameConverter() {
     ConverterTester tester =
-        new ConverterTester(CountingConverter.class)
+        new ConverterTester(CountingConverter.class, /*conversionContext=*/ null)
             .addEqualityGroup("countables");
     try {
       tester.testConvert();
@@ -321,7 +323,7 @@ public final class ConverterTesterTest {
   }
 
   /** Test converter for testConvert_testsEqualityForSameConverter. */
-  public static final class CountingConverter implements Converter<Integer> {
+  public static final class CountingConverter extends Converter.Contextless<Integer> {
     private int howManyInstancesHaveIMadeAlready = 0;
 
     @Override
@@ -339,7 +341,7 @@ public final class ConverterTesterTest {
   @Test
   public void testConvert_testsEqualityForDifferentConverters() {
     ConverterTester tester =
-        new ConverterTester(StaticCountingConverter.class)
+        new ConverterTester(StaticCountingConverter.class, /*conversionContext=*/ null)
             .addEqualityGroup("words I like");
     try {
       tester.testConvert();
@@ -353,7 +355,7 @@ public final class ConverterTesterTest {
   }
 
   /** Test converter for testConvert_testsEqualityForDifferentConverters. */
-  public static final class StaticCountingConverter implements Converter<Integer> {
+  public static final class StaticCountingConverter extends Converter.Contextless<Integer> {
     private static int howManyInstancesHaveIMadeAlready = 0;
 
     private final int output;
@@ -377,7 +379,7 @@ public final class ConverterTesterTest {
   @Test
   public void testConvert_testsEqualityForItemsInSameGroup() {
     ConverterTester tester =
-        new ConverterTester(Converters.DoubleConverter.class)
+        new ConverterTester(Converters.DoubleConverter.class, /*conversionContext=*/ null)
             .addEqualityGroup("+1.000", "2.30");
     try {
       tester.testConvert();
@@ -392,7 +394,7 @@ public final class ConverterTesterTest {
   @Test
   public void testConvert_testsNonEqualityForItemsInDifferentGroups() {
     ConverterTester tester =
-        new ConverterTester(Converters.DoubleConverter.class)
+        new ConverterTester(Converters.DoubleConverter.class, /*conversionContext=*/ null)
             .addEqualityGroup("+1.000")
             .addEqualityGroup("1.0");
     try {

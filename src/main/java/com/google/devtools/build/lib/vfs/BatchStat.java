@@ -22,16 +22,14 @@ import java.util.List;
 public interface BatchStat {
 
   /**
-   * @param includeDigest whether to include a file digest in the return values.
-   * @param includeLinks whether to include a symlink stat in the return values.
-   * @param paths The input paths to stat(), relative to the exec root.
-   * @return an array list of FileStatusWithDigest in the same order as the input. May
-   *         contain null values.
-   * @throws IOException on unexpected failure.
+   * Calls stat() on a set of paths.
+   *
+   * @param paths The input paths to stat(), relative to the exec root. Symlinks are not followed.
+   * @return A list of {@link FileStatusWithDigest} in the same order as the input. If a path does
+   *     not exist, {@code null} is returned in the corresponding position.
+   * @throws IOException on I/O errors.
    * @throws InterruptedException on interrupt.
    */
-  public List<FileStatusWithDigest> batchStat(boolean includeDigest,
-                                              boolean includeLinks,
-                                              Iterable<PathFragment> paths)
+  public List<FileStatusWithDigest> batchStat(Iterable<PathFragment> paths)
       throws IOException, InterruptedException;
 }

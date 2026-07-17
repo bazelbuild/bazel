@@ -56,11 +56,6 @@ abstract class AbstractFileChainUniquenessFunction implements SkyFunction {
     return EmptySkyValue.INSTANCE;
   }
 
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
-  }
-
   /**
    * Creates a canonicalized representation of the cycle specified by {@code chain}. {@code chain}
    * must be non-empty. The representation may not be unique if cycle has duplicate elements.

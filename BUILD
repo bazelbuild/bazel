@@ -1,59 +1,70 @@
 # Bazel - Google's Build System
 
+load("@bazel_skylib//rules:write_file.bzl", "write_file")
+load("@rules_java//toolchains:default_java_toolchain.bzl", "DEFAULT_TOOLCHAIN_CONFIGURATION", "default_java_toolchain")
+load("@rules_license//rules:license.bzl", "license")
+load("@rules_pkg//pkg:mappings.bzl", "pkg_attributes", "pkg_files")
+load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
+load("@rules_python//python:defs.bzl", "py_binary")
+load("//src:release_archive.bzl", "MINIMUM_JAVA_COMPILATION_RUNTIME_VERSION", "MINIMUM_JAVA_RUNTIME_VERSION")
+load("//src/tools/bzlmod:utils.bzl", "get_canonical_repo_name")
 load("//tools/distributions:distribution_rules.bzl", "distrib_jar_filegroup")
-load("//tools/python:private/defs.bzl", "py_binary")
-load("@rules_pkg//:pkg.bzl", "pkg_tar")
 
 package(default_visibility = ["//scripts/release:__pkg__"])
 
-exports_files(["LICENSE"])
+license(
+    name = "license",
+    package_name = "bazelbuild/bazel",
+    copyright_notice = "Copyright © 2014 The Bazel Authors. All rights reserved.",
+    license_kinds = [
+        "@rules_license//licenses/spdx:Apache-2.0",
+    ],
+    license_text = "LICENSE",
+)
+
+exports_files([
+    "LICENSE",
+    "MODULE.bazel.lock",
+])
 
 filegroup(
     name = "srcs",
     srcs = glob(
         ["*"],
         exclude = [
-            "WORKSPACE",  # Needs to be filtered.
             "bazel-*",  # convenience symlinks
             "out",  # IntelliJ with setup-intellij.sh
             "output",  # output of compile.sh
             ".*",  # mainly .git* files
         ],
     ) + [
-        "//:WORKSPACE.filtered",
+        "//:MODULE.bazel.lock.dist",
+        "//docs:srcs",
         "//examples:srcs",
         "//scripts:srcs",
         "//site:srcs",
         "//src:srcs",
-        "//tools:srcs",
+        "//src/main/java/com/google/devtools/build/docgen/release:srcs",
         "//third_party:srcs",
-    ] + glob([".bazelci/*"]) + [".bazelrc"],
-    visibility = ["//src/test/shell/bazel:__pkg__"],
-)
-
-filegroup(
-    name = "git",
-    srcs = glob(
-        [".git/**"],
-        exclude = [".git/**/*[*"],  # gitk creates temp files with []
+        "//tools:srcs",
+    ] + glob(
+        [".bazelci/*"],
+        # allow_empty = True is needed in bootstrap.
+        allow_empty = True,
+    ) + [
+        ".bazelrc",
+        ".bazelversion",
+    ] + glob(
+        [".gemini/*"],
+        allow_empty = True,
     ),
+    applicable_licenses = ["@io_bazel//:license"],
+    visibility = ["//src/test/shell/bazel:__pkg__"],
 )
 
 filegroup(
     name = "dummy",
     visibility = ["//visibility:public"],
-)
-
-filegroup(
-    name = "workspace-file",
-    srcs = [
-        ":WORKSPACE",
-        ":distdir.bzl",
-        ":distdir_deps.bzl",
-    ],
-    visibility = [
-        "//src/test/shell/bazel:__subpackages__",
-    ],
 )
 
 filegroup(
@@ -65,25 +76,51 @@ filegroup(
 )
 
 genrule(
-    name = "filtered_WORKSPACE",
-    srcs = ["WORKSPACE"],
-    outs = ["WORKSPACE.filtered"],
-    cmd = "\n".join([
-        "cp $< $@",
-        # Comment out the android repos if they exist.
-        "sed -i.bak -e 's/^android_sdk_repository/# android_sdk_repository/' -e 's/^android_ndk_repository/# android_ndk_repository/' $@",
+    name = "generate_dist_lockfile",
+    srcs = [
+        "MODULE.bazel",
+        "//third_party:remoteapis/MODULE.bazel",
+        "//third_party:BUILD",
+        "//third_party:patches",
+    ],
+    outs = ["MODULE.bazel.lock.dist"],
+    cmd = " && ".join([
+        "ROOT=$$PWD",
+        "TMPDIR=$$(mktemp -d)",
+        "trap 'rm -rf $$TMPDIR' EXIT",
+        "mkdir -p $$TMPDIR/workspace",
+        "touch $$TMPDIR/workspace/BUILD.bazel",
+        "for i in $(SRCS); do dir=$$TMPDIR/workspace/$$(dirname $$i); mkdir -p $$dir; cp $$i $$dir; done",
+        "cd $$TMPDIR/workspace",
+        # Instead of `bazel mod deps`, we run a simpler command like `bazel query :all` here
+        # so that we only trigger module resolution, not extension eval.
+        # Also use `--batch` so that Bazel doesn't keep a server process alive.
+        "$$ROOT/$(location //src:bazel) --batch --output_user_root=$$TMPDIR/output_user_root query --check_direct_dependencies=error --lockfile_mode=update :all",
+        "mv MODULE.bazel.lock $$ROOT/$@",
     ]),
+    tags = ["requires-network"],
+    tools = ["//src:bazel"],
 )
 
 pkg_tar(
     name = "bootstrap-jars",
     srcs = [
+        "//third_party/chicory:dist_jars",
+        "//third_party/googleapis:dist_jars",
+        "//third_party/grpc-java:grpc_jars",
+        "@async_profiler//file",
         "@com_google_protobuf//:protobuf_java",
         "@com_google_protobuf//:protobuf_java_util",
         "@com_google_protobuf//:protobuf_javalite",
+        "@com_google_protobuf//java/core:lite_runtime_only",
+        "@zstd-jni//:zstd-jni",
     ],
     package_dir = "derived/jars",
-    strip_prefix = "external",
+    remap_paths = {
+        "external/": "",
+        "../": "",
+    },
+    strip_prefix = ".",
     # Public but bazel-only visibility.
     visibility = ["//:__subpackages__"],
 )
@@ -113,25 +150,40 @@ filegroup(
     name = "generated_resources",
     srcs = [
         "//src/main/java/com/google/devtools/build/lib/bazel/rules:builtins_bzl.zip",
-        "//src/main/java/com/google/devtools/build/lib/bazel/rules:coverage.WORKSPACE",
-        "//src/main/java/com/google/devtools/build/lib/bazel/rules/cpp:cc_configure.WORKSPACE",
-        "//src/main/java/com/google/devtools/build/lib/bazel/rules/java:jdk.WORKSPACE",
     ],
+)
+
+# Bazel sources excluding files that are not needed in the distfile.
+pkg_files(
+    name = "dist-srcs",
+    srcs = ["//:srcs"],
+    attributes = pkg_attributes(mode = "0755"),
+    excludes = [
+        "MODULE.bazel.lock",  # Use MODULE.bazel.lock.dist instead
+        "//examples:srcs",
+        "//site:srcs",
+        "//docs:srcs",
+        "//src:srcs-to-exclude-in-distfile",
+    ] + glob(
+        [".bazelci/*"],
+        # allow_empty = True is needed in bootstrap.
+        allow_empty = True,
+    ) + glob(
+        [".gemini/*"],
+        allow_empty = True,
+    ),
+    renames = {
+        "MODULE.bazel.lock.dist": "MODULE.bazel.lock",
+    },
+    strip_prefix = "/",  # Ensure paths are relative to the workspace root.
 )
 
 pkg_tar(
     name = "bazel-srcs",
     srcs = [
+        ":dist-srcs",
         ":generated_resources",
-        ":srcs",
     ],
-    # TODO(aiuto): Replace with pkg_filegroup when that is available.
-    remap_paths = {
-        "WORKSPACE.filtered": "WORKSPACE",
-        # Rewrite paths coming from local repositories back into third_party.
-        "external/googleapis": "third_party/googleapis",
-        "external/remoteapis": "third_party/remoteapis",
-    },
     strip_prefix = ".",
     # Public but bazel-only visibility.
     visibility = ["//:__subpackages__"],
@@ -140,8 +192,37 @@ pkg_tar(
 pkg_tar(
     name = "platforms-srcs",
     srcs = ["@platforms//:srcs"],
-    strip_prefix = "external",
+    remap_paths = {
+        "external/": "",
+        "../": "",
+    },
+    strip_prefix = ".",
     visibility = ["//:__subpackages__"],
+)
+
+write_file(
+    name = "gen_maven_repo_name",
+    out = "MAVEN_CANONICAL_REPO_NAME",
+    content = [get_canonical_repo_name("@maven")],
+)
+
+# The @maven repository is created by maven_install from rules_jvm_external.
+# `@maven//:srcs` contains all jar files downloaded and BUILD files created by maven_install.
+pkg_tar(
+    name = "maven-srcs",
+    srcs = ["@maven//:srcs"] + ["MAVEN_CANONICAL_REPO_NAME"],
+    package_dir = "derived/maven",
+    remap_paths = {
+        "external/" + get_canonical_repo_name("@maven") + "/": "",
+        "../" + get_canonical_repo_name("@maven") + "/": "",
+    },
+    strip_prefix = ".",
+    visibility = ["//:__subpackages__"],
+)
+
+exports_files(
+    ["maven_install.json"],
+    visibility = ["//tools/compliance:__pkg__"],
 )
 
 py_binary(
@@ -156,10 +237,9 @@ genrule(
     srcs = [
         ":bazel-srcs",
         ":bootstrap-jars",
-        ":platforms-srcs",
+        ":maven-srcs",
         "//src:derived_java_srcs",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:bootstrap_autocodec.tar",
-        "@additional_distfiles//:archives.tar",
+        "@bootstrap_repo_cache//:archives.tar",
     ],
     outs = ["bazel-distfile.zip"],
     cmd = "$(location :combine_distfiles) $@ $(SRCS)",
@@ -174,9 +254,9 @@ genrule(
         ":bazel-srcs",
         ":bootstrap-jars",
         ":platforms-srcs",
+        ":maven-srcs",
         "//src:derived_java_srcs",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:bootstrap_autocodec.tar",
-        "@additional_distfiles//:archives.tar",
+        "@bootstrap_repo_cache//:archives.tar",
     ],
     outs = ["bazel-distfile.tar"],
     cmd = "$(location :combine_distfiles_to_tar.sh) $@ $(SRCS)",
@@ -199,26 +279,28 @@ platform(
     constraint_values = [
         ":highcpu_machine",
     ],
-    parents = ["@local_config_platform//:host"],
+    parents = ["@platforms//host"],
 )
 
-REMOTE_PLATFORMS = ("rbe_ubuntu1604_java8", "rbe_ubuntu1804_java11")
+platform(
+    name = "windows_arm64",
+    constraint_values = [
+        "@platforms//os:windows",
+        "@platforms//cpu:arm64",
+    ],
+)
+
+REMOTE_PLATFORMS = ("rbe_ubuntu2404",)
 
 [
     platform(
         name = platform_name + "_platform",
+        exec_properties = {
+            "dockerNetwork": "standard",
+            "dockerPrivileged": "true",
+            "Pool": "default",
+        },
         parents = ["@" + platform_name + "//config:platform"],
-        remote_execution_properties = """
-            {PARENT_REMOTE_EXECUTION_PROPERTIES}
-            properties: {
-                name: "dockerNetwork"
-                value: "standard"
-            }
-            properties: {
-                name: "dockerPrivileged"
-                value: "true"
-            }
-            """,
     )
     for platform_name in REMOTE_PLATFORMS
 ]
@@ -231,14 +313,38 @@ REMOTE_PLATFORMS = ("rbe_ubuntu1604_java8", "rbe_ubuntu1804_java11")
         constraint_values = [
             "//:highcpu_machine",
         ],
+        exec_properties = {
+            "Pool": "highcpu",
+        },
         parents = ["//:" + platform_name + "_platform"],
-        remote_execution_properties = """
-            {PARENT_REMOTE_EXECUTION_PROPERTIES}
-            properties: {
-                name: "gceMachineType"
-                value: "e2-highcpu-32"
-            }
-            """,
     )
     for platform_name in REMOTE_PLATFORMS
 ]
+
+# LINT.IfChange
+[
+    default_java_toolchain(
+        name = "java_toolchain_%s" % language_version,
+        java_runtime = "@rules_java//toolchains:remotejdk_25",
+        oneversion_allowlist = ":oneversion_allowlist.csv",
+        oneversion_allowlist_for_tests = ":oneversion_allowlist_for_tests.csv",
+        source_version = str(language_version),
+        target_version = str(language_version),
+        turbine_jvm_opts = DEFAULT_TOOLCHAIN_CONFIGURATION["jvm_opts"] + [
+            # Silence a warning about unsafe memory access by Protobuf running as part of Turbine:
+            #
+            # WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+            # WARNING: sun.misc.Unsafe::arrayBaseOffset has been called by com.google.protobuf.UnsafeUtil$MemoryAccessor (file:/.../java_tools/turbine_direct_binary_deploy.jar)
+            # WARNING: Please consider reporting this to the maintainers of class com.google.protobuf.UnsafeUtil$MemoryAccessor
+            #
+            # https://github.com/protocolbuffers/protobuf/issues/20760
+            "--sun-misc-unsafe-memory-access=allow",
+        ],
+    )
+    for language_version in set([
+        MINIMUM_JAVA_COMPILATION_RUNTIME_VERSION,
+        MINIMUM_JAVA_RUNTIME_VERSION,
+        21,
+    ])
+]
+# LINT.ThenChange(//.bazelrc)

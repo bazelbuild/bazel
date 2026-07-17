@@ -13,10 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.concurrent.BlazeInterners;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.skyframe.AbstractSkyKey;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -57,7 +57,7 @@ public abstract class PackageErrorMessageValue implements SkyValue {
    * If {@code getResult().equals(NO_SUCH_PACKAGE_EXCEPTION)}, returns the error message from the
    * {@link com.google.devtools.build.lib.packages.NoSuchPackageException} encountered.
    */
-  abstract String getNoSuchPackageExceptionMessage();
+  public abstract String getNoSuchPackageExceptionMessage();
 
   static PackageErrorMessageValue ofPackageWithNoErrors() {
     return NO_ERROR_VALUE;
@@ -75,28 +75,37 @@ public abstract class PackageErrorMessageValue implements SkyValue {
     return Key.create(pkgId);
   }
 
-  @AutoCodec.VisibleForSerialization
+  @VisibleForSerialization
   @AutoCodec
   static class Key extends AbstractSkyKey<PackageIdentifier> {
-    private static final Interner<Key> interner = BlazeInterners.newWeakInterner();
+    private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
 
     private Key(PackageIdentifier arg) {
       super(arg);
     }
 
-    @AutoCodec.VisibleForSerialization
-    @AutoCodec.Instantiator
-    static Key create(PackageIdentifier arg) {
+    private static Key create(PackageIdentifier arg) {
       return interner.intern(new Key(arg));
+    }
+
+    @VisibleForSerialization
+    @AutoCodec.Interner
+    static Key intern(Key key) {
+      return interner.intern(key);
     }
 
     @Override
     public SkyFunctionName functionName() {
       return SkyFunctions.PACKAGE_ERROR_MESSAGE;
     }
+
+    @Override
+    public SkyKeyInterner<Key> getSkyKeyInterner() {
+      return interner;
+    }
   }
 
-  @AutoCodec
+  @SerializationConstant
   static final PackageErrorMessageValue NO_ERROR_VALUE =
       new PackageErrorMessageValue() {
         @Override
@@ -105,12 +114,12 @@ public abstract class PackageErrorMessageValue implements SkyValue {
         }
 
         @Override
-        String getNoSuchPackageExceptionMessage() {
+        public String getNoSuchPackageExceptionMessage() {
           throw new IllegalStateException();
         }
       };
 
-  @AutoCodec
+  @SerializationConstant
   static final PackageErrorMessageValue ERROR_VALUE =
       new PackageErrorMessageValue() {
         @Override
@@ -119,16 +128,15 @@ public abstract class PackageErrorMessageValue implements SkyValue {
         }
 
         @Override
-        String getNoSuchPackageExceptionMessage() {
+        public String getNoSuchPackageExceptionMessage() {
           throw new IllegalStateException();
         }
       };
 
-  @AutoCodec
-  static class NoSuchPackageExceptionValue extends PackageErrorMessageValue {
+  private static class NoSuchPackageExceptionValue extends PackageErrorMessageValue {
     private final String errorMessage;
 
-    public NoSuchPackageExceptionValue(String errorMessage) {
+    NoSuchPackageExceptionValue(String errorMessage) {
       this.errorMessage = errorMessage;
     }
 
@@ -138,16 +146,15 @@ public abstract class PackageErrorMessageValue implements SkyValue {
     }
 
     @Override
-    String getNoSuchPackageExceptionMessage() {
+    public String getNoSuchPackageExceptionMessage() {
       return errorMessage;
     }
 
     @Override
     public boolean equals(Object obj) {
-      if (!(obj instanceof NoSuchPackageExceptionValue)) {
+      if (!(obj instanceof NoSuchPackageExceptionValue other)) {
         return false;
       }
-      NoSuchPackageExceptionValue other = (NoSuchPackageExceptionValue) obj;
       return errorMessage.equals(other.errorMessage);
     }
 

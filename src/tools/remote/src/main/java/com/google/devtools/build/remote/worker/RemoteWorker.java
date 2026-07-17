@@ -14,9 +14,11 @@
 
 package com.google.devtools.build.remote.worker;
 
+import static com.google.devtools.build.lib.util.StringEncoding.internalToPlatform;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.logging.Level.FINE;
 
+import build.bazel.remote.asset.v1.FetchGrpc.FetchImplBase;
 import build.bazel.remote.execution.v2.ActionCacheGrpc.ActionCacheImplBase;
 import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.CapabilitiesGrpc.CapabilitiesImplBase;
@@ -30,29 +32,36 @@ import com.google.common.io.ByteStreams;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
-import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
-import com.google.devtools.build.lib.sandbox.LinuxSandboxUtil;
+import com.google.devtools.build.lib.sandbox.LinuxSandboxCommandLineBuilder;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.shell.CommandResult;
+import com.google.devtools.build.lib.shell.WindowsSubprocessFactory;
+import com.google.devtools.build.lib.unix.NativePosixFilesServiceImpl;
+import com.google.devtools.build.lib.unix.UnixFileSystem;
 import com.google.devtools.build.lib.util.OS;
-import com.google.devtools.build.lib.util.ProcessUtils;
 import com.google.devtools.build.lib.util.SingleLineFormatter;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.DigestHashFunction.DigestFunctionConverter;
 import com.google.devtools.build.lib.vfs.FileSystem;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
-import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.SyscallCache;
+import com.google.devtools.build.lib.windows.WindowsFileSystem;
 import com.google.devtools.build.remote.worker.http.HttpCacheServerInitializer;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
+import io.grpc.Context;
+import io.grpc.Contexts;
+import io.grpc.Metadata;
 import io.grpc.Server;
+import io.grpc.ServerCall;
+import io.grpc.ServerCall.Listener;
+import io.grpc.ServerCallHandler;
 import io.grpc.ServerInterceptor;
 import io.grpc.ServerInterceptors;
+import io.grpc.Status;
 import io.grpc.netty.GrpcSslContexts;
 import io.grpc.netty.NettyServerBuilder;
 import io.netty.bootstrap.ServerBootstrap;
@@ -72,6 +81,9 @@ import java.io.InputStream;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.logging.Level;
@@ -95,6 +107,7 @@ public final class RemoteWorker {
   private final ContentAddressableStorageImplBase casServer;
   private final ExecutionImplBase execServer;
   private final CapabilitiesImplBase capabilitiesServer;
+  private final FetchImplBase fetchServer;
 
   static FileSystem getFileSystem() {
     final DigestHashFunction hashFunction;
@@ -103,9 +116,59 @@ public final class RemoteWorker {
       value = System.getProperty("bazel.DigestFunction", "SHA256");
       hashFunction = new DigestFunctionConverter().convert(value);
     } catch (OptionsParsingException e) {
-      throw new Error("The specified hash function '" + value + "' is not supported.", e);
+      throw new IllegalStateException(
+          "The specified hash function '" + value + "' is not supported.", e);
     }
-    return new JavaIoFileSystem(hashFunction);
+    return OS.getCurrent() == OS.WINDOWS
+        ? new WindowsFileSystem(hashFunction, /* createSymbolicLinks= */ true)
+        : new UnixFileSystem(
+            hashFunction, /* hashAttributeName= */ "", new NativePosixFilesServiceImpl());
+  }
+
+  /** A {@link ServerInterceptor} that rejects requests unless an authorization token is present. */
+  private static class AuthorizationTokenInterceptor implements ServerInterceptor {
+    private static final Metadata.Key<String> AUTHORIZATION_HEADER_KEY =
+        Metadata.Key.of("Authorization", Metadata.ASCII_STRING_MARSHALLER);
+
+    private static final String BEARER_PREFIX = "Bearer ";
+
+    private final String expectedToken;
+
+    AuthorizationTokenInterceptor(String expectedToken) {
+      this.expectedToken = expectedToken;
+    }
+
+    private Optional<String> getTokenFromMetadata(Metadata headers) {
+      String val = headers.get(AUTHORIZATION_HEADER_KEY);
+      if (val != null && val.startsWith(BEARER_PREFIX)) {
+        return Optional.of(val.substring(BEARER_PREFIX.length()));
+      }
+      return Optional.empty();
+    }
+
+    @Override
+    public <ReqT, RespT> Listener<ReqT> interceptCall(
+        ServerCall<ReqT, RespT> call, Metadata headers, ServerCallHandler<ReqT, RespT> next) {
+      Optional<String> actualToken = getTokenFromMetadata(headers);
+      if (!expectedToken.equals(actualToken.get())) {
+        call.close(Status.PERMISSION_DENIED, new Metadata());
+        return new ServerCall.Listener<ReqT>() {};
+      }
+      return Contexts.interceptCall(Context.current(), call, headers, next);
+    }
+  }
+
+  private static class UnavailableInterceptor implements ServerInterceptor {
+
+    @Override
+    public <ReqT, RespT> Listener<ReqT> interceptCall(
+        ServerCall<ReqT, RespT> call, Metadata headers, ServerCallHandler<ReqT, RespT> next) {
+      if (!call.getMethodDescriptor().getServiceName().contains("Capabilities")) {
+        call.close(Status.UNAVAILABLE, new Metadata());
+        return new ServerCall.Listener<ReqT>() {};
+      }
+      return Contexts.interceptCall(Context.current(), call, headers, next);
+    }
   }
 
   public RemoteWorker(
@@ -118,8 +181,8 @@ public final class RemoteWorker {
     this.workerOptions = workerOptions;
     this.actionCacheServer = new ActionCacheServer(cache, digestUtil);
     Path workPath;
-    if (workerOptions.workPath != null) {
-      workPath = fs.getPath(workerOptions.workPath);
+    if (workerOptions.getWorkPath() != null) {
+      workPath = fs.getPath(workerOptions.getWorkPath());
     } else {
       // TODO(ulfjack): The plan is to make the on-disk storage the default, so we always need to
       // provide a path to the remote worker, and we can then also use that as the work path. E.g.:
@@ -136,40 +199,54 @@ public final class RemoteWorker {
     this.bsServer = new ByteStreamServer(cache, workPath, digestUtil);
     this.casServer = new CasServer(cache);
 
-    if (workerOptions.workPath != null) {
+    if (workerOptions.getWorkPath() != null) {
       ConcurrentHashMap<String, ListenableFuture<ActionResult>> operationsCache =
           new ConcurrentHashMap<>();
-      FileSystemUtils.createDirectoryAndParents(workPath);
+      workPath.createDirectoryAndParents();
       execServer =
           new ExecutionServer(
               workPath, sandboxPath, workerOptions, cache, operationsCache, digestUtil);
     } else {
       execServer = null;
     }
-    this.capabilitiesServer = new CapabilitiesServer(digestUtil, execServer != null);
+    this.capabilitiesServer = new CapabilitiesServer(digestUtil, execServer != null, workerOptions);
+    this.fetchServer = new FetchServer(cache, digestUtil, workPath.getRelative("fetch-temp"));
   }
 
   public Server startServer() throws IOException {
-    ServerInterceptor headersInterceptor = new TracingMetadataUtils.ServerHeadersInterceptor();
-    NettyServerBuilder b =
-        NettyServerBuilder.forPort(workerOptions.listenPort)
-            .addService(ServerInterceptors.intercept(actionCacheServer, headersInterceptor))
-            .addService(ServerInterceptors.intercept(bsServer, headersInterceptor))
-            .addService(ServerInterceptors.intercept(casServer, headersInterceptor))
-            .addService(ServerInterceptors.intercept(capabilitiesServer, headersInterceptor));
+    List<ServerInterceptor> interceptors = new ArrayList<>();
+    if (workerOptions.getUnavailable()) {
+      interceptors.add(new UnavailableInterceptor());
+    }
+    interceptors.add(new TracingMetadataUtils.ServerHeadersInterceptor());
+    if (workerOptions.getExpectedAuthorizationToken() != null) {
+      interceptors.add(
+          new AuthorizationTokenInterceptor(workerOptions.getExpectedAuthorizationToken()));
+    }
 
-    if (workerOptions.tlsCertificate != null) {
+    NettyServerBuilder b =
+        NettyServerBuilder.forPort(workerOptions.getListenPort())
+            // Support large messages such as the ActionResult of an action with many
+            // output files (https://github.com/bazelbuild/bazel/issues/29821).
+            .maxInboundMessageSize(Integer.MAX_VALUE)
+            .addService(ServerInterceptors.intercept(actionCacheServer, interceptors))
+            .addService(ServerInterceptors.intercept(bsServer, interceptors))
+            .addService(ServerInterceptors.intercept(casServer, interceptors))
+            .addService(ServerInterceptors.intercept(capabilitiesServer, interceptors))
+            .addService(ServerInterceptors.intercept(fetchServer, interceptors));
+
+    if (workerOptions.getTlsCertificate() != null) {
       b.sslContext(getSslContextBuilder(workerOptions).build());
     }
 
     if (execServer != null) {
-      b.addService(ServerInterceptors.intercept(execServer, headersInterceptor));
+      b.addService(ServerInterceptors.intercept(execServer, interceptors));
     } else {
       logger.atInfo().log("Execution disabled, only serving cache requests");
     }
 
     Server server = b.build();
-    logger.atInfo().log("Starting gRPC server on port %d", workerOptions.listenPort);
+    logger.atInfo().log("Starting gRPC server on port %d", workerOptions.getListenPort());
     server.start();
 
     return server;
@@ -178,23 +255,25 @@ public final class RemoteWorker {
   private SslContextBuilder getSslContextBuilder(RemoteWorkerOptions workerOptions) {
     SslContextBuilder sslContextBuilder =
         SslContextBuilder.forServer(
-            new File(workerOptions.tlsCertificate), new File(workerOptions.tlsPrivateKey));
-    if (workerOptions.tlsCaCertificate != null) {
+            new File(internalToPlatform(workerOptions.getTlsCertificate().getPathString())),
+            new File(internalToPlatform(workerOptions.getTlsPrivateKey().getPathString())));
+    if (workerOptions.getTlsCaCertificate() != null) {
       sslContextBuilder.clientAuth(ClientAuth.REQUIRE);
-      sslContextBuilder.trustManager(new File(workerOptions.tlsCaCertificate));
+      sslContextBuilder.trustManager(
+          new File(internalToPlatform(workerOptions.getTlsCaCertificate().getPathString())));
     }
     return GrpcSslContexts.configure(sslContextBuilder, SslProvider.OPENSSL);
   }
 
   private void createPidFile() throws IOException {
-    if (workerOptions.pidFile == null) {
+    if (workerOptions.getPidFile() == null) {
       return;
     }
 
-    final Path pidFile = getFileSystem().getPath(workerOptions.pidFile);
+    Path pidFile = getFileSystem().getPath(workerOptions.getPidFile());
     try (Writer writer =
         new OutputStreamWriter(pidFile.getOutputStream(), StandardCharsets.UTF_8)) {
-      writer.write(Integer.toString(ProcessUtils.getpid()));
+      writer.write(Long.toString(ProcessHandle.current().pid()));
       writer.write("\n");
     }
 
@@ -215,15 +294,12 @@ public final class RemoteWorker {
   @SuppressWarnings("FutureReturnValueIgnored")
   public static void main(String[] args) throws Exception {
     OptionsParser parser =
-        OptionsParser.builder()
-            .optionsClasses(RemoteOptions.class, RemoteWorkerOptions.class)
-            .build();
+        OptionsParser.builder().optionsClasses(RemoteWorkerOptions.class).build();
     parser.parseAndExitUponError(args);
-    RemoteOptions remoteOptions = parser.getOptions(RemoteOptions.class);
     RemoteWorkerOptions remoteWorkerOptions = parser.getOptions(RemoteWorkerOptions.class);
 
     rootLogger.getHandlers()[0].setFormatter(new SingleLineFormatter());
-    if (remoteWorkerOptions.debug) {
+    if (remoteWorkerOptions.getDebug()) {
       rootLogger.getHandlers()[0].setLevel(FINE);
     }
 
@@ -241,24 +317,28 @@ public final class RemoteWorker {
     // about closed streams around.
     nettyLogger.setLevel(Level.SEVERE);
 
+    // Set the default subprocess factory to the Windows-specific implementation if the host OS is
+    // Windows. See Bazel.java for more details.
+    WindowsSubprocessFactory.maybeInstallWindowsSubprocessFactory();
+
     FileSystem fs = getFileSystem();
     Path sandboxPath = null;
-    if (remoteWorkerOptions.sandboxing) {
+    if (remoteWorkerOptions.getSandboxing()) {
       sandboxPath = prepareSandboxRunner(fs, remoteWorkerOptions);
     }
 
-    if (remoteWorkerOptions.casPath == null
-        || (!PathFragment.create(remoteWorkerOptions.casPath).isAbsolute()
-            || !fs.getPath(remoteWorkerOptions.casPath).exists())) {
-      logger.atSevere().log("--cas_path must be specified and refer to an exiting absolute path");
+    if (remoteWorkerOptions.getCasPath() == null
+        || !remoteWorkerOptions.getCasPath().isAbsolute()) {
+      logger.atSevere().log("--cas_path must be set to an absolute path");
       System.exit(1);
       return;
     }
 
-    Path casPath =
-        remoteWorkerOptions.casPath != null ? fs.getPath(remoteWorkerOptions.casPath) : null;
-    DigestUtil digestUtil = new DigestUtil(fs.getDigestFunction());
-    OnDiskBlobStoreCache cache = new OnDiskBlobStoreCache(remoteOptions, casPath, digestUtil);
+    Path casPath = fs.getPath(remoteWorkerOptions.getCasPath());
+    casPath.createDirectoryAndParents();
+
+    DigestUtil digestUtil = new DigestUtil(SyscallCache.NO_CACHE, fs.getDigestFunction());
+    OnDiskBlobStoreCache cache = new OnDiskBlobStoreCache(casPath, digestUtil, remoteWorkerOptions);
     ListeningScheduledExecutorService retryService =
         MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
     RemoteWorker worker = new RemoteWorker(fs, remoteWorkerOptions, cache, sandboxPath, digestUtil);
@@ -268,7 +348,7 @@ public final class RemoteWorker {
     EventLoopGroup bossGroup = null;
     EventLoopGroup workerGroup = null;
     Channel ch = null;
-    if (remoteWorkerOptions.httpListenPort != 0) {
+    if (remoteWorkerOptions.getHttpListenPort() != 0) {
       // Configure the server.
       bossGroup = new NioEventLoopGroup(1);
       workerGroup = new NioEventLoopGroup();
@@ -276,10 +356,10 @@ public final class RemoteWorker {
       b.group(bossGroup, workerGroup)
           .channel(NioServerSocketChannel.class)
           .handler(new LoggingHandler(LogLevel.INFO))
-          .childHandler(new HttpCacheServerInitializer());
-      ch = b.bind(remoteWorkerOptions.httpListenPort).sync().channel();
+          .childHandler(new HttpCacheServerInitializer(new OnDiskHttpCacheServerHandler(cache)));
+      ch = b.bind(remoteWorkerOptions.getHttpListenPort()).sync().channel();
       logger.atInfo().log(
-          "Started HTTP cache server on port %d", remoteWorkerOptions.httpListenPort);
+          "Started HTTP cache server on port %d", remoteWorkerOptions.getHttpListenPort());
     } else {
       logger.atInfo().log("Not starting HTTP cache server");
     }
@@ -307,8 +387,10 @@ public final class RemoteWorker {
       System.exit(1);
     }
 
-    if (remoteWorkerOptions.workPath == null) {
-      logger.atSevere().log("Sandboxing requested, but --work_path was not specified");
+    if (remoteWorkerOptions.getWorkPath() == null
+        || !remoteWorkerOptions.getWorkPath().isAbsolute()) {
+      logger.atSevere().log(
+          "Sandboxing requested, but --work_path was not set to an absolute path");
       System.exit(1);
     }
 
@@ -322,7 +404,7 @@ public final class RemoteWorker {
 
     Path sandboxPath = null;
     try {
-      sandboxPath = fs.getPath(remoteWorkerOptions.workPath).getChild("linux-sandbox");
+      sandboxPath = fs.getPath(remoteWorkerOptions.getWorkPath()).getChild("linux-sandbox");
       try (FileOutputStream fos = new FileOutputStream(sandboxPath.getPathString())) {
         ByteStreams.copy(sandbox, fos);
       }
@@ -336,11 +418,11 @@ public final class RemoteWorker {
     CommandResult cmdResult = null;
     Command cmd =
         new Command(
-            LinuxSandboxUtil.commandLineBuilder(sandboxPath, ImmutableList.of("true"))
-                .build()
-                .toArray(new String[0]),
+            LinuxSandboxCommandLineBuilder.commandLineBuilder(sandboxPath)
+                .buildForCommand(ImmutableList.of("true")),
             ImmutableMap.of(),
-            sandboxPath.getParentDirectory().getPathFile());
+            sandboxPath.getParentDirectory().getPathFile(),
+            System.getenv());
     try {
       cmdResult = cmd.execute();
     } catch (CommandException e) {

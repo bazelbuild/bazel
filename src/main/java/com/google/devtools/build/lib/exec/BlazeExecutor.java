@@ -39,6 +39,7 @@ import javax.annotation.Nullable;
 public final class BlazeExecutor implements Executor {
 
   private final ShowSubcommands showSubcommands;
+  private final boolean expandsParamFiles;
   private final FileSystem fileSystem;
   private final Path execRoot;
   private final Clock clock;
@@ -67,7 +68,8 @@ public final class BlazeExecutor implements Executor {
       ModuleActionContextRegistry actionContextRegistry,
       SpawnStrategyRegistry spawnStrategyRegistry) {
     ExecutionOptions executionOptions = checkNotNull(options.getOptions(ExecutionOptions.class));
-    this.showSubcommands = executionOptions.showSubcommands;
+    this.showSubcommands = executionOptions.getShowSubcommands();
+    this.expandsParamFiles = executionOptions.getExpandParamFiles();
     this.fileSystem = fileSystem;
     this.execRoot = execRoot;
     this.clock = clock;
@@ -75,10 +77,8 @@ public final class BlazeExecutor implements Executor {
     this.options = options;
     this.actionContextRegistry = actionContextRegistry;
 
-    if (executionOptions.debugPrintActionContexts) {
-      spawnStrategyRegistry.writeSpawnStrategiesTo(reporter);
-      actionContextRegistry.writeActionContextsTo(reporter);
-    }
+    spawnStrategyRegistry.logSpawnStrategies();
+    actionContextRegistry.logActionContexts();
 
     actionContextRegistry.notifyUsed();
     spawnStrategyRegistry.notifyUsed(actionContextRegistry);
@@ -107,6 +107,11 @@ public final class BlazeExecutor implements Executor {
   @Override
   public ShowSubcommands reportsSubcommands() {
     return showSubcommands;
+  }
+
+  @Override
+  public boolean expandsParamFiles() {
+    return expandsParamFiles;
   }
 
   @Override

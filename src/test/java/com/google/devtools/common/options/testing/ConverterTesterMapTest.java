@@ -29,10 +29,14 @@ public final class ConverterTesterMapTest {
 
   @Test
   public void add_mapsTestedConverterClassToTester() throws Exception {
-    ConverterTester stringTester = new ConverterTester(Converters.StringConverter.class);
-    ConverterTester intTester = new ConverterTester(Converters.IntegerConverter.class);
-    ConverterTester doubleTester = new ConverterTester(Converters.DoubleConverter.class);
-    ConverterTester booleanTester = new ConverterTester(Converters.BooleanConverter.class);
+    ConverterTester stringTester =
+        new ConverterTester(Converters.StringConverter.class, /*conversionContext=*/ null);
+    ConverterTester intTester =
+        new ConverterTester(Converters.IntegerConverter.class, /*conversionContext=*/ null);
+    ConverterTester doubleTester =
+        new ConverterTester(Converters.DoubleConverter.class, /*conversionContext=*/ null);
+    ConverterTester booleanTester =
+        new ConverterTester(Converters.BooleanConverter.class, /*conversionContext=*/ null);
     ConverterTesterMap map =
         new ConverterTesterMap.Builder()
             .add(stringTester)
@@ -54,10 +58,14 @@ public final class ConverterTesterMapTest {
 
   @Test
   public void addAll_mapsTestedConverterClassesToTester() throws Exception {
-    ConverterTester stringTester = new ConverterTester(Converters.StringConverter.class);
-    ConverterTester intTester = new ConverterTester(Converters.IntegerConverter.class);
-    ConverterTester doubleTester = new ConverterTester(Converters.DoubleConverter.class);
-    ConverterTester booleanTester = new ConverterTester(Converters.BooleanConverter.class);
+    ConverterTester stringTester =
+        new ConverterTester(Converters.StringConverter.class, /*conversionContext=*/ null);
+    ConverterTester intTester =
+        new ConverterTester(Converters.IntegerConverter.class, /*conversionContext=*/ null);
+    ConverterTester doubleTester =
+        new ConverterTester(Converters.DoubleConverter.class, /*conversionContext=*/ null);
+    ConverterTester booleanTester =
+        new ConverterTester(Converters.BooleanConverter.class, /*conversionContext=*/ null);
     ConverterTesterMap map =
         new ConverterTesterMap.Builder()
             .addAll(ImmutableList.of(stringTester, intTester, doubleTester, booleanTester))
@@ -76,10 +84,14 @@ public final class ConverterTesterMapTest {
 
   @Test
   public void addAll_dumpsConverterTesterMapIntoNewMap() throws Exception {
-    ConverterTester stringTester = new ConverterTester(Converters.StringConverter.class);
-    ConverterTester intTester = new ConverterTester(Converters.IntegerConverter.class);
-    ConverterTester doubleTester = new ConverterTester(Converters.DoubleConverter.class);
-    ConverterTester booleanTester = new ConverterTester(Converters.BooleanConverter.class);
+    ConverterTester stringTester =
+        new ConverterTester(Converters.StringConverter.class, /*conversionContext=*/ null);
+    ConverterTester intTester =
+        new ConverterTester(Converters.IntegerConverter.class, /*conversionContext=*/ null);
+    ConverterTester doubleTester =
+        new ConverterTester(Converters.DoubleConverter.class, /*conversionContext=*/ null);
+    ConverterTester booleanTester =
+        new ConverterTester(Converters.BooleanConverter.class, /*conversionContext=*/ null);
     ConverterTesterMap baseMap =
         new ConverterTesterMap.Builder()
             .addAll(ImmutableList.of(stringTester, intTester, doubleTester))
@@ -102,11 +114,15 @@ public final class ConverterTesterMapTest {
   public void build_forbidsDuplicates() throws Exception {
     ConverterTesterMap.Builder builder =
         new ConverterTesterMap.Builder()
-            .add(new ConverterTester(Converters.StringConverter.class))
-            .add(new ConverterTester(Converters.IntegerConverter.class))
-            .add(new ConverterTester(Converters.DoubleConverter.class))
-            .add(new ConverterTester(Converters.BooleanConverter.class))
-            .add(new ConverterTester(Converters.BooleanConverter.class));
+            .add(new ConverterTester(Converters.StringConverter.class, /*conversionContext=*/ null))
+            .add(
+                new ConverterTester(Converters.IntegerConverter.class, /*conversionContext=*/ null))
+            .add(new ConverterTester(Converters.DoubleConverter.class, /*conversionContext=*/ null))
+            .add(
+                new ConverterTester(Converters.BooleanConverter.class, /*conversionContext=*/ null))
+            .add(
+                new ConverterTester(
+                    Converters.BooleanConverter.class, /*conversionContext=*/ null));
 
     IllegalArgumentException expected =
         assertThrows(IllegalArgumentException.class, () -> builder.build());

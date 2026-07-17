@@ -52,7 +52,7 @@ config_setting(
     name = "linux_ppc64le",
     constraint_values = [
         "@platforms//os:linux",
-        "@platforms//cpu:ppc",
+        "@platforms//cpu:ppc64le",
     ],
     visibility = ["//visibility:public"],
 )
@@ -80,6 +80,15 @@ config_setting(
     constraint_values = [
         "@platforms//os:linux",
         "@platforms//cpu:riscv64",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "linux_loongarch64",
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:loongarch64",
     ],
     visibility = ["//visibility:public"],
 )
@@ -118,6 +127,10 @@ config_setting(
 
 config_setting(
     name = "darwin_arm64_flag",
+    constraint_values = [
+        "@platforms//os:macos",
+        "@platforms//cpu:x86_64",
+    ],
     values = {"cpu": "darwin_arm64"},
 )
 
@@ -168,14 +181,72 @@ config_setting(
 )
 
 config_setting(
-    name = "arm",
-    constraint_values = ["@platforms//cpu:arm"],
+    name = "windows_x86_64",
+    constraint_values = [
+        "@platforms//os:windows",
+        "@platforms//cpu:x86_64",
+    ],
     visibility = ["//visibility:public"],
 )
 
 config_setting(
-    name = "remote",
-    values = {"define": "EXECUTOR=remote"},
+    name = "windows_arm64_constraint",
+    constraint_values = [
+        "@platforms//os:windows",
+        "@platforms//cpu:arm64",
+    ],
+)
+
+# TODO(https://github.com/bazelbuild/bazel/issues/7260)
+# Remove the flag after toolchain cc resolution is fixed
+config_setting(
+    name = "windows_x64_arm64_flag",
+    constraint_values = [
+        "@platforms//os:windows",
+        "@platforms//cpu:x86_64",
+    ],
+    values = {"cpu": "x64_arm64_windows"},
+)
+
+config_setting(
+    name = "windows_arm64_flag",
+    values = {"cpu": "arm64_windows"},
+)
+
+selects.config_setting_group(
+    name = "windows_arm64",
+    match_any = [
+        ":windows_arm64_constraint",
+        ":windows_arm64_flag",
+        ":windows_x64_arm64_flag",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "windows_clang_cl",
+    constraint_values = ["@platforms//os:windows"],
+    flag_values = {"@rules_cc//cc/compiler:compiler": "clang-cl"},
+)
+
+config_setting(
+    name = "windows_msvc_cl",
+    constraint_values = ["@platforms//os:windows"],
+    flag_values = {"@rules_cc//cc/compiler:compiler": "msvc-cl"},
+)
+
+selects.config_setting_group(
+    name = "windows_msvc_like",
+    match_any = [
+        ":windows_clang_cl",
+        ":windows_msvc_cl",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "arm",
+    constraint_values = ["@platforms//cpu:arm"],
     visibility = ["//visibility:public"],
 )
 

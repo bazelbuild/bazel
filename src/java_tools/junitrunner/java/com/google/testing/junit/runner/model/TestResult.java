@@ -14,6 +14,7 @@
 
 package com.google.testing.junit.runner.model;
 
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.testing.junit.runner.util.TestIntegration;
 import java.util.List;
 import java.util.Map;
@@ -168,31 +169,37 @@ public final class TestResult {
 
     public Builder() {}
 
+    @CanIgnoreReturnValue
     public Builder name(String name) {
       this.name = checkNullToNotNull(this.name, name, "name");
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder className(String className) {
       this.className = checkNullToNotNull(this.className, className, "className");
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder properties(Map<String, String> properties) {
       this.properties = checkNullToNotNull(this.properties, properties, "properties");
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder integrations(Set<TestIntegration> integrations) {
       this.integrations = checkNullToNotNull(this.integrations, integrations, "integrations");
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder failures(List<Throwable> failures) {
       this.failures = checkNullToNotNull(this.failures, failures, "failures");
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder runTimeInterval(@Nullable TestInterval runTime) {
       if (this.runTime != null) {
         throw new IllegalStateException("runTime already set");
@@ -201,21 +208,25 @@ public final class TestResult {
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder status(Status status) {
       this.status = checkNullToNotNull(this.status, status, "status");
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder numTests(int numTests) {
       this.numTests = checkNullToNotNull(this.numTests, numTests, "numTests");
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder numFailures(int numFailures) {
       this.numFailures = checkNullToNotNull(this.numFailures, numFailures, "numFailures");
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder childResults(List<TestResult> childResults) {
       this.childResults = checkNullToNotNull(this.childResults, childResults, "childResults");
       return this;

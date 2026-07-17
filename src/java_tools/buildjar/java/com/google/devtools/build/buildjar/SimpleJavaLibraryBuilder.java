@@ -25,6 +25,7 @@ import com.google.devtools.build.buildjar.javac.BlazeJavacResult;
 import com.google.devtools.build.buildjar.javac.BlazeJavacResult.Status;
 import com.google.devtools.build.buildjar.javac.JavacRunner;
 import com.google.devtools.build.buildjar.javac.statistics.BlazeJavacStatistics;
+import com.google.errorprone.annotations.CheckReturnValue;
 import java.io.ByteArrayOutputStream;
 import java.io.Closeable;
 import java.io.IOException;
@@ -34,7 +35,6 @@ import java.nio.file.Path;
 import java.util.Enumeration;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
-import javax.annotation.CheckReturnValue;
 import javax.annotation.Nullable;
 
 /** An implementation of the JavaBuilder that uses in-process javac to compile java files. */
@@ -87,7 +87,6 @@ public class SimpleJavaLibraryBuilder implements Closeable {
   public void buildGensrcJar(JavaLibraryBuildRequest build) throws IOException {
     JarCreator jar = new JarCreator(build.getGeneratedSourcesOutputJar());
     try {
-      jar.setNormalize(true);
       jar.setCompression(build.compressJar());
       jar.addDirectory(build.getSourceGenDir());
     } finally {
@@ -142,13 +141,12 @@ public class SimpleJavaLibraryBuilder implements Closeable {
     JarCreator jar = new JarCreator(build.getOutputJar());
     JacocoInstrumentationProcessor processor = null;
     try {
-      jar.setNormalize(true);
       jar.setCompression(build.compressJar());
       jar.addDirectory(build.getClassDir());
       jar.setJarOwner(build.getTargetLabel(), build.getInjectingRuleKind());
       processor = build.getJacocoInstrumentationProcessor();
       if (processor != null) {
-        processor.processRequest(build, processor.isNewCoverageImplementation() ? jar : null);
+        processor.processRequest(build, jar);
       }
     } finally {
       jar.execute();
@@ -164,7 +162,6 @@ public class SimpleJavaLibraryBuilder implements Closeable {
     }
     JarCreator jar = new JarCreator(build.getNativeHeaderOutput());
     try {
-      jar.setNormalize(true);
       jar.setCompression(build.compressJar());
       jar.addDirectory(build.getNativeHeaderDir());
     } finally {

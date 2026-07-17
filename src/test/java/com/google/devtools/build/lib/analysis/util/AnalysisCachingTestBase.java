@@ -27,15 +27,4 @@ public abstract class AnalysisCachingTestBase extends AnalysisTestCase {
   protected boolean hasTopLevelAnalysisError(ConfiguredTarget configuredTarget) {
     return !getAnalysisResult().getTargetsToBuild().contains(configuredTarget);
   }
-
-  protected void assertEventCached(String target, String expectedWarning) throws Exception {
-    reporter.removeHandler(failFastHandler);
-    // Run with keep_going, so this method can also be used for errors (which otherwise throw an
-    // exception).
-    update(defaultFlags().with(Flag.KEEP_GOING), target);
-    assertContainsEvent(expectedWarning);
-    eventCollector.clear();
-    update(defaultFlags().with(Flag.KEEP_GOING), target);
-    assertContainsEvent(expectedWarning);
-  }
 }

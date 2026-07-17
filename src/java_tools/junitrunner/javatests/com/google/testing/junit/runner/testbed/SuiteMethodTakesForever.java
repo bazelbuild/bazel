@@ -14,25 +14,35 @@
 
 package com.google.testing.junit.runner.testbed;
 
+import java.util.concurrent.TimeUnit;
 import junit.framework.Test;
 
-import java.util.concurrent.TimeUnit;
-
 /**
- * This is a testbed for testing stack trace functionality when the test runner is interrupted
- * with a TERM signal during the test suite creation phase.
+ * This is a testbed for testing stack trace functionality when the test runner is interrupted with
+ * a TERM signal during the test suite creation phase.
  *
  * <p>Failures in this test should not cause continuous builds to go red.
  */
 public class SuiteMethodTakesForever {
 
   /**
-   * Simulates a test suite that takes a really long time to build, giving enough time to the
-   * test to send the TERM signal and verify the output.
+   * Simulates a test suite that takes a really long time to build, giving enough time to the test
+   * to send the TERM signal and verify the output.
    */
   public static Test suite() throws Exception {
     System.out.println("Entered suite creation");
     System.out.flush();
+    Thread.ofVirtual()
+        .name("my-virtual-thread")
+        .start(
+            () -> {
+              try {
+                TimeUnit.HOURS.sleep(1);
+              } catch (InterruptedException e) {
+                System.out.println("Virtual thread interrupted");
+                System.out.flush();
+              }
+            });
     Fifo.waitUntilDataAvailable();
     TimeUnit.HOURS.sleep(1);
     throw new IllegalStateException(

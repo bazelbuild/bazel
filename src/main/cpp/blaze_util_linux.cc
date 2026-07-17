@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <errno.h>  // errno, ENAMETOOLONG
+#include <errno.h>
 #include <limits.h>
 #include <linux/magic.h>
 #include <pwd.h>
@@ -20,14 +20,13 @@
 #include <spawn.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>  // strerror
+#include <string.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/statfs.h>
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "src/main/cpp/blaze_util.h"
 #include "src/main/cpp/blaze_util_platform.h"
 #include "src/main/cpp/util/errors.h"
 #include "src/main/cpp/util/exit_code.h"
@@ -43,27 +42,29 @@ using blaze_util::GetLastErrorString;
 using std::string;
 using std::vector;
 
-string GetOutputRoot() {
-  string base;
-  string home = GetHomeDir();
-  if (!home.empty()) {
-    base = home;
-  } else {
-    char buf[2048];
-    struct passwd pwbuf;
-    struct passwd *pw = nullptr;
-    int uid = getuid();
-    int r = getpwuid_r(uid, &pwbuf, buf, 2048, &pw);
-    if (r != -1 && pw != nullptr) {
-      base = pw->pw_dir;
+// ${XDG_CACHE_HOME}/bazel, a.k.a. ~/.cache/bazel by default (which is the
+// fallback when XDG_CACHE_HOME is not set)
+string GetCacheDir() {
+  string xdg_cache_home = GetPathEnv("XDG_CACHE_HOME");
+  if (xdg_cache_home.empty()) {
+    string home = GetHomeDir();  // via $HOME env variable
+    if (home.empty()) {
+      // Fall back to home dir from password database
+      char buf[2048];
+      struct passwd pwbuf;
+      struct passwd *pw = nullptr;
+      uid_t uid = getuid();
+      int r = getpwuid_r(uid, &pwbuf, buf, 2048, &pw);
+      if (r == 0 && pw != nullptr) {
+        home = pw->pw_dir;
+      } else {
+        return "/tmp";
+      }
     }
+    xdg_cache_home = blaze_util::JoinPath(home, ".cache");
   }
 
-  if (!base.empty()) {
-    return blaze_util::JoinPath(base, ".cache/bazel");
-  }
-
-  return "/tmp";
+  return blaze_util::JoinPath(xdg_cache_home, "bazel");
 }
 
 void WarnFilesystemType(const blaze_util::Path &output_base) {
@@ -82,16 +83,12 @@ void WarnFilesystemType(const blaze_util::Path &output_base) {
   }
 }
 
-string GetSelfPath(const char* argv0) {
-  // The file to which this symlink points could change contents or go missing
-  // concurrent with execution of the Bazel client, so we don't eagerly resolve
-  // it.
-  return "/proc/self/exe";
-}
-
 uint64_t GetMillisecondsMonotonic() {
   struct timespec ts = {};
-  clock_gettime(CLOCK_MONOTONIC, &ts);
+  if (clock_gettime(CLOCK_MONOTONIC, &ts)) {
+    BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
+        << "error calling clock_gettime: " << GetLastErrorString();
+  }
   return ts.tv_sec * 1000LL + (ts.tv_nsec / 1000000LL);
 }
 

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Copyright 2018 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -25,4 +25,4 @@ source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
 # --- end runfiles.bash initialization v2 ---
 
 echo "Hello Bash Bar!"
-echo "rloc=$(rlocation "foo_ws/bar/bar-sh-data.txt")"
+echo "rloc=$(rlocation "_main/bar/bar-sh-data.txt")"

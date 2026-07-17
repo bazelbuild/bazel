@@ -1,0 +1,142 @@
+// Copyright 2016 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package com.google.devtools.build.lib.remote;
+
+import com.google.auth.Credentials;
+import com.google.common.base.Ascii;
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
+import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
+import com.google.devtools.build.lib.remote.disk.DiskCacheClient;
+import com.google.devtools.build.lib.remote.http.HttpCacheClient;
+import com.google.devtools.build.lib.remote.options.RemoteOptions;
+import com.google.devtools.build.lib.remote.util.DigestUtil;
+import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
+import io.netty.channel.unix.DomainSocketAddress;
+import java.io.IOException;
+import java.net.URI;
+import java.util.Map.Entry;
+import javax.annotation.Nullable;
+
+/** A factory class for providing a {@link CombinedCacheClient}. */
+public final class CombinedCacheClientFactory {
+
+  private CombinedCacheClientFactory() {}
+
+  /**
+   * A record holding a {@link DiskCacheClient} and {@link RemoteCacheClient} pair. Either may be
+   * absent.
+   */
+  public record CombinedCacheClient(
+      @Nullable RemoteCacheClient remoteCacheClient, @Nullable DiskCacheClient diskCacheClient) {}
+
+  public static CombinedCacheClient create(
+      RemoteOptions options,
+      @Nullable PathFragment diskCachePath,
+      @Nullable Credentials creds,
+      AuthAndTLSOptions authAndTlsOptions,
+      Path workingDirectory,
+      DigestUtil digestUtil,
+      RemoteRetrier retrier)
+      throws IOException {
+    Preconditions.checkNotNull(workingDirectory, "workingDirectory");
+    RemoteCacheClient httpCacheClient = null;
+    DiskCacheClient diskCacheClient = null;
+    if (isHttpCache(options)) {
+      httpCacheClient = createHttp(options, creds, authAndTlsOptions, digestUtil, retrier);
+    }
+    if (diskCachePath != null) {
+      diskCacheClient = createDiskCache(workingDirectory, diskCachePath, digestUtil);
+    }
+    if (httpCacheClient == null && diskCacheClient == null) {
+      throw new IllegalArgumentException(
+          "Unrecognized RemoteOptions configuration: remote Http cache URL and/or local disk cache"
+              + " options expected.");
+    }
+    return new CombinedCacheClient(httpCacheClient, diskCacheClient);
+  }
+
+  public static boolean isRemoteCacheOptions(RemoteOptions options) {
+    return isHttpCache(options) || options.isDiskCacheEnabled();
+  }
+
+  private static RemoteCacheClient createHttp(
+      RemoteOptions options,
+      Credentials creds,
+      AuthAndTLSOptions authAndTlsOptions,
+      DigestUtil digestUtil,
+      RemoteRetrier retrier) {
+    Preconditions.checkNotNull(options.getRemoteCache(), "remoteCache");
+
+    try {
+      URI uri = URI.create(options.getRemoteCache());
+      Preconditions.checkArgument(
+          Ascii.toLowerCase(uri.getScheme()).startsWith("http"),
+          "remoteCache should start with http");
+
+      if (options.getRemoteProxy() != null) {
+        if (options.getRemoteProxy().startsWith("unix:")) {
+          return HttpCacheClient.create(
+              new DomainSocketAddress(options.getRemoteProxy().replaceFirst("^unix:", "")),
+              uri,
+              Math.toIntExact(options.getRemoteTimeout().toSeconds()),
+              options.getRemoteMaxConnections(),
+              options.getRemoteVerifyDownloads(),
+              effectiveHeaders(options),
+              digestUtil,
+              retrier,
+              creds,
+              authAndTlsOptions);
+        } else {
+          throw new Exception("Remote cache proxy unsupported: " + options.getRemoteProxy());
+        }
+      } else {
+        return HttpCacheClient.create(
+            uri,
+            Math.toIntExact(options.getRemoteTimeout().toSeconds()),
+            options.getRemoteMaxConnections(),
+            options.getRemoteVerifyDownloads(),
+            effectiveHeaders(options),
+            digestUtil,
+            retrier,
+            creds,
+            authAndTlsOptions);
+      }
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  public static DiskCacheClient createDiskCache(
+      Path workingDirectory, PathFragment diskCachePath, DigestUtil digestUtil) throws IOException {
+    Path cacheDir = workingDirectory.getRelative(Preconditions.checkNotNull(diskCachePath));
+    return new DiskCacheClient(cacheDir, digestUtil);
+  }
+
+  public static boolean isHttpCache(RemoteOptions options) {
+    return options.getRemoteCache() != null
+        && (Ascii.toLowerCase(options.getRemoteCache()).startsWith("http://")
+            || Ascii.toLowerCase(options.getRemoteCache()).startsWith("https://"));
+  }
+
+  public static ImmutableList<Entry<String, String>> effectiveHeaders(RemoteOptions options) {
+    return ImmutableList.<Entry<String, String>>builder()
+        .addAll(options.getRemoteHeaders())
+        .addAll(options.getRemoteCacheHeaders())
+        .build();
+  }
+}

@@ -14,17 +14,24 @@
 
 """Exported builtins symbols that are not specific to OSS Bazel."""
 
-load("@_builtins//:common/objc/objc_import.bzl", "objc_import")
-load("@_builtins//:common/objc/objc_library.bzl", "objc_library")
-
 exported_toplevels = {
     # This dummy symbol is not part of the public API; it is only used to test
     # that builtins injection is working properly. Its built-in value is
     # "original value".
     "_builtins_dummy": "overridden value",
+    "proto_common_do_not_use": struct(
+        INCOMPATIBLE_ENABLE_PROTO_TOOLCHAIN_RESOLUTION =
+            _builtins.toplevel.proto_common_do_not_use.incompatible_enable_proto_toolchain_resolution(),
+    ),
 }
-exported_rules = {
-    "-objc_import": objc_import,
-    "-objc_library": objc_library,
-}
+
+# A list of Starlarkified native rules.
+#
+# * leading `+` means the Starlark rule is used by default, but can be overridden
+#   on the Bazel command line
+# * no leading symbol means the Starlark rule is used and can't be overridden
+# * leading `-` means the Starlark rule exists, but is not used by default
+exported_rules = {}
+
+# A list of Starlark functions callable from native rules implementation.
 exported_to_java = {}

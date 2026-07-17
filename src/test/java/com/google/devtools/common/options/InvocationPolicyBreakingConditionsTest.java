@@ -15,7 +15,9 @@ package com.google.devtools.common.options;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
+import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.SetValue.Behavior;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -43,13 +45,13 @@ public class InvocationPolicyBreakingConditionsTest extends InvocationPolicyEnfo
     parser.parse("--test_string=" + TEST_STRING_USER_VALUE);
 
     TestOptions testOptions = getTestOptions();
-    assertThat(testOptions.testString).isEqualTo(TEST_STRING_USER_VALUE);
+    assertThat(testOptions.getTestString()).isEqualTo(TEST_STRING_USER_VALUE);
 
-    enforcer.enforce(parser, "test");
+    enforcer.enforce(parser, "test", ImmutableList.builder());
 
     // Still user value.
     testOptions = getTestOptions();
-    assertThat(testOptions.testString).isEqualTo(TEST_STRING_USER_VALUE);
+    assertThat(testOptions.getTestString()).isEqualTo(TEST_STRING_USER_VALUE);
   }
 
   @Test
@@ -59,24 +61,26 @@ public class InvocationPolicyBreakingConditionsTest extends InvocationPolicyEnfo
         .addFlagPoliciesBuilder()
         .setFlagName("i_do_not_exist")
         .getSetValueBuilder()
+        .setBehavior(Behavior.FINAL_VALUE_IGNORE_OVERRIDES)
         .addFlagValue(TEST_STRING_POLICY_VALUE);
     invocationPolicyBuilder
         .addFlagPoliciesBuilder()
         .setFlagName("test_string")
         .getSetValueBuilder()
+        .setBehavior(Behavior.FINAL_VALUE_IGNORE_OVERRIDES)
         .addFlagValue(TEST_STRING_POLICY_VALUE_2);
 
     InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicyBuilder);
     parser.parse("--test_string=" + TEST_STRING_USER_VALUE);
 
     TestOptions testOptions = getTestOptions();
-    assertThat(testOptions.testString).isEqualTo(TEST_STRING_USER_VALUE);
+    assertThat(testOptions.getTestString()).isEqualTo(TEST_STRING_USER_VALUE);
 
-    enforcer.enforce(parser, "test");
+    enforcer.enforce(parser, "test", ImmutableList.builder());
 
     // Still user value.
     testOptions = getTestOptions();
-    assertThat(testOptions.testString).isEqualTo(TEST_STRING_POLICY_VALUE_2);
+    assertThat(testOptions.getTestString()).isEqualTo(TEST_STRING_POLICY_VALUE_2);
   }
 
   @Test
@@ -89,13 +93,13 @@ public class InvocationPolicyBreakingConditionsTest extends InvocationPolicyEnfo
     parser.parse("--test_string=" + TEST_STRING_USER_VALUE);
 
     TestOptions testOptions = getTestOptions();
-    assertThat(testOptions.testString).isEqualTo(TEST_STRING_USER_VALUE);
+    assertThat(testOptions.getTestString()).isEqualTo(TEST_STRING_USER_VALUE);
 
     // Shouldn't throw.
-    enforcer.enforce(parser, "test");
+    enforcer.enforce(parser, "test", ImmutableList.builder());
 
     // Still user value.
     testOptions = getTestOptions();
-    assertThat(testOptions.testString).isEqualTo(TEST_STRING_USER_VALUE);
+    assertThat(testOptions.getTestString()).isEqualTo(TEST_STRING_USER_VALUE);
   }
 }

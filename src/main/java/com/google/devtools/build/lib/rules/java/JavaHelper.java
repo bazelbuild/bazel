@@ -13,15 +13,19 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.java;
 
+import static java.util.stream.Collectors.joining;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 
 /** Utility methods for use by Java-related parts of Bazel. */
@@ -31,62 +35,25 @@ public abstract class JavaHelper {
   private JavaHelper() {}
 
   /**
-   * Returns the java launcher implementation for the given target, if any. A null return value
-   * means "use the JDK launcher".
-   */
-  public static TransitiveInfoCollection launcherForTarget(
-      JavaSemantics semantics, RuleContext ruleContext) {
-    String launcher = filterLauncherForTarget(ruleContext);
-    return (launcher == null) ? null : ruleContext.getPrerequisite(launcher);
-  }
-
-  /**
-   * Returns the java launcher artifact for the given target, if any. A null return value means "use
-   * the JDK launcher".
-   */
-  public static Artifact launcherArtifactForTarget(
-      JavaSemantics semantics, RuleContext ruleContext) {
-    String launcher = filterLauncherForTarget(ruleContext);
-    return (launcher == null) ? null : ruleContext.getPrerequisiteArtifact(launcher);
-  }
-
-  /**
-   * Control structure abstraction for safely extracting a prereq from the launcher attribute or
-   * {@code --java_launcher} flag.
+   * Flattens a set of javacopts and tokenizes the contents.
    *
-   * <p>Returns {@code null} if either {@code create_executable} or {@code use_launcher} are
-   * disabled.
+   * <p>Since javac allows passing the same option multiple times, and the right-most one wins,
+   * multiple instances of the same option+value get de-duped by the NestedSet. So when combining
+   * multiple NestedSets, we store them in reverse order, and reverse again after flattening. This
+   * preserves the right-most occurrence in its correct position, thus achieving the correct
+   * semantics.
+   *
+   * @param inOpts the set of opts to tokenize
    */
-  private static String filterLauncherForTarget(RuleContext ruleContext) {
-    // create_executable=0 disables the launcher
-    if (ruleContext.getRule().isAttrDefined("create_executable", Type.BOOLEAN)
-        && !ruleContext.attributes().get("create_executable", Type.BOOLEAN)) {
-      return null;
-    }
-    // use_launcher=False disables the launcher
-    if (ruleContext.getRule().isAttrDefined("use_launcher", Type.BOOLEAN)
-        && !ruleContext.attributes().get("use_launcher", Type.BOOLEAN)) {
-      return null;
-    }
-    // BUILD rule "launcher" attribute
-    if (ruleContext.getRule().isAttrDefined("launcher", BuildType.LABEL)
-        && ruleContext.attributes().get("launcher", BuildType.LABEL) != null) {
-      return "launcher";
-    }
-    // Blaze flag --java_launcher
-    JavaConfiguration javaConfig = ruleContext.getFragment(JavaConfiguration.class);
-    if (ruleContext.getRule().isAttrDefined(":java_launcher", BuildType.LABEL)
-        && javaConfig.getJavaLauncherLabel() != null) {
-      return ":java_launcher";
-    }
-    return null;
+  public static ImmutableList<String> tokenizeJavaOptions(NestedSet<String> inOpts) {
+    return tokenizeJavaOptions(inOpts.toList().reverse());
   }
 
   /**
    * Javac options require special processing - People use them and expect the options to be
    * tokenized.
    */
-  public static List<String> tokenizeJavaOptions(Iterable<String> inOpts) {
+  public static ImmutableList<String> tokenizeJavaOptions(Iterable<String> inOpts) {
     // Ideally, this would be in the options parser. Unfortunately,
     // the options parser can't handle a converter that expands
     // from a value X into a List<X> and allow-multiple at the
@@ -105,7 +72,26 @@ public abstract class JavaHelper {
         result.add(current);
       }
     }
-    return result;
+    return ImmutableList.copyOf(result);
+  }
+
+  /**
+   * De-tokenizes a collection of {@code javac} options into a {@link NestedSet}.
+   *
+   * <p>Each option is shell-escaped to get back the original option as-is when we tokenize the
+   * depset.
+   *
+   * @param javacOpts the {@code javac} options to detokenize
+   * @return A {@link NestedSet} of the supplied options concatenated into a single string separated
+   *     by ' '.
+   */
+  public static NestedSet<String> detokenizeJavaOptions(Collection<String> javacOpts) {
+    if (javacOpts.isEmpty()) {
+      return NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
+    }
+    return NestedSetBuilder.create(
+        Order.NAIVE_LINK_ORDER,
+        javacOpts.stream().map(ShellUtils::shellEscape).collect(joining(" ")));
   }
 
   public static PathFragment getJavaResourcePath(

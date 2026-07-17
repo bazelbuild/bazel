@@ -17,39 +17,52 @@ import static com.google.devtools.build.lib.skyframe.ArtifactConflictFinder.ACTI
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
+import com.google.devtools.build.lib.actions.ActionConflictException;
+import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.skyframe.ArtifactConflictFinder.ConflictException;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheReaderDepsProvider;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.util.Set;
+import java.util.function.Supplier;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
 /** Check all transitive actions of an {@link ActionLookupValue} for action conflicts. */
 public class ActionLookupConflictFindingFunction implements SkyFunction {
-  ActionLookupConflictFindingFunction() {}
+  private final Supplier<RemoteAnalysisCacheReaderDepsProvider> cachingDependenciesSupplier;
+
+  public ActionLookupConflictFindingFunction(
+      Supplier<RemoteAnalysisCacheReaderDepsProvider> cachingDependenciesSupplier) {
+    this.cachingDependenciesSupplier = cachingDependenciesSupplier;
+  }
 
   @Nullable
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws SkyFunctionException, InterruptedException {
-    ImmutableMap<ActionAnalysisMetadata, ConflictException> actionConflicts =
+    ImmutableMap<ActionAnalysisMetadata, ActionConflictException> actionConflicts =
         ACTION_CONFLICTS.get(env);
-    ActionLookupValue alValue =
-        (ActionLookupValue)
-            env.getValue(((ActionLookupConflictFindingValue.Key) skyKey).argument());
+    ActionLookupKey lookupKey = ((ActionLookupConflictFindingValue.Key) skyKey).argument();
+    ActionLookupValue alValue = (ActionLookupValue) env.getValue(lookupKey);
     if (env.valuesMissing()) {
-      BugReport.sendBugReport(
-          new IllegalStateException(
-              "b/147589880: unexpected missing action lookup value during action conflict finding: "
-                  + skyKey));
+      if (!lookupKey.equals(CoverageReportValue.COVERAGE_REPORT_KEY)
+          // When remote retrieval is enabled, the analysis graph might be pruned, so missing action
+          // lookup values are expected.
+          && !cachingDependenciesSupplier.get().mode().isRetrievalEnabled()) {
+        BugReport.sendNonFatalBugReport(
+            new IllegalStateException(
+                "Unexpected missing action lookup value during action conflict finding: "
+                    + skyKey));
+      }
       return null;
     }
 
@@ -63,8 +76,16 @@ public class ActionLookupConflictFindingFunction implements SkyFunction {
     // Avoid silly cycles.
     depKeys.remove(skyKey);
 
-    env.getValues(depKeys);
-    return env.valuesMissing() ? null : ActionLookupConflictFindingValue.INSTANCE;
+    SkyframeLookupResult result = env.getValuesAndExceptions(depKeys);
+    if (env.valuesMissing()) {
+      return null;
+    }
+    for (SkyKey key : depKeys) {
+      if (result.get(key) == null) {
+        return null;
+      }
+    }
+    return ActionLookupConflictFindingValue.INSTANCE;
   }
 
   static Stream<ActionLookupConflictFindingValue.Key> convertArtifacts(
@@ -81,7 +102,7 @@ public class ActionLookupConflictFindingFunction implements SkyFunction {
   }
 
   static class ActionConflictFunctionException extends SkyFunctionException {
-    ActionConflictFunctionException(ConflictException e) {
+    ActionConflictFunctionException(ActionConflictException e) {
       super(e, Transience.PERSISTENT);
     }
   }

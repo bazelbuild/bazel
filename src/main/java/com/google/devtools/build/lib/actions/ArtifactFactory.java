@@ -13,23 +13,30 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
-import com.google.common.annotations.VisibleForTesting;
+import static java.util.Comparator.comparing;
+
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.function.BiFunction;
 import javax.annotation.Nullable;
 
 /** A cache of Artifacts, keyed by Path. */
@@ -41,9 +48,7 @@ public class ArtifactFactory implements ArtifactResolver {
   private final PathFragment derivedPathPrefix;
   private boolean siblingRepositoryLayout = false;
 
-  /**
-   * Cache of source artifacts.
-   */
+  /** Cache of source artifacts. */
   private final SourceArtifactCache sourceArtifactCache = new SourceArtifactCache();
 
   /**
@@ -54,41 +59,109 @@ public class ArtifactFactory implements ArtifactResolver {
 
   private static class SourceArtifactCache {
 
-    private class Entry {
-      private final SourceArtifact artifact;
-      private final int idOfBuild;
-
-      Entry(SourceArtifact artifact) {
-        this.artifact = artifact;
-        idOfBuild = buildId;
-      }
-
-      SourceArtifact getArtifact() {
-        return artifact;
-      }
-
-      boolean isArtifactValid() {
-        return idOfBuild == buildId;
+    private record Entry(SourceArtifact artifact, int buildId) {
+      boolean isInvalid(int currentBuildId) {
+        return buildId != currentBuildId;
       }
     }
-
-    private static final int CONCURRENCY_LEVEL = Runtime.getRuntime().availableProcessors();
 
     /**
      * The main Path to source artifact cache. There will always be exactly one canonical artifact
      * for a given source path.
+     *
+     * <p>Since some use cases require case-insensitive lookups, the map uses a case-insensitive key
+     * lookup. A ConcurrentSkipListMap supports this without a PathFragment wrapper, which saves
+     * memory. The corresponding value is either a single Entry, or a list of Entry objects if there
+     * are multiple artifacts with case-insensitively equivalent paths. This structure is heavily
+     * optimized for the common case of a single artifact per case-insensitive equivalence class and
+     * may perform poorly if there are many artifacts with case-insensitively equivalent paths.
      */
-    private final ConcurrentMap<PathFragment, Entry> pathToSourceArtifact =
-        new ConcurrentHashMap<>(16, 0.75f, CONCURRENCY_LEVEL);
+    private final ConcurrentMap<PathFragment, Object /* Entry | CopyOnWriteArrayList<Entry> */>
+        pathToSourceArtifact =
+            new ConcurrentSkipListMap<>(
+                comparing(
+                    pathFragment -> StringEncoding.internalToUnicode(pathFragment.getPathString()),
+                    String.CASE_INSENSITIVE_ORDER));
 
     /** Id of current build. Has to be increased every time before analysis starts. */
     private int buildId = -1;
 
+    @Nullable
+    private Entry unwrapCacheObject(PathFragment execPath, Object cacheObject) {
+      return switch (cacheObject) {
+        case null -> null;
+        case Entry entry -> entry.artifact().getExecPath().equals(execPath) ? entry : null;
+        case CopyOnWriteArrayList<?> entries -> {
+          for (Object entryObject : entries) {
+            var entry = (Entry) entryObject;
+            if (entry.artifact().getExecPath().equals(execPath)) {
+              yield entry;
+            }
+          }
+          yield null;
+        }
+        default ->
+            throw new IllegalStateException(
+                "Unexpected cache object type: %s, value: %s"
+                    .formatted(cacheObject.getClass(), cacheObject));
+      };
+    }
+
+    @Nullable
+    private Entry getEntry(PathFragment execPath) {
+      return unwrapCacheObject(execPath, pathToSourceArtifact.get(execPath));
+    }
+
+    private Entry computeEntry(
+        PathFragment execPath, BiFunction<PathFragment, Entry, Entry> computeFunction) {
+      return unwrapCacheObject(
+          execPath, pathToSourceArtifact.compute(execPath, liftToCacheObject(computeFunction)));
+    }
+
+    @SuppressWarnings("unchecked")
+    private static BiFunction<PathFragment, Object, Object> liftToCacheObject(
+        BiFunction<PathFragment, Entry, Entry> computeFunction) {
+      return (execPath, cacheObject) ->
+          switch (cacheObject) {
+            // No entry for this case-insensitive path, thus also not for this exact casing.
+            case null -> computeFunction.apply(execPath, null);
+            // The lookup was case-insensitive, so the single cache entry may not be valid
+            // for this exact casing. If it isn't, switch to a list.
+            case Entry entry ->
+                entry.artifact().getExecPath().equals(execPath)
+                    ? computeFunction.apply(execPath, entry)
+                    : new CopyOnWriteArrayList<>(
+                        new Entry[] {entry, computeFunction.apply(execPath, null)});
+            case CopyOnWriteArrayList<?> rawEntries -> {
+              var entries = (CopyOnWriteArrayList<Entry>) rawEntries;
+              for (int i = 0; i < entries.size(); i++) {
+                // Update the existing entry for this exact casing if it exists.
+                Entry entry = entries.get(i);
+                if (entry.artifact().getExecPath().equals(execPath)) {
+                  Entry newEntry = computeFunction.apply(execPath, entry);
+                  if (newEntry != entry) {
+                    entries.set(i, newEntry);
+                  }
+                  yield entries;
+                }
+              }
+              // No entry for this exact casing, add a new one.
+              entries.add(computeFunction.apply(execPath, null));
+              yield entries;
+            }
+            default ->
+                throw new IllegalStateException(
+                    "Unexpected cache object type: %s, value: %s"
+                        .formatted(cacheObject.getClass(), cacheObject));
+          };
+    }
+
     /** Returns artifact if it present in the cache, otherwise null. */
+    @Nullable
     @ThreadSafe
     SourceArtifact getArtifact(PathFragment execPath) {
-      Entry cacheEntry = pathToSourceArtifact.get(execPath);
-      return cacheEntry == null ? null : cacheEntry.getArtifact();
+      Entry cacheEntry = getEntry(execPath);
+      return cacheEntry == null ? null : cacheEntry.artifact();
     }
 
     /**
@@ -98,12 +171,62 @@ public class ArtifactFactory implements ArtifactResolver {
      * {@link #findSourceRoot}) may disagree. In that case, the artifact will be valid, but unusable
      * by any action (since no action has properly declared it as an input).
      */
+    @Nullable
     @ThreadSafe
-    Artifact getArtifactIfValid(PathFragment execPath) {
-      Entry cacheEntry = pathToSourceArtifact.get(execPath);
-      return (cacheEntry == null || !cacheEntry.isArtifactValid())
-          ? null
-          : cacheEntry.getArtifact();
+    SourceArtifact getArtifactIfValid(PathFragment execPath) {
+      Entry cacheEntry = getEntry(execPath);
+      return (cacheEntry == null || cacheEntry.isInvalid(buildId)) ? null : cacheEntry.artifact();
+    }
+
+    /**
+     * Returns all entries with case-insensitively equivalent exec paths. The returned list contains
+     * the raw cache entries, which may or may not be valid for the current build.
+     */
+    @SuppressWarnings("unchecked")
+    @ThreadSafe
+    private ImmutableList<Entry> getEntriesWithAsciiCaseInsensitivePath(PathFragment execPath) {
+      Object cacheObject = pathToSourceArtifact.get(execPath);
+      return switch (cacheObject) {
+        case null -> ImmutableList.of();
+        case Entry entry -> ImmutableList.of(entry);
+        case CopyOnWriteArrayList<?> entries ->
+            ImmutableList.copyOf((CopyOnWriteArrayList<Entry>) entries);
+        default ->
+            throw new IllegalStateException(
+                "Unexpected cache object type: %s, value: %s"
+                    .formatted(cacheObject.getClass(), cacheObject));
+      };
+    }
+
+    /**
+     * Returns a list of artifacts with case-insensitively equivalent exec paths that are present in
+     * the cache and have been verified to be valid for this build. Note that if the artifacts'
+     * packages are not part of the current build, our differing methods of validating source roots
+     * (via {@link PackageRootResolver} and via {@link #findSourceRoot}) may disagree. In that case,
+     * the artifacts will be valid, but unusable by any action (since no action has properly
+     * declared them as inputs).
+     */
+    @ThreadSafe
+    private ImmutableList<SourceArtifact> getValidArtifactsWithAsciiCaseInsensitivePath(
+        PathFragment execPath) {
+      return getEntriesWithAsciiCaseInsensitivePath(execPath).stream()
+          .filter(entry -> !entry.isInvalid(buildId))
+          .map(Entry::artifact)
+          .collect(ImmutableList.toImmutableList());
+    }
+
+    /**
+     * Returns a list of all artifacts with case-insensitively equivalent exec paths that are
+     * present in the cache, regardless of whether they have been verified to be valid for this
+     * build. This is used to find stale artifacts from previous builds that can be revalidated
+     * using their original (correct-casing) exec paths.
+     */
+    @ThreadSafe
+    ImmutableList<SourceArtifact> getAllArtifactsWithAsciiCaseInsensitivePath(
+        PathFragment execPath) {
+      return getEntriesWithAsciiCaseInsensitivePath(execPath).stream()
+          .map(Entry::artifact)
+          .collect(ImmutableList.toImmutableList());
     }
 
     void newBuild() {
@@ -130,9 +253,7 @@ public class ArtifactFactory implements ArtifactResolver {
     this.derivedPathPrefix = PathFragment.create(derivedPathPrefix);
   }
 
-  /**
-   * Clear the cache.
-   */
+  /** Clear the cache. */
   public synchronized void clear() {
     packageRoots = null;
     sourceArtifactCache.clear();
@@ -157,22 +278,26 @@ public class ArtifactFactory implements ArtifactResolver {
   }
 
   @Override
+  public SourceArtifact getSourceArtifact(PathFragment execPath, Root root) {
+    return getSourceArtifact(execPath, root, ArtifactOwner.NULL_OWNER);
+  }
+
+  @Override
   public SourceArtifact getSourceArtifact(PathFragment execPath, Root root, ArtifactOwner owner) {
-    Preconditions.checkArgument(
-        execPath.isAbsolute() == root.isAbsolute(), "%s %s %s", execPath, root, owner);
-    Preconditions.checkNotNull(owner, "%s %s", execPath, root);
     // TODO(jungjw): Come up with a more reliable way to distinguish external source roots.
     ArtifactRoot artifactRoot =
         root.asPath() != null && root.asPath().startsWith(externalSourceBase)
             ? ArtifactRoot.asExternalSourceRoot(root)
             : ArtifactRoot.asSourceRoot(root);
-    return (SourceArtifact)
-        getArtifact(artifactRoot, execPath, owner, null, /*contentBasedPath=*/ false);
+    return getSourceArtifact(execPath, artifactRoot, owner);
   }
 
-  @Override
-  public SourceArtifact getSourceArtifact(PathFragment execPath, Root root) {
-    return getSourceArtifact(execPath, root, ArtifactOwner.NULL_OWNER);
+  public SourceArtifact getSourceArtifact(
+      PathFragment execPath, ArtifactRoot root, ArtifactOwner owner) {
+    Preconditions.checkArgument(
+        execPath.isAbsolute() == root.getRoot().isAbsolute(), "%s %s %s", execPath, root, owner);
+    Preconditions.checkNotNull(owner, "%s %s", execPath, root);
+    return (SourceArtifact) getArtifact(root, execPath, owner, /* type= */ null);
   }
 
   private void validatePath(PathFragment rootRelativePath, ArtifactRoot root) {
@@ -195,7 +320,7 @@ public class ArtifactFactory implements ArtifactResolver {
         execRootParent,
         root);
     // TODO(bazel-team): this should only accept roots from derivedRoots.
-    //Preconditions.checkArgument(derivedRoots.contains(root), "%s not in %s", root, derivedRoots);
+    // Preconditions.checkArgument(derivedRoots.contains(root), "%s not in %s", root, derivedRoots);
   }
 
   /**
@@ -208,23 +333,9 @@ public class ArtifactFactory implements ArtifactResolver {
   // TODO(bazel-team): Don't allow root == execRootParent.
   public Artifact.DerivedArtifact getDerivedArtifact(
       PathFragment rootRelativePath, ArtifactRoot root, ArtifactOwner owner) {
-    return getDerivedArtifact(rootRelativePath, root, owner, /*contentBasedPath=*/ false);
-  }
-
-  /**
-   * Same as {@link #getDerivedArtifact(PathFragment, ArtifactRoot, ArtifactOwner)} but includes the
-   * option to use a content-based path for this artifact (see {@link
-   * com.google.devtools.build.lib.analysis.config.BuildConfiguration#useContentBasedOutputPaths}).
-   */
-  public Artifact.DerivedArtifact getDerivedArtifact(
-      PathFragment rootRelativePath,
-      ArtifactRoot root,
-      ArtifactOwner owner,
-      boolean contentBasedPath) {
     validatePath(rootRelativePath, root);
     return (Artifact.DerivedArtifact)
-        getArtifact(
-            root, root.getExecPath().getRelative(rootRelativePath), owner, null, contentBasedPath);
+        getArtifact(root, root.getExecPath().getRelative(rootRelativePath), owner, null);
   }
 
   /**
@@ -243,8 +354,18 @@ public class ArtifactFactory implements ArtifactResolver {
             root,
             root.getExecPath().getRelative(rootRelativePath),
             owner,
-            SpecialArtifactType.FILESET,
-            /*contentBasedPath=*/ false);
+            SpecialArtifactType.FILESET);
+  }
+
+  public Artifact.DerivedArtifact getRunfilesArtifact(
+      PathFragment rootRelativePath, ArtifactRoot root, ArtifactOwner owner) {
+    validatePath(rootRelativePath, root);
+    return (Artifact.DerivedArtifact)
+        getArtifact(
+            root,
+            root.getExecPath().getRelative(rootRelativePath),
+            owner,
+            SpecialArtifactType.RUNFILES);
   }
 
   /**
@@ -262,8 +383,7 @@ public class ArtifactFactory implements ArtifactResolver {
             root,
             root.getExecPath().getRelative(rootRelativePath),
             owner,
-            SpecialArtifactType.TREE,
-            /*contentBasedPath=*/ false);
+            SpecialArtifactType.TREE);
   }
 
   /**
@@ -281,8 +401,7 @@ public class ArtifactFactory implements ArtifactResolver {
             root,
             root.getExecPath().getRelative(rootRelativePath),
             owner,
-            SpecialArtifactType.UNRESOLVED_SYMLINK,
-            /*contentBasedPath=*/ false);
+            SpecialArtifactType.UNRESOLVED_SYMLINK);
   }
 
   public Artifact.DerivedArtifact getConstantMetadataArtifact(
@@ -293,8 +412,7 @@ public class ArtifactFactory implements ArtifactResolver {
             root,
             root.getExecPath().getRelative(rootRelativePath),
             owner,
-            SpecialArtifactType.CONSTANT_METADATA,
-            /*contentBasedPath=*/ false);
+            SpecialArtifactType.CONSTANT_METADATA);
   }
 
   /**
@@ -305,13 +423,12 @@ public class ArtifactFactory implements ArtifactResolver {
       ArtifactRoot root,
       PathFragment execPath,
       ArtifactOwner owner,
-      @Nullable SpecialArtifactType type,
-      boolean contentBasedPath) {
+      @Nullable SpecialArtifactType type) {
     Preconditions.checkNotNull(root);
     Preconditions.checkNotNull(execPath);
 
     if (!root.isSourceRoot()) {
-      return createArtifact(root, execPath, owner, type, contentBasedPath);
+      return createArtifact(root, execPath, owner, type);
     }
 
     // Double-checked locking to avoid locking cost when possible.
@@ -320,39 +437,52 @@ public class ArtifactFactory implements ArtifactResolver {
       return firstArtifact;
     }
     SourceArtifactCache.Entry newEntry =
-        sourceArtifactCache.pathToSourceArtifact.compute(
+        sourceArtifactCache.computeEntry(
             execPath,
             (k, entry) -> {
               if (entry == null
-                  || entry.getArtifact() == null
-                  || entry.getArtifact().differentOwnerOrRoot(owner, root)) {
+                  || entry.artifact() == null
+                  || entry.artifact().differentOwnerOrRoot(owner, root)) {
                 // There really should be a safety net that makes it impossible to create two
                 // Artifacts with the same exec path but a different Owner, but we also need to
                 // reuse Artifacts from previous builds.
-                return sourceArtifactCache
-                .new Entry(
-                    (SourceArtifact)
-                        createArtifact(root, execPath, owner, type, /*contentBasedPath=*/ false));
+                return new SourceArtifactCache.Entry(
+                    (SourceArtifact) createArtifact(root, execPath, owner, type),
+                    sourceArtifactCache.buildId);
               }
               return entry;
             });
-    return newEntry.getArtifact();
+    return newEntry.artifact();
   }
 
-  private Artifact createArtifact(
+  private static Artifact createArtifact(
       ArtifactRoot root,
       PathFragment execPath,
       ArtifactOwner owner,
-      @Nullable SpecialArtifactType type,
-      boolean contentBasedPath) {
+      @Nullable SpecialArtifactType type) {
     Preconditions.checkNotNull(owner);
     if (type == null) {
       return root.isSourceRoot()
           ? new Artifact.SourceArtifact(root, execPath, owner)
-          : new Artifact.DerivedArtifact(root, execPath, (ActionLookupKey) owner, contentBasedPath);
+          : DerivedArtifact.create(root, execPath, (ActionLookupKey) owner);
     } else {
-      return new Artifact.SpecialArtifact(root, execPath, (ActionLookupKey) owner, type);
+      return SpecialArtifact.create(root, execPath, (ActionLookupKey) owner, type);
     }
+  }
+
+  private boolean isDefinitelyNotSourceExecPath(PathFragment execPath) {
+    // Source exec paths cannot escape the source root.
+    if (siblingRepositoryLayout) {
+      // The exec path may start with .. if using --experimental_sibling_repository_layout, so test
+      // the subfragment from index 1 onwards.
+      if (execPath.subFragment(1).containsUplevelReferences()) {
+        return true;
+      }
+    } else if (execPath.containsUplevelReferences()) {
+      return true;
+    }
+
+    return false;
   }
 
   /**
@@ -366,8 +496,9 @@ public class ArtifactFactory implements ArtifactResolver {
    * no matching artifact in {@link #sourceArtifactCache} initially, but when it goes to create it,
    * does find it there, but that is a benign race.
    */
+  @Nullable
   @ThreadSafe
-  public Artifact resolveSourceArtifactWithAncestor(
+  public SourceArtifact resolveSourceArtifactWithAncestor(
       PathFragment relativePath,
       PathFragment baseExecPath,
       ArtifactRoot baseRoot,
@@ -383,14 +514,7 @@ public class ArtifactFactory implements ArtifactResolver {
     PathFragment execPath =
         baseExecPath != null ? baseExecPath.getRelative(relativePath) : relativePath;
 
-    // Source exec paths cannot escape the source root.
-    if (siblingRepositoryLayout) {
-      // The exec path may start with .. if using --experimental_sibling_repository_layout, so test
-      // the subfragment from index 1 onwards.
-      if (execPath.subFragment(1).containsUplevelReferences()) {
-        return null;
-      }
-    } else if (execPath.containsUplevelReferences()) {
+    if (isDefinitelyNotSourceExecPath(execPath)) {
       return null;
     }
 
@@ -398,7 +522,7 @@ public class ArtifactFactory implements ArtifactResolver {
     if (isDerivedArtifact(execPath)) {
       return null;
     }
-    Artifact artifact = sourceArtifactCache.getArtifactIfValid(execPath);
+    SourceArtifact artifact = sourceArtifactCache.getArtifactIfValid(execPath);
     if (artifact != null) {
       return artifact;
     }
@@ -443,21 +567,68 @@ public class ArtifactFactory implements ArtifactResolver {
   }
 
   @Override
-  public Artifact resolveSourceArtifact(PathFragment execPath,
-      @SuppressWarnings("unused") RepositoryName repositoryName) {
+  public SourceArtifact resolveSourceArtifact(
+      PathFragment execPath, RepositoryName repositoryName) {
     return resolveSourceArtifactWithAncestor(execPath, null, null, repositoryName);
   }
 
   @Override
-  public Map<PathFragment, Artifact> resolveSourceArtifacts(
+  public ImmutableList<SourceArtifact> resolveSourceArtifactsAsciiCaseInsensitively(
+      PathFragment execPath, RepositoryName repositoryName) {
+    if (isDefinitelyNotSourceExecPath(execPath)) {
+      return ImmutableList.of();
+    }
+
+    // Don't create an artifact if it's derived.
+    if (isDerivedArtifact(execPath)) {
+      return ImmutableList.of();
+    }
+    var artifacts = sourceArtifactCache.getValidArtifactsWithAsciiCaseInsensitivePath(execPath);
+    if (!artifacts.isEmpty()) {
+      return artifacts;
+    }
+    // The case-insensitive cache may have artifacts from a previous build that aren't valid yet.
+    // Try to revalidate them using their original (correct-casing) exec paths before falling back
+    // to creating a new artifact with the queried (potentially wrong-casing) exec path.
+    var staleArtifacts = sourceArtifactCache.getAllArtifactsWithAsciiCaseInsensitivePath(execPath);
+    if (!staleArtifacts.isEmpty()) {
+      var revalidated = ImmutableList.<SourceArtifact>builder();
+      for (SourceArtifact stale : staleArtifacts) {
+        Root sourceRoot =
+            findSourceRoot(
+                stale.getExecPath(),
+                /* baseExecPath= */ null,
+                /* baseRoot= */ null,
+                repositoryName);
+        SourceArtifact valid = createArtifactIfNotValid(sourceRoot, stale.getExecPath());
+        if (valid != null) {
+          revalidated.add(valid);
+        }
+      }
+      var result = revalidated.build();
+      if (!result.isEmpty()) {
+        return result;
+      }
+    }
+    Root sourceRoot =
+        findSourceRoot(execPath, /* baseExecPath= */ null, /* baseRoot= */ null, repositoryName);
+    SourceArtifact newArtifact = createArtifactIfNotValid(sourceRoot, execPath);
+    if (newArtifact == null) {
+      return ImmutableList.of();
+    }
+    return ImmutableList.of(newArtifact);
+  }
+
+  @Nullable
+  @Override
+  public Map<PathFragment, SourceArtifact> resolveSourceArtifacts(
       Iterable<PathFragment> execPaths, PackageRootResolver resolver)
       throws PackageRootResolver.PackageRootException, InterruptedException {
-    Map<PathFragment, Artifact> result = new HashMap<>();
+    Map<PathFragment, SourceArtifact> result = new HashMap<>();
     ArrayList<PathFragment> unresolvedPaths = new ArrayList<>();
 
     for (PathFragment execPath : execPaths) {
-      if (execPath.containsUplevelReferences()) {
-        // Source exec paths cannot escape the source root.
+      if (isDefinitelyNotSourceExecPath(execPath)) {
         result.put(execPath, null);
         continue;
       }
@@ -465,7 +636,7 @@ public class ArtifactFactory implements ArtifactResolver {
         result.put(execPath, null);
       } else {
         // First try a quick map lookup to see if the artifact already exists.
-        Artifact a = sourceArtifactCache.getArtifactIfValid(execPath);
+        SourceArtifact a = sourceArtifactCache.getArtifactIfValid(execPath);
         if (a != null) {
           result.put(execPath, a);
         } else {
@@ -489,38 +660,57 @@ public class ArtifactFactory implements ArtifactResolver {
   public Path getPathFromSourceExecPath(Path execRoot, PathFragment execPath) {
     Preconditions.checkState(
         !execPath.startsWith(derivedPathPrefix), "%s is derived: %s", execPath, derivedPathPrefix);
+
+    Pair<RepositoryName, PathFragment> repo =
+        RepositoryName.fromPathFragment(execPath, siblingRepositoryLayout);
+    RepositoryName repositoryName = RepositoryName.MAIN;
+    PathFragment repositoryRelativePath = execPath;
+    if (repo != null) {
+      repositoryName = repo.getFirst();
+      repositoryRelativePath = repo.getSecond();
+    }
+
     Root sourceRoot =
-        packageRoots.getRootForPackage(PackageIdentifier.create(RepositoryName.MAIN, execPath));
+        packageRoots.getRootForPackage(
+            PackageIdentifier.create(repositoryName, repositoryRelativePath));
+    if (sourceRoot == null) {
+      sourceRoot =
+          findSourceRoot(
+              execPath, /* baseExecPath= */ null, /* baseRoot= */ null, RepositoryName.MAIN);
+    }
+
     if (sourceRoot != null) {
-      return sourceRoot.getRelative(execPath);
+      return sourceRoot.getRelative(repositoryRelativePath);
     }
     return execRoot.getRelative(execPath);
   }
 
+  @Nullable
   @ThreadSafe
-  private Artifact createArtifactIfNotValid(Root sourceRoot, PathFragment execPath) {
+  private SourceArtifact createArtifactIfNotValid(Root sourceRoot, PathFragment execPath) {
     if (sourceRoot == null) {
-      return null;  // not a path that we can find...
+      return null; // not a path that we can find...
     }
-    Artifact artifact = sourceArtifactCache.getArtifact(execPath);
+    SourceArtifact artifact = sourceArtifactCache.getArtifact(execPath);
     if (artifact != null && sourceRoot.equals(artifact.getRoot().getRoot())) {
       // Source root of existing artifact hasn't changed so we should mark corresponding entry in
       // the cache as valid.
-      sourceArtifactCache.pathToSourceArtifact.compute(
-          execPath,
-          (k, cacheEntry) -> {
-            SourceArtifact validArtifact = cacheEntry.getArtifact();
-            if (!cacheEntry.isArtifactValid()) {
-              // Wasn't previously known to be valid.
-              return sourceArtifactCache.new Entry(validArtifact);
-            }
-            Preconditions.checkState(
-                artifact.equals(validArtifact),
-                "Mismatched artifacts: %s %s",
-                artifact,
-                validArtifact);
-            return cacheEntry;
-          });
+      var unused =
+          sourceArtifactCache.computeEntry(
+              execPath,
+              (k, cacheEntry) -> {
+                SourceArtifact validArtifact = cacheEntry.artifact();
+                if (cacheEntry.isInvalid(sourceArtifactCache.buildId)) {
+                  // Wasn't previously known to be valid.
+                  return new SourceArtifactCache.Entry(validArtifact, sourceArtifactCache.buildId);
+                }
+                Preconditions.checkState(
+                    artifact.equals(validArtifact),
+                    "Mismatched artifacts: %s %s",
+                    artifact,
+                    validArtifact);
+                return cacheEntry;
+              });
       return artifact;
     } else {
       // Must be a new artifact or artifact in the cache is stale, so create a new one.
@@ -528,14 +718,8 @@ public class ArtifactFactory implements ArtifactResolver {
     }
   }
 
-  /**
-   * Determines if an artifact is derived, that is, its root is a derived root or its exec path
-   * starts with the bazel-out prefix.
-   *
-   * @param execPath The artifact's exec path.
-   */
-  @VisibleForTesting // for our own unit tests only.
-  boolean isDerivedArtifact(PathFragment execPath) {
+  @Override
+  public boolean isDerivedArtifact(PathFragment execPath) {
     return execPath.startsWith(derivedPathPrefix);
   }
 }

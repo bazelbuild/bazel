@@ -15,92 +15,113 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.worker.WorkerKey;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
+import javax.annotation.Nullable;
 
 /**
  * Instances of this class represent an estimate of the resource consumption for a particular
  * Action, or the total available resources. We plan to use this to do smarter scheduling of
  * actions, for example making sure that we don't schedule jobs concurrently if they would use so
  * much memory as to cause the machine to thrash.
+ *
+ * @param resources Map of extra resources (for example: GPUs, embedded boards, ...) mapping name of
+ *     the resource to a value.
+ * @param localTestCount The number of local tests.
+ * @param workerKey The workerKey of used worker. Null if no worker is used.
  */
-@Immutable
 @AutoCodec
-public class ResourceSet {
+@Immutable
+public record ResourceSet(
+    ImmutableMap<String, Double> resources, int localTestCount, @Nullable WorkerKey workerKey)
+    implements ResourceSetOrBuilder {
+  public static final String CPU = "cpu";
+  public static final String MEMORY = "memory";
 
   /** For actions that consume negligible resources. */
-  public static final ResourceSet ZERO = new ResourceSet(0.0, 0.0, 0);
+  public static final ResourceSet ZERO = new ResourceSet(ImmutableMap.of(), 0, null);
 
-  /** The amount of real memory (resident set size). */
-  private final double memoryMb;
-
-  /** The number of CPUs, or fractions thereof. */
-  private final double cpuUsage;
-
-  /** The number of local tests. */
-  private final int localTestCount;
-
-  private ResourceSet(double memoryMb, double cpuUsage, int localTestCount) {
-    this.memoryMb = memoryMb;
-    this.cpuUsage = cpuUsage;
-    this.localTestCount = localTestCount;
+  public static ResourceSet createWithRamCpu(double memoryMb, double cpu) {
+    return create(ImmutableMap.of(MEMORY, memoryMb, CPU, cpu));
   }
 
-  /**
-   * Returns a new ResourceSet with the provided values for memoryMb and cpuUsage, and with 0.0 for
-   * ioUsage and localTestCount. Use this method in action resource definitions when they aren't
-   * local tests.
-   */
-  public static ResourceSet createWithRamCpu(double memoryMb, double cpuUsage) {
-    if (memoryMb == 0 && cpuUsage == 0) {
-      return ZERO;
-    }
-    return new ResourceSet(memoryMb, cpuUsage, 0);
-  }
-
-  /**
-   * Returns a new ResourceSet with the provided value for localTestCount, and 0.0 for memoryMb,
-   * cpuUsage, and ioUsage. Use this method in action resource definitions when they are local tests
-   * that acquire no local resources.
-   */
   public static ResourceSet createWithLocalTestCount(int localTestCount) {
-    return new ResourceSet(0.0, 0.0, localTestCount);
+    return create(ImmutableMap.of(), localTestCount);
   }
 
-  /**
-   * Returns a new ResourceSet with the provided values for memoryMb, cpuUsage, ioUsage, and
-   * localTestCount. Most action resource definitions should use {@link #createWithRamCpu} or
-   * {@link #createWithLocalTestCount(int)}. Use this method primarily when constructing
-   * ResourceSets that represent available resources.
-   */
-  @AutoCodec.Instantiator
+  public static ResourceSet create(double memoryMb, double cpu, int localTestCount) {
+    return create(ImmutableMap.of(MEMORY, memoryMb, CPU, cpu), localTestCount);
+  }
+
+  public static ResourceSet create(ImmutableMap<String, Double> resources) {
+    return create(resources, 0);
+  }
+
+  public static ResourceSet create(ImmutableMap<String, Double> resources, int localTestCount) {
+    return create(resources, localTestCount, null);
+  }
+
   public static ResourceSet create(
-      double memoryMb, double cpuUsage, int localTestCount) {
-    if (memoryMb == 0 && cpuUsage == 0 && localTestCount == 0) {
-      return ZERO;
-    }
-    return new ResourceSet(memoryMb, cpuUsage, localTestCount);
-  }
-
-  /** Returns the amount of real memory (resident set size) used in MB. */
-  public double getMemoryMb() {
-    return memoryMb;
+      ImmutableMap<String, Double> resources, int localTestCount, @Nullable WorkerKey workerKey) {
+    return new ResourceSet(resources, localTestCount, workerKey);
   }
 
   /**
-   * Returns the number of CPUs (or fractions thereof) used.
-   * For a CPU-bound single-threaded process, this will be 1.0.
-   * For a single-threaded process which spends part of its
-   * time waiting for I/O, this will be somewhere between 0.0 and 1.0.
-   * For a multi-threaded or multi-process application,
-   * this may be more than 1.0.
+   * Returns a new {@link ResourceSet} with the given overrides merged on top of this one's
+   * resources in order. Entries in later maps replace earlier ones and this set's resources; {@code
+   * localTestCount} and {@code workerKey} are preserved. Returns {@code this} if all override maps
+   * are empty.
    */
+  @SafeVarargs
+  public final ResourceSet withResourceOverrides(ImmutableMap<String, Double>... overrides) {
+    boolean anyNonEmpty = false;
+    for (ImmutableMap<String, Double> override : overrides) {
+      if (!override.isEmpty()) {
+        anyNonEmpty = true;
+        break;
+      }
+    }
+    if (!anyNonEmpty) {
+      return this;
+    }
+    ImmutableMap.Builder<String, Double> builder =
+        ImmutableMap.<String, Double>builderWithExpectedSize(resources.size()).putAll(resources);
+    for (ImmutableMap<String, Double> override : overrides) {
+      builder.putAll(override);
+    }
+    return create(builder.buildKeepingLast(), localTestCount, workerKey);
+  }
+
+  public double get(String resource) {
+    return resources.getOrDefault(resource, 0.0);
+  }
+
+  public double getMemoryMb() {
+    return get(MEMORY);
+  }
+
   public double getCpuUsage() {
-    return cpuUsage;
+    return get(CPU);
+  }
+
+  /**
+   * Returns the workerKey of worker.
+   *
+   * <p>If there is no worker requested, then returns null
+   */
+  public WorkerKey getWorkerKey() {
+    return workerKey;
+  }
+
+  public ImmutableMap<String, Double> getResources() {
+    return resources;
   }
 
   /** Returns the local test count used. */
@@ -111,12 +132,25 @@ public class ResourceSet {
   @Override
   public String toString() {
     return "Resources: \n"
-        + "Memory: " + memoryMb + "M\n"
-        + "CPU: " + cpuUsage + "\n"
-        + "Local tests: " + localTestCount + "\n";
+        + "Memory: "
+        + resources.get(MEMORY)
+        + "M\n"
+        + "CPU: "
+        + resources.get(CPU)
+        + "\n"
+        + resources.entrySet().stream()
+            .filter(e -> !e.getKey().equals(CPU) && !e.getKey().equals(MEMORY))
+            .collect(
+                StringBuilder::new,
+                (a, e) -> a.append(e.getKey()).append(": ").append(e.getValue()).append("\n"),
+                StringBuilder::append)
+        + "Local tests: "
+        + localTestCount
+        + "\n";
   }
 
-  public static class ResourceSetConverter implements Converter<ResourceSet> {
+  /** Converter for {@link ResourceSet}. */
+  public static class ResourceSetConverter extends Converter.Contextless<ResourceSet> {
     private static final Splitter SPLITTER = Splitter.on(',');
 
     @Override
@@ -146,6 +180,10 @@ public class ResourceSet {
       return "comma-separated available amount of RAM (in MB), CPU (in cores) and "
           + "available I/O (1.0 being average workstation)";
     }
+  }
 
+  @Override
+  public ResourceSet buildResourceSet(OS os, int inputsSize) {
+    return this;
   }
 }

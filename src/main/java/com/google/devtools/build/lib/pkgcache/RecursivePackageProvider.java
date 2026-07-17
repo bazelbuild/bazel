@@ -13,13 +13,17 @@
 // limitations under the License.
 package com.google.devtools.build.lib.pkgcache;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.cmdline.BatchCallback.SafeBatchCallback;
+import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.concurrent.BatchCallback;
-import com.google.devtools.build.lib.concurrent.ParallelVisitor.UnusedException;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.io.InconsistentFilesystemException;
+import com.google.devtools.build.lib.io.ProcessPackageDirectoryException;
+import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
@@ -28,18 +32,17 @@ import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import java.util.Map;
+import java.util.Set;
 
-/**
- * Support for resolving {@code package/...} target patterns.
- */
+/** Support for resolving {@code package/...} target patterns. */
 public interface RecursivePackageProvider extends PackageProvider {
 
   /**
    * Calls the supplied callback with the name of each package under a given directory, as soon as
    * that package is identified.
    *
-   * <p>Packages yielded by this method and passed into {@link #bulkGetPackages(Iterable)} are
-   * expected to return successful {@link Package} values.
+   * <p>Packages yielded by this method and passed into {@link #bulkGetPackages} are expected to
+   * return successful {@link Package} values.
    *
    * @param results callback invoked <em>from a single thread</em> for every eligible, loaded
    *     package as it is discovered
@@ -55,13 +58,16 @@ public interface RecursivePackageProvider extends PackageProvider {
    *     SkyKey}s that are created during the traversal, instead filtered out later
    */
   void streamPackagesUnderDirectory(
-      BatchCallback<PackageIdentifier, UnusedException> results,
+      SafeBatchCallback<PackageIdentifier> results,
       ExtendedEventHandler eventHandler,
       RepositoryName repository,
       PathFragment directory,
-      ImmutableSet<PathFragment> ignoredSubdirectories,
+      IgnoredSubdirectories ignoredSubdirectories,
       ImmutableSet<PathFragment> excludedSubdirectories)
-      throws InterruptedException, QueryException;
+      throws InterruptedException,
+          QueryException,
+          NoSuchPackageException,
+          ProcessPackageDirectoryException;
 
   /**
    * Returns the {@link Package} corresponding to each Package in "pkgIds". If any of the packages
@@ -76,11 +82,35 @@ public interface RecursivePackageProvider extends PackageProvider {
    * @throws NoSuchPackageException if any package could not be found.
    * @throws InterruptedException if the package loading was interrupted.
    */
-  Map<PackageIdentifier, Package> bulkGetPackages(Iterable<PackageIdentifier> pkgIds)
-      throws NoSuchPackageException, InterruptedException;
+  default Map<PackageIdentifier, Package> bulkGetPackages(
+      ExtendedEventHandler eventHandler, Iterable<PackageIdentifier> pkgIds)
+      throws NoSuchPackageException, InterruptedException {
+    ImmutableMap.Builder<PackageIdentifier, Package> builder = ImmutableMap.builder();
+    for (PackageIdentifier pkgId : pkgIds) {
+      builder.put(pkgId, getPackage(eventHandler, pkgId));
+    }
+    return builder.buildOrThrow();
+  }
 
   /**
-   * A {@link RecursivePackageProvider} in terms of a map of pre-fetched packages.
+   * Bulk variant of {@link #isPackage}. Given some {@code pkgIds}, returns the set of the {@link
+   * PackageIdentifier} for which there are existing packages.
+   */
+  default Set<PackageIdentifier> bulkIsPackage(
+      ExtendedEventHandler eventHandler, Iterable<PackageIdentifier> pkgIds)
+      throws InconsistentFilesystemException, InterruptedException {
+    ImmutableSet.Builder<PackageIdentifier> builder = ImmutableSet.builder();
+    for (PackageIdentifier pkgId : pkgIds) {
+      if (isPackage(eventHandler, pkgId)) {
+        builder.add(pkgId);
+      }
+    }
+    return builder.build();
+  }
+
+  /**
+   * A {@link RecursivePackageProvider} in terms of a map of pre-fetched, fully macro-expanded
+   * packages.
    *
    * <p>Note that this class implements neither {@link #streamPackagesUnderDirectory} nor {@link
    * #bulkGetPackages}, so it can only be used for use cases that do not call either of these
@@ -91,6 +121,8 @@ public interface RecursivePackageProvider extends PackageProvider {
    *
    * @see com.google.devtools.build.lib.cmdline.TargetPattern.Type
    */
+  // TODO(bazel-team): should we avoid forcing symbolic macro expansion, and use a backing map of
+  // packageoids-for-build-file instead?
   class PackageBackedRecursivePackageProvider implements RecursivePackageProvider {
     private final Map<PackageIdentifier, Package> packages;
 
@@ -109,6 +141,12 @@ public interface RecursivePackageProvider extends PackageProvider {
     }
 
     @Override
+    public InputFile getBuildFile(ExtendedEventHandler eventHandler, PackageIdentifier packageName)
+        throws NoSuchPackageException {
+      return getPackage(eventHandler, packageName).getBuildFile();
+    }
+
+    @Override
     public boolean isPackage(ExtendedEventHandler eventHandler, PackageIdentifier packageName) {
       return packages.containsKey(packageName);
     }
@@ -121,17 +159,12 @@ public interface RecursivePackageProvider extends PackageProvider {
 
     @Override
     public void streamPackagesUnderDirectory(
-        BatchCallback<PackageIdentifier, UnusedException> results,
+        SafeBatchCallback<PackageIdentifier> results,
         ExtendedEventHandler eventHandler,
         RepositoryName repository,
         PathFragment directory,
-        ImmutableSet<PathFragment> ignoredSubdirectories,
+        IgnoredSubdirectories ignoredSubdirectories,
         ImmutableSet<PathFragment> excludedSubdirectories) {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public Map<PackageIdentifier, Package> bulkGetPackages(Iterable<PackageIdentifier> pkgIds) {
       throw new UnsupportedOperationException();
     }
   }

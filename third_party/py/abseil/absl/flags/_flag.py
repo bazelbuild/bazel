@@ -18,10 +18,8 @@ Do NOT import this module directly. Import the flags package and use the
 aliases defined at the package level instead.
 """
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
+from collections import abc
+import copy
 import functools
 
 from absl.flags import _argument_parser
@@ -33,43 +31,45 @@ from absl.flags import _helpers
 class Flag(object):
   """Information about a command-line flag.
 
-  'Flag' objects define the following fields:
-    .name - the name for this flag;
-    .default - the default value for this flag;
-    .default_unparsed - the unparsed default value for this flag.
-    .default_as_str - default value as repr'd string, e.g., "'true'" (or None);
-    .value - the most recent parsed value of this flag; set by parse();
-    .help - a help string or None if no help is available;
-    .short_name - the single letter alias for this flag (or None);
-    .boolean - if 'true', this flag does not accept arguments;
-    .present - true if this flag was parsed from command line flags;
-    .parser - an ArgumentParser object;
-    .serializer - an ArgumentSerializer object;
-    .allow_override - the flag may be redefined without raising an error, and
-                      newly defined flag overrides the old one.
-    .allow_override_cpp - the flag may be redefined in C++ without raising an
-                          error, value "transferred" to C++, and the flag is
-                          replaced by the C++ flag after init;
-    .allow_hide_cpp - the flag may be redefined despite hiding a C++ flag with
-                      the same name;
-    .using_default_value - the flag value has not been set by user;
-    .allow_overwrite - the flag may be parsed more than once without raising
-                       an error, the last set value will be used;
-    .allow_using_method_names - whether this flag can be defined even if it has
-                                a name that conflicts with a FlagValues method.
+  Attributes:
+    name: the name for this flag
+    default: the default value for this flag
+    default_unparsed: the unparsed default value for this flag.
+    default_as_str: default value as repr'd string, e.g., "'true'"
+      (or None)
+    value: the most recent parsed value of this flag set by :meth:`parse`
+    help: a help string or None if no help is available
+    short_name: the single letter alias for this flag (or None)
+    boolean: if 'true', this flag does not accept arguments
+    present: true if this flag was parsed from command line flags
+    parser: an :class:`~absl.flags.ArgumentParser` object
+    serializer: an ArgumentSerializer object
+    allow_override: the flag may be redefined without raising an error,
+      and newly defined flag overrides the old one.
+    allow_override_cpp: use the flag from C++ if available the flag
+      definition is replaced by the C++ flag after init
+    allow_hide_cpp: use the Python flag despite having a C++ flag with
+      the same name (ignore the C++ flag)
+    using_default_value: the flag value has not been set by user
+    allow_overwrite: the flag may be parsed more than once without
+      raising an error, the last set value will be used
+    allow_using_method_names: whether this flag can be defined even if
+      it has a name that conflicts with a FlagValues method.
+    validators: list of the flag validators.
 
-  The only public method of a 'Flag' object is parse(), but it is
-  typically only called by a 'FlagValues' object.  The parse() method is
-  a thin wrapper around the 'ArgumentParser' parse() method.  The parsed
-  value is saved in .value, and the .present attribute is updated.  If
-  this flag was already present, an Error is raised.
+  The only public method of a ``Flag`` object is :meth:`parse`, but it is
+  typically only called by a :class:`~absl.flags.FlagValues` object.  The
+  :meth:`parse` method is a thin wrapper around the
+  :meth:`ArgumentParser.parse()<absl.flags.ArgumentParser.parse>` method.  The
+  parsed value is saved in ``.value``, and the ``.present`` attribute is
+  updated.  If this flag was already present, an Error is raised.
 
-  parse() is also called during __init__ to parse the default value and
-  initialize the .value attribute.  This enables other python modules to
-  safely use flags even if the __main__ module neglects to parse the
-  command line arguments.  The .present attribute is cleared after
-  __init__ parsing.  If the default value is set to None, then the
-  __init__ parsing step is skipped and the .value attribute is
+  :meth:`parse` is also called during ``__init__`` to parse the default value
+  and initialize the ``.value`` attribute.  This enables other python modules to
+  safely use flags even if the ``__main__`` module neglects to parse the
+  command line arguments.  The ``.present`` attribute is cleared after
+  ``__init__`` parsing.  If the default value is set to ``None``, then the
+  ``__init__`` parsing step is skipped and the ``.value`` attribute is
   initialized to None.
 
   Note: The default value is also presented to the user in the help
@@ -100,7 +100,7 @@ class Flag(object):
     self.using_default_value = True
     self._value = None
     self.validators = []
-    if allow_hide_cpp and allow_override_cpp:
+    if self.allow_hide_cpp and self.allow_override_cpp:
       raise _exceptions.Error(
           "Can't have both allow_hide_cpp (means use Python flag) and "
           'allow_override_cpp (means use C++ flag after InitGoogle)')
@@ -126,6 +126,22 @@ class Flag(object):
       return id(self) < id(other)
     return NotImplemented
 
+  def __bool__(self):
+    raise TypeError('A Flag instance would always be True. '
+                    'Did you mean to test the `.value` attribute?')
+
+  def __getstate__(self):
+    raise TypeError("can't pickle Flag objects")
+
+  def __copy__(self):
+    raise TypeError('%s does not support shallow copies. '
+                    'Use copy.deepcopy instead.' % type(self).__name__)
+
+  def __deepcopy__(self, memo):
+    result = object.__new__(type(self))
+    result.__dict__ = copy.deepcopy(self.__dict__, memo)
+    return result
+
   def _get_parsed_value_as_string(self, value):
     """Returns parsed flag value as string."""
     if value is None:
@@ -137,7 +153,7 @@ class Flag(object):
         return repr('true')
       else:
         return repr('false')
-    return repr(_helpers.str_or_unicode(value))
+    return repr(str(value))
 
   def parse(self, argument):
     """Parses string and sets flag value.
@@ -175,10 +191,15 @@ class Flag(object):
     self.present = 0
 
   def serialize(self):
-    if self.value is None:
+    """Serializes the flag."""
+    return self._serialize(self.value)
+
+  def _serialize(self, value):
+    """Internal serialize function."""
+    if value is None:
       return ''
     if self.boolean:
-      if self.value:
+      if value:
         return '--%s' % self.name
       else:
         return '--no%s' % self.name
@@ -186,7 +207,7 @@ class Flag(object):
       if not self.serializer:
         raise _exceptions.Error(
             'Serializer not present for flag %s' % self.name)
-      return '--%s=%s' % (self.name, self.serializer.serialize(self.value))
+      return '--%s=%s' % (self.name, self.serializer.serialize(value))
 
   def _set_default(self, value):
     """Changes the default value (and current value too) for this Flag."""
@@ -194,10 +215,15 @@ class Flag(object):
     if value is None:
       self.default = None
     else:
-      self.default = self._parse(value)
+      self.default = self._parse_from_default(value)
     self.default_as_str = self._get_parsed_value_as_string(self.default)
     if self.using_default_value:
       self.value = self.default
+
+  # This is split out so that aliases can skip regular parsing of the default
+  # value.
+  def _parse_from_default(self, value):
+    return self._parse(value)
 
   def flag_type(self):
     """Returns a str that describes the type of the flag.
@@ -250,14 +276,19 @@ class Flag(object):
       default_serialized = self.default
     element.appendChild(_helpers.create_xml_dom_element(
         doc, 'default', default_serialized))
+    value_serialized = self._serialize_value_for_xml(self.value)
     element.appendChild(_helpers.create_xml_dom_element(
-        doc, 'current', self.value))
+        doc, 'current', value_serialized))
     element.appendChild(_helpers.create_xml_dom_element(
         doc, 'type', self.flag_type()))
     # Adds extra flag features this flag may have.
     for e in self._extra_xml_dom_elements(doc):
       element.appendChild(e)
     return element
+
+  def _serialize_value_for_xml(self, value):
+    """Returns the serialized value, for use in an XML help text."""
+    return value
 
   def _extra_xml_dom_elements(self, doc):
     """Returns extra info about this flag in XML.
@@ -279,13 +310,13 @@ class BooleanFlag(Flag):
   """Basic boolean flag.
 
   Boolean flags do not take any arguments, and their value is either
-  True (1) or False (0).  The false value is specified on the command
-  line by prepending the word 'no' to either the long or the short flag
+  ``True`` (1) or ``False`` (0).  The false value is specified on the command
+  line by prepending the word ``'no'`` to either the long or the short flag
   name.
 
   For example, if a Boolean flag was created whose long name was
-  'update' and whose short name was 'x', then this flag could be
-  explicitly unset through either --noupdate or --nox.
+  ``'update'`` and whose short name was ``'x'``, then this flag could be
+  explicitly unset through either ``--noupdate`` or ``--nox``.
   """
 
   def __init__(self, name, default, help, short_name=None, **args):  # pylint: disable=redefined-builtin
@@ -313,6 +344,33 @@ class EnumFlag(Flag):
     return elements
 
 
+class EnumClassFlag(Flag):
+  """Basic enum flag; its value is an enum class's member."""
+
+  def __init__(
+      self,
+      name,
+      default,
+      help,  # pylint: disable=redefined-builtin
+      enum_class,
+      short_name=None,
+      case_sensitive=False,
+      **args):
+    p = _argument_parser.EnumClassParser(
+        enum_class, case_sensitive=case_sensitive)
+    g = _argument_parser.EnumClassSerializer(lowercase=not case_sensitive)
+    super(EnumClassFlag, self).__init__(
+        p, g, name, default, help, short_name, **args)
+    self.help = '<%s>: %s' % ('|'.join(p.member_names), self.help)
+
+  def _extra_xml_dom_elements(self, doc):
+    elements = []
+    for enum_value in self.parser.enum_class.__members__.keys():
+      elements.append(_helpers.create_xml_dom_element(
+          doc, 'enum_value', enum_value))
+    return elements
+
+
 class MultiFlag(Flag):
   """A flag that can appear multiple time on the command-line.
 
@@ -322,8 +380,8 @@ class MultiFlag(Flag):
   See the __doc__ for Flag for most behavior of this class.  Only
   differences in behavior are described here:
 
-    * The default value may be either a single value or a list of values.
-      A single value is interpreted as the [value] singleton list.
+    * The default value may be either a single value or an iterable of values.
+      A single value is transformed into a single-item list of that value.
 
     * The value of the flag is always a list, even if the option was
       only supplied once, and even if the default value is a single
@@ -350,6 +408,10 @@ class MultiFlag(Flag):
     self.present += len(new_values)
 
   def _parse(self, arguments):
+    if (isinstance(arguments, abc.Iterable) and
+        not isinstance(arguments, str)):
+      arguments = list(arguments)
+
     if not isinstance(arguments, list):
       # Default value may be a list of values.  Most other arguments
       # will not be, so convert them into a single-item list to make
@@ -358,25 +420,19 @@ class MultiFlag(Flag):
 
     return [super(MultiFlag, self)._parse(item) for item in arguments]
 
-  def serialize(self):
+  def _serialize(self, value):
     """See base class."""
     if not self.serializer:
       raise _exceptions.Error(
           'Serializer not present for flag %s' % self.name)
-    if self.value is None:
+    if value is None:
       return ''
 
-    s = ''
+    serialized_items = [
+        super(MultiFlag, self)._serialize(value_item) for value_item in value
+    ]
 
-    multi_value = self.value
-
-    for self.value in multi_value:
-      if s: s += ' '
-      s += Flag.serialize(self)
-
-    self.value = multi_value
-
-    return s
+    return '\n'.join(serialized_items)
 
   def flag_type(self):
     """See base class."""
@@ -389,3 +445,44 @@ class MultiFlag(Flag):
         elements.append(_helpers.create_xml_dom_element(
             doc, 'enum_value', enum_value))
     return elements
+
+
+class MultiEnumClassFlag(MultiFlag):
+  """A multi_enum_class flag.
+
+  See the __doc__ for MultiFlag for most behaviors of this class.  In addition,
+  this class knows how to handle enum.Enum instances as values for this flag
+  type.
+  """
+
+  def __init__(self,
+               name,
+               default,
+               help_string,
+               enum_class,
+               case_sensitive=False,
+               **args):
+    p = _argument_parser.EnumClassParser(
+        enum_class, case_sensitive=case_sensitive)
+    g = _argument_parser.EnumClassListSerializer(
+        list_sep=',', lowercase=not case_sensitive)
+    super(MultiEnumClassFlag, self).__init__(
+        p, g, name, default, help_string, **args)
+    self.help = (
+        '<%s>: %s;\n    repeat this option to specify a list of values' %
+        ('|'.join(p.member_names), help_string or '(no help available)'))
+
+  def _extra_xml_dom_elements(self, doc):
+    elements = []
+    for enum_value in self.parser.enum_class.__members__.keys():
+      elements.append(_helpers.create_xml_dom_element(
+          doc, 'enum_value', enum_value))
+    return elements
+
+  def _serialize_value_for_xml(self, value):
+    """See base class."""
+    if value is not None:
+      value_serialized = self.serializer.serialize(value)
+    else:
+      value_serialized = ''
+    return value_serialized

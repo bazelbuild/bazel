@@ -3,10 +3,12 @@ assert_eq("h i".split(" "), ["h", "i"])
 assert_eq("h i p".split(" "), ["h", "i", "p"])
 assert_eq("a,e,i,o,u".split(",", 2), ["a", "e", "i,o,u"])
 assert_eq("  1  2  3  ".split(" "), ["", "", "1", "", "2", "", "3", "", ""])
+assert_eq("a.b.c".split(sep=".", maxsplit=1), ["a", "b.c"])
 
 # rsplit
 assert_eq("abcdabef".rsplit("ab"), ["", "cd", "ef"])
 assert_eq("google_or_gogol".rsplit("go"), ["", "ogle_or_", "", "l"])
+assert_eq("a.b.c".rsplit(sep=".", maxsplit=1), ["a.b", "c"])
 
 assert_fails(lambda: "abc".rsplit(""), "Empty separator")
 

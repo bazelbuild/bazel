@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Copyright 2014 The Bazel Authors. All rights reserved.
 #
@@ -28,6 +28,10 @@ cd "$(dirname "$0")"
 # output unless there is a failure.  We do this conditionally to offer the user
 # a chance of overriding this in case they want to do so.
 : ${VERBOSE:=no}
+
+# Reset MSYS path conversion on Windows.
+unset MSYS_NO_PATHCONV
+unset MSYS2_ARG_CONV_EXCL
 
 source scripts/bootstrap/buildenv.sh
 
@@ -65,8 +69,8 @@ log "Building output/bazel"
 # host.
 bazel_build "src:bazel_nojdk${EXE_EXT}" \
   --action_env=PATH \
-  --host_platform=@local_config_platform//:host \
-  --platforms=@local_config_platform//:host \
+  --host_platform=@platforms//host \
+  --platforms=@platforms//host \
   || fail "Could not build Bazel"
 bazel_bin_path="$(get_bazel_bin_path)/src/bazel_nojdk${EXE_EXT}"
 [ -e "$bazel_bin_path" ] \

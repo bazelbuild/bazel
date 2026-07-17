@@ -11,27 +11,39 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+# WARNING:
+# https://github.com/bazelbuild/bazel/issues/17713
+# .bzl files in this package (tools/build_defs/repo) are evaluated
+# in a Starlark environment without "@_builtins" injection, and must not refer
+# to symbols associated with build/workspace .bzl files
+
 """Rules for cloning external git repositories."""
 
 load(
+    ":cache.bzl",
+    "CANONICAL_ID_DOC",
+    "DEFAULT_CANONICAL_ID_ENV",
+)
+load(":git_worker.bzl", "git_repo")
+load(
     ":utils.bzl",
+    "get_auth",
     "patch",
     "update_attrs",
     "workspace_and_buildfile",
 )
-load(":git_worker.bzl", "git_repo")
 
-def _clone_or_update(ctx):
-    if ((not ctx.attr.tag and not ctx.attr.commit and not ctx.attr.branch) or
-        (ctx.attr.tag and ctx.attr.commit) or
+def _clone_or_update_repo(ctx):
+    if ((ctx.attr.tag and ctx.attr.commit) or
         (ctx.attr.tag and ctx.attr.branch) or
         (ctx.attr.commit and ctx.attr.branch)):
-        fail("Exactly one of commit, tag, or branch must be provided")
+        fail("At most one of commit, tag, or branch may be provided")
 
-    root = ctx.path(".")
-    directory = str(root)
+    checkout_path = _checkout_path(ctx)
+    directory = str(checkout_path)
     if ctx.attr.strip_prefix:
-        directory = root.get_child(".tmp_git_root")
+        directory = str(checkout_path.get_child(".tmp_git_root"))
 
     git_ = git_repo(ctx, directory)
 
@@ -40,9 +52,32 @@ def _clone_or_update(ctx):
         if not ctx.path(dest_link).exists:
             fail("strip_prefix at {} does not exist in repo".format(ctx.attr.strip_prefix))
         for item in ctx.path(dest_link).readdir():
-            ctx.symlink(item, root.get_child(item.basename))
+            ctx.symlink(item, checkout_path.get_child(item.basename))
 
-    return {"commit": git_.commit, "shallow_since": git_.shallow_since}
+    if ctx.attr.shallow_since:
+        return {"commit": git_.commit, "shallow_since": git_.shallow_since}
+    else:
+        return {"commit": git_.commit}
+
+def _checkout_path(ctx):
+    """
+    Returns the path where the git repository will be checked out.
+
+    The path returned will be the repository directory. If `add_prefix` is set,
+    the additional prefix subdirectory path is appended to the repository
+    directory. If the directory escapes the "root" repository, eg. an uplevel
+    reference '..', the method will fail.
+    """
+    root = ctx.path(".")
+    if ctx.attr.add_prefix:
+        add_prefix_root = root.get_child(ctx.attr.add_prefix)
+        if not str(add_prefix_root).startswith(str(root)):
+            fail(
+                "add_prefix '%s' escaped the base directory of '%s': '%s'" %
+                (ctx.attr.add_prefix, str(root), str(add_prefix_root)),
+            )
+        return add_prefix_root
+    return root
 
 def _update_git_attrs(orig, keys, override):
     result = update_attrs(orig, keys, override)
@@ -68,12 +103,14 @@ _common_attrs = {
     "shallow_since": attr.string(
         default = "",
         doc =
-            "an optional date, not after the specified commit; the " +
-            "argument is not allowed if a tag is specified (which allows " +
-            "cloning with depth 1). Setting such a date close to the " +
-            "specified commit allows for a more shallow clone of the " +
-            "repository, saving bandwidth " +
-            "and wall-clock time.",
+            "an optional date, not after the specified commit; the argument " +
+            "is not allowed if a tag or branch is specified (which can " +
+            "always be cloned with --depth=1). Setting such a date close to " +
+            "the specified commit may allow for a shallow clone of the " +
+            "repository even if the server does not support shallow fetches " +
+            "of arbitrary commits. Due to bugs in git's --shallow-since " +
+            "implementation, using this attribute is not recommended as it " +
+            "may result in fetch failures.",
     ),
     "tag": attr.string(
         default = "",
@@ -96,34 +133,50 @@ _common_attrs = {
         doc = "Whether to clone submodules recursively in the repository.",
     ),
     "verbose": attr.bool(default = False),
+    "canonical_id": attr.string(
+        doc = CANONICAL_ID_DOC,
+    ),
     "strip_prefix": attr.string(
         default = "",
         doc = "A directory prefix to strip from the extracted files.",
+    ),
+    "add_prefix": attr.string(
+        default = "",
+        doc = """Destination directory relative to the repository directory.
+
+The git repo will be cloned into this directory, after applying `strip_prefix`
+(if any) to the file paths within the repo. For example, file
+`foo-1.2.3/src/foo.h` will be cloned to `bar/src/foo.h` if `add_prefix = "bar"`
+and `strip_prefix = "foo-1.2.3"`.""",
     ),
     "patches": attr.label_list(
         default = [],
         doc =
             "A list of files that are to be applied as patches after " +
             "extracting the archive. By default, it uses the Bazel-native patch implementation " +
-            "which doesn't support fuzz match and binary patch, but Bazel will fall back to use " +
+            "which doesn't support binary patch, but Bazel will fall back to use " +
             "patch command line tool if `patch_tool` attribute is specified or there are " +
             "arguments other than `-p` in `patch_args` attribute.",
     ),
     "patch_tool": attr.string(
         default = "",
-        doc = "The patch(1) utility to use. If this is specified, Bazel will use the specifed " +
+        doc = "The patch(1) utility to use. If this is specified, Bazel will use the specified " +
               "patch tool instead of the Bazel-native patch implementation.",
     ),
     "patch_args": attr.string_list(
-        default = ["-p0"],
+        default = [],
         doc =
-            "The arguments given to the patch tool. Defaults to -p0, " +
-            "however -p1 will usually be needed for patches generated by " +
+            "The arguments given to the patch tool. Defaults to -p0 (see the `patch_strip` " +
+            "attribute), however -p1 will usually be needed for patches generated by " +
             "git. If multiple -p arguments are specified, the last one will take effect." +
             "If arguments other than -p are specified, Bazel will fall back to use patch " +
             "command line tool instead of the Bazel-native patch implementation. When falling " +
             "back to patch command line tool and patch_tool attribute is not specified, " +
             "`patch` will be used.",
+    ),
+    "patch_strip": attr.int(
+        default = 0,
+        doc = "When set to `N`, this is equivalent to inserting `-pN` to the beginning of `patch_args`.",
     ),
     "patch_cmds": attr.string_list(
         default = [],
@@ -135,76 +188,151 @@ _common_attrs = {
               "applied. If this attribute is not set, patch_cmds will be executed on Windows, " +
               "which requires Bash binary to exist.",
     ),
-}
-
-_new_git_repository_attrs = dict(_common_attrs.items() + {
+    "remote_module_file_urls": attr.string_list(
+        default = [],
+        doc = "For internal use only.",
+    ),
+    "remote_module_file_integrity": attr.string(
+        default = "",
+        doc = "For internal use only.",
+    ),
+    "remote_patches": attr.string_dict(
+        default = {},
+        doc =
+            "A map of patch file URL to its integrity value, they are applied after cloning " +
+            "the repository and before applying patch files from the `patches` attribute. " +
+            "It uses the Bazel-native patch implementation, you can specify the patch strip " +
+            "number with `remote_patch_strip`",
+    ),
+    "remote_patch_strip": attr.int(
+        default = 0,
+        doc =
+            "The number of leading slashes to be stripped from the file name in the remote patches.",
+    ),
     "build_file": attr.label(
         allow_single_file = True,
         doc =
-            "The file to use as the BUILD file for this repository." +
+            "The file to use as the BUILD file for this repository. " +
             "This attribute is an absolute label (use '@//' for the main " +
             "repo). The file does not need to be named BUILD, but can " +
             "be (something like BUILD.new-repo-name may work well for " +
-            "distinguishing it from the repository's actual BUILD files. " +
-            "Either build_file or build_file_content must be specified.",
+            "distinguishing it from the repository's actual BUILD files). ",
     ),
     "build_file_content": attr.string(
         doc =
-            "The content for the BUILD file for this repository. " +
-            "Either build_file or build_file_content must be specified.",
+            "The content for the BUILD file for this repository. ",
     ),
     "workspace_file": attr.label(
-        doc =
-            "The file to use as the `WORKSPACE` file for this repository. " +
-            "Either `workspace_file` or `workspace_file_content` can be " +
-            "specified, or neither, but not both.",
+        doc = "No-op attribute; do not use.",
     ),
     "workspace_file_content": attr.string(
-        doc =
-            "The content for the WORKSPACE file for this repository. " +
-            "Either `workspace_file` or `workspace_file_content` can be " +
-            "specified, or neither, but not both.",
+        doc = "No-op attribute; do not use.",
     ),
-}.items())
-
-def _new_git_repository_implementation(ctx):
-    if ((not ctx.attr.build_file and not ctx.attr.build_file_content) or
-        (ctx.attr.build_file and ctx.attr.build_file_content)):
-        fail("Exactly one of build_file and build_file_content must be provided.")
-    update = _clone_or_update(ctx)
-    workspace_and_buildfile(ctx)
-    patch(ctx)
-    ctx.delete(ctx.path(".git"))
-    return _update_git_attrs(ctx.attr, _new_git_repository_attrs.keys(), update)
+    "sparse_checkout_patterns": attr.string_list(
+        default = [],
+        doc = "Sequence of patterns for a sparse checkout of files in this repository.",
+    ),
+    "sparse_checkout_file": attr.label(
+        doc =
+            "File containing .gitignore-style patterns for a sparse checkout of files " +
+            "in this repository. Either `sparse_checkout_patterns` or `sparse_checkout_file` " +
+            "may be specified, or neither, but not both.",
+    ),
+}
 
 def _git_repository_implementation(ctx):
-    update = _clone_or_update(ctx)
+    if ctx.attr.build_file and ctx.attr.build_file_content:
+        fail("Only one of build_file and build_file_content can be provided.")
+    if ctx.attr.sparse_checkout_patterns and ctx.attr.sparse_checkout_file:
+        fail("Only one of sparse_checkout_patterns and sparse_checkout_file can be provided.")
+
+    update = _clone_or_update_repo(ctx)
+    workspace_and_buildfile(ctx)
     patch(ctx)
-    ctx.delete(ctx.path(".git"))
-    return _update_git_attrs(ctx.attr, _common_attrs.keys(), update)
 
-new_git_repository = repository_rule(
-    implementation = _new_git_repository_implementation,
-    attrs = _new_git_repository_attrs,
-    doc = """Clone an external git repository.
+    # Download the module file after applying patches since modules may decide
+    # to patch their packaged module and the patch may not apply to the file
+    # checked in to the registry. This overrides the file if it exists.
+    if ctx.attr.remote_module_file_urls:
+        ctx.download(
+            ctx.attr.remote_module_file_urls,
+            "MODULE.bazel",
+            auth = get_auth(ctx, ctx.attr.remote_module_file_urls),
+            integrity = ctx.attr.remote_module_file_integrity,
+        )
 
-Clones a Git repository, checks out the specified tag, or commit, and
-makes its targets available for binding. Also determine the id of the
-commit actually checked out and its date, and return a dict with parameters
-that provide a reproducible version of this rule (which a tag not necessarily
-is).
-""",
-)
+    checkout_path = _checkout_path(ctx)
+    dot_git_path = checkout_path.get_child(".git")
+    if ctx.attr.strip_prefix:
+        dot_git_path = checkout_path.get_child(".tmp_git_root/.git")
+    ctx.delete(dot_git_path)
+
+    if ctx.attr.commit:
+        return ctx.repo_metadata(reproducible = True)
+    return ctx.repo_metadata(attrs_for_reproducibility = _update_git_attrs(ctx.attr, _common_attrs.keys(), update))
 
 git_repository = repository_rule(
     implementation = _git_repository_implementation,
     attrs = _common_attrs,
+    environ = [DEFAULT_CANONICAL_ID_ENV],
     doc = """Clone an external git repository.
 
-Clones a Git repository, checks out the specified tag, or commit, and
-makes its targets available for binding. Also determine the id of the
-commit actually checked out and its date, and return a dict with parameters
-that provide a reproducible version of this rule (which a tag not necessarily
-is).
+Clones a Git repository, checks out the specified branch, tag, or commit, and
+makes its targets available for binding. If no branch, tag or commit is
+specified, check out the repository's default branch. Also determine the id
+and date of the commit that was checked out, and return a dict with
+parameters that provide a reproducible version of this rule (which a tag or
+branch not necessarily is).
+
+Bazel will first try to perform a shallow fetch of only the specified commit.
+If that fails (usually due to missing server support), it will fall back to a
+full fetch of the repository.
+
+Prefer [`http_archive`](/rules/lib/repo/http#http_archive) to `git_repository`.
+The reasons are:
+
+* Git repository rules depend on system `git(1)` whereas the HTTP downloader is built
+  into Bazel and has no system dependencies.
+* `http_archive` supports a list of `urls` as mirrors, and `git_repository` supports only
+  a single `remote`.
+* `http_archive` works with the [repository cache](/run/build#repository-cache), but not
+  `git_repository`. See
+   [#5116](https://github.com/bazelbuild/bazel/issues/5116){: .external} for more information.
 """,
+)
+
+def _new_git_repository_implementation(_ctx):
+    fail(
+        """
+    The repository rule 'new_git_repository' is deprecated. To fix, replace usage of
+    'new_git_repository' with the drop-in replacement 'git_repository' in your MODULE.bazel file.
+    Eg.
+
+    Replace the following:
+
+    new_git_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:git.bzl", "new_git_repository")
+    new_git_repository(
+        name = "bazel",
+        remote = "https://github.com/bazelbuild/bazel.git",
+        commit = "93f38093f8e24875c1d015e67311853756bdb27e"
+    )
+
+    With:
+
+    git_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
+    git_repository(
+        name = "bazel",
+        remote = "https://github.com/bazelbuild/bazel.git",
+        commit = "93f38093f8e24875c1d015e67311853756bdb27e"
+    )
+""",
+    )
+
+# Use was blocked ~April, 2026. After the release of Bazel 9.0 and before Bazel 10.0.
+# TODO: This should eventually be removed within some time frame. Bazel 12.0 - that would be about
+# three years from now.
+new_git_repository = repository_rule(
+    implementation = _new_git_repository_implementation,
+    attrs = _common_attrs,
+    doc = """Deprecated - use the drop-in replacement 'git_repository' instead""",
 )

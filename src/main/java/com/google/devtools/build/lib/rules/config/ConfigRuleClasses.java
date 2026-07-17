@@ -18,43 +18,49 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_KEYED_STRING_DICT;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.Type.STRING;
-import static com.google.devtools.build.lib.packages.Type.STRING_DICT;
-import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
+import static com.google.devtools.build.lib.packages.Types.STRING_DICT;
+import static com.google.devtools.build.lib.packages.Types.STRING_LIST;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
-import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
-import com.google.devtools.build.lib.packages.AttributeMap;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.AllowlistChecker;
+import com.google.devtools.build.lib.packages.Attribute.LabelListLateBoundDefault;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
+import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.packages.RuleClass.ToolchainResolutionMode;
+import com.google.devtools.build.lib.packages.Types;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 
 /**
  * Definitions for rule classes that specify or manipulate configuration settings.
  *
- * <p>These are not "traditional" rule classes in that they can't be requested as top-level
- * targets and don't translate input artifacts into output artifacts. Instead, they affect
- * how *other* rules work. See individual class comments for details.
+ * <p>These are not "traditional" rule classes in that they can't be requested as top-level targets
+ * and don't translate input artifacts into output artifacts. Instead, they affect how *other* rules
+ * work. See individual class comments for details.
  */
-public class ConfigRuleClasses {
+public final class ConfigRuleClasses {
 
   private static final String NONCONFIGURABLE_ATTRIBUTE_REASON =
       "part of a rule class that *triggers* configurable behavior";
 
-  /**
-   * Common settings for all configurability rules.
-   */
+  /** Common settings for all configurability rules. */
   public static final class ConfigBaseRule implements RuleDefinition {
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return builder
-          .override(attr("tags", Type.STRING_LIST)
-               // No need to show up in ":all", etc. target patterns.
-              .value(ImmutableList.of("manual"))
-              .nonconfigurable(NONCONFIGURABLE_ATTRIBUTE_REASON))
+          .override(
+              attr("tags", Types.STRING_LIST)
+                  // No need to show up in ":all", etc. target patterns.
+                  .value(ImmutableList.of("manual"))
+                  .nonconfigurable(NONCONFIGURABLE_ATTRIBUTE_REASON))
           .exemptFromConstraintChecking(
               "these rules don't include content that gets built into their dependers")
           .build();
@@ -120,40 +126,80 @@ public class ConfigRuleClasses {
    * details.
    */
   public static final class ConfigSettingRule implements RuleDefinition {
-    /**
-     * The name of this rule.
-     */
+    /** The name of this rule. */
     public static final String RULE_NAME = "config_setting";
 
     /** The name of the attribute that declares flag bindings. */
     public static final String SETTINGS_ATTRIBUTE = "values";
-    /** The name of the attribute that declares "--define foo=bar" flag bindings.*/
+
+    /**
+     * When builds have {@code --flag_alias=foo=//bar}, this attribute records {@code //bar} as a
+     * dependency so Bazel can load its configured target to check its actual value.
+     */
+    public static final String FLAG_ALIAS_SETTINGS_ATTRIBUTE = ":flag_alias_settings";
+
+    /** The name of the attribute that declares "--define foo=bar" flag bindings. */
     public static final String DEFINE_SETTINGS_ATTRIBUTE = "define_values";
+
     /** The name of the attribute that declares user-defined flag bindings. */
     public static final String FLAG_SETTINGS_ATTRIBUTE = "flag_values";
+
     /** The name of the attribute that declares constraint_values. */
     public static final String CONSTRAINT_VALUES_ATTRIBUTE = "constraint_values";
 
-    /** The name of the tools repository. */
-    public static final String TOOLS_REPOSITORY_ATTRIBUTE = "$tools_repository";
+    /**
+     * {@code --flag_alias=foo=//bar} means when the user sets {@code --foo=1} at the command line,
+     * Bazel replaces it with {@code --//bar=1}. A {@code config_setting} with {@code values =
+     * {"foo": "1"}} need to match this, which it does in {@link ConfigSetting} by switching {@code
+     * foo} to {@code //bar} and comparing {@code //bar}'s expected value against its actual.
+     *
+     * <p>To find {@code //bar}'s actual value, {@code ConfigSetting} must load {@code //bar} as a
+     * prerequisite configured target. Bazel automatically registers {@code //bar} as a prerequisite
+     * dependency if it's part of {@link FLAG_ALIAS_SETTINGS_ATTRIBUTE}, which maps labels to
+     * values.
+     *
+     * <p>But {@code --flag_alias} means we don't know if {@code --foo} maps to {@code //bar} until
+     * we've examined the configuration's flag aliases. So we can't preregister {@code //bar} as a
+     * dependency in {@code config_setting}'s BUILD definition. That's what this late-bound default
+     * definition is for: it reads flag alias settings and injects them into {@link
+     * FLAG_ALIAS_SETTINGS_ATTRIBUTE} so Bazel registers them as dependencies.
+     *
+     * <p>See {@link ConfigSetting} for implementation details.
+     */
+    @SerializationConstant @VisibleForSerialization
+    public static final LabelListLateBoundDefault<?> FLAG_ALIAS_REFERENCES =
+        LabelListLateBoundDefault.fromTargetConfiguration(
+            BuildConfigurationValue.class,
+            (rule, attributes, configuration) -> {
+              if (attributes.get(SETTINGS_ATTRIBUTE, STRING_DICT) == null) {
+                // Only true for tests.
+                return ImmutableList.of();
+              }
+              ImmutableList.Builder<Label> userDefinedFlags = ImmutableList.builder();
+              ImmutableMap<String, Label> commandLineFlagAliases =
+                  configuration.getOptions().get(CoreOptions.class).getCommandLineFlagAliasesMap();
+              for (String flagName : attributes.get(SETTINGS_ATTRIBUTE, STRING_DICT).keySet()) {
+                Label userDefinedFlag = commandLineFlagAliases.get(flagName);
+                if (userDefinedFlag != null) {
+                  userDefinedFlags.add(userDefinedFlag);
+                }
+              }
+              return userDefinedFlags.build();
+            });
 
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return builder
           .setIgnoreLicenses()
-          .requiresConfigurationFragments(PlatformConfiguration.class)
-          .add(
-              attr(TOOLS_REPOSITORY_ATTRIBUTE, STRING)
-                  .value(
-                      new ComputedDefault() {
-                        @Override
-                        public Object getDefault(AttributeMap rule) {
-                          return env.getToolsRepository();
-                        }
-                      }))
+          .toolchainResolutionMode(
+              (rule) -> {
+                RawAttributeMapper attr = RawAttributeMapper.of(rule);
+                return attr.has(CONSTRAINT_VALUES_ATTRIBUTE)
+                    && !attr.get(CONSTRAINT_VALUES_ATTRIBUTE, LABEL_LIST).isEmpty();
+              })
 
           /* <!-- #BLAZE_RULE(config_setting).ATTRIBUTE(values) -->
-          The set of configuration values that match this rule (expressed as Bazel flags)
+          The set of configuration values that match this rule (expressed as build flags)
 
           <p>This rule inherits the configuration of the configured target that
             references it in a <code>select</code> statement. It is considered to
@@ -164,10 +210,10 @@ public class ConfigRuleClasses {
             <code>bazel build -c opt ...</code> on target-configured rules.
           </p>
 
-          <p>For convenience's sake, configuration values are specified as Bazel flags (without
+          <p>For convenience's sake, configuration values are specified as build flags (without
             the preceding <code>"--"</code>). But keep in mind that the two are not the same. This
             is because targets can be built in multiple configurations within the same
-            build. For example, a host configuration's "cpu" matches the value of
+            build. For example, an exec configuration's "cpu" matches the value of
             <code>--host_cpu</code>, not <code>--cpu</code>. So different instances of the
             same <code>config_setting</code> may match the same invocation differently
             depending on the configuration of the rule using them.
@@ -179,10 +225,6 @@ public class ConfigRuleClasses {
              <code>bazel build --copt=foo --copt=bar --copt=baz ...</code>), a match occurs if
              <i>any</i> of those settings match.
           <p>
-
-          <p>This and <a href="${link config_setting.define_values}"><code>define_values</code></a>
-             cannot both be empty.
-          </p>
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(
               attr(SETTINGS_ATTRIBUTE, STRING_DICT)
@@ -230,32 +272,41 @@ public class ConfigRuleClasses {
 
           /* <!-- #BLAZE_RULE(config_setting).ATTRIBUTE(flag_values) -->
           The same as <a href="${link config_setting.values}"><code>values</code></a> but
-          for <a href="https://docs.bazel.build/versions/master/skylark/config.html#user-defined-build-settings">
-          Starlark-defined flags</a>.
+          for <a href="https://bazel.build/rules/config#user-defined-build-settings">
+          user-defined build flags</a>.
+
+          <p>This is a distinct attribute because user-defined flags are referenced as labels while
+          built-in flags are referenced as arbitrary strings.
+
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
 
-          // Originally this attribute was a map of feature flags targets -> feature flag values,
-          // the latter of which are always strings. Now it also includes starlark build setting
-          // targets -> starlark build setting values. In other places in the starlark configuration
-          // API, starlark setting values are passed as their actual object instead of a string
-          // representation. It would be more consistent to be able to pass starlark setting values
-          // as objects to this attribute as well. But attributes are strongly-typed so
-          // label->object dict is not an option for attribute types right now.
+          // Map of feature flags targets -> feature flag values and Starlark build setting targets
+          // -> starlark build setting values. In other places in the Starlark configuration API,
+          // Starlark setting values are passed as their actual object instead of a string
+          // representation. It would be more consistent to pass Starlark setting values as objects
+          // to this attribute as well. But attributes are strongly-typed so label->object dict is
+          // not an option for attribute types right now.
           .add(
               attr(FLAG_SETTINGS_ATTRIBUTE, LABEL_KEYED_STRING_DICT)
                   .allowedFileTypes()
                   .nonconfigurable(NONCONFIGURABLE_ATTRIBUTE_REASON))
+          .add(attr(FLAG_ALIAS_SETTINGS_ATTRIBUTE, LABEL_LIST).value(FLAG_ALIAS_REFERENCES))
+
           /* <!-- #BLAZE_RULE(config_setting).ATTRIBUTE(constraint_values) -->
           The minimum set of <code>constraint_values</code> that the target platform must specify
           in order to match this <code>config_setting</code>. (The execution platform is not
           considered here.) Any additional constraint values that the platform has are ignored. See
-          <a href="https://docs.bazel.build/versions/master/configurable-attributes.html#platforms">
+          <a href="https://bazel.build/docs/configurable-attributes#platforms">
           Configurable Build Attributes</a> for details.
 
-          <p>In the case where two <code>config_setting</code>s both match in the same
-          <code>select</code>, this attribute is not considered for the purpose of determining
-          whether one of the <code>config_setting</code>s is a specialization of the other. In other
-          words, one <code>config_setting</code> cannot match a platform more strongly than another.
+          <p>If two <code>config_setting</code>s match in the same <code>select</code> and one has
+          all the same flags and <code>constraint_setting</code>s as the other plus additional ones,
+          the one with more settings is chosen. This is known as "specialization". For example,
+          a <code>config_setting</code> matching <code>x86</code> and <code>Linux</code> specializes
+          a <code>config_setting</code> matching <code>x86</code>.
+
+          <p>If two <code>config_setting</code>s match and both have <code>constraint_value</code>s
+          not present in the other, this is an error.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(
               attr(CONSTRAINT_VALUES_ATTRIBUTE, LABEL_LIST)
@@ -264,7 +315,7 @@ public class ConfigRuleClasses {
           .setOptionReferenceFunctionForConfigSettingOnly(
               rule ->
                   NonconfigurableAttributeMapper.of(rule)
-                      .get(SETTINGS_ATTRIBUTE, Type.STRING_DICT)
+                      .get(SETTINGS_ATTRIBUTE, Types.STRING_DICT)
                       .keySet())
           .build();
     }
@@ -279,19 +330,19 @@ public class ConfigRuleClasses {
           .build();
     }
   }
+
   /*<!-- #BLAZE_RULE (NAME = config_setting, FAMILY = General)[GENERIC_RULE] -->
 
   <p>
-    Matches an expected configuration state (expressed as Bazel flags or platform constraints) for
+    Matches an expected configuration state (expressed as build flags or platform constraints) for
     the purpose of triggering configurable attributes. See <a href="${link select}">select</a> for
     how to consume this rule and <a href="${link common-definitions#configurable-attributes}">
     Configurable attributes</a> for an overview of the general feature.
 
   <h4 id="config_setting_examples">Examples</h4>
 
-  <p>The following matches any Bazel invocation that specifies <code>--compilation_mode=opt</code>
-     or <code>-c opt</code> (either explicitly at the command line or implicitly from .blazerc
-     files):
+  <p>The following matches any build that sets <code>--compilation_mode=opt</code> or
+  <code>-c opt</code> (either explicitly at the command line or implicitly from .bazelrc files):
   </p>
 
   <pre class="code">
@@ -301,9 +352,8 @@ public class ConfigRuleClasses {
   )
   </pre>
 
-  <p>The following matches any Bazel invocation that builds for ARM and that applies the custom
-     define <code>FOO=bar</code> (for instance, <code>bazel build --cpu=arm --define FOO=bar ...
-     </code>):
+  <p>The following matches any build that targets ARM and applies the custom define
+  <code>FOO=bar</code> (for instance, <code>bazel build --cpu=arm --define FOO=bar ...</code>):
   </p>
 
   <pre class="code">
@@ -316,13 +366,26 @@ public class ConfigRuleClasses {
   )
   </pre>
 
-  <p>The following matches any Bazel invocation that builds for a platform that has an x86_64
-     architecture and glibc version 2.25, assuming the existence of a <code>constraint_value</code>
-     with label <code>//example:glibc_2_25</code>. Note that a platform still matches if it defines
-     additional constraint values beyond these two.
+  <p>The following matches any build that sets
+     <a href="https://bazel.build/rules/config#user-defined-build-settings">user-defined flag</a>
+     <code>--//custom_flags:foo=1</code> (either explicitly at the command line or implicitly from
+     .bazelrc files):
   </p>
 
-  <pre class=""code">
+  <pre class="code">
+  config_setting(
+      name = "my_custom_flag_is_set",
+      flag_values = { "//custom_flags:foo": "1" },
+  )
+  </pre>
+
+  <p>The following matches any build that targets a platform with an x86_64 architecture and glibc
+     version 2.25, assuming the existence of a <code>constraint_value</code> with label
+     <code>//example:glibc_2_25</code>. Note that a platform still matches if it defines additional
+     constraint values beyond these two.
+  </p>
+
+  <pre class="code">
   config_setting(
       name = "64bit_glibc_2_25",
       constraint_values = [
@@ -350,7 +413,7 @@ public class ConfigRuleClasses {
 
     <li>
       If a flag takes multiple values (like <code>--copt=-Da --copt=-Db</code> or a list-typed
-      <a href="https://docs.bazel.build/versions/master/skylark/config.html#user-defined-build-settings">
+      <a href="https://bazel.build/rules/config#user-defined-build-settings">
       Starlark flag</a>), <code>values = { "flag": "a" }</code> matches if <code>"a"</code> is
       present <i>anywhere</i> in the actual list.
 
@@ -368,8 +431,8 @@ public class ConfigRuleClasses {
       </p>
     </li>
 
-    <li>If you need to define conditions that aren't modeled by built-in Bazel flags, use
-      <a href="https://docs.bazel.build/versions/master/skylark/config.html#user-defined-build-settings">
+    <li>If you need to define conditions that aren't modeled by built-in build flags, use
+      <a href="https://bazel.build/rules/config#user-defined-build-settings">
       Starlark-defined flags</a>. You can also use <code>--define</code>, but this offers weaker
       support and is not recommended. See
       <a href="${link common-definitions#configurable-attributes}">here</a> for more discussion.
@@ -392,10 +455,19 @@ public class ConfigRuleClasses {
   public static final class ConfigFeatureFlagRule implements RuleDefinition {
     public static final String RULE_NAME = "config_feature_flag";
 
+    @SerializationConstant @VisibleForSerialization
+    static final AllowlistChecker ALWAYS_CHECK_ALLOWLIST =
+        AllowlistChecker.builder()
+            .setAllowlistAttr(ConfigFeatureFlag.ALLOWLIST_NAME)
+            .setErrorMessage("the config_feature_flag rule is not available in this package")
+            .setLocationCheck(AllowlistChecker.LocationCheck.INSTANCE)
+            .build();
+
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return builder
           .setUndocumented(/* the feature flag feature has not yet been launched */ )
+          // Some rule has to ask for ConfigFeatureFlagConfiguration.class so that it is retained.
           .requiresConfigurationFragments(ConfigFeatureFlagConfiguration.class)
           .add(
               attr("allowed_values", STRING_LIST)
@@ -404,8 +476,14 @@ public class ConfigRuleClasses {
                   .orderIndependent()
                   .nonconfigurable(NONCONFIGURABLE_ATTRIBUTE_REASON))
           .add(attr("default_value", STRING).nonconfigurable(NONCONFIGURABLE_ATTRIBUTE_REASON))
+          .add(
+              attr("scope", STRING)
+                  .value("universal")
+                  .nonconfigurable(NONCONFIGURABLE_ATTRIBUTE_REASON))
           .add(ConfigFeatureFlag.getAllowlistAttribute(env))
+          .addAllowlistChecker(ALWAYS_CHECK_ALLOWLIST)
           .removeAttribute(BaseRuleClasses.TAGGED_TRIMMING_ATTR)
+          .toolchainResolutionMode(ToolchainResolutionMode.DISABLED)
           .build();
     }
 
@@ -418,4 +496,6 @@ public class ConfigRuleClasses {
           .build();
     }
   }
+
+  private ConfigRuleClasses() {}
 }

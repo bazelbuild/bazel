@@ -50,7 +50,8 @@ public interface WalkableGraph {
    * computed. Or in other words, it filters out non-existent nodes, pending nodes and nodes that
    * produced an exception.
    */
-  Map<SkyKey, SkyValue> getSuccessfulValues(Iterable<SkyKey> keys) throws InterruptedException;
+  Map<SkyKey, SkyValue> getSuccessfulValues(Iterable<? extends SkyKey> keys)
+      throws InterruptedException;
 
   /**
    * Returns a map giving exceptions associated to the given keys for done keys. Keys not present in
@@ -110,4 +111,11 @@ public interface WalkableGraph {
     EvaluationResult<SkyValue> prepareAndGet(Set<SkyKey> roots, EvaluationContext evaluationContext)
         throws InterruptedException;
   }
+
+  /**
+   * Cancel all in-flight graph reads. This may be a no-op for many graph implementations, but is
+   * particularly useful to clean up pending work when graph lookups consist of I/O operations or
+   * RPCs.
+   */
+  default void cancelLookups() {}
 }

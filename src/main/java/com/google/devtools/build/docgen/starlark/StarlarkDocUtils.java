@@ -14,9 +14,7 @@
 
 package com.google.devtools.build.docgen.starlark;
 
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.docgen.DocgenConsts;
-import net.starlark.java.annot.Param;
 
 /** A utility class for the documentation generator. */
 public final class StarlarkDocUtils {
@@ -27,33 +25,10 @@ public final class StarlarkDocUtils {
    *
    * @return a string with substituted variables
    */
-  public static String substituteVariables(String documentation) {
+  public static String substituteVariables(String documentation, String beRoot) {
+    // TODO(b/193923321): Get rid of $STARLARK_DOCS_ROOT and of this entire class, eventually.
     return documentation
-        .replace("$BE_ROOT", DocgenConsts.BeDocsRoot)
-        .replace("$DOC_EXT", DocgenConsts.documentationExtension);
-  }
-
-  /**
-   * Returns a list of parameter documentation elements for a given method doc and the method's
-   * parameters.
-   */
-  static ImmutableList<StarlarkParamDoc> determineParams(
-      StarlarkMethodDoc methodDoc,
-      Param[] userSuppliedParams,
-      Param extraPositionals,
-      Param extraKeywords) {
-    ImmutableList.Builder<StarlarkParamDoc> paramsBuilder = ImmutableList.builder();
-    for (Param param : userSuppliedParams) {
-      if (param.documented()) {
-        paramsBuilder.add(new StarlarkParamDoc(methodDoc, param));
-      }
-    }
-    if (!extraPositionals.name().isEmpty()) {
-      paramsBuilder.add(new StarlarkParamDoc(methodDoc, extraPositionals));
-    }
-    if (!extraKeywords.name().isEmpty()) {
-      paramsBuilder.add(new StarlarkParamDoc(methodDoc, extraKeywords));
-    }
-    return paramsBuilder.build();
+        .replace("$STARLARK_DOCS_ROOT", DocgenConsts.starlarkDocsRoot)
+        .replace("$BE_ROOT", beRoot);
   }
 }

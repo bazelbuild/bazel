@@ -25,55 +25,35 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import javax.annotation.Nullable;
 
 /** Generic code to interact with the platform-specific JNI code bundle. */
 public final class JniLoader {
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
-  private static final boolean JNI_AVAILABLE;
+  @Nullable private static final Throwable JNI_LOAD_ERROR;
 
   static {
-    boolean jniAvailable;
+    Throwable jniLoadError;
     try {
       switch (OS.getCurrent()) {
-        case LINUX:
-        case FREEBSD:
-        case OPENBSD:
-        case UNKNOWN:
+        case LINUX, FREEBSD, OPENBSD, UNKNOWN -> {
           loadLibrary("main/native/libunix_jni.so");
-          break;
-
-        case DARWIN:
+        }
+        case DARWIN -> {
           loadLibrary("main/native/libunix_jni.dylib");
-          break;
-
-        case WINDOWS:
-          try {
-            // TODO(jmmv): This is here only for the bootstrapping process, which builds the JNI
-            // library and passes a -Djava.library.path to the JVM to find it. I'm sure that this
-            // can be replaced by properly bundling the library as a resource in the JAR. For some
-            // strange reason that I haven't fully understood yet, this also must come first.
-            System.loadLibrary("windows_jni");
-          } catch (UnsatisfiedLinkError e) {
-            try {
-              loadLibrary("main/native/windows/windows_jni.dll");
-            } catch (IOException e2) {
-              logger.atWarning().withCause(e2).log("Failed to load JNI library from resource");
-              throw e;
-            }
-          }
-          break;
-
-        default:
-          throw new AssertionError("switch statement out of sync with OS values");
+        }
+        case WINDOWS -> {
+          loadLibrary("main/native/windows/windows_jni.dll");
+        }
       }
-      jniAvailable = true;
+      jniLoadError = null;
     } catch (IOException | UnsatisfiedLinkError e) {
       logger.atWarning().withCause(e).log("Failed to load JNI library");
-      jniAvailable = false;
+      jniLoadError = e;
     }
-    JNI_AVAILABLE = jniAvailable;
+    JNI_LOAD_ERROR = jniLoadError;
   }
 
   /**
@@ -126,27 +106,37 @@ public final class JniLoader {
         }
       } catch (IOException e2) {
         // Nothing else we can do. Rely on "delete on exit" to try clean things up later on.
+        if (dir != null) {
+          dir.toFile().deleteOnExit();
+        }
+        if (tempFile != null) {
+          tempFile.toFile().deleteOnExit();
+        }
       }
       throw e;
     }
   }
 
-  protected JniLoader() {}
+  private JniLoader() {}
 
   /**
-   * Triggers the load of the JNI bundle in a platform-independent basis.
+   * Ensures that the JNI library has been loaded.
    *
-   * <p>This does <b>not</b> fail if the JNI bundle cannot be loaded because there are scenarios in
-   * which we want to run Bazel without JNI (e.g. during bootstrapping). We rely on the fact that
-   * any calls to native code will fail anyway and with a more descriptive error message if we
-   * failed to load the JNI bundle.
-   *
-   * <p>Callers can check if the JNI bundle load succeeded by calling {@link #isJniAvailable()}.
+   * <p>If the JNI library cannot be loaded, this method returns normally, but the error can be
+   * later retrieved via {@link #getJniLoadError()}. This makes it possible for this method to be
+   * called during static initialization, while delaying the failure to a later stage where we're in
+   * a better position to display an error message (see {@link BlazeRuntime#main()}).
    */
-  public static void loadJni() {}
+  public static void loadJni() {
+    // No-op: loading occurs in the static initializer.
+  }
 
-  /** Checks whether the JNI bundle was successfully loaded or not. */
-  public static boolean isJniAvailable() {
-    return JNI_AVAILABLE;
+  /**
+   * Ensures that the JNI library has been loaded and returns the exception thrown while loading it,
+   * if any.
+   */
+  @Nullable
+  public static Throwable getJniLoadError() {
+    return JNI_LOAD_ERROR;
   }
 }

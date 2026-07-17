@@ -16,6 +16,9 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.ActionExecutionStatusReporter;
+import com.google.devtools.build.lib.clock.BlazeClock;
+import com.google.devtools.build.lib.clock.Clock;
+import java.time.Instant;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -55,8 +58,10 @@ public final class ActionExecutionInactivityWatchdog {
      * Report that actions are not getting completed in a timely manner.
      *
      * <p>Inactivity is typically not reported if tests with streaming output are being run.
+     *
+     * @param lastActionCompletedAt the last time an action completed
      */
-    void maybeReportInactivity();
+    void maybeReportInactivity(Instant lastActionCompletedAt);
   }
 
   @VisibleForTesting
@@ -88,26 +93,37 @@ public final class ActionExecutionInactivityWatchdog {
   private final Sleep sleeper;
   private final Thread thread;
   private final WaitTime waitTime;
+  private final Clock clock;
 
-  public ActionExecutionInactivityWatchdog(InactivityMonitor monitor, InactivityReporter reporter,
-      int progressIntervalFlagValue) {
-    this(monitor, reporter, progressIntervalFlagValue, new Sleep() {
-      @Override
-      public void sleep(int durationMilliseconds) throws InterruptedException {
-        Thread.sleep(durationMilliseconds);
-      }
-    });
+  public ActionExecutionInactivityWatchdog(
+      InactivityMonitor monitor, InactivityReporter reporter, int progressIntervalFlagValue) {
+    this(
+        monitor,
+        reporter,
+        progressIntervalFlagValue,
+        new Sleep() {
+          @Override
+          public void sleep(int durationMilliseconds) throws InterruptedException {
+            Thread.sleep(durationMilliseconds);
+          }
+        },
+        BlazeClock.instance());
   }
 
   @VisibleForTesting
-  public ActionExecutionInactivityWatchdog(InactivityMonitor monitor, InactivityReporter reporter,
-      int progressIntervalFlagValue, Sleep sleeper) {
+  public ActionExecutionInactivityWatchdog(
+      InactivityMonitor monitor,
+      InactivityReporter reporter,
+      int progressIntervalFlagValue,
+      Sleep sleeper,
+      Clock clock) {
     this.monitor = Preconditions.checkNotNull(monitor);
     this.reporter = Preconditions.checkNotNull(reporter);
     this.sleeper = Preconditions.checkNotNull(sleeper);
     this.waitTime = new WaitTime(progressIntervalFlagValue);
     this.thread = new Thread(() -> enterWatchdogLoop(), "action-execution-watchdog");
     this.thread.setDaemon(true);
+    this.clock = clock;
   }
 
   /** Starts the watchdog thread. This method should only be called once. */
@@ -119,8 +135,8 @@ public final class ActionExecutionInactivityWatchdog {
   /**
    * Stops the watchdog thread. This method should only be called once.
    *
-   * <p>The method waits for the thread to terminate. If the caller thread is interrupted
-   * in the meantime, the interrupted status will be set.
+   * <p>The method waits for the thread to terminate. If the caller thread is interrupted in the
+   * meantime, the interrupted status will be set.
    */
   public void stop() {
     Preconditions.checkState(isRunning.getAndSet(false));
@@ -134,6 +150,7 @@ public final class ActionExecutionInactivityWatchdog {
   }
 
   private void enterWatchdogLoop() {
+    var lastActionCompletedAt = clock.now();
     while (isRunning.get()) {
       try {
         // Wait a while for any SkyFunction to finish. The returned number indicates how many
@@ -153,6 +170,8 @@ public final class ActionExecutionInactivityWatchdog {
           // display any messages.
           waitTime.reset();
 
+          lastActionCompletedAt = clock.now();
+
           // Sleep a while before checking again. Actions might be executing at a nice rate, no
           // need to worry about inactivity. This extra sleep isn't required but it's nice to
           // have: without it we would, at times of high action completion rate, unnecessarily
@@ -162,7 +181,7 @@ public final class ActionExecutionInactivityWatchdog {
           // If actions are executing but we haven't made any progress in a while (no new
           // action completion), then reassure the user that we're still running. Next time
           // wait a little longer.
-          reporter.maybeReportInactivity();
+          reporter.maybeReportInactivity(lastActionCompletedAt);
         }
       } catch (InterruptedException ie) {
         Thread.currentThread().interrupt();

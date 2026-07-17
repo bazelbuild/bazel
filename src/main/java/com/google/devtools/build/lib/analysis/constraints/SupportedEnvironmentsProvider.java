@@ -14,7 +14,8 @@
 
 package com.google.devtools.build.lib.analysis.constraints;
 
-import com.google.auto.value.AutoValue;
+import static java.util.Objects.requireNonNull;
+
 import com.google.devtools.build.lib.analysis.LabelAndLocation;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -72,18 +73,18 @@ public interface SupportedEnvironmentsProvider extends TransitiveInfoProvider {
    * chooses <code>":bdep"</code>, and <code>":bdep"</code> is why <code>":has_select"</code>
    * decides it's a <code>"//foo:b"</code>-only rule for this build.
    */
-  @AutoValue
-  abstract class RemovedEnvironmentCulprit {
-    @AutoCodec.Instantiator
-    public static RemovedEnvironmentCulprit create(LabelAndLocation culprit,
-        Label selectedDepForCulprit) {
-      return new AutoValue_SupportedEnvironmentsProvider_RemovedEnvironmentCulprit(culprit,
-          selectedDepForCulprit);
+  @AutoCodec
+  public record RemovedEnvironmentCulprit(LabelAndLocation culprit, Label selectedDepForCulprit) {
+    public RemovedEnvironmentCulprit {
+      requireNonNull(culprit, "culprit");
+      requireNonNull(selectedDepForCulprit, "selectedDepForCulprit");
     }
 
-    public abstract LabelAndLocation culprit();
+    public static RemovedEnvironmentCulprit create(LabelAndLocation culprit,
+        Label selectedDepForCulprit) {
+      return new RemovedEnvironmentCulprit(culprit, selectedDepForCulprit);
+    }
 
-    public abstract Label selectedDepForCulprit();
   }
 
   /**

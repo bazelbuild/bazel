@@ -14,122 +14,97 @@
 
 package com.google.devtools.build.lib.cmdline;
 
-import com.google.common.base.Throwables;
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static com.google.common.base.Throwables.throwIfUnchecked;
+import static com.google.devtools.build.lib.skyframe.serialization.strings.UnsafeStringCodec.stringCodec;
+
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.LoadingCache;
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
+import com.google.devtools.build.lib.skyframe.serialization.LeafDeserializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.LeafObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.LeafSerializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
+import com.google.devtools.build.lib.util.HashCodes;
 import com.google.devtools.build.lib.util.Pair;
-import com.google.devtools.build.lib.util.StringCanonicalizer;
 import com.google.devtools.build.lib.util.StringUtilities;
-import com.google.devtools.build.lib.vfs.OsPathPolicy;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.protobuf.CodedInputStream;
+import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
-import java.io.ObjectStreamException;
-import java.io.Serializable;
-import java.util.concurrent.ExecutionException;
+import java.util.Objects;
+import java.util.concurrent.CompletionException;
 import java.util.regex.Pattern;
+import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Starlark;
 
-/** A human-readable name for the repository. */
-@AutoCodec
-public final class RepositoryName implements Serializable {
-  static final String DEFAULT_REPOSITORY = "";
-  @SerializationConstant public static final RepositoryName DEFAULT;
-  @SerializationConstant public static final RepositoryName MAIN;
-  private static final Pattern VALID_REPO_NAME = Pattern.compile("@[\\w\\-.]*");
+/** The canonical name of an external repository. */
+public final class RepositoryName {
 
-  /** Helper for serializing {@link RepositoryName}. */
-  private static final class SerializationProxy implements Serializable {
-    private RepositoryName repositoryName;
+  @SerializationConstant
+  public static final RepositoryName BAZEL_TOOLS = new RepositoryName("bazel_tools");
 
-    private SerializationProxy(RepositoryName repositoryName) {
-      this.repositoryName = repositoryName;
-    }
+  @SerializationConstant public static final RepositoryName MAIN = new RepositoryName("");
 
-    private void writeObject(ObjectOutputStream out) throws IOException {
-      out.writeObject(repositoryName.toString());
-    }
+  @SerializationConstant
+  public static final RepositoryName BUILTINS = new RepositoryName("_builtins");
 
-    private void readObject(ObjectInputStream in)
-        throws IOException, ClassNotFoundException {
-      try {
-        repositoryName = RepositoryName.create((String) in.readObject());
-      } catch (LabelSyntaxException e) {
-        throw new IOException("Error serializing repository name: " + e.getMessage());
-      }
-    }
+  private static final Pattern VALID_REPO_NAME = Pattern.compile("[\\w\\-.+]*");
 
-    @SuppressWarnings("unused")
-    private void readObjectNoData() throws ObjectStreamException {
-    }
+  // Must start with a letter. Can contain ASCII letters and digits, underscore, dash, and dot.
+  private static final Pattern VALID_USER_PROVIDED_NAME = Pattern.compile("[a-zA-Z0-9][-.\\w]*$");
 
-    private Object readResolve() {
-      return repositoryName;
-    }
-  }
-
-  private void readObject(@SuppressWarnings("unused") ObjectInputStream in) throws IOException {
-    throw new IOException("Serialization is allowed only by proxy");
-  }
-
-  private Object writeReplace() {
-    return new SerializationProxy(this);
-  }
+  /**
+   * A valid module name must: 1) begin with a lowercase letter; 2) end with a lowercase letter or a
+   * digit; 3) contain only lowercase letters, digits, or one of * '._-'.
+   */
+  public static final Pattern VALID_MODULE_NAME = Pattern.compile("[a-z]([a-z0-9._-]*[a-z0-9])?");
 
   private static final LoadingCache<String, RepositoryName> repositoryNameCache =
-      CacheBuilder.newBuilder()
-        .weakValues()
-        .build(
-            new CacheLoader<String, RepositoryName>() {
-              @Override
-              public RepositoryName load(String name) throws LabelSyntaxException {
-                String errorMessage = validate(name);
-                if (errorMessage != null) {
-                  errorMessage = "invalid repository name '"
-                      + StringUtilities.sanitizeControlChars(name) + "': " + errorMessage;
-                  throw new LabelSyntaxException(errorMessage);
-                }
-                return new RepositoryName(StringCanonicalizer.intern(name));
-              }
-            });
-
-  static {
-    try {
-      DEFAULT = RepositoryName.create(RepositoryName.DEFAULT_REPOSITORY);
-      MAIN = RepositoryName.create("@");
-    } catch (LabelSyntaxException e) {
-      throw new IllegalStateException(e);
-    }
-  }
+      Caffeine.newBuilder()
+          .weakValues()
+          .build(
+              name -> {
+                validate(name);
+                return new RepositoryName(name.intern());
+              });
 
   /**
    * Makes sure that name is a valid repository name and creates a new RepositoryName using it.
    *
    * @throws LabelSyntaxException if the name is invalid
    */
-  @AutoCodec.Instantiator
   public static RepositoryName create(String name) throws LabelSyntaxException {
+    if (name.isEmpty()) {
+      return MAIN;
+    }
+    if (name.equals(BUILTINS.name)) {
+      return BUILTINS;
+    }
     try {
       return repositoryNameCache.get(name);
-    } catch (ExecutionException e) {
-      Throwables.propagateIfPossible(e.getCause(), LabelSyntaxException.class);
-      throw new IllegalStateException("Failed to create RepositoryName from " + name, e);
+    } catch (CompletionException e) {
+      throwIfInstanceOf(e.getCause(), LabelSyntaxException.class);
+      throwIfUnchecked(e.getCause());
+      throw e;
     }
   }
 
-  /**
-   * Creates a RepositoryName from a known-valid string (not @-prefixed). Generally this is a
-   * directory that has been created via getSourceRoot() or getPathUnderExecRoot().
-   */
-  public static RepositoryName createFromValidStrippedName(String name) {
-    try {
-      return repositoryNameCache.get("@" + name);
-    } catch (ExecutionException e) {
-      throw new IllegalArgumentException(e.getMessage());
+  /** Creates a RepositoryName from a known-valid string. */
+  public static RepositoryName createUnvalidated(String name) {
+    if (name.isEmpty()) {
+      // NOTE(wyv): Without this `if` clause, a lot of Google-internal integration tests would start
+      //   failing. This suggests to me that something is comparing RepositoryName objects using
+      //   reference equality instead of #equals().
+      return MAIN;
     }
+    if (name.equals(BUILTINS.name)) {
+      return BUILTINS;
+    }
+    return repositoryNameCache.get(name);
   }
 
   /**
@@ -140,6 +115,7 @@ public final class RepositoryName implements Serializable {
    *     "external/"-prefix and repository name, or null if none was found or the repository name
    *     was invalid.
    */
+  @Nullable
   public static Pair<RepositoryName, PathFragment> fromPathFragment(
       PathFragment path, boolean siblingRepositoryLayout) {
     if (!path.isMultiSegment()) {
@@ -155,7 +131,7 @@ public final class RepositoryName implements Serializable {
     }
 
     try {
-      RepositoryName repoName = RepositoryName.create("@" + path.getSegment(1));
+      RepositoryName repoName = create(path.getSegment(1));
       PathFragment subPath = path.subFragment(2);
       return Pair.of(repoName, subPath);
     } catch (LabelSyntaxException e) {
@@ -165,83 +141,186 @@ public final class RepositoryName implements Serializable {
 
   private final String name;
 
-  private RepositoryName(String name) {
+  /**
+   * Store the name of the context repository where this repository name is requested. If this field
+   * is not null, it means this instance represents the requested repository name that is actually
+   * not visible from the context repository and should fail in {@code RepositoryDelegatorFunction}
+   * when fetching the repository.
+   */
+  @Nullable private final RepositoryName contextRepoIfNotVisible;
+
+  /**
+   * If {@code contextRepoIfNotVisible} is not null, this field stores the suffix to be appended to
+   * the error.
+   */
+  @Nullable private final String didYouMeanSuffix;
+
+  private final int hashCode;
+
+  private RepositoryName(
+      String name,
+      @Nullable RepositoryName contextRepoIfNotVisible,
+      @Nullable String didYouMeanSuffix) {
     this.name = name;
+    this.contextRepoIfNotVisible = contextRepoIfNotVisible;
+    this.didYouMeanSuffix = didYouMeanSuffix;
+    this.hashCode = HashCodes.hashObjects(name, contextRepoIfNotVisible, didYouMeanSuffix);
+  }
+
+  private RepositoryName(String name) {
+    this(name, /* contextRepoIfNotVisible= */ null, /* didYouMeanSuffix= */ null);
   }
 
   /**
-   * Performs validity checking.  Returns null on success, an error message otherwise.
+   * Performs validity checking, throwing an exception if the given name is invalid. The exception
+   * message is sanitized.
    */
-  static String validate(String name) {
-    if (name.isEmpty()) {
-      return null;
+  static void validate(String name) throws LabelSyntaxException {
+    if (name.isEmpty() || name.equals(BUILTINS.name)) {
+      return;
     }
 
     // Some special cases for more user-friendly error messages.
-    if (!name.startsWith("@")) {
-      return "workspace names must start with '@'";
-    }
-    if (name.equals("@.")) {
-      return "workspace names are not allowed to be '@.'";
-    }
-    if (name.equals("@..")) {
-      return "workspace names are not allowed to be '@..'";
+    if (name.equals(".") || name.equals("..")) {
+      throw LabelParser.syntaxErrorf(
+          "invalid repository name '%s': repo names are not allowed to be '%s'", name, name);
     }
 
     if (!VALID_REPO_NAME.matcher(name).matches()) {
-      return "workspace names may contain only A-Z, a-z, 0-9, '-', '_' and '.'";
+      throw LabelParser.syntaxErrorf(
+          "invalid repository name '%s': repo names may contain only A-Z, a-z, 0-9, '-', '_', '.'"
+              + " and '+'",
+          StringUtilities.sanitizeControlChars(name));
     }
-
-    return null;
   }
 
   /**
-   * Returns the repository name without the leading "{@literal @}".  For the default repository,
-   * returns "".
+   * Validates a repo name provided by the user. Such names have tighter restrictions; for example,
+   * they can only start with a letter, and cannot contain a plus (+).
    */
-  public String strippedName() {
-    if (name.isEmpty()) {
-      return name;
+  public static void validateUserProvidedRepoName(String name) throws EvalException {
+    if (!VALID_USER_PROVIDED_NAME.matcher(name).matches()) {
+      throw Starlark.errorf(
+          "invalid user-provided repo name '%s': valid names may contain only A-Z, a-z, 0-9, '-',"
+              + " '_', '.', and must start with a letter or a number",
+          StringUtilities.sanitizeControlChars(name));
     }
-    return name.substring(1);
   }
 
-  /**
-   * Returns the repository name without the leading "{@literal @}". For the default repository,
-   * returns "".
-   */
-  public static String stripName(String repoName) {
-    return repoName.startsWith("@") ? repoName.substring(1) : repoName;
+  /** Returns true if the given name cannot possibly be a canonical repository name. */
+  public static boolean isApparent(String name) {
+    return !name.isEmpty() && !name.contains("+");
   }
 
-  /**
-   * Returns if this is the default repository, that is, {@link #name} is "".
-   */
-  public boolean isDefault() {
-    return name.isEmpty();
-  }
-
-  /**
-   * Returns if this is the main repository, that is, {@link #name} is "@".
-   */
-  public boolean isMain() {
-    return name.equals("@");
-  }
-
-  /**
-   * Returns the repository name, with leading "{@literal @}" (or "" for the default repository).
-   */
-  // TODO(bazel-team): Use this over toString()- easier to track its usage.
+  /** Returns the bare repository name without the leading "{@literal @}". */
   public String getName() {
     return name;
   }
 
+  /** Returns the marker file name for this repository. */
+  public String getMarkerFileName() {
+    return "@" + name + ".marker";
+  }
+
   /**
-   * Returns the repository name, except that the main repo is conflated with the default repo
-   * ({@code "@"} becomes the empty string).
+   * Create a {@link RepositoryName} instance that indicates the requested repository name is
+   * actually not visible from the context repository and should fail in {@code
+   * RepositoryDelegatorFunction} when fetching with this {@link RepositoryName} instance.
    */
+  public RepositoryName toNonVisible(RepositoryName contextRepo, String didYouMeanSuffix) {
+    Preconditions.checkNotNull(contextRepo);
+    Preconditions.checkArgument(contextRepo.isVisible());
+    Preconditions.checkNotNull(didYouMeanSuffix);
+    return new RepositoryName(name, contextRepo, didYouMeanSuffix);
+  }
+
+  @VisibleForTesting
+  public RepositoryName toNonVisible(RepositoryName contextRepo) {
+    return toNonVisible(contextRepo, "");
+  }
+
+  public boolean isVisible() {
+    return contextRepoIfNotVisible == null;
+  }
+
+  public boolean isContextRepoMainRepo() {
+    return !isVisible() && contextRepoIfNotVisible.isMain();
+  }
+
+  // Must only be called if isVisible() returns true.
+  public String getContextRepoDisplayString() {
+    Preconditions.checkNotNull(contextRepoIfNotVisible);
+    if (contextRepoIfNotVisible.isMain()) {
+      return "main repository";
+    } else {
+      return String.format("repository '%s'", contextRepoIfNotVisible);
+    }
+  }
+
+  /** Returns if this is the main repository. */
+  public boolean isMain() {
+    return equals(MAIN);
+  }
+
+  /**
+   * Returns the repository name, with two leading "{@literal @}"s, indicating that this is a
+   * canonical repo name.
+   */
+  // TODO(bazel-team): Rename to "getCanonicalForm".
+  public String getNameWithAt() {
+    if (!isVisible()) {
+      return String.format(
+          "@@[unknown repo '%s' requested from %s%s]",
+          name, contextRepoIfNotVisible, didYouMeanSuffix);
+    }
+    return "@@" + name;
+  }
+
+  /**
+   * Returns the repository name with leading "{@literal @}"s except for the main repo, which is
+   * just the empty string.
+   */
+  // TODO(bazel-team): Rename to "getDefaultForm".
   public String getCanonicalForm() {
-    return isMain() ? "" : getName();
+    return isMain() ? "" : getNameWithAt();
+  }
+
+  /**
+   * Returns the repository part of a {@link Label}'s string representation suitable for display.
+   * The returned string is as simple as possible in the context of the main repo whose repository
+   * mapping is provided: an empty string for the main repo, or a string prefixed with a leading
+   * "{@literal @}" or "{@literal @@}" otherwise.
+   *
+   * @param mainRepositoryMapping the {@link RepositoryMapping} of the main repository
+   * @return
+   *     <dl>
+   *       <dt>the empty string
+   *       <dd>if this is the main repository
+   *       <dt><code>@protobuf</code>
+   *       <dd>if this repository is a direct dependency of the main module and its apparent name is
+   *           "protobuf" (only if mainRepositoryMapping is not null)
+   *       <dt><code>@@protobuf+</code>
+   *       <dd>if this a repository that is not visible from the main module
+   */
+  public String getDisplayForm(@Nullable RepositoryMapping mainRepositoryMapping) {
+    Preconditions.checkArgument(
+        mainRepositoryMapping == null || mainRepositoryMapping.contextRepo().isMain());
+    if (!isVisible()) {
+      return getNameWithAt();
+    }
+    if (isMain()) {
+      // Packages in the main repository can always use repo-relative form.
+      return "";
+    }
+    if (mainRepositoryMapping == null) {
+      return getNameWithAt();
+    }
+    // If possible, represent the repository with a non-canonical label using the apparent name the
+    // main repository has for it, otherwise fall back to a canonical label.
+    return mainRepositoryMapping
+        .getInverse(this)
+        .map(apparentName -> "@" + apparentName)
+        .orElse(getNameWithAt());
   }
 
   /**
@@ -252,31 +331,28 @@ public final class RepositoryName implements Serializable {
    * __main__), instead of "$execroot/external/repo".
    */
   public PathFragment getExecPath(boolean siblingRepositoryLayout) {
-    if (isDefault() || isMain()) {
+    if (isMain()) {
       return PathFragment.EMPTY_FRAGMENT;
     }
     PathFragment prefix =
         siblingRepositoryLayout
             ? LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX
             : LabelConstants.EXTERNAL_PATH_PREFIX;
-    return prefix.getRelative(strippedName());
+    return prefix.getRelative(getName());
   }
 
-  /**
-   * Returns the runfiles path relative to the x.runfiles/main-repo directory.
-   */
+  /** Returns the runfiles path relative to the x.runfiles/main-repo directory. */
   // TODO(kchodorow): remove once execroot is reorg-ed.
   public PathFragment getRunfilesPath() {
-    return isDefault() || isMain()
-        ? PathFragment.EMPTY_FRAGMENT : PathFragment.create("..").getRelative(strippedName());
+    return isMain()
+        ? PathFragment.EMPTY_FRAGMENT
+        : PathFragment.create("..").getRelative(getName());
   }
 
-  /**
-   * Returns the repository name, with leading "{@literal @}" (or "" for the default repository).
-   */
+  /** Same as {@link #getNameWithAt}. */
   @Override
   public String toString() {
-    return name;
+    return getNameWithAt();
   }
 
   @Override
@@ -284,14 +360,47 @@ public final class RepositoryName implements Serializable {
     if (this == object) {
       return true;
     }
-    if (!(object instanceof RepositoryName)) {
+    if (!(object instanceof RepositoryName other)) {
       return false;
     }
-    return OsPathPolicy.getFilePathOs().equals(name, ((RepositoryName) object).name);
+    return Objects.equals(name, other.name)
+        && Objects.equals(contextRepoIfNotVisible, other.contextRepoIfNotVisible)
+        && Objects.equals(didYouMeanSuffix, other.didYouMeanSuffix);
   }
 
   @Override
   public int hashCode() {
-    return OsPathPolicy.getFilePathOs().hash(name);
+    return hashCode;
+  }
+
+  public static Codec repositoryNameCodec() {
+    return Codec.INSTANCE;
+  }
+
+  private static final class Codec extends LeafObjectCodec<RepositoryName> {
+    private static final Codec INSTANCE = new Codec();
+
+    @Override
+    public Class<RepositoryName> getEncodedClass() {
+      return RepositoryName.class;
+    }
+
+    @Override
+    public void serialize(
+        LeafSerializationContext context, RepositoryName obj, CodedOutputStream codedOut)
+        throws SerializationException, IOException {
+      context.serializeLeaf(obj.getName(), stringCodec(), codedOut);
+      context.serializeLeaf(obj.contextRepoIfNotVisible, this, codedOut);
+      context.serializeLeaf(obj.didYouMeanSuffix, stringCodec(), codedOut);
+    }
+
+    @Override
+    public RepositoryName deserialize(LeafDeserializationContext context, CodedInputStream codedIn)
+        throws SerializationException, IOException {
+      return new RepositoryName(
+          context.deserializeLeaf(codedIn, stringCodec()),
+          context.deserializeLeaf(codedIn, this),
+          context.deserializeLeaf(codedIn, stringCodec()));
+    }
   }
 }

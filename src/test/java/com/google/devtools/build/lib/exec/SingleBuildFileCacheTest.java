@@ -20,13 +20,12 @@ import static org.junit.Assert.assertThrows;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.DigestOfDirectoryException;
-import com.google.devtools.build.lib.testutil.Suite;
-import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.IOException;
 import java.io.InputStream;
@@ -40,7 +39,6 @@ import org.junit.runners.JUnit4;
 
 /** Tests SingleBuildFileCache. */
 @RunWith(JUnit4.class)
-@TestSpec(size = Suite.SMALL_TESTS)
 public class SingleBuildFileCacheTest {
   private FileSystem fs;
   private Map<String, Integer> calls;
@@ -55,7 +53,7 @@ public class SingleBuildFileCacheTest {
     fs =
         new InMemoryFileSystem(DigestHashFunction.SHA256) {
           @Override
-          protected InputStream getInputStream(PathFragment path) throws IOException {
+          public InputStream getInputStream(PathFragment path) throws IOException {
             int c = calls.containsKey(path.toString()) ? calls.get(path.toString()) : 0;
             c++;
             calls.put(path.toString(), c);
@@ -63,17 +61,19 @@ public class SingleBuildFileCacheTest {
           }
 
           @Override
-          protected byte[] getDigest(PathFragment path) throws IOException {
+          public byte[] getDigest(PathFragment path) throws IOException {
             byte[] override = digestOverrides.get(path.getPathString());
             return override != null ? override : super.getDigest(path);
           }
 
           @Override
-          protected byte[] getFastDigest(PathFragment path) throws IOException {
+          public byte[] getFastDigest(PathFragment path) throws IOException {
             return null;
           }
         };
-    underTest = new SingleBuildFileCache("/", fs);
+    underTest =
+        new SingleBuildFileCache(
+            "/", PathFragment.create("dummy-output-path"), fs, SyscallCache.NO_CACHE);
     FileSystemUtils.createEmptyFile(fs.getPath("/empty"));
   }
 
@@ -83,7 +83,7 @@ public class SingleBuildFileCacheTest {
     assertThrows(
         "non existent file should raise exception",
         IOException.class,
-        () -> underTest.getMetadata(empty));
+        () -> underTest.getInputMetadata(empty));
   }
 
   @Test
@@ -95,25 +95,25 @@ public class SingleBuildFileCacheTest {
         assertThrows(
             "directory should raise exception",
             DigestOfDirectoryException.class,
-            () -> underTest.getMetadata(input));
+            () -> underTest.getInputMetadata(input));
     assertThat(expected).hasMessageThat().isEqualTo("Input is a directory: /directory");
   }
 
   @Test
   public void testCache() throws Exception {
     ActionInput empty = ActionInputHelper.fromPath("/empty");
-    underTest.getMetadata(empty).getDigest();
+    underTest.getInputMetadata(empty).getDigest();
     assertThat(calls).containsKey("/empty");
     assertThat((int) calls.get("/empty")).isEqualTo(1);
-    underTest.getMetadata(empty).getDigest();
+    underTest.getInputMetadata(empty).getDigest();
     assertThat((int) calls.get("/empty")).isEqualTo(1);
   }
 
   @Test
   public void testBasic() throws Exception {
     ActionInput empty = ActionInputHelper.fromPath("/empty");
-    assertThat(underTest.getMetadata(empty).getSize()).isEqualTo(0);
-    byte[] digest = underTest.getMetadata(empty).getDigest();
+    assertThat(underTest.getInputMetadata(empty).getSize()).isEqualTo(0);
+    byte[] digest = underTest.getInputMetadata(empty).getDigest();
     byte[] expected = fs.getDigestFunction().getHashFunction().hashBytes(new byte[0]).asBytes();
     assertThat(digest).isEqualTo(expected);
   }
@@ -127,7 +127,7 @@ public class SingleBuildFileCacheTest {
     Path file = fs.getPath("/unreadable");
     FileSystemUtils.createEmptyFile(file);
     file.chmod(0);
-    byte[] actualDigest = underTest.getMetadata(input).getDigest();
+    byte[] actualDigest = underTest.getInputMetadata(input).getDigest();
     assertThat(actualDigest).isEqualTo(expectedDigest);
   }
 }

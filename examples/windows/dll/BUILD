@@ -1,3 +1,4 @@
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("//examples/windows/dll:windows_dll_library.bzl", "windows_dll_library")
 
 filegroup(
@@ -23,6 +24,7 @@ cc_binary(
     name = "hello_world-load-dll-at-runtime",
     srcs = ["hello_world-load-dll-at-runtime.cpp"],
     data = [":hellolib.dll"],
+    target_compatible_with = ["@platforms//os:windows"],
 )
 
 # **Implicitly link to hellolib.dll**
@@ -31,5 +33,6 @@ cc_binary(
 cc_binary(
     name = "hello_world-link-to-dll-via-lib",
     srcs = ["hello_world-link-to-dll-via-lib.cpp"],
+    target_compatible_with = ["@platforms//os:windows"],
     deps = [":hellolib"],
 )

@@ -14,13 +14,15 @@
 
 package net.starlark.java.eval;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.io.Files;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.File;
 import java.util.List;
 import java.util.function.Supplier;
@@ -35,25 +37,53 @@ public class EvalException extends Exception {
   // stack when popping a frame. Thus an exception newly created by a
   // built-in function has no stack until it is thrown out of a function call.
   @Nullable private ImmutableList<StarlarkThread.CallStackEntry> callstack;
+  private final boolean includeStackTrace;
 
-  /** Constructs an EvalException. Use {@link Starlak#errorf} if you want string formatting. */
+  /** Constructs an EvalException. Use {@link Starlark#errorf} if you want string formatting. */
   public EvalException(String message) {
-    this(message, /*cause=*/ null);
+    this(message, /* cause= */ (Throwable) null, /* includeStackTrace= */ true);
   }
 
   /**
-   * Constructs an EvalException with a message and optional cause.
+   * Constructs an EvalException with a message and optional cause and bool indicating if the error
+   * should contain a stack trace.
+   *
+   * <p>The cause does not affect the error message, so callers should incorporate {@code
+   * cause.getMessage()} into {@code message} if desired, or call {@code EvalException(Throwable)}.
+   */
+  public EvalException(String message, @Nullable Throwable cause, boolean includeStackTrace) {
+    super(checkNotNull(message), cause);
+    this.includeStackTrace = includeStackTrace;
+  }
+
+  /**
+   * Constructs an EvalException with a message and optional cause and defaulting stack trace to
+   * true.
    *
    * <p>The cause does not affect the error message, so callers should incorporate {@code
    * cause.getMessage()} into {@code message} if desired, or call {@code EvalException(Throwable)}.
    */
   public EvalException(String message, @Nullable Throwable cause) {
-    super(Preconditions.checkNotNull(message), cause);
+    this(checkNotNull(message), cause, /* includeStackTrace= */ true);
   }
 
   /** Constructs an EvalException using the same message as the cause exception. */
   public EvalException(Throwable cause) {
-    super(getCauseMessage(cause), cause);
+    this(getCauseMessage(cause), cause, /* includeStackTrace= */ true);
+  }
+
+  /**
+   * Fills in the callstack if it hasn't been set yet.
+   *
+   * @param callstack the Starlark callstack; must not be empty.
+   */
+  @CanIgnoreReturnValue
+  public EvalException withCallStack(List<StarlarkThread.CallStackEntry> callstack) {
+    checkArgument(!callstack.isEmpty(), "Callstack cannot be empty");
+    if (this.callstack == null) {
+      this.callstack = ImmutableList.copyOf(callstack);
+    }
+    return this;
   }
 
   private static String getCauseMessage(Throwable cause) {
@@ -87,6 +117,19 @@ public class EvalException extends Exception {
     return callstack != null ? callstack : ImmutableList.of();
   }
 
+  /** Returns the innermost non-builtin location in the call stack, or null if there is none. */
+  @Nullable
+  public Location getInnermostLocation() {
+    if (callstack == null) {
+      return null;
+    }
+    return callstack.reverse().stream()
+        .map(entry -> entry.location)
+        .filter(location -> location != Location.BUILTIN)
+        .findFirst()
+        .orElse(null);
+  }
+
   /** Returns the error message along with its call stack. May be overridden by subclasses. */
   @Override
   public String toString() {
@@ -106,7 +149,7 @@ public class EvalException extends Exception {
    * source line for each stack frame is obtained from the provided SourceReader.
    */
   public final String getMessageWithStack(SourceReader src) {
-    if (callstack != null) {
+    if (includeStackTrace && callstack != null) {
       return formatCallStack(callstack, getMessage(), src);
     }
     return getMessage();
@@ -194,6 +237,7 @@ public class EvalException extends Exception {
 
   // Ensures that this exception holds a call stack, taking the current
   // stack (which must be non-empty) from the thread if not.
+  @CanIgnoreReturnValue
   final EvalException ensureStack(StarlarkThread thread) {
     if (callstack == null) {
       this.callstack = thread.getCallStack();

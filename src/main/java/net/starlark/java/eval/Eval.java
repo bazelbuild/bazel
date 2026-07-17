@@ -15,18 +15,20 @@
 package net.starlark.java.eval;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
+import com.google.common.collect.Maps;
 import java.math.BigInteger;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import javax.annotation.Nullable;
 import net.starlark.java.spelling.SpellChecker;
 import net.starlark.java.syntax.Argument;
 import net.starlark.java.syntax.AssignmentStatement;
 import net.starlark.java.syntax.BinaryOperatorExpression;
 import net.starlark.java.syntax.CallExpression;
+import net.starlark.java.syntax.CastExpression;
 import net.starlark.java.syntax.Comprehension;
 import net.starlark.java.syntax.ConditionalExpression;
 import net.starlark.java.syntax.DefStatement;
@@ -48,9 +50,12 @@ import net.starlark.java.syntax.Location;
 import net.starlark.java.syntax.Resolver;
 import net.starlark.java.syntax.ReturnStatement;
 import net.starlark.java.syntax.SliceExpression;
+import net.starlark.java.syntax.StarlarkType;
 import net.starlark.java.syntax.Statement;
 import net.starlark.java.syntax.StringLiteral;
 import net.starlark.java.syntax.TokenKind;
+import net.starlark.java.syntax.TypeTable;
+import net.starlark.java.syntax.Types.CallableType;
 import net.starlark.java.syntax.UnaryOperatorExpression;
 
 final class Eval {
@@ -59,11 +64,11 @@ final class Eval {
 
   // ---- entry point ----
 
-  // Called from StarlarkFunction.fastcall.
+  // Called from StarlarkFunction.call().
   static Object execFunctionBody(StarlarkThread.Frame fr, List<Statement> statements)
       throws EvalException, InterruptedException {
     fr.thread.checkInterrupt();
-    execStatements(fr, statements, /*indented=*/ false);
+    execStatements(fr, statements, /* indented= */ false);
     return fr.result;
   }
 
@@ -88,12 +93,23 @@ final class Eval {
       // We enable it only for statements outside any function (isToplevelFunction)
       // and outside any if- or for- statements (!indented).
       if (isToplevelFunction && !indented && fr.thread.postAssignHook != null) {
-        if (stmt instanceof AssignmentStatement) {
-          AssignmentStatement assign = (AssignmentStatement) stmt;
+        if (stmt instanceof AssignmentStatement assign) {
           for (Identifier id : Identifier.boundIdentifiers(assign.getLHS())) {
             Object value = fn(fr).getGlobal(id.getBinding().getIndex());
-            fr.thread.postAssignHook.assign(id.getName(), value);
+            // TODO(bazel-team): Instead of special casing StarlarkFunction, make it implement
+            // StarlarkExportable.
+            if (value instanceof StarlarkFunction func) {
+              // Optimization: The id token of a StarlarkFunction should be based on its global
+              // identifier when available. This enables an name-based lookup on deserialization.
+              func.export(fr.thread, id.getName());
+            } else {
+              fr.thread.postAssignHook.assign(id.getName(), id.getStartLocation(), value);
+            }
           }
+        } else if (stmt instanceof DefStatement def) {
+          Identifier id = def.getIdentifier();
+          ((StarlarkFunction) fn(fr).getGlobal(id.getBinding().getIndex()))
+              .export(fr.thread, id.getName());
         }
       }
     }
@@ -117,14 +133,13 @@ final class Eval {
 
   private static TokenKind execFor(StarlarkThread.Frame fr, ForStatement node)
       throws EvalException, InterruptedException {
-    Object o = eval(fr, node.getCollection());
-    Iterable<?> seq = Starlark.toIterable(o);
-    EvalUtils.addIterator(o);
+    Iterable<?> seq = evalAsIterable(fr, node.getCollection());
+    EvalUtils.addIterator(seq);
     try {
       for (Object it : seq) {
         assign(fr, node.getVars(), it);
 
-        switch (execStatements(fr, node.getBody(), /*indented=*/ true)) {
+        switch (execStatements(fr, node.getBody(), /* indented= */ true)) {
           case PASS:
           case CONTINUE:
             // Stay in loop.
@@ -144,7 +159,7 @@ final class Eval {
       fr.setErrorLocation(node.getStartLocation());
       throw ex;
     } finally {
-      EvalUtils.removeIterator(o);
+      EvalUtils.removeIterator(seq);
     }
     return TokenKind.PASS;
   }
@@ -159,6 +174,16 @@ final class Eval {
     Object[] defaults = null;
     int nparams =
         rfn.getParameters().size() - (rfn.hasKwargs() ? 1 : 0) - (rfn.hasVarargs() ? 1 : 0);
+
+    // Nested functions use the same typeTable as their enclosing function, since both were compiled
+    // from the same Program.
+    StarlarkFunction fn = fn(fr);
+    @Nullable
+    CallableType functionType = fn.getTypeTable() == null ? null : fn.getTypeTable().getType(rfn);
+    boolean dynamicTypeCheckingEnabled =
+        fr.thread
+            .getSemantics()
+            .getBool(StarlarkSemantics.EXPERIMENTAL_STARLARK_DYNAMIC_TYPE_CHECKING);
     for (int i = 0; i < nparams; i++) {
       Expression expr = rfn.getParameters().get(i).getDefaultValue();
       if (expr == null && defaults == null) {
@@ -167,8 +192,21 @@ final class Eval {
       if (defaults == null) {
         defaults = new Object[nparams - i];
       }
-      defaults[i - (nparams - defaults.length)] =
-          expr == null ? StarlarkFunction.MANDATORY : eval(fr, expr);
+      Object defaultValue = expr == null ? StarlarkFunction.MANDATORY : eval(fr, expr);
+      defaults[i - (nparams - defaults.length)] = defaultValue;
+
+      if (dynamicTypeCheckingEnabled && functionType != null) {
+        // Typecheck the default value
+        StarlarkType parameterType = functionType.getParameterTypeByPos(i);
+        if (!TypeChecker.isValueSubtypeOf(defaultValue, parameterType, fr.thread.getSemantics())) {
+          throw Starlark.errorf(
+              "%s(): parameter '%s' has default value of type '%s', declares '%s'",
+              rfn.getName(),
+              rfn.getParameterNames().get(i),
+              Starlark.getStarlarkType(defaultValue, fr.thread.getSemantics()),
+              parameterType);
+        }
+      }
     }
     if (defaults == null) {
       defaults = EMPTY;
@@ -194,18 +232,23 @@ final class Eval {
 
     // Nested functions use the same globalIndex as their enclosing function,
     // since both were compiled from the same Program.
-    StarlarkFunction fn = fn(fr);
     return new StarlarkFunction(
-        rfn, fn.getModule(), fn.globalIndex, Tuple.wrap(defaults), Tuple.wrap(freevars));
+        rfn,
+        fn.getTypeTable(),
+        fn.getModule(),
+        fn.globalIndex,
+        Tuple.wrap(defaults),
+        Tuple.wrap(freevars),
+        fr.thread.getNextIdentityToken());
   }
 
   private static TokenKind execIf(StarlarkThread.Frame fr, IfStatement node)
       throws EvalException, InterruptedException {
     boolean cond = Starlark.truth(eval(fr, node.getCondition()));
     if (cond) {
-      return execStatements(fr, node.getThenBlock(), /*indented=*/ true);
+      return execStatements(fr, node.getThenBlock(), /* indented= */ true);
     } else if (node.getElseBlock() != null) {
-      return execStatements(fr, node.getElseBlock(), /*indented=*/ true);
+      return execStatements(fr, node.getElseBlock(), /* indented= */ true);
     }
     return TokenKind.PASS;
   }
@@ -272,7 +315,7 @@ final class Eval {
         eval(fr, ((ExpressionStatement) st).getExpression());
         return TokenKind.PASS;
       case FLOW:
-        return ((FlowStatement) st).getKind();
+        return ((FlowStatement) st).getFlowKind();
       case FOR:
         return execFor(fr, (ForStatement) st);
       case DEF:
@@ -287,6 +330,10 @@ final class Eval {
         return TokenKind.PASS;
       case RETURN:
         return execReturn(fr, (ReturnStatement) st);
+      case TYPE_ALIAS:
+        return TokenKind.PASS;
+      case VAR:
+        return TokenKind.PASS;
     }
     throw new IllegalArgumentException("unexpected statement: " + st.kind());
   }
@@ -297,24 +344,22 @@ final class Eval {
    */
   private static void assign(StarlarkThread.Frame fr, Expression lhs, Object value)
       throws EvalException, InterruptedException {
-    if (lhs instanceof Identifier) {
+    if (lhs instanceof Identifier ident) {
       // x = ...
-      assignIdentifier(fr, (Identifier) lhs, value);
+      assignIdentifier(fr, ident, value);
 
-    } else if (lhs instanceof IndexExpression) {
+    } else if (lhs instanceof IndexExpression index) {
       // x[i] = ...
-      Object object = eval(fr, ((IndexExpression) lhs).getObject());
-      Object key = eval(fr, ((IndexExpression) lhs).getKey());
+      Object object = eval(fr, index.getObject());
+      Object key = eval(fr, index.getKey());
       EvalUtils.setIndex(object, key, value);
 
-    } else if (lhs instanceof ListExpression) {
+    } else if (lhs instanceof ListExpression list) {
       // a, b, c = ...
-      ListExpression list = (ListExpression) lhs;
       assignSequence(fr, list.getElements(), value);
 
-    } else if (lhs instanceof DotExpression) {
+    } else if (lhs instanceof DotExpression dot) {
       // x.f = ...
-      DotExpression dot = (DotExpression) lhs;
       Object object = eval(fr, dot.getObject());
       String field = dot.getField().getName();
       try {
@@ -329,21 +374,20 @@ final class Eval {
     }
   }
 
-  private static void assignIdentifier(StarlarkThread.Frame fr, Identifier id, Object value)
-      throws EvalException {
+  private static void assignIdentifier(StarlarkThread.Frame fr, Identifier id, Object value) {
     Resolver.Binding bind = id.getBinding();
     switch (bind.getScope()) {
-      case LOCAL:
-        fr.locals[bind.getIndex()] = value;
-        break;
-      case CELL:
-        ((StarlarkFunction.Cell) fr.locals[bind.getIndex()]).x = value;
-        break;
-      case GLOBAL:
-        fn(fr).setGlobal(bind.getIndex(), value);
-        break;
-      default:
-        throw new IllegalStateException(bind.getScope().toString());
+      case LOCAL -> fr.locals[bind.getIndex()] = value;
+      case CELL -> ((StarlarkFunction.Cell) fr.locals[bind.getIndex()]).x = value;
+      case GLOBAL -> {
+        StarlarkFunction fn = fn(fr);
+        fn.setGlobal(bind.getIndex(), value);
+        @Nullable TypeTable typeTable = fn.getTypeTable();
+        if (typeTable != null) {
+          fn.setGlobalDeclaredType(bind.getIndex(), typeTable.getGlobalDeclaredType(bind));
+        }
+      }
+      default -> throw new IllegalStateException(bind.getScope().toString());
     }
   }
 
@@ -381,7 +425,7 @@ final class Eval {
     TokenKind op = stmt.getOperator();
     Expression rhs = stmt.getRHS();
 
-    if (lhs instanceof Identifier) {
+    if (lhs instanceof Identifier ident) {
       // x op= y    (lhs must be evaluated only once)
       Object x = eval(fr, lhs);
       Object y = eval(fr, rhs);
@@ -392,12 +436,11 @@ final class Eval {
         fr.setErrorLocation(stmt.getOperatorLocation());
         throw ex;
       }
-      assignIdentifier(fr, (Identifier) lhs, z);
+      assignIdentifier(fr, ident, z);
 
-    } else if (lhs instanceof IndexExpression) {
+    } else if (lhs instanceof IndexExpression index) {
       // object[index] op= y
       // The object and key should be evaluated only once, so we don't use lhs.eval().
-      IndexExpression index = (IndexExpression) lhs;
       Object object = eval(fr, index.getObject());
       Object key = eval(fr, index.getKey());
       Object x = EvalUtils.index(fr.thread, object, key);
@@ -417,19 +460,12 @@ final class Eval {
         throw ex;
       }
 
-    } else if (lhs instanceof DotExpression) {
+    } else if (lhs instanceof DotExpression dot) {
       // object.field op= y  (lhs must be evaluated only once)
-      DotExpression dot = (DotExpression) lhs;
       Object object = eval(fr, dot.getObject());
       String field = dot.getField().getName();
       try {
-        Object x =
-            Starlark.getattr(
-                fr.thread.mutability(),
-                fr.thread.getSemantics(),
-                object,
-                field,
-                /*defaultValue=*/ null);
+        Object x = Starlark.getattr(fr.thread, object, field, /* defaultValue= */ null);
         Object y = eval(fr, rhs);
         Object z;
         try {
@@ -451,14 +487,60 @@ final class Eval {
     }
   }
 
+  @SuppressWarnings("unchecked")
   private static Object inplaceBinaryOp(StarlarkThread.Frame fr, TokenKind op, Object x, Object y)
       throws EvalException {
-    // list += iterable  behaves like  list.extend(iterable)
-    // TODO(b/141263526): following Python, allow list+=iterable (but not list+iterable).
-    if (op == TokenKind.PLUS && x instanceof StarlarkList && y instanceof StarlarkList) {
-      StarlarkList<?> list = (StarlarkList) x;
-      list.extend(y);
-      return list;
+    switch (op) {
+      case PLUS:
+        // list += iterable  behaves like  list.extend(iterable)
+        // TODO(b/141263526): following Python, allow list+=iterable (but not list+iterable).
+        if (x instanceof StarlarkList<?> xList && y instanceof StarlarkList<?> yList) {
+          xList.extend((StarlarkIterable) yList);
+          return xList;
+        }
+        break;
+
+      case PIPE:
+        if (x instanceof Dict && y instanceof Map) {
+          // dict |= map merges the contents of the second operand (usually a dict) into the first.
+          @SuppressWarnings("unchecked")
+          Dict<Object, Object> xDict = (Dict<Object, Object>) x;
+          @SuppressWarnings("unchecked")
+          Map<Object, Object> yMap = (Map<Object, Object>) y;
+          xDict.putEntries(yMap);
+          return xDict;
+        } else if (x instanceof StarlarkSet<?> xSet && y instanceof Set<?> ySet) {
+          // set |= set merges the contents of the second operand into the first.
+          xSet.update(Tuple.of(ySet));
+          return xSet;
+        }
+        break;
+
+      case AMPERSAND:
+        if (x instanceof StarlarkSet<?> xSet && y instanceof Set<?> ySet) {
+          // set &= set replaces the first set with the intersection of the two sets.
+          xSet.intersectionUpdate(Tuple.of(ySet));
+          return xSet;
+        }
+        break;
+
+      case CARET:
+        if (x instanceof StarlarkSet<?> xSet && y instanceof Set<?> ySet) {
+          // set ^= set replaces the first set with the symmetric difference of the two sets.
+          xSet.symmetricDifferenceUpdate(ySet);
+          return xSet;
+        }
+        break;
+
+      case MINUS:
+        if (x instanceof StarlarkSet<?> xSet && y instanceof Set<?> ySet) {
+          // set -= set removes all elements of the second set from the first set.
+          xSet.differenceUpdate(Tuple.of(ySet));
+          return xSet;
+        }
+        break;
+
+      default: // fall through
     }
     return EvalUtils.binaryOp(op, x, y, fr.thread);
   }
@@ -488,6 +570,11 @@ final class Eval {
         return evalDot(fr, (DotExpression) expr);
       case CALL:
         return evalCall(fr, (CallExpression) expr);
+      case CAST:
+        return eval(fr, ((CastExpression) expr).getValue());
+      case ISINSTANCE:
+        fr.setErrorLocation(expr.getStartLocation());
+        throw new EvalException("isinstance() is not yet supported");
       case IDENTIFIER:
         return evalIdentifier(fr, (Identifier) expr);
       case INDEX:
@@ -497,10 +584,10 @@ final class Eval {
         // the StarlarkInt in the IntLiteral (a temporary hack
         // until we use a compiled representation).
         Number n = ((IntLiteral) expr).getValue();
-        if (n instanceof Integer) {
-          return StarlarkInt.of((Integer) n);
-        } else if (n instanceof Long) {
-          return StarlarkInt.of((Long) n);
+        if (n instanceof Integer nInt) {
+          return StarlarkInt.of(nInt);
+        } else if (n instanceof Long nLong) {
+          return StarlarkInt.of(nLong);
         } else {
           return StarlarkInt.of((BigInteger) n);
         }
@@ -516,6 +603,10 @@ final class Eval {
         return ((StringLiteral) expr).getValue();
       case UNARY_OPERATOR:
         return evalUnaryOperator(fr, (UnaryOperatorExpression) expr);
+      case ELLIPSIS:
+      case TYPE_APPLICATION:
+        // fall through, these only appear in type expressions and should be unreachable from
+        // evaluated code.
     }
     throw new IllegalArgumentException("unexpected expression: " + expr.kind());
   }
@@ -548,23 +639,26 @@ final class Eval {
 
   private static Object evalDict(StarlarkThread.Frame fr, DictExpression dictexpr)
       throws EvalException, InterruptedException {
-    Dict<Object, Object> dict = Dict.of(fr.thread.mutability());
+    LinkedHashMap<Object, Object> map =
+        Maps.newLinkedHashMapWithExpectedSize(dictexpr.getEntries().size());
     for (DictExpression.Entry entry : dictexpr.getEntries()) {
       Object k = eval(fr, entry.getKey());
       Object v = eval(fr, entry.getValue());
-      int before = dict.size();
       try {
-        dict.putEntry(k, v);
+        Starlark.checkHashable(k);
       } catch (EvalException ex) {
         fr.setErrorLocation(entry.getColonLocation());
         throw ex;
       }
-      if (dict.size() == before) {
+      if (map.put(k, v) != null) {
         fr.setErrorLocation(entry.getColonLocation());
-        throw Starlark.errorf("dictionary expression has duplicate key: %s", Starlark.repr(k));
+        throw Starlark.errorf(
+            "dictionary expression has duplicate key: %s",
+            Starlark.repr(k, fr.thread.getSemantics()));
       }
     }
-    return dict;
+    Mutability mu = fr.thread.mutability();
+    return mu.isFrozen() ? CompactImmutableDict.copyOf(map) : Dict.wrap(mu, map);
   }
 
   private static Object evalDot(StarlarkThread.Frame fr, DotExpression dot)
@@ -572,8 +666,7 @@ final class Eval {
     Object object = eval(fr, dot.getObject());
     String name = dot.getField().getName();
     try {
-      return Starlark.getattr(
-          fr.thread.mutability(), fr.thread.getSemantics(), object, name, /*defaultValue=*/ null);
+      return Starlark.getattr(fr.thread, object, name, /* defaultValue= */ null);
     } catch (EvalException ex) {
       fr.setErrorLocation(dot.getDotLocation());
       throw ex;
@@ -599,78 +692,109 @@ final class Eval {
 
     // StarStar and Star args are guaranteed to be last, if they occur.
     ImmutableList<Argument> arguments = call.getArguments();
-    int n = arguments.size();
+    int numNonStarArgs = arguments.size();
     Argument.StarStar starstar = null;
-    if (n > 0 && arguments.get(n - 1) instanceof Argument.StarStar) {
-      starstar = (Argument.StarStar) arguments.get(n - 1);
-      n--;
+    if (numNonStarArgs > 0 && arguments.get(numNonStarArgs - 1) instanceof Argument.StarStar) {
+      starstar = (Argument.StarStar) arguments.get(numNonStarArgs - 1);
+      numNonStarArgs--;
     }
     Argument.Star star = null;
-    if (n > 0 && arguments.get(n - 1) instanceof Argument.Star) {
-      star = (Argument.Star) arguments.get(n - 1);
-      n--;
+    if (numNonStarArgs > 0 && arguments.get(numNonStarArgs - 1) instanceof Argument.Star) {
+      star = (Argument.Star) arguments.get(numNonStarArgs - 1);
+      numNonStarArgs--;
     }
-    // Inv: n = |positional| + |named|
+    // Inv: numNonStarArgs = |positional| + |named|
 
-    // Allocate assuming no *args/**kwargs.
-    int npos = call.getNumPositionalArguments();
-    int i;
+    StarlarkCallable callable = Starlark.getStarlarkCallable(fr.thread, fn);
+    int numPositionalArguments = call.getNumPositionalArguments();
+
+    if (numNonStarArgs == numPositionalArguments // no named args
+        && star == null
+        && starstar == null) {
+      return evalPositionalOnlyCall(fr, callable, call, arguments, numPositionalArguments);
+    }
+
+    StarlarkCallable.ArgumentProcessor argumentProcessor =
+        Starlark.requestArgumentProcessor(fr.thread, callable);
+
+    // Set the location of the call before the first calls to argumentProcessor.add*Arg().
+    Location loc = call.getLparenLocation();
+    fr.setLocation(loc);
 
     // f(expr) -- positional args
-    Object[] positional = npos == 0 ? EMPTY : new Object[npos];
-    for (i = 0; i < npos; i++) {
+    int i;
+    for (i = 0; i < numPositionalArguments; i++) {
       Argument arg = arguments.get(i);
-      Object value = eval(fr, arg.getValue());
-      positional[i] = value;
+      argumentProcessor.addPositionalArg(eval(fr, arg.getValue()));
     }
 
     // f(id=expr) -- named args
-    Object[] named = n == npos ? EMPTY : new Object[2 * (n - npos)];
-    for (int j = 0; i < n; i++) {
-      Argument.Keyword arg = (Argument.Keyword) arguments.get(i);
-      Object value = eval(fr, arg.getValue());
-      named[j++] = arg.getName();
-      named[j++] = value;
+    for (; i < numNonStarArgs; i++) {
+      Argument arg = arguments.get(i);
+      argumentProcessor.addNamedArg(arg.getName(), eval(fr, arg.getValue()));
     }
 
     // f(*args) -- varargs
     if (star != null) {
       Object value = eval(fr, star.getValue());
-      if (!(value instanceof StarlarkIterable)) {
+      if (!(value instanceof StarlarkIterable<?> iter)) {
         fr.setErrorLocation(star.getStartLocation());
         throw Starlark.errorf("argument after * must be an iterable, not %s", Starlark.type(value));
       }
-      // TODO(adonovan): opt: if value.size is known, preallocate (and skip if empty).
-      ArrayList<Object> list = new ArrayList<>();
-      Collections.addAll(list, positional);
-      Iterables.addAll(list, ((Iterable<?>) value));
-      positional = list.toArray();
+      for (Object o : iter) {
+        argumentProcessor.addPositionalArg(o);
+      }
     }
 
     // f(**kwargs)
     if (starstar != null) {
       Object value = eval(fr, starstar.getValue());
-      if (!(value instanceof Dict)) {
+      // Unlike *args, we don't have a Starlark-specific mapping interface to check for in **kwargs,
+      // so check for Java's Map instead.
+      if (!(value instanceof Map<?, ?> kwargs)) {
         fr.setErrorLocation(starstar.getStartLocation());
         throw Starlark.errorf("argument after ** must be a dict, not %s", Starlark.type(value));
       }
-      Dict<?, ?> kwargs = (Dict<?, ?>) value;
-      int j = named.length;
-      named = Arrays.copyOf(named, j + 2 * kwargs.size());
       for (Map.Entry<?, ?> e : kwargs.entrySet()) {
-        if (!(e.getKey() instanceof String)) {
+        if (!(e.getKey() instanceof String eKey)) {
           fr.setErrorLocation(starstar.getStartLocation());
           throw Starlark.errorf("keywords must be strings, not %s", Starlark.type(e.getKey()));
         }
-        named[j++] = e.getKey();
-        named[j++] = e.getValue();
+        argumentProcessor.addNamedArg(eKey, e.getValue());
       }
+    }
+
+    // Set the location of the call again after the argument values were evaluated.
+    // Argument values that contain callable invocations may have changed the location.
+    fr.setLocation(loc);
+
+    try {
+      return Starlark.callViaArgumentProcessor(fr.thread, callable, argumentProcessor);
+    } catch (EvalException ex) {
+      fr.setErrorLocation(loc);
+      throw ex;
+    }
+  }
+
+  private static Object evalPositionalOnlyCall(
+      StarlarkThread.Frame fr,
+      StarlarkCallable callable,
+      CallExpression call,
+      ImmutableList<Argument> arguments,
+      int numPositionalArguments)
+      throws EvalException, InterruptedException {
+    Object[] positional = numPositionalArguments == 0 ? EMPTY : new Object[numPositionalArguments];
+    int i;
+    for (i = 0; i < numPositionalArguments; i++) {
+      Argument arg = arguments.get(i);
+      Object value = eval(fr, arg.getValue());
+      positional[i] = value;
     }
 
     Location loc = call.getLparenLocation(); // (Location is prematerialized)
     fr.setLocation(loc);
     try {
-      return Starlark.fastcall(fr.thread, fn, positional, named);
+      return Starlark.positionalOnlyCall(fr.thread, callable, positional);
     } catch (EvalException ex) {
       fr.setErrorLocation(loc);
       throw ex;
@@ -760,9 +884,9 @@ final class Eval {
 
   private static Object evalComprehension(StarlarkThread.Frame fr, Comprehension comp)
       throws EvalException, InterruptedException {
-    final Dict<Object, Object> dict = comp.isDict() ? Dict.of(fr.thread.mutability()) : null;
-    final StarlarkList<Object> list =
-        comp.isDict() ? null : StarlarkList.newList(fr.thread.mutability());
+    LinkedHashMap<Object, Object> map =
+        comp.isDict() ? Maps.newLinkedHashMapWithExpectedSize(1) : null;
+    List<Object> list = comp.isDict() ? null : new ArrayList<>(0);
 
     // The Lambda class serves as a recursive lambda closure.
     class Lambda {
@@ -774,12 +898,10 @@ final class Eval {
         // recursive case: one or more clauses
         if (index < comp.getClauses().size()) {
           Comprehension.Clause clause = comp.getClauses().get(index);
-          if (clause instanceof Comprehension.For) {
-            Comprehension.For forClause = (Comprehension.For) clause;
+          if (clause instanceof Comprehension.For forClause) {
 
-            Object iterable = eval(fr, forClause.getIterable());
-            Iterable<?> seq = Starlark.toIterable(iterable);
-            EvalUtils.addIterator(iterable);
+            Iterable<?> seq = evalAsIterable(fr, forClause.getIterable());
+            EvalUtils.addIterator(seq);
             try {
               for (Object elem : seq) {
                 assign(fr, forClause.getVars(), elem);
@@ -789,7 +911,7 @@ final class Eval {
               fr.setErrorLocation(forClause.getStartLocation());
               throw ex;
             } finally {
-              EvalUtils.removeIterator(iterable);
+              EvalUtils.removeIterator(seq);
             }
 
           } else {
@@ -802,25 +924,45 @@ final class Eval {
         }
 
         // base case: evaluate body and add to result.
-        if (dict != null) {
+        if (map != null) {
           DictExpression.Entry body = (DictExpression.Entry) comp.getBody();
           Object k = eval(fr, body.getKey());
           try {
             Starlark.checkHashable(k);
             Object v = eval(fr, body.getValue());
-            dict.putEntry(k, v);
+            map.put(k, v);
           } catch (EvalException ex) {
             fr.setErrorLocation(body.getColonLocation());
             throw ex;
           }
         } else {
-          list.addElement(eval(fr, ((Expression) comp.getBody())));
+          list.add(eval(fr, ((Expression) comp.getBody())));
         }
       }
     }
     new Lambda().execClauses(0);
 
-    return comp.isDict() ? dict : list;
+    Mutability mu = fr.thread.mutability();
+    if (!comp.isDict()) {
+      return StarlarkList.wrap(mu, list.toArray());
+    }
+    return mu.isFrozen() ? CompactImmutableDict.copyOf(map) : Dict.wrap(mu, map);
+  }
+
+  /**
+   * Evaluates an expression to an iterable Starlark value and returns an {@code Iterable} view of
+   * it. If evaluation fails or the value is not iterable, throws {@code EvalException} and sets the
+   * error location to the expression's start.
+   */
+  private static Iterable<?> evalAsIterable(StarlarkThread.Frame fr, Expression expr)
+      throws EvalException, InterruptedException {
+    Object o = eval(fr, expr);
+    try {
+      return Starlark.toIterable(o);
+    } catch (EvalException ex) {
+      fr.setErrorLocation(expr.getStartLocation());
+      throw ex;
+    }
   }
 
   private static final Object[] EMPTY = {};

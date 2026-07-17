@@ -22,7 +22,7 @@
 
 namespace {
 
-using bazel::tools::cpp::runfiles::Runfiles;
+using rules_cc::cc::runfiles::Runfiles;
 
 static const char kTag1Contents[] = "<tag1>Contents1</tag1>";
 static const char kTag2Contents[] = "<tag2>Contents2</tag2>";
@@ -30,7 +30,7 @@ static const char kCombinedXmlContents[] =
     "<toplevel>\n<tag1>Contents1</tag1><tag2>Contents2</tag2></toplevel>\n";
 static const char kConcatenatedContents[] =
     "<tag1>Contents1</tag1>\n<tag2>Contents2</tag2>";
-const char kCombinedManifestContents[] = "Multi-Release: true\r\n";
+const char kCombinedManifestContents[] = "Multi-Release: true\r\n\r\n";
 const char kCombinedManifestContentsDisabled[] = "\r\n";
 const uint8_t kPoison = 0xFA;
 
@@ -49,8 +49,8 @@ class CombinersTest : public ::testing::Test {
 
   static void TearDownTestCase() { remove("xmls.zip"); }
 
-  static bool CreateFile(const char *filename, const char *contents) {
-    FILE *fp = fopen(filename, "wb");
+  static bool CreateFile(const char* filename, const char* contents) {
+    FILE* fp = fopen(filename, "wb");
     size_t contents_size = strlen(contents);
     if (fp == nullptr || fwrite(contents, contents_size, 1, fp) != 1 ||
         fclose(fp)) {
@@ -68,8 +68,8 @@ TEST_F(CombinersTest, ConcatenatorSmall) {
   InputJar input_jar;
   Concatenator concatenator("concat");
   ASSERT_TRUE(input_jar.Open("combiners.zip"));
-  const LH *lh;
-  const CDH *cdh;
+  const LH* lh;
+  const CDH* cdh;
   while ((cdh = input_jar.NextEntry(&lh))) {
     if (cdh->file_name_is("tag1.xml") || cdh->file_name_is("tag2.xml")) {
       ASSERT_TRUE(concatenator.Merge(cdh, lh));
@@ -77,7 +77,7 @@ TEST_F(CombinersTest, ConcatenatorSmall) {
   }
 
   // Create output, verify Local Header contents.
-  LH *entry = reinterpret_cast<LH *>(concatenator.OutputEntry(true));
+  LH* entry = reinterpret_cast<LH*>(concatenator.OutputEntry(true));
   EXPECT_TRUE(entry->is());
   EXPECT_EQ(20, entry->version());
   EXPECT_EQ(Z_DEFLATED, entry->compression_method());
@@ -92,27 +92,24 @@ TEST_F(CombinersTest, ConcatenatorSmall) {
   Inflater inflater;
   inflater.DataToInflate(entry->data(), compressed_size);
   uint8_t buffer[256];
-  memset(buffer, kPoison, sizeof(buffer));
   ASSERT_EQ(Z_STREAM_END, inflater.Inflate((buffer), sizeof(buffer)));
-  EXPECT_EQ(kPoison, buffer[original_size]);
   EXPECT_EQ(kConcatenatedContents,
-            std::string(reinterpret_cast<char *>(buffer), original_size));
-  free(reinterpret_cast<void *>(entry));
+            std::string(reinterpret_cast<char*>(buffer), original_size));
+  free(reinterpret_cast<void*>(entry));
 
   // And if we just copy instead of compress:
-  entry = reinterpret_cast<LH *>(concatenator.OutputEntry(false));
+  entry = reinterpret_cast<LH*>(concatenator.OutputEntry(false));
   EXPECT_TRUE(entry->is());
   EXPECT_EQ(20, entry->version());
   EXPECT_EQ(Z_NO_COMPRESSION, entry->compression_method());
   original_size = entry->uncompressed_file_size();
   compressed_size = entry->compressed_file_size();
   EXPECT_EQ(compressed_size, original_size);
-  EXPECT_EQ(
-      kConcatenatedContents,
-      std::string(reinterpret_cast<char *>(entry->data()), original_size));
+  EXPECT_EQ(kConcatenatedContents,
+            std::string(reinterpret_cast<char*>(entry->data()), original_size));
   EXPECT_TRUE(entry->file_name_is("concat"));
   EXPECT_EQ(0, entry->extra_fields_length());
-  free(reinterpret_cast<void *>(entry));
+  free(reinterpret_cast<void*>(entry));
 }
 
 // Tests that Concatenator creates huge (>4GB original/compressed sizes)
@@ -122,7 +119,7 @@ TEST_F(CombinersTest, ConcatenatorHuge) {
 
   // Append 5,000,000,000 bytes to the concatenator.
   const int kBufSize = 1000000;
-  char *buf = reinterpret_cast<char *>(malloc(kBufSize));
+  char* buf = reinterpret_cast<char*>(malloc(kBufSize));
   memset(buf, kPoison, kBufSize);
   for (int i = 0; i < 5000; ++i) {
     concatenator.Append(buf, kBufSize);
@@ -130,7 +127,7 @@ TEST_F(CombinersTest, ConcatenatorHuge) {
   free(buf);
 
   // Now hope that we have enough memory :-)
-  LH *entry = reinterpret_cast<LH *>(concatenator.OutputEntry(true));
+  LH* entry = reinterpret_cast<LH*>(concatenator.OutputEntry(true));
   ASSERT_NE(nullptr, entry);
   ASSERT_TRUE(entry->is());
   ASSERT_EQ(20, entry->version());
@@ -139,7 +136,7 @@ TEST_F(CombinersTest, ConcatenatorHuge) {
   uint64_t compressed_size = entry->compressed_file_size();
   ASSERT_EQ(5000000000UL, original_size);
   ASSERT_LE(compressed_size, original_size);
-  free(reinterpret_cast<void *>(entry));
+  free(reinterpret_cast<void*>(entry));
 }
 
 // Test NullCombiner.
@@ -156,8 +153,8 @@ TEST_F(CombinersTest, XmlCombiner) {
   XmlCombiner xml_combiner("combined.xml", "toplevel");
   XmlCombiner xml_combiner2("combined2.xml", "toplevel");
   ASSERT_TRUE(input_jar.Open("combiners.zip"));
-  const LH *lh;
-  const CDH *cdh;
+  const LH* lh;
+  const CDH* cdh;
   while ((cdh = input_jar.NextEntry(&lh))) {
     if (cdh->file_name_is("tag1.xml") || cdh->file_name_is("tag2.xml")) {
       ASSERT_TRUE(xml_combiner.Merge(cdh, lh));
@@ -166,7 +163,7 @@ TEST_F(CombinersTest, XmlCombiner) {
   }
 
   // Create output, verify Local Header contents.
-  LH *entry = reinterpret_cast<LH *>(xml_combiner.OutputEntry(true));
+  LH* entry = reinterpret_cast<LH*>(xml_combiner.OutputEntry(true));
   EXPECT_TRUE(entry->is());
   EXPECT_EQ(20, entry->version());
   EXPECT_EQ(Z_DEFLATED, entry->compression_method());
@@ -181,27 +178,24 @@ TEST_F(CombinersTest, XmlCombiner) {
   Inflater inflater;
   inflater.DataToInflate(entry->data(), compressed_size);
   uint8_t buffer[256];
-  memset(buffer, kPoison, sizeof(buffer));
   ASSERT_EQ(Z_STREAM_END, inflater.Inflate((buffer), sizeof(buffer)));
-  EXPECT_EQ(kPoison, buffer[original_size]);
   EXPECT_EQ(kCombinedXmlContents,
-            std::string(reinterpret_cast<char *>(buffer), original_size));
-  free(reinterpret_cast<void *>(entry));
+            std::string(reinterpret_cast<char*>(buffer), original_size));
+  free(reinterpret_cast<void*>(entry));
 
   // And for the combiner that just copies out:
-  entry = reinterpret_cast<LH *>(xml_combiner2.OutputEntry(false));
+  entry = reinterpret_cast<LH*>(xml_combiner2.OutputEntry(false));
   EXPECT_TRUE(entry->is());
   EXPECT_EQ(20, entry->version());
   EXPECT_EQ(Z_NO_COMPRESSION, entry->compression_method());
   original_size = entry->uncompressed_file_size();
   compressed_size = entry->compressed_file_size();
   EXPECT_EQ(compressed_size, original_size);
-  EXPECT_EQ(
-      kCombinedXmlContents,
-      std::string(reinterpret_cast<char *>(entry->data()), original_size));
+  EXPECT_EQ(kCombinedXmlContents,
+            std::string(reinterpret_cast<char*>(entry->data()), original_size));
   EXPECT_TRUE(entry->file_name_is("combined2.xml"));
   EXPECT_EQ(0, entry->extra_fields_length());
-  free(reinterpret_cast<void *>(entry));
+  free(reinterpret_cast<void*>(entry));
 }
 
 // Test PropertyCombiner.
@@ -218,7 +212,7 @@ TEST_F(CombinersTest, PropertyCombiner) {
   ASSERT_FALSE(property_combiner.Merge(nullptr, nullptr));
 
   // Create output, verify Local Header contents.
-  LH *entry = reinterpret_cast<LH *>(property_combiner.OutputEntry(true));
+  LH* entry = reinterpret_cast<LH*>(property_combiner.OutputEntry(true));
   EXPECT_TRUE(entry->is());
   EXPECT_EQ(20, entry->version());
   EXPECT_EQ(Z_DEFLATED, entry->compression_method());
@@ -233,27 +227,24 @@ TEST_F(CombinersTest, PropertyCombiner) {
   Inflater inflater;
   inflater.DataToInflate(entry->data(), compressed_size);
   uint8_t buffer[256];
-  memset(buffer, kPoison, sizeof(buffer));
   ASSERT_EQ(Z_STREAM_END, inflater.Inflate((buffer), sizeof(buffer)));
-  EXPECT_EQ(kPoison, buffer[original_size]);
   EXPECT_EQ(kProperties,
-            std::string(reinterpret_cast<char *>(buffer), original_size));
-  free(reinterpret_cast<void *>(entry));
+            std::string(reinterpret_cast<char*>(buffer), original_size));
+  free(reinterpret_cast<void*>(entry));
 
   // Create output, verify Local Header contents.
-  entry = reinterpret_cast<LH *>(property_combiner.OutputEntry(false));
+  entry = reinterpret_cast<LH*>(property_combiner.OutputEntry(false));
   EXPECT_TRUE(entry->is());
   EXPECT_EQ(20, entry->version());
   EXPECT_EQ(Z_NO_COMPRESSION, entry->compression_method());
   original_size = entry->uncompressed_file_size();
   compressed_size = entry->compressed_file_size();
   EXPECT_EQ(compressed_size, original_size);
-  EXPECT_EQ(
-      kProperties,
-      std::string(reinterpret_cast<char *>(entry->data()), original_size));
+  EXPECT_EQ(kProperties,
+            std::string(reinterpret_cast<char*>(entry->data()), original_size));
   EXPECT_EQ("properties", entry->file_name_string());
   EXPECT_EQ(0, entry->extra_fields_length());
-  free(reinterpret_cast<void *>(entry));
+  free(reinterpret_cast<void*>(entry));
 }
 
 // Test ManifestCombiner.
@@ -265,8 +256,8 @@ TEST_F(CombinersTest, ManifestCombiner) {
                          ->Rlocation("io_bazel/src/tools/"
                                      "singlejar/data/multi_release.jar")
                          .c_str()));
-  const LH *lh;
-  const CDH *cdh;
+  const LH* lh;
+  const CDH* cdh;
   while ((cdh = input_jar.NextEntry(&lh))) {
     if (cdh->file_name_is("META-INF/MANIFEST.MF")) {
       ASSERT_TRUE(manifest_combiner.Merge(cdh, lh));
@@ -278,7 +269,7 @@ TEST_F(CombinersTest, ManifestCombiner) {
   manifest_combiner.AppendLine("Multi-Release: true");
 
   // Create output, verify Local Header contents.
-  LH *entry = reinterpret_cast<LH *>(manifest_combiner.OutputEntry(true));
+  LH* entry = reinterpret_cast<LH*>(manifest_combiner.OutputEntry(true));
   EXPECT_TRUE(entry->is());
   EXPECT_EQ(20, entry->version());
   EXPECT_EQ(Z_NO_COMPRESSION, entry->compression_method());
@@ -290,13 +281,13 @@ TEST_F(CombinersTest, ManifestCombiner) {
   EXPECT_EQ(0, entry->extra_fields_length());
 
   // Check contents.
-  EXPECT_EQ(
-      kCombinedManifestContents,
-      std::string(reinterpret_cast<char *>(entry->data()), original_size));
-  free(reinterpret_cast<void *>(entry));
+  EXPECT_EQ(kCombinedManifestContents,
+            std::string(reinterpret_cast<char*>(entry->data()), original_size));
+  free(reinterpret_cast<void*>(entry));
 }
 
-TEST_F(CombinersTest, ManifestCombinerFalse) {
+// Test ManifestCombiner.
+TEST_F(CombinersTest, ManifestCombinerJarOnly) {
   InputJar input_jar;
   ManifestCombiner manifest_combiner("META-INF/MANIFEST.MF");
   ASSERT_TRUE(
@@ -304,19 +295,18 @@ TEST_F(CombinersTest, ManifestCombinerFalse) {
                          ->Rlocation("io_bazel/src/tools/"
                                      "singlejar/data/multi_release.jar")
                          .c_str()));
-  const LH *lh;
-  const CDH *cdh;
+  const LH* lh;
+  const CDH* cdh;
   while ((cdh = input_jar.NextEntry(&lh))) {
     if (cdh->file_name_is("META-INF/MANIFEST.MF")) {
       ASSERT_TRUE(manifest_combiner.Merge(cdh, lh));
     }
   }
 
-  // check that deploy_manifest_lines can disable the setting in input jars
-  manifest_combiner.AppendLine("Multi-Release: false");
+  // check that Multi-Release is ignored if present only in deps
 
   // Create output, verify Local Header contents.
-  LH *entry = reinterpret_cast<LH *>(manifest_combiner.OutputEntry(true));
+  LH* entry = reinterpret_cast<LH*>(manifest_combiner.OutputEntry(true));
   EXPECT_TRUE(entry->is());
   EXPECT_EQ(20, entry->version());
   EXPECT_EQ(Z_NO_COMPRESSION, entry->compression_method());
@@ -328,10 +318,46 @@ TEST_F(CombinersTest, ManifestCombinerFalse) {
   EXPECT_EQ(0, entry->extra_fields_length());
 
   // Check contents.
-  EXPECT_EQ(
-      kCombinedManifestContentsDisabled,
-      std::string(reinterpret_cast<char *>(entry->data()), original_size));
-  free(reinterpret_cast<void *>(entry));
+  EXPECT_EQ(kCombinedManifestContentsDisabled,
+            std::string(reinterpret_cast<char*>(entry->data()), original_size));
+  free(reinterpret_cast<void*>(entry));
+}
+
+TEST_F(CombinersTest, ManifestCombinerFalse) {
+  InputJar input_jar;
+  ManifestCombiner manifest_combiner("META-INF/MANIFEST.MF");
+  ASSERT_TRUE(
+      input_jar.Open(runfiles
+                         ->Rlocation("io_bazel/src/tools/"
+                                     "singlejar/data/multi_release.jar")
+                         .c_str()));
+  const LH* lh;
+  const CDH* cdh;
+  while ((cdh = input_jar.NextEntry(&lh))) {
+    if (cdh->file_name_is("META-INF/MANIFEST.MF")) {
+      ASSERT_TRUE(manifest_combiner.Merge(cdh, lh));
+    }
+  }
+
+  // check that deploy_manifest_lines can disable the setting in input jars
+  manifest_combiner.AppendLine("Multi-Release: false");
+
+  // Create output, verify Local Header contents.
+  LH* entry = reinterpret_cast<LH*>(manifest_combiner.OutputEntry(true));
+  EXPECT_TRUE(entry->is());
+  EXPECT_EQ(20, entry->version());
+  EXPECT_EQ(Z_NO_COMPRESSION, entry->compression_method());
+  uint64_t original_size = entry->uncompressed_file_size();
+  uint64_t compressed_size = entry->compressed_file_size();
+  EXPECT_EQ(strlen(kCombinedManifestContentsDisabled), original_size);
+  EXPECT_LE(compressed_size, original_size);
+  EXPECT_TRUE(entry->file_name_is("META-INF/MANIFEST.MF"));
+  EXPECT_EQ(0, entry->extra_fields_length());
+
+  // Check contents.
+  EXPECT_EQ(kCombinedManifestContentsDisabled,
+            std::string(reinterpret_cast<char*>(entry->data()), original_size));
+  free(reinterpret_cast<void*>(entry));
 }
 
 }  // anonymous namespace

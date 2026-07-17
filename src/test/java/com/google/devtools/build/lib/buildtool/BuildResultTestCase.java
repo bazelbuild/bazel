@@ -17,9 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
 import com.google.devtools.build.lib.actions.BuildFailedException;
-import com.google.devtools.build.lib.buildtool.util.GoogleBuildIntegrationTestCase;
-import com.google.devtools.build.lib.testutil.Suite;
-import com.google.devtools.build.lib.testutil.TestSpec;
+import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.util.io.RecordingOutErr;
 import org.junit.Before;
@@ -27,12 +25,8 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Tests correctness of the build summary output produced by
- * BuildTool.showBuildResult() method.
- */
-@TestSpec(size = Suite.MEDIUM_TESTS)
-public abstract class BuildResultTestCase extends GoogleBuildIntegrationTestCase {
+/** Tests correctness of the build summary output produced by BuildTool.showBuildResult() method. */
+public abstract class BuildResultTestCase extends BuildIntegrationTestCase {
   private RecordingOutErr recOutErr = new RecordingOutErr();
 
   private static final String GENRULE_ERROR = "Exit 42";
@@ -132,9 +126,20 @@ public abstract class BuildResultTestCase extends GoogleBuildIntegrationTestCase
    */
   @Test
   public void testWithMissingData() throws Exception {
-    write("needsdata/BUILD",
-        "cc_library(name = 'needsdata', data = [':data_lib'])",
-        "cc_library(name = 'data_lib', data = [':does_not_exist'])");
+    write(
+        "needsdata/BUILD",
+        """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+        cc_library(
+            name = "needsdata",
+            data = [":data_lib"],
+        )
+
+        cc_library(
+            name = "data_lib",
+            data = [":does_not_exist"],
+        )
+        """);
 
     // TODO(bazel-team): figure out why error message is non-deterministic with Skyframe full.
     // LOADING_AND_ANALYSIS loading_and_analysis cleanup.
@@ -151,7 +156,9 @@ public abstract class BuildResultTestCase extends GoogleBuildIntegrationTestCase
    */
   @Test
   public void testWithSaveTemps() throws Exception {
-    write("my_clib/BUILD",
+    write(
+        "my_clib/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
         "cc_library(name='my_clib', srcs=['myclib.cc'])\n");
     write("my_clib/myclib.cc",
           "void f() {}");
@@ -170,7 +177,9 @@ public abstract class BuildResultTestCase extends GoogleBuildIntegrationTestCase
    */
   @Test
   public void testSymlinkPrefix() throws Exception {
-    write("my_clib/BUILD",
+    write(
+        "my_clib/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
         "cc_library(name='my_clib', srcs=['myclib.cc'])\n");
     write("my_clib/myclib.cc",
           "void f() {}");
@@ -192,7 +201,9 @@ public abstract class BuildResultTestCase extends GoogleBuildIntegrationTestCase
    */
   @Test
   public void testFailedTargetWithSaveTemps() throws Exception {
-    write("bad_clib/BUILD",
+    write(
+        "bad_clib/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
         "cc_library(name='bad_clib', srcs=['badlib.cc'])\n");
     // trigger a warning to make the build fail:
     //   "control reaches end of non-void function [-Werror,-Wreturn-type]"
@@ -201,156 +212,6 @@ public abstract class BuildResultTestCase extends GoogleBuildIntegrationTestCase
 
     // We need to set --keep_going so that the temps get built even though the compilation fails.
     addOptions("--save_temps", "--keep_going");
-    build(true, "compilation of rule '//bad_clib:bad_clib' failed", "//bad_clib");
-
-    String stderr = recOutErr.errAsLatin1();
-    assertThat(stderr).contains("Target //bad_clib:bad_clib failed to build");
-    assertThat(stderr).contains("See temp at blaze-bin/bad_clib/_objs/bad_clib/badlib.pic.ii\n");
-  }
-
-  @Test
-  public void testSymlinkOutputAtCwdUnderWorkspace_withFlagOn() throws Exception {
-    write("my_clib/BUILD", "cc_library(name='my_clib', srcs=['myclib.cc'])\n");
-    write("my_clib/myclib.cc", "void f() {}");
-
-    addOptions(
-        "--print_workspace_in_output_paths_if_needed",
-        "--client_cwd=" + getWorkspace().getChild("my_clib").getPathString());
-    build(false, "no-error", "//my_clib");
-
-    String stderr = recOutErr.errAsLatin1();
-    assertThat(stderr).contains("Target //my_clib:my_clib up-to-date:\n");
-    assertThat(stderr)
-        .contains(getWorkspace().getRelative("blaze-bin/my_clib/libmy_clib.so") + "\n");
-    assertThat(stderr)
-        .contains(getWorkspace().getRelative("blaze-bin/my_clib/libmy_clib.a") + "\n");
-  }
-
-  @Test
-  public void testSymlinkOutputAtCwdUnderWorkspace_withFlagOff() throws Exception {
-    write("my_clib/BUILD", "cc_library(name='my_clib', srcs=['myclib.cc'])\n");
-    write("my_clib/myclib.cc", "void f() {}");
-
-    addOptions(
-        "--noprint_workspace_in_output_paths_if_needed",
-        "--client_cwd=" + getWorkspace().getChild("my_clib").getPathString());
-    build(false, "no-error", "//my_clib");
-
-    String stderr = recOutErr.errAsLatin1();
-    assertThat(stderr).contains("Target //my_clib:my_clib up-to-date:\n");
-    assertThat(stderr)
-        .doesNotContain(getWorkspace().getRelative("blaze-bin/my_clib/libmy_clib.so") + "\n");
-    assertThat(stderr)
-        .doesNotContain(getWorkspace().getRelative("blaze-bin/my_clib/libmy_clib.a") + "\n");
-    assertThat(stderr).contains("blaze-bin/my_clib/libmy_clib.so\n");
-    assertThat(stderr).contains("blaze-bin/my_clib/libmy_clib.a\n");
-  }
-
-  @Test
-  public void testSymlinkOutputAtCwdEqualWorkspace_withFlagOn() throws Exception {
-    write("my_clib/BUILD", "cc_library(name='my_clib', srcs=['myclib.cc'])\n");
-    write("my_clib/myclib.cc", "void f() {}");
-
-    addOptions("--print_workspace_in_output_paths_if_needed");
-    build(false, "no-error", "//my_clib");
-
-    String stderr = recOutErr.errAsLatin1();
-    assertThat(stderr).contains("Target //my_clib:my_clib up-to-date:\n");
-    assertThat(stderr)
-        .doesNotContain(getWorkspace().getRelative("blaze-bin/my_clib/libmy_clib.so") + "\n");
-    assertThat(stderr)
-        .doesNotContain(getWorkspace().getRelative("blaze-bin/my_clib/libmy_clib.a") + "\n");
-    assertThat(stderr).contains("blaze-bin/my_clib/libmy_clib.so\n");
-    assertThat(stderr).contains("blaze-bin/my_clib/libmy_clib.a\n");
-  }
-
-  @Test
-  public void testSymlinkPrefixAtCwdEqualWorkspace_withFlagOff() throws Exception {
-    write("my_clib/BUILD", "cc_library(name='my_clib', srcs=['myclib.cc'])\n");
-    write("my_clib/myclib.cc", "void f() {}");
-
-    addOptions("--noprint_workspace_in_output_paths_if_needed");
-    build(false, "no-error", "//my_clib");
-
-    String stderr = recOutErr.errAsLatin1();
-    assertThat(stderr).contains("Target //my_clib:my_clib up-to-date:\n");
-    assertThat(stderr)
-        .doesNotContain(getWorkspace().getRelative("blaze-bin/my_clib/libmy_clib.so") + "\n");
-    assertThat(stderr)
-        .doesNotContain(getWorkspace().getRelative("blaze-bin/my_clib/libmy_clib.a") + "\n");
-    assertThat(stderr).contains("blaze-bin/my_clib/libmy_clib.so\n");
-    assertThat(stderr).contains("blaze-bin/my_clib/libmy_clib.a\n");
-  }
-
-  @Test
-  public void testSeeTempAtCwdUnderWorkspace_withFlagOn() throws Exception {
-    write("bad_clib/BUILD", "cc_library(name='bad_clib', srcs=['badlib.cc'])\n");
-    // trigger a warning to make the build fail:
-    //   "control reaches end of non-void function [-Werror,-Wreturn-type]"
-    write("bad_clib/badlib.cc", "int f() { }");
-
-    // We need to set --keep_going so that the temps get built even though the compilation fails.
-    addOptions(
-        "--save_temps",
-        "--keep_going",
-        "--print_workspace_in_output_paths_if_needed",
-        "--client_cwd=" + getWorkspace().getChild("bad_clib").getPathString());
-    build(true, "compilation of rule '//bad_clib:bad_clib' failed", "//bad_clib");
-
-    String stderr = recOutErr.errAsLatin1();
-    assertThat(stderr).contains("Target //bad_clib:bad_clib failed to build");
-    assertThat(stderr)
-        .contains(
-            "See temp at "
-                + getWorkspace().getRelative("blaze-bin/bad_clib/_objs/bad_clib/badlib.pic.ii")
-                + "\n");
-  }
-
-  @Test
-  public void testSeeTempAtCwdUnderWorkspace_withFlagOff() throws Exception {
-    write("bad_clib/BUILD", "cc_library(name='bad_clib', srcs=['badlib.cc'])\n");
-    // trigger a warning to make the build fail:
-    //   "control reaches end of non-void function [-Werror,-Wreturn-type]"
-    write("bad_clib/badlib.cc", "int f() { }");
-
-    // We need to set --keep_going so that the temps get built even though the compilation fails.
-    addOptions(
-        "--save_temps",
-        "--keep_going",
-        "--noprint_workspace_in_output_paths_if_needed",
-        "--client_cwd=" + getWorkspace().getChild("bad_clib").getPathString());
-    build(true, "compilation of rule '//bad_clib:bad_clib' failed", "//bad_clib");
-
-    String stderr = recOutErr.errAsLatin1();
-    assertThat(stderr).contains("Target //bad_clib:bad_clib failed to build");
-    assertThat(stderr).contains("See temp at blaze-bin/bad_clib/_objs/bad_clib/badlib.pic.ii\n");
-  }
-
-  @Test
-  public void testSeeTempAtCwdEqualWorkspace_withFlagOn() throws Exception {
-    write("bad_clib/BUILD", "cc_library(name='bad_clib', srcs=['badlib.cc'])\n");
-    // trigger a warning to make the build fail:
-    //   "control reaches end of non-void function [-Werror,-Wreturn-type]"
-    write("bad_clib/badlib.cc", "int f() { }");
-
-    // We need to set --keep_going so that the temps get built even though the compilation fails.
-    addOptions("--save_temps", "--keep_going", "--print_workspace_in_output_paths_if_needed");
-    build(true, "compilation of rule '//bad_clib:bad_clib' failed", "//bad_clib");
-
-    String stderr = recOutErr.errAsLatin1();
-    assertThat(stderr).contains("Target //bad_clib:bad_clib failed to build");
-    assertThat(stderr).contains("See temp at blaze-bin/bad_clib/_objs/bad_clib/badlib.pic.ii\n");
-  }
-
-  @Test
-  public void testSeeTempAtCwdEqualWorkspace_withFlagOff() throws Exception {
-    write("bad_clib/BUILD", "cc_library(name='bad_clib', srcs=['badlib.cc'])\n");
-    // trigger a warning to make the build fail:
-    //   "control reaches end of non-void function [-Werror,-Wreturn-type]"
-    write("bad_clib/badlib.cc", "int f() { }");
-
-    // We need to set --keep_going so that the temps get built even though the compilation fails.
-    addOptions("--save_temps", "--keep_going", "--noprint_workspace_in_output_paths_if_needed");
     build(true, "compilation of rule '//bad_clib:bad_clib' failed", "//bad_clib");
 
     String stderr = recOutErr.errAsLatin1();

@@ -14,35 +14,8 @@
 
 package net.starlark.java.eval;
 
-/**
- * Wrapper on a value in the predeclared lexical block that controls its accessibility to Starlark
- * based on the value of a semantic flag.
- *
- * <p>For example, this could control whether symbol "Foo" exists in the Starlark global frame: such
- * a symbol might only be accessible if --experimental_foo is set to true. In order to create this
- * control, an instance of this class should be added to the global frame under "Foo". This flag
- * guard will throw a descriptive {@link EvalException} when "Foo" would be accessed without the
- * proper flag.
- */
+/** {@link GuardedValue} that controls access based on an experimental or incompatible flag. */
 public final class FlagGuardedValue {
-  private final Object obj;
-  private final String flag;
-  private final FlagType flagType;
-
-  private enum FlagType {
-    DEPRECATION,
-    EXPERIMENTAL;
-  }
-
-  private FlagGuardedValue(Object obj, String flag, FlagType flagType) {
-    this.obj = obj;
-    if (flag.charAt(0) != '-' && flag.charAt(0) != '+') {
-      throw new IllegalArgumentException(String.format("flag needs [+-] prefix: %s", flag));
-    }
-    this.flag = flag;
-    this.flagType = flagType;
-  }
-
   /**
    * Creates a flag guard which only permits access of the given object when the given boolean flag
    * is true. If the given flag is false and the object would be accessed, an error is thrown
@@ -50,8 +23,30 @@ public final class FlagGuardedValue {
    *
    * <p>The flag identifier must have a + or - prefix; see StarlarkSemantics.
    */
-  public static FlagGuardedValue onlyWhenExperimentalFlagIsTrue(String flag, Object obj) {
-    return new FlagGuardedValue(obj, flag, FlagType.EXPERIMENTAL);
+  public static GuardedValue onlyWhenExperimentalFlagIsTrue(String flag, Object obj) {
+    if (flag.charAt(0) != '-' && flag.charAt(0) != '+') {
+      throw new IllegalArgumentException(String.format("flag needs [+-] prefix: %s", flag));
+    }
+    return new GuardedValue() {
+      @Override
+      public Object getObject() {
+        return obj;
+      }
+
+      @Override
+      public String getErrorFromAttemptingAccess(String name) {
+        return name
+            + " is experimental and thus unavailable with the current flags. It may be enabled by"
+            + " setting --"
+            + flag.substring(1);
+      }
+
+      @Override
+      public boolean isObjectAccessibleUsingSemantics(
+          StarlarkSemantics semantics, Object clientData) {
+        return semantics.isFeatureEnabledBasedOnTogglingFlags(flag, "");
+      }
+    };
   }
 
   /**
@@ -61,41 +56,32 @@ public final class FlagGuardedValue {
    *
    * <p>The flag identifier must have a + or - prefix; see StarlarkSemantics.
    */
-  public static FlagGuardedValue onlyWhenIncompatibleFlagIsFalse(String flag, Object obj) {
-    return new FlagGuardedValue(obj, flag, FlagType.DEPRECATION);
-  }
+  public static GuardedValue onlyWhenIncompatibleFlagIsFalse(String flag, Object obj) {
+    if (flag.charAt(0) != '-' && flag.charAt(0) != '+') {
+      throw new IllegalArgumentException(String.format("flag needs [+-] prefix: %s", flag));
+    }
+    return new GuardedValue() {
+      @Override
+      public Object getObject() {
+        return obj;
+      }
 
-  /**
-   * Returns an error describing an attempt to access this guard's protected object when it should
-   * be inaccessible in the (contextually implied) semantics.
-   */
-  String getErrorFromAttemptingAccess(String name) {
-    return flagType == FlagType.EXPERIMENTAL
-        ? name
-            + " is experimental and thus unavailable with the current flags. It may be enabled by"
-            + " setting --"
-            + flag.substring(1)
-        : name
+      @Override
+      public String getErrorFromAttemptingAccess(String name) {
+        return name
             + " is deprecated and will be removed soon. It may be temporarily re-enabled by"
             + " setting --"
             + flag.substring(1)
             + "=false";
+      }
+
+      @Override
+      public boolean isObjectAccessibleUsingSemantics(
+          StarlarkSemantics semantics, Object clientData) {
+        return semantics.isFeatureEnabledBasedOnTogglingFlags("", flag);
+      }
+    };
   }
 
-  /**
-   * Returns this guard's underlying object. This should be called when appropriate validation has
-   * occurred to ensure that the object is accessible with the (implied) semantics.
-   */
-  public Object getObject() {
-    return obj;
-  }
-
-  /** Returns true if this guard's underlying object is accessible under the given semantics. */
-  boolean isObjectAccessibleUsingSemantics(StarlarkSemantics semantics) {
-    if (flagType == FlagType.EXPERIMENTAL) {
-      return semantics.isFeatureEnabledBasedOnTogglingFlags(flag, "");
-    } else {
-      return semantics.isFeatureEnabledBasedOnTogglingFlags("", flag);
-    }
-  }
+  private FlagGuardedValue() {}
 }

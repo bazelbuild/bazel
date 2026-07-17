@@ -17,9 +17,10 @@ package com.google.devtools.build.lib.analysis.util;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.testutil.Scratch;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.util.Arrays;
 
@@ -121,13 +122,19 @@ public class ScratchAttributeWriter {
    * provided rule name will determine the type of the target written.
    */
   private ScratchAttributeWriter(
-      BuildViewTestCase testCase, String ruleName, String packageName, String targetName) {
+      BuildViewTestCase testCase,
+      String buildFilePreamble,
+      String ruleName,
+      String packageName,
+      String targetName) {
     this.testCase = checkNotNull(testCase);
     this.ruleName = checkNotNull(ruleName);
     this.packageName = checkNotNull(packageName);
     this.targetName = checkNotNull(targetName);
     this.buildString =
         new StringBuilder()
+            .append(buildFilePreamble)
+            .append("\n")
             .append(String.format("%s(", this.ruleName))
             .append(String.format("name='%s',", this.targetName));
   }
@@ -138,7 +145,19 @@ public class ScratchAttributeWriter {
    */
   public static ScratchAttributeWriter fromLabel(
       BuildViewTestCase testCase, String ruleName, Label label) {
-    return new ScratchAttributeWriter(testCase, ruleName, label.getPackageName(), label.getName());
+    return new ScratchAttributeWriter(
+        testCase, "", ruleName, label.getPackageName(), label.getName());
+  }
+
+  /**
+   * Creates a ScratchAttributeWriter for a given test case and label string. The provided rule name
+   * will determine the type of the target written.
+   */
+  public static ScratchAttributeWriter fromLabelString(
+      BuildViewTestCase testCase, String buildFilePreamble, String ruleName, String labelString) {
+    Label label = Label.parseCanonicalUnchecked(labelString);
+    return new ScratchAttributeWriter(
+        testCase, buildFilePreamble, ruleName, label.getPackageName(), label.getName());
   }
 
   /**
@@ -147,14 +166,14 @@ public class ScratchAttributeWriter {
    */
   public static ScratchAttributeWriter fromLabelString(
       BuildViewTestCase testCase, String ruleName, String labelString) {
-    return fromLabel(testCase, ruleName, Label.parseAbsoluteUnchecked(labelString));
+    return fromLabel(testCase, ruleName, Label.parseCanonicalUnchecked(labelString));
   }
 
   /**
    * Writes this scratch target to this ScratchAttributeWriter's Scratch instance, and returns the
    * target in the given configuration.
    */
-  public ConfiguredTarget write(BuildConfiguration config) throws Exception {
+  public ConfiguredTarget write(BuildConfigurationValue config) throws Exception {
     Scratch scratch = testCase.getScratch();
 
     buildString.append(")");
@@ -176,18 +195,14 @@ public class ScratchAttributeWriter {
   }
 
   /** Sets a string attribute (like ios_application.app_icon) for this target. */
+  @CanIgnoreReturnValue
   public ScratchAttributeWriter set(String name, String value) {
     new StringAttribute(name, value).appendLine(this.buildString);
     return this;
   }
 
-  /** Sets an integer attribute (like cc_binary.linkstatic) for this target. */
-  public ScratchAttributeWriter set(String name, int value) {
-    new IntegerAttribute(name, value).appendLine(this.buildString);
-    return this;
-  }
-
   /** Sets a list attribute (like cc_library.srcs) for this target. */
+  @CanIgnoreReturnValue
   public ScratchAttributeWriter setList(String name, Iterable<String> value) {
     new StringListAttribute(name, value).appendLine(this.buildString);
     return this;

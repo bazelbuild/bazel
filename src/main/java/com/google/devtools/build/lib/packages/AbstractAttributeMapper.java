@@ -15,11 +15,12 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.BuildType.SelectorList;
-import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 import javax.annotation.Nullable;
 
 /**
@@ -30,19 +31,19 @@ import javax.annotation.Nullable;
  * data before exposing it to consumers.
  */
 public abstract class AbstractAttributeMapper implements AttributeMap {
-  private final RuleClass ruleClass;
+  final AttributeProvider ruleClass;
+  final RuleOrMacroInstance rule;
   private final Label ruleLabel;
-  protected final Rule rule;
 
-  protected AbstractAttributeMapper(Rule rule) {
-    this.ruleClass = rule.getRuleClassObject();
+  protected AbstractAttributeMapper(RuleOrMacroInstance rule) {
+    this.ruleClass = rule.getAttributeProvider();
     this.ruleLabel = rule.getLabel();
     this.rule = rule;
   }
 
   @Override
-  public String getName() {
-    return ruleLabel.getName();
+  public String describeRule() {
+    return String.format("%s %s", this.rule.getAttributeProvider(), getLabel());
   }
 
   @Override
@@ -50,31 +51,31 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
     return ruleLabel;
   }
 
-  @Override
-  public String getRuleClassName() {
-    return ruleClass.getName();
-  }
-
   @Nullable
   @Override
   public <T> T get(String attributeName, Type<T> type) {
-    Object value = rule.getAttr(attributeName, type);
+    return getFromRawAttributeValue(rule.getAttr(attributeName, type), attributeName, type);
+  }
+
+  @SuppressWarnings("unchecked")
+  final <T> T getFromRawAttributeValue(Object value, String attributeName, Type<T> type) {
     if (value instanceof Attribute.ComputedDefault) {
       value = ((Attribute.ComputedDefault) value).getDefault(this);
     } else if (value instanceof Attribute.LateBoundDefault) {
-      value = ((Attribute.LateBoundDefault) value).getDefault();
-    }
-    try {
-      return type.cast(value);
-    } catch (ClassCastException e) {
-      // getIndexWithTypeCheck checks the type is right, but unexpected configurable attributes
-      // can still trigger cast exceptions.
+      value = ((Attribute.LateBoundDefault<?, ?>) value).getDefault(rule);
+    } else if (value instanceof MaterializingDefault) {
+      value = ((MaterializingDefault<?, ?>) value).getDefault();
+    } else if (value instanceof SelectorList) {
       throw new IllegalArgumentException(
           String.format(
-              "wrong type for attribute \"%s\" in %s rule %s: expected %s, is %s",
-              attributeName, ruleClass, ruleLabel, type, value.getClass().getSimpleName()),
-          e);
+              "Unexpected configurable attribute \"%s\" in %s rule %s: expected %s, is %s",
+              attributeName, ruleClass, ruleLabel, type, value));
     }
+
+    // Hot code path - avoid the overhead of calling type.cast(value). The rule would have already
+    // failed on construction if one of its attributes was of the wrong type (including computed
+    // defaults).
+    return (T) value;
   }
 
   /**
@@ -87,8 +88,8 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
   @Nullable
   public <T> Attribute.ComputedDefault getComputedDefault(String attributeName, Type<T> type) {
     Object value = rule.getAttr(attributeName, type);
-    if (value instanceof Attribute.ComputedDefault) {
-      return (Attribute.ComputedDefault) value;
+    if (value instanceof Attribute.ComputedDefault computedDefault) {
+      return computedDefault;
     } else {
       return null;
     }
@@ -112,13 +113,20 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
     }
   }
 
+  @Nullable
+  @SuppressWarnings("unchecked")
+  public <T> MaterializingDefault<?, T> getMaterializer(String attributeName, Type<T> type) {
+    Object value = rule.getAttr(attributeName, type);
+    if (value instanceof MaterializingDefault<?, ?>) {
+      return (MaterializingDefault<?, T>) value;
+    } else {
+      return null;
+    }
+  }
+
   @Override
   public Iterable<String> getAttributeNames() {
-    ImmutableList.Builder<String> names = ImmutableList.builder();
-    for (Attribute a : ruleClass.getAttributes()) {
-      names.add(a.getName());
-    }
-    return names.build();
+    return Lists.transform(ruleClass.getAttributes(), Attribute::getName);
   }
 
   @Nullable
@@ -140,60 +148,53 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
   }
 
   @Override
-  public String getPackageDefaultHdrsCheck() {
-    return rule.getPackage().getDefaultHdrsCheck();
+  public PackageArgs getPackageArgs() {
+    return rule.getPackageArgs();
   }
 
   @Override
-  public Boolean getPackageDefaultTestOnly() {
-    return rule.getPackage().getDefaultTestOnly();
+  public final void visitAllLabels(BiConsumer<Attribute, Label> consumer) {
+    visitLabels(DependencyFilter.ALL_DEPS, consumer);
   }
 
   @Override
-  public String getPackageDefaultDeprecation() {
-    return rule.getPackage().getDefaultDeprecation();
+  public final void visitLabels(String attributeName, Consumer<Label> consumer) {
+    visitLabels(
+        ImmutableList.of(ruleClass.getAttributeByName(attributeName)),
+        DependencyFilter.ALL_DEPS,
+        (attr, label) -> consumer.accept(label));
   }
 
   @Override
-  public ImmutableList<String> getPackageDefaultCopts() {
-    return rule.getPackage().getDefaultCopts();
+  public void visitLabels(DependencyFilter filter, BiConsumer<Attribute, Label> consumer) {
+    visitLabels(ruleClass.getAttributes(), filter, consumer);
   }
 
-  @Override
-  public Collection<DepEdge> visitLabels() {
-    return visitLabels(ruleClass.getAttributes());
-  }
-
-  @Override
-  public Collection<DepEdge> visitLabels(Attribute attribute) {
-    return visitLabels(ImmutableList.of(attribute));
-  }
-
-  private Collection<DepEdge> visitLabels(Iterable<Attribute> attributes) {
-    List<DepEdge> edges = new ArrayList<>();
-    Type.LabelVisitor<Attribute> visitor =
+  private void visitLabels(
+      List<Attribute> attributes, DependencyFilter filter, BiConsumer<Attribute, Label> consumer) {
+    Type.LabelVisitor visitor =
         (label, attribute) -> {
           if (label != null) {
-            Label absoluteLabel = ruleLabel.resolveRepositoryRelative(label);
-            edges.add(AttributeMap.DepEdge.create(absoluteLabel, attribute));
+            consumer.accept(attribute, label);
           }
         };
     for (Attribute attribute : attributes) {
       Type<?> type = attribute.getType();
       // TODO(bazel-team): clean up the typing / visitation interface so we don't have to
       // special-case these types.
-      if (type != BuildType.OUTPUT && type != BuildType.OUTPUT_LIST
-          && type != BuildType.NODEP_LABEL && type != BuildType.NODEP_LABEL_LIST) {
-        visitLabels(attribute, visitor);
+      if (type != BuildType.OUTPUT
+          && type != BuildType.OUTPUT_LIST
+          && type != BuildType.NODEP_LABEL
+          && type != BuildType.NODEP_LABEL_LIST
+          && filter.test(rule, attribute)) {
+        visitLabels(attribute, type, visitor);
       }
     }
-    return edges;
   }
 
   /** Visits all labels reachable from the given attribute. */
-  protected void visitLabels(Attribute attribute, Type.LabelVisitor<Attribute> visitor) {
-    Type<?> type = attribute.getType();
-    Object value = get(attribute.getName(), type);
+  <T> void visitLabels(Attribute attribute, Type<T> type, Type.LabelVisitor visitor) {
+    T value = get(attribute.getName(), type);
     if (value != null) { // null values are particularly possible for computed defaults.
       type.visitLabels(visitor, value, attribute);
     }
@@ -201,13 +202,37 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
 
   @Override
   public final boolean isConfigurable(String attributeName) {
-    Attribute attrDef = getAttributeDefinition(attributeName);
-    return attrDef != null && getSelectorList(attributeName, attrDef.getType()) != null;
+    return isConfigurable(rule, attributeName);
   }
 
-  public static <T> boolean isConfigurable(Rule rule, String attributeName, Type<T> type) {
-    SelectorList<T> selectorMaybe = rule.getSelectorList(attributeName, type);
-    return selectorMaybe != null;
+  /**
+   * Check if an attribute is configurable (uses select) or, if it's a computed default, if any of
+   * its inputs are configurable.
+   */
+  public static boolean isConfigurable(RuleOrMacroInstance rule, String attributeName) {
+    return isConfigurable(rule, attributeName, /* includeComputedDefaults= */ true);
+  }
+
+  /**
+   * Checks if an attribute is uses select. If {@code includeComputedDefaults} is true, also returns
+   * true on computed defaults that have any configurable inputs.
+   */
+  public static boolean isConfigurable(
+      RuleOrMacroInstance rule, String attributeName, boolean includeComputedDefaults) {
+    Object attr = rule.getAttr(attributeName);
+    if (attr instanceof Attribute.ComputedDefault computedDefault) {
+      if (!includeComputedDefaults) {
+        return false;
+      }
+      for (String dep : computedDefault.dependencies()) {
+        if (isConfigurable(rule, dep)) {
+          return true;
+        }
+      }
+      return false;
+    }
+    Attribute attrDef = rule.getAttributeProvider().getAttributeByNameMaybe(attributeName);
+    return attrDef != null && rule.getSelectorList(attributeName, attrDef.getType()) != null;
   }
 
   /**
@@ -228,7 +253,7 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
    * Helper routine that just checks the given attribute has the given type for this rule and throws
    * an IllegalException if not.
    */
-  protected void checkType(String attrName, Type<?> type) {
+  void checkType(String attrName, Type<?> type) {
     Integer index = ruleClass.getAttributeIndex(attrName);
     if (index == null) {
       throw new IllegalArgumentException(

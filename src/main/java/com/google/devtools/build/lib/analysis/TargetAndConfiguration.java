@@ -14,11 +14,10 @@
 package com.google.devtools.build.lib.analysis;
 
 import com.google.common.base.Preconditions;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import java.util.Objects;
 import javax.annotation.Nullable;
 
@@ -29,18 +28,11 @@ import javax.annotation.Nullable;
 @Immutable
 public final class TargetAndConfiguration {
   private final Target target;
-  @Nullable private final BuildConfiguration configuration;
+  @Nullable private final BuildConfigurationValue configuration;
 
-  public TargetAndConfiguration(Target target, @Nullable BuildConfiguration configuration) {
+  public TargetAndConfiguration(Target target, @Nullable BuildConfigurationValue configuration) {
     this.target = Preconditions.checkNotNull(target);
     this.configuration = configuration;
-  }
-
-  // The node name in the graph. The name should be unique.
-  // It is not suitable for user display.
-  public String getName() {
-    return target.getLabel() + " "
-        + (configuration == null ? "null" : configuration.checksum());
   }
 
   @Override
@@ -48,11 +40,10 @@ public final class TargetAndConfiguration {
     if (this == that) {
       return true;
     }
-    if (!(that instanceof TargetAndConfiguration)) {
+    if (!(that instanceof TargetAndConfiguration thatNode)) {
       return false;
     }
 
-    TargetAndConfiguration thatNode = (TargetAndConfiguration) that;
     return thatNode.target.getLabel().equals(this.target.getLabel()) &&
         thatNode.configuration == this.configuration;
   }
@@ -64,7 +55,7 @@ public final class TargetAndConfiguration {
 
   @Override
   public String toString() {
-    return target.getLabel() + " (" + configuration + ")";
+    return target.getLabel() + " (" + configuration.shortId() + ")";
   }
 
   public Target getTarget() {
@@ -76,14 +67,7 @@ public final class TargetAndConfiguration {
   }
 
   @Nullable
-  public BuildConfiguration getConfiguration() {
+  public BuildConfigurationValue getConfiguration() {
     return configuration;
-  }
-
-  public ConfiguredTargetKey getConfiguredTargetKey() {
-    return ConfiguredTargetKey.builder()
-        .setLabel(getLabel())
-        .setConfiguration(getConfiguration())
-        .build();
   }
 }

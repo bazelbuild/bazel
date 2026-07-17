@@ -29,33 +29,70 @@ package com.google.devtools.build.lib.analysis.config.transitions;
  * @param <T> the type of data object passed to the {@link #create} method, used to create the
  *     actual {@link ConfigurationTransition} instance
  */
-public interface TransitionFactory<T> {
+public interface TransitionFactory<T extends TransitionFactory.Data> {
+
+  /** Used to report exceptions during transition creation. */
+  class TransitionCreationException extends RuntimeException {
+    public TransitionCreationException(String message) {
+      super(message);
+    }
+  }
+
+  /** Enum that describes what type of transition a TransitionFactory creates. */
+  enum TransitionType {
+    /** A transition that can be used for rules or attributes. */
+    ANY,
+    /** A transition that can be used for rules only. */
+    RULE,
+    /** A transition that can be used for attributes only. */
+    ATTRIBUTE;
+
+    public boolean isCompatibleWith(TransitionType other) {
+      if (this == ANY) {
+        return true;
+      }
+      if (other == ANY) {
+        return true;
+      }
+      return this == other;
+    }
+  }
+
+  /** A marker interface for classes that provide data to TransitionFactory instances. */
+  interface Data {}
 
   /** Returns a new {@link ConfigurationTransition}, based on the given data. */
-  ConfigurationTransition create(T data);
+  ConfigurationTransition create(T data) throws TransitionCreationException;
+
+  /**
+   * Returns a {@link TransitionType} to clarify what data (if any) the factory requires to create a
+   * transation.
+   */
+  TransitionType transitionType();
 
   // TODO(https://github.com/bazelbuild/bazel/issues/7814): Once everything uses TransitionFactory,
   // remove these methods.
-  /** Returns {@code true} if the result of this {@link TransitionFactory} is a host transition. */
-  default boolean isHost() {
-    return false;
-  }
 
   /**
    * Returns {@code true} if the result of this {@link TransitionFactory} should be considered as
    * part of the tooling rather than a dependency of the original target.
    */
   default boolean isTool() {
-    if (isHost()) {
-      // Every host dependency is also a tool dependency.
-      return true;
-    }
-
     return false;
   }
 
   /** Returns {@code true} if the result of this {@link TransitionFactory} is a split transition. */
   default boolean isSplit() {
     return false;
+  }
+
+  /** Visit this trnsition factory with the given visitor. */
+  default void visit(Visitor<T> visitor) {
+    visitor.visit(this);
+  }
+
+  /** Interface used to progressively visit transitions. */
+  interface Visitor<T extends TransitionFactory.Data> {
+    void visit(TransitionFactory<T> factory);
   }
 }

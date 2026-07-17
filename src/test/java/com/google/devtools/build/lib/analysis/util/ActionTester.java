@@ -22,11 +22,11 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Actions;
+import com.google.errorprone.annotations.CheckReturnValue;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.EnumSet;
 import java.util.List;
-import javax.annotation.CheckReturnValue;
 
 /**
  * Test helper for testing {@link Action} implementations.
@@ -117,7 +117,7 @@ public class ActionTester {
     assertThat(actions).isNotEmpty();
     for (int i = 0; i < actions.size(); i++) {
       for (int j = i + 1; j < actions.size(); j++) {
-        assertWithMessage(i + " and " + j)
+        assertWithMessage("%s and %s", i, j)
             .that(Actions.canBeShared(actionKeyContext, actions.get(i), actions.get(j)))
             .isFalse();
       }

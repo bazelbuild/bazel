@@ -9,7 +9,7 @@ assert_eq(bool(-1.0e-45), True)
 assert_eq(bool(float("NaN")), True)
 
 # not iterable
-assert_fails(lambda: len(0.0), "float is not iterable")
+assert_fails(lambda: len(0.0), "parameter 'x' got value of type 'float', want 'iterable or string'")
 
 # int/float equality
 assert_eq(0.0, 0)

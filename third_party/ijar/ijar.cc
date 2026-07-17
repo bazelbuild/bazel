@@ -20,8 +20,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
 #include <memory>
 
+#include "third_party/ijar/common.h"
 #include "third_party/ijar/zip.h"
 
 namespace devtools_ijar {
@@ -35,19 +37,28 @@ bool StripClass(u1 *&classdata_out, const u1 *classdata_in, size_t in_length);
 
 const char *CLASS_EXTENSION = ".class";
 const size_t CLASS_EXTENSION_LENGTH = strlen(CLASS_EXTENSION);
+const char *TRANSITIVE_PREFIX = "META-INF/TRANSITIVE/";
+const size_t TRANSITIVE_PREFIX_LENGTH = strlen(TRANSITIVE_PREFIX);
+const char *KOTLIN_BUILTINS_EXTENSION = ".kotlin_builtins";
+const size_t KOTLIN_BUILTINS_EXTENSION_LENGTH =
+    strlen(KOTLIN_BUILTINS_EXTENSION);
 const char *KOTLIN_MODULE_EXTENSION = ".kotlin_module";
 const size_t KOTLIN_MODULE_EXTENSION_LENGTH = strlen(KOTLIN_MODULE_EXTENSION);
 const char *SCALA_TASTY_EXTENSION = ".tasty";
 const size_t SCALA_TASTY_EXTENSION_LENGTH = strlen(SCALA_TASTY_EXTENSION);
 
+const char *KOTLIN_PKG_PATH = "kotlin/";
+const size_t KOTLIN_PKG_PATH_LENGTH = strlen(KOTLIN_PKG_PATH);
 const char *MANIFEST_DIR_PATH = "META-INF/";
 const size_t MANIFEST_DIR_PATH_LENGTH = strlen(MANIFEST_DIR_PATH);
 const char *MANIFEST_PATH = "META-INF/MANIFEST.MF";
 const size_t MANIFEST_PATH_LENGTH = strlen(MANIFEST_PATH);
-const char *MANIFEST_HEADER =
+const char* MANIFEST_HEADER =
     "Manifest-Version: 1.0\r\n"
     "Created-By: bazel\r\n";
 const size_t MANIFEST_HEADER_LENGTH = strlen(MANIFEST_HEADER);
+const char* MULTI_RELEASE_TRUE_LINE = "Multi-Release: true\r\n";
+const size_t MULTI_RELEASE_TRUE_LINE_LENGTH = strlen(MULTI_RELEASE_TRUE_LINE);
 // These attributes are used by JavaBuilder, Turbine, and ijar.
 // They must all be kept in sync.
 const char *TARGET_LABEL_KEY = "Target-Label: ";
@@ -59,14 +70,34 @@ const size_t DUMMY_PATH_LENGTH = strlen(DUMMY_FILE);
 // The size of an output jar containing only an empty dummy file:
 const size_t JAR_WITH_DUMMY_FILE_SIZE = 98ull + 2 * DUMMY_PATH_LENGTH;
 
+class ManifestLocator : public devtools_ijar::ZipExtractorProcessor {
+ public:
+  ManifestLocator() : manifest_buf_(nullptr), manifest_size_(0) {}
+  virtual ~ManifestLocator() { free(manifest_buf_); }
+
+  u1* manifest_buf_;
+  size_t manifest_size_;
+
+  virtual bool Accept(const char* filename, const u4 /*attr*/) {
+    return strcmp(filename, MANIFEST_PATH) == 0;
+  }
+
+  virtual void Process(const char* /*filename*/, const u4 /*attr*/,
+                       const u1* data, const size_t size) {
+    manifest_buf_ = (u1*)malloc(size);
+    memmove(manifest_buf_, data, size);
+    manifest_size_ = size;
+  }
+};
+
 class JarExtractorProcessor : public ZipExtractorProcessor {
  public:
   // Set the ZipBuilder to add the ijar class to the output zip file.
   // This pointer should not be deleted while this class is still in use and
   // it should be set before any call to the Process() method.
   void SetZipBuilder(ZipBuilder *builder) { this->builder_ = builder; }
-  virtual void WriteManifest(const char *target_label,
-                             const char *injecting_rule_kind) = 0;
+  virtual void WriteManifest(const ManifestLocator&, const char* target_label,
+                             const char* injecting_rule_kind) = 0;
 
  protected:
   // Not owned by JarStripperProcessor, see SetZipBuilder().
@@ -81,12 +112,12 @@ class JarStripperProcessor : public JarExtractorProcessor {
   JarStripperProcessor() {}
   virtual ~JarStripperProcessor() {}
 
-  virtual void Process(const char *filename, const u4 attr, const u1 *data,
-                       const size_t size);
-  virtual bool Accept(const char *filename, const u4 attr);
+  virtual void Process(const char* filename, u4 attr, const u1* data,
+                       size_t size) override;
+  virtual bool Accept(const char* filename, u4 attr) override;
 
-  virtual void WriteManifest(const char *target_label,
-                             const char *injecting_rule_kind);
+  virtual void WriteManifest(const ManifestLocator&, const char* target_label,
+                             const char* injecting_rule_kind) override;
 };
 
 static bool StartsWith(const char *str, const size_t str_len,
@@ -100,11 +131,16 @@ static bool EndsWith(const char *str, const size_t str_len, const char *suffix,
          strcmp(str + str_len - suffix_len, suffix) == 0;
 }
 
+// Returns true for .kotlin_module and the similar .kotlin_builtins files.
 static bool IsKotlinModule(const char *filename, const size_t filename_len) {
-  return StartsWith(filename, filename_len, MANIFEST_DIR_PATH,
-                    MANIFEST_DIR_PATH_LENGTH) &&
-         EndsWith(filename, filename_len, KOTLIN_MODULE_EXTENSION,
-                  KOTLIN_MODULE_EXTENSION_LENGTH);
+  return (StartsWith(filename, filename_len, MANIFEST_DIR_PATH,
+                     MANIFEST_DIR_PATH_LENGTH) &&
+          EndsWith(filename, filename_len, KOTLIN_MODULE_EXTENSION,
+                   KOTLIN_MODULE_EXTENSION_LENGTH)) ||
+         (StartsWith(filename, filename_len, KOTLIN_PKG_PATH,
+                     KOTLIN_PKG_PATH_LENGTH) &&
+          EndsWith(filename, filename_len, KOTLIN_BUILTINS_EXTENSION,
+                   KOTLIN_BUILTINS_EXTENSION_LENGTH));
 }
 
 static bool IsScalaTasty(const char *filename, const size_t filename_len) {
@@ -121,6 +157,10 @@ bool JarStripperProcessor::Accept(const char *filename, const u4 /*attr*/) {
   if (filename_len < CLASS_EXTENSION_LENGTH ||
       strcmp(filename + filename_len - CLASS_EXTENSION_LENGTH,
              CLASS_EXTENSION) != 0) {
+    return false;
+  }
+  if (StartsWith(filename, filename_len, TRANSITIVE_PREFIX,
+                 TRANSITIVE_PREFIX_LENGTH)) {
     return false;
   }
   return true;
@@ -180,18 +220,49 @@ static u1 *WriteManifestAttr(u1 *buf, const char *key, const char *val) {
   return buf;
 }
 
-void JarStripperProcessor::WriteManifest(const char *target_label,
-                                         const char *injecting_rule_kind) {
-  if (target_label == nullptr) {
+static bool IsMultiRelease(u1* manifest_data, size_t manifest_size) {
+  static const char* enabled_line = "Multi-Release: true";
+  static const size_t enabled_length = strlen(enabled_line);
+  const char* line_start = (const char*)manifest_data;
+  const char* data_end = (const char*)manifest_data + manifest_size;
+  while (line_start < data_end) {
+    const char* line_end = strchr(line_start, '\n');
+    line_end = line_end != nullptr ? line_end + 1 : data_end;
+    size_t line_length = line_end - line_start;
+
+    if (line_length >= enabled_length &&
+        strncmp(line_start, enabled_line, enabled_length) == 0 &&
+        (line_length == enabled_length || line_start[enabled_length] == '\r' ||
+         line_start[enabled_length] == '\n')) {
+      return true;
+    }
+    line_start = line_end;
+  }
+  return false;
+}
+
+void JarStripperProcessor::WriteManifest(
+    const ManifestLocator& manifest_locator, const char* target_label,
+    const char* injecting_rule_kind) {
+  bool multi_release = manifest_locator.manifest_buf_ != nullptr &&
+                       IsMultiRelease(manifest_locator.manifest_buf_,
+                                      manifest_locator.manifest_size_);
+  if (target_label == nullptr && !multi_release) {
     return;
   }
   builder_->WriteEmptyFile(MANIFEST_DIR_PATH);
   u1 *start = builder_->NewFile(MANIFEST_PATH, 0);
   u1 *buf = start;
   buf = WriteStr(buf, MANIFEST_HEADER);
-  buf = WriteManifestAttr(buf, TARGET_LABEL_KEY, target_label);
-  if (injecting_rule_kind) {
-    buf = WriteManifestAttr(buf, INJECTING_RULE_KIND_KEY, injecting_rule_kind);
+  if (multi_release) {
+    buf = WriteStr(buf, MULTI_RELEASE_TRUE_LINE);
+  }
+  if (target_label != nullptr) {
+    buf = WriteManifestAttr(buf, TARGET_LABEL_KEY, target_label);
+    if (injecting_rule_kind) {
+      buf =
+          WriteManifestAttr(buf, INJECTING_RULE_KIND_KEY, injecting_rule_kind);
+    }
   }
   size_t total_len = buf - start;
   builder_->FinishFile(total_len, /* compress: */ false,
@@ -200,41 +271,19 @@ void JarStripperProcessor::WriteManifest(const char *target_label,
 
 class JarCopierProcessor : public JarExtractorProcessor {
  public:
-  JarCopierProcessor(const char *jar) : jar_(jar) {}
+  JarCopierProcessor() {}
   virtual ~JarCopierProcessor() {}
 
-  virtual void Process(const char *filename, const u4 /*attr*/, const u1 *data,
-                       const size_t size);
-  virtual bool Accept(const char *filename, const u4 /*attr*/);
+  virtual void Process(const char* filename, u4 /*attr*/, const u1* data,
+                       size_t size) override;
+  virtual bool Accept(const char* filename, u4 /*attr*/) override;
 
-  virtual void WriteManifest(const char *target_label,
-                             const char *injecting_rule_kind);
+  virtual void WriteManifest(const ManifestLocator&, const char* target_label,
+                             const char* injecting_rule_kind) override;
 
  private:
-  class ManifestLocator : public ZipExtractorProcessor {
-   public:
-    ManifestLocator() : manifest_buf_(nullptr), manifest_size_(0) {}
-    virtual ~ManifestLocator() { free(manifest_buf_); }
-
-    u1 *manifest_buf_;
-    size_t manifest_size_;
-
-    virtual bool Accept(const char *filename, const u4 /*attr*/) {
-      return strcmp(filename, MANIFEST_PATH) == 0;
-    }
-
-    virtual void Process(const char * /*filename*/, const u4 /*attr*/,
-                         const u1 *data, const size_t size) {
-      manifest_buf_ = (u1 *)malloc(size);
-      memmove(manifest_buf_, data, size);
-      manifest_size_ = size;
-    }
-  };
-
-  const char *jar_;
-
-  u1 *AppendTargetLabelToManifest(u1 *buf, const u1 *manifest_data,
-                                  const size_t size, const char *target_label,
+  u1 *AppendTargetLabelToManifest(u1 *buf, const u1 *manifest_data, size_t size,
+                                  const char *target_label,
                                   const char *injecting_rule_kind);
 };
 
@@ -257,13 +306,9 @@ bool JarCopierProcessor::Accept(const char * /*filename*/, const u4 /*attr*/) {
   return true;
 }
 
-void JarCopierProcessor::WriteManifest(const char *target_label,
-                                       const char *injecting_rule_kind) {
-  ManifestLocator manifest_locator;
-  std::unique_ptr<ZipExtractor> in(
-      ZipExtractor::Create(jar_, &manifest_locator));
-  in->ProcessAll();
-
+void JarCopierProcessor::WriteManifest(const ManifestLocator& manifest_locator,
+                                       const char* target_label,
+                                       const char* injecting_rule_kind) {
   bool wants_manifest =
       manifest_locator.manifest_buf_ != nullptr || target_label != nullptr;
   if (wants_manifest) {
@@ -352,6 +397,7 @@ static size_t EstimateManifestOutputSize(const char *target_label,
 
   // manifest content
   length += MANIFEST_HEADER_LENGTH;
+  length += MULTI_RELEASE_TRUE_LINE_LENGTH;
   // target label manifest entry, including newline
   length += TARGET_LABEL_KEY_LENGTH + strlen(target_label) + 2;
   if (injecting_rule_kind) {
@@ -372,7 +418,7 @@ static void OpenFilesAndProcessJar(const char *file_out, const char *file_in,
         std::unique_ptr<JarExtractorProcessor>(new JarStripperProcessor());
   } else {
     processor =
-        std::unique_ptr<JarExtractorProcessor>(new JarCopierProcessor(file_in));
+        std::unique_ptr<JarExtractorProcessor>(new JarCopierProcessor());
   }
   std::unique_ptr<ZipExtractor> in(
       ZipExtractor::Create(file_in, processor.get()));
@@ -395,7 +441,14 @@ static void OpenFilesAndProcessJar(const char *file_out, const char *file_in,
     abort();
   }
   processor->SetZipBuilder(out.get());
-  processor->WriteManifest(target_label, injecting_rule_kind);
+  {
+    ManifestLocator manifest_locator;
+    std::unique_ptr<ZipExtractor> in(
+        ZipExtractor::Create(file_in, &manifest_locator));
+    in->ProcessAll();
+    processor->WriteManifest(manifest_locator, target_label,
+                             injecting_rule_kind);
+  }
 
   // Process all files in the zip
   if (in->ProcessAll() < 0) {
@@ -477,8 +530,8 @@ int main(int argc, char **argv) {
   if (filename_out == NULL) {
     size_t len = strlen(filename_in);
     if (len > 4 && strncmp(filename_in + len - 4, ".jar", 4) == 0) {
-      strcpy(filename_out_buf, filename_in);
-      strcpy(filename_out_buf + len - 4, "-interface.jar");
+      snprintf(filename_out_buf, sizeof(filename_out_buf), "%.*s-interface.jar",
+               (int)(len - 4), filename_in);
       filename_out = filename_out_buf;
     } else {
       fprintf(stderr,

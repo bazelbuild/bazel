@@ -23,26 +23,18 @@ public interface TreeDeleter {
   /**
    * Deletes a tree.
    *
+   * <p>If the given path does not exist, does nothing.
+   *
    * <p>Note that depending on the scheduling policy implemented by this tree deleter, errors may
    * not be reported even if they happen. For example, if deletions are asynchronous, there is no
    * way to capture their errors.
    *
+   * <p>For asynchronous deleters the directory is moved before being deleted.
+   *
    * @param path the tree to be deleted
-   * @throws IOException if there are problems deleting the tree
+   * @throws IOException if an error occurs while deleting the tree
    */
   void deleteTree(Path path) throws IOException;
-
-  /**
-   * Deletes the contents of a tree, but not the top-level directory.
-   *
-   * <p>Note that depending on the scheduling policy implemented by this tree deleter, errors may
-   * not be reported even if they happen. For example, if deletions are asynchronous, there is no
-   * way to capture their errors.
-   *
-   * @param path the tree to be deleted
-   * @throws IOException if there are problems deleting the tree
-   */
-  void deleteTreesBelow(Path path) throws IOException;
 
   /** Shuts down the tree deleter and cleans up pending operations, if any. */
   void shutdown();

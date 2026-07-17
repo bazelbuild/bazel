@@ -32,9 +32,6 @@ import java.util.Queue;
  */
 public class BlazeJavaCompiler extends JavaCompiler {
 
-  private int skippedFlowEvents = 0;
-  private int flowEvents = 0;
-
   /** A list of plugins to run at particular points in the compile */
   private final List<BlazeJavaCompilerPlugin> plugins = new ArrayList<>();
 
@@ -104,15 +101,12 @@ public class BlazeJavaCompiler extends JavaCompiler {
       return;
     }
     // don't run plugins if there were compilation errors
-    if (errorCount() > 0) {
-      skippedFlowEvents++;
-      return;
-    }
-    flowEvents++;
-
+    boolean errors = errorCount() > 0;
     // Iterate over all plugins, calling their postFlow methods
     for (BlazeJavaCompilerPlugin plugin : plugins) {
-      plugin.postFlow(env);
+      if (!errors || plugin.runOnFlowErrors()) {
+        plugin.postFlow(env);
+      }
     }
   }
 
@@ -123,16 +117,6 @@ public class BlazeJavaCompiler extends JavaCompiler {
     }
     plugins.clear();
     super.close();
-  }
-
-  /** The number of flow events that were skipped. */
-  public int skippedFlowEvents() {
-    return skippedFlowEvents;
-  }
-
-  /** The number of error-free flow events that were passed to plugins. */
-  public int flowEvents() {
-    return flowEvents;
   }
 
   /**

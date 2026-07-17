@@ -58,7 +58,8 @@ public final class WorkspaceLogParserTest {
 
   @Test
   public void getNextSingleExcluded1() throws Exception {
-    WorkspaceEvent a = WorkspaceEvent.newBuilder().setRule("a").setLocation("SomeLocation").build();
+    WorkspaceEvent a =
+        WorkspaceEvent.newBuilder().setContext("a").setLocation("SomeLocation").build();
 
     // Excluded by first exclusion
     ExcludingLogParser p =
@@ -69,7 +70,8 @@ public final class WorkspaceLogParserTest {
 
   @Test
   public void getNextSingleExcluded2() throws Exception {
-    WorkspaceEvent a = WorkspaceEvent.newBuilder().setRule("a").setLocation("SomeLocation").build();
+    WorkspaceEvent a =
+        WorkspaceEvent.newBuilder().setContext("a").setLocation("SomeLocation").build();
 
     // Excluded by second exclusion
     ExcludingLogParser p =
@@ -81,7 +83,7 @@ public final class WorkspaceLogParserTest {
   @Test
   public void getNextSingleIncluded() throws Exception {
     WorkspaceEvent a =
-        WorkspaceEvent.newBuilder().setRule("onOnList").setLocation("SomeLocation").build();
+        WorkspaceEvent.newBuilder().setContext("onOnList").setLocation("SomeLocation").build();
 
     ExcludingLogParser p =
         new ExcludingLogParser(
@@ -92,11 +94,11 @@ public final class WorkspaceLogParserTest {
 
   @Test
   public void getNextSingleLongerList1() throws Exception {
-    WorkspaceEvent a = WorkspaceEvent.newBuilder().setRule("a").setLocation("a1").build();
-    WorkspaceEvent b = WorkspaceEvent.newBuilder().setRule("b").setLocation("b1").build();
-    WorkspaceEvent c = WorkspaceEvent.newBuilder().setRule("a").setLocation("a2").build();
-    WorkspaceEvent d = WorkspaceEvent.newBuilder().setRule("b").setLocation("b2").build();
-    WorkspaceEvent e = WorkspaceEvent.newBuilder().setRule("d").build();
+    WorkspaceEvent a = WorkspaceEvent.newBuilder().setContext("a").setLocation("a1").build();
+    WorkspaceEvent b = WorkspaceEvent.newBuilder().setContext("b").setLocation("b1").build();
+    WorkspaceEvent c = WorkspaceEvent.newBuilder().setContext("a").setLocation("a2").build();
+    WorkspaceEvent d = WorkspaceEvent.newBuilder().setContext("b").setLocation("b2").build();
+    WorkspaceEvent e = WorkspaceEvent.newBuilder().setContext("d").build();
 
     ExcludingLogParser p =
         new ExcludingLogParser(
@@ -107,11 +109,11 @@ public final class WorkspaceLogParserTest {
 
   @Test
   public void getNextSingleLongerList2() throws Exception {
-    WorkspaceEvent a = WorkspaceEvent.newBuilder().setRule("a").setLocation("a1").build();
-    WorkspaceEvent b = WorkspaceEvent.newBuilder().setRule("b").setLocation("b1").build();
-    WorkspaceEvent c = WorkspaceEvent.newBuilder().setRule("a").setLocation("a2").build();
-    WorkspaceEvent d = WorkspaceEvent.newBuilder().setRule("b").setLocation("b2").build();
-    WorkspaceEvent e = WorkspaceEvent.newBuilder().setRule("d").build();
+    WorkspaceEvent a = WorkspaceEvent.newBuilder().setContext("a").setLocation("a1").build();
+    WorkspaceEvent b = WorkspaceEvent.newBuilder().setContext("b").setLocation("b1").build();
+    WorkspaceEvent c = WorkspaceEvent.newBuilder().setContext("a").setLocation("a2").build();
+    WorkspaceEvent d = WorkspaceEvent.newBuilder().setContext("b").setLocation("b2").build();
+    WorkspaceEvent e = WorkspaceEvent.newBuilder().setContext("d").build();
 
     ExcludingLogParser p =
         new ExcludingLogParser(

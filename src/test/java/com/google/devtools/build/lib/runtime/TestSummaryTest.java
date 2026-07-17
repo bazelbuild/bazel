@@ -28,7 +28,7 @@ import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.analysis.test.TestProvider.TestParams;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
@@ -82,16 +82,14 @@ public class TestSummaryTest {
   }
 
   private TestSummary.Builder getTemplateBuilder() {
-    BuildConfiguration configuration = Mockito.mock(BuildConfiguration.class);
+    BuildConfigurationValue configuration = Mockito.mock(BuildConfigurationValue.class);
     when(configuration.checksum()).thenReturn("abcdef");
-    return TestSummary.newBuilder()
-        .setTarget(stubTarget)
+    return TestSummary.newBuilder(stubTarget)
         .setConfiguration(configuration)
         .setStatus(BlazeTestStatus.PASSED)
         .setNumCached(NOT_CACHED)
         .setActionRan(true)
-        .setRanRemotely(false)
-        .setWasUnreportedWrongSize(false);
+        .setRanRemotely(false);
   }
 
   private List<Path> getPathList(String... names) {
@@ -447,6 +445,30 @@ public class TestSummaryTest {
   }
 
   @Test
+  public void testShowTestCaseNames() throws Exception {
+    TestCase detailPassed = newDetail("strawberry", TestCase.Status.PASSED, 1000L);
+    TestCase detailFailed = newDetail("orange", TestCase.Status.FAILED, 1500L);
+
+    TestSummary summaryPassed =
+        createPassedTestSummary(BlazeTestStatus.PASSED, Arrays.asList(detailPassed));
+
+    TestSummary summaryFailed =
+        createTestSummaryWithDetails(
+            BlazeTestStatus.FAILED, Arrays.asList(detailPassed, detailFailed));
+    assertThat(summaryFailed.getStatus()).isEqualTo(BlazeTestStatus.FAILED);
+
+    AnsiTerminalPrinter printerPassed = Mockito.mock(AnsiTerminalPrinter.class);
+    TestSummaryPrinter.print(summaryPassed, printerPassed, Path::getPathString, true, true);
+    verify(printerPassed).print(contains("//package:name"));
+    verify(printerPassed).print(find("PASSED.*strawberry *\\(1\\.0"));
+
+    AnsiTerminalPrinter printerFailed = Mockito.mock(AnsiTerminalPrinter.class);
+    TestSummaryPrinter.print(summaryFailed, printerFailed, Path::getPathString, true, true);
+    verify(printerFailed).print(contains("//package:name"));
+    verify(printerFailed).print(find("FAILED.*orange *\\(1\\.5"));
+  }
+
+  @Test
   public void testTestCaseNamesOrdered() throws Exception {
     TestCase[] details = {
       newDetail("apple", TestCase.Status.FAILED, 1000L),
@@ -501,13 +523,13 @@ public class TestSummaryTest {
 
   @Test
   public void testCollectingFailedDetails() throws Exception {
-    TestCase rootCase = TestCase.newBuilder()
-        .setName("tests")
-        .setRunDurationMillis(5000L)
-        .addChild(newDetail("apple", TestCase.Status.FAILED, 1000L))
-        .addChild(newDetail("banana", TestCase.Status.PASSED, 1000L))
-        .addChild(newDetail("cherry", TestCase.Status.ERROR, 1000L))
-        .build();
+    TestCase rootCase =
+        TestCase.newBuilder()
+            .setName("tests")
+            .setRunDurationMillis(5000L)
+            .addChild(newDetail("apple", TestCase.Status.FAILED, 1000L))
+            .addChild(newDetail("cherry", TestCase.Status.ERROR, 1000L))
+            .build();
 
     TestSummary summary =
         getTemplateBuilder().collectTestCases(rootCase).setStatus(BlazeTestStatus.FAILED).build();
@@ -520,6 +542,50 @@ public class TestSummaryTest {
   }
 
   @Test
+  public void testCollectingAllDetails() throws Exception {
+    TestCase rootCase =
+        TestCase.newBuilder()
+            .setName("tests")
+            .setRunDurationMillis(5000L)
+            .addChild(newDetail("apple", TestCase.Status.FAILED, 1000L))
+            .addChild(newDetail("banana", TestCase.Status.PASSED, 1000L))
+            .addChild(newDetail("cherry", TestCase.Status.ERROR, 1000L))
+            .addChild(newDetail("sugarcane", Status.SKIPPED, 0))
+            .build();
+
+    TestSummary summary =
+        getTemplateBuilder().collectTestCases(rootCase).setStatus(BlazeTestStatus.FAILED).build();
+
+    AnsiTerminalPrinter printer = Mockito.mock(AnsiTerminalPrinter.class);
+    TestSummaryPrinter.print(summary, printer, Path::getPathString, true, true);
+    verify(printer).print(contains("//package:name"));
+    verify(printer).print(find("FAILED.*apple"));
+    verify(printer).print(find("PASSED.*banana"));
+    verify(printer).print(find("ERROR.*cherry"));
+    verify(printer).print(find("SKIPPED.*sugarcane"));
+  }
+
+  @Test
+  public void testCollectingPassedDetails() throws Exception {
+    TestCase rootCase =
+        TestCase.newBuilder()
+            .setName("tests")
+            .setRunDurationMillis(5000L)
+            .addChild(newDetail("apple", TestCase.Status.PASSED, 1000L))
+            .addChild(newDetail("banana", Status.SKIPPED, 0))
+            .build();
+
+    TestSummary summary =
+        getTemplateBuilder().collectTestCases(rootCase).setStatus(BlazeTestStatus.PASSED).build();
+
+    AnsiTerminalPrinter printer = Mockito.mock(AnsiTerminalPrinter.class);
+    TestSummaryPrinter.print(summary, printer, Path::getPathString, true, true);
+    verify(printer).print(contains("//package:name"));
+    verify(printer).print(find("PASSED.*apple"));
+    verify(printer).print(find("SKIPPED.*banana"));
+  }
+
+  @Test
   public void countTotalTestCases() throws Exception {
     TestCase rootCase =
         TestCase.newBuilder()
@@ -528,12 +594,13 @@ public class TestSummaryTest {
             .addChild(newDetail("apple", TestCase.Status.FAILED, 1000L))
             .addChild(newDetail("banana", TestCase.Status.PASSED, 1000L))
             .addChild(newDetail("cherry", TestCase.Status.ERROR, 1000L))
+            .addChild(newDetail("sugarcane", Status.SKIPPED, 0))
             .build();
 
     TestSummary summary =
         getTemplateBuilder().collectTestCases(rootCase).setStatus(BlazeTestStatus.FAILED).build();
 
-    assertThat(summary.getTotalTestCases()).isEqualTo(3);
+    assertThat(summary.getTotalTestCases()).isEqualTo(4);
   }
 
   @Test
@@ -542,7 +609,7 @@ public class TestSummaryTest {
         getTemplateBuilder().collectTestCases(null).setStatus(BlazeTestStatus.FAILED).build();
 
     assertThat(summary.getTotalTestCases()).isEqualTo(1);
-    assertThat(summary.getUnkownTestCases()).isEqualTo(1);
+    assertThat(summary.getUnknownTestCases()).isEqualTo(1);
   }
 
   @Test
@@ -560,7 +627,7 @@ public class TestSummaryTest {
         getTemplateBuilder().collectTestCases(a).setStatus(BlazeTestStatus.FAILED).build();
 
     assertThat(summary.getTotalTestCases()).isEqualTo(2);
-    assertThat(summary.getUnkownTestCases()).isEqualTo(0);
+    assertThat(summary.getUnknownTestCases()).isEqualTo(0);
     assertThat(summary.getFailedTestCases()).isEmpty();
   }
 
@@ -596,11 +663,18 @@ public class TestSummaryTest {
     ConfiguredTarget target = Mockito.mock(ConfiguredTarget.class);
     when(target.getLabel()).thenReturn(Label.create(path, targetName));
     when(target.getConfigurationChecksum()).thenReturn("abcdef");
+    TestParams mockParams = Mockito.mock(TestParams.class);
+    when(mockParams.getShards()).thenReturn(1);
+    when(target.getProvider(TestProvider.class)).thenReturn(new TestProvider(mockParams));
     return target;
   }
 
   private ConfiguredTarget stubTarget() throws Exception {
     return target(PATH, TARGET_NAME);
+  }
+
+  private TestSummary createPassedTestSummary(BlazeTestStatus status, List<TestCase> details) {
+    return getTemplateBuilder().setStatus(status).addPassedTestCases(details).build();
   }
 
   private TestSummary createTestSummaryWithDetails(BlazeTestStatus status,
@@ -625,17 +699,14 @@ public class TestSummaryTest {
   private static TestSummary createTestSummary(ConfiguredTarget target, BlazeTestStatus status,
                                                int numCached) {
     ImmutableList<TestCase> emptyList = ImmutableList.of();
-    TestSummary summary = TestSummary.newBuilder()
-        .setTarget(target)
+    return TestSummary.newBuilder(target)
         .setStatus(status)
         .setNumCached(numCached)
         .setActionRan(true)
         .setRanRemotely(false)
-        .setWasUnreportedWrongSize(false)
         .addFailedTestCases(emptyList, FailedTestCasesStatus.FULL)
         .addTestTimes(SMALL_TIMING)
         .build();
-    return summary;
   }
 
   private TestSummary createTestSummary(BlazeTestStatus status, int numCached) {

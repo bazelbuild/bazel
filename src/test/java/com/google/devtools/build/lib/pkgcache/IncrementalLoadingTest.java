@@ -20,29 +20,37 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
+import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
+import com.google.devtools.build.lib.bazel.repository.RepoDefinitionFunction;
 import com.google.devtools.build.lib.clock.BlazeClock;
+import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.events.EventBusEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
-import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
+import com.google.devtools.build.lib.packages.Packageoid;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.packages.util.LoadingMock;
-import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
+import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
+import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.DiffAwareness;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
+import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.SkyframeExecutorTestHelper;
@@ -56,8 +64,10 @@ import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.Options;
+import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsProvider;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -298,29 +308,41 @@ public class IncrementalLoadingTest {
 
   @Test
   public void testBuildFileWithSyntaxError() throws Exception {
-    tester.addFile("a/BUILD", "sh_library(xyz='a')");
+    tester.addFile(
+        "a/BUILD", "load('//test_defs:foo_library.bzl', 'foo_library')", "foo_library(xyz='a')");
     tester.sync();
     assertThrows(NoSuchThingException.class, () -> tester.getTarget("//a:a"));
 
-    tester.modifyFile("a/BUILD", "sh_library(name='a')");
+    tester.modifyFile(
+        "a/BUILD", "load('//test_defs:foo_library.bzl', 'foo_library')", "foo_library(name='a')");
     tester.sync();
     tester.getTarget("//a:a");
   }
 
   @Test
   public void testSymlinkedBuildFileWithSyntaxError() throws Exception {
-    tester.addFile("a/BUILD.real", "sh_library(xyz='a')");
+    tester.addFile(
+        "a/BUILD.real",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(xyz='a')");
     tester.addSymlink("a/BUILD", "BUILD.real");
     tester.sync();
     assertThrows(NoSuchThingException.class, () -> tester.getTarget("//a:a"));
-    tester.modifyFile("a/BUILD.real", "sh_library(name='a')");
+    tester.modifyFile(
+        "a/BUILD.real",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name='a')");
     tester.sync();
     tester.getTarget("//a:a");
   }
 
   @Test
   public void testTransientErrorsInGlobbing() throws Exception {
-    Path buildFile = tester.addFile("e/BUILD", "sh_library(name = 'e', data = glob(['*.txt']))");
+    Path buildFile =
+        tester.addFile(
+            "e/BUILD",
+            "load('//test_defs:foo_library.bzl', 'foo_library')",
+            "foo_library(name = 'e', srcs = glob(['*.txt']))");
     Path parentDir = buildFile.getParentDirectory();
     tester.addFile("e/data.txt");
     throwOnReaddir = parentDir;
@@ -330,21 +352,26 @@ public class IncrementalLoadingTest {
     tester.sync();
     Target target = tester.getTarget("//e:e");
     assertThat(((Rule) target).containsErrors()).isFalse();
-    List<?> globList = (List<?>) ((Rule) target).getAttr("data");
-    assertThat(globList).containsExactly(Label.parseAbsolute("//e:data.txt", ImmutableMap.of()));
+    List<?> globList = (List<?>) ((Rule) target).getAttr("srcs");
+    assertThat(globList).containsExactly(Label.parseCanonical("//e:data.txt"));
   }
 
   @Test
   public void testIrrelevantFileInSubdirDoesntReloadPackage() throws Exception {
-    tester.addFile("pkg/BUILD", "sh_library(name = 'pkg', srcs = glob(['**/*.sh']))");
+    tester.addFile(
+        "pkg/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name = 'pkg', srcs = glob(['**/*.sh']))");
     tester.addFile("pkg/pkg.sh", "#!/bin/bash");
     tester.addFile("pkg/bar/bar.sh", "#!/bin/bash");
-    Package pkg = tester.getTarget("//pkg:pkg").getPackage();
+    Packageoid packageoid = tester.getTarget("//pkg:pkg").getPackageoid();
+    Package pkg = tester.getPackage("pkg");
 
     // Write file in directory to force reload of top-level glob.
     tester.addFile("pkg/irrelevant_file");
     tester.addFile("pkg/bar/irrelevant_file"); // Subglob is also reloaded.
-    assertThat(tester.getTarget("//pkg:pkg").getPackage()).isSameInstanceAs(pkg);
+    assertThat(tester.getTarget("//pkg:pkg").getPackageoid()).isSameInstanceAs(packageoid);
+    assertThat(tester.getPackage("pkg")).isSameInstanceAs(pkg);
   }
 
   @Test
@@ -353,25 +380,38 @@ public class IncrementalLoadingTest {
 
     assertThrows(NoSuchThingException.class, () -> tester.getTarget("//a:a"));
 
-    tester.addFile("a/BUILD", "sh_library(name='a')");
+    tester.addFile(
+        "a/BUILD", "load('//test_defs:foo_library.bzl', 'foo_library')", "foo_library(name='a')");
     tester.sync();
     tester.getTarget("//a:a");
   }
 
   @Test
   public void testChangedExternalFile() throws Exception {
-    tester.addFile("a/BUILD",
-        "load('//a:b.bzl', 'b')",
-        "b()");
+    tester.addFile(
+        "a/BUILD",
+        """
+        load("//a:b.bzl", "b")
 
-    tester.addFile("/b.bzl",
-        "def b():",
-        "  pass");
+        b()
+        """);
+
+    tester.addFile(
+        "/b.bzl",
+        """
+        def b():
+            pass
+        """);
     tester.addSymlink("a/b.bzl", "/b.bzl");
     tester.sync();
     tester.getTarget("//a:BUILD");
+    PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
+    packageOptions.setCheckExternalOtherFiles(false);
     tester.modifyFile("/b.bzl", "ERROR ERROR");
-    tester.sync();
+    tester.syncWithOptions(packageOptions);
+    tester.getTarget("//a:BUILD");
+    packageOptions.setCheckExternalOtherFiles(true);
+    tester.syncWithOptions(packageOptions);
 
     assertThrows(NoSuchThingException.class, () -> tester.getTarget("//a:BUILD"));
   }
@@ -410,7 +450,8 @@ public class IncrementalLoadingTest {
     private class ManualDiffAwarenessFactory implements DiffAwareness.Factory {
       @Nullable
       @Override
-      public DiffAwareness maybeCreate(Root pathEntry) {
+      public DiffAwareness maybeCreate(
+          Root pathEntry, IgnoredSubdirectories ignoredPaths, OptionsProvider optionsProvider) {
         return pathEntry.asPath().equals(workspace) ? new ManualDiffAwareness() : null;
       }
     }
@@ -418,16 +459,31 @@ public class IncrementalLoadingTest {
     private final ManualClock clock;
     private final Path workspace;
     private final Path outputBase;
-    private final Reporter reporter = new Reporter(new EventBus());
+    private final Reporter reporter = new Reporter(EventBusEventHandler.createWithNewEventBus());
     private final SkyframeExecutor skyframeExecutor;
     private final List<Path> changes = new ArrayList<>();
     private boolean everythingModified = false;
     private ModifiedFileSet modifiedFileSet;
 
-    PackageLoadingTester(FileSystem fs, ManualClock clock) throws IOException {
+    PackageLoadingTester(FileSystem fs, ManualClock clock)
+        throws IOException, OptionsParsingException {
       this.clock = clock;
       workspace = fs.getPath("/workspace");
       workspace.createDirectory();
+      addFile("test_defs/BUILD");
+      addFile(
+          "test_defs/foo_library.bzl",
+          """
+          def _impl(ctx):
+            pass
+          foo_library = rule(
+            implementation = _impl,
+            attrs = {
+              "srcs": attr.label_list(allow_files=True),
+              "deps": attr.label_list(),
+            },
+          )
+          """);
       outputBase = fs.getPath("/output_base");
       outputBase.createDirectory();
       addFile("WORKSPACE");
@@ -438,11 +494,19 @@ public class IncrementalLoadingTest {
               new ServerDirectories(
                   fs.getPath("/install"), fs.getPath("/output"), fs.getPath("/userRoot")),
               workspace,
-              /* defaultSystemJavabase= */ null,
               loadingMock.getProductName());
       ConfiguredRuleClassProvider ruleClassProvider = loadingMock.createRuleClassProvider();
       PackageFactory pkgFactory =
-          loadingMock.getPackageFactoryBuilderForTesting(directories).build(ruleClassProvider, fs);
+          loadingMock
+              .getPackageFactoryBuilderForTesting(directories)
+              .setExtraSkyFunctions(
+                  ImmutableMap.of(
+                      SkyFunctions.MODULE_FILE,
+                      new ModuleFileFunction(
+                          ruleClassProvider.getBazelStarlarkEnvironment(),
+                          directories.getWorkspace(),
+                          ImmutableMap.of())))
+              .build(ruleClassProvider, fs);
       skyframeExecutor =
           BazelSkyframeExecutorConstants.newBazelSkyframeExecutorBuilder()
               .setPkgFactory(pkgFactory)
@@ -450,26 +514,31 @@ public class IncrementalLoadingTest {
               .setDirectories(directories)
               .setActionKeyContext(new ActionKeyContext())
               .setDiffAwarenessFactories(ImmutableList.of(new ManualDiffAwarenessFactory()))
+              .setSyscallCache(SyscallCache.NO_CACHE)
               .build();
       SkyframeExecutorTestHelper.process(skyframeExecutor);
       PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
-      packageOptions.defaultVisibility = ConstantRuleVisibility.PUBLIC;
-      packageOptions.showLoadingProgress = true;
-      packageOptions.globbingThreads = 7;
+      packageOptions.setDefaultVisibility(RuleVisibility.PUBLIC);
+      packageOptions.setShowLoadingProgress(true);
+      packageOptions.setGlobbingThreads(7);
       skyframeExecutor.injectExtraPrecomputedValues(
           ImmutableList.of(
               PrecomputedValue.injected(
-                  RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE,
-                  Optional.empty())));
+                  RepositoryDirectoryValue.VENDOR_DIRECTORY, Optional.empty()),
+              PrecomputedValue.injected(
+                  RepoDefinitionFunction.REPOSITORY_OVERRIDES, ImmutableMap.of())));
+      BuildLanguageOptions buildLanguageOptions = Options.getDefaults(BuildLanguageOptions.class);
       skyframeExecutor.preparePackageLoading(
           new PathPackageLocator(
               outputBase,
               ImmutableList.of(Root.fromPath(workspace)),
               BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY),
           packageOptions,
-          Options.getDefaults(BuildLanguageOptions.class),
+          buildLanguageOptions,
           UUID.randomUUID(),
           ImmutableMap.of(),
+          /* repoEnv= */ ImmutableMap.of(),
+          QuiescingExecutorsImpl.forTesting(),
           new TimestampGranularityMonitor(BlazeClock.instance()));
       skyframeExecutor.setActionEnv(ImmutableMap.of());
     }
@@ -544,36 +613,56 @@ public class IncrementalLoadingTest {
     }
 
     void sync() throws InterruptedException, AbruptExitException {
+      syncWithOptions(Options.getDefaults(PackageOptions.class));
+    }
+
+    void syncWithOptions(PackageOptions packageOptions)
+        throws InterruptedException, AbruptExitException {
       clock.advanceMillis(1);
 
       modifiedFileSet = getModifiedFileSet();
-      PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
-      packageOptions.defaultVisibility = ConstantRuleVisibility.PUBLIC;
-      packageOptions.showLoadingProgress = true;
-      packageOptions.globbingThreads = 7;
+      packageOptions.setDefaultVisibility(RuleVisibility.PUBLIC);
+      packageOptions.setShowLoadingProgress(true);
+      packageOptions.setGlobbingThreads(7);
+      BuildLanguageOptions buildLanguageOptions = Options.getDefaults(BuildLanguageOptions.class);
       skyframeExecutor.preparePackageLoading(
           new PathPackageLocator(
               outputBase,
               ImmutableList.of(Root.fromPath(workspace)),
               BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY),
           packageOptions,
-          Options.getDefaults(BuildLanguageOptions.class),
+          buildLanguageOptions,
           UUID.randomUUID(),
           ImmutableMap.of(),
+          /* repoEnv= */ ImmutableMap.of(),
+          QuiescingExecutorsImpl.forTesting(),
           new TimestampGranularityMonitor(BlazeClock.instance()));
       skyframeExecutor.setActionEnv(ImmutableMap.of());
       skyframeExecutor.invalidateFilesUnderPathForTesting(
-          new Reporter(new EventBus()), modifiedFileSet, Root.fromPath(workspace));
+          new Reporter(EventBusEventHandler.createWithNewEventBus()),
+          modifiedFileSet,
+          Root.fromPath(workspace));
       ((SequencedSkyframeExecutor) skyframeExecutor)
-          .handleDiffsForTesting(new Reporter(new EventBus()));
+          .handleDiffsForTesting(
+              new Reporter(EventBusEventHandler.createWithNewEventBus()), packageOptions);
 
       changes.clear();
     }
 
     Target getTarget(String targetName)
         throws NoSuchPackageException, NoSuchTargetException, InterruptedException {
-      Label label = Label.parseAbsoluteUnchecked(targetName);
+      Label label = Label.parseCanonicalUnchecked(targetName);
       return skyframeExecutor.getPackageManager().getTarget(reporter, label);
+    }
+
+    Package getPackage(PackageIdentifier pkgId)
+        throws NoSuchPackageException, InterruptedException {
+      return skyframeExecutor.getPackageManager().getPackage(reporter, pkgId);
+    }
+
+    Package getPackage(String packageName)
+        throws LabelSyntaxException, NoSuchPackageException, InterruptedException {
+      return getPackage(PackageIdentifier.parse(packageName));
     }
   }
 }

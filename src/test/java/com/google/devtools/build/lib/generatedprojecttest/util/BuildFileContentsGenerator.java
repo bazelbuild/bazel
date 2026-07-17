@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.generatedprojecttest.util;
 
 import com.google.common.base.Joiner;
 import com.google.devtools.build.lib.testutil.BuildRuleBuilder;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 
 /**
  * A generator of the contents of a Build File. It contains functions to aid in generating build
@@ -50,6 +51,7 @@ public final class BuildFileContentsGenerator implements FileContentsGenerator {
    * Set the default package visibility for this build file. If this function is never called, the
    * default package visibility is ['//visibility:public'].
    */
+  @CanIgnoreReturnValue
   public FileContentsGenerator setDefaultPackageVisibility(String... visibilityLabelList) {
     if (defaultPackageVisibilityIsSet) {
       throw new IllegalStateException("setDefaultPackageVisibility was called twice.");
@@ -61,9 +63,10 @@ public final class BuildFileContentsGenerator implements FileContentsGenerator {
   }
 
   /**
-   * Appends the rule built from the provided BuildRuleBuilder along with the other rules
-   * generated in order to this rule to be able to build.
+   * Appends the rule built from the provided BuildRuleBuilder along with the other rules generated
+   * in order to this rule to be able to build.
    */
+  @CanIgnoreReturnValue
   public FileContentsGenerator addRule(BuildRuleBuilder ruleBuilder) {
     contents.append(ruleBuilder.build());
     for (BuildRuleBuilder generatedRuleBuilder : ruleBuilder.getRulesToGenerate()) {
@@ -79,6 +82,7 @@ public final class BuildFileContentsGenerator implements FileContentsGenerator {
    * @param chainLength Number of rules to create in the chain.
    * @return this
    */
+  @CanIgnoreReturnValue
   public FileContentsGenerator addDependencyChainOfRule(String ruleClass, int chainLength) {
     BuildRuleBuilder previous;
     BuildRuleBuilder current = new BuildRuleBuilder(ruleClass, uniqueRuleName());
@@ -89,31 +93,14 @@ public final class BuildFileContentsGenerator implements FileContentsGenerator {
       current = new BuildRuleBuilder(ruleClass, uniqueRuleName());
       if (ruleClass.equals("java_library") || ruleClass.equals("android_library")) {
         current.dependsVia("exports").on(previous);
+      } else if (ruleClass.equals("filegroup")) {
+        current.dependsVia("srcs").on(previous);
       } else {
         current.dependsVia("deps").on(previous);
       }
       contents.append(current.build());
       chainLength--;
     }
-    return this;
-  }
-
-  /**
-   * Appends a chain of ruleClass rules, and one master rule which depends on all the other rules.
-   *
-   * @param ruleClass Name of the rule class to instantiate.
-   * @param noOfDeps Number of rules to create as dependencies for the first rule.
-   * @return this
-   */
-  public FileContentsGenerator addRuleWithDependencies(String ruleClass, int noOfDeps) {
-    BuildRuleBuilder masterRule = new BuildRuleBuilder(ruleClass, uniqueRuleName());
-    String dependingAttr = ruleClass.equals("android_library") ? "exports" : "deps";
-    for (int i = 0; i < noOfDeps; i++) {
-      BuildRuleBuilder dependentRule = new BuildRuleBuilder(ruleClass, uniqueRuleName());
-      masterRule.dependsVia(dependingAttr).on(dependentRule);
-      contents.append(dependentRule.build());
-    }
-    contents.append(masterRule.build());
     return this;
   }
 

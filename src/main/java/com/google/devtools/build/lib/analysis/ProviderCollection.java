@@ -17,7 +17,9 @@ package com.google.devtools.build.lib.analysis;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.Provider;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
+import com.google.devtools.build.lib.packages.StarlarkProviderWrapper;
 import javax.annotation.Nullable;
 
 /**
@@ -58,6 +60,21 @@ public interface ProviderCollection {
   }
 
   /**
+   * Retrieves and converts an instance of a Starlark-defined provider to an instance of {@code T},
+   * according to the conversion defined by {@code wrapper}.
+   *
+   * <p>If the provider identified by {@code wrapper} is not present, returns null.
+   *
+   * <p>Conversion errors (e.g. missing fields or bad types) are indicated by throwing {@link
+   * RuleErrorException}.
+   */
+  @Nullable
+  default <T> T get(StarlarkProviderWrapper<T> wrapper) throws RuleErrorException {
+    Info value = get(wrapper.getKey());
+    return value == null ? null : wrapper.wrap(value);
+  }
+
+  /**
    * Returns the provider defined in Starlark, or null, if the information is not found. The
    * transitive information has to have been added using the Starlark framework.
    *
@@ -66,10 +83,6 @@ public interface ProviderCollection {
    */
   @Nullable
   default Object get(StarlarkProviderIdentifier id) {
-    if (id.isLegacy()) {
-      return this.get(id.getLegacyId());
-    } else {
-      return this.get(id.getKey());
-    }
+    return this.get(id.getKey());
   }
 }

@@ -14,15 +14,11 @@
 package com.google.devtools.build.lib.util;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.util.StringUtil.capitalize;
-import static com.google.devtools.build.lib.util.StringUtil.emptyToNull;
-import static com.google.devtools.build.lib.util.StringUtil.indent;
 import static com.google.devtools.build.lib.util.StringUtil.joinEnglishList;
-import static com.google.devtools.build.lib.util.StringUtil.stripSuffix;
+import static com.google.devtools.build.lib.util.StringUtil.joinEnglishListSingleQuoted;
 
 import com.google.common.collect.ImmutableList;
 import java.util.Arrays;
-import java.util.Collections;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -33,16 +29,28 @@ public class StringUtilTest {
 
   @Test
   public void testJoinEnglishList() throws Exception {
-    assertThat(joinEnglishList(Collections.emptyList())).isEqualTo("nothing");
+    assertThat(joinEnglishList(ImmutableList.of())).isEqualTo("nothing");
     assertThat(joinEnglishList(Arrays.asList("one"))).isEqualTo("one");
     assertThat(joinEnglishList(Arrays.asList("one", "two"))).isEqualTo("one or two");
     assertThat(joinEnglishList(Arrays.asList("one", "two"), "and")).isEqualTo("one and two");
     assertThat(joinEnglishList(Arrays.asList("one", "two", "three")))
-        .isEqualTo("one, two or three");
+        .isEqualTo("one, two, or three");
     assertThat(joinEnglishList(Arrays.asList("one", "two", "three"), "and"))
-        .isEqualTo("one, two and three");
-    assertThat(joinEnglishList(Arrays.asList("one", "two", "three"), "and", "'"))
-        .isEqualTo("'one', 'two' and 'three'");
+        .isEqualTo("one, two, and three");
+    assertThat(joinEnglishList(Arrays.asList("one", "two", "three"), "or even", "\"", true))
+        .isEqualTo("\"one\", \"two\", or even \"three\"");
+    assertThat(joinEnglishList(Arrays.asList("one", "two", "three"), "then", "'", false))
+        .isEqualTo("'one', 'two' then 'three'");
+  }
+
+  @Test
+  public void testJoinEnglishListSingleQuoted() throws Exception {
+    assertThat(joinEnglishListSingleQuoted(ImmutableList.of())).isEqualTo("nothing");
+    assertThat(joinEnglishListSingleQuoted(Arrays.asList("one"))).isEqualTo("'one'");
+    assertThat(joinEnglishListSingleQuoted(Arrays.asList("one", "two")))
+        .isEqualTo("'one' or 'two'");
+    assertThat(joinEnglishListSingleQuoted(Arrays.asList("one", "two", "three")))
+        .isEqualTo("'one', 'two', or 'three'");
   }
 
   @Test
@@ -60,42 +68,5 @@ public class StringUtilTest {
                 .append("/end")
                 .toString())
         .isEqualTo("begin/a, b, c ...(omitting 2 more item(s))/end");
-  }
-
-  @Test
-  public void testIndent() throws Exception {
-    assertThat(indent("", 0)).isEmpty();
-    assertThat(indent("", 1)).isEmpty();
-    assertThat(indent("a", 1)).isEqualTo("a");
-    assertThat(indent("\na", 2)).isEqualTo("\n  a");
-    assertThat(indent("a\nb", 2)).isEqualTo("a\n  b");
-    assertThat(indent("a\nb\nc\nd", 1)).isEqualTo("a\n b\n c\n d");
-    assertThat(indent("\n", 1)).isEqualTo("\n ");
-  }
-
-  @Test
-  public void testStripSuffix() throws Exception {
-    assertThat(stripSuffix("", "")).isEmpty();
-    assertThat(stripSuffix("", "a")).isNull();
-    assertThat(stripSuffix("a", "")).isEqualTo("a");
-    assertThat(stripSuffix("aa", "a")).isEqualTo("a");
-    assertThat(stripSuffix("ab", "c")).isNull();
-  }
-
-  @Test
-  public void testCapitalize() throws Exception {
-    assertThat(capitalize("")).isEmpty();
-    assertThat(capitalize("joe")).isEqualTo("Joe");
-    assertThat(capitalize("Joe")).isEqualTo("Joe");
-    assertThat(capitalize("o")).isEqualTo("O");
-    assertThat(capitalize("O")).isEqualTo("O");
-  }
-
-  @Test
-  public void testEmptyToNull() {
-    assertThat(emptyToNull(null)).isNull();
-    assertThat(emptyToNull("")).isNull();
-    assertThat(emptyToNull("a")).isEqualTo("a");
-    assertThat(emptyToNull(" ")).isEqualTo(" ");
   }
 }

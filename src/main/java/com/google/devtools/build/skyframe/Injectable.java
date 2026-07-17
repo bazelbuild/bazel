@@ -13,12 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
+import com.google.devtools.build.skyframe.Differencer.DiffWithDelta.Delta;
 import java.util.Map;
 
-/**
- * An object that accepts Skyframe key / value mapping.
- */
+/** An object that accepts Skyframe key / {@link Delta} mapping. */
 public interface Injectable {
-  void inject(Map<SkyKey, ? extends SkyValue> values);
-  void inject(SkyKey key, SkyValue value);
+  void inject(SkyKey key, Delta delta);
+
+  void inject(Map<SkyKey, Delta> deltas);
 }

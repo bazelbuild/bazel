@@ -13,10 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.includescanning;
 
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.base.Preconditions;
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
@@ -63,19 +62,14 @@ public class IncludeScannerSupplier {
       if (this == other) {
         return true;
       }
-      if (!(other instanceof IncludeScannerParams)) {
+      if (!(other instanceof IncludeScannerParams that)) {
         return false;
       }
-      IncludeScannerParams that = (IncludeScannerParams) other;
       return this.quoteIncludePaths.equals(that.quoteIncludePaths)
           && this.includePaths.equals(that.includePaths)
           && this.frameworkIncludePaths.equals(that.frameworkIncludePaths);
     }
   }
-
-  private final BlazeDirectories directories;
-  private final ExecutorService includePool;
-  private final ArtifactFactory artifactFactory;
 
   private IncludeParser includeParser;
 
@@ -86,46 +80,45 @@ public class IncludeScannerSupplier {
   private final ConcurrentMap<Artifact, ListenableFuture<Collection<Inclusion>>> includeParseCache =
       new ConcurrentHashMap<>();
 
-  /** Map of grepped include files from input (.cc or .h) to a header-grepped file. */
-  private final PathExistenceCache pathCache;
-
-  private final Supplier<SpawnIncludeScanner> spawnIncludeScannerSupplier;
-  private final Path execRoot;
-
   /** Cache of include scanner instances mapped by include-path hashes. */
-  private final LoadingCache<IncludeScannerParams, IncludeScanner> scanners =
-      CacheBuilder.newBuilder()
-          .build(
-              new CacheLoader<IncludeScannerParams, IncludeScanner>() {
-                @Override
-                public IncludeScanner load(IncludeScannerParams key) {
-                  return new LegacyIncludeScanner(
-                      includeParser,
-                      includePool,
-                      includeParseCache,
-                      pathCache,
-                      key.quoteIncludePaths,
-                      key.includePaths,
-                      key.frameworkIncludePaths,
-                      directories.getOutputPath(execRoot.getBaseName()),
-                      execRoot,
-                      artifactFactory,
-                      spawnIncludeScannerSupplier);
-                }
-              });
+  private final LoadingCache<IncludeScannerParams, IncludeScanner> scanners;
 
   public IncludeScannerSupplier(
       BlazeDirectories directories,
       ExecutorService includePool,
+      boolean shouldShuffle,
       ArtifactFactory artifactFactory,
       Supplier<SpawnIncludeScanner> spawnIncludeScannerSupplier,
       Path execRoot) {
-    this.directories = directories;
-    this.includePool = includePool;
-    this.artifactFactory = artifactFactory;
-    this.spawnIncludeScannerSupplier = spawnIncludeScannerSupplier;
-    this.execRoot = execRoot;
-    this.pathCache = new PathExistenceCache(execRoot, artifactFactory);
+    // Map of grepped include files from input (.cc or .h) to a header-grepped file.
+    PathExistenceCache pathCache = new PathExistenceCache(execRoot, artifactFactory);
+    scanners =
+        Caffeine.newBuilder()
+            // We choose to make cache values weak referenced due to LegacyIncludeScanner can hold
+            // on to a memory expensive InclusionCache. However, a lot of IncludeScannerParams are
+            // not in use so they are eligible for garbage collection. As a matter of fact, this
+            // reduces peak heap on an example cpp-heavy build by ~5%.
+
+            //
+            // We could also choose to use softValues() but avoid doing so. The reason is that we
+            // want to keep blaze memory usage deterministic and to guarantee collection before
+            // blaze initiated-OOMs.
+            .weakValues()
+            .build(
+                key ->
+                    new LegacyIncludeScanner(
+                        includeParser,
+                        includePool,
+                        shouldShuffle,
+                        includeParseCache,
+                        pathCache,
+                        key.quoteIncludePaths,
+                        key.includePaths,
+                        key.frameworkIncludePaths,
+                        directories.getOutputPath(execRoot.getBaseName()),
+                        execRoot,
+                        artifactFactory,
+                        spawnIncludeScannerSupplier));
   }
 
   /**
@@ -137,8 +130,7 @@ public class IncludeScannerSupplier {
       List<PathFragment> includePaths,
       List<PathFragment> frameworkPaths) {
     Preconditions.checkNotNull(includeParser);
-    return scanners.getUnchecked(
-        new IncludeScannerParams(quoteIncludePaths, includePaths, frameworkPaths));
+    return scanners.get(new IncludeScannerParams(quoteIncludePaths, includePaths, frameworkPaths));
   }
 
   public void init(IncludeParser includeParser) {
@@ -150,10 +142,5 @@ public class IncludeScannerSupplier {
     Preconditions.checkState(includeParseCache.isEmpty(), includeParseCache);
     Preconditions.checkState(scanners.asMap().isEmpty(), scanners);
     this.includeParser = Preconditions.checkNotNull(includeParser);
-    if (this.includeParser.getHints() != null) {
-      // The Hints object lives across the lifetime of the Blaze server, but its cached hints may
-      // be stale.
-      this.includeParser.getHints().clearCachedLegacyHints();
-    }
   }
 }

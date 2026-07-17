@@ -14,413 +14,113 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
+import static com.google.devtools.build.lib.rules.cpp.CcToolchainFeaturesLib.actionConfigFromStarlark;
+import static com.google.devtools.build.lib.rules.cpp.CcToolchainFeaturesLib.featureFromStarlark;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.BuiltinProvider;
-import com.google.devtools.build.lib.packages.NativeInfo;
+import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.StarlarkInfo;
+import com.google.devtools.build.lib.packages.StarlarkProviderWrapper;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ActionConfig;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ArtifactNamePattern;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.EnvEntry;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.EnvSet;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ArtifactNamePatternMapper;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Feature;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Flag.SingleChunkFlag;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FlagGroup;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FlagSet;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Tool;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.VariableWithValue;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.WithFeatureSet;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.Expandable;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcToolchainConfigInfoApi;
-import com.google.devtools.build.lib.util.Pair;
-import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig;
-import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
-import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.ToolPath;
+import com.google.devtools.build.lib.util.OS;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Sequence;
 
 /** Information describing C++ toolchain derived from CROSSTOOL file. */
 @Immutable
-public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConfigInfoApi {
+public class CcToolchainConfigInfo {
 
   /** Singleton provider instance for {@link CcToolchainConfigInfo}. */
   public static final Provider PROVIDER = new Provider();
 
-  private final ImmutableList<ActionConfig> actionConfigs;
-  private final ImmutableList<Feature> features;
-  private final ImmutableList<ArtifactNamePattern> artifactNamePatterns;
-  private final ImmutableList<String> cxxBuiltinIncludeDirectories;
+  public static final RulesCcProvider RULES_CC_PROVIDER = new RulesCcProvider();
 
-  private final String toolchainIdentifier;
-  private final String hostSystemName;
-  private final String targetSystemName;
-  private final String targetCpu;
-  private final String targetLibc;
-  private final String compiler;
-  private final String abiVersion;
-  private final String abiLibcVersion;
-  private final ImmutableList<Pair<String, String>> toolPaths;
-  private final ImmutableList<Pair<String, String>> makeVariables;
-  private final String builtinSysroot;
-  private final String ccTargetOs;
-
-  @AutoCodec.Instantiator
-  public CcToolchainConfigInfo(
-      ImmutableList<ActionConfig> actionConfigs,
-      ImmutableList<Feature> features,
-      ImmutableList<ArtifactNamePattern> artifactNamePatterns,
-      ImmutableList<String> cxxBuiltinIncludeDirectories,
-      String toolchainIdentifier,
-      String hostSystemName,
-      String targetSystemName,
-      String targetCpu,
-      String targetLibc,
-      String compiler,
-      String abiVersion,
-      String abiLibcVersion,
-      ImmutableList<Pair<String, String>> toolPaths,
-      ImmutableList<Pair<String, String>> makeVariables,
-      String builtinSysroot,
-      String ccTargetOs) {
-    this.actionConfigs = actionConfigs;
-    this.features = features;
-    this.artifactNamePatterns = artifactNamePatterns;
-    this.cxxBuiltinIncludeDirectories = cxxBuiltinIncludeDirectories;
-    this.toolchainIdentifier = toolchainIdentifier;
-    this.hostSystemName = hostSystemName;
-    this.targetSystemName = targetSystemName;
-    this.targetCpu = targetCpu;
-    this.targetLibc = targetLibc;
-    this.compiler = compiler;
-    this.abiVersion = abiVersion;
-    this.abiLibcVersion = abiLibcVersion;
-    this.toolPaths = toolPaths;
-    this.makeVariables = makeVariables;
-    this.builtinSysroot = builtinSysroot;
-    this.ccTargetOs = ccTargetOs;
+  public static CcToolchainConfigInfo get(ConfiguredTarget target) throws RuleErrorException {
+    CcToolchainConfigInfo info = target.get(PROVIDER);
+    if (info == null) {
+      info = target.get(RULES_CC_PROVIDER);
+    }
+    return info;
   }
 
-  @Override
-  public Provider getProvider() {
-    return PROVIDER;
+  private final StarlarkInfo actual;
+
+  CcToolchainConfigInfo(StarlarkInfo actual) {
+    this.actual = actual;
   }
 
-  public static CcToolchainConfigInfo fromToolchain(CToolchain toolchain) throws EvalException {
+  public ImmutableList<ActionConfig> getActionConfigs() throws EvalException {
+    OS execOs = OS.valueOf(actual.getValue("_exec_os_DO_NOT_USE", String.class));
     ImmutableList.Builder<ActionConfig> actionConfigBuilder = ImmutableList.builder();
-    for (CToolchain.ActionConfig actionConfig : toolchain.getActionConfigList()) {
-      actionConfigBuilder.add(new ActionConfig(actionConfig));
+    for (StarlarkInfo actionConfig :
+        Sequence.cast(
+            actual.getValue("_action_configs_DO_NOT_USE"), StarlarkInfo.class, "_action_configs")) {
+      actionConfigBuilder.add(actionConfigFromStarlark(actionConfig, execOs));
     }
+    return actionConfigBuilder.build();
+  }
 
+  public ImmutableList<Feature> getFeatures() throws EvalException {
     ImmutableList.Builder<Feature> featureBuilder = ImmutableList.builder();
-    for (CToolchain.Feature feature : toolchain.getFeatureList()) {
-      featureBuilder.add(new Feature(feature));
+    for (StarlarkInfo feature :
+        Sequence.cast(actual.getValue("_features_DO_NOT_USE"), StarlarkInfo.class, "_features")) {
+      featureBuilder.add(featureFromStarlark(feature));
     }
+    return featureBuilder.build();
+  }
 
-    ImmutableList.Builder<ArtifactNamePattern> artifactNamePatternBuilder = ImmutableList.builder();
-    for (CToolchain.ArtifactNamePattern artifactNamePattern :
-        toolchain.getArtifactNamePatternList()) {
-      artifactNamePatternBuilder.add(new ArtifactNamePattern(artifactNamePattern));
+  public ArtifactNamePatternMapper getArtifactNamePatterns() throws EvalException {
+    CcToolchainFeatures.ArtifactNamePatternMapper.Builder artifactNamePatternBuilder =
+        new CcToolchainFeatures.ArtifactNamePatternMapper.Builder();
+    for (StarlarkInfo artifactNamePattern :
+        Sequence.cast(
+            actual.getValue("_artifact_name_patterns_DO_NOT_USE"),
+            StarlarkInfo.class,
+            "_artifact_name_patterns")) {
+      CcToolchainFeaturesLib.artifactNamePatternFromStarlark(
+          artifactNamePattern, artifactNamePatternBuilder::addOverride);
     }
-
-    return new CcToolchainConfigInfo(
-        actionConfigBuilder.build(),
-        featureBuilder.build(),
-        artifactNamePatternBuilder.build(),
-        ImmutableList.copyOf(toolchain.getCxxBuiltinIncludeDirectoryList()),
-        toolchain.getToolchainIdentifier(),
-        toolchain.getHostSystemName(),
-        toolchain.getTargetSystemName(),
-        toolchain.getTargetCpu(),
-        toolchain.getTargetLibc(),
-        toolchain.getCompiler(),
-        toolchain.getAbiVersion(),
-        toolchain.getAbiLibcVersion(),
-        toolchain.getToolPathList().stream()
-            .map(a -> Pair.of(a.getName(), a.getPath()))
-            .collect(ImmutableList.toImmutableList()),
-        toolchain.getMakeVariableList().stream()
-            .map(makeVariable -> Pair.of(makeVariable.getName(), makeVariable.getValue()))
-            .collect(ImmutableList.toImmutableList()),
-        toolchain.getBuiltinSysroot(),
-        toolchain.getCcTargetOs());
-  }
-
-  public ImmutableList<ActionConfig> getActionConfigs() {
-    return actionConfigs;
-  }
-
-  public ImmutableList<Feature> getFeatures() {
-    return features;
-  }
-
-  public ImmutableList<ArtifactNamePattern> getArtifactNamePatterns() {
-    return artifactNamePatterns;
-  }
-
-  public ImmutableList<String> getCxxBuiltinIncludeDirectories() {
-    return cxxBuiltinIncludeDirectories;
-  }
-
-  public String getToolchainIdentifier() {
-    return toolchainIdentifier;
-  }
-
-  public String getHostSystemName() {
-    return hostSystemName;
-  }
-
-  public String getTargetSystemName() {
-    return targetSystemName;
-  }
-
-  public String getTargetCpu() {
-    return targetCpu;
-  }
-
-  public String getTargetLibc() {
-    return targetLibc;
-  }
-
-  public String getCompiler() {
-    return compiler;
-  }
-
-  public String getAbiVersion() {
-    return abiVersion;
-  }
-
-  public String getAbiLibcVersion() {
-    return abiLibcVersion;
-  }
-
-  /** Returns a list of paths of the tools in the form Pair<toolName, path>. */
-  public ImmutableList<Pair<String, String>> getToolPaths() {
-    return toolPaths;
-  }
-
-  /** Returns a list of make variables that have the form Pair<name, value>. */
-  public ImmutableList<Pair<String, String>> getMakeVariables() {
-    return makeVariables;
-  }
-
-  public String getBuiltinSysroot() {
-    return builtinSysroot;
-  }
-
-  public String getCcTargetOs() {
-    return ccTargetOs;
-  }
-
-  @Override
-  public String getProto() {
-    CToolchain.Builder cToolchain = CToolchain.newBuilder();
-    cToolchain.addAllFeature(
-        features.stream()
-            .map(feature -> featureToProto(feature))
-            .collect(ImmutableList.toImmutableList()));
-    cToolchain.addAllActionConfig(
-        actionConfigs.stream()
-            .map(actionConfig -> actionConfigToProto(actionConfig))
-            .collect(ImmutableList.toImmutableList()));
-    cToolchain.addAllArtifactNamePattern(
-        artifactNamePatterns.stream()
-            .map(
-                artifactNamePattern ->
-                    CToolchain.ArtifactNamePattern.newBuilder()
-                        .setCategoryName(
-                            artifactNamePattern.getArtifactCategory().getCategoryName())
-                        .setPrefix(artifactNamePattern.getPrefix())
-                        .setExtension(artifactNamePattern.getExtension())
-                        .build())
-            .collect(ImmutableList.toImmutableList()));
-    cToolchain.addAllToolPath(
-        toolPaths.stream()
-            .map(
-                toolPath ->
-                    ToolPath.newBuilder()
-                        .setName(toolPath.getFirst())
-                        .setPath(toolPath.getSecond())
-                        .build())
-            .collect(ImmutableList.toImmutableList()));
-    cToolchain.addAllMakeVariable(
-        makeVariables.stream()
-            .map(
-                makeVariable ->
-                    CrosstoolConfig.MakeVariable.newBuilder()
-                        .setName(makeVariable.getFirst())
-                        .setValue(makeVariable.getSecond())
-                        .build())
-            .collect(ImmutableList.toImmutableList()));
-    cToolchain
-        .addAllCxxBuiltinIncludeDirectory(cxxBuiltinIncludeDirectories)
-        .setToolchainIdentifier(toolchainIdentifier)
-        .setHostSystemName(hostSystemName)
-        .setTargetSystemName(targetSystemName)
-        .setTargetCpu(targetCpu)
-        .setTargetLibc(targetLibc)
-        .setCompiler(compiler)
-        .setAbiVersion(abiVersion)
-        .setAbiLibcVersion(abiLibcVersion);
-    if (!ccTargetOs.isEmpty()) {
-      cToolchain.setCcTargetOs(ccTargetOs);
-    }
-    if (!builtinSysroot.isEmpty()) {
-      cToolchain.setBuiltinSysroot(builtinSysroot);
-    }
-    return cToolchain.build().toString();
-  }
-
-  private static CToolchain.WithFeatureSet withFeatureSetToProto(WithFeatureSet withFeatureSet) {
-    return CToolchain.WithFeatureSet.newBuilder()
-        .addAllFeature(withFeatureSet.getFeatures())
-        .addAllNotFeature(withFeatureSet.getNotFeatures())
-        .build();
-  }
-
-  private static CToolchain.EnvEntry envEntryToProto(EnvEntry envEntry) {
-    return CToolchain.EnvEntry.newBuilder()
-        .setKey(envEntry.getKey())
-        .setValue(envEntry.getValue())
-        .build();
-  }
-
-  private static CToolchain.EnvSet envSetToProto(EnvSet envSet) {
-    return CToolchain.EnvSet.newBuilder()
-        .addAllAction(envSet.getActions())
-        .addAllEnvEntry(
-            envSet.getEnvEntries().stream()
-                .map(envEntry -> envEntryToProto(envEntry))
-                .collect(ImmutableList.toImmutableList()))
-        .addAllWithFeature(
-            envSet.getWithFeatureSets().stream()
-                .map(withFeatureSet -> withFeatureSetToProto(withFeatureSet))
-                .collect(ImmutableList.toImmutableList()))
-        .build();
-  }
-
-  private static CToolchain.FlagGroup flagGroupToProto(FlagGroup flagGroup) {
-    ImmutableList.Builder<CToolchain.FlagGroup> flagGroups = ImmutableList.builder();
-    ImmutableList.Builder<String> flags = ImmutableList.builder();
-    for (Expandable expandable : flagGroup.getExpandables()) {
-      if (expandable instanceof FlagGroup) {
-        flagGroups.add(flagGroupToProto((FlagGroup) expandable));
-      } else if (expandable instanceof SingleChunkFlag) {
-        flags.add(((SingleChunkFlag) expandable).getString());
-      } else if (expandable instanceof CcToolchainFeatures.Flag) {
-        flags.add(((CcToolchainFeatures.Flag) expandable).getString());
-      } else {
-        throw new IllegalStateException("Unexpected subclass of Expandable.");
-      }
-    }
-
-    CToolchain.FlagGroup.Builder flagGroupBuilder = CToolchain.FlagGroup.newBuilder();
-    if (flagGroup.getIterateOverVariable() != null) {
-      flagGroupBuilder.setIterateOver(flagGroup.getIterateOverVariable());
-    }
-    if (flagGroup.getExpandIfTrue() != null) {
-      flagGroupBuilder.setExpandIfTrue(flagGroup.getExpandIfTrue());
-    }
-    if (flagGroup.getExpandIfFalse() != null) {
-      flagGroupBuilder.setExpandIfFalse(flagGroup.getExpandIfFalse());
-    }
-    if (flagGroup.getExpandIfEqual() != null) {
-      flagGroupBuilder.setExpandIfEqual(variableWithValueFromProto(flagGroup.getExpandIfEqual()));
-    }
-    return flagGroupBuilder
-        .addAllExpandIfAllAvailable(flagGroup.getExpandIfAllAvailable())
-        .addAllExpandIfNoneAvailable(flagGroup.getExpandIfNoneAvailable())
-        .addAllFlagGroup(flagGroups.build())
-        .addAllFlag(flags.build())
-        .build();
-  }
-
-  private static CToolchain.VariableWithValue variableWithValueFromProto(
-      VariableWithValue variable) {
-    return CToolchain.VariableWithValue.newBuilder()
-        .setValue(variable.getValue())
-        .setVariable(variable.getVariable())
-        .build();
-  }
-
-  private static CToolchain.Feature featureToProto(Feature feature) {
-    return CToolchain.Feature.newBuilder()
-        .setName(feature.getName())
-        .setEnabled(feature.isEnabled())
-        .addAllFlagSet(
-            feature.getFlagSets().stream()
-                .map(flagSet -> flagSetToProto(flagSet, /* forActionConfig= */ false))
-                .collect(ImmutableList.toImmutableList()))
-        .addAllEnvSet(
-            feature.getEnvSets().stream()
-                .map(envSet -> envSetToProto(envSet))
-                .collect(ImmutableList.toImmutableList()))
-        .addAllRequires(
-            feature.getRequires().stream()
-                .map(featureSet -> featureSetToProto(featureSet))
-                .collect(ImmutableList.toImmutableList()))
-        .addAllImplies(feature.getImplies())
-        .addAllProvides(feature.getProvides())
-        .build();
-  }
-
-  private static CToolchain.FlagSet flagSetToProto(FlagSet flagSet, boolean forActionConfig) {
-    CToolchain.FlagSet.Builder flagSetBuilder =
-        CToolchain.FlagSet.newBuilder()
-            .addAllFlagGroup(
-                flagSet.getFlagGroups().stream()
-                    .map(flagGroup -> flagGroupToProto(flagGroup))
-                    .collect(ImmutableList.toImmutableList()))
-            .addAllWithFeature(
-                flagSet.getWithFeatureSets().stream()
-                    .map(withFeatureSet -> withFeatureSetToProto(withFeatureSet))
-                    .collect(ImmutableList.toImmutableList()))
-            .addAllExpandIfAllAvailable(flagSet.getExpandIfAllAvailable());
-    if (!forActionConfig) {
-      flagSetBuilder.addAllAction(flagSet.getActions());
-    }
-    return flagSetBuilder.build();
-  }
-
-  private static CToolchain.FeatureSet featureSetToProto(ImmutableSet<String> features) {
-    return CToolchain.FeatureSet.newBuilder().addAllFeature(features).build();
-  }
-
-  private static CToolchain.Tool toolToProto(Tool tool) {
-    return CToolchain.Tool.newBuilder()
-        .setToolPath(tool.getToolPathFragment().toString())
-        .setToolPathOrigin(tool.getToolPathOrigin())
-        .addAllWithFeature(
-            tool.getWithFeatureSetSets().stream()
-                .map(withFeatureSet -> withFeatureSetToProto(withFeatureSet))
-                .collect(ImmutableList.toImmutableList()))
-        .addAllExecutionRequirement(tool.getExecutionRequirements())
-        .build();
-  }
-
-  private static CToolchain.ActionConfig actionConfigToProto(ActionConfig actionConfig) {
-    return CToolchain.ActionConfig.newBuilder()
-        .setConfigName(actionConfig.getName())
-        .setActionName(actionConfig.getActionName())
-        .setEnabled(actionConfig.isEnabled())
-        .addAllTool(
-            actionConfig.getTools().stream()
-                .map(tool -> toolToProto(tool))
-                .collect(ImmutableList.toImmutableList()))
-        .addAllFlagSet(
-            actionConfig.getFlagSets().stream()
-                .map(flagSet -> flagSetToProto(flagSet, /* forActionConfig= */ true))
-                .collect(ImmutableList.toImmutableList()))
-        .addAllImplies(actionConfig.getImplies())
-        .build();
+    return artifactNamePatternBuilder.build();
   }
 
   /** Provider class for {@link CcToolchainConfigInfo} objects. */
-  public static class Provider extends BuiltinProvider<CcToolchainConfigInfo>
-      implements CcToolchainConfigInfoApi.Provider {
+  public static class Provider extends StarlarkProviderWrapper<CcToolchainConfigInfo> {
 
     private Provider() {
-      super("CcToolchainConfigInfo", CcToolchainConfigInfo.class);
+      super(
+          keyForBuild(
+              Label.parseCanonicalUnchecked(
+                  "//third_party/bazel_rules/rules_cc/cc/private/toolchain_config:cc_toolchain_config_info.bzl")),
+          "CcToolchainConfigInfo");
+    }
+
+    @Override
+    public CcToolchainConfigInfo wrap(Info value) throws RuleErrorException {
+      return new CcToolchainConfigInfo((StarlarkInfo) value);
+    }
+  }
+
+  /** Provider class for {@link CcToolchainConfigInfo} objects. */
+  public static class RulesCcProvider extends StarlarkProviderWrapper<CcToolchainConfigInfo> {
+
+    private RulesCcProvider() {
+      super(
+          keyForBuild(
+              Label.parseCanonicalUnchecked(
+                  "@rules_cc+//cc/private/toolchain_config:cc_toolchain_config_info.bzl")),
+          "CcToolchainConfigInfo");
+    }
+
+    @Override
+    public CcToolchainConfigInfo wrap(Info value) throws RuleErrorException {
+      return new CcToolchainConfigInfo((StarlarkInfo) value);
     }
   }
 }

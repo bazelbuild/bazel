@@ -18,29 +18,20 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.Maps;
+import com.google.devtools.common.options.Converters.AssignmentConverter;
 import java.util.Map;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Test for {@link Converters.AssignmentConverter} and {@link
- * Converters.OptionalAssignmentConverter}.
- */
-public abstract class AssignmentConverterTest {
+/** Tests for {@link Converters.AssignmentConverter}. */
+@RunWith(JUnit4.class)
+public class AssignmentConverterTest {
 
-  protected Converter<Map.Entry<String, String>> converter = null;
+  private AssignmentConverter converter = new AssignmentConverter();
 
-  protected abstract void setConverter();
-
-  protected Map.Entry<String, String> convert(String input) throws Exception {
+  private Map.Entry<String, String> convert(String input) throws Exception {
     return converter.convert(input);
-  }
-
-  @Before
-  public void setUp() throws Exception {
-    setConverter();
   }
 
   @Test
@@ -52,41 +43,22 @@ public abstract class AssignmentConverterTest {
   }
 
   @Test
-  public void missingName() throws Exception {
+  public void missingName() {
     assertThrows(OptionsParsingException.class, () -> convert("=VALUE"));
   }
 
   @Test
-  public void emptyString() throws Exception {
+  public void missingValue() {
+    assertThrows(OptionsParsingException.class, () -> convert("NAME"));
+  }
+
+  @Test
+  public void immutability() {
+    assertThrows(UnsupportedOperationException.class, () -> convert("A=B").setValue("C"));
+  }
+
+  @Test
+  public void emptyString() {
     assertThrows(OptionsParsingException.class, () -> convert(""));
-  }
-
-
-  @RunWith(JUnit4.class)
-  public static class MandatoryAssignmentConverterTest extends AssignmentConverterTest {
-
-    @Override
-    protected void setConverter() {
-      converter = new Converters.AssignmentConverter();
-    }
-
-    @Test
-    public void missingValue() throws Exception {
-      assertThrows(OptionsParsingException.class, () -> convert("NAME"));
-    }
-  }
-
-  @RunWith(JUnit4.class)
-  public static class OptionalAssignmentConverterTest extends AssignmentConverterTest {
-
-    @Override
-    protected void setConverter() {
-      converter = new Converters.OptionalAssignmentConverter();
-    }
-
-    @Test
-    public void missingValue() throws Exception {
-      assertThat(convert("NAME")).isEqualTo(Maps.immutableEntry("NAME", null));
-    }
   }
 }

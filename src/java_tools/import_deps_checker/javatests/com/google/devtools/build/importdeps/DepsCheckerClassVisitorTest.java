@@ -72,7 +72,7 @@ public class DepsCheckerClassVisitorTest extends AbstractClassCacheTest {
   public void testMissingMembersInClient() throws IOException {
     ResultCollector collector =
         getResultCollector(
-            /*checkMissingMembers=*/ true,
+            /* checkMissingMembers= */ true,
             bootclasspath,
             libraryAnnotationsJar,
             libraryInterfaceJar,
@@ -81,9 +81,7 @@ public class DepsCheckerClassVisitorTest extends AbstractClassCacheTest {
             clientJar);
     assertThat(collector.getSortedMissingClassInternalNames()).isEmpty();
     assertThat(
-            collector
-                .getSortedMissingMembers()
-                .stream()
+            collector.getSortedMissingMembers().stream()
                 .map(DepsCheckerClassVisitorTest::constructFullQualifiedMemberName)
                 .collect(ImmutableList.toImmutableList()))
         .containsExactly(
@@ -111,7 +109,7 @@ public class DepsCheckerClassVisitorTest extends AbstractClassCacheTest {
   public void testMissingMembersIgnoredWhenUnchecked() throws IOException {
     ResultCollector collector =
         getResultCollector(
-            /*checkMissingMembers=*/ false,
+            /* checkMissingMembers= */ false,
             bootclasspath,
             libraryAnnotationsJar,
             libraryInterfaceJar,
@@ -141,6 +139,23 @@ public class DepsCheckerClassVisitorTest extends AbstractClassCacheTest {
     }
   }
 
+  @Test
+  public void testSafelyHandleCondy() throws IOException {
+    try (ZipFile zipFile = new ZipFile(condyJar.toFile())) {
+      ZipEntry entry = zipFile.getEntry("c.class");
+      ClassCache cache =
+          new ClassCache(
+              ImmutableSet.of(), ImmutableSet.of(), ImmutableSet.of(), ImmutableSet.of(), false);
+      ResultCollector resultCollector =
+          getResultCollector(/* checkMissingMembers= */ true, bootclasspath);
+      try (InputStream classStream = zipFile.getInputStream(entry)) {
+        ClassReader reader = new ClassReader(classStream);
+        DepsCheckerClassVisitor checker = new DepsCheckerClassVisitor(cache, resultCollector);
+        reader.accept(checker, ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
+      }
+    }
+  }
+
   private static String constructFullQualifiedMemberName(MissingMember member) {
     return constructFullyQualifiedMemberName(
         member.owner().internalName(), member.memberName(), member.descriptor());
@@ -152,7 +167,8 @@ public class DepsCheckerClassVisitorTest extends AbstractClassCacheTest {
   }
 
   private ImmutableList<String> getMissingClassesInClient(Path... classpath) throws IOException {
-    ResultCollector resultCollector = getResultCollector(/*checkMissingMembers=*/ false, classpath);
+    ResultCollector resultCollector =
+        getResultCollector(/* checkMissingMembers= */ false, classpath);
     return resultCollector.getSortedMissingClassInternalNames();
   }
 

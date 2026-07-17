@@ -14,16 +14,17 @@
 
 package com.google.devtools.build.lib.analysis;
 
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ListMultimap;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.analysis.config.CommonOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
+import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
 import java.util.Set;
@@ -70,23 +71,22 @@ public abstract class Util {
 
   // ---------- Implicit dependency extractor
 
-  /*
+  /**
    * Given a RuleContext, find all the implicit attribute deps aka deps that weren't explicitly set
    * in the build file but are attached behind the scenes to some attribute. This means this
-   * function does *not* cover deps attached other ways e.g. toolchain-related implicit deps
-   * (see {@link PostAnalysisQueryEnvironment#targetifyValues} for more info on further implicit
-   * deps filtering).
-   * note: nodes that are depended on both implicitly and explicitly are considered explicit.
+   * function does *not* cover deps attached other ways e.g. toolchain-related implicit deps (see
+   * {@link PostAnalysisQueryEnvironment#targetifyValues} for more info on further implicit deps
+   * filtering). note: nodes that are depended on both implicitly and explicitly are considered
+   * explicit.
    */
-  public static ImmutableSet<ConfiguredTargetKey> findImplicitDeps(RuleContext ruleContext) {
+  public static ImmutableList<ConfiguredTargetKey> findImplicitDeps(RuleContext ruleContext) {
     Set<ConfiguredTargetKey> maybeImplicitDeps = CompactHashSet.create();
     Set<ConfiguredTargetKey> explicitDeps = CompactHashSet.create();
     // Consider rule attribute dependencies.
     AttributeMap attributes = ruleContext.attributes();
-    ListMultimap<String, ConfiguredTargetAndData> targetMap =
-        ruleContext.getConfiguredTargetAndDataMap();
     for (String attrName : attributes.getAttributeNames()) {
-      List<ConfiguredTargetAndData> attrValues = targetMap.get(attrName);
+      List<ConfiguredTargetAndData> attrValues =
+          ruleContext.getPrerequisiteConfiguredTargets(attrName);
       if (attrValues != null && !attrValues.isEmpty()) {
         if (attributes.isAttributeValueExplicitlySpecified(attrName)) {
           addLabelsAndConfigs(explicitDeps, attrValues);
@@ -95,32 +95,42 @@ public abstract class Util {
         }
       }
     }
-    // Consider toolchain dependencies.
-    ToolchainContext toolchainContext = ruleContext.getToolchainContext();
-    if (toolchainContext != null) {
-      // This logic should stay up to date with the dep creation logic in
-      // DependencyResolver#partiallyResolveDependencies.
-      BuildConfiguration targetConfiguration = ruleContext.getConfiguration();
-      BuildConfiguration hostConfiguration = ruleContext.getHostConfiguration();
-      for (Label toolchain : toolchainContext.resolvedToolchainLabels()) {
-        if (DependencyResolver.shouldUseToolchainTransition(
-            targetConfiguration, ruleContext.getRule())) {
-          maybeImplicitDeps.add(
-              ConfiguredTargetKey.builder()
-                  .setLabel(toolchain)
-                  .setConfiguration(targetConfiguration)
-                  .setToolchainContextKey(toolchainContext.key())
-                  .build());
-        } else {
-          maybeImplicitDeps.add(
-              ConfiguredTargetKey.builder()
-                  .setLabel(toolchain)
-                  .setConfiguration(hostConfiguration)
-                  .build());
+
+    if (ruleContext.getRule().useToolchainResolution()) {
+      // Rules that participate in toolchain resolution implicitly depend on the target platform to
+      // check whether it matches the constraints in the target_compatible_with attribute.
+      if (ruleContext.getConfiguration().hasFragment(PlatformConfiguration.class)) {
+        PlatformConfiguration platformConfiguration =
+            ruleContext.getConfiguration().getFragment(PlatformConfiguration.class);
+        maybeImplicitDeps.add(
+            ConfiguredTargetKey.builder()
+                .setLabel(platformConfiguration.getTargetPlatform())
+                .setConfigurationKey(BuildConfigurationKey.create(CommonOptions.EMPTY_OPTIONS))
+                .build());
+      }
+    }
+
+    ToolchainCollection<ResolvedToolchainContext> toolchainContexts =
+        ruleContext.getToolchainContexts();
+    if (toolchainContexts != null) {
+      for (ResolvedToolchainContext toolchainContext : toolchainContexts.contextMap().values()) {
+        if (toolchainContext != null) {
+          // This logic should stay up to date with the dep creation logic in
+          // DependencyResolver#partiallyResolveDependencies.
+          BuildConfigurationValue targetConfiguration = ruleContext.getConfiguration();
+          for (Label toolchain : toolchainContext.resolvedToolchainLabels()) {
+            maybeImplicitDeps.add(
+                ConfiguredTargetKey.builder()
+                    .setLabel(toolchain)
+                    .setConfiguration(targetConfiguration)
+                    .setExecutionPlatformLabel(toolchainContext.executionPlatform().label())
+                    .build());
+          }
         }
       }
     }
-    return ImmutableSet.copyOf(Sets.difference(maybeImplicitDeps, explicitDeps));
+    return ImmutableList.sortedCopyOf(
+        ConfiguredTargetKey.ORDERING, Sets.difference(maybeImplicitDeps, explicitDeps));
   }
 
   private static void addLabelsAndConfigs(

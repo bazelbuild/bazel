@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2016 The Bazel Authors. All rights reserved.
 #
@@ -15,8 +15,6 @@
 # limitations under the License.
 
 set -euo pipefail
-
-PLATFORM="$(uname -s | tr 'A-Z' 'a-z')"
 
 # Print the resolved path of a symbolic link (or the path itself if not a link).
 #
@@ -110,9 +108,9 @@ function get_real_path() {
 function md5_file() {
   if [ $# -gt 0 ]; then
     local result=""
-    if [[ ${PLATFORM} == "darwin" ]] || [[ ${PLATFORM} == "freebsd" ]] || [[ ${PLATFORM} == "openbsd" ]]; then
+    if ( command -v md5 &> /dev/null ); then
       result=$(md5 -q $@ || echo)
-    else
+    elif ( command -v md5sum &> /dev/null ); then
       result=$(md5sum $@ | awk '{print $1}' || echo)
     fi
 

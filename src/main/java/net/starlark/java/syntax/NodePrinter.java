@@ -41,15 +41,13 @@ final class NodePrinter {
     } else if (n instanceof Statement) {
       printStmt((Statement) n);
 
-    } else if (n instanceof StarlarkFile) {
-      StarlarkFile file = (StarlarkFile) n;
+    } else if (n instanceof StarlarkFile file) {
       // Only statements are printed, not comments.
       for (Statement stmt : file.getStatements()) {
         printStmt(stmt);
       }
 
-    } else if (n instanceof Comment) {
-      Comment comment = (Comment) n;
+    } else if (n instanceof Comment comment) {
       // We can't really print comments in the right place anyway,
       // due to how their relative order is lost in the representation
       // of StarlarkFile. So don't bother word-wrapping and just print
@@ -97,7 +95,7 @@ final class NodePrinter {
     } else if (arg instanceof Argument.StarStar) {
       buf.append("**");
     }
-    printExpr(arg.getValue());
+    printExpr(arg.getValue(), true);
   }
 
   private void printParameter(Parameter param) {
@@ -129,14 +127,33 @@ final class NodePrinter {
   void printDefSignature(DefStatement def) {
     buf.append("def ");
     printExpr(def.getIdentifier());
+    if (!def.getTypeParameters().isEmpty()) {
+      buf.append("[");
+      String sep = "";
+      for (Identifier typeParam : def.getTypeParameters()) {
+        buf.append(sep);
+        printExpr(typeParam);
+        sep = ", ";
+      }
+      buf.append("]");
+    }
     buf.append('(');
     String sep = "";
     for (Parameter param : def.getParameters()) {
       buf.append(sep);
       printParameter(param);
+      if (param.getType() != null) {
+        buf.append(": ");
+        printExpr(param.getType(), true);
+      }
       sep = ", ";
     }
-    buf.append("):");
+    buf.append(")");
+    if (def.getReturnType() != null) {
+      buf.append(" -> ");
+      printExpr(def.getReturnType(), true);
+    }
+    buf.append(":");
   }
 
   private void printStmt(Statement s) {
@@ -147,6 +164,11 @@ final class NodePrinter {
         {
           AssignmentStatement stmt = (AssignmentStatement) s;
           printExpr(stmt.getLHS());
+          Expression type = stmt.getType();
+          if (type != null) {
+            buf.append(" : ");
+            printExpr(type);
+          }
           buf.append(' ');
           if (stmt.isAugmented()) {
             buf.append(stmt.getOperator());
@@ -168,7 +190,7 @@ final class NodePrinter {
       case FLOW:
         {
           FlowStatement stmt = (FlowStatement) s;
-          buf.append(stmt.getKind()).append('\n');
+          buf.append(stmt.getFlowKind()).append('\n');
           break;
         }
 
@@ -250,23 +272,61 @@ final class NodePrinter {
           buf.append('\n');
           break;
         }
+
+      case TYPE_ALIAS:
+        {
+          TypeAliasStatement stmt = (TypeAliasStatement) s;
+          buf.append("type ");
+          printExpr(stmt.getIdentifier());
+          if (!stmt.getParameters().isEmpty()) {
+            buf.append('[');
+            String sep = "";
+            for (Identifier param : stmt.getParameters()) {
+              buf.append(sep);
+              printExpr(param);
+              sep = ", ";
+            }
+            buf.append(']');
+          }
+          buf.append(" = ");
+          printExpr(stmt.getDefinition(), /* canSkipParenthesis= */ true);
+          buf.append('\n');
+          break;
+        }
+
+      case VAR:
+        {
+          VarStatement stmt = (VarStatement) s;
+          printExpr(stmt.getIdentifier());
+          buf.append(" : ");
+          printExpr(stmt.getType());
+          buf.append('\n');
+          break;
+        }
     }
   }
 
   private void printExpr(Expression expr) {
+    printExpr(expr, false);
+  }
+
+  private void printExpr(Expression expr, boolean canSkipParenthesis) {
     switch (expr.kind()) {
       case BINARY_OPERATOR:
         {
           BinaryOperatorExpression binop = (BinaryOperatorExpression) expr;
-          // TODO(bazel-team): retain parentheses in the syntax tree so we needn't
-          // conservatively emit them here.
-          buf.append('(');
+          // TODO(bazel-team): print minimal number of parentheses
+          if (!canSkipParenthesis) {
+            buf.append('(');
+          }
           printExpr(binop.getX());
           buf.append(' ');
           buf.append(binop.getOperator());
           buf.append(' ');
           printExpr(binop.getY());
-          buf.append(')');
+          if (!canSkipParenthesis) {
+            buf.append(')');
+          }
           break;
         }
 
@@ -277,8 +337,7 @@ final class NodePrinter {
           printNode(comp.getBody()); // Expression or DictExpression.Entry
           for (Comprehension.Clause clause : comp.getClauses()) {
             buf.append(' ');
-            if (clause instanceof Comprehension.For) {
-              Comprehension.For forClause = (Comprehension.For) clause;
+            if (clause instanceof Comprehension.For forClause) {
               buf.append("for ");
               printExpr(forClause.getVars());
               buf.append(" in ");
@@ -342,6 +401,23 @@ final class NodePrinter {
           break;
         }
 
+      case CAST:
+        {
+          CastExpression cast = (CastExpression) expr;
+          buf.append("cast(");
+          printExpr(cast.getType(), /* canSkipParenthesis= */ true);
+          buf.append(", ");
+          printExpr(cast.getValue(), /* canSkipParenthesis= */ true);
+          buf.append(')');
+          break;
+        }
+
+      case ELLIPSIS:
+        {
+          buf.append("...");
+          break;
+        }
+
       case IDENTIFIER:
         buf.append(((Identifier) expr).getName());
         break;
@@ -359,6 +435,17 @@ final class NodePrinter {
       case INT_LITERAL:
         {
           buf.append(((IntLiteral) expr).getValue());
+          break;
+        }
+
+      case ISINSTANCE:
+        {
+          IsInstanceExpression isinstance = (IsInstanceExpression) expr;
+          buf.append("isinstance(");
+          printExpr(isinstance.getValue(), /* canSkipParenthesis= */ true);
+          buf.append(", ");
+          printExpr(isinstance.getType(), /* canSkipParenthesis= */ true);
+          buf.append(')');
           break;
         }
 
@@ -390,7 +477,7 @@ final class NodePrinter {
           String sep = "";
           for (Expression e : list.getElements()) {
             buf.append(sep);
-            printExpr(e);
+            printExpr(e, true);
             sep = ", ";
           }
           if (list.isTuple() && list.getElements().size() == 1) {
@@ -426,60 +513,73 @@ final class NodePrinter {
         {
           StringLiteral literal = (StringLiteral) expr;
           String value = literal.getValue();
-
-          // TODO(adonovan): record the raw text of string (and integer) literals
-          // so that we can use the syntax tree for source modification tools.
-          // However, that may come with a memory cost until we start compiling
-          // (at which point the cost is only transient).
-          // For now, just simulate the behavior of repr(str).
-          buf.append('"');
-          for (int i = 0; i < value.length(); i++) {
-            char c = value.charAt(i);
-            switch (c) {
-              case '"':
-                buf.append("\\\"");
-                break;
-              case '\\':
-                buf.append("\\\\");
-                break;
-              case '\r':
-                buf.append("\\r");
-                break;
-              case '\n':
-                buf.append("\\n");
-                break;
-              case '\t':
-                buf.append("\\t");
-                break;
-              default:
-                // The Starlark spec (and lexer) are far from complete here,
-                // and it's hard to come up with a clean semantics for
-                // string escapes that serves Java (UTF-16) and Go (UTF-8).
-                // Clearly string literals should not contain non-printable
-                // characters. For now we'll continue to pretend that all
-                // non-printables are < 32, but this obviously false.
-                if (c < 32) {
-                  buf.append(String.format("\\x%02x", (int) c));
-                } else {
-                  buf.append(c);
-                }
-            }
-          }
-          buf.append('"');
+          printStringLiteral(buf, value);
           break;
         }
 
       case UNARY_OPERATOR:
         {
           UnaryOperatorExpression unop = (UnaryOperatorExpression) expr;
-          // TODO(bazel-team): retain parentheses in the syntax tree so we needn't
-          // conservatively emit them here.
+          // TODO(bazel-team): print minimal number of parentheses
           buf.append(unop.getOperator() == TokenKind.NOT ? "not " : unop.getOperator().toString());
-          buf.append('(');
+          if (!canSkipParenthesis) {
+            buf.append('(');
+          }
           printExpr(unop.getX());
-          buf.append(')');
+          if (!canSkipParenthesis) {
+            buf.append(')');
+          }
+          break;
+        }
+
+      case TYPE_APPLICATION:
+        {
+          TypeApplication typeApplication = (TypeApplication) expr;
+          printExpr(typeApplication.getConstructor());
+          buf.append('[');
+          String sep = "";
+          for (Expression arg : typeApplication.getArguments()) {
+            buf.append(sep);
+            printExpr(arg, true);
+            sep = ", ";
+          }
+          buf.append(']');
           break;
         }
     }
+  }
+
+  /** Appends the Starlark repr form of a string value to the buffer. */
+  static void printStringLiteral(StringBuilder buf, String value) {
+    // TODO(adonovan): record the raw text of string (and integer) literals
+    // so that we can use the syntax tree for source modification tools.
+    // However, that may come with a memory cost until we start compiling
+    // (at which point the cost is only transient).
+    // For now, just simulate the behavior of repr(str).
+    buf.append('"');
+    for (int i = 0; i < value.length(); i++) {
+      char c = value.charAt(i);
+      switch (c) {
+        case '"' -> buf.append("\\\"");
+        case '\\' -> buf.append("\\\\");
+        case '\r' -> buf.append("\\r");
+        case '\n' -> buf.append("\\n");
+        case '\t' -> buf.append("\\t");
+        default -> {
+          // The Starlark spec (and lexer) are far from complete here,
+          // and it's hard to come up with a clean semantics for
+          // string escapes that serves Java (UTF-16) and Go (UTF-8).
+          // Clearly string literals should not contain non-printable
+          // characters. For now we'll continue to pretend that all
+          // non-printables are < 32, but this obviously false.
+          if (c < 32) {
+            buf.append(String.format("\\x%02x", (int) c));
+          } else {
+            buf.append(c);
+          }
+        }
+      }
+    }
+    buf.append('"');
   }
 }

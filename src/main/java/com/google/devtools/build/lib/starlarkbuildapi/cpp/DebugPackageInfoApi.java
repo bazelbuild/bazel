@@ -48,7 +48,9 @@ public interface DebugPackageInfoApi<FileT extends FileApi> extends StructApi {
   @StarlarkMethod(
       name = "stripped_file",
       doc = "Returns the stripped file (the explicit \".stripped\" target).",
+      allowReturnNones = true,
       structField = true)
+  @Nullable
   FileT getStrippedArtifact();
 
   @StarlarkMethod(

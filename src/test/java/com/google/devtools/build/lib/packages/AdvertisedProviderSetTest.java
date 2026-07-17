@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.packages;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 
 import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -53,26 +54,11 @@ public class AdvertisedProviderSetTest {
     assertThat(
             getFingerprint(
                 AdvertisedProviderSet.builder()
-                    .addStarlark(StarlarkProviderIdentifier.forLegacy("legacyProvider1"))
-                    .build()))
-        .isEqualTo(
-            HashCode.fromString(
-                "332f6fc411cfe63c5aaf1ed0fb06f979b6ce947239aede9b6e61649f9c543747"));
-    assertThat(
-            getFingerprint(
-                AdvertisedProviderSet.builder()
-                    .addStarlark(StarlarkProviderIdentifier.forLegacy("legacyProvider2"))
-                    .build()))
-        .isEqualTo(
-            HashCode.fromString(
-                "ba2f3a9271b4398d8c6bd8ae846446f13b6549be9d3fbce985358b709b343f80"));
-    assertThat(
-            getFingerprint(
-                AdvertisedProviderSet.builder()
                     .addStarlark(
                         StarlarkProviderIdentifier.forKey(
                             new StarlarkProvider.Key(
-                                Label.parseAbsoluteUnchecked("//my:label1.bzl"), "exportedName1")))
+                                keyForBuild(Label.parseCanonicalUnchecked("//my:label1.bzl")),
+                                "exportedName1")))
                     .build()))
         .isEqualTo(
             HashCode.fromString(
@@ -83,11 +69,13 @@ public class AdvertisedProviderSetTest {
                     .addStarlark(
                         StarlarkProviderIdentifier.forKey(
                             new StarlarkProvider.Key(
-                                Label.parseAbsoluteUnchecked("//my:label1.bzl"), "exportedName1")))
+                                keyForBuild(Label.parseCanonicalUnchecked("//my:label1.bzl")),
+                                "exportedName1")))
                     .addStarlark(
                         StarlarkProviderIdentifier.forKey(
                             new StarlarkProvider.Key(
-                                Label.parseAbsoluteUnchecked("//my:label2.bzl"), "exportedName2")))
+                                keyForBuild(Label.parseCanonicalUnchecked("//my:label2.bzl")),
+                                "exportedName2")))
                     .build()))
         .isEqualTo(
             HashCode.fromString(
@@ -98,7 +86,8 @@ public class AdvertisedProviderSetTest {
                     .addStarlark(
                         StarlarkProviderIdentifier.forKey(
                             new StarlarkProvider.Key(
-                                Label.parseAbsoluteUnchecked("//my:label2.bzl"), "exportedName2")))
+                                keyForBuild(Label.parseCanonicalUnchecked("//my:label2.bzl")),
+                                "exportedName2")))
                     .build()))
         .isEqualTo(
             HashCode.fromString(

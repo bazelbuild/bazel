@@ -17,60 +17,55 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.AbstractAttributeMapper;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
-import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Type;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 import org.junit.Before;
 import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
-/** Unit tests for {@link AbstractAttributeMapper}. */
-@RunWith(JUnit4.class)
-public class AbstractAttributeMapperTest extends BuildViewTestCase {
+/** Unit tests for classes that extend {@link AbstractAttributeMapper}. */
+public abstract class AbstractAttributeMapperTest extends BuildViewTestCase {
 
   protected Rule rule;
   protected AbstractAttributeMapper mapper;
 
-  private static class TestMapper extends AbstractAttributeMapper {
-    public TestMapper(Rule rule) {
-      super(rule);
-    }
-  }
+  protected abstract AbstractAttributeMapper createMapper(Rule rule);
 
   @Before
   public final void initializeRuleAndMapper() throws Exception {
-    rule = scratchRule("p", "myrule",
-        "cc_binary(name = 'myrule',",
-        "          srcs = ['a', 'b', 'c'])");
-    mapper = new TestMapper(rule);
+    rule =
+        scratchRule(
+            "p",
+            "myrule",
+            """
+            load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+
+            cc_binary(
+                name = "myrule",
+                srcs = ["a", "b", "c"],
+            )
+            """);
+    mapper = createMapper(rule);
   }
 
   @Test
-  public void testRuleProperties() throws Exception {
-    assertThat(mapper.getName()).isEqualTo(rule.getName());
+  public void testRuleProperties() {
+    assertThat(mapper.getLabel().getName()).isEqualTo(rule.getName());
     assertThat(mapper.getLabel()).isEqualTo(rule.getLabel());
   }
 
   @Test
   public void testPackageDefaultProperties() throws Exception {
-    rule = scratchRule("a", "myrule",
-        "cc_binary(name = 'myrule',",
-        "          srcs = ['a', 'b', 'c'])");
-    Package pkg = rule.getPackage();
-    assertThat(mapper.getPackageDefaultHdrsCheck()).isEqualTo(pkg.getDefaultHdrsCheck());
-    assertThat(mapper.getPackageDefaultTestOnly()).isEqualTo(pkg.getDefaultTestOnly());
-    assertThat(mapper.getPackageDefaultDeprecation()).isEqualTo(pkg.getDefaultDeprecation());
+    // TODO: blaze-configurability-team - write some package args and test them.
+    assertThat(mapper.getPackageArgs()).isEqualTo(rule.getPackageDeclarations().getPackageArgs());
   }
 
   @Test
-  public void testAttributeTypeChecking() throws Exception {
+  public void testAttributeTypeChecking() {
     // Good typing:
     mapper.get("srcs", BuildType.LABEL_LIST);
 
@@ -100,7 +95,7 @@ public class AbstractAttributeMapperTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testIsAttributeExplicitlySpecified() throws Exception {
+  public void testIsAttributeExplicitlySpecified() {
     assertThat(mapper.isAttributeValueExplicitlySpecified("srcs")).isTrue();
     assertThat(mapper.isAttributeValueExplicitlySpecified("deps")).isFalse();
     assertThat(mapper.isAttributeValueExplicitlySpecified("nonsense")).isFalse();
@@ -113,12 +108,8 @@ public class AbstractAttributeMapperTest extends BuildViewTestCase {
 
   protected static List<String> getLabelsForAttribute(
       AttributeMap attributeMap, String attributeName) throws InterruptedException {
-    return attributeMap
-        .visitLabels()
-        .stream()
-        .filter((d) -> d.getAttribute().getName().equals(attributeName))
-        .map(AttributeMap.DepEdge::getLabel)
-        .map(Label::toString)
-        .collect(Collectors.toList());
+    List<String> labels = new ArrayList<>();
+    attributeMap.visitLabels(attributeName, label -> labels.add(label.toString()));
+    return labels;
   }
 }

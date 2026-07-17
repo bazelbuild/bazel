@@ -13,21 +13,23 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
-import com.google.common.collect.Interner;
+import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
-import com.google.devtools.build.lib.actions.Actions.GeneratingActions;
 import com.google.devtools.build.lib.actions.BasicActionLookupValue;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.concurrent.BlazeInterners;
+import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.SkyFunctionName;
+import com.google.devtools.build.skyframe.SkyKey;
 
-/**
- * Value that stores expanded actions from ActionTemplate.
- */
+/** Value that stores expanded actions from ActionTemplate. */
 public final class ActionTemplateExpansionValue extends BasicActionLookupValue {
-  ActionTemplateExpansionValue(GeneratingActions generatingActions) {
+
+  ActionTemplateExpansionValue(ImmutableList<ActionAnalysisMetadata> generatingActions) {
     super(generatingActions);
   }
 
@@ -38,8 +40,7 @@ public final class ActionTemplateExpansionValue extends BasicActionLookupValue {
   /** Key for {@link ActionTemplateExpansionValue} nodes. */
   @AutoCodec
   public static final class ActionTemplateExpansionKey implements ActionLookupKey {
-    private static final Interner<ActionTemplateExpansionKey> interner =
-        BlazeInterners.newWeakInterner();
+    private static final SkyKeyInterner<ActionTemplateExpansionKey> interner = SkyKey.newInterner();
 
     private final ActionLookupKey actionLookupKey;
     private final int actionIndex;
@@ -49,10 +50,15 @@ public final class ActionTemplateExpansionValue extends BasicActionLookupValue {
       this.actionIndex = actionIndex;
     }
 
-    @AutoCodec.VisibleForSerialization
-    @AutoCodec.Instantiator
-    static ActionTemplateExpansionKey of(ActionLookupKey actionLookupKey, int actionIndex) {
+    @VisibleForTesting
+    public static ActionTemplateExpansionKey of(ActionLookupKey actionLookupKey, int actionIndex) {
       return interner.intern(new ActionTemplateExpansionKey(actionLookupKey, actionIndex));
+    }
+
+    @VisibleForSerialization
+    @AutoCodec.Interner
+    static ActionTemplateExpansionKey intern(ActionTemplateExpansionKey key) {
+      return interner.intern(key);
     }
 
     @Override
@@ -65,7 +71,12 @@ public final class ActionTemplateExpansionValue extends BasicActionLookupValue {
       return actionLookupKey.getLabel();
     }
 
-    ActionLookupKey getActionLookupKey() {
+    @Override
+    public BuildConfigurationKey getConfigurationKey() {
+      return actionLookupKey.getConfigurationKey();
+    }
+
+    public ActionLookupKey getActionLookupKey() {
       return actionLookupKey;
     }
 
@@ -73,8 +84,13 @@ public final class ActionTemplateExpansionValue extends BasicActionLookupValue {
      * Index of the action in question in the node keyed by {@link #getActionLookupKey}. Should be
      * passed to {@link com.google.devtools.build.lib.actions.ActionLookupValue#getAction}.
      */
-    int getActionIndex() {
+    public int getActionIndex() {
       return actionIndex;
+    }
+
+    @Override
+    public SkyKeyInterner<ActionTemplateExpansionKey> getSkyKeyInterner() {
+      return interner;
     }
 
     @Override
@@ -87,10 +103,9 @@ public final class ActionTemplateExpansionValue extends BasicActionLookupValue {
       if (this == obj) {
         return true;
       }
-      if (!(obj instanceof ActionTemplateExpansionKey)) {
+      if (!(obj instanceof ActionTemplateExpansionKey that)) {
         return false;
       }
-      ActionTemplateExpansionKey that = (ActionTemplateExpansionKey) obj;
       return this.actionIndex == that.actionIndex
           && this.actionLookupKey.equals(that.actionLookupKey);
     }

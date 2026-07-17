@@ -22,6 +22,7 @@ import com.google.common.hash.Hasher;
 import java.io.FilterOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import javax.annotation.WillCloseWhenClosed;
 
 /**
  * An {@link OutputStream} that maintains a {@link Digest} of the data written to it.
@@ -39,7 +40,7 @@ public final class DigestOutputStream extends FilterOutputStream {
    *
    * <p>The {@link OutputStream} should not be written to before or after the hand-off.
    */
-  public DigestOutputStream(HashFunction hashFunction, OutputStream out) {
+  public DigestOutputStream(HashFunction hashFunction, @WillCloseWhenClosed OutputStream out) {
     super(checkNotNull(out));
     this.hasher = checkNotNull(hashFunction.newHasher());
   }

@@ -66,6 +66,7 @@ import javax.annotation.Nullable;
  * <a href="http://www.pkware.com/documents/casestudies/APPNOTE.TXT">ZIP format</a>
  */
 public class ZipCombiner implements AutoCloseable {
+  private static final int INFLATER_BUFFER_BYTES = 8192;
   public static final Date DOS_EPOCH = new Date(ZipUtil.DOS_EPOCH);
   /**
    * Whether to compress or decompress entries.
@@ -318,29 +319,6 @@ public class ZipCombiner implements AutoCloseable {
   }
 
   /**
-   * Write all contents from the {@link InputStream} as a prefix file for the combined ZIP file.
-   *
-   * @param in the {@link InputStream} containing the prefix file data
-   * @throws IOException if there is an error writing the prefix file
-   */
-  public void prependExecutable(InputStream in) throws IOException {
-    out.startPrefixFile();
-    copyStream(in, out);
-    out.endPrefixFile();
-  }
-
-  /**
-   * Adds a directory entry to the combined ZIP file using the specified filename and date.
-   *
-   * @param filename the name of the directory to create
-   * @param date the modified time to assign to the directory
-   * @throws IOException if there is an error writing the directory entry
-   */
-  public void addDirectory(String filename, Date date) throws IOException {
-    addDirectory(filename, date, new ExtraData[0]);
-  }
-
-  /**
    * Adds a directory entry to the combined ZIP file using the specified filename, date, and extra
    * data.
    *
@@ -364,19 +342,6 @@ public class ZipCombiner implements AutoCloseable {
     out.putNextEntry(entry);
     out.closeEntry();
     entries.put(filename, entry);
-  }
-
-  /**
-   * Adds a file with the specified name to the combined ZIP file.
-   *
-   * @param filename the name of the file to create
-   * @param in the {@link InputStream} containing the file data
-   * @throws IOException if there is an error writing the file entry
-   * @throws IllegalArgumentException if the combined ZIP file already contains a file of the same
-   *     name.
-   */
-  public void addFile(String filename, InputStream in) throws IOException {
-    addFile(filename, null, in);
   }
 
   /**
@@ -440,7 +405,7 @@ public class ZipCombiner implements AutoCloseable {
             entries.put(filename, null);
             InputStream in = zip.getRawInputStream(entry);
             if (entry.getMethod() == Compression.DEFLATED) {
-              in = new InflaterInputStream(in, getInflater());
+              in = new InflaterInputStream(in, getInflater(), INFLATER_BUFFER_BYTES);
             }
             action.getStrategy().merge(in, action.getMergeBuffer());
             break;
@@ -492,7 +457,9 @@ public class ZipCombiner implements AutoCloseable {
       writeEntry(entry, new ByteArrayInputStream(uncompressed));
     } else {
       ByteArrayOutputStream compressed = new ByteArrayOutputStream();
-      copyStream(new DeflaterInputStream(new ByteArrayInputStream(uncompressed), getDeflater()),
+      copyStream(
+          new DeflaterInputStream(
+              new ByteArrayInputStream(uncompressed), getDeflater(), INFLATER_BUFFER_BYTES),
           compressed);
       entry.setMethod(Compression.DEFLATED);
       entry.setCompressedSize(compressed.size());
@@ -529,14 +496,19 @@ public class ZipCombiner implements AutoCloseable {
       // from the raw file data and deflate to a temporary byte array to determine the deflated
       // size. Then use this byte array as the input stream for writing the entry.
       ByteArrayOutputStream tmp = new ByteArrayOutputStream();
-      copyStream(new DeflaterInputStream(zip.getRawInputStream(entry), getDeflater()), tmp);
+      copyStream(
+          new DeflaterInputStream(
+              zip.getRawInputStream(entry), getDeflater(), INFLATER_BUFFER_BYTES),
+          tmp);
       data = new ByteArrayInputStream(tmp.toByteArray());
       outEntry.setMethod(Compression.DEFLATED);
       outEntry.setCompressedSize(tmp.size());
     } else if (mode == OutputMode.FORCE_STORED && entry.getMethod() != Compression.STORED) {
       // The output mode is stored, but the entry compression is not; create an inflater stream
-      // from the raw file data. 
-      data = new InflaterInputStream(zip.getRawInputStream(entry), getInflater());
+      // from the raw file data.
+      data =
+          new InflaterInputStream(
+              zip.getRawInputStream(entry), getInflater(), INFLATER_BUFFER_BYTES);
       outEntry.setMethod(Compression.STORED);
       outEntry.setCompressedSize(entry.getSize());
     } else {
@@ -554,18 +526,6 @@ public class ZipCombiner implements AutoCloseable {
     copyStream(data, out);
     out.closeEntry();
     entries.put(entry.getName(), entry);
-  }
-
-  /**
-   * Returns true if the combined ZIP file already contains a file of the specified file name.
-   *
-   * @param filename the filename of the file whose presence in the combined ZIP file is to be
-   *     tested
-   * @return true if the combined ZIP file contains the specified file
-   */
-  public boolean containsFile(String filename) {
-    // TODO(apell): may be slightly different behavior because v1 returns true on skipped names.
-    return entries.containsKey(filename);
   }
 
   /**

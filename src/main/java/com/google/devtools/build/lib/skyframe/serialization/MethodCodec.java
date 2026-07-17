@@ -14,6 +14,9 @@
 
 package com.google.devtools.build.lib.skyframe.serialization;
 
+import static com.google.devtools.build.lib.skyframe.serialization.ClassCodec.classCodec;
+import static com.google.devtools.build.lib.skyframe.serialization.strings.UnsafeStringCodec.stringCodec;
+
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
@@ -21,33 +24,33 @@ import java.lang.reflect.Method;
 import java.util.Arrays;
 
 /** {@link ObjectCodec} for {@link Method}. */
-class MethodCodec implements ObjectCodec<Method> {
+class MethodCodec extends LeafObjectCodec<Method> {
   @Override
   public Class<Method> getEncodedClass() {
     return Method.class;
   }
 
   @Override
-  public void serialize(SerializationContext context, Method obj, CodedOutputStream codedOut)
+  public void serialize(LeafSerializationContext context, Method obj, CodedOutputStream codedOut)
       throws SerializationException, IOException {
-    context.serialize(obj.getDeclaringClass(), codedOut);
-    context.serialize(obj.getName(), codedOut);
+    context.serializeLeaf(obj.getDeclaringClass(), classCodec(), codedOut);
+    context.serializeLeaf(obj.getName(), stringCodec(), codedOut);
     Class<?>[] parameterTypes = obj.getParameterTypes();
     codedOut.writeInt32NoTag(parameterTypes.length);
     for (Class<?> parameter : parameterTypes) {
-      context.serialize(parameter, codedOut);
+      context.serializeLeaf(parameter, classCodec(), codedOut);
     }
   }
 
   @Override
-  public Method deserialize(DeserializationContext context, CodedInputStream codedIn)
+  public Method deserialize(LeafDeserializationContext context, CodedInputStream codedIn)
       throws SerializationException, IOException {
-    Class<?> clazz = context.deserialize(codedIn);
-    String name = context.deserialize(codedIn);
+    Class<?> clazz = context.deserializeLeaf(codedIn, classCodec());
+    String name = context.deserializeLeaf(codedIn, stringCodec());
 
     Class<?>[] parameters = new Class<?>[codedIn.readInt32()];
     for (int i = 0; i < parameters.length; i++) {
-      parameters[i] = context.deserialize(codedIn);
+      parameters[i] = context.deserializeLeaf(codedIn, classCodec());
     }
     try {
       return clazz.getDeclaredMethod(name, parameters);

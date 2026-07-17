@@ -13,10 +13,13 @@
 // limitations under the License.
 package com.google.devtools.common.options;
 
+import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
+
 /**
  * On top of categorizing options by their intended purpose, these tags should identify options that
  * are either not supported or are intended to break old behavior.
  */
+@SkybridgeInterface
 public enum OptionMetadataTag {
   /**
    * This option triggers an experimental feature with no guarantees of functionality.
@@ -45,7 +48,7 @@ public enum OptionMetadataTag {
    * These are flags that should never be set by a user. This tag is used to make sure that options
    * that form the protocol between the client and the server are not logged.
    *
-   * <p>These should be in category {@code OptionDocumentationCategory.UNDOCUMENTED}.
+   * <p>These should be in category {@link OptionDocumentationCategory.UNDOCUMENTED}.
    */
   HIDDEN(3),
 
@@ -53,19 +56,19 @@ public enum OptionMetadataTag {
    * Options which are INTERNAL are not recognized by the parser at all, and so cannot be used as
    * flags.
    *
-   * <p>These should be in category {@code OptionDocumentationCategory.UNDOCUMENTED}.
+   * <p>These should be in category {@link OptionDocumentationCategory.UNDOCUMENTED}.
    */
   INTERNAL(4),
 
+  // reserved TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES(5)
+  // reserved EXPLICIT_IN_OUTPUT_PATH(6)
+  // reserved IMMUTABLE(7)
+
   /**
-   * Options that are triggered by --all_incompatible_changes.
-   *
-   * <p>These must also be labelled {@link OptionMetadataTag#INCOMPATIBLE_CHANGE} and have the
-   * prefix --incompatible_. Note that the option name prefix is also a triggering case for the
-   * --all_incompatible_changes expansion, and so all options that start with the "incompatible_"
-   * prefix must have this tag.
+   * Options which are NON_CONFIGURABLE cannot be changed in (non-exec) Starlark transitions and
+   * cannot be used in select().
    */
-  TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES(5);
+  NON_CONFIGURABLE(8);
 
   private final int value;
 

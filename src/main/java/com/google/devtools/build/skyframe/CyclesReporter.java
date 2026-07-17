@@ -79,10 +79,10 @@ public class CyclesReporter {
     for (CycleInfo cycleInfo : cycles) {
       // TODO(janakr): if this assertion is never hit, remove topLevelKey as an argument to method.
       if (!cycleInfo.getTopKey().equals(topLevelKey)) {
-        BugReport.sendBugReport(
+        BugReport.sendNonFatalBugReport(
             new IllegalStateException("Cycle " + cycleInfo + " did not start with " + topLevelKey));
       }
-      suppressedCycles |= maybeReportCycle(cycleInfo, topLevelKey, firstCycle, eventHandler);
+      suppressedCycles |= !maybeReportCycle(cycleInfo, topLevelKey, firstCycle, eventHandler);
       firstCycle = false;
     }
     if (suppressedCycles) {
@@ -91,6 +91,7 @@ public class CyclesReporter {
     }
   }
 
+  /** Returns true if it reported the cycle. */
   private boolean maybeReportCycle(
       CycleInfo cycleInfo,
       SkyKey topLevelKey,
@@ -115,7 +116,7 @@ public class CyclesReporter {
             "Cycle detected but could not be properly displayed due to an internal problem. Please"
                 + " file an issue. Raw display: "
                 + rawCycle));
-    BugReport.sendBugReport(new IllegalStateException(rawCycle + "\n" + cycleReporters));
+    BugReport.sendNonFatalBugReport(new IllegalStateException(rawCycle + "\n" + cycleReporters));
     return true;
   }
 

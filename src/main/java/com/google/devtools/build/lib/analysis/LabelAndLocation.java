@@ -14,7 +14,8 @@
 
 package com.google.devtools.build.lib.analysis;
 
-import com.google.auto.value.AutoValue;
+import static java.util.Objects.requireNonNull;
+
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -27,18 +28,13 @@ import net.starlark.java.syntax.Location;
  * bytes over an existing {@link Target}.
  */
 @AutoCodec
-@AutoValue
-public abstract class LabelAndLocation {
-  @AutoCodec.Instantiator
-  static LabelAndLocation create(Label label, Location location) {
-    return new AutoValue_LabelAndLocation(label, location);
+public record LabelAndLocation(Label label, Location location) {
+  public LabelAndLocation {
+    requireNonNull(label, "label");
+    requireNonNull(location, "location");
   }
 
   public static LabelAndLocation of(Target target) {
-    return create(target.getLabel(), target.getLocation());
+    return new LabelAndLocation(target.getLabel(), target.getLocation());
   }
-
-  public abstract Label getLabel();
-
-  public abstract Location getLocation();
 }

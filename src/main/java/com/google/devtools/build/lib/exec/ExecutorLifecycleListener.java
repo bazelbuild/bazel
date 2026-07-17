@@ -16,8 +16,10 @@ package com.google.devtools.build.lib.exec;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.skyframe.EphemeralCheckIfOutputConsumed;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import java.util.function.Supplier;
+import javax.annotation.Nullable;
 
 /**
  * Type that can get informed about executor lifecycle events.
@@ -38,11 +40,15 @@ public interface ExecutorLifecycleListener {
   /**
    * Handles the start of the execution phase.
    *
-   * @param actionGraph actions as calcuated in the analysis phase
-   * @param topLevelArtifacts supplies all output artifacts from top-level targets and aspects
+   * @param actionGraph actions as calculated in the analysis phase. Null in Skymeld mode.
+   * @param topLevelArtifacts supplies all output artifacts from top-level targets and aspects. Null
+   *     in skymeld mode.
+   * @param ephemeralCheckIfOutputConsumed tests whether an artifact is consumed in this build.
    */
   void executionPhaseStarting(
-      ActionGraph actionGraph, Supplier<ImmutableSet<Artifact>> topLevelArtifacts)
+      @Nullable ActionGraph actionGraph,
+      @Nullable Supplier<ImmutableSet<Artifact>> topLevelArtifacts,
+      @Nullable EphemeralCheckIfOutputConsumed ephemeralCheckIfOutputConsumed)
       throws AbruptExitException, InterruptedException;
 
   /** Handles the end of the execution phase. */

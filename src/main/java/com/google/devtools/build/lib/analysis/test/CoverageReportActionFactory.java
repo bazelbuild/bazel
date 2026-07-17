@@ -15,26 +15,24 @@
 package com.google.devtools.build.lib.analysis.test;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
+import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
-import com.google.devtools.build.lib.actions.MutableActionGraph;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.skyframe.CoverageReportValue;
 import java.util.Collection;
+import java.util.List;
 import javax.annotation.Nullable;
 
-/**
- * A factory class to create coverage report actions.
- */
+/** A factory class to create coverage report actions. */
 public interface CoverageReportActionFactory {
   /**
    * Wraps the necessary actions to get a coverage report as well as the final output artifacts. The
@@ -43,36 +41,46 @@ public interface CoverageReportActionFactory {
    * coverageReportAction.
    */
   final class CoverageReportActionsWrapper {
+    private final ActionAnalysisMetadata baselineReportAction;
     private final ActionAnalysisMetadata coverageReportAction;
-    private final Actions.GeneratingActions processedActions;
+    private final ImmutableList<ActionAnalysisMetadata> actions;
 
     public CoverageReportActionsWrapper(
-        ActionAnalysisMetadata lcovWriteAction,
+        ActionAnalysisMetadata baselineReportAction,
         ActionAnalysisMetadata coverageReportAction,
+        List<ActionAnalysisMetadata> intermediateActions,
         ActionKeyContext actionKeyContext)
         throws InterruptedException {
+      this.baselineReportAction = baselineReportAction;
       this.coverageReportAction = coverageReportAction;
+      this.actions =
+          ImmutableList.<ActionAnalysisMetadata>builder()
+              .add(baselineReportAction)
+              .add(coverageReportAction)
+              .addAll(intermediateActions)
+              .build();
       try {
-        this.processedActions =
-            Actions.assignOwnersAndFindAndThrowActionConflict(
-                actionKeyContext,
-                ImmutableList.of(lcovWriteAction, coverageReportAction),
-                CoverageReportValue.COVERAGE_REPORT_KEY);
-      } catch (MutableActionGraph.ActionConflictException e) {
+        Actions.assignOwnersAndThrowIfConflict(
+            actionKeyContext, actions, CoverageReportValue.COVERAGE_REPORT_KEY);
+      } catch (ActionConflictException | Actions.ArtifactGeneratedByOtherRuleException e) {
         throw new IllegalStateException(e);
       }
     }
 
-    public ActionAnalysisMetadata getCoverageReportAction() {
-      return coverageReportAction;
+    public ImmutableList<ActionAnalysisMetadata> getActions() {
+      return actions;
     }
 
-    public Actions.GeneratingActions getActions() {
-      return processedActions;
+    public Iterable<Artifact> getCoverageOutputs() {
+      return Iterables.concat(baselineReportAction.getOutputs(), coverageReportAction.getOutputs());
     }
 
-    public ImmutableSet<Artifact> getCoverageOutputs() {
-      return coverageReportAction.getOutputs();
+    public Artifact getBaselineReportArtifact() {
+      return baselineReportAction.getPrimaryOutput();
+    }
+
+    public Artifact getCoverageReportArtifact() {
+      return coverageReportAction.getPrimaryOutput();
     }
   }
 
@@ -86,8 +94,8 @@ public interface CoverageReportActionFactory {
       EventHandler eventHandler,
       EventBus eventBus,
       BlazeDirectories directories,
+      Collection<ConfiguredTarget> configuredTargets,
       Collection<ConfiguredTarget> targetsToTest,
-      NestedSet<Artifact> baselineCoverageArtifacts,
       ArtifactFactory artifactFactory,
       ActionKeyContext actionKeyContext,
       ActionLookupKey actionLookupKey,

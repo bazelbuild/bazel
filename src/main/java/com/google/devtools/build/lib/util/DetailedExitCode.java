@@ -112,7 +112,7 @@ public class DetailedExitCode {
   }
 
   /** Returns the numeric exit code associated with a {@link FailureDetail} message. */
-  private static int getNumericExitCode(FailureDetail failureDetail) {
+  public static int getNumericExitCode(FailureDetail failureDetail) {
     MessageOrBuilder categoryMsg = getCategorySubmessage(failureDetail);
     EnumValueDescriptor subcategoryDescriptor =
         getSubcategoryDescriptor(failureDetail, categoryMsg);

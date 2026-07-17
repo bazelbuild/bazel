@@ -25,5 +25,6 @@ genrule(
         "--background=$(location //scripts/packages/dmg:resource/background.png)",
     ]),
     tags = ["no-sandbox"],
+    target_compatible_with = ["@platforms//os:macos"],
     tools = ["//scripts/packages/dmg:create_bazel_dmg.sh"],
 )

@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.actions;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import com.google.devtools.build.lib.events.ExtendedEventHandler.ProgressLike;
+import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 
 /**
  * Notifies that an in-flight action is running.
@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler.ProgressLike;
  * ScanningActionEvent} and {@link SchedulingActionEvent} events. TODO(jmmv): But this theory is not
  * true today. Investigate.
  */
-public class RunningActionEvent implements ProgressLike {
+public final class RunningActionEvent implements Postable {
 
   private final ActionExecutionMetadata action;
   private final String strategy;

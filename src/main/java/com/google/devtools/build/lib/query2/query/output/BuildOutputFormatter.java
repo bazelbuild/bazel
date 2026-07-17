@@ -15,12 +15,16 @@
 package com.google.devtools.build.lib.query2.query.output;
 
 import com.google.common.base.Ascii;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
+import com.google.devtools.build.lib.packages.AbstractAttributeMapper;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.packages.License;
+import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
@@ -37,6 +41,8 @@ import java.util.List;
 import java.util.Set;
 import java.util.function.BiPredicate;
 import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 
 /**
@@ -64,6 +70,7 @@ public class BuildOutputFormatter extends AbstractUnorderedFormatter {
     private final Writer writer;
     private final BiPredicate<Rule, Attribute> preserveSelect;
     private final String lineTerm;
+    private final LabelPrinter labelPrinter;
     private final Set<Label> printed = CompactHashSet.create();
 
     /**
@@ -74,10 +81,14 @@ public class BuildOutputFormatter extends AbstractUnorderedFormatter {
      * @param lineTerm character to add to the end of each line
      */
     public TargetOutputter(
-        Writer writer, BiPredicate<Rule, Attribute> preserveSelect, String lineTerm) {
+        Writer writer,
+        BiPredicate<Rule, Attribute> preserveSelect,
+        String lineTerm,
+        LabelPrinter labelPrinter) {
       this.writer = writer;
       this.preserveSelect = preserveSelect;
       this.lineTerm = lineTerm;
+      this.labelPrinter = labelPrinter;
     }
 
     /** Outputs a given target in BUILD-style syntax. */
@@ -119,9 +130,7 @@ public class BuildOutputFormatter extends AbstractUnorderedFormatter {
               .append(lineTerm);
           continue;
         }
-        AttributeValueSource attributeValueSource =
-            AttributeValueSource.forRuleAndAttribute(rule, attr);
-        if (attributeValueSource != AttributeValueSource.RULE) {
+        if (!rule.isAttributeValueExplicitlySpecified(attr)) {
           continue; // Don't print default values.
         }
 
@@ -143,7 +152,7 @@ public class BuildOutputFormatter extends AbstractUnorderedFormatter {
       // Display the instantiation stack, if any.
       appendStack(
           String.format("# Rule %s instantiated at (most recent call last):", rule.getName()),
-          rule.getCallStack().toList());
+          rule.reconstructCallStack());
 
       // Display the stack of the rule class definition, if any.
       appendStack(
@@ -185,16 +194,24 @@ public class BuildOutputFormatter extends AbstractUnorderedFormatter {
           licenseTypes.add(Ascii.toLowerCase(licenseType.toString()));
         }
         value = licenseTypes;
-      } else if (value instanceof TriState) {
-        value = ((TriState) value).toInt();
+      } else if (value instanceof TriState triState) {
+        value = triState.toInt();
       }
+
       return new Printer() {
         // Print labels in their canonical form.
         @Override
-        public Printer repr(Object o) {
-          return super.repr(o instanceof Label ? ((Label) o).getCanonicalForm() : o);
+        public Printer repr(Object o, StarlarkSemantics semantics) {
+          return switch (o) {
+            case String str -> appendPrettyQuoted(str);
+            case Label label -> super.repr(labelPrinter.toString(label), semantics);
+            // Nulls can appear e.g. from BuildType.Selector#mapCopy in `reconsructSelect`; a None
+            // value will be mapped to null if the attr type's default value is null.
+            case null -> super.repr(Starlark.NONE, semantics);
+            default -> super.repr(o, semantics);
+          };
         }
-      }.repr(value).toString();
+      }.repr(value, StarlarkSemantics.DEFAULT).toString();
     }
 
     /**
@@ -207,11 +224,9 @@ public class BuildOutputFormatter extends AbstractUnorderedFormatter {
           ((BuildType.SelectorList<?>) attributeMap.getRawAttributeValue(rule, attr))
               .getSelectors()) {
         if (selector.isUnconditional()) {
-          selectors.add(
-              outputRawAttrValue(
-                  Iterables.getOnlyElement(selector.getEntries().entrySet()).getValue()));
+          selectors.add(outputRawAttrValue(Preconditions.checkNotNull(selector.getDefault())));
         } else {
-          selectors.add(String.format("select(%s)", outputRawAttrValue(selector.getEntries())));
+          selectors.add(String.format("select(%s)", outputRawAttrValue(selector.mapCopy())));
         }
       }
       return String.join(" + ", selectors);
@@ -221,39 +236,95 @@ public class BuildOutputFormatter extends AbstractUnorderedFormatter {
   /** Query's implementation. */
   @Override
   public OutputFormatterCallback<Target> createPostFactoStreamCallback(
-      OutputStream out, final QueryOptions options) {
-    return new BuildOutputFormatterCallback(out, options.getLineTerminator());
+      OutputStream out, final QueryOptions options, LabelPrinter labelPrinter) {
+    return new BuildOutputFormatterCallback(
+        out,
+        options.getLineTerminator(),
+        labelPrinter,
+        options.getIncompatiblePackageGroupBuildOutput(),
+        options.getIncompatiblePackageGroupIncludesDoubleSlash());
   }
 
   @Override
   public ThreadSafeOutputFormatterCallback<Target> createStreamCallback(
       OutputStream out, QueryOptions options, QueryEnvironment<?> env) {
     return new SynchronizedDelegatingOutputFormatterCallback<>(
-        createPostFactoStreamCallback(out, options));
+        createPostFactoStreamCallback(out, options, env.getLabelPrinter()));
   }
 
-  private static class BuildOutputFormatterCallback extends TextOutputFormatterCallback<Target> {
+  /** BuildOutputFormatter callback for Query. Made visible for ModQuery. */
+  public static class BuildOutputFormatterCallback extends TextOutputFormatterCallback<Target> {
     private final TargetOutputter targetOutputter;
+    private final boolean includePackageGroup;
+    private final boolean packageGroupIncludesDoubleSlash;
+    private final String lineTerm;
+    private final LabelPrinter labelPrinter;
 
-    BuildOutputFormatterCallback(OutputStream out, String lineTerm) {
+    BuildOutputFormatterCallback(
+        OutputStream out,
+        String lineTerm,
+        LabelPrinter labelPrinter,
+        boolean includePackageGroup,
+        boolean packageGroupIncludesDoubleSlash) {
       super(out);
+      this.lineTerm = lineTerm;
+      this.labelPrinter = labelPrinter;
+      this.includePackageGroup = includePackageGroup;
+      this.packageGroupIncludesDoubleSlash = packageGroupIncludesDoubleSlash;
       this.targetOutputter =
           new TargetOutputter(
               writer,
-              (rule, attr) -> RawAttributeMapper.of(rule).isConfigurable(attr.getName()),
-              lineTerm);
+              (rule, attr) ->
+                  AbstractAttributeMapper.isConfigurable(
+                      rule, attr.getName(), /* includeComputedDefaults= */ false),
+              lineTerm,
+              labelPrinter);
     }
 
     @Override
     public void processOutput(Iterable<Target> partialResult) throws IOException {
       for (Target target : partialResult) {
-        targetOutputter.output(
-            target,
-            // Multiple possible values are ignored by the outputter.
-            (rule, attr) ->
-                PossibleAttributeValues.forRuleAndAttribute(
-                    rule, attr, /*mayTreatMultipleAsNone=*/ true));
+        if (target instanceof PackageGroup packageGroup && includePackageGroup) {
+          outputPackageGroup(packageGroup);
+        } else {
+          targetOutputter.output(
+              target,
+              // Multiple possible values are ignored by the outputter.
+              (rule, attr) ->
+                  PossibleAttributeValues.forRuleAndAttribute(
+                      rule, attr, /* mayTreatMultipleAsNone= */ true));
+        }
       }
+    }
+
+    private void outputPackageGroup(PackageGroup packageGroup) throws IOException {
+      writer.append("# ").append(packageGroup.getLocation().toString()).append(lineTerm);
+      writer.append("package_group(").append(lineTerm);
+      writer.append("  name = \"").append(packageGroup.getName()).append("\",").append(lineTerm);
+
+      List<String> packages = packageGroup.getContainedPackages(packageGroupIncludesDoubleSlash);
+      if (!packages.isEmpty()) {
+        writer.append("  packages = [").append(lineTerm);
+        for (String pkg : packages) {
+          writer.append("    \"").append(pkg).append("\",").append(lineTerm);
+        }
+        writer.append("  ],").append(lineTerm);
+      }
+
+      List<Label> includes = packageGroup.getIncludes();
+      if (!includes.isEmpty()) {
+        writer.append("  includes = [").append(lineTerm);
+        for (Label include : includes) {
+          writer
+              .append("    \"")
+              .append(labelPrinter.toString(include))
+              .append("\",")
+              .append(lineTerm);
+        }
+        writer.append("  ],").append(lineTerm);
+      }
+
+      writer.append(")").append(lineTerm).append(lineTerm);
     }
   }
 

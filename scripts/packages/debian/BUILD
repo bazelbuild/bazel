@@ -1,4 +1,5 @@
-load("@rules_pkg//:pkg.bzl", "pkg_deb", "pkg_tar")
+load("@rules_pkg//pkg:deb.bzl", "pkg_deb")
+load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
 
 filegroup(
     name = "srcs",
@@ -94,7 +95,7 @@ pkg_deb(
     ],
     description_file = "description",
     homepage = "https://bazel.build",
-    maintainer = "The Bazel Authors <bazel-dev@googlegroups.com>",
+    maintainer = "The Bazel Authors <bazel-discuss@googlegroups.com>",
     package = "bazel",
     suggests = [
         # Keep in sync with Suggests section in ./control
@@ -148,5 +149,6 @@ genrule(
         cp ./bazel_*.dsc $(location bazel.dsc)
         cp ./bazel_*.tar.gz $(location bazel.tar.gz)
         """,
+    target_compatible_with = ["@platforms//os:linux"],
     visibility = ["//scripts/packages:__pkg__"],
 )

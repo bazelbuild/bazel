@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
@@ -18,10 +18,33 @@ set -e
 
 # Bazel self-extractable installer
 
-# Installation and etc prefix can be overriden from command line
+# Installation and etc prefix can be overridden from command line
 install_prefix=${1:-"/usr/local"}
 
 progname="$0"
+
+skip_platform_check=false
+for opt in "${@}"; do
+  case $opt in
+    --skip-platform-check)
+      skip_platform_check=true
+      ;;
+  esac
+done
+
+if [ "$skip_platform_check" = false ]; then
+  actual_os="$(uname -s | tr 'A-Z' 'a-z')"
+  if [ "${actual_os}" != "%target_os%" ]; then
+    echo "The Bazel installer you are running is for %target_os%, but you are running on $(uname -s)." >&2
+    exit 1
+  fi
+
+  actual_arch="$(uname -m)"
+  if [ "${actual_arch}" != "%target_arch%" ]; then
+    echo "The Bazel installer you are running is for %target_arch%, but you are running on ${actual_arch}." >&2
+    exit 1
+  fi
+fi
 
 echo "Bazel installer"
 echo "---------------"
@@ -45,6 +68,7 @@ usage() {
   echo '      --bin=$HOME/bin --base=$HOME/.bazel' >&2
   echo "  --skip-uncompress skip uncompressing the base image until the" >&2
   echo "      first bazel invocation" >&2
+  echo "  --skip-platform-check skip the platform compatibility check" >&2
   exit 1
 }
 
@@ -70,6 +94,9 @@ for opt in "${@}"; do
       ;;
     --skip-uncompress)
       should_uncompress=false
+      ;;
+    --skip-platform-check)
+      # Already handled at the beginning of the script
       ;;
     *)
       usage
@@ -187,6 +214,6 @@ For fish shell completion, link this file into your
 ${HOME}/.config/fish/completions/ directory:
   ln -s ${base}/bin/bazel.fish ${HOME}/.config/fish/completions/bazel.fish
 
-See http://bazel.build/docs/getting-started.html to start a new project!
+See http://bazel.build/start to start a new project!
 EOF
 exit 0

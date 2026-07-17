@@ -14,8 +14,10 @@
 
 package com.google.devtools.build.lib.pkgcache;
 
+import com.google.common.collect.ImmutableCollection;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Target;
@@ -37,4 +39,18 @@ public interface TargetProvider {
    */
   Target getTarget(ExtendedEventHandler eventHandler, Label label)
       throws NoSuchPackageException, NoSuchTargetException, InterruptedException;
+
+  /** Returns the BUILD file target of the package which contains the given target. */
+  InputFile getBuildFile(Target target) throws InterruptedException;
+
+  /**
+   * Returns all targets in the package which contains the given target.
+   *
+   * @throws NoSuchPackageException if the lazy macro expansion is enabled and some of the pieces of
+   *     the full package could not be loaded.
+   * @throws InterruptedException if the package loading was interrupted
+   */
+  ImmutableCollection<Target> getSiblingTargetsInPackage(
+      ExtendedEventHandler eventHandler, Target target)
+      throws NoSuchPackageException, InterruptedException;
 }

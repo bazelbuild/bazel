@@ -23,45 +23,45 @@ import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.util.Map.Entry;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /**
  * Prints coverage data stored in a collection of {@link SourceFileCoverage} in a <a
  * href="http://ltp.sourceforge.net/coverage/lcov/geninfo.1.php">lcov tracefile format</a>
  */
 class LcovPrinter {
-  private static final Logger logger = Logger.getLogger(LcovPrinter.class.getName());
   private final BufferedWriter bufferedWriter;
 
-  private LcovPrinter(BufferedWriter bufferedWriter) {
+  private final boolean outputLegacyBranches;
+
+  private LcovPrinter(BufferedWriter bufferedWriter, boolean outputLegacyBranches) {
     this.bufferedWriter = bufferedWriter;
+    this.outputLegacyBranches = outputLegacyBranches;
   }
 
-  static boolean print(OutputStream outputStream, Coverage coverage) {
-    BufferedWriter bufferedWriter;
-    try (Writer fileWriter = new OutputStreamWriter(outputStream, UTF_8)) {
-      bufferedWriter = new BufferedWriter(fileWriter);
-      LcovPrinter lcovPrinter = new LcovPrinter(bufferedWriter);
+  static void print(OutputStream outputStream, Coverage coverage) throws IOException {
+    print(outputStream, coverage, false);
+  }
+
+  static void print(OutputStream outputStream, Coverage coverage, boolean outputLegacyBranches)
+      throws IOException {
+    // Emit consistent line endings across all platforms.
+    try (Writer fileWriter = new OutputStreamWriter(outputStream, UTF_8);
+        BufferedWriter bufferedWriter =
+            new BufferedWriter(fileWriter) {
+              @Override
+              public void newLine() throws IOException {
+                write('\n');
+              }
+            }) {
+      LcovPrinter lcovPrinter = new LcovPrinter(bufferedWriter, outputLegacyBranches);
       lcovPrinter.print(coverage);
-      bufferedWriter.close();
-    } catch (IOException exception) {
-      logger.log(Level.SEVERE, "Could not write to output file.");
-      return false;
     }
-    return true;
   }
 
-  private boolean print(Coverage coverage) {
-    try {
-      for (SourceFileCoverage sourceFile : coverage.getAllSourceFiles()) {
-        print(sourceFile);
-      }
-    } catch (IOException exception) {
-      logger.log(Level.SEVERE, "Could not write to output file.");
-      return false;
+  private void print(Coverage coverage) throws IOException {
+    for (SourceFileCoverage sourceFile : coverage.getAllSourceFiles()) {
+      print(sourceFile);
     }
-    return true;
   }
 
   /**
@@ -76,8 +76,11 @@ class LcovPrinter {
     printFNDALines(sourceFile);
     printFNFLine(sourceFile);
     printFNHLine(sourceFile);
-    printBRDALines(sourceFile);
-    printBALines(sourceFile);
+    if (outputLegacyBranches) {
+      printBALines(sourceFile);
+    } else {
+      printBRDALines(sourceFile);
+    }
     printBRFLine(sourceFile);
     printBRHLine(sourceFile);
     printDALines(sourceFile);
@@ -95,7 +98,7 @@ class LcovPrinter {
 
   // FN:<line number of function start>,<function name>
   private void printFNLines(SourceFileCoverage sourceFile) throws IOException {
-    for (Entry<String, Integer> entry : sourceFile.getAllLineNumbers()) {
+    for (Entry<String, Integer> entry : sourceFile.getAllFunctionLineNumbers()) {
       bufferedWriter.write(Constants.FN_MARKER);
       bufferedWriter.write(Integer.toString(entry.getValue())); // line number of function start
       bufferedWriter.write(Constants.DELIMITER);
@@ -131,11 +134,7 @@ class LcovPrinter {
 
   // BRDA:<line number>,<block number>,<branch number>,<taken>
   private void printBRDALines(SourceFileCoverage sourceFile) throws IOException {
-    for (BranchCoverage branch : sourceFile.getAllBranches()) {
-      if (branch.blockNumber().isEmpty() || branch.branchNumber().isEmpty()) {
-        // This branch is a BA line
-        continue;
-      }
+    for (BranchCoverageItem branch : sourceFile.getAllBranches()) {
       bufferedWriter.write(Constants.BRDA_MARKER);
       bufferedWriter.write(Integer.toString(branch.lineNumber()));
       bufferedWriter.write(Constants.DELIMITER);
@@ -154,15 +153,16 @@ class LcovPrinter {
 
   // BA:<line number>,<taken>
   private void printBALines(SourceFileCoverage sourceFile) throws IOException {
-    for (BranchCoverage branch : sourceFile.getAllBranches()) {
-      if (!branch.blockNumber().isEmpty() && !branch.branchNumber().isEmpty()) {
-        // This branch is a BRDA line
-        continue;
-      }
+    for (BranchCoverageItem branch : sourceFile.getAllBranches()) {
       bufferedWriter.write(Constants.BA_MARKER);
       bufferedWriter.write(Integer.toString(branch.lineNumber()));
       bufferedWriter.write(Constants.DELIMITER);
-      bufferedWriter.write(Long.toString(branch.nrOfExecutions()));
+      if (branch.evaluated()) {
+        String value = branch.nrOfExecutions() > 0 ? "2" : "1";
+        bufferedWriter.write(value);
+      } else {
+        bufferedWriter.write("0");
+      }
       bufferedWriter.newLine();
     }
   }
@@ -188,15 +188,11 @@ class LcovPrinter {
 
   // DA:<line number>,<execution count>[,<checksum>]
   private void printDALines(SourceFileCoverage sourceFile) throws IOException {
-    for (LineCoverage lineExecution : sourceFile.getAllLineExecution()) {
+    for (Entry<Integer, Long> entry : sourceFile.getAllLines()) {
       bufferedWriter.write(Constants.DA_MARKER);
-      bufferedWriter.write(Integer.toString(lineExecution.lineNumber()));
+      bufferedWriter.write(Integer.toString(entry.getKey()));
       bufferedWriter.write(Constants.DELIMITER);
-      bufferedWriter.write(Long.toString(lineExecution.executionCount()));
-      if (lineExecution.checksum() != null) {
-        bufferedWriter.write(Constants.DELIMITER);
-        bufferedWriter.write(lineExecution.checksum());
-      }
+      bufferedWriter.write(Long.toString(entry.getValue()));
       bufferedWriter.newLine();
     }
   }

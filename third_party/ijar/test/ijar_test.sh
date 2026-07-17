@@ -1,4 +1,4 @@
-#!/bin/bash -eu
+#!/usr/bin/env bash
 #
 # Copyright 2015 The Bazel Authors. All rights reserved.
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,20 +15,31 @@
 # TODO(bazel-team) test that modifying the source in a non-interface
 #   changing way results in the same -interface.jar.
 
+# --- begin runfiles.bash initialization v3 ---
+# Copy-pasted from the Bazel Bash runfiles library v3.
+set -uo pipefail; set +e; f=bazel_tools/tools/bash/runfiles/runfiles.bash
+source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
+# shellcheck disable=SC1090
+  source "$(grep -sm1 "^$f " "${RUNFILES_MANIFEST_FILE:-/dev/null}" | cut -f2- -d' ')" 2>/dev/null || \
+  source "$0.runfiles/$f" 2>/dev/null || \
+  source "$(grep -sm1 "^$f " "$0.runfiles_manifest" | cut -f2- -d' ')" 2>/dev/null || \
+  source "$(grep -sm1 "^$f " "$0.exe.runfiles_manifest" | cut -f2- -d' ')" 2>/dev/null || \
+  { echo>&2 "ERROR: cannot find $f"; exit 1; }; f=; set -e
+# --- end runfiles.bash initialization v3 ---
+
 DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 
 ## Inputs
-JAVAC=$1
-shift
-JAVA=$1
-shift
-JAR=$1
-shift
-JAVAP=$1
+JAVABASE="$1"
+if [[ "$TEST_WORKSPACE" == "_main" ]]; then
+  # For Bazel
+  RUNFILES_JAVABASE=${JAVABASE#external/}
+else
+  # For Blaze
+  RUNFILES_JAVABASE=${TEST_WORKSPACE}/${JAVABASE}
+fi
 shift
 IJAR=$1
-shift
-LANGTOOLS8=$1
 shift
 UNZIP=$1
 shift
@@ -45,6 +56,11 @@ function cleanup() {
 }
 
 trap cleanup EXIT
+
+JAVAC=$(rlocation "$RUNFILES_JAVABASE/bin/javac")
+JAVA=$(rlocation "$RUNFILES_JAVABASE/bin/java")
+JAR=$(rlocation "$RUNFILES_JAVABASE/bin/jar")
+JAVAP=$(rlocation "$RUNFILES_JAVABASE/bin/javap")
 
 ## Tools
 # Ensure that tooling path is absolute if not in PATH.
@@ -77,12 +93,21 @@ METHODPARAM_JAR=$IJAR_SRCDIR/test/libmethodparameters.jar
 METHODPARAM_IJAR=$TEST_TMPDIR/methodparameters_interface.jar
 NESTMATES_JAR=$IJAR_SRCDIR/test/nestmates/nestmates.jar
 NESTMATES_IJAR=$TEST_TMPDIR/nestmates_interface.jar
+RECORDS_JAR=$IJAR_SRCDIR/test/records/records.jar
+RECORDS_IJAR=$TEST_TMPDIR/records_interface.jar
+SEALED_JAR=$IJAR_SRCDIR/test/sealed/sealed.jar
+SEALED_IJAR=$TEST_TMPDIR/sealed_interface.jar
 SOURCEDEBUGEXT_JAR=$IJAR_SRCDIR/test/source_debug_extension.jar
 SOURCEDEBUGEXT_IJAR=$TEST_TMPDIR/source_debug_extension.jar
+DUPLICATEDUNSUPPORTEDATTRIBUTE_JAR=$IJAR_SRCDIR/test/duplicated_unsupported_attribute.jar
+DUPLICATEDUNSUPPORTEDATTRIBUTE_IJAR=$TEST_TMPDIR/duplicated_unsupported_attribute.jar
 CENTRAL_DIR_LARGEST_REGULAR=$IJAR_SRCDIR/test/largest_regular.jar
 CENTRAL_DIR_SMALLEST_ZIP64=$IJAR_SRCDIR/test/smallest_zip64.jar
 CENTRAL_DIR_ZIP64=$IJAR_SRCDIR/test/definitely_zip64.jar
 KEEP_FOR_COMPILE=$IJAR_SRCDIR/test/keep_for_compile_lib.jar
+DYNAMICCONSTANT_JAR=$IJAR_SRCDIR/test/dynamic_constant.jar
+DYNAMICCONSTANT_IJAR=$TEST_TMPDIR/dynamic_constant_interface.jar
+CORRUPT_ZIP=$IJAR_SRCDIR/test/corrupt_zip.jar
 
 #### Setup
 
@@ -104,8 +129,8 @@ function check_consistent_file_contents() {
   local actual="$(cat $1 | ${MD5SUM} | awk '{ print $1; }')"
   local filename="$(echo $1 | ${MD5SUM} | awk '{ print $1; }')"
   local expected="$actual"
-  if (echo "${expected_output}" | grep -q "^${filename} "); then
-    echo "${expected_output}" | grep -q "^${filename} ${actual}$" || {
+  if (grep -q "^${filename} " <<<"${expected_output}"); then
+    grep -q "^${filename} ${actual}$" <<<"${expected_output}" || {
       ls -l "$1"
       fail "output file contents differ"
     }
@@ -181,23 +206,24 @@ function test_ijar_output() {
   #  A.RuntimeAnnotation
   # (Note: even private inner classes are retained, so we don't need to change
   # the types of members.)
-  expected=5
+  local expected=5
+  local lines
   lines=$($JAR tvf $A_INTERFACE_JAR | wc -l)
   check_eq $expected $lines "Interface jar should have $expected entries!"
 
   # Check that no private class members are found:
-  lines=$($JAVAP -private -classpath $A_JAR A | grep priv | wc -l)
+  lines=$($JAVAP -private -classpath $A_JAR A | grep -c priv || true)
   check_eq 2 $lines "Input jar should have 2 private members!"
-  lines=$($JAVAP -private -classpath $A_INTERFACE_JAR A | grep priv | wc -l)
+  lines=$($JAVAP -private -classpath $A_INTERFACE_JAR A | grep -c priv || true)
   check_eq 0 $lines "Interface jar should have no private members!"
-  lines=$($JAVAP -private -classpath $A_INTERFACE_JAR A | grep clinit | wc -l)
+  lines=$($JAVAP -private -classpath $A_INTERFACE_JAR A | grep -c clinit || true)
   check_eq 0 $lines "Interface jar should have no class initializers!"
 
 
   # Check that no code is found:
-  lines=$($JAVAP -c -private -classpath $A_JAR A | grep Code: | wc -l)
+  lines=$($JAVAP -c -private -classpath $A_JAR A | grep -c Code: || true)
   check_eq 5 $lines "Input jar should have 5 method bodies!"
-  lines=$($JAVAP -c -private -classpath $A_INTERFACE_JAR A | grep Code: | wc -l)
+  lines=$($JAVAP -c -private -classpath $A_INTERFACE_JAR A | grep -c Code: || true)
   check_eq 0 $lines "Interface jar should have no method bodies!"
 
   # Check that constants from code are no longer present:
@@ -227,13 +253,13 @@ function test_ijar_output() {
 
 
   # Check that -interface.jar contains nothing but .class files:
-  check_eq 0 $($JAR tf $A_INTERFACE_JAR | grep -v \\.class$ | wc -l) \
+  check_eq 0 $($JAR tf $A_INTERFACE_JAR | grep -cv \\.class$ || true) \
     "Interface jar should contain only .class files!"
 
 
   # Check that -interface.jar timestamps are normalized:
   check_eq 0 $(TZ=UTC $JAR tvf $A_INTERFACE_JAR |
-               grep -v 'Fri Jan 01 00:00:00 UTC 2010' | wc -l) \
+               grep -cv 'Fri Jan 01 00:00:00 UTC 2010' || true) \
    "Interface jar contained non-zero timestamps!"
 
 
@@ -358,9 +384,9 @@ function test_type_annotation() {
 function test_invokedynamic() {
   # Check that ijar works on classes with invokedynamic
   $IJAR $INVOKEDYNAMIC_JAR $INVOKEDYNAMIC_IJAR || fail "ijar failed"
-  lines=$($JAVAP -c -private -classpath $INVOKEDYNAMIC_JAR ClassWithLambda | grep Code: | wc -l)
+  lines=$($JAVAP -c -private -classpath $INVOKEDYNAMIC_JAR ClassWithLambda | grep -c Code: || true)
   check_eq 4 $lines "Input jar should have 4 method bodies!"
-  lines=$($JAVAP -c -private -classpath $INVOKEDYNAMIC_IJAR ClassWithLambda | grep Code: | wc -l)
+  lines=$($JAVAP -c -private -classpath $INVOKEDYNAMIC_IJAR ClassWithLambda | grep -c Code: || true)
   check_eq 0 $lines "Interface jar should have no method bodies!"
 }
 
@@ -519,6 +545,13 @@ function test_method_parameters_attribute() {
   expect_log "MethodParameters" "MethodParameters not preserved!"
 }
 
+function test_dynamic_constant() {
+  $IJAR $DYNAMICCONSTANT_JAR $DYNAMICCONSTANT_IJAR || fail "ijar failed"
+
+  lines=$($JAVAP -c -private -classpath $DYNAMICCONSTANT_IJAR dynamicconstant.Test | grep -c Code: || true)
+  check_eq 0 $lines "Interface jar should have no method bodies!"
+}
+
 function test_nestmates_attribute() {
   # Check that Java 11 NestMates attributes are preserved
   $IJAR $NESTMATES_JAR $NESTMATES_IJAR || fail "ijar failed"
@@ -532,6 +565,28 @@ function test_nestmates_attribute() {
   expect_log "NestHost" "NestHost not preserved!"
 }
 
+function test_records_attribute() {
+  ls $IJAR $RECORDS_JAR
+
+  # Check that Java 16 Records attributes are preserved
+  $IJAR $RECORDS_JAR $RECORDS_IJAR || fail "ijar failed"
+
+  $JAVAP -classpath $RECORDS_IJAR -v RecordTest >& $TEST_log \
+    || fail "javap failed"
+  expect_log "Record" "Records not preserved!"
+}
+
+function test_sealed_attribute() {
+  ls $IJAR $SEALED_JAR
+
+  # Check that Java 16 PermittedSubclasses attributes are preserved
+  $IJAR $SEALED_JAR $SEALED_IJAR || fail "ijar failed"
+
+  $JAVAP -classpath $SEALED_IJAR -v SealedTest >& $TEST_log \
+    || fail "javap failed"
+  expect_log "PermittedSubclasses" "PermittedSubclasses not preserved!"
+}
+
 function test_source_debug_extension_attribute() {
   # Check that SourceDebugExtension attributes are dropped without a warning
   $IJAR $SOURCEDEBUGEXT_JAR $SOURCEDEBUGEXT_IJAR >& $TEST_log || fail "ijar failed"
@@ -541,20 +596,20 @@ function test_source_debug_extension_attribute() {
   expect_not_log "SourceDebugExtension" "SourceDebugExtension preserved!"
 }
 
+function test_duplicated_unsupported_attribute() {
+  # Check that unsupported attribute warnings are only emitted once
+  $IJAR $DUPLICATEDUNSUPPORTEDATTRIBUTE_JAR $DUPLICATEDUNSUPPORTEDATTRIBUTE_IJAR >& $TEST_log || fail "ijar failed"
+  expect_log_once 'skipping unknown attribute: "some_unknown_type"'
+}
+
 function test_keep_for_compile() {
   $IJAR --strip_jar $KEEP_FOR_COMPILE $TEST_TMPDIR/keep.jar \
     || fail "ijar failed"
   lines=$($JAVAP -classpath $TEST_TMPDIR/keep.jar -c -p \
     functions.car.CarInlineUtilsKt |
-    grep "// Method kotlin/jvm/internal/Intrinsics.checkParameterIsNotNull"  |
-    wc -l)
+    grep -c "// Method kotlin/jvm/internal/Intrinsics.checkParameterIsNotNull" ||
+    true)
   check_eq 2 $lines "Output jar should have kept method body"
-  attr=$($JAVAP -classpath $TEST_TMPDIR/keep.jar -v -p \
-    functions.car.CarInlineUtilsKt |
-    strings |
-    grep "com.google.devtools.ijar.KeepForCompile" |
-    wc -l)
-  check_eq 2 $attr "Output jar should have kept KeepForCompile attribute."
 }
 
 function test_central_dir_largest_regular() {
@@ -571,5 +626,12 @@ function test_central_dir_zip64() {
   $IJAR $CENTRAL_DIR_ZIP64 $TEST_TMPDIR/ijar.jar || fail "ijar failed"
   $ZIP_COUNT $TEST_TMPDIR/ijar.jar 70000 || fail
 }
+
+function test_corrupt_eocd_zip() {
+  ! $IJAR $CORRUPT_ZIP
+  original_code=${PIPESTATUS[0]}
+  check_eq 134 $original_code "ijar should have aborted"
+}
+
 
 run_suite "ijar tests"

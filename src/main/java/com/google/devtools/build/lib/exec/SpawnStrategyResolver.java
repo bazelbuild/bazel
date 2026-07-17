@@ -19,9 +19,9 @@ import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Spawn;
-import com.google.devtools.build.lib.actions.SpawnContinuation;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnStrategy;
+import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -34,7 +34,6 @@ import java.util.stream.Collectors;
  * SpawnStrategyRegistry}) and uses it to execute the spawn.
  */
 public final class SpawnStrategyResolver implements ActionContext {
-
   /**
    * Executes the given spawn with the {@linkplain SpawnStrategyRegistry highest priority strategy}
    * that can be found for it.
@@ -45,24 +44,6 @@ public final class SpawnStrategyResolver implements ActionContext {
   public ImmutableList<SpawnResult> exec(Spawn spawn, ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException {
     return resolveOne(spawn, actionExecutionContext).exec(spawn, actionExecutionContext);
-  }
-
-  /**
-   * Queues execution of the given spawn with the {@linkplain SpawnStrategyRegistry highest priority
-   * strategy} that can be found for it.
-   *
-   * @param actionExecutionContext context in which to execute the spawn
-   * @return handle to the spawn's pending execution (or failure thereof)
-   */
-  public SpawnContinuation beginExecution(
-      Spawn spawn, ActionExecutionContext actionExecutionContext) throws InterruptedException {
-    SpawnStrategy resolvedStrategy;
-    try {
-      resolvedStrategy = resolveOne(spawn, actionExecutionContext);
-    } catch (ExecException e) {
-      return SpawnContinuation.failedWithExecException(e);
-    }
-    return resolvedStrategy.beginExecution(spawn, actionExecutionContext);
   }
 
   private SpawnStrategy resolveOne(Spawn spawn, ActionExecutionContext actionExecutionContext)
@@ -94,29 +75,24 @@ public final class SpawnStrategyResolver implements ActionContext {
             .collect(Collectors.toList());
 
     if (execableStrategies.isEmpty()) {
-      // Legacy implicit fallbacks should be a last-ditch option after all other strategies are
-      // found non-executable.
-      List<? extends SpawnStrategy> fallbackStrategies =
-          strategies.stream()
-              .filter(
-                  spawnActionContext ->
-                      spawnActionContext.canExecWithLegacyFallback(spawn, actionExecutionContext))
-              .collect(Collectors.toList());
-
-      if (fallbackStrategies.isEmpty()) {
-        String message =
-            String.format(
-                "No usable spawn strategy found for spawn with mnemonic %s.  Your --spawn_strategy,"
-                    + " --genrule_strategy and/or --strategy flags are probably too strict. Visit"
-                    + " https://github.com/bazelbuild/bazel/issues/7480 for migration advice",
-                spawn.getMnemonic());
-        throw new UserExecException(
-            FailureDetail.newBuilder()
-                .setMessage(message)
-                .setSpawn(FailureDetails.Spawn.newBuilder().setCode(Code.NO_USABLE_STRATEGY_FOUND))
-                .build());
-      }
-      return fallbackStrategies;
+      String message =
+          String.format(
+              """
+              %s spawn%s cannot be executed with any of the available strategies: %s. Your \
+              --spawn_strategy, --genrule_strategy, --strategy and/or \
+              --allowed_strategies_by_exec_platform flags are probably too strict. \
+              Visit https://github.com/bazelbuild/bazel/issues/7480 for advice.
+              """,
+              spawn.getMnemonic(),
+              Spawns.usesPathMapping(spawn)
+                  ? ", which requires sandboxing due to path mapping,"
+                  : "",
+              strategies);
+      throw new UserExecException(
+          FailureDetail.newBuilder()
+              .setMessage(message)
+              .setSpawn(FailureDetails.Spawn.newBuilder().setCode(Code.NO_USABLE_STRATEGY_FOUND))
+              .build());
     }
 
     return execableStrategies;

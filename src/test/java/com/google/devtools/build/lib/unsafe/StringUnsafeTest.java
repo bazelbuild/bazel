@@ -24,45 +24,42 @@ import org.junit.runners.JUnit4;
 
 /** Tests for {@link StringUnsafe}. */
 @RunWith(JUnit4.class)
-public class StringUnsafeTest {
+public final class StringUnsafeTest {
 
   @Test
   public void testGetCoder() {
-    if (!StringUnsafe.canUse()) {
-      return;
-    }
-    StringUnsafe stringUnsafe = StringUnsafe.getInstance();
-    assertThat(stringUnsafe.getCoder("")).isEqualTo(StringUnsafe.LATIN1);
-    assertThat(stringUnsafe.getCoder("hello")).isEqualTo(StringUnsafe.LATIN1);
-    assertThat(stringUnsafe.getCoder("lambda λ")).isEqualTo(StringUnsafe.UTF16);
+    assertThat(StringUnsafe.getCoder("")).isEqualTo(StringUnsafe.LATIN1);
+    assertThat(StringUnsafe.getCoder("hello")).isEqualTo(StringUnsafe.LATIN1);
+    assertThat(StringUnsafe.getCoder("lambda λ")).isEqualTo(StringUnsafe.UTF16);
   }
 
   @Test
   public void testGetBytes() {
-    if (!StringUnsafe.canUse()) {
-      return;
-    }
-    StringUnsafe stringUnsafe = StringUnsafe.getInstance();
-    assertThat(ByteBuffer.wrap(stringUnsafe.getByteArray("hello")))
+    assertThat(ByteBuffer.wrap(StringUnsafe.getByteArray("hello")))
         .isEqualTo(StandardCharsets.ISO_8859_1.encode("hello"));
 
     if (ByteOrder.nativeOrder().equals(ByteOrder.BIG_ENDIAN)) {
-      assertThat(ByteBuffer.wrap(stringUnsafe.getByteArray("lambda λ")))
+      assertThat(ByteBuffer.wrap(StringUnsafe.getByteArray("lambda λ")))
           .isEqualTo(StandardCharsets.UTF_16BE.encode("lambda λ"));
     } else {
-      assertThat(ByteBuffer.wrap(stringUnsafe.getByteArray("lambda λ")))
+      assertThat(ByteBuffer.wrap(StringUnsafe.getByteArray("lambda λ")))
           .isEqualTo(StandardCharsets.UTF_16LE.encode("lambda λ"));
     }
   }
 
   @Test
   public void testNewInstance() throws Exception {
-    if (!StringUnsafe.canUse()) {
-      return;
-    }
-    StringUnsafe stringUnsafe = StringUnsafe.getInstance();
     String s = "hello";
-    assertThat(stringUnsafe.newInstance(stringUnsafe.getByteArray(s), stringUnsafe.getCoder(s)))
+    assertThat(StringUnsafe.newInstance(StringUnsafe.getByteArray(s), StringUnsafe.getCoder(s)))
         .isEqualTo("hello");
+  }
+
+  @Test
+  public void testIsAscii() {
+    assertThat(StringUnsafe.isAscii("")).isTrue();
+    assertThat(StringUnsafe.isAscii("hello")).isTrue();
+    assertThat(StringUnsafe.isAscii("hällo")).isFalse();
+    assertThat(StringUnsafe.isAscii("hållo")).isFalse();
+    assertThat(StringUnsafe.isAscii("h👋llo")).isFalse();
   }
 }

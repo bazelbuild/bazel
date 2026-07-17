@@ -30,6 +30,7 @@ import javax.annotation.concurrent.GuardedBy;
 public class DynamicConnectionPool implements ConnectionPool {
   private final ConnectionFactory connectionFactory;
   private final int maxConcurrencyPerConnection;
+  private final int maxConnections;
   private final AtomicBoolean closed = new AtomicBoolean(false);
 
   @GuardedBy("this")
@@ -40,8 +41,14 @@ public class DynamicConnectionPool implements ConnectionPool {
 
   public DynamicConnectionPool(
       ConnectionFactory connectionFactory, int maxConcurrencyPerConnection) {
+    this(connectionFactory, maxConcurrencyPerConnection, /*maxConnections=*/ 0);
+  }
+
+  public DynamicConnectionPool(
+      ConnectionFactory connectionFactory, int maxConcurrencyPerConnection, int maxConnections) {
     this.connectionFactory = connectionFactory;
     this.maxConcurrencyPerConnection = maxConcurrencyPerConnection;
+    this.maxConnections = maxConnections;
     this.factories = new ArrayList<>();
   }
 
@@ -61,42 +68,46 @@ public class DynamicConnectionPool implements ConnectionPool {
     }
   }
 
+  @GuardedBy("this")
+  private SharedConnectionFactory nextFactory() {
+    int index = Math.abs(indexTicker % factories.size());
+    indexTicker += 1;
+    return factories.get(index);
+  }
+
   /**
-   * Performs a simple round robin on the list of {@link SharedConnectionFactory} and return one
-   * having available connections at this moment.
+   * Performs a simple round robin on the list of {@link SharedConnectionFactory}.
    *
-   * <p>If no factory has available connections, it will create a new {@link
-   * SharedConnectionFactory}.
+   * <p>This will try to find a factory that has available connections at this moment. If no factory
+   * has available connections, and the number of factories is less than {@link #maxConnections}, it
+   * will create a new {@link SharedConnectionFactory}.
    */
-  private SharedConnectionFactory nextAvailableFactory() {
+  private Single<SharedConnection> createConnection() {
     if (closed.get()) {
       throw new IllegalStateException("closed");
     }
 
     synchronized (this) {
       for (int times = 0; times < factories.size(); ++times) {
-        int index = Math.abs(indexTicker % factories.size());
-        indexTicker += 1;
-
-        SharedConnectionFactory factory = factories.get(index);
-        if (factory.numAvailableConnections() > 0) {
-          return factory;
+        Single<SharedConnection> connection = nextFactory().tryCreate();
+        if (connection != null) {
+          return connection;
         }
       }
 
-      SharedConnectionFactory factory =
-          new SharedConnectionFactory(connectionFactory, maxConcurrencyPerConnection);
-      factories.add(factory);
-      return factory;
+      if (maxConnections <= 0 || factories.size() < maxConnections) {
+        SharedConnectionFactory factory =
+            new SharedConnectionFactory(connectionFactory, maxConcurrencyPerConnection);
+        factories.add(factory);
+        return factory.tryCreate();
+      } else {
+        return nextFactory().create();
+      }
     }
   }
 
   @Override
   public Single<SharedConnection> create() {
-    return Single.defer(
-        () -> {
-          SharedConnectionFactory factory = nextAvailableFactory();
-          return factory.create();
-        });
+    return Single.defer(this::createConnection);
   }
 }

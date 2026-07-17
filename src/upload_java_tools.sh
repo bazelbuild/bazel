@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Copyright 2019 The Bazel Authors. All rights reserved.
 #
@@ -75,7 +75,6 @@ while [[ -n "$@" ]]; do
 done
 
 java_tools_zip=$(rlocation io_bazel/${java_tools_zip_name})
-platform=${platform:+"_"}${platform:-}
 
 # Create a temp directory and a writable temp zip file to add a README.md file to
 # the initial zip.
@@ -88,24 +87,26 @@ tmp_zip="$tmp_dir/archive.zip"
 cp $java_tools_zip $tmp_zip
 chmod +w $tmp_zip
 
+target_basename=$(basename $java_tools_zip)
+
 # Create the README.md file and add the re-build java tools instructions.
 readme_file="README.md"
 cat >${readme_file} <<EOF
 This Java tools version was built from the bazel repository at commit hash ${commit_hash}
-using bazel version ${bazel_version}.
+using bazel version ${bazel_version}${platform:+" on platform ${platform}"}.
 To build from source the same zip run the commands:
 
 $ git clone https://github.com/bazelbuild/bazel.git
 $ git checkout ${commit_hash}
-$ bazel build //src:java_tools_prebuilt.zip
+$ bazel build //src:${target_basename}
 EOF
 
 # Add the README.md file to the temp zip.
 zip -rv "${tmp_zip}" "${readme_file}"
 
-gsutil_cmd="gsutil"
+gcloud_cmd="gcloud"
 if "$is_windows"; then
-  gsutil_cmd="gsutil.cmd"
+  gcloud_cmd="gcloud.cmd"
 fi
 
 
@@ -117,5 +118,5 @@ else
 fi
 
 # Upload the zip that contains the README.md to GCS.
-"$gsutil_cmd" cp "$zip_url" \
- "gs://bazel-mirror/bazel_java_tools/${gcs_java_tools_dir}/${commit_hash}/java/java_tools${platform}-${timestamp}.zip"
+"$gcloud_cmd" storage cp "$zip_url" \
+ "gs://bazel-mirror/bazel_java_tools/${gcs_java_tools_dir}/${commit_hash}/java/java_tools${platform:+"_${platform}"}-${timestamp}.zip"

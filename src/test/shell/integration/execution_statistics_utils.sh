@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2017 The Bazel Authors. All rights reserved.
 #
@@ -15,9 +15,6 @@
 # limitations under the License.
 
 set -euo pipefail
-
-# Assumes integration_test_setup.sh was loaded elsewhere (can't load it twice)
-enable_errexit
 
 readonly CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly STATS_PROTO_PATH="${CURRENT_DIR}/../../../main/protobuf/execution_statistics.proto"

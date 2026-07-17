@@ -35,11 +35,9 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Unit tests for {@link WindowsProcesses}.
- */
+/** Unit tests for {@link WindowsProcesses}. */
 @RunWith(JUnit4.class)
-@TestSpec(localOnly = true, supportedOs = OS.WINDOWS)
+@TestSpec(supportedOs = OS.WINDOWS)
 public class WindowsProcessesTest {
   private String mockSubprocess;
   private String mockBinary;
@@ -126,15 +124,15 @@ public class WindowsProcessesTest {
   }
 
   @Test
-  public void testSmoke() throws Exception {
+  public void testOneShot() throws Exception {
     process =
-        WindowsProcesses.createProcess(
-            mockBinary, mockArgs("Ia5", "Oa"), null, null, null, null);
+        WindowsProcesses.createProcess(mockBinary, mockArgs("Ia0", "Oa"), null, null, null, null);
     assertNoProcessError();
 
     byte[] input = "HELLO".getBytes(UTF_8);
     byte[] output = new byte[5];
-    WindowsProcesses.writeStdin(process, input, 0, 5);
+    assertThat(WindowsProcesses.writeStdin(process, input, 0, 5)).isEqualTo(5);
+    WindowsProcesses.closeStdin(process);
     assertNoProcessError();
     readStdout(output, 0, 5);
     assertNoStreamError(WindowsProcesses.getStdout(process));
@@ -142,7 +140,7 @@ public class WindowsProcessesTest {
   }
 
   @Test
-  public void testPingpong() throws Exception {
+  public void testChunks() throws Exception {
     List<String> args = new ArrayList<>();
     for (int i = 0; i < 100; i++) {
       args.add("Ia3");
@@ -156,6 +154,7 @@ public class WindowsProcessesTest {
       byte[] input = String.format("%03d", i).getBytes(UTF_8);
       assertThat(input.length).isEqualTo(3);
       assertThat(WindowsProcesses.writeStdin(process, input, 0, 3)).isEqualTo(3);
+      assertNoProcessError();
       byte[] output = new byte[3];
       assertThat(readStdout(output, 0, 3)).isEqualTo(3);
       assertThat(Integer.parseInt(new String(output, UTF_8))).isEqualTo(i);
@@ -269,8 +268,7 @@ public class WindowsProcessesTest {
   @Test
   public void testOffsetedOps() throws Exception {
     process =
-        WindowsProcesses.createProcess(
-            mockBinary, mockArgs("Ia3", "Oa"), null, null, null, null);
+        WindowsProcesses.createProcess(mockBinary, mockArgs("Ia3", "Oa"), null, null, null, null);
     byte[] input = "01234".getBytes(UTF_8);
     byte[] output = "abcde".getBytes(UTF_8);
 
@@ -327,6 +325,24 @@ public class WindowsProcessesTest {
         .contains("The system cannot find the file specified.");
     byte[] buf = new byte[1];
     assertThat(readStdout(buf, 0, 1)).isEqualTo(0);
+  }
+
+  @Test
+  public void testExecutableWithExtendedLengthPath() throws Exception {
+    StringBuilder dir = new StringBuilder(System.getenv("TEST_TMPDIR"));
+    for (char c = 'a'; c <= 'z'; c++) {
+      dir.append('\\').repeat(c, 8).append('.').repeat(c, 3);
+    }
+    String exe = dir + "\\cmd.exe";
+    assertThat(exe.length()).isGreaterThan(260); // Windows MAX_PATH
+    Files.createDirectories(Paths.get("\\\\?\\" + dir));
+    Files.copy(
+        Paths.get(System.getenv("SystemRoot"), "System32", "cmd.exe"), Paths.get("\\\\?\\" + exe));
+
+    process = WindowsProcesses.createProcess(exe, "/c exit 42", null, null, null, null);
+    assertNoProcessError();
+    assertThat(WindowsProcesses.waitFor(process, -1)).isEqualTo(0);
+    assertThat(WindowsProcesses.getExitCode(process)).isEqualTo(42);
   }
 
   @Test

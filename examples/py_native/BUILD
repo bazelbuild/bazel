@@ -1,3 +1,7 @@
+load("@rules_python//python:py_binary.bzl", "py_binary")
+load("@rules_python//python:py_library.bzl", "py_library")
+load("@rules_python//python:py_test.bzl", "py_test")
+
 filegroup(
     name = "srcs",
     srcs = glob(["*.py"]) + [
@@ -33,5 +37,7 @@ py_test(
 py_test(
     name = "fail",
     srcs = ["fail.py"],
+    # Intentional failure for demonstration purposes.
+    tags = ["manual"],
     deps = [":lib"],
 )

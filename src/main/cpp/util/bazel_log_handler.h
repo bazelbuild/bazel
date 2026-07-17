@@ -16,6 +16,11 @@
 #define BAZEL_SRC_MAIN_CPP_BAZEL_LOG_HANDLER_H_
 
 #include <iostream>
+#include <memory>
+#include <sstream>
+#include <string>
+#include <utility>
+#include <vector>
 
 #include "src/main/cpp/util/logging.h"
 
@@ -34,22 +39,26 @@ class BazelLogHandler : public blaze_util::LogHandler {
   void HandleMessage(blaze_util::LogLevel level, const std::string& filename,
                      int line, const std::string& message,
                      int exit_code) override;
-  void SetOutputStream(
-      std::unique_ptr<std::ostream> new_output_stream) override;
-  void SetOutputStreamToStderr() override;
+  void SetLoggingDetail(blaze_util::LoggingDetail detail,
+                        std::ostream* stream) override;
+  void Close() override;
 
  private:
   void FlushBufferToNewStreamAndSet(std::stringstream* buffer,
                                     std::ostream* new_output_stream);
-  bool output_stream_set_;
-  bool logging_deactivated_;
-  std::unique_ptr<std::stringstream> user_buffer_stream_;
+
+  // The stream to which debug logs are sent (if logging detail is not
+  // LOGGINGDETAIL_DEBUG, everything goes to stderr)
+  std::ostream* debug_stream_;
+  bool debug_stream_set_;
+  LoggingDetail detail_;
+
+  // Buffers for messages received before the logging detail was determined.
+  // non-debug messages are buffered alongside their log level so that we can
+  // use the log level to filter them based on the eventual logging detail,
+  // debug messages are simply buffered as a stream.
+  std::vector<std::pair<blaze_util::LogLevel, std::string>> user_messages_;
   std::unique_ptr<std::stringstream> debug_buffer_stream_;
-  // The actual output_stream to which all logs will be sent.
-  std::ostream* output_stream_;
-  // A unique pts to the output_stream, if we need to keep ownership of the
-  // stream. In the case of stderr logging, this is null.
-  std::unique_ptr<std::ostream> owned_output_stream_;
 };
 }  // namespace blaze_util
 

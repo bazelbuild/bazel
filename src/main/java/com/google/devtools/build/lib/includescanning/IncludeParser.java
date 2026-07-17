@@ -17,11 +17,10 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -35,10 +34,13 @@ import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.includescanning.IncludeParser.Inclusion.Kind;
+import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
+import com.google.devtools.build.lib.packages.Globber;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -46,28 +48,26 @@ import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.skyframe.ContainingPackageLookupValue;
 import com.google.devtools.build.lib.skyframe.GlobDescriptor;
 import com.google.devtools.build.lib.skyframe.GlobValue;
-import com.google.devtools.build.lib.skyframe.GlobValue.InvalidGlobPatternException;
-import com.google.devtools.build.lib.skyframe.PerBuildSyscallCache;
+import com.google.devtools.build.lib.skyframe.InvalidGlobPatternException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.UnixGlob;
-import com.google.devtools.build.lib.vfs.UnixGlob.FilesystemCalls;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
-import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.build.skyframe.ValueOrException;
+import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
@@ -77,6 +77,9 @@ import javax.annotation.Nullable;
  * Scans a source file and extracts the literal inclusions it specifies. Does not store results --
  * repeated requests to the same file will result in repeated scans. Clients should implement a
  * caching layer in order to avoid unnecessary disk access when requesting an already scanned file.
+ *
+ * <p>Both this class and the static inner class {@link Hints} have lifetime of a single build (or a
+ * single include scanning operation in the case of the {@link SwigIncludeParser}).
  */
 @VisibleForTesting
 class IncludeParser {
@@ -139,7 +142,8 @@ class IncludeParser {
   }
 
   /** {@link SkyValue} encapsulating the source-state-dependent part of {@link Hints}. */
-  public static class HintsRules implements SkyValue {
+  public static final class HintsRules implements SkyValue {
+    static final HintsRules EMPTY = new HintsRules(ImmutableList.of());
     private final ImmutableList<Rule> rules;
 
     private HintsRules(ImmutableList<Rule> rules) {
@@ -187,22 +191,22 @@ class IncludeParser {
     private final ImmutableList<Rule> rules;
     private final ArtifactFactory artifactFactory;
 
-    private final AtomicReference<FilesystemCalls> syscallCache = new AtomicReference<>();
+    private final SyscallCache syscallCache;
 
     private final LoadingCache<Artifact, ImmutableList<Artifact>> fileLevelHintsCache =
-        CacheBuilder.newBuilder()
-            .concurrencyLevel(HINTS_CACHE_CONCURRENCY)
-            .build(CacheLoader.from(this::getHintedInclusionsLegacy));
+        Caffeine.newBuilder()
+            .initialCapacity(HINTS_CACHE_CONCURRENCY)
+            .build(this::getHintedInclusionsLegacy);
 
     /**
      * Constructs a hint set for a given INCLUDE_HINTS file to read.
      *
      * @param hintsRules the {@link HintsRules} parsed from INCLUDE_HINTS
      */
-    Hints(HintsRules hintsRules, ArtifactFactory artifactFactory) {
+    Hints(HintsRules hintsRules, SyscallCache syscallCache, ArtifactFactory artifactFactory) {
+      this.syscallCache = syscallCache;
       this.artifactFactory = artifactFactory;
       this.rules = hintsRules.rules;
-      clearCachedLegacyHints();
     }
 
     static HintsRules getRules(Path hintsFile) throws IOException {
@@ -241,22 +245,12 @@ class IncludeParser {
       return new HintsRules(rules.build());
     }
 
-    /**
-     * Clears legacy inclusions cache to maintain inter-build correctness, since filesystem changes
-     * are not tracked by cache.
-     */
-    void clearCachedLegacyHints() {
-      fileLevelHintsCache.invalidateAll();
-      syscallCache.set(
-          PerBuildSyscallCache.newBuilder().setConcurrencyLevel(HINTS_CACHE_CONCURRENCY).build());
-    }
-
     /** Returns the "file" type hinted inclusions for a given path, caching results by path. */
     ImmutableList<Artifact> getFileLevelHintedInclusionsLegacy(Artifact path) {
       if (!path.getExecPathString().startsWith(ALLOWED_PREFIX)) {
         return ImmutableList.of();
       }
-      return fileLevelHintsCache.getUnchecked(path);
+      return fileLevelHintsCache.get(path);
     }
 
     /**
@@ -267,7 +261,8 @@ class IncludeParser {
      */
     @Nullable
     ImmutableSet<Artifact> getPathLevelHintedInclusions(
-        ImmutableList<PathFragment> paths, Environment env) throws InterruptedException {
+        ImmutableList<PathFragment> paths, Environment env)
+        throws InterruptedException, IOException, NoSuchPackageException {
       ImmutableList<String> pathStrings =
           paths.stream()
               .map(PathFragment::getPathString)
@@ -313,9 +308,8 @@ class IncludeParser {
             ContainingPackageLookupValue.key(PackageIdentifier.createInMainRepo(relativePath)));
         findFilters.add(rule.findFilter);
       }
-      Map<SkyKey, ValueOrException<NoSuchPackageException>> containingPackageLookupValues =
-          env.getValuesOrThrow(rulePaths, NoSuchPackageException.class);
-      if (env.valuesMissing()) {
+      SkyframeLookupResult containingPackageLookupValues = env.getValuesAndExceptions(rulePaths);
+      if (env.valuesMissing() && !env.inErrorBubbling()) {
         return null;
       }
       List<GlobDescriptor> globKeys = new ArrayList<>(rulePaths.size());
@@ -326,8 +320,12 @@ class IncludeParser {
         try {
           containingPackageLookupValue =
               (ContainingPackageLookupValue)
-                  containingPackageLookupValues.get(relativePathKey).get();
+                  containingPackageLookupValues.getOrThrow(
+                      relativePathKey, NoSuchPackageException.class);
         } catch (NoSuchPackageException e) {
+          if (env.inErrorBubbling()) {
+            throw e;
+          }
           logger.atWarning().withCause(e).log(
               "Unexpected exception when looking up containing package for %s"
                   + " (prodaccess expired?)",
@@ -342,38 +340,51 @@ class IncludeParser {
             containingPackageLookupValue.getContainingPackageName().getPackageFragment();
         String pattern = findFilters.get(i);
         try {
+          // TODO: b/290998109#comment60 - Convert to create GLOBS node in IncludeParser.
           globKeys.add(
               GlobValue.key(
                   containingPackageLookupValue.getContainingPackageName(),
                   containingPackageLookupValue.getContainingPackageRoot(),
                   pattern,
-                  /*excludeDirs=*/ true,
+                  Globber.Operation.FILES,
                   relativePath.relativeTo(packageFragment)));
         } catch (InvalidGlobPatternException e) {
           env.getListener()
               .handle(Event.warn("Error parsing pattern " + pattern + " for " + relativePath));
         }
       }
-      Map<SkyKey, ValueOrException<IOException>> globResults =
-          env.getValuesOrThrow(globKeys, IOException.class);
       if (env.valuesMissing()) {
         return null;
       }
-      for (Map.Entry<SkyKey, ValueOrException<IOException>> globEntry : globResults.entrySet()) {
-        GlobValue globValue;
-        GlobDescriptor globKey = (GlobDescriptor) globEntry.getKey();
+      SkyframeLookupResult globResults = env.getValuesAndExceptions(globKeys);
+      if (env.valuesMissing() && !env.inErrorBubbling()) {
+        return null;
+      }
+      for (GlobDescriptor globKey : globKeys) {
         PathFragment packageFragment = globKey.getPackageId().getPackageFragment();
+        GlobValue globValue;
         try {
-          globValue = (GlobValue) globEntry.getValue().get();
-        } catch (IOException e) {
-          logger.atWarning().withCause(e).log("Error getting hints for %s", packageFragment);
+          globValue =
+              (GlobValue)
+                  globResults.getOrThrow(
+                      globKey, IOException.class, BuildFileNotFoundException.class);
+        } catch (IOException | BuildFileNotFoundException e) {
+          if (env.inErrorBubbling()) {
+            throw e;
+          }
+          logger.atWarning().withCause(e).log(
+              "Unexpected exception when computing glob for %s" + " (prodaccess expired?)",
+              globKey);
           continue;
         }
-        for (PathFragment file : globValue.getMatches().toList()) {
+        for (PathFragment file : globValue.getMatches()) {
           hints.add(
               artifactFactory.getSourceArtifact(
                   packageFragment.getRelative(file), globKey.getPackageRoot()));
         }
+      }
+      if (env.valuesMissing()) {
+        return null;
       }
       return hints == null ? ImmutableSet.of() : hints.build();
     }
@@ -419,11 +430,7 @@ class IncludeParser {
           // foo/bar/**/*.h. No examples of this currently exist in the INCLUDE_HINTS
           // file.
           logger.atFine().log("Globbing: %s %s", root, rule.findFilter);
-          hints.addAll(
-              new UnixGlob.Builder(root)
-                  .setFilesystemCalls(syscallCache)
-                  .addPattern(rule.findFilter)
-                  .glob());
+          hints.addAll(new UnixGlob.Builder(root, syscallCache).addPattern(rule.findFilter).glob());
         } catch (UnixGlob.BadPattern | IOException e) {
           logger.atWarning().withCause(e).log("Error in hint expansion");
         }
@@ -459,7 +466,7 @@ class IncludeParser {
           continue;
         }
         if (hints == null) {
-          hints = Sets.newLinkedHashSet();
+          hints = new LinkedHashSet<>();
         }
         Inclusion inclusion =
             Inclusion.create(
@@ -538,10 +545,9 @@ class IncludeParser {
       if (o == this) {
         return true;
       }
-      if (!(o instanceof Inclusion)) {
+      if (!(o instanceof Inclusion that)) {
         return false;
       }
-      Inclusion that = (Inclusion) o;
       return kind == that.kind && pathFragment.equals(that.pathFragment);
     }
 
@@ -746,6 +752,7 @@ class IncludeParser {
    * @param lineEnd the position of the character after the last
    * @return the inclusion object if possible, null if none
    */
+  @Nullable
   private Inclusion extractInclusion(byte[] chars, int lineBegin, int lineEnd) {
     // expect WS#WS(include|include_next|__has_include\(_next\)?)WS\(?("name"|<name>|<name>)\)?
     IncludesKeywordData data = expectIncludeKeyword(chars, lineBegin, lineEnd);
@@ -857,13 +864,11 @@ class IncludeParser {
       ActionExecutionMetadata actionExecutionMetadata,
       ActionExecutionContext actionExecutionContext,
       Artifact grepIncludes,
+      @Nullable PlatformInfo grepIncludesExecutionPlatform,
       @Nullable SpawnIncludeScanner remoteIncludeScanner,
       boolean isOutputFile)
       throws IOException, ExecException, InterruptedException {
     Collection<Inclusion> inclusions;
-
-    // TODO(ulfjack): grepIncludes may be null if the corresponding attribute on the rule is missing
-    //  (see CppHelper.getGrepIncludes) or misspelled. It would be better to disallow this case.
     if (remoteIncludeScanner != null
         && grepIncludes != null
         && remoteIncludeScanner.shouldParseRemotely(file)) {
@@ -873,9 +878,15 @@ class IncludeParser {
               actionExecutionMetadata,
               actionExecutionContext,
               grepIncludes,
+              grepIncludesExecutionPlatform,
               getFileType(),
               isOutputFile);
     } else {
+      if (isOutputFile && !actionExecutionContext.fileSystemSupportsInputDiscovery()) {
+        // Ensure that the file's metadata is available, which possibly requires a Skyframe restart.
+        var unused =
+            actionExecutionContext.getInputMetadataProvider().getInputMetadataChecked(file);
+      }
       try (SilentCloseable c =
           Profiler.instance().profile(ProfilerTask.SCANNER, file.getExecPathString())) {
         inclusions =
@@ -883,14 +894,16 @@ class IncludeParser {
                 FileSystemUtils.readContent(actionExecutionContext.getInputPath(file)));
       } catch (IOException e) {
         if (remoteIncludeScanner != null && grepIncludes != null) {
-          logger.atWarning().withCause(e).log(
-              "Falling back on remote parsing of %s", actionExecutionContext.getInputPath(file));
+          logger.atWarning().atMostEvery(1, TimeUnit.SECONDS).log(
+              "Falling back on remote parsing of %s (cause %s)",
+              actionExecutionContext.getInputPath(file), e.getMessage());
           inclusions =
               remoteIncludeScanner.extractInclusions(
                   file,
                   actionExecutionMetadata,
                   actionExecutionContext,
                   grepIncludes,
+                  grepIncludesExecutionPlatform,
                   getFileType(),
                   isOutputFile);
         } else {

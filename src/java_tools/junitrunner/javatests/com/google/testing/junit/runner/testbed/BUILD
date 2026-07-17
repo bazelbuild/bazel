@@ -1,8 +1,11 @@
 load("@rules_java//java:defs.bzl", "java_library")
 
-package(default_visibility = [
-    "//src/java_tools/junitrunner:junitrunner_package_group",
-])
+package(
+    default_applicable_licenses = ["//:license"],
+    default_visibility = [
+        "//src/java_tools/junitrunner:junitrunner_package_group",
+    ],
+)
 
 java_library(
     name = "testbed",
@@ -11,6 +14,7 @@ java_library(
     deps = [
         "//third_party:guava",
         "//third_party:junit4",
+        "//third_party:mockito",
         "//third_party:truth",
     ],
 )

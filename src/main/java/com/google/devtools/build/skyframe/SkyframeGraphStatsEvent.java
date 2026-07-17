@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 
 /**
@@ -20,13 +21,27 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
  * depend on the sequence of Bazel invocations prior to this one, not just the current one.
  */
 public final class SkyframeGraphStatsEvent implements ExtendedEventHandler.Postable {
-  private final int graphSize;
+  /** Data about the Skyframe evaluations that happened during this command. */
+  public record EvaluationStats(
+      ImmutableMap<SkyFunctionName, Integer> dirtied,
+      ImmutableMap<SkyFunctionName, Integer> changed,
+      ImmutableMap<SkyFunctionName, Integer> built,
+      ImmutableMap<SkyFunctionName, Integer> cleaned,
+      ImmutableMap<SkyFunctionName, Integer> evaluated) {}
 
-  SkyframeGraphStatsEvent(int graphSize) {
+  private final int graphSize;
+  private final EvaluationStats evaluationStats;
+
+  SkyframeGraphStatsEvent(int graphSize, EvaluationStats evaluationStats) {
     this.graphSize = graphSize;
+    this.evaluationStats = evaluationStats;
   }
 
   public int getGraphSize() {
     return graphSize;
+  }
+
+  public EvaluationStats getEvaluationStats() {
+    return evaluationStats;
   }
 }

@@ -14,9 +14,9 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
-import java.util.Collection;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 import javax.annotation.Nullable;
 
 /**
@@ -31,18 +31,8 @@ public class DelegatingAttributeMapper implements AttributeMap {
   }
 
   @Override
-  public String getName() {
-    return delegate.getName();
-  }
-
-  @Override
   public Label getLabel() {
     return delegate.getLabel();
-  }
-
-  @Override
-  public String getRuleClassName() {
-    return delegate.getRuleClassName();
   }
 
   @Override
@@ -78,33 +68,23 @@ public class DelegatingAttributeMapper implements AttributeMap {
   }
 
   @Override
-  public Collection<DepEdge> visitLabels() throws InterruptedException {
-    return delegate.visitLabels();
+  public void visitAllLabels(BiConsumer<Attribute, Label> consumer) {
+    delegate.visitAllLabels(consumer);
   }
 
   @Override
-  public Collection<DepEdge> visitLabels(Attribute attribute) throws InterruptedException {
-    return delegate.visitLabels(attribute);
+  public void visitLabels(String attributeName, Consumer<Label> consumer) {
+    delegate.visitLabels(attributeName, consumer);
   }
 
   @Override
-  public String getPackageDefaultHdrsCheck() {
-    return delegate.getPackageDefaultHdrsCheck();
+  public void visitLabels(DependencyFilter filter, BiConsumer<Attribute, Label> consumer) {
+    delegate.visitLabels(filter, consumer);
   }
 
   @Override
-  public Boolean getPackageDefaultTestOnly() {
-    return delegate.getPackageDefaultTestOnly();
-  }
-
-  @Override
-  public String getPackageDefaultDeprecation() {
-    return delegate.getPackageDefaultDeprecation();
-  }
-
-  @Override
-  public ImmutableList<String> getPackageDefaultCopts() {
-    return delegate.getPackageDefaultCopts();
+  public PackageArgs getPackageArgs() {
+    return delegate.getPackageArgs();
   }
 
   @Override

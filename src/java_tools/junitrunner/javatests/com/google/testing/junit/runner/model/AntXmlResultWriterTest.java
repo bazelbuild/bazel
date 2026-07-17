@@ -35,6 +35,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
+import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
 
 @RunWith(JUnit4.class)
@@ -113,6 +114,27 @@ public class AntXmlResultWriterTest {
             Instant.from(
                 DateTimeFormatter.ISO_DATE_TIME.parse(testSuite.getAttribute("timestamp"))))
         .isEqualTo(startTime);
+  }
+
+  @Test
+  public void testSkippedOrSuppressedReportedAsSkipped() throws Exception {
+    TestSuiteNode parent = createTestSuite();
+    TestCaseNode skipped = createTestCase(parent);
+    skipped.started(testInstant(Instant.ofEpochMilli(1)));
+    skipped.testSkipped(testInstant(Instant.ofEpochMilli(2)));
+    TestCaseNode suppressed = createTestCase(parent);
+    suppressed.testSuppressed(testInstant(Instant.ofEpochMilli(4)));
+
+    resultWriter.writeTestSuites(writer, root.getResult());
+
+    Document document = parseXml(stringWriter.toString());
+    NodeList caseElems = document.getElementsByTagName("testcase");
+    assertThat(caseElems.getLength()).isEqualTo(2);
+    for (int i = 0; i < 2; i++) {
+      Element caseElem = (Element) caseElems.item(i);
+      NodeList skippedElems = caseElem.getElementsByTagName("skipped");
+      assertThat(skippedElems.getLength()).isEqualTo(1);
+    }
   }
 
   private void runToCompletion(TestCaseNode test) {

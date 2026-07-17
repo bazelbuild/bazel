@@ -17,10 +17,8 @@ package com.google.devtools.build.lib.rules.apple;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.OptionsParsingException;
 
-/**
- * Converter for options representing {@link DottedVersion} values.
- */
-public class DottedVersionConverter implements Converter<DottedVersion.Option> {
+/** Converter for options representing {@link DottedVersion} values. */
+public class DottedVersionConverter extends Converter.Contextless<DottedVersion.Option> {
 
   @Override
   public DottedVersion.Option convert(String input) throws OptionsParsingException {

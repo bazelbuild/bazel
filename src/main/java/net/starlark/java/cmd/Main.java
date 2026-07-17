@@ -21,6 +21,9 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.time.Duration;
 import java.util.List;
+import javax.annotation.Nullable;
+import net.starlark.java.eval.CpuProfiler;
+import net.starlark.java.eval.CpuProfilerNativeSupportImpl;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Mutability;
@@ -55,12 +58,21 @@ class Main {
       FileOptions.DEFAULT.toBuilder().allowToplevelRebinding(true).loadBindsGlobally(true).build();
 
   static {
+    maybeInstallCpuProfilerNativeSupport();
     Mutability mu = Mutability.create("interpreter");
-    thread = new StarlarkThread(mu, StarlarkSemantics.DEFAULT);
+    thread = StarlarkThread.createTransient(mu, StarlarkSemantics.DEFAULT);
     thread.setPrintHandler((th, msg) -> System.out.println(msg));
   }
 
+  private static void maybeInstallCpuProfilerNativeSupport() {
+    String osName = System.getProperty("os.name");
+    if (osName.equals("Linux") || osName.equals("Mac OS X")) {
+      CpuProfiler.setNativeSupport(new CpuProfilerNativeSupportImpl());
+    }
+  }
+
   // Prompts the user for a chunk of input, and returns it.
+  @Nullable
   private static String prompt() {
     StringBuilder input = new StringBuilder();
     System.out.print(START_PROMPT);
@@ -112,6 +124,7 @@ class Main {
   /** Provide a REPL evaluating Starlark code. */
   @SuppressWarnings("CatchAndPrintStackTrace")
   private static void readEvalPrintLoop() {
+    module.setDocumentation("<REPL>"); // Do not retrieve a module docstring from REPL input.
     System.err.println("Welcome to Starlark (java.starlark.net)");
     String line;
 
@@ -120,7 +133,7 @@ class Main {
       try {
         Object result = Starlark.execFile(input, OPTIONS, module, thread);
         if (result != Starlark.NONE) {
-          System.out.println(Starlark.repr(result));
+          System.out.println(Starlark.repr(result, thread.getSemantics()));
         }
       } catch (SyntaxError.Exception ex) {
         for (SyntaxError error : ex.errors()) {

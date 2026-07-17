@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
@@ -159,7 +159,7 @@ function __create_release() {
 # Force push a ref $2 to repo $1 if exists
 function __push_if_exists() {
   if git show-ref -q "${2}"; then
-    git push -f "${1}" "+${2}"
+    git push -f -o push-justification=b/303672453 "${1}" "+${2}"
   fi
 }
 
@@ -183,7 +183,7 @@ function __cleanup_branches() {
   do
     echo "Deleting ${branch}"
     git branch -D "${branch}" &>/dev/null || true
-    git push -f "${RELEASE_REPOSITORY}" ":${branch}" &>/dev/null || true
+    git push -f -o push-justification=b/303672453 "${RELEASE_REPOSITORY}" ":${branch}" &>/dev/null || true
   done
 }
 
@@ -191,15 +191,29 @@ function __cleanup_branches() {
 # destroying the release branch, updating the master's CHANGELOG.md
 # and pushing everything to GitHub.
 function __do_release() {
-  local branch=$(get_release_branch)
+  local current_branch=$(get_release_branch)
   local tag_name=$(get_release_name)
   local candidate=$(get_release_candidate)
+  local release_branch="release-${tag_name}"
 
-  echo -n "You are about to release branch ${branch} in tag ${tag_name}, confirm? [y/N] "
+  local current_commit="$(__git_commit_hash "${current_branch}")"
+  local release_commit="$(__git_commit_hash "${release_branch}" 2>/dev/null || true)"
+  if [ -z "${candidate}" ] || [ -z "${release_commit}" ] || [ "${current_commit}" != "${release_commit}" ]; then
+    echo "The current branch ${current_branch} must be the latest release candidate (release-X.Y.ZrcN) and at the same commit as branch ${release_branch}." >&2
+    exit 1
+  fi
+
+  echo -n "You are about to release branch ${release_branch} in tag ${tag_name}, confirm? [y/N] "
   read answer
   if [ "$answer" = "y" ] || [ "$answer" = "Y" ]; then
+    echo "Switching to the release branch"
+    git checkout "${release_branch}"
+
     echo "Creating the release commit"
     __create_release_commit "${tag_name}"
+
+    echo "Pushing the release branch"
+    __push_ref "${release_branch}"
 
     echo "Creating the tag"
     git tag ${tag_name}
@@ -213,19 +227,18 @@ function __do_release() {
     # We do not cherry-pick because we might have conflict if the baseline
     # does not contains the latest CHANGELOG.md file, so trick it.
     local changelog_path="$PWD/CHANGELOG.md"
-    git show "${branch}:CHANGELOG.md" > "${changelog_path}"
+    git show "${release_branch}:CHANGELOG.md" > "${changelog_path}"
     local tmpfile=$(mktemp --tmpdir relnotes-XXXXXXXX)
     trap 'rm -f ${tmpfile}' EXIT
-    git_commit_msg "${branch}" > "${tmpfile}"
+    git_commit_msg "${release_branch}" > "${tmpfile}"
     git add "${changelog_path}"
     git commit --no-verify -F "${tmpfile}" --no-edit --author "${RELEASE_AUTHOR}"
     rm -f "${tmpfile}"
     trap - EXIT
 
     echo "Pushing the change to remote repositories"
-    git push "${MASTER_REPOSITORY}" +master
+    git push -o push-justification=b/303672453 "${MASTER_REPOSITORY}" +master
     __push_ref "refs/tags/${tag_name}"
-    __cleanup_branches "${tag_name}"
   fi
 }
 
@@ -262,7 +275,7 @@ The typical workflow for the release manager is:
    (usually a version number). The BASELINE is generally a baseline
    that has been tested extensively including inside Google.
 2. Push to the repository and wait for the continuous integration
-   to rebuild and deploy the various artifacts and send the annoucement
+   to rebuild and deploy the various artifacts and send the announcement
    mails about a new release candidate being available.
 3. If necessary, creates a new release branch with the same name to
    address return from the users and go back to 2.

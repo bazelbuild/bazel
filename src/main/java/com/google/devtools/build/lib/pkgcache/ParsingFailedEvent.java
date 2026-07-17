@@ -41,4 +41,9 @@ public class ParsingFailedEvent implements ExtendedEventHandler.Postable {
   public String getMessage() {
     return message;
   }
+
+  @Override
+  public boolean storeForReplay() {
+    return true;
+  }
 }

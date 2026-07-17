@@ -14,7 +14,7 @@ assert_eq(int(True), 1)
 assert_eq(int(False), 0)
 
 # from other
-assert_fails(lambda: int(None), "got NoneType, want string, int, float, or bool")
+assert_fails(lambda: int(None), "got value of type 'NoneType', want 'string, bool, int, or float'")
 
 # from string
 assert_fails(lambda: int(""), "empty string")
@@ -73,7 +73,7 @@ assert_fails(lambda: int("FF", 15), 'invalid base-15 literal: "FF"')
 assert_fails(lambda: int("123", -1), "invalid base -1 .want 2 <= base <= 36")
 assert_fails(lambda: int("123", 1), "invalid base 1 .want 2 <= base <= 36")
 assert_fails(lambda: int("123", 37), "invalid base 37 .want 2 <= base <= 36")
-assert_fails(lambda: int("123", "x"), "got string for base, want int")
+assert_fails(lambda: int("123", "x"), "parameter 'base' got value of type 'string', want 'int'")
 assert_fails(lambda: int(True, 2), "can't convert non-string with explicit base")
 assert_fails(lambda: int(True, 10), "can't convert non-string with explicit base")
 assert_fails(lambda: int(1, 2), "can't convert non-string with explicit base")
@@ -89,7 +89,7 @@ assert_eq(int("0x0b0", 0), 0xb0)
 assert_eq(int("0x0b0101", 16), 0x0b0101)
 assert_eq(int("0b0101", 2), 5)  # prefix is redundant with explicit base
 
-# This case is allowed in Python but not Skylark
+# This case is allowed in Python but not Starlark
 assert_fails(lambda: int(), "missing 1 required positional argument: x")
 
 # Unlike Python, leading and trailing whitespace is not allowed. Use int(s.strip()).

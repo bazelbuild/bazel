@@ -13,273 +13,200 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.cpp;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
+
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.LicensesProvider;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
-import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.BuiltinProvider;
-import com.google.devtools.build.lib.packages.NativeInfo;
+import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
-import com.google.devtools.build.lib.rules.cpp.CcToolchain.AdditionalBuildVariablesComputer;
+import com.google.devtools.build.lib.packages.StarlarkInfo;
+import com.google.devtools.build.lib.packages.StarlarkInfoWithSchema;
+import com.google.devtools.build.lib.packages.StarlarkProviderWrapper;
+import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
-import com.google.devtools.build.lib.rules.cpp.FdoContext.BranchFdoProfile;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcToolchainProviderApi;
+import com.google.devtools.build.lib.skyframe.BzlLoadValue;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
-import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.syntax.Location;
 
 /** Information about a C++ compiler used by the <code>cc_*</code> rules. */
 @Immutable
-@AutoCodec
-public final class CcToolchainProvider extends NativeInfo
-    implements CcToolchainProviderApi<
-            FeatureConfigurationForStarlark, BranchFdoProfile, FdoContext>,
-        HasCcToolchainLabel {
+public final class CcToolchainProvider {
 
-  public static final BuiltinProvider<CcToolchainProvider> PROVIDER =
-      new BuiltinProvider<CcToolchainProvider>("CcToolchainInfo", CcToolchainProvider.class) {};
+  public static final String STARLARK_NAME = "CcToolchainInfo";
+  // provider when rules_cc itself is the main module
+  private static final CcToolchainInfoProvider RULES_CC_PROVIDER =
+      new RulesCcCcToolchainInfoProvider();
+  public static final CcToolchainInfoProvider BAZEL_PROVIDER = new BazelCcToolchainInfoProvider();
+  public static final CcToolchainInfoProvider GOOGLE_PROVIDER = new GoogleCcToolchainInfoProvider();
 
-  @Nullable private final CppConfiguration cppConfiguration;
-  private final PathFragment crosstoolTopPathFragment;
-  private final NestedSet<Artifact> allFiles;
-  private final NestedSet<Artifact> allFilesMiddleman;
-  private final NestedSet<Artifact> compilerFiles;
-  private final NestedSet<Artifact> compilerFilesWithoutIncludes;
-  private final NestedSet<Artifact> stripFiles;
-  private final NestedSet<Artifact> objcopyFiles;
-  private final NestedSet<Artifact> asFiles;
-  private final NestedSet<Artifact> arFiles;
-  private final NestedSet<Artifact> linkerFiles;
-  private final Artifact interfaceSoBuilder;
-  private final NestedSet<Artifact> dwpFiles;
-  private final NestedSet<Artifact> coverageFiles;
-  private final NestedSet<Artifact> libcLink;
-  private final NestedSet<Artifact> targetLibcLink;
-  @Nullable private final NestedSet<Artifact> staticRuntimeLinkInputs;
-  @Nullable private final Artifact staticRuntimeLinkMiddleman;
-  @Nullable private final NestedSet<Artifact> dynamicRuntimeLinkInputs;
-  @Nullable private final Artifact dynamicRuntimeLinkMiddleman;
-  private final PathFragment dynamicRuntimeSolibDir;
-  private final CcInfo ccInfo;
-  private final boolean supportsParamFiles;
-  private final boolean supportsHeaderParsing;
-  private final AdditionalBuildVariablesComputer additionalBuildVariablesComputer;
-  private final CcToolchainVariables buildVariables;
-  private final ImmutableList<Artifact> builtinIncludeFiles;
-  private final ImmutableList<Artifact> targetBuiltinIncludeFiles;
-  @Nullable private final Artifact linkDynamicLibraryTool;
-  private final ImmutableList<PathFragment> builtInIncludeDirectories;
-  @Nullable private final PathFragment sysroot;
-  private final PathFragment targetSysroot;
-  private final boolean isToolConfiguration;
-  private final ImmutableMap<String, PathFragment> toolPaths;
-  private final CcToolchainFeatures toolchainFeatures;
-  private final String toolchainIdentifier;
-  private final String compiler;
-  private final String targetCpu;
-  private final String targetOS;
-  private final PathFragment defaultSysroot;
-  private final PathFragment runtimeSysroot;
-  private final String abiGlibcVersion;
-  private final String abi;
-  private final String targetLibc;
-  private final String hostSystemName;
-  private final String targetSystemName;
-  private final Label ccToolchainLabel;
-  private final String solibDirectory;
-
-  private final ImmutableMap<String, String> additionalMakeVariables;
-  // TODO(b/65151735): Remove when cc_flags is entirely from features.
-  private final String legacyCcFlagsMakeVariable;
-  /**
-   * WARNING: We don't like {@link FdoContext}. Its {@link FdoContext#fdoProfilePath} is pure path
-   * and that is horrible as it breaks many Bazel assumptions! Don't do bad stuff with it, don't
-   * take inspiration from it.
-   */
-  private final FdoContext fdoContext;
-
-  private final LicensesProvider licensesProvider;
-  private final PackageSpecificationProvider allowlistForLayeringCheck;
-  private final PackageSpecificationProvider allowListForLooseHeaderCheck;
-
-  private final String objcopyExecutable;
-  private final String compilerExecutable;
-  private final String preprocessorExecutable;
-  private final String nmExecutable;
-  private final String objdumpExecutable;
-  private final String arExecutable;
-  private final String stripExecutable;
-  private final String ldExecutable;
-  private final String gcovExecutable;
-
-  public CcToolchainProvider(
-      @Nullable CppConfiguration cppConfiguration,
-      CcToolchainFeatures toolchainFeatures,
-      PathFragment crosstoolTopPathFragment,
-      NestedSet<Artifact> allFiles,
-      NestedSet<Artifact> allFilesMiddleman,
-      NestedSet<Artifact> compilerFiles,
-      NestedSet<Artifact> compilerFilesWithoutIncludes,
-      NestedSet<Artifact> stripFiles,
-      NestedSet<Artifact> objcopyFiles,
-      NestedSet<Artifact> asFiles,
-      NestedSet<Artifact> arFiles,
-      NestedSet<Artifact> linkerFiles,
-      Artifact interfaceSoBuilder,
-      NestedSet<Artifact> dwpFiles,
-      NestedSet<Artifact> coverageFiles,
-      NestedSet<Artifact> libcLink,
-      NestedSet<Artifact> targetLibcLink,
-      NestedSet<Artifact> staticRuntimeLinkInputs,
-      @Nullable Artifact staticRuntimeLinkMiddleman,
-      NestedSet<Artifact> dynamicRuntimeLinkInputs,
-      @Nullable Artifact dynamicRuntimeLinkMiddleman,
-      PathFragment dynamicRuntimeSolibDir,
-      CcCompilationContext ccCompilationContext,
-      boolean supportsParamFiles,
-      boolean supportsHeaderParsing,
-      AdditionalBuildVariablesComputer additionalBuildVariablesComputer,
-      CcToolchainVariables buildVariables,
-      ImmutableList<Artifact> builtinIncludeFiles,
-      ImmutableList<Artifact> targetBuiltinIncludeFiles,
-      Artifact linkDynamicLibraryTool,
-      ImmutableList<PathFragment> builtInIncludeDirectories,
-      @Nullable PathFragment sysroot,
-      @Nullable PathFragment targetSysroot,
-      FdoContext fdoContext,
-      boolean isToolConfiguration,
-      LicensesProvider licensesProvider,
-      ImmutableMap<String, PathFragment> toolPaths,
-      String toolchainIdentifier,
-      String compiler,
-      String abiGlibcVersion,
-      String targetCpu,
-      String targetOS,
-      PathFragment defaultSysroot,
-      PathFragment runtimeSysroot,
-      String targetLibc,
-      String hostSystemName,
-      Label ccToolchainLabel,
-      String solibDirectory,
-      String abi,
-      String targetSystemName,
-      ImmutableMap<String, String> additionalMakeVariables,
-      String legacyCcFlagsMakeVariable,
-      PackageSpecificationProvider allowlistForLayeringCheck,
-      PackageSpecificationProvider allowListForLooseHeaderCheck,
-      String objcopyExecutable,
-      String compilerExecutable,
-      String preprocessorExecutable,
-      String nmExecutable,
-      String objdumpExecutable,
-      String arExecutable,
-      String stripExecutable,
-      String ldExecutable,
-      String gcovExecutable) {
-    super();
-    this.cppConfiguration = cppConfiguration;
-    this.crosstoolTopPathFragment = crosstoolTopPathFragment;
-    this.allFiles = Preconditions.checkNotNull(allFiles);
-    this.allFilesMiddleman = Preconditions.checkNotNull(allFilesMiddleman);
-    this.compilerFiles = Preconditions.checkNotNull(compilerFiles);
-    this.compilerFilesWithoutIncludes = Preconditions.checkNotNull(compilerFilesWithoutIncludes);
-    this.stripFiles = Preconditions.checkNotNull(stripFiles);
-    this.objcopyFiles = Preconditions.checkNotNull(objcopyFiles);
-    this.asFiles = Preconditions.checkNotNull(asFiles);
-    this.arFiles = Preconditions.checkNotNull(arFiles);
-    this.linkerFiles = Preconditions.checkNotNull(linkerFiles);
-    this.interfaceSoBuilder = interfaceSoBuilder;
-    this.dwpFiles = Preconditions.checkNotNull(dwpFiles);
-    this.coverageFiles = Preconditions.checkNotNull(coverageFiles);
-    this.libcLink = Preconditions.checkNotNull(libcLink);
-    this.targetLibcLink = Preconditions.checkNotNull(targetLibcLink);
-    this.staticRuntimeLinkInputs = staticRuntimeLinkInputs;
-    this.staticRuntimeLinkMiddleman = staticRuntimeLinkMiddleman;
-    this.dynamicRuntimeLinkInputs = dynamicRuntimeLinkInputs;
-    this.dynamicRuntimeLinkMiddleman = dynamicRuntimeLinkMiddleman;
-    this.dynamicRuntimeSolibDir = Preconditions.checkNotNull(dynamicRuntimeSolibDir);
-    this.ccInfo =
-        CcInfo.builder()
-            .setCcCompilationContext(Preconditions.checkNotNull(ccCompilationContext))
-            .build();
-    this.supportsParamFiles = supportsParamFiles;
-    this.supportsHeaderParsing = supportsHeaderParsing;
-    this.additionalBuildVariablesComputer = additionalBuildVariablesComputer;
-    this.buildVariables = buildVariables;
-    this.builtinIncludeFiles = builtinIncludeFiles;
-    this.targetBuiltinIncludeFiles = targetBuiltinIncludeFiles;
-    this.linkDynamicLibraryTool = linkDynamicLibraryTool;
-    this.builtInIncludeDirectories = builtInIncludeDirectories;
-    this.sysroot = sysroot;
-    this.targetSysroot = targetSysroot;
-    this.defaultSysroot = defaultSysroot;
-    this.runtimeSysroot = runtimeSysroot;
-    this.fdoContext = fdoContext == null ? FdoContext.getDisabledContext() : fdoContext;
-    this.isToolConfiguration = isToolConfiguration;
-    this.licensesProvider = licensesProvider;
-    this.toolPaths = toolPaths;
-    this.toolchainFeatures = toolchainFeatures;
-    this.toolchainIdentifier = toolchainIdentifier;
-    this.compiler = compiler;
-    this.abiGlibcVersion = abiGlibcVersion;
-    this.targetCpu = targetCpu;
-    this.targetOS = targetOS;
-    this.targetLibc = targetLibc;
-    this.hostSystemName = hostSystemName;
-    this.ccToolchainLabel = ccToolchainLabel;
-    this.solibDirectory = solibDirectory;
-    this.abi = abi;
-    this.targetSystemName = targetSystemName;
-    this.additionalMakeVariables = additionalMakeVariables;
-    this.legacyCcFlagsMakeVariable = legacyCcFlagsMakeVariable;
-    this.allowlistForLayeringCheck = allowlistForLayeringCheck;
-    this.allowListForLooseHeaderCheck = allowListForLooseHeaderCheck;
-
-    this.objcopyExecutable = objcopyExecutable;
-    this.compilerExecutable = compilerExecutable;
-    this.preprocessorExecutable = preprocessorExecutable;
-    this.nmExecutable = nmExecutable;
-    this.objdumpExecutable = objdumpExecutable;
-    this.arExecutable = arExecutable;
-    this.stripExecutable = stripExecutable;
-    this.ldExecutable = ldExecutable;
-    this.gcovExecutable = gcovExecutable;
+  public static CcToolchainProvider wrapOrThrowEvalException(Info toolchainInfo)
+      throws EvalException {
+    if (toolchainInfo.getProvider().getKey().equals(BAZEL_PROVIDER.getKey())) {
+      return BAZEL_PROVIDER.wrapOrThrowEvalException(toolchainInfo);
+    }
+    if (toolchainInfo.getProvider().getKey().equals(GOOGLE_PROVIDER.getKey())) {
+      return GOOGLE_PROVIDER.wrapOrThrowEvalException(toolchainInfo);
+    }
+    return RULES_CC_PROVIDER.wrapOrThrowEvalException(toolchainInfo);
   }
 
-  @Override
-  public BuiltinProvider<CcToolchainProvider> getProvider() {
-    return PROVIDER;
+  public static CcToolchainProvider wrap(Info toolchainInfo) throws RuleErrorException {
+    if (toolchainInfo.getProvider().getKey().equals(BAZEL_PROVIDER.getKey())) {
+      return BAZEL_PROVIDER.wrap(toolchainInfo);
+    }
+    if (toolchainInfo.getProvider().getKey().equals(GOOGLE_PROVIDER.getKey())) {
+      return GOOGLE_PROVIDER.wrap(toolchainInfo);
+    }
+    return RULES_CC_PROVIDER.wrap(toolchainInfo);
   }
 
-  /**
-   * See {@link #usePicForDynamicLibraries(FeatureConfigurationForStarlark)}. This method is there
-   * only to serve Starlark callers.
-   */
-  @Override
-  public boolean usePicForDynamicLibrariesFromStarlark(
-      FeatureConfigurationForStarlark featureConfiguration) {
-    return usePicForDynamicLibraries(
-        featureConfiguration
-            .getCppConfigurationFromFeatureConfigurationCreatedForStarlark_andIKnowWhatImDoing(),
-        featureConfiguration.getFeatureConfiguration());
+  public static CcToolchainProvider getFromTarget(ConfiguredTarget target)
+      throws RuleErrorException {
+    CcToolchainProvider provider = target.get(RULES_CC_PROVIDER);
+    if (provider == null) {
+      provider = target.get(BAZEL_PROVIDER);
+    }
+    if (provider == null) {
+      provider = target.get(GOOGLE_PROVIDER);
+    }
+    return provider;
   }
 
+  private static class RulesCcCcToolchainInfoProvider extends CcToolchainInfoProvider {
+    private RulesCcCcToolchainInfoProvider() {
+      super(
+          keyForBuild(
+              Label.parseCanonicalUnchecked("//cc/private/rules_impl:cc_toolchain_info.bzl")),
+          STARLARK_NAME);
+    }
+  }
+
+  private static class BazelCcToolchainInfoProvider extends CcToolchainInfoProvider {
+    private BazelCcToolchainInfoProvider() {
+      super(
+          keyForBuild(
+              Label.parseCanonicalUnchecked(
+                  "@rules_cc+//cc/private/rules_impl:cc_toolchain_info.bzl")),
+          STARLARK_NAME);
+    }
+  }
+
+  private static class GoogleCcToolchainInfoProvider extends CcToolchainInfoProvider {
+    private GoogleCcToolchainInfoProvider() {
+      super(
+          keyForBuild(
+              Label.parseCanonicalUnchecked(
+                  "//third_party/bazel_rules/rules_cc/cc/private/rules_impl:cc_toolchain_info.bzl")),
+          STARLARK_NAME);
+    }
+  }
+
+  /** Provider class for {@link CcToolchainProvider} objects. */
+  public abstract static class CcToolchainInfoProvider
+      extends StarlarkProviderWrapper<CcToolchainProvider> implements Provider {
+
+    protected CcToolchainInfoProvider(BzlLoadValue.Key loadKey, String name) {
+      super(loadKey, name);
+    }
+
+    public CcToolchainProvider wrapOrThrowEvalException(Info value) throws EvalException {
+      if (value instanceof StarlarkInfoWithSchema
+          && value.getProvider().getKey().equals(getKey())) {
+        return new CcToolchainProvider((StarlarkInfo) value);
+      } else {
+        throw new EvalException(
+            String.format("got value of type '%s', want 'CcToolchainInfo'", Starlark.type(value)));
+      }
+    }
+
+    @Override
+    public CcToolchainProvider wrap(Info value) throws RuleErrorException {
+      if (value instanceof StarlarkInfoWithSchema
+          && value.getProvider().getKey().equals(getKey())) {
+        return new CcToolchainProvider((StarlarkInfo) value);
+      } else {
+        throw new RuleErrorException(
+            "got value of type '" + Starlark.type(value) + "', want 'CcToolchainInfo'");
+      }
+    }
+
+    @Override
+    public boolean isExported() {
+      return true;
+    }
+
+    @Override
+    public String getPrintableName() {
+      return STARLARK_NAME;
+    }
+
+    @Override
+    public Location getLocation() {
+      return Location.BUILTIN;
+    }
+  }
+
+  @Nullable
+  private static final NestedSet<Artifact> nullOrDepset(StarlarkInfo value, String key)
+      throws EvalException, TypeException {
+    if (value.getValue(key) == null || value.getValue(key) == Starlark.NONE) {
+      return null;
+    }
+    return value.getValue(key, Depset.class).getSet(Artifact.class);
+  }
+
+  @Nullable
+  private static final PathFragment nullOrPathFragment(StarlarkInfo value, String key)
+      throws EvalException {
+    if (value.getValue(key) == null || value.getValue(key) == Starlark.NONE) {
+      return null;
+    }
+    return PathFragment.create(value.getValue(key, String.class));
+  }
+
+  // Ensures that we use a canonical ImmutableList<PathFragment> instance to save memory.
+  private static final LoadingCache<Sequence<String>, ImmutableList<PathFragment>>
+      builtinIncludeDirectoriesCache =
+          Caffeine.newBuilder()
+              .weakKeys()
+              .build(seq -> seq.stream().map(PathFragment::create).collect(toImmutableList()));
+
+  private final StarlarkInfo value;
+
+  private CcToolchainProvider(StarlarkInfo value) {
+    this.value = value;
+  }
+
+  @VisibleForTesting
+  public StarlarkInfo getValue() {
+    return value;
+  }
+
+  public static CcToolchainProvider create(StarlarkInfo value) {
+    return new CcToolchainProvider(value);
+  }
+
+  // LINT.IfChange
   /**
    * Determines if we should apply -fPIC for this rule's C++ compilations. This determination is
    * generally made by the global C++ configuration settings "needsPic" and "usePicForBinaries".
@@ -289,25 +216,17 @@ public final class CcToolchainProvider extends NativeInfo
    *
    * @return true if this rule's compilations should apply -fPIC, false otherwise
    */
-  public boolean usePicForDynamicLibraries(
+  public static boolean usePicForDynamicLibraries(
       CppConfiguration cppConfiguration, FeatureConfiguration featureConfiguration) {
     return cppConfiguration.forcePic()
         || featureConfiguration.isEnabled(CppRuleClasses.SUPPORTS_PIC);
   }
 
-  /**
-   * Returns true if PER_OBJECT_DEBUG_INFO are specified and supported by the CROSSTOOL for the
-   * build implied by the given configuration, toolchain and feature configuration.
-   */
-  public boolean shouldCreatePerObjectDebugInfo(
-      FeatureConfiguration featureConfiguration, CppConfiguration cppConfiguration) {
-    return cppConfiguration.fissionIsActiveForCurrentCompilationMode()
-        && featureConfiguration.isEnabled(CppRuleClasses.PER_OBJECT_DEBUG_INFO);
-  }
+  // LINT.ThenChange(//src/main/starlark/builtins_bzl/common/cc/cc_helper_internal.bzl)
 
   /** Whether the toolchains supports header parsing. */
-  public boolean supportsHeaderParsing() {
-    return supportsHeaderParsing;
+  public boolean supportsHeaderParsing() throws EvalException {
+    return value.getValue("_supports_header_parsing", Boolean.class);
   }
 
   /**
@@ -317,487 +236,222 @@ public final class CcToolchainProvider extends NativeInfo
    * It will run compiler's parser to ensure the header is self-contained. This is required for
    * layering_check to work.
    */
-  public boolean shouldProcessHeaders(
+  public static boolean shouldProcessHeaders(
       FeatureConfiguration featureConfiguration, CppConfiguration cppConfiguration) {
     return featureConfiguration.isEnabled(CppRuleClasses.PARSE_HEADERS);
   }
 
-  public void addGlobalMakeVariables(ImmutableMap.Builder<String, String> globalMakeEnvBuilder) {
-    ImmutableMap.Builder<String, String> result = ImmutableMap.builder();
-
-    // hardcoded CC->gcc setting for unit tests
-    result.put("CC", getToolPathStringOrNull(Tool.GCC));
-
-    // Make variables provided by crosstool/gcc compiler suite.
-    result.put("AR", getToolPathStringOrNull(Tool.AR));
-    result.put("NM", getToolPathStringOrNull(Tool.NM));
-    result.put("LD", getToolPathStringOrNull(Tool.LD));
-    String objcopyTool = getToolPathStringOrNull(Tool.OBJCOPY);
-    if (objcopyTool != null) {
-      // objcopy is optional in Crosstool
-      result.put("OBJCOPY", objcopyTool);
-    }
-    result.put("STRIP", getToolPathStringOrNull(Tool.STRIP));
-
-    String gcovtool = getToolPathStringOrNull(Tool.GCOVTOOL);
-    if (gcovtool != null) {
-      // gcov-tool is optional in Crosstool
-      result.put("GCOVTOOL", gcovtool);
-    }
-
-    if (getTargetLibc().startsWith("glibc-")) {
-      result.put("GLIBC_VERSION", getTargetLibc().substring("glibc-".length()));
-    } else {
-      result.put("GLIBC_VERSION", getTargetLibc());
-    }
-
-    result.put("C_COMPILER", getCompiler());
-
-    // Deprecated variables
-
-    // TODO(bazel-team): delete all of these.
-    result.put("CROSSTOOLTOP", crosstoolTopPathFragment.getPathString());
-
-    // TODO(kmensah): Remove when Starlark dependencies can be updated to rely on
-    // CcToolchainProvider.
-    result.putAll(getAdditionalMakeVariables());
-
-    result.put("ABI_GLIBC_VERSION", getAbiGlibcVersion());
-    result.put("ABI", getAbi());
-
-    globalMakeEnvBuilder.putAll(result.build());
-  }
-
   /**
-   * Returns the path fragment that is either absolute or relative to the execution root that can be
+   * Returns the path String that is either absolute or relative to the execution root that can be
    * used to execute the given tool.
    *
    * @throws RuleErrorException when the tool is not specified by the toolchain.
    */
-  public PathFragment getToolPathFragment(
-      CppConfiguration.Tool tool, RuleErrorConsumer ruleErrorConsumer) throws RuleErrorException {
-    PathFragment toolPathFragment = getToolPathFragmentOrNull(tool);
-    if (toolPathFragment == null) {
-      throw ruleErrorConsumer.throwWithRuleError(
-          String.format(
-              "cc_toolchain '%s' with identifier '%s' doesn't define a tool path for '%s'",
-              getCcToolchainLabel(), getToolchainIdentifier(), tool.getNamePart()));
-    }
-    return toolPathFragment;
-  }
-
-  /**
-   * Returns the path fragment that is either absolute or relative to the execution root that can be
-   * used to execute the given tool.
-   */
-  @Nullable
-  public String getToolPathStringOrNull(Tool tool) {
-    PathFragment toolPathFragment = getToolPathFragmentOrNull(tool);
-    return toolPathFragment == null ? null : toolPathFragment.getPathString();
-  }
-
-  @Override
-  public String getToolPathStringOrNoneForStarlark(String toolString, StarlarkThread thread)
+  public static String getToolPathString(
+      ImmutableMap<String, String> toolPaths,
+      CppConfiguration.Tool tool,
+      Label ccToolchainLabel,
+      String toolchainIdentifier)
       throws EvalException {
-    CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    Tool tool = Tool.valueOf(toolString);
-    PathFragment toolPathFragment = getToolPathFragmentOrNull(tool);
-    return toolPathFragment == null ? null : toolPathFragment.getPathString();
+    String toolPath = getToolPathStringOrNull(toolPaths, tool);
+    if (toolPath == null) {
+      throw Starlark.errorf(
+          "cc_toolchain '%s' with identifier '%s' doesn't define a tool path for '%s'",
+          ccToolchainLabel, toolchainIdentifier, tool.getNamePart());
+    }
+    return toolPath;
   }
 
   /**
-   * Returns the path fragment that is either absolute or relative to the execution root that can be
+   * Returns the path string that is either absolute or relative to the execution root that can be
    * used to execute the given tool.
    */
-  @Nullable
-  public PathFragment getToolPathFragmentOrNull(CppConfiguration.Tool tool) {
-    return CcToolchainProviderHelper.getToolPathFragment(toolPaths, tool);
+  public static String getToolPathStringOrNull(ImmutableMap<String, String> toolPaths, Tool tool) {
+    return toolPaths.get(tool.getNamePart());
   }
 
-
-  @Override
-  public ImmutableList<String> getBuiltInIncludeDirectoriesAsStrings() {
-    return builtInIncludeDirectories
-        .stream()
-        .map(PathFragment::getSafePathString)
-        .collect(ImmutableList.toImmutableList());
+  public ImmutableMap<String, String> getToolPaths() throws EvalException {
+    return ImmutableMap.copyOf(
+        Dict.cast(
+            value.getValue("_tool_paths", Dict.class), String.class, String.class, "_tool_paths"));
   }
 
-  @Override
-  public Depset getAllFilesForStarlark() {
-    return Depset.of(Artifact.TYPE, getAllFiles());
-  }
-
-  @Override
-  public Depset getStaticRuntimeLibForStarlark(
-      FeatureConfigurationForStarlark featureConfigurationForStarlark) throws EvalException {
-    return Depset.of(
-        Artifact.TYPE,
-        getStaticRuntimeLinkInputs(featureConfigurationForStarlark.getFeatureConfiguration()));
-  }
-
-  @Override
-  public Depset getDynamicRuntimeLibForStarlark(
-      FeatureConfigurationForStarlark featureConfigurationForStarlark) throws EvalException {
-    return Depset.of(
-        Artifact.TYPE,
-        getDynamicRuntimeLinkInputs(featureConfigurationForStarlark.getFeatureConfiguration()));
-  }
-
-  public ImmutableList<PathFragment> getBuiltInIncludeDirectories() {
-    return builtInIncludeDirectories;
+  ImmutableList<PathFragment> getBuiltInIncludeDirectories() throws EvalException {
+    Sequence<String> seq =
+        Sequence.cast(
+            value.getValue("built_in_include_directories", Sequence.class),
+            String.class,
+            "built_in_include_directories");
+    return builtinIncludeDirectoriesCache.get(seq);
   }
 
   /** Returns the identifier of the toolchain as specified in the {@code CToolchain} proto. */
-  public String getToolchainIdentifier() {
-    return toolchainIdentifier;
+  public String getToolchainIdentifier() throws EvalException {
+    return value.getValue("toolchain_id", String.class);
   }
 
-  /** Returns all the files in Crosstool. Is not a middleman. */
-  public NestedSet<Artifact> getAllFiles() {
-    return allFiles;
+  /** Returns all the files in Crosstool. */
+  public NestedSet<Artifact> getAllFiles() throws EvalException {
+    try {
+      return value.getValue("all_files", Depset.class).getSet(Artifact.class);
+    } catch (TypeException e) {
+      throw new EvalException(e);
+    }
   }
 
-  /** Returns a middleman for all the files in Crosstool. */
-  public NestedSet<Artifact> getAllFilesMiddleman() {
-    return allFilesMiddleman;
+  /** Returns all the files in Crosstool + libc. */
+  public NestedSet<Artifact> getAllFilesIncludingLibc() throws EvalException {
+    try {
+      return value.getValue("_all_files_including_libc", Depset.class).getSet(Artifact.class);
+    } catch (TypeException e) {
+      throw new EvalException(e);
+    }
   }
 
   /** Returns the files necessary for compilation. */
-  public NestedSet<Artifact> getCompilerFiles() {
-    return compilerFiles;
+  public NestedSet<Artifact> getCompilerFiles() throws EvalException {
+    try {
+      return value.getValue("_compiler_files", Depset.class).getSet(Artifact.class);
+    } catch (TypeException e) {
+      throw new EvalException(e);
+    }
   }
 
   /**
    * Returns the files necessary for compilation excluding headers, assuming that included files
-   * will be discovered by input discovery. If the toolchain does not provide this fileset, falls
-   * back to {@link #getCompilerFiles()}.
+   * will be discovered by input discovery.
    */
-  public NestedSet<Artifact> getCompilerFilesWithoutIncludes() {
-    if (compilerFilesWithoutIncludes.isEmpty()) {
-      return getCompilerFiles();
+  public NestedSet<Artifact> getCompilerFilesWithoutIncludes() throws EvalException {
+    try {
+      return value
+          .getValue("_compiler_files_without_includes", Depset.class)
+          .getSet(Artifact.class);
+    } catch (TypeException e) {
+      throw new EvalException(e);
     }
-    return compilerFilesWithoutIncludes;
-  }
-
-  /** Returns the files necessary for a 'strip' invocation. */
-  public NestedSet<Artifact> getStripFiles() {
-    return stripFiles;
-  }
-
-  @Override
-  public Depset getStripFilesForStarlark(StarlarkThread thread) throws EvalException {
-    CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return Depset.of(Artifact.TYPE, getStripFiles());
-  }
-
-  /** Returns the files necessary for an 'objcopy' invocation. */
-  public NestedSet<Artifact> getObjcopyFiles() {
-    return objcopyFiles;
-  }
-
-  @Override
-  public Depset getObjcopyFilesForStarlark(StarlarkThread thread) throws EvalException {
-    CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return Depset.of(Artifact.TYPE, getObjcopyFiles());
   }
 
   /**
    * Returns the files necessary for an 'as' invocation. May be empty if the CROSSTOOL file does not
    * define as_files.
    */
-  public NestedSet<Artifact> getAsFiles() {
-    return asFiles;
-  }
-
-  @Override
-  public Depset getAsFilesForStarlark(StarlarkThread thread) throws EvalException {
-    CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return Depset.of(Artifact.TYPE, getAsFiles());
+  public NestedSet<Artifact> getAsFiles() throws EvalException {
+    try {
+      return value.getValue("_as_files", Depset.class).getSet(Artifact.class);
+    } catch (TypeException e) {
+      throw new EvalException(e);
+    }
   }
 
   /**
    * Returns the files necessary for an 'ar' invocation. May be empty if the CROSSTOOL file does not
    * define ar_files.
    */
-  public NestedSet<Artifact> getArFiles() {
-    return arFiles;
-  }
-
-  @Override
-  public Depset getArFilesForStarlark(StarlarkThread thread) throws EvalException {
-    CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return Depset.of(Artifact.TYPE, getArFiles());
+  public NestedSet<Artifact> getArFiles() throws EvalException, TypeException {
+    return value.getValue("_ar_files", Depset.class).getSet(Artifact.class);
   }
 
   /** Returns the files necessary for linking, including the files needed for libc. */
-  public NestedSet<Artifact> getLinkerFiles() {
-    return linkerFiles;
-  }
-
-  @Override
-  public Depset getLinkerFilesForStarlark(StarlarkThread thread) throws EvalException {
-    CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return Depset.of(Artifact.TYPE, getLinkerFiles());
-  }
-
-  public NestedSet<Artifact> getDwpFiles() {
-    return dwpFiles;
+  public NestedSet<Artifact> getLinkerFiles() throws EvalException, TypeException {
+    return value.getValue("_linker_files", Depset.class).getSet(Artifact.class);
   }
 
   /** Returns the files necessary for capturing code coverage. */
-  public NestedSet<Artifact> getCoverageFiles() {
-    return coverageFiles;
+  @VisibleForTesting
+  public NestedSet<Artifact> getCoverageFiles() throws EvalException, TypeException {
+    return value.getValue("_coverage_files", Depset.class).getSet(Artifact.class);
   }
 
-  @Override
-  public Depset getCoverageFilesForStarlark(StarlarkThread thread) throws EvalException {
-    CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return Depset.of(Artifact.TYPE, getCoverageFiles());
-  }
-
-  public NestedSet<Artifact> getLibcLink(CppConfiguration cppConfiguration) {
-    if (cppConfiguration.equals(getCppConfigurationEvenThoughItCanBeDifferentThanWhatTargetHas())) {
-      return libcLink;
-    } else {
-      return targetLibcLink;
-    }
-  }
-
-  /**
-   * Returns true if the featureConfiguration includes statically linking the cpp runtimes.
-   *
-   * @param featureConfiguration the relevant FeatureConfiguration.
-   */
-  public boolean shouldStaticallyLinkCppRuntimes(FeatureConfiguration featureConfiguration) {
-    return featureConfiguration.isEnabled(CppRuleClasses.STATIC_LINK_CPP_RUNTIMES);
-  }
-
-  /** Returns the static runtime libraries. */
-  public NestedSet<Artifact> getStaticRuntimeLinkInputs(FeatureConfiguration featureConfiguration)
-      throws EvalException {
-    if (shouldStaticallyLinkCppRuntimes(featureConfiguration)) {
-      if (staticRuntimeLinkInputs == null) {
-        throw Starlark.errorf(
-            "Toolchain supports embedded runtimes, but didn't provide static_runtime_lib"
-                + " attribute.");
-      }
-      return staticRuntimeLinkInputs;
-    } else {
-      return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-    }
-  }
-
-  /** Returns an aggregating middleman that represents the static runtime libraries. */
   @Nullable
-  public Artifact getStaticRuntimeLinkMiddleman(
-      RuleErrorConsumer ruleErrorConsumer, FeatureConfiguration featureConfiguration)
-      throws RuleErrorException {
-    if (shouldStaticallyLinkCppRuntimes(featureConfiguration)) {
-      if (staticRuntimeLinkInputs == null) {
-        throw ruleErrorConsumer.throwWithRuleError(
-            "Toolchain supports embedded runtimes, but didn't "
-                + "provide static_runtime_lib attribute.");
-      }
-      return staticRuntimeLinkMiddleman;
-    } else {
-      return null;
-    }
+  public NestedSet<Artifact> getStaticRuntimeLinkInputs() throws EvalException, TypeException {
+    return nullOrDepset(value, "_static_runtime_lib_depset");
   }
 
-  /** Returns the dynamic runtime libraries. */
-  public NestedSet<Artifact> getDynamicRuntimeLinkInputs(FeatureConfiguration featureConfiguration)
-      throws EvalException {
-    if (shouldStaticallyLinkCppRuntimes(featureConfiguration)) {
-      if (dynamicRuntimeLinkInputs == null) {
-        throw new EvalException(
-            "Toolchain supports embedded runtimes, but didn't provide dynamic_runtime_lib"
-                + " attribute.");
-      }
-      return dynamicRuntimeLinkInputs;
-    } else {
-      return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-    }
-  }
-
-  /** Returns an aggregating middleman that represents the dynamic runtime libraries. */
   @Nullable
-  public Artifact getDynamicRuntimeLinkMiddleman(
-      RuleErrorConsumer ruleContext, FeatureConfiguration featureConfiguration)
-      throws RuleErrorException {
-    if (shouldStaticallyLinkCppRuntimes(featureConfiguration)) {
-      if (dynamicRuntimeLinkInputs == null) {
-        throw ruleContext.throwWithRuleError(
-            "Toolchain supports embedded runtimes, but didn't "
-                + "provide dynamic_runtime_lib attribute.");
-      }
-      return dynamicRuntimeLinkMiddleman;
-    } else {
-      return null;
-    }
+  public NestedSet<Artifact> getDynamicRuntimeLinkInputs() throws EvalException, TypeException {
+    return nullOrDepset(value, "_dynamic_runtime_lib_depset");
   }
 
   /**
    * Returns the name of the directory where the solib symlinks for the dynamic runtime libraries
-   * live. The directory itself will be under the root of the host configuration in the 'bin'
+   * live. The directory itself will be under the root of the exec configuration in the 'bin'
    * directory.
    */
-  public PathFragment getDynamicRuntimeSolibDir() {
-    return dynamicRuntimeSolibDir;
+  public PathFragment getDynamicRuntimeSolibDir() throws EvalException {
+    return PathFragment.create(value.getValue("dynamic_runtime_solib_dir", String.class));
   }
 
-  @Override
-  public String getDynamicRuntimeSolibDirForStarlark(StarlarkThread thread) throws EvalException {
-    CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return getDynamicRuntimeSolibDir().getPathString();
+  /** Returns {@code CcCompilationContext} from the {@code CcInfo} for the toolchain. */
+  public CcCompilationContext getCcInfoCcCompilationContext() throws EvalException {
+    return CcCompilationContext.of(
+        value
+            .getValue("_cc_info", StarlarkInfo.class)
+            .getValue("compilation_context", StarlarkInfo.class));
   }
 
-  /** Returns the {@code CcCompilationContext} for the toolchain. */
-  public CcCompilationContext getCcCompilationContext() {
-    return ccInfo.getCcCompilationContext();
-  }
-
-  /** Returns the {@code CcInfo} for the toolchain. */
-  public CcInfo getCcInfo() {
-    return ccInfo;
-  }
-
-  /**
-   * Whether the toolchains supports parameter files.
-   */
-  public boolean supportsParamFiles() {
-    return supportsParamFiles;
-  }
-  
-  /**
-   * Returns the configured features of the toolchain.
-   */
+  /** Returns the configured features of the toolchain. */
   @Nullable
-  public CcToolchainFeatures getFeatures() {
-    return toolchainFeatures;
+  public CcToolchainFeatures getFeatures() throws EvalException {
+    return value.getValue("_toolchain_features", CcToolchainFeatures.class);
   }
 
-  @Override
-  public Label getCcToolchainLabel() {
-    return ccToolchainLabel;
-  }
-
-  /**
-   * Returns the run time sysroot, which is where the dynamic linker and system libraries are found
-   * at runtime. This is usually an absolute path. If the toolchain compiler does not support
-   * sysroots, then this method returns <code>null</code>.
-   */
-  public PathFragment getRuntimeSysroot() {
-    return runtimeSysroot;
+  public Label getCcToolchainLabel() throws EvalException {
+    return value.getValue("_toolchain_label", Label.class);
   }
 
   /**
    * Return the name of the directory (relative to the bin directory) that holds mangled links to
    * shared libraries. This name is always set to the '{@code _solib_<cpu_archictecture_name>}.
    */
-  public String getSolibDirectory() {
-    return solibDirectory;
-  }
-
-  @Override
-  public String getSolibDirectoryForStarlark(StarlarkThread thread) throws EvalException {
-    CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return getSolibDirectory();
-  }
-
-  /** Returns whether the toolchain supports dynamic linking. */
-  public boolean supportsDynamicLinker(FeatureConfiguration featureConfiguration) {
-    return featureConfiguration.isEnabled(CppRuleClasses.SUPPORTS_DYNAMIC_LINKER);
-  }
-
-  /** Returns whether the toolchain supports the --start-lib/--end-lib options. */
-  public boolean supportsStartEndLib(FeatureConfiguration featureConfiguration) {
-    return featureConfiguration.isEnabled(CppRuleClasses.SUPPORTS_START_END_LIB);
+  public String getSolibDirectory() throws EvalException {
+    return value.getValue("_solib_dir", String.class);
   }
 
   /** Returns whether this toolchain supports interface shared libraries. */
-  public boolean supportsInterfaceSharedLibraries(FeatureConfiguration featureConfiguration) {
+  // TODO(gnish): Move this to FeatureConfiguration.
+  public static boolean supportsInterfaceSharedLibraries(
+      FeatureConfiguration featureConfiguration) {
     return featureConfiguration.isEnabled(CppRuleClasses.SUPPORTS_INTERFACE_SHARED_LIBRARIES);
   }
 
-  /**
-   * Return CppConfiguration instance that was used to configure CcToolchain.
-   *
-   * <p>If C++ rules use platforms/toolchains without
-   * https://github.com/bazelbuild/proposals/blob/master/designs/2019-02-12-toolchain-transitions.md
-   * implemented, CcToolchain is analyzed in the host configuration. This configuration is not what
-   * should be used by rules using the toolchain. This method should only be used to access stuff
-   * from CppConfiguration that is identical between host and target (e.g. incompatible flag
-   * values). Don't use it if you don't know what you're doing.
-   *
-   * <p>Once toolchain transitions are implemented, we can safely use the CppConfiguration from the
-   * toolchain in rules.
-   */
-  CppConfiguration getCppConfigurationEvenThoughItCanBeDifferentThanWhatTargetHas() {
-    return cppConfiguration;
-  }
-
   /** Return context-sensitive fdo instrumentation path. */
-  public String getCSFdoInstrument() {
+  public String getCSFdoInstrument() throws EvalException {
+    CppConfiguration cppConfiguration =
+        value.getValue("_cpp_configuration", CppConfiguration.class);
     return cppConfiguration.getCSFdoInstrument();
   }
 
-  /** Returns build variables to be templated into the crosstool. */
-  public CcToolchainVariables getBuildVariables(
-      BuildOptions buildOptions, CppConfiguration cppConfiguration) {
-    if (cppConfiguration.enableCcToolchainResolution()) {
-      // With platforms, cc toolchain is analyzed in the host configuration, so we cannot reuse
-      // build variables instance.
-      return CcToolchainProviderHelper.getBuildVariables(
-          buildOptions,
-          cppConfiguration,
-          getSysrootPathFragment(cppConfiguration),
-          additionalBuildVariablesComputer);
-    }
-    return buildVariables;
+  public CcToolchainVariables getBuildVars() throws EvalException {
+    return getValue().getValue("_build_variables", CcToolchainVariables.class);
   }
 
   /**
    * Return the set of include files that may be included even if they are not mentioned in the
    * source file or any of the headers included by it.
-   *
-   * @param cppConfiguration
    */
-  public ImmutableList<Artifact> getBuiltinIncludeFiles(CppConfiguration cppConfiguration) {
-    if (cppConfiguration.equals(getCppConfigurationEvenThoughItCanBeDifferentThanWhatTargetHas())) {
-      return builtinIncludeFiles;
-    } else {
-      return targetBuiltinIncludeFiles;
-    }
+  public ImmutableList<Artifact> getBuiltinIncludeFiles() throws EvalException {
+    return Sequence.cast(
+            value.getValue("_builtin_include_files", Sequence.class),
+            Artifact.class,
+            "_builtin_include_files")
+        .getImmutableList();
   }
 
-  /**
-   * Returns the tool which should be used for linking dynamic libraries, or in case it's not
-   * specified by the crosstool this will be @tools_repository/tools/cpp:link_dynamic_library
-   */
-  public Artifact getLinkDynamicLibraryTool() {
-    return linkDynamicLibraryTool;
-  }
-
-  /**
-   * Returns the tool that builds interface libraries from dynamic libraries.
-   */
-  public Artifact getInterfaceSoBuilder() {
-    return interfaceSoBuilder;
-  }
-
-  @Override
+  /** Returns the grep-includes tool which is needing during linking because of linkstamping. */
   @Nullable
-  public String getSysroot() {
+  public Artifact getGrepIncludes() throws EvalException {
+    return value.getNoneableValue("_grep_includes", Artifact.class);
+  }
+
+  @Nullable
+  public String getSysroot() throws EvalException {
+    PathFragment sysroot = nullOrPathFragment(value, "sysroot");
     return sysroot != null ? sysroot.getPathString() : null;
   }
 
-  public PathFragment getSysrootPathFragment(CppConfiguration cppConfiguration) {
-    if (cppConfiguration.equals(getCppConfigurationEvenThoughItCanBeDifferentThanWhatTargetHas())) {
-      return sysroot;
-    } else {
-      return targetSysroot;
-    }
+  @Nullable
+  public PathFragment getSysrootPathFragment() throws EvalException {
+    return nullOrPathFragment(value, "sysroot");
   }
 
   /**
@@ -806,49 +460,9 @@ public final class CcToolchainProvider extends NativeInfo
    * compatible.
    */
   // TODO(bazel-team): The javadoc should clarify how this is used in Blaze.
-  public String getAbi() {
-    return abi;
-  }
-
-  /**
-   * Returns the glibc version used by the abi we're using. This is a glibc version number (e.g.,
-   * "2.2.2"). Note that in practice we might be using glibc 2.2.2 as ABI even when compiling with
-   * gcc-4.2.2, gcc-4.3.1, or gcc-4.4.0 (which use glibc 2.3.6), because ABIs are backwards
-   * compatible.
-   */
-  // TODO(bazel-team): The javadoc should clarify how this is used in Blaze.
-  public String getAbiGlibcVersion() {
-    return abiGlibcVersion;
-  }
-
-  /** Returns the compiler version string (e.g. "gcc-4.1.1"). */
-  @Override
-  public String getCompiler() {
-    return compiler;
-  }
-
-  /** Returns the libc version string (e.g. "glibc-2.2.2"). */
-  @Override
-  public String getTargetLibc() {
-    return targetLibc;
-  }
-
-  /** Returns the target architecture using blaze-specific constants (e.g. "piii"). */
-  @Override
-  public String getTargetCpu() {
-    return targetCpu;
-  }
-
-  /**
-   * Returns a map of additional make variables for use by {@link BuildConfiguration}. These are to
-   * used to allow some build rules to avoid the limits on stack frame sizes and variable-length
-   * arrays.
-   *
-   * <p>The returned map must contain an entry for {@code STACK_FRAME_UNLIMITED}, though the entry
-   * may be an empty string.
-   */
-  public ImmutableMap<String, String> getAdditionalMakeVariables() {
-    return additionalMakeVariables;
+  @VisibleForTesting
+  public String getAbi() throws EvalException {
+    return value.getValue("_abi", String.class);
   }
 
   /**
@@ -858,99 +472,12 @@ public final class CcToolchainProvider extends NativeInfo
    */
   // TODO(b/65151735): Remove when cc_flags is entirely from features.
   @Deprecated
-  public String getLegacyCcFlagsMakeVariable() {
-    return legacyCcFlagsMakeVariable;
+  public String getLegacyCcFlagsMakeVariable() throws EvalException {
+    return value.getValue("_legacy_cc_flags_make_variable", String.class);
   }
 
-  public FdoContext getFdoContext() {
-    return fdoContext;
-  }
-
-  @Override
-  public FdoContext getFdoContextForStarlark(StarlarkThread thread) throws EvalException {
-    CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return fdoContext;
-  }
-
-  @Override
-  public String objcopyExecutable() {
-    return objcopyExecutable;
-  }
-
-  @Override
-  public String compilerExecutable() {
-    return compilerExecutable;
-  }
-
-  @Override
-  public String preprocessorExecutable() {
-    return preprocessorExecutable;
-  }
-
-  @Override
-  public String nmExecutable() {
-    return nmExecutable;
-  }
-
-  @Override
-  public String objdumpExecutable() {
-    return objdumpExecutable;
-  }
-
-  @Override
-  public String arExecutable() {
-    return arExecutable;
-  }
-
-  @Override
-  public String stripExecutable() {
-    return stripExecutable;
-  }
-
-  @Override
-  public String ldExecutable() {
-    return ldExecutable;
-  }
-
-  @Override
-  public String gcovExecutable() {
-    return gcovExecutable;
-  }
-
-  /**
-   * Unused, for compatibility with things internal to Google.
-   *
-   * <p>Deprecated: Use platforms.
-   */
-  @Deprecated
-  public String getTargetOS() {
-    return targetOS;
-  }
-
-  /** Returns the system name which is required by the toolchain to run. */
-  public String getHostSystemName() {
-    return hostSystemName;
-  }
-
-  /** Returns the GNU System Name */
-  @Override
-  public String getTargetGnuSystemName() {
-    return targetSystemName;
-  }
-
-  /** Returns the architecture component of the GNU System Name */
-  public String getGnuSystemArch() {
-    if (targetSystemName.indexOf('-') == -1) {
-      return targetSystemName;
-    }
-    return targetSystemName.substring(0, targetSystemName.indexOf('-'));
-  }
-
-  public final boolean isLLVMCompiler() {
-    // TODO(tmsriram): Checking for "llvm" does not handle all the cases.  This
-    // is temporary until the crosstool configuration is modified to add fields that
-    // indicate which flavor of fdo is being used.
-    return toolchainIdentifier.contains("llvm");
+  public FdoContext getFdoContext() throws EvalException {
+    return new FdoContext(value.getValue("_fdo_context", StructImpl.class));
   }
 
   // Not all of CcToolchainProvider is exposed to Starlark, which makes implementing deep equality
@@ -966,39 +493,19 @@ public final class CcToolchainProvider extends NativeInfo
     return System.identityHashCode(this);
   }
 
-  public boolean isToolConfiguration() {
-    return isToolConfiguration;
+  public boolean isToolConfiguration() throws EvalException {
+    return value.getValue("_is_tool_configuration", Boolean.class);
   }
 
-  public LicensesProvider getLicensesProvider() {
-    return licensesProvider;
+  public PackageSpecificationProvider getAllowlistForLayeringCheck() throws EvalException {
+    return value.getValue("_allowlist_for_layering_check", PackageSpecificationProvider.class);
   }
 
-  public PathFragment getDefaultSysroot() {
-    return defaultSysroot;
+  public OutputGroupInfo getCcBuildInfoTranslator() throws EvalException {
+    return value.getValue("_build_info_files", OutputGroupInfo.class);
   }
 
-  public boolean requireCtxInConfigureFeatures() {
-    return getCppConfigurationEvenThoughItCanBeDifferentThanWhatTargetHas()
-        .requireCtxInConfigureFeatures();
-  }
-
-  @VisibleForTesting
-  NestedSet<Artifact> getStaticRuntimeLibForTesting() {
-    return staticRuntimeLinkInputs;
-  }
-
-  @VisibleForTesting
-  NestedSet<Artifact> getDynamicRuntimeLibForTesting() {
-    return dynamicRuntimeLinkInputs;
-  }
-
-  public PackageSpecificationProvider getAllowlistForLayeringCheck() {
-    return allowlistForLayeringCheck;
-  }
-
-  public PackageSpecificationProvider getAllowlistForLooseHeaderCheck() {
-    return allowListForLooseHeaderCheck;
+  public CppConfiguration getCppConfiguration() throws EvalException {
+    return value.getValue("_cpp_configuration", CppConfiguration.class);
   }
 }
-

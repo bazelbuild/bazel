@@ -13,32 +13,38 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.test;
 
+import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL_LIST;
+import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.analysis.AliasProvider;
+import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.BuildOptionsCache;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
-import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
-import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.TargetUtils;
-import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.common.options.Options;
 
 /**
- * Trimming transition factory which removes the test config fragment when entering a non-test rule.
+ * Trimming transition factory which removes the test config fragment and certain options that are
+ * only relevant for tests when entering a non-test rule.
  */
-public final class TestTrimmingTransitionFactory implements TransitionFactory<Rule> {
+public final class TestTrimmingTransitionFactory implements TransitionFactory<RuleTransitionData> {
 
   private static final ImmutableSet<String> TEST_OPTIONS =
       ImmutableSet.copyOf(Options.getDefaults(TestOptions.class).asMap().keySet());
+
+  private static final Label TRANSITIVE_CONFIG_TO_TRIGGER_SKIP =
+      Label.parseCanonicalUnchecked("//command_line_option/fragment:test");
 
   /**
    * Trimming transition which removes the test config fragment if --trim_test_configuration is on.
@@ -60,60 +66,47 @@ public final class TestTrimmingTransitionFactory implements TransitionFactory<Ru
       this.testonly = testonly;
     }
 
-    // This cache is to prevent major slowdowns when using --trim_test_configuration. This
-    // transition is always invoked on every target in the top-level invocation. Thus, a wide
-    // invocation, like //..., will cause the transition to be invoked on a large number of targets
-    // leading to significant performance degradation. (Notably, the transition itself is somewhat
-    // fast; however, the post-processing of the BuildOptions into the actual BuildConfiguration
-    // takes a significant amount of time).
-    private static final BuildOptionsCache<Integer> cache = new BuildOptionsCache<>();
-
     @Override
     public ImmutableSet<Class<? extends FragmentOptions>> requiresOptionFragments() {
-      return ImmutableSet.of(TestOptions.class, CoreOptions.class);
+      return TestTrimmingLogic.REQUIRED_FRAGMENTS;
     }
 
     @Override
-    public BuildOptions patch(BuildOptionsView originalOptions, EventHandler eventHandler) {
-      if (!originalOptions.contains(TestOptions.class)) {
+    public BuildOptions patch(BuildOptionsView originalOptions, EventHandler eventHandler)
+        throws InterruptedException {
+      var originalTestOptions = originalOptions.get(TestOptions.class);
+      if (originalTestOptions == null) {
         // nothing to do, already trimmed this fragment
         return originalOptions.underlying();
       }
-      CoreOptions originalCoreOptions = originalOptions.get(CoreOptions.class);
-      TestOptions originalTestOptions = originalOptions.get(TestOptions.class);
-      if (!originalTestOptions.trimTestConfiguration
-          || (originalTestOptions.experimentalRetainTestConfigurationAcrossTestonly && testonly)
-          || !originalCoreOptions.useDistinctHostConfiguration) {
+      if (!originalTestOptions.getTrimTestConfiguration()
+          || (originalTestOptions.getExperimentalRetainTestConfigurationAcrossTestonly()
+              && testonly)) {
         // nothing to do, trimming is disabled
-        // Due to repercussions of b/117932061, do not trim when `--nodistinct_host_configuration`
-        // TODO(twigg): See if can remove distinct_host_configuration read here and thus
-        // dependency on CoreOptions above.
         return originalOptions.underlying();
       }
-      return cache.applyTransition(
-          originalOptions,
-          // The transition uses no non-BuildOptions arguments
-          0,
-          () ->
-              originalOptions.underlying().toBuilder()
-                  .removeFragmentOptions(TestOptions.class)
-                  .build());
+      // No context needed, use the constant Boolean.TRUE.
+      return TestTrimmingLogic.trim(originalOptions);
     }
   }
 
   @Override
-  public PatchTransition create(Rule rule) {
-    RuleClass ruleClass = rule.getRuleClassObject();
+  public PatchTransition create(RuleTransitionData ruleData) {
+    RuleClass ruleClass = ruleData.rule().getRuleClassObject();
     if (ruleClass
             .getConfigurationFragmentPolicy()
             .isLegalConfigurationFragment(TestConfiguration.class)
-        || TargetUtils.isAlias(rule)) {
+        || AliasProvider.mayBeAlias(ruleData.rule())) {
       // If Test rule, no need to trim here.
       // If Alias rule, might point to test rule so don't trim yet.
       return NoTransition.INSTANCE;
     }
 
-    for (String referencedOptions : ruleClass.getOptionReferenceFunction().apply(rule)) {
+    // TODO(blaze-configurability-team): Needing special logic for config_setting implies
+    //   getConfigurationFragmentPolicy is not accurate for config_setting, which is bad.
+    // That said, config_setting on test options should be banned regardless of what rule type
+    // consumes them.
+    for (String referencedOptions : ruleClass.getOptionReferenceFunction().apply(ruleData.rule())) {
       if (TEST_OPTIONS.contains(referencedOptions)) {
         // Test-option-referencing config_setting; no need to trim here.
         return NoTransition.INSTANCE;
@@ -121,13 +114,29 @@ public final class TestTrimmingTransitionFactory implements TransitionFactory<Ru
     }
 
     // Non-test rule. Trim it!
-    // Use an attribute mapper to ensure testonly is resolved to an actual boolean value.
-    // It is expected all rules should have a boolean testonly value so the `has` check is only
-    //   there as an over-abundance of caution.
-    NonconfigurableAttributeMapper attrs = NonconfigurableAttributeMapper.of(rule);
-    if (attrs.has("testonly", Type.BOOLEAN) && attrs.get("testonly", Type.BOOLEAN)) {
+    // Use an attribute mapper to ensure attributes are resolved to expected types
+    // these attributes are defined in BaseRuleClasses
+    NonconfigurableAttributeMapper attrs = NonconfigurableAttributeMapper.of(ruleData.rule());
+
+    // Skip trimming when transitive_configs has magic value.
+    if (attrs.has(BaseRuleClasses.TAGGED_TRIMMING_ATTR, NODEP_LABEL_LIST)) {
+      for (Label entry : attrs.get(BaseRuleClasses.TAGGED_TRIMMING_ATTR, NODEP_LABEL_LIST)) {
+        if (entry.equals(TRANSITIVE_CONFIG_TO_TRIGGER_SKIP)) {
+          return NoTransition.INSTANCE;
+        }
+      }
+    }
+
+    // Only skip testonly = true when --experimental_retain_test_configuration_across_testonly
+    //   so have to defer decision until actually have a config.
+    if (attrs.has("testonly", BOOLEAN) && attrs.get("testonly", BOOLEAN)) {
       return TestTrimmingTransition.TESTONLY_TRUE;
     }
     return TestTrimmingTransition.TESTONLY_FALSE;
+  }
+
+  @Override
+  public TransitionType transitionType() {
+    return TransitionType.RULE;
   }
 }

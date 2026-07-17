@@ -21,13 +21,9 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.vfs.Root;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Optional;
 
-/**
- * A {@link PackageRoots} backed by a map of package identifiers to paths. A symlink forest must be
- * planted for execution.
- */
-public class MapAsPackageRoots implements PackageRoots {
+/** A {@link PackageRoots} backed by a map of package identifiers to paths. */
+final class MapAsPackageRoots implements PackageRoots {
   private final ImmutableMap<PackageIdentifier, Root> packageRootsMap;
 
   MapAsPackageRoots(ImmutableMap<PackageIdentifier, Root> packageRootsMap) {
@@ -35,8 +31,8 @@ public class MapAsPackageRoots implements PackageRoots {
   }
 
   @Override
-  public Optional<ImmutableMap<PackageIdentifier, Root>> getPackageRootsMap() {
-    return Optional.of(packageRootsMap);
+  public ImmutableMap<PackageIdentifier, Root> getPackageRootsMap() {
+    return packageRootsMap;
   }
 
   @Override

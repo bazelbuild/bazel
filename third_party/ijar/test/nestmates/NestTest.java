@@ -14,7 +14,7 @@
 
 /** A class that results in nestmate attributes in Java 11. */
 public class NestTest {
-  private static class P {
+  public static class P {
     public void f() {}
   }
 

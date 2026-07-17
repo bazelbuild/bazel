@@ -17,10 +17,11 @@ import com.google.devtools.build.lib.query2.common.CommonQueryOptions;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
-import com.google.devtools.common.options.OptionMetadataTag;
+import com.google.devtools.common.options.OptionsClass;
 
 /** Options class for aquery specific query options. */
-public class AqueryOptions extends CommonQueryOptions {
+@OptionsClass
+public abstract class AqueryOptions extends CommonQueryOptions {
   @Option(
       name = "output",
       defaultValue = "text",
@@ -28,8 +29,8 @@ public class AqueryOptions extends CommonQueryOptions {
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
       help =
           "The format in which the aquery results should be printed. Allowed values for aquery "
-              + "are: text, textproto, proto, jsonproto.")
-  public String outputFormat;
+              + "are: text, textproto, proto, streamed_proto, jsonproto.")
+  public abstract String getOutputFormat();
 
   @Option(
       name = "include_commandline",
@@ -37,16 +38,28 @@ public class AqueryOptions extends CommonQueryOptions {
       documentationCategory = OptionDocumentationCategory.QUERY,
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
       help = "Includes the content of the action command lines in the output (potentially large).")
-  public boolean includeCommandline;
+  public abstract boolean getIncludeCommandline();
+
+  public abstract void setIncludeCommandline(boolean value);
 
   @Option(
       name = "include_artifacts",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.QUERY,
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help = "Includes names of the action inputs and outputs in the output (potentially large).")
+  public abstract boolean getIncludeArtifacts();
+
+  @Option(
+      name = "include_pruned_inputs",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
       help =
-          "Includes names of the action inputs and outputs in the output " + "(potentially large).")
-  public boolean includeArtifacts;
+          "Includes action inputs that were pruned during action execution. Only affects actions"
+              + " that discover inputs and have been executed in a previous invocation. Only takes"
+              + " effect if --include_artifacts is also set.")
+  public abstract boolean getIncludePrunedInputs();
 
   @Option(
       name = "include_param_files",
@@ -57,7 +70,17 @@ public class AqueryOptions extends CommonQueryOptions {
           "Include the content of the param files used in the command (potentially large). "
               + "Note: Enabling this flag will automatically enable the "
               + "--include_commandline flag.")
-  public boolean includeParamFiles;
+  public abstract boolean getIncludeParamFiles();
+
+  @Option(
+      name = "include_file_write_contents",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help =
+          "Include the file contents for the FileWrite, SourceSymlinkManifest, and "
+              + "RepoMappingManifest actions (potentially large). ")
+  public abstract boolean getIncludeFileWriteContents();
 
   @Option(
       name = "skyframe_state",
@@ -68,18 +91,5 @@ public class AqueryOptions extends CommonQueryOptions {
           "Without performing extra analysis, dump the current Action Graph from Skyframe. "
               + "Note: Specifying a target with --skyframe_state is currently not supported. "
               + "This flag is only available with --output=proto or --output=textproto.")
-  public boolean queryCurrentSkyframeState;
-
-  @Option(
-      name = "incompatible_proto_output_v2",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.QUERY,
-      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES,
-        OptionMetadataTag.DEPRECATED,
-      },
-      help = "No-op.")
-  public boolean protoV2;
+  public abstract boolean getQueryCurrentSkyframeState();
 }

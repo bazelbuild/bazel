@@ -24,10 +24,11 @@ import java.util.List;
  * depending on the number of storing elements.
  *
  * <p>Effective collection implementation depends on the size of collection.
+ *
  * <ul>
- *   <li> For 1 - singleton immutable List.
- *   <li> For [2..6] - ArrayList.
- *   <li> For [7...) - CompactHasSet.
+ *   <li>For 1 - singleton immutable List.
+ *   <li>For [2..6] - ArrayList.
+ *   <li>For [7...) - CompactHashSet.
  * </ul>
  *
  * @param <T>

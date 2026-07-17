@@ -14,36 +14,40 @@
 
 package com.google.devtools.build.lib.profiler;
 
-/**
- * Build phase markers. Used as a separators between different build phases.
- */
-public enum ProfilePhase {
-  LAUNCH("launch", "Launch Blaze"),
-  INIT("init", "Initialize command"),
-  TARGET_PATTERN_EVAL("target pattern evaluation", "Evaluate target patterns"),
-  ANALYZE("interleaved loading-and-analysis", "Load and analyze dependencies"),
-  LICENSE("license checking", "Analyze licenses"),
-  PREPARE("preparation", "Prepare for build"),
-  EXECUTE("execution", "Build artifacts"),
-  FINISH("finish", "Complete build"),
-  UNKNOWN("unknown", "unknown");
+import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
+
+/** Build phase markers. Used as a separators between different build phases. */
+@SkybridgeInterface
+public final class ProfilePhase {
+  public static final ProfilePhase LAUNCH = new ProfilePhase("launch", "Launch Blaze");
+  public static final ProfilePhase INIT = new ProfilePhase("init", "Initialize command");
+  public static final ProfilePhase TARGET_PATTERN_EVAL =
+      new ProfilePhase("target pattern evaluation", "Evaluate target patterns");
+  public static final ProfilePhase ANALYZE =
+      new ProfilePhase("interleaved loading-and-analysis", "Load and analyze dependencies");
+  public static final ProfilePhase ANALYZE_AND_EXECUTE =
+      new ProfilePhase(
+          "interleaved loading, analysis and execution",
+          "Load, analyze dependencies and build artifacts");
+  public static final ProfilePhase LICENSE =
+      new ProfilePhase("license checking", "Analyze licenses");
+  public static final ProfilePhase PREPARE = new ProfilePhase("preparation", "Prepare for build");
+  public static final ProfilePhase EXECUTE = new ProfilePhase("execution", "Build artifacts");
+  public static final ProfilePhase FINISH = new ProfilePhase("finish", "Complete build");
+  public static final ProfilePhase UNKNOWN = new ProfilePhase("unknown", "unknown");
 
   /** Short name for the phase */
   public final String nick;
   /** Human readable description for the phase. */
   public final String description;
 
-  ProfilePhase(String nick, String description) {
+  private ProfilePhase(String nick, String description) {
     this.nick = nick;
     this.description = description;
   }
 
-  public static ProfilePhase getPhaseFromDescription(String description) {
-    for (ProfilePhase profilePhase : ProfilePhase.values()) {
-      if (profilePhase.description.equals(description)) {
-        return profilePhase;
-      }
-    }
-    return UNKNOWN;
+  @Override
+  public String toString() {
+    return nick;
   }
 }

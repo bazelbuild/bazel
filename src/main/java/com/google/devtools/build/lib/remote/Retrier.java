@@ -14,28 +14,32 @@
 
 package com.google.devtools.build.lib.remote;
 
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Throwables;
 import com.google.common.util.concurrent.AsyncCallable;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.remote.Retrier.CircuitBreaker.State;
+import com.google.devtools.build.lib.remote.Retrier.ResultClassifier.Result;
+import com.google.devtools.build.lib.remote.logging.RpcLogContext;
+import io.grpc.Context;
 import java.io.IOException;
+import java.util.Objects;
 import java.util.concurrent.Callable;
 import java.util.concurrent.RejectedExecutionException;
-import java.util.concurrent.TimeUnit;
-import java.util.function.Predicate;
 import java.util.function.Supplier;
+import javax.annotation.Nullable;
 import javax.annotation.concurrent.ThreadSafe;
 
 /**
  * Supports retrying the execution of a {@link Callable} in case of failure.
  *
- * <p>The errors that are retried are configurable via a {@link Predicate<? super Exception>}. The
- * delay between executions is specified by a {@link Backoff}. Additionally, the retrier supports
- * circuit breaking to stop execution in case of high failure rates.
+ * <p>The errors that are retried are configurable via a {@link ResultClassifier}. The delay between
+ * executions is specified by a {@link Backoff}. Additionally, the retrier supports circuit breaking
+ * to stop execution in case of high failure rates.
  */
 @ThreadSafe
 public class Retrier {
@@ -113,6 +117,26 @@ public class Retrier {
     }
   }
 
+  /** Determines whether the result of a call is success, retriable failure or permanent failure. */
+  @FunctionalInterface
+  public interface ResultClassifier {
+
+    /** The result of a call execution. */
+    enum Result {
+      /** A call is executed successfully. */
+      SUCCESS,
+
+      /** A call execution is failed with retriable error. */
+      TRANSIENT_FAILURE,
+
+      /** A call execution is failed with permanent error. */
+      PERMANENT_FAILURE
+    }
+
+    /** Returns the {@link Result} of the call execution. */
+    Result test(Exception e);
+  }
+
   /**
    * {@link Sleeper#sleep(long)} is called to pause between synchronous retries ({@link
    * #execute(Callable)}.
@@ -176,64 +200,98 @@ public class Retrier {
   }
 
   private final Supplier<Backoff> backoffSupplier;
-  private final Predicate<? super Exception> shouldRetry;
+  private final ResultClassifier resultClassifier;
   private final CircuitBreaker circuitBreaker;
   private final ListeningScheduledExecutorService retryService;
   private final Sleeper sleeper;
 
   public Retrier(
       Supplier<Backoff> backoffSupplier,
-      Predicate<? super Exception> shouldRetry,
+      ResultClassifier resultClassifier,
       ListeningScheduledExecutorService retryScheduler,
       CircuitBreaker circuitBreaker) {
-    this(
-        backoffSupplier, shouldRetry, retryScheduler, circuitBreaker, TimeUnit.MILLISECONDS::sleep);
+    this(backoffSupplier, resultClassifier, retryScheduler, circuitBreaker, MILLISECONDS::sleep);
   }
 
   @VisibleForTesting
   Retrier(
       Supplier<Backoff> backoffSupplier,
-      Predicate<? super Exception> shouldRetry,
+      ResultClassifier resultClassifier,
       ListeningScheduledExecutorService retryService,
       CircuitBreaker circuitBreaker,
       Sleeper sleeper) {
     this.backoffSupplier = backoffSupplier;
-    this.shouldRetry = shouldRetry;
+    this.resultClassifier = resultClassifier;
     this.retryService = retryService;
     this.circuitBreaker = circuitBreaker;
     this.sleeper = sleeper;
   }
 
-  ListeningScheduledExecutorService getRetryService() {
-    return retryService;
+  /**
+   * Returns an id identifying a new logical call. When non-null it is propagated to the gRPC {@link
+   * Context} (wrapped in a {@link RpcLogContext}, together with the attempt number) around each
+   * attempt, so the logging interceptor can tag attempt entries with it. Returns {@code null} by
+   * default (no propagation); subclasses may override to enable correlated gRPC logging.
+   */
+  @Nullable
+  protected String newRpcId() {
+    return null;
   }
 
   /**
-   * Execute a {@link Callable}, retrying execution in case of failure and returning the result in
-   * case of success.
+   * Called once when a logical call gives up after exhausting its retries, immediately before the
+   * final failure is propagated. Does nothing by default.
+   *
+   * <p>This fires only at the retries-exhausted seam: a retriable (transient) failure for which the
+   * backoff has no further delay to give. It does <em>not</em> fire for non-retriable failures,
+   * circuit-breaker rejections, or interruptions, which propagate without exhausting retries.
+   *
+   * @param e the exception that caused the final failure
+   * @param backoff the backoff used for this logical call (for the retry-attempt count)
+   * @param rpcId the id from {@link #newRpcId()} for this logical call, or {@code null}
    */
-  public <T> T execute(Callable<T> call) throws Exception {
+  protected void onRetriesExhausted(Exception e, Backoff backoff, @Nullable String rpcId) {}
+
+  /** A {@link Callable} that can be retried in case of transient failure. */
+  @FunctionalInterface
+  public interface RetryableCallable<T, E extends Exception> extends Callable<T> {
+    @Override
+    T call() throws IOException, InterruptedException, E;
+  }
+
+  /**
+   * Execute a {@link RetryableCallable}, retrying execution in case of transient failure and
+   * returning the result in case of success.
+   */
+  public <T, E extends Exception> T execute(RetryableCallable<T, E> call)
+      throws E, IOException, InterruptedException {
     return execute(call, newBackoff());
   }
 
   /**
-   * Execute a {@link Callable}, retrying execution in case of failure and returning the result in
-   * case of success with give {@link Backoff}.
+   * Execute a {@link RetryableCallable}, retrying execution in case of transient failure and
+   * returning the result in case of success with give {@link Backoff}.
    *
    * <p>{@link InterruptedException} is not retried.
    *
    * @param call the {@link Callable} to execute.
-   * @throws Exception if the {@code call} didn't succeed within the framework specified by {@code
-   *     backoffSupplier} and {@code shouldRetry}.
+   * @throws E or {@link IOException} if the {@code call} didn't succeed within the framework
+   *     specified by {@code backoffSupplier} and {@code resultClassifier}.
    * @throws CircuitBreakerException in case a call was rejected because the circuit breaker
    *     tripped.
    * @throws InterruptedException if the {@code call} throws an {@link InterruptedException} or the
    *     current thread's interrupted flag is set.
    */
-  public <T> T execute(Callable<T> call, Backoff backoff) throws Exception {
+  public <T, E extends Exception> T execute(RetryableCallable<T, E> call, Backoff backoff)
+      throws E, IOException, InterruptedException {
+    return execute(call, backoff, newRpcId());
+  }
+
+  private <T, E extends Exception> T execute(
+      RetryableCallable<T, E> call, Backoff backoff, @Nullable String rpcId)
+      throws E, IOException, InterruptedException {
     while (true) {
-      final State circuitState;
-      circuitState = circuitBreaker.state();
+      State circuitState = circuitBreaker.state();
       if (State.REJECT_CALLS.equals(circuitState)) {
         throw new CircuitBreakerException();
       }
@@ -241,20 +299,24 @@ public class Retrier {
         if (Thread.interrupted()) {
           throw new InterruptedException();
         }
-        T r = call.call();
+        T r = callWithContext(call, backoff, rpcId);
         circuitBreaker.recordSuccess();
         return r;
+      } catch (InterruptedException e) {
+        throw e;
       } catch (Exception e) {
-        circuitBreaker.recordFailure();
-        Throwables.throwIfInstanceOf(e, InterruptedException.class);
-        if (State.TRIAL_CALL.equals(circuitState)) {
-          throw e;
+        Result r = resultClassifier.test(e);
+        if (r.equals(Result.SUCCESS)) {
+          circuitBreaker.recordSuccess();
+        } else {
+          circuitBreaker.recordFailure();
         }
-        if (!shouldRetry.test(e)) {
+        if (!r.equals(Result.TRANSIENT_FAILURE) || Objects.equals(circuitState, State.TRIAL_CALL)) {
           throw e;
         }
         final long delayMillis = backoff.nextDelayMillis(e);
         if (delayMillis < 0) {
+          onRetriesExhausted(e, backoff, rpcId);
           throw e;
         }
         sleeper.sleep(delayMillis);
@@ -262,43 +324,108 @@ public class Retrier {
     }
   }
 
-  /** Executes an {@link AsyncCallable}, retrying execution in case of failure. */
+  private <T, E extends Exception> T callWithContext(
+      RetryableCallable<T, E> call, Backoff backoff, @Nullable String rpcId)
+      throws E, IOException, InterruptedException {
+    if (rpcId == null) {
+      return call.call();
+    }
+    Context context =
+        Context.current()
+            .withValue(RpcLogContext.KEY, new RpcLogContext(rpcId, backoff.getRetryAttempts() + 1));
+    Context previous = context.attach();
+    try {
+      return call.call();
+    } finally {
+      context.detach(previous);
+    }
+  }
+
+  private <T> ListenableFuture<T> callWithContext(
+      AsyncCallable<T> call, Backoff backoff, @Nullable String rpcId) throws Exception {
+    if (rpcId == null) {
+      return call.call();
+    }
+    Context context =
+        Context.current()
+            .withValue(RpcLogContext.KEY, new RpcLogContext(rpcId, backoff.getRetryAttempts() + 1));
+    Context previous = context.attach();
+    try {
+      return call.call();
+    } finally {
+      context.detach(previous);
+    }
+  }
+
+  /** Executes an {@link AsyncCallable}, retrying execution in case of transient failure. */
   public <T> ListenableFuture<T> executeAsync(AsyncCallable<T> call) {
     return executeAsync(call, newBackoff());
   }
 
   /**
-   * Executes an {@link AsyncCallable}, retrying execution in case of failure with the given
-   * backoff.
+   * Executes an {@link AsyncCallable}, retrying execution in case of transient failure with the
+   * given backoff.
    */
   public <T> ListenableFuture<T> executeAsync(AsyncCallable<T> call, Backoff backoff) {
+    return executeAsync(call, backoff, newRpcId());
+  }
+
+  private <T> ListenableFuture<T> executeAsync(
+      AsyncCallable<T> call, Backoff backoff, @Nullable String rpcId) {
+    final State circuitState = circuitBreaker.state();
+    if (State.REJECT_CALLS.equals(circuitState)) {
+      return Futures.immediateFailedFuture(new CircuitBreakerException());
+    }
     try {
+      ListenableFuture<T> future =
+          Futures.transformAsync(
+              callWithContext(call, backoff, rpcId),
+              (f) -> {
+                circuitBreaker.recordSuccess();
+                return Futures.immediateFuture(f);
+              },
+              MoreExecutors.directExecutor());
       return Futures.catchingAsync(
-          call.call(),
+          future,
           Exception.class,
-          t -> onExecuteAsyncFailure(t, call, backoff),
+          t -> onExecuteAsyncFailure(t, call, backoff, circuitState, rpcId),
           MoreExecutors.directExecutor());
     } catch (Exception e) {
-      return onExecuteAsyncFailure(e, call, backoff);
+      return onExecuteAsyncFailure(e, call, backoff, circuitState, rpcId);
     }
   }
 
   private <T> ListenableFuture<T> onExecuteAsyncFailure(
-      Exception t, AsyncCallable<T> call, Backoff backoff) {
-    if (isRetriable(t)) {
+      Exception t,
+      AsyncCallable<T> call,
+      Backoff backoff,
+      State circuitState,
+      @Nullable String rpcId) {
+    Result r = resultClassifier.test(t);
+    if (r.equals(Result.TRANSIENT_FAILURE)) {
+      circuitBreaker.recordFailure();
+      if (circuitState.equals(State.TRIAL_CALL)) {
+        return Futures.immediateFailedFuture(t);
+      }
       long waitMillis = backoff.nextDelayMillis(t);
       if (waitMillis >= 0) {
         try {
           return Futures.scheduleAsync(
-              () -> executeAsync(call, backoff), waitMillis, TimeUnit.MILLISECONDS, retryService);
+              () -> executeAsync(call, backoff, rpcId), waitMillis, MILLISECONDS, retryService);
         } catch (RejectedExecutionException e) {
           // May be thrown by .scheduleAsync(...) if i.e. the executor is shutdown.
           return Futures.immediateFailedFuture(new IOException(e));
         }
       } else {
+        onRetriesExhausted(t, backoff, rpcId);
         return Futures.immediateFailedFuture(t);
       }
     } else {
+      if (r.equals(Result.SUCCESS)) {
+        circuitBreaker.recordSuccess();
+      } else {
+        circuitBreaker.recordFailure();
+      }
       return Futures.immediateFailedFuture(t);
     }
   }
@@ -308,6 +435,10 @@ public class Retrier {
   }
 
   public boolean isRetriable(Exception e) {
-    return shouldRetry.test(e);
+    return resultClassifier.test(e).equals(Result.TRANSIENT_FAILURE);
+  }
+
+  CircuitBreaker getCircuitBreaker() {
+    return this.circuitBreaker;
   }
 }

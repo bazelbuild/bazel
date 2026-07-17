@@ -232,6 +232,7 @@ public final class JavacOptions {
     private String target;
     private String release;
     private final List<String> modular = new ArrayList<>();
+    private boolean preview = false;
 
     @Override
     public boolean processOption(String option, Iterator<String> remaining) {
@@ -277,6 +278,10 @@ public final class JavacOptions {
         modular.add(option);
         return true;
       }
+      if (option.equals("--enable-preview")) {
+        preview = true;
+        return true;
+      }
       return false;
     }
 
@@ -296,6 +301,9 @@ public final class JavacOptions {
       }
       if (version > 8) {
         normalized.addAll(modular);
+        if (preview) {
+          normalized.add("--enable-preview");
+        }
       }
     }
 
@@ -349,37 +357,6 @@ public final class JavacOptions {
       String flag = builder.build().toString();
       if (!flag.isEmpty()) {
         normalized.add(flag);
-      }
-    }
-  }
-
-  /**
-   * Normalizer for {@code -parameters}, which allows the (non-standard) flag {@code
-   * -XDnoparameters} to disable it based on which option appears last in the params list.
-   */
-  static final class ParameterOptionNormalizer implements JavacOptionNormalizer {
-
-    private static final String PARAMETERS = "-parameters";
-    private boolean parameters = false;
-
-    @Override
-    public boolean processOption(String option, Iterator<String> remaining) {
-      switch (option) {
-        case "-XDnoparameters":
-          parameters = false;
-          return true;
-        case PARAMETERS:
-          parameters = true;
-          return true;
-        default:
-          return false;
-      }
-    }
-
-    @Override
-    public void normalize(List<String> normalized) {
-      if (parameters) {
-        normalized.add(PARAMETERS);
       }
     }
   }
@@ -442,7 +419,6 @@ public final class JavacOptions {
         ImmutableList.of(
             new XlintOptionNormalizer(warningsAsErrorsDefault),
             new WErrorOptionNormalizer(warningsAsErrorsDefault),
-            new ReleaseOptionNormalizer(),
-            new ParameterOptionNormalizer()));
+            new ReleaseOptionNormalizer()));
   }
 }

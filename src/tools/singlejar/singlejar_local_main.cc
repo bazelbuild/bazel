@@ -12,28 +12,36 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <string>
+
 #include "src/tools/singlejar/combiners.h"
 #include "src/tools/singlejar/desugar_checking.h"
 #include "src/tools/singlejar/diag.h"
 #include "src/tools/singlejar/options.h"
 #include "src/tools/singlejar/output_jar.h"
 
-int main(int argc, char *argv[]) {
+#ifdef _WIN32
+#include "src/main/cpp/util/strings.h"
+int wmain(int argc, wchar_t* wargv[]) {
+  char** argv = blaze_util::WArgsToCArgs(argc, wargv);
+#else
+int main(int argc, char* argv[]) {
+#endif
   Options options;
   options.ParseCommandLine(argc - 1, argv + 1);
-  OutputJar output_jar;
+  OutputJar output_jar(&options);
   // Process or drop Java 8 desugaring metadata, see b/65645388.  We don't want
   // or need these files afterwards so make sure we drop them either way.
-  Combiner *desugar_checker =
+  Combiner* desugar_checker =
       options.check_desugar_deps
           ? new Java8DesugarDepsChecker(
-                [&output_jar](const std::string &filename) {
+                [&output_jar](const std::string& filename) {
                   return !output_jar.NewEntry(filename);
                 },
                 options.verbose)
-          : static_cast<Combiner *>(new NullCombiner());
+          : static_cast<Combiner*>(new NullCombiner());
   output_jar.ExtraCombiner("META-INF/desugar_deps", desugar_checker);
   output_jar.ExtraCombiner("reference.conf",
                            new Concatenator("reference.conf"));
-  return output_jar.Doit(&options);
+  return output_jar.Doit();
 }

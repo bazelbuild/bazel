@@ -86,7 +86,7 @@ public class AspectDescriptorTest {
     for (int i = 0; i < parameters.length; i += 2) {
       params.addAttribute(parameters[i], parameters[i + 1]);
     }
-    return new AspectDescriptor(aspectClass, params.build());
+    return AspectDescriptor.of(aspectClass, params.build());
   }
 
   private static AspectClass aspectClass(final String name) {

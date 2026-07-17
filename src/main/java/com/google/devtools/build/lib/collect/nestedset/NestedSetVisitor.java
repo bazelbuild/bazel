@@ -13,20 +13,19 @@
 // limitations under the License.
 package com.google.devtools.build.lib.collect.nestedset;
 
-import com.google.common.base.Preconditions;
-import com.google.common.collect.Sets;
+import static com.google.common.base.Preconditions.checkNotNull;
+
+import com.google.devtools.build.lib.collect.ConcurrentIdentitySet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet.VisitedArraySet;
 import java.util.Collection;
-import java.util.Set;
+import java.util.function.Predicate;
 
 /**
- * NestedSetVisitor facilitates a transitive visitation over a NestedSet, which must be in STABLE
- * order. The callback may be called from multiple threads, and must be thread-safe.
+ * NestedSetVisitor facilitates a transitive visitation over a NestedSet. The callback may be called
+ * from multiple threads, and must be thread-safe.
  *
  * <p>The visitation is iterative: The caller may invoke a NestedSet within the top-level NestedSet
  * in any order.
- *
- * <p>Currently this class is only used in Skyframe to facilitate iterative replay of transitive
- * warnings/errors.
  *
  * @param <E> the data type
  */
@@ -45,8 +44,8 @@ public final class NestedSetVisitor<E> {
   private final VisitedState<E> visited;
 
   public NestedSetVisitor(Receiver<E> callback, VisitedState<E> visited) {
-    this.callback = Preconditions.checkNotNull(callback);
-    this.visited = Preconditions.checkNotNull(visited);
+    this.callback = checkNotNull(callback);
+    this.visited = checkNotNull(visited);
   }
 
   /**
@@ -55,7 +54,6 @@ public final class NestedSetVisitor<E> {
    * @param nestedSet the nested set to visit transitively.
    */
   public void visit(NestedSet<E> nestedSet) throws InterruptedException {
-    Preconditions.checkArgument(nestedSet.getOrder() == Order.STABLE_ORDER);
     // We can short-circuit empty nested set visitation here, avoiding load on the shared map
     // VisitedState#seenNodes.
     if (!nestedSet.isEmpty()) {
@@ -66,38 +64,50 @@ public final class NestedSetVisitor<E> {
   /** Visit every entry in a collection. */
   public void visit(Collection<E> collection) {
     for (E e : collection) {
-      if (visited.add(e)) {
+      if (visited.needToVisitLeaf.test(e)) {
         callback.accept(e);
       }
     }
   }
 
-  @SuppressWarnings("unchecked")
   private void visitRaw(Object node) {
-    if (visited.add(node)) {
-      if (node instanceof Object[]) {
-        for (Object child : (Object[]) node) {
+    if (node instanceof Object[] array) {
+      if (visited.needToVisitNonLeaf.test(array)) {
+        for (Object child : array) {
           visitRaw(child);
         }
-      } else {
-        callback.accept((E) node);
+      }
+    } else {
+      @SuppressWarnings("unchecked") // It's not an Object[] so must be a leaf.
+      E leaf = (E) node;
+      if (visited.needToVisitLeaf.test(leaf)) {
+        callback.accept(leaf);
       }
     }
   }
 
-  /** A class that allows us to keep track of the seen nodes and transitive sets. */
-  public static class VisitedState<E> {
-    private final Set<Object> seenNodes = Sets.newConcurrentHashSet();
+  /** Allows {@link NestedSetVisitor} to keep track of the seen nodes and transitive sets. */
+  public static final class VisitedState<E> {
 
-    public void clear() {
-      seenNodes.clear();
+    /** Creates a new visited state with the given predicate of whether to visit leaves. */
+    public static <E> VisitedState<E> create(Predicate<E> needToVisitLeaf) {
+      return new VisitedState<>(new VisitedArraySet()::add, needToVisitLeaf);
     }
 
-    private boolean add(Object node) {
-      // Though it may look redundant, the contains call is much cheaper than the add and can
-      // greatly improve the performance and reduce the contention associated with checking
-      // seenNodes.
-      return !seenNodes.contains(node) && seenNodes.add(node);
+    /**
+     * Creates a new thread-safe visited state with the given predicate of whether to visit leaves.
+     */
+    public static <E> VisitedState<E> createConcurrent(Predicate<E> needToVisitLeaf) {
+      return new VisitedState<>(
+          new ConcurrentIdentitySet(/* sizeHint= */ 1024)::add, needToVisitLeaf);
+    }
+
+    private final Predicate<Object[]> needToVisitNonLeaf;
+    private final Predicate<E> needToVisitLeaf;
+
+    private VisitedState(Predicate<Object[]> needToVisitNonLeaf, Predicate<E> needToVisitLeaf) {
+      this.needToVisitNonLeaf = checkNotNull(needToVisitNonLeaf);
+      this.needToVisitLeaf = checkNotNull(needToVisitLeaf);
     }
   }
 }

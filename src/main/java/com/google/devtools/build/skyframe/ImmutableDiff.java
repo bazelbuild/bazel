@@ -15,7 +15,7 @@ package com.google.devtools.build.skyframe;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-
+import com.google.devtools.build.skyframe.Differencer.DiffWithDelta.Delta;
 import java.util.Collection;
 import java.util.Map;
 
@@ -25,9 +25,9 @@ import java.util.Map;
 public class ImmutableDiff implements Differencer.Diff {
 
   private final ImmutableList<SkyKey> valuesToInvalidate;
-  private final ImmutableMap<SkyKey, SkyValue> valuesToInject;
+  private final ImmutableMap<SkyKey, Delta> valuesToInject;
 
-  public ImmutableDiff(Iterable<SkyKey> valuesToInvalidate, Map<SkyKey, SkyValue> valuesToInject) {
+  public ImmutableDiff(Iterable<SkyKey> valuesToInvalidate, Map<SkyKey, Delta> valuesToInject) {
     this.valuesToInvalidate = ImmutableList.copyOf(valuesToInvalidate);
     this.valuesToInject = ImmutableMap.copyOf(valuesToInject);
   }
@@ -38,7 +38,7 @@ public class ImmutableDiff implements Differencer.Diff {
   }
 
   @Override
-  public Map<SkyKey, SkyValue> changedKeysWithNewValues() {
+  public Map<SkyKey, Delta> changedKeysWithNewValues() {
     return valuesToInject;
   }
 }

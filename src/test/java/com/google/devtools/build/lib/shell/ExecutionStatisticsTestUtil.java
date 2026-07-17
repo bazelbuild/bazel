@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.shell;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.Truth8.assertThat;
 
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
@@ -50,9 +49,9 @@ public class ExecutionStatisticsTestUtil {
     // TODO(b/110456205) This check fails under very heavy load, investigate why and re-enable it
     // Duration systemTimeUpperBound = systemTimeToSpend.plusSeconds(9);
 
-    Command command = new Command(fullCommandLine.toArray(new String[0]));
+    Command command = new Command(fullCommandLine, System.getenv());
     CommandResult commandResult = command.execute();
-    assertThat(commandResult.getTerminationStatus().success()).isTrue();
+    assertThat(commandResult.terminationStatus().success()).isTrue();
 
     Optional<ExecutionStatistics.ResourceUsage> resourceUsage =
         ExecutionStatistics.getResourceUsage(statisticsFilePath);

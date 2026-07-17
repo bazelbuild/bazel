@@ -1,4 +1,5 @@
-load("@rules_java//java:defs.bzl", "java_library", "java_test")
+load("@rules_java//java:java_library.bzl", "java_library")
+load("@rules_java//java:java_test.bzl", "java_test")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -8,10 +9,11 @@ java_test(
     name = "BranchCoverageTest",
     srcs = ["BranchCoverageTest.java"],
     deps = [
-        "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
         "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:BranchCoverage",
+        "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:BranchCoverageItem",
+        "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:BranchCoverageKey",
     ],
 )
 
@@ -19,7 +21,6 @@ java_test(
     name = "LineCoverageTest",
     srcs = ["LineCoverageTest.java"],
     deps = [
-        "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
         "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:LineCoverage",
@@ -30,13 +31,10 @@ java_test(
     name = "SourceFileCoverageTest",
     srcs = ["SourceFileCoverageTest.java"],
     deps = [
-        ":LcovMergerTestUtils",
-        ":LineCoverageTest",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
-        "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:BranchCoverage",
-        "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:LineCoverage",
+        "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:BranchCoverageItem",
         "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:SourceFileCoverage",
     ],
 )
@@ -49,11 +47,9 @@ java_test(
         "no_windows",
     ],
     deps = [
-        ":LcovMergerTestUtils",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
-        "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:BranchCoverage",
         "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:Constants",
         "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:Coverage",
         "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:LcovPrinter",
@@ -65,15 +61,13 @@ java_test(
     name = "LcovParserTest",
     srcs = ["LcovParserTest.java"],
     deps = [
-        ":LcovMergerTestUtils",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
-        "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:BranchCoverage",
+        "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:BranchCoverageItem",
         "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:Constants",
         "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:Coverage",
         "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:LcovParser",
-        "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:LineCoverage",
         "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:SourceFileCoverage",
     ],
 )
@@ -82,15 +76,25 @@ java_test(
     name = "GcovParserTest",
     srcs = ["GcovParserTest.java"],
     deps = [
-        ":LcovMergerTestUtils",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
-        "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:BranchCoverage",
+        "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:BranchCoverageItem",
         "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:Constants",
         "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:Coverage",
         "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:GcovParser",
-        "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:LineCoverage",
+        "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:SourceFileCoverage",
+    ],
+)
+
+java_test(
+    name = "GcovJsonParserTest",
+    srcs = ["GcovJsonParserTest.java"],
+    deps = [
+        "//third_party:junit4",
+        "//third_party:truth",
+        "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:BranchCoverageItem",
+        "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:GcovJsonParser",
         "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:SourceFileCoverage",
     ],
 )
@@ -99,10 +103,10 @@ java_test(
     name = "CoverageTest",
     srcs = ["CoverageTest.java"],
     deps = [
-        ":LcovMergerTestUtils",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
+        "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:BranchCoverageItem",
         "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:Coverage",
         "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:SourceFileCoverage",
     ],
@@ -137,32 +141,10 @@ java_library(
     name = "LcovMergerTestUtils",
     testonly = 1,
     srcs = ["LcovMergerTestUtils.java"],
-    deps = [
-        "//third_party:guava",
-        "//third_party:truth",
-        "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:BranchCoverage",
-        "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:LineCoverage",
-        "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:SourceFileCoverage",
-    ],
 )
 
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
     visibility = ["//visibility:public"],
-)
-
-test_suite(
-    name = "windows_tests",
-    tags = [
-        "-no_windows",
-        "-slow",
-    ],
-    visibility = ["//visibility:private"],
-)
-
-test_suite(
-    name = "all_windows_tests",
-    tests = [":windows_tests"],
-    visibility = ["//tools/test:__pkg__"],
 )

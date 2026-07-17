@@ -13,8 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.profiler;
 
-import com.google.common.base.Predicate;
 import java.util.List;
+import java.util.function.Predicate;
 
 /**
  * A stat recorder that is able to look at the kind of object added and delegate to the appropriate
@@ -43,7 +43,7 @@ public class PredicateBasedStatRecorder implements StatRecorder {
   public void addStat(int duration, Object obj) {
     String description = obj.toString();
     for (int i = 0; i < predicates.length; i++) {
-      if (predicates[i].apply(description)) {
+      if (predicates[i].test(description)) {
         recorders[i].addStat(duration, obj);
         return;
       }

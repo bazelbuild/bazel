@@ -17,12 +17,11 @@ import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
-import com.google.devtools.build.skyframe.ShareabilityOfValue;
+import com.google.devtools.build.skyframe.ExecutionPhaseSkyKey;
 import com.google.devtools.build.skyframe.SkyFunctionName;
-import com.google.devtools.build.skyframe.SkyKey;
 
 /** Data that uniquely identifies an action. */
-public class ActionLookupData implements SkyKey {
+public class ActionLookupData implements ExecutionPhaseSkyKey {
 
   private final ActionLookupKey actionLookupKey;
   private final int actionIndex;
@@ -37,20 +36,21 @@ public class ActionLookupData implements SkyKey {
    * only be called once per {@code (actionLookupKey, actionIndex)} pair.
    */
   public static ActionLookupData create(ActionLookupKey actionLookupKey, int actionIndex) {
-    // If the label is null, this is not a typical action (it may be the build info action or a
-    // coverage action, for example). Don't try to share it.
-    return actionLookupKey.getLabel() == null
-        ? createUnshareable(actionLookupKey, actionIndex)
-        : new ActionLookupData(actionLookupKey, actionIndex);
+    return actionLookupKey.mayOwnShareableActions()
+        ? new ActionLookupData(actionLookupKey, actionIndex)
+        : createUnshareable(actionLookupKey, actionIndex);
   }
 
-  /** Similar to {@link #create}, but the key will have {@link ShareabilityOfValue#NEVER}. */
+  /**
+   * Similar to {@link #create}, but the key will return {@code false} for {@link
+   * #valueIsShareable}.
+   */
   public static ActionLookupData createUnshareable(
       ActionLookupKey actionLookupKey, int actionIndex) {
     return new UnshareableActionLookupData(actionLookupKey, actionIndex);
   }
 
-  public ActionLookupKey getActionLookupKey() {
+  public final ActionLookupKey getActionLookupKey() {
     return actionLookupKey;
   }
 
@@ -58,34 +58,38 @@ public class ActionLookupData implements SkyKey {
    * Index of the action in question in the node keyed by {@link #getActionLookupKey}. Should be
    * passed to {@link ActionLookupValue#getAction}.
    */
-  public int getActionIndex() {
+  public final int getActionIndex() {
     return actionIndex;
   }
 
-  public Label getLabel() {
+  public final Label getLabel() {
     return actionLookupKey.getLabel();
   }
 
   @Override
-  public int hashCode() {
-    return 37 * actionLookupKey.hashCode() + actionIndex;
+  public final int hashCode() {
+    int hash = 1;
+    hash = 37 * hash + actionLookupKey.hashCode();
+    hash = 37 * hash + Integer.hashCode(actionIndex);
+    hash = 37 * hash + Boolean.hashCode(valueIsShareable());
+    return hash;
   }
 
   @Override
-  public boolean equals(Object obj) {
+  public final boolean equals(Object obj) {
     if (this == obj) {
       return true;
     }
-    if (!(obj instanceof ActionLookupData)) {
+    if (!(obj instanceof ActionLookupData that)) {
       return false;
     }
-    ActionLookupData that = (ActionLookupData) obj;
     return this.actionIndex == that.actionIndex
-        && this.actionLookupKey.equals(that.actionLookupKey);
+        && this.actionLookupKey.equals(that.actionLookupKey)
+        && valueIsShareable() == that.valueIsShareable();
   }
 
   @Override
-  public String toString() {
+  public final String toString() {
     return MoreObjects.toStringHelper(this)
         .add("actionLookupKey", actionLookupKey)
         .add("actionIndex", actionIndex)
@@ -93,7 +97,7 @@ public class ActionLookupData implements SkyKey {
   }
 
   @Override
-  public SkyFunctionName functionName() {
+  public final SkyFunctionName functionName() {
     return SkyFunctions.ACTION_EXECUTION;
   }
 
@@ -103,8 +107,8 @@ public class ActionLookupData implements SkyKey {
     }
 
     @Override
-    public ShareabilityOfValue getShareabilityOfValue() {
-      return ShareabilityOfValue.NEVER;
+    public boolean valueIsShareable() {
+      return false;
     }
   }
 }

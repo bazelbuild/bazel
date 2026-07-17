@@ -13,6 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages.metrics;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
+import com.google.common.collect.ImmutableCollection;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.BzlMetrics;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.BzlMetrics.BzlFileMetrics;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.protobuf.Duration;
 import java.util.Collection;
@@ -22,19 +27,28 @@ import java.util.Map;
 public interface PackageMetricsRecorder {
 
   /** What type of packages are metrics being recorded for? */
-  public enum Type {
+  enum Type {
     ONLY_EXTREMES,
     ALL,
   }
 
   /** Records the metrics for a given package. */
-  void recordMetrics(PackageIdentifier pkgId, PackageMetrics metrics);
+  void recordMetrics(PackageIdentifier pkgId, PackageLoadMetrics metrics);
+
+  /** Records the metrics for a single bzl file. */
+  void recordBzlMetrics(BzlFileMetrics metrics);
 
   /**
    * Returns a {@code Map<PackageIdentifier, Duration>} of recorded load durations. This may contain
    * only a subset of all packages loaded based on the implementation.
    */
   Map<PackageIdentifier, Duration> getLoadTimes();
+
+  /**
+   * Returns a {@code Map<PackageIdentifier, Long>} of glob costs. This may contain only a subset of
+   * all packages loaded based on the implementation.
+   */
+  Map<PackageIdentifier, Long> getGlobFilesystemOperationCost();
 
   /**
    * Returns a {@code Map<PackageIdentifier, Long>} of computation steps. This may contain only a
@@ -70,5 +84,26 @@ public interface PackageMetricsRecorder {
   Type getRecorderType();
 
   /** If Type is ALL returns metrics for all Packages loaded. */
-  Collection<PackageMetrics> getPackageMetrics();
+  Collection<PackageLoadMetrics> getPackageLoadMetrics();
+
+  /** Returns recorded bzl metrics. */
+  BzlMetrics getBzlMetrics();
+
+  /* TODO(twerth): Remove method after migration is complete. */
+  default ImmutableCollection<PackageMetrics> getPackageMetrics() {
+    Collection<PackageLoadMetrics> packageLoadMetrics = getPackageLoadMetrics();
+    return packageLoadMetrics.stream()
+        .map(
+            plm ->
+                PackageMetrics.newBuilder()
+                    .setName(plm.getName())
+                    .setPackageOverhead(plm.getPackageOverhead())
+                    .setComputationSteps(plm.getComputationSteps())
+                    .setLoadDuration(plm.getLoadDuration())
+                    .setNumTargets(plm.getNumTargets())
+                    .setNumTransitiveLoads(plm.getNumTransitiveLoads())
+                    .setGlobFilesystemOperationCost(plm.getGlobFilesystemOperationCost())
+                    .build())
+        .collect(toImmutableList());
+  }
 }

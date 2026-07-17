@@ -15,30 +15,25 @@ package com.google.devtools.build.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.collect.ImmutableClassToInstanceMap;
-import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
-import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.testutils.TestUtils;
-import java.io.Serializable;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.RoundTripping;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Unit test for the SkyKey class, checking hash code transience logic.
- */
+/** Unit test for the SkyKey class, checking hash code transience logic. */
 @RunWith(JUnit4.class)
-public class SkyKeyTest {
+public final class SkyKeyTest {
 
   @Test
+  @SuppressWarnings("ReturnValueIgnored") // Testing interactions with spy.
   public void testHashCodeTransience() throws Exception {
     // Given a freshly constructed HashCodeSpy object,
     HashCodeSpy hashCodeSpy = new HashCodeSpy();
     assertThat(hashCodeSpy.numberOfTimesHashCodeCalled).isEqualTo(0);
 
     // When a SkyKey is constructed with that HashCodeSpy as its argument,
-    SkyKey originalKey = new Key(hashCodeSpy);
+    SkyKey originalKey = new HashCodeSpyKey(hashCodeSpy);
 
     // Then the HashCodeSpy reports that its hashcode method was called once.
     assertThat(hashCodeSpy.numberOfTimesHashCodeCalled).isEqualTo(1);
@@ -50,12 +45,7 @@ public class SkyKeyTest {
     assertThat(hashCodeSpy.numberOfTimesHashCodeCalled).isEqualTo(1);
 
     // When that SkyKey is serialized and then deserialized,
-    SkyKey newKey =
-        (SkyKey)
-            TestUtils.fromBytes(
-                new DeserializationContext(ImmutableClassToInstanceMap.of()),
-                TestUtils.toBytes(
-                    new SerializationContext(ImmutableClassToInstanceMap.of()), originalKey));
+    SkyKey newKey = RoundTripping.roundTrip(originalKey);
 
     // Then the new SkyKey recomputed its hashcode on deserialization.
     assertThat(newKey.hashCode()).isEqualTo(originalKey.hashCode());
@@ -69,7 +59,7 @@ public class SkyKeyTest {
     assertThat(spyInNewKey.numberOfTimesHashCodeCalled).isEqualTo(1);
   }
 
-  static final class HashCodeSpy implements Serializable {
+  static final class HashCodeSpy {
     private transient int numberOfTimesHashCodeCalled;
 
     @Override
@@ -87,9 +77,9 @@ public class SkyKeyTest {
   }
 
   @AutoCodec
-  static final class Key extends AbstractSkyKey<HashCodeSpy> {
+  static final class HashCodeSpyKey extends AbstractSkyKey.WithCachedHashCode<HashCodeSpy> {
 
-    Key(HashCodeSpy arg) {
+    HashCodeSpyKey(HashCodeSpy arg) {
       super(arg);
     }
 

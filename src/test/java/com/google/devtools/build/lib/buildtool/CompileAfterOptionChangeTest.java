@@ -15,22 +15,16 @@ package com.google.devtools.build.lib.buildtool;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.devtools.build.lib.buildtool.util.GoogleBuildIntegrationTestCase;
-import com.google.devtools.build.lib.testutil.Suite;
-import com.google.devtools.build.lib.testutil.TestSpec;
+import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Test of compilation of involving change command line arguments.
- *
- */
-@TestSpec(size = Suite.MEDIUM_TESTS)
+/** Test of compilation of involving change command line arguments. */
 @RunWith(JUnit4.class)
-public class CompileAfterOptionChangeTest extends GoogleBuildIntegrationTestCase {
+public class CompileAfterOptionChangeTest extends BuildIntegrationTestCase {
 
   private void writeSourceFiles() throws IOException {
     // A program that uses a command line argument to the compilation to
@@ -63,11 +57,18 @@ public class CompileAfterOptionChangeTest extends GoogleBuildIntegrationTestCase
   @Test
   public void testChangingCommandLineOptionRebuilds() throws Exception {
     writeSourceFiles();
-    write("pkg/BUILD",
-          "cc_binary(name='hello',",
-          "          malloc = '//base:system_malloc',",
-          "          srcs=['hello.cc'],",
-          "          defines = ['DEFAULT_GREETING=\\\\\\\"Hello\\\\\\\"'])");
+    write(
+        "pkg/BUILD",
+        """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+
+        cc_binary(
+            name = "hello",
+            srcs = ["hello.cc"],
+            defines = ['DEFAULT_GREETING=\\\\\\"Hello\\\\\\"'],
+            malloc = "//base:system_malloc",
+        )
+        """);
     // Here's why we need so many backslashes:
     //   Java source:            "...'DEFAULT_GREETING=\\\\\\\"Hello\\\\\\\"'..."
     //   BUILD file:              ...'DEFAULT_GREETING=\\\"Hello\\\"'...
@@ -87,11 +88,18 @@ public class CompileAfterOptionChangeTest extends GoogleBuildIntegrationTestCase
 
     ////////////////////////////////////////////////////////////////////////
     // (2) Build again using a different cc_binary rule
-    write("pkg/BUILD",
-          "cc_binary(name='hello',",
-          "          malloc = '//base:system_malloc',",
-          "          srcs=['hello.cc'],",
-          "          defines = ['DEFAULT_GREETING=\\'\"Hello again\"\\''])");
+    write(
+        "pkg/BUILD",
+        """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+
+        cc_binary(
+            name = "hello",
+            srcs = ["hello.cc"],
+            defines = ['DEFAULT_GREETING=\\'"Hello again"\\''],
+            malloc = "//base:system_malloc",
+        )
+        """);
     // Here's why we need so many quotes and backslashes:
     //   Java source:            "...'DEFAULT_GREETING=\\'\"Hello again\"\\''..."
     //   BUILD file:              ...'DEFAULT_GREETING=\'"Hello again"\''...
@@ -108,10 +116,17 @@ public class CompileAfterOptionChangeTest extends GoogleBuildIntegrationTestCase
 
     ////////////////////////////////////////////////////////////////////////
     // (3) Build again using additional command line options:
-    write("pkg/BUILD",
-          "cc_binary(name='hello',",
-          "          malloc = '//base:system_malloc',",
-          "          srcs=['hello.cc'])");
+    write(
+        "pkg/BUILD",
+        """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+
+        cc_binary(
+            name = "hello",
+            srcs = ["hello.cc"],
+            malloc = "//base:system_malloc",
+        )
+        """);
 
     buildApp("--copt", "-DGREETING=\"Hi\"");
 

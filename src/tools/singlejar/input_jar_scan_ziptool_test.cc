@@ -22,13 +22,11 @@
 /* Creates jar files using zip.  */
 class ZiptoolCreator {
  public:
-  static void SetUpTestCase() {
-  }
+  static void SetUpTestCase() {}
 
-  static void TearDownTestCase() {
-  }
+  static void TearDownTestCase() {}
 
-  static int Jar(bool compress, const char *output_jar, ...) {
+  static int Jar(bool compress, const char* output_jar, ...) {
     std::string command("zip -qr");
     if (access(output_jar, F_OK) == 0) {
       command = compress ? "u " : "u0 ";
@@ -38,8 +36,8 @@ class ZiptoolCreator {
     command += output_jar;
     va_list paths;
     va_start(paths, output_jar);
-    char *path;
-    while ((path = va_arg(paths, char *))) {
+    char* path;
+    while ((path = va_arg(paths, char*))) {
       command += ' ';
       command += path;
     }

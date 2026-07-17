@@ -16,9 +16,7 @@ package com.google.devtools.build.lib.analysis.test;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
-import com.google.devtools.build.lib.actions.ExecutionRequirements.ParseableRequirement.ValidationException;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -28,16 +26,12 @@ import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.TestSize;
 import com.google.devtools.build.lib.packages.TestTimeout;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.server.FailureDetails.TestAction;
-import com.google.devtools.build.lib.server.FailureDetails.TestAction.Code;
+import com.google.devtools.build.lib.packages.Types;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Container for test target properties available to the
- * TestRunnerAction instance.
- */
+/** Container for test target properties available to the TestRunnerAction instance. */
 public class TestTargetProperties {
 
   /**
@@ -47,6 +41,7 @@ public class TestTargetProperties {
    * attributes/test/size.html.
    */
   private static final ResourceSet SMALL_RESOURCES = ResourceSet.create(20, 1, 1);
+
   private static final ResourceSet MEDIUM_RESOURCES = ResourceSet.create(100, 1, 1);
   private static final ResourceSet LARGE_RESOURCES = ResourceSet.create(300, 1, 1);
   private static final ResourceSet ENORMOUS_RESOURCES = ResourceSet.create(800, 1, 1);
@@ -54,12 +49,12 @@ public class TestTargetProperties {
       ResourceSet.createWithLocalTestCount(1);
 
   private static ResourceSet getResourceSetFromSize(TestSize size) {
-    switch (size) {
-      case SMALL: return SMALL_RESOURCES;
-      case MEDIUM: return MEDIUM_RESOURCES;
-      case LARGE: return LARGE_RESOURCES;
-      default: return ENORMOUS_RESOURCES;
-    }
+    return switch (size) {
+      case SMALL -> SMALL_RESOURCES;
+      case MEDIUM -> MEDIUM_RESOURCES;
+      case LARGE -> LARGE_RESOURCES;
+      default -> ENORMOUS_RESOURCES;
+    };
   }
 
   private final TestSize size;
@@ -70,7 +65,7 @@ public class TestTargetProperties {
   private final boolean isExternal;
   private final String language;
   private final ImmutableMap<String, String> executionInfo;
-  private final boolean isPersistentTestRunner;
+  private final TestConfiguration testConfiguration;
 
   /**
    * Creates test target properties instance. Constructor expects that it will be called only for
@@ -79,25 +74,25 @@ public class TestTargetProperties {
   TestTargetProperties(
       RuleContext ruleContext,
       ExecutionInfo executionRequirements,
-      boolean isPersistentTestRunner) {
+      ImmutableMap<String, String> testExecProperties) {
     Rule rule = ruleContext.getRule();
 
     Preconditions.checkState(TargetUtils.isTestRule(rule));
     size = TestSize.getTestSize(rule);
     timeout = TestTimeout.getTestTimeout(rule);
-    tags = ruleContext.attributes().get("tags", Type.STRING_LIST);
+    tags = ruleContext.attributes().get("tags", Types.STRING_LIST);
 
     // We need to use method on ruleConfiguredTarget to perform validation.
     isFlaky = ruleContext.attributes().get("flaky", Type.BOOLEAN);
     isExternal = TargetUtils.isExternalTestRule(rule);
-    this.isPersistentTestRunner = isPersistentTestRunner;
 
-    Map<String, String> executionInfo = Maps.newLinkedHashMap();
+    Map<String, String> executionInfo = new LinkedHashMap<>();
     executionInfo.putAll(TargetUtils.getExecutionInfo(rule));
+    executionInfo.putAll(testExecProperties);
 
     boolean incompatibleExclusiveTestSandboxed = false;
 
-    TestConfiguration testConfiguration = ruleContext.getFragment(TestConfiguration.class);
+    testConfiguration = ruleContext.getFragment(TestConfiguration.class);
     if (testConfiguration != null) {
       incompatibleExclusiveTestSandboxed = testConfiguration.incompatibleExclusiveTestSandboxed();
     }
@@ -158,57 +153,16 @@ public class TestTargetProperties {
     return isExternal;
   }
 
-  public boolean isPersistentTestRunner() {
-    return isPersistentTestRunner;
-  }
-
   public ResourceSet getLocalResourceUsage(Label label, boolean usingLocalTestJobs)
       throws UserExecException {
     if (usingLocalTestJobs) {
       return LOCAL_TEST_JOBS_BASED_RESOURCES;
     }
 
-    ResourceSet testResourcesFromSize = TestTargetProperties.getResourceSetFromSize(size);
-
-    // Tests can override their CPU reservation with a "cpu:<n>" tag.
-    ResourceSet testResourcesFromTag = null;
-    for (String tag : executionInfo.keySet()) {
-      try {
-        String cpus = ExecutionRequirements.CPU.parseIfMatches(tag);
-        if (cpus != null) {
-          if (testResourcesFromTag != null) {
-            String message =
-                String.format(
-                    "%s has more than one '%s' tag, but duplicate tags aren't allowed",
-                    label, ExecutionRequirements.CPU.userFriendlyName());
-            throw new UserExecException(createFailureDetail(message, Code.DUPLICATE_CPU_TAGS));
-          }
-          testResourcesFromTag =
-              ResourceSet.create(
-                  testResourcesFromSize.getMemoryMb(),
-                  Float.parseFloat(cpus),
-                  testResourcesFromSize.getLocalTestCount());
-        }
-      } catch (ValidationException e) {
-        String message =
-            String.format(
-                "%s has a '%s' tag, but its value '%s' didn't pass validation: %s",
-                label,
-                ExecutionRequirements.CPU.userFriendlyName(),
-                e.getTagValue(),
-                e.getMessage());
-        throw new UserExecException(createFailureDetail(message, Code.INVALID_CPU_TAG));
-      }
-    }
-
-    return testResourcesFromTag != null ? testResourcesFromTag : testResourcesFromSize;
-  }
-
-  private static FailureDetail createFailureDetail(String message, Code detailedCode) {
-    return FailureDetail.newBuilder()
-        .setMessage(message)
-        .setTestAction(TestAction.newBuilder().setCode(detailedCode))
-        .build();
+    ResourceSet defaultResources = getResourceSetFromSize(size);
+    ImmutableMap<String, Double> configResources =
+        testConfiguration == null ? ImmutableMap.of() : testConfiguration.getTestResources(size);
+    return defaultResources.withResourceOverrides(configResources);
   }
 
   /**

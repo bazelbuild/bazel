@@ -46,7 +46,7 @@ public class StarlarkFileTest {
     StarlarkFile file = parseFile("foo() bar() something = baz() bar()");
 
     SyntaxError error =
-        LexerTest.assertContainsError(file.errors(), "syntax error at \'bar\': expected newline");
+        TestUtils.assertContainsError(file.errors(), "syntax error at \'bar\': expected newline");
     assertThat(error.location().toString()).isEqualTo("foo.star:1:7");
   }
 
@@ -55,7 +55,7 @@ public class StarlarkFileTest {
     // TODO(adonovan): move to ParserTest.
     StarlarkFile file = parseFile("a = 'foo' 'bar'");
     SyntaxError error =
-        LexerTest.assertContainsError(
+        TestUtils.assertContainsError(
             file.errors(), "Implicit string concatenation is forbidden, use the + operator");
     assertThat(error.location().toString()).isEqualTo("foo.star:1:11"); // start of 'bar'
   }
@@ -64,7 +64,7 @@ public class StarlarkFileTest {
   public void testImplicitStringConcatenationAcrossLinesIsIllegal() throws Exception {
     StarlarkFile file = parseFile("a = 'foo'\n  'bar'");
 
-    SyntaxError error = LexerTest.assertContainsError(file.errors(), "indentation error");
+    SyntaxError error = TestUtils.assertContainsError(file.errors(), "indentation error");
     assertThat(error.location().toString()).isEqualTo("foo.star:2:2");
   }
 }

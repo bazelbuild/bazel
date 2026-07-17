@@ -21,12 +21,18 @@ public interface CommandLineItem {
    * A map function that allows caller customization how a type is expanded into the command line.
    */
   interface MapFn<T> {
-    MapFn<Object> DEFAULT =
+    ExceptionlessMapFn<Object> DEFAULT =
         (Object object, Consumer<String> args) ->
             args.accept(CommandLineItem.expandToCommandLine(object));
 
     void expandToCommandLine(T object, Consumer<String> args)
         throws CommandLineExpansionException, InterruptedException;
+  }
+
+  /** A {@link CommandLineItem.MapFn} that does not throw. */
+  interface ExceptionlessMapFn<T> extends CommandLineItem.MapFn<T> {
+    @Override
+    void expandToCommandLine(T object, Consumer<String> args);
   }
 
   /**
@@ -57,15 +63,6 @@ public interface CommandLineItem {
     public abstract int maxInstancesAllowed();
   }
 
-  /**
-   * Use this map function when your map function needs to capture per-rule information.
-   *
-   * <p>Use of this class prevents sharing sub-computations over shared NestedSets, since the map
-   * function is per-target. This will make your action key computations become O(N^2). Please avoid
-   * if possible.
-   */
-  interface CapturingMapFn<T> extends MapFn<T> {}
-
   /** Expands the object into the command line as a string. */
   String expandToCommandLine();
 
@@ -90,8 +87,8 @@ public interface CommandLineItem {
     // Since StarlarkValue should be moved out of Bazel, this refactoring would be blocked on making
     // a BuildStarlarkValue subinterface for Bazel-specific Starlark types. It would then be
     // BuildStarlarkValue, rather than StarlarkValue, that extends CommandLineItem.
-    if (object instanceof CommandLineItem) {
-      return ((CommandLineItem) object).expandToCommandLine();
+    if (object instanceof CommandLineItem commandLineItem) {
+      return commandLineItem.expandToCommandLine();
     } else {
       return object.toString();
     }

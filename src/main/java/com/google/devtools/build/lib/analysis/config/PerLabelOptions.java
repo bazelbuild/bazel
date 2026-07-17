@@ -17,12 +17,10 @@ package com.google.devtools.build.lib.analysis.config;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.lib.util.RegexFilter.RegexFilterConverter;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.OptionsParsingException;
-import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -31,8 +29,7 @@ import java.util.Objects;
  * Models options that can be added to a command line when a label matches a given {@link
  * RegexFilter}.
  */
-@AutoCodec
-public class PerLabelOptions implements Serializable {
+public final class PerLabelOptions {
   /** The filter used to match labels */
   private final RegexFilter regexFilter;
 
@@ -40,22 +37,20 @@ public class PerLabelOptions implements Serializable {
   private final List<String> optionsList;
 
   /**
-   * Converts a String to a {@link PerLabelOptions} object. The syntax of the
-   * string is {@code regex_filter@option_1,option_2,...,option_n}. Where
-   * regex_filter stands for the String representation of a {@link RegexFilter},
-   * and {@code option_1} to {@code option_n} stand for arbitrary command line
-   * options. If an option contains a comma it has to be quoted with a
-   * backslash. Options can contain @. Only the first @ is used to split the
-   * string.
+   * Converts a String to a {@link PerLabelOptions} object. The syntax of the string is {@code
+   * regex_filter@option_1,option_2,...,option_n}. Where regex_filter stands for the String
+   * representation of a {@link RegexFilter}, and {@code option_1} to {@code option_n} stand for
+   * arbitrary command line options. If an option contains a comma it has to be quoted with a
+   * backslash. Options can contain @. Only the first @ is used to split the string.
    */
-  public static class PerLabelOptionsConverter implements Converter<PerLabelOptions> {
+  public static class PerLabelOptionsConverter extends Converter.Contextless<PerLabelOptions> {
 
     @Override
     public PerLabelOptions convert(String input) throws OptionsParsingException {
       int atIndex = input.indexOf('@');
       RegexFilterConverter converter = new RegexFilter.RegexFilterConverter();
       if (atIndex < 0) {
-        return new PerLabelOptions(converter.convert(input), ImmutableList.<String> of());
+        return new PerLabelOptions(converter.convert(input), ImmutableList.of());
       } else {
         String filterPiece = input.substring(0, atIndex);
         String optionsPiece = input.substring(atIndex + 1);
@@ -67,6 +62,20 @@ public class PerLabelOptions implements Serializable {
         }
         return new PerLabelOptions(converter.convert(filterPiece), optionsList);
       }
+    }
+
+    @Override
+    public boolean starlarkConvertible() {
+      return true;
+    }
+
+    @Override
+    public String reverseForStarlark(Object converted) {
+      PerLabelOptions typedValue = (PerLabelOptions) converted;
+      return String.format(
+          "%s@%s",
+          typedValue.getRegexFilter().toOriginalString(),
+          String.join(",", typedValue.getOptions()));
     }
 
     @Override
@@ -111,16 +120,19 @@ public class PerLabelOptions implements Serializable {
   public String toString() {
     return regexFilter + " Options: " + optionsList;
   }
-  
+
   @Override
   public boolean equals(Object other) {
-    PerLabelOptions otherOptions = 
-        other instanceof PerLabelOptions ? (PerLabelOptions) other : null;
-    return this == other || (otherOptions != null && 
-        this.regexFilter.equals(otherOptions.regexFilter) &&
-        this.optionsList.equals(otherOptions.optionsList));
+    if (this == other) {
+      return true;
+    }
+    if (!(other instanceof PerLabelOptions otherOptions)) {
+      return false;
+    }
+    return this.regexFilter.equals(otherOptions.regexFilter)
+        && this.optionsList.equals(otherOptions.optionsList);
   }
-  
+
   @Override
   public int hashCode() {
     return Objects.hash(regexFilter, optionsList);

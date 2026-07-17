@@ -1,0 +1,55 @@
+name: Cherry-pick request
+description: Use this template to cherry-pick commits into a release branch
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Note:** Provide commit IDs to cherry-pick into a specific release branch. Once the issue has been created, **please add this to the corresponding release milestone** to trigger the cherry-pick workflow.
+  - type: textarea
+    id: commit_ids
+    validations:
+      required: true
+    attributes:
+      label: >
+        Commit IDs
+      description: >
+        Please enter the commit ID(s) to be cherry-picked. E.g. 9e90a6, f1da12
+  - type: dropdown
+    id: subteam
+    validations:
+      required: true
+    attributes:
+      label: >
+        Category
+      description: >
+        Which category does this issue belong to? Please select the corresponding label(s).
+      multiple: true
+      options:
+        - team-Android
+        - team-Rules-CPP
+        - team-Rules-ObjC
+        - team-CLI
+        - team-Configurability
+        - team-Core
+        - team-Documentation
+        - team-ExternalDeps
+        - team-Rules-Java
+        - team-Loading-API
+        - team-Local-Exec
+        - team-OSS
+        - team-Performance
+        - team-Rules-Python
+        - team-Remote-Exec
+        - team-Rules-API
+        - team-Rules-Server
+        - team-Starlark-Integration
+        - team-Starlark-Interpreter
+  - type: textarea
+    validations:
+      required: true
+    id: reviewer
+    attributes:
+      label: >
+        Reviewers
+      description: >
+        Please provide reviewers for the cherry-pick PR. E.g. @iancha1992, @keertk

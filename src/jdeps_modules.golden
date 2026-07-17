@@ -1,5 +1,4 @@
 java.base
-java.compiler
 java.instrument
 java.logging
 java.management
@@ -7,5 +6,5 @@ java.naming
 java.sql
 java.xml
 jdk.management
-jdk.sctp
+jdk.net
 jdk.unsupported

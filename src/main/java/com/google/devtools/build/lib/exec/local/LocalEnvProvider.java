@@ -24,6 +24,7 @@ import java.util.Map;
  * probably should not exist, but is currently necessary for our local MacOS support.
  */
 public interface LocalEnvProvider {
+  LocalEnvProvider NOOP = (env, binTools, fallbackTmpDir) -> ImmutableMap.copyOf(env);
 
   /**
    * Creates a local environment provider for the current OS.
@@ -32,14 +33,11 @@ public interface LocalEnvProvider {
    * @return the local environment provider
    */
   static LocalEnvProvider forCurrentOs(Map<String, String> clientEnv) {
-    switch (OS.getCurrent()) {
-      case DARWIN:
-        return new XcodeLocalEnvProvider(clientEnv);
-      case WINDOWS:
-        return new WindowsLocalEnvProvider(clientEnv);
-      default:
-        return new PosixLocalEnvProvider(clientEnv);
-    }
+    return switch (OS.getCurrent()) {
+      case DARWIN -> new XcodeLocalEnvProvider(clientEnv);
+      case WINDOWS -> new WindowsLocalEnvProvider(clientEnv);
+      default -> new PosixLocalEnvProvider(clientEnv);
+    };
   }
 
   /**

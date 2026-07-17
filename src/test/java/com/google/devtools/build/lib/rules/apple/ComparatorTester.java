@@ -18,6 +18,7 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -68,6 +69,7 @@ public class ComparatorTester {
    *
    * @return {@code this} (to allow chaining of calls)
    */
+  @CanIgnoreReturnValue
   public ComparatorTester addEqualityGroup(Object... objects) {
     Preconditions.checkNotNull(objects);
     Preconditions.checkArgument(objects.length > 0, "Array must not be empty");

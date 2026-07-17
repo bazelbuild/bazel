@@ -16,10 +16,11 @@
 
 #include <stdlib.h>
 
+#include <algorithm>
 #include <memory>
 
 #include "src/main/cpp/blaze_util_platform.h"
-#include "src/main/cpp/workspace_layout.h"
+#include "src/main/cpp/util/file_platform.h"
 #include "src/test/cpp/test_util.h"
 #include "googletest/include/gtest/gtest.h"
 
@@ -27,9 +28,6 @@ namespace blaze {
 
 class BazelStartupOptionsTest : public ::testing::Test {
  protected:
-  BazelStartupOptionsTest() : workspace_layout_(new WorkspaceLayout()) {}
-  ~BazelStartupOptionsTest() = default;
-
   void SetUp() override {
     // This knowingly ignores the possibility of these environment variables
     // being unset because we expect our test runner to set them in all cases.
@@ -43,11 +41,13 @@ class BazelStartupOptionsTest : public ::testing::Test {
 
   // Recreates startup_options_ after changes to the environment.
   void ReinitStartupOptions() {
-    startup_options_.reset(new BazelStartupOptions(workspace_layout_.get()));
+    startup_options_ = std::make_unique<BazelStartupOptions>();
   }
 
- private:
-  std::unique_ptr<WorkspaceLayout> workspace_layout_;
+  // Calls UpdateConfiguration with some default values.
+  void UpdateConfiguration() {
+    startup_options_->UpdateConfiguration("deadbeef", "workspace", false);
+  }
 
  protected:
   std::unique_ptr<BazelStartupOptions> startup_options_;
@@ -85,6 +85,150 @@ TEST_F(BazelStartupOptionsTest, EmptyFlagsAreInvalid) {
   EXPECT_FALSE(startup_options_->IsUnary("--"));
 }
 
+#if defined(__linux) || defined(__APPLE__)
+TEST_F(BazelStartupOptionsTest, UpdateConfigurationOnLinuxOrDarwinWithHome) {
+  SetEnv("USER", "gandalf");
+  SetEnv("HOME", "/nonexistent/home");
+  UnsetEnv("TEST_TMPDIR");
+  UnsetEnv("XDG_CACHE_HOME");
+  ReinitStartupOptions();
+  UpdateConfiguration();
+
+#ifdef __linux
+  ASSERT_EQ(blaze_util::Path("/nonexistent/home/.cache/bazel/_bazel_gandalf"),
+            startup_options_->output_user_root);
+  ASSERT_EQ(
+      blaze_util::Path(
+          "/nonexistent/home/.cache/bazel/_bazel_gandalf/install/deadbeef"),
+      startup_options_->install_base);
+  ASSERT_EQ(blaze_util::Path("/nonexistent/home/.cache/bazel/_bazel_gandalf/"
+                             "1629dee48cc4e53161f9b2be8614e062"),
+            startup_options_->output_base);
+#elif defined(__APPLE__)
+  ASSERT_EQ(
+      blaze_util::Path("/nonexistent/home/Library/Caches/bazel/_bazel_gandalf"),
+      startup_options_->output_user_root);
+  ASSERT_EQ(blaze_util::Path("/nonexistent/home/Library/Caches/bazel/"
+                             "_bazel_gandalf/install/deadbeef"),
+            startup_options_->install_base);
+  ASSERT_EQ(
+      blaze_util::Path("/nonexistent/home/Library/Caches/bazel/_bazel_gandalf/"
+                       "1629dee48cc4e53161f9b2be8614e062"),
+      startup_options_->output_base);
+#endif
+}
+
+TEST_F(BazelStartupOptionsTest,
+       UpdateConfigurationOnLinuxOrDarwinWithTestTmpdir) {
+  SetEnv("USER", "gandalf");
+  SetEnv("HOME", "/nonexistent/home");
+  SetEnv("XDG_CACHE_HOME", "/nonexistent/cache");
+  SetEnv("TEST_TMPDIR", "/nonexistent/tmpdir");
+  ReinitStartupOptions();
+  UpdateConfiguration();
+
+  ASSERT_EQ(blaze_util::Path("/nonexistent/tmpdir/_bazel_gandalf"),
+            startup_options_->output_user_root);
+  ASSERT_EQ(
+      blaze_util::Path("/nonexistent/tmpdir/_bazel_gandalf/install/deadbeef"),
+      startup_options_->install_base);
+  ASSERT_EQ(blaze_util::Path("/nonexistent/tmpdir/_bazel_gandalf/"
+                             "1629dee48cc4e53161f9b2be8614e062"),
+            startup_options_->output_base);
+}
+
+TEST_F(BazelStartupOptionsTest,
+       UpdateConfigurationOnLinuxOrDarwinWithXdgCacheHome) {
+  SetEnv("USER", "gandalf");
+  SetEnv("HOME", "/nonexistent/home");
+  SetEnv("XDG_CACHE_HOME", "/nonexistent/cache");
+  UnsetEnv("TEST_TMPDIR");
+  ReinitStartupOptions();
+  UpdateConfiguration();
+
+  ASSERT_EQ(blaze_util::Path("/nonexistent/cache/bazel/_bazel_gandalf"),
+            startup_options_->output_user_root);
+  ASSERT_EQ(blaze_util::Path(
+                "/nonexistent/cache/bazel/_bazel_gandalf/install/deadbeef"),
+            startup_options_->install_base);
+  ASSERT_EQ(blaze_util::Path("/nonexistent/cache/bazel/_bazel_gandalf/"
+                             "1629dee48cc4e53161f9b2be8614e062"),
+            startup_options_->output_base);
+}
+
+TEST_F(BazelStartupOptionsTest,
+       UpdateConfigurationOnLinuxOrDarwinNoShellExpansion) {
+  SetEnv("USER", "gandalf");
+  SetEnv("TEST_TMPDIR", "~/\"$foo/test\"");
+  SetEnv("XDG_CACHE_HOME", "~/cache${bar}");
+  SetEnv("HOME", "~/home$(echo baz)");
+
+  ReinitStartupOptions();
+  UpdateConfiguration();
+
+  ASSERT_EQ(blaze_util::Path(blaze_util::GetCwd() + "/~/\"$foo/test\"" +
+                             "/_bazel_gandalf"),
+            startup_options_->output_user_root);
+
+  UnsetEnv("TEST_TMPDIR");
+  ReinitStartupOptions();
+  UpdateConfiguration();
+
+  ASSERT_EQ(blaze_util::Path(blaze_util::GetCwd() +
+                             "/~/cache${bar}/bazel/_bazel_gandalf"),
+            startup_options_->output_user_root);
+
+  UnsetEnv("XDG_CACHE_HOME");
+  ReinitStartupOptions();
+  UpdateConfiguration();
+
+#ifdef __linux
+  ASSERT_EQ(blaze_util::Path(blaze_util::GetCwd() +
+                             "/~/home$(echo baz)/.cache/bazel/_bazel_gandalf"),
+            startup_options_->output_user_root);
+#elif defined(__APPLE__)
+  ASSERT_EQ(blaze_util::Path(
+                blaze_util::GetCwd() +
+                "/~/home$(echo baz)/Library/Caches/bazel/_bazel_gandalf"),
+            startup_options_->output_user_root);
+#endif
+}
+#endif  // __linux || __APPLE__
+
+#if defined(__WIN32__) || defined(__CYGWIN__)
+TEST_F(BazelStartupOptionsTest, UpdateConfigurationOnWindowsWithHome) {
+  SetEnv("USER", "gandalf");
+  SetEnv("HOME", "C:\\Users\\gandalf");
+  UnsetEnv("TEST_TMPDIR");
+  ReinitStartupOptions();
+  UpdateConfiguration();
+
+  ASSERT_EQ(blaze_util::Path("C:/Users/gandalf/_bazel_gandalf"),
+            startup_options_->output_user_root);
+  ASSERT_EQ(blaze_util::Path("C:/Users/gandalf/install/deadbeef"),
+            startup_options_->install_base);
+  ASSERT_EQ(blaze_util::Path("C:/Users/gandalf/_bazel_gandalf/"
+                             "1629dee48cc4e53161f9b2be8614e062"),
+            startup_options_->output_base);
+}
+
+TEST_F(BazelStartupOptionsTest, UpdateConfigurationOnWindowsWithUserProfile) {
+  UnsetEnv("HOME");
+  SetEnv("USERPROFILE", "C:\\Users\\gandalf");
+  UnsetEnv("TEST_TMPDIR");
+  ReinitStartupOptions();
+  UpdateConfiguration();
+
+  ASSERT_EQ(blaze_util::Path("C:/Users/gandalf/_bazel_gandalf"),
+            startup_options_->output_user_root);
+  ASSERT_EQ(blaze_util::Path("C:/Users/gandalf/install/deadbeef"),
+            startup_options_->install_base);
+  ASSERT_EQ(blaze_util::Path("C:/Users/gandalf/_bazel_gandalf/"
+                             "1629dee48cc4e53161f9b2be8614e062"),
+            startup_options_->output_base);
+}
+#endif  // __WIN32__ || __CYGWIN__
+
 // TODO(#4502 related cleanup) This test serves as a catalog of the valid
 // options - make this test check that the list is complete, that no options are
 // missing.
@@ -97,15 +241,14 @@ TEST_F(BazelStartupOptionsTest, ValidStartupFlags) {
   ExpectValidNullaryOption(options, "batch_cpu_scheduling");
   ExpectValidNullaryOption(options, "block_for_lock");
   ExpectValidNullaryOption(options, "client_debug");
+  ExpectValidNullaryOption(options, "experimental_use_compact_object_headers");
   ExpectValidNullaryOption(options, "fatal_event_bus_exceptions");
   ExpectValidNullaryOption(options, "home_rc");
   ExpectValidNullaryOption(options, "host_jvm_debug");
   ExpectValidNullaryOption(options, "autodetect_server_javabase");
   ExpectValidNullaryOption(options, "ignore_all_rc_files");
-  ExpectValidNullaryOption(options, "master_bazelrc");
   ExpectValidNullaryOption(options, "shutdown_on_low_sys_mem");
   ExpectValidNullaryOption(options, "system_rc");
-  ExpectValidNullaryOption(options, "watchfs");
   ExpectValidNullaryOption(options, "workspace_rc");
   ExpectValidNullaryOption(options, "write_command_log");
   ExpectIsUnaryOption(options, "bazelrc");
@@ -113,7 +256,6 @@ TEST_F(BazelStartupOptionsTest, ValidStartupFlags) {
   ExpectIsUnaryOption(options, "connect_timeout_secs");
   ExpectIsUnaryOption(options, "digest_function");
   ExpectIsUnaryOption(options, "host_jvm_args");
-  ExpectIsUnaryOption(options, "host_jvm_profile");
   ExpectIsUnaryOption(options, "install_base");
   ExpectIsUnaryOption(options, "invocation_policy");
   ExpectIsUnaryOption(options, "io_nice_level");
@@ -190,7 +332,7 @@ TEST_F(BazelStartupOptionsTest, IgnoredNoMasterBazelrcDoesNotWarn) {
   // Warning for nomaster would feel pretty spammy - it's redundant, but the
   // behavior is as one would expect, so warning is unnecessary.
   ParseStartupOptionsAndExpectWarning(
-      startup_options_.get(), {"--ignore_all_rc_files", "--nomaster_bazelrc"},
+      startup_options_.get(), {"--ignore_all_rc_files"},
       "");
 }
 
@@ -207,8 +349,132 @@ TEST_F(BazelStartupOptionsTest, NonIgnoredOptionDoesNotWarn) {
 TEST_F(BazelStartupOptionsTest, FinalValueOfIgnoreIsUsedForWarning) {
   ParseStartupOptionsAndExpectWarning(
       startup_options_.get(),
-      {"--ignore_all_rc_files", "--master_bazelrc", "--noignore_all_rc_files"},
+      {"--ignore_all_rc_files", "--noignore_all_rc_files"},
       "");
+}
+
+TEST_F(BazelStartupOptionsTest, LockInstallBase) {
+  EXPECT_TRUE(startup_options_->lock_install_base);
+}
+
+TEST_F(BazelStartupOptionsTest, CompactObjectHeadersDefaultTrue) {
+  EXPECT_TRUE(startup_options_->use_compact_object_headers_);
+}
+
+TEST_F(BazelStartupOptionsTest, ProcessNoCompactObjectHeaders) {
+  std::string error;
+  const std::vector<RcStartupFlag> flags{RcStartupFlag(
+      "somewhere", "--noexperimental_use_compact_object_headers")};
+
+  const blaze_exit_code::ExitCode ec =
+      startup_options_->ProcessArgs(flags, &error);
+  ASSERT_EQ(blaze_exit_code::SUCCESS, ec)
+      << "ProcessArgs failed with error " << error;
+  EXPECT_FALSE(startup_options_->use_compact_object_headers_);
+  EXPECT_TRUE(startup_options_->option_sources.find(
+                  "experimental_use_compact_object_headers") !=
+              startup_options_->option_sources.end());
+}
+
+TEST_F(BazelStartupOptionsTest, ProcessExplicitCompactObjectHeaders) {
+  std::string error;
+  const std::vector<RcStartupFlag> flags{
+      RcStartupFlag("somewhere", "--experimental_use_compact_object_headers")};
+
+  const blaze_exit_code::ExitCode ec =
+      startup_options_->ProcessArgs(flags, &error);
+  ASSERT_EQ(blaze_exit_code::SUCCESS, ec)
+      << "ProcessArgs failed with error " << error;
+  EXPECT_TRUE(startup_options_->use_compact_object_headers_);
+  EXPECT_TRUE(startup_options_->option_sources.find(
+                  "experimental_use_compact_object_headers") !=
+              startup_options_->option_sources.end());
+}
+
+TEST_F(BazelStartupOptionsTest, AddJVMArgumentsCompactObjectHeadersExplicit) {
+  std::vector<std::string> result;
+  std::string error;
+  blaze_util::Path test_tmpdir(blaze::GetPathEnv("TEST_TMPDIR"));
+  blaze_util::Path dummy_javabase = test_tmpdir.GetRelative("dummy_javabase");
+
+  startup_options_->use_compact_object_headers_ = true;
+  startup_options_->option_sources["experimental_use_compact_object_headers"] =
+      "";  // simulate explicit
+  startup_options_->output_base = test_tmpdir.GetRelative("output_base");
+
+  blaze_exit_code::ExitCode ec =
+      startup_options_->AddJVMArguments(dummy_javabase, &result, {}, &error);
+  ASSERT_EQ(blaze_exit_code::SUCCESS, ec)
+      << "AddJVMArguments failed with error " << error;
+
+  bool has_unlock =
+      std::find(result.begin(), result.end(),
+                "-XX:+UnlockExperimentalVMOptions") != result.end();
+  bool has_use = std::find(result.begin(), result.end(),
+                           "-XX:+UseCompactObjectHeaders") != result.end();
+  EXPECT_TRUE(has_unlock);
+  EXPECT_TRUE(has_use);
+}
+
+TEST_F(BazelStartupOptionsTest,
+       AddJVMArgumentsCompactObjectHeadersDefaultNotEmbedded) {
+  std::vector<std::string> result;
+  std::string error;
+  blaze_util::Path test_tmpdir(blaze::GetPathEnv("TEST_TMPDIR"));
+  blaze_util::Path dummy_javabase = test_tmpdir.GetRelative("dummy_javabase");
+
+  // Set explicit_server_javabase_ via ProcessArgs to avoid GetSystemJavabase()
+  // crash
+  const std::vector<RcStartupFlag> flags{RcStartupFlag(
+      "somewhere",
+      "--server_javabase=" + dummy_javabase.AsCommandLineArgument())};
+  const blaze_exit_code::ExitCode ec =
+      startup_options_->ProcessArgs(flags, &error);
+  ASSERT_EQ(blaze_exit_code::SUCCESS, ec)
+      << "ProcessArgs failed with error " << error;
+
+  // use_compact_object_headers_ is true by default for Bazel
+  // option_sources does NOT contain it (simulating default)
+  // in test environment, it is not embedded
+  startup_options_->output_base = test_tmpdir.GetRelative("output_base");
+
+  blaze_exit_code::ExitCode ec_add =
+      startup_options_->AddJVMArguments(dummy_javabase, &result, {}, &error);
+  ASSERT_EQ(blaze_exit_code::SUCCESS, ec_add)
+      << "AddJVMArguments failed with error " << error;
+
+  bool has_unlock =
+      std::find(result.begin(), result.end(),
+                "-XX:+UnlockExperimentalVMOptions") != result.end();
+  bool has_use = std::find(result.begin(), result.end(),
+                           "-XX:+UseCompactObjectHeaders") != result.end();
+  EXPECT_FALSE(has_unlock);
+  EXPECT_FALSE(has_use);
+}
+
+TEST_F(BazelStartupOptionsTest, AddJVMArgumentsCompactObjectHeadersDisabled) {
+  std::vector<std::string> result;
+  std::string error;
+  blaze_util::Path test_tmpdir(blaze::GetPathEnv("TEST_TMPDIR"));
+  blaze_util::Path dummy_javabase = test_tmpdir.GetRelative("dummy_javabase");
+
+  startup_options_->use_compact_object_headers_ = false;
+  startup_options_->option_sources["experimental_use_compact_object_headers"] =
+      "";  // simulate explicit
+  startup_options_->output_base = test_tmpdir.GetRelative("output_base");
+
+  blaze_exit_code::ExitCode ec =
+      startup_options_->AddJVMArguments(dummy_javabase, &result, {}, &error);
+  ASSERT_EQ(blaze_exit_code::SUCCESS, ec)
+      << "AddJVMArguments failed with error " << error;
+
+  bool has_unlock =
+      std::find(result.begin(), result.end(),
+                "-XX:+UnlockExperimentalVMOptions") != result.end();
+  bool has_use = std::find(result.begin(), result.end(),
+                           "-XX:+UseCompactObjectHeaders") != result.end();
+  EXPECT_FALSE(has_unlock);
+  EXPECT_FALSE(has_use);
 }
 
 }  // namespace blaze

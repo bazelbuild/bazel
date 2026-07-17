@@ -16,7 +16,6 @@ package com.google.testing.junit.runner.junit4;
 
 import java.util.Arrays;
 import java.util.List;
-import javax.inject.Singleton;
 
 /**
  * Utility classes which hold state or are, for testing purposes, implemented with non-static
@@ -25,27 +24,6 @@ import javax.inject.Singleton;
  * These are Dagger legacy modules.
  */
 public final class JUnit4InstanceModules {
-
-  /**
-   * A stateful dagger module that holds the supplied test suite class.
-   */
-  public static final class SuiteClass {
-    private final Class<?> suiteClass;
-
-    public SuiteClass(Class<?> suiteClass) {
-      this.suiteClass = suiteClass;
-    }
-
-    @TopLevelSuite
-    Class<?> topLevelSuite() {
-      return suiteClass;
-    }
-
-    @TopLevelSuite
-    static String topLevelSuiteName(@TopLevelSuite Class<?> suite) {
-      return suite.getCanonicalName();
-    }
-  }
 
   /**
    * A module which supplies a JUnit4Config object, which can be overridden at test-time.
@@ -61,17 +39,8 @@ public final class JUnit4InstanceModules {
       this.args = Arrays.asList(args);
     }
 
-    @Singleton
     JUnit4Options options() {
       return JUnit4Options.parse(System.getenv(), args);
-    }
-
-    @Singleton
-    static JUnit4Config config(JUnit4Options options) {
-      return new JUnit4Config(
-          options.getTestRunnerFailFast(),
-          options.getTestIncludeFilter(),
-          options.getTestExcludeFilter());
     }
   }
 

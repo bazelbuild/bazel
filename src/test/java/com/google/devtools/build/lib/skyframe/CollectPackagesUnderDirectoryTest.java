@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
 import com.google.devtools.build.lib.packages.BuildFileName;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -25,6 +26,7 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public final class CollectPackagesUnderDirectoryTest
     extends AbstractCollectPackagesUnderDirectoryTest {
+
   @Override
   protected String getWorkspacePathString() {
     return "/workspace";
@@ -37,11 +39,21 @@ public final class CollectPackagesUnderDirectoryTest
 
   @Override
   protected ImmutableMap<SkyFunctionName, SkyFunction> getExtraSkyFunctions() {
-    return ImmutableMap.of();
+    return ImmutableMap.of(
+        SkyFunctions.MODULE_FILE,
+        new ModuleFileFunction(
+            ruleClassProvider.getBazelStarlarkEnvironment(),
+            directories.getWorkspace(),
+            ImmutableMap.of()));
   }
 
   @Override
   protected SkyframeExecutorFactory makeSkyframeExecutorFactory() {
     return new SequencedSkyframeExecutorFactory();
+  }
+
+  @Override
+  protected boolean useVirtualSourceRoot() {
+    return false;
   }
 }

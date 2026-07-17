@@ -14,64 +14,205 @@
 
 package net.starlark.java.eval;
 
+import static com.google.common.collect.Streams.stream;
+import static java.util.Comparator.comparing;
+
 import com.google.common.base.Ascii;
-import com.google.common.base.Joiner;
+import com.google.common.base.Throwables;
 import com.google.common.collect.Ordering;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Iterator;
-import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Optional;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkLibrary;
 import net.starlark.java.annot.StarlarkMethod;
 
 /** The universal predeclared functions of core Starlark. */
+@StarlarkLibrary
 class MethodLibrary {
 
   @StarlarkMethod(
       name = "min",
       doc =
-          "Returns the smallest one of all given arguments. "
-              + "If only one argument is provided, it must be a non-empty iterable. "
-              + "It is an error if elements are not comparable (for example int with string), "
-              + "or if no arguments are given. "
-              + "<pre class=\"language-python\">min(2, 5, 4) == 2\n"
-              + "min([5, 6, 3]) == 3</pre>",
-      extraPositionals = @Param(name = "args", doc = "The elements to be checked."))
-  public Object min(Sequence<?> args) throws EvalException {
-    return findExtreme(args, Starlark.ORDERING.reverse());
+          "Returns the smallest one of all given arguments. If only one positional argument is"
+              + " provided, it must be a non-empty iterable. It is an error if elements are not"
+              + " comparable (for example int with string), or if no arguments are given."
+              + "<pre class=\"language-python\">\n" //
+              + "min(2, 5, 4) == 2\n"
+              + "min([5, 6, 3]) == 3\n"
+              + "min(\"six\", \"three\", \"four\", key = len) == \"six\"  # the shortest\n"
+              + "min([2, -2, -1, 1], key = abs) == -1  # the first encountered with minimal key"
+              + " value\n"
+              + "</pre>",
+      extraPositionals = @Param(name = "args", doc = "The elements to be checked."),
+      parameters = {
+        @Param(
+            name = "key",
+            named = true,
+            positional = false,
+            allowedTypes = {
+              @ParamType(type = StarlarkCallable.class),
+              @ParamType(type = NoneType.class),
+            },
+            doc =
+                "An optional function applied to each element before comparison. Must not mutate"
+                    + " the args sequence.",
+            defaultValue = "None")
+      },
+      useStarlarkThread = true)
+  public Object min(Object key, Sequence<?> args, StarlarkThread thread)
+      throws EvalException, InterruptedException {
+    return findExtreme(
+        args,
+        Starlark.toJavaOptional(key, StarlarkCallable.class),
+        Starlark.ORDERING.reverse(),
+        thread);
   }
 
   @StarlarkMethod(
       name = "max",
       doc =
-          "Returns the largest one of all given arguments. "
-              + "If only one argument is provided, it must be a non-empty iterable."
-              + "It is an error if elements are not comparable (for example int with string), "
-              + "or if no arguments are given. "
-              + "<pre class=\"language-python\">max(2, 5, 4) == 5\n"
-              + "max([5, 6, 3]) == 6</pre>",
-      extraPositionals = @Param(name = "args", doc = "The elements to be checked."))
-  public Object max(Sequence<?> args) throws EvalException {
-    return findExtreme(args, Starlark.ORDERING);
+          "Returns the largest one of all given arguments. If only one positional argument is"
+              + " provided, it must be a non-empty iterable.It is an error if elements are not"
+              + " comparable (for example int with string), or if no arguments are given."
+              + "<pre class=\"language-python\">\n" //
+              + "max(2, 5, 4) == 5\n"
+              + "max([5, 6, 3]) == 6\n"
+              + "max(\"two\", \"three\", \"four\", key = len) ==\"three\"  # the longest\n"
+              + "max([1, -1, -2, 2], key = abs) == -2  # the first encountered with maximal key"
+              + " value\n"
+              + "</pre>",
+      extraPositionals = @Param(name = "args", doc = "The elements to be checked."),
+      parameters = {
+        @Param(
+            name = "key",
+            named = true,
+            positional = false,
+            allowedTypes = {
+              @ParamType(type = StarlarkCallable.class),
+              @ParamType(type = NoneType.class),
+            },
+            doc =
+                "An optional function applied to each element before comparison. Must not mutate"
+                    + " the args sequence.",
+            defaultValue = "None")
+      },
+      useStarlarkThread = true)
+  public Object max(Object key, Sequence<?> args, StarlarkThread thread)
+      throws EvalException, InterruptedException {
+    return findExtreme(
+        args, Starlark.toJavaOptional(key, StarlarkCallable.class), Starlark.ORDERING, thread);
   }
 
   /** Returns the maximum element from this list, as determined by maxOrdering. */
-  private static Object findExtreme(Sequence<?> args, Ordering<Object> maxOrdering)
-      throws EvalException {
+  private static Object findExtreme(
+      Sequence<?> args,
+      Optional<StarlarkCallable> keyFn,
+      Ordering<Object> maxOrdering,
+      StarlarkThread thread)
+      throws EvalException, InterruptedException {
     // Args can either be a list of items to compare, or a singleton list whose element is an
     // iterable of items to compare. In either case, there must be at least one item to compare.
     Iterable<?> items = (args.size() == 1) ? Starlark.toIterable(args.get(0)) : args;
     try {
-      return maxOrdering.max(items);
+      EvalUtils.addIterator(items); // to prevent keyFn from mutating items
+      if (keyFn.isPresent()) {
+        try {
+          return stream(items)
+              .map(value -> ValueWithComparisonKey.make(value, keyFn.get(), thread))
+              .max(comparing(ValueWithComparisonKey::getComparisonKey, maxOrdering))
+              .get()
+              .getValue();
+        } catch (ValueWithComparisonKey.KeyCallException ex) {
+          Throwables.throwIfInstanceOf(ex.getCause(), EvalException.class);
+          Throwables.throwIfInstanceOf(ex.getCause(), InterruptedException.class);
+          throw new AssertionError("Got invalid ValueWithComparisonKey.KeyCallException", ex);
+        }
+      } else {
+        return maxOrdering.max(items);
+      }
     } catch (ClassCastException ex) {
       throw new EvalException(ex.getMessage()); // e.g. unsupported comparison: int <=> string
     } catch (NoSuchElementException ex) {
       throw new EvalException("expected at least one item", ex);
+    } finally {
+      EvalUtils.removeIterator(items);
     }
+  }
+
+  /**
+   * Original value decorated with its comparison key; storing the comparison key alongside the
+   * value ensures that we call the comparison key computation function only once per original value
+   * (which is important in case the function has side effects).
+   */
+  private static final class ValueWithComparisonKey {
+    private final Object value;
+    private final Object comparisonKey;
+
+    private ValueWithComparisonKey(Object value, Object comparisonKey) {
+      this.value = value;
+      this.comparisonKey = comparisonKey;
+    }
+
+    /**
+     * @throws KeyCallException wrapping the exception thrown by the underlying {@link
+     *     Starlark#positionalOnlyCall} call if it threw.
+     */
+    static ValueWithComparisonKey make(
+        Object value, StarlarkCallable keyFn, StarlarkThread thread) {
+      try {
+        return new ValueWithComparisonKey(value, Starlark.positionalOnlyCall(thread, keyFn, value));
+      } catch (EvalException | InterruptedException ex) {
+        throw new KeyCallException(ex);
+      }
+    }
+
+    Object getValue() {
+      return value;
+    }
+
+    Object getComparisonKey() {
+      return comparisonKey;
+    }
+
+    /**
+     * An unchecked exception wrapping an exception thrown by {@link Starlark#positionalOnlyCall}.
+     */
+    private static final class KeyCallException extends RuntimeException {
+      KeyCallException(Exception cause) {
+        super(cause);
+      }
+    }
+  }
+
+  @StarlarkMethod(
+      name = "abs",
+      doc =
+          "Returns the absolute value of a number (a non-negative number with the same magnitude)."
+              + "<pre class=\"language-python\">abs(-2.3) == 2.3</pre>",
+      parameters = {
+        @Param(
+            name = "x",
+            allowedTypes = {
+              @ParamType(type = StarlarkInt.class),
+              @ParamType(type = StarlarkFloat.class),
+            },
+            doc = "A number (int or float)")
+      })
+  public Object abs(Object x) throws EvalException {
+    if (x instanceof StarlarkInt starlarkInt) {
+      if (starlarkInt.signum() < 0) {
+        return StarlarkInt.uminus(starlarkInt);
+      }
+      return x;
+    }
+
+    double value = ((StarlarkFloat) x).toDouble();
+    return StarlarkFloat.of(Math.abs(value));
   }
 
   @StarlarkMethod(
@@ -81,8 +222,8 @@ class MethodLibrary {
               + "Elements are converted to boolean using the <a href=\"#bool\">bool</a> function."
               + "<pre class=\"language-python\">all([\"hello\", 3, True]) == True\n"
               + "all([-1, 0, 1]) == False</pre>",
-      parameters = {@Param(name = "elements", doc = "A string or a collection of elements.")})
-  public boolean all(Object collection) throws EvalException {
+      parameters = {@Param(name = "elements", doc = "A collection of elements.")})
+  public boolean all(StarlarkIterable<Object> collection) throws EvalException {
     return !hasElementWithBooleanValue(collection, false);
   }
 
@@ -93,14 +234,14 @@ class MethodLibrary {
               + "Elements are converted to boolean using the <a href=\"#bool\">bool</a> function."
               + "<pre class=\"language-python\">any([-1, 0, 1]) == True\n"
               + "any([False, 0, \"\"]) == False</pre>",
-      parameters = {@Param(name = "elements", doc = "A string or a collection of elements.")})
-  public boolean any(Object collection) throws EvalException {
+      parameters = {@Param(name = "elements", doc = "A collection of elements.")})
+  public boolean any(StarlarkIterable<Object> collection) throws EvalException {
     return hasElementWithBooleanValue(collection, true);
   }
 
-  private static boolean hasElementWithBooleanValue(Object seq, boolean value)
+  private static boolean hasElementWithBooleanValue(StarlarkIterable<Object> seq, boolean value)
       throws EvalException {
-    for (Object x : Starlark.toIterable(seq)) {
+    for (Object x : seq) {
       if (Starlark.truth(x) == value) {
         return true;
       }
@@ -116,16 +257,24 @@ class MethodLibrary {
               + " using x < y. The elements are sorted into ascending order, unless the reverse"
               + " argument is True, in which case the order is descending.\n"
               + " Sorting is stable: elements that compare equal retain their original relative"
-              + " order.\n"
-              + "<pre class=\"language-python\">sorted([3, 5, 4]) == [3, 4, 5]</pre>",
+              + " order.\n" //
+              + "<pre class=\"language-python\">\n" //
+              + "sorted([3, 5, 4]) == [3, 4, 5]\n" //
+              + "sorted([3, 5, 4], reverse = True) == [5, 4, 3]\n" //
+              + "sorted([\"two\", \"three\", \"four\"], key = len) == [\"two\", \"four\","
+              + " \"three\"]  # sort by length\n" //
+              + "</pre>",
       parameters = {
         @Param(name = "iterable", doc = "The iterable sequence to sort."),
         @Param(
             name = "key",
-            doc = "An optional function applied to each element before comparison.",
             named = true,
-            defaultValue = "None",
-            positional = false),
+            allowedTypes = {
+              @ParamType(type = StarlarkCallable.class),
+              @ParamType(type = NoneType.class),
+            },
+            doc = "An optional function applied to each element before comparison.",
+            defaultValue = "None"),
         @Param(
             name = "reverse",
             doc = "Return results in descending order.",
@@ -153,16 +302,12 @@ class MethodLibrary {
     // The user provided a key function.
     // We must call it exactly once per element, in order,
     // so use the decorate/sort/undecorate pattern.
-    if (!(key instanceof StarlarkCallable)) {
-      throw Starlark.errorf("for key, got %s, want callable", Starlark.type(key));
-    }
     StarlarkCallable keyfn = (StarlarkCallable) key;
 
     // decorate
-    Object[] empty = {};
     for (int i = 0; i < array.length; i++) {
       Object v = array[i];
-      Object k = Starlark.fastcall(thread, keyfn, new Object[] {v}, empty);
+      Object k = Starlark.positionalOnlyCall(thread, keyfn, v);
       array[i] = new Object[] {k, v};
     }
 
@@ -243,7 +388,8 @@ class MethodLibrary {
               + "<pre class=\"language-python\">tuple([1, 2]) == (1, 2)\n"
               + "tuple((2, 3, 2)) == (2, 3, 2)\n"
               + "tuple({5: \"a\", 2: \"b\", 4: \"c\"}) == (5, 2, 4)</pre>",
-      parameters = {@Param(name = "x", defaultValue = "()", doc = "The object to convert.")})
+      parameters = {@Param(name = "x", defaultValue = "()", doc = "The object to convert.")},
+      isTypeConstructor = true)
   public Tuple tuple(StarlarkIterable<?> x) throws EvalException {
     if (x instanceof Tuple) {
       return (Tuple) x;
@@ -259,7 +405,8 @@ class MethodLibrary {
               + "list((2, 3, 2)) == [2, 3, 2]\n"
               + "list({5: \"a\", 2: \"b\", 4: \"c\"}) == [5, 2, 4]</pre>",
       parameters = {@Param(name = "x", defaultValue = "[]", doc = "The object to convert.")},
-      useStarlarkThread = true)
+      useStarlarkThread = true,
+      isTypeConstructor = true)
   public StarlarkList<?> list(StarlarkIterable<?> x, StarlarkThread thread) throws EvalException {
     return StarlarkList.wrap(thread.mutability(), Starlark.toArray(x));
   }
@@ -267,9 +414,17 @@ class MethodLibrary {
   @StarlarkMethod(
       name = "len",
       doc =
-          "Returns the length of a string, sequence (such as a list or tuple), dict, or other"
+          "Returns the length of a string, sequence (such as a list or tuple), dict, set, or other"
               + " iterable.",
-      parameters = {@Param(name = "x", doc = "The value whose length to report.")},
+      parameters = {
+        @Param(
+            name = "x",
+            doc = "The value whose length to report.",
+            allowedTypes = {
+              @ParamType(type = StarlarkIterable.class, generic1 = Object.class),
+              @ParamType(type = String.class)
+            })
+      },
       useStarlarkThread = true)
   public int len(Object x, StarlarkThread thread) throws EvalException {
     int len = Starlark.len(x);
@@ -285,9 +440,11 @@ class MethodLibrary {
           "Converts any object to string. This is useful for debugging."
               + "<pre class=\"language-python\">str(\"ab\") == \"ab\"\n"
               + "str(8) == \"8\"</pre>",
-      parameters = {@Param(name = "x", doc = "The object to convert.")})
-  public String str(Object x) throws EvalException {
-    return Starlark.str(x);
+      parameters = {@Param(name = "x", doc = "The object to convert.")},
+      useStarlarkThread = true,
+      isTypeConstructor = true)
+  public String str(Object x, StarlarkThread thread) throws EvalException {
+    return Starlark.str(x, thread.getSemantics());
   }
 
   @StarlarkMethod(
@@ -295,9 +452,10 @@ class MethodLibrary {
       doc =
           "Converts any object to a string representation. This is useful for debugging.<br>"
               + "<pre class=\"language-python\">repr(\"ab\") == '\"ab\"'</pre>",
-      parameters = {@Param(name = "x", doc = "The object to convert.")})
-  public String repr(Object x) {
-    return Starlark.repr(x);
+      parameters = {@Param(name = "x", doc = "The object to convert.")},
+      useStarlarkThread = true)
+  public String repr(Object x, StarlarkThread thread) {
+    return Starlark.repr(x, thread.getSemantics());
   }
 
   @StarlarkMethod(
@@ -308,7 +466,8 @@ class MethodLibrary {
               + "</code>, an empty string (<code>\"\"</code>), the number <code>0</code>, or an "
               + "empty collection (e.g. <code>()</code>, <code>[]</code>). "
               + "Otherwise, it returns <code>True</code>.",
-      parameters = {@Param(name = "x", defaultValue = "False", doc = "The variable to convert.")})
+      parameters = {@Param(name = "x", defaultValue = "False", doc = "The variable to convert.")},
+      isTypeConstructor = true)
   public boolean bool(Object x) throws EvalException {
     return Starlark.truth(x);
   }
@@ -331,11 +490,20 @@ class MethodLibrary {
               + "Any other value causes an error. With no argument, <code>float()</code> returns"
               + " 0.0.",
       parameters = {
-        @Param(name = "x", doc = "The value to convert.", defaultValue = "unbound"),
-      })
+        @Param(
+            name = "x",
+            doc = "The value to convert.",
+            defaultValue = "unbound",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = Boolean.class),
+              @ParamType(type = StarlarkInt.class),
+              @ParamType(type = StarlarkFloat.class),
+            }),
+      },
+      isTypeConstructor = true)
   public StarlarkFloat floatForStarlark(Object x) throws EvalException {
-    if (x instanceof String) {
-      String s = (String) x;
+    if (x instanceof String s) {
       if (s.isEmpty()) {
         throw Starlark.errorf("empty string");
       }
@@ -437,7 +605,15 @@ class MethodLibrary {
               + "int(\"123.456\") == 123\n"
               + "</pre>",
       parameters = {
-        @Param(name = "x", doc = "The string to convert."),
+        @Param(
+            name = "x",
+            doc = "The string to convert.",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = Boolean.class),
+              @ParamType(type = StarlarkInt.class),
+              @ParamType(type = StarlarkFloat.class),
+            }),
         @Param(
             name = "base",
             defaultValue = "unbound",
@@ -446,8 +622,10 @@ class MethodLibrary {
                     + "and 36 (inclusive), or 0 to detect the base as if <code>x</code> were an "
                     + "integer literal. This parameter must not be supplied if the value is not a "
                     + "string.",
-            named = true)
-      })
+            named = true,
+            allowedTypes = {@ParamType(type = StarlarkInt.class)})
+      },
+      isTypeConstructor = true)
   public StarlarkInt intForStarlark(Object x, Object baseO) throws EvalException {
     if (x instanceof String) {
       int base = baseO == Starlark.UNBOUND ? 10 : Starlark.toInt(baseO, "base");
@@ -478,7 +656,7 @@ class MethodLibrary {
   @StarlarkMethod(
       name = "dict",
       doc =
-          "Creates a <a href=\"dict.html\">dictionary</a> from an optional positional "
+          "Creates a <a href=\"../core/dict.html\">dictionary</a> from an optional positional "
               + "argument and an optional set of keyword arguments. In the case where the same key "
               + "is given multiple times, the last value will be used. Entries supplied via "
               + "keyword arguments are considered to come after entries supplied via the "
@@ -490,7 +668,8 @@ class MethodLibrary {
             doc = "A dict, or an iterable whose elements are each of length 2 (key, value)."),
       },
       extraKeywords = @Param(name = "kwargs", doc = "Dictionary of additional entries."),
-      useStarlarkThread = true)
+      useStarlarkThread = true,
+      isTypeConstructor = true)
   public Dict<?, ?> dict(Object pairs, Dict<String, Object> kwargs, StarlarkThread thread)
       throws EvalException {
     // common case: dict(k=v, ...)
@@ -500,6 +679,37 @@ class MethodLibrary {
     Dict<Object, Object> dict = Dict.of(thread.mutability());
     Dict.update("dict", dict, pairs, kwargs);
     return dict;
+  }
+
+  @StarlarkMethod(
+      name = "set",
+      doc =
+"""
+Creates a new <a href=\"../core/set.html\">set</a> containing the unique elements of a given
+iterable, preserving iteration order.
+
+<p>If called with no argument, <code>set()</code> returns a new empty set.
+
+<p>For example,
+<pre class=language-python>
+set()                          # an empty set
+set([3, 1, 1, 2])              # set([3, 1, 2]), a set of three elements
+set({"k1": "v1", "k2": "v2"})  # set(["k1", "k2"]), a set of two elements
+</pre>
+""",
+      parameters = {
+        @Param(name = "elements", defaultValue = "[]", doc = "An iterable of hashable values."),
+      },
+      useStarlarkThread = true,
+      isTypeConstructor = true)
+  public StarlarkSet<?> set(StarlarkIterable<?> elements, StarlarkThread thread)
+      throws EvalException {
+    // Ordinarily we would use StarlarkMethod#enableOnlyWithFlag, but this doesn't work for
+    // top-level symbols, so enforce it here instead.
+    if (!thread.getSemantics().getBool(StarlarkSemantics.EXPERIMENTAL_ENABLE_STARLARK_SET)) {
+      throw Starlark.errorf("Use of set() requires --experimental_enable_starlark_set");
+    }
+    return StarlarkSet.checkedCopyOf(thread.mutability(), elements);
   }
 
   @StarlarkMethod(
@@ -556,12 +766,11 @@ class MethodLibrary {
                 "Value of the start element if stop is provided, "
                     + "otherwise value of stop and the actual start is 0"),
         @Param(
-            name = "stop_or_none",
+            name = "stop",
             allowedTypes = {
               @ParamType(type = StarlarkInt.class),
-              @ParamType(type = NoneType.class),
             },
-            defaultValue = "None",
+            defaultValue = "unbound",
             doc =
                 "optional index of the first item <i>not</i> to be included in the resulting "
                     + "list; generation of the list stops before <code>stop</code> is reached."),
@@ -572,16 +781,16 @@ class MethodLibrary {
       },
       useStarlarkThread = true)
   public Sequence<StarlarkInt> range(
-      StarlarkInt startOrStop, Object stopOrNone, StarlarkInt stepI, StarlarkThread thread)
+      StarlarkInt startOrStop, Object stopOrUnbound, StarlarkInt stepI, StarlarkThread thread)
       throws EvalException {
     int start;
     int stop;
-    if (stopOrNone == Starlark.NONE) {
+    if (stopOrUnbound == Starlark.UNBOUND) {
       start = 0;
       stop = startOrStop.toInt("stop");
     } else {
       start = startOrStop.toInt("start");
-      stop = Starlark.toInt(stopOrNone, "stop");
+      stop = Starlark.toInt(stopOrUnbound, "stop");
     }
     int step = stepI.toInt("step");
     if (step == 0) {
@@ -604,7 +813,7 @@ class MethodLibrary {
       },
       useStarlarkThread = true)
   public boolean hasattr(Object obj, String name, StarlarkThread thread) throws EvalException {
-    return Starlark.hasattr(thread.getSemantics(), obj, name);
+    return Starlark.hasattr(thread, obj, name);
   }
 
   @StarlarkMethod(
@@ -629,11 +838,7 @@ class MethodLibrary {
   public Object getattr(Object obj, String name, Object defaultValue, StarlarkThread thread)
       throws EvalException, InterruptedException {
     return Starlark.getattr(
-        thread.mutability(),
-        thread.getSemantics(),
-        obj,
-        name,
-        defaultValue == Starlark.UNBOUND ? null : defaultValue);
+        thread, obj, name, defaultValue == Starlark.UNBOUND ? null : defaultValue);
   }
 
   @StarlarkMethod(
@@ -643,8 +848,8 @@ class MethodLibrary {
               + "methods of the parameter object.",
       parameters = {@Param(name = "x", doc = "The object to check.")},
       useStarlarkThread = true)
-  public StarlarkList<?> dir(Object object, StarlarkThread thread) throws EvalException {
-    return Starlark.dir(thread.mutability(), thread.getSemantics(), object);
+  public StarlarkList<String> dir(Object object, StarlarkThread thread) throws EvalException {
+    return Starlark.dir(thread, object);
   }
 
   @StarlarkMethod(
@@ -672,28 +877,55 @@ class MethodLibrary {
                 "Deprecated. Causes an optional prefix containing this string to be added to the"
                     + " error message.",
             positional = false,
-            named = true)
+            named = true),
+        @Param(
+            name = "sep",
+            defaultValue = "\" \"",
+            named = true,
+            positional = false,
+            doc = "The separator string between the objects, default is space (\" \")."),
+        @Param(
+            name = "stack_trace",
+            doc = "If False stack trace is elided from failure for friendlier user messages",
+            defaultValue = "True",
+            positional = false,
+            named = true),
       },
       extraPositionals =
           @Param(
               name = "args",
               doc =
-                  "A list of values, formatted with str and joined with spaces, that appear in the"
-                      + " error message."))
-  public void fail(Object msg, Object attr, Tuple args) throws EvalException {
-    List<String> elems = new ArrayList<>();
+                  "A list of values, formatted with debugPrint (which is equivalent to str by"
+                      + " default) and joined with sep (defaults to \" \"), that appear in the"
+                      + " error message."),
+      useStarlarkThread = true)
+  public void fail(
+      Object msg, Object attr, String sep, Boolean stackTrace, Tuple args, StarlarkThread thread)
+      throws EvalException {
+    boolean includeStack =
+        stackTrace || thread.getSemantics().getBool(StarlarkSemantics.FORCE_STARLARK_STACK_TRACE);
+    Printer printer = new Printer();
+    boolean needSeparator = false;
+    if (attr != Starlark.NONE) {
+      printer.append("attribute ").append((String) attr).append(":");
+      needSeparator = true;
+    }
     // msg acts like a leading element of args.
     if (msg != Starlark.NONE) {
-      elems.add(Starlark.str(msg));
+      if (needSeparator) {
+        printer.append(sep);
+      }
+      printer.debugPrint(msg, thread);
+      needSeparator = true;
     }
     for (Object arg : args) {
-      elems.add(Starlark.str(arg));
+      if (needSeparator) {
+        printer.append(sep);
+      }
+      printer.debugPrint(arg, thread);
+      needSeparator = true;
     }
-    String str = Joiner.on(" ").join(elems);
-    if (attr != Starlark.NONE) {
-      str = String.format("attribute %s: %s", attr, str);
-    }
-    throw Starlark.errorf("%s", str);
+    throw new EvalException(printer.toString(), null, includeStack);
   }
 
   @StarlarkMethod(
@@ -724,7 +956,7 @@ class MethodLibrary {
     String separator = "";
     for (Object x : args) {
       p.append(separator);
-      p.debugPrint(x);
+      p.debugPrint(x, thread);
       separator = sep;
     }
     // The PRINT_TEST_MARKER key is used in tests to verify the effects of command-line options.
@@ -801,9 +1033,7 @@ class MethodLibrary {
       category = "core",
       doc =
           "A type to represent booleans. There are only two possible values: "
-              + "<a href=\"globals.html#True\">True</a> and "
-              + "<a href=\"globals.html#False\">False</a>. "
-              + "Any value can be converted to a boolean using the "
-              + "<a href=\"globals.html#bool\">bool</a> function.")
+              + "True and False. Any value can be converted to a boolean using the "
+              + "<a href=\"../globals/all.html#bool\">bool</a> function.")
   static final class BoolModule implements StarlarkValue {} // (documentation only)
 }

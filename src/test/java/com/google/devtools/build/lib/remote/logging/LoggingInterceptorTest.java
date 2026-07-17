@@ -68,13 +68,14 @@ import com.google.devtools.build.lib.remote.logging.RemoteExecutionLog.WaitExecu
 import com.google.devtools.build.lib.remote.logging.RemoteExecutionLog.WriteDetails;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.testutil.ManualClock;
-import com.google.devtools.build.lib.util.io.AsynchronousFileOutputStream;
+import com.google.devtools.build.lib.util.io.AsynchronousMessageOutputStream;
 import com.google.longrunning.Operation;
 import com.google.protobuf.Any;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Timestamp;
 import io.grpc.Channel;
 import io.grpc.ClientInterceptors;
+import io.grpc.Context;
 import io.grpc.MethodDescriptor;
 import io.grpc.Server;
 import io.grpc.Status;
@@ -86,11 +87,15 @@ import io.grpc.util.MutableHandlerRegistry;
 import java.util.Iterator;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import org.mockito.ArgumentCaptor;
+import org.mockito.Mock;
 import org.mockito.Mockito;
+import org.mockito.junit.MockitoJUnit;
+import org.mockito.junit.MockitoRule;
 
 /** Tests for {@link com.google.devtools.build.lib.remote.logging.LoggingInterceptor} */
 @RunWith(JUnit4.class)
@@ -100,13 +105,15 @@ public class LoggingInterceptorTest {
   private Server fakeServer;
   private Channel loggedChannel;
   private LoggingInterceptor interceptor;
-  private AsynchronousFileOutputStream logStream;
   private ManualClock clock;
+
+  @Rule public final MockitoRule mockito = MockitoJUnit.rule();
+  @Mock private AsynchronousMessageOutputStream<LogEntry> logStream;
 
   // This returns a logging interceptor where all calls are handled by the given handler.
   @SuppressWarnings({"rawtypes", "unchecked"})
   private LoggingInterceptor getInterceptorWithAlwaysThisHandler(
-      LoggingHandler handler, AsynchronousFileOutputStream outputFile) {
+      LoggingHandler handler, AsynchronousMessageOutputStream<LogEntry> outputFile) {
     return new LoggingInterceptor(outputFile, clock) {
       @Override
       public <ReqT, RespT> LoggingHandler<ReqT, RespT> selectHandler(
@@ -125,7 +132,6 @@ public class LoggingInterceptorTest {
             .directExecutor()
             .build()
             .start();
-    logStream = Mockito.mock(AsynchronousFileOutputStream.class);
     clock = new ManualClock();
     interceptor = new LoggingInterceptor(logStream, clock);
     loggedChannel =
@@ -159,9 +165,8 @@ public class LoggingInterceptorTest {
     LoggingHandler<ReadRequest, ReadResponse> handler = Mockito.mock(LoggingHandler.class);
     RpcCallDetails details = RpcCallDetails.getDefaultInstance();
     Mockito.when(handler.getDetails()).thenReturn(details);
-    AsynchronousFileOutputStream output = Mockito.mock(AsynchronousFileOutputStream.class);
 
-    LoggingInterceptor interceptor = getInterceptorWithAlwaysThisHandler(handler, output);
+    LoggingInterceptor interceptor = getInterceptorWithAlwaysThisHandler(handler, logStream);
     Channel channel =
         ClientInterceptors.intercept(
             InProcessChannelBuilder.forName(fakeServerName).directExecutor().build(), interceptor);
@@ -181,7 +186,49 @@ public class LoggingInterceptorTest {
     verify(handler).handleReq(request);
     verify(handler).handleResp(response);
     verify(handler).getDetails();
-    verify(output).write(expectedEntry);
+    verify(logStream).write(expectedEntry);
+  }
+
+  @Test
+  public void tagsAttemptWithRpcContextWhenAttached() {
+    ReadRequest request = ReadRequest.newBuilder().setResourceName("test").build();
+    ReadResponse response =
+        ReadResponse.newBuilder().setData(ByteString.copyFromUtf8("abc")).build();
+    serviceRegistry.addService(
+        new ByteStreamImplBase() {
+          @Override
+          public void read(ReadRequest request, StreamObserver<ReadResponse> responseObserver) {
+            responseObserver.onNext(response);
+            responseObserver.onCompleted();
+          }
+        });
+
+    @SuppressWarnings("unchecked")
+    LoggingHandler<ReadRequest, ReadResponse> handler = Mockito.mock(LoggingHandler.class);
+    Mockito.when(handler.getDetails()).thenReturn(RpcCallDetails.getDefaultInstance());
+
+    LoggingInterceptor interceptor = getInterceptorWithAlwaysThisHandler(handler, logStream);
+    Channel channel =
+        ClientInterceptors.intercept(
+            InProcessChannelBuilder.forName(fakeServerName).directExecutor().build(), interceptor);
+    ByteStreamBlockingStub stub = ByteStreamGrpc.newBlockingStub(channel);
+
+    // Drive the call inside a Context carrying an RpcLogContext, as the retrier does per attempt.
+    Context context = Context.current().withValue(RpcLogContext.KEY, new RpcLogContext("rpc-1", 2));
+    Context previous = context.attach();
+    try {
+      stub.read(request).next();
+    } finally {
+      context.detach(previous);
+    }
+
+    ArgumentCaptor<LogEntry> captor = ArgumentCaptor.forClass(LogEntry.class);
+    verify(logStream).write(captor.capture());
+    // The per-attempt entry is tagged with the logical-call id + attempt number from the context,
+    // so
+    // interleaved attempts of the same logical call can be correlated during log analysis.
+    assertThat(captor.getValue().getRpcId()).isEqualTo("rpc-1");
+    assertThat(captor.getValue().getAttemptNumber()).isEqualTo(2);
   }
 
   @Test
@@ -207,9 +254,8 @@ public class LoggingInterceptorTest {
     LoggingHandler<ReadRequest, ReadResponse> handler = Mockito.mock(LoggingHandler.class);
     RpcCallDetails details = RpcCallDetails.getDefaultInstance();
     Mockito.when(handler.getDetails()).thenReturn(details);
-    AsynchronousFileOutputStream output = Mockito.mock(AsynchronousFileOutputStream.class);
 
-    LoggingInterceptor interceptor = getInterceptorWithAlwaysThisHandler(handler, output);
+    LoggingInterceptor interceptor = getInterceptorWithAlwaysThisHandler(handler, logStream);
     Channel channel =
         ClientInterceptors.intercept(
             InProcessChannelBuilder.forName(fakeServerName).directExecutor().build(), interceptor);
@@ -234,7 +280,7 @@ public class LoggingInterceptorTest {
     assertThat(resultCaptor.getAllValues().get(0)).isEqualTo(response1);
     assertThat(resultCaptor.getAllValues().get(1)).isEqualTo(response2);
     verify(handler).getDetails();
-    verify(output).write(expectedEntry);
+    verify(logStream).write(expectedEntry);
   }
 
   @Test
@@ -274,9 +320,8 @@ public class LoggingInterceptorTest {
     LoggingHandler<WriteRequest, WriteResponse> handler = Mockito.mock(LoggingHandler.class);
     RpcCallDetails details = RpcCallDetails.getDefaultInstance();
     Mockito.when(handler.getDetails()).thenReturn(details);
-    AsynchronousFileOutputStream output = Mockito.mock(AsynchronousFileOutputStream.class);
 
-    LoggingInterceptor interceptor = getInterceptorWithAlwaysThisHandler(handler, output);
+    LoggingInterceptor interceptor = getInterceptorWithAlwaysThisHandler(handler, logStream);
     Channel channel =
         ClientInterceptors.intercept(
             InProcessChannelBuilder.forName(fakeServerName).directExecutor().build(), interceptor);
@@ -308,7 +353,7 @@ public class LoggingInterceptorTest {
     assertThat(resultCaptor.getAllValues().get(1)).isEqualTo(request2);
     verify(handler).handleResp(response);
     verify(handler).getDetails();
-    verify(output).write(expectedEntry);
+    verify(logStream).write(expectedEntry);
   }
 
   @Test
@@ -329,9 +374,8 @@ public class LoggingInterceptorTest {
     LoggingHandler<ReadRequest, ReadResponse> handler = Mockito.mock(LoggingHandler.class);
     RpcCallDetails details = RpcCallDetails.getDefaultInstance();
     Mockito.when(handler.getDetails()).thenReturn(details);
-    AsynchronousFileOutputStream output = Mockito.mock(AsynchronousFileOutputStream.class);
 
-    LoggingInterceptor interceptor = getInterceptorWithAlwaysThisHandler(handler, output);
+    LoggingInterceptor interceptor = getInterceptorWithAlwaysThisHandler(handler, logStream);
     Channel channel =
         ClientInterceptors.intercept(
             InProcessChannelBuilder.forName(fakeServerName).directExecutor().build(), interceptor);
@@ -355,7 +399,7 @@ public class LoggingInterceptorTest {
     verify(handler).handleReq(request);
     verify(handler, never()).handleResp(any());
     verify(handler).getDetails();
-    verify(output).write(expectedEntry);
+    verify(logStream).write(expectedEntry);
   }
 
   @Test

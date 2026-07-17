@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.analysis;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.collect.ImmutableList;
@@ -22,12 +21,17 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfiguredTarget;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
+import com.google.devtools.build.lib.analysis.test.TestProvider;
+import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet.Node;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
+import com.google.devtools.build.lib.query2.common.CqueryNode;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -81,9 +85,12 @@ public final class TopLevelArtifactHelper {
   @Immutable
   public static final class ArtifactsToBuild {
     private final ImmutableMap<String, ArtifactsInOutputGroup> artifacts;
+    private final boolean allOutputGroupsImportant;
 
-    private ArtifactsToBuild(ImmutableMap<String, ArtifactsInOutputGroup> artifacts) {
+    private ArtifactsToBuild(
+        ImmutableMap<String, ArtifactsInOutputGroup> artifacts, boolean allOutputGroupsImportant) {
       this.artifacts = checkNotNull(artifacts);
+      this.allOutputGroupsImportant = allOutputGroupsImportant;
     }
 
     /** Returns the artifacts that the user should know about. */
@@ -115,6 +122,14 @@ public final class TopLevelArtifactHelper {
     public ImmutableMap<String, ArtifactsInOutputGroup> getAllArtifactsByOutputGroup() {
       return artifacts;
     }
+
+    /**
+     * Returns if all of the output groups returned by {@link #getAllArtifactsByOutputGroup()} are
+     * "important" - implying that all artifacts will be reported in BEP events.
+     */
+    public boolean areAllOutputGroupsImportant() {
+      return allOutputGroupsImportant;
+    }
   }
 
   private TopLevelArtifactHelper() {
@@ -137,20 +152,24 @@ public final class TopLevelArtifactHelper {
       ImmutableSet.Builder<Artifact> artifacts = ImmutableSet.builder();
       artifacts.addAll(analysisResult.getArtifactsToBuild());
 
-      Iterable<ProviderCollection> providers =
-          Iterables.concat(
-              analysisResult.getTargetsToBuild(),
-              analysisResult.getAspectsMap().values(),
-              firstNonNull(analysisResult.getTargetsToTest(), ImmutableList.of()));
       TopLevelArtifactContext ctx = analysisResult.getTopLevelContext();
       Set<NestedSet.Node> visited = new HashSet<>();
 
-      for (ProviderCollection provider : providers) {
+      for (ProviderCollection provider :
+          Iterables.concat(
+              analysisResult.getTargetsToBuild(), analysisResult.getAspectsMap().values())) {
         for (ArtifactsInOutputGroup group :
             getAllArtifactsToBuild(provider, ctx).getAllArtifactsByOutputGroup().values()) {
           memoizedAddAll(group.getArtifacts(), artifacts, visited);
         }
       }
+
+      if (analysisResult.getTargetsToTest() != null) {
+        for (ConfiguredTarget testTarget : analysisResult.getTargetsToTest()) {
+          artifacts.addAll(TestProvider.getTestStatusArtifacts(testTarget));
+        }
+      }
+
       return artifacts.build();
     }
   }
@@ -179,22 +198,21 @@ public final class TopLevelArtifactHelper {
    */
   public static ArtifactsToBuild getAllArtifactsToBuild(
       ProviderCollection target, TopLevelArtifactContext context) {
-    return getAllArtifactsToBuild(
-        OutputGroupInfo.get(target), target.getProvider(FileProvider.class), context);
+    return getAllArtifactsToBuild(OutputGroupInfo.get(target), getFilesToBuild(target), context);
   }
 
   static ArtifactsToBuild getAllArtifactsToBuild(
       @Nullable OutputGroupInfo outputGroupInfo,
-      @Nullable FileProvider fileProvider,
+      @Nullable NestedSet<Artifact> filesToBuild,
       TopLevelArtifactContext context) {
     ImmutableMap.Builder<String, ArtifactsInOutputGroup> allOutputGroups =
         ImmutableMap.builderWithExpectedSize(context.outputGroups().size());
-
+    boolean allOutputGroupsImportant = true;
     for (String outputGroup : context.outputGroups()) {
       NestedSetBuilder<Artifact> results = NestedSetBuilder.stableOrder();
 
-      if (outputGroup.equals(OutputGroupInfo.DEFAULT) && fileProvider != null) {
-        results.addTransitive(fileProvider.getFilesToBuild());
+      if (outputGroup.equals(OutputGroupInfo.DEFAULT) && filesToBuild != null) {
+        results.addTransitive(filesToBuild);
       }
 
       if (outputGroupInfo != null) {
@@ -209,13 +227,66 @@ public final class TopLevelArtifactHelper {
       boolean isImportantGroup =
           !outputGroup.startsWith(OutputGroupInfo.HIDDEN_OUTPUT_GROUP_PREFIX);
 
+      allOutputGroupsImportant &= isImportantGroup;
+
       ArtifactsInOutputGroup artifacts =
           new ArtifactsInOutputGroup(isImportantGroup, /*incomplete=*/ false, results.build());
 
       allOutputGroups.put(outputGroup, artifacts);
     }
 
-    return new ArtifactsToBuild(allOutputGroups.build());
+    return new ArtifactsToBuild(
+        allOutputGroups.buildOrThrow(), /*allOutputGroupsImportant=*/ allOutputGroupsImportant);
+  }
+
+  /**
+   * Returns files to build directly from {@link FileProvider} or from {@code files} under {@link
+   * DefaultInfo} provider.
+   */
+  @Nullable
+  private static NestedSet<Artifact> getFilesToBuild(ProviderCollection target) {
+    if (target.getProvider(FileProvider.class) != null) {
+      return target.getProvider(FileProvider.class).getFilesToBuild();
+    } else if (target.get(DefaultInfo.PROVIDER.getKey()) != null) {
+      DefaultInfo defaultInfo = (DefaultInfo) target.get(DefaultInfo.PROVIDER.getKey());
+      if (defaultInfo.getFiles() != null) {
+        try {
+          return defaultInfo.getFiles().getSet(Artifact.class);
+        } catch (TypeException e) {
+          throw new IllegalStateException("Error getting 'files' field of 'DefaultInfo'", e);
+        }
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Returns false if the build outputs provided by the target should never be shown to users.
+   *
+   * <p>Always returns false for hidden rules and source file targets.
+   */
+  public static boolean shouldConsiderForDisplay(CqueryNode configuredTarget) {
+    // TODO(bazel-team): this is quite ugly. Add a marker provider for this check.
+    if (configuredTarget instanceof InputFileConfiguredTarget) {
+      // Suppress display of source files (because we do no work to build them).
+      return false;
+    }
+    if (configuredTarget instanceof RuleConfiguredTarget ruleCt) {
+      if (ruleCt.getRuleClassString().contains("$")) {
+        // Suppress display of hidden rules
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /**
+   * Returns true if the given artifact should be shown to users as a build output.
+   *
+   * <p>Always returns false for runfiles tree and source artifacts.
+   */
+  public static boolean shouldDisplay(Artifact artifact) {
+    return !artifact.isSourceArtifact() && !artifact.isRunfilesTree();
   }
 
   /**
@@ -262,7 +333,7 @@ public final class TopLevelArtifactHelper {
       if (!leavesDirty) {
         return outputGroups;
       }
-      return resultBuilder.build();
+      return resultBuilder.buildOrThrow();
     }
 
     /**
@@ -318,7 +389,7 @@ public final class TopLevelArtifactHelper {
         return null;
       }
       NestedSetBuilder<Artifact> newSetBuilder =
-          new NestedSetBuilder<>(declaredArtifacts.getOrder());
+          NestedSetBuilder.newBuilder(declaredArtifacts.getOrder());
       for (Artifact a : leaves) {
         if (builtArtifacts.contains(a)) {
           newSetBuilder.add(a);

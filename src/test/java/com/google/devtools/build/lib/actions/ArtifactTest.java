@@ -17,28 +17,36 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.mock;
 
+import com.google.common.base.Equivalence;
 import com.google.common.collect.ImmutableClassToInstanceMap;
-import com.google.common.collect.Lists;
+import com.google.common.collect.ImmutableList;
 import com.google.common.testing.EqualsTester;
+import com.google.common.testing.EquivalenceTester;
+import com.google.common.testing.GcFinalization;
 import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
+import com.google.devtools.build.lib.actions.Artifact.ArtifactSerializationContext;
+import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
-import com.google.devtools.build.lib.actions.ArtifactResolver.ArtifactResolverSupplier;
+import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
-import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.LabelArtifactOwner;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
+import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.serialization.AutoRegistry;
+import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
+import com.google.devtools.build.lib.skyframe.serialization.InMemoryFingerprintValueStore;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationDependencyProvider;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationDepsUtils;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
+import com.google.devtools.build.lib.starlarkbuildapi.FileRootApi;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -46,28 +54,29 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.vfs.Root.RootCodecDependencies;
 import com.google.devtools.build.skyframe.SkyFunctionName;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkSemantics;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
-/** Test for {@link Artifact} class. */
-@RunWith(JUnit4.class)
-public class ArtifactTest {
-  private Scratch scratch;
+/** Tests for {@link Artifact}. */
+@RunWith(TestParameterInjector.class)
+public final class ArtifactTest {
+
+  private final Scratch scratch = new Scratch();
   private Path execDir;
   private ArtifactRoot rootDir;
-  private final ActionKeyContext actionKeyContext = new ActionKeyContext();
 
   @Before
-  public final void setRootDir() throws Exception  {
-    scratch = new Scratch();
+  public void setRootDir() throws Exception {
     execDir = scratch.dir("/base/exec");
-    rootDir = ArtifactRoot.asDerivedRoot(execDir, RootType.Output, "root");
+    rootDir = ArtifactRoot.asDerivedRoot(execDir, RootType.OUTPUT, "root");
   }
 
   @Test
@@ -77,17 +86,13 @@ public class ArtifactTest {
         IllegalArgumentException.class,
         () ->
             ActionsTestUtil.createArtifactWithExecPath(
-                    ArtifactRoot.asDerivedRoot(execDir, RootType.Output, "bogus"),
+                    ArtifactRoot.asDerivedRoot(execDir, RootType.OUTPUT, "bogus"),
                     f1.relativeTo(execDir))
                 .getRootRelativePath());
   }
 
   private static long getUsedMemory() {
-    System.gc();
-    System.gc();
-    System.runFinalization();
-    System.gc();
-    System.gc();
+    GcFinalization.awaitFullGc();
     return Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory();
   }
 
@@ -105,7 +110,7 @@ public class ArtifactTest {
   }
 
   @Test
-  public void testEquivalenceRelation() throws Exception {
+  public void testEquivalenceRelation() {
     PathFragment aPath = PathFragment.create("src/a");
     PathFragment bPath = PathFragment.create("src/b");
     assertThat(ActionsTestUtil.createArtifactWithRootRelativePath(rootDir, aPath))
@@ -175,80 +180,6 @@ public class ArtifactTest {
     assertThat(Actions.escapedPath(path)).isEqualTo("dir_Ssub_Udir_Sname_Cend");
   }
 
-  private List<Artifact> getFooBarArtifacts(MutableActionGraph actionGraph, boolean collapsedList)
-      throws Exception {
-    ArtifactRoot root = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.dir("/foo")));
-    Artifact aHeader1 = ActionsTestUtil.createArtifact(root, scratch.file("/foo/bar1.h"));
-    Artifact aHeader2 = ActionsTestUtil.createArtifact(root, scratch.file("/foo/bar2.h"));
-    Artifact aHeader3 = ActionsTestUtil.createArtifact(root, scratch.file("/foo/bar3.h"));
-    ArtifactRoot middleRoot =
-        ArtifactRoot.asDerivedRoot(
-            scratch.dir("/foo"), RootType.Middleman, PathFragment.create("out"));
-    Artifact middleman = ActionsTestUtil.createArtifact(middleRoot, "middleman");
-    MiddlemanAction.create(
-        new ActionRegistry() {
-          @Override
-          public void registerAction(ActionAnalysisMetadata action) {
-            try {
-              actionGraph.registerAction(action);
-            } catch (ActionConflictException e) {
-              throw new IllegalStateException(e);
-            } catch (InterruptedException e) {
-              Thread.currentThread().interrupt();
-              throw new IllegalStateException("Didn't expect interrupt in test", e);
-            }
-          }
-
-          @Override
-          public ActionLookupKey getOwner() {
-            throw new UnsupportedOperationException();
-          }
-        },
-        ActionsTestUtil.NULL_ACTION_OWNER,
-        NestedSetBuilder.create(Order.STABLE_ORDER, aHeader1, aHeader2, aHeader3),
-        middleman,
-        "desc",
-        MiddlemanType.AGGREGATING_MIDDLEMAN);
-    return collapsedList ? Lists.newArrayList(aHeader1, middleman) :
-        Lists.newArrayList(aHeader1, aHeader2, middleman);
-  }
-
-  @Test
-  public void testAddExecPaths() throws Exception {
-    List<String> paths = new ArrayList<>();
-    MutableActionGraph actionGraph = new MapBasedActionGraph(actionKeyContext);
-    Artifact.addExecPaths(getFooBarArtifacts(actionGraph, false), paths);
-    assertThat(paths).containsExactly("bar1.h", "bar2.h");
-  }
-
-  @Test
-  public void testAddExpandedArtifacts() throws Exception {
-    List<Artifact> expanded = new ArrayList<>();
-    MutableActionGraph actionGraph = new MapBasedActionGraph(actionKeyContext);
-    List<Artifact> original = getFooBarArtifacts(actionGraph, true);
-    Artifact.addExpandedArtifacts(original, expanded,
-        ActionInputHelper.actionGraphArtifactExpander(actionGraph));
-
-    List<Artifact> manuallyExpanded = new ArrayList<>();
-    for (Artifact artifact : original) {
-      ActionAnalysisMetadata action = actionGraph.getGeneratingAction(artifact);
-      if (artifact.isMiddlemanArtifact()) {
-        manuallyExpanded.addAll(action.getInputs().toList());
-      } else {
-        manuallyExpanded.add(artifact);
-      }
-    }
-    assertThat(expanded).containsExactlyElementsIn(manuallyExpanded);
-  }
-
-  @Test
-  public void testAddExecPathsNewActionGraph() throws Exception {
-    List<String> paths = new ArrayList<>();
-    MutableActionGraph actionGraph = new MapBasedActionGraph(actionKeyContext);
-    Artifact.addExecPaths(getFooBarArtifacts(actionGraph, false), paths);
-    assertThat(paths).containsExactly("bar1.h", "bar2.h");
-  }
-
   @Test
   public void testRootRelativePathIsSameAsExecPath() throws Exception {
     ArtifactRoot root = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.dir("/foo")));
@@ -257,11 +188,11 @@ public class ArtifactTest {
   }
 
   @Test
-  public void testToDetailString() throws Exception {
+  public void testToDetailString() {
     Path execRoot = scratch.getFileSystem().getPath("/execroot/workspace");
     Artifact a =
         ActionsTestUtil.createArtifact(
-            ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "b"), "c");
+            ArtifactRoot.asDerivedRoot(execRoot, RootType.OUTPUT, "b"), "c");
     assertThat(a.toDetailString()).isEqualTo("[[<execution_root>]b]c");
   }
 
@@ -272,50 +203,112 @@ public class ArtifactTest {
         IllegalArgumentException.class,
         () ->
             ActionsTestUtil.createArtifactWithExecPath(
-                    ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "a"),
+                    ArtifactRoot.asDerivedRoot(execRoot, RootType.OUTPUT, "a"),
                     PathFragment.create("c"))
                 .getRootRelativePath());
   }
 
   @Test
-  public void testCodec() throws Exception {
-    Artifact.DerivedArtifact artifact =
-        (Artifact.DerivedArtifact) ActionsTestUtil.createArtifact(rootDir, "src/a");
+  public void derivedArtifactCodecs(
+      @TestParameter boolean includeGeneratingActionKey, @TestParameter boolean useSharedValues)
+      throws Exception {
+    ArtifactSerializationContext artifactContext =
+        new ArtifactSerializationContext() {
+          @Override
+          public SourceArtifact getSourceArtifact(
+              PathFragment execPath, ArtifactRoot root, ArtifactOwner owner) {
+            throw new UnsupportedOperationException();
+          }
+
+          @Override
+          public boolean includeGeneratingActionKey(
+              DerivedArtifact artifact, SerializationDependencyProvider context) {
+            return includeGeneratingActionKey
+                || !artifact
+                    .getGeneratingActionKey()
+                    .equals(ActionsTestUtil.NULL_ACTION_LOOKUP_DATA);
+          }
+
+          @Override
+          public ActionLookupData getOmittedGeneratingActionKey(
+              SerializationDependencyProvider context) {
+            assertThat(includeGeneratingActionKey).isFalse();
+            return ActionsTestUtil.NULL_ACTION_LOOKUP_DATA;
+          }
+        };
+
+    DerivedArtifact artifact =
+        (DerivedArtifact) ActionsTestUtil.createArtifact(rootDir, "dir/out.txt");
     artifact.setGeneratingActionKey(ActionsTestUtil.NULL_ACTION_LOOKUP_DATA);
+
     ArtifactRoot anotherRoot =
-        ArtifactRoot.asDerivedRoot(scratch.getFileSystem().getPath("/"), RootType.Output, "src");
-    Artifact.DerivedArtifact anotherArtifact =
-        new Artifact.DerivedArtifact(
+        ArtifactRoot.asDerivedRoot(scratch.getFileSystem().getPath("/"), RootType.OUTPUT, "other");
+    DerivedArtifact anotherArtifact =
+        DerivedArtifact.create(
             anotherRoot,
-            anotherRoot.getExecPath().getRelative("src/c"),
+            anotherRoot.getExecPath().getRelative("dir/out.txt"),
             ActionsTestUtil.NULL_ARTIFACT_OWNER);
     anotherArtifact.setGeneratingActionKey(ActionsTestUtil.NULL_ACTION_LOOKUP_DATA);
-    new SerializationTester(artifact, anotherArtifact)
-        .addDependency(FileSystem.class, scratch.getFileSystem())
-        .addDependency(
-            Root.RootCodecDependencies.class, new Root.RootCodecDependencies(anotherRoot.getRoot()))
-        .addDependencies(SerializationDepsUtils.SERIALIZATION_DEPS_FOR_TEST)
-        .runTests();
+
+    SpecialArtifact tree =
+        ActionsTestUtil.createTreeArtifactWithGeneratingAction(
+            rootDir, rootDir.getExecPath().getRelative("tree"));
+    TreeFileArtifact treeChild = TreeFileArtifact.createTreeOutput(tree, "child");
+    ArchivedTreeArtifact archivedTree = ArchivedTreeArtifact.createForTree(tree);
+    ArchivedTreeArtifact customArchivedTree =
+        ArchivedTreeArtifact.createWithCustomDerivedTreeRoot(
+            tree, PathFragment.create("custom"), PathFragment.create("archived.zip"));
+
+    SpecialArtifact templateExpansionTree =
+        ActionsTestUtil.createTreeArtifactWithGeneratingAction(
+            rootDir, rootDir.getExecPath().getRelative("template"));
+    TreeFileArtifact expansionOutput =
+        TreeFileArtifact.createTemplateExpansionOutput(
+            templateExpansionTree,
+            "output",
+            ActionsTestUtil.NULL_TEMPLATE_EXPANSION_ARTIFACT_OWNER);
+    expansionOutput.setGeneratingActionKey(
+        ActionLookupData.create(ActionsTestUtil.NULL_TEMPLATE_EXPANSION_ARTIFACT_OWNER, 0));
+    SpecialArtifact expansionSubdir =
+        SpecialArtifact.createSubTreeArtifact(
+            templateExpansionTree,
+            PathFragment.create("subdir"),
+            ActionsTestUtil.NULL_TEMPLATE_EXPANSION_ARTIFACT_OWNER);
+    expansionSubdir.setGeneratingActionKey(
+        ActionLookupData.create(ActionsTestUtil.NULL_TEMPLATE_EXPANSION_ARTIFACT_OWNER, 1));
+
+    SerializationTester tester =
+        new SerializationTester(
+                artifact,
+                anotherArtifact,
+                tree,
+                treeChild,
+                archivedTree,
+                customArchivedTree,
+                expansionOutput,
+                expansionSubdir)
+            .addDependency(FileSystem.class, scratch.getFileSystem())
+            .addDependency(
+                RootCodecDependencies.class, new RootCodecDependencies(anotherRoot.getRoot()))
+            .addDependency(ArtifactSerializationContext.class, artifactContext);
+
+    if (useSharedValues) {
+      for (ObjectCodec<? extends Artifact> codec : ArtifactCodecs.VALUE_SHARING_CODECS) {
+        tester.addCodec(codec);
+      }
+      tester.makeMemoizingAndAllowFutureBlocking(/* allowFutureBlocking= */ true);
+    }
+
+    tester.runTests();
   }
 
   @Test
-  public void testCodecRecyclesSourceArtifactInstances() throws Exception {
+  public void sourceArtifactCodecRecyclesSourceArtifactInstances(
+      @TestParameter boolean useSharedValues) throws Exception {
     Root root = Root.fromPath(scratch.dir("/"));
     ArtifactRoot artifactRoot = ArtifactRoot.asSourceRoot(root);
     ArtifactFactory artifactFactory =
         new ArtifactFactory(execDir.getParentDirectory(), "blaze-out");
-    ArtifactResolverSupplier artifactResolverSupplierForTest =
-        new ArtifactResolverSupplier() {
-          @Override
-          public Artifact.DerivedArtifact intern(Artifact.DerivedArtifact original) {
-            return original;
-          }
-
-          @Override
-          public ArtifactResolver get() {
-            return artifactFactory;
-          }
-        };
 
     ObjectCodecs objectCodecs =
         new ObjectCodecs(
@@ -326,25 +319,58 @@ public class ArtifactTest {
                 .build(),
             ImmutableClassToInstanceMap.builder()
                 .put(FileSystem.class, scratch.getFileSystem())
-                .put(ArtifactResolverSupplier.class, artifactResolverSupplierForTest)
-                .put(
-                    Root.RootCodecDependencies.class,
-                    new Root.RootCodecDependencies(artifactRoot.getRoot()))
+                .put(ArtifactSerializationContext.class, artifactFactory::getSourceArtifact)
+                .put(RootCodecDependencies.class, new RootCodecDependencies(artifactRoot.getRoot()))
                 .build());
 
+    FingerprintValueService service = null;
+    if (useSharedValues) {
+      service = FingerprintValueService.createForTesting(new InMemoryFingerprintValueStore());
+      for (ObjectCodec<? extends Artifact> codec : ArtifactCodecs.VALUE_SHARING_CODECS) {
+        objectCodecs = objectCodecs.withCodecOverridesForTesting(ImmutableList.of(codec));
+      }
+    }
+
     PathFragment pathFragment = PathFragment.create("src/foo.cc");
-    ArtifactOwner owner = new LabelArtifactOwner(Label.parseAbsoluteUnchecked("//foo:bar"));
+    ArtifactOwner owner = new LabelArtifactOwner(Label.parseCanonicalUnchecked("//foo:bar"));
     SourceArtifact sourceArtifact = new SourceArtifact(artifactRoot, pathFragment, owner);
-    SourceArtifact deserialized1 =
-        (SourceArtifact) objectCodecs.deserialize(objectCodecs.serialize(sourceArtifact));
-    SourceArtifact deserialized2 =
-        (SourceArtifact) objectCodecs.deserialize(objectCodecs.serialize(sourceArtifact));
+
+    SourceArtifact deserialized1;
+    SourceArtifact deserialized2;
+    if (useSharedValues) {
+      deserialized1 =
+          (SourceArtifact)
+              objectCodecs.deserializeMemoizedAndBlocking(
+                  service,
+                  objectCodecs.serializeMemoizedAndBlocking(service, sourceArtifact).getObject());
+      deserialized2 =
+          (SourceArtifact)
+              objectCodecs.deserializeMemoizedAndBlocking(
+                  service,
+                  objectCodecs.serializeMemoizedAndBlocking(service, sourceArtifact).getObject());
+    } else {
+      deserialized1 =
+          (SourceArtifact) objectCodecs.deserialize(objectCodecs.serialize(sourceArtifact));
+      deserialized2 =
+          (SourceArtifact) objectCodecs.deserialize(objectCodecs.serialize(sourceArtifact));
+    }
     assertThat(deserialized1).isSameInstanceAs(deserialized2);
 
     Artifact sourceArtifactFromFactory =
         artifactFactory.getSourceArtifact(pathFragment, root, owner);
-    Artifact deserialized =
-        (Artifact) objectCodecs.deserialize(objectCodecs.serialize(sourceArtifactFromFactory));
+    Artifact deserialized;
+    if (useSharedValues) {
+      deserialized =
+          (Artifact)
+              objectCodecs.deserializeMemoizedAndBlocking(
+                  service,
+                  objectCodecs
+                      .serializeMemoizedAndBlocking(service, sourceArtifactFromFactory)
+                      .getObject());
+    } else {
+      deserialized =
+          (Artifact) objectCodecs.deserialize(objectCodecs.serialize(sourceArtifactFromFactory));
+    }
     assertThat(sourceArtifactFromFactory).isSameInstanceAs(deserialized);
   }
 
@@ -368,8 +394,7 @@ public class ArtifactTest {
   @Test
   public void testCanConstructPathFromDirAndFilename() throws Exception {
     Artifact artifact = createDirNameArtifact();
-    String constructed =
-        String.format("%s/%s", artifact.getDirname(), artifact.getFilename());
+    String constructed = String.format("%s/%s", artifact.getDirname(), artifact.getFilename());
 
     assertThat(constructed).isEqualTo("aaa/bbb/ccc/ddd");
   }
@@ -385,7 +410,7 @@ public class ArtifactTest {
         .isTrue();
     assertThat(
             ActionsTestUtil.createArtifact(
-                    ArtifactRoot.asDerivedRoot(scratch.dir("/genfiles"), RootType.Output, "aaa"),
+                    ArtifactRoot.asDerivedRoot(scratch.dir("/genfiles"), RootType.OUTPUT, "aaa"),
                     scratch.file("/genfiles/aaa/bar.out"))
                 .isSourceArtifact())
         .isFalse();
@@ -394,7 +419,7 @@ public class ArtifactTest {
   @Test
   public void testGetRoot() throws Exception {
     Path execRoot = scratch.getFileSystem().getPath("/");
-    ArtifactRoot root = ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "newRoot");
+    ArtifactRoot root = ArtifactRoot.asDerivedRoot(execRoot, RootType.OUTPUT, "newRoot");
     assertThat(ActionsTestUtil.createArtifact(root, scratch.file("/newRoot/foo")).getRoot())
         .isEqualTo(root);
   }
@@ -402,11 +427,16 @@ public class ArtifactTest {
   @Test
   public void hashCodeAndEquals() {
     Path execRoot = scratch.getFileSystem().getPath("/");
-    ArtifactRoot root = ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "newRoot");
+    ArtifactRoot root = ArtifactRoot.asDerivedRoot(execRoot, RootType.OUTPUT, "newRoot");
     ActionLookupKey firstOwner =
         new ActionLookupKey() {
           @Override
           public Label getLabel() {
+            return null;
+          }
+
+          @Override
+          public BuildConfigurationKey getConfigurationKey() {
             return null;
           }
 
@@ -423,15 +453,20 @@ public class ArtifactTest {
           }
 
           @Override
+          public BuildConfigurationKey getConfigurationKey() {
+            return null;
+          }
+
+          @Override
           public SkyFunctionName functionName() {
             return null;
           }
         };
-    Artifact.DerivedArtifact derived1 =
-        new Artifact.DerivedArtifact(root, PathFragment.create("newRoot/shared"), firstOwner);
+    DerivedArtifact derived1 =
+        DerivedArtifact.create(root, PathFragment.create("newRoot/shared"), firstOwner);
     derived1.setGeneratingActionKey(ActionLookupData.create(firstOwner, 0));
-    Artifact.DerivedArtifact derived2 =
-        new Artifact.DerivedArtifact(root, PathFragment.create("newRoot/shared"), secondOwner);
+    DerivedArtifact derived2 =
+        DerivedArtifact.create(root, PathFragment.create("newRoot/shared"), secondOwner);
     derived2.setGeneratingActionKey(ActionLookupData.create(secondOwner, 0));
     ArtifactRoot sourceRoot = ArtifactRoot.asSourceRoot(Root.fromPath(root.getRoot().asPath()));
     Artifact source1 = new SourceArtifact(sourceRoot, PathFragment.create("shared"), firstOwner);
@@ -441,7 +476,7 @@ public class ArtifactTest {
         .addEqualityGroup(derived2)
         .addEqualityGroup(source1, source2)
         .testEquals();
-    assertThat(derived1.hashCode()).isEqualTo(derived2.hashCode());
+    assertThat(derived1.hashCode()).isNotEqualTo(derived2.hashCode());
     assertThat(derived1.hashCode()).isNotEqualTo(source1.hashCode());
     assertThat(source1.hashCode()).isEqualTo(source2.hashCode());
     Artifact.OwnerlessArtifactWrapper wrapper1 = new Artifact.OwnerlessArtifactWrapper(derived1);
@@ -463,20 +498,6 @@ public class ArtifactTest {
     return ActionsTestUtil.createArtifact(
         ArtifactRoot.asSourceRoot(Root.fromPath(scratch.dir("/"))),
         scratch.file("/aaa/bbb/ccc/ddd"));
-  }
-
-  @Test
-  public void canDeclareContentBasedOutput() {
-    Path execRoot = scratch.getFileSystem().getPath("/");
-    ArtifactRoot root = ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "newRoot");
-    assertThat(
-            new Artifact.DerivedArtifact(
-                    root,
-                    PathFragment.create("newRoot/my.output"),
-                    ActionsTestUtil.NULL_ARTIFACT_OWNER,
-                    /*contentBasedPath=*/ true)
-                .contentBasedPath())
-        .isTrue();
   }
 
   @Test
@@ -511,11 +532,10 @@ public class ArtifactTest {
   @Test
   public void archivedTreeArtifact_create_returnsArtifactInArchivedRoot() {
     ArtifactRoot root =
-        ArtifactRoot.asDerivedRoot(execDir, RootType.Output, "blaze-out", "fastbuild");
+        ArtifactRoot.asDerivedRoot(execDir, RootType.OUTPUT, "blaze-out", "fastbuild");
     SpecialArtifact tree = createTreeArtifact(root, "tree");
 
-    ArchivedTreeArtifact archivedTreeArtifact =
-        ArchivedTreeArtifact.create(tree, PathFragment.create("blaze-out"));
+    ArchivedTreeArtifact archivedTreeArtifact = ArchivedTreeArtifact.createForTree(tree);
 
     assertThat(archivedTreeArtifact.getParent()).isSameInstanceAs(tree);
     assertThat(archivedTreeArtifact.getArtifactOwner())
@@ -532,8 +552,7 @@ public class ArtifactTest {
     ActionLookupData actionLookupData = ActionLookupData.create(actionLookupKey, 0);
     SpecialArtifact tree = createTreeArtifact(rootDir, "tree", actionLookupData);
 
-    ArchivedTreeArtifact archivedTreeArtifact =
-        ArchivedTreeArtifact.create(tree, PathFragment.create("root"));
+    ArchivedTreeArtifact archivedTreeArtifact = ArchivedTreeArtifact.createForTree(tree);
 
     assertThat(archivedTreeArtifact.getExecPathString())
         .isEqualTo("root/:archived_tree_artifacts/tree.zip");
@@ -542,54 +561,14 @@ public class ArtifactTest {
   }
 
   @Test
-  public void archivedTreeArtifact_createWithLongerDerivedPrefix_returnsArtifactWithCorrectPath() {
-    ArtifactRoot root =
-        ArtifactRoot.asDerivedRoot(execDir, RootType.Output, "dir1", "dir2", "dir3");
-    SpecialArtifact tree = createTreeArtifact(root, "tree");
-
-    ArchivedTreeArtifact archivedTreeArtifact =
-        ArchivedTreeArtifact.create(tree, PathFragment.create("dir1/dir2"));
-
-    assertThat(archivedTreeArtifact.getExecPathString())
-        .isEqualTo("dir1/dir2/:archived_tree_artifacts/dir3/tree.zip");
-    assertThat(archivedTreeArtifact.getRoot().getExecPathString())
-        .isEqualTo("dir1/dir2/:archived_tree_artifacts/dir3");
-  }
-
-  @Test
-  public void archivedTreeArtifact_create_failsForWrongDerivedPrefix() {
-    ArtifactRoot root =
-        ArtifactRoot.asDerivedRoot(execDir, RootType.Output, "blaze-out", "fastbuild");
-    SpecialArtifact tree = createTreeArtifact(root, "tree");
-    PathFragment wrongPrefix = PathFragment.create("notAPrefix");
-
-    assertThrows(
-        IllegalArgumentException.class, () -> ArchivedTreeArtifact.create(tree, wrongPrefix));
-  }
-
-  @Test
-  public void archivedTreeArtifact_create_failsForDerivedPrefixOutsideOfArtifactRoot() {
-    ArtifactRoot root = ArtifactRoot.asDerivedRoot(execDir, RootType.Output, "dir1", "dir2");
-    SpecialArtifact tree = createTreeArtifact(root, "dir3/tree");
-    PathFragment prefixOutsideOfRoot = PathFragment.create("dir1/dir2/dir3");
-
-    assertThrows(
-        IllegalArgumentException.class,
-        () -> ArchivedTreeArtifact.create(tree, prefixOutsideOfRoot));
-  }
-
-  @Test
   public void archivedTreeArtifact_createWithCustomDerivedTreeRoot_returnsArtifactWithCustomRoot() {
     ArtifactRoot root =
-        ArtifactRoot.asDerivedRoot(execDir, RootType.Output, "blaze-out", "fastbuild");
+        ArtifactRoot.asDerivedRoot(execDir, RootType.OUTPUT, "blaze-out", "fastbuild");
     SpecialArtifact tree = createTreeArtifact(root, "dir/tree");
 
     ArchivedTreeArtifact archivedTreeArtifact =
         ArchivedTreeArtifact.createWithCustomDerivedTreeRoot(
-            tree,
-            PathFragment.create("blaze-out"),
-            PathFragment.create("custom/custom2"),
-            PathFragment.create("treePath/file.xyz"));
+            tree, PathFragment.create("custom/custom2"), PathFragment.create("treePath/file.xyz"));
 
     assertThat(archivedTreeArtifact.getParent()).isSameInstanceAs(tree);
     assertThat(archivedTreeArtifact.getExecPathString())
@@ -599,43 +578,144 @@ public class ArtifactTest {
   }
 
   @Test
-  public void archivedTreeArtifact_codec_roundTripsArchivedArtifact() throws Exception {
+  public void archivedTreeArtifact_codec_roundTripsArchivedArtifact(
+      @TestParameter boolean useSharedValues) throws Exception {
     ArchivedTreeArtifact artifact1 = createArchivedTreeArtifact(rootDir, "tree1");
     ArtifactRoot anotherRoot =
-        ArtifactRoot.asDerivedRoot(scratch.getFileSystem().getPath("/"), RootType.Output, "src");
+        ArtifactRoot.asDerivedRoot(scratch.getFileSystem().getPath("/"), RootType.OUTPUT, "src");
     ArchivedTreeArtifact artifact2 = createArchivedTreeArtifact(anotherRoot, "tree2");
-    new SerializationTester(artifact1, artifact2)
-        .addDependency(FileSystem.class, scratch.getFileSystem())
-        .addDependency(
-            Root.RootCodecDependencies.class, new Root.RootCodecDependencies(anotherRoot.getRoot()))
-        .addDependencies(SerializationDepsUtils.SERIALIZATION_DEPS_FOR_TEST)
-        .<ArchivedTreeArtifact>setVerificationFunction(
-            (original, deserialized) -> {
-              assertThat(original).isEqualTo(deserialized);
-              assertThat(original.getGeneratingActionKey())
-                  .isEqualTo(deserialized.getGeneratingActionKey());
-            })
-        .runTests();
+    SerializationTester tester =
+        new SerializationTester(artifact1, artifact2)
+            .addDependency(FileSystem.class, scratch.getFileSystem())
+            .addDependency(
+                RootCodecDependencies.class, new RootCodecDependencies(anotherRoot.getRoot()))
+            .addDependencies(SerializationDepsUtils.SERIALIZATION_DEPS_FOR_TEST)
+            .<ArchivedTreeArtifact>setVerificationFunction(
+                (original, deserialized) -> {
+                  assertThat(original).isEqualTo(deserialized);
+                  assertThat(original.getGeneratingActionKey())
+                      .isEqualTo(deserialized.getGeneratingActionKey());
+                });
+    if (useSharedValues) {
+      for (ObjectCodec<? extends Artifact> codec : ArtifactCodecs.VALUE_SHARING_CODECS) {
+        tester.addCodec(codec);
+      }
+      tester.makeMemoizingAndAllowFutureBlocking(/* allowFutureBlocking= */ true);
+    }
+    tester.runTests();
   }
 
   @Test
   public void archivedTreeArtifact_getExecPathWithinArchivedArtifactsTree_returnsCorrectPath() {
     assertThat(
             ArchivedTreeArtifact.getExecPathWithinArchivedArtifactsTree(
-                PathFragment.create("bazel-out"),
                 PathFragment.create("bazel-out/k8-fastbuild/bin/dir/subdir")))
         .isEqualTo(
             PathFragment.create("bazel-out/:archived_tree_artifacts/k8-fastbuild/bin/dir/subdir"));
   }
 
+  private static final PathMapper PATH_MAPPER =
+      execPath -> {
+        if (execPath.startsWith(PathFragment.create("output"))) {
+          // output/k8-opt/bin/path/to/pkg/file --> output/<hash>/path/to/pkg/file
+          return execPath
+              .subFragment(0, 1)
+              .getRelative(Integer.toUnsignedString(execPath.subFragment(3).hashCode()))
+              .getRelative(execPath.subFragment(3));
+        } else {
+          return execPath;
+        }
+      };
+
   @Test
-  public void archivedTreeArtifact_getExecPathWithinArchivedArtifactsTree_wrongPrefix_fails() {
-    assertThrows(
-        IllegalArgumentException.class,
-        () ->
-            ArchivedTreeArtifact.getExecPathWithinArchivedArtifactsTree(
-                PathFragment.create("wrongPrefix"),
-                PathFragment.create("bazel-out/k8-fastbuild/bin/dir/subdir")));
+  public void mappedArtifact() {
+    StarlarkSemantics semantics = PATH_MAPPER.storeIn(StarlarkSemantics.DEFAULT);
+
+    Root sourceRoot = Root.fromPath(scratch.getFileSystem().getPath("/some/path"));
+    ArtifactRoot sourceArtifactRoot = ArtifactRoot.asSourceRoot(sourceRoot);
+    Artifact sourceArtifact1 =
+        ActionsTestUtil.createArtifactWithExecPath(
+            sourceArtifactRoot, PathFragment.create("path/to/pkg/file1"));
+    Artifact sourceArtifact2 =
+        ActionsTestUtil.createArtifactWithExecPath(
+            sourceArtifactRoot, PathFragment.create("path/to/pkg/file2"));
+
+    Path execRoot = scratch.getFileSystem().getPath("/some/path");
+    ArtifactRoot outputArtifactRoot =
+        ArtifactRoot.asDerivedRoot(execRoot, RootType.OUTPUT, "output", "k8-opt", "bin");
+    Artifact outputArtifact1 =
+        ActionsTestUtil.createArtifactWithExecPath(
+            outputArtifactRoot, PathFragment.create("output/k8-opt/bin/path/to/pkg/file1"));
+    Artifact outputArtifact2 =
+        ActionsTestUtil.createArtifactWithExecPath(
+            outputArtifactRoot, PathFragment.create("output/k8-opt/bin/path/to/pkg/file2"));
+
+    assertThat(sourceArtifact1.getExecPathStringForStarlark(semantics))
+        .isEqualTo("path/to/pkg/file1");
+    assertThat(sourceArtifact1.getDirnameForStarlark(semantics)).isEqualTo("path/to/pkg");
+
+    FileRootApi mappedSourceRoot1 = sourceArtifact1.getRootForStarlark(semantics);
+    assertThat(mappedSourceRoot1.getExecPathString()).isEqualTo("");
+
+    assertThat(sourceArtifact2.getExecPathStringForStarlark(semantics))
+        .isEqualTo("path/to/pkg/file2");
+    assertThat(sourceArtifact2.getDirnameForStarlark(semantics)).isEqualTo("path/to/pkg");
+
+    FileRootApi mappedSourceRoot2 = sourceArtifact1.getRootForStarlark(semantics);
+    assertThat(mappedSourceRoot2.getExecPathString()).isEqualTo("");
+
+    assertThat(outputArtifact1.getExecPathStringForStarlark(semantics))
+        .isEqualTo("output/3540078408/path/to/pkg/file1");
+    assertThat(outputArtifact1.getDirnameForStarlark(semantics))
+        .isEqualTo("output/3540078408/path/to/pkg");
+
+    FileRootApi mappedOutputRoot1 = outputArtifact1.getRootForStarlark(semantics);
+    assertThat(mappedOutputRoot1.getExecPathString()).isEqualTo("output/3540078408");
+
+    assertThat(outputArtifact2.getExecPathStringForStarlark(semantics))
+        .isEqualTo("output/3540078409/path/to/pkg/file2");
+    assertThat(outputArtifact2.getDirnameForStarlark(semantics))
+        .isEqualTo("output/3540078409/path/to/pkg");
+
+    FileRootApi mappedOutputRoot2 = outputArtifact2.getRootForStarlark(semantics);
+    assertThat(mappedOutputRoot2.getExecPathString()).isEqualTo("output/3540078409");
+
+    // Starlark equality uses Object#equals.
+    // Mapped roots are always distinct from non-mapped roots, even if their paths are equal.
+    new EqualsTester()
+        .addEqualityGroup(mappedSourceRoot1, mappedSourceRoot2)
+        .addEqualityGroup(mappedOutputRoot1)
+        .addEqualityGroup(mappedOutputRoot2)
+        .addEqualityGroup(sourceRoot)
+        .addEqualityGroup(outputArtifactRoot)
+        .testEquals();
+
+    var starlarkCompare =
+        new Equivalence<FileRootApi>() {
+          @Override
+          protected boolean doEquivalent(FileRootApi a, FileRootApi b) {
+            // Compare a and b in both directions as the implementations of compareTo may be
+            // different.
+            return Starlark.ORDERING.compare(a, b) == 0 && Starlark.ORDERING.compare(b, a) == 0;
+          }
+
+          @Override
+          protected int doHash(FileRootApi comparable) {
+            return 0;
+          }
+        };
+
+    ClassCastException e =
+        assertThrows(
+            ClassCastException.class,
+            () -> Starlark.ORDERING.compare(mappedOutputRoot1, outputArtifactRoot));
+    assertThat(e).hasMessageThat().isEqualTo("unsupported comparison: mapped_root <=> root");
+
+    EquivalenceTester.of(starlarkCompare)
+        .addEquivalenceGroup(mappedSourceRoot1, mappedSourceRoot2)
+        .addEquivalenceGroup(mappedOutputRoot1)
+        .addEquivalenceGroup(mappedOutputRoot2)
+        .test();
   }
 
   private static SpecialArtifact createTreeArtifact(ArtifactRoot root, String relativePath) {
@@ -645,7 +725,7 @@ public class ArtifactTest {
   private static SpecialArtifact createTreeArtifact(
       ArtifactRoot root, String relativePath, ActionLookupData actionLookupData) {
     SpecialArtifact treeArtifact =
-        new SpecialArtifact(
+        SpecialArtifact.create(
             root,
             root.getExecPath().getRelative(relativePath),
             actionLookupData.getActionLookupKey(),
@@ -656,7 +736,6 @@ public class ArtifactTest {
 
   private static ArchivedTreeArtifact createArchivedTreeArtifact(
       ArtifactRoot root, String treeRelativePath) {
-    return ArchivedTreeArtifact.create(
-        createTreeArtifact(root, treeRelativePath), root.getExecPath().subFragment(0, 1));
+    return ArchivedTreeArtifact.createForTree(createTreeArtifact(root, treeRelativePath));
   }
 }

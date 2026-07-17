@@ -28,8 +28,7 @@ public abstract class OutputFormatterCallback<T> implements Callback<T> {
    *
    * <p>It should be used for opening resources or sending a header to the output.
    */
-  public void start() throws IOException {
-  }
+  public void start() throws IOException {}
 
   /**
    * Flushes remaining output and cleans up resources if necessary.
@@ -44,9 +43,9 @@ public abstract class OutputFormatterCallback<T> implements Callback<T> {
 
   /**
    * Note that {@link Callback} interface does not throw IOExceptions. What this implementation does
-   * instead is throw {@code InterruptedException} and store the {@code IOException} in the {@code
-   * ioException} field. Users of this class should check on InterruptedException the field to
-   * disambiguate between real interruptions or IO Exceptions.
+   * instead is throw {@code IoExceptionInterruptedException} and store the {@code IOException} in
+   * the {@code ioException} field. Users of this class should check on InterruptedException the
+   * field to disambiguate between real interruptions or IO Exceptions.
    */
   @Override
   public void process(Iterable<T> partialResult) throws QueryException, InterruptedException {
@@ -54,7 +53,18 @@ public abstract class OutputFormatterCallback<T> implements Callback<T> {
       processOutput(partialResult);
     } catch (IOException e) {
       ioException = e;
-      throw new InterruptedException("Interrupting due to a IOException in the OutputFormatter");
+      throw new IoExceptionInterruptedException(e);
+    }
+  }
+
+  /**
+   * Specialization of InterruptedException that indicates that the interruption was triggered by an
+   * IOException in the OutputFormatter.
+   */
+  public static class IoExceptionInterruptedException extends InterruptedException {
+    public IoExceptionInterruptedException(IOException cause) {
+      super("Interrupting due to a IOException in the OutputFormatter: " + cause.getMessage());
+      initCause(cause);
     }
   }
 
@@ -87,8 +97,11 @@ public abstract class OutputFormatterCallback<T> implements Callback<T> {
       }
       throw e;
     } catch (QueryException e) {
-      throw new IllegalStateException("This should not happen, as we are not running any query,"
-          + " only printing the results:" + e.getMessage(), e);
+      throw new IllegalStateException(
+          "This should not happen, as we are not running any query,"
+              + " only printing the results:"
+              + e.getMessage(),
+          e);
     } finally {
       callback.close(failFast);
     }

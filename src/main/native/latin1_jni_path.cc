@@ -14,7 +14,12 @@
 
 #include "src/main/native/latin1_jni_path.h"
 
+#include <jni.h>
 #include <string.h>
+
+#include <string_view>
+
+#include "src/main/cpp/util/logging.h"
 
 namespace blaze_jni {
 
@@ -39,60 +44,104 @@ jstring NewStringLatin1(JNIEnv *env, const char *str) {
   return result;
 }
 
-static jfieldID String_coder_field;
-static jfieldID String_value_field;
+namespace {
 
-static bool CompactStringsEnabled(JNIEnv *env) {
-  if (jclass klass = env->FindClass("java/lang/String")) {
-    if (jfieldID csf = env->GetStaticFieldID(klass, "COMPACT_STRINGS", "Z")) {
-      if (env->GetStaticBooleanField(klass, csf)) {
-        if ((String_coder_field = env->GetFieldID(klass, "coder", "B"))) {
-          if ((String_value_field = env->GetFieldID(klass, "value", "[B"))) {
-            return true;
-          }
-        }
-      }
-    }
-  }
-  env->ExceptionClear();
-  return false;
+jclass GetClass(JNIEnv* env, const char* name) {
+  jclass clazz = env->FindClass(name);
+  BAZEL_CHECK_NE(clazz, nullptr);
+  return static_cast<jclass>(env->NewGlobalRef(clazz));
 }
 
-char *GetStringLatin1Chars(JNIEnv *env, jstring jstr) {
+jmethodID GetStaticMethodId(JNIEnv* env, jclass clazz, const char* name,
+                            const char* sig) {
+  jmethodID method = env->GetStaticMethodID(clazz, name, sig);
+  BAZEL_CHECK_NE(method, nullptr);
+  return method;
+}
+
+jfieldID GetFieldId(JNIEnv* env, jclass clazz, const char* name,
+                    const char* sig) {
+  jfieldID field = env->GetFieldID(clazz, name, sig);
+  BAZEL_CHECK_NE(field, nullptr);
+  return field;
+}
+
+void LogBadPath(JNIEnv* env, jstring jstr) {
+  static const jclass cls = GetClass(
+      env, "com/google/devtools/build/lib/unix/NativePosixFilesServiceImpl");
+  static const jmethodID method =
+      GetStaticMethodId(env, cls, "logBadPath", "(Ljava/lang/String;)V");
+  env->CallStaticVoidMethod(cls, method, jstr);
+}
+
+char* GetStringLatin1Chars(JNIEnv* env, jstring jstr) {
+  static const jclass String_class = GetClass(env, "java/lang/String");
+  static const jfieldID String_coder_field =
+      GetFieldId(env, String_class, "coder", "B");
+  static const jfieldID String_value_field =
+      GetFieldId(env, String_class, "value", "[B");
+  static const jclass NullPointerException_class =
+      GetClass(env, "java/lang/NullPointerException");
+
+  if (jstr == nullptr) {
+    env->ThrowNew(NullPointerException_class,
+                  "JStringLatin1Holder: String should not be null");
+    return nullptr;
+  }
+
   jint len = env->GetStringLength(jstr);
 
-  // Fast path for latin1 strings.
-  static bool cs_enabled = CompactStringsEnabled(env);
-  const int LATIN1 = 0;
-  if (cs_enabled && env->GetByteField(jstr, String_coder_field) == LATIN1) {
-    char *result = new char[len + 1];
-    if (jobject jvalue = env->GetObjectField(jstr, String_value_field)) {
-      env->GetByteArrayRegion((jbyteArray)jvalue, 0, len, (jbyte *)result);
+  // Fast path for strings with a Latin1 coder, which all well-formed path
+  // strings in Bazel ought to be.
+  if (env->GetByteField(jstr, String_coder_field) == 0) {
+    jobject jvalue = env->GetObjectField(jstr, String_value_field);
+    if (jvalue == nullptr) {
+      // Memory corruption?
+      env->ThrowNew(NullPointerException_class,
+                    "JStringLatin1Holder: String.value should not be null");
+      return nullptr;
     }
+    char* result = new char[len + 1];
+    env->GetByteArrayRegion((jbyteArray)jvalue, 0, len, (jbyte*)result);
     result[len] = 0;
     return result;
   }
 
-  const jchar *str = env->GetStringCritical(jstr, nullptr);
+  // Fallback path for strings with a UTF-16 coder, which are not well-formed
+  // but must be tolerated until all occurrences at Google have been fixed.
+  // TODO(tjgq): Delete this fallback.
+  LogBadPath(env, jstr);
+  const jchar* str = env->GetStringCritical(jstr, nullptr);
   if (str == nullptr) {
+    // OutOfMemoryError already set by GetStringCritical.
+    BAZEL_CHECK_NE(env->ExceptionOccurred(), nullptr);
     return nullptr;
   }
-
-  char *result = new char[len + 1];
+  char* result = new char[len + 1];
   for (int i = 0; i < len; i++) {
     jchar unicode = str[i];  // (unsigned)
     result[i] = unicode <= 0x00ff ? unicode : '?';
   }
-
-  result[len] = 0;
   env->ReleaseStringCritical(jstr, str);
+  result[len] = 0;
   return result;
 }
 
-/**
- * Release the Latin1 chars returned by a prior call to
- * GetStringLatin1Chars.
- */
-void ReleaseStringLatin1Chars(const char *s) { delete[] s; }
+}  // namespace
+
+JStringLatin1Holder::JStringLatin1Holder(JNIEnv* env, jstring string)
+    : chars(GetStringLatin1Chars(env, string)) {}
+
+JStringLatin1Holder::~JStringLatin1Holder() {
+  if (chars != nullptr) {
+    delete[] chars;
+  }
+}
+
+JStringLatin1Holder::operator const char*() const { return chars; }
+
+JStringLatin1Holder::operator std::string_view() const {
+  return std::string_view(chars);
+}
 
 }  // namespace blaze_jni

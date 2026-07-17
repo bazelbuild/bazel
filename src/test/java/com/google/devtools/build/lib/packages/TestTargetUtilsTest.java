@@ -14,6 +14,8 @@
 package com.google.devtools.build.lib.packages;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -21,8 +23,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
-import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.StoredEventHandler;
+import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
 import com.google.devtools.build.lib.pkgcache.LoadingOptions;
 import com.google.devtools.build.lib.pkgcache.TestFilter;
@@ -31,6 +32,7 @@ import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.common.options.Options;
 import java.util.Collection;
 import java.util.EnumSet;
 import java.util.function.Predicate;
@@ -39,42 +41,60 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-import org.mockito.Mockito;
 
 @RunWith(JUnit4.class)
-public class TestTargetUtilsTest extends PackageLoadingTestCase {
+public final class TestTargetUtilsTest extends PackageLoadingTestCase {
   private Target test1;
   private Target test2;
   private Target test1b;
   private Target suite;
 
   @Before
-  public final void createTargets() throws Exception {
+  public void createTargets() throws Exception {
     scratch.file(
         "tests/BUILD",
-        "py_test(name = 'small_test_1',",
-        "        srcs = ['small_test_1.py'],",
-        "        data = [':xUnit'],",
-        "        size = 'small',",
-        "        tags = ['tag1'])",
-        "",
-        "sh_test(name = 'small_test_2',",
-        "        srcs = ['small_test_2.sh'],",
-        "        data = ['//testing/shbase:googletest.sh'],",
-        "        size = 'small',",
-        "        tags = ['tag2'])",
-        "",
-        "sh_test(name = 'large_test_1',",
-        "        srcs = ['large_test_1.sh'],",
-        "        data = ['//testing/shbase:googletest.sh', ':xUnit'],",
-        "        size = 'large',",
-        "        tags = ['tag1'])",
-        "",
-        "py_binary(name = 'notest',",
-        "        srcs = ['notest.py'])",
-        "cc_library(name = 'xUnit')",
-        "",
-        "test_suite( name = 'smallTests', tags=['small'])");
+        """
+        load('//test_defs:foo_binary.bzl', 'foo_binary')
+        load('//test_defs:foo_test.bzl', 'foo_test')
+        foo_test(
+            name = "small_test_1",
+            size = "small",
+            srcs = ["small_test_1.sh"],
+            data = [":xUnit"],
+            tags = ["tag1"],
+        )
+
+        foo_test(
+            name = "small_test_2",
+            size = "small",
+            srcs = ["small_test_2.sh"],
+            data = ["//testing/shbase:googletest.sh"],
+            tags = ["tag2"],
+        )
+
+        foo_test(
+            name = "large_test_1",
+            size = "large",
+            srcs = ["large_test_1.sh"],
+            data = [
+                ":xUnit",
+                "//testing/shbase:googletest.sh",
+            ],
+            tags = ["tag1"],
+        )
+
+        foo_binary(
+            name = "notest",
+            srcs = ["notest.sh"],
+        )
+
+        filegroup(name = "xUnit")
+
+        test_suite(
+            name = "smallTests",
+            tags = ["small"],
+        )
+        """);
 
     test1 = getTarget("//tests:small_test_1");
     test2 = getTarget("//tests:small_test_2");
@@ -83,7 +103,7 @@ public class TestTargetUtilsTest extends PackageLoadingTestCase {
   }
 
   @Test
-  public void testFilterBySize() throws Exception {
+  public void testFilterBySize() {
     Predicate<Target> sizeFilter =
         TestFilter.testSizeFilter(EnumSet.of(TestSize.SMALL, TestSize.LARGE));
     assertThat(sizeFilter.test(test1)).isTrue();
@@ -96,52 +116,57 @@ public class TestTargetUtilsTest extends PackageLoadingTestCase {
   }
 
   @Test
-  public void testFilterByLang() throws Exception {
-    StoredEventHandler eventHandler = new StoredEventHandler();
-    LoadingOptions options = new LoadingOptions();
-    options.testLangFilterList = ImmutableList.of("nonexistent", "existent", "-noexist", "-exist");
-    options.testSizeFilterSet = ImmutableSet.of();
-    options.testTimeoutFilterSet = ImmutableSet.of();
-    options.testTagFilterList = ImmutableList.of();
-    TestFilter filter =
-        TestFilter.forOptions(
-            options, eventHandler, ImmutableSet.of("existent_test", "exist_test"));
-    assertThat(eventHandler.getEvents()).hasSize(2);
-    Package pkg = Mockito.mock(Package.class);
-    RuleClass ruleClass = Mockito.mock(RuleClass.class);
+  public void testFilterByLang() {
+    LoadingOptions options = Options.getDefaults(LoadingOptions.class);
+    options.setTestLangFilterList(ImmutableList.of("positive", "-negative"));
+    options.setTestSizeFilterSet(ImmutableSet.of());
+    options.setTestTimeoutFilterSet(ImmutableSet.of());
+    options.setTestTagFilterList(ImmutableList.of());
+    TestFilter filter = TestFilter.forOptions(options);
+    Package pkg = mock(Package.class);
+    RuleClass ruleClass = mock(RuleClass.class);
+    when(ruleClass.getDefaultImplicitOutputsFunction())
+        .thenReturn(SafeImplicitOutputsFunction.NONE);
+    when(ruleClass.getAttributeProvider()).thenReturn(mock(AttributeProvider.class));
     Rule mockRule =
         new Rule(
             pkg,
-            null,
+            Label.parseCanonicalUnchecked("//pkg:a"),
             ruleClass,
             Location.fromFile(""),
-            CallStack.EMPTY,
-            AttributeContainer.newMutableInstance(ruleClass));
-    Mockito.when(ruleClass.getName()).thenReturn("existent_library");
+            /* interiorCallStack= */ null);
+    when(ruleClass.getName()).thenReturn("positive_test");
     assertThat(filter.apply(mockRule)).isTrue();
-    Mockito.when(ruleClass.getName()).thenReturn("exist_library");
+    when(ruleClass.getName()).thenReturn("negative_test");
     assertThat(filter.apply(mockRule)).isFalse();
-    assertThat(eventHandler.getEvents())
-        .contains(Event.warn("Unknown language 'nonexistent' in --test_lang_filters option"));
-    assertThat(eventHandler.getEvents())
-        .contains(Event.warn("Unknown language 'noexist' in --test_lang_filters option"));
   }
 
   @Test
   public void testFilterByTimeout() throws Exception {
     scratch.file(
         "timeouts/BUILD",
-        "sh_test(name = 'long_timeout',",
-        "          srcs = ['a.sh'],",
-        "          size = 'small',",
-        "          timeout = 'long')",
-        "sh_test(name = 'short_timeout',",
-        "          srcs = ['b.sh'],",
-        "          size = 'small')",
-        "sh_test(name = 'moderate_timeout',",
-        "          srcs = ['c.sh'],",
-        "          size = 'small',",
-        "          timeout = 'moderate')");
+        """
+        load('//test_defs:foo_test.bzl', 'foo_test')
+        foo_test(
+            name = "long_timeout",
+            size = "small",
+            timeout = "long",
+            srcs = ["a.sh"],
+        )
+
+        foo_test(
+            name = "short_timeout",
+            size = "small",
+            srcs = ["b.sh"],
+        )
+
+        foo_test(
+            name = "moderate_timeout",
+            size = "small",
+            timeout = "moderate",
+            srcs = ["c.sh"],
+        )
+        """);
     Target longTest = getTarget("//timeouts:long_timeout");
     Target shortTest = getTarget("//timeouts:short_timeout");
     Target moderateTest = getTarget("//timeouts:moderate_timeout");
@@ -155,15 +180,14 @@ public class TestTargetUtilsTest extends PackageLoadingTestCase {
 
   @Test
   public void testSkyframeExpandTestSuites() throws Exception {
+    assertExpandedSuitesSkyframe(Sets.newHashSet(test1, test2), ImmutableSet.of(test1, test2));
+    assertExpandedSuitesSkyframe(Sets.newHashSet(test1, test2), ImmutableSet.of(suite));
     assertExpandedSuitesSkyframe(
-        Sets.newHashSet(test1, test2), ImmutableSet.<Target>of(test1, test2));
-    assertExpandedSuitesSkyframe(Sets.newHashSet(test1, test2), ImmutableSet.<Target>of(suite));
-    assertExpandedSuitesSkyframe(
-        Sets.newHashSet(test1, test2, test1b), ImmutableSet.<Target>of(test1, suite, test1b));
+        Sets.newHashSet(test1, test2, test1b), ImmutableSet.of(test1, suite, test1b));
     // The large test if returned as filtered from the test_suite rule, but should still be in the
     // result set as it's explicitly added.
     assertExpandedSuitesSkyframe(
-        Sets.newHashSet(test1, test2, test1b), ImmutableSet.<Target>of(test1b, suite));
+        Sets.newHashSet(test1, test2, test1b), ImmutableSet.of(test1b, suite));
   }
 
   @Test
@@ -177,6 +201,30 @@ public class TestTargetUtilsTest extends PackageLoadingTestCase {
     assertThat(result.second).containsExactly("tag1", "tag3");
   }
 
+  // Regression test for b/489243968.
+  @Test
+  public void testStarlarkRuleNamedTestSuite_notExpandedLikeTestSuite() throws Exception {
+    scratch.file(
+        "test/test_suite.bzl",
+        """
+        # Custom Starlark rule whose name happens to be test_suite.
+        test_suite = rule(
+            implementation = lambda ctx: [],
+        )
+        """);
+
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//test:test_suite.bzl", "test_suite")
+
+        test_suite(name = "not_a_real_test_suite")
+        """);
+
+    Target target = getTarget("//test:not_a_real_test_suite");
+    assertExpandedSuitesSkyframe(ImmutableList.of(target), ImmutableList.of(target));
+  }
+
   private void assertExpandedSuitesSkyframe(Iterable<Target> expected, Collection<Target> suites)
       throws Exception {
     ImmutableSet<Label> expectedLabels =
@@ -187,11 +235,11 @@ public class TestTargetUtilsTest extends PackageLoadingTestCase {
     EvaluationContext evaluationContext =
         EvaluationContext.newBuilder()
             .setKeepGoing(false)
-            .setNumThreads(1)
+            .setParallelism(1)
             .setEventHandler(reporter)
             .build();
     EvaluationResult<TestsForTargetPatternValue> result =
-        getSkyframeExecutor().getDriver().evaluate(ImmutableList.of(key), evaluationContext);
+        getSkyframeExecutor().getEvaluator().evaluate(ImmutableList.of(key), evaluationContext);
     ResolvedTargets<Label> actual = result.get(key).getLabels();
     assertThat(actual.hasError()).isFalse();
     assertThat(actual.getTargets()).containsExactlyElementsIn(expectedLabels);

@@ -21,6 +21,8 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -35,10 +37,7 @@ import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.syntax.Location;
 
-/**
- * Utility functions over Targets that don't really belong in the base {@link
- * Target} interface.
- */
+/** Utility functions over Targets that don't really belong in the base {@link Target} interface. */
 public final class TargetUtils {
 
   // *_test / test_suite attribute that used to specify constraint keywords.
@@ -56,7 +55,8 @@ public final class TargetUtils {
         || tag.startsWith("disable-")
         || tag.startsWith("cpu:")
         || tag.equals(ExecutionRequirements.LOCAL)
-        || tag.equals(ExecutionRequirements.WORKER_KEY_MNEMONIC);
+        || tag.equals(ExecutionRequirements.WORKER_KEY_MNEMONIC)
+        || tag.startsWith("resources:");
   }
 
   private TargetUtils() {} // Uninstantiable.
@@ -69,36 +69,25 @@ public final class TargetUtils {
     return name.equals("test_suite");
   }
 
-  /**
-   * Returns true iff {@code target} is a {@code *_test} rule; excludes {@code
-   * test_suite}.
-   */
+  public static boolean isExecutableNonTestRule(Target target) {
+    return target instanceof Rule rule && rule.isExecutable() && !isTestRule(rule);
+  }
+
+  /** Returns true iff {@code target} is a {@code *_test} rule; excludes {@code test_suite}. */
   public static boolean isTestRule(Target target) {
-    return (target instanceof Rule) && isTestRuleName(((Rule) target).getRuleClass());
+    return target instanceof Rule rule && isTestRuleName(rule.getRuleClass());
   }
 
-  /**
-   * Returns true iff {@code target} is a {@code test_suite} rule.
-   */
+  /** Returns true iff {@code target} is a {@code test_suite} rule. */
   public static boolean isTestSuiteRule(Target target) {
-    return target instanceof Rule && isTestSuiteRuleName(((Rule) target).getRuleClass());
+    return target instanceof Rule rule
+        && isTestSuiteRuleName(rule.getRuleClass())
+        && !rule.getRuleClassObject().isStarlark();
   }
 
-  /** Returns true iff {@code target} is an {@code alias} rule. */
-  public static boolean isAlias(Target target) {
-    if (!(target instanceof Rule)) {
-      return false;
-    }
-
-    Rule rule = (Rule) target;
-    return !rule.getRuleClassObject().isStarlark() && rule.getRuleClass().equals("alias");
-  }
-
-  /**
-   * Returns true iff {@code target} is a {@code *_test} or {@code test_suite}.
-   */
+  /** Returns true iff {@code target} is a {@code *_test} or {@code test_suite}. */
   public static boolean isTestOrTestSuiteRule(Target target) {
-    return isTestRule (target) || isTestSuiteRule(target);
+    return isTestRule(target) || isTestSuiteRule(target);
   }
 
   /**
@@ -106,28 +95,35 @@ public final class TargetUtils {
    * command-line wildcards or by test_suite $implicit_tests attribute.
    */
   public static boolean hasManualTag(Target target) {
-    return (target instanceof Rule) && hasConstraint((Rule) target, "manual");
+    return target instanceof Rule rule && hasConstraint(rule, "manual");
   }
 
   /**
-   * Returns true if test marked as "exclusive" by the appropriate keyword
-   * in the tags attribute.
+   * Returns true if test marked as "exclusive" by the appropriate keyword in the tags attribute.
    *
-   * Method assumes that passed target is a test rule, so usually it should be
-   * used only after isTestRule() or isTestOrTestSuiteRule(). Behavior is
-   * undefined otherwise.
+   * <p>Method assumes that passed target is a test rule, so usually it should be used only after
+   * isTestRule() or isTestOrTestSuiteRule(). Behavior is undefined otherwise.
    */
   public static boolean isExclusiveTestRule(Rule rule) {
     return hasConstraint(rule, "exclusive");
   }
 
   /**
-   * Returns true if test marked as "local" by the appropriate keyword
-   * in the tags attribute.
+   * Returns true if test marked as "exclusive-if-local" by the appropriate keyword in the tags
+   * attribute.
    *
-   * Method assumes that passed target is a test rule, so usually it should be
-   * used only after isTestRule() or isTestOrTestSuiteRule(). Behavior is
-   * undefined otherwise.
+   * <p>Method assumes that passed target is a test rule, so usually it should be used only after
+   * isTestRule() or isTestOrTestSuiteRule(). Behavior is undefined otherwise.
+   */
+  public static boolean isExclusiveIfLocalTestRule(Rule rule) {
+    return hasConstraint(rule, "exclusive-if-local");
+  }
+
+  /**
+   * Returns true if test marked as "local" by the appropriate keyword in the tags attribute.
+   *
+   * <p>Method assumes that passed target is a test rule, so usually it should be used only after
+   * isTestRule() or isTestOrTestSuiteRule(). Behavior is undefined otherwise.
    */
   public static boolean isLocalTestRule(Rule rule) {
     return hasConstraint(rule, "local")
@@ -135,12 +131,10 @@ public final class TargetUtils {
   }
 
   /**
-   * Returns true if test marked as "external" by the appropriate keyword
-   * in the tags attribute.
+   * Returns true if test marked as "external" by the appropriate keyword in the tags attribute.
    *
-   * Method assumes that passed target is a test rule, so usually it should be
-   * used only after isTestRule() or isTestOrTestSuiteRule(). Behavior is
-   * undefined otherwise.
+   * <p>Method assumes that passed target is a test rule, so usually it should be used only after
+   * isTestRule() or isTestOrTestSuiteRule(). Behavior is undefined otherwise.
    */
   public static boolean isExternalTestRule(Rule rule) {
     return hasConstraint(rule, "external");
@@ -158,7 +152,7 @@ public final class TargetUtils {
 
   public static List<String> getStringListAttr(Target target, String attrName) {
     Preconditions.checkArgument(target instanceof Rule);
-    return NonconfigurableAttributeMapper.of((Rule) target).get(attrName, Type.STRING_LIST);
+    return NonconfigurableAttributeMapper.of((Rule) target).get(attrName, Types.STRING_LIST);
   }
 
   public static String getStringAttr(Target target, String attrName) {
@@ -176,33 +170,30 @@ public final class TargetUtils {
           AggregatingAttributeMapper.of((Rule) target)
               .visitAttribute(attribute.getName(), attributeType)) {
 
-        // Ugly hack to maintain backward 'attr' query compatibility for BOOLEAN and TRISTATE
-        // attributes. These are internally stored as actual Boolean or TriState objects but were
-        // historically queried as integers. To maintain compatibility, we inspect their actual
-        // value and return the integer equivalent represented as a String. This code is the
-        // opposite of the code in BooleanType and TriStateType respectively.
-        if (attributeType == BOOLEAN) {
-          values.add(Type.BOOLEAN.cast(attrValue) ? "1" : "0");
-        } else if (attributeType == TRISTATE) {
-          switch (BuildType.TRISTATE.cast(attrValue)) {
-            case AUTO:
-              values.add("-1");
-              break;
-            case NO:
-              values.add("0");
-              break;
-            case YES:
-              values.add("1");
-              break;
-            default:
-              throw new AssertionError("This can't happen!");
-          }
-        } else {
-          values.add(attrValue == null ? null : attrValue.toString());
-        }
+        values.add(convertAttributeValue(attributeType, attrValue));
       }
     }
     return values;
+  }
+
+  @Nullable
+  public static String convertAttributeValue(Type<?> attributeType, Object attrValue) {
+    // Ugly hack to maintain backward 'attr' query compatibility for BOOLEAN and TRISTATE
+    // attributes. These are internally stored as actual Boolean or TriState objects but were
+    // historically queried as integers. To maintain compatibility, we inspect their actual
+    // value and return the integer equivalent represented as a String. This code is the
+    // opposite of the code in BooleanType and TriStateType respectively.
+    if (attributeType == BOOLEAN) {
+      return Type.BOOLEAN.cast(attrValue) ? "1" : "0";
+    } else if (attributeType == TRISTATE) {
+      return switch (BuildType.TRISTATE.cast(attrValue)) {
+        case AUTO -> "-1";
+        case NO -> "0";
+        case YES -> "1";
+      };
+    } else {
+      return attrValue == null ? null : attrValue.toString();
+    }
   }
 
   /**
@@ -210,24 +201,24 @@ public final class TargetUtils {
    */
   @Nullable
   public static String getDeprecation(Target target) {
-    if (!(target instanceof Rule)) {
+    if (!(target instanceof Rule rule)) {
       return null;
     }
-    Rule rule = (Rule) target;
     return rule.isAttrDefined("deprecation", Type.STRING)
         ? NonconfigurableAttributeMapper.of(rule).get("deprecation", Type.STRING)
         : null;
   }
 
   /**
-   * Checks whether specified constraint keyword is present in the
-   * tags attribute of the test or test suite rule.
+   * Checks whether specified constraint keyword is present in the tags attribute of the test or
+   * test suite rule.
    *
-   * Method assumes that provided rule is a test or a test suite. Behavior is
-   * undefined otherwise.
+   * <p>Method assumes that provided rule is a test or a test suite. Behavior is undefined
+   * otherwise.
    */
   private static boolean hasConstraint(Rule rule, String keyword) {
-    return NonconfigurableAttributeMapper.of(rule).get(CONSTRAINTS_ATTR, Type.STRING_LIST)
+    return NonconfigurableAttributeMapper.of(rule)
+        .get(CONSTRAINTS_ATTR, Types.STRING_LIST)
         .contains(keyword);
   }
 
@@ -239,7 +230,7 @@ public final class TargetUtils {
     // tags may contain duplicate values.
     Map<String, String> map = new HashMap<>();
     for (String tag :
-        NonconfigurableAttributeMapper.of(rule).get(CONSTRAINTS_ATTR, Type.STRING_LIST)) {
+        NonconfigurableAttributeMapper.of(rule).get(CONSTRAINTS_ATTR, Types.STRING_LIST)) {
       if (legalExecInfoKeys(tag)) {
         map.put(tag, "");
       }
@@ -277,37 +268,34 @@ public final class TargetUtils {
    *     actions' execution requirements, for more details {@see
    *     StarlarkSematicOptions#experimentalAllowTagsPropagation}
    */
-  public static ImmutableMap<String, String> getFilteredExecutionInfo(
+  public static ImmutableSortedMap<String, String> getFilteredExecutionInfo(
       @Nullable Object executionRequirementsUnchecked, Rule rule, boolean allowTagsPropagation)
       throws EvalException {
-    Map<String, String> checkedExecutionRequirements =
-        TargetUtils.filter(
-            executionRequirementsUnchecked == null
-                ? ImmutableMap.of()
-                : Dict.noneableCast(
+    Map<String, String> executionInfo =
+        executionRequirementsUnchecked == null
+            ? ImmutableMap.of()
+            : TargetUtils.filter(
+                Dict.noneableCast(
                     executionRequirementsUnchecked,
                     String.class,
                     String.class,
                     "execution_requirements"));
 
-    Map<String, String> executionInfoBuilder = new HashMap<>();
-    // adding filtered execution requirements to the execution info map
-    executionInfoBuilder.putAll(checkedExecutionRequirements);
-
     if (allowTagsPropagation) {
+      executionInfo = new HashMap<>(executionInfo); // Make mutable.
       Map<String, String> checkedTags = getExecutionInfo(rule);
       // merging filtered tags to the execution info map avoiding duplicates
-      checkedTags.forEach(executionInfoBuilder::putIfAbsent);
+      checkedTags.forEach(executionInfo::putIfAbsent);
     }
 
-    return ImmutableMap.copyOf(executionInfoBuilder);
+    return ImmutableSortedMap.copyOf(executionInfo);
   }
 
   /**
    * Returns the execution info. These include execution requirement tags ('block-*', 'requires-*',
    * 'no-*', 'supports-*', 'disable-*', 'local', and 'cpu:*') as keys with empty values.
    */
-  public static Map<String, String> filter(Map<String, String> executionInfo) {
+  private static Map<String, String> filter(Map<String, String> executionInfo) {
     return Maps.filterKeys(executionInfo, TargetUtils::legalExecInfoKeys);
   }
 
@@ -334,17 +322,27 @@ public final class TargetUtils {
   }
 
   private static boolean isExplicitDependency(Rule rule, Label label) {
-    if (rule.getVisibility().getDependencyLabels().contains(label)) {
+    if (Iterables.contains(rule.getVisibilityDependencyLabels(), label)) {
       return true;
     }
 
-    for (AttributeMap.DepEdge depEdge : AggregatingAttributeMapper.of(rule).visitLabels()) {
-      if (rule.isAttributeValueExplicitlySpecified(depEdge.getAttribute())
-          && label.equals(depEdge.getLabel())) {
-        return true;
-      }
+    AggregatingAttributeMapper mapper = AggregatingAttributeMapper.of(rule);
+    try {
+      mapper.visitLabels(
+          DependencyFilter.NO_IMPLICIT_DEPS,
+          (Label depLabel, Attribute attribute) -> {
+            if (label.equals(depLabel)) {
+              throw StopIteration.INSTANCE;
+            }
+          });
+    } catch (StopIteration e) {
+      return true;
     }
     return false;
+  }
+
+  private static final class StopIteration extends RuntimeException {
+    private static final StopIteration INSTANCE = new StopIteration();
   }
 
   /**
@@ -361,7 +359,7 @@ public final class TargetUtils {
         return true;
       }
 
-      if (!(input instanceof Rule)) {
+      if (!(input instanceof Rule rule)) {
         return requiredTags.isEmpty();
       }
       // Note that test_tags are those originating from the XX_test rule, whereas the requiredTags
@@ -369,13 +367,12 @@ public final class TargetUtils {
       // TODO(ulfjack): getRuleTags is inconsistent with TestFunction and other places that use
       // tags + size, but consistent with TestSuite.
       return TestTargetUtils.testMatchesFilters(
-          ((Rule) input).getRuleTags(), requiredTags, excludedTags, false);
+          rule.getRuleTags(), requiredTags, excludedTags, false);
     };
   }
 
-  /**
-   * Return {@link Location} for {@link Target} target, if it should not be null.
-   */
+  /** Return {@link Location} for {@link Target} target, if it should not be null. */
+  @Nullable
   public static Location getLocationMaybe(Target target) {
     return (target instanceof Rule) || (target instanceof InputFile) ? target.getLocation() : null;
   }
@@ -387,8 +384,7 @@ public final class TargetUtils {
   public static String formatMissingEdge(
       @Nullable Target target, Label label, NoSuchThingException e, @Nullable Attribute attr) {
     // instanceof returns false if target is null (which is exploited here)
-    if (target instanceof Rule) {
-      Rule rule = (Rule) target;
+    if (target instanceof Rule rule) {
       if (isExplicitDependency(rule, label)) {
         return String.format("%s and referenced by '%s'", e.getMessage(), target.getLabel());
       } else {
@@ -408,12 +404,13 @@ public final class TargetUtils {
             rule.getRuleClass(), label, e.getMessage(), additionalInfo);
       }
     } else if (target instanceof InputFile) {
-      return e.getMessage() + " (this is usually caused by a missing package group in the"
-          + " package-level visibility declaration)";
+      return e.getMessage()
+          + " (this is usually caused by a missing package group in the package-level visibility"
+          + " declaration)";
     } else {
       if (target != null) {
-        return String.format("in target '%s', no such label '%s': %s", target.getLabel(), label,
-            e.getMessage());
+        return String.format(
+            "in target '%s', no such label '%s': %s", target.getLabel(), label, e.getMessage());
       }
       return e.getMessage();
     }

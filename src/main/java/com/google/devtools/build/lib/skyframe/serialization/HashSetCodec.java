@@ -11,26 +11,36 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 package com.google.devtools.build.lib.skyframe.serialization;
 
+import static sun.misc.Unsafe.ARRAY_OBJECT_BASE_OFFSET;
+import static sun.misc.Unsafe.ARRAY_OBJECT_INDEX_SCALE;
+
 import com.google.common.collect.Sets;
+
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
+import java.util.concurrent.atomic.AtomicInteger;
 
-/** {@link ObjectCodec} for {@link HashSet} that returns {@link LinkedHashSet} for determinism. */
-final class HashSetCodec<E> implements ObjectCodec<HashSet<E>> {
-  @SuppressWarnings("unchecked")
+/**
+ * {@link ObjectCodec} for {@link HashSet} that returns {@link LinkedHashSet} for determinism.
+ *
+ * <p>This type transformation is safe because {@link LinkedHashSet} is a subclass of {@link
+ * HashSet}.
+ */
+@SuppressWarnings({"rawtypes", "unchecked", "NonApiType"})
+final class HashSetCodec extends AsyncObjectCodec<HashSet> {
   @Override
-  public Class<HashSet<E>> getEncodedClass() {
-    return (Class<HashSet<E>>) (Class<?>) HashSet.class;
+  public Class<HashSet> getEncodedClass() {
+    return HashSet.class;
   }
 
   @Override
-  public void serialize(SerializationContext context, HashSet<E> obj, CodedOutputStream codedOut)
+  public void serialize(SerializationContext context, HashSet obj, CodedOutputStream codedOut)
       throws SerializationException, IOException {
     codedOut.writeInt32NoTag(obj.size());
     for (Object object : obj) {
@@ -38,14 +48,53 @@ final class HashSetCodec<E> implements ObjectCodec<HashSet<E>> {
     }
   }
 
+  // TODO: b/386384684 - remove Unsafe usage
   @Override
-  public LinkedHashSet<E> deserialize(DeserializationContext context, CodedInputStream codedIn)
+  public HashSet deserializeAsync(AsyncDeserializationContext context, CodedInputStream codedIn)
       throws SerializationException, IOException {
     int size = codedIn.readInt32();
-    LinkedHashSet<E> set = Sets.newLinkedHashSetWithExpectedSize(size);
-    for (int i = 0; i < size; i++) {
-      set.add(context.deserialize(codedIn));
+    LinkedHashSet set = Sets.newLinkedHashSetWithExpectedSize(size);
+    context.registerInitialValue(set);
+
+    if (size == 0) {
+      return set;
     }
+
+    ElementBuffer buffer = new ElementBuffer(set, size);
+    for (int i = 0; i < size; i++) {
+      context.deserialize(
+          codedIn,
+          buffer.elements,
+          ARRAY_OBJECT_BASE_OFFSET + ARRAY_OBJECT_INDEX_SCALE * i,
+          /* done= */ (Runnable) buffer);
+    }
+
     return set;
+  }
+
+  /**
+   * Buffers the elements and populates the set once all are available.
+   *
+   * <p>This approach is implicitly thread-safe.
+   */
+  private static class ElementBuffer implements Runnable {
+    private final LinkedHashSet set;
+    private final Object[] elements;
+
+    private final AtomicInteger remaining;
+
+    private ElementBuffer(LinkedHashSet set, int size) {
+      this.set = set;
+      this.elements = new Object[size];
+
+      this.remaining = new AtomicInteger(size);
+    }
+
+    @Override
+    public void run() {
+      if (remaining.decrementAndGet() == 0) {
+        Collections.addAll(set, elements);
+      }
+    }
   }
 }

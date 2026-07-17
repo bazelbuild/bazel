@@ -33,7 +33,7 @@ def sha256(ctx, artifact, execution_requirements = None):
 tools = {
     "sha256": attr.label(
         default = Label("//tools/build_defs/hash:sha256"),
-        cfg = "host",
+        cfg = "exec",
         executable = True,
         allow_files = True,
     ),

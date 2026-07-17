@@ -120,8 +120,8 @@ public final class LexerTest {
 
   @Test
   public void testOperatorWithQuotedExprWithMoreSpecialCharacters() throws QuerySyntaxException {
-    Lexer.Token[] tokens = scan("set(\"//foo:foo=base/2~123+asd\")");
-    assertThat(asString(tokens)).isEqualTo("set ( //foo:foo=base/2~123+asd ) EOF");
+    Lexer.Token[] tokens = scan("set(\"//foo:foo=base/2~123[]+asd\")");
+    assertThat(asString(tokens)).isEqualTo("set ( //foo:foo=base/2~123[]+asd ) EOF");
     assertThat(tokens[0].kind).isEqualTo(Lexer.TokenKind.SET);
     assertThat(tokens[1].kind).isEqualTo(Lexer.TokenKind.LPAREN);
     assertThat(tokens[2].kind).isEqualTo(Lexer.TokenKind.WORD);
@@ -130,8 +130,8 @@ public final class LexerTest {
 
   @Test
   public void testOperatorWithUnquotedExprWithSpecialCharacters() throws QuerySyntaxException {
-    Lexer.Token[] tokens = scan("set(//a:b=bar./@_:~-*$123+asd)");
-    assertThat(asString(tokens)).isEqualTo("set ( //a:b = bar./@_:~-*$123 + asd ) EOF");
+    Lexer.Token[] tokens = scan("set(//a:b=bar./@_:~-*$123[]+asd)");
+    assertThat(asString(tokens)).isEqualTo("set ( //a:b = bar./@_:~-*$123[] + asd ) EOF");
     assertThat(tokens[0].kind).isEqualTo(Lexer.TokenKind.SET);
     assertThat(tokens[1].kind).isEqualTo(Lexer.TokenKind.LPAREN);
     assertThat(tokens[2].kind).isEqualTo(Lexer.TokenKind.WORD);
@@ -140,5 +140,29 @@ public final class LexerTest {
     assertThat(tokens[5].kind).isEqualTo(Lexer.TokenKind.PLUS);
     assertThat(tokens[6].kind).isEqualTo(Lexer.TokenKind.WORD);
     assertThat(tokens[7].kind).isEqualTo(Lexer.TokenKind.RPAREN);
+  }
+
+  @Test
+  public void testUnquotedCanonicalLabels() throws QuerySyntaxException {
+    Lexer.Token[] tokens =
+        scan("somepath(@foo+@bar+//baz+@@foo +bar,  @@rules_jvm_external++maven+maven//:bar)");
+    assertThat(asString(tokens))
+        .isEqualTo(
+            "somepath ( @foo + @bar + //baz + @@foo + bar , @@rules_jvm_external++maven+maven//:bar"
+                + " ) EOF");
+    assertThat(tokens[0].kind).isEqualTo(Lexer.TokenKind.WORD);
+    assertThat(tokens[1].kind).isEqualTo(Lexer.TokenKind.LPAREN);
+    assertThat(tokens[2].kind).isEqualTo(Lexer.TokenKind.WORD);
+    assertThat(tokens[3].kind).isEqualTo(Lexer.TokenKind.PLUS);
+    assertThat(tokens[4].kind).isEqualTo(Lexer.TokenKind.WORD);
+    assertThat(tokens[5].kind).isEqualTo(Lexer.TokenKind.PLUS);
+    assertThat(tokens[6].kind).isEqualTo(Lexer.TokenKind.WORD);
+    assertThat(tokens[7].kind).isEqualTo(Lexer.TokenKind.PLUS);
+    assertThat(tokens[8].kind).isEqualTo(Lexer.TokenKind.WORD);
+    assertThat(tokens[9].kind).isEqualTo(Lexer.TokenKind.PLUS);
+    assertThat(tokens[10].kind).isEqualTo(Lexer.TokenKind.WORD);
+    assertThat(tokens[11].kind).isEqualTo(Lexer.TokenKind.COMMA);
+    assertThat(tokens[12].kind).isEqualTo(Lexer.TokenKind.WORD);
+    assertThat(tokens[13].kind).isEqualTo(Lexer.TokenKind.RPAREN);
   }
 }

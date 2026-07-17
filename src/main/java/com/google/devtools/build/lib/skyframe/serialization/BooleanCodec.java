@@ -19,7 +19,7 @@ import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 
 /** Codec for {@link Boolean}. */
-class BooleanCodec implements ObjectCodec<Boolean> {
+class BooleanCodec extends LeafObjectCodec<Boolean> {
 
   @Override
   public Class<Boolean> getEncodedClass() {
@@ -27,13 +27,13 @@ class BooleanCodec implements ObjectCodec<Boolean> {
   }
 
   @Override
-  public void serialize(SerializationContext context, Boolean value, CodedOutputStream codedOut)
+  public void serialize(LeafSerializationContext context, Boolean value, CodedOutputStream codedOut)
       throws IOException {
     codedOut.writeBoolNoTag(value);
   }
 
   @Override
-  public Boolean deserialize(DeserializationContext context, CodedInputStream codedIn)
+  public Boolean deserialize(LeafDeserializationContext context, CodedInputStream codedIn)
       throws IOException {
     return codedIn.readBool();
   }

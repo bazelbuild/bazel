@@ -16,23 +16,12 @@ package com.google.devtools.build.docgen;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
-import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 import java.util.List;
 
-/**
- * Command line options for the Build Encyclopedia docgen.
- */
-public class BuildEncyclopediaOptions extends OptionsBase {
-  @Option(
-    name = "product_name",
-    abbrev = 'n',
-    defaultValue = "",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "Name of the product to put in the documentation"
-  )
-  public String productName;
-
+/** Command line options for the Build Encyclopedia docgen. */
+@OptionsClass
+public abstract class BuildEncyclopediaOptions extends CommonOptions {
   @Option(
       name = "input_dir",
       abbrev = 'i',
@@ -40,18 +29,41 @@ public class BuildEncyclopediaOptions extends OptionsBase {
       allowMultiple = true,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
-      help = "An input directory to read source files")
-  public List<String> inputDirs;
+      help = "An input directory to read Java source files")
+  public abstract List<String> getInputJavaDirs();
+
+  // The source tree root must be passed on the command line, instead of in link_map_path json
+  // content, because its schema varies wildly depending on execution platform (e.g. RBE vs. local).
+  @Option(
+      name = "input_root",
+      abbrev = 'r',
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Directory of the source tree root")
+  public abstract String getInputRoot();
 
   @Option(
-    name = "provider",
-    abbrev = 'p',
-    defaultValue = "",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "The name of the rule class provider"
-  )
-  public String provider;
+      name = "be_stardoc_proto",
+      oldName = "input_stardoc_proto",
+      defaultValue = "null",
+      allowMultiple = true,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "A stardoc_output.ModuleInfo binary proto file generated from a Build Encyclopedia entry"
+              + " point .bzl file; documentation from rule_stardoc_proto takes precedence over"
+              + " documentation from input_dir")
+  public abstract List<String> getBuildEncyclopediaStardocProtos();
+
+  @Option(
+      name = "provider",
+      abbrev = 'p',
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "The name of the rule class provider")
+  public abstract String getProvider();
 
   @Option(
       name = "output_file",
@@ -60,17 +72,16 @@ public class BuildEncyclopediaOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "An output file.")
-  public String outputFile;
+  public abstract String getOutputFile();
 
   @Option(
-    name = "output_dir",
-    abbrev = 'o',
-    defaultValue = ".",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "An output directory."
-  )
-  public String outputDir;
+      name = "output_dir",
+      abbrev = 'o',
+      defaultValue = ".",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "An output directory.")
+  public abstract String getOutputDir();
 
   @Option(
       name = "denylist",
@@ -80,25 +91,16 @@ public class BuildEncyclopediaOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "A path to a file listing rules not to document.")
-  public String denylist;
+  public abstract String getDenylist();
 
   @Option(
-    name = "single_page",
-    abbrev = '1',
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "Whether to generate the BE as a single HTML page or one page per rule family."
-  )
-  public boolean singlePage;
-
-  @Option(
-    name = "help",
-    abbrev = 'h',
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "Prints the help string."
-  )
-  public boolean help;
+      name = "single_page",
+      abbrev = '1',
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Whether to generate the BE as a single HTML page or one page per rule family. Mutually"
+              + " exclusive with --create_toc.")
+  public abstract boolean getSinglePage();
 }

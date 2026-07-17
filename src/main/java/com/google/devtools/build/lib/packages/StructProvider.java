@@ -14,20 +14,23 @@
 
 package com.google.devtools.build.lib.packages;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import java.util.Map;
 import net.starlark.java.eval.Dict;
-import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.Starlark;
-import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.syntax.StarlarkType;
+import net.starlark.java.syntax.TypeConstructor;
+import net.starlark.java.syntax.Types;
 
 /**
  * The provider for the built-in type {@code struct}.
  *
  * <p>Its singleton instance is {@link StructProvider#STRUCT}.
  */
+// We explicitly implement TypeConstructor here to avoid giving StarlarkInfoNoSchema an associated
+// struct type constructor.
 public final class StructProvider extends BuiltinProvider<StarlarkInfo>
-    implements StructApi.StructProviderApi {
+    implements StructApi.StructProviderApi, TypeConstructor {
 
   /** Provider of "struct" instances. */
   public static final StructProvider STRUCT = new StructProvider();
@@ -38,15 +41,8 @@ public final class StructProvider extends BuiltinProvider<StarlarkInfo>
 
   /** Implementation of {@code struct(**kwargs)} function exposed to Starlark. */
   @Override
-  public StructImpl createStruct(Dict<String, Object> kwargs, StarlarkThread thread)
-      throws EvalException {
-    if (kwargs.containsKey("to_json")) {
-      throw Starlark.errorf("cannot override built-in struct function 'to_json'");
-    }
-    if (kwargs.containsKey("to_proto")) {
-      throw Starlark.errorf("cannot override built-in struct function 'to_proto'");
-    }
-    return StarlarkInfo.create(this, kwargs, thread.getCallerLocation());
+  public StructImpl createStruct(Dict<String, Object> kwargs) {
+    return StarlarkInfo.create(this, kwargs);
   }
 
   /**
@@ -57,6 +53,13 @@ public final class StructProvider extends BuiltinProvider<StarlarkInfo>
    * ctx.attr}.
    */
   public StarlarkInfo create(Map<String, Object> fields, String errorMessageFormatForUnknownField) {
-    return StarlarkInfo.createWithCustomMessage(this, fields, errorMessageFormatForUnknownField);
+    return StarlarkInfoWithMessage.createWithCustomMessage(
+        this, fields, errorMessageFormatForUnknownField);
+  }
+
+  @Override
+  public StarlarkType createStarlarkType(ImmutableList<TypeConstructor.Arg> argsTuple)
+      throws TypeConstructor.Failure {
+    return Types.STRUCT_CONSTRUCTOR.createStarlarkType(argsTuple);
   }
 }

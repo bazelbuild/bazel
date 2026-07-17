@@ -25,13 +25,9 @@ import com.google.common.collect.ImmutableList;
 public class BasicActionLookupValue implements ActionLookupValue {
   protected final ImmutableList<ActionAnalysisMetadata> actions;
 
-  protected BasicActionLookupValue(ImmutableList<ActionAnalysisMetadata> actions) {
-    this.actions = actions;
-  }
-
   @VisibleForTesting
-  public BasicActionLookupValue(Actions.GeneratingActions generatingActions) {
-    this(generatingActions.getActions());
+  public BasicActionLookupValue(ImmutableList<ActionAnalysisMetadata> actions) {
+    this.actions = actions;
   }
 
   @Override

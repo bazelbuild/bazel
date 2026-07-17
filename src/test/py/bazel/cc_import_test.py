@@ -15,7 +15,7 @@
 import os
 import shutil
 import stat
-import unittest
+from absl.testing import absltest
 from src.test.py.bazel import test_base
 
 
@@ -26,8 +26,7 @@ class CcImportTest(test_base.TestBase):
                          system_provided=0,
                          linkstatic=1,
                          provide_header=True):
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
-
+    self.AddBazelDep('rules_cc')
     # We use the outputs of cc_binary and cc_library as precompiled
     # libraries for cc_import
     self.ScratchFile(
@@ -35,6 +34,9 @@ class CcImportTest(test_base.TestBase):
         [
             'package(default_visibility = ["//visibility:public"])',
             '',
+            'load("@rules_cc//cc:cc_binary.bzl", "cc_binary")',
+            'load("@rules_cc//cc:cc_import.bzl", "cc_import")',
+            'load("@rules_cc//cc:cc_library.bzl", "cc_library")',
             'cc_binary(',
             '  name = "libA.so",',
             '  srcs = ["a.cc"],',
@@ -62,19 +64,24 @@ class CcImportTest(test_base.TestBase):
             '  name = "A",',
             '  static_library = "//lib:libA_archive",',
             '  shared_library = "//lib:libA.so",'
-            if not system_provided else '',
+            if not system_provided
+            else '',
             # On Windows, we always need the interface library
             '  interface_library = "//lib:libA_ifso",'
-            if self.IsWindows() else (
+            if self.IsWindows()
+            else (
                 # On Unix, we use .so file as interface library
                 # if system_provided is true
                 '  interface_library = "//lib:libA.so",'
-                if system_provided else ''),
+                if system_provided
+                else ''
+            ),
             '  hdrs = ["a.h"],' if provide_header else '',
             '  alwayslink = %s,' % str(alwayslink),
             '  system_provided = %s,' % str(system_provided),
             ')',
-        ])
+        ],
+    )
 
     self.ScratchFile('lib/a.cc', [
         '#include <stdio.h>',
@@ -105,14 +112,18 @@ class CcImportTest(test_base.TestBase):
         'void HelloWorld();',
     ])
 
-    self.ScratchFile('main/BUILD', [
-        'cc_binary(',
-        '  name = "B",',
-        '  srcs = ["b.cc"],',
-        '  deps = ["//lib:A",],',
-        '  linkstatic = %s,' % str(linkstatic),
-        ')',
-    ])
+    self.ScratchFile(
+        'main/BUILD',
+        [
+            'load("@rules_cc//cc:cc_binary.bzl", "cc_binary")',
+            'cc_binary(',
+            '  name = "B",',
+            '  srcs = ["b.cc"],',
+            '  deps = ["//lib:A",],',
+            '  linkstatic = %s,' % str(linkstatic),
+            ')',
+        ],
+    )
 
     self.ScratchFile('main/b.cc', [
         '#include <stdio.h>',
@@ -126,8 +137,7 @@ class CcImportTest(test_base.TestBase):
     ])
 
   def getBazelInfo(self, info_key):
-    exit_code, stdout, stderr = self.RunBazel(['info', info_key])
-    self.AssertExitCode(exit_code, 0, stderr)
+    _, stdout, _ = self.RunBazel(['info', info_key])
     return stdout[0]
 
   def testLinkStaticLibrary(self):
@@ -135,13 +145,11 @@ class CcImportTest(test_base.TestBase):
     bazel_bin = self.getBazelInfo('bazel-bin')
     suffix = '.exe' if self.IsWindows() else ''
 
-    exit_code, _, stderr = self.RunBazel(['build', '//main:B'])
-    self.AssertExitCode(exit_code, 0, stderr)
+    self.RunBazel(['build', '//main:B'])
 
     b_bin = os.path.join(bazel_bin, 'main/B' + suffix)
     self.assertTrue(os.path.exists(b_bin))
-    exit_code, stdout, stderr = self.RunProgram([b_bin])
-    self.AssertExitCode(exit_code, 0, stderr)
+    _, stdout, _ = self.RunProgram([b_bin])
     self.assertEqual(stdout[0], 'HelloWorld')
     self.assertEqual(stdout[1], 'global : 0')
 
@@ -150,13 +158,11 @@ class CcImportTest(test_base.TestBase):
     bazel_bin = self.getBazelInfo('bazel-bin')
     suffix = '.exe' if self.IsWindows() else ''
 
-    exit_code, _, stderr = self.RunBazel(['build', '//main:B'])
-    self.AssertExitCode(exit_code, 0, stderr)
+    self.RunBazel(['build', '//main:B'])
 
     b_bin = os.path.join(bazel_bin, 'main/B' + suffix)
     self.assertTrue(os.path.exists(b_bin))
-    exit_code, stdout, stderr = self.RunProgram([b_bin])
-    self.AssertExitCode(exit_code, 0, stderr)
+    _, stdout, _ = self.RunProgram([b_bin])
     self.assertEqual(stdout[0], 'HelloWorld')
     self.assertEqual(stdout[1], 'global : 2')
 
@@ -165,15 +171,13 @@ class CcImportTest(test_base.TestBase):
     bazel_bin = self.getBazelInfo('bazel-bin')
     suffix = '.exe' if self.IsWindows() else ''
 
-    exit_code, _, stderr = self.RunBazel(['build', '//main:B'])
-    self.AssertExitCode(exit_code, 0, stderr)
+    self.RunBazel(['build', '//main:B'])
 
     b_bin = os.path.join(bazel_bin, 'main/B' + suffix)
     self.assertTrue(os.path.exists(b_bin))
     if self.IsWindows():
       self.assertTrue(os.path.exists(os.path.join(bazel_bin, 'main/libA.so')))
-    exit_code, stdout, stderr = self.RunProgram([b_bin])
-    self.AssertExitCode(exit_code, 0, stderr)
+    _, stdout, _ = self.RunProgram([b_bin])
     self.assertEqual(stdout[0], 'HelloWorld')
 
   def testSystemProvidedSharedLibraryOnWinodws(self):
@@ -182,33 +186,28 @@ class CcImportTest(test_base.TestBase):
     self.createProjectFiles(system_provided=1, linkstatic=0)
     bazel_bin = self.getBazelInfo('bazel-bin')
 
-    exit_code, _, stderr = self.RunBazel(['build', '//main:B'])
-    self.AssertExitCode(exit_code, 0, stderr)
+    self.RunBazel(['build', '//main:B'])
 
     b_bin = os.path.join(bazel_bin, 'main/B.exe')
-    exit_code, stdout, stderr = self.RunProgram([b_bin])
+    exit_code, _, _ = self.RunProgram([b_bin], allow_failure=True)
     # Should fail because missing libA.so
     self.assertFalse(exit_code == 0)
 
     # Let's build libA.so and add it into PATH
-    exit_code, stdout, stderr = self.RunBazel(['build', '//lib:libA.so'])
-    self.AssertExitCode(exit_code, 0, stderr)
+    self.RunBazel(['build', '//lib:libA.so'])
 
-    exit_code, stdout, stderr = self.RunProgram(
-        [b_bin], env_add={
-            'PATH': str(os.path.join(bazel_bin, 'lib'))
-        })
-    self.AssertExitCode(exit_code, 0, stderr)
+    _, stdout, _ = self.RunProgram(
+        [b_bin], env_add={'PATH': str(os.path.join(bazel_bin, 'lib'))}
+    )
     self.assertEqual(stdout[0], 'HelloWorld')
 
   def testSystemProvidedSharedLibraryOnUnix(self):
-    if not self.IsUnix():
+    if not self.IsLinux():
       return
     self.createProjectFiles(system_provided=1, linkstatic=0)
     bazel_bin = self.getBazelInfo('bazel-bin')
 
-    exit_code, _, stderr = self.RunBazel(['build', '//main:B'])
-    self.AssertExitCode(exit_code, 0, stderr)
+    self.RunBazel(['build', '//main:B'])
 
     b_bin = os.path.join(bazel_bin, 'main/B')
     tmp_dir = self.ScratchDir('temp_dir_for_run_b_bin')
@@ -217,22 +216,22 @@ class CcImportTest(test_base.TestBase):
     # libA.so
     shutil.copyfile(b_bin, b_bin_tmp)
     os.chmod(b_bin_tmp, stat.S_IRWXU)
-    exit_code, stdout, stderr = self.RunProgram([b_bin_tmp])
+    exit_code, _, _ = self.RunProgram([b_bin_tmp], allow_failure=True)
     # Should fail because missing libA.so
     self.assertFalse(exit_code == 0)
 
     # Let's build libA.so and add it into PATH
-    exit_code, stdout, stderr = self.RunBazel(['build', '//lib:libA.so'])
-    self.AssertExitCode(exit_code, 0, stderr)
+    self.RunBazel(['build', '//lib:libA.so'])
 
-    exit_code, stdout, stderr = self.RunProgram(
-        [b_bin_tmp], env_add={
+    _, stdout, _ = self.RunProgram(
+        [b_bin_tmp],
+        env_add={
             # For Linux
             'LD_LIBRARY_PATH': str(os.path.join(bazel_bin, 'lib')),
             # For Mac
             'DYLD_LIBRARY_PATH': str(os.path.join(bazel_bin, 'lib')),
-        })
-    self.AssertExitCode(exit_code, 0, stderr)
+        },
+    )
     self.assertEqual(stdout[0], 'HelloWorld')
 
   def testCcImportHeaderCheck(self):
@@ -240,7 +239,8 @@ class CcImportTest(test_base.TestBase):
     # Build should fail, because lib/a.h is not declared in BUILD file, disable
     # sandbox so that bazel produces same error across different platforms.
     exit_code, _, stderr = self.RunBazel(
-        ['build', '//main:B', '--spawn_strategy=standalone'])
+        ['build', '//main:B', '--spawn_strategy=standalone'], allow_failure=True
+    )
     self.AssertExitCode(exit_code, 1, stderr)
     self.assertIn('this rule is missing dependency declarations for the'
                   ' following files included by \'main/b.cc\':',
@@ -248,4 +248,4 @@ class CcImportTest(test_base.TestBase):
 
 
 if __name__ == '__main__':
-  unittest.main()
+  absltest.main()

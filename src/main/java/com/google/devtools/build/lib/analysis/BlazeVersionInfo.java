@@ -15,11 +15,13 @@ package com.google.devtools.build.lib.analysis;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Maps;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.flogger.GoogleLogger;
-import com.google.devtools.build.lib.util.StringUtilities;
 import java.util.Date;
 import java.util.Map;
+import java.util.SortedMap;
+import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 
 /**
  * Determines the version information of the current process.
@@ -34,14 +36,19 @@ public class BlazeVersionInfo {
   /** Key for the release timestamp is seconds. */
   public static final String BUILD_TIMESTAMP = "Build timestamp as int";
 
+  // If the current version is a development version, this environment variable can be used to
+  // override the version string (e.g. to deal with version-based feature detection during a
+  // bisect).
+  public static final String BAZEL_DEV_VERSION_OVERRIDE_ENV_VAR = "BAZEL_DEV_VERSION_OVERRIDE";
+
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private static BlazeVersionInfo instance = null;
 
-  private final Map<String, String> buildData = Maps.newTreeMap();
+  private final ImmutableSortedMap<String, String> buildData;
 
   public BlazeVersionInfo(Map<String, String> info) {
-    buildData.putAll(info);
+    buildData = ImmutableSortedMap.copyOf(info);
   }
 
   /**
@@ -68,8 +75,8 @@ public class BlazeVersionInfo {
   /**
    * Sets build info.
    *
-   * <p>This should be called once in the program execution, as early soon as possible, so we
-   * can have the version information even before modules are initialized.
+   * <p>This should be called once in the program execution, as early soon as possible, so we can
+   * have the version information even before modules are initialized.
    */
   public static synchronized void setBuildInfo(Map<String, String> info) {
     if (instance != null) {
@@ -77,6 +84,11 @@ public class BlazeVersionInfo {
     }
     instance = new BlazeVersionInfo(info);
     logVersionInfo(instance);
+  }
+
+  @VisibleForTesting
+  public static synchronized void setBuildInfoForTesting(Map<String, String> info) {
+    instance = new BlazeVersionInfo(info);
   }
 
   /**
@@ -87,14 +99,17 @@ public class BlazeVersionInfo {
   }
 
   /**
-   * Returns the summary which gets displayed in the 'version' command.
-   * The summary is a list of formatted key / value pairs.
+   * Returns the summary which gets displayed in the 'version' command. The summary is a list of
+   * formatted key / value pairs.
    */
+  @Nullable
   public String getSummary() {
     if (buildData.isEmpty()) {
       return null;
     }
-    return StringUtilities.layoutTable(buildData);
+    return buildData.entrySet().stream()
+        .map(e -> e.getKey() + ": " + e.getValue())
+        .collect(Collectors.joining("\n"));
   }
 
   /**
@@ -122,7 +137,14 @@ public class BlazeVersionInfo {
    */
   public String getVersion() {
     String buildLabel = buildData.get(BUILD_LABEL);
-    return buildLabel != null ? buildLabel : "";
+    if (buildLabel != null) {
+      return buildLabel;
+    }
+    String override = System.getenv(BAZEL_DEV_VERSION_OVERRIDE_ENV_VAR);
+    if (override != null) {
+      return override;
+    }
+    return "";
   }
 
   /**
@@ -137,7 +159,28 @@ public class BlazeVersionInfo {
   }
 
   @VisibleForTesting
-  public Map<String, String> getBuildData() {
+  public SortedMap<String, String> getBuildData() {
     return buildData;
+  }
+
+  @Override
+  public int hashCode() {
+    return buildData.hashCode();
+  }
+
+  @Override
+  public boolean equals(Object other) {
+    if (this == other) {
+      return true;
+    }
+    if (!(other instanceof BlazeVersionInfo that)) {
+      return false;
+    }
+    return buildData.equals(that.buildData);
+  }
+
+  @Override
+  public String toString() {
+    return "BlazeVersionInfo{" + "buildData=" + buildData + '}';
   }
 }

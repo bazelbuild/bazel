@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2016 The Bazel Authors. All rights reserved.
 #
@@ -28,14 +28,28 @@ source "${CURRENT_DIR}/java_integration_test_utils.sh" \
   || { echo "java_integration_test_utils.sh not found!" >&2; exit 1; }
 set -eu
 
-declare -r runfiles_relative_javabase="$1"
+JAVABASE="$1"
+if [[ "$TEST_WORKSPACE" == "_main" ]]; then
+  # For Bazel
+  RUNFILES_JAVABASE=${JAVABASE#external/}
+  RUNFILES_JAVABASE="$(dirname $(dirname $(rlocation $RUNFILES_JAVABASE/bin/java)))"
+else
+  # For Blaze
+  RUNFILES_JAVABASE=${BAZEL_RUNFILES}/${JAVABASE}
+fi
+
 add_to_bazelrc "build --package_path=%workspace%"
+
+function set_up() {
+  add_rules_java MODULE.bazel
+  add_platforms MODULE.bazel
+}
 
 #### HELPER FUNCTIONS ##################################################
 
 function setup_local_jdk() {
   local -r dest="$1"
-  local -r src="${BAZEL_RUNFILES}/${runfiles_relative_javabase}"
+  local -r src="${RUNFILES_JAVABASE}"
 
   mkdir -p "$dest" || fail "mkdir -p $dest"
   cp -LR "${src}"/* "$dest" || fail "cp -LR \"${src}\"/* \"$dest\""
@@ -46,6 +60,7 @@ function write_hello_world_files() {
   local pkg="$1"
   mkdir -p $pkg/java/hello || fail "mkdir"
   cat >$pkg/java/hello/BUILD <<EOF
+load("@rules_java//java:java_binary.bzl", "java_binary")
 java_binary(name = 'hello',
     srcs = ['Hello.java'],
     main_class = 'hello.Hello')
@@ -65,6 +80,7 @@ function write_hello_world_files_for_singlejar() {
   local -r pkg="$1"
   mkdir -p $pkg/java/hello || fail "mkdir"
   cat >$pkg/java/hello/BUILD <<EOF
+load("@rules_java//java:java_binary.bzl", "java_binary")
 java_binary(name = 'hello',
     srcs = ['Hello.java'],
     main_class = 'hello.Hello')
@@ -109,6 +125,7 @@ function write_hello_library_files() {
   local -r pkg="$1"
   mkdir -p $pkg/java/main || fail "mkdir"
   cat >$pkg/java/main/BUILD <<EOF
+load("@rules_java//java:java_binary.bzl", "java_binary")
 java_binary(
     name = 'main',
     deps = ['//$pkg/java/hello_library'],
@@ -130,11 +147,18 @@ EOF
 
   mkdir -p $pkg/java/hello_library || fail "mkdir"
   cat >$pkg/java/hello_library/BUILD <<EOF
+load("@rules_java//java:java_library.bzl", "java_library")
 package(default_visibility=['//visibility:public'])
 java_library(name = 'hello_library',
-             srcs = ['HelloLibrary.java']);
+             srcs = ['HelloLibrary.java', 'module-info.java'],
+             resources = ['hello.properties'],
+             );
 EOF
-
+  touch $pkg/java/hello_library/hello.properties
+  cat > $pkg/java/hello_library/module-info.java <<EOF
+module hello {
+}
+EOF
   cat >$pkg/java/hello_library/HelloLibrary.java <<EOF
 package hello_library;
 public class HelloLibrary {
@@ -149,6 +173,7 @@ function write_hello_sailor_files() {
   local -r pkg="$1"
   mkdir -p $pkg/java/hellosailor || fail "mkdir"
   cat >$pkg/java/hellosailor/BUILD <<EOF
+load("@rules_java//java:java_binary.bzl", "java_binary")
 java_binary(name = 'hellosailor',
     srcs = ['HelloSailor.java'],
     create_executable = 0)
@@ -251,11 +276,12 @@ function assert_singlejar_works() {
     ln -s "my_jdk" "$pkg/my_jdk.symlink"
     local -r javabase="$(get_real_path "$pkg/my_jdk.symlink")"
   else
-    local -r javabase="${BAZEL_RUNFILES}/${runfiles_relative_javabase}"
+    local -r javabase="${RUNFILES_JAVABASE}"
   fi
 
   mkdir -p "$pkg/jvm"
   cat > "$pkg/jvm/BUILD" <<EOF
+load("@rules_java//java/toolchains:java_runtime.bzl", "java_runtime")
 package(default_visibility=["//visibility:public"])
 java_runtime(
     name='runtime',
@@ -267,7 +293,8 @@ EOF
   # Set javabase to an absolute path.
   bazel build //$pkg/java/hello:hello //$pkg/java/hello:hello_deploy.jar \
       "$stamp_arg" \
-      --extra_toolchains="//$pkg/jvm:all,//tools/jdk:all" \
+      --extra_toolchains="//tools/jdk:all" \
+      --extra_toolchains="//$pkg/jvm:all" \
       --platforms="//$pkg/jvm:platform" \
       "$embed_label" >&"$TEST_log" \
       || fail "Build failed"
@@ -372,7 +399,7 @@ function test_compiles_hello_library_from_deploy_jar() {
   mkdir "$pkg" || fail "mkdir $pkg"
   write_hello_library_files "$pkg"
 
-  bazel build //$pkg/java/main:main_deploy.jar || fail "build failed"
+  bazel build //$pkg/java/main:{main,main_deploy.jar} || fail "build failed"
   ${PRODUCT_NAME}-bin/$pkg/java/main/main --singlejar \
       | grep -q "Hello, Library!;Hello, World!" || fail "comparison failed"
 
@@ -418,11 +445,12 @@ function test_does_not_create_executable_when_not_asked_for() {
 
 }
 
-# Assert that the a deploy jar can be a dependency of another java_binary.
+# Assert that a deploy jar can be a dependency of another java_binary.
 function test_building_deploy_jar_dependent_on_deploy_jar() {
  local -r pkg="${FUNCNAME[0]}"
   mkdir -p $pkg/java/deploy || fail "mkdir"
   cat > $pkg/java/deploy/BUILD <<EOF
+load("@rules_java//java:java_binary.bzl", "java_binary")
 java_binary(name = 'Hello',
             srcs = ['Hello.java'],
             deps = ['Other_deploy.jar'],
@@ -467,6 +495,7 @@ public class Test {
 EOF
 
   cat > $pkg/java/hello/BUILD <<EOF
+load("@rules_java//java:java_binary.bzl", "java_binary")
 java_binary(name='hello', srcs=['Test.java'], main_class='hello.Test')
 EOF
 
@@ -491,6 +520,7 @@ EOF
   cd ..
 
   cat > $pkg/java/hello/BUILD <<EOF
+load("@rules_java//java:java_binary.bzl", "java_binary")
 java_binary(name='hello', srcs=['test.srcjar'], main_class='hello.Test')
 EOF
   bazel build //$pkg/java/hello:hello //$pkg/java/hello:hello_deploy.jar \
@@ -525,6 +555,7 @@ public class App { }
 EOF
 
   cat > $pkg/java/hello/BUILD <<EOF
+load("@rules_java//java:java_library.bzl", "java_library")
 java_library(name = 'app',
              srcs = ['App.java'],
              deps = [':a'])
@@ -549,6 +580,8 @@ function test_java_plugin() {
   mkdir -p $pkg/java/test/processor || fail "mkdir"
 
   cat >$pkg/java/test/processor/BUILD <<EOF
+load("@rules_java//java:java_library.bzl", "java_library")
+load("@rules_java//java:java_plugin.bzl", "java_plugin")
 package(default_visibility=['//visibility:public'])
 
 java_library(name = 'annotation',
@@ -590,6 +623,10 @@ import javax.lang.model.*;
 import javax.lang.model.element.*;
 @SupportedAnnotationTypes(value= {"test.processor.TestAnnotation"})
 public class Processor extends AbstractProcessor {
+  @Override
+  public SourceVersion getSupportedSourceVersion() {
+    return SourceVersion.latestSupported();
+  }
   private static final String OUTFILE_CONTENT = "package test;\n"
       + "public class Generated {\n"
       + "  public static String value = \"" + ProcessorDep.value + "\";\n"
@@ -616,6 +653,7 @@ EOF
 
   mkdir -p $pkg/java/test/client
   cat >$pkg/java/test/client/BUILD <<EOF
+load("@rules_java//java:java_library.bzl", "java_library")
 java_library(name = 'client',
      srcs = [ 'ProcessorClient.java' ],
      deps = [ '//$pkg/java/test/processor:annotation' ],
@@ -643,6 +681,7 @@ function test_jvm_flags_are_passed_verbatim() {
   local -r pkg="${FUNCNAME[0]}"
   mkdir -p $pkg/java/com/google/jvmflags || fail "mkdir"
   cat >$pkg/java/com/google/jvmflags/BUILD <<EOF
+load("@rules_java//java:java_binary.bzl", "java_binary")
 java_binary(
     name = 'foo',
     srcs = ['Foo.java'],
@@ -691,6 +730,7 @@ function test_classpath_fiddling() {
 
   mkdir -p $pkg/java/classpath
   cat >$pkg/java/classpath/BUILD <<EOF
+load("@rules_java//java:java_binary.bzl", "java_binary")
 java_binary(name = 'classpath',
     deps = ['//$pkg/java/hello_library'],
     srcs = ['Classpath.java'],
@@ -768,6 +808,7 @@ public class Foo {
 EOF
 
   cat > $pkg/java/foo/BUILD <<EOF
+load("@rules_java//java:java_binary.bzl", "java_binary")
 java_binary(name = 'foo',
     srcs = ['Foo.java'],
     main_class = 'foo.Foo')
@@ -803,6 +844,7 @@ import missing.NoSuch;
 public class B {}
 EOF
   cat > $pkg/java/test/BUILD <<EOF
+load("@rules_java//java:java_library.bzl", "java_library")
 java_library(
     name='a',
     srcs=['A.java'],
@@ -818,45 +860,16 @@ EOF
   expect_log "symbol not found missing.NoSuch"
 }
 
-function test_java_import_with_empty_jars_attribute() {
-  local -r pkg="${FUNCNAME[0]}"
-  mkdir -p $pkg/java/hello/ || fail "Expected success"
-  cat > $pkg/java/hello/Hello.java <<EOF
-package hello;
-public class Hello {
-  public static void main(String[] args) {
-    System.out.println("Hello World!");
-  }
-}
-EOF
-  cat > $pkg/java/hello/BUILD <<EOF
-java_import(
-    name='empty_java_import',
-    jars=[]
-)
-java_binary(
-    name='hello',
-    srcs=['Hello.java'],
-    deps=[':empty_java_import'],
-    main_class = 'hello.Hello'
-)
-EOF
-  bazel build //$pkg/java/hello:hello //$pkg/java/hello:hello_deploy.jar >& "$TEST_log" \
-      || fail "Expected success"
-  bazel run //$pkg/java/hello:hello -- --singlejar >& "$TEST_log"
-  expect_log "Hello World!"
-}
-
-
 function test_arg_compile_action() {
   local package="${FUNCNAME[0]}"
   mkdir -p "${package}"
 
   cat > "${package}/lib.bzl" <<EOF
 def _actions_test_impl(target, ctx):
-    action = target.actions[0] # digest action
-    if action.mnemonic != "Javac":
-      fail("Expected the first action to be Javac.")
+    javac_actions = [a for a in target.actions if a.mnemonic == "Javac"]
+    if len(javac_actions) != 1:
+      fail("Expected exactly one Javac action, but found", len(javac_actions))
+    action = javac_actions[0]
     aspect_out = ctx.actions.declare_file('aspect_out')
     ctx.actions.run_shell(inputs = action.inputs,
                           outputs = [aspect_out],
@@ -869,6 +882,7 @@ EOF
 
   touch "${package}/x.java"
   cat > "${package}/BUILD" <<EOF
+load("@rules_java//java:java_library.bzl", "java_library")
 java_library(
   name = "x",
   srcs = ["x.java"],
@@ -881,6 +895,43 @@ EOF
 
   cat "${PRODUCT_NAME}-bin/${package}/aspect_out" | grep "0.params .*1.params" \
       || fail "aspect Args do not contain both params files"
+}
+
+# https://github.com/bazelbuild/rules_java/issues/293
+function test_class_jar_retains_module_info() {
+  local -r pkg="${FUNCNAME[0]}"
+  mkdir "$pkg" || fail "mkdir $pkg"
+  write_hello_library_files "$pkg"
+
+  bazel build -s //$pkg/java/main:main || fail "build failed"
+  unzip -l ${PRODUCT_NAME}-bin/$pkg/java/hello_library/libhello_library.jar \
+    > $TEST_log
+  expect_log "/hello.properties" "missing resources file"
+  expect_log " module-info.class" "missing module-info file"
+}
+
+function test_java_import_srcjar_not_found() {
+  local -r pkg="${FUNCNAME[0]}"
+  mkdir -p $pkg/third_party/library || fail "mkdir"
+  cat > $pkg/third_party/library/BUILD <<EOF
+load("@rules_java//java:java_import.bzl", "java_import")
+java_import(
+    name='common',
+    jars=['common.jar'],
+    srcjar = 'src.jar'
+)
+EOF
+
+  cat > $pkg/third_party/library/Common.class <<EOF
+This is a fake class file.
+EOF
+
+  cd $pkg
+  zip -q third_party/library/common.jar third_party/library/Common.class || fail "zip failed"
+  cd ..
+
+  bazel build //$pkg/third_party/library:common >& "$TEST_log" && fail "Unexpected success"
+  expect_log "missing input file '//$pkg/third_party/library:src.jar'"
 }
 
 run_suite "Java integration tests"

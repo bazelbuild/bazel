@@ -15,7 +15,11 @@
 package net.starlark.java.eval;
 
 import java.math.BigInteger;
+import java.util.Locale;
 import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.syntax.StarlarkType;
+import net.starlark.java.syntax.TypeConstructor;
+import net.starlark.java.syntax.Types;
 
 /** The Starlark float data type. */
 @StarlarkBuiltin(
@@ -23,6 +27,14 @@ import net.starlark.java.annot.StarlarkBuiltin;
     category = "core",
     doc = "The type of floating-point numbers in Starlark.")
 public final class StarlarkFloat implements StarlarkValue, Comparable<StarlarkFloat> {
+  public static TypeConstructor getAssociatedTypeConstructor() {
+    return Types.FLOAT_CONSTRUCTOR;
+  }
+
+  @Override
+  public StarlarkType getStarlarkType(StarlarkSemantics semantics) {
+    return Types.FLOAT;
+  }
 
   private final double v;
 
@@ -46,7 +58,7 @@ public final class StarlarkFloat implements StarlarkValue, Comparable<StarlarkFl
   }
 
   @Override
-  public void repr(Printer printer) {
+  public void repr(Printer printer, StarlarkSemantics semantics) {
     printer.append(toString());
   }
 
@@ -124,20 +136,20 @@ public final class StarlarkFloat implements StarlarkValue, Comparable<StarlarkFl
     String s;
     switch (conv) {
       case 'e':
-        s = String.format("%e", v);
+        s = String.format(Locale.US, "%e", v);
         break;
       case 'E':
-        s = String.format("%E", v);
+        s = String.format(Locale.US, "%E", v);
         break;
       case 'f':
       case 'F': // an alias
-        s = String.format("%f", v);
+        s = String.format(Locale.US, "%f", v);
         break;
       case 'g':
-        s = String.format("%.17g", v); // use DBL_DECIMAL_DIG places
+        s = String.format(Locale.US, "%.17g", v); // use DBL_DECIMAL_DIG places
         break;
       case 'G':
-        s = String.format("%.17G", v);
+        s = String.format(Locale.US, "%.17G", v);
         break;
       default:
         throw new IllegalArgumentException("unsupported conversion: " + conv);

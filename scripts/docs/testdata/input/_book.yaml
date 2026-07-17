@@ -1,0 +1,37 @@
+upper_tabs:
+- name: Versions
+  menu:
+  - column:
+    - links:
+      - include: /versions/_toc.yaml
+  - column:
+    - links:
+      - label: "Nightly"
+        path: /
+      - label: "More…"
+        path: /versions/
+- name: Getting started
+  heading: Getting started with Bazel
+  lower_tabs:
+    other:
+    - name: Why Bazel?
+      contents:
+      - title: Overview
+        path: /start/
+      - title: Intro to Bazel
+        path: /start/bazel-intro
+      - title: Bazel vision
+        path: /start/bazel-vision
+      - title: Get started
+        path: /start/getting-started
+      - title: FAQ
+        path: /faq
+    - name: Releases & Versions
+      contents:
+      - heading: Versions
+      - title: Choose a version
+        path: /versions/
+      - title: Update versions with Bazelisk
+        path: /versions/updating-bazel
+      - title: Build encyclopedia
+        include: /reference/be/_toc.yaml

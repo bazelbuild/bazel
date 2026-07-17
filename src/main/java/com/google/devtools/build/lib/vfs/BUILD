@@ -1,6 +1,9 @@
 load("@rules_java//java:defs.bzl", "java_library")
 
-package(default_visibility = ["//src:__subpackages__"])
+package(
+    default_applicable_licenses = ["//:license"],
+    default_visibility = ["//src:__subpackages__"],
+)
 
 filegroup(
     name = "srcs",
@@ -8,34 +11,49 @@ filegroup(
     visibility = ["//src:__subpackages__"],
 )
 
-PATH_FRAGMENT_SOURCES = [
-    "PathFragment.java",
-    "PathFragmentSerializationProxy.java",
-    "PathSegmentIterator.java",
+OS_PATH_POLICY_SOURCES = [
     "OsPathPolicy.java",
     "UnixOsPathPolicy.java",
     "WindowsOsPathPolicy.java",
 ]
 
+PATH_FRAGMENT_SOURCES = [
+    "PathFragment.java",
+    "PathSegmentIterator.java",
+    "PathStrippable.java",
+]
+
 OUTPUT_SERVICE_SOURCES = [
     "OutputService.java",
+    "LocalOutputService.java",
 ]
+
+java_library(
+    name = "ospathpolicy",
+    srcs = OS_PATH_POLICY_SOURCES,
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/util:os",
+        "//src/main/java/com/google/devtools/build/lib/windows:windows_path_operations",
+        "//third_party:guava",
+    ],
+)
 
 java_library(
     name = "pathfragment",
     srcs = PATH_FRAGMENT_SOURCES,
     deps = [
+        ":ospathpolicy",
         "//src/main/java/com/google/devtools/build/lib/actions:commandline_item",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
+        "//src/main/java/com/google/devtools/build/lib/unsafe:string",
         "//src/main/java/com/google/devtools/build/lib/util:filetype",
         "//src/main/java/com/google/devtools/build/lib/util:os",
-        "//src/main/java/com/google/devtools/build/lib/windows:file",
-        "//src/main/java/com/google/devtools/build/lib/windows:windows_short_path",
+        "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
         "//third_party:error_prone_annotations",
         "//third_party:guava",
         "//third_party:jsr305",
-        "//third_party/protobuf:protobuf_java",
+        "@com_google_protobuf//:protobuf_java",
     ],
 )
 
@@ -45,18 +63,31 @@ java_library(
         [
             "*.java",
         ],
-        exclude = PATH_FRAGMENT_SOURCES + OUTPUT_SERVICE_SOURCES,
+        exclude = PATH_FRAGMENT_SOURCES + OUTPUT_SERVICE_SOURCES + OS_PATH_POLICY_SOURCES,
     ),
     deps = [
         ":pathfragment",
         "//src/main/java/com/google/devtools/build/lib/clock",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/io:file_symlink_exception",
         "//src/main/java/com/google/devtools/build/lib/profiler",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:detailed_exceptions",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
+        "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
+        "//src/main/java/com/google/devtools/build/lib/util:file_channels",
         "//src/main/java/com/google/devtools/build/lib/util:filetype",
+        "//src/main/java/com/google/devtools/build/lib/util:os",
+        "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/com/google/devtools/common/options",
+        "//src/main/protobuf:failure_details_java_proto",
+        "//third_party:caffeine",
+        "//third_party:error_prone_annotations",
         "//third_party:guava",
         "//third_party:jsr305",
+        "@com_google_protobuf//:protobuf_java",
     ],
 )
 
@@ -68,10 +99,12 @@ java_library(
         ":vfs",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
-        "//src/main/java/com/google/devtools/build/lib/actions:fileset_output_symlink",
+        "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
         "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
-        "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
+        "//src/main/protobuf:failure_details_java_proto",
         "//third_party:guava",
         "//third_party:jsr305",
     ],

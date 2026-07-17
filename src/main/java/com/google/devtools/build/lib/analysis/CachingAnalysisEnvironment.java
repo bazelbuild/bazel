@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -26,19 +28,17 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
-import com.google.devtools.build.lib.actions.MiddlemanFactory;
-import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoCollection;
-import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoKey;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.skyframe.BuildInfoCollectionValue;
+import com.google.devtools.build.lib.skyframe.PrecomputedValue;
+import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
 import com.google.devtools.build.lib.skyframe.StarlarkBuiltinsValue;
 import com.google.devtools.build.lib.skyframe.WorkspaceStatusValue;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.SkyFunction;
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -67,7 +67,6 @@ public final class CachingAnalysisEnvironment implements AnalysisEnvironment {
   private final ActionKeyContext actionKeyContext;
 
   private boolean enabled = true;
-  private MiddlemanFactory middlemanFactory;
   private ExtendedEventHandler errorEventListener;
   private SkyFunction.Environment skyframeEnv;
   // TODO(bazel-team): Should this be nulled out by disable()? Alternatively, does disable() even
@@ -100,13 +99,12 @@ public final class CachingAnalysisEnvironment implements AnalysisEnvironment {
       StarlarkBuiltinsValue starlarkBuiltinsValue) {
     this.artifactFactory = artifactFactory;
     this.actionKeyContext = actionKeyContext;
-    this.owner = Preconditions.checkNotNull(owner);
+    this.owner = checkNotNull(owner);
     this.extendedSanityChecks = extendedSanityChecks;
     this.allowAnalysisFailures = allowAnalysisFailures;
     this.errorEventListener = errorEventListener;
     this.skyframeEnv = env;
     this.starlarkBuiltinsValue = starlarkBuiltinsValue;
-    middlemanFactory = new MiddlemanFactory(artifactFactory, this);
   }
 
   public void disable(Target target) {
@@ -114,7 +112,6 @@ public final class CachingAnalysisEnvironment implements AnalysisEnvironment {
       verifyGeneratedArtifactHaveActions(target);
     }
     artifacts = null;
-    middlemanFactory = null;
     enabled = false;
     errorEventListener = null;
     skyframeEnv = null;
@@ -238,12 +235,6 @@ public final class CachingAnalysisEnvironment implements AnalysisEnvironment {
     return ((StoredEventHandler) errorEventListener).hasErrors();
   }
 
-  @Override
-  public MiddlemanFactory getMiddlemanFactory() {
-    Preconditions.checkState(enabled);
-    return middlemanFactory;
-  }
-
   /**
    * Keeps track of artifacts. We check that all of them have an owner when the environment is
    * sealed (disable()). For performance reasons we only track the originating stacktrace when
@@ -273,16 +264,19 @@ public final class CachingAnalysisEnvironment implements AnalysisEnvironment {
   @Override
   public Artifact.DerivedArtifact getDerivedArtifact(
       PathFragment rootRelativePath, ArtifactRoot root) {
-    return getDerivedArtifact(rootRelativePath, root, /*contentBasedPath=*/ false);
+    Preconditions.checkState(enabled);
+    return dedupAndTrackArtifactAndOrigin(
+        artifactFactory.getDerivedArtifact(rootRelativePath, root, owner),
+        extendedSanityChecks ? new Throwable() : null);
   }
 
   @Override
-  public Artifact.DerivedArtifact getDerivedArtifact(
-      PathFragment rootRelativePath, ArtifactRoot root, boolean contentBasedPath) {
+  public SpecialArtifact getRunfilesArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
     Preconditions.checkState(enabled);
-    return dedupAndTrackArtifactAndOrigin(
-        artifactFactory.getDerivedArtifact(rootRelativePath, root, owner, contentBasedPath),
-        extendedSanityChecks ? new Throwable() : null);
+    return (SpecialArtifact)
+        dedupAndTrackArtifactAndOrigin(
+            artifactFactory.getRunfilesArtifact(rootRelativePath, root, owner),
+            extendedSanityChecks ? new Throwable() : null);
   }
 
   @Override
@@ -304,11 +298,6 @@ public final class CachingAnalysisEnvironment implements AnalysisEnvironment {
   }
 
   @Override
-  public Artifact getSourceArtifactForNinjaBuild(PathFragment execPath, Root root) {
-    return artifactFactory.getSourceArtifact(execPath, root, owner);
-  }
-
-  @Override
   public Artifact.DerivedArtifact getFilesetArtifact(
       PathFragment rootRelativePath, ArtifactRoot root) {
     Preconditions.checkState(enabled);
@@ -325,9 +314,10 @@ public final class CachingAnalysisEnvironment implements AnalysisEnvironment {
   @Override
   public void registerAction(ActionAnalysisMetadata action) {
     Preconditions.checkState(enabled);
-    this.actions.add(Preconditions.checkNotNull(action, owner));
+    this.actions.add(checkNotNull(action, owner));
   }
 
+  @Nullable
   @Override
   public ActionAnalysisMetadata getLocalGeneratingAction(Artifact artifact) {
     for (ActionAnalysisMetadata action : actions) {
@@ -368,6 +358,13 @@ public final class CachingAnalysisEnvironment implements AnalysisEnvironment {
     return getWorkspaceStatusValue().getVolatileArtifact();
   }
 
+  @Override
+  public void declareStampSettingDep() throws InterruptedException {
+    checkNotNull(
+        skyframeEnv.getValue(PrecomputedValue.STAMP_SETTING_MARKER.getKey()),
+        "Precomputed value not done");
+  }
+
   private WorkspaceStatusValue getWorkspaceStatusValue() throws InterruptedException {
     WorkspaceStatusValue workspaceStatusValue =
         ((WorkspaceStatusValue) skyframeEnv.getValue(WorkspaceStatusValue.BUILD_INFO_KEY));
@@ -378,16 +375,16 @@ public final class CachingAnalysisEnvironment implements AnalysisEnvironment {
   }
 
   @Override
-  public ImmutableList<Artifact> getBuildInfo(
-      boolean stamp, BuildInfoKey key, BuildConfiguration config) throws InterruptedException {
-    BuildInfoCollectionValue collectionValue =
-        (BuildInfoCollectionValue) skyframeEnv.getValue(BuildInfoCollectionValue.key(key, config));
-    if (collectionValue == null) {
-      throw new MissingDepException(
-          String.format("Restart due to missing BuildInfoCollectionValue (%s %s)", key, config));
+  public RepositoryMapping getMainRepoMapping() throws InterruptedException {
+    var mainRepoMapping =
+        (RepositoryMappingValue)
+            skyframeEnv.getValue(RepositoryMappingValue.key(RepositoryName.MAIN));
+    if (mainRepoMapping == null) {
+      // This isn't expected to happen since the main repository mapping is computed before the
+      // analysis phase.
+      throw new MissingDepException("Restart due to missing main repository mapping");
     }
-    BuildInfoCollection collection = collectionValue.getCollection();
-    return stamp ? collection.getStampedBuildInfo() : collection.getRedactedBuildInfo();
+    return mainRepoMapping.repositoryMapping();
   }
 
   @Override

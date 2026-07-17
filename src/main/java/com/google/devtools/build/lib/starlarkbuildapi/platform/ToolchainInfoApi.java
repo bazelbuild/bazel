@@ -22,16 +22,15 @@ import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.StarlarkThread;
 
 /** Info object representing data about a specific toolchain. */
 @StarlarkBuiltin(
     name = "ToolchainInfo",
     doc =
-        "Provider returned by <a href=\"../../toolchains.html#defining-toolchains\">toolchain "
+        "Provider returned by <a href=\"${link toolchains#defining-toolchains}\">toolchain "
             + "rules</a> to share data with "
-            + "<a href=\"../../toolchains.html#writing-rules-that-use-toolchains\">rules which "
-            + "depend on toolchains</a>. Read about <a href='../../toolchains.html'>"
+            + "<a href=\"${link toolchains#writing-rules-that-use-toolchains}\">rules which "
+            + "depend on toolchains</a>. Read about <a href='${link toolchains}'>"
             + "toolchains</a> for more information.",
     category = DocCategory.PROVIDER)
 public interface ToolchainInfoApi extends StructApi {
@@ -45,9 +44,7 @@ public interface ToolchainInfoApi extends StructApi {
         doc = "The <code>ToolchainInfo</code> constructor.",
         documented = false,
         extraKeywords = @Param(name = "kwargs", doc = "Dictionary of additional entries."),
-        selfCall = true,
-        useStarlarkThread = true)
-    ToolchainInfoApi toolchainInfo(Dict<String, Object> kwargs, StarlarkThread thread)
-        throws EvalException;
+        selfCall = true)
+    ToolchainInfoApi toolchainInfo(Dict<String, Object> kwargs) throws EvalException;
   }
 }

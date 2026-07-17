@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2019 The Bazel Authors. All rights reserved.
 #
@@ -42,20 +42,6 @@ fi
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-case "$(uname -s | tr [:upper:] [:lower:])" in
-msys*|mingw*|cygwin*)
-  declare -r is_windows=true
-  ;;
-*)
-  declare -r is_windows=false
-  ;;
-esac
-
-if "$is_windows"; then
-  export MSYS_NO_PATHCONV=1
-  export MSYS2_ARG_CONV_EXCL="*"
-fi
-
 #### SETUP #############################################################
 
 test_tar_utf8() {
@@ -75,7 +61,7 @@ test_tar_utf8() {
 
     mkdir main
     cd main
-    if $is_windows; then
+    if is_windows; then
         # Windows needs "file:///c:/foo/bar".
         FILE_URL="file:///$(cygpath -m "$WRKDIR")/ext.tar"
     else
@@ -83,8 +69,8 @@ test_tar_utf8() {
         FILE_URL="file://${WRKDIR}/ext.tar"
     fi
 
-    cat > WORKSPACE <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+    cat > MODULE.bazel <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 http_archive(
   name = "ext",

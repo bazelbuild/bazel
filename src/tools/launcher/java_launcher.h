@@ -19,6 +19,7 @@
 #include <vector>
 
 #include "src/tools/launcher/launcher.h"
+#include "src/tools/launcher/util/launcher_util.h"
 
 namespace bazel {
 namespace launcher {
@@ -29,12 +30,14 @@ static const int MAX_ARG_STRLEN = 7000;
 
 class JavaBinaryLauncher : public BinaryLauncherBase {
  public:
-  JavaBinaryLauncher(const LaunchDataParser::LaunchInfo& launch_info, int argc,
+  JavaBinaryLauncher(const LaunchDataParser::LaunchInfo& launch_info,
+                     const std::wstring& launcher_path, int argc,
                      wchar_t* argv[])
-      : BinaryLauncherBase(launch_info, argc, argv),
+      : BinaryLauncherBase(launch_info, launcher_path, argc, argv),
         singlejar(false),
         print_javabin(false),
-        classpath_limit(MAX_ARG_STRLEN) {}
+        classpath_limit(MAX_ARG_STRLEN),
+        rand_id_(GetRandomStr(10)) {}
   ~JavaBinaryLauncher() override = default;
   ExitCode Launch() override;
 
@@ -85,6 +88,9 @@ class JavaBinaryLauncher : public BinaryLauncherBase {
   bool singlejar;
   bool print_javabin;
   int classpath_limit;
+  // Per-invocation random suffix used to uniquify the junction base dir and
+  // classpath jar across concurrent launcher processes sharing the same binary.
+  const std::wstring rand_id_;
 
   // Create a classpath jar to pass CLASSPATH value when its length is over
   // limit.

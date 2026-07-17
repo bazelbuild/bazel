@@ -1,6 +1,9 @@
 load("@rules_java//java:defs.bzl", "java_library")
 
-package(default_visibility = ["//src:__subpackages__"])
+package(
+    default_applicable_licenses = ["//:license"],
+    default_visibility = ["//src:__subpackages__"],
+)
 
 filegroup(
     name = "srcs",
@@ -11,47 +14,134 @@ filegroup(
 )
 
 java_library(
-    name = "server",
+    name = "idle_task",
     srcs = [
-        "CommandManager.java",
-        "GrpcServerImpl.java",
-        "IdleServerTasks.java",
-        "ServerWatcherRunnable.java",
+        "IdleTask.java",
+        "IdleTaskException.java",
     ],
+)
+
+java_library(
+    name = "terminal_size_monitor",
+    srcs = ["TerminalSizeMonitor.java"],
     deps = [
+        "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "command_manager",
+    srcs = ["CommandManager.java"],
+    deps = [
+        ":idle_task",
+        ":idle_task_manager",
+        ":terminal_size_monitor",
+        "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/protobuf:command_server_java_proto",
+        "//third_party:flogger",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "server_watcher_runnable",
+    srcs = ["ServerWatcherRunnable.java"],
+    deps = [
+        ":command_manager",
+        ":grpc_command_server",
+        "//src/main/java/com/google/devtools/build/lib/clock",
+        "//src/main/java/com/google/devtools/build/lib/platform:system_memory_pressure_monitor",
+        "//src/main/java/com/google/devtools/build/lib/unix:procmeminfo_parser",
+        "//src/main/java/com/google/devtools/build/lib/util:os",
+        "//third_party:flogger",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "idle_task_manager",
+    srcs = ["IdleTaskManager.java"],
+    deps = [
+        ":idle_task",
+        "//third_party:flogger",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "grpc_command_server_impl",
+    srcs = ["GrpcCommandServerImpl.java"],
+    deps = [
+        ":grpc_command_server",
+        "//src/main/java/com/google/devtools/build/lib/util:os",
+        "//src/main/protobuf:command_server_java_grpc",
+        "//src/main/protobuf:command_server_java_proto",
+        "//third_party:guava",
+        "//third_party:jsr305",
+        "//third_party:netty",
+        "//third_party/grpc-java:grpc-jar",
+        "@com_google_protobuf//:protobuf_java",
+    ],
+)
+
+java_library(
+    name = "grpc_command_server",
+    srcs = ["GrpcCommandServer.java"],
+    deps = ["//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface"],
+)
+
+java_library(
+    name = "grpc_command_server_service",
+    srcs = ["GrpcCommandServerService.java"],
+    deps = [
+        ":grpc_command_server",
+        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_service",
+        "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
+    ],
+)
+
+java_library(
+    name = "grpc_command_server_service_impl",
+    srcs = ["GrpcCommandServerServiceImpl.java"],
+    deps = [
+        ":grpc_command_server",
+        ":grpc_command_server_impl",
+        ":grpc_command_server_service",
+    ],
+)
+
+java_library(
+    name = "command_server",
+    srcs = ["CommandServer.java"],
+    deps = [
+        ":command_manager",
+        ":grpc_command_server",
         ":pid_file_watcher",
-        ":rpc_server",
+        ":server_watcher_runnable",
         ":shutdown_hooks",
-        "//src/main/java/com/google/devtools/build/lib:runtime/blaze_command_result",
-        "//src/main/java/com/google/devtools/build/lib:runtime/command_dispatcher",
-        "//src/main/java/com/google/devtools/build/lib:runtime/safe_request_logging",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/clock",
-        "//src/main/java/com/google/devtools/build/lib/platform:memory_pressure_counter",
-        "//src/main/java/com/google/devtools/build/lib/profiler",
-        "//src/main/java/com/google/devtools/build/lib/profiler:google-auto-profiler-utils",
-        "//src/main/java/com/google/devtools/build/lib/unix",
+        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_result",
+        "//src/main/java/com/google/devtools/build/lib/runtime:command_dispatcher",
+        "//src/main/java/com/google/devtools/build/lib/runtime:safe_request_logging",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/java/com/google/devtools/build/lib/util:exit_code",
         "//src/main/java/com/google/devtools/build/lib/util:interrupted_failure_details",
-        "//src/main/java/com/google/devtools/build/lib/util:os",
-        "//src/main/java/com/google/devtools/build/lib/util:string",
+        "//src/main/java/com/google/devtools/build/lib/util/io:io-proto",
         "//src/main/java/com/google/devtools/build/lib/util/io:out-err",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/java/com/google/devtools/common/options:invocation_policy",
-        "//src/main/protobuf:command_server_java_grpc",
         "//src/main/protobuf:command_server_java_proto",
         "//src/main/protobuf:failure_details_java_proto",
         "//src/main/protobuf:invocation_policy_java_proto",
         "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
-        "//third_party:netty",
-        "//third_party/grpc:grpc-jar",
-        "//third_party/protobuf:protobuf_java",
+        "@com_google_protobuf//:protobuf_java",
     ],
 )
 
@@ -65,7 +155,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//third_party:flogger",
         "//third_party:guava",
-        "//third_party:jsr305",
     ],
 )
 
@@ -75,6 +164,7 @@ java_library(
         "ShutdownHooks.java",
     ],
     deps = [
+        ":pid_file_watcher",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//third_party:flogger",
         "//third_party:guava",
@@ -83,11 +173,29 @@ java_library(
 )
 
 java_library(
-    name = "rpc_server",
+    name = "gc_and_interner_shrinking_idle_task",
     srcs = [
-        "RPCServer.java",
+        "GcAndInternerShrinkingIdleTask.java",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
+        ":idle_task",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/profiler:google-auto-profiler-utils",
+        "//src/main/java/com/google/devtools/build/lib/util:string",
+        "//third_party:flogger",
+    ],
+)
+
+java_library(
+    name = "install_base_garbage_collector",
+    srcs = [
+        "InstallBaseGarbageCollector.java",
+        "InstallBaseGarbageCollectorIdleTask.java",
+    ],
+    deps = [
+        ":idle_task",
+        "//src/main/java/com/google/devtools/build/lib/util:file_system_lock",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//third_party:guava",
     ],
 )

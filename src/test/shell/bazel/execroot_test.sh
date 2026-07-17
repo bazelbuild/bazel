@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2016 The Bazel Authors. All rights reserved.
 #
@@ -21,10 +21,12 @@ CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-function test_execroot_structure() {
-  ws_name="dooby_dooby_doo"
+function test_execroot_structure_with_bzlmod() {
   cat > WORKSPACE <<EOF
-workspace(name = "$ws_name")
+workspace(name = "whatever_doesnt_matter")
+EOF
+  cat > MODULE.bazel <<EOF
+module(name="this_also_doesnt_matter")
 EOF
 
   mkdir dir
@@ -37,16 +39,15 @@ genrule(
 )
 EOF
 
-  bazel build -s //dir:use-srcs &> $TEST_log || fail "expected success"
-  execroot="$(bazel info execution_root)"
-  test -e "$execroot/../${ws_name}"
+  bazel build --enable_bzlmod -s //dir:use-srcs &> $TEST_log \
+      || fail "expected success"
+  execroot="$(bazel info --enable_bzlmod execution_root)"
+  test -e "$execroot/../_main"
   ls -l bazel-out | tee out
-  assert_contains "$(dirname $execroot)/${ws_name}/bazel-out" out
+  assert_contains "$(dirname $execroot)/_main/bazel-out" out
 }
 
 function test_sibling_repository_layout() {
-    touch WORKSPACE
-
     mkdir -p external/foo
     cat > external/foo/BUILD <<'EOF'
 genrule(
@@ -70,8 +71,7 @@ EOF
 
 # Regression test for b/149771751
 function test_sibling_repository_layout_indirect_dependency() {
-    touch WORKSPACE
-
+    add_rules_cc MODULE.bazel
     mkdir external
     mkdir -p foo
     cat > BUILD <<'EOF'
@@ -83,6 +83,7 @@ filegroup(
 )
 EOF
     cat > foo/BUILD <<'EOF'
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 # cc_library depends on //external:cc_toolchain
 cc_library(
   name = "srcs",
@@ -95,8 +96,7 @@ EOF
 
 # Regression test for b/149771751
 function test_subdirectory_repository_layout_indirect_dependency() {
-    touch WORKSPACE
-
+    add_rules_cc MODULE.bazel
     mkdir external
     mkdir -p foo
     cat > BUILD <<'EOF'
@@ -108,6 +108,7 @@ filegroup(
 )
 EOF
     cat > foo/BUILD <<'EOF'
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 # cc_library depends on //external:cc_toolchain
 cc_library(
   name = "srcs",
@@ -119,8 +120,6 @@ EOF
 }
 
 function test_no_sibling_repository_layout() {
-    touch WORKSPACE
-
     mkdir -p external/foo
     cat > external/foo/BUILD <<'EOF'
 genrule(
@@ -145,8 +144,6 @@ EOF
 }
 
 function test_external_directory_globs() {
-  touch WORKSPACE
-
   mkdir -p external/a external/c
   echo file_ab > external/a/b
   echo file_cd > external/c/d
@@ -159,7 +156,6 @@ genrule(name="g", srcs=[":f"], outs=["go"], cmd="cat $(locations :f) > $@")
 EOF
 
   bazel build //:g \
-    --experimental_disable_external_package \
     --experimental_sibling_repository_layout \
     || fail "build failed"
   assert_contains file_ab bazel-bin/go
@@ -168,9 +164,10 @@ EOF
 }
 
 function test_cc_smoke_with_new_layouts() {
-  touch WORKSPACE
+  add_rules_cc "MODULE.bazel"
   mkdir -p external/a
   cat > external/a/BUILD <<EOF
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 cc_binary(name='a', srcs=['a.cc'])
 EOF
 
@@ -181,15 +178,15 @@ int main(void) {
 EOF
 
   bazel build //external/a:a \
-    --experimental_disable_external_package \
     --experimental_sibling_repository_layout \
     || fail "build failed"
 }
 
 function test_java_smoke_with_new_layouts() {
-  touch WORKSPACE
+  add_rules_java "MODULE.bazel"
   mkdir -p external/java/a
   cat > external/java/a/BUILD <<EOF
+load("@rules_java//java:java_binary.bzl", "java_binary")
 java_binary(name='a', srcs=['A.java'])
 EOF
 
@@ -203,7 +200,6 @@ public class A {
 EOF
 
   bazel build //external/java/a:a \
-    --experimental_disable_external_package \
     --experimental_sibling_repository_layout \
     || fail "build failed"
 }

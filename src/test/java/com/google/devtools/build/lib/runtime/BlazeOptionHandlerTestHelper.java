@@ -58,13 +58,12 @@ class BlazeOptionHandlerTestHelper {
                 OptionsParser.builder().optionsClasses(BlazeServerStartupOptions.class).build())
             .addBlazeModule(new BazelRulesModule())
             .build();
-    runtime.overrideCommands(ImmutableList.of(new C0Command()));
+    runtime.overrideCommands(ImmutableList.of(new MockBuildCommand()));
 
     BlazeDirectories directories =
         new BlazeDirectories(
             serverDirectories,
             scratch.dir("workspace"),
-            /* defaultSystemJavabase= */ null,
             productName);
     runtime.initWorkspace(directories, /*binTools=*/ null);
 
@@ -72,8 +71,8 @@ class BlazeOptionHandlerTestHelper {
         new BlazeOptionHandler(
             runtime,
             runtime.getWorkspace(),
-            new C0Command(),
-            C0Command.class.getAnnotation(Command.class),
+            new MockBuildCommand(),
+            MockBuildCommand.class.getAnnotation(Command.class),
             parser,
             InvocationPolicy.getDefaultInstance());
   }
@@ -116,11 +115,11 @@ class BlazeOptionHandlerTestHelper {
 
   /** Custom command for testing. */
   @Command(
-      name = "c0",
-      shortDescription = "c0 desc",
-      help = "c0 help",
+      name = "build",
+      shortDescription = "mock build desc",
+      help = "mock build help",
       options = {TestOptions.class})
-  protected static class C0Command implements BlazeCommand {
+  protected static class MockBuildCommand implements BlazeCommand {
     @Override
     public BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options) {
       throw new UnsupportedOperationException();

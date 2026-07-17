@@ -82,14 +82,6 @@ public final class Node<T> {
   }
 
   /**
-   * Equivalent to {@code !getSuccessors().isEmpty()} but possibly more
-   * efficient.
-   */
-  public boolean hasSuccessors() {
-    return !this.succs.get().isEmpty();
-  }
-
-  /**
    * Equivalent to {@code getSuccessors().size()} but possibly more efficient.
    */
   public int numSuccessors() {

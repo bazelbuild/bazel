@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
@@ -17,16 +17,9 @@
 # shift stderr to stdout.
 exec 2>&1
 
-no_echo=
-if [[ "$1" = "--no_echo" ]]; then
-  # Don't print anything to stdout in this special case.
-  # Currently needed for persistent test runner.
-  no_echo="true"
-  shift
-else
-  echo 'exec ${PAGER:-/usr/bin/less} "$0" || exit 1'
-  echo "Executing tests from ${TEST_TARGET}"
-fi
+# Executing the test log will page it.
+echo 'exec ${PAGER:-/usr/bin/less} "$0" || exit 1'
+echo "Executing tests from ${TEST_TARGET}"
 
 function is_absolute {
   [[ "$1" = /* ]] || [[ "$1" =~ ^[a-zA-Z]:[/\\].* ]]
@@ -36,6 +29,11 @@ function is_absolute {
 # runfiles directory, so using $PWD is not a reliable way to find the execution
 # root.
 EXEC_ROOT="$PWD"
+
+# Declare that the executable is running in a `bazel test` environment
+# This allows test frameworks to enable output to the unprefixed environment variable
+# For example, if `BAZEL_TEST` and `XML_OUTPUT_FILE` are defined, write JUnit output
+export BAZEL_TEST=1
 
 # Bazel sets some environment vars to relative paths to improve caching and
 # support remote execution, where the absolute path may not be known to Bazel.
@@ -54,8 +52,10 @@ is_absolute "$TEST_UNDECLARED_OUTPUTS_DIR" ||
   TEST_UNDECLARED_OUTPUTS_DIR="$PWD/$TEST_UNDECLARED_OUTPUTS_DIR"
 is_absolute "$TEST_UNDECLARED_OUTPUTS_MANIFEST" ||
   TEST_UNDECLARED_OUTPUTS_MANIFEST="$PWD/$TEST_UNDECLARED_OUTPUTS_MANIFEST"
-is_absolute "$TEST_UNDECLARED_OUTPUTS_ZIP" ||
-  TEST_UNDECLARED_OUTPUTS_ZIP="$PWD/$TEST_UNDECLARED_OUTPUTS_ZIP"
+if [[ -n "$TEST_UNDECLARED_OUTPUTS_ZIP" ]]; then
+  is_absolute "$TEST_UNDECLARED_OUTPUTS_ZIP" ||
+    TEST_UNDECLARED_OUTPUTS_ZIP="$PWD/$TEST_UNDECLARED_OUTPUTS_ZIP"
+fi
 is_absolute "$TEST_UNDECLARED_OUTPUTS_ANNOTATIONS" ||
   TEST_UNDECLARED_OUTPUTS_ANNOTATIONS="$PWD/$TEST_UNDECLARED_OUTPUTS_ANNOTATIONS"
 is_absolute "$TEST_UNDECLARED_OUTPUTS_ANNOTATIONS_DIR" ||
@@ -64,6 +64,7 @@ is_absolute "$TEST_UNDECLARED_OUTPUTS_ANNOTATIONS_DIR" ||
 is_absolute "$TEST_SRCDIR" || TEST_SRCDIR="$PWD/$TEST_SRCDIR"
 is_absolute "$TEST_TMPDIR" || TEST_TMPDIR="$PWD/$TEST_TMPDIR"
 is_absolute "$HOME" || HOME="$TEST_TMPDIR"
+export HOME
 is_absolute "$XML_OUTPUT_FILE" || XML_OUTPUT_FILE="$PWD/$XML_OUTPUT_FILE"
 
 # Set USER to the current user, unless passed by Bazel via --test_env.
@@ -78,6 +79,12 @@ if [[ -n "$TEST_SHARD_STATUS_FILE" ]]; then
 fi
 
 is_absolute "$RUNFILES_DIR" || RUNFILES_DIR="$PWD/$RUNFILES_DIR"
+
+# Check that the runfiles directory exists
+if [[ ! -d "$RUNFILES_DIR" ]]; then
+    echo >&2 "ERROR: RUNFILES_DIR does not exist. This can happen when using --nobuild_runfile_manifests with local execution. Use a different execution strategy, or build with runfile manifests."
+    exit 1
+fi
 
 # TODO(ulfjack): Standardize on RUNFILES_DIR and remove the {JAVA,PYTHON}_RUNFILES vars.
 is_absolute "$JAVA_RUNFILES" || JAVA_RUNFILES="$PWD/$JAVA_RUNFILES"
@@ -102,6 +109,7 @@ export -n TEST_UNDECLARED_OUTPUTS_ANNOTATIONS
 if [[ -n "${TEST_TOTAL_SHARDS+x}" ]] && ((TEST_TOTAL_SHARDS != 0)); then
   export GTEST_SHARD_INDEX="${TEST_SHARD_INDEX}"
   export GTEST_TOTAL_SHARDS="${TEST_TOTAL_SHARDS}"
+  export GTEST_SHARD_STATUS_FILE="${TEST_SHARD_STATUS_FILE}"
 fi
 export GTEST_TMP_DIR="${TEST_TMPDIR}"
 
@@ -124,8 +132,6 @@ function rlocation() {
   fi
 }
 
-export -f rlocation
-export -f is_absolute
 # If RUNFILES_MANIFEST_ONLY is set to 1 and the manifest file does exist,
 # then test programs should use manifest file to find runfiles.
 if [[ "${RUNFILES_MANIFEST_ONLY:-}" == "1" && -e "${RUNFILES_MANIFEST_FILE:-}" ]]; then
@@ -148,75 +154,7 @@ if [ -z "$COVERAGE_DIR" ]; then
 fi
 
 # This header marks where --test_output=streamed will start being printed.
-if [[ -z "$no_echo" ]]; then
-  echo "-----------------------------------------------------------------------------"
-fi
-
-# Unused if EXPERIMENTAL_SPLIT_XML_GENERATION is set.
-function encode_stream {
-  # See generate-xml.sh for documentation.
-  LC_ALL=C sed -E \
-      -e 's/.*/& /g' \
-      -e 's/(('\
-"$(echo -e '[\x9\x20-\x7f]')|"\
-"$(echo -e '[\xc0-\xdf][\x80-\xbf]')|"\
-"$(echo -e '[\xe0-\xec][\x80-\xbf][\x80-\xbf]')|"\
-"$(echo -e '[\xed][\x80-\x9f][\x80-\xbf]')|"\
-"$(echo -e '[\xee-\xef][\x80-\xbf][\x80-\xbf]')|"\
-"$(echo -e '[\xf0][\x80-\x8f][\x80-\xbf][\x80-\xbf]')"\
-')*)./\1?/g' \
-      -e 's/(.*)\?/\1/g' \
-      -e 's|]]>|]]>]]<![CDATA[>|g'
-}
-
-function encode_output_file {
-  if [ -f "$1" ]; then
-    cat "$1" | encode_stream
-  fi
-}
-
-# Unused if EXPERIMENTAL_SPLIT_XML_GENERATION is set.
-# Keep this in sync with generate-xml.sh!
-function write_xml_output_file {
-  local duration=$(expr $(date +%s) - $start)
-  local errors=0
-  local error_msg=
-  local signal="${1-}"
-  local test_name=
-  if [ -n "${XML_OUTPUT_FILE-}" -a ! -f "${XML_OUTPUT_FILE-}" ]; then
-    # Create a default XML output file if the test runner hasn't generated it
-    if [ -n "${signal}" ]; then
-      errors=1
-      if [ "${signal}" = "SIGTERM" ]; then
-        error_msg="<error message=\"Timed out\"></error>"
-      else
-        error_msg="<error message=\"Terminated by signal ${signal}\"></error>"
-      fi
-    elif (( $exitCode != 0 )); then
-      errors=1
-      error_msg="<error message=\"exited with error code $exitCode\"></error>"
-    fi
-    test_name="${TEST_BINARY#./}"
-    test_name="${TEST_BINARY#../}"
-    # Ensure that test shards have unique names in the xml output.
-    if [[ -n "${TEST_TOTAL_SHARDS+x}" ]] && ((TEST_TOTAL_SHARDS != 0)); then
-      ((shard_num=TEST_SHARD_INDEX+1))
-      test_name="${test_name}"_shard_"$shard_num"/"$TEST_TOTAL_SHARDS"
-    fi
-    cat <<EOF >${XML_OUTPUT_FILE}
-<?xml version="1.0" encoding="UTF-8"?>
-<testsuites>
-  <testsuite name="$test_name" tests="1" failures="0" errors="${errors}">
-    <testcase name="$test_name" status="run" duration="${duration}" time="${duration}">${error_msg}</testcase>
-    <system-out>Generated test.log (if the file is not UTF-8, then this may be unreadable):
-      <![CDATA[$(encode_output_file "${XML_OUTPUT_FILE}.log")]]>
-    </system-out>
-  </testsuite>
-</testsuites>
-EOF
-  fi
-  rm -f "${XML_OUTPUT_FILE}.log"
-}
+echo "-----------------------------------------------------------------------------"
 
 # The path of this command-line is usually relative to the exec-root,
 # but when using --run_under it can be a "/bin/bash -c" command-line.
@@ -236,6 +174,17 @@ if is_absolute "$EXE"; then
 else
   TEST_PATH="$(rlocation $TEST_WORKSPACE/$EXE)"
 fi
+
+# Redefine rlocation to notify users of its removal - it used to be exported.
+# TODO: Remove this before Bazel 9.
+function rlocation() {
+  caller 0 | {
+    read LINE SUB FILE
+    echo >&2 "ERROR: rlocation is no longer implicitly provided by Bazel's test setup, but called from $SUB in line $LINE of $FILE. Please use https://github.com/bazelbuild/rules_shell/blob/main/shell/runfiles/runfiles.bash instead."
+    exit 1
+  }
+}
+export -f rlocation
 
 # TODO(jsharpe): Use --test_env=TEST_SHORT_EXEC_PATH=true to activate this code
 # path to workaround a bug with long executable paths when executing remote
@@ -271,7 +220,7 @@ function kill_group {
 childPid=""
 function signal_children {
   local signal="${1-}"
-  if [ "${signal}" = "SIGTERM" ] && [ -z "$no_echo" ]; then
+  if [ "${signal}" = "SIGTERM" ]; then
     echo "-- Test timed out at $(date +"%F %T %Z") --"
   fi
   if [ ! -z "$childPid" ]; then
@@ -284,19 +233,11 @@ function signal_children {
 
 exitCode=0
 signals="$(trap -l | sed -E 's/[0-9]+\)//g')"
-if [[ "${EXPERIMENTAL_SPLIT_XML_GENERATION}" == "1" ]]; then
-  for signal in $signals; do
-    # SIGCHLD is expected when a subprocess dies
-    [ "${signal}" = "SIGCHLD" ] && continue
-    trap "signal_children ${signal}" ${signal}
-  done
-else
-  for signal in $signals; do
-    # SIGCHLD is expected when a subprocess dies
-    [ "${signal}" = "SIGCHLD" ] && continue
-    trap "write_xml_output_file ${signal}; signal_children ${signal}" ${signal}
-  done
-fi
+for signal in $signals; do
+  # SIGCHLD is expected when a subprocess dies
+  [ "${signal}" = "SIGCHLD" ] && continue
+  trap "signal_children ${signal}" ${signal}
+done
 start=$(date +%s)
 
 # We have a challenge here: we want to forward signals to our child processes,
@@ -316,23 +257,26 @@ start=$(date +%s)
 # eventuality. So, what we do is spawn a *second* background process that
 # watches for us to be killed, and then chain-kills the test's process group.
 # Aren't processes fun?
+# Note: When running under bazel run, as determined by the availability of an
+# environment variable specific to it, don't use job control as it interferes
+# with interactive debugging. Also skip cleanup and post-processing steps such
+# as undeclared outputs zipping to avoid unexpected latency when the user
+# finishes debugging.
+if [ -n "$BUILD_EXECROOT" ]; then
+  exec "${TEST_PATH}" "$@" 2>&1
+fi
 set -m
-if [[ "${EXPERIMENTAL_SPLIT_XML_GENERATION}" == "1" ]]; then
-  if [ -z "$COVERAGE_DIR" ]; then
-    ("${TEST_PATH}" "$@" 2>&1) <&0 &
-  else
-    ("$1" "$TEST_PATH" "${@:3}" 2>&1) <&0 &
-  fi
+if [ -z "$COVERAGE_DIR" ]; then
+  ("${TEST_PATH}" "$@" 2>&1) <&0 &
 else
-  if [ -z "$COVERAGE_DIR" ]; then
-    ("${TEST_PATH}" "$@" 2> >(tee -a "${XML_OUTPUT_FILE}.log" >&2) 1> >(tee -a "${XML_OUTPUT_FILE}.log") 2>&1) <&0 &
-  else
-    ("$1" "$TEST_PATH" "${@:3}" 2> >(tee -a "${XML_OUTPUT_FILE}.log" >&2) 1> >(tee -a "${XML_OUTPUT_FILE}.log") 2>&1) <&0 &
-  fi
+  ("$1" "$TEST_PATH" "${@:3}" 2>&1) <&0 &
 fi
 childPid=$!
 
 # Cleanup helper
+# It would be nice to use `kill -0 $PPID` here, but when whatever called this
+# is running as a different user (as happens in remote execution) that will
+# return an error, causing us to prematurely reap a running test.
 ( if ! (ps -p $$ &> /dev/null || [ "`pgrep -a -g $$ 2> /dev/null`" != "" ] ); then
    # `ps` is known to be unrunnable in the darwin sandbox-exec environment due
    # to being a set-uid root program. pgrep exists in most environments, but not
@@ -346,18 +290,20 @@ childPid=$!
  done
  # Parent process not found - we've been abandoned! Clean up test processes.
  kill_group SIGKILL $childPid
-) &
+) &>/dev/null &
 cleanupPid=$!
 
 set +m
 
+# Wait until $childPid fully exits.
+# We need to wait in a loop because wait is interrupted by any incoming trapped
+# signal (https://www.gnu.org/software/bash/manual/bash.html#Signals).
+while kill -0 $childPid 2>/dev/null; do
+  wait $childPid
+done
+# Wait one more time to retrieve the exit code.
 wait $childPid
-# If interrupted by a signal, use the signal as the exit code. But allow
-# the child to actually finish from the signal we sent _it_ via signal_child.
-# (Waiting on a stopped process is a no-op).
-# Only once - if we receive multiple signals (of any sort), give up.
 exitCode=$?
-wait $childPid
 
 # By this point, we have everything we're willing to wait for. Tidy up our own
 # processes and move on.
@@ -368,11 +314,6 @@ wait $cleanupPid
 for signal in $signals; do
   trap - ${signal}
 done
-if [[ "${EXPERIMENTAL_SPLIT_XML_GENERATION}" != "1" ]]; then
-  # This call to write_xml_output_file does nothing if a a test.xml already
-  # exists, e.g., because we received SIGTERM and the trap handler created it.
-  write_xml_output_file
-fi
 
 # Add all of the files from the undeclared outputs directory to the manifest.
 if [[ -n "$TEST_UNDECLARED_OUTPUTS_DIR" && -n "$TEST_UNDECLARED_OUTPUTS_MANIFEST" ]]; then
@@ -387,7 +328,7 @@ if [[ -n "$TEST_UNDECLARED_OUTPUTS_DIR" && -n "$TEST_UNDECLARED_OUTPUTS_MANIFEST
       # stat has different flags for different systems. -c is supported by GNU,
       # and -f by BSD (and thus OSX). Try both.
       file_size="$(stat -f%z "$undeclared_output" 2>/dev/null || stat -c%s "$undeclared_output" 2>/dev/null || echo "Could not stat $undeclared_output")"
-      file_type="$(file -L -b --mime-type "$undeclared_output")"
+      file_type="$(file -L -b --mime-type "$undeclared_output" || echo "Could not establish file type for $undeclared_output")"
 
       printf "$rel_path\t$file_size\t$file_type\n"
     done <<< "$undeclared_outputs" \
@@ -406,18 +347,31 @@ if [[ -n "$TEST_UNDECLARED_OUTPUTS_ANNOTATIONS" && \
    shopt -s failglob
    cat "$TEST_UNDECLARED_OUTPUTS_ANNOTATIONS_DIR"/*.part > "$TEST_UNDECLARED_OUTPUTS_ANNOTATIONS"
   ) 2> /dev/null
+  (
+   # length-delimited proto files
+   shopt -s failglob
+   cat $TEST_UNDECLARED_OUTPUTS_ANNOTATIONS_DIR/*.pb > "${TEST_UNDECLARED_OUTPUTS_ANNOTATIONS}.pb"
+  ) 2> /dev/null
 fi
 
 # Zip up undeclared outputs.
 if [[ -n "$TEST_UNDECLARED_OUTPUTS_ZIP" ]] && cd "$TEST_UNDECLARED_OUTPUTS_DIR"; then
-  shopt -s dotglob
-  if [[ "$(echo *)" != "*" ]]; then
-    # If * found nothing, echo printed the literal *.
-    # Otherwise echo printed the top-level files and directories.
-    # Pass files to zip with *, so paths with spaces aren't broken up.
-    zip -qr "$TEST_UNDECLARED_OUTPUTS_ZIP" -- * 2>/dev/null || \
-        echo >&2 "Could not create \"$TEST_UNDECLARED_OUTPUTS_ZIP\": zip not found or failed"
+  shopt -s dotglob nullglob
+  # Capture the contents of TEST_UNDECLARED_OUTPUTS_DIR prior to creating the output.zip
+  UNDECLARED_OUTPUTS=(*)
+  if [[ "${#UNDECLARED_OUTPUTS[@]}" != 0 ]]; then
+    if ! zip_output="$(zip -qr "$TEST_UNDECLARED_OUTPUTS_ZIP" -- "${UNDECLARED_OUTPUTS[@]}")" ; then
+      echo >&2 "Could not create \"$TEST_UNDECLARED_OUTPUTS_ZIP\": $zip_output"
+      exit 1
+    fi
+    # Use 'rm' instead of 'zip -m' so that we don't follow symlinks when deleting the
+    # contents.
+    rm -r "${UNDECLARED_OUTPUTS[@]}"
   fi
 fi
 
+# Raise the original signal if the test terminated abnormally.
+if [ $exitCode -gt 128 ]; then
+  kill -$(($exitCode - 128)) $$ &> /dev/null
+fi
 exit $exitCode

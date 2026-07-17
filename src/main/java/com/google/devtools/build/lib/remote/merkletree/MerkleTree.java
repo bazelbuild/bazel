@@ -1,4 +1,4 @@
-// Copyright 2019 The Bazel Authors. All rights reserved.
+// Copyright 2025 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,205 +13,198 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.merkletree;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.devtools.build.lib.remote.util.DigestUtil.DIGEST_COMPARATOR;
+import static java.util.Comparator.comparing;
+
 import build.bazel.remote.execution.v2.Digest;
-import build.bazel.remote.execution.v2.Directory;
-import build.bazel.remote.execution.v2.DirectoryNode;
-import build.bazel.remote.execution.v2.FileNode;
-import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Maps;
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.Collections2;
+import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.primitives.UnsignedBytes;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.MetadataProvider;
-import com.google.devtools.build.lib.profiler.Profiler;
-import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.VirtualActionInput;
+import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
+import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
-import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.protobuf.ByteString;
-import java.io.IOException;
-import java.util.HashMap;
+import java.util.Collection;
+import java.util.Comparator;
 import java.util.Map;
+import java.util.Optional;
 import java.util.SortedMap;
-import java.util.concurrent.atomic.AtomicLong;
-import javax.annotation.Nullable;
 
-/** A merkle tree representation as defined by the remote execution api. */
-public class MerkleTree {
+/**
+ * A representation of the inputs to a remotely executed action represented as a Merkle tree.
+ *
+ * <p>Every tree has a digest, which is the digest of the tree's root directory. The subtrees and
+ * the blobs they contain may have been discarded or never computed in the first place, for example,
+ * because they have already been uploaded to the remote cache or because the tree is being built
+ * only to check for a remote cache hit.
+ */
+public sealed interface MerkleTree {
+  /** The digest of the tree's root directory. */
+  Digest digest();
 
-  /** A path or contents */
-  public static class PathOrBytes {
-
-    private final Path path;
-    private final ByteString bytes;
-
-    public PathOrBytes(Path path) {
-      this.path = Preconditions.checkNotNull(path, "path");
-      this.bytes = null;
-    }
-
-    public PathOrBytes(ByteString bytes) {
-      this.bytes = Preconditions.checkNotNull(bytes, "bytes");
-      this.path = null;
-    }
-
-    @Nullable
-    public Path getPath() {
-      return path;
-    }
-
-    @Nullable
-    public ByteString getBytes() {
-      return bytes;
-    }
-  }
-
-  private final Map<Digest, Directory> digestDirectoryMap;
-  private final Map<Digest, PathOrBytes> digestFileMap;
-  private final Digest rootDigest;
-  private final long inputFiles;
-  private final long inputBytes;
-
-  private MerkleTree(
-      Map<Digest, Directory> digestDirectoryMap,
-      Map<Digest, PathOrBytes> digestFileMap,
-      Digest rootDigest,
-      long inputFiles,
-      long inputBytes) {
-    this.digestDirectoryMap = digestDirectoryMap;
-    this.digestFileMap = digestFileMap;
-    this.rootDigest = rootDigest;
-    this.inputFiles = inputFiles;
-    this.inputBytes = inputBytes;
-  }
-
-  /** Returns the digest of the merkle tree's root. */
-  public Digest getRootDigest() {
-    return rootDigest;
-  }
-
-  /** Returns the number of files represented by this merkle tree */
-  public long getInputFiles() {
-    return inputFiles;
-  }
-
-  /** Returns the sum of file sizes plus protobuf sizes used to represent this merkle tree */
-  public long getInputBytes() {
-    return inputBytes;
-  }
-
-  @Nullable
-  public Directory getDirectoryByDigest(Digest digest) {
-    return digestDirectoryMap.get(digest);
-  }
-
-  @Nullable
-  public PathOrBytes getFileByDigest(Digest digest) {
-    return digestFileMap.get(digest);
-  }
+  /** The total number of regular files and symlinks in this tree, including all subtrees. */
+  long inputFiles();
 
   /**
-   * Returns the hashes of all nodes and leafs of the merkle tree. That is, the hashes of the {@link
-   * Directory} protobufs and {@link ActionInput} files.
+   * The total number of content bytes in this tree, including all subtrees. This includes both file
+   * contents and the protos describing directories.
    */
-  public Iterable<Digest> getAllDigests() {
-    return Iterables.concat(digestDirectoryMap.keySet(), digestFileMap.keySet());
+  long inputBytes();
+
+  /** Returns the root of this tree, which may be the current instance. */
+  RootOnly root();
+
+  /**
+   * A {@link MerkleTree} that doesn't retain any blobs, either because they have already been
+   * uploaded or because only the root digest is needed (e.g., for a remote cache check).
+   */
+  sealed interface RootOnly extends MerkleTree {
+    @Override
+    default RootOnly root() {
+      return this;
+    }
+
+    /**
+     * A {@link MerkleTree} that retains no blobs since all of them have recently been uploaded to
+     * the remote cache.
+     */
+    record BlobsUploaded(Digest digest, long inputFiles, long inputBytes) implements RootOnly {}
+
+    /**
+     * A {@link MerkleTree} that retains no blobs since they were discarded during the computation
+     * (e.g., because they aren't needed for a remote cache check).
+     */
+    record BlobsDiscarded(Digest digest, long inputFiles, long inputBytes) implements RootOnly {}
   }
 
   /**
-   * Constructs a merkle tree from a lexicographically sorted map of inputs (files).
+   * A {@link MerkleTree} that retains all blobs that still need to be uploaded.
    *
-   * @param inputs a map of path to input. The map is required to be sorted lexicographically by
-   *     paths. Inputs of type tree artifacts are not supported and are expected to have been
-   *     expanded before.
-   * @param metadataProvider provides metadata for all {@link ActionInput}s in {@code inputs}, as
-   *     well as any {@link ActionInput}s being discovered via directory expansion.
-   * @param execRoot all paths in {@code inputs} need to be relative to this {@code execRoot}.
-   * @param digestUtil a hashing utility
-   */
-  public static MerkleTree build(
-      SortedMap<PathFragment, ActionInput> inputs,
-      MetadataProvider metadataProvider,
-      Path execRoot,
-      DigestUtil digestUtil)
-      throws IOException {
-    try (SilentCloseable c = Profiler.instance().profile("MerkleTree.build(ActionInput)")) {
-      DirectoryTree tree =
-          DirectoryTreeBuilder.fromActionInputs(inputs, metadataProvider, execRoot, digestUtil);
-      return build(tree, digestUtil);
-    }
-  }
-
-  /**
-   * Constructs a merkle tree from a lexicographically sorted map of files.
+   * <p>The empty blob doesn't have to be uploaded and is thus never included in the blobs map.
    *
-   * @param inputFiles a map of path to files. The map is required to be sorted lexicographically by
-   *     paths.
-   * @param digestUtil a hashing utility
+   * <p>See {@link
+   * com.google.devtools.build.lib.remote.RemoteExecutionServiceTest#buildRemoteAction_goldenTest}
+   * for a test that verifies the memory footprint of this class. Since there can be thousands of
+   * inflight remote executions that may have to retain their blobs until all inputs have been
+   * uploaded, it's crucial to keep the memory footprint of this class as low as possible.
    */
-  public static MerkleTree build(SortedMap<PathFragment, Path> inputFiles, DigestUtil digestUtil)
-      throws IOException {
-    try (SilentCloseable c = Profiler.instance().profile("MerkleTree.build(Path)")) {
-      DirectoryTree tree = DirectoryTreeBuilder.fromPaths(inputFiles, digestUtil);
-      return build(tree, digestUtil);
+  final class Uploadable implements MerkleTree {
+    private static final Comparator<FileArtifactValue> FILE_ARTIFACT_VALUE_COMPARATOR =
+        comparing(FileArtifactValue::getDigest, UnsignedBytes.lexicographicalComparator())
+            .thenComparing(FileArtifactValue::getSize);
+    static final Comparator<Object> DIGEST_AND_METADATA_COMPARATOR =
+        (o1, o2) ->
+            switch (o1) {
+              case Digest digest1 ->
+                  DIGEST_COMPARATOR.compare(
+                      digest1,
+                      switch (o2) {
+                        case Digest digest2 -> digest2;
+                        case FileArtifactValue metadata2 -> adaptToDigest(metadata2);
+                        default -> throw new IllegalStateException("Unexpected blob type: " + o2);
+                      });
+              case FileArtifactValue metadata1 ->
+                  switch (o2) {
+                    case FileArtifactValue metadata2 ->
+                        FILE_ARTIFACT_VALUE_COMPARATOR.compare(metadata1, metadata2);
+                    case Digest digest2 ->
+                        DIGEST_COMPARATOR.compare(adaptToDigest(metadata1), digest2);
+                    default -> throw new IllegalStateException("Unexpected blob type: " + o2);
+                  };
+              default -> throw new IllegalStateException("Unexpected blob type: " + o1);
+            };
+    private final RootOnly.BlobsUploaded root;
+    private final ImmutableSortedMap<
+            /* Digest | FileArtifactValue */ Object, /* byte[] | ActionInput */ Object>
+        blobs;
+
+    Uploadable(
+        RootOnly.BlobsUploaded root,
+        SortedMap</* Digest | FileArtifactValue */ Object, /* byte[] | ActionInput */ Object>
+            blobs) {
+      this.root = root;
+      // A sorted map requires less memory than a regular hash map as it only stores two flat sorted
+      // arrays. Access performance is not critical since it's only used to find missing blobs,
+      // which always require network access.
+      this.blobs = ImmutableSortedMap.copyOfSorted(blobs);
     }
-  }
 
-  private static MerkleTree build(DirectoryTree tree, DigestUtil digestUtil) {
-    Preconditions.checkNotNull(tree);
-    if (tree.isEmpty()) {
-      return new MerkleTree(
-          ImmutableMap.of(), ImmutableMap.of(), digestUtil.compute(new byte[0]), 0, 0);
+    @Override
+    public Digest digest() {
+      return root().digest();
     }
-    Map<Digest, Directory> digestDirectoryMap =
-        Maps.newHashMapWithExpectedSize(tree.numDirectories());
-    Map<Digest, PathOrBytes> digestPathMap = Maps.newHashMapWithExpectedSize(tree.numFiles());
-    Map<PathFragment, Digest> m = new HashMap<>();
-    AtomicLong inputBytes = new AtomicLong(0);
-    tree.visit(
-        (dirname, files, dirs) -> {
-          Directory.Builder b = Directory.newBuilder();
-          for (DirectoryTree.FileNode file : files) {
-            b.addFiles(buildProto(file));
-            digestPathMap.put(file.getDigest(), toPathOrBytes(file));
-            inputBytes.addAndGet(file.getDigest().getSizeBytes());
-          }
-          for (DirectoryTree.DirectoryNode dir : dirs) {
-            PathFragment subDirname = dirname.getRelative(dir.getPathSegment());
-            Digest protoDirDigest =
-                Preconditions.checkNotNull(m.remove(subDirname), "protoDirDigest was null");
-            b.addDirectories(buildProto(dir, protoDirDigest));
-            inputBytes.addAndGet(protoDirDigest.getSizeBytes());
-          }
-          Directory protoDir = b.build();
-          Digest protoDirDigest = digestUtil.compute(protoDir);
-          digestDirectoryMap.put(protoDirDigest, protoDir);
-          m.put(dirname, protoDirDigest);
-        });
-    Digest rootDigest = m.get(PathFragment.EMPTY_FRAGMENT);
-    inputBytes.addAndGet(rootDigest.getSizeBytes());
-    return new MerkleTree(
-        digestDirectoryMap, digestPathMap, rootDigest, tree.numFiles(), inputBytes.get());
-  }
 
-  private static FileNode buildProto(DirectoryTree.FileNode file) {
-    return FileNode.newBuilder()
-        .setName(file.getPathSegment())
-        .setDigest(file.getDigest())
-        .setIsExecutable(file.isExecutable())
-        .build();
-  }
+    @Override
+    public long inputFiles() {
+      return root().inputFiles();
+    }
 
-  private static DirectoryNode buildProto(DirectoryTree.DirectoryNode dir, Digest protoDirDigest) {
-    return DirectoryNode.newBuilder()
-        .setName(dir.getPathSegment())
-        .setDigest(protoDirDigest)
-        .build();
-  }
+    @Override
+    public long inputBytes() {
+      return root().inputBytes();
+    }
 
-  private static PathOrBytes toPathOrBytes(DirectoryTree.FileNode file) {
-    return file.getPath() != null
-        ? new PathOrBytes(file.getPath())
-        : new PathOrBytes(file.getBytes());
+    public Collection<Digest> allDigests() {
+      return Collections2.transform(blobs.keySet(), MerkleTree.Uploadable::adaptToDigest);
+    }
+
+    @VisibleForTesting
+    public Map<Digest, Object> blobs() {
+      return blobs.entrySet().stream()
+          .collect(toImmutableMap(e -> adaptToDigest(e.getKey()), Map.Entry::getValue));
+    }
+
+    @Override
+    public RootOnly root() {
+      return root;
+    }
+
+    /**
+     * Returns a future that tracks the upload of the blob with the given digest, or {@link
+     * Optional#empty()} if there is no blob with the given digest.
+     */
+    public Optional<ListenableFuture<Void>> upload(
+        MerkleTreeUploader uploader,
+        RemoteActionExecutionContext context,
+        RemotePathResolver remotePathResolver,
+        Digest digest,
+        boolean force) {
+      return switch (blobs.get(digest)) {
+        case byte[] data -> Optional.of(uploader.uploadBlob(context, digest, data, force));
+        case VirtualActionInput virtualActionInput ->
+            Optional.of(
+                uploader.uploadVirtualActionInput(context, digest, virtualActionInput, force));
+        case ActionInput actionInput -> {
+          var spawnExecutionContext = context.getSpawnExecutionContext();
+          var pathResolver =
+              // This can only be null when uploading a tree created by
+              // MerkleTreeComputer#buildForFiles, which only happens for remote repo execution and
+              // tests. Only the latter actually reach this code path since remote repo execution
+              // doesn't upload any inputs.
+              spawnExecutionContext != null
+                  ? spawnExecutionContext.getPathResolver()
+                  : MerkleTreeComputer.PATH_ACTION_INPUT_RESOLVER;
+          yield Optional.of(
+              uploader.uploadFile(
+                  context, remotePathResolver, digest, pathResolver.toPath(actionInput), force));
+        }
+        case null -> Optional.empty();
+        default -> throw new IllegalStateException("Unexpected blob type: " + blobs.get(digest));
+      };
+    }
+
+    private static Digest adaptToDigest(Object key) {
+      return switch (key) {
+        case Digest digest -> digest;
+        case FileArtifactValue metadata ->
+            DigestUtil.buildDigest(metadata.getDigest(), metadata.getSize());
+        default -> throw new IllegalStateException("Unexpected blob type: " + key);
+      };
+    }
   }
 }

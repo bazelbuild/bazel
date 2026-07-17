@@ -31,7 +31,10 @@ public class ThrowingRuleCodecTest extends BuildViewTestCase {
 
   @Test
   public void testCodec() throws Exception {
-    scratch.file("cc/BUILD", "cc_library(name='lib', srcs = ['a.cc'])");
+    scratch.file(
+        "cc/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "cc_library(name='lib', srcs = ['a.cc'])");
     Rule rule = (Rule) getTarget("//cc:lib");
 
     ObjectCodecs objectCodecs =

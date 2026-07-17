@@ -27,6 +27,8 @@ using std::wostringstream;
 using std::wstring;
 
 static constexpr const char* BASH_BIN_PATH = "bash_bin_path";
+static constexpr const char* BASH_FILE_RLOCATIONPATH =
+    "bash_file_rlocationpath";
 
 ExitCode BashBinaryLauncher::Launch() {
   wstring bash_binary = this->GetLaunchInfoByKey(BASH_BIN_PATH);
@@ -42,7 +44,12 @@ ExitCode BashBinaryLauncher::Launch() {
     wstring bash_bin_dir = GetParentDirFromPath(bash_binary);
     wstring path_env;
     GetEnv(L"PATH", &path_env);
-    path_env = bash_bin_dir + L";" + path_env;
+    // We want to make sure the bash-adjacent tools (like coreutils) are in the
+    // path somewhere (since most bash scripts are going to assume that) but we
+    // append it rather than prepending it to avoid conflicts between link.exe
+    // (the rarely-used symlink-creator from coreutils) and link.exe (the visual
+    // studio linker)
+    path_env = path_env + L";" + bash_bin_dir;
     SetEnv(L"PATH", path_env);
   } else {
     // If specified bash binary path doesn't exist, then fall back to
@@ -52,12 +59,10 @@ ExitCode BashBinaryLauncher::Launch() {
 
   vector<wstring> origin_args = this->GetCommandlineArguments();
   wostringstream bash_command;
-  // In case the given binary path is a shortened Windows 8dot3 path, we need to
-  // convert it back to its long path form before using it to find the bash main
-  // file.
-  wstring full_binary_path = GetWindowsLongPath(origin_args[0]);
-  wstring bash_main_file = GetBinaryPathWithoutExtension(full_binary_path);
-  bash_command << BashEscapeArg(bash_main_file);
+  wstring bash_file_rlocationpath =
+      this->GetLaunchInfoByKey(BASH_FILE_RLOCATIONPATH);
+  wstring bash_file = Rlocation(bash_file_rlocationpath, true);
+  bash_command << BashEscapeArg(bash_file);
   for (int i = 1; i < origin_args.size(); i++) {
     bash_command << L' ';
     bash_command << BashEscapeArg(origin_args[i]);
@@ -65,9 +70,12 @@ ExitCode BashBinaryLauncher::Launch() {
 
   vector<wstring> args;
   args.push_back(L"-c");
-  args.push_back(BashEscapeArg(bash_command.str()));
+  args.push_back(bash_command.str());
   return this->LaunchProcess(bash_binary, args);
 }
 
+std::wstring BashBinaryLauncher::EscapeArg(const std::wstring& arg) const {
+  return BashEscapeArg(arg);
+}
 }  // namespace launcher
 }  // namespace bazel

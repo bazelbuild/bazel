@@ -1,8 +1,12 @@
 load("@rules_java//java:defs.bzl", "java_binary", "java_library", "java_test")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 
-package(default_visibility = [
-    "//src/java_tools/junitrunner:junitrunner_package_group",
-])
+package(
+    default_applicable_licenses = ["//:license"],
+    default_visibility = [
+        "//src/java_tools/junitrunner:junitrunner_package_group",
+    ],
+)
 
 # Libraries
 # =========================================================
@@ -13,9 +17,12 @@ java_library(
         ["**/*.java"],
         exclude = ["testbed/*.java"],
     ),
+    javacopts = [
+    ],
     deps = [
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/internal",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/internal:junit4",
+        "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/internal:system_exit_detecting_shutdown_hook",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/junit4",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/model",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/sharding",
@@ -78,6 +85,22 @@ sh_test(
 )
 
 sh_test(
+    name = "non_daemon_exit_test",
+    size = "medium",
+    srcs = ["non_daemon_exit_test.sh"],
+    args = [
+        "$(location //src/test/shell:unittest.bash)",
+        "$(location :TestbedBinary)",
+        "bazel.test_suite",
+    ],
+    data = [
+        ":TestbedBinary",
+        "//src/test/shell:bashunit",
+        "//src/test/shell:unittest.bash",
+    ],
+)
+
+sh_test(
     name = "utf8_test_log_test",
     size = "medium",
     srcs = ["utf8_test_log_test.sh"],
@@ -85,6 +108,23 @@ sh_test(
         "$(location //src/test/shell:unittest.bash)",
         "$(location :TestbedBinary)",
         "bazel.test_suite",
+    ],
+    data = [
+        ":TestbedBinary",
+        "//src/test/shell:bashunit",
+        "//src/test/shell:unittest.bash",
+    ],
+)
+
+sh_test(
+    name = "stack_trace_integration_test",
+    size = "medium",
+    srcs = ["stack_trace_integration_tests.sh"],
+    args = [
+        "$(location //src/test/shell:unittest.bash)",
+        "$(location :TestbedBinary)",
+        "bazel.test_suite",
+        "4",
     ],
     data = [
         ":TestbedBinary",
@@ -126,6 +166,39 @@ sh_test(
         "@bazel_tools//tools/jdk:current_java_runtime",
     ],
     toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
+    deps = [
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+)
+
+java_binary(
+    name = "ProgramThatCallsSystemExit",
+    srcs = ["ProgramThatCallsSystemExit.java"],
+    deps = [
+        "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/internal:system_exit_detecting_shutdown_hook",
+    ],
+)
+
+sh_test(
+    name = "system_exit_detecting_test",
+    srcs = ["system_exit_detecting_test.sh"],
+    args = [
+        "$(location //src/test/shell:unittest.bash)",
+        "$(location :ProgramThatCallsSystemExit_deploy.jar)",
+        "$(JAVABASE)",
+        "$(location :testdata/system_exit_detecting_test_stack.txt)",
+    ],
+    data = [
+        ":ProgramThatCallsSystemExit_deploy.jar",
+        ":testdata/system_exit_detecting_test_stack.txt",
+        "//src/test/shell:bashunit",
+        "//src/test/shell:unittest.bash",
+        "@bazel_tools//tools/jdk:current_java_runtime",
+    ],
+    toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
+    deps = [
+        "@bazel_tools//tools/bash/runfiles",
+    ],
 )
 
 exports_files([
@@ -133,4 +206,5 @@ exports_files([
     "junit4_testbridge_integration_tests.sh",
     "utf8_test_log_test.sh",
     "deploy_jar_integration_tests.sh",
+    "system_exit_detecting_test.sh",
 ])

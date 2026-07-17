@@ -15,9 +15,11 @@
 package com.google.devtools.build.lib.bazel.repository.downloader;
 
 import com.google.common.base.Ascii;
+import com.google.common.collect.ImmutableList;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /** Utility class for parsing HTTP messages. */
@@ -25,7 +27,7 @@ final class HttpParser {
 
   /** Exhausts request line and headers of HTTP request. */
   static void readHttpRequest(InputStream stream) throws IOException {
-    readHttpRequest(stream, new HashMap<String, String>());
+    readHttpRequest(stream, new HashMap<>());
   }
 
   /**
@@ -37,7 +39,8 @@ final class HttpParser {
    * @throws IOException if reading failed or premature end of stream encountered
    * @throws HttpParserError if 400 error should be sent to client and connection must be closed
    */
-  static void readHttpRequest(InputStream stream, Map<String, String> output) throws IOException {
+  static void readHttpRequest(InputStream stream, Map<String, List<String>> output)
+      throws IOException {
     StringBuilder builder = new StringBuilder(256);
     State state = State.METHOD;
     String key = "";
@@ -56,7 +59,7 @@ final class HttpParser {
             if (builder.length() == 0) {
               throw new HttpParserError();
             }
-            output.put("x-method", builder.toString());
+            output.put("x-method", ImmutableList.of(builder.toString()));
             builder.setLength(0);
             state = State.URI;
           } else if (c == '\r' || c == '\n') {
@@ -70,7 +73,7 @@ final class HttpParser {
             if (builder.length() == 0) {
               throw new HttpParserError();
             }
-            output.put("x-request-uri", builder.toString());
+            output.put("x-request-uri", ImmutableList.of(builder.toString()));
             builder.setLength(0);
             state = State.VERSION;
           } else {
@@ -79,7 +82,7 @@ final class HttpParser {
           break;
         case VERSION:
           if (c == '\r' || c == '\n') {
-            output.put("x-version", builder.toString());
+            output.put("x-version", ImmutableList.of(builder.toString()));
             builder.setLength(0);
             state = c == '\r' ? State.CR1 : State.LF1;
           } else {
@@ -120,7 +123,7 @@ final class HttpParser {
           // fall through
         case HVAL:
           if (c == '\r' || c == '\n') {
-            output.put(key, builder.toString());
+            output.put(key, ImmutableList.of(builder.toString()));
             builder.setLength(0);
             state = c == '\r' ? State.CR1 : State.LF1;
           } else {

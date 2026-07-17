@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.runtime.commands.info;
 
 import com.google.common.base.Supplier;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.InfoItem;
 
@@ -26,7 +26,8 @@ public final class JavaVirtualMachineInfoItem extends InfoItem {
   }
 
   @Override
-  public byte[] get(Supplier<BuildConfiguration> configurationSupplier, CommandEnvironment env) {
+  public byte[] get(
+      Supplier<BuildConfigurationValue> configurationSupplier, CommandEnvironment env) {
     return print(
         String.format(
             "%s (build %s, %s) by %s",

@@ -13,14 +13,16 @@
 // limitations under the License.
 package com.google.devtools.build.lib.includescanning;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Maps;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionGraph;
@@ -29,57 +31,64 @@ import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ArtifactResolver;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
+import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.concurrent.ExecutorUtil;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadHostile;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.exec.ExecutorLifecycleListener;
 import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
 import com.google.devtools.build.lib.includescanning.IncludeParser.Inclusion;
+import com.google.devtools.build.lib.packages.NoSuchPackageException;
+import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.rules.cpp.CppIncludeExtractionContext;
 import com.google.devtools.build.lib.rules.cpp.CppIncludeScanningContext;
 import com.google.devtools.build.lib.rules.cpp.IncludeScanner.IncludeScanningHeaderData;
 import com.google.devtools.build.lib.rules.cpp.SwigIncludeScanningContext;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
-import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.IncludeScanning;
+import com.google.devtools.build.lib.skyframe.EphemeralCheckIfOutputConsumed;
 import com.google.devtools.build.lib.skyframe.MutableSupplier;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
-import com.google.devtools.build.lib.vfs.IORuntimeException;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.common.options.OptionsBase;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.Collection;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.SynchronousQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
+import javax.annotation.Nullable;
 
 /**
- * Module that provides implementations of {@link CppIncludeExtractionContext},
- * {@link CppIncludeScanningContext}, and {@link SwigIncludeScanningContext}.
+ * Module that provides implementations of {@link CppIncludeExtractionContext}, {@link
+ * CppIncludeScanningContext}, and {@link SwigIncludeScanningContext}.
  */
 public class IncludeScanningModule extends BlazeModule {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
-
-  private static final PathFragment INCLUDE_HINTS_FILENAME =
-      PathFragment.create("tools/cpp/INCLUDE_HINTS");
 
   private final MutableSupplier<SpawnIncludeScanner> spawnIncludeScannerSupplier =
       new MutableSupplier<>();
   private final MutableSupplier<ArtifactFactory> artifactFactory = new MutableSupplier<>();
   private IncludeScannerLifecycleManager lifecycleManager;
 
+  @Nullable
   protected PathFragment getIncludeHintsFilename() {
-    return INCLUDE_HINTS_FILENAME;
+    return null;
   }
 
   @Override
@@ -102,13 +111,14 @@ public class IncludeScanningModule extends BlazeModule {
   @ThreadHostile
   public void executorInit(CommandEnvironment env, BuildRequest request, ExecutorBuilder builder) {
     lifecycleManager =
-        new IncludeScannerLifecycleManager(env, request, spawnIncludeScannerSupplier);
+        new IncludeScannerLifecycleManager(
+            env, request, spawnIncludeScannerSupplier, getIncludeHintsFilename() != null);
     builder.addExecutorLifecycleListener(lifecycleManager);
   }
 
   @Override
-  public Iterable<Class<? extends OptionsBase>> getCommandOptions(Command command) {
-    return "build".equals(command.name())
+  public Iterable<Class<? extends OptionsBase>> getCommandOptions(String commandName) {
+    return commandName.equals("build")
         ? ImmutableList.of(IncludeScanningOptions.class)
         : ImmutableList.of();
   }
@@ -133,15 +143,16 @@ public class IncludeScanningModule extends BlazeModule {
 
   @VisibleForTesting
   public static ImmutableMap<SkyFunctionName, SkyFunction> getSkyFunctions(
-      PathFragment includeHintsFile) {
-    return ImmutableMap.of(
-        IncludeScanningSkyFunctions.INCLUDE_HINTS,
-        new IncludeHintsFunction(includeHintsFile));
+      @Nullable PathFragment includeHintsFile) {
+    ImmutableMap.Builder<SkyFunctionName, SkyFunction> skyFunctions = ImmutableMap.builder();
+    if (includeHintsFile != null) {
+      skyFunctions.put(
+          IncludeScanningSkyFunctions.INCLUDE_HINTS, new IncludeHintsFunction(includeHintsFile));
+    }
+    return skyFunctions.buildOrThrow();
   }
 
-  /**
-   * Implementation of {@link CppIncludeExtractionContext}.
-   */
+  /** Implementation of {@link CppIncludeExtractionContext}. */
   public static final class CppIncludeExtractionContextImpl implements CppIncludeExtractionContext {
     private final CommandEnvironment env;
 
@@ -155,9 +166,7 @@ public class IncludeScanningModule extends BlazeModule {
     }
   }
 
-  /**
-   * SwigIncludeScanningContextImpl implements SwigIncludeScanningContext.
-   */
+  /** SwigIncludeScanningContextImpl implements SwigIncludeScanningContext. */
   public static final class SwigIncludeScanningContextImpl implements SwigIncludeScanningContext {
     private final CommandEnvironment env;
     private final Supplier<SpawnIncludeScanner> spawnScannerSupplier;
@@ -182,33 +191,46 @@ public class IncludeScanningModule extends BlazeModule {
         Artifact source,
         ImmutableSet<Artifact> legalOutputPaths,
         ImmutableList<PathFragment> swigIncludePaths,
-        Artifact grepIncludes)
+        Artifact grepIncludes,
+        @Nullable PlatformInfo grepIncludesExecutionPlatform)
         throws IOException, ExecException, InterruptedException {
       SwigIncludeScanner scanner =
           new SwigIncludeScanner(
               includePool.get(),
+              shouldShuffle(env),
               spawnScannerSupplier.get(),
               cache,
               swigIncludePaths,
               env.getDirectories(),
               env.getSkyframeBuildView().getArtifactFactory(),
               env.getExecRoot());
+      // For Swig include scanning, just point to the output file in the map.
+      ImmutableMap<PathFragment, Artifact> pathToDeclaredHeader =
+          legalOutputPaths.stream()
+              .collect(
+                  toImmutableMap(
+                      Artifact::getExecPath,
+                      artifact -> artifact,
+                      // Headers may be generated by shared actions. If both shared actions' outputs
+                      // are present, just use the first (b/304564144).
+                      (a, b) -> a));
       try {
         scanner.processAsync(
             source,
             ImmutableList.of(source),
-            // For Swig include scanning just point to the output file in the map.
             new IncludeScanningHeaderData.Builder(
-                    Maps.uniqueIndex(legalOutputPaths, Artifact::getExecPath),
-                    /*modularHeaders=*/ ImmutableSet.of())
+                    pathToDeclaredHeader, /* modularHeaders= */ ImmutableSet.of())
                 .build(),
             ImmutableList.of(),
             includes,
             actionExecutionMetadata,
             actionExecContext,
-            grepIncludes);
-      } catch (IORuntimeException e) {
-        throw e.getCauseIOException();
+            grepIncludes,
+            grepIncludesExecutionPlatform);
+      } catch (UncheckedIOException e) {
+        throw e.getCause();
+      } catch (NoSuchPackageException e) {
+        throw new IllegalStateException("Swig has no hints! For " + source, e);
       }
     }
   }
@@ -220,7 +242,8 @@ public class IncludeScanningModule extends BlazeModule {
    */
   private static final class IncludeScannerLifecycleManager implements ExecutorLifecycleListener {
     private final CommandEnvironment env;
-    private final BuildRequest buildRequest;
+    private final IncludeScanningOptions options;
+    private final boolean useIncludeHints;
 
     private final Supplier<SpawnIncludeScanner> spawnScannerSupplier;
     private IncludeScannerSupplier includeScannerSupplier;
@@ -229,16 +252,17 @@ public class IncludeScanningModule extends BlazeModule {
     IncludeScannerLifecycleManager(
         CommandEnvironment env,
         BuildRequest buildRequest,
-        MutableSupplier<SpawnIncludeScanner> spawnScannerSupplier) {
+        MutableSupplier<SpawnIncludeScanner> spawnScannerSupplier,
+        boolean useIncludeHints) {
       this.env = env;
-      this.buildRequest = buildRequest;
+      this.options = buildRequest.getOptions(IncludeScanningOptions.class);
+      this.useIncludeHints = useIncludeHints;
 
-      IncludeScanningOptions options = buildRequest.getOptions(IncludeScanningOptions.class);
       spawnScannerSupplier.set(
           new SpawnIncludeScanner(
               env.getExecRoot(),
-              options.experimentalRemoteExtractionThreshold,
-              env.getSkyframeExecutor().getSyscalls()));
+              options.getExperimentalRemoteExtractionThreshold(),
+              env.getSyscallCache()));
       this.spawnScannerSupplier = spawnScannerSupplier;
       env.getEventBus().register(this);
     }
@@ -253,40 +277,74 @@ public class IncludeScanningModule extends BlazeModule {
 
     @Override
     public void executionPhaseStarting(
-        ActionGraph actionGraph, Supplier<ImmutableSet<Artifact>> topLevelArtifacts)
+        ActionGraph unusedActionGraph,
+        Supplier<ImmutableSet<Artifact>> unusedTopLevelArtifacts,
+        @Nullable EphemeralCheckIfOutputConsumed unusedCheck)
         throws AbruptExitException, InterruptedException {
-      try {
-        includeScannerSupplier.init(
-            new IncludeParser(
-                new IncludeParser.Hints(
-                    (IncludeParser.HintsRules)
-                        env.getSkyframeExecutor()
-                            .evaluateSkyKeyForExecutionSetup(
-                                env.getReporter(), IncludeHintsFunction.INCLUDE_HINTS_KEY),
-                    env.getSkyframeBuildView().getArtifactFactory())));
-      } catch (ExecException e) {
-        throw new AbruptExitException(
-            DetailedExitCode.of(
-                FailureDetail.newBuilder()
-                    .setMessage("could not initialize include hints: " + e.getMessage())
-                    .setIncludeScanning(
-                        IncludeScanning.newBuilder()
-                            .setCode(IncludeScanning.Code.INITIALIZE_INCLUDE_HINTS_ERROR))
-                    .build()),
-            e);
+      IncludeParser.HintsRules hintsRules;
+      if (useIncludeHints) {
+        try (var sc = Profiler.instance().profile("evaluateSkyKeyForExecutionSetup")) {
+          hintsRules =
+              (IncludeParser.HintsRules)
+                  env.getSkyframeExecutor()
+                      .evaluateSkyKeyForExecutionSetup(
+                          env.getReporter(), IncludeHintsFunction.INCLUDE_HINTS_KEY);
+        } catch (ExecException e) {
+          throw new AbruptExitException(
+              DetailedExitCode.of(
+                  FailureDetail.newBuilder()
+                      .setMessage("could not initialize include hints: " + e.getMessage())
+                      .setIncludeScanning(
+                          IncludeScanning.newBuilder()
+                              .setCode(IncludeScanning.Code.INITIALIZE_INCLUDE_HINTS_ERROR))
+                      .build()),
+              e);
+        }
+      } else {
+        hintsRules = IncludeParser.HintsRules.EMPTY;
+      }
+      includeScannerSupplier.init(
+          new IncludeParser(
+              new IncludeParser.Hints(
+                  hintsRules,
+                  env.getSyscallCache(),
+                  env.getSkyframeBuildView().getArtifactFactory())));
+    }
+
+    @Override
+    public void executionPhaseEnding() {
+      if (options.getExperimentalReuseIncludeScanningThreads()) {
+        if (includePool != null && !includePool.isShutdown()) {
+          ExecutorUtil.uninterruptibleShutdownNow(includePool);
+        }
+        includePool = null;
       }
     }
 
     @Override
-    public void executionPhaseEnding() {}
-
-    @Override
     public void executorCreated() {
-      IncludeScanningOptions options = buildRequest.getOptions(IncludeScanningOptions.class);
-      int threads = options.includeScanningParallelism;
-      if (threads > 0) {
+      var useAsyncExecution = useAsyncExecution(env);
+      int threads = options.getIncludeScanningParallelism();
+      if (useAsyncExecution) {
+        includePool =
+            Executors.newThreadPerTaskExecutor(
+                Thread.ofVirtual().name("Include scanner ", 0).factory());
+      } else if (threads > 0) {
         logger.atInfo().log("Include scanning configured to use a pool with %d threads", threads);
-        includePool = ExecutorUtil.newSlackPool(threads, "Include scanner");
+        if (options.getExperimentalReuseIncludeScanningThreads()) {
+          includePool =
+              new ThreadPoolExecutor(
+                  threads,
+                  threads,
+                  0L,
+                  TimeUnit.SECONDS,
+                  new SynchronousQueue<>(),
+                  new ThreadFactoryBuilder().setNameFormat("Include scanner %d").build(),
+                  (r, e) -> r.run());
+        } else {
+          includePool = ExecutorUtil.newSlackPool(threads, "Include scanner");
+        }
+
       } else {
         logger.atInfo().log("Include scanning configured to use a direct executor");
         includePool = MoreExecutors.newDirectExecutorService();
@@ -295,12 +353,24 @@ public class IncludeScanningModule extends BlazeModule {
           new IncludeScannerSupplier(
               env.getDirectories(),
               includePool,
+              shouldShuffle(env),
               env.getSkyframeBuildView().getArtifactFactory(),
               spawnScannerSupplier,
               env.getExecRoot());
 
       spawnScannerSupplier.get().setOutputService(env.getOutputService());
-      spawnScannerSupplier.get().setInMemoryOutput(options.inMemoryIncludesFiles);
+      spawnScannerSupplier.get().setInMemoryOutput(options.getInMemoryIncludesFiles());
     }
+  }
+
+  private static boolean useAsyncExecution(CommandEnvironment env) {
+    var buildRequestOptions = env.getOptions().getOptions(BuildRequestOptions.class);
+    return buildRequestOptions != null && buildRequestOptions.getUseAsyncExecution();
+  }
+
+  private static boolean shouldShuffle(CommandEnvironment env) {
+    // Don't shuffle if using virtual threads, otherwise it introduces high CPU regression on
+    // machines with large number of cores.
+    return !useAsyncExecution(env);
   }
 }

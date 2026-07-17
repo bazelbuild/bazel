@@ -20,7 +20,6 @@ import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteStreams;
-import com.google.common.math.IntMath;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
@@ -32,15 +31,17 @@ import java.io.InputStream;
 import java.io.InterruptedIOException;
 import java.net.HttpURLConnection;
 import java.net.SocketTimeoutException;
-import java.net.URL;
+import java.net.URI;
 import java.net.URLConnection;
 import java.net.UnknownHostException;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import javax.annotation.Nullable;
 import javax.annotation.WillClose;
+import javax.net.ssl.SSLException;
 
 /**
  * Class for establishing connections to HTTP servers for downloading files.
@@ -52,7 +53,7 @@ import javax.annotation.WillClose;
 @ThreadSafe
 class HttpConnector {
 
-  private static final int MAX_RETRIES = 8;
+  private static final int MAX_ATTEMPTS = 8;
   private static final int MAX_REDIRECTS = 40;
   private static final int MIN_RETRY_DELAY_MS = 100;
   private static final int MIN_CONNECT_TIMEOUT_MS = 1000;
@@ -68,6 +69,25 @@ class HttpConnector {
   private final ProxyHelper proxyHelper;
   private final Sleeper sleeper;
   private final float timeoutScaling;
+  private final int maxAttempts;
+  private final Duration maxRetryTimeout;
+
+  HttpConnector(
+      Locale locale,
+      EventHandler eventHandler,
+      ProxyHelper proxyHelper,
+      Sleeper sleeper,
+      float timeoutScaling,
+      int maxAttempts,
+      Duration maxRetryTimeout) {
+    this.locale = locale;
+    this.eventHandler = eventHandler;
+    this.proxyHelper = proxyHelper;
+    this.sleeper = sleeper;
+    this.timeoutScaling = timeoutScaling;
+    this.maxAttempts = maxAttempts > 0 ? maxAttempts : MAX_ATTEMPTS;
+    this.maxRetryTimeout = maxRetryTimeout;
+  }
 
   HttpConnector(
       Locale locale,
@@ -75,11 +95,7 @@ class HttpConnector {
       ProxyHelper proxyHelper,
       Sleeper sleeper,
       float timeoutScaling) {
-    this.locale = locale;
-    this.eventHandler = eventHandler;
-    this.proxyHelper = proxyHelper;
-    this.sleeper = sleeper;
-    this.timeoutScaling = timeoutScaling;
+    this(locale, eventHandler, proxyHelper, sleeper, timeoutScaling, 0, Duration.ZERO);
   }
 
   HttpConnector(
@@ -91,15 +107,16 @@ class HttpConnector {
     return Math.round(unscaled * timeoutScaling);
   }
 
-  URLConnection connect(URL originalUrl, Function<URL, ImmutableMap<String, String>> requestHeaders)
+  URLConnection connect(
+      URI originalUrl, Function<URI, ImmutableMap<String, List<String>>> requestHeaders)
       throws IOException {
 
     if (Thread.interrupted()) {
       throw new InterruptedIOException();
     }
-    URL url = originalUrl;
+    URI url = originalUrl;
     if (HttpUtils.isProtocol(url, "file")) {
-      return url.openConnection();
+      return url.toURL().openConnection();
     }
     List<Throwable> suppressions = new ArrayList<>();
     int retries = 0;
@@ -108,21 +125,29 @@ class HttpConnector {
     while (true) {
       HttpURLConnection connection = null;
       try {
-        connection = (HttpURLConnection)
-            url.openConnection(proxyHelper.createProxyIfNeeded(url));
-        // TODO(zecke): Revise once https://bugs.openjdk.java.net/browse/JDK-8163921 is fixed.
-        connection.addRequestProperty("Accept", "text/html, image/gif, image/jpeg, */*");
+        ProxyInfo proxyInfo = proxyHelper.createProxyIfNeeded(url);
+        connection = (HttpURLConnection) url.toURL().openConnection(proxyInfo.proxy());
+        // For HTTP connections through authenticated proxies, set the Proxy-Authorization header.
+        // For HTTPS, Java's HttpURLConnection handles CONNECT tunneling internally using the
+        // Authenticator we set in ProxyHelper.
+        if (proxyInfo.hasCredentials()) {
+          connection.setRequestProperty(
+              "Proxy-Authorization", proxyInfo.getProxyAuthorizationHeader());
+        }
         boolean isAlreadyCompressed =
             COMPRESSED_EXTENSIONS.contains(HttpUtils.getExtension(url.getPath()))
                 || COMPRESSED_EXTENSIONS.contains(HttpUtils.getExtension(originalUrl.getPath()));
         connection.setInstanceFollowRedirects(false);
-        for (Map.Entry<String, String> entry : requestHeaders.apply(url).entrySet()) {
+        for (Map.Entry<String, List<String>> entry : requestHeaders.apply(url).entrySet()) {
           if (isAlreadyCompressed && Ascii.equalsIgnoreCase(entry.getKey(), "Accept-Encoding")) {
             // We're not going to ask for compression if we're downloading a file that already
             // appears to be compressed.
             continue;
           }
-          connection.addRequestProperty(entry.getKey(), entry.getValue());
+          String key = entry.getKey();
+          for (String value : entry.getValue()) {
+            connection.addRequestProperty(key, value);
+          }
         }
         if (connection.getRequestProperty("User-Agent") == null) {
           connection.setRequestProperty("User-Agent", USER_AGENT_VALUE);
@@ -138,10 +163,28 @@ class HttpConnector {
           code = connection.getResponseCode();
         } catch (FileNotFoundException ignored) {
           code = connection.getResponseCode();
+        } catch (SSLException e) {
+          // Check if the exception is due to a permanent error, such as a certificate validation
+          // issue.
+          // These errors are unlikely to be resolved by retrying.
+          if (e.getMessage() != null
+              && (e.getMessage().contains("certificate")
+                  || e.getMessage().contains("CertPathValidatorException"))) {
+            String message = "TLS error: " + e.getMessage();
+            eventHandler.handle(Event.progress(message));
+            IOException httpException = new UnrecoverableHttpException(message);
+            httpException.addSuppressed(e);
+            throw httpException;
+          }
+          // Otherwise, treat it as a potentially transient network error and let it fall through
+          // to the standard IOException handler for retries.
+          throw e;
         } catch (UnknownHostException e) {
           String message = "Unknown host: " + e.getMessage();
           eventHandler.handle(Event.progress(message));
-          throw new UnrecoverableHttpException(message);
+          IOException httpException = new UnrecoverableHttpException(message);
+          httpException.addSuppressed(e);
+          throw httpException;
         } catch (IllegalArgumentException e) {
           // This will happen if the user does something like specify a port greater than 2^16-1.
           throw new UnrecoverableHttpException(e.getMessage());
@@ -178,18 +221,26 @@ class HttpConnector {
           // waiting.  If the client has an outstanding request in transit, the client MAY repeat
           // that request on a new connection. Quoth RFC7231 § 6.5.7
           throw new IOException(describeHttpResponse(connection));
+        } else if (code == 429) {
+          // The 429 (Too Many Requests) status code could result from Bazel temporarily overloading
+          // the server and is typically resolved by retrying.
+          throw new IOException(describeHttpResponse(connection));
         } else if (code < 500          // 4xx means client seems to have erred quoth RFC7231 § 6.5
                     || code == 501     // Server doesn't support function quoth RFC7231 § 6.6.2
-                    || code == 502     // Host not configured on server cf. RFC7231 § 6.6.3
                     || code == 505) {  // Server refuses to support version quoth RFC7231 § 6.6.6
           // This is a permanent error so we're not going to retry.
           readAllBytesAndClose(connection.getErrorStream());
+          if (code == 404 || code == 410) {
+            // For Not Found, we throw a separate unrecoverable exception so that callers can
+            // distinguish between the resource being not found and the server being unavailable.
+            throw new FileNotFoundException(describeHttpResponse(connection));
+          }
           throw new UnrecoverableHttpException(describeHttpResponse(connection));
         } else {
-          // However we will retry on some 5xx errors, particularly 500 and 503.
+          // However we will retry on some 5xx errors, particularly 500, 502 and 503.
           throw new IOException(describeHttpResponse(connection));
         }
-      } catch (UnrecoverableHttpException e) {
+      } catch (UnrecoverableHttpException | FileNotFoundException e) {
         throw e;
       } catch (IllegalArgumentException e) {
         throw new UnrecoverableHttpException(e.getMessage());
@@ -204,8 +255,12 @@ class HttpConnector {
         }
         // We don't respect the Retry-After header (RFC7231 § 7.1.3) because it's rarely used and
         // tends to be too conservative when it is. We're already being good citizens by using
-        // exponential backoff. Furthermore RFC law didn't use the magic word "MUST".
-        int timeout = IntMath.pow(2, retries) * MIN_RETRY_DELAY_MS;
+        // exponential backoff with jitter. Furthermore RFC law didn't use the magic word "MUST".
+        double rawTimeout = Math.scalb((double) MIN_RETRY_DELAY_MS, retries);
+        if (!maxRetryTimeout.isZero()) {
+          rawTimeout = Math.min(rawTimeout, (double) maxRetryTimeout.toMillis());
+        }
+        int timeout = (int) ((0.75 + Math.random() / 2) * rawTimeout);
         if (e instanceof SocketTimeoutException) {
           eventHandler.handle(Event.progress("Timeout connecting to " + url));
           connectTimeout = Math.min(connectTimeout * 2, scale(MAX_CONNECT_TIMEOUT_MS));
@@ -216,7 +271,7 @@ class HttpConnector {
           // Please note that SocketTimeoutException is a subtype of InterruptedIOException.
           throw e;
         }
-        if (++retries == MAX_RETRIES) {
+        if (++retries == maxAttempts) {
           if (e instanceof SocketTimeoutException) {
             // SocketTimeoutExceptions are InterruptedIOExceptions; however they do not signify
             // an external interruption, but simply a failed download due to some server timing

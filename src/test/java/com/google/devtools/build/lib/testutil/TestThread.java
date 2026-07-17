@@ -66,7 +66,8 @@ public final class TestThread extends Thread {
       error.initCause(exception);
       throw error;
     }
-    assertWithMessage("Test thread " + getName() + " has not run successfully").that(isSucceeded)
+    assertWithMessage("Test thread %s has not run successfully", getName())
+        .that(isSucceeded)
         .isTrue();
   }
 }

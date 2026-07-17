@@ -16,52 +16,69 @@ package com.google.devtools.build.lib.analysis;
 
 import com.google.devtools.build.lib.util.CpuResourceConverter;
 import com.google.devtools.build.lib.util.RegexFilter;
+import com.google.devtools.build.lib.util.ResourceConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 
 /**
  * Options that affect the <i>mechanism</i> of analysis. These are distinct from {@link
  * com.google.devtools.build.lib.analysis.config.BuildOptions}, which affect the <i>value</i> of a
- * BuildConfiguration.
+ * BuildConfigurationValue.
  */
-public class AnalysisOptions extends OptionsBase {
+@OptionsClass
+public abstract class AnalysisOptions extends OptionsBase {
   @Option(
-    name = "analysis_warnings_as_errors",
-    deprecationWarning =
-        "analysis_warnings_as_errors is now a no-op and will be removed in"
-            + " an upcoming Blaze release",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.NO_OP},
-    help = "Treat visible analysis warnings as errors."
-  )
-  public boolean analysisWarningsAsErrors;
+      name = "discard_analysis_cache",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Discard the analysis cache immediately after the analysis phase completes."
+              + " Reduces memory usage by ~10%, but makes further incremental builds slower.")
+  public abstract boolean getDiscardAnalysisCache();
 
   @Option(
-    name = "discard_analysis_cache",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help =
-        "Discard the analysis cache immediately after the analysis phase completes."
-            + " Reduces memory usage by ~10%, but makes further incremental builds slower."
-  )
-  public boolean discardAnalysisCache;
+      name = "allow_analysis_cache_discard",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.EAGERNESS_TO_EXIT},
+      help =
+          """
+          If discarding the analysis cache due to a change in the build system, setting this
+          option to false will cause bazel to exit, rather than continuing with the build.
+          This option has no effect when `--discard_analysis_cache` is also set.
+          """)
+  public abstract boolean getAllowAnalysisCacheDiscards();
 
   @Option(
-    name = "max_config_changes_to_show",
-    defaultValue = "3",
-    documentationCategory = OptionDocumentationCategory.LOGGING,
-    effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
-    help =
-        "When discarding the analysis cache due to a change in the build options, "
-        + "displays up to the given number of changed option names. "
-        + "If the number given is -1, all changed options will be displayed."
-  )
-  public int maxConfigChangesToShow;
+      name = "max_config_changes_to_show",
+      defaultValue = "3",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help =
+          "When discarding the analysis cache due to a change in the build options, "
+              + "displays up to the given number of changed option names. "
+              + "If the number given is -1, all changed options will be displayed.")
+  public abstract int getMaxConfigChangesToShow();
+
+  @Option(
+      name = "skip_incompatible_explicit_targets",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      help =
+          """
+          Skip incompatible targets that are explicitly listed on the command line.
+          By default, building such targets results in an error but they are
+          silently skipped when this option is enabled. See: [Skipping incompatible targets]
+
+          [Skipping incompatible targets]: https://bazel.build/extending/platforms#skipping-incompatible-targets
+          """)
+  public abstract boolean getSkipIncompatibleExplicitTargets();
 
   @Option(
       name = "experimental_extra_action_filter",
@@ -71,7 +88,7 @@ public class AnalysisOptions extends OptionsBase {
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "Deprecated in favor of aspects. Filters set of targets to schedule extra_actions for.")
-  public RegexFilter extraActionFilter;
+  public abstract RegexFilter getExtraActionFilter();
 
   @Option(
       name = "experimental_extra_action_top_level_only",
@@ -79,52 +96,22 @@ public class AnalysisOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Deprecated in favor of aspects. Only schedules extra_actions for top level targets.")
-  public boolean extraActionTopLevelOnly;
+  public abstract boolean getExtraActionTopLevelOnly();
 
   @Option(
-    name = "version_window_for_dirty_node_gc",
-    defaultValue = "0",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help =
-        "Nodes that have been dirty for more than this many versions will be deleted"
-            + " from the graph upon the next update. Values must be non-negative long integers,"
-            + " or -1 indicating the maximum possible window."
-  )
-  public long versionWindowForDirtyNodeGc;
-
-  @Deprecated
-  @Option(
-    name = "experimental_interleave_loading_and_analysis",
-    defaultValue = "true",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "No-op."
-  )
-  public boolean interleaveLoadingAndAnalysis;
-
-  @Option(
-    name = "experimental_skyframe_prepare_analysis",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-    help = "Switches analysis preparation to a new code path based on Skyframe."
-  )
-  public boolean skyframePrepareAnalysis;
-
-  @Option(
-      name = "experimental_strict_conflict_checks",
-      defaultValue = "false",
+      name = "version_window_for_dirty_node_gc",
+      defaultValue = "0",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      metadataTags = OptionMetadataTag.INCOMPATIBLE_CHANGE,
-      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      effectTags = {OptionEffectTag.UNKNOWN},
       help =
-          "Check for action prefix file path conflicts, regardless of action-specific overrides.")
-  public boolean strictConflictChecks;
+          "Nodes that have been dirty for more than this many versions will be deleted"
+              + " from the graph upon the next update. Values must be non-negative long integers,"
+              + " or -1 indicating the maximum possible window.")
+  public abstract long getVersionWindowForDirtyNodeGc();
 
   @Option(
       name = "experimental_skyframe_cpu_heavy_skykeys_thread_pool_size",
-      defaultValue = "0",
+      defaultValue = ResourceConverter.HOST_CPUS_KEYWORD,
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       metadataTags = OptionMetadataTag.EXPERIMENTAL,
       effectTags = {
@@ -132,16 +119,20 @@ public class AnalysisOptions extends OptionsBase {
         OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION
       },
       help =
-          "If set to a positive value (e.g. \"HOST_CPUS*1.5\"), Skyframe will run the"
-              + " loading/analysis phase with 2 separate thread pools: 1 with <value> threads"
-              + " (ideally close to HOST_CPUS) reserved for CPU-heavy SkyKeys, and 1 \"standard\""
-              + " thread pool (whose size is controlled by --loading_phase_threads) for the rest.",
+          "If set to a positive value (e.g. `"
+              + ResourceConverter.HOST_CPUS_KEYWORD
+              + "*1.5`),"
+              + " Skyframe will run the loading/analysis phase with 2 separate thread pools:"
+              + " 1 with `<value>` threads (ideally close to `"
+              + ResourceConverter.HOST_CPUS_KEYWORD
+              + "`) reserved for CPU-heavy SkyKeys, and 1 \"standard\" thread pool (whose size is"
+              + " controlled by `--loading_phase_threads`) for the rest.",
       converter = CpuResourceConverter.class)
-  public int cpuHeavySkyKeysThreadPoolSize;
+  public abstract int getCpuHeavySkyKeysThreadPoolSize();
 
   @Option(
       name = "experimental_oom_sensitive_skyfunctions_semaphore_size",
-      defaultValue = "HOST_CPUS",
+      defaultValue = ResourceConverter.HOST_CPUS_KEYWORD,
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       metadataTags = OptionMetadataTag.EXPERIMENTAL,
       effectTags = {
@@ -151,7 +142,9 @@ public class AnalysisOptions extends OptionsBase {
       help =
           "Sets the size of the semaphore used to prevent SkyFunctions with large peak memory"
               + " requirement from OOM-ing blaze. A value of 0 indicates that no semaphore should"
-              + " be used. Example value: \"HOST_CPUS*0.5\".",
+              + " be used. Example value: `"
+              + ResourceConverter.HOST_CPUS_KEYWORD
+              + "*0.5`.",
       converter = CpuResourceConverter.class)
-  public int oomSensitiveSkyFunctionsSemaphoreSize;
+  public abstract int getOomSensitiveSkyFunctionsSemaphoreSize();
 }

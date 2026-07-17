@@ -15,7 +15,10 @@
 package com.google.devtools.build.lib.starlarkbuildapi.platform;
 
 import com.google.devtools.build.docgen.annot.DocCategory;
+import com.google.devtools.build.lib.cmdline.Label;
 import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.StarlarkIndexable;
 import net.starlark.java.eval.StarlarkValue;
 
@@ -26,5 +29,17 @@ import net.starlark.java.eval.StarlarkValue;
     doc =
         "Holds toolchains available for a particular exec group. Toolchain targets are accessed by"
             + " indexing with the toolchain type, as in"
-            + " <code>context[\"//pkg:my_toolchain_type\"]</code>.")
-public interface ToolchainContextApi extends StarlarkValue, StarlarkIndexable.Threaded {}
+            + " <code>ctx.toolchains[\"//pkg:my_toolchain_type\"]</code>. If the toolchain was"
+            + " optional and no toolchain was resolved, this will return <code>None</code>."
+            + " Accessing toolchains of an aspect or rule via"
+            + " <code>ctx.toolchains</code> returns the indexed toolchain as a"
+            + " <code>ToolchainInfo</code> provider. While when using aspects,"
+            + " <code>ToolchainContext</code> is also used to hold the toolchains of the base"
+            + " target. It can be accessed by"
+            + " <code>ctx.rule.toolchains[\"//pkg:my_toolchain_type\"]</code> and it returns the"
+            + " list of providers resulted from applying the aspects on these toolchain targets. ")
+public interface ToolchainContextApi extends StarlarkValue, StarlarkIndexable.Threaded {
+
+  @StarlarkMethod(name = "toolchain_types", doc = "Returns the resolved toolchain type labels.")
+  Sequence<Label> toolchainTypes();
+}

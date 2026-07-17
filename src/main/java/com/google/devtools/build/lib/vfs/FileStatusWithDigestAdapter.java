@@ -17,14 +17,17 @@ import com.google.common.base.Preconditions;
 import java.io.IOException;
 import javax.annotation.Nullable;
 
-/**
- * An adapter from FileStatus to FileStatusWithDigest.
- */
+/** An adapter from FileStatus to FileStatusWithDigest. */
 public class FileStatusWithDigestAdapter implements FileStatusWithDigest {
   private final FileStatus stat;
 
-  public static FileStatusWithDigest adapt(FileStatus stat) {
-    return stat == null ? null : new FileStatusWithDigestAdapter(stat);
+  @Nullable
+  public static FileStatusWithDigest maybeAdapt(@Nullable FileStatus stat) {
+    return stat == null
+        ? null
+        : stat instanceof FileStatusWithDigest fileStatusWithDigest
+            ? fileStatusWithDigest
+            : new FileStatusWithDigestAdapter(stat);
   }
 
   private FileStatusWithDigestAdapter(FileStatus stat) {
@@ -75,5 +78,10 @@ public class FileStatusWithDigestAdapter implements FileStatusWithDigest {
   @Override
   public long getNodeId() throws IOException {
     return stat.getNodeId();
+  }
+
+  @Override
+  public int getPermissions() {
+    return stat.getPermissions();
   }
 }

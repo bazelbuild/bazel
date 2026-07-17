@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime.commands;
 
+import static com.google.devtools.build.lib.runtime.Command.BuildPhase.NONE;
+
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.NoBuildEvent;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
@@ -32,12 +34,12 @@ import java.nio.file.attribute.BasicFileAttributes;
 
 /** A command that prints an embedded license text. */
 @Command(
-  name = "license",
-  allowResidue = true,
-  mustRunInWorkspace = false,
-  shortDescription = "Prints the license of this software.",
-  help = "Prints the license of this software.\n\n%{options}"
-)
+    name = "license",
+    buildPhase = NONE,
+    allowResidue = true,
+    mustRunInWorkspace = false,
+    shortDescription = "Prints the license of this software.",
+    help = "Prints the license of this software.\n\n%{options}")
 public class LicenseCommand implements BlazeCommand {
 
   private static final ImmutableSet<String> JAVA_LICENSE_FILES =

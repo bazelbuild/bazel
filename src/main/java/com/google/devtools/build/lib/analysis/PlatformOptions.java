@@ -14,47 +14,48 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.analysis.config.CoreOptionConverters;
-import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.EmptyToNullLabelConverter;
+import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelConverter;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelListConverter;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.util.OptionsUtils;
+import com.google.devtools.build.lib.skyframe.config.PlatformMappingKey;
+import com.google.devtools.build.lib.util.OptionsUtils.PathFragmentConverter;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.common.options.Converters;
+import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
+import com.google.devtools.common.options.OptionsClass;
+import com.google.devtools.common.options.OptionsParsingException;
 import java.util.List;
-import java.util.Map;
+import javax.annotation.Nullable;
 
 /** Command-line options for platform-related configuration. */
-public class PlatformOptions extends FragmentOptions {
+@OptionsClass
+public abstract class PlatformOptions extends FragmentOptions {
 
-  // TODO(https://github.com/bazelbuild/bazel/issues/6849): After migration, set the defaults
-  // directly.
-  public static final Label LEGACY_DEFAULT_HOST_PLATFORM =
-      Label.parseAbsoluteUnchecked("@bazel_tools//platforms:host_platform");
-  public static final Label DEFAULT_HOST_PLATFORM =
-      Label.parseAbsoluteUnchecked("@local_config_platform//:host");
+  private static final ImmutableSet<String> DEFAULT_PLATFORM_NAMES =
+      ImmutableSet.of("host", "host_platform", "target_platform", "default_host", "default_target");
 
-  /**
-   * Main workspace-relative location to use when the user does not explicitly set {@code
-   * --platform_mappings}.
-   */
-  public static final PathFragment DEFAULT_PLATFORM_MAPPINGS =
-      PathFragment.create("platform_mappings");
+  public static final String DEFAULT_HOST_PLATFORM = "@bazel_tools//tools:host_platform";
+
+  public static boolean platformIsDefault(Label platform) {
+    return DEFAULT_PLATFORM_NAMES.contains(platform.getName());
+  }
 
   @Option(
       name = "host_platform",
       oldName = "experimental_host_platform",
-      converter = EmptyToNullLabelConverter.class,
-      defaultValue = "",
+      converter = HostPlatformConverter.class,
+      defaultValue = DEFAULT_HOST_PLATFORM,
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = {
         OptionEffectTag.AFFECTS_OUTPUTS,
@@ -62,21 +63,25 @@ public class PlatformOptions extends FragmentOptions {
         OptionEffectTag.LOADING_AND_ANALYSIS
       },
       help = "The label of a platform rule that describes the host system.")
-  public Label hostPlatform;
+  public abstract Label getHostPlatform();
+
+  public abstract void setHostPlatform(Label value);
 
   @Option(
       name = "extra_execution_platforms",
       converter = CommaSeparatedOptionListConverter.class,
-      defaultValue = "null",
+      defaultValue = "",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-      allowMultiple = true,
       effectTags = {OptionEffectTag.EXECUTION},
       help =
-          "The platforms that are available as execution platforms to run actions. "
-              + "Platforms can be specified by exact target, or as a target pattern. "
-              + "These platforms will be considered before those declared in the WORKSPACE file by "
-              + "register_execution_platforms().")
-  public List<String> extraExecutionPlatforms;
+          """
+          The platforms that are available as execution platforms to run actions.
+          Platforms can be specified by exact target, or as a target pattern.
+          These platforms will be considered before those declared in the `WORKSPACE` file by
+          `register_execution_platforms()`. This option may only be set once; later
+          instances will override earlier flag settings.
+          """)
+  public abstract List<String> getExtraExecutionPlatforms();
 
   @Option(
       name = "platforms",
@@ -92,22 +97,9 @@ public class PlatformOptions extends FragmentOptions {
       help =
           "The labels of the platform rules describing the target platforms for the current "
               + "command.")
-  public List<Label> platforms;
+  public abstract List<Label> getPlatforms();
 
-  @Option(
-      name = "target_platform_fallback",
-      converter = EmptyToNullLabelConverter.class,
-      defaultValue = "@bazel_tools//platforms:target_platform",
-      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-      effectTags = {
-        OptionEffectTag.AFFECTS_OUTPUTS,
-        OptionEffectTag.CHANGES_INPUTS,
-        OptionEffectTag.LOADING_AND_ANALYSIS
-      },
-      help =
-          "The label of a platform rule that should be used if no target platform is set and no"
-              + " platform mapping matches the current set of flags.")
-  public Label targetPlatformFallback;
+  public abstract void setPlatforms(List<Label> value);
 
   @Option(
       name = "extra_toolchains",
@@ -121,30 +113,15 @@ public class PlatformOptions extends FragmentOptions {
         OptionEffectTag.LOADING_AND_ANALYSIS
       },
       help =
-          "The toolchain rules to be considered during toolchain resolution. "
-              + "Toolchains can be specified by exact target, or as a target pattern. "
-              + "These toolchains will be considered before those declared in the WORKSPACE file "
-              + "by register_toolchains().")
-  public List<String> extraToolchains;
+          """
+          The toolchain rules to be considered during toolchain resolution.
+          Toolchains can be specified by exact target, or as a target pattern.
+          These toolchains will be considered before those declared in the `WORKSPACE` file
+          by `register_toolchains()`.
+          """)
+  public abstract List<String> getExtraToolchains();
 
-  @Option(
-      name = "toolchain_resolution_override",
-      allowMultiple = true,
-      defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {
-        OptionEffectTag.AFFECTS_OUTPUTS,
-        OptionEffectTag.CHANGES_INPUTS,
-        OptionEffectTag.LOADING_AND_ANALYSIS
-      },
-      deprecationWarning =
-          "toolchain_resolution_override is now a no-op and will be removed in"
-              + " an upcoming release",
-      help =
-          "Override toolchain resolution for a toolchain type with a specific toolchain. "
-              + "Example: --toolchain_resolution_override=@io_bazel_rules_go//:toolchain="
-              + "@io_bazel_rules_go//:linux-arm64-toolchain")
-  public List<String> toolchainResolutionOverrides;
+  public abstract void setExtraToolchains(List<String> value);
 
   @Option(
       name = "toolchain_resolution_debug",
@@ -154,43 +131,24 @@ public class PlatformOptions extends FragmentOptions {
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
       help =
           "Print debug information during toolchain resolution. The flag takes a regex, which is"
-              + " checked against toolchain types to see which to debug. Multiple regexes may be"
-              + " separated by commas, and then each regex is checked separately. Note: The output"
-              + " of this flag is very complex and will likely only be useful to experts in"
-              + " toolchain resolution.")
-  public RegexFilter toolchainResolutionDebug;
-
-  @Option(
-      name = "incompatible_auto_configure_host_platform",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help =
-          "If true, the host platform will be inherited from @local_config_platform//:host, "
-              + "instead of being based on the --cpu (and --host_cpu) flags.")
-  public boolean autoConfigureHostPlatform;
+              + " checked against toolchain types and specific targets to see which to debug. "
+              + "Multiple regexes may be  separated by commas, and then each regex is checked "
+              + "separately. Note: The output of this flag is very complex and will likely only be "
+              + "useful to experts in toolchain resolution.")
+  public abstract RegexFilter getToolchainResolutionDebug();
 
   @Option(
       name = "incompatible_use_toolchain_resolution_for_java_rules",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = OptionEffectTag.UNKNOWN,
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help =
-          "If set to true, toolchain resolution will be used to resolve java_toolchain and"
-              + " java_runtime.")
-  public boolean useToolchainResolutionForJavaRules;
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help = "No-op. Kept here for backwards compatibility.")
+  public abstract boolean getUseToolchainResolutionForJavaRules();
 
   @Option(
       name = "platform_mappings",
-      converter = OptionsUtils.EmptyToNullRelativePathFragmentConverter.class,
+      converter = PlatformMappingKeyConverter.class,
       defaultValue = "",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = {
@@ -198,109 +156,120 @@ public class PlatformOptions extends FragmentOptions {
         OptionEffectTag.CHANGES_INPUTS,
         OptionEffectTag.LOADING_AND_ANALYSIS
       },
-      help =
-          "The location of a mapping file that describes which platform to use if none is set or "
-              + "which flags to set when a platform already exists. Must be relative to the main "
-              + "workspace root. Defaults to 'platform_mappings' (a file directly under the "
-              + "workspace root).")
-  public PathFragment platformMappings;
-
-  @Option(
-      name = "experimental_add_exec_constraints_to_targets",
-      converter = RegexFilterToLabelListConverter.class,
-      defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-      effectTags = OptionEffectTag.LOADING_AND_ANALYSIS,
-      allowMultiple = true,
-      help =
-          "List of comma-separated regular expressions, each optionally prefixed by - (negative"
-              + " expression), assigned (=) to a list of comma-separated constraint value targets."
-              + " If a target matches no negative expression and at least one positive expression"
-              + " its toolchain resolution will be performed as if it had declared the constraint"
-              + " values as execution constraints. Example: //demo,-test=@platforms//cpus:x86_64"
-              + " will add 'x86_64' to any target under //demo except for those whose name contains"
-              + " 'test'.")
-  public List<Map.Entry<RegexFilter, List<Label>>> targetFilterToAdditionalExecConstraints;
-
-  @Option(
-      name = "incompatible_override_toolchain_transition",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = OptionEffectTag.LOADING_AND_ANALYSIS,
       metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+        OptionMetadataTag.NON_CONFIGURABLE,
       },
       help =
-          "If set to true, all rules will use the toolchain transition for toolchain dependencies.")
-  public boolean overrideToolchainTransition;
+          """
+          The location of a mapping file that describes which platform to use if none is set or
+          which flags to set when a platform already exists. Must be relative to the main
+          workspace root. Defaults to `platform_mappings` (a file directly under the
+          workspace root).
+          """)
+  public abstract PlatformMappingKey getPlatformMappingKey();
+
+  /**
+   * Deduplicate the given list, keeping the last copy of any duplicates.
+   *
+   * <p>Example: [a, b, a, c, b] -> [a, c, b]
+   */
+  private static ImmutableList<String> dedupeKeepingLast(ImmutableList<String> values) {
+    // Check common cases.
+    if (values.size() <= 1) {
+      return values;
+    }
+
+    // Reverse the list and then deduplicate.
+    ImmutableList<String> reversedResult =
+        values.reverse().stream().distinct().collect(toImmutableList());
+
+    // If there were no duplicates, return the exact same instance we got.
+    if (reversedResult.size() == values.size()) {
+      return values;
+    }
+
+    // Reverse the result to get back to the original order.
+    return reversedResult.reverse();
+  }
 
   @Override
-  public PlatformOptions getHost() {
-    PlatformOptions host = (PlatformOptions) getDefault();
-    host.platforms =
-        this.hostPlatform == null ? ImmutableList.of() : ImmutableList.of(this.hostPlatform);
-    host.hostPlatform = this.hostPlatform;
-    host.platformMappings = this.platformMappings;
-    host.extraExecutionPlatforms = this.extraExecutionPlatforms;
-    host.extraToolchains = this.extraToolchains;
-    host.toolchainResolutionDebug = this.toolchainResolutionDebug;
-    host.toolchainResolutionOverrides = this.toolchainResolutionOverrides;
-    host.autoConfigureHostPlatform = this.autoConfigureHostPlatform;
-    host.useToolchainResolutionForJavaRules = this.useToolchainResolutionForJavaRules;
-    host.targetPlatformFallback = this.targetPlatformFallback;
-    host.overrideToolchainTransition = this.overrideToolchainTransition;
-    return host;
+  public PlatformOptions getNormalized() {
+    PlatformOptions result = (PlatformOptions) clone();
+    result.setExtraToolchains(
+        dedupeKeepingLast(
+            result.getExtraToolchains() == null
+                ? ImmutableList.of()
+                : ImmutableList.copyOf(result.getExtraToolchains())));
+    // Only the first entry of platforms is used (it should have been Label and not List<Label>)
+    // So drop all but the first entry.
+    if (result.getPlatforms().size() > 1) {
+      result.setPlatforms(ImmutableList.of(result.getPlatforms().get(0)));
+    }
+    return result;
   }
 
   /** Returns the intended target platform value based on options defined in this fragment. */
   public Label computeTargetPlatform() {
-    // Handle default values for the host and target platform.
-    // TODO(https://github.com/bazelbuild/bazel/issues/6849): After migration, set the defaults
-    // directly.
-
-    if (!platforms.isEmpty()) {
-      return Iterables.getFirst(platforms, null);
-    } else if (autoConfigureHostPlatform) {
+    if (!getPlatforms().isEmpty()) {
+      return Iterables.getFirst(getPlatforms(), null);
+    } else {
       // Default to the host platform, whatever it is.
-      return computeHostPlatform();
-    } else {
-      // Use the legacy target platform
-      return targetPlatformFallback;
+      return getHostPlatform();
     }
   }
 
-  /** Returns the intended host platform value based on options defined in this fragment. */
-  public Label computeHostPlatform() {
-    // Handle default values for the host and target platform.
-    // TODO(https://github.com/bazelbuild/bazel/issues/6849): After migration, set the defaults
-    // directly.
-
-    if (this.hostPlatform != null) {
-      return this.hostPlatform;
-    } else if (autoConfigureHostPlatform) {
-      // Use the auto-configured host platform.
-      return DEFAULT_HOST_PLATFORM;
-    } else {
-      // Use the legacy host platform.
-      return LEGACY_DEFAULT_HOST_PLATFORM;
+  /**
+   * Converter for {@code --host_platform} that returns the default host platform if the flag is set
+   * to empty string.
+   */
+  private static final class HostPlatformConverter extends LabelConverter {
+    @Override
+    @Nullable
+    public Label convert(String input, Object conversionContext) throws OptionsParsingException {
+      if (input.isEmpty()) {
+        return super.convert(DEFAULT_HOST_PLATFORM, conversionContext);
+      }
+      return super.convert(input, conversionContext);
     }
   }
 
-  /** Converter of filter to label list valued flags. */
-  public static final class RegexFilterToLabelListConverter
-      extends Converters.AssignmentToListOfValuesConverter<RegexFilter, Label> {
+  /**
+   * Converter for {@code --platform_mappings} that creates a canonical {@link PlatformMappingKey}
+   * for the build.
+   */
+  private static final class PlatformMappingKeyConverter implements Converter<PlatformMappingKey> {
+    private final PathFragmentConverter pathConverter = new PathFragmentConverter();
 
-    public RegexFilterToLabelListConverter() {
-      super(
-          new RegexFilter.RegexFilterConverter(),
-          new CoreOptionConverters.LabelConverter(),
-          AllowEmptyKeys.NO);
+    @Override
+    public PlatformMappingKey convert(String input, @Nullable Object conversionContext)
+        throws OptionsParsingException {
+      if (input.isEmpty()) {
+        return PlatformMappingKey.DEFAULT;
+      }
+      PathFragment path = pathConverter.convert(input);
+      if (path.isAbsolute()) {
+        throw new OptionsParsingException("Expected relative path but got '" + input + "'.");
+      }
+      return PlatformMappingKey.createExplicitlySet(path);
+    }
+
+    @Override
+    public boolean starlarkConvertible() {
+      return true;
+    }
+
+    @Override
+    public String reverseForStarlark(Object converted) {
+      var key = (PlatformMappingKey) converted;
+      return key.equals(PlatformMappingKey.DEFAULT)
+          ? ""
+          : key.getWorkspaceRelativeMappingPath().getPathString();
     }
 
     @Override
     public String getTypeDescription() {
-      return "a '<RegexFilter>=<label1>[,<label2>,...]' assignment";
+      return "a main workspace-relative path";
     }
   }
+
 }

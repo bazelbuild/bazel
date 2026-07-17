@@ -25,8 +25,6 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.PlatformConfigurationApi;
 import com.google.devtools.build.lib.util.RegexFilter;
 import java.util.Collection;
-import java.util.List;
-import java.util.Map;
 
 /** A configuration fragment describing the current platform configuration. */
 @ThreadSafety.Immutable
@@ -36,26 +34,26 @@ public class PlatformConfiguration extends Fragment implements PlatformConfigura
   private final ImmutableList<String> extraExecutionPlatforms;
   private final Label targetPlatform;
   private final ImmutableList<String> extraToolchains;
-  private final List<Map.Entry<RegexFilter, List<Label>>> targetFilterToAdditionalExecConstraints;
   private final RegexFilter toolchainResolutionDebugRegexFilter;
 
-  public PlatformConfiguration(BuildOptions buildOptions) {
-    PlatformOptions platformOptions = buildOptions.get(PlatformOptions.class);
+  public PlatformConfiguration(BuildOptions options) {
+    this(options.get(PlatformOptions.class));
+  }
 
-    this.hostPlatform = platformOptions.computeHostPlatform();
-    this.extraExecutionPlatforms = ImmutableList.copyOf(platformOptions.extraExecutionPlatforms);
+  public PlatformConfiguration(PlatformOptions platformOptions) {
+    this.hostPlatform = platformOptions.getHostPlatform();
+    this.extraExecutionPlatforms =
+        ImmutableList.copyOf(platformOptions.getExtraExecutionPlatforms());
     this.targetPlatform = platformOptions.computeTargetPlatform();
-    this.extraToolchains = ImmutableList.copyOf(platformOptions.extraToolchains);
-    this.targetFilterToAdditionalExecConstraints =
-        platformOptions.targetFilterToAdditionalExecConstraints;
-    this.toolchainResolutionDebugRegexFilter = platformOptions.toolchainResolutionDebug;
+    this.extraToolchains = ImmutableList.copyOf(platformOptions.getExtraToolchains());
+    this.toolchainResolutionDebugRegexFilter = platformOptions.getToolchainResolutionDebug();
   }
 
   @Override
   public void reportInvalidOptions(EventHandler reporter, BuildOptions buildOptions) {
     PlatformOptions platformOptions = buildOptions.get(PlatformOptions.class);
     // TODO(https://github.com/bazelbuild/bazel/issues/6519): Implement true multiplatform builds.
-    if (platformOptions.platforms.size() > 1) {
+    if (platformOptions.getPlatforms().size() > 1) {
       reporter.handle(
           Event.warn(
               String.format(
@@ -101,36 +99,24 @@ public class PlatformConfiguration extends Fragment implements PlatformConfigura
   }
 
   /**
-   * Returns a list of labels referring to additional constraint value targets which should be taken
-   * into account when resolving the toolchains/execution platform for the target with the given
-   * label.
+   * Returns true if toolchain resolution debug info should be printed for this label, which could
+   * be a toolchain type or a specific target.
    */
-  public List<Label> getAdditionalExecutionConstraintsFor(Label label) {
-    ImmutableList.Builder<Label> constraints = ImmutableList.builder();
-    for (Map.Entry<RegexFilter, List<Label>> filter : targetFilterToAdditionalExecConstraints) {
-      if (filter.getKey().isIncluded(label.getCanonicalForm())) {
-        constraints.addAll(filter.getValue());
-      }
-    }
-    return constraints.build();
-  }
-
-  /** Returns true if toolchain resolution debug info should be printed for this toolchain type. */
-  public boolean debugToolchainResolution(Label toolchainType) {
-    return debugToolchainResolution(ImmutableList.of(toolchainType));
+  public boolean debugToolchainResolution(Label label) {
+    return debugToolchainResolution(ImmutableList.of(label));
   }
 
   /**
-   * Returns true if toolchain resolution debug info should be printed for any of these toolchain
-   * types.
+   * Returns true if toolchain resolution debug info should be printed for any of these labels,
+   * which could be either toolchain types or specific targets.
    */
-  public boolean debugToolchainResolution(Collection<Label> toolchainTypes) {
-    if (toolchainTypes.isEmpty()) {
+  public boolean debugToolchainResolution(Collection<Label> labels) {
+    if (labels.isEmpty()) {
       // Check an empty string, in case the filter is .*
       return this.toolchainResolutionDebugRegexFilter.test("");
     }
-    return toolchainTypes.stream()
+    return labels.stream()
         .map(Label::getCanonicalForm)
-        .anyMatch(toolchainType -> this.toolchainResolutionDebugRegexFilter.test(toolchainType));
+        .anyMatch(this.toolchainResolutionDebugRegexFilter);
   }
 }

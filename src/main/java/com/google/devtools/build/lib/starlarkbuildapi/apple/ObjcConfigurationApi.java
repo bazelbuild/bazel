@@ -16,10 +16,12 @@ package com.google.devtools.build.lib.starlarkbuildapi.apple;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.docgen.annot.DocCategory;
-import javax.annotation.Nullable;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 
 /** A configuration fragment for Objective C. */
@@ -27,64 +29,7 @@ import net.starlark.java.eval.StarlarkValue;
     name = "objc",
     category = DocCategory.CONFIGURATION_FRAGMENT,
     doc = "A configuration fragment for Objective-C.")
-public interface ObjcConfigurationApi<ApplePlatformTypeApiT extends ApplePlatformTypeApi>
-    extends StarlarkValue {
-
-  @StarlarkMethod(
-      name = "ios_simulator_device",
-      structField = true,
-      allowReturnNones = true,
-      doc = "The type of device (e.g. 'iPhone 6') to use when running on the simulator.")
-  @Nullable
-  String getIosSimulatorDevice();
-
-  @StarlarkMethod(
-      name = "ios_simulator_version",
-      structField = true,
-      allowReturnNones = true,
-      doc = "The SDK version of the iOS simulator to use when running on the simulator.")
-  @Nullable
-  DottedVersionApi<?> getIosSimulatorVersion();
-
-  @StarlarkMethod(
-      name = "simulator_device_for_platform_type",
-      allowReturnNones = true,
-      doc = "The type of device (e.g., 'iPhone 6' to simulate when running on the simulator.",
-      parameters = {
-        @Param(
-            name = "platform_type",
-            positional = true,
-            named = false,
-            doc = "The apple platform type."),
-      })
-  @Nullable
-  String getSimulatorDeviceForPlatformType(ApplePlatformTypeApiT platformType);
-
-  @StarlarkMethod(
-      name = "simulator_version_for_platform_type",
-      allowReturnNones = true,
-      doc = "The SDK version of the simulator to use when running on the simulator.",
-      parameters = {
-        @Param(
-            name = "platform_type",
-            positional = true,
-            named = false,
-            doc = "The apple platform type."),
-      })
-  @Nullable
-  DottedVersionApi<?> getSimulatorVersionForPlatformType(ApplePlatformTypeApiT platformType);
-
-  @StarlarkMethod(
-      name = "generate_linkmap",
-      doc = "Whether to generate linkmap artifacts.",
-      structField = true)
-  boolean generateLinkmap();
-
-  @StarlarkMethod(
-      name = "run_memleaks",
-      structField = true,
-      doc = "Returns a boolean indicating whether memleaks should be run during tests or not.")
-  boolean runMemleaks();
+public interface ObjcConfigurationApi extends StarlarkValue {
 
   @StarlarkMethod(
       name = "copts_for_current_compilation_mode",
@@ -95,35 +40,44 @@ public interface ObjcConfigurationApi<ApplePlatformTypeApiT extends ApplePlatfor
   ImmutableList<String> getCoptsForCompilationMode();
 
   @StarlarkMethod(
-      name = "copts",
-      structField = true,
-      doc =
-          "Returns a list of options to use for compiling Objective-C.These options are applied"
-              + " after any default options but before options specified in the attributes of the"
-              + " rule.")
-  ImmutableList<String> getCopts();
-
-  @StarlarkMethod(
-      name = "should_strip_binary",
-      structField = true,
-      doc = "Returns whether to perform symbol and dead-code strippings on linked binaries.")
-  boolean shouldStripBinary();
-
-  @StarlarkMethod(
-      name = "signing_certificate_name",
-      structField = true,
-      allowReturnNones = true,
-      doc =
-          "Returns the flag-supplied certificate name to be used in signing, or None if no such "
-              + "certificate was specified.")
-  @Nullable
-  String getSigningCertName();
-
-  @StarlarkMethod(
       name = "uses_device_debug_entitlements",
       structField = true,
       doc =
           "Returns whether device debug entitlements should be included when signing an "
               + "application.")
   boolean useDeviceDebugEntitlements();
+
+  @StarlarkMethod(
+      name = "disallow_sdk_frameworks_attributes",
+      structField = true,
+      doc = "Returns whether sdk_frameworks and weak_sdk_frameworks are disallowed attributes.")
+  boolean disallowSdkFrameworksAttributes();
+
+  @StarlarkMethod(
+      name = "alwayslink_by_default",
+      structField = true,
+      doc = "Returns whether objc_library and objc_import should default to alwayslink=True.")
+  boolean alwayslinkByDefault();
+
+  @StarlarkMethod(
+      name = "target_should_alwayslink",
+      documented = false,
+      parameters = {@Param(name = "ctx")},
+      useStarlarkThread = true)
+  boolean targetShouldAlwayslink(StarlarkRuleContext ruleContext, StarlarkThread thread)
+      throws EvalException;
+
+  @StarlarkMethod(
+      name = "strip_executable_safely",
+      structField = true,
+      doc =
+          "Returns whether executable strip action should use flag -x, which does not break "
+              + "dynamic symbol resolution.")
+  boolean stripExecutableSafely();
+
+  @StarlarkMethod(
+      name = "builtin_objc_strip_action",
+      structField = true,
+      doc = "Returns whether to emit a strip action as part of objc linking.")
+  boolean builtinObjcStripAction();
 }

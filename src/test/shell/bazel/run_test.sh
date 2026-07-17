@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2020 The Bazel Authors. All rights reserved.
 #
@@ -40,20 +40,6 @@ fi
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-case "$(uname -s | tr [:upper:] [:lower:])" in
-msys*)
-  declare -r is_windows=true
-  ;;
-*)
-  declare -r is_windows=false
-  ;;
-esac
-
-if "$is_windows"; then
-  export MSYS_NO_PATHCONV=1
-  export MSYS2_ARG_CONV_EXCL="*"
-fi
-
 # ------------------------------------------------------------------------------
 # TESTS
 # ------------------------------------------------------------------------------
@@ -66,7 +52,7 @@ function test_running_test_target_with_runfiles_disabled() {
 load(":my_test.bzl", "my_test")
 my_test(name = "x")
 eof
-  if "$is_windows"; then
+  if is_windows; then
     local -r IsWindows=True
   else
     local -r IsWindows=False
@@ -96,13 +82,15 @@ eof
 }
 
 function test_windows_argument_escaping() {
-  if ! "$is_windows"; then
+  if ! is_windows; then
     return # Run test only on Windows.
   fi
 
+  add_rules_shell "MODULE.bazel"
   local -r pkg="pkg${LINENO}"
   mkdir $pkg
   cat >$pkg/BUILD <<eof
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 sh_binary(
   name = "a",
   srcs = [":a.sh"],
@@ -111,7 +99,6 @@ eof
   cat >$pkg/a.sh <<eof
 echo Hello World
 eof
-  disable_errexit
   # This test uses the content of the Bazel error message to test that Bazel correctly handles
   # paths to Bash which contain spaces - which is needed when using --run_under as it
   # unconditionally results in Bazel wrapping the executable in Bash.
@@ -122,9 +109,137 @@ eof
   # rc/main/native/windows/process.cc(202): CreateProcessW("C:\first_
   # part second_part"
   # ```
-  output="$(BAZEL_SH="C:/first_part second_part" bazel run --run_under=":;" $pkg:a 2>&1)"
-  enable_errexit
+  output="$(BAZEL_SH="C:/first_part second_part" bazel run --run_under=":;" $pkg:a 2>&1 || true)"
   echo "$output" | grep --fixed-strings 'ExecuteProgram(C:\first_part second_part)' || fail "Expected error message to contain unquoted path"
+}
+
+function test_run_with_runfiles_env() {
+  add_rules_shell "MODULE.bazel"
+  mkdir -p b
+  cat > b/BUILD <<'EOF'
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+sh_binary(
+  name = "binary",
+  srcs = ["binary.sh"],
+  deps = ["@bazel_tools//tools/bash/runfiles"],
+)
+EOF
+  cat > b/binary.sh <<'EOF'
+#!/usr/bin/env bash
+# --- begin runfiles.bash initialization v3 ---
+# Copy-pasted from the Bazel Bash runfiles library v3.
+set -uo pipefail; set +e; f=bazel_tools/tools/bash/runfiles/runfiles.bash
+source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
+  source "$(grep -sm1 "^$f " "${RUNFILES_MANIFEST_FILE:-/dev/null}" | cut -f2- -d' ')" 2>/dev/null || \
+  source "$0.runfiles/$f" 2>/dev/null || \
+  source "$(grep -sm1 "^$f " "$0.runfiles_manifest" | cut -f2- -d' ')" 2>/dev/null || \
+  source "$(grep -sm1 "^$f " "$0.exe.runfiles_manifest" | cut -f2- -d' ')" 2>/dev/null || \
+  { echo>&2 "ERROR: cannot find $f"; exit 1; }; f=; set -e
+# --- end runfiles.bash initialization v3 ---
+
+own_path=$(rlocation _main/b/binary.sh)
+echo "own path: $own_path"
+test -f "$own_path"
+EOF
+  chmod +x b/binary.sh
+
+  bazel run //b:binary --script_path=script.bat &>"$TEST_log" \
+    || fail "Script generation should succeed"
+
+  cat ./script.bat &>"$TEST_log"
+
+  # Make it so that the runfiles variables point to an incorrect but valid
+  # runfiles directory/manifest, simulating a left over one from a different
+  # test to which RUNFILES_DIR and RUNFILES_MANIFEST_FILE point in the client
+  # env.
+  BOGUS_RUNFILES_DIR="$(pwd)/bogus_runfiles/bazel_tools/tools/bash/runfiles"
+  mkdir -p "$BOGUS_RUNFILES_DIR"
+  touch "$BOGUS_RUNFILES_DIR/runfiles.bash"
+  BOGUS_RUNFILES_MANIFEST_FILE="$(pwd)/bogus_manifest"
+  echo "bazel_tools/tools/bash/runfiles/runfiles.bash bogus/path" > "$BOGUS_RUNFILES_MANIFEST_FILE"
+
+  RUNFILES_DIR="$BOGUS_RUNFILES_DIR" RUNFILES_MANIFEST_FILE="$BOGUS_RUNFILES_MANIFEST_FILE" \
+     ./script.bat || fail "Run should succeed"
+}
+
+function test_run_test_exit_code() {
+  add_rules_shell "MODULE.bazel"
+  mkdir -p foo
+  cat > foo/BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
+sh_test(
+  name = "exit0",
+  srcs = ["exit0.sh"],
+)
+
+sh_test(
+  name = "exit1",
+  srcs = ["exit1.sh"],
+)
+EOF
+
+  cat > foo/exit0.sh <<'EOF'
+set -x
+exit 0
+EOF
+  chmod +x foo/exit0.sh
+  bazel run //foo:exit0 &>"$TEST_log" \
+    || fail "Expected exit code 0, received $?"
+
+  cat > foo/exit1.sh <<'EOF'
+set -x
+exit 1
+EOF
+  chmod +x foo/exit1.sh
+  bazel run //foo:exit1 &>"$TEST_log" \
+    && fail "Expected exit code 1, received $?"
+
+  # Avoid failing the test because of the last non-zero exit-code.
+  true
+}
+
+function test_run_subcommands_flag() {
+  add_rules_shell "MODULE.bazel"
+  local -r pkg="pkg${LINENO}"
+  mkdir $pkg
+  cat >$pkg/BUILD <<EOF
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+sh_binary(
+    name = "hello",
+    srcs = ["hello.sh"],
+)
+EOF
+
+  cat >$pkg/hello.sh <<'EOF'
+#!/bin/bash
+echo "Hello from test script!"
+echo "BUILD_WORKING_DIRECTORY: \${BUILD_WORKING_DIRECTORY:-NOT SET}"
+echo "CUSTOM_VAR: \${CUSTOM_VAR:-NOT SET}"
+EOF
+  chmod +x $pkg/hello.sh
+
+  bazel run //$pkg:hello --run_env=CUSTOM_VAR=test_value >&$TEST_log 2>&1 \
+    || fail "Expected bazel run to succeed"
+  expect_log "Running command line:"
+  if is_windows; then
+    expect_not_log "cd /d"
+  else
+    expect_not_log "exec env"
+  fi
+
+  bazel run -s //$pkg:hello --run_env=CUSTOM_VAR=test_value >&$TEST_log 2>&1 \
+    || fail "Expected bazel run -s to succeed"
+  expect_log "Running command line:"
+  if is_windows; then
+    expect_log "cd /d"
+    expect_log "SET BUILD_WORKSPACE_DIRECTORY="
+    expect_log "SET CUSTOM_VAR=test_value"
+  else
+    expect_log "exec env"
+    expect_log "BUILD_WORKING_DIRECTORY="
+    expect_log "CUSTOM_VAR=test_value"
+  fi
 }
 
 run_suite "run_under_tests"

@@ -17,7 +17,7 @@ import io
 import os
 import socket
 import threading
-import unittest
+from absl.testing import absltest
 from src.test.py.bazel import test_base
 
 # pylint: disable=g-import-not-at-top,g-importing-member
@@ -64,12 +64,32 @@ class MemoryStorageHandler(BaseHTTPRequestHandler):
     self.finish()
 
 
+class HTTPServerV6(HTTPServer):
+  address_family = socket.AF_INET6
+
+
+class HTTPServerDualStack(HTTPServer):
+  address_family = socket.AF_INET6
+
+  def server_bind(self):
+    # Disable IPV6_V6ONLY to allow IPv4 connections
+    self.socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 0)
+    super().server_bind()
+
+
 class CacheDecompressionTest(test_base.TestBase):
 
   def setUp(self):
     test_base.TestBase.setUp(self)
-    server_port = self.GetFreeTCPPort()
-    self.httpd = HTTPServer(('localhost', server_port), MemoryStorageHandler)
+    if socket.has_dualstack_ipv6():
+      self.httpd = HTTPServerDualStack(('::', 0), MemoryStorageHandler)
+      _, server_port, _, _ = self.httpd.server_address
+    elif socket.has_ipv6:
+      self.httpd = HTTPServerV6(('::', 0), MemoryStorageHandler)
+      _, server_port, _, _ = self.httpd.server_address
+    else:
+      self.httpd = HTTPServer(('localhost', server_port), MemoryStorageHandler)
+      _, server_port = self.httpd.server_address
     self.httpd.storage = {}
     self.url = 'http://localhost:{}'.format(server_port)
     self.background = threading.Thread(target=self.httpd.serve_forever)
@@ -93,35 +113,26 @@ class CacheDecompressionTest(test_base.TestBase):
         ')',
     ])
 
-    exit_code, _, stderr = self.RunBazel(
-        ['build', '//:genrule.txt', '--remote_cache', self.url])
-    self.AssertExitCode(exit_code, 0, stderr)
+    _, _, stderr = self.RunBazel(
+        ['build', '//:genrule.txt', '--remote_cache', self.url]
+    )
     self.assertNotIn('INFO: 2 processes: 1 remote cache hit, 1 internal',
                      stderr)
     self.assertNotIn('HTTP version 1.1 is required', stderr)
 
-    exit_code, _, stderr = self.RunBazel(['clean', '--expunge'])
-    self.AssertExitCode(exit_code, 0, stderr)
+    self.RunBazel(['clean', '--expunge'])
 
-    exit_code, _, stderr = self.RunBazel(
-        ['build', '//:genrule.txt', '--remote_cache', self.url])
-    self.AssertExitCode(exit_code, 0, stderr)
+    _, _, stderr = self.RunBazel(
+        ['build', '//:genrule.txt', '--remote_cache', self.url]
+    )
     self.assertIn('INFO: 2 processes: 1 remote cache hit, 1 internal.', stderr)
     self.assertNotIn('HTTP version 1.1 is required', stderr)
 
-    exit_code, stdout, stderr = self.RunBazel(['info', 'bazel-genfiles'])
-    self.AssertExitCode(exit_code, 0, stderr)
+    _, stdout, _ = self.RunBazel(['info', 'bazel-genfiles'])
     bazel_genfiles = stdout[0]
 
     self.AssertFileContentEqual(
         os.path.join(bazel_genfiles, 'genrule.txt'), content)
-
-  def GetFreeTCPPort(self):
-    tcp = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    tcp.bind(('localhost', 0))
-    _, port = tcp.getsockname()
-    tcp.close()
-    return port
 
   def AssertFileContentEqual(self, file_path, entry):
     with open(file_path, 'r') as f:
@@ -129,4 +140,4 @@ class CacheDecompressionTest(test_base.TestBase):
 
 
 if __name__ == '__main__':
-  unittest.main()
+  absltest.main()

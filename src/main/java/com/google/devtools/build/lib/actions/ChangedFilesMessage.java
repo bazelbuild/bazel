@@ -13,39 +13,36 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
+import static java.util.Objects.requireNonNull;
+
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.util.Set;
 
 /**
  * A message sent conveying a set of changed files. This is sent over the event bus if a build is
- * discovered to have changed files. If many files have changed, the set of changed files will
- * be empty, but {@link #getChangedFileCount} will still return the correct number.
+ * discovered to have changed files. If many files have changed, the set of changed files will be
+ * empty, but {@link #changedFileCount} will still return the correct number.
+ *
+ * @param changedFiles Returns a set with one PathFragment for each file that was changed since the
+ *     last build, or an empty set if the set is unknown or would be too big.
+ * @param changedFileCount Returns the number of changed files. This will always be the correct
+ *     number of files, even when {@link #changedFiles} might return an empty set, because the
+ *     actual set would be too big.
+ * @param invalidatedFileValueCount Returns the number of {@link FileValue} nodes invalidated in the
+ *     build.
+ *     <p>This is different from {@link #changedFiles} , in particular a single file change can
+ *     result with multiple {@linkplain FileValue FVs} .
  */
-public class ChangedFilesMessage {
-
-  private final Set<PathFragment> changedFiles;
-  private final int changedFileCount;
-
-  public ChangedFilesMessage(Set<PathFragment> changedFiles, int changedFileCount) {
-    this.changedFiles = ImmutableSet.copyOf(changedFiles);
-    this.changedFileCount = changedFileCount;
+public record ChangedFilesMessage(
+    ImmutableSet<PathFragment> changedFiles, int changedFileCount, int invalidatedFileValueCount) {
+  public ChangedFilesMessage {
+    requireNonNull(changedFiles, "changedFiles");
   }
 
-  /**
-   * Returns a set with one PathFragment for each file that was changed since the last build, or
-   * an empty set if the set is unknown or would be too big.
-   */
-  public Set<PathFragment> getChangedFiles() {
-    return changedFiles;
-  }
-
-  /**
-   * Returns the number of changed files. This will always be the correct number of files, even when
-   * {@link #getChangedFiles} might return an empty set, because the actual set would be too big.
-   */
-  public int getChangedFileCount() {
-    return changedFileCount;
+  public static ChangedFilesMessage create(
+      Set<PathFragment> changedFiles, int changedFileCount, int invalidatedFileValueCount) {
+    return new ChangedFilesMessage(
+        ImmutableSet.copyOf(changedFiles), changedFileCount, invalidatedFileValueCount);
   }
 }

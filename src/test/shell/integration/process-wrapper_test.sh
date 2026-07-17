@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
@@ -22,8 +22,6 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 source "${CURRENT_DIR}/execution_statistics_utils.sh" \
   || { echo "execution_statistics_utils.sh not found!" >&2; exit 1; }
-
-enable_errexit
 
 readonly CPU_TIME_SPENDER="${CURRENT_DIR}/../../../test/shell/integration/spend_cpu_time"
 

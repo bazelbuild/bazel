@@ -14,23 +14,24 @@
 
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
-import com.google.devtools.build.lib.actions.Actions.GeneratingActions;
 import com.google.devtools.build.lib.actions.BasicActionLookupValue;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import javax.annotation.Nullable;
 
 /** A SkyValue to store the coverage report Action and Artifacts. */
 public final class CoverageReportValue extends BasicActionLookupValue {
-
   // There should only ever be one CoverageReportValue value in the graph.
   @SerializationConstant
   public static final ActionLookupKey COVERAGE_REPORT_KEY = new CoverageReportKey();
 
-  CoverageReportValue(GeneratingActions generatingActions) {
-    super(generatingActions);
+  CoverageReportValue(ImmutableList<ActionAnalysisMetadata> actions) {
+    super(actions);
   }
 
   private static final class CoverageReportKey implements ActionLookupKey {
@@ -43,8 +44,19 @@ public final class CoverageReportValue extends BasicActionLookupValue {
 
     @Nullable
     @Override
+    public BuildConfigurationKey getConfigurationKey() {
+      return null;
+    }
+
+    @Nullable
+    @Override
     public Label getLabel() {
       return null;
+    }
+
+    @Override
+    public String toString() {
+      return "CoverageReportKeySingleton";
     }
   }
 }

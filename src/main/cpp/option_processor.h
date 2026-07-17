@@ -15,7 +15,6 @@
 #ifndef BAZEL_SRC_MAIN_CPP_OPTION_PROCESSOR_H_
 #define BAZEL_SRC_MAIN_CPP_OPTION_PROCESSOR_H_
 
-#include <list>
 #include <memory>
 #include <string>
 #include <utility>
@@ -47,6 +46,13 @@ struct CommandLine {
         startup_args(std::move(startup_args_arg)),
         command(std::move(command_arg)),
         command_args(std::move(command_args_arg)) {}
+};
+
+// Represents an option parsed from a blazerc file.
+struct BlazercOption {
+  std::string source_path;
+  std::string command;
+  std::string option;
 };
 
 // This class is responsible for parsing the command line of the Blaze binary,
@@ -88,12 +94,14 @@ class OptionProcessor {
   virtual std::unique_ptr<CommandLine> SplitCommandLine(
       std::vector<std::string> args, std::string* error) const;
 
+  static constexpr int MaxImportDepth = RcFile::MaxImportDepth;
   // Parse a command line and the appropriate blazerc files and stores the
   // results. This should be invoked only once per OptionProcessor object.
   blaze_exit_code::ExitCode ParseOptions(const std::vector<std::string>& args,
                                          const std::string& workspace,
                                          const std::string& cwd,
-                                         std::string* error);
+                                         std::string* error,
+                                         int max_import_depth = MaxImportDepth);
 
   // Get the Blaze command to be executed.
   // Returns an empty string if no command was found on the command line.
@@ -108,6 +116,10 @@ class OptionProcessor {
   // Gets the arguments explicitly provided by the user's command line.
   std::vector<std::string> GetExplicitCommandArguments() const;
 
+  // Gets the options extracted from the blazerc files. Must only be called
+  // after ParseOptions.
+  std::vector<BlazercOption> GetParsedBlazercOptions() const;
+
   // Returns the underlying StartupOptions object with parsed values. Must
   // only be called after ParseOptions.
   virtual StartupOptions* GetParsedStartupOptions() const;
@@ -117,11 +129,21 @@ class OptionProcessor {
   // the failure. Otherwise, the server will handle any required logging.
   void PrintStartupOptionsProvenanceMessage() const;
 
+  // Sets the build label.
+  void SetBuildLabel(const std::string& build_label) {
+    build_label_ = build_label;
+  }
+
+  // Parse the files in `blazercs` and return all options that need to be passed
+  // to the server. The options are returned in the order they should be appear
+  // on the command line (later options have precedence over earlier ones).
+  static std::vector<BlazercOption> GetBlazercOptions(
+      const std::string& cwd, const std::vector<RcFile*>& blazercs);
+
   // Constructs all synthetic command args that should be passed to the
   // server to configure blazerc options and client environment.
   static std::vector<std::string> GetBlazercAndEnvCommandArgs(
-      const std::string& cwd,
-      const std::vector<RcFile*>& blazercs,
+      const std::string& cwd, const std::vector<BlazercOption>& blazerc_options,
       const std::vector<std::string>& env);
 
   // Finds and parses the appropriate RcFiles:
@@ -129,12 +151,13 @@ class OptionProcessor {
   //   - workspace, %workspace%/.bazelrc (unless --noworkspace_rc, or we aren't
   //     in a workspace directory, indicated by an empty workspace parameter)
   //   - user, $HOME/.bazelrc (unless --nohome_rc)
-  //   - command-line provided, if a value is passed with --bazelrc.
+  //   - command-line provided, if a value is passed with --bazelrc
+  //   - `BAZELRC` environment variable, if non empty.
   virtual blaze_exit_code::ExitCode GetRcFiles(
       const WorkspaceLayout* workspace_layout, const std::string& workspace,
       const std::string& cwd, const CommandLine* cmd_line,
-      std::vector<std::unique_ptr<RcFile>>* result_rc_files,
-      std::string* error) const;
+      std::vector<std::unique_ptr<RcFile>>* result_rc_files, std::string* error,
+      int max_import_depth = MaxImportDepth) const;
 
  private:
   blaze_exit_code::ExitCode ParseStartupOptions(
@@ -143,6 +166,11 @@ class OptionProcessor {
   // An ordered list of command args that contain information about the
   // execution environment and the flags passed via the bazelrc files.
   std::vector<std::string> blazerc_and_env_command_args_;
+
+  // After calling ParseOptions, this contains a list of options that originate
+  // from bazelrc files. If multiple options are specified for the same command,
+  // they are in the order they appear in the files.
+  std::vector<BlazercOption> parsed_blazercs_;
 
   // The command line constructed after calling ParseOptions.
   std::unique_ptr<CommandLine> cmd_line_;
@@ -159,14 +187,27 @@ class OptionProcessor {
   // Path to the system-wide bazelrc configuration file.
   // This is configurable for testing purposes only.
   const std::string system_bazelrc_path_;
+
+  // Build label for Bazel.
+  std::string build_label_;
 };
 
 // Parses and returns the contents of the rc file.
-blaze_exit_code::ExitCode ParseRcFile(const WorkspaceLayout* workspace_layout,
-                                      const std::string& workspace,
-                                      const std::string& rc_file_path,
-                                      std::unique_ptr<RcFile>* result_rc_file,
-                                      std::string* error);
+blaze_exit_code::ExitCode ParseRcFile(
+    const WorkspaceLayout* workspace_layout, const std::string& workspace,
+    const std::string& rc_file_path, const std::string& build_label,
+    const std::optional<SemVer>& sem_ver,
+    std::unique_ptr<RcFile>* result_rc_file, std::string* error,
+    int max_import_depth = OptionProcessor::MaxImportDepth);
+
+blaze_exit_code::ExitCode ParseRcFile(
+    const WorkspaceLayout* workspace_layout, const std::string& workspace,
+    const std::string& rc_file_path, std::unique_ptr<RcFile>* result_rc_file,
+    std::string* error, int max_import_depth = OptionProcessor::MaxImportDepth);
+
+// Returns the list of environment variables in the form "KEY=value", with
+// synthetic entries (Windows only) filtered out.
+std::vector<std::string> GetProcessedEnv();
 
 }  // namespace blaze
 

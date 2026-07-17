@@ -14,8 +14,8 @@
 """Mock Python binary, only used in tests."""
 
 from __future__ import print_function
-from bazel_tools.tools.python.runfiles import runfiles
+from python.runfiles import runfiles
 
 print('Hello Python Bar!')
 r = runfiles.Create()
-print('rloc=%s' % r.Rlocation('foo_ws/bar/bar-py-data.txt'))
+print('rloc=%s' % r.Rlocation('_main/bar/bar-py-data.txt'))

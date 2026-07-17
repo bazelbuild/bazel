@@ -14,13 +14,13 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.common.base.MoreObjects;
-import com.google.devtools.build.lib.events.ExtendedEventHandler.ProgressLike;
+import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 
 /**
  * An event that is fired when a input-discovering secondary shared action completes. Such actions
  * are not actually executed, so there is no corresponding {@link ActionCompletionEvent}.
  */
-public final class ActionScanningCompletedEvent implements ProgressLike {
+public final class ActionScanningCompletedEvent implements Postable {
   private final Action action;
   private final ActionLookupData actionLookupData;
 

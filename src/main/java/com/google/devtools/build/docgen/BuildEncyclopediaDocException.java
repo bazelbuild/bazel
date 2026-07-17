@@ -13,36 +13,38 @@
 // limitations under the License.
 package com.google.devtools.build.docgen;
 
-/**
- * An exception for Build Encyclopedia generation implementing the common BLAZE
- * error formatting, i.e. displaying file name and line number.
- */
+/** An exception in Build Encyclopedia generation. */
 public class BuildEncyclopediaDocException extends Exception {
 
-  private String fileName;
-  private int lineNumber;
-  private String errorMsg;
+  private final String location;
+  private final String errorMsg;
 
-  public BuildEncyclopediaDocException(String fileName, int lineNumber, String errorMsg) {
-    this.fileName = fileName;
-    this.lineNumber = lineNumber;
+  BuildEncyclopediaDocException(String location, String errorMsg) {
+    this.location = location;
     this.errorMsg = errorMsg;
   }
 
-  public String getFileName() {
-    return fileName;
+  BuildEncyclopediaDocException(String file, int lineNumber, String errorMsg) {
+    this.location = formatLocation(file, lineNumber);
+    this.errorMsg = errorMsg;
   }
 
-  public int getLineNumber() {
-    return lineNumber;
+  static String formatLocation(String file, int lineNumber) {
+    return String.format("%s:%d", file, lineNumber);
   }
 
+  /** Returns the location (filename or label, possibly with a line number) of the error. */
+  public String getLocation() {
+    return location;
+  }
+
+  /** Returns the error message text. */
   public String getErrorMsg() {
     return errorMsg;
   }
 
   @Override
   public String getMessage() {
-    return "Error in " + fileName + ":" + lineNumber + ": " + errorMsg;
+    return String.format("Error in %s: %s", location, errorMsg);
   }
 }
