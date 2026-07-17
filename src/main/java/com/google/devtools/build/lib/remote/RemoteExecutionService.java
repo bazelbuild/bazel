@@ -1156,7 +1156,7 @@ public class RemoteExecutionService {
         dirMetadataDownloads.put(
             localPath,
             Futures.transformAsync(
-                combinedCache.downloadBlob(
+                combinedCache.downloadBlobAsByteString(
                     context,
                     outputPath,
                     remotePathResolver.localPathToExecPath(localPath.asFragment()),
@@ -1326,13 +1326,13 @@ public class RemoteExecutionService {
             } else {
               downloadsBuilder.add(
                   transform(
-                      combinedCache.downloadBlob(
+                      combinedCache.downloadBlobAsByteString(
                           context,
                           inMemoryOutputPath.getPathString(),
                           inMemoryOutputPath,
                           file.digest()),
                       data -> {
-                        inMemoryOutputData.set(ByteString.copyFrom(data));
+                        inMemoryOutputData.set(data);
                         return null;
                       },
                       directExecutor()));
