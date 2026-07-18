@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.remote.circuitbreaker;
 
 import com.google.devtools.build.lib.remote.Retrier;
+import java.util.Locale;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -102,5 +103,25 @@ public class FailureCircuitBreaker implements Retrier.CircuitBreaker {
           scheduledExecutor.schedule(
               successes::decrementAndGet, slidingWindowSize, TimeUnit.MILLISECONDS);
     }
+  }
+
+  @Override
+  public String failureDetails() {
+    int failureCount = failures.get();
+    int totalCallCount = successes.get() + failureCount;
+    double failureRate = totalCallCount == 0 ? 0.0 : (failureCount * 100.0) / totalCallCount;
+    String window =
+        slidingWindowSize > 0
+            ? String.format(Locale.US, "the last %dms", slidingWindowSize)
+            : "the whole build";
+    return String.format(
+        Locale.US,
+        "%d out of %d remote calls failed (%.2f%%) within %s, exceeding the %d%% failure rate"
+            + " threshold.",
+        failureCount,
+        totalCallCount,
+        failureRate,
+        window,
+        failureRateThreshold);
   }
 }
