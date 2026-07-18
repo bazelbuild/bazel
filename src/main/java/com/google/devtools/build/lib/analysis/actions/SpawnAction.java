@@ -50,6 +50,7 @@ import com.google.devtools.build.lib.actions.CommandLines;
 import com.google.devtools.build.lib.actions.CommandLines.CommandLineAndParamFileInfo;
 import com.google.devtools.build.lib.actions.CommandLines.ExpandedCommandLines;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.PathMapper;
@@ -87,6 +88,7 @@ import com.google.errorprone.annotations.CompileTimeConstant;
 import com.google.errorprone.annotations.ForOverride;
 import com.google.errorprone.annotations.FormatMethod;
 import com.google.errorprone.annotations.FormatString;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -912,6 +914,22 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     @CanIgnoreReturnValue
     public Builder setExecutionInfo(Map<String, String> info) {
       this.executionInfo = ImmutableMap.copyOf(info);
+      return this;
+    }
+
+    /**
+     * Sets the timeout for the spawned action. A non-null, non-zero value adds {@link
+     * ExecutionRequirements#TIMEOUT} to the execution info, overriding any previously set value.
+     */
+    @CanIgnoreReturnValue
+    public Builder setTimeout(Duration timeout) {
+      if (timeout != null && !timeout.isZero()) {
+        this.executionInfo =
+            ImmutableMap.<String, String>builderWithExpectedSize(this.executionInfo.size() + 1)
+                .putAll(this.executionInfo)
+                .put(ExecutionRequirements.TIMEOUT, Long.toString(timeout.toSeconds()))
+                .buildKeepingLast();
+      }
       return this;
     }
 
