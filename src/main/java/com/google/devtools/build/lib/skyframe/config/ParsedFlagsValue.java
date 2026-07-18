@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
+import com.google.devtools.build.lib.analysis.config.Scope;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.Label.PackageContext;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
@@ -190,8 +191,10 @@ public final class ParsedFlagsValue implements SkyValue {
    *   <li>Any native flags in this instance, for fragments that are kept, are set to the value from
    *       this instance.
    *   <li>All Starlark flags from the original {@link BuildOptions} are kept, then all Starlark
-   *       options from this instance are added.
+   *       options from this instance are added, along with the scope from their parsed {@code
+   *       scope} attribute when known.
    *   <li>Any Starlark flags which are present in both, the value from this instance is kept.
+   *   <li>Any Starlark flags set back to their default value are removed, along with their scope.
    * </ul>
    *
    * <p>To preserve fragment trimming, this method will not expand the set of included native
@@ -253,6 +256,10 @@ public final class ParsedFlagsValue implements SkyValue {
       builder.removeStarlarkOption(flagName);
     } else {
       builder.addStarlarkOption(flagName, rawFlagValue);
+      String scopeType = flags.scopesAttributes().get(rawFlagName);
+      if (scopeType != null) {
+        builder.addScopeType(flagName, new Scope.ScopeType(scopeType));
+      }
     }
   }
 

@@ -380,9 +380,8 @@ public final class ParsedFlagsValueTest {
 
   @Test
   public void mergeWith_newFlagNotInSource() throws Exception {
-    // A flag not present in the source config is added by the merged flags.
-    // It appears without a scope at this level; scope resolution happens later
-    // in BuildOptionsScopeFunction.
+    // A flag not present in the source config is added by the merged flags, together with the
+    // scope from its parsed scope attribute.
     Label existingFlag = Label.parseCanonicalUnchecked("//custom:existing");
     Scope.ScopeType existingScope = new Scope.ScopeType("target");
     BuildOptions original =
@@ -397,13 +396,16 @@ public final class ParsedFlagsValueTest {
             .optionsClasses(BUILD_CONFIG_OPTIONS)
             .starlarkFlags(ImmutableMap.of("//custom:new_flag", "new_val"))
             .starlarkFlagDefaults(ImmutableMap.of("//custom:new_flag", "default"))
+            .scopesAttributes(ImmutableMap.of("//custom:new_flag", "project"))
             .build();
     ParsedFlagsValue parsedFlags = ParsedFlagsValue.parseAndCreate(flags);
 
     BuildOptions modified = parsedFlags.mergeWith(original).getOptions();
 
-    // New flag should be present with the merged value.
+    // New flag should be present with the merged value and the scope from its parsed scope
+    // attribute.
     assertThat(modified.getStarlarkOptions()).containsEntry(newFlag, "new_val");
+    assertThat(modified.getScopeTypeMap()).containsEntry(newFlag, new Scope.ScopeType("project"));
     // Existing flag and its scope should be unaffected.
     assertThat(modified.getStarlarkOptions()).containsEntry(existingFlag, "val");
     assertThat(modified.getScopeTypeMap()).containsEntry(existingFlag, existingScope);
