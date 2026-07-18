@@ -310,6 +310,7 @@ public final class ParsedFlagsValueTest {
             .optionsClasses(BUILD_CONFIG_OPTIONS)
             .starlarkFlags(ImmutableMap.of("//custom:flag", "default"))
             .starlarkFlagDefaults(ImmutableMap.of("//custom:flag", "default"))
+            .scopesAttributes(ImmutableMap.of("//custom:flag", "project"))
             .build();
     ParsedFlagsValue parsedFlags = ParsedFlagsValue.parseAndCreate(flags);
 

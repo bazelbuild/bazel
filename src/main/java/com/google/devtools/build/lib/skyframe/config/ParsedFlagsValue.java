@@ -22,7 +22,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
-import com.google.devtools.build.lib.analysis.config.Scope;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.Label.PackageContext;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
@@ -229,7 +228,12 @@ public final class ParsedFlagsValue implements SkyValue {
       updateOptionValue(fragment, optionDefinition, optionValue);
     }
 
-    // Also copy Starlark options.
+    // Merge Starlark options. First add the scope info for all Starlark options in this instance,
+    // then merge the values: flags reset to their default value are removed by
+    // removeStarlarkOption, which also deletes the scope info just added.
+    builder.addScopeTypeMap(
+        BuildOptions.convertScopesAttributes(
+            parsingResult.getScopesAttributes(), parsingResult.getStarlarkOptions()));
     for (Map.Entry<String, Object> starlarkOption : parsingResult.getStarlarkOptions().entrySet()) {
       updateStarlarkFlag(builder, starlarkOption.getKey(), starlarkOption.getValue());
     }
@@ -256,10 +260,6 @@ public final class ParsedFlagsValue implements SkyValue {
       builder.removeStarlarkOption(flagName);
     } else {
       builder.addStarlarkOption(flagName, rawFlagValue);
-      String scopeType = flags.scopesAttributes().get(rawFlagName);
-      if (scopeType != null) {
-        builder.addScopeType(flagName, new Scope.ScopeType(scopeType));
-      }
     }
   }
 
