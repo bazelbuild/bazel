@@ -228,9 +228,10 @@ public final class ParsedFlagsValue implements SkyValue {
       updateOptionValue(fragment, optionDefinition, optionValue);
     }
 
-    // Merge Starlark options. First add the scope info for all Starlark options in this instance,
-    // then merge the values: flags reset to their default value are removed by
-    // removeStarlarkOption, which also deletes the scope info just added.
+    // Merge Starlark options. The scope info from the source options is already in the builder,
+    // copied by source.toBuilder(). Add the scope info from this instance's parsed scope
+    // attributes on top of it, then merge the values: flags reset to their default value are
+    // removed by removeStarlarkOption, which also deletes the scope info just added.
     builder.addScopeTypeMap(
         BuildOptions.convertScopesAttributes(
             parsingResult.getScopesAttributes(), parsingResult.getStarlarkOptions()));
