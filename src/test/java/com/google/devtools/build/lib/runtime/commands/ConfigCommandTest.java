@@ -314,6 +314,65 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
   }
 
   @Test
+  public void showSingleConfigByMnemonicPrefix() throws Exception {
+    analyzeTarget();
+    // Find the unique noconfig configuration hash to test unambiguous prefix matching.
+    String configHash =
+        getConfigHashes(/* includeNoConfig= */ true).stream()
+            .filter(
+                hash -> {
+                  try {
+                    return callConfigCommand(hash).outAsLatin1().contains("noconfig");
+                  } catch (Exception e) {
+                    return false;
+                  }
+                })
+            .findFirst()
+            .get();
+    ConfigurationForOutput configByHash =
+        new Gson()
+            .fromJson(callConfigCommand(configHash).outAsLatin1(), ConfigurationForOutput.class);
+
+    ConfigurationForOutput configByMnemonic =
+        new Gson()
+            .fromJson(
+                callConfigCommand(configByHash.getMnemonic()).outAsLatin1(),
+                ConfigurationForOutput.class);
+
+    assertThat(configByMnemonic).isNotNull();
+    assertThat(configByMnemonic.getConfigHash()).isEqualTo(configHash);
+  }
+
+  @Test
+  public void ambiguousMnemonicPrefix() throws Exception {
+    analyzeTarget();
+    ImmutableList<String> hashes = getConfigHashes(/* includeNoConfig= */ false);
+    List<ConfigurationForOutput> configs = Lists.newArrayList();
+    for (String hash : hashes) {
+      configs.add(
+          new Gson().fromJson(callConfigCommand(hash).outAsLatin1(), ConfigurationForOutput.class));
+    }
+
+    String sharedMnemonic = configs.get(0).getMnemonic();
+    List<String> matchingDisplayMnemonics =
+        configs.stream()
+            .filter(c -> c.getMnemonic().equals(sharedMnemonic))
+            .map(ConfigurationForOutput::getDisplayMnemonic)
+            .collect(Collectors.toList());
+
+    // Explicitly verify that multiple configurations share the raw mnemonic pattern
+    // (e.g. "k8-fastbuild") while having distinct display forms (untrimmed vs test-trimmed).
+    assertThat(matchingDisplayMnemonics).hasSize(2);
+    assertThat(matchingDisplayMnemonics.stream().anyMatch(m -> m.contains("(test-trimmed)")))
+        .isTrue();
+
+    assertThat(callConfigCommand(sharedMnemonic).errAsLatin1())
+        .contains(
+            "Multiple configurations match this prefix. Please choose a specific checksum to"
+                + " disambiguate");
+  }
+
+  @Test
   public void showAllConfigs() throws Exception {
     analyzeTarget();
 
