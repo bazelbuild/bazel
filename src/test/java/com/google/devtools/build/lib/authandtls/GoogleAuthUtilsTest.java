@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.authandtls;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 
 import com.google.auth.Credentials;
 import com.google.common.base.Preconditions;
@@ -34,6 +35,7 @@ import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.net.InetSocketAddress;
 import java.net.URI;
 import java.time.Duration;
 import java.util.List;
@@ -45,6 +47,39 @@ import org.junit.runners.JUnit4;
 
 @RunWith(JUnit4.class)
 public class GoogleAuthUtilsTest {
+  @Test
+  public void parseHttpProxyAddress_withExplicitPort_usesThatPort() throws Exception {
+    InetSocketAddress address =
+        GoogleAuthUtils.parseHttpProxyAddress("http://proxy.example.com:3128");
+
+    assertThat(address.getHostString()).isEqualTo("proxy.example.com");
+    assertThat(address.getPort()).isEqualTo(3128);
+  }
+
+  @Test
+  public void parseHttpProxyAddress_withoutPort_defaultsTo80() throws Exception {
+    InetSocketAddress address = GoogleAuthUtils.parseHttpProxyAddress("http://proxy.example.com");
+
+    assertThat(address.getPort()).isEqualTo(80);
+  }
+
+  @Test
+  public void parseHttpProxyAddress_withoutHost_throws() {
+    IOException e =
+        assertThrows(
+            IOException.class, () -> GoogleAuthUtils.parseHttpProxyAddress("http://:8080"));
+
+    assertThat(e).hasMessageThat().contains("Invalid proxy URL");
+  }
+
+  @Test
+  public void parseHttpProxyAddress_malformedUrl_throwsIOException() {
+    IOException e =
+        assertThrows(IOException.class, () -> GoogleAuthUtils.parseHttpProxyAddress("http://"));
+
+    assertThat(e).hasMessageThat().contains("Invalid proxy URL");
+  }
+
   @Test
   public void testNetrc_emptyEnv_shouldIgnore() throws Exception {
     ImmutableMap<String, String> clientEnv = ImmutableMap.of();
