@@ -107,14 +107,17 @@ public class SomePathFunction implements QueryFunction {
 
             env.buildTransitiveClosure(expression, fromValue, OptionalInt.empty());
 
+            ThreadSafeMutableSet<T> visited = env.createThreadSafeMutableSet();
             for (T x : fromValue) {
-              // TODO(b/122548314): if x was already seen as part of a previous node's tc, we should
-              // skip it here. That's subsumed by the TODO below.
+              // Fast-path: If x was already visited in a previous iteration without finding a
+              // path to "to", then its transitive closure is a subset of visited and contains
+              // no nodes in "to". Thus, x cannot reach "to" and can be safely skipped.
+              if (visited.contains(x)) {
+                continue;
+              }
               ThreadSafeMutableSet<T> xSet = env.createThreadSafeMutableSet();
               xSet.add(x);
-              // TODO(b/122548314): this transitive closure building should stop at any nodes that
-              // have already been visited.
-              ThreadSafeMutableSet<T> xtc = env.getTransitiveClosure(xSet, context);
+              ThreadSafeMutableSet<T> xtc = env.getTransitiveClosure(xSet, context, visited);
               SetView<T> result;
               if (xtc.size() > toValue.size()) {
                 result = Sets.intersection(toValue, xtc);

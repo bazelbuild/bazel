@@ -1736,8 +1736,9 @@ bool CreateXmlLog(const Path& output, const Path& test_outerr,
        << acp_test_name << "\" tests=\"1\" failures=\"0\" errors=\"" << errors
        << "\">\n"
           "<testcase name=\""
-       << acp_test_name << "\" status=\"run\" duration=\"" << duration.seconds
-       << "\" time=\"" << duration.seconds << "\">" << error_msg
+       << acp_test_name << "\" classname=\"\" status=\"run\" duration=\""
+       << duration.seconds << "\" time=\"" << duration.seconds << "\">"
+       << error_msg
        << "</testcase>\n"
           "<system-out><![CDATA[";
   if (!ostm.good()) {

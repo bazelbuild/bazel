@@ -380,6 +380,19 @@ public abstract class BuildRequestOptions extends OptionsBase {
   public abstract boolean getRewindLostInputs();
 
   @Option(
+      name = "experimental_precise_rewinding",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.EXECUTION},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "Whether to use precise rewinding. If true, only the lost inputs (and their generating"
+              + " actions) are rewound through aggregation artifacts (e.g. runfiles trees),"
+              + " avoiding rewinding the entire set of inputs to the aggregator. This is a no-op"
+              + " unless --rewind_lost_inputs is true.")
+  public abstract boolean getExperimentalPreciseRewinding();
+
+  @Option(
       name = "incompatible_skip_genfiles_symlink",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,

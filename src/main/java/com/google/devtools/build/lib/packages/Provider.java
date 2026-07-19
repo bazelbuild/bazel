@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.packages;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.util.Fingerprint;
+import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.syntax.Location;
 
 /**
@@ -36,7 +37,7 @@ import net.starlark.java.syntax.Location;
 public interface Provider extends ProviderApi {
 
   @Override
-  public default boolean hasInstance(Object value) {
+  public default boolean hasInstance(Object value, StarlarkSemantics semantics) {
     if (value instanceof Info info) {
       return info.getProvider().equals(this);
     }
@@ -63,9 +64,7 @@ public interface Provider extends ProviderApi {
     return String.format("'%s' value has no field or method '%s'", getPrintableName(), name);
   }
 
-  /**
-   * Returns the location at which provider was defined.
-   */
+  /** Returns the location at which provider was defined. */
   Location getLocation();
 
   /** A serializable and fingerprintable representation of {@link Provider}. */

@@ -17,7 +17,6 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.skyframe.serialization.FutureHelpers.FAILURE_REPORTING_CALLBACK;
 import static com.google.devtools.build.lib.skyframe.serialization.FutureHelpers.waitForSerializationFuture;
 import static com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.aggregateWriteStatuses;
-import static com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.sparselyAggregateWriteStatuses;
 
 import com.github.luben.zstd.RecyclingBufferPool;
 import com.github.luben.zstd.ZstdOutputStream;
@@ -30,8 +29,6 @@ import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.concurrent.QuiescingFuture;
 import com.google.devtools.build.lib.concurrent.QuiescingFutureTask;
-import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.AggregateWriteStatusBuilder;
-import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.SparseAggregateWriteStatusBuilder;
 import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.WriteStatusBuilder;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedOutputStream;
@@ -157,8 +154,7 @@ public abstract class SharedValueSerializationContext extends MemoizingSerializa
         new SerializationTask(
             create(
                 codecRegistry, dependencies, fingerprintValueService, /* profileCollector= */ null),
-            subject,
-            /* allowSparseAggregation= */ false);
+            subject);
     task.run();
     return waitForSerializationFuture(task);
   }
@@ -170,9 +166,7 @@ public abstract class SharedValueSerializationContext extends MemoizingSerializa
       @Nullable Object subject,
       @Nullable ProfileCollector profileCollector) {
     return new SerializationTask(
-        create(codecRegistry, dependencies, fingerprintValueService, profileCollector),
-        subject,
-        /* allowSparseAggregation= */ true);
+        create(codecRegistry, dependencies, fingerprintValueService, profileCollector), subject);
   }
 
   /**
@@ -331,7 +325,7 @@ public abstract class SharedValueSerializationContext extends MemoizingSerializa
           directExecutor());
       childWriteStatuses.add(writeStatus);
 
-      WriteStatus aggregateWriteStatus = sparselyAggregateWriteStatuses(childWriteStatuses);
+      WriteStatus aggregateWriteStatus = aggregateWriteStatuses(childWriteStatuses);
       putOperation.set(new PutOperation(fingerprint, aggregateWriteStatus));
       addFutureToBlockWritingOn(aggregateWriteStatus);
       return;
@@ -375,7 +369,7 @@ public abstract class SharedValueSerializationContext extends MemoizingSerializa
     @Nullable private final ProfileRecorder childRecorder;
 
     private byte[] childBytes;
-    private final SparseAggregateWriteStatusBuilder childWriteStatuses;
+    private final WriteStatusBuilder childWriteStatuses;
 
     private UploadOnceFuturePutsResolve(
         FingerprintValueService fingerprintValueService,
@@ -386,7 +380,7 @@ public abstract class SharedValueSerializationContext extends MemoizingSerializa
       super(fingerprintValueService.getExecutor());
       this.fingerprintValueService = fingerprintValueService;
       this.childRecorder = childRecorder;
-      this.childWriteStatuses = new SparseAggregateWriteStatusBuilder().addAll(childWriteStatuses);
+      this.childWriteStatuses = new WriteStatusBuilder().addAll(childWriteStatuses);
       this.childBytes = childBytes;
       FuturePutBuffer.register(this, childFuturePuts);
 
@@ -476,7 +470,7 @@ public abstract class SharedValueSerializationContext extends MemoizingSerializa
       return aggregateWriteStatuses(futuresToBlockWritingOn);
     }
 
-    var aggregate = new AggregateWriteStatusBuilder();
+    var aggregate = new WriteStatusBuilder();
     if (futuresToBlockWritingOn != null) {
       aggregate.addAll(futuresToBlockWritingOn);
     }
@@ -507,7 +501,6 @@ public abstract class SharedValueSerializationContext extends MemoizingSerializa
   private static final class SerializationTask
       extends QuiescingFutureTask<SerializationResult<ByteString>>
       implements AsyncSerializationTask, FuturePutBuffer {
-    private final boolean allowSparseAggregation;
 
     private SharedValueSerializationContext context;
     @Nullable private Object subject;
@@ -518,12 +511,8 @@ public abstract class SharedValueSerializationContext extends MemoizingSerializa
 
     private WriteStatusBuilder childWriteStatuses;
 
-    private SerializationTask(
-        SharedValueSerializationContext context,
-        @Nullable Object subject,
-        boolean allowSparseAggregation) {
+    private SerializationTask(SharedValueSerializationContext context, @Nullable Object subject) {
       super(directExecutor());
-      this.allowSparseAggregation = allowSparseAggregation;
       this.context = context;
       this.subject = subject;
       this.topLevelProfileRecorder = context.getProfileRecorder();
@@ -552,10 +541,7 @@ public abstract class SharedValueSerializationContext extends MemoizingSerializa
           return;
         }
 
-        childWriteStatuses =
-            allowSparseAggregation
-                ? new SparseAggregateWriteStatusBuilder()
-                : new AggregateWriteStatusBuilder();
+        childWriteStatuses = new WriteStatusBuilder();
         if (futuresToBlockWritingOn != null) {
           childWriteStatuses.addAll(futuresToBlockWritingOn);
         }

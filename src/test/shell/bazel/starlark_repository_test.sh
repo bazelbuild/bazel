@@ -628,6 +628,73 @@ function test_starlark_repository_environ_invalidation_action_env_batch() {
   environ_invalidation_action_env_test_template --batch
 }
 
+# Regression test for the repository environment being a single whole-map Skyframe
+# node (introduced together with RepoEnvironmentFunction): changing one environment
+# variable invalidated every repository rule and module extension, even ones that
+# don't depend on that variable.
+#
+# In particular, running an interleaved command such as `bazel mod` with an
+# environment variable changed that the build doesn't even read (e.g. TERM, set
+# differently by an IDE/BSP server than by the user's shell) caused the next build
+# to spuriously refetch repositories and discard the analysis cache.
+#
+# The repo here only depends on FOO, yet an interleaved `mod` invocation with an
+# unrelated variable OTHER changed must not cause it to be refetched.
+function test_unrelated_env_var_does_not_invalidate_repo() {
+  local execution_file="${TEST_TMPDIR}/execution"
+  echo 0 > "${execution_file}"
+
+  cat > $(setup_module_dot_bazel) <<'EOF'
+ext = use_extension("//:ext.bzl", "ext")
+use_repo(ext, "foo")
+EOF
+  cat > ext.bzl <<EOF
+def _repo_impl(repository_ctx):
+  # Declares a dependency on FOO only.
+  foo = repository_ctx.getenv("FOO")
+  count = int(repository_ctx.execute(["cat", "${execution_file}"]).stdout.strip()) + 1
+  repository_ctx.execute(["bash", "-c", "echo %s > ${execution_file}" % count])
+  repository_ctx.file(
+      "BUILD", "filegroup(name = 'bar', visibility = ['//visibility:public'])")
+  repository_ctx.file("REPO.bazel", "")
+
+# A local repo is refetched whenever its node is recomputed, which makes spurious
+# invalidation directly observable through the fetch counter.
+repo = repository_rule(implementation = _repo_impl, local = True)
+
+def _ext_impl(module_ctx):
+  repo(name = "foo")
+
+ext = module_extension(implementation = _ext_impl)
+EOF
+  cat > BUILD <<'EOF'
+filegroup(name = "t", srcs = ["@foo//:bar"])
+EOF
+
+  # Initial fetch.
+  FOO=1 OTHER=a bazel build //:t >& $TEST_log || fail "Failed to build"
+  assert_equals 1 $(cat "${execution_file}")
+  # Rebuilding with the same environment must not refetch.
+  FOO=1 OTHER=a bazel build //:t >& $TEST_log || fail "Failed to build"
+  assert_equals 1 $(cat "${execution_file}")
+
+  # Evaluate the whole module/repo graph with an unrelated variable (OTHER)
+  # changed, then build again with the original environment. The repo only reads
+  # FOO, so it must not be refetched.
+  FOO=1 OTHER=b bazel mod graph >& $TEST_log || fail "Failed to run mod"
+  FOO=1 OTHER=a bazel build //:t >& $TEST_log || fail "Failed to build"
+  assert_equals 1 $(cat "${execution_file}")
+
+  # A second interleaving with yet another value must likewise not refetch.
+  FOO=1 OTHER=c bazel mod graph >& $TEST_log || fail "Failed to run mod"
+  FOO=1 OTHER=a bazel build //:t >& $TEST_log || fail "Failed to build"
+  assert_equals 1 $(cat "${execution_file}")
+
+  # Sanity check: changing FOO, which the repo does depend on, must refetch.
+  FOO=2 OTHER=a bazel build //:t >& $TEST_log || fail "Failed to build"
+  assert_equals 2 $(cat "${execution_file}")
+}
+
 # Test invalidation based on change to the bzl files
 function bzl_invalidation_test_template() {
   local startup_flag="${1-}"

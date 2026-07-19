@@ -102,6 +102,7 @@ public abstract class TargetDefinitionContext extends StarlarkThreadContext {
   protected final TargetRecorder recorder;
 
   private final boolean simplifyUnconditionalSelectsInRuleAttrs;
+  private final boolean symbolicMacroStrictAttrs;
 
   /** Converts label literals to Label objects within this package. */
   private final LabelConverter labelConverter;
@@ -389,6 +390,7 @@ public abstract class TargetDefinitionContext extends StarlarkThreadContext {
       Packageoid pkg,
       SymbolGenerator<?> symbolGenerator,
       boolean simplifyUnconditionalSelectsInRuleAttrs,
+      boolean symbolicMacroStrictAttrs,
       RepositoryMapping mainRepositoryMapping,
       @Nullable Semaphore cpuBoundSemaphore,
       PackageOverheadEstimator packageOverheadEstimator,
@@ -403,6 +405,7 @@ public abstract class TargetDefinitionContext extends StarlarkThreadContext {
     this.pkg = pkg;
     this.symbolGenerator = symbolGenerator;
     this.simplifyUnconditionalSelectsInRuleAttrs = simplifyUnconditionalSelectsInRuleAttrs;
+    this.symbolicMacroStrictAttrs = symbolicMacroStrictAttrs;
     this.labelConverter =
         new LabelConverter(metadata.packageIdentifier(), metadata.repositoryMapping());
     this.cpuBoundSemaphore = cpuBoundSemaphore;
@@ -518,6 +521,13 @@ public abstract class TargetDefinitionContext extends StarlarkThreadContext {
    */
   public boolean simplifyUnconditionalSelectsInRuleAttrs() {
     return this.simplifyUnconditionalSelectsInRuleAttrs;
+  }
+
+  /** Returns true if invalid attribute values in symbolic macros should fail the build. */
+  // TODO(bazel-team): This ought to always be true; unfortunately, enabling the strict behavior is
+  // a breaking change. Remove after graveyarding --incompatible_symbolic_macro_strict_attrs.
+  public boolean symbolicMacroStrictAttrs() {
+    return this.symbolicMacroStrictAttrs;
   }
 
   /**

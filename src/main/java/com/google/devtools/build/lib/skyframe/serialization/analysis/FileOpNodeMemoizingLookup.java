@@ -37,7 +37,6 @@ import com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture.FileOpNodeOrEmp
 import com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture.FutureFileOpNode;
 import com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture.RemoteFileOpNode;
 import com.google.devtools.build.lib.skyframe.NonRuleConfiguredTargetValue;
-import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.InMemoryGraph;
 import com.google.devtools.build.skyframe.InMemoryNodeEntry;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -120,12 +119,12 @@ public final class FileOpNodeMemoizingLookup {
 
   private final Executor executor;
   private final InMemoryGraph graph;
-  private final ImmutableSet<SkyKey> selectedKeys;
-  private final boolean shouldDiscardMemory;
-  @Nullable // non-null if shouldDiscardMemory is true
-  private final ImmutableSet<PackageIdentifier> referencedPackages;
-
   private final FileOpNodeMap nodes = new FileOpNodeMap();
+
+  private ImmutableSet<SkyKey> selectedKeys;
+  private boolean shouldDiscardMemory;
+  @Nullable // non-null if shouldDiscardMemory is true
+  private ImmutableSet<PackageIdentifier> referencedPackages;
 
   FileOpNodeMemoizingLookup(
       Executor executor,
@@ -135,6 +134,15 @@ public final class FileOpNodeMemoizingLookup {
       @Nullable ImmutableSet<PackageIdentifier> referencedPackages) {
     this.executor = executor;
     this.graph = graph;
+    this.selectedKeys = selectedKeys;
+    this.shouldDiscardMemory = shouldDiscardMemory;
+    this.referencedPackages = referencedPackages;
+  }
+
+  void setMemoryReclamationParameters(
+      ImmutableSet<SkyKey> selectedKeys,
+      boolean shouldDiscardMemory,
+      @Nullable ImmutableSet<PackageIdentifier> referencedPackages) {
     this.selectedKeys = selectedKeys;
     this.shouldDiscardMemory = shouldDiscardMemory;
     this.referencedPackages = referencedPackages;
@@ -202,16 +210,19 @@ public final class FileOpNodeMemoizingLookup {
         // The source artifact's file becomes an execution time dependency of actions owned by
         // configured targets with this InputFileConfiguredTarget as a dependency.
         SourceArtifact source = inputFileConfiguredTarget.getArtifact();
-        var fileKey =
-            FileKey.create(RootedPath.toRootedPath(source.getRoot().getRoot(), source.getPath()));
-        if (graph.getIfPresent(fileKey) != null) {
-          // If the file value is not present in the graph, it means that no action executed
-          // actually depended on that file.
-          //
-          // TODO: b/364831651 - for greater determinism, consider performing additional Skyframe
-          // evaluations for these unused dependencies.
-          collector.setSource(fileKey);
+        var fileKey = FileKey.create(source.getRootedPath());
+        for (SkyKey dep : directDeps) {
+          if (dep.equals(fileKey)) {
+            continue;
+          }
+          switch (dep) {
+            case FileOpNode immediateNode -> collector.addNode(immediateNode);
+            default -> addNodeForKey(dep, collector);
+          }
         }
+
+        collector.setSource(fileKey);
+        return;
       }
     }
 

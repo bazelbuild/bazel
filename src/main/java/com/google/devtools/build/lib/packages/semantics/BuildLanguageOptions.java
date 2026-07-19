@@ -395,6 +395,21 @@ public abstract class BuildLanguageOptions extends OptionsBase {
   public abstract boolean getIncompatibleNoAttrLicense();
 
   @Option(
+      name = "incompatible_require_matching_aspect_hints_providers",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "If set to true, targets in the aspect_hints attribute must satisfy the providers"
+              + " required by at least one aspect's required_aspect_hints_providers. That is, for"
+              + " each target C in a target P's aspect_hints attribute, C will be made a"
+              + " dependency of P only if there is at least one aspect A being applied to P where"
+              + " C's rule class declares providers that satifies A's "
+              + " required_aspect_hints_providers.")
+  public abstract boolean getIncompatibleRequireMatchingAspectHintsProviders();
+
+  @Option(
       name = "incompatible_no_implicit_file_export",
       defaultValue = FlagConstants.DEFAULT_INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT,
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -608,6 +623,17 @@ public abstract class BuildLanguageOptions extends OptionsBase {
           Type syntax is never permitted in .scl files regardless of this flag.
           """)
   public abstract boolean getExperimentalStarlarkTypeSyntax();
+
+  @Option(
+      name = "incompatible_symbolic_macro_strict_attrs",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "If enabled, invalid attribute values in symbolic macros are treated as an error and fail"
+              + " the build, matching the behavior of rules.")
+  public abstract boolean getIncompatibleSymbolicMacroStrictAttrs();
 
   @Option(
       name = "experimental_starlark_static_type_checking",
@@ -886,6 +912,9 @@ public abstract class BuildLanguageOptions extends OptionsBase {
                 INCOMPATIBLE_JAVA_INFO_MERGE_RUNTIME_MODULE_FLAGS,
                 getIncompatibleJavaInfoMergeRuntimeModuleFlags())
             .setBool(INCOMPATIBLE_NO_ATTR_LICENSE, getIncompatibleNoAttrLicense())
+            .setBool(
+                INCOMPATIBLE_REQUIRE_MATCHING_ASPECT_HINTS_PROVIDERS,
+                getIncompatibleRequireMatchingAspectHintsProviders())
             .setBool(INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT, getIncompatibleNoImplicitFileExport())
             .setBool(INCOMPATIBLE_NO_RULE_OUTPUTS_PARAM, getIncompatibleNoRuleOutputsParam())
             .setBool(INCOMPATIBLE_RUN_SHELL_COMMAND_STRING, getIncompatibleRunShellCommandString())
@@ -902,6 +931,8 @@ public abstract class BuildLanguageOptions extends OptionsBase {
                 getIncompatibleUnambiguousLabelStringification())
             .set(MAX_COMPUTATION_STEPS, getMaxComputationSteps())
             .set(NESTED_SET_DEPTH_LIMIT, getNestedSetDepthLimit())
+            .setBool(
+                INCOMPATIBLE_SYMBOLIC_MACRO_STRICT_ATTRS, getIncompatibleSymbolicMacroStrictAttrs())
             .setBool(
                 INCOMPATIBLE_DISABLE_STARLARK_HOST_TRANSITIONS,
                 getIncompatibleDisableStarlarkHostTransitions())
@@ -1080,6 +1111,8 @@ public abstract class BuildLanguageOptions extends OptionsBase {
   public static final String INCOMPATIBLE_JAVA_INFO_MERGE_RUNTIME_MODULE_FLAGS =
       "-incompatible_java_info_merge_runtime_module_flags";
   public static final String INCOMPATIBLE_NO_ATTR_LICENSE = "+incompatible_no_attr_license";
+  public static final String INCOMPATIBLE_REQUIRE_MATCHING_ASPECT_HINTS_PROVIDERS =
+      "-incompatible_require_matching_aspect_hints_providers";
   public static final String INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT =
       FlagConstants.DEFAULT_INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT_NAME;
   public static final String INCOMPATIBLE_NO_RULE_OUTPUTS_PARAM =
@@ -1127,6 +1160,8 @@ public abstract class BuildLanguageOptions extends OptionsBase {
       "-experimental_repository_ctx_wasm_compilation";
   public static final String INCOMPATIBLE_RESOLVE_SELECT_KEYS_EAGERLY =
       "-incompatible_resolve_select_keys_eagerly";
+  public static final String INCOMPATIBLE_SYMBOLIC_MACRO_STRICT_ATTRS =
+      "-incompatible_symbolic_macro_strict_attrs";
 
   // non-booleans
   public static final StarlarkSemantics.Key<List<String>> INCOMPATIBLE_DISABLE_TRANSITIONS_OPTIONS =

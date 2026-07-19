@@ -134,7 +134,9 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
   }
 
   ImmutableMap<Artifact, FileArtifactValue> getAllArtifactData() {
-    return ImmutableSortedMap.copyOf(artifactData);
+    return ImmutableMap.<Artifact, FileArtifactValue>builderWithExpectedSize(artifactData.size())
+        .putAll(ImmutableSortedMap.copyOf(artifactData))
+        .buildOrThrow();
   }
 
   /**
@@ -142,7 +144,10 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
    * TreeArtifactValue#MISSING_TREE_ARTIFACT}.
    */
   ImmutableMap<Artifact, TreeArtifactValue> getAllTreeArtifactData() {
-    return ImmutableSortedMap.copyOf(treeArtifactData);
+    return ImmutableMap.<Artifact, TreeArtifactValue>builderWithExpectedSize(
+            treeArtifactData.size())
+        .putAll(ImmutableSortedMap.copyOf(treeArtifactData))
+        .buildOrThrow();
   }
 
   /**

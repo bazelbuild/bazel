@@ -443,7 +443,7 @@ public class UploadManifest {
         }
         ByteString dirBlob = builder.build().toByteString();
 
-        dirToDigest.put(dir, digestUtil.compute(dirBlob.toByteArray()));
+        dirToDigest.put(dir, digestUtil.compute(dirBlob));
         dirBlobs.add(dirBlob);
       }
 
@@ -553,7 +553,7 @@ public class UploadManifest {
 
   private void addDirectory(Path dir) throws ExecException, IOException, InterruptedException {
     ByteString treeBlob = new DirectoryBuilder(dir).build();
-    Digest treeDigest = digestUtil.compute(treeBlob.toByteArray());
+    Digest treeDigest = digestUtil.compute(treeBlob);
 
     result
         .addOutputDirectoriesBuilder()

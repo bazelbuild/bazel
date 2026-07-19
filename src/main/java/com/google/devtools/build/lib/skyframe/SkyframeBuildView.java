@@ -104,7 +104,6 @@ import com.google.devtools.build.lib.skyframe.SkyframeExecutor.ConfigureTargetsR
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.FailureToRetrieveIntrospectedValueException;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.TopLevelActionConflictReport;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
-import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheMode;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.DetailedExitCode.DetailedExitCodeComparator;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
@@ -941,8 +940,7 @@ public final class SkyframeBuildView {
           buildResultListener.getAnalyzedTargets(),
           buildResultListener.getAnalyzedAspects().keySet());
     }
-    if (skyframeExecutor.getRemoteAnalysisCachingDependenciesProvider().mode()
-        == RemoteAnalysisCacheMode.UPLOAD) {
+    if (skyframeExecutor.getRemoteAnalysisCachingDependenciesProvider().mode().isSyncUpload()) {
       skyframeExecutor.clearPackageValues();
     }
 
@@ -1373,7 +1371,8 @@ public final class SkyframeBuildView {
       @Nullable ToolchainCollection<ResolvedToolchainContext> toolchainContexts,
       @Nullable NestedSet<Package.Metadata> transitivePackages,
       ExecGroupCollection.Builder execGroupCollectionBuilder,
-      boolean crashIfExecutionPhase)
+      boolean crashIfExecutionPhase,
+      boolean dependsOnFileKey)
       throws InterruptedException,
           ActionConflictException,
           InvalidExecGroupException,
@@ -1412,7 +1411,8 @@ public final class SkyframeBuildView {
         toolchainContexts,
         transitivePackages,
         execGroupCollectionBuilder,
-        starlarkExecTransition.orElse(null));
+        starlarkExecTransition.orElse(null),
+        dependsOnFileKey);
   }
 
   /**

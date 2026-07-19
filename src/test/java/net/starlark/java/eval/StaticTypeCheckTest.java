@@ -64,6 +64,12 @@ public final class StaticTypeCheckTest {
           .allowToplevelRebinding(true);
 
   @SuppressWarnings("FieldCanBeFinal")
+  private StarlarkSemantics semantics =
+      StarlarkSemantics.builder()
+          .setBool(StarlarkSemantics.EXPERIMENTAL_STARLARK_STATIC_TYPE_CHECKING, true)
+          .build();
+
+  @SuppressWarnings("FieldCanBeFinal")
   private Module module = Module.create();
 
   @SuppressWarnings("FieldCanBeFinal")
@@ -537,6 +543,67 @@ public final class StaticTypeCheckTest {
         "cannot assign type 'MutuallyReferentialTypeA' to 'x' of type 'int'",
         """
         x: int = mutually_ref_b.a(mutually_ref_a)
+        """);
+  }
+
+  @Test
+  public void typeAlias_canBeExportedAndLoaded() throws Exception {
+    Module depModule = Module.create();
+    try (Mutability depMutability = Mutability.create("dep")) {
+      StarlarkThread depThread = StarlarkThread.createTransient(depMutability, semantics);
+      var unused =
+          Starlark.execFile(
+              ParserInput.fromLines(
+                  """
+                  type int_or_str = int | str
+                  type optional_list_of[T] = list[T] | None
+                  """),
+              options.build(),
+              depModule,
+              depThread);
+    }
+
+    loader = name -> name.equals("dep.bzl") ? depModule : null;
+
+    assertValid(
+        """
+        load("dep.bzl", "int_or_str", "optional_list_of")
+        x: int_or_str = 123
+        y: optional_list_of[int] = [123]
+        """);
+
+    assertInvalid(
+        "cannot assign type 'bool' to 'x' of type 'int|str'",
+        """
+        load("dep.bzl", "int_or_str")
+        x: int_or_str = False
+        """);
+
+    assertInvalid(
+        "cannot assign type 'list[str]' to 'x' of type 'list[int]|None'",
+        """
+        load("dep.bzl", "optional_list_of")
+        x: optional_list_of[int] = ["abc"]
+        """);
+  }
+
+  @Test
+  public void nonTypeConstructorLoadedValues_cannotBeUsedAsTypeConstructors() throws Exception {
+    Module depModule = Module.create();
+    try (Mutability depMutability = Mutability.create("dep")) {
+      StarlarkThread depThread = StarlarkThread.createTransient(depMutability, semantics);
+      var unused =
+          Starlark.execFile(
+              ParserInput.fromLines("not_a_type = 123"), options.build(), depModule, depThread);
+    }
+
+    loader = name -> name.equals("dep.bzl") ? depModule : null;
+
+    assertInvalid(
+        "local symbol 'not_a_type' cannot be used as a type",
+        """
+        load("dep.bzl", "not_a_type")
+        x: not_a_type = 123
         """);
   }
 }

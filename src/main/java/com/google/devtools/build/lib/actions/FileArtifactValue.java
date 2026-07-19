@@ -425,12 +425,12 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
   }
 
   /**
-   * Creates a FileArtifactValue used as a 'proxy' input for a {@link RunfilesArtifactValue}. These
-   * are used in {@link ActionCacheChecker}.
+   * Creates a FileArtifactValue used as a 'proxy' input for a {@link RunfilesArtifactValue} and
+   * {@link FilesetOutputTree}. These are used in {@link ActionCacheChecker}.
    */
-  public static FileArtifactValue createRunfilesProxy(byte[] digest) {
+  public static FileArtifactValue createSymlinkTreeProxy(byte[] digest) {
     checkNotNull(digest);
-    return new RunfilesProxyArtifactValue(digest);
+    return new SymlinkTreeProxyArtifactValue(digest);
   }
 
   private static String bytesToString(@Nullable byte[] bytes) {
@@ -662,11 +662,11 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
     }
   }
 
-  /** Proxy metadata for a runfiles tree. */
-  private static final class RunfilesProxyArtifactValue extends FileArtifactValue {
+  /** Proxy metadata for a runfiles tree or fileset. */
+  private static final class SymlinkTreeProxyArtifactValue extends FileArtifactValue {
     private final byte[] digest;
 
-    private RunfilesProxyArtifactValue(byte[] digest) {
+    private SymlinkTreeProxyArtifactValue(byte[] digest) {
       this.digest = digest;
     }
 
@@ -693,7 +693,7 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
     @Override
     public long getModifiedTime() {
       throw new UnsupportedOperationException(
-          "runfile proxy's mtime should never be called. (" + this + ")");
+          "symlink tree proxy's mtime should never be called. (" + this + ")");
     }
 
     @Override
@@ -701,7 +701,7 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
       if (this == o) {
         return true;
       }
-      if (!(o instanceof RunfilesProxyArtifactValue that)) {
+      if (!(o instanceof SymlinkTreeProxyArtifactValue that)) {
         return false;
       }
       return Arrays.equals(digest, that.digest);

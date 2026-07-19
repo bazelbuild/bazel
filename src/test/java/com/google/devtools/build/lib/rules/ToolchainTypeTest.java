@@ -66,7 +66,6 @@ public class ToolchainTypeTest extends BuildViewTestCase {
 
     scratch.file("a/cc_toolchain_config.bzl", MockCcSupport.EMPTY_CC_TOOLCHAIN);
     useConfiguration(
-        "--incompatible_enable_cc_toolchain_resolution",
         "--experimental_platforms=//a:mock-platform",
         "--extra_toolchains=//a:toolchain_b");
 

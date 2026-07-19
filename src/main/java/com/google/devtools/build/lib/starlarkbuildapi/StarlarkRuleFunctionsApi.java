@@ -14,8 +14,8 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi;
 
-import com.google.devtools.build.docgen.annot.GlobalMethods;
-import com.google.devtools.build.docgen.annot.GlobalMethods.Environment;
+import com.google.devtools.build.docgen.annot.GlobalMethodDocs;
+import com.google.devtools.build.docgen.annot.GlobalMethodDocs.Environment;
 import com.google.devtools.build.docgen.annot.StarlarkConstructor;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
@@ -36,7 +36,7 @@ import net.starlark.java.eval.StarlarkThread;
  * Interface for a global Starlark library containing rule-related helper and registration
  * functions.
  */
-@GlobalMethods(environment = Environment.BZL)
+@GlobalMethodDocs(environment = Environment.BZL)
 @StarlarkLibrary
 public interface StarlarkRuleFunctionsApi {
 
@@ -906,6 +906,38 @@ declared.
                     + "see <code>other_aspect</code> if and only if <code>other_aspect</code> "
                     + "provides <code>FooInfo</code>, <em>or</em> <code>BarInfo</code>, "
                     + "<em>or</em> both <code>BazInfo</code> <em>and</em> <code>QuxInfo</code>."),
+        @Param(
+            name = "required_aspect_hints_providers",
+            named = true,
+            defaultValue = "[]",
+            doc =
+"""
+This attribute is used to match aspects to targets that appear in the <code>aspect_hints</code>
+attribute.
+
+<p>With the <code>--incompatible_require_matching_aspect_hints_providers</code> flag enabled, the
+<code>aspect_hints</code> attribute is evaluated differently from other attributes: A target
+<code>T</code> in the <code>aspect_hints</code> attribute of a target <code>P</code> is added as a
+dependency of <code>P</code> only if the rule class of <code>T</code> declares providers that
+satisfy the <code>required_aspect_hints_providers</code> of one or more aspects being applied to
+<code>P</code>. This avoids analysis time, memory usage, configuration mismatches, conformance test
+failures, etc. for targets that are not actually needed by any aspect.
+
+<p>The target's providers to be matched against an aspect's
+<code>required_aspect_hints_providers</code> must be declared in the rule class (via the
+<code>provides</code> argument of <code>rule()</code>) so that targets and aspects can be matched
+without actually evaluating the target. That is, it is not sufficient to just return the provider
+from the rule implementation function.
+
+<p>The value of <code>required_aspect_hints_providers</code> must be a list containing either
+individual providers or lists of providers but not both. For example,
+<code>[[FooInfo], [BarInfo], [BazInfo, QuxInfo]]</code> is a valid value while
+<code>[FooInfo, BarInfo, [BazInfo, QuxInfo]]</code> is not valid.
+
+<p>An unnested list of providers will automatically be converted to a list containing one list of
+providers. That is, <code>[FooInfo, BarInfo]</code> will automatically be converted to
+<code>[[FooInfo, BarInfo]]</code>.
+"""),
         @Param(name = "provides", named = true, defaultValue = "[]", doc = PROVIDES_DOC),
         @Param(
             name = "requires",
@@ -1018,6 +1050,7 @@ declared.
       Dict<?, ?> attrs,
       Sequence<?> requiredProvidersArg,
       Sequence<?> requiredAspectProvidersArg,
+      Sequence<?> requiredAspectHintsProvidersArg,
       Sequence<?> providesArg,
       Sequence<?> requiredAspects,
       Object propagationPredicate,

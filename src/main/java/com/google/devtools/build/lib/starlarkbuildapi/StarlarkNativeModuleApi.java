@@ -15,8 +15,8 @@
 package com.google.devtools.build.lib.starlarkbuildapi;
 
 import com.google.devtools.build.docgen.annot.DocCategory;
-import com.google.devtools.build.docgen.annot.GlobalMethods;
-import com.google.devtools.build.docgen.annot.GlobalMethods.Environment;
+import com.google.devtools.build.docgen.annot.GlobalMethodDocs;
+import com.google.devtools.build.docgen.annot.GlobalMethodDocs.Environment;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import java.util.List;
@@ -45,7 +45,7 @@ import net.starlark.java.eval.StarlarkValue;
             + "<code>None</code> values, and treat them as if the attribute was unset.<br>"
             + "The following functions are also available:")
 // Methods in this class are also available at the top level in BUILD files.
-@GlobalMethods(environment = Environment.BUILD)
+@GlobalMethodDocs(environment = Environment.BUILD)
 public interface StarlarkNativeModuleApi extends StarlarkValue {
 
   @StarlarkMethod(

@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.remote.circuitbreaker;
 
 import com.google.devtools.build.lib.remote.Retrier;
+import java.util.Locale;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -44,18 +45,24 @@ public class FailureCircuitBreaker implements Retrier.CircuitBreaker {
    *     circuit breaker in given time window.
    * @param slidingWindowSize the size of the sliding window in milliseconds to calculate the number
    *     of failures.
+   * @param minCallCountToComputeFailureRate the minimum number of calls within the window before
+   *     the failure rate is computed and the breaker may trip.
+   * @param minFailCountToComputeFailureRate the minimum number of failures within the window before
+   *     the failure rate is computed and the breaker may trip.
    * @param scheduledExecutor executor for scheduling tasks to decrement success and failure counts.
    */
   public FailureCircuitBreaker(
-      int failureRateThreshold, int slidingWindowSize, ScheduledExecutorService scheduledExecutor) {
+      int failureRateThreshold,
+      int slidingWindowSize,
+      int minCallCountToComputeFailureRate,
+      int minFailCountToComputeFailureRate,
+      ScheduledExecutorService scheduledExecutor) {
     this.failures = new AtomicInteger(0);
     this.successes = new AtomicInteger(0);
     this.failureRateThreshold = failureRateThreshold;
     this.slidingWindowSize = slidingWindowSize;
-    this.minCallCountToComputeFailureRate =
-        CircuitBreakerFactory.DEFAULT_MIN_CALL_COUNT_TO_COMPUTE_FAILURE_RATE;
-    this.minFailCountToComputeFailureRate =
-        CircuitBreakerFactory.DEFAULT_MIN_FAIL_COUNT_TO_COMPUTE_FAILURE_RATE;
+    this.minCallCountToComputeFailureRate = minCallCountToComputeFailureRate;
+    this.minFailCountToComputeFailureRate = minFailCountToComputeFailureRate;
     this.state = State.ACCEPT_CALLS;
     this.scheduledExecutor = scheduledExecutor;
   }
@@ -96,5 +103,25 @@ public class FailureCircuitBreaker implements Retrier.CircuitBreaker {
           scheduledExecutor.schedule(
               successes::decrementAndGet, slidingWindowSize, TimeUnit.MILLISECONDS);
     }
+  }
+
+  @Override
+  public String failureDetails() {
+    int failureCount = failures.get();
+    int totalCallCount = successes.get() + failureCount;
+    double failureRate = totalCallCount == 0 ? 0.0 : (failureCount * 100.0) / totalCallCount;
+    String window =
+        slidingWindowSize > 0
+            ? String.format(Locale.US, "the last %dms", slidingWindowSize)
+            : "the whole build";
+    return String.format(
+        Locale.US,
+        "%d out of %d remote calls failed (%.2f%%) within %s, exceeding the %d%% failure rate"
+            + " threshold.",
+        failureCount,
+        totalCallCount,
+        failureRate,
+        window,
+        failureRateThreshold);
   }
 }

@@ -104,7 +104,6 @@ import com.google.devtools.build.lib.skyframe.serialization.SkycacheMetadataPara
 import com.google.devtools.build.lib.skyframe.serialization.analysis.FrontierSerializer;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheClient;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheFactory;
-import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheMode;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheReaderDepsProvider;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisMetadataWriter;
@@ -1077,24 +1076,17 @@ public class BuildTool {
       return;
     }
 
-    // TODO(b/529634169): make this exhaustive.
-    switch (dependenciesProvider.mode()) {
-      case UPLOAD, ASYNC_UPLOAD ->
-          reportRemoteAnalysisServiceStats(
-              dependenciesProvider.getFingerprintValueService(),
-              dependenciesProvider.getAnalysisCacheClient());
-
-      case DOWNLOAD, BIDI -> {
-        reportRemoteAnalysisServiceStats(
-            dependenciesProvider.getFingerprintValueService(),
-            dependenciesProvider.getAnalysisCacheClient());
-        reportRemoteAnalysisCachingStats();
-        env.getSkyframeExecutor()
-            .syncRemoteAnalysisCachingState(
-                env.getRemoteAnalysisCachingEventListener().getSkyValueVersion(),
-                env.getRemoteAnalysisCachingEventListener().getClientId());
-      }
-      case DUMP_UPLOAD_MANIFEST_ONLY, OFF -> {}
+    if (dependenciesProvider.mode().requiresBackendConnectivity()) {
+      reportRemoteAnalysisServiceStats(
+          dependenciesProvider.getFingerprintValueService(),
+          dependenciesProvider.getAnalysisCacheClient());
+    }
+    if (dependenciesProvider.mode().isRetrievalEnabled()) {
+      reportRemoteAnalysisCachingStats();
+      env.getSkyframeExecutor()
+          .syncRemoteAnalysisCachingState(
+              env.getRemoteAnalysisCachingEventListener().getSkyValueVersion(),
+              env.getRemoteAnalysisCachingEventListener().getClientId());
     }
   }
 
@@ -1295,7 +1287,7 @@ public class BuildTool {
 
     checkState(serializationDependenciesProvider.mode().serializesValues());
 
-    if (serializationDependenciesProvider.mode().isAsyncUploadEnabled()) {
+    if (serializationDependenciesProvider.mode().isAsyncUpload()) {
       try {
         serializationDependenciesProvider.waitForUploadCompletion();
       } catch (ExecutionException e) {
@@ -1328,7 +1320,7 @@ public class BuildTool {
       }
     }
 
-    if (serializationDependenciesProvider.mode() == RemoteAnalysisCacheMode.UPLOAD) {
+    if (serializationDependenciesProvider.mode().isSyncUpload()) {
       tryWriteSkycacheMetadata(serializationDependenciesProvider);
     }
   }

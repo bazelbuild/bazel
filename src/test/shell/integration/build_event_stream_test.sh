@@ -1690,7 +1690,9 @@ EOF
     --experimental_publish_package_metrics_in_bep \
     "//$p:BUILD"
   cp bep.json "$TEST_log" || fail "cp failed"
-  expect_log '"packageLoadMetrics":\[{"name":"test_glob_filesystem_operation_cost"[^}]*"globFilesystemOperationCost":"41"'
+  # packageLoadMetrics has two "name" entries: "name":"tools/python", then
+  # "name":"test_glob_filesystem_operation_cost". We're interested in the latter.
+  expect_log '"packageLoadMetrics":\[.*"name":"test_glob_filesystem_operation_cost"[^}]*"globFilesystemOperationCost":"41"'
 }
 
 function test_java_version_info_in_build_started() {

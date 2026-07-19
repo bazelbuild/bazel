@@ -70,6 +70,38 @@ public class TypeTaggerTest {
       return typeTable().getType(function);
     }
 
+    /** Returns the type of a global. Does not support vars that are bound in a list assignment. */
+    @Nullable
+    private StarlarkType getType(String name) {
+      for (Statement stmt : file().getStatements()) {
+        switch (stmt) {
+          case AssignmentStatement assign -> {
+            if (assign.getLHS() instanceof Identifier id && id.getName().equals(name)) {
+              return typeTable().getType(id.getBinding());
+            }
+          }
+          case DefStatement def -> {
+            if (def.getIdentifier().getName().equals(name)) {
+              return typeTable().getType(def.getResolvedFunction());
+            }
+          }
+          case TypeAliasStatement typeAlias -> {
+            // TODO: #27370 - give type aliases' values a sensible type.
+            if (typeAlias.getIdentifier().getName().equals(name)) {
+              return typeTable().getType(typeAlias.getIdentifier().getBinding());
+            }
+          }
+          case VarStatement var -> {
+            if (var.getIdentifier().getName().equals(name)) {
+              return typeTable().getType(var.getIdentifier().getBinding());
+            }
+          }
+          default -> {}
+        }
+      }
+      return null;
+    }
+
     /** Returns the type of a {@code def}'s resolved function. */
     @Nullable
     private Types.CallableType getType(DefStatement def) {
@@ -720,5 +752,182 @@ public class TypeTaggerTest {
   public void loadStatement_requiresExportedGlobal() throws Exception {
     loader = importName -> TestUtils.LoadableModule.of();
     assertInvalid("module '//x:x.bzl' does not contain symbol 'x'", "load('//x:x.bzl', 'x')");
+  }
+
+  @Test
+  public void loadStatement_loadsTypeConstructor() throws Exception {
+    loader =
+        importName ->
+            TestUtils.LoadableModule.ofTypesAndConstructors(
+                "numeric", Types.ANY, Types.wrapType("numeric", Types.NUMERIC));
+    Result result =
+        tagFile(
+            """
+            load("//x:x.bzl", "numeric")
+            x: numeric = 1
+            """);
+    assertThat(result.getType("x")).isEqualTo(Types.NUMERIC);
+  }
+
+  @Test
+  public void loadedTypeConstructor_cannotBeRebound() throws Exception {
+    loader =
+        importName ->
+            TestUtils.LoadableModule.ofTypesAndConstructors(
+                "numeric", Types.ANY, Types.wrapType("numeric", Types.NUMERIC));
+    options.allowToplevelRebinding(true).loadBindsGlobally(true);
+
+    // TODO: #27370 - Arguably, these should all be allowed unless the loaded symbol is used in a
+    // type expression in the file.
+    assertInvalid(
+        ":2:1: type 'numeric' redeclared",
+        """
+        load("//x:x.bzl", "numeric")
+        type numeric = int
+        """);
+
+    assertInvalid(
+        ":2:1: type 'numeric' redeclared",
+        """
+        load("//x:x.bzl", "numeric")
+        numeric = 123
+        """);
+
+    assertInvalid(
+        ":2:1: type 'numeric' redeclared",
+        """
+        load("//x:x.bzl", "numeric")
+        foo, bar, numeric = 123, 456, 789
+        """);
+
+    assertInvalid(
+        ":2:1: type 'numeric' redeclared",
+        """
+        load("//x:x.bzl", "numeric")
+        def numeric(x):
+            return cast(int|float, x)
+        """);
+  }
+
+  @Test
+  public void typeAlias() throws Exception {
+    Result result =
+        tagFile(
+            """
+            type int_or_str = int | str
+            x: int_or_str
+
+            type int_or_str_or_list[T] = int_or_str | list[T]
+            y: int_or_str_or_list[float]
+
+            type custom_struct[T, U] = struct[{'a': T, 'b': U}, ...]
+            z: custom_struct[int, int_or_str_or_list[bool]]
+            """);
+    assertThat(result.getType("x")).isEqualTo(Types.union(Types.INT, Types.STR));
+    assertThat(result.getType("y"))
+        .isEqualTo(Types.union(Types.INT, Types.STR, Types.list(Types.FLOAT)));
+    assertThat(result.getType("z"))
+        .isEqualTo(
+            Types.partialStruct(
+                ImmutableMap.of(
+                    "a",
+                    Types.INT,
+                    "b",
+                    Types.union(Types.INT, Types.STR, Types.list(Types.BOOL)))));
+  }
+
+  @Test
+  public void typeAlias_mayIgnoreParams() throws Exception {
+    Result result =
+        tagFile(
+            """
+            type int_or_str[T] = int | str  # T is ignored
+            x: int_or_str[int]
+
+            type optional_of_second_arg[T, U, V] = U | None  # T and V are ignored
+            y: optional_of_second_arg[bool, str, float]
+            """);
+    assertThat(result.getType("x")).isEqualTo(Types.union(Types.INT, Types.STR));
+    assertThat(result.getType("y")).isEqualTo(Types.union(Types.STR, Types.NONE));
+  }
+
+  @Test
+  public void typeAlias_mayUseLoadedTypeConstructors() throws Exception {
+    loader =
+        importName ->
+            TestUtils.LoadableModule.ofTypesAndConstructors(
+                "numeric", Types.ANY, Types.wrapType("numeric", Types.NUMERIC));
+    Result result =
+        tagFile(
+            """
+            load("//x:x.bzl", "numeric")
+            type numeric_or_str_or[T] = numeric | str | T
+            x: numeric_or_str_or[bool]
+            """);
+    assertThat(result.getType("x")).isEqualTo(Types.union(Types.NUMERIC, Types.STR, Types.BOOL));
+  }
+
+  @Test
+  public void typeAlias_requiresCorrectNumberOfTypeArgs() throws Exception {
+    assertInvalid(
+        "'int_or_str' does not accept arguments",
+        """
+        type int_or_str = int | str
+        x: int_or_str[int]
+        """);
+    assertInvalid(
+        "optional_list[] accepts exactly 1 argument but got 0",
+        """
+        type optional_list[T] = list[T] | None
+        x: optional_list
+        """);
+    assertInvalid(
+        "optional_dict[] accepts exactly 2 arguments but got 1",
+        """
+        type optional_dict[K, V] = dict[K, V] | None
+        x: optional_dict[str]
+        """);
+    assertInvalid(
+        "optional_dict[] accepts exactly 2 arguments but got 3",
+        """
+        type optional_dict[K, V] = dict[K, V] | None
+        x: optional_dict[str, int, bool]
+        """);
+  }
+
+  @Test
+  public void typeAlias_requiresArgsToBeTypes() throws Exception {
+    // TODO: #27370 - Should we relax this requirement? Ideally, we'd want to be able to query each
+    // type constructor, given a particular arity, for the allowed classes of TypeConstructor.Arg it
+    // allows for the n-th argument, and use that to determine the allowed arg kinds for the type
+    // alias's type constructor.
+    assertInvalid(
+        "in application to optional_struct, got '{\"a\": int}', expected a type",
+        """
+        type optional_struct[T] = struct[T] | None
+        x: optional_struct[{"a": int}]
+        """);
+    assertInvalid(
+        "in application to optional_singleton_tuple, got '()', expected a type",
+        """
+        type optional_singleton_tuple[T] = tuple[T] | None
+        x: optional_singleton_tuple[()]
+        """);
+  }
+
+  @Test
+  public void typeAlias_cannotBeUsedBeforeDefinition() throws Exception {
+    assertInvalid(
+        "name 'int_or_str' is not defined",
+        """
+        x: int_or_str
+        type int_or_str = int | str
+        """);
+    assertInvalid(
+        "name 'optional_list' is not defined",
+        """
+        x: optional_list[int]
+        type optional_list[T] = list[T] | None
+        """);
   }
 }

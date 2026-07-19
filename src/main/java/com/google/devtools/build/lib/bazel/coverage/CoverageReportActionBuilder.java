@@ -216,6 +216,10 @@ public final class CoverageReportActionBuilder {
         continue;
       }
       TestParams testParams = target.getProvider(TestProvider.class).getTestParams();
+      FilesToRunProvider generator = testParams.getCoverageReportGenerator();
+      if (generator == null) {
+        continue;
+      }
       builder.addAll(testParams.getCoverageArtifacts());
       // targetsToTest has non-deterministic order, so we ensure that we pick the same action owner
       // and matching report generator each time by picking the owner that's lexicographically
@@ -223,7 +227,7 @@ public final class CoverageReportActionBuilder {
       if (reportGenerator == null
           || ACTION_OWNER_COMPARATOR.compare(testParams.getActionOwnerForCoverage(), actionOwner)
               > 0) {
-        reportGenerator = testParams.getCoverageReportGenerator();
+        reportGenerator = generator;
         actionOwner = testParams.getActionOwnerForCoverage();
       }
     }

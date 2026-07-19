@@ -309,7 +309,7 @@ public final class ArtifactFunction implements SkyFunction {
   @Nullable
   private SkyValue createSourceValue(Artifact artifact, Environment env)
       throws InterruptedException, ArtifactFunctionException {
-    RootedPath path = RootedPath.toRootedPath(artifact.getRoot().getRoot(), artifact.getPath());
+    RootedPath path = artifact.getRootedPath();
     SkyKey fileSkyKey = FileValue.key(path);
     FileValue fileValue;
     try {

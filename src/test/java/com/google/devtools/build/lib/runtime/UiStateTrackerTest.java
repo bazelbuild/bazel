@@ -780,6 +780,30 @@ public class UiStateTrackerTest extends FoundationTestCase {
   }
 
   @Test
+  public void setTargetWidth_affectsSubsequentProgressBarRendering() throws Exception {
+    ManualClock clock = new ManualClock();
+    Action action = createDummyAction("Some random action");
+    UiStateTracker stateTracker = getUiStateTracker(clock, /* targetWidth= */ 70);
+    // Mimic being at the execution phase.
+    simulateExecutionPhase(stateTracker);
+    stateTracker.actionStarted(new ActionStartedEvent(action, clock.nanoTime()));
+    stateTracker.actionProgress(
+        ActionProgressEvent.create(action, "action-id", "action progress", false));
+
+    LoggingTerminalWriter wideTerminalWriter =
+        new LoggingTerminalWriter(/* discardHighlight= */ true);
+    stateTracker.writeProgressBar(wideTerminalWriter);
+    assertThat(wideTerminalWriter.getTranscript()).contains("action progress");
+
+    stateTracker.setTargetWidth(30);
+
+    LoggingTerminalWriter narrowTerminalWriter =
+        new LoggingTerminalWriter(/* discardHighlight= */ true);
+    stateTracker.writeProgressBar(narrowTerminalWriter);
+    assertThat(narrowTerminalWriter.getTranscript()).doesNotContain("action progress");
+  }
+
+  @Test
   public void actionProgress_withTooSmallWidth_progressSkipped() throws Exception {
     // arrange
     ManualClock clock = new ManualClock();

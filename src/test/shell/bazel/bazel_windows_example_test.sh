@@ -133,8 +133,8 @@ function test_cpp_with_msys_gcc() {
   ./bazel-bin/${cpp_pkg}/hello-world foo >& $TEST_log \
     || fail "./bazel-bin/${cpp_pkg}/hello-world foo execution failed"
   expect_log "Hello foo"
-  assert_test_ok "//examples/cpp:hello-success_test" --compiler=msys-gcc --noincompatible_enable_cc_toolchain_resolution
-  assert_test_fails "//examples/cpp:hello-fail_test" --compiler=msys-gcc --noincompatible_enable_cc_toolchain_resolution
+  assert_test_ok "//examples/cpp:hello-success_test" --compiler=msys-gcc
+  assert_test_fails "//examples/cpp:hello-fail_test" --compiler=msys-gcc
 }
 
 function test_cpp_with_mingw_gcc() {

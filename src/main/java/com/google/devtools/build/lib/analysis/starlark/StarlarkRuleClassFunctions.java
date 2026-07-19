@@ -85,6 +85,7 @@ import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.StarlarkIm
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.StarlarkImplicitOutputsFunctionWithMap;
 import com.google.devtools.build.lib.packages.LabelConverter;
 import com.google.devtools.build.lib.packages.MacroClass;
+import com.google.devtools.build.lib.packages.MacroClass.TooManyAttributesException;
 import com.google.devtools.build.lib.packages.MacroInstance;
 import com.google.devtools.build.lib.packages.PredicateWithMessage;
 import com.google.devtools.build.lib.packages.Rule;
@@ -199,7 +200,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
               "$dependency_resolution_base_rule", RuleClassType.ABSTRACT, true, baseRule)
           .setDependencyResolutionRule()
           .removeAttribute(":action_listener")
-          .removeAttribute("aspect_hints")
+          .removeAttribute(RuleClass.ASPECT_HINTS_ATTR)
           .removeAttribute("toolchains")
           .removeAttribute(RuleClass.EXEC_COMPATIBLE_WITH_ATTR)
           .removeAttribute(RuleClass.EXEC_GROUP_COMPATIBLE_WITH_ATTR)
@@ -215,7 +216,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       new RuleClass.Builder("$materializer_base_rule", RuleClassType.ABSTRACT, true, baseRule)
           .setIsMaterializerRule(true)
           .removeAttribute(":action_listener")
-          .removeAttribute("aspect_hints")
+          .removeAttribute(RuleClass.ASPECT_HINTS_ATTR)
           .removeAttribute("toolchains")
           .removeAttribute(RuleClass.EXEC_COMPATIBLE_WITH_ATTR)
           .removeAttribute(RuleClass.EXEC_GROUP_COMPATIBLE_WITH_ATTR)
@@ -1326,6 +1327,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       Dict<?, ?> attrs,
       Sequence<?> requiredProvidersArg,
       Sequence<?> requiredAspectProvidersArg,
+      Sequence<?> requiredAspectHintsProvidersArg,
       Sequence<?> providesArg,
       Sequence<?> requiredAspects,
       Object rawPropagationPredicate,
@@ -1501,6 +1503,8 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
         StarlarkAttrModule.buildProviderPredicate(requiredProvidersArg, "required_providers"),
         StarlarkAttrModule.buildProviderPredicate(
             requiredAspectProvidersArg, "required_aspect_providers"),
+        StarlarkAttrModule.buildProviderPredicate(
+            requiredAspectHintsProvidersArg, "required_aspect_hints_providers"),
         StarlarkAttrModule.getStarlarkProviderIdentifiers(providesArg, "provides"),
         requiredParams.build(),
         ImmutableSet.copyOf(Sequence.cast(requiredAspects, StarlarkAspect.class, "requires")),
@@ -1613,7 +1617,8 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       }
 
       if (!args.isEmpty()) {
-        throw Starlark.errorf("unexpected positional arguments");
+        throw Starlark.errorf(
+            "%s() does not accept positional arguments, but got %d", getName(), args.size());
       }
 
       MacroInstance macroInstance =
@@ -1652,7 +1657,11 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       checkState(builder != null && macroClass == null);
       builder.setName(exportedName);
       builder.setDefiningBzlLabel(starlarkLabel);
-      this.macroClass = builder.build();
+      try {
+        this.macroClass = builder.build();
+      } catch (TooManyAttributesException ex) {
+        handler.handle(Event.error(exportedLocation, ex.getMessage()));
+      }
       this.builder = null;
       checkArgument(
           identityToken.getOwner().getLabel().equals(starlarkLabel),
@@ -1766,7 +1775,8 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     public Object call(StarlarkThread thread, Tuple args, Dict<String, Object> kwargs)
         throws EvalException, InterruptedException {
       if (!args.isEmpty()) {
-        throw new EvalException("Unexpected positional arguments");
+        throw Starlark.errorf(
+            "%s() does not accept positional arguments, but got %d", getName(), args.size());
       }
       if (ruleClass == null) {
         throw new EvalException("Invalid rule class hasn't been exported by a bzl file");

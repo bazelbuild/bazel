@@ -51,6 +51,10 @@ public final class IgnoredSubdirectories {
   private final ImmutableList<String[]> splitPatterns;
   private final ImmutableSet<PathFragment> traversalExclusions;
 
+  public static ObjectCodec<IgnoredSubdirectories> ignoredSubdirectoriesCodec() {
+    return Codec.INSTANCE;
+  }
+
   private static class Codec implements ObjectCodec<IgnoredSubdirectories> {
     private static final Codec INSTANCE = new Codec();
 

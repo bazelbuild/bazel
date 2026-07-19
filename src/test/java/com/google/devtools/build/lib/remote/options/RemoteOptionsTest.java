@@ -127,6 +127,14 @@ public class RemoteOptionsTest {
   }
 
   @Test
+  public void scrubbingConfig_emptyValue_disables() throws Exception {
+    OptionsParser parser = OptionsParser.builder().optionsClasses(RemoteOptions.class).build();
+    parser.parse("--experimental_remote_scrubbing_config=");
+    RemoteOptions options = parser.getOptions(RemoteOptions.class);
+    assertThat(options.getScrubber()).isNull();
+  }
+
+  @Test
   public void diskCache_trueValue_usesDefaultLocation(
       @TestParameter({"true", "1", "yes", "t", "y"}) String arg) throws Exception {
     OptionsParser parser = OptionsParser.builder().optionsClasses(RemoteOptions.class).build();

@@ -251,7 +251,6 @@ bazel_fragments["CppOptions"] = fragment(
         "//command_line_option:objc_use_dotd_pruning",
         "//command_line_option:host_copt",
         "//command_line_option:host_conlyopt",
-        "//command_line_option:host_compiler",
         "//command_line_option:host_cxxopt",
         "//command_line_option:host_per_file_copt",
         "//command_line_option:host_grte_top",
@@ -261,7 +260,6 @@ bazel_fragments["CppOptions"] = fragment(
         "//command_line_option:experimental_cpp_modules",
         "//command_line_option:start_end_lib",
         "//command_line_option:experimental_inmemory_dotd_files",
-        "//command_line_option:incompatible_enable_cc_toolchain_resolution",
         "//command_line_option:incompatible_remove_legacy_whole_archive",
         "//command_line_option:incompatible_dont_enable_host_nonhost_crosstool_features",
         "//command_line_option:incompatible_disable_nocopts",
@@ -277,7 +275,6 @@ bazel_fragments["CppOptions"] = fragment(
         "//command_line_option:experimental_use_llvm_covmap",
     ],
     outputs = [
-        "//command_line_option:compiler",
         "//command_line_option:grte_top",
         "//command_line_option:copt",
         "//command_line_option:cxxopt",
@@ -287,7 +284,6 @@ bazel_fragments["CppOptions"] = fragment(
         "//command_line_option:strip",
     ],
     func = lambda settings: {
-        "//command_line_option:compiler": settings["//command_line_option:host_compiler"],
         "//command_line_option:grte_top": settings["//command_line_option:host_grte_top"],
         # TODO: Properly fix https://github.com/bazelbuild/bazel/issues/24545 with features.
         "//command_line_option:copt": settings["//command_line_option:host_copt"] + ([] if py_internal.get_current_os_name() == "windows" else ["-g0"]),
@@ -336,7 +332,6 @@ bazel_fragments["JavaOptions"] = fragment(
         "//command_line_option:tool_java_language_version",
         "//command_line_option:experimental_turbine_annotation_processing",
         "//command_line_option:experimental_turbine_cpu_reservation",
-        "//command_line_option:incompatible_multi_release_deploy_jars",
         "//command_line_option:incompatible_disallow_java_import_exports",
         "//command_line_option:experimental_enable_jspecify",
         "//command_line_option:experimental_run_android_lint_on_java_rules",

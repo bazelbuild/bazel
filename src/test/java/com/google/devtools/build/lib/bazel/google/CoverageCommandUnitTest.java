@@ -16,7 +16,13 @@ package com.google.devtools.build.lib.bazel.google;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.buildtool.InstrumentationFilterSupport.getInstrumentedPrefix;
 
+import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.bazel.coverage.CoverageArgs;
+import com.google.devtools.build.lib.bazel.coverage.CoverageReportActionBuilder;
+import com.google.devtools.build.lib.skyframe.CoverageReportValue;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -55,5 +61,107 @@ public final class CoverageCommandUnitTest extends BuildViewTestCase {
     assertThat(getInstrumentedPrefix("foo/internal")).isEqualTo("foo");
     assertThat(getInstrumentedPrefix("foo/public")).isEqualTo("foo");
     assertThat(getInstrumentedPrefix("foo/tests")).isEqualTo("foo");
+  }
+
+  @Test
+  public void testCoverageReportActionBuilder_disabledCoverageDoesNotNpe() throws Exception {
+    useConfiguration("--collect_code_coverage");
+
+    scratch.overwriteFile(
+        "tools/allowlists/function_transition_allowlist/BUILD",
+        """
+        package_group(
+            name = "function_transition_allowlist",
+            packages = ["//..."],
+        )
+        """);
+
+    scratch.file(
+        "repro/repro.bzl",
+        """
+        def _disable_coverage_transition_impl(settings, attr):
+            return {"//command_line_option:collect_code_coverage": False}
+
+        disable_coverage_transition = transition(
+            implementation = _disable_coverage_transition_impl,
+            inputs = [],
+            outputs = ["//command_line_option:collect_code_coverage"],
+        )
+
+        def _my_test_impl(ctx):
+            executable = ctx.actions.declare_file(ctx.label.name + ".sh")
+            ctx.actions.write(
+                output = executable,
+                content = "#!/bin/bash\\nexit 0\\n",
+                is_executable = True,
+            )
+            return [
+                DefaultInfo(executable = executable),
+            ]
+
+        my_test = rule(
+            implementation = _my_test_impl,
+            test = True,
+            cfg = disable_coverage_transition,
+            attrs = {
+                "_allowlist_function_transition": attr.label(
+                    default = "//tools/allowlists/function_transition_allowlist"
+                ),
+            },
+        )
+
+        normal_test = rule(
+            implementation = _my_test_impl,
+            test = True,
+        )
+        """);
+
+    scratch.file(
+        "repro/BUILD",
+        """
+        load("//repro:repro.bzl", "my_test", "normal_test")
+
+        normal_test(
+            name = "normal_test_target",
+        )
+
+        my_test(
+            name = "transitioned_test_target",
+        )
+        """);
+
+    ConfiguredTarget normalTarget = getConfiguredTarget("//repro:normal_test_target");
+    ConfiguredTarget transitionedTarget = getConfiguredTarget("//repro:transitioned_test_target");
+
+    ImmutableList<ConfiguredTarget> targetsToTest =
+        ImmutableList.of(normalTarget, transitionedTarget);
+
+    CoverageReportActionBuilder builder = new CoverageReportActionBuilder();
+    CoverageReportActionBuilder.CoverageHelper dummyHelper =
+        new CoverageReportActionBuilder.CoverageHelper() {
+          @Override
+          public ImmutableList<String> getArgs(CoverageArgs args, Artifact lcovOutput) {
+            return ImmutableList.of();
+          }
+
+          @Override
+          public String getLocationMessage(CoverageArgs args, Artifact lcovOutput) {
+            return "";
+          }
+        };
+
+    // This should not throw NullPointerException
+    Object unused =
+        builder.createCoverageActionsWrapper(
+            reporter,
+            directories,
+            /* configuredTargets= */ ImmutableList.of(),
+            targetsToTest,
+            view.getArtifactFactory(),
+            actionKeyContext,
+            CoverageReportValue.COVERAGE_REPORT_KEY,
+            /* workspaceName= */ "workspace",
+            dummyHelper,
+            /* htmlReport= */ null);
   }
 }

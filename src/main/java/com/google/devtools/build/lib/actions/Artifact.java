@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.util.HashCodes;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.PathStrippable;
+import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.ExecutionPhaseSkyKey;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -178,6 +179,10 @@ public abstract sealed class Artifact
     }
 
     return ((DerivedArtifact) artifact).getGeneratingActionKey();
+  }
+
+  public RootedPath getRootedPath() {
+    return RootedPath.toRootedPath(root.getRoot(), getPath());
   }
 
   public static <T extends Artifact> Iterable<SkyKey> keys(Iterable<T> artifacts) {

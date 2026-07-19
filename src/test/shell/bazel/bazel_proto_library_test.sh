@@ -535,39 +535,6 @@ EOF
   bazel build //a:c || fail "build failed"
 }
 
-function test_cc_proto_library_with_toolchain_resolution() {
-  add_rules_cc MODULE.bazel
-
-  mkdir -p a
-  cat > a/BUILD <<EOF
-load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")
-load("@com_google_protobuf//bazel:cc_proto_library.bzl", "cc_proto_library")
-load("@rules_cc//cc:cc_library.bzl", "cc_library")
-
-proto_library(name='p', srcs=['p.proto'])
-cc_proto_library(name='cp', deps=[':p'])
-cc_library(name='c', srcs=['c.cc'], deps=[':cp'])
-EOF
-
-  cat > a/p.proto <<EOF
-syntax = "proto2";
-package a;
-message A {
-  optional int32 a = 1;
-}
-EOF
-
-  cat > a/c.cc <<EOF
-#include "a/p.pb.h"
-
-void f() {
-  a::A a;
-}
-EOF
-
-  bazel build --incompatible_enable_cc_toolchain_resolution //a:c || fail "build failed"
-}
-
 function test_cc_proto_library_import_prefix_stripping() {
   add_rules_cc MODULE.bazel
   mkdir -p a/dir

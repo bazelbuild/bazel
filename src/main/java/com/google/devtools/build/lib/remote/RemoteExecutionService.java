@@ -532,11 +532,11 @@ public class RemoteExecutionService {
       if (toolSignature != null) {
         additionalPropertiesBuilder.put(
             PlatformProperties.PERSISTENT_WORKER_KEY, toolSignature.key);
-      }
-      if (spawn.getExecutionInfo().containsKey(ExecutionRequirements.REQUIRES_WORKER_PROTOCOL)) {
-        additionalPropertiesBuilder.put(
-            PlatformProperties.PERSISTENT_WORKER_PROTOCOL,
-            spawn.getExecutionInfo().get(ExecutionRequirements.REQUIRES_WORKER_PROTOCOL));
+        if (spawn.getExecutionInfo().containsKey(ExecutionRequirements.REQUIRES_WORKER_PROTOCOL)) {
+          additionalPropertiesBuilder.put(
+              PlatformProperties.PERSISTENT_WORKER_PROTOCOL,
+              spawn.getExecutionInfo().get(ExecutionRequirements.REQUIRES_WORKER_PROTOCOL));
+        }
       }
       platform =
           PlatformUtils.getPlatformProto(spawn, remoteOptions, additionalPropertiesBuilder.build());
@@ -1156,7 +1156,7 @@ public class RemoteExecutionService {
         dirMetadataDownloads.put(
             localPath,
             Futures.transformAsync(
-                combinedCache.downloadBlob(
+                combinedCache.downloadBlobAsByteString(
                     context,
                     outputPath,
                     remotePathResolver.localPathToExecPath(localPath.asFragment()),
@@ -1326,13 +1326,13 @@ public class RemoteExecutionService {
             } else {
               downloadsBuilder.add(
                   transform(
-                      combinedCache.downloadBlob(
+                      combinedCache.downloadBlobAsByteString(
                           context,
                           inMemoryOutputPath.getPathString(),
                           inMemoryOutputPath,
                           file.digest()),
                       data -> {
-                        inMemoryOutputData.set(ByteString.copyFrom(data));
+                        inMemoryOutputData.set(data);
                         return null;
                       },
                       directExecutor()));

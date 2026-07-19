@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture.FileOpNode;
 import com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture.FileOpNodeOrEmpty;
 import com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture.FutureFileOpNode;
 import com.google.devtools.build.lib.skyframe.serialization.AsyncSerializationTask;
+import com.google.devtools.build.lib.skyframe.serialization.DeserializedSkyValue;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
 import com.google.devtools.build.lib.skyframe.serialization.FrontierNodeVersion;
 import com.google.devtools.build.lib.skyframe.serialization.KeyValueWriter;
@@ -236,7 +237,8 @@ final class SelectedEntrySerializer {
       EventBus eventBus,
       ProfileCollector profileCollector,
       SerializationStats serializationStats,
-      boolean emitUploadedEvents)
+      boolean emitUploadedEvents,
+      FileOpNodeMemoizingLookup fileOpNodes)
       throws InterruptedException {
     ImmutableMap<PackageIdentifier, AtomicInteger> packageRefcounts = null;
     if (shouldDiscardMemory) {
@@ -254,13 +256,8 @@ final class SelectedEntrySerializer {
               });
       packageRefcounts = ImmutableMap.copyOf(tempRefcounts);
     }
-    var fileOpNodes =
-        new FileOpNodeMemoizingLookup(
-            fingerprintValueService.getExecutor(),
-            graph,
-            selection,
-            shouldDiscardMemory,
-            shouldDiscardMemory ? packageRefcounts.keySet() : null);
+    fileOpNodes.setMemoryReclamationParameters(
+        selection, shouldDiscardMemory, shouldDiscardMemory ? packageRefcounts.keySet() : null);
     var fileDependencySerializer =
         new FileDependencySerializer(
             versionGetter,
@@ -332,17 +329,20 @@ final class SelectedEntrySerializer {
   }
 
   public void upload(SkyKey key) throws InterruptedException {
+    InMemoryNodeEntry entry = graph.getIfPresent(key);
+    if (entry != null && entry.getValue() instanceof DeserializedSkyValue) {
+      return;
+    }
     // TODO: b/371508153 - only upload nodes that were freshly computed by this invocation and
     // unaffected by local, un-submitted changes.
     writeStatuses.selectedEntryStartingCapped();
     try {
       switch (key) {
         case ActionLookupKey actionLookupKey -> {
-          serializationStats.registerAnalysisNode();
-          InMemoryNodeEntry entry = graph.getIfPresent(actionLookupKey);
           if (entry == null) {
             throw new MissingSkyframeEntryException(actionLookupKey);
           }
+          serializationStats.registerAnalysisNode();
           uploadAnalysisEntry(actionLookupKey, entry.getValue(), entry.getDirectDeps());
         }
         case ActionLookupData lookupData -> {
@@ -654,47 +654,88 @@ final class SelectedEntrySerializer {
           writeStatuses.counters.keyBytesWaitingForUpload.addAndGet(keyByteCount);
           writeStatuses.counters.valueBytesWaitingForUpload.addAndGet(valueByteCount);
 
-          WriteStatus putStatus = fingerprintValueService.put(versionedKey, entryBytes);
-          valueResultTask.registerWriteStatus(putStatus);
-
-          putStatus.addListener(
-              () -> {
-                writeStatuses.counters.entriesWaitingForUpload.decrementAndGet();
-                writeStatuses.counters.keyBytesWaitingForUpload.addAndGet(-keyByteCount);
-                writeStatuses.counters.valueBytesWaitingForUpload.addAndGet(-valueByteCount);
-                boolean shouldUpdateCounts;
-                try {
-                  // Avoids updating counts if the writes are marked as duplicates. Note that
-                  // duplicate detection is not ordinarily enabled.
-                  shouldUpdateCounts = Futures.getDone(putStatus);
-                } catch (ExecutionException e) {
-                  // This error is propagated to the main control flow via `writeStatuses`.
-                  shouldUpdateCounts = false;
+          // We wait for the invalidation data and the value to be uploaded before we upload the
+          // entry. Otherwise readers would get a cache miss on this entry if they happened to
+          // try to read the entry before the upload finishes, but potentially not before doing a
+          // lot of useless work. We don't wait for the key data to be uploaded because it is
+          // never deserialized and it's a wart that we upload anything as part of serializing the
+          // key anyway because we only need its fingerprint.
+          ArrayList<ListenableFuture<?>> futuresToBlockOn = new ArrayList<>(2);
+          if (valueResult.getFutureToBlockWritesOn() != null) {
+            futuresToBlockOn.add(valueResult.getFutureToBlockWritesOn());
+          }
+          futuresToBlockOn.add(node.writeStatus());
+          ListenableFuture<Void> blockedOn =
+              whenAllSucceed(futuresToBlockOn).call(() -> null, directExecutor());
+          Futures.addCallback(
+              blockedOn,
+              new FutureCallback<>() {
+                @Override
+                public void onSuccess(Void unused) {
+                  uploadEntryBytes(versionedKey, entryBytes, keyByteCount, valueByteCount);
                 }
-                if (shouldUpdateCounts) {
-                  writeStatuses.counters.entriesUploaded.incrementAndGet();
-                  writeStatuses.counters.keyBytesUploaded.addAndGet(keyByteCount);
-                  writeStatuses.counters.valueBytesUploaded.addAndGet(valueByteCount);
-                  if (emitUploadedEvents) {
-                    eventBus.post(new SkyValueUploadedEvent(key, frontierVersion, versionedKey));
-                  }
+
+                @Override
+                public void onFailure(Throwable t) {
+                  onUploadFailure(t, keyByteCount, valueByteCount);
                 }
               },
-              directExecutor());
-
-          writeStatuses.addWriteStatus(putStatus);
-
-          writeStatuses.selectedEntryDone();
+              fingerprintValueService.getExecutor());
         } catch (Throwable t) {
           onFailure(t);
         }
       }
 
       @Override
-      public final void onFailure(Throwable t) {
+      public void onFailure(Throwable t) {
         writeStatuses.counters.entriesWaitingForInvalidationBytes.decrementAndGet();
         writeStatuses.selectedEntryFailed(t);
       }
+    }
+
+    private void uploadEntryBytes(
+        PackedFingerprint versionedKey, byte[] entryBytes, long keyByteCount, long valueByteCount) {
+      try {
+        WriteStatus putStatus = fingerprintValueService.put(versionedKey, entryBytes);
+        valueResultTask.registerWriteStatus(putStatus);
+
+        putStatus.addListener(
+            () -> {
+              writeStatuses.counters.entriesWaitingForUpload.decrementAndGet();
+              writeStatuses.counters.keyBytesWaitingForUpload.addAndGet(-keyByteCount);
+              writeStatuses.counters.valueBytesWaitingForUpload.addAndGet(-valueByteCount);
+              boolean shouldUpdateCounts;
+              try {
+                // Avoids updating counts if the writes are marked as duplicates. Note that
+                // duplicate detection is not ordinarily enabled.
+                shouldUpdateCounts = Futures.getDone(putStatus);
+              } catch (ExecutionException e) {
+                // This error is propagated to the main control flow via `writeStatuses`.
+                shouldUpdateCounts = false;
+              }
+              if (shouldUpdateCounts) {
+                writeStatuses.counters.entriesUploaded.incrementAndGet();
+                writeStatuses.counters.keyBytesUploaded.addAndGet(keyByteCount);
+                writeStatuses.counters.valueBytesUploaded.addAndGet(valueByteCount);
+                if (emitUploadedEvents) {
+                  eventBus.post(new SkyValueUploadedEvent(key, frontierVersion, versionedKey));
+                }
+              }
+            },
+            directExecutor());
+
+        writeStatuses.addWriteStatus(putStatus);
+        writeStatuses.selectedEntryDone();
+      } catch (Throwable t) {
+        onUploadFailure(t, keyByteCount, valueByteCount);
+      }
+    }
+
+    private void onUploadFailure(Throwable t, long keyByteCount, long valueByteCount) {
+      writeStatuses.counters.entriesWaitingForUpload.decrementAndGet();
+      writeStatuses.counters.keyBytesWaitingForUpload.addAndGet(-keyByteCount);
+      writeStatuses.counters.valueBytesWaitingForUpload.addAndGet(-valueByteCount);
+      writeStatuses.selectedEntryFailed(t);
     }
   }
 

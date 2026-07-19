@@ -843,8 +843,17 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   public ThreadSafeMutableSet<Target> getTransitiveClosure(
       ThreadSafeMutableSet<Target> targets, QueryExpressionContext<Target> context)
       throws InterruptedException {
+    return getTransitiveClosure(targets, context, createThreadSafeMutableSet());
+  }
+
+  @Override
+  public ThreadSafeMutableSet<Target> getTransitiveClosure(
+      ThreadSafeMutableSet<Target> targets,
+      QueryExpressionContext<Target> context,
+      ThreadSafeMutableSet<Target> visited)
+      throws InterruptedException {
     return SkyQueryUtils.getTransitiveClosure(
-        targets, targets1 -> getFwdDeps(targets1, context), createThreadSafeMutableSet());
+        targets, targets1 -> getFwdDeps(targets1, context), visited);
   }
 
   @Override

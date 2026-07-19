@@ -475,6 +475,31 @@ TEST_F(TestWrapperWindowsTest, TestTee) {
   write1 = INVALID_HANDLE_VALUE;  // closes handle so the Tee thread can exit
 }
 
+TEST_F(TestWrapperWindowsTest, TestXmlWriterTestcaseHasClassname) {
+  std::wstring tmpdir;
+  GET_TEST_TMPDIR(&tmpdir);
+  std::wstring test_log = tmpdir + L"\\test.log";
+  std::wstring test_xml = tmpdir + L"\\test.xml";
+  ASSERT_TRUE(blaze_util::CreateDummyFile(test_log, ""));
+
+  wchar_t program[] = L"xml_writer";
+  wchar_t duration[] = L"1";
+  wchar_t exit_code[] = L"0";
+  wchar_t* argv[] = {program, &test_log[0], &test_xml[0], duration, exit_code};
+  ASSERT_EQ(bazel::tools::test_wrapper::XmlWriterMain(5, argv), 0);
+
+  HANDLE h = FopenRead(test_xml);
+  ASSERT_NE(h, INVALID_HANDLE_VALUE);
+  char content[4096];
+  DWORD read;
+  ASSERT_TRUE(ReadFile(h, content, sizeof(content), &read, nullptr));
+  CloseHandle(h);
+  std::string xml(content, read);
+  const auto testcase = xml.find("<testcase ");
+  ASSERT_NE(testcase, std::string::npos);
+  EXPECT_LT(xml.find(" classname=\"\"", testcase), xml.find('>', testcase));
+}
+
 void AssertCdataEncodeBuffer(const wchar_t* wline, const char* input,
                              DWORD size, const char* expected_output) {
   bazel::windows::AutoHandle h(FopenContents(wline, input, size));

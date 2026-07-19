@@ -39,6 +39,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.util.Date;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.PriorityQueue;
 import java.util.TimeZone;
@@ -647,7 +648,9 @@ public final class SimpleLogHandler extends Handler {
         name = name.substring(0, firstDot);
       }
     }
-    return name.toLowerCase();
+    // Unicode-aware lowercase conversion requires strings to be in Java's regular encoding.
+    return StringEncoding.unicodeToInternal(
+        StringEncoding.internalToUnicode(name).toLowerCase(Locale.ROOT));
   }
 
   /**

@@ -261,7 +261,7 @@ public class BuildView {
     BuildOptions topLevelConfigurationTrimmedOfTestOptions;
     boolean shouldDiscardAnalysisCache;
     if (skyframeExecutor.getAndIncrementAnalysisCount() != 0
-        && remoteAnalysisCachingDependenciesProvider.mode() == RemoteAnalysisCacheMode.UPLOAD) {
+        && remoteAnalysisCachingDependenciesProvider.mode().isSyncUpload()) {
       throw new AbruptExitException(
           DetailedExitCode.of(
               FailureDetail.newBuilder()
@@ -430,8 +430,9 @@ public class BuildView {
                 /* shouldDiscardAnalysisCache= */ discardAnalysisCacheAfterAnalysis,
                 // Analysis uploads happen after the build and use the syscall cache, so it should
                 // not be cleared mid-build. The cache is still cleared upon command completion.
-                /* shouldClearSyscallCache= */ remoteAnalysisCachingDependenciesProvider.mode()
-                    != RemoteAnalysisCacheMode.UPLOAD,
+                /* shouldClearSyscallCache= */ !remoteAnalysisCachingDependenciesProvider
+                    .mode()
+                    .isSyncUpload(),
                 buildDriverKeyTestContext,
                 skymeldAnalysisOverlapPercentage);
       } else {
@@ -448,8 +449,7 @@ public class BuildView {
                 executors,
                 checkForActionConflicts);
         setArtifactRoots(skyframeAnalysisResult.getPackageRoots());
-        if (skyframeExecutor.getRemoteAnalysisCachingDependenciesProvider().mode()
-            == RemoteAnalysisCacheMode.UPLOAD) {
+        if (skyframeExecutor.getRemoteAnalysisCachingDependenciesProvider().mode().isSyncUpload()) {
           skyframeExecutor.clearPackageValues();
         }
       }

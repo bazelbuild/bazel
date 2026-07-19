@@ -26,7 +26,7 @@ import java.lang.annotation.Target;
  */
 @Target({ElementType.TYPE})
 @Retention(RetentionPolicy.RUNTIME)
-public @interface GlobalMethods {
+public @interface GlobalMethodDocs {
   /** The environment in which the global methods in the annotated class are available. */
   enum Environment {
     ALL(

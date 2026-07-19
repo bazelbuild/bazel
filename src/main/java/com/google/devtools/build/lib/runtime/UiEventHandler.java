@@ -57,6 +57,7 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler.FetchProgress;
 import com.google.devtools.build.lib.pkgcache.LoadingPhaseCompleteEvent;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.runtime.CrashDebuggingProtos.InflightActionInfo;
+import com.google.devtools.build.lib.server.TerminalSizeMonitor;
 import com.google.devtools.build.lib.skyframe.ConfigurationPhaseStartedEvent;
 import com.google.devtools.build.lib.skyframe.LoadingPhaseStartedEvent;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.SomeExecutionStartedEvent;
@@ -139,7 +140,7 @@ public final class UiEventHandler implements EventHandler {
   private ByteArrayOutputStream stderrLineBuffer;
 
   private final int maxStdoutErrBytes;
-  private final int terminalWidth;
+  private int terminalWidth;
 
   /**
    * An output stream that wraps another output stream and that fully buffers writes until flushed.
@@ -182,7 +183,29 @@ public final class UiEventHandler implements EventHandler {
       @Nullable PathFragment workspacePathFragment,
       boolean skymeldMode,
       boolean newStatsSummary) {
-    this.terminalWidth = (options.getTerminalColumns() > 0 ? options.getTerminalColumns() : 80);
+    this(
+        outErr,
+        options,
+        quiet,
+        clock,
+        eventBus,
+        workspacePathFragment,
+        skymeldMode,
+        newStatsSummary,
+        TerminalSizeMonitor.NOOP);
+  }
+
+  public UiEventHandler(
+      OutErr outErr,
+      UiOptions options,
+      boolean quiet,
+      Clock clock,
+      EventBus eventBus,
+      @Nullable PathFragment workspacePathFragment,
+      boolean skymeldMode,
+      boolean newStatsSummary,
+      TerminalSizeMonitor terminalSizeMonitor) {
+    this.terminalWidth = normalizeTerminalWidth(options.getTerminalColumns());
     this.maxStdoutErrBytes = options.getMaxStdoutErrBytes();
     this.outErr =
         OutErr.create(
@@ -209,12 +232,12 @@ public final class UiEventHandler implements EventHandler {
     if (skymeldMode) {
       this.stateTracker =
           this.cursorControl
-              ? new SkymeldUiStateTracker(clock, /* targetWidth= */ this.terminalWidth - 2)
+              ? new SkymeldUiStateTracker(clock, /* targetWidth= */ getProgressTargetWidth())
               : new SkymeldUiStateTracker(clock);
     } else {
       this.stateTracker =
           this.cursorControl
-              ? new UiStateTracker(clock, /* targetWidth= */ this.terminalWidth - 2)
+              ? new UiStateTracker(clock, /* targetWidth= */ getProgressTargetWidth())
               : new UiStateTracker(clock);
     }
     this.stateTracker.setProgressSampleSize(options.getUiActionsShown());
@@ -238,6 +261,48 @@ public final class UiEventHandler implements EventHandler {
     this.filteredEventKinds = options.getFilteredEventKinds();
     // The progress bar has not been updated yet.
     ignoreRefreshLimitOnce();
+    terminalSizeMonitor.addListener(this::terminalSizeChanged);
+  }
+
+  private static int normalizeTerminalWidth(int columns) {
+    return columns > 0 ? columns : 80;
+  }
+
+  private int getProgressTargetWidth() {
+    return Math.max(0, terminalWidth - 2);
+  }
+
+  private int getWrappingWidth() {
+    return Math.max(1, terminalWidth - 1);
+  }
+
+  private void terminalSizeChanged(int columns, int rows) {
+    int newTerminalWidth = normalizeTerminalWidth(columns);
+    updateLock.lock();
+    try {
+      synchronized (this) {
+        if (terminalWidth == newTerminalWidth) {
+          return;
+        }
+        if (showProgress && buildRunning && cursorControl) {
+          clearProgressBar();
+        }
+        terminalWidth = newTerminalWidth;
+        if (cursorControl) {
+          stateTracker.setTargetWidth(getProgressTargetWidth());
+        }
+        ignoreRefreshLimitOnce();
+        progressBarNeedsRefresh = true;
+        if (showProgress && buildRunning && cursorControl) {
+          addProgressBar();
+          terminal.flush();
+        }
+      }
+    } catch (IOException e) {
+      logger.atWarning().withCause(e).log("IO Error updating terminal size");
+    } finally {
+      updateLock.unlock();
+    }
   }
 
   /**
@@ -1081,7 +1146,7 @@ public final class UiEventHandler implements EventHandler {
     AnsiTerminalWriter terminalWriter = countingTerminalWriter;
     lastRefreshMillis = clock.currentTimeMillis();
     if (cursorControl) {
-      terminalWriter = new LineWrappingAnsiTerminalWriter(terminalWriter, terminalWidth - 1);
+      terminalWriter = new LineWrappingAnsiTerminalWriter(terminalWriter, getWrappingWidth());
     }
     String timestamp = null;
     if (showTimestamp) {

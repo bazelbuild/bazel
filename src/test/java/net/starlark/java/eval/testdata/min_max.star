@@ -122,3 +122,8 @@ assert_fails(lambda: max([1, 2, 3], key = "hello"), "parameter 'key' got value o
 max_counting_identity, max_call_count = make_counting_identity()
 assert_eq(max("max".elems(), key = max_counting_identity), "x")
 assert_eq(max_call_count, {"m": 1, "a": 1, "x": 1})
+
+# verify callable key cannot mutate the list being iterated over
+lst = [1, 2, 3]
+assert_fails(lambda: min(lst, key = lambda x: lst.pop()), "list value is temporarily immutable")
+assert_fails(lambda: max(lst, key = lambda x: lst.append(x)), "list value is temporarily immutable")

@@ -54,7 +54,8 @@ public class TargetContext {
 
   private final NestedSet<PackageGroupContents> visibility;
 
-  @Nullable private final PackageSpecificationProvider transitiveVisibilityImposedByThisPackage;
+  @Nullable
+  private final TransitiveVisibilityProvider.Requirement transitiveVisibilityImposedByThisPackage;
 
   /**
    * The constructor is intentionally package private.
@@ -67,7 +68,7 @@ public class TargetContext {
       BuildConfigurationValue configuration,
       Set<ConfiguredTargetAndData> directPrerequisites,
       NestedSet<PackageGroupContents> visibility,
-      @Nullable PackageSpecificationProvider transitiveVisibility) {
+      @Nullable TransitiveVisibilityProvider.Requirement transitiveVisibility) {
     this.env = env;
     this.target = target;
     this.configuration = configuration;
@@ -113,7 +114,7 @@ public class TargetContext {
   }
 
   @Nullable
-  public PackageSpecificationProvider getTransitiveVisibilityImposedByThisPackage() {
+  public TransitiveVisibilityProvider.Requirement getTransitiveVisibilityImposedByThisPackage() {
     return transitiveVisibilityImposedByThisPackage;
   }
 

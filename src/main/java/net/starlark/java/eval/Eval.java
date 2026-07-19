@@ -14,6 +14,8 @@
 
 package net.starlark.java.eval;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
 import java.math.BigInteger;
@@ -54,6 +56,8 @@ import net.starlark.java.syntax.StarlarkType;
 import net.starlark.java.syntax.Statement;
 import net.starlark.java.syntax.StringLiteral;
 import net.starlark.java.syntax.TokenKind;
+import net.starlark.java.syntax.TypeAliasStatement;
+import net.starlark.java.syntax.TypeConstructor;
 import net.starlark.java.syntax.TypeTable;
 import net.starlark.java.syntax.Types.CallableType;
 import net.starlark.java.syntax.UnaryOperatorExpression;
@@ -295,6 +299,20 @@ final class Eval {
     return TokenKind.RETURN;
   }
 
+  private static TokenKind execTypeAlias(StarlarkThread.Frame fr, TypeAliasStatement node) {
+    // The dynamic behavior of the type alias statement is to ignore the RHS, and to assign a
+    // StarlarkValue wrapping the statically-computed type constructor (computed by TypeTagger and
+    // saved in the TypeTable) to the LHS.
+    @Nullable TypeTable typeTable = fn(fr).getTypeTable();
+    // Assign a value to the type alias identifier only if type tagging is enabled.
+    if (typeTable != null) {
+      TypeConstructor typeConstructor =
+          checkNotNull(typeTable.getTypeConstructor(node.getIdentifier().getBinding()));
+      assignIdentifier(fr, node.getIdentifier(), TypeConstructorValue.of(typeConstructor));
+    }
+    return TokenKind.PASS;
+  }
+
   private static TokenKind exec(StarlarkThread.Frame fr, Statement st)
       throws EvalException, InterruptedException {
     if (fr.dbg != null) {
@@ -331,7 +349,7 @@ final class Eval {
       case RETURN:
         return execReturn(fr, (ReturnStatement) st);
       case TYPE_ALIAS:
-        return TokenKind.PASS;
+        return execTypeAlias(fr, (TypeAliasStatement) st);
       case VAR:
         return TokenKind.PASS;
     }

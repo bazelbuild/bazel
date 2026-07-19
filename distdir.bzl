@@ -38,13 +38,13 @@ def _repo_cache_tar_impl(ctx):
     """Generate a repository cache as a tar file.
 
     This repository rule does the following:
-        1. parse all http artifacts required for generating the given list of repositories from the lock file.
+        1. parse all http artifacts required for generating the given list of repositories from the lock files.
         2. downloads all http artifacts to create a repository cache directory structure.
         3. creates a pkg_tar target which packages the repository cache directory structure.
     """
-    lockfile_path = ctx.path(ctx.attr.lockfile)
-    http_artifacts = parse_http_artifacts(ctx, lockfile_path, ctx.attr.repos)
-    registry_files = parse_registry_files(ctx, lockfile_path, ctx.attr.module_files)
+    lockfile_paths = [ctx.path(lockfile) for lockfile in ctx.attr.lockfiles]
+    http_artifacts = parse_http_artifacts(ctx, lockfile_paths, ctx.attr.repos)
+    registry_files = parse_registry_files(ctx, lockfile_paths)
 
     archive_files = []
     integrity_to_sha256 = {}
@@ -88,10 +88,9 @@ def _repo_cache_tar_impl(ctx):
     )
 
 _repo_cache_tar_attrs = {
-    "lockfile": attr.label(default = Label("//:MODULE.bazel.lock")),
+    "lockfiles": attr.label_list(),
     "dirname": attr.string(default = "repository_cache"),
     "repos": attr.string_list(),
-    "module_files": attr.label_list(),
 }
 
 repo_cache_tar = repository_rule(

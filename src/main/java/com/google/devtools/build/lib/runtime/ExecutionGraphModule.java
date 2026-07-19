@@ -272,7 +272,7 @@ public class ExecutionGraphModule extends BlazeModule {
   }
 
   private void handleExecutionBegin() {
-    if (includeChangePrunedActions) {
+    if (includeChangePrunedActions && graph == null) {
       graph = SkyframeExecutorWrappingWalkableGraph.of(env.getSkyframeExecutor());
     }
     try {

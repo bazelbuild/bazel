@@ -124,7 +124,7 @@ public class GoogleAuthUtilsTest {
         CredentialHelperEnvironment.newBuilder()
             .setEventReporter(new Reporter(EventBusEventHandler.createWithNewEventBus()))
             .setWorkspacePath(workspace)
-            .setClientEnvironment(ImmutableMap.of("PATH", pathValue.getPathString()))
+            .setClientEnvironment(() -> ImmutableMap.of("PATH", pathValue.getPathString()))
             .setHelperExecutionTimeout(Duration.ZERO)
             .build();
     CommandLinePathFactory commandLinePathFactory =

@@ -109,8 +109,7 @@ public final class RemoteAnalysisCacheFactory {
                   .build()));
     }
 
-    if (options.getMode() == RemoteAnalysisCacheMode.UPLOAD
-        || options.getMode() == RemoteAnalysisCacheMode.DUMP_UPLOAD_MANIFEST_ONLY) {
+    if (options.getMode().serializesValues()) {
       CoreOptions coreOptions = topLevelOptions.get(CoreOptions.class);
       if (coreOptions != null && !coreOptions.getCheckVisibility()) {
         throw new AbruptExitException(
@@ -248,32 +247,28 @@ public final class RemoteAnalysisCacheFactory {
 
     // Bail out if needed
 
-    return switch (options.getMode()) {
-      case RemoteAnalysisCacheMode.DUMP_UPLOAD_MANIFEST_ONLY,
-          RemoteAnalysisCacheMode.UPLOAD,
-          RemoteAnalysisCacheMode.ASYNC_UPLOAD ->
-          new AnalysisDeps(manager, deps, deps);
-      case RemoteAnalysisCacheMode.DOWNLOAD, RemoteAnalysisCacheMode.BIDI -> {
-        RemoteAnalysisCacheClient analysisCacheClient;
-        try (SilentCloseable unused = Profiler.instance().profile("initAnalysisCacheClient")) {
-          analysisCacheClient = deps.getAnalysisCacheClient();
-        }
-        if (analysisCacheClient == null) {
-          env.getReporter()
-              .handle(
-                  Event.warn(
-                      "Failed to establish connection to AnalysisCacheService (or it was not"
-                          + " specified). Falling back to local evaluation."));
-          yield new AnalysisDeps(
-              RemoteAnalysisCacheManager.createDisabled(),
-              RemoteAnalysisCacheDeps.createDisabled(),
-              RemoteAnalysisCacheDeps.createDisabled());
-        }
-        yield new AnalysisDeps(manager, deps, deps);
+    if (options.getMode().isRetrievalEnabled()) {
+      RemoteAnalysisCacheClient analysisCacheClient;
+      try (SilentCloseable unused = Profiler.instance().profile("initAnalysisCacheClient")) {
+        analysisCacheClient = deps.getAnalysisCacheClient();
       }
-      default ->
-          throw new IllegalStateException("Unknown RemoteAnalysisCacheMode: " + options.getMode());
-    };
+      if (analysisCacheClient == null) {
+        env.getReporter()
+            .handle(
+                Event.warn(
+                    "Failed to establish connection to AnalysisCacheService (or it was not"
+                        + " specified). Falling back to local evaluation."));
+        return new AnalysisDeps(
+            RemoteAnalysisCacheManager.createDisabled(),
+            RemoteAnalysisCacheDeps.createDisabled(),
+            RemoteAnalysisCacheDeps.createDisabled());
+      }
+      return new AnalysisDeps(manager, deps, deps);
+    } else if (options.getMode().serializesValues()) {
+      return new AnalysisDeps(manager, deps, deps);
+    } else {
+      throw new IllegalStateException("Unknown RemoteAnalysisCacheMode: " + options.getMode());
+    }
   }
 
   private static Optional<PathFragmentPrefixTrie> finalizeActiveDirectoriesMatcher(
@@ -281,38 +276,37 @@ public final class RemoteAnalysisCacheFactory {
       Optional<PathFragmentPrefixTrie> maybeProjectFileMatcher,
       RemoteAnalysisCacheMode mode)
       throws InvalidConfigurationException {
-    return switch (mode) {
-      case DOWNLOAD, OFF -> Optional.empty();
-      case UPLOAD, DUMP_UPLOAD_MANIFEST_ONLY, BIDI, ASYNC_UPLOAD -> {
-        // Upload or Dump mode: allow overriding the project file matcher with the active
-        // directories flag.
-        List<String> activeDirectoriesFromFlag =
-            env.getOptions().getOptions(SkyfocusOptions.class).getActiveDirectories();
-        var result = maybeProjectFileMatcher;
-        if (!activeDirectoriesFromFlag.isEmpty()) {
-          env.getReporter()
-              .handle(
-                  Event.warn(
-                      "Specifying --experimental_active_directories will override the active"
-                          + " directories specified in the PROJECT.scl file"));
-          try {
-            result = Optional.of(PathFragmentPrefixTrie.of(activeDirectoriesFromFlag));
-          } catch (PathFragmentPrefixTrieException e) {
-            throw new InvalidConfigurationException(
-                "Active directories configuration error: " + e.getMessage(), Code.INVALID_PROJECT);
-          }
+    if (mode.serializesValues()) {
+      // Upload or Dump mode: allow overriding the project file matcher with the active
+      // directories flag.
+      List<String> activeDirectoriesFromFlag =
+          env.getOptions().getOptions(SkyfocusOptions.class).getActiveDirectories();
+      var result = maybeProjectFileMatcher;
+      if (!activeDirectoriesFromFlag.isEmpty()) {
+        env.getReporter()
+            .handle(
+                Event.warn(
+                    "Specifying --experimental_active_directories will override the active"
+                        + " directories specified in the PROJECT.scl file"));
+        try {
+          result = Optional.of(PathFragmentPrefixTrie.of(activeDirectoriesFromFlag));
+        } catch (PathFragmentPrefixTrieException e) {
+          throw new InvalidConfigurationException(
+              "Active directories configuration error: " + e.getMessage(), Code.INVALID_PROJECT);
         }
-
-        if (result.isEmpty() || !result.get().hasIncludedPaths()) {
-          env.getReporter()
-              .handle(
-                  Event.warn(
-                      "No active directories were found. Falling back on full serialization."));
-          yield Optional.empty();
-        }
-        yield result;
       }
-    };
+
+      if (result.isEmpty() || !result.get().hasIncludedPaths()) {
+        env.getReporter()
+            .handle(
+                Event.warn(
+                    "No active directories were found. Falling back on full serialization."));
+        return Optional.empty();
+      }
+      return result;
+    } else {
+      return Optional.empty();
+    }
   }
 
   private static ObjectCodecs initAnalysisObjectCodecs(
