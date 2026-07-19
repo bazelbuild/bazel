@@ -37,7 +37,6 @@ import com.google.devtools.build.lib.analysis.ShToolchain;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.LazyWriteNestedSetOfTupleAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
-import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions.CancelConcurrentTests;
 import com.google.devtools.build.lib.analysis.test.TestProvider.TestParams;
 import com.google.devtools.build.lib.analysis.test.TestProvider.TestParams.CoverageParams;
@@ -140,10 +139,7 @@ public final class TestActionBuilder {
     return this;
   }
 
-  private ActionOwner getTestActionOwner(boolean useTargetPlatformForTests) {
-    if (useTargetPlatformForTests && this.executionRequirements == null) {
-      return ruleContext.getTestActionOwner();
-    }
+  private ActionOwner getTestActionOwner() {
     var execGroup =
         this.executionRequirements != null
             ? this.executionRequirements.getExecGroup()
@@ -152,9 +148,7 @@ public final class TestActionBuilder {
     if (owner != null) {
       return owner;
     }
-    return useTargetPlatformForTests
-        ? ruleContext.getTestActionOwner()
-        : ruleContext.getActionOwner();
+    return ruleContext.getActionOwner();
   }
 
   public static int getShardCount(RuleContext ruleContext) {
@@ -196,9 +190,7 @@ public final class TestActionBuilder {
     TestConfiguration testConfiguration = config.getFragment(TestConfiguration.class);
     AnalysisEnvironment env = ruleContext.getAnalysisEnvironment();
     ArtifactRoot root = ruleContext.getTestLogsDirectory();
-    ActionOwner actionOwner =
-        getTestActionOwner(
-            config.getOptions().get(CoreOptions.class).getUseTargetPlatformForTests());
+    ActionOwner actionOwner = getTestActionOwner();
     boolean isExecutedOnWindows =
         getOsFromConstraintsOrHost(actionOwner.getExecutionPlatform()) == OS.WINDOWS;
 

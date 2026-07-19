@@ -38,17 +38,6 @@ config_setting(
     flag_values = {
         ":incompatible_use_default_test_toolchain": "true",
     },
-    values = {
-        "use_target_platform_for_tests": "false",
-    },
-    visibility = ["//visibility:private"],
-)
-
-config_setting(
-    name = "use_legacy_test_toolchain_due_to_use_target_platform_for_tests",
-    values = {
-        "use_target_platform_for_tests": "true",
-    },
     visibility = ["//visibility:private"],
 )
 
@@ -77,14 +66,6 @@ toolchain(
 toolchain(
     name = "legacy_test_toolchain",
     target_settings = [":use_legacy_test_toolchain_due_to_incompatible_flag"],
-    toolchain = ":empty_toolchain",
-    toolchain_type = ":default_test_toolchain_type",
-    visibility = ["//visibility:private"],
-)
-
-toolchain(
-    name = "legacy_test_toolchain_use_target_platform_for_tests",
-    target_settings = [":use_legacy_test_toolchain_due_to_use_target_platform_for_tests"],
     toolchain = ":empty_toolchain",
     toolchain_type = ":default_test_toolchain_type",
     visibility = ["//visibility:private"],

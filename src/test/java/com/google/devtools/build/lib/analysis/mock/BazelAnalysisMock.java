@@ -333,19 +333,8 @@ launcher_flag_alias(
 
         config_setting(
             name = "use_default_test_toolchain",
-            values = {
-                "use_target_platform_for_tests": "false",
-            },
             flag_values = {
                 ":incompatible_use_default_test_toolchain": "true",
-            },
-            visibility = ["//visibility:private"],
-        )
-
-        config_setting(
-            name = "use_legacy_test_toolchain_due_to_use_target_platform_for_tests",
-            values = {
-                "use_target_platform_for_tests": "true",
             },
             visibility = ["//visibility:private"],
         )
@@ -371,14 +360,6 @@ launcher_flag_alias(
             name = "legacy_test_toolchain",
             toolchain_type = ":default_test_toolchain_type",
             target_settings = [":use_legacy_test_toolchain_due_to_incompatible_flag"],
-            toolchain = ":empty_toolchain",
-            visibility = ["//visibility:private"],
-        )
-
-        toolchain(
-            name = "legacy_test_toolchain_use_target_platform_for_tests",
-            toolchain_type = ":default_test_toolchain_type",
-            target_settings = [":use_legacy_test_toolchain_due_to_use_target_platform_for_tests"],
             toolchain = ":empty_toolchain",
             visibility = ["//visibility:private"],
         )
