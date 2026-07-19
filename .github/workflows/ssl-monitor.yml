@@ -38,7 +38,10 @@ jobs:
           cat ssl_output.txt
 
       - name: Manage SSL Issue on Failure
-        if: env.SSL_CHECK_FAILED == 'true'
+        # Only file/update the tracking issue on scheduled (or manually
+        # dispatched) runs. On pull_request runs we just validate that the
+        # monitor still runs, so we must not touch production issues.
+        if: env.SSL_CHECK_FAILED == 'true' && github.event_name != 'pull_request'
         uses: actions/github-script@v9
         with:
           script: |
