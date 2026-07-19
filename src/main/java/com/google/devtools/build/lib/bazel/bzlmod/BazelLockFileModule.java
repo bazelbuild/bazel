@@ -61,12 +61,9 @@ public class BazelLockFileModule extends BlazeModule {
     CommandEnvironment env = this.env;
     this.env = null;
     if (env == null || !env.hasSyncedPackageLoading()) {
-      // The current command (e.g. shutdown, which the client also sends before restarting a
-      // server whose startup options changed) didn't sync the Skyframe graph: its options
-      // weren't propagated to Skyframe and external changes to the lockfile on disk weren't
-      // picked up. All existing Skyframe values are stale snapshots from an earlier command,
-      // so writing them to disk could clobber changes made since then, e.g. by a server
-      // running on a different output base.
+      // The current command (e.g. shutdown) didn't evaluate the lockfile values and they may
+      // thus be stale, e.g., if a server with a different output base changed the lockfile
+      // in the meantime.
       return;
     }
     LockfileMode lockfileMode =
