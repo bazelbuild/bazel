@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
-import static com.google.devtools.build.lib.bazel.bzlmod.BazelLockFileFunction.LOCKFILE_MODE;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -29,8 +28,6 @@ import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.Lockfile
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
-import com.google.devtools.build.lib.skyframe.PrecomputedValue;
-import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
@@ -47,10 +44,7 @@ import java.util.function.Predicate;
  */
 public class BazelLockFileModule extends BlazeModule {
 
-  private SkyframeExecutor executor;
-  private Path workspaceRoot;
-  private Path outputBase;
-  private LockfileMode optionsLockfileMode;
+  private CommandEnvironment env;
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
@@ -59,34 +53,35 @@ public class BazelLockFileModule extends BlazeModule {
 
   @Override
   public void beforeCommand(CommandEnvironment env) {
-    executor = env.getSkyframeExecutor();
-    workspaceRoot = env.getWorkspace();
-    outputBase = env.getOutputBase();
-    optionsLockfileMode = env.getOptions().getOptions(RepositoryOptions.class).getLockfileMode();
+    this.env = env;
   }
 
   @Override
   public void afterCommand() {
-    MemoizingEvaluator evaluator = executor.getEvaluator();
+    CommandEnvironment env = this.env;
+    this.env = null;
+    if (env == null || !env.hasSyncedPackageLoading()) {
+      // The current command (e.g. shutdown, which the client also sends before restarting a
+      // server whose startup options changed) didn't sync the Skyframe graph: its options
+      // weren't propagated to Skyframe and external changes to the lockfile on disk weren't
+      // picked up. All existing Skyframe values are stale snapshots from an earlier command,
+      // so writing them to disk could clobber changes made since then, e.g. by a server
+      // running on a different output base.
+      return;
+    }
+    LockfileMode lockfileMode =
+        env.getOptions().getOptions(RepositoryOptions.class).getLockfileMode();
+    if (!ENABLED_IN_MODES.contains(lockfileMode)) {
+      return;
+    }
+    Path workspaceRoot = env.getWorkspace();
+    Path outputBase = env.getOutputBase();
+    MemoizingEvaluator evaluator = env.getSkyframeExecutor().getEvaluator();
     BazelModuleResolutionValue moduleResolutionValue;
     BazelDepGraphValue depGraphValue;
     BazelLockFileValue oldLockfile;
     BazelLockFileValue oldHiddenLockfile;
     try {
-      PrecomputedValue lockfileModeValue =
-          (PrecomputedValue) evaluator.getExistingValue(LOCKFILE_MODE.getKey());
-      if (lockfileModeValue == null) {
-        // No command run on this server has triggered module resolution yet.
-        return;
-      }
-      // Check the Skyframe value in addition to the option since some commands (e.g. shutdown)
-      // don't propagate the options to Skyframe, but we can only operate on Skyframe values that
-      // were generated in UPDATE mode.
-      LockfileMode skyframeLockfileMode = (LockfileMode) lockfileModeValue.get();
-      if (!(ENABLED_IN_MODES.contains(optionsLockfileMode)
-          && ENABLED_IN_MODES.contains(skyframeLockfileMode))) {
-        return;
-      }
       moduleResolutionValue =
           (BazelModuleResolutionValue) evaluator.getExistingValue(BazelModuleResolutionValue.KEY);
       depGraphValue = (BazelDepGraphValue) evaluator.getExistingValue(BazelDepGraphValue.KEY);
