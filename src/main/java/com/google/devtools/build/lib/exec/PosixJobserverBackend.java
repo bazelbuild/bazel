@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.exec;
 
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.unix.NativePosixFilesException;
-import com.google.devtools.build.lib.unix.NativePosixFilesServiceImpl;
+import com.google.devtools.build.lib.unix.NativePosixFilesService;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -35,9 +35,9 @@ public final class PosixJobserverBackend implements LocalJobserver.Backend {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private final String dirPath;
+  private final NativePosixFilesService posix;
 
   @Nullable private File fifoFile;
-  @Nullable private NativePosixFilesServiceImpl posix;
   @Nullable private RandomAccessFile fifo;
   @Nullable private FileOutputStream out;
   @Nullable private String writableDir;
@@ -45,8 +45,9 @@ public final class PosixJobserverBackend implements LocalJobserver.Backend {
   private long written = 0;
   private long drained = 0;
 
-  public PosixJobserverBackend(String dirPath) {
+  public PosixJobserverBackend(String dirPath, NativePosixFilesService posix) {
     this.dirPath = dirPath;
+    this.posix = posix;
   }
 
   @Override
@@ -61,7 +62,6 @@ public final class PosixJobserverBackend implements LocalJobserver.Backend {
     }
     File file = new File(dir, "fifo");
     file.delete();
-    this.posix = new NativePosixFilesServiceImpl();
     try {
       posix.mkfifo(file.getPath(), 0600);
     } catch (NativePosixFilesException e) {
@@ -85,7 +85,7 @@ public final class PosixJobserverBackend implements LocalJobserver.Backend {
   public int tick(int targetTokens) throws IOException {
     // available() is broken on macOS fifos (returns 0), so we can't peek the unclaimed count: drain
     // the whole pool, count it, and rewrite the tokens to keep. This empties the fifo for
-    // ~microseconds each 100ms tick, but clients block on acquire and the count is re-derived each
+    // ~microseconds each poll tick, but clients block on acquire and the count is re-derived each
     // tick, so it self-heals.
     int inFifo;
     try {
@@ -122,7 +122,6 @@ public final class PosixJobserverBackend implements LocalJobserver.Backend {
       }
     }
     fifoFile.delete();
-    posix = null;
     fifo = null;
     out = null;
     fifoFile = null;

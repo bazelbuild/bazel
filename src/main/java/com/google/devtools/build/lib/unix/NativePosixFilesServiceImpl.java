@@ -74,6 +74,7 @@ public final class NativePosixFilesServiceImpl implements NativePosixFilesServic
   @Override
   public native void mkfifo(String path, int mode) throws NativePosixFilesException;
 
+  @Override
   public native int drainFifoNonBlocking(FileDescriptor fd) throws NativePosixFilesException;
 
   @Override

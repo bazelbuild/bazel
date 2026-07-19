@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.buildtool;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -102,6 +103,7 @@ import com.google.devtools.build.lib.skyframe.IncrementalPackageRoots;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.SomeExecutionStartedEvent;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
+import com.google.devtools.build.lib.unix.NativePosixFilesService;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.OS;
@@ -366,7 +368,8 @@ public class ExecutionTool {
       configureResourceManager(
           env.getLocalResourceManager(),
           request,
-          env.getOutputBase().getRelative("jobserver").getPathString());
+          env.getOutputBase().getRelative("jobserver").getPathString(),
+          env.getRuntime().getBlazeService(NativePosixFilesService.class));
     }
 
     announceEnteringDirIfEmacs();
@@ -487,7 +490,8 @@ public class ExecutionTool {
         configureResourceManager(
             env.getLocalResourceManager(),
             request,
-            env.getOutputBase().getRelative("jobserver").getPathString());
+            env.getOutputBase().getRelative("jobserver").getPathString(),
+            env.getRuntime().getBlazeService(NativePosixFilesService.class));
       }
 
       MemoryProfiler.instance().markPhase(ProfilePhase.EXECUTE);
@@ -994,11 +998,14 @@ public class ExecutionTool {
 
   @VisibleForTesting
   public static void configureResourceManager(ResourceManager resourceMgr, BuildRequest request) {
-    configureResourceManager(resourceMgr, request, null);
+    configureResourceManager(resourceMgr, request, null, null);
   }
 
   private static void configureResourceManager(
-      ResourceManager resourceMgr, BuildRequest request, @Nullable String jobserverDir) {
+      ResourceManager resourceMgr,
+      BuildRequest request,
+      @Nullable String jobserverDir,
+      @Nullable NativePosixFilesService posix) {
     ExecutionOptions options = request.getOptions(ExecutionOptions.class);
     resourceMgr.setAvailableResources(
         ResourceSet.create(
@@ -1019,7 +1026,10 @@ public class ExecutionTool {
       jobserverBackend =
           OS.getCurrent() == OS.WINDOWS
               ? new WindowsJobserverBackend()
-              : new PosixJobserverBackend(jobserverDir);
+              : new PosixJobserverBackend(
+                  jobserverDir,
+                  checkNotNull(
+                      posix, "NativePosixFilesService must be registered for the local jobserver"));
     }
     try {
       LocalJobserver.instance().configure(jobserverBackend, resourceMgr);

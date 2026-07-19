@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.exec.LocalJobserver;
 import com.google.devtools.build.lib.exec.PosixJobserverBackend;
 import com.google.devtools.build.lib.exec.util.SpawnBuilder;
 import com.google.devtools.build.lib.testutil.TestThread;
+import com.google.devtools.build.lib.unix.NativePosixFilesServiceImpl;
 import com.google.devtools.build.lib.util.OS;
 import java.io.File;
 import java.io.FileInputStream;
@@ -68,7 +69,7 @@ public final class LocalJobserverTest {
   /** Configures against a fresh ResourceManager reporting no idle CPU, so the pool stays empty. */
   private File configureQuiet() throws IOException {
     File dir = tmp.newFolder("jobserver");
-    jobserver.configure(new PosixJobserverBackend(dir.getPath()), new ResourceManager());
+    jobserver.configure(new PosixJobserverBackend(dir.getPath(), new NativePosixFilesServiceImpl()), new ResourceManager());
     return dir;
   }
 
@@ -77,7 +78,7 @@ public final class LocalJobserverTest {
     File dir = new File(tmp.getRoot(), "jobserver with space");
 
     IOException error =
-        assertThrows(IOException.class, () -> new PosixJobserverBackend(dir.getPath()).start());
+        assertThrows(IOException.class, () -> new PosixJobserverBackend(dir.getPath(), new NativePosixFilesServiceImpl()).start());
 
     assertThat(error).hasMessageThat().contains("whitespace-free");
   }
@@ -154,7 +155,7 @@ public final class LocalJobserverTest {
     rm.setAvailableResources(ResourceSet.create(/* memoryMb= */ 1000.0, /* cpu= */ 4.0, /* tests= */ 0));
     rm.resetResourceUsage();
     File dir = tmp.newFolder("jobserver");
-    jobserver.configure(new PosixJobserverBackend(dir.getPath()), rm);
+    jobserver.configure(new PosixJobserverBackend(dir.getPath(), new NativePosixFilesServiceImpl()), rm);
 
     try (RandomAccessFile client = new RandomAccessFile(new File(dir, "fifo"), "rw")) {
       FileInputStream in = new FileInputStream(client.getFD());
@@ -178,7 +179,7 @@ public final class LocalJobserverTest {
     rm.setAvailableResources(
         ResourceSet.create(/* memoryMb= */ 1000.0, /* cpu= */ 4.0, /* tests= */ 0));
     File dir = tmp.newFolder("jobserver");
-    jobserver.configure(new PosixJobserverBackend(dir.getPath()), rm);
+    jobserver.configure(new PosixJobserverBackend(dir.getPath(), new NativePosixFilesServiceImpl()), rm);
     rm.setHeldCpuTokensSupplier(jobserver::getOutstandingTokens);
 
     CountDownLatch releaseActions = new CountDownLatch(1);
@@ -224,7 +225,7 @@ public final class LocalJobserverTest {
   public void deadManagerThreadStopsChargingHeldTokens() throws Exception {
     FaultyResourceManager rm = new FaultyResourceManager();
     File dir = tmp.newFolder("jobserver");
-    jobserver.configure(new PosixJobserverBackend(dir.getPath()), rm);
+    jobserver.configure(new PosixJobserverBackend(dir.getPath(), new NativePosixFilesServiceImpl()), rm);
 
     try (RandomAccessFile client = new RandomAccessFile(new File(dir, "fifo"), "rw")) {
       FileInputStream in = new FileInputStream(client.getFD());
@@ -244,7 +245,7 @@ public final class LocalJobserverTest {
   public void managerSurvivesFailureToReAdmitWaitingActions() throws Exception {
     NotifyThrowingResourceManager rm = new NotifyThrowingResourceManager();
     File dir = tmp.newFolder("jobserver");
-    jobserver.configure(new PosixJobserverBackend(dir.getPath()), rm);
+    jobserver.configure(new PosixJobserverBackend(dir.getPath(), new NativePosixFilesServiceImpl()), rm);
 
     try (RandomAccessFile client = new RandomAccessFile(new File(dir, "fifo"), "rw")) {
       FileInputStream in = new FileInputStream(client.getFD());
