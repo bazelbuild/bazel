@@ -27,7 +27,7 @@ echo "$PRS" | jq -c '.[]' | while read -r pr; do
   HAS_LABEL=$(echo "$pr" | jq -r '.labels[]?.name' | grep -c "^community-reviewed$" || true)
 
   # Fetch reviews for this PR
-  REVIEWS=$(gh api "repos/bazelbuild/bazel/pulls/$PR_NUMBER/reviews" --jq '.[] | {user: .user.login, state: .state, submitted_at: .submitted_at}' || echo "[]")
+  REVIEWS=$(gh api --paginate "repos/bazelbuild/bazel/pulls/$PR_NUMBER/reviews" --jq '.[] | {user: .user.login, state: .state, submitted_at: .submitted_at}' || echo "[]")
 
   if [[ -z "$REVIEWS" || "$REVIEWS" == "[]" ]]; then
     continue
