@@ -245,6 +245,7 @@ public final class SkyframeActionExecutor {
   private OutputService outputService;
   private boolean finalizeActions;
   private boolean rewindingEnabled;
+  private int maxRepeatedLostInputs;
   private boolean invocationRetriesEnabled;
   private final Supplier<ImmutableList<Root>> sourceRootSupplier;
 
@@ -345,6 +346,7 @@ public final class SkyframeActionExecutor {
     // Cache some option values for performance, since we consult them on every action.
     this.finalizeActions = buildRequestOptions.finalizeActions;
     this.rewindingEnabled = buildRequestOptions.rewindLostInputs;
+    this.maxRepeatedLostInputs = buildRequestOptions.maxRepeatedLostInputs;
     this.invocationRetriesEnabled =
         options.getOptions(ExecutionOptions.class).remoteRetryOnTransientCacheError > 0;
     this.outputService = checkNotNull(outputService);
@@ -431,6 +433,15 @@ public final class SkyframeActionExecutor {
 
   public boolean rewindingEnabled() {
     return rewindingEnabled;
+  }
+
+  /**
+   * Returns the maximum number of times the same input (or top-level output) may be lost by the
+   * same action before rewinding gives up and fails the build. Configured by {@code
+   * --experimental_max_repeated_lost_inputs}.
+   */
+  public int maxRepeatedLostInputs() {
+    return maxRepeatedLostInputs;
   }
 
   public boolean invocationRetriesEnabled() {
