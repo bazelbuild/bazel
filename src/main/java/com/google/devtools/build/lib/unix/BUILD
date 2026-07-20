@@ -55,7 +55,9 @@ java_library(
 
 java_library(
     name = "native_posix_files_service_impl",
-    srcs = ["NativePosixFilesServiceImpl.java"],
+    srcs = [
+        "NativePosixFilesServiceImpl.java",
+    ],
     deps = [
         ":native_posix_files_service",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
