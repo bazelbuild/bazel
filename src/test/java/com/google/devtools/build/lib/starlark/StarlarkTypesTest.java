@@ -79,6 +79,41 @@ public class StarlarkTypesTest extends BuildViewTestCase {
   }
 
   @Test
+  public void unresolvableTypeSyntax_ignoredWhenTypeCheckingDisabled() throws Exception {
+    // When type checking is disabled, type syntax must be tolerated even if nothing in it can be
+    // resolved: a .bzl file written for a newer Bazel version may use types (such as providers or
+    // aliases) that this version cannot evaluate, and must still load. Everything below is
+    // representative of such a file and must not be resolved or checked in any way.
+    setBuildLanguageOptions("--experimental_starlark_type_syntax");
+    scratch.file(
+        "test/foo.bzl",
+        """
+        FooInfo = provider()
+
+        type Pair[T] = tuple[T, T]
+
+        def f(
+                a: FooInfo,
+                b: list[str],
+                c: tuple[()],
+                d: struct[{"a": int}],
+                e: Pair[UnknownType] | None = None,
+                *args: int,
+                **kwargs: Literal["x"]) -> FooInfo:
+            g: UnknownLocalType = a
+            return g
+
+        CONST: int = 42
+        RESULT = f(FooInfo(), ["b"], (), struct(a = 1))
+        """);
+    scratch.file("test/BUILD", "load(':foo.bzl', 'CONST', 'RESULT')");
+
+    getTarget("//test:BUILD");
+
+    assertNoEvents();
+  }
+
+  @Test
   public void experimentalStarlarkTypes_off_disallowsTypeAnnotations() throws Exception {
     setBuildLanguageOptions(
         "--noexperimental_starlark_type_syntax",
