@@ -1222,8 +1222,7 @@ sh_test(
     exec_compatible_with = ["//:highcpu_machine"],
     tags = [
         "block-network",
-        # TODO(tedx): uncomment this before submitting
-        #"no_presubmit",
+        "no_presubmit",
     ],
 )
 
@@ -1244,8 +1243,7 @@ sh_test(
     exec_compatible_with = ["//:highcpu_machine"],
     tags = [
         "block-network",
-        # TODO(tedx): uncomment this before submitting
-        #"no_presubmit",
+        "no_presubmit",
         "no_windows",
     ],
 )
