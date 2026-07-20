@@ -388,13 +388,6 @@ public class DiskCacheIntegrationTest extends BuildIntegrationTestCase {
   }
 
   private boolean remoteCacheEntryExists(Digest digest) {
-    return fileSystem
-        .getPath(
-            worker
-                .getCasPath()
-                .getRelative("cas")
-                .getRelative(digest.getHash().substring(0, 2))
-                .getRelative(digest.getHash()))
-        .exists();
+    return fileSystem.getPath(worker.getCasBlobPath(digest)).exists();
   }
 }
