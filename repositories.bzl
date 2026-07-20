@@ -73,7 +73,6 @@ DIST_ARCHIVE_REPOS = [
     "async_profiler_linux_x64",
     "async_profiler_macos",
     "bazel_lib",
-    "bats_core",
 ]]
 
 ##################################################################################
@@ -155,16 +154,6 @@ def embedded_jdk_repositories():
         url = "https://github.com/bell-sw/Liberica/releases/download/26.0.1%2B10/bellsoft-jdk26.0.1%2B10-windows-amd64.zip",
     )
 
-def bats_core_deps():
-    # These are a transitive dep of bazel_lib and marked `reproducible`, so
-    # not included in the module lockfile.
-    http_file(
-        name = "bats_core",
-        downloaded_file_path = "bats_core.tar.gz",
-        integrity = "sha256-oan3h1qktqlIDKOE1YZfHM8bCx+urWtHqkfXlwmlxf0=",
-        urls = ["https://github.com/bats-core/bats-core/archive/v1.10.0.tar.gz"],
-    )
-
 def _async_profiler_repos(ctx):
     http_file(
         name = "async_profiler",
@@ -221,7 +210,3 @@ copy_file(
 # lockfile entry for the distribution repo module extension.
 async_profiler_repos = module_extension(_async_profiler_repos)
 
-def _dist_repos_impl(ctx):
-    bats_core_deps()
-
-dist_repos = module_extension(_dist_repos_impl)
