@@ -140,21 +140,14 @@ public final class StarlarkTransitionCache {
       if (!fromOptions.getStarlarkOptions().containsKey(customExecScopeValue.hostFlag())) {
         optionsWithDefaults.addStarlarkOption(
             customExecScopeValue.hostFlag(), customExecScopeValue.hostFlagDefault());
-        optionsWithDefaults.addScopeType(
-            customExecScopeValue.hostFlag(),
-            new Scope.ScopeType(customExecScopeValue.hostFlagScopeType()));
       }
       if (!fromOptions.getStarlarkOptions().containsKey(customExecScopeValue.flag())) {
         optionsWithDefaults.addStarlarkOption(
             customExecScopeValue.flag(), customExecScopeValue.flagDefault());
-        optionsWithDefaults.addScopeType(
-            customExecScopeValue.flag(), new Scope.ScopeType(customExecScopeValue.flagScopeType()));
       }
     }
 
-    return optionsWithDefaults == null
-        ? fromOptions
-        : optionsWithDefaults.addScopeTypeMap(fromOptions.getScopeTypeMap()).build();
+    return optionsWithDefaults == null ? fromOptions : optionsWithDefaults.build();
   }
 
   /**

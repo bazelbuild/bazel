@@ -17,7 +17,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
@@ -25,7 +24,6 @@ import com.google.devtools.build.lib.analysis.config.CommonOptions;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.RequiresOptions;
-import com.google.devtools.build.lib.analysis.config.Scope;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.BuildOptionsScopeFunction.BuildOptionsScopeFunctionException;
@@ -33,6 +31,7 @@ import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.config.BaselineOptionsFunction;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
+import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKeyValue;
 import com.google.devtools.build.lib.skyframe.config.PlatformMappingException;
 import com.google.devtools.build.lib.skyframe.toolchains.PlatformLookupUtil.InvalidPlatformException;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
@@ -551,17 +550,6 @@ public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
                 .getStarlarkOptions()
                 .get(Label.parseCanonicalUnchecked("//out_of_scope_flag:baz")))
         .isNull();
-
-    // Since the effective BuildOptions does not have //out_of_scope_flag:baz, its scope type should
-    // not exist in the scope type map.
-    ImmutableMap<Label, Scope.ScopeType> expectedScopeTypeMap =
-        ImmutableMap.of(
-            Label.parseCanonicalUnchecked("//flag:foo"),
-            new Scope.ScopeType(Scope.ScopeType.PROJECT),
-            Label.parseCanonicalUnchecked("//flag:bar"),
-            new Scope.ScopeType(Scope.ScopeType.UNIVERSAL));
-    assertThat(result.getOptions().getScopeTypeMap())
-        .containsExactlyEntriesIn(expectedScopeTypeMap);
   }
 
   @Test
@@ -660,19 +648,6 @@ public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
                 .getStarlarkOptions()
                 .get(Label.parseCanonicalUnchecked("//out_of_scope_flag:baz")))
         .isEqualTo("baselineValue");
-
-    // Since the effective BuildOptions has //out_of_scope_flag:baz, its scope type should
-    // exist in the scope type map.
-    ImmutableMap<Label, Scope.ScopeType> expectedScopeTypeMap =
-        ImmutableMap.of(
-            Label.parseCanonicalUnchecked("//flag:foo"),
-            new Scope.ScopeType(Scope.ScopeType.PROJECT),
-            Label.parseCanonicalUnchecked("//flag:bar"),
-            new Scope.ScopeType(Scope.ScopeType.UNIVERSAL),
-            Label.parseCanonicalUnchecked("//out_of_scope_flag:baz"),
-            new Scope.ScopeType(Scope.ScopeType.PROJECT));
-    assertThat(result.getOptions().getScopeTypeMap())
-        .containsExactlyEntriesIn(expectedScopeTypeMap);
   }
 
   @Test
@@ -803,42 +778,6 @@ public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
   }
 
   @Test
-  public void checkFinalizeBuildOptions_haveCorrectScopeTypeMap_noScopingApplied()
-      throws Exception {
-    createStarlarkFlagRule();
-    scratch.file(
-        "flag/BUILD",
-        """
-        load(":def.bzl", "basic_flag")
-        basic_flag(
-            name = "foo",
-            scope = "universal",
-            build_setting_default = "default",
-        )
-        basic_flag(
-            name = "bar",
-            scope = "universal",
-            build_setting_default = "default",
-        )
-        """);
-    invalidatePackages(false);
-
-    BuildOptions baseOptions = createBuildOptions("--//flag:foo=foo", "--//flag:bar=bar");
-    BuildConfigurationKey result =
-        fetch(baseOptions, Label.parseCanonicalUnchecked("//my_project:my_target"));
-
-    // All flags should be universal
-    ImmutableMap<Label, Scope.ScopeType> expectedScopeTypeMap =
-        ImmutableMap.of(
-            Label.parseCanonicalUnchecked("//flag:foo"),
-            new Scope.ScopeType(Scope.ScopeType.UNIVERSAL),
-            Label.parseCanonicalUnchecked("//flag:bar"),
-            new Scope.ScopeType(Scope.ScopeType.UNIVERSAL));
-    assertThat(result.getOptions().getScopeTypeMap())
-        .containsExactlyEntriesIn(expectedScopeTypeMap);
-  }
-
-  @Test
   public void errorThrown_disallowedScopeType() throws Exception {
     createStarlarkFlagRule();
     scratch.file(
@@ -871,7 +810,12 @@ public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
           BuildOptionsScopeFunctionException {
     Sink sink = new Sink();
     BuildConfigurationKeyProducer<String> producer =
-        new BuildConfigurationKeyProducer<>(sink, StateMachine.DONE, CONTEXT, options, label);
+        new BuildConfigurationKeyProducer<>(
+            sink,
+            StateMachine.DONE,
+            CONTEXT,
+            BuildConfigurationKeyValue.Key.create(options),
+            label);
     // Ignore the return value: sink will either return a result or re-throw whatever exception it
     // received from the producer.
     var unused = executeProducer(producer);
