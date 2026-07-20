@@ -298,19 +298,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     public abstract int getIncrementalDexingShardsAfterProguard();
 
 
-    // Do not use on the command line.
-    // This flag is intended to be updated as we add supported flags to the incremental dexing tools
-    @Option(
-        name = "dexopts_supported_in_incremental_dexing",
-        converter = Converters.CommaSeparatedOptionListConverter.class,
-        defaultValue = "--no-optimize,--no-locals",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {
-          OptionEffectTag.ACTION_COMMAND_LINES,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
-        },
-        help = "dx flags supported when converting Jars to dex archives incrementally.")
-    public abstract List<String> getDexoptsSupportedInIncrementalDexing();
 
     // Do not use on the command line.
     // This flag is intended to be updated as we add supported flags to the incremental dexing tools
@@ -701,7 +688,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
 
   private final ConfigurationDistinguisher configurationDistinguisher;
   private final int incrementalDexingShardsAfterProguard;
-  private final ImmutableList<String> dexoptsSupportedInIncrementalDexing;
 
   private final ImmutableList<String> dexoptsSupportedInDexMerger;
   private final ImmutableList<String> dexoptsSupportedInDexSharder;
@@ -730,8 +716,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     Options options = buildOptions.get(Options.class);
     this.configurationDistinguisher = options.getConfigurationDistinguisher();
     this.incrementalDexingShardsAfterProguard = options.getIncrementalDexingShardsAfterProguard();
-    this.dexoptsSupportedInIncrementalDexing =
-        ImmutableList.copyOf(options.getDexoptsSupportedInIncrementalDexing());
     this.dexoptsSupportedInDexMerger =
         ImmutableList.copyOf(options.getDexoptsSupportedInDexMerger());
     this.dexoptsSupportedInDexSharder =
@@ -781,11 +765,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     return incrementalDexingShardsAfterProguard;
   }
 
-  /** dx flags supported in incremental dexing actions. */
-  @Override
-  public ImmutableList<String> getDexoptsSupportedInIncrementalDexing() {
-    return dexoptsSupportedInIncrementalDexing;
-  }
 
   /** dx flags supported in dexmerger actions. */
   @Override
