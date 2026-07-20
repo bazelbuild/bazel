@@ -188,7 +188,7 @@ public class InfoCommand implements BlazeCommand {
                 // TODO(bazel-team): What if there are multiple configurations? [multi-config]
                 BuildOptions buildOptions = runtime.createBuildOptions(optionsParsingResult);
                 // Pass setExecConfiguration=false to disable parsing --host_foo flags in the
-                // baseline exec configu computation. This fixes
+                // baseline exec config computation. This fixes
                 // https://github.com/bazelbuild/bazel/issues/29384: "bazel info" isn't set up
                 // to resolve flag alias targets from other repositories and "bazel info" doesn't
                 // output anything that would need that. Ideally we'd strengthn this command to
