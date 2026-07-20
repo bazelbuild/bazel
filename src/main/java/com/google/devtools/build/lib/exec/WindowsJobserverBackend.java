@@ -17,23 +17,22 @@ import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.windows.WindowsSemaphore;
 import java.io.IOException;
 import java.util.UUID;
-import javax.annotation.Nullable;
 
 /**
- * The Windows {@link LocalJobserver.Backend}: a named semaphore.
+ * The Windows {@link LocalJobserver.Backend}: a named semaphore. A client waits on it to take a
+ * token and releases it to return one.
  *
- * <p>Windows has no documented non-mutating semaphore-count query, so each tick non-blockingly
- * drains the available tokens, derives the held count from the distributed total, and releases
- * only the tokens needed for the new target. This briefly withholds idle tokens from clients but
- * gives the same per-tick accounting as the fifo backend without relying on undocumented APIs.
+ * <p>Peeks the pool by acquiring the available tokens (Windows has no non-mutating count query) and
+ * refills by releasing; the shared {@code issued}/{@code available}/{@code held} accounting lives in
+ * {@link LocalJobserver.Backend}. Acquiring is bounded by {@code issued} and refills are
+ * capped by the semaphore's fixed max count, so it relies on no undocumented APIs.
  */
-public final class WindowsJobserverBackend implements LocalJobserver.Backend {
+public final class WindowsJobserverBackend extends LocalJobserver.Backend {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private long handle;
   private boolean open;
   private int maxTokens;
-  private int outstanding;
 
   @Override
   public String start() throws IOException {
@@ -49,29 +48,32 @@ public final class WindowsJobserverBackend implements LocalJobserver.Backend {
     return name;
   }
 
+  // Windows has no non-mutating semaphore-count query, so peek by acquiring: tryAcquire down to the
+  // number issued (each failed acquire means a tool holds that token). The superclass turns the
+  // returned available count into held and refills to the new target.
   @Override
-  @Nullable
-  public String writableDir() {
-    return null; // no filesystem path backs a named semaphore
+  protected int drainPool(int issued) throws IOException {
+    int available = 0;
+    while (available < issued && WindowsSemaphore.tryAcquire(handle)) {
+      available++;
+    }
+    return available;
   }
 
   @Override
-  public int tick(int targetTokens) throws IOException {
-    int available = 0;
-    while (available < outstanding && WindowsSemaphore.tryAcquire(handle)) {
-      available++;
+  protected void refillPool(int count) throws IOException {
+    if (count <= 0) {
+      return;
     }
-    int held = outstanding - available;
-    int target = Math.min(targetTokens, maxTokens);
-    int desired = Math.max(0, target - held);
-    outstanding = held;
-    if (desired > 0) {
-      if (!WindowsSemaphore.release(handle, desired)) {
-        throw new IOException("ReleaseSemaphore failed");
-      }
-      outstanding += desired;
+    if (!WindowsSemaphore.release(handle, count)) {
+      throw new IOException("ReleaseSemaphore failed");
     }
-    return held;
+  }
+
+  // The semaphore's max count is fixed at creation; ReleaseSemaphore fails past it.
+  @Override
+  protected int clampTarget(int targetTokens) {
+    return Math.min(targetTokens, maxTokens);
   }
 
   @Override

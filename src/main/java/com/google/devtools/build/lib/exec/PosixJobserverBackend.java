@@ -27,11 +27,11 @@ import javax.annotation.Nullable;
  * The Linux/macOS {@link LocalJobserver.Backend}: a fifo. A client reads a byte to take a token and
  * writes one back to return it.
  *
- * <p>Accounting is exact every tick: of the {@code written - drained} tokens this manager has
- * handed to the fifo, the ones still sitting in it (counted via a non-blocking drain) are
- * unclaimed, so {@code written - drained - inFifo} are held by running tools.
+ * <p>Peeks the pool by draining the fifo non-blockingly and refills it by writing {@code '+'} bytes;
+ * the shared {@code issued}/{@code available}/{@code held} accounting lives in {@link
+ * LocalJobserver.Backend}.
  */
-public final class PosixJobserverBackend implements LocalJobserver.Backend {
+public final class PosixJobserverBackend extends LocalJobserver.Backend {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private final String dirPath;
@@ -41,9 +41,6 @@ public final class PosixJobserverBackend implements LocalJobserver.Backend {
   @Nullable private RandomAccessFile fifo;
   @Nullable private FileOutputStream out;
   @Nullable private String writableDir;
-
-  private long written = 0;
-  private long drained = 0;
 
   public PosixJobserverBackend(String dirPath, NativePosixFilesService posix) {
     this.dirPath = dirPath;
@@ -81,32 +78,28 @@ public final class PosixJobserverBackend implements LocalJobserver.Backend {
     return writableDir;
   }
 
+  // available() is broken on macOS fifos (returns 0), so the pool can't be peeked without emptying
+  // it: drain the whole fifo and count the bytes. This empties it for ~microseconds each tick, but
+  // clients block on acquire and the superclass refills the tokens to keep, so it self-heals. The
+  // `issued` bound is unused here: draining reads the fifo exactly, so it needs no upper bound.
   @Override
-  public int tick(int targetTokens) throws IOException {
-    // available() is broken on macOS fifos (returns 0), so we can't peek the unclaimed count: drain
-    // the whole pool, count it, and rewrite the tokens to keep. This empties the fifo for
-    // ~microseconds each poll tick, but clients block on acquire and the count is re-derived each
-    // tick, so it self-heals.
-    int inFifo;
+  protected int drainPool(int issued) throws IOException {
     try {
-      inFifo = posix.drainFifoNonBlocking(fifo.getFD());
+      return posix.drainFifoNonBlocking(fifo.getFD());
     } catch (NativePosixFilesException e) {
       throw new IOException("jobserver fifo read failed", e);
     }
-    int held = Math.max(0, (int) (written - drained) - inFifo);
-    int desired = Math.max(0, targetTokens - held);
-    if (inFifo > desired) {
-      drained += inFifo - desired;
-    } else if (desired > inFifo) {
-      written += desired - inFifo;
+  }
+
+  @Override
+  protected void refillPool(int count) throws IOException {
+    if (count <= 0) {
+      return;
     }
-    if (desired > 0) {
-      byte[] tokens = new byte[desired];
-      Arrays.fill(tokens, (byte) '+');
-      out.write(tokens);
-      out.flush();
-    }
-    return held;
+    byte[] tokens = new byte[count];
+    Arrays.fill(tokens, (byte) '+');
+    out.write(tokens);
+    out.flush();
   }
 
   @Override

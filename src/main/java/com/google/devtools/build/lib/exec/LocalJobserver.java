@@ -71,34 +71,72 @@ public final class LocalJobserver {
   public static final long POLL_MILLIS = 100;
 
   /**
-   * The platform primitive backing the token pool. Implementations own all OS-specific state and
-   * accounting and are injected into {@link #configure}.
+   * The platform primitive backing the token pool: a fifo on Linux/macOS, a named semaphore on
+   * Windows. Owns the shared per-tick token accounting and leaves only the primitive-specific peek
+   * and refill to subclasses, which {@code ExecutionTool} selects and injects via {@link
+   * #configure}. Both backends use one vocabulary:
+   *
+   * <ul>
+   *   <li><b>issued</b>: tokens this manager has put into the pool and not reclaimed (in
+   *       circulation).
+   *   <li><b>available</b>: idle tokens currently sitting in the pool, counted by {@link
+   *       #drainPool}.
+   *   <li><b>held</b>: {@code issued - available}, i.e. tokens taken by tools and not yet returned.
+   *   <li><b>desired</b>: {@code max(0, target - held)}, the idle tokens to leave in the pool.
+   * </ul>
    */
-  public interface Backend {
+  public abstract static class Backend {
+    // Tokens in circulation: put into the pool by this manager and not yet reclaimed. Bounded by the
+    // target (a small CPU count), so unlike a cumulative counter it never grows without bound.
+    private int issued = 0;
+
     /**
      * Sets up the primitive and returns the value that follows {@code --jobserver-auth=} in {@code
      * MAKEFLAGS} (e.g. {@code fifo:/path/to/fifo} on Linux/macOS, or a bare named-semaphore name on
      * Windows). Called once, before any {@link #tick}.
      */
-    String start() throws IOException;
-
-    /**
-     * Directory a sandbox must whitelist as writable so a tool can return tokens, or null if the
-     * primitive has no filesystem presence (e.g. a named semaphore). Valid only after {@link
-     * #start}.
-     */
-    @Nullable
-    String writableDir();
+    public abstract String start() throws IOException;
 
     /**
      * Resizes the token pool toward {@code targetTokens} (growing or shrinking as needed) and
      * returns the current held-token estimate: tokens taken by tools and not yet returned. Called
      * once per poll tick.
      */
-    int tick(int targetTokens) throws IOException;
+    public final int tick(int targetTokens) throws IOException {
+      int available = drainPool(issued);
+      int held = Math.max(0, issued - available);
+      int desired = Math.max(0, clampTarget(targetTokens) - held);
+      refillPool(desired);
+      issued = held + desired;
+      return held;
+    }
+
+    /**
+     * Removes and returns the count of every idle token currently in the pool. {@code issued} is
+     * the number in circulation, an upper bound a subclass may use to bound its peek.
+     */
+    protected abstract int drainPool(int issued) throws IOException;
+
+    /** Adds {@code count} idle tokens back into the pool; a no-op when {@code count <= 0}. */
+    protected abstract void refillPool(int count) throws IOException;
+
+    /** Clamps the target to any hard ceiling the primitive imposes on the pool; identity default. */
+    protected int clampTarget(int targetTokens) {
+      return targetTokens;
+    }
+
+    /**
+     * Directory a sandbox must whitelist as writable so a tool can return tokens, or null if the
+     * primitive has no filesystem presence (e.g. a named semaphore). Valid only after {@link
+     * #start}. Defaults to null; the fifo backend overrides it.
+     */
+    @Nullable
+    public String writableDir() {
+      return null;
+    }
 
     /** Releases all resources. */
-    void close();
+    public abstract void close();
   }
 
   // Non-null iff the jobserver is active: the value that follows "--jobserver-auth=" in MAKEFLAGS.
