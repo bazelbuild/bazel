@@ -134,3 +134,12 @@ index 54f8490ce4..801c58a8b2 100644
    output("$0,\n", FieldInitializer(pools, ext));
    output("  $0,\n", GetSub(ext, true, options));
    output("  &$0,\n", MessageVarName(ext.containing_type()));
+
+diff --git a/bazel/flags/BUILD b/bazel/flags/BUILD
+--- a/bazel/flags/BUILD
++++ b/bazel/flags/BUILD
+@@ -49,3 +49,3 @@ bool_flag(
+     name = "prefer_prebuilt_protoc",
+-    build_setting_default = True,
++    build_setting_default = False,
+     # See https://github.com/protocolbuffers/protobuf/issues/25561
