@@ -82,7 +82,18 @@ public interface NativePosixFilesService extends BlazeService {
   }
 
   /** File metadata, as returned by stat() or lstat(). */
-  public record Stat(int mode, long mtime, long ctime, long size, long ino) {}
+  @SuppressWarnings("GoodTime")
+  public interface Stat {
+    int mode();
+
+    long mtime();
+
+    long ctime();
+
+    long size();
+
+    long ino();
+  }
 
   /**
    * Native wrapper around POSIX stat(2) syscall.
@@ -143,7 +154,11 @@ public interface NativePosixFilesService extends BlazeService {
   Dirent[] readdir(String path) throws NativePosixFilesException;
 
   /** A directory entry and its corresponding type, as returned by readdir(). */
-  public record Dirent(String name, Type type) {
+  public interface Dirent {
+    String name();
+
+    Type type();
+
     /** The type of the directory entry. */
     public static final class Type {
       /** Regular file. */
