@@ -540,8 +540,7 @@ public sealed class BuiltinFunction implements StarlarkCallable
     }
 
     @Override
-    public StarlarkType createStarlarkType(ImmutableList<TypeConstructor.Term> argsTuple)
-        throws Failure {
+    public StarlarkType createStarlarkType(ImmutableList<Arg> argsTuple) throws Failure {
       // The Preconditions checks could morally be done in the constructor for eagerness.
       // However, this causes the MethodDescriptors of the proxy class to be materialized
       // while initializing a Module environment using Starlark#addMethods. That's inconvenient
