@@ -257,9 +257,6 @@ py_test(
     name = "bazel_tools_proto_test",
     size = "medium",
     srcs = ["bazel_tools_proto_test.py"],
-    tags = [
-        "requires-network",
-    ],
     deps = [":test_base"],
 )
 
