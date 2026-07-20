@@ -61,8 +61,8 @@ public class BazelLockFileModule extends BlazeModule {
     CommandEnvironment env = this.env;
     this.env = null;
     if (env == null || !env.hasSyncedPackageLoading()) {
-      // The current command (e.g. shutdown) didn't evaluate the lockfile values and they may
-      // thus be stale, e.g., if a server with a different output base changed the lockfile
+      // The current command (e.g. shutdown) didn't evaluate the lockfile values so they may
+      // be stale, e.g., if a server with a different output base changed the lockfile
       // in the meantime.
       return;
     }
