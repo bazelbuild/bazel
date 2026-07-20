@@ -68,7 +68,7 @@ public final class LocalJobserver {
   public static final String MAKEFLAGS = "MAKEFLAGS";
 
   /** How often the token pool is re-targeted against ResourceManager's idle CPU count. */
-  private static final long POLL_MILLIS = 100;
+  public static final long POLL_MILLIS = 100;
 
   /**
    * The platform primitive backing the token pool. Implementations own all OS-specific state and

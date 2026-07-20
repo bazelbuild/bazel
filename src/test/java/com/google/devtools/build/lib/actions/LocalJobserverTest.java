@@ -163,7 +163,8 @@ public final class LocalJobserverTest {
 
       assertThat(drainUpTo(in, 4)).isEqualTo(4);
       awaitOutstanding(4);
-      Thread.sleep(2 * 100); // two poll cycles; the pool must not grow past the idle-CPU budget
+      // two poll cycles; the pool must not grow past the idle-CPU budget
+      Thread.sleep(2 * LocalJobserver.POLL_MILLIS);
       assertThat(jobserver.getOutstandingTokens()).isEqualTo(4);
 
       // Returning the tokens frees the budget again.
