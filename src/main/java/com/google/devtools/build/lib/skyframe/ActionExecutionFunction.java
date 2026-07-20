@@ -82,7 +82,6 @@ import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
-import com.google.devtools.build.lib.remote.common.LostInputsEvent;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.Execution;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
@@ -562,8 +561,7 @@ public final class ActionExecutionFunction implements SkyFunction {
               actionStartTimeNanos);
     } catch (ActionRewindException rewindingFailedException) {
       // If rewinding failed, Bazel may still be able to recover by retrying the invocation in
-      // BlazeCommandDispatcher if retries are enabled. This requires setting a special exit code
-      // and emitting an event to inform Bazel's remote module of the lost inputs.
+      // BlazeCommandDispatcher if retries are enabled. This requires setting a special exit code.
       DetailedExitCode detailedExitCode =
           skyframeActionExecutor.invocationRetriesEnabled()
               ? DetailedExitCode.of(
@@ -583,7 +581,6 @@ public final class ActionExecutionFunction implements SkyFunction {
               e.getFileOutErr(),
               ActionExecutedEvent.ErrorTiming.AFTER_EXECUTION);
       if (skyframeActionExecutor.invocationRetriesEnabled()) {
-        env.getListener().post(new LostInputsEvent(e.getLostInputs().keySet()));
         // The message of this exception is different, so do report.
         throw new ActionExecutionFunctionException(processedException);
       } else {

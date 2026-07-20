@@ -758,15 +758,13 @@ public class RewindingTestsHelper {
       addSpawnShim(
           "Executing genrule //test:consume_" + target,
           (spawn, context) -> {
-            ImmutableMap.Builder<String, ActionInput> inputMapBuilder = ImmutableMap.builder();
+            ImmutableList.Builder<ActionInput> lostInputsBuilder = ImmutableList.builder();
             for (int e = 1; e <= target; e++) {
-              ActionInput input = SpawnInputUtils.getInputWithName(spawn, "out_" + e + ".txt");
-              inputMapBuilder.put("fake_digest_" + target + "_" + e, input);
+              lostInputsBuilder.add(SpawnInputUtils.getInputWithName(spawn, "out_" + e + ".txt"));
             }
-            ImmutableMap<String, ActionInput> inputMap = inputMapBuilder.buildOrThrow();
-            return ExecResult.ofException(
-                new LostInputsExecException(
-                    inputMap, new ActionInputDepOwnerMap(inputMap.values())));
+            ImmutableList<ActionInput> lostInputs = lostInputsBuilder.build();
+            return createLostInputsExecException(
+                context, lostInputs, new ActionInputDepOwnerMap(lostInputs));
           });
     }
     List<SkyKey> rewoundKeys = collectOrderedRewoundKeys();
