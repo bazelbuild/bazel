@@ -1011,6 +1011,78 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
     with open(out) as f:
       self.assertEqual(f.read(), 'hello')
 
+  def testSourceDirectoryWithSymlinkToDirectory_expandedExecutionLog(self):
+    # Regression test for https://github.com/bazelbuild/bazel/issues/30264:
+    # the expanded execution log walks directory inputs on the overlay file
+    # system and used to crash Bazel on a symlink that resolves to a directory.
+    if self.IsWindows():
+      self.ScratchFile(
+          '.bazelrc',
+          ['startup --windows_enable_symlinks'],
+          mode='a',
+      )
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            (
+                '  rctx.file("BUILD", "filegroup(name=\'dir\','
+                " srcs=['pkg'], visibility=['//visibility:public'])\")"
+            ),
+            '  rctx.file("pkg/sub/data.txt", "hello")',
+            # A symlink pointing at a sibling directory.
+            '  rctx.symlink("pkg/sub", "pkg/sub_link")',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+    self.ScratchFile(
+        'main/BUILD.bazel',
+        [
+            'genrule(',
+            '  name = "use_dir",',
+            '  srcs = ["@my_repo//:dir"],',
+            '  outs = ["out.txt"],',
+            '  cmd = "cat $(location @my_repo//:dir)/sub/data.txt > $@",',
+            ')',
+        ],
+    )
+
+    # First build: the repo is fetched to disk and the action executes locally,
+    # seeding the remote cache.
+    _, _, stderr = self.RunBazel(['build', '//main:use_dir'])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    with open(self.Path('bazel-bin/main/out.txt')) as f:
+      self.assertEqual(f.read(), 'hello')
+
+    # After expunging, the repo is served from the in-memory overlay file
+    # system and the action is a remote cache hit, so its inputs are never
+    # staged locally. Logging the expanded execution log still walks the source
+    # directory input on the overlay file system and encounters the symlink
+    # that resolves to a directory.
+    self.RunBazel(['clean', '--expunge'])
+    exec_log = self.Path('exec_log.json')
+    _, _, stderr = self.RunBazel([
+        'build',
+        '//main:use_dir',
+        '--remote_download_outputs=minimal',
+        '--execution_log_json_file=' + exec_log,
+    ])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    with open(exec_log) as f:
+      log = f.read()
+    self.assertIn('pkg/sub/data.txt', log)
+    self.assertIn('main/out.txt', log)
+
   def testRepoSymlinkChainMaterializationIsConsistent(self):
     # Full repo materialization (triggered by another repo accessing my_repo)
     # and lazy action-input materialization (triggered by a local action
