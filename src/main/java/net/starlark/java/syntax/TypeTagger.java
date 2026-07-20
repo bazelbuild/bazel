@@ -156,6 +156,11 @@ public final class TypeTagger extends NodeVisitor {
         errorf(id, "local symbol '%s' cannot be used as a type", name);
         return null;
       }
+    } else if (scope == Scope.GLOBAL) {
+      constructor = typeTable.getTypeConstructor(binding);
+      if (constructor != null) {
+        return constructor;
+      }
     }
 
     try {
@@ -176,15 +181,20 @@ public final class TypeTagger extends NodeVisitor {
     }
   }
 
-  private TypeConstructor.Arg extractArg(Expression expr) {
+  private TypeConstructor.Term extractTerm(
+      Expression expr, ImmutableMap<Resolver.Binding, Integer> typeParams) {
     switch (expr.kind()) {
       case BINARY_OPERATOR -> {
         // Syntax sugar for union types, i.e. a|b == Union[a,b]
         BinaryOperatorExpression binop = (BinaryOperatorExpression) expr;
         if (binop.getOperator() == TokenKind.PIPE) {
-          StarlarkType x = extractType(binop.getX());
-          StarlarkType y = extractType(binop.getY());
-          return Types.union(x, y);
+          TypeConstructor.Term x = extractTypeOrTermEvaluatingToType(binop.getX(), typeParams);
+          TypeConstructor.Term y = extractTypeOrTermEvaluatingToType(binop.getY(), typeParams);
+          if (!typeParams.isEmpty() && (x.isOpen() || y.isOpen())) {
+            return new TypeConstructor.Term.DecomposedUnion(x, y);
+          } else {
+            return Types.union((StarlarkType) x, (StarlarkType) y);
+          }
         }
         errorf(expr, "binary operator '%s' is not supported", binop.getOperator());
         return Types.ANY;
@@ -196,8 +206,13 @@ public final class TypeTagger extends NodeVisitor {
         if (constructor == null) {
           return Types.ANY;
         }
-        ImmutableList<TypeConstructor.Arg> arguments =
-            app.getArguments().stream().map(this::extractArg).collect(toImmutableList());
+        ImmutableList<TypeConstructor.Term> arguments =
+            app.getArguments().stream()
+                .map(arg -> extractTerm(arg, typeParams))
+                .collect(toImmutableList());
+        if (!typeParams.isEmpty() && arguments.stream().anyMatch(TypeConstructor.Term::isOpen)) {
+          return new TypeConstructor.Term.DecomposedTypeApplication(constructor, arguments);
+        }
 
         try {
           return constructor.createStarlarkType(arguments);
@@ -207,7 +222,12 @@ public final class TypeTagger extends NodeVisitor {
         }
       }
       case IDENTIFIER -> {
-        TypeConstructor constructor = resolveTypeConstructor((Identifier) expr);
+        Identifier id = (Identifier) expr;
+        Resolver.Binding binding = id.getBinding();
+        if (typeParams.containsKey(binding)) {
+          return new TypeConstructor.Term.TypeVariable(id, typeParams.get(binding));
+        }
+        TypeConstructor constructor = resolveTypeConstructor(id);
         if (constructor == null) {
           return Types.ANY;
         }
@@ -219,21 +239,23 @@ public final class TypeTagger extends NodeVisitor {
         }
       }
       case ELLIPSIS -> {
-        return TypeConstructor.Arg.ELLIPSIS;
+        return TypeConstructor.Term.ELLIPSIS;
       }
       case LIST_EXPR -> {
         ListExpression listExpr = (ListExpression) expr;
         if (listExpr.isTuple() && listExpr.getElements().isEmpty()) {
-          return TypeConstructor.Arg.EMPTY_TUPLE;
+          return TypeConstructor.Term.EMPTY_TUPLE;
         }
       }
       case DICT_EXPR -> {
         DictExpression dictExpr = (DictExpression) expr;
-        LinkedHashMap<String, StarlarkType> types = new LinkedHashMap<>();
+        LinkedHashMap<String, TypeConstructor.Term> map = new LinkedHashMap<>();
         for (DictExpression.Entry entry : dictExpr.getEntries()) {
           if (entry.getKey() instanceof StringLiteral str) {
             String key = str.getValue();
-            @Nullable var previous = types.put(key, extractType(entry.getValue()));
+            TypeConstructor.Term value =
+                extractTypeOrTermEvaluatingToType(entry.getValue(), typeParams);
+            @Nullable var previous = map.put(key, value);
             if (previous != null) {
               errorf(str, "dictionary expression has duplicate key: %s", str);
             }
@@ -241,7 +263,7 @@ public final class TypeTagger extends NodeVisitor {
             errorf(entry.getKey(), "expected a string literal but got '%s'", entry.getKey());
           }
         }
-        return new TypeConstructor.Arg.TypeDict(ImmutableMap.copyOf(types));
+        return new TypeConstructor.Term.TypeDict(ImmutableMap.copyOf(map));
       }
       default -> {
         // fall through
@@ -252,13 +274,29 @@ public final class TypeTagger extends NodeVisitor {
     return Types.ANY;
   }
 
-  private StarlarkType extractType(Expression expr) {
-    TypeConstructor.Arg arg = extractArg(expr);
-    if (!(arg instanceof StarlarkType type)) {
-      errorf(expr, "expression '%s' is not a valid type.", expr);
-      return Types.ANY;
+  /**
+   * Extracts a type expression and verifies that it's either a {@link StarlarkType} or (if {@code
+   * numTypeParams > 0}) a {@link TypeConstructor.Term} that evaluates to a {@link StarlarkType}.
+   */
+  private TypeConstructor.Term extractTypeOrTermEvaluatingToType(
+      Expression expr, ImmutableMap<Resolver.Binding, Integer> typeParams) {
+    TypeConstructor.Term arg = extractTerm(expr, typeParams);
+    if (arg instanceof StarlarkType type) {
+      return type;
     }
-    return type;
+    if (!typeParams.isEmpty() && arg.isOrEvaluatesToStarlarkType()) {
+      return arg;
+    }
+    errorf(
+        expr,
+        "expression '%s' %s.",
+        expr,
+        typeParams.isEmpty() ? "is not a valid type" : "does not evaluate to a type");
+    return Types.ANY;
+  }
+
+  private StarlarkType extractType(Expression expr) {
+    return (StarlarkType) extractTypeOrTermEvaluatingToType(expr, ImmutableMap.of());
   }
 
   /**
@@ -565,8 +603,22 @@ public final class TypeTagger extends NodeVisitor {
   @Override
   public void visit(TypeAliasStatement node) {
     setUsesTypeSyntax();
-    errorIfTypeConstructor(node, node.getIdentifier());
-    super.visit(node);
+    String name = node.getIdentifier().getName();
+    TypeConstructor typeConstructor;
+    if (node.getParameters().isEmpty()) {
+      StarlarkType definition = extractType(node.getDefinition());
+      typeConstructor = Types.wrapType(name, definition);
+    } else {
+      ImmutableMap.Builder<Resolver.Binding, Integer> typeParamsBuilder = ImmutableMap.builder();
+      for (int i = 0; i < node.getParameters().size(); i++) {
+        typeParamsBuilder.put(node.getParameters().get(i).getBinding(), i);
+      }
+      ImmutableMap<Resolver.Binding, Integer> typeParams = typeParamsBuilder.buildOrThrow();
+      TypeConstructor.Term term =
+          extractTypeOrTermEvaluatingToType(node.getDefinition(), typeParams);
+      typeConstructor = new TypeConstructor.Composite(name, typeParams.size(), term);
+    }
+    setTypeConstructor(node, node.getIdentifier(), typeConstructor);
   }
 
   @Override

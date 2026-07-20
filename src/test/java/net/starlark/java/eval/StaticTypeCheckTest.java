@@ -547,16 +547,17 @@ public final class StaticTypeCheckTest {
   }
 
   @Test
-  public void typeConstructors_canBeLoaded() throws Exception {
-    Module depModule =
-        Module.withPredeclared(
-            semantics,
-            ImmutableMap.of("_MyIntPredeclared", new TypeConstructorValue(Types.INT_CONSTRUCTOR)));
+  public void typeAlias_canBeExportedAndLoaded() throws Exception {
+    Module depModule = Module.create();
     try (Mutability depMutability = Mutability.create("dep")) {
       StarlarkThread depThread = StarlarkThread.createTransient(depMutability, semantics);
       var unused =
           Starlark.execFile(
-              ParserInput.fromLines("MyIntType = _MyIntPredeclared"),
+              ParserInput.fromLines(
+                  """
+                  type int_or_str = int | str
+                  type optional_list_of[T] = list[T] | None
+                  """),
               options.build(),
               depModule,
               depThread);
@@ -566,8 +567,23 @@ public final class StaticTypeCheckTest {
 
     assertValid(
         """
-        load("dep.bzl", "MyIntType")
-        x: MyIntType = 123
+        load("dep.bzl", "int_or_str", "optional_list_of")
+        x: int_or_str = 123
+        y: optional_list_of[int] = [123]
+        """);
+
+    assertInvalid(
+        "cannot assign type 'bool' to 'x' of type 'int|str'",
+        """
+        load("dep.bzl", "int_or_str")
+        x: int_or_str = False
+        """);
+
+    assertInvalid(
+        "cannot assign type 'list[str]' to 'x' of type 'list[int]|None'",
+        """
+        load("dep.bzl", "optional_list_of")
+        x: optional_list_of[int] = ["abc"]
         """);
   }
 
