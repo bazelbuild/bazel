@@ -24,7 +24,7 @@ import javax.annotation.Nullable;
  * <p>Starlark typing is an experimental feature under development. See the tracking issue:
  * https://github.com/bazelbuild/bazel/issues/27370
  */
-public abstract non-sealed class StarlarkType implements TypeConstructor.Term {
+public abstract non-sealed class StarlarkType implements TypeConstructor.Arg {
 
   /**
    * Returns the list of supertypes of this type.
@@ -236,10 +236,5 @@ public abstract non-sealed class StarlarkType implements TypeConstructor.Term {
    */
   public boolean hasSetField() {
     return false;
-  }
-
-  @Override
-  public boolean isOrEvaluatesToStarlarkType() {
-    return true;
   }
 }

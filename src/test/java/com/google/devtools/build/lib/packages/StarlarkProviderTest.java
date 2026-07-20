@@ -232,10 +232,10 @@ public final class StarlarkProviderTest {
     StarlarkProvider provider2 =
         StarlarkProvider.builder(Location.BUILTIN).buildWithIdentityToken(generator.generate());
     StarlarkInfo info2 = instantiateWithA1B2C3(provider2);
-    assertThat(provider1.hasInstance(info1, StarlarkSemantics.DEFAULT)).isTrue();
-    assertThat(provider1.hasInstance(info2, StarlarkSemantics.DEFAULT)).isFalse();
-    assertThat(provider2.hasInstance(info1, StarlarkSemantics.DEFAULT)).isFalse();
-    assertThat(provider2.hasInstance(info2, StarlarkSemantics.DEFAULT)).isTrue();
+    assertThat(provider1.hasInstance(info1)).isTrue();
+    assertThat(provider1.hasInstance(info2)).isFalse();
+    assertThat(provider2.hasInstance(info1)).isFalse();
+    assertThat(provider2.hasInstance(info2)).isTrue();
   }
 
   @Test

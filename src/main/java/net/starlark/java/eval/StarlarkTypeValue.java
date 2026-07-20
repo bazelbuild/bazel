@@ -28,6 +28,5 @@ public interface StarlarkTypeValue extends StarlarkValue {
    * Starlark. (The converse is not necessarily true, since there are other ways to register that a
    * Starlark value acts as a type.)
    */
-  // TODO: #27370 - This would be better expressed as a method returning the reified StarlarkType.
-  public boolean hasInstance(Object value, StarlarkSemantics semantics);
+  public boolean hasInstance(Object value);
 }
