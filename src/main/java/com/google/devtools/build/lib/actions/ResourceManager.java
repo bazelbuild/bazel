@@ -746,7 +746,7 @@ public class ResourceManager implements ResourceEstimator {
   }
 
   @VisibleForTesting
-  synchronized int getWaitCount() {
+  public synchronized int getWaitCount() {
     return localRequests.size() + dynamicStandaloneRequests.size() + dynamicWorkerRequests.size();
   }
 

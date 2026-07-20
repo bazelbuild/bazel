@@ -25,7 +25,6 @@ java_library(
             "*.java",
             "cache/*.java",
         ],
-        exclude = ["LocalJobserverTest.java"],
     ),
     javacopts = [
     ],
@@ -110,30 +109,5 @@ java_test(
     runtime_deps = [
         ":ActionsTests_lib",
         "//src/test/java/com/google/devtools/build/lib:test_runner",
-    ],
-)
-
-# Standalone so CI can schedule it per-OS
-java_test(
-    name = "LocalJobserverTest",
-    srcs = ["LocalJobserverTest.java"],
-    test_class = "com.google.devtools.build.lib.AllTests",
-    runtime_deps = [
-        "//src/test/java/com/google/devtools/build/lib:test_runner",
-    ],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/actions:execution_requirements",
-        "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
-        "//src/main/java/com/google/devtools/build/lib/actions:resource_manager",
-        "//src/main/java/com/google/devtools/build/lib/exec:local_jobserver",
-        "//src/main/java/com/google/devtools/build/lib/exec:posix_jobserver_backend",
-        "//src/main/java/com/google/devtools/build/lib/unix:native_posix_files_service_impl",
-        "//src/main/java/com/google/devtools/build/lib/util:os",
-        "//src/test/java/com/google/devtools/build/lib/exec/util",
-        "//src/test/java/com/google/devtools/build/lib/testutil:TestThread",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
     ],
 )

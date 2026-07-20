@@ -166,7 +166,7 @@ tasks:
       - "--test_timeout=72,360,1080,4320"
     test_targets:
       - "//src:embedded_tools_size_test"
-      - "//src/test/java/com/google/devtools/build/lib/actions:LocalJobserverTest"
+      - "//src/test/java/com/google/devtools/build/lib/exec:LocalJobserverTest"
       - "//src/test/java/com/google/devtools/build/lib/rules/apple:AppleRulesTests"
       - "//src/test/java/com/google/devtools/build/lib/rules/objc:ObjcRulesTests"
       - "//src/test/java/com/google/devtools/build/lib/skyframe:MacOSXFsEventsDiffAwarenessTest"
