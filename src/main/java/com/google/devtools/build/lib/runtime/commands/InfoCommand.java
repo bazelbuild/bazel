@@ -187,6 +187,13 @@ public class InfoCommand implements BlazeCommand {
                 ensureSyncPackageLoading(env, optionsParsingResult);
                 // TODO(bazel-team): What if there are multiple configurations? [multi-config]
                 BuildOptions buildOptions = runtime.createBuildOptions(optionsParsingResult);
+                // Pass setExecConfiguration=false to disable parsing --host_foo flags in the
+                // baseline exec configu computation. This fixes
+                // https://github.com/bazelbuild/bazel/issues/29384: "bazel info" isn't set up
+                // to resolve flag alias targets from other repositories and "bazel info" doesn't
+                // output anything that would need that. Ideally we'd strengthn this command to
+                // support other repos and avoid the need for this exception. Until we have that
+                // this stops --flag_alias=host_foo=@bar//:t from pointlessly crashing.
                 env.getSkyframeExecutor()
                     .setBaselineConfiguration(buildOptions, env.getReporter(), false);
                 return env.getSkyframeExecutor()
