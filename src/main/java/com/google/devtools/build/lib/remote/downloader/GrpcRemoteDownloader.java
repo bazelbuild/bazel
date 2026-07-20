@@ -26,6 +26,7 @@ import build.bazel.remote.execution.v2.RequestMetadata;
 import com.google.auth.Credentials;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.bazel.repository.downloader.Downloader;
 import com.google.devtools.build.lib.bazel.repository.downloader.HashOutputStream;
@@ -292,7 +293,9 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
           Qualifier.newBuilder().setName(QUALIFIER_CANONICAL_ID).setValue(canonicalId).build());
     }
 
-    for (Map.Entry<String, List<String>> entry : headers.entrySet()) {
+    for (Map.Entry<String, List<String>> entry :
+        (remoteDownloaderPropagateCredentials ? headers : ImmutableMap.<String, List<String>>of())
+            .entrySet()) {
       // https://www.rfc-editor.org/rfc/rfc9110.html#name-field-order permits
       // merging the field-values with a comma.
       requestBuilder.addQualifiers(

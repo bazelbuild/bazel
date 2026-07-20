@@ -382,8 +382,8 @@ Java_com_google_devtools_build_lib_unix_NativePosixFilesServiceImpl_symlink(
 namespace {
 
 static jobject NewStat(JNIEnv* env, const portable_stat_struct& stat_ref) {
-  static const jclass stat_class = getClass(
-      env, "com/google/devtools/build/lib/unix/NativePosixFilesService$Stat");
+  static const jclass stat_class =
+      getClass(env, "com/google/devtools/build/lib/unix/NativePosixFilesServiceImpl$StatImpl");
   static const jmethodID file_status_class_ctor =
       getConstructorID(env, stat_class, "(IJJJJ)V");
   return env->NewObject(
@@ -494,8 +494,8 @@ Java_com_google_devtools_build_lib_unix_NativePosixFilesServiceImpl_mkdir(
 namespace {
 
 jobject NewDirent(JNIEnv* env, const struct dirent* e) {
-  static const jclass dirent_class = getClass(
-      env, "com/google/devtools/build/lib/unix/NativePosixFilesService$Dirent");
+  static const jclass dirent_class =
+      getClass(env, "com/google/devtools/build/lib/unix/NativePosixFilesServiceImpl$DirentImpl");
   static const jmethodID dirent_ctor =
       getConstructorID(env, dirent_class,
                        "(Ljava/lang/String;Lcom/google/devtools/build/lib/unix/"
