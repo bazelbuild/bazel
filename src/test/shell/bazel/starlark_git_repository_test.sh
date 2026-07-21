@@ -801,4 +801,21 @@ EOF
   expect_log "Only one of sparse_checkout_patterns and sparse_checkout_file can be provided."
 }
 
+function test_git_repository_invalid_commit() {
+  local sentinel=$TEST_TMPDIR/sentinel_validation
+  cat >> MODULE.bazel <<EOF
+git_repository = use_repo_rule('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
+git_repository(
+    name = "invalid_commit_repo",
+    remote = "/",
+    commit = "--upload-pack=touch $sentinel #",
+)
+EOF
+  bazel fetch @invalid_commit_repo >& $TEST_log && fail "Fetch succeeded"
+  if [ -e "$sentinel" ]; then
+    fail "Sentinel file was created!"
+  fi
+}
+
 run_suite "Starlark git_repository tests"
+
