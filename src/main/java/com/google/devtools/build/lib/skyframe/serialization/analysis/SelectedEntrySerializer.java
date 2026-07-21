@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.concurrent.QuiescingFuture;
 import com.google.devtools.build.lib.profiler.CounterSeriesCollector;
 import com.google.devtools.build.lib.profiler.CounterSeriesTask;
 import com.google.devtools.build.lib.profiler.CounterSeriesTask.Color;
+import com.google.devtools.build.lib.profiler.CounterSeriesTaskImpl;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture;
@@ -122,38 +123,40 @@ final class SelectedEntrySerializer {
     private final AtomicLong valueBytesUploaded = new AtomicLong();
 
     private static final CounterSeriesTask ENTRIES_WAITING_FOR_KEY_BYTES =
-        new CounterSeriesTask(
+        new CounterSeriesTaskImpl(
             "Skycache: SkyValues: Waiting for key bytes", "SkyValues", Color.RAIL_LOAD);
 
     private static final CounterSeriesTask ENTRIES_WAITING_FOR_VALUE_BYTES =
-        new CounterSeriesTask(
+        new CounterSeriesTaskImpl(
             "Skycache: SkyValues: Waiting for value bytes", "SkyValues", Color.RAIL_LOAD);
 
     private static final CounterSeriesTask ENTRIES_WAITING_FOR_INVALIDATION_INFO =
-        new CounterSeriesTask(
+        new CounterSeriesTaskImpl(
             "Skycache: SkyValues: Waiting for invalidation info", "SkyValues", Color.RAIL_LOAD);
 
     private static final CounterSeriesTask ENTRIES_WAITING_FOR_INVALIDATION_BYTES =
-        new CounterSeriesTask(
+        new CounterSeriesTaskImpl(
             "Skycache: SkyValues: Waiting for invalidation bytes", "SkyValues", Color.RAIL_LOAD);
 
     private static final CounterSeriesTask ENTRIES_WAITING_FOR_UPLOAD =
-        new CounterSeriesTask(
+        new CounterSeriesTaskImpl(
             "Skycache: SkyValues: Waiting for upload", "SkyValues", Color.RAIL_LOAD);
     private static final CounterSeriesTask ENTRIES_UPLOADED =
-        new CounterSeriesTask("Skycache: SkyValues: Uploaded", "SkyValues", Color.RAIL_RESPONSE);
+        new CounterSeriesTaskImpl(
+            "Skycache: SkyValues: Uploaded", "SkyValues", Color.RAIL_RESPONSE);
 
     private static final CounterSeriesTask KEY_BYTES_WAITING_FOR_UPLOAD =
-        new CounterSeriesTask("Skycache: SkyValue bytes: Pending", "Key", Color.RAIL_LOAD);
+        new CounterSeriesTaskImpl("Skycache: SkyValue bytes: Pending", "Key", Color.RAIL_LOAD);
 
     private static final CounterSeriesTask VALUE_BYTES_WAITING_FOR_UPLOAD =
-        new CounterSeriesTask("Skycache: SkyValue bytes: Pending", "Value", Color.RAIL_LOAD);
+        new CounterSeriesTaskImpl("Skycache: SkyValue bytes: Pending", "Value", Color.RAIL_LOAD);
 
     private static final CounterSeriesTask KEY_BYTES_UPLOADED =
-        new CounterSeriesTask("Skycache: SkyValue bytes: Uploaded", "Key", Color.RAIL_RESPONSE);
+        new CounterSeriesTaskImpl("Skycache: SkyValue bytes: Uploaded", "Key", Color.RAIL_RESPONSE);
 
     private static final CounterSeriesTask VALUE_BYTES_UPLOADED =
-        new CounterSeriesTask("Skycache: SkyValue bytes: Uploaded", "Value", Color.RAIL_RESPONSE);
+        new CounterSeriesTaskImpl(
+            "Skycache: SkyValue bytes: Uploaded", "Value", Color.RAIL_RESPONSE);
 
     @Override
     public void collect(double deltaNanos, BiConsumer<CounterSeriesTask, Double> consumer) {
@@ -748,29 +751,29 @@ final class SelectedEntrySerializer {
     private final Counters counters = new Counters();
 
     private static final CounterSeriesTask BYTES_WAITING_FOR_FUTURE_PUTS =
-        new CounterSeriesTask(
+        new CounterSeriesTaskImpl(
             "Skycache: Serialization: Bytes: Pending", "Waiting for future puts", Color.RAIL_LOAD);
     private static final CounterSeriesTask BYTES_WAITING_FOR_UPLOAD =
-        new CounterSeriesTask(
+        new CounterSeriesTaskImpl(
             "Skycache: Serialization: Bytes: Pending", "Waiting for upload", Color.RAIL_LOAD);
     private static final CounterSeriesTask BYTES_UPLOADED =
-        new CounterSeriesTask(
+        new CounterSeriesTaskImpl(
             "Skycache: Serialization: Bytes: Uploaded", "Written", Color.RAIL_RESPONSE);
     private static final CounterSeriesTask OBJECTS_WAITING_FOR_SERIALIZATION =
-        new CounterSeriesTask(
+        new CounterSeriesTaskImpl(
             "Skycache: Serialization: Objects: Pending",
             "Waiting for serialization",
             Color.RAIL_LOAD);
     private static final CounterSeriesTask OBJECTS_WAITING_FOR_FUTURE_PUTS =
-        new CounterSeriesTask(
+        new CounterSeriesTaskImpl(
             "Skycache: Serialization: Objects: Pending",
             "Waiting for future puts",
             Color.RAIL_LOAD);
     private static final CounterSeriesTask OBJECTS_WAITING_FOR_UPLOAD =
-        new CounterSeriesTask(
+        new CounterSeriesTaskImpl(
             "Skycache: Serialization: Objects: Pending", "Waiting for upload", Color.RAIL_LOAD);
     private static final CounterSeriesTask OBJECTS_UPLOADED =
-        new CounterSeriesTask(
+        new CounterSeriesTaskImpl(
             "Skycache: Serialization: Objects: Uploaded", "done", Color.RAIL_RESPONSE);
 
     SerializationStatus(FileDependencySerializer.Counters fileDependencySerializerCounters) {

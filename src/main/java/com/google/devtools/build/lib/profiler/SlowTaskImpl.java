@@ -1,4 +1,4 @@
-// Copyright 2025 The Bazel Authors. All rights reserved.
+// Copyright 2026 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,17 +11,14 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package com.google.devtools.build.lib.profiler;
 
-import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
-
-/** A task that was very slow. */
-@SkybridgeInterface
-@SuppressWarnings("GoodTime")
-public interface SlowTask extends Comparable<SlowTask> {
-  long durationNanos();
-
-  String description();
-
-  ProfilerTask type();
+/** Concrete implementation of {@link SlowTask} as a record. */
+public record SlowTaskImpl(long durationNanos, String description, ProfilerTask type)
+    implements SlowTask {
+  @Override
+  public int compareTo(SlowTask other) {
+    return Long.compare(durationNanos(), other.durationNanos());
+  }
 }

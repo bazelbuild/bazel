@@ -1,4 +1,4 @@
-// Copyright 2025 The Bazel Authors. All rights reserved.
+// Copyright 2026 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,17 +11,12 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package com.google.devtools.build.lib.profiler;
 
-import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
+import javax.annotation.Nullable;
 
-/** A task that was very slow. */
-@SkybridgeInterface
-@SuppressWarnings("GoodTime")
-public interface SlowTask extends Comparable<SlowTask> {
-  long durationNanos();
-
-  String description();
-
-  ProfilerTask type();
-}
+/** Concrete implementation of {@link CounterSeriesTask} as a record. */
+public record CounterSeriesTaskImpl(
+    String laneName, String seriesName, @Nullable CounterSeriesTask.Color color)
+    implements CounterSeriesTask {}

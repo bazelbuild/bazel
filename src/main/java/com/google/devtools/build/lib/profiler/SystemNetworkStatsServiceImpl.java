@@ -66,11 +66,22 @@ public class SystemNetworkStatsServiceImpl implements SystemNetworkStatsService 
         long packetsRecv = fields[1];
         long bytesSent = fields[8];
         long packetsSent = fields[9];
-        countersMap.put(name, NetIoCounter.create(bytesSent, bytesRecv, packetsSent, packetsRecv));
+        countersMap.put(
+            name, NetIoCounterImpl.create(bytesSent, bytesRecv, packetsSent, packetsRecv));
       }
     }
   }
 
   private static native void getNetIoCountersNative(Map<String, NetIoCounter> countersMap)
       throws IOException;
+
+  /** Concrete implementation of {@link SystemNetworkStatsService.NetIoCounter} as a record. */
+  public static record NetIoCounterImpl(
+      long bytesSent, long bytesRecv, long packetsSent, long packetsRecv)
+      implements SystemNetworkStatsService.NetIoCounter {
+    public static SystemNetworkStatsService.NetIoCounter create(
+        long bytesSent, long bytesRecv, long packetsSent, long packetsRecv) {
+      return new NetIoCounterImpl(bytesSent, bytesRecv, packetsSent, packetsRecv);
+    }
+  }
 }
