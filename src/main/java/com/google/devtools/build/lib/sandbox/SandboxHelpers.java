@@ -32,6 +32,8 @@ import com.google.common.collect.Maps;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.UserExecException;
@@ -654,7 +656,9 @@ public final class SandboxHelpers {
    */
   @CanIgnoreReturnValue
   public static SandboxInputs processInputFiles(
-      SortedMap<PathFragment, ActionInput> inputMap, Path execRoot)
+      SortedMap<PathFragment, ActionInput> inputMap,
+      @Nullable InputMetadataProvider inputMetadataProvider,
+      Path execRoot)
       throws IOException, InterruptedException {
     Preconditions.checkArgument(
         Objects.equals(inputMap.comparator(), HIERARCHICAL_COMPARATOR),
@@ -683,12 +687,24 @@ public final class SandboxHelpers {
         lastFile = null;
         Path inputPath = execRoot.getRelative(actionInput.getExecPath());
         inputSymlinks.put(pathFragment, inputPath.readSymbolicLink());
+      } else if (actionInput instanceof EmptyActionInput) {
+        lastFile = pathFragment;
+        inputFiles.put(pathFragment, null);
       } else {
         lastFile = pathFragment;
-        Path inputPath =
-            actionInput instanceof EmptyActionInput
-                ? null
-                : execRoot.getRelative(actionInput.getExecPath());
+        Path inputPath = execRoot.getRelative(actionInput.getExecPath());
+        // A content copy (ctx.actions.copy) declares this input, but nothing is written at its own
+        // exec path: its bytes live at the source location recorded in its metadata. Stage the
+        // content from there so the sandbox lays it down (hardlink/copy) at the copy's path, while
+        // the original is never itself a declared input of this action.
+        if (inputMetadataProvider != null) {
+          FileArtifactValue metadata = inputMetadataProvider.getInputMetadata(actionInput);
+          if (metadata != null
+              && metadata.isContentCopy()
+              && metadata.getResolvedPath() != null) {
+            inputPath = execRoot.getFileSystem().getPath(metadata.getResolvedPath());
+          }
+        }
         inputFiles.put(pathFragment, inputPath);
       }
     }
