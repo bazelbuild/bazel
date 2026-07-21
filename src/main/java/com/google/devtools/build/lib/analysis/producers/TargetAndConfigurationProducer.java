@@ -370,7 +370,7 @@ public final class TargetAndConfigurationProducer
           target.getAssociatedRule().getRuleClassObject().getTransitionFactory();
       if (trimmingTransitionFactory != null) {
         transitionFactory =
-            ComposingTransitionFactory.of(transitionFactory, trimmingTransitionFactory);
+            ComposingTransitionFactory.ofUnchecked(transitionFactory, trimmingTransitionFactory);
       }
 
       var transitionData =
