@@ -89,4 +89,29 @@ public class FailureCircuitBreakerTest {
     failureCircuitBreaker.recordFailure();
     assertThat(failureCircuitBreaker.state()).isEqualTo(State.REJECT_CALLS);
   }
+
+  @Test
+  public void testFailureDetails_reportsStats() {
+    final int failureRateThreshold = 10;
+    final int windowInterval = 100;
+    ScheduledExecutorService mockScheduler = mock(ScheduledExecutorService.class);
+    FailureCircuitBreaker failureCircuitBreaker =
+        new FailureCircuitBreaker(
+            failureRateThreshold,
+            windowInterval,
+            /* minCallCountToComputeFailureRate= */ 0,
+            /* minFailCountToComputeFailureRate= */ 0,
+            mockScheduler);
+
+    failureCircuitBreaker.recordSuccess();
+    failureCircuitBreaker.recordFailure();
+    failureCircuitBreaker.recordFailure();
+    failureCircuitBreaker.recordFailure();
+
+    String details = failureCircuitBreaker.failureDetails();
+    assertThat(details).contains("3 out of 4 remote calls failed");
+    assertThat(details).contains("75.00%");
+    assertThat(details).contains("the last 100ms");
+    assertThat(details).contains("10% failure rate threshold");
+  }
 }

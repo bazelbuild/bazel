@@ -14,13 +14,17 @@
 
 package com.google.devtools.build.lib.remote;
 
+import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Throwables;
 import com.google.common.util.concurrent.AsyncCallable;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
-import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.remote.Retrier.CircuitBreaker.State;
 import com.google.devtools.build.lib.remote.logging.RpcLogContext;
 import io.grpc.Context;
@@ -108,12 +112,22 @@ public class Retrier {
 
     /** Called after an execution succeeded. */
     void recordSuccess();
+
+    /**
+     * Returns a human-readable description of the breaker's current failure statistics (for example
+     * the observed failure rate and the configured threshold), for appending to the {@link
+     * CircuitBreakerException} message when a call is rejected. Implementations that have no
+     * details to report should return an empty string.
+     */
+    String failureDetails();
   }
 
   /** Thrown if the call was stopped by a circuit breaker. */
   public static class CircuitBreakerException extends IOException {
-    private CircuitBreakerException() {
-      super("Call not executed due to a high failure rate.");
+    private CircuitBreakerException(String failureDetails) {
+      super(
+          "Call not executed due to a high failure rate."
+              + (isNullOrEmpty(failureDetails) ? "" : " " + failureDetails));
     }
   }
 
@@ -138,6 +152,11 @@ public class Retrier {
 
         @Override
         public void recordSuccess() {}
+
+        @Override
+        public String failureDetails() {
+          return "";
+        }
       };
 
   /** Disables retries. */
@@ -268,7 +287,7 @@ public class Retrier {
       final State circuitState;
       circuitState = circuitBreaker.state();
       if (State.REJECT_CALLS.equals(circuitState)) {
-        throw new CircuitBreakerException();
+        throw new CircuitBreakerException(circuitBreaker.failureDetails());
       }
       try {
         if (Thread.interrupted()) {
@@ -347,7 +366,7 @@ public class Retrier {
       AsyncCallable<T> call, Backoff backoff, @Nullable String rpcId) {
     final State circuitState = circuitBreaker.state();
     if (State.REJECT_CALLS.equals(circuitState)) {
-      return Futures.immediateFailedFuture(new CircuitBreakerException());
+      return immediateFailedFuture(new CircuitBreakerException(circuitBreaker.failureDetails()));
     }
     try {
       ListenableFuture<T> future =
@@ -355,14 +374,14 @@ public class Retrier {
               callWithContext(call, backoff, rpcId),
               (f) -> {
                 circuitBreaker.recordSuccess();
-                return Futures.immediateFuture(f);
+                return immediateFuture(f);
               },
-              MoreExecutors.directExecutor());
+              directExecutor());
       return Futures.catchingAsync(
           future,
           Exception.class,
           t -> onExecuteAsyncFailure(t, call, backoff, circuitState, rpcId),
-          MoreExecutors.directExecutor());
+          directExecutor());
     } catch (Exception e) {
       return onExecuteAsyncFailure(e, call, backoff, circuitState, rpcId);
     }
@@ -373,7 +392,7 @@ public class Retrier {
     if (isRetriable(t)) {
       circuitBreaker.recordFailure();
       if (circuitState.equals(State.TRIAL_CALL)) {
-        return Futures.immediateFailedFuture(t);
+        return immediateFailedFuture(t);
       }
       long waitMillis = backoff.nextDelayMillis(t);
       if (waitMillis >= 0) {
@@ -385,18 +404,18 @@ public class Retrier {
               retryService);
         } catch (RejectedExecutionException e) {
           // May be thrown by .scheduleAsync(...) if i.e. the executor is shutdown.
-          return Futures.immediateFailedFuture(new IOException(e));
+          return immediateFailedFuture(new IOException(e));
         }
       } else {
         onRetriesExhausted(t, backoff, rpcId);
-        return Futures.immediateFailedFuture(t);
+        return immediateFailedFuture(t);
       }
     } else {
       // gRPC Errors NOT_FOUND, OUT_OF_RANGE, ALREADY_EXISTS etc. are non-retriable error, and they
       // don't represent an
       // issue in Server. So treating these errors as successful api call.
       circuitBreaker.recordSuccess();
-      return Futures.immediateFailedFuture(t);
+      return immediateFailedFuture(t);
     }
   }
 
