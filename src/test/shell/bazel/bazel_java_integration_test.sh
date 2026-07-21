@@ -274,7 +274,7 @@ EOF
   expect_log "JAVABIN=.*/zoo/bin/java"
 
   # Remove --java_runtime_version from bazelrc.
-  sed -i.bak "$TEST_TMPDIR/bazelrc" -e '/--java_runtime_version/d'
+  sed -i.bak '/--java_runtime_version/d' "$TEST_TMPDIR/bazelrc"
 
   # Check that we use local_jdk when it's not specified.
   bazel build //java:javabin
