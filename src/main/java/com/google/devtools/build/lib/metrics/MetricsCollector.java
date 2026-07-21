@@ -67,6 +67,7 @@ import com.google.devtools.build.lib.packages.metrics.ExtremaPackageMetricsRecor
 import com.google.devtools.build.lib.packages.metrics.PackageLoadMetrics;
 import com.google.devtools.build.lib.packages.metrics.PackageMetricsPackageLoadingListener;
 import com.google.devtools.build.lib.packages.metrics.PackageMetricsRecorder;
+import com.google.devtools.build.lib.profiler.LocalResourceUsageCollectors;
 import com.google.devtools.build.lib.profiler.MemoryProfiler;
 import com.google.devtools.build.lib.profiler.NetworkMetricsCollector;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -629,6 +630,13 @@ class MetricsCollector {
     setPeakHeapSize(
         PostGCMemoryUseRecorder.get().getPeakPostGcHeapTenuredSpaceDuringExecution(),
         memoryMetrics::setPeakPostGcTenuredSpaceHeapSizeDuringExecution);
+
+    // Peak of the "Memory usage (Bazel)" counter series written to the JSON trace profile. Only
+    // nonzero when the profiler's local resource collection sampled at least once this invocation.
+    long peakUsedMemoryBytes = LocalResourceUsageCollectors.getPeakBazelMemoryUsageBytes();
+    if (peakUsedMemoryBytes > 0) {
+      memoryMetrics.setPeakUsedMemoryBytes(peakUsedMemoryBytes);
+    }
 
     Map<String, Long> garbageStats = PostGCMemoryUseRecorder.get().getGarbageStats();
     for (Map.Entry<String, Long> garbageEntry : garbageStats.entrySet()) {
