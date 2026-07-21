@@ -96,6 +96,7 @@ import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 import javax.net.ssl.SSLEngine;
+import javax.net.ssl.SSLParameters;
 
 /**
  * Implementation of {@link RemoteCacheClient} that can talk to a HTTP/1.1 backend.
@@ -280,11 +281,7 @@ public final class HttpCacheClient extends RemoteCacheClient {
             ChannelPipeline p = ch.pipeline();
             if (sslCtx != null) {
               SSLEngine engine = sslCtx.newEngine(ch.alloc(), hostname, port);
-              engine.setUseClientMode(true);
-              if (authAndTlsOptions.getTlsClientCertificate() != null
-                  && authAndTlsOptions.getTlsClientKey() != null) {
-                engine.setNeedClientAuth(true);
-              }
+              configureSslEngine(engine, authAndTlsOptions);
               p.addFirst("ssl-handler", new SslHandler(engine));
             }
           }
@@ -849,5 +846,17 @@ public final class HttpCacheClient extends RemoteCacheClient {
     }
 
     return sslContextBuilder.build();
+  }
+
+  static void configureSslEngine(SSLEngine engine, AuthAndTLSOptions authAndTlsOptions) {
+    engine.setUseClientMode(true);
+    SSLParameters params = engine.getSSLParameters();
+    params.setEndpointIdentificationAlgorithm("HTTPS");
+    engine.setSSLParameters(params);
+    if (authAndTlsOptions != null
+        && authAndTlsOptions.getTlsClientCertificate() != null
+        && authAndTlsOptions.getTlsClientKey() != null) {
+      engine.setNeedClientAuth(true);
+    }
   }
 }

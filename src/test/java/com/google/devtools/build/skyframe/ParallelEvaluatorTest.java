@@ -4339,4 +4339,27 @@ public class ParallelEvaluatorTest {
     // This should not crash on any precondition violation.
     env.injectVersion(version);
   }
+
+  @Test
+  public void nonCatastrophicError_withKeepGoingKey_doesNotThrowIllegalStateException()
+      throws Exception {
+    graph = new InMemoryGraphImpl();
+    SkyKey parentKey = skyKey("parent");
+    SkyKey errorKey = skyKey("error");
+    tester.getOrCreate(errorKey).setHasError(true);
+    tester.getOrCreate(parentKey).addDependency(errorKey).setComputedValue(CONCATENATE);
+
+    Predicate<SkyKey> forceKeepGoingOnErrorKeyPredicate = key -> key.equals(errorKey);
+    ParallelEvaluator evaluator =
+        makeEvaluator(
+            graph,
+            tester.getSkyFunctionMap(),
+            EventFilter.FULL_STORAGE,
+            Version.constant(),
+            forceKeepGoingOnErrorKeyPredicate);
+
+    EvaluationResult<StringValue> result = evaluator.eval(ImmutableList.of(parentKey));
+
+    assertThat(result.hasError()).isTrue();
+  }
 }

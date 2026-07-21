@@ -209,14 +209,17 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
       ErrorInfo errorInfo = Preconditions.checkNotNull(e.getErrorInfo(), errorKey);
       bubbleErrorInfo = bubbleErrorUp(errorInfo, errorKey, skyKeys, e.getRdepsToBubbleUpTo());
       if (evaluatorContext.keepGoing(errorKey)) {
-        Preconditions.checkState(
-            errorInfo.isCatastrophic(),
-            "Scheduler exception only thrown for catastrophe in keep_going evaluation: %s",
-            e);
-        catastrophe = true;
-        // For b/287183296
-        logger.atInfo().withCause(e).log(
-            "Catastrophic exception in --keep_going mode while evaluating SkyKey: %s", errorKey);
+        if (errorInfo.isCatastrophic()) {
+          catastrophe = true;
+          // For b/287183296
+          logger.atInfo().withCause(e).log(
+              "Catastrophic exception in --keep_going mode while evaluating SkyKey: %s", errorKey);
+        } else {
+          logger.atInfo().withCause(e).log(
+              "Non-catastrophic exception wrapped in SchedulerException while evaluating SkyKey:"
+                  + " %s",
+              errorKey);
+        }
       }
     }
     Preconditions.checkState(

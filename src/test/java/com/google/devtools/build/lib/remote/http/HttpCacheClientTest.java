@@ -112,6 +112,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.function.IntFunction;
 import javax.annotation.Nullable;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLEngine;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -1069,5 +1071,26 @@ public class HttpCacheClientTest {
     } finally {
       testServer.stop(server);
     }
+  }
+
+  @Test
+  public void configureSslEngine() throws Exception {
+    SSLEngine engine = SSLContext.getDefault().createSSLEngine();
+
+    HttpCacheClient.configureSslEngine(engine, Options.getDefaults(AuthAndTLSOptions.class));
+
+    assertThat(engine.getUseClientMode()).isTrue();
+    assertThat(engine.getSSLParameters().getEndpointIdentificationAlgorithm()).isEqualTo("HTTPS");
+    assertThat(engine.getNeedClientAuth()).isFalse();
+
+    AuthAndTLSOptions clientAuthOptions =
+        Options.parse(
+                AuthAndTLSOptions.class,
+                "--tls_client_certificate=client.crt",
+                "--tls_client_key=client.key")
+            .getOptions();
+    HttpCacheClient.configureSslEngine(engine, clientAuthOptions);
+
+    assertThat(engine.getNeedClientAuth()).isTrue();
   }
 }

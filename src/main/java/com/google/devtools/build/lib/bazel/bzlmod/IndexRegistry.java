@@ -103,6 +103,8 @@ public class IndexRegistry implements Registry {
   private volatile StoredEventHandler bazelRegistryJsonEvents;
 
   private static final String SOURCE_JSON_FILENAME = "source.json";
+  private static final ImmutableList<String> ALLOWED_GIT_SCHEMES =
+      ImmutableList.of("https://", "ssh://", "git://", "file://");
 
   public IndexRegistry(
       URI uri,
@@ -556,6 +558,28 @@ public class IndexRegistry implements Registry {
       Checksum moduleFileChecksum,
       ModuleKey key)
       throws IOException {
+    if (sourceJson.remote == null) {
+      throw new IOException(
+          String.format("Missing remote in git_repository source for module %s", key));
+    }
+    if (ALLOWED_GIT_SCHEMES.stream().noneMatch(sourceJson.remote::startsWith)) {
+      throw new IOException(
+          String.format(
+              "Invalid remote URL scheme: \"%s\" for module %s. Only %s are allowed.",
+              sourceJson.remote, key, String.join(", ", ALLOWED_GIT_SCHEMES)));
+    }
+    if (sourceJson.commit != null && !sourceJson.commit.matches("^[0-9a-fA-F]{7,64}$")) {
+      throw new IOException(
+          String.format(
+              "Invalid commit: \"%s\" for module %s. Must be a valid commit hash.",
+              sourceJson.commit, key));
+    }
+    if (sourceJson.tag != null && sourceJson.tag.startsWith("-")) {
+      throw new IOException(
+          String.format(
+              "Invalid tag: \"%s\" for module %s. Cannot start with '-'.", sourceJson.tag, key));
+    }
+
     // Build remote patches as key-value pairs of "url" => "integrity".
     ImmutableMap.Builder<String, String> remotePatches = new ImmutableMap.Builder<>();
     if (sourceJson.patches != null) {
