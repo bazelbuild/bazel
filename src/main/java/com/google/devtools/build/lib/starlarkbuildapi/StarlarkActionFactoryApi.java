@@ -339,6 +339,46 @@ This function must be top-level, i.e. lambdas and nested functions are not allow
       throws EvalException;
 
   @StarlarkMethod(
+      name = "copy",
+      doc =
+          "Creates an action that makes <code>target_file</code>'s content available at"
+              + " <code>output</code>: the same content re-addressed at a second path, sharing the"
+              + " target's digest, with no byte copy and no spawn.<p>Unlike <a"
+              + " href=\"#symlink\"><code>symlink()</code></a>, the output is realized as real content"
+              + " (a hard link, copy, or -- on remote execution -- by reusing the shared digest),"
+              + " never as a followable symbolic link, so its <code>realpath</code> is stable within"
+              + " the consuming tree (which tools such as Node.js require).<p><b>How</b> the content"
+              + " is materialized is chosen by the execution strategy that stages it. Strategies that"
+              + " cannot materialize content (e.g. non-sandboxed local execution) do not honor this;"
+              + " rules relying on it should run under a content-materializing strategy.",
+      parameters = {
+        @Param(
+            name = "output",
+            named = true,
+            positional = false,
+            doc = "The output of this action. Must be declared as a file or directory."),
+        @Param(
+            name = "target_file",
+            allowedTypes = {@ParamType(type = FileApi.class)},
+            named = true,
+            positional = false,
+            doc = "The File whose content the output will link to. Must match output's type."),
+        @Param(
+            name = "progress_message",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class),
+            },
+            named = true,
+            positional = false,
+            defaultValue = "None",
+            doc = "Progress message to show to the user during the build."),
+      },
+      useStarlarkThread = true)
+  void copy(FileApi output, FileApi targetFile, Object progressMessage, StarlarkThread thread)
+      throws EvalException;
+
+  @StarlarkMethod(
       name = "write",
       doc =
           "Creates a file write action. When the action is executed, it will write the given "

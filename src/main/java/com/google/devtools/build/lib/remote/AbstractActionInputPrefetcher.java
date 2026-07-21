@@ -578,6 +578,12 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     if (resolvedPath == null || resolvedPath.equals(inputPath.asFragment())) {
       return ImmutableList.of();
     }
+    if (metadata.isContentCopy()) {
+      // A content copy must be materialized as real content at its own path, never as a followable
+      // symlink to the resolved path -- a stable realpath within the consuming tree is the point.
+      // Planting no symlink means the content is materialized at inputPath directly (by digest).
+      return ImmutableList.of();
+    }
     return ImmutableList.of(new Symlink(inputPath, resolvedPath));
   }
 

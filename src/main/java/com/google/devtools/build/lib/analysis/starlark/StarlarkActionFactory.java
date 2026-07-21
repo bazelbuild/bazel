@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.StarlarkAction;
 import com.google.devtools.build.lib.analysis.actions.StarlarkMapActionTemplate;
 import com.google.devtools.build.lib.analysis.actions.Substitution;
+import com.google.devtools.build.lib.analysis.actions.CopyAction;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
@@ -356,6 +357,42 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
               progressMessage);
     }
     registerAction(action);
+  }
+
+  @Override
+  public void copy(
+      FileApi output,
+      FileApi targetFile,
+      Object progressMessageUnchecked,
+      StarlarkThread thread)
+      throws EvalException {
+    context.checkMutable("actions.copy");
+    RuleContext ruleContext = getRuleContext();
+
+    Artifact outputArtifact = (Artifact) output;
+    Artifact inputArtifact = (Artifact) targetFile;
+
+    if (outputArtifact.isSymlink()) {
+      throw Starlark.errorf(
+          "copy() requires that \"output\" be declared as a file or directory, not a symlink (did"
+              + " you mean to use declare_file() or declare_directory()?)");
+    }
+    if (inputArtifact.isDirectory() != outputArtifact.isDirectory()) {
+      String inputType = inputArtifact.isDirectory() ? "directory" : "file";
+      String outputType = outputArtifact.isDirectory() ? "directory" : "file";
+      throw Starlark.errorf(
+          "copy() requires that \"output\" (%s) and \"target_file\" (%s) be the same type",
+          outputType, inputType);
+    }
+
+    String progressMessage =
+        (progressMessageUnchecked != Starlark.NONE)
+            ? (String) progressMessageUnchecked
+            : "Copying %{output}";
+
+    registerAction(
+        CopyAction.create(
+            ruleContext.getActionOwner(), inputArtifact, outputArtifact, progressMessage));
   }
 
   @Override

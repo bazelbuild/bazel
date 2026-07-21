@@ -270,6 +270,21 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
   }
 
   /**
+   * If {@code true}, the artifact possessing this metadata must be materialized as <em>content</em>
+   * (e.g. a hard link or copy) at its own exec path rather than as a followable symlink to {@link
+   * #getResolvedPath}. Only meaningful when {@link #getResolvedPath} is non-null.
+   *
+   * <p>This is the hint permitted by {@link #getResolvedPath}'s contract ("an output service is free
+   * to ... materialize the artifact in some other way"). It exists so that an artifact whose content
+   * lives elsewhere can be given a stable {@code realpath} within the consuming tree (which tools
+   * such as Node.js require), without changing the behavior of ordinary symlinks, whose metadata
+   * leaves this {@code false}.
+   */
+  public boolean isContentCopy() {
+    return false;
+  }
+
+  /**
    * Marker interface for singleton implementations of this class.
    *
    * <p>Needed for a correct implementation of {@code equals}.
@@ -421,7 +436,19 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
 
   public static FileArtifactValue createFromExistingWithResolvedPath(
       FileArtifactValue delegate, PathFragment resolvedPath) {
-    return new ResolvedSymlinkArtifactValue(delegate, resolvedPath);
+    return new ResolvedSymlinkArtifactValue(
+        delegate, resolvedPath, /* contentCopy= */ false);
+  }
+
+  /**
+   * Like {@link #createFromExistingWithResolvedPath}, but marks the artifact to be materialized as
+   * content (hard link/copy) at its own exec path rather than as a followable symlink to {@code
+   * resolvedPath}. See {@link #contentCopy}.
+   */
+  public static FileArtifactValue createForContentCopy(
+      FileArtifactValue delegate, PathFragment resolvedPath) {
+    return new ResolvedSymlinkArtifactValue(
+        delegate, resolvedPath, /* contentCopy= */ true);
   }
 
   /**
@@ -909,12 +936,14 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
   private static final class ResolvedSymlinkArtifactValue extends FileArtifactValue {
     private final FileArtifactValue delegate;
     private final PathFragment resolvedPath;
+    private final boolean contentCopy;
 
     // TODO(b/329460099): Store just the execpath once multiple source roots are no longer
     // supported. At that point it becomes possible to reliably compute the absolute path from the
     // execpath.
 
-    private ResolvedSymlinkArtifactValue(FileArtifactValue delegate, PathFragment resolvedPath) {
+    private ResolvedSymlinkArtifactValue(
+        FileArtifactValue delegate, PathFragment resolvedPath, boolean contentCopy) {
       checkArgument(!(delegate instanceof Singleton), "delegate is a singleton: %s", delegate);
       checkArgument(resolvedPath.isAbsolute(), "resolved path is not absolute: %s", resolvedPath);
       checkArgument(
@@ -926,11 +955,17 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
               ? resolvedDelegate.delegate
               : delegate;
       this.resolvedPath = resolvedPath;
+      this.contentCopy = contentCopy;
     }
 
     @Override
     public PathFragment getResolvedPath() {
       return resolvedPath;
+    }
+
+    @Override
+    public boolean isContentCopy() {
+      return contentCopy;
     }
 
     @Override
@@ -1023,12 +1058,14 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
       if (!(o instanceof ResolvedSymlinkArtifactValue that)) {
         return false;
       }
-      return delegate.equals(that.delegate) && resolvedPath.equals(that.resolvedPath);
+      return delegate.equals(that.delegate)
+          && resolvedPath.equals(that.resolvedPath)
+          && contentCopy == that.contentCopy;
     }
 
     @Override
     public int hashCode() {
-      return HashCodes.hashObjects(delegate, resolvedPath);
+      return HashCodes.hashObjects(delegate, resolvedPath, contentCopy);
     }
 
     @Override
@@ -1036,6 +1073,7 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
       return MoreObjects.toStringHelper(this)
           .add("delegate", delegate)
           .add("resolvedPath", resolvedPath)
+          .add("contentCopy", contentCopy)
           .toString();
     }
   }
@@ -1059,6 +1097,7 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
         SerializationContext context, ResolvedSymlinkArtifactValue obj, CodedOutputStream codedOut)
         throws SerializationException, IOException {
       context.serialize(obj.delegate, codedOut);
+      codedOut.writeBoolNoTag(obj.contentCopy);
 
       PathFragment resolvedPath = obj.resolvedPath;
       ImmutableList<Root> roots =
@@ -1080,6 +1119,7 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
         DeserializationContext context, CodedInputStream codedIn)
         throws SerializationException, IOException {
       FileArtifactValue delegate = context.deserialize(codedIn);
+      boolean contentCopy = codedIn.readBool();
       PathFragment relativePath = context.deserializeLeaf(codedIn, pathFragmentCodec());
       int rootIndex = codedIn.readRawByte();
       Root root =
@@ -1088,7 +1128,7 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
               .getPackageRoots()
               .get(rootIndex);
       PathFragment resolvedPath = root.getRelative(relativePath).asFragment();
-      return new ResolvedSymlinkArtifactValue(delegate, resolvedPath);
+      return new ResolvedSymlinkArtifactValue(delegate, resolvedPath, contentCopy);
     }
   }
 
