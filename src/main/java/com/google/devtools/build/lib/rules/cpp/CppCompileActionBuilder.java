@@ -367,8 +367,15 @@ public final class CppCompileActionBuilder implements StarlarkValue {
     NestedSetBuilder<Artifact> realMandatoryInputsBuilder = NestedSetBuilder.compileOrder();
     realMandatoryInputsBuilder.addTransitive(mandatoryInputsBuilder.build());
     realMandatoryInputsBuilder.addAll(getBuiltinIncludeFiles());
-    if (useHeaderModules() && !getShouldScanIncludes()) {
+    if ((useHeaderModules() || loadHeaderModules()) && !getShouldScanIncludes()) {
       realMandatoryInputsBuilder.addTransitive(ccCompilationContext.getTransitiveModules(usePic));
+      // The separate module of this compilation context is not part of the transitive modules, but
+      // may be used by all compiles of this context except for its own compile; see
+      // CcCompilationContext#getDirectModules.
+      Artifact separateModule = ccCompilationContext.getSeparateHeaderModule(usePic);
+      if (separateModule != null && !separateModule.equals(outputFile)) {
+        realMandatoryInputsBuilder.add(separateModule);
+      }
     }
     ccCompilationContext.addAdditionalInputs(realMandatoryInputsBuilder);
     realMandatoryInputsBuilder.add(Preconditions.checkNotNull(sourceFile));
@@ -404,6 +411,18 @@ public final class CppCompileActionBuilder implements StarlarkValue {
 
   private boolean useHeaderModules() {
     return useHeaderModules(sourceFile);
+  }
+
+  /**
+   * Whether this is a module codegen action that may load (but doesn't compile against) transitive
+   * modules.
+   */
+  private boolean loadHeaderModules() {
+    Preconditions.checkNotNull(featureConfiguration);
+    Preconditions.checkNotNull(sourceFile);
+    // The module file imports the modules of dependencies iff it was built with USE_HEADER_MODULES.
+    return featureConfiguration.isEnabled(CppRuleClasses.USE_HEADER_MODULES)
+        && sourceFile.isFileType(CppFileTypes.CPP_MODULE);
   }
 
   /**
