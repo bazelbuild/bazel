@@ -844,13 +844,6 @@ launcher_flag_alias(
 
     config.create("embedded_tools/tools/sh/BUILD");
     config.create("embedded_tools/tools/osx/BUILD");
-    config.create(
-        "embedded_tools/tools/osx/xcode_configure.bzl",
-        """
-        # no positional arguments for XCode
-        def xcode_configure(*args, **kwargs):
-            pass
-        """);
     config.create("embedded_tools/bin/sh", "def sh(**kwargs):", "  pass");
   }
 
