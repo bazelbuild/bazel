@@ -450,7 +450,6 @@ cc_library(
     visibility = ["//visibility:private"],
     deps = [
         ":diag",
-        ":port",
         "//src/main/cpp/util",
     ],
 )
