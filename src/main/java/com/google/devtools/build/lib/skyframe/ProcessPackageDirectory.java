@@ -291,7 +291,7 @@ public final class ProcessPackageDirectory {
       }
 
       // If this subdirectory is one of the excluded paths, don't recurse into it.
-      if (excludedPaths.matchingEntry(subdirectory) != null) {
+      if (excludedPaths.matchingEntryForTraversal(subdirectory)) {
         continue;
       }
 

@@ -41,6 +41,7 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.io.IOException;
 import java.util.HashMap;
@@ -67,7 +68,8 @@ import javax.annotation.Nullable;
 public abstract class WorkspaceStatusAction extends AbstractAction {
 
   /** Options controlling the workspace status command. */
-  public static class Options extends OptionsBase {
+  @OptionsClass
+  public abstract static class Options extends OptionsBase {
     @Option(
         name = "embed_label",
         defaultValue = "",
@@ -75,7 +77,9 @@ public abstract class WorkspaceStatusAction extends AbstractAction {
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.UNKNOWN},
         help = "Embed source control revision or release label in binary")
-    public String embedLabel;
+    public abstract String getEmbedLabel();
+
+    public abstract void setEmbedLabel(String value);
 
     @Option(
         name = "workspace_status_command",
@@ -93,7 +97,9 @@ public abstract class WorkspaceStatusAction extends AbstractAction {
 
             [wksp-stat]: https://github.com/bazelbuild/bazel/blob/master/tools/buildstamp/get_workspace_status
             """)
-    public PathFragment workspaceStatusCommand;
+    public abstract PathFragment getWorkspaceStatusCommand();
+
+    public abstract void setWorkspaceStatusCommand(PathFragment value);
   }
 
   /**

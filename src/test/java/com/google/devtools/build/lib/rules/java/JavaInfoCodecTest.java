@@ -75,7 +75,6 @@ public class JavaInfoCodecTest extends BuildViewTestCase {
     JavaInfo inInfo = JavaInfo.getJavaInfo(getConfiguredTarget("//java/com/google/test:a"));
     JavaInfo outInfo = (JavaInfo) roundTripWithSkyframe(inInfo);
 
-    assertThat(inInfo.getCreationLocation()).isEqualTo(outInfo.getCreationLocation());
     assertThat(inInfo.getDirectRuntimeJars()).isNotEmpty();
     assertThat(inInfo.getDirectRuntimeJars()).isEqualTo(outInfo.getDirectRuntimeJars());
 

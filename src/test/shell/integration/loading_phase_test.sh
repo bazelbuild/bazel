@@ -43,6 +43,12 @@ fi
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
+if is_linux; then
+  export LC_ALL=C.UTF-8
+else
+  export LC_ALL=en_US.UTF-8
+fi
+
 output_base=$TEST_TMPDIR/out
 TEST_stderr=$(dirname $TEST_log)/stderr
 
@@ -135,7 +141,9 @@ function test_options_errors() {
       grep -v '^  '${PRODUCT_NAME}' ' |
       awk '{print $1}' |
   while read command; do
-    bazel $command >$TEST_log 2>&1 || true
+    # bazel help <command> instantiates the options processor in the same way that
+    # bazel <command> does, but is lighter weight.
+    bazel help $command >$TEST_log 2>&1 || true
     # Mustn't crash in the options package:
     expect_not_log "Duplicate option name"
     expect_not_log "at com.google.devtools.build.lib"
@@ -540,7 +548,7 @@ EOF
     cat output
     fail "Expected build to succeed"
   )
-  assert_contains "^${filename}$" $(bazel info "${PRODUCT_NAME}-bin")/$pkg/paths.txt
+  assert_equals "${filename}" "$(cat $(bazel info "${PRODUCT_NAME}-bin")/$pkg/paths.txt)"
 }
 
 function test_target_with_BUILD() {

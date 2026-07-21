@@ -75,7 +75,7 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
    */
   public static boolean isSupported(CommandEnvironment cmdEnv, Path dockerClient)
       throws InterruptedException {
-    boolean verbose = cmdEnv.getOptions().getOptions(SandboxOptions.class).dockerVerbose;
+    boolean verbose = cmdEnv.getOptions().getOptions(SandboxOptions.class).getDockerVerbose();
 
     if (ProcessWrapper.fromCommandEnvironment(cmdEnv) == null) {
       if (verbose) {
@@ -247,12 +247,13 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
         .setImageName(customizedImageName)
         .setCommandArguments(spawn.getArguments())
         .setSandboxExecRoot(sandboxExecRoot)
-        .setAdditionalMounts(getSandboxOptions().sandboxAdditionalMounts)
-        .setPrivileged(getSandboxOptions().dockerPrivileged)
+        .setAdditionalMounts(getSandboxOptions().getSandboxAdditionalMounts())
+        .setPrivileged(getSandboxOptions().getDockerPrivileged())
         .setEnvironmentVariables(environment)
         .setCreateNetworkNamespace(
             !(allowNetwork
-                || Spawns.requiresNetwork(spawn, getSandboxOptions().defaultSandboxAllowNetwork)))
+                || Spawns.requiresNetwork(
+                    spawn, getSandboxOptions().getDefaultSandboxAllowNetwork())))
         .setCommandId(commandId)
         .setUuid(uuid);
     // If uid / gid are -1, we are on an operating system that doesn't require us to set them on the

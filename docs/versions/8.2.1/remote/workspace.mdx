@@ -11,12 +11,11 @@ on the host machine. If your workspace rules access information about the
 host machine for use during execution, your build is likely to break due to
 incompatibilities between the environments.
 
-As part of [adapting Bazel rules for remote
-execution](/versions/8.2.1/remote/rules), you need to find such workspace rules
+As part of [adapting Bazel rules for remote execution](/versions/8.2.1/remote/rules), you need to find such workspace rules
 and fix them. This page describes how to find potentially problematic workspace
 rules using the workspace log.
 
-## Finding non-hermetic rules
+## Finding non-hermetic rules {#nonhermetic-rules}
 
 [Workspace rules](/versions/8.2.1/reference/be/workspace) allow the developer to add dependencies to
 external workspaces, but they are rich enough to allow arbitrary processing to

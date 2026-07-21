@@ -28,7 +28,6 @@ public class StackTraceExercises extends TestCase {
     Runtime.getRuntime().addShutdownHook(new Thread(StackTraceExercises::handleHook));
   }
 
-  @SuppressWarnings("AllowVirtualThreads")
   private static void handleHook() {
     try {
       System.out.println("Entered shutdown hook");

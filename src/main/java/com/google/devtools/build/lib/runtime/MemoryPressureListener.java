@@ -19,6 +19,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.eventbus.EventBus;
+import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.metrics.GarbageCollectionMetricsUtils;
@@ -41,6 +42,7 @@ import javax.management.openmbean.CompositeData;
 
 @ThreadSafe
 final class MemoryPressureListener implements NotificationListener {
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private final AtomicReference<EventBus> eventBus = new AtomicReference<>();
   private final AtomicReference<GcThrashingDetector> gcThrashingDetector = new AtomicReference<>();
@@ -66,6 +68,13 @@ final class MemoryPressureListener implements NotificationListener {
       List<GarbageCollectorMXBean> gcBeans, Executor executor) {
     ImmutableList<NotificationEmitter> tenuredGcEmitters = findTenuredCollectorBeans(gcBeans);
     if (tenuredGcEmitters.isEmpty()) {
+      if (gcBeans.isEmpty()) {
+        logger.atWarning().log(
+            "No garbage collector MXBeans are available. Memory-pressure notifications are "
+                + "disabled, so optional caches cannot be limited based on heap usage and peak "
+                + "memory may be higher.");
+        return new MemoryPressureListener(executor);
+      }
       var names =
           gcBeans.stream()
               .map(GarbageCollectorMXBean::getMemoryPoolNames)

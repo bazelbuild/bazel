@@ -91,6 +91,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventBusEventHandler;
 import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
@@ -781,7 +782,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
         skyframeExecutor
             .getPackageManager()
             .getPackage(
-                new Reporter(new EventBus(), customEventCollector),
+                new Reporter(EventBusEventHandler.createWithNewEventBus(), customEventCollector),
                 PackageIdentifier.createInMainRepo("pkg"));
     assertThat(pkg.containsErrors()).isTrue();
     MoreAsserts.assertContainsEvent(customEventCollector, "name 'thisisanerror' is not defined");
@@ -2309,6 +2310,65 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testExceptionComparator() throws Exception {
+    options.parse("--keep_going", "--jobs=5");
+
+    Path root = getExecRoot();
+    PathFragment execPath = PathFragment.create("out").getRelative("dir");
+    ActionLookupKey configuredTargetKey = new InjectedActionLookupKey("key");
+    Artifact dummyArtifact =
+        DerivedArtifact.create(
+            ArtifactRoot.asDerivedRoot(root, RootType.OUTPUT, "out"),
+            execPath.getRelative("catas"),
+            configuredTargetKey);
+
+    ActionExecutionException catastropheWithUserExitCode =
+        new ActionExecutionException(
+            "foo",
+            new Exception("bar"),
+            new DummyAction(NestedSetBuilder.emptySet(Order.STABLE_ORDER), dummyArtifact),
+            /* catastrophe= */ true,
+            USER_DETAILED_EXIT_CODE);
+    ActionExecutionException catastropheWithInfrastructureExitCode =
+        new ActionExecutionException(
+            "foo",
+            new Exception("bar"),
+            new DummyAction(NestedSetBuilder.emptySet(Order.STABLE_ORDER), dummyArtifact),
+            /* catastrophe= */ true,
+            INFRA_DETAILED_EXIT_CODE);
+    ActionExecutionException nonCatastropheWithUserExitCode =
+        new ActionExecutionException(
+            "foo",
+            new Exception("bar"),
+            new DummyAction(NestedSetBuilder.emptySet(Order.STABLE_ORDER), dummyArtifact),
+            /* catastrophe= */ false,
+            USER_DETAILED_EXIT_CODE);
+    ActionExecutionException nonCatastropheWithInfrastructureExitCode =
+        new ActionExecutionException(
+            "foo",
+            new Exception("bar"),
+            new DummyAction(NestedSetBuilder.emptySet(Order.STABLE_ORDER), dummyArtifact),
+            /* catastrophe= */ false,
+            INFRA_DETAILED_EXIT_CODE);
+
+    ImmutableList<ActionExecutionException> exceptionsWithIncreasingSeverity =
+        ImmutableList.of(
+            nonCatastropheWithUserExitCode,
+            nonCatastropheWithInfrastructureExitCode,
+            catastropheWithUserExitCode,
+            catastropheWithInfrastructureExitCode);
+    for (int i = 0; i < exceptionsWithIncreasingSeverity.size() - 1; i++) {
+      for (int j = i + 1; j < exceptionsWithIncreasingSeverity.size(); j++) {
+        assertThat(
+                ActionExecutionException.SEVERITY_ORDERING.max(
+                    exceptionsWithIncreasingSeverity.get(i),
+                    exceptionsWithIncreasingSeverity.get(j)))
+            .isEqualTo(exceptionsWithIncreasingSeverity.get(j));
+      }
+    }
+  }
+
+  @Test
   public void testCatastropheReportingWithError() throws Exception {
     options.parse("--keep_going", "--jobs=1");
     Path root = getExecRoot();
@@ -2613,6 +2673,121 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
   }
 
   /**
+   * Test appropriate behavior when an action halts the build with a transitive catastrophic
+   * failure.
+   */
+  @Test
+  public void testKeepGoingExitCodeWithTransitiveUserAndInfrastructureError() throws Exception {
+    options.parse("--keep_going");
+
+    Path root = getExecRoot();
+    PathFragment execPath = PathFragment.create("out").getRelative("dir");
+    ActionLookupKey infrastructureConfiguredTargetKey =
+        new InjectedActionLookupKey("infrastructure");
+    Artifact infrastructureArtifact =
+        DerivedArtifact.create(
+            ArtifactRoot.asDerivedRoot(root, RootType.OUTPUT, "out"),
+            execPath.getRelative("zinfra"),
+            infrastructureConfiguredTargetKey);
+    CountDownLatch failureHappened = new CountDownLatch(1);
+    Action infraErrorAction =
+        new FailedExecAction(infrastructureArtifact, INFRA_DETAILED_EXIT_CODE) {
+          @Override
+          public ActionResult execute(ActionExecutionContext actionExecutionContext)
+              throws ActionExecutionException {
+            TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(
+                failureHappened, "didn't count failure");
+            return super.execute(actionExecutionContext);
+          }
+        };
+    ActionLookupValue infrastructureActionLookupValue =
+        createActionLookupValue(infraErrorAction, infrastructureConfiguredTargetKey);
+    ActionLookupKey failureConfiguredTargetKey = new InjectedActionLookupKey("failure");
+    Artifact failureArtifact =
+        DerivedArtifact.create(
+            ArtifactRoot.asDerivedRoot(root, RootType.OUTPUT, "out"),
+            execPath.getRelative("fail"),
+            failureConfiguredTargetKey);
+    Action failureAction = new FailedExecAction(failureArtifact, USER_DETAILED_EXIT_CODE);
+    ActionLookupValue failureActionLookupValue =
+        createActionLookupValue(failureAction, failureConfiguredTargetKey);
+    ActionLookupKey topConfiguredTargetKey = new InjectedActionLookupKey("top");
+    Artifact topArtifact =
+        DerivedArtifact.create(
+            ArtifactRoot.asDerivedRoot(root, RootType.OUTPUT, "out"),
+            execPath.getRelative("top"),
+            topConfiguredTargetKey);
+    Action topAction =
+        new DummyAction(
+            NestedSetBuilder.create(Order.STABLE_ORDER, failureArtifact, infrastructureArtifact),
+            topArtifact);
+    ActionLookupValue topActionLookupValue =
+        createActionLookupValue(topAction, topConfiguredTargetKey);
+    // Perform testing-related setup.
+    skyframeExecutor
+        .getDifferencerForTesting()
+        .inject(
+            ImmutableMap.of(
+                infrastructureConfiguredTargetKey, Delta.justNew(infrastructureActionLookupValue),
+                failureConfiguredTargetKey, Delta.justNew(failureActionLookupValue),
+                topConfiguredTargetKey, Delta.justNew(topActionLookupValue)));
+    skyframeExecutor
+        .getEvaluator()
+        .injectGraphTransformerForTesting(
+            DeterministicHelper.makeTransformer(
+                (key, type, order, context) -> {
+                  if (key.equals(Artifact.key(failureArtifact)) && type == EventType.SET_VALUE) {
+                    failureHappened.countDown();
+                  }
+                },
+                /* deterministic= */ true));
+    TopLevelTargetBuiltEventCollector collector = new TopLevelTargetBuiltEventCollector();
+    skyframeExecutor.setEventBus(new EventBus());
+    skyframeExecutor.getEventBus().register(collector);
+    setupEmbeddedArtifacts();
+    skyframeExecutor.setActionOutputRoot(getOutputPath());
+    skyframeExecutor.setActionExecutionProgressReportingObjects(
+        EMPTY_PROGRESS_SUPPLIER,
+        EMPTY_COMPLETION_RECEIVER,
+        ActionExecutionStatusReporter.create(reporter));
+
+    reporter.removeHandler(failFastHandler); // Expect errors.
+    Builder builder =
+        new SkyframeBuilder(
+            skyframeExecutor,
+            new ResourceManager(),
+            NULL_CHECKER,
+            /* actionExecutionSalt= */ "",
+            ModifiedFileSet.EVERYTHING_MODIFIED,
+            /* fileCache= */ null,
+            ActionInputPrefetcher.NONE,
+            ActionOutputDirectoryHelper.createForTesting(),
+            BugReporter.defaultInstance());
+    ImmutableSet<Artifact> normalArtifacts = ImmutableSet.of(topArtifact);
+    BuildFailedException e =
+        assertThrows(
+            BuildFailedException.class,
+            () ->
+                builder.buildArtifacts(
+                    reporter,
+                    normalArtifacts,
+                    ImmutableSet.of(),
+                    ImmutableSet.of(),
+                    ImmutableSet.of(),
+                    ImmutableSet.of(),
+                    ImmutableSet.of(),
+                    new DummyExecutor(fileSystem, rootDirectory),
+                    options,
+                    null,
+                    null,
+                    OutputChecker.TRUST_LOCAL_ONLY));
+    // The infrastructure exception should be propagated into the BuildFailedException whether or
+    // not --keep_going is set.
+    assertThat(e.getDetailedExitCode()).isEqualTo(INFRA_DETAILED_EXIT_CODE);
+    assertThat(collector.getCollectedEvents()).isEmpty();
+  }
+
+  /**
    * Tests that when an input-discovering action terminates input discovery with missing inputs, its
    * progress message goes away. We create an input-discovering action that declares a new input.
    * When that new input is declared, which comes after the scanning is completed, we trigger a
@@ -2657,7 +2832,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
         .inject(ImmutableMap.of(topKey, Delta.justNew(topTarget)));
     // Collect all events.
     eventCollector = new EventCollector();
-    reporter = new Reporter(eventBus, eventCollector);
+    reporter = new Reporter(new EventBusEventHandler(eventBus), eventCollector);
     skyframeExecutor.setEventBus(eventBus);
     skyframeExecutor.setActionOutputRoot(getOutputPath());
 
@@ -2717,6 +2892,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
             createPackageLocator(),
             UUID.randomUUID(),
             /* clientEnv= */ ImmutableMap.of(),
+            /* repoEnv= */ ImmutableMap.of(),
             tsgm,
             QuiescingExecutorsImpl.forTesting(),
             options,

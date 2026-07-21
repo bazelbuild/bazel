@@ -16,9 +16,11 @@ package com.google.devtools.build.lib.remote.circuitbreaker;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.remote.Retrier;
+import com.google.devtools.build.lib.remote.Retrier.CircuitBreaker.State;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOptions.CircuitBreakerStrategy;
 import com.google.devtools.common.options.Options;
+import com.google.devtools.common.options.OptionsParsingException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -29,7 +31,7 @@ public class CircuitBreakerFactoryTest {
   @Test
   public void testCreateCircuitBreaker_failureStrategy() {
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
-    remoteOptions.circuitBreakerStrategy = CircuitBreakerStrategy.FAILURE;
+    remoteOptions.setCircuitBreakerStrategy(CircuitBreakerStrategy.FAILURE);
 
     assertThat(CircuitBreakerFactory.createCircuitBreaker(remoteOptions))
         .isInstanceOf(FailureCircuitBreaker.class);
@@ -40,5 +42,56 @@ public class CircuitBreakerFactoryTest {
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
     assertThat(CircuitBreakerFactory.createCircuitBreaker(remoteOptions))
         .isEqualTo(Retrier.ALLOW_ALL_CALLS);
+  }
+
+  @Test
+  public void testCreateCircuitBreaker_minCallCountFromOptions() throws OptionsParsingException {
+    RemoteOptions remoteOptions =
+        Options.parse(
+                RemoteOptions.class,
+                "--experimental_circuit_breaker_strategy=failure",
+                "--experimental_remote_failure_rate_threshold=10",
+                "--experimental_remote_failure_window_interval=0",
+                "--experimental_remote_min_call_count_to_compute_failure_rate=5",
+                "--experimental_remote_min_fail_count_to_compute_failure_rate=1000")
+            .getOptions();
+    FailureCircuitBreaker circuitBreaker =
+        (FailureCircuitBreaker) CircuitBreakerFactory.createCircuitBreaker(remoteOptions);
+
+    // Four successes and one failure reach the configured min call count (5) with a 20% failure
+    // rate, which exceeds the 10% threshold. This would not trip under the default min call count
+    // of 100, proving the flag took effect. The high min fail count keeps the failure gate out of
+    // the way, so tripping here also proves the two counts are not wired in the wrong order.
+    for (int i = 0; i < 4; i++) {
+      circuitBreaker.recordSuccess();
+    }
+    assertThat(circuitBreaker.state()).isEqualTo(State.ACCEPT_CALLS);
+    circuitBreaker.recordFailure();
+    assertThat(circuitBreaker.state()).isEqualTo(State.REJECT_CALLS);
+  }
+
+  @Test
+  public void testCreateCircuitBreaker_minFailCountFromOptions() throws OptionsParsingException {
+    RemoteOptions remoteOptions =
+        Options.parse(
+                RemoteOptions.class,
+                "--experimental_circuit_breaker_strategy=failure",
+                "--experimental_remote_failure_rate_threshold=10",
+                "--experimental_remote_failure_window_interval=0",
+                "--experimental_remote_min_call_count_to_compute_failure_rate=1000",
+                "--experimental_remote_min_fail_count_to_compute_failure_rate=3")
+            .getOptions();
+    FailureCircuitBreaker circuitBreaker =
+        (FailureCircuitBreaker) CircuitBreakerFactory.createCircuitBreaker(remoteOptions);
+
+    // The failure rate is computed once the configured min fail count (3) is reached, even though
+    // the total call count is far below the configured min call count (1000). Under the default min
+    // fail count of 12 the breaker would still be accepting calls here, proving the flag took
+    // effect.
+    circuitBreaker.recordFailure();
+    circuitBreaker.recordFailure();
+    assertThat(circuitBreaker.state()).isEqualTo(State.ACCEPT_CALLS);
+    circuitBreaker.recordFailure();
+    assertThat(circuitBreaker.state()).isEqualTo(State.REJECT_CALLS);
   }
 }

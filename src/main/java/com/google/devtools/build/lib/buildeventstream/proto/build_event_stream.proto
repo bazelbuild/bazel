@@ -260,6 +260,10 @@ message BuildEventId {
   // Identifier of an event providing the ExecRequest of a run command.
   message ExecRequestId {}
 
+  message SkyValueUploadedId {
+    string key = 1;
+  }
+
   reserved 27;
 
   oneof id {
@@ -291,6 +295,7 @@ message BuildEventId {
     BuildMetadataId build_metadata = 24;
     ConvenienceSymlinksIdentifiedId convenience_symlinks_identified = 25;
     ExecRequestId exec_request = 28;
+    SkyValueUploadedId skyvalue_uploaded = 31;
   }
 }
 
@@ -520,6 +525,10 @@ message TargetConfigured {
   // List of all tags associated with this target (for all possible
   // configurations).
   repeated string tag = 3;
+
+  // The actual target, if the target is an alias (resolving to end of alias
+  // chain).
+  string actual = 4;
 }
 
 message File {
@@ -988,13 +997,28 @@ message BuildMetrics {
     // --memory_profile is set, since it forces a full GC.
     int64 used_heap_size_post_build = 1;
 
-    // Size of the peak JVM heap size in bytes post GC. Note that this reports 0
-    // if there was no major GC during the build.
+    // Size of the peak JVM heap size in bytes post GC. May be the same as
+    // peak_post_gc_heap_size_during_execution if the peak occurred during the
+    // execution phase. Note that this reports 0 if there was no major GC during
+    // the build.
     int64 peak_post_gc_heap_size = 2;
 
-    // Size of the peak tenured space JVM heap size event in bytes post GC. Note
-    // that this reports 0 if there was no major GC during the build.
+    // Size of the peak tenured space JVM heap size event in bytes post GC.  May
+    // be the same as peak_post_gc_tenured_space_heap_size_during_execution if
+    // the peak occurred during the execution phase. Note that this reports 0 if
+    // there was no major GC during the build.
     int64 peak_post_gc_tenured_space_heap_size = 4;
+
+    // Size of the peak JVM heap size in bytes post GC strictly during the
+    // execution phase (after all analysis is complete). Note that this reports
+    // 0 if there was no major GC during the execution phase.
+    int64 peak_post_gc_heap_size_during_execution = 5;
+
+    // Size of the peak tenured space JVM heap size event in bytes post GC
+    // strictly during the execution phase (after all analysis is complete).
+    // Note that this reports 0 if there was no major GC during the execution
+    // phase.
+    int64 peak_post_gc_tenured_space_heap_size_during_execution = 6;
 
     message GarbageMetrics {
       // Type of garbage collected, e.g. G1 Old Gen.
@@ -1087,6 +1111,14 @@ message BuildMetrics {
     // one. Will be incremented for every build/test/run/etc. command that
     // reaches the execution phase.
     int32 num_builds = 12;
+    // UUID of the Bazel server instance that ran this command. Every command
+    // handled by the same server process reports the same value; it changes
+    // only when the server restarts. Useful for correlating invocations that
+    // shared a server (and therefore its incremental state), e.g. to fetch and
+    // diff stats/metrics/inputs/outputs against earlier invocations on the same
+    // server. Always non-empty; only streams produced by Bazel versions that
+    // predate this field lack it.
+    string instance_id = 13;
   }
 
   CumulativeMetrics cumulative_metrics = 6;
@@ -1218,6 +1250,40 @@ message BuildMetrics {
       uint64 action_count = 4;
     }
     repeated AspectCount aspect = 15;
+
+    // Stats about Starlark-definied providers.
+    message StarlarkProviderStats {
+      // Total number of starlark provider instances returned by rule/aspect
+      // implementations. The same instance (in the Java object sense) may be
+      // counted more than once when either a) multiple rules return the same
+      // instance or b) blaze interns equivalent instances.
+      int32 total_count = 1;
+
+      message StalarkProvider {
+        // StarlarkProvider#getName.
+        string name = 1;
+        // Location where the provider is defined, as file:line:col. The file
+        // path is relative to the workspace or its package root.
+        string location = 2;
+        // Number of times an instance of this provider was returned. The same
+        // instance (in the Java object sense) may be counted more than once
+        // when either a) multiple rules return the same instance or b) blaze
+        // interns equivalent instances.
+        int32 count = 3;
+
+        message Schema {
+          // Number of fields in the provider's schema.
+          int32 field_count = 1;
+        }
+
+        // Schema of the provider. Not set for schemaless providers.
+        Schema schema = 5;
+      }
+
+      repeated StalarkProvider providers = 3;
+    }
+
+    StarlarkProviderStats starlark_provider_stats = 18;
 
     // Removed due to overlap with EvaluationStat
     reserved 16;
@@ -1419,8 +1485,49 @@ message BuildMetrics {
 
     // The result of the Skycache metadata lookup.
     devtools_blaze_proto.TopLevelTargetsMatchStatus metadata_lookup_result = 16;
+
+    message InvalidationLookupMetrics {
+      // Latency of the invalidation lookup process in microseconds.
+      int64 latency_micros = 1;
+
+      enum Status {
+        STATUS_UNSPECIFIED = 0;
+        OK = 1;
+        TIMED_OUT = 2;
+        ERROR = 3;
+      }
+      Status status = 2;
+
+      // Number of keys checked in this invalidation lookup.
+      int32 num_keys = 3;
+
+      // Number of keys invalidated in this invalidation lookup.
+      int32 num_invalidated_keys = 4;
+    }
+    InvalidationLookupMetrics invalidation_lookup_metrics = 27;
+    int64 serialization_exception_count = 28;
   }
+
   RemoteAnalysisCacheStatistics remote_analysis_cache_statistics = 13;
+
+  // Metrics about bzl/scl files. Only regular files are considered, not
+  // builtins or prelude files.
+  message BzlMetrics {
+    // Number of bzl/scl files loaded.
+    int32 bzl_file_count = 1;
+
+    message BzlFileMetrics {
+      // Workspace-relative path of the file.
+      string path = 1;
+      // File size in bytes.
+      int64 size = 2;
+    }
+
+    // Metrics about individual bzl/scl files.
+    repeated BzlFileMetrics bzl_file_metrics = 2;
+  }
+
+  BzlMetrics bzl_metrics = 14;
 }
 
 // Event providing additional statistics/logs after completion of the build.
@@ -1484,6 +1591,12 @@ message EnvironmentVariable {
   bytes value = 2;
 }
 
+message SkyValueUploaded {
+  string key = 1;
+  string version = 2;
+  string fingerprint = 3;  // As hex digits. (bytes would be base64 in JSON)
+}
+
 // Information about the Java version.
 message JavaVersionInfo {
   // The Java version string, e.g. "25.0.1+8-LTS-27".
@@ -1532,5 +1645,6 @@ message BuildEvent {
     BuildMetadata build_metadata = 26;
     ConvenienceSymlinksIdentified convenience_symlinks_identified = 27;
     ExecRequestConstructed exec_request = 29;
+    SkyValueUploaded skyvalue_uploaded = 32;
   }
 }

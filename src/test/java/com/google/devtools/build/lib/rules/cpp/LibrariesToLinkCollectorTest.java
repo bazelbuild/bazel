@@ -119,7 +119,6 @@ public final class LibrariesToLinkCollectorTest extends BuildViewTestCase {
     useConfiguration(
         "--extra_toolchains=//toolchain:toolchain",
         "--dynamic_mode=fully",
-        "--incompatible_enable_cc_toolchain_resolution",
         "--platforms=" + TestConstants.PLATFORM_LABEL,
         "--experimental_platform_in_output_dir",
         String.format(
@@ -233,7 +232,6 @@ public final class LibrariesToLinkCollectorTest extends BuildViewTestCase {
     useConfiguration(
         "--extra_toolchains=@@toolchain+//:toolchain",
         "--dynamic_mode=fully",
-        "--incompatible_enable_cc_toolchain_resolution",
         "--platforms=" + TestConstants.PLATFORM_LABEL,
         "--experimental_platform_in_output_dir",
         String.format(

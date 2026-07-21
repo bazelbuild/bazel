@@ -19,18 +19,19 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Predicate;
+import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.collect.Extrema;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.profiler.PredicateBasedStatRecorder.RecorderAndPredicate;
-import com.google.devtools.build.lib.profiler.StatRecorder.VfsHeuristics;
 import com.google.devtools.build.lib.profiler.TaskData.ActionTaskData;
-import com.google.devtools.common.options.OptionsParsingResult;
+import com.google.devtools.build.lib.runtime.BlazeService;
+import com.google.devtools.common.options.OptionsProvider;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.sun.management.OperatingSystemMXBean;
 import java.io.IOException;
@@ -52,8 +53,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
-import java.util.zip.GZIPOutputStream;
+import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 
 /** Blaze internal profiler implementation. */
@@ -64,6 +66,10 @@ public final class TraceProfilerServiceImpl implements TraceProfilerService {
 
   private static final Duration ACTION_COUNT_BUCKET_DURATION = Duration.ofMillis(200);
 
+  private static final ImmutableMap<String, Predicate<? super String>> DEFAULT_VFS_TYPE_HEURISTICS =
+      ImmutableMap.of(
+          "blaze-out", Pattern.compile("/blaze-out/").asPredicate(),
+          "source", Predicates.<CharSequence>alwaysTrue());
 
   /**
    * Aggregator class that keeps track of the slowest tasks of the specified type.
@@ -90,7 +96,7 @@ public final class TraceProfilerServiceImpl implements TraceProfilerService {
       Extrema<SlowTask> extrema = extremaAggregators[(int) (taskData.threadId % SHARDS)];
       synchronized (extrema) {
         extrema.aggregate(
-            new SlowTask(taskData.durationNanos, taskData.description, taskData.type));
+            new SlowTaskImpl(taskData.durationNanos, taskData.description, taskData.type));
       }
     }
 
@@ -129,6 +135,10 @@ public final class TraceProfilerServiceImpl implements TraceProfilerService {
   private Duration profileStartTime = Duration.ZERO;
   private Duration profileEndTime = Duration.ZERO;
 
+  /** Heuristics for determining the filesystem type of a given path. */
+  private ImmutableMap<String, ? extends Predicate<? super String>> vfsTypeHeuristics =
+      DEFAULT_VFS_TYPE_HEURISTICS;
+
   /**
    * The reference to the current writer, if any. If the referenced writer is null, then disk writes
    * are disabled. This can happen when slowest task recording is enabled.
@@ -142,12 +152,13 @@ public final class TraceProfilerServiceImpl implements TraceProfilerService {
   final StatRecorder[] tasksHistograms = new StatRecorder[ProfilerTask.values().length];
 
   /** Collects local cpu usage data (if enabled). */
-  private final ResourceCollector resourceCollector;
+  private final ResourceCollector resourceCollector = new ResourceCollector();
 
-  private final AtomicReference<TimeSeries> actionCountTimeSeriesRef;
-  private final AtomicReference<TimeSeries> actionCacheCountTimeSeriesRef;
-  private final AtomicReference<TimeSeries> localActionCountTimeSeriesRef;
-  private final AtomicReference<Map<String, TimeSeries>> inflightRpcTimeSeriesMapRef;
+  private final AtomicReference<TimeSeries> actionCountTimeSeriesRef = new AtomicReference<>();
+  private final AtomicReference<TimeSeries> actionCacheCountTimeSeriesRef = new AtomicReference<>();
+  private final AtomicReference<TimeSeries> localActionCountTimeSeriesRef = new AtomicReference<>();
+  private final AtomicReference<Map<String, TimeSeries>> inflightRpcTimeSeriesMapRef =
+      new AtomicReference<>();
 
   private Duration actionCountStartTime;
   private boolean collectTaskHistograms;
@@ -156,27 +167,20 @@ public final class TraceProfilerServiceImpl implements TraceProfilerService {
   private boolean includeConfiguration;
 
   public TraceProfilerServiceImpl() {
-    actionCountTimeSeriesRef = new AtomicReference<>();
-    actionCacheCountTimeSeriesRef = new AtomicReference<>();
-    localActionCountTimeSeriesRef = new AtomicReference<>();
-    inflightRpcTimeSeriesMapRef = new AtomicReference<>();
     initHistograms();
     for (ProfilerTask task : ProfilerTask.values()) {
       if (task.collectsSlowestInstances) {
         slowestTasks[task.ordinal()] = new SlowestTaskAggregator();
       }
     }
-
-    resourceCollector = new ResourceCollector();
   }
 
   private void initHistograms() {
     for (ProfilerTask task : ProfilerTask.values()) {
       if (task.isVfs()) {
-        Map<String, ? extends Predicate<? super String>> vfsHeuristics =
-            VfsHeuristics.vfsTypeHeuristics;
-        List<RecorderAndPredicate> recorders = new ArrayList<>(vfsHeuristics.size());
-        for (Map.Entry<String, ? extends Predicate<? super String>> e : vfsHeuristics.entrySet()) {
+        List<RecorderAndPredicate> recorders = new ArrayList<>(vfsTypeHeuristics.size());
+        for (Map.Entry<String, ? extends Predicate<? super String>> e :
+            vfsTypeHeuristics.entrySet()) {
           recorders.add(
               new RecorderAndPredicate(
                   new SingleStatRecorder(task + " " + e.getKey(), HISTOGRAM_BUCKETS),
@@ -190,7 +194,7 @@ public final class TraceProfilerServiceImpl implements TraceProfilerService {
   }
 
   @Override
-  public void globalInit(OptionsParsingResult startupOptions) {
+  public void globalInit(OptionsProvider startupOptions, Iterable<BlazeService> blazeServices) {
     // This is to ensure that the profiler is available as early as possible during the server
     // startup.
     Profiler.setTraceProfilerService(this);
@@ -207,7 +211,10 @@ public final class TraceProfilerServiceImpl implements TraceProfilerService {
 
   @Override
   public long nanoTimeMaybe() {
-    return isActive() ? clock.nanoTime() : -1;
+    // Note that we fall back to an actual clock instead of disabling nanoTime entirely if the
+    // profiler is not active. This is because some callers of the profiler service may use
+    // nanoTime for latency tracking even without starting the rest of the profiler features.
+    return isActive() ? clock.nanoTime() : BlazeClock.nanoTime();
   }
 
   @Override
@@ -230,6 +237,12 @@ public final class TraceProfilerServiceImpl implements TraceProfilerService {
   }
 
   @Override
+  public void setVfsTypeHeuristics(
+      Map<String, ? extends Predicate<? super String>> vfsTypeHeuristics) {
+    this.vfsTypeHeuristics = ImmutableMap.copyOf(vfsTypeHeuristics);
+  }
+
+  @Override
   public synchronized void start(
       Set<ProfilerTask> profiledTasks,
       OutputStream stream,
@@ -240,6 +253,7 @@ public final class TraceProfilerServiceImpl implements TraceProfilerService {
       Clock clock,
       long execStartTimeNanos,
       boolean slimProfile,
+      long slimProfileSizeLimit,
       boolean includePrimaryOutput,
       boolean includeTargetLabel,
       boolean includeConfiguration,
@@ -267,19 +281,15 @@ public final class TraceProfilerServiceImpl implements TraceProfilerService {
 
     JsonTraceFileWriter writer = null;
     if (stream != null && format != null) {
+      SlimProfileConfiguration slimProfileConfig =
+          slimProfile
+              ? (slimProfileSizeLimit > 0
+                  ? SlimProfileConfiguration.afterSize(slimProfileSizeLimit)
+                  : SlimProfileConfiguration.always())
+              : SlimProfileConfiguration.disabled();
       writer =
-          switch (format) {
-            case JSON_TRACE_FILE_FORMAT ->
-                new JsonTraceFileWriter(
-                    stream, execStartTimeNanos, slimProfile, outputBase, buildID);
-            case JSON_TRACE_FILE_COMPRESSED_FORMAT ->
-                new JsonTraceFileWriter(
-                    new GZIPOutputStream(stream),
-                    execStartTimeNanos,
-                    slimProfile,
-                    outputBase,
-                    buildID);
-          };
+          new JsonTraceFileWriter(
+              stream, execStartTimeNanos, slimProfileConfig, outputBase, buildID, format);
       writer.start();
     }
     this.writerRef.set(writer);
@@ -314,14 +324,15 @@ public final class TraceProfilerServiceImpl implements TraceProfilerService {
       double[] actionCountValues = actionCountTimeSeries.toDoubleArray(len);
       actionCountTimeSeriesRef.set(null);
       counterSeriesMap.put(
-          new CounterSeriesTask("action count", "action", /* color= */ null), actionCountValues);
+          new CounterSeriesTaskImpl("action count", "action", /* color= */ null),
+          actionCountValues);
     }
     TimeSeries actionCacheCountTimeSeries = actionCacheCountTimeSeriesRef.get();
     if (actionCacheCountTimeSeries != null) {
       double[] actionCacheCountValues = actionCacheCountTimeSeries.toDoubleArray(len);
       actionCacheCountTimeSeriesRef.set(null);
       counterSeriesMap.put(
-          new CounterSeriesTask("action cache count", "local action cache", /* color= */ null),
+          new CounterSeriesTaskImpl("action cache count", "local action cache", /* color= */ null),
           actionCacheCountValues);
     }
     if (!counterSeriesMap.isEmpty()) {
@@ -334,7 +345,7 @@ public final class TraceProfilerServiceImpl implements TraceProfilerService {
       double[] localActionCountValues = localActionCountTimeSeries.toDoubleArray(len);
       localActionCountTimeSeriesRef.set(null);
       localCounterSeriesMap.put(
-          new CounterSeriesTask(
+          new CounterSeriesTaskImpl(
               "action count (local)", "local action", CounterSeriesTask.Color.DETAILED_MEMORY_DUMP),
           localActionCountValues);
     }
@@ -350,7 +361,7 @@ public final class TraceProfilerServiceImpl implements TraceProfilerService {
         var timeSeries = entry.getValue();
         double[] values = timeSeries.toDoubleArray(len);
         inflightRpcCounterSeriesMap.put(
-            new CounterSeriesTask("Inflight RPCs - " + name, name, /* color= */ null), values);
+            new CounterSeriesTaskImpl("Inflight RPCs - " + name, name, /* color= */ null), values);
         logCounters(
             inflightRpcCounterSeriesMap, actionCountStartTime, ACTION_COUNT_BUCKET_DURATION);
       }
@@ -674,7 +685,6 @@ public final class TraceProfilerServiceImpl implements TraceProfilerService {
 
   @Override
   public void markPhase(ProfilePhase phase) throws InterruptedException {
-    MemoryProfiler.instance().markPhase(phase);
     if (isActive() && isProfiling(ProfilerTask.PHASE)) {
       logEvent(ProfilerTask.PHASE, phase.description);
     }
@@ -684,7 +694,7 @@ public final class TraceProfilerServiceImpl implements TraceProfilerService {
   private final MultiLaneGenerator multiLaneGenerator = new MultiLaneGenerator();
 
   private class MultiLaneGenerator {
-    private final Map<String, LaneGenerator> laneGenerators = Maps.newConcurrentMap();
+    private final Map<String, LaneGenerator> laneGenerators = new ConcurrentHashMap<>();
 
     /**
      * @return the lane if it's active, otherwise null.

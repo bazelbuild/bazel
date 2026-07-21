@@ -63,6 +63,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.util.FileSystems;
+import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParser;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -308,11 +309,11 @@ public class DynamicSpawnStrategyTest {
           Maps.immutableEntry("testMnemonic", ImmutableList.of("mock-sandboxed")));
     }
 
-    DynamicExecutionOptions options = new DynamicExecutionOptions();
-    options.dynamicLocalStrategy = dynamicLocalStrategies.build();
-    options.dynamicRemoteStrategy = dynamicRemoteStrategies.build();
-    options.internalSpawnScheduler = true;
-    options.localExecutionDelay = 0;
+    DynamicExecutionOptions options = Options.getDefaults(DynamicExecutionOptions.class);
+    options.setDynamicLocalStrategy(dynamicLocalStrategies.build());
+    options.setDynamicRemoteStrategy(dynamicRemoteStrategies.build());
+    options.setInternalSpawnScheduler(true);
+    options.setLocalExecutionDelay(0);
 
     checkState(executorServiceForCleanup == null);
     executorServiceForCleanup = executorService;

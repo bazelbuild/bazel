@@ -1591,7 +1591,7 @@ EOF
   bazel build \
       --extra_execution_platforms=":my_platform" \
       --toolchain_resolution_debug=.* \
-      --execution_log_json_file out.txt \
+      --execution_log_json_file=out.txt \
       :a &> $TEST_log || fail "Build failed"
   grep "key3" out.txt || fail "Did not find the target attribute key"
   grep "child_value" out.txt || fail "Did not find the overriding value"

@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.starlarkbuildapi.apple;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
-import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
@@ -31,22 +30,6 @@ import net.starlark.java.eval.StarlarkValue;
     category = DocCategory.CONFIGURATION_FRAGMENT,
     doc = "A configuration fragment for Objective-C.")
 public interface ObjcConfigurationApi extends StarlarkValue {
-
-  @StarlarkMethod(
-      name = "ios_simulator_device",
-      structField = true,
-      allowReturnNones = true,
-      doc = "The type of device (e.g. 'iPhone 6') to use when running on the simulator.")
-  @Nullable
-  String getIosSimulatorDevice();
-
-  @StarlarkMethod(
-      name = "ios_simulator_version",
-      structField = true,
-      allowReturnNones = true,
-      doc = "The SDK version of the iOS simulator to use when running on the simulator.")
-  @Nullable
-  DottedVersionApi<?> getIosSimulatorVersion();
 
   @StarlarkMethod(
       name = "copts_for_current_compilation_mode",

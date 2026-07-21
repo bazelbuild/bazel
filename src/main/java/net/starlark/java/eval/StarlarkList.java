@@ -86,7 +86,7 @@ import net.starlark.java.syntax.Types;
 public abstract class StarlarkList<E> extends AbstractCollection<E>
     implements Sequence<E>, StarlarkValue, Mutability.Freezable, Comparable<StarlarkList<?>> {
 
-  public static TypeConstructor getBaseTypeConstructor() {
+  public static TypeConstructor getAssociatedTypeConstructor() {
     return Types.LIST_CONSTRUCTOR;
   }
 
@@ -100,15 +100,17 @@ public abstract class StarlarkList<E> extends AbstractCollection<E>
   StarlarkList() {}
 
   @Override
-  public StarlarkType getStarlarkType() {
+  public StarlarkType getStarlarkType(StarlarkSemantics semantics) {
     // TODO(ilist@): store the type for non-homogeneous lists
     // Current implementation traverses the list and computes union of all elements - same as most
     // of the native calls. This is correct, but could be expensive. Proposed optimization is
     // to store and update list's type when elements are added to it.
-    return isEmpty()
-        ? Types.list(Types.ANY)
-        : Types.list(
-            Types.union(stream().map(Starlark::getStarlarkType).collect(toImmutableSet())));
+    if (isEmpty()) {
+      return mutability().isFrozen() ? Types.list(Types.NEVER) : Types.list(Types.ANY);
+    }
+    return Types.list(
+        Types.union(
+            stream().map(e -> Starlark.getStarlarkType(e, semantics)).collect(toImmutableSet())));
   }
 
   /**

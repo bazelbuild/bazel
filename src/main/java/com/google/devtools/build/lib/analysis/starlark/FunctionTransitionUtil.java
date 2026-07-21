@@ -27,6 +27,7 @@ import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Sets.SetView;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
@@ -60,6 +61,7 @@ import javax.annotation.Nullable;
 import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkInt;
+import net.starlark.java.eval.StarlarkSet;
 
 /**
  * Utility class for common work done across {@link StarlarkAttributeTransitionProvider} and {@link
@@ -110,7 +112,7 @@ public final class FunctionTransitionUtil {
         // transition semantics in the flag definition.
         flagsAliases = ImmutableMap.of();
       } else {
-        flagsAliases = fromOptions.get(CoreOptions.class).getCommandLineFlagAliases();
+        flagsAliases = fromOptions.get(CoreOptions.class).getCommandLineFlagAliasesMap();
       }
 
       validateInputOptions(
@@ -202,19 +204,21 @@ public final class FunctionTransitionUtil {
       defaultBuilder.addFragmentOptions(testOptions);
     }
     BuildOptions ans = defaultBuilder.build();
-    if (fromOptions.get(CoreOptions.class).excludeDefinesFromExecConfig) {
-      ans.get(CoreOptions.class).commandLineBuildVariables =
-          fromOptions.get(CoreOptions.class).commandLineBuildVariables.stream()
-              .filter(
-                  (define) ->
-                      fromOptions
-                          .get(CoreOptions.class)
-                          .customFlagsToPropagate
-                          .contains(define.getKey()))
-              .collect(toImmutableList());
+    if (fromOptions.get(CoreOptions.class).getExcludeDefinesFromExecConfig()) {
+      ans.get(CoreOptions.class)
+          .setCommandLineBuildVariables(
+              fromOptions.get(CoreOptions.class).getCommandLineBuildVariables().stream()
+                  .filter(
+                      (define) ->
+                          fromOptions
+                              .get(CoreOptions.class)
+                              .getCustomFlagsToPropagate()
+                              .contains(define.getKey()))
+                  .collect(toImmutableList()));
     } else {
-      ans.get(CoreOptions.class).commandLineBuildVariables =
-          fromOptions.get(CoreOptions.class).commandLineBuildVariables;
+      ans.get(CoreOptions.class)
+          .setCommandLineBuildVariables(
+              fromOptions.get(CoreOptions.class).getCommandLineBuildVariables());
     }
     return ans;
   }
@@ -231,14 +235,17 @@ public final class FunctionTransitionUtil {
           "No scope info available for Starlark flag %s.",
           flag);
     }
-    if (!options.get(CoreOptions.class).excludeStarlarkFlagsFromExecConfig) {
+    if (!options.get(CoreOptions.class).getExcludeStarlarkFlagsFromExecConfig()) {
       // Starlark flags propagate to exec by default. This can only be changed by a flag explicitly
-      // setting "scope = 'target'".
+      // setting "scope = 'target'". Project-scoped flags also propagate through exec transitions:
+      // their value is maintained across exec boundaries, with project-boundary enforcement still
+      // applied at target-configuration time by BuildConfigurationKeyProducer.
       return starlarkOptions.entrySet().stream()
           .filter(
               entry -> {
                 String scopeType = options.getScopeTypeMap().get(entry.getKey()).scopeType();
                 return scopeType.equals(Scope.ScopeType.UNIVERSAL)
+                    || scopeType.equals(Scope.ScopeType.PROJECT)
                     || scopeType.equals(Scope.ScopeType.DEFAULT);
               })
           .collect(ImmutableMap.toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
@@ -248,7 +255,7 @@ public final class FunctionTransitionUtil {
     // to the exec config by default. This can be overridden by a flag setting "scope = 'universal'"
     // or --experimental_propagate_custom_flag. If both are set, the flag setting takes precedence.
     Map<Boolean, List<String>> partitioned =
-        options.get(CoreOptions.class).customFlagsToPropagate.stream()
+        options.get(CoreOptions.class).getCustomFlagsToPropagate().stream()
             .collect(
                 Collectors.partitioningBy(f -> f.endsWith(CustomFlagConverter.SUBPACKAGES_SUFFIX)));
     // Holds --experimental_propagate_custom_flag patterns=//pkg/... patterns. These are rare.
@@ -259,7 +266,11 @@ public final class FunctionTransitionUtil {
     ImmutableMap.Builder<Label, Object> ans = ImmutableMap.builder();
     for (Map.Entry<Label, Object> entry : starlarkOptions.entrySet()) {
       String scopeType = options.getScopeTypeMap().get(entry.getKey()).scopeType();
-      if (scopeType.equals(Scope.ScopeType.UNIVERSAL)) {
+      if (scopeType.equals(Scope.ScopeType.UNIVERSAL)
+          || scopeType.equals(Scope.ScopeType.PROJECT)) {
+        // Universal flags always propagate. Project-scoped flags also propagate through exec
+        // transitions; their value is maintained across exec boundaries, with project-boundary
+        // enforcement applied later at target-configuration time.
         ans.put(entry);
       } else if (scopeType.equals(Scope.ScopeType.TARGET)) {
         Object onLeaveScopeValue = options.getOnLeaveScopeValues().get(entry.getKey());
@@ -282,27 +293,7 @@ public final class FunctionTransitionUtil {
         ans.put(entry);
       } else if (scopeType.startsWith(Scope.CUSTOM_EXEC_SCOPE_PREFIX)) {
         Label anotherFlag = Label.parseCanonicalUnchecked(scopeType.substring(7));
-        if (starlarkOptions.containsKey(anotherFlag)) {
-          ans.put(entry.getKey(), starlarkOptions.get(anotherFlag));
-        } else {
-          boolean found = false;
-          for (FragmentOptions fragment : options.getNativeOptions()) {
-            Map<String, Object> nativeOptions = fragment.asMap();
-            if (nativeOptions.containsKey(anotherFlag.getUnambiguousCanonicalForm())) {
-              ans.put(entry.getKey(), nativeOptions.get(anotherFlag.getUnambiguousCanonicalForm()));
-              found = true;
-              break;
-            }
-          }
-          // if the flag is not found in both starlark and the native options, it's an error.
-          if (!found) {
-            throw new IllegalStateException(
-                "Flag "
-                    + anotherFlag
-                    + " is not found in the starlark options or native options. It should be one of"
-                    + " them.");
-          }
-        }
+        ans.put(entry.getKey(), Verify.verifyNotNull(starlarkOptions.get(anotherFlag)));
       }
     }
 
@@ -333,7 +324,7 @@ public final class FunctionTransitionUtil {
   private static Map<Label, Object> handleImplicitPlatformChange(
       BuildOptions options, Map<Label, Object> rawTransitionOutput) {
     Object newCpu = rawTransitionOutput.get(CPU_OPTION);
-    if (newCpu == null || newCpu.equals(options.get(CoreOptions.class).cpu)) {
+    if (newCpu == null || newCpu.equals(options.get(CoreOptions.class).getCpu())) {
       // No effective change to --cpu, so no need to prevent the platform mapping from resetting it.
       return rawTransitionOutput;
     }
@@ -660,11 +651,26 @@ public final class FunctionTransitionUtil {
                 optionKey, Starlark.type(optionValue));
           }
         } else if (oldValue instanceof Set) {
-          // If this is a set-typed build setting, for backwards compatibility, if the provided
-          // value is a List, we need to convert it to a Set.
-          if (optionValue instanceof List<?>) {
-            optionValue = ImmutableSet.copyOf((List<?>) optionValue);
-          } else if (!(optionValue instanceof Set)) {
+          // If this is a set-typed build setting, we need to ensure the value is a sorted
+          // set for consistency and to match rule expectations.
+          if (optionValue instanceof List<?> list) {
+            try {
+              optionValue =
+                  ImmutableSortedSet.copyOf(
+                      list.stream()
+                          // Cast each element to avoid unchecked exception.
+                          .map(Comparable.class::cast)
+                          .collect(toImmutableList()));
+            } catch (ClassCastException e) {
+              // If sorting fails (e.g. mixed types), convert to an unsorted ImmutableSet.
+              // This allows the subsequent type validation to handle the invalid values
+              // and produce a user-friendly error message.
+              optionValue = ImmutableSet.copyOf(list);
+            }
+          } else if (optionValue instanceof Set<?> set) {
+            // If the value is already a set, just convert it to a sorted set.
+            optionValue = StarlarkSet.immutableCopyOf(ImmutableSortedSet.copyOf(set));
+          } else {
             throw ValidationException.format(
                 "Invalid value type for option '%s': want set, got %s",
                 optionKey, Starlark.type(optionValue));
@@ -788,7 +794,7 @@ public final class FunctionTransitionUtil {
             .addStarlarkOptions(changedStarlarkOptions)
             .build();
     if (starlarkTransition.isForAnalysisTesting()) {
-      toOptions.get(CoreOptions.class).evaluatingForAnalysisTest = true;
+      toOptions.get(CoreOptions.class).setEvaluatingForAnalysisTest(true);
     }
     return toOptions;
   }

@@ -34,6 +34,7 @@ import com.google.devtools.build.skyframe.SkyValue;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Module;
 import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.syntax.Types;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -51,7 +52,13 @@ public class ModuleCodecTest extends BuildViewTestCase {
     subject2.setGlobal("x", 1);
     subject2.setGlobal("y", 2);
 
-    new SerializationTester(subject1, subject2)
+    Module subject3 =
+        Module.withPredeclaredAndData(
+            StarlarkSemantics.DEFAULT, ImmutableMap.of(), Label.parseCanonical("//foo:bar"));
+    subject3.setGlobal("x", 1, Types.INT);
+    subject3.setGlobal("y", 2, Types.ANY);
+
+    new SerializationTester(subject1, subject2, subject3)
         .makeMemoizing()
         .setVerificationFunction(ModuleCodecTest::verifyDeserialization)
         .runTestsWithoutStableSerializationCheck();

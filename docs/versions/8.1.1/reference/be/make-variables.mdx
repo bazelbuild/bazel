@@ -19,8 +19,7 @@ targets, and *custom* variables, which are defined in dependency targets
 and only available to targets that depend on them.
 
 The reason for the term "Make" is historical: the syntax and semantics of
-these variables were originally intended to match [GNU
-Make](https://www.gnu.org/software/make/manual/html_node/Using-Variables.html).
+these variables were originally intended to match [GNU Make](https://www.gnu.org/software/make/manual/html_node/Using-Variables.html).
 
 ## Use
 
@@ -64,8 +63,7 @@ and look at the top output lines with capital letters.
 **Toolchain option variables**
 
 * `COMPILATION_MODE`:
-  `fastbuild`, `dbg`, or `opt`. ([more
-  details](https://bazel.build/versions/8.1.1/docs/user-manual#flag--compilation_mode))
+  `fastbuild`, `dbg`, or `opt`. ([more details](https://bazel.build/versions/8.1.1/docs/user-manual#flag--compilation_mode))
 
 **Path variables**
 
@@ -304,7 +302,7 @@ rare cases. If you are tempted to use them, please [contact the Bazel devs](http
 
 Rule and [toolchain](/versions/8.1.1/docs/toolchains) writers can define
 completely custom variables by returning a
-[TemplateVariableInfo](/versions/8.1.1/rules/lib/TemplateVariableInfo)
+[TemplateVariableInfo](/versions/8.1.1/rules/lib/providers/TemplateVariableInfo)
 provider. Any rules depending on these through the
 `toolchains` attribute can then read their values:
 

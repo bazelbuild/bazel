@@ -111,8 +111,7 @@ public sealed class JavaInfo extends NativeInfo
           null,
           ImmutableList.of(),
           false,
-          ImmutableList.of(),
-          Location.BUILTIN);
+          ImmutableList.of());
 
   private final JavaCompilationArgsProvider providerJavaCompilationArgs;
   private final JavaSourceJarsProvider providerJavaSourceJars;
@@ -216,9 +215,7 @@ public sealed class JavaInfo extends NativeInfo
       JavaSourceJarsProvider javaSourceJarsProvider,
       ImmutableList<Artifact> directRuntimeJars,
       boolean neverlink,
-      ImmutableList<String> javaConstraints,
-      Location creationLocation) {
-    super(creationLocation);
+      ImmutableList<String> javaConstraints) {
     this.directRuntimeJars = directRuntimeJars;
     this.neverlink = neverlink;
     this.javaConstraints = javaConstraints;
@@ -244,8 +241,7 @@ public sealed class JavaInfo extends NativeInfo
         JavaSourceJarsProvider.fromStarlarkJavaInfo(javaInfo),
         extractDirectRuntimeJars(javaInfo),
         extractNeverLink(javaInfo),
-        extractConstraints(javaInfo),
-        javaInfo.getCreationLocation());
+        extractConstraints(javaInfo));
   }
 
   private static ImmutableList<Artifact> extractDirectRuntimeJars(StructImpl javaInfo)

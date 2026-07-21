@@ -31,12 +31,14 @@ import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.List;
 import java.util.Objects;
 
 /** Options for configuring Packages -- loading and default behaviors. */
-public class PackageOptions extends OptionsBase {
+@OptionsClass
+public abstract class PackageOptions extends OptionsBase {
 
   /** Converter for the {@code --default_visibility} option. */
   public static class DefaultVisibilityConverter extends Converter.Contextless<RuleVisibility> {
@@ -75,7 +77,9 @@ public class PackageOptions extends OptionsBase {
               + "Elements beginning with '%workspace%' are relative to the enclosing "
               + "workspace. If omitted or empty, the default is the output of "
               + "'bazel info default-package-path'.")
-  public List<String> packagePath;
+  public abstract List<String> getPackagePath();
+
+  public abstract void setPackagePath(List<String> value);
 
   @Option(
       name = "show_loading_progress",
@@ -83,7 +87,9 @@ public class PackageOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "If enabled, causes Bazel to print \"Loading package:\" messages.")
-  public boolean showLoadingProgress;
+  public abstract boolean getShowLoadingProgress();
+
+  public abstract void setShowLoadingProgress(boolean value);
 
   @Option(
       name = "deleted_packages",
@@ -102,7 +108,7 @@ public class PackageOptions extends OptionsBase {
               + "encounters a label '//x:y/z' if that is still provided by another "
               + "package_path entry.  Specifying --deleted_packages x/y avoids this "
               + "problem.")
-  public List<PackageIdentifier> deletedPackages;
+  public abstract List<PackageIdentifier> getDeletedPackages();
 
   @Option(
       name = "default_visibility",
@@ -112,7 +118,9 @@ public class PackageOptions extends OptionsBase {
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "Default visibility for packages that don't set it explicitly ('public' or 'private').")
-  public RuleVisibility defaultVisibility;
+  public abstract RuleVisibility getDefaultVisibility();
+
+  public abstract void setDefaultVisibility(RuleVisibility value);
 
   @Option(
       name = "incompatible_enforce_config_setting_visibility",
@@ -126,7 +134,7 @@ public class PackageOptions extends OptionsBase {
           "If true, enforce config_setting visibility restrictions. If false, every "
               + "config_setting is visible to every target. See "
               + "https://github.com/bazelbuild/bazel/issues/12932.")
-  public boolean enforceConfigSettingVisibility;
+  public abstract boolean getEnforceConfigSettingVisibility();
 
   @Option(
       name = "incompatible_config_setting_private_default_visibility",
@@ -140,7 +148,7 @@ public class PackageOptions extends OptionsBase {
               + " //visibility:public. If this flag is true, config_setting follows the same"
               + " visibility logic as all other rules. See"
               + " https://github.com/bazelbuild/bazel/issues/12933.")
-  public boolean configSettingPrivateDefaultVisibility;
+  public abstract boolean getConfigSettingPrivateDefaultVisibility();
 
   @Option(
       name = "legacy_globbing_threads",
@@ -153,19 +161,21 @@ public class PackageOptions extends OptionsBase {
               + ResourceConverter.FLAG_SYNTAX
               + ". \"auto\" means to use a reasonable value derived from the machine's hardware"
               + " profile (e.g. the number of processors).")
-  public int globbingThreads;
+  public abstract int getGlobbingThreads();
+
+  public abstract void setGlobbingThreads(int value);
 
   @Option(
-    name = "experimental_max_directories_to_eagerly_visit_in_globbing",
-    defaultValue = "-1",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help =
-        "If non-negative, the first time a glob is evaluated in a package, the subdirectories of "
-            + "the package will be traversed in order to warm filesystem caches and compensate for "
-            + "lack of parallelism in globbing. At most this many directories will be visited."
-  )
-  public int maxDirectoriesToEagerlyVisitInGlobbing;
+      name = "experimental_max_directories_to_eagerly_visit_in_globbing",
+      defaultValue = "-1",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "If non-negative, the first time a glob is evaluated in a package, the subdirectories of"
+              + " the package will be traversed in order to warm filesystem caches and compensate"
+              + " for lack of parallelism in globbing. At most this many directories will be"
+              + " visited.")
+  public abstract int getMaxDirectoriesToEagerlyVisitInGlobbing();
 
   @Option(
       name = "fetch",
@@ -176,7 +186,7 @@ public class PackageOptions extends OptionsBase {
           "Allows the command to fetch external dependencies. If set to false, the command will"
               + " utilize any cached version of the dependency, and if none exists, the command"
               + " will result in failure.")
-  public boolean fetch;
+  public abstract boolean getFetch();
 
   @Option(
       name = "experimental_check_output_files",
@@ -188,7 +198,9 @@ public class PackageOptions extends OptionsBase {
               + "this flag to false if you don't expect these files to change outside of bazel "
               + "since it will speed up subsequent runs as they won't have to check a "
               + "previous run's cache.")
-  public boolean checkOutputFiles;
+  public abstract boolean getCheckOutputFiles();
+
+  public abstract void setCheckOutputFiles(boolean value);
 
   @Option(
       name = "experimental_check_external_other_files",
@@ -198,7 +210,9 @@ public class PackageOptions extends OptionsBase {
       help =
           "Check for modifications made to the non-output, non-repo external files, e.g. host"
               + " files.")
-  public boolean checkExternalOtherFiles;
+  public abstract boolean getCheckExternalOtherFiles();
+
+  public abstract void setCheckExternalOtherFiles(boolean value);
 
   // TODO(https://github.com/bazelbuild/bazel/issues/25539) - at present, lazy macro expansion is
   // incompatible with non-finalizer use of native.existing_rules(). Once we can load all packages
@@ -213,7 +227,9 @@ public class PackageOptions extends OptionsBase {
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.LOSES_INCREMENTAL_STATE},
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help = "List of packages in which symbolic macro are expanded only if necessary.")
-  public LazyMacroExpansionPackages lazyMacroExpansionPackages;
+  public abstract LazyMacroExpansionPackages getLazyMacroExpansionPackages();
+
+  public abstract void setLazyMacroExpansionPackages(LazyMacroExpansionPackages value);
 
   /** A converter from strings containing comma-separated names of packages to lists of strings. */
   public static class CommaSeparatedPackageNameListConverter
@@ -243,11 +259,11 @@ public class PackageOptions extends OptionsBase {
     }
   }
 
-  public ImmutableSet<PackageIdentifier> getDeletedPackages() {
-    if (deletedPackages == null) {
+  public ImmutableSet<PackageIdentifier> getDeletedPackagesOrEmptySet() {
+    if (getDeletedPackages() == null) {
       return ImmutableSet.of();
     }
-    return ImmutableSet.copyOf(deletedPackages);
+    return ImmutableSet.copyOf(getDeletedPackages());
   }
 
   /**

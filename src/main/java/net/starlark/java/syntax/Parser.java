@@ -20,9 +20,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.FormatMethod;
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.EnumSet;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -163,13 +163,6 @@ final class Parser {
   private int errorsCount;
   private boolean recoveryMode; // stop reporting errors until next statement
 
-  // Intern string literals, as some files contain many literals for the same string.
-  //
-  // Ideally we would move this to the lexer, where we already do interning of identifiers. However,
-  // the parser has a special case optimization for concatenation of string literals, which the
-  // lexer can't handle.
-  private final Map<String, String> stringInterner = new HashMap<>();
-
   private Parser(Lexer lexer, List<SyntaxError> errors, FileOptions options) {
     this.lexer = lexer;
     this.locs = lexer.locs;
@@ -177,11 +170,6 @@ final class Parser {
     this.token = lexer;
     this.options = options;
     nextToken();
-  }
-
-  private String intern(String s) {
-    String prev = stringInterner.putIfAbsent(s, s);
-    return prev != null ? prev : s;
   }
 
   // Returns a token's string form as used in error messages.
@@ -666,8 +654,9 @@ final class Parser {
   // expr = STRING
   private StringLiteral parseStringLiteral() {
     Preconditions.checkState(token.kind == TokenKind.STRING);
-    StringLiteral literal =
-        new StringLiteral(locs, token.start, intern((String) token.value), token.end);
+    // Intern string literals, as they tend to be repeated (both intra-file and inter-file).
+    String value = ((String) token.value).intern();
+    StringLiteral literal = new StringLiteral(locs, token.start, value, token.end);
     nextToken();
     if (token.kind == TokenKind.STRING) {
       reportError(token.start, "Implicit string concatenation is forbidden, use the + operator");
@@ -690,8 +679,7 @@ final class Parser {
     switch (token.kind) {
       case INT:
         {
-          IntLiteral literal =
-              new IntLiteral(locs, token.getRaw(), token.start, (Number) token.value);
+          IntLiteral literal = new IntLiteral(locs, token.start, token.end, (Number) token.value);
           nextToken();
           return literal;
         }
@@ -699,7 +687,7 @@ final class Parser {
       case FLOAT:
         {
           FloatLiteral literal =
-              new FloatLiteral(locs, token.getRaw(), token.start, (double) token.value);
+              new FloatLiteral(locs, token.start, token.end, (double) token.value);
           nextToken();
           return literal;
         }
@@ -757,12 +745,38 @@ final class Parser {
         }
 
       case MINUS:
+        {
+          int offset = nextToken();
+          Expression x = parsePrimaryWithSuffix();
+
+          // Optimize int and float literals to contain the negative value directly
+          // instead of being wrapped in a UnaryOperatorExpression
+          if (x instanceof IntLiteral intLiteral) {
+            Number negatedValue =
+                switch (intLiteral.getValue()) {
+                  case Integer intValue -> narrowNumberType(-(long) intValue);
+                  case Long longValue -> narrowNumberType(BigInteger.valueOf(longValue).negate());
+                  case BigInteger bigIntegerValue -> narrowNumberType(bigIntegerValue.negate());
+                  default ->
+                      throw new IllegalStateException(
+                          "int literal does not contain an Integer, Long or BigInteger");
+                };
+            return new IntLiteral(locs, offset, intLiteral.getEndOffset(), negatedValue);
+          } else if (x instanceof FloatLiteral floatLiteral) {
+            return new FloatLiteral(
+                locs, offset, floatLiteral.getEndOffset(), -floatLiteral.getValue());
+          }
+
+          return new UnaryOperatorExpression(locs, TokenKind.MINUS, offset, x);
+        }
+
       case PLUS:
       case TILDE:
         {
           TokenKind op = token.kind;
           int offset = nextToken();
           Expression x = parsePrimaryWithSuffix();
+
           return new UnaryOperatorExpression(locs, op, offset, x);
         }
 
@@ -787,6 +801,26 @@ final class Parser {
           int end = syncTo(EXPR_TERMINATOR_SET);
           return makeErrorExpression(start, end);
         }
+    }
+  }
+
+  /** Narrows a long to an int if possible. */
+  private static Number narrowNumberType(long value) {
+    if (value == (int) value) {
+      return (int) value;
+    } else {
+      return value;
+    }
+  }
+
+  /** Narrows a BigInteger to an int or long if possible. */
+  private static Number narrowNumberType(BigInteger value) {
+    if (value.bitLength() >= 64) {
+      return value;
+    } else if (value.bitLength() >= 32) {
+      return value.longValueExact();
+    } else {
+      return value.intValueExact();
     }
   }
 
@@ -1044,12 +1078,12 @@ final class Parser {
   // so we don't have to do the expensive string concatenation at runtime.
   private Expression optimizeBinOpExpression(
       Expression x, TokenKind op, int opOffset, Expression y) {
-    if (op == TokenKind.PLUS && x instanceof StringLiteral && y instanceof StringLiteral) {
-      return new StringLiteral(
-          locs,
-          x.getStartOffset(),
-          intern(((StringLiteral) x).getValue() + ((StringLiteral) y).getValue()),
-          y.getEndOffset());
+    if (op == TokenKind.PLUS
+        && x instanceof StringLiteral xStr
+        && y instanceof StringLiteral yStr) {
+      // Intern the concatenation of string literals.
+      String concat = (xStr.getValue() + yStr.getValue()).intern();
+      return new StringLiteral(locs, x.getStartOffset(), concat, y.getEndOffset());
     }
     return new BinaryOperatorExpression(locs, x, op, opOffset, y);
   }
@@ -1175,7 +1209,15 @@ final class Parser {
 
   // TypeEntry = string ':' TypeArgument .
   private DictExpression.Entry parseTypeDictEntry() {
-    Expression key = parseStringLiteral();
+    Expression key;
+    if (token.kind == TokenKind.STRING) {
+      key = parseStringLiteral();
+    } else {
+      int start = token.start;
+      syntaxError(String.format("expected %s", TokenKind.STRING));
+      int end = syncTo(EXPR_TERMINATOR_SET);
+      key = makeErrorExpression(start, end);
+    }
     int colonOffset = expect(TokenKind.COLON);
     Expression value = parseTypeArgument();
     return new DictExpression.Entry(locs, key, colonOffset, value);

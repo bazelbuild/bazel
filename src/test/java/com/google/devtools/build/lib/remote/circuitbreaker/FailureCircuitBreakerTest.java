@@ -14,11 +14,20 @@
 package com.google.devtools.build.lib.remote.circuitbreaker;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import com.google.devtools.build.lib.remote.Retrier.CircuitBreaker.State;
+import com.google.devtools.build.lib.remote.options.RemoteOptions;
+import com.google.devtools.common.options.Options;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -26,12 +35,49 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class FailureCircuitBreakerTest {
 
+  private final RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
+
   @Test
+  // Suppress unchecked warnings because any(Callable.class) uses a raw type,
+  // which causes Javac to fail with -Werror.
+  @SuppressWarnings("unchecked")
   public void testRecordFailure_circuitTrips() throws InterruptedException {
     final int failureRateThreshold = 10;
     final int windowInterval = 100;
+    ScheduledExecutorService mockScheduler = mock(ScheduledExecutorService.class);
+    List<Runnable> capturedRunnables = Collections.synchronizedList(new ArrayList<>());
+
+    // Stub both schedule overloads to capture the scheduled tasks.
+    // This allows us to simulate window expiration by running them manually.
+    // We need to stub Callable because method references like failures::decrementAndGet
+    // return a value and can be matched to Callable by the compiler.
+    when(mockScheduler.schedule(any(Runnable.class), anyLong(), any(TimeUnit.class)))
+        .thenAnswer(
+            invocation -> {
+              capturedRunnables.add(invocation.getArgument(0));
+              return null;
+            });
+    when(mockScheduler.schedule(any(Callable.class), anyLong(), any(TimeUnit.class)))
+        .thenAnswer(
+            invocation -> {
+              Callable<?> callable = invocation.getArgument(0);
+              capturedRunnables.add(
+                  () -> {
+                    try {
+                      callable.call();
+                    } catch (Exception e) {
+                      throw new RuntimeException(e);
+                    }
+                  });
+              return null;
+            });
     FailureCircuitBreaker failureCircuitBreaker =
-        new FailureCircuitBreaker(failureRateThreshold, windowInterval);
+        new FailureCircuitBreaker(
+            failureRateThreshold,
+            windowInterval,
+            remoteOptions.getRemoteMinCallCountToComputeFailureRate(),
+            remoteOptions.getRemoteMinFailCountToComputeFailureRate(),
+            mockScheduler);
 
     List<Runnable> listOfSuccessAndFailureCalls = new ArrayList<>();
     for (int index = 0; index < failureRateThreshold; index++) {
@@ -48,15 +94,17 @@ public class FailureCircuitBreakerTest {
     listOfSuccessAndFailureCalls.stream().parallel().forEach(Runnable::run);
     assertThat(failureCircuitBreaker.state()).isEqualTo(State.ACCEPT_CALLS);
 
-    // Sleep for windowInterval + 5ms.
-    Thread.sleep(windowInterval + 5 /*to compensate any delay*/);
+    int expectedCalls = failureRateThreshold * 10;
+    // Run all captured runnables to simulate window expiration.
+    assertThat(capturedRunnables).hasSize(expectedCalls);
+    capturedRunnables.forEach(Runnable::run);
+    capturedRunnables.clear(); // Clear for the next round
 
     // make calls equals to threshold number of not ignored failure calls in parallel.
     listOfSuccessAndFailureCalls.stream().parallel().forEach(Runnable::run);
     assertThat(failureCircuitBreaker.state()).isEqualTo(State.ACCEPT_CALLS);
 
-    // Sleep for less than windowInterval.
-    Thread.sleep(windowInterval - 5);
+    // We don't run the new scheduled tasks, simulating being within the window.
     failureCircuitBreaker.recordFailure();
     assertThat(failureCircuitBreaker.state()).isEqualTo(State.REJECT_CALLS);
   }
@@ -65,10 +113,15 @@ public class FailureCircuitBreakerTest {
   public void testRecordFailure_minCallCriteriaNotMet() throws InterruptedException {
     final int failureRateThreshold = 0;
     final int windowInterval = 100;
-    final int minCallToComputeFailure =
-        CircuitBreakerFactory.DEFAULT_MIN_CALL_COUNT_TO_COMPUTE_FAILURE_RATE;
+    final int minCallToComputeFailure = remoteOptions.getRemoteMinCallCountToComputeFailureRate();
+    ScheduledExecutorService mockScheduler = mock(ScheduledExecutorService.class);
     FailureCircuitBreaker failureCircuitBreaker =
-        new FailureCircuitBreaker(failureRateThreshold, windowInterval);
+        new FailureCircuitBreaker(
+            failureRateThreshold,
+            windowInterval,
+            remoteOptions.getRemoteMinCallCountToComputeFailureRate(),
+            remoteOptions.getRemoteMinFailCountToComputeFailureRate(),
+            mockScheduler);
 
     // make success calls, failure call and number of total calls less than
     // minCallToComputeFailure.
@@ -78,8 +131,7 @@ public class FailureCircuitBreakerTest {
     failureCircuitBreaker.recordFailure();
     assertThat(failureCircuitBreaker.state()).isEqualTo(State.ACCEPT_CALLS);
 
-    // Sleep for less than windowInterval.
-    Thread.sleep(windowInterval - 50);
+    // We don't run the scheduled tasks, simulating being within the window.
     failureCircuitBreaker.recordFailure();
     assertThat(failureCircuitBreaker.state()).isEqualTo(State.REJECT_CALLS);
   }
@@ -88,10 +140,15 @@ public class FailureCircuitBreakerTest {
   public void testRecordFailure_minFailCriteriaNotMet() throws InterruptedException {
     final int failureRateThreshold = 10;
     final int windowInterval = 100;
-    final int minFailToComputeFailure =
-        CircuitBreakerFactory.DEFAULT_MIN_FAIL_COUNT_TO_COMPUTE_FAILURE_RATE;
+    final int minFailToComputeFailure = remoteOptions.getRemoteMinFailCountToComputeFailureRate();
+    ScheduledExecutorService mockScheduler = mock(ScheduledExecutorService.class);
     FailureCircuitBreaker failureCircuitBreaker =
-        new FailureCircuitBreaker(failureRateThreshold, windowInterval);
+        new FailureCircuitBreaker(
+            failureRateThreshold,
+            windowInterval,
+            remoteOptions.getRemoteMinCallCountToComputeFailureRate(),
+            remoteOptions.getRemoteMinFailCountToComputeFailureRate(),
+            mockScheduler);
 
     // make number of failure calls less than minFailToComputeFailure.
     for (int index = 0; index < minFailToComputeFailure - 1; index++) {
@@ -99,9 +156,33 @@ public class FailureCircuitBreakerTest {
     }
     assertThat(failureCircuitBreaker.state()).isEqualTo(State.ACCEPT_CALLS);
 
-    // Sleep for less than windowInterval.
-    Thread.sleep(windowInterval - 50);
+    // We don't run the scheduled tasks, simulating being within the window.
     failureCircuitBreaker.recordFailure();
     assertThat(failureCircuitBreaker.state()).isEqualTo(State.REJECT_CALLS);
+  }
+
+  @Test
+  public void testFailureDetails_reportsStats() {
+    final int failureRateThreshold = 10;
+    final int windowInterval = 100;
+    ScheduledExecutorService mockScheduler = mock(ScheduledExecutorService.class);
+    FailureCircuitBreaker failureCircuitBreaker =
+        new FailureCircuitBreaker(
+            failureRateThreshold,
+            windowInterval,
+            /* minCallCountToComputeFailureRate= */ 0,
+            /* minFailCountToComputeFailureRate= */ 0,
+            mockScheduler);
+
+    failureCircuitBreaker.recordSuccess();
+    failureCircuitBreaker.recordFailure();
+    failureCircuitBreaker.recordFailure();
+    failureCircuitBreaker.recordFailure();
+
+    String details = failureCircuitBreaker.failureDetails();
+    assertThat(details).contains("3 out of 4 remote calls failed");
+    assertThat(details).contains("75.00%");
+    assertThat(details).contains("the last 100ms");
+    assertThat(details).contains("10% failure rate threshold");
   }
 }

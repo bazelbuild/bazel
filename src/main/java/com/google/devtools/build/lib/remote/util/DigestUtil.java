@@ -24,6 +24,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.hash.HashCode;
 import com.google.common.hash.HashFunction;
+import com.google.common.hash.Hasher;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.remote.common.ActionKey;
 import com.google.devtools.build.lib.util.DeterministicWriter;
@@ -36,6 +37,7 @@ import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Comparator;
 
@@ -74,6 +76,27 @@ public class DigestUtil {
 
   public Digest compute(byte[] blob) {
     return buildDigest(hashFn.getHashFunction().hashBytes(blob).toString(), blob.length);
+  }
+
+  /**
+   * Computes a digest for a portion of a byte array. This is useful for uploading an individual
+   * chunk from a larger file.
+   *
+   * @param data the byte array
+   * @param offset the start offset in the array
+   * @param length the number of bytes to hash
+   */
+  public Digest compute(byte[] data, int offset, int length) {
+    return buildDigest(hashFn.getHashFunction().hashBytes(data, offset, length).toString(), length);
+  }
+
+  /** Computes a digest of the given {@link ByteString} without copying its contents. */
+  public Digest compute(ByteString blob) {
+    Hasher hasher = hashFn.getHashFunction().newHasher();
+    for (ByteBuffer buffer : blob.asReadOnlyByteBufferList()) {
+      hasher.putBytes(buffer);
+    }
+    return buildDigest(hasher.hash().toString(), blob.size());
   }
 
   /**

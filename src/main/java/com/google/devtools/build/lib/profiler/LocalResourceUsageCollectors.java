@@ -121,7 +121,7 @@ public class LocalResourceUsageCollectors {
 
   static class LocalCpuUsageCollector implements CounterSeriesCollector {
     private static final CounterSeriesTask LOCAL_CPU_USAGE =
-        new CounterSeriesTask("CPU usage (Bazel)", "cpu", CounterSeriesTask.Color.GOOD);
+        new CounterSeriesTaskImpl("CPU usage (Bazel)", "cpu", CounterSeriesTask.Color.GOOD);
 
     private final OperatingSystemMXBean osBean;
     private long previousCpuTimeNanos;
@@ -142,7 +142,7 @@ public class LocalResourceUsageCollectors {
 
   static class LocalMemoryUsageCollector implements CounterSeriesCollector {
     private static final CounterSeriesTask LOCAL_MEMORY_USAGE =
-        new CounterSeriesTask("Memory usage (Bazel)", "memory", CounterSeriesTask.Color.OLIVE);
+        new CounterSeriesTaskImpl("Memory usage (Bazel)", "memory", CounterSeriesTask.Color.OLIVE);
     private final MemoryMXBean memoryBean;
     private final BugReporter bugReporter;
 
@@ -172,7 +172,8 @@ public class LocalResourceUsageCollectors {
 
   static class SystemCpuUsageCollector implements CounterSeriesCollector {
     private static final CounterSeriesTask SYSTEM_CPU_USAGE =
-        new CounterSeriesTask("CPU usage (total)", "system cpu", CounterSeriesTask.Color.RAIL_LOAD);
+        new CounterSeriesTaskImpl(
+            "CPU usage (total)", "system cpu", CounterSeriesTask.Color.RAIL_LOAD);
     private final OperatingSystemMXBean osBean;
     private final int numProcessors;
 
@@ -205,7 +206,8 @@ public class LocalResourceUsageCollectors {
 
   static class SystemMemoryUsageCollector implements CounterSeriesCollector {
     private static final CounterSeriesTask SYSTEM_MEMORY_USAGE =
-        new CounterSeriesTask("Memory usage (total)", "system memory", CounterSeriesTask.Color.BAD);
+        new CounterSeriesTaskImpl(
+            "Memory usage (total)", "system memory", CounterSeriesTask.Color.BAD);
     private final OperatingSystemMXBean osBean;
 
     private SystemMemoryUsageCollector(OperatingSystemMXBean osBean) {
@@ -239,7 +241,7 @@ public class LocalResourceUsageCollectors {
 
   static class TotalWorkerMemoryUsageCollector implements CounterSeriesCollector {
     private static final CounterSeriesTask WORKERS_MEMORY_USAGE =
-        new CounterSeriesTask(
+        new CounterSeriesTaskImpl(
             "Total worker memory usage", "workers memory", CounterSeriesTask.Color.RAIL_ANIMATION);
     private final WorkerProcessMetricsCollector workerProcessMetricsCollector;
 
@@ -277,7 +279,7 @@ public class LocalResourceUsageCollectors {
       return workerMemoryUsageSeries.computeIfAbsent(
           mnemonic,
           key ->
-              new CounterSeriesTask(
+              new CounterSeriesTaskImpl(
                   SERIES_LANE_NAME, mnemonic, CounterSeriesTask.Color.RAIL_ANIMATION));
     }
 
@@ -299,7 +301,8 @@ public class LocalResourceUsageCollectors {
 
   static class SystemLoadAverageCollector implements CounterSeriesCollector {
     private static final CounterSeriesTask SYSTEM_LOAD_AVERAGE =
-        new CounterSeriesTask("System load average", "load", CounterSeriesTask.Color.GENERIC_WORK);
+        new CounterSeriesTaskImpl(
+            "System load average", "load", CounterSeriesTask.Color.GENERIC_WORK);
     private final OperatingSystemMXBean osBean;
 
     private SystemLoadAverageCollector(OperatingSystemMXBean osBean) {
@@ -317,12 +320,12 @@ public class LocalResourceUsageCollectors {
 
   static class SystemNetworkUsageCollector implements CounterSeriesCollector {
     private static final CounterSeriesTask SYSTEM_NETWORK_UP_USAGE =
-        new CounterSeriesTask(
+        new CounterSeriesTaskImpl(
             "Network Up usage (total)",
             "system network up (Mbps)",
             CounterSeriesTask.Color.RAIL_RESPONSE);
     private static final CounterSeriesTask SYSTEM_NETWORK_DOWN_USAGE =
-        new CounterSeriesTask(
+        new CounterSeriesTaskImpl(
             "Network Down usage (total)",
             "system network down (Mbps)",
             CounterSeriesTask.Color.RAIL_RESPONSE);
@@ -346,10 +349,10 @@ public class LocalResourceUsageCollectors {
 
   static class ResourceManagerEstimationCollector implements CounterSeriesCollector {
     private static final CounterSeriesTask MEMORY_USAGE_ESTIMATION =
-        new CounterSeriesTask(
+        new CounterSeriesTaskImpl(
             "Memory usage estimation", "estimated memory", CounterSeriesTask.Color.RAIL_IDLE);
     private static final CounterSeriesTask CPU_USAGE_ESTIMATION =
-        new CounterSeriesTask(
+        new CounterSeriesTaskImpl(
             "CPU usage estimation",
             "estimated cpu",
             CounterSeriesTask.Color.CQ_BUILD_ATTEMPT_PASSED);
@@ -371,27 +374,27 @@ public class LocalResourceUsageCollectors {
 
   static class PressureStallIndicatorCollector implements CounterSeriesCollector {
     private static final CounterSeriesTask PRESSURE_STALL_FULL_IO =
-        new CounterSeriesTask(
+        new CounterSeriesTaskImpl(
             "I/O pressure stall level",
             "i/o pressure (full)",
             CounterSeriesTask.Color.RAIL_ANIMATION);
     private static final CounterSeriesTask PRESSURE_STALL_SOME_IO =
-        new CounterSeriesTask(
+        new CounterSeriesTaskImpl(
             "I/O pressure stall level",
             "i/o pressure (some)",
             CounterSeriesTask.Color.CQ_BUILD_ATTEMPT_FAILED);
     private static final CounterSeriesTask PRESSURE_STALL_FULL_MEMORY =
-        new CounterSeriesTask(
+        new CounterSeriesTaskImpl(
             "Memory pressure stall level",
             "memory pressure (full)",
             CounterSeriesTask.Color.THREAD_STATE_UNKNOWN);
     private static final CounterSeriesTask PRESSURE_STALL_SOME_MEMORY =
-        new CounterSeriesTask(
+        new CounterSeriesTaskImpl(
             "Memory pressure stall level",
             "memory pressure (some)",
             CounterSeriesTask.Color.RAIL_IDLE);
     private static final CounterSeriesTask PRESSURE_STALL_SOME_CPU =
-        new CounterSeriesTask(
+        new CounterSeriesTaskImpl(
             "CPU pressure stall level",
             "cpu pressure (some)",
             CounterSeriesTask.Color.THREAD_STATE_RUNNING);
@@ -422,49 +425,51 @@ public class LocalResourceUsageCollectors {
             ImmutableMap.of(
                 SkyFunctions.PACKAGE,
                 new SkyFunctionProfilerTasks(
-                    new CounterSeriesTask(
+                    new CounterSeriesTaskImpl(
                         "SkyFunction (PACKAGE)", "package (total)", /* color= */ null),
-                    new CounterSeriesTask(
+                    new CounterSeriesTaskImpl(
                         "SkyFunction (PACKAGE)", "package (done)", /* color= */ null)),
                 SkyFunctions.BZL_LOAD,
                 new SkyFunctionProfilerTasks(
-                    new CounterSeriesTask(
+                    new CounterSeriesTaskImpl(
                         "SkyFunction (BZL_LOAD)", "bzl_load (total)", /* color= */ null),
-                    new CounterSeriesTask(
+                    new CounterSeriesTaskImpl(
                         "SkyFunction (BZL_LOAD)", "bzl_load (done)", /* color= */ null)),
                 SkyFunctions.GLOB,
                 new SkyFunctionProfilerTasks(
-                    new CounterSeriesTask("SkyFunction (GLOB)", "glob (total)", /* color= */ null),
-                    new CounterSeriesTask("SkyFunction (GLOB)", "glob (done)", /* color= */ null)),
+                    new CounterSeriesTaskImpl(
+                        "SkyFunction (GLOB)", "glob (total)", /* color= */ null),
+                    new CounterSeriesTaskImpl(
+                        "SkyFunction (GLOB)", "glob (done)", /* color= */ null)),
                 SkyFunctions.GLOBS,
                 new SkyFunctionProfilerTasks(
-                    new CounterSeriesTask(
+                    new CounterSeriesTaskImpl(
                         "SkyFunction (GLOBS)", "globs (total)", /* color= */ null),
-                    new CounterSeriesTask(
+                    new CounterSeriesTaskImpl(
                         "SkyFunction (GLOBS)", "globs (done)", /* color= */ null)),
                 SkyFunctions.CONFIGURED_TARGET,
                 new SkyFunctionProfilerTasks(
-                    new CounterSeriesTask(
+                    new CounterSeriesTaskImpl(
                         "SkyFunction (CONFIGURED_TARGET)",
                         "configured target (total)",
                         /* color= */ null),
-                    new CounterSeriesTask(
+                    new CounterSeriesTaskImpl(
                         "SkyFunction (CONFIGURED_TARGET)",
                         "configured target (done)",
                         /* color= */ null)),
                 SkyFunctions.ASPECT,
                 new SkyFunctionProfilerTasks(
-                    new CounterSeriesTask(
+                    new CounterSeriesTaskImpl(
                         "SkyFunction (ASPECT)", "aspect (total)", /* color= */ null),
-                    new CounterSeriesTask(
+                    new CounterSeriesTaskImpl(
                         "SkyFunction (ASPECT)", "aspect (done)", /* color= */ null)),
                 SkyFunctions.ACTION_EXECUTION,
                 new SkyFunctionProfilerTasks(
-                    new CounterSeriesTask(
+                    new CounterSeriesTaskImpl(
                         "SkyFunction (ACTION_EXECUTION)",
                         "action execution (total)",
                         /* color= */ null),
-                    new CounterSeriesTask(
+                    new CounterSeriesTaskImpl(
                         "SkyFunction (ACTION_EXECUTION)",
                         "action execution (done)",
                         /* color= */ null)));

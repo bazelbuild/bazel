@@ -173,7 +173,7 @@ public class RuleTransitionApplier
                   .getConfigurationKey()
                   .getOptions()
                   .get(CoreOptions.class)
-                  .getCommandLineFlagAliases(),
+                  .getCommandLineFlagAliasesMap(),
               (PlatformProducer.ResultSink) this,
               this::computeConfigConditions));
     } else {
@@ -254,7 +254,7 @@ public class RuleTransitionApplier
         targetAndConfigurationData.getTrimmingTransitionFactory();
     if (trimmingTransitionFactory != null) {
       transitionFactory =
-          ComposingTransitionFactory.of(transitionFactory, trimmingTransitionFactory);
+          ComposingTransitionFactory.ofUnchecked(transitionFactory, trimmingTransitionFactory);
     }
     ConfiguredTargetKey preRuleTransitionKey = targetAndConfigurationData.getPreRuleTransitionKey();
     var transitionData =

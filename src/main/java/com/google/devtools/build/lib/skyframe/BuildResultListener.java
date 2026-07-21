@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Maps;
 import com.google.common.eventbus.AllowConcurrentEvents;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
@@ -43,7 +42,7 @@ public class BuildResultListener {
   // Also includes test targets.
   private final Set<ConfiguredTarget> analyzedTargets = ConcurrentHashMap.newKeySet();
   private final Set<ConfiguredTarget> analyzedTests = ConcurrentHashMap.newKeySet();
-  private final Map<AspectKey, ConfiguredAspect> analyzedAspects = Maps.newConcurrentMap();
+  private final Map<AspectKey, ConfiguredAspect> analyzedAspects = new ConcurrentHashMap<>();
   // Also includes test targets.
   private final Set<ConfiguredTarget> skippedTargets = ConcurrentHashMap.newKeySet();
   // Also includes test targets.

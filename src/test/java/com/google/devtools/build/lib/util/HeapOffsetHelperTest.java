@@ -94,7 +94,7 @@ public final class HeapOffsetHelperTest extends BuildIntegrationTestCase {
             .getCommandEnvironment()
             .getOptions()
             .getOptions(MemoryPressureOptions.class)
-            .jvmHeapHistogramInternalObjectPattern
+            .getJvmHeapHistogramInternalObjectPattern()
             .regexPattern();
 
     long offset = HeapOffsetHelper.getSizeOfFillerArrayOnHeap(defaultOptionPattern, bugReporter);

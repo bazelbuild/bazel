@@ -55,7 +55,7 @@ public final class ToolchainContextUtil {
     boolean useAutoExecGroups =
         ruleClass
             .getAutoExecGroupsMode()
-            .isEnabled(RawAttributeMapper.of(rule), coreOptions.useAutoExecGroups);
+            .isEnabled(RawAttributeMapper.of(rule), coreOptions.getUseAutoExecGroups());
 
     ImmutableSet<ToolchainTypeRequirement> toolchainTypes = ruleClass.getToolchainTypes();
     if (!ruleClass.isStarlark() && ruleClass.getName().equals("genrule")) {

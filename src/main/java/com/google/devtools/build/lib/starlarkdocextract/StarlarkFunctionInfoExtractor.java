@@ -22,8 +22,6 @@ import static com.google.devtools.build.lib.starlarkdocextract.StardocOutputProt
 import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.FunctionDeprecationInfo;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.FunctionParamInfo;
@@ -36,6 +34,8 @@ import com.google.devtools.starlark.common.DocstringUtils;
 import com.google.devtools.starlark.common.DocstringUtils.DocstringInfo;
 import com.google.devtools.starlark.common.DocstringUtils.DocstringParseError;
 import com.google.devtools.starlark.common.DocstringUtils.ParameterDoc;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -71,13 +71,13 @@ public final class StarlarkFunctionInfoExtractor {
 
   private StarlarkFunctionInfo extract(String functionName, StarlarkFunction fn)
       throws ExtractionException {
-    Map<String, String> paramNameToDocMap = Maps.newLinkedHashMap();
+    Map<String, String> paramNameToDocMap = new LinkedHashMap<>();
     StarlarkFunctionInfo.Builder functionInfoBuilder =
         StarlarkFunctionInfo.newBuilder().setFunctionName(internalToUnicode(functionName));
     functionInfoBuilder.setOriginKey(getFunctionOriginKey(fn));
     String doc = fn.getDocumentation();
     if (doc != null) {
-      List<DocstringParseError> parseErrors = Lists.newArrayList();
+      List<DocstringParseError> parseErrors = new ArrayList<>();
       DocstringInfo docstringInfo = DocstringUtils.parseDocstring(doc, parseErrors);
       if (!parseErrors.isEmpty()) {
         throw makeDocstringExtractionException(functionName, fn.getLocation(), parseErrors);

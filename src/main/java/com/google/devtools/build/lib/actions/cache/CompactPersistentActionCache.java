@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ConditionallyThread
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.NullEventHandler;
+import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import com.google.devtools.build.lib.util.MapCodec;
 import com.google.devtools.build.lib.util.MapCodec.IncompatibleFormatException;
 import com.google.devtools.build.lib.util.PersistentMap;
@@ -75,7 +76,7 @@ public class CompactPersistentActionCache implements ActionCache {
   // cache records.
   private static final int VALIDATION_KEY = -10;
 
-  private static final int VERSION = 24;
+  private static final int VERSION = 26;
 
   /**
    * A timestamp, represented as the number of minutes since the Unix epoch.
@@ -789,6 +790,8 @@ public class CompactPersistentActionCache implements ActionCache {
     VarInt.putVarLong(
         value.getExpirationTime() != null ? value.getExpirationTime().toEpochMilli() : -1, sink);
 
+    VarInt.putVarInt(value.isInMemoryOutput() ? 1 : 0, sink);
+
     PathFragment resolvedPath = value.getResolvedPath();
     if (resolvedPath != null) {
       VarInt.putVarInt(1, sink);
@@ -803,6 +806,7 @@ public class CompactPersistentActionCache implements ActionCache {
           + VarInt.MAX_VARLONG_SIZE // size
           + VarInt.MAX_VARINT_SIZE // locationIndex
           + VarInt.MAX_VARLONG_SIZE // expirationTime
+          + VarInt.MAX_VARINT_SIZE // inMemoryOutput
           + (1 + VarInt.MAX_VARINT_SIZE); // resolvedPath
 
   private FileArtifactValue decodeRemoteMetadata(ByteBuffer source) throws IOException {
@@ -814,6 +818,8 @@ public class CompactPersistentActionCache implements ActionCache {
 
     long expirationTimeEpochMilli = VarInt.getVarLong(source);
 
+    boolean inMemoryOutput = VarInt.getVarInt(source) != 0;
+
     PathFragment resolvedPath = null;
     int numResolvedPath = VarInt.getVarInt(source);
     if (numResolvedPath > 0) {
@@ -824,12 +830,14 @@ public class CompactPersistentActionCache implements ActionCache {
     }
 
     FileArtifactValue metadata;
-    if (expirationTimeEpochMilli < 0) {
-      metadata = FileArtifactValue.createForRemoteFile(digest, size, locationIndex);
-    } else {
+    if (expirationTimeEpochMilli >= 0 || inMemoryOutput) {
+      Instant expirationTime =
+          expirationTimeEpochMilli >= 0 ? Instant.ofEpochMilli(expirationTimeEpochMilli) : null;
       metadata =
           FileArtifactValue.createForRemoteFileWithMaterializationData(
-              digest, size, locationIndex, Instant.ofEpochMilli(expirationTimeEpochMilli));
+              digest, size, locationIndex, expirationTime, inMemoryOutput);
+    } else {
+      metadata = FileArtifactValue.createForRemoteFile(digest, size, locationIndex);
     }
 
     if (resolvedPath != null) {
@@ -854,7 +862,7 @@ public class CompactPersistentActionCache implements ActionCache {
                   * entry.getDiscoveredInputPaths().size());
     }
 
-    int maxOutputMetadataSize = 1; // presence marker
+    int estimatedOutputMetadataSize = 1; // presence marker
     if (entry.hasOutputMetadata()) {
       int maxOutputFilesSize =
           VarInt.MAX_VARINT_SIZE // entry.getOutputFiles().size()
@@ -862,23 +870,23 @@ public class CompactPersistentActionCache implements ActionCache {
                       + MAX_REMOTE_METADATA_SIZE)
                   * entry.getOutputFiles().size();
 
-      int maxOutputTreesSize = VarInt.MAX_VARINT_SIZE; // entry.getOutputTrees().size()
+      int estimatedOutputTreesSize = VarInt.MAX_VARINT_SIZE; // entry.getOutputTrees().size()
       for (Map.Entry<String, SerializableTreeArtifactValue> tree :
           entry.getOutputTrees().entrySet()) {
-        maxOutputTreesSize += VarInt.MAX_VARINT_SIZE; // execPath
+        estimatedOutputTreesSize += VarInt.MAX_VARINT_SIZE; // execPath
 
         SerializableTreeArtifactValue value = tree.getValue();
 
-        maxOutputTreesSize += VarInt.MAX_VARINT_SIZE; // value.childValues().size()
-        maxOutputTreesSize +=
-            (VarInt.MAX_VARINT_SIZE // parentRelativePath
+        estimatedOutputTreesSize += VarInt.MAX_VARINT_SIZE; // value.childValues().size()
+        estimatedOutputTreesSize +=
+            (30 // Estimate for the length of parentRelativePath string
                     + MAX_REMOTE_METADATA_SIZE)
                 * value.childValues().size();
 
-        maxOutputTreesSize +=
+        estimatedOutputTreesSize +=
             // value.archivedFileValue() optional
             1 + value.archivedFileValue().map(ignored -> MAX_REMOTE_METADATA_SIZE).orElse(0);
-        maxOutputTreesSize +=
+        estimatedOutputTreesSize +=
             // value.resolvedPath() optional
             1 + value.resolvedPath().map(ignored -> VarInt.MAX_VARINT_SIZE).orElse(0);
       }
@@ -886,15 +894,16 @@ public class CompactPersistentActionCache implements ActionCache {
       int maxProxyOutputsSize =
           VarInt.MAX_VARINT_SIZE * (entry.getProxyOutputs().size() + 1); // +1 for the size itself.
 
-      maxOutputMetadataSize += maxOutputFilesSize + maxOutputTreesSize + maxProxyOutputsSize;
+      estimatedOutputMetadataSize +=
+          maxOutputFilesSize + estimatedOutputTreesSize + maxProxyOutputsSize;
     }
 
     // Estimate the size of the buffer.
-    int maxSize =
+    int estimatedSize =
         (1 + DigestUtils.ESTIMATED_SIZE) // digest length + digest
             + maxDiscoveredInputsSize
-            + maxOutputMetadataSize;
-    ByteArrayOutputStream sink = new ByteArrayOutputStream(maxSize);
+            + estimatedOutputMetadataSize;
+    ByteArrayOutputStream sink = new ByteArrayOutputStream(estimatedSize);
 
     MetadataDigestUtils.write(entry.getDigest(), sink);
 
@@ -926,7 +935,9 @@ public class CompactPersistentActionCache implements ActionCache {
         VarInt.putVarInt(serializableTreeArtifactValue.childValues().size(), sink);
         for (Map.Entry<String, FileArtifactValue> child :
             serializableTreeArtifactValue.childValues().entrySet()) {
-          VarInt.putVarInt(indexer.getOrCreateIndex(child.getKey()), sink);
+          // Don't put tree-relative paths in the string indexer. They are unlikely to be reused.
+          // Instead, write them directly into the encoding.
+          MetadataDigestUtils.write(StringUnsafe.getByteArray(child.getKey()), sink);
           encodeRemoteMetadata(child.getValue(), sink);
         }
 
@@ -1043,7 +1054,8 @@ public class CompactPersistentActionCache implements ActionCache {
         ImmutableMap.Builder<String, FileArtifactValue> childValues = ImmutableMap.builder();
         int numChildValues = VarInt.getVarInt(source);
         for (int j = 0; j < numChildValues; ++j) {
-          String childKey = getStringForIndex(indexer, VarInt.getVarInt(source));
+          String childKey =
+              StringUnsafe.newInstance(MetadataDigestUtils.read(source), StringUnsafe.LATIN1);
           FileArtifactValue value = decodeRemoteMetadata(source);
           childValues.put(childKey, value);
         }

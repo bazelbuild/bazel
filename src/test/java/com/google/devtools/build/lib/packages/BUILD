@@ -117,7 +117,7 @@ java_test(
         ":DocumentationTestUtil",
         "//src/main/java/com/google/devtools/build/lib/bazel:bazel_services",
         "//src/main/java/com/google/devtools/build/lib/bazel:main",
-        "//src/main/java/com/google/devtools/build/lib/bazel/rules",
+        "//src/main/java/com/google/devtools/build/lib/bazel/rules:bazel_rule_class_provider",
         "//third_party:guava",
         "//third_party:junit4",
         "@rules_java//java/runfiles",
@@ -155,6 +155,7 @@ java_library(
         "@rules_cc//cc:srcs",
         "@rules_cc//cc/common:srcs",
         "@rules_cc//cc/private:srcs",
+        "@rules_cc//cc/private/rules_impl:srcs",
         "@rules_cc//cc/toolchains:srcs",
     ],
     deps = [

@@ -40,6 +40,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//src/main/java/com/google/devtools/build/skyframe:version",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
         "//third_party:auto_value",
         "//third_party:guava",
@@ -61,6 +62,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/events:event_bus_event_handler",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils:round-tripping",
         "//src/main/java/com/google/devtools/build/lib/util",
@@ -68,6 +70,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/skyframe:cpu_heavy_skykey",
         "//src/main/java/com/google/devtools/build/skyframe:graph_inconsistency_java_proto",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//src/main/java/com/google/devtools/build/skyframe:version",
         "//src/test/java/com/google/devtools/build/lib/testutil:EventUtils",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestRunnableWrapper",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestSuite",
@@ -91,5 +94,13 @@ java_test(
     shard_count = 2,
     tags = ["not_run:arm"],
     test_class = "com.google.devtools.build.skyframe.AllTests",
+    runtime_deps = [":skyframe_tests"],
+)
+
+java_test(
+    name = "SkyframeEvictionTest",
+    size = "small",
+    tags = ["cpu:4"],  # Have some real CPUs to better suss out concurrency bugs
+    test_class = "com.google.devtools.build.skyframe.SkyframeEvictionTest",
     runtime_deps = [":skyframe_tests"],
 )

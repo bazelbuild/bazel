@@ -20,7 +20,6 @@ import static org.junit.Assert.fail;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
@@ -28,6 +27,7 @@ import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.events.EventBusEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
@@ -106,6 +106,7 @@ public class PrepareDepsOfPatternsFunctionSmartNegationTest extends FoundationTe
         optionsParser.getOptions(BuildLanguageOptions.class),
         UUID.randomUUID(),
         ImmutableMap.of(),
+        /* repoEnv= */ ImmutableMap.of(),
         QuiescingExecutorsImpl.forTesting(),
         new TimestampGranularityMonitor(null));
     skyframeExecutor.setActionEnv(ImmutableMap.of());
@@ -203,7 +204,8 @@ public class PrepareDepsOfPatternsFunctionSmartNegationTest extends FoundationTe
         EvaluationContext.newBuilder()
             .setKeepGoing(true)
             .setParallelism(100)
-            .setEventHandler(new Reporter(new EventBus(), eventCollector))
+            .setEventHandler(
+                new Reporter(EventBusEventHandler.createWithNewEventBus(), eventCollector))
             .build();
     EvaluationResult<SkyValue> evaluationResult =
         skyframeExecutor.getEvaluator().evaluate(singletonTargetPattern, evaluationContext);

@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.collect.nestedset.IsArtifactForNestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
@@ -47,6 +48,7 @@ import com.google.devtools.build.lib.util.HashCodes;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.PathStrippable;
+import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.ExecutionPhaseSkyKey;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -125,7 +127,8 @@ public abstract sealed class Artifact
         Comparable<Artifact>,
         CommandLineItem,
         ExecutionPhaseSkyKey,
-        StarlarkEncodable
+        StarlarkEncodable,
+        IsArtifactForNestedSet
     permits SourceArtifact, DerivedArtifact {
 
   public static final Depset.ElementType TYPE = Depset.ElementType.of(Artifact.class);
@@ -176,6 +179,10 @@ public abstract sealed class Artifact
     }
 
     return ((DerivedArtifact) artifact).getGeneratingActionKey();
+  }
+
+  public RootedPath getRootedPath() {
+    return RootedPath.toRootedPath(root.getRoot(), getPath());
   }
 
   public static <T extends Artifact> Iterable<SkyKey> keys(Iterable<T> artifacts) {
@@ -1113,7 +1120,6 @@ public abstract sealed class Artifact
    */
   public static final class TreeFileArtifact extends DerivedArtifact {
     private final SpecialArtifact parent;
-    private final PathFragment parentRelativePath;
 
     /**
      * Creates a {@link TreeFileArtifact} representing a child of the given parent tree artifact.
@@ -1192,7 +1198,6 @@ public abstract sealed class Artifact
           "%s is not a proper normalized relative path",
           parentRelativePath);
       this.parent = parent;
-      this.parentRelativePath = parentRelativePath;
     }
 
     @Override
@@ -1202,12 +1207,15 @@ public abstract sealed class Artifact
 
     @Override
     public PathFragment getParentRelativePath() {
-      return parentRelativePath;
+      // getTreeRelativePathString is computed from two PathFragments, so we know it's normalized.
+      return PathFragment.createAlreadyNormalized(getTreeRelativePathString());
     }
 
     @Override
     public String getTreeRelativePathString() {
-      return parentRelativePath.getPathString();
+      // The constructor concatenates the parent's exec path and the parent-relative path, so we can
+      // skip the checks in PathFragment#relativeTo and just take a substring.
+      return getExecPathString().substring(parent.getExecPathString().length() + 1);
     }
 
     @Override

@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.actions.ActionExecutedEvent.ErrorTiming;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.ActionLookupData;
+import com.google.devtools.build.lib.actions.ActionWithDiscoveredInputsState;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.AlreadyReportedActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -133,7 +134,8 @@ import net.starlark.java.eval.StarlarkSemantics;
  * in-flight primary shared action's execution, this function can abort after declaring an external
  * dep on the execution's completion future.
  */
-public final class ActionExecutionFunction implements SkyFunction {
+// Non-final for mocking.
+public class ActionExecutionFunction implements SkyFunction {
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
@@ -178,6 +180,7 @@ public final class ActionExecutionFunction implements SkyFunction {
     RemoteAnalysisCacheReaderDepsProvider remoteCachingDependencies =
         cachingDependenciesSupplier.get();
     if (remoteCachingDependencies.mode().isRetrievalEnabled()
+        && !remoteCachingDependencies.getSkycacheAnalysisOnly()
         && !skyframeActionExecutor.shouldSkipRetrieval(actionLookupData)) {
       switch (retrieveRemoteSkyValue(
           actionLookupData, env, remoteCachingDependencies, InputDiscoveryState::new)) {
@@ -201,7 +204,12 @@ public final class ActionExecutionFunction implements SkyFunction {
     }
 
     try {
-      return computeInternal(actionLookupData, action, env);
+      SkyValue result = computeInternal(actionLookupData, action, env);
+      if (result != null) {
+        SkyValueRetrieverUtils.tryUploadAsync(
+            remoteCachingDependencies, actionLookupData, result, env);
+      }
+      return result;
     } catch (ActionExecutionFunctionException e) {
       skyframeActionExecutor.recordExecutionError();
       throw e;
@@ -620,13 +628,13 @@ public final class ActionExecutionFunction implements SkyFunction {
 
     /** Compute the inputs to request from Skyframe. */
     NestedSet<Artifact> getAllInputs() {
-      NestedSetBuilder<Artifact> builder = NestedSetBuilder.newBuilder(Order.STABLE_ORDER);
-      builder.addTransitive(defaultInputs);
-      if (actionCacheInputs != null) {
-        // actionCacheInputs is never a NestedSet.
-        builder.addAll(actionCacheInputs);
+      if (actionCacheInputs == null || actionCacheInputs.isEmpty()) {
+        return defaultInputs;
       }
-      return builder.build();
+      return NestedSetBuilder.<Artifact>newBuilder(Order.STABLE_ORDER)
+          .addTransitive(defaultInputs)
+          .addAll(actionCacheInputs)
+          .build();
     }
   }
 
@@ -725,6 +733,14 @@ public final class ActionExecutionFunction implements SkyFunction {
       // In either case, we must use this ActionExecutionState to continue. Note that in the first
       // case, we don't have any input metadata available, so we couldn't re-execute the action even
       // if we wanted to.
+      if (state.discoveredInputs != null
+          && action instanceof ActionWithDiscoveredInputsState actionWithDiscoveredInputsState) {
+        // Re-inject discovered inputs from the SkyKeyComputeState if missing
+        // dependencies of this action were rewinded, causing this action's
+        // restart. We want to avoid recomputing them. See b/505164988 for more
+        // details.
+        actionWithDiscoveredInputsState.setAdditionalInputs(state.discoveredInputs);
+      }
       return previousAction.getResultOrDependOnFuture(
           env,
           actionLookupData,
@@ -1102,30 +1118,55 @@ public final class ActionExecutionFunction implements SkyFunction {
       ImmutableSet<SkyKey> inputDepKeys,
       Predicate<Artifact> isMandatoryInput,
       @Nullable ActionExecutionFunctionExceptionHandler actionExecutionFunctionExceptionHandler)
-      throws InterruptedException {
+      throws InterruptedException, ActionExecutionException {
     SkyValue value = lookupInput(input, inputDepKeys, env);
-    if (value == null) {
-      // Undone mandatory inputs are only expected for generated artifacts when rewinding is
-      // enabled. Returning null allows the caller to use UndoneInputsException to recover.
-      checkState(
-          !isMandatoryInput.test(input)
-              || (input.hasKnownGeneratingAction() && skyframeActionExecutor.rewindingEnabled()),
-          "Unexpected undone mandatory input: %s",
-          input);
-      return null;
-    }
-    if (value instanceof MissingArtifactValue) {
-      if (!isMandatoryInput.test(input)) {
-        return FileArtifactValue.MISSING_FILE_MARKER;
+    switch (value) {
+      case ActionExecutionValue actionExecutionValue -> {
+        if (input.isChildOfDeclaredDirectory()) {
+          TreeArtifactValue tree = actionExecutionValue.getTreeArtifactValue(input.getParent());
+          if (tree != null && !tree.getChildValues().containsKey(input)) {
+            String errorMessage =
+                String.format(
+                    "Nondeterministic output tree artifact detected: a previous execution produced"
+                        + " child %s in tree %s (generated by %s), but a subsequent execution did"
+                        + " not",
+                    input.getParentRelativePath(),
+                    input.getParent().getExecPathString(),
+                    input.getParent().getArtifactOwner().getLabel());
+            DetailedExitCode detailedExitCode =
+                DetailedExitCode.of(
+                    FailureDetail.newBuilder()
+                        .setMessage(errorMessage)
+                        .setExecution(
+                            Execution.newBuilder().setCode(Code.NONDETERMINISTIC_TREE_ARTIFACT))
+                        .build());
+            throw new ActionExecutionException(
+                errorMessage, action, /* catastrophe= */ false, detailedExitCode);
+          }
+        }
       }
-      checkNotNull(
-              actionExecutionFunctionExceptionHandler,
-              "Missing artifact should have been caught already %s %s %s",
-              input,
-              value,
-              action)
-          .accumulateMissingFileArtifactValue(input, (MissingArtifactValue) value);
-      return null;
+      case MissingArtifactValue missingArtifactValue -> {
+        if (!isMandatoryInput.test(input)) {
+          return FileArtifactValue.MISSING_FILE_MARKER;
+        }
+        checkNotNull(
+                actionExecutionFunctionExceptionHandler,
+                "Missing artifact should have been caught already %s %s %s",
+                input,
+                value,
+                action)
+            .accumulateMissingFileArtifactValue(input, missingArtifactValue);
+        return null;
+      }
+      case null -> {
+        checkState(
+            !isMandatoryInput.test(input)
+                || (input.hasKnownGeneratingAction() && skyframeActionExecutor.rewindingEnabled()),
+            "Unexpected undone mandatory input: %s",
+            input);
+        return null;
+      }
+      default -> {}
     }
     return value;
   }
@@ -1161,7 +1202,7 @@ public final class ActionExecutionFunction implements SkyFunction {
       DetailedExitCode detailedExitCode,
       Label labelInCaseOfBug,
       BugReporter bugReporter) {
-    if (input.getOwner() == null) {
+    if (input.getOwner() == null && !input.isSourceArtifact()) {
       bugReporter.sendBugReport(
           new IllegalStateException(
               String.format(
@@ -1328,7 +1369,7 @@ public final class ActionExecutionFunction implements SkyFunction {
     private final ImmutableSet<SkyKey> inputDepKeys;
     private final List<LabelCause> missingArtifactCauses = Lists.newArrayListWithCapacity(0);
     private final List<NestedSet<Cause>> transitiveCauses = Lists.newArrayListWithCapacity(0);
-    private ActionExecutionException firstActionExecutionException;
+    private ActionExecutionException worstActionExecutionException;
 
     ActionExecutionFunctionExceptionHandler(
         Supplier<SetMultimap<SkyKey, Artifact>> skyKeyToDerivedArtifactSetForExceptions,
@@ -1421,8 +1462,8 @@ public final class ActionExecutionFunction implements SkyFunction {
             "While handling errors for %s, encountered error from %s which is not associated with"
                 + " any inputs",
             action.prettyPrint(), key);
-        if (firstActionExecutionException == null) {
-          firstActionExecutionException = e;
+        if (worstActionExecutionException == null) {
+          worstActionExecutionException = e;
           transitiveCauses.add(e.getRootCauses());
         }
       } else {
@@ -1464,24 +1505,24 @@ public final class ActionExecutionFunction implements SkyFunction {
       for (LabelCause missingInput : missingArtifactCauses) {
         skyframeActionExecutor.printError(missingInput.getMessage(), action);
       }
-      // We need to rethrow the first exception because it can contain a useful error message.
-      if (firstActionExecutionException != null) {
+      // We need to rethrow the worst exception because it can contain a useful error message.
+      if (worstActionExecutionException != null) {
         if (missingArtifactCauses.isEmpty()
             && (checkNotNull(transitiveCauses, action).size() == 1)) {
           // In the case a single action failed, just propagate the exception upward. This avoids
           // having to copy the root causes to the upwards transitive closure.
-          throw firstActionExecutionException;
+          throw worstActionExecutionException;
         }
         NestedSetBuilder<Cause> allCauses =
             NestedSetBuilder.<Cause>stableOrder().addAll(missingArtifactCauses);
         transitiveCauses.forEach(allCauses::addTransitive);
         throw new ActionExecutionException(
-            firstActionExecutionException.getMessage(),
-            firstActionExecutionException.getCause(),
+            worstActionExecutionException.getMessage(),
+            worstActionExecutionException.getCause(),
             action,
             allCauses.build(),
-            firstActionExecutionException.isCatastrophe(),
-            firstActionExecutionException.getDetailedExitCode());
+            worstActionExecutionException.isCatastrophe(),
+            worstActionExecutionException.getDetailedExitCode());
       }
 
       if (!missingArtifactCauses.isEmpty()) {
@@ -1493,9 +1534,11 @@ public final class ActionExecutionFunction implements SkyFunction {
         Artifact input, ActionExecutionException e) {
       if (isMandatoryInput.test(input)) {
         // Prefer a catastrophic exception as the one we propagate.
-        if (firstActionExecutionException == null
-            || (!firstActionExecutionException.isCatastrophe() && e.isCatastrophe())) {
-          firstActionExecutionException = e;
+        if (worstActionExecutionException == null) {
+          worstActionExecutionException = e;
+        } else {
+          worstActionExecutionException =
+              ActionExecutionException.SEVERITY_ORDERING.max(worstActionExecutionException, e);
         }
         transitiveCauses.add(e.getRootCauses());
       }

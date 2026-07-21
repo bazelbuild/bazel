@@ -19,9 +19,8 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.docgen.annot.GlobalMethods;
-import com.google.devtools.build.docgen.annot.GlobalMethods.Environment;
-import com.google.devtools.build.lib.bazel.bzlmod.InterimModule.DepSpec;
+import com.google.devtools.build.docgen.annot.GlobalMethodDocs;
+import com.google.devtools.build.docgen.annot.GlobalMethodDocs.Environment;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleThreadContext.ModuleExtensionUsageBuilder;
 import com.google.devtools.build.lib.bazel.bzlmod.Version.ParseException;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -41,6 +40,7 @@ import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkLibrary;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
@@ -57,7 +57,8 @@ import net.starlark.java.syntax.Identifier;
 import net.starlark.java.syntax.Location;
 
 /** A collection of global Starlark build API functions that apply to MODULE.bazel files. */
-@GlobalMethods(environment = Environment.MODULE)
+@GlobalMethodDocs(environment = Environment.MODULE)
+@StarlarkLibrary
 public class ModuleFileGlobals {
 
   /* Valid bazel compatibility argument must 1) start with (<,<=,>,>=,-);
@@ -189,7 +190,6 @@ public class ModuleFileGlobals {
         .getModuleBuilder()
         .setName(name)
         .setVersion(parsedVersion)
-        .setCompatibilityLevel(0)
         .addBazelCompatibilityValues(
             checkAllCompatibilityVersions(bazelCompatibility, "bazel_compatibility"))
         .setRepoName(repoName);
@@ -310,7 +310,7 @@ public class ModuleFileGlobals {
         };
 
     if (!(context.shouldIgnoreDevDeps() && devDependency)) {
-      context.addDep(repoName, new DepSpec(name, parsedVersion, -1));
+      context.addDep(repoName, new ModuleKey(name, parsedVersion));
     }
 
     if (repoName.isPresent()) {

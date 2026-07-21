@@ -32,7 +32,6 @@ import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
@@ -148,6 +147,20 @@ public class RuleContext extends TargetContext
      * not depend on packages that are experimental.
      */
     public abstract boolean packageUnderExperimental(PackageIdentifier packageIdentifier);
+
+    /**
+     * Returns whether a package is considered to be in the prototypes directory. Packages outside
+     * of prototypes may not depend on packages that are in prototypes.
+     */
+    public abstract boolean packageUnderPrototypes(PackageIdentifier packageIdentifier);
+
+    /**
+     * Returns whether the given package is allowed to depend on prototype packages. (If the given
+     * package is itself an experimental or prototype package, this method's result is ignored.)
+     */
+    default boolean mayDependOnPrototypes(PackageIdentifier packageIdentifier) {
+      return false;
+    }
   }
 
   public static final String TOOLCHAIN_ATTR_NAME = "$toolchain";
@@ -1440,7 +1453,10 @@ public class RuleContext extends TargetContext
     private ConfigConditions configConditions;
     private Mutability mutability;
     private NestedSet<PackageGroupContents> visibility;
-    @Nullable private PackageSpecificationProvider transitiveVisibilityImposedByThisPackage;
+
+    @Nullable
+    private TransitiveVisibilityProvider.Requirement transitiveVisibilityImposedByThisPackage;
+
     private ToolchainCollection<ResolvedToolchainContext> toolchainContexts;
     private ToolchainCollection<AspectBaseTargetResolvedToolchainContext>
         baseTargetToolchainContexts;
@@ -1633,7 +1649,7 @@ public class RuleContext extends TargetContext
 
     @CanIgnoreReturnValue
     public Builder setTransitiveVisibilityImposedByThisPackage(
-        @Nullable PackageSpecificationProvider transitiveVisibility) {
+        @Nullable TransitiveVisibilityProvider.Requirement transitiveVisibility) {
       this.transitiveVisibilityImposedByThisPackage = transitiveVisibility;
       return this;
     }
@@ -2227,7 +2243,7 @@ public class RuleContext extends TargetContext
    * errors for future consumption, and drops warnings.
    */
   public static final class SuppressingErrorReporter implements RuleErrorConsumer {
-    private final List<String> errorMessages = Lists.newArrayList();
+    private final List<String> errorMessages = new ArrayList<>();
 
     @Override
     public void ruleWarning(String message) {}

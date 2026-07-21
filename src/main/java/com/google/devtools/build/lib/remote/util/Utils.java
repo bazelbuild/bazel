@@ -28,9 +28,7 @@ import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.Platform;
 import com.google.common.base.Ascii;
-import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
-import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.AsyncCallable;
 import com.google.common.util.concurrent.FluentFuture;
 import com.google.common.util.concurrent.Futures;
@@ -39,7 +37,6 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
-import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.Spawns;
@@ -55,7 +52,6 @@ import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.protobuf.Any;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Duration;
@@ -73,11 +69,8 @@ import com.google.rpc.RequestInfo;
 import com.google.rpc.ResourceInfo;
 import com.google.rpc.RetryInfo;
 import com.google.rpc.Status;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.text.DecimalFormat;
-import java.text.DecimalFormatSymbols;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.Locale;
@@ -127,20 +120,6 @@ public final class Utils {
       }
       throw e;
     }
-  }
-
-  /**
-   * Returns the (exec root relative) path of a spawn output that should be made available via
-   * {@link SpawnResult#getInMemoryOutput(ActionInput)}.
-   */
-  @Nullable
-  public static PathFragment getInMemoryOutputPath(Spawn spawn) {
-    String outputPath =
-        spawn.getExecutionInfo().get(ExecutionRequirements.REMOTE_EXECUTION_INLINE_OUTPUTS);
-    if (outputPath != null) {
-      return PathFragment.create(outputPath);
-    }
-    return null;
   }
 
   /** Constructs a {@link SpawnResult}. */
@@ -411,13 +390,13 @@ public final class Utils {
   public static ListenableFuture<ActionResult> downloadAsActionResult(
       ActionKey actionDigest,
       BiFunction<Digest, OutputStream, ListenableFuture<Void>> downloadFunction) {
-    ByteArrayOutputStream data = new ByteArrayOutputStream(/* size= */ 1024);
+    ByteString.Output data = ByteString.newOutput(/* initialCapacity= */ 1024);
     ListenableFuture<Void> download = downloadFunction.apply(actionDigest.digest(), data);
     return FluentFuture.from(download)
         .transformAsync(
             (v) -> {
               try {
-                return Futures.immediateFuture(ActionResult.parseFrom(data.toByteArray()));
+                return Futures.immediateFuture(ActionResult.parseFrom(data.toByteString()));
               } catch (InvalidProtocolBufferException e) {
                 return immediateFailedFuture(e);
               }
@@ -545,36 +524,9 @@ public final class Utils {
     }
   }
 
-  private static final ImmutableList<String> UNITS = ImmutableList.of("KiB", "MiB", "GiB", "TiB");
-  // Format as single digit decimal number.
-  private static final DecimalFormat BYTE_COUNT_FORMAT =
-      new DecimalFormat("0.0", new DecimalFormatSymbols(Locale.US));
-
-  /**
-   * Converts the number of bytes to a human readable string, e.g. 1024 -> 1 KiB.
-   *
-   * <p>Negative numbers are not allowed.
-   */
-  public static String bytesCountToDisplayString(long bytes) {
-    Preconditions.checkArgument(bytes >= 0);
-
-    if (bytes < 1024) {
-      return bytes + " B";
-    }
-
-    int unitIndex = 0;
-    long value = bytes;
-    while ((unitIndex + 1) < UNITS.size() && value >= (1 << 20)) {
-      value >>= 10;
-      unitIndex++;
-    }
-
-    return String.format("%s %s", BYTE_COUNT_FORMAT.format(value / 1024.0), UNITS.get(unitIndex));
-  }
-
   public static boolean shouldUploadLocalResultsToRemoteCache(
       RemoteOptions remoteOptions, Map<String, String> executionInfo) {
-    return remoteOptions.remoteUploadLocalResults
+    return remoteOptions.getRemoteUploadLocalResults()
         && Spawns.mayBeCachedRemotely(executionInfo)
         && !executionInfo.containsKey(ExecutionRequirements.NO_REMOTE_CACHE_UPLOAD);
   }

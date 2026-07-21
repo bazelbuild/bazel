@@ -204,9 +204,7 @@ public class Rule extends RuleOrMacroInstance implements Target {
     return ruleClass.hasAspects();
   }
 
-  /**
-   * Returns true if the given attribute is configurable.
-   */
+  /** Returns true if the given attribute is configurable. */
   public boolean isConfigurableAttribute(String attributeName) {
     // TODO(murali): This method should be property of ruleclass not rule instance.
     // Further, this call to AbstractAttributeMapper.isConfigurable is delegated right back
@@ -398,8 +396,6 @@ public class Rule extends RuleOrMacroInstance implements Target {
     return switch (attr.getName()) {
       case GENERATOR_FUNCTION -> interiorCallStack != null ? interiorCallStack.functionName() : "";
       case GENERATOR_LOCATION -> interiorCallStack != null ? getRelativeLocation() : "";
-      case GENERATOR_NAME ->
-          generatorNamePrefixLength > 0 ? getName().substring(0, generatorNamePrefixLength) : "";
       default -> attr.getDefaultValue(this);
     };
   }
@@ -413,15 +409,6 @@ public class Rule extends RuleOrMacroInstance implements Target {
   public boolean isRuleCreatedInMacro() {
     // TODO(bazel-team): do we really need the `hasStringAttribute(GENERATOR_NAME)` check?
     return interiorCallStack != null || hasStringAttribute(GENERATOR_NAME);
-  }
-
-  /** Returns the macro that generated this rule, or an empty string. */
-  public String getGeneratorFunction() {
-    Object value = getAttr(GENERATOR_FUNCTION);
-    if (value instanceof String valString) {
-      return valString;
-    }
-    return "";
   }
 
   private boolean hasStringAttribute(String attrName) {
@@ -571,7 +558,7 @@ public class Rule extends RuleOrMacroInstance implements Target {
         }
       } else {
         for (String out : implicitOutputsFunction.getImplicitOutputs(eventHandler, attributeMap)) {
-          implicitOutputHandler.accept(/*outputKey=*/ "", out);
+          implicitOutputHandler.accept(/* outputKey= */ "", out);
         }
       }
     } catch (EvalException e) {
@@ -638,8 +625,12 @@ public class Rule extends RuleOrMacroInstance implements Target {
     if (label.getName().equals(getName())) {
       // TODO(bazel-team): for now (23 Apr 2008) this is just a warning.  After
       // June 1st we should make it an error.
-      reportWarning("target '" + getName() + "' is both a rule and a file; please choose "
-                    + "another name for the rule", eventHandler);
+      reportWarning(
+          "target '"
+              + getName()
+              + "' is both a rule and a file; please choose "
+              + "another name for the rule",
+          eventHandler);
     }
   }
 
@@ -650,10 +641,14 @@ public class Rule extends RuleOrMacroInstance implements Target {
    * <p>This method may only be called while the rule's package or package piece is being
    * constructed.
    */
-  @Override
   void reportError(String message, EventHandler eventHandler) {
     eventHandler.handle(Package.error(location, message, PackageLoading.Code.STARLARK_EVAL_ERROR));
     pkg.setContainsErrors();
+  }
+
+  @Override
+  void reportError(String message, TargetDefinitionContext targetDefinitionContext) {
+    reportError(message, targetDefinitionContext.getLocalEventHandler());
   }
 
   private void reportWarning(String message, EventHandler eventHandler) {
@@ -722,7 +717,6 @@ public class Rule extends RuleOrMacroInstance implements Target {
     // Filter out labels like :__pkg__ and :__subpackages__.
     return Iterables.filter(rawLabels, label -> PackageSpecification.fromLabel(label) == null);
   }
-
 
   @Override
   public boolean isConfigurable() {

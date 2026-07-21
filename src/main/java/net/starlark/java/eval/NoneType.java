@@ -30,12 +30,13 @@ import net.starlark.java.syntax.Types;
 public final class NoneType implements StarlarkValue, TypeConstructor {
 
   @Override
-  public StarlarkType createStarlarkType(ImmutableList<Arg> argsTuple) throws Failure {
+  public StarlarkType createStarlarkType(ImmutableList<TypeConstructor.Term> argsTuple)
+      throws Failure {
     return Types.NONE_CONSTRUCTOR.createStarlarkType(argsTuple);
   }
 
   @Override
-  public StarlarkType getStarlarkType() {
+  public StarlarkType getStarlarkType(StarlarkSemantics semantics) {
     return Types.NONE;
   }
 

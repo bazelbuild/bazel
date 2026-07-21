@@ -24,7 +24,6 @@ import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.LocationExpander.LocationFunction.PathType;
@@ -39,6 +38,8 @@ import com.google.devtools.build.lib.util.ShellEscaper;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -403,7 +404,7 @@ public final class LocationExpander {
       Map<Label, ? extends Collection<Artifact>> labelMap,
       boolean allowDataAttributeEntriesInLabel,
       boolean collectSrcs) {
-    Map<Label, Collection<Artifact>> locationMap = Maps.newHashMap();
+    Map<Label, Collection<Artifact>> locationMap = new HashMap<>();
     if (labelMap != null) {
       for (Map.Entry<Label, ? extends Collection<Artifact>> entry : labelMap.entrySet()) {
         mapGet(locationMap, entry.getKey()).addAll(entry.getValue());
@@ -496,7 +497,7 @@ public final class LocationExpander {
     if (values == null) {
       // We use sets not lists, because it's conceivable that the same label
       // could appear twice, in "srcs" and "deps".
-      values = Sets.newHashSet();
+      values = new HashSet<>();
       map.put(key, values);
     }
     return values;

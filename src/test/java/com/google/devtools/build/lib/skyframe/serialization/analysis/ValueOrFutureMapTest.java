@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.concurrent.SettableFutureKeyedValue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -119,5 +120,33 @@ public final class ValueOrFutureMapTest {
 
     var result2 = map.getValueOrFuture("key");
     assertThat(result2).isSameInstanceAs(value);
+  }
+
+  @Test
+  public void unsafeClearForTesting_removesCompletedValues() {
+    var map =
+        new ValueOrFutureMap<>(
+            new ConcurrentHashMap<String, ValueOrFuture>(),
+            FutureValue::new,
+            future -> future.completeWith(new Value("val")),
+            FutureValue.class);
+
+    assertThat(map.getValueOrFuture("key")).isEqualTo(new Value("val"));
+    map.unsafeClearForTesting();
+
+    var populatorCount = new AtomicInteger(0);
+    var countedMap =
+        new ValueOrFutureMap<>(
+            new ConcurrentHashMap<String, ValueOrFuture>(),
+            FutureValue::new,
+            future -> {
+              populatorCount.incrementAndGet();
+              return future.completeWith(new Value("val2"));
+            },
+            FutureValue.class);
+    var unused = countedMap.getValueOrFuture("key");
+    countedMap.unsafeClearForTesting();
+    assertThat(countedMap.getValueOrFuture("key")).isEqualTo(new Value("val2"));
+    assertThat(populatorCount.get()).isEqualTo(2);
   }
 }

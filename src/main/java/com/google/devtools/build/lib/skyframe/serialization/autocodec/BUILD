@@ -93,10 +93,14 @@ java_library(
     ],
 )
 
-# @AutoCodec annotation only. Used by clients and the processor.
+# @AutoCodec annotation only. Clients should not depend on this directly as it doesn't include the processor.
+# Depend on :autocodec instead.
 java_library(
     name = "autocodec-annotation",
     srcs = ["AutoCodec.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
+    ],
 )
 
 # Installs the @AutoCodec annotation processor as a compiler plugin.

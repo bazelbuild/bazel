@@ -78,6 +78,7 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.StarlarkAspectClass;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.skyframe.BuildOptionsScopeFunction.BuildOptionsScopeFunctionException;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetEvaluationExceptions.ReportedException;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetEvaluationExceptions.UnreportedException;
@@ -98,6 +99,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.syntax.Location;
 
 /**
@@ -416,7 +418,7 @@ public final class DependencyResolver {
               .getConfigurationKey()
               .getOptions()
               .get(CoreOptions.class)
-              .execAspects
+              .getExecAspects()
               .isEmpty()) {
         ImmutableList<AspectClass> aspectClasses =
             createAspectClasses(
@@ -424,7 +426,7 @@ public final class DependencyResolver {
                     .getConfigurationKey()
                     .getOptions()
                     .get(CoreOptions.class)
-                    .execAspects);
+                    .getExecAspects());
         if (!aspectClasses.isEmpty()) {
           loadExecAspectsKey =
               LoadAspectsKey.create(
@@ -706,6 +708,17 @@ public final class DependencyResolver {
         } catch (DependencyResolutionHelpers.Failure e) {
           throw handleDependencyRootCauseError(ctgValue, e.getLocation(), e.getMessage(), listener);
         }
+
+        PrecomputedValue precomputedValue =
+            (PrecomputedValue) env.getValue(PrecomputedValue.STARLARK_SEMANTICS.getKey());
+        if (precomputedValue == null) {
+          return null;
+        }
+        StarlarkSemantics starlarkSemantics = (StarlarkSemantics) precomputedValue.get();
+        boolean requireMatchingAspectHintsProviders =
+            starlarkSemantics.getBool(
+                BuildLanguageOptions.INCOMPATIBLE_REQUIRE_MATCHING_ASPECT_HINTS_PROVIDERS);
+
         state.dependencyMapProducer =
             new Driver(
                 new DependencyMapProducer(
@@ -721,7 +734,8 @@ public final class DependencyResolver {
                         state.transitiveState,
                         state.storedEvents,
                         baseTargetPrerequisitesSupplier,
-                        baseTargetUnloadedToolchainContexts),
+                        baseTargetUnloadedToolchainContexts,
+                        requireMatchingAspectHintsProviders),
                     dependencyLabels.labels(),
                     (DependencyMapProducer.ResultSink) state));
       }

@@ -16,8 +16,8 @@ package com.google.devtools.build.lib.collect.nestedset;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.docgen.annot.DocCategory;
-import com.google.devtools.build.docgen.annot.GlobalMethods;
-import com.google.devtools.build.docgen.annot.GlobalMethods.Environment;
+import com.google.devtools.build.docgen.annot.GlobalMethodDocs;
+import com.google.devtools.build.docgen.annot.GlobalMethodDocs.Environment;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import java.util.List;
@@ -26,6 +26,7 @@ import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkAnnotations;
 import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkLibrary;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Debug;
 import net.starlark.java.eval.Dict;
@@ -163,7 +164,23 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
     if (set.isEmpty()) {
       return set.getOrder().emptyDepset();
     }
-    return new Depset(ElementType.getTypeClass(elemClass), set);
+    return new Depset(
+        ElementType.getTypeClass(elemClass), NestedSetInterner.internDepset(set, elemClass));
+  }
+
+  /**
+   * Returns a {@link Depset} that wraps the specified {@link NestedSet}, skipping type
+   * normalization and interning.
+   *
+   * <p>Safe to use only for arguments that previously came from a {@link Depset} (they were
+   * unwrapped and are now being rewrapped).
+   */
+  public static Depset rewrap(Class<?> elemClass, NestedSet<?> set) {
+    Preconditions.checkNotNull(elemClass, "elemClass cannot be null");
+    if (set.isEmpty()) {
+      return set.getOrder().emptyDepset();
+    }
+    return new Depset(elemClass, set);
   }
 
   /**
@@ -392,7 +409,7 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
     if (builder.isEmpty()) {
       return builder.getOrder().emptyDepset();
     }
-    NestedSet<Object> set = builder.build();
+    NestedSet<?> set = builder.build();
     // If the nested set was optimized to one of the transitive elements, reuse the corresponding
     // depset.
     for (Depset x : transitive) {
@@ -401,7 +418,7 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
       }
     }
 
-    return new Depset(type, set);
+    return new Depset(type, NestedSetInterner.internDepset(set, type));
   }
 
   /** An exception thrown when validation fails on the type of elements of a nested set. */
@@ -561,7 +578,8 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
   }
 
   /** The user-facing API to the {@code depset} callable. */
-  @GlobalMethods(environment = {Environment.BUILD, Environment.BZL})
+  @GlobalMethodDocs(environment = {Environment.BUILD, Environment.BZL})
+  @StarlarkLibrary
   public static final class DepsetLibrary {
 
     private DepsetLibrary() {}

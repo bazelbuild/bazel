@@ -17,10 +17,8 @@ package com.google.devtools.build.lib.buildeventservice.client;
 import static com.google.devtools.build.v1.BuildEvent.BuildComponentStreamFinished.FinishType.FINISHED;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient.CommandContext;
-import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient.InvocationStatus;
-import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient.LifecycleEvent;
-import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient.StreamEvent;
+import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.buildeventservice.client.LifecycleEvent.InvocationStatus;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.v1.BuildEvent;
 import com.google.devtools.build.v1.BuildEvent.BuildComponentStreamFinished;
@@ -38,8 +36,11 @@ import com.google.devtools.build.v1.StreamId;
 import com.google.devtools.build.v1.StreamId.BuildComponent;
 import com.google.protobuf.Any;
 import com.google.protobuf.ByteString;
+import com.google.protobuf.ExtensionRegistryLite;
+import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Timestamp;
 import java.time.Instant;
+import java.util.List;
 
 /** Utility methods to create BES proto messages. */
 public final class BuildEventServiceProtoUtil {
@@ -52,16 +53,17 @@ public final class BuildEventServiceProtoUtil {
   /** Creates a {@link PublishLifecycleEventRequest} from a {@link LifecycleEvent}. */
   public static PublishLifecycleEventRequest publishLifecycleEventRequest(
       CommandContext commandContext, LifecycleEvent lifecycleEvent) {
-    return switch (lifecycleEvent) {
-      case LifecycleEvent.BuildEnqueued(Instant eventTime) ->
-          buildEnqueued(commandContext, eventTime);
-      case LifecycleEvent.InvocationStarted(Instant eventTime) ->
-          invocationStarted(commandContext, eventTime);
-      case LifecycleEvent.InvocationFinished(Instant eventTime, InvocationStatus status) ->
-          invocationFinished(commandContext, eventTime, status);
-      case LifecycleEvent.BuildFinished(Instant eventTime, InvocationStatus status) ->
-          buildFinished(commandContext, eventTime, status);
-    };
+    if (lifecycleEvent instanceof LifecycleEvent.BuildEnqueued buildEnqueued) {
+      return buildEnqueued(commandContext, buildEnqueued.eventTime());
+    } else if (lifecycleEvent instanceof LifecycleEvent.InvocationStarted invocationStarted) {
+      return invocationStarted(commandContext, invocationStarted.eventTime());
+    } else if (lifecycleEvent instanceof LifecycleEvent.InvocationFinished invocationFinished) {
+      return invocationFinished(
+          commandContext, invocationFinished.eventTime(), invocationFinished.status());
+    } else if (lifecycleEvent instanceof LifecycleEvent.BuildFinished buildFinished) {
+      return buildFinished(commandContext, buildFinished.eventTime(), buildFinished.status());
+    }
+    throw new IllegalArgumentException("Unknown lifecycle event: " + lifecycleEvent);
   }
 
   public static PublishLifecycleEventRequest buildEnqueued(
@@ -113,29 +115,36 @@ public final class BuildEventServiceProtoUtil {
   }
 
   private static BuildStatus buildStatus(InvocationStatus status) {
-    return switch (status) {
-      case UNKNOWN -> BuildStatus.newBuilder().setResult(Result.UNKNOWN_STATUS).build();
-      case SUCCEEDED -> BuildStatus.newBuilder().setResult(Result.COMMAND_SUCCEEDED).build();
-      case FAILED -> BuildStatus.newBuilder().setResult(Result.COMMAND_FAILED).build();
-    };
+    if (status == InvocationStatus.SUCCEEDED) {
+      return BuildStatus.newBuilder().setResult(Result.COMMAND_SUCCEEDED).build();
+    } else if (status == InvocationStatus.FAILED) {
+      return BuildStatus.newBuilder().setResult(Result.COMMAND_FAILED).build();
+    }
+    return BuildStatus.newBuilder().setResult(Result.UNKNOWN_STATUS).build();
   }
 
   /** Creates a {@link PublishBuildToolEventStreamRequest} from a {@link StreamEvent}. */
   public static PublishBuildToolEventStreamRequest publishBuildToolEventStreamRequest(
       CommandContext commandContext, StreamEvent streamEvent) {
-    return switch (streamEvent) {
-      case StreamEvent.BazelEvent(Instant eventTime, long sequenceNumber, ByteString payload) ->
-          bazelEvent(commandContext, eventTime, sequenceNumber, payload);
-      case StreamEvent.StreamFinished(Instant eventTime, long sequenceNumber) ->
-          streamFinished(commandContext, eventTime, sequenceNumber);
-    };
+    if (streamEvent instanceof StreamEvent.BazelEvent bazelEvent) {
+      return bazelEvent(
+          commandContext,
+          bazelEvent.eventTime(),
+          bazelEvent.sequenceNumber(),
+          bazelEvent.payload());
+    } else if (streamEvent instanceof StreamEvent.StreamFinished streamFinished) {
+      return streamFinished(
+          commandContext, streamFinished.eventTime(), streamFinished.sequenceNumber());
+    }
+    throw new IllegalArgumentException("Unknown stream event: " + streamEvent);
   }
 
   public static PublishBuildToolEventStreamRequest bazelEvent(
-      CommandContext commandContext, Instant eventTime, long sequenceNumber, ByteString payload) {
+      CommandContext commandContext, Instant eventTime, long sequenceNumber, byte[] payload) {
     // Any.pack() would require us to parse the payload into a Message, which is wasteful.
     // Implement it manually instead.
-    Any packed = Any.newBuilder().setTypeUrl(TYPE_URL).setValue(payload).build();
+    Any packed =
+        Any.newBuilder().setTypeUrl(TYPE_URL).setValue(ByteString.copyFrom(payload)).build();
     return streamRequest(
         commandContext,
         sequenceNumber,
@@ -170,7 +179,8 @@ public final class BuildEventServiceProtoUtil {
     if (sequenceNumber == 1) {
       builder
           .addAllNotificationKeywords(commandContext.keywords())
-          .setCheckPrecedingLifecycleEventsPresent(commandContext.checkPrecedingLifecycleEvents());
+          .setCheckPrecedingLifecycleEventsPresent(commandContext.checkPrecedingLifecycleEvents())
+          .addAllStreamMetadata(parseMetadata(commandContext.streamMetadata()));
     }
     if (commandContext.projectId() != null) {
       builder.setProjectId(commandContext.projectId());
@@ -223,5 +233,17 @@ public final class BuildEventServiceProtoUtil {
         .setSeconds(instant.getEpochSecond())
         .setNanos(instant.getNano())
         .build();
+  }
+
+  private static ImmutableList<Any> parseMetadata(List<byte[]> metadataBytes) {
+    ImmutableList.Builder<Any> builder = ImmutableList.builder();
+    for (byte[] bytes : metadataBytes) {
+      try {
+        builder.add(Any.parseFrom(bytes, ExtensionRegistryLite.getEmptyRegistry()));
+      } catch (InvalidProtocolBufferException e) {
+        throw new IllegalStateException("Failed to parse stream metadata", e);
+      }
+    }
+    return builder.build();
   }
 }

@@ -19,7 +19,6 @@ import static com.google.common.util.concurrent.Uninterruptibles.awaitTerminatio
 import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.Subscribe;
@@ -49,6 +48,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import javax.annotation.Nullable;
@@ -100,7 +100,7 @@ public class IncrementalPackageRoots implements PackageRoots {
       IgnoredSubdirectories ignoredPaths,
       boolean useSiblingRepositoryLayout,
       boolean allowExternalRepositories) {
-    this.threadSafeExternalRepoPackageRootsMap = Maps.newConcurrentMap();
+    this.threadSafeExternalRepoPackageRootsMap = new ConcurrentHashMap<>();
     this.execroot = execroot;
     this.singleSourceRoot = singleSourceRoot;
     this.prefix = prefix;

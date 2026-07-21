@@ -19,6 +19,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
+import com.google.devtools.common.options.HelpVerbosity;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import java.io.IOException;
@@ -113,7 +114,7 @@ public class BlazeCommandUtils {
       String help,
       Class<? extends BlazeCommand> commandClass,
       Collection<Class<? extends OptionsBase>> options,
-      OptionsParser.HelpVerbosity helpVerbosity,
+      HelpVerbosity helpVerbosity,
       String productName) {
     OptionsParser parser = OptionsParser.builder().optionsClasses(options).build();
 
@@ -146,7 +147,7 @@ public class BlazeCommandUtils {
             .replace("%{options}", optionStr)
             .trim()
         + "\n\n"
-        + (helpVerbosity == OptionsParser.HelpVerbosity.MEDIUM
+        + (helpVerbosity == HelpVerbosity.MEDIUM
             ? "(Use 'help --long' for full details or --short to just enumerate options.)\n"
             : "");
   }
@@ -159,7 +160,7 @@ public class BlazeCommandUtils {
    */
   public static String getUsage(
       Class<? extends BlazeCommand> commandClass,
-      OptionsParser.HelpVerbosity verbosity,
+      HelpVerbosity verbosity,
       Iterable<OptionsSupplier> optionsSuppliers,
       ConfiguredRuleClassProvider ruleClassProvider,
       String productName) {

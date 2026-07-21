@@ -156,7 +156,6 @@ genrule(name="g", srcs=[":f"], outs=["go"], cmd="cat $(locations :f) > $@")
 EOF
 
   bazel build //:g \
-    --experimental_disable_external_package \
     --experimental_sibling_repository_layout \
     || fail "build failed"
   assert_contains file_ab bazel-bin/go
@@ -179,7 +178,6 @@ int main(void) {
 EOF
 
   bazel build //external/a:a \
-    --experimental_disable_external_package \
     --experimental_sibling_repository_layout \
     || fail "build failed"
 }
@@ -202,7 +200,6 @@ public class A {
 EOF
 
   bazel build //external/java/a:a \
-    --experimental_disable_external_package \
     --experimental_sibling_repository_layout \
     || fail "build failed"
 }

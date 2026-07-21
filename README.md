@@ -38,7 +38,6 @@ Build and test software of any size, quickly and reliably.
   * [Use the query command](https://bazel.build/reference/query)
   * [Extend Bazel](https://bazel.build/rules/concepts)
   * [Write tests](https://bazel.build/reference/test-encyclopedia)
-  * [Roadmap](https://bazel.build/community/roadmaps)
   * [Who is using Bazel?](https://bazel.build/community/users)
 
 ## Reporting a Vulnerability

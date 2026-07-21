@@ -61,7 +61,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
-import com.google.common.eventbus.EventBus;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -82,6 +81,7 @@ import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.RunfilesTree;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.actions.SpawnInputs;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
@@ -94,6 +94,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventBusEventHandler;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.events.StoredEventHandler;
@@ -105,7 +106,6 @@ import com.google.devtools.build.lib.remote.RemoteExecutionService.RemoteActionR
 import com.google.devtools.build.lib.remote.RemoteScrubbing.Config;
 import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
-import com.google.devtools.build.lib.remote.common.RemoteCacheClient.Blob;
 import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver.DefaultRemotePathResolver;
@@ -171,7 +171,6 @@ import org.openjdk.jol.info.GraphLayout;
 
 /** Tests for {@link RemoteExecutionService}. */
 @RunWith(TestParameterInjector.class)
-@SuppressWarnings("AllowVirtualThreads")
 public class RemoteExecutionServiceTest {
   @Rule public final MockitoRule mockito = MockitoJUnit.rule();
   @Rule public final RxNoGlobalErrorsRule rxNoGlobalErrorsRule = new RxNoGlobalErrorsRule();
@@ -182,7 +181,7 @@ public class RemoteExecutionServiceTest {
 
   private final DigestUtil digestUtil =
       new DigestUtil(SyscallCache.NO_CACHE, DigestHashFunction.SHA256);
-  private final Reporter reporter = new Reporter(new EventBus());
+  private final Reporter reporter = new Reporter(EventBusEventHandler.createWithNewEventBus());
   private final StoredEventHandler eventHandler = new StoredEventHandler();
 
   private final CacheCapabilities cacheCapabilities =
@@ -255,8 +254,7 @@ public class RemoteExecutionServiceTest {
     executor = mock(RemoteExecutionClient.class);
     when(executor.getServerCapabilities()).thenReturn(remoteExecutorCapabilities);
 
-    RequestMetadata metadata =
-        TracingMetadataUtils.buildMetadata("none", "none", "action-id", null);
+    RequestMetadata metadata = TracingMetadataUtils.buildMetadata("none", "none", "action-id");
     remoteActionExecutionContext = RemoteActionExecutionContext.create(metadata);
   }
 
@@ -574,7 +572,7 @@ public class RemoteExecutionServiceTest {
     Collections.shuffle(inputs, RandomGeneratorFactory.getDefault().create(seed));
     var spawn = new SpawnBuilder("my", "args").withInputs(inputs).withOutput(outputDir).build();
     FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
-    remoteOptions.remoteDiscardMerkleTrees = false;
+    remoteOptions.setRemoteDiscardMerkleTrees(false);
     RemoteExecutionService service = newRemoteExecutionService(remoteOptions);
 
     var emptyDirectory = dir(ImmutableList.of(), ImmutableMap.of());
@@ -869,6 +867,8 @@ public class RemoteExecutionServiceTest {
       //   basename for file nodes), and Integers (referencing intermediate segments of Artifact
       //   exec paths for most directory nodes).
       // TODO: Get this number down.
+      // NOTE: Don't just increase this number if the test fails, it directly corresponds to the
+      // memory usage of Bazel's (but not Blaze's) remote execution implementation.
       assertThat(stableRetainedSize).isEqualTo(4064);
     }
   }
@@ -1342,6 +1342,34 @@ public class RemoteExecutionServiceTest {
     assertThat(path.isSymbolicLink()).isTrue();
     assertThat(path.readSymbolicLink()).isEqualTo(PathFragment.create("../../foo"));
     assertThat(context.isLockOutputFilesCalled()).isTrue();
+  }
+
+  @Test
+  public void downloadOutputs_outputSymlinkEscapingExecRoot_isRejected() throws Exception {
+    // An output symlink whose resolved local path is outside the exec root must be rejected,
+    // mirroring
+    // the containment enforced for output files (file.path.relativeTo(execRoot) throws in
+    // downloadOutputs). The escaping symlink is present only in the result passed to
+    // downloadOutputs;
+    // building the spawn from it would otherwise attempt to create a test artifact for the escaping
+    // path.
+    Spawn spawn =
+        newSpawnFromResult(
+            RemoteActionResult.createFromCache(
+                CachedActionResult.remote(ActionResult.getDefaultInstance())));
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
+    RemoteExecutionService service = newRemoteExecutionService();
+    RemoteAction action = service.buildRemoteAction(spawn, context);
+    createOutputDirectories(spawn);
+    when(remoteOutputChecker.shouldDownloadOutput(ArgumentMatchers.<PathFragment>any(), any()))
+        .thenReturn(true);
+
+    ActionResult.Builder poisoned = ActionResult.newBuilder();
+    poisoned.addOutputSymlinksBuilder().setPath("outputs/../../../escape/link").setTarget("foo");
+    RemoteActionResult poisonedResult =
+        RemoteActionResult.createFromCache(CachedActionResult.remote(poisoned.build()));
+
+    assertThrows(IOException.class, () -> service.downloadOutputs(action, poisonedResult));
   }
 
   @Test
@@ -2158,7 +2186,7 @@ public class RemoteExecutionServiceTest {
             /* arguments= */ ImmutableList.of(),
             /* environment= */ ImmutableMap.of(),
             /* executionInfo= */ ImmutableMap.of(REMOTE_EXECUTION_INLINE_OUTPUTS, "outputs/file1"),
-            /* inputs= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+            SpawnInputs.empty(),
             /* tools= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
             /* outputs= */ ImmutableSet.of(a1),
             /* mandatoryOutputs= */ ImmutableSet.of(),
@@ -2679,7 +2707,7 @@ public class RemoteExecutionServiceTest {
               return future;
             })
         .when(cache.remoteCacheClient)
-        .uploadBlob(any(), any(), (Blob) any());
+        .uploadBlobImpl(any(), any(), any());
     ActionInput input = ActionInputHelper.fromPath("inputs/foo");
     fakeFileCache.createScratchInput(input, "input-foo");
     RemoteExecutionService service = newRemoteExecutionService();
@@ -2738,8 +2766,8 @@ public class RemoteExecutionServiceTest {
                 enablePathMapping ? path -> PathFragment.create("mapped_" + path) : PathMapper.NOOP)
             .build();
     FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
-    remoteOptions.markToolInputs = true;
-    remoteOptions.remoteDiscardMerkleTrees = false;
+    remoteOptions.setMarkToolInputs(true);
+    remoteOptions.setRemoteDiscardMerkleTrees(false);
     remotePathResolver =
         siblingRepositoryLayout
             ? new SiblingRepositoryLayoutResolver(execRoot)
@@ -2849,6 +2877,21 @@ public class RemoteExecutionServiceTest {
   }
 
   @Test
+  public void workerPropertiesNotAddedUnlessMarkToolInputsSet() throws Exception {
+    Spawn spawn =
+        new SpawnBuilder("some/path/cmd")
+            .withExecutionInfo(ExecutionRequirements.SUPPORTS_WORKERS, "1")
+            .withExecutionInfo(ExecutionRequirements.REQUIRES_WORKER_PROTOCOL, "json")
+            .build();
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
+    RemoteExecutionService service = newRemoteExecutionService();
+
+    RemoteAction remoteAction = service.buildRemoteAction(spawn, context);
+
+    assertThat(remoteAction.getAction().getPlatform().getPropertiesList()).isEmpty();
+  }
+
+  @Test
   public void buildRemoteActionWithScrubbing() throws Exception {
     var keptInput = ActionsTestUtil.createArtifact(artifactRoot, "kept_input");
     fakeFileCache.createScratchInput(keptInput, "kept");
@@ -2862,7 +2905,7 @@ public class RemoteExecutionServiceTest {
             .build();
 
     FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
-    remoteOptions.scrubber =
+    remoteOptions.setScrubber(
         new Scrubber(
             Config.newBuilder()
                 .addRules(
@@ -2875,8 +2918,8 @@ public class RemoteExecutionServiceTest {
                                     Config.Replacement.newBuilder()
                                         .setSource("some/path")
                                         .setTarget("another/dir"))))
-                .build());
-    remoteOptions.remoteDiscardMerkleTrees = false;
+                .build()));
+    remoteOptions.setRemoteDiscardMerkleTrees(false);
     RemoteExecutionService service = newRemoteExecutionService(remoteOptions);
 
     RemoteAction remoteAction = service.buildRemoteAction(spawn, context);
@@ -2935,7 +2978,7 @@ public class RemoteExecutionServiceTest {
             .setPathMapper(pathMapper)
             .build();
     FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
-    remoteOptions.remoteDiscardMerkleTrees = false;
+    remoteOptions.setRemoteDiscardMerkleTrees(false);
     RemoteExecutionService service = newRemoteExecutionService(remoteOptions);
 
     // Check that inputs and outputs of the remote action are mapped correctly.
@@ -3114,7 +3157,7 @@ public class RemoteExecutionServiceTest {
   private FakeSpawnExecutionContext newSpawnExecutionContext(Spawn spawn, FileOutErr outErr) {
     var actionInputFetcher =
         new RemoteActionInputFetcher(
-            new Reporter(new EventBus()),
+            new Reporter(EventBusEventHandler.createWithNewEventBus()),
             "none",
             "none",
             cache,

@@ -849,10 +849,14 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     }
 
     if (resourceSetUnchecked != Starlark.NONE) {
-      validateResourceSetBuilder(resourceSetUnchecked);
-      builder.setResources(
-          StarlarkActionResourceSetBuilder.create(
-              (StarlarkCallable) resourceSetUnchecked, mnemonic, getSemantics()));
+      if (resourceSetUnchecked instanceof Dict) {
+        builder.setResources(parseResourceSetFromDict(resourceSetUnchecked));
+      } else {
+        validateResourceSetBuilder(resourceSetUnchecked);
+        builder.setResources(
+            StarlarkActionResourceSetBuilder.create(
+                (StarlarkCallable) resourceSetUnchecked, mnemonic, getSemantics()));
+      }
     }
 
     // Always register the action
@@ -965,7 +969,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       }
     }
 
-    private static double getNumericOrDefault(
+    static double getNumericOrDefault(
         Map<String, Object> resourceSetMap, String key, double defaultValue) throws EvalException {
       if (!resourceSetMap.containsKey(key)) {
         return defaultValue;
@@ -1002,6 +1006,66 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     public int hashCode() {
       return Objects.hashCode(fn, mnemonic, semantics);
     }
+  }
+
+  /**
+   * A {@link ResourceSetOrBuilder} with only memory and CPU usage optimized for retention by
+   * actions.
+   *
+   * <p>With compact object headers enabled, an instance takes up 16 bytes (8 bytes for the header,
+   * 4 bytes each for the two floats), whereas an equivalent {@link ResourceSet} instance takes up
+   * more than 180 bytes.
+   */
+  private record StarlarkActionResourceSet(float memoryMb, float cpuUsage)
+      implements ResourceSetOrBuilder {
+    private static final Interner<StarlarkActionResourceSet> interner =
+        BlazeInterners.newWeakInterner();
+
+    static StarlarkActionResourceSet create(float memoryMb, float cpuUsage) {
+      var resourceSet = new StarlarkActionResourceSet(memoryMb, cpuUsage);
+      // A very common subcase is that of only an integral CPU limit.
+      if (memoryMb == 0 && cpuUsage == (int) cpuUsage) {
+        resourceSet = interner.intern(resourceSet);
+      }
+      return resourceSet;
+    }
+
+    @Override
+    public ResourceSet buildResourceSet(OS os, int inputsSize) {
+      return ResourceSet.createWithRamCpu(memoryMb, cpuUsage);
+    }
+  }
+
+  private static ResourceSetOrBuilder parseResourceSetFromDict(Object resourceSetUnchecked)
+      throws EvalException {
+    Map<String, Object> resourceSetMapRaw =
+        Dict.cast(resourceSetUnchecked, String.class, Object.class, "resource_set");
+
+    if (!validResources.containsAll(resourceSetMapRaw.keySet())) {
+      String message =
+          String.format(
+              "Illegal resource keys: (%s)",
+              Joiner.on(",").join(Sets.difference(resourceSetMapRaw.keySet(), validResources)));
+      throw Starlark.errorf("%s", message);
+    }
+
+    double memoryMb =
+        StarlarkActionResourceSetBuilder.getNumericOrDefault(
+            resourceSetMapRaw, ResourceSet.MEMORY, DEFAULT_RESOURCE_SET.getMemoryMb());
+    double cpuUsage =
+        StarlarkActionResourceSetBuilder.getNumericOrDefault(
+            resourceSetMapRaw, ResourceSet.CPU, DEFAULT_RESOURCE_SET.getCpuUsage());
+    int localTestCount =
+        (int)
+            StarlarkActionResourceSetBuilder.getNumericOrDefault(
+                resourceSetMapRaw, "local_test", DEFAULT_RESOURCE_SET.getLocalTestCount());
+    // Optimize for low retained memory usage since this resource set is retained by the action.
+    // The loss of precision for memory and CPU usage due to the cast to float is negligible for the
+    // purpose of resource scheduling.
+    if (localTestCount == DEFAULT_RESOURCE_SET.getLocalTestCount()) {
+      return StarlarkActionResourceSet.create((float) memoryMb, (float) cpuUsage);
+    }
+    return ResourceSet.create(memoryMb, cpuUsage, localTestCount);
   }
 
   private static void validateResourceSetBuilder(Object fn) throws EvalException {

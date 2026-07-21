@@ -17,8 +17,8 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec.MemoizationEquality;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry.CodecDescriptor;
-import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.WriteStatus;
 import com.google.errorprone.annotations.ForOverride;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
@@ -72,10 +72,10 @@ public abstract class SerializationContext implements LeafSerializationContext {
       Object object,
       CodedOutputStream codedOut)
       throws IOException, SerializationException {
-    if (writeBackReferenceIfMemoized(object, codedOut, castCodec instanceof LeafObjectCodec)) {
+    if (writeBackReferenceIfMemoized(object, codedOut, castCodec.getMemoizationEquality(object))) {
       return;
     }
-    codedOut.writeSInt32NoTag(descriptor.tag());
+    codedOut.writeUInt32NoTag(descriptor.getTypedTagNumber());
     serializeWithCodec(castCodec, object, codedOut);
   }
 
@@ -188,25 +188,24 @@ public abstract class SerializationContext implements LeafSerializationContext {
    *
    * <p>Never succeeds if memoization is disabled.
    *
-   * @param isLeafType true if the codec used for {@code obj} would be an instance of {@link
-   *     LeafObjectCodec}
    * @return true if {@code obj} was serialized to {@code codedOut} as a backreference
    */
   @ForOverride
   abstract boolean writeBackReferenceIfMemoized(
-      Object obj, CodedOutputStream codedOut, boolean isLeafType) throws IOException;
+      Object obj, CodedOutputStream codedOut, MemoizationEquality memoizationEquality)
+      throws IOException;
 
   public abstract boolean isMemoizing();
 
   final boolean writeIfNullOrConstant(@Nullable Object object, CodedOutputStream codedOut)
       throws IOException {
     if (object == null) {
-      codedOut.writeSInt32NoTag(0);
+      codedOut.writeUInt32NoTag(0);
       return true;
     }
     Integer tag = codecRegistry.maybeGetTagForConstant(object);
     if (tag != null) {
-      codedOut.writeSInt32NoTag(tag);
+      codedOut.writeUInt32NoTag(tag);
       return true;
     }
     return false;

@@ -23,12 +23,12 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventBusEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
@@ -64,7 +64,7 @@ public abstract class AbstractPackageLoaderTest {
     workspaceDir = fs.getPath("/workspace/");
     workspaceDir.createDirectoryAndParents();
     root = Root.fromPath(workspaceDir);
-    reporter = new Reporter(new EventBus());
+    reporter = new Reporter(EventBusEventHandler.createWithNewEventBus());
     handler = new StoredEventHandler();
     reporter.addHandler(handler);
   }

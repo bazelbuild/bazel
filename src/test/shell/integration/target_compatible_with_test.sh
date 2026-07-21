@@ -257,11 +257,14 @@ compiler_flag = rule(
 EOF
 }
 
-# Validates that we get a good error message when passing a config_setting into
-# the target_compatible_with attribute. This is a regression test for
-# https://github.com/bazelbuild/bazel/issues/13250.
+# Validates that config_settings can be used directly in the
+# target_compatible_with attribute. This is a regression test for
+# https://github.com/bazelbuild/bazel/issues/21857.
 function test_config_setting_in_target_compatible_with() {
-  cat >> target_skipping/BUILD <<'EOF'
+  add_bazel_skylib "MODULE.bazel"
+
+  cat >> target_skipping/BUILD <<EOF
+load("${skylib_package}lib:selects.bzl", "selects")
 load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 
 config_setting(
@@ -269,11 +272,40 @@ config_setting(
     constraint_values = [":foo3"],
 )
 
+config_setting(
+    name = "feature_enabled",
+    define_values = {"feature": "enabled"},
+)
+
+selects.config_setting_group(
+    name = "foo3_or_feature_enabled",
+    match_any = [
+        ":foo3_config_setting",
+        ":feature_enabled",
+    ],
+)
+
 sh_binary(
-    name = "problematic_foo3_target",
+    name = "pass_on_foo3_config_setting",
     srcs = ["pass.sh"],
     target_compatible_with = [
         ":foo3_config_setting",
+    ],
+)
+
+sh_binary(
+    name = "pass_when_feature_enabled",
+    srcs = ["pass.sh"],
+    target_compatible_with = [
+        ":feature_enabled",
+    ],
+)
+
+sh_binary(
+    name = "pass_when_group_matches",
+    srcs = ["pass.sh"],
+    target_compatible_with = [
+        ":foo3_or_feature_enabled",
     ],
 )
 EOF
@@ -284,9 +316,58 @@ EOF
     --show_result=10 \
     --host_platform=@//target_skipping:foo3_platform \
     --platforms=@//target_skipping:foo3_platform \
-    ... &> "${TEST_log}" && fail "Bazel succeeded unexpectedly."
+    //target_skipping:pass_on_foo3_config_setting &> "${TEST_log}" \
+    || fail "Bazel failed unexpectedly."
 
-  expect_log "'//target_skipping:foo3_config_setting' does not have mandatory providers: 'ConstraintValueInfo'"
+  bazel build \
+    --show_result=10 \
+    --host_platform=@//target_skipping:foo1_bar1_platform \
+    --platforms=@//target_skipping:foo1_bar1_platform \
+    //target_skipping:pass_on_foo3_config_setting &> "${TEST_log}" \
+    && fail "Bazel succeeded unexpectedly."
+
+  expect_log "target configuration didn't match config_setting //target_skipping:foo3_config_setting"
+
+  bazel build \
+    --show_result=10 \
+    --host_platform=@//target_skipping:foo1_bar1_platform \
+    --platforms=@//target_skipping:foo1_bar1_platform \
+    --define feature=enabled \
+    //target_skipping:pass_when_feature_enabled &> "${TEST_log}" \
+    || fail "Bazel failed unexpectedly."
+
+  bazel build \
+    --show_result=10 \
+    --host_platform=@//target_skipping:foo1_bar1_platform \
+    --platforms=@//target_skipping:foo1_bar1_platform \
+    //target_skipping:pass_when_feature_enabled &> "${TEST_log}" \
+    && fail "Bazel succeeded unexpectedly."
+
+  expect_log "target configuration didn't match config_setting //target_skipping:feature_enabled"
+
+  bazel build \
+    --show_result=10 \
+    --host_platform=@//target_skipping:foo3_platform \
+    --platforms=@//target_skipping:foo3_platform \
+    //target_skipping:pass_when_group_matches &> "${TEST_log}" \
+    || fail "Bazel failed unexpectedly."
+
+  bazel build \
+    --show_result=10 \
+    --host_platform=@//target_skipping:foo1_bar1_platform \
+    --platforms=@//target_skipping:foo1_bar1_platform \
+    --define feature=enabled \
+    //target_skipping:pass_when_group_matches &> "${TEST_log}" \
+    || fail "Bazel failed unexpectedly."
+
+  bazel build \
+    --show_result=10 \
+    --host_platform=@//target_skipping:foo1_bar1_platform \
+    --platforms=@//target_skipping:foo1_bar1_platform \
+    //target_skipping:pass_when_group_matches &> "${TEST_log}" \
+    && fail "Bazel succeeded unexpectedly."
+
+  expect_log "target configuration didn't match config_setting //target_skipping:foo3_or_feature_enabled"
 }
 
 # Validates that we get an error when target_compatible_with contains duplicate

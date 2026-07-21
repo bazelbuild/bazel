@@ -17,10 +17,12 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 import java.util.List;
 
 /** Defines the options specific to Bazel's vendor command. */
-public class VendorOptions extends OptionsBase {
+@OptionsClass
+public abstract class VendorOptions extends OptionsBase {
   @Option(
       name = "repo",
       defaultValue = "null",
@@ -32,5 +34,5 @@ public class VendorOptions extends OptionsBase {
           Only vendors the specified repository, which can be either `@apparent_repo_name` or
           `@@canonical_repo_name`. This option can be set multiple times.
           """)
-  public List<String> repos;
+  public abstract List<String> getRepos();
 }

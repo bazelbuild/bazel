@@ -82,11 +82,17 @@ final class VersionedChangesValidator {
   private final FileOpMatchMemoizingLookup fileOpMatches;
   private final NestedMatchMemoizingLookup nestedMatches;
 
+  VersionedChangesValidator(
+      Executor executor,
+      VersionedChanges changes,
+      ConcurrentHashMap<FileOpDependency, FileOpMatchResultOrFuture> fileOpMatchesMap,
+      ConcurrentHashMap<NestedDependencies, NestedMatchResultOrFuture> nestedMatchesMap) {
+    this.fileOpMatches = new FileOpMatchMemoizingLookup(executor, changes, fileOpMatchesMap);
+    this.nestedMatches = new NestedMatchMemoizingLookup(executor, fileOpMatches, nestedMatchesMap);
+  }
+
   VersionedChangesValidator(Executor executor, VersionedChanges changes) {
-    this.fileOpMatches =
-        new FileOpMatchMemoizingLookup(executor, changes, new ConcurrentHashMap<>());
-    this.nestedMatches =
-        new NestedMatchMemoizingLookup(executor, fileOpMatches, new ConcurrentHashMap<>());
+    this(executor, changes, new ConcurrentHashMap<>(), new ConcurrentHashMap<>());
   }
 
   /** Changes in the cache reader used for invalidation. */

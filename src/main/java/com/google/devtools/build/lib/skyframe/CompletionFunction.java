@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.actions.InputFileErrorException;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.TopLevelOutputException;
 import com.google.devtools.build.lib.analysis.ConfiguredObjectValue;
-import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper;
@@ -181,7 +180,7 @@ public final class CompletionFunction<
       importantInputMap = new ActionInputMap(importantArtifacts.size());
     }
 
-    ActionExecutionException firstActionExecutionException = null;
+    ActionExecutionException worstActionExecutionException = null;
     NestedSetBuilder<Cause> rootCausesBuilder = NestedSetBuilder.stableOrder();
     Set<Artifact> builtArtifacts = new HashSet<>();
     // Don't double-count files due to Skyframe restarts.
@@ -223,9 +222,11 @@ public final class CompletionFunction<
           rootCausesBuilder.addTransitive(e.getRootCauses());
         }
         // Prefer a catastrophic exception as the one we propagate.
-        if (firstActionExecutionException == null
-            || (!firstActionExecutionException.isCatastrophe() && e.isCatastrophe())) {
-          firstActionExecutionException = e;
+        if (worstActionExecutionException == null) {
+          worstActionExecutionException = e;
+        } else {
+          worstActionExecutionException =
+              ActionExecutionException.SEVERITY_ORDERING.max(worstActionExecutionException, e);
         }
       } catch (SourceArtifactException e) {
         if (!input.isSourceArtifact()) {
@@ -276,8 +277,8 @@ public final class CompletionFunction<
         // we'll get another opportunity to post an event after rewinding.
         return rewindPlanResult.toNullIfMissingDependenciesElseReset();
       }
-      if (firstActionExecutionException != null) {
-        throw new CompletionFunctionException(firstActionExecutionException);
+      if (worstActionExecutionException != null) {
+        throw new CompletionFunctionException(worstActionExecutionException);
       }
       Object locationPrefix = completor.getLocationIdentifier(key, value, env);
       Pair<DetailedExitCode, String> codeAndMessage =

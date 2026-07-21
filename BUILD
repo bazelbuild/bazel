@@ -1,7 +1,7 @@
 # Bazel - Google's Build System
 
 load("@bazel_skylib//rules:write_file.bzl", "write_file")
-load("@rules_java//toolchains:default_java_toolchain.bzl", "default_java_toolchain")
+load("@rules_java//toolchains:default_java_toolchain.bzl", "DEFAULT_TOOLCHAIN_CONFIGURATION", "default_java_toolchain")
 load("@rules_license//rules:license.bzl", "license")
 load("@rules_pkg//pkg:mappings.bzl", "pkg_attributes", "pkg_files")
 load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
@@ -45,7 +45,6 @@ filegroup(
         "//site:srcs",
         "//src:srcs",
         "//src/main/java/com/google/devtools/build/docgen/release:srcs",
-        "//src/main/starlark/tests/builtins_bzl:srcs",
         "//third_party:srcs",
         "//tools:srcs",
     ] + glob(
@@ -291,7 +290,7 @@ platform(
     ],
 )
 
-REMOTE_PLATFORMS = ("rbe_ubuntu2004",)
+REMOTE_PLATFORMS = ("rbe_ubuntu2404",)
 
 [
     platform(
@@ -331,6 +330,16 @@ REMOTE_PLATFORMS = ("rbe_ubuntu2004",)
         oneversion_allowlist_for_tests = ":oneversion_allowlist_for_tests.csv",
         source_version = str(language_version),
         target_version = str(language_version),
+        turbine_jvm_opts = DEFAULT_TOOLCHAIN_CONFIGURATION["jvm_opts"] + [
+            # Silence a warning about unsafe memory access by Protobuf running as part of Turbine:
+            #
+            # WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+            # WARNING: sun.misc.Unsafe::arrayBaseOffset has been called by com.google.protobuf.UnsafeUtil$MemoryAccessor (file:/.../java_tools/turbine_direct_binary_deploy.jar)
+            # WARNING: Please consider reporting this to the maintainers of class com.google.protobuf.UnsafeUtil$MemoryAccessor
+            #
+            # https://github.com/protocolbuffers/protobuf/issues/20760
+            "--sun-misc-unsafe-memory-access=allow",
+        ],
     )
     for language_version in set([
         MINIMUM_JAVA_COMPILATION_RUNTIME_VERSION,

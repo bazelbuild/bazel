@@ -30,7 +30,11 @@ public final class JavaHomeInfoItem extends InfoItem {
   @Override
   public byte[] get(
       Supplier<BuildConfigurationValue> configurationSupplier, CommandEnvironment env) {
-    String javaHome = StringEncoding.platformToInternal(System.getProperty("java.home"));
+    String javaHomeProperty = System.getProperty("java.home");
+    if (javaHomeProperty == null) {
+      return print("unknown");
+    }
+    String javaHome = StringEncoding.platformToInternal(javaHomeProperty);
     if (javaHome == null) {
       return print("unknown");
     }

@@ -217,7 +217,7 @@ public abstract class PyBuiltins implements StarlarkValue {
                     .getConfiguration()
                     .getOptions()
                     .get(CoreOptions.class)
-                    .compactRepoMapping));
+                    .getCompactRepoMapping()));
   }
 
   @StarlarkMethod(

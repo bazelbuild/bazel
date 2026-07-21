@@ -395,7 +395,6 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
             cpu = ctx.fragments.apple.single_arch_cpu
             platform = ctx.fragments.apple.single_arch_platform
             xcode_config = ctx.attr._xcode_config[apple_common.XcodeVersionConfig]
-            dead_code_report = ctx.attr._dead_code_report
             env = apple_common.target_apple_env(xcode_config, platform)
             xcode_version = xcode_config.xcode_version()
             sdk_version = xcode_config.sdk_version_for_platform(platform)
@@ -410,7 +409,6 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
                 single_arch_platform = str(single_arch_platform),
                 single_arch_cpu = str(single_arch_cpu),
                 platform_type = str(platform_type),
-                dead_code_report = str(dead_code_report),
             )
 
         swift_binary = rule(
@@ -421,12 +419,6 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
                     default = configuration_field(
                         fragment = "apple",
                         name = "xcode_config_label",
-                    ),
-                ),
-                "_dead_code_report": attr.label(
-                    default = configuration_field(
-                        fragment = "j2objc",
-                        name = "dead_code_report",
                     ),
                 ),
             },
@@ -464,155 +456,6 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
     assertThat(myInfo.getValue("single_arch_platform")).isEqualTo("ios_simulator");
     assertThat(myInfo.getValue("single_arch_cpu")).isEqualTo("x86_64");
     assertThat(myInfo.getValue("platform_type")).isEqualTo("ios");
-    assertThat(myInfo.getValue("dead_code_report")).isEqualTo("None");
-  }
-
-  @Test
-  public void testDefaultJ2objcDeadCodeReport() throws Exception {
-    scratch.file("test_starlark/rule/BUILD");
-    scratch.file(
-        "test_starlark/rule/apple_rules.bzl",
-        """
-        load("//myinfo:myinfo.bzl", "MyInfo")
-
-        def swift_binary_impl(ctx):
-            dead_code_report = ctx.attr._dead_code_report
-            return MyInfo(
-                dead_code_report = str(dead_code_report),
-            )
-
-        swift_binary = rule(
-            implementation = swift_binary_impl,
-            fragments = ["j2objc"],
-            attrs = {
-                "_dead_code_report": attr.label(
-                    default = configuration_field(
-                        fragment = "j2objc",
-                        name = "dead_code_report",
-                    ),
-                ),
-            },
-        )
-        """);
-
-    scratch.file("test_starlark/apple_starlark/a.m");
-    scratch.file(
-        "test_starlark/apple_starlark/BUILD",
-        """
-        load("//test_starlark/rule:apple_rules.bzl", "swift_binary")
-
-        package(default_visibility = ["//visibility:public"])
-
-        swift_binary(
-            name = "my_target",
-        )
-        """);
-
-    useConfiguration();
-    ConfiguredTarget starlarkTarget =
-        getConfiguredTarget("//test_starlark/apple_starlark:my_target");
-
-    assertThat(getMyInfoFromTarget(starlarkTarget).getValue("dead_code_report")).isEqualTo("None");
-  }
-
-  @Test
-  public void testCustomJ2objcDeadCodeReport() throws Exception {
-    scratch.file("test_starlark/rule/BUILD");
-    scratch.file(
-        "test_starlark/rule/apple_rules.bzl",
-        """
-        load("//myinfo:myinfo.bzl", "MyInfo")
-
-        def dead_code_report_impl(ctx):
-            return MyInfo(foo = "bar")
-
-        def swift_binary_impl(ctx):
-            dead_code_report = ctx.attr._dead_code_report[MyInfo].foo
-            return MyInfo(
-                dead_code_report = dead_code_report,
-            )
-
-        dead_code_report = rule(
-            implementation = dead_code_report_impl,
-        )
-        swift_binary = rule(
-            implementation = swift_binary_impl,
-            fragments = ["j2objc"],
-            attrs = {
-                "_dead_code_report": attr.label(
-                    default = configuration_field(
-                        fragment = "j2objc",
-                        name = "dead_code_report",
-                    ),
-                ),
-            },
-        )
-        """);
-
-    scratch.file("test_starlark/apple_starlark/a.m");
-    scratch.file(
-        "test_starlark/apple_starlark/BUILD",
-        """
-        load("//test_starlark/rule:apple_rules.bzl", "dead_code_report", "swift_binary")
-
-        package(default_visibility = ["//visibility:public"])
-
-        swift_binary(
-            name = "my_target",
-        )
-
-        dead_code_report(name = "dead_code_report")
-        """);
-
-    useConfiguration("--j2objc_dead_code_report=//test_starlark/apple_starlark:dead_code_report");
-    ConfiguredTarget starlarkTarget =
-        getConfiguredTarget("//test_starlark/apple_starlark:my_target");
-
-    assertThat(getMyInfoFromTarget(starlarkTarget).getValue("dead_code_report")).isEqualTo("bar");
-  }
-
-  @Test
-  public void testStarlarkCanAccessJ2objcTranslationFlags() throws Exception {
-    scratch.file("test_starlark/rule/BUILD");
-    scratch.file(
-        "test_starlark/rule/apple_rules.bzl",
-        """
-        load("//myinfo:myinfo.bzl", "MyInfo")
-
-        def swift_binary_impl(ctx):
-            j2objc_flags = ctx.fragments.j2objc.translation_flags
-            return MyInfo(
-                j2objc_flags = j2objc_flags,
-            )
-
-        swift_binary = rule(
-            implementation = swift_binary_impl,
-            fragments = ["j2objc"],
-        )
-        """);
-
-    scratch.file("test_starlark/apple_starlark/a.m");
-    scratch.file(
-        "test_starlark/apple_starlark/BUILD",
-        """
-        load("//test_starlark/rule:apple_rules.bzl", "swift_binary")
-
-        package(default_visibility = ["//visibility:public"])
-
-        swift_binary(
-            name = "my_target",
-        )
-        """);
-
-    useConfiguration("--j2objc_translation_flags=-DTestJ2ObjcFlag");
-    ConfiguredTarget starlarkTarget =
-        getConfiguredTarget("//test_starlark/apple_starlark:my_target");
-
-    @SuppressWarnings("unchecked")
-    List<String> flags =
-        (List<String>) getMyInfoFromTarget(starlarkTarget).getValue("j2objc_flags");
-    assertThat(flags).contains("-DTestJ2ObjcFlag");
-    assertThat(flags).doesNotContain("-unspecifiedFlag");
   }
 
   @Test
@@ -666,10 +509,7 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
         def swift_binary_impl(ctx):
             apple_toolchain = apple_common.apple_toolchain()
             sdk_dir = apple_toolchain.sdk_dir()
-            platform_developer_framework_dir = \\
-                apple_toolchain.platform_developer_framework_dir(ctx.fragments.apple)
             return MyInfo(
-                platform_developer_framework_dir = platform_developer_framework_dir,
                 sdk_dir = sdk_dir,
             )
 
@@ -697,13 +537,8 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
         getConfiguredTarget("//test_starlark/apple_starlark:my_target");
     StructImpl myInfo = getMyInfoFromTarget(starlarkTarget);
 
-    String platformDevFrameworksDir = (String) myInfo.getValue("platform_developer_framework_dir");
     String sdkDir = (String) myInfo.getValue("sdk_dir");
 
-    assertThat(platformDevFrameworksDir)
-        .isEqualTo(
-            "__BAZEL_XCODE_DEVELOPER_DIR__"
-                + "/Platforms/iPhoneSimulator.platform/Developer/Library/Frameworks");
     assertThat(sdkDir).isEqualTo("__BAZEL_XCODE_SDKROOT__");
   }
 
@@ -763,42 +598,30 @@ swift_binary = rule(
         """);
 
     useConfiguration(
-        "--ios_sdk_version=1.1",
         "--ios_minimum_os=1.0",
-        "--watchos_sdk_version=2.1",
         "--watchos_minimum_os=2.0",
-        "--tvos_sdk_version=3.1",
         "--tvos_minimum_os=3.0",
-        "--macos_sdk_version=4.1",
         "--minimum_os_version=5.1");
     ConfiguredTarget starlarkTarget =
         getConfiguredTarget("//test_starlark/apple_starlark:my_target");
     StructImpl myInfo = getMyInfoFromTarget(starlarkTarget);
 
-    assertThat(myInfo.getValue("ios_sdk_version")).isEqualTo("1.1");
     assertThat(myInfo.getValue("ios_minimum_os")).isEqualTo("1.0");
-    assertThat(myInfo.getValue("watchos_sdk_version")).isEqualTo("2.1");
     assertThat(myInfo.getValue("watchos_minimum_os")).isEqualTo("2.0");
-    assertThat(myInfo.getValue("tvos_sdk_version")).isEqualTo("3.1");
     assertThat(myInfo.getValue("tvos_minimum_os")).isEqualTo("3.0");
-    assertThat(myInfo.getValue("macos_sdk_version")).isEqualTo("4.1");
     assertThat(myInfo.getValue("visionos_minimum_os")).isEqualTo("5.1");
 
     useConfiguration(
-        "--ios_sdk_version=1.1",
-        "--watchos_sdk_version=2.1",
-        "--tvos_sdk_version=3.1",
-        "--macos_sdk_version=4.1");
+        "--ios_minimum_os=1.1",
+        "--watchos_minimum_os=2.1",
+        "--tvos_minimum_os=3.1",
+        "--macos_minimum_os=4.1");
     starlarkTarget = getConfiguredTarget("//test_starlark/apple_starlark:my_target");
     myInfo = getMyInfoFromTarget(starlarkTarget);
 
-    assertThat(myInfo.getValue("ios_sdk_version")).isEqualTo("1.1");
     assertThat(myInfo.getValue("ios_minimum_os")).isEqualTo("1.1");
-    assertThat(myInfo.getValue("watchos_sdk_version")).isEqualTo("2.1");
     assertThat(myInfo.getValue("watchos_minimum_os")).isEqualTo("2.1");
-    assertThat(myInfo.getValue("tvos_sdk_version")).isEqualTo("3.1");
     assertThat(myInfo.getValue("tvos_minimum_os")).isEqualTo("3.1");
-    assertThat(myInfo.getValue("macos_sdk_version")).isEqualTo("4.1");
   }
 
   @Test
@@ -811,12 +634,8 @@ swift_binary = rule(
 
         def swift_binary_impl(ctx):
             compilation_mode_copts = ctx.fragments.objc.copts_for_current_compilation_mode
-            ios_simulator_device = ctx.fragments.objc.ios_simulator_device
-            ios_simulator_version = ctx.fragments.objc.ios_simulator_version
             return MyInfo(
                 compilation_mode_copts = compilation_mode_copts,
-                ios_simulator_device = ios_simulator_device,
-                ios_simulator_version = str(ios_simulator_version),
             )
 
         swift_binary = rule(
@@ -838,19 +657,14 @@ swift_binary = rule(
         )
         """);
 
-    useConfiguration(
-        "--compilation_mode=opt",
-        "--ios_simulator_device='iPhone 6'",
-        "--ios_simulator_version=8.4");
+    useConfiguration("--compilation_mode=fastbuild");
     ConfiguredTarget starlarkTarget =
         getConfiguredTarget("//test_starlark/objc_starlark:my_target");
     StructImpl myInfo = getMyInfoFromTarget(starlarkTarget);
 
-    Object iosSimulatorDevice = myInfo.getValue("ios_simulator_device");
-    Object iosSimulatorVersion = myInfo.getValue("ios_simulator_version");
+    Object compilationModeCopts = myInfo.getValue("compilation_mode_copts");
 
-    assertThat(iosSimulatorDevice).isEqualTo("'iPhone 6'");
-    assertThat(iosSimulatorVersion).isEqualTo("8.4");
+    assertThat((List<?>) compilationModeCopts).containsExactly("-O0", "-DDEBUG=1");
   }
 
   @Test

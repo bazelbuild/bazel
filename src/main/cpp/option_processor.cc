@@ -173,75 +173,6 @@ std::unique_ptr<CommandLine> OptionProcessor::SplitCommandLine(
 
 namespace internal {
 
-std::string FindLegacyUserBazelrc(const char* cmd_line_rc_file,
-                                  const std::string& workspace) {
-  if (cmd_line_rc_file != nullptr) {
-    string rcFile = blaze::AbsolutePathFromFlag(cmd_line_rc_file);
-    if (!blaze_util::CanReadFile(rcFile)) {
-      // The actual rc file reading will catch this - we ignore this here in the
-      // legacy version since this is just a warning. Exit eagerly though.
-      return "";
-    }
-    return rcFile;
-  }
-
-  string workspaceRcFile = blaze_util::JoinPath(workspace, kRcBasename);
-  if (blaze_util::CanReadFile(workspaceRcFile)) {
-    return workspaceRcFile;
-  }
-
-  string home = blaze::GetHomeDir();
-  if (!home.empty()) {
-    string userRcFile = blaze_util::JoinPath(home, kRcBasename);
-    if (blaze_util::CanReadFile(userRcFile)) {
-      return userRcFile;
-    }
-  }
-  return "";
-}
-
-std::set<std::string> GetOldRcPaths(
-    const WorkspaceLayout* workspace_layout, const std::string& workspace,
-    const std::string& cwd, const std::string& path_to_binary,
-    const std::vector<std::string>& startup_args,
-    const std::string& system_bazelrc_path) {
-  // Find the old list of rc files that would have been loaded here, so we can
-  // provide a useful warning about old rc files that might no longer be read.
-  std::vector<std::string> candidate_bazelrc_paths;
-  if (SearchNullaryOption(startup_args, "master_bazelrc", true)) {
-    const std::string workspace_rc =
-        workspace_layout->GetWorkspaceRcPath(workspace, startup_args);
-    const std::string binary_rc =
-        internal::FindRcAlongsideBinary(cwd, path_to_binary);
-    candidate_bazelrc_paths = {workspace_rc, binary_rc, system_bazelrc_path};
-  }
-  vector<std::string> cmd_line_rc_files =
-      GetAllUnaryOptionValues(startup_args, "--bazelrc", "/dev/null");
-  // Divide the cases where the vector is empty vs not, as
-  // `FindLegacyUserBazelrc` has a case for rc_file to be a nullptr.
-  if (cmd_line_rc_files.empty()) {
-    string user_bazelrc_path =
-        internal::FindLegacyUserBazelrc(nullptr, workspace);
-    if (!user_bazelrc_path.empty()) {
-      candidate_bazelrc_paths.push_back(user_bazelrc_path);
-    }
-  } else {
-    for (auto& rc_file : cmd_line_rc_files) {
-      string user_bazelrc_path =
-          internal::FindLegacyUserBazelrc(rc_file.c_str(), workspace);
-      if (!user_bazelrc_path.empty()) {
-        candidate_bazelrc_paths.push_back(user_bazelrc_path);
-      }
-    }
-  }
-  // DedupeBlazercPaths returns paths whose canonical path could be computed,
-  // therefore these paths must exist.
-  const std::vector<std::string> deduped_existing_blazerc_paths =
-      internal::DedupeBlazercPaths(candidate_bazelrc_paths);
-  return std::set<std::string>(deduped_existing_blazerc_paths.begin(),
-                               deduped_existing_blazerc_paths.end());
-}
-
 // Deduplicates the given paths based on their canonical form.
 // Computes the canonical form using blaze_util::MakeCanonical.
 // Returns the unique paths in their original form (not the canonical one).
@@ -262,28 +193,6 @@ std::vector<std::string> DedupeBlazercPaths(
   return result;
 }
 
-std::string FindSystemWideRc(const std::string& system_bazelrc_path) {
-  const std::string path =
-      blaze_util::MakeAbsoluteAndResolveEnvvars(system_bazelrc_path);
-  if (blaze_util::CanReadFile(path)) {
-    return path;
-  }
-  return "";
-}
-
-std::string FindRcAlongsideBinary(const std::string& cwd,
-                                  const std::string& path_to_binary) {
-  const std::string path = blaze_util::IsAbsolute(path_to_binary)
-                               ? path_to_binary
-                               : blaze_util::JoinPath(cwd, path_to_binary);
-  const std::string base = blaze_util::Basename(path_to_binary);
-  const std::string binary_blazerc_path = path + "." + base + "rc";
-  if (blaze_util::CanReadFile(binary_blazerc_path)) {
-    return binary_blazerc_path;
-  }
-  return "";
-}
-
 blaze_exit_code::ExitCode ParseErrorToExitCode(RcFile::ParseError parse_error) {
   switch (parse_error) {
     case RcFile::ParseError::NONE:
@@ -298,6 +207,7 @@ blaze_exit_code::ExitCode ParseErrorToExitCode(RcFile::ParseError parse_error) {
       return blaze_exit_code::INTERNAL_ERROR;
     case RcFile::ParseError::INVALID_FORMAT:
     case RcFile::ParseError::IMPORT_LOOP:
+    case RcFile::ParseError::IMPORT_DEPTH_EXCEEDED:
       return blaze_exit_code::BAD_ARGV;
     default:
       return blaze_exit_code::INTERNAL_ERROR;
@@ -339,20 +249,6 @@ void WarnAboutDuplicateRcFiles(const std::set<std::string>& read_files,
   }
 }
 
-std::vector<std::string> GetLostFiles(
-    const std::set<std::string>& old_files,
-    const std::set<std::string>& read_files_canon) {
-  std::vector<std::string> result;
-  for (const auto& old : old_files) {
-    std::string old_canon = blaze_util::MakeCanonical(old.c_str());
-    if (!old_canon.empty() &&
-        read_files_canon.find(old_canon) == read_files_canon.end()) {
-      result.push_back(old);
-    }
-  }
-  return result;
-}
-
 blaze_exit_code::ExitCode GetAndValidateExistingRcFiles(
     const std::vector<std::string>& input_rc_files,
     std::vector<std::string>* result_rc_files) {
@@ -374,8 +270,8 @@ blaze_exit_code::ExitCode GetAndValidateExistingRcFiles(
 blaze_exit_code::ExitCode OptionProcessor::GetRcFiles(
     const WorkspaceLayout* workspace_layout, const std::string& workspace,
     const std::string& cwd, const CommandLine* cmd_line,
-    std::vector<std::unique_ptr<RcFile>>* result_rc_files,
-    std::string* error) const {
+    std::vector<std::unique_ptr<RcFile>>* result_rc_files, std::string* error,
+    int max_import_depth) const {
   assert(cmd_line != nullptr);
   assert(result_rc_files != nullptr);
 
@@ -451,7 +347,7 @@ blaze_exit_code::ExitCode OptionProcessor::GetRcFiles(
     std::unique_ptr<RcFile> parsed_rc;
     blaze_exit_code::ExitCode parse_rcfile_exit_code =
         ParseRcFile(workspace_layout, workspace, top_level_bazelrc_path,
-                    build_label_, sem_ver, &parsed_rc, error);
+                    build_label_, sem_ver, &parsed_rc, error, max_import_depth);
     if (parse_rcfile_exit_code != blaze_exit_code::SUCCESS) {
       return parse_rcfile_exit_code;
     }
@@ -463,29 +359,6 @@ blaze_exit_code::ExitCode OptionProcessor::GetRcFiles(
 
     result_rc_files->push_back(std::move(parsed_rc));
   }
-
-  // Provide a warning for any old file that might have been missed with the new
-  // expectations. This compares "canonical" paths to one another, so should not
-  // require additional transformation.
-  // TODO(b/36168162): Remove this warning along with
-  // internal::GetOldRcPaths and internal::FindLegacyUserBazelrc after
-  // the transition period has passed.
-  const std::set<std::string> old_files = internal::GetOldRcPaths(
-      workspace_layout, workspace, cwd, cmd_line->path_to_binary,
-      cmd_line->startup_args, internal::FindSystemWideRc(system_bazelrc_path_));
-
-  std::vector<std::string> lost_files =
-      internal::GetLostFiles(old_files, read_files_canonical_paths);
-  if (!lost_files.empty()) {
-    std::string joined_lost_rcs;
-    blaze_util::JoinStrings(lost_files, '\n', &joined_lost_rcs);
-    BAZEL_LOG(WARNING)
-        << "The following rc files are no longer being read, please transfer "
-           "their contents or import their path into one of the standard rc "
-           "files:\n"
-        << joined_lost_rcs;
-  }
-
   return blaze_exit_code::SUCCESS;
 }
 
@@ -495,14 +368,15 @@ blaze_exit_code::ExitCode ParseRcFile(const WorkspaceLayout* workspace_layout,
                                       const std::string& build_label,
                                       const std::optional<SemVer>& sem_ver,
                                       std::unique_ptr<RcFile>* result_rc_file,
-                                      std::string* error) {
+                                      std::string* error,
+                                      int max_import_depth) {
   assert(!rc_file_path.empty());
   assert(result_rc_file != nullptr);
 
   RcFile::ParseError parse_error;
   std::unique_ptr<RcFile> parsed_file =
       RcFile::Parse(rc_file_path, workspace_layout, workspace, build_label,
-                    sem_ver, &parse_error, error);
+                    sem_ver, &parse_error, error, max_import_depth);
   if (parsed_file == nullptr) {
     return internal::ParseErrorToExitCode(parse_error);
   }
@@ -514,15 +388,16 @@ blaze_exit_code::ExitCode ParseRcFile(const WorkspaceLayout* workspace_layout,
                                       const std::string& workspace,
                                       const std::string& rc_file_path,
                                       std::unique_ptr<RcFile>* result_rc_file,
-                                      std::string* error) {
+                                      std::string* error,
+                                      int max_import_depth) {
   return ParseRcFile(workspace_layout, workspace, rc_file_path,
-                      /*build_label=*/"", /*sem_ver=*/std::nullopt,
-                      result_rc_file, error);
+                     /*build_label=*/"", /*sem_ver=*/std::nullopt,
+                     result_rc_file, error, max_import_depth);
 }
 
 blaze_exit_code::ExitCode OptionProcessor::ParseOptions(
     const vector<string>& args, const string& workspace, const string& cwd,
-    string* error) {
+    string* error, int max_import_depth) {
   assert(!parse_options_called_);
   parse_options_called_ = true;
   cmd_line_ = SplitCommandLine(args, error);
@@ -538,8 +413,9 @@ blaze_exit_code::ExitCode OptionProcessor::ParseOptions(
   std::vector<std::unique_ptr<RcFile>> rc_files;
   if (!SearchNullaryOption(cmd_line_->startup_args, "ignore_all_rc_files",
                            false)) {
-    const blaze_exit_code::ExitCode rc_parsing_exit_code = GetRcFiles(
-        workspace_layout_, workspace, cwd, cmd_line_.get(), &rc_files, error);
+    const blaze_exit_code::ExitCode rc_parsing_exit_code =
+        GetRcFiles(workspace_layout_, workspace, cwd, cmd_line_.get(),
+                   &rc_files, error, max_import_depth);
     if (rc_parsing_exit_code != blaze_exit_code::SUCCESS) {
       return rc_parsing_exit_code;
     }
@@ -616,6 +492,32 @@ blaze_exit_code::ExitCode OptionProcessor::ParseStartupOptions(
       const std::string& source_path =
           blazerc->canonical_source_paths()[option.source_index];
       rcstartup_flags.push_back({source_path, option.option});
+    }
+  }
+
+  std::string platform_config;
+#if defined(__linux__)
+  platform_config = "linux";
+#elif defined(__APPLE__)
+  platform_config = "macos";
+#elif defined(_WIN32)
+  platform_config = "windows";
+#elif defined(__FreeBSD__)
+  platform_config = "freebsd";
+#elif defined(__OpenBSD__)
+  platform_config = "openbsd";
+#endif
+
+  if (!platform_config.empty()) {
+    for (const auto* blazerc : rc_files) {
+      const auto iter = blazerc->options().find("startup:" + platform_config);
+      if (iter == blazerc->options().end()) continue;
+
+      for (const RcOption& option : iter->second) {
+        const std::string& source_path =
+            blazerc->canonical_source_paths()[option.source_index];
+        rcstartup_flags.push_back({source_path, option.option});
+      }
     }
   }
 

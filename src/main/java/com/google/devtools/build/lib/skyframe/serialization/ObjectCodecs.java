@@ -13,17 +13,18 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization;
 
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ClassToInstanceMap;
 import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.Maps;
-import com.google.common.util.concurrent.ListenableFuture;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.List;
+import java.util.function.BiConsumer;
 import javax.annotation.Nullable;
 
 /**
@@ -176,12 +177,10 @@ public class ObjectCodecs {
 
   /** Serializes {@code subject} using a {@link SharedValueSerializationContext}. */
   public SerializationResult<ByteString> serializeMemoizedAndBlocking(
-      FingerprintValueService fingerprintValueService,
-      Object subject,
-      @Nullable ProfileCollector profileCollector)
+      FingerprintValueService fingerprintValueService, Object subject)
       throws SerializationException {
     return SharedValueSerializationContext.serializeToResult(
-        getCodecRegistry(), getDependencies(), fingerprintValueService, subject, profileCollector);
+        getCodecRegistry(), getDependencies(), fingerprintValueService, subject);
   }
 
   /**
@@ -198,11 +197,10 @@ public class ObjectCodecs {
         getCodecRegistry(),
         overrideDependencies(getDependencies(), dependencyOverrides),
         fingerprintValueService,
-        subject,
-        /* profileCollector= */ null);
+        subject);
   }
 
-  public ListenableFuture<SerializationResult<ByteString>> serializeMemoizedAsync(
+  public AsyncSerializationTask serializeMemoizedAsync(
       FingerprintValueService fingerprintValueService,
       Object subject,
       @Nullable ProfileCollector profileCollector) {
@@ -261,15 +259,26 @@ public class ObjectCodecs {
   public Object deserializeWithSkyframe(
       FingerprintValueService fingerprintValueService, ByteString data)
       throws SerializationException {
-    return deserializeWithSkyframe(fingerprintValueService, data.newCodedInput());
+    CodedInputStream codedIn = data.newCodedInput();
+    return SharedValueDeserializationContext.deserializeWithSkyframe(
+        getCodecRegistry(), getDependencies(), fingerprintValueService, codedIn);
   }
 
   @Nullable
   public Object deserializeWithSkyframe(
       FingerprintValueService fingerprintValueService, CodedInputStream codedIn)
       throws SerializationException {
+    return deserializeWithSkyframe(fingerprintValueService, codedIn, /* debugContext= */ null);
+  }
+
+  @Nullable
+  public Object deserializeWithSkyframe(
+      FingerprintValueService fingerprintValueService,
+      CodedInputStream codedIn,
+      @Nullable DebugContext debugContext)
+      throws SerializationException {
     return SharedValueDeserializationContext.deserializeWithSkyframe(
-        getCodecRegistry(), getDependencies(), fingerprintValueService, codedIn);
+        getCodecRegistry(), getDependencies(), fingerprintValueService, codedIn, debugContext);
   }
 
   static Object deserializeStreamFully(CodedInputStream codedIn, DeserializationContext context)
@@ -326,4 +335,11 @@ public class ObjectCodecs {
         .putAll(dependencyOverrides)
         .build();
   }
+
+  /** Information needed to emit debugging information. */
+  public record DebugContext(
+      // The fingerprint of the object requesting the deserialization
+      PackedFingerprint fingerprint,
+      // Receiver for the outgoing shared value dependency edges
+      BiConsumer<PackedFingerprint, PackedFingerprint> edgeReceiver) {}
 }

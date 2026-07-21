@@ -36,12 +36,12 @@ import net.starlark.java.syntax.Types;
             + "int(\"18\")\n"
             + "</pre>")
 public abstract class StarlarkInt implements StarlarkValue, Comparable<StarlarkInt> {
-  public static TypeConstructor getBaseTypeConstructor() {
+  public static TypeConstructor getAssociatedTypeConstructor() {
     return Types.INT_CONSTRUCTOR;
   }
 
   @Override
-  public StarlarkType getStarlarkType() {
+  public StarlarkType getStarlarkType(StarlarkSemantics semantics) {
     return Types.INT;
   }
 

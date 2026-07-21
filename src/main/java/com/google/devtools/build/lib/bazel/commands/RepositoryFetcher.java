@@ -77,7 +77,7 @@ final class RepositoryFetcher {
       throws InterruptedException, RepositoryFetcherException {
     EvaluationContext evaluationContext =
         EvaluationContext.newBuilder()
-            .setParallelism(threadsOption.threads)
+            .setParallelism(threadsOption.getThreads())
             .setEventHandler(env.getReporter())
             .build();
     ImmutableSet<SkyKey> repoDelegatorKeys =
@@ -120,8 +120,8 @@ final class RepositoryFetcher {
       RepositoryMapping repoMapping =
           env.getSkyframeExecutor()
               .getMainRepoMapping(
-                  env.getOptions().getOptions(KeepGoingOption.class).keepGoing,
-                  threadsOption.threads,
+                  env.getOptions().getOptions(KeepGoingOption.class).getKeepGoing(),
+                  threadsOption.getThreads(),
                   env.getReporter());
       return repoMapping.get(repoName.substring(1));
     } else {

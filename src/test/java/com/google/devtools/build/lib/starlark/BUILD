@@ -120,6 +120,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/skyframe:aspect_key_creator",
+        "//src/main/java/com/google/devtools/common/options",
         "//src/main/java/net/starlark/java/eval",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/testutil",
@@ -131,10 +132,8 @@ java_test(
 
 java_test(
     name = "StarlarkDefinedAspectsTest",
+    timeout = "long",
     srcs = ["StarlarkDefinedAspectsTest.java"],
-    jvm_flags = [
-        "-Djava.lang.Thread.allowVirtualThreads=true",
-    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
@@ -172,9 +171,6 @@ java_test(
 java_test(
     name = "StarlarkIntegrationTest",
     srcs = ["StarlarkIntegrationTest.java"],
-    jvm_flags = [
-        "-Djava.lang.Thread.allowVirtualThreads=true",
-    ],
     shard_count = 25,
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
@@ -208,23 +204,21 @@ java_test(
 java_test(
     name = "StarlarkTypesTest",
     srcs = ["StarlarkTypesTest.java"],
-    jvm_flags = [
-        "-Djava.lang.Thread.allowVirtualThreads=true",
-    ],
     shard_count = 3,
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/core",
+        "//src/main/java/net/starlark/java/annot",
+        "//src/main/java/net/starlark/java/eval",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//src/test/java/com/google/devtools/build/lib/testutil",
         "//third_party:junit4",
-        "//third_party:truth",
     ],
 )
 
 java_test(
     name = "StarlarkOptionsParsingTest",
     srcs = ["StarlarkOptionsParsingTest.java"],
-    jvm_flags = [
-        "-Djava.lang.Thread.allowVirtualThreads=true",
-    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
@@ -270,6 +264,7 @@ java_test(
         "//src/main/java/net/starlark/java/syntax",
         "//src/test/java/com/google/devtools/build/lib/analysis/testing",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//src/test/java/com/google/devtools/build/lib/events:testutil",
         "//src/test/java/com/google/devtools/build/lib/starlark/util",
         "//src/test/java/com/google/devtools/build/lib/testutil",
         "//src/test/java/com/google/devtools/build/lib/testutil:JunitUtils",
@@ -287,9 +282,6 @@ java_test(
 java_test(
     name = "StarlarkRuleContextTest",
     srcs = ["StarlarkRuleContextTest.java"],
-    jvm_flags = [
-        "-Djava.lang.Thread.allowVirtualThreads=true",
-    ],
     shard_count = 25,
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",

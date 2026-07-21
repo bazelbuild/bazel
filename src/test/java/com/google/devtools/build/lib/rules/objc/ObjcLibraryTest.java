@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
-import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
@@ -60,7 +59,6 @@ import com.google.devtools.build.lib.rules.cpp.CppCompileAction;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.testutil.TestConstants;
-import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.util.Collection;
 import java.util.List;
@@ -404,8 +402,10 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
             .write();
     RunfilesProvider provider = target.getProvider(RunfilesProvider.class);
     assertThat(baseArtifactNames(provider.getDefaultRunfiles().getArtifacts())).isEmpty();
-    assertThat(Artifact.toRootRelativePaths(provider.getDataRunfiles().getArtifacts()))
-        .containsExactly("objc/libOne.a");
+    if (!analysisMock
+        .isThisBazel()) { // TODO(b/507033784): Re-enable in bazel after rules_cc release.
+      assertThat(baseArtifactNames(provider.getDataRunfiles().getArtifacts())).isEmpty();
+    }
   }
 
   @Test
@@ -422,17 +422,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         CcInfo.get(getConfiguredTarget("//lib:lib")).getCcLinkingContext();
     assertThat(ccLinkingContext.getStaticModeParamsForDynamicLibraryLibraries())
         .containsExactlyElementsIn(archiveAction("//baselib:baselib").getOutputs());
-  }
-
-  @Test
-  public void testCreate_errorForEmptyFilegroupSources() throws Exception {
-    checkError(
-        "x",
-        "x",
-        "does not produce any objc_library srcs files",
-        "load('@rules_cc//cc:objc_library.bzl', 'objc_library')",
-        "filegroup(name = 'fg', srcs = [])",
-        "objc_library(name = 'x', srcs = ['fg'])");
   }
 
   @Test
@@ -1209,14 +1198,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     CommandAction action = compileAction("//objc:lib", "a.o");
 
     assertXcodeVersionEnv(action, "5.8");
-  }
-
-  @Test
-  public void testIosSdkVersionCannotBeDefinedButEmpty() {
-    var e =
-        assertThrows(
-            InvalidConfigurationException.class, () -> useConfiguration("--ios_sdk_version="));
-    assertThat(e).hasMessageThat().contains("--ios_sdk_version");
   }
 
   private void checkErrorIfNotExist(String attribute, String value) throws Exception {
@@ -2422,8 +2403,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
             srcs = ["a.S"],
         )
         """);
-    useConfiguration("--incompatible_use_specific_tool_files");
-
     ConfiguredTarget target = getConfiguredTarget("//a:a");
     CcToolchainProvider toolchainProvider = CcToolchainProvider.getFromTarget(target);
 
@@ -2729,8 +2708,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testObjcTransitionWithTopLevelApplePlatforms(
-      @TestParameter boolean usePlatformsInAppleCrosstoolTransition) throws Exception {
+  public void testObjcTransitionWithTopLevelApplePlatforms() throws Exception {
     scratch.file(
         "bin/BUILD",
         """
@@ -2754,10 +2732,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         "--apple_platform_type=ios",
         "--platforms=" + MockObjcSupport.IOS_ARM64,
         "--experimental_platform_in_output_dir",
-        "--use_platforms_in_apple_crosstool_transition=" + usePlatformsInAppleCrosstoolTransition);
-    if (!usePlatformsInAppleCrosstoolTransition) {
-      args.add("--cpu=ios_arm64");
-    }
+        "--cpu=ios_arm64");
     useConfiguration(args.build().toArray(new String[0]));
 
     ConfiguredTarget cc = getConfiguredTarget("//bin:cc");
@@ -2768,8 +2743,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testObjcTransitionInExecConfig(
-      @TestParameter boolean usePlatformsInAppleCrosstoolTransition) throws Exception {
+  public void testObjcTransitionInExecConfig() throws Exception {
     scratch.file(
         "bin/defs.bzl",
         """
@@ -2803,11 +2777,8 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         "--apple_platform_type=ios",
         "--platforms=" + MockObjcSupport.IOS_ARM64,
         "--experimental_platform_in_output_dir",
-        "--use_platforms_in_apple_crosstool_transition=" + usePlatformsInAppleCrosstoolTransition,
+        "--host_cpu=darwin_arm64",
         "--host_platform=" + MockObjcSupport.DARWIN_ARM64);
-    if (!usePlatformsInAppleCrosstoolTransition) {
-      args.add("--host_cpu=darwin_arm64");
-    }
     useConfiguration(args.build().toArray(new String[0]));
 
     ConfiguredTarget t1 = getConfiguredTarget("//bin:t1");

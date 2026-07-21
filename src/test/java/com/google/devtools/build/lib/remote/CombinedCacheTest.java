@@ -26,37 +26,47 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 
 import build.bazel.remote.execution.v2.ActionResult;
+import build.bazel.remote.execution.v2.CacheCapabilities;
 import build.bazel.remote.execution.v2.Digest;
+import build.bazel.remote.execution.v2.FastCdc2020Params;
 import build.bazel.remote.execution.v2.RequestMetadata;
+import build.bazel.remote.execution.v2.ServerCapabilities;
+import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
-import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
+import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.exec.SpawnCheckingCacheEvent;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.exec.util.FakeOwner;
+import com.google.devtools.build.lib.exec.util.SpawnBuilder;
 import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.Blob;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
+import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTreeComputer;
+import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
+import com.google.devtools.build.lib.remote.util.FakeSpawnExecutionContext;
 import com.google.devtools.build.lib.remote.util.InMemoryCacheClient;
 import com.google.devtools.build.lib.remote.util.RxNoGlobalErrorsRule;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
@@ -70,7 +80,9 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import com.google.devtools.common.options.Options;
 import com.google.protobuf.ByteString;
+import com.google.protobuf.Message;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.Deque;
@@ -85,6 +97,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 import org.junit.After;
 import org.junit.Before;
@@ -120,7 +133,7 @@ public class CombinedCacheTest {
   @Before
   public void setUp() throws Exception {
     MockitoAnnotations.initMocks(this);
-    metadata = TracingMetadataUtils.buildMetadata("none", "none", "action-id", null);
+    metadata = TracingMetadataUtils.buildMetadata("none", "none", "action-id");
     Spawn spawn =
         new SimpleSpawn(
             new FakeOwner("foo", "bar", "//dummy:label"),
@@ -278,7 +291,7 @@ public class CombinedCacheTest {
   @Test
   @SuppressWarnings("FutureReturnValueIgnored")
   public void upload_deduplicationWorks() throws IOException {
-    RemoteCacheClient remoteCacheClient = mock(RemoteCacheClient.class);
+    RemoteCacheClient remoteCacheClient = spy(new InMemoryCacheClient());
     AtomicInteger times = new AtomicInteger(0);
     doAnswer(
             invocationOnMock -> {
@@ -286,7 +299,7 @@ public class CombinedCacheTest {
               return SettableFuture.create();
             })
         .when(remoteCacheClient)
-        .uploadFile(any(), any(), any());
+        .uploadBlobImpl(any(), any(), any());
     CombinedCache combinedCache = newCombinedCache(remoteCacheClient);
     Digest digest = fakeFileCache.createScratchInput(ActionInputHelper.fromPath("file"), "content");
     Path file = execRoot.getRelative("file");
@@ -300,26 +313,16 @@ public class CombinedCacheTest {
   @Test
   public void upload_failedUploads_doNotDeduplicate() throws Exception {
     AtomicBoolean failRequest = new AtomicBoolean(true);
-    InMemoryCacheClient inMemoryCacheClient = new InMemoryCacheClient();
-    RemoteCacheClient remoteCacheClient = mock(RemoteCacheClient.class);
+    RemoteCacheClient remoteCacheClient = spy(new InMemoryCacheClient());
     doAnswer(
             invocationOnMock -> {
               if (failRequest.getAndSet(false)) {
                 return Futures.immediateFailedFuture(new IOException("Failed"));
               }
-              return inMemoryCacheClient.uploadFile(
-                  invocationOnMock.getArgument(0),
-                  invocationOnMock.getArgument(1),
-                  invocationOnMock.getArgument(2));
+              return invocationOnMock.callRealMethod();
             })
         .when(remoteCacheClient)
-        .uploadFile(any(), any(), any());
-    doAnswer(
-            invocationOnMock ->
-                inMemoryCacheClient.findMissingDigests(
-                    invocationOnMock.getArgument(0), invocationOnMock.getArgument(1)))
-        .when(remoteCacheClient)
-        .findMissingDigests(any(), any());
+        .uploadBlobImpl(any(), any(), any());
     CombinedCache combinedCache = newCombinedCache(remoteCacheClient);
     Digest digest = fakeFileCache.createScratchInput(ActionInputHelper.fromPath("file"), "content");
     Path file = execRoot.getRelative("file");
@@ -379,6 +382,189 @@ public class CombinedCacheTest {
   }
 
   @Test
+  public void ensureInputsPresent_blobsLostAfterUpload_forceReuploadsDirectoryProtos()
+      throws Exception {
+    InMemoryCacheClient cacheProtocol = new InMemoryCacheClient();
+    RemoteExecutionCache remoteCache = newRemoteExecutionCache(cacheProtocol);
+    remoteActionExecutionContext = RemoteActionExecutionContext.create(metadata);
+
+    // A file in a subdirectory ensures that the Merkle tree contains directory protos, which are
+    // retained as in-memory byte arrays rather than as action inputs.
+    Path path = execRoot.getRelative("dir/foo");
+    path.getParentDirectory().createDirectoryAndParents();
+    FileSystemUtils.writeContentAsLatin1(path, "bar");
+    SortedMap<PathFragment, Path> inputs = new TreeMap<>();
+    inputs.put(PathFragment.create("dir/foo"), path);
+    var merkleTree = merkleTreeComputer.buildForFiles(inputs);
+    Message message = Digest.newBuilder().setHash("message standing in for an Action").build();
+    var messageDigest = digestUtil.compute(message);
+    var additionalInputs = ImmutableMap.of(messageDigest, message);
+    var allDigests =
+        ImmutableSet.<Digest>builder().addAll(merkleTree.allDigests()).add(messageDigest).build();
+    var remotePathResolver = new RemotePathResolver.DefaultRemotePathResolver(execRoot);
+
+    remoteCache.ensureInputsPresent(
+        remoteActionExecutionContext,
+        merkleTree,
+        additionalInputs,
+        /* force= */ false,
+        remotePathResolver);
+    assertThat(
+            getFromFuture(remoteCache.findMissingDigests(remoteActionExecutionContext, allDigests)))
+        .isEmpty();
+
+    // Simulate a remote cache that loses all blobs right after they have been uploaded.
+    for (Digest digest : allDigests) {
+      cacheProtocol.removeCasEntry(digest);
+    }
+
+    remoteCache.ensureInputsPresent(
+        remoteActionExecutionContext,
+        merkleTree,
+        additionalInputs,
+        /* force= */ true,
+        remotePathResolver);
+    assertThat(
+            getFromFuture(remoteCache.findMissingDigests(remoteActionExecutionContext, allDigests)))
+        .isEmpty();
+  }
+
+  @Test
+  public void ensureInputsPresent_sharedMissingDigest_exceptionsHaveOwnLostInputs()
+      throws Exception {
+    RemoteCacheClient cacheProtocol = spy(new InMemoryCacheClient());
+    RemoteExecutionCache remoteCache = spy(newRemoteExecutionCache(cacheProtocol));
+
+    CountDownLatch findMissingDigestsCalls = new CountDownLatch(2);
+    doAnswer(
+            invocationOnMock -> {
+              findMissingDigestsCalls.countDown();
+              return invocationOnMock.callRealMethod();
+            })
+        .when(cacheProtocol)
+        .findMissingDigests(any(), any());
+
+    SettableFuture<Boolean> missingInputAvailable = SettableFuture.create();
+    CountDownLatch remotePathChecked = new CountDownLatch(1);
+    remoteCache.setRemotePathChecker(
+        (context, path) -> {
+          PathFragment execPath = path.relativeTo(execRoot);
+          if (execPath.equals(PathFragment.create("outputs/foo"))
+              || execPath.equals(PathFragment.create("outputs/bar"))) {
+            remotePathChecked.countDown();
+            return missingInputAvailable;
+          }
+          return immediateFuture(true);
+        });
+
+    Artifact foo = ActionsTestUtil.createArtifact(artifactRoot, "foo");
+    Artifact bar = ActionsTestUtil.createArtifact(artifactRoot, "bar");
+    Digest digest = fakeFileCache.createScratchInput(foo, "same");
+    assertThat(fakeFileCache.createScratchInput(bar, "same")).isEqualTo(digest);
+
+    Spawn fooSpawn = new SpawnBuilder().withInput(foo).build();
+    var fooContext =
+        new FakeSpawnExecutionContext(
+            fooSpawn,
+            fakeFileCache,
+            execRoot,
+            new FileOutErr(execRoot.getRelative("stdout"), execRoot.getRelative("stderr")),
+            ImmutableClassToInstanceMap.of(),
+            /* actionFileSystem= */ null);
+    var fooRemoteContext = RemoteActionExecutionContext.create(fooSpawn, fooContext, metadata);
+    var fooTree =
+        (MerkleTree.Uploadable)
+            merkleTreeComputer.buildForSpawn(
+                fooSpawn,
+                ImmutableSet.of(),
+                /* scrubber= */ null,
+                fooContext,
+                RemotePathResolver.createDefault(execRoot),
+                MerkleTreeComputer.BlobPolicy.KEEP_AND_REUPLOAD);
+
+    Spawn barSpawn = new SpawnBuilder().withInput(bar).build();
+    var barContext =
+        new FakeSpawnExecutionContext(
+            barSpawn,
+            fakeFileCache,
+            execRoot,
+            new FileOutErr(execRoot.getRelative("stdout"), execRoot.getRelative("stderr")),
+            ImmutableClassToInstanceMap.of(),
+            /* actionFileSystem= */ null);
+    var barRemoteContext = RemoteActionExecutionContext.create(barSpawn, barContext, metadata);
+    var barTree =
+        (MerkleTree.Uploadable)
+            merkleTreeComputer.buildForSpawn(
+                barSpawn,
+                ImmutableSet.of(),
+                /* scrubber= */ null,
+                barContext,
+                RemotePathResolver.createDefault(execRoot),
+                MerkleTreeComputer.BlobPolicy.KEEP_AND_REUPLOAD);
+
+    var fooFailure = new AtomicReference<Throwable>();
+    Thread fooThread =
+        new Thread(
+            () -> {
+              try {
+                remoteCache.ensureInputsPresent(
+                    fooRemoteContext,
+                    fooTree,
+                    ImmutableMap.of(),
+                    /* force= */ false,
+                    RemotePathResolver.createDefault(execRoot));
+              } catch (Throwable t) {
+                if (t instanceof InterruptedException) {
+                  Thread.currentThread().interrupt();
+                }
+                fooFailure.set(t);
+              }
+            });
+    fooThread.start();
+    assertThat(remotePathChecked.await(TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS)).isTrue();
+
+    var barFailure = new AtomicReference<Throwable>();
+    Thread barThread =
+        new Thread(
+            () -> {
+              try {
+                remoteCache.ensureInputsPresent(
+                    barRemoteContext,
+                    barTree,
+                    ImmutableMap.of(),
+                    /* force= */ false,
+                    RemotePathResolver.createDefault(execRoot));
+              } catch (Throwable t) {
+                if (t instanceof InterruptedException) {
+                  Thread.currentThread().interrupt();
+                }
+                barFailure.set(t);
+              }
+            });
+    barThread.start();
+    assertThat(findMissingDigestsCalls.await(TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS))
+        .isTrue();
+
+    missingInputAvailable.set(false);
+    fooThread.join();
+    barThread.join();
+
+    assertThat(fooFailure.get()).isInstanceOf(BulkTransferException.class);
+    assertThat(
+            ((BulkTransferException) fooFailure.get())
+                .getLostArtifacts(execPath -> execPath.equals(foo.getExecPath()) ? foo : null)
+                .byDigest())
+        .containsExactly(DigestUtil.toString(digest), foo);
+
+    assertThat(barFailure.get()).isInstanceOf(BulkTransferException.class);
+    assertThat(
+            ((BulkTransferException) barFailure.get())
+                .getLostArtifacts(execPath -> execPath.equals(bar.getExecPath()) ? bar : null)
+                .byDigest())
+        .containsExactly(DigestUtil.toString(digest), bar);
+  }
+
+  @Test
   public void ensureInputsPresent_interruptedDuringUploadBlobs_cancelInProgressUploadTasks()
       throws Exception {
     // arrange
@@ -396,7 +582,7 @@ public class CombinedCacheTest {
               return future;
             })
         .when(cacheProtocol)
-        .uploadBlob(any(), any(), (Blob) any());
+        .uploadBlobImpl(any(), any(), (Blob) any());
     doAnswer(
             invocationOnMock -> {
               SettableFuture<Void> future = SettableFuture.create();
@@ -405,7 +591,7 @@ public class CombinedCacheTest {
               return future;
             })
         .when(cacheProtocol)
-        .uploadFile(any(), any(), any());
+        .uploadBlobImpl(any(), any(), any());
 
     Path path = execRoot.getRelative("foo");
     FileSystemUtils.writeContentAsLatin1(path, "bar");
@@ -435,14 +621,14 @@ public class CombinedCacheTest {
     thread.start();
     uploadBlobCalls.await();
     assertThat(futures).hasSize(2);
-    assertThat(remoteCache.casUploadCache.getInProgressTasks()).isNotEmpty();
+    assertThat(cacheProtocol.getInProgressUploads()).isNotEmpty();
 
     thread.interrupt();
     ensureInputsPresentReturned.await();
 
     // assert
-    assertThat(remoteCache.casUploadCache.getInProgressTasks()).isEmpty();
-    assertThat(remoteCache.casUploadCache.getFinishedTasks()).isEmpty();
+    assertThat(cacheProtocol.getInProgressUploads()).isEmpty();
+    assertThat(cacheProtocol.getFinishedUploads()).isEmpty();
     for (SettableFuture<Void> future : futures) {
       assertThat(future.isCancelled()).isTrue();
     }
@@ -476,7 +662,7 @@ public class CombinedCacheTest {
               return future;
             })
         .when(cacheProtocol)
-        .uploadBlob(any(), any(), (Blob) any());
+        .uploadBlobImpl(any(), any(), (Blob) any());
     doAnswer(
             invocationOnMock -> {
               SettableFuture<Void> future = SettableFuture.create();
@@ -485,7 +671,7 @@ public class CombinedCacheTest {
               return future;
             })
         .when(cacheProtocol)
-        .uploadFile(any(), any(), any());
+        .uploadBlobImpl(any(), any(), any());
 
     Path path = execRoot.getRelative("foo");
     FileSystemUtils.writeContentAsLatin1(path, "bar");
@@ -527,8 +713,8 @@ public class CombinedCacheTest {
     assertThat(futures).hasSize(2);
 
     // assert
-    assertThat(remoteCache.casUploadCache.getInProgressTasks()).hasSize(2);
-    assertThat(remoteCache.casUploadCache.getFinishedTasks()).isEmpty();
+    assertThat(cacheProtocol.getInProgressUploads()).hasSize(2);
+    assertThat(cacheProtocol.getFinishedUploads()).isEmpty();
     for (SettableFuture<Void> future : futures) {
       assertThat(future.isCancelled()).isFalse();
     }
@@ -537,8 +723,8 @@ public class CombinedCacheTest {
       future.set(null);
     }
     ensureInputsPresentReturned.await();
-    assertThat(remoteCache.casUploadCache.getInProgressTasks()).isEmpty();
-    assertThat(remoteCache.casUploadCache.getFinishedTasks()).hasSize(2);
+    assertThat(cacheProtocol.getInProgressUploads()).isEmpty();
+    assertThat(cacheProtocol.getFinishedUploads()).hasSize(2);
   }
 
   @Test
@@ -550,29 +736,19 @@ public class CombinedCacheTest {
     RemoteExecutionCache remoteCache = spy(newRemoteExecutionCache(cacheProtocol));
     remoteActionExecutionContext = RemoteActionExecutionContext.create(metadata);
 
-    ConcurrentLinkedDeque<SettableFuture<Void>> uploadBlobFutures = new ConcurrentLinkedDeque<>();
-    Map<Path, SettableFuture<Void>> uploadFileFutures = Maps.newConcurrentMap();
-    CountDownLatch uploadBlobCalls = new CountDownLatch(2);
-    CountDownLatch uploadFileCalls = new CountDownLatch(3);
+    Map<Digest, SettableFuture<Void>> uploadFutures = new ConcurrentHashMap<>();
+    // 3 unique file digests + 2 unique directory blob digests = 5 uploads total.
+    CountDownLatch uploadCalls = new CountDownLatch(5);
     doAnswer(
             invocationOnMock -> {
+              Digest digest = invocationOnMock.getArgument(1, Digest.class);
               SettableFuture<Void> future = SettableFuture.create();
-              uploadBlobFutures.add(future);
-              uploadBlobCalls.countDown();
+              uploadFutures.put(digest, future);
+              uploadCalls.countDown();
               return future;
             })
         .when(cacheProtocol)
-        .uploadBlob(any(), any(), (Blob) any());
-    doAnswer(
-            invocationOnMock -> {
-              Path file = invocationOnMock.getArgument(2, Path.class);
-              SettableFuture<Void> future = SettableFuture.create();
-              uploadFileFutures.put(file, future);
-              uploadFileCalls.countDown();
-              return future;
-            })
-        .when(cacheProtocol)
-        .uploadFile(any(), any(), any());
+        .uploadBlobImpl(any(), any(), (Blob) any());
 
     Path foo = execRoot.getRelative("foo");
     FileSystemUtils.writeContentAsLatin1(foo, "foo");
@@ -580,6 +756,9 @@ public class CombinedCacheTest {
     FileSystemUtils.writeContentAsLatin1(bar, "bar");
     Path qux = execRoot.getRelative("qux");
     FileSystemUtils.writeContentAsLatin1(qux, "qux");
+    Digest fooDigest = digestUtil.computeAsUtf8("foo");
+    Digest barDigest = digestUtil.computeAsUtf8("bar");
+    Digest quxDigest = digestUtil.computeAsUtf8("qux");
 
     SortedMap<PathFragment, Path> input1 = new TreeMap<>();
     input1.put(PathFragment.create("foo"), foo);
@@ -631,37 +810,28 @@ public class CombinedCacheTest {
     // act
     thread1.start();
     thread2.start();
-    uploadBlobCalls.await();
-    uploadFileCalls.await();
-    assertThat(uploadBlobFutures).hasSize(2);
-    assertThat(uploadFileFutures).hasSize(3);
-    assertThat(remoteCache.casUploadCache.getInProgressTasks()).hasSize(5);
+    uploadCalls.await();
+    assertThat(uploadFutures).hasSize(5);
+    assertThat(cacheProtocol.getInProgressUploads()).hasSize(5);
 
     thread1.interrupt();
     ensureInterrupted.await();
 
     // assert
-    assertThat(remoteCache.casUploadCache.getInProgressTasks()).hasSize(3);
-    assertThat(remoteCache.casUploadCache.getFinishedTasks()).isEmpty();
-    for (Map.Entry<Path, SettableFuture<Void>> entry : uploadFileFutures.entrySet()) {
-      Path file = entry.getKey();
-      SettableFuture<Void> future = entry.getValue();
-      if (file.equals(foo)) {
-        assertThat(future.isCancelled()).isTrue();
-      } else {
-        assertThat(future.isCancelled()).isFalse();
-      }
-    }
+    assertThat(cacheProtocol.getInProgressUploads()).hasSize(3);
+    assertThat(cacheProtocol.getFinishedUploads()).isEmpty();
+    // foo is only in tree1, so interrupting thread1 cancels it; bar is shared and qux is only in
+    // tree2, so both are kept.
+    assertThat(uploadFutures.get(fooDigest).isCancelled()).isTrue();
+    assertThat(uploadFutures.get(barDigest).isCancelled()).isFalse();
+    assertThat(uploadFutures.get(quxDigest).isCancelled()).isFalse();
 
-    for (SettableFuture<Void> future : uploadBlobFutures) {
-      future.set(null);
-    }
-    for (SettableFuture<Void> future : uploadFileFutures.values()) {
+    for (SettableFuture<Void> future : uploadFutures.values()) {
       future.set(null);
     }
     ensureInputsPresentReturned.await();
-    assertThat(remoteCache.casUploadCache.getInProgressTasks()).isEmpty();
-    assertThat(remoteCache.casUploadCache.getFinishedTasks()).hasSize(3);
+    assertThat(cacheProtocol.getInProgressUploads()).isEmpty();
+    assertThat(cacheProtocol.getFinishedUploads()).hasSize(3);
   }
 
   @Test
@@ -670,10 +840,10 @@ public class CombinedCacheTest {
     remoteActionExecutionContext = RemoteActionExecutionContext.create(metadata);
     doAnswer(invocationOnMock -> Futures.immediateFailedFuture(new IOException("upload failed")))
         .when(cacheProtocol)
-        .uploadBlob(any(), any(), (Blob) any());
+        .uploadBlobImpl(any(), any(), (Blob) any());
     doAnswer(invocationOnMock -> Futures.immediateFailedFuture(new IOException("upload failed")))
         .when(cacheProtocol)
-        .uploadFile(any(), any(), any());
+        .uploadBlobImpl(any(), any(), any());
     RemoteExecutionCache remoteCache = spy(newRemoteExecutionCache(cacheProtocol));
     Path path = execRoot.getRelative("foo");
     FileSystemUtils.writeContentAsLatin1(path, "bar");
@@ -696,21 +866,83 @@ public class CombinedCacheTest {
 
   @Test
   public void shutdownNow_cancelInProgressUploads() throws Exception {
-    RemoteCacheClient remoteCacheClient = mock(RemoteCacheClient.class);
+    RemoteCacheClient remoteCacheClient = spy(new InMemoryCacheClient());
     // Return a future that never completes
     doAnswer(invocationOnMock -> SettableFuture.create())
         .when(remoteCacheClient)
-        .uploadFile(any(), any(), any());
+        .uploadBlobImpl(any(), any(), any());
     CombinedCache combinedCache = newCombinedCache(remoteCacheClient);
     Digest digest = fakeFileCache.createScratchInput(ActionInputHelper.fromPath("file"), "content");
     Path file = execRoot.getRelative("file");
 
     ListenableFuture<Void> upload =
         combinedCache.uploadFile(remoteActionExecutionContext, digest, file);
-    assertThat(combinedCache.casUploadCache.getInProgressTasks()).contains(digest);
+    assertThat(remoteCacheClient.getInProgressUploads()).contains(digest);
     combinedCache.shutdownNow();
 
     assertThat(upload.isCancelled()).isTrue();
+  }
+
+  @Test
+  public void uploadFile_chunkedUpload_deduplicatesRemoteUpload() throws Exception {
+    // Spy on a real GrpcCacheClient so that final methods on the RemoteCacheClient base class
+    // (e.g. dedupUpload, uploadFile) execute their real implementations against a properly
+    // initialized casUploadCache.
+    GrpcCacheClient grpcCacheClient =
+        spy(
+            new GrpcCacheClient(
+                mock(ReferenceCountedChannel.class),
+                mock(CallCredentialsProvider.class),
+                Options.getDefaults(RemoteOptions.class),
+                mock(RemoteRetrier.class),
+                digestUtil));
+    doAnswer(unused -> chunkingCapabilities()).when(grpcCacheClient).getServerCapabilities();
+    doAnswer(unused -> immediateFuture(ImmutableSet.of()))
+        .when(grpcCacheClient)
+        .findMissingDigests(any(), any());
+
+    CountDownLatch spliceStarted = new CountDownLatch(1);
+    SettableFuture<Void> spliceFuture = SettableFuture.create();
+    doAnswer(
+            unused -> {
+              spliceStarted.countDown();
+              return spliceFuture;
+            })
+        .when(grpcCacheClient)
+        .spliceBlob(any(), any(), any());
+
+    CombinedCache combinedCache =
+        new CombinedCache(
+            grpcCacheClient,
+            /* diskCacheClient= */ null,
+            /* symlinkTemplate= */ null,
+            digestUtil,
+            /* chunkingEnabled= */ true);
+    byte[] data = new byte[8192];
+    Path file = execRoot.getRelative("chunked-output");
+    try (var out = file.getOutputStream()) {
+      out.write(data);
+    }
+    Digest digest = digestUtil.compute(data);
+
+    try {
+      ListenableFuture<Void> firstUpload =
+          combinedCache.uploadFile(remoteActionExecutionContext, digest, file);
+      assertThat(spliceStarted.await(1, TimeUnit.SECONDS)).isTrue();
+
+      ListenableFuture<Void> secondUpload =
+          combinedCache.uploadFile(remoteActionExecutionContext, digest, file);
+
+      assertThat(grpcCacheClient.getUploadSubscriberCount(digest)).isEqualTo(2);
+      verify(grpcCacheClient).findMissingDigests(any(), any());
+      verify(grpcCacheClient).spliceBlob(any(), any(), any());
+
+      spliceFuture.set(null);
+      getFromFuture(firstUpload);
+      getFromFuture(secondUpload);
+    } finally {
+      combinedCache.release();
+    }
   }
 
   private InMemoryCombinedCache newCombinedCache() {
@@ -724,11 +956,28 @@ public class CombinedCacheTest {
 
   private CombinedCache newCombinedCache(RemoteCacheClient remoteCacheClient) {
     return new CombinedCache(
-        remoteCacheClient, /* diskCacheClient= */ null, /* symlinkTemplate= */ null, digestUtil);
+        remoteCacheClient,
+        /* diskCacheClient= */ null,
+        /* symlinkTemplate= */ null,
+        digestUtil,
+        /* chunkingEnabled= */ false);
   }
 
   private RemoteExecutionCache newRemoteExecutionCache(RemoteCacheClient remoteCacheClient) {
     return new RemoteExecutionCache(
-        remoteCacheClient, /* diskCacheClient= */ null, /* symlinkTemplate= */ null, digestUtil);
+        remoteCacheClient,
+        /* diskCacheClient= */ null,
+        /* symlinkTemplate= */ null,
+        digestUtil,
+        /* chunkingEnabled= */ false);
+  }
+
+  private static ServerCapabilities chunkingCapabilities() {
+    return ServerCapabilities.newBuilder()
+        .setCacheCapabilities(
+            CacheCapabilities.newBuilder()
+                .setFastCdc2020Params(
+                    FastCdc2020Params.newBuilder().setAvgChunkSizeBytes(1024).build()))
+        .build();
   }
 }

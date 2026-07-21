@@ -232,9 +232,9 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
 
   protected void setUpSkyframe(RuleVisibility defaultVisibility) {
     PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
-    packageOptions.defaultVisibility = defaultVisibility;
-    packageOptions.showLoadingProgress = true;
-    packageOptions.globbingThreads = GLOBBING_THREADS;
+    packageOptions.setDefaultVisibility(defaultVisibility);
+    packageOptions.setShowLoadingProgress(true);
+    packageOptions.setGlobbingThreads(GLOBBING_THREADS);
     skyframeExecutor.preparePackageLoading(
         new PathPackageLocator(
             outputBase,
@@ -244,6 +244,7 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
         buildLanguageOptions,
         UUID.randomUUID(),
         ImmutableMap.of(),
+        /* repoEnv= */ ImmutableMap.of(),
         QuiescingExecutorsImpl.forTesting(),
         new TimestampGranularityMonitor(BlazeClock.instance()));
     skyframeExecutor.setActionEnv(ImmutableMap.of());
@@ -253,23 +254,25 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
     PathPackageLocator pkgLocator =
         PathPackageLocator.create(
             outputBase,
-            packageOptions.packagePath,
+            packageOptions.getPackagePath(),
             reporter,
             rootDirectory.asFragment(),
             rootDirectory,
             BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY);
-    packageOptions.showLoadingProgress = true;
-    packageOptions.globbingThreads = GLOBBING_THREADS;
+    packageOptions.setShowLoadingProgress(true);
+    packageOptions.setGlobbingThreads(GLOBBING_THREADS);
     skyframeExecutor.preparePackageLoading(
         pkgLocator,
         packageOptions,
         buildLanguageOptions,
         UUID.randomUUID(),
         ImmutableMap.of(),
+        /* repoEnv= */ ImmutableMap.of(),
         QuiescingExecutorsImpl.forTesting(),
         new TimestampGranularityMonitor(BlazeClock.instance()));
     skyframeExecutor.setActionEnv(ImmutableMap.of());
-    skyframeExecutor.setDeletedPackages(ImmutableSet.copyOf(packageOptions.getDeletedPackages()));
+    skyframeExecutor.setDeletedPackages(
+        ImmutableSet.copyOf(packageOptions.getDeletedPackagesOrEmptySet()));
   }
 
   private static PackageOptions parsePackageOptions(String... options) throws Exception {

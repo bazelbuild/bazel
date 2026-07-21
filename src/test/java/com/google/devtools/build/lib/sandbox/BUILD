@@ -25,8 +25,7 @@ java_library(
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
-        "//src/main/java/com/google/devtools/build/lib/exec:spawn_input_expander",
+        "//src/main/java/com/google/devtools/build/lib/actions:action_input",
         "//src/main/java/com/google/devtools/build/lib/exec:spawn_runner",
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
         "//src/main/java/com/google/devtools/build/lib/shell",
@@ -54,14 +53,16 @@ java_test(
             "SandboxOptionsTest.java",
             "SymlinkedSandboxedSpawnTest.java",
         ],
-    jvm_flags = ["-Djava.lang.Thread.allowVirtualThreads=true"],
     test_class = "com.google.devtools.build.lib.AllTests",
     runtime_deps = [
         "//src/test/java/com/google/devtools/build/lib:test_runner",
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:action_input",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/actions:param_file_action_input",
+        "//src/main/java/com/google/devtools/build/lib/actions:parameter_file",
         "//src/main/java/com/google/devtools/build/lib/actions:virtual_action_input",
         "//src/main/java/com/google/devtools/build/lib/exec:bin_tools",
         "//src/main/java/com/google/devtools/build/lib/exec:tree_deleter",
@@ -106,6 +107,8 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
+        "//src/main/java/com/google/devtools/build/lib/actions:param_file_action_input",
+        "//src/main/java/com/google/devtools/build/lib/actions:parameter_file",
         "//src/main/java/com/google/devtools/build/lib/exec:bin_tools",
         "//src/main/java/com/google/devtools/build/lib/exec:spawn_runner",
         "//src/main/java/com/google/devtools/build/lib/exec:tree_deleter",
@@ -114,7 +117,6 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/sandbox:linux_sandbox",
         "//src/main/java/com/google/devtools/build/lib/sandbox:linux_sandbox_command_line_builder",
         "//src/main/java/com/google/devtools/build/lib/sandbox:process_wrapper_sandbox",
-        "//src/main/java/com/google/devtools/build/lib/sandbox:sandbox_helpers",
         "//src/main/java/com/google/devtools/build/lib/sandbox:sandbox_options",
         "//src/main/java/com/google/devtools/build/lib/sandbox:sandboxed_spawns",
         "//src/main/java/com/google/devtools/build/lib/sandbox:tree_deleter",
@@ -123,6 +125,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
+        "//src/main/java/com/google/devtools/common/options:options_internal",
         "//src/test/java/com/google/devtools/build/lib/actions/util",
         "//src/test/java/com/google/devtools/build/lib/exec/util",
         "//src/test/java/com/google/devtools/build/lib/testutil",
@@ -130,23 +133,5 @@ java_test(
         "//third_party:junit4",
         "//third_party:truth",
         "@maven//:com_google_testparameterinjector_test_parameter_injector",
-    ],
-)
-
-java_test(
-    name = "CgroupsInfoTest",
-    size = "small",
-    srcs = ["CgroupsInfoTest.java"],
-    tags = [
-        # MacOS does not have cgroups so it can't support hardened sandbox
-        "no_macos",
-        "no_windows",
-    ],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/sandbox:cgroups_info",
-        "//src/test/java/com/google/devtools/build/lib/vfs/util",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
     ],
 )

@@ -159,7 +159,6 @@ The following Python features are not supported:
 * `class` (see [`struct`](lib/struct#struct) function).
 * `import` (see [`load`](/extending/concepts#loading-an-extension) statement).
 * `while`, `yield`.
-* float and set types.
 * generators and generator expressions.
 * `is` (use `==` instead).
 * `try`, `raise`, `except`, `finally` (see [`fail`](lib/globals#fail) for fatal errors).

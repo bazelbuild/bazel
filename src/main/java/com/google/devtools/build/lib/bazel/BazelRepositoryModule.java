@@ -285,7 +285,7 @@ public class BazelRepositoryModule extends BlazeModule {
     repoEnvSupplier.set(env.getRepoEnv());
     nonstrictRepoEnvSupplier.set(env.getNonstrictRepoEnv());
     PackageOptions pkgOptions = env.getOptions().getOptions(PackageOptions.class);
-    fetchDisabled = pkgOptions != null && !pkgOptions.fetch;
+    fetchDisabled = pkgOptions != null && !pkgOptions.getFetch();
 
     ProcessWrapper processWrapper = ProcessWrapper.fromCommandEnvironment(env);
     repositoryFetchFunction.setProcessWrapper(processWrapper);
@@ -295,15 +295,15 @@ public class BazelRepositoryModule extends BlazeModule {
 
     RepositoryOptions repoOptions = env.getOptions().getOptions(RepositoryOptions.class);
     if (repoOptions != null) {
-      downloadManager.setDisableDownload(repoOptions.disableDownload);
-      if (repoOptions.repositoryDownloaderRetries >= 0) {
-        downloadManager.setRetries(repoOptions.repositoryDownloaderRetries);
+      downloadManager.setDisableDownload(repoOptions.getDisableDownload());
+      if (repoOptions.getRepositoryDownloaderRetries() >= 0) {
+        downloadManager.setRetries(repoOptions.getRepositoryDownloaderRetries());
       }
 
-      repositoryCache.getDownloadCache().setHardlink(repoOptions.useHardlinks);
-      if (repoOptions.experimentalScaleTimeouts > 0.0) {
-        repositoryFetchFunction.setTimeoutScaling(repoOptions.experimentalScaleTimeouts);
-        singleExtensionEvalFunction.setTimeoutScaling(repoOptions.experimentalScaleTimeouts);
+      repositoryCache.getDownloadCache().setHardlink(repoOptions.getUseHardlinks());
+      if (repoOptions.getExperimentalScaleTimeouts() > 0.0) {
+        repositoryFetchFunction.setTimeoutScaling(repoOptions.getExperimentalScaleTimeouts());
+        singleExtensionEvalFunction.setTimeoutScaling(repoOptions.getExperimentalScaleTimeouts());
       } else {
         env.getReporter()
             .handle(
@@ -313,8 +313,8 @@ public class BazelRepositoryModule extends BlazeModule {
         repositoryFetchFunction.setTimeoutScaling(1.0);
         singleExtensionEvalFunction.setTimeoutScaling(1.0);
       }
-      if (repoOptions.repositoryCache != null) {
-        repositoryCache.setPath(toPath(repoOptions.repositoryCache, env));
+      if (repoOptions.getRepositoryCache() != null) {
+        repositoryCache.setPath(toPath(repoOptions.getRepositoryCache(), env));
       } else {
         repositoryCache.setPath(
             env.getDirectories()
@@ -326,8 +326,10 @@ public class BazelRepositoryModule extends BlazeModule {
       // the specific settings about the repo contents cache might overwrite the repo cache
       // settings. In particular, if `--repo_contents_cache` is not set (it's null), we use whatever
       // default set by `repositoryCache.setPath(...)`.
-      if (repoOptions.repoContentsCache != null) {
-        repositoryCache.getRepoContentsCache().setPath(toPath(repoOptions.repoContentsCache, env));
+      if (repoOptions.getRepoContentsCache() != null) {
+        repositoryCache
+            .getRepoContentsCache()
+            .setPath(toPath(repoOptions.getRepoContentsCache(), env));
       }
       Path repoContentsCachePath = repositoryCache.getRepoContentsCache().getPath();
       if (repoContentsCachePath != null) {
@@ -409,8 +411,8 @@ public class BazelRepositoryModule extends BlazeModule {
             repositoryCache
                 .getRepoContentsCache()
                 .createGcIdleTask(
-                    repoOptions.repoContentsCacheGcMaxAge,
-                    repoOptions.repoContentsCacheGcIdleDelay));
+                    repoOptions.getRepoContentsCacheGcMaxAge(),
+                    repoOptions.getRepoContentsCacheGcIdleDelay()));
       }
 
       try {
@@ -425,7 +427,8 @@ public class BazelRepositoryModule extends BlazeModule {
       }
       try {
         UrlRewriter rewriter =
-            UrlRewriter.getDownloaderUrlRewriter(env.getWorkspace(), repoOptions.downloaderConfigs);
+            UrlRewriter.getDownloaderUrlRewriter(
+                env.getWorkspace(), repoOptions.getDownloaderConfigs());
         downloadManager.setUrlRewriter(rewriter);
       } catch (UrlRewriterParseException e) {
         // It's important that the build stops ASAP, because this config file may be required for
@@ -445,14 +448,14 @@ public class BazelRepositoryModule extends BlazeModule {
             CredentialHelperEnvironment.newBuilder()
                 .setEventReporter(env.getReporter())
                 .setWorkspacePath(env.getWorkspace())
-                .setClientEnvironment(env.getClientEnv())
-                .setHelperExecutionTimeout(authAndTlsOptions.credentialHelperTimeout)
+                .setClientEnvironment(env::getClientEnv)
+                .setHelperExecutionTimeout(authAndTlsOptions.getCredentialHelperTimeout())
                 .build();
         CredentialHelperProvider credentialHelperProvider =
             GoogleAuthUtils.newCredentialHelperProvider(
                 credentialHelperEnvironment,
                 env.getCommandLinePathFactory(),
-                authAndTlsOptions.credentialHelpers);
+                authAndTlsOptions.getCredentialHelpers());
 
         downloadManager.setCredentialFactory(
             headers -> {
@@ -474,9 +477,9 @@ public class BazelRepositoryModule extends BlazeModule {
         return;
       }
 
-      if (repoOptions.experimentalDistdir != null) {
+      if (repoOptions.getExperimentalDistdir() != null) {
         downloadManager.setDistdir(
-            repoOptions.experimentalDistdir.stream()
+            repoOptions.getExperimentalDistdir().stream()
                 .map(
                     path ->
                         path.isAbsolute()
@@ -487,12 +490,12 @@ public class BazelRepositoryModule extends BlazeModule {
         downloadManager.setDistdir(ImmutableList.of());
       }
 
-      if (repoOptions.repositoryOverrides != null) {
+      if (repoOptions.getRepositoryOverrides() != null) {
         // To get the usual latest-wins semantics, we need a mutable map, as the builder
         // of an immutable map does not allow redefining the values of existing keys.
         // We use a LinkedHashMap to preserve the iteration order.
         Map<String, PathFragment> overrideMap = new LinkedHashMap<>();
-        for (RepositoryOverride override : repoOptions.repositoryOverrides) {
+        for (RepositoryOverride override : repoOptions.getRepositoryOverrides()) {
           if (override.path().isEmpty()) {
             overrideMap.remove(override.repositoryName());
             continue;
@@ -508,9 +511,10 @@ public class BazelRepositoryModule extends BlazeModule {
         overrides = ImmutableMap.of();
       }
 
-      if (repoOptions.repositoryInjections != null) {
+      if (repoOptions.getRepositoryInjections() != null) {
         Map<String, PathFragment> injectionMap = new LinkedHashMap<>();
-        for (RepositoryOptions.RepositoryInjection injection : repoOptions.repositoryInjections) {
+        for (RepositoryOptions.RepositoryInjection injection :
+            repoOptions.getRepositoryInjections()) {
           if (injection.path().isEmpty()) {
             injectionMap.remove(injection.apparentName());
             continue;
@@ -526,9 +530,9 @@ public class BazelRepositoryModule extends BlazeModule {
         injections = ImmutableMap.of();
       }
 
-      if (repoOptions.moduleOverrides != null) {
+      if (repoOptions.getModuleOverrides() != null) {
         Map<String, ModuleOverride> moduleOverrideMap = new LinkedHashMap<>();
-        for (RepositoryOptions.ModuleOverride override : repoOptions.moduleOverrides) {
+        for (RepositoryOptions.ModuleOverride override : repoOptions.getModuleOverrides()) {
           if (override.path().isEmpty()) {
             moduleOverrideMap.remove(override.moduleName());
             continue;
@@ -547,15 +551,15 @@ public class BazelRepositoryModule extends BlazeModule {
         moduleOverrides = ImmutableMap.of();
       }
 
-      ignoreDevDeps.set(repoOptions.ignoreDevDependency);
-      checkDirectDepsMode = repoOptions.checkDirectDependencies;
-      bazelCompatibilityMode = repoOptions.bazelCompatibilityMode;
-      bazelLockfileMode = repoOptions.lockfileMode;
-      allowedYankedVersions = repoOptions.allowedYankedVersions;
+      ignoreDevDeps.set(repoOptions.getIgnoreDevDependency());
+      checkDirectDepsMode = repoOptions.getCheckDirectDependencies();
+      bazelCompatibilityMode = repoOptions.getBazelCompatibilityMode();
+      bazelLockfileMode = repoOptions.getLockfileMode();
+      allowedYankedVersions = repoOptions.getAllowedYankedVersions();
       if (env.getWorkspace() != null) {
         Path externalRoot = env.getOutputBase().getRelative(LabelConstants.EXTERNAL_PATH_PREFIX);
         vendorDirectory =
-            Optional.ofNullable(repoOptions.vendorDirectory)
+            Optional.ofNullable(repoOptions.getVendorDirectory())
                 .map(vendorDirectory -> env.getWorkspace().getRelative(vendorDirectory));
         // Both vendoring and the local and remote repo contents cache rely on certain symlinks at
         // predictable locations to allow symlinks in external repos to be portable (in particular,
@@ -609,14 +613,14 @@ public class BazelRepositoryModule extends BlazeModule {
         }
       }
 
-      if (repoOptions.registries != null && !repoOptions.registries.isEmpty()) {
-        registries = normalizeBaseUrls(repoOptions.registries);
+      if (repoOptions.getRegistries() != null && !repoOptions.getRegistries().isEmpty()) {
+        registries = normalizeBaseUrls(repoOptions.getRegistries());
       } else {
         registries = DEFAULT_REGISTRIES;
       }
-      if (repoOptions.moduleMirrors != null && !repoOptions.moduleMirrors.isEmpty()) {
+      if (repoOptions.getModuleMirrors() != null && !repoOptions.getModuleMirrors().isEmpty()) {
         var registryToMirrors =
-            repoOptions.moduleMirrors.stream()
+            repoOptions.getModuleMirrors().stream()
                 .collect(
                     toImmutableMap(
                         entry -> normalizeBaseUrl(entry.getKey()),
@@ -742,7 +746,6 @@ public class BazelRepositoryModule extends BlazeModule {
       lastRegistryInvalidation = now;
     }
     return ImmutableList.of(
-        PrecomputedValue.injected(PrecomputedValue.REPO_ENV, repoEnvSupplier.get()),
         PrecomputedValue.injected(RepoDefinitionFunction.REPOSITORY_OVERRIDES, overrides),
         PrecomputedValue.injected(ModuleFileFunction.INJECTED_REPOSITORIES, injections),
         PrecomputedValue.injected(ModuleFileFunction.MODULE_OVERRIDES, moduleOverrides),

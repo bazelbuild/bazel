@@ -5,7 +5,7 @@
 
 module(
     name = "bazel",
-    version = "9.0.0-prerelease",
+    version = "10.0.0-prerelease",
     repo_name = "io_bazel",
 )
 
@@ -14,7 +14,8 @@ module(
 # =========================================
 
 bazel_dep(name = "abseil-cpp", version = "20250814.1")
-bazel_dep(name = "bazel_skylib", version = "1.8.2")
+bazel_dep(name = "bazel_features", version = "1.47.0")
+bazel_dep(name = "bazel_skylib", version = "1.9.0")
 bazel_dep(name = "blake3", version = "1.8.2.bcr.1")
 bazel_dep(name = "googleapis-grpc-java", version = "1.0.0")
 bazel_dep(name = "googleapis-java", version = "1.0.0")
@@ -22,13 +23,13 @@ bazel_dep(name = "googleapis", version = "0.0.0-20250604-de157ca3")
 bazel_dep(name = "googletest", version = "1.17.0.bcr.2", repo_name = "com_google_googletest")
 bazel_dep(name = "grpc-java", version = "1.71.0")
 bazel_dep(name = "grpc", version = "1.76.0.bcr.1", repo_name = "com_github_grpc_grpc")
-bazel_dep(name = "platforms", version = "1.0.0")
-bazel_dep(name = "protobuf", version = "33.4", repo_name = "com_google_protobuf")
+bazel_dep(name = "platforms", version = "1.1.0")
+bazel_dep(name = "protobuf", version = "35.1", repo_name = "com_google_protobuf")
 bazel_dep(name = "re2", version = "2025-11-05.bcr.1")
 bazel_dep(name = "rules_go", version = "0.59.0")
 bazel_dep(name = "rules_graalvm", version = "0.11.1")
-bazel_dep(name = "rules_java", version = "9.5.0")
-bazel_dep(name = "rules_jvm_external", version = "6.6")
+bazel_dep(name = "rules_java", version = "9.7.0")
+bazel_dep(name = "rules_jvm_external", version = "6.8")
 bazel_dep(name = "rules_license", version = "1.0.0")
 bazel_dep(name = "rules_pkg", version = "1.1.0")
 bazel_dep(name = "rules_python", version = "1.7.0")
@@ -37,12 +38,12 @@ bazel_dep(name = "rules_testing", version = "0.9.0")
 bazel_dep(name = "stardoc", version = "0.8.0", repo_name = "io_bazel_skydoc")
 bazel_dep(name = "with_cfg.bzl", version = "0.13.0")
 bazel_dep(name = "zlib", version = "1.3.1.bcr.7")
-bazel_dep(name = "zstd-jni", version = "1.5.6-9")
+bazel_dep(name = "zstd-jni", version = "1.5.6-9.bcr.1")
 
 # Depend on apple_support first and then rules_cc so that the Xcode toolchain
 # from apple_support wins over the generic Unix toolchain from rules_cc.
-bazel_dep(name = "apple_support", version = "1.24.5")
-bazel_dep(name = "rules_cc", version = "0.2.17")
+bazel_dep(name = "apple_support", version = "2.3.0")
+bazel_dep(name = "rules_cc", version = "0.2.19")
 
 # The starlark rules in @rules_cc are hidden behind macros but docgen needs to
 # load the rule class directly, so we need to expose the cc_compatibility_proxy
@@ -59,13 +60,26 @@ bazel_dep(name = "rules_swift", version = "3.3.0")  # with repo_name = None, ver
 bazel_dep(name = "rules_apple", version = "4.3.1", repo_name = None)
 bazel_dep(name = "google_benchmark", version = "1.9.4", repo_name = None)
 bazel_dep(name = "onetbb", version = "2022.2.0", repo_name = None)
+bazel_dep(name = "protoc-gen-validate", version = "1.3.0", repo_name = None)
+bazel_dep(name = "bazel_lib", version = "3.1.0", repo_name = None)
+
+single_version_override(
+    module_name = "grpc",
+    patch_strip = 1,
+    patches = ["//third_party:grpc-load-fixes.patch"],
+)
 
 # bazel_dep overrides
 single_version_override(
+    module_name = "c-ares",
+    version = "1.34.5.bcr.4",
+)
+
+single_version_override(
     module_name = "rules_jvm_external",
     patch_strip = 1,
-    patches = ["//third_party:rules_jvm_external_6.5.patch"],
-    version = "6.6",
+    patches = ["//third_party:rules_jvm_external_6.8_bazel_vendor.patch"],
+    version = "6.8",
 )
 
 # TODO(pcloudy): Remove once the next version of rules_graalvm is available.
@@ -77,13 +91,8 @@ single_version_override(
         "//third_party:rules_graalvm_unicode.patch",
         "//third_party:rules_graalvm_load_fix.patch",
         "//third_party:rules_graalvm_bazel9_fixes.patch",
+        "//third_party:rules_graalvm_graalvm25.patch",
     ],
-)
-
-single_version_override(
-    module_name = "zstd-jni",
-    patch_strip = 1,
-    patches = ["//third_party:zstd-jni.patch"],
 )
 
 single_version_override(
@@ -93,12 +102,7 @@ single_version_override(
     version = "0.0.0-20250604-de157ca3",
 )
 
-single_version_override(
-    module_name = "protoc-gen-validate",
-    patch_strip = 1,
-    patches = ["//third_party:protoc-gen-validate.patch"],
-    version = "1.2.1.bcr.1",
-)
+
 
 # 1. Expose @com_google_protobuf//java/core:lite_runtime_only
 # due to https://github.com/protocolbuffers/protobuf/commit/079be27925955348d1b3cb30ffbfa33dcec5778c
@@ -112,8 +116,9 @@ single_version_override(
 single_version_override(
     module_name = "protobuf",
     patch_strip = 1,
+    # Patch is based on 35.1
     patches = ["//third_party:protobuf.patch"],
-    version = "33.4",
+    version = "35.1",
 )
 
 # Remove once the following PRs are available in a grpc-java release.
@@ -146,9 +151,10 @@ maven.install(
         # keep sorted
         "args4j:args4j:2.37",
         "com.beust:jcommander:1.82",
-        "com.dylibso.chicory:log:1.5.2",
-        "com.dylibso.chicory:runtime:1.5.2",
-        "com.dylibso.chicory:wasm:1.5.2",
+        "com.dylibso.chicory:compiler:1.7.5",
+        "com.dylibso.chicory:log:1.7.5",
+        "com.dylibso.chicory:runtime:1.7.5",
+        "com.dylibso.chicory:wasm:1.7.5",
         "com.github.ben-manes.caffeine:caffeine:3.1.8",
         "com.github.stephenc.jcip:jcip-annotations:1.0-1",
         "com.google.api-client:google-api-client:1.35.2",
@@ -163,10 +169,10 @@ maven.install(
         "com.google.code.findbugs:jsr305:3.0.2",
         "com.google.code.gson:gson:2.11.0",
         "com.google.code.java-allocation-instrumenter:java-allocation-instrumenter:3.3.4",
-        "com.google.errorprone:error_prone_annotation:2.46.0",
-        "com.google.errorprone:error_prone_annotations:2.46.0",
-        "com.google.errorprone:error_prone_check_api:2.46.0",
-        "com.google.errorprone:error_prone_core:2.46.0",
+        "com.google.errorprone:error_prone_annotation:2.50.0",
+        "com.google.errorprone:error_prone_annotations:2.50.0",
+        "com.google.errorprone:error_prone_check_api:2.50.0",
+        "com.google.errorprone:error_prone_core:2.50.0",
         "com.google.flogger:flogger:0.5.1",
         "com.google.flogger:flogger-system-backend:0.5.1",
         "com.google.flogger:google-extensions:0.5.1",
@@ -174,7 +180,7 @@ maven.install(
         "com.google.guava:guava:33.5.0-jre",
         "com.google.http-client:google-http-client:1.42.2",
         "com.google.http-client:google-http-client-gson:1.42.2",
-        "com.google.turbine:turbine:0.14.0",
+        "com.google.turbine:turbine:1.15.0",
         "com.guardsquare:proguard-base:jar:7.8.2",
         "com.ryanharter.auto.value:auto-value-gson-extension:1.3.1",
         "com.ryanharter.auto.value:auto-value-gson-factory:1.3.1",
@@ -229,16 +235,12 @@ maven.install(
         "org.apache.commons:commons-lang3:3.14.0",
         "org.apache.tomcat:tomcat-annotations-api:8.0.5",
         "org.apache.velocity:velocity:1.7",
+        "org.brotli:dec:0.1.2",
         "org.checkerframework:checker-qual:3.49.3",
         "org.commonmark:commonmark:0.25.0",
         "org.openjdk.jmh:jmh-core:1.37",
         "org.openjdk.jmh:jmh-generator-annprocess:1.37",
         "org.openjdk.jol:jol-core:0.17",
-        "org.ow2.asm:asm:9.9",
-        "org.ow2.asm:asm-analysis:9.9",
-        "org.ow2.asm:asm-commons:9.9",
-        "org.ow2.asm:asm-tree:9.9",
-        "org.ow2.asm:asm-util:9.9",
         "org.pcollections:pcollections:4.0.1",
         "org.threeten:threeten-extra:1.5.0",
         "org.tukaani:xz:1.9",
@@ -271,6 +273,23 @@ maven.override(
     coordinates = "io.github.eisop:checker-qual",
     target = "@maven//:org_checkerframework_checker_qual",
 )
+
+# Pin to the version in //third_party/asm/... to avoid one-version violations.
+[
+    maven.artifact(
+        group = "org.ow2.asm",
+        artifact = artifact,
+        version = "9.10",
+        force_version = True,
+    )
+    for artifact in [
+        "asm",
+        "asm-analysis",
+        "asm-commons",
+        "asm-tree",
+        "asm-util",
+    ]
+]
 
 # Test only maven dependencies
 [
@@ -368,6 +387,7 @@ use_repo(
     "openjdk_linux_vanilla",
     "openjdk_macos_aarch64_vanilla",
     "openjdk_macos_x86_64_vanilla",
+    "openjdk_win_arm64_jlink_tool",
     "openjdk_win_arm64_vanilla",
     "openjdk_win_vanilla",
 )
@@ -430,26 +450,36 @@ use_repo(
     "async_profiler_macos",
 )
 
+# Needed during bootstrap compilation. The module extension here is explicitly
+# marked non-reproducible so that it gets included into the lock file and
+# therefore included into the distfile.
+dist_repos = use_extension("//:repositories.bzl", "dist_repos")
+use_repo(
+    dist_repos,
+    "bats_core",
+)
+
 # =========================================
 # Other Bazel testing dependencies
 # =========================================
 
-bazel_dep(name = "bazel_ci_rules", version = "1.0.0")
+bazel_dep(name = "bazel_ci_rules", version = "2.0.0")
 bazel_dep(name = "rules_fuzzing", version = "0.6.0")
 bazel_dep(name = "wabt", version = "1.0.37")
 
-rbe_preconfig = use_repo_rule("@bazel_ci_rules//:rbe_repo.bzl", "rbe_preconfig")
 
-rbe_preconfig(
-    name = "rbe_ubuntu2004",
-    toolchain = "ubuntu2004",
+rbe = use_extension("@bazel_ci_rules//:rbe_config.bzl", "rbe_config_extension")
+rbe.config(
+    name = "rbe_ubuntu2404",
+    preset = "ubuntu2404",
 )
+use_repo(rbe, "rbe_ubuntu2404")
 
 list_source_repository = use_repo_rule("//src/test/shell/bazel:list_source_repository.bzl", "list_source_repository")
 
 list_source_repository(name = "local_bazel_source_list")
 
-winsdk_configure = use_repo_rule("//src/main/res:winsdk_configure.bzl", "winsdk_configure")
+winsdk_configure = use_repo_rule("//tools/res:winsdk_configure.bzl", "winsdk_configure")
 
 winsdk_configure(name = "local_config_winsdk")
 
@@ -474,6 +504,6 @@ register_toolchains("//:all")
 
 register_toolchains("@local_config_winsdk//:all")
 
-register_toolchains("//src/main/res:empty_rc_toolchain")
+register_toolchains("//tools/res:empty_rc_toolchain")
 
 register_toolchains("@graalvm_ce_toolchains//:gvm")

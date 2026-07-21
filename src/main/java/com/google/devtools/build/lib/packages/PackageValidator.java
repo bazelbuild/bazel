@@ -52,6 +52,11 @@ public interface PackageValidator {
     return Package.Builder.PackageLimits.DEFAULTS;
   }
 
+  /** Returns whether the package should default to testonly. */
+  default boolean defaultTestOnly(PackageIdentifier packageIdentifier) {
+    return packageIdentifier.getPackageFragment().getPathString().startsWith("javatests/");
+  }
+
   /**
    * Validates a loaded package. Throws {@link InvalidPackageException} if the package is deemed
    * invalid.

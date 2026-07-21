@@ -52,7 +52,9 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.XattrProvider;
+import java.io.BufferedOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -61,6 +63,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.SortedMap;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
@@ -81,44 +84,49 @@ public class ExpandedSpawnLogContext extends SpawnLogContext {
   private final boolean sorted;
 
   private final Path tempPath;
-  private final Path outputPath;
+  private final OutputStream outputStream;
 
   private final PathFragment execRoot;
   @Nullable private final RemoteOptions remoteOptions;
   private final DigestHashFunction digestHashFunction;
   private final XattrProvider xattrProvider;
+  private final boolean shouldPublish;
 
   /** Output stream to write directly into during execution. */
   private final MessageOutputStream<SpawnExec> rawOutputStream;
 
   public ExpandedSpawnLogContext(
-      Path outputPath,
+      BufferedOutputStream outputStream,
+      String displayName,
+      @Nullable Path outputPath,
       Path tempPath,
       Encoding encoding,
       boolean sorted,
       PathFragment execRoot,
       @Nullable RemoteOptions remoteOptions,
       DigestHashFunction digestHashFunction,
-      XattrProvider xattrProvider)
+      XattrProvider xattrProvider,
+      boolean shouldPublish,
+      Predicate<Spawn> logSpawnPredicate)
       throws IOException {
+    super(logSpawnPredicate);
     this.encoding = encoding;
     this.sorted = sorted;
     this.tempPath = tempPath;
-    this.outputPath = outputPath;
     this.execRoot = execRoot;
+    this.shouldPublish = shouldPublish;
     this.remoteOptions = remoteOptions;
     this.digestHashFunction = digestHashFunction;
     this.xattrProvider = xattrProvider;
+    this.outputStream = outputStream;
 
     if (needsConversion()) {
       // Write the unsorted binary format into a temporary path first, then convert into the output
-      // format after execution. Delete a preexisting output file so that an incomplete invocation
-      // doesn't appear to produce a nonsensical log.
-      outputPath.delete();
+      // format after execution.
       rawOutputStream = getRawOutputStream(tempPath);
     } else {
-      // The unsorted binary format can be written directly into the output path during execution.
-      rawOutputStream = getRawOutputStream(outputPath);
+      // The unsorted binary format can be written directly into the output stream during execution.
+      rawOutputStream = new AsynchronousMessageOutputStream<>(displayName, outputStream);
     }
   }
 
@@ -132,17 +140,16 @@ public class ExpandedSpawnLogContext extends SpawnLogContext {
     return new AsynchronousMessageOutputStream<>(path);
   }
 
-  private MessageOutputStream<SpawnExec> getConvertedOutputStream(Path path) throws IOException {
+  private MessageOutputStream<SpawnExec> getConvertedOutputStream(OutputStream out) {
     return switch (encoding) {
-      case BINARY -> new BinaryOutputStreamWrapper<>(path.getOutputStream());
-      case JSON -> new JsonOutputStreamWrapper<>(path.getOutputStream());
+      case BINARY -> new BinaryOutputStreamWrapper<>(out);
+      case JSON -> new JsonOutputStreamWrapper<>(out);
     };
   }
 
   @Override
   public boolean shouldPublish() {
-    // The expanded log tends to be too large to be uploaded to a remote store.
-    return false;
+    return shouldPublish;
   }
 
   @Override
@@ -154,6 +161,9 @@ public class ExpandedSpawnLogContext extends SpawnLogContext {
       Duration timeout,
       SpawnResult result)
       throws IOException, ExecException {
+    if (!shouldLog(spawn)) {
+      return;
+    }
     try (SilentCloseable c = Profiler.instance().profile("logSpawn")) {
       SpawnExec.Builder builder = SpawnExec.newBuilder();
       builder.addAllCommandArgs(spawn.getArguments());
@@ -313,6 +323,7 @@ public class ExpandedSpawnLogContext extends SpawnLogContext {
     rawOutputStream.close();
 
     if (!needsConversion()) {
+      outputStream.close();
       return;
     }
 
@@ -320,7 +331,7 @@ public class ExpandedSpawnLogContext extends SpawnLogContext {
             new BinaryInputStreamWrapper<>(
                 tempPath.getInputStream(), SpawnExec.getDefaultInstance());
         MessageOutputStream<SpawnExec> convertedOutputStream =
-            getConvertedOutputStream(outputPath)) {
+            getConvertedOutputStream(outputStream)) {
       if (sorted) {
         StableSort.stableSort(rawInputStream, convertedOutputStream);
       } else {

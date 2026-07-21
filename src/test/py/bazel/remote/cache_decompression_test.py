@@ -68,17 +68,28 @@ class HTTPServerV6(HTTPServer):
   address_family = socket.AF_INET6
 
 
+class HTTPServerDualStack(HTTPServer):
+  address_family = socket.AF_INET6
+
+  def server_bind(self):
+    # Disable IPV6_V6ONLY to allow IPv4 connections
+    self.socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 0)
+    super().server_bind()
+
+
 class CacheDecompressionTest(test_base.TestBase):
 
   def setUp(self):
     test_base.TestBase.setUp(self)
-    server_port = self.GetFreeTCPPort()
-    if self.IsDarwin():
-      self.httpd = HTTPServerV6(
-          ('localhost', server_port), MemoryStorageHandler
-      )
+    if socket.has_dualstack_ipv6():
+      self.httpd = HTTPServerDualStack(('::', 0), MemoryStorageHandler)
+      _, server_port, _, _ = self.httpd.server_address
+    elif socket.has_ipv6:
+      self.httpd = HTTPServerV6(('::', 0), MemoryStorageHandler)
+      _, server_port, _, _ = self.httpd.server_address
     else:
       self.httpd = HTTPServer(('localhost', server_port), MemoryStorageHandler)
+      _, server_port = self.httpd.server_address
     self.httpd.storage = {}
     self.url = 'http://localhost:{}'.format(server_port)
     self.background = threading.Thread(target=self.httpd.serve_forever)
@@ -122,13 +133,6 @@ class CacheDecompressionTest(test_base.TestBase):
 
     self.AssertFileContentEqual(
         os.path.join(bazel_genfiles, 'genrule.txt'), content)
-
-  def GetFreeTCPPort(self):
-    tcp = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    tcp.bind(('localhost', 0))
-    _, port = tcp.getsockname()
-    tcp.close()
-    return port
 
   def AssertFileContentEqual(self, file_path, entry):
     with open(file_path, 'r') as f:

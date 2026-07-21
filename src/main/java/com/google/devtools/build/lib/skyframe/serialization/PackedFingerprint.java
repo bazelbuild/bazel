@@ -24,14 +24,13 @@ import java.io.IOException;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
 import java.nio.ByteOrder;
+import java.util.HexFormat;
 
 /**
  * A compact in-memory representation of a 128-bit fingerprint.
  *
  * <p>A wrapper around the bytes in unavoidable because a {@code byte[]} doesn't implement
  * values-equality. Storing the bytes in longs is more direct and consumes less memory.
- *
- * <p>This class contains additional functionality for Memcached keys.
  *
  * @param lo the lower 64-bits of the fingerprint
  * @param hi the upper 64-bits of the fingerprint
@@ -40,6 +39,8 @@ public record PackedFingerprint(long lo, long hi)
     implements KeyBytesProvider, Comparable<PackedFingerprint> {
   /** Number of bytes in the serialized representation of a fingerprint. */
   public static final int BYTES = 16;
+
+  private static final HexFormat HEX_FORMAT = HexFormat.of().withLowerCase();
 
   /**
    * Constructs a fingerprint directly from {@code bytes}.
@@ -50,20 +51,6 @@ public record PackedFingerprint(long lo, long hi)
     checkArgument(bytes.length == BYTES, bytes.length);
     return new PackedFingerprint(
         (long) LONG_ARRAY_HANDLE.get(bytes, 0), (long) LONG_ARRAY_HANDLE.get(bytes, 8));
-  }
-
-  /**
-   * Constructs a fingerprint from {@code bytes}, converting any 0 bytes to 1.
-   *
-   * <p>This is useful for creating Memcached keys, which must not contain the `\0` byte.
-   *
-   * @throws IllegalArgumentException if {@code bytes} is not length {@link #BYTES}.
-   */
-  public static PackedFingerprint fromBytesOffsetZeros(byte[] bytes) {
-    checkArgument(bytes.length == BYTES, bytes.length);
-    return new PackedFingerprint(
-        offsetZeros((long) LONG_ARRAY_HANDLE.get(bytes, 0)),
-        offsetZeros((long) LONG_ARRAY_HANDLE.get(bytes, 8)));
   }
 
   /** Reads a fingerprint from {@code codedIn} that was written by {@link #writeTo}. */
@@ -82,6 +69,10 @@ public record PackedFingerprint(long lo, long hi)
     byte[] result = new byte[BYTES];
     copyTo(result, 0);
     return result;
+  }
+
+  public String toHex() {
+    return HEX_FORMAT.formatHex(toBytes());
   }
 
   /** Concatenates {@code bytes} to the {@code byte[]} representation of this fingerprint. */
@@ -117,36 +108,6 @@ public record PackedFingerprint(long lo, long hi)
       return Long.compare(lo, o.lo);
     }
     return result;
-  }
-
-  /** Changes all 0 bytes of {@code input} into 1. */
-  @VisibleForTesting
-  static long offsetZeros(long input) {
-    // 1. (input - 0x0101_0101_0101_0101) produces a long with every byte having MSB as follows
-    //    based on the input byte, `b`.
-    //
-    //    a.      b = 0    : MSB becomes 1
-    //    b.      b = 1    : MSB may stay at 0 or become 1
-    //    c.  1 < b < 0x81 : MSB may stay at or become 0
-    //    d.      b = 0x81 : MSB may stay at 1 or become 0
-    //    e.      b > 0x81 : MSB stays at 1
-    //
-    //    Note that while -1 is directly subtracted from each byte, it's possible for it to be
-    //    effectively -2 if there are carries.
-    //
-    // 2. (~input & 0x8080_8080_8080_8080L) produces a long where every byte has its MSB set iff
-    //    it was < 0x80 (and all other bits 0).
-    //
-    // 3. Combining (1) and (2) using the AND operation produces a long where every byte has its MSB
-    //    set iff it was 0 and sometimes 1, case (a) and (b). Case (c) always has MSB 0 while cases
-    //    (d) and (e) are masked out by (2).
-    //
-    // 4. Shifting (3) by 7 bits to the right produces a long where every byte has its LSB set iff
-    //    that byte was originally 0 and sometimes 1.
-    //
-    // 5. Finally, combining (4) with the input using the OR operation produces a the long with all
-    //    0 bytes turned into 1.
-    return input | (((input - 0x0101_0101_0101_0101L) & (~input & 0x8080_8080_8080_8080L)) >>> 7);
   }
 
   @Keep

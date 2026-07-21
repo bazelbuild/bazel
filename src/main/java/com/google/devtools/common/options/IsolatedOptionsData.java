@@ -14,17 +14,16 @@
 
 package com.google.devtools.common.options;
 
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.common.options.OptionsParser.ConstructionException;
 import java.lang.reflect.Constructor;
-import java.util.Arrays;
+import java.lang.reflect.Method;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import javax.annotation.concurrent.Immutable;
@@ -48,6 +47,26 @@ import javax.annotation.concurrent.Immutable;
 public class IsolatedOptionsData extends OpaqueOptionsData {
 
   /**
+   * A little class whose only virtue is that it has a constructor which can be used to mark cases
+   * where it's ambiguous which subclass should be instantiated for a given options base class.
+   */
+  private static class AmbiguousClassMarker {
+    public AmbiguousClassMarker() {
+      throw new IllegalStateException();
+    }
+  }
+
+  private static final Constructor<?> AMBIGUOUS_MARKER_CTOR;
+
+  static {
+    try {
+      AMBIGUOUS_MARKER_CTOR = AmbiguousClassMarker.class.getConstructor();
+    } catch (NoSuchMethodException e) {
+      throw new IllegalStateException(e);
+    }
+  }
+
+  /**
    * Cache for the options in an OptionsBase.
    *
    * <p>Mapping from options class to a list of all {@code OptionFields} in that class. The map
@@ -56,30 +75,30 @@ public class IsolatedOptionsData extends OpaqueOptionsData {
    * instances, and must be used through the thread safe {@link
    * #getAllOptionDefinitionsForClass(Class)}
    */
-  private static final ConcurrentMap<
-          Class<? extends OptionsBase>, ImmutableList<FieldOptionDefinition>>
-      allOptionsFields = new ConcurrentHashMap<>();
+  private static final ConcurrentMap<Class<? extends OptionsBase>, ImmutableList<OptionDefinition>>
+      allOptionsDefinitions = new ConcurrentHashMap<>();
 
   /** Returns all {@code optionDefinitions}, ordered by their option name (not their field name). */
-  public static ImmutableList<FieldOptionDefinition> getAllOptionDefinitionsForClass(
+  public static ImmutableList<OptionDefinition> getAllOptionDefinitionsForClass(
       Class<? extends OptionsBase> optionsClass) {
-    return allOptionsFields.computeIfAbsent(
+    return allOptionsDefinitions.computeIfAbsent(
         optionsClass,
-        optionsBaseClass ->
-            Arrays.stream(optionsBaseClass.getFields())
-                .map(
-                    field -> {
-                      try {
-                        return FieldOptionDefinition.extractOptionDefinition(field);
-                      } catch (FieldOptionDefinition.NotAnOptionException e) {
-                        // Ignore non-@Option annotated fields. Requiring all fields in the
-                        // OptionsBase to be @Option-annotated requires a depot cleanup.
-                        return null;
-                      }
-                    })
-                .filter(Objects::nonNull)
-                .sorted(OptionDefinition.BY_OPTION_NAME)
-                .collect(ImmutableList.toImmutableList()));
+        optionsBaseClass -> {
+          ImmutableList.Builder<OptionDefinition> builder = ImmutableList.builder();
+          Verify.verify(
+              optionsBaseClass.isAnnotationPresent(OptionsClass.class),
+              "Options class %s should be annotated with @OptionsClass",
+              optionsBaseClass.getName());
+
+          for (Method method : optionsBaseClass.getMethods()) {
+            MethodOptionDefinition optionDefinition = MethodOptionDefinition.from(method);
+            if (optionDefinition != null) {
+              builder.add(optionDefinition);
+            }
+          }
+
+          return ImmutableList.sortedCopyOf(OptionDefinition.BY_OPTION_NAME, builder.build());
+        });
   }
 
   /**
@@ -87,6 +106,13 @@ public class IsolatedOptionsData extends OpaqueOptionsData {
    * that they were passed to {@link #from(Collection, boolean)}.
    */
   private final ImmutableMap<Class<? extends OptionsBase>, Constructor<?>> optionsClasses;
+
+  /**
+   * The list of options classes that were passed to the constructor. This is used to return the
+   * options classes in the order they were provided, and avoids returning superclasses of
+   * registered classes, which would lead to duplicate options in help messages.
+   */
+  private final ImmutableList<Class<? extends OptionsBase>> primaryOptionsClasses;
 
   /**
    * Mapping from option name to {@code OptionDefinition}. Entries appear ordered first by their
@@ -106,33 +132,26 @@ public class IsolatedOptionsData extends OpaqueOptionsData {
   /** Mapping from option abbreviation to {@code OptionDefinition} (unordered). */
   private final ImmutableMap<Character, OptionDefinition> abbrevToField;
 
-
-  /**
-   * Mapping from each options class to whether or not it has the {@link UsesOnlyCoreTypes}
-   * annotation (unordered).
-   */
-  private final ImmutableMap<Class<? extends OptionsBase>, Boolean> usesOnlyCoreTypes;
-
   private IsolatedOptionsData(
       Map<Class<? extends OptionsBase>, Constructor<?>> optionsClasses,
+      ImmutableList<Class<? extends OptionsBase>> primaryOptionsClasses,
       Map<String, OptionDefinition> nameToField,
       Map<String, OptionDefinition> oldNameToField,
-      Map<Character, OptionDefinition> abbrevToField,
-      Map<Class<? extends OptionsBase>, Boolean> usesOnlyCoreTypes) {
+      Map<Character, OptionDefinition> abbrevToField) {
     this.optionsClasses = ImmutableMap.copyOf(optionsClasses);
+    this.primaryOptionsClasses = primaryOptionsClasses;
     this.nameToField = ImmutableMap.copyOf(nameToField);
     this.oldNameToField = ImmutableMap.copyOf(oldNameToField);
     this.abbrevToField = ImmutableMap.copyOf(abbrevToField);
-    this.usesOnlyCoreTypes = ImmutableMap.copyOf(usesOnlyCoreTypes);
   }
 
   protected IsolatedOptionsData(IsolatedOptionsData other) {
     this(
         other.optionsClasses,
+        other.primaryOptionsClasses,
         other.nameToField,
         other.oldNameToField,
-        other.abbrevToField,
-        other.usesOnlyCoreTypes);
+        other.abbrevToField);
   }
 
   /**
@@ -140,7 +159,7 @@ public class IsolatedOptionsData extends OpaqueOptionsData {
    * to {@link #from(Collection, boolean)}.
    */
   public Collection<Class<? extends OptionsBase>> getOptionsClasses() {
-    return optionsClasses.keySet();
+    return primaryOptionsClasses;
   }
 
   @SuppressWarnings("unchecked") // The construction ensures that the case is always valid.
@@ -169,10 +188,6 @@ public class IsolatedOptionsData extends OpaqueOptionsData {
     return abbrevToField.get(abbrev);
   }
 
-  public boolean getUsesOnlyCoreTypes(Class<? extends OptionsBase> optionsClass) {
-    return usesOnlyCoreTypes.get(optionsClass);
-  }
-
   /**
    * Generic method to check for collisions between the names we give options. Useful for checking
    * both single-character abbreviations and full names.
@@ -187,7 +202,7 @@ public class IsolatedOptionsData extends OpaqueOptionsData {
     if (aFieldMap.containsKey(optionName)) {
       OptionDefinition otherDefinition = aFieldMap.get(optionName);
       if (allowDuplicatesParsingEquivalently
-          && OptionsParserImpl.equivalentForParsing(otherDefinition, definition)) {
+          && OptionDefinition.equivalentForParsing(otherDefinition, definition)) {
         return;
       }
       throw new DuplicateOptionDeclarationException(
@@ -257,6 +272,8 @@ public class IsolatedOptionsData extends OpaqueOptionsData {
       boolean allowDuplicatesParsingEquivalently) {
     // Mind which fields have to preserve order.
     Map<Class<? extends OptionsBase>, Constructor<?>> constructorBuilder = new LinkedHashMap<>();
+    ImmutableList.Builder<Class<? extends OptionsBase>> primaryOptionsClassesBuilder =
+        ImmutableList.builder();
     Map<String, OptionDefinition> nameToFieldBuilder = new LinkedHashMap<>();
     Map<String, OptionDefinition> oldNameToFieldBuilder = new LinkedHashMap<>();
     Map<Character, OptionDefinition> abbrevToFieldBuilder = new HashMap<>();
@@ -264,20 +281,37 @@ public class IsolatedOptionsData extends OpaqueOptionsData {
     // Maps the negated boolean flag aliases to the original option name.
     Map<String, String> booleanAliasMap = new HashMap<>();
 
-    Map<Class<? extends OptionsBase>, Boolean> usesOnlyCoreTypesBuilder = new HashMap<>();
-
     // Combine the option definitions for these options classes, and check that they do not
     // conflict. The options are individually checked for correctness at compile time in the
     // OptionProcessor.
     for (Class<? extends OptionsBase> parsedOptionsClass : classes) {
+      primaryOptionsClassesBuilder.add(parsedOptionsClass);
+      Constructor<? extends OptionsBase> constructor;
       try {
-        Constructor<? extends OptionsBase> constructor = parsedOptionsClass.getConstructor();
+        Class<? extends OptionsBase> classToInstantiate = parsedOptionsClass;
+        if (parsedOptionsClass.isAnnotationPresent(OptionsClass.class)) {
+          classToInstantiate = MethodOptionDefinition.getImplClass(parsedOptionsClass);
+        }
+        constructor = classToInstantiate.getConstructor();
         constructorBuilder.put(parsedOptionsClass, constructor);
       } catch (NoSuchMethodException e) {
         throw new IllegalArgumentException(
             parsedOptionsClass + " lacks an accessible default constructor", e);
       }
-      ImmutableList<FieldOptionDefinition> optionDefinitions =
+
+      for (Class<? extends OptionsBase> superclass : getAllSuperclasses(parsedOptionsClass)) {
+        // If two options classes have the same base class or one is the base class of another,
+        // it's an option conflict. Except for fallback options (when
+        // allowDuplicatesParsingEquivalently is true), but then we don't instantiate any option
+        // classes
+        if (constructorBuilder.containsKey(superclass)) {
+          constructorBuilder.put(superclass, AMBIGUOUS_MARKER_CTOR);
+        } else {
+          constructorBuilder.put(superclass, constructor);
+        }
+      }
+
+      ImmutableList<OptionDefinition> optionDefinitions =
           getAllOptionDefinitionsForClass(parsedOptionsClass);
 
       for (OptionDefinition optionDefinition : optionDefinitions) {
@@ -348,35 +382,25 @@ public class IsolatedOptionsData extends OpaqueOptionsData {
           throw new ConstructionException(e);
         }
       }
-
-      boolean usesOnlyCoreTypes = parsedOptionsClass.isAnnotationPresent(UsesOnlyCoreTypes.class);
-      if (usesOnlyCoreTypes) {
-        // Validate that @UsesOnlyCoreTypes was used correctly.
-        for (FieldOptionDefinition optionDefinition : optionDefinitions) {
-          // The classes in coreTypes are all final. But even if they weren't, we only want to check
-          // for exact matches; subclasses would not be considered core types.
-          if (!UsesOnlyCoreTypes.CORE_TYPES.contains(optionDefinition.getType())) {
-            throw new ConstructionException(
-                "Options class '"
-                    + parsedOptionsClass.getName()
-                    + "' is marked as "
-                    + "@UsesOnlyCoreTypes, but field '"
-                    + optionDefinition.getField().getName()
-                    + "' has type '"
-                    + optionDefinition.getType().getName()
-                    + "'");
-          }
-        }
-      }
-      usesOnlyCoreTypesBuilder.put(parsedOptionsClass, usesOnlyCoreTypes);
     }
 
     return new IsolatedOptionsData(
         constructorBuilder,
+        primaryOptionsClassesBuilder.build(),
         nameToFieldBuilder,
         oldNameToFieldBuilder,
-        abbrevToFieldBuilder,
-        usesOnlyCoreTypesBuilder);
+        abbrevToFieldBuilder);
   }
 
+  private static ImmutableSet<Class<? extends OptionsBase>> getAllSuperclasses(
+      Class<? extends OptionsBase> clazz) {
+    ImmutableSet.Builder<Class<? extends OptionsBase>> builder = ImmutableSet.builder();
+    Class<?> current = clazz.getSuperclass();
+    // We don't check for nullness because every class here should be a descendant of OptionsBase
+    while (current != OptionsBase.class) {
+      builder.add(current.asSubclass(OptionsBase.class));
+      current = current.getSuperclass();
+    }
+    return builder.build();
+  }
 }

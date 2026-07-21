@@ -25,7 +25,6 @@ import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionConflictException;
@@ -51,6 +50,7 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.rules.AliasConfiguredTarget;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -79,6 +79,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
@@ -116,7 +117,7 @@ public class BuildDriverFunction implements SkyFunction {
   // We didn't use SkyKeyComputeState since it should only be used as a performance optimization,
   // whereas in this situation the state determines the behavior of the SkyFunction.
   private Map<BuildDriverKey, Set<TopLevelStatusEvents.Type>> keyToPostedEvents =
-      Maps.newConcurrentMap();
+      new ConcurrentHashMap<>();
 
   public BuildDriverFunction(
       Supplier<IncrementalArtifactConflictFinder> incrementalArtifactConflictFinder,
@@ -433,10 +434,17 @@ public class BuildDriverFunction implements SkyFunction {
             e);
       }
 
+      Label actual =
+          (configuredTarget instanceof AliasConfiguredTarget alias)
+              ? alias.getActual().getLabel()
+              : null;
+
       env.getListener()
           .post(
               new TargetConfiguredEvent(
-                  target, getConfigurationValue(env, configuredTarget.getConfigurationKey())));
+                  target,
+                  getConfigurationValue(env, configuredTarget.getConfigurationKey()),
+                  actual));
     }
     postEventIfNecessary(
         postedEventsTypes, env, TopLevelTargetAnalyzedEvent.create(configuredTarget));
@@ -492,7 +500,7 @@ public class BuildDriverFunction implements SkyFunction {
 
   public void resetStates() {
     checkedForConflicts = Sets.newConcurrentHashSet();
-    keyToPostedEvents = Maps.newConcurrentMap();
+    keyToPostedEvents = new ConcurrentHashMap<>();
   }
 
   private void removeStatesForKey(BuildDriverKey key) {

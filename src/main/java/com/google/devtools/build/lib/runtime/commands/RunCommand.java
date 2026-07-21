@@ -84,17 +84,18 @@ import com.google.devtools.build.lib.server.FailureDetails.RunCommand.Code;
 import com.google.devtools.build.lib.util.CommandDescriptionForm;
 import com.google.devtools.build.lib.util.CommandFailureUtils;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.util.EnvVar;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.protobuf.ByteString;
@@ -119,7 +120,8 @@ import javax.annotation.Nullable;
     completion = "label-bin")
 public class RunCommand implements BlazeCommand {
   /** Options for the "run" command. */
-  public static class RunOptions extends OptionsBase {
+  @OptionsClass
+  public abstract static class RunOptions extends OptionsBase {
     @Option(
         name = "script_path",
         defaultValue = "null",
@@ -132,7 +134,7 @@ public class RunCommand implements BlazeCommand {
                 + " --script_path=foo //foo && ./foo' to invoke target '//foo' This differs from"
                 + " '%{product} run //foo' in that the %{product} lock is released and the"
                 + " executable is connected to the terminal's stdin.")
-    public PathFragment scriptPath;
+    public abstract PathFragment getScriptPath();
 
     @Option(
         name = "emit_script_path_in_exec_request",
@@ -142,7 +144,7 @@ public class RunCommand implements BlazeCommand {
         help =
             "If true, emits the ExecRequest with --script_path file value and script contents"
                 + " instead of writing the script.")
-    public boolean emitScriptPathInExecRequest;
+    public abstract boolean getEmitScriptPathInExecRequest();
 
     @Option(
         name = "run",
@@ -152,7 +154,7 @@ public class RunCommand implements BlazeCommand {
         help =
             "If false, skip running the command line constructed for the built target. Note that"
                 + " this flag is ignored for all --script_path builds.")
-    public boolean runBuiltTarget;
+    public abstract boolean getRunBuiltTarget();
 
     @Option(
         name = "portable_paths",
@@ -162,11 +164,11 @@ public class RunCommand implements BlazeCommand {
         help =
             "If true, includes paths to replace in ExecRequest to make the resulting paths"
                 + " portable.")
-    public boolean portablePaths;
+    public abstract boolean getPortablePaths();
 
     @Option(
         name = "run_env",
-        converter = Converters.EnvVarsConverter.class,
+        converter = EnvVar.Converter.class,
         allowMultiple = true,
         defaultValue = "null",
         documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
@@ -181,7 +183,7 @@ public class RunCommand implements BlazeCommand {
                 + " wins, options for different variables accumulate. Note that the executed target"
                 + " will generally see the full environment of the host except for those variables"
                 + " that have been explicitly unset.")
-    public List<Converters.EnvVar> runEnvironment;
+    public abstract List<EnvVar> getRunEnvironment();
 
     @Option(
         name = "run_in_cwd",
@@ -191,7 +193,7 @@ public class RunCommand implements BlazeCommand {
         help =
             "If true, runs the target in the current working directory instead of the runfile"
                 + " tree.")
-    public boolean runInCwd;
+    public abstract boolean getRunInCwd();
 
     @Option(
         name = "omit_run_args",
@@ -203,7 +205,7 @@ public class RunCommand implements BlazeCommand {
                 + " output for privacy reasons. If set to true, the output will not contain the"
                 + " arguments passed to the target. If set to false, the output will contain the"
                 + " arguments passed to the target.")
-    public boolean runOmitRunArgs;
+    public abstract boolean getRunOmitRunArgs();
   }
 
   private static final String NO_TARGET_MESSAGE = "No targets found to run";
@@ -262,7 +264,7 @@ public class RunCommand implements BlazeCommand {
           env, "Must specify a target to run", Code.NO_TARGET_SPECIFIED);
     }
     String targetString = targetAndArgs.get(0);
-    RunUnder runUnder = options.getOptions(CoreOptions.class).runUnder;
+    RunUnder runUnder = options.getOptions(CoreOptions.class).getRunUnder();
 
     BuiltTargets builtTargets;
     try {
@@ -278,7 +280,7 @@ public class RunCommand implements BlazeCommand {
         ImmutableList.<BuildEventId>builder()
             .add(BuildEventIdUtil.buildToolLogs())
             .add(BuildEventIdUtil.buildMetrics());
-    if (runOptions.scriptPath == null) {
+    if (runOptions.getScriptPath() == null) {
       runCompleteChildrenEvents.add(BuildEventIdUtil.execRequestId());
     }
     env.getReporter()
@@ -300,7 +302,7 @@ public class RunCommand implements BlazeCommand {
         env.getRuntime()
             .getStartupOptionsProvider()
             .getOptions(BlazeServerStartupOptions.class)
-            .batch;
+            .getBatch();
     TreeMap<String, String> finalRunEnv = new TreeMap<>(runCommandLine.getEnvironment());
     if (batchMode) {
       // In --batch, prioritize original client env-var values over those added by the c++ launcher.
@@ -310,9 +312,10 @@ public class RunCommand implements BlazeCommand {
 
     ExecRequest.Builder execRequest;
     try {
-      boolean shouldRunTarget = runOptions.scriptPath == null && runOptions.runBuiltTarget;
+      boolean shouldRunTarget =
+          runOptions.getScriptPath() == null && runOptions.getRunBuiltTarget();
       ImmutableList<PathToReplace> pathsToReplace =
-          runOptions.portablePaths
+          runOptions.getPortablePaths()
               ? getPathsToReplace(
                   env,
                   /* testLogDir= */ builtTargets
@@ -335,12 +338,12 @@ public class RunCommand implements BlazeCommand {
       return e.result;
     }
 
-    if (runOptions.scriptPath != null) {
+    if (runOptions.getScriptPath() != null) {
       return handleScriptPath(runOptions, execRequest, runCommandLine, env, builtTargets);
     }
 
     ExecutionOptions executionOptions = options.getOptions(ExecutionOptions.class);
-    ActionExecutionContext.ShowSubcommands showSubcommands = executionOptions.showSubcommands;
+    ActionExecutionContext.ShowSubcommands showSubcommands = executionOptions.getShowSubcommands();
 
     String commandDescription;
     if (showSubcommands != ActionExecutionContext.ShowSubcommands.FALSE) {
@@ -366,10 +369,10 @@ public class RunCommand implements BlazeCommand {
               /* executionPlatformLabel= */ null,
               /* spawnRunner= */ null);
     } else {
-      commandDescription = runCommandLine.getPrettyArgs(runOptions.runOmitRunArgs);
+      commandDescription = runCommandLine.getPrettyArgs(runOptions.getRunOmitRunArgs());
     }
 
-    String prefix = runOptions.runBuiltTarget ? "Running" : "Runnable";
+    String prefix = runOptions.getRunBuiltTarget() ? "Running" : "Runnable";
     String separator =
         showSubcommands != ActionExecutionContext.ShowSubcommands.FALSE ? ":\n" : ": ";
     env.getReporter()
@@ -380,8 +383,9 @@ public class RunCommand implements BlazeCommand {
           .post(
               new ExecRequestEvent(
                   execRequest.build(),
-                  /* redactedArgv= */ options.getOptions(BuildEventProtocolOptions.class)
-                          .includeResidueInRunBepEvent
+                  /* redactedArgv= */ options
+                          .getOptions(BuildEventProtocolOptions.class)
+                          .getIncludeResidueInRunBepEvent()
                       ? ImmutableList.copyOf(execRequest.getArgvList())
                       : getArgvWithoutResidue(
                           env, runCommandLine, builtTargets.configuration, builtTargets.stopTime)));
@@ -523,7 +527,7 @@ public class RunCommand implements BlazeCommand {
     // target to run needs to be preserved, as it acts as the working directory.
     Path targetToRunRunfilesDir = null;
     RunfilesSupport targetToRunRunfilesSupport = null;
-    RunfilesTreeUpdater runfilesTreeUpdater = RunfilesTreeUpdater.forCommandEnvironment(env);
+    RunfilesTreeUpdater runfilesTreeUpdater = env.getRunfilesTreeUpdater();
     for (ConfiguredTarget target : topLevelTargets) {
       FilesToRunProvider provider = target.getProvider(FilesToRunProvider.class);
       RunfilesSupport runfilesSupport = provider == null ? null : provider.getRunfilesSupport();
@@ -667,16 +671,16 @@ public class RunCommand implements BlazeCommand {
 
     String scriptContents = runCommandLine.getScriptForm(shExecutable);
 
-    if (runOptions.emitScriptPathInExecRequest) {
+    if (runOptions.getEmitScriptPathInExecRequest()) {
       execRequest.setScriptPath(
           CommandProtos.ScriptPath.newBuilder()
-              .setScriptPath(ByteString.copyFrom(runOptions.scriptPath.toString(), ISO_8859_1))
+              .setScriptPath(ByteString.copyFrom(runOptions.getScriptPath().toString(), ISO_8859_1))
               .setScriptContents(ByteString.copyFrom(scriptContents, ISO_8859_1))
               .build());
       return BlazeCommandResult.execute(execRequest.build());
     } else {
       try {
-        writeScript(env, runOptions.scriptPath, scriptContents);
+        writeScript(env, runOptions.getScriptPath(), scriptContents);
       } catch (IOException e) {
         String message = "Error writing run script: " + e.getMessage();
         return reportAndCreateFailureResult(env, message, Code.SCRIPT_WRITE_FAILURE);
@@ -710,13 +714,13 @@ public class RunCommand implements BlazeCommand {
     HashSet<String> envVariablesToClear = new HashSet<>();
     ImmutableMap<String, String> clientEnv = env.getClientEnv();
     // Process --run_env flags first
-    for (var envVar : runOptions.runEnvironment) {
+    for (var envVar : runOptions.getRunEnvironment()) {
       switch (envVar) {
-        case Converters.EnvVar.Set(String name, String value) -> {
+        case EnvVar.Set(String name, String value) -> {
           runEnvironment.put(name, value);
           envVariablesToClear.remove(name);
         }
-        case Converters.EnvVar.Inherit(String name) -> {
+        case EnvVar.Inherit(String name) -> {
           // If a value is missing, inherit from client environment if present, otherwise leave
           // unset. In the latter case, explicitly remove since the same name might be given
           // multiple times.
@@ -727,7 +731,7 @@ public class RunCommand implements BlazeCommand {
           }
           envVariablesToClear.remove(name);
         }
-        case Converters.EnvVar.Unset(String name) -> {
+        case EnvVar.Unset(String name) -> {
           runEnvironment.remove(name);
           envVariablesToClear.add(name);
         }
@@ -776,7 +780,7 @@ public class RunCommand implements BlazeCommand {
     // ensureRunfilesBuilt does build the runfiles, but an extra consistency check won't hurt.
     Preconditions.checkState(
         settings.getRunfilesSymlinksCreated()
-            == options.getOptions(CoreOptions.class).buildRunfileLinks);
+            == options.getOptions(CoreOptions.class).getBuildRunfileLinks());
 
     Path execRoot = env.getExecRoot();
     Path runfilesDir = settings.getRunfilesDir();
@@ -873,17 +877,17 @@ public class RunCommand implements BlazeCommand {
             env.getRelativeWorkingDirectory(),
             requestOptions.getSymlinkPrefix(env.getRuntime().getProductName()),
             builtTargets.convenienceSymlinks);
-
     RunCommandLine.Builder runCommandLine =
         new RunCommandLine.Builder(
             runEnvironment,
             envVariablesToClear,
-            /* workingDir= */ !runOptions.runInCwd && builtTargets.targetToRunRunfilesDir != null
+            /* workingDir= */ !runOptions.getRunInCwd()
+                    && builtTargets.targetToRunRunfilesDir != null
                 ? builtTargets.targetToRunRunfilesDir
                 : env.getWorkingDirectory(),
             /* isTestTarget= */ false);
 
-    RunUnder runUnder = env.getOptions().getOptions(CoreOptions.class).runUnder;
+    RunUnder runUnder = env.getOptions().getOptions(CoreOptions.class).getRunUnder();
     // Insert the command prefix specified by the "--run_under=<command-prefix>" option
     // at the start of the command line.
     if (runUnder != null) {

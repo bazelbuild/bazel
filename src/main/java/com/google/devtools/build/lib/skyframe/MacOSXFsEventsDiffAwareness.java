@@ -143,11 +143,8 @@ public final class MacOSXFsEventsDiffAwareness extends LocalDiffAwareness {
 
   @Override
   public View getCurrentView(OptionsProvider options) throws BrokenDiffAwarenessException {
-    if (!service.isJniAvailable()) {
-      return EVERYTHING_MODIFIED;
-    }
     // See WatchServiceDiffAwareness#getCurrentView for an explanation of this logic.
-    boolean watchFs = options.getOptions(Options.class).watchFS;
+    boolean watchFs = options.getOptions(Options.class).getWatchFS();
     if (watchFs && !opened) {
       init();
     } else if (!watchFs && opened) {

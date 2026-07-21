@@ -89,8 +89,8 @@ public class BuildSummaryStatsModule extends BlazeModule {
 
   @Override
   public void executorInit(CommandEnvironment env, BuildRequest request, ExecutorBuilder builder) {
-    enabled = env.getOptions().getOptions(ExecutionOptions.class).enableCriticalPathProfiling;
-    statsSummary = env.getOptions().getOptions(ExecutionOptions.class).statsSummary;
+    enabled = env.getOptions().getOptions(ExecutionOptions.class).getEnableCriticalPathProfiling();
+    statsSummary = env.getOptions().getOptions(ExecutionOptions.class).getStatsSummary();
     if (enabled) {
       criticalPathComputer =
           new CriticalPathComputer(

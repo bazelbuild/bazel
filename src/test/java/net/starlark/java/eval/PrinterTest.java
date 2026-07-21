@@ -28,8 +28,8 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /**
- *  Test properties of the evaluator's datatypes and utility functions
- *  without actually creating any parse trees.
+ * Test properties of the evaluator's datatypes and utility functions without actually creating any
+ * parse trees.
  */
 @RunWith(JUnit4.class)
 public class PrinterTest {
@@ -117,13 +117,13 @@ public class PrinterTest {
     assertThat(formatWithList("", Tuple.of())).isEmpty();
     assertThat(format("%s", "foo")).isEqualTo("foo");
     assertThat(format("%s", 3.14159)).isEqualTo("3.14159");
-    checkFormatPositionalFails("not all arguments converted during string formatting",
-        "%s", 1, 2, 3);
+    checkFormatPositionalFails(
+        "not all arguments converted during string formatting", "%s", 1, 2, 3);
     assertThat(format("%%%s", "foo")).isEqualTo("%foo");
-    checkFormatPositionalFails("not all arguments converted during string formatting",
-        "%%s", "foo");
-    checkFormatPositionalFails("unsupported format character \" \" at index 1 in \"% %s\"",
-        "% %s", "foo");
+    checkFormatPositionalFails(
+        "not all arguments converted during string formatting", "%%s", "foo");
+    checkFormatPositionalFails(
+        "unsupported format character \" \" at index 1 in \"% %s\"", "% %s", "foo");
     assertThat(
             format(
                 "%s",
@@ -138,11 +138,92 @@ public class PrinterTest {
     checkFormatPositionalFails("got string for '%d' format, want int or float", "%d", "1");
     checkFormatPositionalFails(
         "unsupported format character \".\" at index 1 in \"%.3g\"", "%.3g", 1);
-    checkFormatPositionalFails("unsupported format character \".\" at index 1 in \"%.3g\"",
-        "%.3g", 1, 2);
+    checkFormatPositionalFails(
+        "unsupported format character \".\" at index 1 in \"%.3g\"", "%.3g", 1, 2);
     checkFormatPositionalFails(
         "unsupported format character \".\" at index 1 in \"%.s\"", "%.s", 1);
     checkFormatPositionalFails("not enough arguments for format pattern \"%.s\": ()", "%.s");
+  }
+
+  private static String prettyQuoted(String s) {
+    StringBuilder sb = new StringBuilder();
+    new Printer(sb).appendPrettyQuoted(s);
+    return sb.toString();
+  }
+
+  @Test
+  public void testPrettyQuoted() throws Exception {
+    // Single-line strings should use ordinary double quotes.
+    assertThat(prettyQuoted("foo")).isEqualTo("\"foo\"");
+    assertThat(prettyQuoted("foo\"bar")).isEqualTo("\"foo\\\"bar\"");
+    assertThat(prettyQuoted("foo\\bar")).isEqualTo("\"foo\\\\bar\"");
+
+    // Multiline default is triple double quotes
+    assertThat(prettyQuoted("one\ntwo"))
+        .isEqualTo(
+            """
+            \"\"\"one
+            two\"\"\"\
+            """);
+
+    // Escaping inside triple double quotes
+    // Double quotes should be escaped (force """ by having more single quotes)
+    assertThat(prettyQuoted("one\"two 'three' 'four'\nfive"))
+        .isEqualTo(
+            """
+            \"\"\"one"two 'three' 'four'
+            five\"\"\"\
+            """);
+    // Backslashes should be escaped
+    // Escaping inside triple double quotes (backslashes, control characters, hex escapes)
+    assertThat(prettyQuoted("one\\two\none\rtwo\ntabs\tthree\none\u0001two\nthree"))
+        .isEqualTo(
+            """
+            \"\"\"one\\\\two
+            one\\rtwo
+            tabs\\tthree
+            one\\x01two
+            three\"\"\"\
+            """);
+
+    // Heuristic: switch to triple single quotes (''') if double quotes are dominant
+    assertThat(prettyQuoted("one\"two\"three\nfour"))
+        .isEqualTo(
+            """
+            '''one"two"three
+            four'''\
+            """);
+
+    // Escaping inside triple single quotes (''')
+    // Single quotes should be escaped
+    assertThat(prettyQuoted("one\"two\" 'three\nfour"))
+        .isEqualTo(
+            """
+            '''one"two" 'three
+            four'''\
+            """);
+
+    // Heuristic: switch to ''' if starting/ending with double quote (boundary issue)
+    assertThat(prettyQuoted("\"one\ntwo"))
+        .isEqualTo(
+            """
+            '''"one
+            two'''\
+            """);
+    assertThat(prettyQuoted("one\ntwo\""))
+        .isEqualTo(
+            """
+            '''one
+            two"'''\
+            """);
+
+    // Boundary with single quote: keep triple double quotes
+    assertThat(prettyQuoted("'one\ntwo"))
+        .isEqualTo(
+            """
+            \"\"\"'one
+            two\"\"\"\
+            """);
   }
 
   private StarlarkValue createObjWithStr() {

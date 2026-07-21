@@ -38,6 +38,7 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
+import com.google.devtools.common.options.OptionsClass;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.util.ArrayList;
@@ -55,7 +56,8 @@ import org.junit.runner.RunWith;
 public class StarlarkTransitionTest extends BuildViewTestCase {
 
   /** Extra options for this test. */
-  public static class DummyTestOptions extends FragmentOptions {
+  @OptionsClass
+  public abstract static class DummyTestOptions extends FragmentOptions {
     public DummyTestOptions() {}
 
     @Option(
@@ -64,21 +66,21 @@ public class StarlarkTransitionTest extends BuildViewTestCase {
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "non-configurable",
         metadataTags = {OptionMetadataTag.NON_CONFIGURABLE})
-    public String nonConfigurableOption;
+    public abstract String getNonConfigurableOption();
 
     @Option(
         name = "disallowed_option",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "default")
-    public String disallowedOption;
+    public abstract String getDisallowedOption();
 
     @Option(
         name = "existing_flag",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "native_default_value")
-    public String existingFlag;
+    public abstract String getExistingFlag();
   }
 
   /** Test fragment. */
@@ -631,7 +633,7 @@ public class StarlarkTransitionTest extends BuildViewTestCase {
             Label.parseCanonicalUnchecked("//test:foo_starlark"), "transitioned cmd_flag_value");
     if (nativeFlagName.equals("existing_flag")) {
       // The native flag value should not change.
-      assertThat(fooOptions.get(DummyTestOptions.class).existingFlag)
+      assertThat(fooOptions.get(DummyTestOptions.class).getExistingFlag())
           .isEqualTo("native_default_value");
     }
 
@@ -646,7 +648,7 @@ public class StarlarkTransitionTest extends BuildViewTestCase {
             Label.parseCanonicalUnchecked("//test:bar_starlark"), "transitioned cmd_flag_value");
     if (nativeFlagName.equals("existing_flag")) {
       // The native flag value should not change.
-      assertThat(barOptions.get(DummyTestOptions.class).existingFlag)
+      assertThat(barOptions.get(DummyTestOptions.class).getExistingFlag())
           .isEqualTo("native_default_value");
     }
   }
@@ -877,7 +879,7 @@ public class StarlarkTransitionTest extends BuildViewTestCase {
     getConfiguredTarget("//test:t1");
 
     var baselineExecConfig = execConfig;
-    assertThat(baselineExecConfig.getOptions().get(DummyTestOptions.class).existingFlag)
+    assertThat(baselineExecConfig.getOptions().get(DummyTestOptions.class).getExistingFlag())
         .isEqualTo("transitioned native_default_value");
     if (starlarkFlagHasValue) {
       assertThat(baselineExecConfig.getOptions().getStarlarkOptions())
@@ -888,7 +890,7 @@ public class StarlarkTransitionTest extends BuildViewTestCase {
 
     var t2ExecConfig =
         getConfiguration(Iterables.getOnlyElement(getComputedConfiguredTarget("//test:t2")));
-    assertThat(t2ExecConfig.getOptions().get(DummyTestOptions.class).existingFlag)
+    assertThat(t2ExecConfig.getOptions().get(DummyTestOptions.class).getExistingFlag())
         .isEqualTo("transitioned native_default_value");
     if (starlarkFlagHasValue) {
       assertThat(t2ExecConfig.getOptions().getStarlarkOptions())
@@ -983,7 +985,7 @@ public class StarlarkTransitionTest extends BuildViewTestCase {
     getConfiguredTarget("//test:t1");
 
     var baselineExecConfig = execConfig;
-    assertThat(baselineExecConfig.getOptions().get(DummyTestOptions.class).existingFlag)
+    assertThat(baselineExecConfig.getOptions().get(DummyTestOptions.class).getExistingFlag())
         .isEqualTo("transitioned native_default_value");
     assertThat(baselineExecConfig.getOptions().getStarlarkOptions())
         .containsExactly(
@@ -991,7 +993,7 @@ public class StarlarkTransitionTest extends BuildViewTestCase {
 
     var t2ExecConfig =
         getConfiguration(Iterables.getOnlyElement(getComputedConfiguredTarget("//test:t2")));
-    assertThat(t2ExecConfig.getOptions().get(DummyTestOptions.class).existingFlag)
+    assertThat(t2ExecConfig.getOptions().get(DummyTestOptions.class).getExistingFlag())
         .isEqualTo("transitioned native_default_value");
     assertThat(t2ExecConfig.getOptions().getStarlarkOptions())
         .containsExactly(
@@ -999,7 +1001,7 @@ public class StarlarkTransitionTest extends BuildViewTestCase {
 
     var t3NonExecConfig =
         getConfiguration(Iterables.getOnlyElement(getComputedConfiguredTarget("//test:t3")));
-    assertThat(t3NonExecConfig.getOptions().get(DummyTestOptions.class).existingFlag)
+    assertThat(t3NonExecConfig.getOptions().get(DummyTestOptions.class).getExistingFlag())
         .isEqualTo("native_default_value");
     assertThat(t3NonExecConfig.getOptions().getStarlarkOptions())
         .containsExactly(
@@ -1007,13 +1009,13 @@ public class StarlarkTransitionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void stampTransitionOutput_stampSettingMarkerNotApplied(@TestParameter boolean stampFlag)
-      throws Exception {
+  public void stampTransitionOutput_stampSettingMarkerAppliedIfStampFlag(
+      @TestParameter boolean stampFlag) throws Exception {
     scratch.file(
         "test/defs.bzl",
         """
         def _stamp_output_impl(settings, attr):
-            return {"//command_line_option:stamp": True}
+            return {"//command_line_option:stamp": False}
 
         stamp_output_transition = transition(
             implementation = _stamp_output_impl,
@@ -1021,13 +1023,17 @@ public class StarlarkTransitionTest extends BuildViewTestCase {
             outputs = ["//command_line_option:stamp"],
         )
 
-        example = rule(implementation = lambda ctx: None, cfg = stamp_output_transition)
+        example = rule(
+          implementation = lambda ctx: None,
+          attrs = {"dep": attr.label(cfg = stamp_output_transition)},
+        )
         """);
     scratch.file(
         "test/BUILD",
         """
         load(":defs.bzl", "example")
-        example(name = "depends_on_stamp_output")
+        example(name = "depends_on_stamp_output", dep = ":dep")
+        filegroup(name = "dep", srcs = [])
         """);
 
     useConfiguration("--stamp=" + stampFlag);
@@ -1035,7 +1041,12 @@ public class StarlarkTransitionTest extends BuildViewTestCase {
     ActionLookupKey key = getConfiguredTarget("//test:depends_on_stamp_output").getLookupKey();
     NodeEntry node =
         getSkyframeExecutor().getEvaluator().getExistingEntryAtCurrentlyEvaluatingVersion(key);
-    assertThat(node.getDirectDeps()).doesNotContain(PrecomputedValue.STAMP_SETTING_MARKER.getKey());
+    if (stampFlag) {
+      assertThat(node.getDirectDeps()).contains(PrecomputedValue.STAMP_SETTING_MARKER.getKey());
+    } else {
+      assertThat(node.getDirectDeps())
+          .doesNotContain(PrecomputedValue.STAMP_SETTING_MARKER.getKey());
+    }
   }
 
   @Test

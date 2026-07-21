@@ -61,6 +61,8 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
   private final ImmutableList<Attribute> attributes;
   private final ImmutableList<ImmutableSet<StarlarkProviderIdentifier>> requiredProviders;
   private final ImmutableList<ImmutableSet<StarlarkProviderIdentifier>> requiredAspectProviders;
+  private final ImmutableList<ImmutableSet<StarlarkProviderIdentifier>>
+      requiredAspectHintsProviders;
   private final ImmutableSet<StarlarkProviderIdentifier> provides;
 
   /** Aspect attributes that are required to be specified by rules propagating this aspect. */
@@ -92,6 +94,7 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
       ImmutableList<Attribute> attributes,
       ImmutableList<ImmutableSet<StarlarkProviderIdentifier>> requiredProviders,
       ImmutableList<ImmutableSet<StarlarkProviderIdentifier>> requiredAspectProviders,
+      ImmutableList<ImmutableSet<StarlarkProviderIdentifier>> requiredAspectHintsProviders,
       ImmutableSet<StarlarkProviderIdentifier> provides,
       ImmutableSet<String> paramAttributes,
       ImmutableSet<StarlarkAspect> requiredAspects,
@@ -110,6 +113,7 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
     this.attributes = attributes;
     this.requiredProviders = requiredProviders;
     this.requiredAspectProviders = requiredAspectProviders;
+    this.requiredAspectHintsProviders = requiredAspectHintsProviders;
     this.provides = provides;
     this.paramAttributes = paramAttributes;
     this.requiredAspects = requiredAspects;
@@ -242,6 +246,7 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
     }
     builder.requireStarlarkProviderSets(requiredProviders);
     builder.requireAspectsWithProviders(requiredAspectProviders);
+    builder.requireAspectHintsProviders(requiredAspectHintsProviders);
     ImmutableList.Builder<StarlarkProviderIdentifier> advertisedStarlarkProviders =
         ImmutableList.builder();
     for (StarlarkProviderIdentifier provider : provides) {
@@ -446,6 +451,7 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
         && Objects.equals(attributes, that.attributes)
         && Objects.equals(requiredProviders, that.requiredProviders)
         && Objects.equals(requiredAspectProviders, that.requiredAspectProviders)
+        && Objects.equals(requiredAspectHintsProviders, that.requiredAspectHintsProviders)
         && Objects.equals(provides, that.provides)
         && Objects.equals(paramAttributes, that.paramAttributes)
         && Objects.equals(requiredAspects, that.requiredAspects)
@@ -464,6 +470,7 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
         attributes,
         requiredProviders,
         requiredAspectProviders,
+        requiredAspectHintsProviders,
         provides,
         paramAttributes,
         requiredAspects,

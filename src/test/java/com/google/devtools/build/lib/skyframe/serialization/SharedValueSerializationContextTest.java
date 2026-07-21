@@ -20,11 +20,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListenableFutureTask;
-import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore.InMemoryFingerprintValueStore;
 import com.google.devtools.build.lib.skyframe.serialization.NotNestedSet.NestedArrayCodec;
 import com.google.devtools.build.lib.skyframe.serialization.NotNestedSet.NotNestedSetCodec;
 import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.SettableWriteStatus;
-import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.WriteStatus;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
@@ -92,15 +90,14 @@ public final class SharedValueSerializationContextTest {
     Object[] a = new Object[] {b, c};
     NotNestedSet diamond = new NotNestedSet(a);
     SerializationResult<ByteString> result =
-        codecs.serializeMemoizedAndBlocking(
-            fingerprintValueService, diamond, /* profileCollector= */ null);
+        codecs.serializeMemoizedAndBlocking(fingerprintValueService, diamond);
 
     // 4 remote arrays were written because d is memoized via the cache, despite the fact that d
     // occurs twice in the traversal.
     ArrayList<SettableWriteStatus> responses = store.putResponses;
     assertThat(responses).hasSize(4);
 
-    ListenableFuture<Void> writeStatus = result.getFutureToBlockWritesOn();
+    ListenableFuture<?> writeStatus = result.getFutureToBlockWritesOn();
     assertThat(writeStatus).isNotNull();
     assertThat(writeStatus.isDone()).isFalse();
 
@@ -131,17 +128,15 @@ public final class SharedValueSerializationContextTest {
     NotNestedSet set2 = new NotNestedSet(shared);
 
     SerializationResult<ByteString> result1 =
-        codecs.serializeMemoizedAndBlocking(
-            fingerprintValueService, set1, /* profileCollector= */ null);
-    ListenableFuture<Void> writeStatus1 = result1.getFutureToBlockWritesOn();
+        codecs.serializeMemoizedAndBlocking(fingerprintValueService, set1);
+    ListenableFuture<?> writeStatus1 = result1.getFutureToBlockWritesOn();
     assertThat(writeStatus1.isDone()).isFalse();
 
     assertThat(store.putResponses).hasSize(1);
 
     SerializationResult<ByteString> result2 =
-        codecs.serializeMemoizedAndBlocking(
-            fingerprintValueService, set2, /* profileCollector= */ null);
-    ListenableFuture<Void> writeStatus2 = result2.getFutureToBlockWritesOn();
+        codecs.serializeMemoizedAndBlocking(fingerprintValueService, set2);
+    ListenableFuture<?> writeStatus2 = result2.getFutureToBlockWritesOn();
     assertThat(writeStatus2.isDone()).isFalse();
 
     // The store only observes 1 put because it is shared between set1 and set2.
@@ -321,17 +316,13 @@ public final class SharedValueSerializationContextTest {
     var thrown1 =
         assertThrows(
             SerializationException.class,
-            () ->
-                codecs.serializeMemoizedAndBlocking(
-                    fingerprintValueService, subject1, /* profileCollector= */ null));
+            () -> codecs.serializeMemoizedAndBlocking(fingerprintValueService, subject1));
 
     var subject2 = new SharedValueExample(subject1.sharedData());
     var thrown2 =
         assertThrows(
             SerializationException.class,
-            () ->
-                codecs.serializeMemoizedAndBlocking(
-                    fingerprintValueService, subject2, /* profileCollector= */ null));
+            () -> codecs.serializeMemoizedAndBlocking(fingerprintValueService, subject2));
     assertThat(thrown2).isSameInstanceAs(thrown1);
   }
 
@@ -344,13 +335,12 @@ public final class SharedValueSerializationContextTest {
     byte[] byteArray = new byte[compress ? 2000 : 1000];
     Object[] a = new Object[] {byteArray};
 
-    var unused =
-        codecs.serializeMemoizedAndBlocking(
-            fingerprintValueService, new NotNestedSet(a), /* profileCollector= */ null);
+    var unused = codecs.serializeMemoizedAndBlocking(fingerprintValueService, new NotNestedSet(a));
 
-    ImmutableList<byte[]> storeValues = ImmutableList.copyOf(store.fingerprintToContents.values());
+    ImmutableList<ByteString> storeValues =
+        ImmutableList.copyOf(store.fingerprintToContents.values());
     assertThat(storeValues).hasSize(1);
-    assertThat(storeValues.get(0)).hasLength(compress ? 23 : 1007);
+    assertThat(storeValues.get(0).toByteArray()).hasLength(compress ? 24 : 1007);
   }
 
   /** Test data for {@link #errorInSharedPut}. */
@@ -413,9 +403,7 @@ public final class SharedValueSerializationContextTest {
       ObjectCodecs codecs, FingerprintValueService fingerprintValueService, Object subject) {
     var task =
         ListenableFutureTask.create(
-            () ->
-                codecs.serializeMemoizedAndBlocking(
-                    fingerprintValueService, subject, /* profileCollector= */ null));
+            () -> codecs.serializeMemoizedAndBlocking(fingerprintValueService, subject));
     executor.execute(task);
     return task;
   }

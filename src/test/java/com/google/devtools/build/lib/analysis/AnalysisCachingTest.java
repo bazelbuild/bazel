@@ -32,11 +32,13 @@ import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.util.AnalysisCachingTestBase;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestConstants.InternalTestExecutionMode;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
@@ -44,6 +46,7 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionsClass;
 import com.google.devtools.common.options.OptionsParser;
 import java.io.IOException;
 import java.util.Set;
@@ -1052,7 +1055,8 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
   }
 
   /** Test options class for testing diff-based analysis cache resetting. */
-  public static final class DiffResetOptions extends FragmentOptions {
+  @OptionsClass
+  public abstract static class DiffResetOptions extends FragmentOptions {
     public static final OptionDefinition PROBABLY_IRRELEVANT_OPTION =
         OptionsParser.getOptionDefinitionByName(DiffResetOptions.class, "probably_irrelevant");
     public static final OptionDefinition ALSO_IRRELEVANT_OPTION =
@@ -1070,8 +1074,8 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
               return options.underlying();
             }
             BuildOptionsView cloned = options.clone();
-            cloned.get(DiffResetOptions.class).probablyIrrelevantOption = "(cleared)";
-            cloned.get(DiffResetOptions.class).alsoIrrelevantOption = "(cleared)";
+            cloned.get(DiffResetOptions.class).setProbablyIrrelevantOption("(cleared)");
+            cloned.get(DiffResetOptions.class).setAlsoIrrelevantOption("(cleared)");
             return cloned.underlying();
           }
         };
@@ -1082,7 +1086,9 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.UNKNOWN},
         help = "This option is irrelevant to non-uses_irrelevant targets and is trimmed from them.")
-    public String probablyIrrelevantOption;
+    public abstract String getProbablyIrrelevantOption();
+
+    public abstract void setProbablyIrrelevantOption(String value);
 
     @Option(
         name = "also_irrelevant",
@@ -1090,7 +1096,9 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.UNKNOWN},
         help = "This option is irrelevant to non-uses_irrelevant targets and is trimmed from them.")
-    public String alsoIrrelevantOption;
+    public abstract String getAlsoIrrelevantOption();
+
+    public abstract void setAlsoIrrelevantOption(String value);
 
     @Option(
         name = "definitely_relevant",
@@ -1098,7 +1106,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.UNKNOWN},
         help = "This option is not trimmed and is used by all targets.")
-    public String definitelyRelevantOption;
+    public abstract String getDefinitelyRelevantOption();
 
     @Option(
         name = "also_relevant",
@@ -1106,7 +1114,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.UNKNOWN},
         help = "This option is not trimmed and is used by all targets.")
-    public String alsoRelevantOption;
+    public abstract String getAlsoRelevantOption();
 
     @Option(
         name = "host_relevant",
@@ -1114,7 +1122,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.UNKNOWN},
         help = "This option is not trimmed and is used by all host targets.")
-    public String hostRelevantOption;
+    public abstract String getHostRelevantOption();
   }
 
   /** Test fragment. */
@@ -1751,7 +1759,12 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
         """
         load(":lib.bzl", "normal_lib")
 
-        normal_lib(name = "top")
+        normal_lib(
+            name = "top",
+            host_deps = [":exec"],
+        )
+
+        normal_lib(name = "exec")
         """);
     useConfiguration("--definitely_relevant=old");
 
@@ -1761,6 +1774,15 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     // Check if things work if the build options are not changed
     useConfiguration("--noallow_analysis_cache_discard", "--definitely_relevant=old");
     update("//test:top");
+    var topTargetBefore =
+        skyframeExecutor
+            .getEvaluator()
+            .getExistingValue(
+                ConfiguredTargetKey.builder()
+                    .setLabel(Label.parseCanonicalUnchecked("//test:top"))
+                    .setConfiguration(getTargetConfiguration())
+                    .build());
+    assertThat(topTargetBefore).isNotNull();
 
     // Check if an error is raised when the build options are changed. Do it twice because
     // had already had a bug that the second invocation erroneously worked. See
@@ -1768,6 +1790,15 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     useConfiguration("--noallow_analysis_cache_discard", "--definitely_relevant=new");
     Throwable t = assertThrows(InvalidConfigurationException.class, () -> update("//test:top"));
     assertThat(t.getMessage().contains("analysis cache would have been discarded")).isTrue();
+    var topTargetAfter =
+        skyframeExecutor
+            .getEvaluator()
+            .getExistingValue(
+                ConfiguredTargetKey.builder()
+                    .setLabel(Label.parseCanonicalUnchecked("//test:top"))
+                    .setConfiguration(getTargetConfiguration())
+                    .build());
+    assertThat(topTargetAfter).isSameInstanceAs(topTargetBefore);
 
     t = assertThrows(InvalidConfigurationException.class, () -> update("//test:top"));
     assertThat(t.getMessage()).contains("analysis cache would have been discarded");

@@ -20,8 +20,8 @@ import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.remote.common.ProgressStatusListener.NO_ACTION;
-import static com.google.devtools.build.lib.remote.util.Utils.bytesCountToDisplayString;
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
+import static com.google.devtools.build.lib.util.StringUtilities.bytesCountToDisplayString;
 
 import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.CacheCapabilities;
@@ -32,20 +32,23 @@ import com.google.common.collect.Iterables;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.ListeningExecutorService;
+import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.exec.SpawnCheckingCacheEvent;
 import com.google.devtools.build.lib.exec.SpawnProgressEvent;
+import com.google.devtools.build.lib.remote.chunking.ChunkingConfig;
 import com.google.devtools.build.lib.remote.common.ActionKey;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.LazyFileOutputStream;
+import com.google.devtools.build.lib.remote.common.MaybePathBacked;
 import com.google.devtools.build.lib.remote.common.OutputDigestMismatchException;
 import com.google.devtools.build.lib.remote.common.ProgressStatusListener;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
+import com.google.devtools.build.lib.remote.common.RemoteCacheClient.Blob;
 import com.google.devtools.build.lib.remote.disk.DiskCacheClient;
-import com.google.devtools.build.lib.remote.util.AsyncTaskCache;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
-import com.google.devtools.build.lib.remote.util.RxFutures;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution.Code;
@@ -56,7 +59,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.ByteString;
 import io.netty.util.AbstractReferenceCounted;
-import io.reactivex.rxjava3.core.Completable;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -64,6 +66,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -91,18 +95,68 @@ public class CombinedCache extends AbstractReferenceCounted {
       SpawnCheckingCacheEvent.create("remote-cache");
 
   private final CountDownLatch closeCountDownLatch = new CountDownLatch(1);
-  protected final AsyncTaskCache.NoResult<Digest> casUploadCache = AsyncTaskCache.NoResult.create();
+
+  private final ListeningExecutorService virtualThreadExecutor =
+      MoreExecutors.listeningDecorator(
+          Executors.newThreadPerTaskExecutor(
+              Thread.ofVirtual().name("combined-cache-", 0).factory()));
 
   @Nullable protected final RemoteCacheClient remoteCacheClient;
   @Nullable protected final DiskCacheClient diskCacheClient;
   @Nullable protected final String symlinkTemplate;
   protected final DigestUtil digestUtil;
+  private final boolean chunkingEnabled;
+
+  // Delays the initialization of the chunking support logic until first use to avoid blocking on
+  // a server capabilities check at construction time.
+  private final class Chunking {
+    private ChunkingConfig config = null;
+    private ChunkedBlobDownloader downloader = null;
+    private ChunkedBlobUploader uploader = null;
+    private volatile boolean initialized = false;
+
+    boolean supported() throws IOException {
+      if (!chunkingEnabled) {
+        return false;
+      }
+      if (!(remoteCacheClient instanceof GrpcCacheClient grpcClient)) {
+        return false;
+      }
+      if (!initialized) {
+        synchronized (this) {
+          config = ChunkingConfig.fromServerCapabilities(getRemoteServerCapabilities());
+          if (config != null) {
+            downloader =
+                new ChunkedBlobDownloader(grpcClient, CombinedCache.this, config, digestUtil);
+            uploader = new ChunkedBlobUploader(grpcClient, CombinedCache.this, config, digestUtil);
+          }
+          initialized = true;
+        }
+      }
+      return config != null;
+    }
+
+    ChunkingConfig config() {
+      return checkNotNull(config, "must not call config() unless supported() is true");
+    }
+
+    ChunkedBlobDownloader downloader() {
+      return checkNotNull(downloader, "must not call downloader() unless supported() is true");
+    }
+
+    ChunkedBlobUploader uploader() {
+      return checkNotNull(uploader, "must not call uploader() unless supported() is true");
+    }
+  }
+
+  private final Chunking chunking = new Chunking();
 
   public CombinedCache(
       @Nullable RemoteCacheClient remoteCacheClient,
       @Nullable DiskCacheClient diskCacheClient,
       @Nullable String symlinkTemplate,
-      DigestUtil digestUtil) {
+      DigestUtil digestUtil,
+      boolean chunkingEnabled) {
     checkArgument(
         remoteCacheClient != null || diskCacheClient != null,
         "remoteCacheClient and diskCacheClient cannot be null at the same time");
@@ -110,6 +164,7 @@ public class CombinedCache extends AbstractReferenceCounted {
     this.diskCacheClient = diskCacheClient;
     this.symlinkTemplate = symlinkTemplate;
     this.digestUtil = digestUtil;
+    this.chunkingEnabled = chunkingEnabled;
   }
 
   public CacheCapabilities getRemoteCacheCapabilities() throws IOException {
@@ -157,6 +212,15 @@ public class CombinedCache extends AbstractReferenceCounted {
       boolean inlineOutErr,
       Set<String> inlineOutputFiles)
       throws IOException, InterruptedException {
+    return getFromFuture(
+        downloadActionResultAsync(context, actionKey, inlineOutErr, inlineOutputFiles));
+  }
+
+  public ListenableFuture<CachedActionResult> downloadActionResultAsync(
+      RemoteActionExecutionContext context,
+      ActionKey actionKey,
+      boolean inlineOutErr,
+      Set<String> inlineOutputFiles) {
     var spawnExecutionContext = context.getSpawnExecutionContext();
 
     ListenableFuture<CachedActionResult> future = immediateFuture(null);
@@ -200,7 +264,7 @@ public class CombinedCache extends AbstractReferenceCounted {
               directExecutor());
     }
 
-    return getFromFuture(future);
+    return future;
   }
 
   private ListenableFuture<ActionResult> downloadActionResultFromRemote(
@@ -299,11 +363,6 @@ public class CombinedCache extends AbstractReferenceCounted {
    */
   public ListenableFuture<Void> uploadFile(
       RemoteActionExecutionContext context, Digest digest, Path file) {
-    return uploadFile(context, digest, file, /* force= */ false);
-  }
-
-  protected ListenableFuture<Void> uploadFile(
-      RemoteActionExecutionContext context, Digest digest, Path file, boolean force) {
     if (digest.getSizeBytes() == 0) {
       return COMPLETED_SUCCESS;
     }
@@ -313,57 +372,72 @@ public class CombinedCache extends AbstractReferenceCounted {
       diskCacheFuture = diskCacheClient.uploadFile(digest, file);
     }
 
+    boolean chunkingSupported;
+    try {
+      chunkingSupported = chunking.supported();
+    } catch (IOException e) {
+      return immediateFailedFuture(e);
+    }
+
     ListenableFuture<Void> remoteCacheFuture = Futures.immediateVoidFuture();
     if (remoteCacheClient != null && context.getWriteCachePolicy().allowRemoteCache()) {
-      Completable upload =
-          casUploadCache.execute(
-              digest,
-              RxFutures.toCompletable(
-                  () -> remoteCacheClient.uploadFile(context, digest, file), directExecutor()),
-              force);
-      remoteCacheFuture = RxFutures.toListenableFuture(upload);
+      if (chunkingSupported && digest.getSizeBytes() > chunking.config().chunkingThreshold()) {
+        remoteCacheFuture =
+            remoteCacheClient.dedupUpload(
+                digest, () -> uploadChunked(context, digest, file), /* force= */ false);
+      } else {
+        remoteCacheFuture = remoteCacheClient.uploadFile(context, digest, file, /* force= */ false);
+      }
     }
 
     return Futures.whenAllSucceed(diskCacheFuture, remoteCacheFuture)
         .call(() -> null, directExecutor());
   }
 
+  private ListenableFuture<Void> uploadChunked(
+      RemoteActionExecutionContext context, Digest digest, Path file) {
+    return virtualThreadExecutor.submit(
+        () -> {
+          chunking.uploader().uploadChunked(context, digest, file);
+          return null;
+        });
+  }
+
   /**
-   * Upload sequence of bytes to the remote cache.
+   * Uploads a sequence of bytes to the cache.
    *
    * <p>Trying to upload the same BLOB multiple times concurrently, results in only one upload being
    * performed.
    *
    * @param context the context for the action.
-   * @param digest the digest of the file.
+   * @param digest the digest of the BLOB.
    * @param data the BLOB to upload.
    */
   public ListenableFuture<Void> uploadBlob(
       RemoteActionExecutionContext context, Digest digest, ByteString data) {
-    return uploadBlob(context, digest, data, /* force= */ false);
+    return uploadBlob(context, digest, (Blob) data::newInput);
   }
 
-  protected ListenableFuture<Void> uploadBlob(
-      RemoteActionExecutionContext context, Digest digest, ByteString data, boolean force) {
+  /**
+   * Uploads a blob to the cache from a repeatable stream supplier.
+   *
+   * <p>The supplier may be opened more than once, including concurrently when both disk and remote
+   * cache writes are enabled.
+   */
+  public ListenableFuture<Void> uploadBlob(
+      RemoteActionExecutionContext context, Digest digest, Blob blob) {
     if (digest.getSizeBytes() == 0) {
       return COMPLETED_SUCCESS;
     }
 
     ListenableFuture<Void> diskCacheFuture = Futures.immediateVoidFuture();
     if (diskCacheClient != null && context.getWriteCachePolicy().allowDiskCache()) {
-      diskCacheFuture = diskCacheClient.uploadBlob(digest, data);
+      diskCacheFuture = diskCacheClient.uploadBlob(digest, blob);
     }
 
     ListenableFuture<Void> remoteCacheFuture = Futures.immediateVoidFuture();
     if (remoteCacheClient != null && context.getWriteCachePolicy().allowRemoteCache()) {
-      Completable upload =
-          casUploadCache.execute(
-              digest,
-              RxFutures.toCompletable(
-                  () -> remoteCacheClient.uploadBlob(context, digest, data), directExecutor()),
-              force);
-
-      remoteCacheFuture = RxFutures.toListenableFuture(upload);
+      remoteCacheFuture = remoteCacheClient.uploadBlob(context, digest, blob, /* force= */ false);
     }
 
     return Futures.whenAllSucceed(diskCacheFuture, remoteCacheFuture)
@@ -395,6 +469,28 @@ public class CombinedCache extends AbstractReferenceCounted {
     return Futures.transform(download, (v) -> bOut.toByteArray(), directExecutor());
   }
 
+  /**
+   * Downloads a blob with content hash {@code digest} and stores its content in memory.
+   *
+   * <p>Unlike {@link #downloadBlob(RemoteActionExecutionContext, String, PathFragment, Digest)},
+   * the content is returned as a {@link ByteString} without an extra copy of the downloaded bytes.
+   *
+   * @return a future that completes after the download completes (succeeds / fails). If successful,
+   *     the content is stored in the future's {@link ByteString}.
+   */
+  public ListenableFuture<ByteString> downloadBlobAsByteString(
+      RemoteActionExecutionContext context,
+      String blobName,
+      @Nullable PathFragment execPath,
+      Digest digest) {
+    if (digest.getSizeBytes() == 0) {
+      return immediateFuture(ByteString.empty());
+    }
+    ByteString.Output bOut = ByteString.newOutput((int) digest.getSizeBytes());
+    var download = downloadBlob(context, blobName, execPath, digest, bOut);
+    return Futures.transform(download, (v) -> bOut.toByteString(), directExecutor());
+  }
+
   private ListenableFuture<Void> downloadBlob(
       RemoteActionExecutionContext context,
       String blobName,
@@ -416,7 +512,7 @@ public class CombinedCache extends AbstractReferenceCounted {
         directExecutor());
   }
 
-  private ListenableFuture<Void> downloadBlob(
+  ListenableFuture<Void> downloadBlob(
       RemoteActionExecutionContext context, Digest digest, OutputStream out) {
     ListenableFuture<Void> future = immediateFailedFuture(new CacheNotFoundException(digest));
 
@@ -437,6 +533,34 @@ public class CombinedCache extends AbstractReferenceCounted {
   }
 
   private ListenableFuture<Void> downloadBlobFromRemote(
+      RemoteActionExecutionContext context, Digest digest, OutputStream out) {
+    checkState(remoteCacheClient != null && context.getReadCachePolicy().allowRemoteCache());
+
+    boolean chunkingSupported;
+    try {
+      chunkingSupported = chunking.supported();
+    } catch (IOException e) {
+      return immediateFailedFuture(e);
+    }
+
+    if (chunkingSupported && digest.getSizeBytes() > chunking.config().chunkingThreshold()) {
+      ListenableFuture<Void> chunkedDownloadFuture =
+          virtualThreadExecutor.submit(
+              () -> {
+                chunking.downloader().downloadChunked(context, digest, out);
+                return null;
+              });
+      return Futures.catchingAsync(
+          chunkedDownloadFuture,
+          CacheNotFoundException.class,
+          (e) -> regularDownloadBlobFromRemote(context, digest, out),
+          directExecutor());
+    }
+
+    return regularDownloadBlobFromRemote(context, digest, out);
+  }
+
+  private ListenableFuture<Void> regularDownloadBlobFromRemote(
       RemoteActionExecutionContext context, Digest digest, OutputStream out) {
     checkState(remoteCacheClient != null && context.getReadCachePolicy().allowRemoteCache());
 
@@ -696,8 +820,9 @@ public class CombinedCache extends AbstractReferenceCounted {
     if (diskCacheClient != null) {
       diskCacheClient.close();
     }
-    casUploadCache.shutdown();
+    virtualThreadExecutor.shutdown();
     if (remoteCacheClient != null) {
+      remoteCacheClient.shutdownUploads();
       remoteCacheClient.close();
     }
 
@@ -718,13 +843,19 @@ public class CombinedCache extends AbstractReferenceCounted {
 
   /** Waits for active network I/Os to finish. */
   public void awaitTermination() throws InterruptedException {
-    casUploadCache.awaitTermination();
+    if (remoteCacheClient != null) {
+      remoteCacheClient.awaitUploadTermination();
+    }
     closeCountDownLatch.await();
+    virtualThreadExecutor.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
   }
 
   /** Shuts the cache down and cancels active network I/Os. */
   public void shutdownNow() {
-    casUploadCache.shutdownNow();
+    if (remoteCacheClient != null) {
+      remoteCacheClient.shutdownUploadsNow();
+    }
+    virtualThreadExecutor.shutdownNow();
   }
 
   public static FailureDetail createFailureDetail(String message, Code detailedCode) {
@@ -738,7 +869,7 @@ public class CombinedCache extends AbstractReferenceCounted {
    * An {@link OutputStream} that reports all the write operations with {@link
    * DownloadProgressReporter}.
    */
-  private static class ReportingOutputStream extends OutputStream {
+  private static class ReportingOutputStream extends OutputStream implements MaybePathBacked {
 
     private final OutputStream out;
     private final DownloadProgressReporter reporter;
@@ -774,6 +905,12 @@ public class CombinedCache extends AbstractReferenceCounted {
     @Override
     public void close() throws IOException {
       out.close();
+    }
+
+    @Nullable
+    @Override
+    public Path maybeGetPath() {
+      return out instanceof MaybePathBacked maybePathBacked ? maybePathBacked.maybeGetPath() : null;
     }
   }
 }

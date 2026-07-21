@@ -21,7 +21,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelLockFileFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionFunction;
@@ -35,6 +34,7 @@ import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.BazelCom
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.events.EventBusEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
@@ -296,7 +296,8 @@ public class PrepareDepsOfPatternsFunctionTest extends BuildViewTestCase {
         EvaluationContext.newBuilder()
             .setKeepGoing(keepGoing)
             .setParallelism(LOADING_PHASE_THREADS)
-            .setEventHandler(new Reporter(new EventBus(), eventCollector))
+            .setEventHandler(
+                new Reporter(EventBusEventHandler.createWithNewEventBus(), eventCollector))
             .build();
     return getSkyframeExecutor().getEvaluator().evaluate(singletonTargetPattern, evaluationContext);
   }

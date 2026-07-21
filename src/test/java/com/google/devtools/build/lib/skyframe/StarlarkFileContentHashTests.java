@@ -180,9 +180,9 @@ public class StarlarkFileContentHashTests extends BuildViewTestCase {
    */
   private String getHash(String pkg, String name) throws Exception {
     PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
-    packageOptions.defaultVisibility = RuleVisibility.PUBLIC;
-    packageOptions.showLoadingProgress = true;
-    packageOptions.globbingThreads = 7;
+    packageOptions.setDefaultVisibility(RuleVisibility.PUBLIC);
+    packageOptions.setShowLoadingProgress(true);
+    packageOptions.setGlobbingThreads(7);
     getSkyframeExecutor()
         .preparePackageLoading(
             new PathPackageLocator(
@@ -193,6 +193,7 @@ public class StarlarkFileContentHashTests extends BuildViewTestCase {
             parseBuildLanguageOptions(),
             UUID.randomUUID(),
             ImmutableMap.<String, String>of(),
+            /* repoEnv= */ ImmutableMap.of(),
             QuiescingExecutorsImpl.forTesting(),
             new TimestampGranularityMonitor(BlazeClock.instance()));
     skyframeExecutor.setActionEnv(ImmutableMap.<String, String>of());

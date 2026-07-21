@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
 import com.google.devtools.build.lib.worker.WorkerTestUtils.FakeSubprocess;
 import com.google.devtools.build.lib.worker.WorkerTestUtils.TestWorker;
+import com.google.devtools.common.options.Options;
 import com.google.protobuf.ByteString;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -51,7 +52,7 @@ public final class WorkerTest {
   final FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
 
   private TestWorker workerForCleanup = null;
-  private final WorkerOptions options = new WorkerOptions();
+  private final WorkerOptions options = Options.getDefaults(WorkerOptions.class);
 
   @After
   public void destroyWorker() throws IOException {

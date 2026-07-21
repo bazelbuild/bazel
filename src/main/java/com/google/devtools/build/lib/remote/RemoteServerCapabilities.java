@@ -72,7 +72,7 @@ class RemoteServerCapabilities {
 
   public ListenableFuture<ServerCapabilities> get(ManagedChannel channel) {
     RequestMetadata metadata =
-        TracingMetadataUtils.buildMetadata(buildRequestId, commandId, "capabilities", null);
+        TracingMetadataUtils.buildMetadata(buildRequestId, commandId, "capabilities");
     RemoteActionExecutionContext context = RemoteActionExecutionContext.create(metadata);
     GetCapabilitiesRequest request =
         instanceName == null
@@ -215,7 +215,7 @@ class RemoteServerCapabilities {
 
       // Check execution priority is in the supported range.
       checkPriorityInRange(
-          remoteOptions.remoteExecutionPriority,
+          remoteOptions.getRemoteExecutionPriority(),
           "remote_execution_priority",
           execCap.getExecutionPriorityCapabilities(),
           result);
@@ -232,7 +232,7 @@ class RemoteServerCapabilities {
                 digestFunction, cacheCap.getDigestFunctionsList()));
       }
 
-      if (remoteOptions.remoteUploadLocalResults
+      if (remoteOptions.getRemoteUploadLocalResults()
           && !cacheCap.getActionCacheUpdateCapabilities().getUpdateEnabled()) {
         result.addWarning(
             "--remote_upload_local_results is set, but the remote cache does not support uploading "
@@ -240,15 +240,33 @@ class RemoteServerCapabilities {
                 + "to the remote cache.");
       }
 
-      if (remoteOptions.cacheCompression
+      if (remoteOptions.getCacheCompression()
           && !cacheCap.getSupportedCompressorsList().contains(Compressor.Value.ZSTD)) {
         result.addError(
             "--remote_cache_compression requested but remote does not support compression");
       }
 
+      if (remoteOptions.getExperimentalRemoteCacheChunking()) {
+        if (!cacheCap.getSplitBlobSupport()) {
+          result.addError(
+              "--experimental_remote_cache_chunking requested but remote does not support"
+                  + " SplitBlob");
+        }
+        if (!cacheCap.getSpliceBlobSupport()) {
+          result.addError(
+              "--experimental_remote_cache_chunking requested but remote does not support"
+                  + " SpliceBlob");
+        }
+        if (!cacheCap.hasFastCdc2020Params()) {
+          result.addError(
+              "--experimental_remote_cache_chunking requested but remote does not support"
+                  + " FastCDC 2020 chunking algorithm");
+        }
+      }
+
       // Check result cache priority is in the supported range.
       checkPriorityInRange(
-          remoteOptions.remoteResultCachePriority,
+          remoteOptions.getRemoteResultCachePriority(),
           "remote_result_cache_priority",
           cacheCap.getCachePriorityCapabilities(),
           result);

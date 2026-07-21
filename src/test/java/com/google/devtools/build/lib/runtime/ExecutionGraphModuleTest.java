@@ -67,7 +67,6 @@ import com.google.devtools.build.lib.runtime.ExecutionGraphModule.DependencyInfo
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.TestFileOutErr;
 import com.google.devtools.build.lib.util.Pair;
-import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -81,7 +80,6 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.time.Instant;
 import java.util.Map;
-import java.util.UUID;
 import javax.annotation.Nullable;
 import org.junit.Before;
 import org.junit.Test;
@@ -90,18 +88,19 @@ import org.mockito.ArgumentCaptor;
 
 /** Unit tests for {@link ExecutionGraphModule}. */
 @RunWith(TestParameterInjector.class)
-public class ExecutionGraphModuleTest extends FoundationTestCase {
-  protected final DigestHashFunction digestHashFunction = DigestHashFunction.SHA256;
-  private ExecutionGraphModule module;
+public final class ExecutionGraphModuleTest extends FoundationTestCase {
+
+  @TestParameter({"-1", "1", "256"})
+  private int queueSize;
+
+  @TestParameter({"-1", "1", "256"})
+  private int queuedBytesLimit;
+
+  private final ExecutionGraphModule module = new ExecutionGraphModule();
   private ArtifactRoot artifactRoot;
 
   @Before
-  public void createModule() {
-    module = new ExecutionGraphModule();
-  }
-
-  @Before
-  public final void initializeRoots() throws Exception {
+  public void initializeRoots() {
     artifactRoot = ArtifactRoot.asDerivedRoot(scratch.resolve("/"), RootType.OUTPUT, "output");
   }
 
@@ -120,7 +119,6 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
 
   @Test
   public void testOneSpawn() throws Exception {
-    UUID uuid = UUID.randomUUID();
     ByteArrayOutputStream buffer = new ByteArrayOutputStream();
     Spawn spawn =
         new SimpleSpawn(
@@ -144,7 +142,7 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
                     .setProcessOutputsTimeInMs(3456)
                     .build())
             .build();
-    startLogging(eventBus, uuid, buffer, DependencyInfo.NONE);
+    startLogging(eventBus, buffer, DependencyInfo.NONE);
     Instant startTimeInstant = Instant.now();
     module.spawnExecuted(
         new SpawnExecutedEvent(
@@ -174,7 +172,6 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
 
   @Test
   public void testSpawnWithDiscoverInputs() throws Exception {
-    UUID uuid = UUID.randomUUID();
     ByteArrayOutputStream buffer = new ByteArrayOutputStream();
     Spawn spawn =
         new SimpleSpawn(
@@ -199,7 +196,7 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
                     .setParseTimeInMs(2000)
                     .build())
             .build();
-    startLogging(eventBus, uuid, buffer, DependencyInfo.NONE);
+    startLogging(eventBus, buffer, DependencyInfo.NONE);
     Instant startTimeInstant = Instant.ofEpochMilli(999888777L);
     module.discoverInputs(
         new DiscoveredInputsEvent(
@@ -231,7 +228,6 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
 
   @Test
   public void actionDepsWithThreeSpawns() throws Exception {
-    UUID uuid = UUID.randomUUID();
     ByteArrayOutputStream buffer = new ByteArrayOutputStream();
 
     ActionInput out1 = ActionInputHelper.fromPath("output/foo/out1");
@@ -280,7 +276,7 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
                     .setProcessOutputsTimeInMs(3456)
                     .build())
             .build();
-    startLogging(eventBus, uuid, buffer, DependencyInfo.ALL);
+    startLogging(eventBus, buffer, DependencyInfo.ALL);
     Instant startTimeInstant = Instant.now();
     module.spawnExecuted(
         new SpawnExecutedEvent(
@@ -327,7 +323,6 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
 
   @Test
   public void changePruning_hasEdgesToPrunedSpawn() throws Exception {
-    UUID uuid = UUID.randomUUID();
     ByteArrayOutputStream buffer = new ByteArrayOutputStream();
 
     var out1 = createOutputArtifact("foo/out1");
@@ -379,7 +374,7 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
     module.setGraph(
         new WalkableGraph() {
           @Override
-          public SkyValue getValue(SkyKey key) throws InterruptedException {
+          public SkyValue getValue(SkyKey key) {
             if (key instanceof ActionLookupKey) {
               return new ActionLookupValue() {
                 @Override
@@ -392,53 +387,49 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
           }
 
           @Override
-          public Map<SkyKey, SkyValue> getSuccessfulValues(Iterable<? extends SkyKey> keys)
-              throws InterruptedException {
+          public Map<SkyKey, SkyValue> getSuccessfulValues(Iterable<? extends SkyKey> keys) {
             throw new UnsupportedOperationException();
           }
 
           @Override
-          public Map<SkyKey, Exception> getMissingAndExceptions(Iterable<SkyKey> keys)
-              throws InterruptedException {
+          public Map<SkyKey, Exception> getMissingAndExceptions(Iterable<SkyKey> keys) {
             throw new UnsupportedOperationException();
           }
 
           @Nullable
           @Override
-          public Exception getException(SkyKey key) throws InterruptedException {
+          public Exception getException(SkyKey key) {
             throw new UnsupportedOperationException();
           }
 
           @Override
-          public boolean isCycle(SkyKey key) throws InterruptedException {
+          public boolean isCycle(SkyKey key) {
             throw new UnsupportedOperationException();
           }
 
           @Override
-          public Map<SkyKey, Iterable<SkyKey>> getDirectDeps(Iterable<SkyKey> keys)
-              throws InterruptedException {
+          public Map<SkyKey, Iterable<SkyKey>> getDirectDeps(Iterable<SkyKey> keys) {
             throw new UnsupportedOperationException();
           }
 
           @Override
-          public Iterable<SkyKey> getDirectDeps(SkyKey key) throws InterruptedException {
+          public Iterable<SkyKey> getDirectDeps(SkyKey key) {
             throw new UnsupportedOperationException();
           }
 
           @Override
-          public Map<SkyKey, Iterable<SkyKey>> getReverseDeps(Iterable<? extends SkyKey> keys)
-              throws InterruptedException {
+          public Map<SkyKey, Iterable<SkyKey>> getReverseDeps(Iterable<? extends SkyKey> keys) {
             throw new UnsupportedOperationException();
           }
 
           @Override
           public Map<SkyKey, Pair<SkyValue, Iterable<SkyKey>>> getValueAndRdeps(
-              Iterable<SkyKey> keys) throws InterruptedException {
+              Iterable<SkyKey> keys) {
             throw new UnsupportedOperationException();
           }
         });
-    startLogging(eventBus, uuid, buffer, DependencyInfo.ALL);
     Instant startTimeInstant = Instant.now();
+    startLogging(eventBus, buffer, DependencyInfo.ALL);
     module.spawnExecuted(
         new SpawnExecutedEvent(
             spawnOut1,
@@ -511,16 +502,16 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
   @Test(timeout = 30_000)
   public void failureInOutputDoesNotHang(
       @TestParameter FailingOutputStreamFactory failingOutputStream) {
-    UUID uuid = UUID.randomUUID();
     ActionDumpWriter writer =
         new ActionDumpWriter(
             BugReporter.defaultInstance(),
+            new EventBus(),
             /* localLockFreeOutputEnabled= */ false,
             /* logFileWriteEdges= */ false,
             OutputStream.nullOutputStream(),
-            uuid,
             DependencyInfo.NONE,
-            -1) {
+            queueSize,
+            queuedBytesLimit) {
           @Override
           protected void updateLogs(BuildToolLogCollection logs) {}
 
@@ -536,14 +527,12 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
     eventBus.post(new BuildCompleteEvent(new BuildResult(startTimeInstant.toEpochMilli() + 1000)));
   }
 
-  private void startLogging(
-      EventBus eventBus, UUID uuid, OutputStream buffer, DependencyInfo depType) {
+  private void startLogging(EventBus eventBus, OutputStream buffer, DependencyInfo depType) {
     startLogging(
         eventBus,
         BugReporter.defaultInstance(),
         /* localLockFreeOutputEnabled= */ false,
         /* logFileWriteEdges= */ false,
-        uuid,
         buffer,
         depType);
   }
@@ -553,12 +542,18 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
       BugReporter bugReporter,
       boolean localLockFreeOutputEnabled,
       boolean logFileWriteEdges,
-      UUID uuid,
       OutputStream buffer,
       DependencyInfo depType) {
     ActionDumpWriter writer =
         new ActionDumpWriter(
-            bugReporter, localLockFreeOutputEnabled, logFileWriteEdges, buffer, uuid, depType, -1) {
+            bugReporter,
+            eventBus,
+            localLockFreeOutputEnabled,
+            logFileWriteEdges,
+            buffer,
+            depType,
+            queueSize,
+            queuedBytesLimit) {
           @Override
           protected void updateLogs(BuildToolLogCollection logs) {}
         };
@@ -576,7 +571,6 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
 
   @Test
   public void testSpawnWithNullOwnerLabel() throws Exception {
-    UUID uuid = UUID.randomUUID();
     ByteArrayOutputStream buffer = new ByteArrayOutputStream();
     Spawn spawn =
         new SimpleSpawn(
@@ -612,7 +606,7 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
                     .setProcessOutputsTimeInMs(3456)
                     .build())
             .build();
-    startLogging(eventBus, uuid, buffer, DependencyInfo.NONE);
+    startLogging(eventBus, buffer, DependencyInfo.NONE);
     Instant startTimeInstant = Instant.now();
     module.spawnExecuted(
         new SpawnExecutedEvent(
@@ -634,7 +628,7 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
   @Test
   public void spawnAndAction_withSameOutputs() throws Exception {
     var buffer = new ByteArrayOutputStream();
-    startLogging(eventBus, UUID.randomUUID(), buffer, DependencyInfo.ALL);
+    startLogging(eventBus, buffer, DependencyInfo.ALL);
 
     module.spawnExecuted(
         new SpawnExecutedEvent(
@@ -673,7 +667,7 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
   @Test
   public void spawnAndAction_withDifferentOutputs() throws Exception {
     var buffer = new ByteArrayOutputStream();
-    startLogging(eventBus, UUID.randomUUID(), buffer, DependencyInfo.ALL);
+    startLogging(eventBus, buffer, DependencyInfo.ALL);
     var nanosToMillis = BlazeClock.createNanosToMillisSinceEpochConverter();
     module.setNanosToMillis(nanosToMillis);
 
@@ -722,7 +716,7 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
   @Test
   public void noSpawnAction_hasCorrectDuration() throws Exception {
     var buffer = new ByteArrayOutputStream();
-    startLogging(eventBus, UUID.randomUUID(), buffer, DependencyInfo.ALL);
+    startLogging(eventBus, buffer, DependencyInfo.ALL);
     var nanosToMillis = BlazeClock.createNanosToMillisSinceEpochConverter();
     module.setNanosToMillis(nanosToMillis);
 
@@ -752,7 +746,7 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
   @Test
   public void multipleSpawnsWithSameOutput_recordsBothSpawnsWithRetry() throws Exception {
     var buffer = new ByteArrayOutputStream();
-    startLogging(eventBus, UUID.randomUUID(), buffer, DependencyInfo.ALL);
+    startLogging(eventBus, buffer, DependencyInfo.ALL);
     SpawnResult localResult = createLocalSpawnResult(100);
     SpawnResult remoteResult = createRemoteSpawnResult(200);
     Spawn spawn =
@@ -842,7 +836,6 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
         bugReporter,
         localLockFreeOutput.optionValue,
         /* logFileWriteEdges= */ false,
-        UUID.randomUUID(),
         buffer,
         DependencyInfo.ALL);
     SpawnResult localResult = createLocalSpawnResult(100);
@@ -906,7 +899,6 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
         BugReporter.defaultInstance(),
         /* localLockFreeOutputEnabled= */ true,
         /* logFileWriteEdges= */ false,
-        UUID.randomUUID(),
         buffer,
         DependencyInfo.ALL);
     SpawnResult localResult = createLocalSpawnResult(100);
@@ -1012,7 +1004,7 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
     return artifact;
   }
 
-  private SpawnResult createLocalSpawnResult(int totalTimeInMs) {
+  private static SpawnResult createLocalSpawnResult(int totalTimeInMs) {
     return new SpawnResult.Builder()
         .setRunnerName("local")
         .setStatus(Status.SUCCESS)
@@ -1022,7 +1014,7 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
         .build();
   }
 
-  private SpawnResult createRemoteSpawnResult(int totalTimeInMs) {
+  private static SpawnResult createRemoteSpawnResult(int totalTimeInMs) {
     return new SpawnResult.Builder()
         .setRunnerName("remote")
         .setStatus(Status.SUCCESS)
@@ -1036,7 +1028,7 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
    * Creates a {@link ExecutionGraph.Node.Builder} with pre-populated defaults for spawns created
    * using {@link SpawnBuilder}.
    */
-  private ExecutionGraph.Node.Builder executionGraphNodeBuilderForSpawnBuilderSpawn() {
+  private static ExecutionGraph.Node.Builder executionGraphNodeBuilderForSpawnBuilderSpawn() {
     return ExecutionGraph.Node.newBuilder()
         .setDescription("action 'progress message'")
         .setTargetLabel("//dummy:label")
@@ -1049,7 +1041,7 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
   /**
    * Creates a {@link ExecutionGraph.Node.Builder} with pre-populated defaults for action events.
    */
-  private ExecutionGraph.Node.Builder executionGraphNodeBuilderForAction(Action action) {
+  private static ExecutionGraph.Node.Builder executionGraphNodeBuilderForAction(Action action) {
     return ExecutionGraph.Node.newBuilder()
         .setDescription(action.prettyPrint())
         .setTargetLabel(action.getOwner().getLabel().toString())

@@ -105,6 +105,11 @@ public class ActionTemplateExpansionFunction implements SkyFunction {
         TreeArtifactValue treeArtifactValue =
             (TreeArtifactValue)
                 result.getOrThrow(inputTreeArtifact, ActionExecutionException.class);
+        // b/507424770#comment10: To handle the case of a wrongly bubbled up exception causing a
+        // null value, we return null here so that we don't crash with an NPE.
+        if (treeArtifactValue == null) {
+          return null;
+        }
         inputTreeFileArtifacts.addAll(treeArtifactValue.getChildren());
       }
       // Expand the action template using the list of expanded input TreeFileArtifacts.

@@ -70,6 +70,10 @@ public class LoggingInterceptor implements ClientInterceptor {
       return new UpdateActionResultHandler(); // <UpdateActionResultRequest, ActionResult>
     } else if (method == ContentAddressableStorageGrpc.getFindMissingBlobsMethod()) {
       return new FindMissingBlobsHandler(); // <FindMissingBlobsRequest, FindMissingBlobsResponse>
+    } else if (method == ContentAddressableStorageGrpc.getSplitBlobMethod()) {
+      return new SplitBlobHandler(); // <SplitBlobRequest, SplitBlobResponse>
+    } else if (method == ContentAddressableStorageGrpc.getSpliceBlobMethod()) {
+      return new SpliceBlobHandler(); // <SpliceBlobRequest, SpliceBlobResponse>
     } else if (method == ByteStreamGrpc.getReadMethod()) {
       return new ReadHandler(); // <ReadRequest, ReadResponse>
     } else if (method == ByteStreamGrpc.getWriteMethod()) {
@@ -89,7 +93,9 @@ public class LoggingInterceptor implements ClientInterceptor {
     @SuppressWarnings("unchecked") // handler matches method, but that type is inexpressible
     LoggingHandler<ReqT, RespT> handler = selectHandler(method);
     if (handler != null) {
-      return new LoggingForwardingCall<>(call, handler, method);
+      // Capture the per-attempt id/number (if any) propagated by the retrier while we are still
+      // running in the gRPC Context it attached, so each attempt entry can be tagged with it.
+      return new LoggingForwardingCall<>(call, handler, method, RpcLogContext.KEY.get());
     } else {
       return call;
     }
@@ -116,10 +122,18 @@ public class LoggingInterceptor implements ClientInterceptor {
     protected LoggingForwardingCall(
         ClientCall<ReqT, RespT> delegate,
         LoggingHandler<ReqT, RespT> handler,
-        MethodDescriptor<ReqT, RespT> method) {
+        MethodDescriptor<ReqT, RespT> method,
+        @Nullable RpcLogContext rpcLogContext) {
       super(delegate);
       this.handler = handler;
       this.entryBuilder = LogEntry.newBuilder().setMethodName(method.getFullMethodName());
+      if (rpcLogContext != null) {
+        // Tag every attempt entry with the logical-call id + attempt number propagated by the
+        // retrier, so interleaved attempts can be correlated during log analysis.
+        entryBuilder
+            .setRpcId(rpcLogContext.getRpcId())
+            .setAttemptNumber(rpcLogContext.getAttemptNumber());
+      }
     }
 
     @Override
@@ -147,12 +161,12 @@ public class LoggingInterceptor implements ClientInterceptor {
               entryBuilder.setEndTime(getCurrentTimestamp());
               entryBuilder.setStatus(makeStatusProto(status));
               entryBuilder.setDetails(handler.getDetails());
+              LogEntry entry = entryBuilder.build();
               try {
-                rpcLogFile.write(entryBuilder.build());
+                rpcLogFile.write(entry);
               } catch (RuntimeException e) {
                 // e.g. the log file is already closed.
-                logger.atWarning().withCause(e).log(
-                    "Unable to write RPC log entry for %s", entryBuilder.build());
+                logger.atWarning().withCause(e).log("Unable to write RPC log entry for %s", entry);
               }
               super.onClose(status, trailers);
             }

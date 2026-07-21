@@ -18,29 +18,19 @@ filegroup(
 # src/test/java/com/google/devtools/build/lib/testutil/TestConstants.java
 java_library(
     name = "util",
-    exports = [
-        ":util_internal",
-    ],
-    runtime_deps = ["//src/main/java/com/google/devtools/build/lib/unix:unix_file_system"],
-)
-
-java_library(
-    name = "util_internal",
-    testonly = 1,
     srcs = [
         "FileSystems.java",
         "FsApparatus.java",
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/clock",
-        "//src/main/java/com/google/devtools/build/lib/unix:native_posix_files_service",
         "//src/main/java/com/google/devtools/build/lib/unix:native_posix_files_service_impl",
+        "//src/main/java/com/google/devtools/build/lib/unix:unix_file_system",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/build/lib/util:string",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
         "//src/main/java/com/google/devtools/build/lib/windows",
-        "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
     ],
 )

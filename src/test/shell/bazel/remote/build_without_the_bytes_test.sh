@@ -1951,6 +1951,190 @@ EOF
   assert_exists ${dotd_file}
 }
 
+function test_inmemory_dotd_files_no_rebuild_on_incremental_build() {
+  # Regression test for https://github.com/bazelbuild/bazel/issues/29313: under
+  # --remote_download_outputs=all, an action whose .d file is kept in memory
+  # (--experimental_inmemory_dotd_files) must not be re-executed on a later
+  # build, on both a warm and a cold (post-restart) server.
+  stop_worker
+  start_worker
+
+  add_rules_cc MODULE.bazel
+  cat > BUILD <<'EOF'
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+cc_library(name="foo", srcs=["foo.c"])
+EOF
+  touch foo.c
+
+  # Populate the remote cache.
+  bazel build \
+      --remote_upload_local_results \
+      --remote_cache=grpc://localhost:"${worker_port}" \
+      //:foo &> "$TEST_log" \
+      || fail "Expected success from uploading invocation"
+
+  # Drop the local outputs so the next build fetches them from the cache and
+  # the action's outputs get remote metadata.
+  bazel clean
+
+  # Build, fetching outputs from the cache and keeping the .d file in memory.
+  bazel build \
+      --experimental_inmemory_dotd_files \
+      --remote_download_outputs=all \
+      --remote_cache=grpc://localhost:"${worker_port}" \
+      //:foo &> "$TEST_log" \
+      || fail "Expected success from downloading invocation"
+
+  # Build again without changing anything: the compile action must be up to date.
+  bazel build \
+      --experimental_inmemory_dotd_files \
+      --remote_download_outputs=all \
+      --remote_cache=grpc://localhost:"${worker_port}" \
+      --explain="${TEST_TMPDIR}/explain_warm.txt" \
+      //:foo &> "$TEST_log" \
+      || fail "Expected success from warm incremental invocation"
+
+  assert_not_contains "Compiling foo.c" "${TEST_TMPDIR}/explain_warm.txt"
+
+  # Restart the server and build again: a cold server decides up-to-dateness
+  # from the persisted action cache, so the in-memory output must be recognized
+  # purely from its (never-materialized) metadata.
+  bazel shutdown
+  bazel build \
+      --experimental_inmemory_dotd_files \
+      --remote_download_outputs=all \
+      --remote_cache=grpc://localhost:"${worker_port}" \
+      --explain="${TEST_TMPDIR}/explain_cold.txt" \
+      //:foo &> "$TEST_log" \
+      || fail "Expected success from cold incremental invocation"
+
+  assert_not_contains "Compiling foo.c" "${TEST_TMPDIR}/explain_cold.txt"
+}
+
+function test_download_all_after_minimal_materializes_intermediate_output() {
+  # An unmaterialized remote output and an in-memory output both lack a local
+  # presence, so recognizing in-memory outputs must not also match ordinary
+  # remote outputs left unmaterialized by an earlier build: switching
+  # --remote_download_outputs from minimal to all must still materialize them.
+  setup_genrule_with_dep
+
+  # Build with minimal: the intermediate output stays remote, not on disk.
+  bazel build \
+    --genrule_strategy=remote \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_download_outputs=minimal \
+    //a:foobar >& "$TEST_log" || fail "Failed to build //a:foobar (minimal)"
+
+  if [[ -f bazel-bin/a/foo.txt ]]; then
+    fail "Expected intermediate output to not be downloaded under minimal"
+  fi
+
+  # Switch to all: the intermediate output must now be materialized on disk.
+  bazel build \
+    --genrule_strategy=remote \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_download_outputs=all \
+    //a:foobar >& "$TEST_log" || fail "Failed to build //a:foobar (all)"
+
+  if ! [[ -f bazel-bin/a/foo.txt ]]; then
+    fail "Expected intermediate output bazel-bin/a/foo.txt to be downloaded after switching to --remote_download_outputs=all"
+  fi
+}
+
+function test_disabling_inmemory_dotd_materializes_dotd_after_restart() {
+  # An in-memory marker recorded by an earlier build must not keep the .d off
+  # disk when a later build disables in-memory mode and requests all outputs:
+  # the marker describes how a previous invocation handled the output, not what
+  # the current flags require.
+  stop_worker
+  start_worker
+
+  add_rules_cc MODULE.bazel
+  cat > BUILD <<'EOF'
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+cc_library(name="foo", srcs=["foo.c"])
+EOF
+  touch foo.c
+
+  # Populate the remote cache, then drop the local outputs.
+  bazel build \
+      --remote_upload_local_results \
+      --remote_cache=grpc://localhost:"${worker_port}" \
+      //:foo &> "$TEST_log" || fail "Expected success from uploading invocation"
+  bazel clean
+
+  # Build with in-memory dotd enabled: the .d is kept in memory and recorded as
+  # an in-memory output in the action cache.
+  bazel build \
+      --experimental_inmemory_dotd_files \
+      --remote_download_outputs=all \
+      --remote_cache=grpc://localhost:"${worker_port}" \
+      //:foo &> "$TEST_log" || fail "Expected success from in-memory invocation"
+
+  # Restart, then build with in-memory dotd disabled. The current flags require
+  # the .d on disk, so it must be materialized despite the persisted marker.
+  bazel shutdown
+  bazel build \
+      --noexperimental_inmemory_dotd_files \
+      --remote_download_outputs=all \
+      --remote_cache=grpc://localhost:"${worker_port}" \
+      //:foo &> "$TEST_log" || fail "Expected success from on-disk invocation"
+
+  local -r dotd_file="$(find -L bazel-bin -type f -name 'foo*.d' | head -n1)"
+  if [[ -z "$dotd_file" ]]; then
+    fail "Expected the .d file to be materialized on disk after disabling --experimental_inmemory_dotd_files"
+  fi
+}
+
+function test_disabling_inmemory_jdeps_materializes_jdeps_after_restart() {
+  # An in-memory marker recorded by an earlier build must not keep the .jdeps
+  # off disk when a later build disables in-memory mode and requests all
+  # outputs: the marker describes how a previous invocation handled the output,
+  # not what the current flags require.
+  stop_worker
+  start_worker
+
+  add_rules_java MODULE.bazel
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+load("@rules_java//java:java_library.bzl", "java_library")
+java_library(name="lib", srcs=["Library.java"])
+EOF
+  cat > a/Library.java <<'EOF'
+public class Library {
+  public static boolean TEST = true;
+}
+EOF
+
+  # Populate the remote cache, then drop the local outputs.
+  bazel build \
+      --remote_upload_local_results \
+      --remote_cache=grpc://localhost:"${worker_port}" \
+      //a:lib &> "$TEST_log" || fail "Expected success from uploading invocation"
+  bazel clean
+
+  # Build with in-memory jdeps enabled: the .jdeps is kept in memory and
+  # recorded as an in-memory output in the action cache.
+  bazel build \
+      --experimental_inmemory_jdeps_files \
+      --remote_download_outputs=all \
+      --remote_cache=grpc://localhost:"${worker_port}" \
+      //a:lib &> "$TEST_log" || fail "Expected success from in-memory invocation"
+
+  # Restart, then build with in-memory jdeps disabled. The current flags require
+  # the .jdeps on disk, so it must be materialized despite the persisted marker.
+  bazel shutdown
+  bazel build \
+      --noexperimental_inmemory_jdeps_files \
+      --remote_download_outputs=all \
+      --remote_cache=grpc://localhost:"${worker_port}" \
+      //a:lib &> "$TEST_log" || fail "Expected success from on-disk invocation"
+
+  if [[ ! -e "bazel-bin/a/liblib.jdeps" ]]; then
+    fail "Expected the .jdeps file to be materialized on disk after disabling --experimental_inmemory_jdeps_files"
+  fi
+}
+
 function test_remote_download_regex() {
   add_rules_java "MODULE.bazel"
   mkdir -p a
@@ -2501,6 +2685,71 @@ EOF
   expect_log "uuid: \"${second_id#INFO: Invocation ID: }\""
 }
 
+function test_remote_cache_eviction_retries_preserve_grpc_log() {
+  mkdir -p a
+
+  cat > a/BUILD <<'EOF'
+genrule(
+  name = 'foo',
+  srcs = ['foo.in'],
+  outs = ['foo.out'],
+  cmd = 'cat $(SRCS) > $@',
+)
+
+genrule(
+  name = 'bar',
+  srcs = ['foo.out', 'bar.in'],
+  outs = ['bar.out'],
+  cmd = 'cat $(SRCS) > $@',
+  tags = ['no-remote-exec'],
+)
+EOF
+
+  echo foo > a/foo.in
+  echo bar > a/bar.in
+
+  # Populate remote cache
+  bazel build \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --remote_download_minimal \
+      //a:bar >& $TEST_log || fail "Failed to build"
+
+  bazel clean
+
+  # Clean build, foo.out isn't downloaded
+  bazel build \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --remote_download_minimal \
+      //a:bar >& $TEST_log || fail "Failed to build"
+
+  # Evict blobs from remote cache
+  stop_worker
+  start_worker
+
+  echo "updated bar" > a/bar.in
+
+  # Incremental build triggers remote cache eviction error and Bazel retries the
+  # build in-process. The gRPC log of the attempt that hit the eviction must be
+  # preserved rather than truncated when the retry reopens the log.
+  bazel build \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --remote_download_minimal \
+      --experimental_remote_cache_eviction_retries=1 \
+      --remote_grpc_log=grpc.log \
+      //a:bar >& $TEST_log || fail "Failed to build"
+
+  expect_log "Found transient remote cache error, retrying the build..."
+
+  # The retry renames the first attempt's log to grpc.log.1 and writes the second
+  # attempt's log at the base path, so both attempts are available for debugging.
+  [[ -f grpc.log.1 ]] \
+      || fail "Expected first attempt's gRPC log to be preserved as grpc.log.1"
+  [[ -s grpc.log.1 ]] \
+      || fail "Expected preserved gRPC log grpc.log.1 to be non-empty"
+  [[ -f grpc.log ]] \
+      || fail "Expected second attempt's gRPC log to be written to grpc.log"
+}
+
 function test_download_toplevel_symlinks_runfiles() {
     cat > rules.bzl <<EOF
 def _symlink_rule_impl(ctx):
@@ -2662,6 +2911,353 @@ EOF
   # Incremental run. Even though output checking is disabled, invalidation must
   # must still occur to force them to be downloaded.
   bazel run "${FLAGS[@]}" //:foo >& $TEST_log || fail "Failed to run //:foo"
+}
+
+function test_symlink_output_replaced_by_subpackage() {
+  # Regression test for https://github.com/bazelbuild/bazel/issues/29480.
+  add_rules_shell "MODULE.bazel"
+  mkdir -p tools
+  cat > tools/wrapper_script.sh <<'EOF'
+#!/bin/bash
+echo hello
+EOF
+  chmod +x tools/wrapper_script.sh
+
+  cat > tools/BUILD <<'EOF'
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+
+sh_binary(
+    name = "bazel_wrapper",
+    srcs = ["wrapper_script.sh"],
+)
+EOF
+
+  bazel build \
+      --remote_cache=grpc://localhost:${worker_port} \
+      //tools:bazel_wrapper >& $TEST_log \
+      || fail "Failed first build of //tools:bazel_wrapper"
+
+  [[ -L bazel-bin/tools/bazel_wrapper ]] \
+      || fail "Expected bazel-bin/tools/bazel_wrapper to be a symlink"
+
+  # Move the sh_binary into a same-named subpackage. The output that was
+  # previously a symlinked file at .../tools/bazel_wrapper must now become a
+  # directory at .../tools/bazel_wrapper/ which contains the new outputs.
+  mkdir -p tools/bazel_wrapper
+  cat > tools/bazel_wrapper/BUILD <<'EOF'
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+
+sh_binary(
+    name = "bazel_wrapper",
+    srcs = ["//tools:wrapper_script.sh"],
+)
+EOF
+  cat > tools/BUILD <<'EOF'
+exports_files(["wrapper_script.sh"])
+EOF
+
+  bazel build \
+      --remote_cache=grpc://localhost:${worker_port} \
+      //tools/bazel_wrapper:bazel_wrapper >& $TEST_log \
+      || fail "Failed second build after moving sh_binary to a subpackage"
+}
+
+function test_path_stripping_remote_lost_tree_inputs_stress() {
+  mkdir rules pkg
+  cat > rules/defs.bzl <<'EOF'
+def _variant_setting_impl(ctx):
+    return []
+
+variant_setting = rule(
+    implementation = _variant_setting_impl,
+    build_setting = config.string(),
+)
+
+def _variant_transition_impl(settings, attr):
+    return {"//rules:variant": attr.variant}
+
+_variant_transition = transition(
+    implementation = _variant_transition_impl,
+    inputs = [],
+    outputs = ["//rules:variant"],
+)
+
+def _tree_impl(ctx):
+    out = ctx.actions.declare_directory("tree_dir")
+    args = ctx.actions.args()
+    args.add_all([out], expand_directories = False)
+    ctx.actions.run_shell(
+        outputs = [out],
+        arguments = [args],
+        command = """
+        mkdir -p "$1/pkg"
+        dd if=/dev/zero of="$1/pkg/blob" bs=1024 count=2300 2>/dev/null
+        """,
+        execution_requirements = {"supports-path-mapping": ""},
+    )
+    return [DefaultInfo(files = depset([out]))]
+
+tree = rule(_tree_impl)
+
+def _configured_consumer_impl(ctx):
+    tree = ctx.files.tree[0]
+    out = ctx.actions.declare_file(ctx.label.name + ".out")
+    args = ctx.actions.args()
+    args.add(out)
+    args.add_all([tree], expand_directories = False)
+    args.add(ctx.file.stamp)
+    args.add(ctx.attr.nonce)
+    ctx.actions.run_shell(
+        inputs = [tree, ctx.file.stamp],
+        outputs = [out],
+        arguments = [args],
+        command = """
+        set -e
+        wc -c "$2/pkg/blob" > "$1"
+        cat "$3" >> "$1"
+        printf '%s\n' "$4" >> "$1"
+        """,
+        execution_requirements = {"supports-path-mapping": ""},
+    )
+    return [DefaultInfo(files = depset([out]))]
+
+configured_consumer = rule(
+    implementation = _configured_consumer_impl,
+    cfg = _variant_transition,
+    attrs = {
+        "nonce": attr.string(),
+        "stamp": attr.label(allow_single_file = True),
+        "tree": attr.label(allow_files = True),
+        "variant": attr.string(),
+    },
+)
+EOF
+  cat > rules/BUILD <<'EOF'
+load("//rules:defs.bzl", "variant_setting")
+
+variant_setting(
+    name = "variant",
+    build_setting_default = "",
+)
+EOF
+  cat > pkg/nonce.bzl <<'EOF'
+NONCE = "0"
+EOF
+  cat > pkg/BUILD <<'EOF'
+load("//pkg:nonce.bzl", "NONCE")
+load("//rules:defs.bzl", "configured_consumer", "tree")
+
+tree(name = "tree")
+EOF
+  local consumer
+  for consumer in $(seq -f "%02g" 0 15); do
+    cat >> pkg/BUILD <<EOF
+
+configured_consumer(
+    name = "consume_${consumer}",
+    nonce = NONCE,
+    stamp = "stamp.txt",
+    tree = ":tree",
+    variant = "variant_${consumer}",
+)
+EOF
+  done
+  cat >> pkg/BUILD <<'EOF'
+
+filegroup(
+    name = "all_outputs",
+    srcs = [
+EOF
+  for consumer in $(seq -f "%02g" 0 15); do
+    echo "        \":consume_${consumer}\"," >> pkg/BUILD
+  done
+  cat >> pkg/BUILD <<'EOF'
+    ],
+)
+EOF
+  echo "stamp 0" > pkg/stamp.txt
+
+  # Each consumer applies a distinct Starlark transition to the tree artifact, so the physical
+  # output paths differ. With output path stripping, all of those tree artifacts map to the same
+  # logical path in the remote action input tree.
+  local common_flags=(
+    --experimental_output_paths=strip
+    --remote_executor=grpc://localhost:${worker_port}
+    --remote_download_minimal
+    --rewind_lost_inputs
+    --experimental_remote_cache_eviction_retries=0
+    --experimental_remote_cache_chunking
+    --remote_timeout=5s
+    --jobs=64
+  )
+
+  bazel build "${common_flags[@]}" //pkg:all_outputs &> $TEST_log || fail "initial build failed"
+
+  bazel clean &> $TEST_log || fail "clean failed"
+
+  bazel build "${common_flags[@]}" //pkg:all_outputs &> $TEST_log \
+    || fail "remote-only seed build failed"
+  local execroot
+  execroot="$(bazel info execution_root 2>> $TEST_log)"
+  if find "${execroot}/bazel-out" -path "*/bin/pkg/tree_dir/pkg/blob" -print | grep -q .; then
+    find "${execroot}/bazel-out" -path "*/bin/pkg/tree_dir/pkg/blob" -print > $TEST_log
+    fail "tree outputs were downloaded during remote-only seed build"
+  fi
+
+  local attempt
+  for attempt in $(seq 1 6); do
+    delete_remote_cas_files
+    if [[ "$(count_remote_cas_files)" != "0" ]]; then
+      find "${cas_path}" -type f > $TEST_log
+      fail "remote CAS was not empty after deletion"
+    fi
+    echo "stamp ${attempt}" >> pkg/stamp.txt
+    cat > pkg/nonce.bzl <<EOF
+NONCE = "attempt_${attempt}"
+EOF
+
+    bazel build "${common_flags[@]}" //pkg:all_outputs &> $TEST_log \
+      || fail "build after remote CAS reset failed on attempt ${attempt}"
+
+    expect_not_log "Exec failed due to IOException"
+    expect_not_log "Missing digest"
+  done
+}
+
+function test_path_stripping_remote_lost_runfiles_member() {
+  add_rules_shell "MODULE.bazel"
+  mkdir pkg
+  cat > pkg/defs.bzl <<'EOF'
+def _data_impl(ctx):
+    out = ctx.actions.declare_file("data.bin")
+    args = ctx.actions.args()
+    args.add(out)
+    ctx.actions.run_shell(
+        outputs = [out],
+        arguments = [args],
+        command = 'dd if=/dev/zero of="$1" bs=1024 count=2300 2>/dev/null',
+        execution_requirements = {"supports-path-mapping": ""},
+    )
+    return [DefaultInfo(files = depset([out]))]
+
+data = rule(_data_impl)
+
+def _consumer_impl(ctx):
+    out = ctx.actions.declare_file(ctx.label.name + ".out")
+    args = ctx.actions.args()
+    args.add(out)
+    args.add(ctx.file.stamp)
+    args.add(ctx.attr.nonce)
+    # The data file lives in the tool's runfiles, so it is an input to this action even though the
+    # command below doesn't read it. With output path stripping, the runfiles member is referenced
+    # at a path-mapped location in the remote action input tree.
+    ctx.actions.run(
+        executable = ctx.executable.tool,
+        inputs = [ctx.file.stamp],
+        outputs = [out],
+        arguments = [args],
+        execution_requirements = {"supports-path-mapping": ""},
+    )
+    return [DefaultInfo(files = depset([out]))]
+
+consumer = rule(
+    implementation = _consumer_impl,
+    attrs = {
+        "nonce": attr.string(),
+        "stamp": attr.label(allow_single_file = True),
+        "tool": attr.label(executable = True, cfg = "exec"),
+    },
+)
+EOF
+  cat > pkg/tool.sh <<'EOF'
+#!/bin/bash
+set -e
+cat "$2" > "$1"
+printf '%s\n' "$3" >> "$1"
+EOF
+  chmod +x pkg/tool.sh
+  cat > pkg/nonce.bzl <<'EOF'
+NONCE = "0"
+EOF
+  cat > pkg/BUILD <<'EOF'
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+load("//pkg:nonce.bzl", "NONCE")
+load("//pkg:defs.bzl", "consumer", "data")
+
+data(name = "data")
+
+sh_binary(
+    name = "tool",
+    srcs = ["tool.sh"],
+    data = [":data"],
+)
+EOF
+  local n
+  for n in $(seq -f "%02g" 0 7); do
+    cat >> pkg/BUILD <<EOF
+
+consumer(
+    name = "consume_${n}",
+    nonce = NONCE,
+    stamp = "stamp.txt",
+    tool = ":tool",
+)
+EOF
+  done
+  cat >> pkg/BUILD <<'EOF'
+
+filegroup(
+    name = "all_outputs",
+    srcs = [
+EOF
+  for n in $(seq -f "%02g" 0 7); do
+    echo "        \":consume_${n}\"," >> pkg/BUILD
+  done
+  cat >> pkg/BUILD <<'EOF'
+    ],
+)
+EOF
+  echo "stamp 0" > pkg/stamp.txt
+
+  # The data file is reachable only through the tool's runfiles tree, not as a top-level input of
+  # the consuming action. With output path stripping, the lost-input recovery path must still be
+  # able to map the (path-mapped) runfiles member back to the artifact so that rewinding can
+  # regenerate it.
+  local common_flags=(
+    --experimental_output_paths=strip
+    --remote_executor=grpc://localhost:${worker_port}
+    --remote_download_minimal
+    --rewind_lost_inputs
+    --experimental_remote_cache_eviction_retries=0
+    --experimental_remote_cache_chunking
+    --remote_timeout=5s
+    --jobs=64
+  )
+
+  bazel build "${common_flags[@]}" //pkg:all_outputs &> $TEST_log || fail "initial build failed"
+
+  bazel clean &> $TEST_log || fail "clean failed"
+
+  bazel build "${common_flags[@]}" //pkg:all_outputs &> $TEST_log \
+    || fail "remote-only seed build failed"
+
+  local attempt
+  for attempt in $(seq 1 6); do
+    delete_remote_cas_files
+    if [[ "$(count_remote_cas_files)" != "0" ]]; then
+      find "${cas_path}" -type f > $TEST_log
+      fail "remote CAS was not empty after deletion"
+    fi
+    cat > pkg/nonce.bzl <<EOF
+NONCE = "attempt_${attempt}"
+EOF
+
+    bazel build "${common_flags[@]}" //pkg:all_outputs &> $TEST_log \
+      || fail "build after remote CAS reset failed on attempt ${attempt}"
+
+    expect_not_log "Exec failed due to IOException"
+    expect_not_log "Missing digest"
+  done
 }
 
 run_suite "Build without the Bytes tests"

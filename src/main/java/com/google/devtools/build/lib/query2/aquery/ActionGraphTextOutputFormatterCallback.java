@@ -100,7 +100,8 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
       throws IOException, InterruptedException {
     try {
       // Enabling includeParamFiles should enable includeCommandline by default.
-      options.includeCommandline |= options.includeParamFiles;
+      options.setIncludeCommandline(
+          options.getIncludeCommandline() || options.getIncludeParamFiles());
 
       for (ConfiguredTargetValue configuredTargetValue : partialResult) {
         if (!(configuredTargetValue instanceof RuleConfiguredTargetValue)) {
@@ -112,7 +113,7 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
             ((RuleConfiguredTargetValue) configuredTargetValue).getActions()) {
           writeAction(action, printStream);
         }
-        if (options.useAspects) {
+        if (options.getUseAspects()) {
           for (AspectValue aspectValue : accessor.getAspectValues(configuredTargetValue)) {
             if (aspectValue != null) {
               for (ActionAnalysisMetadata action : aspectValue.getActions()) {
@@ -129,7 +130,7 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
 
   private void writeAction(ActionAnalysisMetadata action, PrintStream printStream)
       throws IOException, CommandLineExpansionException, InterruptedException, EvalException {
-    if (options.includeParamFiles
+    if (options.getIncludeParamFiles()
         && action instanceof ParameterFileWriteAction parameterFileWriteAction) {
 
       String fileContent = String.join(" \\\n    ", parameterFileWriteAction.getArguments());
@@ -138,7 +139,8 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
       getParamFileNameToContentMap().put(paramFileName, fileContent);
     }
 
-    if (!AqueryUtils.matchesAqueryFilters(action, actionFilters, options.includePrunedInputs)) {
+    if (!AqueryUtils.matchesAqueryFilters(
+        action, actionFilters, options.getIncludePrunedInputs())) {
       return;
     }
 
@@ -224,8 +226,8 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
           .append('\n');
     }
 
-    if (options.includeArtifacts) {
-      NestedSet<Artifact> inputs = getActionInputs(action, options.includePrunedInputs);
+    if (options.getIncludeArtifacts()) {
+      NestedSet<Artifact> inputs = getActionInputs(action, options.getIncludePrunedInputs());
 
       stringBuilder
           .append("  Inputs: [")
@@ -272,7 +274,7 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
             .append("]\n");
       }
     }
-    if (options.includeCommandline && action instanceof CommandAction) {
+    if (options.getIncludeCommandline() && action instanceof CommandAction) {
       stringBuilder
           .append("  Command Line: ")
           .append(
@@ -294,10 +296,10 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
           .append("\n");
     }
 
-    if (options.includeParamFiles) {
+    if (options.getIncludeParamFiles()) {
       // Assumption: if an Action takes a param file as an input, it will be used
       // to provide params to the command.
-      for (Artifact input : getActionInputs(action, options.includePrunedInputs).toList()) {
+      for (Artifact input : getActionInputs(action, options.getIncludePrunedInputs()).toList()) {
         String inputFileName = input.getExecPathString();
         if (getParamFileNameToContentMap().containsKey(inputFileName)) {
           stringBuilder
@@ -346,7 +348,7 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
 
     if (action instanceof AbstractFileWriteAction.FileContentsProvider fileAction) {
       stringBuilder.append(String.format("  IsExecutable: %b\n", fileAction.makeExecutable()));
-      if (options.includeFileWriteContents) {
+      if (options.getIncludeFileWriteContents()) {
         String contents = fileAction.getFileContents(eventHandler);
         stringBuilder
             .append("  FileWriteContents: [")

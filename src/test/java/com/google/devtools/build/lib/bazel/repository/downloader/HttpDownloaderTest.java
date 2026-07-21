@@ -178,6 +178,121 @@ public class HttpDownloaderTest {
   }
 
   @Test
+  public void downloadFromOpaqueFileUrl_withExplicitOutput() throws Exception {
+    Downloader downloader = mock(Downloader.class);
+    DownloadManager downloadManager =
+        new DownloadManager(downloadCache, downloader, httpDownloader, eventHandler);
+    byte[] data = "content".getBytes(UTF_8);
+    doAnswer(
+            (Answer<Void>)
+                invocationOnMock -> {
+                  Path output = invocationOnMock.getArgument(5, Path.class);
+                  try (OutputStream outputStream = output.getOutputStream()) {
+                    ByteStreams.copy(new ByteArrayInputStream(data), outputStream);
+                  }
+                  return null;
+                })
+        .when(downloader)
+        .download(any(), any(), any(), any(), any(), any(), any(), any(), any(), eq("testRepo"));
+
+    Path result =
+        download(
+            downloadManager,
+            ImmutableList.of(URI.create("file:../vendored_lodash-4.17.21.tgz")),
+            ImmutableMap.of(),
+            ImmutableMap.of(),
+            Optional.empty(),
+            "testCanonicalId",
+            Optional.empty(),
+            fs.getPath(workingDir.newFile().getAbsolutePath()),
+            ImmutableMap.of(),
+            "testRepo");
+
+    assertThat(new String(ByteStreams.toByteArray(result.getInputStream()), UTF_8))
+        .isEqualTo("content");
+  }
+
+  @Test
+  public void downloadFromOpaqueFileUrl_withType() throws Exception {
+    Downloader downloader = mock(Downloader.class);
+    DownloadManager downloadManager =
+        new DownloadManager(downloadCache, downloader, httpDownloader, eventHandler);
+    byte[] data = "content".getBytes(UTF_8);
+    doAnswer(
+            (Answer<Void>)
+                invocationOnMock -> {
+                  Path output = invocationOnMock.getArgument(5, Path.class);
+                  try (OutputStream outputStream = output.getOutputStream()) {
+                    ByteStreams.copy(new ByteArrayInputStream(data), outputStream);
+                  }
+                  return null;
+                })
+        .when(downloader)
+        .download(any(), any(), any(), any(), any(), any(), any(), any(), any(), eq("testRepo"));
+
+    Path result =
+        download(
+            downloadManager,
+            ImmutableList.of(URI.create("file:../vendored_lodash-4.17.21.tgz")),
+            ImmutableMap.of(),
+            ImmutableMap.of(),
+            Optional.empty(),
+            "testCanonicalId",
+            Optional.of("tgz"),
+            fs.getPath(workingDir.newFolder().getAbsolutePath()),
+            ImmutableMap.of(),
+            "testRepo");
+
+    assertThat(result.getBaseName()).isEqualTo("vendored_lodash-4.17.21.tgz");
+    assertThat(new String(ByteStreams.toByteArray(result.getInputStream()), UTF_8))
+        .isEqualTo("content");
+  }
+
+  @Test
+  public void downloadFromOpaqueFileUrl_withEscapedQuestionMarkAndType() throws Exception {
+    Downloader downloader = mock(Downloader.class);
+    DownloadManager downloadManager =
+        new DownloadManager(downloadCache, downloader, httpDownloader, eventHandler);
+    byte[] data = "content".getBytes(UTF_8);
+    doAnswer(
+            (Answer<Void>)
+                invocationOnMock -> {
+                  Path output = invocationOnMock.getArgument(5, Path.class);
+                  try (OutputStream outputStream = output.getOutputStream()) {
+                    ByteStreams.copy(new ByteArrayInputStream(data), outputStream);
+                  }
+                  return null;
+                })
+        .when(downloader)
+        .download(any(), any(), any(), any(), any(), any(), any(), any(), any(), eq("testRepo"));
+
+    Path result =
+        download(
+            downloadManager,
+            ImmutableList.of(URI.create("file:../foo%3Fbar.tgz")),
+            ImmutableMap.of(),
+            ImmutableMap.of(),
+            Optional.empty(),
+            "testCanonicalId",
+            Optional.of("tgz"),
+            fs.getPath(workingDir.newFolder().getAbsolutePath()),
+            ImmutableMap.of(),
+            "testRepo");
+
+    assertThat(result.getBaseName()).isEqualTo("foo_bar.tgz");
+    assertThat(new String(ByteStreams.toByteArray(result.getInputStream()), UTF_8))
+        .isEqualTo("content");
+  }
+
+  @Test
+  public void getCandidateFileNames_opaqueFileUrlWithEscapedQuestionMark() {
+    assertThat(
+            DownloadManager.getCandidateFileNames(
+                URI.create("file:../foo%3Fbar.tgz"), fs.getPath("/tmp/foo_bar.tgz")))
+        .containsExactly("foo?bar.tgz", "foo_bar.tgz");
+  }
+
+  @Test
   public void downloadFrom2UrlsFirstOk() throws IOException, InterruptedException {
     try (ServerSocket server1 = new ServerSocket(0, 1, InetAddress.getByName(null));
         ServerSocket server2 = new ServerSocket(0, 1, InetAddress.getByName(null))) {
@@ -973,8 +1088,7 @@ public class HttpDownloaderTest {
       String context)
       throws IOException, InterruptedException {
     Phaser downloadPhaser = new Phaser();
-    try (@SuppressWarnings("AllowVirtualThreads")
-        ExecutorService executorService = Executors.newVirtualThreadPerTaskExecutor()) {
+    try (ExecutorService executorService = Executors.newVirtualThreadPerTaskExecutor()) {
       Future<Path> future =
           downloadManager.startDownload(
               executorService,

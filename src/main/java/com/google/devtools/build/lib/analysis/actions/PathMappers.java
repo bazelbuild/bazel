@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.analysis.actions;
 
 
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
@@ -23,6 +22,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.CommandLineLimits;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
@@ -39,27 +39,6 @@ import javax.annotation.Nullable;
  * PathMapper}).
  */
 public final class PathMappers {
-
-  // TODO: Remove actions from this list by adding ExecutionRequirements.SUPPORTS_PATH_MAPPING to
-  //  their execution info instead.
-  private static final ImmutableSet<String> SUPPORTED_MNEMONICS =
-      ImmutableSet.of(
-          "AndroidLint",
-          "CompileAndroidResources",
-          "DeJetify",
-          "DejetifySrcs",
-          "Desugar",
-          "DexBuilder",
-          "Jetify",
-          "JetifySrcs",
-          "LinkAndroidResources",
-          "MergeAndroidAssets",
-          "MergeManifests",
-          "ParseAndroidResources",
-          "StarlarkAARGenerator",
-          "StarlarkMergeCompiledAndroidResources",
-          "StarlarkRClassGenerator",
-          "Mock action");
 
   /**
    * Actions that support path mapping should call this method from {@link
@@ -115,17 +94,23 @@ public final class PathMappers {
    * @param action the {@link AbstractAction} for which a {@link Spawn} is to be created
    * @param outputPathsMode the value of {@link CoreOptions#outputPathsMode}
    * @param isStarlarkAction whether the action is a Starlark action
+   * @param inputMetadataProvider if non-null, used to verify that colliding inputs (from different
+   *     configurations mapping to the same path) have identical file digests
    * @return a {@link PathMapper} that maps paths of the action's inputs and outputs. May be {@link
    *     PathMapper#NOOP} if path mapping is not applicable to the action.
    */
   public static PathMapper create(
-      AbstractAction action, OutputPathsMode outputPathsMode, boolean isStarlarkAction) {
+      AbstractAction action,
+      OutputPathsMode outputPathsMode,
+      boolean isStarlarkAction,
+      @Nullable InputMetadataProvider inputMetadataProvider) {
     if (getEffectiveOutputPathsMode(
             outputPathsMode, action.getMnemonic(), action.getExecutionInfo())
         != OutputPathsMode.STRIP) {
       return PathMapper.NOOP;
     }
-    return StrippingPathMapper.tryCreate(action, isStarlarkAction).orElse(PathMapper.NOOP);
+    return StrippingPathMapper.tryCreate(action, isStarlarkAction, inputMetadataProvider)
+        .orElse(PathMapper.NOOP);
   }
 
   /**
@@ -140,7 +125,7 @@ public final class PathMappers {
     if (configuration == null) {
       return OutputPathsMode.OFF;
     }
-    return configuration.getOptions().get(CoreOptions.class).outputPathsMode;
+    return configuration.getOptions().get(CoreOptions.class).getOutputPathsMode();
   }
 
   /**
@@ -157,8 +142,7 @@ public final class PathMappers {
       return OutputPathsMode.OFF;
     }
     if (outputPathsMode == OutputPathsMode.STRIP
-        && (SUPPORTED_MNEMONICS.contains(mnemonic)
-            || executionInfo.containsKey(ExecutionRequirements.SUPPORTS_PATH_MAPPING))) {
+        && executionInfo.containsKey(ExecutionRequirements.SUPPORTS_PATH_MAPPING)) {
       return OutputPathsMode.STRIP;
     }
     return OutputPathsMode.OFF;

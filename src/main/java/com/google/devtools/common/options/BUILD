@@ -35,7 +35,10 @@ java_library(
 
 java_library(
     name = "options",
-    exported_plugins = ["//src/main/java/com/google/devtools/common/options/processor:options_preprocessor"],
+    exported_plugins = [
+        "//src/main/java/com/google/devtools/common/options/processor:options_preprocessor",
+        "//src/main/java/com/google/devtools/common/options/processor:options_class_processor",
+    ],
     exports = [":options_internal"],
 )
 
@@ -50,7 +53,7 @@ java_library(
         ],
     ),
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
+        "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
         "//src/main/java/com/google/devtools/build/lib/util:pair",
         "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
         "//src/main/java/com/google/devtools/build/lib/util/regex:regex_util",

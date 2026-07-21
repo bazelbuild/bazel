@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.profiler;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.base.Preconditions;
+import com.google.common.io.CountingOutputStream;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.gson.stream.JsonWriter;
 import java.io.BufferedOutputStream;
@@ -31,6 +32,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.zip.GZIPOutputStream;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 
@@ -51,9 +53,10 @@ class JsonTraceFileWriter implements Runnable {
   private final OutputStream outStream;
   private final long profileStartTimeNanos;
   private final ThreadLocal<Boolean> metadataPosted = ThreadLocal.withInitial(() -> Boolean.FALSE);
-  private final boolean slimProfile;
+  private final SlimProfileConfiguration slimProfileConfig;
   private final UUID buildID;
   private final String outputBase;
+  private final TraceProfilerService.Format format;
 
   private static final long SLIM_PROFILE_EVENT_THRESHOLD = 10_000;
   private static final long SLIM_PROFILE_MAXIMAL_PAUSE_NS = Duration.ofMillis(100).toNanos();
@@ -66,16 +69,18 @@ class JsonTraceFileWriter implements Runnable {
   JsonTraceFileWriter(
       OutputStream outStream,
       long profileStartTimeNanos,
-      boolean slimProfile,
+      SlimProfileConfiguration slimProfileConfig,
       String outputBase,
-      UUID buildID) {
+      UUID buildID,
+      TraceProfilerService.Format format) {
     this.queue = new ConcurrentLinkedQueue<>();
     this.thread = new Thread(this, "profile-writer-thread");
     this.outStream = outStream;
     this.profileStartTimeNanos = profileStartTimeNanos;
-    this.slimProfile = slimProfile;
+    this.slimProfileConfig = slimProfileConfig;
     this.buildID = buildID;
     this.outputBase = outputBase;
+    this.format = format;
   }
 
   public void shutdown() throws IOException {
@@ -232,60 +237,95 @@ class JsonTraceFileWriter implements Runnable {
     lock.lock();
     try {
       boolean receivedPoisonPill = false;
-      try (JsonWriter writer =
-          new JsonWriter(
-              // The buffer size of 262144 is chosen at random.
-              // Bazel internally stores strings as raw bytes encoded in ISO_8859_1, so we use the
-              // same encoding here to also write out raw bytes.
-              new OutputStreamWriter(new BufferedOutputStream(outStream, 262144), ISO_8859_1))) {
-        var startDate = Instant.now();
-        writer.beginObject();
-        writer.name("otherData");
-        writer.beginObject();
-        writer.name("bazel_version").value(BlazeVersionInfo.instance().getReleaseName());
-        writer.name("build_id").value(buildID.toString());
-        writer.name("output_base").value(outputBase);
-        writer.name("date").value(startDate.toString());
-        writer.name("profile_start_ts").value(startDate.toEpochMilli());
-        writer.endObject();
-        writer.name("traceEvents");
-        writer.beginArray();
+      try {
+        CountingOutputStream countingOutStream = null;
+        OutputStream targetOutStream = null;
 
-        // Generate metadata event for the critical path as thread 0 in disguise.
-        ThreadMetadata criticalPathMetadata =
-            ThreadMetadata.createFakeThreadMetadataForCriticalPath();
-        criticalPathMetadata.writeTraceData(writer, profileStartTimeNanos);
+        // The buffer size of 262144 is chosen at random.
+        CountingOutputStream counting = null;
+        OutputStream target = outStream;
 
-        HashMap<Long, MergedEvent> eventsPerThread = new HashMap<>();
-        int eventCount = 0;
-        TraceData data;
-        while ((data = takeData()) != POISON_PILL) {
-          Preconditions.checkNotNull(data);
-          eventCount++;
+        int bufferSize = 262144;
+        if (slimProfileConfig.hasSizeLimit()) {
+          bufferSize = (int) Math.min(bufferSize, slimProfileConfig.getSizeLimit() / 4);
+          bufferSize = Math.max(bufferSize, 1024);
+        }
 
-          if (slimProfile
-              && eventCount > SLIM_PROFILE_EVENT_THRESHOLD
-              && data instanceof TaskData taskData
-              && isCandidateForMerging((TaskData) data)) {
-            eventsPerThread.putIfAbsent(taskData.threadId, new MergedEvent());
-            TaskData mergedTaskData = eventsPerThread.get(taskData.threadId).maybeMerge(taskData);
-            if (mergedTaskData != null) {
-              mergedTaskData.writeTraceData(writer, profileStartTimeNanos);
+        if (slimProfileConfig.hasSizeLimit()) {
+          counting = new CountingOutputStream(target);
+          target = counting;
+        }
+
+        if (format == TraceProfilerService.Format.JSON_TRACE_FILE_COMPRESSED_FORMAT) {
+          target = new GZIPOutputStream(target);
+        }
+
+        target = new BufferedOutputStream(target, bufferSize);
+        targetOutStream = target;
+        countingOutStream = counting;
+
+        try (JsonWriter writer =
+            new JsonWriter(
+                // Bazel internally stores strings as raw bytes encoded in ISO_8859_1, so we use the
+                // same encoding here to also write out raw bytes.
+                new OutputStreamWriter(targetOutStream, ISO_8859_1))) {
+          var startDate = Instant.now();
+          writer.beginObject();
+          writer.name("otherData");
+          writer.beginObject();
+          writer.name("bazel_version").value(BlazeVersionInfo.instance().getReleaseName());
+          writer.name("build_id").value(buildID.toString());
+          writer.name("output_base").value(outputBase);
+          writer.name("date").value(startDate.toString());
+          writer.name("profile_start_ts").value(startDate.toEpochMilli());
+          writer.endObject();
+          writer.name("traceEvents");
+          writer.beginArray();
+
+          // Generate metadata event for the critical path as thread 0 in disguise.
+          ThreadMetadata criticalPathMetadata =
+              ThreadMetadata.createFakeThreadMetadataForCriticalPath();
+          criticalPathMetadata.writeTraceData(writer, profileStartTimeNanos);
+
+          HashMap<Long, MergedEvent> eventsPerThread = new HashMap<>();
+          int eventCount = 0;
+          TraceData data;
+          while ((data = takeData()) != POISON_PILL) {
+            Preconditions.checkNotNull(data);
+            eventCount++;
+
+            boolean shouldSlim = false;
+            if (slimProfileConfig.isEnabled()) {
+              if (slimProfileConfig.hasSizeLimit()) {
+                shouldSlim = countingOutStream.getCount() > slimProfileConfig.getSizeLimit();
+              } else {
+                shouldSlim = eventCount > SLIM_PROFILE_EVENT_THRESHOLD;
+              }
             }
-          } else {
-            data.writeTraceData(writer, profileStartTimeNanos);
+
+            if (shouldSlim
+                && data instanceof TaskData taskData
+                && isCandidateForMerging((TaskData) data)) {
+              eventsPerThread.putIfAbsent(taskData.threadId, new MergedEvent());
+              TaskData mergedTaskData = eventsPerThread.get(taskData.threadId).maybeMerge(taskData);
+              if (mergedTaskData != null) {
+                mergedTaskData.writeTraceData(writer, profileStartTimeNanos);
+              }
+            } else {
+              data.writeTraceData(writer, profileStartTimeNanos);
+            }
           }
-        }
-        for (JsonTraceFileWriter.MergedEvent value : eventsPerThread.values()) {
-          TaskData taskData = value.getAndReset();
-          if (taskData != null) {
-            taskData.writeTraceData(writer, profileStartTimeNanos);
+          for (JsonTraceFileWriter.MergedEvent value : eventsPerThread.values()) {
+            TaskData taskData = value.getAndReset();
+            if (taskData != null) {
+              taskData.writeTraceData(writer, profileStartTimeNanos);
+            }
           }
+          receivedPoisonPill = true;
+          writer.setIndent("  ");
+          writer.endArray();
+          writer.endObject();
         }
-        receivedPoisonPill = true;
-        writer.setIndent("  ");
-        writer.endArray();
-        writer.endObject();
       } catch (IOException e) {
         this.savedException = e;
         if (!receivedPoisonPill) {

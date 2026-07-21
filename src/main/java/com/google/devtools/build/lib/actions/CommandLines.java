@@ -17,15 +17,11 @@ import static com.google.common.base.Preconditions.checkArgument;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.util.Fingerprint;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.PathStrippable;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import java.io.IOException;
-import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -117,9 +113,15 @@ public abstract sealed class CommandLines {
           }
         }
         if (useParamFile) {
-          PathFragment paramFileExecPath =
-              ParameterFile.derivePath(paramFileBasePath, Integer.toString(paramFileNameSuffix));
-          ++paramFileNameSuffix;
+          PathFragment paramFileExecPath;
+          String paramFileName = paramFileInfo.getParamFileName();
+          if (paramFileName != null) {
+            paramFileExecPath = paramFileBasePath.replaceName(paramFileName);
+          } else {
+            paramFileExecPath =
+                ParameterFile.derivePath(paramFileBasePath, Integer.toString(paramFileNameSuffix));
+            ++paramFileNameSuffix;
+          }
 
           String paramArg =
               SingleStringArgFormatter.format(
@@ -134,6 +136,7 @@ public abstract sealed class CommandLines {
             paramFiles.add(
                 new ParamFileActionInput(
                     paramFileExecPath,
+                    paramArg,
                     ParameterFile.flagsOnly(chunk.arguments(pathMapper)),
                     paramFileInfo.getFileType()));
             for (String positionalArg : ParameterFile.nonFlags(chunk.arguments(pathMapper))) {
@@ -143,7 +146,10 @@ public abstract sealed class CommandLines {
           } else {
             paramFiles.add(
                 new ParamFileActionInput(
-                    paramFileExecPath, chunk.arguments(pathMapper), paramFileInfo.getFileType()));
+                    paramFileExecPath,
+                    paramArg,
+                    chunk.arguments(pathMapper),
+                    paramFileInfo.getFileType()));
           }
         }
       }
@@ -213,46 +219,6 @@ public abstract sealed class CommandLines {
     /** Returns the param file action inputs needed to execute the command. */
     public List<ParamFileActionInput> getParamFiles() {
       return paramFiles;
-    }
-  }
-
-  /** An in-memory param file virtual action input. */
-  public static final class ParamFileActionInput extends VirtualActionInput {
-    private final PathFragment paramFileExecPath;
-    private final Iterable<String> arguments;
-    private final ParameterFileType type;
-
-    public ParamFileActionInput(
-        PathFragment paramFileExecPath, Iterable<String> arguments, ParameterFileType type) {
-      this.paramFileExecPath = paramFileExecPath;
-      this.arguments = arguments;
-      this.type = type;
-    }
-
-    @Override
-    public void writeTo(OutputStream out) throws IOException {
-      ParameterFile.writeParameterFile(out, arguments, type);
-    }
-
-    @Override
-    @CanIgnoreReturnValue
-    public byte[] atomicallyWriteTo(Path outputPath) throws IOException {
-      // This is needed for internal path wrangling reasons :(
-      return super.atomicallyWriteTo(outputPath);
-    }
-
-    @Override
-    public String getExecPathString() {
-      return paramFileExecPath.getPathString();
-    }
-
-    @Override
-    public PathFragment getExecPath() {
-      return paramFileExecPath;
-    }
-
-    public Iterable<String> getArguments() {
-      return arguments;
     }
   }
 

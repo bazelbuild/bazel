@@ -15,7 +15,6 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
@@ -104,6 +103,8 @@ public class IndexRegistry implements Registry {
   private volatile StoredEventHandler bazelRegistryJsonEvents;
 
   private static final String SOURCE_JSON_FILENAME = "source.json";
+  private static final ImmutableList<String> ALLOWED_GIT_SCHEMES =
+      ImmutableList.of("https://", "ssh://", "git://", "file://");
 
   public IndexRegistry(
       URI uri,
@@ -294,6 +295,7 @@ public class IndexRegistry implements Registry {
     Map<String, String> patches;
     int patchStrip;
     String stripPrefix;
+    String addPrefix;
   }
 
   /**
@@ -456,7 +458,7 @@ public class IndexRegistry implements Registry {
     if (sourceUrl == null) {
       throw new IOException(String.format("Missing source URL for module %s", key));
     }
-    if (sourceJson.integrity == null) {
+    if (sourceJson.integrity == null || sourceJson.integrity.isBlank()) {
       throw new IOException(String.format("Missing integrity for module %s", key));
     }
 
@@ -495,6 +497,10 @@ public class IndexRegistry implements Registry {
     ImmutableMap.Builder<String, String> remotePatches = new ImmutableMap.Builder<>();
     if (sourceJson.patches != null) {
       for (Map.Entry<String, String> entry : sourceJson.patches.entrySet()) {
+        if (entry.getValue() == null || entry.getValue().isBlank()) {
+          throw new IOException(
+              String.format("Missing integrity for patch %s of module %s", entry.getKey(), key));
+        }
         remotePatches.put(
             constructUrl(
                 getUrl(),
@@ -507,32 +513,37 @@ public class IndexRegistry implements Registry {
       }
     }
 
-    ImmutableMap<String, String> sourceJsonOverlay =
-        sourceJson.overlay != null ? ImmutableMap.copyOf(sourceJson.overlay) : ImmutableMap.of();
-    ImmutableMap<String, ArchiveRepoSpecBuilder.RemoteFile> overlay =
-        sourceJsonOverlay.entrySet().stream()
-            .collect(
-                toImmutableMap(
-                    Entry::getKey,
-                    entry ->
-                        new ArchiveRepoSpecBuilder.RemoteFile(
-                            entry.getValue(), // integrity
-                            // URLs in the registry itself are not mirrored.
-                            ImmutableList.of(
-                                constructUrl(
-                                    getUrl(),
-                                    "modules",
-                                    key.name(),
-                                    key.version().toString(),
-                                    "overlay",
-                                    entry.getKey())))));
+    ImmutableMap.Builder<String, ArchiveRepoSpecBuilder.RemoteFile> overlay =
+        ImmutableMap.builder();
+    if (sourceJson.overlay != null) {
+      for (Map.Entry<String, String> entry : sourceJson.overlay.entrySet()) {
+        if (entry.getValue() == null || entry.getValue().isBlank()) {
+          throw new IOException(
+              String.format(
+                  "Missing integrity for overlay file %s of module %s", entry.getKey(), key));
+        }
+        overlay.put(
+            entry.getKey(),
+            new ArchiveRepoSpecBuilder.RemoteFile(
+                entry.getValue(), // integrity
+                // URLs in the registry itself are not mirrored.
+                ImmutableList.of(
+                    constructUrl(
+                        getUrl(),
+                        "modules",
+                        key.name(),
+                        key.version().toString(),
+                        "overlay",
+                        entry.getKey()))));
+      }
+    }
 
     return new ArchiveRepoSpecBuilder()
         .setUrls(urls.build())
         .setIntegrity(sourceJson.integrity)
         .setStripPrefix(Strings.nullToEmpty(sourceJson.stripPrefix))
         .setRemotePatches(remotePatches.buildKeepingLast())
-        .setOverlay(overlay)
+        .setOverlay(overlay.buildOrThrow())
         .setRemoteModuleFile(
             new RemoteFile(
                 moduleFileChecksum.toSubresourceIntegrity(), ImmutableList.of(moduleFileUrl)))
@@ -545,11 +556,38 @@ public class IndexRegistry implements Registry {
       GitRepoSourceJson sourceJson,
       String moduleFileUrl,
       Checksum moduleFileChecksum,
-      ModuleKey key) {
+      ModuleKey key)
+      throws IOException {
+    if (sourceJson.remote == null) {
+      throw new IOException(
+          String.format("Missing remote in git_repository source for module %s", key));
+    }
+    if (ALLOWED_GIT_SCHEMES.stream().noneMatch(sourceJson.remote::startsWith)) {
+      throw new IOException(
+          String.format(
+              "Invalid remote URL scheme: \"%s\" for module %s. Only %s are allowed.",
+              sourceJson.remote, key, String.join(", ", ALLOWED_GIT_SCHEMES)));
+    }
+    if (sourceJson.commit != null && !sourceJson.commit.matches("^[0-9a-fA-F]{7,64}$")) {
+      throw new IOException(
+          String.format(
+              "Invalid commit: \"%s\" for module %s. Must be a valid commit hash.",
+              sourceJson.commit, key));
+    }
+    if (sourceJson.tag != null && sourceJson.tag.startsWith("-")) {
+      throw new IOException(
+          String.format(
+              "Invalid tag: \"%s\" for module %s. Cannot start with '-'.", sourceJson.tag, key));
+    }
+
     // Build remote patches as key-value pairs of "url" => "integrity".
     ImmutableMap.Builder<String, String> remotePatches = new ImmutableMap.Builder<>();
     if (sourceJson.patches != null) {
       for (Map.Entry<String, String> entry : sourceJson.patches.entrySet()) {
+        if (entry.getValue() == null || entry.getValue().isBlank()) {
+          throw new IOException(
+              String.format("Missing integrity for patch %s of module %s", entry.getKey(), key));
+        }
         remotePatches.put(
             constructUrl(
                 getUrl(),
@@ -570,6 +608,7 @@ public class IndexRegistry implements Registry {
         .setInitSubmodules(sourceJson.initSubmodules)
         .setVerbose(sourceJson.verbose)
         .setStripPrefix(sourceJson.stripPrefix)
+        .setAddPrefix(sourceJson.addPrefix)
         .setRemoteModuleFile(
             new RemoteFile(
                 moduleFileChecksum.toSubresourceIntegrity(), ImmutableList.of(moduleFileUrl)))

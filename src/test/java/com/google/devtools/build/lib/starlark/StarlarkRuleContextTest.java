@@ -976,6 +976,95 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testCreateStarlarkActionArgumentsWithResourceSet_dict() throws Exception {
+    StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    setRuleContext(ruleContext);
+
+    ev.exec(
+        "ruleContext.actions.run(",
+        "  inputs = ruleContext.files.srcs,",
+        "  outputs = ruleContext.files.srcs,",
+        "  resource_set = {\"cpu\": 4, \"memory\": 512},",
+        "  executable = 'executable')");
+    StarlarkAction action =
+        (StarlarkAction)
+            Iterables.getOnlyElement(
+                ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
+
+    assertThat(action.getResourceSetOrBuilder().buildResourceSet(OS.LINUX, 0))
+        .isEqualTo(ResourceSet.create(512, 4, 0));
+    assertThat(action.getResourceSetOrBuilder().buildResourceSet(OS.DARWIN, 100))
+        .isEqualTo(ResourceSet.create(512, 4, 0));
+    // The action retains a compact representation rather than a full ResourceSet.
+    assertThat(action.getResourceSetOrBuilder()).isNotInstanceOf(ResourceSet.class);
+  }
+
+  @Test
+  public void testCreateStarlarkActionArgumentsWithResourceSet_dictInterned() throws Exception {
+    StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    setRuleContext(ruleContext);
+
+    ev.exec(
+        "ruleContext.actions.run(",
+        "  inputs = ruleContext.files.srcs,",
+        "  outputs = [ruleContext.files.srcs[0]],",
+        "  resource_set = {\"cpu\": 3, \"memory\": 0},",
+        "  executable = 'executable')",
+        "ruleContext.actions.run(",
+        "  inputs = ruleContext.files.srcs,",
+        "  outputs = [ruleContext.files.srcs[1]],",
+        "  resource_set = {\"cpu\": 3, \"memory\": 0},",
+        "  executable = 'executable')");
+    ImmutableList<StarlarkAction> actions =
+        ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions().stream()
+            .map(StarlarkAction.class::cast)
+            .collect(toImmutableList());
+    assertThat(actions).hasSize(2);
+
+    // With no memory bound and an integral CPU bound, the compact representation is interned.
+    assertThat(actions.get(0).getResourceSetOrBuilder())
+        .isSameInstanceAs(actions.get(1).getResourceSetOrBuilder());
+  }
+
+  @Test
+  public void testCreateStarlarkActionArgumentsWithResourceSet_dictAllKeys() throws Exception {
+    StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    setRuleContext(ruleContext);
+
+    ev.exec(
+        "ruleContext.actions.run(",
+        "  inputs = ruleContext.files.srcs,",
+        "  outputs = ruleContext.files.srcs,",
+        "  resource_set = {\"cpu\": 8, \"memory\": 1024, \"local_test\": 2},",
+        "  executable = 'executable')");
+    StarlarkAction action =
+        (StarlarkAction)
+            Iterables.getOnlyElement(
+                ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
+
+    assertThat(action.getResourceSetOrBuilder().buildResourceSet(OS.LINUX, 0))
+        .isEqualTo(ResourceSet.create(1024, 8, 2));
+  }
+
+  @Test
+  public void testCreateStarlarkActionArgumentsWithResourceSet_dictIllegalKeys() throws Exception {
+    StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    setRuleContext(ruleContext);
+
+    EvalException thrown =
+        assertThrows(
+            EvalException.class,
+            () ->
+                ev.exec(
+                    "ruleContext.actions.run(",
+                    "  inputs = ruleContext.files.srcs,",
+                    "  outputs = ruleContext.files.srcs,",
+                    "  resource_set = {\"cpu\": 4, \"gpu\": 1},",
+                    "  executable = 'executable')"));
+    assertThat(thrown).hasMessageThat().contains("Illegal resource keys: (gpu)");
+  }
+
+  @Test
   public void testCreateStarlarkActionArgumentsWithoutUnusedInputsList() throws Exception {
     StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
     setRuleContext(ruleContext);
@@ -4276,6 +4365,34 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     assertThrows(AssertionError.class, () -> getConfiguredTarget("//test:test"));
     assertContainsEvent("Toolchains are not valid in this context");
     assertDoesNotContainEvent("Toolchain was not empty");
+  }
+
+  @Test
+  public void testNoToolchainContext_toolchainTypesEmpty() throws Exception {
+    // Build setting rules do not have a toolchain context, as they are part of the configuration.
+    scratch.file(
+        "test/BUILD",
+        """
+        load(':rule.bzl', 'sample_setting')
+        toolchain_type(name = 'toolchain_type')
+        sample_setting(
+            name = 'test',
+            build_setting_default = True,
+        )
+        """);
+    scratch.file(
+        "test/rule.bzl",
+        """
+        def _sample_impl(ctx):
+            if ctx.toolchains.toolchain_types():
+                fail('Toolchain context should be empty')
+        sample_setting = rule(
+            implementation = _sample_impl,
+            build_setting = config.bool(flag = True),
+        )
+        """);
+    getConfiguredTarget("//test:test");
+    assertNoEvents();
   }
 
   @Test

@@ -78,14 +78,6 @@ py_binary(
     deps = [":create_embedded_tools_lib"],
 )
 
-# Script for turning builtins_bzl sources into a zip file for unioning into the
-# package zip / install base.
-sh_binary(
-    name = "zip_builtins",
-    srcs = ["zip_builtins.sh"],
-    visibility = ["//src/main/starlark/builtins_bzl:__pkg__"],
-)
-
 # The tools Bazel uses to compile Java.
 # TODO(#6316): Gradually remove the targets here.
 JAVA_TOOLS = [
@@ -230,6 +222,23 @@ sh_binary(
     ],
 )
 
+# The jlink tool must have the same build as the target JDK. When cross-jlinking
+# the Windows arm64 runtime on a Windows x64 host, jdk_for_jlink (the host's
+# embedded JDK) is Azul Zulu and would not match the BellSoft target, so a
+# matching BellSoft Windows x64 build is used as the jlink tool instead. These
+# selects are resolved in the target configuration, so they key on the target
+# platform even though the selected tool is built for (and runs on) the exec
+# platform.
+_JLINK_TOOL = select({
+    "//src/conditions:windows_arm64": ["@openjdk_win_arm64_jlink_tool//file"],
+    "//conditions:default": [":jdk_for_jlink"],
+})
+
+_JLINK_TOOL_LOCATION = select({
+    "//src/conditions:windows_arm64": "$(location @openjdk_win_arm64_jlink_tool//file)",
+    "//conditions:default": "$(location :jdk_for_jlink)",
+})
+
 genrule(
     name = "embedded_jdk_minimal",
     srcs = [
@@ -237,11 +246,8 @@ genrule(
         ":jdeps_modules.golden",
     ],
     outs = ["minimal_jdk.zip"],
-    cmd = "$(location :minimize_jdk) $(location :jdk_for_jlink) $(location :embedded_jdk_vanilla) $(location :jdeps_modules.golden) $@",
-    tools = [
-        ":jdk_for_jlink",
-        ":minimize_jdk",
-    ],
+    cmd = "$(location :minimize_jdk) " + _JLINK_TOOL_LOCATION + " $(location :embedded_jdk_vanilla) $(location :jdeps_modules.golden) $@",
+    tools = [":minimize_jdk"] + _JLINK_TOOL,
     visibility = ["//src/test/shell/bazel:__pkg__"],
 )
 
@@ -252,11 +258,8 @@ genrule(
         ":jdeps_modules.golden",
     ],
     outs = ["allmodules_jdk.zip"],
-    cmd = "$(location :minimize_jdk) --allmodules $(location :jdk_for_jlink) $(location :embedded_jdk_vanilla) $(location :jdeps_modules.golden) $@",
-    tools = [
-        ":jdk_for_jlink",
-        ":minimize_jdk",
-    ],
+    cmd = "$(location :minimize_jdk) --allmodules " + _JLINK_TOOL_LOCATION + " $(location :embedded_jdk_vanilla) $(location :jdeps_modules.golden) $@",
+    tools = [":minimize_jdk"] + _JLINK_TOOL,
     visibility = ["//src/test/shell/bazel:__pkg__"],
 )
 
@@ -342,9 +345,10 @@ genrule(
     # In msys, a file path without .exe suffix(say foo), refers to a file with .exe
     # suffix(say foo.exe), if foo.exe exists and foo doesn't. So, on windows, we
     # need to remove bazel.exe first, so that cat to bazel won't fail.
-    cmd = "rm -f $@; cat $(location //src/main/cpp:client) $(location :package-zip" + jdk + ") > $@ && zip -qA $@ && chmod a+x $@",
+    cmd = "rm -f $@ $@.unaligned; cat $(location //src/main/cpp:client) $(location :package-zip" + jdk + ") > $@.unaligned && $(location //src/java_tools/singlejar/java/com/google/devtools/build/zip:adjust_sfx) $@.unaligned $@ && rm -f $@.unaligned && chmod a+x $@",
     executable = 1,
     output_to_bindir = 1,
+    tools = ["//src/java_tools/singlejar/java/com/google/devtools/build/zip:adjust_sfx"],
     visibility = [
         "//:__pkg__",  # For distribution archive lockfile generation
         "//scripts:__pkg__",  # For bash completion generation
@@ -365,13 +369,12 @@ genrule(
 # Build an executable named `bazel.exe`.
 # Works on all platforms but only makes sense on Windows.
 # Workaround for non-configurability of genrule's `outs` attribute.
-[genrule(
+[copy_file(
     name = "bazel-bin" + suffix + ".exe",
-    srcs = [":bazel-bin" + suffix],
-    outs = ["bazel" + suffix + ".exe"],
-    cmd = "cp $(location :bazel-bin" + suffix + ") $@",
-    executable = 1,
-    output_to_bindir = 1,
+    src = ":bazel-bin" + suffix,
+    out = "bazel" + suffix + ".exe",
+    allow_symlink = True,
+    is_executable = True,
     visibility = [
         "//scripts:__pkg__",  # For bash completion generation
         "//scripts/packages:__pkg__",  # For installer generation
@@ -404,7 +407,6 @@ filegroup(
         "//src/main/java/net/starlark/java:srcs",
         "//src/main/native:srcs",
         "//src/main/protobuf:srcs",
-        "//src/main/res:srcs",
         "//src/main/starlark/builtins_bzl:srcs",
         "//src/main/starlark/docgen:srcs",
         "//src/main/tools:srcs",

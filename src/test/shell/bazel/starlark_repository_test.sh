@@ -628,6 +628,73 @@ function test_starlark_repository_environ_invalidation_action_env_batch() {
   environ_invalidation_action_env_test_template --batch
 }
 
+# Regression test for the repository environment being a single whole-map Skyframe
+# node (introduced together with RepoEnvironmentFunction): changing one environment
+# variable invalidated every repository rule and module extension, even ones that
+# don't depend on that variable.
+#
+# In particular, running an interleaved command such as `bazel mod` with an
+# environment variable changed that the build doesn't even read (e.g. TERM, set
+# differently by an IDE/BSP server than by the user's shell) caused the next build
+# to spuriously refetch repositories and discard the analysis cache.
+#
+# The repo here only depends on FOO, yet an interleaved `mod` invocation with an
+# unrelated variable OTHER changed must not cause it to be refetched.
+function test_unrelated_env_var_does_not_invalidate_repo() {
+  local execution_file="${TEST_TMPDIR}/execution"
+  echo 0 > "${execution_file}"
+
+  cat > $(setup_module_dot_bazel) <<'EOF'
+ext = use_extension("//:ext.bzl", "ext")
+use_repo(ext, "foo")
+EOF
+  cat > ext.bzl <<EOF
+def _repo_impl(repository_ctx):
+  # Declares a dependency on FOO only.
+  foo = repository_ctx.getenv("FOO")
+  count = int(repository_ctx.execute(["cat", "${execution_file}"]).stdout.strip()) + 1
+  repository_ctx.execute(["bash", "-c", "echo %s > ${execution_file}" % count])
+  repository_ctx.file(
+      "BUILD", "filegroup(name = 'bar', visibility = ['//visibility:public'])")
+  repository_ctx.file("REPO.bazel", "")
+
+# A local repo is refetched whenever its node is recomputed, which makes spurious
+# invalidation directly observable through the fetch counter.
+repo = repository_rule(implementation = _repo_impl, local = True)
+
+def _ext_impl(module_ctx):
+  repo(name = "foo")
+
+ext = module_extension(implementation = _ext_impl)
+EOF
+  cat > BUILD <<'EOF'
+filegroup(name = "t", srcs = ["@foo//:bar"])
+EOF
+
+  # Initial fetch.
+  FOO=1 OTHER=a bazel build //:t >& $TEST_log || fail "Failed to build"
+  assert_equals 1 $(cat "${execution_file}")
+  # Rebuilding with the same environment must not refetch.
+  FOO=1 OTHER=a bazel build //:t >& $TEST_log || fail "Failed to build"
+  assert_equals 1 $(cat "${execution_file}")
+
+  # Evaluate the whole module/repo graph with an unrelated variable (OTHER)
+  # changed, then build again with the original environment. The repo only reads
+  # FOO, so it must not be refetched.
+  FOO=1 OTHER=b bazel mod graph >& $TEST_log || fail "Failed to run mod"
+  FOO=1 OTHER=a bazel build //:t >& $TEST_log || fail "Failed to build"
+  assert_equals 1 $(cat "${execution_file}")
+
+  # A second interleaving with yet another value must likewise not refetch.
+  FOO=1 OTHER=c bazel mod graph >& $TEST_log || fail "Failed to run mod"
+  FOO=1 OTHER=a bazel build //:t >& $TEST_log || fail "Failed to build"
+  assert_equals 1 $(cat "${execution_file}")
+
+  # Sanity check: changing FOO, which the repo does depend on, must refetch.
+  FOO=2 OTHER=a bazel build //:t >& $TEST_log || fail "Failed to build"
+  assert_equals 2 $(cat "${execution_file}")
+}
+
 # Test invalidation based on change to the bzl files
 function bzl_invalidation_test_template() {
   local startup_flag="${1-}"
@@ -2813,6 +2880,10 @@ function test_watch_tree() {
   touch ${outside_dir}/foo
   touch ${outside_dir}/bar
   touch ${outside_dir}/baz
+  mkdir ${outside_dir}/.ignored
+  touch ${outside_dir}/.ignored/qux
+  mkdir -p ${outside_dir}/other/dir/not/.ignored
+  touch ${outside_dir}/other/dir/not/.ignored/grault
 
   create_new_workspace
   cat > $(setup_module_dot_bazel) <<EOF
@@ -2824,7 +2895,7 @@ EOF
 def _r(rctx):
   rctx.file("BUILD", "filegroup(name='r')")
   print("I'm running!")
-  rctx.watch_tree("${outside_dir}")
+  rctx.watch_tree("${outside_dir}", exclude=[".ignored/**"])
 r=repository_rule(_r)
 EOF
 
@@ -2836,10 +2907,25 @@ EOF
   bazel build @r >& $TEST_log || fail "expected bazel to succeed"
   expect_log "I'm running!"
 
+  # Same with this other file, which is NOT ignored.
+  echo haha > ${outside_dir}/other/dir/not/.ignored/grault
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_log "I'm running!"
+
+  # changing the contents under an excluded directory does nothing
+  echo haha > ${outside_dir}/.ignored/qux
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_not_log "I'm running!"
+
   # adding a file should trigger a refetch.
   touch ${outside_dir}/quux
   bazel build @r >& $TEST_log || fail "expected bazel to succeed"
   expect_log "I'm running!"
+
+  # adding a file under an excluded directory does nothing
+  touch ${outside_dir}/.ignored/corge
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_not_log "I'm running!"
 
   # just touching an existing file shouldn't cause a refetch.
   touch ${outside_dir}/bar
@@ -3157,6 +3243,34 @@ EOF
   expect_log 'result_err.error_message: ""'
 }
 
+function test_wasm_compilation() {
+  setup_starlark_repository
+
+  declare -r exec_wasm="$(rlocation "io_bazel/src/test/shell/bazel/testdata/exec_wasm.wasm")"
+  cat >test.bzl <<EOF
+def _impl(repository_ctx):
+  wasm_file = "$exec_wasm"
+  wasm_module = repository_ctx.load_wasm("$exec_wasm", compile=True)
+
+  result_ok = repository_ctx.execute_wasm(wasm_module, "run_ok", input="")
+  print('result_ok.output: %r' % (result_ok.output,))
+  print('result_ok.return_code: %r' % (result_ok.return_code,))
+  print('result_ok.error_message: %r' % (result_ok.error_message,))
+
+  # Symlink so a repository is created
+  repository_ctx.symlink(repository_ctx.path("$repo2"), repository_ctx.path(""))
+
+repo = repository_rule(implementation=_impl, local=True)
+EOF
+
+  bazel build --experimental_repository_ctx_execute_wasm --experimental_repository_ctx_wasm_compilation @foo//:bar >& $TEST_log \
+    || fail "Expected build to succeed"
+
+  expect_log 'result_ok.output: "ok"'
+  expect_log 'result_ok.return_code: 0'
+  expect_log 'result_ok.error_message: ""'
+}
+
 function test_resolved_attributes_shows_no_message_if_unchanged() {
   cat >> $(setup_module_dot_bazel)  <<'EOF'
 repo = use_repo_rule("//:repo.bzl", "repo")
@@ -3456,6 +3570,37 @@ EOF
   assert_contains "bar" "$output_base/external/+repo+foo/out_dir/Ä_foo_∅.txt"
 }
 
+# Verifies that PAX names containing only Latin-1 code points remain distinguishable from raw
+# single-byte USTAR names.
+function test_extract_pax_tar_latin1_unicode_file_names() {
+  local archive_tar="${TEST_TMPDIR}/pax-latin1.tar"
+
+  pushd "${TEST_TMPDIR}"
+  mkdir "Ä_pax"
+  echo "bar" > "Ä_pax/Ä_foo.txt"
+  tar --format=pax -cvf pax-latin1.tar "Ä_pax"
+  popd
+
+  cat > $(setup_module_dot_bazel) <<EOF
+repo = use_repo_rule('//:test.bzl', 'repo')
+repo(name = 'foo')
+EOF
+  touch BUILD
+
+  cat >test.bzl <<EOF
+def _impl(repository_ctx):
+  repository_ctx.extract('${archive_tar}', 'out_dir', 'Ä_pax/')
+  repository_ctx.file("BUILD", "filegroup(name='bar', srcs=[])")
+
+repo = repository_rule(implementation=_impl)
+EOF
+
+  bazel build @foo//:bar >& $TEST_log || fail "Failed to build"
+
+  output_base="$(bazel info output_base)"
+  assert_contains "bar" "$output_base/external/+repo+foo/out_dir/Ä_foo.txt"
+}
+
 # Verifies that tar entries with USTAR headers, for which an encoding isn't specified, are extracted
 # correctly if that encoding happens to be UTF-8.
 function test_extract_ustar_tar_non_ascii_utf8_file_names() {
@@ -3737,6 +3882,46 @@ function test_local_module_file_patch_with_hardlinks() {
 
 function test_local_module_file_patch_with_copy() {
   do_test_local_module_file_patch "--noexperimental_repository_cache_hardlinks"
+}
+
+function test_http_file_root_build_alias() {
+  create_new_workspace
+  local file="${TEST_TMPDIR}/AvailablePortFinder.java"
+  printf "final class AvailablePortFinder {}\n" > "$file"
+  if is_windows; then
+    file_url="file:///$(cygpath -m "$file")"
+  else
+    file_url="file://${file}"
+  fi
+
+  cat > "$(setup_module_dot_bazel)" <<MODULE
+http_file = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
+http_file(
+    name = "data_repo",
+    url = "${file_url}",
+    downloaded_file_path = "AvailablePortFinder.java",
+    sha256 = "59959c069902364aa88ced5552ac70009435bca7f689419f0e5f2375c541cb01",
+)
+MODULE
+
+  cat > BUILD <<BUILD_FILE
+filegroup(
+    name = "by_root_alias",
+    srcs = ["@data_repo//:file"],
+)
+
+filegroup(
+    name = "by_downloaded_name",
+    srcs = ["@data_repo//:AvailablePortFinder.java"],
+)
+
+filegroup(
+    name = "by_repo_name",
+    srcs = ["@data_repo"],
+)
+BUILD_FILE
+
+  bazel build //:by_root_alias //:by_downloaded_name //:by_repo_name >& $TEST_log || fail "Expected build to succeed"
 }
 
 run_suite "local repository tests"

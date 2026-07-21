@@ -80,11 +80,10 @@ final class NestedMatchMemoizingLookup
         var aggregator = new NestedFutureResultAggregator();
         for (int i = 0; i < nested.analysisDependenciesCount(); i++) {
           switch (nested.getAnalysisDependency(i)) {
-            case FileOpDependency dependency:
-              aggregator.addAnalysisResultOrFuture(
-                  fileOpMatches.getValueOrFuture(dependency, validityHorizon));
-              break;
-            case NestedDependencies child:
+            case FileOpDependency dependency ->
+                aggregator.addAnalysisResultOrFuture(
+                    fileOpMatches.getValueOrFuture(dependency, validityHorizon));
+            case NestedDependencies child -> {
               // In a common case, the cache reader sends a single top-level request that traverses
               // the full set of dependencies and waits for that request to complete. Parallelizes
               // recursive traversal of child nodes to avoid being singly-threaded in this scenario.
@@ -92,17 +91,16 @@ final class NestedMatchMemoizingLookup
               executor.execute(
                   () -> {
                     switch (getValueOrFuture(child, validityHorizon)) {
-                      case NestedMatchResult result:
+                      case NestedMatchResult result -> {
                         aggregator.addNestedResult(result);
                         aggregator.signalNestedTaskComplete();
-                        break;
-                      case FutureNestedMatchResult future:
-                        // The aggregator decrements when the future completes.
-                        aggregator.addFutureNestedMatchResult(future);
-                        break;
+                      }
+                      case FutureNestedMatchResult future ->
+                          // The aggregator decrements when the future completes.
+                          aggregator.addFutureNestedMatchResult(future);
                     }
                   });
-              break;
+            }
           }
         }
         for (int i = 0; i < nested.sourcesCount(); i++) {
@@ -128,10 +126,8 @@ final class NestedMatchMemoizingLookup
 
     private void addAnalysisResultOrFuture(FileOpMatchResultOrFuture resultOrFuture) {
       switch (resultOrFuture) {
-        case FileOpMatchResult result:
-          updateAnalysisVersionIfEarlier(result.version());
-          break;
-        case FutureFileOpMatchResult future:
+        case FileOpMatchResult result -> updateAnalysisVersionIfEarlier(result.version());
+        case FutureFileOpMatchResult future -> {
           increment();
           Futures.addCallback(
               future,
@@ -142,16 +138,14 @@ final class NestedMatchMemoizingLookup
                 }
               },
               directExecutor());
-          break;
+        }
       }
     }
 
     private void addSourceResultOrFuture(FileOpMatchResultOrFuture resultOrFuture) {
       switch (resultOrFuture) {
-        case FileOpMatchResult result:
-          updateSourceVersionIfEarlier(result.version());
-          break;
-        case FutureFileOpMatchResult future:
+        case FileOpMatchResult result -> updateSourceVersionIfEarlier(result.version());
+        case FutureFileOpMatchResult future -> {
           increment();
           Futures.addCallback(
               future,
@@ -162,27 +156,20 @@ final class NestedMatchMemoizingLookup
                 }
               },
               directExecutor());
-          break;
+        }
       }
     }
 
     private void addNestedResult(NestedMatchResult result) {
       switch (result) {
-        case NO_MATCH_RESULT:
-          break;
-        case ALWAYS_MATCH_RESULT:
-          earliestAnalysisMatch = VersionedChanges.ALWAYS_MATCH;
-          break;
-        case AnalysisMatch(int version):
-          updateAnalysisVersionIfEarlier(version);
-          break;
-        case SourceMatch(int version):
-          updateSourceVersionIfEarlier(version);
-          break;
-        case AnalysisAndSourceMatch(int analysisVersion, int sourceVersion):
+        case NO_MATCH_RESULT -> {}
+        case ALWAYS_MATCH_RESULT -> earliestAnalysisMatch = VersionedChanges.ALWAYS_MATCH;
+        case AnalysisMatch(int version) -> updateAnalysisVersionIfEarlier(version);
+        case SourceMatch(int version) -> updateSourceVersionIfEarlier(version);
+        case AnalysisAndSourceMatch(int analysisVersion, int sourceVersion) -> {
           updateAnalysisVersionIfEarlier(analysisVersion);
           updateSourceVersionIfEarlier(sourceVersion);
-          break;
+        }
       }
     }
 

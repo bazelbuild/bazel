@@ -125,7 +125,7 @@ public class UrlRewriter {
         return new UrlRewriter(
             configPaths.stream().map(PathFragment::getPathString).toList(), readers);
       } catch (Throwable e) {
-        throw closer.rethrow(e);
+        throw closer.rethrow(e, UrlRewriterParseException.class);
       } finally {
         closer.close();
       }
@@ -251,7 +251,8 @@ public class UrlRewriter {
   }
 
   private static boolean isMatchingHostName(URI url, String host) {
-    return host.equals(url.getHost()) || url.getHost().endsWith("." + host);
+    String urlHost = url.getHost();
+    return urlHost != null && (host.equals(urlHost) || urlHost.endsWith("." + host));
   }
 
   private ImmutableList<RewrittenURL> applyRewriteRules(URI url) {

@@ -228,10 +228,7 @@ public class CompileBuildVariablesTest extends BuildViewTestCase {
 
   @Test
   public void testTargetSysrootWithoutPlatforms() throws Exception {
-    useConfiguration(
-        "--grte_top=//target_libc",
-        "--host_grte_top=//host_libc",
-        "--noincompatible_enable_cc_toolchain_resolution");
+    useConfiguration("--grte_top=//target_libc", "--host_grte_top=//host_libc");
 
     scratch.file(
         "x/BUILD",
@@ -254,7 +251,6 @@ public class CompileBuildVariablesTest extends BuildViewTestCase {
     useConfiguration(
         "--experimental_platforms=//mock_platform:mock-k8-platform",
         "--extra_toolchains=//mock_platform:toolchain_cc-compiler-k8",
-        "--incompatible_enable_cc_toolchain_resolution",
         "--grte_top=//target_libc",
         "--host_grte_top=//host_libc");
 

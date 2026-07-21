@@ -20,7 +20,7 @@ import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.actions.FileStateType.SYMLINK;
-import static com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.sparselyAggregateWriteStatuses;
+import static com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.aggregateWriteStatuses;
 import static com.google.devtools.build.lib.skyframe.serialization.analysis.FileDependencyKeySupport.DIRECTORY_KEY_DELIMITER;
 import static com.google.devtools.build.lib.skyframe.serialization.analysis.FileDependencyKeySupport.FILE_KEY_DELIMITER;
 import static com.google.devtools.build.lib.skyframe.serialization.analysis.FileDependencyKeySupport.MAX_KEY_LENGTH;
@@ -33,6 +33,7 @@ import static com.google.devtools.build.lib.vfs.RootedPath.toRootedPath;
 import static java.lang.Math.max;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.github.luben.zstd.RecyclingBufferPool;
 import com.github.luben.zstd.ZstdOutputStream;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
@@ -47,17 +48,24 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.Bundle
 import com.google.devtools.build.lib.profiler.CounterSeriesCollector;
 import com.google.devtools.build.lib.profiler.CounterSeriesTask;
 import com.google.devtools.build.lib.profiler.CounterSeriesTask.Color;
+import com.google.devtools.build.lib.profiler.CounterSeriesTaskImpl;
 import com.google.devtools.build.lib.skyframe.AbstractNestedFileOpNodes;
 import com.google.devtools.build.lib.skyframe.AbstractNestedFileOpNodes.NestedFileOpNodes;
 import com.google.devtools.build.lib.skyframe.AbstractNestedFileOpNodes.NestedFileOpNodesWithSource;
 import com.google.devtools.build.lib.skyframe.DirectoryListingKey;
 import com.google.devtools.build.lib.skyframe.FileKey;
 import com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture.FileOpNode;
+import com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture.RemoteFileOpNode;
+import com.google.devtools.build.lib.skyframe.serialization.EntryPart;
 import com.google.devtools.build.lib.skyframe.serialization.KeyBytesProvider;
 import com.google.devtools.build.lib.skyframe.serialization.KeyValueWriter;
 import com.google.devtools.build.lib.skyframe.serialization.PackedFingerprint;
+import com.google.devtools.build.lib.skyframe.serialization.ProfileCollector;
+import com.google.devtools.build.lib.skyframe.serialization.ProfileRecorder;
 import com.google.devtools.build.lib.skyframe.serialization.StringKey;
-import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.WriteStatus;
+import com.google.devtools.build.lib.skyframe.serialization.WriteStatus;
+import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses;
+import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.WriteStatusBuilder;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.InvalidationDataInfoOrFuture.FileDataInfo;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.InvalidationDataInfoOrFuture.FileDataInfoOrFuture;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.InvalidationDataInfoOrFuture.FileInvalidationDataInfo;
@@ -84,10 +92,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.ArrayList;
-import java.util.Map;
-import java.util.Set;
-import java.util.TreeMap;
-import java.util.TreeSet;
+import java.util.Collection;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
@@ -118,29 +123,30 @@ final class FileDependencySerializer {
     @VisibleForTesting final AtomicLong valueBytesUploaded = new AtomicLong();
 
     private static final CounterSeriesTask NODES_WAITING_FOR_DEPS =
-        new CounterSeriesTask(
+        new CounterSeriesTaskImpl(
             "Skycache: Invalidation: Nodes: Pending", "Waiting for deps", Color.RAIL_LOAD);
     private static final CounterSeriesTask NODES_WAITING_FOR_UPLOAD =
-        new CounterSeriesTask(
+        new CounterSeriesTaskImpl(
             "Skycache: Invalidation: Nodes: Pending", "Waiting for upload", Color.RAIL_LOAD);
     private static final CounterSeriesTask NODES_UPLOADED =
-        new CounterSeriesTask(
+        new CounterSeriesTaskImpl(
             "Skycache: Invalidation: Nodes: Uploaded", "Uploaded", Color.RAIL_RESPONSE);
     private static final CounterSeriesTask NODES_WITH_PROCESSING_ERRORS =
-        new CounterSeriesTask(
+        new CounterSeriesTaskImpl(
             "Skycache: Invalidation: Nodes: Processing Errors",
             "Processing Errors",
             Color.RAIL_RESPONSE);
 
     private static final CounterSeriesTask KEY_BYTES_WAITING_FOR_UPLOAD =
-        new CounterSeriesTask("Skycache: Invalidation: Bytes: Pending", "Key", Color.RAIL_LOAD);
+        new CounterSeriesTaskImpl("Skycache: Invalidation: Bytes: Pending", "Key", Color.RAIL_LOAD);
     private static final CounterSeriesTask VALUE_BYTES_WAITING_FOR_UPLOAD =
-        new CounterSeriesTask("Skycache: Invalidation: Bytes: Pending", "Value", Color.RAIL_LOAD);
+        new CounterSeriesTaskImpl(
+            "Skycache: Invalidation: Bytes: Pending", "Value", Color.RAIL_LOAD);
     private static final CounterSeriesTask KEY_BYTES_UPLOADED =
-        new CounterSeriesTask(
+        new CounterSeriesTaskImpl(
             "Skycache: Invalidation: Bytes: Uploaded", "Key", Color.RAIL_RESPONSE);
     private static final CounterSeriesTask VALUE_BYTES_UPLOADED =
-        new CounterSeriesTask(
+        new CounterSeriesTaskImpl(
             "Skycache: Invalidation: Bytes: Uploaded", "Value", Color.RAIL_RESPONSE);
 
     @Override
@@ -162,6 +168,7 @@ final class FileDependencySerializer {
   private final KeyValueWriter writer;
   private final Executor executor;
   private final Counters counters;
+  @Nullable private final ProfileCollector profileCollector;
 
   private final ValueOrFutureMap<FileKey, FileDataInfoOrFuture, FileDataInfo, FutureFileDataInfo>
       fileDataInfo =
@@ -184,12 +191,14 @@ final class FileDependencySerializer {
       LongVersionGetter versionGetter,
       InMemoryGraph graph,
       KeyValueWriter writer,
-      Executor executor) {
+      Executor executor,
+      @Nullable ProfileCollector profileCollector) {
     this.versionGetter = versionGetter;
     this.graph = graph;
     this.writer = writer;
     this.executor = executor;
     this.counters = new Counters();
+    this.profileCollector = profileCollector;
   }
 
   Counters getCounters() {
@@ -207,13 +216,32 @@ final class FileDependencySerializer {
    * for more details about the data being persisted.
    */
   InvalidationDataInfoOrFuture registerDependency(FileOpNode node) {
-    switch (node) {
-      case FileKey file:
-        return registerDependency(file);
-      case DirectoryListingKey listing:
-        return registerDependency(listing);
-      case AbstractNestedFileOpNodes nested:
-        return registerDependency(nested);
+    return switch (node) {
+      case FileKey file -> registerDependency(file);
+      case DirectoryListingKey listing -> registerDependency(listing);
+      case AbstractNestedFileOpNodes nested -> registerDependency(nested);
+      case RemoteFileOpNode remote -> registerDependency(remote);
+    };
+  }
+
+  NodeDataInfo registerDependency(RemoteFileOpNode node) {
+    var reference = (NodeDataInfo) node.getSerializationScratch();
+    if (reference != null) {
+      return reference;
+    }
+
+    synchronized (node) {
+      reference = (NodeDataInfo) node.getSerializationScratch();
+      if (reference != null) {
+        return reference;
+      }
+
+      var info =
+          new NodeInvalidationDataInfo(
+              PackedFingerprint.fromBytes(node.fingerprint().toByteArray()),
+              WriteStatuses.immediateWriteStatus());
+      node.setSerializationScratch(info);
+      return info;
     }
   }
 
@@ -394,9 +422,17 @@ final class FileDependencySerializer {
             counters.valueBytesUploaded.addAndGet(valueByteCount);
           },
           directExecutor());
+      if (profileCollector != null) {
+        recordInvalidationProfile(
+            profileCollector,
+            InvalidationEntryType.FILE,
+            keyByteCount,
+            valueByteCount,
+            writeStatus);
+      }
       writeStatuses.add(writeStatus);
       return new FileInvalidationDataInfo(
-          cacheKey, sparselyAggregateWriteStatuses(writeStatuses), exists, mtsv, realRootedPath);
+          cacheKey, aggregateWriteStatuses(writeStatuses), exists, mtsv, realRootedPath);
     }
 
     /**
@@ -445,12 +481,11 @@ final class FileDependencySerializer {
   private ListenableFuture<Void> fullyResolvePath(
       @Nullable PathFragment unresolvedLinkTarget, FileInvalidationDataUploader uploader) {
     var pathResolver = new PathResolver(unresolvedLinkTarget, uploader);
-    switch (registerDependency(FileValue.key(uploader.parentRootedPath))) {
-      case FileDataInfo parentData:
-        return pathResolver.apply(parentData);
-      case FutureFileDataInfo futureParentData:
-        return Futures.transformAsync(futureParentData, pathResolver, directExecutor());
-    }
+    return switch (registerDependency(FileValue.key(uploader.parentRootedPath))) {
+      case FileDataInfo parentData -> pathResolver.apply(parentData);
+      case FutureFileDataInfo futureParentData ->
+          Futures.transformAsync(futureParentData, pathResolver, directExecutor());
+    };
   }
 
   /**
@@ -473,17 +508,17 @@ final class FileDependencySerializer {
     @Override
     public ListenableFuture<Void> apply(FileDataInfo parentData) {
       RootedPath realParentPath;
-      switch (parentData) {
-        case CONSTANT_FILE:
-          // Assumes that BundledFileSystem does not symlink outside of BundledFileSystem.
-          realParentPath = uploader.parentRootedPath;
-          break;
-        case FileInvalidationDataInfo parentReference:
-          uploader.addParent(parentReference);
-          // If the parent folder doesn't exist, unresolvedLinkTarget will be null.
-          realParentPath = parentReference.realPath();
-          break;
-      }
+      realParentPath =
+          switch (parentData) {
+            case CONSTANT_FILE ->
+                // Assumes that BundledFileSystem does not symlink outside of BundledFileSystem.
+                uploader.parentRootedPath;
+            case FileInvalidationDataInfo parentReference -> {
+              uploader.addParent(parentReference);
+              // If the parent folder doesn't exist, unresolvedLinkTarget will be null.
+              yield parentReference.realPath();
+            }
+          };
 
       if (unresolvedLinkTarget == null) {
         return immediateVoidFuture(); // No symlink processing needed.
@@ -565,15 +600,14 @@ final class FileDependencySerializer {
     var parentProcessor = new SymlinkParentProcessor(parentRootedPath, link, uploader, symlinkData);
 
     // The parent path was changed by the link so it needs to be newly resolved.
-    switch (checkNotNull(
+    return switch (checkNotNull(
         registerDependency(
             FileValue.key(toRootedPath(parentRootedPath.getRoot(), unresolvedTargetParent))),
         unresolvedTargetParent)) {
-      case FileDataInfo data:
-        return parentProcessor.apply(data);
-      case FutureFileDataInfo future:
-        return Futures.transformAsync(future, parentProcessor, directExecutor());
-    }
+      case FileDataInfo data -> parentProcessor.apply(data);
+      case FutureFileDataInfo future ->
+          Futures.transformAsync(future, parentProcessor, directExecutor());
+    };
   }
 
   private ListenableFuture<Void> processSymlinkTarget(
@@ -737,9 +771,16 @@ final class FileDependencySerializer {
                   counters.valueBytesUploaded.addAndGet(valueByteCount);
                 },
                 directExecutor());
+            if (profileCollector != null) {
+              recordInvalidationProfile(
+                  profileCollector,
+                  InvalidationEntryType.LISTING,
+                  keyByteCount,
+                  valueByteCount,
+                  writeStatus);
+            }
             writeStatuses.add(writeStatus);
-            return new ListingInvalidationDataInfo(
-                cacheKey, sparselyAggregateWriteStatuses(writeStatuses));
+            return new ListingInvalidationDataInfo(cacheKey, aggregateWriteStatuses(writeStatuses));
           },
           directExecutor());
     }
@@ -765,6 +806,9 @@ final class FileDependencySerializer {
         case AbstractNestedFileOpNodes nestedKeys:
           dependencyHandler.addNodeKey(nestedKeys);
           break;
+        case RemoteFileOpNode remoteNode:
+          dependencyHandler.addRemoteNode(remoteNode);
+          break;
       }
     }
 
@@ -788,7 +832,7 @@ final class FileDependencySerializer {
       return future.completeWith(result);
     }
     return future.completeWith(
-        Futures.whenAllComplete(allFutures).call(dependencyHandler, directExecutor()));
+        Futures.whenAllComplete(allFutures).call(dependencyHandler, executor));
   }
 
   static OutputStream getCompressedOutputStream(OutputStream outputStream) throws IOException {
@@ -796,7 +840,7 @@ final class FileDependencySerializer {
     // not using a threshold to compress, the default level provided a 2x better compression. Since
     // we do use a threshold and there is no wall time regression, we favor the better compression
     // ratio.
-    return new ZstdOutputStream(outputStream);
+    return new ZstdOutputStream(outputStream, RecyclingBufferPool.INSTANCE);
   }
 
   /**
@@ -807,13 +851,12 @@ final class FileDependencySerializer {
    * #computeNodeBytes} defines the wire format of nodes.
    */
   class NodeDependencyHandler implements Callable<NodeDataInfo> {
-    private final TreeSet<String> fileKeys = new TreeSet<>();
-    private final TreeSet<String> listingKeys = new TreeSet<>();
-    private final TreeMap<PackedFingerprint, NodeInvalidationDataInfo> nodeDependencies =
-        new TreeMap<>();
+    private final ArrayList<String> fileKeys = new ArrayList<>();
+    private final ArrayList<String> listingKeys = new ArrayList<>();
+    private final ArrayList<NodeInvalidationDataInfo> nodeDependencies = new ArrayList<>();
     @Nullable private FileDataInfoOrFuture sourceFileOrFuture;
 
-    private final ArrayList<WriteStatus> writeStatuses = new ArrayList<>();
+    private final WriteStatusBuilder writeStatusBuilder = new WriteStatusBuilder();
 
     private final ArrayList<FutureFileDataInfo> futureFileDataInfo = new ArrayList<>();
     private final ArrayList<FutureListingDataInfo> futureListingDataInfo = new ArrayList<>();
@@ -838,7 +881,7 @@ final class FileDependencySerializer {
         }
         // There are multiple ways that result could become unary here, even if `node` always has at
         // least 2 children. The following may reduce child count.
-        // 1. TreeSet deduplication.
+        // 1. Deduplication.
         // 2. Constant references.
         // 3. NestedFileOpNodes with the same fingerprints.
         if (nodeDependencies.size() == 1) {
@@ -846,14 +889,34 @@ final class FileDependencySerializer {
           //
           // TODO: b/364831651 - consider additional special casing for unary file or listing
           // dependencies.
-          return nodeDependencies.values().iterator().next();
+          return nodeDependencies.get(0);
         }
       }
 
-      byte[] nodeBytes = computeNodeBytes(nodeDependencies, fileKeys, listingKeys, sourceFileKey);
+      // We need to deduplicate and sort these entries so that serialization is deterministic
+      // and compact.
+      var sortedFileKeys = fileKeys.stream().sorted().distinct().toList();
+      var sortedListingKeys = listingKeys.stream().sorted().distinct().toList();
+      var sortedNodeDependencies =
+          nodeDependencies.stream()
+              .map(NodeInvalidationDataInfo::cacheKey)
+              .sorted()
+              .distinct()
+              .toList();
+
+      ProfileRecorder recorder =
+          profileCollector == null ? null : new ProfileRecorder(profileCollector);
+      if (recorder != null) {
+        recorder.pushLocation(InvalidationEntryType.NODE);
+        // We'll record the full entry size (including key) later once we have the key.
+      }
+
+      byte[] nodeBytes =
+          computeNodeBytes(
+              sortedNodeDependencies, sortedFileKeys, sortedListingKeys, sourceFileKey, recorder);
       byte[] maybeCompressedBytes = nodeBytes;
-      if (nodeBytes.length >= COMPRESSION_NUM_BYTES_THRESHOLD) {
-        maybeCompressedBytes = compressBytes(nodeBytes);
+      if (maybeCompressedBytes.length >= COMPRESSION_NUM_BYTES_THRESHOLD) {
+        maybeCompressedBytes = compressBytes(maybeCompressedBytes);
       }
       PackedFingerprint key = writer.fingerprint(maybeCompressedBytes);
 
@@ -878,8 +941,19 @@ final class FileDependencySerializer {
           },
           directExecutor());
 
-      writeStatuses.add(writer.put(key, maybeCompressedBytes));
-      return new NodeInvalidationDataInfo(key, sparselyAggregateWriteStatuses(writeStatuses));
+      if (recorder != null) {
+        if (maybeCompressedBytes.length != nodeBytes.length) {
+          recorder.setByteScale((double) maybeCompressedBytes.length / (double) nodeBytes.length);
+        }
+        recordKeyAndRegisterStatus(recorder, keyByteCount, valueByteCount, writeStatus);
+      }
+
+      writeStatusBuilder.add(writeStatus);
+      return new NodeInvalidationDataInfo(key, writeStatusBuilder.build());
+    }
+
+    private void addRemoteNode(RemoteFileOpNode remoteNode) {
+      addNodeInfo(registerDependency(remoteNode));
     }
 
     private void addFileKey(FileKey fileKey) {
@@ -899,7 +973,7 @@ final class FileDependencySerializer {
           break;
         case FileInvalidationDataInfo fileInfo:
           fileKeys.add(fileInfo.cacheKey());
-          writeStatuses.add(fileInfo.writeStatus());
+          writeStatusBuilder.add(fileInfo.writeStatus());
           break;
       }
     }
@@ -921,7 +995,7 @@ final class FileDependencySerializer {
           break;
         case ListingInvalidationDataInfo listingInfo:
           listingKeys.add(listingInfo.cacheKey());
-          writeStatuses.add(listingInfo.writeStatus());
+          writeStatusBuilder.add(listingInfo.writeStatus());
           break;
       }
     }
@@ -942,8 +1016,8 @@ final class FileDependencySerializer {
         case CONSTANT_NODE:
           break;
         case NodeInvalidationDataInfo nodeInfo:
-          nodeDependencies.put(nodeInfo.cacheKey(), nodeInfo);
-          writeStatuses.add(nodeInfo.writeStatus());
+          nodeDependencies.add(nodeInfo);
+          writeStatusBuilder.add(nodeInfo.writeStatus());
           break;
       }
     }
@@ -992,7 +1066,7 @@ final class FileDependencySerializer {
       }) {
         case CONSTANT_FILE -> null;
         case FileInvalidationDataInfo fileInfo -> {
-          writeStatuses.add(fileInfo.writeStatus());
+          writeStatusBuilder.add(fileInfo.writeStatus());
           yield fileInfo.cacheKey();
         }
       };
@@ -1022,31 +1096,68 @@ final class FileDependencySerializer {
    */
   @VisibleForTesting
   static byte[] computeNodeBytes(
-      Map<PackedFingerprint, NodeInvalidationDataInfo> nodeDependencies,
-      Set<String> fileKeys,
-      Set<String> listingKeys,
-      @Nullable String sourceFileKey) {
+      Collection<PackedFingerprint> nodeDependencyFingerprints,
+      Collection<String> fileKeys,
+      Collection<String> listingKeys,
+      @Nullable String sourceFileKey,
+      @Nullable ProfileRecorder recorder) {
     try {
       var bytesOut = new ByteArrayOutputStream();
       var codedOut = CodedOutputStream.newInstance(bytesOut);
-      codedOut.writeInt32NoTag(nodeDependencies.size());
+
+      if (recorder != null) {
+        recorder.pushLocation(EntryPart.VALUE);
+      }
+      int startValueBytes = codedOut.getTotalBytesWritten();
+
+      codedOut.writeInt32NoTag(nodeDependencyFingerprints.size());
       codedOut.writeInt32NoTag(fileKeys.size());
       codedOut.writeInt32NoTag(listingKeys.size());
       codedOut.writeBoolNoTag(sourceFileKey != null);
-      for (PackedFingerprint fp : nodeDependencies.keySet()) {
+
+      int startNodeDependencyBytes = codedOut.getTotalBytesWritten();
+      for (PackedFingerprint fp : nodeDependencyFingerprints) {
         fp.writeTo(codedOut);
       }
+      if (recorder != null) {
+        recorder.pushLocation(NodeValuePart.NODE_DEPENDENCIES);
+        recorder.recordBytesAndPopLocation(startNodeDependencyBytes, codedOut);
+      }
+
+      int startFileKeyBytes = codedOut.getTotalBytesWritten();
       for (String key : fileKeys) {
         codedOut.writeStringNoTag(key);
       }
+      if (recorder != null) {
+        recorder.pushLocation(NodeValuePart.FILE_KEYS);
+        recorder.recordBytesAndPopLocation(startFileKeyBytes, codedOut);
+      }
+
+      int startListingKeyBytes = codedOut.getTotalBytesWritten();
       for (String key : listingKeys) {
         codedOut.writeStringNoTag(key);
       }
-      if (sourceFileKey != null) {
-        codedOut.writeStringNoTag(sourceFileKey);
+      if (recorder != null) {
+        recorder.pushLocation(NodeValuePart.LISTING_KEYS);
+        recorder.recordBytesAndPopLocation(startListingKeyBytes, codedOut);
       }
+
+      if (sourceFileKey != null) {
+        int startSourceFileBytes = codedOut.getTotalBytesWritten();
+        codedOut.writeStringNoTag(sourceFileKey);
+        if (recorder != null) {
+          recorder.pushLocation(NodeValuePart.SOURCE_FILE);
+          recorder.recordBytesAndPopLocation(startSourceFileBytes, codedOut);
+        }
+      }
+
       codedOut.flush();
       bytesOut.flush();
+      if (recorder != null) {
+        // Records bytes and pops the EntryPart.VALUE.
+        recorder.recordBytesAndPopLocation(startValueBytes, codedOut);
+      }
+
       return bytesOut.toByteArray();
     } catch (IOException e) {
       throw new AssertionError("Unexpected IOException from ByteArrayOutputStream", e);
@@ -1069,5 +1180,30 @@ final class FileDependencySerializer {
       return writer.fingerprint(cacheKey.getBytes(UTF_8));
     }
     return new StringKey(cacheKey);
+  }
+
+  private static void recordInvalidationProfile(
+      ProfileCollector profileCollector,
+      InvalidationEntryType type,
+      long keyByteCount,
+      long valueByteCount,
+      WriteStatus writeStatus) {
+    var recorder = new ProfileRecorder(profileCollector);
+    recorder.pushLocation(type);
+    recorder.pushLocation(EntryPart.VALUE);
+    recorder.recordBytes((int) valueByteCount);
+    recorder.popLocation();
+    recordKeyAndRegisterStatus(recorder, keyByteCount, valueByteCount, writeStatus);
+  }
+
+  private static void recordKeyAndRegisterStatus(
+      ProfileRecorder recorder, long keyByteCount, long valueByteCount, WriteStatus writeStatus) {
+    recorder.recordBytes((int) (keyByteCount + valueByteCount));
+    recorder.pushLocation(EntryPart.KEY);
+    recorder.recordBytes((int) keyByteCount);
+    recorder.popLocation(); // Pop EntryPart.KEY.
+    // EntryPart.VALUE is recorded already (e.g. by computeNodeBytes).
+    recorder.popLocation(); // Pop InvalidationType (FILE/LISTING/NODE)
+    recorder.registerWriteStatus(writeStatus);
   }
 }

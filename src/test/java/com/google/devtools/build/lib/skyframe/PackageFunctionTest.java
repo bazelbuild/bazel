@@ -32,9 +32,7 @@ import com.google.common.collect.HashMultiset;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Maps;
 import com.google.common.collect.Multiset;
-import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
@@ -100,6 +98,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.OptionalLong;
@@ -163,13 +163,13 @@ public class PackageFunctionTest extends BuildViewTestCase {
     ImmutableList<String> packagePath =
         stream(roots).map(Path::getPathString).collect(toImmutableList());
     if (!packagePath.isEmpty()) {
-      packageOptions.packagePath = packagePath;
+      packageOptions.setPackagePath(packagePath);
     }
-    packageOptions.defaultVisibility = RuleVisibility.PUBLIC;
-    packageOptions.showLoadingProgress = true;
-    packageOptions.globbingThreads = 7;
+    packageOptions.setDefaultVisibility(RuleVisibility.PUBLIC);
+    packageOptions.setShowLoadingProgress(true);
+    packageOptions.setGlobbingThreads(7);
     if (computationMode.equals(ComputationMode.PACKAGE_FROM_PACKAGE_PIECES)) {
-      packageOptions.lazyMacroExpansionPackages = PackageOptions.LazyMacroExpansionPackages.ALL;
+      packageOptions.setLazyMacroExpansionPackages(PackageOptions.LazyMacroExpansionPackages.ALL);
     }
     setPackageAndBuildLanguageOptions(packageOptions, buildLanguageOptions);
   }
@@ -693,11 +693,11 @@ public class PackageFunctionTest extends BuildViewTestCase {
     assertSrcs(validPackageoidWithoutErrors("foo"), "foo", "//foo:a.config", "//foo:b.txt");
     getSkyframeExecutor().resetEvaluator();
     PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
-    packageOptions.defaultVisibility = RuleVisibility.PUBLIC;
-    packageOptions.showLoadingProgress = true;
-    packageOptions.globbingThreads = 7;
+    packageOptions.setDefaultVisibility(RuleVisibility.PUBLIC);
+    packageOptions.setShowLoadingProgress(true);
+    packageOptions.setGlobbingThreads(7);
     if (computationMode.equals(ComputationMode.PACKAGE_FROM_PACKAGE_PIECES)) {
-      packageOptions.lazyMacroExpansionPackages = PackageOptions.LazyMacroExpansionPackages.ALL;
+      packageOptions.setLazyMacroExpansionPackages(PackageOptions.LazyMacroExpansionPackages.ALL);
     }
     getSkyframeExecutor()
         .preparePackageLoading(
@@ -709,6 +709,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
             parseBuildLanguageOptions(),
             UUID.randomUUID(),
             ImmutableMap.of(),
+            /* repoEnv= */ ImmutableMap.of(),
             QuiescingExecutorsImpl.forTesting(),
             tsgm);
     getSkyframeExecutor().injectExtraPrecomputedValues(analysisMock.getPrecomputedValues());
@@ -2325,9 +2326,9 @@ public class PackageFunctionTest extends BuildViewTestCase {
       }
     }
 
-    private final Map<PathFragment, FileStatusOrException> stubbedStats = Maps.newHashMap();
-    private final Set<PathFragment> makeUnreadableAfterReaddir = Sets.newHashSet();
-    private final Map<PathFragment, IOException> pathsToErrorOnGetInputStream = Maps.newHashMap();
+    private final Map<PathFragment, FileStatusOrException> stubbedStats = new HashMap<>();
+    private final Set<PathFragment> makeUnreadableAfterReaddir = new HashSet<>();
+    private final Map<PathFragment, IOException> pathsToErrorOnGetInputStream = new HashMap<>();
 
     CustomInMemoryFs(ManualClock manualClock) {
       super(manualClock, DigestHashFunction.SHA256);

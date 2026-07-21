@@ -160,7 +160,8 @@ public class DigestHashFunction {
     return hashFunction;
   }
 
-  public MessageDigest cloneOrCreateMessageDigest() {
+  /** Creates a new {@link MessageDigest} for this hash function. */
+  public MessageDigest newMessageDigest() {
     if (messageDigestPrototypeSupportsClone) {
       try {
         return (MessageDigest) messageDigestPrototype.clone();

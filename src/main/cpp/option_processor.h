@@ -94,12 +94,14 @@ class OptionProcessor {
   virtual std::unique_ptr<CommandLine> SplitCommandLine(
       std::vector<std::string> args, std::string* error) const;
 
+  static constexpr int MaxImportDepth = RcFile::MaxImportDepth;
   // Parse a command line and the appropriate blazerc files and stores the
   // results. This should be invoked only once per OptionProcessor object.
   blaze_exit_code::ExitCode ParseOptions(const std::vector<std::string>& args,
                                          const std::string& workspace,
                                          const std::string& cwd,
-                                         std::string* error);
+                                         std::string* error,
+                                         int max_import_depth = MaxImportDepth);
 
   // Get the Blaze command to be executed.
   // Returns an empty string if no command was found on the command line.
@@ -154,8 +156,8 @@ class OptionProcessor {
   virtual blaze_exit_code::ExitCode GetRcFiles(
       const WorkspaceLayout* workspace_layout, const std::string& workspace,
       const std::string& cwd, const CommandLine* cmd_line,
-      std::vector<std::unique_ptr<RcFile>>* result_rc_files,
-      std::string* error) const;
+      std::vector<std::unique_ptr<RcFile>>* result_rc_files, std::string* error,
+      int max_import_depth = MaxImportDepth) const;
 
  private:
   blaze_exit_code::ExitCode ParseStartupOptions(
@@ -191,19 +193,17 @@ class OptionProcessor {
 };
 
 // Parses and returns the contents of the rc file.
-blaze_exit_code::ExitCode ParseRcFile(const WorkspaceLayout* workspace_layout,
-                                      const std::string& workspace,
-                                      const std::string& rc_file_path,
-                                      const std::string& build_label,
-                                      const std::optional<SemVer>& sem_ver,
-                                      std::unique_ptr<RcFile>* result_rc_file,
-                                      std::string* error);
+blaze_exit_code::ExitCode ParseRcFile(
+    const WorkspaceLayout* workspace_layout, const std::string& workspace,
+    const std::string& rc_file_path, const std::string& build_label,
+    const std::optional<SemVer>& sem_ver,
+    std::unique_ptr<RcFile>* result_rc_file, std::string* error,
+    int max_import_depth = OptionProcessor::MaxImportDepth);
 
-blaze_exit_code::ExitCode ParseRcFile(const WorkspaceLayout* workspace_layout,
-                                      const std::string& workspace,
-                                      const std::string& rc_file_path,
-                                      std::unique_ptr<RcFile>* result_rc_file,
-                                      std::string* error);
+blaze_exit_code::ExitCode ParseRcFile(
+    const WorkspaceLayout* workspace_layout, const std::string& workspace,
+    const std::string& rc_file_path, std::unique_ptr<RcFile>* result_rc_file,
+    std::string* error, int max_import_depth = OptionProcessor::MaxImportDepth);
 
 // Returns the list of environment variables in the form "KEY=value", with
 // synthetic entries (Windows only) filtered out.

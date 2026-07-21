@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
 import com.google.devtools.build.lib.skyframe.PackageoidValue;
-import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.supplier.InterruptibleSupplier;
 import com.google.devtools.build.skyframe.SkyKey.SkyKeyInterner;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -103,11 +102,7 @@ public class InMemoryGraphImpl implements InMemoryGraph {
   public void remove(SkyKey skyKey) {
     weakInternSkyKey(skyKey);
     InMemoryNodeEntry nodeEntry = nodeMap.remove(skyKey);
-    if ((skyKey instanceof PackageIdentifier || skyKey instanceof PackagePieceIdentifier)
-        && nodeEntry != null) {
-      weakInternPackageTargetsLabels(
-          (PackageoidValue) nodeEntry.toValue()); // Dirty or changed value are needed.
-    }
+    weakInternPackageTargetsLabelsIfPackageoid(skyKey, nodeEntry);
   }
 
   @Override
@@ -117,9 +112,7 @@ public class InMemoryGraphImpl implements InMemoryGraph {
         (k, e) -> {
           if (e.isDone()) {
             weakInternSkyKey(k);
-            if (k instanceof PackageIdentifier || k instanceof PackagePieceIdentifier) {
-              weakInternPackageTargetsLabels((PackageoidValue) e.toValue());
-            }
+            weakInternPackageTargetsLabelsIfPackageoid(k, e);
             return null;
           }
           return e;
@@ -278,12 +271,9 @@ public class InMemoryGraphImpl implements InMemoryGraph {
           e -> {
             weakInternSkyKey(e.getKey());
 
-            // TODO(https://github.com/bazelbuild/bazel/issues/23852): support
-            // PackagePieceValue.ForMacro.
             if (e.getValueMaybeWithMetadata() != IncrementalInMemoryNodeEntry.CLEARED_SKY_VALUE
-                && e.isDone()
-                && e.getKey().functionName().equals(SkyFunctions.PACKAGE)) {
-              weakInternPackageTargetsLabels((PackageoidValue) e.toValue());
+                && e.isDone()) {
+              weakInternPackageTargetsLabelsIfPackageoid(e.getKey(), e);
             }
 
             // The graph is about to be thrown away. Remove as we go to avoid temporarily storing
@@ -393,5 +383,28 @@ public class InMemoryGraphImpl implements InMemoryGraph {
         ((PackageoidValue) value).getPackageoid().getTargets();
     Target target = targets.get(sample.getName());
     return target != null ? target.getLabel() : null;
+  }
+
+  /**
+   * Interns targets and labels of the given node if it represents a package or package piece
+   * (PackageoidValue).
+   *
+   * <p>We perform an explicit `instanceof PackageoidValue` check because package values in the
+   * graph can be cleared/minimized to {@link EmptySkyValue} under memory minimization options (such
+   * as {@code --experimental_skycache_minimize_memory} and {@code --nokeep_state_after_build}). In
+   * those cases, the node value is not a PackageoidValue, and casting it directly would cause a
+   * ClassCastException.
+   */
+  private void weakInternPackageTargetsLabelsIfPackageoid(
+      SkyKey key, @Nullable InMemoryNodeEntry nodeEntry) {
+    if (nodeEntry == null) {
+      return;
+    }
+    if (key instanceof PackageIdentifier || key instanceof PackagePieceIdentifier) {
+      SkyValue value = nodeEntry.toValue();
+      if (value instanceof PackageoidValue packageoidValue) {
+        weakInternPackageTargetsLabels(packageoidValue);
+      }
+    }
   }
 }

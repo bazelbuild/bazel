@@ -16,7 +16,7 @@ and Bazel version can often be a source of frustration for Bazel users. This
 page covers how rules authors should maintain rule compatibility with Bazel to
 make it easier for users to upgrade Bazel and rules.
 
-## Manageable migration process
+## Manageable migration process {#manageable-migration-process}
 
 While it's obviously not feasible to guarantee compatibility between every
 version of Bazel and every version of the rule, our aim is to ensure that the
@@ -48,23 +48,20 @@ release.
 ✅: At least one version of the rule is compatible with the latest version of the
 Bazel LTS release.
 
-## Best practices
+## Best practices {#best-practices}
 
 As Bazel rules authors, you can ensure a manageable migration process for users
 by following these best practices:
 
-1.  The rule should follow [Semantic
-    Versioning](https://semver.org/): minor versions of the same
+1.  The rule should follow [Semantic Versioning](https://semver.org/): minor versions of the same
     major version are backward compatible.
 1.  The rule at HEAD should be compatible with the latest Bazel LTS release.
 1.  The rule at HEAD should be compatible with Bazel at HEAD. To achieve this,
     you can
     *   Set up your own CI testing with Bazel at HEAD
-    *   Add your project to [Bazel downstream
-        testing](https://github.com/bazelbuild/continuous-integration/blob/master/docs/downstream-testing.md);
+    *   Add your project to [Bazel downstream testing](https://github.com/bazelbuild/continuous-integration/blob/master/docs/downstream-testing.md);
         the Bazel team files issues to your project if breaking changes in Bazel
-        affect your project, and you must follow our [downstream project
-        policies](https://github.com/bazelbuild/continuous-integration/blob/master/docs/downstream-testing.md#downstream-project-policies)
+        affect your project, and you must follow our [downstream project policies](https://github.com/bazelbuild/continuous-integration/blob/master/docs/downstream-testing.md#downstream-project-policies)
         to address issues timely.
 1.  The latest major version of the rule must be compatible with the latest
     Bazel LTS release.

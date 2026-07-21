@@ -24,7 +24,6 @@ import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
@@ -348,7 +347,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     for (InputFile inputFile : pkg.getTargets(InputFile.class)) {
       inputFiles.add(inputFile.getName());
     }
-    assertThat(Lists.newArrayList(inputFiles)).containsExactly("A", "BUILD", "Z").inOrder();
+    assertThat(new ArrayList<>(inputFiles)).containsExactly("A", "BUILD", "Z").inOrder();
   }
 
   @Test
@@ -918,6 +917,20 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
   }
 
   @Test
+  public void testDefaultTestonlyForJavatestsPackages() throws Exception {
+    scratch.file("javatests/foo/BUILD", "filegroup(name = 'bar')");
+    Package pkg = getPackage("javatests/foo");
+    assertThat(pkg.getPackageArgs().defaultTestOnly()).isTrue();
+  }
+
+  @Test
+  public void testDefaultTestonlyForJavaPackagesIsFalse() throws Exception {
+    scratch.file("java/foo/BUILD", "filegroup(name = 'bar')");
+    Package pkg = getPackage("java/foo");
+    assertThat(pkg.getPackageArgs().defaultTestOnly()).isFalse();
+  }
+
+  @Test
   public void testDefaultDeprecation() throws Exception {
     String testMessage = "OMG PONIES!";
     Package pkg = expectEvalSuccess("package(default_deprecation = \"" + testMessage + "\")");
@@ -1035,6 +1048,15 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
         "    visibility = [ \"//visibility:private\" ])",
         "exports_files([\"a.cc\"],",
         "    visibility = [ \"//visibility:private\" ])");
+  }
+
+  @Test
+  public void testExportTwiceCustomVisibilityOK() throws Exception {
+    expectEvalSuccess(
+        "exports_files([\"a.cc\"],",
+        "    visibility = [ \"//friend:__pkg__\" ])",
+        "exports_files([\"a.cc\"],",
+        "    visibility = [ \"//friend:__pkg__\" ])");
   }
 
   @Test

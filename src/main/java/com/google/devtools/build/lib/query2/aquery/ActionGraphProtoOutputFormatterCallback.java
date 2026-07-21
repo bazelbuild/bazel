@@ -73,12 +73,12 @@ public class ActionGraphProtoOutputFormatterCallback extends AqueryThreadsafeCal
     this.aqueryOutputHandler = constructAqueryOutputHandler(outputType, out, printStream);
     this.actionGraphDump =
         new ActionGraphDump(
-            options.includeCommandline,
-            options.includeArtifacts,
-            options.includePrunedInputs,
+            options.getIncludeCommandline(),
+            options.getIncludeArtifacts(),
+            options.getIncludePrunedInputs(),
             this.actionFilters,
-            options.includeParamFiles,
-            options.includeFileWriteContents,
+            options.getIncludeParamFiles(),
+            options.getIncludeFileWriteContents(),
             aqueryOutputHandler,
             eventHandler);
   }
@@ -121,7 +121,8 @@ public class ActionGraphProtoOutputFormatterCallback extends AqueryThreadsafeCal
 
     try (SilentCloseable c = Profiler.instance().profile("process partial result")) {
       // Enabling includeParamFiles should enable includeCommandline by default.
-      options.includeCommandline |= options.includeParamFiles;
+      options.setIncludeCommandline(
+          options.getIncludeCommandline() || options.getIncludeParamFiles());
 
       for (ConfiguredTargetValue configuredTargetValue : partialResult) {
         processSingleEntry(configuredTargetValue);
@@ -142,7 +143,7 @@ public class ActionGraphProtoOutputFormatterCallback extends AqueryThreadsafeCal
       return;
     }
     actionGraphDump.dumpConfiguredTarget((RuleConfiguredTargetValue) configuredTargetValue);
-    if (options.useAspects) {
+    if (options.getUseAspects()) {
       for (AspectValue aspectValue : accessor.getAspectValues(configuredTargetValue)) {
         actionGraphDump.dumpAspect(aspectValue, configuredTargetValue);
       }
@@ -155,7 +156,8 @@ public class ActionGraphProtoOutputFormatterCallback extends AqueryThreadsafeCal
         (AqueryConsumingOutputHandler) aqueryOutputHandler;
     try (SilentCloseable c = Profiler.instance().profile("process partial result")) {
       // Enabling includeParamFiles should enable includeCommandline by default.
-      options.includeCommandline |= options.includeParamFiles;
+      options.setIncludeCommandline(
+          options.getIncludeCommandline() || options.getIncludeParamFiles());
       ForkJoinPool executor =
           NamedForkJoinPool.newNamedPool("aquery", Runtime.getRuntime().availableProcessors());
 

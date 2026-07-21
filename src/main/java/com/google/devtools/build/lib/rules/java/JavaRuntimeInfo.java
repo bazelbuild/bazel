@@ -17,6 +17,8 @@ package com.google.devtools.build.lib.rules.java;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -44,6 +46,10 @@ public final class JavaRuntimeInfo extends StarlarkInfoWrapper {
   public static final StarlarkProviderWrapper<JavaRuntimeInfo> RULES_JAVA_PROVIDER =
       new RulesJavaProvider();
   public static final StarlarkProviderWrapper<JavaRuntimeInfo> PROVIDER = new Provider();
+
+  // Ensures that we use a canonical PathFragment instance per java binary exec path to save memory.
+  private static final LoadingCache<String, PathFragment> javaBinaryExecPathCache =
+      Caffeine.newBuilder().weakKeys().build(PathFragment::create);
 
   // Helper methods to access an instance of JavaRuntimeInfo.
 
@@ -116,12 +122,9 @@ public final class JavaRuntimeInfo extends StarlarkInfoWrapper {
     return getUnderlyingValue("java_home", String.class);
   }
 
-  public PathFragment javaBinaryExecPathFragment() throws RuleErrorException {
-    return PathFragment.create(getUnderlyingValue("java_executable_exec_path", String.class));
-  }
-
-  public PathFragment javaBinaryRunfilesPathFragment() throws RuleErrorException {
-    return PathFragment.create(getUnderlyingValue("java_executable_runfiles_path", String.class));
+  PathFragment javaBinaryExecPathFragment() throws RuleErrorException {
+    return javaBinaryExecPathCache.get(
+        getUnderlyingValue("java_executable_exec_path", String.class));
   }
 
   public ImmutableList<StarlarkInfo> hermeticStaticLibs() throws RuleErrorException {

@@ -18,6 +18,7 @@ import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
 
 import build.bazel.remote.execution.v2.ActionCacheUpdateCapabilities;
+import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.CacheCapabilities;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.Directory;
@@ -29,14 +30,17 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.remote.CombinedCache;
 import com.google.devtools.build.lib.remote.Store;
+import com.google.devtools.build.lib.remote.common.ActionKey;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.disk.DiskCacheClient;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.protobuf.ByteString;
+import com.google.protobuf.ExtensionRegistry;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.HashSet;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /** A {@link CombinedCache} backed by an {@link DiskCacheClient}. */
@@ -53,9 +57,10 @@ class OnDiskBlobStoreCache extends CombinedCache {
       throws IOException {
     super(
         /* remoteCacheClient= */ null,
-        new DiskCacheClient(cacheDir, digestUtil, /* verifyDownloads= */ true),
+        new DiskCacheClient(cacheDir, digestUtil),
         /* symlinkTemplate= */ null,
-        digestUtil);
+        digestUtil,
+        /* chunkingEnabled= */ false);
     this.remoteWorkerOptions = remoteWorkerOptions;
   }
 
@@ -71,6 +76,28 @@ class OnDiskBlobStoreCache extends CombinedCache {
   /** If the given blob exists, updates its mtime and returns true. Otherwise, returns false. */
   boolean refresh(Digest digest) throws IOException {
     return diskCacheClient.refresh(diskCacheClient.toPath(digest, Store.CAS));
+  }
+
+  @Override
+  public CachedActionResult downloadActionResult(
+      RemoteActionExecutionContext context,
+      ActionKey actionKey,
+      boolean inlineOutErr,
+      Set<String> inlineOutputFiles)
+      throws IOException, InterruptedException {
+    if (remoteWorkerOptions.getActionCacheIntegrityCheck()) {
+      return super.downloadActionResult(context, actionKey, inlineOutErr, inlineOutputFiles);
+    }
+    // Serve the action result without checking that the blobs it references are present in the
+    // CAS, emulating a remote cache without integrity checks.
+    Path path = diskCacheClient.toPath(actionKey.digest(), Store.AC);
+    if (!path.exists()) {
+      return null;
+    }
+    try (InputStream in = path.getInputStream()) {
+      return CachedActionResult.disk(
+          ActionResult.parseFrom(in, ExtensionRegistry.getEmptyRegistry()));
+    }
   }
 
   @SuppressWarnings("ProtoParseWithRegistry")
@@ -112,7 +139,7 @@ class OnDiskBlobStoreCache extends CombinedCache {
   @Override
   public ListenableFuture<byte[]> downloadBlob(
       RemoteActionExecutionContext context, Digest digest) {
-    if (remoteWorkerOptions.errorOnDuplicateDownloads) {
+    if (remoteWorkerOptions.getErrorOnDuplicateDownloads()) {
       // Only populate numberOfDownloadsPerDigestAndInvocation when fakeErrorForDuplicatedDownloads
       // is enabled to avoid unnecessary unbounded memory growth.
       int numberOfDownloads =
@@ -135,18 +162,6 @@ class OnDiskBlobStoreCache extends CombinedCache {
 
   public DigestUtil getDigestUtil() {
     return digestUtil;
-  }
-
-  @Override
-  public ListenableFuture<Void> uploadBlob(
-      RemoteActionExecutionContext context, Digest digest, ByteString data) {
-    return uploadBlob(context, digest, data, /* force= */ true);
-  }
-
-  @Override
-  public ListenableFuture<Void> uploadFile(
-      RemoteActionExecutionContext context, Digest digest, Path file) {
-    return uploadFile(context, digest, file, /* force= */ true);
   }
 
   public DiskCacheClient getDiskCacheClient() {

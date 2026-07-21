@@ -57,6 +57,7 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.IOException;
@@ -145,31 +146,29 @@ public final class BlazeCommandDispatcherTest {
   }
 
   /** Options for {@link FooCommand}. */
-  public static class FooOptions extends OptionsBase {
+  @OptionsClass
+  public abstract static class FooOptions extends OptionsBase {
 
     @Option(
-      name = "success",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "true"
-    )
-    public boolean exitStatus;
+        name = "success",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "true")
+    public abstract boolean getExitStatus();
 
     @Option(
-      name = "stdout",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = ""
-    )
-    public String stdout;
+        name = "stdout",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "")
+    public abstract String getStdout();
 
     @Option(
-      name = "stderr",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = ""
-    )
-    public String stderr;
+        name = "stderr",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "")
+    public abstract String getStderr();
   }
 
   @Command(name = "foo", options = {FooOptions.class},
@@ -179,9 +178,9 @@ public final class BlazeCommandDispatcherTest {
     @Override
     public BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options) {
       FooOptions fooOptions = options.getOptions(FooOptions.class);
-      env.getReporter().getOutErr().printOut(fooOptions.stdout);
-      env.getReporter().getOutErr().printErr(fooOptions.stderr);
-      if (fooOptions.exitStatus) {
+      env.getReporter().getOutErr().printOut(fooOptions.getStdout());
+      env.getReporter().getOutErr().printErr(fooOptions.getStderr());
+      if (fooOptions.getExitStatus()) {
         return BlazeCommandResult.success();
       } else {
         return BlazeCommandResult.failureDetail(

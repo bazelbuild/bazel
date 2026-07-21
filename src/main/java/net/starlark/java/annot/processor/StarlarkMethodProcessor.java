@@ -17,6 +17,7 @@ package net.starlark.java.annot.processor;
 import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.SetMultimap;
 import com.google.errorprone.annotations.FormatMethod;
+import java.lang.annotation.Annotation;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -43,16 +44,19 @@ import javax.tools.Diagnostic;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkLibrary;
 import net.starlark.java.annot.StarlarkMethod;
 
 /**
- * Annotation processor for {@link StarlarkMethod}. See that class for requirements.
+ * Annotation processor for {@link StarlarkBuiltin}, {@link StarlarkLibrary}, and {@link
+ * StarlarkMethod}. See those classes for requirements.
  *
  * <p>These properties can be relied upon at runtime without additional checks.
  */
 @SupportedAnnotationTypes({
   "net.starlark.java.annot.StarlarkMethod",
-  "net.starlark.java.annot.StarlarkBuiltin"
+  "net.starlark.java.annot.StarlarkBuiltin",
+  "net.starlark.java.annot.StarlarkLibrary"
 })
 public class StarlarkMethodProcessor extends AbstractProcessor {
 
@@ -85,6 +89,30 @@ public class StarlarkMethodProcessor extends AbstractProcessor {
     return elements.getTypeElement(canonicalName).asType();
   }
 
+  /** Returns true if any superclass or inherited interface has the given annotation. */
+  private boolean hasAnnotationInHierarchy(
+      TypeElement cls, Class<? extends Annotation> annotClass) {
+    if (cls.getAnnotation(annotClass) != null) {
+      return true;
+    }
+    TypeMirror superclass = cls.getSuperclass();
+    if (superclass != null && superclass.getKind() == TypeKind.DECLARED) {
+      if (hasAnnotationInHierarchy(
+          (TypeElement) ((DeclaredType) superclass).asElement(), annotClass)) {
+        return true;
+      }
+    }
+    for (TypeMirror iface : cls.getInterfaces()) {
+      if (iface != null && iface.getKind() == TypeKind.DECLARED) {
+        if (hasAnnotationInHierarchy(
+            (TypeElement) ((DeclaredType) iface).asElement(), annotClass)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
   @Override
   public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
     TypeMirror stringType = getType("java.lang.String");
@@ -100,6 +128,21 @@ public class StarlarkMethodProcessor extends AbstractProcessor {
         errorf(
             cls,
             "class %s has StarlarkBuiltin annotation but does not implement StarlarkValue",
+            cls.getSimpleName());
+      }
+      if (hasAnnotationInHierarchy((TypeElement) cls, StarlarkLibrary.class)) {
+        errorf(
+            cls,
+            "class %s has StarlarkBuiltin annotation but also has or inherits StarlarkLibrary",
+            cls.getSimpleName());
+      }
+    }
+
+    for (Element cls : roundEnv.getElementsAnnotatedWith(StarlarkLibrary.class)) {
+      if (hasAnnotationInHierarchy((TypeElement) cls, StarlarkBuiltin.class)) {
+        errorf(
+            cls,
+            "class %s has StarlarkLibrary annotation but also has or inherits StarlarkBuiltin",
             cls.getSimpleName());
       }
     }

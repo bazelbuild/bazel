@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.analysis.test;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.devtools.build.lib.actions.ActionAnalysisMetadata.mergeMaps;
 import static java.util.Objects.requireNonNull;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -48,7 +47,6 @@ import com.google.devtools.build.lib.actions.SpawnExecutedEvent;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
-import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
 import com.google.devtools.build.lib.analysis.test.TestActionContext.AttemptGroup;
@@ -155,6 +153,9 @@ public class TestRunnerAction extends AbstractAction
    */
   @Nullable private Optional<TestResultData> cachedTestResultData;
 
+  /** Environment variables specific to running code coverage */
+  private final ImmutableMap<String, String> coverageEnv;
+
   /** Any extra environment variables (and values) added by the rule that created this action. */
   private final ActionEnvironment extraTestEnv;
 
@@ -169,8 +170,7 @@ public class TestRunnerAction extends AbstractAction
   private final boolean splitCoveragePostProcessing;
   private final NestedSet<Artifact> lcovMergerFilesToRun;
 
-  // TODO(b/192694287): Remove once we migrate all tests from the allowlist.
-  private final PackageSpecificationProvider networkAllowlist;
+
 
   private static ImmutableSet<Artifact> nonNullAsSet(Artifact... artifacts) {
     ImmutableSet.Builder<Artifact> builder = ImmutableSet.builder();
@@ -205,6 +205,7 @@ public class TestRunnerAction extends AbstractAction
       @Nullable Artifact coverageDirectory,
       Artifact undeclaredOutputsDir,
       TestTargetProperties testProperties,
+      ImmutableMap<String, String> coverageEnv,
       ActionEnvironment extraTestEnv,
       TestTargetExecutionSettings executionSettings,
       int shardNum,
@@ -214,8 +215,7 @@ public class TestRunnerAction extends AbstractAction
       @Nullable PathFragment shExecutable,
       CancelConcurrentTests cancelConcurrentTests,
       boolean splitCoveragePostProcessing,
-      NestedSet<Artifact> lcovMergerFilesToRun,
-      PackageSpecificationProvider networkAllowlist) {
+      NestedSet<Artifact> lcovMergerFilesToRun) {
     super(
         owner,
         inputs,
@@ -269,6 +269,7 @@ public class TestRunnerAction extends AbstractAction
     this.testInfrastructureFailure = baseDir.getChild("test.infrastructure_failure");
     this.workspaceName = workspaceName;
 
+    this.coverageEnv = coverageEnv;
     this.extraTestEnv = extraTestEnv;
     this.requiredClientEnvVariables =
         LazySetConcatenation.from(
@@ -278,7 +279,7 @@ public class TestRunnerAction extends AbstractAction
     this.cancelConcurrentTests = cancelConcurrentTests;
     this.splitCoveragePostProcessing = splitCoveragePostProcessing;
     this.lcovMergerFilesToRun = lcovMergerFilesToRun;
-    this.networkAllowlist = networkAllowlist;
+
 
     // Mark all possible test outputs for deletion before test execution.
     // TestRunnerAction potentially can create many more non-declared outputs - xml output, coverage
@@ -507,6 +508,7 @@ public class TestRunnerAction extends AbstractAction
     fp.addBoolean(executionSettings.getTestRunnerFailFast());
     RunUnder runUnder = executionSettings.getRunUnder();
     fp.addString(runUnder == null ? "" : runUnder.value());
+    fp.addStringMap(coverageEnv);
     extraTestEnv.addTo(fp);
     // TODO(ulfjack): It might be better for performance to hash the action and test envs in config,
     // and only add a hash here.
@@ -705,6 +707,11 @@ public class TestRunnerAction extends AbstractAction
     return directoriesToDeleteBeforeExecution;
   }
 
+  @Override
+  public boolean allowsStrategyRegexpMatching() {
+    return false;
+  }
+
   void createEmptyOutputs(ActionExecutionContext context) throws IOException {
     for (Artifact output : TestRunnerAction.this.getOutputs()) {
       FileSystemUtils.touchFile(context.getInputPath(output));
@@ -712,6 +719,9 @@ public class TestRunnerAction extends AbstractAction
   }
 
   public void setupEnvVariables(Map<String, String> env) {
+    // Allow --test_env and rules to overwite these values
+    coverageEnv.forEach(env::putIfAbsent);
+
     env.put("TEST_TARGET", Label.print(getOwner().getLabel()));
     env.put("TEST_SIZE", getTestProperties().getSize().toString());
     env.put("TEST_TIMEOUT", Long.toString(getTimeout().toSeconds()));
@@ -955,7 +965,7 @@ public class TestRunnerAction extends AbstractAction
 
   @Override
   public ImmutableMap<String, String> getExecutionInfo() {
-    return mergeMaps(super.getExecutionInfo(), testProperties.getExecutionInfo());
+    return testProperties.getExecutionInfo();
   }
 
   public TestTargetExecutionSettings getExecutionSettings() {
@@ -984,9 +994,7 @@ public class TestRunnerAction extends AbstractAction
     return workspaceName;
   }
 
-  public PackageSpecificationProvider getNetworkAllowlist() {
-    return networkAllowlist;
-  }
+
 
   @Override
   public ActionResult execute(ActionExecutionContext actionExecutionContext)

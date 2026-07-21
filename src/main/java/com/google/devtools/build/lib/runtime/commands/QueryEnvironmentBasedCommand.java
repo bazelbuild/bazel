@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
+import com.google.devtools.build.lib.profiler.MemoryProfiler;
 import com.google.devtools.build.lib.profiler.ProfilePhase;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.query2.common.AbstractBlazeQueryEnvironment;
@@ -42,6 +43,7 @@ import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.runtime.CommonCommandOptions;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.runtime.LoadingPhaseThreadsOption;
 import com.google.devtools.build.lib.runtime.QueryRuntimeHelper;
@@ -88,6 +90,7 @@ public abstract class QueryEnvironmentBasedCommand implements BlazeCommand {
                 /* id= */ null));
     BlazeCommandResult result = execInternal(env, options);
     try {
+      MemoryProfiler.instance().markPhase(ProfilePhase.FINISH);
       Profiler.instance().markPhase(ProfilePhase.FINISH);
     } catch (InterruptedException e) {
       return reportAndCreateInterruptResult(env, "Profile finish operation interrupted");
@@ -104,14 +107,14 @@ public abstract class QueryEnvironmentBasedCommand implements BlazeCommand {
     QueryOptions queryOptions = options.getOptions(QueryOptions.class);
 
     LoadingPhaseThreadsOption threadsOption = options.getOptions(LoadingPhaseThreadsOption.class);
-    boolean keepGoing = options.getOptions(KeepGoingOption.class).keepGoing;
+    boolean keepGoing = options.getOptions(KeepGoingOption.class).getKeepGoing();
 
     TargetPattern.Parser mainRepoTargetParser;
     try {
       env.syncPackageLoading(options);
       RepositoryMapping repoMapping =
           env.getSkyframeExecutor()
-              .getMainRepoMapping(keepGoing, threadsOption.threads, env.getReporter());
+              .getMainRepoMapping(keepGoing, threadsOption.getThreads(), env.getReporter());
       mainRepoTargetParser =
           new Parser(env.getRelativeWorkingDirectory(), RepositoryName.MAIN, repoMapping);
     } catch (RepositoryMappingResolutionException e) {
@@ -133,21 +136,21 @@ public abstract class QueryEnvironmentBasedCommand implements BlazeCommand {
 
     Iterable<OutputFormatter> formatters = runtime.getQueryOutputFormatters();
     OutputFormatter formatter =
-        OutputFormatters.getFormatter(formatters, queryOptions.outputFormat);
+        OutputFormatters.getFormatter(formatters, queryOptions.getOutputFormat());
     if (formatter == null) {
       return reportAndCreateFailureResult(
           env,
           String.format(
               "Invalid output format '%s'. Valid values are: %s",
-              queryOptions.outputFormat, OutputFormatters.formatterNames(formatters)),
+              queryOptions.getOutputFormat(), OutputFormatters.formatterNames(formatters)),
           Query.Code.OUTPUT_FORMAT_INVALID);
     }
 
     Set<Setting> settings = queryOptions.toSettings();
     boolean streamResults = QueryOutputUtils.shouldStreamResults(queryOptions, formatter);
     boolean useGraphlessQuery =
-        queryOptions.useGraphlessQuery == TriState.YES
-            || (queryOptions.useGraphlessQuery == TriState.AUTO && streamResults);
+        queryOptions.getUseGraphlessQuery() == TriState.YES
+            || (queryOptions.getUseGraphlessQuery() == TriState.AUTO && streamResults);
     if (useGraphlessQuery && !streamResults) {
       return reportAndCreateFailureResult(
           env,
@@ -177,7 +180,7 @@ public abstract class QueryEnvironmentBasedCommand implements BlazeCommand {
               env.getSkyframeExecutor()
                   .maybeGetHardcodedUniverseScope()
                   .orElse(getUniverseScope(queryOptions)),
-              threadsOption.threads,
+              threadsOption.getThreads(),
               settings,
               useGraphlessQuery,
               mainRepoTargetParser,
@@ -219,10 +222,11 @@ public abstract class QueryEnvironmentBasedCommand implements BlazeCommand {
   }
 
   private static UniverseScope getUniverseScope(QueryOptions queryOptions) {
-    if (!queryOptions.universeScope.isEmpty()) {
-      return UniverseScope.fromUniverseScopeList(ImmutableList.copyOf(queryOptions.universeScope));
+    if (!queryOptions.getUniverseScope().isEmpty()) {
+      return UniverseScope.fromUniverseScopeList(
+          ImmutableList.copyOf(queryOptions.getUniverseScope()));
     }
-    return queryOptions.inferUniverseScope
+    return queryOptions.getInferUniverseScope()
         ? UniverseScope.INFER_FROM_QUERY_EXPRESSION
         : UniverseScope.EMPTY;
   }
@@ -260,6 +264,9 @@ public abstract class QueryEnvironmentBasedCommand implements BlazeCommand {
       env.getReporter().post(new LoadingPhaseStartedEvent(progressReceiver));
     }
 
+    boolean trackIncrementalState =
+        env.getOptions().getOptions(CommonCommandOptions.class).getTrackIncrementalState();
+
     return env.getRuntime()
         .getQueryEnvironmentFactory()
         .create(
@@ -275,6 +282,7 @@ public abstract class QueryEnvironmentBasedCommand implements BlazeCommand {
             orderedResults,
             universeScope,
             loadingPhaseThreads,
+            trackIncrementalState,
             /* labelFilter= */ ALL_LABELS,
             env.getReporter(),
             settings,

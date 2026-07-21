@@ -17,8 +17,6 @@ package net.starlark.java.syntax;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Interner;
-import com.google.common.collect.Interners;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -27,12 +25,6 @@ import java.util.Stack;
 
 /** A scanner for Starlark. */
 final class Lexer {
-
-  // We intern identifiers and keywords to avoid retaining redundant String objects via the AST.
-  //
-  // The parser handles interning of string literal values. Benchmarking did not show significant
-  // benefit to any further internment. See discussion on Google-internal cl/385193833 for details.
-  private static final Interner<String> identInterner = Interners.newWeakInterner();
 
   // --- These fields are accessed directly by the parser: ---
 
@@ -610,7 +602,12 @@ final class Lexer {
    */
   private void identifierOrKeyword() {
     int oldPos = pos - 1;
-    String id = identInterner.intern(scanIdentifier());
+    // We intern identifiers and keywords to avoid retaining redundant String objects via the AST.
+    //
+    // The parser handles interning of string literal values. Benchmarking did not show significant
+    // benefit to any further internment. See discussion on Google-internal cl/385193833 for
+    // details.
+    String id = scanIdentifier().intern();
     TokenKind kind = keywordMap.get(id);
     if (kind == null && options.allowTypeSyntax()) {
       kind = typeSyntaxExtraKeywordMap.get(id);

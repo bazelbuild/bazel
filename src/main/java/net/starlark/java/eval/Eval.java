@@ -14,8 +14,13 @@
 
 package net.starlark.java.eval;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Maps;
 import java.math.BigInteger;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -51,6 +56,9 @@ import net.starlark.java.syntax.StarlarkType;
 import net.starlark.java.syntax.Statement;
 import net.starlark.java.syntax.StringLiteral;
 import net.starlark.java.syntax.TokenKind;
+import net.starlark.java.syntax.TypeAliasStatement;
+import net.starlark.java.syntax.TypeConstructor;
+import net.starlark.java.syntax.TypeTable;
 import net.starlark.java.syntax.Types.CallableType;
 import net.starlark.java.syntax.UnaryOperatorExpression;
 
@@ -60,7 +68,7 @@ final class Eval {
 
   // ---- entry point ----
 
-  // Called from StarlarkFunction.fastcall.
+  // Called from StarlarkFunction.call().
   static Object execFunctionBody(StarlarkThread.Frame fr, List<Statement> statements)
       throws EvalException, InterruptedException {
     fr.thread.checkInterrupt();
@@ -170,7 +178,12 @@ final class Eval {
     Object[] defaults = null;
     int nparams =
         rfn.getParameters().size() - (rfn.hasKwargs() ? 1 : 0) - (rfn.hasVarargs() ? 1 : 0);
-    @Nullable CallableType functionType = rfn.getFunctionType();
+
+    // Nested functions use the same typeTable as their enclosing function, since both were compiled
+    // from the same Program.
+    StarlarkFunction fn = fn(fr);
+    @Nullable
+    CallableType functionType = fn.getTypeTable() == null ? null : fn.getTypeTable().getType(rfn);
     boolean dynamicTypeCheckingEnabled =
         fr.thread
             .getSemantics()
@@ -189,12 +202,12 @@ final class Eval {
       if (dynamicTypeCheckingEnabled && functionType != null) {
         // Typecheck the default value
         StarlarkType parameterType = functionType.getParameterTypeByPos(i);
-        if (!TypeChecker.isValueSubtypeOf(defaultValue, parameterType)) {
+        if (!TypeChecker.isValueSubtypeOf(defaultValue, parameterType, fr.thread.getSemantics())) {
           throw Starlark.errorf(
               "%s(): parameter '%s' has default value of type '%s', declares '%s'",
               rfn.getName(),
               rfn.getParameterNames().get(i),
-              Starlark.getStarlarkType(defaultValue),
+              Starlark.getStarlarkType(defaultValue, fr.thread.getSemantics()),
               parameterType);
         }
       }
@@ -223,9 +236,9 @@ final class Eval {
 
     // Nested functions use the same globalIndex as their enclosing function,
     // since both were compiled from the same Program.
-    StarlarkFunction fn = fn(fr);
     return new StarlarkFunction(
         rfn,
+        fn.getTypeTable(),
         fn.getModule(),
         fn.globalIndex,
         Tuple.wrap(defaults),
@@ -286,6 +299,20 @@ final class Eval {
     return TokenKind.RETURN;
   }
 
+  private static TokenKind execTypeAlias(StarlarkThread.Frame fr, TypeAliasStatement node) {
+    // The dynamic behavior of the type alias statement is to ignore the RHS, and to assign a
+    // StarlarkValue wrapping the statically-computed type constructor (computed by TypeTagger and
+    // saved in the TypeTable) to the LHS.
+    @Nullable TypeTable typeTable = fn(fr).getTypeTable();
+    // Assign a value to the type alias identifier only if type tagging is enabled.
+    if (typeTable != null) {
+      TypeConstructor typeConstructor =
+          checkNotNull(typeTable.getTypeConstructor(node.getIdentifier().getBinding()));
+      assignIdentifier(fr, node.getIdentifier(), TypeConstructorValue.of(typeConstructor));
+    }
+    return TokenKind.PASS;
+  }
+
   private static TokenKind exec(StarlarkThread.Frame fr, Statement st)
       throws EvalException, InterruptedException {
     if (fr.dbg != null) {
@@ -322,7 +349,7 @@ final class Eval {
       case RETURN:
         return execReturn(fr, (ReturnStatement) st);
       case TYPE_ALIAS:
-        return TokenKind.PASS;
+        return execTypeAlias(fr, (TypeAliasStatement) st);
       case VAR:
         return TokenKind.PASS;
     }
@@ -368,17 +395,17 @@ final class Eval {
   private static void assignIdentifier(StarlarkThread.Frame fr, Identifier id, Object value) {
     Resolver.Binding bind = id.getBinding();
     switch (bind.getScope()) {
-      case LOCAL:
-        fr.locals[bind.getIndex()] = value;
-        break;
-      case CELL:
-        ((StarlarkFunction.Cell) fr.locals[bind.getIndex()]).x = value;
-        break;
-      case GLOBAL:
-        fn(fr).setGlobal(bind.getIndex(), value);
-        break;
-      default:
-        throw new IllegalStateException(bind.getScope().toString());
+      case LOCAL -> fr.locals[bind.getIndex()] = value;
+      case CELL -> ((StarlarkFunction.Cell) fr.locals[bind.getIndex()]).x = value;
+      case GLOBAL -> {
+        StarlarkFunction fn = fn(fr);
+        fn.setGlobal(bind.getIndex(), value);
+        @Nullable TypeTable typeTable = fn.getTypeTable();
+        if (typeTable != null) {
+          fn.setGlobalDeclaredType(bind.getIndex(), typeTable.getGlobalDeclaredType(bind));
+        }
+      }
+      default -> throw new IllegalStateException(bind.getScope().toString());
     }
   }
 
@@ -630,25 +657,26 @@ final class Eval {
 
   private static Object evalDict(StarlarkThread.Frame fr, DictExpression dictexpr)
       throws EvalException, InterruptedException {
-    Dict<Object, Object> dict = Dict.of(fr.thread.mutability());
+    LinkedHashMap<Object, Object> map =
+        Maps.newLinkedHashMapWithExpectedSize(dictexpr.getEntries().size());
     for (DictExpression.Entry entry : dictexpr.getEntries()) {
       Object k = eval(fr, entry.getKey());
       Object v = eval(fr, entry.getValue());
-      int before = dict.size();
       try {
-        dict.putEntry(k, v);
+        Starlark.checkHashable(k);
       } catch (EvalException ex) {
         fr.setErrorLocation(entry.getColonLocation());
         throw ex;
       }
-      if (dict.size() == before) {
+      if (map.put(k, v) != null) {
         fr.setErrorLocation(entry.getColonLocation());
         throw Starlark.errorf(
             "dictionary expression has duplicate key: %s",
             Starlark.repr(k, fr.thread.getSemantics()));
       }
     }
-    return dict;
+    Mutability mu = fr.thread.mutability();
+    return mu.isFrozen() ? CompactImmutableDict.copyOf(map) : Dict.wrap(mu, map);
   }
 
   private static Object evalDot(StarlarkThread.Frame fr, DotExpression dot)
@@ -874,9 +902,9 @@ final class Eval {
 
   private static Object evalComprehension(StarlarkThread.Frame fr, Comprehension comp)
       throws EvalException, InterruptedException {
-    final Dict<Object, Object> dict = comp.isDict() ? Dict.of(fr.thread.mutability()) : null;
-    final StarlarkList<Object> list =
-        comp.isDict() ? null : StarlarkList.newList(fr.thread.mutability());
+    LinkedHashMap<Object, Object> map =
+        comp.isDict() ? Maps.newLinkedHashMapWithExpectedSize(1) : null;
+    List<Object> list = comp.isDict() ? null : new ArrayList<>(0);
 
     // The Lambda class serves as a recursive lambda closure.
     class Lambda {
@@ -914,25 +942,29 @@ final class Eval {
         }
 
         // base case: evaluate body and add to result.
-        if (dict != null) {
+        if (map != null) {
           DictExpression.Entry body = (DictExpression.Entry) comp.getBody();
           Object k = eval(fr, body.getKey());
           try {
             Starlark.checkHashable(k);
             Object v = eval(fr, body.getValue());
-            dict.putEntry(k, v);
+            map.put(k, v);
           } catch (EvalException ex) {
             fr.setErrorLocation(body.getColonLocation());
             throw ex;
           }
         } else {
-          list.addElement(eval(fr, ((Expression) comp.getBody())));
+          list.add(eval(fr, ((Expression) comp.getBody())));
         }
       }
     }
     new Lambda().execClauses(0);
 
-    return comp.isDict() ? dict : list;
+    Mutability mu = fr.thread.mutability();
+    if (!comp.isDict()) {
+      return StarlarkList.wrap(mu, list.toArray());
+    }
+    return mu.isFrozen() ? CompactImmutableDict.copyOf(map) : Dict.wrap(mu, map);
   }
 
   /**

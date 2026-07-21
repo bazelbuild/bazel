@@ -24,7 +24,8 @@ import static com.google.devtools.build.lib.analysis.BaseRuleClasses.getTestRunt
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
-import static com.google.devtools.build.lib.packages.BuiltinRestriction.allowlistEntry;
+import static com.google.devtools.build.lib.packages.BuiltinRestriction.externalRepoAllowlistEntry;
+import static com.google.devtools.build.lib.packages.BuiltinRestriction.mainRepoAllowlistEntry;
 import static com.google.devtools.build.lib.packages.RuleClass.DEFAULT_TEST_RUNNER_EXEC_GROUP;
 import static com.google.devtools.build.lib.packages.RuleClass.DEFAULT_TEST_RUNNER_EXEC_GROUP_NAME;
 import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
@@ -45,6 +46,7 @@ import com.google.devtools.build.lib.analysis.DormantDependency;
 import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
+import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
@@ -75,7 +77,6 @@ import com.google.devtools.build.lib.packages.AttributeValueSource;
 import com.google.devtools.build.lib.packages.BuildSetting;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.BuiltinRestriction;
-import com.google.devtools.build.lib.packages.BuiltinRestriction.AllowlistEntry;
 import com.google.devtools.build.lib.packages.BzlInitThreadContext;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
 import com.google.devtools.build.lib.packages.DeclaredExecGroup;
@@ -84,6 +85,7 @@ import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.StarlarkIm
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.StarlarkImplicitOutputsFunctionWithMap;
 import com.google.devtools.build.lib.packages.LabelConverter;
 import com.google.devtools.build.lib.packages.MacroClass;
+import com.google.devtools.build.lib.packages.MacroClass.TooManyAttributesException;
 import com.google.devtools.build.lib.packages.MacroInstance;
 import com.google.devtools.build.lib.packages.PredicateWithMessage;
 import com.google.devtools.build.lib.packages.Rule;
@@ -113,6 +115,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.Serializat
 import com.google.devtools.build.lib.starlarkbuildapi.MacroFunctionApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleFunctionsApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkSubruleApi;
+import com.google.devtools.build.lib.starlarkbuildapi.config.ComposedConfigurationTransition;
 import com.google.devtools.build.lib.starlarkbuildapi.config.ConfigurationTransitionApi;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Pair;
@@ -183,6 +186,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
                   .value(ImmutableMap.of()))
           .add(
               attr(RuleClass.TARGET_COMPATIBLE_WITH_ATTR, LABEL_LIST)
+                  .mandatoryBuiltinProviders(ImmutableList.of(ConfigMatchingProvider.class))
                   .mandatoryProviders(ConstraintValueInfo.PROVIDER.id())
                   // This should be configurable to allow for complex types of restrictions.
                   .tool(
@@ -196,7 +200,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
               "$dependency_resolution_base_rule", RuleClassType.ABSTRACT, true, baseRule)
           .setDependencyResolutionRule()
           .removeAttribute(":action_listener")
-          .removeAttribute("aspect_hints")
+          .removeAttribute(RuleClass.ASPECT_HINTS_ATTR)
           .removeAttribute("toolchains")
           .removeAttribute(RuleClass.EXEC_COMPATIBLE_WITH_ATTR)
           .removeAttribute(RuleClass.EXEC_GROUP_COMPATIBLE_WITH_ATTR)
@@ -212,7 +216,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       new RuleClass.Builder("$materializer_base_rule", RuleClassType.ABSTRACT, true, baseRule)
           .setIsMaterializerRule(true)
           .removeAttribute(":action_listener")
-          .removeAttribute("aspect_hints")
+          .removeAttribute(RuleClass.ASPECT_HINTS_ATTR)
           .removeAttribute("toolchains")
           .removeAttribute(RuleClass.EXEC_COMPATIBLE_WITH_ATTR)
           .removeAttribute(RuleClass.EXEC_GROUP_COMPATIBLE_WITH_ATTR)
@@ -237,17 +241,17 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
                   .build())
           .build();
 
-  public static final ImmutableSet<AllowlistEntry> ALLOWLIST_RULE_EXTENSION_API =
-      ImmutableSet.of(
-          allowlistEntry("", "initializer_testing"),
-          allowlistEntry("", "extend_rule_testing"),
-          allowlistEntry("", "subrule_testing"));
+  public static final BuiltinRestriction.Allowlist ALLOWLIST_RULE_EXTENSION_API =
+      BuiltinRestriction.Allowlist.of(
+          mainRepoAllowlistEntry("initializer_testing"),
+          mainRepoAllowlistEntry("extend_rule_testing"),
+          mainRepoAllowlistEntry("subrule_testing"));
 
-  public static final ImmutableSet<AllowlistEntry> ALLOWLIST_RULE_EXTENSION_API_EXPERIMENTAL =
-      ImmutableSet.of(
-          allowlistEntry("", "initializer_testing/builtins"),
-          allowlistEntry("", "third_party/bazel_rules/rules_cc"),
-          allowlistEntry("rules_cc", ""));
+  public static final BuiltinRestriction.Allowlist ALLOWLIST_RULE_EXTENSION_API_EXPERIMENTAL =
+      BuiltinRestriction.Allowlist.of(
+          mainRepoAllowlistEntry("third_party/bazel_rules/rules_cc"),
+          mainRepoAllowlistEntry("initializer_testing/builtins"),
+          externalRepoAllowlistEntry("rules_cc", ""));
 
   private static final String COMMON_ATTRIBUTES_NAME = "common";
 
@@ -1096,7 +1100,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
         });
     if (parent != null) {
       transitionFactory =
-          ComposingTransitionFactory.of(transitionFactory, parent.getTransitionFactory());
+          ComposingTransitionFactory.ofUnchecked(transitionFactory, parent.getTransitionFactory());
     }
     // Check if the transition has any Starlark code.
     StarlarkTransitionCheckingVisitor visitor = new StarlarkTransitionCheckingVisitor();
@@ -1248,6 +1252,13 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       // defined in Starlark via, cfg = transition
       return new StarlarkRuleTransitionProvider(starlarkDefinedConfigTransition);
     }
+    if (cfg instanceof ComposedConfigurationTransition composition) {
+      return ComposedTransitionMaterializer.fold(
+          composition,
+          StarlarkRuleClassFunctions::convertConfig,
+          "it contains a native transition that can only be used as an attribute transition, such"
+              + " as the exec transition");
+    }
     if (cfg instanceof ConfigurationTransitionApi cta) {
       // Every ConfigurationTransitionApi must be a TransitionFactory instance to be usable.
       if (cta instanceof TransitionFactory<?> tf) {
@@ -1316,6 +1327,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       Dict<?, ?> attrs,
       Sequence<?> requiredProvidersArg,
       Sequence<?> requiredAspectProvidersArg,
+      Sequence<?> requiredAspectHintsProvidersArg,
       Sequence<?> providesArg,
       Sequence<?> requiredAspects,
       Object rawPropagationPredicate,
@@ -1491,6 +1503,8 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
         StarlarkAttrModule.buildProviderPredicate(requiredProvidersArg, "required_providers"),
         StarlarkAttrModule.buildProviderPredicate(
             requiredAspectProvidersArg, "required_aspect_providers"),
+        StarlarkAttrModule.buildProviderPredicate(
+            requiredAspectHintsProvidersArg, "required_aspect_hints_providers"),
         StarlarkAttrModule.getStarlarkProviderIdentifiers(providesArg, "provides"),
         requiredParams.build(),
         ImmutableSet.copyOf(Sequence.cast(requiredAspects, StarlarkAspect.class, "requires")),
@@ -1603,7 +1617,8 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       }
 
       if (!args.isEmpty()) {
-        throw Starlark.errorf("unexpected positional arguments");
+        throw Starlark.errorf(
+            "%s() does not accept positional arguments, but got %d", getName(), args.size());
       }
 
       MacroInstance macroInstance =
@@ -1642,7 +1657,11 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       checkState(builder != null && macroClass == null);
       builder.setName(exportedName);
       builder.setDefiningBzlLabel(starlarkLabel);
-      this.macroClass = builder.build();
+      try {
+        this.macroClass = builder.build();
+      } catch (TooManyAttributesException ex) {
+        handler.handle(Event.error(exportedLocation, ex.getMessage()));
+      }
       this.builder = null;
       checkArgument(
           identityToken.getOwner().getLabel().equals(starlarkLabel),
@@ -1756,7 +1775,8 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     public Object call(StarlarkThread thread, Tuple args, Dict<String, Object> kwargs)
         throws EvalException, InterruptedException {
       if (!args.isEmpty()) {
-        throw new EvalException("Unexpected positional arguments");
+        throw Starlark.errorf(
+            "%s() does not accept positional arguments, but got %d", getName(), args.size());
       }
       if (ruleClass == null) {
         throw new EvalException("Invalid rule class hasn't been exported by a bzl file");

@@ -20,7 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -39,7 +39,7 @@ jobs:
 
       - name: Manage SSL Issue on Failure
         if: env.SSL_CHECK_FAILED == 'true'
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             const script = require('./.github/scripts/manage_ssl_issue.js')

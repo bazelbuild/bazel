@@ -280,8 +280,13 @@ public final class RepositoryFetchFunction implements SkyFunction {
 
       if (remoteRepoContentsCache != null) {
         try {
-          if (remoteRepoContentsCache.lookupCache(
-              repositoryName, repoRoot, digestWriter.predeclaredInputHash, env.getListener())) {
+          boolean cacheHit =
+              remoteRepoContentsCache.lookupCache(
+                  repositoryName, repoRoot, digestWriter.predeclaredInputHash, env);
+          if (env.valuesMissing()) {
+            return null;
+          }
+          if (cacheHit) {
             return new Success(Root.fromPath(repoRoot), excludeRepoFromVendoring);
           }
         } catch (IOException e) {
@@ -309,18 +314,23 @@ public final class RepositoryFetchFunction implements SkyFunction {
       }
       digestWriter.writeMarkerFile(result.recordedInputValues());
       if (result.reproducible() == Reproducibility.YES && !repoDefinition.repoRule().local()) {
-        // This repo is eligible for the local and remote repo contents cache.
-        // Replant symlinks before caching to convert absolute symlinks pointing to the
-        // workspace or external root into relative paths, making the cached repo portable.
+        // This repo may be eligible for the local and remote repo contents cache.
+        // Replant symlinks before caching to convert absolute symlinks relative if possible, which
+        // can make more repos eligible.
         Path externalRepoRoot = RepositoryUtils.getExternalRepositoryDirectory(directories);
-        boolean safeForLocalCacheReuse;
+        RepositoryUtils.ReplantSymlinksResult replantSymlinksResult;
         try {
-          safeForLocalCacheReuse =
+          replantSymlinksResult =
               RepositoryUtils.replantSymlinks(
                   repoRoot,
                   directories.getWorkspace(),
                   externalRepoRoot,
-                  PathFragment.EMPTY_FRAGMENT);
+                  PathFragment.EMPTY_FRAGMENT,
+                  // The local repo contents cache can't handle any cross-repo symlinks and while
+                  // the remote repo contents cache could in theory handle main repo symlinks, this
+                  // would add a lot of complexity for little gain (local files are always
+                  // available).
+                  /* replantSymlinksIntoMainRepo= */ false);
         } catch (IOException e) {
           throw new RepositoryFunctionException(
               new IOException(
@@ -329,7 +339,7 @@ public final class RepositoryFetchFunction implements SkyFunction {
                   e),
               Transience.TRANSIENT);
         }
-        if (remoteRepoContentsCache != null) {
+        if (remoteRepoContentsCache != null && replantSymlinksResult.safeForRemoteCache()) {
           remoteRepoContentsCache.addToCache(
               repositoryName,
               repoRoot,
@@ -337,7 +347,7 @@ public final class RepositoryFetchFunction implements SkyFunction {
               digestWriter.predeclaredInputHash,
               env.getListener());
         }
-        if (safeForLocalCacheReuse && repoContentsCache.isEnabled()) {
+        if (repoContentsCache.isEnabled() && replantSymlinksResult.safeForLocalCache()) {
           CandidateRepo newCacheEntry;
           try {
             newCacheEntry =

@@ -16,6 +16,10 @@ filegroup(
 java_test(
     name = "http",
     srcs = glob(["*.java"]),
+    jvm_flags = [
+        # Required for Mockito.spy.
+        "--add-opens=java.base/java.io=ALL-UNNAMED",
+    ],
     tags = [
         "requires-network",
     ],
@@ -25,11 +29,14 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/authandtls",
         "//src/main/java/com/google/devtools/build/lib/exec:spawn_runner",
         "//src/main/java/com/google/devtools/build/lib/remote:Retrier",
+        "//src/main/java/com/google/devtools/build/lib/remote:combined_cache_client_factory",
         "//src/main/java/com/google/devtools/build/lib/remote/common",
         "//src/main/java/com/google/devtools/build/lib/remote/common:action_key",
         "//src/main/java/com/google/devtools/build/lib/remote/http",
-        "//src/main/java/com/google/devtools/build/lib/remote/util",
-        "//src/main/java/com/google/devtools/build/lib/remote/util:digest_utils",
+        "//src/main/java/com/google/devtools/build/lib/remote/options",
+        "//src/main/java/com/google/devtools/build/lib/remote/util:digest_util",
+        "//src/main/java/com/google/devtools/build/lib/remote/util:tracing_metadata_utils",
+        "//src/main/java/com/google/devtools/build/lib/remote/util:utils",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/common/options",
         "//src/test/java/com/google/devtools/build/lib:test_runner",

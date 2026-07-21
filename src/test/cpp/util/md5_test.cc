@@ -12,7 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #include "src/main/cpp/util/md5.h"
-#include "src/main/cpp/util/port.h"
+
+#include <iterator>
+
 #include "googletest/include/gtest/gtest.h"
 
 namespace blaze_util {
@@ -36,8 +38,8 @@ TEST(BlazeUtil, Basic) {
     "d174ab98d277d9f5a5611c2c9f419d9f",
     "57edf4a22be3c955ac49da2e2107b67a",
   };
-  unsigned int n = arraysize(strs);
-  ASSERT_EQ(n, arraysize(md5s));
+  unsigned int n = std::size(strs);
+  ASSERT_EQ(n, std::size(md5s));
 
   unsigned char buf[17];
   Md5Digest digest;

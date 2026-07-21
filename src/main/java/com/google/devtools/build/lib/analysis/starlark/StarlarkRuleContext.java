@@ -205,7 +205,7 @@ public final class StarlarkRuleContext
     if (aspectDescriptor == null) {
       Collection<Attribute> attributes =
           rule.getAttributes().stream()
-              .filter(attribute -> !attribute.getName().equals("aspect_hints"))
+              .filter(attribute -> !attribute.getName().equals(RuleClass.ASPECT_HINTS_ATTR))
               .collect(Collectors.toList());
 
       // Populate ctx.outputs.
@@ -243,7 +243,10 @@ public final class StarlarkRuleContext
           outputs.addOutput(attrName, artifacts);
         } else {
           throw ruleContext.throwWithRuleError(
-              String.format("Attribute %s has unexpected output type %s", attrName, type));
+              String.format(
+                  "attribute '%s' has type '%s', but only types 'output' and 'output_list' are"
+                      + " allowed for output attributes",
+                  attrName, type));
         }
       }
       // Add the implicit outputs. In the case where the rule has a native-defined implicit outputs

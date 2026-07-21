@@ -31,10 +31,13 @@ import com.google.devtools.build.lib.remote.Retrier.CircuitBreakerException;
 import com.google.devtools.build.lib.remote.Retrier.ResultClassifier;
 import com.google.devtools.build.lib.remote.Retrier.ResultClassifier.Result;
 import com.google.devtools.build.lib.remote.Retrier.ZeroBackoff;
+import com.google.devtools.build.lib.remote.logging.RpcLogContext;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
@@ -197,6 +200,37 @@ public class RetrierTest {
 
     assertThat(cb.state()).isEqualTo(State.REJECT_CALLS);
     assertThat(cb.consecutiveFailures).isEqualTo(2);
+  }
+
+  @Test
+  public void circuitBreakerExceptionIncludesFailureDetails() throws Exception {
+    // The details reported by the circuit breaker are appended to the exception message.
+    CircuitBreaker cb =
+        new CircuitBreaker() {
+          @Override
+          public State state() {
+            return State.REJECT_CALLS;
+          }
+
+          @Override
+          public void recordFailure() {}
+
+          @Override
+          public void recordSuccess() {}
+
+          @Override
+          public String failureDetails() {
+            return "42 out of 50 remote calls failed";
+          }
+        };
+    Retrier r = new Retrier(() -> new ZeroBackoff(3), RETRY_ALL, retryService, cb);
+
+    CircuitBreakerException e =
+        assertThrows(CircuitBreakerException.class, () -> r.execute(() -> 10));
+    assertThat(e)
+        .hasMessageThat()
+        .isEqualTo(
+            "Call not executed due to a high failure rate. 42 out of 50 remote calls failed");
   }
 
   @Test
@@ -415,10 +449,143 @@ public class RetrierTest {
     }
   }
 
+  @Test
+  public void onRetriesExhausted_sync_firesOnceWithRpcId() throws Exception {
+    Supplier<Backoff> s = () -> new ZeroBackoff(/* maxRetries= */ 2);
+    RecordingRetrier r = new RecordingRetrier(s, RETRY_ALL, retryService, alwaysOpen);
+    assertThrows(
+        Exception.class,
+        () ->
+            r.execute(
+                () -> {
+                  throw new Exception("call failed");
+                }));
+    // newRpcId is created exactly once per logical call and the same id reaches the hook.
+    assertThat(r.newRpcIdCount.get()).isEqualTo(1);
+    assertThat(r.exhaustedRpcIds).containsExactly(RecordingRetrier.RPC_ID);
+  }
+
+  @Test
+  public void onRetriesExhausted_async_firesOnceWithRpcId() throws Exception {
+    Supplier<Backoff> s = () -> new ZeroBackoff(/* maxRetries= */ 2);
+    RecordingRetrier r = new RecordingRetrier(s, RETRY_ALL, retryService, alwaysOpen);
+    ListenableFuture<Void> res =
+        r.executeAsync(
+            () -> {
+              throw new Exception("call failed");
+            });
+    assertThrows(ExecutionException.class, res::get);
+    // The id survives the retryService executor hop and reaches the hook exactly once.
+    assertThat(r.newRpcIdCount.get()).isEqualTo(1);
+    assertThat(r.exhaustedRpcIds).containsExactly(RecordingRetrier.RPC_ID);
+  }
+
+  @Test
+  public void onRetriesExhausted_notFiredOnSuccess() throws Exception {
+    Supplier<Backoff> s = () -> new ZeroBackoff(/* maxRetries= */ 2);
+    RecordingRetrier r = new RecordingRetrier(s, RETRY_ALL, retryService, alwaysOpen);
+    AtomicInteger numCalls = new AtomicInteger();
+    int val =
+        r.execute(
+            () -> {
+              if (numCalls.incrementAndGet() == 3) {
+                return 1;
+              }
+              throw new Exception("call failed");
+            });
+    assertThat(val).isEqualTo(1);
+    assertThat(r.exhaustedRpcIds).isEmpty();
+  }
+
+  @Test
+  public void onRetriesExhausted_notFiredOnNonRetriableFailure() throws Exception {
+    Supplier<Backoff> s = () -> new ZeroBackoff(/* maxRetries= */ 2);
+    RecordingRetrier r =
+        new RecordingRetrier(s, (e) -> Result.PERMANENT_FAILURE, retryService, alwaysOpen);
+    AtomicInteger numCalls = new AtomicInteger();
+    assertThrows(
+        Exception.class,
+        () ->
+            r.execute(
+                () -> {
+                  numCalls.incrementAndGet();
+                  throw new Exception("call failed");
+                }));
+    // A permanent (non-retriable) failure is not "retries exhausted".
+    assertThat(numCalls.get()).isEqualTo(1);
+    assertThat(r.exhaustedRpcIds).isEmpty();
+  }
+
+  @Test
+  public void rpcContext_propagatesConstantIdAndIncrementingAttempts_sync() throws Exception {
+    Supplier<Backoff> s = () -> new ZeroBackoff(/* maxRetries= */ 2);
+    RecordingRetrier r = new RecordingRetrier(s, RETRY_ALL, retryService, alwaysOpen);
+    List<String> ids = Collections.synchronizedList(new ArrayList<>());
+    List<Integer> attempts = Collections.synchronizedList(new ArrayList<>());
+    assertThrows(
+        Exception.class,
+        () ->
+            r.execute(
+                () -> {
+                  RpcLogContext ctx = RpcLogContext.KEY.get();
+                  ids.add(ctx == null ? null : ctx.getRpcId());
+                  attempts.add(ctx == null ? -1 : ctx.getAttemptNumber());
+                  throw new Exception("call failed");
+                }));
+    assertThat(ids)
+        .containsExactly(RecordingRetrier.RPC_ID, RecordingRetrier.RPC_ID, RecordingRetrier.RPC_ID);
+    assertThat(attempts).containsExactly(1, 2, 3).inOrder();
+  }
+
+  @Test
+  public void rpcContext_propagatesConstantIdAndIncrementingAttempts_async() throws Exception {
+    Supplier<Backoff> s = () -> new ZeroBackoff(/* maxRetries= */ 2);
+    RecordingRetrier r = new RecordingRetrier(s, RETRY_ALL, retryService, alwaysOpen);
+    List<String> ids = Collections.synchronizedList(new ArrayList<>());
+    List<Integer> attempts = Collections.synchronizedList(new ArrayList<>());
+    ListenableFuture<Void> res =
+        r.executeAsync(
+            () -> {
+              RpcLogContext ctx = RpcLogContext.KEY.get();
+              ids.add(ctx == null ? null : ctx.getRpcId());
+              attempts.add(ctx == null ? -1 : ctx.getAttemptNumber());
+              throw new Exception("call failed");
+            });
+    assertThrows(ExecutionException.class, res::get);
+    assertThat(ids)
+        .containsExactly(RecordingRetrier.RPC_ID, RecordingRetrier.RPC_ID, RecordingRetrier.RPC_ID);
+    assertThat(attempts).containsExactly(1, 2, 3).inOrder();
+  }
+
+  /** A {@link Retrier} that records the rpc id threaded to {@link Retrier#onRetriesExhausted}. */
+  private static class RecordingRetrier extends Retrier {
+    static final String RPC_ID = "test-rpc-id";
+    final AtomicInteger newRpcIdCount = new AtomicInteger();
+    final List<String> exhaustedRpcIds = Collections.synchronizedList(new ArrayList<>());
+
+    RecordingRetrier(
+        Supplier<Backoff> backoffSupplier,
+        ResultClassifier resultClassifier,
+        ListeningScheduledExecutorService retryService,
+        CircuitBreaker circuitBreaker) {
+      super(backoffSupplier, resultClassifier, retryService, circuitBreaker);
+    }
+
+    @Override
+    protected String newRpcId() {
+      newRpcIdCount.incrementAndGet();
+      return RPC_ID;
+    }
+
+    @Override
+    protected void onRetriesExhausted(Exception e, Backoff backoff, String rpcId) {
+      exhaustedRpcIds.add(rpcId);
+    }
+  }
+
   /** Simple circuit breaker that trips after N consecutive failures. */
   @ThreadSafe
   private static class TripAfterNCircuitBreaker implements CircuitBreaker {
-
     private final int maxConsecutiveFailures;
 
     private State state = State.ACCEPT_CALLS;
@@ -445,6 +612,11 @@ public class RetrierTest {
     public synchronized void recordSuccess() {
       consecutiveFailures = 0;
       state = State.ACCEPT_CALLS;
+    }
+
+    @Override
+    public String failureDetails() {
+      return "";
     }
 
     void trialCall() {

@@ -183,7 +183,6 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     RepositoryDirectoryValue.VENDOR_DIRECTORY.set(differencer, Optional.empty());
 
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, packageLocator.get());
-    PrecomputedValue.REPO_ENV.set(differencer, ImmutableMap.of());
     ModuleFileFunction.IGNORE_DEV_DEPS.set(differencer, false);
     ModuleFileFunction.INJECTED_REPOSITORIES.set(differencer, ImmutableMap.of());
     ModuleFileFunction.MODULE_OVERRIDES.set(differencer, ImmutableMap.of());
@@ -199,7 +198,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
         "module(",
         "    name='aaa',",
         "    version='0.1',",
-        "    compatibility_level=4,",
+        "    ",
         ")",
         "bazel_dep(name='bbb',version='1.0')",
         "bazel_dep(name='ccc',version='2.0',repo_name='see')",
@@ -225,7 +224,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     RootModuleFileValue rootModuleFileValue = result.get(ModuleFileValue.KEY_FOR_ROOT_MODULE);
     assertThat(rootModuleFileValue.module())
         .isEqualTo(
-            InterimModuleBuilder.create("aaa", "0.1", 0)
+            InterimModuleBuilder.create("aaa", "0.1")
                 .setKey(ModuleKey.ROOT)
                 .addExecutionPlatformsToRegister(
                     ImmutableList.of("//my:platform", "//my:platform2"))
@@ -1862,8 +1861,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     assertThat(result.get(moduleFileKey).module().getBazelCompatibility())
         .containsExactly(">=7.0.0");
     assertThat(result.get(moduleFileKey).module().getDeps())
-        .containsExactly(
-            "ccc", InterimModule.DepSpec.fromModuleKey(new ModuleKey("ccc", Version.parse("3.0"))));
+        .containsExactly("ccc", new ModuleKey("ccc", Version.parse("3.0")));
 
     FileSystemUtils.writeContentAsLatin1(
         otherPatch,
@@ -1885,8 +1883,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     assertThat(result.get(moduleFileKey).module().getBazelCompatibility())
         .containsExactly(">=7.0.0");
     assertThat(result.get(moduleFileKey).module().getDeps())
-        .containsExactly(
-            "ccc", InterimModule.DepSpec.fromModuleKey(new ModuleKey("ccc", Version.parse("2.0"))));
+        .containsExactly("ccc", new ModuleKey("ccc", Version.parse("2.0")));
   }
 
   @Test

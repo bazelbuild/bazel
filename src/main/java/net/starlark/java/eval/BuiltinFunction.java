@@ -52,11 +52,11 @@ public sealed class BuiltinFunction implements StarlarkCallable
    * <p>The method must be a proper Starlark method, not a field; i.e., {@link
    * StarlarkMethod#structField} must be false.
    */
-  static BuiltinFunction of(Object obj, MethodDescriptor desc, StarlarkSemantics semantics) {
+  static BuiltinFunction of(Object obj, MethodDescriptor desc) {
     if (desc.getTypeConstructorProxy() == null) {
       return new BuiltinFunction(obj, desc);
     } else {
-      return new BuiltinTypeFunction(obj, desc, semantics);
+      return new BuiltinTypeFunction(obj, desc);
     }
   }
 
@@ -67,7 +67,8 @@ public sealed class BuiltinFunction implements StarlarkCallable
   }
 
   @Override
-  public StarlarkType getStarlarkType() {
+  public StarlarkType getStarlarkType(StarlarkSemantics semantics) {
+    // desc.manager embeds a semantics (which should be the same as the arg)
     return desc.getStarlarkType();
   }
 
@@ -528,22 +529,16 @@ public sealed class BuiltinFunction implements StarlarkCallable
    * used both as a function that returns list values ({@code l = list((1, 2, 3))}) and a
    * constructor for list types ({@code type T = list[int]}).
    */
-  // Non-private due to what appears to be a javac bug (present at least in JDK 21) causing
-  // scripts/bootstrap/compile.sh and bazel_bootstrap_distfile_tar_test to spuriously fail with
-  // "error: BuiltinTypeFunction has private access in BuiltinFunction".
-  // TODO(bazel-team): check if we can make this class private once Bazel starts using JDK 25 or
-  // newer to bootstrap
+  // TODO: b/536902188 - Make private once we no longer have to worry about OpenJDK 21 in the bazel
+  // bootstrap test (https://bugs.openjdk.org/browse/JDK-8284011).
   static final class BuiltinTypeFunction extends BuiltinFunction implements TypeConstructor {
-
-    private final StarlarkSemantics semantics;
-
-    private BuiltinTypeFunction(Object obj, MethodDescriptor desc, StarlarkSemantics semantics) {
+    private BuiltinTypeFunction(Object obj, MethodDescriptor desc) {
       super(obj, desc);
-      this.semantics = semantics;
     }
 
     @Override
-    public StarlarkType createStarlarkType(ImmutableList<Arg> argsTuple) throws Failure {
+    public StarlarkType createStarlarkType(ImmutableList<TypeConstructor.Term> argsTuple)
+        throws Failure {
       // The Preconditions checks could morally be done in the constructor for eagerness.
       // However, this causes the MethodDescriptors of the proxy class to be materialized
       // while initializing a Module environment using Starlark#addMethods. That's inconvenient
@@ -551,7 +546,7 @@ public sealed class BuiltinFunction implements StarlarkCallable
       // and because it complicates unit tests where these preconditions fail.
       Class<?> tcProxy = desc.getTypeConstructorProxy();
       Preconditions.checkNotNull(tcProxy);
-      TypeConstructor tc = CallUtils.getBuiltinManager(semantics).getTypeConstructor(tcProxy);
+      TypeConstructor tc = desc.getManager().getTypeConstructor(tcProxy);
       Preconditions.checkArgument(tc != null, "invalid type constructor proxy: %s", tcProxy);
       return tc.createStarlarkType(argsTuple);
     }

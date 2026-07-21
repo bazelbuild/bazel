@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.packages.License;
+import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
@@ -40,6 +41,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.function.BiPredicate;
 import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 
@@ -195,11 +197,19 @@ public class BuildOutputFormatter extends AbstractUnorderedFormatter {
       } else if (value instanceof TriState triState) {
         value = triState.toInt();
       }
+
       return new Printer() {
         // Print labels in their canonical form.
         @Override
         public Printer repr(Object o, StarlarkSemantics semantics) {
-          return super.repr(o instanceof Label label ? labelPrinter.toString(label) : o, semantics);
+          return switch (o) {
+            case String str -> appendPrettyQuoted(str);
+            case Label label -> super.repr(labelPrinter.toString(label), semantics);
+            // Nulls can appear e.g. from BuildType.Selector#mapCopy in `reconsructSelect`; a None
+            // value will be mapped to null if the attr type's default value is null.
+            case null -> super.repr(Starlark.NONE, semantics);
+            default -> super.repr(o, semantics);
+          };
         }
       }.repr(value, StarlarkSemantics.DEFAULT).toString();
     }
@@ -227,7 +237,12 @@ public class BuildOutputFormatter extends AbstractUnorderedFormatter {
   @Override
   public OutputFormatterCallback<Target> createPostFactoStreamCallback(
       OutputStream out, final QueryOptions options, LabelPrinter labelPrinter) {
-    return new BuildOutputFormatterCallback(out, options.getLineTerminator(), labelPrinter);
+    return new BuildOutputFormatterCallback(
+        out,
+        options.getLineTerminator(),
+        labelPrinter,
+        options.getIncompatiblePackageGroupBuildOutput(),
+        options.getIncompatiblePackageGroupIncludesDoubleSlash());
   }
 
   @Override
@@ -240,9 +255,22 @@ public class BuildOutputFormatter extends AbstractUnorderedFormatter {
   /** BuildOutputFormatter callback for Query. Made visible for ModQuery. */
   public static class BuildOutputFormatterCallback extends TextOutputFormatterCallback<Target> {
     private final TargetOutputter targetOutputter;
+    private final boolean includePackageGroup;
+    private final boolean packageGroupIncludesDoubleSlash;
+    private final String lineTerm;
+    private final LabelPrinter labelPrinter;
 
-    BuildOutputFormatterCallback(OutputStream out, String lineTerm, LabelPrinter labelPrinter) {
+    BuildOutputFormatterCallback(
+        OutputStream out,
+        String lineTerm,
+        LabelPrinter labelPrinter,
+        boolean includePackageGroup,
+        boolean packageGroupIncludesDoubleSlash) {
       super(out);
+      this.lineTerm = lineTerm;
+      this.labelPrinter = labelPrinter;
+      this.includePackageGroup = includePackageGroup;
+      this.packageGroupIncludesDoubleSlash = packageGroupIncludesDoubleSlash;
       this.targetOutputter =
           new TargetOutputter(
               writer,
@@ -256,13 +284,47 @@ public class BuildOutputFormatter extends AbstractUnorderedFormatter {
     @Override
     public void processOutput(Iterable<Target> partialResult) throws IOException {
       for (Target target : partialResult) {
-        targetOutputter.output(
-            target,
-            // Multiple possible values are ignored by the outputter.
-            (rule, attr) ->
-                PossibleAttributeValues.forRuleAndAttribute(
-                    rule, attr, /*mayTreatMultipleAsNone=*/ true));
+        if (target instanceof PackageGroup packageGroup && includePackageGroup) {
+          outputPackageGroup(packageGroup);
+        } else {
+          targetOutputter.output(
+              target,
+              // Multiple possible values are ignored by the outputter.
+              (rule, attr) ->
+                  PossibleAttributeValues.forRuleAndAttribute(
+                      rule, attr, /* mayTreatMultipleAsNone= */ true));
+        }
       }
+    }
+
+    private void outputPackageGroup(PackageGroup packageGroup) throws IOException {
+      writer.append("# ").append(packageGroup.getLocation().toString()).append(lineTerm);
+      writer.append("package_group(").append(lineTerm);
+      writer.append("  name = \"").append(packageGroup.getName()).append("\",").append(lineTerm);
+
+      List<String> packages = packageGroup.getContainedPackages(packageGroupIncludesDoubleSlash);
+      if (!packages.isEmpty()) {
+        writer.append("  packages = [").append(lineTerm);
+        for (String pkg : packages) {
+          writer.append("    \"").append(pkg).append("\",").append(lineTerm);
+        }
+        writer.append("  ],").append(lineTerm);
+      }
+
+      List<Label> includes = packageGroup.getIncludes();
+      if (!includes.isEmpty()) {
+        writer.append("  includes = [").append(lineTerm);
+        for (Label include : includes) {
+          writer
+              .append("    \"")
+              .append(labelPrinter.toString(include))
+              .append("\",")
+              .append(lineTerm);
+        }
+        writer.append("  ],").append(lineTerm);
+      }
+
+      writer.append(")").append(lineTerm).append(lineTerm);
     }
   }
 

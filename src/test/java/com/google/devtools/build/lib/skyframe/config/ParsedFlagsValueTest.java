@@ -22,11 +22,13 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsTest;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
+import com.google.devtools.build.lib.analysis.config.Scope;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionsClass;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.util.List;
 import org.junit.Test;
@@ -38,28 +40,29 @@ import org.junit.runners.JUnit4;
 public final class ParsedFlagsValueTest {
 
   /** Extra options for this test. */
-  public static final class DummyTestOptions extends FragmentOptions {
+  @OptionsClass
+  public abstract static class DummyTestOptions extends FragmentOptions {
 
     @Option(
         name = "str_option",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "defVal")
-    public String strOption;
+    public abstract String getStrOption();
 
     @Option(
         name = "another_str_option",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "defVal")
-    public String anotherStrOption;
+    public abstract String getAnotherStrOption();
 
     @Option(
         name = "bool_option",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "false")
-    public boolean boolOption;
+    public abstract boolean getBoolOption();
 
     @Option(
         name = "list_option",
@@ -67,14 +70,14 @@ public final class ParsedFlagsValueTest {
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "null")
-    public List<String> listOption;
+    public abstract List<String> getListOption();
 
     @Option(
         name = "null_option",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "null")
-    public String nullOption;
+    public abstract String getNullOption();
 
     @Option(
         name = "accumulating_option",
@@ -82,7 +85,7 @@ public final class ParsedFlagsValueTest {
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "null")
-    public List<String> accumulatingOption;
+    public abstract List<String> getAccumulatingOption();
 
     @Option(
         name = "dummy_option",
@@ -90,14 +93,14 @@ public final class ParsedFlagsValueTest {
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "internal_default",
         implicitRequirements = {"--implicit_option=set_implicitly"})
-    public String dummyOption;
+    public abstract String getDummyOption();
 
     @Option(
         name = "implicit_option",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "implicit_default")
-    public String implicitOption;
+    public abstract String getImplicitOption();
   }
 
   private static final ImmutableSet<Class<? extends FragmentOptions>> BUILD_CONFIG_OPTIONS =
@@ -116,8 +119,8 @@ public final class ParsedFlagsValueTest {
     ParsedFlagsValue parsedFlags = ParsedFlagsValue.parseAndCreate(flags);
 
     OptionsParsingResult result = parsedFlags.parsingResult();
-    assertThat(result.getOptions(DummyTestOptions.class).strOption).isEqualTo("bar");
-    assertThat(result.getOptions(DummyTestOptions.class).boolOption).isFalse();
+    assertThat(result.getOptions(DummyTestOptions.class).getStrOption()).isEqualTo("bar");
+    assertThat(result.getOptions(DummyTestOptions.class).getBoolOption()).isFalse();
     assertThat(result.getStarlarkOptions()).containsAtLeast("//custom:flag", "hello");
   }
 
@@ -142,8 +145,8 @@ public final class ParsedFlagsValueTest {
         .isNotEqualTo(modified.get(DummyTestOptions.class));
 
     // Check the modified values.
-    assertThat(modified.get(DummyTestOptions.class).strOption).isEqualTo("bar");
-    assertThat(modified.get(DummyTestOptions.class).boolOption).isFalse();
+    assertThat(modified.get(DummyTestOptions.class).getStrOption()).isEqualTo("bar");
+    assertThat(modified.get(DummyTestOptions.class).getBoolOption()).isFalse();
     assertThat(modified.getStarlarkOptions())
         .containsAtLeast(Label.parseCanonicalUnchecked("//custom:flag"), "hello");
   }
@@ -199,7 +202,7 @@ public final class ParsedFlagsValueTest {
 
     BuildOptions modified = parsedFlags.mergeWith(original).getOptions();
 
-    assertThat(modified.get(DummyTestOptions.class).listOption)
+    assertThat(modified.get(DummyTestOptions.class).getListOption())
         // Because this flag does not allow multiple values the list simply overwrites the previous
         // value.
         .containsExactly("foo", "bar")
@@ -219,8 +222,9 @@ public final class ParsedFlagsValueTest {
 
     BuildOptions modified = parsedFlags.mergeWith(original).getOptions();
 
-    assertThat(modified.get(DummyTestOptions.class).dummyOption).isEqualTo("direct");
-    assertThat(modified.get(DummyTestOptions.class).implicitOption).isEqualTo("set_implicitly");
+    assertThat(modified.get(DummyTestOptions.class).getDummyOption()).isEqualTo("direct");
+    assertThat(modified.get(DummyTestOptions.class).getImplicitOption())
+        .isEqualTo("set_implicitly");
   }
 
   @Test
@@ -236,7 +240,7 @@ public final class ParsedFlagsValueTest {
 
     BuildOptions modified = parsedFlags.mergeWith(original).getOptions();
 
-    assertThat(modified.get(DummyTestOptions.class).accumulatingOption)
+    assertThat(modified.get(DummyTestOptions.class).getAccumulatingOption())
         .containsExactly("foo", "bar")
         .inOrder();
   }
@@ -286,5 +290,123 @@ public final class ParsedFlagsValueTest {
     // The Starlark flag should not be present since it was reset to the default value
     assertThat(modified.getStarlarkOptions())
         .doesNotContainKey(Label.parseCanonicalUnchecked("//custom:flag"));
+  }
+
+  @Test
+  public void mergeWith_starlark_resetToDefault_removesScope() throws Exception {
+    // Regression test: when a starlark flag is reset to its default value, the scope entry
+    // should also be removed. Previously, addScopeTypeMap(source.getScopeTypeMap()) would
+    // re-introduce the scope even after removeStarlarkOption cleaned it up, causing two
+    // configs to have different checksums despite identical visible state.
+    Label flagLabel = Label.parseCanonicalUnchecked("//custom:flag");
+    BuildOptions original =
+        BuildOptions.of(BUILD_CONFIG_OPTIONS).toBuilder()
+            .addStarlarkOption(flagLabel, "non_default")
+            .addScopeType(flagLabel, new Scope.ScopeType("default"))
+            .build();
+
+    NativeAndStarlarkFlags flags =
+        NativeAndStarlarkFlags.builder()
+            .optionsClasses(BUILD_CONFIG_OPTIONS)
+            .starlarkFlags(ImmutableMap.of("//custom:flag", "default"))
+            .starlarkFlagDefaults(ImmutableMap.of("//custom:flag", "default"))
+            .scopesAttributes(ImmutableMap.of("//custom:flag", "project"))
+            .build();
+    ParsedFlagsValue parsedFlags = ParsedFlagsValue.parseAndCreate(flags);
+
+    BuildOptions modified = parsedFlags.mergeWith(original).getOptions();
+
+    // The flag should be removed (at default).
+    assertThat(modified.getStarlarkOptions()).doesNotContainKey(flagLabel);
+    // The scope should also be removed - not leaked from the source.
+    assertThat(modified.getScopeTypeMap()).doesNotContainKey(flagLabel);
+  }
+
+  @Test
+  public void mergeWith_scopePreservedForRetainedFlag() throws Exception {
+    // Verifies that scopes already present in the source are preserved through mergeWith
+    // when the flag is not removed.
+    Label flagLabel = Label.parseCanonicalUnchecked("//custom:flag");
+    Scope.ScopeType scopeType = new Scope.ScopeType("target");
+    BuildOptions original =
+        BuildOptions.of(BUILD_CONFIG_OPTIONS).toBuilder()
+            .addStarlarkOption(flagLabel, "original_value")
+            .addScopeType(flagLabel, scopeType)
+            .build();
+
+    // mergeWith with no starlark flags - original flags should be untouched.
+    NativeAndStarlarkFlags flags =
+        NativeAndStarlarkFlags.builder().optionsClasses(BUILD_CONFIG_OPTIONS).build();
+    ParsedFlagsValue parsedFlags = ParsedFlagsValue.parseAndCreate(flags);
+
+    BuildOptions modified = parsedFlags.mergeWith(original).getOptions();
+
+    assertThat(modified.getStarlarkOptions()).containsEntry(flagLabel, "original_value");
+    assertThat(modified.getScopeTypeMap()).containsEntry(flagLabel, scopeType);
+  }
+
+  @Test
+  public void mergeWith_scopePreservedForNewFlag() throws Exception {
+    // When mergeWith introduces a new starlark flag that already has a scope in the source,
+    // the scope should be preserved in the result.
+    Label existingFlag = Label.parseCanonicalUnchecked("//custom:existing");
+    Label newFlag = Label.parseCanonicalUnchecked("//custom:new_flag");
+    Scope.ScopeType existingScope = new Scope.ScopeType("target");
+    Scope.ScopeType newFlagScope = new Scope.ScopeType("universal");
+    BuildOptions original =
+        BuildOptions.of(BUILD_CONFIG_OPTIONS).toBuilder()
+            .addStarlarkOption(existingFlag, "val")
+            .addScopeType(existingFlag, existingScope)
+            .addStarlarkOption(newFlag, "source_val")
+            .addScopeType(newFlag, newFlagScope)
+            .build();
+
+    NativeAndStarlarkFlags flags =
+        NativeAndStarlarkFlags.builder()
+            .optionsClasses(BUILD_CONFIG_OPTIONS)
+            .starlarkFlags(ImmutableMap.of("//custom:new_flag", "new_val"))
+            .starlarkFlagDefaults(ImmutableMap.of("//custom:new_flag", "default"))
+            .build();
+    ParsedFlagsValue parsedFlags = ParsedFlagsValue.parseAndCreate(flags);
+
+    BuildOptions modified = parsedFlags.mergeWith(original).getOptions();
+
+    assertThat(modified.getStarlarkOptions()).containsEntry(newFlag, "new_val");
+    // Both flags' scopes should be preserved.
+    assertThat(modified.getScopeTypeMap()).containsEntry(newFlag, newFlagScope);
+    assertThat(modified.getScopeTypeMap()).containsEntry(existingFlag, existingScope);
+  }
+
+  @Test
+  public void mergeWith_newFlagNotInSource() throws Exception {
+    // A flag not present in the source config is added by the merged flags, together with the
+    // scope from its parsed scope attribute.
+    Label existingFlag = Label.parseCanonicalUnchecked("//custom:existing");
+    Scope.ScopeType existingScope = new Scope.ScopeType("target");
+    BuildOptions original =
+        BuildOptions.of(BUILD_CONFIG_OPTIONS).toBuilder()
+            .addStarlarkOption(existingFlag, "val")
+            .addScopeType(existingFlag, existingScope)
+            .build();
+
+    Label newFlag = Label.parseCanonicalUnchecked("//custom:new_flag");
+    NativeAndStarlarkFlags flags =
+        NativeAndStarlarkFlags.builder()
+            .optionsClasses(BUILD_CONFIG_OPTIONS)
+            .starlarkFlags(ImmutableMap.of("//custom:new_flag", "new_val"))
+            .starlarkFlagDefaults(ImmutableMap.of("//custom:new_flag", "default"))
+            .scopesAttributes(ImmutableMap.of("//custom:new_flag", "project"))
+            .build();
+    ParsedFlagsValue parsedFlags = ParsedFlagsValue.parseAndCreate(flags);
+
+    BuildOptions modified = parsedFlags.mergeWith(original).getOptions();
+
+    // New flag should be present with the merged value and the scope from its parsed scope
+    // attribute.
+    assertThat(modified.getStarlarkOptions()).containsEntry(newFlag, "new_val");
+    assertThat(modified.getScopeTypeMap()).containsEntry(newFlag, new Scope.ScopeType("project"));
+    // Existing flag and its scope should be unaffected.
+    assertThat(modified.getStarlarkOptions()).containsEntry(existingFlag, "val");
+    assertThat(modified.getScopeTypeMap()).containsEntry(existingFlag, existingScope);
   }
 }

@@ -17,14 +17,17 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 
 /** This example options class should fail to compile. */
-public class OptionWithContradictingUnknownEffects extends OptionsBase {
+@OptionsClass
+public abstract class OptionWithContradictingUnknownEffects extends OptionsBase {
   @Option(
-    name = "affect_output_is_also_unknown",
-    defaultValue = "true",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN, OptionEffectTag.TERMINAL_OUTPUT}
-  )
-  public boolean effectAndUnknownEffect;
+      name = "affect_output_is_also_unknown",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN, OptionEffectTag.AFFECTS_OUTPUTS})
+  public abstract boolean getEffectAndUnknownEffect();
+
+  public abstract void setEffectAndUnknownEffect(boolean value);
 }

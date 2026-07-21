@@ -23,8 +23,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.exec.BinTools;
+import com.google.devtools.build.lib.exec.RunfilesTreeUpdater;
 import com.google.devtools.build.lib.runtime.BlazeWorkspace.ActionCacheGarbageCollectorIdleTask;
 import com.google.devtools.build.lib.runtime.commands.VersionCommand;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
@@ -42,6 +44,7 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.protobuf.Any;
@@ -181,7 +184,7 @@ public class BlazeRuntimeTest {
     BlazeRuntime runtime = createRuntime();
     optionsParser.parse("--nokeep_state_after_build");
     CommandEnvironment env = createCommandEnvironment(runtime);
-    CommonCommandOptions options = new CommonCommandOptions();
+    CommonCommandOptions options = Options.getDefaults(CommonCommandOptions.class);
     runtime.beforeCommand(env, options);
 
     ImmutableList<IdleTask> gcIdleTasks =
@@ -198,8 +201,8 @@ public class BlazeRuntimeTest {
     BlazeRuntime runtime = createRuntime();
     optionsParser.parse("--keep_state_after_build");
     CommandEnvironment env = createCommandEnvironment(runtime);
-    env.getOptions().getOptions(KeepStateAfterBuildOption.class).keepStateAfterBuild = true;
-    CommonCommandOptions options = new CommonCommandOptions();
+    env.getOptions().getOptions(KeepStateAfterBuildOption.class).setKeepStateAfterBuild(true);
+    CommonCommandOptions options = Options.getDefaults(CommonCommandOptions.class);
 
     runtime.beforeCommand(env, options);
 
@@ -213,11 +216,38 @@ public class BlazeRuntimeTest {
   }
 
   @Test
+  public void runfilesTreeUpdater_distinctAcrossCommandsSharingWorkspace() throws Exception {
+    // Two commands sharing one workspace must still get distinct updaters. This pins the command
+    // scope against a potential regression of scoping the updater to the long-lived workspace:
+    // its dedup map never evicts, so a reused updater would skip restaging a tree that changed
+    // between commands.
+    BlazeRuntime runtime =
+        createRuntime(
+            ImmutableList.of(
+                new BlazeModule() {
+                  @Override
+                  public void initializeRuleClasses(ConfiguredRuleClassProvider.Builder builder) {
+                    builder.setRunfilesPrefix("_main");
+                  }
+                }),
+            ImmutableList.of());
+    BlazeWorkspace workspace =
+        runtime.initWorkspace(blazeDirectories, BinTools.empty(blazeDirectories));
+    CommandEnvironment firstEnv = createCommandEnvironment(runtime, workspace);
+    CommandEnvironment secondEnv = createCommandEnvironment(runtime, workspace);
+
+    RunfilesTreeUpdater firstUpdater = firstEnv.getRunfilesTreeUpdater();
+    assertThat(firstUpdater).isNotNull();
+    assertThat(firstEnv.getRunfilesTreeUpdater()).isSameInstanceAs(firstUpdater);
+    assertThat(secondEnv.getRunfilesTreeUpdater()).isNotSameInstanceAs(firstUpdater);
+  }
+
+  @Test
   public void doesNotAddInstallBaseGcIdleTaskWhenDisabled() throws Exception {
     BlazeRuntime runtime = createRuntime();
     CommandEnvironment env = createCommandEnvironment(runtime);
-    CommonCommandOptions options = new CommonCommandOptions();
-    options.installBaseGcMaxAge = Duration.ZERO;
+    CommonCommandOptions options = Options.getDefaults(CommonCommandOptions.class);
+    options.setInstallBaseGcMaxAge(Duration.ZERO);
 
     runtime.beforeCommand(env, options);
 
@@ -232,8 +262,8 @@ public class BlazeRuntimeTest {
   public void addsInstallBaseGcIdleTaskWhenEnabled() throws Exception {
     BlazeRuntime runtime = createRuntime();
     CommandEnvironment env = createCommandEnvironment(runtime);
-    CommonCommandOptions options = new CommonCommandOptions();
-    options.installBaseGcMaxAge = Duration.ofDays(365);
+    CommonCommandOptions options = Options.getDefaults(CommonCommandOptions.class);
+    options.setInstallBaseGcMaxAge(Duration.ofDays(365));
 
     runtime.beforeCommand(env, options);
 
@@ -255,10 +285,10 @@ public class BlazeRuntimeTest {
   public void doesNotAddActionCacheGcIdleTaskWhenDisabled() throws Exception {
     BlazeRuntime runtime = createRuntime();
     CommandEnvironment env = createCommandEnvironment(runtime);
-    CommonCommandOptions options = new CommonCommandOptions();
-    options.actionCacheGcMaxAge = Duration.ZERO;
-    options.actionCacheGcIdleDelay = Duration.ofMinutes(5);
-    options.actionCacheGcThreshold = 10;
+    CommonCommandOptions options = Options.getDefaults(CommonCommandOptions.class);
+    options.setActionCacheGcMaxAge(Duration.ZERO);
+    options.setActionCacheGcIdleDelay(Duration.ofMinutes(5));
+    options.setActionCacheGcThreshold(10);
 
     runtime.beforeCommand(env, options);
 
@@ -273,10 +303,10 @@ public class BlazeRuntimeTest {
   public void addsActionCacheGcIdleTaskWhenEnabled() throws Exception {
     BlazeRuntime runtime = createRuntime();
     CommandEnvironment env = createCommandEnvironment(runtime);
-    CommonCommandOptions options = new CommonCommandOptions();
-    options.actionCacheGcMaxAge = Duration.ofDays(7);
-    options.actionCacheGcIdleDelay = Duration.ofMinutes(5);
-    options.actionCacheGcThreshold = 10;
+    CommonCommandOptions options = Options.getDefaults(CommonCommandOptions.class);
+    options.setActionCacheGcMaxAge(Duration.ofDays(7));
+    options.setActionCacheGcIdleDelay(Duration.ofMinutes(5));
+    options.setActionCacheGcThreshold(10);
 
     runtime.beforeCommand(env, options);
 
@@ -370,6 +400,11 @@ public class BlazeRuntimeTest {
   private CommandEnvironment createCommandEnvironment(BlazeRuntime runtime) throws Exception {
     BlazeWorkspace workspace =
         runtime.initWorkspace(blazeDirectories, BinTools.empty(blazeDirectories));
+    return createCommandEnvironment(runtime, workspace);
+  }
+
+  private CommandEnvironment createCommandEnvironment(
+      BlazeRuntime runtime, BlazeWorkspace workspace) {
     return new CommandEnvironment(
         runtime,
         workspace,

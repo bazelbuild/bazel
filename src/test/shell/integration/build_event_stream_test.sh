@@ -908,9 +908,9 @@ function test_aspect_analysis_failure_no_target_summary() {
   expect_log 'last_message: true'
   expect_log_once '^build_tool_logs'
   expect_log_once '^completed '  # target completes due to -k
-  # One "aborted" for failed aspect analysis, another for target_summary_id
-  # announced by "completed" event asserted above
-  expect_log_n 'aborted' 2
+  # One "aborted" for failed aspect analysis, one for the target_configured
+  # event, and one for the target_summary_id announced by "completed" above.
+  expect_log_n '^aborted' 3
   expect_not_log '^target_summary '  # no summary due to analysis failure
 }
 
@@ -1690,7 +1690,9 @@ EOF
     --experimental_publish_package_metrics_in_bep \
     "//$p:BUILD"
   cp bep.json "$TEST_log" || fail "cp failed"
-  expect_log '"packageLoadMetrics":\[{"name":"test_glob_filesystem_operation_cost"[^}]*"globFilesystemOperationCost":"41"'
+  # packageLoadMetrics has two "name" entries: "name":"tools/python", then
+  # "name":"test_glob_filesystem_operation_cost". We're interested in the latter.
+  expect_log '"packageLoadMetrics":\[.*"name":"test_glob_filesystem_operation_cost"[^}]*"globFilesystemOperationCost":"41"'
 }
 
 function test_java_version_info_in_build_started() {
@@ -1706,6 +1708,34 @@ function test_java_version_info_in_build_started() {
     # textproto file only if the minor version is not 0.
     assert_contains "java_minor_version: [0-9]\+" bep.txt
   fi
+}
+
+function test_bes_upload_failure_does_not_block_run() {
+  mkdir -p bes_run_fail
+  cat > bes_run_fail/hello.sh <<'EOF'
+#!/bin/bash
+echo "HELLO_FROM_BINARY"
+EOF
+  chmod +x bes_run_fail/hello.sh
+  cat > bes_run_fail/BUILD <<'EOF'
+genrule(
+    name = "hello",
+    srcs = ["hello.sh"],
+    outs = ["hello_bin.sh"],
+    cmd = "cp $< $@ && chmod +x $@",
+    executable = 1,
+)
+EOF
+
+  # Run with a bogus BES backend.
+  # We expect Bazel to report the error but still execute the binary.
+  bazel run //bes_run_fail:hello \
+      --bes_backend=localhost:1234 \
+      --bes_upload_mode=wait_for_upload_complete \
+      &> $TEST_log || fail "bazel run failed"
+
+  expect_log "The Build Event Protocol upload failed"
+  expect_log "HELLO_FROM_BINARY"
 }
 
 run_suite "Integration tests for the build event stream"

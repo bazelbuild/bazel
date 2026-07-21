@@ -156,14 +156,14 @@ public class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
   private final Map<SkyKey, SkyValue> newlyRequestedDepsValues = new LinkedHashMap<>();
 
   /** Size delimiters for dep groups in {@link #newlyRequestedDepsValues}. */
-  private final List<Integer> newlyRequestedDepGroupSizes = new ArrayList<>();
+  @Nullable private List<Integer> newlyRequestedDepGroupSizes = null;
 
   /** The set of errors encountered while fetching children. */
-  private final Set<ErrorInfo> childErrorInfos = new LinkedHashSet<>();
+  @Nullable private Set<ErrorInfo> childErrorInfos = null;
 
   private final ParallelEvaluatorContext evaluatorContext;
 
-  private final List<Reportable> eventsToReport = new ArrayList<>();
+  @Nullable private List<Reportable> eventsToReport = null;
 
   static SkyFunctionEnvironment create(
       SkyKey skyKey,
@@ -301,7 +301,7 @@ public class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
       throws InterruptedException {
     EventFilter eventFilter = evaluatorContext.getStoredEventFilter();
     if (!eventFilter.storeEvents()) {
-      if (!eventsToReport.isEmpty()) {
+      if (eventsToReport != null && !eventsToReport.isEmpty()) {
         String tag = getTagFromKey();
         for (Reportable event : eventsToReport) {
           event.withTag(tag).reportTo(evaluatorContext.getReporter());
@@ -311,12 +311,12 @@ public class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
     }
 
     GroupedDeps depKeys = entry.getTemporaryDirectDeps();
-    if (eventsToReport.isEmpty() && depKeys.isEmpty()) {
+    if ((eventsToReport == null || eventsToReport.isEmpty()) && depKeys.isEmpty()) {
       return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     }
 
     NestedSetBuilder<Reportable> eventBuilder = NestedSetBuilder.stableOrder();
-    if (!eventsToReport.isEmpty()) {
+    if (eventsToReport != null && !eventsToReport.isEmpty()) {
       String tag = getTagFromKey();
       eventBuilder.addAll(Lists.transform(eventsToReport, event -> event.withTag(tag)));
     }
@@ -514,6 +514,9 @@ public class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
   private void endDepGroup(int sizeBeforeRequest) {
     int newDeps = newlyRequestedDepsValues.size() - sizeBeforeRequest;
     if (newDeps > 0) {
+      if (newlyRequestedDepGroupSizes == null) {
+        newlyRequestedDepGroupSizes = new ArrayList<>();
+      }
       newlyRequestedDepGroupSizes.add(newDeps);
     }
   }
@@ -619,6 +622,9 @@ public class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
     ErrorInfo errorInfo = ValueWithMetadata.getMaybeErrorInfo(depValue);
     if (errorInfo == null) {
       return;
+    }
+    if (childErrorInfos == null) {
+      childErrorInfos = new LinkedHashSet<>();
     }
     childErrorInfos.add(errorInfo);
     if (bubbleErrorInfo != null) {
@@ -831,6 +837,9 @@ public class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
   private void reportEvent(Reportable event) {
     checkActive();
     if (event.storeForReplay()) {
+      if (eventsToReport == null) {
+        eventsToReport = new ArrayList<>();
+      }
       eventsToReport.add(event);
     } else {
       event.reportTo(evaluatorContext.getReporter());
@@ -841,18 +850,20 @@ public class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
     building = false;
   }
 
-  Set<SkyKey> getNewlyRequestedDeps() {
+  @Override
+  public Set<SkyKey> getNewlyRequestedDeps() {
     return newlyRequestedDepsValues.keySet();
   }
 
   /** Adds newly requested dep keys to the node's temporary direct deps. */
   void addTemporaryDirectDepsTo(NodeEntry entry) {
     entry.addTemporaryDirectDepsInGroups(
-        newlyRequestedDepsValues.keySet(), newlyRequestedDepGroupSizes);
+        newlyRequestedDepsValues.keySet(),
+        newlyRequestedDepGroupSizes == null ? ImmutableList.of() : newlyRequestedDepGroupSizes);
   }
 
   void removeUndoneNewlyRequestedDeps() {
-    if (!valuesMissing) {
+    if (!valuesMissing || newlyRequestedDepGroupSizes == null) {
       return;
     }
     Iterator<SkyValue> it = newlyRequestedDepsValues.values().iterator();
@@ -898,7 +909,7 @@ public class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
   }
 
   Set<ErrorInfo> getChildErrorInfos() {
-    return childErrorInfos;
+    return childErrorInfos == null ? ImmutableSet.of() : childErrorInfos;
   }
 
   /**
@@ -920,7 +931,10 @@ public class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
       errorInfo =
           evaluatorContext
               .getErrorInfoManager()
-              .getErrorInfoToUse(skyKey, value != null, childErrorInfos);
+              .getErrorInfoToUse(
+                  skyKey,
+                  value != null,
+                  childErrorInfos == null ? ImmutableSet.of() : childErrorInfos);
       // TODO(b/166268889, b/172223413): remove when fixed.
       if (errorInfo != null && errorInfo.getException() instanceof IOException) {
         String skyFunctionName = skyKey.functionName().getName();
@@ -1029,14 +1043,44 @@ public class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
   }
 
   @Override
-  public void injectVersionForNonHermeticFunction(Version version) {
-    checkState(skyKey.functionName().getHermeticity() == FunctionHermeticity.NONHERMETIC, skyKey);
-    checkState(
-        maxTransitiveSourceVersion == null,
-        "Multiple injected versions (%s, %s) for %s",
-        maxTransitiveSourceVersion,
-        version,
-        skyKey);
+  public void injectVersion(Version version) {
+    var hermeticity = skyKey.functionName().getHermeticity();
+    if (hermeticity == FunctionHermeticity.HERMETIC && inErrorBubbling()) {
+      // Do nothing -- version is null during error bubbling, since
+      // SkyFunctionEnvironments will set a null MTSV anyway.
+      //
+      // See also Javadoc for SkyFunction.Environment#getMaxTransitiveSourceVersionSoFar.
+      return;
+    }
+    switch (hermeticity) {
+      case NONHERMETIC ->
+          checkState(
+              maxTransitiveSourceVersion == null,
+              "Multiple versions (%s, %s) for %s",
+              maxTransitiveSourceVersion,
+              version,
+              skyKey);
+      case HERMETIC ->
+          // It's possible, but rare, for the sketch function to get a Skycache
+          // hit after partially resolving its deps (and collecting a temporary
+          // MTSV), specifically under SkyKeyComputeState eviction conditions.
+          // This temporary MTSV must be less than or equal to the version that
+          // would be provided by a Skycache hit injected here.
+          //
+          // A higher MTSV would imply that the Skycache version is stale.
+          //
+          // It's also possible for the MTSV to be the Minimal Version during the initial
+          // evaluation and getting a Skycache hit without resolving any dep.
+          checkState(
+              maxTransitiveSourceVersion.atMost(version),
+              "Multiple versions (%s, %s) for %s",
+              maxTransitiveSourceVersion,
+              version,
+              skyKey);
+      default ->
+          throw new IllegalArgumentException(
+              "Unsupported hermeticity: " + skyKey.functionName().getHermeticity());
+    }
     checkNotNull(version, skyKey);
     checkState(
         !evaluatorContext.getGraphVersion().lowerThan(version),

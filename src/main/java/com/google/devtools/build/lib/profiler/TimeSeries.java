@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.profiler;
 
+import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
 import java.time.Duration;
 
 /**
@@ -20,6 +21,7 @@ import java.time.Duration;
  * point in time. Time is split into equal-sized buckets, and we compute one value per bucket. If a
  * range partially overlaps a bucket, then the bucket is incremented by the fraction of overlap.
  */
+@SkybridgeInterface
 public interface TimeSeries {
 
   /** Adds a new range to the time series, by increasing every affected bucket by 1. */

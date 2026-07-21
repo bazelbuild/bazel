@@ -17,10 +17,12 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 import java.util.List;
 
 /** Command line options shared by Build Encyclopedia and Starlark and BUILD language API docgen. */
-public class CommonOptions extends OptionsBase {
+@OptionsClass
+public abstract class CommonOptions extends OptionsBase {
   @Option(
       name = "link_map_path",
       abbrev = 'm',
@@ -30,7 +32,7 @@ public class CommonOptions extends OptionsBase {
       help =
           "Path to a JSON file that specifies link mappings (page name to URL and input file/label"
               + " to source code repository URL). Must be specified.")
-  public String linkMapPath;
+  public abstract String getLinkMapPath();
 
   @Option(
       name = "api_stardoc_proto",
@@ -41,7 +43,7 @@ public class CommonOptions extends OptionsBase {
       help =
           "A stardoc_output.ModuleInfo binary proto file generated from a Starlark and BUILD"
               + " language API entry point .bzl file")
-  public List<String> apiStardocProtos;
+  public abstract List<String> getApiStardocProtos();
 
   @Option(
       name = "create_toc",
@@ -49,7 +51,7 @@ public class CommonOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Whether to output a table of contents.")
-  public boolean createToc;
+  public abstract boolean getCreateToc();
 
   @Option(
       name = "help",
@@ -58,5 +60,5 @@ public class CommonOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Prints the help string.")
-  public boolean help;
+  public abstract boolean getHelp();
 }

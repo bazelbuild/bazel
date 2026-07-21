@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.exec;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext.ShowSubcommands;
 import com.google.devtools.build.lib.actions.LocalHostCapacity;
 import com.google.devtools.build.lib.actions.ResourceSet;
@@ -27,6 +26,8 @@ import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.lib.util.ResourceConverter;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.BoolOrEnumConverter;
+import com.google.devtools.common.options.BooleanStyleOption;
+import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Converters.AssignmentToListOfValuesConverter;
 import com.google.devtools.common.options.Converters.CommaSeparatedNonEmptyOptionListConverter;
@@ -34,14 +35,15 @@ import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
-import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.time.Duration;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import javax.annotation.Nullable;
 
 /**
  * Options affecting the execution phase of a build.
@@ -56,9 +58,8 @@ import java.util.Objects;
  * the lib.actions machinery.) Ideally, the user would be unaware of the difference. For now, the
  * usage strings are identical modulo "part 1", "part 2".
  */
-public class ExecutionOptions extends OptionsBase {
-
-  public static final ExecutionOptions DEFAULTS = Options.getDefaults(ExecutionOptions.class);
+@OptionsClass
+public abstract class ExecutionOptions extends OptionsBase {
 
   @Option(
       name = "spawn_strategy",
@@ -72,7 +73,7 @@ public class ExecutionOptions extends OptionsBase {
               + " strategy with the highest priority that can execute the action. The default"
               + " value is \"remote,worker,sandboxed,local\". See"
               + " https://blog.bazel.build/2019/06/19/list-strategy.html for details.")
-  public List<String> spawnStrategy;
+  public abstract List<String> getSpawnStrategy();
 
   @Option(
       name = "genrule_strategy",
@@ -84,7 +85,7 @@ public class ExecutionOptions extends OptionsBase {
           "Specify how to execute genrules. This flag will be phased out. Instead, use "
               + "--spawn_strategy=<value> to control all actions or --strategy=Genrule=<value> "
               + "to control genrules only.")
-  public List<String> genruleStrategy;
+  public abstract List<String> getGenruleStrategy();
 
   @Option(
       name = "strategy",
@@ -100,7 +101,7 @@ public class ExecutionOptions extends OptionsBase {
               + " value is \"remote,worker,sandboxed,local\". This flag overrides the values set"
               + " by --spawn_strategy (and --genrule_strategy if used with mnemonic Genrule). See"
               + " https://blog.bazel.build/2019/06/19/list-strategy.html for details.")
-  public List<Map.Entry<String, List<String>>> strategy;
+  public abstract List<Map.Entry<String, List<String>>> getStrategy();
 
   @Option(
       name = "strategy_regexp",
@@ -111,7 +112,7 @@ public class ExecutionOptions extends OptionsBase {
       defaultValue = "null",
       help =
           "Override which spawn strategy should be used to execute spawn actions that have "
-              + "descriptions matching a certain regex_filter. See --per_file_copt for details on"
+              + "descriptions matching a certain regex_filter. See --per_file_copt for details on "
               + "regex_filter matching. "
               + "The last regex_filter that matches the description is used. "
               + "This option overrides other flags for specifying strategy. "
@@ -120,7 +121,7 @@ public class ExecutionOptions extends OptionsBase {
               + "Example: --strategy_regexp='Compiling.*/bar=local "
               + " --strategy_regexp=Compiling=sandboxed will run 'Compiling //foo/bar/baz' with "
               + "the 'local' strategy, but reversing the order would run it with 'sandboxed'. ")
-  public List<Map.Entry<RegexFilter, List<String>>> strategyByRegexp;
+  public abstract List<Map.Entry<RegexFilter, List<String>>> getStrategyByRegexp();
 
   @Option(
       name = "allowed_strategies_by_exec_platform",
@@ -145,7 +146,7 @@ public class ExecutionOptions extends OptionsBase {
           - Actions configured for the `//:linux_amd64` platform with mnemonic `Genrule` will be
             given no strategies and fail to spawn.
           """)
-  public List<Map.Entry<Label, List<String>>> allowedStrategiesByExecPlatform;
+  public abstract List<Map.Entry<Label, List<String>>> getAllowedStrategiesByExecPlatform();
 
   @Option(
       name = "materialize_param_files",
@@ -156,7 +157,7 @@ public class ExecutionOptions extends OptionsBase {
           "Writes intermediate parameter files to output tree even when using remote action "
               + "execution or caching. Useful when debugging actions. This is implied by "
               + "--subcommands and --verbose_failures.")
-  public boolean materializeParamFiles;
+  public abstract boolean getMaterializeParamFiles();
 
   @Option(
       name = "experimental_materialize_param_files_directly",
@@ -164,13 +165,13 @@ public class ExecutionOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.EXECUTION},
       help = "If materializing param files, do so with direct writes to disk.")
-  public boolean materializeParamFilesDirectly;
+  public abstract boolean getMaterializeParamFilesDirectly();
 
-  public boolean shouldMaterializeParamFiles() {
+  public final boolean shouldMaterializeParamFiles() {
     // Implied by --subcommands and --verbose_failures
-    return materializeParamFiles
-        || showSubcommands != ActionExecutionContext.ShowSubcommands.FALSE
-        || verboseFailures;
+    return getMaterializeParamFiles()
+        || getShowSubcommands() != ShowSubcommands.FALSE
+        || getVerboseFailures();
   }
 
   @Option(
@@ -179,7 +180,7 @@ public class ExecutionOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
       help = "If a command fails, print out the full command line.")
-  public boolean verboseFailures;
+  public abstract boolean getVerboseFailures();
 
   @Option(
       name = "subcommands",
@@ -192,7 +193,19 @@ public class ExecutionOptions extends OptionsBase {
           "Display the subcommands executed during a build. Related flags:"
               + " --execution_log_json_file, --execution_log_binary_file (for logging subcommands"
               + " to a file in a tool-friendly format).")
-  public ShowSubcommands showSubcommands;
+  public abstract ShowSubcommands getShowSubcommands();
+
+  @Option(
+      name = "expand_param_files",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help =
+          "When displaying subcommands (--subcommands) or printing the command line of a failed"
+              + " action (--verbose_failures), expand the contents of param files. When enabled,"
+              + " param file references like @path/to/param_file are replaced with the actual"
+              + " arguments they contain.")
+  public abstract boolean getExpandParamFiles();
 
   @Option(
       name = "check_up_to_date",
@@ -203,7 +216,7 @@ public class ExecutionOptions extends OptionsBase {
           "Don't perform the build, just check if it is up-to-date.  If all targets are "
               + "up-to-date, the build completes successfully.  If any step needs to be executed "
               + "an error is reported and the build fails.")
-  public boolean checkUpToDate;
+  public abstract boolean getCheckUpToDate();
 
   @Option(
       name = "check_tests_up_to_date",
@@ -216,7 +229,7 @@ public class ExecutionOptions extends OptionsBase {
               + "up-to-date, the testing completes successfully.  If any test needs to be built or "
               + "executed, an error is reported and the testing fails.  This option implies "
               + "--check_up_to_date behavior.")
-  public boolean testCheckUpToDate;
+  public abstract boolean getTestCheckUpToDate();
 
   @Option(
       name = "test_strategy",
@@ -224,7 +237,7 @@ public class ExecutionOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.TESTING,
       effectTags = {OptionEffectTag.EXECUTION},
       help = "Specifies which strategy to use when running tests.")
-  public String testStrategy;
+  public abstract String getTestStrategy();
 
   @Option(
       name = "test_keep_going",
@@ -234,7 +247,7 @@ public class ExecutionOptions extends OptionsBase {
       help =
           "When disabled, any non-passing test will cause the entire build to stop. By default "
               + "all tests are run, even if some do not pass.")
-  public boolean testKeepGoing;
+  public abstract boolean getTestKeepGoing();
 
   @Option(
       name = "flaky_test_attempts",
@@ -257,16 +270,16 @@ public class ExecutionOptions extends OptionsBase {
               + " except those under foo/bar three times. This option can be passed multiple"
               + " times. The most recently passed argument that matches takes precedence. If"
               + " nothing matches, behavior is as if 'default' above.")
-  public List<PerLabelOptions> testAttempts;
+  public abstract List<PerLabelOptions> getTestAttempts();
 
   @Option(
       name = "test_tmpdir",
       defaultValue = "null",
-      converter = OptionsUtils.PathFragmentConverter.class,
+      converter = OptionsUtils.EmptyToNullPathFragmentConverter.class,
       documentationCategory = OptionDocumentationCategory.TESTING,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Specifies the base temporary directory for 'bazel test' to use.")
-  public PathFragment testTmpDir;
+  public abstract PathFragment getTestTmpDir();
 
   @Option(
       name = "test_output",
@@ -290,7 +303,9 @@ public class ExecutionOptions extends OptionsBase {
           - `streamed` to output logs for all tests in real time (this will force tests to be
             executed locally one at a time regardless of `--test_strategy` value).
           """)
-  public TestOutputFormat testOutput;
+  public abstract TestOutputFormat getTestOutput();
+
+  public abstract void setTestOutput(TestOutputFormat value);
 
   @Option(
       name = "max_test_output_bytes",
@@ -306,7 +321,7 @@ public class ExecutionOptions extends OptionsBase {
               + "or 'all'. Useful for avoiding overwhelming the output with excessively noisy test "
               + "output. The test header is included in the log size. Negative values imply no "
               + "limit. Output is all or nothing.")
-  public int maxTestOutputBytes;
+  public abstract int getMaxTestOutputBytes();
 
   @Option(
       name = "test_summary",
@@ -327,7 +342,9 @@ public class ExecutionOptions extends OptionsBase {
             failed test cases.
           - `none` to omit the summary.
           """)
-  public TestSummaryFormat testSummary;
+  public abstract TestSummaryFormat getTestSummary();
+
+  public abstract void setTestSummary(TestSummaryFormat value);
 
   @Option(
       name = "local_resources",
@@ -351,14 +368,14 @@ public class ExecutionOptions extends OptionsBase {
               + "Tests can declare the amount of resources they need "
               + "by using a tag of the \"resources:<resource name>:<amount>\" format. ",
       converter = ResourceConverter.AssignmentConverter.class)
-  public List<Map.Entry<String, Double>> localResources;
+  public abstract List<Map.Entry<String, Double>> getLocalResourcesFields();
 
-  public ImmutableMap<String, Double> getLocalResources() {
+  public final ImmutableMap<String, Double> getLocalResources() {
     ImmutableMap.Builder<String, Double> resources = ImmutableMap.builder();
     return resources
         .put(ResourceSet.CPU, LocalHostCapacity.getLocalHostCapacity().getCpuUsage())
         .put(ResourceSet.MEMORY, .67 * LocalHostCapacity.getLocalHostCapacity().getMemoryMb())
-        .putAll(localResources)
+        .putAll(getLocalResourcesFields())
         .buildKeepingLast();
   }
 
@@ -371,8 +388,8 @@ public class ExecutionOptions extends OptionsBase {
           "Enables the experimental local execution scheduling based on CPU load, not estimation of"
               + " actions one by one.  Experimental scheduling have showed the large benefit on a"
               + " large local builds on a powerful machines with the large number of cores."
-              + " Reccommended to use with --local_resources=cpu=HOST_CPUS")
-  public boolean experimentalCpuLoadScheduling;
+              + " Recommended to use with --local_resources=cpu=HOST_CPUS")
+  public abstract boolean getExperimentalCpuLoadScheduling();
 
   @Option(
       name = "experimental_cpu_load_scheduling_window_size",
@@ -382,7 +399,7 @@ public class ExecutionOptions extends OptionsBase {
       help =
           "The size of window during experimental scheduling of action based on CPU load. Make"
               + " sense to define only when flag --experimental_cpu_load_scheduling is enabled.")
-  public Duration experimentalCpuLoadSchedulingWindowSize;
+  public abstract Duration getExperimentalCpuLoadSchedulingWindowSize();
 
   @Option(
       name = "local_test_jobs",
@@ -397,10 +414,10 @@ public class ExecutionOptions extends OptionsBase {
               + "concurrently instead. Setting this greater than the value for --jobs "
               + "is ineffectual.",
       converter = LocalTestJobsConverter.class)
-  public int localTestJobs;
+  public abstract int getLocalTestJobs();
 
-  public boolean usingLocalTestJobs() {
-    return localTestJobs != 0;
+  public final boolean usingLocalTestJobs() {
+    return getLocalTestJobs() != 0;
   }
 
   @Option(
@@ -414,7 +431,7 @@ public class ExecutionOptions extends OptionsBase {
               + "Setting this to 0 ensures correctness because not all file changes can be noted "
               + "from file metadata. When not 0, the number indicates the size of the cache as the "
               + "number of file digests to be cached.")
-  public long cacheSizeForComputedFileDigests;
+  public abstract long getCacheSizeForComputedFileDigests();
 
   @Option(
       name = "experimental_enable_critical_path_profiling",
@@ -425,7 +442,7 @@ public class ExecutionOptions extends OptionsBase {
           "If set (the default), critical path profiling is enabled for the execution phase. This"
               + " has a slight overhead in RAM and CPU, and may prevent Bazel from making certain"
               + " aggressive RAM optimizations in some cases.")
-  public boolean enableCriticalPathProfiling;
+  public abstract boolean getEnableCriticalPathProfiling();
 
   @Option(
       name = "experimental_stats_summary",
@@ -433,7 +450,7 @@ public class ExecutionOptions extends OptionsBase {
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
       defaultValue = "false",
       help = "Enable a modernized summary of the build stats.")
-  public boolean statsSummary;
+  public abstract boolean getStatsSummary();
 
   @Option(
       name = "execution_log_binary_file",
@@ -441,16 +458,19 @@ public class ExecutionOptions extends OptionsBase {
       category = "verbosity",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
-      converter = OptionsUtils.EmptyToNullPathFragmentConverter.class,
+      converter = ExecutionLogFileConverter.class,
       help =
           "Log the executed spawns into this file as length-delimited SpawnExec protos, according"
               + " to src/main/protobuf/spawn.proto. Prefer --execution_log_compact_file, which is"
-              + " significantly smaller and cheaper to produce. Related flags:"
-              + " --execution_log_compact_file (compact format; mutually exclusive),"
-              + " --execution_log_json_file (text JSON format; mutually exclusive),"
-              + " --execution_log_sort (whether to sort the execution log),"
-              + " --subcommands (for displaying subcommands in terminal output).")
-  public PathFragment executionLogBinaryFile;
+              + " significantly smaller and cheaper to produce. The flag accepts boolean and string"
+              + " values. If string, it represents a local path. If true, then"
+              + " --experimental_stream_log_file_uploads must be set, whereby it will stream the"
+              + " execution log to remote storage. If false, then logging to the execution log is"
+              + " disabled. Related flags: --execution_log_compact_file (compact format; mutually"
+              + " exclusive), --execution_log_json_file (text JSON format; mutually exclusive),"
+              + " --execution_log_sort (whether to sort the execution log), --subcommands (for"
+              + " displaying subcommands in terminal output).")
+  public abstract PathFragment getExecutionLogBinaryFile();
 
   @Option(
       name = "execution_log_json_file",
@@ -458,17 +478,20 @@ public class ExecutionOptions extends OptionsBase {
       category = "verbosity",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
-      converter = OptionsUtils.EmptyToNullPathFragmentConverter.class,
+      converter = ExecutionLogFileConverter.class,
       help =
           "Log the executed spawns into this file as newline-delimited JSON representations of"
               + " SpawnExec protos, according to src/main/protobuf/spawn.proto. Prefer"
               + " --execution_log_compact_file, which is significantly smaller and cheaper to"
-              + " produce. Related flags:"
+              + " produce. The flag accepts boolean and string values. If string, it represents a"
+              + " local path. If true, then --experimental_stream_log_file_uploads must be set,"
+              + " whereby it will stream the execution log to remote storage. If false, then"
+              + " logging to the execution log is disabled. Related flags:"
               + " --execution_log_compact_file (compact format; mutually exclusive),"
               + " --execution_log_binary_file (binary protobuf format; mutually exclusive),"
               + " --execution_log_sort (whether to sort the execution log),"
               + " --subcommands (for displaying subcommands in terminal output).")
-  public PathFragment executionLogJsonFile;
+  public abstract PathFragment getExecutionLogJsonFile();
 
   @Option(
       name = "execution_log_compact_file",
@@ -477,15 +500,18 @@ public class ExecutionOptions extends OptionsBase {
       category = "verbosity",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
-      converter = OptionsUtils.EmptyToNullPathFragmentConverter.class,
+      converter = ExecutionLogFileConverter.class,
       help =
           "Log the executed spawns into this file as length-delimited ExecLogEntry protos,"
               + " according to src/main/protobuf/spawn.proto. The entire file is zstd compressed."
-              + " Related flags:"
-              + " --execution_log_binary_file (binary protobuf format; mutually exclusive),"
-              + " --execution_log_json_file (text JSON format; mutually exclusive),"
-              + " --subcommands (for displaying subcommands in terminal output).")
-  public PathFragment executionLogCompactFile;
+              + " The flag accepts boolean and string values. If string, it represents a local"
+              + " path. If true, then --experimental_stream_log_file_uploads must be set, whereby"
+              + " it will stream the execution log to remote storage. If false, then logging to the"
+              + " execution log is disabled. Related flags: --execution_log_binary_file (binary"
+              + " protobuf format; mutually exclusive), --execution_log_json_file (text JSON"
+              + " format; mutually exclusive), --subcommands (for displaying subcommands in"
+              + " terminal output).")
+  public abstract PathFragment getExecutionLogCompactFile();
 
   @Option(
       name = "execution_log_sort",
@@ -498,7 +524,19 @@ public class ExecutionOptions extends OptionsBase {
               + " the invocation, at the cost of producing the log in nondeterministic execution"
               + " order. Only applies to the binary and JSON formats; the compact format is never"
               + " sorted.")
-  public boolean executionLogSort;
+  public abstract boolean getExecutionLogSort();
+
+  @Option(
+      name = "execution_log_mnemonic_filter",
+      defaultValue = ".*",
+      converter = RegexFilter.RegexFilterConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Filter the execution log by mnemonic. Only spawns with a matching mnemonic will be"
+              + " logged. Supports a comma-separated list of regexes, with optional '-' prefix"
+              + " for exclusions. The default is to log every spawn.")
+  public abstract RegexFilter getExecutionLogMnemonicFilter();
 
   @Option(
       // TODO: when this flag is moved to non-experimental, rename it to a more general name
@@ -512,7 +550,7 @@ public class ExecutionOptions extends OptionsBase {
               + " cache error that would otherwise fail the build. Applies for example when"
               + " artifacts are evicted from the remote cache, or in certain cache failure"
               + " conditions. A new invocation id will be generated for each attempt.")
-  public int remoteRetryOnTransientCacheError;
+  public abstract int getRemoteRetryOnTransientCacheError();
 
   @Option(
       name = "allow_one_action_on_resource_unavailable",
@@ -522,7 +560,36 @@ public class ExecutionOptions extends OptionsBase {
       help =
           "If set, allow at least one action to run even if the resource is not enough or"
               + " unavailable.")
-  public boolean allowOneActionOnResourceUnavailable;
+  public abstract boolean getAllowOneActionOnResourceUnavailable();
+
+  /**
+   * Accepts a filesystem path, or boolean-like values selecting a default location or disabling the
+   * log.
+   */
+  public static final class ExecutionLogFileConverter extends Converter.Contextless<PathFragment>
+      implements BooleanStyleOption {
+
+    private static final Converters.BooleanConverter BOOLEAN_CONVERTER =
+        new Converters.BooleanConverter();
+
+    @Override
+    @Nullable
+    public PathFragment convert(String input) {
+      if (input.isEmpty()) {
+        return PathFragment.EMPTY_FRAGMENT;
+      }
+      try {
+        return BOOLEAN_CONVERTER.convert(input) ? PathFragment.EMPTY_FRAGMENT : null;
+      } catch (OptionsParsingException e) {
+        return new OptionsUtils.PathFragmentConverter().convert(input);
+      }
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "a path, or a boolean to use the default execution log location";
+    }
+  }
 
   /** An enum for specifying different formats of test output. */
   public enum TestOutputFormat {
@@ -646,7 +713,8 @@ public class ExecutionOptions extends OptionsBase {
     }
   }
 
-  private static class LabelToStringListConverter
+  /** Converter for options that take a label-to-string-list assignment. */
+  protected static class LabelToStringListConverter
       extends AssignmentToListOfValuesConverter<Label, String> {
 
     LabelToStringListConverter() {

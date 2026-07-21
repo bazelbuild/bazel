@@ -123,8 +123,7 @@ public class GrpcRemoteDownloaderTest {
         TracingMetadataUtils.buildMetadata(
             "none",
             "none",
-            DIGEST_UTIL.asActionKey(Digest.getDefaultInstance()).digest().getHash(),
-            null);
+            DIGEST_UTIL.asActionKey(Digest.getDefaultInstance()).digest().getHash());
     context = RemoteActionExecutionContext.create(metadata);
 
     retryService = MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
@@ -181,7 +180,7 @@ public class GrpcRemoteDownloaderTest {
         remoteOptions,
         /* verboseFailures= */ false,
         httpDownloader,
-        remoteOptions.remoteDownloaderLocalFallback);
+        remoteOptions.getRemoteDownloaderLocalFallback());
   }
 
   private byte[] downloadBlob(GrpcRemoteDownloader downloader, URI url, Optional<Checksum> checksum)
@@ -237,7 +236,9 @@ public class GrpcRemoteDownloaderTest {
     final RemoteCacheClient cacheClient = new InMemoryCacheClient();
     final GrpcRemoteDownloader downloader = newDownloader(cacheClient);
 
-    getFromFuture(cacheClient.uploadBlob(context, contentDigest, ByteString.copyFrom(content)));
+    getFromFuture(
+        cacheClient.uploadBlob(
+            context, contentDigest, ByteString.copyFrom(content), /* force= */ false));
     final byte[] downloaded =
         downloadBlob(
             downloader, URI.create("http://example.com/content.txt"), Optional.<Checksum>empty());
@@ -251,7 +252,7 @@ public class GrpcRemoteDownloaderTest {
 
   @Test
   public void testDownloadFallback() throws Exception {
-    remoteOptions.remoteDownloaderLocalFallback = true;
+    remoteOptions.setRemoteDownloaderLocalFallback(true);
     final byte[] content = "example content".getBytes(UTF_8);
     serviceRegistry.addService(
         new FetchImplBase() {
@@ -351,7 +352,9 @@ public class GrpcRemoteDownloaderTest {
     final GrpcRemoteDownloader downloader = newDownloader(cacheClient, /* httpDownloader= */ null);
     // Add a cache entry for the empty Digest to verify that the implementation checks the status
     // before fetching the digest.
-    getFromFuture(cacheClient.uploadBlob(context, Digest.getDefaultInstance(), ByteString.EMPTY));
+    getFromFuture(
+        cacheClient.uploadBlob(
+            context, Digest.getDefaultInstance(), ByteString.EMPTY, /* force= */ false));
 
     var exception =
         assertThrows(
@@ -395,7 +398,9 @@ public class GrpcRemoteDownloaderTest {
     final RemoteCacheClient cacheClient = new InMemoryCacheClient();
     final GrpcRemoteDownloader downloader = newDownloader(cacheClient);
 
-    getFromFuture(cacheClient.uploadBlob(context, contentDigest, ByteString.copyFrom(content)));
+    getFromFuture(
+        cacheClient.uploadBlob(
+            context, contentDigest, ByteString.copyFrom(content), /* force= */ false));
     final byte[] downloaded =
         downloadBlob(
             downloader,
@@ -435,7 +440,8 @@ public class GrpcRemoteDownloaderTest {
     final GrpcRemoteDownloader downloader = newDownloader(cacheClient);
 
     getFromFuture(
-        cacheClient.uploadBlob(context, contentDigest, ByteString.copyFromUtf8("wrong content")));
+        cacheClient.uploadBlob(
+            context, contentDigest, ByteString.copyFromUtf8("wrong content"), /* force= */ false));
 
     IOException e =
         assertThrows(
@@ -451,11 +457,11 @@ public class GrpcRemoteDownloaderTest {
   }
 
   @Test
-  public void testFetchBlobRequest() throws Exception {
+  public void testFetchBlobRequest_withHeadersPropagation() throws Exception {
     FetchBlobRequest request =
         GrpcRemoteDownloader.newFetchBlobRequest(
             "instance name",
-            false,
+            true,
             ImmutableList.of(
                 URI.create("http://example.com/a"),
                 URI.create("http://example.com/b"),
@@ -492,6 +498,43 @@ public class GrpcRemoteDownloaderTest {
                     Qualifier.newBuilder()
                         .setName("http_header:X-Custom-Token")
                         .setValue("foo,bar"))
+                .build());
+  }
+
+  @Test
+  public void testFetchBlobRequest_withoutHeadersPropagation() throws Exception {
+    FetchBlobRequest request =
+        GrpcRemoteDownloader.newFetchBlobRequest(
+            "instance name",
+            false,
+            ImmutableList.of(
+                URI.create("http://example.com/a"),
+                URI.create("http://example.com/b"),
+                URI.create("file:/not/limited/to/http")),
+            Optional.<Checksum>of(
+                Checksum.fromSubresourceIntegrity(
+                    "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")),
+            "canonical ID",
+            DIGEST_UTIL.getDigestFunction(),
+            ImmutableMap.of(
+                "Authorization", ImmutableList.of("Basic Zm9vOmJhcg=="),
+                "X-Custom-Token", ImmutableList.of("foo", "bar")),
+            StaticCredentials.EMPTY);
+
+    assertThat(request)
+        .isEqualTo(
+            FetchBlobRequest.newBuilder()
+                .setInstanceName("instance name")
+                .setDigestFunction(DIGEST_UTIL.getDigestFunction())
+                .addUris("http://example.com/a")
+                .addUris("http://example.com/b")
+                .addUris("file:/not/limited/to/http")
+                .addQualifiers(
+                    Qualifier.newBuilder()
+                        .setName("checksum.sri")
+                        .setValue("sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="))
+                .addQualifiers(
+                    Qualifier.newBuilder().setName("bazel.canonical_id").setValue("canonical ID"))
                 .build());
   }
 

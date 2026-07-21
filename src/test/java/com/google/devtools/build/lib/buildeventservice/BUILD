@@ -22,10 +22,13 @@ java_library(
     name = "AbstractBuildEventServiceTransportTest",
     srcs = ABSTRACT_TEST_SRCS,
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/buildeventservice",
         "//src/main/java/com/google/devtools/build/lib/buildeventservice:build_event_service_options",
+        "//src/main/java/com/google/devtools/build/lib/buildeventservice:build_event_service_transport",
+        "//src/main/java/com/google/devtools/build/lib/buildeventservice:command_context_impl",
         "//src/main/java/com/google/devtools/build/lib/buildeventservice/client:build_event_service_client",
         "//src/main/java/com/google/devtools/build/lib/buildeventservice/client:build_event_service_proto_util",
+        "//src/main/java/com/google/devtools/build/lib/buildeventservice/client:command_context",
+        "//src/main/java/com/google/devtools/build/lib/buildeventservice/client:lifecycle_event",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
         "//src/main/java/com/google/devtools/build/lib/buildtool:build_request",
@@ -62,9 +65,11 @@ java_test(
     test_class = "com.google.devtools.build.lib.AllTests",
     runtime_deps = ["//src/test/java/com/google/devtools/build/lib:test_runner"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/buildeventservice/client:build_event_service_client",
+        "//src/main/java/com/google/devtools/build/lib/buildeventservice:command_context_impl",
         "//src/main/java/com/google/devtools/build/lib/buildeventservice/client:build_event_service_grpc_client",
         "//src/main/java/com/google/devtools/build/lib/buildeventservice/client:build_event_service_proto_util",
+        "//src/main/java/com/google/devtools/build/lib/buildeventservice/client:command_context",
+        "//src/main/java/com/google/devtools/build/lib/buildeventservice/client:lifecycle_event",
         "//src/test/java/com/google/devtools/build/lib/testutil",
         "//third_party:guava",
         "//third_party:junit4",
@@ -76,8 +81,8 @@ java_test(
     ],
 )
 
-java_test(
-    name = "BuildEventServiceTransportGrpcTest",
+java_library(
+    name = "BuildEventServiceTransportGrpcTestLib",
     srcs = ["BuildEventServiceTransportGrpcTest.java"],
     deps = [
         ":AbstractBuildEventServiceTransportTest",
@@ -96,6 +101,14 @@ java_test(
 )
 
 java_test(
+    name = "BuildEventServiceTransportGrpcTest",
+    test_class = "com.google.devtools.build.lib.buildeventservice.BuildEventServiceTransportGrpcTest",
+    runtime_deps = [
+        ":BuildEventServiceTransportGrpcTestLib",
+    ],
+)
+
+java_test(
     name = "BazelBuildEventServiceModuleTest",
     srcs = ["BazelBuildEventServiceModuleTest.java"],
     shard_count = 10,
@@ -104,32 +117,44 @@ java_test(
     ],
     deps = [
         ":build_event_service_test_utils",
+        "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
         "//src/main/java/com/google/devtools/build/lib/authandtls",
         "//src/main/java/com/google/devtools/build/lib/authandtls/credentialhelper:credential_module",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
-        "//src/main/java/com/google/devtools/build/lib/buildeventservice",
+        "//src/main/java/com/google/devtools/build/lib/buildeventservice:bazel_build_event_service_module",
+        "//src/main/java/com/google/devtools/build/lib/buildeventservice:build_event_service_module",
         "//src/main/java/com/google/devtools/build/lib/buildeventservice:build_event_service_options",
+        "//src/main/java/com/google/devtools/build/lib/buildeventservice:build_event_service_transport",
+        "//src/main/java/com/google/devtools/build/lib/buildeventservice:prev_invocation_bes_upload_report_failed_event",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream:build_event_service_upload_complete_event",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/transports",
+        "//src/main/java/com/google/devtools/build/lib/exec:spawn_exec_exception",
         "//src/main/java/com/google/devtools/build/lib/network:connectivity_status",
         "//src/main/java/com/google/devtools/build/lib/network:noop_connectivity",
-        "//src/main/java/com/google/devtools/build/lib/remote/util",
+        "//src/main/java/com/google/devtools/build/lib/packages/metrics",
+        "//src/main/java/com/google/devtools/build/lib/remote/util:tracing_metadata_utils",
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
         "//src/main/java/com/google/devtools/build/lib/runtime:no_spawn_cache_module",
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
         "//src/main/java/com/google/devtools/build/lib/util:exit_code",
+        "//src/main/java/com/google/devtools/common/options:options_internal",
         "//src/main/protobuf:command_line_java_proto",
+        "//src/main/protobuf:failure_details_java_proto",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
+        "//src/test/java/com/google/devtools/build/lib/testutil:controllable_action_strategy_module",
+        "//src/test/java/com/google/devtools/build/lib/testutil:spawn_controller",
         "//src/test/java/com/google/devtools/build/skyframe:testutil",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party:junit4",
         "//third_party:truth",
         "//third_party/grpc-java:grpc-jar",
+        "@com_google_protobuf//:protobuf_java",
         "@maven//:com_google_testparameterinjector_test_parameter_injector",
     ],
 )
@@ -140,7 +165,7 @@ java_library(
         "DelayingPublishBuildEventService.java",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/remote/util",
+        "//src/main/java/com/google/devtools/build/lib/remote/util:tracing_metadata_utils",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party:truth",

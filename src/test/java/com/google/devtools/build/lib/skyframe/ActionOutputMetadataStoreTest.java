@@ -21,7 +21,6 @@ import static org.mockito.Mockito.mock;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionInputMap;
@@ -56,6 +55,7 @@ import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nullable;
 import org.junit.Before;
 import org.junit.Test;
@@ -75,7 +75,7 @@ public final class ActionOutputMetadataStoreTest {
     DEEP
   }
 
-  private final Map<Path, Integer> chmodCalls = Maps.newConcurrentMap();
+  private final Map<Path, Integer> chmodCalls = new ConcurrentHashMap<>();
 
   private final Scratch scratch =
       new Scratch(

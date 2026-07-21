@@ -17,6 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.analysis.AnalysisProtosV2.Action;
 import com.google.devtools.build.lib.analysis.AnalysisProtosV2.ActionGraphContainer;
 import com.google.devtools.build.lib.buildtool.AqueryProcessor.AqueryActionFilterException;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
@@ -113,6 +114,54 @@ public class AqueryBuildToolTest extends BuildIntegrationTestCase {
     // Then, run aquery and dump the action graph as of the previous skyframe state.
     addOptions("--output=proto", "--skyframe_state");
     CommandEnvironment env = runtimeWrapper.newCommand(AqueryCommand.class);
+    ByteArrayOutputStream stdout = captureStdout(env);
+
+    AqueryProcessor aqueryProcessor = new AqueryProcessor(null, TargetPattern.defaultParser());
+    BlazeCommandResult result = aqueryProcessor.dumpActionGraphFromSkyframe(env);
+    assertThat(result.isSuccess()).isTrue();
+
+    // Test whether stdout is a valid proto.
+    assertThat(stdout.size()).isGreaterThan(0);
+    ActionGraphContainer actionGraphContainer =
+        ActionGraphContainer.parseFrom(stdout.toByteArray(), ExtensionRegistry.getEmptyRegistry());
+    assertThat(actionGraphContainer.getActionsList()).isNotEmpty();
+  }
+
+  @Test
+  public void testAqueryProgressMessage() throws Exception {
+    write(
+        "x/BUILD",
+        """
+        genrule(
+            name = "x",
+            srcs = ["in"],
+            outs = ["out"],
+            cmd = "touch $(OUTS)",
+        )
+        """);
+    write("x/in", "");
+    buildTarget("//x");
+
+    addOptions("--output=proto", "--skyframe_state");
+    CommandEnvironment env = runtimeWrapper.newCommand(AqueryCommand.class);
+    ByteArrayOutputStream stdout = captureStdout(env);
+
+    AqueryProcessor aqueryProcessor = new AqueryProcessor(null, TargetPattern.defaultParser());
+    BlazeCommandResult result = aqueryProcessor.dumpActionGraphFromSkyframe(env);
+    assertThat(result.isSuccess()).isTrue();
+
+    ActionGraphContainer actionGraphContainer =
+        ActionGraphContainer.parseFrom(stdout.toByteArray(), ExtensionRegistry.getEmptyRegistry());
+    Action genruleAction =
+        actionGraphContainer.getActionsList().stream()
+            .filter(action -> action.getMnemonic().equals("Genrule"))
+            .findFirst()
+            .orElseThrow(() -> new AssertionError("No Genrule action found in the action graph."));
+
+    assertThat(genruleAction.getProgressMessage()).contains("Executing genrule //x:x");
+  }
+
+  private ByteArrayOutputStream captureStdout(CommandEnvironment env) {
     ByteArrayOutputStream stdout = new ByteArrayOutputStream();
     env.getReporter()
         .addHandler(
@@ -125,15 +174,6 @@ public class AqueryBuildToolTest extends BuildIntegrationTestCase {
                 }
               }
             });
-
-    AqueryProcessor aqueryProcessor = new AqueryProcessor(null, TargetPattern.defaultParser());
-    BlazeCommandResult result = aqueryProcessor.dumpActionGraphFromSkyframe(env);
-    assertThat(result.isSuccess()).isTrue();
-
-    // Test whether stdout is a valid proto.
-    assertThat(stdout.size()).isGreaterThan(0);
-    ActionGraphContainer actionGraphContainer =
-        ActionGraphContainer.parseFrom(stdout.toByteArray(), ExtensionRegistry.getEmptyRegistry());
-    assertThat(actionGraphContainer.getActionsList()).isNotEmpty();
+    return stdout;
   }
 }

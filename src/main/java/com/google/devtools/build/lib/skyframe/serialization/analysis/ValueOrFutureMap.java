@@ -25,7 +25,10 @@ import java.util.function.Function;
  * <p>{@link #getValueOrFuture} only requires a key parameter.
  */
 final class ValueOrFutureMap<
-        KeyT, ValueOrFutureT, ValueT extends ValueOrFutureT, FutureT extends ValueOrFutureT>
+        KeyT,
+        ValueOrFutureT,
+        ValueT extends ValueOrFutureT,
+        FutureT extends SettableFutureKeyedValue<FutureT, KeyT, ValueT>>
     extends AbstractValueOrFutureMap<KeyT, ValueOrFutureT, ValueT, FutureT> {
 
   private final Function<FutureT, ValueOrFutureT> populator;
@@ -42,23 +45,20 @@ final class ValueOrFutureMap<
    */
   ValueOrFutureMap(
       ConcurrentMap<KeyT, ValueOrFutureT> map,
-      BiFunction<KeyT, BiConsumer<KeyT, ValueT>, FutureT> futureValueFactory,
+      BiFunction<KeyT, BiConsumer<KeyT, ValueT>, ValueOrFutureT> futureOrValueFactory,
       Function<FutureT, ValueOrFutureT> populator,
       Class<FutureT> futureType) {
-    super(map, futureValueFactory, futureType);
+    super(map, futureOrValueFactory, futureType);
     this.populator = populator;
   }
 
   ValueOrFutureT getValueOrFuture(KeyT key) {
     ValueOrFutureT result = getOrCreateValueForSubclasses(key);
     if (futureType().isInstance(result)) {
-      // futureType() is an instance of SettableFutureKeyedValue, as verified in the superclass
-      // constructor, so this cast is valid. Generics are not flexible enough to capture this
-      // relationship.
-      var future = (SettableFutureKeyedValue<?, ?, ?>) result;
+      FutureT future = futureType().cast(result);
       if (future.tryTakeOwnership()) {
         try {
-          return populator.apply(futureType().cast(result));
+          return populator.apply(future);
         } finally {
           future.verifyComplete();
         }

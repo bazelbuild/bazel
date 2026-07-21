@@ -62,6 +62,12 @@ sh_library(
     visibility = ["//src/test/shell/integration:__pkg__"],
 )
 
+sh_library(
+    name = "sandboxing_test_utils",
+    srcs = ["sandboxing_test_utils.sh"],
+    visibility = ["//src/test/shell/integration:__pkg__"],
+)
+
 sh_test(
     name = "shell_utils_test",
     srcs = ["shell_utils_test.sh"],

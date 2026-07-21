@@ -158,7 +158,6 @@ public class DownloadCacheTest {
 
   /** Test that the put method is safe to call concurrently. */
   @Test
-  @SuppressWarnings("AllowVirtualThreads")
   public void testPutCacheValueConcurrent() throws Exception {
     var exceptions = new ConcurrentLinkedQueue<Throwable>();
     try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {

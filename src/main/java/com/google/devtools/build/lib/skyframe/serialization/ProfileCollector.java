@@ -24,6 +24,7 @@ import com.google.perftools.profiles.ProfileProto.Sample;
 import com.google.perftools.profiles.ProfileProto.ValueType;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -38,7 +39,7 @@ public final class ProfileCollector {
   @VisibleForTesting static final String STORAGE = "storage";
   @VisibleForTesting static final String BYTES = "bytes";
 
-  private final ConcurrentHashMap<ImmutableList<ObjectCodec<?>>, Counts> records =
+  private final ConcurrentHashMap<ImmutableList<ProfilerLocationProvider>, Counts> records =
       new ConcurrentHashMap<>();
 
   /**
@@ -52,65 +53,98 @@ public final class ProfileCollector {
    *     current object being serialized
    * @param byteCount the transitive bytes serialized at the given object
    */
-  void recordSample(List<ObjectCodec<?>> locationStack, int byteCount) {
+  public void recordSample(List<ProfilerLocationProvider> locationStack, int byteCount) {
     var counts = getCounts(locationStack);
     counts.count().getAndIncrement();
     counts.totalBytes().getAndAdd(byteCount);
 
     // Subtracts bytes from the ancestor to avoid double counting.
     if (locationStack.size() > 1) {
-      List<ObjectCodec<?>> prefix = locationStack.subList(0, locationStack.size() - 1);
+      List<ProfilerLocationProvider> prefix = locationStack.subList(0, locationStack.size() - 1);
       getCounts(prefix).totalBytes().getAndAdd(-byteCount);
     }
   }
 
-  /** Creates the {@link Proto} from the accumulated samples. */
+  /**
+   * Records a batch of samples.
+   *
+   * <p>This is used to merge samples from a {@link ProfileRecorder} after its novelty check
+   * completes.
+   *
+   * @param samples a map from location stack to the number of samples and transitive bytes recorded
+   *     at that location
+   */
+  void recordSamples(Map<ImmutableList<ProfilerLocationProvider>, Counts> samples) {
+    samples.forEach(
+        (stack, counts) -> {
+          int count = counts.count().get();
+          int byteCount = counts.totalBytes().get();
+          var target = getCounts(stack);
+          target.count().getAndAdd(count);
+          target.totalBytes().getAndAdd(byteCount);
+
+          // Subtracts bytes from the ancestor to avoid double counting.
+          if (stack.size() > 1) {
+            ImmutableList<ProfilerLocationProvider> prefix = stack.subList(0, stack.size() - 1);
+            getCounts(prefix).totalBytes().getAndAdd(-byteCount);
+          }
+        });
+  }
+
+  /** Creates the {@link Profile} from the accumulated samples. */
   public Profile toProto() {
     var profileBuilder = new ProtoBuilder();
     records.forEach(
         (stack, counts) -> {
-          var sample =
-              Sample.newBuilder()
-                  .addValue(counts.count().get())
-                  .addValue(counts.totalBytes().get());
-          for (ObjectCodec<?> codec : Lists.reverse(stack)) {
-            sample.addLocationId(profileBuilder.getOrAddLocation(getDisplayText(codec)));
+          int count = counts.count().get();
+          int byteCount = counts.totalBytes().get();
+          if (count == 0 && byteCount == 0) {
+            return;
+          }
+          var sample = Sample.newBuilder().addValue(count).addValue(byteCount);
+          for (ProfilerLocationProvider provider : Lists.reverse(stack)) {
+            sample.addLocationId(profileBuilder.getOrAddLocation(provider.getLocationText()));
           }
           profileBuilder.addSample(sample);
         });
     return profileBuilder.build();
   }
 
-  private Counts getCounts(List<ObjectCodec<?>> locationStack) {
-    var counts = records.get(locationStack);
+  /** Stores the profiling counts associated with {@code stack}. */
+  record Counts(
+      ImmutableList<ProfilerLocationProvider> stack,
+      AtomicInteger count,
+      AtomicInteger totalBytes) {
+    Counts(ImmutableList<ProfilerLocationProvider> stack) {
+      this(stack, new AtomicInteger(), new AtomicInteger());
+    }
+  }
+
+  /**
+   * Obtains a deduplicated instance of the {@code stack}.
+   *
+   * <p>In practice, many parallel instances of {@link ProfileRecorder} will be in flight
+   * simultaneously and each retains stack instances. This allows the memory for those stack
+   * instances to be shared.
+   */
+  ImmutableList<ProfilerLocationProvider> getCanonicalStack(List<ProfilerLocationProvider> stack) {
+    return getCounts(stack).stack();
+  }
+
+  private Counts getCounts(List<ProfilerLocationProvider> locationStack) {
+    Counts counts = records.get(locationStack);
     if (counts != null) {
       return counts;
     }
     var stack = ImmutableList.copyOf(locationStack);
     // putIfAbsent has less contention than computeIfAbsent because the latter causes the allocation
     // of Counts to be inside the critical section.
-    var newCounts = new Counts();
-    var previousCounts = records.putIfAbsent(stack, newCounts);
+    var newCounts = new Counts(stack);
+    Counts previousCounts = records.putIfAbsent(stack, newCounts);
     if (previousCounts != null) {
       return previousCounts;
     }
     return newCounts;
-  }
-
-  @VisibleForTesting
-  static String getDisplayText(ObjectCodec<?> codec) {
-    Class<?> encodedClass = codec.getEncodedClass();
-    String name = encodedClass.getCanonicalName();
-    if (name == null) {
-      name = encodedClass.getName(); // anonymous classes have a name, but no canonical name
-    }
-    return name + "(" + codec.getClass().getCanonicalName() + ")";
-  }
-
-  private record Counts(AtomicInteger count, AtomicInteger totalBytes) {
-    private Counts() {
-      this(new AtomicInteger(), new AtomicInteger());
-    }
   }
 
   private static class ProtoBuilder {

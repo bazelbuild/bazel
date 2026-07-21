@@ -57,6 +57,7 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler.FetchProgress;
 import com.google.devtools.build.lib.pkgcache.LoadingPhaseCompleteEvent;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.runtime.CrashDebuggingProtos.InflightActionInfo;
+import com.google.devtools.build.lib.server.TerminalSizeMonitor;
 import com.google.devtools.build.lib.skyframe.ConfigurationPhaseStartedEvent;
 import com.google.devtools.build.lib.skyframe.LoadingPhaseStartedEvent;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.SomeExecutionStartedEvent;
@@ -139,7 +140,7 @@ public final class UiEventHandler implements EventHandler {
   private ByteArrayOutputStream stderrLineBuffer;
 
   private final int maxStdoutErrBytes;
-  private final int terminalWidth;
+  private int terminalWidth;
 
   /**
    * An output stream that wraps another output stream and that fully buffers writes until flushed.
@@ -182,8 +183,30 @@ public final class UiEventHandler implements EventHandler {
       @Nullable PathFragment workspacePathFragment,
       boolean skymeldMode,
       boolean newStatsSummary) {
-    this.terminalWidth = (options.terminalColumns > 0 ? options.terminalColumns : 80);
-    this.maxStdoutErrBytes = options.maxStdoutErrBytes;
+    this(
+        outErr,
+        options,
+        quiet,
+        clock,
+        eventBus,
+        workspacePathFragment,
+        skymeldMode,
+        newStatsSummary,
+        TerminalSizeMonitor.NOOP);
+  }
+
+  public UiEventHandler(
+      OutErr outErr,
+      UiOptions options,
+      boolean quiet,
+      Clock clock,
+      EventBus eventBus,
+      @Nullable PathFragment workspacePathFragment,
+      boolean skymeldMode,
+      boolean newStatsSummary,
+      TerminalSizeMonitor terminalSizeMonitor) {
+    this.terminalWidth = normalizeTerminalWidth(options.getTerminalColumns());
+    this.maxStdoutErrBytes = options.getMaxStdoutErrBytes();
     this.outErr =
         OutErr.create(
             new FullyBufferedOutputStream(outErr.getOutputStream()),
@@ -191,14 +214,14 @@ public final class UiEventHandler implements EventHandler {
     this.quiet = quiet;
     this.cursorControl = options.useCursorControl();
     this.terminal = new AnsiTerminal(this.outErr.getErrorStream());
-    this.showProgress = options.showProgress;
-    this.progressInTermTitle = options.progressInTermTitle && options.useCursorControl();
-    this.showTimestamp = options.showTimestamp;
+    this.showProgress = options.getShowProgress();
+    this.progressInTermTitle = options.getProgressInTermTitle() && options.useCursorControl();
+    this.showTimestamp = options.getShowTimestamp();
     this.clock = clock;
     this.eventBus = checkNotNull(eventBus);
-    this.debugAllEvents = options.experimentalUiDebugAllEvents;
+    this.debugAllEvents = options.getExperimentalUiDebugAllEvents();
     this.locationPrinter =
-        new LocationPrinter(options.attemptToPrintRelativePaths, workspacePathFragment);
+        new LocationPrinter(options.getAttemptToPrintRelativePaths(), workspacePathFragment);
     // If we have cursor control, we try to fit in the terminal width to avoid having
     // to wrap the progress bar. We will wrap the progress bar to terminalWidth - 2
     // characters to avoid depending on knowing whether the underlying terminal does the
@@ -209,23 +232,23 @@ public final class UiEventHandler implements EventHandler {
     if (skymeldMode) {
       this.stateTracker =
           this.cursorControl
-              ? new SkymeldUiStateTracker(clock, /* targetWidth= */ this.terminalWidth - 2)
+              ? new SkymeldUiStateTracker(clock, /* targetWidth= */ getProgressTargetWidth())
               : new SkymeldUiStateTracker(clock);
     } else {
       this.stateTracker =
           this.cursorControl
-              ? new UiStateTracker(clock, /* targetWidth= */ this.terminalWidth - 2)
+              ? new UiStateTracker(clock, /* targetWidth= */ getProgressTargetWidth())
               : new UiStateTracker(clock);
     }
-    this.stateTracker.setProgressSampleSize(options.uiActionsShown);
+    this.stateTracker.setProgressSampleSize(options.getUiActionsShown());
     this.stateTracker.setNewStatsSummary(newStatsSummary);
     this.numLinesProgressBar = 0;
     if (this.cursorControl) {
-      this.progressRateLimitMillis = Math.round(options.showProgressRateLimit * 1000);
+      this.progressRateLimitMillis = Math.round(options.getShowProgressRateLimit() * 1000);
     } else {
       this.progressRateLimitMillis =
           Math.max(
-              Math.round(options.showProgressRateLimit * 1000),
+              Math.round(options.getShowProgressRateLimit() * 1000),
               NO_CURSES_MINIMAL_PROGRESS_RATE_LIMIT);
     }
     this.minimalUpdateInterval =
@@ -238,6 +261,48 @@ public final class UiEventHandler implements EventHandler {
     this.filteredEventKinds = options.getFilteredEventKinds();
     // The progress bar has not been updated yet.
     ignoreRefreshLimitOnce();
+    terminalSizeMonitor.addListener(this::terminalSizeChanged);
+  }
+
+  private static int normalizeTerminalWidth(int columns) {
+    return columns > 0 ? columns : 80;
+  }
+
+  private int getProgressTargetWidth() {
+    return Math.max(0, terminalWidth - 2);
+  }
+
+  private int getWrappingWidth() {
+    return Math.max(1, terminalWidth - 1);
+  }
+
+  private void terminalSizeChanged(int columns, int rows) {
+    int newTerminalWidth = normalizeTerminalWidth(columns);
+    updateLock.lock();
+    try {
+      synchronized (this) {
+        if (terminalWidth == newTerminalWidth) {
+          return;
+        }
+        if (showProgress && buildRunning && cursorControl) {
+          clearProgressBar();
+        }
+        terminalWidth = newTerminalWidth;
+        if (cursorControl) {
+          stateTracker.setTargetWidth(getProgressTargetWidth());
+        }
+        ignoreRefreshLimitOnce();
+        progressBarNeedsRefresh = true;
+        if (showProgress && buildRunning && cursorControl) {
+          addProgressBar();
+          terminal.flush();
+        }
+      }
+    } catch (IOException e) {
+      logger.atWarning().withCause(e).log("IO Error updating terminal size");
+    } finally {
+      updateLock.unlock();
+    }
   }
 
   /**
@@ -1081,7 +1146,7 @@ public final class UiEventHandler implements EventHandler {
     AnsiTerminalWriter terminalWriter = countingTerminalWriter;
     lastRefreshMillis = clock.currentTimeMillis();
     if (cursorControl) {
-      terminalWriter = new LineWrappingAnsiTerminalWriter(terminalWriter, terminalWidth - 1);
+      terminalWriter = new LineWrappingAnsiTerminalWriter(terminalWriter, getWrappingWidth());
     }
     String timestamp = null;
     if (showTimestamp) {
@@ -1097,7 +1162,13 @@ public final class UiEventHandler implements EventHandler {
     if (progressInTermTitle) {
       LoggingTerminalWriter stringWriter = new LoggingTerminalWriter(true);
       stateTracker.writeProgressBar(stringWriter, true);
-      terminal.setTitle(stringWriter.getTranscript());
+      String transcript = stringWriter.getTranscript();
+      int newlinePos = transcript.indexOf('\n');
+      if (newlinePos == -1) {
+        terminal.setTitle(stringWriter.getTranscript());
+      } else {
+        terminal.setTitle(stringWriter.getTranscript().substring(0, newlinePos));
+      }
     }
   }
 }

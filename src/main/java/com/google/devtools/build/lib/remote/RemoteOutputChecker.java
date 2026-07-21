@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.devtools.build.lib.packages.TargetUtils.isTestRuleName;
@@ -44,7 +43,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
@@ -195,24 +193,21 @@ public class RemoteOutputChecker implements OutputChecker {
     }
     var runfiles = runfilesSupport.getRunfiles();
     for (Artifact runfile : runfiles.getArtifacts().toList()) {
-      if (runfile.isSourceArtifact()) {
-        continue;
+      if (mayBeRemote(runfile)) {
+        addOutputToDownload(runfile);
       }
-      addOutputToDownload(runfile);
     }
     for (var symlink : runfiles.getSymlinks().toList()) {
       var artifact = symlink.getArtifact();
-      if (artifact.isSourceArtifact()) {
-        continue;
+      if (mayBeRemote(artifact)) {
+        addOutputToDownload(artifact);
       }
-      addOutputToDownload(artifact);
     }
     for (var symlink : runfiles.getRootSymlinks().toList()) {
       var artifact = symlink.getArtifact();
-      if (artifact.isSourceArtifact()) {
-        continue;
+      if (mayBeRemote(artifact)) {
+        addOutputToDownload(artifact);
       }
-      addOutputToDownload(artifact);
     }
   }
 
@@ -297,6 +292,19 @@ public class RemoteOutputChecker implements OutputChecker {
     return false;
   }
 
+  /**
+   * Returns whether this {@link ActionInput} could conceivably be only available remotely.
+   *
+   * <p>Use this as a quick check to avoid unnecessary extra work for artifacts that are definitely
+   * local.
+   */
+  public static boolean mayBeRemote(ActionInput actionInput) {
+    return !(actionInput instanceof Artifact artifact
+        && artifact.isSourceArtifact()
+        // Source artifacts in the main repo don't need to be fetched.
+        && (artifact.getOwner() == null || artifact.getOwner().getRepository().isMain()));
+  }
+
   /** Returns whether this {@link ActionInput} should be downloaded. */
   @Override
   public boolean shouldDownloadOutput(ActionInput output, FileArtifactValue metadata) {
@@ -335,20 +343,24 @@ public class RemoteOutputChecker implements OutputChecker {
       return true;
     }
 
-    // If Bazel should download this file, but it does not exist locally, returns false to rerun
-    // the generating action to trigger the download (just like in the normal build, when local
-    // outputs are missing).
+    // An in-memory output (e.g. --experimental_inmemory_{dotd,jdeps}_files) is never written to
+    // disk, so a "should download" verdict must not force a re-execution to materialize it; trust
+    // it via its TTL instead. See https://github.com/bazelbuild/bazel/issues/29313.
+    if (!metadata.isInMemoryOutput()) {
+      // If Bazel should download this file, but it does not exist locally, returns false to rerun
+      // the generating action to trigger the download (just like in the normal build, when local
+      // outputs are missing).
+      if (lastRemoteOutputChecker != null) {
+        // This is an incremental build. If the file was downloaded by previous build and is now
+        // missing, invalidate the action.
+        if (lastRemoteOutputChecker.shouldDownloadOutput(file, metadata)) {
+          return false;
+        }
+      }
 
-    if (lastRemoteOutputChecker != null) {
-      // This is an incremental build. If the file was downloaded by previous build and is now
-      // missing, invalidate the action.
-      if (lastRemoteOutputChecker.shouldDownloadOutput(file, metadata)) {
+      if (shouldDownloadOutput(file, metadata)) {
         return false;
       }
-    }
-
-    if (shouldDownloadOutput(file, metadata)) {
-      return false;
     }
 
     if (clock != null) {
@@ -382,43 +394,6 @@ public class RemoteOutputChecker implements OutputChecker {
             return functionName.equals(SkyFunctions.TARGET_COMPLETION)
                 || functionName.equals(SkyFunctions.ASPECT_COMPLETION);
           });
-    }
-  }
-
-  /**
-   * A specialized concurrent trie that stores paths of artifacts and allows checking whether a
-   * given path is contained in (in the case of a tree artifact) or exactly matches (in any other
-   * case) an artifact in the trie.
-   */
-  private static final class ConcurrentArtifactPathTrie {
-    // Invariant: no path in this set is a prefix of another path.
-    private final ConcurrentSkipListSet<PathFragment> paths =
-        new ConcurrentSkipListSet<>(PathFragment.HIERARCHICAL_COMPARATOR);
-
-    /**
-     * Adds the given {@link ActionInput} to the trie.
-     *
-     * <p>The caller must ensure that no object's path passed to this method is a prefix of any
-     * previously added object's path. Bazel enforces this for non-aggregate artifacts. Callers must
-     * not pass in {@link TreeFileArtifact}s (which have exec paths that have their parent tree
-     * artifact's exec path as a prefix) or non-Artifact {@link ActionInput}s that violate this
-     * invariant.
-     */
-    void add(ActionInput input) {
-      checkArgument(
-          !(input instanceof TreeFileArtifact),
-          "TreeFileArtifacts should not be added to the trie: %s",
-          input);
-      paths.add(input.getExecPath());
-    }
-
-    /** Checks whether the given {@link PathFragment} is contained in an artifact in the trie. */
-    boolean contains(PathFragment execPath) {
-      // By the invariant of this set, there is at most one prefix of execPath in the set. Since the
-      // comparator sorts all children of a path right after the path itself, if such a prefix
-      // exists, it must thus sort right before execPath (or be equal to it).
-      var floorPath = paths.floor(execPath);
-      return floorPath != null && execPath.startsWith(floorPath);
     }
   }
 }

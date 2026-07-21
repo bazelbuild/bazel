@@ -87,7 +87,7 @@ public class ExampleWorkerMultiplexer {
       parser.parse(args);
       ExampleWorkerMultiplexerOptions workerOptions =
           parser.getOptions(ExampleWorkerMultiplexerOptions.class);
-      Preconditions.checkState(workerOptions.persistentWorker);
+      Preconditions.checkState(workerOptions.getPersistentWorker());
 
       runPersistentWorker(workerOptions);
     } else {
@@ -119,11 +119,12 @@ public class ExampleWorkerMultiplexer {
 
         // If true, returns corrupt responses instead of correct protobufs.
         boolean poisoned = false;
-        if (workerOptions.poisonAfter > 0 && workUnitCounter > workerOptions.poisonAfter) {
+        if (workerOptions.getPoisonAfter() > 0
+            && workUnitCounter > workerOptions.getPoisonAfter()) {
           poisoned = true;
         }
 
-        if (poisoned && workerOptions.hardPoison) {
+        if (poisoned && workerOptions.getHardPoison()) {
           System.err.println("I'm a very poisoned worker and will just crash.");
           System.exit(1);
         } else {
@@ -132,7 +133,7 @@ public class ExampleWorkerMultiplexer {
             OptionsParser parser = parserHelper(request.getArgumentsList());
             ExampleWorkMultiplexerOptions options =
                 parser.getOptions(ExampleWorkMultiplexerOptions.class);
-            if (options.writeCounter) {
+            if (options.getWriteCounter()) {
               counterOutput = workUnitCounter++;
             }
             results.add(
@@ -151,7 +152,7 @@ public class ExampleWorkerMultiplexer {
           }
         }
 
-        if (workerOptions.exitAfter > 0 && workUnitCounter > workerOptions.exitAfter) {
+        if (workerOptions.getExitAfter() > 0 && workUnitCounter > workerOptions.getExitAfter()) {
           System.in.close();
         }
       } finally {
@@ -253,17 +254,17 @@ public class ExampleWorkerMultiplexer {
 
     List<String> outputs = new ArrayList<>();
 
-    if (options.delay) {
+    if (options.getDelay()) {
       Integer randomDelay = new Random().nextInt(200) + 100;
       TimeUnit.MILLISECONDS.sleep(randomDelay);
       outputs.add("DELAY " + randomDelay + " MILLISECONDS");
     }
 
-    if (options.writeUUID) {
+    if (options.getWriteUUID()) {
       outputs.add("UUID " + WORKER_UUID.toString());
     }
 
-    if (options.writeCounter) {
+    if (options.getWriteCounter()) {
       outputs.add("COUNTER " + counterOutput);
     }
 
@@ -274,11 +275,11 @@ public class ExampleWorkerMultiplexer {
         residue.stream().filter(p -> !paths.contains(p)).collect(ImmutableList.toImmutableList());
 
     String residueStr = Joiner.on(' ').join(residue);
-    if (options.uppercase) {
+    if (options.getUppercase()) {
       residueStr = Ascii.toUpperCase(residueStr);
     }
     outputs.add(residueStr);
-    String prefix = options.ignoreSandbox ? "" : request.getSandboxDir();
+    String prefix = options.getIgnoreSandbox() ? "" : request.getSandboxDir();
     while (prefix.endsWith("/")) {
       prefix = prefix.substring(0, prefix.length() - 1);
     }
@@ -286,29 +287,30 @@ public class ExampleWorkerMultiplexer {
       Path path = Paths.get(prefix, p.substring(FILE_INPUT_PREFIX.length()));
       List<String> lines = Files.readAllLines(path);
       String content = Joiner.on("\n").join(lines);
-      if (options.uppercase) {
+      if (options.getUppercase()) {
         content = Ascii.toUpperCase(content);
       }
       outputs.add(content);
     }
 
-    if (options.printInputs) {
+    if (options.getPrintInputs()) {
       for (Map.Entry<String, String> input : inputs.entrySet()) {
         outputs.add("INPUT " + input.getKey() + " " + input.getValue());
       }
     }
 
-    if (options.printEnv) {
+    if (options.getPrintEnv()) {
       for (Map.Entry<String, String> entry : System.getenv().entrySet()) {
         outputs.add(entry.getKey() + "=" + entry.getValue());
       }
     }
 
     String outputStr = Joiner.on('\n').join(outputs);
-    if (options.outputFile.isEmpty()) {
+    if (options.getOutputFile().isEmpty()) {
       System.out.println(outputStr);
     } else {
-      String actualFile = prefix.isEmpty() ? options.outputFile : prefix + "/" + options.outputFile;
+      String actualFile =
+          prefix.isEmpty() ? options.getOutputFile() : prefix + "/" + options.getOutputFile();
       try (PrintStream outputFile = new PrintStream(actualFile)) {
         outputFile.println(outputStr);
       }

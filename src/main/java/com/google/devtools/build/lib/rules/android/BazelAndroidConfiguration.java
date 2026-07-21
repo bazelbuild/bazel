@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionsClass;
 import com.google.errorprone.annotations.CheckReturnValue;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
@@ -40,7 +41,8 @@ public class BazelAndroidConfiguration extends Fragment {
   }
 
   /** Android configuration options that are specific to Bazel. */
-  public static class Options extends FragmentOptions {
+  @OptionsClass
+  public abstract static class Options extends FragmentOptions {
 
     @Option(
         name = "merge_android_manifest_permissions",
@@ -50,14 +52,14 @@ public class BazelAndroidConfiguration extends Fragment {
         help =
             "If enabled, the manifest merger will merge uses-permission and "
                 + "uses-permission-sdk-23 attributes.")
-    public boolean mergeAndroidManifestPermissions;
+    public abstract boolean getMergeAndroidManifestPermissions();
   }
 
   private final boolean mergeAndroidManifestPermissions;
 
   public BazelAndroidConfiguration(BuildOptions buildOptions) {
     Options options = buildOptions.get(BazelAndroidConfiguration.Options.class);
-    this.mergeAndroidManifestPermissions = options.mergeAndroidManifestPermissions;
+    this.mergeAndroidManifestPermissions = options.getMergeAndroidManifestPermissions();
   }
 
   @StarlarkMethod(

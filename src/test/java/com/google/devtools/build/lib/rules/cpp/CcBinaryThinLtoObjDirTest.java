@@ -864,7 +864,6 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
     setupThinLTOCrosstool(CppRuleClasses.SUPPORTS_PIC);
     useConfiguration(
         "--ltoindexopt=anltoindexopt",
-        "--incompatible_make_thinlto_command_lines_standalone",
         "--features=thin_lto",
         "--features=use_lto_native_object_directory");
 
@@ -964,38 +963,6 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
                 linkAction, "pkg/bin.lto-obj/" + rootExecPath + "/pkg/_objs/lib/libfile.pic.o");
     assertThat(backendAction.getArguments()).doesNotContain("copt1");
     assertThat(backendAction.getArguments()).contains("copt2");
-  }
-
-  @Test
-  public void testCoptNoCoptAttributes() throws Exception {
-    createBuildFiles("copts = ['acopt', 'nocopt1'], nocopts = 'nocopt1|nocopt2',");
-
-    setupThinLTOCrosstool(CppRuleClasses.SUPPORTS_PIC);
-    useConfiguration("--copt=nocopt2", "--noincompatible_disable_nocopts");
-
-    /*
-    We follow the chain from the final product backwards.
-
-    binary <=[Link]=
-    .lto-obj/...o <=[LTOBackend]=
-    */
-    ConfiguredTarget pkg = getConfiguredTarget("//pkg:bin");
-
-    Artifact pkgArtifact = getFilesToBuild(pkg).getSingleton();
-    String rootExecPath = pkgArtifact.getRoot().getExecPathString();
-
-    SpawnAction linkAction = (SpawnAction) getGeneratingAction(pkgArtifact);
-    assertThat(linkAction.getOutputs()).containsExactly(pkgArtifact);
-
-    LtoBackendAction backendAction =
-        (LtoBackendAction)
-            getPredecessorByInputName(
-                linkAction, "pkg/bin.lto-obj/" + rootExecPath + "/pkg/_objs/bin/binfile.pic.o");
-    assertThat(backendAction.getMnemonic()).isEqualTo("CcLtoBackendCompile");
-    assertThat(backendAction.getArguments()).contains("acopt");
-    // TODO(b/122303926): Remove when nocopts are removed, or uncomment and fix if not removing.
-    // assertThat(backendAction.getArguments()).doesNotContain("nocopt1");
-    // assertThat(backendAction.getArguments()).doesNotContain("nocopt2");
   }
 
   @Test

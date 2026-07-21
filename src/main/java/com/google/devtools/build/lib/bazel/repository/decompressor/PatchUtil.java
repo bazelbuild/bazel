@@ -221,7 +221,7 @@ public class PatchUtil {
       Patch<String> tmpPatch = new Patch<>();
       tmpPatch.addDelta(delta);
       try {
-        newContent = tmpPatch.applyFuzzy(newContent, 0);
+        newContent = tmpPatch.applyFuzzy(newContent, 2);
       } catch (PatchFailedException | IndexOutOfBoundsException e) {
         throw new PatchFailedException(
             String.format(
@@ -484,6 +484,9 @@ public class PatchUtil {
           // The line should look like: "new mode 100755" or "new file mode 100755"
           // 7 is the file permission for owner, which is at index 12 or 17
           int index = type == LineType.NEW_MODE ? 12 : 17;
+          if (line.length() <= index) {
+            throw new PatchFailedException("Truncated file mode at line " + (i + 1) + ": " + line);
+          }
           char c = line.charAt(index);
           if (c < '0' || c > '7') {
             throw new PatchFailedException(

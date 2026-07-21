@@ -23,7 +23,6 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Lists;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.RoundTripping;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
@@ -31,6 +30,7 @@ import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.File;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import org.junit.Test;
@@ -382,6 +382,25 @@ public final class PathFragmentTest {
   }
 
   @Test
+  public void testStripComponents() {
+    PathFragment pathFragmentStripZero = create("/foo/bar/baz");
+    assertThat(pathFragmentStripZero.stripComponents(0)).isSameInstanceAs(pathFragmentStripZero);
+
+    assertThat(create("/foo/bar/baz").stripComponents(0).getPathString()).isEqualTo("/foo/bar/baz");
+    assertThat(create("/foo/bar/baz").stripComponents(1).getPathString()).isEqualTo("bar/baz");
+    assertThat(create("/foo/bar/baz").stripComponents(2).getPathString()).isEqualTo("baz");
+    assertThat(create("/foo/bar/baz").stripComponents(3).getPathString()).isEqualTo("");
+    assertThat(create("/foo/bar/baz").stripComponents(4).getPathString()).isEqualTo("");
+
+    PathFragment pathFragmentStripAll = create("/foo/bar/baz");
+    assertThat(pathFragmentStripAll.stripComponents(3)).isSameInstanceAs(EMPTY_FRAGMENT);
+    assertThat(pathFragmentStripAll.stripComponents(4)).isSameInstanceAs(EMPTY_FRAGMENT);
+
+    PathFragment pathFragment = create("/foo/bar/baz");
+    assertThrows(IllegalArgumentException.class, () -> pathFragment.stripComponents(-2));
+  }
+
+  @Test
   public void testStartsWith() {
     PathFragment foobar = create("/foo/bar");
     PathFragment foobarRelative = create("foo/bar");
@@ -533,7 +552,7 @@ public final class PathFragmentTest {
   }
 
   private static List<PathFragment> toPaths(List<String> strs) {
-    List<PathFragment> paths = Lists.newArrayList();
+    List<PathFragment> paths = new ArrayList<>();
     for (String s : strs) {
       paths.add(create(s));
     }

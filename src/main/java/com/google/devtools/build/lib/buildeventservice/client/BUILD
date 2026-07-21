@@ -12,15 +12,39 @@ filegroup(
 )
 
 java_library(
+    name = "command_context",
+    srcs = ["CommandContext.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "lifecycle_event",
+    srcs = ["LifecycleEvent.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
+    ],
+)
+
+java_library(
+    name = "stream_event",
+    srcs = ["StreamEvent.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
+    ],
+)
+
+java_library(
     name = "build_event_service_client",
     srcs = ["BuildEventServiceClient.java"],
     deps = [
-        "//third_party:auto_value",
-        "//third_party:error_prone_annotations",
-        "//third_party:guava",
+        ":command_context",
+        ":lifecycle_event",
+        ":stream_event",
+        "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
         "//third_party:jsr305",
-        "//third_party/grpc-java:grpc-jar",
-        "@com_google_protobuf//:protobuf_java",
     ],
 )
 
@@ -34,7 +58,10 @@ java_library(
     deps = [
         ":build_event_service_client",
         ":build_event_service_proto_util",
-        "//src/main/java/com/google/devtools/build/lib/remote/util",
+        ":command_context",
+        ":lifecycle_event",
+        ":stream_event",
+        "//src/main/java/com/google/devtools/build/lib/remote/util:tracing_metadata_utils",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party/grpc-java:grpc-jar",
@@ -47,7 +74,9 @@ java_library(
     name = "build_event_service_proto_util",
     srcs = ["BuildEventServiceProtoUtil.java"],
     deps = [
-        ":build_event_service_client",
+        ":command_context",
+        ":lifecycle_event",
+        ":stream_event",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
         "//third_party:guava",
         "@com_google_protobuf//:protobuf_java",

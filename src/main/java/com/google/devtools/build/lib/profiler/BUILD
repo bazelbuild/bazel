@@ -17,6 +17,7 @@ java_library(
         "LocalResourceUsageCollectors.java",
     ],
     deps = [
+        ":counter_series_task_impl",
         ":network_metrics_collector",
         ":profiler",
         ":system_network_stats_service",
@@ -33,35 +34,72 @@ java_library(
     ],
 )
 
+java_library(
+    name = "auto_profiler",
+    srcs = ["AutoProfiler.java"],
+    deps = [
+        ":profiler",
+        "//src/main/java/com/google/devtools/build/lib/clock",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "memory_profiler",
+    srcs = ["MemoryProfiler.java"],
+    deps = [
+        ":profiler",
+        "//src/main/java/com/google/devtools/build/lib/bugreport",
+        "//src/main/java/com/google/devtools/build/lib/util:heap_offset_helper",
+        "//src/main/java/com/google/devtools/build/lib/util:pair",
+        "//src/main/java/com/google/devtools/common/options",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
 # Profiler interface and helper classes. Available in both the SC and the LC.
 java_library(
     name = "profiler",
     srcs = [
         "AsyncProfiler.java",
-        "AutoProfiler.java",
         "CounterSeriesCollector.java",
         "CounterSeriesTask.java",
-        "MemoryProfiler.java",
         "ProfilePhase.java",
         "Profiler.java",
         "ProfilerTask.java",
         "SilentCloseable.java",
+        "SlimProfileConfiguration.java",
         "SlowTask.java",
         "StatRecorder.java",
         "TimeSeries.java",
         "TraceProfilerService.java",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_service",
-        "//src/main/java/com/google/devtools/build/lib/util:TestType",
-        "//src/main/java/com/google/devtools/build/lib/util:heap_offset_helper",
-        "//src/main/java/com/google/devtools/build/lib/util:pair",
+        "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:error_prone_annotations",
         "//third_party:guava",
         "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "counter_series_task_impl",
+    srcs = ["CounterSeriesTaskImpl.java"],
+    deps = [
+        ":profiler",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "slow_task_impl",
+    srcs = ["SlowTaskImpl.java"],
+    deps = [
+        ":profiler",
     ],
 )
 
@@ -82,11 +120,14 @@ java_library(
         "TraceProfilerServiceImpl.java",
     ],
     deps = [
+        ":counter_series_task_impl",
         ":profiler",
+        ":slow_task_impl",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_version_info",
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/collect:extrema",
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
+        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_service",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:error_prone_annotations",
         "//third_party:gson",
@@ -125,12 +166,17 @@ java_library(
 java_library(
     name = "system_network_stats_service",
     srcs = ["SystemNetworkStatsService.java"],
-    deps = ["//src/main/java/com/google/devtools/build/lib/runtime:blaze_service"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_service",
+        "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
+    ],
 )
 
 java_library(
     name = "system_network_stats_service_impl",
-    srcs = ["SystemNetworkStatsServiceImpl.java"],
+    srcs = [
+        "SystemNetworkStatsServiceImpl.java",
+    ],
     deps = [
         ":system_network_stats_service",
         "//src/main/java/com/google/devtools/build/lib/jni",
@@ -143,6 +189,7 @@ java_library(
     name = "google-auto-profiler-utils",
     srcs = ["GoogleAutoProfilerUtils.java"],
     deps = [
+        ":auto_profiler",
         ":profiler",
         "//third_party:flogger",
         "//third_party:guava",

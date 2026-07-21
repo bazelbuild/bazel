@@ -15,9 +15,11 @@
 package com.google.devtools.build.lib.unix;
 
 import com.google.devtools.build.lib.runtime.BlazeService;
+import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
 import java.util.concurrent.atomic.AtomicReference;
 
 /** Service for various UNIX process utilities. */
+@SkybridgeInterface
 public interface ProcessUtilsService extends BlazeService {
   static final AtomicReference<ProcessUtilsService> service = new AtomicReference<>();
 

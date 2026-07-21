@@ -145,6 +145,21 @@ public class StarlarkAnnotationsTest {
   public static class MockClassZ {
   }
 
+  @StarlarkBuiltin(name = "MockStruct", doc = "MockStruct", isStructType = true)
+  public static interface MockStructInterface extends StarlarkValue {}
+
+  // Extends MockStructInterface but not itself marked as assignableToStructType
+  @StarlarkBuiltin(name = "MockStructChild", doc = "MockStructChild")
+  public static interface MockStructChildInterface extends MockStructInterface {}
+
+  public static class MockStructImpl implements MockStructInterface {}
+
+  public static class MockStructChildImpl implements MockStructChildInterface {}
+
+  // First ancestor (MockStructChildInterface) is not itself marked as assignableToStructType
+  public static class MockStructChildAndMockStructImpl
+      implements MockStructChildInterface, MockStructInterface {}
+
   // The tests for getStarlarkBuiltin() double as tests for getParentWithStarlarkBuiltin(),
   // since they share an implementation.
 
@@ -211,6 +226,20 @@ public class StarlarkAnnotationsTest {
 
     assertThat(StarlarkAnnotations.getStarlarkBuiltin(UnambiguousClass.class))
         .isEqualTo(SubclassOfBoth.class.getAnnotation(StarlarkBuiltin.class));
+  }
+
+  @Test
+  public void testIsAssignableToStructType() throws Exception {
+    assertThat(StarlarkAnnotations.isAssignableToStructType(MockStructInterface.class)).isTrue();
+    assertThat(StarlarkAnnotations.isAssignableToStructType(MockStructChildInterface.class))
+        .isTrue();
+    assertThat(StarlarkAnnotations.isAssignableToStructType(MockStructImpl.class)).isTrue();
+    assertThat(StarlarkAnnotations.isAssignableToStructType(MockStructChildImpl.class)).isTrue();
+    assertThat(StarlarkAnnotations.isAssignableToStructType(MockStructChildAndMockStructImpl.class))
+        .isTrue();
+
+    // Doesn't implement MockStructInterface.
+    assertThat(StarlarkAnnotations.isAssignableToStructType(MockClassA.class)).isFalse();
   }
 
   @Test

@@ -96,6 +96,7 @@ import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 import javax.net.ssl.SSLEngine;
+import javax.net.ssl.SSLParameters;
 
 /**
  * Implementation of {@link RemoteCacheClient} that can talk to a HTTP/1.1 backend.
@@ -121,7 +122,7 @@ import javax.net.ssl.SSLEngine;
  *
  * <p>The implementation currently does not support transfer encoding chunked.
  */
-public final class HttpCacheClient implements RemoteCacheClient {
+public final class HttpCacheClient extends RemoteCacheClient {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   public static final String AC_PREFIX = "ac/";
@@ -280,11 +281,7 @@ public final class HttpCacheClient implements RemoteCacheClient {
             ChannelPipeline p = ch.pipeline();
             if (sslCtx != null) {
               SSLEngine engine = sslCtx.newEngine(ch.alloc(), hostname, port);
-              engine.setUseClientMode(true);
-              if (authAndTlsOptions.tlsClientCertificate != null
-                  && authAndTlsOptions.tlsClientKey != null) {
-                engine.setNeedClientAuth(true);
-              }
+              configureSslEngine(engine, authAndTlsOptions);
               p.addFirst("ssl-handler", new SslHandler(engine));
             }
           }
@@ -718,7 +715,7 @@ public final class HttpCacheClient implements RemoteCacheClient {
   }
 
   @Override
-  public ListenableFuture<Void> uploadBlob(
+  public ListenableFuture<Void> uploadBlobImpl(
       RemoteActionExecutionContext context, Digest digest, Blob blob) {
     return retrier.executeAsync(
         () ->
@@ -834,19 +831,32 @@ public final class HttpCacheClient implements RemoteCacheClient {
     SslContextBuilder sslContextBuilder = SslContextBuilder.forClient().sslProvider(sslProvider);
 
     // Root CA certificate
-    if (authAndTlsOptions.tlsCertificate != null) {
+    if (authAndTlsOptions.getTlsCertificate() != null) {
       sslContextBuilder =
-          sslContextBuilder.trustManager(new File(authAndTlsOptions.tlsCertificate));
+          sslContextBuilder.trustManager(new File(authAndTlsOptions.getTlsCertificate()));
     }
 
     // Optional client TLS authentication
-    if (authAndTlsOptions.tlsClientCertificate != null && authAndTlsOptions.tlsClientKey != null) {
+    if (authAndTlsOptions.getTlsClientCertificate() != null
+        && authAndTlsOptions.getTlsClientKey() != null) {
       sslContextBuilder =
           sslContextBuilder.keyManager(
-              new File(authAndTlsOptions.tlsClientCertificate),
-              new File(authAndTlsOptions.tlsClientKey));
+              new File(authAndTlsOptions.getTlsClientCertificate()),
+              new File(authAndTlsOptions.getTlsClientKey()));
     }
 
     return sslContextBuilder.build();
+  }
+
+  static void configureSslEngine(SSLEngine engine, AuthAndTLSOptions authAndTlsOptions) {
+    engine.setUseClientMode(true);
+    SSLParameters params = engine.getSSLParameters();
+    params.setEndpointIdentificationAlgorithm("HTTPS");
+    engine.setSSLParameters(params);
+    if (authAndTlsOptions != null
+        && authAndTlsOptions.getTlsClientCertificate() != null
+        && authAndTlsOptions.getTlsClientKey() != null) {
+      engine.setNeedClientAuth(true);
+    }
   }
 }

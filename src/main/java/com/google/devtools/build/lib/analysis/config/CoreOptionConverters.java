@@ -29,7 +29,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -86,17 +86,18 @@ public class CoreOptionConverters {
 
   /**
    * A converter for comma-separated strings to sets of strings. This uses {@link
-   * CommaSeparatedOptionListConverter} but returns a set of the converted strings.
+   * CommaSeparatedOptionListConverter} but returns a sorted set of the converted strings.
    */
-  private static class StringSetConverter extends Converter.Contextless<ImmutableSet<String>> {
+  private static class StringSetConverter
+      extends Converter.Contextless<ImmutableSortedSet<String>> {
 
     private static final CommaSeparatedOptionListConverter COMMA_SEPARATED_OPTION_LIST_CONVERTER =
         new CommaSeparatedOptionListConverter();
 
     @Override
-    public ImmutableSet<String> convert(String input) throws OptionsParsingException {
+    public ImmutableSortedSet<String> convert(String input) throws OptionsParsingException {
       ImmutableList<String> result = COMMA_SEPARATED_OPTION_LIST_CONVERTER.convert(input);
-      return ImmutableSet.copyOf(result);
+      return ImmutableSortedSet.copyOf(result);
     }
 
     @Override

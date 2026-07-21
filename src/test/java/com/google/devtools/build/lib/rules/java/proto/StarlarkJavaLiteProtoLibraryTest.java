@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.rules.java.JavaCompileAction;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import java.io.IOException;
 import java.util.List;
 import org.junit.Before;
@@ -111,6 +112,11 @@ proto_lang_toolchain(
   }
 
   /** Tests that java_binaries which depend on proto_libraries depend on the right set of files. */
+  @Ignore(
+      "TODO(b/442009533): This test should be starlarkified because there's not a way to keepit in"
+          + " sync with both Bazel (depends on old protbuf) and blaze (depends on new protbuf). The"
+          + " actual failure related to whether the dep on the native version of the"
+          + " --proto_compiler flag is included in the deps or not")
   @Test
   public void testBinaryDeps() throws Exception {
     scratch.file(
@@ -142,8 +148,14 @@ proto_lang_toolchain(
     NestedSet<Artifact> filesToBuild = getFilesToBuild(target);
     Iterable<String> deps = prettyArtifactNames(actionsTestUtil.artifactClosureOf(filesToBuild));
 
-    // Should depend on compiler and Java proto1 API.
-    assertThat(deps).contains("proto/compiler");
+    // As of Protobuf 35.1, the protobuf toolchain in Bazel is only set via toolchain resolution
+    // through external repository dependencies (relying on @com_google_protobuf), so we need to
+    // check the external path.
+    if ("bazel".equals(TestConstants.PRODUCT_NAME)) {
+      assertThat(deps).contains("external/com_google_protobuf+/protoc");
+    } else {
+      assertThat(deps).contains("proto/compiler");
+    }
 
     // Also should not depend on RPC APIs.
     assertThat(deps).doesNotContain("apps/xplat/rpc/codegen/protoc-gen-rpc");
@@ -155,7 +167,11 @@ proto_lang_toolchain(
     // Should depend on Java libraries.
     assertThat(deps).contains("x/libfoo-lite.jar");
     assertThat(deps).contains("x/libbaz-lite.jar");
-    assertThat(deps).contains("protobuf/libjavalite_runtime-hjar.jar");
+    if ("bazel".equals(TestConstants.PRODUCT_NAME)) {
+      assertThat(deps).contains("external/com_google_protobuf+/libruntime-hjar.jar");
+    } else {
+      assertThat(deps).contains("protobuf/libjavalite_runtime-hjar.jar");
+    }
   }
 
   /** Tests that we pass the correct arguments to the protocol compiler. */
@@ -296,8 +312,14 @@ proto_lang_toolchain(
     List<String> directJars =
         prettyArtifactNames(
             JavaInfo.getProvider(JavaCompilationArgsProvider.class, litepb2).runtimeJars());
-    assertThat(directJars)
-        .containsExactly("cross/libbravo-lite.jar", "protobuf/libjavalite_runtime.jar");
+    if ("bazel".equals(TestConstants.PRODUCT_NAME)) {
+      assertThat(directJars)
+          .containsExactly(
+              "cross/libbravo-lite.jar", "external/com_google_protobuf+/libruntime.jar");
+    } else {
+      assertThat(directJars)
+          .containsExactly("cross/libbravo-lite.jar", "protobuf/libjavalite_runtime.jar");
+    }
   }
 
   @Test

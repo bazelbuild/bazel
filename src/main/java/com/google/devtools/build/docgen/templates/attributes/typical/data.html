@@ -7,12 +7,15 @@ allows any target.
 </p>
 
 <p>
-The default outputs and runfiles of targets in the <code>data</code> attribute
-should appear in the <code>*.runfiles</code> area of any executable which is
+The <code>runfiles</code> of targets in the <code>data</code> attribute
+appear in the <code>*.runfiles</code> area of any executable which is
 output by or has a runtime dependency on this target. This may include data
 files or binaries used when this target's
-<a href="#typical.srcs"><code>srcs</code></a> are executed. See the
-<a href="${link build-ref#data}">data dependencies</a>
+<a href="#typical.srcs"><code>srcs</code></a> are executed. Typically,
+this includes the targets' default outputs and their transitive runfiles,
+but this depends on the implementation of the rules for those targets;
+most rules include their default outputs in their <code>runfiles</code>.
+See the <a href="${link build-ref#data}">data dependencies</a>
 section for more information about how to depend on and use data files.
 </p>
 

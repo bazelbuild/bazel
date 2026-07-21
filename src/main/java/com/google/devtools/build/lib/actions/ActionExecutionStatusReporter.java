@@ -28,9 +28,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.util.Pair;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -164,7 +162,7 @@ public final class ActionExecutionStatusReporter {
     if (actions.isEmpty()) {
       return;
     }
-    Collections.sort(actions, comparing(arg -> arg.first));
+    actions.sort(comparing(arg -> arg.first));
 
     buffer.append("\n      " + status + ":");
 
@@ -200,8 +198,8 @@ public final class ActionExecutionStatusReporter {
 
     // A tree is just as fast as HashSet for small data sets.
     Set<String> statuses = new TreeSet<>();
-    for (Map.Entry<ActionExecutionMetadata, Pair<String, Long>> entry : statusMap.entrySet()) {
-      statuses.add(entry.getValue().first);
+    for (Pair<String, Long> status : statusMap.values()) {
+      statuses.add(status.first);
     }
 
     for (String status : statuses) {
@@ -234,13 +232,8 @@ public final class ActionExecutionStatusReporter {
       eventHandler.handle(Event.warn("There are no active jobs - stopping the build"));
       return;
     }
-    Iterator<ActionExecutionMetadata> iterator = statusMap.keySet().iterator();
-    while (iterator.hasNext()) {
-      // Filter out actions that are not executed yet.
-      if (PREPARING_MESSAGE.equals(statusMap.get(iterator.next()).first)) {
-        iterator.remove();
-      }
-    }
+    // Filter out actions that are not executed yet.
+    statusMap.values().removeIf(status -> PREPARING_MESSAGE.equals(status.first));
     if (!statusMap.isEmpty()) {
       eventHandler.handle(Event.warn(getExecutionStatusMessage(statusMap)
           + "\nBuild will be stopped after these tasks terminate"));

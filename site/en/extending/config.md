@@ -48,6 +48,9 @@ set via [user-defined transitions](#user-defined-transitions).
 
 [End to end example](https://github.com/bazelbuild/examples/tree/HEAD/configurations/basic_build_setting){: .external}
 
+Note: Before defining your own build setting, check if one of the [predefined
+settings](#predefined-settings) is suitable.
+
 #### The `build_setting` `rule()` parameter {:#rule-parameter}
 
 Build settings are rules like any other rule and are differentiated using the
@@ -171,6 +174,22 @@ load("//example/buildsettings:build_settings.bzl", "flavor")
 flavor(
     name = "favorite_flavor",
     build_setting_default = "APPLE"
+)
+```
+
+#### Scope
+
+Build settings are by default only applied to the `target` [configuration]
+(/extending/rules#configurations), and won't be applied to the `exec`
+configuration. To have the build setting applied to both the `target` and `exec`
+configurations set the `scope` attribute to `"universal"`.
+
+```python
+# example/BUILD
+load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
+bool_flag(
+    name = "use_this_for_compiler_and_sources",
+    scope = "universal"
 )
 ```
 
@@ -648,6 +667,34 @@ hot_chocolate_transition = transition(
     ]
 )
 ```
+
+### Composing transitions {:#composing-transitions}
+
+Two transitions can be combined into a single new transition using
+[`transition.and_then`](/rules/lib/builtins/transition#and_then):
+
+```python
+combined_transition = first_transition.and_then(second_transition)
+```
+
+The composition applies `first_transition` to the input configuration and then
+runs `second_transition` against each of its output configurations. The original
+transitions are not modified, and the result is itself a `transition` object
+that can be composed further with another `and_then` call.
+
+A composed transition can be attached to a rule or attribute wherever its
+component transitions could be used (subject to the usual restriction that an
+[incoming edge transition](#incoming-edge-transitions) must be 1:1). At most one
+of the composed transitions may be an exec transition (`"exec"` or
+[`config.exec`](/rules/lib/toplevel/config#exec)).
+
+When two of the composed transitions are 1:2+, the composition produces the
+cross product of their splits. The key for each combined split is the
+comma-separated concatenation of the component keys: if the first transition
+produces keys `{a, b}` and the second produces `{x, y}` for each of those, the
+composition produces the four keys `a,x`, `a,y`, `b,x`, and `b,y`. Note that
+each additional 1:2+ transition multiplies the resulting dependency count, so
+chain them with care.
 
 ### Accessing attributes with transitions {:#accessing-attributes-with-transitions}
 

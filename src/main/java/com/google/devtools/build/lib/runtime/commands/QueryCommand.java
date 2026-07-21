@@ -115,7 +115,7 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
     // An exception to this is when somepath is used at the top level of the query expression.
     boolean lexicographicallySortOutput =
         QueryOutputUtils.lexicographicallySortOutput(queryOptions, formatter)
-            && !expr.isTopLevelSomePathFunction();
+            && !expr.isSomePathFunction();
 
     OutputStream out;
     if (formatter.canBeBuffered()) {
@@ -135,7 +135,7 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
       StreamedFormatter streamedFormatter = ((StreamedFormatter) formatter);
       streamedFormatter.setOptions(
           queryOptions,
-          queryOptions.aspectDeps.createResolver(env.getPackageManager(), env.getReporter()),
+          queryOptions.getAspectDeps().createResolver(env.getPackageManager(), env.getReporter()),
           hashFunction);
       streamedFormatter.setEventHandler(env.getReporter());
       if (lexicographicallySortOutput) {
@@ -187,7 +187,9 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
               targets,
               formatter,
               out,
-              queryOptions.aspectDeps.createResolver(env.getPackageManager(), env.getReporter()),
+              queryOptions
+                  .getAspectDeps()
+                  .createResolver(env.getPackageManager(), env.getReporter()),
               env.getReporter(),
               hashFunction,
               queryEnv.getLabelPrinter());

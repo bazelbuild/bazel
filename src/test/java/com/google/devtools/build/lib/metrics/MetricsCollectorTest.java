@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Bui
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.BuildGraphMetrics.AspectCount;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.BuildGraphMetrics.RuleClassCount;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.CumulativeMetrics;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.RemoteAnalysisCacheStatistics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.WorkerPoolMetrics.WorkerPoolStats;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.clock.JavaClock;
@@ -37,11 +38,17 @@ import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.MemoryPressureModule;
+import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheClient;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.proto.TopLevelTargetsMatchStatus;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.worker.WorkerProcessMetrics;
 import com.google.devtools.build.lib.worker.WorkerProcessMetricsCollector;
 import com.google.devtools.build.lib.worker.WorkerProcessStatus;
 import com.google.devtools.build.lib.worker.WorkerProcessStatus.Status;
+import com.google.devtools.build.skyframe.SkyFunctionName;
+import com.google.devtools.build.skyframe.SkyKey;
 import java.util.List;
 import org.junit.After;
 import org.junit.Assume;
@@ -69,7 +76,8 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
     }
   }
 
-  private BuildMetricsEventListener buildMetricsEventListener = new BuildMetricsEventListener();
+  private final BuildMetricsEventListener buildMetricsEventListener =
+      new BuildMetricsEventListener();
   // needed for HeapOffset options.
   private final MemoryPressureModule memoryPressureModule = new MemoryPressureModule();
 
@@ -712,6 +720,9 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
     assertThat(buildMetrics.getMemoryMetrics().getUsedHeapSizePostBuild()).isEqualTo(0);
     assertThat(buildMetrics.getMemoryMetrics().getPeakPostGcHeapSize()).isEqualTo(0);
     assertThat(buildMetrics.getMemoryMetrics().getPeakPostGcTenuredSpaceHeapSize()).isEqualTo(0);
+    assertThat(buildMetrics.getMemoryMetrics().getPeakPostGcHeapSizeDuringExecution()).isEqualTo(0);
+    assertThat(buildMetrics.getMemoryMetrics().getPeakPostGcTenuredSpaceHeapSizeDuringExecution())
+        .isEqualTo(0);
   }
 
   @Test
@@ -723,19 +734,37 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
 
   @Test
   public void cumulativeMetrics() throws Exception {
+    // The instance ID is the server's UUID, stable for the server's lifetime, so every event
+    // below reports the same value.
+    String instanceId = getRuntime().getInstanceId().toString();
     buildTarget("//foo:foo");
     assertThat(buildMetricsEventListener.event.getBuildMetrics().getCumulativeMetrics())
-        .isEqualTo(CumulativeMetrics.newBuilder().setNumAnalyses(1).setNumBuilds(1).build());
+        .isEqualTo(
+            CumulativeMetrics.newBuilder()
+                .setNumAnalyses(1)
+                .setNumBuilds(1)
+                .setInstanceId(instanceId)
+                .build());
 
     addOptions("--nobuild");
     buildTarget("//foo:foo");
     assertThat(buildMetricsEventListener.event.getBuildMetrics().getCumulativeMetrics())
-        .isEqualTo(CumulativeMetrics.newBuilder().setNumAnalyses(2).setNumBuilds(1).build());
+        .isEqualTo(
+            CumulativeMetrics.newBuilder()
+                .setNumAnalyses(2)
+                .setNumBuilds(1)
+                .setInstanceId(instanceId)
+                .build());
 
     addOptions("--build", "--noanalyze");
     buildTarget("//foo:foo");
     assertThat(buildMetricsEventListener.event.getBuildMetrics().getCumulativeMetrics())
-        .isEqualTo(CumulativeMetrics.newBuilder().setNumAnalyses(2).setNumBuilds(1).build());
+        .isEqualTo(
+            CumulativeMetrics.newBuilder()
+                .setNumAnalyses(2)
+                .setNumBuilds(1)
+                .setInstanceId(instanceId)
+                .build());
 
     write(
         "foo/BUILD",
@@ -751,7 +780,12 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
     addOptions("--analyze");
     assertThrows(ViewCreationFailedException.class, () -> buildTarget("//foo:foo"));
     assertThat(buildMetricsEventListener.event.getBuildMetrics().getCumulativeMetrics())
-        .isEqualTo(CumulativeMetrics.newBuilder().setNumAnalyses(3).setNumBuilds(1).build());
+        .isEqualTo(
+            CumulativeMetrics.newBuilder()
+                .setNumAnalyses(3)
+                .setNumBuilds(1)
+                .setInstanceId(instanceId)
+                .build());
 
     write(
         "foo/BUILD",
@@ -765,7 +799,31 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
 
     assertThrows(BuildFailedException.class, () -> buildTarget("//foo:foo"));
     assertThat(buildMetricsEventListener.event.getBuildMetrics().getCumulativeMetrics())
-        .isEqualTo(CumulativeMetrics.newBuilder().setNumAnalyses(4).setNumBuilds(2).build());
+        .isEqualTo(
+            CumulativeMetrics.newBuilder()
+                .setNumAnalyses(4)
+                .setNumBuilds(2)
+                .setInstanceId(instanceId)
+                .build());
+  }
+
+  @Test
+  public void instanceId_matchesServerInstanceIdAndChangesOnRestart() throws Exception {
+    String firstInstanceId = getRuntime().getInstanceId().toString();
+    buildTarget("//foo:foo");
+    assertThat(reportedInstanceId()).isEqualTo(firstInstanceId);
+
+    // Simulate a server restart: the new runtime mints a new instance ID.
+    reinitializeAndPreserveOptions();
+    writeTrivialFooTarget();
+    buildTarget("//foo:foo");
+    String secondInstanceId = getRuntime().getInstanceId().toString();
+    assertThat(secondInstanceId).isNotEqualTo(firstInstanceId);
+    assertThat(reportedInstanceId()).isEqualTo(secondInstanceId);
+  }
+
+  private String reportedInstanceId() {
+    return buildMetricsEventListener.event.getBuildMetrics().getCumulativeMetrics().getInstanceId();
   }
 
   @Test
@@ -917,6 +975,32 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
                 .build());
   }
 
+  @Test
+  public void testRemoteAnalysisCacheStats_invalidMatchStatus_defaultsToUnspecified()
+      throws Exception {
+    runtimeWrapper.newCommand();
+    getCommandEnvironment()
+        .getRemoteAnalysisCachingEventListener()
+        .recordServiceStats(
+            FingerprintValueStore.EMPTY_STATS,
+            new RemoteAnalysisCacheClient.Stats(
+                /* bytesSent= */ 10,
+                /* bytesReceived= */ 2,
+                /* requestsSent= */ 100,
+                /* batches= */ 200,
+                /* latencyMicros= */ ImmutableList.of(),
+                /* batchLatencyMicros= */ ImmutableList.of(),
+                /* matchStatus= */ 999)); // invalid value
+
+    buildTarget("//foo:foo");
+
+    BuildMetrics buildMetrics = buildMetricsEventListener.event.getBuildMetrics();
+    assertThat(buildMetrics.hasRemoteAnalysisCacheStatistics()).isTrue();
+    RemoteAnalysisCacheStatistics stats = buildMetrics.getRemoteAnalysisCacheStatistics();
+    assertThat(stats.getMetadataLookupResult())
+        .isEqualTo(TopLevelTargetsMatchStatus.MATCH_STATUS_UNSPECIFIED);
+  }
+
   private static final String DUMMY_MNEMONIC = "DUMMY_MNEMONIC";
 
   private WorkerProcessMetrics createWorkerProcessMetrics(
@@ -937,5 +1021,27 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
       workerProcessMetrics.onBeforeCommand();
     }
     return workerProcessMetrics;
+  }
+
+  @Test
+  public void testRemoteAnalysisCacheStats_serializationExceptionCount() throws Exception {
+    runtimeWrapper.newCommand();
+    getCommandEnvironment()
+        .getRemoteAnalysisCachingEventListener()
+        .recordSerializationException(
+            new SerializationException("test error"),
+            new SkyKey() {
+              @Override
+              public SkyFunctionName functionName() {
+                return SkyFunctionName.createHermetic("DUMMY_FUNCTION");
+              }
+            });
+
+    buildTarget("//foo:foo");
+
+    BuildMetrics buildMetrics = buildMetricsEventListener.event.getBuildMetrics();
+    assertThat(buildMetrics.hasRemoteAnalysisCacheStatistics()).isTrue();
+    RemoteAnalysisCacheStatistics stats = buildMetrics.getRemoteAnalysisCacheStatistics();
+    assertThat(stats.getSerializationExceptionCount()).isEqualTo(1);
   }
 }

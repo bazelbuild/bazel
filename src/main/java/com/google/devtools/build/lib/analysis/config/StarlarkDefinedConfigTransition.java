@@ -26,7 +26,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Ordering;
-import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.Label.PackageContext;
@@ -672,7 +671,7 @@ public abstract sealed class StarlarkDefinedConfigTransition implements Configur
         return;
       }
 
-      LinkedHashSet<String> remainingOutputs = Sets.newLinkedHashSet(declaredReturnSettings);
+      LinkedHashSet<String> remainingOutputs = new LinkedHashSet<>(declaredReturnSettings);
       for (String outputKey : returnedKeySet) {
         if (!remainingOutputs.remove(outputKey)) {
           throw new ValidationException(

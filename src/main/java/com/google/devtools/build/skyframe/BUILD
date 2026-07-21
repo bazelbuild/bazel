@@ -14,7 +14,6 @@ SKYFRAME_OBJECT_SRCS = [
     "FunctionHermeticity.java",
     "GroupedDeps.java",
     "IntVersion.java",
-    "NodeVersion.java",
     "NotComparableSkyValue.java",
     "SkyframeLookupResult.java",
     "SkyFunction.java",
@@ -22,6 +21,10 @@ SKYFRAME_OBJECT_SRCS = [
     "SkyFunctionName.java",
     "SkyKey.java",
     "SkyValue.java",
+]
+
+VERSION_SRCS = [
+    "NodeVersion.java",
     "Version.java",
 ]
 
@@ -30,6 +33,7 @@ java_library(
     srcs = SKYFRAME_OBJECT_SRCS,
     visibility = ["//visibility:public"],
     deps = [
+        ":version",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/collect/compacthashset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
@@ -44,15 +48,26 @@ java_library(
 )
 
 java_library(
+    name = "version",
+    srcs = VERSION_SRCS,
+    visibility = ["//visibility:public"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
+        "//third_party:auto_value",
+    ],
+)
+
+java_library(
     name = "skyframe",
     srcs = glob(
         ["**/*.java"],
-        exclude = SKYFRAME_OBJECT_SRCS + ["CPUHeavySkyKey.java"],
+        exclude = SKYFRAME_OBJECT_SRCS + VERSION_SRCS + ["CPUHeavySkyKey.java"],
     ),
     deps = [
         ":cpu_heavy_skykey",
         ":graph_inconsistency_java_proto",
         ":skyframe-objects",
+        ":version",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/clock",  # keep
         "//src/main/java/com/google/devtools/build/lib/cmdline",
@@ -65,9 +80,11 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/packages:package_piece_identifier",
         "//src/main/java/com/google/devtools/build/lib/profiler",
+        "//src/main/java/com/google/devtools/build/lib/profiler:auto_profiler",
         "//src/main/java/com/google/devtools/build/lib/profiler:google-auto-profiler-utils",
         "//src/main/java/com/google/devtools/build/lib/skyframe:package_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:deserialized-sky-value",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//src/main/java/com/google/devtools/build/lib/supplier",

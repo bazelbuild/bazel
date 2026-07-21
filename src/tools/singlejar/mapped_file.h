@@ -16,9 +16,8 @@
 #define BAZEL_SRC_TOOLS_SINGLEJAR_MAPPED_FILE_H_ 1
 
 #include <cstddef>
+#include <cstdint>
 #include <string>
-
-#include "src/tools/singlejar/port.h"
 
 /*
  * A mapped read-only file with auto closing.
@@ -51,10 +50,10 @@ class MappedFile {
 
   const unsigned char* start() const { return mapped_start_; }
   const unsigned char* end() const { return mapped_end_; }
-  const unsigned char* address(off64_t offset) const {
+  const unsigned char* address(int64_t offset) const {
     return mapped_start_ + offset;
   }
-  off64_t offset(const void* address) const {
+  int64_t offset(const void* address) const {
     return reinterpret_cast<const unsigned char*>(address) - mapped_start_;
   }
 

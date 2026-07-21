@@ -40,7 +40,7 @@ import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.serialization.AutoRegistry;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
-import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore;
+import com.google.devtools.build.lib.skyframe.serialization.InMemoryFingerprintValueStore;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationDependencyProvider;
@@ -325,7 +325,7 @@ public final class ArtifactTest {
 
     FingerprintValueService service = null;
     if (useSharedValues) {
-      service = FingerprintValueService.createForTesting(FingerprintValueStore.inMemoryStore());
+      service = FingerprintValueService.createForTesting(new InMemoryFingerprintValueStore());
       for (ObjectCodec<? extends Artifact> codec : ArtifactCodecs.VALUE_SHARING_CODECS) {
         objectCodecs = objectCodecs.withCodecOverridesForTesting(ImmutableList.of(codec));
       }
@@ -342,18 +342,12 @@ public final class ArtifactTest {
           (SourceArtifact)
               objectCodecs.deserializeMemoizedAndBlocking(
                   service,
-                  objectCodecs
-                      .serializeMemoizedAndBlocking(
-                          service, sourceArtifact, /* profileCollector= */ null)
-                      .getObject());
+                  objectCodecs.serializeMemoizedAndBlocking(service, sourceArtifact).getObject());
       deserialized2 =
           (SourceArtifact)
               objectCodecs.deserializeMemoizedAndBlocking(
                   service,
-                  objectCodecs
-                      .serializeMemoizedAndBlocking(
-                          service, sourceArtifact, /* profileCollector= */ null)
-                      .getObject());
+                  objectCodecs.serializeMemoizedAndBlocking(service, sourceArtifact).getObject());
     } else {
       deserialized1 =
           (SourceArtifact) objectCodecs.deserialize(objectCodecs.serialize(sourceArtifact));
@@ -371,8 +365,7 @@ public final class ArtifactTest {
               objectCodecs.deserializeMemoizedAndBlocking(
                   service,
                   objectCodecs
-                      .serializeMemoizedAndBlocking(
-                          service, sourceArtifactFromFactory, /* profileCollector= */ null)
+                      .serializeMemoizedAndBlocking(service, sourceArtifactFromFactory)
                       .getObject());
     } else {
       deserialized =

@@ -682,8 +682,17 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
   public ThreadSafeMutableSet<T> getTransitiveClosure(
       ThreadSafeMutableSet<T> targets, QueryExpressionContext<T> context)
       throws InterruptedException {
+    return getTransitiveClosure(targets, context, createThreadSafeMutableSet());
+  }
+
+  @Override
+  public ThreadSafeMutableSet<T> getTransitiveClosure(
+      ThreadSafeMutableSet<T> targets,
+      QueryExpressionContext<T> context,
+      ThreadSafeMutableSet<T> visited)
+      throws InterruptedException {
     return SkyQueryUtils.getTransitiveClosure(
-        targets, targets1 -> getFwdDeps(targets1, context), createThreadSafeMutableSet());
+        targets, targets1 -> getFwdDeps(targets1, context), visited);
   }
 
   @Override

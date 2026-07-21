@@ -275,7 +275,8 @@ public class TopLevelConstraintSemantics {
    *
    * <p>This is useful when trying to explain to the user why an explicitly requested target on the
    * command line is considered incompatible. The goal is to print out the dependency chain and the
-   * constraint that wasn't satisfied so that the user can immediately figure out what happened.
+   * constraint or <code>config_setting</code> that wasn't satisfied so that the user can
+   * immediately figure out what happened.
    *
    * @param target the incompatible target that was explicitly requested on the command line.
    * @return the verbose error message to show to the user.
@@ -304,28 +305,50 @@ public class TopLevelConstraintSemantics {
 
     message +=
         String.format(
-            "   <-- target platform (%s) didn't satisfy constraint", provider.targetPlatform());
-    if (provider.constraintsResponsibleForIncompatibility().size() == 1) {
-      message += " " + provider.constraintsResponsibleForIncompatibility().get(0).label();
-      return message;
-    }
-
-    message += "s [";
-
-    boolean first = true;
-    for (ConstraintValueInfo constraintValueInfo :
-        provider.constraintsResponsibleForIncompatibility()) {
-      if (first) {
-        first = false;
-      } else {
-        message += ", ";
-      }
-      message += constraintValueInfo.label();
-    }
-
-    message += "]";
-
+            "   <--%s",
+            formatIncompatibilityReasons(
+                provider.targetPlatform(),
+                provider.constraintsResponsibleForIncompatibility(),
+                provider.configSettingsResponsibleForIncompatibility()));
     return message;
+  }
+
+  private static String formatIncompatibilityReasons(
+      @Nullable Label targetPlatform,
+      @Nullable ImmutableList<ConstraintValueInfo> constraints,
+      @Nullable ImmutableList<Label> configSettings) {
+    StringJoiner reasons = new StringJoiner(" and");
+    if (constraints != null) {
+      reasons.add(formatConstraintIncompatibility(targetPlatform, constraints));
+    }
+    if (configSettings != null) {
+      reasons.add(formatConfigSettingIncompatibility(configSettings));
+    }
+    return reasons.toString();
+  }
+
+  private static String formatConstraintIncompatibility(
+      @Nullable Label targetPlatform, ImmutableList<ConstraintValueInfo> constraints) {
+    String message =
+        String.format(" target platform (%s) didn't satisfy constraint", targetPlatform);
+    if (constraints.size() == 1) {
+      return message + " " + constraints.get(0).label();
+    }
+    return message
+        + "s ["
+        + constraints.stream()
+            .map(constraintValueInfo -> constraintValueInfo.label().toString())
+            .collect(joining(", "))
+        + "]";
+  }
+
+  private static String formatConfigSettingIncompatibility(ImmutableList<Label> configSettings) {
+    if (configSettings.size() == 1) {
+      return " target configuration didn't match config_setting " + configSettings.get(0);
+    }
+    return " target configuration didn't match config_settings ["
+        + configSettings.stream().map(Label::toString).collect(joining(", "))
+        + "]";
   }
 
   /**
@@ -474,7 +497,7 @@ public class TopLevelConstraintSemantics {
       List<Label> envAndFulfillers = new ArrayList<>();
       envAndFulfillers.add(unsupportedEnv);
       for (EnvironmentLabels envGroup : provider.getStaticEnvironments().getGroups()) {
-        envAndFulfillers.addAll(envGroup.getFulfillers(unsupportedEnv).toList());
+        envAndFulfillers.addAll(envGroup.getFulfillers(unsupportedEnv));
       }
       RemovedEnvironmentCulprit culprit = null;
       for (int i = 0; i < envAndFulfillers.size() && culprit == null; i++) {

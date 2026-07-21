@@ -61,6 +61,7 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
@@ -104,7 +105,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     LocalExecutionOptions options = cmdEnv.getOptions().getOptions(LocalExecutionOptions.class);
     ImmutableList<String> linuxSandboxArgv =
         LinuxSandboxCommandLineBuilder.commandLineBuilder(linuxSandbox)
-            .setTimeout(options.getLocalSigkillGraceSeconds())
+            .setTimeout(options.getLocalSigkillGraceSecondsDuration())
             .buildForCommand(ImmutableList.of("/bin/true"));
     ImmutableMap<String, String> env = ImmutableMap.of();
     Path execRoot = cmdEnv.getExecRoot();
@@ -134,7 +135,6 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   private final TreeDeleter treeDeleter;
   private final Path slashTmp;
   private final ImmutableSet<Path> knownPathsToMountUnderHermeticTmp;
-  private String cgroupsDir;
   private final VirtualCgroupFactory cgroupFactory;
 
   /**
@@ -156,12 +156,12 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     super(cmdEnv);
     SandboxOptions sandboxOptions = cmdEnv.getOptions().getOptions(SandboxOptions.class);
     this.cgroupFactory =
-        sandboxOptions == null || !sandboxOptions.useNewCgroupImplementation
+        sandboxOptions == null
             ? null
             : new VirtualCgroupFactory(
                 "sandbox_",
                 VirtualCgroup.getInstance(),
-                getSandboxOptions().getLimits(),
+                getSandboxOptions().getLimitsMap(),
                 /* alwaysCreate= */ false);
     this.fileSystem = cmdEnv.getRuntime().getFileSystem();
     this.execRoot = cmdEnv.getExecRoot();
@@ -184,7 +184,9 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     // or well-known children of /tmp from the host.
     // TODO(bazel-team): Review all flags whose path may have to be considered here.
     return Stream.concat(
-            Stream.of(sandboxBase, cmdEnv.getOutputBase()),
+            Stream.concat(
+                Stream.of(sandboxBase, cmdEnv.getOutputBase()),
+                Optional.ofNullable(cmdEnv.getRepoContentsCachePath()).stream()),
             cmdEnv.getPackageLocator().getPathEntries().stream().map(Root::asPath))
         .filter(p -> p.startsWith(slashTmp))
         // For any path /tmp/dir1/dir2 we encounter, we instead mount /tmp/dir1 (first two
@@ -213,14 +215,14 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   }
 
   private boolean useHermeticTmp() {
-    if (getSandboxOptions().useHermetic) {
+    if (getSandboxOptions().getUseHermetic()) {
       // The hermetic sandbox is, well, already hermetic. Also, it creates an empty /tmp by default
       // so nothing needs to be done to achieve a /tmp that is also hermetic.
       return false;
     }
 
     boolean tmpExplicitlyBindMounted =
-        getSandboxOptions().sandboxAdditionalMounts.stream()
+        getSandboxOptions().getSandboxAdditionalMounts().stream()
             .anyMatch(e -> e.getKey().equals("/tmp"));
     if (tmpExplicitlyBindMounted) {
       // An explicit mount on /tmp is an explicit way to make it non-hermetic.
@@ -234,7 +236,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       return false;
     }
 
-    if (getSandboxOptions().sandboxTmpfsPath.contains(slashTmp.asFragment())) {
+    if (getSandboxOptions().getSandboxTmpfsPath().contains(slashTmp.asFragment())) {
       // A tmpfs path under /tmp is as hermetic as "hermetic /tmp".
       return false;
     }
@@ -280,7 +282,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
       for (PathFragment pathFragment :
           Iterables.concat(
-              getSandboxOptions().sandboxTmpfsPath,
+              getSandboxOptions().getSandboxTmpfsPath(),
               Iterables.transform(writableDirs, Path::asFragment))) {
         Path path = fileSystem.getPath(pathFragment);
         if (path.startsWith(slashTmp)) {
@@ -297,42 +299,33 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     SandboxOptions sandboxOptions = getSandboxOptions();
 
     boolean createNetworkNamespace =
-        !(allowNetwork || Spawns.requiresNetwork(spawn, sandboxOptions.defaultSandboxAllowNetwork));
+        !(allowNetwork
+            || Spawns.requiresNetwork(spawn, sandboxOptions.getDefaultSandboxAllowNetwork()));
     LinuxSandboxCommandLineBuilder commandLineBuilder =
         LinuxSandboxCommandLineBuilder.commandLineBuilder(linuxSandbox)
             .addExecutionInfo(spawn.getExecutionInfo())
             .setWritableFilesAndDirectories(writableDirs)
-            .setTmpfsDirectories(ImmutableSet.copyOf(getSandboxOptions().sandboxTmpfsPath))
+            .setTmpfsDirectories(ImmutableSet.copyOf(getSandboxOptions().getSandboxTmpfsPath()))
             .setBindMounts(
                 prepareAndGetBindMounts(sandboxExecRoot, sandboxTmp, pathsUnderTmpToMount))
-            .setUseFakeHostname(getSandboxOptions().sandboxFakeHostname)
-            .setEnablePseudoterminal(getSandboxOptions().sandboxExplicitPseudoterminal)
+            .setUseFakeHostname(getSandboxOptions().getSandboxFakeHostname())
+            .setEnablePseudoterminal(getSandboxOptions().getSandboxExplicitPseudoterminal())
             .setCreateNetworkNamespace(createNetworkNamespace ? getNetworkNamespace() : NO_NETNS)
             .setKillDelay(timeoutKillDelay);
 
     Path sandboxDebugPath = null;
-    if (sandboxOptions.sandboxDebug) {
+    if (sandboxOptions.getSandboxDebug()) {
       sandboxDebugPath = sandboxPath.getRelative("debug.out");
       commandLineBuilder.setSandboxDebugPath(sandboxDebugPath.getPathString());
     }
 
     if (cgroupFactory != null) {
       ImmutableMap<String, Double> spawnResourceLimits = ImmutableMap.of();
-      if (sandboxOptions.enforceResources.matcher().test(spawn.getMnemonic())) {
+      if (sandboxOptions.getEnforceResources().matcher().test(spawn.getMnemonic())) {
         spawnResourceLimits = spawn.getLocalResources().getResources();
       }
       VirtualCgroup cgroup = cgroupFactory.create(context.getId(), spawnResourceLimits);
       commandLineBuilder.setCgroupsDirs(cgroup.paths());
-    } else if (sandboxOptions.memoryLimitMb > 0) {
-      // We put the sandbox inside a unique subdirectory using the context's ID. This ID is
-      // unique per spawn run by this spawn runner.
-      CgroupsInfo sandboxCgroup =
-          CgroupsInfo.getBlazeSpawnsCgroup()
-              .createIndividualSpawnCgroup(
-                  "sandbox_" + context.getId(), sandboxOptions.memoryLimitMb);
-      if (sandboxCgroup.exists()) {
-        commandLineBuilder.setCgroupsDirs(ImmutableSet.of(sandboxCgroup.getCgroupDir().toPath()));
-      }
     }
 
     if (!timeout.isZero()) {
@@ -340,12 +333,12 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     }
     if (spawn.getExecutionInfo().containsKey(ExecutionRequirements.REQUIRES_FAKEROOT)) {
       commandLineBuilder.setUseFakeRoot(true);
-    } else if (sandboxOptions.sandboxFakeUsername) {
+    } else if (sandboxOptions.getSandboxFakeUsername()) {
       commandLineBuilder.setUseFakeUsername(true);
     }
     Path statisticsPath = sandboxPath.getRelative("stats.out");
     commandLineBuilder.setStatisticsPath(statisticsPath);
-    if (sandboxOptions.useHermetic) {
+    if (sandboxOptions.getUseHermetic()) {
       commandLineBuilder.setHermeticSandboxPath(sandboxPath);
       return new HardlinkedSandboxedSpawn(
           sandboxPath,
@@ -358,7 +351,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
           treeDeleter,
           sandboxDebugPath,
           statisticsPath,
-          sandboxOptions.sandboxDebug,
+          sandboxOptions.getSandboxDebug(),
           makeInteractiveDebugArguments(commandLineBuilder, sandboxOptions),
           spawn.getMnemonic());
     } else {
@@ -389,7 +382,10 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       throws IOException {
     Set<Path> writableDirs = new TreeSet<>(super.getWritableDirs(sandboxExecRoot, env));
     FileSystem fs = sandboxExecRoot.getFileSystem();
-    writableDirs.add(fs.getPath("/dev/shm").resolveSymbolicLinks());
+    Path devShm = fs.getPath("/dev/shm");
+    if (devShm.exists()) {
+      writableDirs.add(devShm.resolveSymbolicLinks());
+    }
     writableDirs.add(fs.getPath("/tmp"));
     return ImmutableSet.copyOf(writableDirs);
   }
@@ -400,7 +396,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     final SortedMap<Path, Path> userBindMounts = new TreeMap<>();
     SandboxHelpers.mountAdditionalPaths(
         ImmutableMap.<String, String>builder()
-            .putAll(getSandboxOptions().sandboxAdditionalMounts)
+            .putAll(getSandboxOptions().getSandboxAdditionalMounts())
             .buildKeepingLast(),
         sandboxExecRoot,
         userBindMounts);
@@ -460,7 +456,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   public void verifyPostCondition(
       Spawn originalSpawn, SandboxedSpawn sandbox, SpawnExecutionContext context)
       throws IOException {
-    if (getSandboxOptions().useHermetic) {
+    if (getSandboxOptions().getUseHermetic()) {
       checkForConcurrentModifications(context);
     }
     // We cannot leave the cgroups around and delete them only when we delete the sandboxes
@@ -519,9 +515,6 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
   @Override
   public void cleanupSandboxBase(Path sandboxBase, TreeDeleter treeDeleter) throws IOException {
-    if (cgroupsDir != null) {
-      new File(cgroupsDir).delete();
-    }
     VirtualCgroup.deleteInstance();
     // Delete the inaccessible files synchronously, bypassing the treeDeleter. They are only a
     // couple of files that can be deleted fast, and ensuring they are gone at the end of every
@@ -542,14 +535,14 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   @Nullable
   private ImmutableList<String> makeInteractiveDebugArguments(
       LinuxSandboxCommandLineBuilder commandLineBuilder, SandboxOptions sandboxOptions) {
-    if (!sandboxOptions.sandboxDebug) {
+    if (!sandboxOptions.getSandboxDebug()) {
       return null;
     }
     return commandLineBuilder.buildForCommand(ImmutableList.of("/bin/sh", "-i"));
   }
 
   private final LinuxSandboxCommandLineBuilder.NetworkNamespace getNetworkNamespace() {
-    if (getSandboxOptions().sandboxEnableLoopbackDevice) {
+    if (getSandboxOptions().getSandboxEnableLoopbackDevice()) {
       return NETNS_WITH_LOOPBACK;
     }
     return NETNS;

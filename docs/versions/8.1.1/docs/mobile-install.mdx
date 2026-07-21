@@ -8,7 +8,7 @@ This page describes how `bazel mobile-install` makes iterative development
 for Android much faster. It describes the benefits of this approach versus the
 challenges of the traditional app install method.
 
-## Summary
+## Summary {#summary}
 
 To install small changes to an Android app very quickly, do the following:
 
@@ -37,7 +37,7 @@ When in doubt, look at the
 [example](https://github.com/bazelbuild/bazel/tree/master/examples/android)
 or [contact us](https://groups.google.com/forum/#!forum/bazel-discuss).
 
-## Introduction
+## Introduction {#introduction}
 
 One of the most important attributes of a developer's toolchain is speed: there
 is a world of difference between changing the code and seeing it run within a
@@ -53,7 +53,7 @@ change was not unusual on larger projects like Google Maps.
 using a combination of change pruning, work sharding, and clever manipulation of
 Android internals, all without changing any of your app's code.
 
-## Problems with traditional app installation
+## Problems with traditional app installation {#problems-app-install}
 
 Building an Android app has some issues, including:
 
@@ -73,7 +73,7 @@ time. This is a good tradeoff for users because they typically install an app
 once and use it many times, but results in slower development where an app is
 installed many times and each version is run at most a handful of times.
 
-## The approach of `bazel mobile-install`
+## The approach of `bazel mobile-install` {#approach-mobile-install}
 
 `bazel mobile-install `makes the following improvements:
 
@@ -94,7 +94,7 @@ installed many times and each version is run at most a handful of times.
    actual app. This is all transparent to the app, except in a few corner cases
    described below.
 
-### Sharded Dexing
+### Sharded Dexing {#sharded-dexing}
 
 Sharded dexing is reasonably straightforward: once the .jar files are built, a
 [tool](https://github.com/bazelbuild/bazel/blob/master/src/tools/android/java/com/google/devtools/build/android/ziputils/DexMapper.java)
@@ -180,9 +180,9 @@ Once all these things are done, the stub application then instantiates the
 actual `Application` class, changing all references to itself to the actual
 application within the Android framework.
 
-## Results
+## Results {#results}
 
-### Performance
+### Performance {#performance}
 
 In general, `bazel mobile-install` results in a 4x to 10x speedup of building
 and installing large apps after a small change.
@@ -194,7 +194,7 @@ The following numbers were computed for a few Google products:
 This, of course, depends on the nature of the change: recompilation after
 changing a base library takes more time.
 
-### Limitations
+### Limitations {#limitations}
 
 The tricks the stub application plays don't work in every case.
 The following cases highlight where it does not work as expected:

@@ -82,7 +82,7 @@ class MinrankOutputFormatter extends OutputFormatter {
     // Graphs may contain cycles because there are errors in BUILD files.
 
     List<RankAndLabel> outputToOrder =
-        options.orderOutput == OrderOutput.FULL ? new ArrayList<>() : null;
+        options.getOrderOutput() == OrderOutput.FULL ? new ArrayList<>() : null;
     Digraph<Set<Node<Target>>> scGraph = result.getStrongComponentGraph();
     Set<Node<Set<Node<Target>>>> rankNodes = scGraph.getRoots();
     Set<Node<Set<Node<Target>>>> seen = new HashSet<>();

@@ -53,6 +53,7 @@ import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 import com.google.devtools.common.options.OptionsParser;
 import java.util.List;
 import java.util.UUID;
@@ -64,7 +65,8 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public abstract class ConfigurationTestCase extends FoundationTestCase {
 
-  public static final class TestOptions extends OptionsBase {
+  @OptionsClass
+  public abstract static class TestOptions extends OptionsBase {
     @Option(
         name = "multi_cpu",
         converter = Converters.CommaSeparatedOptionListConverter.class,
@@ -73,7 +75,7 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "null",
         help = "Additional target CPUs.")
-    public List<String> multiCpus;
+    public abstract List<String> getMultiCpus();
   }
 
   protected MockToolsConfig mockToolsConfig;
@@ -125,8 +127,9 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
     SkyframeExecutorTestHelper.process(skyframeExecutor);
     BuildOptions defaultBuildOptions =
         BuildOptions.getDefaultBuildOptionsForFragments(buildOptionClasses).clone();
-    defaultBuildOptions.get(CoreOptions.class).starlarkExecConfig =
-        TestConstants.STARLARK_EXEC_TRANSITION;
+    defaultBuildOptions
+        .get(CoreOptions.class)
+        .setStarlarkExecConfig(TestConstants.STARLARK_EXEC_TRANSITION);
     skyframeExecutor.injectExtraPrecomputedValues(
         new ImmutableList.Builder<PrecomputedValue.Injected>()
             .add(
@@ -140,8 +143,8 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
             .addAll(analysisMock.getPrecomputedValues())
             .build());
     PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
-    packageOptions.showLoadingProgress = true;
-    packageOptions.globbingThreads = 7;
+    packageOptions.setShowLoadingProgress(true);
+    packageOptions.setGlobbingThreads(7);
     OptionsParser parser =
         OptionsParser.builder().optionsClasses(BuildLanguageOptions.class).build();
     parser.parse(TestConstants.PRODUCT_SPECIFIC_BUILD_LANG_OPTIONS);
@@ -152,6 +155,7 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
         options,
         UUID.randomUUID(),
         ImmutableMap.of(),
+        /* repoEnv= */ ImmutableMap.of(),
         QuiescingExecutorsImpl.forTesting(),
         new TimestampGranularityMonitor(BlazeClock.instance()));
     skyframeExecutor.setActionEnv(ImmutableMap.of());
@@ -205,7 +209,7 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
                     .add(TestOptions.class)
                     .build())
             .build();
-    parser.setStarlarkOptions(starlarkOptions);
+    parser.setStarlarkOptions(starlarkOptions, ImmutableSet.of());
     parser.parse(TestConstants.PRODUCT_SPECIFIC_FLAGS);
     parser.parse(args);
 

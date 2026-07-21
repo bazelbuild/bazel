@@ -45,7 +45,7 @@ public class JavaCompilationInfoProviderTest {
   @Test
   public void compilationInfo_equalityTests() throws Exception {
     Artifact jar = createArtifact("foo.jar");
-    NestedSet<Artifact> fixedNestedSet = NestedSetBuilder.create(Order.STABLE_ORDER, jar);
+    Artifact otherJar = createArtifact("other-foo.jar");
     JavaCompilationInfoProvider empty1 = new JavaCompilationInfoProvider.Builder().build();
     JavaCompilationInfoProvider empty2 = new JavaCompilationInfoProvider.Builder().build();
     JavaCompilationInfoProvider withBootCpNewNestedSet1 =
@@ -70,20 +70,23 @@ public class JavaCompilationInfoProviderTest {
             .build();
     JavaCompilationInfoProvider withCompileCpNewNestedSet2 =
         new JavaCompilationInfoProvider.Builder()
-            .setCompilationClasspath(NestedSetBuilder.create(Order.STABLE_ORDER, jar))
+            .setCompilationClasspath(NestedSetBuilder.create(Order.STABLE_ORDER, otherJar))
             .build();
     JavaCompilationInfoProvider withCompileCpFixedNestedSet1 =
-        new JavaCompilationInfoProvider.Builder().setCompilationClasspath(fixedNestedSet).build();
+        new JavaCompilationInfoProvider.Builder()
+            .setCompilationClasspath(NestedSetBuilder.create(Order.STABLE_ORDER, jar))
+            .build();
     JavaCompilationInfoProvider withCompileCpFixedNestedSet2 =
-        new JavaCompilationInfoProvider.Builder().setCompilationClasspath(fixedNestedSet).build();
+        new JavaCompilationInfoProvider.Builder()
+            .setCompilationClasspath(NestedSetBuilder.create(Order.STABLE_ORDER, otherJar))
+            .build();
 
     new EqualsTester()
         .addEqualityGroup(
             empty1, empty2, withBootCpNewEmptyNestedSet1, withBootCpNewEmptyNestedSet2)
         .addEqualityGroup(withBootCpNewNestedSet1, withBootCpNewNestedSet2)
-        .addEqualityGroup(withCompileCpNewNestedSet1)
-        .addEqualityGroup(withCompileCpNewNestedSet2)
-        .addEqualityGroup(withCompileCpFixedNestedSet1, withCompileCpFixedNestedSet2)
+        .addEqualityGroup(withCompileCpNewNestedSet1, withCompileCpFixedNestedSet1)
+        .addEqualityGroup(withCompileCpNewNestedSet2, withCompileCpFixedNestedSet2)
         .testEquals();
   }
 

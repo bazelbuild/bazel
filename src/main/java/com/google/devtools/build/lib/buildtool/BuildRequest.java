@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.analysis.AspectCollection;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
-import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
@@ -42,13 +41,12 @@ import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.devtools.common.options.OptionsProvider;
-import com.google.devtools.common.options.ParsedOptionDescription;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
-import java.util.function.Predicate;
 import javax.annotation.Nullable;
 
 /**
@@ -184,6 +182,7 @@ public class BuildRequest implements OptionsProvider {
   private final UUID id;
   private final LoadingCache<Class<? extends OptionsBase>, Optional<OptionsBase>> optionsCache;
   private final Map<String, Object> starlarkOptions;
+  private final Set<String> starlarkOptionsAllowingMultiple;
   private final Map<String, String> scopesAttributes;
   private final Map<String, Object> onLeaveScopeValues;
 
@@ -224,7 +223,9 @@ public class BuildRequest implements OptionsProvider {
     this.id = id;
     this.startTimeMillis = startTimeMillis;
     this.userOptions =
-        options.getUserOptions() == null ? ImmutableMap.of() : options.getUserOptions();
+        options.getUserOptions() == null
+            ? ImmutableMap.of()
+            : ImmutableMap.copyOf(options.getUserOptions());
     this.optionsCache =
         Caffeine.newBuilder()
             .build(
@@ -237,6 +238,7 @@ public class BuildRequest implements OptionsProvider {
                   return Optional.fromNullable(result);
                 });
     this.starlarkOptions = options.getStarlarkOptions();
+    this.starlarkOptionsAllowingMultiple = options.getStarlarkOptionsAllowingMultiple();
     this.scopesAttributes = options.getScopesAttributes();
     this.onLeaveScopeValues = options.getOnLeaveScopeValues();
     this.needsInstrumentationFilter = needsInstrumentationFilter;
@@ -249,7 +251,7 @@ public class BuildRequest implements OptionsProvider {
     }
 
     // All this, just to pass a global boolean from the client to the server. :(
-    this.runningInEmacs = options.getOptions(UiOptions.class).runningInEmacs;
+    this.runningInEmacs = options.getOptions(UiOptions.class).getRunningInEmacs();
   }
 
   /**
@@ -285,9 +287,13 @@ public class BuildRequest implements OptionsProvider {
   }
 
   @Override
-  public Map<String, Object> getExplicitStarlarkOptions(
-      Predicate<? super ParsedOptionDescription> filter) {
+  public Map<String, Object> getExplicitCommandLineStarlarkOptions() {
     throw new UnsupportedOperationException("No known callers to this implementation");
+  }
+
+  @Override
+  public Set<String> getStarlarkOptionsAllowingMultiple() {
+    return starlarkOptionsAllowingMultiple;
   }
 
   /**
@@ -359,12 +365,12 @@ public class BuildRequest implements OptionsProvider {
 
   /** Returns the value of the --keep_going option. */
   public boolean getKeepGoing() {
-    return getOptions(KeepGoingOption.class).keepGoing;
+    return getOptions(KeepGoingOption.class).getKeepGoing();
   }
 
   /** Returns the value of the --loading_phase_threads option. */
   int getLoadingPhaseThreadCount() {
-    return getOptions(LoadingPhaseThreadsOption.class).threads;
+    return getOptions(LoadingPhaseThreadsOption.class).getThreads();
   }
 
   /** Returns the set of execution options specified for this request. */
@@ -400,8 +406,8 @@ public class BuildRequest implements OptionsProvider {
   public List<String> validateOptions() {
     List<String> warnings = new ArrayList<>();
 
-    int localTestJobs = getExecutionOptions().localTestJobs;
-    int jobs = getBuildOptions().jobs;
+    int localTestJobs = getExecutionOptions().getLocalTestJobs();
+    int jobs = getBuildOptions().getJobs();
     if (localTestJobs > jobs) {
       warnings.add(
           String.format(
@@ -417,14 +423,16 @@ public class BuildRequest implements OptionsProvider {
   public TopLevelArtifactContext getTopLevelArtifactContext() {
     BuildRequestOptions buildOptions = getBuildOptions();
     return new TopLevelArtifactContext(
-        getOptions(ExecutionOptions.class).testStrategy.equals("exclusive"),
-        getOptions(BuildEventProtocolOptions.class).expandFilesets,
+        getOptions(ExecutionOptions.class).getTestStrategy().equals("exclusive"),
+        getOptions(BuildEventProtocolOptions.class).getExpandFilesets(),
         OutputGroupInfo.determineOutputGroups(
-            buildOptions.outputGroups, validationMode(), /* shouldRunTests= */ shouldRunTests()));
+            buildOptions.getOutputGroups(),
+            validationMode(),
+            /* shouldRunTests= */ shouldRunTests()));
   }
 
   public ImmutableList<String> getAspects() {
-    List<String> aspects = getBuildOptions().aspects;
+    List<String> aspects = getBuildOptions().getAspects();
     ImmutableList.Builder<String> result = ImmutableList.<String>builder().addAll(aspects);
     if (!aspects.contains(AspectCollection.VALIDATION_ASPECT_NAME) && useValidationAspect()) {
       result.add(AspectCollection.VALIDATION_ASPECT_NAME);
@@ -434,7 +442,8 @@ public class BuildRequest implements OptionsProvider {
 
   @Nullable
   public ImmutableMap<String, String> getAspectsParameters() throws ViewCreationFailedException {
-    List<Map.Entry<String, String>> aspectsParametersList = getBuildOptions().aspectsParameters;
+    List<Map.Entry<String, String>> aspectsParametersList =
+        getBuildOptions().getAspectsParameters();
     try {
       return aspectsParametersList.stream()
           .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
@@ -457,10 +466,10 @@ public class BuildRequest implements OptionsProvider {
 
   private OutputGroupInfo.ValidationMode validationMode() {
     BuildRequestOptions buildOptions = getBuildOptions();
-    if (!buildOptions.runValidationActions) {
+    if (!buildOptions.getRunValidationActions()) {
       return OutputGroupInfo.ValidationMode.OFF;
     }
-    return buildOptions.useValidationAspect
+    return buildOptions.getUseValidationAspect()
         ? OutputGroupInfo.ValidationMode.ASPECT
         : OutputGroupInfo.ValidationMode.OUTPUT_GROUP;
   }

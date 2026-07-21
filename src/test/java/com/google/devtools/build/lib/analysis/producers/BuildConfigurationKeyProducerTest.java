@@ -41,6 +41,7 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
+import com.google.devtools.common.options.OptionsClass;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.HashMap;
 import java.util.List;
@@ -84,7 +85,8 @@ public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
   }
 
   /** Extra options for this test. */
-  public static class DummyTestOptions extends FragmentOptions {
+  @OptionsClass
+  public abstract static class DummyTestOptions extends FragmentOptions {
     public DummyTestOptions() {}
 
     @Option(
@@ -92,7 +94,7 @@ public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "from_default")
-    public String option;
+    public abstract String getOption();
 
     @Option(
         name = "internal_option",
@@ -100,7 +102,7 @@ public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "from_default",
         metadataTags = {OptionMetadataTag.INTERNAL})
-    public String internalOption;
+    public abstract String getInternalOption();
 
     @Option(
         name = "accumulating",
@@ -108,7 +110,7 @@ public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "null")
-    public List<String> accumulating;
+    public abstract List<String> getAccumulating();
   }
 
   /** Test fragment. */
@@ -185,7 +187,7 @@ public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
     BuildConfigurationKey result = fetch(baseOptions, null);
 
     assertThat(result).isNotNull();
-    assertThat(result.getOptions().get(DummyTestOptions.class).internalOption)
+    assertThat(result.getOptions().get(DummyTestOptions.class).getInternalOption())
         .isEqualTo("from_cmd");
   }
 
@@ -214,7 +216,7 @@ public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
     BuildConfigurationKey result = fetch(baseOptions, null);
 
     assertThat(result).isNotNull();
-    assertThat(result.getOptions().get(DummyTestOptions.class).internalOption)
+    assertThat(result.getOptions().get(DummyTestOptions.class).getInternalOption())
         .isEqualTo("from_mapping_changed");
   }
 
@@ -267,7 +269,7 @@ public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
     BuildConfigurationKey result = fetch(baseOptions, null);
 
     assertThat(result).isNotNull();
-    assertThat(result.getOptions().get(DummyTestOptions.class).internalOption)
+    assertThat(result.getOptions().get(DummyTestOptions.class).getInternalOption())
         .isEqualTo("from_platform");
   }
 
@@ -313,7 +315,8 @@ public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
     BuildConfigurationKey result = fetch(baseOptions, null);
 
     assertThat(result).isNotNull();
-    assertThat(result.getOptions().get(DummyTestOptions.class).option).isEqualTo("from_platform");
+    assertThat(result.getOptions().get(DummyTestOptions.class).getOption())
+        .isEqualTo("from_platform");
   }
 
   @Test
@@ -359,7 +362,8 @@ public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
     BuildConfigurationKey result = fetch(baseOptions, null);
 
     assertThat(result).isNotNull();
-    assertThat(result.getOptions().get(DummyTestOptions.class).option).isEqualTo("from_default");
+    assertThat(result.getOptions().get(DummyTestOptions.class).getOption())
+        .isEqualTo("from_default");
   }
 
   // Regression test for https://github.com/bazelbuild/bazel/issues/23147
@@ -410,7 +414,7 @@ public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
     BuildConfigurationKey result = fetch(baseOptions, null);
 
     assertThat(result).isNotNull();
-    assertThat(result.getOptions().get(DummyTestOptions.class).accumulating)
+    assertThat(result.getOptions().get(DummyTestOptions.class).getAccumulating())
         .containsExactly("from_cli", "from_platform")
         .inOrder();
   }
@@ -471,7 +475,7 @@ public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
     BuildConfigurationKey result = fetch(baseOptions, null);
 
     assertThat(result).isNotNull();
-    assertThat(result.getOptions().get(DummyTestOptions.class).internalOption)
+    assertThat(result.getOptions().get(DummyTestOptions.class).getInternalOption())
         .isEqualTo("from_platform");
   }
 
@@ -669,6 +673,133 @@ public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
             new Scope.ScopeType(Scope.ScopeType.PROJECT));
     assertThat(result.getOptions().getScopeTypeMap())
         .containsExactlyEntriesIn(expectedScopeTypeMap);
+  }
+
+  @Test
+  public void createKey_withScopedBuildOptions_projectFlag_isPreservedForInScopeTarget()
+      throws Exception {
+    // Tests that when a target is evaluated within a flag's project boundary, the project-scoped
+    // flag's value is correctly preserved.
+    createStarlarkFlagRule();
+    scratch.file(
+        "flag/BUILD",
+        """
+        load(":def.bzl", "basic_flag")
+        basic_flag(
+            name = "foo",
+            scope = "project",
+            build_setting_default = "default",
+        )
+        """);
+    scratch.file(
+        "flag/PROJECT.scl",
+        """
+        load("//test:project_proto.scl", "project_pb2")
+        project = project_pb2.Project.create(
+            project_directories = ["//my_project"],
+        )
+        """);
+
+    invalidatePackages(false);
+
+    // The target being built is inside the flag's project boundary.
+    BuildOptions baseOptions = createBuildOptions("--//flag:foo=foo");
+    BuildConfigurationKey result =
+        fetch(baseOptions, Label.parseCanonicalUnchecked("//my_project:my_target"));
+    assertThat(result).isNotNull();
+
+    // The flag is in scope for //my_project:my_target, so its value should be preserved.
+    assertThat(
+            result
+                .getOptions()
+                .getStarlarkOptions()
+                .get(Label.parseCanonicalUnchecked("//flag:foo")))
+        .isEqualTo("foo");
+  }
+
+  @Test
+  public void createKey_withScopedBuildOptions_projectFlag_resetsOutsideProject() throws Exception {
+    // Tests that when a project-scoped flag arrives at a target evaluation,
+    // if the target is outside the flag's project boundary, the project-boundary
+    // enforcement resets the flag to its baseline value.
+    createStarlarkFlagRule();
+    scratch.file(
+        "flag/BUILD",
+        """
+        load(":def.bzl", "basic_flag")
+        basic_flag(
+            name = "foo",
+            scope = "project",
+            build_setting_default = "default",
+        )
+        """);
+    scratch.file(
+        "flag/PROJECT.scl",
+        """
+        load("//test:project_proto.scl", "project_pb2")
+        project = project_pb2.Project.create(
+            project_directories = ["//my_project"],
+        )
+        """);
+
+    invalidatePackages(false);
+
+    // The target being built is outside the flag's project boundary.
+    BuildOptions baseOptions = createBuildOptions("--//flag:foo=foo");
+    BuildConfigurationKey result =
+        fetch(baseOptions, Label.parseCanonicalUnchecked("//other_project:my_target"));
+    assertThat(result).isNotNull();
+
+    // The flag is out of scope and resets to baseline.
+    // Since the baseline doesn't have //flag:foo set, it should be absent from the options.
+    assertThat(
+            result
+                .getOptions()
+                .getStarlarkOptions()
+                .get(Label.parseCanonicalUnchecked("//flag:foo")))
+        .isNull();
+  }
+
+  @Test
+  public void createKey_withNullLabel_resetsProjectScopedFlags() throws Exception {
+    createStarlarkFlagRule();
+    scratch.file(
+        "flag/BUILD",
+        """
+        load(":def.bzl", "basic_flag")
+        basic_flag(
+            name = "foo",
+            scope = "project",
+            build_setting_default = "default",
+        )
+        """);
+    scratch.file(
+        "flag/PROJECT.scl",
+        """
+        load("//test:project_proto.scl", "project_pb2")
+        project = project_pb2.Project.create(
+            project_directories = ["//my_project"],
+        )
+        """);
+
+    invalidatePackages(false);
+
+    // Provide a non-default flag value
+    BuildOptions baseOptions = createBuildOptions("--//flag:foo=foo");
+
+    // Fetching with a null label acts as if evaluating a top-level config or
+    // an exec transitions headless config. The flag should be aggressively reset to baseline
+    // because no project boundary could possibly be validated.
+    BuildConfigurationKey result = fetch(baseOptions, null);
+
+    assertThat(result).isNotNull();
+    // It should have reset to baseline, meaning //flag:foo is absent.
+    assertThat(
+            result
+                .getOptions()
+                .getStarlarkOptions()
+                .get(Label.parseCanonicalUnchecked("//flag:foo")))
+        .isNull();
   }
 
   @Test

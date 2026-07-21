@@ -38,11 +38,13 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
+import com.google.devtools.build.lib.remote.CombinedCacheClientFactory;
 import com.google.devtools.build.lib.remote.RemoteRetrier;
 import com.google.devtools.build.lib.remote.Retrier;
 import com.google.devtools.build.lib.remote.Retrier.ResultClassifier.Result;
 import com.google.devtools.build.lib.remote.common.ActionKey;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
+import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -102,12 +104,16 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.function.IntFunction;
 import javax.annotation.Nullable;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLEngine;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -281,6 +287,7 @@ public class HttpCacheClientTest {
       ServerChannel serverChannel,
       int timeoutSeconds,
       boolean remoteVerifyDownloads,
+      ImmutableList<Entry<String, String>> extraHttpHeaders,
       @Nullable final Credentials creds,
       AuthAndTLSOptions authAndTlsOptions,
       Optional<RemoteRetrier> optRetrier)
@@ -305,7 +312,7 @@ public class HttpCacheClientTest {
           timeoutSeconds,
           /* remoteMaxConnections= */ 0,
           remoteVerifyDownloads,
-          ImmutableList.of(),
+          extraHttpHeaders,
           DIGEST_UTIL,
           retrier,
           creds,
@@ -317,7 +324,7 @@ public class HttpCacheClientTest {
           timeoutSeconds,
           /* remoteMaxConnections= */ 0,
           remoteVerifyDownloads,
-          ImmutableList.of(),
+          extraHttpHeaders,
           DIGEST_UTIL,
           retrier,
           creds,
@@ -326,6 +333,24 @@ public class HttpCacheClientTest {
       throw new IllegalStateException(
           "unsupported socket address class " + socketAddress.getClass());
     }
+  }
+
+  private HttpCacheClient createHttpBlobStore(
+      ServerChannel serverChannel,
+      int timeoutSeconds,
+      boolean remoteVerifyDownloads,
+      @Nullable final Credentials creds,
+      AuthAndTLSOptions authAndTlsOptions,
+      Optional<RemoteRetrier> optRetrier)
+      throws Exception {
+    return createHttpBlobStore(
+        serverChannel,
+        timeoutSeconds,
+        remoteVerifyDownloads,
+        ImmutableList.of(),
+        creds,
+        authAndTlsOptions,
+        optRetrier);
   }
 
   private HttpCacheClient createHttpBlobStore(
@@ -350,7 +375,7 @@ public class HttpCacheClientTest {
             mock(Spawn.class),
             mock(SpawnExecutionContext.class),
             TracingMetadataUtils.buildMetadata(
-                "none", "none", Digest.getDefaultInstance().getHash(), null));
+                "none", "none", Digest.getDefaultInstance().getHash()));
   }
 
   @Test
@@ -362,11 +387,14 @@ public class HttpCacheClientTest {
 
       HttpCacheClient blobStore =
           createHttpBlobStore(
-              server, /* timeoutSeconds= */ 1, /* creds= */ null, new AuthAndTLSOptions());
+              server,
+              /* timeoutSeconds= */ 1,
+              /* creds= */ null,
+              Options.getDefaults(AuthAndTLSOptions.class));
 
       ByteString data = ByteString.copyFrom("foo bar", StandardCharsets.UTF_8);
       Digest digest = DIGEST_UTIL.compute(data.toByteArray());
-      blobStore.uploadBlob(remoteActionExecutionContext, digest, data).get();
+      blobStore.uploadBlob(remoteActionExecutionContext, digest, data, /* force= */ false).get();
 
       assertThat(cacheContents).hasSize(1);
       String cacheKey = "/cas/" + digest.getHash();
@@ -420,7 +448,8 @@ public class HttpCacheClientTest {
                   blobStore.uploadBlob(
                       remoteActionExecutionContext,
                       DIGEST_UTIL.compute(data),
-                      ByteString.copyFrom(data))));
+                      ByteString.copyFrom(data),
+                      /* force= */ false)));
     } finally {
       testServer.stop(server);
     }
@@ -491,7 +520,8 @@ public class HttpCacheClientTest {
                       blobStore.uploadBlob(
                           remoteActionExecutionContext,
                           DIGEST_UTIL.compute(data.toByteArray()),
-                          data)));
+                          data,
+                          /* force= */ false)));
       assertThat(e.getCause()).isInstanceOf(TooLongFrameException.class);
     } finally {
       testServer.stop(server);
@@ -774,7 +804,10 @@ public class HttpCacheClientTest {
       byte[] data = "File Contents".getBytes(StandardCharsets.US_ASCII);
       blobStore
           .uploadBlob(
-              remoteActionExecutionContext, DIGEST_UTIL.compute(data), ByteString.copyFrom(data))
+              remoteActionExecutionContext,
+              DIGEST_UTIL.compute(data),
+              ByteString.copyFrom(data),
+              /* force= */ false)
           .get();
       verify(credentials, times(1)).refresh();
       verify(credentials, times(2)).getRequestMetadata(any(URI.class));
@@ -839,7 +872,8 @@ public class HttpCacheClientTest {
           blobStore.uploadBlob(
               remoteActionExecutionContext,
               DIGEST_UTIL.compute(oneByte),
-              ByteString.copyFrom(oneByte)));
+              ByteString.copyFrom(oneByte),
+              /* force= */ false));
       fail("Exception expected.");
     } catch (Exception e) {
       assertThat(e).isInstanceOf(HttpException.class);
@@ -912,7 +946,7 @@ public class HttpCacheClientTest {
                   HttpHeaderNames.WWW_AUTHENTICATE,
                   "Bearer realm=\"localhost\","
                       + "error=\""
-                      + errorType.name().toLowerCase()
+                      + errorType.name().toLowerCase(Locale.ROOT)
                       + "\","
                       + "error_description=\"The access token expired\"");
         }
@@ -982,5 +1016,81 @@ public class HttpCacheClientTest {
       }
       ++messageCount;
     }
+  }
+
+  @Test
+  public void extraCacheHeaders() throws Exception {
+    ServerChannel server = null;
+    try {
+      RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
+      remoteOptions.setRemoteHeaders(
+          ImmutableList.of(
+              Map.entry("CommonKey1", "CommonValue1"), Map.entry("CommonKey2", "CommonValue2")));
+      remoteOptions.setRemoteCacheHeaders(
+          ImmutableList.of(
+              Map.entry("CacheKey1", "CacheValue1"), Map.entry("CacheKey2", "CacheValue2")));
+      remoteOptions.setRemoteExecHeaders(
+          ImmutableList.of(
+              Map.entry("ExecKey1", "ExecValue1"), Map.entry("ExecKey2", "ExecValue2")));
+
+      server =
+          testServer.start(
+              new SimpleChannelInboundHandler<FullHttpRequest>() {
+                @Override
+                protected void channelRead0(ChannelHandlerContext ctx, FullHttpRequest request) {
+                  assertThat(request.headers().get("CommonKey1")).isEqualTo("CommonValue1");
+                  assertThat(request.headers().get("CommonKey2")).isEqualTo("CommonValue2");
+                  assertThat(request.headers().get("CacheKey1")).isEqualTo("CacheValue1");
+                  assertThat(request.headers().get("CacheKey2")).isEqualTo("CacheValue2");
+                  assertThat(request.headers().get("ExecKey1")).isNull();
+                  assertThat(request.headers().get("ExecKey2")).isNull();
+
+                  ByteBuf content = ctx.alloc().buffer();
+                  content.writeCharSequence("File Contents", StandardCharsets.US_ASCII);
+                  FullHttpResponse response =
+                      new DefaultFullHttpResponse(
+                          HttpVersion.HTTP_1_1, HttpResponseStatus.OK, content);
+                  HttpUtil.setContentLength(response, content.readableBytes());
+                  ctx.writeAndFlush(response).addListener(ChannelFutureListener.CLOSE);
+                }
+              });
+
+      HttpCacheClient blobStore =
+          createHttpBlobStore(
+              server,
+              /* timeoutSeconds= */ 1,
+              /* remoteVerifyDownloads= */ true,
+              CombinedCacheClientFactory.effectiveHeaders(remoteOptions),
+              newCredentials(),
+              Options.getDefaults(AuthAndTLSOptions.class),
+              /* optRetrier= */ Optional.empty());
+
+      ByteArrayOutputStream out = new ByteArrayOutputStream();
+      getFromFuture(blobStore.downloadBlob(remoteActionExecutionContext, DIGEST, out));
+      assertThat(out.toString(StandardCharsets.US_ASCII)).isEqualTo("File Contents");
+    } finally {
+      testServer.stop(server);
+    }
+  }
+
+  @Test
+  public void configureSslEngine() throws Exception {
+    SSLEngine engine = SSLContext.getDefault().createSSLEngine();
+
+    HttpCacheClient.configureSslEngine(engine, Options.getDefaults(AuthAndTLSOptions.class));
+
+    assertThat(engine.getUseClientMode()).isTrue();
+    assertThat(engine.getSSLParameters().getEndpointIdentificationAlgorithm()).isEqualTo("HTTPS");
+    assertThat(engine.getNeedClientAuth()).isFalse();
+
+    AuthAndTLSOptions clientAuthOptions =
+        Options.parse(
+                AuthAndTLSOptions.class,
+                "--tls_client_certificate=client.crt",
+                "--tls_client_key=client.key")
+            .getOptions();
+    HttpCacheClient.configureSslEngine(engine, clientAuthOptions);
+
+    assertThat(engine.getNeedClientAuth()).isTrue();
   }
 }

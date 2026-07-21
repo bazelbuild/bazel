@@ -17,13 +17,12 @@ import java.math.BigInteger;
 import javax.annotation.Nullable;
 
 /**
- * Syntax node for a non-negative int literal. (Negative integers are parsed as a {@link
- * UnaryOperatorExpression} operating on a positive {@link IntLiteral} argument.)
+ * Syntax node for an int literal. The literal's value may be negative, since the parser simplifies
+ * a unary minus operation applied on a positive int literal into a negative int literal.
  */
-// TODO: #28385 - consider optimizing negative integer literals to be IntLiteral.
 public final class IntLiteral extends Expression {
-  private final String raw;
   private final int tokenOffset;
+  private final int endOffset;
   private final Number value; // = Integer | Long | BigInteger
 
   /**
@@ -32,10 +31,10 @@ public final class IntLiteral extends Expression {
    * <p>{@code value} must be either an Integer or Long or BigInteger, and the smallest type capable
    * of exactly representing the number must be used.
    */
-  IntLiteral(FileLocations locs, String raw, int tokenOffset, Number value) {
+  IntLiteral(FileLocations locs, int tokenOffset, int endOffset, Number value) {
     super(locs, Kind.INT_LITERAL);
-    this.raw = raw;
     this.tokenOffset = tokenOffset;
+    this.endOffset = endOffset;
     this.value = value;
   }
 
@@ -56,11 +55,6 @@ public final class IntLiteral extends Expression {
     return value instanceof Integer intValue ? intValue : null;
   }
 
-  /** Returns the raw source text of the literal. */
-  public String getRaw() {
-    return raw;
-  }
-
   @Override
   public int getStartOffset() {
     return tokenOffset;
@@ -68,7 +62,7 @@ public final class IntLiteral extends Expression {
 
   @Override
   public int getEndOffset() {
-    return tokenOffset + raw.length();
+    return endOffset;
   }
 
   @Override

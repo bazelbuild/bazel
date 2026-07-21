@@ -23,7 +23,6 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
-import static com.google.devtools.build.lib.bazel.BazelServices.BAZEL_SERVICES;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
@@ -127,11 +126,15 @@ import com.google.devtools.build.lib.standalone.StandaloneModule;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestFileOutErr;
+import com.google.devtools.build.lib.testutil.TestServices;
 import com.google.devtools.build.lib.testutil.TestUtils;
+import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.CommandBuilder;
 import com.google.devtools.build.lib.util.CommandUtils;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.util.SerializedAbruptExitException;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.util.io.RecordingOutErr;
@@ -157,6 +160,8 @@ import com.google.errorprone.annotations.ForOverride;
 import com.google.errorprone.annotations.FormatMethod;
 import com.google.errorprone.annotations.Keep;
 import com.google.protobuf.ByteString;
+import com.google.protobuf.ExtensionRegistryLite;
+import com.google.protobuf.InvalidProtocolBufferException;
 import java.io.IOException;
 import java.lang.Thread.UncaughtExceptionHandler;
 import java.nio.file.Files;
@@ -341,20 +346,50 @@ public abstract class BuildIntegrationTestCase {
     if (runtimeWrapper != null) {
       cleanupInterningPools();
     }
-
+    var builder = getRuntimeBuilder().setEventBusExceptionHandler(subscriberException);
+    prepareRuntimeBuilder(builder);
     runtimeWrapper =
-        new BlazeRuntimeWrapper(
-            events,
-            serverDirectories,
-            directories,
-            binTools,
-            getRuntimeBuilder().setEventBusExceptionHandler(subscriberException)) {
+        new BlazeRuntimeWrapper(events, serverDirectories, directories, binTools, builder) {
           @Override
           protected void finalizeBuildResult(BuildResult result) {
             finishBuildResult(result);
           }
         };
     setupOptions();
+  }
+
+  protected void prepareRuntimeBuilder(BlazeRuntime.Builder builder) throws AbruptExitException {
+    var startupOptions = builder.getStartupOptionsProvider();
+    var blazeServices = builder.getBlazeServices();
+    for (BlazeService blazeService : blazeServices) {
+      try {
+        blazeService.globalInit(startupOptions, blazeServices);
+      } catch (SerializedAbruptExitException e) {
+        try {
+          FailureDetail failureDetail =
+              FailureDetail.parseFrom(
+                  e.getSerializedFailureDetail(), ExtensionRegistryLite.getEmptyRegistry());
+          throw new AbruptExitException(DetailedExitCode.of(failureDetail), e);
+        } catch (InvalidProtocolBufferException ipbe) {
+          throw new AbruptExitException(
+              DetailedExitCode.of(
+                  FailureDetail.newBuilder()
+                      .setMessage(
+                          "Failed to parse FailureDetail from SerializedAbruptExitException: "
+                              + ipbe.getMessage())
+                      .setCommand(
+                          com.google.devtools.build.lib.server.FailureDetails.Command.newBuilder()
+                              .setCode(
+                                  com.google.devtools.build.lib.server.FailureDetails.Command.Code
+                                      .COMMAND_FAILURE_UNKNOWN))
+                      .build()),
+              ipbe);
+        }
+      }
+    }
+    for (BlazeModule blazeModule : builder.getBlazeModules()) {
+      blazeModule.globalInit(startupOptions, blazeServices);
+    }
   }
 
   /**
@@ -387,14 +422,7 @@ public abstract class BuildIntegrationTestCase {
     runtimeWrapper.addStarlarkOptions(starlarkOptions);
   }
 
-  protected void runPriorToBeforeMethods() throws Exception {
-    // In production, these are essentially the first thing we do when setting up a new
-    // BlazeRuntime. The idea is for them to be run early enough during the server startup.
-    // For tests, we have to do this here in order to mimic this behavior.
-    for (BlazeService service : getBlazeServices()) {
-      service.globalInit(getStartupOptionsProvider());
-    }
-  }
+  protected void runPriorToBeforeMethods() throws Exception {}
 
   @After
   public final void cleanupInterningPools() {
@@ -606,11 +634,6 @@ public abstract class BuildIntegrationTestCase {
     return new NoOpConnectivityModule();
   }
 
-  /** Gets the list of Blaze services to be added to the runtime. */
-  protected ImmutableList<BlazeService> getBlazeServices() {
-    return BAZEL_SERVICES;
-  }
-
   protected BlazeRuntime.Builder getRuntimeBuilder() throws Exception {
     OptionsParsingResult startupOptionsProvider = getStartupOptionsProvider();
     BlazeModule connectivityModule = getConnectivityModule();
@@ -628,7 +651,7 @@ public abstract class BuildIntegrationTestCase {
             .addBlazeModule(connectivityModule)
             .addBlazeModule(new SkymeldModule())
             .addBlazeModule(new CredentialModule());
-    for (BlazeService service : getBlazeServices()) {
+    for (BlazeService service : TestServices.BLAZE_SERVICES) {
       builder.addBlazeService(service);
     }
     getSpawnModules().forEach(builder::addBlazeModule);
@@ -684,7 +707,10 @@ public abstract class BuildIntegrationTestCase {
         "--noshow_progress",
 
         // Don't use ijars, because we don't have the executable in these tests
-        "--nouse_ijars");
+        "--nouse_ijars",
+
+        // Disable system network usage collection so we don't need the SystemNetworkStatsService.
+        "--noexperimental_collect_system_network_usage");
 
     runtimeWrapper.addOptions("--experimental_extended_sanity_checks");
     runtimeWrapper.addOptions(TestConstants.PRODUCT_SPECIFIC_FLAGS);
@@ -1048,14 +1074,18 @@ public abstract class BuildIntegrationTestCase {
       command.execute(outErr.getOutputStream(), outErr.getErrorStream());
     } catch (AbnormalTerminationException e) { // non-zero exit or signal or I/O problem
       IntegrationTestExecException e2 =
-          new IntegrationTestExecException(CommandUtils.describeCommandFailure(verboseFailures, e));
+          new IntegrationTestExecException(
+              CommandUtils.describeCommandFailure(
+                  verboseFailures, /* expandParamFiles= */ false, e));
       e2.initCause(e); // We don't pass cause=e to the ExecException constructor
       // since we don't want it to contribute to the exception
       // message again; it's already in describeCommandFailure().
       throw e2;
     } catch (CommandException e) {
       IntegrationTestExecException e2 =
-          new IntegrationTestExecException(CommandUtils.describeCommandFailure(verboseFailures, e));
+          new IntegrationTestExecException(
+              CommandUtils.describeCommandFailure(
+                  verboseFailures, /* expandParamFiles= */ false, e));
       e2.initCause(e); // We don't pass cause=e to the ExecException constructor
       // since we don't want it to contribute to the exception
       // message again; it's already in describeCommandFailure().

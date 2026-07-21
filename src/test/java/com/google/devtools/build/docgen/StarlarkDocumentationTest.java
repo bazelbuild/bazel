@@ -22,8 +22,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.docgen.StarlarkDocumentationProcessor.Category;
 import com.google.devtools.build.docgen.annot.DocCategory;
-import com.google.devtools.build.docgen.annot.GlobalMethods;
-import com.google.devtools.build.docgen.annot.GlobalMethods.Environment;
+import com.google.devtools.build.docgen.annot.GlobalMethodDocs;
+import com.google.devtools.build.docgen.annot.GlobalMethodDocs.Environment;
 import com.google.devtools.build.docgen.annot.StarlarkConstructor;
 import com.google.devtools.build.docgen.starlark.AnnotStarlarkConstructorMethodDoc;
 import com.google.devtools.build.docgen.starlark.MemberDoc;
@@ -50,6 +50,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkLibrary;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.Module;
@@ -241,7 +242,8 @@ public class StarlarkDocumentationTest {
    * StarlarkDocumentationTest checks all of the classes under a wide classpath and ensures this one
    * shows up.
    */
-  @GlobalMethods(environment = Environment.BZL)
+  @GlobalMethodDocs(environment = Environment.BZL)
+  @StarlarkLibrary
   @SuppressWarnings("unused")
   private static class MockGlobalLibrary {
     @StarlarkMethod(

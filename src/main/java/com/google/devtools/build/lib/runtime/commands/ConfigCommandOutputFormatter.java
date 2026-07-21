@@ -63,18 +63,7 @@ abstract class ConfigCommandOutputFormatter {
     public void writeConfigurationIDs(Iterable<ConfigurationForOutput> configurations) {
       writer.println("Available configurations:");
       configurations.forEach(
-          config ->
-              writer.printf(
-                  "%s %s%s%n", config.getConfigHash(), config.getMnemonic(), getSuffix(config)));
-    }
-
-    private static String getSuffix(ConfigurationForOutput config) {
-      if (config.isExec()) {
-        return " (exec)";
-      } else if (!config.hasTestConfig()) {
-        return " (test-trimmed)";
-      }
-      return "";
+          config -> writer.printf("%s %s%n", config.getConfigHash(), config.getDisplayMnemonic()));
     }
 
     @Override

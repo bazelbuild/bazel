@@ -36,32 +36,32 @@ namespace blaze {
 using std::string;
 using std::vector;
 
-void StartupOptions::RegisterNullaryStartupFlag(const std::string &flag_name,
-                                                bool *flag_value) {
+void StartupOptions::RegisterNullaryStartupFlag(const std::string& flag_name,
+                                                bool* flag_value) {
   all_nullary_startup_flags_[std::string("--") + flag_name] = flag_value;
   all_nullary_startup_flags_[std::string("--no") + flag_name] = flag_value;
 }
 
 void StartupOptions::RegisterNullaryStartupFlagNoRc(
-    const std::string &flag_name, bool *flag_value) {
+    const std::string& flag_name, bool* flag_value) {
   RegisterNullaryStartupFlag(flag_name, flag_value);
   no_rc_nullary_startup_flags_.insert(std::string("--") + flag_name);
   no_rc_nullary_startup_flags_.insert(std::string("--no") + flag_name);
 }
 
 void StartupOptions::RegisterSpecialNullaryStartupFlag(
-    const std::string &flag_name, SpecialNullaryFlagHandler handler) {
+    const std::string& flag_name, SpecialNullaryFlagHandler handler) {
   RegisterNullaryStartupFlag(flag_name, nullptr);
   special_nullary_startup_flags_[std::string("--") + flag_name] = handler;
   special_nullary_startup_flags_[std::string("--no") + flag_name] = handler;
 }
 
-void StartupOptions::RegisterUnaryStartupFlag(const std::string &flag_name) {
+void StartupOptions::RegisterUnaryStartupFlag(const std::string& flag_name) {
   valid_unary_startup_flags_.insert(std::string("--") + flag_name);
 }
 
-void StartupOptions::OverrideOptionSourcesKey(const std::string &flag_name,
-                                              const std::string &new_name) {
+void StartupOptions::OverrideOptionSourcesKey(const std::string& flag_name,
+                                              const std::string& new_name) {
   option_sources_key_override_[flag_name] = new_name;
 }
 
@@ -102,7 +102,8 @@ StartupOptions::StartupOptions(const string& product_name,
       run_in_user_cgroup(false),
 #endif
       windows_enable_symlinks(false),
-      remote_repo_contents_cache(false) {
+      remote_repo_contents_cache(false),
+      use_compact_object_headers_(false) {
 #if defined(_WIN32) || defined(__CYGWIN__)
   string windows_unix_root = DetectBashAndExportBazelSh();
   if (!windows_unix_root.empty()) {
@@ -138,6 +139,8 @@ StartupOptions::StartupOptions(const string& product_name,
                              &windows_enable_symlinks);
   RegisterNullaryStartupFlag("experimental_remote_repo_contents_cache",
                              &remote_repo_contents_cache);
+  RegisterNullaryStartupFlag("experimental_use_compact_object_headers",
+                             &use_compact_object_headers_);
 #ifdef __linux__
   RegisterNullaryStartupFlag("experimental_run_in_user_cgroup",
                              &run_in_user_cgroup);
@@ -169,7 +172,7 @@ string StartupOptions::GetLowercaseProductName() const {
   return blaze_util::ToLower(product_name);
 }
 
-bool StartupOptions::IsUnary(const string &arg) const {
+bool StartupOptions::IsUnary(const string& arg) const {
   std::string::size_type i = arg.find_first_of('=');
   if (i == std::string::npos) {
     return valid_unary_startup_flags_.find(arg) !=
@@ -180,8 +183,8 @@ bool StartupOptions::IsUnary(const string &arg) const {
   }
 }
 
-bool StartupOptions::MaybeCheckValidNullary(const string &arg, bool *result,
-                                            std::string *error) const {
+bool StartupOptions::MaybeCheckValidNullary(const string& arg, bool* result,
+                                            std::string* error) const {
   std::string::size_type i = arg.find_first_of('=');
   if (i == std::string::npos) {
     *result = all_nullary_startup_flags_.find(arg) !=
@@ -200,19 +203,19 @@ bool StartupOptions::MaybeCheckValidNullary(const string &arg, bool *result,
   return false;
 }
 
-void StartupOptions::AddExtraOptions(vector<string> *result) const {}
+void StartupOptions::AddExtraOptions(vector<string>* result) const {}
 
-blaze_exit_code::ExitCode StartupOptions::ProcessArg(const string &argstr,
-                                                     const string &next_argstr,
-                                                     const string &rcfile,
-                                                     bool *is_space_separated,
-                                                     string *error) {
+blaze_exit_code::ExitCode StartupOptions::ProcessArg(const string& argstr,
+                                                     const string& next_argstr,
+                                                     const string& rcfile,
+                                                     bool* is_space_separated,
+                                                     string* error) {
   // We have to parse a specific option syntax, so GNU getopts won't do.  All
   // options begin with "--" or "-". Values are given together with the option
   // delimited by '=' or in the next option.
-  const char *arg = argstr.c_str();
-  const char *next_arg = next_argstr.empty() ? nullptr : next_argstr.c_str();
-  const char *value = nullptr;
+  const char* arg = argstr.c_str();
+  const char* next_arg = next_argstr.empty() ? nullptr : next_argstr.c_str();
+  const char* value = nullptr;
 
   bool is_nullary;
   if (!MaybeCheckValidNullary(argstr, &is_nullary, error)) {
@@ -409,7 +412,7 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(const string &argstr,
 }
 
 blaze_exit_code::ExitCode StartupOptions::ProcessArgs(
-    const std::vector<RcStartupFlag> &rcstartup_flags, std::string *error) {
+    const std::vector<RcStartupFlag>& rcstartup_flags, std::string* error) {
   std::vector<RcStartupFlag>::size_type i = 0;
   while (i < rcstartup_flags.size()) {
     bool is_space_separated = false;
@@ -509,7 +512,7 @@ blaze_util::Path StartupOptions::GetJvm() const {
 // code for a server javabase which failed sanity checks.
 static blaze_exit_code::ExitCode BadServerJavabaseError(
     StartupOptions::JavabaseType javabase_type,
-    const std::map<string, string> &option_sources) {
+    const std::map<string, string>& option_sources) {
   switch (javabase_type) {
     case StartupOptions::JavabaseType::EXPLICIT: {
       auto source = option_sources.find("server_javabase");
@@ -536,7 +539,7 @@ static blaze_exit_code::ExitCode BadServerJavabaseError(
 }
 
 blaze_exit_code::ExitCode StartupOptions::SanityCheckJavabase(
-    const blaze_util::Path &javabase,
+    const blaze_util::Path& javabase,
     StartupOptions::JavabaseType javabase_type) const {
   blaze_util::Path java_program =
       javabase.GetRelative(GetJavaBinaryUnderJavabase());
@@ -566,17 +569,17 @@ blaze_exit_code::ExitCode StartupOptions::SanityCheckJavabase(
   return BadServerJavabaseError(javabase_type, option_sources);
 }
 
-blaze_util::Path StartupOptions::GetExe(const blaze_util::Path &jvm,
-                                        const string &jar_path) const {
+blaze_util::Path StartupOptions::GetExe(const blaze_util::Path& jvm,
+                                        const string& jar_path) const {
   return jvm;
 }
 
-void StartupOptions::AddJVMArgumentPrefix(const blaze_util::Path &javabase,
-                                          std::vector<string> *result) const {}
+void StartupOptions::AddJVMArgumentPrefix(const blaze_util::Path& javabase,
+                                          std::vector<string>* result) const {}
 
 void StartupOptions::AddJVMArgumentSuffix(
-    const blaze_util::Path &real_install_dir, const string &jar_path,
-    std::vector<string> *result) const {
+    const blaze_util::Path& real_install_dir, const string& jar_path,
+    std::vector<string>* result) const {
   if (extra_classpath.empty()) {
     result->push_back("-jar");
     result->push_back(real_install_dir.GetRelative(jar_path).AsJvmArgument());
@@ -595,8 +598,8 @@ void StartupOptions::AddJVMArgumentSuffix(
 }
 
 blaze_exit_code::ExitCode StartupOptions::AddJVMArguments(
-    const blaze_util::Path &server_javabase, std::vector<string> *result,
-    const vector<string> &user_options, string *error) const {
+    const blaze_util::Path& server_javabase, std::vector<string>* result,
+    const vector<string>& user_options, string* error) const {
   AddJVMLoggingArguments(result);
 
   // Disable the JVM's own unlimiting of file descriptors.  We do this
@@ -609,18 +612,35 @@ blaze_exit_code::ExitCode StartupOptions::AddJVMArguments(
   // ourselves to).
   result->push_back("-XX:-MaxFDLimit");
 
-  result->push_back("-Djava.lang.Thread.allowVirtualThreads=true");
-
   result->push_back(
       "-XX:OnOutOfMemoryError=touch " +
       GetOOMFilePath(blaze_util::Path(output_base)).AsJvmArgument());
+
+  bool use_compact_headers = use_compact_object_headers_;
+  if (use_compact_headers) {
+    // If it is true, but it was NOT explicitly set by the user (i.e. it's the
+    // default), only enable it if we are using the embedded JDK to avoid
+    // crashes on older system JDKs.
+    if (option_sources.find("experimental_use_compact_object_headers") ==
+        option_sources.end()) {
+      auto javabase_and_type = GetServerJavabaseAndType();
+      if (javabase_and_type.second != JavabaseType::EMBEDDED) {
+        use_compact_headers = false;
+      }
+    }
+  }
+
+  if (use_compact_headers) {
+    result->push_back("-XX:+UnlockExperimentalVMOptions");
+    result->push_back("-XX:+UseCompactObjectHeaders");
+  }
 
   return AddJVMMemoryArguments(server_javabase, result, user_options, error);
 }
 
 static std::string GetSimpleLogHandlerProps(
-    const blaze_util::Path &java_log,
-    const std::string &java_logging_formatter) {
+    const blaze_util::Path& java_log,
+    const std::string& java_logging_formatter) {
   return "handlers=com.google.devtools.build.lib.util.SimpleLogHandler\n"
          ".level=INFO\n"
          "com.google.devtools.build.lib.util.SimpleLogHandler.level=INFO\n"
@@ -634,7 +654,7 @@ static std::string GetSimpleLogHandlerProps(
          java_logging_formatter + "\n";
 }
 
-void StartupOptions::AddJVMLoggingArguments(std::vector<string> *result) const {
+void StartupOptions::AddJVMLoggingArguments(std::vector<string>* result) const {
   // Configure logging
   const blaze_util::Path propFile =
       output_base.GetRelative("javalog.properties");
@@ -655,13 +675,13 @@ void StartupOptions::AddJVMLoggingArguments(std::vector<string> *result) const {
 }
 
 blaze_exit_code::ExitCode StartupOptions::AddJVMMemoryArguments(
-    const blaze_util::Path &, std::vector<string> *, const vector<string> &,
-    string *) const {
+    const blaze_util::Path&, std::vector<string>*, const vector<string>&,
+    string*) const {
   return blaze_exit_code::SUCCESS;
 }
 
-void StartupOptions::UpdateConfiguration(const string &install_md5,
-                                         const string &workspace,
+void StartupOptions::UpdateConfiguration(const string& install_md5,
+                                         const string& workspace,
                                          const bool server_mode) {
   if (output_user_root.IsEmpty()) {
     // The default production output_user_root is

@@ -115,6 +115,7 @@ public class GraphlessQueryTest extends AbstractQueryTest<Target> {
               boolean orderedResults,
               UniverseScope universeScope,
               int loadingPhaseThreads,
+              boolean trackIncrementalState,
               Predicate<Label> labelFilter,
               ExtendedEventHandler eventHandler,
               Set<Setting> settings,

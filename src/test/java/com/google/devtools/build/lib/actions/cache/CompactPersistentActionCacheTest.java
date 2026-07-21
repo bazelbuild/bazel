@@ -78,7 +78,7 @@ public class CompactPersistentActionCacheTest {
   private final EventHandler eventHandler = spy(EventHandler.class);
 
   @Before
-  public final void createFiles() throws Exception  {
+  public final void createFiles() throws Exception {
     execRoot = scratch.resolve("/output");
     cacheRoot = scratch.resolve("/cache_root");
     corruptedCacheRoot = scratch.resolve("/corrupted_cache_root");
@@ -509,7 +509,7 @@ public class CompactPersistentActionCacheTest {
             .asBytes();
     FileArtifactValue metadata =
         FileArtifactValue.createForRemoteFileWithMaterializationData(
-            digest, bytes.length, 1, expirationTime);
+            digest, bytes.length, 1, expirationTime, /* inMemoryOutput= */ false);
     if (resolvedPath != null) {
       metadata = FileArtifactValue.createFromExistingWithResolvedPath(metadata, resolvedPath);
     }

@@ -27,13 +27,16 @@ import com.google.devtools.build.lib.packages.BuildType.Selector;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkList;
+import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.Tuple;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -470,6 +473,31 @@ public final class BuildTypeTest {
     SelectorList result = SelectorList.concat(list, arrayList);
     assertThat(result).isNotNull();
     assertThat(result.getType()).isAssignableTo(List.class);
+  }
+
+  @SuppressWarnings("unchecked") // to simplify the test
+  @Test
+  public void testSelectorList_concatenate_differentMappingTypes() throws Exception {
+    ImmutableMap<String, String> immutableMap = ImmutableMap.of("a", "//a:a", "b", "//b:b");
+    HashMap<String, String> hashMap = new HashMap<>();
+    hashMap.put("c", "//c:c");
+
+    // Creating a SelectorList from two mappings of different types should work properly.
+    SelectorList result = SelectorList.concat(immutableMap, hashMap);
+    assertThat(result).isNotNull();
+    assertThat(result.getType()).isAssignableTo(Map.class);
+    assertThat(new Printer().repr(result, StarlarkSemantics.DEFAULT).toString())
+        .isEqualTo("{\"a\": \"//a:a\", \"b\": \"//b:b\"} | {\"c\": \"//c:c\"}");
+    Object converted =
+        BuildType.selectableConvert(
+            Types.STRING_DICT,
+            result,
+            null,
+            labelConverter,
+            /* simplifyUnconditionalSelects= */ true);
+    assertThat(converted).isInstanceOf(Map.class);
+    assertThat((Map<String, String>) converted)
+        .containsExactly("a", "//a:a", "b", "//b:b", "c", "//c:c");
   }
 
   @Test

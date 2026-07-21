@@ -18,39 +18,44 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 import java.util.List;
 
 /**
  * This example options class checks multiple combinations of list-type options that should all
  * successfully compile.
  */
-public class MultipleOptionWithListTypeConverter extends OptionsBase {
+@OptionsClass
+public abstract class MultipleOptionWithListTypeConverter extends OptionsBase {
   @Option(
       name = "multiple_strings_multiple_times_grouped",
       defaultValue = "null",
       converter = CommaSeparatedOptionListConverter.class,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      allowMultiple = true
-  )
-  public List<List<String>> multipleStringsKeptInGroups;
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      allowMultiple = true)
+  public abstract List<List<String>> getMultipleStringsKeptInGroups();
+
+  public abstract void setMultipleStringsKeptInGroups(List<List<String>> value);
 
   @Option(
       name = "multiple_strings_multiple_times_concatenated",
       defaultValue = "null",
       converter = CommaSeparatedOptionListConverter.class,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      allowMultiple = true
-  )
-  public List<String> multipleStringsConcatenated; // Not List<List<String>>
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      allowMultiple = true)
+  public abstract List<String> getMultipleStringsConcatenated(); // Not List<List<String>>
+
+  public abstract void setMultipleStringsConcatenated(List<String> value);
 
   @Option(
-    name = "multiple_strings_single_time",
-    defaultValue = "a,b,c",
-    converter = CommaSeparatedOptionListConverter.class,
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.NO_OP}
-  )
-  public List<String> multipleStringsSingleMention;
+      name = "multiple_strings_single_time",
+      defaultValue = "a,b,c",
+      converter = CommaSeparatedOptionListConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS})
+  public abstract List<String> getMultipleStringsSingleMention();
+
+  public abstract void setMultipleStringsSingleMention(List<String> value);
 }

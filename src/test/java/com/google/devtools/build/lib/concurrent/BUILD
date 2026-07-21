@@ -39,7 +39,8 @@ java_test(
     name = "ConcurrentTests",
     size = "medium",
     jvm_flags = [
-        "-Djava.lang.Thread.allowVirtualThreads=true",
+        # Required for Mockito.spy.
+        "--add-opens=java.base/java.util.concurrent=ALL-UNNAMED",
     ],
     tags = [
         "foundations",

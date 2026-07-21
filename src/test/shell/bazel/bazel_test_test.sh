@@ -113,6 +113,15 @@ EOF
     >& $TEST_log || fail "Running sh_test failed"
   expect_log "TEST_TMPDIR=$TEST_TMPDIR"
   expect_log "HOME=$TEST_TMPDIR"
+
+  add_to_bazelrc "test --test_tmpdir=${TEST_TMPDIR}/from_bazelrc"
+  bazel test --nocache_test_results --test_output=all --test_tmpdir= //foo:bar_test \
+    >& $TEST_log || fail "Running sh_test with empty --test_tmpdir failed"
+  expect_log "TEST_TMPDIR=/.*"
+  expect_log "HOME=/.*"
+  expect_not_log "from_bazelrc"
+  [[ ! -e _tmp ]] || fail "Empty --test_tmpdir created _tmp in the workspace"
+  write_default_bazelrc
 }
 
 function test_env_vars() {
@@ -199,6 +208,78 @@ EOF
   expect_log "baz: fromtest"
   expect_log "test_size: small"
   expect_log "ws: _main$"
+}
+
+function test_coverage_env_vars_can_be_overridden() {
+  add_rules_cc "MODULE.bazel"
+  mkdir -p foo
+
+  cat > foo/print_coverage_env.cc <<'EOF'
+#include <cstdlib>
+#include <cstdio>
+int main() {
+  const char* gcov = getenv("COVERAGE_GCOV_PATH");
+  const char* llvm = getenv("LLVM_COV");
+  const char* cc_script = getenv("CC_CODE_COVERAGE_SCRIPT");
+  printf("coverage_gcov_path: %s\n", gcov ? gcov : "(null)");
+  printf("llvm_cov: %s\n", llvm ? llvm : "(null)");
+  printf("cc_code_coverage_script: %s\n", cc_script ? cc_script : "(null)");
+  return 0;
+}
+EOF
+
+  cat > foo/BUILD <<'EOF'
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+cc_test(
+    name = "print_coverage_env",
+    srcs = ["print_coverage_env.cc"],
+)
+EOF
+
+  if is_darwin && has_ipv6_default_route; then
+    export JAVA_TOOL_OPTIONS="-Djava.net.preferIPv6Addresses=true"
+    export STARTUP_OPTS="--host_jvm_args=-Djava.net.preferIPv6Addresses=true"
+  else
+    export STARTUP_OPTS=""
+  fi
+
+  GCOV=/from/env BAZEL_LLVM_COV=/from/env bazel --ignore_all_rc_files $STARTUP_OPTS coverage --test_output=all \
+    //foo:print_coverage_env &> $TEST_log || true
+  expect_log "cc_code_coverage_script: .*collect_cc_coverage.sh"
+  expect_log "llvm_cov: /from/env"
+  expect_log "coverage_gcov_path: /from/env"
+
+  GCOV=/from/env BAZEL_LLVM_COV=/from/env bazel --ignore_all_rc_files $STARTUP_OPTS coverage --test_output=all \
+    --test_env=COVERAGE_GCOV_PATH=from_test_env \
+    --test_env=LLVM_COV=from_test_env \
+    --test_env=CC_CODE_COVERAGE_SCRIPT=from_test_env \
+    //foo:print_coverage_env &> $TEST_log || true
+  expect_log "coverage_gcov_path: from_test_env"
+  expect_log "llvm_cov: from_test_env"
+  expect_log "cc_code_coverage_script: from_test_env"
+
+  cat > foo/BUILD <<'EOF'
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+cc_test(
+    name = "print_coverage_env",
+    srcs = ["print_coverage_env.cc"],
+    size = "small",
+    env = {
+        "COVERAGE_GCOV_PATH": "from_rule_env",
+        "LLVM_COV": "from_rule_env",
+        "CC_CODE_COVERAGE_SCRIPT": "from_rule_env",
+    },
+)
+EOF
+
+  GCOV=/from/env BAZEL_LLVM_COV=/from/env bazel --ignore_all_rc_files $STARTUP_OPTS coverage --test_output=all \
+    --test_env=COVERAGE_GCOV_PATH=from_test_env \
+    --test_env=LLVM_COV=from_test_env \
+    --test_env=CC_CODE_COVERAGE_SCRIPT=from_test_env \
+    //foo:print_coverage_env &> $TEST_log || true
+  expect_log "coverage_gcov_path: from_rule_env"
+  expect_log "llvm_cov: from_rule_env"
+  expect_log "cc_code_coverage_script: from_rule_env"
 }
 
 function test_runfiles_java_runfiles_merges_env_vars() {

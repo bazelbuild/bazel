@@ -17,16 +17,19 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 
 /** This example options class should fail to compile. */
-public class ExpansionOptionWithImplicitRequirement extends OptionsBase {
+@OptionsClass
+public abstract class ExpansionOptionWithImplicitRequirement extends OptionsBase {
   @Option(
-    name = "bad_option",
-    defaultValue = "null",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = OptionEffectTag.NO_OP,
-    expansion = "--foo=bar",
-    implicitRequirements = "--nobaz"
-  )
-  public Void badOption;
+      name = "bad_option",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = OptionEffectTag.AFFECTS_OUTPUTS,
+      expansion = "--foo=bar",
+      implicitRequirements = "--nobaz")
+  public abstract Void getBadOption();
+
+  public abstract void setBadOption(Void value);
 }

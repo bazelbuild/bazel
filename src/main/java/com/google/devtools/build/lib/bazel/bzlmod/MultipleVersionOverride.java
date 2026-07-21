@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
  * @param versions The versions of this module that should coexist.
  */
 @AutoCodec
-public record MultipleVersionOverride(ImmutableList<Version> versions, @Override String registry)
+public record MultipleVersionOverride(ImmutableList<Version> versions, String registry)
     implements RegistryOverride {
   public MultipleVersionOverride {
     requireNonNull(versions, "versions");

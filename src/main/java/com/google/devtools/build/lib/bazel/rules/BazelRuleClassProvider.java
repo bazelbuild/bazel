@@ -37,7 +37,6 @@ import com.google.devtools.build.lib.bazel.rules.python.BazelPyBuiltins;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.PackageCallable;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration;
 import com.google.devtools.build.lib.rules.android.AndroidStarlarkCommon;
 import com.google.devtools.build.lib.rules.android.BazelAndroidConfiguration;
@@ -48,16 +47,16 @@ import com.google.devtools.build.lib.rules.platform.PlatformRules;
 import com.google.devtools.build.lib.rules.proto.BazelProtoCommon;
 import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
 import com.google.devtools.build.lib.rules.test.TestingSupportRules;
-import com.google.devtools.build.lib.starlarkbuildapi.core.ContextAndFlagGuardedValue;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ContextGuardedValue;
+import com.google.devtools.build.lib.util.EnvVar;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
+import com.google.devtools.common.options.OptionsClass;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.function.Function;
@@ -67,7 +66,8 @@ import net.starlark.java.eval.Starlark;
 /** A rule class provider implementing the rules Bazel knows. */
 public class BazelRuleClassProvider {
   /** Command-line options. */
-  public static class StrictActionEnvOptions extends FragmentOptions {
+  @OptionsClass
+  public abstract static class StrictActionEnvOptions extends FragmentOptions {
     @Option(
         name = "incompatible_strict_action_env",
         oldName = "experimental_strict_action_env",
@@ -82,7 +82,9 @@ public class BazelRuleClassProvider {
             inherit specific environment variables from the client, but note that doing so
             can prevent cross-user caching if a shared cache is used.
             """)
-    public boolean useStrictActionEnv;
+    public abstract boolean getUseStrictActionEnv();
+
+    public abstract void setUseStrictActionEnv(boolean value);
   }
 
   private static final PathFragment FALLBACK_SHELL = PathFragment.create("/bin/bash");
@@ -112,8 +114,8 @@ public class BazelRuleClassProvider {
   @VisibleForTesting
   @Nullable
   public static PathFragment getDefaultPathFromOptions(ShellConfiguration.Options options) {
-    if (options.shellExecutable != null) {
-      return options.shellExecutable;
+    if (options.getShellExecutable() != null) {
+      return options.getShellExecutable();
     }
 
     // Honor BAZEL_SH env variable for backwards compatibility.
@@ -139,7 +141,7 @@ public class BazelRuleClassProvider {
         if (options.hasNoConfig()) {
           return ActionEnvironment.EMPTY;
         }
-        boolean strictActionEnv = options.get(StrictActionEnvOptions.class).useStrictActionEnv;
+        boolean strictActionEnv = options.get(StrictActionEnvOptions.class).getUseStrictActionEnv();
         OS os = OS.getCurrent();
         // TODO(ulfjack): instead of using the OS Bazel runs on, we need to use the exec platform,
         // which may be different for remote execution. For now, this can be overridden with
@@ -184,11 +186,11 @@ public class BazelRuleClassProvider {
         // Shell environment variables specified via options take precedence over the
         // ones inherited from the fragments. In the long run, these fragments will
         // be replaced by appropriate default rc files anyway.
-        for (var envVar : options.get(CoreOptions.class).actionEnvironment) {
+        for (var envVar : options.get(CoreOptions.class).getActionEnvironment()) {
           switch (envVar) {
-            case Converters.EnvVar.Set(String name, String value) -> env.put(name, value);
-            case Converters.EnvVar.Inherit(String name) -> env.put(name, null);
-            case Converters.EnvVar.Unset(String name) -> env.remove(name);
+            case EnvVar.Set(String name, String value) -> env.put(name, value);
+            case EnvVar.Inherit(String name) -> env.put(name, null);
+            case EnvVar.Unset(String name) -> env.remove(name);
           }
         }
 
@@ -269,21 +271,13 @@ public class BazelRuleClassProvider {
 
   public static final RuleSet ANDROID_RULES =
       new RuleSet() {
-        private static final ImmutableSet<PackageIdentifier> allowedRepositories =
-            ImmutableSet.of(PackageIdentifier.createUnchecked("rules_android", ""));
-
         @Override
         public void init(ConfiguredRuleClassProvider.Builder builder) {
 
           builder.addConfigurationFragment(AndroidConfiguration.class);
           builder.addConfigurationFragment(BazelAndroidConfiguration.class);
 
-          builder.addBzlToplevel(
-              "android_common",
-              ContextAndFlagGuardedValue.onlyInAllowedReposOrWhenIncompatibleFlagIsFalse(
-                  BuildLanguageOptions.INCOMPATIBLE_STOP_EXPORTING_LANGUAGE_MODULES,
-                  new AndroidStarlarkCommon(),
-                  allowedRepositories));
+          builder.addBzlToplevel("android_common", new AndroidStarlarkCommon());
         }
 
         @Override
@@ -348,16 +342,15 @@ public class BazelRuleClassProvider {
     // TODO(ulfjack): The default PATH should be set from the exec platform, which may be different
     // from the local machine. For now, this can be overridden with --action_env=PATH=<value>, so
     // at least there's a workaround.
-    if (os != OS.WINDOWS) {
-      // The default used to be "/bin:/usr/bin". However, on Mac the Python 3 interpreter, if it is
-      // installed at all, tends to be under /usr/local/bin. The autodetecting Python toolchain
-      // searches PATH for "python3", so if we don't include this directory then we can't run PY3
-      // targets with this toolchain if strict action environment is on.
-      //
-      // Note that --action_env does not propagate to the exec config, so it is not a viable
-      // workaround when a genrule is itself built in the exec config (e.g. nested genrules). See
-      // #8536.
-      return "/bin:/usr/bin:/usr/local/bin";
+
+    // On the BSDs system package manager binaries, and importantly bash, end
+    // up in /usr/local/bin, so we need to include that in the default PATH. On
+    // other Unix platforms we want to exclude /usr/local/bin which commonly
+    // holds user installed tools making things less hermetic.
+    if (os == OS.FREEBSD || os == OS.OPENBSD) {
+      return "/bin:/usr/bin:/sbin:/usr/sbin:/usr/local/bin";
+    } else if (os != OS.WINDOWS) {
+      return "/bin:/usr/bin:/sbin:/usr/sbin";
     }
 
     String newPath = "";

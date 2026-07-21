@@ -45,7 +45,6 @@ java_library(
     srcs = WINDOWS_SRCS,
     deps = [
         ":shell",
-        "//src/main/java/com/google/devtools/build/lib/jni",
         "//src/main/java/com/google/devtools/build/lib/util:cleaner",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/build/lib/util:string_encoding",

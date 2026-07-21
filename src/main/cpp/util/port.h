@@ -116,32 +116,16 @@ int sys_ioprio_set(int which, int who, int ioprio);
 
 }  // namespace blaze_util
 
-// The arraysize(arr) macro returns the # of elements in an array arr.
-// The expression is a compile-time constant, and therefore can be
-// used in defining new arrays, for example.  If you use arraysize on
-// a pointer by mistake, you will get a compile-time error.
-
-// This template function declaration is used in defining arraysize.
-// Note that the function doesn't need an implementation, as we only
-// use its type.
-template <typename T, size_t N>
-char (&ArraySizeHelper(T (&array)[N]))[N];
-
-// That gcc wants both of these prototypes seems mysterious. VC, for
-// its part, can't decide which to use (another mystery). Matching of
-// template overloads: the final frontier.
-template <typename T, size_t N>
-char (&ArraySizeHelper(const T (&array)[N]))[N];
-
-#define arraysize(array) (sizeof(ArraySizeHelper(array)))
-
 #ifdef _WIN32
 // TODO(laszlocsomor) 2016-11-28: move pid_t usage out of global_variables.h and
 // wherever else it appears. Find some way to not have to declare a pid_t here,
 // either by making PID handling platform-independent or some other idea; remove
 // the following typedef afterwards.
 #ifndef __MINGW32__
+#ifndef _PID_T_
+#define _PID_T_
 typedef int pid_t;
+#endif  // _PID_T_
 #endif  // __MINGW32__
 #endif  // _WIN32
 

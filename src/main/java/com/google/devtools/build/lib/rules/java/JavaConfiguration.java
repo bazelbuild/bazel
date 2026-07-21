@@ -93,43 +93,39 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   private final boolean enforceProguardFileExtension;
   private final boolean runAndroidLint;
   private final boolean explicitJavaTestDeps;
-  private final boolean addTestSupportToCompileTimeDeps;
   private final ImmutableList<Label> pluginList;
   private final boolean experimentalTurbineAnnotationProcessing;
+  private final int experimentalTurbineCpuReservation;
   private final boolean experimentalEnableJspecify;
-  private final boolean multiReleaseDeployJars;
   private final boolean disallowJavaImportExports;
-  private final boolean autoCreateDeployJarForJavaTests;
 
   public JavaConfiguration(BuildOptions buildOptions) throws InvalidConfigurationException {
     JavaOptions javaOptions = buildOptions.get(JavaOptions.class);
     this.commandLineJavacFlags =
-        JavaHelper.detokenizeJavaOptions(JavaHelper.tokenizeJavaOptions(javaOptions.javacOpts));
-    this.javaLauncherLabel = javaOptions.javaLauncher;
-    this.useIjars = javaOptions.useIjars;
-    this.useHeaderCompilation = javaOptions.headerCompilation;
+        JavaHelper.detokenizeJavaOptions(
+            JavaHelper.tokenizeJavaOptions(javaOptions.getJavacOpts()));
+    this.javaLauncherLabel = javaOptions.getJavaLauncher();
+    this.useIjars = javaOptions.getUseIjars();
+    this.useHeaderCompilation = javaOptions.getHeaderCompilation();
     this.generateJavaDeps =
-        javaOptions.javaDeps || javaOptions.javaClasspath != JavaClasspathMode.OFF;
-    this.javaClasspath = javaOptions.javaClasspath;
-    this.inmemoryJdepsFiles = javaOptions.inmemoryJdepsFiles;
-    this.defaultJvmFlags = ImmutableList.copyOf(javaOptions.jvmOpts);
-    this.strictJavaDeps = javaOptions.strictJavaDeps;
-    this.fixDepsTool = javaOptions.fixDepsTool;
-    this.proguardBinary = javaOptions.proguard;
-    this.runLocalJavaOptimizations = javaOptions.runLocalJavaOptimizations;
-    this.localJavaOptimizationConfiguration = javaOptions.localJavaOptimizationConfiguration;
-    this.splitBytecodeOptimizationPass = javaOptions.splitBytecodeOptimizationPass;
-    this.bytecodeOptimizationPassActions = javaOptions.bytecodeOptimizationPassActions;
-    this.enforceProguardFileExtension = javaOptions.enforceProguardFileExtension;
-    this.enforceOneVersion = javaOptions.enforceOneVersion;
-    this.enforceOneVersionOnJavaTests = javaOptions.enforceOneVersionOnJavaTests;
-    this.explicitJavaTestDeps = javaOptions.explicitJavaTestDeps;
-    this.addTestSupportToCompileTimeDeps = javaOptions.addTestSupportToCompileTimeDeps;
-    this.runAndroidLint = javaOptions.runAndroidLint;
-    this.multiReleaseDeployJars = javaOptions.multiReleaseDeployJars;
-    this.disallowJavaImportExports = javaOptions.disallowJavaImportExports;
-    this.autoCreateDeployJarForJavaTests = javaOptions.autoCreateDeployJarForJavaTests;
-    Map<String, Label> optimizers = javaOptions.bytecodeOptimizers;
+        javaOptions.getJavaDeps() || javaOptions.getJavaClasspath() != JavaClasspathMode.OFF;
+    this.javaClasspath = javaOptions.getJavaClasspath();
+    this.inmemoryJdepsFiles = javaOptions.getInmemoryJdepsFiles();
+    this.defaultJvmFlags = ImmutableList.copyOf(javaOptions.getJvmOpts());
+    this.strictJavaDeps = javaOptions.getStrictJavaDeps();
+    this.fixDepsTool = javaOptions.getFixDepsTool();
+    this.proguardBinary = javaOptions.getProguard();
+    this.runLocalJavaOptimizations = javaOptions.getRunLocalJavaOptimizations();
+    this.localJavaOptimizationConfiguration = javaOptions.getLocalJavaOptimizationConfiguration();
+    this.splitBytecodeOptimizationPass = javaOptions.getSplitBytecodeOptimizationPass();
+    this.bytecodeOptimizationPassActions = javaOptions.getBytecodeOptimizationPassActions();
+    this.enforceProguardFileExtension = javaOptions.getEnforceProguardFileExtension();
+    this.enforceOneVersion = javaOptions.getEnforceOneVersion();
+    this.enforceOneVersionOnJavaTests = javaOptions.getEnforceOneVersionOnJavaTests();
+    this.explicitJavaTestDeps = javaOptions.getExplicitJavaTestDeps();
+    this.runAndroidLint = javaOptions.getRunAndroidLint();
+    this.disallowJavaImportExports = javaOptions.getDisallowJavaImportExports();
+    Map<String, Label> optimizers = javaOptions.getBytecodeOptimizers();
     if (optimizers.size() != 1) {
       throw new InvalidConfigurationException(
           String.format(
@@ -150,10 +146,11 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
               + "--experimental_bytecode_optimizers.");
     }
 
-    this.pluginList = ImmutableList.copyOf(javaOptions.pluginList);
+    this.pluginList = ImmutableList.copyOf(javaOptions.getPluginList());
     this.experimentalTurbineAnnotationProcessing =
-        javaOptions.experimentalTurbineAnnotationProcessing;
-    this.experimentalEnableJspecify = javaOptions.experimentalEnableJspecify;
+        javaOptions.getExperimentalTurbineAnnotationProcessing();
+    this.experimentalTurbineCpuReservation = javaOptions.getTurbineCpuReservation();
+    this.experimentalEnableJspecify = javaOptions.getExperimentalEnableJspecify();
   }
 
   @Override
@@ -350,7 +347,7 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
 
   @Override
   public boolean multiReleaseDeployJars() {
-    return multiReleaseDeployJars;
+    return true;
   }
 
   /** Returns true if java_import exports are not allowed. */
@@ -379,11 +376,6 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   }
 
   @Override
-  public boolean addTestSupportToCompileTimeDeps() {
-    return addTestSupportToCompileTimeDeps;
-  }
-
-  @Override
   public boolean runAndroidLint() {
     return runAndroidLint;
   }
@@ -397,6 +389,10 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     return experimentalTurbineAnnotationProcessing;
   }
 
+  public int experimentalTurbineCpuReservation() {
+    return experimentalTurbineCpuReservation;
+  }
+
   public boolean experimentalEnableJspecify() {
     return experimentalEnableJspecify;
   }
@@ -404,7 +400,7 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   @Override
   public boolean autoCreateJavaTestDeployJars(StarlarkThread thread) throws EvalException {
     BuiltinRestriction.failIfCalledOutsideDefaultAllowlist(thread);
-    return autoCreateDeployJarForJavaTests;
+    return false;
   }
 
   // TODO: b/417791104 - Remove this method once usages are removed.

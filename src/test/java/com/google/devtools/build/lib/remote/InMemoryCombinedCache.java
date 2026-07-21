@@ -34,7 +34,8 @@ class InMemoryCombinedCache extends RemoteExecutionCache {
         new InMemoryCacheClient(casEntries),
         /* diskCacheClient= */ null,
         /* symlinkTemplate= */ null,
-        digestUtil);
+        digestUtil,
+        /* chunkingEnabled= */ false);
   }
 
   InMemoryCombinedCache(
@@ -43,7 +44,8 @@ class InMemoryCombinedCache extends RemoteExecutionCache {
         new InMemoryCacheClient(casEntries),
         /* diskCacheClient= */ null,
         symlinkTemplate,
-        digestUtil);
+        digestUtil,
+        /* chunkingEnabled= */ false);
   }
 
   InMemoryCombinedCache(DigestUtil digestUtil) {
@@ -51,11 +53,17 @@ class InMemoryCombinedCache extends RemoteExecutionCache {
         new InMemoryCacheClient(),
         /* diskCacheClient= */ null,
         /* symlinkTemplate= */ null,
-        digestUtil);
+        digestUtil,
+        /* chunkingEnabled= */ false);
   }
 
   InMemoryCombinedCache(RemoteCacheClient remoteCacheClient, DigestUtil digestUtil) {
-    super(remoteCacheClient, /* diskCacheClient= */ null, /* symlinkTemplate= */ null, digestUtil);
+    super(
+        remoteCacheClient,
+        /* diskCacheClient= */ null,
+        /* symlinkTemplate= */ null,
+        digestUtil,
+        /* chunkingEnabled= */ false);
   }
 
   Digest addContents(RemoteActionExecutionContext context, String txt)
@@ -66,7 +74,9 @@ class InMemoryCombinedCache extends RemoteExecutionCache {
   Digest addContents(RemoteActionExecutionContext context, byte[] bytes)
       throws IOException, InterruptedException {
     Digest digest = digestUtil.compute(bytes);
-    Utils.getFromFuture(remoteCacheClient.uploadBlob(context, digest, ByteString.copyFrom(bytes)));
+    Utils.getFromFuture(
+        remoteCacheClient.uploadBlob(
+            context, digest, ByteString.copyFrom(bytes), /* force= */ false));
     return digest;
   }
 

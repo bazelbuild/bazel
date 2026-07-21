@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.In
 import com.google.devtools.build.lib.server.IdleTask;
 import com.google.devtools.build.lib.server.IdleTaskException;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
+import com.google.devtools.build.lib.skyframe.serialization.Fingerprinter;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingServicesSupplier;
 import com.google.devtools.build.lib.util.io.CommandExtensionReporter;
@@ -88,6 +89,8 @@ public final class BlazeWorkspace {
    */
   @Nullable
   private final RemoteAnalysisCachingServicesSupplier remoteAnalysisCachingServicesSupplier;
+
+  private final Fingerprinter fingerprinterForAnalysisCaching;
 
   /**
    * The action cache, or null if it hasn't been loaded yet.
@@ -164,6 +167,7 @@ public final class BlazeWorkspace {
       SyscallCache syscallCache,
       Supplier<ObjectCodecRegistry> analysisCodecRegistrySupplier,
       @Nullable RemoteAnalysisCachingServicesSupplier remoteAnalysisCachingServicesSupplier,
+      Fingerprinter fingerprinterForAnalysisCaching,
       boolean allowExternalRepositories) {
     this.runtime = runtime;
     this.eventBusExceptionHandler = Preconditions.checkNotNull(eventBusExceptionHandler);
@@ -179,6 +183,7 @@ public final class BlazeWorkspace {
     this.virtualPackageLocator = createPackageLocatorIfVirtual(directories, skyframeExecutor);
     this.analysisCodecRegistrySupplier = analysisCodecRegistrySupplier;
     this.remoteAnalysisCachingServicesSupplier = remoteAnalysisCachingServicesSupplier;
+    this.fingerprinterForAnalysisCaching = fingerprinterForAnalysisCaching;
 
     if (directories.inWorkspace()) {
       writeOutputBaseReadmeFile();
@@ -346,7 +351,7 @@ public final class BlazeWorkspace {
             new ResourceManager());
     skyframeExecutor.setClientEnv(env.getClientEnv());
     BuildRequestOptions buildRequestOptions = options.getOptions(BuildRequestOptions.class);
-    if (buildRequestOptions != null && !buildRequestOptions.useActionCache) {
+    if (buildRequestOptions != null && !buildRequestOptions.getUseActionCache()) {
       // Drop the action cache reference to save memory since we don't need it for this build. If a
       // subsequent build needs it, getOrLoadPersistentActionCache will reload it from disk.
       actionCache = null;
@@ -354,15 +359,7 @@ public final class BlazeWorkspace {
     return env;
   }
 
-  void clearEventBus() {
-    // EventBus does not have an unregister() method, so this is how we release memory associated
-    // with handlers.
-    skyframeExecutor.setEventBus(null);
-  }
-
-  /**
-   * Reinitializes the Skyframe evaluator.
-   */
+  /** Reinitializes the Skyframe evaluator. */
   public void resetEvaluator() {
     skyframeExecutor.resetEvaluator();
   }
@@ -475,6 +472,10 @@ public final class BlazeWorkspace {
     return remoteAnalysisCachingServicesSupplier;
   }
 
+  public Fingerprinter getFingerprinterForAnalysisCaching() {
+    return fingerprinterForAnalysisCaching;
+  }
+
   @Nullable
   private static PathPackageLocator createPackageLocatorIfVirtual(
       BlazeDirectories directories, SkyframeExecutor skyframeExecutor) {
@@ -500,7 +501,7 @@ public final class BlazeWorkspace {
     }
     return PathPackageLocator.create(
         directories.getOutputBase(),
-        packageOptions.packagePath,
+        packageOptions.getPackagePath(),
         NullEventHandler.INSTANCE,
         workspace.asFragment(),
         workspace,

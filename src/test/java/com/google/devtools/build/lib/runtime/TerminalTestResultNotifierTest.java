@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import com.google.devtools.build.lib.view.test.TestStatus.TestCase;
 import com.google.devtools.build.lib.view.test.TestStatus.TestCase.Status;
+import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.util.Collections;
 import java.util.Comparator;
@@ -576,11 +577,11 @@ public final class TerminalTestResultNotifierTest {
 
   private void printFailedToBuildSummaries(TestSummaryFormat testSummaryFormat)
       throws LabelSyntaxException {
-    ExecutionOptions executionOptions = ExecutionOptions.DEFAULTS;
-    executionOptions.testSummary = testSummaryFormat;
+    ExecutionOptions executionOptions = Options.getDefaults(ExecutionOptions.class);
+    executionOptions.setTestSummary(testSummaryFormat);
     when(optionsParsingResult.getOptions(ExecutionOptions.class)).thenReturn(executionOptions);
-    TestSummaryOptions testSummaryOptions = new TestSummaryOptions();
-    testSummaryOptions.verboseSummary = true;
+    TestSummaryOptions testSummaryOptions = Options.getDefaults(TestSummaryOptions.class);
+    testSummaryOptions.setVerboseSummary(true);
     when(optionsParsingResult.getOptions(TestSummaryOptions.class)).thenReturn(testSummaryOptions);
 
     ImmutableSortedSet.Builder<TestSummary> builder =
@@ -610,11 +611,11 @@ public final class TerminalTestResultNotifierTest {
   private void printTestCaseSummary(
       TestSummarySpec testSummarySpec, TestSummaryFormat testSummaryFormat)
       throws LabelSyntaxException {
-    ExecutionOptions executionOptions = ExecutionOptions.DEFAULTS;
-    executionOptions.testSummary = testSummaryFormat;
+    ExecutionOptions executionOptions = Options.getDefaults(ExecutionOptions.class);
+    executionOptions.setTestSummary(testSummaryFormat);
     when(optionsParsingResult.getOptions(ExecutionOptions.class)).thenReturn(executionOptions);
-    TestSummaryOptions testSummaryOptions = new TestSummaryOptions();
-    testSummaryOptions.verboseSummary = true;
+    TestSummaryOptions testSummaryOptions = Options.getDefaults(TestSummaryOptions.class);
+    testSummaryOptions.setVerboseSummary(true);
     when(optionsParsingResult.getOptions(TestSummaryOptions.class)).thenReturn(testSummaryOptions);
 
     TerminalTestResultNotifier terminalTestResultNotifier =

@@ -2,7 +2,7 @@
 title: 'DebugPackageInfo'
 ---
 
-A provider for the binary file and its associated .dwp files, if fission is enabled.If Fission ({@url https://gcc.gnu.org/wiki/DebugFission}) is not enabled, the dwp file will be null.
+A provider for the binary file and its associated .dwp files, if fission is enabled.If Fission (\{@url https://gcc.gnu.org/wiki/DebugFission\}) is not enabled, the dwp file will be null.
 
 ## Members
 
@@ -27,9 +27,9 @@ The `DebugPackageInfo` constructor.
 | Parameter | Description |
 | --- | --- |
 | `target_label` | required  The label for the \*\_binary target |
-| `stripped_file` | [File](../builtins/File); or `None`; default is `None`  The stripped file (the explicit ".stripped" target) |
+| `stripped_file` | [File](/versions/7.7.1/rules/lib/builtins/File); or `None`; default is `None`  The stripped file (the explicit ".stripped" target) |
 | `unstripped_file` | required  The unstripped file (the default executable target). |
-| `dwp_file` | [File](../builtins/File); or `None`; default is `None`  The .dwp file (for fission builds) or null if --fission=no. |
+| `dwp_file` | [File](/versions/7.7.1/rules/lib/builtins/File); or `None`; default is `None`  The .dwp file (for fission builds) or null if --fission=no. |
 
 ## dwp\_file
 

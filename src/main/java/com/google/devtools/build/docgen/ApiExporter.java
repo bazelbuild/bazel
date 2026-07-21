@@ -26,6 +26,7 @@ import com.google.devtools.build.docgen.starlark.MemberDoc;
 import com.google.devtools.build.docgen.starlark.ParamDoc;
 import com.google.devtools.build.docgen.starlark.StarlarkDocExpander;
 import com.google.devtools.build.docgen.starlark.StarlarkDocPage;
+import com.google.devtools.common.options.HelpVerbosity;
 import com.google.devtools.common.options.OptionsParser;
 import java.io.BufferedOutputStream;
 import java.io.FileOutputStream;
@@ -312,7 +313,7 @@ public class ApiExporter {
             + " one input_dir (-i) or binproto (--be_stardoc_proto) must be specified.\n");
     System.err.println(
         parser.describeOptionsWithDeprecatedCategories(
-            Collections.<String, String>emptyMap(), OptionsParser.HelpVerbosity.LONG));
+            Collections.<String, String>emptyMap(), HelpVerbosity.LONG));
   }
 
   public static void main(String[] args) {
@@ -321,32 +322,33 @@ public class ApiExporter {
     parser.parseAndExitUponError(args);
     BuildEncyclopediaOptions options = parser.getOptions(BuildEncyclopediaOptions.class);
 
-    if (options.help) {
+    if (options.getHelp()) {
       printUsage(parser);
       Runtime.getRuntime().exit(0);
     }
 
-    if (options.linkMapPath.isEmpty()
-        || (options.inputJavaDirs.isEmpty() && options.buildEncyclopediaStardocProtos.isEmpty())
-        || options.provider.isEmpty()
-        || options.outputFile.isEmpty()) {
+    if (options.getLinkMapPath().isEmpty()
+        || (options.getInputJavaDirs().isEmpty()
+            && options.getBuildEncyclopediaStardocProtos().isEmpty())
+        || options.getProvider().isEmpty()
+        || options.getOutputFile().isEmpty()) {
       printUsage(parser);
       Runtime.getRuntime().exit(1);
     }
 
     try {
-      DocLinkMap linkMap = DocLinkMap.createFromFile(options.linkMapPath);
+      DocLinkMap linkMap = DocLinkMap.createFromFile(options.getLinkMapPath());
       RuleLinkExpander ruleExpander = new RuleLinkExpander(true, linkMap);
-      SourceUrlMapper urlMapper = new SourceUrlMapper(linkMap, options.inputRoot);
+      SourceUrlMapper urlMapper = new SourceUrlMapper(linkMap, options.getInputRoot());
       SymbolFamilies symbols =
           new SymbolFamilies(
               new StarlarkDocExpander(ruleExpander),
               urlMapper,
-              options.provider,
-              options.inputJavaDirs,
-              options.buildEncyclopediaStardocProtos,
-              options.denylist,
-              options.apiStardocProtos);
+              options.getProvider(),
+              options.getInputJavaDirs(),
+              options.getBuildEncyclopediaStardocProtos(),
+              options.getDenylist(),
+              options.getApiStardocProtos());
       ImmutableMap<Category, ImmutableList<StarlarkDocPage>> allDocPages = symbols.getAllDocPages();
       Builtins.Builder builtins = Builtins.newBuilder();
 
@@ -374,7 +376,7 @@ public class ApiExporter {
       appendGlobals(
           builtins, symbols.getBzlGlobals(), globalToDoc, typeNameToConstructor, ApiContext.BZL);
       appendNativeRules(builtins, symbols.getNativeRules());
-      writeBuiltins(options.outputFile, builtins);
+      writeBuiltins(options.getOutputFile(), builtins);
 
     } catch (Throwable e) {
       System.err.println("ERROR: " + e.getMessage());

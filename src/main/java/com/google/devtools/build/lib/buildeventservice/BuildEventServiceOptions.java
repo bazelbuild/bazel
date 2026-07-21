@@ -21,12 +21,14 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 
 /** Options used by {@link BuildEventServiceModule}. */
-public class BuildEventServiceOptions extends OptionsBase {
+@OptionsClass
+public abstract class BuildEventServiceOptions extends OptionsBase {
 
   @Option(
       name = "bes_backend",
@@ -40,7 +42,9 @@ public class BuildEventServiceOptions extends OptionsBase {
           are `grpc` and `grpcs` (grpc with TLS enabled). If no scheme is provided, Bazel
           assumes `grpcs`.
           """)
-  public String besBackend;
+  public abstract String getBesBackend();
+
+  public abstract void setBesBackend(String value);
 
   @Option(
       name = "bes_timeout",
@@ -54,7 +58,9 @@ public class BuildEventServiceOptions extends OptionsBase {
           unit: Days (d), hours (h), minutes (m), seconds (s), and milliseconds (ms). The
           default value is `0` which means that there is no timeout.
           """)
-  public Duration besTimeout;
+  public abstract Duration getBesTimeout();
+
+  public abstract void setBesTimeout(Duration value);
 
   @Option(
       name = "bes_header",
@@ -69,16 +75,19 @@ public class BuildEventServiceOptions extends OptionsBase {
           values for the same name will be converted to a comma-separated list.
           """,
       allowMultiple = true)
-  public List<Map.Entry<String, String>> besHeaders;
+  public abstract List<Map.Entry<String, String>> getBesHeaders();
+
+  public abstract void setBesHeaders(List<Map.Entry<String, String>> value);
 
   @Option(
-    name = "bes_lifecycle_events",
-    defaultValue = "true",
-    documentationCategory = OptionDocumentationCategory.LOGGING,
-    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-    help = "Specifies whether to publish BES lifecycle events. (defaults to 'true')."
-  )
-  public boolean besLifecycleEvents;
+      name = "bes_lifecycle_events",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help = "Specifies whether to publish BES lifecycle events. (defaults to 'true').")
+  public abstract boolean getBesLifecycleEvents();
+
+  public abstract void setBesLifecycleEvents(boolean value);
 
   @Option(
       name = "bes_instance_name",
@@ -89,7 +98,9 @@ public class BuildEventServiceOptions extends OptionsBase {
       help =
           "Specifies the instance name under which the BES will persist uploaded BEP. Defaults "
               + "to null.")
-  public String instanceName;
+  public abstract String getInstanceName();
+
+  public abstract void setInstanceName(String value);
 
   @Option(
       name = "bes_keywords",
@@ -104,7 +115,9 @@ public class BuildEventServiceOptions extends OptionsBase {
           published to BES (`command_name={command_name}`, `protocol_name=BEP`).
           Defaults to none.
           """)
-  public List<String> besKeywords;
+  public abstract List<String> getBesKeywords();
+
+  public abstract void setBesKeywords(List<String> value);
 
   @Option(
       name = "bes_system_keywords",
@@ -121,7 +134,9 @@ public class BuildEventServiceOptions extends OptionsBase {
           include keywords when calling `PublishLifecycleEvent`. Build service operators
           using this flag should prevent users from overriding the flag value.
           """)
-  public List<String> besSystemKeywords;
+  public abstract List<String> getBesSystemKeywords();
+
+  public abstract void setBesSystemKeywords(List<String> value);
 
   @Option(
       name = "bes_outerr_buffer_size",
@@ -134,7 +149,9 @@ public class BuildEventServiceOptions extends OptionsBase {
           reported as a progress event. Individual writes are still reported in a single
           event, even if larger than the specified value up to `--bes_outerr_chunk_size`.
           """)
-  public int besOuterrBufferSize;
+  public abstract int getBesOuterrBufferSize();
+
+  public abstract void setBesOuterrBufferSize(int value);
 
   @Option(
       name = "bes_outerr_chunk_size",
@@ -143,7 +160,9 @@ public class BuildEventServiceOptions extends OptionsBase {
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =
           "Specifies the maximal size of stdout or stderr to be sent to BEP in a single message.")
-  public int besOuterrChunkSize;
+  public abstract int getBesOuterrChunkSize();
+
+  public abstract void setBesOuterrChunkSize(int value);
 
   @Option(
       name = "bes_results_url",
@@ -154,7 +173,9 @@ public class BuildEventServiceOptions extends OptionsBase {
           "Specifies the base URL where a user can view the information streamed to the BES"
               + " backend. Bazel will output the URL appended by the invocation id to the"
               + " terminal.")
-  public String besResultsUrl;
+  public abstract String getBesResultsUrl();
+
+  public abstract void setBesResultsUrl(String value);
 
   @Option(
       name = "bes_upload_mode",
@@ -179,7 +200,9 @@ public class BuildEventServiceOptions extends OptionsBase {
             mode. There is no guarantee that `FinishInvocationAttempt` or `FinishBuild`
             lifecycle events are sent.
           """)
-  public BesUploadMode besUploadMode;
+  public abstract BesUploadMode getBesUploadMode();
+
+  public abstract void setBesUploadMode(BesUploadMode value);
 
   @Option(
       name = "bes_proxy",
@@ -191,7 +214,9 @@ public class BuildEventServiceOptions extends OptionsBase {
           Connect to the Build Event Service through a proxy. Currently this flag can only be
           used to configure a Unix domain socket (`unix:/path/to/socket`).
           """)
-  public String besProxy;
+  public abstract String getBesProxy();
+
+  public abstract void setBesProxy(String value);
 
   @Option(
       name = "bes_check_preceding_lifecycle_events",
@@ -205,7 +230,9 @@ public class BuildEventServiceOptions extends OptionsBase {
           received `InvocationAttemptStarted` and `BuildEnqueued` events matching the current
           tool event.
           """)
-  public boolean besCheckPrecedingLifecycleEvents;
+  public abstract boolean getBesCheckPrecedingLifecycleEvents();
+
+  public abstract void setBesCheckPrecedingLifecycleEvents(boolean value);
 
   @Option(
       name = "bes_oom_finish_upload_timeout",
@@ -217,7 +244,9 @@ public class BuildEventServiceOptions extends OptionsBase {
           "Specifies how long bazel should wait for the BES/BEP upload to complete while OOMing. "
               + "This flag ensures termination when the JVM is severely GC thrashing and cannot "
               + "make progress on any user thread.")
-  public Duration besOomFinishUploadTimeout;
+  public abstract Duration getBesOomFinishUploadTimeout();
+
+  public abstract void setBesOomFinishUploadTimeout(Duration value);
 
   /** Determines the mode that will be used to upload data to the Build Event Service. */
   public enum BesUploadMode {

@@ -28,7 +28,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Maps;
 import com.google.common.hash.HashFunction;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -136,20 +135,21 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
     super.setOptions(options, aspectResolver, hashFunction);
     this.aspectResolver = aspectResolver;
     this.dependencyFilter = FormatUtils.getDependencyFilter(options);
-    this.packageGroupIncludesDoubleSlash = options.incompatiblePackageGroupIncludesDoubleSlash;
-    this.relativeLocations = options.relativeLocations;
-    this.includeDefaultValues = options.protoIncludeDefaultValues;
-    this.ruleAttributePredicate = newAttributePredicate(options.protoOutputRuleAttributes);
-    this.flattenSelects = options.protoFlattenSelects;
-    this.includeLocations = options.protoIncludeLocations;
-    this.includeRuleInputsAndOutputs = options.protoIncludeRuleInputsAndOutputs;
-    this.includeSyntheticAttributeHash = options.protoIncludeSyntheticAttributeHash;
-    this.includeInstantiationStack = options.protoIncludeInstantiationStack;
-    this.includeDefinitionStack = options.protoIncludeDefinitionStack;
-    this.includeAttributeSourceAspects = options.protoIncludeAttributeSourceAspects;
-    this.includeStarlarkRuleEnv = options.protoIncludeStarlarkRuleEnv;
+    this.packageGroupIncludesDoubleSlash = options.getIncompatiblePackageGroupIncludesDoubleSlash();
+    this.relativeLocations = options.getRelativeLocations();
+    this.includeDefaultValues = options.getProtoIncludeDefaultValues();
+    this.ruleAttributePredicate = newAttributePredicate(options.getProtoOutputRuleAttributes());
+    this.flattenSelects = options.getProtoFlattenSelects();
+    this.includeLocations = options.getProtoIncludeLocations();
+    this.includeRuleInputsAndOutputs = options.getProtoIncludeRuleInputsAndOutputs();
+    this.includeSyntheticAttributeHash = options.getProtoIncludeSyntheticAttributeHash();
+    this.includeInstantiationStack = options.getProtoIncludeInstantiationStack();
+    this.includeDefinitionStack = options.getProtoIncludeDefinitionStack();
+    this.includeAttributeSourceAspects = options.getProtoIncludeAttributeSourceAspects();
+    this.includeStarlarkRuleEnv = options.getProtoIncludeStarlarkRuleEnv();
     this.hashFunction = hashFunction;
-    this.ruleClassInfoFormatter = options.protoRuleClasses ? new RuleClassInfoFormatter() : null;
+    this.ruleClassInfoFormatter =
+        options.getProtoRuleClasses() ? new RuleClassInfoFormatter() : null;
   }
 
   @Override
@@ -403,7 +403,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
       Rule rule,
       Object extraDataForAttrHash,
       LabelPrinter labelPrinter) {
-    Map<Attribute, Build.Attribute> serializedAttributes = Maps.newHashMap();
+    Map<Attribute, Build.Attribute> serializedAttributes = new HashMap<>();
     AggregatingAttributeMapper attributeMapper = AggregatingAttributeMapper.of(rule);
     for (Attribute attr : rule.getAttributes()) {
       if (!shouldIncludeAttribute(rule, attr)) {

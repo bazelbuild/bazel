@@ -32,6 +32,7 @@ public final class SpawnMetricsTest {
             .setInputBytes(10)
             .setInputFiles(20)
             .setMemoryEstimateBytes(30)
+            .setMeasuredMemoryPeakBytes(35)
             .setInputBytesLimit(20)
             .setInputFilesLimit(40)
             .setOutputBytesLimit(50)
@@ -46,6 +47,7 @@ public final class SpawnMetricsTest {
             .setInputBytes(100)
             .setInputFiles(200)
             .setMemoryEstimateBytes(300)
+            .setMeasuredMemoryPeakBytes(300)
             .setInputBytesLimit(200)
             .setInputFilesLimit(400)
             .setOutputBytesLimit(500)
@@ -67,6 +69,7 @@ public final class SpawnMetricsTest {
     assertThat(result.inputBytes()).isEqualTo(110);
     assertThat(result.inputFiles()).isEqualTo(220);
     assertThat(result.memoryEstimate()).isEqualTo(330);
+    assertThat(result.measuredMemoryPeak()).isEqualTo(335);
     assertThat(result.inputBytesLimit()).isEqualTo(220);
     assertThat(result.inputFilesLimit()).isEqualTo(440);
     assertThat(result.outputBytesLimit()).isEqualTo(550);
@@ -84,6 +87,7 @@ public final class SpawnMetricsTest {
             .setInputBytes(10)
             .setInputFiles(20)
             .setMemoryEstimateBytes(30)
+            .setMeasuredMemoryPeakBytes(35)
             .setInputBytesLimit(20)
             .setInputFilesLimit(40)
             .setOutputBytesLimit(50)
@@ -98,6 +102,7 @@ public final class SpawnMetricsTest {
             .setInputBytes(100)
             .setInputFiles(200)
             .setMemoryEstimateBytes(300)
+            .setMeasuredMemoryPeakBytes(300)
             .setInputBytesLimit(200)
             .setInputFilesLimit(400)
             .setOutputBytesLimit(500)
@@ -119,6 +124,7 @@ public final class SpawnMetricsTest {
     assertThat(result.inputBytes()).isEqualTo(100);
     assertThat(result.inputFiles()).isEqualTo(200);
     assertThat(result.memoryEstimate()).isEqualTo(300);
+    assertThat(result.measuredMemoryPeak()).isEqualTo(300);
     assertThat(result.inputBytesLimit()).isEqualTo(200);
     assertThat(result.inputFilesLimit()).isEqualTo(400);
     assertThat(result.outputBytesLimit()).isEqualTo(500);

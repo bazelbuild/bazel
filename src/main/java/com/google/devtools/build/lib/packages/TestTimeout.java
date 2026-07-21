@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.packages;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableRangeMap;
-import com.google.common.collect.Maps;
 import com.google.common.collect.Range;
 import com.google.common.collect.RangeMap;
 import com.google.devtools.common.options.Converter;
@@ -213,7 +212,7 @@ public enum TestTimeout {
           }
         }
       }
-      EnumMap<TestTimeout, Duration> timeouts = Maps.newEnumMap(TestTimeout.class);
+      EnumMap<TestTimeout, Duration> timeouts = new EnumMap<>(TestTimeout.class);
       if (values.size() == 1) {
         timeouts.put(SHORT, values.get(0));
         timeouts.put(MODERATE, values.get(0));

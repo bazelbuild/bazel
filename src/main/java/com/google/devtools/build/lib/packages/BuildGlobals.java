@@ -13,8 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
-import com.google.devtools.build.docgen.annot.GlobalMethods;
-import com.google.devtools.build.docgen.annot.GlobalMethods.Environment;
+import com.google.devtools.build.docgen.annot.GlobalMethodDocs;
+import com.google.devtools.build.docgen.annot.GlobalMethodDocs.Environment;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.packages.TargetRecorder.NameConflictException;
@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.server.FailureDetails.PackageLoading.Code;
 import java.util.List;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
+import net.starlark.java.annot.StarlarkLibrary;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.NoneType;
@@ -32,7 +33,8 @@ import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.syntax.Location;
 
 /** A set of miscellaneous APIs that are available to any BUILD file. */
-@GlobalMethods(environment = Environment.BUILD)
+@GlobalMethodDocs(environment = Environment.BUILD)
+@StarlarkLibrary
 public class BuildGlobals {
 
   private BuildGlobals() {}

@@ -15,12 +15,16 @@ package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.skyframe.FileKey;
 import com.google.devtools.build.lib.skyframe.serialization.KeyValueWriter;
+import com.google.devtools.build.lib.skyframe.serialization.ProfileCollector;
+import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses;
+import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.SettableWriteStatus;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.InvalidationDataInfoOrFuture.FileDataInfoOrFuture;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.InvalidationDataInfoOrFuture.FutureFileDataInfo;
 import com.google.devtools.build.lib.versioning.LongVersionGetter;
@@ -32,6 +36,7 @@ import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.skyframe.InMemoryGraph;
 import com.google.devtools.build.skyframe.InMemoryNodeEntry;
+import com.google.perftools.profiles.ProfileProto.Profile;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ForkJoinPool;
@@ -65,7 +70,7 @@ public final class FileDependencySerializerTest {
     FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
     root = Root.fromPath(fs.getPath("/root"));
     root.asPath().createDirectoryAndParents();
-    serializer = new FileDependencySerializer(versionGetter, graph, writer, executor);
+    serializer = new FileDependencySerializer(versionGetter, graph, writer, executor, null);
   }
 
   @Test
@@ -125,5 +130,41 @@ public final class FileDependencySerializerTest {
     assertThat(e).hasCauseThat().isInstanceOf(MissingSkyframeEntryException.class);
     assertThat(serializer.getCounters().nodesWithProcessingErrors.get()).isEqualTo(1);
     assertThat(serializer.getCounters().nodesWaitingForDeps.get()).isEqualTo(0);
+  }
+
+  @Test
+  public void registerFileDependency_recordsSamples() throws Exception {
+    ProfileCollector profileCollector = new ProfileCollector();
+    serializer =
+        new FileDependencySerializer(versionGetter, graph, writer, executor, profileCollector);
+
+    PathFragment filePathFragment = PathFragment.create("file.txt");
+    RootedPath rootedPath = RootedPath.toRootedPath(root, filePathFragment);
+    FileKey key = FileKey.create(rootedPath);
+
+    FileValue fsv = mock(FileValue.class);
+    when(fsv.isSymlink()).thenReturn(false);
+    when(fsv.realRootedPath(rootedPath)).thenReturn(rootedPath);
+    when(fsv.exists()).thenReturn(true);
+    when(fsv.isDirectory()).thenReturn(false);
+    when(nodeEntry.getValue()).thenReturn(fsv);
+    when(graph.getIfPresent(key)).thenReturn(nodeEntry);
+
+    when(versionGetter.getFilePathOrSymlinkVersion(rootedPath.asPath())).thenReturn(2L);
+
+    SettableWriteStatus writeStatus = new WriteStatuses.SettableWriteStatus();
+    when(writer.put(any(), any())).thenReturn(writeStatus);
+
+    FileDataInfoOrFuture result = serializer.registerDependency(key);
+    ((FutureFileDataInfo) result).get();
+
+    // Not novel yet, no samples.
+    assertThat(profileCollector.toProto().getSampleCount()).isEqualTo(0);
+
+    writeStatus.markSuccess(true); // was novel
+
+    // Samples should be recorded now.
+    Profile profile = profileCollector.toProto();
+    assertThat(profile.getSampleCount()).isGreaterThan(0);
   }
 }

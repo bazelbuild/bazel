@@ -15,12 +15,24 @@ package com.google.devtools.common.options;
 
 import static java.util.Comparator.comparing;
 
+import com.google.common.collect.ImmutableList;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
+import java.util.Arrays;
 import java.util.Comparator;
+import java.util.List;
 import javax.annotation.Nullable;
 
 /** Everything the {@link OptionsParser} needs to know about how an option is defined. */
 public abstract class OptionDefinition implements Comparable<OptionDefinition> {
+
+  /**
+   * A special value used to specify an absence of default value.
+   *
+   * @see Option#defaultValue
+   */
+  public static final String SPECIAL_NULL_DEFAULT_VALUE = "null";
 
   /** An ordering relation for options that orders by the option name. */
   public static final Comparator<OptionDefinition> BY_OPTION_NAME =
@@ -33,6 +45,57 @@ public abstract class OptionDefinition implements Comparable<OptionDefinition> {
   public static final Comparator<OptionDefinition> BY_CATEGORY =
       comparing(OptionDefinition::getOptionCategory).thenComparing(BY_OPTION_NAME);
 
+  /** Returns all options fields of the given options class, in alphabetic order. */
+  public static ImmutableList<? extends OptionDefinition> getOptionDefinitions(
+      Class<? extends OptionsBase> optionsClass) {
+    return OptionsData.getAllOptionDefinitionsForClass(optionsClass);
+  }
+
+  /**
+   * Two option definitions are considered equivalent for parsing if they result in the same control
+   * flow through {@link OptionsParserImpl#identifyOptionAndPossibleArgument}. This is crucial to
+   * ensure that the beginning of the next option can be determined unambiguously when parsing with
+   * fallback data.
+   *
+   * <p>Examples:
+   *
+   * <ul>
+   *   <li>Both {@code query} and {@code cquery} have a {@code --output} option, but the options
+   *       accept different sets of values (e.g. {@code cquery} has {@code --output=files}, but
+   *       {@code query} doesn't. However, since both options accept a string value, they parse
+   *       equivalently as far as {@link OptionsParserImpl#identifyOptionAndPossibleArgument} is
+   *       concerned - potential failures due to unsupported values occur after parsing, during
+   *       value conversion. There is no ambiguity in how many command-line arguments are consumed
+   *       depending on which option definition is used.
+   *   <li>If the hypothetical {@code foo} command also had a {@code --output} option, but it were
+   *       boolean-valued, then the two option definitions would <b>not</b> be equivalent for
+   *       parsing: The command line {@code --output --copt=foo} would parse as {@code {"output":
+   *       "--copt=foo"}} for the {@code cquery} command, but as {@code {"output": true, "copt":
+   *       "foo"}} for the {@code foo} command, thus resulting in parsing ambiguities between the
+   *       two commands.
+   * </ul>
+   */
+  public static boolean equivalentForParsing(
+      OptionDefinition definition, OptionDefinition otherDefinition) {
+    if (definition.equals(otherDefinition)) {
+      return true;
+    }
+    return (definition.usesBooleanValueSyntax() == otherDefinition.usesBooleanValueSyntax())
+        && (definition.getType().equals(Void.class) == otherDefinition.getType().equals(Void.class))
+        && (ImmutableList.copyOf(definition.getOptionMetadataTags())
+                .contains(OptionMetadataTag.INTERNAL)
+            == ImmutableList.copyOf(otherDefinition.getOptionMetadataTags())
+                .contains(OptionMetadataTag.INTERNAL));
+  }
+
+  protected final Option optionAnnotation;
+  private volatile Converter<?> converter = null;
+  private volatile Object defaultValue = null;
+
+  protected OptionDefinition(Option optionAnnotation) {
+    this.optionAnnotation = optionAnnotation;
+  }
+
   /** Returns the declaring {@link OptionsBase} class that owns this option. */
   public abstract <C extends OptionsBase> Class<? extends C> getDeclaringClass(Class<C> baseClass);
 
@@ -43,7 +106,13 @@ public abstract class OptionDefinition implements Comparable<OptionDefinition> {
   public abstract Object getRawValue(OptionsBase optionsBase);
 
   /** Returns the value of this option, taking default values into account. */
-  public abstract Object getValue(OptionsBase optionsBase);
+  public Object getValue(OptionsBase optionsBase) {
+    Object value = getRawValue(optionsBase);
+    if (value == null && !isSpecialNullDefault()) {
+      value = getUnparsedDefaultValue();
+    }
+    return value;
+  }
 
   /**
    * Returns the value of this option as a boolean. If the option is not boolean-typed, throws an
@@ -68,22 +137,32 @@ public abstract class OptionDefinition implements Comparable<OptionDefinition> {
   public abstract boolean isDeprecated();
 
   /** Returns the name of this option. */
-  public abstract String getOptionName();
+  public String getOptionName() {
+    return optionAnnotation.name();
+  }
 
   /** Returns a one-character abbreviation for this option, if any. */
-  public abstract char getAbbreviation();
+  public char getAbbreviation() {
+    return optionAnnotation.abbrev();
+  }
 
   /** Returns the help test for this option. */
-  public abstract String getHelpText();
+  public String getHelpText() {
+    return optionAnnotation.help();
+  }
 
   /** Returns a short description of the expected type of this option. */
-  public abstract String getValueTypeHelpText();
+  public String getValueTypeHelpText() {
+    return optionAnnotation.valueHelp();
+  }
 
   /**
    * Returns the default value of this option, with no conversion performed. Should only be used by
    * the parser.
    */
-  public abstract String getUnparsedDefaultValue();
+  public String getUnparsedDefaultValue() {
+    return optionAnnotation.defaultValue();
+  }
 
   /**
    * Returns the deprecated option category.
@@ -91,38 +170,60 @@ public abstract class OptionDefinition implements Comparable<OptionDefinition> {
    * @deprecated Use {@link #getDocumentationCategory} instead
    */
   @Deprecated
-  public abstract String getOptionCategory();
+  public String getOptionCategory() {
+    return optionAnnotation.category();
+  }
 
   /** Returns the option category. */
-  public abstract OptionDocumentationCategory getDocumentationCategory();
+  public OptionDocumentationCategory getDocumentationCategory() {
+    return optionAnnotation.documentationCategory();
+  }
 
   /** Returns data about the intended effects of this option. */
-  public abstract OptionEffectTag[] getOptionEffectTags();
+  public OptionEffectTag[] getOptionEffectTags() {
+    return optionAnnotation.effectTags();
+  }
 
   /** Returns metadata about this option. */
-  public abstract OptionMetadataTag[] getOptionMetadataTags();
+  public OptionMetadataTag[] getOptionMetadataTags() {
+    return optionAnnotation.metadataTags();
+  }
 
   /** Returns a converter to use for this option. */
   @SuppressWarnings({"rawtypes"})
-  public abstract Class<? extends Converter> getProvidedConverter();
+  public Class<? extends Converter> getProvidedConverter() {
+    return optionAnnotation.converter();
+  }
 
   /** Returns whether this option allows multiple instances to be combined into a list. */
-  public abstract boolean allowsMultiple();
+  public boolean allowsMultiple() {
+    return optionAnnotation.allowMultiple();
+  }
 
   /** Returns any options which are added if this option is present. */
-  public abstract String[] getOptionExpansion();
+  public String[] getOptionExpansion() {
+    return optionAnnotation.expansion();
+  }
 
-  /** Returns aditional options that need to be implicitly added for this option. */
-  public abstract String[] getImplicitRequirements();
+  /** Returns additional options that need to be implicitly added for this option. */
+  public String[] getImplicitRequirements() {
+    return optionAnnotation.implicitRequirements();
+  }
 
   /** Returns a deprecation warning for this option, if one is present. */
-  public abstract String getDeprecationWarning();
+  public String getDeprecationWarning() {
+    return optionAnnotation.deprecationWarning();
+  }
 
   /** Returns the old name for this option, if one is present. */
-  public abstract String getOldOptionName();
+  public String getOldOptionName() {
+    return optionAnnotation.oldName();
+  }
 
   /** Returns a warning to use with this option if the old name is specified. */
-  public abstract boolean getOldNameWarning();
+  public boolean getOldNameWarning() {
+    return optionAnnotation.oldNameWarning();
+  }
 
   /** The type of the optionDefinition. */
   public abstract Class<?> getType();
@@ -133,7 +234,9 @@ public abstract class OptionDefinition implements Comparable<OptionDefinition> {
   }
 
   // TODO: blaze-configurability - try to remove special handling for defaults
-  public abstract boolean isSpecialNullDefault();
+  public boolean isSpecialNullDefault() {
+    return getUnparsedDefaultValue().equals(SPECIAL_NULL_DEFAULT_VALUE) && !getType().isPrimitive();
+  }
 
   /** Returns whether the arg is an expansion option. */
   public boolean isExpansionOption() {
@@ -150,10 +253,52 @@ public abstract class OptionDefinition implements Comparable<OptionDefinition> {
    * that does use it, asserts that the type is a {@code List<T>} and returns its element type
    * {@code T}.
    */
-  public abstract Type getFieldSingularType();
+  public Type getFieldSingularType() {
+    Type type = getSingularType();
+    if (allowsMultiple()) {
+      // The validity of the converter is checked at compile time. We know the type to be
+      // List<singularType>.
+      ParameterizedType pfieldType = (ParameterizedType) type;
+      type = pfieldType.getActualTypeArguments()[0];
+    }
+    return type;
+  }
+
+  protected abstract Type getSingularType();
 
   /** Returns the {@link Converter} that will be used for this option. */
-  public abstract Converter<?> getConverter();
+  public Converter<?> getConverter() {
+    if (converter != null) {
+      return converter;
+    }
+
+    synchronized (this) {
+      if (converter != null) {
+        return converter;
+      }
+
+      @SuppressWarnings("rawtypes") // Converter itself has a type argument
+      Class<? extends Converter> converterClass = getProvidedConverter();
+      if (converterClass == Converter.class) {
+        // No converter provided, use the default one.
+        Type type = getFieldSingularType();
+        converter = Converters.DEFAULT_CONVERTERS.get(type);
+      } else {
+        try {
+          // Instantiate the given Converter class.
+          Constructor<?> constructor = converterClass.getDeclaredConstructor();
+          constructor.setAccessible(true);
+          converter = (Converter<?>) constructor.newInstance();
+        } catch (SecurityException | IllegalArgumentException | ReflectiveOperationException e) {
+          // This indicates an error in the Converter, and should be discovered the first time it is
+          // used.
+          throw new ConstructionException(
+              String.format("Error in the provided converter for option %s", getMemberName()), e);
+        }
+      }
+      return converter;
+    }
+  }
 
   /**
    * Returns whether a field should be considered as boolean.
@@ -163,7 +308,8 @@ public abstract class OptionDefinition implements Comparable<OptionDefinition> {
   public boolean usesBooleanValueSyntax() {
     return getType().equals(boolean.class)
         || getType().equals(TriState.class)
-        || getConverter() instanceof BoolOrEnumConverter;
+        || getConverter() instanceof BoolOrEnumConverter
+        || getConverter() instanceof BooleanStyleOption;
   }
 
   /**
@@ -174,7 +320,62 @@ public abstract class OptionDefinition implements Comparable<OptionDefinition> {
     return !isVoidField() && !usesBooleanValueSyntax();
   }
 
+  /**
+   * Wraps a converted default value into a {@link List} if the converter doesn't do it on its own.
+   *
+   * <p>This is to make sure multiple ({@link Option#allowMultiple()}) options' default values are
+   * always converted to a list representation.
+   */
+  @SuppressWarnings("unchecked") // Not an unchecked cast - there's an explicit type check before it
+  protected static List<Object> maybeWrapMultipleDefaultValue(Object convertedDefaultValue) {
+    if (convertedDefaultValue instanceof List) {
+      return (List<Object>) convertedDefaultValue;
+    } else {
+      return Arrays.asList(convertedDefaultValue);
+    }
+  }
+
   /** Returns the evaluated default value for this option. */
   @Nullable
-  public abstract Object getDefaultValue(@Nullable Object conversionContext);
+  public Object getDefaultValue(@Nullable Object conversionContext) {
+    if (defaultValue != null) {
+      return defaultValue;
+    }
+
+    synchronized (this) {
+      if (defaultValue != null) {
+        return defaultValue;
+      }
+
+      if (isSpecialNullDefault()) {
+        return allowsMultiple() ? ImmutableList.of() : null;
+      }
+
+      Converter<?> converter = getConverter();
+      String defaultValueAsString = getUnparsedDefaultValue();
+      try {
+        Object convertedDefaultValue = converter.convert(defaultValueAsString, conversionContext);
+        defaultValue =
+            allowsMultiple()
+                ? maybeWrapMultipleDefaultValue(convertedDefaultValue)
+                : convertedDefaultValue;
+      } catch (OptionsParsingException e) {
+        throw new ConstructionException(
+            String.format(
+                "OptionsParsingException while retrieving the default value for %s: %s",
+                getMemberName(), e.getMessage()),
+            e);
+      }
+
+      return defaultValue;
+    }
+  }
+
+  /** Returns the name of the member (field or method) that defines this option. */
+  public abstract String getMemberName();
+
+  @Override
+  public int compareTo(OptionDefinition o) {
+    return getOptionName().compareTo(o.getOptionName());
+  }
 }

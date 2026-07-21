@@ -101,6 +101,8 @@ filegroup(
         "BUILD",
         "common.h",
         "mapped_file.h",
+        "mapped_file_unix.cc",
+        "mapped_file_windows.cc",
         "platform_utils.cc",
         "platform_utils.h",
         "zip.cc",
@@ -108,14 +110,7 @@ filegroup(
         "zip_main.cc",
         "zlib_client.cc",
         "zlib_client.h",
-    ] + select({
-        "//src/conditions:windows": [
-            "mapped_file_windows.cc",
-        ],
-        "//conditions:default": [
-            "mapped_file_unix.cc",
-        ],
-    }),
+    ],
     visibility = ["//visibility:public"],
 )
 

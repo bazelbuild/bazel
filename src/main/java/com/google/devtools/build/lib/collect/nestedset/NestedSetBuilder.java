@@ -198,7 +198,8 @@ public abstract sealed class NestedSetBuilder<E> {
       }
     }
 
-    return new NestedSet<>(getOrder(), direct, transitive, interruptStrategy);
+    return NestedSetInterner.intern(
+        NestedSet.create(getOrder(), direct, transitive, interruptStrategy));
   }
 
   @ForOverride

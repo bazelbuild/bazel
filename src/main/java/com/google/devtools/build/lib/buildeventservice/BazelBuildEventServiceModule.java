@@ -66,10 +66,10 @@ public class BazelBuildEventServiceModule
     static BackendConfig create(
         BuildEventServiceOptions besOptions, AuthAndTLSOptions authAndTLSOptions) {
       return new BackendConfig(
-          besOptions.besBackend,
-          besOptions.besProxy,
+          besOptions.getBesBackend(),
+          besOptions.getBesProxy(),
           ImmutableMap.<String, String>builder()
-              .putAll(besOptions.besHeaders)
+              .putAll(besOptions.getBesHeaders())
               .buildKeepingLast()
               .entrySet()
               .asList(),
@@ -79,6 +79,21 @@ public class BazelBuildEventServiceModule
 
   private BuildEventServiceClient client;
   private BackendConfig config;
+
+  /**
+   * Client environment of the most recently started command.
+   *
+   * <p>A cached {@link BuildEventServiceClient} can outlive the command that created it, so its
+   * credential helper must not capture a per-command {@link CommandEnvironment}. Instead it reads
+   * the environment through {@link #latestClientEnv()}, which {@link #getBesClient} refreshes at
+   * the start of every command (including when a cached client is returned). {@code volatile}
+   * because the helper may run on a gRPC I/O thread.
+   */
+  private volatile ImmutableMap<String, String> latestClientEnv = ImmutableMap.of();
+
+  private ImmutableMap<String, String> latestClientEnv() {
+    return latestClientEnv;
+  }
 
   private CredentialModule credentialModule;
 
@@ -99,8 +114,8 @@ public class BazelBuildEventServiceModule
       String commandName,
       BuildEventServiceOptions besOptions,
       @Nullable OptionsParsingResult startupOptionsProvider) {
-    List<String> userKeywords = besOptions.besKeywords;
-    List<String> systemKeywords = besOptions.besSystemKeywords;
+    List<String> userKeywords = besOptions.getBesKeywords();
+    List<String> systemKeywords = besOptions.getBesSystemKeywords();
     ImmutableSet.Builder<String> builder =
         ImmutableSet.<String>builder()
             .add("protocol_name=BEP")
@@ -118,6 +133,9 @@ public class BazelBuildEventServiceModule
       BuildEventServiceOptions besOptions,
       AuthAndTLSOptions authAndTLSOptions)
       throws IOException {
+    // Refresh for every command, including when a cached client is returned below, so credential
+    // helpers observe the current command's environment (e.g. a rotated auth token).
+    latestClientEnv = env.getClientEnv();
     BackendConfig newConfig = BackendConfig.create(besOptions, authAndTLSOptions);
     if (client == null || !Objects.equals(config, newConfig)) {
       clearBesClient();
@@ -129,8 +147,8 @@ public class BazelBuildEventServiceModule
               CredentialHelperEnvironment.newBuilder()
                   .setEventReporter(env.getReporter())
                   .setWorkspacePath(env.getWorkspace())
-                  .setClientEnvironment(env.getClientEnv())
-                  .setHelperExecutionTimeout(authAndTLSOptions.credentialHelperTimeout)
+                  .setClientEnvironment(this::latestClientEnv)
+                  .setHelperExecutionTimeout(authAndTLSOptions.getCredentialHelperTimeout())
                   .build(),
               credentialModule.getCredentialCache(),
               env.getCommandLinePathFactory(),
@@ -183,6 +201,9 @@ public class BazelBuildEventServiceModule
     }
     this.client = null;
     this.config = null;
+    // Do not reset latestClientEnv here: an in-flight credential lookup on a gRPC I/O thread may
+    // call the supplier after clearBesClient() returns, and an empty map would give it no
+    // PATH/HOME.
   }
 
   private static final ImmutableSet<String> ALLOWED_COMMANDS =
@@ -204,12 +225,12 @@ public class BazelBuildEventServiceModule
 
   @Override
   protected String getInvocationIdPrefix() {
-    if (Strings.isNullOrEmpty(besOptions.besResultsUrl)) {
+    if (Strings.isNullOrEmpty(besOptions.getBesResultsUrl())) {
       return "";
     }
-    return besOptions.besResultsUrl.endsWith("/")
-        ? besOptions.besResultsUrl
-        : besOptions.besResultsUrl + "/";
+    return besOptions.getBesResultsUrl().endsWith("/")
+        ? besOptions.getBesResultsUrl()
+        : besOptions.getBesResultsUrl() + "/";
   }
 
   @Override

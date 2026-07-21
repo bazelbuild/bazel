@@ -27,9 +27,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.FileStateValue;
-import com.google.devtools.build.lib.server.FailureDetails.DiffAwareness.Code;
 import com.google.devtools.build.lib.skyframe.DirtinessCheckerUtils.FileDirtinessChecker;
-import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.vfs.FileStateKey;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -692,28 +690,24 @@ public final class FileSystemValueCheckerInferringAncestorsTest
   }
 
   @Test
-  public void getDiffWithInferredAncestors_statFails_fails() throws Exception {
+  public void getDiffWithInferredAncestors_statFails_invalidatesFileAndParents() throws Exception {
     throwOnStat = new IOException("oh no");
     addDoneNodesAndThenMarkChanged(
         ImmutableMap.of(fileStateValueKey("file"), NONEXISTENT_FILE_STATE_NODE));
 
-    AbruptExitException e =
-        assertThrows(
-            AbruptExitException.class,
-            () ->
-                FileSystemValueCheckerInferringAncestors.getDiffWithInferredAncestors(
-                    /* tsgm= */ null,
-                    inMemoryGraph,
-                    /* modifiedKeys= */ ImmutableSet.of(fileStateValueKey("file")),
-                    fsvcThreads,
-                    syscallCache,
-                    skyValueDirtinessChecker));
+    ImmutableDiff diff =
+        FileSystemValueCheckerInferringAncestors.getDiffWithInferredAncestors(
+            /* tsgm= */ null,
+            inMemoryGraph,
+            /* modifiedKeys= */ ImmutableSet.of(fileStateValueKey("file")),
+            fsvcThreads,
+            syscallCache,
+            skyValueDirtinessChecker);
 
-    assertThat(e.getDetailedExitCode().getFailureDetail().hasDiffAwareness()).isTrue();
-    assertThat(e.getDetailedExitCode().getFailureDetail().getDiffAwareness().getCode())
-        .isEqualTo(Code.DIFF_STAT_FAILED);
-    assertThat(e).hasMessageThat().contains("Failed to check dirtiness of /src/file");
-    assertThat(e).hasMessageThat().contains("oh no");
+    assertThat(diff.changedKeysWithNewValues()).isEmpty();
+    assertThat(diff.changedKeysWithoutNewValues())
+        .containsExactly(
+            fileStateValueKey("file"), fileStateValueKey(""), directoryListingStateValueKey(""));
   }
 
   @Test

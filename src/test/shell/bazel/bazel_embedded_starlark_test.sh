@@ -109,7 +109,7 @@ EOF
   bazel run :foo | grep -q dragons || fail "wrong output"
 }
 
-test_new_git_repository() {
+test_git_repository() {
   EXTREPODIR=`pwd`
   export GIT_CONFIG_NOSYSTEM=YES
   mkdir extgit
@@ -129,8 +129,8 @@ EOF
   mkdir main
   cd main
   cat > $(setup_module_dot_bazel) <<EOF
-new_git_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:git.bzl", "new_git_repository")
-new_git_repository(
+git_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
+git_repository(
   name="ext",
   remote="file://${EXTREPODIR}/extgit/.git",
   tag="mytag",

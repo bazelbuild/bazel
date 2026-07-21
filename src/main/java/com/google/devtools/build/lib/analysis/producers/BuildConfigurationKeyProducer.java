@@ -128,14 +128,14 @@ public final class BuildConfigurationKeyProducer<C>
       return this::findBuildOptionsScopes;
     }
 
-    List<Label> targetPlatforms = platformOptions.platforms;
+    List<Label> targetPlatforms = platformOptions.getPlatforms();
     if (targetPlatforms.size() == 1) {
       // TODO: https://github.com/bazelbuild/bazel/issues/19807 - We define this flag to only use
       //  the first value and ignore any subsequent ones. Remove this check as part of cleanup.
       tasks.enqueue(
           new PlatformProducer(
               targetPlatforms.getFirst(),
-              options.get(CoreOptions.class).getCommandLineFlagAliases(),
+              options.get(CoreOptions.class).getCommandLineFlagAliasesMap(),
               this,
               this::checkTargetPlatformFlags));
       return runAfter;
@@ -211,7 +211,7 @@ public final class BuildConfigurationKeyProducer<C>
    */
   private StateMachine mergeFromPlatformMapping(Tasks tasks) {
     tasks.lookUp(
-        options.get(PlatformOptions.class).platformMappingKey,
+        options.get(PlatformOptions.class).getPlatformMappingKey(),
         PlatformMappingException.class,
         this);
     return this::applyPlatformMapping;
@@ -288,7 +288,7 @@ public final class BuildConfigurationKeyProducer<C>
     var resolvedOptions = buildOptionsScopeValue.getResolvedBuildOptionsWithScopeTypes();
     tasks.lookUp(
         BaselineOptionsValue.key(
-            resolvedOptions.get(CoreOptions.class).isExec,
+            resolvedOptions.get(CoreOptions.class).getIsExec(),
             !resolvedOptions.contains(TestConfiguration.TestOptions.class),
             /* newPlatform= */ null),
         val -> this.baselineConfiguration = ((BaselineOptionsValue) val).toOptions());
@@ -326,9 +326,9 @@ public final class BuildConfigurationKeyProducer<C>
   private static BuildOptions resetFlags(
       BuildOptionsScopeValue buildOptionsScopeValue,
       BuildOptions baselineConfiguration,
-      Label label) {
+      @Nullable Label label) {
     Preconditions.checkNotNull(buildOptionsScopeValue);
-    Preconditions.checkNotNull(label);
+
 
     BuildOptions transitionedOptionsWithScopeType =
         buildOptionsScopeValue.getResolvedBuildOptionsWithScopeTypes();
@@ -347,12 +347,9 @@ public final class BuildConfigurationKeyProducer<C>
       Label flagLabel = flagEntry.getKey();
       Scope scope = buildOptionsScopeValue.getFullyResolvedScopes().get(flagLabel);
       if (scope == null) {
-        Verify.verify(
-            !transitionedOptionsWithScopeType
-                .getScopeTypeMap()
-                .get(flagLabel)
-                .scopeType()
-                .equals(Scope.ScopeType.PROJECT));
+        Scope.ScopeType flagScopeType =
+            transitionedOptionsWithScopeType.getScopeTypeMap().get(flagLabel);
+        Verify.verify(!flagScopeType.scopeType().equals(Scope.ScopeType.PROJECT));
       } else if (scope.getScopeType().scopeType().equals(Scope.ScopeType.PROJECT)) {
         Object flagValue = flagEntry.getValue();
         Object baselineValue = baselineConfiguration.getStarlarkOptions().get(flagLabel);
@@ -380,8 +377,16 @@ public final class BuildConfigurationKeyProducer<C>
     return scopedBuildOptions;
   }
 
-  private static boolean isInScope(Label label, Scope.ScopeDefinition scopeDefinition) {
-    Preconditions.checkNotNull(scopeDefinition);
+  private static boolean isInScope(
+      @Nullable Label label, @Nullable Scope.ScopeDefinition scopeDefinition) {
+    // A null scopeDefinition means the flag's package has no PROJECT.scl file. Treat the target
+    // as not in scope so the flag resets to its baseline value.
+    // Also, if the label is null, we are evaluating a configuration without a target, so we also
+    // treat it
+    // as out of scope.
+    if (scopeDefinition == null || label == null) {
+      return false;
+    }
     for (String path : scopeDefinition.getOwnedCodePaths()) {
       if (label.getCanonicalForm().startsWith(path)) {
         return true;

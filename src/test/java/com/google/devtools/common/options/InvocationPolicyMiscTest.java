@@ -129,7 +129,7 @@ public class InvocationPolicyMiscTest extends InvocationPolicyEnforcerTestBase {
 
     enforcer.enforce(parser, BUILD_COMMAND, ImmutableList.builder());
 
-    assertThat(getTestOptions().testNewAndOldName).isEqualTo("old_value");
+    assertThat(getTestOptions().getTestNewAndOldName()).isEqualTo("old_value");
   }
 
   @Test
@@ -151,6 +151,6 @@ public class InvocationPolicyMiscTest extends InvocationPolicyEnforcerTestBase {
 
     enforcer.enforce(parser, BUILD_COMMAND, ImmutableList.builder());
 
-    assertThat(getTestOptions().testNewAndOldName).isEqualTo("new_value");
+    assertThat(getTestOptions().getTestNewAndOldName()).isEqualTo("new_value");
   }
 }

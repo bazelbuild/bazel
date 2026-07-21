@@ -96,21 +96,22 @@ public final class QuiescingExecutorsImpl implements QuiescingExecutors {
     // possibly allowing bugs here to go unnoticed.
     var loadingPhaseThreadsOption = options.getOptions(LoadingPhaseThreadsOption.class);
     this.analysisParallelism =
-        loadingPhaseThreadsOption != null ? loadingPhaseThreadsOption.threads : 0;
+        loadingPhaseThreadsOption != null ? loadingPhaseThreadsOption.getThreads() : 0;
     var buildRequestOptions = options.getOptions(BuildRequestOptions.class);
-    this.executionParallelism = buildRequestOptions != null ? buildRequestOptions.jobs : 0;
-    this.useAsyncExecution = buildRequestOptions != null && buildRequestOptions.useAsyncExecution;
+    this.executionParallelism = buildRequestOptions != null ? buildRequestOptions.getJobs() : 0;
+    this.useAsyncExecution =
+        buildRequestOptions != null && buildRequestOptions.getUseAsyncExecution();
     this.asyncExecutionMaxConcurrentActions =
         max(
             buildRequestOptions != null
-                ? min(MAX_JOBS, buildRequestOptions.asyncExecutionMaxConcurrentActions)
+                ? min(MAX_JOBS, buildRequestOptions.getAsyncExecutionMaxConcurrentActions())
                 : 0,
             this.executionParallelism);
     var packageOptions = options.getOptions(PackageOptions.class);
-    this.globbingParallelism = packageOptions != null ? packageOptions.globbingThreads : 0;
+    this.globbingParallelism = packageOptions != null ? packageOptions.getGlobbingThreads() : 0;
     var analysisOptions = options.getOptions(AnalysisOptions.class);
     this.cpuHeavySkyKeysThreadPoolSize =
-        analysisOptions != null ? analysisOptions.cpuHeavySkyKeysThreadPoolSize : 0;
+        analysisOptions != null ? analysisOptions.getCpuHeavySkyKeysThreadPoolSize() : 0;
   }
 
   @Override
@@ -143,7 +144,6 @@ public final class QuiescingExecutorsImpl implements QuiescingExecutors {
         SKYFRAME_EVALUATOR, analysisParallelism(), ParallelEvaluatorErrorClassifier.instance());
   }
 
-  @SuppressWarnings("AllowVirtualThreads")
   @Override
   public QuiescingExecutor getMergedAnalysisAndExecutionExecutor() {
     checkState(analysisParallelism > 0, "expected analysisParallelism > 0 : %s", this);

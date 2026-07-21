@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.actions.SpawnInputs;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.TestExecException;
@@ -137,7 +138,7 @@ public class StandaloneTestStrategy extends TestStrategy {
             getArgs(action),
             ImmutableMap.copyOf(testEnvironment),
             ImmutableMap.copyOf(executionInfo),
-            /* inputs= */ action.getInputs(),
+            SpawnInputs.of(action.getInputs()),
             NestedSetBuilder.emptySet(Order.STABLE_ORDER),
             ImmutableSet.copyOf(action.getSpawnOutputs()),
             /* mandatoryOutputs= */ ImmutableSet.of(),
@@ -318,7 +319,7 @@ public class StandaloneTestStrategy extends TestStrategy {
     Path err = resolvedPaths.getTestStderr();
     FileOutErr testOutErr = new FileOutErr(out, err);
     Closeable streamed = null;
-    if (executionOptions.testOutput.equals(ExecutionOptions.TestOutputFormat.STREAMED)) {
+    if (executionOptions.getTestOutput().equals(ExecutionOptions.TestOutputFormat.STREAMED)) {
       streamed =
           createStreamedTestOutput(
               Reporter.outErrForReporter(actionExecutionContext.getEventHandler()), out);
@@ -477,8 +478,9 @@ public class StandaloneTestStrategy extends TestStrategy {
         // Pass the execution info of the action which is identical to the supported tags set on the
         // test target. In particular, this does not set the test timeout on the spawn.
         action.getExecutionInfo(),
-        /* inputs= */ NestedSetBuilder.create(
-            Order.STABLE_ORDER, action.getTestXmlGeneratorScript(), action.getTestLog()),
+        SpawnInputs.of(
+            NestedSetBuilder.create(
+                Order.STABLE_ORDER, action.getTestXmlGeneratorScript(), action.getTestLog())),
         /* tools= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         /* outputs= */ ImmutableSet.of(action.getTestXml()),
         /* mandatoryOutputs= */ null,
@@ -512,11 +514,12 @@ public class StandaloneTestStrategy extends TestStrategy {
         args,
         ImmutableMap.copyOf(testEnvironment),
         action.getExecutionInfo(),
-        /* inputs= */ NestedSetBuilder.<ActionInput>compileOrder()
-            .addTransitive(action.getInputs())
-            .addAll(expandedCoverageDir)
-            .add(action.getCoverageManifest())
-            .build(),
+        SpawnInputs.of(
+            action.getInputs(),
+            ImmutableList.<ActionInput>builderWithExpectedSize(expandedCoverageDir.size() + 1)
+                .addAll(expandedCoverageDir)
+                .add(action.getCoverageManifest())
+                .build()),
         /* tools= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         /* outputs= */ ImmutableSet.of(action.getCoverageData()),
         /* mandatoryOutputs= */ null,
@@ -614,6 +617,12 @@ public class StandaloneTestStrategy extends TestStrategy {
               .setExecutionInfo(ExecutionInfo.getDefaultInstance())
               .build();
       finalizeTest(standaloneTestResult, failedAttempts);
+    }
+
+    @Override
+    public TestRunnerSpawn getFlakyRetryRunner(List<SpawnResult> previousAttemptResults)
+        throws ExecException, InterruptedException {
+      return createTestRunnerSpawn(testAction, actionExecutionContext);
     }
   }
 

@@ -240,8 +240,8 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
   private void reinitializeSkyframeExecutor() {
     SkyframeExecutorTestHelper.process(skyframeExecutor);
     PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
-    packageOptions.showLoadingProgress = true;
-    packageOptions.globbingThreads = 3;
+    packageOptions.setShowLoadingProgress(true);
+    packageOptions.setGlobbingThreads(3);
     BuildLanguageOptions buildLanguageOptions = Options.getDefaults(BuildLanguageOptions.class);
     skyframeExecutor.preparePackageLoading(
         pkgLocator,
@@ -249,6 +249,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
         buildLanguageOptions,
         UUID.randomUUID(),
         ImmutableMap.of(),
+        /* repoEnv= */ ImmutableMap.of(),
         QuiescingExecutorsImpl.forTesting(),
         new TimestampGranularityMonitor(BlazeClock.instance()));
     skyframeExecutor.setActionEnv(ImmutableMap.of());
@@ -374,19 +375,19 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     AnalysisOptions viewOptions = optionsParser.getOptions(AnalysisOptions.class);
     // update --keep_going option if test requested it.
     boolean keepGoing = flags.contains(Flag.KEEP_GOING);
-    boolean discardAnalysisCache = viewOptions.discardAnalysisCache;
+    boolean discardAnalysisCache = viewOptions.getDiscardAnalysisCache();
 
     PackageOptions packageOptions = optionsParser.getOptions(PackageOptions.class);
     PathPackageLocator pathPackageLocator =
         PathPackageLocator.create(
             outputBase,
-            packageOptions.packagePath,
+            packageOptions.getPackagePath(),
             reporter,
             rootDirectory.asFragment(),
             rootDirectory,
             BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY);
-    packageOptions.showLoadingProgress = true;
-    packageOptions.globbingThreads = 7;
+    packageOptions.setShowLoadingProgress(true);
+    packageOptions.setGlobbingThreads(7);
 
     BuildLanguageOptions buildLanguageOptions =
         optionsParser.getOptions(BuildLanguageOptions.class);
@@ -397,6 +398,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
         buildLanguageOptions,
         UUID.randomUUID(),
         ImmutableMap.of(),
+        /* repoEnv= */ ImmutableMap.of(),
         QuiescingExecutorsImpl.forTesting(),
         new TimestampGranularityMonitor(BlazeClock.instance()));
     skyframeExecutor.setActionEnv(ImmutableMap.of());

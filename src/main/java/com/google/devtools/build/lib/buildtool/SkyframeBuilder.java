@@ -115,9 +115,7 @@ public class SkyframeBuilder implements Builder {
     BuildRequestOptions buildRequestOptions = options.getOptions(BuildRequestOptions.class);
     // TODO(bazel-team): Should use --experimental_fsvc_threads instead of the hardcoded constant
     // but plumbing the flag through is hard.
-    int fsvcThreads = buildRequestOptions == null ? 200 : buildRequestOptions.fsvcThreads;
-    boolean skyframeErrorHandlingRefactor =
-        buildRequestOptions != null && buildRequestOptions.skyframeErrorHandlingRefactor;
+    int fsvcThreads = buildRequestOptions == null ? 200 : buildRequestOptions.getFsvcThreads();
     skyframeExecutor.detectModifiedOutputFiles(
         modifiedOutputFiles, lastExecutionTimeRange, outputChecker, fsvcThreads);
     try (SilentCloseable c = Profiler.instance().profile("configureActionExecutor")) {
@@ -125,7 +123,7 @@ public class SkyframeBuilder implements Builder {
           fileCache,
           actionInputPrefetcher,
           actionExecutionSalt,
-          options.getOptions(UiOptions.class).maxStdoutErrBytes);
+          options.getOptions(UiOptions.class).getMaxStdoutErrBytes());
     }
     // Note that executionProgressReceiver accesses builtTargets concurrently (after wrapping in a
     // synchronized collection), so unsynchronized access to this variable is unsafe while it runs.
@@ -149,7 +147,7 @@ public class SkyframeBuilder implements Builder {
             executionProgressReceiver.createInactivityMonitor(statusReporter),
             executionProgressReceiver.createInactivityReporter(
                 statusReporter, isBuildingExclusiveArtifacts),
-            options.getOptions(BuildRequestOptions.class).progressReportInterval);
+            options.getOptions(BuildRequestOptions.class).getProgressReportInterval());
 
     skyframeExecutor.setActionExecutionProgressReportingObjects(executionProgressReceiver,
         executionProgressReceiver, statusReporter);
@@ -189,11 +187,10 @@ public class SkyframeBuilder implements Builder {
                   result,
                   skyframeExecutor.getCyclesReporter(),
                   reporter,
-                  options.getOptions(KeepGoingOption.class).keepGoing,
+                  options.getOptions(KeepGoingOption.class).getKeepGoing(),
                   skyframeExecutor.tracksStateForIncrementality(),
                   skyframeExecutor.getEventBus(),
-                  bugReporter,
-                  skyframeErrorHandlingRefactor)
+                  bugReporter)
               .executionDetailedExitCode();
 
       if (detailedExitCode != null) {
@@ -222,11 +219,10 @@ public class SkyframeBuilder implements Builder {
                     result,
                     skyframeExecutor.getCyclesReporter(),
                     reporter,
-                    options.getOptions(KeepGoingOption.class).keepGoing,
+                    options.getOptions(KeepGoingOption.class).getKeepGoing(),
                     skyframeExecutor.tracksStateForIncrementality(),
                     skyframeExecutor.getEventBus(),
-                    bugReporter,
-                    skyframeErrorHandlingRefactor)
+                    bugReporter)
                 .executionDetailedExitCode();
         Preconditions.checkState(
             detailedExitCode != null || !result.keyNames().isEmpty(),
@@ -254,11 +250,10 @@ public class SkyframeBuilder implements Builder {
                     result,
                     skyframeExecutor.getCyclesReporter(),
                     reporter,
-                    options.getOptions(KeepGoingOption.class).keepGoing,
+                    options.getOptions(KeepGoingOption.class).getKeepGoing(),
                     skyframeExecutor.tracksStateForIncrementality(),
                     skyframeExecutor.getEventBus(),
-                    bugReporter,
-                    skyframeErrorHandlingRefactor)
+                    bugReporter)
                 .executionDetailedExitCode();
         if (detailedExitCode != null) {
           detailedExitCodes.add(detailedExitCode);

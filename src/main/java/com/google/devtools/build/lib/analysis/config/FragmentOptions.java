@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.analysis.config;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.common.options.Converters;
+import com.google.devtools.build.lib.util.EnvVar;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
@@ -29,6 +29,12 @@ import javax.annotation.Nullable;
 
 /** Command-line build options for a Blaze module. */
 public abstract class FragmentOptions extends OptionsBase implements Cloneable {
+
+  @Override
+  @SuppressWarnings("unchecked") // Reflection doesn't support generics
+  public Class<? extends FragmentOptions> getOptionsClass() {
+    return (Class<? extends FragmentOptions>) super.getOptionsClass();
+  }
 
   @Override
   public FragmentOptions clone() {
@@ -45,7 +51,7 @@ public abstract class FragmentOptions extends OptionsBase implements Cloneable {
    * values.
    */
   public FragmentOptions getDefault() {
-    return Options.getDefaults(getClass());
+    return Options.getDefaults(getOptionsClass());
   }
 
   /**
@@ -70,6 +76,11 @@ public abstract class FragmentOptions extends OptionsBase implements Cloneable {
    */
   public FragmentOptions getNormalized() {
     return this;
+  }
+
+  /** Converts the options to a string-keyed map. */
+  public Map<String, Object> asMap() {
+    return Options.toMap(this);
   }
 
   /**
@@ -113,11 +124,11 @@ public abstract class FragmentOptions extends OptionsBase implements Cloneable {
   }
 
   /**
-   * Helper method for subclasses to normalize list of {@link Converters.EnvVar}s by keeping only
-   * the last entry for each key. The order of the entries is preserved.
+   * Helper method for subclasses to normalize list of {@link EnvVar}s by keeping only the last
+   * entry for each key. The order of the entries is preserved.
    */
-  protected static List<Converters.EnvVar> normalizeEnvVars(List<Converters.EnvVar> entries) {
-    LinkedHashMap<String, Converters.EnvVar> normalizedEntries = new LinkedHashMap<>();
+  protected static List<EnvVar> normalizeEnvVars(List<EnvVar> entries) {
+    LinkedHashMap<String, EnvVar> normalizedEntries = new LinkedHashMap<>();
     for (var entry : entries) {
       normalizedEntries.put(entry.name(), entry);
     }

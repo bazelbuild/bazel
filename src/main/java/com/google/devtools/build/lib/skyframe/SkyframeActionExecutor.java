@@ -25,7 +25,6 @@ import static java.lang.Math.min;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.Action;
@@ -127,6 +126,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -244,6 +244,8 @@ public final class SkyframeActionExecutor {
   private OutputService outputService;
   private boolean finalizeActions;
   private boolean rewindingEnabled;
+  private int maxRepeatedLostInputs;
+  private boolean preciseRewindingEnabled;
   private boolean invocationRetriesEnabled;
   private final Supplier<ImmutableList<Root>> sourceRootSupplier;
 
@@ -335,17 +337,19 @@ public final class SkyframeActionExecutor {
     var buildRequestOptions = options.getOptions(BuildRequestOptions.class);
 
     // Start with a new map each build so there's no issue with internal resizing.
-    this.buildActionMap = Maps.newConcurrentMap();
+    this.buildActionMap = new ConcurrentHashMap<>();
     this.rewoundActions = Sets.newConcurrentHashSet();
     this.hadExecutionError.set(false);
     this.actionCacheChecker = checkNotNull(actionCacheChecker);
     // Don't cache possibly stale data from the last build.
     this.options = options;
     // Cache some option values for performance, since we consult them on every action.
-    this.finalizeActions = buildRequestOptions.finalizeActions;
-    this.rewindingEnabled = buildRequestOptions.rewindLostInputs;
+    this.finalizeActions = buildRequestOptions.getFinalizeActions();
+    this.rewindingEnabled = buildRequestOptions.getRewindLostInputs();
+    this.preciseRewindingEnabled = buildRequestOptions.getExperimentalPreciseRewinding();
+    this.maxRepeatedLostInputs = buildRequestOptions.getMaxRepeatedLostInputs();
     this.invocationRetriesEnabled =
-        options.getOptions(ExecutionOptions.class).remoteRetryOnTransientCacheError > 0;
+        options.getOptions(ExecutionOptions.class).getRemoteRetryOnTransientCacheError() > 0;
     this.outputService = checkNotNull(outputService);
     this.outputDirectoryHelper = outputDirectoryHelper;
 
@@ -355,19 +359,20 @@ public final class SkyframeActionExecutor {
     // getInputFilesForExtraAction() works the same whether input discovery was run or not), but
     // getExtraActionInfo().
     this.freeDiscoveredInputsAfterExecution =
-        !keepStateAfterBuild && options.getOptions(CoreOptions.class).actionListeners.isEmpty();
+        !keepStateAfterBuild
+            && options.getOptions(CoreOptions.class).getActionListeners().isEmpty();
 
-    boolean useAsyncExecution = buildRequestOptions.useAsyncExecution;
+    boolean useAsyncExecution = buildRequestOptions.getUseAsyncExecution();
 
     this.cacheHitSemaphore =
-        (!useAsyncExecution && options.getOptions(CoreOptions.class).throttleActionCacheCheck)
+        (!useAsyncExecution && options.getOptions(CoreOptions.class).getThrottleActionCacheCheck())
             ? new Semaphore(Runtime.getRuntime().availableProcessors())
             : null;
 
-    var minActiveAction = buildRequestOptions.jobs;
+    var minActiveAction = buildRequestOptions.getJobs();
     var maxActiveAction =
         useAsyncExecution
-            ? min(MAX_JOBS, buildRequestOptions.asyncExecutionMaxConcurrentActions)
+            ? min(MAX_JOBS, buildRequestOptions.getAsyncExecutionMaxConcurrentActions())
             : minActiveAction;
     this.actionConcurrencyMeter =
         new ActionConcurrencyMeter(minActiveAction, max(minActiveAction, maxActiveAction));
@@ -414,7 +419,7 @@ public final class SkyframeActionExecutor {
   private boolean archivedTreeArtifactsEnabledForMnemonic(ActionAnalysisMetadata action) {
     return options
         .getOptions(CoreOptions.class)
-        .archivedArtifactsMnemonicsFilter
+        .getArchivedArtifactsMnemonicsFilter()
         .test(action.getMnemonic());
   }
 
@@ -428,11 +433,24 @@ public final class SkyframeActionExecutor {
   }
 
   boolean publishTargetSummaries() {
-    return options.getOptions(BuildEventProtocolOptions.class).publishTargetSummary;
+    return options.getOptions(BuildEventProtocolOptions.class).getPublishTargetSummary();
   }
 
   public boolean rewindingEnabled() {
     return rewindingEnabled;
+  }
+
+  public boolean preciseRewindingEnabled() {
+    return preciseRewindingEnabled;
+  }
+
+  /**
+   * Returns the maximum number of times the same input (or top-level output) may be lost by the
+   * same action before rewinding gives up and fails the build. Configured by {@code
+   * --experimental_max_repeated_lost_inputs}.
+   */
+  public int maxRepeatedLostInputs() {
+    return maxRepeatedLostInputs;
   }
 
   public boolean invocationRetriesEnabled() {
@@ -444,7 +462,7 @@ public final class SkyframeActionExecutor {
   }
 
   OutputPermissions getOutputPermissions() {
-    return options.getOptions(CoreOptions.class).experimentalWritableOutputs
+    return options.getOptions(CoreOptions.class).getExperimentalWritableOutputs()
         ? OutputPermissions.WRITABLE
         : OutputPermissions.READONLY;
   }
@@ -469,8 +487,12 @@ public final class SkyframeActionExecutor {
   }
 
   private void updateActionFileSystemContext(
-      Action action, FileSystem actionFileSystem, OutputMetadataStore outputMetadataStore) {
-    outputService.updateActionFileSystemContext(action, actionFileSystem, outputMetadataStore);
+      Action action,
+      FileSystem actionFileSystem,
+      InputMetadataProvider inputMetadataProvider,
+      OutputMetadataStore outputMetadataStore) {
+    outputService.updateActionFileSystemContext(
+        action, actionFileSystem, inputMetadataProvider, outputMetadataStore);
   }
 
   void executionOver() {
@@ -605,7 +627,8 @@ public final class SkyframeActionExecutor {
       boolean hasDiscoveredInputs)
       throws ActionExecutionException, InterruptedException {
     if (actionFileSystem != null) {
-      updateActionFileSystemContext(action, actionFileSystem, outputMetadataStore);
+      updateActionFileSystemContext(
+          action, actionFileSystem, compositeInputMetadataProvider, outputMetadataStore);
     }
 
     ActionExecutionContext actionExecutionContext =
@@ -757,7 +780,9 @@ public final class SkyframeActionExecutor {
         Profiler.instance().profile(ProfilerTask.ACTION_CHECK, action.describe())) {
       outputChecker = outputService.getOutputChecker();
       handler =
-          options.getOptions(BuildRequestOptions.class).explanationPath != null ? reporter : null;
+          options.getOptions(BuildRequestOptions.class).getExplanationPath() != null
+              ? reporter
+              : null;
       token =
           actionCacheChecker.getTokenIfNeedToExecute(
               action,
@@ -926,7 +951,10 @@ public final class SkyframeActionExecutor {
             outputService.actionFileSystemType().supportsInputDiscovery());
     if (actionFileSystem != null) {
       updateActionFileSystemContext(
-          action, actionFileSystem, THROWING_OUTPUT_METADATA_STORE_FOR_ACTIONFS);
+          action,
+          actionFileSystem,
+          compositeInputMetadataProvider,
+          THROWING_OUTPUT_METADATA_STORE_FOR_ACTIONFS);
       // Note that when not using ActionFS, a global setup of the parent directories of the OutErr
       // streams is sufficient.
       setupActionFsFileOutErr(fileOutErr, action);
@@ -999,7 +1027,7 @@ public final class SkyframeActionExecutor {
    * </ul>
    */
   private boolean isBuilderAborting() {
-    return hadExecutionError.get() && !options.getOptions(KeepGoingOption.class).keepGoing;
+    return hadExecutionError.get() && !options.getOptions(KeepGoingOption.class).getKeepGoing();
   }
 
   public void configure(
@@ -1039,6 +1067,10 @@ public final class SkyframeActionExecutor {
     private final ActionLookupData actionLookupData;
     @Nullable private final ActionExecutionStatusReporter statusReporter;
     private final ActionPostprocessing postprocessing;
+    // True if the action was successfully registered with the statusReporter.
+    // This ensures we only attempt to remove it during cleanup, avoiding
+    // "Action not present" exceptions if the action failed before registration.
+    private boolean statusReported = false;
 
     ActionRunner(
         Action action,
@@ -1096,41 +1128,50 @@ public final class SkyframeActionExecutor {
           ActionStartedEvent event = new ActionStartedEvent(action, actionStartTimeNanos);
           if (statusReporter != null) {
             statusReporter.updateStatus(event);
+            statusReported = true;
           }
           env.getListener().post(event);
-          if (actionFileSystemType().shouldDoEagerActionPrep()) {
-            try (SilentCloseable d =
-                Profiler.instance().profile(ProfilerTask.INFO, "action.prepare")) {
-              // This call generally deletes any files at locations that are declared outputs of the
-              // action, although some actions perform additional work, while others intentionally
-              // keep previous outputs in place.
-              action.prepare(
-                  actionExecutionContext.getExecRoot(),
-                  actionExecutionContext.getPathResolver(),
-                  outputService.bulkDeleter(),
-                  useArchivedTreeArtifacts(action));
-            } catch (IOException e) {
-              logger.atWarning().withCause(e).log(
-                  "failed to delete output files before executing action: '%s'", action);
-              throw toActionExecutionException(
-                  "failed to delete output files before executing action",
-                  e,
-                  action,
-                  null,
-                  Code.ACTION_OUTPUTS_DELETION_FAILURE);
+          var rewoundActionSynchronizer = outputService.getRewoundActionSynchronizer();
+          try (SilentCloseable outerLock =
+              rewoundActionSynchronizer.enterActionPreparation(action, wasRewound(action))) {
+            if (actionFileSystemType().shouldDoEagerActionPrep()) {
+              try (SilentCloseable d =
+                  Profiler.instance().profile(ProfilerTask.INFO, "action.prepare")) {
+                // This call generally deletes any files at locations that are declared outputs of
+                // the action, although some actions perform additional work, while others
+                // intentionally keep previous outputs in place.
+                action.prepare(
+                    actionExecutionContext.getExecRoot(),
+                    actionExecutionContext.getPathResolver(),
+                    outputService.bulkDeleter(),
+                    useArchivedTreeArtifacts(action));
+              } catch (IOException e) {
+                logger.atWarning().withCause(e).log(
+                    "failed to delete output files before executing action: '%s'", action);
+                throw toActionExecutionException(
+                    "failed to delete output files before executing action",
+                    e,
+                    action,
+                    null,
+                    Code.ACTION_OUTPUTS_DELETION_FAILURE);
+              }
+            }
+
+            if (actionFileSystemType().inMemoryFileSystem()) {
+              // There's nothing to delete when the action file system is used, but we must ensure
+              // that the output directories for stdout and stderr exist.
+              setupActionFsFileOutErr(actionExecutionContext.getFileOutErr(), action);
+              createActionFsOutputDirectories(action, actionExecutionContext.getPathResolver());
+            } else {
+              createOutputDirectories(action);
+            }
+
+            try (SilentCloseable innerLock =
+                rewoundActionSynchronizer.enterActionExecution(
+                    action, actionExecutionContext.getInputMetadataProvider())) {
+              return executeAction(env.getListener(), action);
             }
           }
-
-          if (actionFileSystemType().inMemoryFileSystem()) {
-            // There's nothing to delete when the action file system is used, but we must ensure
-            // that the output directories for stdout and stderr exist.
-            setupActionFsFileOutErr(actionExecutionContext.getFileOutErr(), action);
-            createActionFsOutputDirectories(action, actionExecutionContext.getPathResolver());
-          } else {
-            createOutputDirectories(action);
-          }
-
-          return executeAction(env.getListener(), action);
         } catch (LostInputsActionExecutionException e) {
           lostInputs = true;
           throw e;
@@ -1164,7 +1205,7 @@ public final class SkyframeActionExecutor {
 
     private void notifyActionCompletion(
         ExtendedEventHandler eventHandler, boolean postActionCompletionEvent) {
-      if (statusReporter != null) {
+      if (statusReporter != null && statusReported) {
         statusReporter.remove(action);
       }
       if (postActionCompletionEvent) {

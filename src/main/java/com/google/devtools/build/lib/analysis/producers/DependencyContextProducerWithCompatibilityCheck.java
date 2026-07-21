@@ -104,7 +104,7 @@ public final class DependencyContextProducerWithCompatibilityCheck
             .getConfiguration()
             .getOptions()
             .get(CoreOptions.class)
-            .getCommandLineFlagAliases(),
+            .getCommandLineFlagAliasesMap(),
         (PlatformProducer.ResultSink) this,
         /* runAfter= */ this::computeConfigConditions);
   }

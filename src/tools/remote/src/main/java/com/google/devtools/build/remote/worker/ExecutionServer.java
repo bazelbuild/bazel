@@ -130,10 +130,10 @@ final class ExecutionServer extends ExecutionImplBase {
     ThreadPoolExecutor realExecutor =
         new ThreadPoolExecutor(
             // This is actually the max number of concurrent jobs.
-            workerOptions.jobs,
+            workerOptions.getJobs(),
             // Since we use an unbounded queue, the executor ignores this value, but it still checks
             // that it is greater or equal to the value above.
-            workerOptions.jobs,
+            workerOptions.getJobs(),
             // Shut down idle threads after one minute. Threads aren't all that expensive, but we
             // also
             // don't need to keep them around if we don't need them.
@@ -272,7 +272,7 @@ final class ExecutionServer extends ExecutionImplBase {
       logger.atSevere().withCause(e).log("Work failed: %s", workDetails);
       throw e;
     } finally {
-      if (workerOptions.debug) {
+      if (workerOptions.getDebug()) {
         logger.atInfo().log("Preserving work directory %s", tempRoot);
       } else {
         try {
@@ -619,14 +619,14 @@ final class ExecutionServer extends ExecutionImplBase {
       // Run command with sandboxing.
       ArrayList<String> newCommandLineElements = new ArrayList<>(arguments.size());
       newCommandLineElements.add(sandboxPath.getPathString());
-      if (workerOptions.sandboxingBlockNetwork) {
+      if (workerOptions.getSandboxingBlockNetwork()) {
         newCommandLineElements.add("-N");
       }
-      for (PathFragment writablePath : workerOptions.sandboxingWritablePaths) {
+      for (PathFragment writablePath : workerOptions.getSandboxingWritablePaths()) {
         newCommandLineElements.add("-w");
         newCommandLineElements.add(writablePath.getPathString());
       }
-      for (PathFragment tmpfsDir : workerOptions.sandboxingTmpfsDirs) {
+      for (PathFragment tmpfsDir : workerOptions.getSandboxingTmpfsDirs()) {
         newCommandLineElements.add("-e");
         newCommandLineElements.add(tmpfsDir.getPathString());
       }

@@ -88,7 +88,7 @@ public class SkyfocusExecutor {
 
     Set<FileStateKey> newActiveDirectories = Sets.newConcurrentHashSet();
 
-    if (skyfocusState.options().activeDirectories.isEmpty()
+    if (skyfocusState.options().getActiveDirectories().isEmpty()
         && skyfocusState.activeDirectoriesType().equals(DERIVED)) {
       // If the user hasn't defined a new active directories from the command line and there
       // isn't an active user-defined active directories in use, automatically derive one using the
@@ -172,7 +172,8 @@ public class SkyfocusExecutor {
                     .build());
       }
     } else {
-      if (skyfocusState.options().activeDirectories.isEmpty() && !skyfocusState.forcedRerun()) {
+      if (skyfocusState.options().getActiveDirectories().isEmpty()
+          && !skyfocusState.forcedRerun()) {
         // No command line request to update the active directories; return early.
         return Optional.empty();
       }
@@ -183,7 +184,7 @@ public class SkyfocusExecutor {
       ImmutableSet<RootedPath> activeDirectoriesRootedPaths =
           Stream.concat(
                   Stream.concat(
-                          skyfocusState.options().activeDirectories.stream(),
+                          skyfocusState.options().getActiveDirectories().stream(),
                           // The Bzlmod lockfile can be created after a build without having existed
                           // before and must always be kept in the active directories if it is used.
                           Stream.of(LabelConstants.MODULE_LOCKFILE_NAME.toString()))
@@ -218,7 +219,7 @@ public class SkyfocusExecutor {
                         .collect(joining(", "))));
       }
 
-      if ((skyfocusState.options().activeDirectories.isEmpty()
+      if ((skyfocusState.options().getActiveDirectories().isEmpty()
               || skyfocusState.activeDirectories().equals(newActiveDirectories))
           && skyfocusState.focusedTargetLabels().containsAll(topLevelTargetLabels)) {
         if (skyfocusState.forcedRerun()) {

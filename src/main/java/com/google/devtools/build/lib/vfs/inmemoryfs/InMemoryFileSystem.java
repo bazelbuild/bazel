@@ -127,14 +127,10 @@ public class InMemoryFileSystem extends FileSystem {
     public IOException exception(PathFragment path) throws IOException {
       String m = path + " (" + message + ")";
       switch (this) {
-        case EACCES:
-          throw new FileAccessException(m);
-        case ENOENT:
-          throw new FileNotFoundException(m);
-        case ELOOP:
-          throw new FileSymlinkLoopException(path);
-        default:
-          throw new IOException(m);
+        case EACCES -> throw new FileAccessException(m);
+        case ENOENT -> throw new FileNotFoundException(m);
+        case ELOOP -> throw new FileSymlinkLoopException(m);
+        default -> throw new IOException(m);
       }
     }
   }
@@ -472,6 +468,14 @@ public class InMemoryFileSystem extends FileSystem {
 
   @Override
   public boolean createDirectory(PathFragment path) throws IOException {
+    return createDirectory(path, /* expectedChildCount= */ -1);
+  }
+
+  /**
+   * Like {@link #createDirectory(PathFragment)}, but if the directory is created and {@code
+   * expectedChildCount} is non-negative, presizes its entry map for that number of children.
+   */
+  public boolean createDirectory(PathFragment path, int expectedChildCount) throws IOException {
     if (isRootDirectory(path)) {
       throw Errno.EACCES.exception(path);
     }
@@ -488,7 +492,8 @@ public class InMemoryFileSystem extends FileSystem {
         }
         return false;
       }
-      error = insertChildDirectory(parent, new InMemoryDirectoryInfo(clock), name);
+      error =
+          insertChildDirectory(parent, new InMemoryDirectoryInfo(clock, expectedChildCount), name);
     }
     if (error != null) {
       throw error.exception(path);
