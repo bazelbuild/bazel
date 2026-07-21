@@ -103,27 +103,19 @@ public final class LocalJobserver {
      * once per poll tick.
      */
     public final int tick(int targetTokens) throws IOException {
-      int available = drainPool(issued);
+      int available = drainPool();
       int held = Math.max(0, issued - available);
-      int desired = Math.max(0, clampTarget(targetTokens) - held);
+      int desired = Math.max(0, targetTokens - held);
       refillPool(desired);
       issued = held + desired;
       return held;
     }
 
-    /**
-     * Removes and returns the count of every idle token currently in the pool. {@code issued} is
-     * the number in circulation, an upper bound a subclass may use to bound its peek.
-     */
-    protected abstract int drainPool(int issued) throws IOException;
+    /** Removes and returns the count of every idle token currently in the pool. */
+    protected abstract int drainPool() throws IOException;
 
     /** Adds {@code count} idle tokens back into the pool; a no-op when {@code count <= 0}. */
     protected abstract void refillPool(int count) throws IOException;
-
-    /** Clamps the target to any hard ceiling the primitive imposes on the pool; identity default. */
-    protected int clampTarget(int targetTokens) {
-      return targetTokens;
-    }
 
     /**
      * Directory a sandbox must whitelist as writable so a tool can return tokens, or null if the
@@ -262,7 +254,6 @@ public final class LocalJobserver {
    * tokens, freeing CPUs). All platform specifics live in {@link Backend#tick}.
    */
   private void run() {
-    Backend b = backend;
     ResourceManager rm = resourceManager;
     int lastOutstanding = 0;
     try {
@@ -270,7 +261,7 @@ public final class LocalJobserver {
         // A tool's implicit slot is the CPU already reserved by its Bazel action; tokens represent
         // only additional parallel work.
         int target = Math.max(0, (int) rm.getIdleCpuForJobserver());
-        int held = b.tick(target);
+        int held = backend.tick(target);
         outstandingTokens = held;
         if (held < lastOutstanding) {
           // Tokens came back; actions waiting on CPU may be admissible now.

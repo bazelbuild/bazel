@@ -1025,7 +1025,8 @@ public class ExecutionTool {
     if (options.getExperimentalLocalJobserver() && jobserverDir != null) {
       jobserverBackend =
           OS.getCurrent() == OS.WINDOWS
-              ? new WindowsJobserverBackend()
+              ? new WindowsJobserverBackend(
+                  (int) Math.ceil(resourceMgr.getTotalCpuForJobserver()))
               : new PosixJobserverBackend(
                   jobserverDir,
                   checkNotNull(

@@ -593,6 +593,15 @@ public class ResourceManager implements ResourceEstimator {
         - usedResources.getOrDefault(ResourceSet.CPU, 0.0);
   }
 
+  /**
+   * The local CPU budget the {@code LocalJobserver} may hand out as tokens (the configured {@code
+   * --local_cpu_resources}), used to size the token pool's hard ceiling. Unlike {@link
+   * #getIdleCpuForJobserver}, this ignores currently-used CPU.
+   */
+  public synchronized double getTotalCpuForJobserver() {
+    return availableResources == null ? 0 : availableResources.get(ResourceSet.CPU);
+  }
+
   private synchronized void processWaitingRequests(Deque<WaitingRequest> requests)
       throws IOException, InterruptedException, UserExecException {
     if (requests.isEmpty()) {

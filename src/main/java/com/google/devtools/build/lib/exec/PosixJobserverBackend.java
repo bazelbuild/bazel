@@ -80,10 +80,9 @@ public final class PosixJobserverBackend extends LocalJobserver.Backend {
 
   // available() is broken on macOS fifos (returns 0), so the pool can't be peeked without emptying
   // it: drain the whole fifo and count the bytes. This empties it for ~microseconds each tick, but
-  // clients block on acquire and the superclass refills the tokens to keep, so it self-heals. The
-  // `issued` bound is unused here: draining reads the fifo exactly, so it needs no upper bound.
+  // clients block on acquire and the superclass refills the tokens to keep, so it self-heals.
   @Override
-  protected int drainPool(int issued) throws IOException {
+  protected int drainPool() throws IOException {
     try {
       return posix.drainFifoNonBlocking(fifo.getFD());
     } catch (NativePosixFilesException e) {

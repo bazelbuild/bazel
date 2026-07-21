@@ -114,7 +114,7 @@ public final class WindowsJobserverTest {
 
   @Test
   public void backendRefreshesHeldCountOnSteadyTick() throws Exception {
-    WindowsJobserverBackend backend = new WindowsJobserverBackend();
+    WindowsJobserverBackend backend = new WindowsJobserverBackend(4);
     String name = backend.start();
     Long client = WindowsSemaphore.createSemaphore(name, 1);
     assertThat(client).isNotNull();
@@ -136,8 +136,8 @@ public final class WindowsJobserverTest {
 
   @Test
   public void backendNamesAreUnique() throws Exception {
-    WindowsJobserverBackend first = new WindowsJobserverBackend();
-    WindowsJobserverBackend second = new WindowsJobserverBackend();
+    WindowsJobserverBackend first = new WindowsJobserverBackend(4);
+    WindowsJobserverBackend second = new WindowsJobserverBackend(4);
     try {
       assertThat(first.start()).isNotEqualTo(second.start());
     } finally {
@@ -151,7 +151,7 @@ public final class WindowsJobserverTest {
     // A ResourceManager reporting no idle CPU keeps the manager thread quiet, so this asserts the
     // synchronously-set auth string without racing the poll loop.
     LocalJobserver.instance()
-        .configure(new WindowsJobserverBackend(), new ResourceManager());
+        .configure(new WindowsJobserverBackend(4), new ResourceManager());
 
     Spawn tagged =
         new SpawnBuilder("cmd")
@@ -169,7 +169,7 @@ public final class WindowsJobserverTest {
   @Test
   public void shutdownDisablesInjection() throws Exception {
     LocalJobserver.instance()
-        .configure(new WindowsJobserverBackend(), new ResourceManager());
+        .configure(new WindowsJobserverBackend(4), new ResourceManager());
     LocalJobserver.instance().shutdown();
 
     Spawn tagged =

@@ -24,37 +24,44 @@ import java.util.UUID;
  *
  * <p>Peeks the pool by acquiring the available tokens (Windows has no non-mutating count query) and
  * refills by releasing; the shared {@code issued}/{@code available}/{@code held} accounting lives in
- * {@link LocalJobserver.Backend}. Acquiring is bounded by {@code issued} and refills are
- * capped by the semaphore's fixed max count, so it relies on no undocumented APIs.
+ * {@link LocalJobserver.Backend}. The semaphore's max count is fixed at creation to the local CPU
+ * budget, which both caps refills and bounds the drain, so it relies on no undocumented APIs.
  */
 public final class WindowsJobserverBackend extends LocalJobserver.Backend {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
+  private final int maxTokens;
   private long handle;
   private boolean open;
-  private int maxTokens;
+
+  /**
+   * @param maxTokens the semaphore's fixed max count and thus the largest the token pool may grow
+   *     to; size it to the local CPU budget so an over-provisioned budget is honored instead of
+   *     capped at the core count.
+   */
+  public WindowsJobserverBackend(int maxTokens) {
+    this.maxTokens = maxTokens;
+  }
 
   @Override
   public String start() throws IOException {
     String name = "bazel-jobserver-" + UUID.randomUUID();
-    int max = Runtime.getRuntime().availableProcessors();
-    Long h = WindowsSemaphore.createSemaphore(name, max);
+    Long h = WindowsSemaphore.createSemaphore(name, maxTokens);
     if (h == null) {
       throw new IOException("CreateSemaphore failed for " + name);
     }
     this.handle = h;
     this.open = true;
-    this.maxTokens = max;
     return name;
   }
 
-  // Windows has no non-mutating semaphore-count query, so peek by acquiring: tryAcquire down to the
-  // number issued (each failed acquire means a tool holds that token). The superclass turns the
-  // returned available count into held and refills to the new target.
+  // Windows has no non-mutating semaphore-count query, so peek by acquiring every idle token until
+  // tryAcquire fails. The superclass derives held = max(0, issued - available), so even a tool that
+  // over-releases (available > issued) is absorbed rather than corrupting the count.
   @Override
-  protected int drainPool(int issued) throws IOException {
+  protected int drainPool() throws IOException {
     int available = 0;
-    while (available < issued && WindowsSemaphore.tryAcquire(handle)) {
+    while (WindowsSemaphore.tryAcquire(handle)) {
       available++;
     }
     return available;
@@ -68,12 +75,6 @@ public final class WindowsJobserverBackend extends LocalJobserver.Backend {
     if (!WindowsSemaphore.release(handle, count)) {
       throw new IOException("ReleaseSemaphore failed");
     }
-  }
-
-  // The semaphore's max count is fixed at creation; ReleaseSemaphore fails past it.
-  @Override
-  protected int clampTarget(int targetTokens) {
-    return Math.min(targetTokens, maxTokens);
   }
 
   @Override
