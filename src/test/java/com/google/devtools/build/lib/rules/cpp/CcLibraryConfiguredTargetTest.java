@@ -688,6 +688,92 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     assertNoEvents();
   }
 
+  @Test
+  public void testModuleUpperBoundsWithoutIncludeScanning() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder()
+                .withFeatures(MockCcSupport.HEADER_MODULES_FEATURES, CppRuleClasses.SUPPORTS_PIC));
+    useConfiguration("--platforms=" + TestConstants.PLATFORM_LABEL);
+    scratch.file(
+        "module/BUILD",
+        """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+        package(features = ['header_modules', 'use_header_modules'])
+        cc_library(
+            name = 'a',
+            srcs = ['a.h'],
+        )
+        cc_library(
+            name = 'b',
+            srcs = ['b.h'],
+            deps = [':a'],
+        )
+        cc_library(
+            name = 'c',
+            srcs = ['c.cc'],
+            deps = [':b'],
+        )
+        """);
+    Artifact aModuleArtifact =
+        getBinArtifact("_objs/a/a.pic.pcm", getConfiguredTarget("//module:a"));
+    Artifact bModuleArtifact =
+        getBinArtifact("_objs/b/b.pic.pcm", getConfiguredTarget("//module:b"));
+
+    // Without include scanning, all transitive modules are inputs to the object compile, but only
+    // the modules of direct dependencies are passed to the compiler as top-level modules.
+    Artifact cObjectArtifact = getBinArtifact("_objs/c/c.pic.o", getConfiguredTarget("//module:c"));
+    CppCompileAction cObjectAction = (CppCompileAction) getGeneratingAction(cObjectArtifact);
+    assertThat(getHeaderModules(cObjectAction.getInputs()))
+        .containsExactly(aModuleArtifact, bModuleArtifact);
+    assertThat(getHeaderModuleFlags(cObjectAction.getArguments())).containsExactly("b.pic.pcm");
+
+    // The same holds for the module compile of b, which additionally advertises all transitive
+    // modules as discovered modules for use by dependent actions.
+    CppCompileAction bModuleAction = (CppCompileAction) getGeneratingAction(bModuleArtifact);
+    assertThat(getHeaderModules(bModuleAction.getInputs())).containsExactly(aModuleArtifact);
+    assertThat(bModuleAction.getDiscoveredModules().toList()).containsExactly(aModuleArtifact);
+    assertNoEvents();
+  }
+
+  @Test
+  public void testModuleCodegenInputsWithoutIncludeScanning() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder().withFeatures(MockCcSupport.HEADER_MODULES_FEATURES));
+    useConfiguration("--platforms=" + TestConstants.PLATFORM_LABEL);
+    scratch.file(
+        "module/BUILD",
+        """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+        package(features = ['header_modules', 'use_header_modules', 'header_module_codegen'])
+        cc_library(
+            name = 'a',
+            srcs = ['a.h'],
+        )
+        cc_library(
+            name = 'b',
+            srcs = ['b.h'],
+            deps = [':a'],
+        )
+        """);
+    Artifact aModuleArtifact = getBinArtifact("_objs/a/a.pcm", getConfiguredTarget("//module:a"));
+
+    // Compiling b's module file to an object file loads the module file, which in turn loads the
+    // module files it imports, so those are inputs even though the source of the codegen action is
+    // not itself compiled with header modules.
+    Artifact bModuleObjectArtifact =
+        getBinArtifact("_objs/b/b.pcm.o", getConfiguredTarget("//module:b"));
+    CppCompileAction bModuleCodegenAction =
+        (CppCompileAction) getGeneratingAction(bModuleObjectArtifact);
+    assertThat(getHeaderModules(bModuleCodegenAction.getInputs())).contains(aModuleArtifact);
+    assertNoEvents();
+  }
+
   private void setupPackagesForSourcesWithSameBaseNameTests() throws Exception {
     scratch.file(
         "foo/BUILD",
