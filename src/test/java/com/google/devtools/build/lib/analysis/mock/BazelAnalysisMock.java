@@ -694,8 +694,19 @@ launcher_flag_alias(
         "bazel_features_workspace/features.bzl",
         """
         bazel_features = struct(
+          cc = struct(
+            _get_link_args_has_param_file_name = True,
+            supports_path_variable_patterns = True,
+            supports_starlarkified_toolchains = False,
+          ),
+          external_deps = struct(
+            extension_metadata_has_reproducible = True,
+          ),
           rules = struct(
             _has_launcher_maker_toolchain = False,
+          ),
+          toolchains = struct(
+            has_use_target_platform_constraints = True,
           ),
         )
         """);
