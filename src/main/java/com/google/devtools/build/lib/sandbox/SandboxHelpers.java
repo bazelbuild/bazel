@@ -30,9 +30,10 @@ import com.google.common.collect.Maps;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.actions.VirtualActionInput;
@@ -46,6 +47,7 @@ import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Sandbox;
 import com.google.devtools.build.lib.server.FailureDetails.Sandbox.Code;
+import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileAccessException;
 import com.google.devtools.build.lib.vfs.FileStatus;
@@ -701,6 +703,20 @@ public final class SandboxHelpers {
               && metadata.isContentCopy()
               && metadata.getResolvedPath() != null) {
             inputPath = execRoot.getFileSystem().getPath(metadata.getResolvedPath());
+          } else if (actionInput instanceof TreeFileArtifact treeFile) {
+            // A child of a content-copy tree: the tree-level indirection lives on the parent, so
+            // redirect this child to the matching child under the source tree.
+            TreeArtifactValue treeMetadata =
+                inputMetadataProvider.getTreeMetadata(treeFile.getParent());
+            if (treeMetadata != null
+                && treeMetadata.isContentCopy()
+                && treeMetadata.getResolvedPath().isPresent()) {
+              inputPath =
+                  execRoot
+                      .getFileSystem()
+                      .getPath(treeMetadata.getResolvedPath().get())
+                      .getRelative(treeFile.getParentRelativePath());
+            }
           }
         }
         inputFiles.put(pathFragment, inputPath);

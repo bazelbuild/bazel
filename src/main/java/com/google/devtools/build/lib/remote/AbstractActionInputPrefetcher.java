@@ -516,9 +516,12 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       return null;
     }
     PathFragment resolvedPath = treeMetadata.getResolvedPath();
-    if (resolvedPath != null) {
+    if (resolvedPath != null && !treeMetadata.isContentCopy()) {
       return treeArtifact.getPath().getFileSystem().getPath(resolvedPath);
     }
+    // A content-copy tree must be materialized at its own path (never resolved to the source), so
+    // its children have a stable realpath within the consuming tree. The children carry the
+    // source's digests, so they are downloaded to the output tree directly.
     return treeArtifact.getPath();
   }
 

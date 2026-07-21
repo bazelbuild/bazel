@@ -378,6 +378,13 @@ public class ActionCacheChecker {
         TreeArtifactValue.Builder merged = TreeArtifactValue.newBuilder(parent);
         childValues.forEach(merged::putChild);
         archivedRepresentation.ifPresent(merged::setArchivedRepresentation);
+        if (filesystemTreeMetadata == null) {
+          // The tree was not materialized on the filesystem (e.g. a content copy staged lazily by
+          // digest). Preserve the resolved-path indirection recorded in the cache so downstream
+          // staging still resolves to the source content.
+          cachedTreeMetadata.resolvedPath().ifPresent(merged::setResolvedPath);
+          merged.setContentCopy(cachedTreeMetadata.contentCopy());
+        }
 
         mergedTreeMetadata.put(parent, merged.build());
       } else {
