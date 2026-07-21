@@ -158,6 +158,12 @@ class TestBase(absltest.TestCase):
     return version
 
   def AddBazelDep(self, module, path=''):
+    """Adds a bazel_dep using the module's default lockfile version.
+
+    Args:
+      module: The name of the module to add.
+      path: The directory containing the MODULE.bazel file to update.
+    """
     version = self.GetModuleVersionFromDefaultLockFile(module)
     if module == 'rules_python' and not TestBase.IsWindows():
       # Use host Python because CI test sandboxes cannot download the hermetic
