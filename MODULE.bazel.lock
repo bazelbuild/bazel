@@ -402,7 +402,7 @@
   "moduleExtensions": {
     "//:repositories.bzl%async_profiler_repos": {
       "general": {
-        "bzlTransitiveDigest": "0Pl2zsYa/C1j1yabCmt77ZPtSTZthU8ZP678WizX8Tc=",
+        "bzlTransitiveDigest": "LMpcBeOWpEPwMPAeLGGlcnXkBqnFbwicLA7nmp7xnMI=",
         "usagesDigest": "7jreou9WV8qOgoUM+8bYvk7WC5dIlxvYXDi24CckXQQ=",
         "recordedInputs": [
           "REPO_MAPPING:,async_profiler +async_profiler_repos+async_profiler",
@@ -410,7 +410,6 @@
           "REPO_MAPPING:,async_profiler_linux_x64 +async_profiler_repos+async_profiler_linux_x64",
           "REPO_MAPPING:,async_profiler_macos +async_profiler_repos+async_profiler_macos",
           "REPO_MAPPING:,bats_core +dist_repos+bats_core",
-          "REPO_MAPPING:,bazel_lib bazel_lib+",
           "REPO_MAPPING:,bazel_tools bazel_tools"
         ],
         "generatedRepoSpecs": {
@@ -462,7 +461,7 @@
     },
     "//:repositories.bzl%dist_repos": {
       "general": {
-        "bzlTransitiveDigest": "0Pl2zsYa/C1j1yabCmt77ZPtSTZthU8ZP678WizX8Tc=",
+        "bzlTransitiveDigest": "LMpcBeOWpEPwMPAeLGGlcnXkBqnFbwicLA7nmp7xnMI=",
         "usagesDigest": "u4MQlLLOWmhIn5xZCQ9o49SJ7Q1rr8FsLCHyAWLTcw4=",
         "recordedInputs": [
           "REPO_MAPPING:,async_profiler +async_profiler_repos+async_profiler",
@@ -470,7 +469,6 @@
           "REPO_MAPPING:,async_profiler_linux_x64 +async_profiler_repos+async_profiler_linux_x64",
           "REPO_MAPPING:,async_profiler_macos +async_profiler_repos+async_profiler_macos",
           "REPO_MAPPING:,bats_core +dist_repos+bats_core",
-          "REPO_MAPPING:,bazel_lib bazel_lib+",
           "REPO_MAPPING:,bazel_tools bazel_tools"
         ],
         "generatedRepoSpecs": {

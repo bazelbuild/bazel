@@ -72,7 +72,6 @@ DIST_ARCHIVE_REPOS = [
     "async_profiler_linux_arm64",
     "async_profiler_linux_x64",
     "async_profiler_macos",
-    "bazel_lib",
     "bats_core",
 ]]
 
@@ -221,7 +220,7 @@ copy_file(
 # lockfile entry for the distribution repo module extension.
 async_profiler_repos = module_extension(_async_profiler_repos)
 
-def _dist_repos_impl(ctx):
+def _dist_repos_impl(_ctx):
     bats_core_deps()
 
 dist_repos = module_extension(_dist_repos_impl)
