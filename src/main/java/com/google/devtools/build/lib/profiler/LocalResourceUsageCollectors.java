@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.util.ResourceUsage.PressureStallIndi
 import static com.google.devtools.build.lib.util.ResourceUsage.PressureStallIndicatorResource.IO;
 import static com.google.devtools.build.lib.util.ResourceUsage.PressureStallIndicatorResource.MEMORY;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.HashMultiset;
 import com.google.common.collect.ImmutableMap;
@@ -39,6 +40,7 @@ import java.io.IOException;
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryMXBean;
 import java.util.HashMap;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiConsumer;
 
 /** An assortment of classes that collects various interesting metrics about the local system. */
@@ -63,6 +65,23 @@ public class LocalResourceUsageCollectors {
     this.workerProcessMetricsCollector = workerProcessMetricsCollector;
     this.resourceEstimator = resourceEstimator;
     this.systemNetworkStatsService = systemNetworkStatsService;
+  }
+
+  /**
+   * Returns the peak of the total JVM memory usage (heap + non-heap, in bytes) sampled during the
+   * current invocation, or 0 if it was not sampled (e.g. profiling was disabled). This is the peak
+   * of the same value that is written to the JSON trace profile's "Memory usage (Bazel)" counter
+   * series (which reports it in megabytes).
+   */
+  public static long getPeakBazelMemoryUsageBytes() {
+    return LocalMemoryUsageCollector.peakUsedMemoryBytes.get();
+  }
+
+  /**
+   * Resets the peak Bazel memory usage tracker. Must be called once at the start of each command.
+   */
+  public static void resetPeakBazelMemoryUsage() {
+    LocalMemoryUsageCollector.peakUsedMemoryBytes.set(0);
   }
 
   public void addCollectors(
@@ -143,10 +162,19 @@ public class LocalResourceUsageCollectors {
   static class LocalMemoryUsageCollector implements CounterSeriesCollector {
     private static final CounterSeriesTask LOCAL_MEMORY_USAGE =
         new CounterSeriesTask("Memory usage (Bazel)", "memory", CounterSeriesTask.Color.OLIVE);
+
+    // Tracks the peak of the used-memory value (heap + non-heap, in bytes) that is written to the
+    // JSON trace profile below, so that it can also be reported in BuildMetrics.MemoryMetrics. This
+    // is static because the collector instance is recreated for each invocation, whereas the peak
+    // is read at the end of the build by MetricsCollector; it is reset once per command via
+    // LocalResourceUsageCollectors#resetPeakBazelMemoryUsage.
+    private static final AtomicLong peakUsedMemoryBytes = new AtomicLong(0);
+
     private final MemoryMXBean memoryBean;
     private final BugReporter bugReporter;
 
-    private LocalMemoryUsageCollector(MemoryMXBean memoryBean, BugReporter bugReporter) {
+    @VisibleForTesting
+    LocalMemoryUsageCollector(MemoryMXBean memoryBean, BugReporter bugReporter) {
       this.memoryBean = memoryBean;
       this.bugReporter = bugReporter;
     }
@@ -164,6 +192,9 @@ public class LocalResourceUsageCollectors {
         memoryUsage = -1;
       }
       if (memoryUsage != -1) {
+        // Record the peak in bytes (full precision) before converting to the MB value that is
+        // written to the profile, so both reflect the same measurement.
+        peakUsedMemoryBytes.accumulateAndGet(memoryUsage, Math::max);
         memoryUsage = memoryUsage / (1024 * 1024);
         consumer.accept(LOCAL_MEMORY_USAGE, (double) memoryUsage);
       }

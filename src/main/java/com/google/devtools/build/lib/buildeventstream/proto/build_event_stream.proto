@@ -1020,6 +1020,16 @@ message BuildMetrics {
     // phase.
     int64 peak_post_gc_tenured_space_heap_size_during_execution = 6;
 
+    // Peak of the total JVM memory (heap + non-heap) used by Bazel during the
+    // invocation, in bytes. This is the peak of the same value that is sampled
+    // and written to the JSON trace profile as the "Memory usage (Bazel)"
+    // counter series (which the profile reports in megabytes). Unlike
+    // peak_post_gc_heap_size, this is sampled periodically and does not depend
+    // on a full GC occurring. It is only populated when the profiler's local
+    // resource collection is active (e.g. when --profile is set, or slow
+    // operations profiling is enabled); it reports 0 otherwise.
+    int64 peak_used_memory_bytes = 7;
+
     message GarbageMetrics {
       // Type of garbage collected, e.g. G1 Old Gen.
       string type = 1;

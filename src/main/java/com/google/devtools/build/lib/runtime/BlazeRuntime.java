@@ -371,6 +371,9 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       CommandEnvironment env,
       long execStartTimeNanos,
       long waitTimeInMs) {
+    // Clear any peak memory usage recorded by a previous command on this server, so that the value
+    // reported for this invocation only reflects samples taken during it.
+    LocalResourceUsageCollectors.resetPeakBazelMemoryUsage();
     BuildEventProtocolOptions bepOptions = options.getOptions(BuildEventProtocolOptions.class);
     CommonCommandOptions commandOptions = options.getOptions(CommonCommandOptions.class);
     OutputStream out = null;
