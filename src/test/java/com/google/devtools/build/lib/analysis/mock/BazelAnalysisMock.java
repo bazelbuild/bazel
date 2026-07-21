@@ -416,9 +416,10 @@ launcher_flag_alias(
             srcs = ["collect_coverage.sh"],
         )
 
-        filegroup(
+        alias(
             name = "collect_cc_coverage",
-            srcs = ["collect_cc_coverage.sh"],
+            actual = "@rules_cc//cc/private/coverage:collect_cc_coverage",
+            deprecation = "Please use @rules_cc//cc/private/coverage:collect_cc_coverage instead.",
         )
 
         filegroup(
