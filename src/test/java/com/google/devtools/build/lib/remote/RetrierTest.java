@@ -100,8 +100,8 @@ public class RetrierTest {
     assertThat(e).hasMessageThat().isEqualTo("call failed");
 
     assertThat(numCalls.get()).isEqualTo(3);
-    verify(alwaysOpen, times(3)).recordFailure();
-    verify(alwaysOpen, never()).recordSuccess();
+    verify(alwaysOpen, times(3)).recordFailure(State.ACCEPT_CALLS);
+    verify(alwaysOpen, never()).recordSuccess(State.ACCEPT_CALLS);
   }
 
   @Test
@@ -124,8 +124,8 @@ public class RetrierTest {
     assertThat(e).hasMessageThat().isEqualTo("call failed");
 
     assertThat(numCalls.get()).isEqualTo(1);
-    verify(alwaysOpen, never()).recordFailure();
-    verify(alwaysOpen, times(1)).recordSuccess();
+    verify(alwaysOpen, never()).recordFailure(State.ACCEPT_CALLS);
+    verify(alwaysOpen, times(1)).recordSuccess(State.ACCEPT_CALLS);
   }
 
   @Test
@@ -145,8 +145,8 @@ public class RetrierTest {
     });
     assertThat(val).isEqualTo(1);
 
-    verify(alwaysOpen, times(2)).recordFailure();
-    verify(alwaysOpen, times(1)).recordSuccess();
+    verify(alwaysOpen, times(2)).recordFailure(State.ACCEPT_CALLS);
+    verify(alwaysOpen, times(1)).recordSuccess(State.ACCEPT_CALLS);
   }
 
   @Test
@@ -212,10 +212,10 @@ public class RetrierTest {
           }
 
           @Override
-          public void recordFailure() {}
+          public void recordFailure(State observedState) {}
 
           @Override
-          public void recordSuccess() {}
+          public void recordSuccess(State observedState) {}
 
           @Override
           public String failureDetails() {
@@ -561,7 +561,7 @@ public class RetrierTest {
     }
 
     @Override
-    public synchronized void recordFailure() {
+    public synchronized void recordFailure(State observedState) {
       consecutiveFailures++;
       if (consecutiveFailures >= maxConsecutiveFailures) {
         state = State.REJECT_CALLS;
@@ -569,7 +569,7 @@ public class RetrierTest {
     }
 
     @Override
-    public synchronized void recordSuccess() {
+    public synchronized void recordSuccess(State observedState) {
       consecutiveFailures = 0;
       state = State.ACCEPT_CALLS;
     }

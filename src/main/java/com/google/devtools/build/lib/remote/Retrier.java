@@ -107,11 +107,22 @@ public class Retrier {
     /** Returns the current {@link State} of the circuit breaker. */
     State state();
 
-    /** Called after an execution failed. */
-    void recordFailure();
+    /**
+     * Called after an execution failed.
+     *
+     * @param observedState the {@link State} returned by {@link #state()} when this call was
+     *     dispatched, so the breaker can attribute the outcome (in particular, distinguish a {@link
+     *     State#TRIAL_CALL} probe from an ordinary call).
+     */
+    void recordFailure(State observedState);
 
-    /** Called after an execution succeeded. */
-    void recordSuccess();
+    /**
+     * Called after an execution succeeded.
+     *
+     * @param observedState the {@link State} returned by {@link #state()} when this call was
+     *     dispatched (see {@link #recordFailure(State)}).
+     */
+    void recordSuccess(State observedState);
 
     /**
      * Returns a human-readable description of the breaker's current failure statistics (for example
@@ -148,10 +159,10 @@ public class Retrier {
         }
 
         @Override
-        public void recordFailure() {}
+        public void recordFailure(State observedState) {}
 
         @Override
-        public void recordSuccess() {}
+        public void recordSuccess(State observedState) {}
 
         @Override
         public String failureDetails() {
@@ -294,16 +305,16 @@ public class Retrier {
           throw new InterruptedException();
         }
         T r = callWithContext(call, backoff, rpcId);
-        circuitBreaker.recordSuccess();
+        circuitBreaker.recordSuccess(circuitState);
         return r;
       } catch (Exception e) {
         Throwables.throwIfInstanceOf(e, InterruptedException.class);
         if (!shouldRetry.test(e)) {
           // A non-retriable error doesn't represent server failure.
-          circuitBreaker.recordSuccess();
+          circuitBreaker.recordSuccess(circuitState);
           throw e;
         }
-        circuitBreaker.recordFailure();
+        circuitBreaker.recordFailure(circuitState);
         if (Objects.equals(circuitState, State.TRIAL_CALL)) {
           throw e;
         }
@@ -373,7 +384,7 @@ public class Retrier {
           Futures.transformAsync(
               callWithContext(call, backoff, rpcId),
               (f) -> {
-                circuitBreaker.recordSuccess();
+                circuitBreaker.recordSuccess(circuitState);
                 return immediateFuture(f);
               },
               directExecutor());
@@ -390,7 +401,7 @@ public class Retrier {
   private <T> ListenableFuture<T> onExecuteAsyncFailure(
       Exception t, AsyncCallable<T> call, Backoff backoff, State circuitState, @Nullable String rpcId) {
     if (isRetriable(t)) {
-      circuitBreaker.recordFailure();
+      circuitBreaker.recordFailure(circuitState);
       if (circuitState.equals(State.TRIAL_CALL)) {
         return immediateFailedFuture(t);
       }
@@ -414,7 +425,7 @@ public class Retrier {
       // gRPC Errors NOT_FOUND, OUT_OF_RANGE, ALREADY_EXISTS etc. are non-retriable error, and they
       // don't represent an
       // issue in Server. So treating these errors as successful api call.
-      circuitBreaker.recordSuccess();
+      circuitBreaker.recordSuccess(circuitState);
       return immediateFailedFuture(t);
     }
   }
