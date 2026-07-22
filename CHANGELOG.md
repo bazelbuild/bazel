@@ -1,3 +1,114 @@
+## Release 10.0.0-pre.20260710.1 (2026-07-22)
+
+```
+Baseline: 4f6e97e9a020a1305deb50fb2da35d289f5ea9ce
+```
+
+Incompatible changes:
+
+  - Custom Starlark rules named `test_suite` are no longer treated as
+    a `test_suite`
+
+New features:
+
+  - Windows launcher stubs now embed an `asInvoker` UAC manifest,
+    preventing "The requested operation requires elevation. (error:
+    740)" for targets whose name matches the installer-detection
+    heuristic.
+
+Important changes:
+
+  - Fix --progress_in_terminal_title output under screen and emacs.
+  - Modifying environment variables no longer causes spurious
+    reloading of packages in external repositories.
+  - Fixed a spurious remote-execution failure with
+    `--experimental_output_paths=strip` where a lost input in a tree
+    artifact shared between actions could not be recovered by action
+    rewinding.
+  - Fixed a flaky crash when Java compilation actions encounter
+    multiple lost `.jdeps` files.
+  - The remote repo contents cache no longer caches or restores repos
+    with cross-repo symlinks, thus avoiding a large surface area for
+    bugs. The effort to reenable this support is tracked by
+    https://github.com/bazelbuild/bazel/issues/30160.
+
+This release contains contributions from many people at Google, as well as David Zbarsky, Fabian Meumertzheim, Guillaume Maudoux, Jasmine Tang, jcater, Kapunahele Wong, Rgis Desgroppes, Tamir Duberstein, teaugene.
+
+## Release 10.0.0-pre.20260630.1 (2026-07-17)
+
+```
+Baseline: 9eb1ca2fcd0aea034c37dcdcacbde3d86ff1b26f
+
+Cherry picks:
+
+   + 2ed91fa145434a6f82f29071a27f6de9e785e73b:
+     Roll-forward: Upgrade to rules_cc 0.2.18 in MODULE.tools
+   + e0ce90e80f60ad3d7a479af2a55477f44fd2af9e:
+     Fix distribution archive generation
+```
+
+New features:
+
+  - Windows launcher stubs now embed an `asInvoker` UAC manifest,
+    preventing "The requested operation requires elevation. (error:
+    740)" for targets whose name matches the installer-detection
+    heuristic.
+
+Important changes:
+
+  - The remote repo contents cache now correctly materializes chains
+    of symlinks as action inputs, but no longer supports symlinks
+    into the main repository.
+  - Fixed Bazel being unable to run a Windows executable whose path
+    is too long to shorten under `MAX_PATH`, e.g. when 8dot3 short
+    names are disabled (microsoft/Windows-Containers#507).
+  - Fixed spurious "No such file" errors with the remote repo
+    contents cache when a repo contains a symlink to a `.bzl` file.
+  - Source directories in external repositories are temporarily
+    allowed to cross package boundaries. This will be disallowed in
+    the future, gated by the new
+    `--incompatible_check_external_repo_source_dir_package_boundary`
+    flag.
+  - Adds `bazel dump --skyframe=keys` to report only the keys
+    available in SkyFrame. Always use with `--skykey_filter` to limit
+    the number of keys reported.
+  - Fixed a crash with `--experimental_remote_repo_contents_cache`
+    when running without a remote or disk cache.
+
+This release contains contributions from many people at Google, as well as adilburaksen, Blaine Freestone, c2qd, Chedrian07, cjk, David Zbarsky, Fabian Meumertzheim, Jacob Nowjack, jcater, Markus Hofbauer, Rgis Desgroppes, Son Luong Ngoc, vadim, zhaixiaojuan.
+
+## Release 9.2.0 (2026-07-13)
+
+```
+
+Release Notes:
+
+```
+
+## Release 10.0.0-pre.20260621.2 (2026-07-13)
+
+```
+Baseline: 66f385645e351a55415b4ae341d6cd2e7ab6d4e4
+```
+
+New features:
+
+  - The `and_then` method on `transition`s can be used to compose
+    transitions. Both Starlark transitions and native transitions
+    (e.g. `config.exec()`) are supported.
+
+Important changes:
+
+  - Bazel no longer limits the size of gRPC messages received from
+    the remote executor or cache.
+  - External repos are no longer refetched whenever they contribute
+    inputs to an action using the hermetic Linux sandbox.
+  - Enable TCP keepalive by default for gRPC connections with
+    reasonable defaults
+  - Remove CoptsFilter. rules_cc 0.2.19 no longer uses it..
+
+This release contains contributions from many people at Google, as well as Ashutosh0x, Benjamin Peterson, Fabian Meumertzheim, Kapunahele Wong, Keith Smiley, Shrey Shah, Tamir Duberstein, vadim.
+
 ## Release 10.0.0-pre.20260614.4 (2026-06-24)
 
 ```
