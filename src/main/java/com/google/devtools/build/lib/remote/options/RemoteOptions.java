@@ -837,6 +837,23 @@ public abstract class RemoteOptions extends CommonRemoteOptions {
   public abstract int getRemoteMinFailCountToComputeFailureRate();
 
   @Option(
+      name = "experimental_remote_circuit_breaker_recovery_delay",
+      defaultValue = "0",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.EXECUTION},
+      converter = RemoteDurationConverter.class,
+      help =
+          "The delay after the failure circuit breaker trips before it allows a single trial remote"
+              + " call to probe whether the remote cache/executor has recovered. If the trial"
+              + " succeeds the breaker closes and normal calls resume; otherwise it re-opens and"
+              + " waits again before the next trial. A zero or negative value (the default)"
+              + " disables recovery, so a tripped breaker stays open for the remainder of the"
+              + " build. Following units can be used: Days (d), hours (h), minutes (m), seconds"
+              + " (s), and milliseconds (ms). If the unit is omitted, the value is interpreted as"
+              + " seconds. Only takes effect with --experimental_circuit_breaker_strategy=failure.")
+  public abstract Duration getRemoteCircuitBreakerRecoveryDelay();
+
+  @Option(
       name = "experimental_remote_cache_lease_extension",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.REMOTE,
