@@ -60,14 +60,29 @@ if is_windows; then
 fi
 
 # Make the command "bazel" available for tests.
-if [ -z "${BAZEL_SUFFIX:-}" ]; then
-  PATH_TO_BAZEL_BIN=$(rlocation "io_bazel/src/bazel")
-  PATH_TO_BAZEL_WRAPPER="$(dirname $(rlocation "io_bazel/src/test/shell/bin/bazel"))"
+function main_repo_rlocation() {
+  local runfile="$1"
+  local resolved
+  resolved="$(rlocation "_main/${runfile}" 2>/dev/null || true)"
+  if [[ -z "${resolved}" || ! -e "${resolved}" ]]; then
+    resolved="$(rlocation "io_bazel/${runfile}" 2>/dev/null || true)"
+  fi
+  [[ -n "${resolved}" && -e "${resolved}" ]] || return 1
+  echo "${resolved}"
+}
+
+BAZEL_RUNFILES_SUFFIX="${BAZEL_SUFFIX:-}"
+if [ -n "${BAZEL_NATIVE_IMAGE_TEST:-}" ]; then
+  BAZEL_RUNFILES_SUFFIX="_native"
+fi
+if [ -z "${BAZEL_RUNFILES_SUFFIX:-}" ]; then
+  PATH_TO_BAZEL_BIN="$(main_repo_rlocation "src/bazel")"
+  PATH_TO_BAZEL_WRAPPER="$(dirname "$(main_repo_rlocation "src/test/shell/bin/bazel")")"
 else
-  DIR_OF_BAZEL_BIN="$(dirname $(rlocation "io_bazel/src/bazel${BAZEL_SUFFIX}"))"
-  ln -s "${DIR_OF_BAZEL_BIN}/bazel${BAZEL_SUFFIX}" "${DIR_OF_BAZEL_BIN}/bazel"
-  PATH_TO_BAZEL_WRAPPER="$(dirname $(rlocation "io_bazel/src/test/shell/bin/bazel${BAZEL_SUFFIX}"))"
-  ln -s "${PATH_TO_BAZEL_WRAPPER}/bazel${BAZEL_SUFFIX}" "${PATH_TO_BAZEL_WRAPPER}/bazel"
+  DIR_OF_BAZEL_BIN="$(dirname "$(main_repo_rlocation "src/bazel${BAZEL_RUNFILES_SUFFIX}")")"
+  ln -s "${DIR_OF_BAZEL_BIN}/bazel${BAZEL_RUNFILES_SUFFIX}" "${DIR_OF_BAZEL_BIN}/bazel"
+  PATH_TO_BAZEL_WRAPPER="$(dirname "$(main_repo_rlocation "src/test/shell/bin/bazel${BAZEL_RUNFILES_SUFFIX}")")"
+  ln -s "${PATH_TO_BAZEL_WRAPPER}/bazel${BAZEL_RUNFILES_SUFFIX}" "${PATH_TO_BAZEL_WRAPPER}/bazel"
   PATH_TO_BAZEL_BIN="${DIR_OF_BAZEL_BIN}/bazel"
 fi
 # Convert PATH_TO_BAZEL_WRAPPER to Unix path style on Windows, because it will be
@@ -213,23 +228,42 @@ else
   RUNNING_IN_BAZEL_SANDBOX=0
 fi
 
-if [[ "$RUNNING_IN_BAZEL_SANDBOX" == 1 ]]; then
+native_tmp_root=/tmp
+if [[ -n "${BAZEL_NATIVE_IMAGE_TMP_ROOT:-}" ]]; then
+  native_tmp_root="${BAZEL_NATIVE_IMAGE_TMP_ROOT}"
+elif [[ -n "${BAZEL_NATIVE_IMAGE_TEST:-}" \
+        && -d /var/tmp \
+        && -w /var/tmp ]]; then
+  native_tmp_root=/var/tmp
+fi
+
+bazel_root_needs_sandbox_mount=0
+if [[ "$RUNNING_IN_BAZEL_SANDBOX" == 1 ]] \
+    || { [[ -n "${BAZEL_NATIVE_IMAGE_TEST:-}" ]] && ! is_windows; }; then
   # If we are running under the Bazel sandbox an output user root under
   # $TEST_TMPDIR is not quite enough because that's under
   # /tmp-bazel-working-directory, which is going to be overridden by the sandbox
   # in which the actions of the inner Bazel instance run.
   #
-  # So put the output user root under /tmp instead, which requires an additional
+  # Native-image shell tests keep this state under /var/tmp by default because
+  # remote TEST_TMPDIR mounts can be too small for the native install base plus
+  # repositories fetched by the inner Bazel invocation.
+  #
+  # Otherwise, put the output user root under /tmp, which requires an additional
   # --sandbox_add_mount_pair option but is the only place other than
   # $TEST_TMPDIR where we are guaranteed to be able to write.
-  bazel_root="/tmp/output_user_root"
+  bazel_root="$(mktemp -d "${native_tmp_root}/output_user_root.XXXXXXXX")"
+  bazel_root_needs_cleanup=1
+  bazel_root_needs_sandbox_mount=1
 elif is_windows; then
   # Create a shorter bazel root on Windows to avoid long path issue.
   mkdir -p C:/tmp
   bazel_root=$(mktemp -d "C:/tmp/bazel_root_XXXXXX")
+  bazel_root_needs_cleanup=1
 else
   # OS X has a limit in the pipe length, so force the root to a shorter one
   bazel_root="${TEST_TMPDIR}/root"
+  bazel_root_needs_cleanup=0
 fi
 
 # Delete stale installation directory from previously failed tests. On Windows
@@ -238,6 +272,17 @@ fi
 # installation error. See https://github.com/bazelbuild/bazel/issues/3618
 rm -rf "${bazel_root}"
 mkdir -p "${bazel_root}"
+
+native_install_base_needs_cleanup=0
+if [[ -n "${BAZEL_NATIVE_IMAGE_TEST:-}" \
+      && -z "${TEST_INSTALL_BASE:-}" \
+      && "${BAZEL_SUFFIX:-}" != "_nojdk" ]] \
+      && ! is_windows; then
+  # The native-image server makes Bazel's install base large enough to exhaust
+  # some remote test sandboxes when extracted repeatedly under TEST_TMPDIR.
+  TEST_INSTALL_BASE="$(mktemp -d "${native_tmp_root}/bazel_native_install_base.XXXXXXXX")"
+  native_install_base_needs_cleanup=1
+fi
 
 log_info "bazel binary is at $PATH_TO_BAZEL_WRAPPER"
 
@@ -301,9 +346,6 @@ common --show_progress_rate_limit=-1
 # Disable terminal-specific features.
 common --color=no --curses=no
 
-# Prevent SIGBUS during JVM actions.
-build --sandbox_tmpfs_path=/tmp
-
 build --incompatible_skip_genfiles_symlink=false
 
 build --incompatible_use_toolchain_resolution_for_java_rules
@@ -316,7 +358,17 @@ build --tool_java_runtime_version=21
 ${EXTRA_BAZELRC:-}
 EOF
 
-  if [[ "$RUNNING_IN_BAZEL_SANDBOX" == 1 ]]; then
+  if [[ -z "${BAZEL_NATIVE_IMAGE_TEST:-}" \
+        || "${bazel_root}" != /tmp/* ]] \
+      || is_windows; then
+    # Prevent SIGBUS during JVM actions. Native-image tests that have to keep
+    # their output root under /tmp cannot also mount /tmp as tmpfs for inner
+    # linux-sandbox actions.
+    echo "build --sandbox_tmpfs_path=/tmp" >> $TEST_TMPDIR/bazelrc
+  fi
+
+  if [[ "$RUNNING_IN_BAZEL_SANDBOX" == 1 \
+        || "${bazel_root_needs_sandbox_mount:-0}" == 1 ]]; then
     # If both the outer and the inner Bazel instances use the Linux sandbox,
     # $TEST_TMPDIR for the outer one will be under /tmp/bazel-working-directory.
     # The inner one mounts a fresh empty directory under /tmp so we need to
@@ -344,6 +396,10 @@ EOF
   if [[ -n ${TEST_INSTALL_BASE:-} ]]; then
     echo "testenv.sh: Using shared install base at $TEST_INSTALL_BASE."
     echo "startup --install_base=$TEST_INSTALL_BASE" >> $TEST_TMPDIR/bazelrc
+    if [[ "$RUNNING_IN_BAZEL_SANDBOX" == 1 \
+          || "${bazel_root_needs_sandbox_mount:-0}" == 1 ]]; then
+      echo "build --sandbox_add_mount_pair=$TEST_INSTALL_BASE" >> $TEST_TMPDIR/bazelrc
+    fi
   fi
 
   if is_darwin && has_ipv6_default_route; then
@@ -677,13 +733,50 @@ function setup_clean_workspace() {
 
 # Clean up all files that are not in tools directories, to restart
 # from a clean workspace
+function has_inner_bazel_state() {
+  [[ -d "${bazel_root}" ]] \
+    && [[ -n "$(find "${bazel_root}" -mindepth 1 -maxdepth 1 -print -quit 2>/dev/null)" ]]
+}
+
+function capture_native_image_server_logs() {
+  if [[ -z "${BAZEL_NATIVE_IMAGE_TEST:-}" \
+        || -z "${BAZEL_NATIVE_IMAGE_CAPTURE_SERVER_LOGS:-}" \
+        || -z "${TEST_UNDECLARED_OUTPUTS_DIR:-}" \
+        || ! -d "${bazel_root:-}" ]]; then
+    return
+  fi
+
+  local capture_dir="${TEST_UNDECLARED_OUTPUTS_DIR}/native-image-output-root"
+  mkdir -p "${capture_dir}"
+  while IFS= read -r -d '' file; do
+    local relative_path="${file#${bazel_root}/}"
+    mkdir -p "${capture_dir}/$(dirname "${relative_path}")"
+    cp "${file}" "${capture_dir}/${relative_path}" || true
+  done < <(
+    find "${bazel_root}" \
+      \( -path "*/server/jvm.out" \
+         -o -path "*/server/server.pid.txt" \
+         -o -path "*/server/server.starttime" \
+         -o -path "*/server/server_info.rawproto" \
+         -o -name "java.log" \
+         -o -name "java.log.*" \
+         -o -name "command.log" \) \
+      -type f -print0 2>/dev/null || true
+  )
+}
+
 function cleanup_workspace() {
   if [ -d "${WORKSPACE_DIR:-}" ]; then
     log_info "Cleaning up workspace" >> $TEST_log
     cd ${WORKSPACE_DIR}
+    capture_native_image_server_logs
 
     if [[ ${TESTENV_DONT_BAZEL_CLEAN:-0} == 0 ]]; then
-      bazel clean >> "$TEST_log" 2>&1
+      if [[ -n "${BAZEL_NATIVE_IMAGE_TEST:-}" ]] && ! has_inner_bazel_state; then
+        log_info "Skipping Bazel clean because no inner Bazel state exists" >> $TEST_log
+      else
+        bazel clean >> "$TEST_log" 2>&1
+      fi
     fi
 
     for i in *; do
@@ -712,7 +805,16 @@ function cleanup() {
     # Try to shutdown Bazel at the end to prevent a "Cannot delete path" error
     # on Windows when the outer Bazel tries to delete $TEST_TMPDIR.
     cd "${WORKSPACE_DIR}"
-    try_with_timeout bazel shutdown || true
+    if [[ -z "${BAZEL_NATIVE_IMAGE_TEST:-}" ]] || has_inner_bazel_state; then
+      try_with_timeout bazel shutdown || true
+    fi
+  fi
+  capture_native_image_server_logs
+  if [[ "${bazel_root_needs_cleanup:-0}" == 1 ]]; then
+    try_with_timeout rm -rf "${bazel_root}" || true
+  fi
+  if [[ "${native_install_base_needs_cleanup:-0}" == 1 ]]; then
+    try_with_timeout rm -rf "${TEST_INSTALL_BASE}" || true
   fi
 }
 

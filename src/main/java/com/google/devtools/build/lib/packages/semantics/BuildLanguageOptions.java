@@ -825,7 +825,10 @@ public abstract class BuildLanguageOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help = "If true enables compilation of WebAssembly modules.")
+      help =
+          "If true enables compilation of WebAssembly modules. Compilation is not supported when"
+              + " Bazel runs as a GraalVM native image; the flag is accepted but modules are"
+              + " interpreted instead.")
   public abstract boolean getRepositoryCtxWasmCompilation();
 
   @Option(
