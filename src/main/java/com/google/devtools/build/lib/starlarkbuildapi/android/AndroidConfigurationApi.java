@@ -115,9 +115,6 @@ public interface AndroidConfigurationApi extends StarlarkValue {
       documented = false)
   boolean getExportsManifestDefault();
 
-  @StarlarkMethod(name = "manifest_merger", structField = true, doc = "", documented = false)
-  String getManifestMergerValue();
-
   @StarlarkMethod(
       name = "fixed_resource_neverlinking",
       structField = true,

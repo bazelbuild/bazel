@@ -118,7 +118,6 @@ bazel_fragments["AndroidConfiguration.Options"] = fragment(
         "//command_line_option:experimental_incremental_dexing_after_proguard",
         "//command_line_option:dexopts_supported_in_dexmerger",
         "//command_line_option:dexopts_supported_in_dexsharder",
-        "//command_line_option:android_manifest_merger",
         "//command_line_option:android_manifest_merger_order",
         "//command_line_option:internal_persistent_busybox_tools",
         "//command_line_option:internal_persistent_multiplex_busybox_tools",
