@@ -771,22 +771,40 @@ public class CombinedCache extends AbstractReferenceCounted {
    */
   public final List<ListenableFuture<Void>> downloadOutErr(
       RemoteActionExecutionContext context, ActionResult result, OutErr outErr) {
+    return downloadOutErr(context, result, outErr, /* downloadStdout= */ true);
+  }
+
+  /**
+   * Download the stdout and stderr of an executed action.
+   *
+   * @param context the context for the action.
+   * @param result the result of the action.
+   * @param outErr the {@link OutErr} that the stdout and stderr will be downloaded to.
+   * @param downloadStdout whether to download stdout.
+   */
+  public final List<ListenableFuture<Void>> downloadOutErr(
+      RemoteActionExecutionContext context,
+      ActionResult result,
+      OutErr outErr,
+      boolean downloadStdout) {
     List<ListenableFuture<Void>> downloads = new ArrayList<>();
-    if (!result.getStdoutRaw().isEmpty()) {
-      try {
-        result.getStdoutRaw().writeTo(outErr.getOutputStream());
-        outErr.getOutputStream().flush();
-      } catch (IOException e) {
-        downloads.add(Futures.immediateFailedFuture(e));
+    if (downloadStdout) {
+      if (!result.getStdoutRaw().isEmpty()) {
+        try {
+          result.getStdoutRaw().writeTo(outErr.getOutputStream());
+          outErr.getOutputStream().flush();
+        } catch (IOException e) {
+          downloads.add(Futures.immediateFailedFuture(e));
+        }
+      } else if (result.hasStdoutDigest()) {
+        downloads.add(
+            downloadBlob(
+                context,
+                /* blobName= */ "<stdout>",
+                /* execPath= */ null,
+                result.getStdoutDigest(),
+                outErr.getOutputStream()));
       }
-    } else if (result.hasStdoutDigest()) {
-      downloads.add(
-          downloadBlob(
-              context,
-              /* blobName= */ "<stdout>",
-              /* execPath= */ null,
-              result.getStdoutDigest(),
-              outErr.getOutputStream()));
     }
     if (!result.getStderrRaw().isEmpty()) {
       try {

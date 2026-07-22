@@ -1528,5 +1528,206 @@ EOF
   [[ $exit_code -eq 0 ]] || fail "Expected success"
 }
 
+function test_path_stripping_stdout_capture() {
+  if is_windows; then
+    echo "Skipping test_path_stripping_stdout_capture on Windows as it requires sandboxing"
+    return
+  fi
+
+  mkdir -p pkg
+  cat > pkg/defs.bzl <<'EOF'
+def _gen_impl(ctx):
+    out = ctx.actions.declare_file(ctx.attr.name + ".txt")
+    ctx.actions.write(out, "hello-from-stdout")
+    return [DefaultInfo(files = depset([out]))]
+
+gen = rule(implementation = _gen_impl)
+
+def _capture_impl(ctx):
+    out = ctx.actions.declare_file(ctx.attr.name + ".out")
+    args = ctx.actions.args()
+    args.add(ctx.files.src[0])
+    ctx.actions.run(
+        outputs = [],
+        inputs = ctx.files.src,
+        executable = ctx.executable.tool,
+        arguments = [args],
+        stdout = out,
+        mnemonic = "Capture",
+        execution_requirements = {"supports-path-mapping": ""},
+    )
+    return [DefaultInfo(files = depset([out]))]
+
+capture = rule(
+    implementation = _capture_impl,
+    attrs = {
+        "src": attr.label(allow_files = True, mandatory = True),
+        "tool": attr.label(
+            allow_single_file = True,
+            executable = True,
+            cfg = "exec",
+        ),
+    },
+)
+EOF
+
+  cat > pkg/cat_tool.sh <<'EOF'
+#!/bin/bash
+cat "$1"
+EOF
+  chmod +x pkg/cat_tool.sh
+
+  cat > pkg/BUILD <<'EOF'
+load(":defs.bzl", "capture", "gen")
+
+gen(name = "gen")
+
+capture(
+    name = "captured",
+    src = ":gen",
+    tool = "cat_tool.sh",
+)
+
+COMMAND = """
+[[ "$$(cat $(execpaths :captured))" == "hello-from-stdout" ]] || exit 1
+touch $@
+"""
+
+genrule(
+    name = "validate_target",
+    outs = ["out_target"],
+    cmd = COMMAND,
+    srcs = [":captured"],
+)
+
+genrule(
+    name = "validate_exec",
+    outs = ["out_exec"],
+    cmd = COMMAND,
+    tools = [":captured"],
+)
+EOF
+
+  # The Capture action takes the generated gen.txt as an input whose
+  # config-dependent path appears in its arguments, so its cache key only
+  # matches across configurations with path stripping.
+  bazel build \
+    --experimental_output_paths=strip \
+    --remote_cache=grpc://localhost:${worker_port} \
+    //pkg:validate_target &> $TEST_log || fail "build failed unexpectedly"
+  expect_not_log 'remote cache hit'
+  # The tool's stdout is captured into the output, not reported as regular
+  # action output.
+  expect_not_log 'hello-from-stdout'
+
+  bazel build \
+    --experimental_output_paths=strip \
+    --remote_cache=grpc://localhost:${worker_port} \
+    //pkg:validate_exec &> $TEST_log || fail "build failed unexpectedly"
+  # The Capture action in the exec configuration gets a cache hit thanks to
+  # path stripping, with its stdout reconstructed at the exec config's output
+  # path (validated by the genrule).
+  expect_log '1 remote cache hit'
+  expect_not_log 'hello-from-stdout'
+}
+
+function test_path_stripping_deduplicated_action_with_stdout_capture() {
+  if is_windows; then
+    echo "Skipping test_path_stripping_deduplicated_action_with_stdout_capture on Windows as it requires sandboxing"
+    return
+  fi
+
+  mkdir -p pkg
+  cat > pkg/defs.bzl <<'EOF'
+def _gen_impl(ctx):
+    out = ctx.actions.declare_file(ctx.attr.name + ".txt")
+    ctx.actions.write(out, "hello-from-stdout")
+    return [DefaultInfo(files = depset([out]))]
+
+gen = rule(implementation = _gen_impl)
+
+def _capture_impl(ctx):
+    out = ctx.actions.declare_file(ctx.attr.name + ".out")
+    args = ctx.actions.args()
+    args.add(ctx.files.src[0])
+    ctx.actions.run(
+        outputs = [],
+        inputs = ctx.files.src,
+        executable = ctx.executable.tool,
+        arguments = [args],
+        stdout = out,
+        mnemonic = "Capture",
+        execution_requirements = {"supports-path-mapping": ""},
+    )
+    return [DefaultInfo(files = depset([out]))]
+
+capture = rule(
+    implementation = _capture_impl,
+    attrs = {
+        "src": attr.label(allow_files = True, mandatory = True),
+        "tool": attr.label(
+            allow_single_file = True,
+            executable = True,
+            cfg = "exec",
+        ),
+    },
+)
+EOF
+
+  cat > pkg/slow_cat_tool.sh <<'EOF'
+#!/bin/bash
+# Sleep to ensure that the two Capture actions are scheduled in parallel.
+sleep 3
+cat "$1"
+EOF
+  chmod +x pkg/slow_cat_tool.sh
+
+  cat > pkg/BUILD <<'EOF'
+load(":defs.bzl", "capture", "gen")
+
+gen(name = "gen")
+
+capture(
+    name = "captured",
+    src = ":gen",
+    tool = "slow_cat_tool.sh",
+)
+
+COMMAND = """
+[[ "$$(cat $(execpaths :captured))" == "hello-from-stdout" ]] || exit 1
+touch $@
+"""
+
+genrule(
+    name = "validate_target",
+    outs = ["out_target"],
+    cmd = COMMAND,
+    srcs = [":captured"],
+)
+
+genrule(
+    name = "validate_exec",
+    outs = ["out_exec"],
+    cmd = COMMAND,
+    tools = [":captured"],
+)
+EOF
+
+  # Both Capture actions (target and exec configuration) run in parallel and
+  # have identical cache keys under path stripping.
+  bazel build \
+    --experimental_output_paths=strip \
+    --remote_cache=grpc://localhost:${worker_port} \
+    //pkg:validate_target //pkg:validate_exec &> $TEST_log \
+    || fail "build failed unexpectedly"
+  # One of the two Capture actions is deduplicated against the other, with its
+  # stdout output populated from the winner's captured stdout (validated by
+  # the genrules).
+  expect_log '1 deduplicated'
+  # The captured stdout is not reported as regular action output, not even for
+  # the deduplicated action.
+  expect_not_log 'hello-from-stdout'
+}
+
 
 run_suite "path mapping tests"
