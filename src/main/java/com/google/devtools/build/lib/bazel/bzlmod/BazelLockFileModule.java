@@ -28,12 +28,14 @@ import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.Lockfile
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
+import java.io.BufferedWriter;
 import java.io.IOException;
+import java.io.OutputStreamWriter;
+import java.io.Writer;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Predicate;
@@ -307,14 +309,15 @@ public class BazelLockFileModule extends BlazeModule {
    * @param lockfileRoot Root under which the lockfile is located
    * @param updatedLockfile The updated lockfile data to save
    */
-  private static void updateLockfile(Path lockfileRoot, BazelLockFileValue updatedLockfile) {
+  @VisibleForTesting
+  static void updateLockfile(Path lockfileRoot, BazelLockFileValue updatedLockfile) {
     RootedPath lockfilePath =
         RootedPath.toRootedPath(Root.fromPath(lockfileRoot), LabelConstants.MODULE_LOCKFILE_NAME);
-    try {
-      FileSystemUtils.writeContent(
-          lockfilePath.asPath(),
-          UTF_8,
-          GsonTypeAdapterUtil.LOCKFILE_GSON.toJson(updatedLockfile) + "\n");
+    try (Writer writer =
+        new BufferedWriter(
+            new OutputStreamWriter(lockfilePath.asPath().getOutputStream(), UTF_8))) {
+      GsonTypeAdapterUtil.LOCKFILE_GSON.toJson(updatedLockfile, writer);
+      writer.append('\n');
     } catch (IOException e) {
       logger.atSevere().withCause(e).log(
           "Error while updating MODULE.bazel.lock file: %s", e.getMessage());
