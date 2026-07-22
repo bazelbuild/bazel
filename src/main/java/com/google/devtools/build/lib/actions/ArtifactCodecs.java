@@ -193,6 +193,7 @@ public final class ArtifactCodecs {
       context.serialize(obj.getExecPath(), codedOut);
       context.serialize(obj.getRoot(), codedOut);
       context.serialize(obj.getArtifactOwner(), codedOut);
+      codedOut.writeBoolNoTag(obj.isDirectory());
     }
 
     @Override
@@ -205,6 +206,7 @@ public final class ArtifactCodecs {
       context.deserialize(codedIn, builder, DeserializedSourceArtifactBuilder::setExecPath);
       context.deserialize(codedIn, builder, DeserializedSourceArtifactBuilder::setRoot);
       context.deserialize(codedIn, builder, DeserializedSourceArtifactBuilder::setOwner);
+      builder.isDirectory = codedIn.readBool();
       return builder;
     }
   }
@@ -214,6 +216,7 @@ public final class ArtifactCodecs {
     private PathFragment execPath;
     private ArtifactRoot root;
     private ArtifactOwner owner;
+    private boolean isDirectory;
 
     private DeserializedSourceArtifactBuilder(ArtifactSerializationContext context) {
       this.context = context;
@@ -221,7 +224,9 @@ public final class ArtifactCodecs {
 
     @Override
     public SourceArtifact call() {
-      return context.getSourceArtifact(execPath, root, owner);
+      SourceArtifact artifact = context.getSourceArtifact(execPath, root, owner);
+      artifact.setIsDirectory(isDirectory);
+      return artifact;
     }
 
     private static void setExecPath(DeserializedSourceArtifactBuilder builder, Object value) {

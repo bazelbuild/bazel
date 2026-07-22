@@ -2622,6 +2622,7 @@ java_library(
         ":visibility_provider",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:build_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:config_conditions",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:fragment",
