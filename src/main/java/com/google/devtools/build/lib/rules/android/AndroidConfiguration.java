@@ -25,8 +25,6 @@ import com.google.devtools.build.lib.analysis.config.RequiresOptions;
 import com.google.devtools.build.lib.analysis.starlark.annotations.StarlarkConfigurationField;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.rules.cpp.CppConfiguration.DynamicMode;
-import com.google.devtools.build.lib.rules.cpp.CppOptions.DynamicModeConverter;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidConfigurationApi;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.EnumConverter;
@@ -179,23 +177,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
         },
         help = "The Android target compiler.")
     public abstract String getCppCompiler();
-
-    @Option(
-        name = "android_dynamic_mode",
-        defaultValue = "off",
-        converter = DynamicModeConverter.class,
-        documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-        effectTags = {
-          OptionEffectTag.AFFECTS_OUTPUTS,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
-        },
-        help =
-            "Determines whether C++ deps of Android rules will be linked dynamically when a "
-                + "cc_binary does not explicitly create a shared library. "
-                + "'default' means bazel will choose whether to link dynamically.  "
-                + "'fully' means all libraries will be linked dynamically. "
-                + "'off' means that all libraries will be linked in mostly static mode.")
-    public abstract DynamicMode getDynamicMode();
 
     @Option(
         name = "android_platforms",
