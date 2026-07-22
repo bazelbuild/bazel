@@ -21,19 +21,21 @@ import static org.junit.Assert.fail;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /** Tests of parser. */
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public final class ParserTest {
 
   private final List<SyntaxError> events = new ArrayList<>();
   private boolean failFast = true;
+  private FileOptions fileOptions = FileOptions.DEFAULT;
 
   private SyntaxError assertContainsError(String expectedMessage) {
     return LexerTest.assertContainsError(events, expectedMessage);
@@ -43,21 +45,52 @@ public final class ParserTest {
     this.failFast = failFast;
   }
 
+  private void setFileOptions(FileOptions fileOptions) {
+    this.fileOptions = fileOptions;
+  }
+
   // Joins the lines, parse, and returns an expression.
-  private static Expression parseExpression(String... lines) throws SyntaxError.Exception {
+  private Expression parseExpression(String... lines) throws SyntaxError.Exception {
     ParserInput input = ParserInput.fromLines(lines);
-    return Expression.parse(input);
+    return Expression.parse(input, fileOptions);
   }
 
   // Parses the expression, asserts that parsing fails,
   // and returns the first error message.
-  private static String parseExpressionError(String src) {
+  private String parseExpressionError(String src) {
     ParserInput input = ParserInput.fromLines(src);
     try {
-      Expression.parse(input);
-      throw new AssertionError("parseExpression(%s) succeeded unexpectedly: " + src);
+      Expression.parse(input, fileOptions);
+      throw new AssertionError("parseExpressionError() succeeded unexpectedly: " + src);
     } catch (SyntaxError.Exception ex) {
-      return ex.errors().get(0).message();
+      return ex.errors().get(0).toString();
+    }
+  }
+
+  // Parses the statement, asserts that parsing fails, and returns the first error message.
+  private String parseStatementError(String src) throws SyntaxError.Exception {
+    ParserInput input = ParserInput.fromLines(src);
+    StarlarkFile file = StarlarkFile.parse(input, fileOptions);
+    if (file.ok()) {
+      throw new AssertionError("parseStatementError() succeeded unexpectedly: " + src);
+    }
+    return file.errors().get(0).toString();
+  }
+
+  // Joins the lines, parse, and returns a type expression.
+  private Expression parseTypeExpression(String... lines) throws SyntaxError.Exception {
+    ParserInput input = ParserInput.fromLines(lines);
+    return Expression.parseTypeExpression(input, fileOptions);
+  }
+
+  // Parses the type expression, asserts that parsing fails, and returns the first error message.
+  private String parseTypeExpressionError(String src) {
+    ParserInput input = ParserInput.fromLines(src);
+    try {
+      Expression.parseTypeExpression(input, fileOptions);
+      throw new AssertionError("parseTypeExpressionError() succeeded unexpectedly: " + src);
+    } catch (SyntaxError.Exception ex) {
+      return ex.errors().get(0).toString();
     }
   }
 
@@ -65,7 +98,7 @@ public final class ParserTest {
   // Errors are added to this.events, or thrown if this.failFast;
   private StarlarkFile parseFile(String... lines) throws SyntaxError.Exception {
     ParserInput input = ParserInput.fromLines(lines);
-    StarlarkFile file = StarlarkFile.parse(input);
+    StarlarkFile file = StarlarkFile.parse(input, fileOptions);
     if (!file.ok()) {
       if (failFast) {
         throw new SyntaxError.Exception(file.errors());
@@ -339,8 +372,7 @@ public final class ParserTest {
     assertLocation(0, 14, slice);
   }
 
-  private static void evalSlice(String statement, Object... expectedArgs)
-      throws SyntaxError.Exception {
+  private void evalSlice(String statement, Object... expectedArgs) throws SyntaxError.Exception {
     SliceExpression e = (SliceExpression) parseExpression(statement);
 
     // There is no way to evaluate the expression here, so we rely on string comparison.
@@ -471,6 +503,89 @@ public final class ParserTest {
     assertThat(parseStatements("x &= 1").toString()).isEqualTo("[x &= 1\n]");
     assertThat(parseStatements("x <<= 1").toString()).isEqualTo("[x <<= 1\n]");
     assertThat(parseStatements("x >>= 1").toString()).isEqualTo("[x >>= 1\n]");
+  }
+
+  @Test
+  public void testVarAnnotation_basic() throws Exception {
+    setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
+
+    Statement stmt = parseStatement("x : T");
+    assertThat(stmt).isInstanceOf(VarStatement.class);
+    assertThat(((VarStatement) stmt).getType().toString()).isEqualTo("T");
+
+    stmt = parseStatement("x : T = 123");
+    assertThat(stmt).isInstanceOf(AssignmentStatement.class);
+    assertThat(((AssignmentStatement) stmt).getType().toString()).isEqualTo("T");
+  }
+
+  @Test
+  public void testVarAnnotation_requiresTypeSyntax() throws Exception {
+    setFileOptions(FileOptions.builder().allowTypeSyntax(false).build());
+    assertThat(parseStatementError("x : T"))
+        .contains("syntax error at ':': type annotations are disallowed");
+    assertThat(parseStatementError("x : T = 123"))
+        .contains("syntax error at ':': type annotations are disallowed");
+  }
+
+  @Test
+  public void testVarAnnotation_takesOneIdentifier() throws Exception {
+    setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
+
+    // Complaint located at colon at column 6.
+    String errMessage =
+        ":1:6: syntax error at ':': type annotations must have a single identifier on the"
+            + " left-hand side";
+
+    assertThat(parseStatementError("x, y : T")).contains(errMessage);
+    assertThat(parseStatementError("x, y : T = 123")).contains(errMessage);
+
+    // This is *not* parsed as `x : (T, y)`, even though it might look unambiguous. Doing so would
+    // require knowing what the comma is before we know whether we're in a VarStatement or
+    // assignment statement. It's also not allowed by Python.
+    assertThat(parseStatementError("x : T, y"))
+        .contains(":1:6: syntax error at ',': expected newline");
+    assertThat(parseStatementError("x : T, y = 123"))
+        .contains(":1:6: syntax error at ',': expected newline");
+
+    assertThat(parseStatementError("x[0] : T")).contains(errMessage);
+    assertThat(parseStatementError("x[0] : T = 123")).contains(errMessage);
+
+    // Only applicable to assignment, not VarStatement.
+    assertThat(parseStatementError("(x : T, y) = 123"))
+        // TODO: #27370 - Is there a reasonable way to produce a more informative error message
+        // here, e.g. "type annotations are only allowed in assignment statements or variable
+        // declarations"?
+        .contains(":1:4: syntax error at ':': expected )");
+  }
+
+  @Test
+  public void testVarAnnotation_notAllowedOnAugmentedAssignment() throws Exception {
+    setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
+    assertThat(parseStatementError("x : T += 123"))
+        .contains(
+            ":1:3: syntax error at ':': type annotations not allowed on augmented assignment"
+                + " statements");
+  }
+
+  @Test
+  public void testVarAnnotation_illegalTypeExpression_allowedWithFlag() throws Exception {
+    setFileOptions(
+        FileOptions.builder().allowTypeSyntax(true).tolerateInvalidTypeExpressions(true).build());
+    assertThat(((VarStatement) parseStatement("x : (lambda x: x)")).getType())
+        .isInstanceOf(LambdaExpression.class);
+    assertThat(((AssignmentStatement) parseStatement("x : (lambda x: x) = 123")).getType())
+        .isInstanceOf(LambdaExpression.class);
+  }
+
+  @Test
+  public void testAssignWithAnnotation_illegalTypeExpression_disallowedWithoutFlag()
+      throws Exception {
+    setFileOptions(
+        FileOptions.builder().allowTypeSyntax(true).tolerateInvalidTypeExpressions(false).build());
+    assertThat(parseStatementError("x : (lambda x: x)"))
+        .contains(":1:5: syntax error at '(': expected a type");
+    assertThat(parseStatementError("x : (lambda x: x) = 123"))
+        .contains(":1:5: syntax error at '(': expected a type");
   }
 
   @Test
@@ -624,7 +739,7 @@ public final class ParserTest {
     assertThat(getText(stmtStr, stmt)).isEqualTo(stmtStr);
   }
 
-  private static void assertExpressionLocationCorrect(String exprStr) throws SyntaxError.Exception {
+  private void assertExpressionLocationCorrect(String exprStr) throws SyntaxError.Exception {
     Expression expr = parseExpression(exprStr);
     assertThat(getText(exprStr, expr)).isEqualTo(exprStr);
     // Also try it with another token at the end (newline), which broke the location in the past.
@@ -1011,6 +1126,435 @@ public final class ParserTest {
     List<Statement> statements = parseStatements("def foo(): x = 1; y = 2\n");
     DefStatement stmt = (DefStatement) statements.get(0);
     assertThat(stmt.getBody()).hasSize(2);
+  }
+
+  @Test
+  public void testTypeExpression() throws Exception {
+    setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
+    // basic examples
+    assertThat(parseTypeExpression("int")).isInstanceOf(Identifier.class);
+    assertThat(parseTypeExpression("list[str]")).isInstanceOf(TypeApplication.class);
+    assertThat(parseTypeExpression("dict[str, int]")).isInstanceOf(TypeApplication.class);
+    // type applications must have at least one argument
+    assertThat(assertThrows(SyntaxError.Exception.class, () -> parseTypeExpression("tuple[]")))
+        .hasMessageThat()
+        .contains("syntax error at ']': expected a type argument");
+    // type expressions can use list literals
+    assertThat(parseTypeExpression("Callable[[int, str], int]"))
+        .isInstanceOf(TypeApplication.class);
+    // type expressions can use dict literals with string keys and type expression values
+    assertThat(parseTypeExpression("TypedDict[{'a': int, 'b': bool}]"))
+        .isInstanceOf(TypeApplication.class);
+    // (non-string keys, or non-type-expression values, are a parse-time error)
+    assertThat(
+            assertThrows(
+                SyntaxError.Exception.class, () -> parseTypeExpression("TypedDict[{x: y}]")))
+        .hasMessageThat()
+        .contains("syntax error at 'x': expected string literal");
+    assertThat(
+            assertThrows(
+                SyntaxError.Exception.class, () -> parseTypeExpression("TypedDict[{'x': foo()}]")))
+        .hasMessageThat()
+        .contains("syntax error at '(': expected ,");
+    // type expressions can use empty tuple literals
+    assertThat(parseTypeExpression("tuple[()]")).isInstanceOf(TypeApplication.class);
+    // ...but not non-empty tuples
+    assertThat(
+            assertThrows(
+                SyntaxError.Exception.class, () -> parseTypeExpression("tuple[(int, str)]")))
+        .hasMessageThat()
+        .contains("syntax error at 'int': expected )");
+    // type expressions can use string literals
+    assertThat(parseTypeExpression("Literal['abc']")).isInstanceOf(TypeApplication.class);
+    // composition
+    assertThat(parseTypeExpression("list[str, dict[str, bool]]"))
+        .isInstanceOf(TypeApplication.class);
+    // type unions
+    assertThat(parseTypeExpression("str | int")).isInstanceOf(BinaryOperatorExpression.class);
+    assertThat(parseTypeExpression("str | int | bool"))
+        .isInstanceOf(BinaryOperatorExpression.class);
+    // empty dict and list literals
+    assertThat(parseTypeExpression("Callable[[], TypeDict[{}]]"))
+        .isInstanceOf(TypeApplication.class);
+    // trailing commas in dict and list arguments
+    assertThat(parseTypeExpression("Callable[[int,],bool]")).isInstanceOf(TypeApplication.class);
+    assertThat(parseTypeExpression("TypeDict[{'foo': int, }]")).isInstanceOf(TypeApplication.class);
+  }
+
+  @Test
+  public void testIllegalTypeExpression_disallowed() throws Exception {
+    setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
+    setFailFast(false);
+    parseStatement("def f(a : (lambda x: x)): pass");
+    assertContainsError("syntax error at '(': expected a type");
+  }
+
+  @Test
+  public void testIllegalTypeExpression_allowedWithFlag() throws Exception {
+    setFileOptions(
+        FileOptions.builder().allowTypeSyntax(true).tolerateInvalidTypeExpressions(true).build());
+
+    parseStatement("def f(a : (lambda x: x)): pass");
+    assertThat(parseTypeExpression("lambda x: x")).isInstanceOf(LambdaExpression.class);
+
+    // Annotations shouldn't consume adjacent params.
+    Statement stmt = parseStatement("def f(p1 : x, p2): pass");
+    assertThat(stmt.kind()).isEqualTo(Statement.Kind.DEF);
+    assertThat(((DefStatement) stmt).getParameters().stream().map(p -> p.getName()))
+        .containsExactly("p1", "p2")
+        .inOrder();
+  }
+
+  @Test
+  public void testDefWithTypeAnnotations() throws Exception {
+    setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
+    parseStatement("def f(a: int): pass");
+    parseStatement("def f(a: tuple[()]): pass");
+    parseStatement("def f(a: list[str]): pass");
+    parseStatement("def f(a: dict[str, int]): pass");
+
+    // test with default values
+    parseStatement("def f(a: int, *, b: bool = True, c): pass");
+
+    // test args and kwargs
+    parseStatement("def f(*args: list[int]): pass");
+    parseStatement("def f(**kwargs: dict[str, Any]): pass");
+
+    // Return type
+    parseStatement("def f() -> int: pass");
+
+    // Type parameters
+    parseStatement("def f[T, U](x: dict[T, U]) -> dict[U, T]: pass");
+  }
+
+  @Test
+  public void testDefBareStarCannotHaveTypeAnnotation() throws Exception {
+    setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
+    setFailFast(false);
+    parseStatement("def f(a, *: int, b: bool): pass");
+    assertContainsError("syntax error at ':': expected )");
+  }
+
+  // TODO(ilist): Python allows trailing commas in type arguments - we probably should too.
+  @Test
+  public void testTrailingCommaNotAllowedInTypeArgumentList() throws Exception {
+    assertThat(parseTypeExpressionError("list[int,]"))
+        .contains("syntax error at ']': expected a type argument");
+  }
+
+  @Test
+  public void testDefWithDisallowedTypeAnnotations() throws Exception {
+    setFileOptions(FileOptions.builder().allowTypeSyntax(false).build());
+    setFailFast(false);
+    parseStatement("def f(a: int): pass");
+    assertContainsError("syntax error at ':': type annotations are disallowed");
+    events.clear();
+    parseStatement("def f[T](): pass");
+    assertContainsError("syntax error at '[': type annotations are disallowed");
+  }
+
+  @Test
+  public void testTypeApplicationsRequireConstructor() throws Exception {
+    assertThat(parseTypeExpressionError("[int]")).contains("syntax error at '[': expected a type");
+  }
+
+  @Test
+  public void testFunctionCallsNotAllowedInTypeExpressions() throws Exception {
+    assertThat(parseTypeExpressionError("int[f(1)]")).contains("syntax error at '(': expected ,");
+  }
+
+  @Test
+  public void testOnlyPipeOperatorsAllowedInTypeExpressions() throws Exception {
+    ImmutableList<TokenKind> badOperators =
+        ImmutableList.of(
+            TokenKind.AMPERSAND,
+            TokenKind.EQUALS,
+            TokenKind.GREATER,
+            TokenKind.LESS,
+            TokenKind.MINUS,
+            TokenKind.PLUS,
+            TokenKind.SLASH,
+            TokenKind.STAR);
+    for (TokenKind op : badOperators) {
+      assertThat(parseTypeExpressionError("int " + op + " str"))
+          .contains("syntax error at '" + op + "'");
+    }
+  }
+
+  @Test
+  public void testTypeAliasStatement_basicFunctionality() throws Exception {
+    setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
+    TypeAliasStatement stmt = (TypeAliasStatement) parseStatement("type X = list");
+    assertThat(stmt.getIdentifier().getName()).isEqualTo("X");
+    assertThat(stmt.getParameters()).isEmpty();
+    assertThat(stmt.getDefinition()).isInstanceOf(Identifier.class);
+    assertThat(((Identifier) stmt.getDefinition()).getName()).isEqualTo("list");
+  }
+
+  @Test
+  public void testTypeAliasStatement_typeParams() throws Exception {
+    setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
+    TypeAliasStatement stmt =
+        (TypeAliasStatement) parseStatement("type my_nullable_dict[T, U] = dict[T, U] | None");
+    assertThat(stmt.getIdentifier().getName()).isEqualTo("my_nullable_dict");
+    assertThat(stmt.getParameters().stream().map(p -> p.getName()))
+        .containsExactly("T", "U")
+        .inOrder();
+    assertThat(stmt.getDefinition()).isInstanceOf(BinaryOperatorExpression.class);
+  }
+
+  @Test
+  public void testTypeAliasStatement_requiresTypeSyntax() throws Exception {
+    setFileOptions(FileOptions.builder().allowTypeSyntax(false).build());
+    setFailFast(false);
+    parseStatement("type X = list");
+    assertContainsError("syntax error at 'type': type annotations are disallowed");
+  }
+
+  @Test
+  public void testTypeAliasStatement_requiresExactlyOneName() throws Exception {
+    setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
+    setFailFast(false);
+    parseStatement("type X, Y = list, int");
+    assertContainsError("syntax error at ',': expected =");
+  }
+
+  @Test
+  public void testTypeAliasStatement_requiresDefinition() throws Exception {
+    setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
+    setFailFast(false);
+    parseStatement("type X # = define_later");
+    assertContainsError("syntax error at 'newline': expected =");
+  }
+
+  @Test
+  public void testTypeAliasStatement_allowsParsingWithUnresolvableDefinition() throws Exception {
+    setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
+    parseStatement("type x = no_such_type");
+  }
+
+  @Test
+  public void testTypeAliasStatement_disallowsIllegalDefinition() throws Exception {
+    setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
+    setFailFast(false);
+    parseStatement("type X = lambda x: x");
+    assertContainsError("syntax error at 'lambda': expected a type");
+  }
+
+  @Test
+  public void testTypeAliasStatement_allowsIllegalDefinition_withFlag() throws Exception {
+    setFileOptions(
+        FileOptions.builder().allowTypeSyntax(true).tolerateInvalidTypeExpressions(true).build());
+    TypeAliasStatement stmt = (TypeAliasStatement) parseStatement("type X = lambda x: x");
+    assertThat(stmt.getDefinition()).isInstanceOf(LambdaExpression.class);
+  }
+
+  @Test
+  public void testTypeIsSoftKeyword() throws Exception {
+    // Test that `type` may be used as an identifier in any context where identifiers are allowed.
+    setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
+    parseStatement("type = type.type(type)");
+    parseStatement("type type = type");
+  }
+
+  private static enum TypeParamTestKind {
+    DEF_STATEMENT,
+    TYPE_ALIAS_STATEMENT
+  }
+
+  private Statement parseTypeParamTestCaseStatement(TypeParamTestKind testKind, String typeParams)
+      throws Exception {
+    return switch (testKind) {
+      // Extra space in DEF_STATEMENT case to place typeParams at offset 6 in both cases
+      case DEF_STATEMENT -> parseStatement(String.format("def  f%s(): pass", typeParams));
+      case TYPE_ALIAS_STATEMENT -> parseStatement(String.format("type X%s = int", typeParams));
+    };
+  }
+
+  @Test
+  public void testTypeParams_mayBeUnused(@TestParameter TypeParamTestKind testKind)
+      throws Exception {
+    setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
+    parseTypeParamTestCaseStatement(testKind, "[T, U]");
+  }
+
+  @Test
+  public void testTypeParams_allowOnlyIdentifiers(@TestParameter TypeParamTestKind testKind)
+      throws Exception {
+    setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
+    setFailFast(false);
+    parseTypeParamTestCaseStatement(testKind, "[1]");
+    assertContainsError("syntax error at '1': expected identifier");
+    events.clear();
+    parseTypeParamTestCaseStatement(testKind, "['two']");
+    assertContainsError("syntax error at '\"two\"': expected identifier");
+    events.clear();
+    parseTypeParamTestCaseStatement(testKind, "[(THREE)]");
+    assertContainsError("syntax error at '(': expected identifier");
+  }
+
+  @Test
+  public void testTypeParams_disallowDuplicates(@TestParameter TypeParamTestKind testKind)
+      throws Exception {
+    setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
+    setFailFast(false);
+    parseTypeParamTestCaseStatement(testKind, "[T, U, T]");
+    assertContainsError("1:14: syntax error at 'T': duplicate type parameter");
+  }
+
+  @Test
+  public void testTypeParams_allowsTrailingCommas(@TestParameter TypeParamTestKind testKind)
+      throws Exception {
+    setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
+    parseTypeParamTestCaseStatement(testKind, "[T, U,]");
+  }
+
+  @Test
+  public void testTypeParams_cannotBeEmptyIfPresent(@TestParameter TypeParamTestKind testKind)
+      throws Exception {
+    setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
+    setFailFast(false);
+    parseTypeParamTestCaseStatement(testKind, "[]");
+    assertContainsError("syntax error at ']': expected identifier");
+    events.clear();
+    parseTypeParamTestCaseStatement(testKind, "[,]");
+    assertContainsError("syntax error at ',': expected identifier");
+  }
+
+  @Test
+  public void testEllipsisNotAllowedInValueExpressions() throws Exception {
+    setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
+    assertThat(parseExpressionError("print(...)"))
+        .contains("ellipsis ('...') is not allowed outside type expressions");
+  }
+
+  @Test
+  public void testEllipsisAllowedInTypeExpressionArgumentsOnly() throws Exception {
+    setFileOptions(
+        FileOptions.builder().allowTypeSyntax(true).tolerateInvalidTypeExpressions(false).build());
+    parseStatement("x : tuple[int, ...]");
+    assertThat(parseStatementError("x : ...")).contains("syntax error at '...': expected a type");
+    assertThat(parseStatementError("x : int | ..."))
+        .contains("syntax error at '...': expected identifier");
+    assertThat(parseStatementError("x : tuple[int | ...]"))
+        .contains("syntax error at '...': expected identifier");
+  }
+
+  @Test
+  public void testCastExpression_basicFunctionality() throws Exception {
+    setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
+    CastExpression cast = (CastExpression) parseExpression("cast(list[int], foo())");
+    assertThat(cast.getType()).isInstanceOf(TypeApplication.class);
+    assertThat(cast.getValue()).isInstanceOf(CallExpression.class);
+  }
+
+  @Test
+  public void testCastExpression_isExpression() throws Exception {
+    setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
+    parseStatement("cast(list, x) += cast(list[list], (cast(struct, y)).foo())[cast(int, z)]");
+  }
+
+  @Test
+  public void testCast_isKeyword() throws Exception {
+    setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
+    setFailFast(false);
+    assertThat(parseExpressionError("something.cast(list, x)"))
+        .contains("syntax error at 'cast': expected identifier after dot");
+    assertThat(parseExpressionError("(cast)(list, x)")).contains("expected (");
+  }
+
+  @Test
+  public void testCastExpression_requiresTypeSyntax() throws Exception {
+    // If type syntax is disabled, `cast` is treated as an ordinary identifier.
+    setFileOptions(FileOptions.builder().allowTypeSyntax(false).build());
+    assertThat(parseExpression("cast(list[str], foo())")).isInstanceOf(CallExpression.class);
+  }
+
+  @Test
+  public void testCastExpression_goodSyntax() throws Exception {
+    setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
+    parseExpression(
+        """
+        cast(
+            int,
+            n
+        )\
+        """);
+    parseExpression("cast(int, x,)");
+  }
+
+  @Test
+  public void testCastExpression_badSyntax() throws Exception {
+    setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
+    setFailFast(false);
+    assertThat(parseExpressionError("cast int, x")).contains("syntax error at 'int': expected (");
+    assertThat(parseExpressionError("cast(int, x, y)")).contains("syntax error at 'y': expected )");
+    assertThat(parseExpressionError("cast(int, x"))
+        .contains("syntax error at 'newline': expected )");
+    assertThat(parseExpressionError("cast(*args)"))
+        .contains("syntax error at '*': expected a type");
+    assertThat(parseExpressionError("cast(type=int, value=x"))
+        .contains("syntax error at '=': expected ,");
+  }
+
+  @Test
+  public void testIsInstanceExpression_basicFunctionality() throws Exception {
+    setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
+    IsInstanceExpression cast =
+        (IsInstanceExpression) parseExpression("isinstance(foo(), list | tuple)");
+    assertThat(cast.getType()).isInstanceOf(BinaryOperatorExpression.class);
+    assertThat(cast.getValue()).isInstanceOf(CallExpression.class);
+  }
+
+  @Test
+  public void testIsInstanceExpression_isExpression() throws Exception {
+    setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
+    parseStatement("if isinstance(isinstance(y, list), bool): isinstance(z, str)");
+  }
+
+  @Test
+  public void testIsInstance_isKeyword() throws Exception {
+    setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
+    setFailFast(false);
+    assertThat(parseExpressionError("something.isinstance(x, list)"))
+        .contains("syntax error at 'isinstance': expected identifier after dot");
+    assertThat(parseExpressionError("(isinstance)(x, list)")).contains("expected (");
+  }
+
+  @Test
+  public void testIsInstanceExpression_requiresTypeSyntax() throws Exception {
+    // If type syntax is disabled, `isinstance` is treated as an ordinary identifier.
+    setFileOptions(FileOptions.builder().allowTypeSyntax(false).build());
+    assertThat(parseExpression("isinstance(x, T)")).isInstanceOf(CallExpression.class);
+  }
+
+  @Test
+  public void testIsInstanceExpression_goodSyntax() throws Exception {
+    setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
+    parseExpression(
+        """
+        isinstance(
+            x,
+            T | U[V]
+        )\
+        """);
+    parseExpression("isinstance(x, tuple,)");
+  }
+
+  @Test
+  public void testIsInstanceExpression_badSyntax() throws Exception {
+    setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
+    setFailFast(false);
+    assertThat(parseExpressionError("isinstance x, int"))
+        .contains("syntax error at 'x': expected (");
+    assertThat(parseExpressionError("isinstance(x, y, int)"))
+        .contains("syntax error at 'int': expected )");
+    assertThat(parseExpressionError("isinstance(x, int"))
+        .contains("syntax error at 'newline': expected )");
+    assertThat(parseExpressionError("isinstance(*args)"))
+        .contains("syntax error at '*': expected expression");
+    assertThat(parseExpressionError("isinstance(value=x, type=int)"))
+        .contains("syntax error at '=': expected ,");
   }
 
   @Test

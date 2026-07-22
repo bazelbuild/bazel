@@ -24,6 +24,8 @@ public enum TokenKind {
   BREAK("break"),
   CARET("^"),
   CARET_EQUALS("^="),
+  /** Emitted only if --experimental_starlark_type_syntax is enabled. */
+  CAST("cast"),
   CLASS("class"),
   COLON(":"),
   COMMA(","),
@@ -32,6 +34,8 @@ public enum TokenKind {
   DEL("del"),
   DOT("."),
   ELIF("elif"),
+  /** Valid only in type expressions. */
+  ELLIPSIS("..."),
   ELSE("else"),
   EOF("EOF"),
   EQUALS("="),
@@ -54,6 +58,8 @@ public enum TokenKind {
   INDENT("indent"),
   INT("integer literal"),
   IS("is"),
+  /** Emitted only if --experimental_starlark_type_syntax is enabled. */
+  ISINSTANCE("isinstance"),
   LAMBDA("lambda"),
   LBRACE("{"),
   LBRACKET("["),
@@ -80,6 +86,7 @@ public enum TokenKind {
   PLUS("+"),
   PLUS_EQUALS("+="),
   RAISE("raise"),
+  RARROW("->"),
   RBRACE("}"),
   RBRACKET("]"),
   RETURN("return"),

@@ -18,12 +18,15 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.FormatMethod;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import javax.annotation.Nullable;
 
 /** Parser is a recursive-descent parser for Starlark. */
@@ -90,14 +93,24 @@ final class Parser {
           TokenKind.RPAREN,
           TokenKind.SLASH);
 
+  /** "type" is a keyword iff it precedes an identifier (such as in a type alias expression). */
+  private static final String TYPE_SOFT_KEYWORD = "type";
+
+  private static final boolean DEBUGGING = false;
+
   /** Current lookahead token. May be mutated by the parser. */
   private final Lexer token; // token.kind is a prettier alias for lexer.kind
 
-  private static final boolean DEBUGGING = false;
+  private final FileOptions options;
 
   private final Lexer lexer;
   private final FileLocations locs;
   private final List<SyntaxError> errors;
+
+  // State tracking whether we're currently parsing a type expression.
+  // Used for conditionally allowing the Ellipsis token.
+  private boolean insideTypeExpr = false;
+
 
   // TODO(adonovan): opt: compute this by subtraction.
   private static final Map<TokenKind, TokenKind> augmentedAssignments =
@@ -150,11 +163,12 @@ final class Parser {
   // lexer can't handle.
   private final Map<String, String> stringInterner = new HashMap<>();
 
-  private Parser(Lexer lexer, List<SyntaxError> errors) {
+  private Parser(Lexer lexer, List<SyntaxError> errors, FileOptions options) {
     this.lexer = lexer;
     this.locs = lexer.locs;
     this.errors = errors;
     this.token = lexer;
+    this.options = options;
     nextToken();
   }
 
@@ -174,7 +188,7 @@ final class Parser {
   static ParseResult parseFile(ParserInput input, FileOptions options) {
     List<SyntaxError> errors = new ArrayList<>();
     Lexer lexer = new Lexer(input, errors, options);
-    Parser parser = new Parser(lexer, errors);
+    Parser parser = new Parser(lexer, errors, options);
 
     StarlarkFile.ParseProfiler profiler = Parser.profiler;
     long profileStartNanos = profiler != null ? profiler.start() : -1;
@@ -209,12 +223,23 @@ final class Parser {
   /** Parses an expression, possibly followed by newline tokens. */
   static Expression parseExpression(ParserInput input, FileOptions options)
       throws SyntaxError.Exception {
+    return parseValueOrTypeExpr(input, options, /* isTypeExpr= */ false);
+  }
+
+  /** Parses a type expression, possibly preceded or followed by comments or whitespace. */
+  static Expression parseTypeExpression(ParserInput input, FileOptions options)
+      throws SyntaxError.Exception {
+    return parseValueOrTypeExpr(input, options, /* isTypeExpr= */ true);
+  }
+
+  private static Expression parseValueOrTypeExpr(
+      ParserInput input, FileOptions options, boolean isTypeExpr) throws SyntaxError.Exception {
     List<SyntaxError> errors = new ArrayList<>();
     Lexer lexer = new Lexer(input, errors, options);
-    Parser parser = new Parser(lexer, errors);
+    Parser parser = new Parser(lexer, errors, options);
     Expression result = null;
     try {
-      result = parser.parseExpression();
+      result = isTypeExpr ? parser.parseTypeExprWithFallback() : parser.parseExpr();
       while (parser.token.kind == TokenKind.NEWLINE) {
         parser.nextToken();
       }
@@ -235,14 +260,20 @@ final class Parser {
     return result;
   }
 
-  // Equivalent to 'testlist' rule in Python grammar. It can parse every kind of
-  // expression. In many cases, we need to use parseTest to avoid ambiguity:
-  //   e.g. fct(x, y)  vs  fct((x, y))
+  // Parses every kind of expression, including unparenthesized tuples.
   //
-  // A trailing comma is disallowed in an unparenthesized tuple.
-  // This prevents bugs where a one-element tuple is surprisingly created:
-  //   e.g. foo = f(x),
-  private Expression parseExpression() {
+  // In Python the corresponding grammar production is called `expressions` (or previously, in
+  // Python 3.8 and older, `testlist`).
+  //
+  // In many cases we need to use parseTest() in place of parseExpr() to avoid ambiguity, e.g.:
+  //
+  //   f(x, y)  vs  f((x, y))
+  //
+  // Unlike Python, a trailing comma is disallowed in an unparenthesized tuple.
+  // This prevents bugs where a one-element tuple is surprisingly created, e.g.:
+  //
+  //   foo = f(x),
+  private Expression parseExpr() {
     Expression e = parseTest();
     if (token.kind != TokenKind.COMMA) {
       return e;
@@ -266,12 +297,16 @@ final class Parser {
   }
 
   private void syntaxError(String message) {
+    syntaxError(token.start, token.kind, token.value, message);
+  }
+
+  private void syntaxError(int offset, TokenKind tokenKind, Object tokenValue, String message) {
     if (!recoveryMode) {
-      if (token.kind == TokenKind.INDENT) {
-        reportError(token.start, "indentation error");
+      if (tokenKind == TokenKind.INDENT) {
+        reportError(offset, "indentation error");
       } else {
         reportError(
-            token.start, "syntax error at '%s': %s", tokenString(token.kind, token.value), message);
+            offset, "syntax error at '%s': %s", tokenString(tokenKind, tokenValue), message);
       }
       recoveryMode = true;
     }
@@ -432,14 +467,21 @@ final class Parser {
     return new Argument.Positional(locs, expr);
   }
 
-  // arg = IDENTIFIER '=' test
-  //     | IDENTIFIER
-  private Parameter parseParameter() {
+  // arg = IDENTIFIER [':' TypeExpr] [ '=' test ]
+  //     | * [IDENTIFIER [':' TypeExpr]]
+  //     | ** IDENTIFIER [':' TypeExpr]
+  // Type annotations are only available on def statements (not lambdas)
+  private Parameter parseParameter(boolean defStatement) {
+    Expression type = null;
+
     // **kwargs
     if (token.kind == TokenKind.STAR_STAR) {
       int starStarOffset = nextToken();
       Identifier id = parseIdent();
-      return new Parameter.StarStar(locs, starStarOffset, id);
+      if (defStatement) {
+        type = maybeParseTypeAnnotationAfter(TokenKind.COLON);
+      }
+      return new Parameter.StarStar(locs, starStarOffset, id, type);
     }
 
     // * or *args
@@ -447,21 +489,30 @@ final class Parser {
       int starOffset = nextToken();
       if (token.kind == TokenKind.IDENTIFIER) {
         Identifier id = parseIdent();
-        return new Parameter.Star(locs, starOffset, id);
+        if (defStatement) {
+          type = maybeParseTypeAnnotationAfter(TokenKind.COLON);
+        }
+        return new Parameter.Star(locs, starOffset, id, type);
       }
-      return new Parameter.Star(locs, starOffset, null);
-    }
-
-    // name=default
-    Identifier id = parseIdent();
-    if (token.kind == TokenKind.EQUALS) {
-      nextToken(); // TODO: save token pos?
-      Expression expr = parseTest();
-      return new Parameter.Optional(locs, id, expr);
+      return new Parameter.Star(locs, starOffset, null, null);
     }
 
     // name
-    return new Parameter.Mandatory(locs, id);
+    Identifier id = parseIdent();
+
+    // name: type
+    if (defStatement) {
+      type = maybeParseTypeAnnotationAfter(TokenKind.COLON);
+    }
+
+    // name=default
+    if (token.kind == TokenKind.EQUALS) {
+      nextToken(); // TODO: save token pos?
+      Expression expr = parseTest();
+      return new Parameter.Optional(locs, id, type, expr);
+    }
+
+    return new Parameter.Mandatory(locs, id, type);
   }
 
   // call_suffix = '(' arg_list? ')'
@@ -473,6 +524,36 @@ final class Parser {
     }
     int rparenOffset = expect(TokenKind.RPAREN);
     return new CallExpression(locs, fn, locs.getLocation(lparenOffset), args, rparenOffset);
+  }
+
+  // cast_expression = 'cast' '(' TypeExpr ',' expr [','] ')'
+  private Expression parseCastExpression() {
+    checkAllowTypeSyntax(token.start, token.kind, token.value);
+    int startOffset = expect(TokenKind.CAST);
+    expect(TokenKind.LPAREN);
+    Expression typeExpr = parseTypeExprWithFallback();
+    expect(TokenKind.COMMA);
+    Expression valueExpr = parseTest();
+    if (token.kind == TokenKind.COMMA) {
+      expect(TokenKind.COMMA);
+    }
+    int rparenOffset = expect(TokenKind.RPAREN);
+    return new CastExpression(locs, startOffset, typeExpr, valueExpr, rparenOffset);
+  }
+
+  // isinstance_expression = 'isinstance' '(' expr ',' TypeExpr [','] ')'
+  private Expression parseIsInstanceExpression() {
+    checkAllowTypeSyntax(token.start, token.kind, token.value);
+    int startOffset = expect(TokenKind.ISINSTANCE);
+    expect(TokenKind.LPAREN);
+    Expression valueExpr = parseTest();
+    expect(TokenKind.COMMA);
+    Expression typeExpr = parseTypeExprWithFallback();
+    if (token.kind == TokenKind.COMMA) {
+      expect(TokenKind.COMMA);
+    }
+    int rparenOffset = expect(TokenKind.RPAREN);
+    return new IsInstanceExpression(locs, startOffset, valueExpr, typeExpr, rparenOffset);
   }
 
   // Parse a list of call arguments.
@@ -575,6 +656,8 @@ final class Parser {
   //          | '(' expr ')'               // a parenthesized expression
   //          | dict_expression
   //          | '-' primary_with_suffix
+  //          | cast_expression
+  //          | ellipsis                   // if in type expression
   private Expression parsePrimary() {
     switch (token.kind) {
       case INT:
@@ -655,6 +738,20 @@ final class Parser {
           return new UnaryOperatorExpression(locs, op, offset, x);
         }
 
+      case CAST:
+        return parseCastExpression();
+
+      case ISINSTANCE:
+        return parseIsInstanceExpression();
+
+      case ELLIPSIS:
+        if (!insideTypeExpr) {
+          syntaxError("ellipsis ('...') is not allowed outside type expressions");
+          // Fall-through, may as well emit this instead of makeErrorExpression().
+        }
+        int offset = nextToken();
+        return new Ellipsis(locs, offset);
+
       default:
         {
           int start = token.start;
@@ -691,7 +788,7 @@ final class Parser {
     Expression step = null;
 
     if (token.kind != TokenKind.COLON) {
-      start = parseExpression();
+      start = parseExpr();
 
       // index x[i]
       if (token.kind == TokenKind.RBRACKET) {
@@ -718,7 +815,7 @@ final class Parser {
   // Equivalent to 'exprlist' rule in Python grammar.
   // loop_variables = primary_with_suffix ( ',' primary_with_suffix )* ','?
   private Expression parseForLoopVariables() {
-    // We cannot reuse parseExpression because it would parse the 'in' operator.
+    // We cannot reuse parseExpr because it would parse the 'in' operator.
     // e.g.  "for i in e: pass"  -> we want to parse only "i" here.
     Expression e1 = parsePrimaryWithSuffix();
     if (token.kind != TokenKind.COMMA) {
@@ -929,11 +1026,244 @@ final class Parser {
     return new BinaryOperatorExpression(locs, x, op, opOffset, y);
   }
 
-  // Parses a non-tuple expression ("test" in Python terminology).
+  /**
+   * Returns true if type syntax is allowed. Otherwise, reports a syntax error for the given offset
+   * and token kind and value, and returns false.
+   */
+  @CanIgnoreReturnValue
+  private boolean checkAllowTypeSyntax(int offset, TokenKind tokenKind, Object tokenValue) {
+    if (options.allowTypeSyntax()) {
+      return true;
+    } else {
+      syntaxError(offset, tokenKind, tokenValue, "type annotations are disallowed");
+      return false;
+    }
+  }
+
+  @Nullable
+  private Expression maybeParseTypeAnnotationAfter(TokenKind expectedToken) {
+    if (token.kind == expectedToken && checkAllowTypeSyntax(token.start, token.kind, token.value)) {
+      nextToken();
+      return parseTypeExprWithFallback();
+    }
+    return null;
+  }
+
+  // Hook for parsing either a structured type expression, or an unstructured arbitrary expression
+  // (except for unparenthesized tuples). The latter is useless for type checking but allows the
+  // parser to never fail on parsing a type annotation it doesn't recognize (e.g. supported by a
+  // future version of Bazel), so long as it's valid expression syntax.
+  private Expression parseTypeExprWithFallback() {
+    Expression result;
+    this.insideTypeExpr = true;
+    if (options.tolerateInvalidTypeExpressions()) {
+      // parseTest, because allowing unparenthesized tuples here would consume subsequent params in
+      // function signatures.
+      result = parseTest();
+    } else {
+      result = parseTypeExpr();
+    }
+    this.insideTypeExpr = false;
+    return result;
+  }
+
+  // TypeExpr = TypeAtom {'|' TypeAtom}.
+  // TypeAtom = identifier [TypeArguments].
+  private Expression parseTypeExpr() {
+    if (token.kind != TokenKind.IDENTIFIER) {
+      int start = token.start;
+      syntaxError("expected a type");
+      int end = syncTo(EXPR_TERMINATOR_SET);
+      return makeErrorExpression(start, end);
+    }
+    Identifier typeOrConstructor = parseIdent();
+    Expression expr;
+    if (token.kind == TokenKind.LBRACKET) {
+      expr = parseTypeApplication(typeOrConstructor);
+    } else {
+      expr = typeOrConstructor;
+    }
+    while (token.kind == TokenKind.PIPE) {
+      int opOffset = nextToken();
+      Identifier secondTypeOrConstructor = parseIdent();
+      Expression y;
+      if (token.kind == TokenKind.LBRACKET) {
+        y = parseTypeApplication(secondTypeOrConstructor);
+      } else {
+        y = secondTypeOrConstructor;
+      }
+      expr = new BinaryOperatorExpression(locs, expr, TokenKind.PIPE, opOffset, y);
+    }
+    return expr;
+  }
+
+  // TypeArgument = TypeExpr | ListOfTypes | DictOfTypes | '(' ')' | string | ellipsis
+  private Expression parseTypeArgument() {
+    switch (token.kind) {
+      case LBRACKET: // [...]
+        return parseTypeList();
+      case LBRACE: // {...}
+        return parseTypeDict();
+      case LPAREN: // the empty tuple ()
+        {
+          int lparenOffset = expect(TokenKind.LPAREN);
+          int rparenOffset = expect(TokenKind.RPAREN);
+          return new ListExpression(
+              locs, /* isTuple= */ true, lparenOffset, ImmutableList.of(), rparenOffset);
+        }
+      case STRING:
+        return parseStringLiteral();
+      case ELLIPSIS:
+        return parsePrimary();
+      default:
+    }
+    if (token.kind != TokenKind.IDENTIFIER) {
+      int start = token.start;
+      syntaxError("expected a type argument");
+      int end = syncTo(EXPR_TERMINATOR_SET);
+      return makeErrorExpression(start, end);
+    }
+    return parseTypeExpr();
+  }
+
+  // ListOfTypes = '[' [TypeArgument {',' TypeArgument} [',']] ']'.
+  private Expression parseTypeList() {
+    int lbracketOffset = expect(TokenKind.LBRACKET);
+    ImmutableList.Builder<Expression> elems = ImmutableList.builder();
+    if (token.kind != TokenKind.RBRACKET) {
+      elems.add(parseTypeArgument());
+    }
+    while (token.kind != TokenKind.RBRACKET && token.kind != TokenKind.EOF) {
+      expect(TokenKind.COMMA);
+      if (token.kind == TokenKind.RBRACKET) {
+        break;
+      }
+      elems.add(parseTypeArgument());
+    }
+    int rbracketOffset = nextToken();
+    return new ListExpression(
+        locs, /* isTuple= */ false, lbracketOffset, elems.build(), rbracketOffset);
+  }
+
+  // TypeEntry = string ':' TypeArgument .
+  private DictExpression.Entry parseTypeDictEntry() {
+    Expression key;
+    if (token.kind == TokenKind.STRING) {
+      key = parseStringLiteral();
+    } else {
+      int start = token.start;
+      syntaxError(String.format("expected %s", TokenKind.STRING));
+      int end = syncTo(EXPR_TERMINATOR_SET);
+      key = makeErrorExpression(start, end);
+    }
+    int colonOffset = expect(TokenKind.COLON);
+    Expression value = parseTypeArgument();
+    return new DictExpression.Entry(locs, key, colonOffset, value);
+  }
+
+  // DictOfTypes = '{' [TypeEntry {',' TypeEntry} [',']] '}' .
+  private Expression parseTypeDict() {
+    int lbraceOffset = expect(TokenKind.LBRACE);
+
+    ImmutableList.Builder<DictExpression.Entry> entries = ImmutableList.builder();
+    if (token.kind != TokenKind.RBRACE) {
+      entries.add(parseTypeDictEntry());
+    }
+    while (token.kind != TokenKind.RBRACE && token.kind != TokenKind.EOF) {
+      expect(TokenKind.COMMA);
+      if (token.kind == TokenKind.RBRACE) {
+        break;
+      }
+      entries.add(parseTypeDictEntry());
+    }
+
+    int rbraceOffset = nextToken();
+    return new DictExpression(locs, lbraceOffset, entries.build(), rbraceOffset);
+  }
+
+  // TypeArguments = '[' TypeArgument {',' TypeArgument} ']'.
+  private Expression parseTypeApplication(Identifier constructor) {
+    expect(TokenKind.LBRACKET);
+    ImmutableList.Builder<Expression> args = ImmutableList.builder();
+    args.add(parseTypeArgument());
+    while (token.kind != TokenKind.RBRACKET && token.kind != TokenKind.EOF) {
+      expect(TokenKind.COMMA);
+      args.add(parseTypeArgument());
+    }
+    int rbracketOffset = expect(TokenKind.RBRACKET);
+    return new TypeApplication(locs, constructor, args.build(), rbracketOffset);
+  }
+
+  private static boolean isTypeSoftKeyword(Node node) {
+    return node instanceof Identifier id && id.getName().equals(TYPE_SOFT_KEYWORD);
+  }
+
+  // type_alias_stmt = 'type' type_alias_stmt_tail
+  // type_alias_stmt_tail = identifier optional_type_params '=' TypeExpr
+  //
+  // This method assumes that 'type' has already been consumed to produce typeSoftKeywordNode.
+  private Statement parseTypeAliasStatementTail(Node typeSoftKeywordNode) {
+    Preconditions.checkArgument(isTypeSoftKeyword(typeSoftKeywordNode));
+    int startOffset = typeSoftKeywordNode.getStartOffset();
+    // For user-friendliness, mark the error as if it was detected at 'type'
+    checkAllowTypeSyntax(startOffset, TokenKind.IDENTIFIER, TYPE_SOFT_KEYWORD);
+    Identifier identifier = parseIdent();
+    ImmutableList<Identifier> parameters = parseOptionalTypeParameters();
+    expect(TokenKind.EQUALS);
+    Expression definition = parseTypeExprWithFallback();
+    return new TypeAliasStatement(locs, startOffset, identifier, parameters, definition);
+  }
+
+  // optional_type_params = ['[' identifier {',' identifier} [','] ']']
+  //
+  // For syntactic compatibility with Python, the list of identifiers in optional_type_params cannot
+  // contain duplicates; duplicate identifiers are treated as a syntax error.
+  //
+  // If the optional_type_params is absent (in other words, if the initial token is not '['), this
+  // method returns an empty list. (Note that if optional_type_params is present, it must contain at
+  // least one identifier.)
+  private ImmutableList<Identifier> parseOptionalTypeParameters() {
+    if (token.kind == TokenKind.LBRACKET) {
+      checkAllowTypeSyntax(token.start, token.kind, token.value);
+      nextToken();
+      ImmutableList.Builder<Identifier> parameters = ImmutableList.builder();
+      Set<String> uniqueParameterNames = new HashSet<>();
+      parameters.add(parseTypeParameter(uniqueParameterNames));
+      while (token.kind != TokenKind.RBRACKET && token.kind != TokenKind.EOF) {
+        expect(TokenKind.COMMA);
+        if (token.kind == TokenKind.RBRACKET) {
+          break;
+        }
+        parameters.add(parseTypeParameter(uniqueParameterNames));
+      }
+      expect(TokenKind.RBRACKET);
+      return parameters.build();
+    } else {
+      return ImmutableList.of();
+    }
+  }
+
+  private Identifier parseTypeParameter(Set<String> uniqueParameterNames) {
+    int tokenStart = token.start;
+    TokenKind tokenKind = token.kind;
+    Object tokenValue = token.value;
+    Identifier ident = parseIdent();
+    // If parseIdent() encountered a syntax error, Identifier.isValid(param.getName()) would be
+    // false, and in that case, there's no need to check for the param's uniqueness.
+    if (Identifier.isValid(ident.getName()) && !uniqueParameterNames.add(ident.getName())) {
+      syntaxError(tokenStart, tokenKind, tokenValue, "duplicate type parameter");
+    }
+    return ident;
+  }
+
+  // Parses any expression except for an unparenthesized tuple.
+  //
+  // In Python the corresponding grammar production is called `expression` (or previously, in
+  // Python 3.8 and older, `test`).
   private Expression parseTest() {
     int start = token.start;
     if (token.kind == TokenKind.LAMBDA) {
-      return parseLambda(/*allowCond=*/ true);
+      return parseLambda(/* allowCond= */ true);
     }
 
     Expression expr = parseTest(0);
@@ -966,7 +1296,7 @@ final class Parser {
   // The allowCond flag allows the body to be an 'a if b else c' conditional.
   private LambdaExpression parseLambda(boolean allowCond) {
     int lambdaOffset = expect(TokenKind.LAMBDA);
-    ImmutableList<Parameter> params = parseParameters();
+    ImmutableList<Parameter> params = parseParameters(/* defStatement= */ false);
     expect(TokenKind.COLON);
     Expression body = allowCond ? parseTest() : parseTestNoCond();
     return new LambdaExpression(locs, lambdaOffset, params, body);
@@ -1114,14 +1444,18 @@ final class Parser {
   }
 
   //     small_stmt = assign_stmt
+  //                | type_alias_stmt
   //                | expr
   //                | load_stmt
   //                | return_stmt
+  //                | var_stmt
   //                | BREAK | CONTINUE | PASS
   //
-  //     assign_stmt = expr ('=' | augassign) expr
+  //     assign_stmt = expr (':' expr)? ('=' | augassign) expr
   //
   //     augassign = '+=' | '-=' | '*=' | '/=' | '%=' | '//=' | '&=' | '|=' | '^=' |'<<=' | '>>='
+  //
+  //     var_stmt = IDENTIFIER ':' expr DOC_COMMENT_TRAILING?
   private Statement parseSmallStatement() {
     // return
     if (token.kind == TokenKind.RETURN) {
@@ -1142,16 +1476,61 @@ final class Parser {
       return parseLoadStatement();
     }
 
-    Expression lhs = parseExpression();
+    // All other cases require an expression. Parse it now.
+    Expression lhs = parseExpr();
 
-    // lhs = rhs  or  lhs += rhs
+    // Type alias. This is the only context in which an identifier can be immediately followed by
+    // another identifier; the first identifier is the soft keyword `type`.
+    if (token.kind == TokenKind.IDENTIFIER && isTypeSoftKeyword(lhs)) {
+      return parseTypeAliasStatementTail(lhs);
+    }
+
+    // Possible type expression for var statement or assignment.
+    int colonOffset = token.start; // valid only if type != null below.
+    @Nullable Expression type = maybeParseTypeAnnotationAfter(TokenKind.COLON);
+
+    // If it's an assignment, the equals or augmented-equals operator will be next.
+    // op == null for ordinary assignment. TODO(adonovan): represent as EQUALS.
     TokenKind op = augmentedAssignments.get(token.kind);
     if (token.kind == TokenKind.EQUALS || op != null) {
+      // Assignment.
       int opOffset = nextToken();
-      Expression rhs = parseExpression();
+      Expression rhs = parseExpr();
+      // Validate usage of type annotation if present.
+      if (type != null) {
+        if (!(lhs instanceof Identifier)) {
+          syntaxError(
+              colonOffset,
+              TokenKind.COLON,
+              null,
+              "type annotations must have a single identifier on the left-hand side");
+          type = null;
+        }
+        if (op != null) {
+          syntaxError(
+              colonOffset,
+              TokenKind.COLON,
+              null,
+              "type annotations not allowed on augmented assignment statements");
+          type = null;
+        }
+      }
       // op == null for ordinary assignment. TODO(adonovan): represent as EQUALS.
-      return new AssignmentStatement(locs, lhs, op, opOffset, rhs);
+      return new AssignmentStatement(locs, lhs, type, op, opOffset, rhs);
+    } else if (type != null) {
+      // Var statement.
+      if (!(lhs instanceof Identifier id)) {
+        syntaxError(
+            colonOffset,
+            TokenKind.COLON,
+            null,
+            "type annotations must have a single identifier on the left-hand side");
+        return new ExpressionStatement(
+            locs, makeErrorExpression(lhs.getStartOffset(), type.getEndOffset()));
+      }
+      return new VarStatement(locs, id, type);
     } else {
+      // Not an assignment or var statement, so must be an expression.
       return new ExpressionStatement(locs, lhs);
     }
   }
@@ -1187,27 +1566,29 @@ final class Parser {
     int forOffset = expect(TokenKind.FOR);
     Expression vars = parseForLoopVariables();
     expect(TokenKind.IN);
-    Expression collection = parseExpression();
+    Expression collection = parseExpr();
     expect(TokenKind.COLON);
     ImmutableList<Statement> body = parseSuite();
     return new ForStatement(locs, forOffset, vars, collection, body);
   }
 
-  // def_stmt = DEF IDENTIFIER '(' arguments ')' ':' suite
+  // def_stmt = DEF IDENTIFIER optional_type_parameters '(' arguments ')' ['->' TypeExpr] ':' suite
   private DefStatement parseDefStatement() {
     int defOffset = expect(TokenKind.DEF);
     Identifier ident = parseIdent();
+    ImmutableList<Identifier> typeParams = parseOptionalTypeParameters();
     expect(TokenKind.LPAREN);
-    ImmutableList<Parameter> params = parseParameters();
+    ImmutableList<Parameter> params = parseParameters(/* defStatement= */ true);
     expect(TokenKind.RPAREN);
+    Expression returnType = maybeParseTypeAnnotationAfter(TokenKind.RARROW);
     expect(TokenKind.COLON);
     ImmutableList<Statement> block = parseSuite();
-    return new DefStatement(locs, defOffset, ident, params, block);
+    return new DefStatement(locs, defOffset, ident, typeParams, params, returnType, block);
   }
 
   // Parse a list of function parameters.
   // Validation of parameter ordering and uniqueness is the job of the Resolver.
-  private ImmutableList<Parameter> parseParameters() {
+  private ImmutableList<Parameter> parseParameters(boolean defStatement) {
     boolean hasParam = false;
     ImmutableList.Builder<Parameter> list = ImmutableList.builder();
 
@@ -1221,7 +1602,7 @@ final class Parser {
           break;
         }
       }
-      Parameter param = parseParameter();
+      Parameter param = parseParameter(defStatement);
       hasParam = true;
       list.add(param);
     }
@@ -1256,7 +1637,7 @@ final class Parser {
 
     Expression result = null;
     if (!STATEMENT_TERMINATOR_SET.contains(token.kind)) {
-      result = parseExpression();
+      result = parseExpr();
     }
     return new ReturnStatement(locs, returnOffset, result);
   }

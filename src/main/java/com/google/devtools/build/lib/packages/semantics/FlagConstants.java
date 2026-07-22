@@ -22,9 +22,11 @@ class FlagConstants {
   private FlagConstants() {}
 
   public static final String DEFAULT_EXPERIMENTAL_RULE_EXTENSION_API = "true";
-  public static final String DEFAULT_EXPERIMENTAL_RULE_EXTENSION_API_NAME = "+experimental_rule_extension_api";
+  public static final String DEFAULT_EXPERIMENTAL_RULE_EXTENSION_API_NAME =
+      "+experimental_rule_extension_api";
 
-  // TODO - ilist@: once Java providers are removed, the whole line can be compressed to "@rules_java"
+  // TODO - ilist@: once Java providers are removed, the whole line can be compressed to
+  // "@rules_java"
   public static final String DEFAULT_INCOMPATIBLE_AUTOLOAD_EXTERNALLY =
       "+@rules_python," +
       "+java_common,+JavaInfo,+JavaPluginInfo,ProguardSpecProvider," +
@@ -33,6 +35,14 @@ class FlagConstants {
       "@com_google_protobuf," +
       "@rules_shell," +
       "+@rules_android";
+
+  // Enable annotations, but not actual type checking, with the effect that the parser tolerates
+  // arbitrary expressions in annotations for now.
+  public static final String EXPERIMENTAL_STARLARK_TYPE_SYNTAX_FLAG_NAME =
+      "+experimental_starlark_type_syntax";
+  public static final String DEFAULT_EXPERIMENTAL_STARLARK_TYPE_SYNTAX = "true";
+  public static final String DEFAULT_EXPERIMENTAL_STARLARK_TYPE_CHECKING = "false";
+  public static final String DEFAULT_EXPERIMENTAL_STARLARK_TYPES_ALLOWED_PATHS = "";
 
   public static final String DEFAULT_INCOMPATIBLE_PACKAGE_GROUP_HAS_PUBLIC_SYNTAX = "true";
   public static final String DEFAULT_INCOMPATIBLE_FIX_PACKAGE_GROUP_REPOROOT_SYNTAX = "true";
