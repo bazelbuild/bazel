@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
 import com.google.devtools.build.lib.analysis.test.TestActionContext.AttemptGroup;
 import com.google.devtools.build.lib.analysis.test.TestActionContext.ProcessedAttemptResult;
@@ -509,11 +510,11 @@ public class TestRunnerAction extends AbstractAction
     RunUnder runUnder = executionSettings.getRunUnder();
     fp.addString(runUnder == null ? "" : runUnder.value());
     fp.addStringMap(coverageEnv);
-    extraTestEnv.addTo(fp);
+    extraTestEnv.addTo(CoreOptions.OutputPathsMode.OFF, fp);
     // TODO(ulfjack): It might be better for performance to hash the action and test envs in config,
     // and only add a hash here.
-    configuration.getActionEnvironment().addTo(fp);
-    configuration.getTestActionEnvironment().addTo(fp);
+    configuration.getActionEnvironment().addTo(CoreOptions.OutputPathsMode.OFF, fp);
+    configuration.getTestActionEnvironment().addTo(CoreOptions.OutputPathsMode.OFF, fp);
     // The 'requiredClientEnvVariables' are handled by Skyframe and don't need to be added here.
     fp.addString(testProperties.getSize().toString());
     fp.addString(testProperties.getTimeout().toString());

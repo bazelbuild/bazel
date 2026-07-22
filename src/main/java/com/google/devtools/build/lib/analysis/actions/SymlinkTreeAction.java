@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.actions.RichDataProducingAction;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.RunfileSymlinksMode;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -205,7 +206,7 @@ public final class SymlinkTreeAction extends AbstractAction implements RichDataP
     fp.addString(GUID);
     fp.addNullableString(workspaceNameForFileset);
     fp.addInt(runfileSymlinksMode.ordinal());
-    env.addTo(fp);
+    env.addTo(CoreOptions.OutputPathsMode.OFF, fp);
     // We need to ensure that the fingerprints for two different instances of this action are
     // different. Consider the hypothetical scenario where we add a second runfiles object to this
     // class, which could also be null: the sequence

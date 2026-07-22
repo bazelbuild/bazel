@@ -244,7 +244,7 @@ public abstract class AbstractAction extends ActionKeyComputer implements Action
     ActionEnvironment env = getEnvironment();
     Map<String, String> effectiveEnvironment =
         Maps.newLinkedHashMapWithExpectedSize(env.estimatedSize());
-    env.resolve(effectiveEnvironment, clientEnv);
+    env.resolve(effectiveEnvironment, clientEnv, pathMapper);
     return ImmutableMap.copyOf(effectiveEnvironment);
   }
 

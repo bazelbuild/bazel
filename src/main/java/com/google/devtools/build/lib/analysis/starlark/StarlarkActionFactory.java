@@ -824,9 +824,16 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       builder.setProgressMessageFromStarlark((String) progressMessage);
     }
 
-    ImmutableMap<String, String> env = ImmutableMap.of();
+    ImmutableMap<String, /* String | Artifact */ Object> env = ImmutableMap.of();
     if (envUnchecked != Starlark.NONE) {
-      env = ImmutableMap.copyOf(Dict.cast(envUnchecked, String.class, String.class, "env"));
+      env = ImmutableMap.copyOf(Dict.cast(envUnchecked, String.class, Object.class, "env"));
+      for (Map.Entry<String, Object> entry : env.entrySet()) {
+        if (!(entry.getValue() instanceof String || entry.getValue() instanceof Artifact)) {
+          throw Starlark.errorf(
+              "expected value of type 'string' or 'File' for env variable '%s', but got %s instead",
+              entry.getKey(), Starlark.type(entry.getValue()));
+        }
+      }
     }
     if (Starlark.truth(useDefaultShellEnv)) {
       builder.useDefaultShellEnvironment(env);
