@@ -2241,6 +2241,35 @@ public class RemoteExecutionServiceTest {
   }
 
   @Test
+  public void downloadOutputs_inlinedContents_mismatchingDigest_notVerifiedWhenDisabled()
+      throws Exception {
+    // With --noremote_verify_downloads the inline path skips verification, matching the other
+    // blob download paths, and the unverified contents are served as-is.
+    remoteOptions.setRemoteVerifyDownloads(false);
+    Digest digestOfContent1 = digestUtil.computeAsUtf8("content1");
+    ActionResult r =
+        ActionResult.newBuilder()
+            .setExitCode(0)
+            .addOutputFiles(
+                OutputFile.newBuilder()
+                    .setPath("outputs/file1")
+                    .setDigest(digestOfContent1)
+                    .setContents(ByteString.copyFromUtf8("tampered")))
+            .build();
+    RemoteActionResult result = RemoteActionResult.createFromCache(CachedActionResult.remote(r));
+    Spawn spawn = newSpawnFromResultWithInMemoryOutput(result, PathFragment.create("outputs/file1"));
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
+    RemoteExecutionService service = newRemoteExecutionService();
+    RemoteAction action = service.buildRemoteAction(spawn, context);
+    createOutputDirectories(spawn);
+
+    InMemoryOutput inMemoryOutput = service.downloadOutputs(action, result);
+
+    assertThat(inMemoryOutput).isNotNull();
+    assertThat(inMemoryOutput.getContents()).isEqualTo(ByteString.copyFromUtf8("tampered"));
+  }
+
+  @Test
   public void downloadOutputs_missingInMemoryOutput_returnsNull() throws Exception {
     // Test that downloadOutputs returns null if a declared in-memory output is missing from action
     // result.

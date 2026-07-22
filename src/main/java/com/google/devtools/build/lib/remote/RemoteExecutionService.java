@@ -649,13 +649,19 @@ public class RemoteExecutionService {
         CombinedCache combinedCache,
         DigestUtil digestUtil,
         RemoteActionExecutionContext context,
-        RemotePathResolver remotePathResolver)
+        RemotePathResolver remotePathResolver,
+        boolean verifyDownloads)
         throws IOException, InterruptedException {
       if (metadata == null) {
         try (SilentCloseable c = Profiler.instance().profile("Remote.parseActionResultMetadata")) {
           metadata =
               parseActionResultMetadata(
-                  combinedCache, digestUtil, context, actionResult, remotePathResolver);
+                  combinedCache,
+                  digestUtil,
+                  context,
+                  actionResult,
+                  remotePathResolver,
+                  verifyDownloads);
         }
       }
       return metadata;
@@ -796,7 +802,8 @@ public class RemoteExecutionService {
               combinedCache,
               digestUtil,
               action.getRemoteActionExecutionContext(),
-              action.getRemotePathResolver());
+              action.getRemotePathResolver(),
+              remoteOptions.getRemoteVerifyDownloads());
 
       // If we already know digests referenced by this AC is missing from remote cache, ignore it so
       // that we can fall back to execution. This could happen when the remote cache is an HTTP
@@ -1114,7 +1121,8 @@ public class RemoteExecutionService {
       DigestUtil digestUtil,
       RemoteActionExecutionContext context,
       ActionResult result,
-      RemotePathResolver remotePathResolver)
+      RemotePathResolver remotePathResolver,
+      boolean verifyDownloads)
       throws IOException, InterruptedException {
     checkNotNull(combinedCache, "combinedCache can't be null");
 
@@ -1167,11 +1175,12 @@ public class RemoteExecutionService {
       Path localPath =
           remotePathResolver.outputPathToLocalPath(unicodeToInternal(outputFile.getPath()));
       ByteString contents = outputFile.getContents();
-      if (!contents.isEmpty()) {
+      if (verifyDownloads && !contents.isEmpty()) {
         // Inlined output bytes are consumed directly (e.g. for in-memory outputs
         // such as unused_inputs_list). They bypass the digest-keyed download path
         // that verifies content via Utils.verifyBlobContents, so verify them here
-        // against the accompanying digest before they are trusted.
+        // against the accompanying digest before they are trusted. Gated on
+        // --remote_verify_downloads to stay consistent with the other blob paths.
         Digest contentDigest = digestUtil.compute(contents::writeTo);
         if (!contentDigest.equals(outputFile.getDigest())) {
           OutputDigestMismatchException e =
@@ -1257,7 +1266,11 @@ public class RemoteExecutionService {
 
     ActionResultMetadata metadata =
         result.getOrParseActionResultMetadata(
-            combinedCache, digestUtil, context, action.getRemotePathResolver());
+            combinedCache,
+            digestUtil,
+            context,
+            action.getRemotePathResolver(),
+            remoteOptions.getRemoteVerifyDownloads());
 
     // The expiration time for remote cache entries.
     var expirationTime = Instant.now().plus(remoteOptions.getRemoteCacheTtl());
