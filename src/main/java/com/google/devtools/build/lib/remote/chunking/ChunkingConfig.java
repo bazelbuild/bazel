@@ -57,8 +57,11 @@ public record ChunkingConfig(int avgChunkSize, int normalizationLevel, int seed)
     FastCdc2020Params params = cacheCap.getFastCdc2020Params();
     int avgSize = DEFAULT_AVG_CHUNK_SIZE;
     long configAvgSize = params.getAvgChunkSizeBytes();
+    // The mask table tops out at 25 bits, and the normalization level adds to log2 of the average
+    // chunk size, so the largest permissible average is 2^(25 - normalizationLevel). For the
+    // default normalization level of 2, that is 8 MiB.
     if (configAvgSize >= 1024
-        && configAvgSize <= 1024 * 1024
+        && configAvgSize <= (1L << (25 - DEFAULT_NORMALIZATION_LEVEL))
         && (configAvgSize & (configAvgSize - 1)) == 0) {
       avgSize = (int) configAvgSize;
     }
