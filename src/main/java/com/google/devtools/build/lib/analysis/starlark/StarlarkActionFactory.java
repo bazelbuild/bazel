@@ -30,9 +30,11 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.ResourceSetOrBuilder;
+import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.actions.extra.SpawnInfo;
@@ -418,7 +420,8 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       Object execGroupUnchecked,
       Object shadowedActionUnchecked,
       Object resourceSetUnchecked,
-      Object toolchainUnchecked)
+      Object toolchainUnchecked,
+      Object stdoutUnchecked)
       throws EvalException, InterruptedException {
     context.checkMutable("actions.run");
     execGroupUnchecked = context.maybeOverrideExecGroup(execGroupUnchecked);
@@ -469,6 +472,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
         shadowedActionUnchecked,
         resourceSetUnchecked,
         toolchainUnchecked,
+        stdoutUnchecked,
         builder);
   }
 
@@ -682,6 +686,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
         shadowedActionUnchecked,
         resourceSetUnchecked,
         toolchainUnchecked,
+        /* stdoutUnchecked= */ Starlark.NONE,
         builder);
   }
 
@@ -734,6 +739,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       Object shadowedActionUnchecked,
       Object resourceSetUnchecked,
       Object toolchainUnchecked,
+      Object stdoutUnchecked,
       StarlarkAction.Builder builder)
       throws EvalException {
     if (inputs instanceof Sequence) {
@@ -743,10 +749,36 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     }
 
     List<Artifact> outputArtifacts = Sequence.cast(outputs, Artifact.class, "outputs");
-    if (outputArtifacts.isEmpty()) {
-      throw Starlark.errorf("param 'outputs' may not be empty");
+
+    Artifact stdoutOutput = null;
+    if (stdoutUnchecked != Starlark.NONE) {
+      if (!(stdoutUnchecked instanceof Artifact artifact)) {
+        throw Starlark.errorf(
+            "expected value of type 'File' for parameter 'stdout' but got %s instead",
+            Starlark.type(stdoutUnchecked));
+      }
+      if (artifact.isTreeArtifact()) {
+        throw Starlark.errorf("param 'stdout' may not be a declared directory");
+      }
+      if (artifact.isSymlink()) {
+        throw Starlark.errorf("param 'stdout' may not be a declared symlink");
+      }
+      if (outputArtifacts.contains(artifact)) {
+        throw Starlark.errorf(
+            "file '%s' passed to 'stdout' may not also be listed in 'outputs'",
+            artifact.getExecPathString());
+      }
+      stdoutOutput = artifact;
+    }
+
+    if (outputArtifacts.isEmpty() && stdoutOutput == null) {
+      throw Starlark.errorf("param 'outputs' may not be empty while 'stdout' is not set");
     }
     builder.addOutputs(outputArtifacts);
+    if (stdoutOutput != null) {
+      builder.addOutput(stdoutOutput);
+      builder.setStdoutOutput(stdoutOutput);
+    }
 
     if (unusedInputsList != Starlark.NONE) {
       if (unusedInputsList instanceof Artifact artifact) {
@@ -839,6 +871,16 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
             executionRequirementsUnchecked,
             ruleContext.getRule(),
             getSemantics().getBool(BuildLanguageOptions.INCOMPATIBLE_ALLOW_TAGS_PROPAGATION));
+
+    // A persistent worker communicates via stdout, so we cannot capture it.
+    if (stdoutOutput != null
+        && (Spawns.supportsWorkers(executionInfo)
+            || Spawns.supportsMultiplexWorkers(executionInfo))) {
+      throw Starlark.errorf(
+          "parameter 'stdout' of actions.run is incompatible with worker execution (the"
+              + " '%s' or '%s' execution requirement)",
+          ExecutionRequirements.SUPPORTS_WORKERS, ExecutionRequirements.SUPPORTS_MULTIPLEX_WORKERS);
+    }
     builder.setExecutionInfo(executionInfo);
 
     String execGroup = determineExecGroup(ruleContext, execGroupUnchecked, toolchainUnchecked);

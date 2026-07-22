@@ -96,6 +96,88 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     assertOutputsDoNotExist("//:foobar");
   }
 
+  // The trailing line break cannot be avoided with a batch tool on Windows.
+  private static final String CAPTURED_STDOUT =
+      OS.getCurrent() == OS.WINDOWS ? "hello stdout\r\n" : "hello stdout";
+
+  private void writeStdoutRule() throws IOException {
+    // A rule whose only output is the captured stdout of a tool invoked via ctx.actions.run.
+    boolean isWindows = OS.getCurrent() == OS.WINDOWS;
+    write(
+        "a/defs.bzl",
+        """
+        def _impl(ctx):
+            tool = ctx.actions.declare_file(ctx.label.name + "%s")
+            ctx.actions.write(
+                tool,
+                %s,
+                is_executable = True,
+            )
+            out = ctx.actions.declare_file(ctx.label.name + ".out")
+            ctx.actions.run(
+                outputs = [],
+                executable = tool,
+                stdout = out,
+                mnemonic = "Capture",
+            )
+            return DefaultInfo(files = depset([out]))
+
+        capture = rule(implementation = _impl)
+        """
+            .formatted(
+                isWindows ? ".bat" : ".sh",
+                isWindows
+                    ? "\"@echo off\\necho hello stdout\\n\""
+                    : "\"#!/bin/bash\\nprintf '%s' 'hello stdout'\\n\""));
+    write(
+        "a/BUILD",
+        """
+        load(":defs.bzl", "capture")
+
+        capture(name = "capture")
+        """);
+  }
+
+  @Test
+  public void stdoutOutput_notDownloadedUnderMinimal() throws Exception {
+    // The stdout output is an ordinary output: under build-without-the-bytes it is not eagerly
+    // downloaded, but its (remote) metadata is available.
+    if (!hasAccessToRemoteOutputs()) {
+      return;
+    }
+    writeStdoutRule();
+
+    buildTarget("//a:capture");
+    waitDownloads();
+
+    assertOnlyOutputRemoteContent("//a:capture", "capture.out", CAPTURED_STDOUT);
+  }
+
+  @Test
+  public void stdoutOutput_downloadedWithRegex() throws Exception {
+    // remote_download_regex matching the stdout file forces it to be downloaded, just like any
+    // other output.
+    writeStdoutRule();
+    addOptions("--remote_download_regex=.*capture\\.out$");
+
+    buildTarget("//a:capture");
+    waitDownloads();
+
+    assertOnlyOutputContent("//a:capture", "capture.out", CAPTURED_STDOUT);
+  }
+
+  @Test
+  public void stdoutOutput_downloadTopLevel() throws Exception {
+    // Requesting top-level outputs downloads the stdout output with its captured content.
+    setDownloadToplevel();
+    writeStdoutRule();
+
+    buildTarget("//a:capture");
+    waitDownloads();
+
+    assertOnlyOutputContent("//a:capture", "capture.out", CAPTURED_STDOUT);
+  }
+
   @Test
   public void disableRunfiles_buildSuccessfully() throws Exception {
     // Disable on Windows since it fails for unknown reasons.

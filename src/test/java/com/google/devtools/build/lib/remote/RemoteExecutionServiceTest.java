@@ -27,6 +27,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Comparator.naturalOrder;
 import static java.util.function.Function.identity;
 import static org.junit.Assert.assertThrows;
+import static org.mockito.AdditionalAnswers.delegatesTo;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
@@ -1806,6 +1807,32 @@ public class RemoteExecutionServiceTest {
   }
 
   @Test
+  public void downloadOutputs_stdoutOutput_downloadedAsOutputFile() throws Exception {
+    // arrange
+    Digest dOut = cache.addContents(remoteActionExecutionContext, "hello stdout");
+    ActionResult r = ActionResult.newBuilder().setExitCode(0).setStdoutDigest(dOut).build();
+    RemoteActionResult result = RemoteActionResult.createFromCache(CachedActionResult.remote(r));
+    Path path = execRoot.getRelative("outputs/stdout.txt");
+    Artifact stdoutArtifact = ActionsTestUtil.createArtifact(artifactRoot, path);
+    Spawn spawn =
+        withStdout(newSpawn(ImmutableMap.of(), ImmutableSet.of(stdoutArtifact)), stdoutArtifact);
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
+    RemoteExecutionService service = newRemoteExecutionService();
+    RemoteAction action = service.buildRemoteAction(spawn, context);
+    when(remoteOutputChecker.shouldDownloadOutput(ArgumentMatchers.<PathFragment>any(), any()))
+        .thenReturn(true);
+
+    // act
+    service.downloadOutputs(action, result);
+
+    // assert: the captured stdout is materialized as the output file instead of being reported
+    // as regular action stdout.
+    assertThat(readContent(path, UTF_8)).isEqualTo("hello stdout");
+    assertThat(outErr.getOutputPath().exists()).isFalse();
+    assertThat(context.isLockOutputFilesCalled()).isTrue();
+  }
+
+  @Test
   public void downloadOutputs_outputNameClashesWithTempName_success() throws Exception {
     Digest d1 = cache.addContents(remoteActionExecutionContext, "content1");
     Digest d2 = cache.addContents(remoteActionExecutionContext, "content2");
@@ -2611,6 +2638,42 @@ public class RemoteExecutionServiceTest {
   }
 
   @Test
+  public void uploadOutputs_stdoutOutput_uploadedAsStdoutDigest() throws Exception {
+    // arrange
+    Digest stdoutDigest =
+        fakeFileCache.createScratchInput(
+            ActionInputHelper.fromPath("outputs/stdout.txt"), "hello stdout");
+    Path path = execRoot.getRelative("outputs/stdout.txt");
+    Artifact stdoutArtifact = ActionsTestUtil.createArtifact(artifactRoot, path);
+    Spawn spawn =
+        withStdout(newSpawn(ImmutableMap.of(), ImmutableSet.of(stdoutArtifact)), stdoutArtifact);
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
+    RemoteExecutionService service = newRemoteExecutionService();
+    RemoteAction action = service.buildRemoteAction(spawn, context);
+    SpawnResult spawnResult =
+        new SpawnResult.Builder()
+            .setExitCode(0)
+            .setStatus(SpawnResult.Status.SUCCESS)
+            .setRunnerName("test")
+            .build();
+
+    // act
+    UploadManifest manifest = service.buildUploadManifest(action, spawnResult);
+    uploadOutputsAndWait(service, action, spawnResult);
+
+    // assert: the captured stdout is stored as the action result's stdout digest rather than as
+    // an output file, consistent with the result of a remotely executed action.
+    ActionResult.Builder expectedResult = ActionResult.newBuilder();
+    expectedResult.setStdoutDigest(stdoutDigest);
+    assertThat(manifest.getActionResult()).isEqualTo(expectedResult.build());
+    assertThat(
+            getFromFuture(
+                cache.findMissingDigests(
+                    remoteActionExecutionContext, ImmutableList.of(stdoutDigest))))
+        .isEmpty();
+  }
+
+  @Test
   public void uploadInputsIfNotPresent_deduplicateFindMissingBlobCalls() throws Exception {
     int taskCount = 100;
     ExecutorService executorService = Executors.newFixedThreadPool(taskCount);
@@ -3146,6 +3209,13 @@ public class RemoteExecutionServiceTest {
         /* inputs= */ inputs,
         /* outputs= */ outputs,
         ResourceSet.ZERO);
+  }
+
+  /** Returns a spawn that redirects its stdout into the given output. */
+  private static Spawn withStdout(Spawn spawn, Artifact stdout) {
+    Spawn spawnWithStdout = mock(Spawn.class, delegatesTo(spawn));
+    doReturn(stdout).when(spawnWithStdout).getStdout();
+    return spawnWithStdout;
   }
 
   private FakeSpawnExecutionContext newSpawnExecutionContext(Spawn spawn) {
