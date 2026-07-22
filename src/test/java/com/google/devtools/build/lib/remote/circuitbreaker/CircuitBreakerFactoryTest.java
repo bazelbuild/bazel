@@ -61,10 +61,10 @@ public class CircuitBreakerFactoryTest {
     // rate, which exceeds the 10% threshold. This would not trip under the default min call count
     // of 100, proving the flag took effect.
     for (int i = 0; i < 4; i++) {
-      circuitBreaker.recordSuccess();
+      circuitBreaker.recordSuccess(State.ACCEPT_CALLS);
     }
     assertThat(circuitBreaker.state()).isEqualTo(State.ACCEPT_CALLS);
-    circuitBreaker.recordFailure();
+    circuitBreaker.recordFailure(State.ACCEPT_CALLS);
     assertThat(circuitBreaker.state()).isEqualTo(State.REJECT_CALLS);
   }
 }
