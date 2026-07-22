@@ -79,7 +79,7 @@ public class ZipDecompressor implements Decompressor {
   public Path decompress(DecompressorDescriptor descriptor)
       throws IOException, InterruptedException {
     Path destinationDirectory = descriptor.destinationPath();
-    Optional<String> prefix = descriptor.prefix();
+    String prefix = descriptor.prefix();
     int stripComponents = descriptor.stripComponents();
     Map<String, String> renameFiles = descriptor.renameFiles();
     boolean foundPrefix = false;
@@ -92,7 +92,7 @@ public class ZipDecompressor implements Decompressor {
         String entryName = entry.getName();
         entryName = renameFiles.getOrDefault(entryName, entryName);
         StripPrefixedPath entryPath =
-            StripPrefixedPath.maybeDeprefix(entryName.getBytes(UTF_8), prefix.orElse(""), stripComponents);
+            StripPrefixedPath.maybeDeprefix(entryName.getBytes(UTF_8), prefix, stripComponents);
         foundPrefix = foundPrefix || entryPath.foundPrefix();
         if (entryPath.skip()) {
           continue;
@@ -107,7 +107,7 @@ public class ZipDecompressor implements Decompressor {
             symlinks);
       }
 
-      if (prefix.isPresent() && !foundPrefix) {
+      if (!prefix.isEmpty() && !foundPrefix) {
         Set<String> prefixes = new HashSet<>();
         for (ZipFileEntry entry : entries) {
           StripPrefixedPath entryPath =
@@ -115,7 +115,7 @@ public class ZipDecompressor implements Decompressor {
           CouldNotFindPrefixException.maybeMakePrefixSuggestion(entryPath.getPathFragment())
               .ifPresent(prefixes::add);
         }
-        throw new CouldNotFindPrefixException(prefix.get(), prefixes);
+        throw new CouldNotFindPrefixException(prefix, prefixes);
       }
     }
 
@@ -131,7 +131,7 @@ public class ZipDecompressor implements Decompressor {
       ZipFileEntry entry,
       Path destinationDirectory,
       PathFragment strippedRelativePath,
-      Optional<String> prefix,
+      String prefix,
       int stripComponents,
       Map<Path, PathFragment> symlinks)
       throws IOException, InterruptedException {
@@ -175,7 +175,7 @@ public class ZipDecompressor implements Decompressor {
       symlinks.put(
           outputPath,
           maybeDeprefixSymlink(
-              buffer, prefix.orElse(""), stripComponents, destinationDirectory, /* forceExtractRootRelative= */ false));
+              buffer, prefix, stripComponents, destinationDirectory, /* forceExtractRootRelative= */ false));
     } else {
       try (InputStream input = reader.getInputStream(entry);
           OutputStream output = outputPath.getOutputStream()) {

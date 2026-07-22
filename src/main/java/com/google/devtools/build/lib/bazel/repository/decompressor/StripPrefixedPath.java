@@ -53,7 +53,7 @@ public final class StripPrefixedPath {
    */
   public static StripPrefixedPath maybeDeprefix(byte[] entry, String prefix, int stripComponents) {
     Preconditions.checkNotNull(entry);
-    Preconditions.checkArgument(!(!prefix.isEmpty() && stripComponents != 0),
+    Preconditions.checkArgument(prefix.isEmpty() || stripComponents == 0,
         "Only one of prefix or strip_components can be set.");
 
     PathFragment entryPath = relativize(entry);
@@ -148,7 +148,7 @@ public final class StripPrefixedPath {
       int stripComponents,
       Path root,
       boolean forceExtractRootRelative) {
-    Preconditions.checkArgument(!(!prefix.isEmpty() && stripComponents != 0),
+    Preconditions.checkArgument(prefix.isEmpty() || stripComponents == 0,
         "Only one of prefix or strip_components can be set.");
     boolean wasAbsolute = createPathFragment(rawTarget).isAbsolute();
     if (wasAbsolute || forceExtractRootRelative) {

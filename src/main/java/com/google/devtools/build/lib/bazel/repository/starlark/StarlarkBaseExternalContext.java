@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.bazel.repository.RepositoryUtils;
 import com.google.devtools.build.lib.bazel.repository.cache.DownloadCache;
 import com.google.devtools.build.lib.bazel.repository.cache.DownloadCache.KeyType;
 import com.google.devtools.build.lib.bazel.repository.decompressor.DecompressorDescriptor;
-import com.google.devtools.build.lib.bazel.repository.decompressor.DecompressorDescriptor.Builder;
 import com.google.devtools.build.lib.bazel.repository.decompressor.DecompressorValue;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
@@ -1175,17 +1174,17 @@ Strip the given number of leading components from file paths on extraction. Only
           .post(
               new ExtractProgress(
                   outputPath.getPath().toString(), "Extracting " + downloadedPath.getBaseName()));
-      Builder ddb = DecompressorDescriptor.builder()
+      DecompressorDescriptor.Builder descriptorBuilder = DecompressorDescriptor.builder()
           .setContext(identifyingStringForLogging)
           .setArchivePath(downloadedPath)
           .setDestinationPath(outputPath.getPath())
           .setStripComponents(stripComponents)
           .setRenameFiles(renameFilesMap);
       if (!stripPrefix.isEmpty()) {
-        ddb.setPrefix(stripPrefix);
+        descriptorBuilder.setPrefix(stripPrefix);
       }
       DecompressorValue.decompress(
-          ddb.build(),
+          descriptorBuilder.build(),
           // Type does NOT need to be passed here, as the existing code renames the archive path to
           // include the type extension. The decompression code then uses the file extension to get
           // the proper decompressor.
@@ -1385,7 +1384,7 @@ Strip the given number of leading components from file paths on extraction. Only
         .post(
             new ExtractProgress(
                 outputPath.getPath().toString(), "Extracting " + archivePath.getBasename()));
-    Builder ddb =
+    DecompressorDescriptor.Builder descriptorBuilder =
         DecompressorDescriptor.builder()
             .setContext(identifyingStringForLogging)
             .setArchivePath(archivePath.getPath())
@@ -1393,9 +1392,10 @@ Strip the given number of leading components from file paths on extraction. Only
             .setStripComponents(stripComponents)
             .setRenameFiles(renameFilesMap);
     if (!stripPrefix.isEmpty()) {
-      ddb.setPrefix(stripPrefix);
+      descriptorBuilder.setPrefix(stripPrefix);
     }
-    DecompressorValue.decompress(ddb.build(), Optional.ofNullable(type).filter(s -> !s.isBlank()));
+    DecompressorValue.decompress(
+        descriptorBuilder.build(), Optional.ofNullable(type).filter(s -> !s.isBlank()));
     env.getListener().post(new ExtractProgress(outputPath.getPath().toString()));
   }
 

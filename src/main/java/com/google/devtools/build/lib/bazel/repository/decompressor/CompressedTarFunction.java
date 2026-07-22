@@ -71,7 +71,7 @@ public abstract class CompressedTarFunction implements Decompressor {
     if (Thread.interrupted()) {
       throw new InterruptedException();
     }
-    Optional<String> prefix = descriptor.prefix();
+    String prefix = descriptor.prefix();
     int stripComponents = descriptor.stripComponents();
     Map<String, String> renameFiles = descriptor.renameFiles();
     boolean foundPrefix = false;
@@ -94,10 +94,10 @@ public abstract class CompressedTarFunction implements Decompressor {
         entryName = renameFiles.getOrDefault(entryName, entryName);
         StripPrefixedPath entryPath =
             StripPrefixedPath.maybeDeprefix(
-                entryName.getBytes(ISO_8859_1), prefix.orElse(""), stripComponents);
+                entryName.getBytes(ISO_8859_1), prefix, stripComponents);
         foundPrefix = foundPrefix || entryPath.foundPrefix();
 
-        if (prefix.isPresent() && !foundPrefix) {
+        if (!prefix.isEmpty() && !foundPrefix) {
           CouldNotFindPrefixException.maybeMakePrefixSuggestion(entryPath.getPathFragment())
               .ifPresent(availablePrefixes::add);
         }
@@ -128,7 +128,7 @@ public abstract class CompressedTarFunction implements Decompressor {
             PathFragment targetName =
                 maybeDeprefixSymlink(
                     toRawBytesString(entry.getLinkName()).getBytes(ISO_8859_1),
-                    prefix.orElse(""),
+                    prefix,
                     stripComponents,
                     descriptor.destinationPath(),
                     // Hard link target paths should be relative to the extraction directory.
@@ -198,8 +198,8 @@ public abstract class CompressedTarFunction implements Decompressor {
         FileSystemUtils.ensureSymbolicLink(linkPath, symlink.getValue());
       }
 
-      if (prefix.isPresent() && !foundPrefix) {
-        throw new CouldNotFindPrefixException(prefix.get(), availablePrefixes);
+      if (!prefix.isEmpty() && !foundPrefix) {
+        throw new CouldNotFindPrefixException(prefix, availablePrefixes);
       }
     }
 

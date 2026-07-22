@@ -281,6 +281,7 @@ public class CompressedTarFunctionTest {
   @Test
   public void decompressTarWithSymlinkSharingStripPrefix() throws Exception {
     // Creates the example archive described in https://github.com/bazelbuild/bazel/issues/30015.
+    // Also includes an absolute symlink to show it's deprefixed correctly.
     FileSystem fs = FileSystems.getNativeFileSystem();
     File archive = folder.newFile("symlink_with_same_strip_prefix.tar.gz");
     try (FileOutputStream fos = new FileOutputStream(archive);
@@ -322,6 +323,15 @@ public class CompressedTarFunctionTest {
       symbolicFile.setSize(0);
       tos.putArchiveEntry(symbolicFile);
       tos.closeArchiveEntry();
+
+      // Create an absolute symbolic link pointing to other_file:
+      // - a_prefix/abs_symbolic_file -> /a_prefix/a_prefix/other_file
+      TarArchiveEntry absSymbolicFile =
+          new TarArchiveEntry("a_prefix/abs_symbolic_file", TarArchiveEntry.LF_SYMLINK);
+      absSymbolicFile.setLinkName("/a_prefix/a_prefix/other_file");
+      absSymbolicFile.setSize(0);
+      tos.putArchiveEntry(absSymbolicFile);
+      tos.closeArchiveEntry();
     }
     Path archivePath = fs.getPath(archive.getAbsolutePath());
     Path extractPath = fs.getPath(folder.newFolder().getAbsolutePath());
@@ -334,6 +344,7 @@ public class CompressedTarFunctionTest {
             .build();
     Path outputDir = decompress(descriptor);
 
+    // Verify the relative symbolic link.
     Path outputSymbolicFile = outputDir.getRelative("symbolic_file");
     assertWithMessage("symbolic_file should exist")
         .that(outputSymbolicFile.exists(Symlinks.NOFOLLOW))
@@ -349,6 +360,24 @@ public class CompressedTarFunctionTest {
             Files.isSameFile(
                 java.nio.file.Paths.get(outputDir.getRelative("a_prefix/other_file").toString()),
                 java.nio.file.Paths.get(outputDir.getRelative("symbolic_file").toString())))
+        .isTrue();
+
+    // Verify the absolute symbolic link.
+    Path outputAbsSymbolicFile = outputDir.getRelative("abs_symbolic_file");
+    assertWithMessage("abs_symbolic_file should exist")
+        .that(outputSymbolicFile.exists(Symlinks.NOFOLLOW))
+        .isTrue();
+
+    Path absSymlinkTarget = outputDir.getRelative(outputAbsSymbolicFile.readSymbolicLink());
+    assertWithMessage("abs_symbolic_file target should exist: " + symlinkTarget.toString())
+        .that(absSymlinkTarget.exists())
+        .isTrue();
+
+    assertWithMessage("a_prefix/other_file and abs_symbolic_file should be the same file")
+        .that(
+            Files.isSameFile(
+                java.nio.file.Paths.get(outputDir.getRelative("a_prefix/other_file").toString()),
+                java.nio.file.Paths.get(outputDir.getRelative("abs_symbolic_file").toString())))
         .isTrue();
   }
 }
