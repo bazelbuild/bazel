@@ -28,22 +28,95 @@ import javax.annotation.Nullable;
 public interface FingerprintValueStore {
   /** Usage statistics. */
   @SkybridgeInterface
-  record Stats(
-      long valueBytesReceived,
-      long valueBytesSent,
-      long keyBytesSent,
-      long entriesWritten,
-      long entriesFound,
-      long entriesNotFound,
-      long getBatches,
-      long setBatches,
-      List<Bucket> getLatencyMicros,
-      List<Bucket> setLatencyMicros,
-      List<Bucket> getBatchLatencyMicros,
-      List<Bucket> setBatchLatencyMicros) {}
+  interface Stats {
+    long valueBytesReceived();
+
+    long valueBytesSent();
+
+    long keyBytesSent();
+
+    long entriesWritten();
+
+    long entriesFound();
+
+    long entriesNotFound();
+
+    long getBatches();
+
+    long setBatches();
+
+    List<Bucket> getLatencyMicros();
+
+    List<Bucket> setLatencyMicros();
+
+    List<Bucket> getBatchLatencyMicros();
+
+    List<Bucket> setBatchLatencyMicros();
+  }
 
   @SuppressWarnings("JdkImmutableCollections") // Keep the SkybridgeInterface simple.
-  Stats EMPTY_STATS = new Stats(0, 0, 0, 0, 0, 0, 0, 0, List.of(), List.of(), List.of(), List.of());
+  Stats EMPTY_STATS =
+      new Stats() {
+        @Override
+        public long valueBytesReceived() {
+          return 0;
+        }
+
+        @Override
+        public long valueBytesSent() {
+          return 0;
+        }
+
+        @Override
+        public long keyBytesSent() {
+          return 0;
+        }
+
+        @Override
+        public long entriesWritten() {
+          return 0;
+        }
+
+        @Override
+        public long entriesFound() {
+          return 0;
+        }
+
+        @Override
+        public long entriesNotFound() {
+          return 0;
+        }
+
+        @Override
+        public long getBatches() {
+          return 0;
+        }
+
+        @Override
+        public long setBatches() {
+          return 0;
+        }
+
+        @Override
+        public List<Bucket> getLatencyMicros() {
+          return List.of();
+        }
+
+        @Override
+        public List<Bucket> setLatencyMicros() {
+          return List.of();
+        }
+
+        @Override
+        public List<Bucket> getBatchLatencyMicros() {
+          return List.of();
+        }
+
+        @Override
+        public List<Bucket> setBatchLatencyMicros() {
+          return List.of();
+        }
+      };
 
   default Stats getStats() {
     return EMPTY_STATS;

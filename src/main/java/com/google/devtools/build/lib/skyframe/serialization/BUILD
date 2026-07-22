@@ -130,11 +130,11 @@ java_library(
         ":write_statuses",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis/proto:analysis_cache_service_miss_reason_java_proto",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//src/main/java/com/google/devtools/build/lib/unsafe:string",
         "//src/main/java/com/google/devtools/build/lib/unsafe:unsafe-provider",
+        "//src/main/java/com/google/devtools/build/lib/util:bucket",
         "//src/main/java/com/google/devtools/build/lib/util:decimal_bucketer",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:caffeine",
@@ -260,11 +260,20 @@ java_library(
 )
 
 java_library(
+    name = "stats_impl",
+    srcs = [
+        "StatsImpl.java",
+    ],
+    deps = [
+        ":fingerprint_value_store",
+        "//src/main/java/com/google/devtools/build/lib/util:bucket",
+    ],
+)
+
+java_library(
     name = "key_bytes_provider",
     srcs = ["KeyBytesProvider.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
-    ],
+    deps = ["//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface"],
 )
 
 java_library(
