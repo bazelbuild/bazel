@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStor
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheClient;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.proto.TopLevelTargetsMatchStatus;
+import com.google.devtools.build.lib.util.Bucket;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.worker.WorkerProcessMetrics;
 import com.google.devtools.build.lib.worker.WorkerProcessMetricsCollector;
@@ -983,14 +984,42 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
         .getRemoteAnalysisCachingEventListener()
         .recordServiceStats(
             FingerprintValueStore.EMPTY_STATS,
-            new RemoteAnalysisCacheClient.Stats(
-                /* bytesSent= */ 10,
-                /* bytesReceived= */ 2,
-                /* requestsSent= */ 100,
-                /* batches= */ 200,
-                /* latencyMicros= */ ImmutableList.of(),
-                /* batchLatencyMicros= */ ImmutableList.of(),
-                /* matchStatus= */ 999)); // invalid value
+            new RemoteAnalysisCacheClient.Stats() {
+              @Override
+              public long bytesSent() {
+                return 10;
+              }
+
+              @Override
+              public long bytesReceived() {
+                return 2;
+              }
+
+              @Override
+              public long requestsSent() {
+                return 100;
+              }
+
+              @Override
+              public long batches() {
+                return 200;
+              }
+
+              @Override
+              public ImmutableList<Bucket> latencyMicros() {
+                return ImmutableList.of();
+              }
+
+              @Override
+              public ImmutableList<Bucket> batchLatencyMicros() {
+                return ImmutableList.of();
+              }
+
+              @Override
+              public int matchStatus() {
+                return 999; // invalid value
+              }
+            });
 
     buildTarget("//foo:foo");
 
