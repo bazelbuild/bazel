@@ -620,8 +620,8 @@ public abstract sealed class Dict<K, V>
   }
 
   /** Implementation backed by a (non-dict) {@link Map}. */
-  // TODO: jhorvitz - This should be private but bazel_bootstrap_distfile_test is not picking up
-  //  https://bugs.openjdk.org/browse/JDK-8284011 for some reason.
+  // TODO: b/536902188 - Make private once we no longer have to worry about OpenJDK 21 in the bazel
+  // bootstrap test (https://bugs.openjdk.org/browse/JDK-8284011).
   abstract static sealed class MapBackedDict<K, V> extends Dict<K, V> {
     private Map<K, V> contents;
 

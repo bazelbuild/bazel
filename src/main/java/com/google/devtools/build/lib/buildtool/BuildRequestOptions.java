@@ -380,6 +380,19 @@ public abstract class BuildRequestOptions extends OptionsBase {
   public abstract boolean getRewindLostInputs();
 
   @Option(
+      name = "experimental_max_repeated_lost_inputs",
+      defaultValue = "20",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help =
+          "The maximum number of times action rewinding will try to recover the same lost input (or"
+              + " top-level output) for the same action before giving up and failing the build. Set"
+              + " this lower to fail fast on an unstable remote cache instead of repeatedly"
+              + " rewinding a single lost input; 0 fails on the first lost input. Only takes effect"
+              + " when --rewind_lost_inputs is enabled.")
+  public abstract int getMaxRepeatedLostInputs();
+
+  @Option(
       name = "experimental_precise_rewinding",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,

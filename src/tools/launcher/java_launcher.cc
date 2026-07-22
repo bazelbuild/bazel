@@ -14,6 +14,7 @@
 
 #include "src/tools/launcher/java_launcher.h"
 
+#include <fstream>
 #include <memory>
 #include <sstream>
 #include <string>
@@ -28,14 +29,11 @@
 #include "src/main/native/windows/process.h"
 #include "src/tools/launcher/util/launcher_util.h"
 
-#if (__cplusplus >= 201703L)
-#include <filesystem>  // NOLINT
-#endif
-
 namespace bazel {
 namespace launcher {
 
 using std::getline;
+using std::ofstream;
 using std::string;
 using std::vector;
 using std::wofstream;
@@ -99,6 +97,8 @@ bool JavaBinaryLauncher::ProcessWrapperArgument(const wstring& argument) {
     this->print_javabin = true;
   } else if (GetFlagValue(argument, L"--classpath_limit=", &flag_value)) {
     this->classpath_limit = std::stoi(flag_value);
+  } else if (GetFlagValue(argument, L"--java_version=", &flag_value)) {
+    this->java_version = std::stoi(flag_value);
   } else {
     return false;
   }
@@ -253,11 +253,7 @@ wstring JavaBinaryLauncher::CreateClasspathJar(const wstring& classpath) {
   wstring jar_manifest_file_path =
       binary_base_path + rand_id + L".jar_manifest";
   blaze_util::AddUncPrefixMaybe(&jar_manifest_file_path);
-#if (__cplusplus >= 201703L)
-  wofstream jar_manifest_file{std::filesystem::path(jar_manifest_file_path)};
-#else
-  wofstream jar_manifest_file(jar_manifest_file_path);
-#endif
+  wofstream jar_manifest_file{jar_manifest_file_path};
   jar_manifest_file << L"Manifest-Version: 1.0\n";
   // No line in the MANIFEST.MF file may be longer than 72 bytes.
   // A space prefix indicates the line is still the content of the last
@@ -291,6 +287,40 @@ wstring JavaBinaryLauncher::CreateClasspathJar(const wstring& classpath) {
   DeleteFileByPath(jar_manifest_file_path.c_str());
 
   return manifest_jar_path;
+}
+
+wstring JavaBinaryLauncher::CreateClasspathFlagfile(const wstring& classpath) {
+  wstring binary_base_path = GetBinaryPathWithoutExtension(GetLauncherPath());
+
+  // Wrap in quotes so that space isn't interpreted as an argument delimiter.
+  // Replace backslashes with forward slashes to avoid accidental interpretation
+  // as escape sequences.
+  wstring contents;
+  contents.reserve(classpath.length() + 3);
+  contents += L"\"";
+  for (const wchar_t& c : classpath) {
+    contents += (c == L'\\' ? L'/' : c);
+  }
+  contents += L"\"\n";
+
+  // Flagfiles must be UTF-8.
+  std::string contents_utf8;
+  if (!blaze_util::WcsToUtf8(contents, &contents_utf8)) {
+    die(L"Couldn't convert classpath to UTF-8: %s", contents.c_str());
+  }
+
+  // Enable long path support for flagfile_path.
+  wstring flagfile_path =
+      binary_base_path + L"-" + rand_id_ + L"-classpath.txt";
+  blaze_util::AddUncPrefixMaybe(&flagfile_path);
+  ofstream flagfile{flagfile_path};
+  flagfile << contents_utf8;
+  flagfile.close();
+  if (flagfile.fail()) {
+    die(L"Couldn't write classpath flagfile: %s", flagfile_path.c_str());
+  }
+
+  return flagfile_path;
 }
 
 ExitCode JavaBinaryLauncher::Launch() {
@@ -382,13 +412,20 @@ ExitCode JavaBinaryLauncher::Launch() {
   vector<wstring> arguments;
   // Add classpath flags
   arguments.push_back(L"-classpath");
-  // Check if CLASSPATH is over classpath length limit.
-  // If it does, then we create a classpath jar to pass CLASSPATH value.
+  // Check whether the classpath exceeds the length limit.
+  // If it does, spill it to a JAR (Java <= 8) or a flagfile (Java > 8).
   wstring classpath_str = classpath.str();
-  wstring classpath_jar = L"";
-  if (classpath_str.length() > this->classpath_limit) {
-    classpath_jar = CreateClasspathJar(classpath_str);
-    arguments.push_back(classpath_jar);
+  wstring classpath_file;
+  bool delete_junction_base_dir = false;
+  if (classpath_str.length() > classpath_limit) {
+    if (java_version <= 8) {
+      classpath_file = CreateClasspathJar(classpath_str);
+      arguments.push_back(classpath_file);
+      delete_junction_base_dir = true;
+    } else {
+      classpath_file = CreateClasspathFlagfile(classpath_str);
+      arguments.push_back(L"@" + classpath_file);
+    }
   } else {
     arguments.push_back(classpath_str);
   }
@@ -418,9 +455,11 @@ ExitCode JavaBinaryLauncher::Launch() {
 
   ExitCode exit_code = this->LaunchProcess(java_bin, arguments);
 
-  // Delete classpath jar file after execution.
-  if (!classpath_jar.empty()) {
-    DeleteFileByPath(classpath_jar.c_str());
+  // Delete classpath file after execution.
+  if (!classpath_file.empty()) {
+    DeleteFileByPath(classpath_file.c_str());
+  }
+  if (delete_junction_base_dir) {
     DeleteJunctionBaseDir();
   }
 

@@ -73,6 +73,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/exec:symlink_tree_helper",
         "//src/main/java/com/google/devtools/build/lib/exec:symlink_tree_strategy",
         "//src/main/java/com/google/devtools/build/lib/exec:test_log_helper",
+        "//src/main/java/com/google/devtools/build/lib/exec:test_xml_output_parser",
+        "//src/main/java/com/google/devtools/build/lib/exec:test_xml_output_parser_exception",
         "//src/main/java/com/google/devtools/build/lib/remote/options",
         "//src/main/java/com/google/devtools/build/lib/runtime:test_summary_options",
         "//src/main/java/com/google/devtools/build/lib/skyframe:tree_artifact_value",

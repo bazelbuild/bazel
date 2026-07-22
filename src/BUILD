@@ -222,24 +222,32 @@ sh_binary(
     ],
 )
 
+# The jlink tool must have the same build as the target JDK. When cross-jlinking
+# the Windows arm64 runtime on a Windows x64 host, jdk_for_jlink (the host's
+# embedded JDK) is Azul Zulu and would not match the BellSoft target, so a
+# matching BellSoft Windows x64 build is used as the jlink tool instead. These
+# selects are resolved in the target configuration, so they key on the target
+# platform even though the selected tool is built for (and runs on) the exec
+# platform.
+_JLINK_TOOL = select({
+    "//src/conditions:windows_arm64": ["@openjdk_win_arm64_jlink_tool//file"],
+    "//conditions:default": [":jdk_for_jlink"],
+})
+
+_JLINK_TOOL_LOCATION = select({
+    "//src/conditions:windows_arm64": "$(location @openjdk_win_arm64_jlink_tool//file)",
+    "//conditions:default": "$(location :jdk_for_jlink)",
+})
+
 genrule(
     name = "embedded_jdk_minimal",
     srcs = [
         ":embedded_jdk_vanilla",
         ":jdeps_modules.golden",
-    ] + select({
-        "//src/conditions:windows_arm64": ["@openjdk_win_arm64_jmods//file"],
-        "//conditions:default": [],
-    }),
-    outs = ["minimal_jdk.zip"],
-    cmd = "$(location :minimize_jdk) $(location :jdk_for_jlink) $(location :embedded_jdk_vanilla) $(location :jdeps_modules.golden) $@" + select({
-        "//src/conditions:windows_arm64": " $(location @openjdk_win_arm64_jmods//file)",
-        "//conditions:default": "",
-    }),
-    tools = [
-        ":jdk_for_jlink",
-        ":minimize_jdk",
     ],
+    outs = ["minimal_jdk.zip"],
+    cmd = "$(location :minimize_jdk) " + _JLINK_TOOL_LOCATION + " $(location :embedded_jdk_vanilla) $(location :jdeps_modules.golden) $@",
+    tools = [":minimize_jdk"] + _JLINK_TOOL,
     visibility = ["//src/test/shell/bazel:__pkg__"],
 )
 
@@ -248,19 +256,10 @@ genrule(
     srcs = [
         ":embedded_jdk_vanilla",
         ":jdeps_modules.golden",
-    ] + select({
-        "//src/conditions:windows_arm64": ["@openjdk_win_arm64_jmods//file"],
-        "//conditions:default": [],
-    }),
-    outs = ["allmodules_jdk.zip"],
-    cmd = "$(location :minimize_jdk) --allmodules $(location :jdk_for_jlink) $(location :embedded_jdk_vanilla) $(location :jdeps_modules.golden) $@" + select({
-        "//src/conditions:windows_arm64": " $(location @openjdk_win_arm64_jmods//file)",
-        "//conditions:default": "",
-    }),
-    tools = [
-        ":jdk_for_jlink",
-        ":minimize_jdk",
     ],
+    outs = ["allmodules_jdk.zip"],
+    cmd = "$(location :minimize_jdk) --allmodules " + _JLINK_TOOL_LOCATION + " $(location :embedded_jdk_vanilla) $(location :jdeps_modules.golden) $@",
+    tools = [":minimize_jdk"] + _JLINK_TOOL,
     visibility = ["//src/test/shell/bazel:__pkg__"],
 )
 

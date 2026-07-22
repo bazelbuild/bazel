@@ -87,4 +87,13 @@ public final class NativePosixFilesServiceImpl implements NativePosixFilesServic
     BugReport.sendNonFatalBugReport(
         new IllegalStateException("Path string does not have a Latin-1 coder: %s".formatted(path)));
   }
+
+  /** Concrete implementation of {@link NativePosixFilesService.Dirent} as a record. */
+  public static record DirentImpl(String name, NativePosixFilesService.Dirent.Type type)
+      implements NativePosixFilesService.Dirent {}
+
+  /** Concrete implementation of {@link NativePosixFilesService.Stat} as a record. */
+  @SuppressWarnings("GoodTime")
+  public static record StatImpl(int mode, long mtime, long ctime, long size, long ino)
+      implements NativePosixFilesService.Stat {}
 }

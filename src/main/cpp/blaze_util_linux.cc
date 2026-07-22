@@ -35,6 +35,8 @@
 #include "src/main/cpp/util/path.h"
 #include "src/main/cpp/util/port.h"
 #include "src/main/cpp/util/strings.h"
+#include "absl/strings/str_split.h"
+#include "absl/strings/string_view.h"
 
 namespace blaze {
 
@@ -158,6 +160,28 @@ string GetSystemJavabase() {
   return blaze_util::Dirname(blaze_util::Dirname(javac_dir));
 }
 
+bool ParseProcStat(absl::string_view statline, string* start_time) {
+  size_t last_parenthesis = statline.rfind(')');
+  if (last_parenthesis == absl::string_view::npos) {
+    return false;
+  }
+
+  // The remainder starts after the last ')' and the space following it.
+  absl::string_view remainder = statline.substr(last_parenthesis + 1);
+  vector<absl::string_view> stat_entries =
+      absl::StrSplit(remainder, ' ', absl::SkipEmpty());
+  // In /proc/[pid]/stat, field 22 (starttime) is at index 19 of remainder after
+  // stripping pid and comm.
+  constexpr int kStartTimeIndexInRemainder = 19;
+  if (stat_entries.size() <= kStartTimeIndexInRemainder) {
+    return false;
+  }
+
+  // Start time since startup in jiffies.
+  *start_time = string(stat_entries[kStartTimeIndexInRemainder]);
+  return true;
+}
+
 // Called from a signal handler!
 static bool GetStartTime(const string& pid, string* start_time) {
   string statfile = "/proc/" + pid + "/stat";
@@ -167,16 +191,11 @@ static bool GetStartTime(const string& pid, string* start_time) {
     return false;
   }
 
-  vector<string> stat_entries = blaze_util::Split(statline, ' ');
-  if (stat_entries.size() < 22) {
+  if (!ParseProcStat(statline, start_time)) {
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "Format of stat file at " << statfile
-        << " is unknown: " << GetLastErrorString();
+        << "Format of stat file at " << statfile << " is unknown";
   }
 
-  // Start time since startup in jiffies. This combined with the PID should be
-  // unique.
-  *start_time = stat_entries[21];
   return true;
 }
 

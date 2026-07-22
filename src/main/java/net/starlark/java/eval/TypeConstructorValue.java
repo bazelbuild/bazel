@@ -69,8 +69,9 @@ public sealed class TypeConstructorValue implements StarlarkValue, TypeConstruct
    * A {@link TypeConstructorValue} whose {@link TypeConstructor} may be invoked without type
    * arguments and may be used in {@code isinstance()} checks.
    */
-  private static final class AllowingNullary extends TypeConstructorValue
-      implements StarlarkTypeValue {
+  // TODO: b/536902188 - Make private once we no longer have to worry about OpenJDK 21 in the bazel
+  // bootstrap test (https://bugs.openjdk.org/browse/JDK-8284011).
+  static final class AllowingNullary extends TypeConstructorValue implements StarlarkTypeValue {
     private final StarlarkType nullaryType;
 
     private AllowingNullary(TypeConstructor constructor, StarlarkType nullaryType) {

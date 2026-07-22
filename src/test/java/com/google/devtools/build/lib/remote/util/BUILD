@@ -75,6 +75,7 @@ java_library(
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party:junit4",
+        "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
         "@rules_java//java/runfiles",
     ],
 )

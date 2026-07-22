@@ -16,10 +16,8 @@ package com.google.devtools.build.lib.skyframe.serialization;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.primitives.Bytes;
-import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
 
 /** A key backed by a {@link String}. */
-@SkybridgeInterface
 public record StringKey(String key) implements KeyBytesProvider {
   @Override
   public byte[] toBytes() {

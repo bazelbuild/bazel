@@ -157,6 +157,17 @@ public class StarlarkDebugIntegrationTest extends BuildIntegrationTestCase {
     assertThat(deletedFiles).contains("foo/BUILD");
   }
 
+  @Test
+  public void testCustomServerAddressOption() throws Exception {
+    addOptions("--experimental_skylark_debug_server_address=127.0.0.1");
+    write("foo/BUILD", "genrule(name = 'foo', outs = ['foo.out'], cmd = 'touch $@')");
+
+    BuildResult result =
+        buildTarget(StarlarkDebugIntegrationTest::createClientAndStartDebugging, "//foo");
+    assertThat(result).isNotNull();
+    assertThat(result.getSuccessfulTargets()).hasSize(1);
+  }
+
   private BuildResult buildTarget(Consumer<Integer> clientSetup, String target) throws Exception {
     DebugServerTransport.onListenPortCallbackForTests =
         port -> {
@@ -168,7 +179,11 @@ public class StarlarkDebugIntegrationTest extends BuildIntegrationTestCase {
   @CanIgnoreReturnValue
   private static MockDebugClient createClient(int debugPort) {
     MockDebugClient client = new MockDebugClient();
-    client.connect(InetAddress.getLoopbackAddress(), debugPort, Duration.ofSeconds(5));
+    try {
+      client.connect(InetAddress.getByName("127.0.0.1"), debugPort, Duration.ofSeconds(5));
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
     return client;
   }
 

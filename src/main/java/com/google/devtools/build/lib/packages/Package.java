@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.StarlarkThreadContext;
 import com.google.devtools.build.lib.collect.CollectionUtils;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetsShouldBeInternedByEquality;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Package.Builder.PackageLimits;
@@ -1414,7 +1415,8 @@ public class Package extends Packageoid {
       Optional<String> associatedModuleVersion,
       @Nullable ConfigSettingVisibilityPolicy configSettingVisibilityPolicy,
       boolean succinctTargetNotFoundErrors,
-      Root sourceRoot) {
+      Root sourceRoot)
+      implements NestedSetsShouldBeInternedByEquality {
 
     // See class-level Javadoc for an explanation of why we need this.
     @Override

@@ -76,7 +76,8 @@ public final class GoogleAuthUtils {
       String target,
       String proxy,
       AuthAndTLSOptions options,
-      @Nullable List<ClientInterceptor> interceptors)
+      @Nullable List<ClientInterceptor> interceptors,
+      @Nullable Map<String, ?> serviceConfig)
       throws IOException {
     Preconditions.checkNotNull(target);
     Preconditions.checkNotNull(options);
@@ -134,6 +135,10 @@ public final class GoogleAuthUtils {
       }
       if (interceptors != null) {
         builder.intercept(interceptors);
+      }
+      if (serviceConfig != null) {
+        builder.disableServiceConfigLookUp();
+        builder.defaultServiceConfig(serviceConfig);
       }
       if (sslContext != null) {
         builder.sslContext(sslContext);

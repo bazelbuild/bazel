@@ -25,18 +25,14 @@ public interface SystemNetworkStatsService extends BlazeService {
   /** Returns a map from network interface name to the respective I/O counters. */
   Map<String, NetIoCounter> getNetIoCounters() throws IOException;
 
-  /**
-   * Value class for network IO counters.
-   *
-   * @param bytesSent Number of bytes sent.
-   * @param bytesRecv Number of bytes received.
-   * @param packetsSent Number of packets sent.
-   * @param packetsRecv Number of packets received.
-   */
-  record NetIoCounter(long bytesSent, long bytesRecv, long packetsSent, long packetsRecv) {
-    public static NetIoCounter create(
-        long bytesSent, long bytesRecv, long packetsSent, long packetsRecv) {
-      return new NetIoCounter(bytesSent, bytesRecv, packetsSent, packetsRecv);
-    }
+  /** Value class for network IO counters. */
+  interface NetIoCounter {
+    long bytesSent();
+
+    long bytesRecv();
+
+    long packetsSent();
+
+    long packetsRecv();
   }
 }
