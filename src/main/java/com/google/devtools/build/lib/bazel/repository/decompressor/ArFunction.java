@@ -45,6 +45,7 @@ public class ArFunction implements Decompressor {
     }
 
     Map<String, String> renameFiles = descriptor.renameFiles();
+    HostPathCollisionChecker collisionChecker = HostPathCollisionChecker.create();
 
     try (InputStream decompressorStream =
         new BufferedInputStream(descriptor.archivePath().getInputStream(), BUFFER_SIZE)) {
@@ -70,6 +71,7 @@ public class ArFunction implements Decompressor {
           // happen
           continue;
         } else {
+          collisionChecker.checkAndRecord(entryPathRelative);
           // We do not have to worry about symlinks in .ar files - it's not supported
           // by the .ar file format.
           try (OutputStream out = filePath.getOutputStream()) {
