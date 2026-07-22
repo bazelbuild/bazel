@@ -15,6 +15,8 @@ load("@rules_cc//cc:cc_library.bzl", "cc_library")
 
 package(default_visibility = ["//visibility:public"])
 
+exports_files(glob(["*.bzl"]))
+
 licenses(["notice"])
 
 # The toolchain type used to distinguish cc toolchains.
