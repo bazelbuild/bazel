@@ -307,6 +307,7 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
         isFile ? fileValue.getSize() : 0,
         isFile ? fileValue.realFileStateValue().getContentsProxy() : null,
         isFile ? fileValue.getDigest() : null,
+        /* stat= */ null,
         xattrProvider);
   }
 
@@ -336,6 +337,7 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
         stat.getSize(),
         FileContentsProxy.create(stat),
         stat instanceof FileStatusWithDigest statWithDigest ? statWithDigest.getDigest() : null,
+        stat,
         xattrProvider);
   }
 
@@ -345,6 +347,7 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
       long size,
       FileContentsProxy proxy,
       @Nullable byte[] digest,
+      @Nullable FileStatus stat,
       XattrProvider xattrProvider)
       throws IOException {
     if (!isFile) {
@@ -354,7 +357,7 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
       return new DirectoryArtifactValue(path.getLastModifiedTime());
     }
     if (digest == null) {
-      digest = DigestUtils.getDigestWithManualFallback(path, xattrProvider);
+      digest = DigestUtils.getDigestWithManualFallback(path, xattrProvider, stat);
     }
     checkState(digest != null, path);
     return createForNormalFile(digest, proxy, size);
@@ -385,7 +388,13 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
   public static FileArtifactValue createForNormalFileUsingPath(
       Path path, long size, XattrProvider xattrProvider) throws IOException {
     return create(
-        path, /* isFile= */ true, size, /* proxy= */ null, /* digest= */ null, xattrProvider);
+        path,
+        /* isFile= */ true,
+        size,
+        /* proxy= */ null,
+        /* digest= */ null,
+        /* stat= */ null,
+        xattrProvider);
   }
 
   public static FileArtifactValue createForDirectoryWithHash(byte[] digest) {
