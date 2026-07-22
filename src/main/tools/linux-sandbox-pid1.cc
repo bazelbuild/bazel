@@ -42,6 +42,7 @@
 
 #include <ctime>
 #include <string>
+#include <string_view>
 #include <unordered_set>
 
 #ifndef MS_REC
@@ -334,10 +335,28 @@ static void MountFilesystems() {
   }
 }
 
+static std::string_view GetRelativePath(std::string_view path) {
+  if (opt.hermetic) {
+    if (path == opt.sandbox_root) {
+      return "/";
+    }
+    std::string_view root = opt.sandbox_root;
+    if (path.length() > root.length() && path[root.length()] == '/' &&
+        path.substr(0, root.length()) == root) {
+      return path.substr(root.length());
+    }
+  }
+  return path;
+}
+
 // We later remount everything read-only, except the paths for which this method
 // returns true.
-static bool ShouldBeWritable(const std::string& mnt_dir) {
-  if (mnt_dir == opt.working_dir) {
+static bool ShouldBeWritable(std::string_view mnt_dir) {
+  if (opt.hermetic && mnt_dir == "/proc") {
+    return true;
+  }
+
+  if (mnt_dir == GetRelativePath(opt.working_dir)) {
     return true;
   }
 
@@ -346,13 +365,13 @@ static bool ShouldBeWritable(const std::string& mnt_dir) {
   }
 
   for (const std::string& writable_file : opt.writable_files) {
-    if (mnt_dir == writable_file) {
+    if (mnt_dir == GetRelativePath(writable_file)) {
       return true;
     }
   }
 
   for (const std::string& tmpfs_dir : opt.tmpfs_dirs) {
-    if (mnt_dir == tmpfs_dir) {
+    if (mnt_dir == GetRelativePath(tmpfs_dir)) {
       return true;
     }
   }
@@ -789,6 +808,7 @@ int Pid1Main(void* args) {
     MountProcAndSys();
     MountAllMounts();
     ChangeRoot();
+    MakeFilesystemMostlyReadOnly();
   } else {
     MountFilesystems();
     MakeFilesystemMostlyReadOnly();

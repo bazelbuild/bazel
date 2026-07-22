@@ -13,19 +13,21 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
+import com.google.devtools.build.lib.util.Bucket;
+import java.util.List;
 
-import com.google.common.primitives.Bytes;
-
-/** A key backed by a {@link String}. */
-public record StringKey(String key) implements KeyBytesProvider {
-  @Override
-  public byte[] toBytes() {
-    return key.getBytes(UTF_8);
-  }
-
-  @Override
-  public byte[] concat(byte[] tail) {
-    return Bytes.concat(toBytes(), tail);
-  }
-}
+/** Concrete record implementation of {@link FingerprintValueStore.Stats}. */
+public record StatsImpl(
+    long valueBytesReceived,
+    long valueBytesSent,
+    long keyBytesSent,
+    long entriesWritten,
+    long entriesFound,
+    long entriesNotFound,
+    long getBatches,
+    long setBatches,
+    List<Bucket> getLatencyMicros,
+    List<Bucket> setLatencyMicros,
+    List<Bucket> getBatchLatencyMicros,
+    List<Bucket> setBatchLatencyMicros)
+    implements FingerprintValueStore.Stats {}

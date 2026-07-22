@@ -270,4 +270,52 @@ public final class QuiescingFutureTest {
       doneWithErrorCallback.run();
     }
   }
+
+  @Test
+  public void getValueThrowsUncheckedException_completesFutureExceptionally() throws Exception {
+    var expectedException = new RuntimeException("getValue exception");
+    var future =
+        new QuiescingFuture<String>(directExecutor()) {
+          @Override
+          protected String getValue() {
+            throw expectedException;
+          }
+        };
+
+    future.decrement();
+
+    assertThat(future.isDone()).isTrue();
+    var thrown = assertThrows(ExecutionException.class, future::get);
+    assertThat(thrown).hasCauseThat().isSameInstanceAs(expectedException);
+  }
+
+  @Test
+  public void doneWithErrorThrowsUncheckedException_completesFutureExceptionally()
+      throws Exception {
+    AtomicBoolean doneWithErrorCalled = new AtomicBoolean(false);
+    var doneWithErrorException = new RuntimeException("doneWithError exception");
+    var future =
+        new QuiescingFuture<String>(directExecutor()) {
+          @Override
+          protected String getValue() {
+            return "result";
+          }
+
+          @Override
+          protected void doneWithError() {
+            doneWithErrorCalled.set(true);
+            throw doneWithErrorException;
+          }
+        };
+
+    var notifiedException = new RuntimeException("notified exception");
+    var thrownFromNotify =
+        assertThrows(RuntimeException.class, () -> future.notifyException(notifiedException));
+    assertThat(thrownFromNotify).isSameInstanceAs(doneWithErrorException);
+
+    assertThat(future.isDone()).isTrue();
+    assertThat(doneWithErrorCalled.get()).isTrue();
+    var thrown = assertThrows(ExecutionException.class, future::get);
+    assertThat(thrown).hasCauseThat().isSameInstanceAs(notifiedException);
+  }
 }

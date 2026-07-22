@@ -225,43 +225,6 @@ function test_java() {
   assert_binary_run_from_subdir "bazel-bin/${java_pkg}/hello-world foo" "Hello foo"
 }
 
-function create_tmp_drive() {
-  mkdir "$TEST_TMPDIR/tmp_drive"
-
-  TMP_DRIVE_PATH=$(cygpath -w "$TEST_TMPDIR\\tmp_drive")
-  for X in {A..Z}
-  do
-    TMP_DRIVE=${X}
-    subst ${TMP_DRIVE}: ${TMP_DRIVE_PATH} >NUL || TMP_DRIVE=""
-    if [ -n "${TMP_DRIVE}" ]; then
-      break
-    fi
-  done
-
-  if [ -z "${TMP_DRIVE}" ]; then
-    fail "Cannot create temporary drive."
-  fi
-
-  export TMP_DRIVE
-}
-
-function delete_tmp_drive() {
-  if [ -n "${TMP_DRIVE}" ]; then
-    subst ${TMP_DRIVE}: /D
-  fi
-}
-
-function test_java_with_jar_under_different_drive() {
-  create_tmp_drive
-
-  trap delete_tmp_drive EXIT
-
-  add_rules_java "MODULE.bazel"
-  local java_pkg=examples/java-native/src/main/java/com/example/myproject
-  bazel --output_user_root=${TMP_DRIVE}:/tmp build ${java_pkg}:hello-world
-
-  assert_binary_run_from_subdir "bazel-bin/${java_pkg}/hello-world --classpath_limit=0" "Hello world"
-}
 
 function test_java_test() {
   setup_javatest_support

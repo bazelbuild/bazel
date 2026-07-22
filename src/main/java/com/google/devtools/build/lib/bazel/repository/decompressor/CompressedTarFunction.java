@@ -22,9 +22,11 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.bazel.repository.decompressor.DecompressorValue.Decompressor;
 import com.google.devtools.build.lib.util.StringEncoding;
+import com.google.devtools.build.lib.vfs.FileSystem.NotASymlinkException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -37,9 +39,9 @@ import java.nio.charset.CharsetEncoder;
 import java.nio.charset.CoderResult;
 import java.nio.charset.spi.CharsetProvider;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -74,7 +76,7 @@ public abstract class CompressedTarFunction implements Decompressor {
     boolean foundPrefix = false;
     Set<String> availablePrefixes = new HashSet<>();
     // Store link, target info of symlinks, we create them after regular files are extracted.
-    Map<Path, PathFragment> symlinks = new HashMap<>();
+    Map<Path, PathFragment> symlinks = new LinkedHashMap<>();
 
     try (InputStream compressedInputStream = descriptor.archivePath().getInputStream();
         InputStream decompressorStream =
@@ -188,6 +190,9 @@ public abstract class CompressedTarFunction implements Decompressor {
       for (Map.Entry<Path, PathFragment> symlink : symlinks.entrySet()) {
         Path linkPath = symlink.getKey();
         if (linkPath.exists()) {
+          if (linkPath.isDirectory(Symlinks.NOFOLLOW)) {
+            throw new NotASymlinkException(linkPath.asFragment());
+          }
           linkPath.delete();
         }
         FileSystemUtils.ensureSymbolicLink(linkPath, symlink.getValue());
