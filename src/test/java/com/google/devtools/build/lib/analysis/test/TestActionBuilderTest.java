@@ -280,6 +280,82 @@ public class TestActionBuilderTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testShardingOnly() throws Exception {
+    useConfiguration("--test_sharding_strategy=only=5");
+    writeJavaTests();
+    ConfiguredTarget target = getConfiguredTarget("//javatests/jt:RGT_many");
+    ImmutableList<Artifact.DerivedArtifact> testStatusList = getTestStatusArtifacts(target);
+    assertThat(testStatusList).hasSize(1);
+    TestRunnerAction action =
+        (TestRunnerAction) getGeneratingAction(testStatusList.get(0));
+    assertThat(action.getShardNum()).isEqualTo(4);
+    assertThat(action.getExecutionSettings().getTotalShards()).isEqualTo(33);
+    assertThat(action.isSharded()).isTrue();
+  }
+
+  @Test
+  public void testShardingOnly_indexOutOfRange() throws Exception {
+    useConfiguration("--test_sharding_strategy=only=75");
+    writeJavaTests();
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//javatests/jt:RGT_many");
+    assertContainsEvent("--test_sharding_strategy=only=75 is out of range");
+  }
+
+  @Test
+  public void testShardingOnly_notSharded() throws Exception {
+    useConfiguration("--test_sharding_strategy=only=4");
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//tests:small_test_1");
+    assertContainsEvent("requires a sharded test");
+  }
+
+  @Test
+  public void testShardingOnly_withRunsPerTest() throws Exception {
+    useConfiguration("--test_sharding_strategy=only=3", "--runs_per_test=2");
+    writeJavaTests();
+    ConfiguredTarget target = getConfiguredTarget("//javatests/jt:RGT_many");
+    ImmutableList<Artifact.DerivedArtifact> testStatusList = getTestStatusArtifacts(target);
+    assertThat(testStatusList).hasSize(2);
+    for (Artifact.DerivedArtifact testStatus : testStatusList) {
+      TestRunnerAction action = (TestRunnerAction) getGeneratingAction(testStatus);
+      assertThat(action.getShardNum()).isEqualTo(2);
+      assertThat(action.getExecutionSettings().getTotalShards()).isEqualTo(33);
+      assertThat(action.isSharded()).isTrue();
+    }
+    assertThat(testStatusList.get(0).getRootRelativePath().getPathString())
+        .contains("shard_3_of_33_run_1_of_2");
+    assertThat(testStatusList.get(1).getRootRelativePath().getPathString())
+        .contains("shard_3_of_33_run_2_of_2");
+  }
+
+  @Test
+  public void testShardingOnly_equalValue_equalChecksum() throws Exception {
+    useConfiguration("--test_sharding_strategy=only=2");
+    var config1 = getTargetConfiguration();
+
+    initializeSkyframeExecutor();
+
+    useConfiguration("--test_sharding_strategy=only=2");
+    var config2 = getTargetConfiguration();
+
+    assertThat(config2).isEqualTo(config1);
+  }
+
+  @Test
+  public void testShardingOnly_differentValue_differentChecksum() throws Exception {
+    useConfiguration("--test_sharding_strategy=only=2");
+    var config1 = getTargetConfiguration();
+
+    initializeSkyframeExecutor();
+
+    useConfiguration("--test_sharding_strategy=only=3");
+    var config2 = getTargetConfiguration();
+
+    assertThat(config2).isNotEqualTo(config1);
+  }
+
+  @Test
   public void testFlakyAttributeValidation() throws Exception {
     scratch.file(
         "flaky/BUILD",
