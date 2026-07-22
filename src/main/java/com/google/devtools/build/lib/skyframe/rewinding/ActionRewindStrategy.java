@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.collect.nestedset.ArtifactNestedSetKey;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.remote.common.LostInputsEvent;
 import com.google.devtools.build.lib.server.FailureDetails.ActionRewinding;
 import com.google.devtools.build.lib.server.FailureDetails.ActionRewinding.Code;
 import com.google.devtools.build.lib.skyframe.ActionUtils;
@@ -116,6 +117,9 @@ public final class ActionRewindStrategy {
       ActionInputDepOwners depOwners,
       Environment env)
       throws ActionRewindException, InterruptedException {
+    // Bazel's (but not Blaze's) remote implementation needs to learn about lost digests to
+    // invalidate caches, both for rewinding and for invocation retries in BlazeCommandDispatcher.
+    env.getListener().post(new LostInputsEvent(lostOutputsByDigest.keySet()));
     if (!skyframeActionExecutor.rewindingEnabled()) {
       throw new ActionRewindException(
           "Unexpected lost outputs (pass --rewind_lost_inputs to enable recovery): "
@@ -168,6 +172,9 @@ public final class ActionRewindStrategy {
       long actionStartTimeNanos)
       throws ActionRewindException, InterruptedException {
     ImmutableMap<String, ActionInput> lostInputsByDigest = lostInputsException.getLostInputs();
+    // Bazel's (but not Blaze's) remote implementation needs to learn about lost digests to
+    // invalidate caches, both for rewinding and for invocation retries in BlazeCommandDispatcher.
+    env.getListener().post(new LostInputsEvent(lostInputsByDigest.keySet()));
     if (!skyframeActionExecutor.rewindingEnabled()) {
       throw new ActionRewindException(
           "Unexpected lost inputs (pass --rewind_lost_inputs to enable recovery): "
