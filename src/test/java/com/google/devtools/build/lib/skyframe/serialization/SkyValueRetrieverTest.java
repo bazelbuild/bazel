@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.Wa
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.WaitingForLookupContinuation;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.ClientId.SnapshotClientId;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.LookupResult;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.LookupResultImpl;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheClient;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.proto.MissReason;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -302,7 +303,7 @@ public final class SkyValueRetrieverTest {
     when(analysisCacheClient.lookup(any()))
         .thenReturn(
             immediateFuture(
-                new LookupResult(
+                new LookupResultImpl(
                     /* value= */ new byte[0], /* missReason= */ 999))); // invalid miss reason
 
     RetrievalResult result =
@@ -868,7 +869,7 @@ public final class SkyValueRetrieverTest {
               ByteString key = ByteString.copyFrom((byte[]) invocation.getArgument(0));
               ByteString value = data.getOrDefault(key, ByteString.empty());
               return immediateFuture(
-                  new LookupResult(
+                  new LookupResultImpl(
                       value.toByteArray(),
                       value.isEmpty()
                           ? MissReason.MISS_REASON_SKYVALUE_MISS.getNumber()

@@ -370,6 +370,18 @@ java_library(
 )
 
 java_library(
+    name = "lookup_result_impl",
+    srcs = [
+        "LookupResultImpl.java",
+        "LookupTopLevelTargetsResultImpl.java",
+    ],
+    deps = [
+        ":lookup_result",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
     name = "remote_analysis_caching_services_supplier",
     srcs = ["RemoteAnalysisCachingServicesSupplier.java"],
     deps = [

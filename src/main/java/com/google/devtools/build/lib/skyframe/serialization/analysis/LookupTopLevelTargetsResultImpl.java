@@ -13,20 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
-import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
-
-/** The result of a top-level targets lookup. */
-@SkybridgeInterface
-public interface LookupTopLevelTargetsResult {
-  /**
-   * Corresponds to
-   * com.google.devtools.build.lib.skyframe.serialization.analysis.proto.TopLevelTargetsMatchStatus.
-   * We use an int instead of the proto to keep the SkybridgeInterface simple. Since older LCs may
-   * not know about the new enum values, consumers must check for possible version skews and map the
-   * value to MATCH_STATUS_UNSPECIFIED.
-   */
-  int status();
-
-  /** A human-readable message explaining the status. */
-  String statusMessage();
-}
+/** Concrete record implementation of {@link LookupTopLevelTargetsResult}. */
+public record LookupTopLevelTargetsResultImpl(int status, String statusMessage)
+    implements LookupTopLevelTargetsResult {}
