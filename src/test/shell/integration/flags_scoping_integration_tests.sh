@@ -601,4 +601,10 @@ EOF
   expect_log "Exec dep flag value: default"
 }
 
+# Regression test for https://github.com/bazelbuild/bazel/issues/29384:
+function test_bazel_info__doesnot_crash_with_flag_alias_with_host_prefix() {
+  bazel info --flag_alias=host_foo=//pkg_does_not_exist:target || fail "bazel failed"
+}
+
+
 run_suite "Integration tests for flags scoping"
