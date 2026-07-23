@@ -29,18 +29,50 @@ import org.junit.runners.JUnit4;
 // TODO: #27370 - Move this to match whichever package Types.java is going to live in.
 @RunWith(JUnit4.class)
 public class TypesTest {
+  private static final TypeContext DUMMY_CONTEXT =
+      new TypeContext() {
+        @Override
+        public StarlarkType getStrFieldType(String name) {
+          return null;
+        }
+
+        @Override
+        public StarlarkType getListFieldType(String name) {
+          return null;
+        }
+
+        @Override
+        public StarlarkType getDictFieldType(String name) {
+          return null;
+        }
+
+        @Override
+        public StarlarkType getSetFieldType(String name) {
+          return null;
+        }
+
+        @Override
+        public StarlarkType getPredeclaredSymbolType(String name) {
+          return null;
+        }
+
+        @Override
+        public StarlarkType getUniversalSymbolType(String name) {
+          return null;
+        }
+      };
 
   /** Asserts {@code t1} is assignable to {@code t2}. */
   private static void assertLt(StarlarkType t1, StarlarkType t2) {
     assertWithMessage("%s is expected to be assignable to %s", t1, t2)
-        .that(StarlarkType.assignableFrom(t2, t1))
+        .that(StarlarkType.assignableFrom(t2, t1, DUMMY_CONTEXT))
         .isTrue();
   }
 
   /** Asserts {@code t1} is *not* assignable to {@code t2}. */
   private static void assertNotLt(StarlarkType t1, StarlarkType t2) {
     assertWithMessage("%s is expected to be *not* assignable to %s", t1, t2)
-        .that(StarlarkType.assignableFrom(t2, t1))
+        .that(StarlarkType.assignableFrom(t2, t1, DUMMY_CONTEXT))
         .isFalse();
   }
 

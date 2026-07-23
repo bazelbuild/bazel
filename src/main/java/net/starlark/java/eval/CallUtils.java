@@ -178,7 +178,7 @@ public final class CallUtils {
     }
 
     @Override
-    public ImmutableList<StarlarkType> getSupertypes() {
+    public ImmutableList<StarlarkType> getSupertypes(TypeContext context) {
       return checkNotNull(manager.getClassDescriptor(clazz).classStarlarkTypeSupertypes);
     }
 

@@ -172,7 +172,7 @@ public final class Types {
     }
 
     @Override
-    protected boolean isComparable(StarlarkType that) {
+    protected boolean isComparable(StarlarkType that, TypeContext context) {
       // Instead of enumerating all comparable types here, allow StarlarkType#comparable to defer to
       // that.isComparable(ANY).
       return that.equals(ANY);
@@ -229,7 +229,7 @@ public final class Types {
     }
 
     @Override
-    protected boolean isComparable(StarlarkType that) {
+    protected boolean isComparable(StarlarkType that, TypeContext context) {
       // Regard Never - as the bottom type - to be comparable to anything; in particular, this
       // allows empty lists (i.e. list[Never]) to be comparable to arbitrary non-empty lists.
       return true;
@@ -286,8 +286,8 @@ public final class Types {
     }
 
     @Override
-    protected boolean isComparable(StarlarkType that) {
-      return StarlarkType.assignableFrom(Types.BOOL, that);
+    protected boolean isComparable(StarlarkType that, TypeContext context) {
+      return StarlarkType.assignableFrom(Types.BOOL, that, context);
     }
   }
 
@@ -327,8 +327,8 @@ public final class Types {
     }
 
     @Override
-    protected boolean isComparable(StarlarkType that) {
-      return StarlarkType.assignableFrom(NUMERIC, that);
+    protected boolean isComparable(StarlarkType that, TypeContext context) {
+      return StarlarkType.assignableFrom(NUMERIC, that, context);
     }
   }
 
@@ -362,8 +362,8 @@ public final class Types {
     }
 
     @Override
-    protected boolean isComparable(StarlarkType that) {
-      return StarlarkType.assignableFrom(NUMERIC, that);
+    protected boolean isComparable(StarlarkType that, TypeContext context) {
+      return StarlarkType.assignableFrom(NUMERIC, that, context);
     }
   }
 
@@ -410,7 +410,7 @@ public final class Types {
     }
 
     @Override
-    protected boolean isComparable(StarlarkType that) {
+    protected boolean isComparable(StarlarkType that, TypeContext context) {
       return that.equals(STR) || that.equals(ANY);
     }
   }
@@ -641,8 +641,8 @@ public final class Types {
     }
 
     @Override
-    protected boolean isComparable(StarlarkType that) {
-      return getTypes().stream().allMatch(type -> StarlarkType.comparable(type, that));
+    protected boolean isComparable(StarlarkType that, TypeContext context) {
+      return getTypes().stream().allMatch(type -> StarlarkType.comparable(type, that, context));
     }
 
     @Override
@@ -717,11 +717,11 @@ public final class Types {
     }
 
     @Override
-    protected boolean isComparable(StarlarkType that) {
+    protected boolean isComparable(StarlarkType that, TypeContext context) {
       if (that.equals(Types.ANY)) {
         return true;
       } else if (that instanceof BaseListType thatList) {
-        return comparable(getElementType(), thatList.getElementType());
+        return comparable(getElementType(), thatList.getElementType(), context);
       }
       return false;
     }
@@ -739,7 +739,7 @@ public final class Types {
   @AutoValue
   public abstract static non-sealed class ListRvalueType extends BaseListType {
     @Override
-    public List<StarlarkType> getSupertypes() {
+    public List<StarlarkType> getSupertypes(TypeContext context) {
       return ImmutableList.of(
           list(getElementType()), sequence(getElementType()), collection(getElementType()));
     }
@@ -750,7 +750,7 @@ public final class Types {
     }
 
     @Override
-    protected boolean isRvalueAssignableTo(AbstractCollectionType that) {
+    protected boolean isRvalueAssignableTo(AbstractCollectionType that, TypeContext context) {
       // Covariant in element type. Assignable only to types having a constructor which is a
       // constructor of one of this type's supertypes (in particular: not assignable to dicts,
       // sets, or application-defined types).
@@ -759,7 +759,7 @@ public final class Types {
       return (that instanceof BaseListType
               || that instanceof SequenceType
               || that instanceof CollectionType)
-          && StarlarkType.assignableFrom(that.getElementType(), this.getElementType());
+          && StarlarkType.assignableFrom(that.getElementType(), this.getElementType(), context);
     }
   }
 
@@ -770,7 +770,7 @@ public final class Types {
   @AutoValue
   public abstract static non-sealed class ListType extends BaseListType {
     @Override
-    public List<StarlarkType> getSupertypes() {
+    public List<StarlarkType> getSupertypes(TypeContext context) {
       return ImmutableList.of(sequence(getElementType()), collection(getElementType()));
     }
 
@@ -832,7 +832,7 @@ public final class Types {
   @AutoValue
   public abstract static non-sealed class DictRvalueType extends BaseDictType {
     @Override
-    public List<StarlarkType> getSupertypes() {
+    public List<StarlarkType> getSupertypes(TypeContext context) {
       return ImmutableList.of(
           dict(getKeyType(), getValueType()),
           mapping(getKeyType(), getValueType()),
@@ -845,7 +845,7 @@ public final class Types {
     }
 
     @Override
-    protected boolean isMappingRvalueAssignableTo(AbstractMappingType that) {
+    protected boolean isMappingRvalueAssignableTo(AbstractMappingType that, TypeContext context) {
       // Covariant in both key and value types. This differs from Mapping, which is covariant only
       // in the value type, because we need to be able to assign e.g. an empty dict having Never key
       // type. Mapping avoids covariance in keys in order to catch type errors at lookups, but
@@ -857,8 +857,8 @@ public final class Types {
       // TODO: #27370 - when we have type deconstruction, replace `instanceof` checks below with
       // deconstruction of getSupertypes().
       return (that instanceof BaseDictType || that instanceof MappingType)
-          && StarlarkType.assignableFrom(that.getKeyType(), getKeyType())
-          && StarlarkType.assignableFrom(that.getValueType(), getValueType());
+          && StarlarkType.assignableFrom(that.getKeyType(), getKeyType(), context)
+          && StarlarkType.assignableFrom(that.getValueType(), getValueType(), context);
     }
   }
 
@@ -869,7 +869,7 @@ public final class Types {
   @AutoValue
   public abstract static non-sealed class DictType extends BaseDictType {
     @Override
-    public List<StarlarkType> getSupertypes() {
+    public List<StarlarkType> getSupertypes(TypeContext context) {
       return ImmutableList.of(mapping(getKeyType(), getValueType()), collection(getKeyType()));
     }
 
@@ -893,7 +893,7 @@ public final class Types {
     public abstract StarlarkType getElementType();
 
     @Override
-    public List<StarlarkType> getSupertypes() {
+    public List<StarlarkType> getSupertypes(TypeContext context) {
       return ImmutableList.of(collection(getElementType()));
     }
 
@@ -977,7 +977,7 @@ public final class Types {
     }
 
     @Override
-    public boolean assignableFromHook(StarlarkType t) {
+    public boolean assignableFromHook(StarlarkType t, TypeContext context) {
       if (!(t instanceof FixedLengthTupleType that)) {
         return false;
       }
@@ -987,7 +987,7 @@ public final class Types {
       }
       for (int i = 0; i < this.getElementTypes().size(); i++) {
         if (!StarlarkType.assignableFrom(
-            this.getElementTypes().get(i), that.getElementTypes().get(i))) {
+            this.getElementTypes().get(i), that.getElementTypes().get(i), context)) {
           return false;
         }
       }
@@ -995,7 +995,7 @@ public final class Types {
     }
 
     @Override
-    public List<StarlarkType> getSupertypes() {
+    public List<StarlarkType> getSupertypes(TypeContext context) {
       HomogeneousTupleType homogeneous = toHomogeneous();
       return ImmutableList.of(
           homogeneous,
@@ -1040,13 +1040,13 @@ public final class Types {
     }
 
     @Override
-    protected boolean isComparable(StarlarkType that) {
+    protected boolean isComparable(StarlarkType that, TypeContext context) {
       if (that.equals(Types.ANY)) {
         return true;
       } else if (that instanceof FixedLengthTupleType thatTuple) {
         int commonLength = Math.min(getElementTypes().size(), thatTuple.getElementTypes().size());
         for (int i = 0; i < commonLength; i++) {
-          if (!comparable(getElementTypes().get(i), thatTuple.getElementTypes().get(i))) {
+          if (!comparable(getElementTypes().get(i), thatTuple.getElementTypes().get(i), context)) {
             return false;
           }
         }
@@ -1070,17 +1070,17 @@ public final class Types {
     public abstract StarlarkType getElementType();
 
     @Override
-    public List<StarlarkType> getSupertypes() {
+    public List<StarlarkType> getSupertypes(TypeContext context) {
       return ImmutableList.of(sequence(getElementType()), collection(getElementType()));
     }
 
     @Override
-    public boolean assignableFromHook(StarlarkType t) {
+    public boolean assignableFromHook(StarlarkType t, TypeContext context) {
       if (!(t instanceof HomogeneousTupleType that)) {
         return false;
       }
       // Covariant in element type.
-      return StarlarkType.assignableFrom(this.getElementType(), that.getElementType());
+      return StarlarkType.assignableFrom(this.getElementType(), that.getElementType(), context);
     }
 
     @Override
@@ -1106,11 +1106,11 @@ public final class Types {
     }
 
     @Override
-    protected boolean isComparable(StarlarkType that) {
+    protected boolean isComparable(StarlarkType that, TypeContext context) {
       if (that.equals(Types.ANY)) {
         return true;
       } else if (that instanceof TupleType thatTuple) {
-        return comparable(getElementType(), thatTuple.toHomogeneous().getElementType());
+        return comparable(getElementType(), thatTuple.toHomogeneous().getElementType(), context);
       }
       return false;
     }
@@ -1127,8 +1127,8 @@ public final class Types {
   }
 
   /** Returns true if {@code type} may be used as a collection. */
-  public static boolean isCollection(StarlarkType type) {
-    return StarlarkType.assignableFrom(COLLECTION_OF_ANY, type);
+  public static boolean isCollection(StarlarkType type, TypeContext context) {
+    return StarlarkType.assignableFrom(COLLECTION_OF_ANY, type, context);
   }
 
   /**
@@ -1143,15 +1143,16 @@ public final class Types {
     public abstract StarlarkType getElementType();
 
     @Override
-    public boolean assignableFromHook(StarlarkType t) {
+    public boolean assignableFromHook(StarlarkType t, TypeContext context) {
       if (t instanceof AbstractCollectionType that) {
-        if (that.isRvalueAssignableTo(this)) {
+        if (that.isRvalueAssignableTo(this, context)) {
           return true;
         }
         // Assume 1-1 correspondence between Java subclass and Starlark type family.
         if (this.getClass().equals(t.getClass())) {
           // Invariant in element type because `that` might be mutable.
-          return StarlarkType.consistentEquals(this.getElementType(), that.getElementType());
+          return StarlarkType.consistentEquals(
+              this.getElementType(), that.getElementType(), context);
         }
       }
       return false;
@@ -1165,7 +1166,7 @@ public final class Types {
      * <p>Intended to be invoked by {@link #assignableFromHook} implementations.
      */
     // TODO: #27370 - Consider elevating to StarlarkType level if useful for non-collection types.
-    protected boolean isRvalueAssignableTo(AbstractCollectionType that) {
+    protected boolean isRvalueAssignableTo(AbstractCollectionType that, TypeContext context) {
       return false;
     }
 
@@ -1189,14 +1190,14 @@ public final class Types {
   @AutoValue
   public abstract static class CollectionType extends AbstractCollectionType {
     @Override
-    public boolean assignableFromHook(StarlarkType t) {
+    public boolean assignableFromHook(StarlarkType t, TypeContext context) {
       if (t instanceof AbstractCollectionType that) {
-        if (that.isRvalueAssignableTo(this)) {
+        if (that.isRvalueAssignableTo(this, context)) {
           return true;
         }
         // Covariant in element type when assigning from a Collection (which is immutable)
         return that instanceof CollectionType
-            && StarlarkType.assignableFrom(this.getElementType(), that.getElementType());
+            && StarlarkType.assignableFrom(this.getElementType(), that.getElementType(), context);
       }
       return false;
     }
@@ -1223,7 +1224,7 @@ public final class Types {
     public abstract StarlarkType getElementType();
 
     @Override
-    public List<StarlarkType> getSupertypes() {
+    public List<StarlarkType> getSupertypes(TypeContext context) {
       return ImmutableList.of(collection(getElementType()));
     }
   }
@@ -1240,14 +1241,14 @@ public final class Types {
     public abstract StarlarkType getElementType();
 
     @Override
-    public boolean assignableFromHook(StarlarkType t) {
+    public boolean assignableFromHook(StarlarkType t, TypeContext context) {
       if (t instanceof AbstractSequenceType that) {
-        if (that.isRvalueAssignableTo(this)) {
+        if (that.isRvalueAssignableTo(this, context)) {
           return true;
         }
         // Covariant in element type when assigning from a Sequence (which is immutable)
         return that instanceof SequenceType
-            && StarlarkType.assignableFrom(this.getElementType(), that.getElementType());
+            && StarlarkType.assignableFrom(this.getElementType(), that.getElementType(), context);
       }
       return false;
     }
@@ -1263,7 +1264,7 @@ public final class Types {
     }
 
     @Override
-    protected boolean isRvalueAssignableTo(AbstractCollectionType t) {
+    protected boolean isRvalueAssignableTo(AbstractCollectionType t, TypeContext context) {
       return false;
     }
   }
@@ -1287,7 +1288,7 @@ public final class Types {
     public abstract StarlarkType getValueType();
 
     @Override
-    public List<StarlarkType> getSupertypes() {
+    public List<StarlarkType> getSupertypes(TypeContext context) {
       return ImmutableList.of(collection(getKeyType()));
     }
 
@@ -1297,24 +1298,25 @@ public final class Types {
     }
 
     @Override
-    public boolean assignableFromHook(StarlarkType t) {
+    public boolean assignableFromHook(StarlarkType t, TypeContext context) {
       if (t instanceof AbstractMappingType that) {
-        if (that.isMappingRvalueAssignableTo(this)) {
+        if (that.isMappingRvalueAssignableTo(this, context)) {
           return true;
         }
         // Assume 1-1 correspondence between Java subclass and Starlark type family.
         if (this.getClass().equals(t.getClass())) {
           // Invariant in both key and value types because `that` might be mutable.
-          return StarlarkType.consistentEquals(this.getKeyType(), that.getKeyType())
-              && StarlarkType.consistentEquals(this.getValueType(), that.getValueType());
+          return StarlarkType.consistentEquals(this.getKeyType(), that.getKeyType(), context)
+              && StarlarkType.consistentEquals(this.getValueType(), that.getValueType(), context);
         }
       }
       return false;
     }
 
     @Override
-    protected boolean isRvalueAssignableTo(AbstractCollectionType t) {
-      return t instanceof AbstractMappingType that && this.isMappingRvalueAssignableTo(that);
+    protected boolean isRvalueAssignableTo(AbstractCollectionType t, TypeContext context) {
+      return t instanceof AbstractMappingType that
+          && this.isMappingRvalueAssignableTo(that, context);
     }
 
     /**
@@ -1324,7 +1326,7 @@ public final class Types {
      *
      * <p>Intended to be invoked by {@link #assignableFromHook} implementations.
      */
-    protected boolean isMappingRvalueAssignableTo(AbstractMappingType that) {
+    protected boolean isMappingRvalueAssignableTo(AbstractMappingType that, TypeContext context) {
       return false;
     }
 
@@ -1362,17 +1364,17 @@ public final class Types {
     public abstract StarlarkType getValueType();
 
     @Override
-    public boolean assignableFromHook(StarlarkType t) {
+    public boolean assignableFromHook(StarlarkType t, TypeContext context) {
       if (t instanceof AbstractMappingType that) {
-        if (that.isMappingRvalueAssignableTo(this)) {
+        if (that.isMappingRvalueAssignableTo(this, context)) {
           return true;
         }
         // Invariant in key type, covariant in value type when assigning from a Mapping (which is
         // immutable).
         // TODO: #27370 - Should Mapping assignment be covariant in key type as well?
         return that instanceof MappingType
-            && StarlarkType.consistentEquals(this.getKeyType(), that.getKeyType())
-            && StarlarkType.assignableFrom(this.getValueType(), that.getValueType());
+            && StarlarkType.consistentEquals(this.getKeyType(), that.getKeyType(), context)
+            && StarlarkType.assignableFrom(this.getValueType(), that.getValueType(), context);
       }
       return false;
     }
@@ -1442,7 +1444,7 @@ public final class Types {
     public abstract boolean isPartial();
 
     @Override
-    public boolean assignableFromHook(StarlarkType t) {
+    public boolean assignableFromHook(StarlarkType t, TypeContext context) {
       if (t instanceof StructType that) {
         // The set of explicitly-specified LHS field names must be a subset of RHS field names
         // (explicit or not), and LHS field types must be assignable from the corresponding RHS
@@ -1453,7 +1455,7 @@ public final class Types {
                   String fieldName = entry1.getKey();
                   StarlarkType fieldType1 = entry1.getValue();
                   @Nullable StarlarkType fieldType2 = that.getField(fieldName);
-                  return fieldType2 != null && assignableFrom(fieldType1, fieldType2);
+                  return fieldType2 != null && assignableFrom(fieldType1, fieldType2, context);
                 });
       }
       return false;

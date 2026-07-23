@@ -455,7 +455,7 @@ public final class TypeCheckerTest {
     }
 
     @Override
-    public ImmutableList<StarlarkType> getSupertypes() {
+    public ImmutableList<StarlarkType> getSupertypes(TypeContext context) {
       return supertypes;
     }
 

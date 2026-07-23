@@ -14,6 +14,8 @@
 
 package net.starlark.java.eval;
 
+import net.starlark.java.syntax.TypeContext;
+
 /**
  * Interface for a {@code StarlarkValue} representing a reified type, i.e., a type that can be used
  * {@code isinstance()} check. In most cases, this is a {@link StarlarkCallable} which constructs
@@ -29,5 +31,5 @@ public interface StarlarkTypeValue extends StarlarkValue {
    * Starlark value acts as a type.)
    */
   // TODO: #27370 - This would be better expressed as a method returning the reified StarlarkType.
-  public boolean hasInstance(Object value, StarlarkSemantics semantics);
+  public boolean hasInstance(Object value, StarlarkSemantics semantics, TypeContext typeContext);
 }

@@ -36,6 +36,7 @@ import net.starlark.java.syntax.StarlarkType;
 import net.starlark.java.syntax.SyntaxError;
 import net.starlark.java.syntax.TypeChecker;
 import net.starlark.java.syntax.TypeConstructor;
+import net.starlark.java.syntax.TypeContext;
 import net.starlark.java.syntax.TypeTable;
 import net.starlark.java.syntax.TypeTagger;
 import net.starlark.java.syntax.Types;
@@ -387,7 +388,7 @@ public final class StaticTypeCheckTest {
         }
 
         @Override
-        public ImmutableList<StarlarkType> getSupertypes() {
+        public ImmutableList<StarlarkType> getSupertypes(TypeContext context) {
           return ImmutableList.of(
               // Nullary callable returning int.
               Types.callable(
