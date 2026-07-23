@@ -196,11 +196,6 @@ public final class RepositoryFetchFunction implements SkyFunction {
           // which case we can simply reattempt the fetch. Show a message and continue into the next
           // `while` iteration.
           env.getListener()
-              .handle(
-                  Event.info(
-                      "Fetch of repository '%s' interrupted due to memory pressure; restarting."
-                          .formatted(repositoryName.getName())));
-          env.getListener()
               .post(
                   RepositoryFetchProgress.ongoing(
                       repositoryName, "fetch interrupted due to memory pressure; restarting."));
