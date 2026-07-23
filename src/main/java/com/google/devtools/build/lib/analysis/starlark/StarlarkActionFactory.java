@@ -153,7 +153,8 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       fragment = original.replaceName(filename);
     }
 
-    if (!fragment.startsWith(ruleContext.getPackageDirectory())) {
+    if (fragment.containsUplevelReferences()
+        || !fragment.startsWith(ruleContext.getPackageDirectory())) {
       throw Starlark.errorf(
           "the output artifact '%s' is not under package directory '%s' for target '%s'",
           fragment, ruleContext.getPackageDirectory(), ruleContext.getLabel());
@@ -177,7 +178,8 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       fragment = original.replaceName(filename);
     }
 
-    if (!fragment.startsWith(ruleContext.getPackageDirectory())) {
+    if (fragment.containsUplevelReferences()
+        || !fragment.startsWith(ruleContext.getPackageDirectory())) {
       throw Starlark.errorf(
           "the output directory '%s' is not under package directory '%s' for target '%s'",
           fragment, ruleContext.getPackageDirectory(), ruleContext.getLabel());
@@ -212,6 +214,12 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
               .getOutputDirRelativePath(
                   getSemantics().getBool(EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT));
       rootRelativePath = original.replaceName(filename);
+    }
+
+    if (rootRelativePath.containsUplevelReferences()) {
+      throw Starlark.errorf(
+          "the output symlink '%s' contains uplevel references for target '%s'",
+          rootRelativePath, ruleContext.getLabel());
     }
 
     result =
