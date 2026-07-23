@@ -32,10 +32,10 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
+import com.google.gson.JsonIOException;
 import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
-import java.io.Writer;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Predicate;
@@ -313,12 +313,13 @@ public class BazelLockFileModule extends BlazeModule {
   static void updateLockfile(Path lockfileRoot, BazelLockFileValue updatedLockfile) {
     RootedPath lockfilePath =
         RootedPath.toRootedPath(Root.fromPath(lockfileRoot), LabelConstants.MODULE_LOCKFILE_NAME);
-    try (Writer writer =
-        new BufferedWriter(
-            new OutputStreamWriter(lockfilePath.asPath().getOutputStream(), UTF_8))) {
+    try (var outputStream = lockfilePath.asPath().getOutputStream();
+        var outputStreamWriter = new OutputStreamWriter(outputStream, UTF_8);
+        var writer = new BufferedWriter(outputStreamWriter)) {
       try {
         GsonTypeAdapterUtil.LOCKFILE_GSON.toJson(updatedLockfile, writer);
-      } catch (RuntimeException e) {
+      } catch (JsonIOException e) {
+        // Gson.toJson(Object, Appendable) documents JsonIOException for writer failures.
         if (e.getCause() instanceof IOException ioException) {
           throw ioException;
         }

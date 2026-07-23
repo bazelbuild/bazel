@@ -134,6 +134,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//third_party:flogger",
+        "//third_party:gson",
         "//third_party:guava",
     ],
 )
