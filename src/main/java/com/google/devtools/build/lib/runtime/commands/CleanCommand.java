@@ -137,12 +137,16 @@ public final class CleanCommand implements BlazeCommand {
     env.getEventBus().post(new CleanStartingEvent(options));
 
     try {
+      BuildRequestOptions buildRequestOptions = options.getOptions(BuildRequestOptions.class);
       String symlinkPrefix =
-          options
-              .getOptions(BuildRequestOptions.class)
-              .getSymlinkPrefix(env.getRuntime().getProductName());
+          buildRequestOptions.getSymlinkPrefix(env.getRuntime().getProductName());
       return actuallyClean(
-          env, env.getOutputBase(), cleanOptions.getExpunge(), async, symlinkPrefix);
+          env,
+          env.getOutputBase(),
+          cleanOptions.getExpunge(),
+          async,
+          symlinkPrefix,
+          buildRequestOptions.getIncompatibleExternalSymlink());
     } catch (CleanException e) {
       env.getReporter().handle(Event.error(e.getMessage()));
       return BlazeCommandResult.failureDetail(e.getFailureDetail());
@@ -214,7 +218,12 @@ public final class CleanCommand implements BlazeCommand {
   }
 
   private static BlazeCommandResult actuallyClean(
-      CommandEnvironment env, Path outputBase, boolean expunge, boolean async, String symlinkPrefix)
+      CommandEnvironment env,
+      Path outputBase,
+      boolean expunge,
+      boolean async,
+      String symlinkPrefix,
+      boolean includeExternalSymlink)
       throws CleanException, InterruptedException {
     BlazeRuntime runtime = env.getRuntime();
 
@@ -299,8 +308,10 @@ public final class CleanCommand implements BlazeCommand {
     OutputDirectoryLinksUtils.removeOutputDirectoryLinks(
         runtime.getRuleClassProvider().getSymlinkDefinitions(),
         env.getWorkspace(),
+        outputBase,
         env.getReporter(),
-        symlinkPrefix);
+        symlinkPrefix,
+        includeExternalSymlink);
 
     // shutdown on expunge cleans
     if (expunge) {
