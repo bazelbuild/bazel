@@ -88,6 +88,54 @@ public final class FileContentsProxy {
     fp.addLong(nodeId);
   }
 
+  /**
+   * Returns a {@link FileStatus} for a regular file of the given size with this proxy's timestamps
+   * and node id.
+   */
+  public FileStatus asFileStatus(long size) {
+    return new FileStatus() {
+      @Override
+      public boolean isFile() {
+        return true;
+      }
+
+      @Override
+      public boolean isDirectory() {
+        return false;
+      }
+
+      @Override
+      public boolean isSymbolicLink() {
+        return false;
+      }
+
+      @Override
+      public boolean isSpecialFile() {
+        return false;
+      }
+
+      @Override
+      public long getSize() {
+        return size;
+      }
+
+      @Override
+      public long getLastModifiedTime() {
+        return mtime;
+      }
+
+      @Override
+      public long getLastChangeTime() {
+        return ctime;
+      }
+
+      @Override
+      public long getNodeId() {
+        return nodeId;
+      }
+    };
+  }
+
   @Override
   public String toString() {
     return prettyPrint();
