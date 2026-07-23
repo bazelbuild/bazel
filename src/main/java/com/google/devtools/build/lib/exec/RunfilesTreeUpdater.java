@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.RunfileSymlinksMode;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.DigestUtils;
+import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
@@ -105,7 +106,8 @@ public class RunfilesTreeUpdater {
     Path runfilesDir = execRoot.getRelative(tree.getExecPath());
     Path inputManifest =
         execRoot.getRelative(RunfilesSupport.inputManifestExecPath(tree.getExecPath()));
-    if (!inputManifest.exists()) {
+    FileStatus inputManifestStatus = inputManifest.statNullable(Symlinks.FOLLOW);
+    if (inputManifestStatus == null) {
       return;
     }
     Path outputManifest =
@@ -120,11 +122,17 @@ public class RunfilesTreeUpdater {
       // which we must not treat as up to date, but we also don't want to unnecessarily rebuild the
       // runfiles directory all the time. Instead, check for the presence of the first runfile in
       // the manifest. If it is present, we can be certain that the previous mode wasn't SKIP.
+      // The output manifest is only digested if it is not a symlink, in which case its no-follow
+      // stat also describes the file it is digested from.
+      FileStatus outputManifestStatus = outputManifest.statNullable(Symlinks.NOFOLLOW);
       if (tree.getSymlinksMode() == RunfileSymlinksMode.CREATE
-          && !outputManifest.isSymbolicLink()
+          && outputManifestStatus != null
+          && !outputManifestStatus.isSymbolicLink()
           && Arrays.equals(
-              DigestUtils.getDigestWithManualFallback(outputManifest, xattrProvider),
-              DigestUtils.getDigestWithManualFallback(inputManifest, xattrProvider))
+              DigestUtils.getDigestWithManualFallback(
+                  outputManifest, xattrProvider, outputManifestStatus),
+              DigestUtils.getDigestWithManualFallback(
+                  inputManifest, xattrProvider, inputManifestStatus))
           && (OS.getCurrent() != OS.WINDOWS
               || isRunfilesDirectoryPopulated(runfilesDir, outputManifest))) {
         return;
