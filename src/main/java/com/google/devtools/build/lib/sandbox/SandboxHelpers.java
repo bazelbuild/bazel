@@ -57,9 +57,11 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.UncheckedIOException;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
@@ -172,13 +174,14 @@ public final class SandboxHelpers {
    * @param targetRoot root directory to copy to
    * @throws IOException if moving/copying fails
    */
+  private record OutputToMove(Path source, Path target, FileStatus stat) {}
+
   public static void moveOutputs(SandboxOutputs outputs, Path sourceRoot, Path targetRoot)
       throws IOException, InterruptedException {
+    List<OutputToMove> outputsToMove = new ArrayList<>();
     for (Entry<PathFragment, PathFragment> output :
         Iterables.concat(outputs.files().entrySet(), outputs.dirs().entrySet())) {
       Path source = sourceRoot.getRelative(output.getValue());
-      Path target = targetRoot.getRelative(output.getKey());
-
       FileStatus stat = source.statIfFound(Symlinks.NOFOLLOW);
       if (stat == null) {
         // The correct thing to do here would be to delete the target path.
@@ -187,6 +190,20 @@ public final class SandboxHelpers {
         // test output or create a way to reliably detect it, just skip the deletion.
         continue;
       }
+      if (stat.isSymbolicLink()
+          && !outputs.symlinks().contains(output.getKey())
+          && !source.exists()) {
+        throw new IOException(
+            "declared output '" + output.getKey() + "' is a dangling symbolic link");
+      }
+      Path target = targetRoot.getRelative(output.getKey());
+      outputsToMove.add(new OutputToMove(source, target, stat));
+    }
+
+    for (OutputToMove output : outputsToMove) {
+      Path source = output.source();
+      Path target = output.target();
+      FileStatus stat = output.stat();
 
       // Delete the target if it already exists.
       // Some test spawn outputs aren't action outputs, so they aren't deleted before action
@@ -702,27 +719,48 @@ public final class SandboxHelpers {
    */
   public record SandboxOutputs(
       ImmutableMap<PathFragment, PathFragment> files,
-      ImmutableMap<PathFragment, PathFragment> dirs) {
+      ImmutableMap<PathFragment, PathFragment> dirs,
+      ImmutableSet<PathFragment> symlinks) {
     public SandboxOutputs {
       requireNonNull(files, "files");
       requireNonNull(dirs, "dirs");
+      requireNonNull(symlinks, "symlinks");
     }
 
     private static final SandboxOutputs EMPTY_OUTPUTS =
-        SandboxOutputs.create(ImmutableMap.of(), ImmutableMap.of());
+        SandboxOutputs.create(ImmutableMap.of(), ImmutableMap.of(), ImmutableSet.of());
 
     public static SandboxOutputs create(
         ImmutableMap<PathFragment, PathFragment> files,
         ImmutableMap<PathFragment, PathFragment> dirs) {
-      return new SandboxOutputs(files, dirs);
+      return new SandboxOutputs(files, dirs, ImmutableSet.of());
+    }
+
+    public static SandboxOutputs create(
+        ImmutableMap<PathFragment, PathFragment> files,
+        ImmutableMap<PathFragment, PathFragment> dirs,
+        ImmutableSet<PathFragment> symlinks) {
+      return new SandboxOutputs(files, dirs, symlinks);
     }
 
     public static SandboxOutputs create(
         ImmutableSet<PathFragment> files, ImmutableSet<PathFragment> dirs) {
       return new SandboxOutputs(
           files.stream().collect(toImmutableMap(f -> f, f -> f)),
-          dirs.stream().collect(toImmutableMap(d -> d, d -> d)));
+          dirs.stream().collect(toImmutableMap(d -> d, d -> d)),
+          ImmutableSet.of());
     }
+
+    public static SandboxOutputs create(
+        ImmutableSet<PathFragment> files,
+        ImmutableSet<PathFragment> dirs,
+        ImmutableSet<PathFragment> symlinks) {
+      return new SandboxOutputs(
+          files.stream().collect(toImmutableMap(f -> f, f -> f)),
+          dirs.stream().collect(toImmutableMap(d -> d, d -> d)),
+          symlinks);
+    }
+
 
     public static SandboxOutputs getEmptyInstance() {
       return EMPTY_OUTPUTS;
@@ -732,15 +770,19 @@ public final class SandboxHelpers {
   public static SandboxOutputs getOutputs(Spawn spawn) {
     ImmutableMap.Builder<PathFragment, PathFragment> files = ImmutableMap.builder();
     ImmutableMap.Builder<PathFragment, PathFragment> dirs = ImmutableMap.builder();
+    ImmutableSet.Builder<PathFragment> symlinks = ImmutableSet.builder();
     for (ActionInput output : spawn.getOutputFiles()) {
       PathFragment mappedPath = spawn.getPathMapper().map(output.getExecPath());
       if (output instanceof Artifact && ((Artifact) output).isTreeArtifact()) {
         dirs.put(output.getExecPath(), mappedPath);
       } else {
         files.put(output.getExecPath(), mappedPath);
+        if (output instanceof Artifact && ((Artifact) output).isSymlink()) {
+          symlinks.add(output.getExecPath());
+        }
       }
     }
-    return SandboxOutputs.create(files.build(), dirs.build());
+    return SandboxOutputs.create(files.build(), dirs.build(), symlinks.build());
   }
 
   /**
