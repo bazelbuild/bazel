@@ -240,6 +240,7 @@ public class LexerTest {
     checkErrors(
         "0or()",
         "INT(0) IDENTIFIER(r) LPAREN RPAREN NEWLINE EOF",
+        "^ invalid octal literal",
         "^ invalid base-8 integer literal: 0o");
   }
 
@@ -270,19 +271,31 @@ public class LexerTest {
     // decimal
     check("12345-", "INT(12345) MINUS NEWLINE EOF");
 
-    // TODO(adonovan): add tests for 0b binary literals
+    // binary
+    check("0b101-", "INT(5) MINUS NEWLINE EOF");
+    check("0B1101", "INT(13) NEWLINE EOF");
+    checkErrors(
+        "0b1012", // '2' is not a valid binary digit
+        "INT(0) NEWLINE EOF",
+        "^ invalid base-2 integer literal: 0b1012");
+    checkErrors(
+        "0b", //
+        "INT(0) NEWLINE EOF",
+        "^ invalid binary literal",
+        "^ invalid base-2 integer literal: 0b");
 
     // octal
     check("0o12345-", "INT(5349) MINUS NEWLINE EOF");
     check("0O77", "INT(63) NEWLINE EOF");
     check("0o1o2349-", "INT(1) IDENTIFIER(o2349) MINUS NEWLINE EOF");
     checkErrors(
-        "0o12349-", //
+        "0o12349-", // '9' is not a valid octal digit
         "INT(0) MINUS NEWLINE EOF",
         "^ invalid base-8 integer literal: 0o12349");
     checkErrors(
         "0o", //
         "INT(0) NEWLINE EOF",
+        "^ invalid octal literal",
         "^ invalid base-8 integer literal: 0o");
     checkErrors(
         "012345", //
@@ -304,6 +317,55 @@ public class LexerTest {
     check(
         "123456789123456789123456789 0xABCDEFABCDEFABCDEFABCDEFABCDEF",
         "INT(123456789123456789123456789) INT(892059645479943313385225296292859375) NEWLINE EOF");
+  }
+
+  @Test
+  public void testUnderscoresInNumbers() throws Exception {
+    // PEP 515: single underscores may separate digits.
+
+    // decimal (MINUS proves we don't over-consume)
+    check("1_000_000", "INT(1000000) NEWLINE EOF");
+    check("1_2-", "INT(12) MINUS NEWLINE EOF");
+    check("123_456_789_123_456_789_123", "INT(123456789123456789123) NEWLINE EOF");
+
+    // hex (last case: separator right after the base prefix)
+    check("0xFF_FF", "INT(65535) NEWLINE EOF");
+    check("0xA_B_C", "INT(2748) NEWLINE EOF");
+    check("0x_FF", "INT(255) NEWLINE EOF");
+
+    // octal
+    check("0o1_2345", "INT(5349) NEWLINE EOF");
+    check("0o_77", "INT(63) NEWLINE EOF");
+
+    // binary
+    check("0b1010_1010", "INT(170) NEWLINE EOF");
+    check("0b_1111", "INT(15) NEWLINE EOF");
+
+    // float
+    check("1_000.5", "FLOAT(1000.5) NEWLINE EOF");
+    check("1_0.0_1", "FLOAT(10.01) NEWLINE EOF");
+    check("1_0e1_0", "FLOAT(1.0E11) NEWLINE EOF");
+    check("1.5e1_0", "FLOAT(1.5E10) NEWLINE EOF");
+    check("1.5e+1_0", "FLOAT(1.5E10) NEWLINE EOF");
+    check("1.5e-1_0", "FLOAT(1.5E-10) NEWLINE EOF");
+
+    // A leading underscore is an identifier, not a number.
+    check("_100", "IDENTIFIER(_100) NEWLINE EOF");
+
+    // A digit invalid in the literal's base is an error, not the start of a new token,
+    // even when separated from the valid digits by an underscore.
+    checkErrors("0b1_2", "INT(0) NEWLINE EOF", "^ invalid base-2 integer literal: 0b1_2");
+    checkErrors("0o7_8", "INT(0) NEWLINE EOF", "^ invalid base-8 integer literal: 0o7_8");
+
+    // A misplaced underscore terminates the number, like any other non-digit.
+    check("1__0", "INT(1) IDENTIFIER(__0) NEWLINE EOF");
+    check("1_0_", "INT(10) IDENTIFIER(_) NEWLINE EOF");
+    check("1_.5", "INT(1) IDENTIFIER(_) FLOAT(0.5) NEWLINE EOF");
+    check("1._5", "FLOAT(1.0) IDENTIFIER(_5) NEWLINE EOF");
+    checkErrors("1e_5", "FLOAT(0.0) IDENTIFIER(_5) NEWLINE EOF", "^ invalid float literal");
+    checkErrors("1e+_5", "FLOAT(0.0) IDENTIFIER(_5) NEWLINE EOF", "^ invalid float literal");
+    checkErrors("1e-_5", "FLOAT(0.0) IDENTIFIER(_5) NEWLINE EOF", "^ invalid float literal");
+    check("1_e5", "INT(1) IDENTIFIER(_e5) NEWLINE EOF");
   }
 
   @Test

@@ -22,6 +22,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Stack;
+import java.util.function.IntPredicate;
 
 /** A scanner for Starlark. */
 final class Lexer {
@@ -925,35 +926,37 @@ final class Lexer {
       } else if (c == 'x' || c == 'X') {
         // hex
         c = next();
-        if (!isxdigit(c)) {
+        int digitsStart = pos;
+        c = scanDigits(c, Lexer::isxdigit, /* leadingSeparatorOk= */ true);
+        if (pos == digitsStart) {
           error("invalid hex literal", start);
-        }
-        while (isxdigit(c)) {
-          c = next();
         }
 
       } else if (c == 'o' || c == 'O') {
         // octal
+        // Scan decimal, not just octal, digits so that a digit invalid in base 8 makes the whole
+        // literal invalid ("0o777999" is an error, not the two tokens "0o777" and "999"); it is
+        // reported by IntLiteral.scan below.
         c = next();
-        while (isdigit(c)) {
-          c = next();
+        int digitsStart = pos;
+        c = scanDigits(c, Lexer::isdigit, /* leadingSeparatorOk= */ true);
+        if (pos == digitsStart) {
+          error("invalid octal literal", start);
         }
 
       } else if (c == 'b' || c == 'B') {
         // binary
+        // As for octal, scan decimal digits and let IntLiteral.scan report invalid ones.
         c = next();
-        if (!isbdigit(c)) {
+        int digitsStart = pos;
+        c = scanDigits(c, Lexer::isdigit, /* leadingSeparatorOk= */ true);
+        if (pos == digitsStart) {
           error("invalid binary literal", start);
-        }
-        while (isbdigit(c)) {
-          c = next();
         }
 
       } else {
         // "0" or float or obsolete octal "0755"
-        while (isdigit(c)) {
-          c = next();
-        }
+        c = scanDigits(c, Lexer::isdigit, /* leadingSeparatorOk= */ true);
         if (c == '.') {
           fraction = true;
         } else if (c == 'e' || c == 'E') {
@@ -963,9 +966,7 @@ final class Lexer {
 
     } else {
       // decimal
-      while (isdigit(c)) {
-        c = next();
-      }
+      c = scanDigits(c, Lexer::isdigit, /* leadingSeparatorOk= */ false);
       if (c == '.') {
         fraction = true;
       } else if (c == 'e' || c == 'E') {
@@ -975,9 +976,7 @@ final class Lexer {
 
     if (fraction) {
       c = next(); // consume '.'
-      while (isdigit(c)) {
-        c = next();
-      }
+      c = scanDigits(c, Lexer::isdigit, /* leadingSeparatorOk= */ false);
 
       if (c == 'e' || c == 'E') {
         exponent = true;
@@ -989,9 +988,7 @@ final class Lexer {
       if (c == '+' || c == '-') {
         c = next();
       }
-      while (isdigit(c)) {
-        c = next();
-      }
+      c = scanDigits(c, Lexer::isdigit, /* leadingSeparatorOk= */ false);
     }
 
     // float?
@@ -999,7 +996,7 @@ final class Lexer {
       setToken(TokenKind.FLOAT, start, pos);
       double value = 0.0;
       try {
-        value = Double.parseDouble(bufferSlice(start, pos));
+        value = Double.parseDouble(bufferSlice(start, pos).replace("_", ""));
         if (!Double.isFinite(value)) {
           error("floating-point literal too large", start);
         }
@@ -1022,16 +1019,29 @@ final class Lexer {
     setValue(value);
   }
 
+  // Consumes a maximal run of digits (accepted by isDigit) interspersed with PEP 515 '_' separators
+  // between digits, e.g. "1_000". When leadingSeparatorOk, a '_' may also appear before the first
+  // digit, as it may right after a base prefix ("0x_ff"). Returns the first character past the run.
+  private int scanDigits(int c, IntPredicate isDigit, boolean leadingSeparatorOk) {
+    boolean afterDigit = leadingSeparatorOk;
+    while (true) {
+      if (isDigit.test(c)) {
+        afterDigit = true;
+      } else if (c == '_' && afterDigit && isDigit.test(peek(1))) {
+        afterDigit = false;
+      } else {
+        return c;
+      }
+      c = next();
+    }
+  }
+
   private static boolean isdigit(int c) {
     return '0' <= c && c <= '9';
   }
 
   private static boolean isxdigit(int c) {
     return isdigit(c) || ('A' <= c && c <= 'F') || ('a' <= c && c <= 'f');
-  }
-
-  private static boolean isbdigit(int c) {
-    return c == '0' || c == '1';
   }
 
   /**
