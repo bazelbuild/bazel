@@ -55,6 +55,7 @@ import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileStateType;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.LostInputsExecException;
+import com.google.devtools.build.lib.actions.ParamFileActionInput;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -677,6 +678,20 @@ public final class MerkleTreeComputer {
           }
         }
         case VirtualActionInput virtualActionInput -> {
+          if (spawnScrubber != null
+              && spawnScrubber.shouldScrubParamFiles()
+              && virtualActionInput instanceof ParamFileActionInput paramFile) {
+            ImmutableList<String> scrubbedArgs =
+                ImmutableList.copyOf(paramFile.getArguments()).stream()
+                    .map(spawnScrubber::transformArgument)
+                    .collect(toImmutableList());
+            virtualActionInput =
+                new ParamFileActionInput(
+                    paramFile.getExecPath(),
+                    paramFile.getParamFileArg(),
+                    scrubbedArgs,
+                    paramFile.getType());
+          }
           var digest = digestUtil.compute(virtualActionInput);
           addFile(currentDirectory, name, digest, nodeProperties);
           if (blobPolicy != BlobPolicy.DISCARD && digest.getSizeBytes() != 0) {
