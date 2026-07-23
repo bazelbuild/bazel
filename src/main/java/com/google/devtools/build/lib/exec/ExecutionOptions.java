@@ -39,6 +39,7 @@ import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsClass;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -677,7 +678,7 @@ public abstract class ExecutionOptions extends OptionsBase {
     }
 
     private PerLabelOptions parseAsRegex(String input) throws OptionsParsingException {
-      PerLabelOptions testRegexps = super.convert(input);
+      PerLabelOptions testRegexps = parseAsTestAttempts(input);
       if (testRegexps.getOptions().size() != 1) {
         throw new OptionsParsingException("'" + input + "' has multiple runs for a single pattern");
       }
@@ -689,6 +690,23 @@ public abstract class ExecutionOptions extends OptionsBase {
         throw new OptionsParsingException("'" + input + "' has a non-numeric value", e);
       }
       return testRegexps;
+    }
+
+    private PerLabelOptions parseAsTestAttempts(String input) throws OptionsParsingException {
+      int atIndex = input.lastIndexOf('@');
+      if (atIndex < 0) {
+        return super.convert(input);
+      }
+      String filterPiece = input.substring(0, atIndex);
+      String optionsPiece = input.substring(atIndex + 1);
+      List<String> optionsList = new ArrayList<>();
+      for (String option : optionsPiece.split("(?<!\\\\),")) {
+        if (option != null && !option.trim().isEmpty()) {
+          optionsList.add(option.replace("\\,", ","));
+        }
+      }
+      return new PerLabelOptions(
+          new RegexFilter.RegexFilterConverter().convert(filterPiece), optionsList);
     }
 
     @Override
