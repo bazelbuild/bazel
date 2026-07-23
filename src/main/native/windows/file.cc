@@ -67,9 +67,11 @@ wstring AddUncPrefixMaybe(const wstring& path) {
 }
 
 wstring RemoveUncPrefixMaybe(const wstring& path) {
+  if (path.compare(0, 8, L"\\\\?\\UNC\\") == 0 || path.compare(0, 8, L"\\\\?\\unc\\") == 0) {
+    return wstring(L"\\\\") + path.substr(8);
+  }
   return bazel::windows::HasUncPrefix(path.c_str()) ? path.substr(4) : path;
 }
-
 bool IsAbsoluteNormalizedWindowsPath(const wstring& p) {
   if (p.empty()) {
     return false;
