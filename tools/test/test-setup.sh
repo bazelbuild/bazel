@@ -323,15 +323,21 @@ if [[ -n "$TEST_UNDECLARED_OUTPUTS_DIR" && -n "$TEST_UNDECLARED_OUTPUTS_MANIFEST
     # For each file, write a tab-separated line with name (relative to
     # TEST_UNDECLARED_OUTPUTS_DIR), size, and mime type to the manifest. e.g.
     # foo.txt	9	text/plain
-    while read -r undeclared_output; do
-      rel_path="${undeclared_output#$TEST_UNDECLARED_OUTPUTS_DIR/}"
-      # stat has different flags for different systems. -c is supported by GNU,
-      # and -f by BSD (and thus OSX). Try both.
-      file_size="$(stat -f%z "$undeclared_output" 2>/dev/null || stat -c%s "$undeclared_output" 2>/dev/null || echo "Could not stat $undeclared_output")"
-      file_type="$(file -L -b --mime-type "$undeclared_output" || echo "Could not establish file type for $undeclared_output")"
 
-      printf "$rel_path\t$file_size\t$file_type\n"
-    done <<< "$undeclared_outputs" \
+    # stat has different flags for different systems. -c is supported by GNU,
+    # and -f by BSD (and thus OSX). Detect once.
+    if stat -f%z /dev/null >/dev/null 2>&1; then
+      stat_size_fmt='-f%z'
+    else
+      stat_size_fmt='-c%s'
+    fi
+
+    paste \
+      <(printf '%s\n' "$undeclared_outputs" | sed "s|^$TEST_UNDECLARED_OUTPUTS_DIR/||") \
+      <(printf '%s\n' "$undeclared_outputs" | tr '\n' '\0' | xargs -0 stat $stat_size_fmt \
+          || awk '{print "Could not establish file size"}' <<< "$undeclared_outputs") \
+      <(printf '%s\n' "$undeclared_outputs" | tr '\n' '\0' | xargs -0 file -L -b --mime-type \
+          || awk '{print "Could not establish file type"}' <<< "$undeclared_outputs") \
       > "$TEST_UNDECLARED_OUTPUTS_MANIFEST"
     if [[ ! -s "$TEST_UNDECLARED_OUTPUTS_MANIFEST" ]]; then
       rm "$TEST_UNDECLARED_OUTPUTS_MANIFEST"
