@@ -165,13 +165,11 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
     // be refetched to recover files that the remote cache has lost. This wouldn't be safe to do
     // eagerly as ongoing repo rule evaluations may still refer to the in-memory content and
     // refetching is not atomic.
+    reposWithLostFiles.forEach(this::evictInMemoryRepo);
     materializations.forEach(
         1,
         (repoName, materializationState) ->
-            materializationState.state() == Future.State.SUCCESS
-                    || reposWithLostFiles.contains(repoName)
-                ? repoName
-                : null,
+            materializationState.state() == Future.State.SUCCESS ? repoName : null,
         this::evictInMemoryRepo);
     invalidateRepoDirectories(evaluator, reposWithLostFiles);
     reposWithLostFiles.clear();
@@ -298,6 +296,24 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
   }
 
   /**
+   * Returns the contents of the marker file for the given repo if its contents are currently
+   * available in the in-memory file system, or null otherwise.
+   */
+  @Nullable
+  public String getInjectedRepoMarkerFileContents(RepositoryName repo) {
+    String markerFileContent = markerFileContents.get(repo.getName());
+    if (markerFileContent == null) {
+      return null;
+    }
+    // The repo contents may have been deleted (e.g. due to refetching) without the in-memory
+    // bookkeeping having been cleaned up yet (see fsForPath).
+    if (!externalFs.getPath(externalDirectory.getChild(repo.getName())).exists()) {
+      return null;
+    }
+    return markerFileContent;
+  }
+
+  /**
    * Materializes the given external repository to the native file system if it hasn't been
    * materialized yet. This method blocks until the materialization is complete.
    *
@@ -347,7 +363,13 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
                 Iterables.transform(paths, ActionInputHelper::fromPath),
                 actionInput -> externalFs.getMetadata(actionInput.getExecPath()),
                 ActionInputPrefetcher.Priority.CRITICAL,
-                ActionInputPrefetcher.Reason.INPUTS));
+                ActionInputPrefetcher.Reason.INPUTS,
+                // A repo may be reinjected within the same invocation after injectRemoteRepo
+                // deleted the native copies of its prefetched files (e.g. when its fetch is
+                // restarted due to memory pressure). The prefetcher's download cache would
+                // consider these files downloaded already, so force it to verify them against
+                // the local file system.
+                /* forceDownload= */ true));
   }
 
   /**

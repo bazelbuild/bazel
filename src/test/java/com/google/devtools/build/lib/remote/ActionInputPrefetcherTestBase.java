@@ -30,6 +30,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -327,6 +328,68 @@ public abstract class ActionInputPrefetcherTestBase {
     assertThat(prefetcher.downloadedFiles()).containsExactly(a.getPath());
     assertThat(prefetcher.downloadsInProgress()).isEmpty();
     assertThat(FileSystemUtils.readContent(a.getPath(), UTF_8)).isEqualTo("hello world remote");
+  }
+
+  @Test
+  public void prefetchFiles_forceDownload_redownloadsFileDeletedAfterDownload() throws Exception {
+    Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
+    Map<HashCode, byte[]> cas = new HashMap<>();
+    Artifact a = createRemoteArtifact("file", "hello world", metadata, cas);
+    AbstractActionInputPrefetcher prefetcher = createPrefetcher(cas);
+
+    wait(
+        prefetcher.prefetchFilesInterruptibly(
+            action, metadata.keySet(), metadata::get, Priority.MEDIUM, Reason.INPUTS));
+    assertThat(FileSystemUtils.readContent(a.getPath(), UTF_8)).isEqualTo("hello world");
+
+    // Simulate the file being deleted within the same invocation, e.g. by the reinjection of a
+    // remotely cached repo after its fetch was restarted due to memory pressure.
+    a.getPath().delete();
+
+    // Without forceDownload, the completed download is remembered and the file stays missing.
+    wait(
+        prefetcher.prefetchFilesInterruptibly(
+            action, metadata.keySet(), metadata::get, Priority.MEDIUM, Reason.INPUTS));
+    assertThat(a.getPath().exists()).isFalse();
+
+    // With forceDownload, the file is verified against the file system and re-downloaded.
+    wait(
+        prefetcher.prefetchFilesInterruptibly(
+            action,
+            metadata.keySet(),
+            metadata::get,
+            Priority.MEDIUM,
+            Reason.INPUTS,
+            /* forceDownload= */ true));
+    assertThat(FileSystemUtils.readContent(a.getPath(), UTF_8)).isEqualTo("hello world");
+  }
+
+  @Test
+  public void prefetchFiles_forceDownload_intactFileNotRedownloaded() throws Exception {
+    Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
+    Map<HashCode, byte[]> cas = new HashMap<>();
+    Artifact a = createRemoteArtifact("file", "hello world", metadata, cas);
+    AbstractActionInputPrefetcher prefetcher = spy(createPrefetcher(cas));
+
+    wait(
+        prefetcher.prefetchFilesInterruptibly(
+            action, metadata.keySet(), metadata::get, Priority.MEDIUM, Reason.INPUTS));
+    assertThat(FileSystemUtils.readContent(a.getPath(), UTF_8)).isEqualTo("hello world");
+
+    wait(
+        prefetcher.prefetchFilesInterruptibly(
+            action,
+            metadata.keySet(),
+            metadata::get,
+            Priority.MEDIUM,
+            Reason.INPUTS,
+            /* forceDownload= */ true));
+
+    // The forced prefetch verifies the file against the file system instead of trusting the
+    // download cache, but does not re-download it if it is intact.
+    verify(prefetcher, times(1))
+        .doDownloadFile(eq(action), any(), eq(a), any(), any(), any(), any());
+    assertThat(FileSystemUtils.readContent(a.getPath(), UTF_8)).isEqualTo("hello world");
   }
 
   @Test
