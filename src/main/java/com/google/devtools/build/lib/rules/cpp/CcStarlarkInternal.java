@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.CommandLines.CommandLineAndParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
+import com.google.devtools.build.lib.analysis.BazelRuleAnalysisThreadContext;
 import com.google.devtools.build.lib.analysis.Expander;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
@@ -320,13 +321,23 @@ public class CcStarlarkInternal implements StarlarkValue {
       parameters = {
         @Param(name = "toolchain_config_info", positional = false, named = true),
         @Param(name = "tools_directory", positional = false, named = true),
-      })
+      },
+      useStarlarkThread = true)
   public CcToolchainFeatures ccToolchainFeatures(
-      StarlarkInfo ccToolchainConfigInfo, String toolsDirectoryPathString)
+      StarlarkInfo ccToolchainConfigInfo,
+      String toolsDirectoryPathString,
+      StarlarkThread thread)
       throws EvalException, RuleErrorException {
+    CppOptions cppOptions =
+        BazelRuleAnalysisThreadContext.fromOrFail(thread, "cc_toolchain_features")
+            .getRuleContext()
+            .getConfiguration()
+            .getOptions()
+            .get(CppOptions.class);
     return new CcToolchainFeatures(
         CcToolchainConfigInfo.PROVIDER.wrap(ccToolchainConfigInfo),
-        PathFragment.create(toolsDirectoryPathString));
+        PathFragment.create(toolsDirectoryPathString),
+        cppOptions.getExperimentalCcPermissiveArtifactExtensions());
   }
 
   @StarlarkMethod(
