@@ -678,6 +678,18 @@ public abstract class BuildLanguageOptions extends OptionsBase {
 
   // TODO: b/350661266 - Delete this flag.
   @Option(
+      name = "experimental_lazy_location_expansion",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "If set to true, ctx.expand_location accepts a lazy parameter that makes it return an"
+              + " opaque value for use with ctx.actions.args() instead of an eagerly expanded"
+              + " string.")
+  public abstract boolean getExperimentalLazyLocationExpansion();
+
+  @Option(
       name = "experimental_starlark_types",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -977,6 +989,8 @@ public abstract class BuildLanguageOptions extends OptionsBase {
                 INCOMPATIBLE_LOCATIONS_PREFERS_EXECUTABLE,
                 getIncompatibleLocationsPrefersExecutable())
             .setBool(
+                EXPERIMENTAL_LAZY_LOCATION_EXPANSION, getExperimentalLazyLocationExpansion())
+            .setBool(
                 INCOMPATIBLE_RESOLVE_SELECT_KEYS_EAGERLY, getIncompatibleResolveSelectKeysEagerly())
             .setBool(
                 StarlarkSemantics.EXPERIMENTAL_ENABLE_STARLARK_SET,
@@ -1154,6 +1168,8 @@ public abstract class BuildLanguageOptions extends OptionsBase {
       "+incompatible_simplify_unconditional_selects_in_rule_attrs";
   public static final String INCOMPATIBLE_LOCATIONS_PREFERS_EXECUTABLE =
       "+incompatible_locations_prefers_executable";
+  public static final String EXPERIMENTAL_LAZY_LOCATION_EXPANSION =
+      "-experimental_lazy_location_expansion";
   public static final String EXPERIMENTAL_REPOSITORY_CTX_EXECUTE_WASM =
       "-experimental_repository_ctx_execute_wasm";
   public static final String EXPERIMENTAL_REPOSITORY_CTX_WASM_COMPILATION =

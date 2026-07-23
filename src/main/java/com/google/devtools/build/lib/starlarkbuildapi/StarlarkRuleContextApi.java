@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.starlarkbuildapi;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
@@ -459,12 +460,24 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
             positional = false,
             defaultValue = "False",
             documented = false),
+        @Param(
+            name = "lazy",
+            named = true,
+            positional = false,
+            defaultValue = "False",
+            enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_LAZY_LOCATION_EXPANSION,
+            doc =
+                "Experimental: if true, returns an opaque value that can be passed to"
+                    + " <code>Args.add</code> in place of the eagerly expanded string. Location"
+                    + " paths are only rendered when the consuming action's command line is"
+                    + " expanded, which retains less memory during analysis and makes the paths"
+                    + " subject to path mapping."),
       },
       allowReturnNones = true,
       useStarlarkThread = true)
   @Nullable
-  String expandLocation(
-      String input, Sequence<?> targets, boolean shortPaths, StarlarkThread thread)
+  Object expandLocation(
+      String input, Sequence<?> targets, boolean shortPaths, boolean lazy, StarlarkThread thread)
       throws EvalException;
 
   @StarlarkMethod(

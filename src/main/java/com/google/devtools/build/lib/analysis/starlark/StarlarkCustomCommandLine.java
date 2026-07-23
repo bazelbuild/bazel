@@ -775,6 +775,82 @@ public class StarlarkCustomCommandLine extends CommandLine {
     }
   }
 
+  /**
+   * Denotes a lazily rendered location expansion: followed by the original string, the site
+   * layout, the workspace runfiles directory and one value per site.
+   */
+  @SerializationConstant @VisibleForSerialization
+  public static final Object EXPANDED_LOCATION_ARG_MARKER =
+      new Object() {
+        @Override
+        public String toString() {
+          return "EXPANDED_LOCATION_ARG_MARKER";
+        }
+      };
+
+  /**
+   * Representation of a lazily rendered location expansion originating from {@code
+   * ctx.expand_location(..., lazy = True)} being passed to {@code Args.add}.
+   *
+   * <p>Unlike an eagerly expanded string, this retains no artifact paths during analysis: it
+   * references the original input string, a small {@code int[]} and the resolved artifacts, which
+   * are all retained elsewhere anyway. Paths are rendered during preprocessing and are thus
+   * subject to path mapping.
+   */
+  private static final class ExpandedLocationArg {
+
+    private static final UUID EXPANDED_LOCATION_ARG_UUID =
+        UUID.fromString("d5f4a692-3b1c-4d8e-9a07-6e21f9c64b58");
+
+    static void push(List<Object> arguments, LazyLocationExpansion expansion) {
+      arguments.add(EXPANDED_LOCATION_ARG_MARKER);
+      arguments.add(expansion.original());
+      arguments.add(expansion.layout());
+      Collections.addAll(arguments, expansion.values());
+    }
+
+    static int preprocess(
+        List<Object> arguments,
+        int argi,
+        PreprocessedCommandLine.Builder builder,
+        PathMapper pathMapper) {
+      String original = (String) arguments.get(argi++);
+      int[] layout = (int[]) arguments.get(argi++);
+      builder.addArg(LazyLocationExpansion.render(original, layout, arguments, argi, pathMapper));
+      return argi + layout.length / 3;
+    }
+
+    static int addToFingerprint(List<Object> arguments, int argi, Fingerprint fingerprint) {
+      String original = (String) arguments.get(argi++);
+      int[] layout = (int[]) arguments.get(argi++);
+      fingerprint.addUUID(EXPANDED_LOCATION_ARG_UUID);
+      fingerprint.addString(original);
+      for (int i : layout) {
+        fingerprint.addInt(i);
+      }
+      // Path mapping may affect the rendering of exec paths at execution time, but its effect is a
+      // pure function of the artifacts' exec paths, the modes in the layout (both fingerprinted
+      // here) and the path mapping mode, which is fingerprinted by the consuming action. It is
+      // thus safe to fingerprint the unmapped exec paths.
+      int numSites = layout.length / 3;
+      for (int i = 0; i < numSites; i++) {
+        Object value = arguments.get(argi++);
+        if (value instanceof Artifact artifact) {
+          fingerprint.addInt(1);
+          fingerprint.addPath(artifact.getExecPath());
+        } else {
+          @SuppressWarnings("unchecked")
+          var artifacts = (ImmutableList<Artifact>) value;
+          fingerprint.addInt(artifacts.size());
+          for (Artifact artifact : artifacts) {
+            fingerprint.addPath(artifact.getExecPath());
+          }
+        }
+      }
+      return argi;
+    }
+  }
+
   /** Denotes that the following two elements are an object and format string. */
   @SerializationConstant @VisibleForSerialization
   public static final Object SINGLE_FORMATTED_ARG_MARKER =
@@ -879,6 +955,12 @@ public class StarlarkCustomCommandLine extends CommandLine {
       return this;
     }
 
+    @CanIgnoreReturnValue
+    Builder addExpandedLocation(LazyLocationExpansion expansion) {
+      ExpandedLocationArg.push(arguments, expansion);
+      return this;
+    }
+
     CommandLine build(boolean flagPerLine, @Nullable RepositoryMapping mainRepoMapping) {
       if (arguments.isEmpty()) {
         return CommandLine.empty();
@@ -944,6 +1026,8 @@ public class StarlarkCustomCommandLine extends CommandLine {
                     arguments, argi, builder, inputMetadataProvider, pathMapper, mainRepoMapping);
       } else if (arg == SINGLE_FORMATTED_ARG_MARKER) {
         argi = SingleFormattedArg.preprocess(arguments, argi, builder, mainRepoMapping);
+      } else if (arg == EXPANDED_LOCATION_ARG_MARKER) {
+        argi = ExpandedLocationArg.preprocess(arguments, argi, builder, pathMapper);
       } else {
         builder.addArg(expandToCommandLine(arg, mainRepoMapping));
       }
@@ -1080,6 +1164,8 @@ public class StarlarkCustomCommandLine extends CommandLine {
                     mainRepoMapping);
       } else if (arg == SINGLE_FORMATTED_ARG_MARKER) {
         argi = SingleFormattedArg.addToFingerprint(arguments, argi, fingerprint, mainRepoMapping);
+      } else if (arg == EXPANDED_LOCATION_ARG_MARKER) {
+        argi = ExpandedLocationArg.addToFingerprint(arguments, argi, fingerprint);
       } else {
         addSingleObjectToFingerprint(fingerprint, arg, mainRepoMapping);
       }
