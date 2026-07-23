@@ -411,8 +411,9 @@ public abstract class RepositoryOptions extends OptionsBase {
               + " use the lockfile and update it if there are changes, `refresh` to additionally"
               + " refresh mutable information (yanked versions and previously missing modules)"
               + " from remote registries from time to time, `error` to use the lockfile but throw"
-              + " an error if it's not up-to-date, or `off` to neither read from or write to the"
-              + " lockfile.")
+              + " an error if needed information is not up-to-date (superfluous entries that the"
+              + " current resolution does not consult are ignored, not reported), or `off` to"
+              + " neither read from or write to the lockfile.")
   public abstract LockfileMode getLockfileMode();
 
   @Option(
