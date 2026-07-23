@@ -306,7 +306,7 @@ java_library(
     ],
     deps = [
         ":remote_analysis_cache_storage_type",
-        "//src/main/java/com/google/devtools/build/lib/skybridge:sc_flags",
+        "//src/main/java/com/google/devtools/build/lib/skybridge:sc_only",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:guava",
     ],

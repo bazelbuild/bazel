@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.devtools.build.lib.skybridge.ScFlags;
+import com.google.devtools.build.lib.skybridge.ScOnly;
 import com.google.devtools.common.options.Converters.DurationConverter;
 import com.google.devtools.common.options.Converters.RangeConverter;
 import com.google.devtools.common.options.EnumConverter;
@@ -38,7 +38,7 @@ import java.time.Duration;
  * <p>A flag should be in the SC otherwise, as it offers simpler backwards compatibility.
  */
 @OptionsClass
-@ScFlags
+@ScOnly
 public abstract class RemoteAnalysisCachingServicesOptions extends OptionsBase {
 
   /** A converter for integers that must be at least 1. */
