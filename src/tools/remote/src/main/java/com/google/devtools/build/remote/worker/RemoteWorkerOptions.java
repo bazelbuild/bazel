@@ -232,6 +232,17 @@ public class RemoteWorkerOptions extends OptionsBase {
               + " invocation id. This is useful for testing only.")
   public boolean errorOnDuplicateDownloads;
 
+  @Option(
+      name = "action_cache_integrity_check",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "If false, action results are served without checking that the blobs they reference"
+              + " are present in the CAS. This emulates remote caches that do not perform"
+              + " integrity checks and is useful for testing only.")
+  public boolean actionCacheIntegrityCheck;
+
   private static final int MAX_JOBS = 16384;
 
   /**
