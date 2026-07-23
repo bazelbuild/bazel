@@ -173,30 +173,6 @@ java_library(
 )
 
 java_library(
-    name = "byte_stream_build_event_artifact_uploader",
-    srcs = ["ByteStreamBuildEventArtifactUploader.java"],
-    deps = [
-        ":combined_cache",
-        ":remote_action_file_system",
-        "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
-        "//src/main/java/com/google/devtools/build/lib/buildeventstream",
-        "//src/main/java/com/google/devtools/build/lib/events",
-        "//src/main/java/com/google/devtools/build/lib/remote/common",
-        "//src/main/java/com/google/devtools/build/lib/remote/options",
-        "//src/main/java/com/google/devtools/build/lib/remote/util:digest_util",
-        "//src/main/java/com/google/devtools/build/lib/remote/util:rx_futures",
-        "//src/main/java/com/google/devtools/build/lib/remote/util:tracing_metadata_utils",
-        "//src/main/java/com/google/devtools/build/lib/remote/util:utils",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//third_party:guava",
-        "//third_party:jsr305",
-        "//third_party:netty",
-        "//third_party:rxjava3",
-        "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
-    ],
-)
-
-java_library(
     name = "ExecutionStatusException",
     srcs = ["ExecutionStatusException.java"],
     deps = [
