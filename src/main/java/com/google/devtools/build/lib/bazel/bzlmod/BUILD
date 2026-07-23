@@ -360,6 +360,39 @@ java_library(
 )
 
 java_library(
+    name = "buildozer_binary",
+    srcs = [
+        "BuildozerBinaryValue.java",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "buildozer_binary_impl",
+    srcs = [
+        "BuildozerBinaryFunction.java",
+    ],
+    deps = [
+        ":buildozer_binary",
+        ":resolution",
+        "//src/main/java/com/google/devtools/build/lib/bazel/repository:utils",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:repository_mapping_value",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//src/main/java/net/starlark/java/eval",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
     name = "tidy",
     srcs = [
         "BazelModTidyValue.java",
@@ -382,18 +415,14 @@ java_library(
         "BazelModTidyFunction.java",
     ],
     deps = [
+        ":buildozer_binary",
         ":common",
         ":exception",
         ":resolution",
         ":root_module_file_fixup",
         ":tidy",
-        "//src/main/java/com/google/devtools/build/lib/bazel/repository:utils",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/events",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:repository_mapping_value",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-        "//src/main/java/net/starlark/java/eval",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
