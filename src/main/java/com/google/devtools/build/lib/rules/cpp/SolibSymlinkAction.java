@@ -50,6 +50,8 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Starlark;
 
 /**
  * Creates mangled symlinks in the solib directory for all shared libraries. For shared libraries
@@ -160,7 +162,8 @@ public final class SolibSymlinkAction extends AbstractAction {
       String solibDir,
       final Artifact library,
       boolean preserveName,
-      boolean prefixConsumer) {
+      boolean prefixConsumer)
+      throws EvalException {
     PathFragment mangledName =
         getMangledName(
             actionConstructionContext.getOwner().getLabel(),
@@ -190,9 +193,10 @@ public final class SolibSymlinkAction extends AbstractAction {
       ActionConstructionContext actionConstructionContext,
       String solibDir,
       final Artifact library,
-      PathFragment path) {
-    Preconditions.checkArgument(Link.SHARED_LIBRARY_FILETYPES.matches(library.getFilename()));
-    Preconditions.checkArgument(Link.SHARED_LIBRARY_FILETYPES.matches(path.getBaseName()));
+      PathFragment path)
+      throws EvalException {
+    checkSharedLibraryFiletype(library.getFilename());
+    checkSharedLibraryFiletype(path.getBaseName());
     Preconditions.checkArgument(
         !library.getRootRelativePath().getPathString().startsWith("_solib_"));
 
@@ -210,7 +214,8 @@ public final class SolibSymlinkAction extends AbstractAction {
       RuleContext ruleContext,
       Artifact library,
       String toolchainProvidedSolibDir,
-      String solibDirOverride) {
+      String solibDirOverride)
+      throws EvalException {
     PathFragment solibDir =
         PathFragment.create(
             solibDirOverride != null ? solibDirOverride : toolchainProvidedSolibDir);
@@ -228,11 +233,9 @@ public final class SolibSymlinkAction extends AbstractAction {
   private static Artifact getDynamicLibrarySymlinkInternal(
       ActionConstructionContext actionConstructionContext,
       Artifact library,
-      PathFragment symlinkName) {
-    Preconditions.checkArgument(
-        Link.SHARED_LIBRARY_FILETYPES.matches(library.getFilename()),
-        "Library '%s' does not match expected filetype",
-        library.getFilename());
+      PathFragment symlinkName)
+      throws EvalException {
+    checkSharedLibraryFiletype(library.getFilename());
     Preconditions.checkArgument(
         !library.getRootRelativePath().getPathString().startsWith("_solib_"));
 
@@ -242,6 +245,20 @@ public final class SolibSymlinkAction extends AbstractAction {
     actionConstructionContext.registerAction(
         new SolibSymlinkAction(actionConstructionContext.getActionOwner(), library, symlink));
     return symlink;
+  }
+
+  /**
+   * Verifies that {@code filename} has a recognized shared library extension, raising a
+   * user-friendly {@link EvalException} otherwise. This guards against invalid user-provided names
+   * (e.g. a {@code cc_shared_library}'s {@code shared_lib_name}) reaching here and crashing Bazel.
+   */
+  private static void checkSharedLibraryFiletype(String filename) throws EvalException {
+    if (!Link.SHARED_LIBRARY_FILETYPES.matches(filename)) {
+      throw Starlark.errorf(
+          "shared library name '%s' must end with a recognized shared library extension (one of:"
+              + " %s) or have no extension",
+          filename, String.join(", ", Link.SHARED_LIBRARY_FILETYPES.getExtensions()));
+    }
   }
 
   @VisibleForTesting public static final int MAX_FILENAME_LENGTH = 255;

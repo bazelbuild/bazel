@@ -257,7 +257,8 @@ public class CcStarlarkInternal implements StarlarkValue {
       StarlarkRuleContext ruleContext,
       Artifact artifact,
       String solibDirectory,
-      String runtimeSolibDirBase) {
+      String runtimeSolibDirBase)
+      throws EvalException {
     return SolibSymlinkAction.getCppRuntimeSymlink(
         ruleContext.getRuleContext(), artifact, solibDirectory, runtimeSolibDirBase);
   }
@@ -277,7 +278,8 @@ public class CcStarlarkInternal implements StarlarkValue {
       Artifact library,
       String solibDirectory,
       boolean preserveName,
-      boolean prefixConsumer) {
+      boolean prefixConsumer)
+      throws EvalException {
     return SolibSymlinkAction.getDynamicLibrarySymlink(
         actions.getRuleContext(), solibDirectory, library, preserveName, prefixConsumer);
   }
@@ -292,7 +294,8 @@ public class CcStarlarkInternal implements StarlarkValue {
         @Param(name = "path"),
       })
   public Artifact dynamicLibrarySymlinkAction2(
-      StarlarkActionFactory actions, Artifact library, String solibDirectory, String path) {
+      StarlarkActionFactory actions, Artifact library, String solibDirectory, String path)
+      throws EvalException {
     return SolibSymlinkAction.getDynamicLibrarySymlink(
         actions.getRuleContext(), solibDirectory, library, PathFragment.create(path));
   }
