@@ -80,17 +80,31 @@ public class TestCommand implements BlazeCommand {
   }
 
   @Override
-  public void editOptions(OptionsParser optionsParser) {
+  public void editOptions(OptionsParser optionsParser) throws OptionsParsingException {
     TestOutputFormat testOutput = optionsParser.getOptions(ExecutionOptions.class).getTestOutput();
-    try {
-      if (testOutput == TestOutputFormat.STREAMED) {
-        optionsParser.parse(
-            PriorityCategory.SOFTWARE_REQUIREMENT,
-            "streamed output requires locally run tests, without sharding",
-            ImmutableList.of("--test_sharding_strategy=disabled", "--test_strategy=exclusive"));
+    if (testOutput == TestOutputFormat.STREAMED) {
+      for (com.google.devtools.common.options.ParsedOptionDescription option :
+          optionsParser.asListOfExplicitOptions()) {
+        String optionName = option.getOptionDefinition().getOptionName();
+        if (optionName.equals("test_strategy")) {
+          String value = option.getUnconvertedValue();
+          if (value != null && !value.equals("exclusive") && !value.isEmpty()) {
+            throw new OptionsParsingException(
+                "test_strategy=" + value + " is not allowed when --test_output=streamed is set");
+          }
+        }
+        if (optionName.equals("test_sharding_strategy")) {
+          String value = option.getUnconvertedValue();
+          if (value != null && !value.equals("disabled") && !value.isEmpty()) {
+            throw new OptionsParsingException(
+                "test_sharding_strategy=" + value + " is not allowed when --test_output=streamed is set");
+          }
+        }
       }
-    } catch (OptionsParsingException e) {
-      throw new IllegalStateException("Known options failed to parse", e);
+      optionsParser.parse(
+          PriorityCategory.SOFTWARE_REQUIREMENT,
+          "streamed output requires locally run tests, without sharding",
+          ImmutableList.of("--test_sharding_strategy=disabled", "--test_strategy=exclusive"));
     }
   }
 

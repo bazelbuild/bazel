@@ -585,4 +585,20 @@ EOF
       || fail "expected build to succeed"
 }
 
+function test_streamed_output_validation_errors() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg || fail "mkdir -p $pkg failed"
+  touch $pkg/BUILD
+
+  # 1. Combining --test_output=streamed and --test_strategy=remote should fail
+  bazel test --test_output=streamed --test_strategy=remote //$pkg:all &> $TEST_log \
+      && fail "expected test to fail due to options conflict"
+  expect_log "test_strategy=remote is not allowed when --test_output=streamed is set"
+
+  # 2. Combining --test_output=streamed and --test_sharding_strategy=forced=2 should fail
+  bazel test --test_output=streamed --test_sharding_strategy=forced=2 //$pkg:all &> $TEST_log \
+      && fail "expected test to fail due to options conflict"
+  expect_log "test_sharding_strategy=forced=2 is not allowed when --test_output=streamed is set"
+}
+
 run_suite "test tests"

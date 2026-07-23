@@ -59,8 +59,7 @@ public final class VersionCommand implements BlazeCommand {
     public abstract boolean getGnuFormat();
   }
 
-  @Override
-  public void editOptions(OptionsParser optionsParser) {}
+
 
   @Override
   public BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options) {

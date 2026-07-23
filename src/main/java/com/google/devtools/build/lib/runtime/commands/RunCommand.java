@@ -232,8 +232,7 @@ public class RunCommand implements BlazeCommand {
     this.testPolicy = testPolicy;
   }
 
-  @Override
-  public void editOptions(OptionsParser optionsParser) {}
+
 
   /** Returns the arguments in a {@link ConfiguredTarget}'s {@code args} attribute. */
   private static ImmutableList<String> getBinaryArgs(ConfiguredTarget targetToRun) {

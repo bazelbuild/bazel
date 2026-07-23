@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.runtime;
 
 import com.google.devtools.common.options.OptionsParser;
+import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsParsingResult;
 
 /**
@@ -45,5 +46,5 @@ public interface BlazeCommand {
    *
    * @param optionsParser the options parser for the current command
    */
-  default void editOptions(OptionsParser optionsParser) {}
+  default void editOptions(OptionsParser optionsParser) throws OptionsParsingException {}
 }
