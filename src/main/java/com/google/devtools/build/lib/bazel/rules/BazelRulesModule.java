@@ -645,6 +645,16 @@ public final class BazelRulesModule extends BlazeModule {
 
     @Deprecated
     @Option(
+        name = "experimental_cc_implementation_deps",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.EXPERIMENTAL, OptionMetadataTag.DEPRECATED},
+        help = "Deprecated no-op.")
+    public abstract boolean getExperimentalCcImplementationDeps();
+
+    @Deprecated
+    @Option(
         name = "experimental_java_test_auto_create_deploy_jar",
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
