@@ -459,18 +459,6 @@ public abstract class BuildLanguageOptions extends OptionsBase {
   public abstract boolean getInternalStarlarkFlagTestCanary();
 
   @Option(
-      name = "incompatible_do_not_split_linking_cmdline",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "When true, Bazel no longer modifies command line flags used for linking, and also "
-              + "doesn't selectively decide which flags go to the param file and which don't.  "
-              + "See https://github.com/bazelbuild/bazel/issues/7670 for details.")
-  public abstract boolean getIncompatibleDoNotSplitLinkingCmdline();
-
-  @Option(
       name = "incompatible_unambiguous_label_stringification",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -922,9 +910,6 @@ public abstract class BuildLanguageOptions extends OptionsBase {
                 INCOMPATIBLE_REQUIRE_MNEMONIC_FOR_RUN_ACTIONS,
                 getIncompatibleRequireMnemonicForRunActions())
             .setBool(StarlarkSemantics.PRINT_TEST_MARKER, getInternalStarlarkFlagTestCanary())
-            .setBool(
-                INCOMPATIBLE_DO_NOT_SPLIT_LINKING_CMDLINE,
-                getIncompatibleDoNotSplitLinkingCmdline())
             .set(INCOMPATIBLE_ENFORCE_STARLARK_UTF8, getIncompatibleEnforceStarlarkUtf8())
             .setBool(
                 INCOMPATIBLE_UNAMBIGUOUS_LABEL_STRINGIFICATION,
@@ -1106,8 +1091,6 @@ public abstract class BuildLanguageOptions extends OptionsBase {
       FlagConstants.INCOMPATIBLE_PACKAGE_GROUP_HAS_PUBLIC_SYNTAX;
   public static final String INCOMPATIBLE_FIX_PACKAGE_GROUP_REPOROOT_SYNTAX =
       FlagConstants.INCOMPATIBLE_FIX_PACKAGE_GROUP_REPOROOT_SYNTAX;
-  public static final String INCOMPATIBLE_DO_NOT_SPLIT_LINKING_CMDLINE =
-      "+incompatible_do_not_split_linking_cmdline";
   public static final String INCOMPATIBLE_JAVA_INFO_MERGE_RUNTIME_MODULE_FLAGS =
       "-incompatible_java_info_merge_runtime_module_flags";
   public static final String INCOMPATIBLE_NO_ATTR_LICENSE = "+incompatible_no_attr_license";
