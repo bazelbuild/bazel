@@ -49,6 +49,15 @@ function resolve_links() {
   fi
 }
 
+# Bash does not run trap handlers while a foreground process is executing.
+# Backgrounding the test and using wait allows the trap to fire on SIGTERM.
+function handle_sigterm() {
+  if [[ -n "$wrapped_pid" ]] && kill -0 "$wrapped_pid" 2>/dev/null; then
+    wait "$wrapped_pid" 2>/dev/null
+  fi
+  exit 0
+}
+
 # tw.exe prefixes the runfiles env variables so that this script can find its
 # own runfiles, which are not part of the test's runfiles.
 for name in RUNFILES_DIR RUNFILES_MANIFEST_FILE JAVA_RUNFILES PYTHON_RUNFILES; do
@@ -162,8 +171,11 @@ if [[ "$IS_COVERAGE_SPAWN" == "0" ]]; then
     touch $COVERAGE_OUTPUT_FILE
   fi
 
-  # Execute the test.
-  "$@"
+  # Execute the test in the background so that the SIGTERM trap can fire.
+  trap handle_sigterm TERM
+  "$@" &
+  wrapped_pid=$!
+  wait $wrapped_pid
   TEST_STATUS=$?
 
   if [[ $TEST_STATUS -ne 0 ]]; then
