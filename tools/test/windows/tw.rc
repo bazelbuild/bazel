@@ -1,0 +1,5 @@
+// Windows resource script for the tw.exe / xml.exe test wrappers.
+// Embeds the application manifest (resource type 24 = RT_MANIFEST, ID 1 =
+// CREATEPROCESS_MANIFEST_RESOURCE_ID) so that the process is marked as
+// longPathAware, enabling CreateProcessW() to accept paths up to 32767 chars.
+1 24 "tools/test/windows/tw.manifest"
