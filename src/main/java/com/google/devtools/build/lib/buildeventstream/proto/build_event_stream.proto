@@ -1528,6 +1528,42 @@ message BuildMetrics {
   }
 
   BzlMetrics bzl_metrics = 14;
+
+  // Metrics observed before this BuildMetrics snapshot that quantify the
+  // upload savings from remote cache content-defined chunking (CDC).
+  message RemoteCacheCdcMetrics {
+    // Operation health: whether CDC is being used successfully.
+    int64 upload_attempts = 1;
+    int64 upload_successes = 2;
+    int64 upload_failures = 3;
+    int64 download_attempts = 4;
+    int64 download_successes = 5;
+    int64 download_fallbacks = 6;
+    int64 download_failures = 7;
+
+    // Upload savings: how much upload traffic CDC avoided. Includes
+    // successful uploads only.
+    int64 upload_logical_bytes = 8;
+    int64 upload_chunk_references = 9;
+    // Remote missing bytes and chunks can be derived by subtracting these
+    // values from the corresponding logical totals above.
+    int64 upload_bytes_reused = 10;
+    int64 upload_chunk_references_reused = 11;
+
+    // Download sources: where successful CDC chunk downloads were served
+    // from. Disk misses and remote fetches overlap when an attempted local
+    // lookup falls through to the remote cache.
+    int64 download_logical_bytes = 12;
+    int64 download_chunk_references = 13;
+    int64 download_disk_cache_hit_chunks = 14;
+    int64 download_disk_cache_hit_bytes = 15;
+    int64 download_disk_cache_miss_chunks = 16;
+    int64 download_disk_cache_miss_bytes = 17;
+    int64 download_remote_chunks = 18;
+    int64 download_remote_bytes = 19;
+  }
+
+  RemoteCacheCdcMetrics remote_cache_cdc_metrics = 15;
 }
 
 // Event providing additional statistics/logs after completion of the build.

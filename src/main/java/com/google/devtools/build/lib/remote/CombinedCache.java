@@ -37,6 +37,7 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.exec.SpawnCheckingCacheEvent;
 import com.google.devtools.build.lib.exec.SpawnProgressEvent;
+import com.google.devtools.build.lib.metrics.RemoteCacheCdcEvent;
 import com.google.devtools.build.lib.remote.chunking.ChunkingConfig;
 import com.google.devtools.build.lib.remote.common.ActionKey;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
@@ -69,6 +70,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
@@ -106,6 +108,7 @@ public class CombinedCache extends AbstractReferenceCounted {
   @Nullable protected final String symlinkTemplate;
   protected final DigestUtil digestUtil;
   private final boolean chunkingEnabled;
+  private final Consumer<RemoteCacheCdcEvent> cdcMetricsSink;
 
   // Delays the initialization of the chunking support logic until first use to avoid blocking on
   // a server capabilities check at construction time.
@@ -127,8 +130,19 @@ public class CombinedCache extends AbstractReferenceCounted {
           config = ChunkingConfig.fromServerCapabilities(getRemoteServerCapabilities());
           if (config != null) {
             downloader =
-                new ChunkedBlobDownloader(grpcClient, CombinedCache.this, config, digestUtil);
-            uploader = new ChunkedBlobUploader(grpcClient, CombinedCache.this, config, digestUtil);
+                new ChunkedBlobDownloader(
+                    grpcClient,
+                    CombinedCache.this,
+                    config,
+                    digestUtil,
+                    cdcMetricsSink);
+            uploader =
+                new ChunkedBlobUploader(
+                    grpcClient,
+                    CombinedCache.this,
+                    config,
+                    digestUtil,
+                    cdcMetricsSink);
           }
           initialized = true;
         }
@@ -157,6 +171,22 @@ public class CombinedCache extends AbstractReferenceCounted {
       @Nullable String symlinkTemplate,
       DigestUtil digestUtil,
       boolean chunkingEnabled) {
+    this(
+        remoteCacheClient,
+        diskCacheClient,
+        symlinkTemplate,
+        digestUtil,
+        chunkingEnabled,
+        unused -> {});
+  }
+
+  public CombinedCache(
+      @Nullable RemoteCacheClient remoteCacheClient,
+      @Nullable DiskCacheClient diskCacheClient,
+      @Nullable String symlinkTemplate,
+      DigestUtil digestUtil,
+      boolean chunkingEnabled,
+      Consumer<RemoteCacheCdcEvent> cdcMetricsSink) {
     checkArgument(
         remoteCacheClient != null || diskCacheClient != null,
         "remoteCacheClient and diskCacheClient cannot be null at the same time");
@@ -165,6 +195,7 @@ public class CombinedCache extends AbstractReferenceCounted {
     this.symlinkTemplate = symlinkTemplate;
     this.digestUtil = digestUtil;
     this.chunkingEnabled = chunkingEnabled;
+    this.cdcMetricsSink = cdcMetricsSink;
   }
 
   public CacheCapabilities getRemoteCacheCapabilities() throws IOException {
@@ -448,6 +479,48 @@ public class CombinedCache extends AbstractReferenceCounted {
   public ListenableFuture<byte[]> downloadBlob(
       RemoteActionExecutionContext context, Digest digest) {
     return downloadBlob(context, /* blobName= */ "", /* execPath= */ null, digest);
+  }
+
+  record CdcChunk(byte[] data, boolean diskCacheHit, boolean diskCacheLookupAttempted) {}
+
+  /** Downloads a CDC chunk and reports whether it was satisfied by the local disk cache. */
+  ListenableFuture<CdcChunk> downloadCdcChunk(
+      RemoteActionExecutionContext context, Digest digest) {
+    ByteArrayOutputStream out = new ByteArrayOutputStream((int) digest.getSizeBytes());
+    ListenableFuture<CdcChunk> future = immediateFailedFuture(new CacheNotFoundException(digest));
+    boolean diskCacheLookupAttempted =
+        diskCacheClient != null && context.getReadCachePolicy().allowDiskCache();
+
+    if (diskCacheLookupAttempted) {
+      future =
+          Futures.transform(
+              diskCacheClient.downloadBlob(digest, out),
+              unused ->
+                  new CdcChunk(
+                      out.toByteArray(),
+                      /* diskCacheHit= */ true,
+                      /* diskCacheLookupAttempted= */ true),
+              directExecutor());
+    }
+
+    if (remoteCacheClient != null && context.getReadCachePolicy().allowRemoteCache()) {
+      future =
+          Futures.catchingAsync(
+              future,
+              CacheNotFoundException.class,
+              unused ->
+                  Futures.transform(
+                      downloadBlobFromRemote(context, digest, out),
+                      ignored ->
+                          new CdcChunk(
+                              out.toByteArray(),
+                              /* diskCacheHit= */ false,
+                              /* diskCacheLookupAttempted= */ diskCacheLookupAttempted),
+                      directExecutor()),
+              directExecutor());
+    }
+
+    return future;
   }
 
   /**

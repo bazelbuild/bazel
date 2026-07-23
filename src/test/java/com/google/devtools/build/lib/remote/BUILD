@@ -115,6 +115,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/exec:spawn_cache",
         "//src/main/java/com/google/devtools/build/lib/exec:spawn_input_expander",
         "//src/main/java/com/google/devtools/build/lib/exec:spawn_runner",
+        "//src/main/java/com/google/devtools/build/lib/metrics:remote_cache_cdc_event",
         "//src/main/java/com/google/devtools/build/lib/pkgcache:package_options",
         "//src/main/java/com/google/devtools/build/lib/remote:ExecutionStatusException",
         "//src/main/java/com/google/devtools/build/lib/remote:ReferenceCountedChannel",
