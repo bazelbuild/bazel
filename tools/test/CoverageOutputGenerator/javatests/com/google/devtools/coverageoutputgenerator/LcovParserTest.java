@@ -211,4 +211,95 @@ public class LcovParserTest {
 
     assertThat(sourceFiles.get(0).getLines()).containsExactly(1, 1L);
   }
+
+  @Test
+  public void testParseMcdcLines() throws IOException {
+    ImmutableList<String> traceFile =
+        ImmutableList.of(
+            "SF:src.cpp",
+            "MCDC:10,3,t,5,0,a && b",
+            "MCDC:10,3,f,2,1,a && b",
+            "MCDC:10,3,t,0,2,a && b",
+            "MCF:3",
+            "MCH:2",
+            "end_of_record");
+
+    List<SourceFileCoverage> sourceFiles =
+        LcovParser.parse(new ByteArrayInputStream(Joiner.on("\n").join(traceFile).getBytes(UTF_8)));
+    SourceFileCoverage sourceFile = sourceFiles.get(0);
+
+    assertThat(sourceFile.nrMcdcFound()).isEqualTo(3);
+    assertThat(sourceFile.nrMcdcHit()).isEqualTo(2);
+
+    List<McdcCoverage> mcdcRecords = sourceFile.getAllMcdc().stream().collect(Collectors.toList());
+    assertThat(mcdcRecords)
+        .containsExactly(
+            McdcCoverage.create(10, 3, 't', 5, 0, "a && b"),
+            McdcCoverage.create(10, 3, 'f', 2, 1, "a && b"),
+            McdcCoverage.create(10, 3, 't', 0, 2, "a && b"));
+  }
+
+  @Test
+  public void testParseMcdcWithDashTaken() throws IOException {
+    ImmutableList<String> traceFile =
+        ImmutableList.of(
+            "SF:src.cpp",
+            "MCDC:15,2,t,-,0,condition1",
+            "MCDC:15,2,f,3,1,condition2",
+            "end_of_record");
+
+    List<SourceFileCoverage> sourceFiles =
+        LcovParser.parse(new ByteArrayInputStream(Joiner.on("\n").join(traceFile).getBytes(UTF_8)));
+    SourceFileCoverage sourceFile = sourceFiles.get(0);
+
+    assertThat(sourceFile.nrMcdcFound()).isEqualTo(2);
+    assertThat(sourceFile.nrMcdcHit()).isEqualTo(1);
+
+    List<McdcCoverage> mcdcRecords = sourceFile.getAllMcdc().stream().collect(Collectors.toList());
+    assertThat(mcdcRecords)
+        .containsExactly(
+            McdcCoverage.create(15, 2, 't', 0, 0, "condition1"),
+            McdcCoverage.create(15, 2, 'f', 3, 1, "condition2"));
+  }
+
+  @Test
+  public void testParseMcdcWithEmptyExpression() throws IOException {
+    ImmutableList<String> traceFile =
+        ImmutableList.of(
+            "SF:src.cpp",
+            "MCDC:20,1,t,1,0,",
+            "end_of_record");
+
+    List<SourceFileCoverage> sourceFiles =
+        LcovParser.parse(new ByteArrayInputStream(Joiner.on("\n").join(traceFile).getBytes(UTF_8)));
+    SourceFileCoverage sourceFile = sourceFiles.get(0);
+
+    assertThat(sourceFile.nrMcdcFound()).isEqualTo(1);
+    assertThat(sourceFile.nrMcdcHit()).isEqualTo(1);
+
+    List<McdcCoverage> mcdcRecords = sourceFile.getAllMcdc().stream().collect(Collectors.toList());
+    assertThat(mcdcRecords)
+        .containsExactly(McdcCoverage.create(20, 1, 't', 1, 0, ""));
+  }
+
+  @Test
+  public void testParseMcdcWithComplexExpression() throws IOException {
+    String complexExpr = "((a || b) && (c || d)) || e";
+    ImmutableList<String> traceFile =
+        ImmutableList.of(
+            "SF:complex.cpp",
+            "MCDC:100,5,f,42," + "3," + complexExpr,
+            "end_of_record");
+
+    List<SourceFileCoverage> sourceFiles =
+        LcovParser.parse(new ByteArrayInputStream(Joiner.on("\n").join(traceFile).getBytes(UTF_8)));
+    SourceFileCoverage sourceFile = sourceFiles.get(0);
+
+    assertThat(sourceFile.nrMcdcFound()).isEqualTo(1);
+    assertThat(sourceFile.nrMcdcHit()).isEqualTo(1);
+
+    List<McdcCoverage> mcdcRecords = sourceFile.getAllMcdc().stream().collect(Collectors.toList());
+    assertThat(mcdcRecords)
+        .containsExactly(McdcCoverage.create(100, 5, 'f', 42, 3, complexExpr));
+  }
 }
