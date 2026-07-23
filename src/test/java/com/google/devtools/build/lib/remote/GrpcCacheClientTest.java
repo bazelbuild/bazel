@@ -16,14 +16,18 @@ package com.google.devtools.build.lib.remote;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 import static org.mockito.AdditionalAnswers.answerVoid;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.when;
 
 import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.ActionCacheGrpc.ActionCacheImplBase;
@@ -120,6 +124,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -127,8 +132,11 @@ import java.util.Random;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import org.junit.After;
@@ -168,6 +176,14 @@ public class GrpcCacheClientTest {
 
   private GrpcCacheClient newClient(RemoteOptions remoteOptions, Supplier<Backoff> backoffSupplier)
       throws IOException {
+    return newClient(remoteOptions, backoffSupplier, ImmutableList.of());
+  }
+
+  private GrpcCacheClient newClient(
+      RemoteOptions remoteOptions,
+      Supplier<Backoff> backoffSupplier,
+      ImmutableList<ClientInterceptor> extraInterceptors)
+      throws IOException {
     AuthAndTLSOptions authTlsOptions = Options.getDefaults(AuthAndTLSOptions.class);
     authTlsOptions.setUseGoogleDefaultCredentials(true);
     authTlsOptions.setGoogleCredentials("/execroot/main/creds.json");
@@ -198,15 +214,16 @@ public class GrpcCacheClientTest {
             new ChannelConnectionWithServerCapabilitiesFactory() {
               @Override
               public Single<ChannelConnectionWithServerCapabilities> create() {
-                ManagedChannel ch =
+                InProcessChannelBuilder channelBuilder =
                     InProcessChannelBuilder.forName(fakeServerName)
                         .directExecutor()
                         .intercept(new CallCredentialsInterceptor(creds))
                         .intercept(
                             TracingMetadataUtils.newCacheHeadersInterceptor(
                                 remoteOptions.getRemoteHeaders(),
-                                remoteOptions.getRemoteCacheHeaders()))
-                        .build();
+                                remoteOptions.getRemoteCacheHeaders()));
+                extraInterceptors.forEach(channelBuilder::intercept);
+                ManagedChannel ch = channelBuilder.build();
                 return Single.just(
                     new ChannelConnectionWithServerCapabilities(
                         ch, Single.just(ServerCapabilities.getDefaultInstance())));
@@ -1279,6 +1296,73 @@ public class GrpcCacheClientTest {
           }
         });
     assertThat(new String(downloadBlob(context, client, digest), UTF_8)).isEqualTo("abcdefg");
+    Mockito.verify(mockBackoff, Mockito.never()).nextDelayMillis(any(Exception.class));
+  }
+
+  @Test
+  public void downloadBlobIdleTimeoutIsRetriedWithProgress()
+      throws IOException, InterruptedException {
+    // Unexpected failures without progress should stop immediately. The idle-timeout retry below
+    // is allowed only because receiving the prefix resets ProgressiveBackoff.
+    Backoff mockBackoff = Mockito.mock(Backoff.class);
+    when(mockBackoff.nextDelayMillis(any(Exception.class))).thenReturn(-1L);
+    // Capture the interceptor's timer task so the test controls exactly when the stream becomes
+    // idle, without involving a real scheduler or wall-clock delay.
+    ScheduledExecutorService scheduler = mock(ScheduledExecutorService.class);
+    AtomicReference<Runnable> timeoutTask = new AtomicReference<>();
+    when(scheduler.schedule(any(Runnable.class), anyLong(), eq(NANOSECONDS)))
+        .thenAnswer(
+            invocation -> {
+              timeoutTask.set(invocation.getArgument(0));
+              return mock(ScheduledFuture.class);
+            });
+    AtomicLong nanoTime = new AtomicLong();
+    Duration idleTimeout = Duration.ofSeconds(60);
+    RemoteDownloadIdleTimeoutInterceptor idleTimeoutInterceptor =
+        new RemoteDownloadIdleTimeoutInterceptor(idleTimeout, scheduler, nanoTime::get);
+    GrpcCacheClient client =
+        newClient(
+            Options.getDefaults(RemoteOptions.class),
+            () -> mockBackoff,
+            ImmutableList.of(idleTimeoutInterceptor));
+    Digest digest = DIGEST_UTIL.computeAsUtf8("abcdefg");
+    AtomicInteger readCalls = new AtomicInteger();
+    serviceRegistry.addService(
+        new ByteStreamImplBase() {
+          @Override
+          public void read(ReadRequest request, StreamObserver<ReadResponse> responseObserver) {
+            assertThat(request.getResourceName()).contains(digest.getHash());
+            ByteString data = ByteString.copyFromUtf8("abcdefg");
+            int offset = (int) request.getReadOffset();
+            int readCall = readCalls.getAndIncrement();
+            if (readCall == 0) {
+              // Send a prefix without closing the stream. Only the idle-timeout interceptor can
+              // terminate this attempt and cause GrpcCacheClient to retry.
+              assertThat(offset).isEqualTo(0);
+              responseObserver.onNext(
+                  ReadResponse.newBuilder().setData(data.substring(0, 1)).build());
+              return;
+            }
+            // GrpcCacheClient must resume after the byte already written to the output stream.
+            assertThat(readCall).isEqualTo(1);
+            assertThat(offset).isEqualTo(1);
+            responseObserver.onNext(
+                ReadResponse.newBuilder().setData(data.substring(offset)).build());
+            responseObserver.onCompleted();
+          }
+        });
+
+    ByteArrayOutputStream out = new ByteArrayOutputStream();
+    ListenableFuture<Void> download = client.downloadBlob(context, digest, out);
+    assertThat(timeoutTask.get()).isNotNull();
+
+    // Fire the timeout deterministically rather than sleeping for the 60-second production value.
+    nanoTime.set(idleTimeout.toNanos());
+    timeoutTask.get().run();
+
+    getFromFuture(download);
+    assertThat(new String(out.toByteArray(), UTF_8)).isEqualTo("abcdefg");
+    assertThat(readCalls.get()).isEqualTo(2);
     Mockito.verify(mockBackoff, Mockito.never()).nextDelayMillis(any(Exception.class));
   }
 
