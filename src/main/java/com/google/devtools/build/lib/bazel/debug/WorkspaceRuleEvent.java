@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.bazel.debug;
 
 import com.google.devtools.build.lib.bazel.debug.proto.WorkspaceLogProtos;
+import com.google.devtools.build.lib.bazel.debug.proto.WorkspaceLogProtos.DigestEvent;
 import com.google.devtools.build.lib.bazel.debug.proto.WorkspaceLogProtos.ExecuteWasmEvent;
 import com.google.devtools.build.lib.bazel.debug.proto.WorkspaceLogProtos.ExtractEvent;
 import com.google.devtools.build.lib.bazel.debug.proto.WorkspaceLogProtos.FileEvent;
@@ -389,6 +390,26 @@ public final class WorkspaceRuleEvent implements Postable {
     }
     if (context != null) {
       result = result.setContext(context);
+    }
+    return new WorkspaceRuleEvent(result.build());
+  }
+
+  /** Creates a new WorkspaceRuleEvent for a digest event. */
+  public static WorkspaceRuleEvent newDigestEvent(
+      String path, String algorithm, String format, String context, Location location) {
+    DigestEvent e =
+        WorkspaceLogProtos.DigestEvent.newBuilder()
+            .setPath(path)
+            .setAlgorithm(algorithm)
+            .setFormat(format)
+            .build();
+    WorkspaceLogProtos.WorkspaceEvent.Builder result =
+        WorkspaceLogProtos.WorkspaceEvent.newBuilder().setDigestEvent(e);
+    if (location != null) {
+      result.setLocation(location.toString());
+    }
+    if (context != null) {
+      result.setContext(context);
     }
     return new WorkspaceRuleEvent(result.build());
   }
