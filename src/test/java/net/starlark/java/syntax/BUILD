@@ -28,8 +28,9 @@ java_test(
         "ProgramTest.java",
         "ResolverTest.java",
         "StarlarkFileTest.java",
-        "StarlarkTypesTest.java",
         "SyntaxTests.java",  # (suite)
+        "TypeResolverTest.java",
+        "TypesTest.java",
     ],
     deps = [
         "//src/main/java/net/starlark/java/syntax",

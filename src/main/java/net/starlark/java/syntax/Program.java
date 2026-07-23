@@ -86,8 +86,14 @@ public final class Program {
 
   /**
    * Resolves a file syntax tree in the specified environment and compiles it to a Program. This
-   * operation mutates the syntax tree, both by resolving identifiers and recording local variables,
-   * and in case of error, by appending to {@code file.errors()}.
+   * operation mutates the syntax tree by:
+   *
+   * <ul>
+   *   <li>resolving identifiers to bindings,
+   *   <li>resolving type information,
+   *   <li>recording local variables, and
+   *   <li>in case of error, appending to {@code file.errors()}.
+   * </ul>
    *
    * @throws SyntaxError.Exception in case of resolution error, or if the syntax tree already
    *     contained syntax scan/parse errors. Resolution errors are added to {@code file.errors()}.
@@ -97,6 +103,13 @@ public final class Program {
     Resolver.resolveFile(file, env);
     if (!file.ok()) {
       throw new SyntaxError.Exception(file.errors());
+    }
+
+    if (file.getOptions().resolveTypeSyntax()) {
+      TypeResolver.annotateFile(file, env);
+      if (!file.ok()) {
+        throw new SyntaxError.Exception(file.errors());
+      }
     }
 
     // Extract load statements.
