@@ -32,7 +32,7 @@ public record DecompressorDescriptor(
     String context,
     Path archivePath,
     Path destinationPath,
-    Optional<String> prefix,
+    String prefix,
     int stripComponents,
     ImmutableMap<String, String> renameFiles) {
   public DecompressorDescriptor {
@@ -46,6 +46,7 @@ public record DecompressorDescriptor(
   public static Builder builder() {
     return new AutoBuilder_DecompressorDescriptor_Builder()
         .setContext("")
+        .setPrefix("")
         .setStripComponents(0)
         .setRenameFiles(ImmutableMap.of());
   }
@@ -73,7 +74,7 @@ public record DecompressorDescriptor(
       if (d.stripComponents() < 0) {
         throw new IllegalArgumentException("'strip_components' must be non-negative");
       }
-      if (d.stripComponents() != 0 && d.prefix().isPresent() && !d.prefix().get().isEmpty()) {
+      if (d.stripComponents() != 0 && !d.prefix().isEmpty()) {
         throw new IllegalArgumentException(
             "Only one of 'strip_prefix' or 'strip_components' can be set");
       }
