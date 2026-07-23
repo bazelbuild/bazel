@@ -21,9 +21,11 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -39,6 +41,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.io.StringReader;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -290,6 +293,51 @@ public class HttpDownloaderTest {
             DownloadManager.getCandidateFileNames(
                 URI.create("file:../foo%3Fbar.tgz"), fs.getPath("/tmp/foo_bar.tgz")))
         .containsExactly("foo?bar.tgz", "foo_bar.tgz");
+  }
+
+  @Test
+  public void rewriterBlocksAllUrls_cacheHitPreservesUrlFileName() throws Exception {
+    // When an all-blocking --downloader_config removes every URL, the request can only be served
+    // from the repository cache by checksum. The resulting file name must still be derived from the
+    // original URL so that its extension is preserved: download_and_extract infers the archive type
+    // from the file suffix, so a name like "cacheprobe" (with no suffix) breaks extraction.
+    UrlRewriter blockAll =
+        new UrlRewriter(ImmutableList.of("/dev/null"), ImmutableList.of(new StringReader("block *")));
+    DownloadManager downloadManager =
+        new DownloadManager(downloadCache, httpDownloader, httpDownloader, eventHandler);
+    downloadManager.setUrlRewriter(blockAll);
+
+    byte[] data = "content".getBytes(UTF_8);
+    when(downloadCache.isEnabled()).thenReturn(true);
+    when(downloadCache.get(any(), any(), any(), any(), anyBoolean()))
+        .thenAnswer(
+            (Answer<Path>)
+                invocationOnMock -> {
+                  Path targetPath = invocationOnMock.getArgument(1, Path.class);
+                  try (OutputStream outputStream = targetPath.getOutputStream()) {
+                    ByteStreams.copy(new ByteArrayInputStream(data), outputStream);
+                  }
+                  return targetPath;
+                });
+    Checksum checksum =
+        Checksum.fromString(
+            DownloadCache.KeyType.SHA256, Hashing.sha256().hashBytes(data).toString());
+
+    Path result =
+        download(
+            downloadManager,
+            ImmutableList.of(URI.create("http://mirror.example/archive.tar.gz")),
+            ImmutableMap.of(),
+            ImmutableMap.of(),
+            Optional.of(checksum),
+            "testCanonicalId",
+            // download_and_extract passes an (often empty) type and relies on the file extension.
+            Optional.of(""),
+            fs.getPath(workingDir.newFolder().getAbsolutePath()),
+            ImmutableMap.of(),
+            "testRepo");
+
+    assertThat(result.getBaseName()).isEqualTo("archive.tar.gz");
   }
 
   @Test
