@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.util.OS;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
@@ -163,17 +162,36 @@ final class HeaderDiscovery {
     for (Path execPath : dependencies) {
       PathFragment execPathFragment = execPath.asFragment();
       if (execPathFragment.isAbsolute()) {
-        if (possiblyCaseInsensitiveFileSystem) {
-          // Absolute includes from system paths are ignored. With a case-insensitive file system,
-          // the paths as reported by the compiler may differ in casing from those listed by the
-          // toolchain.
-          if (FileSystemUtils.startsWithAnyIgnoringCase(execPath, permittedSystemIncludePrefixes)) {
+        // Built-in include directories may contain vendored SDKs below the execroot, but a broad
+        // ancestor of the execroot must not hide actual inputs reported by the compiler.
+        boolean potentiallyUnderWorkspace =
+            possiblyCaseInsensitiveFileSystem
+                ? execPath.startsWithIgnoringCase(execRoot)
+                    || (siblingRepositoryLayout
+                        && execPath.startsWithIgnoringCase(execRoot.getParentDirectory()))
+                : execPath.startsWith(execRoot)
+                    || (siblingRepositoryLayout
+                        && execPath.startsWith(execRoot.getParentDirectory()));
+        boolean systemInclude = false;
+        for (Path prefix : permittedSystemIncludePrefixes) {
+          boolean matches =
+              possiblyCaseInsensitiveFileSystem
+                  ? execPath.startsWithIgnoringCase(prefix)
+                  : execPath.startsWith(prefix);
+          if (!matches) {
             continue;
           }
-        } else {
-          if (FileSystemUtils.startsWithAny(execPath, permittedSystemIncludePrefixes)) {
-            continue;
+          boolean broad =
+              possiblyCaseInsensitiveFileSystem
+                  ? execRoot.startsWithIgnoringCase(prefix)
+                  : execRoot.startsWith(prefix);
+          if (!potentiallyUnderWorkspace || !broad) {
+            systemInclude = true;
+            break;
           }
+        }
+        if (systemInclude) {
+          continue;
         }
         if (execPath.startsWith(execRoot)
             && (!ignoreMainRepository
