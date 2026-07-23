@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.buildjar;
+package com.google.devtools.build.buildjar.javac.plugins.errorprone;
 
 import static com.google.errorprone.scanner.BuiltInCheckerSuppliers.getSuppliers;
 
@@ -199,9 +199,21 @@ import com.google.errorprone.scanner.BuiltInCheckerSuppliers;
 import com.google.errorprone.scanner.ScannerSupplier;
 
 /** A factory for the {@link ScannerSupplier} that supplies Error Prone checks for Bazel. */
-final class BazelScannerSuppliers {
-  static ScannerSupplier bazelChecks() {
-    return BuiltInCheckerSuppliers.allChecks().filter(Predicates.in(ENABLED_ERRORS));
+public final class BazelScannerSuppliers {
+  /**
+   * Returns a ScannerSupplier containing both Bazel's default checks and custom checks
+   * discovered dynamically via ServiceLoader.
+   */
+  public static ScannerSupplier bazelChecks() {
+    java.util.ServiceLoader<BugChecker> loader =
+        java.util.ServiceLoader.load(BugChecker.class, BazelScannerSuppliers.class.getClassLoader());
+    java.util.List<Class<? extends BugChecker>> checkers = new java.util.ArrayList<>();
+    for (BugChecker checker : loader) {
+      checkers.add(checker.getClass());
+    }
+    return BuiltInCheckerSuppliers.allChecks()
+        .filter(Predicates.in(ENABLED_ERRORS))
+        .plus(ScannerSupplier.fromBugCheckerClasses(checkers));
   }
 
   // The list of default Error Prone errors as of 2023-8-17, generated from:

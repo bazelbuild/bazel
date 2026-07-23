@@ -36,7 +36,6 @@ import com.sun.source.tree.IdentifierTree;
 import com.sun.source.tree.LambdaExpressionTree;
 import com.sun.source.tree.MemberSelectTree;
 import com.sun.source.tree.MethodTree;
-import com.sun.source.tree.PackageTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
@@ -458,13 +457,6 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
         scan(tree.getParameters(), null);
       }
       scan(tree.getBody(), null);
-      return null;
-    }
-
-    @Override
-    public Void visitPackage(PackageTree tree, Void unused) {
-      scan(tree.getAnnotations(), null);
-      checkTypeLiteral(((JCTree.JCPackageDecl) tree).packge.package_info);
       return null;
     }
 
