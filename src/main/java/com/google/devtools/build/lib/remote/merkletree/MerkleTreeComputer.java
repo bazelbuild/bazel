@@ -744,8 +744,7 @@ public final class MerkleTreeComputer {
     }
     return transform(
         allAsList(subTreeFutures),
-        // The same entry may appear multiple times if identical inputs are not deduplicated, e.g.
-        // when an input-discovering action's discovered inputs overlap with its mandatory inputs.
+        // The same entry may appear multiple times (see SpawnInputs#flatten()).
         entries ->
             entries.stream()
                 .collect(
