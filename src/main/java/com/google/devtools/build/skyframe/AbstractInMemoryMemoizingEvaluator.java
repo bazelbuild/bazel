@@ -21,6 +21,7 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.HashMultiset;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multiset;
 import com.google.common.collect.Multisets;
@@ -30,6 +31,7 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
 import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.skyframe.Differencer.Diff;
 import com.google.devtools.build.skyframe.Differencer.DiffWithDelta.Delta;
@@ -242,14 +244,34 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
   }
 
   @Override
-  public final void deleteDirty(long versionAgeLimit) {
+  public final void deleteDirty(long versionAgeLimit, boolean keepChangePrunableNodes) {
     checkArgument(versionAgeLimit >= 0, versionAgeLimit);
     Version threshold = IntVersion.of(lastGraphVersion.getVal() - versionAgeLimit);
+    var graph = getInMemoryGraph();
+
+    var dirtyKeys = progressReceiver.getUnenqueuedDirtyKeys();
+    ImmutableSet<SkyKey> toKeep;
+    if (keepChangePrunableNodes) {
+      long profilerStartNanos = Profiler.instance().nanoTimeMaybe();
+      toKeep = new ChangePrunableNodesFinder(graph, dirtyKeys).find();
+      Profiler.instance()
+          .completeTask(
+              profilerStartNanos,
+              ProfilerTask.INFO,
+              "Resurrected %d out of %d dirty nodes during GC"
+                  .formatted(toKeep.size(), dirtyKeys.size()));
+    } else {
+      toKeep = ImmutableSet.of();
+    }
+
     valuesToDelete.addAll(
         Sets.filter(
-            progressReceiver.getUnenqueuedDirtyKeys(),
+            dirtyKeys,
             skyKey -> {
-              NodeEntry entry = checkNotNull(getInMemoryGraph().getIfPresent(skyKey), skyKey);
+              if (toKeep.contains(skyKey)) {
+                return false;
+              }
+              NodeEntry entry = checkNotNull(graph.getIfPresent(skyKey), skyKey);
               checkState(entry.isDirty(), skyKey);
               return entry.getVersion().atMost(threshold);
             }));

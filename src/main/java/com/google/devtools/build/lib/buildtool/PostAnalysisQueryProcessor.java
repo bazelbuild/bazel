@@ -89,7 +89,8 @@ public abstract class PostAnalysisQueryProcessor<T> implements BuildTool.Analysi
     //  reproducible at the level of a single command. Either tolerate, or wipe the analysis graph
     //  beforehand if this option is specified, or add another option to wipe if desired
     //  (SkyframeExecutor#handleAnalysisInvalidatingChange should be sufficient).
-    env.getSkyframeExecutor().deleteOldNodes(/* versionWindowForDirtyGc= */ 0);
+    env.getSkyframeExecutor()
+        .deleteOldNodes(/* versionWindowForDirtyGc= */ 0, /* keepChangePrunableNodes= */ false);
     env.getSkyframeExecutor().applyInvalidation(env.getReporter());
     if (!env.getSkyframeExecutor().tracksStateForIncrementality()) {
       throw new ExitException(
