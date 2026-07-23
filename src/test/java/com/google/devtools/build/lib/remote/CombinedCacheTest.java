@@ -909,7 +909,7 @@ public class CombinedCacheTest {
               return spliceFuture;
             })
         .when(grpcCacheClient)
-        .spliceBlob(any(), any(), any());
+        .spliceBlob(any(), any(), any(), any());
 
     CombinedCache combinedCache =
         new CombinedCache(
@@ -917,7 +917,7 @@ public class CombinedCacheTest {
             /* diskCacheClient= */ null,
             /* symlinkTemplate= */ null,
             digestUtil,
-            /* chunkingEnabled= */ true);
+            /* chunkingFunction= */ RemoteOptions.ChunkingFunctionValue.FAST_CDC_2020);
     byte[] data = new byte[8192];
     Path file = execRoot.getRelative("chunked-output");
     try (var out = file.getOutputStream()) {
@@ -935,7 +935,7 @@ public class CombinedCacheTest {
 
       assertThat(grpcCacheClient.getUploadSubscriberCount(digest)).isEqualTo(2);
       verify(grpcCacheClient).findMissingDigests(any(), any());
-      verify(grpcCacheClient).spliceBlob(any(), any(), any());
+      verify(grpcCacheClient).spliceBlob(any(), any(), any(), any());
 
       spliceFuture.set(null);
       getFromFuture(firstUpload);
@@ -960,7 +960,7 @@ public class CombinedCacheTest {
         /* diskCacheClient= */ null,
         /* symlinkTemplate= */ null,
         digestUtil,
-        /* chunkingEnabled= */ false);
+        /* chunkingFunction= */ null);
   }
 
   private RemoteExecutionCache newRemoteExecutionCache(RemoteCacheClient remoteCacheClient) {
@@ -969,7 +969,7 @@ public class CombinedCacheTest {
         /* diskCacheClient= */ null,
         /* symlinkTemplate= */ null,
         digestUtil,
-        /* chunkingEnabled= */ false);
+        /* chunkingFunction= */ null);
   }
 
   private static ServerCapabilities chunkingCapabilities() {

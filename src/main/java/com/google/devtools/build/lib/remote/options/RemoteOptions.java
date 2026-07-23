@@ -899,11 +899,55 @@ public abstract class RemoteOptions extends CommonRemoteOptions {
       metadataTags = OptionMetadataTag.EXPERIMENTAL,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
-          "If enabled, large blobs are split into content-defined chunks using FastCDC 2020 and "
+          "If enabled, large blobs are split into content-defined chunks and "
               + "uploaded/downloaded in chunks, enabling deduplication across blobs. The server "
-              + "must advertise SplitBlob/SpliceBlob RPCs and FastCDC 2020 parameters in its "
+              + "must advertise SplitBlob/SpliceBlob RPCs and the parameters of the chunking "
+              + "function selected by --experimental_remote_cache_chunking_function in its "
               + "capabilities.")
   public abstract boolean getExperimentalRemoteCacheChunking();
+
+  @Option(
+      name = "experimental_remote_cache_chunking_function",
+      defaultValue = "auto",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      metadataTags = OptionMetadataTag.EXPERIMENTAL,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      converter = ChunkingFunctionConverter.class,
+      help =
+          "The content-defined chunking function used to split large blobs when "
+              + "--experimental_remote_cache_chunking is enabled. If set to 'auto' (the "
+              + "default), the function is negotiated with the server: FastCDC 2020 is used if "
+              + "the server advertises it, otherwise RepMaxCDC. Set to 'fast_cdc_2020' or "
+              + "'rep_max_cdc' to require a specific function, in which case the server must "
+              + "advertise the parameters of that function in its capabilities. All clients "
+              + "sharing a cache should use the same function to maximize chunk reuse.")
+  public abstract ChunkingFunctionValue getExperimentalRemoteCacheChunkingFunction();
+
+  /**
+   * Returns the chunking function to use for chunked cache transfers, or {@code null} if chunking
+   * is disabled.
+   */
+  @Nullable
+  public ChunkingFunctionValue getEffectiveChunkingFunction() {
+    return getExperimentalRemoteCacheChunking()
+        ? getExperimentalRemoteCacheChunkingFunction()
+        : null;
+  }
+
+  /** Values for --experimental_remote_cache_chunking_function. */
+  public enum ChunkingFunctionValue {
+    /** Negotiate with the server: FastCDC 2020 if advertised, otherwise RepMaxCDC. */
+    AUTO,
+    FAST_CDC_2020,
+    REP_MAX_CDC
+  }
+
+  /** Chunking function flag parser. */
+  public static class ChunkingFunctionConverter extends EnumConverter<ChunkingFunctionValue> {
+    public ChunkingFunctionConverter() {
+      super(ChunkingFunctionValue.class, "chunking function");
+    }
+  }
 
   @Option(
       name = "experimental_throttle_remote_action_building",

@@ -15,55 +15,84 @@
 package com.google.devtools.build.lib.remote.chunking;
 
 import build.bazel.remote.execution.v2.CacheCapabilities;
-import build.bazel.remote.execution.v2.FastCdc2020Params;
+import build.bazel.remote.execution.v2.ChunkingFunction;
 import build.bazel.remote.execution.v2.ServerCapabilities;
+import com.google.devtools.build.lib.remote.util.DigestUtil;
 import javax.annotation.Nullable;
 
-/** Configuration for content-defined chunking. All sizes are in bytes. */
-public record ChunkingConfig(int avgChunkSize, int normalizationLevel, int seed) {
+/**
+ * Configuration for content-defined chunking. All sizes are in bytes.
+ *
+ * <p>Each implementation corresponds to one of the chunking functions defined by the Remote
+ * Execution API and carries the parameters negotiated from the server capabilities.
+ */
+public sealed interface ChunkingConfig permits FastCdcChunkingConfig, RepMaxCdcChunkingConfig {
 
-  public static final int DEFAULT_AVG_CHUNK_SIZE = 512 * 1024;
-  public static final int DEFAULT_NORMALIZATION_LEVEL = 2;
-  public static final int DEFAULT_SEED = 0;
+  /** The chunking function this configuration applies to. */
+  ChunkingFunction.Value chunkingFunction();
 
-  public int minChunkSize() {
-    return avgChunkSize / 4;
-  }
+  /** The minimum size of a chunk. Only the last chunk of a blob may be smaller. */
+  int minChunkSize();
 
-  public int maxChunkSize() {
-    return avgChunkSize * 4;
-  }
+  /** The maximum size of a chunk. */
+  int maxChunkSize();
 
-  /** Blobs larger than this should be chunked. Equal to maxChunkSize(). */
-  public long chunkingThreshold() {
+  /**
+   * Blobs larger than this should be chunked. Always equal to {@link #maxChunkSize()}: anything
+   * above it splits into at least two chunks, while anything at or below it would come back as a
+   * single chunk, making chunking pointless. Implementations must not override this.
+   */
+  default long chunkingThreshold() {
     return maxChunkSize();
   }
 
-  public static ChunkingConfig defaults() {
-    return new ChunkingConfig(DEFAULT_AVG_CHUNK_SIZE, DEFAULT_NORMALIZATION_LEVEL, DEFAULT_SEED);
+  /** Creates a chunker that splits blobs according to this configuration. */
+  ContentDefinedChunker newChunker(DigestUtil digestUtil);
+
+  /**
+   * Returns a configuration negotiated from the server capabilities: FastCDC 2020 if the server
+   * advertises it, otherwise RepMaxCDC, or {@code null} if the server advertises neither.
+   *
+   * <p>FastCDC 2020 is preferred for backward compatibility, so that a fleet of clients with
+   * mixed versions keeps producing identical chunks against the same server.
+   */
+  @Nullable
+  static ChunkingConfig fromServerCapabilities(ServerCapabilities capabilities) {
+    ChunkingConfig config =
+        fromServerCapabilities(capabilities, ChunkingFunction.Value.FAST_CDC_2020);
+    if (config == null) {
+      config = fromServerCapabilities(capabilities, ChunkingFunction.Value.REP_MAX_CDC);
+    }
+    return config;
   }
 
+  /**
+   * Returns the configuration for the given chunking function based on the parameters advertised
+   * by the server, or {@code null} if the server does not support the function.
+   *
+   * <p>Advertised parameters that are out of the expected range are replaced with defaults.
+   */
   @Nullable
-  public static ChunkingConfig fromServerCapabilities(ServerCapabilities capabilities) {
+  static ChunkingConfig fromServerCapabilities(
+      ServerCapabilities capabilities, ChunkingFunction.Value chunkingFunction) {
     if (!capabilities.hasCacheCapabilities()) {
       return null;
     }
     CacheCapabilities cacheCap = capabilities.getCacheCapabilities();
 
-    if (!cacheCap.hasFastCdc2020Params()) {
-      return null;
+    switch (chunkingFunction) {
+      case FAST_CDC_2020 -> {
+        if (cacheCap.hasFastCdc2020Params()) {
+          return FastCdcChunkingConfig.fromParams(cacheCap.getFastCdc2020Params());
+        }
+      }
+      case REP_MAX_CDC -> {
+        if (cacheCap.hasRepMaxCdcParams()) {
+          return RepMaxCdcChunkingConfig.fromParams(cacheCap.getRepMaxCdcParams());
+        }
+      }
+      default -> {}
     }
-
-    FastCdc2020Params params = cacheCap.getFastCdc2020Params();
-    int avgSize = DEFAULT_AVG_CHUNK_SIZE;
-    long configAvgSize = params.getAvgChunkSizeBytes();
-    if (configAvgSize >= 1024
-        && configAvgSize <= 1024 * 1024
-        && (configAvgSize & (configAvgSize - 1)) == 0) {
-      avgSize = (int) configAvgSize;
-    }
-    int seed = params.getSeed();
-
-    return new ChunkingConfig(avgSize, DEFAULT_NORMALIZATION_LEVEL, seed);
+    return null;
   }
 }
