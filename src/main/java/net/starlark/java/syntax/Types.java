@@ -1551,7 +1551,7 @@ public final class Types {
    * factory, or with zero arguments, in which case the factory is invoked with {@link #ANY}. (This
    * allows, for instance, {@code list} to be treated as syntactic sugar for {@code list[Any]}.)
    */
-  static TypeConstructor.AllowingNullary wrapTypeConstructor(
+  public static TypeConstructor.AllowingNullary wrapTypeConstructor(
       String name, Function<StarlarkType, StarlarkType> factory) {
     final StarlarkType nullaryType = factory.apply(ANY);
     return args -> {
@@ -1575,7 +1575,7 @@ public final class Types {
    * both arguments. (This allows, for instance, {@code dict} to be treated as syntactic sugar for
    * {@code dict[Any, Any]}.)
    */
-  static TypeConstructor.AllowingNullary wrapTypeConstructor(
+  public static TypeConstructor.AllowingNullary wrapTypeConstructor(
       String name, BiFunction<StarlarkType, StarlarkType, StarlarkType> factory) {
     final StarlarkType nullaryType = factory.apply(ANY, ANY);
     return args -> {
