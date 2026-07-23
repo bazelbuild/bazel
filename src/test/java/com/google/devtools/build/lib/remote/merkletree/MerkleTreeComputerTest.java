@@ -14,10 +14,13 @@
 package com.google.devtools.build.lib.remote.merkletree;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 
 import build.bazel.remote.execution.v2.Digest;
+import build.bazel.remote.execution.v2.Directory;
+import build.bazel.remote.execution.v2.DirectoryNode;
 import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -31,13 +34,19 @@ import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.PathMapper;
+import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
 import com.google.devtools.build.lib.actions.RunfilesTree;
+import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.actions.SpawnInputs;
 import com.google.devtools.build.lib.actions.VirtualActionInput;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.clock.JavaClock;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.exec.util.FakeActionInputFileCache;
+import com.google.devtools.build.lib.exec.util.FakeOwner;
 import com.google.devtools.build.lib.exec.util.SpawnBuilder;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
@@ -430,6 +439,67 @@ public class MerkleTreeComputerTest {
             createSpawnExecutionContext(spawn, cache),
             RemotePathResolver.createDefault(execRoot),
             MerkleTreeComputer.BlobPolicy.KEEP);
+  }
+
+  @Test
+  public void duplicateTreeArtifactInput_stagedOnce() throws Exception {
+    var fakeFileCache = new FakeActionInputFileCache();
+    var treeArtifact =
+        ActionsTestUtil.createTreeArtifactWithGeneratingAction(artifactRoot, "pkg/gen_src");
+    treeArtifact.getPath().createDirectoryAndParents();
+    var treeArtifactBuilder = TreeArtifactValue.newBuilder(treeArtifact);
+    var treeFileArtifact = Artifact.TreeFileArtifact.createTreeOutput(treeArtifact, "gen.cc");
+    FileSystemUtils.writeContentAsLatin1(treeFileArtifact.getPath(), "int main() {}");
+    treeArtifactBuilder.putChild(
+        treeFileArtifact, FileArtifactValue.createForTesting(treeFileArtifact));
+    fakeFileCache.putTreeArtifact(treeArtifact, treeArtifactBuilder.build());
+
+    // The same input can appear in both the mandatory and the discovered input set of an
+    // input-discovering action, which are not deduplicated against each other.
+    var spawn =
+        new SimpleSpawn(
+            new FakeOwner("Mnemonic", "progress message", "//dummy:label"),
+            ImmutableList.of("cmd"),
+            ImmutableMap.of(),
+            ImmutableMap.of(),
+            SpawnInputs.of(
+                NestedSetBuilder.<ActionInput>create(Order.STABLE_ORDER, treeArtifact),
+                NestedSetBuilder.<ActionInput>create(Order.STABLE_ORDER, treeArtifact),
+                ImmutableList.of()),
+            NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+            ImmutableSet.of(),
+            /* mandatoryOutputs= */ null,
+            ResourceSet.ZERO);
+    var merkleTree =
+        (MerkleTree.Uploadable)
+            createMerkleTreeComputer(/* uploader= */ null)
+                .buildForSpawn(
+                    spawn,
+                    ImmutableSet.of(),
+                    /* scrubber= */ null,
+                    createSpawnExecutionContext(spawn, fakeFileCache),
+                    RemotePathResolver.createDefault(execRoot),
+                    MerkleTreeComputer.BlobPolicy.KEEP);
+
+    Directory pkgDir = findDirectory(merkleTree, "outputs", "pkg");
+    assertThat(pkgDir.getDirectoriesList().stream().map(DirectoryNode::getName))
+        .containsExactly("gen_src");
+    assertThat(pkgDir.getFilesList()).isEmpty();
+  }
+
+  private static Directory findDirectory(MerkleTree.Uploadable merkleTree, String... pathSegments)
+      throws Exception {
+    var blobs = merkleTree.blobs();
+    Directory current = Directory.parseFrom((byte[]) blobs.get(merkleTree.digest()));
+    for (String segment : pathSegments) {
+      Digest childDigest =
+          current.getDirectoriesList().stream()
+              .filter(d -> d.getName().equals(segment))
+              .collect(onlyElement())
+              .getDigest();
+      current = Directory.parseFrom((byte[]) blobs.get(childDigest));
+    }
+    return current;
   }
 
   private MerkleTreeComputer createMerkleTreeComputer(MerkleTreeUploader uploader) {
