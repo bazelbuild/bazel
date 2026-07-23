@@ -305,7 +305,7 @@ final class MethodDescriptor {
       return Types.OBJECT;
     } else {
       if (cls instanceof Class<?> c) {
-        @Nullable StarlarkType classStarlarkType = manager.getClassStarlarkType(c);
+        @Nullable StarlarkType classStarlarkType = CallUtils.getStarlarkBuiltinAutoType(c);
         if (classStarlarkType != null) {
           return classStarlarkType;
         }

@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /**
@@ -1520,6 +1521,16 @@ public final class Types {
     };
   }
 
+  public static TypeConstructor.AllowingNullary wrapType(
+      String name, Supplier<StarlarkType> typeSupplier) {
+    return argsTuple -> {
+      if (!argsTuple.isEmpty()) {
+        throw new TypeConstructor.Failure(String.format("'%s' does not accept arguments", name));
+      }
+      return typeSupplier.get();
+    };
+  }
+
   static ImmutableList<StarlarkType> toStarlarkTypes(
       String name, ImmutableList<TypeConstructor.Term> args) throws TypeConstructor.Failure {
     for (TypeConstructor.Term arg : args) {
@@ -1616,6 +1627,7 @@ public final class Types {
   private static final TypeConstructor.AllowingNullary wrapStructConstructor() {
     return args -> {
       if (args.isEmpty()) {
+        // `struct` is equivalent to `struct[{}, ...]`
         return ANY_STRUCT;
       } else if (args.size() <= 2) {
         TypeConstructor.Term arg = args.getFirst();

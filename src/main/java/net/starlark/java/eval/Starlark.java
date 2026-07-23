@@ -340,7 +340,7 @@ public final class Starlark {
       case StarlarkValue x -> {
         @Nullable StarlarkType type = x.getStarlarkType(semantics);
         if (type == null) {
-          type = CallUtils.getBuiltinManager(semantics).getClassStarlarkType(value.getClass());
+          type = CallUtils.getStarlarkBuiltinAutoType(value.getClass());
         }
         yield type != null ? type : Types.ANY;
       }
