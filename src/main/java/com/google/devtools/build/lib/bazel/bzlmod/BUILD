@@ -207,6 +207,16 @@ java_library(
 )
 
 java_library(
+    name = "bzlmod_extension_inputs_helper",
+    srcs = ["BzlmodExtensionInputsHelper.java"],
+    deps = [
+        ":resolution",
+        "//src/main/java/com/google/devtools/build/lib/rules:repository/repo_recorded_input",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
     name = "serialization",
     srcs = [
         "AttributeValuesAdapter.java",
