@@ -1674,6 +1674,11 @@ public class CppCompileAction extends AbstractAction
     return featureConfiguration.isEnabled(CppRuleClasses.PARSE_SHOWINCLUDES);
   }
 
+  @Override
+  public boolean shouldDeferSpawnCacheStore() {
+    return getDotdFile() != null || shouldParseShowIncludes();
+  }
+
   /** Dynamically compute the dependencies of a compilation using C++20 modules. */
   private ImmutableSet<Artifact> computeUsedCpp20Modules(
       ActionExecutionContext actionExecutionContext) throws ActionExecutionException {
