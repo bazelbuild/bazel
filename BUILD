@@ -274,10 +274,20 @@ constraint_value(
     visibility = ["//visibility:public"],
 )
 
+constraint_setting(name = "mount_support")
+
+# A machine that permits privileged mount operations.
+constraint_value(
+    name = "mount_capable",
+    constraint_setting = ":mount_support",
+    visibility = ["//visibility:public"],
+)
+
 platform(
     name = "default_host_platform",
     constraint_values = [
         ":highcpu_machine",
+        ":mount_capable",
     ],
     parents = ["@platforms//host"],
 )
@@ -295,6 +305,9 @@ REMOTE_PLATFORMS = ("rbe_ubuntu2404",)
 [
     platform(
         name = platform_name + "_platform",
+        constraint_values = [
+            "//:mount_capable",
+        ],
         exec_properties = {
             "dockerNetwork": "standard",
             "dockerPrivileged": "true",
