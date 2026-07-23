@@ -290,10 +290,17 @@ public final class OutputPathMnemonicComputer {
     // Note: getFirst only excludes options trimmed between baselineOptions to toOptions and this is
     //   considered OK as a given Rule should not be being built with options of different
     //   trimmings. See longform note in {@link ConfiguredTargetKey} for details.
+    //
+    // Exclude --stamp when its value in toOptions is the default (false). A config with stamp=false
+    // should have the same output path regardless of what the top-level baseline's stamp value is.
+    // Configs with stamp=true still get a distinct hash to avoid collisions with unstamped configs.
+    CoreOptions toCoreOptions = toOptions.get(CoreOptions.class);
+    boolean targetStampIsDefault = toCoreOptions == null || !toCoreOptions.getStampBinaries();
     ImmutableSet<String> chosenNativeOptions =
         diff.getFirst().keySet().stream()
             .map(OptionDefinition::getOptionName)
             .filter(optionName -> !explicitInOutputPathOptions.contains(optionName))
+            .filter(optionName -> !(optionName.equals("stamp") && targetStampIsDefault))
             .collect(toImmutableSet());
     // Note: getChangedStarlarkOptions includes all changed options, added options and removed
     //   options between baselineOptions and toOptions. This is necessary since there is no current
