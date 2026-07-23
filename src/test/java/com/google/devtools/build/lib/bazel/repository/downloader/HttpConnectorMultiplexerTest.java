@@ -183,6 +183,16 @@ public class HttpConnectorMultiplexerTest {
             "Authentication",
             ImmutableList.of("Zm9vOmZvb3NlY3JldA=="));
 
+    // Same host, different path (e.g. a same-host redirect): auth headers are reapplied.
+    assertThat(headerFunction.apply(URI.create("http://hosting.example.com/user/bar/other.txt")))
+        .containsExactly(
+            "Accept-Encoding",
+            ImmutableList.of("gzip"),
+            "User-Agent",
+            ImmutableList.of("Bazel/testing"),
+            "Authentication",
+            ImmutableList.of("Zm9vOmZvb3NlY3JldA=="));
+
     // Other hosts
     assertThat(headerFunction.apply(URI.create("http://hosting2.example.com/user/foo/file.txt")))
         .containsExactly(
