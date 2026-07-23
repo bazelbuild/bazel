@@ -899,6 +899,12 @@ public class CcStarlarkInternal implements StarlarkValue {
 
     @Override
     public ActionOwner getActionOwner() {
+      if (ruleContext.hasToolchainContext(CppRuleClasses.CPP_COMPILE_EXEC_GROUP)) {
+        ActionOwner actionOwner = ruleContext.getActionOwner(CppRuleClasses.CPP_COMPILE_EXEC_GROUP);
+        if (actionOwner != null) {
+          return actionOwner;
+        }
+      }
       ActionOwner actionOwner = null;
       if (ruleContext.useAutoExecGroups()) {
         actionOwner =
