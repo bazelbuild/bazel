@@ -107,6 +107,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/runtime:counting_artifact_group_namer",
         "//src/main/java/com/google/devtools/build/lib/runtime:execution_graph_module",
         "//src/main/java/com/google/devtools/build/lib/runtime:gc_churning_detector",
+        "//src/main/java/com/google/devtools/build/lib/runtime:host_jvm_startup_options",
         "//src/main/java/com/google/devtools/build/lib/runtime:instrumentation_output",
         "//src/main/java/com/google/devtools/build/lib/runtime:keep_state_after_build_option",
         "//src/main/java/com/google/devtools/build/lib/runtime:line_buffered_output_stream",
