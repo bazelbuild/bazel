@@ -59,7 +59,7 @@ def get_default_canonical_id(repository_ctx, urls):
       urls: A list of URLs matching what is passed to `repository_ctx.download` and
         `repository_ctx.download_and_extract`.
     """
-    if repository_ctx.os.environ.get(DEFAULT_CANONICAL_ID_ENV) == "0":
+    if repository_ctx.getenv(DEFAULT_CANONICAL_ID_ENV) == "0":
         return ""
 
     # Do not sort URLs to prevent the following scenario:
