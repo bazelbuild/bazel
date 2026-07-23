@@ -320,10 +320,7 @@ public class BazelLockFileModule extends BlazeModule {
         GsonTypeAdapterUtil.LOCKFILE_GSON.toJson(updatedLockfile, writer);
       } catch (JsonIOException e) {
         // Gson.toJson(Object, Appendable) documents JsonIOException for writer failures.
-        if (e.getCause() instanceof IOException ioException) {
-          throw ioException;
-        }
-        throw e;
+        throw new IOException(e);
       }
       writer.append('\n');
     } catch (IOException e) {
