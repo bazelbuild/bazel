@@ -57,6 +57,10 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
 
   protected abstract void enableActionRewinding();
 
+  protected void disableActionRewinding() {
+    addOptions("--norewind_lost_inputs");
+  }
+
   protected abstract void assertOutputEquals(Path path, String expectedContent) throws Exception;
 
   protected abstract void assertOutputContains(String content, String contains) throws Exception;
@@ -1551,8 +1555,8 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
   }
 
   @Test
-  public void remoteCacheEvictBlobs_whenPrefetchingInputFile_incrementalBuildCanContinue()
-      throws Exception {
+  public void remoteCacheEvictBlobs_whenPrefetchingInputFile(
+      @TestParameter boolean actionRewinding) throws Exception {
     // Arrange: Prepare workspace and populate remote cache
     write(
         "a/BUILD",
@@ -1591,11 +1595,17 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     // Evict blobs from remote cache
     evictAllBlobs();
 
-    // trigger build error
     write("a/bar.in", "updated bar");
     addOptions("--strategy_regexp=.*bar=local");
-    // Build failed because of remote cache eviction
-    assertThrows(BuildFailedException.class, () -> buildTarget("//a:bar"));
+    if (actionRewinding) {
+      // The lost input's generating action is rewound within the next build.
+      enableActionRewinding();
+    } else {
+      // The build fails because of remote cache eviction, but an incremental build without
+      // "clean" or "shutdown" can continue.
+      disableActionRewinding();
+      assertThrows(BuildFailedException.class, () -> buildTarget("//a:bar"));
+    }
 
     // Act: Do an incremental build without "clean" or "shutdown"
     buildTarget("//a:bar");
@@ -1605,8 +1615,8 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
   }
 
   @Test
-  public void remoteCacheEvictBlobs_whenPrefetchingInputTree_incrementalBuildCanContinue()
-      throws Exception {
+  public void remoteCacheEvictBlobs_whenPrefetchingInputTree(
+      @TestParameter boolean actionRewinding) throws Exception {
     // Arrange: Prepare workspace and populate remote cache
     write("BUILD");
     writeOutputDirRule();
@@ -1646,11 +1656,17 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     // Evict blobs from remote cache
     evictAllBlobs();
 
-    // trigger build error
     write("a/bar.in", "updated bar");
     addOptions("--strategy_regexp=.*bar=local");
-    // Build failed because of remote cache eviction
-    assertThrows(BuildFailedException.class, () -> buildTarget("//a:bar"));
+    if (actionRewinding) {
+      // The lost input's generating action is rewound within the next build.
+      enableActionRewinding();
+    } else {
+      // The build fails because of remote cache eviction, but an incremental build without
+      // "clean" or "shutdown" can continue.
+      disableActionRewinding();
+      assertThrows(BuildFailedException.class, () -> buildTarget("//a:bar"));
+    }
 
     // Act: Do an incremental build without "clean" or "shutdown"
     buildTarget("//a:bar");
