@@ -274,6 +274,62 @@ public class UrlRewriterTest {
   }
 
   @Test
+  public void rewriteWithBackReferenceToMissingGroupFailsToParse() throws Exception {
+    // The matching pattern has two capturing groups, but the rewrite pattern references a third
+    // (`$3`). This parses fine, but `$3` is only expanded lazily by java.util.regex.Matcher when a
+    // URL is actually rewritten during a download, at which point it throws an uncaught
+    // IndexOutOfBoundsException and terminates Bazel with no diagnostic (exit code 37). A malformed
+    // config must instead be reported eagerly, at parse time.
+    String config = "rewrite (github.com)/(.*) https://mirror.example.com/$1/$2/$3\n";
+    try {
+      new UrlRewriterConfig("/some/file", new StringReader(config));
+      fail("expected a UrlRewriterParseException for the invalid rewrite pattern");
+    } catch (UrlRewriterParseException e) {
+      assertThat(e.getLocation()).isEqualTo(Location.fromFileLineColumn("/some/file", 1, 0));
+      assertThat(e.getMessage()).contains("https://mirror.example.com/$1/$2/$3");
+      assertThat(e.getMessage()).contains("No group 3");
+    }
+  }
+
+  @Test
+  public void rewriteWithDanglingDollarInReplacementFailsToParse() throws Exception {
+    // A rewrite pattern that ends with a bare `$` is an illegal replacement string that likewise
+    // only fails when a URL is rewritten. It too must be rejected at parse time.
+    String config = "rewrite (github.com)/(.*) https://mirror.example.com/$1/$\n";
+    try {
+      new UrlRewriterConfig("/some/file", new StringReader(config));
+      fail("expected a UrlRewriterParseException for the invalid rewrite pattern");
+    } catch (UrlRewriterParseException e) {
+      assertThat(e.getLocation()).isEqualTo(Location.fromFileLineColumn("/some/file", 1, 0));
+      assertThat(e.getMessage()).contains("https://mirror.example.com/$1/$");
+    }
+  }
+
+  @Test
+  public void ioErrorReadingConfigIsReportedAsParseError() throws Exception {
+    // Defense in depth: a failure that is not one of the malformed inputs parseConfig recognizes
+    // (here, an I/O error, which it wraps in an UncheckedIOException) must still surface as a
+    // UrlRewriterParseException rather than escaping as an uncaught exception and terminating Bazel
+    // with an internal error and no diagnostic.
+    Reader throwsOnRead =
+        new Reader() {
+          @Override
+          public int read(char[] cbuf, int off, int len) throws IOException {
+            throw new IOException("simulated read failure");
+          }
+
+          @Override
+          public void close() {}
+        };
+    UrlRewriterParseException e =
+        assertThrows(
+            UrlRewriterParseException.class,
+            () -> new UrlRewriterConfig("/some/file", throwsOnRead));
+    assertThat(e.getMessage()).contains("Failed to parse downloader config file `/some/file`");
+    assertThat(e).hasCauseThat().hasMessageThat().contains("simulated read failure");
+  }
+
+  @Test
   public void noAllBlockedMessage() throws Exception {
     String config = "";
     UrlRewriterConfig munger = new UrlRewriterConfig("/some/file", new StringReader(config));
