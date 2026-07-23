@@ -366,7 +366,7 @@ public final class StaticTypeCheckTest {
     @Override
     // Override causes no 'MyExplicitlyTypedType' type to be auto-generated.
     public StarlarkType getStarlarkType(StarlarkSemantics semantics) {
-      return Types.STRUCT_OF_ANY;
+      return Types.ANY_STRUCT;
     }
   }
 

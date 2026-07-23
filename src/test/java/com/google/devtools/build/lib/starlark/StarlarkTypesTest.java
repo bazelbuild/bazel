@@ -50,6 +50,20 @@ public class StarlarkTypesTest extends BuildViewTestCase {
     public TestStructApiImpl plus(TestStructApiImpl other) {
       return new TestStructApiImpl(this.answer + other.answer);
     }
+
+    @StarlarkMethod(
+        name = "plus_or",
+        doc = "Not a field",
+        parameters = {
+          @Param(name = "other"),
+        })
+    public StructApi abstractPlus(StructApi other) {
+      if (other instanceof TestStructApiImpl otherTestStruct) {
+        return new TestStructApiImpl(this.answer + otherTestStruct.answer);
+      } else {
+        return other;
+      }
+    }
   }
 
   @Override
@@ -276,7 +290,7 @@ public class StarlarkTypesTest extends BuildViewTestCase {
   }
 
   @Test
-  public void structReturnType() throws Exception {
+  public void structConstructor_typedAsReturningAnyStruct() throws Exception {
     setBuildLanguageOptions(
         "--experimental_starlark_type_syntax", "--experimental_starlark_static_type_checking");
 
@@ -297,6 +311,38 @@ public class StarlarkTypesTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//bad:BUILD");
     assertContainsEvent("cannot assign type 'struct' to 'bad' of type 'int'");
+  }
+
+  @Test
+  public void structValue_typeNarrowedOnExport() throws Exception {
+    setBuildLanguageOptions(
+        "--experimental_starlark_type_syntax", "--experimental_starlark_static_type_checking");
+
+    scratch.file("lib/lib.bzl", "value = struct(x = 1, y = 2)");
+    scratch.file("lib/BUILD", "load('lib.bzl', 'value')");
+
+    scratch.file(
+        "good/good.bzl",
+        """
+        load("//lib:lib.bzl", "value")
+        good: struct[{"x": int}] = value
+        """);
+    scratch.file("good/BUILD", "load('good.bzl', 'good')");
+    getConfiguredTarget("//good:BUILD");
+    assertNoEvents();
+
+    scratch.file(
+        "bad/bad.bzl",
+        """
+        load("//lib:lib.bzl", "value")
+        bad: struct[{"y": float}] = value
+        """);
+    scratch.file("bad/BUILD", "load('bad.bzl', 'bad')");
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//bad:BUILD");
+    assertContainsEvent(
+        "cannot assign type 'struct[{\"x\": int, \"y\": int}]' to 'bad' of type 'struct[{\"y\":"
+            + " float}]'");
   }
 
   @Test
@@ -323,5 +369,31 @@ public class StarlarkTypesTest extends BuildViewTestCase {
     getConfiguredTarget("//bad:BUILD");
     assertContainsEvent(
         "cannot assign type 'TestStructApiImpl' to 'bad' of type 'struct[{\"answer\": float}]'");
+  }
+
+  @Test
+  public void structApiItself_isAnyStruct() throws Exception {
+    setBuildLanguageOptions(
+        "--experimental_starlark_type_syntax", "--experimental_starlark_static_type_checking");
+
+    scratch.file(
+        "good/good.bzl",
+        """
+        arg: struct[{"foo": int}] = struct(foo = 1)
+        good: struct[{"bar": float}] = test_struct_api_impl.plus_or(arg)
+        """);
+    scratch.file("good/BUILD", "load('good.bzl', 'good')");
+    getConfiguredTarget("//good:BUILD");
+    assertNoEvents();
+
+    scratch.file(
+        "bad/bad.bzl",
+        """
+        bad: int = test_struct_api_impl.plus_or(struct(baz = "baz"))
+        """);
+    scratch.file("bad/BUILD", "load('bad.bzl', 'bad')");
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//bad:BUILD");
+    assertContainsEvent("cannot assign type 'struct' to 'bad' of type 'int'");
   }
 }

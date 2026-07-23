@@ -71,8 +71,8 @@ public final class Types {
   public static final HomogeneousTupleType HOMOGENEOUS_TUPLE_OF_ANY = homogeneousTuple(ANY);
   // A frequently-used arbitrary collection.
   public static final CollectionType COLLECTION_OF_ANY = collection(ANY);
-  // A frequently-used arbitrary partial struct.
-  public static final StructType STRUCT_OF_ANY = partialStruct(ImmutableMap.of());
+  // A struct allowing arbitrary field access, and assignable to and from any struct type.
+  public static final StructType ANY_STRUCT = partialStruct(ImmutableMap.of());
   // A frequently-used struct without fields; the top struct type.
   public static final StructType EMPTY_STRUCT = struct(ImmutableMap.of());
 
@@ -1408,26 +1408,24 @@ public final class Types {
    * they happen to have fields. For example, a {@code list} has {@code append} and {@code extend}
    * methods, but it is *not* a subtype of {@code struct[{"append": ..., "extend": ...}]}.
    *
-   * <p>Since struct types don't support mutation, their assignability follows structural subtyping:
+   * <p>Structs come in two flavors: total and partial. A total struct supports access only to
+   * explicitly specified fields with specified types. A partial struct, in addition, admits access
+   * to any unspecified field; the type of such an unspecified field's value is presumed to be
+   * {@link #ANY}.
    *
-   * <ul>
-   *   <li>The set of LHS field names must be a subset of RHS field names. (This implies, in
-   *       particular, that a RHS total struct cannot be assigned to a LHS partial struct, since the
-   *       LHS partial struct admits any possible field name.)
-   *   <li>The type of each LHS field must be assignable from the type of the corresponding RHS
-   *       field. (This implies, in particular, that {@link #STRUCT_OF_ANY} is assignable to all
-   *       struct types.)
-   * </ul>
+   * <p>Since struct types don't support mutation, their assignability follows structural subtyping.
+   * Any explicitly-specified field named F in LHS of an assignment must be present in RHS (whether
+   * explicitly or as an unspecified field of a partial struct), and the type of F in LHS must be
+   * assignable from the type of F in RHS. Unspecified fields in a partial-struct LHS are ignored by
+   * assignability checks.
    *
-   * In particular, these rules imply that:
+   * <p>Thus, {@code struct[{"a": int, "b": str}]} can be assigned to {@code struct[{"a": int}]} and
+   * to {@code struct[{"a": int}, ...]} - but *not* to {@code struct[{"a": str, "c": bool}]} or
+   * {@code struct[{"a": str, "c": bool}, ...]}.
    *
-   * <ul>
-   *   <li>A RHS total struct cannot be assigned to a LHS partial struct, since the LHS partial
-   *       struct admits any possible field name.
-   *   <li>A LHS total struct with a particular set of fields {@code F} is assignable from any RHS
-   *       partial struct whose set of explicit fields is a subset of {@code F}.
-   *   <li>{@link #STRUCT_OF_ANY} is assignable to all LHS struct types.
-   * </ul>
+   * <p>In particular, these rules imply that {@code struct[{}]} ({@link #EMPTY_STRUCT}) can be
+   * assigned *from* any struct type, and {@code struct} (a.k.a. {@code struct[{}, ...]}; {@link
+   * #ANY_STRUCT} in Java) can be assigned *to or from* any struct type.
    */
   @AutoValue
   public abstract static class StructType extends StarlarkType {
@@ -1446,11 +1444,9 @@ public final class Types {
     @Override
     public boolean assignableFromHook(StarlarkType t) {
       if (t instanceof StructType that) {
-        if (this.isPartial() && !that.isPartial()) {
-          return false;
-        }
-        // The set of LHS field names must be a subset of RHS field names, and LHS field types must
-        // be assignable from the corresponding RHS field types.
+        // The set of explicitly-specified LHS field names must be a subset of RHS field names
+        // (explicit or not), and LHS field types must be assignable from the corresponding RHS
+        // field types.
         return this.getFields().entrySet().stream()
             .allMatch(
                 entry1 -> {
@@ -1487,7 +1483,7 @@ public final class Types {
 
     @Override
     public final String toString() {
-      if (this.equals(STRUCT_OF_ANY)) {
+      if (this.equals(ANY_STRUCT)) {
         return "struct";
       }
       StringBuilder buf = new StringBuilder();
@@ -1618,11 +1614,7 @@ public final class Types {
   private static final TypeConstructor.AllowingNullary wrapStructConstructor() {
     return args -> {
       if (args.isEmpty()) {
-        // `struct` is equivalent to `struct[{}, ...]`
-        // TODO: #27370 - We want `struct` to be assignable to and from any struct type; but
-        // `struct[{}, ...]` is not assignable from total structs, so `isinstance(x, struct)` would
-        // fail if x is a total struct.
-        return STRUCT_OF_ANY;
+        return ANY_STRUCT;
       } else if (args.size() <= 2) {
         TypeConstructor.Term arg = args.getFirst();
         ImmutableMap<String, StarlarkType> fields;

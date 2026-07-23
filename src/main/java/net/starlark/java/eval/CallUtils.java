@@ -158,17 +158,21 @@ public final class CallUtils {
         builder.add(classDescriptor.selfCall.getStarlarkType());
       }
       if (StarlarkAnnotations.isAssignableToStructType(clazz)) {
-        // Values of struct-like types are assignable to a struct type whose fields are the
-        // class's structfield annotated methods.
-        // TODO: #28325 - Do we need to support partial structs?
-        ImmutableMap.Builder<String, StarlarkType> fields = ImmutableMap.builder();
-        classDescriptor.methods.forEach(
-            (methodName, desc) -> {
-              if (desc.isStructField()) {
-                fields.put(methodName, desc.getStarlarkType());
-              }
-            });
-        builder.add(Types.struct(fields.buildOrThrow()));
+        if (StarlarkAnnotations.getStarlarkBuiltin(clazz).isStructType()) {
+          builder.add(Types.ANY_STRUCT);
+        } else {
+          // Values of struct-like types are assignable to a struct type whose fields are the
+          // class's structfield annotated methods.
+          // TODO: #28325 - Do we need to support partial structs?
+          ImmutableMap.Builder<String, StarlarkType> fields = ImmutableMap.builder();
+          classDescriptor.methods.forEach(
+              (methodName, desc) -> {
+                if (desc.isStructField()) {
+                  fields.put(methodName, desc.getStarlarkType());
+                }
+              });
+          builder.add(Types.struct(fields.buildOrThrow()));
+        }
       }
       return builder.build();
     }
@@ -213,11 +217,15 @@ public final class CallUtils {
           }
         };
 
-    private final ClassValue<ClassStarlarkType> classStarlarkTypeCache =
-        new ClassValue<ClassStarlarkType>() {
+    private final ClassValue<StarlarkType> classStarlarkTypeCache =
+        new ClassValue<StarlarkType>() {
           @Override
           @Nullable
-          protected ClassStarlarkType computeValue(Class<?> clazz) {
+          protected StarlarkType computeValue(Class<?> clazz) {
+            @Nullable StarlarkType fixedStarlarkType = getFixedStarlarkType(clazz);
+            if (fixedStarlarkType != null) {
+              return fixedStarlarkType;
+            }
             if (!wantClassStarlarkType(clazz)) {
               return null;
             }
@@ -359,7 +367,7 @@ public final class CallUtils {
     classDescriptor.selfCall = selfCall;
     classDescriptor.methods = ImmutableMap.copyOf(methods);
     classDescriptor.typeConstructor = typeConstructor;
-    if (wantClassStarlarkType(clazz)) {
+    if (getFixedStarlarkType(clazz) == null && wantClassStarlarkType(clazz)) {
       classDescriptor.classStarlarkTypeSupertypes =
           ClassStarlarkType.buildSupertypes(clazz, classDescriptor);
     }
@@ -391,6 +399,22 @@ public final class CallUtils {
           String.format("%s missing getStarlarkType(StarlarkSemantics) method", clazz), e);
     }
     return getter.getDeclaringClass().equals(StarlarkValue.class);
+  }
+
+  /**
+   * Certain Java classes/interfaces should be associated with a special fixed {@link StarlarkType}
+   * instead of a generated {@link ClassStarlarkType}. Returns that fixed {@link StarlarkType}, or
+   * null otherwise.
+   */
+  @Nullable
+  private static StarlarkType getFixedStarlarkType(Class<?> clazz) {
+    @Nullable StarlarkBuiltin annotation = StarlarkAnnotations.getStarlarkBuiltin(clazz);
+    if (annotation != null && annotation.isStructType()) {
+      // Interpret com.google.devtools.build.lib.starlarkbuildapi.core.StructApi as a marker for
+      // an arbitrary struct type.
+      return Types.ANY_STRUCT;
+    }
+    return null;
   }
 
   /**

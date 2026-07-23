@@ -279,7 +279,7 @@ public class TypeTaggerTest {
     assertThat(extractType("struct[{'foo': int, 'bar': list[str]}]"))
         .isEqualTo(Types.struct(ImmutableMap.of("foo", Types.INT, "bar", Types.list(Types.STR))));
 
-    assertThat(extractType("struct")).isEqualTo(Types.STRUCT_OF_ANY);
+    assertThat(extractType("struct")).isEqualTo(Types.ANY_STRUCT);
     assertThat(extractType("struct[{'foo': int}, ...]"))
         .isEqualTo(Types.partialStruct(ImmutableMap.of("foo", Types.INT)));
 

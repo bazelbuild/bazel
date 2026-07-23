@@ -321,24 +321,33 @@ public class TypesTest {
     assertLtAndGt(
         Types.struct(ImmutableMap.of("f", Types.INT)),
         Types.struct(ImmutableMap.of("f", Types.ANY)));
-    assertStrictLtChain(
+    assertLtAndGt(
         Types.partialStruct(ImmutableMap.of("f", Types.INT)),
         Types.struct(ImmutableMap.of("f", Types.INT)));
 
     // Order of fields is irrelevant.
     assertLtAndGt(
         Types.struct(ImmutableMap.of("f", Types.INT, "g", Types.BOOL)),
-        Types.struct(ImmutableMap.of("g", Types.BOOL, "f", Types.INT)));
-    assertLtAndGt(
+        Types.struct(ImmutableMap.of("g", Types.BOOL, "f", Types.INT)),
         Types.partialStruct(ImmutableMap.of("f", Types.INT, "g", Types.BOOL)),
         Types.partialStruct(ImmutableMap.of("g", Types.BOOL, "f", Types.INT)));
 
+    // Partially overlapping sets of explicitly-specified fields
     assertIncomparable(
         Types.struct(ImmutableMap.of("f", Types.INT, "g", Types.INT)),
         Types.struct(ImmutableMap.of("f", Types.INT, "h", Types.INT)));
+    assertLt(
+        Types.partialStruct(ImmutableMap.of("f", Types.INT, "g", Types.INT)),
+        Types.struct(ImmutableMap.of("f", Types.INT, "h", Types.INT)));
+
+    // ANY_STRUCT is assignable to and from any other struct type.
+    assertLtAndGt(Types.ANY_STRUCT, Types.struct(ImmutableMap.of()));
+    assertLtAndGt(Types.ANY_STRUCT, Types.struct(ImmutableMap.of("f", Types.INT)));
+    assertLtAndGt(Types.ANY_STRUCT, Types.partialStruct(ImmutableMap.of()));
+    assertLtAndGt(Types.ANY_STRUCT, Types.partialStruct(ImmutableMap.of("f", Types.FLOAT)));
 
     assertLtAndGt(
-        Types.STRUCT_OF_ANY,
+        Types.partialStruct(ImmutableMap.of()),
         Types.partialStruct(ImmutableMap.of("f", Types.ANY)),
         Types.partialStruct(ImmutableMap.of("f", Types.INT)),
         Types.partialStruct(ImmutableMap.of("f", Types.INT, "g", Types.INT)),
@@ -348,11 +357,10 @@ public class TypesTest {
         Types.partialStruct(ImmutableMap.of("f", Types.FLOAT)));
 
     assertStrictLtChain(
-        Types.STRUCT_OF_ANY,
         Types.struct(ImmutableMap.of("f", Types.INT, "g", Types.STR, "h", Types.BOOL)),
         Types.struct(ImmutableMap.of("f", Types.INT, "h", Types.ANY)),
         Types.struct(ImmutableMap.of("f", Types.union(Types.INT, Types.FLOAT))),
-        Types.struct(ImmutableMap.of()));
+        Types.EMPTY_STRUCT);
   }
 
   @Test
