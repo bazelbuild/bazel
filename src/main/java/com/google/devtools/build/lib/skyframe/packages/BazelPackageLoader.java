@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.YankedVersionsFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.YankedVersionsUtil;
 import com.google.devtools.build.lib.bazel.repository.RepoDefinitionFunction;
 import com.google.devtools.build.lib.bazel.repository.RepoDefinitionValue;
+import com.google.devtools.build.lib.bazel.repository.RepoMetadataRequirements;
 import com.google.devtools.build.lib.bazel.repository.RepositoryFetchFunction;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
@@ -119,6 +120,9 @@ public class BazelPackageLoader extends AbstractPackageLoader {
           PrecomputedValue.injected(
               BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE,
               RepositoryOptions.BazelCompatibilityMode.OFF),
+          PrecomputedValue.injected(
+              RepoMetadataRequirements.REQUIRE_REPO_EXTENSION_METADATA,
+              RepositoryOptions.RequireRepoExtensionMetadataMode.FALSE),
           PrecomputedValue.injected(
               BazelLockFileFunction.LOCKFILE_MODE, RepositoryOptions.LockfileMode.OFF),
           PrecomputedValue.injected(

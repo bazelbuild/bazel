@@ -401,6 +401,19 @@ public abstract class RepositoryOptions extends OptionsBase {
   public abstract BazelCompatibilityMode getBazelCompatibilityMode();
 
   @Option(
+      name = "incompatible_require_repo_extension_metadata",
+      defaultValue = "false",
+      converter = RequireRepoExtensionMetadataMode.Converter.class,
+      documentationCategory = OptionDocumentationCategory.BZLMOD,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "Require repository rules and module extensions to return explicit metadata. Valid values"
+              + " are `false` to disable the check, `all` to require metadata everywhere, or `root`"
+              + " to require metadata only for repos or extensions used by the root module.")
+  public abstract RequireRepoExtensionMetadataMode getRequireRepoExtensionMetadata();
+
+  @Option(
       name = "lockfile_mode",
       converter = LockfileMode.Converter.class,
       defaultValue = "update",
@@ -452,6 +465,29 @@ public abstract class RepositoryOptions extends OptionsBase {
     public static class Converter extends EnumConverter<BazelCompatibilityMode> {
       public Converter() {
         super(BazelCompatibilityMode.class, "Bazel compatibility check mode");
+      }
+    }
+  }
+
+  /** An enum for specifying when repo and extension metadata is required. */
+  public enum RequireRepoExtensionMetadataMode {
+    FALSE, // Don't require metadata.
+    ALL, // Require metadata everywhere.
+    ROOT; // Require metadata for repos or extensions used by the root module.
+
+    @Override
+    public String toString() {
+      return switch (this) {
+        case FALSE -> "false";
+        case ALL -> "all";
+        case ROOT -> "root";
+      };
+    }
+
+    /** Converts to {@link RequireRepoExtensionMetadataMode}. */
+    public static class Converter extends EnumConverter<RequireRepoExtensionMetadataMode> {
+      public Converter() {
+        super(RequireRepoExtensionMetadataMode.class, "repo extension metadata mode");
       }
     }
   }

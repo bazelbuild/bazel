@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.bazel.bzlmod.NonRegistryOverride;
 import com.google.devtools.build.lib.bazel.bzlmod.VendorFileValue;
 import com.google.devtools.build.lib.bazel.repository.RepositoryFunctionException.AlreadyReportedRepositoryAccessException;
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.RequireRepoExtensionMetadataMode;
 import com.google.devtools.build.lib.bazel.repository.cache.LocalRepoContentsCache;
 import com.google.devtools.build.lib.bazel.repository.cache.LocalRepoContentsCache.CandidateRepo;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
@@ -600,6 +601,8 @@ public final class RepositoryFetchFunction implements SkyFunction {
     if (env.valuesMissing()) {
       return null;
     }
+    RequireRepoExtensionMetadataMode requireRepoExtensionMetadataMode =
+        checkNotNull(RepoMetadataRequirements.REQUIRE_REPO_EXTENSION_METADATA.get(env));
 
     PathPackageLocator packageLocator = PrecomputedValue.PATH_PACKAGE_LOCATOR.get(env);
     if (env.valuesMissing()) {
@@ -683,7 +686,13 @@ public final class RepositoryFetchFunction implements SkyFunction {
                     RepoMetadata.Reproducibility.NO,
                     Dict.cast(dict, String.class, Object.class, "return value"));
             case RepoMetadata rm -> rm;
-            default -> RepoMetadata.NONREPRODUCIBLE;
+            default -> {
+              if (shouldRequireRepoMetadata(requireRepoExtensionMetadataMode, repoDefinition)) {
+                throwDefaultRepoMetadataError(
+                    repoDefinition, requireRepoExtensionMetadataMode, env);
+              }
+              yield RepoMetadata.NONREPRODUCIBLE;
+            }
           };
       RepositoryResolvedEvent resolved =
           new RepositoryResolvedEvent(repoDefinition, repoMetadata.attrsForReproducibility());
@@ -741,6 +750,37 @@ public final class RepositoryFetchFunction implements SkyFunction {
     }
 
     return new FetchResult(recordedInputValues, repoMetadata.reproducible());
+  }
+
+  private static boolean shouldRequireRepoMetadata(
+      RequireRepoExtensionMetadataMode requireRepoExtensionMetadataMode,
+      RepoDefinition repoDefinition) {
+    return switch (requireRepoExtensionMetadataMode) {
+      case FALSE -> false;
+      case ALL -> true;
+      case ROOT -> repoDefinition.rootModuleGenerated();
+    };
+  }
+
+  private static void throwDefaultRepoMetadataError(
+      RepoDefinition repoDefinition,
+      RequireRepoExtensionMetadataMode requireRepoExtensionMetadataMode,
+      Environment env)
+      throws RepositoryFunctionException {
+    String definitionInformation =
+        RepositoryResolvedEvent.getRuleDefinitionInformation(repoDefinition);
+    String message =
+        ("repository rule for repo '%s' did not return repo_metadata (implementation at %s), but"
+                + " --incompatible_require_repo_extension_metadata=%s requires it")
+            .formatted(
+                repoDefinition.name(),
+                repoDefinition.repoRule().impl().getLocation(),
+                requireRepoExtensionMetadataMode);
+    env.getListener().handle(Event.error(message));
+    env.getListener().handle(Event.info(definitionInformation));
+    throw new RepositoryFunctionException(
+        new AlreadyReportedRepositoryAccessException(new IOException(message)),
+        Transience.PERSISTENT);
   }
 
   @Nullable

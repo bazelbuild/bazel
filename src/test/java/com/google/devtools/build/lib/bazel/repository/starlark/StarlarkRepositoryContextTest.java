@@ -165,7 +165,12 @@ public final class StarlarkRepositoryContextTest {
     RepoSpec repoSpec =
         repoRule.instantiate(kwargs, DUMMY_STACK, labelConverter, listener, "somewhere");
     RepoDefinition repoDefinition =
-        new RepoDefinition(repoRule, repoSpec.attributes(), (String) kwargs.get("name"), null);
+        new RepoDefinition(
+            repoRule,
+            repoSpec.attributes(),
+            (String) kwargs.get("name"),
+            null,
+            /* rootModuleGenerated= */ false);
     DownloadManager downloader = Mockito.mock(DownloadManager.class);
     SkyFunction.Environment environment = Mockito.mock(SkyFunction.Environment.class);
     when(environment.getListener()).thenReturn(listener);

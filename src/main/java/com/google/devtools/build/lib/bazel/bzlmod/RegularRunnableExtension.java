@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.RequireRepoExtensionMetadataMode;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.bazel.repository.starlark.NeedsSkyframeRestartException;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
@@ -223,7 +224,8 @@ final class RegularRunnableExtension implements RunnableExtension {
       StarlarkSemantics starlarkSemantics,
       ModuleExtensionId extensionId,
       RepositoryMapping mainRepositoryMapping,
-      Facts facts)
+      Facts facts,
+      RequireRepoExtensionMetadataMode requireRepoExtensionMetadataMode)
       throws InterruptedException, ExternalDepsException {
     // See below (the `catch CancellationException` clause) for why there's a `while` loop here.
     while (true) {
@@ -239,7 +241,8 @@ final class RegularRunnableExtension implements RunnableExtension {
                     starlarkSemantics,
                     extensionId,
                     mainRepositoryMapping,
-                    facts));
+                    facts,
+                    requireRepoExtensionMetadataMode));
       } catch (ExecutionException e) {
         Throwables.throwIfInstanceOf(e.getCause(), ExternalDepsException.class);
         Throwables.throwIfInstanceOf(e.getCause(), InterruptedException.class);
@@ -260,7 +263,8 @@ final class RegularRunnableExtension implements RunnableExtension {
       StarlarkSemantics starlarkSemantics,
       ModuleExtensionId extensionId,
       RepositoryMapping mainRepositoryMapping,
-      Facts facts)
+      Facts facts,
+      RequireRepoExtensionMetadataMode requireRepoExtensionMetadataMode)
       throws InterruptedException, ExternalDepsException {
     env.getListener().post(ModuleExtensionEvaluationProgress.ongoing(extensionId, "starting"));
     ModuleExtensionEvalStarlarkThreadContext threadContext =
@@ -301,6 +305,15 @@ final class RegularRunnableExtension implements RunnableExtension {
         if (returnValue instanceof ModuleExtensionMetadata retMetadata) {
           moduleExtensionMetadata = retMetadata;
         } else {
+          if (shouldRequireMetadata(requireRepoExtensionMetadataMode, usagesValue)) {
+            throw ExternalDepsException.withMessage(
+                ExternalDeps.Code.EXTENSION_EVAL_ERROR,
+                "module extension %s did not return extension_metadata (implementation at %s),"
+                    + " but --incompatible_require_repo_extension_metadata=%s requires it",
+                extensionId,
+                extension.implementation().getLocation(),
+                requireRepoExtensionMetadataMode);
+          }
           moduleExtensionMetadata = ModuleExtensionMetadata.DEFAULT;
         }
       } catch (NeedsSkyframeRestartException e) {
@@ -326,6 +339,16 @@ final class RegularRunnableExtension implements RunnableExtension {
           e,
           "Failed to clean up module context directory");
     }
+  }
+
+  private static boolean shouldRequireMetadata(
+      RequireRepoExtensionMetadataMode requireRepoExtensionMetadataMode,
+      SingleExtensionUsagesValue usagesValue) {
+    return switch (requireRepoExtensionMetadataMode) {
+      case FALSE -> false;
+      case ALL -> true;
+      case ROOT -> usagesValue.getExtensionUsages().containsKey(ModuleKey.ROOT);
+    };
   }
 
   private ModuleExtensionContext createContext(
