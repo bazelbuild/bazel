@@ -264,6 +264,7 @@ tasks:
       - "//scripts/..."
       - "//src/java_tools/..."
       - "//src/test/..."
+      - "//src/tools/execgraph/..."
       - "//src/tools/execlog/..."
       - "//src/tools/one_version/..."
       - "//src/tools/singlejar/..."
