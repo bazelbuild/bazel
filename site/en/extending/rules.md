@@ -983,7 +983,7 @@ my_test = rule(
             cfg = config.exec(exec_group = "test"),
         ),
         "_collect_cc_coverage": attr.label(
-            default = "@bazel_tools//tools/test:collect_cc_coverage",
+            default = "@rules_cc//cc/private/coverage:collect_cc_coverage",
             executable = True,
             cfg = config.exec(exec_group = "test"),
         )
@@ -994,6 +994,9 @@ my_test = rule(
 
 By using `configuration_field`, the dependency on the Java LCOV merger tool can
 be avoided as long as coverage is not requested.
+
+For C/C++ coverage collection, reference
+`@rules_cc//cc/private/coverage:collect_cc_coverage`.
 
 When the test is run, it should emit coverage information in the form of one or
 more [LCOV files]

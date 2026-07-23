@@ -27,12 +27,15 @@ source "${CURRENT_DIR}/coverage_helpers.sh" \
 
 JQ="$(rlocation "$JQ_RLOCATIONPATH")"
 [[ ! -x "$JQ" ]] && fail "jq not found at $JQ ($JQ_RLOCATIONPATH)"
+COLLECT_CC_COVERAGE_SCRIPT="$(rlocation "$COLLECT_CC_COVERAGE_SCRIPT_RLOCATIONPATH")"
+[[ ! -x "$COLLECT_CC_COVERAGE_SCRIPT" ]] \
+  && fail "C++ coverage script not found at $COLLECT_CC_COVERAGE_SCRIPT"
 
 # Check if all the tools required by CC coverage are installed.
 [[ -z $( which gcov ) ]] && fail "gcov not installed. Skipping test" && exit 0
 [[ -z $( which g++ ) ]] && fail "g++ not installed. Skipping test" && exit 0
 
-# These are the variables needed by tools/test/collect_cc_coverage.sh
+# These are the variables needed by the rules_cc C++ coverage collection script.
 # They will be properly sub-shelled when invoking the script.
 
 # Directory containing gcno and gcda files.
@@ -43,9 +46,6 @@ readonly COVERAGE_GCOV_PATH_VAR="${PWD}/mygcov"
 readonly ROOT_VAR="${PWD}"
 # Location of the instrumented file manifest.
 readonly COVERAGE_MANIFEST_VAR="${PWD}/coverage_manifest.txt"
-
-# Path to the canonical C++ coverage script.
-readonly COLLECT_CC_COVERAGE_SCRIPT=tools/test/collect_cc_coverage.sh
 
 # Return a string in the form "device_id%inode" for a given file.
 #
@@ -142,7 +142,7 @@ EOF
   dagcda=$(ls coverage_srcs/different/*a.gcda)
   tgcda=$(ls coverage_srcs/*t.gcda)
   # Even though gcov expects the gcda files to be next to the gcno files,
-  # during Bazel execution this will not be the case. collect_cc_coverage.sh
+  # during Bazel execution this will not be the case. The coverage script
   # expects them to be in the COVERAGE_DIR and will move the gcno files itself.
   # We cannot use -fprofile-dir during compilation because this causes the
   # filenames to undergo mangling; see
@@ -564,4 +564,4 @@ function test_cc_test_coverage_gcov() {
     fi
 }
 
-run_suite "Testing tools/test/collect_cc_coverage.sh"
+run_suite "Testing @rules_cc//cc/private/coverage:collect_cc_coverage"
