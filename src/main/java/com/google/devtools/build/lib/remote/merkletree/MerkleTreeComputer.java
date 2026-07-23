@@ -19,6 +19,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.alwaysFalse;
 import static com.google.common.base.Predicates.alwaysTrue;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.util.concurrent.Futures.allAsList;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.Futures.transform;
@@ -741,7 +742,15 @@ public final class MerkleTreeComputer {
         subTreeFutures.add(transform(future, subTree -> entry(entry, subTree), directExecutor()));
       }
     }
-    return transform(allAsList(subTreeFutures), ImmutableMap::copyOf, directExecutor());
+    return transform(
+        allAsList(subTreeFutures),
+        // The same entry may appear multiple times (see SpawnInputs#flatten()).
+        entries ->
+            entries.stream()
+                .collect(
+                    toImmutableMap(
+                        Map.Entry::getKey, Map.Entry::getValue, (first, second) -> first)),
+        directExecutor());
   }
 
   @Nullable
