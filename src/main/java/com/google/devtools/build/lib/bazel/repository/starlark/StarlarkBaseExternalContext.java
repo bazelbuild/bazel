@@ -2649,8 +2649,10 @@ func(
       try {
         lazyMaterializer.ensureMaterialized(label.getRepository(), requester);
       } catch (IOException e) {
-        throw Starlark.errorf(
-            "Failed to materialize remote repo %s: %s", label.getRepository(), e.getMessage());
+        throw new EvalException(
+            "Failed to materialize remote repo %s: %s"
+                .formatted(label.getRepository(), e.getMessage()),
+            e);
       }
     }
     return new StarlarkPath(this, rootedPath.asPath());

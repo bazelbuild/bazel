@@ -223,8 +223,9 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
       }
       ActionResult result;
       try (var span = profile(repoName, "Upload repository contents")) {
-        result = manifest.upload(context, cache, reporter, /* force= */ false);
+        result = manifest.upload(context, cache, reporter, remoteFs.shouldRefetch(repoName));
       }
+      remoteFs.repoContentsUploaded(repoName);
       // Relative repository-root symlinks have no directory Tree to install.
       if (result.getOutputDirectoriesCount() != 1) {
         return;
@@ -278,6 +279,9 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
       SkyFunction.Environment env)
       throws IOException, InterruptedException {
     if (!(repoDir.getFileSystem() instanceof RemoteExternalOverlayFileSystem remoteFs)) {
+      return false;
+    }
+    if (remoteFs.shouldRefetch(repoName)) {
       return false;
     }
 
