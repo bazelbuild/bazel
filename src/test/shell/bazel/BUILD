@@ -483,6 +483,9 @@ sh_test(
     name = "bazel_spawnstats_test",
     srcs = ["bazel_spawnstats_test.sh"],
     data = [":test-deps"],
+    exec_group_compatible_with = {
+        "test": ["//:highcpu_machine"],
+    },
     tags = ["no_windows"],
 )
 
