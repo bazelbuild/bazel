@@ -1318,6 +1318,17 @@ genquery(
 )
 
 sh_test(
+    name = "list_source_repository_test",
+    size = "small",
+    srcs = ["list_source_repository_test.sh"],
+    data = [
+        ":list_source_repository.bzl",
+        ":test-deps",
+    ],
+    tags = ["no_windows"],
+)
+
+sh_test(
     name = "srcs_test",
     size = "small",
     srcs = ["srcs_test.sh"],
