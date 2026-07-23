@@ -609,10 +609,10 @@ public class ResourceManager implements ResourceEstimator {
     }
   }
 
-  private <T extends Number> boolean isAvailable(
-      T available, T used, T requested, String resourceName) throws UserExecException {
+  private boolean isAvailable(double available, double used, double requested, String resourceName)
+      throws UserExecException {
     if (!allowOneActionOnResourceUnavailable
-        && available.doubleValue() + used.doubleValue() < requested.doubleValue()) {
+        && available + used < requested) {
       throw new UserExecException(
           FailureDetails.FailureDetail.newBuilder()
               .setMessage(
@@ -636,9 +636,9 @@ public class ResourceManager implements ResourceEstimator {
     // ensure that at any given time, at least one thread is able to acquire
     // resources even if it requests more than available.
     // 3) If used resource amount is less than total available resource amount.
-    return requested.doubleValue() == 0
-        || (allowOneActionOnResourceUnavailable && used.doubleValue() == 0)
-        || used.doubleValue() + requested.doubleValue() <= available.doubleValue();
+    return requested == 0
+        || (allowOneActionOnResourceUnavailable && used == 0)
+        || used + requested <= available;
   }
 
   // Method will return true if all requested resources are considered to be available.
