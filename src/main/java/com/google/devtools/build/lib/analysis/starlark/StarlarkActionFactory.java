@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.ShToolchain;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.BuildInfoFileWriteAction;
+import com.google.devtools.build.lib.analysis.actions.CopyAction;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.PathMappers;
@@ -356,6 +357,42 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
               progressMessage);
     }
     registerAction(action);
+  }
+
+  @Override
+  public void copy(
+      FileApi output,
+      FileApi targetFile,
+      Object progressMessageUnchecked,
+      StarlarkThread thread)
+      throws EvalException {
+    context.checkMutable("actions.copy");
+    RuleContext ruleContext = getRuleContext();
+
+    Artifact outputArtifact = (Artifact) output;
+    Artifact inputArtifact = (Artifact) targetFile;
+
+    if (outputArtifact.isSymlink()) {
+      throw Starlark.errorf(
+          "copy() requires that \"output\" be declared as a file or directory, not a symlink (did"
+              + " you mean to use declare_file() or declare_directory()?)");
+    }
+    if (inputArtifact.isDirectory() != outputArtifact.isDirectory()) {
+      String inputType = inputArtifact.isDirectory() ? "directory" : "file";
+      String outputType = outputArtifact.isDirectory() ? "directory" : "file";
+      throw Starlark.errorf(
+          "copy() requires that \"output\" (%s) and \"target_file\" (%s) be the same type",
+          outputType, inputType);
+    }
+
+    String progressMessage =
+        (progressMessageUnchecked != Starlark.NONE)
+            ? (String) progressMessageUnchecked
+            : "Copying %{output}";
+
+    registerAction(
+        CopyAction.create(
+            ruleContext.getActionOwner(), inputArtifact, outputArtifact, progressMessage));
   }
 
   @Override
