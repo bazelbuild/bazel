@@ -872,6 +872,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/transports",
         "//src/main/java/com/google/devtools/build/lib/buildtool:build_request",
         "//src/main/java/com/google/devtools/build/lib/buildtool/buildevent",
+        "//src/main/java/com/google/devtools/build/lib/collect/compacthashset",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
