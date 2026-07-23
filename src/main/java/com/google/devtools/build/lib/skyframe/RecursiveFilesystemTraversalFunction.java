@@ -475,7 +475,8 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
       if (fsv instanceof RegularFileStateValueWithDigest rfsv) {
         return FileArtifactValue.createForVirtualActionInput(rfsv.getDigest(), rfsv.getSize());
       } else if (fsv instanceof RegularFileStateValueWithContentsProxy rfsv) {
-        return FileArtifactValue.createForNormalFileUsingPath(path, rfsv.getSize(), syscallCache);
+        return FileArtifactValue.createForNormalFileUsingPath(
+            path, rfsv.getSize(), rfsv.getContentsProxy(), syscallCache);
       }
 
       return new HasDigest.ByteStringDigest(fsv.getValueFingerprint());
@@ -487,7 +488,8 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
       // In the case there is a directory, the HasDigest value should not be converted. Otherwise,
       // if the HasDigest value is a file, convert it using the Path and size values.
       return fav.getType().isFile()
-          ? FileArtifactValue.createForNormalFileUsingPath(path, fav.getSize(), syscallCache)
+          ? FileArtifactValue.createForNormalFileUsingPath(
+              path, fav.getSize(), fav.getContentsProxy(), syscallCache)
           : new HasDigest.ByteStringDigest(fav.getValueFingerprint());
     }
     return fsVal;

@@ -357,6 +357,10 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
       return new DirectoryArtifactValue(path.getLastModifiedTime());
     }
     if (digest == null) {
+      if (stat == null && proxy != null) {
+        // The proxy preserves the components of the stat that make up the digest cache key.
+        stat = proxy.asFileStatus(size);
+      }
       digest = DigestUtils.getDigestWithManualFallback(path, xattrProvider, stat);
     }
     checkState(digest != null, path);
@@ -384,16 +388,21 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
   /**
    * Create a FileArtifactValue using the {@link Path} and size. FileArtifactValue#create will
    * handle getting the digest using the Path and size values.
+   *
+   * <p>If a {@link FileContentsProxy} for the current state of the file is available, it is used to
+   * look up the digest in the digest cache without an additional stat, but is not retained in the
+   * returned metadata.
    */
   public static FileArtifactValue createForNormalFileUsingPath(
-      Path path, long size, XattrProvider xattrProvider) throws IOException {
+      Path path, long size, @Nullable FileContentsProxy proxy, XattrProvider xattrProvider)
+      throws IOException {
     return create(
         path,
         /* isFile= */ true,
         size,
         /* proxy= */ null,
         /* digest= */ null,
-        /* stat= */ null,
+        /* stat= */ proxy != null ? proxy.asFileStatus(size) : null,
         xattrProvider);
   }
 
