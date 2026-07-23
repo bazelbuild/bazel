@@ -447,6 +447,7 @@ java_library(
     deps = [
         ":combined_cache",
         ":remote_action_file_system",
+        "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/remote/common",
