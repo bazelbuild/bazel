@@ -961,6 +961,22 @@ public class RemoteExecutionService {
                 "Failed to create symlink %s: the output path escapes the output tree %s",
                 symlink.path(), execRoot));
       }
+
+      // Validate relative symlink targets to prevent a poisoned remote cache from creating symlinks
+      // that traverse outside the exec root. Absolute symlink targets are permitted when the remote
+      // server advertises SymlinkAbsolutePathStrategy.ALLOWED (mirroring the upload-side policy in
+      // UploadManifest.checkAbsoluteSymlinkAllowed), so we only validate relative targets here.
+      PathFragment target = symlink.target();
+      if (!target.isAbsolute()) {
+        Path resolvedTarget = symlink.path().getParentDirectory().getRelative(target);
+        if (!resolvedTarget.startsWith(execRoot)) {
+          throw new IOException(
+              String.format(
+                  "Failed to create symlink %s: the resolved target '%s' escapes the exec root %s",
+                  symlink.path(), resolvedTarget, execRoot));
+        }
+      }
+
       Preconditions.checkNotNull(
               symlink.path().getParentDirectory(),
               "Failed creating directory and parents for %s",
