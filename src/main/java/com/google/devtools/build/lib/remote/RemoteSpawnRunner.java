@@ -34,6 +34,7 @@ import build.bazel.remote.execution.v2.ExecutionStage.Value;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -68,11 +69,16 @@ import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.remote.util.Utils.InMemoryOutput;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.shell.Protos.ExecutionStatistics;
+import com.google.devtools.build.lib.shell.Protos.ResourceUsage;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.longrunning.Operation;
 import com.google.protobuf.Any;
+import com.google.protobuf.ByteString;
+import com.google.protobuf.CodedInputStream;
+import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Timestamp;
 import com.google.protobuf.util.Durations;
 import com.google.protobuf.util.Timestamps;
@@ -330,7 +336,10 @@ public class RemoteSpawnRunner implements SpawnRunner {
             maybePrintExecutionMessages(context, result.getMessage(), result.success());
 
             profileAccounting(clampTimeNanos, result.getExecutionMetadata());
-            spawnMetricsAccounting(spawnMetrics, result.getExecutionMetadata());
+            spawnMetricsAccounting(
+                spawnMetrics,
+                result.getExecutionMetadata(),
+                remoteOptions.getRemoteMeasuredMemorySource());
 
             try (SilentCloseable c = prof.profile(REMOTE_DOWNLOAD, "download server logs")) {
               maybeDownloadServerLogs(action, result.getResponse());
@@ -445,7 +454,9 @@ public class RemoteSpawnRunner implements SpawnRunner {
 
   @VisibleForTesting
   static void spawnMetricsAccounting(
-      SpawnMetrics.Builder spawnMetrics, ExecutedActionMetadata executionMetadata) {
+      SpawnMetrics.Builder spawnMetrics,
+      ExecutedActionMetadata executionMetadata,
+      @Nullable RemoteOptions.MeasuredMemorySource measuredMemorySource) {
     // Expect that a non-empty worker indicates that all fields are populated.
     // If the bounded sides of these checkpoints are default timestamps, i.e. unset,
     // the phase durations can be extremely large. Unset pairs, or a fully unset
@@ -476,6 +487,114 @@ public class RemoteSpawnRunner implements SpawnRunner {
               executionMetadata.getOutputUploadCompletedTimestamp());
       spawnMetrics.setProcessOutputsTime(remoteProcessOutputsTime);
     }
+
+    // Measured peak memory usage is carried in the worker-specific auxiliary metadata (e.g. a
+    // getrusage(2) message on POSIX-like systems), independently of the timestamp-based accounting
+    // above. This mirrors the local execution path, which derives the measured peak memory from the
+    // parsed execution statistics.
+    spawnMetricsMemoryAccounting(spawnMetrics, executionMetadata, measuredMemorySource);
+  }
+
+  /**
+   * Populates the measured peak memory from the auxiliary metadata, if present.
+   *
+   * <p>If a {@link RemoteOptions.MeasuredMemorySource} is configured (via
+   * {@code --experimental_remote_measured_memory_source}), the entry matching its type URL is read
+   * by walking to the configured field number path. This lets Bazel read peak memory from an
+   * arbitrary backend's proto without compiling it in. Otherwise, Bazel falls back to its own
+   * {@link ExecutionStatistics} message. Its {@code maxrss} is in kilobytes per the getrusage(2)
+   * convention (e.g. as produced by Bazel's {@code linux-sandbox}).
+   */
+  private static void spawnMetricsMemoryAccounting(
+      SpawnMetrics.Builder spawnMetrics,
+      ExecutedActionMetadata executionMetadata,
+      @Nullable RemoteOptions.MeasuredMemorySource measuredMemorySource) {
+    // A user-configured source takes precedence over the built-in default.
+    if (measuredMemorySource != null) {
+      for (Any auxiliaryMetadata : executionMetadata.getAuxiliaryMetadataList()) {
+        if (!auxiliaryMetadata.getTypeUrl().equals(measuredMemorySource.typeUrl())) {
+          continue;
+        }
+        long rawValue =
+            readInt64AtFieldPath(auxiliaryMetadata.getValue(), measuredMemorySource.fieldPath());
+        long measuredMemoryPeakBytes = rawValue * measuredMemorySource.bytesPerUnit();
+        if (measuredMemoryPeakBytes > 0) {
+          spawnMetrics.setMeasuredMemoryPeakBytes(measuredMemoryPeakBytes);
+        }
+        return;
+      }
+    }
+
+    for (Any auxiliaryMetadata : executionMetadata.getAuxiliaryMetadataList()) {
+      if (!auxiliaryMetadata.is(ExecutionStatistics.class)) {
+        continue;
+      }
+      try {
+        ResourceUsage resourceUsage =
+            auxiliaryMetadata.unpack(ExecutionStatistics.class).getResourceUsage();
+        long measuredMemoryPeakBytes = resourceUsage.getMaxrss() * 1024;
+        if (measuredMemoryPeakBytes > 0) {
+          spawnMetrics.setMeasuredMemoryPeakBytes(measuredMemoryPeakBytes);
+        }
+      } catch (InvalidProtocolBufferException e) {
+        // Ignore malformed auxiliary metadata rather than failing the spawn over a metric.
+      }
+      return;
+    }
+  }
+
+  // Protocol buffer wire types (see https://protobuf.dev/programming-guides/encoding/).
+  private static final int WIRETYPE_VARINT = 0;
+  private static final int WIRETYPE_FIXED64 = 1;
+  private static final int WIRETYPE_LENGTH_DELIMITED = 2;
+  private static final int WIRETYPE_FIXED32 = 5;
+
+  /**
+   * Reads an integer field from a serialized protocol buffer message by walking the given path of
+   * field numbers, descending into submessages for every path element but the last. Returns 0 if
+   * the path cannot be resolved or the bytes are malformed; this is best-effort metric extraction
+   * that must never fail the spawn.
+   */
+  private static long readInt64AtFieldPath(
+      ByteString serialized, ImmutableList<Integer> fieldPath) {
+    try {
+      return readInt64AtFieldPath(serialized.newCodedInput(), fieldPath, 0);
+    } catch (IOException e) {
+      return 0;
+    }
+  }
+
+  private static long readInt64AtFieldPath(
+      CodedInputStream input, ImmutableList<Integer> fieldPath, int depth) throws IOException {
+    int targetField = fieldPath.get(depth);
+    boolean leaf = depth == fieldPath.size() - 1;
+    for (int tag = input.readTag(); tag != 0; tag = input.readTag()) {
+      int fieldNumber = tag >>> 3;
+      int wireType = tag & 0x7;
+      if (fieldNumber != targetField) {
+        input.skipField(tag);
+        continue;
+      }
+      if (leaf) {
+        switch (wireType) {
+          case WIRETYPE_VARINT:
+            return input.readInt64();
+          case WIRETYPE_FIXED64:
+            return input.readFixed64();
+          case WIRETYPE_FIXED32:
+            return Integer.toUnsignedLong(input.readFixed32());
+          default:
+            input.skipField(tag);
+            return 0;
+        }
+      }
+      if (wireType != WIRETYPE_LENGTH_DELIMITED) {
+        input.skipField(tag);
+        continue;
+      }
+      return readInt64AtFieldPath(input.readBytes().newCodedInput(), fieldPath, depth + 1);
+    }
+    return 0;
   }
 
   private SpawnResult downloadAndFinalizeSpawnResult(

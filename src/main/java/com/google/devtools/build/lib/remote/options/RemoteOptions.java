@@ -14,7 +14,10 @@
 
 package com.google.devtools.build.lib.remote.options;
 
+import com.google.common.base.Ascii;
+import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.remote.Scrubber;
 import com.google.devtools.build.lib.util.OptionsUtils;
@@ -893,6 +896,31 @@ public abstract class RemoteOptions extends CommonRemoteOptions {
   public abstract void setScrubber(Scrubber value);
 
   @Option(
+      name = "experimental_remote_measured_memory_source",
+      converter = MeasuredMemorySourceConverter.class,
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      metadataTags = OptionMetadataTag.EXPERIMENTAL,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Configures where Bazel reads the measured peak memory of remotely executed actions from"
+              + " the worker-provided auxiliary metadata"
+              + " (ExecutedActionMetadata.auxiliary_metadata), so it can be recorded as"
+              + " measured_memory_peak_bytes in the execution log.\n\n"
+              + "The value has the form <type_url>:<field_path>[:<unit>], where:\n"
+              + " - <type_url> is the type URL of the auxiliary metadata entry, e.g."
+              + " type.googleapis.com/tools.protos.ExecutionStatistics;\n"
+              + " - <field_path> is a dot-separated path of protocol buffer field numbers locating"
+              + " the integer field holding the peak memory, e.g. 1.5 for field 5 nested inside"
+              + " submessage field 1;\n"
+              + " - <unit> is an optional multiplier to bytes: bytes (default), kb, mb, gb, or a"
+              + " positive integer.\n\n"
+              + "This does not require the backend's proto to be compiled into Bazel; only the"
+              + " field numbers are needed. If unset, Bazel still recognizes its own"
+              + " tools.protos.ExecutionStatistics auxiliary metadata by default.")
+  public abstract MeasuredMemorySource getRemoteMeasuredMemorySource();
+
+  @Option(
       name = "experimental_remote_cache_chunking",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.REMOTE,
@@ -962,6 +990,129 @@ public abstract class RemoteOptions extends CommonRemoteOptions {
     @Override
     public String getTypeDescription() {
       return "Converts to a Scrubber";
+    }
+  }
+
+  /**
+   * Describes where to find the measured peak memory of a remotely executed action within the
+   * worker-provided {@code ExecutedActionMetadata.auxiliary_metadata}.
+   *
+   * <p>Because auxiliary metadata entries are opaque {@code Any} messages whose concrete type is
+   * backend-specific, this identifies the entry by its type URL and the (possibly nested) protocol
+   * buffer field number path of the integer holding the peak memory, plus a multiplier converting
+   * that value to bytes. This avoids compiling the backend's proto into Bazel.
+   */
+  public static final class MeasuredMemorySource {
+    private final String typeUrl;
+    private final ImmutableList<Integer> fieldPath;
+    private final long bytesPerUnit;
+    private final String rawValue;
+
+    MeasuredMemorySource(
+        String typeUrl, ImmutableList<Integer> fieldPath, long bytesPerUnit, String rawValue) {
+      this.typeUrl = typeUrl;
+      this.fieldPath = fieldPath;
+      this.bytesPerUnit = bytesPerUnit;
+      this.rawValue = rawValue;
+    }
+
+    /** The type URL of the auxiliary metadata {@code Any} entry to read from. */
+    public String typeUrl() {
+      return typeUrl;
+    }
+
+    /** The dot-path of protocol buffer field numbers locating the peak memory integer. */
+    public ImmutableList<Integer> fieldPath() {
+      return fieldPath;
+    }
+
+    /** The multiplier converting the raw field value to bytes. */
+    public long bytesPerUnit() {
+      return bytesPerUnit;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      return o instanceof MeasuredMemorySource other && rawValue.equals(other.rawValue);
+    }
+
+    @Override
+    public int hashCode() {
+      return rawValue.hashCode();
+    }
+
+    @Override
+    public String toString() {
+      return rawValue;
+    }
+  }
+
+  /** Converts {@code <type_url>:<field_path>[:<unit>]} to a {@link MeasuredMemorySource}. */
+  public static final class MeasuredMemorySourceConverter
+      extends Converter.Contextless<MeasuredMemorySource> {
+
+    @Override
+    public MeasuredMemorySource convert(String input) throws OptionsParsingException {
+      List<String> parts = Splitter.on(':').splitToList(input);
+      if (parts.size() < 2 || parts.size() > 3) {
+        throw new OptionsParsingException(
+            "Expected <type_url>:<field_path>[:<unit>], got: " + input);
+      }
+      String typeUrl = parts.get(0);
+      if (typeUrl.isEmpty()) {
+        throw new OptionsParsingException("Empty type URL in: " + input);
+      }
+      ImmutableList.Builder<Integer> fieldPath = ImmutableList.builder();
+      for (String field : Splitter.on('.').split(parts.get(1))) {
+        int fieldNumber;
+        try {
+          fieldNumber = Integer.parseInt(field);
+        } catch (NumberFormatException e) {
+          throw new OptionsParsingException(
+              "Field path must be dot-separated positive integers, got: " + parts.get(1), e);
+        }
+        if (fieldNumber <= 0) {
+          throw new OptionsParsingException("Field numbers must be positive, got: " + fieldNumber);
+        }
+        fieldPath.add(fieldNumber);
+      }
+      long bytesPerUnit = parts.size() == 3 ? parseUnit(parts.get(2)) : 1;
+      return new MeasuredMemorySource(typeUrl, fieldPath.build(), bytesPerUnit, input);
+    }
+
+    private static long parseUnit(String unit) throws OptionsParsingException {
+      switch (Ascii.toLowerCase(unit)) {
+        case "b":
+        case "bytes":
+          return 1;
+        case "kb":
+        case "kib":
+          return 1024;
+        case "mb":
+        case "mib":
+          return 1024L * 1024;
+        case "gb":
+        case "gib":
+          return 1024L * 1024 * 1024;
+        default:
+          long scale;
+          try {
+            scale = Long.parseLong(unit);
+          } catch (NumberFormatException e) {
+            throw new OptionsParsingException(
+                "Unit must be one of bytes/kb/mb/gb or a positive integer multiplier, got: " + unit,
+                e);
+          }
+          if (scale <= 0) {
+            throw new OptionsParsingException("Unit multiplier must be positive, got: " + scale);
+          }
+          return scale;
+      }
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "a peak-memory source of the form <type_url>:<field_path>[:<unit>]";
     }
   }
 

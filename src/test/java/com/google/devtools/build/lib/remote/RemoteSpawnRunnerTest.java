@@ -102,6 +102,8 @@ import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.FakeSpawnExecutionContext;
+import com.google.devtools.build.lib.shell.Protos.ExecutionStatistics;
+import com.google.devtools.build.lib.shell.Protos.ResourceUsage;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.ExitCode;
@@ -1592,7 +1594,9 @@ public class RemoteSpawnRunnerTest {
   public void accountingDisabledWithoutWorker() {
     SpawnMetrics.Builder spawnMetrics = Mockito.mock(SpawnMetrics.Builder.class);
     RemoteSpawnRunner.spawnMetricsAccounting(
-        spawnMetrics, ExecutedActionMetadata.getDefaultInstance());
+        spawnMetrics,
+        ExecutedActionMetadata.getDefaultInstance(),
+        /* measuredMemorySource= */ null);
     verifyNoMoreInteractions(spawnMetrics);
   }
 
@@ -1621,7 +1625,8 @@ public class RemoteSpawnRunnerTest {
             .setOutputUploadStartTimestamp(outputUploadStart)
             .setOutputUploadCompletedTimestamp(outputUploadComplete)
             .build();
-    RemoteSpawnRunner.spawnMetricsAccounting(builder, executedMetadata);
+    RemoteSpawnRunner.spawnMetricsAccounting(
+        builder, executedMetadata, /* measuredMemorySource= */ null);
     SpawnMetrics spawnMetrics = builder.build();
     // remote queue time is accumulated
     assertThat(spawnMetrics.queueTimeInMs()).isEqualTo(2 * 1000L);
@@ -1631,6 +1636,100 @@ public class RemoteSpawnRunnerTest {
     assertThat(spawnMetrics.executionWallTimeInMs()).isEqualTo(1 * 1000L);
     // ProcessOutputs time is unspecified, assume substituted
     assertThat(spawnMetrics.processOutputsTimeInMs()).isEqualTo(1 * 1000L);
+  }
+
+  @Test
+  public void accountingReadsMeasuredMemoryFromAuxiliaryMetadata() {
+    SpawnMetrics.Builder builder = SpawnMetrics.Builder.forRemoteExec();
+    // maxrss follows the getrusage(2) convention of being reported in kilobytes.
+    long maxRssKb = 12345;
+    ExecutedActionMetadata executedMetadata =
+        ExecutedActionMetadata.newBuilder()
+            .setWorker("test worker")
+            .addAuxiliaryMetadata(
+                Any.pack(
+                    ExecutionStatistics.newBuilder()
+                        .setResourceUsage(ResourceUsage.newBuilder().setMaxrss(maxRssKb))
+                        .build()))
+            .build();
+
+    RemoteSpawnRunner.spawnMetricsAccounting(
+        builder, executedMetadata, /* measuredMemorySource= */ null);
+
+    assertThat(builder.build().measuredMemoryPeak()).isEqualTo(maxRssKb * 1024);
+  }
+
+  @Test
+  public void accountingIgnoresUnrelatedAuxiliaryMetadata() {
+    SpawnMetrics.Builder builder = SpawnMetrics.Builder.forRemoteExec();
+    ExecutedActionMetadata executedMetadata =
+        ExecutedActionMetadata.newBuilder()
+            .setWorker("test worker")
+            .addAuxiliaryMetadata(Any.pack(Timestamp.getDefaultInstance()))
+            .build();
+
+    RemoteSpawnRunner.spawnMetricsAccounting(
+        builder, executedMetadata, /* measuredMemorySource= */ null);
+
+    assertThat(builder.build().measuredMemoryPeak()).isEqualTo(0L);
+  }
+
+  @Test
+  public void accountingReadsMeasuredMemoryFromConfiguredSource() throws Exception {
+    SpawnMetrics.Builder builder = SpawnMetrics.Builder.forRemoteExec();
+    // Simulate an arbitrary backend that reports peak memory (in KiB) at field 5 nested inside
+    // submessage field 1 of a message Bazel doesn't have compiled in. We reuse ExecutionStatistics
+    // purely as a stand-in with that exact field layout (resource_usage=1, maxrss=5).
+    long peakMemoryKb = 4096;
+    Any backendMetadata =
+        Any.pack(
+            ExecutionStatistics.newBuilder()
+                .setResourceUsage(ResourceUsage.newBuilder().setMaxrss(peakMemoryKb))
+                .build());
+    // Rewrite the type URL so it doesn't match Bazel's built-in ExecutionStatistics recognition.
+    Any backendMetadataWithCustomType =
+        backendMetadata.toBuilder()
+            .setTypeUrl("type.googleapis.com/example.backend.ResourceUsage")
+            .build();
+    ExecutedActionMetadata executedMetadata =
+        ExecutedActionMetadata.newBuilder()
+            .setWorker("test worker")
+            .addAuxiliaryMetadata(backendMetadataWithCustomType)
+            .build();
+    RemoteOptions.MeasuredMemorySource source =
+        new RemoteOptions.MeasuredMemorySourceConverter()
+            .convert("type.googleapis.com/example.backend.ResourceUsage:1.5:kb");
+
+    RemoteSpawnRunner.spawnMetricsAccounting(builder, executedMetadata, source);
+
+    assertThat(builder.build().measuredMemoryPeak()).isEqualTo(peakMemoryKb * 1024);
+  }
+
+  @Test
+  public void accountingConfiguredSourceTakesPrecedenceOverBuiltin() throws Exception {
+    SpawnMetrics.Builder builder = SpawnMetrics.Builder.forRemoteExec();
+    // A built-in ExecutionStatistics entry (maxrss field 5) read by default otherwise.
+    Any builtin =
+        Any.pack(
+            ExecutionStatistics.newBuilder()
+                .setResourceUsage(ResourceUsage.newBuilder().setMaxrss(1))
+                .build());
+    ExecutedActionMetadata executedMetadata =
+        ExecutedActionMetadata.newBuilder()
+            .setWorker("test worker")
+            .addAuxiliaryMetadata(builtin)
+            .build();
+    // Point the configured source at the same entry but a different field (utime_sec=1), so we can
+    // prove the configured source, not the built-in maxrss, is what gets read.
+    RemoteOptions.MeasuredMemorySource source =
+        new RemoteOptions.MeasuredMemorySourceConverter()
+            .convert(builtin.getTypeUrl() + ":1.1:kb");
+
+    RemoteSpawnRunner.spawnMetricsAccounting(builder, executedMetadata, source);
+
+    // utime_sec is 0 in the built-in entry, so the configured (precedence) read yields 0, not the
+    // maxrss-derived 1 * 1024 the built-in path would have produced.
+    assertThat(builder.build().measuredMemoryPeak()).isEqualTo(0L);
   }
 
   @Test
