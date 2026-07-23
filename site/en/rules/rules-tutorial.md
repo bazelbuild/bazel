@@ -149,7 +149,7 @@ bin2
 ```
 
 Whenever you declare a file, you have to tell Bazel how to generate it by
-creating an action. Use [`ctx.actions.write`](lib/actions#write),
+creating an [action](https://bazel.build/extending/rules#actions). Use [`ctx.actions.write`](lib/actions#write),
 to create a file with the given content.
 
 ```python
