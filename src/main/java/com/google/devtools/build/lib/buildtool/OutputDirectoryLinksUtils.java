@@ -343,23 +343,6 @@ public final class OutputDirectoryLinksUtils {
                 Path execRoot) {
               return ImmutableSet.of(outputPath);
             }
-          },
-          // execroot
-          new SymlinkDefinition() {
-            @Override
-            public String getLinkName(String symlinkPrefix, String workspaceBaseName) {
-              return symlinkPrefix + workspaceBaseName;
-            }
-
-            @Override
-            public ImmutableSet<Path> getLinkPaths(
-                BuildRequestOptions buildRequestOptions,
-                Set<BuildConfigurationValue> targetConfigs,
-                RepositoryName repositoryName,
-                Path outputPath,
-                Path execRoot) {
-              return ImmutableSet.of(execRoot);
-            }
           });
 
   static final SymlinkCreationResult EMPTY_SYMLINK_CREATION_RESULT =
