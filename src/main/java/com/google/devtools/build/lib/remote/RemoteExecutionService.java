@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.remote;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
@@ -255,6 +256,20 @@ public class RemoteExecutionService {
     this.remoteOutputChecker = remoteOutputChecker;
     this.outputService = outputService;
     this.knownMissingCasDigests = knownMissingCasDigests;
+  }
+
+  /**
+   * Returns the spawn's output files excluding the output into which its standard output is
+   * redirected, if any.
+   */
+  private static Collection<? extends ActionInput> outputsExcludingStdout(Spawn spawn) {
+    Artifact stdoutOutput = spawn.getStdout();
+    if (stdoutOutput == null) {
+      return spawn.getOutputFiles();
+    }
+    return spawn.getOutputFiles().stream()
+        .filter(output -> !output.equals(stdoutOutput))
+        .collect(toImmutableList());
   }
 
   private Command buildCommand(
@@ -545,7 +560,7 @@ public class RemoteExecutionService {
       Command command =
           buildCommand(
               useOutputPaths(),
-              spawn.getOutputFiles(),
+              outputsExcludingStdout(spawn),
               spawn.getArguments(),
               spawn.getEnvironment(),
               platform,
@@ -718,10 +733,12 @@ public class RemoteExecutionService {
               Iterables.transform(
                   Iterables.concat(outputFiles, outputDirPaths, outputSymlinkPaths),
                   StringEncoding::unicodeToInternal));
-      // Check that all mandatory outputs are created.
+      // Check that all mandatory outputs are created. The stdout output is captured as the action
+      // result's stdout rather than as a regular output file of the RemoteAction, so it has to be
+      // excluded here.
       var spawn = action.getSpawn();
       var remotePathResolver = action.getRemotePathResolver();
-      return spawn.getOutputFiles().stream()
+      return outputsExcludingStdout(spawn).stream()
           .filter(spawn::isMandatoryOutput)
           .filter(
               output -> !allOutputPaths.contains(remotePathResolver.localPathToOutputPath(output)))
@@ -1196,6 +1213,18 @@ public class RemoteExecutionService {
               outputFile.getContents()));
     }
 
+    Artifact stdoutArtifact = context.getSpawn().getStdout();
+    if (stdoutArtifact != null) {
+      Path localPath = stdoutArtifact.getPath();
+      files.put(
+          localPath,
+          new FileMetadata(
+              localPath,
+              result.getStdoutDigest(),
+              /* isExecutable= */ false,
+              result.getStdoutRaw()));
+    }
+
     var symlinkMap = new HashMap<Path, SymlinkMetadata>();
     var outputSymlinks =
         Iterables.concat(
@@ -1374,10 +1403,15 @@ public class RemoteExecutionService {
 
     FileOutErr outErr = action.getSpawnExecutionContext().getFileOutErr();
 
-    // Always download the action stdout/stderr.
+    // Always download the action stdout/stderr, except for stdout that was redirected into an
+    // output above (in which case it must not be reported as regular action stdout).
     FileOutErr tmpOutErr = outErr.childOutErr();
     List<ListenableFuture<Void>> outErrDownloads =
-        combinedCache.downloadOutErr(context, result.actionResult, tmpOutErr);
+        combinedCache.downloadOutErr(
+            context,
+            result.actionResult,
+            tmpOutErr,
+            /* downloadStdout= */ context.getSpawn().getStdout() == null);
     for (ListenableFuture<Void> future : outErrDownloads) {
       downloadsBuilder.add(transform(future, (v) -> null, directExecutor()));
     }
@@ -1665,6 +1699,27 @@ public class RemoteExecutionService {
         }
       }
 
+      // The stdout output is captured as the action result's stdout rather than as a regular
+      // output file, so it isn't part of the command's output paths and has to be copied
+      // separately.
+      Artifact stdoutOutput = action.getSpawn().getStdout();
+      if (stdoutOutput != null) {
+        Artifact previousStdoutOutput = previousExecution.action.getSpawn().getStdout();
+        if (previousStdoutOutput == null) {
+          // The previous spawn reported its stdout as regular action output, so it isn't
+          // available as a file. Rerun the action instead.
+          return null;
+        }
+        Path tmpPath = tempPathGenerator.generateTempPath();
+        tmpPath.getParentDirectory().createDirectoryAndParents();
+        try {
+          FileSystemUtils.copyFile(previousStdoutOutput.getPath(), tmpPath);
+          realToTmpPath.put(stdoutOutput.getPath(), tmpPath);
+        } catch (FileNotFoundException e) {
+          return null;
+        }
+      }
+
       // TODO: FileOutErr is action-scoped, not spawn-scoped, but this is not a problem for the
       //  current use case of supporting deduplication of path mapped spawns:
       //  1. Starlark and C++ compilation actions always create a single spawn.
@@ -1740,8 +1795,16 @@ public class RemoteExecutionService {
       throws IOException, ExecException, InterruptedException {
     try (SilentCloseable c = Profiler.instance().profile("build upload manifest")) {
       ImmutableList.Builder<Path> outputFiles = ImmutableList.builder();
+      // If the spawn redirected its stdout into an output, upload that file as the action's stdout
+      // digest rather than as an output file.
+      Artifact stdoutOutput = action.getSpawn().getStdout();
+      FileOutErr fileOutErr = action.getSpawnExecutionContext().getFileOutErr();
+      if (stdoutOutput != null) {
+        fileOutErr = new FileOutErr(stdoutOutput.getPath(), fileOutErr.getErrorPath());
+      }
+
       // Check that all mandatory outputs are created.
-      for (ActionInput outputFile : action.getSpawn().getOutputFiles()) {
+      for (ActionInput outputFile : outputsExcludingStdout(action.getSpawn())) {
         Symlinks followSymlinks = outputFile.isSymlink() ? Symlinks.NOFOLLOW : Symlinks.FOLLOW;
         Path localPath = execRoot.getRelative(outputFile.getExecPath());
         if (action.getSpawn().isMandatoryOutput(outputFile) && !localPath.exists(followSymlinks)) {
@@ -1759,7 +1822,7 @@ public class RemoteExecutionService {
           action.getAction(),
           action.getCommand(),
           outputFiles.build(),
-          action.getSpawnExecutionContext().getFileOutErr(),
+          fileOutErr,
           spawnResult.exitCode(),
           spawnResult.getStartTime(),
           spawnResult.getWallTimeInMs(),

@@ -149,6 +149,7 @@ public class StarlarkAction extends SpawnAction {
 
     private Optional<Artifact> unusedInputsList = Optional.empty();
     private Optional<Action> shadowedAction = Optional.empty();
+    @Nullable private Artifact stdoutOutput = null;
 
     @CanIgnoreReturnValue
     public Builder setUnusedInputsList(Optional<Artifact> unusedInputsList) {
@@ -159,6 +160,16 @@ public class StarlarkAction extends SpawnAction {
     @CanIgnoreReturnValue
     public Builder setShadowedAction(Optional<Action> shadowedAction) {
       this.shadowedAction = shadowedAction;
+      return this;
+    }
+
+    /**
+     * Redirects the spawn's standard output into the given output artifact instead of reporting it
+     * as regular action output. The artifact must also be registered as an output of the action.
+     */
+    @CanIgnoreReturnValue
+    public Builder setStdoutOutput(Artifact stdoutOutput) {
+      this.stdoutOutput = stdoutOutput;
       return this;
     }
 
@@ -187,7 +198,7 @@ public class StarlarkAction extends SpawnAction {
                 .buildOrThrow();
       }
       OutputPathsMode outputPathsMode = PathMappers.getOutputPathsMode(configuration);
-      return unusedInputsList.isPresent() || shadowedAction.isPresent()
+      return unusedInputsList.isPresent() || shadowedAction.isPresent() || stdoutOutput != null
           ? new EnhancedStarlarkAction(
               owner,
               tools,
@@ -201,7 +212,8 @@ public class StarlarkAction extends SpawnAction {
               mnemonic,
               outputPathsMode,
               unusedInputsList,
-              shadowedAction)
+              shadowedAction,
+              stdoutOutput)
           : new StarlarkAction(
               owner,
               tools,
@@ -217,7 +229,10 @@ public class StarlarkAction extends SpawnAction {
     }
   }
 
-  /** A {@link StarlarkAction} with {@code unused_inputs_list} and/or a shadowed action present. */
+  /**
+   * A {@link StarlarkAction} with {@code unused_inputs_list}, a shadowed action, and/or a {@code
+   * stdout} output present.
+   */
   @AutoCodec
   @VisibleForSerialization
   static final class EnhancedStarlarkAction extends StarlarkAction {
@@ -232,6 +247,7 @@ public class StarlarkAction extends SpawnAction {
 
     private final Optional<Artifact> unusedInputsList;
     private final Optional<Action> shadowedAction;
+    @Nullable private final Artifact stdoutOutput;
     private boolean inputsDiscovered = false;
     private boolean prunedInputs = false;
 
@@ -248,7 +264,8 @@ public class StarlarkAction extends SpawnAction {
         String mnemonic,
         OutputPathsMode outputPathsMode,
         Optional<Artifact> unusedInputsList,
-        Optional<Action> shadowedAction) {
+        Optional<Action> shadowedAction,
+        @Nullable Artifact stdoutOutput) {
       super(
           owner,
           tools,
@@ -271,6 +288,7 @@ public class StarlarkAction extends SpawnAction {
               : null;
       this.unusedInputsList = unusedInputsList;
       this.shadowedAction = shadowedAction;
+      this.stdoutOutput = stdoutOutput;
     }
 
     @AutoCodec.Instantiator
@@ -288,7 +306,8 @@ public class StarlarkAction extends SpawnAction {
         String mnemonic,
         OutputPathsMode outputPathsMode,
         Optional<Artifact> unusedInputsList,
-        Optional<Action> shadowedAction) {
+        Optional<Action> shadowedAction,
+        @Nullable Artifact stdoutOutput) {
       super(
           owner,
           tools,
@@ -311,6 +330,13 @@ public class StarlarkAction extends SpawnAction {
               : null;
       this.unusedInputsList = unusedInputsList;
       this.shadowedAction = shadowedAction;
+      this.stdoutOutput = stdoutOutput;
+    }
+
+    @Nullable
+    @Override
+    public Artifact getStdoutOutput() {
+      return stdoutOutput;
     }
 
     @Override
