@@ -34,6 +34,7 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.util.List;
 import org.jacoco.core.instr.Instrumenter;
 import org.jacoco.core.runtime.OfflineInstrumentationAccessGenerator;
+import org.jacoco.core.runtime.WildcardMatcher;
 
 /** Instruments compiled java classes using Jacoco instrumentation library. */
 public final class JacocoInstrumentationProcessor {
@@ -48,14 +49,22 @@ public final class JacocoInstrumentationProcessor {
               + ": pathsForCoverageFile");
     }
 
-    return new JacocoInstrumentationProcessor(args.getFirst());
+    String coverageIncludes = args.size() >= 2 ? args.get(1) : "";
+    String coverageExcludes = args.size() >= 3 ? args.get(2) : "";
+
+    return new JacocoInstrumentationProcessor(args.getFirst(), coverageIncludes, coverageExcludes);
   }
 
   private Path instrumentedClassesDirectory;
   private final String coverageInformation;
+  private final WildcardMatcher includeMatcher;
+  private final WildcardMatcher excludeMatcher;
 
-  private JacocoInstrumentationProcessor(String coverageInfo) {
+  private JacocoInstrumentationProcessor(String coverageInfo, String coverageIncludes,
+      String coverageExcludes) {
     this.coverageInformation = coverageInfo;
+    this.includeMatcher = new WildcardMatcher(coverageIncludes.isBlank() ? "*" : coverageIncludes);
+    this.excludeMatcher = new WildcardMatcher(coverageExcludes);
   }
 
   /**
@@ -110,6 +119,12 @@ public final class JacocoInstrumentationProcessor {
             // it only once during recursive directory traversal while also mutating the directory.
             Path instrumentedCopy = file;
             Path absoluteUninstrumentedCopy = Path.of(file + ".uninstrumented");
+            Path relativeClassFile = root.relativize(file);
+            String className = relativeClassFile.toString().replace(".class", "");
+            if (!includeMatcher.matches(className) || excludeMatcher.matches(className)) {
+              return FileVisitResult.CONTINUE;
+            }
+
             Path uninstrumentedCopy =
                 instrumentedClassesDirectory.resolve(root.relativize(absoluteUninstrumentedCopy));
             Files.createDirectories(uninstrumentedCopy.getParent());
