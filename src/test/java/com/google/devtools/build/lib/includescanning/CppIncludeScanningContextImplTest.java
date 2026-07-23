@@ -18,6 +18,7 @@ import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.collect.Streams.stream;
 import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -56,6 +57,7 @@ import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueOrUntypedException;
 import java.io.IOException;
 import java.util.Collection;
+import java.util.Set;
 import java.util.function.Function;
 import javax.annotation.Nullable;
 import org.junit.Before;
@@ -171,6 +173,93 @@ public final class CppIncludeScanningContextImplTest extends BuildViewTestCase {
     verify(includeScanner)
         .processAsync(any(), collector.capture(), any(), any(), any(), any(), any(), any(), any());
     assertThat(collector.getValue()).containsExactly(headerTreeFile, getArtifact("//foo:header.h"));
+  }
+
+  @Test
+  public void sourceFileAddedByScanner_notReturnedAsInput() throws Exception {
+    scratch.file(
+        "foo/BUILD",
+        """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
+        package(features = ["cc_include_scanning"])
+
+        cc_library(
+            name = "foo",
+            srcs = ["foo.cc"],
+            hdrs = ["header.h"],
+        )
+        """);
+    scratch.file("foo/foo.cc");
+    scratch.file("foo/header.h");
+    IncludeScanner includeScanner = mock(IncludeScanner.class);
+    CppIncludeScanningContextImpl includeScanningContext =
+        createIncludeScanningContext(includeScanner);
+    CppCompileAction action = getCppCompileAction("//foo");
+    Artifact header = getSourceArtifact("foo/header.h");
+    // The include scanner adds the sources it scans to the set of includes.
+    doAnswer(
+            invocation -> {
+              Set<Artifact> includes = invocation.getArgument(4);
+              includes.add(action.getSourceFile());
+              includes.add(header);
+              return null;
+            })
+        .when(includeScanner)
+        .processAsync(any(), any(), any(), any(), any(), any(), any(), any(), any());
+    var actionExecutionContext = createActionExecutionContext(emptyEnvironment());
+
+    var result =
+        includeScanningContext.findAdditionalInputs(
+            action, actionExecutionContext, EMPTY_HEADER_DATA);
+
+    assertThat(result).contains(header);
+    assertThat(result).doesNotContain(action.getSourceFile());
+  }
+
+  @Test
+  public void treeFileArtifactAddedByScanner_returnsParentTreeArtifact() throws Exception {
+    writeTreeRuleBzl(scratch.file("foo/def.bzl"));
+    scratch.file(
+        "foo/BUILD",
+        """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+        load(":def.bzl", "tree")
+
+        package(features = ["cc_include_scanning"])
+
+        tree(name = "headers")
+
+        cc_library(
+            name = "foo",
+            srcs = ["foo.cc"],
+            hdrs = [":headers"],
+        )
+        """);
+    scratch.file("foo/foo.cc");
+    IncludeScanner includeScanner = mock(IncludeScanner.class);
+    CppIncludeScanningContextImpl includeScanningContext =
+        createIncludeScanningContext(includeScanner);
+    CppCompileAction action = getCppCompileAction("//foo");
+    var headerTree = (SpecialArtifact) getArtifact("//foo:headers");
+    var headerTreeFile = TreeFileArtifact.createTreeOutput(headerTree, "file1.h");
+    doAnswer(
+            invocation -> {
+              Set<Artifact> includes = invocation.getArgument(4);
+              includes.add(headerTreeFile);
+              return null;
+            })
+        .when(includeScanner)
+        .processAsync(any(), any(), any(), any(), any(), any(), any(), any(), any());
+    var environment = environmentWithTreeValue(headerTree, headerTreeFile);
+    var actionExecutionContext = createActionExecutionContext(environment);
+
+    var result =
+        includeScanningContext.findAdditionalInputs(
+            action, actionExecutionContext, EMPTY_HEADER_DATA);
+
+    assertThat(result).contains(headerTree);
+    assertThat(result).doesNotContain(headerTreeFile);
   }
 
   @Test
