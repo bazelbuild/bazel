@@ -787,6 +787,430 @@ EOF
   fi
 }
 
+# Sets up a C++ project used to verify the interaction of path mapping and
+# include scanning in the package passed as the first argument.
+function setup_cc_include_scanning_project() {
+  local -r pkg="$1"
+
+  cat > MODULE.bazel <<EOF
+bazel_dep(name = "apple_support", version = "1.21.0")
+EOF
+  add_rules_cc "MODULE.bazel"
+
+  mkdir -p "$pkg"
+  cat > "$pkg/BUILD" <<EOF
+load("//$pkg/common/utils:defs.bzl", "gen_cc", "transition_wrapper")
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+
+cc_binary(
+    name = "main",
+    srcs = [
+        "main.cc",
+        ":gen_src",
+    ],
+    deps = [
+        "//$pkg/lib1",
+        "//$pkg/lib2",
+    ],
+)
+
+gen_cc(
+    name = "gen_src",
+    subject = "TreeArtifact",
+)
+
+transition_wrapper(
+    name = "transitioned_main",
+    greeting = "Hi there",
+    target = ":main",
+)
+EOF
+  cat > "$pkg/main.cc" <<EOF
+#include <iostream>
+#include <string>
+#include "$pkg/lib1/gen/top_level.h"
+#include "$pkg/lib1/gen/other_dir/not_top_level.h"
+#include "$pkg/lib1/lib1.h"
+#include "lib2.h"
+
+std::string TreeArtifactGreeting();
+
+int main() {
+  std::cout << GetLib1Greeting() << std::endl;
+  std::cout << GetLib2Greeting() << std::endl;
+  std::cout << TreeArtifactGreeting() << std::endl;
+  std::cout << TOP_LEVEL_CONSTANT << " " << NOT_TOP_LEVEL_CONSTANT << std::endl;
+  return 0;
+}
+EOF
+
+  mkdir -p "$pkg"/lib1
+  cat > "$pkg/lib1/BUILD" <<EOF
+load("//$pkg/common/utils:defs.bzl", "gen_h")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
+genrule(
+    name = "gen_header",
+    srcs = ["lib1.h.tpl"],
+    outs = ["lib1.h"],
+    cmd = "cp \$< \$@",
+)
+
+cc_library(
+    name = "lib1",
+    srcs = ["lib1.cc"],
+    hdrs = [
+        "lib1.h",
+        ":gen",
+    ],
+    deps = ["//$pkg/common/utils:utils"],
+    visibility = ["//visibility:public"],
+)
+
+gen_h(
+    name = "gen",
+)
+EOF
+  cat > "$pkg/lib1/lib1.h.tpl" <<'EOF'
+#ifndef LIB1_H_
+#define LIB1_H_
+
+#include <string>
+
+std::string GetLib1Greeting();
+
+#endif
+EOF
+  cat > "$pkg/lib1/lib1.cc" <<EOF
+#include "$pkg/lib1/lib1.h"
+#include "other_dir/utils.h"
+
+std::string GetLib1Greeting() {
+  return AsGreeting("lib1");
+}
+EOF
+
+  mkdir -p "$pkg"/lib2
+  cat > "$pkg/lib2/BUILD" <<EOF
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+genrule(
+    name = "gen_header",
+    srcs = ["lib2.h.tpl"],
+    outs = ["lib2.h"],
+    cmd = "cp \$< \$@",
+)
+genrule(
+    name = "gen_source",
+    srcs = ["lib2.cc.tpl"],
+    outs = ["lib2.cc"],
+    cmd = "cp \$< \$@",
+)
+cc_library(
+    name = "lib2",
+    srcs = ["lib2.cc"],
+    hdrs = ["lib2.h"],
+    includes = ["."],
+    deps = ["//$pkg/common/utils:utils"],
+    visibility = ["//visibility:public"],
+)
+EOF
+  cat > "$pkg/lib2/lib2.h.tpl" <<'EOF'
+#ifndef LIB2_H_
+#define LIB2_H_
+
+#include <string>
+
+std::string GetLib2Greeting();
+
+#endif
+EOF
+  cat > "$pkg/lib2/lib2.cc.tpl" <<'EOF'
+#include "lib2.h"
+#include "other_dir/utils.h"
+
+std::string GetLib2Greeting() {
+  return AsGreeting("lib2");
+}
+EOF
+
+  mkdir -p "$pkg"/common/utils
+  cat > "$pkg/common/utils/BUILD" <<'EOF'
+load(":defs.bzl", "greeting_setting")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
+greeting_setting(
+    name = "greeting",
+    build_setting_default = "Hello",
+)
+genrule(
+    name = "gen_header",
+    srcs = ["utils.h.tpl"],
+    outs = ["dir/utils.h"],
+    cmd = "sed -e 's/{GREETING}/$(GREETING)/' $< > $@",
+    toolchains = [":greeting"],
+)
+cc_library(
+    name = "utils",
+    hdrs = ["dir/utils.h"],
+    include_prefix = "other_dir",
+    strip_include_prefix = "dir",
+    visibility = ["//visibility:public"],
+)
+EOF
+  cat > "$pkg/common/utils/utils.h.tpl" <<'EOF'
+#ifndef SOME_PKG_UTILS_H_
+#define SOME_PKG_UTILS_H_
+
+#include <string>
+
+inline std::string AsGreeting(const std::string& name) {
+  return std::string("{GREETING}, ") + name + "!";
+}
+#endif
+EOF
+  cat > "$pkg/common/utils/defs.bzl" <<EOF
+def _greeting_setting_impl(ctx):
+    return platform_common.TemplateVariableInfo({
+        "GREETING": ctx.build_setting_value,
+    })
+
+greeting_setting = rule(
+    implementation = _greeting_setting_impl,
+    build_setting = config.string(),
+)
+
+def _greeting_transition_impl(settings, attr):
+    return {"//$pkg/common/utils:greeting": attr.greeting}
+
+greeting_transition = transition(
+    implementation = _greeting_transition_impl,
+    inputs = [],
+    outputs = ["//$pkg/common/utils:greeting"],
+)
+
+def _transition_wrapper_impl(ctx):
+    out = ctx.actions.declare_file(ctx.label.name)
+    ctx.actions.symlink(output = out, target_file = ctx.executable.target, is_executable = True)
+    return [
+        DefaultInfo(executable = out),
+    ]
+
+transition_wrapper = rule(
+    cfg = greeting_transition,
+    implementation = _transition_wrapper_impl,
+    attrs = {
+        "greeting": attr.string(),
+        "target": attr.label(
+            cfg = "target",
+            executable = True,
+        ),
+    },
+    executable = True,
+)
+
+def _gen_cc_impl(ctx):
+    out = ctx.actions.declare_directory(ctx.label.name)
+    ctx.actions.run_shell(
+        outputs = [out],
+        command = """\
+cat >{out_path}/gen.cc <<EOF2
+#include <string>
+
+std::string TreeArtifactGreeting() {{
+  return "Hello, {subject}!";
+}}
+EOF2
+        """.format(
+            out_path = out.path,
+            subject = ctx.attr.subject,
+        ),
+    )
+    return [
+        DefaultInfo(files = depset([out])),
+    ]
+
+gen_cc = rule(
+    implementation = _gen_cc_impl,
+    attrs = {
+        "subject": attr.string(),
+    },
+)
+
+def _gen_h_impl(ctx):
+    out = ctx.actions.declare_directory(ctx.label.name)
+    ctx.actions.run_shell(
+        outputs = [out],
+        command = """\
+cat >{out_path}/top_level.h <<EOF2
+#ifndef TOP_LEVEL_H_
+#define TOP_LEVEL_H_
+
+#define TOP_LEVEL_CONSTANT 42
+
+#endif
+EOF2
+mkdir -p {out_path}/other_dir
+cat >{out_path}/other_dir/not_top_level.h <<EOF2
+#ifndef NOT_TOP_LEVEL_H_
+#define NOT_TOP_LEVEL_H_
+
+#define NOT_TOP_LEVEL_CONSTANT 43
+
+#endif
+EOF2
+        """.format(
+            out_path = out.path,
+        ),
+    )
+    return [
+        DefaultInfo(files = depset([out])),
+    ]
+
+gen_h = rule(implementation = _gen_h_impl)
+EOF
+}
+
+# Runs two builds of the C++ project set up by
+# setup_cc_include_scanning_project in different configurations with path
+# mapping and include scanning enabled and verifies that compilations whose
+# scanned includes are identical between the configurations result in cache
+# hits. Expects the package as the first argument, followed by the flags to
+# use for the remote cache or executor.
+function do_test_path_stripping_cc_include_scanning() {
+  local -r pkg="$1"
+  shift
+
+  local -r flags=(
+    --repo_env=CC=clang
+    --verbose_failures
+    --experimental_output_paths=strip
+    --modify_execution_info=CppCompile=+supports-path-mapping,CppModuleMap=+supports-path-mapping,CppArchive=+supports-path-mapping
+    --features=layering_check
+    --experimental_unsupported_and_brittle_include_scanning
+    --features=cc_include_scanning
+    "$@"
+  )
+
+  bazel run "${flags[@]}" "//$pkg:main" &>"$TEST_log" || fail "Expected success"
+
+  expect_log 'Hello, lib1!'
+  expect_log 'Hello, lib2!'
+  expect_log 'Hello, TreeArtifact!'
+  expect_log '42 43'
+  expect_not_log 'remote cache hit'
+
+  bazel run "${flags[@]}" "//$pkg:transitioned_main" &>"$TEST_log" || fail "Expected success"
+
+  expect_log 'Hi there, lib1!'
+  expect_log 'Hi there, lib2!'
+  expect_log 'Hello, TreeArtifact!'
+  expect_log '42 43'
+  # The compilations of main.cc and of the tree artifact source gen.cc only
+  # depend on headers with contents identical to those in the first build:
+  # include scanning prunes the generated utils.h, which legitimately differs
+  # between the two configurations, from their inputs as it is only included by
+  # lib1 and lib2. Together with path mapping, this results in cache hits for
+  # both compilations. All other actions either legitimately differ between the
+  # configurations (the compilations and archiving actions of lib1 and lib2 as
+  # well as the genrule for utils.h) or do not support path mapping (all other
+  # genrules and Starlark actions as well as the final link).
+  expect_log ' 2 remote cache hit'
+}
+
+# Verifies that path mapping results in cache hits for CppCompile actions with
+# include scanning enabled under remote execution. Include scanning prunes the
+# input set of a compile action down to the headers it actually includes, which
+# allows for cache hits even if an unused header generated in a different
+# configuration changes. Also covers include scanning of tree artifact sources
+# and headers, for which the scanner discovers the parent tree artifact as an
+# additional spawn input next to the tree file artifact itself (a regression
+# test for duplicate directory entries in the remote execution Merkle tree), as
+# well as include scanning of generated headers that are not downloaded with
+# --remote_download_toplevel.
+function test_path_stripping_cc_include_scanning_remote() {
+  local -r pkg="${FUNCNAME[0]}"
+  setup_cc_include_scanning_project "$pkg"
+  do_test_path_stripping_cc_include_scanning "$pkg" \
+    --remote_executor=grpc://localhost:${worker_port}
+}
+
+# Like test_path_stripping_cc_include_scanning_remote, but with a remote cache
+# and local sandboxed execution.
+function test_path_stripping_cc_include_scanning_remote_cache() {
+  if is_windows; then
+    echo "Skipping test_path_stripping_cc_include_scanning_remote_cache on Windows as it requires sandboxing"
+    return
+  fi
+
+  local -r pkg="${FUNCNAME[0]}"
+  setup_cc_include_scanning_project "$pkg"
+  do_test_path_stripping_cc_include_scanning "$pkg" \
+    --remote_cache=grpc://localhost:${worker_port}
+}
+
+# Patches rules_cc so that cc_toolchain provides a simple implementation of the
+# grep-includes tool, which makes the include scanner extract include
+# statements via separate GrepIncludes spawns instead of parsing files in
+# process.
+function enable_grep_includes_in_rules_cc() {
+  cat >> MODULE.bazel <<'EOF'
+single_version_override(
+    module_name = "rules_cc",
+    patch_cmds = [
+        # rules_cc does not support include scanning with grep-includes on
+        # Bazel: the cc_toolchain rule leaves the grep_includes attribute unset
+        # and only ships a failing stub script for it. Patch in a simple
+        # implementation of grep-includes and enable the attribute.
+        """cat > cc/private/toolchain/grep-includes.sh <<'GREPEOF'
+#!/bin/bash
+set -euo pipefail
+sed -nE \\
+  -e 's|^[[:space:]]*#[[:space:]]*include[[:space:]]*"([^"]*)".*|"\\1|p' \\
+  -e 's|^[[:space:]]*#[[:space:]]*include[[:space:]]*<([^>]*)>.*|<\\1|p' \\
+  -e 's|^[[:space:]]*#[[:space:]]*include_next[[:space:]]*"([^"]*)".*|q\\1|p' \\
+  -e 's|^[[:space:]]*#[[:space:]]*include_next[[:space:]]*<([^>]*)>.*|a\\1|p' \\
+  "$1" > "$2"
+GREPEOF""",
+        """sed -i.bak -e '/def _get_grep_includes/,/return/ s|return attr.label()|return attr.label(default = Label("//cc/private/toolchain:grep-includes"), allow_single_file = True, cfg = "exec")|' cc/common/semantics.bzl""",
+        """sed -i.bak -e 's|if not semantics.is_bazel:|if True:|' cc/private/rules_impl/cc_toolchain.bzl""",
+        """rm cc/common/semantics.bzl.bak cc/private/rules_impl/cc_toolchain.bzl.bak""",
+        # Fail loudly if the patched locations have changed and the sed
+        # commands above no longer apply.
+        """grep -q 'grep-includes' cc/common/semantics.bzl""",
+        """! grep -q 'if not semantics.is_bazel:' cc/private/rules_impl/cc_toolchain.bzl""",
+    ],
+)
+EOF
+}
+
+# Like test_path_stripping_cc_include_scanning_remote, but with include
+# extraction performed by GrepIncludes spawns using a simple grep-includes
+# implementation patched into the C++ toolchain.
+function test_path_stripping_cc_include_scanning_grep_includes_remote() {
+  local -r pkg="${FUNCNAME[0]}"
+  setup_cc_include_scanning_project "$pkg"
+  enable_grep_includes_in_rules_cc
+  do_test_path_stripping_cc_include_scanning "$pkg" \
+    --experimental_remote_include_extraction_size_threshold=0 \
+    --remote_executor=grpc://localhost:${worker_port}
+
+  # Verify that include extraction does run via grep-includes spawns.
+  echo '// trigger include rescanning' >> "$pkg/main.cc"
+  bazel build \
+    --repo_env=CC=clang \
+    --verbose_failures \
+    --experimental_output_paths=strip \
+    --modify_execution_info=CppCompile=+supports-path-mapping,CppModuleMap=+supports-path-mapping,CppArchive=+supports-path-mapping \
+    --features=layering_check \
+    --experimental_unsupported_and_brittle_include_scanning \
+    --features=cc_include_scanning \
+    --experimental_remote_include_extraction_size_threshold=0 \
+    --remote_executor=grpc://localhost:${worker_port} \
+    -s \
+    "//$pkg:main" &>"$TEST_log" || fail "Expected success"
+  expect_log 'mnemonic: GrepIncludes'
+}
+
 function test_path_stripping_action_key_not_stale_for_path_collision() {
   mkdir rules
   cat > rules/defs.bzl <<'EOF'

@@ -383,9 +383,13 @@ public class SpawnIncludeScanner {
 
     ImmutableMap.Builder<String, String> execInfoBuilder = ImmutableMap.builder();
     execInfoBuilder.putAll(resourceOwner.getExecutionInfo());
+    // Request the contents of the output file to be returned in memory: with remote execution, the
+    // output may not be available on the local file system (e.g. with --remote_download_toplevel).
+    // Local execution ignores this and writes the output to disk, from which it is read back by the
+    // caller.
+    execInfoBuilder.put(
+        ExecutionRequirements.REMOTE_EXECUTION_INLINE_OUTPUTS, outputExecPath.getPathString());
     if (inMemoryOutput) {
-      execInfoBuilder.put(
-          ExecutionRequirements.REMOTE_EXECUTION_INLINE_OUTPUTS, outputExecPath.getPathString());
       // grep-includes writes output file to disk. If in-memory output is requested, no-local should
       // also be added, otherwise, grep-includes could be executed locally resulting output be
       // written to local disk.

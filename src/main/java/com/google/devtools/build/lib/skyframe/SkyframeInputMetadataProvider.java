@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
@@ -114,6 +115,7 @@ final class SkyframeInputMetadataProvider implements InputMetadataProvider {
   private final PathFragment relativeOutputPath;
 
   private final ConcurrentHashMap<PathFragment, ActionInput> seen;
+  private final ConcurrentHashMap<PathFragment, TreeArtifactValue> seenTrees;
 
   /**
    * A cache so that we don't need to look up any SkyValue twice.
@@ -138,6 +140,7 @@ final class SkyframeInputMetadataProvider implements InputMetadataProvider {
     this.perBuild = perBuild;
     this.relativeOutputPath = PathFragment.create(relativeOutputPath);
     this.seen = new ConcurrentHashMap<>();
+    this.seenTrees = new ConcurrentHashMap<>();
     this.skyframeLookups = new ConcurrentHashMap<>();
     this.allowSkyframe = false;
   }
@@ -184,6 +187,11 @@ final class SkyframeInputMetadataProvider implements InputMetadataProvider {
       return null;
     }
 
+    if (artifact instanceof TreeFileArtifact treeFileArtifact) {
+      TreeArtifactValue treeValue = lookupTree(treeFileArtifact.getParent());
+      return treeValue.getChildValues().get(treeFileArtifact);
+    }
+
     SkyKey key = Artifact.key(artifact);
     SkyframeLookup lookup = skyframeLookups.computeIfAbsent(key, SkyframeLookup::new);
     SkyValue value = lookup.tryLookup();
@@ -192,15 +200,34 @@ final class SkyframeInputMetadataProvider implements InputMetadataProvider {
     return actionExecutionValue.getExistingFileArtifactValue(artifact);
   }
 
+  private TreeArtifactValue lookupTree(SpecialArtifact tree)
+      throws InterruptedException, MissingDepExecException {
+    SkyframeLookup lookup =
+        skyframeLookups.computeIfAbsent(Artifact.key(tree), SkyframeLookup::new);
+    TreeArtifactValue treeValue = (TreeArtifactValue) lookup.tryLookup();
+    if (seenTrees.putIfAbsent(tree.getExecPath(), treeValue) == null) {
+      for (TreeFileArtifact child : treeValue.getChildren()) {
+        seen.put(child.getExecPath(), child);
+      }
+    }
+    return treeValue;
+  }
+
   @Nullable
   @Override
   public TreeArtifactValue getTreeMetadata(ActionInput input) {
-    return null;
+    return seenTrees.get(input.getExecPath());
   }
 
   @Nullable
   @Override
   public TreeArtifactValue getEnclosingTreeMetadata(PathFragment execPath) {
+    for (PathFragment path = execPath; path != null; path = path.getParentDirectory()) {
+      TreeArtifactValue treeValue = seenTrees.get(path);
+      if (treeValue != null) {
+        return treeValue;
+      }
+    }
     return null;
   }
 
