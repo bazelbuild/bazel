@@ -63,6 +63,7 @@ cc_binary(
         "jni-util.cc",
         "jni-util.h",
         "processes-jni.cc",
+        "semaphore-jni.cc",
         "sleep_prevention_jni.cc",
         "system_cpu_speed_monitor_jni.cc",
         "system_disk_space_monitor_jni.cc",

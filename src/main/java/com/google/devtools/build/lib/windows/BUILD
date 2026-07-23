@@ -24,6 +24,15 @@ java_library(
 )
 
 java_library(
+    name = "semaphore",
+    srcs = ["WindowsSemaphore.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/jni",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
     name = "processes",
     srcs = ["WindowsProcesses.java"],
     deps = ["//src/main/java/com/google/devtools/build/lib/jni"],

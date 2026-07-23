@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.buildtool;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -67,11 +68,14 @@ import com.google.devtools.build.lib.exec.CheckUpToDateFilter;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.exec.ExecutorLifecycleListener;
+import com.google.devtools.build.lib.exec.LocalJobserver;
 import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
+import com.google.devtools.build.lib.exec.PosixJobserverBackend;
 import com.google.devtools.build.lib.exec.RemoteLocalFallbackRegistry;
 import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
 import com.google.devtools.build.lib.exec.SpawnStrategyResolver;
 import com.google.devtools.build.lib.exec.SymlinkTreeStrategy;
+import com.google.devtools.build.lib.exec.WindowsJobserverBackend;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
@@ -99,8 +103,10 @@ import com.google.devtools.build.lib.skyframe.IncrementalPackageRoots;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.SomeExecutionStartedEvent;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
+import com.google.devtools.build.lib.unix.NativePosixFilesService;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.BulkDeleter;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.OutputService;
@@ -359,7 +365,11 @@ public class ExecutionTool {
       }
     }
     try (SilentCloseable c = Profiler.instance().profile("configureResourceManager")) {
-      configureResourceManager(env.getLocalResourceManager(), request);
+      configureResourceManager(
+          env.getLocalResourceManager(),
+          request,
+          env.getOutputBase().getRelative("jobserver").getPathString(),
+          env.getRuntime().getBlazeService(NativePosixFilesService.class));
     }
 
     announceEnteringDirIfEmacs();
@@ -477,7 +487,11 @@ public class ExecutionTool {
       skyframeExecutor.drainChangedFiles();
 
       try (SilentCloseable c = Profiler.instance().profile("configureResourceManager")) {
-        configureResourceManager(env.getLocalResourceManager(), request);
+        configureResourceManager(
+            env.getLocalResourceManager(),
+            request,
+            env.getOutputBase().getRelative("jobserver").getPathString(),
+            env.getRuntime().getBlazeService(NativePosixFilesService.class));
       }
 
       MemoryProfiler.instance().markPhase(ProfilePhase.EXECUTE);
@@ -624,6 +638,7 @@ public class ExecutionTool {
     if (incrementalPackageRoots != null) {
       incrementalPackageRoots.shutdown();
     }
+    LocalJobserver.instance().shutdown();
 
     // Handlers process these events and others (e.g. CommandCompleteEvent), even in the event of
     // a catastrophic failure. Posting these is consistent with other behavior.
@@ -983,6 +998,14 @@ public class ExecutionTool {
 
   @VisibleForTesting
   public static void configureResourceManager(ResourceManager resourceMgr, BuildRequest request) {
+    configureResourceManager(resourceMgr, request, null, null);
+  }
+
+  private static void configureResourceManager(
+      ResourceManager resourceMgr,
+      BuildRequest request,
+      @Nullable String jobserverDir,
+      @Nullable NativePosixFilesService posix) {
     ExecutionOptions options = request.getOptions(ExecutionOptions.class);
     resourceMgr.setAvailableResources(
         ResourceSet.create(
@@ -997,6 +1020,24 @@ public class ExecutionTool {
 
     resourceMgr.setAllowOneActionOnResourceUnavailable(
         options.getAllowOneActionOnResourceUnavailable());
+
+    LocalJobserver.Backend jobserverBackend = null;
+    if (options.getExperimentalLocalJobserver() && jobserverDir != null) {
+      jobserverBackend =
+          OS.getCurrent() == OS.WINDOWS
+              ? new WindowsJobserverBackend(
+                  (int) Math.ceil(resourceMgr.getTotalCpuForJobserver()))
+              : new PosixJobserverBackend(
+                  jobserverDir,
+                  checkNotNull(
+                      posix, "NativePosixFilesService must be registered for the local jobserver"));
+    }
+    try {
+      LocalJobserver.instance().configure(jobserverBackend, resourceMgr);
+    } catch (IOException e) {
+      logger.atWarning().withCause(e).log("Could not start local jobserver; continuing without");
+    }
+    resourceMgr.setHeldCpuTokensSupplier(LocalJobserver.instance()::getOutstandingTokens);
   }
 
   /**

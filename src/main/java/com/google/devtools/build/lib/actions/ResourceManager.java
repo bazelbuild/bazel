@@ -45,6 +45,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.IntSupplier;
 import javax.annotation.Nullable;
 
 /**
@@ -263,12 +264,19 @@ public class ResourceManager implements ResourceEstimator {
   private int runningActions = 0;
   // Collects the information about the load of a machine.
   private MachineLoadProvider machineLoadProvider;
+  // CPUs currently occupied by jobserver tokens held by running tools, counted as in-use when
+  // admitting actions (see isCpuAvailable).
+  private volatile IntSupplier heldCpuTokens = () -> 0;
 
   public void initializeCpuLoadFunctionality(
       MachineLoadProvider machineLoadProvider, boolean cpuLoadScheduling, Duration windowSize) {
     this.machineLoadProvider = machineLoadProvider;
     this.cpuLoadScheduling = cpuLoadScheduling;
     this.windowSize = windowSize;
+  }
+
+  public void setHeldCpuTokensSupplier(IntSupplier heldCpuTokens) {
+    this.heldCpuTokens = heldCpuTokens;
   }
 
   class WindowUpdateRunner extends Thread {
@@ -563,6 +571,37 @@ public class ResourceManager implements ResourceEstimator {
     processWaitingRequests(dynamicStandaloneRequests);
   }
 
+  /**
+   * Re-examines waiting requests after capacity was freed outside of an action completing, e.g.
+   * when the {@code LocalJobserver} reclaims tokens from a tool that finished parallel work.
+   */
+  public synchronized void notifyResourcesFreed()
+      throws IOException, InterruptedException, UserExecException {
+    processAllWaitingRequests();
+  }
+
+  /**
+   * CPUs not reserved by running actions, i.e. the capacity the {@code LocalJobserver} may hand out
+   * as tokens. Held jobserver tokens are subtracted by the backend when it resizes the pool, not
+   * here.
+   */
+  public synchronized double getIdleCpuForJobserver() {
+    if (availableResources == null) {
+      return 0;
+    }
+    return availableResources.get(ResourceSet.CPU)
+        - usedResources.getOrDefault(ResourceSet.CPU, 0.0);
+  }
+
+  /**
+   * The local CPU budget the {@code LocalJobserver} may hand out as tokens (the configured {@code
+   * --local_cpu_resources}), used to size the token pool's hard ceiling. Unlike {@link
+   * #getIdleCpuForJobserver}, this ignores currently-used CPU.
+   */
+  public synchronized double getTotalCpuForJobserver() {
+    return availableResources == null ? 0 : availableResources.get(ResourceSet.CPU);
+  }
+
   private synchronized void processWaitingRequests(Deque<WaitingRequest> requests)
       throws IOException, InterruptedException, UserExecException {
     if (requests.isEmpty()) {
@@ -700,7 +739,6 @@ public class ResourceManager implements ResourceEstimator {
     double requested =
         resource.getValue() * MIN_NECESSARY_RATIO.getOrDefault(key, DEFAULT_MIN_NECESSARY_RATIO);
     double available = availableResources.get(key);
-    double used = usedResources.getOrDefault(key, 0.0);
 
     if (cpuLoadScheduling) {
       double currentUsage = machineLoadProvider.getCurrentCpuUsage();
@@ -712,11 +750,12 @@ public class ResourceManager implements ResourceEstimator {
       return isAvailable(available, windowEstimation + currentUsage, requested, key);
     }
 
+    double used = usedResources.getOrDefault(key, 0.0) + heldCpuTokens.getAsInt();
     return isAvailable(available, used, requested, key);
   }
 
   @VisibleForTesting
-  synchronized int getWaitCount() {
+  public synchronized int getWaitCount() {
     return localRequests.size() + dynamicStandaloneRequests.size() + dynamicWorkerRequests.size();
   }
 

@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.VirtualActionInput;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.exec.BinTools;
+import com.google.devtools.build.lib.exec.LocalJobserver;
 import com.google.devtools.build.lib.exec.RunfilesTreeUpdater;
 import com.google.devtools.build.lib.exec.SpawnExecutingEvent;
 import com.google.devtools.build.lib.exec.SpawnRunner;
@@ -367,8 +368,11 @@ public class LocalSpawnRunner implements SpawnRunner {
         Path commandTmpDir = tmpDir.getRelative("work");
         commandTmpDir.createDirectory();
         ImmutableMap<String, String> environment =
-            localEnvProvider.rewriteLocalEnv(
-                spawn.getEnvironment(), binTools, commandTmpDir.getPathString());
+            LocalJobserver.instance()
+                .maybeAddJobserver(
+                    localEnvProvider.rewriteLocalEnv(
+                        spawn.getEnvironment(), binTools, commandTmpDir.getPathString()),
+                    spawn);
 
         SubprocessBuilder subprocessBuilder = new SubprocessBuilder(context.getClientEnv());
         subprocessBuilder.setWorkingDirectory(execRoot.getPathFile());

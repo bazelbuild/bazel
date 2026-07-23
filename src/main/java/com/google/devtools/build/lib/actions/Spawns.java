@@ -120,6 +120,15 @@ public final class Spawns {
   }
 
   /**
+   * Returns whether the Spawn's tool understands the
+   * <a href="https://www.gnu.org/software/make/manual/html_node/Job-Slots.html">GNU make jobserver
+   * protocol</a> and wishes to coordinate its internal parallelism with the rest of the build.
+   */
+  public static boolean supportsJobserver(Spawn spawn) {
+    return spawn.getExecutionInfo().containsKey(ExecutionRequirements.SUPPORTS_JOBSERVER);
+  }
+
+  /**
    * Returns which worker protocol format a Spawn claims a persistent worker uses. Defaults to proto
    * if the protocol format is not specified.
    */

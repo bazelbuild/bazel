@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.unix;
 
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.jni.JniLoader;
+import java.io.FileDescriptor;
 import javax.annotation.Nullable;
 
 /** Implementation of {@link NativePosixFilesService}. */
@@ -72,6 +73,9 @@ public final class NativePosixFilesServiceImpl implements NativePosixFilesServic
 
   @Override
   public native void mkfifo(String path, int mode) throws NativePosixFilesException;
+
+  @Override
+  public native int drainFifoNonBlocking(FileDescriptor fd) throws NativePosixFilesException;
 
   @Override
   public native byte[] getxattr(String path, String name) throws NativePosixFilesException;
