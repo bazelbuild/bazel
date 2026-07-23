@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.skyframe.BzlLoadFunction;
 import com.google.devtools.build.lib.skyframe.BzlLoadValue;
 import com.google.devtools.build.lib.skyframe.RepoEnvironmentFunction;
 import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.vfs.DetailedIOException;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.WorkerSkyKeyComputeState;
@@ -312,6 +313,13 @@ final class RegularRunnableExtension implements RunnableExtension {
       return new RunModuleExtensionResult(
           moduleContext.getRecordedInputs(), threadContext.createRepos(), moduleExtensionMetadata);
     } catch (EvalException e) {
+      if (e.getCause() instanceof DetailedIOException detailedCause) {
+        throw ExternalDepsException.withCauseAndMessage(
+            ExternalDeps.Code.EXTENSION_EVAL_ERROR,
+            detailedCause,
+            "error evaluating module extension %s",
+            extensionId);
+      }
       if (!(e.getCause() instanceof ExternalDepsException)) {
         // ExternalDepsException events should already have been reported.
         env.getListener().handle(Event.error(e.getInnermostLocation(), e.getMessageWithStack()));
