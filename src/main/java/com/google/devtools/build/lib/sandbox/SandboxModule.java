@@ -50,8 +50,11 @@ import com.google.devtools.common.options.TriState;
 import java.io.File;
 import java.io.IOException;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
@@ -341,6 +344,32 @@ public final class SandboxModule extends BlazeModule {
           new DarwinSandboxedStrategy(spawnRunner, executionOptions),
           "sandboxed",
           "darwin-sandbox");
+    }
+
+    // Platform-agnostic: one strategy per --sandbox_backend entry, each backed by an external
+    // sandbox binary speaking Bazel's sandbox protocol and selected by its registered name via
+    // --strategy. canExec() declines at runtime when a backend's binary isn't usable, so Bazel
+    // falls through to the next strategy. Each backend's configured --sandbox_backend_opt options
+    // are passed to it at the Negotiate handshake, keyed by name.
+    Map<String, List<String>> sandboxBackendArgs = new LinkedHashMap<>();
+    for (Map.Entry<String, String> arg : options.getSandboxBackendOpts()) {
+      sandboxBackendArgs.computeIfAbsent(arg.getKey(), unused -> new ArrayList<>())
+          .add(arg.getValue());
+    }
+    for (Map.Entry<String, String> backend : options.getSandboxBackends()) {
+      String backendName = backend.getKey();
+      SpawnRunner spawnRunner =
+          new SandboxBackendSpawnRunner(
+              cmdEnv,
+              backendName,
+              PathFragment.create(backend.getValue()),
+              ImmutableList.copyOf(
+                  sandboxBackendArgs.getOrDefault(backendName, ImmutableList.of())),
+              sandboxBase,
+              treeDeleter);
+      spawnRunners.add(spawnRunner);
+      builder.registerStrategy(
+          new SandboxBackendStrategy(backendName, spawnRunner, executionOptions), backendName);
     }
 
     if (windowsSandboxSupported) {

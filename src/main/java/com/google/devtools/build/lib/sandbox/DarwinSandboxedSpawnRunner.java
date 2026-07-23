@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.sandbox;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -37,11 +36,8 @@ import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.io.BufferedWriter;
 import java.io.File;
 import java.io.IOException;
-import java.io.OutputStreamWriter;
-import java.io.PrintWriter;
 import java.time.Duration;
 import java.util.HashSet;
 import java.util.Set;
@@ -217,12 +213,8 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     processWrapperCommandLineBuilder.setStatisticsPath(statisticsPath.asFragment());
 
     ImmutableList<String> commandLine =
-        ImmutableList.<String>builder()
-            .add(sandboxExecBinary)
-            .add("-f")
-            .add(sandboxConfigPath.getPathString())
-            .addAll(processWrapperCommandLineBuilder.build())
-            .build();
+        DarwinSandboxCommandLineBuilder.wrapCommand(
+            sandboxExecBinary, sandboxConfigPath, processWrapperCommandLineBuilder.build());
 
     boolean allowNetworkForThisSpawn =
         allowNetwork
@@ -245,7 +237,7 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       @Override
       public void createFileSystem() throws IOException, InterruptedException {
         super.createFileSystem();
-        writeConfig(
+        DarwinSandboxCommandLineBuilder.writeProfile(
             sandboxConfigPath,
             writableDirs,
             getInaccessiblePaths(),
@@ -253,62 +245,6 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
             statisticsPath);
       }
     };
-  }
-
-  /** Escapes quotes and backslashes for Apple SBPL Scheme string literals. */
-  private static String escapeSchemeString(String s) {
-    if (s == null) {
-      return "";
-    }
-    return s.replace("\\", "\\\\").replace("\"", "\\\"");
-  }
-
-  private static void writeConfig(
-      Path sandboxConfigPath,
-      Set<Path> writableDirs,
-      Set<Path> inaccessiblePaths,
-      boolean allowNetwork,
-      @Nullable Path statisticsPath)
-      throws IOException {
-    try (PrintWriter out =
-        new PrintWriter(
-            new BufferedWriter(
-                new OutputStreamWriter(sandboxConfigPath.getOutputStream(), UTF_8)))) {
-      // Note: In Apple's sandbox configuration language, the *last* matching rule wins.
-      out.println("(version 1)");
-      out.println("(debug deny)");
-      out.println("(allow default)");
-      out.println("(allow process-exec (with no-sandbox) (literal \"/bin/ps\"))");
-
-      if (!allowNetwork) {
-        out.println("(deny network*)");
-        out.println("(allow network-inbound (local ip \"localhost:*\"))");
-        out.println("(allow network* (remote ip \"localhost:*\"))");
-        out.println("(allow network* (remote unix-socket))");
-      }
-
-      // By default, everything is read-only.
-      out.println("(deny file-write*)");
-
-      out.println("(allow file-write*");
-      for (Path path : writableDirs) {
-        out.println("    (subpath \"" + escapeSchemeString(path.getPathString()) + "\")");
-      }
-      if (statisticsPath != null) {
-        out.println("    (literal \"" + escapeSchemeString(statisticsPath.getPathString()) + "\")");
-      }
-      out.println(")");
-
-      if (!inaccessiblePaths.isEmpty()) {
-        out.println("(deny file-read*");
-        // The sandbox configuration file is not part of a cache key and sandbox-exec doesn't care
-        // about ordering of paths in expressions, so it's fine if the iteration order is random.
-        for (Path inaccessiblePath : inaccessiblePaths) {
-          out.println("    (subpath \"" + escapeSchemeString(inaccessiblePath.toString()) + "\")");
-        }
-        out.println(")");
-      }
-    }
   }
 
   @Override
