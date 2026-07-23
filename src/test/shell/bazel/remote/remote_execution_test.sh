@@ -2060,6 +2060,29 @@ sh_test(
 EOF
 }
 
+function setup_exclusive_if_local_test_case() {
+  local extra_tag="${1:-}"
+  local tags='"exclusive-if-local"'
+  if [[ -n "${extra_tag}" ]]; then
+    tags="${tags}, \"${extra_tag}\""
+  fi
+  add_rules_shell "MODULE.bazel"
+  mkdir -p a
+  cat > a/success.sh <<'EOF'
+#!/bin/sh
+exit 0
+EOF
+  chmod 755 a/success.sh
+  cat > a/BUILD <<EOF
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+sh_test(
+  name = "success_test",
+  srcs = ["success.sh"],
+  tags = [${tags}],
+)
+EOF
+}
+
 function test_exclusive_test_hit_remote_cache() {
   # Test that the exclusive test works with the remote cache.
   setup_exclusive_test_case
@@ -2112,6 +2135,33 @@ function test_exclusive_test_wont_remote_exec() {
 
   # test action + test xml generation
   expect_log "2.*-sandbox"
+}
+
+function test_exclusive_if_local_test_remote_exec() {
+  # Test that an exclusive-if-local test is allowed to run remotely in parallel
+  setup_exclusive_if_local_test_case
+
+  bazel test \
+    --remote_executor=grpc://localhost:${worker_port} \
+    //a:success_test >& $TEST_log || fail "Failed to test //a:success_test"
+
+  # test action + test xml generation should run remotely, not on local
+  expect_log "2 remote\\."
+  expect_not_log "-sandbox"
+}
+
+function test_exclusive_if_local_test_no_remote_exec_runs_locally() {
+  # Test that an exclusive-if-local test that is also tagged no-remote-exec stays
+  # serialized (runs locally) even when remote execution is enabled.
+  setup_exclusive_if_local_test_case "no-remote-exec"
+
+  bazel test \
+    --remote_executor=grpc://localhost:${worker_port} \
+    //a:success_test >& $TEST_log || fail "Failed to test //a:success_test"
+
+  # Because the test can't run remotely, it executes locally like an "exclusive" test
+  expect_log "2.*-sandbox"
+  expect_not_log "2 remote\\."
 }
 
 # TODO(alpha): Add a test that fails remote execution when remote worker
