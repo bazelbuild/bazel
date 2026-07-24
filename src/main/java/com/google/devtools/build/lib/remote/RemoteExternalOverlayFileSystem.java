@@ -170,13 +170,11 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
     // be refetched to recover files that the remote cache has lost. This wouldn't be safe to do
     // eagerly as ongoing repo rule evaluations may still refer to the in-memory content and
     // refetching is not atomic.
+    reposWithLostFiles.forEach(this::evictInMemoryRepo);
     materializations.forEach(
         1,
         (repoName, materializationState) ->
-            materializationState.state() == Future.State.SUCCESS
-                    || reposWithLostFiles.contains(repoName)
-                ? repoName
-                : null,
+            materializationState.state() == Future.State.SUCCESS ? repoName : null,
         this::evictInMemoryRepo);
     invalidateRepoDirectories(evaluator, reposWithLostFiles);
     reposToRefetch.addAll(reposWithLostFiles);
