@@ -390,6 +390,18 @@ public final class RepositoryFetchFunction implements SkyFunction {
             return null;
           }
         }
+      } else if (remoteRepoContentsCache != null
+          && !repoDefinition.repoRule().local()
+          && result.reproducible() != Reproducibility.YES) {
+        // Surface why an otherwise-cacheable repo wasn't offered to the remote repo contents
+        // cache. Local repos are intentionally never cached remotely, so they aren't reported
+        // here to avoid noise.
+        env.getListener()
+            .handle(
+                Event.debug(
+                    ("Not storing repo %s in the remote repo contents cache: its repo rule did"
+                            + " not mark the fetched contents as reproducible")
+                        .formatted(repositoryName)));
       }
       return new Success(Root.fromPath(repoRoot), excludeRepoFromVendoring);
     }
