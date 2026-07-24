@@ -73,5 +73,6 @@ java_library(
         "//third_party:jsr305",
         "//third_party:junit4",
         "@bazel_tools//tools/java/runfiles",
+        "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
     ],
 )

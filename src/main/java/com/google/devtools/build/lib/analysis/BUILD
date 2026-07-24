@@ -228,6 +228,7 @@ java_library(
         "extra/ExtraAction.java",
         "extra/ExtraActionMapProvider.java",
         "extra/ExtraActionSpec.java",
+        "starlark/ComposedTransitionMaterializer.java",
         "starlark/StarlarkActionFactory.java",
         "starlark/StarlarkAttrModule.java",
         "starlark/StarlarkAttributeTransitionProvider.java",

@@ -1162,28 +1162,49 @@ public final class RemoteModule extends BlazeModule {
       builder.setActionInputPrefetcher(actionInputFetcher);
       actionContextProvider.setActionInputFetcher(actionInputFetcher);
 
-      LeaseExtension leaseExtension = null;
-      if (remoteOptions.remoteCacheLeaseExtension) {
-        leaseExtension =
-            new RemoteLeaseExtension(
+      BuildRequestOptions buildRequestOptions =
+          env.getOptions().getOptions(BuildRequestOptions.class);
+      boolean rewindLostInputs =
+          buildRequestOptions != null && buildRequestOptions.rewindLostInputs;
+      LeaseService leaseService = null;
+      if (rewindLostInputs) {
+        // Action rewinding regenerates lost inputs within the build, so there is no need for the
+        // lease service to extend leases or to discard all remote metadata after a build that
+        // encountered lost inputs.
+        if (remoteOptions.remoteCacheLeaseExtension) {
+          env.getReporter()
+              .handle(
+                  Event.warn(
+                      "--experimental_remote_cache_lease_extension has no effect since"
+                          + " --rewind_lost_inputs is enabled, which recovers from lost remote"
+                          + " cache entries as they are encountered."));
+        }
+      } else {
+        LeaseExtension leaseExtension = null;
+        if (remoteOptions.remoteCacheLeaseExtension) {
+          leaseExtension =
+              new RemoteLeaseExtension(
+                  env.getSkyframeExecutor().getEvaluator(),
+                  env.getBlazeWorkspace().getPersistentActionCache(),
+                  env.getBuildRequestId(),
+                  env.getCommandId().toString(),
+                  actionContextProvider.getCombinedCache(),
+                  remoteOptions.remoteCacheTtl);
+        }
+        leaseService =
+            new LeaseService(
                 env.getSkyframeExecutor().getEvaluator(),
-                env.getBlazeWorkspace().getPersistentActionCache(),
-                env.getBuildRequestId(),
-                env.getCommandId().toString(),
-                actionContextProvider.getCombinedCache(),
-                remoteOptions.remoteCacheTtl);
+                () -> env.getBlazeWorkspace().getPersistentActionCache(),
+                leaseExtension);
+        env.getEventBus().register(leaseService);
       }
-      var leaseService =
-          new LeaseService(
-              env.getSkyframeExecutor().getEvaluator(),
-              () -> env.getBlazeWorkspace().getPersistentActionCache(),
-              leaseExtension);
-      env.getEventBus().register(leaseService);
 
       if (outputService instanceof RemoteOutputService remoteOutputService) {
         remoteOutputService.setRemoteOutputChecker(remoteOutputChecker);
         remoteOutputService.setActionInputFetcher(actionInputFetcher);
-        remoteOutputService.setLeaseService(leaseService);
+        if (leaseService != null) {
+          remoteOutputService.setLeaseService(leaseService);
+        }
         remoteOutputService.setFileCacheSupplier(env::getFileCache);
         env.getEventBus().register(outputService);
       }

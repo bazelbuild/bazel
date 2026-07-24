@@ -160,6 +160,20 @@ class DirectoryTreeBuilder {
             return childAdded ? 1 : 0;
           }
 
+          if (input instanceof ChildActionInput childActionInput) {
+            // Files discovered by walking a directory input must be read via the path at which
+            // they were discovered: resolving their exec path against the exec root can fail if
+            // they belong to an external repository backed by the remote repo contents cache,
+            // whose contents may only exist in an in-memory file system overlaid over the output
+            // base.
+            Path inputPath = childActionInput.getRealPath();
+            Digest d = digestUtil.compute(inputPath);
+            boolean childAdded =
+                currDir.addChild(
+                    FileNode.create(path.getBaseName(), inputPath, d, toolInputs.contains(path)));
+            return childAdded ? 1 : 0;
+          }
+
           FileArtifactValue metadata =
               Preconditions.checkNotNull(
                   inputMetadataProvider.getInputMetadata(input),
@@ -288,7 +302,9 @@ class DirectoryTreeBuilder {
       PathFragment childExecPath = execPath.getChild(basename);
       switch (entry.getType()) {
         case FILE ->
-            inputs.put(logicalPath.getChild(basename), ActionInputHelper.fromPath(childExecPath));
+            inputs.put(
+                logicalPath.getChild(basename),
+                new ChildActionInput(childExecPath, realPath.getChild(basename)));
         case DIRECTORY ->
             explodeDirectory(
                 logicalPath.getChild(basename), childExecPath, realPath.getChild(basename), inputs);
@@ -302,6 +318,34 @@ class DirectoryTreeBuilder {
             throw new IOException(
                 String.format("The file type of '%s' is not supported.", childExecPath));
       }
+    }
+  }
+
+  /**
+   * A file discovered by walking a directory input, together with the path at which it was
+   * discovered.
+   */
+  private static final class ChildActionInput extends ActionInputHelper.BasicActionInput {
+    private final PathFragment execPath;
+    private final Path realPath;
+
+    ChildActionInput(PathFragment execPath, Path realPath) {
+      this.execPath = execPath;
+      this.realPath = realPath;
+    }
+
+    Path getRealPath() {
+      return realPath;
+    }
+
+    @Override
+    public PathFragment getExecPath() {
+      return execPath;
+    }
+
+    @Override
+    public String getExecPathString() {
+      return execPath.getPathString();
     }
   }
 

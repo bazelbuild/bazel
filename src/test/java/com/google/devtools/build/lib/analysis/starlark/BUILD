@@ -166,6 +166,20 @@ java_test(
 )
 
 java_test(
+    name = "StarlarkTransitionCompositionTest",
+    srcs = ["StarlarkTransitionCompositionTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//src/test/java/com/google/devtools/build/lib/testutil",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
     name = "StarlarkTransitionTest",
     srcs = ["StarlarkTransitionTest.java"],
     deps = [
