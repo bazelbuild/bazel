@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.common.options.BoolOrEnumConverter;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Converters.DurationConverter;
@@ -486,9 +487,13 @@ public abstract class RepositoryOptions extends OptionsBase {
     }
 
     /** Converts to {@link RequireRepoExtensionMetadataMode}. */
-    public static class Converter extends EnumConverter<RequireRepoExtensionMetadataMode> {
+    public static class Converter extends BoolOrEnumConverter<RequireRepoExtensionMetadataMode> {
       public Converter() {
-        super(RequireRepoExtensionMetadataMode.class, "repo extension metadata mode");
+        super(
+            RequireRepoExtensionMetadataMode.class,
+            "repo extension metadata mode",
+            RequireRepoExtensionMetadataMode.ALL,
+            RequireRepoExtensionMetadataMode.FALSE);
       }
     }
   }
