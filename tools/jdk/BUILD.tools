@@ -141,12 +141,16 @@ py_binary(
     srcs = [
         "proguard_allowlister.py",
     ],
+    # See https://github.com/bazel-contrib/rules_python/issues/2945
+    legacy_create_init = 0,
 )
 
 py_test(
     name = "proguard_allowlister_test",
     srcs = ["proguard_allowlister_test.py"],
     data = ["proguard_allowlister_test_input.pgcfg"],
+    # See https://github.com/bazel-contrib/rules_python/issues/2945
+    legacy_create_init = 0,
     deps = [
         ":proguard_allowlister",
     ],

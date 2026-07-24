@@ -2360,7 +2360,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     for (int i = 0; i < exceptionsWithIncreasingSeverity.size() - 1; i++) {
       for (int j = i + 1; j < exceptionsWithIncreasingSeverity.size(); j++) {
         assertThat(
-                CompletionFunction.SEVERITY_ORDERING.max(
+                ActionExecutionException.SEVERITY_ORDERING.max(
                     exceptionsWithIncreasingSeverity.get(i),
                     exceptionsWithIncreasingSeverity.get(j)))
             .isEqualTo(exceptionsWithIncreasingSeverity.get(j));
@@ -2670,6 +2670,121 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     // The exit code should be propagated into the BuildFailedException whether or not --keep_going
     // is set.
     assertThat(e.getDetailedExitCode()).isEqualTo(INFRA_DETAILED_EXIT_CODE);
+  }
+
+  /**
+   * Test appropriate behavior when an action halts the build with a transitive catastrophic
+   * failure.
+   */
+  @Test
+  public void testKeepGoingExitCodeWithTransitiveUserAndInfrastructureError() throws Exception {
+    options.parse("--keep_going");
+
+    Path root = getExecRoot();
+    PathFragment execPath = PathFragment.create("out").getRelative("dir");
+    ActionLookupKey infrastructureConfiguredTargetKey =
+        new InjectedActionLookupKey("infrastructure");
+    Artifact infrastructureArtifact =
+        DerivedArtifact.create(
+            ArtifactRoot.asDerivedRoot(root, RootType.OUTPUT, "out"),
+            execPath.getRelative("zinfra"),
+            infrastructureConfiguredTargetKey);
+    CountDownLatch failureHappened = new CountDownLatch(1);
+    Action infraErrorAction =
+        new FailedExecAction(infrastructureArtifact, INFRA_DETAILED_EXIT_CODE) {
+          @Override
+          public ActionResult execute(ActionExecutionContext actionExecutionContext)
+              throws ActionExecutionException {
+            TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(
+                failureHappened, "didn't count failure");
+            return super.execute(actionExecutionContext);
+          }
+        };
+    ActionLookupValue infrastructureActionLookupValue =
+        createActionLookupValue(infraErrorAction, infrastructureConfiguredTargetKey);
+    ActionLookupKey failureConfiguredTargetKey = new InjectedActionLookupKey("failure");
+    Artifact failureArtifact =
+        DerivedArtifact.create(
+            ArtifactRoot.asDerivedRoot(root, RootType.OUTPUT, "out"),
+            execPath.getRelative("fail"),
+            failureConfiguredTargetKey);
+    Action failureAction = new FailedExecAction(failureArtifact, USER_DETAILED_EXIT_CODE);
+    ActionLookupValue failureActionLookupValue =
+        createActionLookupValue(failureAction, failureConfiguredTargetKey);
+    ActionLookupKey topConfiguredTargetKey = new InjectedActionLookupKey("top");
+    Artifact topArtifact =
+        DerivedArtifact.create(
+            ArtifactRoot.asDerivedRoot(root, RootType.OUTPUT, "out"),
+            execPath.getRelative("top"),
+            topConfiguredTargetKey);
+    Action topAction =
+        new DummyAction(
+            NestedSetBuilder.create(Order.STABLE_ORDER, failureArtifact, infrastructureArtifact),
+            topArtifact);
+    ActionLookupValue topActionLookupValue =
+        createActionLookupValue(topAction, topConfiguredTargetKey);
+    // Perform testing-related setup.
+    skyframeExecutor
+        .getDifferencerForTesting()
+        .inject(
+            ImmutableMap.of(
+                infrastructureConfiguredTargetKey, Delta.justNew(infrastructureActionLookupValue),
+                failureConfiguredTargetKey, Delta.justNew(failureActionLookupValue),
+                topConfiguredTargetKey, Delta.justNew(topActionLookupValue)));
+    skyframeExecutor
+        .getEvaluator()
+        .injectGraphTransformerForTesting(
+            DeterministicHelper.makeTransformer(
+                (key, type, order, context) -> {
+                  if (key.equals(Artifact.key(failureArtifact)) && type == EventType.SET_VALUE) {
+                    failureHappened.countDown();
+                  }
+                },
+                /* deterministic= */ true));
+    TopLevelTargetBuiltEventCollector collector = new TopLevelTargetBuiltEventCollector();
+    skyframeExecutor.setEventBus(new EventBus());
+    skyframeExecutor.getEventBus().register(collector);
+    setupEmbeddedArtifacts();
+    skyframeExecutor.setActionOutputRoot(getOutputPath());
+    skyframeExecutor.setActionExecutionProgressReportingObjects(
+        EMPTY_PROGRESS_SUPPLIER,
+        EMPTY_COMPLETION_RECEIVER,
+        ActionExecutionStatusReporter.create(reporter));
+
+    reporter.removeHandler(failFastHandler); // Expect errors.
+    Builder builder =
+        new SkyframeBuilder(
+            skyframeExecutor,
+            new ResourceManager(),
+            NULL_CHECKER,
+            /* actionExecutionSalt= */ "",
+            ModifiedFileSet.EVERYTHING_MODIFIED,
+            /* fileCache= */ null,
+            ActionInputPrefetcher.NONE,
+            ActionOutputDirectoryHelper.createForTesting(),
+            BugReporter.defaultInstance());
+    ImmutableSet<Artifact> normalArtifacts = ImmutableSet.of(topArtifact);
+    BuildFailedException e =
+        assertThrows(
+            BuildFailedException.class,
+            () ->
+                builder.buildArtifacts(
+                    reporter,
+                    normalArtifacts,
+                    ImmutableSet.of(),
+                    ImmutableSet.of(),
+                    ImmutableSet.of(),
+                    ImmutableSet.of(),
+                    ImmutableSet.of(),
+                    new DummyExecutor(fileSystem, rootDirectory),
+                    options,
+                    null,
+                    null,
+                    OutputChecker.TRUST_LOCAL_ONLY));
+    // The infrastructure exception should be propagated into the BuildFailedException whether or
+    // not --keep_going is set.
+    assertThat(e.getDetailedExitCode()).isEqualTo(INFRA_DETAILED_EXIT_CODE);
+    assertThat(collector.getCollectedEvents()).isEmpty();
   }
 
   /**

@@ -3570,6 +3570,37 @@ EOF
   assert_contains "bar" "$output_base/external/+repo+foo/out_dir/Ä_foo_∅.txt"
 }
 
+# Verifies that PAX names containing only Latin-1 code points remain distinguishable from raw
+# single-byte USTAR names.
+function test_extract_pax_tar_latin1_unicode_file_names() {
+  local archive_tar="${TEST_TMPDIR}/pax-latin1.tar"
+
+  pushd "${TEST_TMPDIR}"
+  mkdir "Ä_pax"
+  echo "bar" > "Ä_pax/Ä_foo.txt"
+  tar --format=pax -cvf pax-latin1.tar "Ä_pax"
+  popd
+
+  cat > $(setup_module_dot_bazel) <<EOF
+repo = use_repo_rule('//:test.bzl', 'repo')
+repo(name = 'foo')
+EOF
+  touch BUILD
+
+  cat >test.bzl <<EOF
+def _impl(repository_ctx):
+  repository_ctx.extract('${archive_tar}', 'out_dir', 'Ä_pax/')
+  repository_ctx.file("BUILD", "filegroup(name='bar', srcs=[])")
+
+repo = repository_rule(implementation=_impl)
+EOF
+
+  bazel build @foo//:bar >& $TEST_log || fail "Failed to build"
+
+  output_base="$(bazel info output_base)"
+  assert_contains "bar" "$output_base/external/+repo+foo/out_dir/Ä_foo.txt"
+}
+
 # Verifies that tar entries with USTAR headers, for which an encoding isn't specified, are extracted
 # correctly if that encoding happens to be UTF-8.
 function test_extract_ustar_tar_non_ascii_utf8_file_names() {

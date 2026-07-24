@@ -193,6 +193,11 @@ TEST(ProcessTest, WindowsEscapeArgTest) {
   AssertSubprocessReceivesArgsAsIntended({
       {L"", L"\"\""},
       {L" ", L"\" \""},
+      {L"\t", L"\"\t\""},
+      {L"a\tb", L"\"a\tb\""},
+      {L"with\ttab", L"\"with\ttab\""},
+      {L" \t ", L"\" \t \""},
+      {L"tab\t^caret", L"\"tab\t^caret\""},
       {L"\"", L"\"\\\"\""},
       {L"\"\\", L"\"\\\"\\\\\""},
       {L"\\", L"\\"},

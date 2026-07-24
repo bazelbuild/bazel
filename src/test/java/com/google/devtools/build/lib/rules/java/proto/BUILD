@@ -31,6 +31,7 @@ java_test(
         "//src/test/java/com/google/devtools/build/lib/rules/java:java-info",
         "//src/test/java/com/google/devtools/build/lib/rules/java:java_compile_action_test_helper",
         "//src/test/java/com/google/devtools/build/lib/testutil:JunitUtils",
+        "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",

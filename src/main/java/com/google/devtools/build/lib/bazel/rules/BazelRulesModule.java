@@ -51,6 +51,20 @@ public final class BazelRulesModule extends BlazeModule {
 
     @Deprecated
     @Option(
+        name = "use_target_platform_for_tests",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.DEPRECATED},
+        deprecationWarning =
+            "This flag is a no-op. Tests select an execution platform matching all constraints of"
+                + " the target platform by default. Make sure that all test target platforms are"
+                + " registered as execution platforms.",
+        help = "Deprecated. No-op.")
+    public abstract boolean getUseTargetPlatformForTests();
+
+    @Deprecated
+    @Option(
         name = "incompatible_use_new_cgroup_implementation",
         defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,

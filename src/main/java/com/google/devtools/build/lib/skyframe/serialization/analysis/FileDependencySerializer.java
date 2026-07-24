@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.Bundle
 import com.google.devtools.build.lib.profiler.CounterSeriesCollector;
 import com.google.devtools.build.lib.profiler.CounterSeriesTask;
 import com.google.devtools.build.lib.profiler.CounterSeriesTask.Color;
+import com.google.devtools.build.lib.profiler.CounterSeriesTaskImpl;
 import com.google.devtools.build.lib.skyframe.AbstractNestedFileOpNodes;
 import com.google.devtools.build.lib.skyframe.AbstractNestedFileOpNodes.NestedFileOpNodes;
 import com.google.devtools.build.lib.skyframe.AbstractNestedFileOpNodes.NestedFileOpNodesWithSource;
@@ -122,29 +123,30 @@ final class FileDependencySerializer {
     @VisibleForTesting final AtomicLong valueBytesUploaded = new AtomicLong();
 
     private static final CounterSeriesTask NODES_WAITING_FOR_DEPS =
-        new CounterSeriesTask(
+        new CounterSeriesTaskImpl(
             "Skycache: Invalidation: Nodes: Pending", "Waiting for deps", Color.RAIL_LOAD);
     private static final CounterSeriesTask NODES_WAITING_FOR_UPLOAD =
-        new CounterSeriesTask(
+        new CounterSeriesTaskImpl(
             "Skycache: Invalidation: Nodes: Pending", "Waiting for upload", Color.RAIL_LOAD);
     private static final CounterSeriesTask NODES_UPLOADED =
-        new CounterSeriesTask(
+        new CounterSeriesTaskImpl(
             "Skycache: Invalidation: Nodes: Uploaded", "Uploaded", Color.RAIL_RESPONSE);
     private static final CounterSeriesTask NODES_WITH_PROCESSING_ERRORS =
-        new CounterSeriesTask(
+        new CounterSeriesTaskImpl(
             "Skycache: Invalidation: Nodes: Processing Errors",
             "Processing Errors",
             Color.RAIL_RESPONSE);
 
     private static final CounterSeriesTask KEY_BYTES_WAITING_FOR_UPLOAD =
-        new CounterSeriesTask("Skycache: Invalidation: Bytes: Pending", "Key", Color.RAIL_LOAD);
+        new CounterSeriesTaskImpl("Skycache: Invalidation: Bytes: Pending", "Key", Color.RAIL_LOAD);
     private static final CounterSeriesTask VALUE_BYTES_WAITING_FOR_UPLOAD =
-        new CounterSeriesTask("Skycache: Invalidation: Bytes: Pending", "Value", Color.RAIL_LOAD);
+        new CounterSeriesTaskImpl(
+            "Skycache: Invalidation: Bytes: Pending", "Value", Color.RAIL_LOAD);
     private static final CounterSeriesTask KEY_BYTES_UPLOADED =
-        new CounterSeriesTask(
+        new CounterSeriesTaskImpl(
             "Skycache: Invalidation: Bytes: Uploaded", "Key", Color.RAIL_RESPONSE);
     private static final CounterSeriesTask VALUE_BYTES_UPLOADED =
-        new CounterSeriesTask(
+        new CounterSeriesTaskImpl(
             "Skycache: Invalidation: Bytes: Uploaded", "Value", Color.RAIL_RESPONSE);
 
     @Override

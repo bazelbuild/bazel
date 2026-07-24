@@ -36,6 +36,7 @@ import net.starlark.java.syntax.StarlarkType;
 import net.starlark.java.syntax.SyntaxError;
 import net.starlark.java.syntax.TypeChecker;
 import net.starlark.java.syntax.TypeConstructor;
+import net.starlark.java.syntax.TypeContext;
 import net.starlark.java.syntax.TypeTable;
 import net.starlark.java.syntax.TypeTagger;
 import net.starlark.java.syntax.Types;
@@ -186,6 +187,12 @@ public final class StaticTypeCheckTest {
   @StarlarkBuiltin(name = "MissingStaticMethodTypeBuiltin")
   public static final class MissingStaticMethodTypeBuiltin implements StarlarkValue {
     // no getAssociatedTypeConstructor()
+
+    // Override ensures that we don't generate a StarlarkBuiltinAutoType for this class.
+    @Override
+    public StarlarkType getStarlarkType(StarlarkSemantics semantics) {
+      throw new UnsupportedOperationException("fail");
+    }
   }
 
   @StarlarkLibrary
@@ -341,12 +348,14 @@ public final class StaticTypeCheckTest {
   }
 
   @StarlarkBuiltin(name = "MyType")
-  public static final class MyType implements StarlarkValue {
+  public static sealed class MyType implements StarlarkValue permits MyTypeSubclass {
     @StarlarkMethod(name = "foo", doc = "...")
     public int foo() {
       return 123;
     }
   }
+
+  public static final class MyTypeSubclass extends MyType {}
 
   @StarlarkBuiltin(name = "MySelfCallType")
   public static final class MySelfCallType implements StarlarkValue {
@@ -366,7 +375,7 @@ public final class StaticTypeCheckTest {
     @Override
     // Override causes no 'MyExplicitlyTypedType' type to be auto-generated.
     public StarlarkType getStarlarkType(StarlarkSemantics semantics) {
-      return Types.STRUCT_OF_ANY;
+      return Types.ANY_STRUCT;
     }
   }
 
@@ -387,7 +396,7 @@ public final class StaticTypeCheckTest {
         }
 
         @Override
-        public ImmutableList<StarlarkType> getSupertypes() {
+        public ImmutableList<StarlarkType> getSupertypes(TypeContext context) {
           return ImmutableList.of(
               // Nullary callable returning int.
               Types.callable(
@@ -410,29 +419,27 @@ public final class StaticTypeCheckTest {
         Module.withPredeclared(
             StarlarkSemantics.DEFAULT,
             ImmutableMap.of(
-                "my_unannotated_type_value",
-                new MyUnannotatedType(),
                 "my_type_value",
                 new MyType(),
+                "my_type_subclass_value",
+                new MyTypeSubclass(),
                 "my_self_call_value",
                 new MySelfCallType(),
                 "my_explicitly_typed_value",
                 new MyExplicitlyTypedType(),
                 "my_explicitly_typed_self_call_value",
                 new MyExplicitlyTypedSelfCallType()));
+
     assertValid(
         """
-        a: int = my_unannotated_type_value.foo()
-        b: int = my_type_value.foo()
+        a: int = my_type_value.foo()
+        b: int = my_type_subclass_value.foo()
         c: int = my_self_call_value()
         d: int = my_self_call_value.bar()
         e: int = my_explicitly_typed_value.some_field  # typed as struct-of-Any
         f: int = my_explicitly_typed_self_call_value()
         """);
 
-    assertInvalid(
-        "cannot assign type 'MyUnannotatedType' to 'x' of type 'str'",
-        "x: str = my_unannotated_type_value");
     assertInvalid("cannot assign type 'MyType' to 'x' of type 'str'", "x: str = my_type_value");
     assertInvalid(
         "cannot assign type 'MySelfCallType' to 'x' of type 'str'", "x: str = my_self_call_value");
@@ -450,6 +457,37 @@ public final class StaticTypeCheckTest {
         "'my_type_value' of type 'MyType' does not have field 'bar'",
         "_: str = my_type_value.bar()");
     assertInvalid("'my_type_value' is not callable; got type 'MyType'", "_: str = my_type_value()");
+  }
+
+  @Test
+  public void unannotatedStarlarkValues_notAutoTyped() throws Exception {
+    module =
+        Module.withPredeclared(
+            StarlarkSemantics.DEFAULT,
+            ImmutableMap.of("unannotated_value", new MyUnannotatedType()));
+    // MyUnannotatedType has no @StarlarkBuiltin-annotated ancestor, so there's no
+    // StarlarkBuiltinAutoType generated for it; therefore, unannotated_value is typed as Object.
+    assertInvalid("cannot assign type 'object' to 'x' of type 'str'", "x: str = unannotated_value");
+  }
+
+  @Test
+  public void subclassesShareSameAutoType() throws Exception {
+    module =
+        Module.withPredeclared(
+            StarlarkSemantics.DEFAULT,
+            ImmutableMap.of(
+                "my_type_value", new MyType(), "my_type_subclass_value", new MyTypeSubclass()));
+    assertValid(
+        """
+        _: None  # ensure file uses type syntax
+        list_a = [my_type_value]  # inferred as list[MyType]
+        list_a[0] = my_type_subclass_value
+        list_b = [my_type_subclass_value]  # also inferred as list[MyType]
+        list_b[0] = my_type_value
+        """);
+
+    assertInvalid(
+        "cannot assign type 'MyType' to 'x' of type 'str'", "x: str = my_type_subclass_value");
   }
 
   @StarlarkBuiltin(name = "SelfReferentialType")

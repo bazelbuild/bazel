@@ -17,6 +17,6 @@ java_library(
 )
 
 java_library(
-    name = "sc_flags",
-    srcs = ["ScFlags.java"],
+    name = "sc_only",
+    srcs = ["ScOnly.java"],
 )

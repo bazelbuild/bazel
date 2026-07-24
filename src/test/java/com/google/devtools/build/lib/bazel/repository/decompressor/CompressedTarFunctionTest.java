@@ -20,14 +20,18 @@ import static com.google.devtools.build.lib.bazel.repository.decompressor.TestAr
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
 
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.FileSystem.NotASymlinkException;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.lib.vfs.util.FileSystems;
 import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.HashMap;
 import java.util.zip.GZIPInputStream;
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
@@ -206,5 +210,62 @@ public class CompressedTarFunctionTest {
     assertThat(thrown)
         .hasMessageThat()
         .contains("Tar entries cannot refer to files outside of their directory");
+  }
+
+  @Test
+  public void testDecompressTarWithChainedSymlinkEscape() throws Exception {
+    FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
+    Path outDir = fs.getPath("/out");
+    Path tarGzPath = fs.getPath("/chained_symlink.tar.gz");
+
+    // Symlink entries in the tar archive are processed in deterministic insertion order
+    // (guaranteed by LinkedHashMap in CompressedTarFunction).
+    String a = "a";
+    String b = "b";
+    String w = "w";
+    String x = "x";
+
+    try (OutputStream os = tarGzPath.getOutputStream();
+        GzipCompressorOutputStream gzos = new GzipCompressorOutputStream(os);
+        TarArchiveOutputStream tos = new TarArchiveOutputStream(gzos)) {
+
+      // E1: a -> .
+      TarArchiveEntry e1 = new TarArchiveEntry(a, TarArchiveEntry.LF_SYMLINK);
+      e1.setLinkName(".");
+      tos.putArchiveEntry(e1);
+      tos.closeArchiveEntry();
+
+      // E2: a/b -> ..
+      TarArchiveEntry e2 = new TarArchiveEntry(a + "/" + b, TarArchiveEntry.LF_SYMLINK);
+      e2.setLinkName("..");
+      tos.putArchiveEntry(e2);
+      tos.closeArchiveEntry();
+
+      // E3: w/x -> ../b
+      TarArchiveEntry e3 = new TarArchiveEntry(w + "/" + x, TarArchiveEntry.LF_SYMLINK);
+      e3.setLinkName("../" + b);
+      tos.putArchiveEntry(e3);
+      tos.closeArchiveEntry();
+
+      // E4: w/x/target -> escaped
+      TarArchiveEntry e4 = new TarArchiveEntry(w + "/" + x + "/target", TarArchiveEntry.LF_SYMLINK);
+      e4.setLinkName("escaped");
+      tos.putArchiveEntry(e4);
+      tos.closeArchiveEntry();
+    }
+
+    DecompressorDescriptor descriptor =
+        DecompressorDescriptor.builder()
+            .setArchivePath(tarGzPath)
+            .setDestinationPath(outDir)
+            .build();
+
+    // With the fix, this should throw NotASymlinkException because E1 (or E3)
+    // will try to overwrite an existing directory with a symlink.
+    assertThrows(NotASymlinkException.class, () -> decompress(descriptor));
+
+    // Verify that the escape link was NOT created.
+    Path escapeLink = outDir.getParentDirectory().getRelative("target");
+    assertThat(escapeLink.exists()).isFalse();
   }
 }

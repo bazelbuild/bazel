@@ -6,6 +6,7 @@ load("@rules_java//java:java_binary.bzl", "java_binary")
 load("@rules_python//python:defs.bzl", "py_binary", "py_library")
 load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 load("//src:release_archive.bzl", "minimum_java_compilation_runtime_filegroup", "minimum_java_runtime_filegroup", "release_archive")
+load(":bazel_binary.bzl", "bazel_binary")
 load(":embedded_tools.bzl", "srcsfile")
 load(":rule_size_test.bzl", "rule_size_test")
 
@@ -222,24 +223,32 @@ sh_binary(
     ],
 )
 
+# The jlink tool must have the same build as the target JDK. When cross-jlinking
+# the Windows arm64 runtime on a Windows x64 host, jdk_for_jlink (the host's
+# embedded JDK) is Azul Zulu and would not match the BellSoft target, so a
+# matching BellSoft Windows x64 build is used as the jlink tool instead. These
+# selects are resolved in the target configuration, so they key on the target
+# platform even though the selected tool is built for (and runs on) the exec
+# platform.
+_JLINK_TOOL = select({
+    "//src/conditions:windows_arm64": ["@openjdk_win_arm64_jlink_tool//file"],
+    "//conditions:default": [":jdk_for_jlink"],
+})
+
+_JLINK_TOOL_LOCATION = select({
+    "//src/conditions:windows_arm64": "$(location @openjdk_win_arm64_jlink_tool//file)",
+    "//conditions:default": "$(location :jdk_for_jlink)",
+})
+
 genrule(
     name = "embedded_jdk_minimal",
     srcs = [
         ":embedded_jdk_vanilla",
         ":jdeps_modules.golden",
-    ] + select({
-        "//src/conditions:windows_arm64": ["@openjdk_win_arm64_jmods//file"],
-        "//conditions:default": [],
-    }),
-    outs = ["minimal_jdk.zip"],
-    cmd = "$(location :minimize_jdk) $(location :jdk_for_jlink) $(location :embedded_jdk_vanilla) $(location :jdeps_modules.golden) $@" + select({
-        "//src/conditions:windows_arm64": " $(location @openjdk_win_arm64_jmods//file)",
-        "//conditions:default": "",
-    }),
-    tools = [
-        ":jdk_for_jlink",
-        ":minimize_jdk",
     ],
+    outs = ["minimal_jdk.zip"],
+    cmd = "$(location :minimize_jdk) " + _JLINK_TOOL_LOCATION + " $(location :embedded_jdk_vanilla) $(location :jdeps_modules.golden) $@",
+    tools = [":minimize_jdk"] + _JLINK_TOOL,
     visibility = ["//src/test/shell/bazel:__pkg__"],
 )
 
@@ -248,19 +257,10 @@ genrule(
     srcs = [
         ":embedded_jdk_vanilla",
         ":jdeps_modules.golden",
-    ] + select({
-        "//src/conditions:windows_arm64": ["@openjdk_win_arm64_jmods//file"],
-        "//conditions:default": [],
-    }),
-    outs = ["allmodules_jdk.zip"],
-    cmd = "$(location :minimize_jdk) --allmodules $(location :jdk_for_jlink) $(location :embedded_jdk_vanilla) $(location :jdeps_modules.golden) $@" + select({
-        "//src/conditions:windows_arm64": " $(location @openjdk_win_arm64_jmods//file)",
-        "//conditions:default": "",
-    }),
-    tools = [
-        ":jdk_for_jlink",
-        ":minimize_jdk",
     ],
+    outs = ["allmodules_jdk.zip"],
+    cmd = "$(location :minimize_jdk) --allmodules " + _JLINK_TOOL_LOCATION + " $(location :embedded_jdk_vanilla) $(location :jdeps_modules.golden) $@",
+    tools = [":minimize_jdk"] + _JLINK_TOOL,
     visibility = ["//src/test/shell/bazel:__pkg__"],
 )
 
@@ -336,20 +336,11 @@ genrule(
     }),
 )
 
-[genrule(
+[bazel_binary(
     name = "bazel-bin" + suffix,
-    srcs = [
-        "//src/main/cpp:client",
-        "package-zip" + jdk,
-    ],
-    outs = ["bazel" + suffix],
-    # In msys, a file path without .exe suffix(say foo), refers to a file with .exe
-    # suffix(say foo.exe), if foo.exe exists and foo doesn't. So, on windows, we
-    # need to remove bazel.exe first, so that cat to bazel won't fail.
-    cmd = "rm -f $@ $@.unaligned; cat $(location //src/main/cpp:client) $(location :package-zip" + jdk + ") > $@.unaligned && $(location //src/java_tools/singlejar/java/com/google/devtools/build/zip:adjust_sfx) $@.unaligned $@ && rm -f $@.unaligned && chmod a+x $@",
-    executable = 1,
-    output_to_bindir = 1,
-    tools = ["//src/java_tools/singlejar/java/com/google/devtools/build/zip:adjust_sfx"],
+    out = "bazel" + suffix,
+    client = "//src/main/cpp:client",
+    package_zip = "package-zip" + jdk,
     visibility = [
         "//:__pkg__",  # For distribution archive lockfile generation
         "//scripts:__pkg__",  # For bash completion generation
@@ -367,9 +358,8 @@ genrule(
     ("_nojdk", "_nojdk"),
 ]]
 
-# Build an executable named `bazel.exe`.
+# Build an executable named `bazel.exe` (and suffixes).
 # Works on all platforms but only makes sense on Windows.
-# Workaround for non-configurability of genrule's `outs` attribute.
 [copy_file(
     name = "bazel-bin" + suffix + ".exe",
     src = ":bazel-bin" + suffix,
@@ -432,6 +422,7 @@ filegroup(
         "//src/tools/launcher:srcs",
         "//src/tools/one_version:srcs",
         "//src/tools/remote:srcs",
+        "//src/tools/simple_catter:srcs",
         "//src/tools/singlejar:srcs",
         "//src/tools/starlark/java/com/google/devtools/starlark/common:srcs",
         "//src/tools/workspacelog:srcs",

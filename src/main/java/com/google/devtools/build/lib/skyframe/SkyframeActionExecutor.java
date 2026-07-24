@@ -244,7 +244,9 @@ public final class SkyframeActionExecutor {
   private OutputService outputService;
   private boolean finalizeActions;
   private boolean rewindingEnabled;
+  private int maxRepeatedLostInputs;
   private boolean preciseRewindingEnabled;
+  private boolean bustActionCaches; // Only for Skycache.
   private boolean invocationRetriesEnabled;
   private final Supplier<ImmutableList<Root>> sourceRootSupplier;
 
@@ -346,6 +348,8 @@ public final class SkyframeActionExecutor {
     this.finalizeActions = buildRequestOptions.getFinalizeActions();
     this.rewindingEnabled = buildRequestOptions.getRewindLostInputs();
     this.preciseRewindingEnabled = buildRequestOptions.getExperimentalPreciseRewinding();
+    this.maxRepeatedLostInputs = buildRequestOptions.getMaxRepeatedLostInputs();
+    this.bustActionCaches = buildRequestOptions.getBustActionCachesTarget() != null;
     this.invocationRetriesEnabled =
         options.getOptions(ExecutionOptions.class).getRemoteRetryOnTransientCacheError() > 0;
     this.outputService = checkNotNull(outputService);
@@ -442,6 +446,15 @@ public final class SkyframeActionExecutor {
     return preciseRewindingEnabled;
   }
 
+  /**
+   * Returns the maximum number of times the same input (or top-level output) may be lost by the
+   * same action before rewinding gives up and fails the build. Configured by {@code
+   * --experimental_max_repeated_lost_inputs}.
+   */
+  public int maxRepeatedLostInputs() {
+    return maxRepeatedLostInputs;
+  }
+
   public boolean invocationRetriesEnabled() {
     return invocationRetriesEnabled;
   }
@@ -495,6 +508,7 @@ public final class SkyframeActionExecutor {
     this.buildActionMap = null;
     this.rewoundActions = null;
     this.actionCacheChecker = null;
+    this.bustActionCaches = false;
     this.outputDirectoryHelper = null;
     this.actionConcurrencyMeter.stop();
     this.actionConcurrencyMeter = null;
@@ -516,13 +530,19 @@ public final class SkyframeActionExecutor {
   }
 
   /**
-   * True if remote retrieval should be skipped for this {@code lookupData} because it was rewound.
+   * True if remote retrieval should be skipped for this {@code lookupData} because it was rewound
+   * or {@code --bust_action_caches} was passed.
    *
    * <p>This happens when an action fails to execute because one of its inputs was lost. It usually
    * indicates that the remotely retrieved {@code ActionExecutionValue} references remote data that
    * is inaccessible.
    */
   public boolean shouldSkipRetrieval(ActionLookupData lookupData) throws InterruptedException {
+    if (bustActionCaches) {
+      // Ideally we'd only return true if the target matches or is an rdep of the cache buster
+      // target, but it's not easy to determine that.
+      return true;
+    }
     ActionLookupValue lookupValue =
         actionLookupValuePeeker.getExistingActionLookupValue(lookupData.getActionLookupKey());
     if (lookupValue == null) {

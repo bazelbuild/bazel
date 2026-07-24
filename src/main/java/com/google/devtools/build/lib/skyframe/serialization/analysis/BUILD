@@ -111,6 +111,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/profiler",
+        "//src/main/java/com/google/devtools/build/lib/profiler:counter_series_task_impl",
         "//src/main/java/com/google/devtools/build/lib/rules:alias",
         "//src/main/java/com/google/devtools/build/lib/skyframe:action_execution_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:action_template_expansion_value",
@@ -175,6 +176,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/profiler",
+        "//src/main/java/com/google/devtools/build/lib/profiler:counter_series_task_impl",
         "//src/main/java/com/google/devtools/build/lib/skyframe:filesystem_keys",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:key_bytes_provider",
@@ -304,7 +306,7 @@ java_library(
     ],
     deps = [
         ":remote_analysis_cache_storage_type",
-        "//src/main/java/com/google/devtools/build/lib/skybridge:sc_flags",
+        "//src/main/java/com/google/devtools/build/lib/skybridge:sc_only",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:guava",
     ],
@@ -364,6 +366,18 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:bucket",
         "//third_party:error_prone_annotations",
         "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "lookup_result_impl",
+    srcs = [
+        "LookupResultImpl.java",
+        "LookupTopLevelTargetsResultImpl.java",
+    ],
+    deps = [
+        ":lookup_result",
+        "//third_party:jsr305",
     ],
 )
 

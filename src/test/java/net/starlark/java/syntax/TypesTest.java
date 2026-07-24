@@ -29,18 +29,50 @@ import org.junit.runners.JUnit4;
 // TODO: #27370 - Move this to match whichever package Types.java is going to live in.
 @RunWith(JUnit4.class)
 public class TypesTest {
+  private static final TypeContext DUMMY_CONTEXT =
+      new TypeContext() {
+        @Override
+        public StarlarkType getStrFieldType(String name) {
+          return null;
+        }
+
+        @Override
+        public StarlarkType getListFieldType(String name) {
+          return null;
+        }
+
+        @Override
+        public StarlarkType getDictFieldType(String name) {
+          return null;
+        }
+
+        @Override
+        public StarlarkType getSetFieldType(String name) {
+          return null;
+        }
+
+        @Override
+        public StarlarkType getPredeclaredSymbolType(String name) {
+          return null;
+        }
+
+        @Override
+        public StarlarkType getUniversalSymbolType(String name) {
+          return null;
+        }
+      };
 
   /** Asserts {@code t1} is assignable to {@code t2}. */
   private static void assertLt(StarlarkType t1, StarlarkType t2) {
     assertWithMessage("%s is expected to be assignable to %s", t1, t2)
-        .that(StarlarkType.assignableFrom(t2, t1))
+        .that(StarlarkType.assignableFrom(t2, t1, DUMMY_CONTEXT))
         .isTrue();
   }
 
   /** Asserts {@code t1} is *not* assignable to {@code t2}. */
   private static void assertNotLt(StarlarkType t1, StarlarkType t2) {
     assertWithMessage("%s is expected to be *not* assignable to %s", t1, t2)
-        .that(StarlarkType.assignableFrom(t2, t1))
+        .that(StarlarkType.assignableFrom(t2, t1, DUMMY_CONTEXT))
         .isFalse();
   }
 
@@ -321,24 +353,33 @@ public class TypesTest {
     assertLtAndGt(
         Types.struct(ImmutableMap.of("f", Types.INT)),
         Types.struct(ImmutableMap.of("f", Types.ANY)));
-    assertStrictLtChain(
+    assertLtAndGt(
         Types.partialStruct(ImmutableMap.of("f", Types.INT)),
         Types.struct(ImmutableMap.of("f", Types.INT)));
 
     // Order of fields is irrelevant.
     assertLtAndGt(
         Types.struct(ImmutableMap.of("f", Types.INT, "g", Types.BOOL)),
-        Types.struct(ImmutableMap.of("g", Types.BOOL, "f", Types.INT)));
-    assertLtAndGt(
+        Types.struct(ImmutableMap.of("g", Types.BOOL, "f", Types.INT)),
         Types.partialStruct(ImmutableMap.of("f", Types.INT, "g", Types.BOOL)),
         Types.partialStruct(ImmutableMap.of("g", Types.BOOL, "f", Types.INT)));
 
+    // Partially overlapping sets of explicitly-specified fields
     assertIncomparable(
         Types.struct(ImmutableMap.of("f", Types.INT, "g", Types.INT)),
         Types.struct(ImmutableMap.of("f", Types.INT, "h", Types.INT)));
+    assertLt(
+        Types.partialStruct(ImmutableMap.of("f", Types.INT, "g", Types.INT)),
+        Types.struct(ImmutableMap.of("f", Types.INT, "h", Types.INT)));
+
+    // ANY_STRUCT is assignable to and from any other struct type.
+    assertLtAndGt(Types.ANY_STRUCT, Types.struct(ImmutableMap.of()));
+    assertLtAndGt(Types.ANY_STRUCT, Types.struct(ImmutableMap.of("f", Types.INT)));
+    assertLtAndGt(Types.ANY_STRUCT, Types.partialStruct(ImmutableMap.of()));
+    assertLtAndGt(Types.ANY_STRUCT, Types.partialStruct(ImmutableMap.of("f", Types.FLOAT)));
 
     assertLtAndGt(
-        Types.STRUCT_OF_ANY,
+        Types.partialStruct(ImmutableMap.of()),
         Types.partialStruct(ImmutableMap.of("f", Types.ANY)),
         Types.partialStruct(ImmutableMap.of("f", Types.INT)),
         Types.partialStruct(ImmutableMap.of("f", Types.INT, "g", Types.INT)),
@@ -348,11 +389,10 @@ public class TypesTest {
         Types.partialStruct(ImmutableMap.of("f", Types.FLOAT)));
 
     assertStrictLtChain(
-        Types.STRUCT_OF_ANY,
         Types.struct(ImmutableMap.of("f", Types.INT, "g", Types.STR, "h", Types.BOOL)),
         Types.struct(ImmutableMap.of("f", Types.INT, "h", Types.ANY)),
         Types.struct(ImmutableMap.of("f", Types.union(Types.INT, Types.FLOAT))),
-        Types.struct(ImmutableMap.of()));
+        Types.EMPTY_STRUCT);
   }
 
   @Test

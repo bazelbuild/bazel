@@ -1646,6 +1646,63 @@ public class CriticalPathComputerTest extends FoundationTestCase {
     checkCriticalPath(1600, "1.60");
   }
 
+  @Test
+  public void testTreeFileDependency_slowSiblingTemplateAction() throws Exception {
+    SpecialArtifact tree =
+        ActionsTestUtil.createTreeArtifactWithGeneratingAction(derivedArtifactRoot, "tree");
+    MockAction actionA = new MockAction(ImmutableList.of(), ImmutableSet.of(tree));
+
+    SpecialArtifact treeB =
+        ActionsTestUtil.createTreeArtifactWithGeneratingAction(derivedArtifactRoot, "treeB");
+
+    ActionLookupKey templateKey1 =
+        ActionTemplateExpansionValue.key(ActionsTestUtil.NULL_ARTIFACT_OWNER, 0);
+
+    TreeFileArtifact childA1 = TreeFileArtifact.createTreeOutput(tree, "input_file1.txt");
+    TreeFileArtifact childA2 = TreeFileArtifact.createTreeOutput(tree, "input_file2.txt");
+
+    // actionA1 -> output treeB/file1.txt (fast: 100ms)
+    TreeFileArtifact childB1 = createTemplateExpansionOutput(treeB, "file1.txt", templateKey1, 0);
+    MockAction actionA1 = new MockAction(ImmutableList.of(childA1), ImmutableSet.of(childB1));
+
+    // actionA2 -> output treeB/file2.txt (slow: 1000ms)
+    TreeFileArtifact childB2 = createTemplateExpansionOutput(treeB, "file2.txt", templateKey1, 1);
+    MockAction actionA2 = new MockAction(ImmutableList.of(childA2), ImmutableSet.of(childB2));
+
+    SpecialArtifact treeC =
+        ActionsTestUtil.createTreeArtifactWithGeneratingAction(derivedArtifactRoot, "treeC");
+
+    ActionLookupKey templateKey2 =
+        ActionTemplateExpansionValue.key(ActionsTestUtil.NULL_ARTIFACT_OWNER, 1);
+
+    // actionB1 (inputs treeB/file1.txt from actionA1, outputs treeC/out1.txt, duration: 500ms)
+    TreeFileArtifact childC1 = createTemplateExpansionOutput(treeC, "out1.txt", templateKey2, 0);
+    MockAction actionB1 = new MockAction(ImmutableList.of(childB1), ImmutableSet.of(childC1));
+
+    FakeActionInputFileCache cache = new FakeActionInputFileCache();
+    TreeArtifactValue.Builder treeBuilder = TreeArtifactValue.newBuilder(tree);
+    writeChildAndRegister(treeBuilder, childA1, "input1");
+    writeChildAndRegister(treeBuilder, childA2, "input2");
+    cache.putTreeArtifact(tree, treeBuilder.build());
+
+    TreeArtifactValue.Builder treeBBuilder = TreeArtifactValue.newBuilder(treeB);
+    writeChildAndRegister(treeBBuilder, childB1, "content1");
+    writeChildAndRegister(treeBBuilder, childB2, "content2");
+    cache.putTreeArtifact(treeB, treeBBuilder.build());
+
+    childC1.getPath().getParentDirectory().createDirectoryAndParents();
+    FileSystemUtils.writeContentAsLatin1(childC1.getPath(), "out1");
+
+    runAction(actionA, 100, cache);
+    runAction(actionA1, 100, cache, ActionLookupData.create(templateKey1, 0));
+    runAction(actionA2, 1000, cache, ActionLookupData.create(templateKey1, 1));
+    runAction(actionB1, 500, cache, ActionLookupData.create(templateKey2, 0));
+
+    // Critical path of actionB1 should be:
+    // actionA (100) -> actionA2 (1000) -> actionB1 (500) = 1600.
+    checkCriticalPath(1600, "1.60");
+  }
+
   // Test scenario:
   //
   //   [actionA] (outputs TreeArtifact tree)

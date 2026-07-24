@@ -455,7 +455,7 @@ public final class TypeCheckerTest {
     }
 
     @Override
-    public ImmutableList<StarlarkType> getSupertypes() {
+    public ImmutableList<StarlarkType> getSupertypes(TypeContext context) {
       return supertypes;
     }
 
@@ -590,7 +590,9 @@ public final class TypeCheckerTest {
     assertValid(
         """
         rhs: Foo[int]
+        any_struct: struct = rhs
         compatible_total_struct: struct[{"f": int | str}] = rhs
+        compatible_partial_struct: struct[{"f": int | str}, ...] = rhs
         struct_of_no_fields: struct[{}] = rhs
         """);
 
@@ -600,21 +602,6 @@ public final class TypeCheckerTest {
         """
         rhs: Foo[int]
         incompatible_total_struct: struct[{"f": int, "g": str}] = rhs
-        """);
-
-    // Cannot assign a subtype of a total struct to any partial struct
-    assertInvalid(
-        ":2:1: cannot assign type 'Foo[int]' to 'partial_struct' of type 'struct[{\"f\": int|str},"
-            + " ...]'",
-        """
-        rhs: Foo[int]
-        partial_struct: struct[{"f": int | str}, ...] = rhs
-        """);
-    assertInvalid(
-        ":2:1: cannot assign type 'Foo[int]' to 'struct_of_all_fields' of type 'struct'",
-        """
-        rhs: Foo[int]
-        struct_of_all_fields: struct = rhs
         """);
   }
 

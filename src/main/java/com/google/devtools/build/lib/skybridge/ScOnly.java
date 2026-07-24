@@ -19,8 +19,8 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-/** Annotation for flags that either only concern the SC (Service Component). */
+/** Marks a class as belonging exclusively to the Service Component (SC). */
 @Inherited
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.TYPE)
-public @interface ScFlags {}
+public @interface ScOnly {}

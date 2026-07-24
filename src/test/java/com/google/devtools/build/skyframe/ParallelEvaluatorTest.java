@@ -4320,7 +4320,7 @@ public class ParallelEvaluatorTest {
 
   @Test
   public void injectVersion_errorBubbling_doesNotCrash() throws Exception {
-    SkyKey key = () -> SkyFunctionName.createHermetic("HERMETIC_FN");
+    SkyKey key = () -> SkyFunctionName.createSemiHermetic("SEMI_HERMETIC_FN");
     GroupedDeps previouslyRequestedDeps = new GroupedDeps();
     ParallelEvaluatorContext evaluatorContext = mock(ParallelEvaluatorContext.class);
     Version version = mock(Version.class);
@@ -4338,5 +4338,28 @@ public class ParallelEvaluatorTest {
 
     // This should not crash on any precondition violation.
     env.injectVersion(version);
+  }
+
+  @Test
+  public void nonCatastrophicError_withKeepGoingKey_doesNotThrowIllegalStateException()
+      throws Exception {
+    graph = new InMemoryGraphImpl();
+    SkyKey parentKey = skyKey("parent");
+    SkyKey errorKey = skyKey("error");
+    tester.getOrCreate(errorKey).setHasError(true);
+    tester.getOrCreate(parentKey).addDependency(errorKey).setComputedValue(CONCATENATE);
+
+    Predicate<SkyKey> forceKeepGoingOnErrorKeyPredicate = key -> key.equals(errorKey);
+    ParallelEvaluator evaluator =
+        makeEvaluator(
+            graph,
+            tester.getSkyFunctionMap(),
+            EventFilter.FULL_STORAGE,
+            Version.constant(),
+            forceKeepGoingOnErrorKeyPredicate);
+
+    EvaluationResult<StringValue> result = evaluator.eval(ImmutableList.of(parentKey));
+
+    assertThat(result.hasError()).isTrue();
   }
 }

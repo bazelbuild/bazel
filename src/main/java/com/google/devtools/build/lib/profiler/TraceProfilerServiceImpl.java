@@ -96,7 +96,7 @@ public final class TraceProfilerServiceImpl implements TraceProfilerService {
       Extrema<SlowTask> extrema = extremaAggregators[(int) (taskData.threadId % SHARDS)];
       synchronized (extrema) {
         extrema.aggregate(
-            new SlowTask(taskData.durationNanos, taskData.description, taskData.type));
+            new SlowTaskImpl(taskData.durationNanos, taskData.description, taskData.type));
       }
     }
 
@@ -324,14 +324,15 @@ public final class TraceProfilerServiceImpl implements TraceProfilerService {
       double[] actionCountValues = actionCountTimeSeries.toDoubleArray(len);
       actionCountTimeSeriesRef.set(null);
       counterSeriesMap.put(
-          new CounterSeriesTask("action count", "action", /* color= */ null), actionCountValues);
+          new CounterSeriesTaskImpl("action count", "action", /* color= */ null),
+          actionCountValues);
     }
     TimeSeries actionCacheCountTimeSeries = actionCacheCountTimeSeriesRef.get();
     if (actionCacheCountTimeSeries != null) {
       double[] actionCacheCountValues = actionCacheCountTimeSeries.toDoubleArray(len);
       actionCacheCountTimeSeriesRef.set(null);
       counterSeriesMap.put(
-          new CounterSeriesTask("action cache count", "local action cache", /* color= */ null),
+          new CounterSeriesTaskImpl("action cache count", "local action cache", /* color= */ null),
           actionCacheCountValues);
     }
     if (!counterSeriesMap.isEmpty()) {
@@ -344,7 +345,7 @@ public final class TraceProfilerServiceImpl implements TraceProfilerService {
       double[] localActionCountValues = localActionCountTimeSeries.toDoubleArray(len);
       localActionCountTimeSeriesRef.set(null);
       localCounterSeriesMap.put(
-          new CounterSeriesTask(
+          new CounterSeriesTaskImpl(
               "action count (local)", "local action", CounterSeriesTask.Color.DETAILED_MEMORY_DUMP),
           localActionCountValues);
     }
@@ -360,7 +361,7 @@ public final class TraceProfilerServiceImpl implements TraceProfilerService {
         var timeSeries = entry.getValue();
         double[] values = timeSeries.toDoubleArray(len);
         inflightRpcCounterSeriesMap.put(
-            new CounterSeriesTask("Inflight RPCs - " + name, name, /* color= */ null), values);
+            new CounterSeriesTaskImpl("Inflight RPCs - " + name, name, /* color= */ null), values);
         logCounters(
             inflightRpcCounterSeriesMap, actionCountStartTime, ACTION_COUNT_BUCKET_DURATION);
       }

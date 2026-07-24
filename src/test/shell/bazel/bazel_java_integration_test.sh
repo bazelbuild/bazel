@@ -273,10 +273,16 @@ EOF
   cat bazel-bin/java/javabin >& $TEST_log
   expect_log "JAVABIN=.*/zoo/bin/java"
 
+  # Remove --java_runtime_version from bazelrc.
+  sed -i.bak '/--java_runtime_version/d' "$TEST_TMPDIR/bazelrc"
+
   # Check that we use local_jdk when it's not specified.
   bazel build //java:javabin
   cat bazel-bin/java/javabin >& $TEST_log
   expect_log "JAVABIN=.*/rules_java+.*+toolchains+local_jdk/bin/java"
+
+  # Restore bazelrc.
+  mv "$TEST_TMPDIR/bazelrc.bak" "$TEST_TMPDIR/bazelrc"
 }
 
 function write_javabase_files() {

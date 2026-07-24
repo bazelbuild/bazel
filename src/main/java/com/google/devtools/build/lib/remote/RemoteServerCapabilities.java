@@ -34,7 +34,6 @@ import io.grpc.CallCredentials;
 import io.grpc.Channel;
 import io.grpc.ManagedChannel;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 import javax.annotation.Nullable;
 
 /** Fetches the ServerCapabilities of the remote execution/cache server. */
@@ -43,7 +42,6 @@ class RemoteServerCapabilities {
   private final String commandId;
   @Nullable private final String instanceName;
   @Nullable private final CallCredentials callCredentials;
-  private final long callTimeoutSecs;
   private final RemoteRetrier retrier;
 
   public RemoteServerCapabilities(
@@ -51,13 +49,11 @@ class RemoteServerCapabilities {
       String commandId,
       @Nullable String instanceName,
       @Nullable CallCredentials callCredentials,
-      long callTimeoutSecs,
       RemoteRetrier retrier) {
     this.buildRequestId = buildRequestId;
     this.commandId = commandId;
     this.instanceName = instanceName;
     this.callCredentials = callCredentials;
-    this.callTimeoutSecs = callTimeoutSecs;
     this.retrier = retrier;
   }
 
@@ -66,8 +62,7 @@ class RemoteServerCapabilities {
     return CapabilitiesGrpc.newFutureStub(channel)
         .withInterceptors(
             TracingMetadataUtils.attachMetadataInterceptor(context.getRequestMetadata()))
-        .withCallCredentials(callCredentials)
-        .withDeadlineAfter(callTimeoutSecs, TimeUnit.SECONDS);
+        .withCallCredentials(callCredentials);
   }
 
   public ListenableFuture<ServerCapabilities> get(ManagedChannel channel) {

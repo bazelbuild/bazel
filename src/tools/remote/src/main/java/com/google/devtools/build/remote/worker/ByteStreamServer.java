@@ -79,14 +79,37 @@ final class ByteStreamServer extends ByteStreamImplBase {
           StatusUtils.invalidArgumentError(
               "resource_name",
               "Failed parsing digest from resource_name:" + request.getResourceName()));
+      return;
     }
 
     try {
       // This still relies on the blob size to be small enough to fit in memory.
       // TODO(olaola): refactor to fix this if the need arises.
       byte[] bytes = getFromFuture(cache.downloadBlob(context, digest));
+      long readOffset = request.getReadOffset();
+      long readLimit = request.getReadLimit();
+      if (readOffset < 0 || readOffset > bytes.length) {
+        responseObserver.onError(
+            StatusUtils.outOfRangeError(
+                "read_offset",
+                "Expected a value in [0, %d], received: %d".formatted(bytes.length, readOffset)));
+        return;
+      }
+      if (readLimit < 0) {
+        responseObserver.onError(
+            StatusUtils.invalidArgumentError(
+                "read_limit", "Expected a non-negative value, received: %d".formatted(readLimit)));
+        return;
+      }
+      int offset = (int) readOffset;
+      int length =
+          readLimit > 0
+              ? (int) Math.min(bytes.length - readOffset, readLimit)
+              : bytes.length - offset;
       try (Chunker c =
-          Chunker.builder().setInput(bytes.length, () -> new ByteArrayInputStream(bytes)).build()) {
+          Chunker.builder()
+              .setInput(length, () -> new ByteArrayInputStream(bytes, offset, length))
+              .build()) {
         while (c.hasNext()) {
           responseObserver.onNext(ReadResponse.newBuilder().setData(c.next().getData()).build());
         }

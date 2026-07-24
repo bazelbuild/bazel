@@ -1,3 +1,39 @@
+## Release 10.0.0-pre.20260710.1 (2026-07-22)
+
+```
+Baseline: 4f6e97e9a020a1305deb50fb2da35d289f5ea9ce
+```
+
+Incompatible changes:
+
+  - Custom Starlark rules named `test_suite` are no longer treated as
+    a `test_suite`
+
+New features:
+
+  - Windows launcher stubs now embed an `asInvoker` UAC manifest,
+    preventing "The requested operation requires elevation. (error:
+    740)" for targets whose name matches the installer-detection
+    heuristic.
+
+Important changes:
+
+  - Fix --progress_in_terminal_title output under screen and emacs.
+  - Modifying environment variables no longer causes spurious
+    reloading of packages in external repositories.
+  - Fixed a spurious remote-execution failure with
+    `--experimental_output_paths=strip` where a lost input in a tree
+    artifact shared between actions could not be recovered by action
+    rewinding.
+  - Fixed a flaky crash when Java compilation actions encounter
+    multiple lost `.jdeps` files.
+  - The remote repo contents cache no longer caches or restores repos
+    with cross-repo symlinks, thus avoiding a large surface area for
+    bugs. The effort to reenable this support is tracked by
+    https://github.com/bazelbuild/bazel/issues/30160.
+
+This release contains contributions from many people at Google, as well as David Zbarsky, Fabian Meumertzheim, Guillaume Maudoux, Jasmine Tang, jcater, Kapunahele Wong, Rgis Desgroppes, Tamir Duberstein, teaugene.
+
 ## Release 10.0.0-pre.20260630.1 (2026-07-17)
 
 ```

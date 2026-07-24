@@ -28,6 +28,7 @@ DIST_ARCHIVE_REPOS = [
     "abseil-cpp+",
     "apple_support+",
     "bazel_features+",
+    "bazel_lib+",
     "bazel_skylib+",
     "blake3+",
     "c-ares+",
@@ -39,10 +40,12 @@ DIST_ARCHIVE_REPOS = [
     "grpc+",
     "grpc-java+",
     "opencensus-cpp+",
+    "package_metadata+",
     "platforms",
     "protobuf+",
     "protoc-gen-validate+",
     "re2+",
+    "rules_android+",
     "rules_apple+",
     "rules_cc+",
     "rules_fuzzing+",
@@ -69,6 +72,7 @@ DIST_ARCHIVE_REPOS = [
     "async_profiler_linux_arm64",
     "async_profiler_linux_x64",
     "async_profiler_macos",
+    "bats_core",
 ]]
 
 ##################################################################################
@@ -81,71 +85,83 @@ def embedded_jdk_repositories():
     """OpenJDK distributions used to create a version of Bazel bundled with the OpenJDK."""
     http_file(
         name = "openjdk_linux_vanilla",
-        integrity = "sha256-8XUtAFG2yiM2Jd2ywYyRcO2+VcXuZRW/79jqAZfuHCA=",
+        integrity = "sha256-fWZj6o1CmN9l3gZeMvn0SXRf9gfTC6XRN3fLkunUYT0=",
         downloaded_file_path = "zulu-linux-vanilla.tar.gz",
-        url = "https://cdn.azul.com/zulu/bin/zulu25.32.17-ca-jdk25.0.2-linux_x64.tar.gz",
+        url = "https://cdn.azul.com/zulu/bin/zulu26.30.11-ca-jdk26.0.1-linux_x64.tar.gz",
     )
     http_file(
         name = "openjdk_linux_aarch64_vanilla",
-        integrity = "sha256-9ylaux3ssvbg6p92CnCRfy1HNW20Nm1hXHq5sBw8aGY=",
+        integrity = "sha256-zBtFncRC10IrRqO1/lKsrqVIefp5E+KaBWUM71Rof18=",
         downloaded_file_path = "zulu-linux-aarch64-vanilla.tar.gz",
-        url = "https://cdn.azul.com/zulu/bin/zulu25.32.17-ca-jdk25.0.2-linux_aarch64.tar.gz",
+        url = "https://cdn.azul.com/zulu/bin/zulu26.30.11-ca-jdk26.0.1-linux_aarch64.tar.gz",
     )
     http_file(
         name = "openjdk_linux_ppc64le_vanilla",
-        integrity = "sha256-smK3NbIVFzADdm2jZYjV9xfc6toChttBtDn5P7KtpGg=",
+        integrity = "sha256-YOAW+vQXeEBDADXZSPg/KIfVVv5RK3jB1DsyAyL+ZoU=",
         downloaded_file_path = "adoptopenjdk-ppc64le-vanilla.tar.gz",
-        url = "https://github.com/adoptium/temurin25-binaries/releases/download/jdk-25.0.2%2B10/OpenJDK25U-jdk_ppc64le_linux_hotspot_25.0.2_10.tar.gz",
+        url = "https://github.com/adoptium/temurin26-binaries/releases/download/jdk-26.0.1%2B8/OpenJDK26U-jdk_ppc64le_linux_hotspot_26.0.1_8.tar.gz",
     )
     http_file(
         name = "openjdk_linux_riscv64_vanilla",
-        integrity = "sha256-FoEZ5PujUPTms8qSRQorkKhQK4miNaBEFemt+fXTFk4=",
+        integrity = "sha256-8bdi1thlmWJ5g98gDyFbyXBESmlxWco/rpMgh1a0RxU=",
         downloaded_file_path = "adoptopenjdk-riscv64-vanilla.tar.gz",
-        url = "https://github.com/adoptium/temurin25-binaries/releases/download/jdk-25.0.2%2B10/OpenJDK25U-jdk_riscv64_linux_hotspot_25.0.2_10.tar.gz",
+        url = "https://github.com/adoptium/temurin26-binaries/releases/download/jdk-26.0.1%2B8/OpenJDK26U-jdk_riscv64_linux_hotspot_26.0.1_8.tar.gz",
     )
     http_file(
         name = "openjdk_linux_s390x_vanilla",
-        integrity = "sha256-FeXLytzz1DYjwxuCUGPNwoF7nxuoQLUdxu9w5dM8hOM=",
+        integrity = "sha256-lC3n3tFCdZKipLbb6kCDstCJHeJibHhj6XDePigZqT8=",
         downloaded_file_path = "adoptopenjdk-s390x-vanilla.tar.gz",
-        url = "https://github.com/adoptium/temurin25-binaries/releases/download/jdk-25.0.2%2B10/OpenJDK25U-jdk_s390x_linux_hotspot_25.0.2_10.tar.gz",
+        url = "https://github.com/adoptium/temurin26-binaries/releases/download/jdk-26.0.1%2B8/OpenJDK26U-jdk_s390x_linux_hotspot_26.0.1_8.tar.gz",
     )
     http_file(
         name = "openjdk_macos_x86_64_vanilla",
-        integrity = "sha256-/iI0bBkpIMW4SyP0qiTj3rsLuU/EKAFvfCssd5DIJ4A=",
+        integrity = "sha256-GSYQQQ3N+27cokKbDV0rHN8yL1MiGKwAMn4bz43+KbM=",
         downloaded_file_path = "zulu-macos-vanilla.tar.gz",
-        url = "https://cdn.azul.com/zulu/bin/zulu25.32.17-ca-jdk25.0.2-macosx_x64.tar.gz",
+        url = "https://cdn.azul.com/zulu/bin/zulu26.30.11-ca-jdk26.0.1-macosx_x64.tar.gz",
     )
     http_file(
         name = "openjdk_macos_aarch64_vanilla",
-        integrity = "sha256-U3rHT6HKLE3Y9gY93t4BOK5KiW8Si/4QtCin3MSqkp8=",
+        integrity = "sha256-fxsSMjJTejCm7UqofWqE1Ca3Wr81Dr4jVnhKJh6dYHY=",
         downloaded_file_path = "zulu-macos-aarch64-vanilla.tar.gz",
-        url = "https://cdn.azul.com/zulu/bin/zulu25.32.17-ca-jdk25.0.2-macosx_aarch64.tar.gz",
+        url = "https://cdn.azul.com/zulu/bin/zulu26.30.11-ca-jdk26.0.1-macosx_aarch64.tar.gz",
     )
     http_file(
         name = "openjdk_win_vanilla",
-        integrity = "sha256-kLy7y+L7euxDzo/S76Ak/MSPALvc16drWPkS1rl+bVY=",
+        integrity = "sha256-j3b0CLDiKJdLDJV4qSdZGJu13Pp/elIVgnd+QEoyRKA=",
         downloaded_file_path = "zulu-win-vanilla.zip",
-        url = "https://cdn.azul.com/zulu/bin/zulu25.32.17-ca-jdk25.0.2-win_x64.zip",
+        url = "https://cdn.azul.com/zulu/bin/zulu26.30.11-ca-jdk26.0.1-win_x64.zip",
     )
     http_file(
         name = "openjdk_win_arm64_vanilla",
-        integrity = "sha256-zhWbTuPBCc1RNXrPhCZBQsHdsOGHjSBGbqxQsBU0cVQ=",
-        downloaded_file_path = "zulu-win-arm64.zip",
-        # Use an EA release of 25.0.3 here since versions <= 25.0.2 are affected by a severe JDK bug
-        # that causes virtual threads (and thus repo rules) to hang indefinitely on Windows ARM64.
-        # https://github.com/bazelbuild/bazel/issues/28520
-        # https://mail.openjdk.org/pipermail/loom-dev/2026-February/008286.html
-        url = "https://github.com/adoptium/temurin25-binaries/releases/download/jdk-25.0.3%2B1-ea-beta/OpenJDK25U-jdk_aarch64_windows_hotspot_25.0.3_1-ea.zip",
+        integrity = "sha256-JMBoQdovyQStuciKVAawKJZmXkxqKpGYFyO0jiVUzPM=",
+        downloaded_file_path = "bellsoft-win-arm64.zip",
+        # BellSoft Liberica is currently the only vendor with a GA JDK 26 build
+        # for Windows ARM64. It ships with jmods, which are required for
+        # cross-jlinking the minimized JDK.
+        url = "https://github.com/bell-sw/Liberica/releases/download/26.0.1%2B10/bellsoft-jdk26.0.1%2B10-windows-aarch64.zip",
     )
 
-    # The Adoptium Temurin JDK above has JEP 493 enabled, which means it does not ship with jmods.
-    # These are needed for cross-jlinking (minimizing the JDK on a different platform).
-    # https://adoptium.net/news/2025/08/eclipse-temurin-jdk24-JEP493-enabled
+    # The Windows arm64 runtime above is cross-jlinked on a Windows x64 host. Since
+    # JDK 26, jlink requires the tool JDK and the target java.base to be the exact
+    # same build (both vendor and build number are compared), so the jlink tool has
+    # to be a Windows x64 build of the same BellSoft Liberica release as
+    # openjdk_win_arm64_vanilla. It is used only as the jlink tool; the embedded
+    # Windows x64 runtime itself is still Azul Zulu (openjdk_win_vanilla).
     http_file(
-        name = "openjdk_win_arm64_jmods",
-        integrity = "sha256-2rjwZCoUIYD7L9nLwLJindsYPkDMvpI4km5a9UlxFtg=",
-        downloaded_file_path = "temurin-win-arm64-jmods.zip",
-        url = "https://github.com/adoptium/temurin25-binaries/releases/download/jdk-25.0.3%2B1-ea-beta/OpenJDK25U-jmods_aarch64_windows_hotspot_25.0.3_1-ea.zip",
+        name = "openjdk_win_arm64_jlink_tool",
+        integrity = "sha256-En7H6N+8rEOUfa+NziEm1slGG92cG10N9V9aoW1v48s=",
+        downloaded_file_path = "bellsoft-win-x64-jlink-tool.zip",
+        url = "https://github.com/bell-sw/Liberica/releases/download/26.0.1%2B10/bellsoft-jdk26.0.1%2B10-windows-amd64.zip",
+    )
+
+def bats_core_deps():
+    # These are a transitive dep of bazel_lib and marked `reproducible`, so
+    # not included in the module lockfile.
+    http_file(
+        name = "bats_core",
+        downloaded_file_path = "bats_core.tar.gz",
+        integrity = "sha256-oan3h1qktqlIDKOE1YZfHM8bCx+urWtHqkfXlwmlxf0=",
+        urls = ["https://github.com/bats-core/bats-core/archive/v1.10.0.tar.gz"],
     )
 
 def _async_profiler_repos(ctx):
@@ -203,3 +219,8 @@ copy_file(
 # This is an extension (instead of use_repo_rule usages) only to create a
 # lockfile entry for the distribution repo module extension.
 async_profiler_repos = module_extension(_async_profiler_repos)
+
+def _dist_repos_impl(_ctx):
+    bats_core_deps()
+
+dist_repos = module_extension(_dist_repos_impl)

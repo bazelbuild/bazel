@@ -48,10 +48,12 @@ _BAZEL_ARGS="--spawn_strategy=standalone \
       --lockfile_mode=update \
       --deleted_packages=third_party/remoteapis \
       --override_repository=$(cat derived/maven/MAVEN_CANONICAL_REPO_NAME)=derived/maven \
-      --java_runtime_version=${JAVA_VERSION} \
+      --java_runtime_version=local_jdk \
       --java_language_version=${JAVA_VERSION} \
-      --tool_java_runtime_version=${JAVA_VERSION} \
+      --tool_java_runtime_version=local_jdk \
       --tool_java_language_version=${JAVA_VERSION} \
+      --javacopt=-proc:full \
+      --host_javacopt=-proc:full \
       --define=protobuf_allow_msvc=true \
       ${DIST_BOOTSTRAP_ARGS:-} \
       ${EXTRA_BAZEL_ARGS:-}"

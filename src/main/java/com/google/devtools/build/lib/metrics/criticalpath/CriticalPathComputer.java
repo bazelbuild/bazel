@@ -406,17 +406,15 @@ public class CriticalPathComputer {
   private void addArtifactDependency(
       CriticalPathComponent actionStats, Artifact input, long componentFinishNanos) {
     CriticalPathComponent depComponent = outputArtifactToComponent.get(input);
-    if (depComponent == null && input.hasParent()) {
-      // If the input is a nested artifact (e.g. a TreeFileArtifact) and does not have a direct
-      // generating action recorded, it might have been generated as part of a parent artifact (i.e.
-      // a TreeFileArtifact of an output TreeArtifact). This can happen in the following events:
-      // - ctx.actions.declare_directory()
-      // - template_ctx.declare_subdirectory()
-      // In both cases, the action generates the parent TreeArtifact and registers a component for
-      // the parent, but not for the child.
+    if (input.hasParent()) {
+      // If the input is a nested artifact (e.g. a TreeFileArtifact), check its parent chain
+      // (e.g. parent TreeArtifact). If the parent has a component with a longer critical path
+      // (which happens when sibling template expansion actions take longer to finish before the
+      // directory is available), prefer the parent component as the dependency bottleneck.
       Artifact parent = input.getParent();
-      while (parent != null && depComponent == null) {
-        depComponent = outputArtifactToComponent.get(parent);
+      while (parent != null) {
+        CriticalPathComponent parentComponent = outputArtifactToComponent.get(parent);
+        depComponent = SELECT_LONGER_COMPONENT.apply(depComponent, parentComponent);
         parent = parent.hasParent() ? parent.getParent() : null;
       }
     }

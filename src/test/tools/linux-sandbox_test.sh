@@ -101,4 +101,19 @@ test_mounts_hermetic_netns() {
     &> "$TEST_log" || fail "sandbox not set up correctly"
 }
 
+test_hermetic_mounts_readonly() {
+  local host_ro="${TEST_TMPDIR}/host_ro"
+  mkdir -p "${host_ro}"
+
+  # We expect the write to fail, so linux-sandbox should exit with non-zero.
+  if "${LINUX_SANDBOX}" \
+    -W "${TEST_TMPDIR}/root/work" \
+    -h "${TEST_TMPDIR}/root" \
+    -M /bin -m /bin -M /lib -m /lib -M /lib64 -m /lib64 -M /usr -m /usr \
+    -M "${host_ro}" -m "/mnt/readonly" \
+    -- /bin/sh -c "set -e; echo 'pwned' > /mnt/readonly/PWNED" &> "$TEST_log"; then
+    fail "Expected write to /mnt/readonly to fail, but it succeeded"
+  fi
+}
+
 run_suite "linux-sandbox mounts tests"

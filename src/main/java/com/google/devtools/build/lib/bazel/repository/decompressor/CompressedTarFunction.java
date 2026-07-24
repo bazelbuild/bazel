@@ -18,12 +18,15 @@ import static com.google.devtools.build.lib.bazel.repository.decompressor.StripP
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.auto.service.AutoService;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.bazel.repository.decompressor.DecompressorValue.Decompressor;
 import com.google.devtools.build.lib.util.StringEncoding;
+import com.google.devtools.build.lib.vfs.FileSystem.NotASymlinkException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -35,11 +38,10 @@ import java.nio.charset.CharsetDecoder;
 import java.nio.charset.CharsetEncoder;
 import java.nio.charset.CoderResult;
 import java.nio.charset.spi.CharsetProvider;
-import java.util.Collections;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -74,7 +76,7 @@ public abstract class CompressedTarFunction implements Decompressor {
     boolean foundPrefix = false;
     Set<String> availablePrefixes = new HashSet<>();
     // Store link, target info of symlinks, we create them after regular files are extracted.
-    Map<Path, PathFragment> symlinks = new HashMap<>();
+    Map<Path, PathFragment> symlinks = new LinkedHashMap<>();
 
     try (InputStream compressedInputStream = descriptor.archivePath().getInputStream();
         InputStream decompressorStream =
@@ -188,6 +190,9 @@ public abstract class CompressedTarFunction implements Decompressor {
       for (Map.Entry<Path, PathFragment> symlink : symlinks.entrySet()) {
         Path linkPath = symlink.getKey();
         if (linkPath.exists()) {
+          if (linkPath.isDirectory(Symlinks.NOFOLLOW)) {
+            throw new NotASymlinkException(linkPath.asFragment());
+          }
           linkPath.delete();
         }
         FileSystemUtils.ensureSymbolicLink(linkPath, symlink.getValue());
@@ -220,9 +225,8 @@ public abstract class CompressedTarFunction implements Decompressor {
 
     @Override
     public Iterator<Charset> charsets() {
-      // This charset is only meant for internal use within CompressedTarFunction and thus should
-      // not be discoverable.
-      return Collections.emptyIterator();
+      // Native Image registers hosted charsets ahead of time by enumerating their providers.
+      return ImmutableSet.of(CHARSET).iterator();
     }
 
     @Override
@@ -237,12 +241,10 @@ public abstract class CompressedTarFunction implements Decompressor {
    * charset.
    */
   private static class MarkedIso88591Charset extends Charset {
-    // The name
-    // * must not collide with the name of any other charset.
-    // * must not appear in archive entry names by chance.
-    // * is internal to CompressedTarFunction.
-    // This is best served by a cryptographically random UUID, generated at startup.
-    private static final String NAME = UUID.randomUUID().toString();
+    // Native Image needs a stable name to register this charset ahead of time. The marker is
+    // random so it cannot occur in archive entry names by chance.
+    private static final String NAME = "X-BAZEL-MARKED-ISO-8859-1";
+    private static final String MARKER = UUID.randomUUID().toString();
 
     private MarkedIso88591Charset() {
       super(NAME, new String[0]);
@@ -251,8 +253,8 @@ public abstract class CompressedTarFunction implements Decompressor {
     public static Optional<String> getRawBytesStringIfMarked(String s) {
       // Check for the marker in all positions as TarArchiveInputStream manipulates the raw name in
       // certain cases (for example, appending a '/' to directory names).
-      if (s.contains(NAME)) {
-        return Optional.of(s.replaceAll(NAME, ""));
+      if (s.contains(MARKER)) {
+        return Optional.of(s.replace(MARKER, ""));
       }
       return Optional.empty();
     }
@@ -276,13 +278,18 @@ public abstract class CompressedTarFunction implements Decompressor {
         protected CoderResult implFlush(CharBuffer out) {
           // Append the marker to the end of the buffer to indicate that it was decoded with this
           // charset.
-          if (out.remaining() < NAME.length()) {
+          if (out.remaining() < MARKER.length()) {
             return CoderResult.OVERFLOW;
           }
-          out.put(NAME);
+          out.put(MARKER);
           return CoderResult.UNDERFLOW;
         }
       };
+    }
+
+    @Override
+    public boolean canEncode() {
+      return false;
     }
 
     @Override

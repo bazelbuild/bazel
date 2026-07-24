@@ -63,10 +63,10 @@ public class CircuitBreakerFactoryTest {
     // of 100, proving the flag took effect. The high min fail count keeps the failure gate out of
     // the way, so tripping here also proves the two counts are not wired in the wrong order.
     for (int i = 0; i < 4; i++) {
-      circuitBreaker.recordSuccess();
+      circuitBreaker.recordSuccess(State.ACCEPT_CALLS);
     }
     assertThat(circuitBreaker.state()).isEqualTo(State.ACCEPT_CALLS);
-    circuitBreaker.recordFailure();
+    circuitBreaker.recordFailure(State.ACCEPT_CALLS);
     assertThat(circuitBreaker.state()).isEqualTo(State.REJECT_CALLS);
   }
 
@@ -88,10 +88,10 @@ public class CircuitBreakerFactoryTest {
     // the total call count is far below the configured min call count (1000). Under the default min
     // fail count of 12 the breaker would still be accepting calls here, proving the flag took
     // effect.
-    circuitBreaker.recordFailure();
-    circuitBreaker.recordFailure();
+    circuitBreaker.recordFailure(State.ACCEPT_CALLS);
+    circuitBreaker.recordFailure(State.ACCEPT_CALLS);
     assertThat(circuitBreaker.state()).isEqualTo(State.ACCEPT_CALLS);
-    circuitBreaker.recordFailure();
+    circuitBreaker.recordFailure(State.ACCEPT_CALLS);
     assertThat(circuitBreaker.state()).isEqualTo(State.REJECT_CALLS);
   }
 }

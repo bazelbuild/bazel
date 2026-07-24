@@ -867,6 +867,8 @@ public class RemoteExecutionServiceTest {
       //   basename for file nodes), and Integers (referencing intermediate segments of Artifact
       //   exec paths for most directory nodes).
       // TODO: Get this number down.
+      // NOTE: Don't just increase this number if the test fails, it directly corresponds to the
+      // memory usage of Bazel's (but not Blaze's) remote execution implementation.
       assertThat(stableRetainedSize).isEqualTo(4064);
     }
   }

@@ -76,7 +76,6 @@ import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
@@ -117,7 +116,6 @@ public class GrpcCacheClient extends RemoteCacheClient implements MissingDigests
             options.getRemoteInstanceName(),
             channel,
             callCredentialsProvider,
-            options.getRemoteTimeout().toSeconds(),
             retrier,
             options.getMaximumOpenFiles(),
             digestUtil.getDigestFunction());
@@ -150,8 +148,7 @@ public class GrpcCacheClient extends RemoteCacheClient implements MissingDigests
         .withInterceptors(
             TracingMetadataUtils.attachMetadataInterceptor(context.getRequestMetadata()),
             new NetworkTimeInterceptor(context::getNetworkTime))
-        .withCallCredentials(callCredentialsProvider.getCallCredentials())
-        .withDeadlineAfter(options.getRemoteTimeout().toSeconds(), TimeUnit.SECONDS);
+        .withCallCredentials(callCredentialsProvider.getCallCredentials());
   }
 
   private ByteStreamStub bsAsyncStub(RemoteActionExecutionContext context, Channel channel) {
@@ -159,8 +156,7 @@ public class GrpcCacheClient extends RemoteCacheClient implements MissingDigests
         .withInterceptors(
             TracingMetadataUtils.attachMetadataInterceptor(context.getRequestMetadata()),
             new NetworkTimeInterceptor(context::getNetworkTime))
-        .withCallCredentials(callCredentialsProvider.getCallCredentials())
-        .withDeadlineAfter(options.getRemoteTimeout().toSeconds(), TimeUnit.SECONDS);
+        .withCallCredentials(callCredentialsProvider.getCallCredentials());
   }
 
   private ActionCacheFutureStub acFutureStub(
@@ -169,8 +165,7 @@ public class GrpcCacheClient extends RemoteCacheClient implements MissingDigests
         .withInterceptors(
             TracingMetadataUtils.attachMetadataInterceptor(context.getRequestMetadata()),
             new NetworkTimeInterceptor(context::getNetworkTime))
-        .withCallCredentials(callCredentialsProvider.getCallCredentials())
-        .withDeadlineAfter(options.getRemoteTimeout().toSeconds(), TimeUnit.SECONDS);
+        .withCallCredentials(callCredentialsProvider.getCallCredentials());
   }
 
   /**

@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.actions;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.NULL_ACTION_OWNER;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.NULL_ARTIFACT_OWNER;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.createArtifact;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.createTreeArtifactWithGeneratingAction;
@@ -47,6 +48,7 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil.FakeInputMetad
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil.MissDetailsBuilder;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil.NullAction;
 import com.google.devtools.build.lib.clock.Clock;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.testutil.ManualClock;
@@ -118,6 +120,11 @@ public final class ActionCacheCheckerTest {
   }
 
   private ActionCacheChecker createActionCacheChecker(boolean storeOutputMetadata) {
+    return createActionCacheChecker(storeOutputMetadata, /* bustActionCachesTarget= */ null);
+  }
+
+  private ActionCacheChecker createActionCacheChecker(
+      boolean storeOutputMetadata, @Nullable Label bustActionCachesTarget) {
     return new ActionCacheChecker(
         cache,
         new FakeArtifactResolverBase(),
@@ -127,7 +134,19 @@ public final class ActionCacheCheckerTest {
         ActionCacheChecker.CacheConfig.builder()
             .setEnabled(true)
             .setStoreOutputMetadata(storeOutputMetadata)
+            .setBustActionCachesTarget(bustActionCachesTarget)
             .build());
+  }
+
+  private static ActionOwner createActionOwner(Label label) {
+    return ActionOwner.create(
+        label,
+        NULL_ACTION_OWNER.getLocation(),
+        NULL_ACTION_OWNER.getTargetKind(),
+        NULL_ACTION_OWNER.getBuildConfigurationInfo(),
+        NULL_ACTION_OWNER.getExecutionPlatform(),
+        NULL_ACTION_OWNER.getAspectDescriptors(),
+        NULL_ACTION_OWNER.getExecProperties());
   }
 
   @Before
@@ -470,6 +489,32 @@ public final class ActionCacheCheckerTest {
 
     assertStatistics(
         0, new MissDetailsBuilder().set(MissReason.UNCONDITIONAL_EXECUTION, runs).build());
+  }
+
+  @Test
+  public void bustActionCaches_skipsCacheHitForMatchingTarget() throws Exception {
+    Label target = Label.parseCanonicalUnchecked("//pkg:target");
+    cacheChecker = createActionCacheChecker(/* storeOutputMetadata= */ true, target);
+    Artifact output = createArtifact(artifactRoot, "bin/dummy");
+    Action action = new WriteEmptyOutputAction(createActionOwner(target), output);
+
+    runAction(action);
+    runAction(action);
+
+    assertStatistics(
+        0, new MissDetailsBuilder().set(MissReason.UNCONDITIONAL_EXECUTION, 2).build());
+  }
+
+  @Test
+  public void bustActionCaches_acceptsCacheHitForNonMatchingTarget() throws Exception {
+    Label target = Label.parseCanonicalUnchecked("//pkg:target");
+    cacheChecker = createActionCacheChecker(/* storeOutputMetadata= */ true, target);
+    Artifact output = createArtifact(artifactRoot, "bin/dummy");
+    Action action =
+        new WriteEmptyOutputAction(
+            createActionOwner(Label.parseCanonicalUnchecked("//pkg:other")), output);
+
+    doTestCached(action, MissReason.NOT_CACHED);
   }
 
   @Test
@@ -1913,6 +1958,10 @@ public final class ActionCacheCheckerTest {
 
     WriteEmptyOutputAction(Artifact... outputs) {
       super(outputs);
+    }
+
+    WriteEmptyOutputAction(ActionOwner owner, Artifact... outputs) {
+      super(owner, outputs);
     }
 
     @Override

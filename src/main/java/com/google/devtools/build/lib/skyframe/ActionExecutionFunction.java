@@ -1369,7 +1369,7 @@ public class ActionExecutionFunction implements SkyFunction {
     private final ImmutableSet<SkyKey> inputDepKeys;
     private final List<LabelCause> missingArtifactCauses = Lists.newArrayListWithCapacity(0);
     private final List<NestedSet<Cause>> transitiveCauses = Lists.newArrayListWithCapacity(0);
-    private ActionExecutionException firstActionExecutionException;
+    private ActionExecutionException worstActionExecutionException;
 
     ActionExecutionFunctionExceptionHandler(
         Supplier<SetMultimap<SkyKey, Artifact>> skyKeyToDerivedArtifactSetForExceptions,
@@ -1462,8 +1462,8 @@ public class ActionExecutionFunction implements SkyFunction {
             "While handling errors for %s, encountered error from %s which is not associated with"
                 + " any inputs",
             action.prettyPrint(), key);
-        if (firstActionExecutionException == null) {
-          firstActionExecutionException = e;
+        if (worstActionExecutionException == null) {
+          worstActionExecutionException = e;
           transitiveCauses.add(e.getRootCauses());
         }
       } else {
@@ -1505,24 +1505,24 @@ public class ActionExecutionFunction implements SkyFunction {
       for (LabelCause missingInput : missingArtifactCauses) {
         skyframeActionExecutor.printError(missingInput.getMessage(), action);
       }
-      // We need to rethrow the first exception because it can contain a useful error message.
-      if (firstActionExecutionException != null) {
+      // We need to rethrow the worst exception because it can contain a useful error message.
+      if (worstActionExecutionException != null) {
         if (missingArtifactCauses.isEmpty()
             && (checkNotNull(transitiveCauses, action).size() == 1)) {
           // In the case a single action failed, just propagate the exception upward. This avoids
           // having to copy the root causes to the upwards transitive closure.
-          throw firstActionExecutionException;
+          throw worstActionExecutionException;
         }
         NestedSetBuilder<Cause> allCauses =
             NestedSetBuilder.<Cause>stableOrder().addAll(missingArtifactCauses);
         transitiveCauses.forEach(allCauses::addTransitive);
         throw new ActionExecutionException(
-            firstActionExecutionException.getMessage(),
-            firstActionExecutionException.getCause(),
+            worstActionExecutionException.getMessage(),
+            worstActionExecutionException.getCause(),
             action,
             allCauses.build(),
-            firstActionExecutionException.isCatastrophe(),
-            firstActionExecutionException.getDetailedExitCode());
+            worstActionExecutionException.isCatastrophe(),
+            worstActionExecutionException.getDetailedExitCode());
       }
 
       if (!missingArtifactCauses.isEmpty()) {
@@ -1534,9 +1534,11 @@ public class ActionExecutionFunction implements SkyFunction {
         Artifact input, ActionExecutionException e) {
       if (isMandatoryInput.test(input)) {
         // Prefer a catastrophic exception as the one we propagate.
-        if (firstActionExecutionException == null
-            || (!firstActionExecutionException.isCatastrophe() && e.isCatastrophe())) {
-          firstActionExecutionException = e;
+        if (worstActionExecutionException == null) {
+          worstActionExecutionException = e;
+        } else {
+          worstActionExecutionException =
+              ActionExecutionException.SEVERITY_ORDERING.max(worstActionExecutionException, e);
         }
         transitiveCauses.add(e.getRootCauses());
       }

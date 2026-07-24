@@ -25,6 +25,21 @@ filegroup(
 )
 
 java_library(
+    name = "remote_grpc_service_config",
+    srcs = ["RemoteGrpcServiceConfig.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/remote/options",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//third_party:gson",
+        "//third_party:guava",
+        "@googleapis//google/bytestream:bytestream_java_grpc",
+        "@remoteapis//:build_bazel_remote_asset_v1_remote_asset_java_grpc",
+        "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_grpc",
+    ],
+)
+
+java_library(
     name = "remote_action",
     srcs = ["RemoteAction.java"],
     deps = [
@@ -111,6 +126,7 @@ java_library(
         ":remote_action_input_fetcher",
         ":remote_execution_cache",
         ":remote_external_overlay_file_system",
+        ":remote_grpc_service_config",
         ":remote_important_output_handler",
         ":remote_lease_extension",
         ":remote_output_checker",
@@ -431,6 +447,7 @@ java_library(
     deps = [
         ":combined_cache",
         ":remote_action_file_system",
+        "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/remote/common",

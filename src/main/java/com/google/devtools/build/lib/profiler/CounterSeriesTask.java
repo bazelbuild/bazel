@@ -16,17 +16,25 @@ package com.google.devtools.build.lib.profiler;
 import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
 import javax.annotation.Nullable;
 
-/**
- * Describes counter series to be logged into profile.
- *
- * @param laneName The lane name for the counter series. Series with the same lane name should be
- *     stacked when displaying.
- * @param seriesName The name for the counter series.
- * @param color The color for the counter series. If {@code null}, the profile viewer will pick a
- *     color automatically.
- */
+/** Describes counter series to be logged into profile. */
 @SkybridgeInterface
-public record CounterSeriesTask(String laneName, String seriesName, @Nullable Color color) {
+public interface CounterSeriesTask {
+  /**
+   * The lane name for the counter series. Series with the same lane name should be stacked when
+   * displaying.
+   */
+  String laneName();
+
+  /** The name for the counter series. */
+  String seriesName();
+
+  /**
+   * The color for the counter series. If {@code null}, the profile viewer will pick a color
+   * automatically.
+   */
+  @Nullable
+  Color color();
+
   /** The reserved color for rendering the bar chart. */
   public static final class Color {
     // Pick acceptable counter colors manually, unfortunately we have to pick from these

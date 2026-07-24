@@ -136,6 +136,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/remote:remote_action_file_system",
         "//src/main/java/com/google/devtools/build/lib/remote:remote_action_input_fetcher",
         "//src/main/java/com/google/devtools/build/lib/remote:remote_execution_cache",
+        "//src/main/java/com/google/devtools/build/lib/remote:remote_grpc_service_config",
         "//src/main/java/com/google/devtools/build/lib/remote:remote_module",
         "//src/main/java/com/google/devtools/build/lib/remote:remote_output_checker",
         "//src/main/java/com/google/devtools/build/lib/remote:remote_repository_remote_executor",

@@ -13,11 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.devtools.build.lib.remote.util.DigestUtil.isOldStyleDigestFunction;
 import static java.lang.String.format;
-import static java.util.concurrent.TimeUnit.SECONDS;
 
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.DigestFunction;
@@ -65,7 +63,6 @@ final class ByteStreamUploader {
   private final String instanceName;
   private final ReferenceCountedChannel channel;
   private final CallCredentialsProvider callCredentialsProvider;
-  private final long callTimeoutSecs;
   private final RemoteRetrier retrier;
   private final DigestFunction.Value digestFunction;
   private final AtomicBoolean queryWriteStatusImplemented = new AtomicBoolean(true);
@@ -79,23 +76,18 @@ final class ByteStreamUploader {
    *     call. See the {@code ByteStream} service definition for details
    * @param channel the {@link io.grpc.Channel} to use for calls
    * @param callCredentialsProvider the credentials provider to use for authentication.
-   * @param callTimeoutSecs the timeout in seconds after which a {@code Write} gRPC call must be
-   *     complete. The timeout resets between retries
    * @param retrier the {@link RemoteRetrier} whose backoff strategy to use for retry timings.
    */
   ByteStreamUploader(
       @Nullable String instanceName,
       ReferenceCountedChannel channel,
       CallCredentialsProvider callCredentialsProvider,
-      long callTimeoutSecs,
       RemoteRetrier retrier,
       int maximumOpenFiles,
       DigestFunction.Value digestFunction) {
-    checkArgument(callTimeoutSecs > 0, "callTimeoutSecs must be gt 0.");
     this.instanceName = instanceName;
     this.channel = channel;
     this.callCredentialsProvider = callCredentialsProvider;
-    this.callTimeoutSecs = callTimeoutSecs;
     this.retrier = retrier;
     this.openedFilePermits = maximumOpenFiles != -1 ? new Semaphore(maximumOpenFiles) : null;
     this.digestFunction = digestFunction;
@@ -180,14 +172,7 @@ final class ByteStreamUploader {
       }
     }
     AsyncUpload newUpload =
-        new AsyncUpload(
-            context,
-            channel,
-            callCredentialsProvider,
-            callTimeoutSecs,
-            retrier,
-            resourceName,
-            chunker);
+        new AsyncUpload(context, channel, callCredentialsProvider, retrier, resourceName, chunker);
     ListenableFuture<Void> currUpload = newUpload.start();
     currUpload.addListener(
         () -> {
@@ -213,7 +198,6 @@ final class ByteStreamUploader {
     private final RemoteActionExecutionContext context;
     private final ReferenceCountedChannel channel;
     private final CallCredentialsProvider callCredentialsProvider;
-    private final long callTimeoutSecs;
     private final Retrier retrier;
     private final String resourceName;
     private final Chunker chunker;
@@ -225,14 +209,12 @@ final class ByteStreamUploader {
         RemoteActionExecutionContext context,
         ReferenceCountedChannel channel,
         CallCredentialsProvider callCredentialsProvider,
-        long callTimeoutSecs,
         Retrier retrier,
         String resourceName,
         Chunker chunker) {
       this.context = context;
       this.channel = channel;
       this.callCredentialsProvider = callCredentialsProvider;
-      this.callTimeoutSecs = callTimeoutSecs;
       this.retrier = retrier;
       this.progressiveBackoff = new ProgressiveBackoff(retrier::newBackoff);
       this.resourceName = resourceName;
@@ -322,16 +304,14 @@ final class ByteStreamUploader {
       return ByteStreamGrpc.newFutureStub(channel)
           .withInterceptors(
               TracingMetadataUtils.attachMetadataInterceptor(context.getRequestMetadata()))
-          .withCallCredentials(callCredentialsProvider.getCallCredentials())
-          .withDeadlineAfter(callTimeoutSecs, SECONDS);
+          .withCallCredentials(callCredentialsProvider.getCallCredentials());
     }
 
     private ByteStreamStub bsAsyncStub(Channel channel) {
       return ByteStreamGrpc.newStub(channel)
           .withInterceptors(
               TracingMetadataUtils.attachMetadataInterceptor(context.getRequestMetadata()))
-          .withCallCredentials(callCredentialsProvider.getCallCredentials())
-          .withDeadlineAfter(callTimeoutSecs, SECONDS);
+          .withCallCredentials(callCredentialsProvider.getCallCredentials());
     }
 
     private ListenableFuture<Long> query() {
