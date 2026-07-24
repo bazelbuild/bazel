@@ -410,7 +410,8 @@ public abstract class RepositoryOptions extends OptionsBase {
       help =
           "Require repository rules and module extensions to return explicit metadata. Valid values"
               + " are `false` to disable the check, `all` to require metadata everywhere, or `root`"
-              + " to require metadata only for repos or extensions used by the root module.")
+              + " to require metadata only for repo rules and extensions defined in the root"
+              + " module.")
   public abstract RequireRepoExtensionMetadataMode getRequireRepoExtensionMetadata();
 
   @Option(
@@ -473,7 +474,7 @@ public abstract class RepositoryOptions extends OptionsBase {
   public enum RequireRepoExtensionMetadataMode {
     FALSE, // Don't require metadata.
     ALL, // Require metadata everywhere.
-    ROOT; // Require metadata for repos or extensions used by the root module.
+    ROOT; // Require metadata for repo rules and extensions defined in the root module.
 
     @Override
     public String toString() {

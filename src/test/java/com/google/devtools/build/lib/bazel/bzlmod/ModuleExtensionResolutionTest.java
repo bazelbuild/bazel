@@ -2738,15 +2738,15 @@ public class ModuleExtensionResolutionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void requireRepoExtensionMetadata_rootAllowsTransitiveModuleExtensionDefault()
+  public void requireRepoExtensionMetadata_rootAllowsDepDefinedModuleExtensionUsedByRootModule()
       throws Exception {
     setRequireRepoExtensionMetadataMode(RequireRepoExtensionMetadataMode.ROOT);
     scratch.overwriteFile(
-        "MODULE.bazel", "module(name='root')", "bazel_dep(name='foo', version='1.0')");
-    registry.addModule(
-        createModuleKey("foo", "1.0"),
-        "module(name='foo', version='1.0')",
-        "ext = use_extension('//:defs.bzl', 'ext')");
+        "MODULE.bazel",
+        "module(name='root')",
+        "bazel_dep(name='foo', version='1.0')",
+        "ext = use_extension('@foo//:defs.bzl', 'ext')");
+    registry.addModule(createModuleKey("foo", "1.0"), "module(name='foo', version='1.0')");
     scratch.file(moduleRoot.getRelative("foo+1.0/REPO.bazel").getPathString());
     scratch.file(moduleRoot.getRelative("foo+1.0/BUILD").getPathString());
     scratch.file(
@@ -2805,6 +2805,36 @@ public class ModuleExtensionResolutionTest extends BuildViewTestCase {
     assertThat(result.hasError()).isTrue();
     assertContainsEvent("did not return repo_metadata");
     assertContainsEvent("--incompatible_require_repo_extension_metadata=root requires it");
+  }
+
+  @Test
+  public void requireRepoExtensionMetadata_rootAllowsDepDefinedRepoRuleUsedByRootModule()
+      throws Exception {
+    setRequireRepoExtensionMetadataMode(RequireRepoExtensionMetadataMode.ROOT);
+    scratch.overwriteFile(
+        "MODULE.bazel",
+        "module(name='root')",
+        "bazel_dep(name='foo', version='1.0')",
+        "repo = use_repo_rule('@foo//:repo.bzl', 'repo')",
+        "repo(name = 'gen')");
+    scratch.overwriteFile("BUILD");
+    scratch.file("data.bzl", "load('@gen//:data.bzl', repo_data = 'data')", "data = repo_data");
+    registry.addModule(createModuleKey("foo", "1.0"), "module(name='foo', version='1.0')");
+    scratch.file(moduleRoot.getRelative("foo+1.0/REPO.bazel").getPathString());
+    scratch.file(moduleRoot.getRelative("foo+1.0/BUILD").getPathString());
+    scratch.file(
+        moduleRoot.getRelative("foo+1.0/repo.bzl").getPathString(),
+        "def _repo_impl(ctx):",
+        "  ctx.file('BUILD')",
+        "  ctx.file('data.bzl', \"data = 'ok'\")",
+        "repo = repository_rule(implementation = _repo_impl)");
+    invalidatePackages(false);
+
+    EvaluationResult<BzlLoadValue> result = loadRootDataBzl();
+
+    if (result.hasError()) {
+      throw result.getError().getException();
+    }
   }
 
   @Test

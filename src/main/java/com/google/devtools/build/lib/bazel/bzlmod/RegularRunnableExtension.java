@@ -305,7 +305,7 @@ final class RegularRunnableExtension implements RunnableExtension {
         if (returnValue instanceof ModuleExtensionMetadata retMetadata) {
           moduleExtensionMetadata = retMetadata;
         } else {
-          if (shouldRequireMetadata(requireRepoExtensionMetadataMode, usagesValue)) {
+          if (shouldRequireMetadata(requireRepoExtensionMetadataMode, extensionId)) {
             throw ExternalDepsException.withMessage(
                 ExternalDeps.Code.EXTENSION_EVAL_ERROR,
                 "module extension %s did not return extension_metadata (implementation at %s),"
@@ -343,11 +343,11 @@ final class RegularRunnableExtension implements RunnableExtension {
 
   private static boolean shouldRequireMetadata(
       RequireRepoExtensionMetadataMode requireRepoExtensionMetadataMode,
-      SingleExtensionUsagesValue usagesValue) {
+      ModuleExtensionId extensionId) {
     return switch (requireRepoExtensionMetadataMode) {
       case FALSE -> false;
       case ALL -> true;
-      case ROOT -> usagesValue.getExtensionUsages().containsKey(ModuleKey.ROOT);
+      case ROOT -> extensionId.bzlFileLabel().getRepository().isMain();
     };
   }
 

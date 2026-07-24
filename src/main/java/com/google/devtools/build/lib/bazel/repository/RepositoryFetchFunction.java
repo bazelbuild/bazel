@@ -758,7 +758,7 @@ public final class RepositoryFetchFunction implements SkyFunction {
     return switch (requireRepoExtensionMetadataMode) {
       case FALSE -> false;
       case ALL -> true;
-      case ROOT -> repoDefinition.rootModuleGenerated();
+      case ROOT -> repoDefinition.repoRule().id().bzlFileLabel().getRepository().isMain();
     };
   }
 
