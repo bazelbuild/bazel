@@ -37,7 +37,6 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.remote.common.BulkTransferException;
-import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
@@ -359,8 +358,9 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
   }
 
   /**
-   * Records that the repo containing the given file lost it from the remote cache and returns an
-   * exception that results in a transient exit code and thus an automatic retry of the build.
+   * Records that the given file in a repo has been lost from the remote cache and returns an
+   * exception that results in a the special exit code that triggers an automatic retry of the
+   * build.
    */
   private DetailedIOException lostRemoteFile(
       PathFragment relativePath, Digest digest, BulkTransferException cause) {
@@ -428,15 +428,14 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
       prefetch(symlinks);
     } catch (BulkTransferException e) {
       if (e.allCausedByCacheNotFoundException()) {
-        var cacheNotFound = (CacheNotFoundException) e.getSuppressed()[0];
-        var execPath = cacheNotFound.getExecPath();
-        // The exec path always points into the subtree being materialized, but fall back to the
-        // subtree root itself just in case it doesn't.
-        var relativePath =
-            execPath != null && execPath.startsWith(path)
-                ? execPath.relativeTo(externalDirectory)
-                : path.relativeTo(externalDirectory);
-        throw lostRemoteFile(relativePath, cacheNotFound.getMissingDigest(), e);
+        var lostArtifacts = e.getLostArtifacts(ActionInputHelper::fromPath);
+        if (!lostArtifacts.isEmpty()) {
+          // We don't track the particular lost artifacts since the repo needs to be refetched,
+          // which recovers all of them anyway.
+          var anyLostArtifact = lostArtifacts.byDigest().entries().iterator().next();
+          var relativePath = anyLostArtifact.getValue().getExecPath().relativeTo(externalDirectory);
+          throw lostRemoteFile(relativePath, DigestUtil.fromString(anyLostArtifact.getKey()), e);
+        }
       }
       throw e;
     }
