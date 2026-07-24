@@ -402,7 +402,7 @@
   "moduleExtensions": {
     "//:repositories.bzl%async_profiler_repos": {
       "general": {
-        "bzlTransitiveDigest": "LMpcBeOWpEPwMPAeLGGlcnXkBqnFbwicLA7nmp7xnMI=",
+        "bzlTransitiveDigest": "amdyGtI3IOTI9iAys32WUU0BfvjsPf9P/wgJc7o+wFQ=",
         "usagesDigest": "7jreou9WV8qOgoUM+8bYvk7WC5dIlxvYXDi24CckXQQ=",
         "recordedInputs": [
           "REPO_MAPPING:,async_profiler +async_profiler_repos+async_profiler",
@@ -461,7 +461,7 @@
     },
     "//:repositories.bzl%dist_repos": {
       "general": {
-        "bzlTransitiveDigest": "LMpcBeOWpEPwMPAeLGGlcnXkBqnFbwicLA7nmp7xnMI=",
+        "bzlTransitiveDigest": "amdyGtI3IOTI9iAys32WUU0BfvjsPf9P/wgJc7o+wFQ=",
         "usagesDigest": "u4MQlLLOWmhIn5xZCQ9o49SJ7Q1rr8FsLCHyAWLTcw4=",
         "recordedInputs": [
           "REPO_MAPPING:,async_profiler +async_profiler_repos+async_profiler",
