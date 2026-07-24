@@ -2151,6 +2151,108 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
     )
     self.assertTrue(os.path.exists(os.path.join(repo_dir, 'data.txt')))
 
+  def testLostRemoteFile_sourceDirectoryMaterialization(self):
+    # Like testLostRemoteFile_fullMaterialization, but with only the subtree
+    # below a source directory input materialized for a local action. The only
+    # lost file lies within that subtree; all other files, including the BUILD
+    # file read during loading, remain available in the remote cache.
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            (
+                '  rctx.file("BUILD", "filegroup(name=\'sysroot_dir\','
+                " srcs=['sysroot'], visibility=['//visibility:public'])\\n"
+                "filegroup(name='metadata_only')\")"
+            ),
+            (
+                '  rctx.file("sysroot/include/data.txt",'
+                ' "unique-source-dir-contents")'
+            ),
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+    self.ScratchFile(
+        'main/BUILD.bazel',
+        [
+            'genrule(',
+            '  name = "read_source_directory",',
+            '  srcs = ["@my_repo//:sysroot_dir"],',
+            '  outs = ["out.txt"],',
+            (
+                '  cmd = "cat $(location @my_repo//:sysroot_dir)/include/'
+                'data.txt > $@",'
+            ),
+            '  tags = ["no-cache"],',
+            ')',
+        ],
+    )
+
+    repo_dir = self.RepoDir('my_repo')
+    out = self.Path('bazel-bin/main/out.txt')
+
+    # Populate the remote repo contents cache.
+    _, _, stderr = self.RunBazel(['build', '//main:read_source_directory'])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+
+    # Restore only the repo metadata into the in-memory overlay. All files,
+    # including those below the source directory, remain remote-only.
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:metadata_only'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertFalse(
+        os.path.exists(os.path.join(repo_dir, 'sysroot/include/data.txt'))
+    )
+
+    # Delete the CAS blob for data.txt while keeping the repo's action result,
+    # Tree, and all other blobs. The local genrule action triggers the
+    # materialization of only the sysroot subtree, which discovers the lost
+    # file. The unusable cache entry must be discarded and the repo rule run
+    # again.
+    self.DeleteCasEntry(b'unique-source-dir-contents')
+    _, _, stderr = self.RunBazel(['build', '//main:read_source_directory'])
+    self.assertEqual(
+        1,
+        stderr.count(
+            'Found transient remote cache error, retrying the build...'
+        ),
+    )
+    canonical_repo_name = repo_dir[repo_dir.rfind('/') + 1 :]
+    stderr = '\n'.join(stderr)
+    self.assertRegex(
+        stderr,
+        'external/%s/sysroot/include/data.txt with digest .*/.* is no longer'
+        ' available in the remote cache' % re.escape(canonical_repo_name),
+    )
+    self.assertIn('JUST FETCHED', stderr)
+    self.assertTrue(
+        os.path.exists(os.path.join(repo_dir, 'sysroot/include/data.txt'))
+    )
+    with open(out) as f:
+      self.assertEqual(f.read(), 'unique-source-dir-contents')
+
+    # The refetch has healed the cache entry: after expunging, the repo is
+    # restored from the cache and the subtree can be materialized again.
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(['build', '//main:read_source_directory'])
+    stderr = '\n'.join(stderr)
+    self.assertNotIn('JUST FETCHED', stderr)
+    self.assertNotIn(
+        'Found transient remote cache error, retrying the build...', stderr
+    )
+    with open(out) as f:
+      self.assertEqual(f.read(), 'unique-source-dir-contents')
+
   def doTestMaterializationWithInternalAndExternalSymlinks(
       self, *, expect_symlinks, watch_dep_file=True
   ):
