@@ -527,6 +527,13 @@ public abstract class Args implements CommandLineArgsApi {
     }
 
     private void addSingleArg(Object value, @Nullable String format) throws EvalException {
+      if (value instanceof LazyLocationExpansion expansion) {
+        if (format != null) {
+          throw Starlark.errorf("format is not supported for lazily expanded locations");
+        }
+        commandLine.addExpandedLocation(expansion);
+        return;
+      }
       if (value instanceof String s) {
         value = s.intern();
       }

@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.analysis.RuleContext.PrerequisiteValidator;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.starlark.LazyLocationExpansion;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentClassSet;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
@@ -690,6 +691,9 @@ public /*final*/ class ConfiguredRuleClassProvider
       @Nullable Label networkAllowlistForTests) {
     this.preludeLabel = preludeLabel;
     this.runfilesPrefix = runfilesPrefix;
+    // The main repository runfiles directory name is a product-level constant; record it for
+    // lazily rendered location expansions instead of storing it in every expansion.
+    LazyLocationExpansion.setWorkspaceRunfilesDirectory(runfilesPrefix);
     this.toolsRepository = toolsRepository;
     this.bundledBuiltinsRoot = bundledBuiltinsRoot;
     this.builtinsBzlPackagePathInSource = builtinsBzlPackagePathInSource;

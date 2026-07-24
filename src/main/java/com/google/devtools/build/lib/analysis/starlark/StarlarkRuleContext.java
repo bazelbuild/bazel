@@ -1030,8 +1030,8 @@ public final class StarlarkRuleContext
   }
 
   @Override
-  public String expandLocation(
-      String input, Sequence<?> targets, boolean shortPaths, StarlarkThread thread)
+  public Object expandLocation(
+      String input, Sequence<?> targets, boolean shortPaths, boolean lazy, StarlarkThread thread)
       throws EvalException {
     checkMutable("expand_location");
     try {
@@ -1047,6 +1047,9 @@ public final class StarlarkRuleContext
       } else {
         checkPrivateAccess(thread);
         expander = LocationExpander.withRunfilesPaths(ruleContext, labelMap);
+      }
+      if (lazy) {
+        return expander.expandLazily(input);
       }
       return expander.expand(input);
     } catch (IllegalStateException ise) {
