@@ -2066,6 +2066,91 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
     )
     self.assertTrue(os.path.exists(os.path.join(repo_dir, 'data.txt')))
 
+  def testLostRemoteFile_moduleExtensionMaterialization(self):
+    # Like testLostRemoteFile_fullMaterialization, but with the full
+    # materialization triggered by a module extension via module_ctx.path(),
+    # whose failures are reported through module extension evaluation rather
+    # than package lookup.
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+            'ext = use_extension("//:extension.bzl", "ext")',
+            'use_repo(ext, "other")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            (
+                '  rctx.file("BUILD.bazel",'
+                ' "exports_files([\'data.txt\'])\\n'
+                'filegroup(name=\'metadata_only\')")'
+            ),
+            '  rctx.file("data.txt", "unique-data-file-contents")',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+    self.ScratchFile(
+        'extension.bzl',
+        [
+            'def _other_repo_impl(rctx):',
+            '  rctx.file("BUILD.bazel", "filegroup(name=\'copy\')")',
+            'other_repo = repository_rule(_other_repo_impl)',
+            'def _ext_impl(module_ctx):',
+            '  module_ctx.path(Label("@my_repo//:data.txt"))',
+            '  other_repo(name = "other")',
+            'ext = module_extension(_ext_impl)',
+        ],
+    )
+
+    repo_dir = self.RepoDir('my_repo')
+
+    # Populate the remote repo contents cache, then restore only the repo
+    # metadata into the in-memory overlay. data.txt remains remote-only.
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:metadata_only'])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:metadata_only'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'data.txt')))
+
+    # Delete the CAS blob for data.txt while keeping the repo's action result
+    # and Tree. Building @other, whose module extension accesses data.txt
+    # through module_ctx.path(), forces the full materialization of @my_repo,
+    # which discovers the lost file. The unusable cache entry must be
+    # discarded and the repo rule run again.
+    self.DeleteCasEntry(b'unique-data-file-contents')
+    _, _, stderr = self.RunBazel(['build', '@other//:copy'])
+    self.assertEqual(
+        1,
+        stderr.count(
+            'Found transient remote cache error, retrying the build...'
+        ),
+    )
+    stderr = '\n'.join(stderr)
+    self.assertIn('JUST FETCHED', stderr)
+    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'data.txt')))
+
+    # The refetch has healed the cache entry: after expunging, the repo is
+    # restored from the cache and can be fully materialized again. The
+    # lockfile has to be removed as it would otherwise short-circuit the
+    # extension evaluation and thus the materialization.
+    self.RunBazel(['clean', '--expunge'])
+    os.remove(self.Path('MODULE.bazel.lock'))
+    _, _, stderr = self.RunBazel(['build', '@other//:copy'])
+    stderr = '\n'.join(stderr)
+    self.assertNotIn('JUST FETCHED', stderr)
+    self.assertNotIn(
+        'Found transient remote cache error, retrying the build...', stderr
+    )
+    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'data.txt')))
+
   def doTestMaterializationWithInternalAndExternalSymlinks(
       self, *, expect_symlinks, watch_dep_file=True
   ):
