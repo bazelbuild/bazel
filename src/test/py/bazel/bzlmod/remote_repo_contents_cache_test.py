@@ -2253,6 +2253,104 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
     with open(out) as f:
       self.assertEqual(f.read(), 'unique-source-dir-contents')
 
+  def doTestLostRemoteFile_analysisMaterialization(self, *, keep_going):
+    # Regression test for the retry of a lost blob discovered while fetching a
+    # repo that is only reachable via a dependency edge: the failure surfaces
+    # as an analysis error of the top-level target rather than during target
+    # pattern expansion, which is reported differently with and without
+    # --keep_going.
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+            'other_repo = use_repo_rule("//:other_repo.bzl", "other_repo")',
+            'other_repo(name = "other", data = "@my_repo//:data.txt")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            (
+                '  rctx.file("BUILD.bazel",'
+                ' "exports_files([\'data.txt\'])\\n'
+                'filegroup(name=\'metadata_only\')")'
+            ),
+            '  rctx.file("data.txt", "unique-data-file-contents")',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+    self.ScratchFile(
+        'other_repo.bzl',
+        [
+            'def _other_repo_impl(rctx):',
+            (
+                '  rctx.file("BUILD.bazel",'
+                ' "exports_files([\'copy.txt\'])")'
+            ),
+            '  rctx.file("copy.txt", rctx.read(rctx.path(rctx.attr.data)))',
+            '  return rctx.repo_metadata()',
+            (
+                'other_repo = repository_rule(_other_repo_impl,'
+                ' attrs={"data": attr.label()})'
+            ),
+        ],
+    )
+    self.ScratchFile(
+        'main/BUILD.bazel',
+        [
+            'genrule(',
+            '  name = "bin",',
+            '  srcs = ["@other//:copy.txt"],',
+            '  outs = ["bin.txt"],',
+            '  cmd = "cat $< > $@",',
+            ')',
+        ],
+    )
+
+    repo_dir = self.RepoDir('my_repo')
+
+    # Populate the remote repo contents cache, then restore only the repo
+    # metadata into the in-memory overlay. data.txt remains remote-only.
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:metadata_only'])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:metadata_only'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'data.txt')))
+
+    # Delete the CAS blob for data.txt while keeping the repo's action result
+    # and Tree. @other is fetched while analyzing //main:bin, which depends on
+    # it, and its repo rule reads data.txt through rctx.path()/rctx.read().
+    # The resulting analysis error must still result in a retry of the build.
+    self.DeleteCasEntry(b'unique-data-file-contents')
+    args = ['build']
+    if keep_going:
+      args.append('--keep_going')
+    args.append('//main:bin')
+    _, _, stderr = self.RunBazel(args)
+    self.assertEqual(
+        1,
+        stderr.count(
+            'Found transient remote cache error, retrying the build...'
+        ),
+    )
+    stderr = '\n'.join(stderr)
+    self.assertIn('JUST FETCHED', stderr)
+    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'data.txt')))
+    with open(self.Path('bazel-bin/main/bin.txt')) as f:
+      self.assertEqual(f.read(), 'unique-data-file-contents')
+
+  def testLostRemoteFile_analysisMaterialization(self):
+    self.doTestLostRemoteFile_analysisMaterialization(keep_going=False)
+
+  def testLostRemoteFile_analysisMaterialization_keepGoing(self):
+    self.doTestLostRemoteFile_analysisMaterialization(keep_going=True)
+
   def doTestMaterializationWithInternalAndExternalSymlinks(
       self, *, expect_symlinks, watch_dep_file=True
   ):

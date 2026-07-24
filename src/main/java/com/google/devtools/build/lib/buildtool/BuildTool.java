@@ -981,7 +981,15 @@ public class BuildTool {
       detailedExitCode = e.getDetailedExitCode();
       reportExceptionError(e);
     } catch (ViewCreationFailedException e) {
-      detailedExitCode = DetailedExitCode.of(ExitCode.PARSING_FAILURE, e.getFailureDetail());
+      // An analysis error that can be resolved by retrying the build, e.g. due to a file that is
+      // no longer available in the remote cache, keeps the exit code implied by its failure
+      // detail so that the retry can happen.
+      DetailedExitCode detailedExitCodeFromFailureDetail =
+          DetailedExitCode.of(e.getFailureDetail());
+      detailedExitCode =
+          ExitCode.REMOTE_CACHE_EVICTED.equals(detailedExitCodeFromFailureDetail.getExitCode())
+              ? detailedExitCodeFromFailureDetail
+              : DetailedExitCode.of(ExitCode.PARSING_FAILURE, e.getFailureDetail());
       reportExceptionError(e);
     } catch (ExitException e) {
       detailedExitCode = e.getDetailedExitCode();
