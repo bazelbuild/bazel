@@ -2357,6 +2357,114 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
   def testLostRemoteFile_analysisMaterialization_keepGoing(self):
     self.doTestLostRemoteFile_analysisMaterialization(keep_going=True)
 
+  def doTestLostRemoteFile_aspectMaterialization(self, *, keep_going):
+    # Like doTestLostRemoteFile_analysisMaterialization, but the repo with the
+    # lost blob is only reachable through an implicit attribute of a top-level
+    # aspect. The failure is then reported as an aspect analysis error, which
+    # must trigger a retry just like a configured target analysis error.
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+            'other_repo = use_repo_rule("//:other_repo.bzl", "other_repo")',
+            'other_repo(name = "other", data = "@my_repo//:data.txt")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            (
+                '  rctx.file("BUILD.bazel",'
+                ' "exports_files([\'data.txt\'])\\n'
+                'filegroup(name=\'metadata_only\')")'
+            ),
+            '  rctx.file("data.txt", "unique-data-file-contents")',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+    self.ScratchFile(
+        'other_repo.bzl',
+        [
+            'def _other_repo_impl(rctx):',
+            (
+                '  rctx.file("BUILD.bazel",'
+                ' "exports_files([\'copy.txt\'])")'
+            ),
+            '  rctx.file("copy.txt", rctx.read(rctx.path(rctx.attr.data)))',
+            '  return rctx.repo_metadata()',
+            (
+                'other_repo = repository_rule(_other_repo_impl,'
+                ' attrs={"data": attr.label()})'
+            ),
+        ],
+    )
+    # The aspect's only dependency on @other is the implicit attribute, so the
+    # base target analyzes successfully and the aspect is the sole failure.
+    self.ScratchFile(
+        'main/aspect.bzl',
+        [
+            'def _my_aspect_impl(target, ctx):',
+            '  return []',
+            'my_aspect = aspect(',
+            '  implementation = _my_aspect_impl,',
+            '  attrs = {',
+            (
+                '    "_tool": attr.label(default ='
+                ' Label("@other//:copy.txt"), allow_single_file = True),'
+            ),
+            '  },',
+            ')',
+        ],
+    )
+    self.ScratchFile(
+        'main/BUILD.bazel',
+        [
+            'genrule(',
+            '  name = "plain",',
+            '  outs = ["plain.txt"],',
+            '  cmd = "printf plain > $@",',
+            ')',
+        ],
+    )
+
+    repo_dir = self.RepoDir('my_repo')
+
+    # Populate the remote repo contents cache, then restore only the repo
+    # metadata into the in-memory overlay. data.txt remains remote-only.
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:metadata_only'])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:metadata_only'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'data.txt')))
+
+    self.DeleteCasEntry(b'unique-data-file-contents')
+    args = ['build', '--aspects=//main:aspect.bzl%my_aspect']
+    if keep_going:
+      args.append('--keep_going')
+    args.append('//main:plain')
+    _, _, stderr = self.RunBazel(args)
+    self.assertEqual(
+        1,
+        stderr.count(
+            'Found transient remote cache error, retrying the build...'
+        ),
+    )
+    stderr = '\n'.join(stderr)
+    self.assertIn('JUST FETCHED', stderr)
+    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'data.txt')))
+
+  def testLostRemoteFile_aspectMaterialization(self):
+    self.doTestLostRemoteFile_aspectMaterialization(keep_going=False)
+
+  def testLostRemoteFile_aspectMaterialization_keepGoing(self):
+    self.doTestLostRemoteFile_aspectMaterialization(keep_going=True)
+
   def doTestMaterializationWithInternalAndExternalSymlinks(
       self, *, expect_symlinks, watch_dep_file=True
   ):

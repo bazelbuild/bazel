@@ -2621,6 +2621,7 @@ java_library(
         ":action_artifact_cycle_reporter",
         ":artifact_nested_set_function",
         ":aspect_completion_value",
+        ":aspect_creation_exception",
         ":aspect_key_creator",
         ":build_driver_key",
         ":configured_target_key",
