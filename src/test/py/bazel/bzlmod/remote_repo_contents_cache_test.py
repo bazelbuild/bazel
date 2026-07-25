@@ -34,7 +34,13 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
 
   def setUp(self):
     test_base.TestBase.setUp(self)
-    self._worker_port = self.StartRemoteWorker()
+    # The remote repo contents cache has to cope with caches that serve action
+    # results without verifying that the blobs they reference are still
+    # present, which is what makes a repo's cached Tree outlive its file
+    # contents in the first place.
+    self._worker_port = self.StartRemoteWorker(
+        ['--noaction_cache_integrity_check']
+    )
     self.ScratchFile(
         '.bazelrc',
         [
