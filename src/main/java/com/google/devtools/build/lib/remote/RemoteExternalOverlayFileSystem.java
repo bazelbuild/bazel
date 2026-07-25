@@ -101,6 +101,11 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
   // cache. Remote cache lookups for them must be skipped so that they are fetched again and
   // their contents, including the lost files, are uploaded anew.
   private final Set<String> reposToRefetch = ConcurrentHashMap.newKeySet();
+  // Whether a previous command found the remote cache to have lost a file referenced by a cached
+  // repo. Since such a loss is never specific to a single repo, cached contents have to be
+  // verified against the cache before they are restored until a command completes without
+  // encountering a lost file.
+  private volatile boolean verifyCachedRepoContents;
 
   // Per-build information that is set in beforeCommand and cleared in afterCommand.
   @Nullable private CombinedCache cache;
@@ -155,6 +160,17 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
       // unconditionally.
       return;
     }
+    // A file lost from the remote cache doesn't just invalidate the repo it was discovered in:
+    // every other repo restored from the cache may reference further lost files that simply
+    // haven't been read yet. Snapshot them all before the evictions below mutate the map.
+    boolean hadLostFiles = !reposWithLostFiles.isEmpty();
+    ImmutableSet<String> reposToDiscard =
+        hadLostFiles
+            ? ImmutableSet.<String>builder()
+                .addAll(markerFileContents.keySet())
+                .addAll(reposWithLostFiles)
+                .build()
+            : ImmutableSet.of();
     this.cache = null;
     this.inputPrefetcher = null;
     this.reporter = null;
@@ -165,19 +181,22 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
     // reason to await their orderly completion in afterCommand.
     materializationExecutor.shutdownNow();
     materializationExecutor = null;
-    // Clean up the in-memory contents of materialized repos to save memory, or those that need to
-    // be refetched to recover files that the remote cache has lost. This wouldn't be safe to do
+    // Clean up the in-memory contents of materialized repos to save memory, or those that can no
+    // longer be trusted since the remote cache has lost a file. This wouldn't be safe to do
     // eagerly as ongoing repo rule evaluations may still refer to the in-memory content and
     // refetching is not atomic.
-    reposWithLostFiles.forEach(this::evictInMemoryRepo);
+    reposToDiscard.forEach(this::evictInMemoryRepo);
     materializations.forEach(
         1,
         (repoName, materializationState) ->
             materializationState.state() == Future.State.SUCCESS ? repoName : null,
         this::evictInMemoryRepo);
-    invalidateRepoDirectories(evaluator, reposWithLostFiles);
+    invalidateRepoDirectories(evaluator, reposToDiscard);
     reposToRefetch.addAll(reposWithLostFiles);
     reposWithLostFiles.clear();
+    // Have the discarded repos verified against the remote cache when they are looked up again so
+    // that all repos affected by the loss recover in a single retry instead of one retry each.
+    verifyCachedRepoContents = hadLostFiles;
     this.evaluator = null;
   }
 
@@ -189,6 +208,17 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
    */
   public boolean shouldRefetch(RepositoryName repo) {
     return reposToRefetch.contains(repo.getName());
+  }
+
+  /**
+   * Returns whether a repo's cached contents must be verified to still be available in the remote
+   * cache before they are restored.
+   *
+   * <p>Returns true while recovering from a file lost from the remote cache, which is when a cached
+   * repo's contents may well reference further lost files.
+   */
+  public boolean shouldVerifyCachedRepoContents() {
+    return verifyCachedRepoContents;
   }
 
   /** Must be called when the given repo's contents have been uploaded to the remote cache. */
