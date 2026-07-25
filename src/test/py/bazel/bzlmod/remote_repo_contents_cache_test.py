@@ -2358,7 +2358,9 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
     with open(out) as f:
       self.assertEqual(f.read(), 'unique-source-dir-contents')
 
-  def doTestLostRemoteFile_analysisMaterialization(self, *, keep_going):
+  def doTestLostRemoteFile_analysisMaterialization(
+      self, *, keep_going, nobuild=False
+  ):
     # Regression test for the retry of a lost blob discovered while fetching a
     # repo that is only reachable via a dependency edge: the failure surfaces
     # as an analysis error of the top-level target rather than during target
@@ -2436,6 +2438,8 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
     args = ['build']
     if keep_going:
       args.append('--keep_going')
+    if nobuild:
+      args.append('--nobuild')
     args.append('//main:bin')
     _, _, stderr = self.RunBazel(args)
     self.assertEqual(
@@ -2447,8 +2451,9 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
     stderr = '\n'.join(stderr)
     self.assertIn('JUST FETCHED', stderr)
     self.assertTrue(os.path.exists(os.path.join(repo_dir, 'data.txt')))
-    with open(self.Path('bazel-bin/main/bin.txt')) as f:
-      self.assertEqual(f.read(), 'unique-data-file-contents')
+    if not nobuild:
+      with open(self.Path('bazel-bin/main/bin.txt')) as f:
+        self.assertEqual(f.read(), 'unique-data-file-contents')
 
   def testLostRemoteFile_analysisMaterialization(self):
     self.doTestLostRemoteFile_analysisMaterialization(keep_going=False)
@@ -2456,7 +2461,21 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
   def testLostRemoteFile_analysisMaterialization_keepGoing(self):
     self.doTestLostRemoteFile_analysisMaterialization(keep_going=True)
 
-  def doTestLostRemoteFile_aspectMaterialization(self, *, keep_going):
+  # --nobuild disables Skymeld, which reports analysis errors through a
+  # different code path than the merged analysis and execution phase.
+  def testLostRemoteFile_analysisMaterialization_noBuild(self):
+    self.doTestLostRemoteFile_analysisMaterialization(
+        keep_going=False, nobuild=True
+    )
+
+  def testLostRemoteFile_analysisMaterialization_keepGoing_noBuild(self):
+    self.doTestLostRemoteFile_analysisMaterialization(
+        keep_going=True, nobuild=True
+    )
+
+  def doTestLostRemoteFile_aspectMaterialization(
+      self, *, keep_going, nobuild=False
+  ):
     # Like doTestLostRemoteFile_analysisMaterialization, but the repo with the
     # lost blob is only reachable through an implicit attribute of a top-level
     # aspect. The failure is then reported as an aspect analysis error, which
@@ -2546,6 +2565,8 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
     args = ['build', '--aspects=//main:aspect.bzl%my_aspect']
     if keep_going:
       args.append('--keep_going')
+    if nobuild:
+      args.append('--nobuild')
     args.append('//main:plain')
     _, _, stderr = self.RunBazel(args)
     self.assertEqual(
@@ -2563,6 +2584,18 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
 
   def testLostRemoteFile_aspectMaterialization_keepGoing(self):
     self.doTestLostRemoteFile_aspectMaterialization(keep_going=True)
+
+  # --nobuild disables Skymeld, which reports analysis errors through a
+  # different code path than the merged analysis and execution phase.
+  def testLostRemoteFile_aspectMaterialization_noBuild(self):
+    self.doTestLostRemoteFile_aspectMaterialization(
+        keep_going=False, nobuild=True
+    )
+
+  def testLostRemoteFile_aspectMaterialization_keepGoing_noBuild(self):
+    self.doTestLostRemoteFile_aspectMaterialization(
+        keep_going=True, nobuild=True
+    )
 
   def doTestMaterializationWithInternalAndExternalSymlinks(
       self, *, expect_symlinks, watch_dep_file=True
