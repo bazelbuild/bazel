@@ -2579,6 +2579,99 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
     self.assertIn('JUST FETCHED', stderr)
     self.assertTrue(os.path.exists(os.path.join(repo_dir, 'data.txt')))
 
+  def testLostRemoteFile_analysisMaterialization_keepGoing_withHealthyTarget(self):
+    # A --keep_going build whose other target analyzes and executes normally:
+    # the retryable analysis error is then processed together with execution
+    # results, which release branches that still have
+    # --experimental_skyframe_error_handling_refactor handle in a separate code
+    # path that ignores analysis root causes.
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+            'other_repo = use_repo_rule("//:other_repo.bzl", "other_repo")',
+            'other_repo(name = "other", data = "@my_repo//:data.txt")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            (
+                '  rctx.file("BUILD.bazel",'
+                ' "exports_files([\'data.txt\'])\\n'
+                'filegroup(name=\'metadata_only\')")'
+            ),
+            '  rctx.file("data.txt", "unique-data-file-contents")',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+    self.ScratchFile(
+        'other_repo.bzl',
+        [
+            'def _other_repo_impl(rctx):',
+            (
+                '  rctx.file("BUILD.bazel",'
+                ' "exports_files([\'copy.txt\'])")'
+            ),
+            '  rctx.file("copy.txt", rctx.read(rctx.path(rctx.attr.data)))',
+            '  return rctx.repo_metadata()',
+            (
+                'other_repo = repository_rule(_other_repo_impl,'
+                ' attrs={"data": attr.label()})'
+            ),
+        ],
+    )
+    self.ScratchFile(
+        'main/BUILD.bazel',
+        [
+            'genrule(',
+            '  name = "bin",',
+            '  srcs = ["@other//:copy.txt"],',
+            '  outs = ["bin.txt"],',
+            '  cmd = "cat $< > $@",',
+            ')',
+            'genrule(',
+            '  name = "healthy",',
+            '  outs = ["healthy.txt"],',
+            '  cmd = "printf healthy > $@",',
+            ')',
+        ],
+    )
+
+    repo_dir = self.RepoDir('my_repo')
+
+    # Populate the remote repo contents cache, then restore only the repo
+    # metadata into the in-memory overlay. data.txt remains remote-only.
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:metadata_only'])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:metadata_only'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'data.txt')))
+
+    self.DeleteCasEntry(b'unique-data-file-contents')
+    _, _, stderr = self.RunBazel(
+        ['build', '--keep_going', '//main:bin', '//main:healthy']
+    )
+    self.assertEqual(
+        1,
+        stderr.count(
+            'Found transient remote cache error, retrying the build...'
+        ),
+    )
+    stderr = '\n'.join(stderr)
+    self.assertIn('JUST FETCHED', stderr)
+    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'data.txt')))
+    with open(self.Path('bazel-bin/main/bin.txt')) as f:
+      self.assertEqual(f.read(), 'unique-data-file-contents')
+    with open(self.Path('bazel-bin/main/healthy.txt')) as f:
+      self.assertEqual(f.read(), 'healthy')
+
   def testLostRemoteFile_aspectMaterialization(self):
     self.doTestLostRemoteFile_aspectMaterialization(keep_going=False)
 
