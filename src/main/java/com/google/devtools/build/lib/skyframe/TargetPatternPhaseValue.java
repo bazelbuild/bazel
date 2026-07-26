@@ -46,6 +46,7 @@ public final class TargetPatternPhaseValue implements SkyValue {
   private final ImmutableSet<Label> targetLabels;
   @Nullable private final ImmutableSet<Label> testsToRunLabels;
   private final ImmutableSet<Label> nonExpandedLabels;
+  private final ImmutableSet<Label> expandedTestSuiteLabels;
   private final boolean hasError;
   private final boolean hasPostExpansionError;
 
@@ -53,11 +54,13 @@ public final class TargetPatternPhaseValue implements SkyValue {
       ImmutableSet<Label> targetLabels,
       ImmutableSet<Label> testsToRunLabels,
       ImmutableSet<Label> nonExpandedLabels,
+      ImmutableSet<Label> expandedTestSuiteLabels,
       boolean hasError,
       boolean hasPostExpansionError) {
     this.targetLabels = targetLabels;
     this.testsToRunLabels = testsToRunLabels;
     this.nonExpandedLabels = nonExpandedLabels;
+    this.expandedTestSuiteLabels = expandedTestSuiteLabels;
     this.hasError = hasError;
     this.hasPostExpansionError = hasPostExpansionError;
   }
@@ -89,6 +92,15 @@ public final class TargetPatternPhaseValue implements SkyValue {
 
   public ImmutableSet<Label> getNonExpandedLabels() {
     return nonExpandedLabels;
+  }
+
+  /**
+   * Returns the labels of test_suite targets that were expanded away (replaced by their constituent
+   * tests) during the target pattern phase. These suites need to be analyzed separately to enforce
+   * visibility checking on their {@code tests} attribute references.
+   */
+  public ImmutableSet<Label> getExpandedTestSuiteLabels() {
+    return expandedTestSuiteLabels;
   }
 
   public ImmutableSet<Target> getTestsToRun(
@@ -124,6 +136,7 @@ public final class TargetPatternPhaseValue implements SkyValue {
     }
     return Objects.equals(this.targetLabels, that.targetLabels)
         && Objects.equals(this.testsToRunLabels, that.testsToRunLabels)
+        && Objects.equals(this.expandedTestSuiteLabels, that.expandedTestSuiteLabels)
         && this.hasError == that.hasError
         && this.hasPostExpansionError == that.hasPostExpansionError;
   }
@@ -133,6 +146,7 @@ public final class TargetPatternPhaseValue implements SkyValue {
     return Objects.hash(
         this.targetLabels,
         this.testsToRunLabels,
+        this.expandedTestSuiteLabels,
         this.hasError,
         this.hasPostExpansionError);
   }

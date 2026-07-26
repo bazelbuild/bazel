@@ -844,6 +844,16 @@ sh_test(
     ],
 )
 
+sh_test(
+    name = "test_suite_visibility_test",
+    size = "large",
+    srcs = ["test_suite_visibility_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+)
+
 cc_binary(
     name = "spend_cpu_time",
     testonly = 1,
