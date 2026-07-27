@@ -281,6 +281,16 @@ java_library(
 )
 
 java_library(
+    name = "action_template_output_event",
+    srcs = ["ActionTemplateOutputEvent.java"],
+    deps = [
+        ":artifacts",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:tree_artifact_value",
+    ],
+)
+
+java_library(
     name = "analysis_graph_stats_event",
     srcs = ["AnalysisGraphStatsEvent.java"],
     deps = ["//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto"],
