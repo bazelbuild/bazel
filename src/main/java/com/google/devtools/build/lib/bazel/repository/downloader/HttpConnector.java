@@ -130,7 +130,7 @@ class HttpConnector {
         // For HTTP connections through authenticated proxies, set the Proxy-Authorization header.
         // For HTTPS, Java's HttpURLConnection handles CONNECT tunneling internally using the
         // Authenticator we set in ProxyHelper.
-        if (proxyInfo.hasCredentials()) {
+        if (proxyInfo.hasCredentials() && Ascii.equalsIgnoreCase(url.getScheme(), "http")) {
           connection.setRequestProperty(
               "Proxy-Authorization", proxyInfo.getProxyAuthorizationHeader());
         }
