@@ -63,15 +63,15 @@ public class AuthAndTLSOptions extends OptionsBase {
   public List<String> googleAuthScopes;
 
   @Option(
-    name = "google_credentials",
-    oldName = "auth_credentials",
-    defaultValue = "null",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help =
-        "Specifies the file to get authentication credentials from. See "
-            + "https://cloud.google.com/docs/authentication for details."
-  )
+      name = "google_credentials",
+      oldName = "auth_credentials",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {OptionMetadataTag.FULLY_REDACTED_IN_LOGS},
+      help =
+          "Specifies the file to get authentication credentials from. See "
+              + "https://cloud.google.com/docs/authentication for details.")
   public String googleCredentials;
 
   @Option(
@@ -97,6 +97,7 @@ public class AuthAndTLSOptions extends OptionsBase {
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {OptionMetadataTag.FULLY_REDACTED_IN_LOGS},
       help =
           "Specify the TLS client key to use; you also need to provide a client certificate to "
               + "enable client authentication.")
