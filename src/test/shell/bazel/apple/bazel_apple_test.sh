@@ -113,7 +113,7 @@ function test_host_available_xcodes() {
 
 function test_xcode_config_select() {
   cat >> MODULE.bazel <<'EOF'
-bazel_dep(name = "apple_support", version = "1.24.2")
+bazel_dep(name = "apple_support", version = "2.5.2")
 EOF
 
   mkdir -p a

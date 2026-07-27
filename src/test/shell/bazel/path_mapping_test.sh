@@ -450,8 +450,14 @@ EOF
 function test_path_stripping_cc_remote() {
   local -r pkg="${FUNCNAME[0]}"
 
+  # TODO: Remove next apple_support bump
+  # https://github.com/bazelbuild/apple_support/pull/629
+  cat > .bazelrc <<EOF
+common --repo_env=APPLE_SUPPORT_LAYERING_CHECK_BETA=0
+EOF
+
   cat > MODULE.bazel <<EOF
-bazel_dep(name = "apple_support", version = "1.21.0")
+bazel_dep(name = "apple_support", version = "2.5.2")
 EOF
   add_rules_cc "MODULE.bazel"
 
