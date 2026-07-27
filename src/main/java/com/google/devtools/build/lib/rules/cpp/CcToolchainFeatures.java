@@ -54,6 +54,7 @@ import java.util.concurrent.CompletionException;
 import java.util.function.Function;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
@@ -79,6 +80,7 @@ import net.starlark.java.eval.StarlarkValue;
  * them from build variables).
  */
 @Immutable
+@StarlarkBuiltin(name = "cc_toolchain_features", documented = false)
 public class CcToolchainFeatures implements StarlarkValue {
 
   /**

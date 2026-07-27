@@ -50,6 +50,7 @@ import java.util.Set;
 import java.util.concurrent.Semaphore;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
@@ -144,6 +145,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
 
   // TODO(https://github.com/bazelbuild/bazel/issues/13605): implement StarlarkMapping (after we've
   // added such an interface) to allow `dict(native.existing_rule(x))`.
+  @StarlarkBuiltin(name = "dict_like_view", documented = false)
   private static interface DictLikeView
       extends StarlarkIndexable, StarlarkIterable<String>, Map<String, Object> {
     @Override

@@ -97,6 +97,7 @@ import java.util.concurrent.Phaser;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
+import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
@@ -111,6 +112,7 @@ import net.starlark.java.eval.StarlarkValue;
 import net.starlark.java.syntax.Location;
 
 /** A common base class for Starlark "ctx" objects related to external dependencies. */
+@StarlarkBuiltin(name = "starlark_base_external_context", documented = false)
 public abstract class StarlarkBaseExternalContext implements AutoCloseable, StarlarkValue {
 
   /**
@@ -565,6 +567,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
     return StarlarkInfo.create(StructProvider.STRUCT, out.buildOrThrow());
   }
 
+  @StarlarkBuiltin(name = "pending_download", documented = false)
   private class PendingDownload implements StarlarkValue, AsyncTask {
     private final boolean executable;
     private final boolean allowFail;
