@@ -200,6 +200,7 @@ public abstract class RemoteOptions extends CommonRemoteOptions {
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {OptionMetadataTag.FULLY_REDACTED_IN_LOGS},
       help =
           "Specify a header that will be included in requests: --remote_header=Name=Value. "
               + "Multiple headers can be passed by specifying the flag multiple times. Multiple "
@@ -215,6 +216,7 @@ public abstract class RemoteOptions extends CommonRemoteOptions {
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {OptionMetadataTag.FULLY_REDACTED_IN_LOGS},
       help =
           "Specify a header that will be included in cache requests: "
               + "--remote_cache_header=Name=Value. "
@@ -231,6 +233,7 @@ public abstract class RemoteOptions extends CommonRemoteOptions {
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {OptionMetadataTag.FULLY_REDACTED_IN_LOGS},
       help =
           "Specify a header that will be included in execution requests: "
               + "--remote_exec_header=Name=Value. "
@@ -247,6 +250,7 @@ public abstract class RemoteOptions extends CommonRemoteOptions {
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {OptionMetadataTag.FULLY_REDACTED_IN_LOGS},
       help =
           "Specify a header that will be included in remote downloader requests: "
               + "--remote_downloader_header=Name=Value. "

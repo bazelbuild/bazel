@@ -72,6 +72,7 @@ public abstract class AuthAndTLSOptions extends OptionsBase {
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {OptionMetadataTag.FULLY_REDACTED_IN_LOGS},
       help =
           "Specifies the file to get authentication credentials from. See "
               + "https://cloud.google.com/docs/authentication for details.")
@@ -107,6 +108,7 @@ public abstract class AuthAndTLSOptions extends OptionsBase {
       converter = EmptyToNullStringConverter.class,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {OptionMetadataTag.FULLY_REDACTED_IN_LOGS},
       help =
           "Specify the TLS client key to use; you also need to provide a client certificate to "
               + "enable client authentication. An empty value resets the flag to its default.")

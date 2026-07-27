@@ -786,7 +786,8 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         unstructuredServerCommandLineEvent =
             OriginalUnstructuredCommandLineEvent.REDACTED_UNSTRUCTURED_COMMAND_LINE_EVENT;
       } else {
-        unstructuredServerCommandLineEvent = new OriginalUnstructuredCommandLineEvent(args);
+        unstructuredServerCommandLineEvent =
+            new OriginalUnstructuredCommandLineEvent(SafeRequestLogging.redactArguments(args));
       }
       env.getEventBus().post(unstructuredServerCommandLineEvent);
       env.getEventBus().post(originalCommandLineEvent);
