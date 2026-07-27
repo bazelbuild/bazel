@@ -937,29 +937,8 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
             Starlark.positionalOnlyCall(thread, this.fn, os.getCanonicalName(), inputInt);
         Map<String, Object> resourceSetMapRaw =
             Dict.cast(response, String.class, Object.class, "resource_set");
-
-        ImmutableMap.Builder<String, Double> resourceSetBuilder = ImmutableMap.builder();
-        for (String key : resourceSetMapRaw.keySet()) {
-          if (!validResources.contains(key)) {
-            resourceSetBuilder.put(key, getNumericOrDefault(resourceSetMapRaw, key, 0.0));
-          }
-        }
-
-        resourceSetBuilder.put(
-            ResourceSet.MEMORY,
-            getNumericOrDefault(
-                resourceSetMapRaw, ResourceSet.MEMORY, DEFAULT_RESOURCE_SET.getMemoryMb()));
-
-        resourceSetBuilder.put(
-            ResourceSet.CPU,
-            getNumericOrDefault(
-                resourceSetMapRaw, ResourceSet.CPU, DEFAULT_RESOURCE_SET.getCpuUsage()));
-
-        return ResourceSet.create(
-            resourceSetBuilder.buildOrThrow(),
-            (int)
-                getNumericOrDefault(
-                    resourceSetMapRaw, "local_test", DEFAULT_RESOURCE_SET.getLocalTestCount()));
+        ResourceCollector resourceCollector = new ResourceCollector(resourceSetMapRaw);
+        return resourceCollector.toResourceSet();
 
       } catch (EvalException e) {
         throw new UserExecException(
@@ -972,26 +951,6 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
                         .build())
                 .build());
       }
-    }
-
-    static double getNumericOrDefault(
-        Map<String, Object> resourceSetMap, String key, double defaultValue) throws EvalException {
-      if (!resourceSetMap.containsKey(key)) {
-        return defaultValue;
-      }
-
-      Object value = resourceSetMap.get(key);
-      if (value instanceof StarlarkInt starlarkInt) {
-        return starlarkInt.toDouble();
-      }
-
-      if (value instanceof StarlarkFloat starlarkFloat) {
-        return starlarkFloat.toDouble();
-      }
-      throw new EvalException(
-          String.format(
-              "Illegal resource value type for key %s: got %s, want int or float",
-              key, Starlark.type(value)));
     }
 
     @Override
@@ -1010,6 +969,59 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     @Override
     public int hashCode() {
       return Objects.hashCode(fn, mnemonic, semantics);
+    }
+  }
+
+  /**
+   * Wraps a Starlark dict representing a resource set, providing typed getters with defaults and
+   * the ability to build a {@link ResourceSet}.
+   */
+  private static final class ResourceCollector {
+    private final Map<String, Object> map;
+
+    ResourceCollector(Map<String, Object> map) {
+      this.map = map;
+    }
+
+    double getMemoryMb() throws EvalException {
+      return getNumericOrDefault(ResourceSet.MEMORY, DEFAULT_RESOURCE_SET.getMemoryMb());
+    }
+
+    double getCpuUsage() throws EvalException {
+      return getNumericOrDefault(ResourceSet.CPU, DEFAULT_RESOURCE_SET.getCpuUsage());
+    }
+
+    int getLocalTestCount() throws EvalException {
+      return (int) getNumericOrDefault("local_test", DEFAULT_RESOURCE_SET.getLocalTestCount());
+    }
+
+    ResourceSet toResourceSet() throws EvalException {
+      ImmutableMap.Builder<String, Double> builder = ImmutableMap.builder();
+      for (String key : map.keySet()) {
+        if (!validResources.contains(key)) {
+          builder.put(key, getNumericOrDefault(key, 0.0));
+        }
+      }
+      builder.put(ResourceSet.MEMORY, getMemoryMb());
+      builder.put(ResourceSet.CPU, getCpuUsage());
+      return ResourceSet.create(builder.buildOrThrow(), getLocalTestCount());
+    }
+
+    private double getNumericOrDefault(String key, double defaultValue) throws EvalException {
+      if (!map.containsKey(key)) {
+        return defaultValue;
+      }
+      Object value = map.get(key);
+      if (value instanceof StarlarkInt starlarkInt) {
+        return starlarkInt.toDouble();
+      }
+      if (value instanceof StarlarkFloat starlarkFloat) {
+        return starlarkFloat.toDouble();
+      }
+      throw new EvalException(
+          String.format(
+              "Illegal resource value type for key %s: got %s, want int or float",
+              key, Starlark.type(value)));
     }
   }
 
@@ -1045,32 +1057,17 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       throws EvalException {
     Map<String, Object> resourceSetMapRaw =
         Dict.cast(resourceSetUnchecked, String.class, Object.class, "resource_set");
+    ResourceCollector resourceCollector = new ResourceCollector(resourceSetMapRaw);
 
-    if (!validResources.containsAll(resourceSetMapRaw.keySet())) {
-      String message =
-          String.format(
-              "Illegal resource keys: (%s)",
-              Joiner.on(",").join(Sets.difference(resourceSetMapRaw.keySet(), validResources)));
-      throw Starlark.errorf("%s", message);
-    }
-
-    double memoryMb =
-        StarlarkActionResourceSetBuilder.getNumericOrDefault(
-            resourceSetMapRaw, ResourceSet.MEMORY, DEFAULT_RESOURCE_SET.getMemoryMb());
-    double cpuUsage =
-        StarlarkActionResourceSetBuilder.getNumericOrDefault(
-            resourceSetMapRaw, ResourceSet.CPU, DEFAULT_RESOURCE_SET.getCpuUsage());
-    int localTestCount =
-        (int)
-            StarlarkActionResourceSetBuilder.getNumericOrDefault(
-                resourceSetMapRaw, "local_test", DEFAULT_RESOURCE_SET.getLocalTestCount());
     // Optimize for low retained memory usage since this resource set is retained by the action.
     // The loss of precision for memory and CPU usage due to the cast to float is negligible for the
     // purpose of resource scheduling.
+    int localTestCount = resourceCollector.getLocalTestCount();
     if (localTestCount == DEFAULT_RESOURCE_SET.getLocalTestCount()) {
-      return StarlarkActionResourceSet.create((float) memoryMb, (float) cpuUsage);
+      return StarlarkActionResourceSet.create(
+          (float) resourceCollector.getMemoryMb(), (float) resourceCollector.getCpuUsage());
     }
-    return ResourceSet.create(memoryMb, cpuUsage, localTestCount);
+    return resourceCollector.toResourceSet();
   }
 
   private static void validateResourceSetBuilder(Object fn) throws EvalException {
