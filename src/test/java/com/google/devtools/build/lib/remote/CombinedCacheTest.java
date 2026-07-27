@@ -14,16 +14,21 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 import static com.google.devtools.build.lib.remote.util.Utils.waitForBulkTransfer;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.CacheCapabilities;
@@ -58,10 +63,13 @@ import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.exec.util.FakeOwner;
 import com.google.devtools.build.lib.exec.util.SpawnBuilder;
 import com.google.devtools.build.lib.remote.common.BulkTransferException;
+import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
+import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext.CachePolicy;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.Blob;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
+import com.google.devtools.build.lib.remote.disk.DiskCacheClient;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTreeComputer;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
@@ -83,6 +91,7 @@ import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.Options;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.Deque;
@@ -179,6 +188,68 @@ public class CombinedCacheTest {
     }
     assertThat(file.exists()).isTrue();
     assertThat(file.getFileSize()).isEqualTo(0);
+  }
+
+  @Test
+  public void downloadCdcChunk_diskCacheHit_reportsDiskCache() throws Exception {
+    byte[] data = new byte[] {1, 2, 3};
+    Digest digest = digestUtil.compute(data);
+    DiskCacheClient diskCacheClient = mock(DiskCacheClient.class);
+    RemoteCacheClient remoteCacheClient = mock(RemoteCacheClient.class);
+    when(diskCacheClient.downloadBlob(eq(digest), any()))
+        .thenAnswer(
+            invocation -> {
+              ByteArrayOutputStream out = invocation.getArgument(1);
+              out.writeBytes(data);
+              return immediateVoidFuture();
+            });
+    CombinedCache combinedCache =
+        new CombinedCache(
+            remoteCacheClient,
+            diskCacheClient,
+            /* symlinkTemplate= */ null,
+            digestUtil,
+            /* chunkingEnabled= */ false);
+
+    CombinedCache.CdcChunk chunk =
+        getFromFuture(combinedCache.downloadCdcChunk(remoteActionExecutionContext, digest));
+
+    assertThat(chunk.data()).isEqualTo(data);
+    assertThat(chunk.diskCacheHit()).isTrue();
+    assertThat(chunk.diskCacheLookupAttempted()).isTrue();
+    verify(remoteCacheClient, never()).downloadBlob(any(), any(), any());
+  }
+
+  @Test
+  public void downloadCdcChunk_diskCacheMiss_reportsRemoteCache() throws Exception {
+    byte[] data = new byte[] {1, 2, 3};
+    Digest digest = digestUtil.compute(data);
+    DiskCacheClient diskCacheClient = mock(DiskCacheClient.class);
+    RemoteCacheClient remoteCacheClient = mock(RemoteCacheClient.class);
+    when(diskCacheClient.downloadBlob(eq(digest), any()))
+        .thenReturn(immediateFailedFuture(new CacheNotFoundException(digest)));
+    when(remoteCacheClient.downloadBlob(any(), eq(digest), any()))
+        .thenAnswer(
+            invocation -> {
+              ByteArrayOutputStream out = invocation.getArgument(2);
+              out.writeBytes(data);
+              return immediateVoidFuture();
+            });
+    CombinedCache combinedCache =
+        new CombinedCache(
+            remoteCacheClient,
+            diskCacheClient,
+            /* symlinkTemplate= */ null,
+            digestUtil,
+            /* chunkingEnabled= */ false);
+    RemoteActionExecutionContext context =
+        remoteActionExecutionContext.withWriteCachePolicy(CachePolicy.REMOTE_CACHE_ONLY);
+
+    CombinedCache.CdcChunk chunk = getFromFuture(combinedCache.downloadCdcChunk(context, digest));
+
+    assertThat(chunk.data()).isEqualTo(data);
+    assertThat(chunk.diskCacheHit()).isFalse();
+    assertThat(chunk.diskCacheLookupAttempted()).isTrue();
   }
 
   @Test

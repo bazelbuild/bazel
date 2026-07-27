@@ -29,6 +29,7 @@ import build.bazel.remote.execution.v2.Digest;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.clock.JavaClock;
+import com.google.devtools.build.lib.metrics.RemoteCacheCdcEvent;
 import com.google.devtools.build.lib.remote.chunking.ChunkingConfig;
 import com.google.devtools.build.lib.remote.chunking.FastCdcChunker;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
@@ -81,6 +82,7 @@ public class ChunkedBlobUploaderTest {
   private FileSystem fs;
   private Path execRoot;
   private ChunkedBlobUploader uploader;
+  private List<RemoteCacheCdcEvent> metricsEvents;
 
   @Before
   public void setUp() throws Exception {
@@ -89,7 +91,10 @@ public class ChunkedBlobUploaderTest {
     execRoot.createDirectoryAndParents();
 
     ChunkingConfig config = new ChunkingConfig(1024, 2, 0);
-    uploader = new ChunkedBlobUploader(grpcCacheClient, combinedCache, config, DIGEST_UTIL);
+    metricsEvents = new ArrayList<>();
+    uploader =
+        new ChunkedBlobUploader(
+            grpcCacheClient, combinedCache, config, DIGEST_UTIL, metricsEvents::add);
   }
 
   @Test
@@ -127,6 +132,15 @@ public class ChunkedBlobUploaderTest {
     assertThat(chunkDigests.size()).isGreaterThan(1);
     long totalSize = chunkDigests.stream().mapToLong(Digest::getSizeBytes).sum();
     assertThat(totalSize).isEqualTo(data.length);
+    assertThat(metricsEvents).hasSize(1);
+    RemoteCacheCdcEvent.Upload metrics = (RemoteCacheCdcEvent.Upload) metricsEvents.getFirst();
+    assertThat(metrics.outcome()).isEqualTo(RemoteCacheCdcEvent.Outcome.SUCCESS);
+    assertThat(metrics.blobBytes()).isEqualTo(data.length);
+    assertThat(metrics.chunkReferences()).isEqualTo(chunkDigests.size());
+    assertThat(metrics.remoteMissingChunks()).isEqualTo(ImmutableSet.copyOf(chunkDigests).size());
+    assertThat(metrics.remoteMissingChunkBytes())
+        .isEqualTo(
+            ImmutableSet.copyOf(chunkDigests).stream().mapToLong(Digest::getSizeBytes).sum());
   }
 
   @Test
@@ -146,6 +160,13 @@ public class ChunkedBlobUploaderTest {
 
     verify(combinedCache, never()).uploadBlob(any(), any(Digest.class), any(Blob.class));
     verify(grpcCacheClient).spliceBlob(any(), eq(blobDigest), any());
+    assertThat(metricsEvents).hasSize(1);
+    RemoteCacheCdcEvent.Upload metrics = (RemoteCacheCdcEvent.Upload) metricsEvents.getFirst();
+    assertThat(metrics.outcome()).isEqualTo(RemoteCacheCdcEvent.Outcome.SUCCESS);
+    assertThat(metrics.blobBytes()).isEqualTo(data.length);
+    assertThat(metrics.chunkReferences()).isGreaterThan(1);
+    assertThat(metrics.remoteMissingChunks()).isEqualTo(0);
+    assertThat(metrics.remoteMissingChunkBytes()).isEqualTo(0);
   }
 
   @Test
@@ -207,6 +228,14 @@ public class ChunkedBlobUploaderTest {
       assertThat(actualUploads.get(entry.getKey())).isEqualTo(entry.getValue());
     }
     verify(grpcCacheClient).spliceBlob(any(), eq(blobDigest), eq(allChunkDigests));
+    assertThat(metricsEvents).hasSize(1);
+    RemoteCacheCdcEvent.Upload metrics = (RemoteCacheCdcEvent.Upload) metricsEvents.getFirst();
+    assertThat(metrics.outcome()).isEqualTo(RemoteCacheCdcEvent.Outcome.SUCCESS);
+    assertThat(metrics.blobBytes()).isEqualTo(fileData.length);
+    assertThat(metrics.chunkReferences()).isEqualTo(allChunkDigests.size());
+    assertThat(metrics.remoteMissingChunks()).isEqualTo(digestsToReportMissing.size());
+    assertThat(metrics.remoteMissingChunkBytes())
+        .isEqualTo(digestsToReportMissing.stream().mapToLong(Digest::getSizeBytes).sum());
   }
 
   @Test
@@ -356,6 +385,9 @@ public class ChunkedBlobUploaderTest {
     assertThat(uploadThread.isAlive()).isFalse();
     assertThat(cancelledUpload.isCancelled()).isTrue();
     verify(grpcCacheClient, never()).spliceBlob(any(), any(), any());
+    assertThat(metricsEvents).hasSize(1);
+    assertThat(((RemoteCacheCdcEvent.Upload) metricsEvents.getFirst()).outcome())
+        .isEqualTo(RemoteCacheCdcEvent.Outcome.FAILURE);
   }
 
   @Test
