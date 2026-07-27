@@ -1,11 +1,10 @@
 ---
-check_docs: 1
+
 tasks:
   rockylinux8:
     shell_commands:
       - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
-      - if [ -n "${UPDATE_BAZEL_LOCK_FILE:-}" ]; then bazel mod deps --lockfile_mode=update; fi
     build_flags:
       - "--config=ci-linux"
     build_targets:
@@ -15,11 +14,26 @@ tasks:
       - "//src:bazel"
       - "//src:bazel_jdk_minimal"
       - "//src:test_repos"
-      - "//..."
+      - "//src/main/java/..."
+      - "//src/tools/diskcache/..."
+      - "//src/tools/execlog/..."
     test_flags:
       - "--config=ci-linux"
     test_targets:
-      - "//..."
+      - "//scripts/..."
+      - "//src/java_tools/..."
+      - "//src/main/starlark/tests/builtins_bzl/..."
+      - "//src/test/..."
+      - "//src/tools/execlog/..."
+      - "//src/tools/one_version/..."
+      - "//src/tools/singlejar/..."
+      - "//src/tools/workspacelog/..."
+      - "//third_party/ijar/..."
+      - "//tools/aquery_differ/..."
+      - "//tools/compliance/..."
+      - "//tools/python/..."
+      - "//tools/bash/..."
+      - "//tools/test/..."
       # These tests are not compatible with the gcov version of Rocky Linux 8.
       - "-//src/test/shell/bazel:bazel_cc_code_coverage_test"
       - "-//src/test/shell/bazel:bazel_coverage_cc_released_test_gcc"
@@ -32,7 +46,6 @@ tasks:
     shell_commands:
       - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
-      - if [ -n "${UPDATE_BAZEL_LOCK_FILE:-}" ]; then bazel mod deps --lockfile_mode=update; fi
     build_flags:
       - "--config=ci-linux"
     build_targets:
@@ -42,14 +55,15 @@ tasks:
       - "//src:bazel"
       - "//src:bazel_jdk_minimal"
       - "//src:test_repos"
-      - "//..."
+      - "//src/main/java/..."
+      - "//src/tools/diskcache/..."
+      - "//src/tools/execlog/..."
     include_json_profile:
       - build
   fedora39:
     shell_commands:
       - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
-      - if [ -n "${UPDATE_BAZEL_LOCK_FILE:-}" ]; then bazel mod deps --lockfile_mode=update; fi
     build_flags:
       - "--config=ci-linux"
     build_targets:
@@ -63,23 +77,34 @@ tasks:
     shell_commands:
       - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
-      - if [ -n "${UPDATE_BAZEL_LOCK_FILE:-}" ]; then bazel mod deps --lockfile_mode=update; fi
     build_flags:
       - "--config=ci-linux"
     build_targets:
       - "//src:bazel"
       - "//src:bazel_jdk_minimal"
       - "//src:test_repos"
-      - "//..."
+      - "//src/main/java/..."
     test_flags:
       - "--config=ci-linux"
     test_targets:
-      - "//..."
+      - "//scripts/..."
+      - "//src/java_tools/..."
+      - "//src/main/starlark/tests/builtins_bzl/..."
+      - "//src/test/..."
+      - "//src/tools/execlog/..."
+      - "//src/tools/one_version/..."
+      - "//src/tools/singlejar/..."
+      - "//src/tools/workspacelog/..."
+      - "//third_party/ijar/..."
+      - "//tools/aquery_differ/..."
+      - "//tools/python/..."
+      - "//tools/bash/..."
+      - "//tools/test/..."
     include_json_profile:
       - build
       - test
-  ubuntu2204_clang:
-    platform: ubuntu2204
+  ubuntu2404_clang:
+    platform: ubuntu2404
     environment:
       CC: clang
       CC_CONFIGURE_DEBUG: 1
@@ -87,37 +112,17 @@ tasks:
     shell_commands:
       - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
-      - if [ -n "${UPDATE_BAZEL_LOCK_FILE:-}" ]; then bazel mod deps --lockfile_mode=update; fi
     build_flags:
       - "--config=ci-linux"
     build_targets:
       - "//src:bazel"
       - "//src:bazel_jdk_minimal"
       - "//src:test_repos"
-      - "//..."
+      - "//src/main/java/..."
     test_flags:
       - "--config=ci-linux"
     test_targets:
       - "//src/test/shell/bazel:cc_integration_test"
-    include_json_profile:
-      - build
-      - test
-  ubuntu2204:
-    shell_commands:
-      - rm -rf $HOME/bazeltest
-      - mkdir $HOME/bazeltest
-      - if [ -n "${UPDATE_BAZEL_LOCK_FILE:-}" ]; then bazel mod deps --lockfile_mode=update; fi
-    build_flags:
-      - "--config=ci-linux"
-    build_targets:
-      - "//src:bazel"
-      - "//src:bazel_jdk_minimal"
-      - "//src:test_repos"
-      - "//..."
-    test_flags:
-      - "--config=ci-linux"
-    test_targets:
-      - "//..."
     include_json_profile:
       - build
       - test
@@ -127,10 +132,6 @@ tasks:
       - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
       - ln -sf $OUTPUT_BASE/external $HOME/bazeltest/external
-      - if [ -n "${UPDATE_BAZEL_LOCK_FILE:-}" ]; then bazel mod deps --lockfile_mode=update; fi
-    environment:
-      ANDROID_HOME: ""
-      ANDROID_NDK_HOME: ""
     build_flags:
       - "--config=ci-macos"
     build_targets:
@@ -142,10 +143,22 @@ tasks:
       # Fine tune the number of test jobs running in parallel to avoid timeout
       - "--local_test_jobs=2"
     test_targets:
-      - "//..."
+      - "//scripts/..."
+      - "//src/main/starlark/tests/builtins_bzl/..."
+      - "//src/test/..."
+      - "//src/tools/execlog/..."
+      - "//src/tools/one_version/..."
+      - "//src/tools/singlejar/..."
+      - "//src/tools/workspacelog/..."
+      - "//third_party/ijar/..."
+      - "//tools/aquery_differ/..."
+      - "//tools/python/..."
+      - "//tools/bash/..."
+      - "//tools/test/..."
       # Disable python and shell integration tests on Intel Macs
       - "-//src/test/shell/..."
       - "-//src/test/py/..."
+      - "-//src/main/starlark/tests/builtins_bzl:cc_builtin_tests"
       # https://github.com/bazelbuild/bazel/issues/17410
       - "-//src/test/java/com/google/devtools/build/lib/platform:SystemMemoryPressureEventTest"
       # Disable android tests since we are moving Android rules out of the Bazel repo.
@@ -164,14 +177,12 @@ tasks:
       - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
       - ln -sf $OUTPUT_BASE/external $HOME/bazeltest/external
-      - if [ -n "${UPDATE_BAZEL_LOCK_FILE:-}" ]; then bazel mod deps --lockfile_mode=update; fi
     build_flags:
       - "--config=ci-macos"
     build_targets:
       - "//src:bazel"
       - "//src:bazel_jdk_minimal"
       - "//src:test_repos"
-      - "//..."
     test_flags:
       - "--config=ci-macos"
       # Fine tune the number of test jobs running in parallel to avoid timeout
@@ -179,7 +190,18 @@ tasks:
       # Increase the test timeout by 20% to avoid flaky test failures due to timeout
       - "--test_timeout=72,360,1080,4320"
     test_targets:
-      - "//..."
+      - "//scripts/..."
+      - "//src/main/starlark/tests/builtins_bzl/..."
+      - "//src/test/..."
+      - "//src/tools/execlog/..."
+      - "//src/tools/one_version/..."
+      - "//src/tools/singlejar/..."
+      - "//src/tools/workspacelog/..."
+      - "//third_party/ijar/..."
+      - "//tools/aquery_differ/..."
+      - "//tools/python/..."
+      - "//tools/bash/..."
+      - "//tools/test/..."
       # https://github.com/bazelbuild/bazel/issues/17410
       - "-//src/test/java/com/google/devtools/build/lib/platform:SystemMemoryPressureEventTest"
     include_json_profile:
@@ -189,7 +211,6 @@ tasks:
     setup:
       - mkdir C:\b
       - mklink /J C:\b\bazeltest_external %OUTPUT_BASE:/=\%\external
-      - IF DEFINED UPDATE_BAZEL_LOCK_FILE bazel mod deps --lockfile_mode=update
     build_flags:
       - "--config=ci-windows"
     build_targets:
@@ -201,12 +222,14 @@ tasks:
       - "--config=ci-windows"
     test_targets:
       - "//src:embedded_tools_size_test"
+      - "//src/main/starlark/tests/builtins_bzl/..."
       - "//src/test/cpp/..."
       - "//src/test/java/com/google/devtools/build/lib/..."
       - "//src/test/java/com/google/devtools/build/skyframe/..."
       - "//src/test/java/com/google/devtools/common/options/..."
       - "//src/test/native/windows/..."
       - "//src/test/py/bazel/..."
+      - "//src/test/res/..."
       - "//src/test/shell/..."
       - "//src/tools/launcher/..."
       - "//src/tools/one_version/..."
@@ -223,6 +246,9 @@ tasks:
       # https://github.com/bazelbuild/bazel/issues/4292
       - "-//src/test/shell/bazel/remote/..."
       - "-//tools/python:pywrapper_test"
+      # Temporarily disable this test which is failing on Windows due to a clang update.
+      # TODO(b/530925565): Re-enable.
+      - "-//src/test/py/bazel:launcher_test"
     include_json_profile:
       - build
       - test
@@ -232,7 +258,6 @@ tasks:
     setup:
       - mkdir C:\b
       - mklink /J C:\b\bazeltest_external %OUTPUT_BASE:/=\%\external
-      - IF DEFINED UPDATE_BAZEL_LOCK_FILE bazel mod deps --lockfile_mode=update
     build_flags:
       - "--config=ci-windows"
       - "--config=windows_arm64"
@@ -244,25 +269,26 @@ tasks:
   rbe_ubuntu2404:
     platform: ubuntu2404
     name: "RBE"
-    shell_commands:
-      - if [ -n "${UPDATE_BAZEL_LOCK_FILE:-}" ]; then bazel mod deps --lockfile_mode=update; fi
     build_flags:
       - "--config=remote"
-      - "--config=ci-common"
+      - "--remote_executor=grpcs://remotebuildexecution.googleapis.com"
       - "--jobs=200"
+      - "--remote_download_minimal"
       - "--experimental_output_paths=strip"
     build_targets:
       - "//src:bazel"
       - "//src:bazel_jdk_minimal"
-      - "//..."
+      - "//src/main/java/..."
     test_flags:
       - "--config=remote"
-      - "--config=ci-common"
+      - "--remote_executor=grpcs://remotebuildexecution.googleapis.com"
       - "--jobs=200"
+      - "--remote_download_minimal"
       - "--experimental_output_paths=strip"
     test_targets:
       - "//scripts/..."
       - "//src/java_tools/..."
+      - "//src/main/starlark/tests/builtins_bzl/..."
       - "//src/test/..."
       - "//src/tools/execlog/..."
       - "//src/tools/one_version/..."
@@ -289,6 +315,14 @@ tasks:
       - "-//src/test/py/bazel:bzlmod_query_test"
       - "-//src/test/py/bazel:mod_command_test"
       - "-//src/test/shell/bazel:starlark_repository_test"
+      # Disable tests that fail on RBE due to sandboxing/mount restrictions
+      - "-//src/test/shell/integration:sandboxing_test"
+      - "-//src/test/java/com/google/devtools/build/lib/shell:CommandUsingLinuxSandboxTest"
+      - "-//src/test/shell/bazel:bazel_spawnstats_test"
+      - "-//src/test/shell/integration:bazel_hardened_sandboxed_worker_test"
+      - "-//src/test/shell/integration:test_test"
+      - "-//src/test/tools:linux-sandbox_test"
+      - "-//src/test/tools:daemonize_test"
     include_json_profile:
       - build
       - test

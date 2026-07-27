@@ -14,13 +14,16 @@ platforms:
     build_flags:
       - "-c"
       - "opt"
-  ubuntu2204:
+  ubuntu2404_arm64:
     build_targets:
       - "//src:bazel"
       - "//src:bazel_nojdk"
     build_flags:
       - "-c"
       - "opt"
+      # https://github.com/bazelbuild/continuous-integration/issues/2353
+      - "--linkopt=-Wl,--no-fix-cortex-a53-843419"
+      - "--host_linkopt=-Wl,--no-fix-cortex-a53-843419"
   ubuntu2404:
     build_targets:
       - "//src:bazel"
@@ -28,10 +31,14 @@ platforms:
     build_flags:
       - "-c"
       - "opt"
+  ubuntu2204:
+    build_targets:
+      - "//src:bazel"
+      - "//src:bazel_nojdk"
+    build_flags:
+      - "-c"
+      - "opt"
   macos:
-    environment:
-      ANDROID_HOME: ""
-      ANDROID_NDK_HOME: ""
     build_targets:
       - "//src:bazel"
       - "//src:bazel_nojdk"
