@@ -142,7 +142,7 @@ public class GrpcRemoteDownloaderTest {
   }
 
   private GrpcRemoteDownloader newDownloader(RemoteCacheClient cacheClient) throws IOException {
-    return newDownloader(cacheClient, mock(Downloader.class)/* allowFallback= */ );
+    return newDownloader(cacheClient, mock(Downloader.class));
   }
 
   private GrpcRemoteDownloader newDownloader(
@@ -518,6 +518,8 @@ public class GrpcRemoteDownloaderTest {
             DIGEST_UTIL.getDigestFunction(),
             ImmutableMap.of(
                 "Authorization", ImmutableList.of("Basic Zm9vOmJhcg=="),
+                "Proxy-Authorization", ImmutableList.of("Basic cHJveHk6c2VjcmV0"),
+                "Cookie", ImmutableList.of("session=xyz"),
                 "X-Custom-Token", ImmutableList.of("foo", "bar")),
             StaticCredentials.EMPTY);
 
@@ -535,6 +537,10 @@ public class GrpcRemoteDownloaderTest {
                         .setValue("sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="))
                 .addQualifiers(
                     Qualifier.newBuilder().setName("bazel.canonical_id").setValue("canonical ID"))
+                .addQualifiers(
+                    Qualifier.newBuilder()
+                        .setName("http_header:X-Custom-Token")
+                        .setValue("foo,bar"))
                 .build());
   }
 
