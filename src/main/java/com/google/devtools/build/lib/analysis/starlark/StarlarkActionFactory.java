@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.ResourceSetOrBuilder;
@@ -1152,6 +1153,11 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
                     getSemantics()
                         .getBool(BuildLanguageOptions.INCOMPATIBLE_ALLOW_TAGS_PROPAGATION)),
                 mnemonic);
+    executionInfo =
+        ImmutableMap.<String, String>builderWithExpectedSize(executionInfo.size() + 1)
+            .putAll(executionInfo)
+            .put(ExecutionRequirements.MAP_DIRECTORY_ACTION, "")
+            .buildKeepingLast();
 
     ActionEnvironment actionEnv =
         SpawnAction.createActionEnvironment(

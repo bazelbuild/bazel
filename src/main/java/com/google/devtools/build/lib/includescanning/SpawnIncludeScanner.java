@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.AbstractAction;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -90,16 +91,20 @@ public class SpawnIncludeScanner {
 
   @VisibleForTesting
   Path getIncludesOutput(
-      Artifact src, ArtifactPathResolver resolver, GrepIncludesFileType fileType,
+      Artifact src,
+      ArtifactPathResolver resolver,
+      GrepIncludesFileType fileType,
       boolean placeNextToFile) {
     if (placeNextToFile) {
       // If this is an output file, just place the grepped-file next to it. The directory is bound
       // to exist.
-      return resolver.toPath(src)
+      return resolver
+          .toPath(src)
           .getParentDirectory()
           .getRelative(src.getFilename() + ".blaze-grepped_includes_" + fileType);
     }
-    return resolver.convertPath(execRoot)
+    return resolver
+        .convertPath(execRoot)
         .getChild("blaze-grepped_includes_" + fileType.getFileType())
         .getRelative(src.getExecPath());
   }
@@ -233,6 +238,21 @@ public class SpawnIncludeScanner {
     }
 
     @Override
+    public ImmutableMap<String, String> getExecutionInfo() {
+      ImmutableMap<String, String> executionInfo = actionExecutionMetadata.getExecutionInfo();
+      if (executionInfo == null) {
+        executionInfo = actionExecutionMetadata.getExecProperties();
+        if (executionInfo == null) {
+          executionInfo = ImmutableMap.of();
+        }
+      }
+      if (executionPlatform != null) {
+        return ActionAnalysisMetadata.mergeMaps(executionPlatform.execProperties(), executionInfo);
+      }
+      return executionInfo;
+    }
+
+    @Override
     @Nullable
     public PlatformInfo getExecutionPlatform() {
       if (executionPlatform != null) {
@@ -301,7 +321,6 @@ public class SpawnIncludeScanner {
       // This is called to compute orphaned outputs. See getOutputs.
       return ImmutableSet.of();
     }
-
   }
 
   /** Extracts and returns inclusions from "file" using a spawn. */
@@ -315,8 +334,9 @@ public class SpawnIncludeScanner {
       boolean isOutputFile)
       throws IOException, ExecException, InterruptedException {
     boolean placeNextToFile = isOutputFile && !file.hasParent();
-    Path output = getIncludesOutput(file, actionExecutionContext.getPathResolver(), fileType,
-        placeNextToFile);
+    Path output =
+        getIncludesOutput(
+            file, actionExecutionContext.getPathResolver(), fileType, placeNextToFile);
     if (!inMemoryOutput) {
       AbstractAction.deleteOutput(
           output,
