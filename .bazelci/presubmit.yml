@@ -107,8 +107,8 @@ tasks:
     include_json_profile:
       - build
       - test
-  ubuntu2004_clang:
-    platform: ubuntu2004
+  ubuntu2404_clang:
+    platform: ubuntu2404
     environment:
       CC: clang
       CC_CONFIGURE_DEBUG: 1
@@ -127,38 +127,6 @@ tasks:
       - "--config=ci-linux"
     test_targets:
       - "//src/test/shell/bazel:cc_integration_test"
-    include_json_profile:
-      - build
-      - test
-  ubuntu2004:
-    shards: 4
-    shell_commands:
-      - rm -rf $HOME/bazeltest
-      - mkdir $HOME/bazeltest
-    build_flags:
-      - "--config=ci-linux"
-    build_targets:
-      - "//src:bazel"
-      - "//src:bazel_jdk_minimal"
-      - "//src:test_repos"
-      - "//src/main/java/..."
-    test_flags:
-      - "--config=ci-linux"
-    test_targets:
-      - "//scripts/..."
-      - "//src/java_tools/..."
-      - "//src/main/starlark/tests/builtins_bzl/..."
-      - "//src/test/..."
-      - "//src/tools/execlog/..."
-      - "//src/tools/one_version/..."
-      - "//src/tools/singlejar/..."
-      - "//src/tools/workspacelog/..."
-      - "//third_party/ijar/..."
-      - "//tools/aquery_differ/..."
-      - "//tools/python/..."
-      - "//tools/bash/..."
-      # Disable some Android tests since we are moving Android rules out of the Bazel repo.
-      - "-//src/test/shell/bazel:bazel_android_tools_test"
     include_json_profile:
       - build
       - test
@@ -389,8 +357,8 @@ tasks:
     index_targets_query: "kind(\"cc_(binary|library|test|proto_library) rule\", ...) union kind(\"java_(binary|import|library|plugin|test|proto_library) rule\", ...) union kind(\"proto_library rule\", ...)"
     index_upload_policy: Always
     index_upload_gcs: False
-  docs_ubuntu2004:
-    platform: ubuntu2004
+  docs_ubuntu2404:
+    platform: ubuntu2404
     name: "Docs"
     build_flags:
       - "--config=docs"
