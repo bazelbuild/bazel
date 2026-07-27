@@ -98,7 +98,13 @@ class ExtraField {
   static const ExtraField* find(uint16_t tag, const uint8_t* start,
                                 const uint8_t* end) {
     while (start < end) {
+      if (ziph::byte_ptr(start) + sizeof(ExtraField) > ziph::byte_ptr(end)) {
+        break;
+      }
       auto extra_field = reinterpret_cast<const ExtraField*>(start);
+      if (ziph::byte_ptr(start) + extra_field->size() > ziph::byte_ptr(end)) {
+        break;
+      }
       if (extra_field->is(tag)) {
         return extra_field;
       }
