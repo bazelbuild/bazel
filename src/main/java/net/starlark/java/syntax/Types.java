@@ -68,7 +68,6 @@ public final class Types {
   public static final UnionType NUMERIC = (UnionType) union(INT, FLOAT);
   // A frequently-used empty tuple type.
   public static final FixedLengthTupleType EMPTY_TUPLE = tuple(ImmutableList.of());
-  public static final HomogeneousTupleType HOMOGENEOUS_TUPLE_OF_ANY = homogeneousTuple(ANY);
   // A frequently-used arbitrary collection.
   public static final CollectionType COLLECTION_OF_ANY = collection(ANY);
   // A frequently-used arbitrary partial struct.
@@ -1492,7 +1491,7 @@ public final class Types {
       }
       StringBuilder buf = new StringBuilder();
       buf.append("struct[");
-      TypeConstructor.Term.TypeDict.print(buf, getFields());
+      TypeConstructor.Arg.TypeDict.print(buf, getFields());
       if (isPartial()) {
         if (!getFields().isEmpty()) {
           buf.append(", ");
@@ -1513,7 +1512,7 @@ public final class Types {
     }
   }
 
-  static TypeConstructor.AllowingNullary wrapType(String name, StarlarkType type) {
+  static TypeConstructor wrapType(String name, StarlarkType type) {
     return argsTuple -> {
       if (!argsTuple.isEmpty()) {
         throw new TypeConstructor.Failure(String.format("'%s' does not accept arguments", name));
@@ -1522,9 +1521,9 @@ public final class Types {
     };
   }
 
-  static ImmutableList<StarlarkType> toStarlarkTypes(
-      String name, ImmutableList<TypeConstructor.Term> args) throws TypeConstructor.Failure {
-    for (TypeConstructor.Term arg : args) {
+  private static ImmutableList<StarlarkType> toStarlarkTypes(
+      String name, ImmutableList<TypeConstructor.Arg> args) throws TypeConstructor.Failure {
+    for (TypeConstructor.Arg arg : args) {
       if (!(arg instanceof StarlarkType)) {
         throw new TypeConstructor.Failure(
             String.format("in application to %s, got '%s', expected a type", name, arg));
@@ -1542,13 +1541,12 @@ public final class Types {
    * factory, or with zero arguments, in which case the factory is invoked with {@link #ANY}. (This
    * allows, for instance, {@code list} to be treated as syntactic sugar for {@code list[Any]}.)
    */
-  static TypeConstructor.AllowingNullary wrapTypeConstructor(
+  static TypeConstructor wrapTypeConstructor(
       String name, Function<StarlarkType, StarlarkType> factory) {
-    final StarlarkType nullaryType = factory.apply(ANY);
     return args -> {
       var types = toStarlarkTypes(name, args);
       return switch (types.size()) {
-        case 0 -> nullaryType;
+        case 0 -> factory.apply(ANY);
         case 1 -> factory.apply(types.get(0));
         default -> {
           throw new TypeConstructor.Failure(
@@ -1566,13 +1564,12 @@ public final class Types {
    * both arguments. (This allows, for instance, {@code dict} to be treated as syntactic sugar for
    * {@code dict[Any, Any]}.)
    */
-  static TypeConstructor.AllowingNullary wrapTypeConstructor(
+  static TypeConstructor wrapTypeConstructor(
       String name, BiFunction<StarlarkType, StarlarkType, StarlarkType> factory) {
-    final StarlarkType nullaryType = factory.apply(ANY, ANY);
     return args -> {
       var types = toStarlarkTypes(name, args);
       return switch (types.size()) {
-        case 0 -> nullaryType;
+        case 0 -> factory.apply(ANY, ANY);
         case 2 -> factory.apply(types.get(0), types.get(1));
         default ->
             throw new TypeConstructor.Failure(
@@ -1581,24 +1578,24 @@ public final class Types {
     };
   }
 
-  private static TypeConstructor.AllowingNullary wrapTupleConstructor() {
+  private static TypeConstructor wrapTupleConstructor() {
     // This is a function instead of a constant, so that the order of evaluation doesn't depend on
     // the position in the class.
     return args -> {
       if (args.isEmpty()) {
         // `tuple` is equivalent to `tuple[Any, ...]`
-        return HOMOGENEOUS_TUPLE_OF_ANY;
+        return homogeneousTuple(ANY);
       }
       for (int i = 0; i < args.size(); i++) {
-        TypeConstructor.Term arg = args.get(i);
-        if (arg.equals(TypeConstructor.Term.ELLIPSIS)) {
+        TypeConstructor.Arg arg = args.get(i);
+        if (arg.equals(TypeConstructor.Arg.ELLIPSIS)) {
           if (i == 1 && args.size() == 2) {
             return homogeneousTuple((StarlarkType) args.getFirst());
           }
           throw new TypeConstructor.Failure(
               "in application to tuple, '...' can only appear as the second of exactly 2 arguments,"
                   + " where the first argument is a type");
-        } else if (arg.equals(TypeConstructor.Term.EMPTY_TUPLE)) {
+        } else if (arg.equals(TypeConstructor.Arg.EMPTY_TUPLE)) {
           if (args.size() == 1) {
             return Types.EMPTY_TUPLE;
           }
@@ -1615,24 +1612,16 @@ public final class Types {
     };
   }
 
-  private static final TypeConstructor.AllowingNullary wrapStructConstructor() {
+  private static final TypeConstructor wrapStructConstructor() {
     return args -> {
       if (args.isEmpty()) {
         // `struct` is equivalent to `struct[{}, ...]`
-        // TODO: #27370 - We want `struct` to be assignable to and from any struct type; but
-        // `struct[{}, ...]` is not assignable from total structs, so `isinstance(x, struct)` would
-        // fail if x is a total struct.
         return STRUCT_OF_ANY;
       } else if (args.size() <= 2) {
-        TypeConstructor.Term arg = args.getFirst();
+        TypeConstructor.Arg arg = args.getFirst();
         ImmutableMap<String, StarlarkType> fields;
-        if (arg instanceof TypeConstructor.Term.TypeDict dict) {
-          try {
-            fields = dict.getTypes();
-          } catch (TypeConstructor.Failure e) {
-            throw new TypeConstructor.Failure(
-                String.format("in application to struct, %s", e.getMessage()));
-          }
+        if (arg instanceof TypeConstructor.Arg.TypeDict dict) {
+          fields = dict.getTypes();
         } else {
           throw new TypeConstructor.Failure(
               String.format("in application to struct, got '%s', expected a dict", arg));
@@ -1640,7 +1629,7 @@ public final class Types {
         if (args.size() == 1) {
           return struct(fields);
         } else {
-          if (!(args.get(1) instanceof TypeConstructor.Term.Ellipsis)) {
+          if (!(args.get(1) instanceof TypeConstructor.Arg.Ellipsis)) {
             throw new TypeConstructor.Failure(
                 String.format(
                     "in application to struct, got '%s' for optional argument #2, expected '...'",

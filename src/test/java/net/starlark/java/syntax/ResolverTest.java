@@ -657,19 +657,6 @@ public class ResolverTest {
   }
 
   @Test
-  public void testBindingScopeAndIndex_typeAlias_usingLoadedSymbols() throws Exception {
-    options.allowTypeSyntax(true);
-    options.resolveTypeSyntax(true);
-    checkBindings(
-        """
-        load("module", Fooᴸᵀ₀="Foo")
-        type Barᴳ₀ = Fooᴸᵀ₀
-        type Bazᴳ₁[Tᴸ₀] = Fooᴸᵀ₀[Tᴸ₀]
-        type Quxᴳ₂[Fooᴸ₀] = Fooᴸ₀ | Barᴳ₀
-        """);
-  }
-
-  @Test
   public void testBindingScopeAndIndex_genericFunctionTypeVars_notResolved() throws Exception {
     // Check that these are not currently processed.
     // TODO: #27370 - Add support to the resolver for these.
