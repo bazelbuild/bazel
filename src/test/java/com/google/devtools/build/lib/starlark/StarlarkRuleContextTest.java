@@ -1067,21 +1067,25 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testCreateStarlarkActionArgumentsWithResourceSet_dictIllegalKeys() throws Exception {
+  public void testCreateStarlarkActionArgumentsWithResourceSet_dictCustomResource()
+      throws Exception {
     StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
     setRuleContext(ruleContext);
 
-    EvalException thrown =
-        assertThrows(
-            EvalException.class,
-            () ->
-                ev.exec(
-                    "ruleContext.actions.run(",
-                    "  inputs = ruleContext.files.srcs,",
-                    "  outputs = ruleContext.files.srcs,",
-                    "  resource_set = {\"cpu\": 4, \"gpu\": 1},",
-                    "  executable = 'executable')"));
-    assertThat(thrown).hasMessageThat().contains("Illegal resource keys: (gpu)");
+    ev.exec(
+        "ruleContext.actions.run(",
+        "  inputs = ruleContext.files.srcs,",
+        "  outputs = ruleContext.files.srcs,",
+        "  resource_set = {\"cpu\": 4, \"gpu\": 1},",
+        "  executable = 'executable')");
+
+    StarlarkAction action =
+        (StarlarkAction)
+            Iterables.getOnlyElement(
+                ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
+
+    assertThat(action.getResourceSetOrBuilder().buildResourceSet(OS.LINUX, 2))
+        .isEqualTo(ResourceSet.create(ImmutableMap.of("gpu", 1.0, "cpu", 4.0, "memory", 250.0), 0));
   }
 
   @Test
