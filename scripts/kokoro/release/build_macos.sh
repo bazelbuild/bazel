@@ -33,7 +33,6 @@ mkdir output
 cp bazel-bin/src/bazel output/bazel
 
 output/bazel build \
-    --define IPHONE_SDK=1 \
     -c opt \
     --stamp \
     --embed_label "${RELEASE_NAME}" \
