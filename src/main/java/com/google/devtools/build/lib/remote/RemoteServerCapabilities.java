@@ -252,10 +252,28 @@ class RemoteServerCapabilities {
               "--experimental_remote_cache_chunking requested but remote does not support"
                   + " SpliceBlob");
         }
-        if (!cacheCap.hasFastCdc2020Params()) {
-          result.addError(
-              "--experimental_remote_cache_chunking requested but remote does not support"
-                  + " FastCDC 2020 chunking algorithm");
+        switch (remoteOptions.getExperimentalRemoteCacheChunkingFunction()) {
+          case AUTO -> {
+            if (!cacheCap.hasFastCdc2020Params() && !cacheCap.hasRepMaxCdcParams()) {
+              result.addError(
+                  "--experimental_remote_cache_chunking requested but remote does not support"
+                      + " any chunking algorithm supported by Bazel (FastCDC 2020 or RepMaxCDC)");
+            }
+          }
+          case FAST_CDC_2020 -> {
+            if (!cacheCap.hasFastCdc2020Params()) {
+              result.addError(
+                  "--experimental_remote_cache_chunking requested but remote does not support"
+                      + " FastCDC 2020 chunking algorithm");
+            }
+          }
+          case REP_MAX_CDC -> {
+            if (!cacheCap.hasRepMaxCdcParams()) {
+              result.addError(
+                  "--experimental_remote_cache_chunking requested but remote does not support"
+                      + " RepMaxCDC chunking algorithm");
+            }
+          }
         }
       }
 
