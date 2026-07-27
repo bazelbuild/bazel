@@ -126,6 +126,25 @@ tasks:
     include_json_profile:
       - build
       - test
+  ubuntu2204:
+    shell_commands:
+      - rm -rf $HOME/bazeltest
+      - mkdir $HOME/bazeltest
+      - if [ -n "${UPDATE_BAZEL_LOCK_FILE:-}" ]; then bazel mod deps --lockfile_mode=update; fi
+    build_flags:
+      - "--config=ci-linux"
+    build_targets:
+      - "//src:bazel"
+      - "//src:bazel_jdk_minimal"
+      - "//src:test_repos"
+      - "//..."
+    test_flags:
+      - "--config=ci-linux"
+    test_targets:
+      - "//..."
+    include_json_profile:
+      - build
+      - test
   macos:
     shards: 5
     shell_commands:
