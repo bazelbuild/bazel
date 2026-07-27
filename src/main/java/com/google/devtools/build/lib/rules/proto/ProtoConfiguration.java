@@ -65,7 +65,7 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
         documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
         effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
         metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-        help = "Run extra actions for alternative Java api versions in a proto_library.")
+        help = "Pass the --include_source_info flag when building a proto_library. This results in vastly larger descriptors that include information about the original location of each decl in the source file as well as surrounding comments.")
     public abstract boolean getExperimentalProtoDescriptorSetsIncludeSourceInfo();
 
     @Option(
