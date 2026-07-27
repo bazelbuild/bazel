@@ -2008,7 +2008,15 @@ public class RemoteExecutionService {
         && (actionResult.getExitCode() != 0 || resp.getStatus().getCode() != Code.OK.value())) {
       for (Map.Entry<String, LogFile> e : resp.getServerLogsMap().entrySet()) {
         if (e.getValue().getHumanReadable()) {
-          serverLogs.lastLogPath = serverLogs.directory.getRelative(e.getKey());
+          Path lastLogPath = serverLogs.directory.getRelative(e.getKey());
+          if (!lastLogPath.startsWith(serverLogs.directory)) {
+            throw new IOException(
+                String.format(
+                    "Path traversal detected in server log key: %s (resolved: %s, expected"
+                        + " descendant of %s)",
+                    e.getKey(), lastLogPath, serverLogs.directory));
+          }
+          serverLogs.lastLogPath = lastLogPath;
           serverLogs.logCount++;
           getFromFuture(
               combinedCache.downloadFile(

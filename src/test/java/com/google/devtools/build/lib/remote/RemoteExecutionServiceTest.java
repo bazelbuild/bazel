@@ -43,8 +43,10 @@ import build.bazel.remote.execution.v2.Command;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.Directory;
 import build.bazel.remote.execution.v2.DirectoryNode;
+import build.bazel.remote.execution.v2.ExecuteResponse;
 import build.bazel.remote.execution.v2.ExecutionCapabilities;
 import build.bazel.remote.execution.v2.FileNode;
+import build.bazel.remote.execution.v2.LogFile;
 import build.bazel.remote.execution.v2.NodeProperties;
 import build.bazel.remote.execution.v2.NodeProperty;
 import build.bazel.remote.execution.v2.OutputDirectory;
@@ -3298,5 +3300,84 @@ public class RemoteExecutionServiceTest {
     SettableFuture<Void> future = SettableFuture.create();
     service.uploadOutputs(action, result, () -> future.set(null), ConcurrentChangesCheckLevel.OFF);
     future.get();
+  }
+
+  @Test
+  public void maybeDownloadServerLogs_relativeTraversalKey_throwsIOException() throws Exception {
+    RemoteExecutionService service = newRemoteExecutionService();
+    RemoteAction remoteAction = mock(RemoteAction.class);
+    when(remoteAction.getActionId()).thenReturn("action-id");
+    when(remoteAction.getRemoteActionExecutionContext()).thenReturn(remoteActionExecutionContext);
+    Path logDir = fs.getPath("/logs");
+    logDir.createDirectoryAndParents();
+
+    ExecuteResponse resp =
+        ExecuteResponse.newBuilder()
+            .setResult(ActionResult.newBuilder().setExitCode(1).build())
+            .putServerLogs(
+                "../../evil.log",
+                LogFile.newBuilder()
+                    .setHumanReadable(true)
+                    .setDigest(Digest.getDefaultInstance())
+                    .build())
+            .build();
+
+    IOException e =
+        assertThrows(
+            IOException.class, () -> service.maybeDownloadServerLogs(remoteAction, resp, logDir));
+    assertThat(e).hasMessageThat().contains("Path traversal detected in server log key");
+  }
+
+  @Test
+  public void maybeDownloadServerLogs_absoluteTraversalKey_throwsIOException() throws Exception {
+    RemoteExecutionService service = newRemoteExecutionService();
+    RemoteAction remoteAction = mock(RemoteAction.class);
+    when(remoteAction.getActionId()).thenReturn("action-id");
+    when(remoteAction.getRemoteActionExecutionContext()).thenReturn(remoteActionExecutionContext);
+    Path logDir = fs.getPath("/logs");
+    logDir.createDirectoryAndParents();
+
+    ExecuteResponse resp =
+        ExecuteResponse.newBuilder()
+            .setResult(ActionResult.newBuilder().setExitCode(1).build())
+            .putServerLogs(
+                "/etc/evil.log",
+                LogFile.newBuilder()
+                    .setHumanReadable(true)
+                    .setDigest(Digest.getDefaultInstance())
+                    .build())
+            .build();
+
+    IOException e =
+        assertThrows(
+            IOException.class, () -> service.maybeDownloadServerLogs(remoteAction, resp, logDir));
+    assertThat(e).hasMessageThat().contains("Path traversal detected in server log key");
+  }
+
+  @Test
+  public void maybeDownloadServerLogs_validKey_downloadsLog() throws Exception {
+    RemoteExecutionService service = newRemoteExecutionService();
+    RemoteAction remoteAction = mock(RemoteAction.class);
+    when(remoteAction.getActionId()).thenReturn("action-id");
+    when(remoteAction.getRemoteActionExecutionContext()).thenReturn(remoteActionExecutionContext);
+    Path logDir = fs.getPath("/logs");
+    logDir.createDirectoryAndParents();
+
+    Digest logDigest = cache.addContents(remoteActionExecutionContext, "server log content");
+    ExecuteResponse resp =
+        ExecuteResponse.newBuilder()
+            .setResult(ActionResult.newBuilder().setExitCode(1).build())
+            .putServerLogs(
+                "valid.log",
+                LogFile.newBuilder().setHumanReadable(true).setDigest(logDigest).build())
+            .build();
+
+    RemoteExecutionService.ServerLogs serverLogs =
+        service.maybeDownloadServerLogs(remoteAction, resp, logDir);
+
+    assertThat(serverLogs.logCount).isEqualTo(1);
+    assertThat(serverLogs.directory).isEqualTo(logDir.getRelative("action-id"));
+    assertThat(serverLogs.lastLogPath).isEqualTo(logDir.getRelative("action-id/valid.log"));
+    assertThat(readContent(serverLogs.lastLogPath, UTF_8)).isEqualTo("server log content");
   }
 }
