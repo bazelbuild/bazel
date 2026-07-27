@@ -95,4 +95,8 @@ public final class ParamFileActionInput extends VirtualActionInput {
   public Iterable<String> getArguments() {
     return arguments;
   }
+
+  public ParameterFileType getType() {
+    return type;
+  }
 }

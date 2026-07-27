@@ -247,7 +247,11 @@ public class RemoteExecutionService {
             commandId,
             workspaceName);
 
-    this.scrubber = remoteOptions.getScrubber();
+    Scrubber configuredScrubber = remoteOptions.getScrubber();
+    this.scrubber =
+        configuredScrubber != null && remoteOptions.getScrubParamFilesArgReplacements()
+            ? configuredScrubber.withParamFileScrubbing()
+            : configuredScrubber;
 
     this.tempPathGenerator = tempPathGenerator;
     this.captureCorruptedOutputsDir = captureCorruptedOutputsDir;

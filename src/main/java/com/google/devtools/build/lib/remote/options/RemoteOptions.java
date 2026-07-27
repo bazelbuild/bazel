@@ -906,6 +906,18 @@ public abstract class RemoteOptions extends CommonRemoteOptions {
   public abstract boolean getExperimentalRemoteCacheChunking();
 
   @Option(
+      name = "experimental_remote_scrubbing_param_files_arg_replacements_enabled",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "If enabled, arg_replacements rules from the remote scrubbing config are also applied"
+              + " to params file content when computing the Merkle tree hash. This ensures that"
+              + " two actions whose params files differ only in scrubbed strings (e.g. absolute"
+              + " workspace paths) produce the same remote cache key.")
+  public abstract boolean getScrubParamFilesArgReplacements();
+
+  @Option(
       name = "experimental_throttle_remote_action_building",
       defaultValue = "true",
       converter = BooleanConverter.class,
