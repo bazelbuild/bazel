@@ -892,23 +892,6 @@ public abstract class CoreOptions extends FragmentOptions implements Cloneable {
   public abstract void setExecutionInfoModifier(List<ExecutionInfoModifier> value);
 
   @Option(
-      name = "incompatible_modify_execution_info_additive",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
-      effectTags = {
-        OptionEffectTag.EXECUTION,
-        OptionEffectTag.AFFECTS_OUTPUTS,
-        OptionEffectTag.LOADING_AND_ANALYSIS,
-      },
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          """
-          When enabled, passing multiple `--modify_execution_info` flags is additive.
-          When disabled, only the last flag is taken into account.
-          """)
-  public abstract boolean getAdditiveModifyExecutionInfo();
-
-  @Option(
       name = "incompatible_bazel_test_exec_run_under",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
