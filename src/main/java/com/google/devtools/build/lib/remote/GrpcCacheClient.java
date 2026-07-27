@@ -181,7 +181,8 @@ public class GrpcCacheClient extends RemoteCacheClient implements MissingDigests
   public ListenableFuture<Void> spliceBlob(
       RemoteActionExecutionContext context,
       Digest blobDigest,
-      List<Digest> chunkDigests) {
+      List<Digest> chunkDigests,
+      ChunkingFunction.Value chunkingFunction) {
     if (!options.experimentalRemoteCacheChunking) {
       return null;
     }
@@ -191,7 +192,7 @@ public class GrpcCacheClient extends RemoteCacheClient implements MissingDigests
             .setBlobDigest(blobDigest)
             .addAllChunkDigests(chunkDigests)
             .setDigestFunction(digestUtil.getDigestFunction())
-            .setChunkingFunction(ChunkingFunction.Value.FAST_CDC_2020)
+            .setChunkingFunction(chunkingFunction)
             .build();
     return Futures.catchingAsync(
         Futures.transform(
@@ -216,7 +217,9 @@ public class GrpcCacheClient extends RemoteCacheClient implements MissingDigests
    */
   @Nullable
   public ListenableFuture<SplitBlobResponse> splitBlob(
-      RemoteActionExecutionContext context, Digest digest) {
+      RemoteActionExecutionContext context,
+      Digest digest,
+      ChunkingFunction.Value chunkingFunction) {
     if (!options.experimentalRemoteCacheChunking) {
       return null;
     }
@@ -225,7 +228,7 @@ public class GrpcCacheClient extends RemoteCacheClient implements MissingDigests
             .setInstanceName(options.remoteInstanceName)
             .setBlobDigest(digest)
             .setDigestFunction(digestUtil.getDigestFunction())
-            .setChunkingFunction(ChunkingFunction.Value.FAST_CDC_2020)
+            .setChunkingFunction(chunkingFunction)
             .build();
     return Futures.catchingAsync(
         Utils.refreshIfUnauthenticatedAsync(

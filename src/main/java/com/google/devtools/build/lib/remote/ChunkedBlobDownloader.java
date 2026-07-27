@@ -17,9 +17,11 @@ package com.google.devtools.build.lib.remote;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 
+import build.bazel.remote.execution.v2.ChunkingFunction;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.SplitBlobResponse;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.remote.chunking.ChunkingConfig;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.util.DigestOutputStream;
@@ -45,16 +47,19 @@ public class ChunkedBlobDownloader {
   private final CombinedCache combinedCache;
   private final DigestUtil digestUtil;
   private final boolean verifyDownloads;
+  private final ChunkingFunction.Value chunkingFunction;
 
   public ChunkedBlobDownloader(
       GrpcCacheClient grpcCacheClient,
       CombinedCache combinedCache,
+      ChunkingConfig chunkingConfig,
       DigestUtil digestUtil,
       boolean verifyDownloads) {
     this.grpcCacheClient = grpcCacheClient;
     this.combinedCache = combinedCache;
     this.digestUtil = digestUtil;
     this.verifyDownloads = verifyDownloads;
+    this.chunkingFunction = chunkingConfig.chunkingFunction();
   }
 
   /**
@@ -84,7 +89,7 @@ public class ChunkedBlobDownloader {
       return List.of();
     }
     ListenableFuture<SplitBlobResponse> splitResponseFuture =
-        grpcCacheClient.splitBlob(context, blobDigest);
+        grpcCacheClient.splitBlob(context, blobDigest, chunkingFunction);
     if (splitResponseFuture == null) {
       throw new CacheNotFoundException(blobDigest);
     }

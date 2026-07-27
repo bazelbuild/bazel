@@ -25,6 +25,7 @@ import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 
 import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.CacheCapabilities;
+import build.bazel.remote.execution.v2.ChunkingFunction;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.ServerCapabilities;
 import com.google.common.collect.ImmutableSet;
@@ -48,6 +49,7 @@ import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.Blob;
 import com.google.devtools.build.lib.remote.disk.DiskCacheClient;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
+import com.google.devtools.build.lib.remote.options.RemoteOptions.ChunkingFunctionValue;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution;
@@ -106,7 +108,7 @@ public class CombinedCache extends AbstractReferenceCounted {
   @Nullable protected final DiskCacheClient diskCacheClient;
   protected final RemoteOptions options;
   protected final DigestUtil digestUtil;
-  private final boolean chunkingEnabled;
+  @Nullable private final ChunkingFunctionValue chunkingFunction;
 
   // Delays the initialization of the chunking support logic until first use to avoid blocking on
   // a server capabilities check at construction time.
@@ -117,7 +119,7 @@ public class CombinedCache extends AbstractReferenceCounted {
     private volatile boolean initialized = false;
 
     boolean supported() throws IOException {
-      if (!chunkingEnabled) {
+      if (chunkingFunction == null) {
         return false;
       }
       if (!(remoteCacheClient instanceof GrpcCacheClient grpcClient)) {
@@ -125,11 +127,24 @@ public class CombinedCache extends AbstractReferenceCounted {
       }
       if (!initialized) {
         synchronized (this) {
-          config = ChunkingConfig.fromServerCapabilities(getRemoteServerCapabilities());
+          config =
+              switch (chunkingFunction) {
+                case AUTO -> ChunkingConfig.fromServerCapabilities(getRemoteServerCapabilities());
+                case FAST_CDC_2020 ->
+                    ChunkingConfig.fromServerCapabilities(
+                        getRemoteServerCapabilities(), ChunkingFunction.Value.FAST_CDC_2020);
+                case REP_MAX_CDC ->
+                    ChunkingConfig.fromServerCapabilities(
+                        getRemoteServerCapabilities(), ChunkingFunction.Value.REP_MAX_CDC);
+              };
           if (config != null) {
             downloader =
                 new ChunkedBlobDownloader(
-                    grpcClient, CombinedCache.this, digestUtil, options.remoteVerifyDownloads);
+                    grpcClient,
+                    CombinedCache.this,
+                    config,
+                    digestUtil,
+                    options.remoteVerifyDownloads);
             uploader = new ChunkedBlobUploader(grpcClient, CombinedCache.this, config, digestUtil);
           }
           initialized = true;
@@ -165,7 +180,7 @@ public class CombinedCache extends AbstractReferenceCounted {
     this.diskCacheClient = diskCacheClient;
     this.options = options;
     this.digestUtil = digestUtil;
-    this.chunkingEnabled = options.experimentalRemoteCacheChunking;
+    this.chunkingFunction = options.getEffectiveChunkingFunction();
   }
 
   public CacheCapabilities getRemoteCacheCapabilities() throws IOException {

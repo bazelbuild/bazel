@@ -714,7 +714,7 @@ public class CombinedCacheTest {
               return spliceFuture;
             })
         .when(grpcCacheClient)
-        .spliceBlob(any(), any(), any());
+        .spliceBlob(any(), any(), any(), any());
 
     CombinedCache combinedCache =
         new CombinedCache(grpcCacheClient, /* diskCacheClient= */ null, options, digestUtil);
@@ -735,7 +735,7 @@ public class CombinedCacheTest {
 
       assertThat(grpcCacheClient.getUploadSubscriberCount(digest)).isEqualTo(2);
       verify(grpcCacheClient).findMissingDigests(any(), any());
-      verify(grpcCacheClient).spliceBlob(any(), any(), any());
+      verify(grpcCacheClient).spliceBlob(any(), any(), any(), any());
 
       spliceFuture.set(null);
       getFromFuture(firstUpload);
