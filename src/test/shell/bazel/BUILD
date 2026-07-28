@@ -1211,9 +1211,16 @@ sh_test(
         "//:bazel-distfile",
         "//src:embedded_jdk_allmodules",
         "@bazel_tools//tools/bash/runfiles",
+        "@rules_java//toolchains:remotejdk_21",
     ],
+    env = {
+        "JAVA_ROOTPATH": "$(JAVA_ROOTPATH)",  # for setup_javabase
+    },
     exec_compatible_with = ["//:highcpu_machine"],
     tags = ["block-network"],
+    toolchains = [
+        "@rules_java//toolchains:remotejdk_21",
+    ],
 )
 
 sh_test(
@@ -1229,11 +1236,18 @@ sh_test(
         "//:bazel-distfile-tar",
         "//src:embedded_jdk_allmodules",
         "@bazel_tools//tools/bash/runfiles",
+        "@rules_java//toolchains:remotejdk_21",
     ],
+    env = {
+        "JAVA_ROOTPATH": "$(JAVA_ROOTPATH)",  # for setup_javabase
+    },
     exec_compatible_with = ["//:highcpu_machine"],
     tags = [
         "block-network",
         "no_windows",
+    ],
+    toolchains = [
+        "@rules_java//toolchains:remotejdk_21",
     ],
 )
 

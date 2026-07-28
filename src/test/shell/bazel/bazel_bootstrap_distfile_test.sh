@@ -69,6 +69,18 @@ else
   declare -r EMBEDDED_JDK=""
 fi
 
+# The prerequisites documented at
+# https://bazel.build/install/compile-source#bootstrap-unix-prereq ask for a JDK
+# 21, so bootstrap with a hermetic JDK 21 from the runfiles rather than with
+# whichever JDK happens to be installed on the machine running this test. This
+# both keeps the test hermetic and verifies that a JDK 21 is in fact sufficient.
+setup_javabase
+export JAVA_HOME="${bazel_javabase}"
+declare -r JAVAC_VERSION="$("${JAVA_HOME}/bin/javac" -version 2>&1)"
+if [[ ! "${JAVAC_VERSION}" =~ ^javac\ 21(\.|$) ]]; then
+  log_fatal "expected a JDK 21 in JAVA_HOME, but got '${JAVAC_VERSION}'"
+fi
+
 function test_bootstrap() {
     cd "$(mktemp -d ${TEST_TMPDIR}/bazelbootstrap.XXXXXXXX)"
     export SOURCE_DATE_EPOCH=1501234567
