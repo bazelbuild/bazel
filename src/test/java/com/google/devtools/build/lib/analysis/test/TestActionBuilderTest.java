@@ -49,7 +49,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.regex.Pattern;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -732,8 +731,8 @@ public class TestActionBuilderTest extends BuildViewTestCase {
   }
 
   /**
-   * With the default test toolchain, a failure to find a suitable execution platform will result in
-   * a toolchain resolution error.
+   * With the default test toolchain, a failure to find a suitable execution platform doesn't fail
+   * analysis: the test target can still be built, but its test action fails when executed.
    */
   @Test
   public void testNoMatchingExecPlatformWithDefaultTestToolchain() throws Exception {
@@ -789,12 +788,24 @@ public class TestActionBuilderTest extends BuildViewTestCase {
         "--platforms=//:linux_x86_64_target",
         "--host_platform=//:macos_aarch64_exec",
         "--extra_execution_platforms=//:macos_aarch64_exec");
-    reporter.removeHandler(failFastHandler);
-    assertThat(getConfiguredTarget("//:some_test")).isNull();
-    assertContainsEvent(
-        Pattern.compile(
-            "While resolving toolchains for target //:some_test: No matching toolchains found for"
-                + " types:.*?//tools/test:default_test_toolchain_type"));
+    ImmutableList<Artifact.DerivedArtifact> testStatusList = getTestStatusArtifacts("//:some_test");
+    TestRunnerAction testAction = (TestRunnerAction) getGeneratingAction(testStatusList.get(0));
+    // The test action is created so that the test target can be built, but falls back to the first
+    // execution platform and fails when executed.
+    assertThat(testAction.getExecutionPlatform().label())
+        .isEqualTo(Label.parseCanonicalUnchecked("//:macos_aarch64_exec"));
+    // Labels are rendered in display form, except for the value of --toolchain_resolution_debug,
+    // which is matched against the canonical form.
+    assertThat(testAction.getUnrunnableReason())
+        .isEqualTo(
+            """
+            No matching toolchain found for type %s//tools/test:default_test_toolchain_type, which \
+            is required to run tests for target platform //:linux_x86_64_target.
+            To debug, rerun with --toolchain_resolution_debug='%s//tools/test:default_test_toolchain_type'\
+            """
+                .formatted(
+                    "@" + TestConstants.TOOLS_REPOSITORY.getName(),
+                    TestConstants.TOOLS_REPOSITORY.getNameWithAt()));
   }
 
   /**

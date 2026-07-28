@@ -3060,5 +3060,53 @@ EOF
   expect_log "Misconfigured execution platforms: //${pkg}/platforms:platform_cycle is declared as a platform but has inappropriate dependencies"
 }
 
+# Regression test for https://github.com/bazelbuild/bazel/issues/29159
+function test_cross_compile_test_without_matching_exec_platform {
+  local -r pkg="${FUNCNAME[0]}"
+
+  add_rules_shell "MODULE.bazel"
+
+  # A target platform whose constraints aren't satisfied by any execution platform.
+  mkdir -p "${pkg}/platforms"
+  cat > "${pkg}/platforms/BUILD" <<EOF
+package(default_visibility = ['//visibility:public'])
+
+constraint_setting(name = 'setting')
+constraint_value(name = 'value', constraint_setting = ':setting')
+
+platform(
+    name = 'target_platform',
+    constraint_values = [':value'],
+)
+EOF
+
+  mkdir -p "${pkg}/demo"
+  cat > "${pkg}/demo/hello.sh" <<EOF
+echo hello
+EOF
+  chmod +x "${pkg}/demo/hello.sh"
+  cat > "${pkg}/demo/BUILD" <<EOF
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
+sh_test(
+  name = 'sample_test',
+  srcs = ["hello.sh"],
+)
+EOF
+
+  # The test can be built even though it can't be run.
+  bazel build \
+    --platforms="//${pkg}/platforms:target_platform" \
+    "//${pkg}/demo:sample_test" &> $TEST_log || fail "Build failed"
+
+  # Running the test fails with an actionable error message.
+  bazel test \
+    --platforms="//${pkg}/platforms:target_platform" \
+    "//${pkg}/demo:sample_test" &> $TEST_log && fail "Unexpected success"
+  # The toolchain type is rendered in display form, except for the value of
+  # --toolchain_resolution_debug, which is matched against the canonical form.
+  expect_log "No matching toolchain found for type @bazel_tools//tools/test:default_test_toolchain_type, which is required to run tests for target platform //${pkg}/platforms:target_platform"
+  expect_log "rerun with --toolchain_resolution_debug='@@bazel_tools//tools/test:default_test_toolchain_type'"
+}
 
 run_suite "toolchain tests"
