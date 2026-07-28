@@ -1,3 +1,78 @@
+## Release 10.0.0-pre.20260720.1 (2026-07-27)
+
+```
+Baseline: e167b9e5e46a89fa5f09272826e4df2dd31097d7
+
+Cherry picks:
+
+   + e3df6b31d80c14af563b887bf3d206e871fd836e:
+     Automated rollback of commit
+     c55094c964c696289814e1f2503534a8f8e6a3eb.
+```
+
+Incompatible changes:
+
+  - in min() and max(), the key callback is now prohibited from
+    mutating the sequence being iterated over
+
+New features:
+
+  - `--worker_sandboxing` can now be scoped per worker-key mnemonic
+    with `--worker_sandboxing=<mnemonic>=<boolean>`.
+
+Important changes:
+
+  - If --incompatible_symbolic_macro_strict_attrs is enabled,
+    invalid attribute values in symbolic macros fail the build
+    (matching
+    the behavior of rules).
+  - Added a new `instance_id` field to the `BuildMetrics` BES event,
+    in order to help diff between the current and previous builds on
+    the running server.
+  - `--experimental_remote_scrubbing_config=` now disables remote
+    cache key scrubbing, allowing command-line overrides of scrubbing
+    configs set in .bazelrc.
+  - "$ bazel config x86-opt": you can now inspect configs based on
+    output path prefixes, not just config checksum prefixes.
+
+This release contains contributions from many people at Google, as well as Adin Cebic, Alexander Scott, Armando Montanez, David Zbarsky, Fabian Meumertzheim, giria660, Han-Wen Nienhuys, Hoyt Summers Pittman, jcater, Keith Smiley, Kobi Hikri, Son Luong Ngoc, Tamir Duberstein, teaugene.
+
+## Release 10.0.0-pre.20260710.1 (2026-07-22)
+
+```
+Baseline: 4f6e97e9a020a1305deb50fb2da35d289f5ea9ce
+```
+
+Incompatible changes:
+
+  - Custom Starlark rules named `test_suite` are no longer treated as
+    a `test_suite`
+
+New features:
+
+  - Windows launcher stubs now embed an `asInvoker` UAC manifest,
+    preventing "The requested operation requires elevation. (error:
+    740)" for targets whose name matches the installer-detection
+    heuristic.
+
+Important changes:
+
+  - Fix --progress_in_terminal_title output under screen and emacs.
+  - Modifying environment variables no longer causes spurious
+    reloading of packages in external repositories.
+  - Fixed a spurious remote-execution failure with
+    `--experimental_output_paths=strip` where a lost input in a tree
+    artifact shared between actions could not be recovered by action
+    rewinding.
+  - Fixed a flaky crash when Java compilation actions encounter
+    multiple lost `.jdeps` files.
+  - The remote repo contents cache no longer caches or restores repos
+    with cross-repo symlinks, thus avoiding a large surface area for
+    bugs. The effort to reenable this support is tracked by
+    https://github.com/bazelbuild/bazel/issues/30160.
+
+This release contains contributions from many people at Google, as well as David Zbarsky, Fabian Meumertzheim, Guillaume Maudoux, Jasmine Tang, jcater, Kapunahele Wong, Rgis Desgroppes, Tamir Duberstein, teaugene.
+
 ## Release 10.0.0-pre.20260630.1 (2026-07-17)
 
 ```
