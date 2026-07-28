@@ -318,13 +318,6 @@ public final class BuildResult {
     }
 
     @CanIgnoreReturnValue
-    public BuildToolLogCollection addUri(String name, String uri) {
-      Preconditions.checkState(!frozen);
-      this.futureUris.add(Pair.of(name, Futures.immediateFuture(uri)));
-      return this;
-    }
-
-    @CanIgnoreReturnValue
     public BuildToolLogCollection addUriFuture(String name, ListenableFuture<String> uriFuture) {
       Preconditions.checkState(!frozen);
       this.futureUris.add(Pair.of(name, uriFuture));
