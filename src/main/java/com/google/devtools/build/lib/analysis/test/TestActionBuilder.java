@@ -182,8 +182,6 @@ public final class TestActionBuilder {
     if (testToolchainType == null || toolchainContext.forToolchainType(testToolchainType) != null) {
       return null;
     }
-    // The display form of a label is only meaningful in the context of the main repository, whose
-    // repository mapping is only available here if the test itself is in the main repository.
     RepositoryMapping mainRepoMapping =
         ruleContext.getLabel().getRepository().isMain()
             ? ruleContext.getRule().getPackageMetadata().repositoryMapping()
