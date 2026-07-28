@@ -19,6 +19,7 @@ import java.math.BigInteger;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import javax.annotation.Nullable;
 import net.starlark.java.spelling.SpellChecker;
 import net.starlark.java.syntax.Argument;
 import net.starlark.java.syntax.AssignmentStatement;
@@ -169,7 +170,7 @@ final class Eval {
     Object[] defaults = null;
     int nparams =
         rfn.getParameters().size() - (rfn.hasKwargs() ? 1 : 0) - (rfn.hasVarargs() ? 1 : 0);
-    CallableType functionType = rfn.getFunctionType();
+    @Nullable CallableType functionType = rfn.getFunctionType();
     boolean dynamicTypeCheckingEnabled =
         fr.thread.getSemantics().getBool(StarlarkSemantics.EXPERIMENTAL_STARLARK_TYPE_CHECKING);
     for (int i = 0; i < nparams; i++) {
