@@ -30,12 +30,12 @@ public abstract class Expression extends Node {
    */
   public enum Kind {
     BINARY_OPERATOR,
+    CALL,
+    CAST,
     COMPREHENSION,
     CONDITIONAL,
     DICT_EXPR,
     DOT,
-    CALL,
-    CAST,
     ELLIPSIS,
     FLOAT_LITERAL,
     IDENTIFIER,
