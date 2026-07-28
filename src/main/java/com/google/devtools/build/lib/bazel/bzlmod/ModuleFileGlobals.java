@@ -576,6 +576,7 @@ public class ModuleFileGlobals {
       usageBuilder.addRepoOverride(overriddenRepoName, overridingRepoName, mustExist, stack);
     }
 
+    @StarlarkBuiltin(name = "tag_callable", documented = false)
     class TagCallable implements StarlarkValue {
       final String tagName;
 

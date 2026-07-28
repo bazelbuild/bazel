@@ -6,6 +6,7 @@ load("@rules_java//java:java_binary.bzl", "java_binary")
 load("@rules_python//python:defs.bzl", "py_binary", "py_library")
 load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 load("//src:release_archive.bzl", "minimum_java_compilation_runtime_filegroup", "minimum_java_runtime_filegroup", "release_archive")
+load(":bazel_binary.bzl", "bazel_binary")
 load(":embedded_tools.bzl", "srcsfile")
 load(":rule_size_test.bzl", "rule_size_test")
 
@@ -335,20 +336,11 @@ genrule(
     }),
 )
 
-[genrule(
+[bazel_binary(
     name = "bazel-bin" + suffix,
-    srcs = [
-        "//src/main/cpp:client",
-        "package-zip" + jdk,
-    ],
-    outs = ["bazel" + suffix],
-    # In msys, a file path without .exe suffix(say foo), refers to a file with .exe
-    # suffix(say foo.exe), if foo.exe exists and foo doesn't. So, on windows, we
-    # need to remove bazel.exe first, so that cat to bazel won't fail.
-    cmd = "rm -f $@ $@.unaligned; cat $(location //src/main/cpp:client) $(location :package-zip" + jdk + ") > $@.unaligned && $(location //src/java_tools/singlejar/java/com/google/devtools/build/zip:adjust_sfx) $@.unaligned $@ && rm -f $@.unaligned && chmod a+x $@",
-    executable = 1,
-    output_to_bindir = 1,
-    tools = ["//src/java_tools/singlejar/java/com/google/devtools/build/zip:adjust_sfx"],
+    out = "bazel" + suffix,
+    client = "//src/main/cpp:client",
+    package_zip = "package-zip" + jdk,
     visibility = [
         "//:__pkg__",  # For distribution archive lockfile generation
         "//scripts:__pkg__",  # For bash completion generation
@@ -366,9 +358,8 @@ genrule(
     ("_nojdk", "_nojdk"),
 ]]
 
-# Build an executable named `bazel.exe`.
+# Build an executable named `bazel.exe` (and suffixes).
 # Works on all platforms but only makes sense on Windows.
-# Workaround for non-configurability of genrule's `outs` attribute.
 [copy_file(
     name = "bazel-bin" + suffix + ".exe",
     src = ":bazel-bin" + suffix,
@@ -431,6 +422,7 @@ filegroup(
         "//src/tools/launcher:srcs",
         "//src/tools/one_version:srcs",
         "//src/tools/remote:srcs",
+        "//src/tools/simple_catter:srcs",
         "//src/tools/singlejar:srcs",
         "//src/tools/starlark/java/com/google/devtools/starlark/common:srcs",
         "//src/tools/workspacelog:srcs",

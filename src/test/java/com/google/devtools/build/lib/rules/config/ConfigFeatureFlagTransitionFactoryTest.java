@@ -106,6 +106,54 @@ public final class ConfigFeatureFlagTransitionFactoryTest extends BuildViewTestC
   }
 
   @Test
+  public void transitionFailsOnNonFeatureFlagTargets() throws Exception {
+    scratch.overwriteFile(
+        "tools/allowlists/config_feature_flag/BUILD",
+        """
+        package_group(
+            name = "config_feature_flag_setter,
+            packages = ['//...'],
+        )
+        """);
+    scratch.overwriteFile(
+        "a/defs.bzl",
+        """
+        BuildSettingInfo = provider(fields = ['value'])
+        def _impl(ctx):
+            return [BuildSettingInfo(value = ctx.build_setting_value)]
+        generic_starlark_flag = rule(
+            implementation = _impl,
+            build_setting = config.bool(flag = True),
+            attrs = {},
+        )
+        feature_flag_setter = rule(
+            implementation = lambda ctx: [],
+            attrs = {"feature_flags": attr.label_keyed_string_dict()},
+            cfg = config_common.config_feature_flag_transition("feature_flags"),
+        )
+        """);
+    scratch.file(
+        "a/BUILD",
+        """
+        load("//a:defs.bzl", "generic_starlark_flag", "feature_flag_setter")
+        generic_starlark_flag(
+            name = "my_flag",
+            build_setting_default = False,
+        )
+        feature_flag_setter(
+            name = "my_flag_setter",
+            feature_flags = {":my_flag": "some value"},
+        )
+        """);
+
+    reporter.removeHandler(failFastHandler); // expecting an error
+    assertThat(getConfiguredTarget("//a:my_flag_setter")).isNull();
+    assertContainsEvent(
+        "android_binary's \"feature_flags\" attribute can only set config_feature_flag targets:"
+            + " //a:my_flag is a generic_starlark_flag");
+  }
+
+  @Test
   public void emptyTransition_returnsClearedOptionsIfFragmentPresent() throws Exception {
     Rule rule = scratchRule("a", "empty", "feature_flag_setter(name = 'empty', flag_values = {})");
     PatchTransition transition =

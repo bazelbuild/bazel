@@ -1747,26 +1747,25 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     NativeInfo defaultInfoInstance = (NativeInfo) getSaved("default_info");
     StarlarkInfo structInstance = (StarlarkInfo) getSaved("struct_instance");
 
-    StarlarkSemantics semantics = getStarlarkSemantics();
-    assertThat(fooInfoProvider.hasInstance(fooInfoInstance, semantics)).isTrue();
-    assertThat(fooInfoProvider.hasInstance(barInfoInstance, semantics)).isFalse();
-    assertThat(fooInfoProvider.hasInstance(defaultInfoInstance, semantics)).isFalse();
-    assertThat(fooInfoProvider.hasInstance(structInstance, semantics)).isFalse();
+    assertThat(fooInfoProvider.hasInstance(fooInfoInstance)).isTrue();
+    assertThat(fooInfoProvider.hasInstance(barInfoInstance)).isFalse();
+    assertThat(fooInfoProvider.hasInstance(defaultInfoInstance)).isFalse();
+    assertThat(fooInfoProvider.hasInstance(structInstance)).isFalse();
 
-    assertThat(barInfoProvider.hasInstance(fooInfoInstance, semantics)).isFalse();
-    assertThat(barInfoProvider.hasInstance(barInfoInstance, semantics)).isTrue();
-    assertThat(barInfoProvider.hasInstance(defaultInfoInstance, semantics)).isFalse();
-    assertThat(barInfoProvider.hasInstance(structInstance, semantics)).isFalse();
+    assertThat(barInfoProvider.hasInstance(fooInfoInstance)).isFalse();
+    assertThat(barInfoProvider.hasInstance(barInfoInstance)).isTrue();
+    assertThat(barInfoProvider.hasInstance(defaultInfoInstance)).isFalse();
+    assertThat(barInfoProvider.hasInstance(structInstance)).isFalse();
 
-    assertThat(defaultInfoProvider.hasInstance(fooInfoInstance, semantics)).isFalse();
-    assertThat(defaultInfoProvider.hasInstance(barInfoInstance, semantics)).isFalse();
-    assertThat(defaultInfoProvider.hasInstance(defaultInfoInstance, semantics)).isTrue();
-    assertThat(defaultInfoProvider.hasInstance(structInstance, semantics)).isFalse();
+    assertThat(defaultInfoProvider.hasInstance(fooInfoInstance)).isFalse();
+    assertThat(defaultInfoProvider.hasInstance(barInfoInstance)).isFalse();
+    assertThat(defaultInfoProvider.hasInstance(defaultInfoInstance)).isTrue();
+    assertThat(defaultInfoProvider.hasInstance(structInstance)).isFalse();
 
-    assertThat(structProvider.hasInstance(fooInfoInstance, semantics)).isFalse();
-    assertThat(structProvider.hasInstance(barInfoInstance, semantics)).isFalse();
-    assertThat(structProvider.hasInstance(defaultInfoInstance, semantics)).isFalse();
-    assertThat(structProvider.hasInstance(structInstance, semantics)).isTrue();
+    assertThat(structProvider.hasInstance(fooInfoInstance)).isFalse();
+    assertThat(structProvider.hasInstance(barInfoInstance)).isFalse();
+    assertThat(structProvider.hasInstance(defaultInfoInstance)).isFalse();
+    assertThat(structProvider.hasInstance(structInstance)).isTrue();
   }
 
   @Test

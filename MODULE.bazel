@@ -42,7 +42,7 @@ bazel_dep(name = "zstd-jni", version = "1.5.6-9.bcr.1")
 
 # Depend on apple_support first and then rules_cc so that the Xcode toolchain
 # from apple_support wins over the generic Unix toolchain from rules_cc.
-bazel_dep(name = "apple_support", version = "2.3.0")
+bazel_dep(name = "apple_support", version = "2.5.2")
 bazel_dep(name = "rules_cc", version = "0.2.19")
 
 # The starlark rules in @rules_cc are hidden behind macros but docgen needs to
@@ -78,7 +78,11 @@ single_version_override(
 single_version_override(
     module_name = "rules_jvm_external",
     patch_strip = 1,
-    patches = ["//third_party:rules_jvm_external_6.8_bazel_vendor.patch"],
+    patches = [
+        "//third_party:rules_jvm_external_6.8_bazel_vendor.patch",
+        # TODO: Remove this patch once a new version of rules_jvm_external is released and adopted by Bazel.
+        "//third_party:rules_jvm_external_6.8_exec_jar_tools.patch",
+    ],
     version = "6.8",
 )
 

@@ -158,7 +158,7 @@ public final class FingerprintValueService implements KeyValueWriter {
 
   public FingerprintValueStore.Stats getStats() {
     FingerprintValueStore.Stats storeStats = store.getStats();
-    return new FingerprintValueStore.Stats(
+    return new StatsImpl(
         storeStats.valueBytesReceived(),
         storeStats.valueBytesSent(),
         storeStats.keyBytesSent(),

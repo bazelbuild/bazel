@@ -122,7 +122,7 @@ public final class TypeChecker extends NodeVisitor {
   }
 
   private void errorIfKeyNotInt(IndexExpression index, StarlarkType objType, StarlarkType keyType) {
-    if (!StarlarkType.assignableFrom(Types.INT, keyType)) {
+    if (!StarlarkType.assignableFrom(Types.INT, keyType, typeContext)) {
       errorf(
           index.getLbracketLocation(),
           "'%s' of type '%s' must be indexed by an integer, but got '%s'",
@@ -241,7 +241,7 @@ public final class TypeChecker extends NodeVisitor {
         StarlarkType xType = infer(unop.getX());
         if (xType.equals(Types.ANY)
             || ((unop.getOperator() == TokenKind.MINUS || unop.getOperator() == TokenKind.PLUS)
-                && StarlarkType.assignableFrom(Types.NUMERIC, xType))
+                && StarlarkType.assignableFrom(Types.NUMERIC, xType, typeContext))
             || (unop.getOperator() == TokenKind.TILDE && xType.equals(Types.INT))) {
           // Unary operators other than NOT preserve the type of their operand.
           return xType;
@@ -383,7 +383,7 @@ public final class TypeChecker extends NodeVisitor {
         resultTypes.add(sequenceType.getElementType());
 
       } else if (objElemType instanceof Types.AbstractMappingType mappingType) {
-        if (!StarlarkType.assignableFrom(mappingType.getKeyType(), keyType)) {
+        if (!StarlarkType.assignableFrom(mappingType.getKeyType(), keyType, typeContext)) {
           errorf(
               index.getLbracketLocation(),
               "'%s' of type '%s' requires key type '%s', but got '%s'",
@@ -413,7 +413,7 @@ public final class TypeChecker extends NodeVisitor {
       step = 1;
       if (slice.getStep() != null) {
         StarlarkType stepType = infer(slice.getStep());
-        if (!StarlarkType.assignableFrom(Types.INT, stepType)) {
+        if (!StarlarkType.assignableFrom(Types.INT, stepType, typeContext)) {
           errorf(slice.getStep(), "got '%s' for slice step, want int", stepType);
           return Types.ANY;
         }
@@ -424,14 +424,14 @@ public final class TypeChecker extends NodeVisitor {
     }
     if (slice.getStart() != null) {
       StarlarkType startType = infer(slice.getStart());
-      if (!StarlarkType.assignableFrom(Types.INT, startType)) {
+      if (!StarlarkType.assignableFrom(Types.INT, startType, typeContext)) {
         errorf(slice.getStart(), "got '%s' for start index, want int", startType);
         return Types.ANY;
       }
     }
     if (slice.getStop() != null) {
       StarlarkType stopType = infer(slice.getStop());
-      if (!StarlarkType.assignableFrom(Types.INT, stopType)) {
+      if (!StarlarkType.assignableFrom(Types.INT, stopType, typeContext)) {
         errorf(slice.getStop(), "got '%s' for stop index, want int", stopType);
         return Types.ANY;
       }
@@ -517,7 +517,7 @@ public final class TypeChecker extends NodeVisitor {
       }
       case LESS, LESS_EQUALS, GREATER, GREATER_EQUALS -> {
         // Boolean or type error.
-        if (StarlarkType.comparable(xType, yType)) {
+        if (StarlarkType.comparable(xType, yType, typeContext)) {
           return Types.BOOL;
         }
         binaryOperatorError(xType, operator, operatorLocation, yType, augmentedAssignment);
@@ -540,10 +540,10 @@ public final class TypeChecker extends NodeVisitor {
               // Tuple repetition is the only case where we need to examine the expressions.
               // TODO: #28037 - We can get rid of the tuple repetition special case if we
               // introduce ConstantIntType for integer constants.
-              if (StarlarkType.assignableFrom(Types.INT, xElemType)
+              if (StarlarkType.assignableFrom(Types.INT, xElemType, typeContext)
                   && yElemType instanceof Types.TupleType tuple) {
                 resultType = inferTupleRepetition(tuple, xExpr);
-              } else if (StarlarkType.assignableFrom(Types.INT, yElemType)
+              } else if (StarlarkType.assignableFrom(Types.INT, yElemType, typeContext)
                   && xElemType instanceof Types.TupleType tuple) {
                 resultType = inferTupleRepetition(tuple, yExpr);
               }
@@ -649,7 +649,7 @@ public final class TypeChecker extends NodeVisitor {
         if (callable.getMandatoryParameters().contains(parameterName)) {
           seenMandatoryParameters.add(parameterName);
         }
-        if (!StarlarkType.assignableFrom(parameterType, argTypes.get(i))) {
+        if (!StarlarkType.assignableFrom(parameterType, argTypes.get(i), typeContext)) {
           errorf(
               call.getArguments().get(i),
               "in call to '%s()', parameter '%s' got value of type '%s', want '%s'",
@@ -743,7 +743,7 @@ public final class TypeChecker extends NodeVisitor {
     static KwargsArgument of(Argument.StarStar arg, TypeChecker checker) {
       Expression kwargs = arg.getValue();
       StarlarkType kwargsType = checker.infer(kwargs);
-      StarlarkType kwargsValueType = findValueType(kwargsType);
+      StarlarkType kwargsValueType = findValueType(kwargsType, checker.typeContext);
       if (kwargsValueType == null) {
         checker.errorf(
             kwargs, "argument after ** must be a dict with string keys, not '%s'", kwargsType);
@@ -758,7 +758,7 @@ public final class TypeChecker extends NodeVisitor {
      * have such a supertype.
      */
     @Nullable
-    private static StarlarkType findValueType(StarlarkType maybeMapping) {
+    private static StarlarkType findValueType(StarlarkType maybeMapping, TypeContext context) {
       if (maybeMapping.equals(Types.ANY)) {
         return Types.ANY;
       }
@@ -767,7 +767,7 @@ public final class TypeChecker extends NodeVisitor {
       for (StarlarkType unfoldedElem : unfolded) {
         // TODO: #28037 - Check getSubtypes() instead of relying purely on Java inheritance.
         if (unfoldedElem instanceof Types.AbstractMappingType mapping
-            && StarlarkType.assignableFrom(Types.STR, mapping.getKeyType())) {
+            && StarlarkType.assignableFrom(Types.STR, mapping.getKeyType(), context)) {
           values.add(mapping.getValueType());
         } else {
           return null;
@@ -786,7 +786,7 @@ public final class TypeChecker extends NodeVisitor {
     if (t instanceof Types.CallableType callableType) {
       return callableType;
     }
-    for (StarlarkType supertype : t.getSupertypes()) {
+    for (StarlarkType supertype : t.getSupertypes(typeContext)) {
       if (supertype instanceof Types.CallableType callableType) {
         return callableType;
       }
@@ -986,7 +986,7 @@ public final class TypeChecker extends NodeVisitor {
       Node node,
       String nodeDescription) {
     if (lhs != null && rhs != null) {
-      if (!StarlarkType.assignableFrom(lhs, rhs)) {
+      if (!StarlarkType.assignableFrom(lhs, rhs, typeContext)) {
         errorf(
             node,
             "in call to '%s()', %s must be '%s', not '%s'",
@@ -1050,7 +1050,7 @@ public final class TypeChecker extends NodeVisitor {
 
     ImmutableList<StarlarkType> lhsMeet = inferIndividualAssignmentTarget(lhs);
     for (StarlarkType lhsType : lhsMeet) {
-      if (!StarlarkType.assignableFrom(lhsType, rhsType)) {
+      if (!StarlarkType.assignableFrom(lhsType, rhsType, typeContext)) {
         errorf(lhs, "cannot assign type '%s' to %s", rhsType, formatExprWithMeetType(lhs, lhsMeet));
         break;
       }
@@ -1149,7 +1149,7 @@ public final class TypeChecker extends NodeVisitor {
               lhs.getElements().size());
           return;
         }
-      } else if (!Types.isCollection(rhsType)) {
+      } else if (!Types.isCollection(rhsType, typeContext)) {
         // TODO: #28043 - consider checking for an Iterable type (as it is in the eval layer)
         errorf(lhs, "cannot assign non-iterable type '%s' to '%s'", rhsType, lhs);
         return;
@@ -1225,7 +1225,7 @@ public final class TypeChecker extends NodeVisitor {
                 rhs,
                 rhsType,
                 /* augmentedAssignment= */ true);
-        if (!StarlarkType.assignableFrom(lhsType, resultType)) {
+        if (!StarlarkType.assignableFrom(lhsType, resultType, typeContext)) {
           binaryOperatorError(
               lhsType,
               operator,
@@ -1270,7 +1270,7 @@ public final class TypeChecker extends NodeVisitor {
         if (param.getDefaultValue() != null) {
           StarlarkType defaultValueType = infer(param.getDefaultValue());
           if (!StarlarkType.assignableFrom(
-              callableType.getParameterTypeByPos(i), defaultValueType)) {
+              callableType.getParameterTypeByPos(i), defaultValueType, typeContext)) {
             errorf(
                 param.getDefaultValue().getStartLocation(),
                 "%s(): parameter '%s' has default value of type '%s', declares '%s'",
@@ -1284,7 +1284,7 @@ public final class TypeChecker extends NodeVisitor {
 
       @Nullable Statement implicitNoneReturn = getImplicitNoneReturn(def.getBody());
       if (implicitNoneReturn != null
-          && !StarlarkType.assignableFrom(callableType.getReturnType(), Types.NONE)) {
+          && !StarlarkType.assignableFrom(callableType.getReturnType(), Types.NONE, typeContext)) {
         errorf(
             implicitNoneReturn,
             "%s() declares return type '%s' but may exit without an explicit 'return'",
@@ -1339,7 +1339,7 @@ public final class TypeChecker extends NodeVisitor {
     // May be null if function is the toplevel
     @Nullable Types.CallableType callableType = typeTable.getType(function);
     if (callableType != null
-        && !StarlarkType.assignableFrom(callableType.getReturnType(), returnType)) {
+        && !StarlarkType.assignableFrom(callableType.getReturnType(), returnType, typeContext)) {
       errorf(
           ret.getResult().getStartLocation(),
           "%s() declares return type '%s' but may return '%s'",

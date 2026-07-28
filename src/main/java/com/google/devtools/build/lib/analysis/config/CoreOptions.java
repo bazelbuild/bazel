@@ -892,23 +892,6 @@ public abstract class CoreOptions extends FragmentOptions implements Cloneable {
   public abstract void setExecutionInfoModifier(List<ExecutionInfoModifier> value);
 
   @Option(
-      name = "incompatible_modify_execution_info_additive",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
-      effectTags = {
-        OptionEffectTag.EXECUTION,
-        OptionEffectTag.AFFECTS_OUTPUTS,
-        OptionEffectTag.LOADING_AND_ANALYSIS,
-      },
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          """
-          When enabled, passing multiple `--modify_execution_info` flags is additive.
-          When disabled, only the last flag is taken into account.
-          """)
-  public abstract boolean getAdditiveModifyExecutionInfo();
-
-  @Option(
       name = "incompatible_bazel_test_exec_run_under",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
@@ -1013,21 +996,6 @@ public abstract class CoreOptions extends FragmentOptions implements Cloneable {
       effectTags = {OptionEffectTag.EXECUTION},
       help = "Whether to throttle the check whether an action is cached.")
   public abstract boolean getThrottleActionCacheCheck();
-
-  // This cannot be in TestOptions since the default test toolchain needs to be enabled
-  // conditionally based on its value and test trimming would drop it when evaluating the toolchain
-  // target.
-  @Option(
-      name = "use_target_platform_for_tests",
-      deprecationWarning =
-          "Tests select an execution platform matching all constraints of the target platform by"
-              + " default. Instead of using this flag, make sure that all test target platform are"
-              + " registered as execution platforms.",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
-      effectTags = {OptionEffectTag.EXECUTION},
-      help = "If true, use the target platform for running tests rather than the test exec group.")
-  public abstract boolean getUseTargetPlatformForTests();
 
   @Option(
       name = "exec_aspects",

@@ -16,6 +16,7 @@ package net.starlark.java.annot.processor.testsources;
 
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
+import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.NoneType;
@@ -26,6 +27,7 @@ import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 
 /** Test source file verifying various proper uses of StarlarkMethod. */
+@StarlarkBuiltin(name = "golden_case", documented = false)
 public class GoldenCase implements StarlarkValue {
 
   @StarlarkMethod(name = "struct_field_method", documented = false, structField = true)

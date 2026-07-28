@@ -55,13 +55,12 @@ import org.junit.After;
 import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
-/** Integration tests for chunked remote cache using SplitBlob/SpliceBlob APIs. */
-@RunWith(JUnit4.class)
-public class ChunkedCacheIntegrationTest extends BuildIntegrationTestCase {
+/** Base class for integration tests for chunked remote cache using SplitBlob/SpliceBlob APIs. */
+public abstract class ChunkedCacheIntegrationTestBase extends BuildIntegrationTestCase {
   @ClassRule @Rule public static final WorkerInstance worker = IntegrationTestUtils.createWorker();
+
+  protected abstract String getChunkingFunction();
 
   @Override
   protected ImmutableList<Class<? extends OptionsBase>> getStartupOptionClasses() {
@@ -76,7 +75,8 @@ public class ChunkedCacheIntegrationTest extends BuildIntegrationTestCase {
     super.setupOptions();
     addOptions(
         "--remote_cache=grpc://localhost:" + worker.getPort(),
-        "--experimental_remote_cache_chunking");
+        "--experimental_remote_cache_chunking",
+        "--experimental_remote_cache_chunking_function=%s".formatted(getChunkingFunction()));
   }
 
   @Override

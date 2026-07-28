@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.buildtool;
 import com.github.benmanes.caffeine.cache.CaffeineSpec;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.flogger.GoogleLogger;
+import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.EmptyToNullLabelConverter;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.util.ResourceConverter;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -92,6 +94,22 @@ public abstract class BuildRequestOptions extends OptionsBase {
           less than `--jobs`, it is clamped to `--jobs`.
           """)
   public abstract int getAsyncExecutionMaxConcurrentActions();
+
+  @Option(
+      name = "bust_action_caches",
+      converter = EmptyToNullLabelConverter.class,
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.EXECUTION},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          """
+          If set to a target label, unconditionally executes all actions of this target,
+          circumventing the usual caching layers. Intended for debugging only; no guarantees are
+          made that every execution strategy will respect it.
+          """)
+  @Nullable
+  public abstract Label getBustActionCachesTarget();
 
   @Option(
       name = "progress_report_interval",

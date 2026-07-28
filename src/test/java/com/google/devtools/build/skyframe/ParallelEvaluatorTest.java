@@ -4320,7 +4320,7 @@ public class ParallelEvaluatorTest {
 
   @Test
   public void injectVersion_errorBubbling_doesNotCrash() throws Exception {
-    SkyKey key = () -> SkyFunctionName.createHermetic("HERMETIC_FN");
+    SkyKey key = () -> SkyFunctionName.createSemiHermetic("SEMI_HERMETIC_FN");
     GroupedDeps previouslyRequestedDeps = new GroupedDeps();
     ParallelEvaluatorContext evaluatorContext = mock(ParallelEvaluatorContext.class);
     Version version = mock(Version.class);

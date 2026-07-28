@@ -119,34 +119,24 @@ public abstract class ExecutionInfoModifier {
   }
 
   /** Checks whether the {@code executionInfoList} matches the {@code mnemonic}. */
-  public static boolean matches(
-      List<ExecutionInfoModifier> executionInfoList, boolean isAdditive, String mnemonic) {
+  public static boolean matches(List<ExecutionInfoModifier> executionInfoList, String mnemonic) {
     if (executionInfoList.isEmpty()) {
       return false;
     }
 
-    if (isAdditive) {
-      return executionInfoList.stream().anyMatch(eim -> eim.matches(mnemonic));
-    } else {
-      return executionInfoList.getLast().matches(mnemonic);
-    }
+    return executionInfoList.stream().anyMatch(eim -> eim.matches(mnemonic));
   }
 
   /** Applies {@code executionInfoList} to the given {@code executionInfo}. */
   public static void apply(
       List<ExecutionInfoModifier> executionInfoList,
-      boolean isAdditive,
       String mnemonic,
       Map<String, String> executionInfo) {
     if (executionInfoList.isEmpty()) {
       return;
     }
 
-    if (isAdditive) {
-      executionInfoList.forEach(eim -> eim.apply(mnemonic, executionInfo));
-    } else {
-      executionInfoList.getLast().apply(mnemonic, executionInfo);
-    }
+    executionInfoList.forEach(eim -> eim.apply(mnemonic, executionInfo));
   }
 
   /** Modifies the given map of {@code executionInfo} to add or remove the keys for this option. */

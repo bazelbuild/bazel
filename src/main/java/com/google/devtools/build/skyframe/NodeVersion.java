@@ -39,17 +39,4 @@ public interface NodeVersion {
    * Version#atMost} this version, even if {@link #lastChanged} is lower.
    */
   Version lastEvaluated();
-
-  static NodeVersion of(Version lastChanged, Version lastEvaluated) {
-    if (lastChanged.equals(lastEvaluated)) {
-      return lastChanged;
-    }
-    return new ChangePruned(lastChanged, lastEvaluated);
-  }
-
-  /**
-   * Basic implementation of {@link NodeVersion} for the case where {@link #lastChanged} and {@link
-   * #lastEvaluated} are different versions.
-   */
-  record ChangePruned(Version lastChanged, Version lastEvaluated) implements NodeVersion {}
 }

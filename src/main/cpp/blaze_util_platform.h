@@ -28,6 +28,7 @@
 #include "src/main/cpp/blaze_util.h"
 #include "src/main/cpp/server_process_info.h"
 #include "src/main/cpp/util/port.h"
+#include "absl/strings/string_view.h"
 
 namespace blaze {
 
@@ -235,6 +236,11 @@ void ReleaseLock(LockHandle lock_handle);
 
 // Verifies whether the server process still exists. Returns true if it does.
 bool VerifyServerProcess(int pid, const blaze_util::Path& output_base);
+
+// Parses the content of /proc/[pid]/stat (passed as statline) to extract the
+// start time (field 22). Returns true on success and writes the start time to
+// 'start_time'. Returns false on failure.
+bool ParseProcStat(absl::string_view statline, std::string* start_time);
 
 // Kills a server process based on its PID.
 // Returns true if the server process was found and killed.

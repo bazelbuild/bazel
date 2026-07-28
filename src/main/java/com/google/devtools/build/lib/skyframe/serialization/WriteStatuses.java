@@ -29,7 +29,6 @@ import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Container for {@link WriteStatus} and its implementations.
@@ -154,16 +153,22 @@ public class WriteStatuses {
   /**
    * Builder for {@link WriteStatus}.
    *
-   * <p>This builder is thread safe, but {@link #build} should only be called once.
+   * <p>This builder is thread safe, and {@link #build} is idempotent. Neither {@link #add} nor
+   * {@link #addAll} may be called after {@link #build}.
    */
   public static final class WriteStatusBuilder {
     private ListenableFuture<Boolean> first = null;
     private AggregateWriteStatus aggregate = null;
-    private final AtomicBoolean preincrementCleared = new AtomicBoolean(false);
+    private boolean built = false;
 
-    /** Adds a status to the aggregate. */
+    /**
+     * Adds a status to the aggregate.
+     *
+     * @throws IllegalStateException if called after {@link #build}
+     */
     @CanIgnoreReturnValue
     public synchronized WriteStatusBuilder add(ListenableFuture<Boolean> status) {
+      checkState(!built, "cannot add to WriteStatusBuilder after build()");
       if (first == null) {
         first = status;
       } else if (aggregate == null) {
@@ -176,7 +181,11 @@ public class WriteStatuses {
       return this;
     }
 
-    /** Adds all statuses to the aggregate. */
+    /**
+     * Adds all statuses to the aggregate.
+     *
+     * @throws IllegalStateException if called after {@link #build}
+     */
     @CanIgnoreReturnValue
     public synchronized WriteStatusBuilder addAll(
         Iterable<? extends ListenableFuture<Boolean>> statuses) {
@@ -189,24 +198,29 @@ public class WriteStatuses {
     /**
      * Builds and returns the aggregated {@link WriteStatus}.
      *
-     * <p>Should only be called once.
+     * <p>This method is idempotent; subsequent calls return the same {@link WriteStatus}.
      */
     public synchronized WriteStatus build() {
-      checkState(!preincrementCleared.getAndSet(true), "build must only be called once");
       if (first == null) {
+        built = true;
         // Zero dependency statuses.
         return immediateWriteStatus();
       }
       if (aggregate == null) {
+        built = true;
         // One dependency status. Return it, possibly wrapping it with SettableWriteStatus.
         if (first instanceof WriteStatus) {
           return (WriteStatus) first;
         }
         SettableWriteStatus wrapper = new SettableWriteStatus();
         wrapper.completeWithFuture(first);
+        first = wrapper;
         return wrapper;
       }
-      aggregate.clearPreincrement();
+      if (!built) {
+        aggregate.clearPreincrement();
+        built = true;
+      }
       return aggregate;
     }
   }

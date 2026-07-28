@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Starlark;
@@ -214,6 +215,7 @@ public final class DebuggerSerializationTest {
     assertThat(getChildren(value)).containsExactly(getValueProto("bool", true));
   }
 
+  @StarlarkBuiltin(name = "DummyType", documented = false)
   private static class DummyType implements StarlarkValue {
     @Override
     public void repr(Printer printer, StarlarkSemantics semantics) {
@@ -236,6 +238,7 @@ public final class DebuggerSerializationTest {
     assertThat(getChildren(value)).containsExactly(getValueProto("bool", true));
   }
 
+  @StarlarkBuiltin(name = "DummyTypeWithException", documented = false)
   private static class DummyTypeWithException implements StarlarkValue {
     @Override
     public void repr(Printer printer, StarlarkSemantics semantics) {

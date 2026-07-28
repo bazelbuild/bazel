@@ -76,7 +76,6 @@ import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
@@ -117,7 +116,6 @@ public class GrpcCacheClient extends RemoteCacheClient implements MissingDigests
             options.getRemoteInstanceName(),
             channel,
             callCredentialsProvider,
-            options.getRemoteTimeout().toSeconds(),
             retrier,
             options.getMaximumOpenFiles(),
             digestUtil.getDigestFunction());
@@ -150,8 +148,7 @@ public class GrpcCacheClient extends RemoteCacheClient implements MissingDigests
         .withInterceptors(
             TracingMetadataUtils.attachMetadataInterceptor(context.getRequestMetadata()),
             new NetworkTimeInterceptor(context::getNetworkTime))
-        .withCallCredentials(callCredentialsProvider.getCallCredentials())
-        .withDeadlineAfter(options.getRemoteTimeout().toSeconds(), TimeUnit.SECONDS);
+        .withCallCredentials(callCredentialsProvider.getCallCredentials());
   }
 
   private ByteStreamStub bsAsyncStub(RemoteActionExecutionContext context, Channel channel) {
@@ -159,8 +156,7 @@ public class GrpcCacheClient extends RemoteCacheClient implements MissingDigests
         .withInterceptors(
             TracingMetadataUtils.attachMetadataInterceptor(context.getRequestMetadata()),
             new NetworkTimeInterceptor(context::getNetworkTime))
-        .withCallCredentials(callCredentialsProvider.getCallCredentials())
-        .withDeadlineAfter(options.getRemoteTimeout().toSeconds(), TimeUnit.SECONDS);
+        .withCallCredentials(callCredentialsProvider.getCallCredentials());
   }
 
   private ActionCacheFutureStub acFutureStub(
@@ -169,8 +165,7 @@ public class GrpcCacheClient extends RemoteCacheClient implements MissingDigests
         .withInterceptors(
             TracingMetadataUtils.attachMetadataInterceptor(context.getRequestMetadata()),
             new NetworkTimeInterceptor(context::getNetworkTime))
-        .withCallCredentials(callCredentialsProvider.getCallCredentials())
-        .withDeadlineAfter(options.getRemoteTimeout().toSeconds(), TimeUnit.SECONDS);
+        .withCallCredentials(callCredentialsProvider.getCallCredentials());
   }
 
   /**
@@ -183,7 +178,10 @@ public class GrpcCacheClient extends RemoteCacheClient implements MissingDigests
   @Override
   @Nullable
   public ListenableFuture<Void> spliceBlob(
-      RemoteActionExecutionContext context, Digest blobDigest, List<Digest> chunkDigests) {
+      RemoteActionExecutionContext context,
+      Digest blobDigest,
+      List<Digest> chunkDigests,
+      ChunkingFunction.Value chunkingFunction) {
     if (!options.getExperimentalRemoteCacheChunking()) {
       return null;
     }
@@ -193,7 +191,7 @@ public class GrpcCacheClient extends RemoteCacheClient implements MissingDigests
             .setBlobDigest(blobDigest)
             .addAllChunkDigests(chunkDigests)
             .setDigestFunction(digestUtil.getDigestFunction())
-            .setChunkingFunction(ChunkingFunction.Value.FAST_CDC_2020)
+            .setChunkingFunction(chunkingFunction)
             .build();
     return Futures.catchingAsync(
         Futures.transform(
@@ -218,7 +216,9 @@ public class GrpcCacheClient extends RemoteCacheClient implements MissingDigests
    */
   @Nullable
   public ListenableFuture<SplitBlobResponse> splitBlob(
-      RemoteActionExecutionContext context, Digest digest) {
+      RemoteActionExecutionContext context,
+      Digest digest,
+      ChunkingFunction.Value chunkingFunction) {
     if (!options.getExperimentalRemoteCacheChunking()) {
       return null;
     }
@@ -227,7 +227,7 @@ public class GrpcCacheClient extends RemoteCacheClient implements MissingDigests
             .setInstanceName(options.getRemoteInstanceName())
             .setBlobDigest(digest)
             .setDigestFunction(digestUtil.getDigestFunction())
-            .setChunkingFunction(ChunkingFunction.Value.FAST_CDC_2020)
+            .setChunkingFunction(chunkingFunction)
             .build();
     return Futures.catchingAsync(
         Utils.refreshIfUnauthenticatedAsync(

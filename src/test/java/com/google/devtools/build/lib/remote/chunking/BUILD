@@ -19,6 +19,7 @@ java_library(
     srcs = [
         "ChunkingConfigTest.java",
         "FastCdcChunkerTest.java",
+        "RepMaxCdcChunkerTest.java",
     ],
     data = [
         # Public domain image by Toriyama Sekien (1712-1788),
@@ -50,6 +51,19 @@ java_test(
 java_opt_binary(
     name = "FastCdcBenchmark",
     srcs = ["FastCdcBenchmark.java"],
+    main_class = "org.openjdk.jmh.Main",
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/remote/chunking",
+        "//src/main/java/com/google/devtools/build/lib/remote/util:digest_util",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs/bazel",
+        "//third_party:jmh",
+    ],
+)
+
+java_opt_binary(
+    name = "RepMaxCdcBenchmark",
+    srcs = ["RepMaxCdcBenchmark.java"],
     main_class = "org.openjdk.jmh.Main",
     deps = [
         "//src/main/java/com/google/devtools/build/lib/remote/chunking",

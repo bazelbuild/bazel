@@ -32,7 +32,6 @@ import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkAnnotations;
-import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.ParamDescriptor.ConditionalCheck;
 import net.starlark.java.syntax.StarlarkType;
@@ -160,8 +159,7 @@ final class MethodDescriptor {
       boolean extraKeywords,
       boolean allowReturnNones) {
     if (structField) {
-      StarlarkType returnType =
-          starlarkTypeFromJava(method.getGenericReturnType(), /* isReturnType= */ true);
+      StarlarkType returnType = starlarkTypeFromJava(method.getGenericReturnType());
       if (allowReturnNones) {
         returnType = Types.union(returnType, Types.NONE);
       }
@@ -201,7 +199,7 @@ final class MethodDescriptor {
       if (allowedTypes.length > 0) {
         parameterTypes.add(starlarkTypeFromAnnotation(allowedTypes));
       } else {
-        parameterTypes.add(starlarkTypeFromJava(methodParamTypes[i], /* isReturnType= */ false));
+        parameterTypes.add(starlarkTypeFromJava(methodParamTypes[i]));
       }
       if (parameters[i].getDefaultValue() == null) {
         mandatoryParameters.add(parameters[i].getName());
@@ -211,7 +209,7 @@ final class MethodDescriptor {
     if (method.getReturnType() == Object.class) {
       returnType = Types.ANY;
     } else {
-      returnType = starlarkTypeFromJava(method.getGenericReturnType(), /* isReturnType= */ true);
+      returnType = starlarkTypeFromJava(method.getGenericReturnType());
       if (allowReturnNones) {
         returnType = Types.union(returnType, Types.NONE);
       }
@@ -266,12 +264,12 @@ final class MethodDescriptor {
                     return paramType.type();
                   }
                 })
-            .map(cls -> starlarkTypeFromJava(cls, /* isReturnType= */ false))
+            .map(this::starlarkTypeFromJava)
             .collect(toImmutableSet()));
   }
 
   /** Returns the Starlark type corresponding to the given Java type. */
-  private StarlarkType starlarkTypeFromJava(Type cls, boolean isReturnType) {
+  private StarlarkType starlarkTypeFromJava(Type cls) {
     if (cls == NoneType.class || cls == void.class) {
       return Types.NONE;
     } else if (cls == String.class) {
@@ -289,52 +287,34 @@ final class MethodDescriptor {
       return Types.FLOAT;
     } else if (cls instanceof ParameterizedType ptype && ptype.getRawType() == Dict.class) {
       return Types.dict(
-          starlarkTypeFromJava(ptype.getActualTypeArguments()[0], isReturnType),
-          starlarkTypeFromJava(ptype.getActualTypeArguments()[1], isReturnType));
+          starlarkTypeFromJava(ptype.getActualTypeArguments()[0]),
+          starlarkTypeFromJava(ptype.getActualTypeArguments()[1]));
     } else if (cls instanceof ParameterizedType ptype && ptype.getRawType() == StarlarkList.class) {
-      return Types.list(starlarkTypeFromJava(ptype.getActualTypeArguments()[0], isReturnType));
+      return Types.list(starlarkTypeFromJava(ptype.getActualTypeArguments()[0]));
     } else if (cls instanceof ParameterizedType ptype && ptype.getRawType() == StarlarkSet.class) {
-      return Types.set(starlarkTypeFromJava(ptype.getActualTypeArguments()[0], isReturnType));
+      return Types.set(starlarkTypeFromJava(ptype.getActualTypeArguments()[0]));
     } else if (cls instanceof Class<?> c && Tuple.class.isAssignableFrom(c)) {
       // TODO: #27370 - Should we ever return a narrower tuple type?
       return Types.homogeneousTuple(Types.ANY);
     } else if (cls instanceof ParameterizedType ptype
         && ptype.getRawType() == StarlarkIterable.class) {
-      return Types.collection(
-          starlarkTypeFromJava(ptype.getActualTypeArguments()[0], isReturnType));
+      return Types.collection(starlarkTypeFromJava(ptype.getActualTypeArguments()[0]));
     } else if (cls instanceof ParameterizedType ptype && ptype.getRawType() == Sequence.class) {
-      return Types.sequence(starlarkTypeFromJava(ptype.getActualTypeArguments()[0], isReturnType));
+      return Types.sequence(starlarkTypeFromJava(ptype.getActualTypeArguments()[0]));
     } else if (cls == Object.class || cls == StarlarkValue.class) {
       return Types.OBJECT;
     } else {
       if (cls instanceof Class<?> c) {
-        @Nullable StarlarkType classStarlarkType = manager.getClassStarlarkType(c);
+        @Nullable StarlarkType classStarlarkType = CallUtils.getStarlarkBuiltinAutoType(c);
         if (classStarlarkType != null) {
-          // If there is a class Starlark type defined, prefer it over STRUCT_OF_ANY/EMPTY_STRUCT.
           return classStarlarkType;
         }
-        if (isStructType(c)) {
-          // TODO: #27370 - Allow StarlarkMethod to specify a narrower struct type.
-          // Use the top struct type for parameters (to accept all possible struct arguments); use
-          // the any partial struct type for returns (since we cannot know what fields it might
-          // have).
-          return isReturnType ? Types.STRUCT_OF_ANY : Types.EMPTY_STRUCT;
+        if (Structure.class.isAssignableFrom(c)) {
+          return Types.ANY_STRUCT;
         }
       }
       return Types.ANY;
     }
-  }
-
-  private static boolean isStructType(Class<?> cls) {
-    if (Structure.class.isAssignableFrom(cls)) {
-      return true;
-    }
-    @Nullable StarlarkBuiltin annotation = StarlarkAnnotations.getStarlarkBuiltin(cls);
-    if (annotation != null && annotation.isStructType()) {
-      // Detect com.google.devtools.build.lib.starlarkbuildapi.core.StructApi
-      return true;
-    }
-    return false;
   }
 
   private static boolean paramUsableAsPositionalWithoutChecks(ParamDescriptor param) {
@@ -477,7 +457,7 @@ final class MethodDescriptor {
         "method invocation returned null: " + getName() + Tuple.of(args));
   }
 
-  /** @see StarlarkMethod#name() */
+  /** See {@link StarlarkMethod#name()}. */
   String getName() {
     return name;
   }
@@ -490,32 +470,38 @@ final class MethodDescriptor {
     return method;
   }
 
-  /** @see StarlarkMethod#structField() */
+  /** See {@link StarlarkMethod#structField()}. */
   boolean isStructField() {
     return structField;
   }
 
-  /** @see StarlarkMethod#useStarlarkThread() */
+  /** See {@link StarlarkMethod#useStarlarkThread()}. */
   boolean isUseStarlarkThread() {
     return useStarlarkThread;
   }
 
-  /** @see StarlarkMethod#useStarlarkSemantics() */
+  /** See {@link StarlarkMethod#useStarlarkSemantics()}. */
   boolean isUseStarlarkSemantics() {
     return useStarlarkSemantics;
   }
 
-  /** @return {@code true} if this method accepts extra arguments ({@code *args}) */
+  /**
+   * If true, this method accepts extra positional arguments ({@code *args}); see {@link
+   * StarlarkMethod#extraPositionals()}.
+   */
   boolean acceptsExtraArgs() {
     return extraPositionals;
   }
 
-  /** @see StarlarkMethod#extraKeywords() */
+  /**
+   * If true, this method accepts extra keyword arguments ({@code **kwargs}); see {@link
+   * StarlarkMethod#extraKeywords()}.
+   */
   boolean acceptsExtraKwargs() {
     return extraKeywords;
   }
 
-  /** @see StarlarkMethod#parameters() */
+  /** See {@link StarlarkMethod#parameters()}. */
   ParamDescriptor[] getParameters() {
     return parameters;
   }
@@ -530,17 +516,17 @@ final class MethodDescriptor {
     return -1;
   }
 
-  /** @see StarlarkMethod#documented() */
+  /** See {@link StarlarkMethod#documented()}. */
   boolean isDocumented() {
     return documented;
   }
 
-  /** @see StarlarkMethod#doc() */
+  /** See {@link StarlarkMethod#doc()}. */
   String getDoc() {
     return doc;
   }
 
-  /** @see StarlarkMethod#selfCall() */
+  /** See {@link StarlarkMethod#selfCall()}. */
   boolean isSelfCall() {
     return selfCall;
   }

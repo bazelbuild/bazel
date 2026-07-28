@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
-import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.EmptyToNullLabelConverter;
@@ -26,8 +25,6 @@ import com.google.devtools.build.lib.analysis.config.RequiresOptions;
 import com.google.devtools.build.lib.analysis.starlark.annotations.StarlarkConfigurationField;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.rules.cpp.CppConfiguration.DynamicMode;
-import com.google.devtools.build.lib.rules.cpp.CppOptions.DynamicModeConverter;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidConfigurationApi;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.EnumConverter;
@@ -37,7 +34,6 @@ import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsClass;
 import java.util.List;
-import java.util.Locale;
 import javax.annotation.Nullable;
 
 /** Configuration fragment for Android rules. */
@@ -60,14 +56,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   public static final class ApkSigningMethodConverter extends EnumConverter<ApkSigningMethod> {
     public ApkSigningMethodConverter() {
       super(ApkSigningMethod.class, "apk signing method");
-    }
-  }
-
-  /** Converter for {@link AndroidManifestMerger} */
-  public static final class AndroidManifestMergerConverter
-      extends EnumConverter<AndroidManifestMerger> {
-    public AndroidManifestMergerConverter() {
-      super(AndroidManifestMerger.class, "android manifest merger");
     }
   }
 
@@ -155,35 +143,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     }
   }
 
-  /** Types of android manifest mergers. */
-  public enum AndroidManifestMerger {
-    LEGACY,
-    ANDROID,
-    FORCE_ANDROID;
-
-    public static ImmutableList<String> getAttributeValues() {
-      return ImmutableList.of(
-          LEGACY.name().toLowerCase(Locale.ROOT),
-          ANDROID.name().toLowerCase(Locale.ROOT),
-          FORCE_ANDROID.name().toLowerCase(Locale.ROOT),
-          getRuleAttributeDefault());
-    }
-
-    public static String getRuleAttributeDefault() {
-      return "auto";
-    }
-
-    @Nullable
-    public static AndroidManifestMerger fromString(String value) {
-      for (AndroidManifestMerger merger : AndroidManifestMerger.values()) {
-        if (merger.name().equalsIgnoreCase(value)) {
-          return merger;
-        }
-      }
-      return null;
-    }
-  }
-
   /** Orders for merging android manifests. */
   public enum ManifestMergerOrder {
     /** Manifests are sorted alphabetically by exec path. */
@@ -218,23 +177,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
         },
         help = "The Android target compiler.")
     public abstract String getCppCompiler();
-
-    @Option(
-        name = "android_dynamic_mode",
-        defaultValue = "off",
-        converter = DynamicModeConverter.class,
-        documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-        effectTags = {
-          OptionEffectTag.AFFECTS_OUTPUTS,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
-        },
-        help =
-            "Determines whether C++ deps of Android rules will be linked dynamically when a "
-                + "cc_binary does not explicitly create a shared library. "
-                + "'default' means bazel will choose whether to link dynamically.  "
-                + "'fully' means all libraries will be linked dynamically. "
-                + "'off' means that all libraries will be linked in mostly static mode.")
-    public abstract DynamicMode getDynamicMode();
 
     @Option(
         name = "android_platforms",
@@ -387,21 +329,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
         metadataTags = OptionMetadataTag.EXPERIMENTAL,
         help = "Enables obfuscation of resource names within android_binary APKs.")
     public abstract boolean getUseAndroidResourceNameObfuscation();
-
-    @Option(
-        name = "android_manifest_merger",
-        defaultValue = "android",
-        converter = AndroidManifestMergerConverter.class,
-        documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-        effectTags = {
-          OptionEffectTag.AFFECTS_OUTPUTS,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
-          OptionEffectTag.LOSES_INCREMENTAL_STATE,
-        },
-        help =
-            "Selects the manifest merger to use for android_binary rules. Flag to help the "
-                + "transition to the Android manifest merger from the legacy merger.")
-    public abstract AndroidManifestMerger getManifestMerger();
 
     @Option(
         name = "android_manifest_merger_order",
@@ -697,7 +624,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   private final boolean useAndroidResourceCycleShrinking;
   private final boolean useAndroidResourcePathShortening;
   private final boolean useAndroidResourceNameObfuscation;
-  private final AndroidManifestMerger manifestMerger;
   private final ManifestMergerOrder manifestMergerOrder;
   private final ApkSigningMethod apkSigningMethod;
   private final boolean compressJavaResources;
@@ -728,8 +654,8 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     this.useAndroidResourceCycleShrinking = options.getUseAndroidResourceCycleShrinking();
     this.useAndroidResourcePathShortening = options.getUseAndroidResourcePathShortening();
     this.useAndroidResourceNameObfuscation = options.getUseAndroidResourceNameObfuscation();
-    this.manifestMerger = options.getManifestMerger();
     this.manifestMergerOrder = options.getManifestMergerOrder();
+
     this.apkSigningMethod = options.getApkSigningMethod();
     this.compressJavaResources = options.getCompressJavaResources();
     this.exportsManifestDefault = options.getExportsManifestDefault();
@@ -806,15 +732,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   @Override
   public boolean useAndroidResourceNameObfuscation() {
     return useAndroidResourceNameObfuscation;
-  }
-
-  public AndroidManifestMerger getManifestMerger() {
-    return manifestMerger;
-  }
-
-  @Override
-  public String getManifestMergerValue() {
-    return Ascii.toLowerCase(manifestMerger.name());
   }
 
   public ManifestMergerOrder getManifestMergerOrder() {

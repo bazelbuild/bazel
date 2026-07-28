@@ -890,8 +890,7 @@ public class BuildConfigurationValue
    */
   public ImmutableMap<String, String> modifiedExecutionInfo(
       ImmutableMap<String, String> executionInfo, String mnemonic) {
-    if (!ExecutionInfoModifier.matches(
-        options.getExecutionInfoModifier(), options.getAdditiveModifyExecutionInfo(), mnemonic)) {
+    if (!ExecutionInfoModifier.matches(options.getExecutionInfoModifier(), mnemonic)) {
       return executionInfo;
     }
     Map<String, String> mutableCopy = new HashMap<>(executionInfo);
@@ -903,7 +902,6 @@ public class BuildConfigurationValue
   public void modifyExecutionInfo(Map<String, String> executionInfo, String mnemonic) {
     ExecutionInfoModifier.apply(
         options.getExecutionInfoModifier(),
-        options.getAdditiveModifyExecutionInfo(),
         mnemonic,
         executionInfo);
   }

@@ -146,7 +146,8 @@ public final class StrippingPathMapper implements PathMapper {
             action.getAdditionalArtifactsForPathMapping().toList(),
             action.discoversInputs()
                 ? action.getAllowedDerivedInputs().toList()
-                : ImmutableSet.of()),
+                : ImmutableSet.of(),
+            action.getOutputs()),
         outputRoot,
         inputMetadataProvider)) {
       return Optional.of(

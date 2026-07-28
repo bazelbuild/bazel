@@ -90,7 +90,11 @@ public abstract class AbstractQuiescingFuture<T> extends AbstractFuture<T> imple
     if ((int) ERROR_COUNT_HANDLE.getAcquire(this) > 0) {
       doneWithError();
     } else {
-      set(getValue());
+      try {
+        set(getValue());
+      } catch (Throwable t) {
+        setException(t);
+      }
     }
   }
 

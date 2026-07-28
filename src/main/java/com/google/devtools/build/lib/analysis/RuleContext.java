@@ -18,7 +18,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.analysis.constraints.ConstraintConstants.getOsFromConstraintsOrHost;
 import static com.google.devtools.build.lib.packages.DeclaredExecGroup.DEFAULT_EXEC_GROUP_NAME;
-import static com.google.devtools.build.lib.packages.RuleClass.DEFAULT_TEST_RUNNER_EXEC_GROUP_NAME;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
@@ -434,36 +433,6 @@ public class RuleContext extends TargetContext
   public List<ConfiguredTargetAndData> getPrerequisiteConfiguredTargets(String attributeName) {
     return getOwningPrerequisitesCollection(attributeName)
         .getPrerequisiteConfiguredTargets(attributeName);
-  }
-
-  /**
-   * Returns a special action owner for test actions. Test actions should run on the target platform
-   * rather than the host platform. Note that the value is not cached (on the assumption that this
-   * method is only called once).
-   */
-  public ActionOwner getTestActionOwner() {
-    PlatformInfo testExecutionPlatform;
-    ImmutableMap<String, String> testExecProperties;
-
-    // If we have a toolchain, pull the target platform out of it.
-    if (toolchainContexts != null) {
-      // TODO(https://github.com/bazelbuild/bazel/issues/17466): This doesn't respect execution
-      // properties coming from the target's `exec_properties` attribute.
-      // src/test/java/com/google/devtools/build/lib/analysis/test/TestActionBuilderTest.java has a
-      // test to test for it when it gets figured out.
-      testExecutionPlatform = toolchainContexts.getTargetPlatform();
-      testExecProperties = testExecutionPlatform.execProperties();
-    } else {
-      testExecutionPlatform = null;
-      testExecProperties = getExecGroups().getExecProperties(DEFAULT_TEST_RUNNER_EXEC_GROUP_NAME);
-    }
-
-    return createActionOwner(
-        rule,
-        getAspectDescriptors(),
-        getConfiguration(),
-        testExecProperties,
-        testExecutionPlatform);
   }
 
   @Override

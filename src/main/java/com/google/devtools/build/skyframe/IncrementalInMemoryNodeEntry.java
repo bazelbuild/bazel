@@ -176,7 +176,7 @@ public class IncrementalInMemoryNodeEntry extends AbstractInMemoryNodeEntry<Dirt
       //  - If old deserialized -> new computed, we prefer the computed value since we do have
       //    proper deps and can therefore rely on the more precise classic bottom-up invalidation.
       Version lastChanged = version.lastChanged();
-      version = NodeVersion.of(lastChanged, graphVersion);
+      version = NodeVersionGetter.get(lastChanged, graphVersion);
       SkyValue oldValue = dirtyBuildingState.getLastBuildValue();
       this.value =
           value instanceof DeserializedSkyValue != oldValue instanceof DeserializedSkyValue

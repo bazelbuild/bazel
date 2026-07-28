@@ -20,6 +20,19 @@ index a490e51b27..d5b3e174b7 100644
  crate.spec(
      package = "googletest",
      version = ">0.0.0",
+diff --git a/bazel/flags/BUILD b/bazel/flags/BUILD
+index 393fab95d6..9012b01649 100644
+--- a/bazel/flags/BUILD
++++ b/bazel/flags/BUILD
+@@ -46,7 +46,7 @@ string_list_flag(
+ # This is now enabled by default.
+ bool_flag(
+     name = "prefer_prebuilt_protoc",
+-    build_setting_default = True,
++    build_setting_default = False,
+     # See https://github.com/protocolbuffers/protobuf/issues/25561
+     scope = "universal",  # propagate from host to exec configuration
+     visibility = ["//bazel/toolchains:__pkg__"],
 diff --git a/java/core/BUILD.bazel b/java/core/BUILD.bazel
 index 4cbd4732c1..2e789054c8 100644
 --- a/java/core/BUILD.bazel
@@ -121,6 +134,105 @@ index 4ce905cbbf..d8e701c131 100644
  # Amalgamation #################################################################
  
  upb_amalgamation(
+diff --git a/upb/bazel/private/BUILD b/upb/bazel/private/BUILD
+index 0c7ac5d672..9ee2f21179 100644
+--- a/upb/bazel/private/BUILD
++++ b/upb/bazel/private/BUILD
+@@ -23,6 +23,6 @@ bzl_library(
+         "//bazel/common:proto_common_bzl",
+         "//bazel/common:proto_info_bzl",
+         "@bazel_skylib//lib:paths",
+-        "@bazel_tools//tools/cpp:toolchain_utils.bzl",
++        "@rules_cc//cc:find_cc_toolchain_bzl",
+     ],
+ )
+diff --git a/upb/bazel/private/upb_proto_library_internal/aspect.bzl b/upb/bazel/private/upb_proto_library_internal/aspect.bzl
+index 61f70a8561..b625db3eea 100644
+--- a/upb/bazel/private/upb_proto_library_internal/aspect.bzl
++++ b/upb/bazel/private/upb_proto_library_internal/aspect.bzl
+@@ -1,6 +1,6 @@
+ """Implementation of the aspect that powers the upb_*_proto_library() rules."""
+ 
+-load("@bazel_tools//tools/cpp:toolchain_utils.bzl", "find_cpp_toolchain")
++load("@rules_cc//cc:find_cc_toolchain.bzl", "find_cc_toolchain")
+ load("@rules_cc//cc/common:cc_common.bzl", "cc_common")
+ load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
+ load("//bazel/common:proto_common.bzl", "proto_common")
+@@ -244,7 +244,7 @@ def upb_proto_aspect_impl(
+         )
+     else:
+         proto_info = target[ProtoInfo]
+-        cc_toolchain = find_cpp_toolchain(ctx)
++        cc_toolchain = find_cc_toolchain(ctx)
+         feature_configuration = _get_feature_configuration(ctx, cc_toolchain, proto_info)
+         files = _generate_upb_protos(
+             ctx,
+diff --git a/upb/bazel/private/upb_proto_library_internal/cc_library_func.bzl b/upb/bazel/private/upb_proto_library_internal/cc_library_func.bzl
+index 47fc5a1cc2..90db085061 100644
+--- a/upb/bazel/private/upb_proto_library_internal/cc_library_func.bzl
++++ b/upb/bazel/private/upb_proto_library_internal/cc_library_func.bzl
+@@ -1,11 +1,11 @@
+ """A function to compile C/C++ code, like cc_library() but from Starlark."""
+ 
+-load("@bazel_tools//tools/cpp:toolchain_utils.bzl", "find_cpp_toolchain", "use_cpp_toolchain")
++load("@rules_cc//cc:find_cc_toolchain.bzl", "find_cc_toolchain", "use_cc_toolchain")
+ load("@rules_cc//cc/common:cc_common.bzl", "cc_common")
+ load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
+ 
+ def upb_use_cpp_toolchain():
+-    return use_cpp_toolchain()
++    return use_cc_toolchain()
+ 
+ def cc_library_func(ctx, name, hdrs, srcs, copts, dep_ccinfos, includes = [], alwayslink = False):
+     """Like cc_library(), but callable from rules.
+@@ -25,7 +25,7 @@ def cc_library_func(ctx, name, hdrs, srcs, copts, dep_ccinfos, includes = [], al
+ 
+     compilation_contexts = [info.compilation_context for info in dep_ccinfos]
+     linking_contexts = [info.linking_context for info in dep_ccinfos]
+-    toolchain = find_cpp_toolchain(ctx)
++    toolchain = find_cc_toolchain(ctx)
+     feature_configuration = cc_common.configure_features(
+         ctx = ctx,
+         cc_toolchain = toolchain,
+diff --git a/upb/bazel/upb_c_proto_library.bzl b/upb/bazel/upb_c_proto_library.bzl
+index d09387be84..3c47e50993 100644
+--- a/upb/bazel/upb_c_proto_library.bzl
++++ b/upb/bazel/upb_c_proto_library.bzl
+@@ -38,7 +38,7 @@ upb_c_proto_library_aspect = aspect(
+             default = Label("//upb_generator/c:toolchain"),
+         ),
+         "_cc_toolchain": attr.label(
+-            default = "@bazel_tools//tools/cpp:current_cc_toolchain",
++            default = "@rules_cc//cc:current_cc_toolchain",
+         ),
+     },
+     implementation = _upb_c_proto_library_aspect_impl,
+diff --git a/upb/bazel/upb_minitable_proto_library.bzl b/upb/bazel/upb_minitable_proto_library.bzl
+index 6a27082c68..9520a44ec8 100644
+--- a/upb/bazel/upb_minitable_proto_library.bzl
++++ b/upb/bazel/upb_minitable_proto_library.bzl
+@@ -53,7 +53,7 @@ upb_minitable_proto_library_aspect = aspect(
+             default = Label("//upb_generator/minitable:toolchain"),
+         ),
+         "_cc_toolchain": attr.label(
+-            default = "@bazel_tools//tools/cpp:current_cc_toolchain",
++            default = "@rules_cc//cc:current_cc_toolchain",
+         ),
+         "_fasttable_enabled": attr.label(default = "//upb:fasttable_enabled"),
+     },
+diff --git a/upb/bazel/upb_proto_reflection_library.bzl b/upb/bazel/upb_proto_reflection_library.bzl
+index 77f168ef28..0a3e159807 100644
+--- a/upb/bazel/upb_proto_reflection_library.bzl
++++ b/upb/bazel/upb_proto_reflection_library.bzl
+@@ -37,7 +37,7 @@ _upb_proto_reflection_library_aspect = aspect(
+             cfg = getattr(proto_common, "proto_lang_toolchain_cfg", "target"),
+         ),
+         "_cc_toolchain": attr.label(
+-            default = "@bazel_tools//tools/cpp:current_cc_toolchain",
++            default = "@rules_cc//cc:current_cc_toolchain",
+         ),
+     },
+     implementation = _upb_proto_reflection_library_aspect_impl,
 diff --git a/upb_generator/minitable/generator.cc b/upb_generator/minitable/generator.cc
 index 54f8490ce4..801c58a8b2 100644
 --- a/upb_generator/minitable/generator.cc
@@ -134,12 +246,3 @@ index 54f8490ce4..801c58a8b2 100644
    output("$0,\n", FieldInitializer(pools, ext));
    output("  $0,\n", GetSub(ext, true, options));
    output("  &$0,\n", MessageVarName(ext.containing_type()));
-
-diff --git a/bazel/flags/BUILD b/bazel/flags/BUILD
---- a/bazel/flags/BUILD
-+++ b/bazel/flags/BUILD
-@@ -49,3 +49,3 @@ bool_flag(
-     name = "prefer_prebuilt_protoc",
--    build_setting_default = True,
-+    build_setting_default = False,
-     # See https://github.com/protocolbuffers/protobuf/issues/25561

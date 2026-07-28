@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.runtime;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
-import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -97,17 +96,39 @@ public class SafeRequestLoggingTest {
 
   @Test
   public void testGetRequestLogForStandardCommandLine() {
-    List<String> complexCommandLine = ImmutableList.of(
-        "blaze",
-        "build",
-        "--client_env=FOO=BAR",
-        "--client_env=FOOPASS=mypassword",
-        "--package_path=./MY_PASSWORD/foo",
-        "--client_env=SOMEAuThCode=something");
+    ImmutableList<String> complexCommandLine =
+        ImmutableList.of(
+            "blaze",
+            "build",
+            "--client_env=FOO=BAR",
+            "--client_env=FOOPASS=mypassword",
+            "--package_path=./MY_PASSWORD/foo",
+            "--client_env=SOMEAuThCode=something");
     assertThat(SafeRequestLogging.getRequestLogString(complexCommandLine))
         .isEqualTo(
             "[blaze, build, --client_env=FOO=BAR, --client_env=FOOPASS=__private_value_removed__, "
                 + "--package_path=./MY_PASSWORD/foo, "
                 + "--client_env=SOMEAuThCode=__private_value_removed__]");
+  }
+
+  @Test
+  public void testRedactArgumentsRedactsCredentials() {
+    ImmutableList<String> args =
+        ImmutableList.of(
+            "blaze",
+            "build",
+            "--bes_header=Auth=123",
+            "--remote_header",
+            "Auth=456",
+            "--some_other_flag");
+    assertThat(SafeRequestLogging.redactArguments(args))
+        .containsExactly(
+            "blaze",
+            "build",
+            "--bes_header=<REDACTED>",
+            "--remote_header",
+            "<REDACTED>",
+            "--some_other_flag")
+        .inOrder();
   }
 }

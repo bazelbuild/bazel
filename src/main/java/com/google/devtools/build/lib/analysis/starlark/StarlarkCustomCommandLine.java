@@ -32,12 +32,9 @@ import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.CommandLineItem;
-import com.google.devtools.build.lib.actions.CommandLineLimits;
-import com.google.devtools.build.lib.actions.CommandLines;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
-import com.google.devtools.build.lib.actions.ParamFileActionInput;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.SingleStringArgFormatter;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
@@ -59,7 +56,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -85,16 +81,18 @@ import net.starlark.java.syntax.Location;
  * <p>To be as memory-friendly as possible, expansion happens in three stages. First, when a
  * Starlark rule is analyzed, its {@code Args} are built into a {@code StarlarkCustomCommandLine}.
  * This is retained in Skyframe, so care is taken to be as compact as possible. At this point, the
- * {@linkplain #arguments representation} is just a "recipe" to compute the full command line later
- * on. Additionally, {@link CommandLine#addToFingerprint} supports computing a fingerprint without
- * actually constructing the expanded command line.
+ * command line is split into an interned {@link Recipe} (which captures the static flag structure)
+ * and a {@code values} object (holding dynamic data such as artifacts or depsets). If there is only
+ * a single value object, it is stored directly to avoid an array object allocation. Additionally,
+ * {@link CommandLine#addToFingerprint} supports computing a fingerprint without actually
+ * constructing the expanded command line.
  *
  * <p>Second, right before an action executes, {@link #expand(InputMetadataProvider, PathMapper)} is
- * called to "preprocess" the recipe into a {@link PreprocessedCommandLine}. This step includes
- * flattening nested sets and applying any operations that can throw an exception, such as expanding
- * directories and invoking {@code map_each} functions. At this point, the representation stores a
- * string for each individual argument, but string formatting (including {@code format}, {@code
- * format_each}, {@code before_each}, {@code join_with}, {@code format_joined}, and {@code
+ * called to "preprocess" the {@link Recipe} into a {@link PreprocessedCommandLine}. This step
+ * includes flattening nested sets and applying any operations that can throw an exception, such as
+ * expanding directories and invoking {@code map_each} functions. At this point, the representation
+ * stores a string for each individual argument, but string formatting (including {@code format},
+ * {@code format_each}, {@code before_each}, {@code join_with}, {@code format_joined}, and {@code
  * flag_per_line}), is not yet applied. If {@code map_each} is not used, path mapping is also not
  * applied yet. This means that in the common case of an {@link Artifact} with no {@code map_each}
  * function, the string representation is still its {@link Artifact#getExecPathString}, which is not
@@ -149,24 +147,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
   @AutoCodec
   static final class VectorArg {
 
-    // The strong interner is used when StarlarkSemantics is null. The weak interner is used when
-    // StarlarkSemantics is present (implying a map_each), since StarlarkSemantics can change
-    // between builds.
-    private static final Interner<VectorArg> strongInterner = BlazeInterners.newStrongInterner();
-    private static final Interner<VectorArg> weakInterner = BlazeInterners.newWeakInterner();
-
-    private static final int HAS_MAP_EACH = 1;
-    private static final int IS_NESTED_SET = 1 << 1;
-    private static final int EXPAND_DIRECTORIES = 1 << 2;
-    private static final int UNIQUIFY = 1 << 3;
-    private static final int OMIT_IF_EMPTY = 1 << 4;
-    private static final int HAS_ARG_NAME = 1 << 5;
-    private static final int HAS_FORMAT_EACH = 1 << 6;
-    private static final int HAS_BEFORE_EACH = 1 << 7;
-    private static final int HAS_JOIN_WITH = 1 << 8;
-    private static final int HAS_FORMAT_JOINED = 1 << 9;
-    private static final int HAS_TERMINATE_WITH = 1 << 10;
-    private static final int HAS_SINGLE_ARG = 1 << 11;
+    private static final Interner<VectorArg> interner = BlazeInterners.newWeakInterner();
 
     private static final UUID EXPAND_DIRECTORIES_UUID =
         UUID.fromString("9d7520d2-a187-11e8-98d0-529269fb1459");
@@ -187,117 +168,115 @@ public class StarlarkCustomCommandLine extends CommandLine {
     private static final UUID TERMINATE_WITH_UUID =
         UUID.fromString("a4e5e090-0dbd-4d41-899a-77cfbba58655");
 
-    private final int features;
+    private final boolean isNestedSet;
+    private final boolean expandDirectories;
+    private final boolean uniquify;
+    private final boolean omitIfEmpty;
+    private final boolean hasSingleArg;
     private final StringificationType stringificationType;
-    // Null unless map_each is present.
+    @Nullable private final Location location;
+    @Nullable private final String argName;
+    @Nullable private final StarlarkCallable mapEach;
     @Nullable private final StarlarkSemantics starlarkSemantics;
-    // Null unless map_each is a global function.
-    @Nullable private final StarlarkFunction mapEachGlobalFunction;
+    @Nullable private final String formatEach;
+    @Nullable private final String beforeEach;
+    @Nullable private final String joinWith;
+    @Nullable private final String formatJoined;
+    @Nullable private final String terminateWith;
 
     private VectorArg(
-        int features,
+        boolean isNestedSet,
+        boolean expandDirectories,
+        boolean uniquify,
+        boolean omitIfEmpty,
+        boolean hasSingleArg,
         StringificationType stringificationType,
+        @Nullable Location location,
+        @Nullable String argName,
+        @Nullable StarlarkCallable mapEach,
         @Nullable StarlarkSemantics starlarkSemantics,
-        @Nullable StarlarkFunction mapEachGlobalFunction) {
-      this.features = features;
+        @Nullable String formatEach,
+        @Nullable String beforeEach,
+        @Nullable String joinWith,
+        @Nullable String formatJoined,
+        @Nullable String terminateWith) {
+      this.isNestedSet = isNestedSet;
+      this.expandDirectories = expandDirectories;
+      this.uniquify = uniquify;
+      this.omitIfEmpty = omitIfEmpty;
+      this.hasSingleArg = hasSingleArg;
       this.stringificationType = stringificationType;
+      this.location = location;
+      this.argName = argName;
+      this.mapEach = mapEach;
       this.starlarkSemantics = starlarkSemantics;
-      this.mapEachGlobalFunction = mapEachGlobalFunction;
-    }
-
-    private static VectorArg create(
-        int features,
-        StringificationType stringificationType,
-        @Nullable StarlarkSemantics starlarkSemantics,
-        @Nullable StarlarkFunction mapEachGlobalFunction) {
-      return intern(
-          new VectorArg(features, stringificationType, starlarkSemantics, mapEachGlobalFunction));
+      this.formatEach = formatEach;
+      this.beforeEach = beforeEach;
+      this.joinWith = joinWith;
+      this.formatJoined = formatJoined;
+      this.terminateWith = terminateWith;
     }
 
     @VisibleForSerialization
     @AutoCodec.Interner
     static VectorArg intern(VectorArg vectorArg) {
-      var interner = vectorArg.starlarkSemantics == null ? strongInterner : weakInterner;
       return interner.intern(vectorArg);
     }
 
     private static void push(
-        List<Object> arguments, Builder arg, StarlarkSemantics starlarkSemantics) {
-      // The location is really only needed if map_each is present, but it's easy enough to require
-      // it unconditionally.
+        List<Object> recipe,
+        List<Object> values,
+        Builder arg,
+        StarlarkSemantics starlarkSemantics) {
       checkNotNull(arg.location);
 
-      int features = 0;
-      features |= arg.mapEach != null ? HAS_MAP_EACH : 0;
-      features |= arg.nestedSet != null ? IS_NESTED_SET : 0;
-      features |= arg.expandDirectories ? EXPAND_DIRECTORIES : 0;
-      features |= arg.uniquify ? UNIQUIFY : 0;
-      features |= arg.omitIfEmpty ? OMIT_IF_EMPTY : 0;
-      features |= arg.argName != null ? HAS_ARG_NAME : 0;
-      features |= arg.formatEach != null ? HAS_FORMAT_EACH : 0;
-      features |= arg.beforeEach != null ? HAS_BEFORE_EACH : 0;
-      features |= arg.joinWith != null ? HAS_JOIN_WITH : 0;
-      features |= arg.formatJoined != null ? HAS_FORMAT_JOINED : 0;
-      features |= arg.terminateWith != null ? HAS_TERMINATE_WITH : 0;
-      features |= arg.nestedSet == null && arg.list.size() == 1 ? HAS_SINGLE_ARG : 0;
-      // Intern global Starlark functions in the VectorArg as they can be reused for all rule
-      // instances (and possibly even across multiple Args.add_all calls), saving a slot in
-      // arguments.
-      StarlarkFunction mapEachGlobalFunction =
-          arg.mapEach instanceof StarlarkFunction sfn && sfn.isGlobal() ? sfn : null;
-      arguments.add(
-          VectorArg.create(
-              features,
-              arg.nestedSetStringificationType,
-              arg.mapEach != null ? starlarkSemantics : null,
-              mapEachGlobalFunction));
-      if (arg.mapEach != null) {
-        if (mapEachGlobalFunction == null) {
-          arguments.add(arg.mapEach);
-        }
-        arguments.add(arg.location);
-      }
-      if (arg.nestedSet != null) {
-        arguments.add(arg.nestedSet);
-      } else {
-        List<?> list = arg.list;
-        int count = list.size();
-        if (count != 1) {
-          // A count of 1 is encoded via the HAS_SINGLE_ARG feature.
-          arguments.add(count);
-        }
-        for (int i = 0; i < count; ++i) {
-          arguments.add(list.get(i));
-        }
-      }
-      if (arg.argName != null) {
-        arguments.add(arg.argName);
-      }
-      if (arg.formatEach != null) {
-        arguments.add(arg.formatEach);
-      }
       if (arg.beforeEach != null) {
         checkState(arg.joinWith == null, "before_each and join_with are mutually exclusive");
         checkState(
             arg.formatJoined == null, "before_each and format_joined are mutually exclusive");
-        arguments.add(arg.beforeEach);
-      }
-      if (arg.joinWith != null) {
-        arguments.add(arg.joinWith);
       }
       if (arg.formatJoined != null) {
         checkNotNull(arg.joinWith, "format_joined requires join_with");
-        arguments.add(arg.formatJoined);
       }
-      if (arg.terminateWith != null) {
-        arguments.add(arg.terminateWith);
+
+      recipe.add(
+          VectorArg.intern(
+              new VectorArg(
+                  arg.nestedSet != null,
+                  arg.expandDirectories,
+                  arg.uniquify,
+                  arg.omitIfEmpty,
+                  arg.nestedSet == null && arg.list.size() == 1,
+                  arg.nestedSetStringificationType,
+                  arg.mapEach != null ? arg.location : null,
+                  arg.argName,
+                  arg.mapEach,
+                  arg.mapEach != null ? starlarkSemantics : null,
+                  arg.formatEach,
+                  arg.beforeEach,
+                  arg.joinWith,
+                  arg.formatJoined,
+                  arg.terminateWith)));
+
+      if (arg.nestedSet != null) {
+        values.add(arg.nestedSet);
+      } else {
+        List<?> list = arg.list;
+        int count = list.size();
+        if (count != 1) {
+          // A count of 1 is encoded via the hasSingleArg field.
+          values.add(count);
+        }
+        for (int i = 0; i < count; ++i) {
+          values.add(list.get(i));
+        }
       }
     }
 
     /**
      * Adds this {@link VectorArg} to the given {@link PreprocessedCommandLine.Builder}.
      *
-     * @param arguments result of {@link #rawArgsAsList}
+     * @param arguments result of {@link #rawValuesAsList}
      * @param argi index in {@code arguments} at which this {@link VectorArg} begins; should be
      *     directly preceded by {@code this}
      * @param builder the {@link PreprocessedCommandLine.Builder} in which to add a preprocessed
@@ -314,24 +293,13 @@ public class StarlarkCustomCommandLine extends CommandLine {
         PathMapper pathMapper,
         @Nullable RepositoryMapping mainRepoMapping)
         throws CommandLineExpansionException, InterruptedException {
-      StarlarkCallable mapEach = null;
-      Location location = null;
-      if ((features & HAS_MAP_EACH) != 0) {
-        if (mapEachGlobalFunction != null) {
-          mapEach = mapEachGlobalFunction;
-        } else {
-          mapEach = (StarlarkCallable) arguments.get(argi++);
-        }
-        location = (Location) arguments.get(argi++);
-      }
-
       List<Object> originalValues;
-      if ((features & IS_NESTED_SET) != 0) {
+      if (isNestedSet) {
         @SuppressWarnings("unchecked")
         NestedSet<Object> nestedSet = (NestedSet<Object>) arguments.get(argi++);
         originalValues = nestedSet.toList();
       } else {
-        int count = (features & HAS_SINGLE_ARG) != 0 ? 1 : (Integer) arguments.get(argi++);
+        int count = hasSingleArg ? 1 : (Integer) arguments.get(argi++);
         originalValues = arguments.subList(argi, argi + count);
         argi += count;
       }
@@ -357,7 +325,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
       }
       // It's safe to uniquify at this stage, any transformations after this
       // will ensure continued uniqueness of the values
-      if ((features & UNIQUIFY) != 0) {
+      if (uniquify) {
         int count = values.size();
         HashSet<String> seen = Sets.newHashSetWithExpectedSize(count);
         int addIndex = 0;
@@ -373,29 +341,9 @@ public class StarlarkCustomCommandLine extends CommandLine {
         }
         values = values.subList(0, addIndex);
       }
-      boolean omitIfEmpty = (features & OMIT_IF_EMPTY) != 0;
       boolean isEmptyAndShouldOmit = omitIfEmpty && values.isEmpty();
-      if ((features & HAS_ARG_NAME) != 0) {
-        String argName = (String) arguments.get(argi++);
-        if (!isEmptyAndShouldOmit) {
-          builder.addString(argName);
-        }
-      }
-
-      String formatEach = null;
-      String beforeEach = null;
-      String joinWith = null;
-      String formatJoined = null;
-      if ((features & HAS_FORMAT_EACH) != 0) {
-        formatEach = (String) arguments.get(argi++);
-      }
-      if ((features & HAS_BEFORE_EACH) != 0) {
-        beforeEach = (String) arguments.get(argi++);
-      } else if ((features & HAS_JOIN_WITH) != 0) {
-        joinWith = (String) arguments.get(argi++);
-        if ((features & HAS_FORMAT_JOINED) != 0) {
-          formatJoined = (String) arguments.get(argi++);
-        }
+      if (argName != null && !isEmptyAndShouldOmit) {
+        builder.addString(argName);
       }
 
       // If !omitIfEmpty, joining yields a single argument even if values is empty. Note that
@@ -408,11 +356,8 @@ public class StarlarkCustomCommandLine extends CommandLine {
         builder.addPreprocessedArg(arg);
       }
 
-      if ((features & HAS_TERMINATE_WITH) != 0) {
-        String terminateWith = (String) arguments.get(argi++);
-        if (!isEmptyAndShouldOmit) {
-          builder.addString(terminateWith);
-        }
+      if (terminateWith != null && !isEmptyAndShouldOmit) {
+        builder.addString(terminateWith);
       }
       return argi;
     }
@@ -429,9 +374,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
         List<Object> originalValues,
         PathMapper pathMapper)
         throws CommandLineExpansionException {
-      if ((features & EXPAND_DIRECTORIES) == 0
-          || inputMetadataProvider == null
-          || !hasDirectory(originalValues)) {
+      if (!expandDirectories || inputMetadataProvider == null || !hasDirectory(originalValues)) {
         return originalValues;
       }
 
@@ -515,17 +458,6 @@ public class StarlarkCustomCommandLine extends CommandLine {
         CoreOptions.OutputPathsMode outputPathsMode,
         RepositoryMapping mainRepoMapping)
         throws CommandLineExpansionException, InterruptedException {
-      StarlarkCallable mapEach = null;
-      Location location = null;
-      if ((features & HAS_MAP_EACH) != 0) {
-        if (mapEachGlobalFunction != null) {
-          mapEach = mapEachGlobalFunction;
-        } else {
-          mapEach = (StarlarkCallable) arguments.get(argi++);
-        }
-        location = (Location) arguments.get(argi++);
-      }
-
       // NestedSets and lists never result in the same fingerprint as the
       // ActionKeyContext#addNestedSetToFingerprint call below always adds the order of the
       // NestedSet to the fingerprint.
@@ -541,7 +473,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
       //   mode, which are fingerprinted by SpawnAction.
       // It is thus safe to ignore pathMapper below for anything that relies on the default
       // stringification behavior (which excludes custom mapEach functions).
-      if ((features & IS_NESTED_SET) != 0) {
+      if (isNestedSet) {
         NestedSet<?> values = (NestedSet<?>) arguments.get(argi++);
         if (mapEach != null) {
           // mapEach functions do not rely on default stringification behavior, so we can omit
@@ -551,7 +483,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
                   mapEach,
                   location,
                   starlarkSemantics,
-                  (features & EXPAND_DIRECTORIES) != 0 || wantsDirectoryExpander(mapEach)
+                  expandDirectories || wantsDirectoryExpander(mapEach)
                       ? inputMetadataProvider
                       : null,
                   outputPathsMode);
@@ -577,7 +509,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
           actionKeyContext.addNestedSetToFingerprint(fingerprint, values);
         }
       } else {
-        int count = (features & HAS_SINGLE_ARG) != 0 ? 1 : (Integer) arguments.get(argi++);
+        int count = hasSingleArg ? 1 : (Integer) arguments.get(argi++);
         List<Object> maybeExpandedValues =
             maybeExpandDirectories(
                 inputMetadataProvider,
@@ -606,41 +538,35 @@ public class StarlarkCustomCommandLine extends CommandLine {
           }
         }
       }
-      if ((features & EXPAND_DIRECTORIES) != 0) {
+      if (expandDirectories) {
         fingerprint.addUUID(EXPAND_DIRECTORIES_UUID);
       }
-      if ((features & UNIQUIFY) != 0) {
+      if (uniquify) {
         fingerprint.addUUID(UNIQUIFY_UUID);
       }
-      if ((features & OMIT_IF_EMPTY) != 0) {
+      if (omitIfEmpty) {
         fingerprint.addUUID(OMIT_IF_EMPTY_UUID);
       }
-      if ((features & HAS_ARG_NAME) != 0) {
-        String argName = (String) arguments.get(argi++);
+      if (argName != null) {
         fingerprint.addUUID(ARG_NAME_UUID);
         fingerprint.addString(argName);
       }
-      if ((features & HAS_FORMAT_EACH) != 0) {
-        String formatStr = (String) arguments.get(argi++);
+      if (formatEach != null) {
         fingerprint.addUUID(FORMAT_EACH_UUID);
-        fingerprint.addString(formatStr);
+        fingerprint.addString(formatEach);
       }
-      if ((features & HAS_BEFORE_EACH) != 0) {
-        String beforeEach = (String) arguments.get(argi++);
+      if (beforeEach != null) {
         fingerprint.addUUID(BEFORE_EACH_UUID);
         fingerprint.addString(beforeEach);
-      } else if ((features & HAS_JOIN_WITH) != 0) {
-        String joinWith = (String) arguments.get(argi++);
+      } else if (joinWith != null) {
         fingerprint.addUUID(JOIN_WITH_UUID);
         fingerprint.addString(joinWith);
-        if ((features & HAS_FORMAT_JOINED) != 0) {
-          String formatJoined = (String) arguments.get(argi++);
+        if (formatJoined != null) {
           fingerprint.addUUID(FORMAT_JOINED_UUID);
           fingerprint.addString(formatJoined);
         }
       }
-      if ((features & HAS_TERMINATE_WITH) != 0) {
-        String terminateWith = (String) arguments.get(argi++);
+      if (terminateWith != null) {
         fingerprint.addUUID(TERMINATE_WITH_UUID);
         fingerprint.addString(terminateWith);
       }
@@ -757,25 +683,48 @@ public class StarlarkCustomCommandLine extends CommandLine {
       if (!(o instanceof VectorArg that)) {
         return false;
       }
-      return features == that.features
+      return isNestedSet == that.isNestedSet
+          && expandDirectories == that.expandDirectories
+          && uniquify == that.uniquify
+          && omitIfEmpty == that.omitIfEmpty
+          && hasSingleArg == that.hasSingleArg
           && stringificationType.equals(that.stringificationType)
+          && Objects.equals(location, that.location)
+          && Objects.equals(argName, that.argName)
+          && mapEach == that.mapEach
           && Objects.equals(starlarkSemantics, that.starlarkSemantics)
-          // Use reference equality to avoid resurrecting a weakly-reachable but value-equal
-          // StarlarkFunction instance. Value-equal instances may be created when a .bzl file is
-          // re-evaluated.
-          && mapEachGlobalFunction == that.mapEachGlobalFunction;
+          && Objects.equals(formatEach, that.formatEach)
+          && Objects.equals(beforeEach, that.beforeEach)
+          && Objects.equals(joinWith, that.joinWith)
+          && Objects.equals(formatJoined, that.formatJoined)
+          && Objects.equals(terminateWith, that.terminateWith);
     }
 
     @Override
     public int hashCode() {
-      int result = HashCodes.hashObjects(stringificationType, starlarkSemantics);
-      result = 31 * result + Integer.hashCode(features);
-      result = 31 * result + System.identityHashCode(mapEachGlobalFunction);
+      int result = Boolean.hashCode(isNestedSet);
+      result = 31 * result + Boolean.hashCode(expandDirectories);
+      result = 31 * result + Boolean.hashCode(uniquify);
+      result = 31 * result + Boolean.hashCode(omitIfEmpty);
+      result = 31 * result + Boolean.hashCode(hasSingleArg);
+      result =
+          31 * result
+              + HashCodes.hashObjects(
+                  stringificationType,
+                  location,
+                  argName,
+                  starlarkSemantics,
+                  formatEach,
+                  beforeEach,
+                  joinWith,
+                  formatJoined,
+                  terminateWith);
+      result = 31 * result + System.identityHashCode(mapEach);
       return result;
     }
   }
 
-  /** Denotes that the following two elements are an object and format string. */
+  /** Denotes that the following element in recipe is a format string. */
   @SerializationConstant @VisibleForSerialization
   public static final Object SINGLE_FORMATTED_ARG_MARKER =
       new Object() {
@@ -785,66 +734,81 @@ public class StarlarkCustomCommandLine extends CommandLine {
         }
       };
 
+  @SerializationConstant @VisibleForSerialization
+  public static final Object PLAIN_ARG_MARKER =
+      new Object() {
+        @Override
+        public String toString() {
+          return "PLAIN_ARG_MARKER";
+        }
+      };
+
+  /**
+   * Represents the static structural recipe of a {@link StarlarkCustomCommandLine}.
+   *
+   * <p>Contains structural marker elements (e.g. {@link VectorArg}, {@link
+   * #SINGLE_FORMATTED_ARG_MARKER}, {@link #PLAIN_ARG_MARKER}). Because Starlark rules repeatedly
+   * generate identical command line flag structures across actions and targets, {@code Recipe}
+   * instances are weakly interned so that all command lines with the same flag "template" share a
+   * single instance.
+   */
+  @AutoCodec
+  static final class Recipe {
+    private static final Interner<Recipe> interner = BlazeInterners.newWeakInterner();
+
+    final Object[] elements;
+    private final int hashCode;
+
+    Recipe(Object[] elements) {
+      this.elements = elements;
+      this.hashCode = Arrays.hashCode(elements);
+    }
+
+    @VisibleForSerialization
+    @AutoCodec.Interner
+    static Recipe intern(Recipe recipe) {
+      return interner.intern(recipe);
+    }
+
+    static Recipe create(Object[] elements) {
+      return intern(new Recipe(elements));
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (!(o instanceof Recipe that)) {
+        return false;
+      }
+      return Arrays.equals(this.elements, that.elements);
+    }
+
+    @Override
+    public int hashCode() {
+      return hashCode;
+    }
+  }
+
   /** Representation of a single formatted argument originating from {@code Args.add} */
   private static final class SingleFormattedArg {
 
     private static final UUID SINGLE_FORMATTED_ARG_UUID =
         UUID.fromString("8cb96642-a235-4fe0-b3ed-ebfdae8a0bd9");
 
-    static void push(List<Object> arguments, Object object, String format) {
-      arguments.add(SINGLE_FORMATTED_ARG_MARKER);
-      arguments.add(object);
-      arguments.add(format);
-    }
-
-    /**
-     * Adds a {@link SingleFormattedArg} to the given {@link PreprocessedCommandLine.Builder}.
-     *
-     * @param arguments result of {@link #rawArgsAsList}
-     * @param argi index in {@code arguments} at which the {@link SingleFormattedArg} begins; should
-     *     be directly preceded by {@link #SINGLE_FORMATTED_ARG_MARKER}
-     * @param builder the {@link PreprocessedCommandLine.Builder} in which to add a preprocessed
-     *     representation of this arg
-     * @param mainRepoMapping the repository mapping to use for formatting labels if needed
-     * @return index in {@code arguments} where the next arg begins, or {@code arguments.size()} if
-     *     there are no more arguments
-     */
-    static int preprocess(
-        List<Object> arguments,
-        int argi,
-        PreprocessedCommandLine.Builder builder,
-        @Nullable RepositoryMapping mainRepoMapping) {
-      Object object = arguments.get(argi++);
-      String formatStr = (String) arguments.get(argi++);
-      switch (expandToCommandLine(object, mainRepoMapping)) {
-        case DerivedArtifact derivedArtifact ->
-            builder.addPreprocessedArg(
-                new PreprocessedSingleFormattedArtifactArg(formatStr, derivedArtifact));
-        case String stringValue ->
-            builder.addPreprocessedArg(new PreprocessedSingleFormattedArg(formatStr, stringValue));
-        default -> throw new AssertionError("Unexpected object type: " + object);
-      }
-      return argi;
-    }
-
-    static int addToFingerprint(
-        List<Object> arguments,
-        int argi,
-        Fingerprint fingerprint,
-        @Nullable RepositoryMapping mainRepoMapping) {
-      Object object = arguments.get(argi++);
-      addSingleObjectToFingerprint(fingerprint, object, mainRepoMapping);
-      String formatStr = (String) arguments.get(argi++);
-      fingerprint.addString(formatStr);
-      fingerprint.addUUID(SINGLE_FORMATTED_ARG_UUID);
-      return argi;
+    static void push(List<Object> recipe, List<Object> values, Object object, String format) {
+      recipe.add(SINGLE_FORMATTED_ARG_MARKER);
+      recipe.add(format);
+      values.add(object);
     }
   }
 
   static final class Builder {
     private final StarlarkSemantics starlarkSemantics;
-    private final List<Object> arguments = new ArrayList<>();
-    // Indexes in arguments list where individual args begin
+    private final List<Object> recipe = new ArrayList<>();
+    private final List<Object> values = new ArrayList<>();
+    // Indexes in recipe list where individual args begin
     private final ImmutableList.Builder<Integer> argStartIndexes = ImmutableList.builder();
 
     public Builder(StarlarkSemantics starlarkSemantics) {
@@ -853,21 +817,23 @@ public class StarlarkCustomCommandLine extends CommandLine {
 
     @CanIgnoreReturnValue
     Builder recordArgStart() {
-      if (!arguments.isEmpty()) {
-        argStartIndexes.add(arguments.size());
+      if (!recipe.isEmpty()) {
+        argStartIndexes.add(recipe.size());
       }
       return this;
     }
 
     @CanIgnoreReturnValue
     Builder add(Object object) {
-      arguments.add(object);
+      checkNotNull(object);
+      recipe.add(PLAIN_ARG_MARKER);
+      values.add(object);
       return this;
     }
 
     @CanIgnoreReturnValue
     Builder add(VectorArg.Builder vectorArg) {
-      VectorArg.push(arguments, vectorArg, starlarkSemantics);
+      VectorArg.push(recipe, values, vectorArg, starlarkSemantics);
       return this;
     }
 
@@ -875,40 +841,53 @@ public class StarlarkCustomCommandLine extends CommandLine {
     Builder addFormatted(Object object, String format) {
       checkNotNull(object);
       checkNotNull(format);
-      SingleFormattedArg.push(arguments, object, format);
+      SingleFormattedArg.push(recipe, values, object, format);
       return this;
     }
 
     CommandLine build(boolean flagPerLine, @Nullable RepositoryMapping mainRepoMapping) {
-      if (arguments.isEmpty()) {
+      if (recipe.isEmpty()) {
         return CommandLine.empty();
       }
-      Object[] args;
+      Object[] vals;
       if (mainRepoMapping != null) {
-        args = arguments.toArray(new Object[arguments.size() + 1]);
-        args[arguments.size()] = mainRepoMapping;
+        vals = values.toArray(new Object[values.size() + 1]);
+        vals[values.size()] = mainRepoMapping;
       } else {
-        args = arguments.toArray();
+        vals = values.toArray();
       }
+      Recipe internedRecipe = Recipe.create(recipe.toArray());
+      Object compactValues = vals.length == 1 && !(vals[0] instanceof Object[]) ? vals[0] : vals;
       return flagPerLine
-          ? new StarlarkCustomCommandLineWithIndexes(args, argStartIndexes.build())
-          : new StarlarkCustomCommandLine(args);
+          ? new StarlarkCustomCommandLineWithIndexes(
+              internedRecipe, compactValues, argStartIndexes.build())
+          : new StarlarkCustomCommandLine(internedRecipe, compactValues);
     }
   }
 
-  /**
-   * Stored as an {@code Object[]} instead of an {@link ImmutableList} to save memory, but is never
-   * modified. Access via {@link #rawArgsAsList} for an unmodifiable {@link List} view.
-   */
-  private final Object[] arguments;
+  private final Recipe recipe;
 
-  private StarlarkCustomCommandLine(Object[] arguments) {
-    this.arguments = arguments;
+  /**
+   * Holds the argument values corresponding to {@link #recipe}.
+   *
+   * <p>To save memory:
+   *
+   * <ul>
+   *   <li>If there is exactly 1 value, it is stored directly as an {@link Object} reference
+   *       (eliminating an {@code Object[1]} array header allocation).
+   *   <li>If there are no values, it points to a shared static {@code Object[0]}.
+   *   <li>If there are multiple values, it is stored as an {@code Object[]} array.
+   * </ul>
+   */
+  private final Object values;
+
+  private StarlarkCustomCommandLine(Recipe recipe, Object values) {
+    this.recipe = recipe;
+    this.values = values;
   }
 
-  /** Wraps {@link #arguments} in an unmodifiable {@link List} view. */
-  private List<Object> rawArgsAsList() {
-    return Collections.unmodifiableList(Arrays.asList(arguments));
+  private List<Object> rawValuesAsList() {
+    return values instanceof Object[] array ? List.of(array) : List.of(values);
   }
 
   @Override
@@ -921,31 +900,39 @@ public class StarlarkCustomCommandLine extends CommandLine {
       @Nullable InputMetadataProvider inputMetadataProvider, PathMapper pathMapper)
       throws CommandLineExpansionException, InterruptedException {
     PreprocessedCommandLine.Builder builder = new PreprocessedCommandLine.Builder();
-    List<Object> arguments = rawArgsAsList();
+    List<Object> values = rawValuesAsList();
 
     RepositoryMapping mainRepoMapping;
-    int size;
-    // Added in #build() if any labels in the command line require this to be formatted with an
-    // apparent repository name.
-    if (arguments.getLast() instanceof RepositoryMapping) {
-      mainRepoMapping = (RepositoryMapping) arguments.getLast();
-      size = arguments.size() - 1;
+    if (!values.isEmpty() && values.getLast() instanceof RepositoryMapping) {
+      mainRepoMapping = (RepositoryMapping) values.getLast();
     } else {
       mainRepoMapping = null;
-      size = arguments.size();
     }
 
-    for (int argi = 0; argi < size; ) {
-      Object arg = arguments.get(argi++);
-      if (arg instanceof VectorArg) {
-        argi =
-            ((VectorArg) arg)
-                .preprocess(
-                    arguments, argi, builder, inputMetadataProvider, pathMapper, mainRepoMapping);
-      } else if (arg == SINGLE_FORMATTED_ARG_MARKER) {
-        argi = SingleFormattedArg.preprocess(arguments, argi, builder, mainRepoMapping);
-      } else {
+    Object[] recipeElems = recipe.elements;
+    int vali = 0;
+    for (int recipei = 0; recipei < recipeElems.length; recipei++) {
+      Object item = recipeElems[recipei];
+      if (item instanceof VectorArg vectorArg) {
+        vali =
+            vectorArg.preprocess(
+                values, vali, builder, inputMetadataProvider, pathMapper, mainRepoMapping);
+      } else if (item == SINGLE_FORMATTED_ARG_MARKER) {
+        String format = (String) recipeElems[++recipei];
+        Object arg = values.get(vali++);
+        switch (expandToCommandLine(arg, mainRepoMapping)) {
+          case DerivedArtifact derivedArtifact ->
+              builder.addPreprocessedArg(
+                  new PreprocessedSingleFormattedArtifactArg(format, derivedArtifact));
+          case String stringValue ->
+              builder.addPreprocessedArg(new PreprocessedSingleFormattedArg(format, stringValue));
+          default -> throw new AssertionError("Unexpected object type: " + arg);
+        }
+      } else if (item == PLAIN_ARG_MARKER) {
+        Object arg = values.get(vali++);
         builder.addArg(expandToCommandLine(arg, mainRepoMapping));
+      } else {
+        throw new AssertionError("Unexpected recipe item: " + item);
       }
     }
     return pathMapper.mapCustomStarlarkArgs(builder.build());
@@ -1000,8 +987,8 @@ public class StarlarkCustomCommandLine extends CommandLine {
     private final ImmutableList<Integer> argStartIndexes;
 
     StarlarkCustomCommandLineWithIndexes(
-        Object[] arguments, ImmutableList<Integer> argStartIndexes) {
-      super(arguments);
+        Recipe recipe, Object values, ImmutableList<Integer> argStartIndexes) {
+      super(recipe, values);
       this.argStartIndexes = argStartIndexes;
     }
 
@@ -1010,34 +997,45 @@ public class StarlarkCustomCommandLine extends CommandLine {
         @Nullable InputMetadataProvider inputMetadataProvider, PathMapper pathMapper)
         throws CommandLineExpansionException, InterruptedException {
       PreprocessedCommandLine.Builder builder = new PreprocessedCommandLine.Builder();
-      List<Object> arguments = ((StarlarkCustomCommandLine) this).rawArgsAsList();
+      List<Object> values = ((StarlarkCustomCommandLine) this).rawValuesAsList();
       Iterator<Integer> startIndexIterator = argStartIndexes.iterator();
 
       RepositoryMapping mainRepoMapping;
-      int size;
-      if (arguments.getLast() instanceof RepositoryMapping) {
-        mainRepoMapping = (RepositoryMapping) arguments.getLast();
-        size = arguments.size() - 1;
+      if (!values.isEmpty() && values.getLast() instanceof RepositoryMapping) {
+        mainRepoMapping = (RepositoryMapping) values.getLast();
       } else {
         mainRepoMapping = null;
-        size = arguments.size();
       }
 
-      for (int argi = 0; argi < size; ) {
-        int nextStartIndex = startIndexIterator.hasNext() ? startIndexIterator.next() : size;
+      Object[] recipeElems = ((StarlarkCustomCommandLine) this).recipe.elements;
+      int vali = 0;
+      for (int recipei = 0; recipei < recipeElems.length; ) {
+        int nextStartIndex =
+            startIndexIterator.hasNext() ? startIndexIterator.next() : recipeElems.length;
         PreprocessedCommandLine.Builder line = new PreprocessedCommandLine.Builder();
 
-        while (argi < nextStartIndex) {
-          Object arg = arguments.get(argi++);
-          if (arg instanceof VectorArg) {
-            argi =
-                ((VectorArg) arg)
-                    .preprocess(
-                        arguments, argi, line, inputMetadataProvider, pathMapper, mainRepoMapping);
-          } else if (arg == SINGLE_FORMATTED_ARG_MARKER) {
-            argi = SingleFormattedArg.preprocess(arguments, argi, line, mainRepoMapping);
-          } else {
+        while (recipei < nextStartIndex) {
+          Object item = recipeElems[recipei++];
+          if (item instanceof VectorArg vectorArg) {
+            vali =
+                vectorArg.preprocess(
+                    values, vali, line, inputMetadataProvider, pathMapper, mainRepoMapping);
+          } else if (item == SINGLE_FORMATTED_ARG_MARKER) {
+            String format = (String) recipeElems[recipei++];
+            Object arg = values.get(vali++);
+            switch (expandToCommandLine(arg, mainRepoMapping)) {
+              case DerivedArtifact derivedArtifact ->
+                  line.addPreprocessedArg(
+                      new PreprocessedSingleFormattedArtifactArg(format, derivedArtifact));
+              case String stringValue ->
+                  line.addPreprocessedArg(new PreprocessedSingleFormattedArg(format, stringValue));
+              default -> throw new AssertionError("Unexpected object type: " + arg);
+            }
+          } else if (item == PLAIN_ARG_MARKER) {
+            Object arg = values.get(vali++);
             line.addArg(expandToCommandLine(arg, mainRepoMapping));
+          } else {
+            throw new AssertionError("Unexpected recipe item: " + item);
           }
         }
 
@@ -1055,33 +1053,39 @@ public class StarlarkCustomCommandLine extends CommandLine {
       CoreOptions.OutputPathsMode effectiveOutputPathsMode,
       Fingerprint fingerprint)
       throws CommandLineExpansionException, InterruptedException {
-    List<Object> arguments = rawArgsAsList();
-    int size;
+    List<Object> values = rawValuesAsList();
     RepositoryMapping mainRepoMapping;
-    if (arguments.getLast() instanceof RepositoryMapping mapping) {
+    if (!values.isEmpty() && values.getLast() instanceof RepositoryMapping mapping) {
       mainRepoMapping = mapping;
-      size = arguments.size() - 1;
     } else {
       mainRepoMapping = null;
-      size = arguments.size();
     }
-    for (int argi = 0; argi < size; ) {
-      Object arg = arguments.get(argi++);
-      if (arg instanceof VectorArg) {
-        argi =
-            ((VectorArg) arg)
-                .addToFingerprint(
-                    arguments,
-                    argi,
-                    actionKeyContext,
-                    fingerprint,
-                    inputMetadataProvider,
-                    effectiveOutputPathsMode,
-                    mainRepoMapping);
-      } else if (arg == SINGLE_FORMATTED_ARG_MARKER) {
-        argi = SingleFormattedArg.addToFingerprint(arguments, argi, fingerprint, mainRepoMapping);
-      } else {
+
+    Object[] recipeElems = recipe.elements;
+    int vali = 0;
+    for (int recipei = 0; recipei < recipeElems.length; recipei++) {
+      Object item = recipeElems[recipei];
+      if (item instanceof VectorArg vectorArg) {
+        vali =
+            vectorArg.addToFingerprint(
+                values,
+                vali,
+                actionKeyContext,
+                fingerprint,
+                inputMetadataProvider,
+                effectiveOutputPathsMode,
+                mainRepoMapping);
+      } else if (item == SINGLE_FORMATTED_ARG_MARKER) {
+        String format = (String) recipeElems[++recipei];
+        Object arg = values.get(vali++);
         addSingleObjectToFingerprint(fingerprint, arg, mainRepoMapping);
+        fingerprint.addString(format);
+        fingerprint.addUUID(SingleFormattedArg.SINGLE_FORMATTED_ARG_UUID);
+      } else if (item == PLAIN_ARG_MARKER) {
+        Object arg = values.get(vali++);
+        addSingleObjectToFingerprint(fingerprint, arg, mainRepoMapping);
+      } else {
+        throw new AssertionError("Unexpected recipe item: " + item);
       }
     }
   }

@@ -774,6 +774,11 @@ void OutputJar::WriteEntry(void* buffer) {
       reinterpret_cast<ExtraField*>(const_cast<uint8_t*>(cdh->extra_fields()));
   uint16_t out_ef_length = 0;
   for (const ExtraField* ef = lh_ef_begin; ef < lh_ef_end; ef = ef->next()) {
+    if (ziph::byte_ptr(ef) + sizeof(ExtraField) > ziph::byte_ptr(lh_ef_end) ||
+        ziph::byte_ptr(ef) + ef->size() > ziph::byte_ptr(lh_ef_end)) {
+      diag_errx(1, "malformed extra field in LH for %.*s",
+                (int)entry->file_name_length(), entry->file_name());
+    }
     if (!ef->is_zip64()) {
       memcpy(cdh_extra_fields, ef, ef->size());
       cdh_extra_fields = reinterpret_cast<ExtraField*>(
@@ -924,6 +929,11 @@ void OutputJar::AppendToDirectoryBuffer(const CDH* cdh, int64_t lh_pos,
   // Copy extra fields, dropping Zip64 and possibly UnixTime fields.
   ExtraField* out_ef = out_ef_begin;
   for (const ExtraField* ef = ef_begin; ef < ef_end; ef = ef->next()) {
+    if (ziph::byte_ptr(ef) + sizeof(ExtraField) > ziph::byte_ptr(ef_end) ||
+        ziph::byte_ptr(ef) + ef->size() > ziph::byte_ptr(ef_end)) {
+      diag_errx(1, "malformed extra field in CDH for %.*s",
+                (int)cdh->file_name_length(), cdh->file_name());
+    }
     if ((fix_timestamp && ef->is_unix_time()) || ef->is_zip64()) {
       // Skip this one.
     } else {

@@ -71,10 +71,10 @@ import javax.annotation.Nullable;
  * </ol>
  *
  * <p>The resource manager also allows a slight overallocation of the resources to account for the
- * fact that requested resources are usually estimated using a pessimistic approximation. It also
- * guarantees that at least one thread will always be able to acquire any amount of requested
- * resources (even if it is greater than amount of available resources). Therefore, assuming that
- * threads correctly release acquired resources, Blaze will never be fully blocked.
+ * fact that requested resources are usually estimated using a pessimistic approximation. When
+ * {@code --allow_one_action_on_resource_unavailable} is enabled, an unused resource type can be
+ * acquired even if the request exceeds its capacity. Worker quota and concurrency limits can still
+ * block acquisition.
  */
 @ThreadSafe
 public class ResourceManager implements ResourceEstimator {

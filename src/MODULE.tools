@@ -39,7 +39,7 @@ bazel_dep(name = "rules_java", version = "9.7.0")
 bazel_dep(name = "rules_cc", version = "0.2.18")
 bazel_dep(name = "rules_python", version = "1.7.0")
 bazel_dep(name = "rules_shell", version = "0.6.1")
-bazel_dep(name = "apple_support", version = "2.3.0") # xcode_configure needs it
+bazel_dep(name = "apple_support", version = "2.5.2") # xcode_configure needs it
 bazel_dep(name = "rules_apple", version = "4.1.0", repo_name = None) # version bump, older versions contribute lockfile entries
 bazel_dep(name = "rules_swift", version = "3.1.2", repo_name = None) # version bump, older versions don't load CcInfo
 bazel_dep(name = "abseil-cpp", version = "20250814.1", repo_name = None) # version bump, fixes errors with older compilers

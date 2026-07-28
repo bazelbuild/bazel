@@ -85,6 +85,7 @@ import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Type.LabelClass;
 import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
+import com.google.devtools.build.lib.rules.config.FeatureFlagValue;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.shell.ShellUtils.TokenizationException;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
@@ -750,7 +751,21 @@ public final class StarlarkRuleContext
 
     BuildSetting buildSetting = ruleContext.getRule().getRuleClassObject().getBuildSetting();
     if (starlarkFlagSettings.containsKey(ruleContext.getLabel())) {
-      return starlarkFlagSettings.get(ruleContext.getLabel());
+      Object value = starlarkFlagSettings.get(ruleContext.getLabel());
+      if (value instanceof FeatureFlagValue) {
+        // FeatureFlagValue is only a valid value for native.config_feature_flag rules (which
+        // aren't Starlark flags so don't call this method). While rule definitions can restrict
+        // their attrs through parameters like "allowed_rules" or "providers" to already block
+        // this, that doesn't kick in until the requested dependency is evaluated. If that
+        // dependency is a Starlark flag that means this method kicks in first. So add an extra
+        // error check to prevent a Blaze crash.
+        throw new EvalException(
+            String.format(
+                "android_binary's \"feature_flags\" attribute can only set config_feature_flag"
+                    + " targets: %s is a %s.",
+                ruleContext.getLabel(), ruleContext.getRule().getRuleClassObject().getName()));
+      }
+      return value;
     } else {
       Object defaultValue =
           ruleContext

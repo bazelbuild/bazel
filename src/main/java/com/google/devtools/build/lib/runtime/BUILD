@@ -26,6 +26,7 @@ java_library(
 java_library(
     name = "safe_request_logging",
     srcs = ["SafeRequestLogging.java"],
+    deps = ["//third_party:guava"],
 )
 
 java_library(

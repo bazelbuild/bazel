@@ -17,6 +17,7 @@ package net.starlark.java.eval;
 import com.google.common.collect.ImmutableList;
 import net.starlark.java.syntax.StarlarkType;
 import net.starlark.java.syntax.TypeConstructor;
+import net.starlark.java.syntax.TypeContext;
 
 /**
  * A {@link StarlarkValue} wrapping a {@link TypeConstructor}. This is used as the runtime value of
@@ -80,8 +81,9 @@ public sealed class TypeConstructorValue implements StarlarkValue, TypeConstruct
     }
 
     @Override
-    public boolean hasInstance(Object value, StarlarkSemantics semantics) {
-      return StarlarkType.assignableFrom(nullaryType, Starlark.getStarlarkType(value, semantics));
+    public boolean hasInstance(Object value, StarlarkSemantics semantics, TypeContext typeContext) {
+      return StarlarkType.assignableFrom(
+          nullaryType, Starlark.getStarlarkType(value, semantics), typeContext);
     }
   }
 

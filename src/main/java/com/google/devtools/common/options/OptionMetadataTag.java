@@ -68,7 +68,13 @@ public enum OptionMetadataTag {
    * Options which are NON_CONFIGURABLE cannot be changed in (non-exec) Starlark transitions and
    * cannot be used in select().
    */
-  NON_CONFIGURABLE(8);
+  NON_CONFIGURABLE(8),
+
+  /**
+   * Options which are FULLY_REDACTED_IN_LOGS contain sensitive credentials and should be redacted
+   * in logs.
+   */
+  FULLY_REDACTED_IN_LOGS(9);
 
   private final int value;
 
