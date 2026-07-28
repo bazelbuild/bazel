@@ -410,7 +410,10 @@ public final class ConfiguredTargetFactory {
 
     ImmutableList<NestedSet<AnalysisFailure>> analysisFailures =
         depAnalysisFailures(ruleContext, ImmutableList.of());
-    if (!analysisFailures.isEmpty()) {
+    // analysis_test rules exist specifically to inspect dep analysis failures via AnalysisFailureInfo
+    // — their impl must run even when deps have failures. The short-circuit is only appropriate for
+    // ordinary rules that should propagate failures upward rather than consume them.
+    if (!analysisFailures.isEmpty() && !ruleContext.getRule().isAnalysisTest()) {
       return erroredConfiguredTargetWithFailures(ruleContext, analysisFailures);
     }
     if (ruleContext.hasErrors()) {

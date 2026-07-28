@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.truth.Correspondence;
 import com.google.devtools.build.lib.analysis.test.AnalysisFailure;
 import com.google.devtools.build.lib.analysis.test.AnalysisFailureInfo;
+import com.google.devtools.build.lib.analysis.test.AnalysisTestResultInfo;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -119,8 +120,126 @@ public final class AnalysisFailureInfoTest extends BuildViewTestCase {
     }
   }
 
+  /**
+   * Regression test: when {@code --allow_analysis_failures=true} is set globally, an {@code
+   * analysis_test} rule whose subject dep fails analysis must still have its impl invoked so it can
+   * return {@link AnalysisTestResultInfo}. Previously, {@code ConfiguredTargetFactory} short-
+   * circuited the impl for any rule whose deps had {@code AnalysisFailureInfo}, including {@code
+   * analysis_test} rules that exist specifically to inspect such failures.
+   */
   @Test
-  public void analysisTestNotReturningAnalysisTestResultInfo_cannotPropagate() throws Exception {
+  public void analysisTestWithExpectFailureTransition_implRunsWhenGlobalFlagAlsoSet()
+      throws Exception {
+    // setUp() already sets --allow_analysis_failures=true globally. The analysis_test rule below
+    // additionally applies it via analysis_test_transition on its dep — the same pattern used by
+    // bazel_skylib's analysistest.make(expect_failure=True).
+    scratch.file(
+        "test/extension.bzl",
+        """
+        def failing_rule_impl(ctx):
+            fail("subject always fails")
+
+        failing_rule = rule(implementation = failing_rule_impl)
+
+        def analysis_test_impl(ctx):
+            # analysis_test_transition is a Starlark transition, so isSplit()=True
+            # and ctx.attr.dep is a list even for a label attribute. Index in to
+            # get the single ConfiguredTarget before checking for AnalysisFailureInfo.
+            dep = ctx.attr.dep[0]
+            return [AnalysisTestResultInfo(
+                success = AnalysisFailureInfo in dep,
+                message = "",
+            )]
+
+        _transition = analysis_test_transition(
+            settings = {"//command_line_option:allow_analysis_failures": "True"},
+        )
+
+        expect_failure_test = rule(
+            implementation = analysis_test_impl,
+            analysis_test = True,
+            attrs = {"dep": attr.label(cfg = _transition)},
+        )
+        """);
+
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//test:extension.bzl", "expect_failure_test", "failing_rule")
+
+        expect_failure_test(
+            name = "test",
+            dep = ":subject",
+        )
+
+        failing_rule(name = "subject")
+        """);
+
+    ConfiguredTarget target = getConfiguredTarget("//test:test");
+    AnalysisTestResultInfo testResultInfo =
+        (AnalysisTestResultInfo) target.get(AnalysisTestResultInfo.STARLARK_CONSTRUCTOR.getKey());
+    assertThat(testResultInfo).isNotNull();
+    assertThat(testResultInfo.getSuccess()).isTrue();
+  }
+
+  /**
+   * Companion to {@link
+   * #analysisTestWithExpectFailureTransition_implRunsWhenGlobalFlagAlsoSet}: when the subject dep
+   * does <em>not</em> fail, the analysis test impl still runs but should report {@code success =
+   * false} because the expected failure never occurred.
+   */
+  @Test
+  public void analysisTestWithExpectFailureTransition_reportsFailureWhenDepSucceeds()
+      throws Exception {
+    scratch.file(
+        "test/extension.bzl",
+        """
+        def succeeding_rule_impl(ctx):
+            pass
+
+        succeeding_rule = rule(implementation = succeeding_rule_impl)
+
+        def analysis_test_impl(ctx):
+            dep = ctx.attr.dep[0]
+            return [AnalysisTestResultInfo(
+                success = AnalysisFailureInfo in dep,
+                message = "dep did not fail",
+            )]
+
+        _transition = analysis_test_transition(
+            settings = {"//command_line_option:allow_analysis_failures": "True"},
+        )
+
+        expect_failure_test = rule(
+            implementation = analysis_test_impl,
+            analysis_test = True,
+            attrs = {"dep": attr.label(cfg = _transition)},
+        )
+        """);
+
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//test:extension.bzl", "expect_failure_test", "succeeding_rule")
+
+        expect_failure_test(
+            name = "test",
+            dep = ":subject",
+        )
+
+        succeeding_rule(name = "subject")
+        """);
+
+    ConfiguredTarget target = getConfiguredTarget("//test:test");
+    AnalysisTestResultInfo testResultInfo =
+        (AnalysisTestResultInfo) target.get(AnalysisTestResultInfo.STARLARK_CONSTRUCTOR.getKey());
+    assertThat(testResultInfo).isNotNull();
+    assertThat(testResultInfo.getSuccess()).isFalse();
+  }
+
+  @Test
+  public void analysisTestNotReturningAnalysisTestResultInfo_cannotPropagate()
+      throws Exception {
     scratch.file(
         "test/BUILD", //
         "providerless_analysis_lib(name = 'providerless')");
