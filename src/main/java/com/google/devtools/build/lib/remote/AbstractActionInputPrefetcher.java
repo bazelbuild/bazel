@@ -430,6 +430,18 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       if (metadata == null) {
         return immediateVoidFuture();
       }
+
+      if (metadata.getType() == FileStateType.DIRECTORY) {
+        // Tree artifacts have already been expanded into their children, so this is a source
+        // directory. If it lies in an external repo backed by the remote repo contents cache, its
+        // contents may only be available in memory and must be materialized to the local file
+        // system for local actions to access them.
+        if (inputPath.getFileSystem() instanceof SubtreeMaterializer subtreeMaterializer) {
+          subtreeMaterializer.ensureSubtreeMaterialized(inputPath.asFragment());
+        }
+        return immediateVoidFuture();
+      }
+
       var symlinks = getSymlinks(input, inputPath, metadata, metadataSupplier);
       // On Windows, the type of symlink depends on the target file and the target may have to
       // exist, so we plant symlinks in reverse order and only after any download has completed.

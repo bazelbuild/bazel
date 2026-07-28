@@ -41,6 +41,7 @@ java_library(
             "LeaseService.java",
             "Scrubber.java",
             "Store.java",
+            "SubtreeMaterializer.java",
         ],
     ),
     exports = [
@@ -58,6 +59,7 @@ java_library(
         ":remote_output_checker",
         ":scrubber",
         ":store",
+        ":subtree_materializer",
         "//src/main/java/com/google/devtools/build/lib:build-request-options",
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib:runtime/command_line_path_factory",
@@ -247,6 +249,7 @@ java_library(
     srcs = ["AbstractActionInputPrefetcher.java"],
     deps = [
         ":remote_output_checker",
+        ":subtree_materializer",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_output_directory_helper",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
@@ -263,6 +266,14 @@ java_library(
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party:rxjava3",
+    ],
+)
+
+java_library(
+    name = "subtree_materializer",
+    srcs = ["SubtreeMaterializer.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
     ],
 )
 
