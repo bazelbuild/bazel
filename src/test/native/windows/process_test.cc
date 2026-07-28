@@ -25,8 +25,12 @@
 #include <vector>
 
 #include "gtest/gtest.h"
+#include "src/main/cpp/blaze_util_platform.h"
+#include "src/main/cpp/util/file_platform.h"
 #include "src/main/cpp/util/path.h"
+#include "src/main/cpp/util/strings.h"
 #include "src/main/native/windows/util.h"
+#include "src/test/cpp/util/windows_test_util.h"
 #include "rules_cc/cc/runfiles/runfiles.h"
 
 namespace {
@@ -241,6 +245,118 @@ TEST(ProcessTest, WindowsEscapeArgTest) {
       {L"C:\\T U\\W\\", L"\"C:\\T U\\W\\\\\""},
       {L"\"C:\\t u\\w\\\"", L"\"\\\"C:\\t u\\w\\\\\\\"\""},
   });
+}
+
+// Verifies that a batch file whose path is >= kMaxPath (MAX_PATH - 4) but
+// < MAX_PATH can be executed via CreateProcessW when the
+// AsExecutablePathForCreateProcess fallback returns the native path (without
+// the "\\?\" prefix that cmd.exe cannot handle).
+//
+// The directory tree uses single-character names that are already
+// as short as they can be, so GetShortPathNameW cannot shorten the path below kMaxPath.
+// This forces AsExecutablePathForCreateProcess into its fallback path.
+TEST(ProcessTest, BatchFileWithLongPathExecutes) {
+  static constexpr size_t kMaxPath = MAX_PATH - 4;
+  static const std::wstring kUncPrefix(L"\\\\?\\");
+
+  // Obtain TEST_TMPDIR in 8.3-shortened form so that every component is
+  // already as short as it can get.
+  std::string tmpdir_str;
+  std::string short_error;
+  ASSERT_TRUE(blaze_util::AsShortWindowsPath(
+      blaze::GetPathEnv("TEST_TMPDIR"), &tmpdir_str, &short_error))
+      << short_error;
+  std::wstring tmpdir = blaze_util::CstringToWstring(tmpdir_str);
+
+  // We want at least a few directories + the batch file name
+  ASSERT_LT(tmpdir.size(), kMaxPath - 20)
+      << "TEST_TMPDIR is too long for this test";
+
+  // Test root so we can recursively remove everything later on without affecting
+  // any other tests.
+  std::wstring test_root = tmpdir + L"\\bl";
+
+  // Build a deep tree of single-char directories until the full batch file
+  // path (dir + "\test.bat") is >= kMaxPath (256) but < MAX_PATH (260).
+  std::wstring bat_name = L"\\test.bat";
+  std::wstring dir_path = test_root;
+  const size_t target_dir_len = kMaxPath - bat_name.size();
+  while (dir_path.size() < target_dir_len) {
+    dir_path += L"\\a";
+  }
+  ASSERT_TRUE(blaze_util::MakeDirectoriesW(dir_path, 0755));
+
+  std::wstring bat_path = dir_path + bat_name;
+  ASSERT_GE(bat_path.size(), kMaxPath);
+  ASSERT_LT(bat_path.size(), (size_t)MAX_PATH);
+
+  // Write a batch file that echoes a known marker.
+  const std::string bat_content = "@echo off\r\necho BATCH_OK\r\n";
+  ASSERT_TRUE(blaze_util::CreateDummyFile(kUncPrefix + bat_path, bat_content));
+
+  // Verify the batch fallback returns the native path (no "\\?\" prefix).
+  std::wstring quoted_path, extended_path;
+  std::wstring error = bazel::windows::AsExecutablePathForCreateProcess(
+      bat_path, &quoted_path, &extended_path);
+  ASSERT_EQ(error, L"");
+  EXPECT_EQ(extended_path, bat_path);
+  EXPECT_EQ(quoted_path, L"\"" + bat_path + L"\"");
+
+  // Execute the batch file via WaitableProcess, the actual production path.
+  // WaitableProcess::Create internally calls AsExecutablePathForCreateProcess,
+  // so this proves the batch file fallback works end-to-end.
+  SECURITY_ATTRIBUTES sa;
+  sa.nLength = sizeof(sa);
+  sa.lpSecurityDescriptor = nullptr;
+  sa.bInheritHandle = TRUE;
+
+  bazel::windows::AutoHandle devnull(::CreateFileW(
+      L"NUL", GENERIC_READ,
+      FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, &sa,
+      OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr));
+  ASSERT_TRUE(devnull.IsValid());
+
+  HANDLE pipe_read_h, pipe_write_h;
+  ASSERT_TRUE(::CreatePipe(&pipe_read_h, &pipe_write_h, &sa, 0x10000));
+  bazel::windows::AutoHandle pipe_read(pipe_read_h);
+  bazel::windows::AutoHandle pipe_write(pipe_write_h);
+
+  HANDLE stderr_h;
+  ASSERT_TRUE(::DuplicateHandle(
+      GetCurrentProcess(), GetStdHandle(STD_ERROR_HANDLE),
+      GetCurrentProcess(), &stderr_h, 0, TRUE, DUPLICATE_SAME_ACCESS));
+  bazel::windows::AutoHandle stderr_dup(stderr_h);
+
+  bazel::windows::WaitableProcess proc;
+  std::wstring proc_error;
+  if (!proc.Create(bat_path, L"", nullptr, L".", devnull, pipe_write,
+                   stderr_dup, nullptr, &proc_error)) {
+    GTEST_SKIP() << "WaitableProcess::Create failed: "
+                 << blaze_util::WstringToCstring(proc_error);
+  }
+
+  ASSERT_EQ(proc.WaitFor(3000, nullptr, &proc_error),
+            bazel::windows::WaitableProcess::kWaitSuccess)
+      << blaze_util::WstringToCstring(proc_error);
+  EXPECT_EQ(proc.GetExitCode(&proc_error), 0)
+      << blaze_util::WstringToCstring(proc_error);
+
+  pipe_write = INVALID_HANDLE_VALUE;
+  char stdout_buf[0x1000];
+  DWORD bytes_read = 0;
+  if (!::ReadFile(pipe_read, stdout_buf, sizeof(stdout_buf) - 1, &bytes_read,
+                  nullptr)) {
+    DWORD err = ::GetLastError();
+    ASSERT_EQ(err, (DWORD)0);
+  }
+  stdout_buf[bytes_read] = '\0';
+
+  EXPECT_NE(std::string(stdout_buf, bytes_read).find("BATCH_OK"),
+            std::string::npos)
+      << "Expected BATCH_OK in output, got: " << stdout_buf;
+      
+  EXPECT_TRUE(blaze_util::RemoveRecursively(
+      blaze_util::WstringToCstring(test_root)));
 }
 
 }  // namespace
