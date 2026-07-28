@@ -27,7 +27,9 @@ import javax.annotation.Nullable;
  */
 public abstract class Parameter extends Node {
 
+  // Null in the case of a bare * parameter, non-null for any other case.
   @Nullable private final Identifier id;
+
   @Nullable private final Expression type;
 
   private Parameter(FileLocations locs, @Nullable Identifier id, @Nullable Expression type) {
@@ -155,7 +157,8 @@ public abstract class Parameter extends Node {
   }
 
   @Override
-  public void accept(NodeVisitor visitor) {
+  public final void accept(NodeVisitor visitor) {
+    // All Parameter subclasses dispatch to NodeVisitor#visit(Parameter).
     visitor.visit(this);
   }
 }

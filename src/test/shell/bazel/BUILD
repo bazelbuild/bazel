@@ -117,12 +117,35 @@ sh_test(
         "@rules_java//toolchains:current_java_runtime",
     ],
     env = {
-        "JAVA_ROOTPATH": "$(JAVA_ROOTPATH)",  # for remote_helpers setup_javabase
+        "JAVA_ROOTPATH": "$(JAVA_ROOTPATH)",
     },
     toolchains = [
         "@rules_java//toolchains:current_java_runtime",
     ],
 )
+
+[sh_test(
+    name = "bazel_windows_java%s_cross_drive_test" % jdk,
+    size = "large",
+    srcs = ["bazel_windows_java_cross_drive_test.sh"],
+    args = [str(jdk)],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+        "@rules_java//toolchains:" + runtime,
+    ],
+    env = {
+        "JAVA_ROOTPATH": "$(JAVA_ROOTPATH)",
+    },
+    toolchains = [
+        "@rules_java//toolchains:" + runtime,
+    ],
+) for (jdk, runtime) in [
+    (8, "jdk_8"),
+    (11, "remote_jdk11"),
+    (17, "remotejdk_17"),
+    (21, "remotejdk_21"),
+]]
 
 sh_test(
     name = "cpp_darwin_integration_test",
