@@ -94,7 +94,8 @@ public final class StarlarkFunction implements StarlarkCallable {
 
   @Override
   public StarlarkType getStarlarkType() {
-    return rfn.getFunctionType();
+    Types.CallableType type = rfn.getFunctionType();
+    return type != null ? type : Types.ANY;
   }
 
   // TODO(adonovan): many functions would be simpler if
