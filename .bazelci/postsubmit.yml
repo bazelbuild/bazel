@@ -38,6 +38,16 @@ tasks:
       - "-//src/test/shell/bazel:bazel_coverage_cc_released_test_gcc"
       - "-//src/test/shell/bazel:bazel_coverage_cc_head_test_gcc"
       - "-//src/test/shell/bazel:bazel_coverage_sh_test"
+      # These tests fail on Rocky Linux 8 because of a bug in rules_cc's linker detection logic.
+      # The bug is fixed in https://github.com/bazelbuild/rules_cc/commit/d0fa9b7ad62718bc1cb8ebb2f546d6651cf88ab7,
+      # which is present in rules_cc 0.2.15, but upgrading rules_cc is impossible since newer
+      # versions of rules_cc don't work with Bazel 8.x (which is still on rules_cc 0.1.1).
+      - "-//src/test/shell/bazel:bazel_coverage_cc_head_test_llvm"
+      - "-//src/test/shell/bazel:bazel_coverage_cc_released_test_llvm"
+      - "-//src/test/shell/bazel:bazel_java_tools_test"
+      - "-//src/test/shell/bazel:bazel_layering_check_test"
+      - "-//src/test/shell/bazel:cc_integration_test"
+      - "-//src/test/shell/bazel:remote_execution_test"
       # Disable some Android tests since we are moving Android rules out of the Bazel repo.
       - "-//src/test/shell/bazel:bazel_android_tools_test"
     include_json_profile:
