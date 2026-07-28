@@ -47,6 +47,7 @@ tasks:
       - "-//src/test/shell/bazel:bazel_java_tools_test"
       - "-//src/test/shell/bazel:bazel_layering_check_test"
       - "-//src/test/shell/bazel:cc_integration_test"
+      - "-//src/test/shell/bazel/remote:remote_execution_test"
       # Disable some Android tests since we are moving Android rules out of the Bazel repo.
       - "-//src/test/shell/bazel:bazel_android_tools_test"
     include_json_profile:
