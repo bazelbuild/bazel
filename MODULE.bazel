@@ -5,7 +5,7 @@
 
 module(
     name = "bazel",
-    version = "9.2.0",
+    version = "9.3.0",
     repo_name = "io_bazel",
 )
 
