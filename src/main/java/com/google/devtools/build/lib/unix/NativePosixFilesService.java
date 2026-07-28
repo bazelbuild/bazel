@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.unix;
 
 import com.google.devtools.build.lib.runtime.BlazeService;
 import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
+import java.io.FileDescriptor;
 import javax.annotation.Nullable;
 
 /** A {@link BlazeService} providing access to POSIX filesystem calls. */
@@ -216,6 +217,18 @@ public interface NativePosixFilesService extends BlazeService {
    * @throws NativePosixFilesException if the mkfifo failed.
    */
   void mkfifo(String path, int mode) throws NativePosixFilesException;
+
+  /**
+   * Non-blockingly drains and counts every byte currently readable from the fifo {@code fd},
+   * leaving it empty. {@code O_NONBLOCK} is toggled on for the drain and restored afterwards, so the
+   * fd stays blocking for a writer that shares it. Used by the local jobserver to count pooled
+   * tokens, since {@code FileInputStream.available()} reports 0 for fifos on macOS.
+   *
+   * @param fd an open fifo file descriptor.
+   * @return the number of bytes drained.
+   * @throws NativePosixFilesException if the drain failed.
+   */
+  int drainFifoNonBlocking(FileDescriptor fd) throws NativePosixFilesException;
 
   /**
    * Native wrapper around Linux getxattr(2) syscall.

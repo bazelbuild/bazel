@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.actions.VirtualActionInput;
+import com.google.devtools.build.lib.exec.LocalJobserver;
 import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.exec.local.LocalExecutionOptions;
@@ -266,7 +267,9 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
             execRoot);
 
     ImmutableMap<String, String> environment =
-        localEnvProvider.rewriteLocalEnv(spawn.getEnvironment(), binTools, "/tmp");
+        LocalJobserver.instance()
+            .maybeAddJobserver(
+                localEnvProvider.rewriteLocalEnv(spawn.getEnvironment(), binTools, "/tmp"), spawn);
     ImmutableSet<Path> writableDirs = getWritableDirs(sandboxExecRoot, environment);
 
     Path sandboxTmp = null;

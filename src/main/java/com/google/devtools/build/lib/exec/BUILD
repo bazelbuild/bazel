@@ -150,6 +150,42 @@ java_library(
 )
 
 java_library(
+    name = "posix_jobserver_backend",
+    srcs = ["PosixJobserverBackend.java"],
+    deps = [
+        ":local_jobserver",
+        "//src/main/java/com/google/devtools/build/lib/unix:native_posix_files_service",
+        "//src/main/java/com/google/devtools/build/lib/unix:native_posix_files_service_impl",
+        "//third_party:flogger",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "windows_jobserver_backend",
+    srcs = ["WindowsJobserverBackend.java"],
+    deps = [
+        ":local_jobserver",
+        "//src/main/java/com/google/devtools/build/lib/windows:semaphore",
+        "//third_party:flogger",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "local_jobserver",
+    srcs = ["LocalJobserver.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:execution_requirements",
+        "//src/main/java/com/google/devtools/build/lib/actions:resource_manager",
+        "//third_party:flogger",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
     name = "module_action_context_registry",
     srcs = ["ModuleActionContextRegistry.java"],
     deps = [
