@@ -1145,15 +1145,18 @@ Strip the given number of leading components from file paths on extraction. Only
           .post(
               new ExtractProgress(
                   outputPath.getPath().toString(), "Extracting " + downloadedPath.getBaseName()));
-      DecompressorValue.decompress(
+      DecompressorDescriptor.Builder descriptorBuilder =
           DecompressorDescriptor.builder()
               .setContext(identifyingStringForLogging)
               .setArchivePath(downloadedPath)
               .setDestinationPath(outputPath.getPath())
-              .setPrefix(stripPrefix)
               .setStripComponents(stripComponents)
-              .setRenameFiles(renameFilesMap)
-              .build());
+              .setRenameFiles(renameFilesMap);
+      if (!stripPrefix.isEmpty()) {
+        descriptorBuilder.setPrefix(stripPrefix);
+      }
+      DecompressorValue.decompress(descriptorBuilder.build());
+
       env.getListener().post(new ExtractProgress(outputPath.getPath().toString()));
     }
 
@@ -1336,15 +1339,17 @@ Strip the given number of leading components from file paths on extraction. Only
         .post(
             new ExtractProgress(
                 outputPath.getPath().toString(), "Extracting " + archivePath.getBasename()));
-    DecompressorValue.decompress(
+    DecompressorDescriptor.Builder descriptorBuilder =
         DecompressorDescriptor.builder()
             .setContext(identifyingStringForLogging)
             .setArchivePath(archivePath.getPath())
             .setDestinationPath(outputPath.getPath())
-            .setPrefix(stripPrefix)
             .setStripComponents(stripComponents)
-            .setRenameFiles(renameFilesMap)
-            .build());
+            .setRenameFiles(renameFilesMap);
+    if (!stripPrefix.isEmpty()) {
+      descriptorBuilder.setPrefix(stripPrefix);
+    }
+    DecompressorValue.decompress(descriptorBuilder.build());
     env.getListener().post(new ExtractProgress(outputPath.getPath().toString()));
   }
 
