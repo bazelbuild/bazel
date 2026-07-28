@@ -275,6 +275,15 @@ function setup_javabase() {
   fi
   if is_windows; then
     jdk_dir="$(cygpath -m $(cd ${jdk_binary_rlocation}/../..; pwd))"
+    # if this is a java repository, copy out just the runtime and use that
+    if [[ -f "${jdk_dir}/BUILD.bazel" ]]; then
+      tmp_runtime_dir=$(mktemp -d --tmpdir=${TEST_TMPDIR})
+      for f in $(ls -1 ${jdk_dir}); do
+        ln -s ${jdk_dir}/$f -t ${tmp_runtime_dir}
+      done
+      rm ${tmp_runtime_dir}/BUILD.bazel
+      jdk_dir=${tmp_runtime_dir}
+    fi
   else
     jdk_dir="$(dirname $(dirname ${jdk_binary_rlocation}))"
   fi
