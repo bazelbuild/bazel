@@ -96,6 +96,32 @@ class BazelLockfileTest(test_base.TestBase):
         stderr,
     )
 
+  def testShutdownKeepsExternallyChangedLockfile(self):
+    # Regression test for https://github.com/bazelbuild/bazel/issues/30347.
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'bazel_dep(name = "aaa", version = "1.0")',
+        ],
+    )
+    self.ScratchFile('BUILD', ['filegroup(name = "hello")'])
+    # This build updates the lockfile on disk at the end of the command, so the
+    # lockfile state tracked by the server's Skyframe graph predates the write.
+    self.RunBazel(['build', '--nobuild', '//:all'])
+
+    # Simulate an update to the lockfile by another server running on a
+    # different output base (or by the user, e.g. via git).
+    external_content = '{"lockFileVersion": 99}\n'
+    with open(self.Path('MODULE.bazel.lock'), 'w') as f:
+      f.write(external_content)
+
+    # The shutdown command (which the client also uses to replace a server
+    # whose startup options changed) runs no Skyframe evaluation and thus must
+    # not write the stale lockfile state tracked by the server.
+    self.RunBazel(['shutdown'])
+    with open(self.Path('MODULE.bazel.lock'), 'r') as f:
+      self.assertEqual(f.read(), external_content)
+
   def testChangeModuleInRegistryWithoutLockfile(self):
     # Add module 'sss' to the registry with dep on 'aaa'
     self.main_registry.createShModule('sss', '1.3', {'aaa': '1.1'})
