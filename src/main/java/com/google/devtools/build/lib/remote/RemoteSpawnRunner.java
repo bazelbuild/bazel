@@ -272,9 +272,17 @@ public class RemoteSpawnRunner implements SpawnRunner {
             try (SilentCloseable c = prof.profile(UPLOAD_TIME, "upload missing inputs")) {
               Duration networkTimeStart = action.getNetworkTime().getDuration();
               Stopwatch uploadTime = Stopwatch.createStarted();
-              // Upon retry, we force upload inputs
-              remoteExecutionService.uploadInputsIfNotPresent(
-                  action, forceUploadInput.getAndSet(true));
+              try {
+                // Upon retry, we force upload inputs
+                remoteExecutionService.uploadInputsIfNotPresent(
+                    action, forceUploadInput.getAndSet(true));
+              } catch (BulkTransferException e) {
+                // An input that is missing from the remote cache and not available locally can
+                // only be regenerated reliably by action rewinding or an invocation retry. Unwrap
+                // the LostInputsExecException, which is not classified as retryable.
+                e.getLostArtifacts(context.getInputMetadataProvider()::getInput).throwIfNotEmpty();
+                throw e;
+              }
 
               // subtract network time consumed here to ensure wall clock during upload is not
               // double
