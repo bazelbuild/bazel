@@ -18,6 +18,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
 import com.google.gson.stream.JsonReader;
+import com.google.gson.stream.JsonToken;
 import com.google.gson.stream.MalformedJsonException;
 import com.google.protobuf.util.JsonFormat;
 import com.google.protobuf.util.JsonFormat.Printer;
@@ -72,7 +73,20 @@ final class JsonWorkerProtocol implements WorkerProtocolImpl {
     String output = null;
     Integer requestId = null;
     try {
+      // After reading at least one ndjson message, gson returns END_DOCUMENT at EOF instead of
+      // throwing EOFException. Check for it before beginObject() to signal clean shutdown.
+      if (reader.peek() == JsonToken.END_DOCUMENT) {
+        return null;
+      }
       reader.beginObject();
+    } catch (EOFException e) {
+      // Clean EOF on an empty stream (no prior messages): the worker closed its stdout before
+      // starting any message. Return null to signal shutdown, matching proto behavior.
+      return null;
+    } catch (MalformedJsonException | IllegalStateException e) {
+      throw new IOException("Could not parse json work response", e);
+    }
+    try {
       while (reader.hasNext()) {
         String name = reader.nextName();
         switch (name) {
@@ -102,7 +116,8 @@ final class JsonWorkerProtocol implements WorkerProtocolImpl {
       }
       reader.endObject();
     } catch (MalformedJsonException | EOFException | IllegalStateException e) {
-      throw new IOException("Could not parse json work request correctly", e);
+      // EOF after beginObject() means a truncated message, not a clean shutdown.
+      throw new IOException("Could not parse json work response", e);
     }
 
     WorkResponse.Builder responseBuilder = WorkResponse.newBuilder();
