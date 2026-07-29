@@ -160,7 +160,8 @@ public final class Types {
     // `Any <op> T` could be application-dependent even if T is a universal built-in type.
     @Override
     @Nullable
-    StarlarkType inferBinaryOperator(TokenKind operator, StarlarkType that, boolean thisLeft) {
+    public StarlarkType inferBinaryOperator(
+        TokenKind operator, StarlarkType that, boolean thisLeft) {
       return switch (operator) {
         case IN, NOT_IN ->
             // If we are the LHS, fall through to RHS's inferBinaryOperator; RHS determines whether
@@ -313,7 +314,8 @@ public final class Types {
 
     @Override
     @Nullable
-    StarlarkType inferBinaryOperator(TokenKind operator, StarlarkType that, boolean thisLeft) {
+    public StarlarkType inferBinaryOperator(
+        TokenKind operator, StarlarkType that, boolean thisLeft) {
       return switch (operator) {
         case PLUS, MINUS, PERCENT, SLASH_SLASH -> NUMERIC.getTypes().contains(that) ? that : null;
         case SLASH -> NUMERIC.getTypes().contains(that) ? Types.FLOAT : null;
@@ -354,7 +356,8 @@ public final class Types {
 
     @Override
     @Nullable
-    StarlarkType inferBinaryOperator(TokenKind operator, StarlarkType that, boolean thisLeft) {
+    public StarlarkType inferBinaryOperator(
+        TokenKind operator, StarlarkType that, boolean thisLeft) {
       return switch (operator) {
         case PLUS, MINUS, PERCENT, SLASH, SLASH_SLASH, STAR ->
             NUMERIC.getTypes().contains(that) ? Types.FLOAT : null;
@@ -389,7 +392,8 @@ public final class Types {
 
     @Override
     @Nullable
-    StarlarkType inferBinaryOperator(TokenKind operator, StarlarkType that, boolean thisLeft) {
+    public StarlarkType inferBinaryOperator(
+        TokenKind operator, StarlarkType that, boolean thisLeft) {
       return switch (operator) {
         case PLUS -> that.equals(STR) ? STR : null;
         case PERCENT ->
@@ -700,7 +704,8 @@ public final class Types {
 
     @Override
     @Nullable
-    StarlarkType inferBinaryOperator(TokenKind operator, StarlarkType that, boolean thisLeft) {
+    public StarlarkType inferBinaryOperator(
+        TokenKind operator, StarlarkType that, boolean thisLeft) {
       return switch (operator) {
         case PLUS ->
             that instanceof BaseListType thatList
@@ -911,7 +916,8 @@ public final class Types {
 
     @Override
     @Nullable
-    StarlarkType inferBinaryOperator(TokenKind operator, StarlarkType that, boolean thisLeft) {
+    public StarlarkType inferBinaryOperator(
+        TokenKind operator, StarlarkType that, boolean thisLeft) {
       return switch (operator) {
         case AMPERSAND, MINUS ->
             // TODO: #27370 - we may want to tighten the type of a set intersection, but it's
@@ -957,7 +963,8 @@ public final class Types {
 
     @Override
     @Nullable
-    StarlarkType inferBinaryOperator(TokenKind operator, StarlarkType that, boolean thisLeft) {
+    public StarlarkType inferBinaryOperator(
+        TokenKind operator, StarlarkType that, boolean thisLeft) {
       return switch (operator) {
         case PLUS -> that instanceof TupleType rhsTuple ? concatenate(rhsTuple) : null;
         // Special case handled by TypeChecker.inferTupleRepetition.
@@ -1173,7 +1180,8 @@ public final class Types {
 
     @Override
     @Nullable
-    StarlarkType inferBinaryOperator(TokenKind operator, StarlarkType that, boolean thisLeft) {
+    public StarlarkType inferBinaryOperator(
+        TokenKind operator, StarlarkType that, boolean thisLeft) {
       return switch (operator) {
         // `in` and `not in` are always valid for collections on the RHS.
         case IN, NOT_IN -> thisLeft ? null : BOOL;
@@ -1333,7 +1341,8 @@ public final class Types {
 
     @Override
     @Nullable
-    StarlarkType inferBinaryOperator(TokenKind operator, StarlarkType rhs, boolean thisLeft) {
+    public StarlarkType inferBinaryOperator(
+        TokenKind operator, StarlarkType rhs, boolean thisLeft) {
       return switch (operator) {
         case PIPE ->
             // TODO: #27370 - mypy supports dict | dict, but doesn't support the | operator for
