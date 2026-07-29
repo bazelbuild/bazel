@@ -227,6 +227,7 @@ public class RemoteActionInputFetcherTest extends ActionInputPrefetcherTestBase 
         /* diskCacheClient= */ null,
         /* symlinkTemplate= */ null,
         digestUtil,
-        /* chunkingFunction= */ null);
+        /* chunkingFunction= */ null,
+        new ChunkLocationMap());
   }
 }
