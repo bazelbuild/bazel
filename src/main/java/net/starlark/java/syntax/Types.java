@@ -1521,7 +1521,7 @@ public final class Types {
     }
   }
 
-  static TypeConstructor.AllowingNullary wrapType(String name, StarlarkType type) {
+  static TypeConstructor wrapType(String name, StarlarkType type) {
     return argsTuple -> {
       if (!argsTuple.isEmpty()) {
         throw new TypeConstructor.Failure(String.format("'%s' does not accept arguments", name));
@@ -1530,8 +1530,7 @@ public final class Types {
     };
   }
 
-  public static TypeConstructor.AllowingNullary wrapType(
-      String name, Supplier<StarlarkType> typeSupplier) {
+  public static TypeConstructor wrapType(String name, Supplier<StarlarkType> typeSupplier) {
     return argsTuple -> {
       if (!argsTuple.isEmpty()) {
         throw new TypeConstructor.Failure(String.format("'%s' does not accept arguments", name));
@@ -1560,7 +1559,7 @@ public final class Types {
    * factory, or with zero arguments, in which case the factory is invoked with {@link #ANY}. (This
    * allows, for instance, {@code list} to be treated as syntactic sugar for {@code list[Any]}.)
    */
-  public static TypeConstructor.AllowingNullary wrapTypeConstructor(
+  public static TypeConstructor wrapTypeConstructor(
       String name, Function<StarlarkType, StarlarkType> factory) {
     final StarlarkType nullaryType = factory.apply(ANY);
     return args -> {
@@ -1584,7 +1583,7 @@ public final class Types {
    * both arguments. (This allows, for instance, {@code dict} to be treated as syntactic sugar for
    * {@code dict[Any, Any]}.)
    */
-  public static TypeConstructor.AllowingNullary wrapTypeConstructor(
+  public static TypeConstructor wrapTypeConstructor(
       String name, BiFunction<StarlarkType, StarlarkType, StarlarkType> factory) {
     final StarlarkType nullaryType = factory.apply(ANY, ANY);
     return args -> {
@@ -1599,7 +1598,7 @@ public final class Types {
     };
   }
 
-  private static TypeConstructor.AllowingNullary wrapTupleConstructor() {
+  private static TypeConstructor wrapTupleConstructor() {
     // This is a function instead of a constant, so that the order of evaluation doesn't depend on
     // the position in the class.
     return args -> {
@@ -1633,7 +1632,7 @@ public final class Types {
     };
   }
 
-  private static final TypeConstructor.AllowingNullary wrapStructConstructor() {
+  private static final TypeConstructor wrapStructConstructor() {
     return args -> {
       if (args.isEmpty()) {
         // `struct` is equivalent to `struct[{}, ...]`
