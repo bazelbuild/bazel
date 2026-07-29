@@ -699,6 +699,7 @@ java_library(
 java_library(
     name = "combined_cache",
     srcs = [
+        "ChunkLocationMap.java",
         "ChunkedBlobDownloader.java",
         "ChunkedBlobUploader.java",
         "CombinedCache.java",
@@ -722,6 +723,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/protobuf:failure_details_java_proto",
+        "//third_party/java/caffeine",
         "//third_party/java/flogger",
         "//third_party/java/guava:base",
         "//third_party/java/guava:collect",
