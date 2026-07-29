@@ -47,12 +47,17 @@ FILE_LIST="$ROOT/file.list"
 mkdir -p "${PACKAGE_DIR}"
 trap "rm -fr ${ROOT}" EXIT
 
-for input in "$@"; do
-  if [[ $NATIVE_SERVER -eq 1 && "${input##*/}" == "build-output.json" ]]; then
-    continue
-  fi
-  cp "$input" "$PACKAGE_DIR"
-done
+if [[ $NATIVE_SERVER -eq 1 ]]; then
+  for input in "$@"; do
+    if [[ "${input##*/}" == "build-output.json" ]]; then
+      continue
+    fi
+    cp "$input" "$PACKAGE_DIR"
+  done
+else
+  # Preserve the upstream JVM packaging path exactly.
+  cp $* "${PACKAGE_DIR}"
+fi
 
 if [[ $NATIVE_SERVER -eq 1 ]]; then
   # The native image already contains the server classes. Read the label from
