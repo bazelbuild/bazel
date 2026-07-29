@@ -96,31 +96,6 @@ public final class TaskDeduplicator<K, A, V> {
     return IndividuallyCancelableFuture.wrap(future);
   }
 
-  /**
-   * Returns a future representing the ongoing execution for the key if {@code canJoin} accepts its
-   * attributes, or null if there is no such execution.
-   *
-   * <p>A null return value doesn't necessarily mean that no task is running for the key: an
-   * execution that is being canceled concurrently isn't joined either. Unlike {@link #execute},
-   * this method never starts a new execution.
-   *
-   * <p>The returned future must eventually be completed. The task is only canceled if the futures
-   * returned to all callers for the same key have been canceled.
-   */
-  @CheckReturnValue
-  @Nullable
-  public ListenableFuture<V> maybeJoinExecution(K key, Predicate<? super A> canJoin) {
-    var future = inFlightTasks.get(key);
-    if (future == null || !canJoin.test(future.attributes())) {
-      return null;
-    }
-    if (!future.retain()) {
-      inFlightTasks.remove(key, future);
-      return null;
-    }
-    return IndividuallyCancelableFuture.wrap(future);
-  }
-
   @VisibleForTesting
   @Nullable
   RefcountedFuture<A, V> ongoingExecutionForTesting(K key) {

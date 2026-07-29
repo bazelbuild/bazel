@@ -27,7 +27,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
-import java.util.function.Supplier;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -324,8 +323,8 @@ public class TaskDeduplicatorTest {
    * Canceling a future must release exactly one reference to the shared task, also after the task
    * has completed.
    *
-   * <p>A stray second release is otherwise only observable through a rare race: a concurrent {@link
-   * TaskDeduplicator#maybeJoinExecution} that looks up the shared task just before it completes and
+   * <p>A stray second release is otherwise only observable through a rare race: a concurrent
+   * {@link TaskDeduplicator#execute} that looks up the shared task just before it completes and
    * retains it just after would be refused a perfectly good result and would redo the work.
    */
   @Test
@@ -527,115 +526,6 @@ public class TaskDeduplicatorTest {
   }
 
   @Test
-  public void maybeJoinExecution_noTask_null() {
-    var deduplicator = new TaskDeduplicator<String, Integer, String>();
-
-    assertThat(deduplicator.maybeJoinExecution("key1", atLeast(WEAK))).isNull();
-  }
-
-  @Test
-  public void maybeJoinExecution_taskInProgress_noReExecution() throws Exception {
-    var deduplicator = new TaskDeduplicator<String, Integer, String>();
-    var taskFuture = SettableFuture.<String>create();
-    var executionTimes = new AtomicInteger(0);
-
-    ListenableFuture<String> result1 =
-        deduplicator.execute(
-            "key1",
-            STRONG,
-            atLeast(STRONG),
-            () -> {
-              executionTimes.incrementAndGet();
-              return taskFuture;
-            });
-    ListenableFuture<String> result2 = deduplicator.maybeJoinExecution("key1", atLeast(WEAK));
-
-    assertThat(result2).isNotNull();
-    assertThat(result2.isDone()).isFalse();
-
-    taskFuture.set("value1");
-
-    assertThat(result1.get()).isEqualTo("value1");
-    assertThat(result2.get()).isEqualTo("value1");
-    assertThat(executionTimes.get()).isEqualTo(1);
-  }
-
-  @Test
-  public void maybeJoinExecution_canJoinRejects_null() throws Exception {
-    var deduplicator = new TaskDeduplicator<String, Integer, String>();
-    var taskFuture = SettableFuture.<String>create();
-
-    ListenableFuture<String> result =
-        deduplicator.execute("key1", WEAK, atLeast(WEAK), () -> taskFuture);
-
-    assertThat(deduplicator.maybeJoinExecution("key1", atLeast(STRONG))).isNull();
-
-    // The rejected execution is left alone.
-    taskFuture.set("value1");
-    assertThat(result.get()).isEqualTo("value1");
-  }
-
-  @Test
-  public void maybeJoinExecution_taskFinished_null() throws Exception {
-    var deduplicator = new TaskDeduplicator<String, Integer, String>();
-
-    ListenableFuture<String> result =
-        deduplicator.execute(
-            "key1", WEAK, atLeast(WEAK), () -> Futures.immediateFuture("value1"));
-    assertThat(result.get()).isEqualTo("value1");
-
-    assertThat(deduplicator.maybeJoinExecution("key1", atLeast(WEAK))).isNull();
-  }
-
-  @Test
-  public void maybeJoinExecution_taskCanceled_null() {
-    var deduplicator = new TaskDeduplicator<String, Integer, String>();
-    var taskFuture = SettableFuture.<String>create();
-
-    ListenableFuture<String> result =
-        deduplicator.execute("key1", WEAK, atLeast(WEAK), () -> taskFuture);
-    result.cancel(true);
-
-    assertThat(deduplicator.maybeJoinExecution("key1", atLeast(WEAK))).isNull();
-  }
-
-  @Test
-  public void maybeJoinExecution_cancelJoinedFuture_taskNotCancelled() throws Exception {
-    var deduplicator = new TaskDeduplicator<String, Integer, String>();
-    var taskFuture = SettableFuture.<String>create();
-
-    ListenableFuture<String> result1 =
-        deduplicator.execute("key1", WEAK, atLeast(WEAK), () -> taskFuture);
-    ListenableFuture<String> result2 = deduplicator.maybeJoinExecution("key1", atLeast(WEAK));
-
-    result2.cancel(true);
-
-    assertThat(result2.isCancelled()).isTrue();
-    assertThat(taskFuture.isCancelled()).isFalse();
-    assertThat(result1.isDone()).isFalse();
-
-    taskFuture.set("value1");
-
-    assertThat(result1.get()).isEqualTo("value1");
-  }
-
-  @Test
-  public void maybeJoinExecution_allFuturesCanceled_taskCancelled() {
-    var deduplicator = new TaskDeduplicator<String, Integer, String>();
-    var taskFuture = SettableFuture.<String>create();
-
-    ListenableFuture<String> result1 =
-        deduplicator.execute("key1", WEAK, atLeast(WEAK), () -> taskFuture);
-    ListenableFuture<String> result2 = deduplicator.maybeJoinExecution("key1", atLeast(WEAK));
-
-    result1.cancel(true);
-    assertThat(taskFuture.isCancelled()).isFalse();
-    result2.cancel(true);
-
-    assertThat(taskFuture.isCancelled()).isTrue();
-  }
-
-  @Test
   public void execute_executeAndCancelLoop_noErrors() {
     int taskCount = 1000;
     int maxKey = 20;
@@ -702,21 +592,18 @@ public class TaskDeduplicatorTest {
               try {
                 String key = "key" + random.nextInt(maxKey);
                 int strength = random.nextInt(3);
-                Supplier<ListenableFuture<Integer>> taskSupplier =
-                    () ->
-                        Futures.submit(
-                            () -> {
-                              Thread.sleep(0, 200_000);
-                              return strength;
-                            },
-                            taskExecutorService);
                 ListenableFuture<Integer> future =
-                    random.nextInt(10) == 0
-                        ? deduplicator.maybeJoinExecution(key, atLeast(strength))
-                        : deduplicator.execute(key, strength, atLeast(strength), taskSupplier);
-                if (future == null) {
-                  return;
-                }
+                    deduplicator.execute(
+                        key,
+                        strength,
+                        atLeast(strength),
+                        () ->
+                            Futures.submit(
+                                () -> {
+                                  Thread.sleep(0, 200_000);
+                                  return strength;
+                                },
+                                taskExecutorService));
                 if (!future.isDone() && random.nextBoolean()) {
                   future.cancel(true);
                 } else {
