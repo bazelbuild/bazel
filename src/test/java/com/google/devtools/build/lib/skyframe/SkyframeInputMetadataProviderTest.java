@@ -26,6 +26,9 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
+import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
@@ -146,5 +149,46 @@ public class SkyframeInputMetadataProviderTest extends FoundationTestCase {
     }
 
     verify(env, never()).getValue(any());
+  }
+
+  @Test
+  public void treeFileArtifactLookup_providesTreeMetadata() throws Exception {
+    StaticInputMetadataProvider perBuild = new StaticInputMetadataProvider(ImmutableMap.of());
+
+    ActionLookupKey owner = ActionsTestUtil.createActionLookupKey("owner");
+    ActionLookupData actionKey = ActionLookupData.create(owner, 0);
+    SpecialArtifact tree =
+        SpecialArtifact.create(
+            ArtifactRoot.asDerivedRoot(root.asPath(), RootType.OUTPUT, "out"),
+            PathFragment.create("out/tree"),
+            owner,
+            SpecialArtifactType.TREE);
+    tree.setGeneratingActionKey(actionKey);
+    TreeFileArtifact child = TreeFileArtifact.createTreeOutput(tree, "dir/file.h");
+    child.getPath().getParentDirectory().createDirectoryAndParents();
+    FileSystemUtils.writeContentAsLatin1(child.getPath(), "test");
+    FileArtifactValue childMetadata = FileArtifactValue.createForTesting(child);
+    TreeArtifactValue treeValue =
+        TreeArtifactValue.newBuilder(tree).putChild(child, childMetadata).build();
+
+    MemoizingEvaluator evaluator = mock(MemoizingEvaluator.class);
+    SkyframeInputMetadataProvider simp =
+        new SkyframeInputMetadataProvider(evaluator, perBuild, "out");
+
+    // Tree file artifacts are looked up via the tree artifact that contains them, which also
+    // makes the tree's metadata available for path-based lookups (e.g. by an action file system
+    // that stats directories within the tree).
+    when(evaluator.getExistingValue(tree)).thenReturn(treeValue);
+
+    try (var unused = simp.withSkyframeAllowed(mock(SkyFunction.Environment.class))) {
+      assertThat(simp.getInputMetadataChecked(child)).isEqualTo(childMetadata);
+    }
+
+    assertThat(simp.getInput(child.getExecPath())).isEqualTo(child);
+    assertThat(simp.getTreeMetadata(tree)).isEqualTo(treeValue);
+    assertThat(simp.getEnclosingTreeMetadata(child.getExecPath())).isEqualTo(treeValue);
+    assertThat(simp.getEnclosingTreeMetadata(tree.getExecPath().getRelative("dir")))
+        .isEqualTo(treeValue);
+    assertThat(simp.getEnclosingTreeMetadata(PathFragment.create("out/other"))).isNull();
   }
 }
