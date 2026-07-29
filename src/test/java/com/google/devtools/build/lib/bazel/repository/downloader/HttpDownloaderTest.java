@@ -51,6 +51,7 @@ import java.net.URI;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -1122,6 +1123,80 @@ public class HttpDownloaderTest {
     assertThat(times.get()).isEqualTo(4);
     String content = new String(ByteStreams.toByteArray(result.getInputStream()), UTF_8);
     assertThat(content).isEqualTo("content");
+  }
+
+  @Test
+  public void download_crossOriginRedirect_stripsSensitiveHeaders() throws Exception {
+    try (ServerSocket server1 = new ServerSocket(0, 1, InetAddress.getByName(null));
+        ServerSocket server2 = new ServerSocket(0, 1, InetAddress.getByName(null))) {
+      Map<String, List<String>> server2Headers = new HashMap<>();
+
+      Future<?> server1Future =
+          executor.submit(
+              () -> {
+                try (Socket socket = server1.accept()) {
+                  readHttpRequest(socket.getInputStream());
+                  sendLines(
+                      socket,
+                      "HTTP/1.1 302 Found",
+                      "Location: http://localhost:" + server2.getLocalPort() + "/redirected",
+                      "Connection: close",
+                      "");
+                }
+                return null;
+              });
+
+      Future<?> server2Future =
+          executor.submit(
+              () -> {
+                try (Socket socket = server2.accept()) {
+                  readHttpRequest(socket.getInputStream(), server2Headers);
+                  sendLines(
+                      socket,
+                      "HTTP/1.1 200 OK",
+                      "Connection: close",
+                      "Content-Type: text/plain",
+                      "Content-Length: 15",
+                      "",
+                      "redirected-data");
+                }
+                return null;
+              });
+
+      Path destination = fs.getPath(workingDir.newFile().getAbsolutePath());
+      ImmutableMap<String, List<String>> headers =
+          ImmutableMap.of(
+              "Authorization", ImmutableList.of("Bearer secret"),
+              "Proxy-Authorization", ImmutableList.of("Basic proxysecret"),
+              "Cookie", ImmutableList.of("session=123"),
+              "Cookie2", ImmutableList.of("$Version=1"),
+              "Custom-Header", ImmutableList.of("custom-value"));
+
+      httpDownloader.download(
+          Collections.singletonList(
+              URI.create(String.format("http://localhost:%d/original", server1.getLocalPort()))),
+          headers,
+          StaticCredentials.EMPTY,
+          Optional.empty(),
+          "testCanonicalId",
+          destination,
+          eventHandler,
+          ImmutableMap.of(),
+          Optional.empty(),
+          "testRepo");
+
+      server1Future.get();
+      server2Future.get();
+
+      assertThat(new String(FileSystemUtils.readContent(destination), UTF_8))
+          .isEqualTo("redirected-data");
+      assertThat(server2Headers).doesNotContainKey("authorization");
+      assertThat(server2Headers).doesNotContainKey("proxy-authorization");
+      assertThat(server2Headers).doesNotContainKey("cookie");
+      assertThat(server2Headers).doesNotContainKey("cookie2");
+      assertThat(server2Headers).containsKey("custom-header");
+      assertThat(server2Headers.get("custom-header")).containsExactly("custom-value");
+    }
   }
 
   public Path download(

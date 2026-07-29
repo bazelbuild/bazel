@@ -40,6 +40,15 @@ java_library(
 )
 
 java_library(
+    name = "repo_metadata_requirements",
+    srcs = ["RepoMetadataRequirements.java"],
+    deps = [
+        ":repository_options",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:precomputed_value",
+    ],
+)
+
+java_library(
     name = "repository_fetch_function",
     srcs = [
         "RepositoryFetchFunction.java",
@@ -49,6 +58,8 @@ java_library(
         ":exception",
         ":repo_definition",
         ":repo_definition_value",
+        ":repo_metadata_requirements",
+        ":repository_options",
         ":repository_resolved_event",
         ":utils",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",

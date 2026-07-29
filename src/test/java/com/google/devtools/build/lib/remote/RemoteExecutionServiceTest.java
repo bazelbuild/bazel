@@ -871,6 +871,7 @@ public class RemoteExecutionServiceTest {
       // TODO: Get this number down.
       // NOTE: Don't just increase this number if the test fails, it directly corresponds to the
       // memory usage of Bazel's (but not Blaze's) remote execution implementation.
+      // TODO: b/280079296 - Change this to 4048 after pulling in Guava 33.7.0:
       assertThat(stableRetainedSize).isEqualTo(4064);
     }
   }
