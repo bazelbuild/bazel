@@ -14,9 +14,7 @@ This page documents the general process for creating and viewing
 coverage reports, and also features some language-specific notes for
 languages whose configuration is well-known. It is best read by first
 reading [the general section](#creating-a-coverage-report), and then
-reading about the requirements for a specific language. Note also the
-[remote execution section](#remote-execution), which requires some
-additional considerations.
+reading about the requirements for a specific language.
 
 While a lot of customization is possible, this document focuses on
 producing and consuming [`lcov`][lcov] reports, which is currently the
@@ -88,32 +86,6 @@ To view the result, open the `index.html` file produced in the
 For further help and information around the `genhtml` tool, or the
 `lcov` coverage format, see [the lcov project][lcov].
 
-## Remote execution {:#remote-execution}
-
-Running with remote test execution has a few caveats:
-
-- The report combination action cannot yet run remotely. This is
-  because Bazel does not consider the coverage output files as part of
-  its graph (see [Bazel issue #4685][remote_report_issue]), and can therefore
-  not correctly treat them as inputs to the combination action. To
-  work around this, use `--strategy=CoverageReport=local`.
-  - Note: It may be necessary to specify something like
-    `--strategy=CoverageReport=local,remote` instead, if Bazel is set
-    up to try `local,remote`, due to how Bazel resolves strategies.
-- `--remote_download_minimal` and similar flags can also not be used
-  as a consequence of the former.
-- Bazel will fail to create coverage information if tests
-  have been cached previously. To work around this,
-  `--nocache_test_results` can be set specifically for coverage runs,
-  although this of course incurs a heavy cost in terms of test times.
-- `--experimental_split_coverage_postprocessing` and
-  `--experimental_fetch_all_coverage_outputs`
-  - Usually coverage is run as part of the test action, and so by
-    default, we don't get all coverage back as outputs of the remote
-    execution by default. These flags override the default and obtain
-    the coverage data. See [Bazel issue #4685][split_coverage_issue] for more
-    details.
-
 ## Language-specific configuration
 
 The following sections detail language-specific considerations for setting up
@@ -150,5 +122,3 @@ for additional steps needed to enable coverage support in Python.
 
 [lcov]: https://github.com/linux-test-project/lcov
 [bazel_toolchains]: https://github.com/bazelbuild/bazel-toolchains
-[remote_report_issue]: https://github.com/bazelbuild/bazel/issues/4685
-[split_coverage_issue]: https://github.com/bazelbuild/bazel/issues/4685
