@@ -2117,15 +2117,6 @@ function test_exclusive_test_wont_remote_exec() {
 # TODO(alpha): Add a test that fails remote execution when remote worker
 # supports sandbox.
 
-# This test uses the flag experimental_split_coverage_postprocessing. Without
-# the flag coverage won't work remotely. Without the flag, tests and coverage
-# post-processing happen in the same spawn, but only the runfiles tree of the
-# tests is made available to the spawn. The solution was not to merge the
-# runfiles tree which could cause its own problems but to split both into
-# different spawns. The reason why this only failed remotely and not locally was
-# because the coverage post-processing tool escaped the sandbox to find its own
-# runfiles. The error we would see here without the flag would be "Cannot find
-# runfiles". See #4685.
 function test_java_rbe_coverage_produces_report() {
   add_rules_java "MODULE.bazel"
   mkdir -p java/factorial
@@ -2184,8 +2175,6 @@ EOF
 
   bazel coverage \
     --test_output=all \
-    --experimental_fetch_all_coverage_outputs \
-    --experimental_split_coverage_postprocessing \
     --spawn_strategy=remote \
     --remote_executor=grpc://localhost:${worker_port} \
     --instrumentation_filter=//java/factorial \
@@ -2502,8 +2491,6 @@ EOF
 
   bazel coverage \
       --test_output=all \
-      --experimental_fetch_all_coverage_outputs \
-      --experimental_split_coverage_postprocessing \
       --spawn_strategy=remote \
       --remote_executor=grpc://localhost:${worker_port} \
       //"$test_dir":hello-test >& $TEST_log \
@@ -2643,9 +2630,7 @@ EOF
   BAZEL_USE_LLVM_NATIVE_COVERAGE=1 BAZEL_LLVM_PROFDATA=llvm-profdata BAZEL_LLVM_COV=llvm-cov CC=clang \
     bazel coverage \
       --test_output=all \
-      --experimental_fetch_all_coverage_outputs \
       --experimental_generate_llvm_lcov \
-      --experimental_split_coverage_postprocessing \
       --spawn_strategy=remote \
       --remote_executor=grpc://localhost:${worker_port} \
       //"$test_dir":hello-test >& $TEST_log \

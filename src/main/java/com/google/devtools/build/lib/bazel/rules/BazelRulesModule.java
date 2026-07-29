@@ -85,6 +85,16 @@ public final class BazelRulesModule extends BlazeModule {
 
     @Deprecated
     @Option(
+        name = "experimental_execution_graph_include_change_pruned_actions",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.DEPRECATED},
+        help = "Deprecated no-op.")
+    public abstract boolean getIncludeChangePrunedActions();
+
+    @Deprecated
+    @Option(
         name = "incompatible_enable_apple_toolchain_resolution",
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,

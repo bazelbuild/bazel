@@ -112,15 +112,14 @@ public class ResourceManager implements ResourceEstimator {
 
     /** Closing the ResourceHandle releases the resources associated with it. */
     @Override
-    public void close() throws IOException, InterruptedException, UserExecException {
+    public void close() throws IOException, InterruptedException {
       manager.releaseResources(request, worker);
       Profiler.instance()
           .completeTask(
               resourceAcquiredTime, ProfilerTask.LOCAL_ACTION_COUNTS, "Resources acquired");
     }
 
-    public void invalidateAndClose(@Nullable Exception e)
-        throws IOException, InterruptedException, UserExecException {
+    public void invalidateAndClose(@Nullable Exception e) throws IOException, InterruptedException {
       // If there is an exception, we need to set the kill cause before invalidating the object.
       // This ensures that the worker implementation updates their worker metrics accordingly
       // if/when it destroys itself.
@@ -280,14 +279,14 @@ public class ResourceManager implements ResourceEstimator {
     public void run() {
       try {
         windowUpdate();
-      } catch (IOException | InterruptedException | UserExecException e) {
+      } catch (IOException | InterruptedException e) {
         logger.atWarning().withCause(e).log(
             "Exception while updating window of locally scheduled action: %s", e);
       }
     }
   }
 
-  synchronized void windowUpdate() throws IOException, InterruptedException, UserExecException {
+  synchronized void windowUpdate() throws IOException, InterruptedException {
     windowRequestIds.clear();
     windowEstimationCpu = 0.0;
     processAllWaitingRequests();
@@ -360,8 +359,9 @@ public class ResourceManager implements ResourceEstimator {
   ;
 
   /**
-   * Acquires requested resource set. Will block if resource is not available. NB! This method must
-   * be thread-safe!
+   * Acquires requested resource set. Permanently insufficient requests fail on initial acquisition
+   * when {@code --allow_one_action_on_resource_unavailable} is disabled; otherwise, this method
+   * will block if the resource is not available. NB! This method must be thread-safe!
    */
   public ResourceHandle acquireResources(
       ActionExecutionMetadata owner, ResourceSet resources, ResourcePriority priority)
@@ -469,7 +469,7 @@ public class ResourceManager implements ResourceEstimator {
    * @throws java.io.IOException if could not return worker to the workerPool
    */
   void releaseResources(ResourceRequest request, @Nullable Worker worker)
-      throws IOException, InterruptedException, UserExecException {
+      throws IOException, InterruptedException {
     Preconditions.checkNotNull(
         request.getResourceSet(),
         "releaseResources called with resources == NULL during %s",
@@ -502,7 +502,22 @@ public class ResourceManager implements ResourceEstimator {
    */
   private synchronized ResourceLatch acquire(ResourceRequest request)
       throws IOException, InterruptedException, UserExecException {
-    if (areResourcesAvailable(request.getResourceSet())) {
+    ResourceSet resources = request.getResourceSet();
+    // Permanent limits must be checked before enqueueing; waiting latches cannot deliver an error.
+    if (!allowOneActionOnResourceUnavailable) {
+      checkResourceAvailable(
+          availableResources.getLocalTestCount(),
+          resources.getLocalTestCount(),
+          "local_test_count");
+      for (Map.Entry<String, Double> resource : resources.getResources().entrySet()) {
+        String key = resource.getKey();
+        double requested =
+            resource.getValue()
+                * MIN_NECESSARY_RATIO.getOrDefault(key, DEFAULT_MIN_NECESSARY_RATIO);
+        checkResourceAvailable(availableResources.get(key), requested, key);
+      }
+    }
+    if (areResourcesAvailable(resources)) {
       Worker worker = incrementResources(request);
       return new ResourceLatch(/* latch= */ null, worker);
     }
@@ -524,7 +539,7 @@ public class ResourceManager implements ResourceEstimator {
 
   /** Release resources and process the queues of waiting threads. */
   private synchronized void release(ResourceRequest request, @Nullable Worker worker)
-      throws IOException, InterruptedException, UserExecException {
+      throws IOException, InterruptedException {
     if (worker != null) {
       this.workerPool.returnWorker(worker.getWorkerKey(), worker);
     }
@@ -556,15 +571,14 @@ public class ResourceManager implements ResourceEstimator {
     processAllWaitingRequests();
   }
 
-  private synchronized void processAllWaitingRequests()
-      throws IOException, InterruptedException, UserExecException {
+  private synchronized void processAllWaitingRequests() throws IOException, InterruptedException {
     processWaitingRequests(localRequests);
     processWaitingRequests(dynamicWorkerRequests);
     processWaitingRequests(dynamicStandaloneRequests);
   }
 
   private synchronized void processWaitingRequests(Deque<WaitingRequest> requests)
-      throws IOException, InterruptedException, UserExecException {
+      throws IOException, InterruptedException {
     if (requests.isEmpty()) {
       return;
     }
@@ -609,10 +623,9 @@ public class ResourceManager implements ResourceEstimator {
     }
   }
 
-  private <T extends Number> boolean isAvailable(
-      T available, T used, T requested, String resourceName) throws UserExecException {
-    if (!allowOneActionOnResourceUnavailable
-        && available.doubleValue() + used.doubleValue() < requested.doubleValue()) {
+  private static <T extends Number> void checkResourceAvailable(
+      T available, T requested, String resourceName) throws UserExecException {
+    if (available.doubleValue() < requested.doubleValue()) {
       throw new UserExecException(
           FailureDetails.FailureDetail.newBuilder()
               .setMessage(
@@ -628,6 +641,9 @@ public class ResourceManager implements ResourceEstimator {
                       .build())
               .build());
     }
+  }
+
+  private <T extends Number> boolean isAvailable(T available, T used, T requested) {
     // Resources are considered available if any one of the conditions below is true:
     // 1) If resource is not requested at all, it is available.
     // 2) If resource is not used at the moment and the flag
@@ -643,7 +659,7 @@ public class ResourceManager implements ResourceEstimator {
 
   // Method will return true if all requested resources are considered to be available.
   @VisibleForTesting
-  synchronized boolean areResourcesAvailable(ResourceSet resources) throws UserExecException {
+  synchronized boolean areResourcesAvailable(ResourceSet resources) {
     Preconditions.checkNotNull(availableResources);
     // Comparison below is robust, since any calculation errors will be fixed
     // by the release() method.
@@ -661,11 +677,7 @@ public class ResourceManager implements ResourceEstimator {
     }
 
     int availableLocalTestCount = availableResources.getLocalTestCount();
-    if (!isAvailable(
-        availableLocalTestCount,
-        usedLocalTestCount,
-        resources.getLocalTestCount(),
-        "local_test_count")) {
+    if (!isAvailable(availableLocalTestCount, usedLocalTestCount, resources.getLocalTestCount())) {
       return false;
     }
 
@@ -687,14 +699,14 @@ public class ResourceManager implements ResourceEstimator {
           resource.getValue() * MIN_NECESSARY_RATIO.getOrDefault(key, DEFAULT_MIN_NECESSARY_RATIO);
       double used = usedResources.getOrDefault(key, 0.0);
       double available = availableResources.get(key);
-      if (!isAvailable(available, used, requested, key)) {
+      if (!isAvailable(available, used, requested)) {
         return false;
       }
     }
     return true;
   }
 
-  synchronized boolean isCpuAvailable(Map.Entry<String, Double> resource) throws UserExecException {
+  synchronized boolean isCpuAvailable(Map.Entry<String, Double> resource) {
     String key = resource.getKey();
 
     double requested =
@@ -709,10 +721,10 @@ public class ResourceManager implements ResourceEstimator {
       if (runningActions >= MAX_ACTIONS_PER_CPU * availableResources.get(ResourceSet.CPU)) {
         return false;
       }
-      return isAvailable(available, windowEstimation + currentUsage, requested, key);
+      return isAvailable(available, windowEstimation + currentUsage, requested);
     }
 
-    return isAvailable(available, used, requested, key);
+    return isAvailable(available, used, requested);
   }
 
   @VisibleForTesting

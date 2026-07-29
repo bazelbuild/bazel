@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe.serialization.analysis;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
@@ -75,7 +76,8 @@ public final class AnalysisCacheInvalidatorTest {
             /* currentVersion= */ frontierNodeVersion,
             baseClientId,
             mockEventHandler,
-            mockEventListener);
+            mockEventListener,
+            directExecutor());
 
     assertThat(
             invalidator.lookupKeysToInvalidate(
@@ -107,7 +109,8 @@ public final class AnalysisCacheInvalidatorTest {
             /* currentVersion= */ frontierNodeVersion,
             baseClientId,
             mockEventHandler,
-            mockEventListener);
+            mockEventListener,
+            directExecutor());
 
     assertThat(
             invalidator.lookupKeysToInvalidate(
@@ -138,7 +141,8 @@ public final class AnalysisCacheInvalidatorTest {
             /* currentVersion= */ frontierNodeVersion,
             baseClientId,
             mockEventHandler,
-            mockEventListener);
+            mockEventListener,
+            directExecutor());
 
     assertThat(
             invalidator.lookupKeysToInvalidate(
@@ -179,7 +183,8 @@ public final class AnalysisCacheInvalidatorTest {
             /* currentVersion= */ frontierNodeVersion,
             baseClientId,
             mockEventHandler,
-            mockEventListener);
+            mockEventListener,
+            directExecutor());
 
     assertThat(
             invalidator.lookupKeysToInvalidate(
@@ -220,7 +225,8 @@ public final class AnalysisCacheInvalidatorTest {
             currentVersion,
             baseClientId,
             mockEventHandler,
-            mockEventListener);
+            mockEventListener,
+            directExecutor());
 
     assertThat(
             invalidator.lookupKeysToInvalidate(
@@ -264,7 +270,8 @@ public final class AnalysisCacheInvalidatorTest {
             currentVersion,
             baseClientId,
             mockEventHandler,
-            mockEventListener);
+            mockEventListener,
+            directExecutor());
 
     assertThat(
             invalidator.lookupKeysToInvalidate(
@@ -335,7 +342,8 @@ public final class AnalysisCacheInvalidatorTest {
             /* currentVersion= */ frontierNodeVersion,
             testCase.currentClientId,
             mockEventHandler,
-            mockEventListener);
+            mockEventListener,
+            directExecutor());
 
     ImmutableSet<SkyKey> keysToInvalidate =
         invalidator.lookupKeysToInvalidate(
@@ -367,7 +375,8 @@ public final class AnalysisCacheInvalidatorTest {
             /* currentVersion= */ frontierNodeVersion,
             baseClientId,
             mockEventHandler,
-            mockEventListener);
+            mockEventListener,
+            directExecutor());
 
     assertThat(
             invalidator.lookupKeysToInvalidate(
@@ -415,7 +424,8 @@ public final class AnalysisCacheInvalidatorTest {
             frontierNodeVersion,
             baseClientId,
             mockEventHandler,
-            mockEventListener);
+            mockEventListener,
+            directExecutor());
 
     var unused =
         invalidator.lookupKeysToInvalidate(
@@ -461,7 +471,8 @@ public final class AnalysisCacheInvalidatorTest {
             frontierNodeVersion,
             baseClientId,
             mockEventHandler,
-            mockEventListener);
+            mockEventListener,
+            directExecutor());
 
     var unused =
         invalidator.lookupKeysToInvalidate(
@@ -506,7 +517,8 @@ public final class AnalysisCacheInvalidatorTest {
             frontierNodeVersion,
             baseClientId,
             mockEventHandler,
-            mockEventListener);
+            mockEventListener,
+            directExecutor());
 
     var unused =
         invalidator.lookupKeysToInvalidate(
@@ -542,7 +554,8 @@ public final class AnalysisCacheInvalidatorTest {
             /* currentVersion= */ frontierNodeVersion,
             baseClientId,
             mockEventHandler,
-            mockEventListener);
+            mockEventListener,
+            directExecutor());
 
     assertThat(
             invalidator.lookupKeysToInvalidate(

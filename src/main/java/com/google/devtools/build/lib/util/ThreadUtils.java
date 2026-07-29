@@ -58,7 +58,7 @@ public class ThreadUtils {
   }
 
   @VisibleForTesting
-  static synchronized void warnAboutSlowInterrupt(
+  public static synchronized void warnAboutSlowInterrupt(
       @Nullable String slowInterruptMessageSuffix, BugReporter bugReporter) {
     logger.atWarning().log("Interrupt took too long. Dumping thread state.");
     AtomicReference<StackTraceAndState> firstTrace = new AtomicReference<>();

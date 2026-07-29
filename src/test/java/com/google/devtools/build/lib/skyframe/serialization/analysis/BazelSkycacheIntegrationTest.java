@@ -35,6 +35,8 @@ import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.versioning.LongVersionGetter;
 import java.io.IOException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -106,6 +108,11 @@ public final class BazelSkycacheIntegrationTest extends SkycacheIntegrationTestB
     @Override
     public ListenableFuture<FingerprintValueStore> getFingerprintValueStore() {
       return fingerprintValueStore;
+    }
+
+    @Override
+    public ExecutorService getCommandExecutor() {
+      return ForkJoinPool.commonPool();
     }
 
     @Override

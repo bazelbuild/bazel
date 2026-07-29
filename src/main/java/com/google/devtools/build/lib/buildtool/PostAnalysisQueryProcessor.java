@@ -241,7 +241,10 @@ public abstract class PostAnalysisQueryProcessor<T> implements BuildTool.Analysi
     try {
       callback.start();
       callback.process(aggregateResultsCallback.getResult());
-      callback.close(/* failFast= */ !result.getSuccess());
+      // Under --keep_going, query evaluation completed and partial results were replayed above.
+      // Therefore, close() should not fail fast, allowing output formatters to flush
+      // streams and write closing proto/JSON structures.
+      callback.close(/* failFast= */ !result.getSuccess() && !request.getKeepGoing());
     } catch (IoExceptionInterruptedException e) {
       throw (IOException) e.getCause();
     }

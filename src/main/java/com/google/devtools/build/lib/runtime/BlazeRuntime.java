@@ -479,6 +479,13 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
                 .getCollectPressureStallIndicators(),
             /* collectSkyframeCounts= */ commandOptions.getCollectSkyframeCounts());
 
+        // Instead of logEvent() we're calling the low level function to pass the timings we took in
+        // the launcher. We're setting the INIT phase marker so that it follows immediately the
+        // LAUNCH phase.
+        long startupTimeNanos = commandOptions.getStartupTime() * 1000000L;
+        long waitTimeNanos = waitTimeInMs * 1000000L;
+        long clientStartTimeNanos = execStartTimeNanos - startupTimeNanos - waitTimeNanos;
+
         // TODO(b/457644247): Encapsulate the start params into a config object.
         Profiler.instance()
             .start(
@@ -489,20 +496,13 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
                 env.getCommandId(),
                 recordFullProfilerData,
                 clock,
-                execStartTimeNanos,
+                clientStartTimeNanos,
                 /* slimProfile= */ commandOptions.getSlimProfile().isEnabled(),
                 /* slimProfileSizeLimit= */ commandOptions.getSlimProfile().getSizeLimit(),
                 /* includePrimaryOutput= */ commandOptions.getIncludePrimaryOutput(),
                 /* includeTargetLabel= */ commandOptions.getProfileIncludeTargetLabel(),
                 /* includeConfiguration= */ commandOptions.getProfileIncludeTargetConfiguration(),
                 /* collectTaskHistograms= */ commandOptions.getAlwaysProfileSlowOperations());
-
-        // Instead of logEvent() we're calling the low level function to pass the timings we took in
-        // the launcher. We're setting the INIT phase marker so that it follows immediately the
-        // LAUNCH phase.
-        long startupTimeNanos = commandOptions.getStartupTime() * 1000000L;
-        long waitTimeNanos = waitTimeInMs * 1000000L;
-        long clientStartTimeNanos = execStartTimeNanos - startupTimeNanos - waitTimeNanos;
         Profiler.instance()
             .logSimpleTaskDuration(
                 clientStartTimeNanos,
