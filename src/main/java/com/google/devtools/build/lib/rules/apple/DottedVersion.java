@@ -114,6 +114,11 @@ public final class DottedVersion implements DottedVersionApi<DottedVersion> {
     }
 
     @Override
+    public boolean isAcyclic() {
+      return true;
+    }
+
+    @Override
     public void repr(Printer printer, StarlarkSemantics semantics) {
       printer.append(version.toString());
     }
