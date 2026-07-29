@@ -2033,6 +2033,7 @@ java_library(
 java_library(
     name = "test/test_configuration",
     srcs = [
+        "test/FlagConstants.java",
         "test/TestConfiguration.java",
         "test/TestResourcesConverter.java",
     ],

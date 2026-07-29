@@ -18,7 +18,6 @@ import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.ForkJoinPool.commonPool;
 
 import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableList;
@@ -71,6 +70,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
 import java.util.function.Predicate;
 import javax.annotation.Nullable;
 
@@ -175,8 +175,6 @@ public final class RemoteAnalysisCacheFactory {
 
     // Create various objects we need
 
-    ListenableFuture<ObjectCodecs> objectCodecs = createObjectCodecs(env, topLevelOptions);
-
     RemoteAnalysisCachingServicesSupplier servicesSupplier =
         env.getBlazeWorkspace().remoteAnalysisCachingServicesSupplier();
     try {
@@ -185,6 +183,11 @@ public final class RemoteAnalysisCacheFactory {
     } catch (SerializedAbruptExitException e) {
       throw AbruptExitException.fromSerialized(e);
     }
+
+    ExecutorService commandExecutor = servicesSupplier.getCommandExecutor();
+
+    ListenableFuture<ObjectCodecs> objectCodecs =
+        createObjectCodecs(env, topLevelOptions, commandExecutor);
 
     // Set up parameters for the metadata store, if needed
 
@@ -222,7 +225,8 @@ public final class RemoteAnalysisCacheFactory {
             env.getBlazeWorkspace().getFingerprinterForAnalysisCaching(),
             env.getSkyframeExecutor().getEvaluator().getInMemoryGraph(),
             env.getEventBus(),
-            env.getVersionGetter());
+            env.getVersionGetter(),
+            commandExecutor);
 
     ListenableFuture<AnalysisCacheInvalidator> analysisCacheInvalidator =
         createAnalysisCacheInvalidator(
@@ -232,7 +236,8 @@ public final class RemoteAnalysisCacheFactory {
             objectCodecs,
             deps.getFingerprintValueServiceFuture(),
             servicesSupplier.getAnalysisCacheClient(),
-            env.getRemoteAnalysisCachingEventListener());
+            env.getRemoteAnalysisCachingEventListener(),
+            commandExecutor);
 
     var manager =
         new RemoteAnalysisCacheManager(
@@ -336,7 +341,7 @@ public final class RemoteAnalysisCacheFactory {
   }
 
   private static ListenableFuture<ObjectCodecs> createObjectCodecs(
-      CommandEnvironment env, BuildOptions topLevelOptions) {
+      CommandEnvironment env, BuildOptions topLevelOptions, ExecutorService commandExecutor) {
     return Futures.submit(
         () ->
             initAnalysisObjectCodecs(
@@ -346,7 +351,7 @@ public final class RemoteAnalysisCacheFactory {
                 env.getBlazeWorkspace().getSkyframeExecutor(),
                 env.getDirectories(),
                 topLevelOptions),
-        commonPool());
+        commandExecutor);
   }
 
   private static BuildOptions trimConfigurations(BuildOptions options) {
@@ -367,7 +372,8 @@ public final class RemoteAnalysisCacheFactory {
       ListenableFuture<? extends ObjectCodecs> objectCodecs,
       ListenableFuture<? extends FingerprintValueService> fingerprintValueService,
       ListenableFuture<? extends RemoteAnalysisCacheClient> analysisCacheClient,
-      RemoteAnalysisCachingEventListener eventListener) {
+      RemoteAnalysisCachingEventListener eventListener,
+      ExecutorService commandExecutor) {
     if (analysisCacheClient == null || fingerprintValueService == null) {
       return immediateFuture(null);
     }
@@ -381,8 +387,9 @@ public final class RemoteAnalysisCacheFactory {
                     frontierNodeVersion,
                     clientId,
                     eventHandler,
-                    eventListener),
-            commonPool());
+                    eventListener,
+                    commandExecutor),
+            commandExecutor);
   }
 
   private static HashCode computeBlazeInstallMD5(
