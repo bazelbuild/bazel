@@ -92,7 +92,7 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
   private final int externalDirectorySegmentCount;
   private final FileSystem nativeFs;
   private final RemoteExternalFileSystem externalFs;
-  private final TaskDeduplicator<String, Void> materializations = new TaskDeduplicator<>();
+  private final TaskDeduplicator<String, Void, Void> materializations = new TaskDeduplicator<>();
   // The names of the repos whose contents have been fully materialized to nativeFs.
   private final Set<String> materializedRepos = ConcurrentHashMap.newKeySet();
   // As long as a repo name appears as a key in this map, the repo contents are available in
@@ -395,8 +395,10 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
     }
     var unused =
         getFromFuture(
-            materializations.executeIfNew(
+            materializations.execute(
                 repo.getName(),
+                /* attributes= */ null,
+                /* canJoin= */ unusedAttributes -> true,
                 () ->
                     materializationExecutor.submit(
                         () -> {
