@@ -179,8 +179,8 @@ public final class MerkleTreeComputer {
   private final String workspaceName;
   private final Digest emptyDigest;
   private final MerkleTree.Uploadable emptyTree;
-  private final TaskDeduplicator<InFlightCacheKey, MerkleTree.RootOnly> inFlightComputations =
-      new TaskDeduplicator<>();
+  private final TaskDeduplicator<InFlightCacheKey, BlobPolicy, MerkleTree.RootOnly>
+      inFlightComputations = new TaskDeduplicator<>();
 
   public MerkleTreeComputer(
       DigestUtil digestUtil,
@@ -200,7 +200,14 @@ public final class MerkleTreeComputer {
             new MerkleTree.RootOnly.BlobsUploaded(emptyDigest, 0, 0), ImmutableSortedMap.of());
   }
 
-  /** Specifies which blobs should be retained in the Merkle tree. */
+  /**
+   * Specifies which blobs should be retained in the Merkle tree.
+   *
+   * <p>The constants are ordered from the weakest to the strongest policy: the result of a
+   * computation performed with a given policy also satisfies every preceding one. Deduplication of
+   * ongoing sub-Merkle tree computations relies on this order to decide whether an ongoing
+   * computation can be joined.
+   */
   public enum BlobPolicy {
     /**
      * No blobs are retained and the returned MerkleTree is a {@link MerkleTree.RootOnly}.
@@ -935,11 +942,14 @@ public final class MerkleTreeComputer {
             return immediateFuture(cachedRoot);
           }
           // An ongoing computation with blobs can be reused for one that doesn't require them.
+          // Uploading computations live under a different key, so this can't be expressed through
+          // the canJoin predicate below and has to be a separate lookup.
           if (blobPolicy == BlobPolicy.DISCARD) {
             var inFlightComputation =
                 inFlightComputations.maybeJoinExecution(
                     new InFlightCacheKey(
-                        metadata, isTool, /* uploadBlobs= */ true, unmappedExecPath));
+                        metadata, isTool, /* uploadBlobs= */ true, unmappedExecPath),
+                    /* canJoin= */ ongoingPolicy -> canJoin(ongoingPolicy, blobPolicy));
             if (inFlightComputation != null) {
               return inFlightComputation;
             }
@@ -1000,11 +1010,23 @@ public final class MerkleTreeComputer {
         };
     Supplier<ListenableFuture<MerkleTree.RootOnly>> buildMerkleTreeTaskSupplier =
         () -> Futures.submitAsync(buildMerkleTreeTask, MERKLE_TREE_BUILD_POOL);
-    if (blobPolicy == BlobPolicy.KEEP_AND_REUPLOAD) {
-      return inFlightComputations.executeUnconditionally(key, buildMerkleTreeTaskSupplier);
-    } else {
-      return inFlightComputations.executeIfNew(key, buildMerkleTreeTaskSupplier);
-    }
+    return inFlightComputations.execute(
+        key,
+        blobPolicy,
+        /* canJoin= */ ongoingPolicy -> canJoin(ongoingPolicy, blobPolicy),
+        buildMerkleTreeTaskSupplier);
+  }
+
+  /**
+   * Whether an ongoing computation performed with {@code ongoingPolicy} produces a result that also
+   * satisfies {@code requiredPolicy}.
+   *
+   * <p>In particular, a {@link BlobPolicy#KEEP_AND_REUPLOAD} computation never joins a {@link
+   * BlobPolicy#KEEP} one, which wouldn't reupload the blobs that the remote cache lost.
+   */
+  private static boolean canJoin(BlobPolicy ongoingPolicy, BlobPolicy requiredPolicy) {
+    // BlobPolicy constants are ordered from the weakest to the strongest policy.
+    return ongoingPolicy.compareTo(requiredPolicy) >= 0;
   }
 
   private static <T> T getFromFuture(Future<T> future) throws IOException, InterruptedException {
