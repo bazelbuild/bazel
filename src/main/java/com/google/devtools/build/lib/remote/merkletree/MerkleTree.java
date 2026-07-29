@@ -153,7 +153,6 @@ public sealed interface MerkleTree {
       return Collections2.transform(blobs.keySet(), MerkleTree.Uploadable::adaptToDigest);
     }
 
-    @VisibleForTesting
     public Map<Digest, Object> blobs() {
       return blobs.entrySet().stream()
           .collect(toImmutableMap(e -> adaptToDigest(e.getKey()), Map.Entry::getValue));
@@ -163,6 +162,7 @@ public sealed interface MerkleTree {
     public RootOnly root() {
       return root;
     }
+
 
     /**
      * Returns a future that tracks the upload of the blob with the given digest, or {@link

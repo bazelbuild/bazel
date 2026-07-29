@@ -333,6 +333,24 @@ cc_proto_library(
     deps = [":bazel_output_service_rev2_proto"],
 )
 
+proto_library(
+    name = "sandbox_proto",
+    srcs = ["sandbox.proto"],
+    deps = [
+        "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_proto",
+    ],
+)
+
+java_proto_library(
+    name = "sandbox_java_proto",
+    deps = [":sandbox_proto"],
+)
+
+java_library_srcs(
+    name = "sandbox_java_proto_srcs",
+    deps = [":sandbox_java_proto"],
+)
+
 java_grpc_library(
     name = "bazel_output_service_java_grpc",
     srcs = [":bazel_output_service_proto"],
@@ -443,6 +461,7 @@ filegroup(
         ":profile_java_proto_srcs",
         ":remote_execution_log_java_proto_srcs",
         ":remote_scrubbing_java_proto_srcs",
+        ":sandbox_java_proto_srcs",
         ":spawn_java_proto_srcs",
         ":stardoc_output_java_proto_srcs",
         ":xcode_java_proto_srcs",

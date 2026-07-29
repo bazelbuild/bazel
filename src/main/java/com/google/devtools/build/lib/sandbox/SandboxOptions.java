@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Converter;
+import com.google.devtools.common.options.Converters.AssignmentConverter;
 import com.google.devtools.common.options.Converters.BooleanConverter;
 import com.google.devtools.common.options.Converters.RegexPatternConverter;
 import com.google.devtools.common.options.Converters.TriStateConverter;
@@ -213,6 +214,40 @@ public abstract class SandboxOptions extends OptionsBase {
           "Path to the Windows sandbox binary to use when --experimental_use_windows_sandbox is"
               + " true. If a bare name, use the first binary of that name found in the PATH.")
   public abstract String getWindowsSandboxPath();
+
+  @Option(
+      name = "sandbox_backend",
+      allowMultiple = true,
+      converter = AssignmentConverter.class,
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help =
+          "Registers a sandbox backend: a sandbox strategy implemented by an external binary that"
+              + " speaks Bazel's sandbox protocol. Value is <name>=<binary>, where <name> is the"
+              + " strategy name to select with --strategy and <binary> is an absolute path or a"
+              + " bare name resolved against PATH. May be repeated to register several backends."
+              + " The binary is launched lazily as '<binary> serve'; any --sandbox_backend_opt"
+              + " values are relayed out of band via the Negotiate handshake, not as process"
+              + " arguments. A backend reports available iff its binary exists and is executable;"
+              + " otherwise it declines per-spawn so Bazel falls through to the next strategy in"
+              + " --spawn_strategy.")
+  public abstract List<Map.Entry<String, String>> getSandboxBackends();
+
+  @Option(
+      name = "sandbox_backend_opt",
+      allowMultiple = true,
+      converter = AssignmentConverter.class,
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help =
+          "Passes one configuration option to a sandbox backend. Value is <name>=<opt>, matching a"
+              + " backend registered with --sandbox_backend. Repeat to pass several; each occurrence"
+              + " contributes exactly one token (no quoting or splitting). Options are opaque to"
+              + " Bazel and forwarded verbatim to the backend via the Negotiate handshake, not as"
+              + " process arguments.")
+  public abstract List<Map.Entry<String, String>> getSandboxBackendOpts();
 
   public ImmutableSet<Path> getInaccessiblePaths(FileSystem fs) {
     List<Path> inaccessiblePaths = new ArrayList<>();
