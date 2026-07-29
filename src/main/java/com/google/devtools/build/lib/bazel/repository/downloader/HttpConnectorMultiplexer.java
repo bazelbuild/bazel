@@ -34,7 +34,6 @@ import java.net.URI;
 import java.net.URLConnection;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 
 /**
@@ -147,7 +146,7 @@ final class HttpConnectorMultiplexer {
       ImmutableMap.Builder<String, List<String>> headers = new ImmutableMap.Builder<>();
       boolean sameOrigin =
           Ascii.equalsIgnoreCase(originalUrl.getScheme(), url.getScheme())
-              && Objects.equals(originalUrl.getHost(), url.getHost())
+              && Ascii.equalsIgnoreCase(originalUrl.getHost(), url.getHost())
               && getEffectivePort(originalUrl) == getEffectivePort(url);
       if (sameOrigin) {
         headers.putAll(baseHeaders);
@@ -156,7 +155,8 @@ final class HttpConnectorMultiplexer {
           String key = entry.getKey();
           if (!Ascii.equalsIgnoreCase(key, "Authorization")
               && !Ascii.equalsIgnoreCase(key, "Proxy-Authorization")
-              && !Ascii.equalsIgnoreCase(key, "Cookie")) {
+              && !Ascii.equalsIgnoreCase(key, "Cookie")
+              && !Ascii.equalsIgnoreCase(key, "Cookie2")) {
             headers.put(entry);
           }
         }

@@ -1081,8 +1081,11 @@ public class BuildTool {
           dependenciesProvider.getFingerprintValueService(),
           dependenciesProvider.getAnalysisCacheClient());
     }
+    if (dependenciesProvider.mode().isUploadEnabled()) {
+      reportRemoteAnalysisUploadStats();
+    }
     if (dependenciesProvider.mode().isRetrievalEnabled()) {
-      reportRemoteAnalysisCachingStats();
+      reportRemoteAnalysisRetrievalStats();
       env.getSkyframeExecutor()
           .syncRemoteAnalysisCachingState(
               env.getRemoteAnalysisCachingEventListener().getSkyValueVersion(),
@@ -1325,7 +1328,22 @@ public class BuildTool {
     }
   }
 
-  private void reportRemoteAnalysisCachingStats() {
+  private void reportRemoteAnalysisUploadStats() {
+    FingerprintValueStore.Stats stats =
+        env.getRemoteAnalysisCachingEventListener().getFingerprintValueStoreStats();
+
+    env.getReporter()
+        .handle(
+            Event.info(
+                String.format(
+                    "Skycache write: uploaded %s/%s key/value bytes and %s entries (%s batches)",
+                    stats.keyBytesSent(),
+                    stats.valueBytesSent(),
+                    stats.entriesWritten(),
+                    stats.setBatches())));
+  }
+
+  private void reportRemoteAnalysisRetrievalStats() {
     var listener = env.getRemoteAnalysisCachingEventListener();
     var hitsByFunction = listener.getHitsBySkyFunctionName();
     var missesByFunction = listener.getMissesBySkyFunctionName();
@@ -1374,7 +1392,7 @@ public class BuildTool {
         .handle(
             Event.info(
                 String.format(
-                    "Skycache stats: %s received in %s requests, %s/%s cache"
+                    "Skycache read: %s received in %s requests, %s/%s cache"
                         + " hits (%.2f%%) [Breakdown: %s]",
                     formatBytes(bytesReceived),
                     requests,
