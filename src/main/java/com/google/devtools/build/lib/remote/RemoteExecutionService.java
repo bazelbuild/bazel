@@ -1449,15 +1449,9 @@ public class RemoteExecutionService {
         var unused = updateKnownMissingCasDigests(knownMissingCasDigests, metadata);
       }
 
-      // When downloading outputs from just remotely executed action, the action result comes from
-      // Execution response which means, if disk cache is enabled, action result hasn't been
-      // uploaded to it. Upload action result to disk cache here so next build could hit it.
-      if (useDiskCache() && result.executeResponse != null) {
-        getFromFuture(
-            combinedCache.uploadActionResult(
-                context.withWriteCachePolicy(CachePolicy.DISK_CACHE_ONLY),
-                action.getActionKey(),
-                result.actionResult));
+      if (shouldUploadActionResultToDiskCache(result)
+          && !action.getSpawn().getResourceOwner().shouldDeferSpawnCacheStore()) {
+        uploadActionResultToDiskCache(action, result);
       }
     }
 
@@ -1466,6 +1460,27 @@ public class RemoteExecutionService {
     }
 
     return null;
+  }
+
+  boolean shouldUploadActionResultToDiskCache(RemoteActionResult result) {
+    // When downloading outputs from a remotely executed action, the action result comes from the
+    // execution response, so the disk cache doesn't have the action result yet. Callers may still
+    // delay the upload until the owning action validates the spawn result.
+    return useDiskCache() && result.executeResponse != null && result.success();
+  }
+
+  void uploadActionResultToDiskCache(RemoteAction action, RemoteActionResult result)
+      throws IOException, InterruptedException {
+    if (!shouldUploadActionResultToDiskCache(result)) {
+      return;
+    }
+    getFromFuture(
+        combinedCache.uploadActionResult(
+            action
+                .getRemoteActionExecutionContext()
+                .withWriteCachePolicy(CachePolicy.DISK_CACHE_ONLY),
+            action.getActionKey(),
+            result.actionResult));
   }
 
   /** An ongoing local execution of a spawn. */
