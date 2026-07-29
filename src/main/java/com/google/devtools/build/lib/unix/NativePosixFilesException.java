@@ -26,6 +26,7 @@ public final class NativePosixFilesException extends Exception {
     public static final PosixError EACCES = new PosixError("EACCES");
     public static final PosixError ELOOP = new PosixError("ELOOP");
     public static final PosixError ETIMEDOUT = new PosixError("ETIMEDOUT");
+    public static final PosixError EXDEV = new PosixError("EXDEV");
     public static final PosixError OTHER = new PosixError("OTHER");
 
     private final String name;

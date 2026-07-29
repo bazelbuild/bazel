@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ConditionallyThread
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.NullEventHandler;
+import com.google.devtools.build.lib.unix.NativePosixFilesException;
 import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import com.google.devtools.build.lib.util.MapCodec;
 import com.google.devtools.build.lib.util.MapCodec.IncompatibleFormatException;
@@ -482,12 +483,25 @@ public class CompactPersistentActionCache implements ActionCache {
       // This also ensures that the next initialization attempt will create an empty cache.
       // To avoid using too much disk space, only keep the most recent corrupted cache around.
       corruptedCacheRoot.deleteTree();
-      cacheRoot.renameTo(corruptedCacheRoot);
+      try {
+        cacheRoot.renameTo(corruptedCacheRoot);
+
+        logger.atWarning().withCause(e).log(
+            "Failed to load action cache, preexisting files kept in %s", corruptedCacheRoot);
+      } catch (IOException renameException) {
+        if (!(renameException.getCause() instanceof NativePosixFilesException posixException)
+            || posixException.getError() != NativePosixFilesException.PosixError.EXDEV) {
+          throw renameException;
+        }
+        cacheRoot.deleteTree();
+
+        logger.atWarning().withCause(e).log(
+            "Failed to load action cache; could not move it to %s (cross-device link),"
+                + " deleted it instead",
+            corruptedCacheRoot);
+      }
 
       e = new IOException("%s: %s".formatted(message, e.getMessage()), e);
-
-      logger.atWarning().withCause(e).log(
-          "Failed to load action cache, preexisting files kept in %s", corruptedCacheRoot);
 
       reporterForInitializationErrors.handle(
           Event.warn(

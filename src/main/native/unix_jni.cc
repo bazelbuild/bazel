@@ -117,6 +117,8 @@ static jobject GetPosixError(JNIEnv* env, int error_number) {
       getStaticObjectField(env, error_class, "ELOOP", field_sig);
   static const jobject error_etimedout =
       getStaticObjectField(env, error_class, "ETIMEDOUT", field_sig);
+  static const jobject error_exdev =
+      getStaticObjectField(env, error_class, "EXDEV", field_sig);
   static const jobject error_other =
       getStaticObjectField(env, error_class, "OTHER", field_sig);
 
@@ -129,6 +131,8 @@ static jobject GetPosixError(JNIEnv* env, int error_number) {
       return error_eacces;
     case ELOOP:  // Too many symbolic links encountered
       return error_eloop;
+    case EXDEV:  // Cross-device link
+      return error_exdev;
     case EBADF:         // Bad file number or descriptor already closed.
     case ENAMETOOLONG:  // File name too long
     case ENODATA:    // No data available
@@ -145,7 +149,6 @@ static jobject GetPosixError(JNIEnv* env, int error_number) {
     case EFBIG:      // File too large
     case EPIPE:      // Broken pipe
     case ENOSPC:     // No space left on device
-    case EXDEV:      // Cross-device link
     case EROFS:      // Read-only file system
     case EEXIST:     // File exists
     case EMLINK:     // Too many links
