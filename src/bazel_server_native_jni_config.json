@@ -8,6 +8,14 @@
     "allDeclaredConstructors": true
   },
   {
+    "name": "com.google.devtools.build.lib.unix.NativePosixFilesServiceImpl$StatImpl",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.google.devtools.build.lib.unix.NativePosixFilesServiceImpl$DirentImpl",
+    "allDeclaredConstructors": true
+  },
+  {
     "name": "com.google.devtools.build.lib.unix.NativePosixFilesService$Dirent$Type",
     "allDeclaredConstructors": true,
     "allDeclaredFields": true
