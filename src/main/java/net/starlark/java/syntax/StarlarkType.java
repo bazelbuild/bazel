@@ -190,8 +190,8 @@ public abstract non-sealed class StarlarkType implements TypeConstructor.Term {
    *     not a truthiness, equality, or ordering comparison operator (in other words, not {@link
    *     TokenKind#AND}, {@link TokenKind#OR}, {@link TokenKind#EQUALS}, {@link
    *     TokenKind#NOT_EQUALS}, {@link TokenKind#LESS}, {@link TokenKind#LESS_EQUALS}, {@link
-   *     TokenKind#GREATER}, or {@link TokenKind#GREATER_EQUALS}); those are handled specially by
-   *     {@link TypeChecker#infer}.
+   *     TokenKind#GREATER}, or {@link TokenKind#GREATER_EQUALS}), and not tuple multiplication;
+   *     those are handled specially by {@link TypeChecker#inferBinaryOperator}.
    * @param that a non-union, non-Never type of the other operand
    * @param thisLeft true iff this type is the type of the LHS operand.
    * @return the inferred type of the operation, or {@code null} to indicate that we could not infer
@@ -200,8 +200,28 @@ public abstract non-sealed class StarlarkType implements TypeConstructor.Term {
    *     operators on certain built-in types (e.g. tuple multiplication).
    */
   @Nullable
-  StarlarkType inferBinaryOperator(TokenKind operator, StarlarkType that, boolean thisLeft) {
+  public StarlarkType inferBinaryOperator(TokenKind operator, StarlarkType that, boolean thisLeft) {
     return null;
+  }
+
+  /**
+   * Infers the return type of some binary operations. Intended for use by {@link TypeChecker}.
+   *
+   * @param operator a binary operator (one of {@link BinaryOperatorExpression#operators}) which is
+   *     not a truthiness, equality, or ordering comparison operator (in other words, not {@link
+   *     TokenKind#AND}, {@link TokenKind#OR}, {@link TokenKind#EQUALS}, {@link
+   *     TokenKind#NOT_EQUALS}, {@link TokenKind#LESS}, {@link TokenKind#LESS_EQUALS}, {@link
+   *     TokenKind#GREATER}, or {@link TokenKind#GREATER_EQUALS}), and not tuple multiplication;
+   *     those are handled specially by {@link TypeChecker#inferBinaryOperator}.
+   */
+  @Nullable
+  public static StarlarkType inferBinaryOperator(
+      StarlarkType lhs, TokenKind operator, StarlarkType rhs) {
+    StarlarkType result = lhs.inferBinaryOperator(operator, rhs, true);
+    if (result == null) {
+      result = rhs.inferBinaryOperator(operator, lhs, false);
+    }
+    return result;
   }
 
   /**

@@ -40,6 +40,7 @@ import com.google.protobuf.ByteString;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import org.junit.After;
 import org.junit.Test;
@@ -238,5 +239,55 @@ public final class WorkerTest {
         WorkResponse.newBuilder().setExitCode(1).setOutput("test output").setRequestId(1).build();
 
     assertThat(readResponse).isEqualTo(response);
+  }
+
+  @Test
+  public void testGetResponse_deadProcessWithAvailableBytes_success()
+      throws IOException, InterruptedException, UserExecException {
+    byte[] responseBytes = "{}\n".getBytes(UTF_8);
+    InputStream delayedStream =
+        new InputStream() {
+          private boolean firstAvailableCheck = true;
+          private final InputStream delegate = new ByteArrayInputStream(responseBytes);
+
+          @Override
+          public int available() throws IOException {
+            if (firstAvailableCheck) {
+              firstAvailableCheck = false;
+              return 0;
+            }
+            return delegate.available();
+          }
+
+          @Override
+          public int read() throws IOException {
+            return delegate.read();
+          }
+
+          @Override
+          public int read(byte[] b, int off, int len) throws IOException {
+            return delegate.read(b, off, len);
+          }
+        };
+
+    FakeSubprocess fakeSubprocess =
+        new FakeSubprocess(delayedStream) {
+          @Override
+          public boolean isAlive() {
+            return false;
+          }
+        };
+
+    WorkerKey key = WorkerTestUtils.createWorkerKey(JSON, fs);
+    Path workerBaseDir = fs.getPath("/outputbase/bazel-workers");
+    Path logFile = workerBaseDir.getRelative("test-log-file.log");
+    TestWorker testWorker =
+        new TestWorker(key, 1, key.getExecRoot(), logFile, fakeSubprocess, options);
+    testWorker.prepareExecution(
+        null, null, key.getWorkerFilesWithDigests().keySet(), ImmutableMap.of());
+    workerForCleanup = testWorker;
+
+    WorkResponse readResponse = testWorker.getResponse(0);
+    assertThat(readResponse).isEqualTo(WorkResponse.getDefaultInstance());
   }
 }

@@ -334,7 +334,7 @@ public final class Starlark {
   }
 
   /** Returns the type of the given Starlark value. */
-  static StarlarkType getStarlarkType(Object value, StarlarkSemantics semantics) {
+  public static StarlarkType getStarlarkType(Object value, StarlarkSemantics semantics) {
     return switch (value) {
       case String s -> Types.STR;
       case StarlarkValue x -> {

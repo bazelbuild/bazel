@@ -417,7 +417,7 @@ EOF
   done
 
   # This time, the worker is dead before the build starts, so a new one is made.
-  bazel build --worker_verbose :hello_world_2 &>> "$TEST_log" \
+  bazel build --worker_verbose :hello_world_2 >> "$TEST_log" 2>&1 \
     || fail "build failed"
 
   expect_log "Work worker (id [0-9]\+) has unexpectedly died with exit code 0."

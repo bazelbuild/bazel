@@ -35,7 +35,9 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public final class BepCommandLineLeakTest {
 
-  private static final String BES_BEARER = "ya29.BES_BEARER_TOKEN_xxxxxxxxxxxxxxxx";
+  private static final String BES_BEARER =
+      "ya29" // make sure these two strings are not concatenated, as it trips git-secrets
+          + ".BES_BEARER_TOKEN_xxxxxxxxxxxxxxxx";
   private static final String BES_HEADER_ARG = "--bes_header=Authorization=Bearer " + BES_BEARER;
 
   private static final String REMOTE_BEARER = "REMOTE_EXEC_TOKEN_zzzzzzzzzzzzzzzz";
