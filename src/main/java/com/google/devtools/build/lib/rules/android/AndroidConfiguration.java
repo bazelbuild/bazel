@@ -167,18 +167,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     public abstract ConfigurationDistinguisher getConfigurationDistinguisher();
 
     @Option(
-        name = "android_compiler",
-        defaultValue = "null",
-        documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-        effectTags = {
-          OptionEffectTag.AFFECTS_OUTPUTS,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
-          OptionEffectTag.LOSES_INCREMENTAL_STATE,
-        },
-        help = "The Android target compiler.")
-    public abstract String getCppCompiler();
-
-    @Option(
         name = "android_platforms",
         converter = LabelOrderedSetConverter.class,
         documentationCategory = OptionDocumentationCategory.TOOLCHAIN,

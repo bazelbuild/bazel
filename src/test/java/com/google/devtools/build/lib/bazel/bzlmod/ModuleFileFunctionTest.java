@@ -34,7 +34,9 @@ import com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.InterimModuleBu
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFileValue;
 import com.google.devtools.build.lib.bazel.repository.RepoDefinitionFunction;
 import com.google.devtools.build.lib.bazel.repository.RepoDefinitionValue;
+import com.google.devtools.build.lib.bazel.repository.RepoMetadataRequirements;
 import com.google.devtools.build.lib.bazel.repository.RepositoryFetchFunction;
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
 import com.google.devtools.build.lib.bazel.repository.cache.LocalRepoContentsCache;
 import com.google.devtools.build.lib.clock.BlazeClock;
@@ -181,6 +183,8 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     RepositoryDirectoryValue.FORCE_FETCH.set(
         differencer, RepositoryDirectoryValue.FORCE_FETCH_DISABLED);
     RepositoryDirectoryValue.VENDOR_DIRECTORY.set(differencer, Optional.empty());
+    RepoMetadataRequirements.REQUIRE_REPO_EXTENSION_METADATA.set(
+        differencer, RepositoryOptions.RequireRepoExtensionMetadataMode.FALSE);
 
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, packageLocator.get());
     ModuleFileFunction.IGNORE_DEV_DEPS.set(differencer, false);

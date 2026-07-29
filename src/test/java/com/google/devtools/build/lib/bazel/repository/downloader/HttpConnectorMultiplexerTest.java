@@ -232,20 +232,23 @@ public class HttpConnectorMultiplexerTest {
             "Authorization", ImmutableList.of("Bearer token"),
             "Proxy-Authorization", ImmutableList.of("Basic proxy"),
             "Cookie", ImmutableList.of("session=123"),
+            "Cookie2", ImmutableList.of("$Version=1"),
             "User-Agent", ImmutableList.of("Bazel/testing"));
 
-    URI originalUrl = URI.create("http://example.com/file.txt");
+    URI originalUrl = URI.create("http://EXAMPLE.COM/file.txt");
 
     Function<URI, ImmutableMap<String, List<String>>> headerFunction =
         HttpConnectorMultiplexer.getHeaderFunction(
             originalUrl, baseHeaders, StaticCredentials.EMPTY, eventHandler);
 
-    // Same origin (including default port 80 normalization)
+    // Same origin (case-insensitive host matching e.g. EXAMPLE.COM vs example.com and default port
+    // 80 normalization)
     assertThat(headerFunction.apply(URI.create("http://example.com:80/other.txt")))
         .containsExactly(
             "Authorization", ImmutableList.of("Bearer token"),
             "Proxy-Authorization", ImmutableList.of("Basic proxy"),
             "Cookie", ImmutableList.of("session=123"),
+            "Cookie2", ImmutableList.of("$Version=1"),
             "User-Agent", ImmutableList.of("Bazel/testing"));
 
     // Cross origin (host change)

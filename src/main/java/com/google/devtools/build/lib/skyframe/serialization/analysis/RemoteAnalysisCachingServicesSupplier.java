@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStor
 import com.google.devtools.build.lib.skyframe.serialization.SkycacheMetadataParams;
 import com.google.devtools.build.lib.util.SerializedAbruptExitException;
 import com.google.devtools.common.options.OptionsProvider;
+import java.util.concurrent.ExecutorService;
 import javax.annotation.Nullable;
 
 /**
@@ -85,6 +86,9 @@ public interface RemoteAnalysisCachingServicesSupplier extends BlazeService {
   default ListenableFuture<? extends RemoteAnalysisMetadataWriter> getMetadataWriter() {
     return null;
   }
+
+  @Nullable
+  ExecutorService getCommandExecutor();
 
   /**
    * Gets the parameters for querying and updating Skycache metadata.
