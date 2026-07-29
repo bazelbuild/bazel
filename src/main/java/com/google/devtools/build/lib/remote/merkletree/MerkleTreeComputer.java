@@ -97,6 +97,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
@@ -179,8 +180,9 @@ public final class MerkleTreeComputer {
   private final String workspaceName;
   private final Digest emptyDigest;
   private final MerkleTree.Uploadable emptyTree;
-  private final TaskDeduplicator<InFlightCacheKey, BlobPolicy, MerkleTree.RootOnly>
+  private final TaskDeduplicator<InFlightCacheKey, InFlightAttributes, MerkleTree.RootOnly>
       inFlightComputations = new TaskDeduplicator<>();
+  private final AtomicLong inFlightComputationSequence = new AtomicLong();
 
   public MerkleTreeComputer(
       DigestUtil digestUtil,
@@ -253,6 +255,36 @@ public final class MerkleTreeComputer {
       boolean isTool,
       boolean uploadBlobs,
       @Nullable PathFragment unmappedExecPath) {}
+
+  /**
+   * Describes what an ongoing sub-Merkle tree computation produces, which determines whether other
+   * computations can join it.
+   *
+   * @param blobPolicy the policy the computation was started with
+   * @param sequenceNumber a number assigned before the computation is registered, so that a
+   *     computation started before a given call to {@link #computeIfAbsent} has a lower number than
+   *     the one that call assigns to itself
+   */
+  private record InFlightAttributes(BlobPolicy blobPolicy, long sequenceNumber) {}
+
+  /**
+   * Whether an ongoing computation with the attributes {@code ongoing} produces a result that also
+   * satisfies a call with the attributes {@code requested}.
+   */
+  private static boolean canJoin(InFlightAttributes ongoing, InFlightAttributes requested) {
+    // BlobPolicy constants are ordered from the weakest to the strongest policy, so an ongoing
+    // computation is reusable if its policy retains at least as much as the requested one. In
+    // particular, a KEEP_AND_REUPLOAD computation never joins a KEEP one, which wouldn't reupload
+    // the blobs that the remote cache lost.
+    if (ongoing.blobPolicy().compareTo(requested.blobPolicy()) < 0) {
+      return false;
+    }
+    // A KEEP_AND_REUPLOAD computation additionally has to reupload the blobs after the request
+    // discovered that they are missing. An ongoing computation that started earlier may already
+    // have uploaded them before they were lost, so only a later one will do.
+    return requested.blobPolicy() != BlobPolicy.KEEP_AND_REUPLOAD
+        || ongoing.sequenceNumber() > requested.sequenceNumber();
+  }
 
   /**
    * Builds a Merkle tree for the inputs of a {@link Spawn}.
@@ -999,14 +1031,14 @@ public final class MerkleTreeComputer {
         };
     Supplier<ListenableFuture<MerkleTree.RootOnly>> buildMerkleTreeTaskSupplier =
         () -> Futures.submitAsync(buildMerkleTreeTask, MERKLE_TREE_BUILD_POOL);
+    // The sequence number is claimed before the computation is registered, so every computation
+    // that is already ongoing at this point has a lower one.
+    var attributes =
+        new InFlightAttributes(blobPolicy, inFlightComputationSequence.getAndIncrement());
     return inFlightComputations.execute(
         key,
-        blobPolicy,
-        // BlobPolicy constants are ordered from the weakest to the strongest policy, so an ongoing
-        // computation is reusable if its policy retains at least as much as this one requires. In
-        // particular, a KEEP_AND_REUPLOAD computation never joins a KEEP one, which wouldn't
-        // reupload the blobs that the remote cache lost.
-        /* canJoin= */ ongoingPolicy -> ongoingPolicy.compareTo(blobPolicy) >= 0,
+        attributes,
+        /* canJoin= */ ongoing -> canJoin(ongoing, attributes),
         buildMerkleTreeTaskSupplier);
   }
 
