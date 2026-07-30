@@ -625,15 +625,8 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
             positional = false,
             doc =
                 """
-                Information for scheduling execution of command resolution. See
+                Information to correctly resolve the command for the target action. See
                 <a href="${link common-definitions#common.tags}">tags</a> for useful keys.
-
-                <p><code>execution_requirements</code> is not to be confused with the
-                <a href="${link common-definitions#common.exec_properties}"><code>exec_properties</code></a>
-                rule attribute. Values will not be merged into the platform's execution properties,
-                meaning they will only influnce spawn behavior. They will not be visible to remote
-                executors.
-                </p>
                 """),
       },
       useStarlarkThread = true)

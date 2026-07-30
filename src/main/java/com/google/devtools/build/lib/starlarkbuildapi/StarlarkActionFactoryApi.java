@@ -121,7 +121,7 @@ for useful keys.
 <p><code>execution_requirements</code> is not to be confused with the
 <a href="${link common-definitions#common.exec_properties}"><code>exec_properties</code></a>
 rule attribute. Values will not be merged into the platform's execution properties, meaning they
-will only influnce spawn behavior. They will not be visible to remote executors.
+will only influence spawn behavior. They will not be visible to remote executors.
 </p>
 """;
 
