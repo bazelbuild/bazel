@@ -444,14 +444,15 @@ public class ExecutionTool {
             .mode()
             .isRetrievalEnabled()) {
           // When remote analysis value retrieval is enabled, it is possible for analysis to occur
-          // during the logical execution phase. Discarding the analysis cache can lead to crashes.
+          // during the logical execution phase. Discarding the analysis cache fully can lead to
+          // crashes.
           //
           // TODO: b/466388360 - consider alternatives
           getReporter()
               .handle(
                   Event.warn(
-                      "Remote analysis caching is enabled. Not discarding the analysis cache."));
-          shouldDiscardAnalysisCache = false;
+                      "Remote analysis caching is enabled. Performing only a partial analysis cache"
+                          + " discard."));
         }
       }
       if (shouldDiscardAnalysisCache) {
