@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.remote;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static com.google.common.util.concurrent.Futures.immediateCancelledFuture;
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 import static com.google.devtools.build.lib.remote.util.Utils.waitForBulkTransfer;
 import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
@@ -29,10 +28,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.util.concurrent.ListeningExecutorService;
+import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.concurrent.TaskDeduplicator;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
@@ -73,9 +75,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
 
@@ -92,8 +92,9 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
   private final int externalDirectorySegmentCount;
   private final FileSystem nativeFs;
   private final RemoteExternalFileSystem externalFs;
-  private final ConcurrentHashMap<String, Future<Void>> materializations =
-      new ConcurrentHashMap<>();
+  private final TaskDeduplicator<String, Void> materializations = new TaskDeduplicator<>();
+  // The names of the repos whose contents have been fully materialized to nativeFs.
+  private final Set<String> materializedRepos = ConcurrentHashMap.newKeySet();
   // As long as a repo name appears as a key in this map, the repo contents are available in
   // externalFs.
   private final ConcurrentHashMap<String, String> markerFileContents = new ConcurrentHashMap<>();
@@ -107,7 +108,7 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
   @Nullable private String commandId;
   @Nullable private MemoizingEvaluator evaluator;
   @Nullable private Duration remoteCacheTtl;
-  @Nullable private ExecutorService materializationExecutor;
+  @Nullable private ListeningExecutorService materializationExecutor;
 
   public RemoteExternalOverlayFileSystem(PathFragment externalDirectory, FileSystem nativeFs) {
     super(nativeFs.getDigestFunction());
@@ -142,8 +143,9 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
     this.evaluator = evaluator;
     this.remoteCacheTtl = remoteCacheTtl;
     this.materializationExecutor =
-        Executors.newThreadPerTaskExecutor(
-            Thread.ofVirtual().name("remote-repo-materialization-", 0).factory());
+        MoreExecutors.listeningDecorator(
+            Executors.newThreadPerTaskExecutor(
+                Thread.ofVirtual().name("remote-repo-materialization-", 0).factory()));
   }
 
   public void afterCommand() {
@@ -166,14 +168,8 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
     // be refetched to recover files that the remote cache has lost. This wouldn't be safe to do
     // eagerly as ongoing repo rule evaluations may still refer to the in-memory content and
     // refetching is not atomic.
-    materializations.forEach(
-        1,
-        (repoName, materializationState) ->
-            materializationState.state() == Future.State.SUCCESS
-                    || reposWithLostFiles.contains(repoName)
-                ? repoName
-                : null,
-        this::evictInMemoryRepo);
+    materializedRepos.forEach(this::evictInMemoryRepo);
+    reposWithLostFiles.forEach(this::evictInMemoryRepo);
     invalidateRepoDirectories(evaluator, reposWithLostFiles);
     reposWithLostFiles.clear();
     this.evaluator = null;
@@ -186,7 +182,7 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
     } catch (IOException e) {
       throw new IllegalStateException("In-memory file system is not expected to throw", e);
     }
-    materializations.remove(repoName);
+    materializedRepos.remove(repoName);
     markerFileContents.remove(repoName);
   }
 
@@ -210,6 +206,7 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
       throws IOException, InterruptedException {
     var repoDir = externalDirectory.getChild(repo.getName());
     deleteTree(repoDir);
+    materializedRepos.remove(repo.getName());
     var unused = delete(externalDirectory.getChild(repo.getMarkerFileName()));
     var childMap =
         remoteContents.getChildrenList().stream()
@@ -220,6 +217,7 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
     externalFs.createDirectoryAndParents(repoDir.getParentDirectory());
     injectRecursively(
         externalFs,
+        repoDir,
         repoDir,
         remoteContents.getRoot(),
         childMap,
@@ -275,8 +273,16 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
     }
   }
 
+  private static boolean isValidName(String name) {
+    return !name.isEmpty()
+        && !PathFragment.containsSeparator(name)
+        && !PathFragment.containsUplevelReferences(name)
+        && PathFragment.isNormalizedRelativePath(name);
+  }
+
   private static void injectRecursively(
       RemoteExternalFileSystem fs,
+      PathFragment repoDir,
       PathFragment path,
       Directory dir,
       ImmutableMap<Digest, Directory> childMap,
@@ -290,7 +296,14 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
         fs.createDirectory(
             path, dir.getFilesCount() + dir.getSymlinksCount() + dir.getDirectoriesCount());
     for (var file : dir.getFilesList()) {
-      var filePath = path.getRelative(unicodeToInternal(file.getName()));
+      String name = unicodeToInternal(file.getName());
+      if (!isValidName(name)) {
+        throw new IOException("invalid remote repo tree node name: " + name);
+      }
+      var filePath = path.getRelative(name);
+      if (!filePath.startsWith(repoDir)) {
+        throw new IOException("Path traversal detected: " + filePath + " is outside " + repoDir);
+      }
       if (shouldPrefetch(filePath)) {
         filesToPrefetch.accept(filePath);
       }
@@ -313,15 +326,40 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
       fs.setWritable(filePath, false);
     }
     for (var symlink : dir.getSymlinksList()) {
-      var symlinkPath = path.getRelative(unicodeToInternal(symlink.getName()));
-      if (shouldPrefetch(symlinkPath)) {
-        symlinksToPrefetch.accept(symlinkPath);
+      String name = unicodeToInternal(symlink.getName());
+      if (!isValidName(name)) {
+        throw new IOException("invalid remote repo tree node name: " + name);
       }
-      fs.createSymbolicLink(
-          symlinkPath, PathFragment.create(unicodeToInternal(symlink.getTarget())));
+      var linkPath = path.getRelative(name);
+      if (!linkPath.startsWith(repoDir)) {
+        throw new IOException("Path traversal detected: " + linkPath + " is outside " + repoDir);
+      }
+      if (shouldPrefetch(linkPath)) {
+        symlinksToPrefetch.accept(linkPath);
+      }
+      String target = unicodeToInternal(symlink.getTarget());
+      PathFragment targetFragment = PathFragment.create(target);
+      PathFragment resolvedTarget;
+      if (targetFragment.isAbsolute()) {
+        resolvedTarget = targetFragment;
+      } else {
+        resolvedTarget = linkPath.getParentDirectory().getRelative(targetFragment);
+      }
+      if (!resolvedTarget.startsWith(repoDir)) {
+        throw new IOException(
+            "Path traversal detected: symlink target " + resolvedTarget + " is outside " + repoDir);
+      }
+      fs.createSymbolicLink(linkPath, targetFragment);
     }
     for (var subdirNode : dir.getDirectoriesList()) {
-      var subdirPath = path.getRelative(unicodeToInternal(subdirNode.getName()));
+      String name = unicodeToInternal(subdirNode.getName());
+      if (!isValidName(name)) {
+        throw new IOException("invalid remote repo tree node name: " + name);
+      }
+      var subdirPath = path.getRelative(name);
+      if (!subdirPath.startsWith(repoDir)) {
+        throw new IOException("Path traversal detected: " + subdirPath + " is outside " + repoDir);
+      }
       var subdir = childMap.get(subdirNode.getDigest());
       if (subdir == null) {
         throw new IOException(
@@ -329,7 +367,14 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
                 .formatted(subdirPath, subdirNode.getDigest().getHash()));
       }
       injectRecursively(
-          fs, subdirPath, subdir, childMap, filesToPrefetch, symlinksToPrefetch, expirationTime);
+          fs,
+          repoDir,
+          subdirPath,
+          subdir,
+          childMap,
+          filesToPrefetch,
+          symlinksToPrefetch,
+          expirationTime);
     }
   }
 
@@ -350,9 +395,9 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
     }
     var unused =
         getFromFuture(
-            materializations.computeIfAbsent(
+            materializations.executeIfNew(
                 repo.getName(),
-                unusedRepoName ->
+                () ->
                     materializationExecutor.submit(
                         () -> {
                           doMaterialize(repo, reporter);
@@ -364,6 +409,7 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
       throws IOException, InterruptedException {
     reporter.handle(Event.debug("Materializing remote repo %s".formatted(repo)));
     materializeSubtree(externalDirectory.getChild(repo.getName()));
+    materializedRepos.add(repo.getName());
 
     // After the repo has been copied, atomically materialize the marker file. This ensures that the
     // repo doesn't have to be refetched after the next server restart.
@@ -510,16 +556,14 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
     if (path.startsWith(externalDirectory) && !path.equals(externalDirectory)) {
       String repoName = path.getSegment(externalDirectorySegmentCount);
       var hasBeenInjected = markerFileContents.containsKey(repoName);
-      var hasBeenMaterialized =
-          materializations.getOrDefault(repoName, immediateCancelledFuture()).state()
-              == Future.State.SUCCESS;
+      var hasBeenMaterialized = materializedRepos.contains(repoName);
       if (hasBeenInjected && !hasBeenMaterialized) {
         // The repo may have been deleted due to refetching. Clean up in-memory state if that is the
         // case.
         if (externalFs.getPath(externalDirectory.getChild(repoName)).exists()) {
           return externalFs;
         }
-        materializations.remove(repoName);
+        materializedRepos.remove(repoName);
         markerFileContents.remove(repoName);
       }
       // Fall back to the native file system if the repo has been materialized, deleted, or never

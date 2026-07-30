@@ -126,6 +126,11 @@ public abstract class Tuple extends AbstractList<Object>
   }
 
   @Override
+  public boolean isAcyclic() {
+    return isEmpty();
+  }
+
+  @Override
   public int compareTo(Tuple that) {
     return Sequence.compare(this, that);
   }

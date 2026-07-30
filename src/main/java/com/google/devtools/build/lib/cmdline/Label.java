@@ -689,6 +689,11 @@ public final class Label
     return true;
   }
 
+  @Override
+  public boolean isAcyclic() {
+    return true;
+  }
+
   private String toStringInternal(StarlarkSemantics semantics) {
     if (getRepository().isMain()
         && !semantics.getBool(

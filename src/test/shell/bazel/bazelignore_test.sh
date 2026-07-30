@@ -236,6 +236,30 @@ EOF
   assert_contains "//foo/notsub:fg" "$TEST_TMPDIR/targets"
 }
 
+# Regression test for https://github.com/bazelbuild/bazel/issues/30526: the target pattern "//..."
+# resolves to the root directory, which used to be handled incorrectly when filtering the patterns
+# passed to ignore_directories.
+test_root_target_pattern_with_wildcards_in_repo_bazel() {
+  rm -rf work && mkdir work && cd work
+  setup_module_dot_bazel
+  cat >REPO.bazel <<'EOF'
+ignore_directories([".ignored", "**/sub"])
+EOF
+
+  for pkg in foo .ignored .ignored/pkg foo/sub foo/sub/subsub foo/notsub; do
+    mkdir -p "$pkg"
+    echo 'filegroup(name="fg")' > "$pkg/BUILD.bazel"
+  done
+
+  bazel query //... > "$TEST_TMPDIR/targets"
+  assert_not_contains "//.ignored:fg" "$TEST_TMPDIR/targets"
+  assert_not_contains "//.ignored/pkg:fg" "$TEST_TMPDIR/targets"
+  assert_not_contains "//foo/sub:fg" "$TEST_TMPDIR/targets"
+  assert_not_contains "//foo/sub/subsub:fg" "$TEST_TMPDIR/targets"
+  assert_contains "//foo:fg" "$TEST_TMPDIR/targets"
+  assert_contains "//foo/notsub:fg" "$TEST_TMPDIR/targets"
+}
+
 test_globs_with_wildcards_in_repo_bazel() {
   rm -rf work && mkdir work && cd work
   setup_module_dot_bazel

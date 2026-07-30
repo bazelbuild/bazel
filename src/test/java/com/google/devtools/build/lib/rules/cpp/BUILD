@@ -77,16 +77,6 @@ java_library(
 )
 
 java_test(
-    name = "CcBadDependenciesTest",
-    srcs = ["CcBadDependenciesTest.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
-        "//src/test/java/com/google/devtools/build/lib/analysis/util",
-        "//third_party:junit4",
-    ],
-)
-
-java_test(
     name = "CcBinaryThinLtoTest",
     srcs = ["CcBinaryThinLtoTest.java"],
     deps = [

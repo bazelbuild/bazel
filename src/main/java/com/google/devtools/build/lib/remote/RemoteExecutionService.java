@@ -1089,13 +1089,21 @@ public class RemoteExecutionService {
     }
   }
 
+  private static void validatePathComponent(String name) throws IOException {
+    if (name.isEmpty() || name.contains("/") || name.equals(".") || name.equals("..")) {
+      throw new IOException("Malformed path component: " + name);
+    }
+  }
+
   private static DirectoryMetadata parseDirectory(
-      Path parent, Directory dir, Map<Digest, Directory> childDirectoriesMap) {
+      Path parent, Directory dir, Map<Digest, Directory> childDirectoriesMap) throws IOException {
     ImmutableList.Builder<FileMetadata> filesBuilder = ImmutableList.builder();
     for (FileNode file : dir.getFilesList()) {
+      String name = unicodeToInternal(file.getName());
+      validatePathComponent(name);
       filesBuilder.add(
           new FileMetadata(
-              parent.getRelative(unicodeToInternal(file.getName())),
+              parent.getRelative(name),
               file.getDigest(),
               file.getIsExecutable(),
               ByteString.EMPTY));
@@ -1103,14 +1111,18 @@ public class RemoteExecutionService {
 
     ImmutableList.Builder<SymlinkMetadata> symlinksBuilder = ImmutableList.builder();
     for (SymlinkNode symlink : dir.getSymlinksList()) {
+      String name = unicodeToInternal(symlink.getName());
+      validatePathComponent(name);
       symlinksBuilder.add(
           new SymlinkMetadata(
-              parent.getRelative(unicodeToInternal(symlink.getName())),
+              parent.getRelative(name),
               PathFragment.create(unicodeToInternal(symlink.getTarget()))));
     }
 
     for (DirectoryNode directoryNode : dir.getDirectoriesList()) {
-      Path childPath = parent.getRelative(unicodeToInternal(directoryNode.getName()));
+      String name = unicodeToInternal(directoryNode.getName());
+      validatePathComponent(name);
+      Path childPath = parent.getRelative(name);
       Directory childDir =
           Preconditions.checkNotNull(childDirectoriesMap.get(directoryNode.getDigest()));
       DirectoryMetadata childMetadata = parseDirectory(childPath, childDir, childDirectoriesMap);
