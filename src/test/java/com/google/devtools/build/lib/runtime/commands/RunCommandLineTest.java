@@ -20,12 +20,91 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.ImmutableSortedSet;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 @RunWith(JUnit4.class)
 public final class RunCommandLineTest {
+
+  private final Path workingDir =
+      new InMemoryFileSystem(DigestHashFunction.SHA256).getPath("/workspace");
+
+  private RunCommandLine.Builder builder() {
+    return new RunCommandLine.Builder(
+        /* runEnvironment= */ ImmutableSortedMap.of(),
+        /* environmentVariablesToClear= */ ImmutableSortedSet.of(),
+        workingDir,
+        /* isTestTarget= */ false);
+  }
+
+  @Test
+  public void getPrettyArgs_noResidue_returnsEscapedCommandLine() {
+    RunCommandLine underTest =
+        builder().addArgs(ImmutableList.of("executable", "argv1", "arg w spaces")).build();
+
+    assertThat(underTest.getPrettyArgs(/* runOmitRunArgs= */ false))
+        .isEqualTo("executable argv1 'arg w spaces'");
+  }
+
+  @Test
+  public void getPrettyArgs_withResidue_separatesAllArgsBySingleSpace() {
+    RunCommandLine underTest =
+        builder()
+            .addArgs(ImmutableList.of("executable", "argv1"))
+            .addArgsFromResidue(ImmutableList.of("residue1", "residue w spaces", "residue3"))
+            .build();
+
+    assertThat(underTest.getPrettyArgs(/* runOmitRunArgs= */ false))
+        .isEqualTo("executable argv1 residue1 'residue w spaces' residue3");
+  }
+
+  @Test
+  public void getPrettyArgs_singleResidueArg_separatesArgsBySingleSpace() {
+    RunCommandLine underTest =
+        builder()
+            .addArgs(ImmutableList.of("executable", "argv1"))
+            .addArgsFromResidue(ImmutableList.of("residue1"))
+            .build();
+
+    assertThat(underTest.getPrettyArgs(/* runOmitRunArgs= */ false))
+        .isEqualTo("executable argv1 residue1");
+  }
+
+  @Test
+  public void getPrettyArgs_runOmitRunArgs_omitsResidue() {
+    RunCommandLine underTest =
+        builder()
+            .addArgs(ImmutableList.of("executable", "argv1"))
+            .addArgsFromResidue(ImmutableList.of("residue1", "residue2"))
+            .build();
+
+    assertThat(underTest.getPrettyArgs(/* runOmitRunArgs= */ true))
+        .isEqualTo("executable argv1 <args omitted>");
+  }
+
+  @Test
+  public void getPrettyArgs_runOmitRunArgsWithoutResidue_doesNotMentionOmittedArgs() {
+    RunCommandLine underTest = builder().addArgs(ImmutableList.of("executable", "argv1")).build();
+
+    assertThat(underTest.getPrettyArgs(/* runOmitRunArgs= */ true)).isEqualTo("executable argv1");
+  }
+
+  @Test
+  public void getPrettyArgs_runUnderPrefix_prependedToCommandLine() {
+    RunCommandLine underTest =
+        builder()
+            .setRunUnderPrefix("unescaped run-under prefix &&")
+            .addArgs(ImmutableList.of("executable", "argv1"))
+            .addArgsFromResidue(ImmutableList.of("residue1", "residue2"))
+            .build();
+
+    assertThat(underTest.getPrettyArgs(/* runOmitRunArgs= */ false))
+        .isEqualTo("unescaped run-under prefix && executable argv1 residue1 residue2");
+  }
 
   @Test
   public void linuxFormatter_formatArgv_requiresShExecutable() {

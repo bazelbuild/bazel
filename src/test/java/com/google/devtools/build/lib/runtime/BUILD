@@ -191,6 +191,8 @@ java_test(
     srcs = ["commands/RunCommandLineTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/runtime/commands",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",

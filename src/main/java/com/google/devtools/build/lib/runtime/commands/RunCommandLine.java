@@ -106,12 +106,10 @@ class RunCommandLine {
       if (runOmitRunArgs) {
         result.append(" <args omitted>");
       } else {
-        for (int i = 0; i < residue.size(); i++) {
-          // Don't add a space after the last argument.
-          if (i < residue.size() - 1) {
-            result.append(" ");
-          }
-          result.append(ShellEscaper.escapeString(residue.get(i)));
+        for (String residueArg : residue) {
+          // Every residue argument is preceded by something: either an argument from the command
+          // line, or the executable itself.
+          result.append(" ").append(ShellEscaper.escapeString(residueArg));
         }
       }
     }
