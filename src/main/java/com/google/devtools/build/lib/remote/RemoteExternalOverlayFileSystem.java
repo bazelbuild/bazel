@@ -220,6 +220,7 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
     injectRecursively(
         externalFs,
         repoDir,
+        repoDir,
         remoteContents.getRoot(),
         childMap,
         filesToPrefetch::add,
@@ -245,8 +246,16 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
     return true;
   }
 
+  private static boolean isValidName(String name) {
+    return !name.isEmpty()
+        && !PathFragment.containsSeparator(name)
+        && !PathFragment.containsUplevelReferences(name)
+        && PathFragment.isNormalizedRelativePath(name);
+  }
+
   private static void injectRecursively(
       RemoteExternalFileSystem fs,
+      PathFragment repoDir,
       PathFragment path,
       Directory dir,
       ImmutableMap<Digest, Directory> childMap,
@@ -259,7 +268,14 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
         fs.createDirectory(
             path, dir.getFilesCount() + dir.getSymlinksCount() + dir.getDirectoriesCount());
     for (var file : dir.getFilesList()) {
-      var filePath = path.getRelative(unicodeToInternal(file.getName()));
+      String name = unicodeToInternal(file.getName());
+      if (!isValidName(name)) {
+        throw new IOException("invalid remote repo tree node name: " + name);
+      }
+      var filePath = path.getRelative(name);
+      if (!filePath.startsWith(repoDir)) {
+        throw new IOException("Path traversal detected: " + filePath + " is outside " + repoDir);
+      }
       if (shouldPrefetch(filePath)) {
         filesToPrefetch.accept(filePath);
       }
@@ -282,19 +298,44 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
       fs.setWritable(filePath, false);
     }
     for (var symlink : dir.getSymlinksList()) {
-      fs.createSymbolicLink(
-          path.getRelative(unicodeToInternal(symlink.getName())),
-          PathFragment.create(unicodeToInternal(symlink.getTarget())));
+      String name = unicodeToInternal(symlink.getName());
+      if (!isValidName(name)) {
+        throw new IOException("invalid remote repo tree node name: " + name);
+      }
+      var linkPath = path.getRelative(name);
+      if (!linkPath.startsWith(repoDir)) {
+        throw new IOException("Path traversal detected: " + linkPath + " is outside " + repoDir);
+      }
+      String target = unicodeToInternal(symlink.getTarget());
+      PathFragment targetFragment = PathFragment.create(target);
+      PathFragment resolvedTarget;
+      if (targetFragment.isAbsolute()) {
+        resolvedTarget = targetFragment;
+      } else {
+        resolvedTarget = linkPath.getParentDirectory().getRelative(targetFragment);
+      }
+      if (!resolvedTarget.startsWith(repoDir)) {
+        throw new IOException(
+            "Path traversal detected: symlink target " + resolvedTarget + " is outside " + repoDir);
+      }
+      fs.createSymbolicLink(linkPath, targetFragment);
     }
     for (var subdirNode : dir.getDirectoriesList()) {
-      var subdirPath = path.getRelative(unicodeToInternal(subdirNode.getName()));
+      String name = unicodeToInternal(subdirNode.getName());
+      if (!isValidName(name)) {
+        throw new IOException("invalid remote repo tree node name: " + name);
+      }
+      var subdirPath = path.getRelative(name);
+      if (!subdirPath.startsWith(repoDir)) {
+        throw new IOException("Path traversal detected: " + subdirPath + " is outside " + repoDir);
+      }
       var subdir = childMap.get(subdirNode.getDigest());
       if (subdir == null) {
         throw new IOException(
             "Directory %s with digest %s not found in tree"
                 .formatted(subdirPath, subdirNode.getDigest().getHash()));
       }
-      injectRecursively(fs, subdirPath, subdir, childMap, filesToPrefetch, expirationTime);
+      injectRecursively(fs, repoDir, subdirPath, subdir, childMap, filesToPrefetch, expirationTime);
     }
   }
 
