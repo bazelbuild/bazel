@@ -20,6 +20,7 @@ import static java.util.Comparator.comparing;
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -47,7 +48,7 @@ public final class AspectKeyCreator {
   public static AspectKey createAspectKey(
       AspectDescriptor aspectDescriptor, ConfiguredTargetKey baseConfiguredTargetKey) {
     return createAspectKey(
-        aspectDescriptor, /*baseKeys=*/ ImmutableList.of(), baseConfiguredTargetKey);
+        aspectDescriptor, /* baseKeys= */ ImmutableList.of(), baseConfiguredTargetKey);
   }
 
   public static AspectKey createAspectKey(
@@ -416,7 +417,9 @@ public final class AspectKeyCreator {
     String getDescription() {
       return String.format(
           "%s with parameters %s on %s",
-          topLevelAspectsClasses, topLevelAspectsParameters, targetLabel);
+          Lists.transform(topLevelAspectsClasses, AspectClass::getName),
+          topLevelAspectsParameters,
+          targetLabel);
     }
 
     @Override

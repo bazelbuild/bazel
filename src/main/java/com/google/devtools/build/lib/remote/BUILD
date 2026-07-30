@@ -124,6 +124,7 @@ java_library(
         ":lease_service",
         ":remote_action_context_provider",
         ":remote_action_input_fetcher",
+        ":remote_download_idle_timeout_interceptor",
         ":remote_execution_cache",
         ":remote_external_overlay_file_system",
         ":remote_grpc_service_config",
@@ -193,6 +194,17 @@ java_library(
         "//third_party:rxjava3",
         "//third_party/grpc-java:grpc-jar",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
+    ],
+)
+
+java_library(
+    name = "remote_download_idle_timeout_interceptor",
+    srcs = ["RemoteDownloadIdleTimeoutInterceptor.java"],
+    deps = [
+        "//third_party:guava",
+        "//third_party:jsr305",
+        "//third_party/grpc-java:grpc-jar",
+        "@googleapis//google/bytestream:bytestream_java_grpc",
     ],
 )
 

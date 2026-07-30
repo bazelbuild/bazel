@@ -760,6 +760,11 @@ public final class CcCompilationContext {
       return true;
     }
 
+    @Override
+    public boolean isAcyclic() {
+      return true;
+    }
+
     /** Represents the memoized transitive information for a HeaderInfo instance. */
     private class TransitiveHeaderCollection extends AbstractCollection<HeaderInfo> {
       private final int size;
