@@ -84,7 +84,7 @@ import net.starlark.java.syntax.Types;
             + "['a', 'b', 'c', 'd'][3:0:-1]  # ['d', 'c', 'b']</pre>"
             + "Lists are mutable, as in Python.")
 public abstract class StarlarkList<E> extends AbstractCollection<E>
-    implements Sequence<E>, StarlarkValue, Mutability.Freezable, Comparable<StarlarkList<?>> {
+    implements Sequence<E>, Mutability.Freezable, Comparable<StarlarkList<?>> {
 
   public static TypeConstructor getAssociatedTypeConstructor() {
     return Types.LIST_CONSTRUCTOR;
@@ -133,6 +133,11 @@ public abstract class StarlarkList<E> extends AbstractCollection<E>
   public void checkHashable() throws EvalException {
     // Even a frozen list is unhashable.
     throw Starlark.errorf("unhashable type: 'list'");
+  }
+
+  @Override
+  public boolean isAcyclic() {
+    return isEmpty();
   }
 
   /** Returns an empty frozen list of the desired type. */
@@ -302,6 +307,16 @@ public abstract class StarlarkList<E> extends AbstractCollection<E>
   }
 
   @Override
+  public boolean containsKey(StarlarkSemantics semantics, Object key) throws EvalException {
+    for (Object elem : elems()) {
+      if (Starlark.checkedEquals(key, elem)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  @Override
   public StarlarkList<E> getSlice(Mutability mu, int start, int stop, int step)
       throws EvalException {
     RangeList indices = new RangeList(start, stop, step);
@@ -364,7 +379,7 @@ public abstract class StarlarkList<E> extends AbstractCollection<E>
     int size = size();
     Object[] elems = elems();
     for (int i = 0; i < size; i++) {
-      if (elems[i].equals(x)) {
+      if (Starlark.checkedEquals(x, elems[i])) {
         removeElementAt(i);
         return;
       }
@@ -437,7 +452,7 @@ public abstract class StarlarkList<E> extends AbstractCollection<E>
     int j =
         end == Starlark.UNBOUND ? size : SyntaxUtils.toSliceBound(Starlark.toInt(end, "end"), size);
     for (; i < j; i++) {
-      if (elems[i].equals(x)) {
+      if (Starlark.checkedEquals(elems[i], x)) {
         return i;
       }
     }

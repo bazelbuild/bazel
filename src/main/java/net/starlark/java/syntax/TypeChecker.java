@@ -532,10 +532,8 @@ public final class TypeChecker extends NodeVisitor {
         for (StarlarkType xElemType : xTypes) {
           for (StarlarkType yElemType : yTypes) {
             @Nullable
-            StarlarkType resultType = xElemType.inferBinaryOperator(operator, yElemType, true);
-            if (resultType == null) {
-              resultType = yElemType.inferBinaryOperator(operator, xElemType, false);
-            }
+            StarlarkType resultType =
+                StarlarkType.inferBinaryOperator(xElemType, operator, yElemType);
             if (resultType == null && operator == TokenKind.STAR) {
               // Tuple repetition is the only case where we need to examine the expressions.
               // TODO: #28037 - We can get rid of the tuple repetition special case if we

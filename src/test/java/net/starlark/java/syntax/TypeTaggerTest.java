@@ -868,7 +868,25 @@ public class TypeTaggerTest {
   }
 
   @Test
-  public void typeAlias_requiresCorrectNumberOfTypeArgs() throws Exception {
+  public void typeAliasWithArgs_mayBeUsedWithoutTypeArgs() throws Exception {
+    // If an alias is invoked with no arguments, the type arguments are set to `Any`.
+    Result result =
+        tagFile(
+            """
+            type optional_list[T] = list[T] | None
+            type dict_or_mapping[K, V] = dict[K, V] | Mapping[K, V]
+
+            x: optional_list
+            y: dict_or_mapping
+            """);
+    assertThat(result.getType("x")).isEqualTo(Types.union(Types.list(Types.ANY), Types.NONE));
+    assertThat(result.getType("y"))
+        .isEqualTo(
+            Types.union(Types.dict(Types.ANY, Types.ANY), Types.mapping(Types.ANY, Types.ANY)));
+  }
+
+  @Test
+  public void typeAlias_requiresCorrectNonzeroNumberOfTypeArgs() throws Exception {
     assertInvalid(
         "'int_or_str' does not accept arguments",
         """
@@ -876,10 +894,10 @@ public class TypeTaggerTest {
         x: int_or_str[int]
         """);
     assertInvalid(
-        "optional_list[] accepts exactly 1 argument but got 0",
+        "optional_list[] accepts exactly 1 argument but got 2",
         """
         type optional_list[T] = list[T] | None
-        x: optional_list
+        x: optional_list[int, float]
         """);
     assertInvalid(
         "optional_dict[] accepts exactly 2 arguments but got 1",
