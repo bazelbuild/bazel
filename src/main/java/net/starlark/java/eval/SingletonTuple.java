@@ -33,8 +33,7 @@ final class SingletonTuple extends Tuple {
 
   @Override
   public void checkHashable() throws EvalException {
-    // We expect that tuple.checkHashable() was called by Starlark.checkHashable(tuple, true).
-    Starlark.checkHashable(elem, /* checkSelfReferential= */ false);
+    Starlark.checkHashable(elem);
   }
 
   @Override
@@ -54,17 +53,6 @@ final class SingletonTuple extends Tuple {
     return 1;
   }
 
-  @Override
-  public boolean containsKey(StarlarkSemantics semantics, Object key) throws EvalException {
-    return Starlark.checkedEquals(key, elem);
-  }
-
-  /**
-   * Unchecked version of {@link #containsKey} for Java List API compatibility.
-   *
-   * @throws StackOverflowError if {@code o} or any element of the tuple is a self-referential data
-   *     structure.
-   */
   @Override
   public boolean contains(Object o) {
     // Tuple contains only valid Starlark objects (which are non-null)

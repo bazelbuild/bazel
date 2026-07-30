@@ -51,11 +51,6 @@ public abstract class Fragment implements StarlarkValue {
     return true; // immutable and Starlark-hashable
   }
 
-  @Override
-  public boolean isAcyclic() {
-    return true;
-  }
-
   /**
    * Validates the options for this Fragment. Issues warnings for the use of deprecated options, and
    * warnings or errors for any option settings that conflict.

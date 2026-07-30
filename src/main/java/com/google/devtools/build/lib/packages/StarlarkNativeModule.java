@@ -146,9 +146,8 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
   // TODO(https://github.com/bazelbuild/bazel/issues/13605): implement StarlarkMapping (after we've
   // added such an interface) to allow `dict(native.existing_rule(x))`.
   @StarlarkBuiltin(name = "dict_like_view", documented = false)
-  private static sealed interface DictLikeView
-      extends StarlarkIndexable, StarlarkIterable<String>, Map<String, Object>
-      permits ExistingRuleView, ExistingRulesView {
+  private static interface DictLikeView
+      extends StarlarkIndexable, StarlarkIterable<String>, Map<String, Object> {
     @Override
     public default boolean isImmutable() {
       return true;
@@ -229,10 +228,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
     }
 
     @Override
-    public default boolean containsKey(StarlarkSemantics semantics, Object key)
-        throws EvalException {
-      // If we make DictLikeView non-sealed, we'd want to call Starlark.checkHashable here to catch
-      // self-referential keys.
+    public default boolean containsKey(StarlarkSemantics semantics, Object key) {
       return containsKey(key);
     }
 

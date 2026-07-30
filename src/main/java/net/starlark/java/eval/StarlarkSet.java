@@ -195,12 +195,6 @@ public final class StarlarkSet<E> extends AbstractSet<E>
   }
 
   @Override
-  public boolean isAcyclic() {
-    // Because we invoke hashCode() on each element, which would throw on a self-referential value.
-    return true;
-  }
-
-  @Override
   public boolean updateIteratorCount(int delta) {
     if (mutability().isFrozen()) {
       return false;

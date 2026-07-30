@@ -126,9 +126,4 @@ public interface ActionTemplate<T extends Action> extends ActionAnalysisMetadata
   default boolean isImmutable() {
     return true;
   }
-
-  @Override
-  default boolean isAcyclic() {
-    return true;
-  }
 }

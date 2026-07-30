@@ -95,16 +95,6 @@ final class RangeList extends AbstractList<StarlarkInt> implements Sequence<Star
   }
 
   @Override
-  public boolean isAcyclic() {
-    return true;
-  }
-
-  @Override
-  public boolean containsKey(StarlarkSemantics semantics, Object key) {
-    return contains(key);
-  }
-
-  @Override
   public boolean contains(Object x) {
     if (!(x instanceof StarlarkInt)) {
       return false;

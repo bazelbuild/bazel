@@ -115,6 +115,7 @@ public abstract sealed class Dict<K, V>
         StarlarkIndexable,
         StarlarkIterable<K>
     permits MapBackedDict, CompactImmutableDict {
+
   public static TypeConstructor getAssociatedTypeConstructor() {
     return Types.DICT_CONSTRUCTOR;
   }
@@ -171,11 +172,6 @@ public abstract sealed class Dict<K, V>
   @Override
   public final boolean isImmutable() {
     return mutability().isFrozen();
-  }
-
-  @Override
-  public boolean isAcyclic() {
-    return isEmpty();
   }
 
   @Override

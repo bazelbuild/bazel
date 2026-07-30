@@ -68,11 +68,6 @@ public final class StarlarkFloat implements StarlarkValue, Comparable<StarlarkFl
   }
 
   @Override
-  public boolean isAcyclic() {
-    return true;
-  }
-
-  @Override
   public boolean truth() {
     return this.v != 0.0;
   }

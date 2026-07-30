@@ -51,9 +51,4 @@ public abstract class StarlarkInfo extends StructImpl implements HasBinary, Comp
 
   @Override // Tighten return type.
   public abstract StarlarkInfo unsafeOptimizeMemoryLayout();
-
-  @Override
-  public boolean isAcyclic() {
-    return false;
-  }
 }

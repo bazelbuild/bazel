@@ -151,21 +151,6 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
     if (x instanceof StarlarkList || x instanceof Dict) {
       throw Starlark.errorf("depsets cannot contain items of type '%s'", Starlark.type(x));
     }
-
-    // Ideally, we'd just call Starlark.checkHashable(x). However, as noted above, we currently
-    // allow structs with mutable fields or tuples with mutable elements to be added to a depset
-    // when !strict, and those would fail Starlark.checkHashable check. So we have to duplicate
-    // Starlark.checkHashable's StackOverflowError-catching logic.
-    if (!Starlark.isAcyclic(x)) {
-      try {
-        // Catch stack overflows from self-referential values' hashCode() implementations early;
-        // NestedSet constructor and expand() require a working hashCode() for all elements.
-        var unused = x.hashCode();
-      } catch (StackOverflowError unused) {
-        throw Starlark.errorf(
-            "self-referential or overly nested data structure %s", Starlark.reprForErrors(x));
-      }
-    }
   }
 
   /** Returns a Depset that wraps the specified NestedSet. */
@@ -348,12 +333,6 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
   }
 
   @Override
-  public boolean isAcyclic() {
-    // Because we invoke hashCode() on each element, which would throw on a self-referential value.
-    return true;
-  }
-
-  @Override
   public void repr(Printer printer, StarlarkSemantics semantics) {
     printer.append("depset(");
     printer.printList(set.toList(), "[", ", ", "]", semantics);
@@ -407,7 +386,7 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
       // (e.g. ConfiguredTarget), but violations are numerous so we must
       // suppress the checkElement call below and reintroduce it as a breaking change.
       // See b/144992997 or github.com/bazelbuild/bazel/issues/10289.
-      checkElement(x, /* strict= */ strict);
+      checkElement(x, /*strict=*/ strict);
 
       Class<?> xt = ElementType.getTypeClass(x.getClass());
       type = checkType(type, xt);

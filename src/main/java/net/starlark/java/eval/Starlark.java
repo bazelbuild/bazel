@@ -88,11 +88,6 @@ public final class Starlark {
     }
 
     @Override
-    public boolean isAcyclic() {
-      return true;
-    }
-
-    @Override
     public void repr(Printer printer, StarlarkSemantics semantics) {
       printer.append("<unbound>");
     }
@@ -158,21 +153,6 @@ public final class Starlark {
     return x;
   }
 
-  /**
-   * Returns whether the given Starlark value is acyclic, i.e. is guaranteed to not contain a
-   * reference cycle in its object graph.
-   *
-   * <p>See {@link StarlarkValue#isAcyclic} for more details.
-   */
-  public static boolean isAcyclic(Object x) {
-    return switch (x) {
-      case String s -> true;
-      case Boolean bool -> true;
-      case StarlarkValue val -> val.isAcyclic();
-      default -> throw new InvalidStarlarkValueException(x == null ? null : x.getClass());
-    };
-  }
-
   /** Reports whether {@code x} is Java null or Starlark None. */
   public static boolean isNullOrNone(Object x) {
     return x == null || x == NONE;
@@ -203,50 +183,18 @@ public final class Starlark {
   /**
    * Returns normally if the Starlark value is hashable and thus suitable as a dict key.
    *
-   * @param checkSelfReferential whether to check for stack overflow in {@link
-   *     StarlarkValue#checkHashable}, in which case the stack overflow is reported as an {@link
-   *     EvalException}. Should be set to false only by implementations of {@link
-   *     StarlarkValue#checkHashable} that recurse back into {@link Starlark#checkHashable} (this is
-   *     the case e.g. for {@link Tuple}), since such implementations will have their
-   *     StackOverflowException caught by the top-level call to {@link Starlark#checkHashable}.
-   *     Setting this param to false in such a case avoids redundant traversals that are quadratic
-   *     in the nesting depth of the values.
-   * @throws EvalException if the value is not hashable.
+   * @throws EvalException otherwise.
    */
-  public static void checkHashable(Object x, boolean checkSelfReferential) throws EvalException {
+  public static void checkHashable(Object x) throws EvalException {
     if (x instanceof String) {
       // Strings are the most common dict keys. Check them first, since `instanceof StarlarkValue`
       // (an interface) is slower than `instanceof String` (a final class).
-    } else if (x instanceof StarlarkValue starlarkValue) {
-      try {
-        // It's possible for a very deep, non-self-referential structure to not trigger a
-        // stack overflow for this call, but for `starlarkValue.hashCode()` to cause a stack
-        // overflow at a later point, if that later point happens to be at a greater stack depth. In
-        // practice, such a scenario is extremely unlikely. Guarding against it would require
-        // additional try/catch for StackOverflowError at any addition of a Starlark value to a Java
-        // map or set.
-        starlarkValue.checkHashable();
-      } catch (StackOverflowError e) {
-        if (checkSelfReferential) {
-          throw Starlark.errorf(
-              "self-referential or overly nested data structure %s", Starlark.reprForErrors(x));
-        } else {
-          throw e;
-        }
-      }
+    } else if (x instanceof StarlarkValue) {
+      ((StarlarkValue) x).checkHashable();
     } else {
       // Throw if the type is bad. Otherwise it's a Boolean, which is hashable.
       Starlark.checkValid(x);
     }
-  }
-
-  /**
-   * Returns normally if the Starlark value is hashable and thus suitable as a dict key.
-   *
-   * @throws EvalException otherwise.
-   */
-  public static void checkHashable(Object x) throws EvalException {
-    checkHashable(x, /* checkSelfReferential= */ true);
   }
 
   /**
@@ -570,9 +518,7 @@ public final class Starlark {
 
   /**
    * Defines the strict weak ordering of Starlark values used for sorting and the comparison
-   * operators.
-   *
-   * @throws ClassCastException on failure.
+   * operators. Throws ClassCastException on failure.
    */
   static int compareUnchecked(Object x, Object y) {
     if (sameType(x, y)) {
@@ -580,16 +526,7 @@ public final class Starlark {
       if (x instanceof Comparable) {
         @SuppressWarnings("unchecked")
         Comparable<Object> xcomp = (Comparable<Object>) x;
-        try {
-          return xcomp.compareTo(y);
-        } catch (StackOverflowError unused) {
-          // Wart: this particular error has nothing to do with class mismatch - but alas,
-          // Comparable interface uses ClassCastException for reporting all cannot-compare errors.
-          throw new ClassCastException(
-              String.format(
-                  "cannot compare self-referential or overly nested data structures %s and %s",
-                  Starlark.reprForErrors(x), Starlark.reprForErrors(y)));
-        }
+        return xcomp.compareTo(y);
       }
 
     } else {
@@ -610,26 +547,6 @@ public final class Starlark {
         String.format("unsupported comparison: %s <=> %s", Starlark.type(x), Starlark.type(y)));
   }
 
-  /**
-   * Returns true if the given values are equal. Safe to use for potentially self-referential
-   * Starlark data structures.
-   *
-   * @throws EvalException if x and/or y is a self-referential data structures (signaled by {@link
-   *     Object#equals} overflowing the stack)
-   */
-  public static boolean checkedEquals(@Nullable Object x, @Nullable Object y) throws EvalException {
-    if (x == null) {
-      return y == null;
-    }
-    try {
-      return x.equals(y);
-    } catch (StackOverflowError unused) {
-      throw Starlark.errorf(
-          "cannot compare self-referential or overly nested data structures %s and %s",
-          Starlark.reprForErrors(x), Starlark.reprForErrors(y));
-    }
-  }
-
   private static boolean sameType(Object x, Object y) {
     return x.getClass() == y.getClass() || Starlark.type(x).equals(Starlark.type(y));
   }
@@ -642,22 +559,6 @@ public final class Starlark {
   /** Returns the string form of a value as if by the Starlark expression {@code repr(x)}. */
   public static String repr(Object x, StarlarkSemantics semantics) {
     return new Printer().repr(x, semantics).toString();
-  }
-
-  /**
-   * Returns the string form of a value as if by the Starlark expression {@code repr(x)}; returns a
-   * reasonable fallback text if {@code repr(x)} causes a stack overflow.
-   *
-   * <p>Intended for formatting exception messages, where we do not want to cause another exception
-   * to be thrown. We *do not* want to catch stack overflows in {@link repr} or {@link str} because
-   * that would make the interpreter's non-error behavior non-deterministic.
-   */
-  public static String reprForErrors(Object x) {
-    try {
-      return repr(x, StarlarkSemantics.DEFAULT);
-    } catch (StackOverflowError unused) {
-      return String.format("<overly nested %s>", Starlark.type(x));
-    }
   }
 
   /** Returns a string formatted as if by the Starlark expression {@code pattern % arguments}. */

@@ -41,11 +41,6 @@ final class StarlarkOS implements StarlarkValue {
     return true; // immutable and Starlark-hashable
   }
 
-  @Override
-  public boolean isAcyclic() {
-    return true;
-  }
-
   @StarlarkMethod(
       name = "environ",
       structField = true,

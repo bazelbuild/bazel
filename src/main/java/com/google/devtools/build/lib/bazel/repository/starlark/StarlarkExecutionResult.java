@@ -72,11 +72,6 @@ final class StarlarkExecutionResult implements StarlarkValue {
     return true; // immutable and Starlark-hashable
   }
 
-  @Override
-  public boolean isAcyclic() {
-    return true;
-  }
-
   @StarlarkMethod(
       name = "return_code",
       structField = true,

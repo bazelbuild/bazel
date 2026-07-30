@@ -425,11 +425,6 @@ public abstract class StarlarkInt implements StarlarkValue, Comparable<StarlarkI
   }
 
   @Override
-  public boolean isAcyclic() {
-    return true;
-  }
-
-  @Override
   public boolean truth() {
     return this != ZERO;
   }

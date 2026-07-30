@@ -53,11 +53,6 @@ public class TypeCheckedTag implements Structure {
     }
 
     @Override
-    public boolean isAcyclic() {
-      return true;
-    }
-
-    @Override
     public int compareTo(SortKey other) {
       return COMPARATOR.compare(this, other);
     }

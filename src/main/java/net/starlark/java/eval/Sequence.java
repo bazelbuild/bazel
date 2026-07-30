@@ -53,6 +53,11 @@ public interface Sequence<E>
     return get(EvalUtils.getSequenceIndex(index, size()));
   }
 
+  @Override
+  default boolean containsKey(StarlarkSemantics semantics, Object key) throws EvalException {
+    return contains(key);
+  }
+
   /**
    * Compares two sequences of values. Sequences compare equal if corresponding elements compare
    * equal using {@code x[i] == y[i]}. Otherwise, the result is the ordered comparison of the first
@@ -81,7 +86,7 @@ public interface Sequence<E>
       if (cmp == 0) {
         throw new IllegalStateException(
             String.format(
-                "!(x.equals(y)) yet x.compareTo(y)==%d (x: %s, y: %s)",
+                "x.equals(y) yet x.compareTo(y)==%d (x: %s, y: %s)",
                 cmp, Starlark.type(xelem), Starlark.type(yelem)));
       }
       return cmp;

@@ -340,10 +340,10 @@ final class EvalUtils {
         break;
 
       case EQUALS_EQUALS:
-        return Starlark.checkedEquals(x, y);
+        return x.equals(y);
 
       case NOT_EQUALS:
-        return !Starlark.checkedEquals(x, y);
+        return !x.equals(y);
 
       case LESS:
         return compare(x, y) < 0;

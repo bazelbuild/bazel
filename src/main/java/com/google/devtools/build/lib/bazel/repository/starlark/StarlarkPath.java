@@ -65,11 +65,6 @@ public final class StarlarkPath implements StarlarkValue {
   }
 
   @Override
-  public boolean isAcyclic() {
-    return true;
-  }
-
-  @Override
   public boolean equals(Object obj) {
     return (obj instanceof StarlarkPath) && path.equals(((StarlarkPath) obj).path);
   }
