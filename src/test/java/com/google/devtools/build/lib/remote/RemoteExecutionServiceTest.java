@@ -177,6 +177,9 @@ public class RemoteExecutionServiceTest {
   @Rule public final MockitoRule mockito = MockitoJUnit.rule();
   @Rule public final RxNoGlobalErrorsRule rxNoGlobalErrorsRule = new RxNoGlobalErrorsRule();
 
+  private static final ImmutableList<String> INVALID_PATH_COMPONENTS =
+      ImmutableList.of("..", ".", "/", "a/b", "");
+
   @Mock private RemoteOutputChecker remoteOutputChecker; // download nothing by default.
 
   @Mock private OutputService outputService;
@@ -1013,6 +1016,12 @@ public class RemoteExecutionServiceTest {
     // arrange
     Digest fooDigest = cache.addContents(remoteActionExecutionContext, "foo-contents");
     Digest barDigest = cache.addContents(remoteActionExecutionContext, "bar-contents");
+    Directory subdir =
+        Directory.newBuilder()
+            .addFiles(
+                FileNode.newBuilder().setName("bar").setDigest(barDigest).setIsExecutable(true))
+            .build();
+    Digest subdirDigest = digestUtil.compute(subdir);
     Tree tree =
         Tree.newBuilder()
             .setRoot(
@@ -1022,11 +1031,9 @@ public class RemoteExecutionServiceTest {
                             .setName("foo")
                             .setDigest(fooDigest)
                             .setIsExecutable(true))
-                    .addFiles(
-                        FileNode.newBuilder()
-                            .setName("subdir/bar")
-                            .setDigest(barDigest)
-                            .setIsExecutable(true)))
+                    .addDirectories(
+                        DirectoryNode.newBuilder().setName("subdir").setDigest(subdirDigest)))
+            .addChildren(subdir)
             .build();
     Digest treeDigest = cache.addContents(remoteActionExecutionContext, tree.toByteArray());
     ActionResult.Builder builder = ActionResult.newBuilder();
@@ -3380,5 +3387,72 @@ public class RemoteExecutionServiceTest {
     assertThat(serverLogs.directory).isEqualTo(logDir.getRelative("action-id"));
     assertThat(serverLogs.lastLogPath).isEqualTo(logDir.getRelative("action-id/valid.log"));
     assertThat(readContent(serverLogs.lastLogPath, UTF_8)).isEqualTo("server log content");
+  }
+
+  @Test
+  public void parseActionResultMetadata_invalidDirectoryNames_rejected() throws Exception {
+    for (String invalidName : INVALID_PATH_COMPONENTS) {
+      Directory child = Directory.getDefaultInstance();
+      Digest childDigest = digestUtil.compute(child);
+      Tree tree =
+          Tree.newBuilder()
+              .setRoot(
+                  Directory.newBuilder()
+                      .addDirectories(
+                          DirectoryNode.newBuilder().setName(invalidName).setDigest(childDigest)))
+              .addChildren(child)
+              .build();
+      assertTreeRejected(tree, invalidName);
+    }
+  }
+
+  @Test
+  public void parseActionResultMetadata_invalidFileNames_rejected() throws Exception {
+    for (String invalidName : INVALID_PATH_COMPONENTS) {
+      Tree tree =
+          Tree.newBuilder()
+              .setRoot(
+                  Directory.newBuilder()
+                      .addFiles(
+                          FileNode.newBuilder()
+                              .setName(invalidName)
+                              .setDigest(digestUtil.compute("content".getBytes(UTF_8)))
+                              .setIsExecutable(false)))
+              .build();
+      assertTreeRejected(tree, invalidName);
+    }
+  }
+
+  @Test
+  public void parseActionResultMetadata_invalidSymlinkNames_rejected() throws Exception {
+    for (String invalidName : INVALID_PATH_COMPONENTS) {
+      Tree tree =
+          Tree.newBuilder()
+              .setRoot(
+                  Directory.newBuilder()
+                      .addSymlinks(
+                          SymlinkNode.newBuilder().setName(invalidName).setTarget("target")))
+              .build();
+      assertTreeRejected(tree, invalidName);
+    }
+  }
+
+  private void assertTreeRejected(Tree tree, String expectedName) throws Exception {
+    String treeOut = "bazel-out/k8-fastbuild/bin/pkg/out.tree";
+    ActionResult ar =
+        ActionResult.newBuilder()
+            .addOutputDirectories(
+                OutputDirectory.newBuilder()
+                    .setPath(treeOut)
+                    .setTreeDigest(cache.addContents(remoteActionExecutionContext, tree)))
+            .build();
+
+    IOException e =
+        assertThrows(
+            IOException.class,
+            () ->
+                RemoteExecutionService.parseActionResultMetadata(
+                    cache, digestUtil, remoteActionExecutionContext, ar, remotePathResolver));
+    assertThat(e).hasMessageThat().contains("Malformed path component: " + expectedName);
   }
 }
