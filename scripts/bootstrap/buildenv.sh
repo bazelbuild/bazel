@@ -18,6 +18,9 @@
 
 set -o errexit
 
+# Extra args to pass to the bootstrapped bazel.
+EXTRA_BAZEL_BOOTSTRAP_ARGS=()
+
 # Check if all necessary tools are available.
 # List: https://github.com/bazelbuild/bazel/issues/7641#issuecomment-472344261
 for tool in basename cat chmod comm cp dirname find grep ln ls mkdir mktemp \
@@ -46,6 +49,10 @@ msys*|mingw*|cygwin*)
   # This is necessary to avoid overly longs paths during bootstrapping, see for
   # example https://github.com/bazelbuild/bazel/issues/4536
   export TMPDIR="${TMPDIR:-${TMP:-${TEMP:-}}}"
+
+  # Set the pythonpath: without this, the bootstrapped bazel tries to execute
+  # bare "python.exe" and cannot find it.
+  EXTRA_BAZEL_BOOTSTRAP_ARGS+=("--python_path=/c/python3/python.exe")
 esac
 
 # If BAZEL_WRKDIR is set, default all variables to point into
