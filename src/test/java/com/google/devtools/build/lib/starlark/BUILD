@@ -207,12 +207,16 @@ java_test(
     shard_count = 3,
     deps = [
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/core",
         "//src/main/java/net/starlark/java/annot",
+        "//src/main/java/net/starlark/java/syntax",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/testutil",
+        "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
+        "@maven//:com_google_testparameterinjector_test_parameter_injector",
     ],
 )
 

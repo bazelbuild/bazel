@@ -397,14 +397,15 @@ public class BuildView {
                 || !skyframeExecutor.tracksStateForIncrementality();
         if (discardAnalysisCacheAfterAnalysis
             && remoteAnalysisCachingDependenciesProvider.mode().isRetrievalEnabled()) {
-          // When remote analysis value retrieval is enabled, it is possible for analysis
-          // to occur during the logical execution phase. Discarding the analysis cache
-          // can lead to crashes.
+          // When remote analysis value retrieval is enabled, it is possible for analysis to occur
+          // during the logical execution phase. Discarding the analysis cache fully can lead to
+          // crashes.
           //
           // TODO: b/466388360 - consider alternatives
           eventHandler.handle(
-              Event.warn("Remote analysis caching is enabled. Not discarding the analysis cache."));
-          discardAnalysisCacheAfterAnalysis = false;
+              Event.warn(
+                  "Remote analysis caching is enabled. Performing only a partial analysis cache"
+                      + " discard."));
         }
         skyframeAnalysisResult =
             skyframeBuildView.analyzeAndExecuteTargets(

@@ -76,6 +76,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
         "//src/main/java/com/google/devtools/build/lib/worker",
         "//src/main/java/com/google/devtools/build/lib/worker:worker_key",
+        "//src/main/java/com/google/devtools/build/lib/worker:worker_pool",
         "//src/main/java/com/google/devtools/build/lib/worker:worker_process_status",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/com/google/devtools/common/options",

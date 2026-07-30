@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
-import static java.util.concurrent.ForkJoinPool.commonPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 import com.google.common.base.Preconditions;
@@ -43,6 +42,7 @@ import com.google.devtools.build.skyframe.InMemoryGraph;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -109,7 +109,8 @@ public class RemoteAnalysisCacheDeps
       Fingerprinter fingerprinterForAnalysisCaching,
       InMemoryGraph graph,
       EventBus eventBus,
-      LongVersionGetter versionGetter) {
+      LongVersionGetter versionGetter,
+      Executor commandExecutor) {
     this.mode = mode;
     this.bailOutOnMissingFingerprint = bailOutOnMissingFingerprint;
     this.skycacheAnalysisOnly = skycacheAnalysisOnly;
@@ -131,12 +132,7 @@ public class RemoteAnalysisCacheDeps
                 servicesSupplier.getFingerprintValueStore(),
                 store ->
                     new FingerprintValueService(
-                        // This pool is surfaced via FingerprintValueService.getExecutor and is only
-                        // used for pure deserialization CPU work.
-                        //
-                        // TODO: b/390533627 - consider if a different executor should be used for
-                        // better isolation.
-                        commonPool(),
+                        commandExecutor,
                         store,
                         new FingerprintValueCache(FingerprintValueCache.SyncMode.NOT_LINKED),
                         fingerprinterForAnalysisCaching),

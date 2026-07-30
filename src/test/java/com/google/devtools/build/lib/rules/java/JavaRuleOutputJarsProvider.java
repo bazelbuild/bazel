@@ -60,6 +60,11 @@ public record JavaRuleOutputJarsProvider(ImmutableList<JavaOutput> javaOutputs)
     return true; // immutable and Starlark-hashable
   }
 
+  @Override
+  public boolean isAcyclic() {
+    return true;
+  }
+
   /** Collects all class output jars from {@link #getJavaOutputs} */
   public Iterable<Artifact> getAllClassOutputJars() {
     return javaOutputs().stream().map(JavaOutput::classJar).collect(Collectors.toList());

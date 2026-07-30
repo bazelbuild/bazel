@@ -612,6 +612,7 @@ java_test(
     name = "AqueryBuildToolTest",
     srcs = ["AqueryBuildToolTest.java"],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/buildtool",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/events",

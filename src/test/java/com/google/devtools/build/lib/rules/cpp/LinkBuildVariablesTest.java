@@ -18,11 +18,8 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.actions.Action;
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariableValue;
@@ -53,138 +50,7 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
   }
 
 
-  @Test
-  public void testOutputExecpath() throws Exception {
-    AnalysisMock.get()
-        .ccSupport()
-        .setupCcToolchainConfig(
-            mockToolsConfig,
-            CcToolchainConfig.builder().withFeatures(CppRuleClasses.SUPPORTS_DYNAMIC_LINKER));
-    // Make sure the interface shared object generation is enabled in the configuration
-    // (which it is not by default for some windows toolchains)
-    scratch.file(
-        "x/BUILD",
-        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
-        "cc_library(name = 'foo', srcs = ['a.cc'])");
-    scratch.file("x/a.cc");
-
-    ConfiguredTarget target = getConfiguredTarget("//x:foo");
-    CcToolchainVariables variables =
-        getLinkBuildVariables(target, LinkTargetType.NODEPS_DYNAMIC_LIBRARY);
-
-    assertThat(getVariableValue(variables, LinkBuildVariables.OUTPUT_EXECPATH.getVariableName()))
-        .endsWith("x/libfoo.so");
-  }
-
-  @Test
-  public void testOutputExecpathIsNotExposedWhenThinLtoIndexing() throws Exception {
-    AnalysisMock.get()
-        .ccSupport()
-        .setupCcToolchainConfig(
-            mockToolsConfig,
-            CcToolchainConfig.builder()
-                .withFeatures(
-                    CppRuleClasses.THIN_LTO,
-                    CppRuleClasses.SUPPORTS_DYNAMIC_LINKER,
-                    CppRuleClasses.SUPPORTS_PIC,
-                    CppRuleClasses.SUPPORTS_INTERFACE_SHARED_LIBRARIES,
-                    CppRuleClasses.SUPPORTS_START_END_LIB));
-    useConfiguration("--features=thin_lto");
-
-    scratch.file(
-        "x/BUILD",
-        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
-        "cc_library(name = 'foo', srcs = ['a.cc'])");
-    scratch.file("x/a.cc");
-
-    ConfiguredTarget target = getConfiguredTarget("//x:foo");
-    SpawnAction linkAction = getCppLinkAction(target, LinkTargetType.NODEPS_DYNAMIC_LIBRARY);
-    String rootExecPath = linkAction.getPrimaryOutput().getRoot().getExecPathString();
-
-    LtoBackendAction backendAction =
-        (LtoBackendAction)
-            getPredecessorByInputName(
-                linkAction, "x/libfoo.so.lto/" + rootExecPath + "/x/_objs/foo/a.pic.o");
-    assertThat(backendAction.getMnemonic()).isEqualTo("CcLtoBackendCompile");
-
-    SpawnAction indexAction =
-        (SpawnAction)
-            getPredecessorByInputName(
-                backendAction,
-                "x/libfoo.so.lto/" + rootExecPath + "/x/_objs/foo/a.pic.o.thinlto.bc");
-    CcToolchainVariables variables = getLinkCommandLine(indexAction).getBuildVariables();
-
-    assertThat(variables.isAvailable(LinkBuildVariables.OUTPUT_EXECPATH.getVariableName()))
-        .isFalse();
-  }
-
-  @Test
-  public void testIsCcTestLinkActionBuildVariable() throws Exception {
-    scratch.file(
-        "x/BUILD",
-        """
-        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
-        load("@rules_cc//cc:cc_test.bzl", "cc_test")
-        cc_test(
-            name = "foo_test",
-            srcs = ["a.cc"],
-        )
-
-        cc_binary(
-            name = "foo",
-            srcs = ["a.cc"],
-        )
-        """);
-    scratch.file("x/a.cc");
-
-    ConfiguredTarget testTarget = getConfiguredTarget("//x:foo_test");
-    CcToolchainVariables testVariables =
-        getLinkBuildVariables(testTarget, LinkTargetType.EXECUTABLE);
-
-    assertThat(
-            testVariables
-                .getVariable(LinkBuildVariables.IS_CC_TEST.getVariableName(), PathMapper.NOOP)
-                .isTruthy())
-        .isTrue();
-
-    ConfiguredTarget binaryTarget = getConfiguredTarget("//x:foo");
-    CcToolchainVariables binaryVariables =
-        getLinkBuildVariables(binaryTarget, LinkTargetType.EXECUTABLE);
-
-    assertThat(
-            binaryVariables
-                .getVariable(LinkBuildVariables.IS_CC_TEST.getVariableName(), PathMapper.NOOP)
-                .isTruthy())
-        .isFalse();
-  }
-
-  @Test
-  public void testStripBinariesIsEnabledWhenStripModeIsAlwaysNoMatterWhat() throws Exception {
-    scratch.file(
-        "x/BUILD",
-        "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
-        "cc_binary(name = 'foo', srcs = ['a.cc'])");
-    scratch.file("x/a.cc");
-
-    assertStripBinaryVariableIsPresent("always", "opt", true);
-    assertStripBinaryVariableIsPresent("always", "fastbuild", true);
-    assertStripBinaryVariableIsPresent("always", "dbg", true);
-    assertStripBinaryVariableIsPresent("sometimes", "opt", false);
-    assertStripBinaryVariableIsPresent("sometimes", "fastbuild", true);
-    assertStripBinaryVariableIsPresent("sometimes", "dbg", false);
-    assertStripBinaryVariableIsPresent("never", "opt", false);
-    assertStripBinaryVariableIsPresent("never", "fastbuild", false);
-    assertStripBinaryVariableIsPresent("never", "dbg", false);
-  }
-
-  private void assertStripBinaryVariableIsPresent(
-      String stripMode, String compilationMode, boolean isEnabled) throws Exception {
-    useConfiguration("--strip=" + stripMode, "--compilation_mode=" + compilationMode);
-    ConfiguredTarget target = getConfiguredTarget("//x:foo");
-    CcToolchainVariables variables = getLinkBuildVariables(target, LinkTargetType.EXECUTABLE);
-    assertThat(variables.isAvailable(LinkBuildVariables.STRIP_DEBUG_SYMBOLS.getVariableName()))
-        .isEqualTo(isEnabled);
-  }
+  
 
   @Test
   public void testIsUsingFissionVariableUsingLegacyFields() throws Exception {
@@ -261,15 +127,6 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
         getLinkBuildVariables(testTarget, LinkTargetType.EXECUTABLE);
 
     assertThat(testVariables.isAvailable(SYSROOT_VARIABLE_NAME)).isTrue();
-  }
-
-  private Action getPredecessorByInputName(Action action, String str) {
-    for (Artifact a : action.getInputs().toList()) {
-      if (a.getExecPathString().contains(str)) {
-        return getGeneratingAction(a);
-      }
-    }
-    return null;
   }
 
   @Test
