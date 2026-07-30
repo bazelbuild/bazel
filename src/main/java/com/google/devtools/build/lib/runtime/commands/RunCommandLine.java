@@ -107,6 +107,7 @@ class RunCommandLine {
         result.append(" <args omitted>");
       } else {
         for (int i = 0; i < residue.size(); i++) {
+          // Don't add a space after the last argument.
           if (i < residue.size() - 1) {
             result.append(" ");
           }
