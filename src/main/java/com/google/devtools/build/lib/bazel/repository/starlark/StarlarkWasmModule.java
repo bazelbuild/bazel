@@ -94,12 +94,15 @@ final class StarlarkWasmModule implements StarlarkValue {
   private static final StarlarkWasmCompilationCache compilationCache =
       new StarlarkWasmCompilationCache();
 
-  // The ABI of the exported entry point: it receives the input pointer and length
-  // followed by the two out-parameter pointers, and returns a status code.
+  // (input_ptr, input_len, output_ptr_ptr, output_len_ptr) -> return_code
   private static final FunctionType EXEC_FN_TYPE =
       FunctionType.of(
           new ValType[] {ValType.I32, ValType.I32, ValType.I32, ValType.I32},
           new ValType[] {ValType.I32});
+
+  // (size, align) -> ptr
+  private static final FunctionType ALLOC_FN_TYPE =
+      FunctionType.of(new ValType[] {ValType.I32, ValType.I32}, new ValType[] {ValType.I32});
 
   private final StarlarkPath path;
   private final Object origPath;
@@ -244,20 +247,12 @@ final class StarlarkWasmModule implements StarlarkValue {
     if (allocFn == null) {
       throw Starlark.errorf("WebAssembly module doesn't export \"%s\"", allocFnName);
     }
+    checkFnType(instance, allocFnName, ALLOC_FN_TYPE);
     ExportFunction execFn = instance.export(execFnName);
     if (execFn == null) {
       throw Starlark.errorf("WebAssembly module doesn't export \"%s\"", execFnName);
     }
-    // The exported function is invoked positionally below, and its first result is
-    // read back as the return code. Reject a module whose export doesn't actually
-    // have that type, rather than calling it anyway and reporting whatever comes
-    // back as a successful execution.
-    FunctionType execFnType = instance.exportType(execFnName);
-    if (!EXEC_FN_TYPE.equals(execFnType)) {
-      throw Starlark.errorf(
-          "WebAssembly module export \"%s\" has type %s, but Bazel requires %s",
-          execFnName, execFnType, EXEC_FN_TYPE);
-    }
+    checkFnType(instance, execFnName, EXEC_FN_TYPE);
 
     int inputLen = Math.toIntExact(input.length);
     int inputPtr = alloc(allocFnName, allocFn, inputLen, 1);
@@ -345,6 +340,20 @@ final class StarlarkWasmModule implements StarlarkValue {
       return 1;
     }
     return (int) Math.min((long) MAX_PAGES, Math.ceilDiv(memLimitBytes, PAGE_SIZE));
+  }
+
+  // Both exports are called positionally and their first result is read back, so a
+  // module whose export has a different type would otherwise be invoked anyway --
+  // returning a meaningless value, or throwing ArrayIndexOutOfBoundsException if it
+  // declares no results at all.
+  private static void checkFnType(Instance instance, String fnName, FunctionType want)
+      throws EvalException {
+    FunctionType got = instance.exportType(fnName);
+    if (!want.equals(got)) {
+      throw Starlark.errorf(
+          "WebAssembly module export \"%s\" has type %s, but Bazel requires %s",
+          fnName, got, want);
+    }
   }
 
   static int alloc(String allocFnName, ExportFunction allocFn, int size, int align)
