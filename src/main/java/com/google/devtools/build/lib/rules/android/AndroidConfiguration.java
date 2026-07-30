@@ -229,19 +229,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
 
 
 
-    // Do not use on the command line.
-    // This flag is intended to be updated as we add supported flags to the incremental dexing tools
-    @Option(
-        name = "dexopts_supported_in_dexmerger",
-        converter = Converters.CommaSeparatedOptionListConverter.class,
-        defaultValue = "--minimal-main-dex,--set-max-idx-number",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {
-          OptionEffectTag.ACTION_COMMAND_LINES,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
-        },
-        help = "dx flags supported in tool that merges dex archives into final classes.dex files.")
-    public abstract List<String> getDexoptsSupportedInDexMerger();
 
     // Do not use on the command line.
     // This flag is intended to be updated as we add supported flags to the incremental dexing tools
@@ -604,7 +591,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   private final ConfigurationDistinguisher configurationDistinguisher;
   private final int incrementalDexingShardsAfterProguard;
 
-  private final ImmutableList<String> dexoptsSupportedInDexMerger;
   private final ImmutableList<String> dexoptsSupportedInDexSharder;
   private final boolean desugarJava8;
   private final boolean desugarJava8Libs;
@@ -630,8 +616,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     Options options = buildOptions.get(Options.class);
     this.configurationDistinguisher = options.getConfigurationDistinguisher();
     this.incrementalDexingShardsAfterProguard = options.getIncrementalDexingShardsAfterProguard();
-    this.dexoptsSupportedInDexMerger =
-        ImmutableList.copyOf(options.getDexoptsSupportedInDexMerger());
     this.dexoptsSupportedInDexSharder =
         ImmutableList.copyOf(options.getDexoptsSupportedInDexSharder());
     this.desugarJava8 = options.getDesugarJava8();
@@ -680,11 +664,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   }
 
 
-  /** dx flags supported in dexmerger actions. */
-  @Override
-  public ImmutableList<String> getDexoptsSupportedInDexMerger() {
-    return dexoptsSupportedInDexMerger;
-  }
 
   /** dx flags supported in dexsharder actions. */
   @Override
