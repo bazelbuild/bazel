@@ -17,6 +17,9 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import build.bazel.remote.execution.v2.Digest;
+import build.bazel.remote.execution.v2.Directory;
+import build.bazel.remote.execution.v2.FileNode;
+import build.bazel.remote.execution.v2.Tree;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
 import com.google.common.eventbus.EventBus;
@@ -29,17 +32,22 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.InMemoryCacheClient;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.OutputPermissions;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.SyscallCache;
+import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import org.junit.Test;
@@ -167,6 +175,44 @@ public class RemoteActionInputFetcherTest extends ActionInputPrefetcherTestBase 
     assertThat(error)
         .hasMessageThat()
         .contains(String.format("%s/%s", digest.getHash(), digest.getSizeBytes()));
+  }
+
+  @Test
+  public void injectRemoteRepo_invalidPath_throwsIOException() {
+    // Tests that RemoteExternalOverlayFileSystem and RemoteActionInputFetcher
+    // maintain path containment within the repository directory.
+    PathFragment externalDir = PathFragment.create("/output_base/external");
+    InMemoryFileSystem hostFs = new InMemoryFileSystem(DigestHashFunction.SHA256);
+    RemoteExternalOverlayFileSystem overlayFs =
+        new RemoteExternalOverlayFileSystem(externalDir, hostFs);
+    overlayFs.beforeCommand(
+        newCombinedCache(digestUtil, new HashMap<>()),
+        /* inputPrefetcher= */ null,
+        new Reporter(new EventBus()),
+        "none",
+        "none",
+        /* evaluator= */ null,
+        /* remoteCacheTtl= */ Duration.ofHours(1));
+    for (String invalidPath :
+        ImmutableList.of("../../../../../.bashrc.bzl", "/etc/cron.d/evil.bzl")) {
+      Tree tree =
+          Tree.newBuilder()
+              .setRoot(
+                  Directory.newBuilder()
+                      .addFiles(
+                          FileNode.newBuilder()
+                              .setName(invalidPath)
+                              .setDigest(
+                                  digestUtil.compute("payload\n".getBytes(StandardCharsets.UTF_8)))
+                              .build())
+                      .build())
+              .build();
+      assertThrows(
+          IOException.class,
+          () ->
+              overlayFs.injectRemoteRepo(
+                  RepositoryName.createUnvalidated("repo"), tree, "MARKER\n"));
+    }
   }
 
   private CombinedCache newCombinedCache(DigestUtil digestUtil, Map<HashCode, byte[]> cas) {
