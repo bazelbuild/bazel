@@ -484,7 +484,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
 
   private static final class SingleExtensionEvalFunctionException extends SkyFunctionException {
     SingleExtensionEvalFunctionException(ExternalDepsException cause) {
-      super(cause, Transience.PERSISTENT);
+      super(cause, cause.getTransience());
     }
   }
 }

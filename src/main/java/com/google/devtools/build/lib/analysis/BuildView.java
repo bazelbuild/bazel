@@ -792,6 +792,13 @@ public class BuildView {
           .setTargetPatterns(TargetPatterns.newBuilder().setCode(Code.TARGET_PATTERN_PARSE_FAILURE))
           .build();
     }
+    if (skyframeAnalysisResult != null) {
+      DetailedExitCode retryableAnalysisDetailedExitCode =
+          skyframeAnalysisResult.getRetryableAnalysisDetailedExitCode();
+      if (retryableAnalysisDetailedExitCode != null) {
+        return retryableAnalysisDetailedExitCode.getFailureDetail();
+      }
+    }
     if (loadingResult.hasPostExpansionError()
         || (skyframeAnalysisResult != null && skyframeAnalysisResult.hasLoadingError())) {
       return FailureDetail.newBuilder()

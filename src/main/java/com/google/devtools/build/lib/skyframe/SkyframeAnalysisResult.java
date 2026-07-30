@@ -22,7 +22,9 @@ import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.skyframe.WalkableGraph;
+import javax.annotation.Nullable;
 
 /**
  *  Encapsulates the raw analysis result of top level targets and aspects coming from Skyframe.
@@ -31,6 +33,7 @@ public class SkyframeAnalysisResult {
   private final boolean hasLoadingError;
   private final boolean hasAnalysisError;
   private final boolean hasActionConflicts;
+  @Nullable private final DetailedExitCode retryableAnalysisDetailedExitCode;
   private final ImmutableSet<ConfiguredTarget> configuredTargets;
   private final WalkableGraph walkableGraph;
   private final ImmutableMap<AspectKey, ConfiguredAspect> aspects;
@@ -41,6 +44,7 @@ public class SkyframeAnalysisResult {
       boolean hasLoadingError,
       boolean hasAnalysisError,
       boolean hasActionConflicts,
+      @Nullable DetailedExitCode retryableAnalysisDetailedExitCode,
       ImmutableSet<ConfiguredTarget> configuredTargets,
       WalkableGraph walkableGraph,
       ImmutableMap<AspectKey, ConfiguredAspect> aspects,
@@ -49,6 +53,7 @@ public class SkyframeAnalysisResult {
     this.hasLoadingError = hasLoadingError;
     this.hasAnalysisError = hasAnalysisError;
     this.hasActionConflicts = hasActionConflicts;
+    this.retryableAnalysisDetailedExitCode = retryableAnalysisDetailedExitCode;
     this.configuredTargets = configuredTargets;
     this.walkableGraph = walkableGraph;
     this.aspects = aspects;
@@ -67,6 +72,11 @@ public class SkyframeAnalysisResult {
 
   public boolean hasAnalysisError() {
     return hasAnalysisError;
+  }
+
+  @Nullable
+  public DetailedExitCode getRetryableAnalysisDetailedExitCode() {
+    return retryableAnalysisDetailedExitCode;
   }
 
   public boolean hasActionConflicts() {
@@ -103,6 +113,7 @@ public class SkyframeAnalysisResult {
         hasLoadingError,
         /* hasAnalysisError= */ true,
         hasActionConflicts,
+        retryableAnalysisDetailedExitCode,
         Sets.difference(configuredTargets, erroredTargets).immutableCopy(),
         walkableGraph,
         aspects,

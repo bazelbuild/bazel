@@ -67,6 +67,7 @@ import com.google.devtools.build.lib.skyframe.TargetCompletionValue.TargetComple
 import com.google.devtools.build.lib.skyframe.TestCompletionValue.TestCompletionKey;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.DetailedExitCode.DetailedExitCodeComparator;
+import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.skyframe.CycleInfo;
 import com.google.devtools.build.skyframe.CyclesReporter;
 import com.google.devtools.build.skyframe.ErrorInfo;
@@ -101,6 +102,8 @@ public final class SkyframeErrorProcessor {
    * @param hasLoadingError whether there are loading errors.
    * @param hasAnalysisError whether there are analysis errors.
    * @param actionConflicts the action conflicts encountered during analysis.
+   * @param retryableAnalysisDetailedExitCode the detailed exit code for an analysis error that can
+   *     be resolved by retrying the build, or {@code null} if no such error was encountered.
    * @param executionDetailedExitCode the detailed exit code for execution errors. This is
    *     <ul>
    *       <li>{@code null}, if {@code result} had no errors or the errors were all analysis errors.
@@ -116,6 +119,7 @@ public final class SkyframeErrorProcessor {
       boolean hasLoadingError,
       boolean hasAnalysisError,
       ImmutableMap<ActionAnalysisMetadata, ActionConflictException> actionConflicts,
+      @Nullable DetailedExitCode retryableAnalysisDetailedExitCode,
       @Nullable DetailedExitCode executionDetailedExitCode,
       ImmutableList<ActionLookupKey> aspectKeysForConflictReporting) {
     public ErrorProcessingResult {
@@ -132,6 +136,7 @@ public final class SkyframeErrorProcessor {
       private boolean hasAnalysisError = false;
       private final Map<ActionAnalysisMetadata, ActionConflictException> actionConflicts =
           new HashMap<>();
+      @Nullable private DetailedExitCode retryableAnalysisDetailedExitCode = null;
       @Nullable private DetailedExitCode executionDetailedExitCode = null;
       private final ImmutableList.Builder<ActionLookupKey> aspectKeysForConflictReporting =
           ImmutableList.builder();
@@ -140,6 +145,10 @@ public final class SkyframeErrorProcessor {
         hasLoadingError = hasLoadingError || individualErrorProcessingResult.isLoadingError();
         hasAnalysisError = hasAnalysisError || individualErrorProcessingResult.isAnalysisError();
         actionConflicts.putAll(individualErrorProcessingResult.actionConflicts());
+        if (retryableAnalysisDetailedExitCode == null) {
+          retryableAnalysisDetailedExitCode =
+              getRetryableAnalysisDetailedExitCode(individualErrorProcessingResult);
+        }
         executionDetailedExitCode =
             DetailedExitCodeComparator.chooseMoreImportantWithFirstIfTie(
                 executionDetailedExitCode,
@@ -162,6 +171,7 @@ public final class SkyframeErrorProcessor {
             hasLoadingError,
             hasAnalysisError,
             ImmutableMap.copyOf(actionConflicts),
+            retryableAnalysisDetailedExitCode,
             executionDetailedExitCode,
             aspectKeysForConflictReporting.build());
       }
@@ -519,11 +529,14 @@ public final class SkyframeErrorProcessor {
     // cases like action conflict or execution-related errors.
     // TODO(b/249690006): Can we simplify things by moving aspects events here?
     if (errorKey.argument() instanceof AspectBaseKey) {
+      NestedSet<Cause> aspectAnalysisRootCauses = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
       if (exception instanceof TopLevelConflictException tlce) {
         actionConflicts = tlce.getTransitiveActionConflicts();
       } else if (exception instanceof ActionConflictException ace) {
         actionConflicts = ImmutableMap.of(ace.getAttemptedAction(), ace);
         aspectKeyForConflictReporting = ace.getAspectKey();
+      } else if (exception instanceof AspectCreationException ace) {
+        aspectAnalysisRootCauses = ace.getCauses();
       } else if (isExecutionException(exception)) {
         executionDetailedExitCode =
             getExecutionDetailedExitCodeFromCause(result, exception, bugReporter);
@@ -534,7 +547,7 @@ public final class SkyframeErrorProcessor {
       return IndividualErrorProcessingResult.create(
           actionConflicts,
           executionDetailedExitCode,
-          /* analysisRootCauses= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+          aspectAnalysisRootCauses,
           /* loadingRootCauses= */ ImmutableSet.of(),
           aspectKeyForConflictReporting);
     }
@@ -718,6 +731,25 @@ public final class SkyframeErrorProcessor {
     }
     return new ViewCreationFailedException(
         errorMsg, maybeContextualizeFailureDetail(e, errorMsg), e);
+  }
+
+  /**
+   * Returns the detailed exit code of an analysis root cause that can be resolved by retrying the
+   * build, e.g. a file that is no longer available in the remote cache, or null if there is none.
+   */
+  @Nullable
+  private static DetailedExitCode getRetryableAnalysisDetailedExitCode(
+      IndividualErrorProcessingResult individualErrorProcessingResult) {
+    if (!individualErrorProcessingResult.isAnalysisError()) {
+      return null;
+    }
+    for (Cause analysisRootCause : individualErrorProcessingResult.analysisRootCauses().toList()) {
+      DetailedExitCode detailedExitCode = analysisRootCause.getDetailedExitCode();
+      if (ExitCode.REMOTE_CACHE_EVICTED.equals(detailedExitCode.getExitCode())) {
+        return detailedExitCode;
+      }
+    }
+    return null;
   }
 
   /**

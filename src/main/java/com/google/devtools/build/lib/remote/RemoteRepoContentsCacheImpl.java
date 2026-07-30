@@ -169,7 +169,7 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
       String predeclaredInputHash,
       ExtendedEventHandler reporter)
       throws InterruptedException {
-    if (!(fetchedRepoDir.getFileSystem() instanceof RemoteExternalOverlayFileSystem)) {
+    if (!(fetchedRepoDir.getFileSystem() instanceof RemoteExternalOverlayFileSystem remoteFs)) {
       return;
     }
     var context = buildContext(repoName, CacheOp.UPLOAD);
@@ -214,6 +214,7 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
                   /* wallTimeInMs= */ 0,
                   /* preserveExecutableBit= */ true)
               .upload(context, cache, reporter);
+      remoteFs.repoContentsUploaded(repoName);
     } catch (ExecException | IOException e) {
       reporter.handle(
           Event.warn(
@@ -246,6 +247,11 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
       SkyFunction.Environment env)
       throws IOException, InterruptedException {
     if (!(repoDir.getFileSystem() instanceof RemoteExternalOverlayFileSystem remoteFs)) {
+      return false;
+    }
+    if (remoteFs.shouldRefetch(repoName)) {
+      // The cached repo contents referenced files that are no longer available in the remote
+      // cache. Fetching the repo again uploads its contents, including the lost files.
       return false;
     }
 
@@ -293,8 +299,40 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
       return false;
     }
 
-    return remoteFs.injectRemoteRepo(
-        repoName, repoDirectoryContentFuture.resultNow(), markerFileContent);
+    var repoContents = repoDirectoryContentFuture.resultNow();
+    if (remoteFs.shouldVerifyCachedRepoContents() && !allBlobsAvailable(context, repoContents)) {
+      // The cached contents reference a file that the remote cache has lost, which is only
+      // noticed when the file is read. Treat the entry as a miss so that the repo is fetched and
+      // its contents are uploaded anew right away rather than after another retry of the build.
+      return false;
+    }
+
+    return remoteFs.injectRemoteRepo(repoName, repoContents, markerFileContent);
+  }
+
+  /**
+   * Returns whether all files referenced by the given cached repo contents are still available in
+   * the remote cache.
+   */
+  private boolean allBlobsAvailable(RemoteActionExecutionContext context, Tree repoContents)
+      throws IOException, InterruptedException {
+    var digests = ImmutableSet.<Digest>builder();
+    for (var file : repoContents.getRoot().getFilesList()) {
+      digests.add(file.getDigest());
+    }
+    // Tree#children contains all transitive subdirectories, not just those of the root.
+    for (var directory : repoContents.getChildrenList()) {
+      for (var file : directory.getFilesList()) {
+        digests.add(file.getDigest());
+      }
+    }
+    // Only the remote cache is authoritative: the disk cache is merely written through on
+    // downloads and a blob missing from it would be fetched remotely again.
+    var missingDigestsFuture =
+        cache.findMissingDigests(
+            context.withWriteCachePolicy(CachePolicy.REMOTE_CACHE_ONLY), digests.build());
+    waitForBulkTransfer(ImmutableList.of(missingDigestsFuture));
+    return missingDigestsFuture.resultNow().isEmpty();
   }
 
   private enum CacheOp {
