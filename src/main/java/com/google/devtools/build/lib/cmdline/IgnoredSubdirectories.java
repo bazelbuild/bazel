@@ -163,8 +163,11 @@ public final class IgnoredSubdirectories {
     ImmutableSet<PathFragment> filteredTraversalExclusions =
         traversalExclusions.stream().filter(p -> p.startsWith(directory)).collect(toImmutableSet());
 
-    String[] splitDirectory =
-        Iterables.toArray(SLASH_SPLITTER.split(directory.getPathString()), String.class);
+    // Note that we must not split the path string here: for the root directory, that would result
+    // in an array containing a single empty string instead of an empty array, which in turn would
+    // make canMatchChild() below spuriously match that phantom segment against the first pattern
+    // segment and thus drop every pattern whose first segment is not a wildcard.
+    String[] splitDirectory = Iterables.toArray(directory.segments(), String.class);
     ImmutableList.Builder<String> filteredPatterns = ImmutableList.builder();
     for (int i = 0; i < patterns.size(); i++) {
       if (UnixGlob.canMatchChild(splitPatterns.get(i), splitDirectory)) {
