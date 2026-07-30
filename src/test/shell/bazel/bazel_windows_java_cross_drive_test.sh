@@ -127,7 +127,9 @@ EOF
   bazel --output_user_root=${TMP_DRIVE}:/tmp build :hello &> "$TEST_log" \
       || fail "build failed"
 
-  assert_binary_run_from_subdir "bazel-bin/hello --classpath_limit=0" "Java $JAVA_VERSION"
+  # TODO(tjgq): Remove explicit `--java_version` once rules_java sets it.
+  assert_binary_run_from_subdir "bazel-bin/hello --classpath_limit=0 --java_version=$JAVA_VERSION" \
+    "Java $JAVA_VERSION"
 }
 
 run_suite "Tests that the Java Windows launcher works with cross-drive jars."

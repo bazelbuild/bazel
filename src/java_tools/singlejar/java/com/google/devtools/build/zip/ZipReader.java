@@ -146,7 +146,7 @@ public class ZipReader implements Closeable, AutoCloseable {
           "Zip file '%s' does not contain the requested entry '%s'.", file.getName(),
           entry.getName()));
     }
-    return new ZipEntryInputStream(this, entry, /* raw */ false);
+    return new ZipEntryInputStream(this, entry, /* raw= */ false);
   }
 
   /**
@@ -169,7 +169,7 @@ public class ZipReader implements Closeable, AutoCloseable {
           "Zip file '%s' does not contain the requested entry '%s'.", file.getName(),
           entry.getName()));
     }
-    return new ZipEntryInputStream(this, entry, /* raw */ true);
+    return new ZipEntryInputStream(this, entry, /* raw= */ true);
   }
 
   /**
@@ -180,6 +180,10 @@ public class ZipReader implements Closeable, AutoCloseable {
    */
   @Override public void close() throws IOException {
     in.close();
+  }
+
+  ZipFileData getZipData() {
+    return zipData;
   }
 
   /**
@@ -207,11 +211,16 @@ public class ZipReader implements Closeable, AutoCloseable {
       }
     }
 
+    long actualCenEnd =
+        (zipData.isZip64() && zipData.getZip64EndOfCentralDirectoryOffset() > 0)
+            ? zipData.getZip64EndOfCentralDirectoryOffset()
+            : eocdLocation;
+    long actualCenStart = actualCenEnd - zipData.getCentralDirectorySize();
+
     if (zipData.isZip64() || strictEntries) {
       // If in Zip64 format or using strict entry numbers, use the parsed information as is to read
       // the central directory file headers.
-      readCentralDirectoryFileHeaders(zipData.getExpectedEntries(),
-          zipData.getCentralDirectoryOffset());
+      readCentralDirectoryFileHeaders(zipData.getExpectedEntries(), actualCenStart);
     } else {
       // If not in Zip64 format, compute central directory offset by end of central directory record
       // offset and central directory size to allow reading large non-compliant Zip32 directories.
@@ -221,8 +230,7 @@ public class ZipReader implements Closeable, AutoCloseable {
       if ((int) centralDirectoryOffset == (int) zipData.getCentralDirectoryOffset()) {
         readCentralDirectoryFileHeaders(centralDirectoryOffset);
       } else {
-        readCentralDirectoryFileHeaders(zipData.getExpectedEntries(),
-            zipData.getCentralDirectoryOffset());
+        readCentralDirectoryFileHeaders(zipData.getExpectedEntries(), actualCenStart);
       }
     }
   }
@@ -257,7 +265,7 @@ public class ZipReader implements Closeable, AutoCloseable {
    * @throws ZipException if a ZIP format error has occurred
    * @throws IOException if an I/O error has occurred
    */
-  private long findEndOfCentralDirectoryRecord() throws IOException {
+  long findEndOfCentralDirectoryRecord() throws IOException {
     byte[] signature = ZipUtil.intToLittleEndian(EndOfCentralDirectoryRecord.SIGNATURE);
     byte[] buffer = new byte[(int) Math.min(64, in.length())];
     int readLength = buffer.length;
@@ -267,15 +275,32 @@ public class ZipReader implements Closeable, AutoCloseable {
     }
 
     long offset = in.length() - buffer.length;
-    while (offset >= 0) {
+    boolean done = false;
+    while (!done) {
+      if (offset <= 0) {
+        offset = 0;
+        done = true;
+      }
       in.seek(offset);
       in.readFully(buffer, 0, readLength);
-      int signatureLocation = scanBackwards(signature, buffer, buffer.length);
+      int signatureLocation = scanBackwards(signature, buffer, readLength);
       while (signatureLocation != -1) {
         long eocdSize = in.length() - offset - signatureLocation;
         if (eocdSize >= EndOfCentralDirectoryRecord.FIXED_DATA_SIZE) {
-          int commentLength = ZipUtil.getUnsignedShort(buffer, signatureLocation
-              + EndOfCentralDirectoryRecord.COMMENT_LENGTH_OFFSET);
+          int commentLength;
+          if (signatureLocation + EndOfCentralDirectoryRecord.COMMENT_LENGTH_OFFSET + 2
+              <= readLength) {
+            commentLength =
+                ZipUtil.getUnsignedShort(
+                    buffer, signatureLocation + EndOfCentralDirectoryRecord.COMMENT_LENGTH_OFFSET);
+          } else {
+            long currentPos = in.getFilePointer();
+            in.seek(offset + signatureLocation + EndOfCentralDirectoryRecord.COMMENT_LENGTH_OFFSET);
+            byte[] commentLenBytes = new byte[2];
+            in.readFully(commentLenBytes);
+            commentLength = ZipUtil.getUnsignedShort(commentLenBytes, 0);
+            in.seek(currentPos);
+          }
           long readCommentLength = eocdSize - EndOfCentralDirectoryRecord.FIXED_DATA_SIZE;
           if (commentLength == readCommentLength) {
             return offset + signatureLocation;
@@ -283,11 +308,13 @@ public class ZipReader implements Closeable, AutoCloseable {
         }
         signatureLocation = scanBackwards(signature, buffer, signatureLocation - 1);
       }
-      readLength = buffer.length - 3;
-      buffer[buffer.length - 3] = buffer[0];
-      buffer[buffer.length - 2] = buffer[1];
-      buffer[buffer.length - 1] = buffer[2];
-      offset -= readLength;
+      if (!done) {
+        readLength = buffer.length - 3;
+        buffer[buffer.length - 3] = buffer[0];
+        buffer[buffer.length - 2] = buffer[1];
+        buffer[buffer.length - 1] = buffer[2];
+        offset -= readLength;
+      }
     }
     throw new ZipException(String.format("Zip file '%s' is malformed. It does not contain an end"
         + " of central directory record.", file.getName()));
