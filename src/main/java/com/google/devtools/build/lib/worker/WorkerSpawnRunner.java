@@ -652,17 +652,14 @@ final class WorkerSpawnRunner implements SpawnRunner {
 
                   w = null;
 
-                } catch (IOException | InterruptedException | UserExecException e2) {
+                } catch (IOException | InterruptedException e2) {
                   // The reaper thread can't do anything useful about this.
                 }
               } finally {
                 if (w != null) {
                   try {
                     resourceHandle.close();
-                  } catch (IOException
-                      | InterruptedException
-                      | IllegalStateException
-                      | UserExecException e) {
+                  } catch (IOException | InterruptedException | IllegalStateException e) {
                     // Error while returning worker to the pool. Could not do anything.
                   }
                 }

@@ -195,25 +195,37 @@ function __do_release() {
   local tag_name=$(get_release_name)
   local candidate=$(get_release_candidate)
   local release_branch="release-${tag_name}"
-
-  local current_commit="$(__git_commit_hash "${current_branch}")"
-  local release_commit="$(__git_commit_hash "${release_branch}" 2>/dev/null || true)"
-  if [ -z "${candidate}" ] || [ -z "${release_commit}" ] || [ "${current_commit}" != "${release_commit}" ]; then
-    echo "The current branch ${current_branch} must be the latest release candidate (release-X.Y.ZrcN) and at the same commit as branch ${release_branch}." >&2
-    exit 1
+  if [ "$(is_rolling_release)" -eq 1 ]; then
+    # For rolling releases, we only have an rc1 branch and no "normal" release
+    # branch.
+    release_branch="${current_branch}"
+  else
+    # For non-rolling releases, we have a release branch (release-X.Y.Z), and
+    # a current branch (which should be the last RC branch -- release-X.Y.ZrcN).
+    # These need to be at exactly the same commit.
+    local current_commit="$(__git_commit_hash "${current_branch}")"
+    local release_commit="$(__git_commit_hash "${release_branch}" 2>/dev/null || true)"
+    if [ -z "${candidate}" ] || [ -z "${release_commit}" ] || [ "${current_commit}" != "${release_commit}" ]; then
+      echo "The current branch ${current_branch} must be the latest release candidate (release-X.Y.ZrcN) and at the same commit as branch ${release_branch}." >&2
+      exit 1
+    fi
   fi
 
   echo -n "You are about to release branch ${release_branch} in tag ${tag_name}, confirm? [y/N] "
   read answer
   if [ "$answer" = "y" ] || [ "$answer" = "Y" ]; then
-    echo "Switching to the release branch"
-    git checkout "${release_branch}"
+    if [ "$(is_rolling_release)" -eq 0 ]; then
+      echo "Switching to the release branch"
+      git checkout "${release_branch}"
+    fi
 
     echo "Creating the release commit"
     __create_release_commit "${tag_name}"
 
-    echo "Pushing the release branch"
-    __push_ref "${release_branch}"
+    if [ "$(is_rolling_release)" -eq 0 ]; then
+      echo "Pushing the release branch"
+      __push_ref "${release_branch}"
+    fi
 
     echo "Creating the tag"
     git tag ${tag_name}

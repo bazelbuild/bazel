@@ -22,6 +22,8 @@ import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingServicesSupplier;
 import com.google.errorprone.annotations.ForOverride;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ForkJoinPool;
 import java.util.function.Supplier;
 
 /** A {@link BlazeModule} to store Skyframe serialization lifecycle hooks. */
@@ -99,6 +101,11 @@ public class SerializationModule extends BlazeModule {
     @Override
     public ListenableFuture<? extends FingerprintValueStore> getFingerprintValueStore() {
       return WRAPPED_STORE_INSTANCE;
+    }
+
+    @Override
+    public ExecutorService getCommandExecutor() {
+      return ForkJoinPool.commonPool();
     }
 
     @Override
