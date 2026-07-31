@@ -67,7 +67,6 @@ bazel_build "src:bazel_nojdk${EXE_EXT}" \
   --action_env=PATH \
   --host_platform=@platforms//host \
   --platforms=@platforms//host \
-  "${EXTRA_BAZEL_BOOTSTRAP_ARGS[@]}" \
   || fail "Could not build Bazel"
 set +x
 bazel_bin_path="$(get_bazel_bin_path)/src/bazel_nojdk${EXE_EXT}"
