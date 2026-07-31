@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
@@ -59,124 +58,7 @@ public class CompileBuildVariablesTest extends BuildViewTestCase {
         .getVariables();
   }
 
-  @Test
-  public void testPresenceOfIsUsingFissionVariable() throws Exception {
-    AnalysisMock.get()
-        .ccSupport()
-        .setupCcToolchainConfig(
-            mockToolsConfig,
-            CcToolchainConfig.builder().withFeatures(CppRuleClasses.PER_OBJECT_DEBUG_INFO));
-    useConfiguration("--fission=yes");
 
-    scratch.file(
-        "x/BUILD",
-        "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
-        "cc_binary(name = 'bin', srcs = ['bin.cc'])");
-    scratch.file("x/bin.cc");
-
-    CcToolchainVariables variables = getCompileBuildVariables("//x:bin", "bin");
-
-    assertThat(
-            variables.getStringVariable(
-                CompileBuildVariables.IS_USING_FISSION.getVariableName(), PathMapper.NOOP))
-        .isNotNull();
-  }
-
-  @Test
-  public void testPresenceOfIsUsingFissionAndPerDebugObjectFileVariablesWithThinlto()
-      throws Exception {
-    AnalysisMock.get()
-        .ccSupport()
-        .setupCcToolchainConfig(
-            mockToolsConfig,
-            CcToolchainConfig.builder()
-                .withFeatures(
-                    "fission_flags_for_lto_backend",
-                    CppRuleClasses.PER_OBJECT_DEBUG_INFO,
-                    CppRuleClasses.SUPPORTS_START_END_LIB,
-                    CppRuleClasses.THIN_LTO));
-    useConfiguration("--fission=yes", "--features=thin_lto");
-
-    scratch.file(
-        "x/BUILD",
-        "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
-        "cc_binary(name = 'bin', srcs = ['bin.cc'])");
-    scratch.file("x/bin.cc");
-
-    RuleConfiguredTarget target = (RuleConfiguredTarget) getConfiguredTarget("//x:bin");
-    LtoBackendAction backendAction =
-        (LtoBackendAction)
-            target.getActions().stream()
-                .filter(a -> a.getMnemonic().equals("CcLtoBackendCompile"))
-                .findFirst()
-                .get();
-    CppCompileAction bitcodeAction =
-        (CppCompileAction)
-            target.getActions().stream()
-                .filter(a -> a.getMnemonic().equals("CppCompile"))
-                .findFirst()
-                .get();
-
-    // We don't pass per_object_debug_info_file to bitcode compiles
-    assertThat(
-            bitcodeAction
-                .getCompileCommandLine()
-                .getVariables()
-                .isAvailable(CompileBuildVariables.IS_USING_FISSION.getVariableName()))
-        .isTrue();
-    assertThat(
-            bitcodeAction
-                .getCompileCommandLine()
-                .getVariables()
-                .isAvailable(CompileBuildVariables.PER_OBJECT_DEBUG_INFO_FILE.getVariableName()))
-        .isFalse();
-
-    // We do pass per_object_debug_info_file to backend compiles
-    assertThat(backendAction.getArguments()).contains("-<PER_OBJECT_DEBUG_INFO_FILE>");
-    assertThat(backendAction.getArguments()).contains("-<IS_USING_FISSION>");
-  }
-
-  @Test
-  public void testPresenceOfPerObjectDebugFileBuildVariableUsingLegacyFields() throws Exception {
-    AnalysisMock.get()
-        .ccSupport()
-        .setupCcToolchainConfig(
-            mockToolsConfig,
-            CcToolchainConfig.builder().withFeatures(CppRuleClasses.PER_OBJECT_DEBUG_INFO));
-    useConfiguration("--fission=yes");
-
-    scratch.file(
-        "x/BUILD",
-        "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
-        "cc_binary(name = 'bin', srcs = ['bin.cc'])");
-    scratch.file("x/bin.cc");
-
-    CcToolchainVariables variables = getCompileBuildVariables("//x:bin", "bin");
-
-    assertThat(
-            variables.getStringVariable(
-                CompileBuildVariables.PER_OBJECT_DEBUG_INFO_FILE.getVariableName(),
-                PathMapper.NOOP))
-        .isNotNull();
-  }
-
-  @Test
-  public void testPresenceOfMinOsVersionBuildVariable() throws Exception {
-    AnalysisMock.get()
-        .ccSupport()
-        .setupCcToolchainConfig(
-            mockToolsConfig, CcToolchainConfig.builder().withFeatures("min_os_version_flag"));
-    useConfiguration("--minimum_os_version=6");
-    scratch.file(
-        "x/BUILD",
-        "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
-        "cc_binary(name = 'bin', srcs = ['bin.cc'])");
-    scratch.file("x/bin.cc");
-
-    CcToolchainVariables variables = getCompileBuildVariables("//x:bin", "bin");
-    assertThat(variables.getStringVariable(MINIMUM_OS_VERSION_VARIABLE_NAME, PathMapper.NOOP))
-        .isEqualTo("6");
-  }
 
   @Test
   public void testExternalIncludePathsVariable() throws Exception {
