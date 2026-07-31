@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTa
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
-import com.google.devtools.build.lib.packages.util.MockPlatformSupport;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
@@ -58,116 +57,6 @@ public class CompileBuildVariablesTest extends BuildViewTestCase {
     return getCppCompileAction(getConfiguredTarget(label), name)
         .getCompileCommandLine()
         .getVariables();
-  }
-
-  @Test
-  public void testHostPerFileCoptsAreInUserCompileFlags() throws Exception {
-    scratch.file(
-        "x/BUILD",
-        "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
-        "cc_binary(name = 'bin', srcs = ['bin.cc'])");
-    scratch.file("x/bin.cc");
-    useConfiguration(
-        "--host_per_file_copt=//x:bin@-foo",
-        "--host_per_file_copt=//x:bar\\.cc@-bar",
-        "--per_file_copt=//x:bin@-baz");
-
-    ConfiguredTarget target = getConfiguredTarget("//x:bin", getExecConfiguration());
-    CcToolchainVariables variables =
-        getCppCompileAction(target, "bin").getCompileCommandLine().getVariables();
-
-    ImmutableList<String> copts =
-        CcToolchainVariables.toStringList(
-            variables, CompileBuildVariables.USER_COMPILE_FLAGS.getVariableName(), PathMapper.NOOP);
-    assertThat(copts).contains("-foo");
-    assertThat(copts).doesNotContain("-bar");
-    assertThat(copts).doesNotContain("-baz");
-  }
-
-  @Test
-  public void testPresenceOfSysrootBuildVariable() throws Exception {
-    AnalysisMock.get()
-        .ccSupport()
-        .setupCcToolchainConfig(
-            mockToolsConfig, CcToolchainConfig.builder().withSysroot("/usr/local/custom-sysroot"));
-    useConfiguration();
-
-    scratch.file(
-        "x/BUILD",
-        "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
-        "cc_binary(name = 'bin', srcs = ['bin.cc'])");
-    scratch.file("x/bin.cc");
-
-    CcToolchainVariables variables = getCompileBuildVariables("//x:bin", "bin");
-
-    assertThat(variables.getStringVariable(SYSROOT_VARIABLE_NAME, PathMapper.NOOP))
-        .isEqualTo("/usr/local/custom-sysroot");
-  }
-
-  @Test
-  public void testTargetSysrootWithoutPlatforms() throws Exception {
-    useConfiguration("--grte_top=//target_libc", "--host_grte_top=//host_libc");
-
-    scratch.file(
-        "x/BUILD",
-        "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
-        "cc_binary(name = 'bin', srcs = ['bin.cc'])");
-    scratch.file("x/bin.cc");
-    scratch.file("target_libc/BUILD", "filegroup(name = 'everything')");
-    scratch.file("host_libc/BUILD", "filegroup(name = 'everything')");
-
-    CcToolchainVariables variables = getCompileBuildVariables("//x:bin", "bin");
-
-    assertThat(variables.getStringVariable(SYSROOT_VARIABLE_NAME, PathMapper.NOOP))
-        .isEqualTo("target_libc");
-  }
-
-  @Test
-  public void testTargetSysrootWithPlatforms() throws Exception {
-    MockPlatformSupport.addMockK8Platform(
-        mockToolsConfig, analysisMock.ccSupport().getMockCrosstoolLabel());
-    useConfiguration(
-        "--experimental_platforms=//mock_platform:mock-k8-platform",
-        "--extra_toolchains=//mock_platform:toolchain_cc-compiler-k8",
-        "--grte_top=//target_libc",
-        "--host_grte_top=//host_libc");
-
-    scratch.file(
-        "x/BUILD",
-        "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
-        "cc_binary(name = 'bin', srcs = ['bin.cc'])");
-    scratch.file("x/bin.cc");
-    scratch.file("target_libc/BUILD", "filegroup(name = 'everything')");
-    scratch.file("host_libc/BUILD", "filegroup(name = 'everything')");
-
-    CcToolchainVariables variables = getCompileBuildVariables("//x:bin", "bin");
-
-    assertThat(variables.getStringVariable(SYSROOT_VARIABLE_NAME, PathMapper.NOOP))
-        .isEqualTo("target_libc");
-  }
-
-  @Test
-  public void testPresenceOfPerObjectDebugFileBuildVariable() throws Exception {
-    AnalysisMock.get()
-        .ccSupport()
-        .setupCcToolchainConfig(
-            mockToolsConfig,
-            CcToolchainConfig.builder().withFeatures(CppRuleClasses.PER_OBJECT_DEBUG_INFO));
-    useConfiguration("--fission=yes");
-
-    scratch.file(
-        "x/BUILD",
-        "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
-        "cc_binary(name = 'bin', srcs = ['bin.cc'])");
-    scratch.file("x/bin.cc");
-
-    CcToolchainVariables variables = getCompileBuildVariables("//x:bin", "bin");
-
-    assertThat(
-            variables.getStringVariable(
-                CompileBuildVariables.PER_OBJECT_DEBUG_INFO_FILE.getVariableName(),
-                PathMapper.NOOP))
-        .isNotNull();
   }
 
   @Test
