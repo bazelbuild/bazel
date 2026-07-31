@@ -51,7 +51,7 @@ public record ResourceSet(
   public static final String MEMORY = "memory";
 
   /** For actions that consume negligible resources. */
-  public static final ResourceSet ZERO = create(ImmutableMap.of(), 0, null, 0);
+  public static final ResourceSet ZERO = createWithSchedulingPriority(ImmutableMap.of(), 0, 0);
   public static ResourceSet createWithRamCpu(double memoryMb, double cpu) {
     return create(ImmutableMap.of(MEMORY, memoryMb, CPU, cpu));
   }
