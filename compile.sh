@@ -62,13 +62,11 @@ display "."
 log "Building output/bazel"
 # We set host and target platform directly because we are building for the local
 # host.
-set -x
 bazel_build "src:bazel_nojdk${EXE_EXT}" \
   --action_env=PATH \
   --host_platform=@platforms//host \
   --platforms=@platforms//host \
   || fail "Could not build Bazel"
-set +x
 bazel_bin_path="$(get_bazel_bin_path)/src/bazel_nojdk${EXE_EXT}"
 [ -e "$bazel_bin_path" ] \
   || fail "Could not find freshly built Bazel binary at '$bazel_bin_path'"
