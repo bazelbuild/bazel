@@ -13,12 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.lib.starlarkprofiler;
 
+import com.google.devtools.build.lib.skybridge.ScOnly;
 import com.google.devtools.build.lib.util.OS;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.CpuProfilerNativeSupport;
 import net.starlark.java.eval.CpuProfilerNativeSupportImpl;
 
 /** Implementation of {@link CpuProfilerService}. */
+@ScOnly
 public final class CpuProfilerServiceImpl implements CpuProfilerService {
   @Override
   @Nullable
