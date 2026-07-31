@@ -22,6 +22,8 @@
 #   COVERAGE_DIR - optional, location of the coverage temp directory
 #   COVERAGE_OUTPUT_FILE - optional, location of the final lcov file
 #   VERBOSE_COVERAGE - optional, print debug info from the coverage scripts
+#   BAZEL_LLVM_PROFILE_FILE - optional, custom LLVM profile filename pattern
+#     (defaults to "%h-%p-%m.profraw" if not set)
 #
 # Script expects that it will be started in the execution root directory and
 # not in the test's runfiles directory.
