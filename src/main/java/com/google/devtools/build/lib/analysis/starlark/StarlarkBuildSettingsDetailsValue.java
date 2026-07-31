@@ -24,9 +24,11 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.SkyKey.SkyKeyInterner;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.errorprone.annotations.CheckReturnValue;
 import java.util.Map;
@@ -137,16 +139,46 @@ public record StarlarkBuildSettingsDetailsValue(
       String flagScopeType,
       String hostFlagScopeType) {}
 
-  /** {@link SkyKey} implementation used for {@link StarlarkBuildSettingsDetailsValue}. */
+  /**
+   * {@link SkyKey} implementation used for {@link StarlarkBuildSettingsDetailsValue}.
+   *
+   * <p>Instances are interned: the exec transition requests this key once per configured target and
+   * Skyframe retains the requesting key instance in each node's dependency list. Without interning,
+   * every configured target would retain its own copy of the (potentially large) label sets.
+   */
   @CheckReturnValue
   @Immutable
   @ThreadSafe
   @AutoCodec
-  public record Key(ImmutableSet<Label> buildSettings, ImmutableSet<Label> hostFlags)
-      implements SkyKey {
-    public Key {
-      requireNonNull(buildSettings, "buildSettings");
-      requireNonNull(hostFlags, "hostFlags");
+  public static final class Key implements SkyKey {
+    private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
+
+    private final ImmutableSet<Label> buildSettings;
+    private final ImmutableSet<Label> hostFlags;
+    private final int hashCode;
+
+    private Key(ImmutableSet<Label> buildSettings, ImmutableSet<Label> hostFlags) {
+      this.buildSettings = requireNonNull(buildSettings, "buildSettings");
+      this.hostFlags = requireNonNull(hostFlags, "hostFlags");
+      this.hashCode = 31 * buildSettings.hashCode() + hostFlags.hashCode();
+    }
+
+    public static Key create(ImmutableSet<Label> buildSettings, ImmutableSet<Label> hostFlags) {
+      return interner.intern(new Key(buildSettings, hostFlags));
+    }
+
+    @VisibleForSerialization
+    @AutoCodec.Interner
+    static Key intern(Key key) {
+      return interner.intern(key);
+    }
+
+    public ImmutableSet<Label> buildSettings() {
+      return buildSettings;
+    }
+
+    public ImmutableSet<Label> hostFlags() {
+      return hostFlags;
     }
 
     @Override
@@ -154,8 +186,30 @@ public record StarlarkBuildSettingsDetailsValue(
       return SkyFunctions.STARLARK_BUILD_SETTINGS_DETAILS;
     }
 
-    public static Key create(ImmutableSet<Label> buildSettings, ImmutableSet<Label> hostFlags) {
-      return new Key(buildSettings, hostFlags);
+    @Override
+    public SkyKeyInterner<Key> getSkyKeyInterner() {
+      return interner;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      if (obj == this) {
+        return true;
+      }
+      return obj instanceof Key other
+          && hashCode == other.hashCode
+          && buildSettings.equals(other.buildSettings)
+          && hostFlags.equals(other.hostFlags);
+    }
+
+    @Override
+    public int hashCode() {
+      return hashCode;
+    }
+
+    @Override
+    public String toString() {
+      return "Key[buildSettings=%s, hostFlags=%s]".formatted(buildSettings, hostFlags);
     }
   }
 }

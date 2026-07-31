@@ -18,6 +18,7 @@ import static java.util.Objects.requireNonNull;
 
 import com.google.common.base.Splitter;
 import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttributeTransitionProvider;
@@ -137,20 +138,12 @@ public final class StarlarkExecTransitionLoader {
     // Load scope info for all Starlark build setting flags in the current config, filtering out
     // feature flags since they don't have scopes.
     StarlarkBuildSettingsDetailsValue scopeDetails = null;
-    Set<Label> starlarkFlags =
-        options.getStarlarkOptions().entrySet().stream()
-            .filter(e -> !(e.getValue() instanceof FeatureFlagValue))
-            .map(Map.Entry::getKey)
-            .collect(toImmutableSet());
+    ImmutableSet<Label> starlarkFlags = flagsWithScopes(options.getStarlarkOptions());
 
     // Look up the host flags declared by users in the blazerc/MODULE.bazel files with alias
     // pointing to the starlark definition. This is useful to determine exec propagation for flags
     // with scope that starts with "exec:--".
-    ImmutableSet<Label> hostFlags =
-        options.get(CoreOptions.class).getCommandLineFlagAliasesMap().entrySet().stream()
-            .filter(alias -> alias.getKey().startsWith("host_"))
-            .map(Map.Entry::getValue)
-            .collect(toImmutableSet());
+    ImmutableSet<Label> hostFlags = options.get(CoreOptions.class).getHostFlagAliases();
 
     if (!starlarkFlags.isEmpty() || !hostFlags.isEmpty()) {
       scopeDetails = detailsLoader.getValue(starlarkFlags, hostFlags);
@@ -164,15 +157,40 @@ public final class StarlarkExecTransitionLoader {
             (StarlarkDefinedConfigTransition) transition, scopeDetails));
   }
 
+  /**
+   * Returns the labels of the Starlark flags in {@code starlarkOptions} that can have scopes, i.e.
+   * all of them except feature flags.
+   *
+   * <p>This method is called once per configured target, so it avoids allocating a new set in the
+   * common case where no feature flags are set. Returning the map's cached key set also lets the
+   * {@link StarlarkBuildSettingsDetailsValue.Key} interner short-circuit on reference equality.
+   */
+  private static ImmutableSet<Label> flagsWithScopes(ImmutableMap<Label, Object> starlarkOptions) {
+    for (Object value : starlarkOptions.values()) {
+      if (value instanceof FeatureFlagValue) {
+        return starlarkOptions.entrySet().stream()
+            .filter(e -> !(e.getValue() instanceof FeatureFlagValue))
+            .map(Map.Entry::getKey)
+            .collect(toImmutableSet());
+      }
+    }
+    return starlarkOptions.keySet();
+  }
+
   /** A marker class to distinguish the exec transition from other starlark transitions. */
   static class StarlarkExecTransitionProvider extends StarlarkAttributeTransitionProvider {
     @Nullable private final StarlarkBuildSettingsDetailsValue scopeDetails;
+
+    // Cached because a provider is created for every configured target and hashing scopeDetails
+    // walks all of its maps: ImmutableMap doesn't cache its own hash code.
+    private final int hashCode;
 
     StarlarkExecTransitionProvider(
         StarlarkDefinedConfigTransition execTransition,
         @Nullable StarlarkBuildSettingsDetailsValue scopeDetails) {
       super(execTransition);
       this.scopeDetails = scopeDetails;
+      this.hashCode = Objects.hash(super.hashCode(), scopeDetails);
     }
 
     @Override
@@ -193,7 +211,7 @@ public final class StarlarkExecTransitionLoader {
 
     @Override
     public int hashCode() {
-      return Objects.hash(super.hashCode(), scopeDetails);
+      return hashCode;
     }
 
     @Override

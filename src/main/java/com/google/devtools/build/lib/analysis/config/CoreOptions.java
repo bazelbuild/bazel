@@ -16,12 +16,14 @@ package com.google.devtools.build.lib.analysis.config;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Map.Entry.comparingByKey;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelListConverter;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelToStringEntryConverter;
@@ -1036,6 +1038,28 @@ public abstract class CoreOptions extends FragmentOptions implements Cloneable {
 
   public final ImmutableMap<String, Label> getCommandLineFlagAliasesMap() {
     return ALIAS_MAP_CACHE.get(getCommandLineFlagAliases());
+  }
+
+  private static final LoadingCache<ImmutableMap<String, Label>, ImmutableSet<Label>>
+      HOST_FLAG_ALIASES_CACHE =
+          Caffeine.newBuilder()
+              .weakKeys()
+              .build(
+                  aliases ->
+                      aliases.entrySet().stream()
+                          .filter(alias -> alias.getKey().startsWith("host_"))
+                          .map(Map.Entry::getValue)
+                          .collect(toImmutableSet()));
+
+  /**
+   * Returns the Starlark flags that {@code --flag_alias} maps to a {@code host_}-prefixed name.
+   *
+   * <p>These are needed to resolve the {@code exec:--host_foo} scope type, which propagates {@code
+   * --foo}'s exec value from {@code --host_foo}. The result is cached because it's recomputed for
+   * every configured target that applies the Starlark exec transition.
+   */
+  public final ImmutableSet<Label> getHostFlagAliases() {
+    return HOST_FLAG_ALIASES_CACHE.get(getCommandLineFlagAliasesMap());
   }
 
   /** Ways configured targets may provide the {@link Fragment}s they require. */
