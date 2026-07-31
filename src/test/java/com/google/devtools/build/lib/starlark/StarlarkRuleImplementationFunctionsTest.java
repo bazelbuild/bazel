@@ -1600,6 +1600,138 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
   }
 
   @Test
+  public void testProvidersFunctionReexportsTargetProviders() throws Exception {
+    scratch.file(
+        "test/rules.bzl",
+        """
+        FooInfo = provider(fields = ["value"])
+        BarInfo = provider(fields = ["value"])
+
+        def _dep_impl(ctx):
+            out = ctx.actions.declare_file(ctx.label.name + ".out")
+            ctx.actions.write(out, "dep")
+            return [
+                DefaultInfo(files = depset([out])),
+                FooInfo(value = "foo"),
+                BarInfo(value = "bar"),
+                OutputGroupInfo(extra = depset([out])),
+            ]
+
+        dep_rule = rule(implementation = _dep_impl)
+
+        def _reexport_impl(ctx):
+            return providers(ctx.attr.dep)
+
+        reexport_rule = rule(
+            implementation = _reexport_impl,
+            attrs = {"dep": attr.label()},
+        )
+
+        def _consumer_impl(ctx):
+            dep = ctx.attr.dep
+            if dep[FooInfo].value != "foo":
+                fail("FooInfo was not re-exported")
+            if dep[BarInfo].value != "bar":
+                fail("BarInfo was not re-exported")
+            files = dep[DefaultInfo].files.to_list()
+            if len(files) != 1 or files[0].basename != "dep.out":
+                fail("DefaultInfo was not re-exported")
+            output_group_files = dep[OutputGroupInfo].extra.to_list()
+            if len(output_group_files) != 1 or output_group_files[0].basename != "dep.out":
+                fail("OutputGroupInfo was not re-exported")
+            return []
+
+        consumer_rule = rule(
+            implementation = _consumer_impl,
+            attrs = {"dep": attr.label(providers = [FooInfo, BarInfo])},
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load(":rules.bzl", "consumer_rule", "dep_rule", "reexport_rule")
+
+        dep_rule(name = "dep")
+        reexport_rule(name = "reexport", dep = ":dep")
+        consumer_rule(name = "consumer", dep = ":reexport")
+
+        alias(name = "dep_alias", actual = ":dep")
+        reexport_rule(name = "reexport_alias", dep = ":dep_alias")
+        consumer_rule(name = "consumer_alias", dep = ":reexport_alias")
+        """);
+
+    ConfiguredTarget reexport = getConfiguredTarget("//test:reexport");
+    assertArtifactFilenames(getFilesToBuild(reexport).toList(), "dep.out");
+    assertThat(getConfiguredTarget("//test:consumer")).isNotNull();
+    assertThat(getConfiguredTarget("//test:consumer_alias")).isNotNull();
+  }
+
+  @Test
+  public void testProvidersFunctionMergesAspectProviders() throws Exception {
+    scratch.file(
+        "test/rules.bzl",
+        """
+        AspectInfo = provider(fields = ["value"])
+
+        def _dep_impl(ctx):
+            out = ctx.actions.declare_file(ctx.label.name + ".out")
+            ctx.actions.write(out, "dep")
+            return [
+                DefaultInfo(files = depset([out])),
+                OutputGroupInfo(from_rule = depset([out])),
+            ]
+
+        dep_rule = rule(implementation = _dep_impl)
+
+        def _my_aspect_impl(target, ctx):
+            out = ctx.actions.declare_file(target.label.name + ".aspect")
+            ctx.actions.write(out, "aspect")
+            return [
+                AspectInfo(value = "aspect"),
+                OutputGroupInfo(from_aspect = depset([out])),
+            ]
+
+        my_aspect = aspect(implementation = _my_aspect_impl)
+
+        def _reexport_impl(ctx):
+            return providers(ctx.attr.dep)
+
+        reexport_rule = rule(
+            implementation = _reexport_impl,
+            attrs = {"dep": attr.label(aspects = [my_aspect])},
+        )
+
+        def _consumer_impl(ctx):
+            dep = ctx.attr.dep
+            if dep[AspectInfo].value != "aspect":
+                fail("AspectInfo was not re-exported")
+            from_rule = dep[OutputGroupInfo].from_rule.to_list()
+            if len(from_rule) != 1 or from_rule[0].basename != "dep.out":
+                fail("output group 'from_rule' was not re-exported")
+            from_aspect = dep[OutputGroupInfo].from_aspect.to_list()
+            if len(from_aspect) != 1 or from_aspect[0].basename != "dep.aspect":
+                fail("output group 'from_aspect' was not merged")
+            return []
+
+        consumer_rule = rule(
+            implementation = _consumer_impl,
+            attrs = {"dep": attr.label()},
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load(":rules.bzl", "consumer_rule", "dep_rule", "reexport_rule")
+
+        dep_rule(name = "dep")
+        reexport_rule(name = "reexport", dep = ":dep")
+        consumer_rule(name = "consumer", dep = ":reexport")
+        """);
+
+    assertThat(getConfiguredTarget("//test:consumer")).isNotNull();
+  }
+
+  @Test
   public void testAdvertisedProviders() throws Exception {
     scratch.file(
         "test/foo.bzl",

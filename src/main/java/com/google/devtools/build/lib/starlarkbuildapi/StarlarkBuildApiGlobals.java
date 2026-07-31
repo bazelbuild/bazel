@@ -16,10 +16,13 @@ package com.google.devtools.build.lib.starlarkbuildapi;
 
 import com.google.devtools.build.docgen.annot.GlobalMethodDocs;
 import com.google.devtools.build.docgen.annot.GlobalMethodDocs.Environment;
+import com.google.devtools.build.lib.starlarkbuildapi.core.TransitiveInfoCollectionApi;
 import net.starlark.java.annot.Param;
+import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkLibrary;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.StarlarkThread;
 
 /** A collection of global Starlark build API functions that belong in the global namespace. */
@@ -115,4 +118,19 @@ public interface StarlarkBuildApiGlobals {
       useStarlarkThread = true)
   LateBoundDefaultApi configurationField(String fragment, String name, StarlarkThread thread)
       throws EvalException;
+
+  @StarlarkMethod(
+      name = "providers",
+      doc =
+          "Returns the providers of a <a href='../builtins/Target.html'>Target</a> as a list."
+              + " The result can be returned directly from another rule implementation"
+              + " function to re-export the target's providers.",
+      parameters = {
+        @Param(
+            name = "target",
+            named = false,
+            allowedTypes = {@ParamType(type = TransitiveInfoCollectionApi.class)},
+            doc = "The target whose providers should be returned.")
+      })
+  Sequence<?> providers(TransitiveInfoCollectionApi target);
 }

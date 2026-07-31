@@ -18,6 +18,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableCollection;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -240,6 +241,11 @@ public final class AliasConfiguredTarget implements ConfiguredTarget, Structure 
   @Override
   public Dict<String, Object> getProvidersDictForQuery() {
     return actual.getProvidersDictForQuery();
+  }
+
+  @Override
+  public ImmutableList<Info> getProvidersForStarlark() {
+    return actual.getProvidersForStarlark();
   }
 
   @Override

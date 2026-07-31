@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupC
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
+import java.util.LinkedHashMap;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
@@ -202,6 +203,39 @@ public abstract class AbstractConfiguredTarget implements ConfiguredTarget, Visi
 
   private DefaultInfo getDefaultProvider() {
     return DefaultInfo.build(this);
+  }
+
+  @Override
+  public final ImmutableList<Info> getProvidersForStarlark() {
+    LinkedHashMap<Provider.Key, Info> providers = new LinkedHashMap<>();
+    providers.put(DefaultInfo.PROVIDER.getKey(), getDefaultProvider());
+    addDeclaredProviders(
+        info -> {
+          Provider.Key key = info.getProvider().getKey();
+          // DefaultInfo was already synthesized above. Duplicate keys keep the last emitted
+          // provider so that MergedConfiguredTarget's merged providers replace the base target's.
+          if (!key.equals(DefaultInfo.PROVIDER.getKey())) {
+            providers.put(key, info);
+          }
+        });
+    return ImmutableList.copyOf(providers.values());
+  }
+
+  /**
+   * Emits this target's declared providers to {@code collector} for {@link
+   * #getProvidersForStarlark}. {@link DefaultInfo}, which is synthesized on demand rather than
+   * stored, is added by the caller.
+   */
+  protected void addDeclaredProviders(Consumer<Info> collector) {}
+
+  /** Emits the declared providers (the {@link Provider.Key}-keyed values) in {@code providers}. */
+  protected static void addDeclaredProviders(
+      TransitiveInfoProviderMap providers, Consumer<Info> collector) {
+    for (int i = 0; i < providers.getProviderCount(); i++) {
+      if (providers.getProviderKeyAt(i) instanceof Provider.Key) {
+        collector.accept((Info) providers.getProviderInstanceAt(i));
+      }
+    }
   }
 
   /** Returns a declared provider provided by this target. Only meant to use from Starlark. */

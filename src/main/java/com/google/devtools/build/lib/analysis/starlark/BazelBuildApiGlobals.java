@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.analysis.starlark;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -23,6 +24,7 @@ import com.google.devtools.build.lib.packages.BzlVisibility;
 import com.google.devtools.build.lib.packages.PackageSpecification;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkBuildApiGlobals;
+import com.google.devtools.build.lib.starlarkbuildapi.core.TransitiveInfoCollectionApi;
 import java.util.List;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
@@ -107,5 +109,11 @@ public class BazelBuildApiGlobals implements StarlarkBuildApiGlobals {
     } catch (StarlarkLateBoundDefault.InvalidConfigurationFieldException exception) {
       throw new EvalException(exception);
     }
+  }
+
+  @Override
+  public Sequence<?> providers(TransitiveInfoCollectionApi target) {
+    return StarlarkList.immutableCopyOf(
+        ((TransitiveInfoCollection) target).getProvidersForStarlark());
   }
 }
