@@ -1,3 +1,21 @@
+## Release 10.0.0-pre.20260727.2 (2026-07-31)
+
+```
+Baseline: a37f02683bd75e77bb83f17bfaa0ac1629f279a6
+
+Cherry picks:
+
+   + b66e78bad319b5107a5d1be67343a5705360e87a:
+     Fix release script for rolling releases
+```
+
+Important changes:
+
+  - Fixes an error when using `strip_components` with archives
+    containing symbolic//hard links.
+
+This release contains contributions from many people at Google, as well as Fabian Meumertzheim, Jordan Mele, Kapunahele Wong, Keith Smiley, Will Stranton, Yossi Eliaz.
+
 ## Release 10.0.0-pre.20260723.1 (2026-07-30)
 
 ```
