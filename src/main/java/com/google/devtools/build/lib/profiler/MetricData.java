@@ -17,6 +17,7 @@ import static java.util.stream.Collectors.joining;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Range;
+import com.google.devtools.build.lib.skybridge.ScOnly;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.util.Locale;
@@ -25,6 +26,7 @@ import java.util.Locale;
  * Metric data for {@code description} object. Contains count, average, standard deviation, max and
  * histogram.
  */
+@ScOnly
 public final class MetricData {
 
   private final Object description;
