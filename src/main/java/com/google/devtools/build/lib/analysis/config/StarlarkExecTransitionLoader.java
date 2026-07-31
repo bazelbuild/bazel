@@ -181,8 +181,6 @@ public final class StarlarkExecTransitionLoader {
   static class StarlarkExecTransitionProvider extends StarlarkAttributeTransitionProvider {
     @Nullable private final StarlarkBuildSettingsDetailsValue scopeDetails;
 
-    // Cached because a provider is created for every configured target and hashing scopeDetails
-    // walks all of its maps: ImmutableMap doesn't cache its own hash code.
     private final int hashCode;
 
     StarlarkExecTransitionProvider(

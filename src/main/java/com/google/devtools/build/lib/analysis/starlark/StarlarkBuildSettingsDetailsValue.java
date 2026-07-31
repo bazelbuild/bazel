@@ -138,13 +138,7 @@ public record StarlarkBuildSettingsDetailsValue(
       String flagScopeType,
       String hostFlagScopeType) {}
 
-  /**
-   * {@link SkyKey} implementation used for {@link StarlarkBuildSettingsDetailsValue}.
-   *
-   * <p>Instances are interned: the exec transition requests this key once per configured target and
-   * Skyframe retains the requesting key instance in each node's dependency list. Without interning,
-   * every configured target would retain its own copy of the (potentially large) label sets.
-   */
+  /** {@link SkyKey} implementation used for {@link StarlarkBuildSettingsDetailsValue}. */
   @CheckReturnValue
   @Immutable
   @ThreadSafe
@@ -158,9 +152,6 @@ public record StarlarkBuildSettingsDetailsValue(
       requireNonNull(hostFlags, "hostFlags");
     }
 
-    // Doubles as the AutoCodec instantiator so that deserialized keys are interned too. Note that
-    // @AutoCodec.Interner can't be used here: it generates a codec that writes fields through
-    // Unsafe field offsets, which record components don't support.
     @AutoCodec.Instantiator
     public static Key create(ImmutableSet<Label> buildSettings, ImmutableSet<Label> hostFlags) {
       return interner.intern(new Key(buildSettings, hostFlags));

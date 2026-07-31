@@ -1051,13 +1051,7 @@ public abstract class CoreOptions extends FragmentOptions implements Cloneable {
                           .map(Map.Entry::getValue)
                           .collect(toImmutableSet()));
 
-  /**
-   * Returns the Starlark flags that {@code --flag_alias} maps to a {@code host_}-prefixed name.
-   *
-   * <p>These are needed to resolve the {@code exec:--host_foo} scope type, which propagates {@code
-   * --foo}'s exec value from {@code --host_foo}. The result is cached because it's recomputed for
-   * every configured target that applies the Starlark exec transition.
-   */
+  /** Returns the Starlark flags that {@code --flag_alias} maps to a {@code host_}-prefixed name. */
   public final ImmutableSet<Label> getHostFlagAliases() {
     return HOST_FLAG_ALIASES_CACHE.get(getCommandLineFlagAliasesMap());
   }
