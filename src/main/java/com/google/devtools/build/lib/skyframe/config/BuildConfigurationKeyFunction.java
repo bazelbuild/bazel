@@ -49,7 +49,8 @@ public final class BuildConfigurationKeyFunction implements SkyFunction {
             new BuildConfigurationKeyMapProducer(
                 sink,
                 /* runAfter= */ StateMachine.DONE,
-                ImmutableMap.of(BUILD_OPTIONS_MAP_SINGLETON_KEY, key),
+                ImmutableMap.of(BUILD_OPTIONS_MAP_SINGLETON_KEY, key.buildOptions()),
+                key.forBaseline(),
                 null));
 
     boolean complete = driver.drive(env);

@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.BuildOptionsScopeFunction.BuildOptionsScopeFunctionException;
 import com.google.devtools.build.lib.skyframe.BuildOptionsScopeValue;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
-import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKeyValue;
 import com.google.devtools.build.lib.skyframe.config.ParsedFlagsValue;
 import com.google.devtools.build.lib.skyframe.config.PlatformMappingException;
 import com.google.devtools.build.lib.skyframe.config.PlatformMappingValue;
@@ -115,13 +114,14 @@ public final class BuildConfigurationKeyProducer<C>
       ResultSink<C> sink,
       StateMachine runAfter,
       C context,
-      BuildConfigurationKeyValue.Key key,
+      BuildOptions options,
+      boolean forBaseline,
       Label label) {
     this.sink = sink;
     this.runAfter = runAfter;
     this.context = context;
-    this.options = key.buildOptions();
-    this.forBaseline = key.forBaseline();
+    this.options = options;
+    this.forBaseline = forBaseline;
     this.label = label;
   }
 

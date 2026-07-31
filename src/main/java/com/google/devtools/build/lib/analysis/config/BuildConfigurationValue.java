@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.actions.BuildConfigurationEvent;
 import com.google.devtools.build.lib.actions.CommandLineLimits;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkBuildSettingsDetailsValue;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
@@ -121,6 +122,16 @@ public class BuildConfigurationValue
   private final BuildOptions buildOptions;
   private final CoreOptions options;
 
+  /**
+   * Scope info for this configuration's Starlark build settings, needed by the Starlark exec
+   * transition. Null if this build uses the native exec transition or sets no Starlark flags.
+   *
+   * <p>Resolved once per configuration rather than once per configured target: see {@code
+   * StarlarkExecTransitionLoader.BuildSettingsDetailsLoader}. Not part of {@link #equals}: it's a
+   * pure function of the build options.
+   */
+  @Nullable private final StarlarkBuildSettingsDetailsValue starlarkExecScopeDetails;
+
   /** The cpu value based on the platform the configuration is built for. */
   private final String platformCpu;
 
@@ -197,6 +208,7 @@ public class BuildConfigurationValue
       @Nullable BuildOptions baselineOptions,
       boolean siblingRepositoryLayout,
       String platformCpu,
+      @Nullable StarlarkBuildSettingsDetailsValue starlarkExecScopeDetails,
       // Arguments below this are server-global.
       BlazeDirectories directories,
       GlobalStateProvider globalProvider,
@@ -218,6 +230,7 @@ public class BuildConfigurationValue
         mnemonic,
         siblingRepositoryLayout,
         platformCpu,
+        starlarkExecScopeDetails,
         globalProvider.getRunfilesPrefix(),
         directories,
         fragments,
@@ -251,6 +264,7 @@ public class BuildConfigurationValue
         mnemonic,
         siblingRepositoryLayout,
         "",
+        /* starlarkExecScopeDetails= */ null,
         globalProvider.getRunfilesPrefix(),
         directories,
         fragments,
@@ -278,6 +292,7 @@ public class BuildConfigurationValue
       String mnemonic,
       boolean siblingRepositoryLayout,
       String platformCpu,
+      @Nullable StarlarkBuildSettingsDetailsValue starlarkExecScopeDetails,
       // Arguments below this are either server-global and constant or completely dependent values.
       String workspaceName,
       BlazeDirectories directories,
@@ -289,6 +304,7 @@ public class BuildConfigurationValue
             ImmutableSortedMap.copyOf(fragments, FragmentClassSet.LEXICAL_FRAGMENT_SORTER));
     this.starlarkVisibleFragments = buildIndexOfStarlarkVisibleFragments();
     this.buildOptions = buildOptions;
+    this.starlarkExecScopeDetails = starlarkExecScopeDetails;
     this.mnemonic = mnemonic;
     this.options = buildOptions.get(CoreOptions.class);
     this.outputDirectories =
@@ -332,6 +348,15 @@ public class BuildConfigurationValue
     this.reservedActionMnemonics = reservedActionMnemonics;
     this.commandLineLimits = new CommandLineLimits(options.getMinParamFileSize());
     this.defaultFeatures = FeatureSet.parse(options.getDefaultFeatures());
+  }
+
+  /**
+   * Returns scope info for this configuration's Starlark build settings, or null if the Starlark
+   * exec transition needs none.
+   */
+  @Nullable
+  public StarlarkBuildSettingsDetailsValue starlarkExecScopeDetails() {
+    return starlarkExecScopeDetails;
   }
 
   @Override

@@ -34,7 +34,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
@@ -73,12 +72,44 @@ public final class StarlarkExecTransitionLoader {
   /** Caller-provided logic for loading {@link StarlarkBuildSettingsDetailsValue}. */
   public interface BuildSettingsDetailsLoader {
     /**
-     * Loads scope info for the given build settings. Returns null if not all Skyframe deps are
+     * Loads the scope info identified by {@code key}. Returns null if not all Skyframe deps are
      * ready.
+     *
+     * <p>Callers that already hold the {@code BuildConfigurationValue} for the options passed to
+     * {@link #loadStarlarkExecTransition} should answer from {@code
+     * BuildConfigurationValue.starlarkExecScopeDetails()} instead of asking Skyframe: this method
+     * is called once per configured target, and requesting the value from Skyframe here makes every
+     * configured target a reverse dep of a single node.
      */
     @Nullable
-    StarlarkBuildSettingsDetailsValue getValue(Set<Label> buildSettings, Set<Label> hostFlags)
+    StarlarkBuildSettingsDetailsValue getValue(StarlarkBuildSettingsDetailsValue.Key key)
         throws InterruptedException, StarlarkExecTransitionLoadingException;
+  }
+
+  /**
+   * Returns the key for the scope info the Starlark exec transition needs to transition {@code
+   * options}, or null if it needs none.
+   *
+   * <p>{@code BuildConfigurationFunction} uses this to resolve the value once per configuration and
+   * store it on the {@code BuildConfigurationValue}, so that the exec transition can read it from
+   * the configuration rather than requesting it once per configured target.
+   */
+  @Nullable
+  public static StarlarkBuildSettingsDetailsValue.Key execScopeDetailsKey(BuildOptions options) {
+    CoreOptions coreOptions = options.get(CoreOptions.class);
+    if (coreOptions == null || coreOptions.getStarlarkExecConfig() == null) {
+      // The exec transition is implemented by native logic, which doesn't consult scopes.
+      return null;
+    }
+    // All Starlark build setting flags in the config, minus feature flags, which have no scopes.
+    ImmutableSet<Label> starlarkFlags = flagsWithScopes(options.getStarlarkOptions());
+    // Host flags declared by users in the blazerc/MODULE.bazel files with an alias pointing to the
+    // Starlark definition. These determine exec propagation for flags scoped "exec:--".
+    ImmutableSet<Label> hostFlags = coreOptions.getHostFlagAliases();
+    if (starlarkFlags.isEmpty() && hostFlags.isEmpty()) {
+      return null;
+    }
+    return StarlarkBuildSettingsDetailsValue.Key.create(starlarkFlags, hostFlags);
   }
 
   /**
@@ -135,18 +166,10 @@ public final class StarlarkExecTransitionLoader {
           flagName, userRef, parsedRef.starlarkSymbolName() + " is not a Starlark transition");
     }
 
-    // Load scope info for all Starlark build setting flags in the current config, filtering out
-    // feature flags since they don't have scopes.
     StarlarkBuildSettingsDetailsValue scopeDetails = null;
-    ImmutableSet<Label> starlarkFlags = flagsWithScopes(options.getStarlarkOptions());
-
-    // Look up the host flags declared by users in the blazerc/MODULE.bazel files with alias
-    // pointing to the starlark definition. This is useful to determine exec propagation for flags
-    // with scope that starts with "exec:--".
-    ImmutableSet<Label> hostFlags = options.get(CoreOptions.class).getHostFlagAliases();
-
-    if (!starlarkFlags.isEmpty() || !hostFlags.isEmpty()) {
-      scopeDetails = detailsLoader.getValue(starlarkFlags, hostFlags);
+    StarlarkBuildSettingsDetailsValue.Key scopeDetailsKey = execScopeDetailsKey(options);
+    if (scopeDetailsKey != null) {
+      scopeDetails = detailsLoader.getValue(scopeDetailsKey);
       if (scopeDetails == null) {
         return null;
       }

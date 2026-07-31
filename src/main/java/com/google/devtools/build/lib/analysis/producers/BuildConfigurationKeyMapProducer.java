@@ -15,10 +15,10 @@ package com.google.devtools.build.lib.analysis.producers;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.BuildOptionsScopeFunction.BuildOptionsScopeFunctionException;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
-import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKeyValue;
 import com.google.devtools.build.lib.skyframe.config.PlatformMappingException;
 import com.google.devtools.build.lib.skyframe.toolchains.PlatformLookupUtil.InvalidPlatformException;
 import com.google.devtools.build.skyframe.state.StateMachine;
@@ -53,7 +53,8 @@ public class BuildConfigurationKeyMapProducer
   // -------------------- Input --------------------
   private final ResultSink sink;
   private final StateMachine runAfter;
-  private final Map<String, BuildConfigurationKeyValue.Key> options;
+  private final Map<String, BuildOptions> options;
+  private final boolean forBaseline;
   private final Label label;
 
   // -------------------- Internal State --------------------
@@ -62,11 +63,13 @@ public class BuildConfigurationKeyMapProducer
   public BuildConfigurationKeyMapProducer(
       ResultSink sink,
       StateMachine runAfter,
-      Map<String, BuildConfigurationKeyValue.Key> options,
+      Map<String, BuildOptions> options,
+      boolean forBaseline,
       Label label) {
     this.sink = sink;
     this.runAfter = runAfter;
     this.options = options;
+    this.forBaseline = forBaseline;
     this.results = Maps.newHashMapWithExpectedSize(options.size());
     this.label = label;
   }
@@ -81,6 +84,7 @@ public class BuildConfigurationKeyMapProducer
                     StateMachine.DONE,
                     context,
                     buildOptions,
+                    forBaseline,
                     label)));
     return this::combineResults;
   }

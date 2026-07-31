@@ -71,7 +71,6 @@ import com.google.devtools.build.lib.analysis.config.ConfigConditions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.OptionsDiff;
 import com.google.devtools.build.lib.analysis.config.StarlarkExecTransitionLoader;
-import com.google.devtools.build.lib.analysis.starlark.StarlarkBuildSettingsDetailsValue;
 import com.google.devtools.build.lib.analysis.config.StarlarkExecTransitionLoader.StarlarkExecTransitionLoadingException;
 import com.google.devtools.build.lib.analysis.config.StarlarkTransitionCache;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttributeTransitionProvider;
@@ -1396,11 +1395,9 @@ public final class SkyframeBuildView {
                     analysisEnvironment
                         .getSkyframeEnv()
                         .getValueOrThrow(bzlKey, BzlLoadFailedException.class),
-            (buildSettings, hostFlags) -> {
-              var detailsKey = StarlarkBuildSettingsDetailsValue.key(buildSettings, hostFlags);
-              return (StarlarkBuildSettingsDetailsValue)
-                  analysisEnvironment.getSkyframeEnv().getValue(detailsKey);
-            });
+            // Already resolved once per configuration by BuildConfigurationFunction; requesting it
+            // from Skyframe here would make every configured target a reverse dep of it.
+            unusedKey -> configuration.starlarkExecScopeDetails());
     if (starlarkExecTransition == null) {
       return null;
     }

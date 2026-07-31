@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.util.HashCodes;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -81,7 +82,7 @@ public final class BuildConfigurationKeyValue implements SkyValue {
 
     @Override
     public int hashCode() {
-      return Objects.hash(buildOptions, forBaseline());
+      return HashCodes.hashObjects(buildOptions, forBaseline());
     }
 
     @Override

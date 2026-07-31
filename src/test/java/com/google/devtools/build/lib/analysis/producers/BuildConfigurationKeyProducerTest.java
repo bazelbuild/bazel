@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.config.BaselineOptionsFunction;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
-import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKeyValue;
 import com.google.devtools.build.lib.skyframe.config.PlatformMappingException;
 import com.google.devtools.build.lib.skyframe.toolchains.PlatformLookupUtil.InvalidPlatformException;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
@@ -811,11 +810,7 @@ public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
     Sink sink = new Sink();
     BuildConfigurationKeyProducer<String> producer =
         new BuildConfigurationKeyProducer<>(
-            sink,
-            StateMachine.DONE,
-            CONTEXT,
-            BuildConfigurationKeyValue.Key.create(options),
-            label);
+            sink, StateMachine.DONE, CONTEXT, options, /* forBaseline= */ false, label);
     // Ignore the return value: sink will either return a result or re-throw whatever exception it
     // received from the producer.
     var unused = executeProducer(producer);

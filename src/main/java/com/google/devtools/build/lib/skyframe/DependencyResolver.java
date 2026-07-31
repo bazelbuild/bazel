@@ -62,7 +62,6 @@ import com.google.devtools.build.lib.analysis.producers.MissingEdgeError;
 import com.google.devtools.build.lib.analysis.producers.PrerequisiteParameters;
 import com.google.devtools.build.lib.analysis.producers.UnloadedToolchainContextsInputs;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttributeTransitionProvider;
-import com.google.devtools.build.lib.analysis.starlark.StarlarkBuildSettingsDetailsValue;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.causes.AnalysisFailedCause;
 import com.google.devtools.build.lib.causes.Cause;
@@ -410,10 +409,9 @@ public final class DependencyResolver {
                   ? null
                   : targetAndConfiguration.getConfiguration().getOptions(),
               (bzlKey) -> (BzlLoadValue) env.getValueOrThrow(bzlKey, BzlLoadFailedException.class),
-              (buildSettings, hostFlags) -> {
-                var key = StarlarkBuildSettingsDetailsValue.key(buildSettings, hostFlags);
-                return (StarlarkBuildSettingsDetailsValue) env.getValue(key);
-              });
+              // Already resolved once per configuration by BuildConfigurationFunction; requesting
+              // it from Skyframe here would make every configured target a reverse dep of it.
+              unusedKey -> targetAndConfiguration.getConfiguration().starlarkExecScopeDetails());
       if (starlarkExecTransition == null) {
         return false;
       }

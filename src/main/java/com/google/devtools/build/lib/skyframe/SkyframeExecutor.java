@@ -2275,8 +2275,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
               }
               return (BzlLoadValue) result.get(bzlKey);
             },
-            (buildSettings, hostFlags) -> {
-              SkyKey detailsKey = StarlarkBuildSettingsDetailsValue.key(buildSettings, hostFlags);
+            detailsKey -> {
               EvaluationResult<SkyValue> result =
                   evaluate(
                       ImmutableList.of(detailsKey),

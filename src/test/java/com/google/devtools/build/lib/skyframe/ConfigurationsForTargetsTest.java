@@ -198,10 +198,7 @@ public final class ConfigurationsForTargetsTest extends AnalysisTestCase {
                     : targetAndConfiguration.getConfiguration().getOptions(),
                 (bzlKey) ->
                     (BzlLoadValue) env.getValueOrThrow(bzlKey, BzlLoadFailedException.class),
-                (buildSettings, hostFlags) ->
-                    (StarlarkBuildSettingsDetailsValue)
-                        env.getValue(
-                            StarlarkBuildSettingsDetailsValue.key(buildSettings, hostFlags)));
+                detailsKey -> (StarlarkBuildSettingsDetailsValue) env.getValue(detailsKey));
         if (starlarkExecTransition == null) {
           return null;
         }
