@@ -508,6 +508,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
         cacheHit,
         cacheName,
         inMemoryOutput,
+        remoteExecutionService.getUndownloadedOutErrMetadata(action, result),
         result.getExecutionMetadata().getExecutionStartTimestamp(),
         result.getExecutionMetadata().getExecutionCompletedTimestamp(),
         spawnMetrics

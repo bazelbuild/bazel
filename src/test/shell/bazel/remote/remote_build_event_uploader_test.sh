@@ -79,6 +79,41 @@ function expect_bes_file_not_uploaded() {
   fi
 }
 
+# Asserts that the ActionExecuted event for a remotely executed action references
+# the given stream ("stdout" or "stderr") by a bytestream:// URI whose digest
+# matches the expected contents and whose blob is present in the CAS.
+function expect_bes_action_stdouterr_in_cas() {
+  local stream=$1
+  local expected_contents=$2
+  local expected_hash
+  expected_hash="$(printf '%s\n' "$expected_contents" | sha256sum | cut -d ' ' -f 1)"
+
+  if [[ ! $(cat $BEP_JSON) =~ \"name\":\"${stream}\",\"uri\":\"bytestream://localhost:${worker_port}/blobs/([0-9a-f]+)/[0-9]+\" ]]; then
+    cat $BEP_JSON > $TEST_log
+    fail "BEP has no bytestream:// reference for action ${stream}"
+  fi
+  local actual_hash=${BASH_REMATCH[1]}
+  if [[ "$actual_hash" != "$expected_hash" ]]; then
+    cat $BEP_JSON > $TEST_log
+    fail "BEP ${stream} digest ${actual_hash} does not match expected ${expected_hash}"
+  fi
+  if ! remote_cas_file_exist "$actual_hash"; then
+    cat $BEP_JSON >> $TEST_log && append_remote_cas_files $TEST_log
+    fail "BEP ${stream} blob ${actual_hash} is not in the CAS"
+  fi
+}
+
+function write_stdouterr_genrule() {
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+genrule(
+  name = "foo",
+  outs = ["foo.txt"],
+  cmd = "echo some_stdout; echo some_stderr 1>&2; touch $@",
+)
+EOF
+}
+
 function test_upload_minimal_convert_paths_for_existed_blobs() {
   mkdir -p a
   cat > a/BUILD <<EOF
@@ -587,6 +622,93 @@ EOF
       //a:foo >& $TEST_log || fail "Failed to build"
 
   expect_bes_file_uploaded "command.profile.json"
+}
+
+function test_publish_all_actions_stdouterr_download_all() {
+  # Baseline: with the default --remote_download_stdouterr=all the action
+  # stdout/stderr are downloaded and still referenced by their CAS entries.
+  write_stdouterr_genrule
+
+  bazel build \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --remote_build_event_upload=minimal \
+      --remote_download_stdouterr=all \
+      --build_event_publish_all_actions \
+      --build_event_json_file=$BEP_JSON \
+      //a:foo >& $TEST_log || fail "Failed to build"
+
+  expect_log "some_stdout"
+  expect_log "some_stderr"
+  expect_bes_action_stdouterr_in_cas "stdout" "some_stdout"
+  expect_bes_action_stdouterr_in_cas "stderr" "some_stderr"
+}
+
+function test_publish_all_actions_stdouterr_download_failed() {
+  # --remote_download_stdouterr=failed skips the download for successful actions,
+  # but BEP must still reference the CAS entries.
+  write_stdouterr_genrule
+
+  bazel build \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --remote_build_event_upload=minimal \
+      --remote_download_stdouterr=failed \
+      --build_event_publish_all_actions \
+      --build_event_json_file=$BEP_JSON \
+      //a:foo >& $TEST_log || fail "Failed to build"
+
+  expect_not_log "some_stdout"
+  expect_not_log "some_stderr"
+  expect_bes_action_stdouterr_in_cas "stdout" "some_stdout"
+  expect_bes_action_stdouterr_in_cas "stderr" "some_stderr"
+}
+
+function test_publish_all_actions_stdouterr_download_uncached() {
+  # Same as above, but for a cache hit under --remote_download_stdouterr=uncached.
+  write_stdouterr_genrule
+
+  bazel build \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --remote_build_event_upload=minimal \
+      --remote_download_stdouterr=uncached \
+      --build_event_publish_all_actions \
+      --build_event_json_file=$BEP_JSON \
+      //a:foo >& $TEST_log || fail "Failed to build"
+
+  expect_log "some_stdout"
+  expect_log "some_stderr"
+
+  bazel clean >& $TEST_log || fail "Failed to clean"
+
+  bazel build \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --remote_build_event_upload=minimal \
+      --remote_download_stdouterr=uncached \
+      --build_event_publish_all_actions \
+      --build_event_json_file=$BEP_JSON \
+      //a:foo >& $TEST_log || fail "Failed to build"
+
+  expect_not_log "some_stdout"
+  expect_not_log "some_stderr"
+  expect_bes_action_stdouterr_in_cas "stdout" "some_stdout"
+  expect_bes_action_stdouterr_in_cas "stderr" "some_stderr"
+}
+
+function test_publish_all_actions_stdouterr_download_failed_upload_all() {
+  # --remote_build_event_upload=all must not try to upload the stdout/stderr that
+  # were never downloaded; they are already in the CAS.
+  write_stdouterr_genrule
+
+  bazel build \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --remote_build_event_upload=all \
+      --remote_download_stdouterr=failed \
+      --build_event_publish_all_actions \
+      --build_event_json_file=$BEP_JSON \
+      //a:foo >& $TEST_log || fail "Failed to build"
+
+  expect_not_log "Uploading BEP referenced local file"
+  expect_bes_action_stdouterr_in_cas "stdout" "some_stdout"
+  expect_bes_action_stdouterr_in_cas "stderr" "some_stderr"
 }
 
 run_suite "Remote build event uploader tests"

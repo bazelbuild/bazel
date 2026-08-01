@@ -280,6 +280,24 @@ public interface SpawnResult {
     return null;
   }
 
+  /**
+   * Returns metadata for the spawn's stdout if it was left in a remote CAS instead of being written
+   * to the local stdout file, otherwise null.
+   */
+  @Nullable
+  default FileArtifactValue getRemoteStdoutMetadata() {
+    return null;
+  }
+
+  /**
+   * Returns metadata for the spawn's stderr if it was left in a remote CAS instead of being written
+   * to the local stderr file, otherwise null.
+   */
+  @Nullable
+  default FileArtifactValue getRemoteStderrMetadata() {
+    return null;
+  }
+
   /** Basic implementation of {@link SpawnResult}. */
   @Immutable
   @ThreadSafe
@@ -308,6 +326,8 @@ public interface SpawnResult {
 
     private final boolean remote;
     @Nullable private final Digest digest;
+    @Nullable private final FileArtifactValue remoteStdoutMetadata;
+    @Nullable private final FileArtifactValue remoteStderrMetadata;
 
     SimpleSpawnResult(Builder builder) {
       this.exitCode = builder.exitCode;
@@ -338,6 +358,8 @@ public interface SpawnResult {
       this.inMemoryContents = builder.inMemoryContents;
       this.remote = builder.remote;
       this.digest = builder.digest;
+      this.remoteStdoutMetadata = builder.remoteStdoutMetadata;
+      this.remoteStderrMetadata = builder.remoteStderrMetadata;
     }
 
     @Override
@@ -472,6 +494,18 @@ public interface SpawnResult {
     @Override
     public Digest getDigest() {
       return digest;
+    }
+
+    @Override
+    @Nullable
+    public FileArtifactValue getRemoteStdoutMetadata() {
+      return remoteStdoutMetadata;
+    }
+
+    @Override
+    @Nullable
+    public FileArtifactValue getRemoteStderrMetadata() {
+      return remoteStderrMetadata;
     }
   }
 
@@ -610,6 +644,18 @@ public interface SpawnResult {
     public Digest getDigest() {
       return delegate.getDigest();
     }
+
+    @Override
+    @Nullable
+    public FileArtifactValue getRemoteStdoutMetadata() {
+      return delegate.getRemoteStdoutMetadata();
+    }
+
+    @Override
+    @Nullable
+    public FileArtifactValue getRemoteStderrMetadata() {
+      return delegate.getRemoteStderrMetadata();
+    }
   }
 
   /** Builder class for {@link SpawnResult}. */
@@ -638,6 +684,8 @@ public interface SpawnResult {
 
     private boolean remote;
     private Digest digest;
+    @Nullable private FileArtifactValue remoteStdoutMetadata;
+    @Nullable private FileArtifactValue remoteStderrMetadata;
 
     public SpawnResult build() {
       Preconditions.checkArgument(!runnerName.isEmpty());
@@ -788,6 +836,18 @@ public interface SpawnResult {
     @CanIgnoreReturnValue
     public Builder setDigest(Digest digest) {
       this.digest = digest;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder setRemoteStdoutMetadata(@Nullable FileArtifactValue metadata) {
+      this.remoteStdoutMetadata = metadata;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder setRemoteStderrMetadata(@Nullable FileArtifactValue metadata) {
+      this.remoteStderrMetadata = metadata;
       return this;
     }
 
