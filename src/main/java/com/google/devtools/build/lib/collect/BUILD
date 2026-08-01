@@ -73,6 +73,7 @@ java_library(
     name = "recency_map",
     srcs = ["RecencyMap.java"],
     deps = [
+        "//third_party:guava",
         "//third_party:jsr305",
     ],
 )

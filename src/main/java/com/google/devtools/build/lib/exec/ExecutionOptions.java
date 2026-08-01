@@ -112,12 +112,13 @@ public abstract class ExecutionOptions extends OptionsBase {
       defaultValue = "null",
       help =
           """
-          Override which spawn strategy should be used to execute spawn actions that have
-          descriptions matching a certain `regex_filter`.
+          Override which spawn strategy should be used to execute spawn actions
+          whose descriptions match a certain `regex_filter`.
           The last `regex_filter` that matches the description is used.
 
-          Note that `--spawn_strategy` (defaults) and `--strategy` (mnemonic-targeted overrides)
-          still apply. If a strategy is listed that contradicts those flags, it will be ignored.
+          Note that `--spawn_strategy` (defaults) and `--strategy` (mnemonic
+          overrides) still apply. If a strategy is listed that contradicts
+          those flags, it will be ignored.
 
           See `--per_file_copt` for details on `regex_filter` matching.
 
@@ -125,17 +126,19 @@ public abstract class ExecutionOptions extends OptionsBase {
           ```
           common --strategy_regexp=//foo.*\\.cc,-//foo/bar=local
           ```
-          With the above option, actions with descriptions matching `//foo.*\\.cc` but not
-          `//foo/bar` will have their strategies filtered to only `local`.
+          With the above option, actions with descriptions matching
+          `//foo.*\\.cc` but not `//foo/bar` will have their strategies
+          filtered to only `local`.
 
           Example:
           ```
-          common --strategy_regexp='Compiling.*/bar=local
+          common --strategy_regexp='Compiling.*/bar=local'
           common --strategy_regexp=Compiling=sandboxed
           ```
-          With the above options, an action with description `Compiling //foo/bar/baz` will have
-          its strategies filtered to only `local`, while an action with description
-          `Compiling //foo/baz` will have its strategies filtered to only `sandboxed`.
+          With the above options, an action with description
+          `Compiling //foo/bar/baz` matches both filters, so the last one
+          specified wins and its strategies are filtered to only `sandboxed`.
+          Reversing the order of the two options filters them to only `local`.
           """)
   public abstract List<Map.Entry<RegexFilter, List<String>>> getStrategyByRegexp();
 

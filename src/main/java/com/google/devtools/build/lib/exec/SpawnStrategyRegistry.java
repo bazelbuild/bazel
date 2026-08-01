@@ -48,7 +48,7 @@ import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -214,7 +214,7 @@ public final class SpawnStrategyRegistry
     for (Map.Entry<String, Collection<SpawnStrategy>> entry :
         mnemonicToStrategies.asMap().entrySet()) {
       logger.atInfo().log(
-        "MnemonicToStrategyImplementations: \"%s\" = [%s]",
+          "MnemonicToStrategyImplementations: \"%s\" = [%s]",
           entry.getKey(), toImplementationNames(entry.getValue()));
     }
 
@@ -310,8 +310,10 @@ public final class SpawnStrategyRegistry
     // Using List values here rather than multimaps as there is no need for the latter's
     // functionality: The values are always replaced as a whole, no adding/creation required.
     private final RecencyMap<String, List<String>> mnemonicToIdentifiers = new RecencyMap<>();
-    private final RecencyMap<String, List<String>> mnemonicToRemoteDynamicIdentifiers = new RecencyMap<>();
-    private final RecencyMap<String, List<String>> mnemonicToLocalDynamicIdentifiers = new RecencyMap<>();
+    private final RecencyMap<String, List<String>> mnemonicToRemoteDynamicIdentifiers =
+        new RecencyMap<>();
+    private final RecencyMap<String, List<String>> mnemonicToLocalDynamicIdentifiers =
+        new RecencyMap<>();
     private final RecencyMap<Label, List<String>> execPlatformFilters = new RecencyMap<>();
 
     @Nullable private String remoteLocalFallbackStrategyIdentifier;
@@ -476,7 +478,7 @@ public final class SpawnStrategyRegistry
         }
       }
 
-       ImmutableSetMultimap.Builder<Label, SpawnStrategy> platformToStrategies =
+      ImmutableSetMultimap.Builder<Label, SpawnStrategy> platformToStrategies =
           ImmutableSetMultimap.builder();
       for (Map.Entry<Label, List<String>> entry : execPlatformFilters.entrySet()) {
         Label platform = entry.getKey();
@@ -598,8 +600,7 @@ public final class SpawnStrategyRegistry
           ImmutableList<String> strategyIdentifiers = filterToStrategyIdentifiers.get(filter);
           if (reporter != null) {
             // TODO(schmitt): Why is this done here and not after running canExec?
-            reporter.handle(
-                Event.progress(description + " with context " + strategyIdentifiers));
+            reporter.handle(Event.progress(description + " with context " + strategyIdentifiers));
           }
           // Apply the policy to the identifiers.
           ImmutableList<String> sanitizedStrategies =
@@ -696,7 +697,7 @@ public final class SpawnStrategyRegistry
   /* Maps the strategy identifier (e.g. "local", "worker"..) to the real strategy. */
   private static class StrategyMapper {
 
-    private final Map<String, SpawnStrategy> identifierToStrategy = new HashMap<>();
+    private final Map<String, SpawnStrategy> identifierToStrategy = new LinkedHashMap<>();
 
     StrategyMapper() {}
 
@@ -729,11 +730,11 @@ public final class SpawnStrategyRegistry
       return strategy;
     }
 
-    Iterable<? extends SandboxedSpawnStrategy> toSandboxedStrategies(
+    ImmutableList<SandboxedSpawnStrategy> toSandboxedStrategies(
         List<String> identifiers, String requestName) throws AbruptExitException {
-      Iterable<? extends SpawnStrategy> strategies = toStrategies(identifiers, requestName);
-      for (SpawnStrategy strategy : strategies) {
-        if (!(strategy instanceof SandboxedSpawnStrategy)) {
+      ImmutableList.Builder<SandboxedSpawnStrategy> sandboxedStrategies = ImmutableList.builder();
+      for (SpawnStrategy strategy : toStrategies(identifiers, requestName)) {
+        if (!(strategy instanceof SandboxedSpawnStrategy sandboxedStrategy)) {
           throw createExitException(
               String.format(
                   "'%s' was requested for %s but is not a sandboxed strategy (which is required for"
@@ -741,12 +742,9 @@ public final class SpawnStrategyRegistry
                   strategy.getClass().getSimpleName(), requestName),
               Code.DYNAMIC_STRATEGY_NOT_SANDBOXED);
         }
+        sandboxedStrategies.add(sandboxedStrategy);
       }
-
-      @SuppressWarnings("unchecked") // Each element of the iterable was checked to fulfil this.
-      Iterable<? extends SandboxedSpawnStrategy> sandboxedStrategies =
-          (Iterable<? extends SandboxedSpawnStrategy>) strategies;
-      return sandboxedStrategies;
+      return sandboxedStrategies.build();
     }
   }
 

@@ -44,12 +44,8 @@ fi
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-function testenv_set_up() {
-  echo 'startup --quiet' > .bazelrc
-}
-
-tear_down() {
-  # Rollover to a new server log by shutting down the Bazel server.
+function tear_down() {
+  # Roll over to a new server log so that assertions don't see the previous test's output.
   bazel shutdown
 }
 
@@ -61,20 +57,20 @@ function assert_line_order() {
   local pattern2=$2
   local file=$3
   local message="Expected '$pattern1' to appear before '$pattern2' in '$file'"
-  
+
   local line1=$(grep -n "$pattern1" "$file" | head -1 | cut -d: -f1)
   local line2=$(grep -n "$pattern2" "$file" | head -1 | cut -d: -f1)
-  
+
   if [[ -z "$line1" ]]; then
     fail "Pattern '$pattern1' not found in '$file'" $(__copy_to_undeclared_outputs "$file")
     return 1
   fi
-  
+
   if [[ -z "$line2" ]]; then
     fail "Pattern '$pattern2' not found in '$file'" $(__copy_to_undeclared_outputs "$file")
     return 1
   fi
-  
+
   if [[ "$line1" -lt "$line2" ]]; then
     return 0
   else
@@ -341,7 +337,7 @@ genrule(
 
 EOF
 
-  bazel --noquiet build --internal_spawn_scheduler --genrule_strategy=dynamic \
+  bazel build --internal_spawn_scheduler --genrule_strategy=dynamic \
     --dynamic_remote_strategy=sandboxed \
     --dynamic_local_strategy=standalone \
     --sandbox_add_mount_pair=/tmp \

@@ -87,6 +87,17 @@ java_test(
 )
 
 java_test(
+    name = "RecencyMapTest",
+    srcs = ["RecencyMapTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/collect:recency_map",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
     name = "SimpleTargetPatternMatcherTest",
     srcs = ["SimpleTargetPatternMatcherTest.java"],
     deps = [

@@ -105,7 +105,7 @@ public class DynamicExecutionModule extends BlazeModule {
       DynamicExecutionOptions options, boolean sandboxingSupported) throws AbruptExitException {
     // Options that set "allowMultiple" to true ignore the default value, so we replicate that
     // functionality here.
-    ImmutableMap.Builder<String, List<String>> localAndWorkerStrategies = ImmutableMap.builder();
+    RecencyMap<String, List<String>> localAndWorkerStrategies = new RecencyMap<>();
     ImmutableList.Builder<String> defaultLocalStrategies = ImmutableList.builder();
     defaultLocalStrategies.add("worker");
     if (sandboxingSupported) {
@@ -117,14 +117,11 @@ public class DynamicExecutionModule extends BlazeModule {
     }
     localAndWorkerStrategies.put("", defaultLocalStrategies.build());
 
-    // this is not inserting in expected order
-    // also apparently no builtin java class uses the last insertion (which to be fair, is terrible
-    // for performance)
     for (Map.Entry<String, List<String>> entry : options.getDynamicLocalStrategy()) {
-      localAndWorkerStrategies.put(entry);
+      localAndWorkerStrategies.put(entry.getKey(), entry.getValue());
       throwIfContainsDynamic(entry.getValue(), "--dynamic_local_strategy");
     }
-    return localAndWorkerStrategies.buildKeepingLast();
+    return ImmutableMap.copyOf(localAndWorkerStrategies);
   }
 
   private ImmutableMap<String, List<String>> getRemoteStrategies(DynamicExecutionOptions options)

@@ -13,79 +13,43 @@
 // limitations under the License.
 package com.google.devtools.build.lib.collect;
 
-import java.util.Collection;
+import com.google.common.collect.ForwardingMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.Set;
+import javax.annotation.Nullable;
 
 /**
- * A map that orders entries by recency of insertion or update.
+ * A {@link Map} whose iteration order is the order in which entries were last inserted or updated.
+ *
+ * <p>This differs from {@link LinkedHashMap}, which keeps a re-inserted key at the position of its
+ * original insertion. Use this when the last occurrence of a key (e.g. on the command line) should
+ * also determine where that key is ordered relative to other keys.
+ *
+ * <p>The views returned by {@link #keySet}, {@link #values} and {@link #entrySet} are live views of
+ * the underlying map. Updating a value through {@link Map.Entry#setValue} does not refresh the
+ * entry's position.
  */
-public class RecencyMap<K, V> implements Map<K, V> {
-  private final Map<K, V> backingMap = new LinkedHashMap<>();
-  
+public final class RecencyMap<K, V> extends ForwardingMap<K, V> {
+  private final Map<K, V> delegate = new LinkedHashMap<>();
+
   @Override
-  public int size() {
-    return backingMap.size();
+  protected Map<K, V> delegate() {
+    return delegate;
   }
 
   @Override
-  public boolean isEmpty() {
-    return backingMap.isEmpty();
-  }
-
-  @Override
-  public boolean containsKey(Object key) {
-    return backingMap.containsKey(key);
-  }
-
-  @Override
-  public boolean containsValue(Object value) {
-    return backingMap.containsValue(value);
-  }
-
-  @Override
-  public V get(Object key) {
-    return backingMap.get(key);
-  }
-
-  @Override
-  public V put(K k, V v) {
-    if (backingMap.containsKey(k)) {
-      backingMap.remove(k);
+  @Nullable
+  public V put(K key, V value) {
+    if (delegate.containsKey(key)) {
+      V previous = delegate.remove(key);
+      delegate.put(key, value);
+      return previous;
     }
-    return backingMap.put(k, v);
+    return delegate.put(key, value);
   }
 
   @Override
-  public V remove(Object key) {
-    return backingMap.remove(key);
-  }
-
-  @Override
-  public void putAll(Map<? extends K, ? extends V> m) {
-    for (Map.Entry<? extends K, ? extends V> entry : m.entrySet()) {
-      put(entry.getKey(), entry.getValue());
-    }
-  }
-
-  @Override
-  public void clear() {
-    backingMap.clear();
-  }
-
-  @Override
-  public Set<K> keySet() {
-    return backingMap.keySet();
-  }
-
-  @Override
-  public Collection<V> values() {
-    return backingMap.values();
-  }
-
-  @Override
-  public Set<Entry<K, V>> entrySet() {
-    return backingMap.entrySet();
+  public void putAll(Map<? extends K, ? extends V> map) {
+    standardPutAll(map);
   }
 }
