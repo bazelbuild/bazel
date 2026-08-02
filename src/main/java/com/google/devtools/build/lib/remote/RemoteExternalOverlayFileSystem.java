@@ -481,10 +481,26 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
     if (fsForPath(path) != externalFs) {
       return;
     }
-    materializeSubtree(path);
+    doMaterializeSubtree(path);
   }
 
   private void materializeSubtree(PathFragment path) throws IOException, InterruptedException {
+    try {
+      doMaterializeSubtree(path);
+    } catch (BulkTransferException e) {
+      var lostArtifacts = e.getLostArtifacts(ActionInputHelper::fromPath);
+      if (!lostArtifacts.isEmpty()) {
+        // We don't track the particular lost artifacts since the repo needs to be refetched,
+        // which recovers all of them anyway.
+        var anyLostArtifact = lostArtifacts.byDigest().entries().iterator().next();
+        var relativePath = anyLostArtifact.getValue().getExecPath().relativeTo(externalDirectory);
+        throw lostRemoteFile(relativePath, DigestUtil.fromString(anyLostArtifact.getKey()), e);
+      }
+      throw e;
+    }
+  }
+
+  private void doMaterializeSubtree(PathFragment path) throws IOException, InterruptedException {
     var files = new LinkedHashSet<PathFragment>();
     var symlinks = new LinkedHashSet<PathFragment>();
     var root = externalFs.getPath(path);
@@ -493,24 +509,10 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
       root = root.resolveSymbolicLinks();
     }
     collectAndCreateDirectories(root, files, symlinks, new HashSet<>());
-    try {
-      prefetch(files);
-      // Create symlinks last as some platforms don't allow creating a symlink to a non-existent
-      // target.
-      prefetch(symlinks);
-    } catch (BulkTransferException e) {
-      if (e.allCausedByCacheNotFoundException()) {
-        var lostArtifacts = e.getLostArtifacts(ActionInputHelper::fromPath);
-        if (!lostArtifacts.isEmpty()) {
-          // We don't track the particular lost artifacts since the repo needs to be refetched,
-          // which recovers all of them anyway.
-          var anyLostArtifact = lostArtifacts.byDigest().entries().iterator().next();
-          var relativePath = anyLostArtifact.getValue().getExecPath().relativeTo(externalDirectory);
-          throw lostRemoteFile(relativePath, DigestUtil.fromString(anyLostArtifact.getKey()), e);
-        }
-      }
-      throw e;
-    }
+    prefetch(files);
+    // Create symlinks last as some platforms don't allow creating a symlink to a non-existent
+    // target.
+    prefetch(symlinks);
   }
 
   private void collectAndCreateDirectories(

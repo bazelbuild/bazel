@@ -459,14 +459,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
         // contents may only be available in memory and must be materialized to the local file
         // system for local actions to access them.
         if (inputPath.getFileSystem() instanceof SubtreeMaterializer subtreeMaterializer) {
-          try {
-            subtreeMaterializer.ensureSubtreeMaterialized(inputPath.asFragment());
-          } catch (LostRemoteRepoFileException e) {
-            // Report the source directory itself as lost so that rewinding recovers it by
-            // refetching the repo containing it, just like a lost regular file input.
-            throw new BulkTransferException(
-                new CacheNotFoundException(lostDigest(e), input.getExecPath()));
-          }
+          subtreeMaterializer.ensureSubtreeMaterialized(inputPath.asFragment());
         }
         return immediateVoidFuture();
       }
