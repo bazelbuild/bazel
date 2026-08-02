@@ -347,8 +347,8 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
     String repoName = path.getSegment(externalDirectorySegmentCount);
     if (markerFileContents.containsKey(repoName)) {
       // The repo contents are served from the remote cache. Make the next cache lookup report a
-      // miss so that rewinding the repo fetch executes the repo rule again, which also uploads the
-      // fresh contents to the remote cache.
+      // miss so that rewinding the repo fetch executes the repo rule again locally, which also
+      // uploads the fresh contents to the remote cache and thus repairs the cache entry.
       reposWithLostFiles.add(repoName);
     }
     // Even if the repo has been materialized or refetched in the meantime, rewinding the repo

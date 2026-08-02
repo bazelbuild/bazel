@@ -53,6 +53,7 @@ import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
 import com.google.devtools.build.lib.actions.RunfilesTree;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.clock.BlazeClock;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.ArtifactNestedSetKey;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -761,12 +762,15 @@ public final class ActionRewindStrategy {
         }
       }
 
-      if (lostInput instanceof Artifact artifact && artifact.isSourceArtifact()) {
-        // Source artifacts have no generating action that could be rewound to recreate them.
-        // However, if the artifact's contents are served from the remote repo contents cache, it
-        // can be recovered by rewinding the fetch of the repository containing it together with
-        // the Skyframe nodes tracking the file's metadata.
+      if (lostInput instanceof Artifact artifact
+          && artifact.isSourceArtifact()
+          && artifact.getOwner() instanceof Label owner
+          && !owner.getRepository().isMain()) {
+        // Since source artifacts have no generating action, they must have been lost as file
+        // contents referenced by a remote repo contents cache entry. Try rewinding the repo rule
+        // evaluation to recover them.
         if (foundLostInputDepOwner || expandedDeps.contains(Artifact.key(artifact))) {
+          checkState(!foundLostInputDepOwner, "unexpected owner of source artifact %s", artifact);
           RepositoryName repo = markLostSourceFile((SourceArtifact) artifact);
           if (repo != null) {
             sourceArtifactsToRepos.put((SourceArtifact) artifact, repo);
