@@ -385,12 +385,6 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
    * Bazel or local actions are handled automatically by the file system or {@link
    * AbstractActionInputPrefetcher}.
    */
-  @Override
-  public void ensureRepoMaterialized(String repoName, ExtendedEventHandler reporter)
-      throws IOException, InterruptedException {
-    ensureMaterialized(RepositoryName.createUnvalidated(repoName), reporter);
-  }
-
   public void ensureMaterialized(RepositoryName repo, ExtendedEventHandler reporter)
       throws IOException, InterruptedException {
     if (!markerFileContents.containsKey(repo.getName())) {
