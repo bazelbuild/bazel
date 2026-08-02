@@ -383,9 +383,12 @@ public abstract class PackageFunction implements SkyFunction {
   }
 
   private static PackageIdentifier packageIdOf(SkyKey key) {
-    return key.argument() instanceof PackageIdentifier id
-        ? id
-        : ((PackagePieceIdentifier.ForBuildFile) key.argument()).getPackageIdentifier();
+    return switch (key.argument()) {
+      case PackageIdentifier packageId -> packageId;
+      case PackagePieceIdentifier.ForBuildFile packagePieceId ->
+          packagePieceId.getPackageIdentifier();
+      default -> throw new IllegalArgumentException("Unexpected key type: %s" + key);
+    };
   }
 
   @Nullable
