@@ -14,13 +14,28 @@
 
 package com.google.devtools.build.lib.vfs;
 
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import java.io.IOException;
 import javax.annotation.Nullable;
 
 /**
  * Implemented by {@link FileSystem}s that serve the contents of external repositories from a remote
- * source and support recovering from the remote file contents being lost by refetching the repo.
+ * cache and support recovering from the remote cache losing the contents of individual files by
+ * refetching the repository.
  */
 public interface RewindableRepoFileSystem {
+
+  /**
+   * Makes the entire contents of the given repository available on the native file system, if they
+   * are currently only available remotely.
+   *
+   * <p>This is where a file the remote cache has lost is usually noticed, since it is the point at
+   * which a repo's contents are downloaded in bulk rather than on demand.
+   *
+   * @param repoName the canonical name of the repository
+   */
+  void ensureRepoMaterialized(String repoName, ExtendedEventHandler reporter)
+      throws IOException, InterruptedException;
 
   /**
    * Marks the file at the given path as lost, i.e., its contents are no longer available in the
