@@ -181,6 +181,13 @@ copy_file(
     allow_symlink = True,
 )
 
+copy_file(
+    name = "objcopy_for_jlink",
+    src = "@llvm//tools:llvm-objcopy",
+    out = "objcopy",
+    allow_symlink = True,
+)
+
 # Reads the app manifest of a Windows executable.
 cc_binary(
     name = "read_manifest",
@@ -212,7 +219,10 @@ cc_binary(
 sh_binary(
     name = "minimize_jdk",
     srcs = ["minimize_jdk.sh"],
-    data = select({
+    data = [
+        ":objcopy_for_jlink",
+        "//third_party/ijar:zipper",
+    ] + select({
         "@platforms//os:windows": [
             ":read_manifest",
             ":write_manifest",
@@ -248,7 +258,10 @@ genrule(
         ":jdeps_modules.golden",
     ],
     outs = ["minimal_jdk.zip"],
-    cmd = "$(location :minimize_jdk) " + _JLINK_TOOL_LOCATION + " $(location :embedded_jdk_vanilla) $(location :jdeps_modules.golden) $@",
+    cmd = "$(location :minimize_jdk)" + select({
+        "//src/conditions:windows": " --target_windows",
+        "//conditions:default": "",
+    }) + " " + _JLINK_TOOL_LOCATION + " $(location :embedded_jdk_vanilla) $(location :jdeps_modules.golden) $@",
     tools = [":minimize_jdk"] + _JLINK_TOOL,
     visibility = ["//src/test/shell/bazel:__pkg__"],
 )
@@ -260,7 +273,10 @@ genrule(
         ":jdeps_modules.golden",
     ],
     outs = ["allmodules_jdk.zip"],
-    cmd = "$(location :minimize_jdk) --allmodules " + _JLINK_TOOL_LOCATION + " $(location :embedded_jdk_vanilla) $(location :jdeps_modules.golden) $@",
+    cmd = "$(location :minimize_jdk) --allmodules" + select({
+        "//src/conditions:windows": " --target_windows",
+        "//conditions:default": "",
+    }) + " " + _JLINK_TOOL_LOCATION + " $(location :embedded_jdk_vanilla) $(location :jdeps_modules.golden) $@",
     tools = [":minimize_jdk"] + _JLINK_TOOL,
     visibility = ["//src/test/shell/bazel:__pkg__"],
 )
