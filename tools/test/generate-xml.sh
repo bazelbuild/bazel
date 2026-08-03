@@ -21,7 +21,7 @@ XML_OUTPUT_FILE="$2"
 DURATION_IN_SECONDS="$3"
 EXIT_CODE="$4"
 
-function encode_stream {
+function encode_stream_with_sed {
   # Replace invalid XML characters and invalid sequence in CDATA
   # We do this in four steps:
   #
@@ -94,9 +94,80 @@ function encode_stream {
       -e 's|]]>|]]>]]<![CDATA[>|g'
 }
 
+function encode_stream {
+  if command -v env >/dev/null && command -v sed >/dev/null; then
+    encode_stream_with_sed
+    return
+  fi
+
+  # Use only Bash builtins so this action does not depend on utilities installed
+  # on the execution platform. Match the byte sequences accepted by the former
+  # sed implementation and replace every other byte with a question mark.
+  local LC_ALL=C
+  # Reading a line with Bash's read discards NUL bytes. Replace them before
+  # encoding lines. A successful short read ended at a NUL delimiter.
+  local chunk line
+  {
+    while IFS= read -r -d '' -n 8192 chunk; do
+      printf '%s' "$chunk"
+      if ((${#chunk} < 8192)); then
+        printf '?'
+      fi
+    done
+    printf '%s' "$chunk"
+  } | while IFS= read -r line || [[ -n "$line" ]]; do
+    local encoded=""
+    local i=0
+    local length=${#line}
+    while ((i < length)); do
+      local b0 b1=-1 b2=-1 b3=-1 sequence_length=0
+      printf -v b0 '%d' "'${line:i:1}"
+      if ((i + 1 < length)); then
+        printf -v b1 '%d' "'${line:i+1:1}"
+      fi
+      if ((i + 2 < length)); then
+        printf -v b2 '%d' "'${line:i+2:1}"
+      fi
+      if ((i + 3 < length)); then
+        printf -v b3 '%d' "'${line:i+3:1}"
+      fi
+
+      # Bash 3's printf returns signed values for bytes above 127.
+      b0=$((b0 & 255)) b1=$((b1 & 255)) b2=$((b2 & 255)) b3=$((b3 & 255))
+      if ((b0 == 9 || (b0 >= 32 && b0 <= 127))); then
+        sequence_length=1
+      elif ((b0 >= 192 && b0 <= 223 && b1 >= 128 && b1 <= 191)); then
+        sequence_length=2
+      elif ((
+        ((b0 >= 224 && b0 <= 236) || (b0 >= 238 && b0 <= 239)) &&
+          b1 >= 128 && b1 <= 191 && b2 >= 128 && b2 <= 191
+      )); then
+        sequence_length=3
+      elif ((b0 == 237 && b1 >= 128 && b1 <= 159 && b2 >= 128 && b2 <= 191)); then
+        sequence_length=3
+      elif ((
+        b0 == 240 && b1 >= 128 && b1 <= 143 &&
+          b2 >= 128 && b2 <= 191 && b3 >= 128 && b3 <= 191
+      )); then
+        sequence_length=4
+      fi
+
+      if ((sequence_length > 0)); then
+        encoded+="${line:i:sequence_length}"
+        ((i += sequence_length))
+      else
+        encoded+='?'
+        ((i += 1))
+      fi
+    done
+    encoded="${encoded//]]>/]]>]]<![CDATA[>}"
+    printf '%s\n' "$encoded"
+  done
+}
+
 function encode_as_xml {
   if [ -f "$1" ]; then
-    cat "$1" | encode_stream
+    encode_stream <"$1"
   fi
 }
 
@@ -122,19 +193,9 @@ if [[ -n "${TEST_TOTAL_SHARDS+x}" ]] && ((TEST_TOTAL_SHARDS != 0)); then
   test_name="${test_name}"_shard_"${shard_num}"/"${TEST_TOTAL_SHARDS}"
 fi
 
-FAILED=0
-{
-  cat <<EOF
-<?xml version="1.0" encoding="UTF-8"?>
-<testsuites>
-  <testsuite name="${test_name}" tests="1" failures="0" errors="${errors}">
-    <testcase name="${test_name}" classname="" status="run" duration="${DURATION_IN_SECONDS}" time="${DURATION_IN_SECONDS}">${error_msg}</testcase>
-      <system-out>
-Generated test.log (if the file is not UTF-8, then this may be unreadable):
-EOF
-  printf '<![CDATA['
-  # Match command substitution's trailing-newline trimming without buffering the log.
-  encode_as_xml "${TEST_LOG}" | LC_ALL=C awk '
+function trim_trailing_newlines {
+  if command -v awk >/dev/null; then
+    LC_ALL=C awk '
     length($0) {
       for (; newlines > 0; newlines--) printf "\n"
       printf "%s", $0
@@ -142,12 +203,40 @@ EOF
       next
     }
     { newlines++ }
-  ' || FAILED=$?
-  cat <<EOF
-]]>
+  '
+    return
+  fi
+
+  local line
+  local newlines=0
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    if [[ -n "$line" ]]; then
+      while ((newlines > 0)); do
+        printf '\n'
+        newlines=$((newlines - 1))
+      done
+      printf '%s' "$line"
+      newlines=1
+    else
+      newlines=$((newlines + 1))
+    fi
+  done
+}
+
+FAILED=0
+{
+  printf '%s\n' "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<testsuites>
+  <testsuite name=\"${test_name}\" tests=\"1\" failures=\"0\" errors=\"${errors}\">
+    <testcase name=\"${test_name}\" classname=\"\" status=\"run\" duration=\"${DURATION_IN_SECONDS}\" time=\"${DURATION_IN_SECONDS}\">${error_msg}</testcase>
+      <system-out>
+Generated test.log (if the file is not UTF-8, then this may be unreadable):"
+  printf '<![CDATA['
+  # Match command substitution's trailing-newline trimming without buffering the log.
+  encode_as_xml "${TEST_LOG}" | trim_trailing_newlines || FAILED=$?
+  printf '%s\n' "]]>
       </system-out>
     </testsuite>
-</testsuites>
-EOF
+</testsuites>"
 } >"${XML_OUTPUT_FILE}"
 exit "$FAILED"

@@ -1122,7 +1122,7 @@ public class TestRunnerAction extends AbstractAction
   }
 
   @Nullable
-  PathFragment getShExecutableMaybe() {
+  public PathFragment getShExecutableMaybe() {
     return shExecutable;
   }
 
