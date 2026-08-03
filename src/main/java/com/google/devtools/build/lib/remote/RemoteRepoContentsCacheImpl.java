@@ -65,6 +65,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.protobuf.ByteString;
+import com.google.protobuf.ExtensionRegistryLite;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -111,6 +112,9 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
   private static final String REPO_DIRECTORY_PATH = "repo_contents";
   private static final Splitter SPLIT_ON_SPACE = Splitter.on(' ');
 
+  // addOutputFiles and addOutputDirectories are deprecated in REAPI v2 in favor of addOutputPaths,
+  // but are populated here for backwards compatibility with older RE backends.
+  @SuppressWarnings("deprecation")
   private static final Command COMMAND =
       Command.newBuilder()
           // A unique but nonsensical command that is valid on all platforms. It is never executed,
@@ -122,6 +126,7 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
           .addOutputDirectories(REPO_DIRECTORY_PATH)
           .setPlatform(Platform.getDefaultInstance())
           .build();
+
   private static final ByteString COMMAND_BYTES = COMMAND.toByteString();
   private static final Directory INPUT_ROOT = Directory.getDefaultInstance();
 
@@ -176,7 +181,7 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
     if (!context.getWriteCachePolicy().allowRemoteCache()) {
       return;
     }
-    List<RepoRecordedInput.WithValue> recordedInputValues;
+    ImmutableList<RepoRecordedInput.WithValue> recordedInputValues;
     try {
       var maybeRecordedInputValues =
           DigestWriter.readMarkerFile(
@@ -273,7 +278,9 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
         transformAsync(
             cache.downloadBlobAsByteString(
                 context, REPO_DIRECTORY_PATH, /* execPath= */ null, repoDirectory.getTreeDigest()),
-            (treeBytes) -> immediateFuture(Tree.parseFrom(treeBytes)),
+            (treeBytes) ->
+                immediateFuture(
+                    Tree.parseFrom(treeBytes, ExtensionRegistryLite.getEmptyRegistry())),
             directExecutor());
     waitForBulkTransfer(ImmutableList.of(markerFileContentFuture, repoDirectoryContentFuture));
 
