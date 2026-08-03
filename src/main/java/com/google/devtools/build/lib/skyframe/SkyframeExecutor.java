@@ -2265,7 +2265,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
                   Throwables.throwIfInstanceOf(e, BzlLoadFailedException.class);
                   // Otherwise, wrap it.
                   throw new StarlarkExecTransitionLoadingException(e);
-                } else if (e == null && !error.getCycleInfo().isEmpty()) {
+                } else if (!error.getCycleInfo().isEmpty()) {
                   cyclesReporter.reportCycles(
                       error.getCycleInfo(), firstError.getKey(), eventHandler);
                   throw new StarlarkExecTransitionLoadingException(
@@ -3609,12 +3609,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         Lock writeLock = labelInterner.getLockForLabelTransferToPool(pkg.getPackageIdentifier());
         writeLock.lock();
         try {
-          pkg.getTargets()
-              .forEach(
-                  (name, target) -> {
-                    Label label = target.getLabel();
-                    labelInterner.removeWeak(label);
-                  });
+          pkg.getTargets().forEach(target -> labelInterner.removeWeak(target.getLabel()));
         } finally {
           writeLock.unlock();
         }

@@ -542,7 +542,7 @@ public class BuildView {
     for (Label label : labels) {
       Package pkg =
           checkNotNull(skyframeExecutor.getExistingPackage(label.getPackageIdentifier()), label);
-      Target target = checkNotNull(pkg.getTargets().get(label.getName()), label);
+      Target target = checkNotNull(pkg.getTargetOrNull(label.getName()), label);
       builder.put(label, target);
     }
     return builder.buildOrThrow();

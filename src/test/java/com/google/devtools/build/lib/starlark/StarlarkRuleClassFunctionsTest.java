@@ -447,7 +447,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
     Package pkg = getPackage("pkg");
     assertPackageNotInError(pkg);
-    assertThat(pkg.getTargets()).containsKey("abc_xyz");
+    assertThat(pkg.getTargetOrNull("abc_xyz")).isNotNull();
   }
 
   @Test
