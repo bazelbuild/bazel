@@ -1,0 +1,50 @@
+diff --git a/BUILD.bazel b/BUILD.bazel
+--- a/BUILD.bazel
++++ b/BUILD.bazel
+@@ -1,6 +1,7 @@
+ load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
+ load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+ load("@rules_java//java:java_library.bzl", "java_library")
++load(":hermetic_actions.bzl", "write_version_java")
+
+ copy_file(
+     name = "copy_link_jni_md_header",
+@@ -64,12 +65,9 @@
+ )
+
+
+-genrule(
++write_version_java(
+     name = "version-java",
+-    cmd_bash = 'echo "package com.github.luben.zstd.util;\n\npublic class ZstdVersion {\n\tpublic static final String VERSION = \\"$$(cat $<)\\";\n}" > $@',
+-    cmd_ps = '$$PSDefaultParameterValues.Remove("*:Encoding"); $$version = (Get-Content $<) -join ""; Set-Content -NoNewline -Path $@ -Value "package com.github.luben.zstd.util;\n\npublic class ZstdVersion {\n\tpublic static final String VERSION = `"$${version}`";\n}\n"',
+-    srcs = ["version"],
+-    outs = ["ZstdVersion.java"],
++    out = "ZstdVersion.java",
+ )
+
+ java_library(
+diff --git a/hermetic_actions.bzl b/hermetic_actions.bzl
+new file mode 100644
+--- /dev/null
++++ b/hermetic_actions.bzl
+@@ -0,0 +1,19 @@
++"""Hermetic version-file generation for zstd-jni."""
++
++def _write_version_java_impl(ctx):
++    ctx.actions.write(
++        output = ctx.outputs.out,
++        content = """package com.github.luben.zstd.util;
++
++public class ZstdVersion {
++\tpublic static final String VERSION = \"1.5.6-9\";
++}
++""",
++    )
++
++write_version_java = rule(
++    implementation = _write_version_java_impl,
++    attrs = {
++        "out": attr.output(mandatory = True),
++    },
++)
