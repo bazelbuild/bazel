@@ -134,6 +134,9 @@ public class TestConstants {
    */
   public static final String RULES_PYTHON_PACKAGE_ROOT = "@@rules_python+/";
 
+  /** The repo/package apple_support is rooted at. */
+  public static final String APPLE_SUPPORT_PACKAGE_ROOT = "@@build_bazel_apple_support+//";
+
   public static final String PYINFO_BZL = "@@rules_python+//python/private:py_info.bzl";
 
   public static final String PYRUNTIMEINFO_BZL =
