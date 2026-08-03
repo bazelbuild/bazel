@@ -387,7 +387,7 @@ public abstract class PackageFunction implements SkyFunction {
       case PackageIdentifier packageId -> packageId;
       case PackagePieceIdentifier.ForBuildFile packagePieceId ->
           packagePieceId.getPackageIdentifier();
-      default -> throw new IllegalArgumentException("Unexpected key type: %s" + key);
+      default -> throw new IllegalArgumentException("Unexpected key: " + key);
     };
   }
 

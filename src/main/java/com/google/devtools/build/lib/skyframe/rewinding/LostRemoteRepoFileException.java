@@ -31,27 +31,38 @@ import javax.annotation.Nullable;
 public final class LostRemoteRepoFileException extends IOException {
 
   private final RepositoryName repo;
+  private final String digest;
   @Nullable private final Label label;
 
-  public LostRemoteRepoFileException(String message, Throwable cause, RepositoryName repo) {
-    this(message, cause, repo, /* label= */ null);
+  public LostRemoteRepoFileException(
+      String message, Throwable cause, RepositoryName repo, String digest) {
+    this(message, cause, repo, digest, /* label= */ null);
   }
 
   private LostRemoteRepoFileException(
-      String message, Throwable cause, RepositoryName repo, @Nullable Label label) {
+      String message, Throwable cause, RepositoryName repo, String digest, @Nullable Label label) {
     super(message, cause);
     this.repo = repo;
+    this.digest = digest;
     this.label = label;
   }
 
   /** Returns a copy of this exception that records the label the lost file was read through. */
   public LostRemoteRepoFileException withLabel(Label label) {
-    return new LostRemoteRepoFileException(getMessage(), this, repo, label);
+    return new LostRemoteRepoFileException(getMessage(), this, repo, digest, label);
   }
 
   /** The canonical name of the repository whose refetch recovers the lost file. */
   public RepositoryName getRepo() {
     return repo;
+  }
+
+  /**
+   * The digest of the lost file in the {@code hash/size} form that identifies lost inputs, so that
+   * a lost file discovered while materializing an action input can be reported as such.
+   */
+  public String getDigest() {
+    return digest;
   }
 
   /**

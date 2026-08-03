@@ -439,10 +439,10 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
     if (!rewindingEnabled) {
       return new IOException(message, cause);
     }
-    // The failing Skyframe node can recover the file within this build by rewinding the fetch of
+    // The failing Skyframe node can recover the file within this command by rewinding the fetch of
     // the repo containing it, so tell it which repo that is.
     return new LostRemoteRepoFileException(
-        message, cause, RepositoryName.createUnvalidated(repoName));
+        message, cause, RepositoryName.createUnvalidated(repoName), DigestUtil.toString(digest));
   }
 
   private void prefetch(Iterable<PathFragment> paths) throws IOException, InterruptedException {
@@ -481,12 +481,23 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
     if (fsForPath(path) != externalFs) {
       return;
     }
-    doMaterializeSubtree(path);
+    materializeSubtree(path);
   }
 
   private void materializeSubtree(PathFragment path) throws IOException, InterruptedException {
+    var files = new LinkedHashSet<PathFragment>();
+    var symlinks = new LinkedHashSet<PathFragment>();
+    var root = externalFs.getPath(path);
+    if (root.isSymbolicLink()) {
+      symlinks.add(path);
+      root = root.resolveSymbolicLinks();
+    }
+    collectAndCreateDirectories(root, files, symlinks, new HashSet<>());
     try {
-      doMaterializeSubtree(path);
+      prefetch(files);
+      // Create symlinks last as some platforms don't allow creating a symlink to a non-existent
+      // target.
+      prefetch(symlinks);
     } catch (BulkTransferException e) {
       var lostArtifacts = e.getLostArtifacts(ActionInputHelper::fromPath);
       if (!lostArtifacts.isEmpty()) {
@@ -498,21 +509,6 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
       }
       throw e;
     }
-  }
-
-  private void doMaterializeSubtree(PathFragment path) throws IOException, InterruptedException {
-    var files = new LinkedHashSet<PathFragment>();
-    var symlinks = new LinkedHashSet<PathFragment>();
-    var root = externalFs.getPath(path);
-    if (root.isSymbolicLink()) {
-      symlinks.add(path);
-      root = root.resolveSymbolicLinks();
-    }
-    collectAndCreateDirectories(root, files, symlinks, new HashSet<>());
-    prefetch(files);
-    // Create symlinks last as some platforms don't allow creating a symlink to a non-existent
-    // target.
-    prefetch(symlinks);
   }
 
   private void collectAndCreateDirectories(

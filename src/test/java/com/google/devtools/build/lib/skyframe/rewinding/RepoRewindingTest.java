@@ -661,6 +661,8 @@ public final class RepoRewindingTest extends BuildIntegrationTestCase {
    */
   private static final class RewindableRepoFileSystemForTesting extends DelegateFileSystem
       implements RewindableRepoFileSystem {
+    private static final String LOST_BLOB_DIGEST = "0".repeat(64) + "/1";
+
     private final String outputBaseName;
     final List<PathFragment> lostRepoFiles = Collections.synchronizedList(new ArrayList<>());
     // Repos whose next materialization fails as if the remote cache had lost the contents of one
@@ -703,7 +705,8 @@ public final class RepoRewindingTest extends BuildIntegrationTestCase {
           throw new LostRemoteRepoFileException(
               "%s is no longer available in the remote cache".formatted(path),
               new IOException("missing blob"),
-              RepositoryName.createUnvalidated(repoName));
+              RepositoryName.createUnvalidated(repoName),
+              LOST_BLOB_DIGEST);
         }
       }
       return super.getInputStream(path);
@@ -727,7 +730,8 @@ public final class RepoRewindingTest extends BuildIntegrationTestCase {
       throw new LostRemoteRepoFileException(
           "%s is no longer available in the remote cache".formatted(lostFile),
           new IOException("missing blob"),
-          RepositoryName.createUnvalidated(repoName));
+          RepositoryName.createUnvalidated(repoName),
+          LOST_BLOB_DIGEST);
     }
 
     @Override

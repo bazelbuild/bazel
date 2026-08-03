@@ -1972,6 +1972,62 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
     self.assertFalse(os.path.exists(os.path.join(repo_dir, 'sub/BUILD')))
     self.assertTrue(os.path.exists(os.path.join(repo_dir, 'sub/sub.txt')))
 
+  def testLostRemoteFile_query(self):
+    # Like testLostRemoteFile_build, but the lost BUILD file is read by a
+    # command that doesn't build and thus has no --rewind_lost_inputs to go by.
+    # Such a command never executes actions, so rewinding the repo fetch is
+    # always safe for it.
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+        ],
+    )
+
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            (
+                '  rctx.file("BUILD", "filegroup(name=\'root\','
+                " srcs=['root.txt'])\")"
+            ),
+            '  rctx.file("root.txt", "root")',
+            (
+                '  rctx.file("sub/BUILD", "filegroup(name=\'sub\','
+                " srcs=['sub.txt'])\")"
+            ),
+            '  rctx.file("sub/sub.txt", "sub")',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+
+    repo_dir = self.RepoDir('my_repo')
+
+    # First fetch: not cached
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:root'])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+
+    # After expunging: cached
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:root'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'sub/BUILD')))
+
+    # Lose all remote files.
+    self.ClearRemoteCache()
+
+    # Query the other package: its BUILD file is no longer available remotely
+    # and is recovered by rewinding the repo fetch.
+    _, stdout, stderr = self.RunBazel(['query', '@my_repo//sub:all'])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertIn('@my_repo//sub:sub', '\n'.join(stdout))
+    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'sub/BUILD')))
+
   def testLostRemoteFile_actionInput_rewound(self):
     # Create a repo with a data file consumed by a genrule, cache the repo
     # remotely, then build the genrule with --rewind_lost_inputs after the

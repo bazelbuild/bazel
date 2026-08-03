@@ -86,6 +86,7 @@ import com.google.devtools.build.lib.vfs.FileStateKey;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.RewindableRepoFileSystem;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.DelegatingGraphInconsistencyReceiver;
@@ -373,9 +374,17 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
     return GraphInconsistencyReceiver.THROWING;
   }
 
-  private static boolean rewindingEnabled(OptionsProvider options) {
+  private boolean rewindingEnabled(OptionsProvider options) {
     var buildRequestOptions = options.getOptions(BuildRequestOptions.class);
-    return buildRequestOptions != null && buildRequestOptions.getRewindLostInputs();
+    if (buildRequestOptions != null) {
+      return buildRequestOptions.getRewindLostInputs();
+    }
+    // Commands that don't build, such as query and mod, have no build request options, but still
+    // load packages and fetch repos and thus have to rewind repo fetches to recover files that the
+    // remote repo contents cache has lost. They never execute actions, so accepting resets doesn't
+    // depend on --rewind_lost_inputs. This mirrors the condition under which
+    // RemoteExternalOverlayFileSystem reports lost files as recoverable by rewinding.
+    return directories.getOutputBase().getFileSystem() instanceof RewindableRepoFileSystem;
   }
 
   /**

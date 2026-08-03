@@ -385,8 +385,10 @@ public final class RemoteModule extends BlazeModule {
    */
   private static boolean rewindingEnabled(CommandEnvironment env) {
     var buildRequestOptions = env.getOptions().getOptions(BuildRequestOptions.class);
-    // Commands that don't build, such as `fetch`, have no build request options.
-    return buildRequestOptions != null && buildRequestOptions.getRewindLostInputs();
+    // Commands that don't build, such as `query` and `mod`, have no build request options. They
+    // never execute actions, so SequencedSkyframeExecutor accepts resets for them unconditionally
+    // as long as this file system is in use.
+    return buildRequestOptions == null || buildRequestOptions.getRewindLostInputs();
   }
 
   @Override
