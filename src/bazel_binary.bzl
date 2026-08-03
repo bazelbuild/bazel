@@ -14,11 +14,14 @@
 
 """Custom rule for packaging Bazel binary."""
 
+load("@rules_java//java:defs.bzl", "java_common")
+
 def _bazel_binary_impl(ctx):
     client = ctx.file.client
     package_zip = ctx.file.package_zip
     cat_binary = ctx.executable._cat_binary
-    adjust_sfx = ctx.executable._adjust_sfx
+    adjust_sfx = ctx.file._adjust_sfx
+    java_runtime = ctx.attr._java_runtime[java_common.JavaRuntimeInfo]
     output = ctx.outputs.out
 
     unaligned = ctx.actions.declare_file(output.basename + ".unaligned")
@@ -34,10 +37,11 @@ def _bazel_binary_impl(ctx):
 
     # Adjust SFX
     ctx.actions.run(
-        inputs = [unaligned],
+        inputs = [unaligned, adjust_sfx],
         outputs = [output],
-        executable = adjust_sfx,
-        arguments = [unaligned.path, output.path],
+        executable = java_runtime.java_executable_exec_path,
+        arguments = ["-jar", adjust_sfx.path, unaligned.path, output.path],
+        tools = java_runtime.files,
         mnemonic = "AdjustSfx",
     )
 
@@ -58,9 +62,14 @@ bazel_binary = rule(
             cfg = "exec",
         ),
         "_adjust_sfx": attr.label(
-            default = Label("//src/java_tools/singlejar/java/com/google/devtools/build/zip:adjust_sfx"),
-            executable = True,
+            default = Label("//src/java_tools/singlejar/java/com/google/devtools/build/zip:adjust_sfx_deploy.jar"),
+            allow_single_file = True,
             cfg = "exec",
+        ),
+        "_java_runtime": attr.label(
+            cfg = "exec",
+            default = "@bazel_tools//tools/jdk:current_java_runtime",
+            providers = [java_common.JavaRuntimeInfo],
         ),
     },
     executable = True,
