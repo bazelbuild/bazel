@@ -14,9 +14,6 @@
 
 package net.starlark.java.syntax;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
-import static net.starlark.java.types.Types.NO_PARAMS_CALLABLE;
-
 import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -102,6 +99,10 @@ public final class Resolver extends NodeVisitor {
     // Otherwise, the first occurrence of this symbol (which must be non-binding).
     private final Identifier first;
 
+    // Set by type checking (possibly more than once) if applicable.
+    // Null is treated as untyped / Any.
+    @Nullable private StarlarkType type;
+
     private Binding(Scope scope, int index, boolean isSyntactic, Identifier first) {
       this.scope = scope;
       this.index = index;
@@ -137,6 +138,17 @@ public final class Resolver extends NodeVisitor {
                   // e.g., on a previous input of the REPL
                   : "<previously defined>";
       return String.format("%s[%d] %s @ %s", scope, index, first.getName(), declaredAt);
+    }
+
+    /** Returns the type of this binding, or null if a type is not set. */
+    @Nullable
+    public StarlarkType getType() {
+      return type;
+    }
+
+    /** Assigns (or clears) a type to this binding. May be called more than once. */
+    void setType(@Nullable StarlarkType type) {
+      this.type = type;
     }
   }
 
@@ -179,7 +191,6 @@ public final class Resolver extends NodeVisitor {
     private final String name;
     private final Location location;
     private final ImmutableList<Parameter> params;
-    private final Types.CallableType functionType;
     private final ImmutableList<Statement> body;
     private final boolean hasVarargs;
     private final boolean hasKwargs;
@@ -191,11 +202,15 @@ public final class Resolver extends NodeVisitor {
     private final ImmutableList<Binding> freevars;
     private final ImmutableList<String> globals; // TODO(adonovan): move to Program.
 
+    // Set by type checking (possibly more than once) if applicable.
+    // Null is treated as untyped / Any.
+    // Always null for the function associated with a StarlarkFile object.
+    @Nullable private Types.CallableType functionType;
+
     private Function(
         String name,
         Location loc,
         ImmutableList<Parameter> params,
-        Types.CallableType functionType,
         ImmutableList<Statement> body,
         boolean hasVarargs,
         boolean hasKwargs,
@@ -206,7 +221,6 @@ public final class Resolver extends NodeVisitor {
       this.name = name;
       this.location = loc;
       this.params = params;
-      this.functionType = functionType;
       this.body = body;
       this.hasVarargs = hasVarargs;
       this.hasKwargs = hasKwargs;
@@ -311,10 +325,6 @@ public final class Resolver extends NodeVisitor {
       return params;
     }
 
-    public Types.CallableType getFunctionType() {
-      return functionType;
-    }
-
     /**
      * Returns the effective statements of the function's body. (For the implicit function created
      * to evaluate a single standalone expression, this may contain a synthesized Return statement.)
@@ -366,6 +376,17 @@ public final class Resolver extends NodeVisitor {
     public boolean isToplevel() {
       return isToplevel;
     }
+
+    /** Returns the type of this function, or null if a type is not set. */
+    @Nullable
+    public Types.CallableType getFunctionType() {
+      return functionType;
+    }
+
+    /** Assigns (or clears) a type to this function. May be called more than once. */
+    void setFunctionType(@Nullable Types.CallableType functionType) {
+      this.functionType = functionType;
+    }
   }
 
   /**
@@ -385,6 +406,13 @@ public final class Resolver extends NodeVisitor {
     Scope resolve(String name) throws Undefined;
 
     /**
+     * Resolves a name to a corresponding type.
+     *
+     * @throws Undefined if the name is not defined, or if it is not valid as a type.
+     */
+    StarlarkType resolveType(String name) throws Undefined;
+
+    /**
      * An Undefined exception indicates a failure to resolve a top-level name. If {@code candidates}
      * is non-null, it provides the set of accessible top-level names, which, along with local
      * names, will be used as candidates for spelling suggestions.
@@ -396,6 +424,10 @@ public final class Resolver extends NodeVisitor {
         super(message);
         this.candidates = candidates;
       }
+
+      public Undefined(String message) {
+        this(message, /* candidates= */ null);
+      }
     }
   }
 
@@ -406,12 +438,19 @@ public final class Resolver extends NodeVisitor {
   // TODO(adonovan): move into test/ tree.
   public static Module moduleWithPredeclared(String... names) {
     ImmutableSet<String> predeclared = ImmutableSet.copyOf(names);
-    return (name) -> {
-      if (predeclared.contains(name)) {
-        return Scope.PREDECLARED;
+    return new Module() {
+      @Override
+      public Scope resolve(String name) throws Undefined {
+        if (predeclared.contains(name)) {
+          return Scope.PREDECLARED;
+        }
+        throw new Undefined(String.format("name '%s' is not defined", name), predeclared);
       }
-      throw new Resolver.Module.Undefined(
-          String.format("name '%s' is not defined", name), predeclared);
+
+      @Override
+      public StarlarkType resolveType(String name) throws Undefined {
+        throw new Undefined("moduleWithPredeclared does not support types");
+      }
     };
   }
 
@@ -474,6 +513,9 @@ public final class Resolver extends NodeVisitor {
       Module module,
       FileOptions options,
       @Nullable Map<String, DocComments> docCommentsMap) {
+    // Don't visit keyword args or dot expression fields -- those aren't symbols.
+    this.skipNonSymbolIdentifiers = true;
+
     this.errors = errors;
     this.module = module;
     this.options = options;
@@ -542,7 +584,12 @@ public final class Resolver extends NodeVisitor {
         // Def statements are considered to supply a type annotation on the function identifier
         // iff they have at least one piece of type syntax in their signature -- a type annotation
         // on a parameter or return value, or a list of generic type variables.
-        // .
+        //
+        // TODO: #27728 - Let's just ban redefinitions of functions in type-checked code, on the
+        // basis that they always imply a type since even an unannotated function is still a
+        // Callable. This also enforces better readability practices in type-checked code, and
+        // redefinitions are pretty rare anyway. Enforcement should be done in TypeResolver, not
+        // here in Resolver.
         boolean hasType =
             def.getParameters().stream().anyMatch(p -> p.getType() != null)
                 || def.getReturnType() != null
@@ -574,7 +621,15 @@ public final class Resolver extends NodeVisitor {
         }
         break;
       case TYPE_ALIAS:
-      // TODO(brandjon): create a type-valence binding for the alias
+        if (options.resolveTypeSyntax()) {
+          TypeAliasStatement typeStmt = (TypeAliasStatement) stmt;
+          bind(
+              typeStmt.getIdentifier(),
+              /* isLoad= */ false,
+              /* hasType= */ false,
+              /* docComments= */ null);
+        }
+        break;
       case EXPRESSION:
       case FLOW:
       case RETURN:
@@ -593,10 +648,16 @@ public final class Resolver extends NodeVisitor {
     }
   }
 
+  /**
+   * Extends the visit() traversal to the lhs of an assignment or for loop.
+   *
+   * <p>In particular, this sets bindings on identifiers appearing in read context, and asserts that
+   * bindings are already set on identifiers appearing in write context.
+   */
   private void assign(Expression lhs) {
     if (lhs instanceof Identifier) {
-      // Bindings are created by the first pass (createBindings),
-      // so there's nothing to do here.
+      // Bindings are created by the first pass (createBindings).
+      assertIsBound((Identifier) lhs);
     } else if (lhs instanceof IndexExpression) {
       visit(lhs);
     } else if (lhs instanceof ListExpression) {
@@ -611,8 +672,23 @@ public final class Resolver extends NodeVisitor {
     }
   }
 
+  private void assertIsBound(Identifier id) {
+    Preconditions.checkState(id.getBinding() != null, "%s expected to be bound", id.getName());
+  }
+
+  private void assertIsNotBound(Identifier id) {
+    if (id.getBinding() != null) {
+      throw new IllegalStateException(
+          String.format("%s expected to not be bound", id.getBinding()));
+    }
+  }
+
   @Override
   public void visit(Identifier id) {
+    // The visit() traversal should not reach any Identifier node more than once.
+    // It also should not reach any binding occurrence of an Identifier at all -- those are set by
+    // the first pass.
+    assertIsNotBound(id);
     Binding bind = use(id);
     if (bind != null) {
       id.setBinding(bind);
@@ -710,12 +786,6 @@ public final class Resolver extends NodeVisitor {
   }
 
   @Override
-  public void visit(DotExpression node) {
-    visit(node.getObject());
-    // Do not visit the field. It is an identifier but does not correspond to a binding.
-  }
-
-  @Override
   public void visit(Comprehension node) {
     ImmutableList<Comprehension.Clause> clauses = node.getClauses();
 
@@ -753,23 +823,28 @@ public final class Resolver extends NodeVisitor {
 
   @Override
   public void visit(DefStatement node) {
+    assertIsBound(node.getIdentifier());
+    // resolveFunction() recurses into the body.
     node.setResolvedFunction(
         resolveFunction(
             node,
             node.getIdentifier().getName(),
             node.getIdentifier().getStartLocation(),
             node.getParameters(),
+            node.getReturnType(),
             node.getBody()));
   }
 
   @Override
   public void visit(LambdaExpression expr) {
+    // resolveFunction() recurses into the body.
     expr.setResolvedFunction(
         resolveFunction(
             expr,
             "lambda",
             expr.getStartLocation(),
             expr.getParameters(),
+            /* returnType= */ null,
             ImmutableList.of(ReturnStatement.make(expr.getBody()))));
   }
 
@@ -796,19 +871,34 @@ public final class Resolver extends NodeVisitor {
           "cannot perform augmented assignment on a list or tuple expression");
     }
 
+    if (node.getType() != null && options.resolveTypeSyntax()) {
+      visit(node.getType());
+    }
     assign(node.getLHS());
   }
 
   @Override
   public void visit(VarStatement node) {
-    assign(node.getIdentifier());
+    assertIsBound(node.getIdentifier());
+    if (options.resolveTypeSyntax()) {
+      visit(node.getType());
+    }
+  }
+
+  @Override
+  public void visit(CastExpression node) {
+    if (options.resolveTypeSyntax()) {
+      visit(node.getType());
+    }
+    visit(node.getValue());
   }
 
   @Override
   public void visit(IsInstanceExpression node) {
-    // TODO(b/350661266): restrict the types that can be used on the RHS of isinstance(); e.g.
-    // `list` or `list | tuple` (or aliases resolving to those!) are allowed, but `list[int]` isn't,
-    // since a list can subsequently be mutated to add a non-int element.
+    // TODO: #27848 - Restrict the types that can be used on the RHS of isinstance(); e.g. `list` or
+    // `list | tuple` (or aliases resolving to those!) are allowed, but `list[int]` isn't,  since a
+    // list can subsequently be mutated to add a non-int element. Probably needs to be done in
+    // TypeResolver.
     errorf(node, "isinstance() is not yet supported");
   }
 
@@ -818,8 +908,14 @@ public final class Resolver extends NodeVisitor {
       errorf(node, "type alias statement not at top level");
     }
 
-    // TODO(brandjon): resolve type alias
-    super.visit(node);
+    if (options.resolveTypeSyntax()) {
+      assertIsBound(node.getIdentifier());
+      visit(node.getDefinition());
+    }
+
+    // TODO: #27370 - Bind the generic type params (`type Foo[S, T] = ...`). Will require creating
+    // a new block for the RHS, since the type params don't leak outside the statement. (This
+    // means extending the invariant of Block#syntax to allow include TypeAliasStatement.)
   }
 
   // Resolves a non-binding identifier to an existing binding, or null.
@@ -917,180 +1013,37 @@ public final class Resolver extends NodeVisitor {
     return bind;
   }
 
-  public Object resolveTypeOrArg(Resolver.Module module, Expression expr) {
-    switch (expr.kind()) {
-      case BINARY_OPERATOR:
-        // Syntax sugar for union types, i.e. a|b == Union[a,b]
-        BinaryOperatorExpression binop = (BinaryOperatorExpression) expr;
-        if (binop.getOperator() == TokenKind.PIPE) {
-          StarlarkType x = resolveType(module, binop.getX());
-          StarlarkType y = resolveType(module, binop.getY());
-          return Types.union(x, y);
-        }
-        errorf(expr, "binary operator '%s' is not supported", binop.getOperator());
-        return Types.ANY;
-      case TYPE_APPLICATION:
-        TypeApplication app = (TypeApplication) expr;
-
-        Object constructorObject = Types.TYPE_UNIVERSE.get(app.getConstructor().getName());
-        if (constructorObject == null) {
-          // TODO(ilist@): include possible candidates in the error message
-          errorf(expr, "type constructor '%s' is not defined", app.getConstructor().getName());
-          return Types.ANY;
-        }
-        if (!(constructorObject instanceof Types.TypeConstructorProxy constructor)) {
-          errorf(
-              expr,
-              "'%s' is not a type constructor, cannot be applied to '%s'",
-              app.getConstructor().getName(),
-              app.getArguments());
-          return Types.ANY;
-        }
-        ImmutableList<Object> arguments =
-            app.getArguments().stream()
-                .map(arg -> resolveTypeOrArg(module, arg))
-                .collect(toImmutableList());
-
-        try {
-          return constructor.invoke(arguments);
-        } catch (IllegalArgumentException e) {
-          errorf(expr, "%s", e.getMessage());
-          return Types.ANY;
-        }
-      case IDENTIFIER:
-        Identifier id = (Identifier) expr;
-        // TODO(ilist@): consider moving resolution/TYPE_UNIVERSE into Module interface
-        Object result = Types.TYPE_UNIVERSE.get(id.getName());
-        if (result == null) {
-          // TODO(ilist@): include possible candidates in the error message
-          errorf(expr, "type '%s' is not defined", id.getName());
-          return Types.ANY;
-        }
-        return result;
-      default:
-        // TODO(ilist@): full evaluation: lists and dicts
-        errorf(expr, "unexpected expression '%s'", expr);
-        return Types.ANY;
-    }
-  }
-
-  public StarlarkType resolveType(Resolver.Module module, Expression expr) {
-    Object typeOrArg = resolveTypeOrArg(module, expr);
-    if (!(typeOrArg instanceof StarlarkType type)) {
-      if (typeOrArg instanceof Types.TypeConstructorProxy) {
-        errorf(expr, "expected type arguments after the type constructor '%s'", expr);
-      } else {
-        errorf(expr, "expression '%s' is not a valid type.", expr);
-      }
-      return Types.ANY;
-    }
-    return type;
-  }
-
-  /**
-   * Resolves a type expression to a {@link StarlarkType}.
-   *
-   * @param expr a valid type expression; for example, one produced by {@link
-   *     Expression#parseTypeExpression}.
-   * @param options resolver options; note that {@link FileOptions#allowStarlarkTypeSyntax} doesn't
-   *     need to be set - this method supports Starlark types implicitly.
-   * @throws SyntaxError.Exception if expr is not a type expression or if it could not be resolved
-   *     to a type.
-   */
-  public static StarlarkType resolveType(
-      Expression expr, Resolver.Module module, FileOptions options) throws SyntaxError.Exception {
-    ArrayList<SyntaxError> errors = new ArrayList<>();
-    Resolver r = new Resolver(errors, module, options, /* docCommentsMap= */ null);
-    StarlarkType result = r.resolveType(module, expr);
-    if (!errors.isEmpty()) {
-      throw new SyntaxError.Exception(errors);
-    }
-    return result;
-  }
-
-  public Types.CallableType resolveFunctionType(
-      Resolver.Module module,
-      ImmutableList<Parameter> parameters,
-      @Nullable Expression returnTypeExpr) {
-    ImmutableList.Builder<String> names = ImmutableList.builder();
-    ImmutableList.Builder<StarlarkType> types = ImmutableList.builder();
-    ImmutableSet.Builder<String> mandatoryParameters = ImmutableSet.builder();
-
-    int nparams = parameters.size();
-    int numPositionalParameters = 0;
-    Parameter.Star star = null;
-    Parameter.StarStar starStar = null;
-    int i;
-    for (i = 0; i < nparams; i++) {
-      Parameter param = parameters.get(i);
-      if (param instanceof Parameter.Star pstar) {
-        star = pstar;
-        continue;
-      }
-      if (param instanceof Parameter.StarStar pstarstar) {
-        starStar = pstarstar;
-      }
-      if (star == null) {
-        numPositionalParameters++;
-      }
-
-      String name = param.getName();
-      Expression typeExpr = param.getType();
-
-      names.add(name);
-      types.add(typeExpr == null ? Types.ANY : resolveType(module, typeExpr));
-      if (param instanceof Parameter.Mandatory) {
-        mandatoryParameters.add(name);
-      }
-    }
-
-    StarlarkType varargsType = Types.NONE;
-    if (star != null && star.getIdentifier() != null) {
-      Expression typeExpr = star.getType();
-      varargsType = typeExpr == null ? Types.ANY : resolveType(module, typeExpr);
-    }
-
-    StarlarkType kwargsType = Types.NONE;
-    if (starStar != null) {
-      Expression typeExpr = starStar.getType();
-      kwargsType = typeExpr == null ? Types.ANY : resolveType(module, typeExpr);
-    }
-
-    StarlarkType returnType = Types.ANY;
-    if (returnTypeExpr != null) {
-      returnType = resolveType(module, returnTypeExpr);
-    }
-
-    return Types.callable(
-        names.build(),
-        types.build(),
-        /* numPositionalOnlyParameters= */ 0,
-        numPositionalParameters,
-        mandatoryParameters.build(),
-        varargsType,
-        kwargsType,
-        returnType);
-  }
-
   // Common code for def, lambda.
   private Function resolveFunction(
       Node syntax, // DefStatement or LambdaExpression
       String name,
       Location loc,
       ImmutableList<Parameter> parameters,
+      @Nullable Expression returnType,
       ImmutableList<Statement> body) {
 
-    // Resolve defaults in enclosing environment.
+    // Resolve parameter types and default initializer exprs in enclosing environment.
     for (Parameter param : parameters) {
       if (param instanceof Parameter.Optional) {
         visit(param.getDefaultValue());
       }
+      if (param.getType() != null && options.resolveTypeSyntax()) {
+        visit(param.getType());
+      }
+    }
+    // Resolve return type in enclosing environment.
+    if (returnType != null && options.resolveTypeSyntax()) {
+      visit(returnType);
     }
 
     // Enter function block.
     ArrayList<Binding> frame = new ArrayList<>();
     ArrayList<Binding> freevars = new ArrayList<>();
     pushLocalBlock(syntax, frame, freevars);
+
+    // TODO: #27728 - When we handle generic type variables, they should be bound in a new outer
+    // block that sits between the enclosing environment and this one. Type annotations and default
+    // expressions are evaluated inside that block.
 
     // Check parameter order and convert to run-time order:
     // positionals, keyword-only, *args, **kwargs.
@@ -1168,19 +1121,10 @@ public final class Resolver extends NodeVisitor {
     visitAll(body);
     popLocalBlock();
 
-    Types.CallableType functionType = null;
-    if (syntax instanceof DefStatement def) {
-      functionType = resolveFunctionType(module, def.getParameters(), def.getReturnType());
-    } else if (syntax instanceof LambdaExpression lambda) {
-      functionType =
-          resolveFunctionType(module, lambda.getParameters(), /* returnTypeExpr= */ null);
-    }
-
     return new Function(
         name,
         loc,
         params.build(),
-        functionType,
         body,
         star != null && star.getIdentifier() != null,
         starStar != null,
@@ -1279,6 +1223,8 @@ public final class Resolver extends NodeVisitor {
 
     id.setBinding(bind);
 
+    // TODO: #27728 - Move the functionality of banning multiple type declarations of the same
+    // symbol over to the TypeResolver, eliminating this hasType logic.
     if (hasType && !isNew) {
       if (bind.isSyntactic) {
         errorf(
@@ -1401,7 +1347,6 @@ public final class Resolver extends NodeVisitor {
             "<toplevel>",
             file.getStartLocation(),
             /* params= */ ImmutableList.of(),
-            /* functionType= */ NO_PARAMS_CALLABLE,
             /* body= */ stmts,
             /* hasVarargs= */ false,
             /* hasKwargs= */ false,
@@ -1440,7 +1385,6 @@ public final class Resolver extends NodeVisitor {
         "<expr>",
         expr.getStartLocation(),
         /* params= */ ImmutableList.of(),
-        /* functionType= */ NO_PARAMS_CALLABLE,
         ImmutableList.of(ReturnStatement.make(expr)),
         /* hasVarargs= */ false,
         /* hasKwargs= */ false,

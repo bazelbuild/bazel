@@ -689,6 +689,14 @@ static bool IsServerMode(const string &command) {
   return "exec-server" == command;
 }
 
+// Keep this in sync with built-in commands annotated with
+// @Command(mustRunInWorkspace = false).
+static bool CanRunOutsideWorkspace(const string& command) {
+  return command == "canonicalize-flags" || command == "dump" ||
+         command == "help" || command == "license" || command == "shutdown" ||
+         command == "version";
+}
+
 // Replace this process with the blaze server. Does not exit.
 static void RunServerMode(
     const blaze_util::Path &server_exe, const vector<string> &server_exe_args,
@@ -1663,14 +1671,18 @@ int Main(int argc, const char *const *argv, WorkspaceLayout *workspace_layout,
     UnlimitCoredumps();
   }
 
-  // Only start a server when in a workspace because otherwise we won't do more
-  // than emit a help message.
   if (!workspace_layout->InWorkspace(workspace)) {
+    const string command = option_processor->GetCommand();
+    if (!CanRunOutsideWorkspace(command)) {
+      BAZEL_LOG(ERROR) << startup_options->product_name
+                       << (command.empty() ? "" : " '" + command + "'")
+                       << " must be invoked from within a workspace (below a"
+                       << " directory having a MODULE.bazel file).\n"
+                       << "See documentation at"
+                       << " https://bazel.build/concepts/build-ref#workspace";
+      return blaze_exit_code::BAD_ARGV;
+    }
     startup_options->batch = true;
-    BAZEL_LOG(WARNING) << "Invoking " << startup_options->product_name
-                       << " in batch mode since it is not invoked from within"
-                       << " a workspace (below a directory having a"
-                       << " MODULE.bazel file).";
   }
 
   vector<string> archive_contents;

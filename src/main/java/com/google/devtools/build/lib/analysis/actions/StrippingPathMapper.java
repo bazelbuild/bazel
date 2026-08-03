@@ -291,10 +291,10 @@ public final class StrippingPathMapper implements PathMapper {
      */
     private static Pattern stripPathsPattern(String outputRoot) {
       // Match "bazel-out" followed by a slash followed by any combination of word characters, "_",
-      // and "-", followed by another slash. This would miss substrings like
+      // ".", and "-", followed by another slash. This would miss substrings like
       // "bazel-out/k8-fastbuild". But those don't represent actual outputs (all outputs would have
       // to have names beneath that path). So we're not trying to replace those.
-      return Pattern.compile(outputRoot + "/[\\w_-]+/");
+      return Pattern.compile(outputRoot + "/[\\w_.-]+/");
     }
 
     public String strip(String str) {
