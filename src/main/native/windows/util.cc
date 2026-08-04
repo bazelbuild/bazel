@@ -18,21 +18,16 @@
 
 #include "src/main/native/windows/util.h"
 
-#include <cstddef>
-#include <cwctype>
-#include <sstream>
-#include <string>
-#include <string_view>
-
-#if defined(_WIN32)
 #include <stdio.h>
 #include <stdlib.h>
 #include <windows.h>
 
 #include <algorithm>
+#include <memory>
+#include <sstream>
+#include <string>
 
 #include "src/main/native/windows/file.h"
-#endif
 
 namespace bazel {
 namespace windows {
@@ -60,7 +55,7 @@ wstring GetLastErrorString(DWORD error_code) {
   if (error_code == 0) {
     return L"";
   }
-#if defined(_WIN32)
+
   LPWSTR message = nullptr;
   DWORD size = FormatMessageW(
       FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS |
@@ -79,12 +74,8 @@ wstring GetLastErrorString(DWORD error_code) {
   wstring result(message);
   HeapFree(GetProcessHeap(), LMEM_FIXED, message);
   return result;
-#else
-  return L"";
-#endif
 }
 
-#if defined(_WIN32)
 bool AutoAttributeList::Create(HANDLE stdin_h, HANDLE stdout_h, HANDLE stderr_h,
                                std::unique_ptr<AutoAttributeList>* result,
                                wstring* error_msg) {
@@ -202,73 +193,15 @@ static bool HasSeparator(const wstring& s) {
 static bool Contains(const wstring& s, const WCHAR* substr) {
   return s.find(substr) != wstring::npos;
 }
-#endif  // defined(_WIN32)
 
-static bool EqualsIgnoreCase(std::wstring_view a, std::wstring_view b) {
-  if (a.size() != b.size()) return false;
-  for (size_t i = 0; i < a.size(); ++i) {
-    if (std::towlower(a[i]) != std::towlower(b[i])) return false;
-  }
-  return true;
-}
-
-static bool EndsWithIgnoreCase(std::wstring_view str,
-                               std::wstring_view suffix) {
-  if (str.size() < suffix.size()) return false;
-  return EqualsIgnoreCase(str.substr(str.size() - suffix.size()), suffix);
-}
-
-bool IsBatchFile(std::wstring_view path) {
-  size_t last_sep = path.find_last_of(L"/\\");
-  std::wstring_view filename =
-      (last_sep == std::wstring_view::npos) ? path : path.substr(last_sep + 1);
-
-  for (std::wstring_view ext : {L".bat", L".cmd", L".btm"}) {
-    if (EndsWithIgnoreCase(filename, ext)) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
-bool ContainsDangerousBatchCharacters(std::wstring_view argv_rest) {
-  // Early return if none of the cmd.exe metacharacters or quotes are present.
-  if (argv_rest.find_first_of(L"\n\r\"&|<>^%!") == std::wstring_view::npos) {
+static bool IsBatchFile(const wstring& path) {
+  if (path.size() < 4) {
     return false;
   }
-
-  // Check for unescapable metacharacters.
-  if (argv_rest.find_first_of(L"\n\r&|<>^%!") != std::wstring_view::npos) {
-    return true;
-  }
-
-  // Check for literal quotes inside arguments.
-  // In standard Windows command line formatting, quotes are used to wrap
-  // arguments containing spaces. Literal quotes within arguments are escaped
-  // with a backslash (\"). An odd number of *directly* preceding backslashes
-  // before a quote (e.g., \") means the quote itself is escaped (a literal
-  // quote from the original argument). cmd.exe does not recognize \" as an
-  // escaped quote and will toggle its quote parsing state, leading to argument
-  // corruption. An even number of preceding backslashes (e.g., \\") means the
-  // backslashes escape each other and the quote is a safe outer wrapping quote.
-  for (size_t pos = 0;
-       (pos = argv_rest.find(L'"', pos)) != std::wstring_view::npos; ++pos) {
-    size_t backslash_count = 0;
-    size_t p = pos;
-    while (p > 0 && argv_rest[--p] == L'\\') {
-      backslash_count++;
-    }
-    // An odd number of backslashes indicates an escaped literal quote.
-    if (backslash_count % 2 == 1) {
-      return true;
-    }
-  }
-
-  return false;
+  const wchar_t* ext = path.c_str() + (path.size() - 4);
+  return CompareStringOrdinal(ext, 4, L".bat", 4, TRUE) == CSTR_EQUAL ||
+         CompareStringOrdinal(ext, 4, L".cmd", 4, TRUE) == CSTR_EQUAL;
 }
-
-#if defined(_WIN32)
 
 wstring AsShortPath(wstring path, wstring* result) {
   // Using `MAX_PATH` - 4 (256) instead of `MAX_PATH` to fix
@@ -393,7 +326,6 @@ wstring AsExecutablePathForCreateProcess(wstring path, wstring* quoted_path,
   return MakeErrorMessage(WSTR(__FILE__), __LINE__,
                           L"AsExecutablePathForCreateProcess", path, error);
 }
-#endif  // defined(_WIN32)
 
 }  // namespace windows
 }  // namespace bazel

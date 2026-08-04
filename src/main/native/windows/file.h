@@ -14,20 +14,11 @@
 #ifndef BAZEL_SRC_MAIN_NATIVE_WINDOWS_FILE_H_
 #define BAZEL_SRC_MAIN_NATIVE_WINDOWS_FILE_H_
 
-#if defined(_WIN32)
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
+
 #include <windows.h>
-#else
-#include <stdint.h>
-typedef void* HANDLE;
-typedef uint32_t DWORD;
-typedef wchar_t WCHAR;
-#ifndef INVALID_HANDLE_VALUE
-#define INVALID_HANDLE_VALUE ((HANDLE)(intptr_t)-1)
-#endif
-#endif
 
 #ifndef SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE
 #define SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE 0x2

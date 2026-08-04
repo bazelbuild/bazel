@@ -68,15 +68,6 @@ bool WaitableProcess::Create(const std::wstring& argv0,
                              LARGE_INTEGER* opt_out_start_time,
                              bool create_window, bool handle_signals,
                              std::wstring* error) {
-  if (IsBatchFile(argv0)) {
-    if (ContainsDangerousBatchCharacters(argv_rest)) {
-      *error = MakeErrorMessage(
-          WSTR(__FILE__), __LINE__, L"WaitableProcess::Create", argv0,
-          L"Argument contains dangerous characters for batch file execution: "
-          L"\\n, \\r, \", &, |, <, >, ^, %, !");
-      return false;
-    }
-  }
   std::wstring cwd;
   std::wstring error_msg(AsShortPath(wcwd, &cwd));
   if (!error_msg.empty()) {

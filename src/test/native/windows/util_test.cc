@@ -388,58 +388,5 @@ TEST(WindowsUtilTest, TestAsExecutablePathForCreateProcessFallback) {
   ASSERT_SHORTENING_FAILS(dir + L"\\..\\foo.exe", L"path is not normalized");
 }
 
-TEST(WindowsUtilTest, TestIsBatchFile) {
-  for (std::wstring_view path :
-       {L"foo.bat", L"foo.cmd", L"foo.btm", L"FOO.BAT", L"FOO.CMD", L"FOO.BTM",
-        L"c:\\path\\to\\foo.bat", L"c:\\path\\to\\foo.btm"}) {
-    EXPECT_TRUE(IsBatchFile(path));
-  }
-
-  for (std::wstring_view path :
-       {L"foo.exe", L"foo.sh", L"bat", L"foo.bat.exe", L"cmd.exe", L"cmd",
-        L"4nt.exe", L"tcmd.exe", L"mycmd.exe", L"cmd.exe.bak"}) {
-    EXPECT_FALSE(IsBatchFile(path));
-  }
-}
-
-TEST(WindowsUtilTest, TestContainsDangerousBatchCharacters) {
-  // Empty string is safe
-  EXPECT_FALSE(ContainsDangerousBatchCharacters(L""));
-
-  // Safe strings
-  EXPECT_FALSE(ContainsDangerousBatchCharacters(L"hello"));
-  EXPECT_FALSE(ContainsDangerousBatchCharacters(L"hello world"));
-  EXPECT_FALSE(ContainsDangerousBatchCharacters(L"C:\\Program Files\\foo.exe"));
-
-  // Metacharacters (should be dangerous)
-  EXPECT_TRUE(ContainsDangerousBatchCharacters(L"hello & world"));
-  EXPECT_TRUE(ContainsDangerousBatchCharacters(L"hello | world"));
-  EXPECT_TRUE(ContainsDangerousBatchCharacters(L"hello < world"));
-  EXPECT_TRUE(ContainsDangerousBatchCharacters(L"hello > world"));
-  EXPECT_TRUE(ContainsDangerousBatchCharacters(L"hello ^ world"));
-  EXPECT_TRUE(ContainsDangerousBatchCharacters(L"hello % world"));
-  EXPECT_TRUE(ContainsDangerousBatchCharacters(L"hello ! world"));
-  EXPECT_TRUE(ContainsDangerousBatchCharacters(L"hello \n world"));
-  EXPECT_TRUE(ContainsDangerousBatchCharacters(L"hello \r world"));
-
-  // Quotes (safe if not escaped)
-  EXPECT_FALSE(ContainsDangerousBatchCharacters(L"\"hello\""));
-  EXPECT_FALSE(ContainsDangerousBatchCharacters(L"hello \"world\""));
-  EXPECT_FALSE(ContainsDangerousBatchCharacters(L"label=\"foo\""));
-  EXPECT_FALSE(ContainsDangerousBatchCharacters(L"\\a\\b\\c\"def"));
-
-  // Escaped quotes (odd number of backslashes before quote)
-  EXPECT_TRUE(ContainsDangerousBatchCharacters(L"hello \\\"world\\\""));
-  EXPECT_TRUE(ContainsDangerousBatchCharacters(L"hello \\\\\\\"world\\\""));
-  EXPECT_TRUE(ContainsDangerousBatchCharacters(L"\\a\\b\\c\\\"def"));
-
-  // Safe backslashed quotes (even number of backslashes before quote)
-  EXPECT_FALSE(ContainsDangerousBatchCharacters(L"hello \\\\\"world\""));
-  EXPECT_FALSE(ContainsDangerousBatchCharacters(L"hello \\\\\\\\\"world\""));
-
-  // Mixed safe and dangerous quotes
-  EXPECT_TRUE(ContainsDangerousBatchCharacters(L"foo \\\\\" bar\\\" baz"));
-}
-
 }  // namespace windows
 }  // namespace bazel

@@ -15,33 +15,20 @@
 #ifndef BAZEL_SRC_MAIN_NATIVE_WINDOWS_UTIL_H__
 #define BAZEL_SRC_MAIN_NATIVE_WINDOWS_UTIL_H__
 
-#if defined(_WIN32)
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
+
 #include <windows.h>
-#else
-#include <stdint.h>
-typedef void* HANDLE;
-typedef uint32_t DWORD;
-typedef wchar_t WCHAR;
-typedef void* LPPROC_THREAD_ATTRIBUTE_LIST;
-typedef struct _STARTUPINFOEXW STARTUPINFOEXW;
-#ifndef INVALID_HANDLE_VALUE
-#define INVALID_HANDLE_VALUE ((HANDLE)(intptr_t)-1)
-#endif
-#endif
 
 #include <memory>
 #include <string>
-#include <string_view>
 
 namespace bazel {
 namespace windows {
 
 using std::wstring;
 
-#if defined(_WIN32)
 // A wrapper for the `HANDLE` type that calls CloseHandle in its d'tor.
 // WARNING: do not use for HANDLE returned by FindFirstFile; those must be
 // closed with FindClose (otherwise they aren't closed properly).
@@ -134,7 +121,6 @@ class AutoAttributeList {
   std::unique_ptr<uint8_t[]> data_;
   StdHandles handles_;
 };
-#endif  // defined(_WIN32)
 
 #define WSTR1(x) L##x
 #define WSTR(x) WSTR1(x)
@@ -146,9 +132,6 @@ wstring MakeErrorMessage(const wchar_t* file, int line,
                          const wchar_t* failed_func, const wstring& func_arg,
                          DWORD error_code);
 wstring GetLastErrorString(DWORD error_code);
-
-bool IsBatchFile(std::wstring_view path);
-bool ContainsDangerousBatchCharacters(std::wstring_view argv_rest);
 
 // Same as `AsExecutablePathForCreateProcess` except it won't quote the result.
 wstring AsShortPath(wstring path, wstring* result);
