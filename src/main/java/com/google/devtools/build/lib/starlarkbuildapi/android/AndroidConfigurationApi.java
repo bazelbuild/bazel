@@ -54,13 +54,6 @@ public interface AndroidConfigurationApi extends StarlarkValue {
   Boolean apkSigningMethodV4();
 
   @StarlarkMethod(
-      name = "get_dexopts_supported_in_dex_merger",
-      structField = true,
-      doc = "",
-      documented = false)
-  ImmutableList<String> getDexoptsSupportedInDexMerger();
-
-  @StarlarkMethod(
       name = "get_dexopts_supported_in_dex_sharder",
       structField = true,
       doc = "",

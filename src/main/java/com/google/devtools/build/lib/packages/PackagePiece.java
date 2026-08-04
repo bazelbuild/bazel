@@ -73,12 +73,12 @@ public abstract sealed class PackagePiece extends Packageoid
    * which are instances of the specified class. Doesn't search in any other package pieces.
    */
   public <T extends Target> Iterable<T> getTargets(Class<T> targetClass) {
-    return Iterables.filter(targets.values(), targetClass);
+    return Iterables.filter(targets, targetClass);
   }
 
   @Override
   public Target getTarget(String targetName) throws NoSuchTargetException {
-    Target target = targets.get(targetName);
+    Target target = getTargetOrNull(targetName);
     if (target != null) {
       return target;
     }
@@ -114,7 +114,7 @@ public abstract sealed class PackagePiece extends Packageoid
           String.format("target '%s' not declared in %s", targetName, getShortDescription()));
     } else {
       String alternateTargetSuggestion =
-          Package.getAlternateTargetSuggestion(getMetadata(), targetName, targets.keySet());
+          Package.getAlternateTargetSuggestion(getMetadata(), targetName, targets);
       return new NoSuchTargetException(
           label,
           String.format(

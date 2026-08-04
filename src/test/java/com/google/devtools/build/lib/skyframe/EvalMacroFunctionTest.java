@@ -126,7 +126,7 @@ public final class EvalMacroFunctionTest extends BuildViewTestCase {
         my_macro(name = "foo")
         """);
     PackagePiece.ForMacro forMacro = getPackagePieceWithoutErrors("pkg", "foo");
-    assertThat(forMacro.getTargets()).containsKey("foo");
+    assertThat(forMacro.getTargetOrNull("foo")).isNotNull();
   }
 
   @Test
@@ -159,7 +159,7 @@ public final class EvalMacroFunctionTest extends BuildViewTestCase {
     String innerMacroInstanceName = "foo" + suffix;
     PackagePiece.ForMacro forInnerMacro =
         getPackagePieceWithoutErrors("pkg", "foo", innerMacroInstanceName);
-    assertThat(forInnerMacro.getTargets()).containsKey(innerMacroInstanceName);
+    assertThat(forInnerMacro.getTargetOrNull(innerMacroInstanceName)).isNotNull();
     PackagePiece.ForMacro forOuterMacro = getPackagePieceWithoutErrors("pkg", "foo");
     assertThat(forOuterMacro.getMacroByName(innerMacroInstanceName))
         .isSameInstanceAs(forInnerMacro.getEvaluatedMacro());

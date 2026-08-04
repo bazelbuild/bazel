@@ -26,6 +26,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext.LoadGraphVisitor;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -277,7 +278,7 @@ public class Package extends Packageoid {
    * instances of the specified class.
    */
   public <T extends Target> Iterable<T> getTargets(Class<T> targetClass) {
-    return Iterables.filter(targets.values(), targetClass);
+    return Iterables.filter(targets, targetClass);
   }
 
   /**
@@ -285,7 +286,7 @@ public class Package extends Packageoid {
    * the dependency graph of a target. Fails if the target is not a Rule.
    */
   public Rule getRule(String targetName) {
-    return (Rule) targets.get(targetName);
+    return (Rule) checkNotNull(getTargetOrNull(targetName), targetName);
   }
 
   /**
@@ -334,7 +335,7 @@ public class Package extends Packageoid {
 
   @Override
   public Target getTarget(String targetName) throws NoSuchTargetException {
-    Target target = targets.get(targetName);
+    Target target = getTargetOrNull(targetName);
     if (target != null) {
       return target;
     }
@@ -351,7 +352,7 @@ public class Package extends Packageoid {
           label, String.format("target '%s' not declared in package '%s'", targetName, getName()));
     } else {
       String alternateTargetSuggestion =
-          getAlternateTargetSuggestion(metadata, targetName, targets.keySet());
+          getAlternateTargetSuggestion(metadata, targetName, targets);
       throw new NoSuchTargetException(
           label,
           String.format(
@@ -364,7 +365,7 @@ public class Package extends Packageoid {
   }
 
   static String getAlternateTargetSuggestion(
-      Metadata metadata, String targetName, ImmutableSet<String> otherTargets) {
+      Metadata metadata, String targetName, ImmutableList<Target> otherTargets) {
     // If there's a file on the disk that's not mentioned in the BUILD file,
     // produce a more informative error.  NOTE! this code path is only executed
     // on failure, which is (relatively) very rare.  In the common case no
@@ -394,7 +395,8 @@ public class Package extends Packageoid {
           + getRepoRelativeBuildFilePathString(metadata)
           + "?)";
     } else {
-      return TargetSuggester.suggestTargets(targetName, otherTargets);
+      return TargetSuggester.suggestTargets(
+          targetName, Lists.transform(otherTargets, Target::getName));
     }
   }
 
@@ -431,7 +433,7 @@ public class Package extends Packageoid {
     Preconditions.checkState(
         targetsToDeclaringMacro != null,
         "Cannot retrieve MacroInstance information from deserialized packages");
-    Preconditions.checkArgument(targets.containsKey(target), "unknown target '%s'", target);
+    Preconditions.checkArgument(getTargetOrNull(target) != null, "unknown target '%s'", target);
     return targetsToDeclaringMacro.get(target);
   }
 
@@ -447,7 +449,7 @@ public class Package extends Packageoid {
    */
   @Nullable
   public PackageIdentifier getDeclaringPackageForTargetIfInMacro(String target) {
-    Preconditions.checkArgument(targets.containsKey(target), "unknown target '%s'", target);
+    Preconditions.checkArgument(getTargetOrNull(target) != null, "unknown target '%s'", target);
     // Exactly one of targetsToDeclaringMacro and targetsToDeclaringPackage is non-null, depending
     // on whether this package was produced by deserialization.
     if (targetsToDeclaringMacro != null) {
