@@ -388,7 +388,7 @@ public class BuildRequestOptions extends OptionsBase {
               + " this lower to fail fast on an unstable remote cache instead of repeatedly"
               + " rewinding a single lost input; 0 fails on the first lost input. Only takes effect"
               + " when --rewind_lost_inputs is enabled.")
-  public abstract int getMaxRepeatedLostInputs();
+  public int maxRepeatedLostInputs;
 
   @Option(
       name = "incompatible_skip_genfiles_symlink",
