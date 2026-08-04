@@ -41,7 +41,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -69,7 +68,8 @@ public abstract class CompressedTarFunction implements Decompressor {
     if (Thread.interrupted()) {
       throw new InterruptedException();
     }
-    Optional<String> prefix = descriptor.prefix();
+    String prefix = descriptor.prefix();
+    int stripComponents = descriptor.stripComponents();
     Map<String, String> renameFiles = descriptor.renameFiles();
     boolean foundPrefix = false;
     Set<String> availablePrefixes = new HashSet<>();
@@ -90,10 +90,11 @@ public abstract class CompressedTarFunction implements Decompressor {
         String entryName = toRawBytesString(entry.getName());
         entryName = renameFiles.getOrDefault(entryName, entryName);
         StripPrefixedPath entryPath =
-            StripPrefixedPath.maybeDeprefix(entryName.getBytes(ISO_8859_1), prefix);
+            StripPrefixedPath.maybeDeprefix(
+                entryName.getBytes(ISO_8859_1), prefix, stripComponents);
         foundPrefix = foundPrefix || entryPath.foundPrefix();
 
-        if (prefix.isPresent() && !foundPrefix) {
+        if (!prefix.isEmpty() && !foundPrefix) {
           CouldNotFindPrefixException.maybeMakePrefixSuggestion(entryPath.getPathFragment())
               .ifPresent(availablePrefixes::add);
         }
@@ -102,13 +103,7 @@ public abstract class CompressedTarFunction implements Decompressor {
           continue;
         }
 
-        PathFragment strippedRelativePath = entryPath.getPathFragment();
-        strippedRelativePath = strippedRelativePath.stripComponents(descriptor.stripComponents());
-        if (Objects.equals(strippedRelativePath, PathFragment.EMPTY_FRAGMENT)) {
-          continue;
-        }
-
-        Path filePath = descriptor.destinationPath().getRelative(strippedRelativePath);
+        Path filePath = descriptor.destinationPath().getRelative(entryPath.getPathFragment());
         filePath.getParentDirectory().createDirectoryAndParents();
         if (entry.isDirectory()) {
           filePath.createDirectoryAndParents();
@@ -118,7 +113,10 @@ public abstract class CompressedTarFunction implements Decompressor {
                 maybeDeprefixSymlink(
                     toRawBytesString(entry.getLinkName()).getBytes(ISO_8859_1),
                     prefix,
-                    descriptor.destinationPath());
+                    stripComponents,
+                    descriptor.destinationPath(),
+                    // Hard link target paths should be relative to the extraction directory.
+                    /* forceExtractRootRelative= */ entry.isLink());
             if (entry.isSymbolicLink()) {
               symlinks.put(filePath, targetName);
             } else {
@@ -167,8 +165,8 @@ public abstract class CompressedTarFunction implements Decompressor {
         FileSystemUtils.ensureSymbolicLink(linkPath, symlink.getValue());
       }
 
-      if (prefix.isPresent() && !foundPrefix) {
-        throw new CouldNotFindPrefixException(prefix.get(), availablePrefixes);
+      if (!prefix.isEmpty() && !foundPrefix) {
+        throw new CouldNotFindPrefixException(prefix, availablePrefixes);
       }
     }
 
