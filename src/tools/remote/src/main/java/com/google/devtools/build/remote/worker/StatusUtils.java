@@ -67,6 +67,16 @@ final class StatusUtils {
     return StatusProto.toStatusException(invalidArgumentStatus(field, desc));
   }
 
+  static StatusException outOfRangeError(String field, String desc) {
+    FieldViolation v = FieldViolation.newBuilder().setField(field).setDescription(desc).build();
+    return StatusProto.toStatusException(
+        Status.newBuilder()
+            .setCode(Code.OUT_OF_RANGE.getNumber())
+            .setMessage("out of range: %s: %s".formatted(field, desc))
+            .addDetails(Any.pack(BadRequest.newBuilder().addFieldViolations(v).build()))
+            .build());
+  }
+
   static Status invalidArgumentStatus(String field, String desc) {
     FieldViolation v = FieldViolation.newBuilder().setField(field).setDescription(desc).build();
     return Status.newBuilder()

@@ -1194,4 +1194,36 @@ EOF
   expect_log_n 'Hello, stdout!' 2
 }
 
+# Verifies that path mapping works for platform names with dots and hyphens.
+function test_path_stripping_with_dots() {
+  local -r pkg="src/main/java/com/example"
+
+  cat >> "${pkg}/BUILD" <<EOF
+platform(
+    name = "linux_aarch64_gnu.2.28-one",
+)
+platform(
+    name = "linux_aarch64_gnu.2.28-two",
+)
+EOF
+
+  bazel build -c fastbuild \
+    --experimental_output_paths=strip \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --experimental_platform_in_output_dir=yes \
+    --experimental_override_platform_cpu_name=//${pkg}:linux_aarch64_gnu.2.28-one=linux_aarch64_gnu.2.28-one \
+    --platforms=//${pkg}:linux_aarch64_gnu.2.28-one \
+    "//${pkg}:lib" &> $TEST_log || fail "First build failed"
+
+  bazel build -c fastbuild \
+    --experimental_output_paths=strip \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --experimental_platform_in_output_dir=yes \
+    --experimental_override_platform_cpu_name=//${pkg}:linux_aarch64_gnu.2.28-two=linux_aarch64_gnu.2.28-two \
+    --platforms=//${pkg}:linux_aarch64_gnu.2.28-two \
+    "//${pkg}:lib" &> $TEST_log || fail "Second build failed"
+
+  expect_log 'remote cache hit'
+}
+
 run_suite "path mapping tests"

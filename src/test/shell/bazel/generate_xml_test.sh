@@ -80,4 +80,12 @@ function test_invalid_two_byte_seq() {
   assert_equals '??' "$(encode '\xc0\xc0')"
 }
 
+function test_generated_testcase_has_classname() {
+  TEST_BINARY="../some/smoke_test" "$GENERATE_XML" \
+      "$TEST_TMPDIR/missing-test.log" "$TEST_TMPDIR/test.xml" 1 0
+
+  assert_contains '<testcase[^>]* classname=""' \
+      "$TEST_TMPDIR/test.xml"
+}
+
 run_suite "generate-xml.sh tests"

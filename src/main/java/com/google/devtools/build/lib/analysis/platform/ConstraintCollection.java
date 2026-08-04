@@ -81,10 +81,17 @@ public abstract class ConstraintCollection
     public ConstraintCollection build() throws DuplicateConstraintException {
       ImmutableList<ConstraintValueInfo> constraintValues = this.constraintValues.build();
       validateConstraints(constraintValues);
+      // validateConstraints allows repeated instances of the same constraint value, which can e.g.
+      // happen if a constraint value is referenced both directly and via an alias. Keep the first
+      // one instead of failing on the duplicate key.
       return new AutoValue_ConstraintCollection(
           this.parent,
           constraintValues.stream()
-              .collect(toImmutableMap(ConstraintValueInfo::constraint, Function.identity())));
+              .collect(
+                  toImmutableMap(
+                      ConstraintValueInfo::constraint,
+                      Function.identity(),
+                      (first, second) -> first)));
     }
   }
 
