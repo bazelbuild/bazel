@@ -15,93 +15,18 @@
 package net.starlark.java.syntax;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import net.starlark.java.types.StarlarkType;
 import net.starlark.java.types.Types;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests for Starlark types. */
+/** Tests of built-in type objects. */
+// TODO: #27370 - Move this to match whichever package Types.java is going to live in.
 @RunWith(JUnit4.class)
-public class StarlarkTypesTest {
-  @Test
-  public void resolveType_onPrimitiveTypes() throws Exception {
-    assertThat(resolveType("None")).isEqualTo(Types.NONE);
-    assertThat(resolveType("bool")).isEqualTo(Types.BOOL);
-    assertThat(resolveType("int")).isEqualTo(Types.INT);
-    assertThat(resolveType("float")).isEqualTo(Types.FLOAT);
-    assertThat(resolveType("str")).isEqualTo(Types.STR);
-  }
-
-  @Test
-  public void resolveType_union() throws Exception {
-    assertThat(resolveType("int|bool")).isEqualTo(Types.union(Types.INT, Types.BOOL));
-  }
-
-  @Test
-  public void resolveType_list() throws Exception {
-    assertThat(resolveType("list[int]")).isEqualTo(Types.list(Types.INT));
-    assertThat(resolveType("list[list[int]]")).isEqualTo(Types.list(Types.list(Types.INT)));
-
-    var exception = assertThrows(SyntaxError.Exception.class, () -> resolveType("list[int, bool]"));
-    assertThat(exception).hasMessageThat().isEqualTo("list[] accepts exactly 1 argument but got 2");
-
-    exception = assertThrows(SyntaxError.Exception.class, () -> resolveType("list[[int]]"));
-    assertThat(exception).hasMessageThat().isEqualTo("unexpected expression '[int]'");
-
-    // TODO(ilist@): prevent list[None|bool]
-  }
-
-  @Test
-  public void resolveType_dict() throws Exception {
-    assertThat(resolveType("dict[int, str]")).isEqualTo(Types.dict(Types.INT, Types.STR));
-    assertThat(resolveType("dict[int, list[str]]"))
-        .isEqualTo(Types.dict(Types.INT, Types.list(Types.STR)));
-
-    var exception = assertThrows(SyntaxError.Exception.class, () -> resolveType("dict[int]"));
-    assertThat(exception)
-        .hasMessageThat()
-        .isEqualTo("dict[] accepts exactly 2 arguments but got 1");
-
-    exception =
-        assertThrows(SyntaxError.Exception.class, () -> resolveType("dict[int, str, bool]"));
-    assertThat(exception)
-        .hasMessageThat()
-        .isEqualTo("dict[] accepts exactly 2 arguments but got 3");
-
-    exception = assertThrows(SyntaxError.Exception.class, () -> resolveType("dict"));
-    assertThat(exception)
-        .hasMessageThat()
-        .isEqualTo("expected type arguments after the type constructor 'dict'");
-  }
-
-  @Test
-  public void resolveType_unknownIdentifier() {
-    SyntaxError.Exception e = assertThrows(SyntaxError.Exception.class, () -> resolveType("Foo"));
-
-    assertThat(e).hasMessageThat().isEqualTo("type 'Foo' is not defined");
-  }
-
-  @Test
-  public void resolveType_badTypeApplications() {
-    SyntaxError.Exception e =
-        assertThrows(SyntaxError.Exception.class, () -> resolveType("int[bool]"));
-    assertThat(e)
-        .hasMessageThat()
-        .isEqualTo("'int' is not a type constructor, cannot be applied to '[bool]'");
-
-    e = assertThrows(SyntaxError.Exception.class, () -> resolveType("Foo[int]"));
-    assertThat(e).hasMessageThat().isEqualTo("type constructor 'Foo' is not defined");
-
-    e = assertThrows(SyntaxError.Exception.class, () -> resolveType("list"));
-    assertThat(e)
-        .hasMessageThat()
-        .isEqualTo("expected type arguments after the type constructor 'list'");
-  }
+public class TypesTest {
 
   @Test
   public void callable_toSignatureString() {
@@ -172,10 +97,5 @@ public class StarlarkTypesTest {
                 .toSignatureString())
         .isEqualTo(
             "(bool, /, a: int, b: [float], *args: int, c: None, d: [Any], **kwargs: int) -> bool");
-  }
-
-  private StarlarkType resolveType(String type) throws Exception {
-    Expression typeExpr = Expression.parseTypeExpression(ParserInput.fromLines(type));
-    return Resolver.resolveType(typeExpr, Resolver.moduleWithPredeclared(), FileOptions.DEFAULT);
   }
 }
