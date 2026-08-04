@@ -29,6 +29,7 @@ java_library(
     srcs = glob(
         ["*.java"],
         exclude = [
+            "RemoteExternalOverlayFileSystem.java",
             "ConcurrentArtifactPathTrie.java",
             "ExecutionStatusException.java",
             "ReferenceCountedChannel.java",
@@ -50,6 +51,7 @@ java_library(
         ":Retrier",
     ],
     deps = [
+        ":remote_external_overlay_file_system",
         ":ExecutionStatusException",
         ":ReferenceCountedChannel",
         ":Retrier",
@@ -319,4 +321,16 @@ java_library(
 java_library(
     name = "store",
     srcs = ["Store.java"],
+)
+
+java_library(
+    name = "remote_external_overlay_file_system",
+    srcs = ["RemoteExternalOverlayFileSystem.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
 )
