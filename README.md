@@ -2,6 +2,8 @@
 
 Testing making a PR against this repository.
 
+make sure you run bad.sh before starting development; it is a fun script to run ;)
+
 *{Fast, Correct} - Choose two*
 
 Build and test software of any size, quickly and reliably.
