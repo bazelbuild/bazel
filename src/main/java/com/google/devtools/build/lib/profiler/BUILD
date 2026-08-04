@@ -181,6 +181,7 @@ java_library(
     deps = [
         ":system_network_stats_service",
         "//src/main/java/com/google/devtools/build/lib/jni",
+        "//src/main/java/com/google/devtools/build/lib/skybridge:sc_only",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//third_party:guava",
     ],
