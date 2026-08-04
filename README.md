@@ -1,5 +1,7 @@
 # [Bazel](https://bazel.build)
 
+Testing making a PR against this repository.
+
 *{Fast, Correct} - Choose two*
 
 Build and test software of any size, quickly and reliably.
