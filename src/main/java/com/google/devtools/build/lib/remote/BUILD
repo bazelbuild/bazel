@@ -30,6 +30,8 @@ java_library(
         ["*.java"],
         exclude = [
             "RemoteExternalOverlayFileSystem.java",
+            "RemoteActionFileSystem.java",
+            "CombinedCache.java",
             "ConcurrentArtifactPathTrie.java",
             "ExecutionStatusException.java",
             "ReferenceCountedChannel.java",
@@ -325,12 +327,29 @@ java_library(
 
 java_library(
     name = "remote_external_overlay_file_system",
-    srcs = ["RemoteExternalOverlayFileSystem.java"],
+    srcs = [
+        "RemoteExternalOverlayFileSystem.java",
+        "RemoteActionFileSystem.java",
+        "CombinedCache.java",
+    ],
     deps = [
+        ":abstract_action_input_prefetcher",
+        ":remote_output_checker",
+        ":subtree_materializer",
+        "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/remote/common",
+        "//src/main/java/com/google/devtools/build/lib/remote/options",
+        "//src/main/java/com/google/devtools/build/lib/util/io",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/com/google/devtools/build/skyframe",
         "//third_party:guava",
         "//third_party:jsr305",
+        "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
     ],
 )
