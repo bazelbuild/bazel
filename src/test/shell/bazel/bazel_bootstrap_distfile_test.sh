@@ -54,6 +54,21 @@ else
   declare -r EMBEDDED_JDK=""
 fi
 
+# The prerequisites documented at
+# https://bazel.build/install/compile-source#bootstrap-unix-prereq ask for a JDK
+# 21, so bootstrap with a hermetic JDK 21 from the runfiles rather than with
+# whichever JDK happens to be installed on the machine running this test. This
+# both keeps the test hermetic and verifies that a JDK 21 is in fact sufficient.
+setup_javabase
+export JAVA_HOME="${bazel_javabase}"
+# JAVA_TOOL_OPTIONS and _JAVA_OPTIONS make the JVM print an extra line, so unset
+# them for this check just like compile.sh does for the bootstrap itself.
+declare -r JAVAC_VERSION="$(unset JAVA_TOOL_OPTIONS _JAVA_OPTIONS; \
+  "${JAVA_HOME}/bin/javac" -version 2>&1)"
+if [[ ! "${JAVAC_VERSION}" =~ ^javac\ 21(\.|$) ]]; then
+  log_fatal "expected a JDK 21 in JAVA_HOME, but got '${JAVAC_VERSION}'"
+fi
+
 function test_bootstrap() {
     cd "$(mktemp -d ${TEST_TMPDIR}/bazelbootstrap.XXXXXXXX)"
     export SOURCE_DATE_EPOCH=1501234567
@@ -89,7 +104,10 @@ function test_bootstrap() {
 
     # TODO: Remove once rules_python exports runtime_env_toolchain_interpreter.sh
     # See https://github.com/bazel-contrib/rules_python/pull/3471
-    export EXTRA_BAZEL_ARGS="${EXTRA_BAZEL_ARGS:-} --noincompatible_no_implicit_file_export"
+    # TODO: Enable macOS layering_check when dependencies are updated
+    export EXTRA_BAZEL_ARGS="${EXTRA_BAZEL_ARGS:-} \
+      --noincompatible_no_implicit_file_export \
+      --repo_env=APPLE_SUPPORT_LAYERING_CHECK_BETA=0"
 
     ./compile.sh || fail "Expected to be able to bootstrap bazel.\
  If you updated MODULE.bazel, see the NOTE in that file."
@@ -133,6 +151,7 @@ EOF
     ./output/bazel \
       --server_javabase=$JAVABASE --host_jvm_args=--add-opens=java.base/java.nio=ALL-UNNAMED \
       build --nobuild --repository_cache=derived/repository_cache --repo_contents_cache= \
+      --repo_env=APPLE_SUPPORT_LAYERING_CHECK_BETA=0 \
       --override_repository=$(cat derived/maven/MAVEN_CANONICAL_REPO_NAME)=derived/maven \
       --java_language_version=${JAVA_VERSION} --tool_java_language_version=${JAVA_VERSION} \
       --java_runtime_version=local_jdk --tool_java_runtime_version=local_jdk \

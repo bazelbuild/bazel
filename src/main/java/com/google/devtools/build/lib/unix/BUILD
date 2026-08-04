@@ -62,6 +62,7 @@ java_library(
         ":native_posix_files_service",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/jni",
+        "//src/main/java/com/google/devtools/build/lib/skybridge:sc_only",
         "//third_party:jsr305",
     ],
 )
@@ -88,6 +89,7 @@ java_library(
         ":process_utils_service",
         "//src/main/java/com/google/devtools/build/lib/jni",
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_service",
+        "//src/main/java/com/google/devtools/build/lib/skybridge:sc_only",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/common/options",
     ],

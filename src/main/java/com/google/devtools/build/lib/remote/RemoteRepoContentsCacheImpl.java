@@ -65,6 +65,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.protobuf.ByteString;
+import com.google.protobuf.ExtensionRegistryLite;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -111,6 +112,9 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
   private static final String REPO_DIRECTORY_PATH = "repo_contents";
   private static final Splitter SPLIT_ON_SPACE = Splitter.on(' ');
 
+  // addOutputFiles and addOutputDirectories are deprecated in REAPI v2 in favor of addOutputPaths,
+  // but are populated here for backwards compatibility with older RE backends.
+  @SuppressWarnings("deprecation")
   private static final Command COMMAND =
       Command.newBuilder()
           // A unique but nonsensical command that is valid on all platforms. It is never executed,
@@ -122,6 +126,7 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
           .addOutputDirectories(REPO_DIRECTORY_PATH)
           .setPlatform(Platform.getDefaultInstance())
           .build();
+
   private static final ByteString COMMAND_BYTES = COMMAND.toByteString();
   private static final Directory INPUT_ROOT = Directory.getDefaultInstance();
 
@@ -176,7 +181,7 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
     if (!context.getWriteCachePolicy().allowRemoteCache()) {
       return;
     }
-    List<RepoRecordedInput.WithValue> recordedInputValues;
+    ImmutableList<RepoRecordedInput.WithValue> recordedInputValues;
     try {
       var maybeRecordedInputValues =
           DigestWriter.readMarkerFile(
@@ -227,10 +232,11 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
       RepositoryName repoName,
       Path repoDir,
       String predeclaredInputHash,
+      ImmutableSet<String> allowedEnviron,
       SkyFunction.Environment env)
       throws IOException, InterruptedException {
     try {
-      return doLookupCache(repoName, repoDir, predeclaredInputHash, env);
+      return doLookupCache(repoName, repoDir, predeclaredInputHash, allowedEnviron, env);
     } catch (IOException e) {
       throw new IOException(
           "Failed to look up repo %s in the remote repo contents cache: %s"
@@ -243,6 +249,7 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
       RepositoryName repoName,
       Path repoDir,
       String predeclaredInputHash,
+      ImmutableSet<String> allowedEnviron,
       SkyFunction.Environment env)
       throws IOException, InterruptedException {
     if (!(repoDir.getFileSystem() instanceof RemoteExternalOverlayFileSystem remoteFs)) {
@@ -253,7 +260,7 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
     if (!context.getReadCachePolicy().allowRemoteCache()) {
       return false;
     }
-    var finalEntry = fetchFinalCacheEntry(env, context, predeclaredInputHash);
+    var finalEntry = fetchFinalCacheEntry(env, context, predeclaredInputHash, allowedEnviron);
     if (env.valuesMissing() || finalEntry == null) {
       return false;
     }
@@ -273,13 +280,22 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
         transformAsync(
             cache.downloadBlobAsByteString(
                 context, REPO_DIRECTORY_PATH, /* execPath= */ null, repoDirectory.getTreeDigest()),
-            (treeBytes) -> immediateFuture(Tree.parseFrom(treeBytes)),
+            (treeBytes) ->
+                immediateFuture(
+                    Tree.parseFrom(treeBytes, ExtensionRegistryLite.getEmptyRegistry())),
             directExecutor());
     waitForBulkTransfer(ImmutableList.of(markerFileContentFuture, repoDirectoryContentFuture));
 
     String markerFileContent = new String(markerFileContentFuture.resultNow(), ISO_8859_1);
     var maybeRecordedInputs = DigestWriter.readMarkerFile(markerFileContent, predeclaredInputHash);
     if (maybeRecordedInputs.isEmpty()) {
+      return false;
+    }
+    if (!maybeRecordedInputs.get().stream()
+        .allMatch(inputWithValue -> inputWithValue.input().isValidForRemoteCache(allowedEnviron))) {
+      env.getListener()
+          .handle(
+              Event.warn("Cached repo %s has invalid inputs for remote cache".formatted(repoName)));
       return false;
     }
     var outdatedReason =
@@ -455,13 +471,14 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
   private CacheEntry.Final fetchFinalCacheEntry(
       SkyFunction.Environment env,
       RemoteActionExecutionContext context,
-      String predeclaredInputHash)
+      String predeclaredInputHash,
+      ImmutableSet<String> allowedEnviron)
       throws IOException, InterruptedException {
     var currentHashes = ImmutableList.of(predeclaredInputHash);
     while (!currentHashes.isEmpty()) {
       var nextHashes = ImmutableList.<String>builder();
       for (var hash : currentHashes) {
-        switch (fetchCacheEntry(env, context, hash)) {
+        switch (fetchCacheEntry(env, context, hash, allowedEnviron)) {
           case CacheEntry.Final finalEntry -> {
             return finalEntry;
           }
@@ -485,7 +502,10 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
   // Returns null if and only if values are missing.
   @Nullable
   private CacheEntry fetchCacheEntry(
-      SkyFunction.Environment env, RemoteActionExecutionContext context, String inputHash)
+      SkyFunction.Environment env,
+      RemoteActionExecutionContext context,
+      String inputHash,
+      ImmutableSet<String> allowedEnviron)
       throws IOException, InterruptedException {
     var actionKey = new ActionKey(digestUtil.compute(buildAction(inputHash)));
     // The marker file is read right after and thus requested to be inlined. If the action result
@@ -534,6 +554,9 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
                         .splitToStream(line)
                         .map(RepoRecordedInput::parse)
                         .collect(toImmutableList()))
+            .filter(
+                batch ->
+                    batch.stream().allMatch(input -> input.isValidForRemoteCache(allowedEnviron)))
             .collect(toImmutableList());
     var uniqueNextInputs =
         nextInputBatches.stream().flatMap(List::stream).collect(toImmutableSet());

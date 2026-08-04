@@ -159,5 +159,6 @@ java_library(
     deps = [
         ":platform_native_deps_service",
         "//src/main/java/com/google/devtools/build/lib/jni",
+        "//src/main/java/com/google/devtools/build/lib/skybridge:sc_only",
     ],
 )

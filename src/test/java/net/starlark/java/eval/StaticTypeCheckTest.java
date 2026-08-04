@@ -340,20 +340,18 @@ public final class StaticTypeCheckTest {
   }
 
   // No StarlarkBuiltin annotation.
-  public static final class MyUnannotatedType implements StarlarkValue {
+  public static final class MyUnannotatedType implements StarlarkValue {}
+
+  @StarlarkBuiltin(name = "MyType")
+  public static sealed class MyType implements StarlarkValue
+      permits MyTypeSubclass, MyUnannotatedSubclass {
     @StarlarkMethod(name = "foo", doc = "...")
     public int foo() {
       return 123;
     }
   }
 
-  @StarlarkBuiltin(name = "MyType")
-  public static sealed class MyType implements StarlarkValue permits MyTypeSubclass {
-    @StarlarkMethod(name = "foo", doc = "...")
-    public int foo() {
-      return 123;
-    }
-  }
+  public static final class MyUnannotatedSubclass extends MyType {}
 
   public static final class MyTypeSubclass extends MyType {}
 
@@ -419,6 +417,8 @@ public final class StaticTypeCheckTest {
         Module.withPredeclared(
             StarlarkSemantics.DEFAULT,
             ImmutableMap.of(
+                "my_unannotated_subclass_value",
+                new MyUnannotatedSubclass(),
                 "my_type_value",
                 new MyType(),
                 "my_type_subclass_value",
@@ -432,14 +432,18 @@ public final class StaticTypeCheckTest {
 
     assertValid(
         """
-        a: int = my_type_value.foo()
-        b: int = my_type_subclass_value.foo()
-        c: int = my_self_call_value()
-        d: int = my_self_call_value.bar()
-        e: int = my_explicitly_typed_value.some_field  # typed as struct-of-Any
-        f: int = my_explicitly_typed_self_call_value()
+        a: int = my_unannotated_subclass_value.foo()
+        b: int = my_type_value.foo()
+        c: int = my_type_subclass_value.foo()
+        d: int = my_self_call_value()
+        e: int = my_self_call_value.bar()
+        f: int = my_explicitly_typed_value.some_field  # typed as struct-of-Any
+        g: int = my_explicitly_typed_self_call_value()
         """);
 
+    assertInvalid(
+        "cannot assign type 'MyType' to 'x' of type 'str'",
+        "x: str = my_unannotated_subclass_value");
     assertInvalid("cannot assign type 'MyType' to 'x' of type 'str'", "x: str = my_type_value");
     assertInvalid(
         "cannot assign type 'MySelfCallType' to 'x' of type 'str'", "x: str = my_self_call_value");

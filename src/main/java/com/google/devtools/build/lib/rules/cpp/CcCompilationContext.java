@@ -47,6 +47,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
+import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.StarlarkList;
@@ -555,6 +556,7 @@ public final class CcCompilationContext {
    */
   @Immutable
   @VisibleForTesting
+  @StarlarkBuiltin(name = "header_info", documented = false)
   public static final class HeaderInfo implements StarlarkValue {
     // This class has non-private visibility testing and HeaderInfoCodec.
 
@@ -755,6 +757,11 @@ public final class CcCompilationContext {
 
     @Override
     public boolean isImmutable() {
+      return true;
+    }
+
+    @Override
+    public boolean isAcyclic() {
       return true;
     }
 

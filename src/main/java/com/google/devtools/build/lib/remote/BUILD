@@ -124,6 +124,7 @@ java_library(
         ":lease_service",
         ":remote_action_context_provider",
         ":remote_action_input_fetcher",
+        ":remote_download_idle_timeout_interceptor",
         ":remote_execution_cache",
         ":remote_external_overlay_file_system",
         ":remote_grpc_service_config",
@@ -193,6 +194,17 @@ java_library(
         "//third_party:rxjava3",
         "//third_party/grpc-java:grpc-jar",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
+    ],
+)
+
+java_library(
+    name = "remote_download_idle_timeout_interceptor",
+    srcs = ["RemoteDownloadIdleTimeoutInterceptor.java"],
+    deps = [
+        "//third_party:guava",
+        "//third_party:jsr305",
+        "//third_party/grpc-java:grpc-jar",
+        "@googleapis//google/bytestream:bytestream_java_grpc",
     ],
 )
 
@@ -359,6 +371,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/remote/common:cache_not_found_exception",
         "//src/main/java/com/google/devtools/build/lib/remote/disk",
         "//src/main/java/com/google/devtools/build/lib/remote/merkletree",
+        "//src/main/java/com/google/devtools/build/lib/remote/options",
         "//src/main/java/com/google/devtools/build/lib/remote/util:async_task_cache",
         "//src/main/java/com/google/devtools/build/lib/remote/util:digest_util",
         "//src/main/java/com/google/devtools/build/lib/remote/util:rx_futures",
@@ -658,6 +671,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/remote/common:action_key",
         "//src/main/java/com/google/devtools/build/lib/remote/common:cache_not_found_exception",
         "//src/main/java/com/google/devtools/build/lib/remote/disk",
+        "//src/main/java/com/google/devtools/build/lib/remote/options",
         "//src/main/java/com/google/devtools/build/lib/remote/util:digest_output_stream",
         "//src/main/java/com/google/devtools/build/lib/remote/util:digest_util",
         "//src/main/java/com/google/devtools/build/lib/remote/util:utils",
@@ -754,6 +768,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:action_input_helper",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/concurrent:task_deduplicator",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/remote/common",
         "//src/main/java/com/google/devtools/build/lib/remote/common:bulk_transfer_exception",

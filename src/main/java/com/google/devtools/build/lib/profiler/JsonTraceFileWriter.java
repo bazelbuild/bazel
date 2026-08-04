@@ -18,6 +18,7 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import com.google.common.base.Preconditions;
 import com.google.common.io.CountingOutputStream;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
+import com.google.devtools.build.lib.skybridge.ScOnly;
 import com.google.gson.stream.JsonWriter;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
@@ -37,6 +38,7 @@ import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 
 /** Writes the profile in Json Trace file format. */
+@ScOnly
 class JsonTraceFileWriter implements Runnable {
   protected final Queue<TraceData> queue;
   private final ReentrantLock lock = new ReentrantLock();

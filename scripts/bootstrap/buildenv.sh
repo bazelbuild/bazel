@@ -46,6 +46,10 @@ msys*|mingw*|cygwin*)
   # This is necessary to avoid overly longs paths during bootstrapping, see for
   # example https://github.com/bazelbuild/bazel/issues/4536
   export TMPDIR="${TMPDIR:-${TMP:-${TEMP:-}}}"
+
+  # Set the pythonpath: without this, the bootstrapped bazel tries to execute
+  # bare "python.exe" and cannot find it.
+  DIST_BOOTSTRAP_ARGS="${DIST_BOOTSTRAP_ARGS} --python_path=$(which python.exe)"
 esac
 
 # If BAZEL_WRKDIR is set, default all variables to point into

@@ -744,7 +744,7 @@ public /*final*/ class ConfiguredRuleClassProvider
 
   @Override
   public boolean mayPackageDependOnPrototypes(PackageIdentifier packageIdentifier) {
-    return prerequisiteValidator.mayDependOnPrototypes(packageIdentifier);
+    return prerequisiteValidator.mayDependOnPrototypesWithoutException(packageIdentifier);
   }
 
   @Override

@@ -302,6 +302,7 @@ java_test(
 java_test(
     name = "AutoExecGroupsTest",
     srcs = ["AutoExecGroupsTest.java"],
+    shard_count = 6,
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/lazy_write_paths_file_action",

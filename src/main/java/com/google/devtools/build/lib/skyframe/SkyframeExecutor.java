@@ -1380,6 +1380,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     InMemoryGraph graph = memoizingEvaluator.getInMemoryGraph();
     boolean trackIncrementalState = tracksStateForIncrementality();
 
+    // If remote analysis cache retrieval is enabled, we can only perform a partial discard. See
+    // b/466388360.
+    boolean remoteAnalysisCachingEnabled =
+        remoteAnalysisCacheReaderDepsProvider.mode().isRetrievalEnabled();
+
     try (SilentCloseable p = trackDiscardAnalysisCache(discardType)) {
       graph.parallelForEach(
           e -> {
@@ -1393,7 +1398,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
                     topLevelPackages,
                     topLevelTargets,
                     topLevelAspects,
-                    trackIncrementalState);
+                    trackIncrementalState,
+                    remoteAnalysisCachingEnabled);
             if (removeNode) {
               graph.remove(e.getKey());
             }
@@ -1427,7 +1433,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       ImmutableSet<PackageIdentifier> topLevelPackages,
       Collection<ConfiguredTarget> topLevelTargets,
       ImmutableSet<AspectKey> topLevelAspects,
-      boolean trackIncrementalState) {
+      boolean trackIncrementalState,
+      boolean remoteAnalysisCachingEnabled) {
     SkyKey key = entry.getKey();
     SkyFunctionName functionName = key.functionName();
     if (discardType.discardsLoading()) {
@@ -1450,7 +1457,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
           return false; // It was already cleared.
         }
         boolean topLevel = topLevelTargets.contains(configuredTarget);
-        if (!topLevel && !trackIncrementalState && !hasActions(ctValue)) {
+        if (!topLevel
+            && !trackIncrementalState
+            && !remoteAnalysisCachingEnabled
+            && !hasActions(ctValue)) {
           // If not tracking incremental state, removing these nodes doesn't hurt. Morally we should
           // always be able to remove these, since they're not used for execution, but it leaves the
           // graph inconsistent, and the --discard_analysis_cache with --track_incremental_state
@@ -1462,7 +1472,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
           // empty configuration key and will never change.
           return false;
         }
-        ctValue.clear(!topLevelTargets.contains(configuredTarget));
+        ctValue.clear(!topLevel && !remoteAnalysisCachingEnabled);
       } else if (functionName.equals(SkyFunctions.ASPECT)) {
         AspectKey aspectKey = (AspectKey) key;
         AspectValue aspectValue = (AspectValue) entry.getValue();
@@ -1470,7 +1480,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
           return false; // Not successfully analyzed.
         }
         boolean topLevel = topLevelAspects.contains(key);
-        if (!topLevel && !trackIncrementalState && !hasActions(aspectValue)) {
+        if (!topLevel
+            && !trackIncrementalState
+            && !remoteAnalysisCachingEnabled
+            && !hasActions(aspectValue)) {
           return true;
         }
         if (isEmptyOptionsKey(aspectKey.getConfigurationKey())) {
@@ -1478,7 +1491,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
           // empty configuration key and will never change.
           return false;
         }
-        aspectValue.clear(!topLevel);
+        aspectValue.clear(!topLevel && !remoteAnalysisCachingEnabled);
       }
     }
     return false;
@@ -2252,7 +2265,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
                   Throwables.throwIfInstanceOf(e, BzlLoadFailedException.class);
                   // Otherwise, wrap it.
                   throw new StarlarkExecTransitionLoadingException(e);
-                } else if (e == null && !error.getCycleInfo().isEmpty()) {
+                } else if (!error.getCycleInfo().isEmpty()) {
                   cyclesReporter.reportCycles(
                       error.getCycleInfo(), firstError.getKey(), eventHandler);
                   throw new StarlarkExecTransitionLoadingException(
@@ -3596,12 +3609,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         Lock writeLock = labelInterner.getLockForLabelTransferToPool(pkg.getPackageIdentifier());
         writeLock.lock();
         try {
-          pkg.getTargets()
-              .forEach(
-                  (name, target) -> {
-                    Label label = target.getLabel();
-                    labelInterner.removeWeak(label);
-                  });
+          pkg.getTargets().forEach(target -> labelInterner.removeWeak(target.getLabel()));
         } finally {
           writeLock.unlock();
         }

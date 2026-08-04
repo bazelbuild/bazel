@@ -15,7 +15,12 @@ java_library(
     name = "chunking",
     srcs = [
         "ChunkingConfig.java",
+        "ContentDefinedChunker.java",
         "FastCdcChunker.java",
+        "FastCdcChunkingConfig.java",
+        "GearTable.java",
+        "RepMaxCdcChunker.java",
+        "RepMaxCdcChunkingConfig.java",
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/remote/util:digest_util",

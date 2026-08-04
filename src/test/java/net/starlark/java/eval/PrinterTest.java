@@ -74,6 +74,36 @@ public class PrinterTest {
     assertThat(str(dict)).isEqualTo("{1: (\"foo\", \"bar\"), 2: [\"foo\", \"bar\"], \"foo\": []}");
     assertThat(Starlark.repr(dict, DEFAULT))
         .isEqualTo("{1: (\"foo\", \"bar\"), 2: [\"foo\", \"bar\"], \"foo\": []}");
+
+    Mutability mu = Mutability.create();
+    StarlarkList<Object> selfRefList = StarlarkList.newList(mu);
+    selfRefList.append(selfRefList);
+    assertThat(str(selfRefList)).isEqualTo("[[...]]");
+    assertThat(Starlark.repr(selfRefList, DEFAULT)).isEqualTo("[...]");
+
+    Dict<String, Object> selfRefDict = Dict.of(mu);
+    selfRefDict.putEntry("self", selfRefDict);
+    assertThat(str(selfRefDict)).isEqualTo("{\"self\": {\"self\": ...}}");
+    assertThat(Starlark.repr(selfRefDict, DEFAULT)).isEqualTo("{\"self\": ...}");
+
+    StarlarkList<Object> overlyNestedList = makeOverlyNestedList(mu, 10_000); // chosen empirically
+    assertThat(Starlark.reprForErrors(overlyNestedList)).isEqualTo("<overly nested list>");
+
+    // TODO(bazel-team): can we reproducibly detect a nesting depth over some fixed limit?
+    assertThrows(StackOverflowError.class, () -> str(overlyNestedList));
+    assertThrows(StackOverflowError.class, () -> Starlark.repr(overlyNestedList, DEFAULT));
+  }
+
+  private static StarlarkList<Object> makeOverlyNestedList(Mutability mu, int depth)
+      throws EvalException {
+    StarlarkList<Object> overlyNestedList = StarlarkList.newList(mu);
+    StarlarkList<Object> current = overlyNestedList;
+    for (int i = 0; i < depth; i++) {
+      StarlarkList<Object> next = StarlarkList.newList(mu);
+      current.addElement(next);
+      current = next;
+    }
+    return overlyNestedList;
   }
 
   private static String format(String fmt, Object... args) {

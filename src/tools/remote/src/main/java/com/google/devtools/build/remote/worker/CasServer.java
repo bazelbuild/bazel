@@ -56,7 +56,10 @@ final class CasServer extends ContentAddressableStorageImplBase {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
   static final long MAX_BATCH_SIZE_BYTES = 1024 * 1024 * 4;
   private final OnDiskBlobStoreCache cache;
-  private final Map<Digest, List<Digest>> splicedBlobs = new ConcurrentHashMap<>();
+  private final Map<Digest, SplicedBlob> splicedBlobs = new ConcurrentHashMap<>();
+
+  /** A blob stored via spliceBlob, along with the chunking function reported by the client. */
+  private record SplicedBlob(List<Digest> chunkDigests, ChunkingFunction.Value chunkingFunction) {}
 
   public CasServer(OnDiskBlobStoreCache cache) {
     this.cache = cache;
@@ -167,15 +170,15 @@ final class CasServer extends ContentAddressableStorageImplBase {
       SplitBlobRequest request, StreamObserver<SplitBlobResponse> responseObserver) {
     Digest blobDigest = request.getBlobDigest();
 
-    List<Digest> chunkDigests = splicedBlobs.get(blobDigest);
-    if (chunkDigests == null) {
+    SplicedBlob splicedBlob = splicedBlobs.get(blobDigest);
+    if (splicedBlob == null) {
       responseObserver.onError(StatusUtils.notFoundError(blobDigest));
       return;
     }
     responseObserver.onNext(
         SplitBlobResponse.newBuilder()
-            .addAllChunkDigests(chunkDigests)
-            .setChunkingFunction(ChunkingFunction.Value.FAST_CDC_2020)
+            .addAllChunkDigests(splicedBlob.chunkDigests())
+            .setChunkingFunction(splicedBlob.chunkingFunction())
             .build());
     responseObserver.onCompleted();
   }
@@ -219,7 +222,9 @@ final class CasServer extends ContentAddressableStorageImplBase {
       }
 
       // Record the blob-to-chunks mapping for splitBlob lookups.
-      splicedBlobs.put(blobDigest, new ArrayList<>(chunkDigests));
+      splicedBlobs.put(
+          blobDigest,
+          new SplicedBlob(new ArrayList<>(chunkDigests), request.getChunkingFunction()));
 
       responseObserver.onNext(SpliceBlobResponse.newBuilder().setBlobDigest(blobDigest).build());
       responseObserver.onCompleted();

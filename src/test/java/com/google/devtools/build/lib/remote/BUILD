@@ -67,7 +67,9 @@ java_library(
             "BuildWithoutTheBytesIntegrationTest.java",
             "BuildWithoutTheBytesIntegrationTestBase.java",
             "ChunkedTransferBenchmark.java",
-            "ChunkedCacheIntegrationTest.java",
+            "ChunkedCacheIntegrationTestBase.java",
+            "ChunkedCacheFastCdcIntegrationTest.java",
+            "ChunkedCacheRepMaxIntegrationTest.java",
             "ChunkedDiskCacheIntegrationTest.java",
             "DiskCacheIntegrationTest.java",
         ],
@@ -105,6 +107,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/authandtls/credentialhelper:credential_module",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream",
         "//src/main/java/com/google/devtools/build/lib/clock",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/events:event_bus_event_handler",
@@ -135,10 +138,13 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/remote:remote_action_context_provider",
         "//src/main/java/com/google/devtools/build/lib/remote:remote_action_file_system",
         "//src/main/java/com/google/devtools/build/lib/remote:remote_action_input_fetcher",
+        "//src/main/java/com/google/devtools/build/lib/remote:remote_download_idle_timeout_interceptor",
         "//src/main/java/com/google/devtools/build/lib/remote:remote_execution_cache",
+        "//src/main/java/com/google/devtools/build/lib/remote:remote_external_overlay_file_system",
         "//src/main/java/com/google/devtools/build/lib/remote:remote_grpc_service_config",
         "//src/main/java/com/google/devtools/build/lib/remote:remote_module",
         "//src/main/java/com/google/devtools/build/lib/remote:remote_output_checker",
+        "//src/main/java/com/google/devtools/build/lib/remote:remote_repo_contents_cache_impl",
         "//src/main/java/com/google/devtools/build/lib/remote:remote_repository_remote_executor",
         "//src/main/java/com/google/devtools/build/lib/remote:remote_server_capabilities",
         "//src/main/java/com/google/devtools/build/lib/remote:remote_spawn_cache",
@@ -171,8 +177,11 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/runtime:config_flag_definitions",
         "//src/main/java/com/google/devtools/build/lib/runtime:repository_remote_executor",
         "//src/main/java/com/google/devtools/build/lib/runtime/commands",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:environment_variable_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:repo_environment_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:tree_artifact_value",
         "//src/main/java/com/google/devtools/build/lib/testing/vfs:spied_filesystem",
+        "//src/main/java/com/google/devtools/build/lib/unsafe:string",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
         "//src/main/java/com/google/devtools/build/lib/util:exit_code",
@@ -186,6 +195,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/lib/vfs/bazel",
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:bazel_output_service_java_grpc",
         "//src/main/protobuf:bazel_output_service_java_proto",
@@ -278,6 +288,8 @@ java_opt_binary(
         "//third_party:guava",
         "//third_party:jmh",
         "//third_party:mockito",
+        "@googleapis//google/bytestream:bytestream_java_grpc",
+        "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_grpc",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
     ],
 )
@@ -343,13 +355,9 @@ java_test(
     ],
 )
 
-java_test(
-    name = "ChunkedCacheIntegrationTest",
-    srcs = ["ChunkedCacheIntegrationTest.java"],
-    tags = ["requires-network"],
-    runtime_deps = [
-        "//third_party/grpc-java:grpc-jar",
-    ],
+java_library(
+    name = "ChunkedCacheIntegrationTestBase",
+    srcs = ["ChunkedCacheIntegrationTestBase.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/authandtls/credentialhelper:credential_module",
         "//src/main/java/com/google/devtools/build/lib/remote:remote_module",
@@ -371,6 +379,32 @@ java_test(
         "@googleapis//google/bytestream:bytestream_java_proto",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_grpc",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
+    ],
+)
+
+java_test(
+    name = "ChunkedCacheFastCdcIntegrationTest",
+    srcs = ["ChunkedCacheFastCdcIntegrationTest.java"],
+    tags = ["requires-network"],
+    runtime_deps = [
+        "//third_party/grpc-java:grpc-jar",
+    ],
+    deps = [
+        ":ChunkedCacheIntegrationTestBase",
+        "//third_party:junit4",
+    ],
+)
+
+java_test(
+    name = "ChunkedCacheRepMaxIntegrationTest",
+    srcs = ["ChunkedCacheRepMaxIntegrationTest.java"],
+    tags = ["requires-network"],
+    runtime_deps = [
+        "//third_party/grpc-java:grpc-jar",
+    ],
+    deps = [
+        ":ChunkedCacheIntegrationTestBase",
+        "//third_party:junit4",
     ],
 )
 

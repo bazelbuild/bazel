@@ -247,7 +247,9 @@ public final class RemoteModule extends BlazeModule {
             return Result.SUCCESS;
           }
           retry =
-              status == HttpResponseStatus.INTERNAL_SERVER_ERROR.code()
+              status == HttpResponseStatus.REQUEST_TIMEOUT.code()
+                  || status == HttpResponseStatus.TOO_MANY_REQUESTS.code()
+                  || status == HttpResponseStatus.INTERNAL_SERVER_ERROR.code()
                   || status == HttpResponseStatus.BAD_GATEWAY.code()
                   || status == HttpResponseStatus.SERVICE_UNAVAILABLE.code()
                   || status == HttpResponseStatus.GATEWAY_TIMEOUT.code();
@@ -300,7 +302,7 @@ public final class RemoteModule extends BlazeModule {
             combinedCacheClient.diskCacheClient(),
             Strings.emptyToNull(remoteOptions.getRemoteDownloadSymlinkTemplate()),
             digestUtil,
-            remoteOptions.getExperimentalRemoteCacheChunking());
+            remoteOptions.getEffectiveChunkingFunction());
     actionContextProvider =
         RemoteActionContextProvider.createForRemoteCaching(
             env,
@@ -666,6 +668,12 @@ public final class RemoteModule extends BlazeModule {
           "Invalid --remote_grpc_service_config: " + e.getMessage(),
           FailureDetails.RemoteOptions.Code.REMOTE_GRPC_SERVICE_CONFIG_INVALID);
     }
+    ClientInterceptor downloadIdleTimeoutInterceptor = null;
+    if (!remoteOptions.getRemoteGrpcDownloadIdleTimeout().isZero()) {
+      downloadIdleTimeoutInterceptor =
+          new RemoteDownloadIdleTimeoutInterceptor(
+              remoteOptions.getRemoteGrpcDownloadIdleTimeout(), retryScheduler);
+    }
 
     if (!Strings.isNullOrEmpty(remoteOptions.getRemoteOutputService())) {
       var bazelOutputServiceChannel =
@@ -676,6 +684,7 @@ public final class RemoteModule extends BlazeModule {
               Options.getDefaults(AuthAndTLSOptions.class),
               null,
               null,
+              downloadIdleTimeoutInterceptor,
               remoteGrpcServiceConfig,
               channelFactory,
               remoteOptions.getRemoteOutputService(),
@@ -729,7 +738,6 @@ public final class RemoteModule extends BlazeModule {
       }
       loggingInterceptor = new LoggingInterceptor(rpcLogFile, env.getRuntime().getClock());
     }
-
     CallCredentialsProvider callCredentialsProvider =
         GoogleAuthUtils.newCallCredentialsProvider(credentials);
     CallCredentials callCredentials = callCredentialsProvider.getCallCredentials();
@@ -764,6 +772,7 @@ public final class RemoteModule extends BlazeModule {
                   TracingMetadataUtils.newExecHeadersInterceptor(
                       remoteOptions.getRemoteHeaders(), remoteOptions.getRemoteExecHeaders()),
                   loggingInterceptor,
+                  downloadIdleTimeoutInterceptor,
                   remoteGrpcServiceConfig,
                   channelFactory,
                   remoteOptions.getRemoteExecutor(),
@@ -785,6 +794,7 @@ public final class RemoteModule extends BlazeModule {
                   TracingMetadataUtils.newExecHeadersInterceptor(
                       remoteOptions.getRemoteHeaders(), remoteOptions.getRemoteExecHeaders()),
                   loggingInterceptor,
+                  downloadIdleTimeoutInterceptor,
                   remoteGrpcServiceConfig,
                   channelFactory,
                   remoteOptions.getRemoteExecutor(),
@@ -808,6 +818,7 @@ public final class RemoteModule extends BlazeModule {
                 TracingMetadataUtils.newCacheHeadersInterceptor(
                     remoteOptions.getRemoteHeaders(), remoteOptions.getRemoteCacheHeaders()),
                 loggingInterceptor,
+                downloadIdleTimeoutInterceptor,
                 remoteGrpcServiceConfig,
                 channelFactory,
                 remoteOptions.getRemoteCache(),
@@ -856,7 +867,7 @@ public final class RemoteModule extends BlazeModule {
               diskCacheClient,
               Strings.emptyToNull(remoteOptions.getRemoteDownloadSymlinkTemplate()),
               digestUtil,
-              remoteOptions.getExperimentalRemoteCacheChunking());
+              remoteOptions.getEffectiveChunkingFunction());
       actionContextProvider =
           RemoteActionContextProvider.createForRemoteExecution(
               env,
@@ -886,7 +897,7 @@ public final class RemoteModule extends BlazeModule {
               diskCacheClient,
               Strings.emptyToNull(remoteOptions.getRemoteDownloadSymlinkTemplate()),
               digestUtil,
-              remoteOptions.getExperimentalRemoteCacheChunking());
+              remoteOptions.getEffectiveChunkingFunction());
       actionContextProvider =
           RemoteActionContextProvider.createForRemoteCaching(
               env,
@@ -928,6 +939,7 @@ public final class RemoteModule extends BlazeModule {
                 authAndTlsOptions,
                 /* headersInterceptor= */ null,
                 loggingInterceptor,
+                downloadIdleTimeoutInterceptor,
                 remoteGrpcServiceConfig,
                 channelFactory,
                 remoteOptions.getRemoteDownloader(),
@@ -967,6 +979,7 @@ public final class RemoteModule extends BlazeModule {
       AuthAndTLSOptions authAndTlsOptions,
       @Nullable ClientInterceptor headersInterceptor,
       @Nullable ClientInterceptor loggingInterceptor,
+      @Nullable ClientInterceptor downloadIdleTimeoutInterceptor,
       Map<String, ?> serviceConfig,
       ChannelFactory channelFactory,
       String target,
@@ -984,6 +997,9 @@ public final class RemoteModule extends BlazeModule {
     }
     if (loggingInterceptor != null) {
       interceptors.add(loggingInterceptor);
+    }
+    if (downloadIdleTimeoutInterceptor != null) {
+      interceptors.add(downloadIdleTimeoutInterceptor);
     }
     var channel =
         new ReferenceCountedChannel(

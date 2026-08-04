@@ -518,6 +518,7 @@ public class CcStarlarkInternal implements StarlarkValue {
         ImmutableSet.of());
   }
 
+  @StarlarkBuiltin(name = "WrappedStarlarkActionFactory", documented = false)
   static class WrappedStarlarkActionFactory extends StarlarkActionFactory {
     final LinkActionConstruction construction;
 
