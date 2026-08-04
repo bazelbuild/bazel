@@ -127,6 +127,7 @@ java_library(
     deps = [
         ":server_log_path_service",
         ":util",
+        "//src/main/java/com/google/devtools/build/lib/skybridge:sc_only",
     ],
 )
 
