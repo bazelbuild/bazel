@@ -20,6 +20,7 @@ import static com.google.devtools.build.lib.rules.repository.RepoRecordedInput.W
 import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.FileContentsProxy;
 import com.google.devtools.build.lib.actions.FileStateValue.RegularFileStateValueWithContentsProxy;
@@ -90,5 +91,38 @@ public class RepoRecordedInputTest extends BuildViewTestCase {
                 parse("FILE:@@//:baz cba").orElseThrow()),
             ImmutableList.of(
                 parse("FILE:@@foo//:baz bac").orElseThrow(), parse("ENV:KEY value").orElseThrow()));
+  }
+
+  @Test
+  public void testIsValidForRemoteCache() {
+    ImmutableSet<String> allowedEnviron = ImmutableSet.of("ALLOWED_VAR");
+
+    // EnvVar: valid only if in allowedEnviron
+    assertThat(
+            RepoRecordedInput.WithValue.parse("ENV:ALLOWED_VAR value")
+                .get()
+                .input()
+                .isValidForRemoteCache(allowedEnviron))
+        .isTrue();
+    assertThat(
+            RepoRecordedInput.WithValue.parse("ENV:UNALLOWED_VAR value")
+                .get()
+                .input()
+                .isValidForRemoteCache(allowedEnviron))
+        .isFalse();
+
+    // RecordedRepoMapping: always valid
+    assertThat(
+            RepoRecordedInput.WithValue.parse("REPO_MAPPING:foo,apparent value")
+                .get()
+                .input()
+                .isValidForRemoteCache(allowedEnviron))
+        .isTrue();
+
+    // Sentinel parse failure / never up-to-date input: always invalid
+    assertThat(
+            RepoRecordedInput.NeverUpToDateRepoRecordedInput.PARSE_FAILURE.isValidForRemoteCache(
+                allowedEnviron))
+        .isFalse();
   }
 }

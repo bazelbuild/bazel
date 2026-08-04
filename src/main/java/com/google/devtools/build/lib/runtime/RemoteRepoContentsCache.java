@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.runtime;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.vfs.Path;
@@ -43,6 +44,7 @@ public interface RemoteRepoContentsCache {
       RepositoryName repoName,
       Path repoDir,
       String predeclaredInputHash,
+      ImmutableSet<String> allowedEnviron,
       SkyFunction.Environment env)
       throws IOException, InterruptedException;
 }

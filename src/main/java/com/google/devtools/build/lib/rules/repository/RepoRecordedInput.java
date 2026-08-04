@@ -26,6 +26,7 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -325,6 +326,11 @@ public abstract sealed class RepoRecordedInput {
    */
   protected abstract boolean canBeRequestedUnconditionally();
 
+  /**
+   * Returns true if this recorded input is valid to be used with the remote repo contents cache.
+   */
+  public abstract boolean isValidForRemoteCache(ImmutableSet<String> allowedEnviron);
+
   private static final Optional<String> UNDECIDED = Optional.of("values missing");
 
   /**
@@ -518,6 +524,11 @@ public abstract sealed class RepoRecordedInput {
     }
 
     @Override
+    public boolean isValidForRemoteCache(ImmutableSet<String> allowedEnviron) {
+      return true;
+    }
+
+    @Override
     public String describeChange(String oldValue, String newValue) {
       return "file info or contents of %s changed".formatted(path);
     }
@@ -606,6 +617,11 @@ public abstract sealed class RepoRecordedInput {
         return MaybeValue.VALUES_MISSING;
       }
       return new MaybeValue.Valid(directoryListingValueToMarkerValue(directoryListingValue));
+    }
+
+    @Override
+    public boolean isValidForRemoteCache(ImmutableSet<String> allowedEnviron) {
+      return true;
     }
 
     @Override
@@ -755,6 +771,11 @@ public abstract sealed class RepoRecordedInput {
     }
 
     @Override
+    public boolean isValidForRemoteCache(ImmutableSet<String> allowedEnviron) {
+      return true;
+    }
+
+    @Override
     public String describeChange(String oldValue, String newValue) {
       return "directory tree at %s changed".formatted(path);
     }
@@ -824,6 +845,11 @@ public abstract sealed class RepoRecordedInput {
       // Environment variables are static data injected into Skyframe, so there is no risk of
       // cycles.
       return true;
+    }
+
+    @Override
+    public boolean isValidForRemoteCache(ImmutableSet<String> allowedEnviron) {
+      return allowedEnviron.contains(name);
     }
 
     @Override
@@ -931,6 +957,11 @@ public abstract sealed class RepoRecordedInput {
     }
 
     @Override
+    public boolean isValidForRemoteCache(ImmutableSet<String> allowedEnviron) {
+      return true;
+    }
+
+    @Override
     public String describeChange(String oldValue, String newValue) {
       return "canonical name for @%s in %s changed: %s -> %s"
           .formatted(
@@ -982,6 +1013,11 @@ public abstract sealed class RepoRecordedInput {
     @Override
     protected boolean canBeRequestedUnconditionally() {
       return true;
+    }
+
+    @Override
+    public boolean isValidForRemoteCache(ImmutableSet<String> allowedEnviron) {
+      return false;
     }
 
     @Override

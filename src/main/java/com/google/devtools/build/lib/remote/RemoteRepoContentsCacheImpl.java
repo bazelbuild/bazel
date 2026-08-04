@@ -232,10 +232,11 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
       RepositoryName repoName,
       Path repoDir,
       String predeclaredInputHash,
+      ImmutableSet<String> allowedEnviron,
       SkyFunction.Environment env)
       throws IOException, InterruptedException {
     try {
-      return doLookupCache(repoName, repoDir, predeclaredInputHash, env);
+      return doLookupCache(repoName, repoDir, predeclaredInputHash, allowedEnviron, env);
     } catch (IOException e) {
       throw new IOException(
           "Failed to look up repo %s in the remote repo contents cache: %s"
@@ -248,6 +249,7 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
       RepositoryName repoName,
       Path repoDir,
       String predeclaredInputHash,
+      ImmutableSet<String> allowedEnviron,
       SkyFunction.Environment env)
       throws IOException, InterruptedException {
     if (!(repoDir.getFileSystem() instanceof RemoteExternalOverlayFileSystem remoteFs)) {
@@ -258,7 +260,7 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
     if (!context.getReadCachePolicy().allowRemoteCache()) {
       return false;
     }
-    var finalEntry = fetchFinalCacheEntry(env, context, predeclaredInputHash);
+    var finalEntry = fetchFinalCacheEntry(env, context, predeclaredInputHash, allowedEnviron);
     if (env.valuesMissing() || finalEntry == null) {
       return false;
     }
@@ -287,6 +289,13 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
     String markerFileContent = new String(markerFileContentFuture.resultNow(), ISO_8859_1);
     var maybeRecordedInputs = DigestWriter.readMarkerFile(markerFileContent, predeclaredInputHash);
     if (maybeRecordedInputs.isEmpty()) {
+      return false;
+    }
+    if (!maybeRecordedInputs.get().stream()
+        .allMatch(inputWithValue -> inputWithValue.input().isValidForRemoteCache(allowedEnviron))) {
+      env.getListener()
+          .handle(
+              Event.warn("Cached repo %s has invalid inputs for remote cache".formatted(repoName)));
       return false;
     }
     var outdatedReason =
@@ -462,13 +471,14 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
   private CacheEntry.Final fetchFinalCacheEntry(
       SkyFunction.Environment env,
       RemoteActionExecutionContext context,
-      String predeclaredInputHash)
+      String predeclaredInputHash,
+      ImmutableSet<String> allowedEnviron)
       throws IOException, InterruptedException {
     var currentHashes = ImmutableList.of(predeclaredInputHash);
     while (!currentHashes.isEmpty()) {
       var nextHashes = ImmutableList.<String>builder();
       for (var hash : currentHashes) {
-        switch (fetchCacheEntry(env, context, hash)) {
+        switch (fetchCacheEntry(env, context, hash, allowedEnviron)) {
           case CacheEntry.Final finalEntry -> {
             return finalEntry;
           }
@@ -492,7 +502,10 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
   // Returns null if and only if values are missing.
   @Nullable
   private CacheEntry fetchCacheEntry(
-      SkyFunction.Environment env, RemoteActionExecutionContext context, String inputHash)
+      SkyFunction.Environment env,
+      RemoteActionExecutionContext context,
+      String inputHash,
+      ImmutableSet<String> allowedEnviron)
       throws IOException, InterruptedException {
     var actionKey = new ActionKey(digestUtil.compute(buildAction(inputHash)));
     // The marker file is read right after and thus requested to be inlined. If the action result
@@ -541,6 +554,9 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
                         .splitToStream(line)
                         .map(RepoRecordedInput::parse)
                         .collect(toImmutableList()))
+            .filter(
+                batch ->
+                    batch.stream().allMatch(input -> input.isValidForRemoteCache(allowedEnviron)))
             .collect(toImmutableList());
     var uniqueNextInputs =
         nextInputBatches.stream().flatMap(List::stream).collect(toImmutableSet());
