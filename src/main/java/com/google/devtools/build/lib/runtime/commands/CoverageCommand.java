@@ -117,20 +117,15 @@ public class CoverageCommand extends TestCommand {
   }
 
   @Override
-  public void editOptions(OptionsParser optionsParser) {
+  public void editOptions(OptionsParser optionsParser) throws OptionsParsingException {
     super.editOptions(optionsParser);
-    try {
-      optionsParser.parse(
-          PriorityCategory.SOFTWARE_REQUIREMENT,
-          "Options required by the coverage command",
-          ImmutableList.of("--collect_code_coverage"));
-      optionsParser.parse(
-          PriorityCategory.COMPUTED_DEFAULT,
-          "Options suggested for the coverage command",
-          ImmutableList.of(TestTimeout.COVERAGE_CMD_TIMEOUT));
-    } catch (OptionsParsingException e) {
-      // Should never happen.
-      throw new IllegalStateException("Unexpected exception", e);
-    }
+    optionsParser.parse(
+        PriorityCategory.SOFTWARE_REQUIREMENT,
+        "Options required by the coverage command",
+        ImmutableList.of("--collect_code_coverage"));
+    optionsParser.parse(
+        PriorityCategory.COMPUTED_DEFAULT,
+        "Options suggested for the coverage command",
+        ImmutableList.of(TestTimeout.COVERAGE_CMD_TIMEOUT));
   }
 }

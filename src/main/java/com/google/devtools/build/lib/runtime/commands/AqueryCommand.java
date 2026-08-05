@@ -66,15 +66,11 @@ import com.google.devtools.common.options.OptionsParsingResult;
 public final class AqueryCommand implements BlazeCommand {
 
   @Override
-  public void editOptions(OptionsParser optionsParser) {
-    try {
-      optionsParser.parse(
-          PriorityCategory.COMPUTED_DEFAULT,
-          "Option required by aquery",
-          ImmutableList.of("--nobuild"));
-    } catch (OptionsParsingException e) {
-      throw new IllegalStateException("Aquery's known options failed to parse", e);
-    }
+  public void editOptions(OptionsParser optionsParser) throws OptionsParsingException {
+    optionsParser.parse(
+        PriorityCategory.COMPUTED_DEFAULT,
+        "Option required by aquery",
+        ImmutableList.of("--nobuild"));
   }
 
   @Override

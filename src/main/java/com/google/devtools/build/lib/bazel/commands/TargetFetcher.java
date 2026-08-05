@@ -62,15 +62,11 @@ public class TargetFetcher {
     return result;
   }
 
-  static void injectNoBuildOption(OptionsParser optionsParser) {
-    try {
-      optionsParser.parse(
-          PriorityCategory.COMPUTED_DEFAULT,
-          "Options required to fetch target",
-          ImmutableList.of("--nobuild"));
-    } catch (OptionsParsingException e) {
-      throw new IllegalStateException("Fetch target needed option failed to parse", e);
-    }
+  static void injectNoBuildOption(OptionsParser optionsParser) throws OptionsParsingException {
+    optionsParser.parse(
+        PriorityCategory.COMPUTED_DEFAULT,
+        "Options required to fetch target",
+        ImmutableList.of("--nobuild"));
   }
 
   static class TargetFetcherException extends Exception {

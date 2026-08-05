@@ -372,19 +372,15 @@ public class MobileInstallCommand implements BlazeCommand {
   }
 
   @Override
-  public void editOptions(OptionsParser optionsParser) {
+  public void editOptions(OptionsParser optionsParser) throws OptionsParsingException {
     Options options = optionsParser.getOptions(Options.class);
-    try {
-      optionsParser.parse(
-          PriorityCategory.COMMAND_LINE,
-          "Options required by the Starlark implementation of mobile-install command",
-          ImmutableList.of(
-              "--aspects=" + options.getMobileInstallAspect() + "%MIASPECT",
-              "--output_groups=mobile_install" + INTERNAL_SUFFIX,
-              "--output_groups=mobile_install_launcher" + INTERNAL_SUFFIX));
-    } catch (OptionsParsingException e) {
-      throw new IllegalStateException(e);
-    }
+    optionsParser.parse(
+        PriorityCategory.COMMAND_LINE,
+        "Options required by the Starlark implementation of mobile-install command",
+        ImmutableList.of(
+            "--aspects=" + options.getMobileInstallAspect() + "%MIASPECT",
+            "--output_groups=mobile_install" + INTERNAL_SUFFIX,
+            "--output_groups=mobile_install_launcher" + INTERNAL_SUFFIX));
   }
 
   @Nullable
