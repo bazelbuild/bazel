@@ -194,7 +194,9 @@ public final class PackageZipper {
     byte[] compressedBytes = deflate(rawBytes, compressionLevel);
 
     ZipFileEntry entry = new ZipFileEntry(entryName);
-    entry.setTime(315532800000L); // 1980-01-01 00:00:00 UTC
+    // DOS timestamps carry no time zone and are always interpreted in the local one, so the
+    // instant has to be derived from the local zone to record the same date everywhere.
+    entry.setTime(ZipUtil.DOS_EPOCH);
     entry.setVersion((short) 20);
 
     if (compressedBytes.length >= rawBytes.length && rawBytes.length > 0) {
