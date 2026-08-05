@@ -1397,11 +1397,19 @@ sh_test(
     data = [
         ":test-deps",
         "//src/tools/workspacelog:parser",
+        "@bazel_tools//tools/bash/runfiles",
+        "@rules_java//toolchains:current_java_runtime",
     ],
     shard_count = 3,
     tags = [
         "no_windows",
         "requires-network",
+    ],
+    env = {
+        "JAVA_ROOTPATH": "$(JAVA_ROOTPATH)",  # for remote_helpers setup_javabase
+    },
+    toolchains = [
+        "@rules_java//toolchains:current_java_runtime",
     ],
 )
 
