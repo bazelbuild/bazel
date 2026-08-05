@@ -15,41 +15,63 @@
 package com.google.devtools.build.lib.analysis;
 
 import com.google.common.collect.ImmutableCollection;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.Provider;
-import com.google.devtools.build.lib.starlarkbuildapi.core.ProvidersMapApi;
+import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderMapApi;
 import java.util.LinkedHashMap;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkSemantics;
 
 /** A non-iterable Starlark map from declared provider constructors to provider instances. */
-public final class ProvidersMap implements ProvidersMapApi {
-  private final ImmutableMap<Provider.Key, Info> providers;
+public final class ProviderMap implements ProviderMapApi, Mutability.Freezable {
+  private final LinkedHashMap<Provider.Key, Info> providers;
+  private final Mutability mutability;
 
   /** Returns a new map containing {@code providers}. */
-  public static ProvidersMap create(Iterable<Info> providers) {
+  public static ProviderMap create(Iterable<Info> providers) {
     LinkedHashMap<Provider.Key, Info> providersByKey = new LinkedHashMap<>();
     for (Info provider : providers) {
       providersByKey.put(provider.getProvider().getKey(), provider);
     }
-    return new ProvidersMap(ImmutableMap.copyOf(providersByKey));
+    return new ProviderMap(providersByKey, Mutability.IMMUTABLE);
   }
 
   /** Returns a new empty map. */
-  public static ProvidersMap empty() {
-    return new ProvidersMap(ImmutableMap.of());
+  public static ProviderMap empty() {
+    return new ProviderMap(new LinkedHashMap<>(), Mutability.IMMUTABLE);
   }
 
-  private ProvidersMap(ImmutableMap<Provider.Key, Info> providers) {
+  private ProviderMap(LinkedHashMap<Provider.Key, Info> providers, Mutability mutability) {
     this.providers = providers;
+    this.mutability = mutability;
+  }
+
+  ProviderMap mutableCopy(Mutability mutability) {
+    return new ProviderMap(new LinkedHashMap<>(providers), mutability);
   }
 
   /** Returns the provider instances for consumption by rule implementation machinery. */
   public ImmutableCollection<Info> getProviderInstances() {
-    return providers.values();
+    return ImmutableList.copyOf(providers.values());
+  }
+
+  @Override
+  public Mutability mutability() {
+    return mutability;
+  }
+
+  @Override
+  public boolean isImmutable() {
+    return mutability.isFrozen();
+  }
+
+  @Override
+  public void checkHashable() throws EvalException {
+    throw Starlark.errorf("unhashable type: 'ProviderMap'");
   }
 
   @Override
@@ -60,7 +82,7 @@ public final class ProvidersMap implements ProvidersMapApi {
       return provider;
     }
     throw Starlark.errorf(
-        "ProvidersMap doesn't contain declared provider '%s'", constructor.getPrintableName());
+        "ProviderMap doesn't contain declared provider '%s'", constructor.getPrintableName());
   }
 
   @Override
@@ -69,20 +91,42 @@ public final class ProvidersMap implements ProvidersMapApi {
   }
 
   @Override
+  public void setIndex(StarlarkSemantics semantics, Object key, Object value) throws EvalException {
+    Starlark.checkMutable(this);
+    Provider constructor = selectExportedProvider(key, "assign");
+    if (!(value instanceof Info info)) {
+      throw Starlark.errorf(
+          "ProviderMap values must be provider instances, got %s", Starlark.type(value));
+    }
+    Provider valueConstructor = info.getProvider();
+    if (!valueConstructor.isExported()) {
+      throw Starlark.errorf(
+          "ProviderMap only accepts instances of exported providers. Assign the provider a name "
+              + "in a top-level assignment statement.");
+    }
+    if (!constructor.getKey().equals(valueConstructor.getKey())) {
+      throw Starlark.errorf(
+          "cannot assign an instance of provider '%s' to ProviderMap key '%s'",
+          valueConstructor.getPrintableName(), constructor.getPrintableName());
+    }
+    providers.put(constructor.getKey(), info);
+  }
+
+  @Override
   public void repr(Printer printer, StarlarkSemantics semantics) {
-    printer.append("<providers map>");
+    printer.append("<provider map>");
   }
 
   private static Provider selectExportedProvider(Object key, String operation)
       throws EvalException {
     if (!(key instanceof Provider constructor)) {
       throw Starlark.errorf(
-          "Type ProvidersMap only supports %sing by object constructors, got %s instead",
+          "Type ProviderMap only supports %sing by object constructors, got %s instead",
           operation, Starlark.type(key));
     }
     if (!constructor.isExported()) {
       throw Starlark.errorf(
-          "ProvidersMap only supports %sing by exported providers. Assign the provider a name "
+          "ProviderMap only supports %sing by exported providers. Assign the provider a name "
               + "in a top-level assignment statement.",
           operation);
     }

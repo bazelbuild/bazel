@@ -2037,7 +2037,7 @@ component(name = "b_yes")
 
     assertThrows(
         ViewCreationFailedException.class, () -> update("//:bin_materializer_wrong_object_int"));
-    assertContainsEvent("Rule should return a struct, a list, or a ProvidersMap, but got int");
+    assertContainsEvent("Rule should return a struct, a list, or a ProviderMap, but got int");
     eventCollector.clear();
 
     assertThrows(

@@ -19,11 +19,12 @@ import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.eval.StarlarkIndexable;
 import net.starlark.java.eval.StarlarkValue;
 
-/** A read-only collection of providers returned by {@link TransitiveInfoCollectionApi}. */
+/** A collection of providers returned by {@link TransitiveInfoCollectionApi}. */
 @StarlarkBuiltin(
-    name = "ProvidersMap",
+    name = "ProviderMap",
     category = DocCategory.BUILTIN,
     doc =
-        "A read-only collection of providers. Providers can be accessed by type using index"
-            + " notation, and their presence can be checked using the <code>in</code> operator.")
-public interface ProvidersMapApi extends StarlarkValue, StarlarkIndexable {}
+        "A non-iterable collection of providers. Providers can be accessed or assigned by type"
+            + " using index notation, and their presence can be checked using the <code>in</code>"
+            + " operator.")
+public interface ProviderMapApi extends StarlarkValue, StarlarkIndexable.Settable {}

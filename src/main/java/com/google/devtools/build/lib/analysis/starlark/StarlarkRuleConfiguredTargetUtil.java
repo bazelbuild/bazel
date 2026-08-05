@@ -21,7 +21,7 @@ import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.DefaultInfo;
 import com.google.devtools.build.lib.analysis.MaterializedDepsInfo;
-import com.google.devtools.build.lib.analysis.ProvidersMap;
+import com.google.devtools.build.lib.analysis.ProviderMap;
 import com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -120,11 +120,11 @@ public final class StarlarkRuleConfiguredTargetUtil {
     // Wrong result type?
     if (!(providersRaw instanceof Info
         || providersRaw == Starlark.NONE
-        || providersRaw instanceof ProvidersMap
+        || providersRaw instanceof ProviderMap
         || providersRaw instanceof Iterable)) {
       ruleContext.ruleError(
           String.format(
-              "Rule should return a struct, a list, or a ProvidersMap, but got %s",
+              "Rule should return a struct, a list, or a ProviderMap, but got %s",
               Starlark.type(providersRaw)));
       return null;
     }
@@ -262,10 +262,10 @@ public final class StarlarkRuleConfiguredTargetUtil {
       Provider.Key providerKey = getProviderKey(info, context);
       // Single declared provider
       declaredProviders.put(providerKey, info);
-    } else if (rawProviders instanceof ProvidersMap || rawProviders instanceof Sequence) {
+    } else if (rawProviders instanceof ProviderMap || rawProviders instanceof Sequence) {
       Iterable<Info> providers =
-          rawProviders instanceof ProvidersMap providersMap
-              ? providersMap.getProviderInstances()
+          rawProviders instanceof ProviderMap providerMap
+              ? providerMap.getProviderInstances()
               : Sequence.cast(rawProviders, Info.class, "result of rule implementation function");
       for (Info provider : providers) {
         if (provider instanceof StarlarkInfo starlarkInfo) {
@@ -281,7 +281,7 @@ public final class StarlarkRuleConfiguredTargetUtil {
       }
     } else if (rawProviders != Starlark.NONE) {
       throw Starlark.errorf(
-          "Expected a list or ProvidersMap of providers, but got %s", Starlark.type(rawProviders));
+          "Expected a list or ProviderMap of providers, but got %s", Starlark.type(rawProviders));
     }
 
     if (context.getRule().getRuleClassObject().isMaterializerRule()) {

@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.DefaultInfo;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
-import com.google.devtools.build.lib.analysis.ProvidersMap;
+import com.google.devtools.build.lib.analysis.ProviderMap;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
 import com.google.devtools.build.lib.analysis.VisibilityProvider;
@@ -211,7 +211,7 @@ public abstract class AbstractConfiguredTarget implements ConfiguredTarget, Visi
   }
 
   @Override
-  public final ProvidersMap providers() {
+  public final ProviderMap providers() {
     LinkedHashMap<Provider.Key, Info> providers = new LinkedHashMap<>();
     providers.put(DefaultInfo.PROVIDER.getKey(), getDefaultProvider());
     addDeclaredProviders(
@@ -223,7 +223,7 @@ public abstract class AbstractConfiguredTarget implements ConfiguredTarget, Visi
             providers.put(key, info);
           }
         });
-    return ProvidersMap.create(providers.values());
+    return ProviderMap.create(providers.values());
   }
 
   /**

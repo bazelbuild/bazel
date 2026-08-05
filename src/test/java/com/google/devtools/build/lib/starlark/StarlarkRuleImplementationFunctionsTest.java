@@ -1621,20 +1621,23 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         dep_rule = rule(implementation = _dep_impl)
 
         def _reexport_impl(ctx):
-            providers_map = ctx.attr.dep.providers()
-            if type(providers_map) != "ProvidersMap":
-                fail("expected ProvidersMap, got %s" % type(providers_map))
-            if DefaultInfo not in providers_map:
+            provider_map = ctx.attr.dep.providers()
+            if type(provider_map) != "ProviderMap":
+                fail("expected ProviderMap, got %s" % type(provider_map))
+            if DefaultInfo not in provider_map:
                 fail("DefaultInfo is missing")
-            if len(providers_map[DefaultInfo].files.to_list()) != 1:
+            if len(provider_map[DefaultInfo].files.to_list()) != 1:
                 fail("unexpected DefaultInfo files")
-            if FooInfo not in providers_map:
+            if FooInfo not in provider_map:
                 fail("FooInfo is missing")
-            if MissingInfo in providers_map:
+            if MissingInfo in provider_map:
                 fail("unexpected MissingInfo")
-            if providers_map[FooInfo].value != "foo":
+            if provider_map[FooInfo].value != "foo":
                 fail("unexpected FooInfo value")
-            return providers_map
+            foo = DefaultInfo(files = provider_map[DefaultInfo].files)
+            provider_map[DefaultInfo] = foo
+            provider_map[FooInfo] = FooInfo(value = "modified")
+            return provider_map
 
         reexport_rule = rule(
             implementation = _reexport_impl,
@@ -1643,8 +1646,8 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
 
         def _consumer_impl(ctx):
             dep = ctx.attr.dep
-            if dep[FooInfo].value != "foo":
-                fail("FooInfo was not re-exported")
+            if dep[FooInfo].value != "modified":
+                fail("modified FooInfo was not re-exported")
             if dep[BarInfo].value != "bar":
                 fail("BarInfo was not re-exported")
             files = dep[DefaultInfo].files.to_list()
@@ -1776,7 +1779,91 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
 
     reporter.removeHandler(failFastHandler);
     assertThat(getConfiguredTarget("//test:consumer")).isNull();
-    assertContainsEvent("type 'ProvidersMap' is not iterable");
+    assertContainsEvent("type 'ProviderMap' is not iterable");
+  }
+
+  @Test
+  public void testProviderMapAssignmentRequiresMatchingProvider() throws Exception {
+    scratch.file(
+        "test/rules.bzl",
+        """
+        FooInfo = provider()
+        BarInfo = provider()
+
+        def _dep_impl(ctx):
+            return [FooInfo()]
+
+        dep_rule = rule(implementation = _dep_impl)
+
+        def _consumer_impl(ctx):
+            provider_map = ctx.attr.dep.providers()
+            provider_map[FooInfo] = BarInfo()
+            return provider_map
+
+        consumer_rule = rule(
+            implementation = _consumer_impl,
+            attrs = {"dep": attr.label()},
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load(":rules.bzl", "consumer_rule", "dep_rule")
+
+        dep_rule(name = "dep")
+        consumer_rule(name = "consumer", dep = ":dep")
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    assertThat(getConfiguredTarget("//test:consumer")).isNull();
+    assertContainsEvent(
+        "cannot assign an instance of provider 'BarInfo' to ProviderMap key 'FooInfo'");
+  }
+
+  @Test
+  public void testProviderMapIsFrozenAfterRuleEvaluation() throws Exception {
+    scratch.file(
+        "test/rules.bzl",
+        """
+        FooInfo = provider(fields = ["value"])
+        MapInfo = provider(fields = ["provider_map"])
+
+        def _dep_impl(ctx):
+            return [FooInfo(value = "original")]
+
+        dep_rule = rule(implementation = _dep_impl)
+
+        def _capture_impl(ctx):
+            return [MapInfo(provider_map = ctx.attr.dep.providers())]
+
+        capture_rule = rule(
+            implementation = _capture_impl,
+            attrs = {"dep": attr.label()},
+        )
+
+        def _mutate_impl(ctx):
+            provider_map = ctx.attr.dep[MapInfo].provider_map
+            provider_map[FooInfo] = FooInfo(value = "modified")
+            return []
+
+        mutate_rule = rule(
+            implementation = _mutate_impl,
+            attrs = {"dep": attr.label(providers = [MapInfo])},
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load(":rules.bzl", "capture_rule", "dep_rule", "mutate_rule")
+
+        dep_rule(name = "dep")
+        capture_rule(name = "capture", dep = ":dep")
+        mutate_rule(name = "mutate", dep = ":capture")
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    assertThat(getConfiguredTarget("//test:mutate")).isNull();
+    assertContainsEvent("trying to mutate a frozen ProviderMap value");
   }
 
   @Test

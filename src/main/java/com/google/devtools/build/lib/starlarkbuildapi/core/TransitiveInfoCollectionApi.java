@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.starlarkbuildapi.core;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 
 /** Interface for a build target. */
@@ -49,8 +50,9 @@ public interface TransitiveInfoCollectionApi extends StarlarkValue {
       name = "providers",
       doc =
           "Returns this target's providers as a <a"
-              + " href='../builtins/ProvidersMap.html'>ProvidersMap</a>. The result can be returned"
+              + " href='../builtins/ProviderMap.html'>ProviderMap</a>. The result can be returned"
               + " directly from another rule implementation function to re-export the target's"
-              + " providers.")
-  ProvidersMapApi providers();
+              + " providers.",
+      useStarlarkThread = true)
+  ProviderMapApi providersForStarlark(StarlarkThread thread);
 }

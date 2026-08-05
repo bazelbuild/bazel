@@ -36,6 +36,12 @@ public interface StarlarkIndexable extends StarlarkMembershipTestable {
   /** Returns the value associated with the given key. */
   Object getIndex(StarlarkSemantics semantics, Object key) throws EvalException;
 
+  /** An indexable value that also supports indexed assignment ({@code object[key] = value}). */
+  interface Settable extends StarlarkIndexable {
+    /** Updates the value associated with {@code key}. */
+    void setIndex(StarlarkSemantics semantics, Object key, Object value) throws EvalException;
+  }
+
   /**
    * A variant of {@link StarlarkIndexable} that also provides a StarlarkThread instance on method
    * calls.

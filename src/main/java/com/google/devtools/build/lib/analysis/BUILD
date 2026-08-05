@@ -168,7 +168,7 @@ java_library(
         ":options_diff_predicate",
         ":platform_configuration",
         ":provider_collection",
-        ":providers_map",
+        ":provider_map",
         ":repo_mapping_manifest_action",
         ":required_config_fragments_provider",
         ":resolved_toolchain_context",
@@ -1093,8 +1093,8 @@ java_library(
 )
 
 java_library(
-    name = "providers_map",
-    srcs = ["ProvidersMap.java"],
+    name = "provider_map",
+    srcs = ["ProviderMap.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/packages:provider",
@@ -1109,7 +1109,7 @@ java_library(
     srcs = ["TransitiveInfoCollection.java"],
     deps = [
         ":provider_collection",
-        ":providers_map",
+        ":provider_map",
         ":transitive_info_provider",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages",
