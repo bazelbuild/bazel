@@ -1600,12 +1600,13 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
   }
 
   @Test
-  public void testProvidersFunctionReexportsTargetProviders() throws Exception {
+  public void testTargetProvidersReexportsTargetProviders() throws Exception {
     scratch.file(
         "test/rules.bzl",
         """
         FooInfo = provider(fields = ["value"])
         BarInfo = provider(fields = ["value"])
+        MissingInfo = provider()
 
         def _dep_impl(ctx):
             out = ctx.actions.declare_file(ctx.label.name + ".out")
@@ -1620,7 +1621,20 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         dep_rule = rule(implementation = _dep_impl)
 
         def _reexport_impl(ctx):
-            return providers(ctx.attr.dep)
+            providers_map = ctx.attr.dep.providers()
+            if type(providers_map) != "ProvidersMap":
+                fail("expected ProvidersMap, got %s" % type(providers_map))
+            if DefaultInfo not in providers_map:
+                fail("DefaultInfo is missing")
+            if len(providers_map[DefaultInfo].files.to_list()) != 1:
+                fail("unexpected DefaultInfo files")
+            if FooInfo not in providers_map:
+                fail("FooInfo is missing")
+            if MissingInfo in providers_map:
+                fail("unexpected MissingInfo")
+            if providers_map[FooInfo].value != "foo":
+                fail("unexpected FooInfo value")
+            return providers_map
 
         reexport_rule = rule(
             implementation = _reexport_impl,
@@ -1667,7 +1681,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
   }
 
   @Test
-  public void testProvidersFunctionMergesAspectProviders() throws Exception {
+  public void testTargetProvidersMergesAspectProviders() throws Exception {
     scratch.file(
         "test/rules.bzl",
         """
@@ -1694,7 +1708,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         my_aspect = aspect(implementation = _my_aspect_impl)
 
         def _reexport_impl(ctx):
-            return providers(ctx.attr.dep)
+            return ctx.attr.dep.providers()
 
         reexport_rule = rule(
             implementation = _reexport_impl,
@@ -1729,6 +1743,40 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         """);
 
     assertThat(getConfiguredTarget("//test:consumer")).isNotNull();
+  }
+
+  @Test
+  public void testTargetProvidersIsNotIterable() throws Exception {
+    scratch.file(
+        "test/rules.bzl",
+        """
+        def _dep_impl(ctx):
+            return []
+
+        dep_rule = rule(implementation = _dep_impl)
+
+        def _consumer_impl(ctx):
+            for provider in ctx.attr.dep.providers():
+                print(provider)
+            return []
+
+        consumer_rule = rule(
+            implementation = _consumer_impl,
+            attrs = {"dep": attr.label()},
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load(":rules.bzl", "consumer_rule", "dep_rule")
+
+        dep_rule(name = "dep")
+        consumer_rule(name = "consumer", dep = ":dep")
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    assertThat(getConfiguredTarget("//test:consumer")).isNull();
+    assertContainsEvent("type 'ProvidersMap' is not iterable");
   }
 
   @Test

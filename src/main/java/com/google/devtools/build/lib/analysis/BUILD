@@ -168,6 +168,7 @@ java_library(
         ":options_diff_predicate",
         ":platform_configuration",
         ":provider_collection",
+        ":providers_map",
         ":repo_mapping_manifest_action",
         ":required_config_fragments_provider",
         ":resolved_toolchain_context",
@@ -1092,17 +1093,28 @@ java_library(
 )
 
 java_library(
-    name = "transitive_info_collection",
-    srcs = ["TransitiveInfoCollection.java"],
+    name = "providers_map",
+    srcs = ["ProvidersMap.java"],
     deps = [
-        ":provider_collection",
-        ":transitive_info_provider",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/packages:provider",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/core",
         "//src/main/java/net/starlark/java/eval",
         "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "transitive_info_collection",
+    srcs = ["TransitiveInfoCollection.java"],
+    deps = [
+        ":provider_collection",
+        ":providers_map",
+        ":transitive_info_provider",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/core",
+        "//src/main/java/net/starlark/java/eval",
     ],
 )
 
@@ -1739,14 +1751,12 @@ java_library(
     srcs = ["starlark/BazelBuildApiGlobals.java"],
     deps = [
         ":starlark/starlark_late_bound_default",
-        ":transitive_info_collection",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/packages:bzl_visibility",
         "//src/main/java/com/google/devtools/build/lib/packages:package_specification",
         "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
-        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/core",
         "//src/main/java/net/starlark/java/eval",
         "//third_party:guava",
     ],

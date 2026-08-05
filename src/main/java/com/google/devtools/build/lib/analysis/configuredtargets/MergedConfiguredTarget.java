@@ -382,7 +382,7 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
   protected void addDeclaredProviders(Consumer<Info> collector) {
     // nonBaseProviders comes last so that merged providers such as OutputGroupInfo replace the base
     // target's copies.
-    base.getProvidersForStarlark().forEach(collector);
+    base.providers().getProviderInstances().forEach(collector);
     addDeclaredProviders(nonBaseProviders, collector);
   }
 

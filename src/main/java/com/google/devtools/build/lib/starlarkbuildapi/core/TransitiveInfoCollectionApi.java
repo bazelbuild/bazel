@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.starlarkbuildapi.core;
 
 import com.google.devtools.build.docgen.annot.DocCategory;
 import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.StarlarkValue;
 
 /** Interface for a build target. */
@@ -42,4 +43,14 @@ import net.starlark.java.eval.StarlarkValue;
             + " the <code>in</code> operator (<code>SomeInfo in target</code>).<br/>\n" //
             + "<br/>\n" //
             + "</ul>")
-public interface TransitiveInfoCollectionApi extends StarlarkValue {}
+public interface TransitiveInfoCollectionApi extends StarlarkValue {
+
+  @StarlarkMethod(
+      name = "providers",
+      doc =
+          "Returns this target's providers as a <a"
+              + " href='../builtins/ProvidersMap.html'>ProvidersMap</a>. The result can be returned"
+              + " directly from another rule implementation function to re-export the target's"
+              + " providers.")
+  ProvidersMapApi providers();
+}

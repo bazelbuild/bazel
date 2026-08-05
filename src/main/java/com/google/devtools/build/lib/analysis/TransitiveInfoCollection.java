@@ -14,9 +14,7 @@
 
 package com.google.devtools.build.lib.analysis;
 
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.RequiredProviders;
 import com.google.devtools.build.lib.starlarkbuildapi.core.TransitiveInfoCollectionApi;
 import net.starlark.java.eval.StarlarkIndexable;
@@ -64,11 +62,8 @@ public interface TransitiveInfoCollection
         id -> this.get(id) != null);
   }
 
-  /**
-   * Returns the providers of this target that may be returned from a Starlark rule implementation
-   * function, backing the Starlark {@code providers()} function.
-   */
-  default ImmutableList<Info> getProvidersForStarlark() {
-    return ImmutableList.of();
+  @Override
+  default ProvidersMap providers() {
+    return ProvidersMap.empty();
   }
 }
