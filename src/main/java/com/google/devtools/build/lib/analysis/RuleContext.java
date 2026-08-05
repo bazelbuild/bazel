@@ -157,7 +157,7 @@ public class RuleContext extends TargetContext
      * Returns whether the given package is allowed to depend on prototype packages. (If the given
      * package is itself an experimental or prototype package, this method's result is ignored.)
      */
-    default boolean mayDependOnPrototypesWithoutException(PackageIdentifier packageIdentifier) {
+    default boolean mayDependOnPrototypes(PackageIdentifier packageIdentifier) {
       return false;
     }
   }
