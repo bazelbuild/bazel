@@ -485,7 +485,7 @@ StartupOptions::GetServerJavabaseAndType() const {
       if (system_javabase.IsEmpty()) {
         BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
             << "Could not find system javabase. Ensure JAVA_HOME is set, or "
-               "javac is on your PATH.";
+               "java is on your PATH.";
       }
       default_server_javabase_ = std::pair<blaze_util::Path, JavabaseType>(
           system_javabase, JavabaseType::SYSTEM);
