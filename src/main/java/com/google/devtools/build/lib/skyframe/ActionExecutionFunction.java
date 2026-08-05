@@ -69,7 +69,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.io.InconsistentFilesystemException;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
@@ -114,7 +113,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
-import net.starlark.java.eval.StarlarkSemantics;
 
 /**
  * A {@link SkyFunction} that creates {@link ActionExecutionValue}s. There are four points where
@@ -660,14 +658,6 @@ public class ActionExecutionFunction implements SkyFunction {
           "resolver should only be called once: %s %s",
           packageLookupsRequested,
           execPaths);
-      StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
-      if (starlarkSemantics == null) {
-        return null;
-      }
-
-      boolean siblingRepositoryLayout =
-          starlarkSemantics.getBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT);
-
       // Create SkyKeys list based on execPaths.
       Map<PathFragment, ContainingPackageLookupValue.Key> depKeys = new HashMap<>();
       for (PathFragment path : execPaths) {
@@ -675,7 +665,7 @@ public class ActionExecutionFunction implements SkyFunction {
             checkNotNull(path.getParentDirectory(), "Must pass in files, not root directory");
         checkArgument(!parent.isAbsolute(), path);
         Optional<PackageIdentifier> pkgId =
-            PackageIdentifier.discoverFromExecPath(path, true, siblingRepositoryLayout);
+            PackageIdentifier.discoverFromExecPath(path, /* forFiles= */ true);
         if (pkgId.isPresent()) {
           ContainingPackageLookupValue.Key depKey = ContainingPackageLookupValue.key(pkgId.get());
           depKeys.put(path, depKey);

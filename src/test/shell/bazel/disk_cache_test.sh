@@ -65,7 +65,7 @@ EOF
   assert_equals "0" $(cat "${execution_file}")
 }
 
-function test_input_directories_in_external_repo_with_sibling_repository_layout() {
+function test_input_directories_in_external_repo() {
   create_new_workspace
   l=$TEST_TMPDIR/l
   mkdir -p "$l/dir"
@@ -85,7 +85,6 @@ genrule(name="g", srcs=["@l//:dir"], outs=["go"], cmd="find $< > $@")
 EOF
 
   bazel build \
-    --experimental_sibling_repository_layout  \
     --disk_cache="$TEST_TMPDIR/cache" \
     //:g || fail "build failed"
 

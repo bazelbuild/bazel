@@ -110,6 +110,10 @@ public interface BuildConfigurationApi extends StarlarkValue {
       useStarlarkThread = true)
   boolean hasSeparateGenfilesDirectoryForStarlark(StarlarkThread thread) throws EvalException;
 
+  /**
+   * @deprecated Always returns false; the sibling repository layout no longer exists.
+   */
+  @Deprecated
   @StarlarkMethod(
       name = "is_sibling_repository_layout",
       documented = false,

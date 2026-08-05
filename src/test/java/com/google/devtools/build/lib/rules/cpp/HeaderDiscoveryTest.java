@@ -208,7 +208,6 @@ public final class HeaderDiscoveryTest {
             NestedSetBuilder.emptySet(Order.STABLE_ORDER),
             execRoot,
             artifactResolver,
-            /* siblingRepositoryLayout= */ false,
             PathMapper.NOOP);
 
     assertThat(result.toList()).isEmpty();
@@ -233,7 +232,6 @@ public final class HeaderDiscoveryTest {
             NestedSetBuilder.emptySet(Order.STABLE_ORDER),
             execRoot,
             artifactResolver,
-            /* siblingRepositoryLayout= */ false,
             PathMapper.NOOP);
 
     assertThat(result.toList()).isEmpty();
@@ -256,7 +254,6 @@ public final class HeaderDiscoveryTest {
             NestedSetBuilder.emptySet(Order.STABLE_ORDER),
             execRoot,
             artifactResolver,
-            /* siblingRepositoryLayout= */ false,
             PathMapper.NOOP);
 
     // The source file itself should be filtered out as it's a mandatory input.
@@ -362,7 +359,6 @@ public final class HeaderDiscoveryTest {
             includedHeaders,
             execRoot,
             artifactResolver,
-            /* siblingRepositoryLayout= */ false,
             PathMapper.NOOP);
   }
 
@@ -381,7 +377,6 @@ public final class HeaderDiscoveryTest {
         allowedDerivedInputs,
         execRoot,
         artifactResolver,
-        /* siblingRepositoryLayout= */ false,
         PathMapper.NOOP);
   }
 

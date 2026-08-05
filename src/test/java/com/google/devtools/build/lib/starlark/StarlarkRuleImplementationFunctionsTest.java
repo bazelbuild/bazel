@@ -2111,8 +2111,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
     StarlarkRuleContext ctx = createRuleContext("//foo:bar");
     setRuleContext(ctx);
     Object result = ev.eval("ruleContext.bin_dir.path");
-    assertThat(result)
-        .isEqualTo(ctx.getConfiguration().getBinFragment(RepositoryName.MAIN).getPathString());
+    assertThat(result).isEqualTo(ctx.getConfiguration().getBinFragment().getPathString());
   }
 
   @Test
@@ -3766,7 +3765,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
     CommandLine commandLine1 =
         getCommandLine(
             mainRepoMapping,
-"""
+            """
 args = ruleContext.actions.args()
 args.add_all(depset([Label("@@canonical1+//foo:bar"), Label("@@canonical2+//foo:bar")]))
 """);
@@ -3977,7 +3976,7 @@ args.add_all(depset([Label("@@canonical1+//foo:bar"), Label("@@canonical2+//foo:
 
     CommandLine commandLine1 =
         getCommandLine(
-"""
+            """
 def _map_each(x):
   return x.field.root.path
 args = ruleContext.actions.args()
@@ -3986,7 +3985,7 @@ args.add_all(d, map_each = _map_each, uniquify = True)
 """);
     CommandLine commandLine2 =
         getCommandLine(
-"""
+            """
 def _map_each(x):
   return x.field
 args = ruleContext.actions.args()

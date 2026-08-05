@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
 import com.google.devtools.build.lib.packages.util.MockProtoSupport;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
@@ -243,9 +242,7 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
     SpawnAction protoCompileAction = getGeneratingSpawnAction(hFile);
 
     assertThat(protoCompileAction.getArguments())
-        .contains(
-            String.format(
-                "--cpp_out=%s", getTargetConfiguration().getGenfilesFragment(RepositoryName.MAIN)));
+        .contains(String.format("--cpp_out=%s", getTargetConfiguration().getGenfilesFragment()));
   }
 
   @Test

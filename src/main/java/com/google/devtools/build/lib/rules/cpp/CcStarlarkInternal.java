@@ -1184,7 +1184,7 @@ public class CcStarlarkInternal implements StarlarkValue {
     RuleContext ruleContext = starlarkRuleContext.getRuleContext();
     return ruleContext.getDerivedArtifact(
         objectFile.getRootRelativePath().getParentDirectory().getRelative(outputName),
-        ruleContext.getConfiguration().getBinDirectory(ruleContext.getLabel().getRepository()));
+        ruleContext.getConfiguration().getBinDirectory());
   }
 
   @StarlarkMethod(

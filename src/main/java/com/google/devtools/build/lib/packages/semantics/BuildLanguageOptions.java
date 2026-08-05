@@ -283,25 +283,17 @@ public abstract class BuildLanguageOptions extends OptionsBase {
       help = "If set to true, repository_rule gains some remote execution capabilities.")
   public abstract boolean getExperimentalRepoRemoteExec();
 
+  @Deprecated
   @Option(
       name = "experimental_sibling_repository_layout",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = {
-        OptionEffectTag.ACTION_COMMAND_LINES,
-        OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION,
-        OptionEffectTag.LOADING_AND_ANALYSIS,
-        OptionEffectTag.LOSES_INCREMENTAL_STATE
-      },
-      metadataTags = {
-        OptionMetadataTag.EXPERIMENTAL,
-      },
-      help =
-          "If set to true, non-main repositories are planted as symlinks to the main repository in"
-              + " the execution root. That is, all repositories are direct children of the"
-              + " $output_base/execution_root directory. This has the side effect of freeing up"
-              + " $output_base/execution_root/__main__/external for the real top-level 'external' "
-              + "directory.")
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.NO_OP},
+      metadataTags = {OptionMetadataTag.DEPRECATED},
+      deprecationWarning =
+          "This flag is a no-op. Non-main repositories are always planted under"
+              + " $output_base/execution_root/_main/external.",
+      help = "Deprecated. No-op.")
   public abstract boolean getExperimentalSiblingRepositoryLayout();
 
   @Option(
@@ -882,8 +874,6 @@ public abstract class BuildLanguageOptions extends OptionsBase {
             .setBool(EXPERIMENTAL_CC_SHARED_LIBRARY, getExperimentalCcSharedLibrary())
             .setBool(EXPERIMENTAL_REPO_REMOTE_EXEC, getExperimentalRepoRemoteExec())
             .setBool(
-                EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT, getExperimentalSiblingRepositoryLayout())
-            .setBool(
                 INCOMPATIBLE_ALWAYS_CHECK_DEPSET_ELEMENTS,
                 getIncompatibleAlwaysCheckDepsetElements())
             .setBool(
@@ -1078,8 +1068,6 @@ public abstract class BuildLanguageOptions extends OptionsBase {
   public static final String EXPERIMENTAL_GOOGLE_LEGACY_API = "-experimental_google_legacy_api";
   public static final String EXPERIMENTAL_PLATFORMS_API = "-experimental_platforms_api";
   public static final String EXPERIMENTAL_REPO_REMOTE_EXEC = "-experimental_repo_remote_exec";
-  public static final String EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT =
-      "-experimental_sibling_repository_layout";
   public static final String INCOMPATIBLE_ALWAYS_CHECK_DEPSET_ELEMENTS =
       "+incompatible_always_check_depset_elements";
   public static final String INCOMPATIBLE_CHECK_EXTERNAL_REPO_SOURCE_DIR_PACKAGE_BOUNDARY =

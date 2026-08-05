@@ -116,17 +116,12 @@ public final class RepositoryName {
    *     was invalid.
    */
   @Nullable
-  public static Pair<RepositoryName, PathFragment> fromPathFragment(
-      PathFragment path, boolean siblingRepositoryLayout) {
+  public static Pair<RepositoryName, PathFragment> fromPathFragment(PathFragment path) {
     if (!path.isMultiSegment()) {
       return null;
     }
 
-    PathFragment prefix =
-        siblingRepositoryLayout
-            ? LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX
-            : LabelConstants.EXTERNAL_PATH_PREFIX;
-    if (!path.startsWith(prefix)) {
+    if (!path.startsWith(LabelConstants.EXTERNAL_PATH_PREFIX)) {
       return null;
     }
 
@@ -324,21 +319,15 @@ public final class RepositoryName {
   }
 
   /**
-   * Returns the runfiles/execRoot path for this repository. If we don't know the name of this repo
-   * (i.e., it is in the main repository), return an empty path fragment.
-   *
-   * <p>If --experimental_sibling_repository_layout is true, return "$execroot/../repo" (sibling of
-   * __main__), instead of "$execroot/external/repo".
+   * Returns the runfiles/execRoot path for this repository, that is "$execroot/external/repo". If
+   * we don't know the name of this repo (i.e., it is in the main repository), return an empty path
+   * fragment.
    */
-  public PathFragment getExecPath(boolean siblingRepositoryLayout) {
+  public PathFragment getExecPath() {
     if (isMain()) {
       return PathFragment.EMPTY_FRAGMENT;
     }
-    PathFragment prefix =
-        siblingRepositoryLayout
-            ? LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX
-            : LabelConstants.EXTERNAL_PATH_PREFIX;
-    return prefix.getRelative(getName());
+    return LabelConstants.EXTERNAL_PATH_PREFIX.getRelative(getName());
   }
 
   /** Returns the runfiles path relative to the x.runfiles/main-repo directory. */
