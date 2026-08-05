@@ -46,6 +46,16 @@ public class LabelConstants {
   // With this prefix, non-main repositories are symlinked under
   // $output_base/execution_root/__main__/external
   public static final PathFragment EXTERNAL_PATH_PREFIX = PathFragment.create("external");
+  // With this prefix, non-main repositories are symlinked under
+  // $output_base/execution_root/__main__/bazel-external when
+  // --incompatible_bazel_external_directory is enabled.
+  public static final PathFragment BAZEL_EXTERNAL_PATH_PREFIX =
+      PathFragment.create("bazel-external");
+
+  /** Returns the execroot prefix for non-main repositories under the requested layout. */
+  public static PathFragment getExternalPathPrefix(boolean bazelExternalDirectory) {
+    return bazelExternalDirectory ? BAZEL_EXTERNAL_PATH_PREFIX : EXTERNAL_PATH_PREFIX;
+  }
 
   // The relative path from the runfiles workspace root to external repository runfile top
   // directory.

@@ -452,12 +452,17 @@ public final class ArtifactFunction implements SkyFunction {
         // No additional useful information from path.
         return String.format("%s '%s'", error, ownerLabel);
       }
-    } else if (ownerLabel
-        .getRepository()
-        .getExecPath()
-        .getRelative(labelFragment)
-        .equals(artifact.getExecPath())) {
-      return String.format("%s '%s'", error, ownerLabel);
+    } else {
+      // Not worth threading the repository layout all the way here: if any layout matches, we know
+      // the label isn't useful.
+      for (PathFragment repositoryExecPath :
+          ImmutableList.of(
+              ownerLabel.getRepository().getExecPath(false),
+              ownerLabel.getRepository().getExecPath(true))) {
+        if (repositoryExecPath.getRelative(labelFragment).equals(artifact.getExecPath())) {
+          return String.format("%s '%s'", error, ownerLabel);
+        }
+      }
     }
 
     // TODO(bazel-team): when is this hit?

@@ -81,17 +81,24 @@ public final class RepositoryName {
    * Extracts the repository name from a PathFragment that was created with {@code
    * PackageIdentifier.getSourceRoot}.
    *
-   * @return a {@code Pair} of the extracted repository name and the path fragment with stripped of
-   *     "external/"-prefix and repository name, or null if none was found or the repository name
-   *     was invalid.
+   * @return a {@code Pair} of the extracted repository name and the path fragment with the external
+   *     repository prefix and repository name stripped, or null if none was found or the repository
+   *     name was invalid.
    */
   @Nullable
   public static Pair<RepositoryName, PathFragment> fromPathFragment(PathFragment path) {
+    return fromPathFragment(path, /* bazelExternalDirectory= */ false);
+  }
+
+  @Nullable
+  public static Pair<RepositoryName, PathFragment> fromPathFragment(
+      PathFragment path, boolean bazelExternalDirectory) {
     if (!path.isMultiSegment()) {
       return null;
     }
 
-    if (!path.startsWith(LabelConstants.EXTERNAL_PATH_PREFIX)) {
+    PathFragment prefix = LabelConstants.getExternalPathPrefix(bazelExternalDirectory);
+    if (!path.startsWith(prefix)) {
       return null;
     }
 
@@ -289,15 +296,23 @@ public final class RepositoryName {
   }
 
   /**
-   * Returns the runfiles/execRoot path for this repository, that is "$execroot/external/repo". If
-   * we don't know the name of this repo (i.e., it is in the main repository), return an empty path
-   * fragment.
+   * Returns the runfiles/execRoot path for this repository. If we don't know the name of this repo
+   * (i.e., it is in the main repository), return an empty path fragment.
+   *
+   * <p>The prefix is "external" by default and "bazel-external" when
+   * --incompatible_bazel_external_directory is enabled.
    */
   public PathFragment getExecPath() {
+    return getExecPath(/* bazelExternalDirectory= */ false);
+  }
+
+  /** Returns the runfiles/execroot path for this repository under the requested layout. */
+  public PathFragment getExecPath(boolean bazelExternalDirectory) {
     if (isMain()) {
       return PathFragment.EMPTY_FRAGMENT;
     }
-    return LabelConstants.EXTERNAL_PATH_PREFIX.getRelative(getName());
+    PathFragment prefix = LabelConstants.getExternalPathPrefix(bazelExternalDirectory);
+    return prefix.getRelative(getName());
   }
 
   /** Returns the runfiles path relative to the x.runfiles/main-repo directory. */
