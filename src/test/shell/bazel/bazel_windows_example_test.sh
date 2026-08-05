@@ -63,7 +63,7 @@ if ! "$is_windows"; then
   exit 0
 fi
 
-setup_localjdk_javabase
+setup_javabase
 
 function set_up() {
   copy_examples
@@ -396,4 +396,3 @@ EOF
 }
 
 run_suite "examples on Windows"
-
