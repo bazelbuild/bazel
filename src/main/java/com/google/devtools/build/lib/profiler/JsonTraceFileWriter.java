@@ -72,10 +72,7 @@ class JsonTraceFileWriter implements Runnable {
   /**
    * @param profileStartTimeNanos the monotonic clock reading that every event in the profile is
    *     emitted relative to
-   * @param profileStartEpochMillis the same instant on the wall clock. It has to be supplied
-   *     because this class cannot convert between the two clocks; reading the wall clock here
-   *     instead would date the profile to when the writer thread started, which is one client
-   *     startup and command lock wait later than the events the profile contains.
+   * @param profileStartEpochMillis the same instant on the wall clock
    */
   JsonTraceFileWriter(
       OutputStream outStream,
