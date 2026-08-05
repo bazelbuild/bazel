@@ -223,6 +223,12 @@ public class ExecutionGraphModule extends BlazeModule {
   @Override
   public void beforeCommand(CommandEnvironment env) {
     this.env = env;
+    // Modules are instantiated once per server, so the converter built in the field initializer
+    // above is arbitrarily stale by the time any command is served: it maps monotonic readings to
+    // wall-clock time using the offset that happened to hold at server startup. The two clocks are
+    // backed by different operating system clocks whose offset is not constant, so re-sample it for
+    // the command being served.
+    this.nanosToMillis = BlazeClock.createNanosToMillisSinceEpochConverter();
 
     if (env.getCommand().buildPhase().executes()) {
       ExecutionGraphOptions options =
