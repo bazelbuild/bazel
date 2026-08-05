@@ -1066,9 +1066,10 @@ public final class StarlarkMapActionTemplateTest extends BuildIntegrationTestCas
     assertThat(recordingOutErr.errAsLatin1())
         .containsMatch(
             "ERROR: .*/test/BUILD:2:8: Expanding \\[File:\\[.*\\]test/target_input_dir\\] into"
-                + " actions failed: Output directory"
-                + " File:\\[.*\\]test/target_output_dir1"
-                + " cannot be used as an input to template_ctx\\.run\\(\\)");
+                + " actions failed: (.|\\n"
+                + ")*/test/rule_def.bzl\", line 15, column 21, in combined_impl(.|\\n"
+                + ")*Output directory File:\\[.*\\]test/target_output_dir1 cannot be used as an"
+                + " input to template_ctx\\.run\\(\\)");
   }
 
   @Test
