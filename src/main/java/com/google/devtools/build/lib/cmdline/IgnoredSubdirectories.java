@@ -128,8 +128,7 @@ public final class IgnoredSubdirectories {
     ImmutableSet<PathFragment> filteredPrefixes =
         prefixes.stream().filter(p -> p.startsWith(directory)).collect(toImmutableSet());
 
-    String[] splitDirectory =
-        Iterables.toArray(SLASH_SPLITTER.split(directory.getPathString()), String.class);
+    String[] splitDirectory = Iterables.toArray(directory.segments(), String.class);
     ImmutableList.Builder<String> filteredPatterns = ImmutableList.builder();
     for (int i = 0; i < patterns.size(); i++) {
       if (UnixGlob.canMatchChild(splitPatterns.get(i), splitDirectory)) {
