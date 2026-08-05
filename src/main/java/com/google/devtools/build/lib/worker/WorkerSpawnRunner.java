@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.actions.VirtualActionInput;
 import com.google.devtools.build.lib.clock.Clock;
+import com.google.devtools.build.lib.clock.TimeAnchor;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.RunfilesTreeUpdater;
@@ -66,7 +67,6 @@ import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.time.Duration;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -103,6 +103,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
   private final WorkerOptions workerOptions;
   private final WorkerParser workerParser;
   private final WorkerProcessMetricsCollector metricsCollector;
+  private final TimeAnchor timeAnchor;
 
   public WorkerSpawnRunner(
       Path execRoot,
@@ -114,7 +115,8 @@ final class WorkerSpawnRunner implements SpawnRunner {
       RunfilesTreeUpdater runfilesTreeUpdater,
       WorkerOptions workerOptions,
       WorkerProcessMetricsCollector workerProcessMetricsCollector,
-      Clock clock) {
+      Clock clock,
+      TimeAnchor timeAnchor) {
     this.execRoot = execRoot;
     this.reporter = reporter;
     this.resourceManager = resourceManager;
@@ -124,6 +126,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
     this.resourceManager.setWorkerPool(workers);
     this.metricsCollector = workerProcessMetricsCollector;
     this.metricsCollector.setClock(clock);
+    this.timeAnchor = timeAnchor;
   }
 
   @Override
@@ -167,7 +170,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
           Code.NO_TOOLS);
     }
 
-    Instant startTime = Instant.now();
+    long startNanos = timeAnchor.nanoTime();
     SpawnMetrics.Builder spawnMetrics;
     WorkResponse response;
 
@@ -215,14 +218,14 @@ final class WorkerSpawnRunner implements SpawnRunner {
       FileOutErr outErr = context.getFileOutErr();
       response.getOutputBytes().writeTo(outErr.getErrorStream());
     }
-    Duration wallTime = Duration.between(startTime, Instant.now());
+    Duration wallTime = TimeAnchor.between(startNanos, timeAnchor.nanoTime());
 
     int exitCode = response.getExitCode();
     SpawnResult.Builder builder =
         getSpawnResultBuilder(context)
             .setExitCode(exitCode)
             .setStatus(exitCode == 0 ? Status.SUCCESS : Status.NON_ZERO_EXIT)
-            .setStartTime(startTime)
+            .setStartTime(timeAnchor.toInstant(startNanos))
             .setWallTimeInMs((int) wallTime.toMillis())
             .setSpawnMetrics(spawnMetrics.setTotalTime(wallTime).build());
     if (exitCode != 0) {

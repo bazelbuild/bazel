@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.buildtool.BuildResult;
 import com.google.devtools.build.lib.buildtool.ExecutionProgressReceiver;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionProgressReceiverAvailableEvent;
+import com.google.devtools.build.lib.clock.TimeAnchor;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.pkgcache.LoadingPhaseCompleteEvent;
 import com.google.devtools.build.lib.runtime.SkymeldUiStateTracker.BuildStatus;
@@ -141,7 +142,7 @@ public class SkymeldUiStateTrackerTest extends FoundationTestCase {
     ManualClock clock = new ManualClock();
     SkymeldUiStateTracker uiStateTracker = new SkymeldUiStateTracker(clock);
 
-    BuildResult buildResult = new BuildResult(clock.currentTimeMillis());
+    BuildResult buildResult = new BuildResult(TimeAnchor.create(clock), clock.nanoTime());
     buildResult.setDetailedExitCode(DetailedExitCode.success());
     clock.advanceMillis(SECONDS.toMillis(1));
     buildResult.setStopTime(clock.currentTimeMillis());

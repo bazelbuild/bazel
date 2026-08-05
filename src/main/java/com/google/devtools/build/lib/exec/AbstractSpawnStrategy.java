@@ -131,8 +131,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
       if (cacheHandle.hasResult()) {
         spawnResult = Preconditions.checkNotNull(cacheHandle.getResult());
       } else {
-        Instant startTime =
-            Instant.ofEpochMilli(actionExecutionContext.getClock().currentTimeMillis());
+        Instant startTime = actionExecutionContext.getTimeAnchor().now();
         // Actual execution.
         spawnResult = spawnRunner.exec(spawn, context);
 

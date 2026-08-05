@@ -910,7 +910,7 @@ public class BuildTool {
       PostBuildCallback postBuildCallback,
       OptionsParsingResult options,
       @Nullable List<String> targetsForProjectResolution) {
-    BuildResult result = new BuildResult(request.getStartTime());
+    BuildResult result = new BuildResult(request.getTimeAnchor(), request.getStartTimeNanos());
     maybeSetStopOnFirstFailure(request, result);
     Throwable crash = null;
     DetailedExitCode detailedExitCode = null;
@@ -1186,7 +1186,7 @@ public class BuildTool {
     InterruptedException ie = null;
 
     // The stop time has to be captured before we send the BuildCompleteEvent.
-    result.setStopTime(runtime.getClock().currentTimeMillis());
+    result.setStopTime(runtime.getClock().nanoTime());
 
     // Skip the build complete events so that modules can run blazeShutdownOnCrash without thinking
     // that the build completed normally. BlazeCommandDispatcher will call handleCrash.

@@ -18,6 +18,7 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import com.google.common.base.Preconditions;
 import com.google.common.io.CountingOutputStream;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
+import com.google.devtools.build.lib.clock.TimeAnchor;
 import com.google.devtools.build.lib.skybridge.ScOnly;
 import com.google.gson.stream.JsonWriter;
 import java.io.BufferedOutputStream;
@@ -25,7 +26,6 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.time.Duration;
-import java.time.Instant;
 import java.util.HashMap;
 import java.util.Queue;
 import java.util.UUID;
@@ -54,6 +54,7 @@ class JsonTraceFileWriter implements Runnable {
 
   private final OutputStream outStream;
   private final long profileStartTimeNanos;
+  private final TimeAnchor timeAnchor;
   private final ThreadLocal<Boolean> metadataPosted = ThreadLocal.withInitial(() -> Boolean.FALSE);
   private final SlimProfileConfiguration slimProfileConfig;
   private final UUID buildID;
@@ -71,6 +72,7 @@ class JsonTraceFileWriter implements Runnable {
   JsonTraceFileWriter(
       OutputStream outStream,
       long profileStartTimeNanos,
+      TimeAnchor timeAnchor,
       SlimProfileConfiguration slimProfileConfig,
       String outputBase,
       UUID buildID,
@@ -79,6 +81,7 @@ class JsonTraceFileWriter implements Runnable {
     this.thread = new Thread(this, "profile-writer-thread");
     this.outStream = outStream;
     this.profileStartTimeNanos = profileStartTimeNanos;
+    this.timeAnchor = timeAnchor;
     this.slimProfileConfig = slimProfileConfig;
     this.buildID = buildID;
     this.outputBase = outputBase;
@@ -271,7 +274,9 @@ class JsonTraceFileWriter implements Runnable {
                 // Bazel internally stores strings as raw bytes encoded in ISO_8859_1, so we use the
                 // same encoding here to also write out raw bytes.
                 new OutputStreamWriter(targetOutStream, ISO_8859_1))) {
-          var startDate = Instant.now();
+          // Every event below is emitted relative to profileStartTimeNanos, so derive the profile's
+          // absolute start from the same reading instead of taking an independent wall-clock sample.
+          var startDate = timeAnchor.toInstant(profileStartTimeNanos);
           writer.beginObject();
           writer.name("otherData");
           writer.beginObject();

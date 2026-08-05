@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.runtime;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.clock.TimeAnchor;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.server.IdleTask;
 import com.google.devtools.build.lib.server.TerminalSizeMonitor;
@@ -47,6 +48,11 @@ public interface CommandDispatcher {
    * Executes a single command. Returns a {@link BlazeCommandResult} to indicate either an exit
    * code, the desire to shut down the server, or that a given binary should be executed by the
    * client.
+   *
+   * @param firstContactTime the moment the server first saw this command, sampled on the monotonic
+   *     and the wall clock at once. Monotonic readings taken while serving this command are
+   *     converted to absolute timestamps through this one anchor, so a wall-clock step that
+   *     happened earlier in the server's lifetime cannot shift them.
    */
   BlazeCommandResult exec(
       InvocationPolicy invocationPolicy,
@@ -55,7 +61,7 @@ public interface CommandDispatcher {
       LockingMode lockingMode,
       UiVerbosity uiVerbosity,
       String clientDescription,
-      long firstContactTimeMillis,
+      TimeAnchor firstContactTime,
       Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc,
       Supplier<ImmutableList<IdleTask.Result>> idleTaskResultsSupplier,
       List<Any> commandExtensions,
@@ -75,7 +81,7 @@ public interface CommandDispatcher {
       LockingMode lockingMode,
       UiVerbosity uiVerbosity,
       String clientDescription,
-      long firstContactTimeMillis,
+      TimeAnchor firstContactTime,
       Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc,
       Supplier<ImmutableList<IdleTask.Result>> idleTaskResultsSupplier,
       List<Any> commandExtensions,
@@ -89,7 +95,7 @@ public interface CommandDispatcher {
         lockingMode,
         uiVerbosity,
         clientDescription,
-        firstContactTimeMillis,
+        firstContactTime,
         startupOptionsTaggedWithBazelRc,
         idleTaskResultsSupplier,
         commandExtensions,

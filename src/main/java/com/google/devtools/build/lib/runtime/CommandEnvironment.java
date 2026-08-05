@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.bazel.repository.downloader.DelegatingDownl
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.clock.Clock;
+import com.google.devtools.build.lib.clock.TimeAnchor;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.QuiescingExecutors;
 import com.google.devtools.build.lib.events.Event;
@@ -131,7 +132,8 @@ public class CommandEnvironment {
   private final SyscallCache syscallCache;
   private final QuiescingExecutors quiescingExecutors;
   private final Duration waitTime;
-  private final long commandStartTime;
+  private final TimeAnchor timeAnchor;
+  private final long commandStartNanos;
   private final ImmutableList<Any> commandExtensions;
   private final ImmutableList.Builder<Any> responseExtensions = ImmutableList.builder();
   private final Consumer<String> shutdownReasonConsumer;
@@ -240,7 +242,7 @@ public class CommandEnvironment {
       QuiescingExecutors quiescingExecutors,
       List<String> warnings,
       long waitTimeInMs,
-      long commandStartTime,
+      TimeAnchor firstContactTime,
       @Nullable ImmutableList<IdleTask.Result> idleTaskResultsFromPreviousIdlePeriod,
       Consumer<String> shutdownReasonConsumer,
       List<Any> commandExtensions,
@@ -299,7 +301,12 @@ public class CommandEnvironment {
     }
 
     this.waitTime = Duration.ofMillis(waitTimeInMs + commandOptions.getWaitTime());
-    this.commandStartTime = commandStartTime - commandOptions.getStartupTime();
+    this.timeAnchor = firstContactTime;
+    // The client measures its startup time on its own monotonic clock, so back it out of the
+    // monotonic reading taken at first contact rather than out of the wall-clock one: the two are
+    // only interchangeable as long as the wall clock has not been stepped in between.
+    this.commandStartNanos =
+        firstContactTime.nanosBefore(Duration.ofMillis(commandOptions.getStartupTime()));
     this.commandExtensions = ImmutableList.copyOf(commandExtensions);
     workspace.getSkyframeExecutor().setEventBus(eventBus);
     eventBus.register(this);
@@ -897,11 +904,28 @@ public class CommandEnvironment {
   }
 
   public void recordLastExecutionTime() {
-    workspace.recordLastExecutionTime(commandStartTime);
+    workspace.recordLastExecutionTime(getCommandStartTime());
   }
 
+  /** Returns the time the command started, in millis since the epoch. */
   public long getCommandStartTime() {
-    return commandStartTime;
+    return timeAnchor.toEpochMillis(commandStartNanos);
+  }
+
+  /** Returns the time the command started, as a {@link Clock#nanoTime} reading. */
+  public long getCommandStartNanos() {
+    return commandStartNanos;
+  }
+
+  /**
+   * Returns this command's anchor between the monotonic and the wall clock.
+   *
+   * <p>All code that needs to report a {@link Clock#nanoTime} reading as an absolute timestamp must
+   * convert it through this anchor rather than sampling the two clocks itself, so that the
+   * timestamps it produces agree with those reported elsewhere in the command.
+   */
+  public TimeAnchor getTimeAnchor() {
+    return timeAnchor;
   }
 
   /**

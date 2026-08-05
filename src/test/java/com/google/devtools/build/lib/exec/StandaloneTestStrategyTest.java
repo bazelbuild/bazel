@@ -58,6 +58,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Tes
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.TestStatus;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.Clock;
+import com.google.devtools.build.lib.clock.TimeAnchor;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -178,6 +179,11 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     @Override
     public Clock getClock() {
       return BlazeClock.instance();
+    }
+
+    @Override
+    public TimeAnchor getTimeAnchor() {
+      return TimeAnchor.create();
     }
 
     @Override

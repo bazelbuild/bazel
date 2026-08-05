@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.analysis.test.TestStrategy;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.TestResult.ExecutionInfo;
 import com.google.devtools.build.lib.buildeventstream.TestFileNameConstants;
+import com.google.devtools.build.lib.clock.TimeAnchor;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Reporter;
@@ -325,7 +326,7 @@ public class StandaloneTestStrategy extends TestStrategy {
               Reporter.outErrForReporter(actionExecutionContext.getEventHandler()), out);
     }
 
-    long startTimeMillis = actionExecutionContext.getClock().currentTimeMillis();
+    long startNanos = actionExecutionContext.getTimeAnchor().nanoTime();
     SpawnStrategyResolver resolver = actionExecutionContext.getContext(SpawnStrategyResolver.class);
 
     return runTestAttempt(
@@ -336,7 +337,7 @@ public class StandaloneTestStrategy extends TestStrategy {
         resolvedPaths,
         testOutErr,
         streamed,
-        startTimeMillis);
+        startNanos);
   }
 
   private static void appendCoverageLog(FileOutErr coverageOutErr, FileOutErr outErr)
@@ -644,7 +645,7 @@ public class StandaloneTestStrategy extends TestStrategy {
       ResolvedPaths resolvedPaths,
       FileOutErr fileOutErr,
       Closeable streamed,
-      long startTimeMillis)
+      long startNanos)
       throws InterruptedException, ExecException, IOException {
 
     ImmutableList<SpawnResult> spawnResults;
@@ -687,7 +688,9 @@ public class StandaloneTestStrategy extends TestStrategy {
       closeSuppressed(e, fileOutErr);
       throw e;
     }
-    long endTimeMillis = actionExecutionContext.getClock().currentTimeMillis();
+    TimeAnchor timeAnchor = actionExecutionContext.getTimeAnchor();
+    long measuredDurationMillis =
+        TimeAnchor.between(startNanos, timeAnchor.nanoTime()).toMillis();
 
     // Check TEST_PREMATURE_EXIT_FILE file (and always delete it)
     if (actionExecutionContext
@@ -733,12 +736,13 @@ public class StandaloneTestStrategy extends TestStrategy {
 
     // The SpawnResult of a remotely cached or remotely executed action may not have walltime
     // set. We fall back to the time measured here for backwards compatibility.
-    long durationMillis = endTimeMillis - startTimeMillis;
-    durationMillis =
-        (primaryResult.getWallTimeInMs() != 0 ? primaryResult.getWallTimeInMs() : durationMillis);
+    long durationMillis =
+        primaryResult.getWallTimeInMs() != 0
+            ? primaryResult.getWallTimeInMs()
+            : measuredDurationMillis;
 
     testResultDataBuilder
-        .setStartTimeMillisEpoch(startTimeMillis)
+        .setStartTimeMillisEpoch(timeAnchor.toEpochMillis(startNanos))
         .addTestTimes(durationMillis)
         .addTestProcessTimes(durationMillis)
         .setRunDurationMillis(durationMillis)

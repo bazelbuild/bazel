@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.VirtualActionInput;
+import com.google.devtools.build.lib.clock.TimeAnchor;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.RunfilesTreeUpdater;
@@ -65,7 +66,6 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.time.Duration;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
@@ -98,6 +98,7 @@ public class LocalSpawnRunner implements SpawnRunner {
   private final BinTools binTools;
 
   private final RunfilesTreeUpdater runfilesTreeUpdater;
+  private final TimeAnchor timeAnchor;
 
   public LocalSpawnRunner(
       Path execRoot,
@@ -106,7 +107,8 @@ public class LocalSpawnRunner implements SpawnRunner {
       LocalEnvProvider localEnvProvider,
       BinTools binTools,
       ProcessWrapper processWrapper,
-      RunfilesTreeUpdater runfilesTreeUpdater) {
+      RunfilesTreeUpdater runfilesTreeUpdater,
+      TimeAnchor timeAnchor) {
     this.execRoot = execRoot;
     this.processWrapper = processWrapper;
     this.localExecutionOptions = Preconditions.checkNotNull(localExecutionOptions);
@@ -115,6 +117,7 @@ public class LocalSpawnRunner implements SpawnRunner {
     this.localEnvProvider = localEnvProvider;
     this.binTools = binTools;
     this.runfilesTreeUpdater = runfilesTreeUpdater;
+    this.timeAnchor = timeAnchor;
   }
 
   @Override
@@ -188,10 +191,10 @@ public class LocalSpawnRunner implements SpawnRunner {
     private final SpawnMetrics.Builder spawnMetrics;
     private final Stopwatch totalTimeStopwatch;
 
-    private final long creationTime = System.currentTimeMillis();
-    private long stateStartTime = creationTime;
+    private final Stopwatch stateStopwatch = Stopwatch.createStarted();
+    private long stateStartNanos = 0;
     private State currentState = State.INITIALIZING;
-    private final Map<State, Long> stateTimes = new EnumMap<>(State.class);
+    private final Map<State, Long> stateTimesNanos = new EnumMap<>(State.class);
 
     /**
      * If true, the local subprocess has already started, which means we need to clean up the output
@@ -286,13 +289,13 @@ public class LocalSpawnRunner implements SpawnRunner {
     }
 
     private void setState(State newState) {
-      long now = System.currentTimeMillis();
-      long stepDelta = now - stateStartTime;
-      stateStartTime = now;
+      long now = stateStopwatch.elapsed().toNanos();
+      long stepDelta = now - stateStartNanos;
+      stateStartNanos = now;
 
-      Long stateTimeBoxed = stateTimes.get(currentState);
+      Long stateTimeBoxed = stateTimesNanos.get(currentState);
       long stateTime = (stateTimeBoxed == null) ? 0 : stateTimeBoxed;
-      stateTimes.put(currentState, stateTime + stepDelta);
+      stateTimesNanos.put(currentState, stateTime + stepDelta);
 
       currentState = newState;
     }
@@ -403,8 +406,8 @@ public class LocalSpawnRunner implements SpawnRunner {
         subprocessBuilder.setArgv(args);
         spawnMetrics.addSetupTime(setupTimeStopwatch.elapsed());
 
-        spawnResultBuilder.setStartTime(Instant.now());
-        Stopwatch executionStopwatch = Stopwatch.createStarted();
+        long startNanos = timeAnchor.nanoTime();
+        spawnResultBuilder.setStartTime(timeAnchor.toInstant(startNanos));
         TerminationStatus terminationStatus;
         try (SilentCloseable c =
             Profiler.instance()
@@ -445,7 +448,7 @@ public class LocalSpawnRunner implements SpawnRunner {
         }
         setState(State.SUCCESS);
         // TODO(b/62588075): Calculate wall time inside commands instead?
-        Duration wallTime = executionStopwatch.elapsed();
+        Duration wallTime = TimeAnchor.between(startNanos, timeAnchor.nanoTime());
         spawnMetrics.setExecutionWallTime(wallTime);
 
         boolean wasTimeout =

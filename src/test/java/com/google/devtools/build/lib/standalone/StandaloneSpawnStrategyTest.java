@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil.NullAction;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
+import com.google.devtools.build.lib.clock.TimeAnchor;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.EventBusEventHandler;
@@ -149,7 +150,8 @@ public class StandaloneSpawnStrategyTest {
                 (env, binTools1, fallbackTmpDir) -> ImmutableMap.copyOf(env),
                 binTools,
                 /* processWrapper= */ null,
-                Mockito.mock(RunfilesTreeUpdater.class)),
+                Mockito.mock(RunfilesTreeUpdater.class),
+                TimeAnchor.create()),
             Options.getDefaults(ExecutionOptions.class));
     this.executor =
         new TestExecutorBuilder(fileSystem, directories)

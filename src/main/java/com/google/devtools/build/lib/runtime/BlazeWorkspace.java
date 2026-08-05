@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.actions.cache.CompactPersistentActionCache;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
+import com.google.devtools.build.lib.clock.TimeAnchor;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.BinTools;
@@ -317,7 +318,7 @@ public final class BlazeWorkspace {
       InvocationPolicy invocationPolicy,
       List<String> warnings,
       long waitTimeInMs,
-      long commandStartTime,
+      TimeAnchor firstContactTime,
       @Nullable ImmutableList<IdleTask.Result> idleTaskResultsFromPreviousIdlePeriod,
       Consumer<String> shutdownReasonConsumer,
       List<Any> commandExtensions,
@@ -340,7 +341,7 @@ public final class BlazeWorkspace {
             quiescingExecutors,
             warnings,
             waitTimeInMs,
-            commandStartTime,
+            firstContactTime,
             idleTaskResultsFromPreviousIdlePeriod,
             shutdownReasonConsumer,
             commandExtensions,

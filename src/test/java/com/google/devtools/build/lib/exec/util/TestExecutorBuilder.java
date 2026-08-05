@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.analysis.actions.TemplateExpansionContext;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.clock.BlazeClock;
+import com.google.devtools.build.lib.clock.TimeAnchor;
 import com.google.devtools.build.lib.events.EventBusEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.BlazeExecutor;
@@ -143,6 +144,7 @@ public class TestExecutorBuilder {
         execRoot,
         reporter,
         BlazeClock.instance(),
+        TimeAnchor.create(),
         BugReporter.defaultInstance(),
         optionsParser,
         actionContextRegistry,

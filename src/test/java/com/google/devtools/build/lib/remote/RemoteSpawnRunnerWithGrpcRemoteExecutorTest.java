@@ -78,6 +78,7 @@ import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
 import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
 import com.google.devtools.build.lib.clock.JavaClock;
+import com.google.devtools.build.lib.clock.TimeAnchor;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.EventBusEventHandler;
@@ -374,7 +375,8 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
             retryService,
             logDir,
             remoteExecutionService,
-            DIGEST_UTIL);
+            DIGEST_UTIL,
+            TimeAnchor.create());
 
     inputDigest =
         fakeFileCache.createScratchInput(

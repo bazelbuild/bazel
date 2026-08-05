@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelperEnvironment;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialModule;
 import com.google.devtools.build.lib.authandtls.credentialhelper.GetCredentialsResponse;
+import com.google.devtools.build.lib.clock.TimeAnchor;
 import com.google.devtools.build.lib.events.EventBusEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.BinTools;
@@ -207,7 +208,7 @@ public final class RemoteModuleTest {
         InvocationPolicy.getDefaultInstance(),
         /* warnings= */ new ArrayList<>(),
         /* waitTimeInMs= */ 0,
-        /* commandStartTime= */ 0,
+        /* firstContactTime= */ TimeAnchor.create(),
         /* idleTaskResultsFromPreviousIdlePeriod= */ ImmutableList.of(),
         /* shutdownReasonConsumer= */ s -> {},
         /* commandExtensions= */ ImmutableList.of(),

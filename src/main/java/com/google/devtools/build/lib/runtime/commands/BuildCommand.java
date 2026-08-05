@@ -102,7 +102,7 @@ public final class BuildCommand implements BlazeCommand {
               .setStartupOptions(runtime.getStartupOptionsProvider())
               .setOutErr(env.getReporter().getOutErr())
               .setTargets(targets)
-              .setStartTimeMillis(env.getCommandStartTime())
+              .setStartTime(env.getTimeAnchor(), env.getCommandStartNanos())
               .build();
     }
     DetailedExitCode detailedExitCode =

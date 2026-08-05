@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.bugreport.BugReporter;
+import com.google.devtools.build.lib.clock.TimeAnchor;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.Reporter;
@@ -476,7 +477,7 @@ public final class BlazeCommandDispatcherTest {
                     LockingMode.WAIT,
                     UiVerbosity.NORMAL,
                     "test client",
-                    runtime.getClock().currentTimeMillis(),
+                    TimeAnchor.create(runtime.getClock()),
                     /* startupOptionsTaggedWithBazelRc= */ Optional.empty(),
                     /* idleTaskResultsSupplier= */ () -> ImmutableList.of(),
                     /* commandExtensions= */ ImmutableList.of(),

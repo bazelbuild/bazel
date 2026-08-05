@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.profiler;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.clock.Clock;
+import com.google.devtools.build.lib.clock.TimeAnchor;
 import com.google.devtools.build.lib.runtime.BlazeService;
 import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -173,6 +174,8 @@ public interface TraceProfilerService extends BlazeService {
    * @param recordAllDurations iff true, record all tasks regardless of their duration; otherwise
    *     some tasks may get aggregated if they finished quick enough
    * @param clock a {@code BlazeClock.instance()}
+   * @param timeAnchor the command's anchor between the monotonic and the wall clock, used to give
+   *     the profile an absolute start timestamp that agrees with the events recorded in it
    * @param execStartTimeNanos execution start time in nanos obtained from {@code clock.nanoTime()}
    */
   void start(
@@ -183,6 +186,7 @@ public interface TraceProfilerService extends BlazeService {
       UUID buildID,
       boolean recordAllDurations,
       Clock clock,
+      TimeAnchor timeAnchor,
       long execStartTimeNanos,
       boolean slimProfile,
       long slimProfileSizeLimit,

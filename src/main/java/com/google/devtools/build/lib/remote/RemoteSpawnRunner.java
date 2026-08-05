@@ -41,8 +41,7 @@ import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelperException;
-import com.google.devtools.build.lib.clock.BlazeClock;
-import com.google.devtools.build.lib.clock.BlazeClock.MillisSinceEpochToNanosConverter;
+import com.google.devtools.build.lib.clock.TimeAnchor;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
@@ -106,6 +105,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
   private final Path logDir;
   private final RemoteExecutionService remoteExecutionService;
   private final DigestUtil digestUtil;
+  private final TimeAnchor timeAnchor;
 
   // Used to ensure that a warning is reported only once.
   private final AtomicBoolean warningReported = new AtomicBoolean();
@@ -117,7 +117,8 @@ public class RemoteSpawnRunner implements SpawnRunner {
       ListeningScheduledExecutorService retryService,
       Path logDir,
       RemoteExecutionService remoteExecutionService,
-      DigestUtil digestUtil) {
+      DigestUtil digestUtil,
+      TimeAnchor timeAnchor) {
     this.remoteOptions = remoteOptions;
     this.verboseFailures = verboseFailures;
     this.cmdlineReporter = cmdlineReporter;
@@ -125,6 +126,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
     this.logDir = logDir;
     this.remoteExecutionService = remoteExecutionService;
     this.digestUtil = digestUtil;
+    this.timeAnchor = timeAnchor;
   }
 
   @VisibleForTesting
@@ -362,55 +364,52 @@ public class RemoteSpawnRunner implements SpawnRunner {
     }
   }
 
-  private static void profileAccounting(
+  private void profileAccounting(
       long clampTimeNanos, ExecutedActionMetadata executedActionMetadata) {
-    MillisSinceEpochToNanosConverter converter =
-        BlazeClock.createMillisSinceEpochToNanosConverter();
-
     logProfileTask(
-        converter,
+        timeAnchor,
         executedActionMetadata.getQueuedTimestamp(),
         executedActionMetadata.getWorkerStartTimestamp(),
         clampTimeNanos,
         REMOTE_QUEUE,
         "queue");
     logProfileTask(
-        converter,
+        timeAnchor,
         executedActionMetadata.getWorkerStartTimestamp(),
         executedActionMetadata.getInputFetchStartTimestamp(),
         clampTimeNanos,
         REMOTE_SETUP,
         "pre-fetch");
     logProfileTask(
-        converter,
+        timeAnchor,
         executedActionMetadata.getInputFetchStartTimestamp(),
         executedActionMetadata.getInputFetchCompletedTimestamp(),
         clampTimeNanos,
         FETCH,
         "fetch");
     logProfileTask(
-        converter,
+        timeAnchor,
         executedActionMetadata.getInputFetchCompletedTimestamp(),
         executedActionMetadata.getExecutionStartTimestamp(),
         clampTimeNanos,
         REMOTE_SETUP,
         "pre-execute");
     logProfileTask(
-        converter,
+        timeAnchor,
         executedActionMetadata.getExecutionStartTimestamp(),
         executedActionMetadata.getExecutionCompletedTimestamp(),
         clampTimeNanos,
         REMOTE_PROCESS_TIME,
         "execute");
     logProfileTask(
-        converter,
+        timeAnchor,
         executedActionMetadata.getExecutionCompletedTimestamp(),
         executedActionMetadata.getOutputUploadStartTimestamp(),
         clampTimeNanos,
         REMOTE_SETUP,
         "pre-upload");
     logProfileTask(
-        converter,
+        timeAnchor,
         executedActionMetadata.getOutputUploadStartTimestamp(),
         executedActionMetadata.getOutputUploadCompletedTimestamp(),
         clampTimeNanos,
@@ -419,7 +418,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
   }
 
   private static void logProfileTask(
-      MillisSinceEpochToNanosConverter converter,
+      TimeAnchor timeAnchor,
       Timestamp start,
       Timestamp end,
       long clampTimeNanos,
@@ -428,8 +427,8 @@ public class RemoteSpawnRunner implements SpawnRunner {
     // If the remote execution request is deduped against an earlier request for the same action,
     // the start and end times may predate the start of the execution on our side. To avoid
     // confusion, clamp them so that they nest inside the parent profile span.
-    long startTimeNanos = converter.toNanos(Timestamps.toMillis(start));
-    long endTimeNanos = converter.toNanos(Timestamps.toMillis(end));
+    long startTimeNanos = timeAnchor.toNanos(Timestamps.toMillis(start));
+    long endTimeNanos = timeAnchor.toNanos(Timestamps.toMillis(end));
     if (endTimeNanos <= clampTimeNanos) {
       // Span lies entirely outside the parent.
       return;

@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.profiler;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.clock.Clock;
+import com.google.devtools.build.lib.clock.TimeAnchor;
 import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
@@ -187,6 +188,7 @@ public final class Profiler implements TraceProfilerService {
       UUID buildID,
       boolean recordAllDurations,
       Clock clock,
+      TimeAnchor timeAnchor,
       long execStartTimeNanos,
       boolean slimProfile,
       long slimProfileSizeLimit,
@@ -206,6 +208,7 @@ public final class Profiler implements TraceProfilerService {
         buildID,
         recordAllDurations,
         clock,
+        timeAnchor,
         execStartTimeNanos,
         /* slimProfile= */ slimProfile,
         /* slimProfileSizeLimit= */ slimProfileSizeLimit,

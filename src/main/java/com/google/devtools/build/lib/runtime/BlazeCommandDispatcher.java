@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.buildtool.buildevent.MainRepoMappingComputationStartingEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ProfilerStartedEvent;
 import com.google.devtools.build.lib.clock.BlazeClock;
+import com.google.devtools.build.lib.clock.TimeAnchor;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
@@ -167,7 +168,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       LockingMode lockingMode,
       UiVerbosity uiVerbosity,
       String clientDescription,
-      long firstContactTimeMillis,
+      TimeAnchor firstContactTime,
       Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc,
       Supplier<ImmutableList<IdleTask.Result>> idleTaskResultsSupplier,
       List<Any> commandExtensions,
@@ -180,7 +181,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         lockingMode,
         uiVerbosity,
         clientDescription,
-        firstContactTimeMillis,
+        firstContactTime,
         startupOptionsTaggedWithBazelRc,
         idleTaskResultsSupplier,
         commandExtensions,
@@ -197,7 +198,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       LockingMode lockingMode,
       UiVerbosity uiVerbosity,
       String clientDescription,
-      long firstContactTimeMillis,
+      TimeAnchor firstContactTime,
       Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc,
       Supplier<ImmutableList<IdleTask.Result>> idleTaskResultsSupplier,
       List<Any> commandExtensions,
@@ -300,7 +301,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
                   args,
                   outErr,
                   uiVerbosity == UiVerbosity.QUIET,
-                  firstContactTimeMillis,
+                  firstContactTime,
                   commandName,
                   command,
                   waitTimeInMs,
@@ -354,7 +355,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         LockingMode.ERROR_OUT,
         UiVerbosity.NORMAL,
         clientDescription,
-        runtime.getClock().currentTimeMillis(),
+        TimeAnchor.create(runtime.getClock()),
         /* startupOptionsTaggedWithBazelRc= */ Optional.empty(),
         /* idleTaskResultsSupplier= */ () -> ImmutableList.of(),
         /* commandExtensions= */ ImmutableList.of(),
@@ -366,7 +367,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       List<String> args,
       OutErr outErr,
       boolean quiet,
-      long firstContactTime,
+      TimeAnchor firstContactTime,
       String commandName,
       BlazeCommand command,
       long waitTimeInMs,
@@ -381,6 +382,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       throws RemoteCacheTransientErrorException {
     // Record the start time for the profiler. Do not put anything before this!
     long execStartTimeNanos = runtime.getClock().nanoTime();
+    long firstContactTimeMillis = firstContactTime.epochMillis();
 
     Command commandAnnotation = command.getClass().getAnnotation(Command.class);
     BlazeWorkspace workspace = runtime.getWorkspace();
@@ -519,7 +521,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
             storedEventHandler,
             env,
             new NoBuildEvent(
-                commandName, firstContactTime, false, true, env.getCommandId().toString()));
+                commandName, firstContactTimeMillis, false, true, env.getCommandId().toString()));
         result = BlazeCommandResult.detailedExitCode(earlyExitCode);
         return result;
       }
@@ -663,7 +665,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         if (!earlyExitCode.isSuccess()) {
           reporter.post(
               new NoBuildEvent(
-                  commandName, firstContactTime, false, true, env.getCommandId().toString()));
+                  commandName, firstContactTimeMillis, false, true, env.getCommandId().toString()));
           result = BlazeCommandResult.detailedExitCode(earlyExitCode);
           return result;
         }
@@ -701,7 +703,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         if (!earlyExitCode.isSuccess()) {
           reporter.post(
               new NoBuildEvent(
-                  commandName, firstContactTime, false, true, env.getCommandId().toString()));
+                  commandName, firstContactTimeMillis, false, true, env.getCommandId().toString()));
           result = BlazeCommandResult.detailedExitCode(earlyExitCode);
           return result;
         }
@@ -725,7 +727,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         if (!earlyExitCode.isSuccess()) {
           reporter.post(
               new NoBuildEvent(
-                  commandName, firstContactTime, false, true, env.getCommandId().toString()));
+                  commandName, firstContactTimeMillis, false, true, env.getCommandId().toString()));
           result = BlazeCommandResult.detailedExitCode(earlyExitCode);
           return result;
         }
@@ -739,7 +741,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       if (!earlyExitCode.isSuccess()) {
         reporter.post(
             new NoBuildEvent(
-                commandName, firstContactTime, false, true, env.getCommandId().toString()));
+                commandName, firstContactTimeMillis, false, true, env.getCommandId().toString()));
         result = BlazeCommandResult.detailedExitCode(earlyExitCode);
         return result;
       }

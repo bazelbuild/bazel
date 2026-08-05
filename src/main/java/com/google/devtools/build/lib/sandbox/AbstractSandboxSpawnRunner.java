@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.UserExecException;
+import com.google.devtools.build.lib.clock.TimeAnchor;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.Reporter;
@@ -58,7 +59,6 @@ import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 import java.io.InputStream;
 import java.time.Duration;
-import java.time.Instant;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Stream;
@@ -80,6 +80,7 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
   private final ResourceManager resourceManager;
   private final Reporter reporter;
   protected final ImmutableMap<String, String> clientEnv;
+  private final TimeAnchor timeAnchor;
 
   public AbstractSandboxSpawnRunner(CommandEnvironment cmdEnv) {
     this.sandboxOptions = cmdEnv.getOptions().getOptions(SandboxOptions.class);
@@ -93,6 +94,7 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
     this.resourceManager = cmdEnv.getLocalResourceManager();
     this.reporter = cmdEnv.getReporter();
     this.clientEnv = cmdEnv.getClientEnv();
+    this.timeAnchor = cmdEnv.getTimeAnchor();
   }
 
   @Override
@@ -222,7 +224,7 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
     if (useSubprocessTimeout) {
       subprocessBuilder.setTimeoutMillis(timeout.toMillis());
     }
-    Instant startTime = Instant.now();
+    long startNanos = timeAnchor.nanoTime();
     TerminationStatus terminationStatus;
     try {
       Subprocess subprocess = subprocessBuilder.start();
@@ -260,7 +262,7 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
     }
 
     // TODO(b/62588075): Calculate wall time inside Subprocess instead?
-    Duration wallTime = Duration.between(startTime, Instant.now());
+    Duration wallTime = TimeAnchor.between(startNanos, timeAnchor.nanoTime());
     boolean wasTimeout =
         (useSubprocessTimeout && terminationStatus.timedOut())
             || (!useSubprocessTimeout && wasTimeout(timeout, wallTime));
@@ -302,7 +304,7 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
     spawnResultBuilder
         .setStatus(status)
         .setExitCode(exitCode)
-        .setStartTime(startTime)
+        .setStartTime(timeAnchor.toInstant(startNanos))
         .setWallTimeInMs((int) wallTime.toMillis())
         .setFailureMessage(failureMessage);
 

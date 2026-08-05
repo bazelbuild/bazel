@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext.ShowSubcomma
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.clock.Clock;
+import com.google.devtools.build.lib.clock.TimeAnchor;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -43,6 +44,7 @@ public final class BlazeExecutor implements Executor {
   private final FileSystem fileSystem;
   private final Path execRoot;
   private final Clock clock;
+  private final TimeAnchor timeAnchor;
   private final BugReporter bugReporter;
   private final OptionsProvider options;
   private final ActionContext.ActionContextRegistry actionContextRegistry;
@@ -63,6 +65,7 @@ public final class BlazeExecutor implements Executor {
       Path execRoot,
       Reporter reporter,
       Clock clock,
+      TimeAnchor timeAnchor,
       BugReporter bugReporter,
       OptionsProvider options,
       ModuleActionContextRegistry actionContextRegistry,
@@ -73,6 +76,7 @@ public final class BlazeExecutor implements Executor {
     this.fileSystem = fileSystem;
     this.execRoot = execRoot;
     this.clock = clock;
+    this.timeAnchor = timeAnchor;
     this.bugReporter = bugReporter;
     this.options = options;
     this.actionContextRegistry = actionContextRegistry;
@@ -97,6 +101,11 @@ public final class BlazeExecutor implements Executor {
   @Override
   public Clock getClock() {
     return clock;
+  }
+
+  @Override
+  public TimeAnchor getTimeAnchor() {
+    return timeAnchor;
   }
 
   @Override

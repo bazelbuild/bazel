@@ -413,7 +413,7 @@ public class RunCommand implements BlazeCommand {
             .setStartupOptions(env.getRuntime().getStartupOptionsProvider())
             .setOutErr(env.getReporter().getOutErr())
             .setTargets(targetsToBuild)
-            .setStartTimeMillis(env.getCommandStartTime())
+            .setStartTime(env.getTimeAnchor(), env.getCommandStartNanos())
             .build();
 
     BuildResult buildResult =

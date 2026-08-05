@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.buildtool.CommandPrecompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ProfilerStartedEvent;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.Clock;
+import com.google.devtools.build.lib.clock.TimeAnchor;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetInterner;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -496,6 +497,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
                 env.getCommandId(),
                 recordFullProfilerData,
                 clock,
+                env.getTimeAnchor(),
                 clientStartTimeNanos,
                 /* slimProfile= */ commandOptions.getSlimProfile().isEnabled(),
                 /* slimProfileSizeLimit= */ commandOptions.getSlimProfile().getSizeLimit(),
@@ -1180,7 +1182,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
               LockingMode.ERROR_OUT,
               startupOptions.getQuiet() ? UiVerbosity.QUIET : UiVerbosity.NORMAL,
               "batch client",
-              runtime.clock.currentTimeMillis(),
+              TimeAnchor.create(runtime.clock),
               Optional.of(startupOptionsFromCommandLine.build()),
               /* idleTaskResultsSupplier= */ () -> ImmutableList.of(),
               /* commandExtensions= */ ImmutableList.of(),

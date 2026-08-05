@@ -146,7 +146,7 @@ public final class AqueryCommand implements BlazeCommand {
             .setStartupOptions(runtime.getStartupOptionsProvider())
             .setOutErr(env.getReporter().getOutErr())
             .setTargets(topLevelTargets)
-            .setStartTimeMillis(env.getCommandStartTime())
+            .setStartTime(env.getTimeAnchor(), env.getCommandStartNanos())
             .build();
 
     AqueryProcessor aqueryBuildTool;

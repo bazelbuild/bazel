@@ -57,6 +57,7 @@ import com.google.devtools.build.lib.buildtool.BuildResult;
 import com.google.devtools.build.lib.buildtool.BuildResult.BuildToolLogCollection;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.clock.BlazeClock;
+import com.google.devtools.build.lib.clock.TimeAnchor;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.exec.util.FakeActionInputFileCache;
@@ -154,7 +155,7 @@ public final class ExecutionGraphModuleTest extends FoundationTestCase {
             startTimeInstant,
             /* spawnIdentifier= */ "foo"));
     module.buildComplete(
-        new BuildCompleteEvent(new BuildResult(startTimeInstant.toEpochMilli() + 1000)));
+        new BuildCompleteEvent(new BuildResult(TimeAnchor.create(), startTimeInstant.toEpochMilli() + 1000)));
 
     ImmutableList<ExecutionGraph.Node> nodes = parse(buffer);
     assertThat(nodes).hasSize(1);
@@ -213,7 +214,7 @@ public final class ExecutionGraphModuleTest extends FoundationTestCase {
             startTimeInstant,
             /* spawnIdentifier= */ "foo"));
     module.buildComplete(
-        new BuildCompleteEvent(new BuildResult(startTimeInstant.toEpochMilli() + 1000)));
+        new BuildCompleteEvent(new BuildResult(TimeAnchor.create(), startTimeInstant.toEpochMilli() + 1000)));
 
     ImmutableList<ExecutionGraph.Node> nodes = parse(buffer);
     ExecutionGraph.Metrics metrics = nodes.get(0).getMetrics();
@@ -306,7 +307,7 @@ public final class ExecutionGraphModuleTest extends FoundationTestCase {
             startTimeInstant,
             /* spawnIdentifier= */ "top"));
     module.buildComplete(
-        new BuildCompleteEvent(new BuildResult(startTimeInstant.plusMillis(1000).toEpochMilli())));
+        new BuildCompleteEvent(new BuildResult(TimeAnchor.create(), startTimeInstant.plusMillis(1000).toEpochMilli())));
 
     ImmutableList<ExecutionGraph.Node> nodes = parse(buffer);
     assertThat(nodes).hasSize(3);
@@ -454,7 +455,7 @@ public final class ExecutionGraphModuleTest extends FoundationTestCase {
             startTimeInstant,
             /* spawnIdentifier= */ "out3"));
     module.buildComplete(
-        new BuildCompleteEvent(new BuildResult(startTimeInstant.plusMillis(1000).toEpochMilli())));
+        new BuildCompleteEvent(new BuildResult(TimeAnchor.create(), startTimeInstant.plusMillis(1000).toEpochMilli())));
 
     ImmutableList<ExecutionGraph.Node> nodes = parse(buffer);
     assertThat(nodes).hasSize(3);
@@ -524,7 +525,7 @@ public final class ExecutionGraphModuleTest extends FoundationTestCase {
     eventBus.register(module);
 
     Instant startTimeInstant = Instant.now();
-    eventBus.post(new BuildCompleteEvent(new BuildResult(startTimeInstant.toEpochMilli() + 1000)));
+    eventBus.post(new BuildCompleteEvent(new BuildResult(TimeAnchor.create(), startTimeInstant.toEpochMilli() + 1000)));
   }
 
   private void startLogging(EventBus eventBus, OutputStream buffer, DependencyInfo depType) {
@@ -566,7 +567,7 @@ public final class ExecutionGraphModuleTest extends FoundationTestCase {
     eventBus.register(module);
     Instant startTimeInstant = Instant.now();
     // Doesn't crash.
-    eventBus.post(new BuildCompleteEvent(new BuildResult(startTimeInstant.toEpochMilli() + 1000)));
+    eventBus.post(new BuildCompleteEvent(new BuildResult(TimeAnchor.create(), startTimeInstant.toEpochMilli() + 1000)));
   }
 
   @Test
@@ -618,7 +619,7 @@ public final class ExecutionGraphModuleTest extends FoundationTestCase {
             startTimeInstant,
             /* spawnIdentifier= */ "foo"));
     module.buildComplete(
-        new BuildCompleteEvent(new BuildResult(startTimeInstant.toEpochMilli() + 1000)));
+        new BuildCompleteEvent(new BuildResult(TimeAnchor.create(), startTimeInstant.toEpochMilli() + 1000)));
 
     ImmutableList<ExecutionGraph.Node> nodes = parse(buffer);
     assertThat(nodes).hasSize(1);
@@ -647,7 +648,7 @@ public final class ExecutionGraphModuleTest extends FoundationTestCase {
             new FakeActionInputFileCache(),
             mock(OutputMetadataStore.class),
             mock(ActionLookupData.class)));
-    module.buildComplete(new BuildCompleteEvent(new BuildResult(1000)));
+    module.buildComplete(new BuildCompleteEvent(new BuildResult(TimeAnchor.create(), 1000)));
 
     assertThat(parse(buffer))
         .containsExactly(
@@ -668,8 +669,8 @@ public final class ExecutionGraphModuleTest extends FoundationTestCase {
   public void spawnAndAction_withDifferentOutputs() throws Exception {
     var buffer = new ByteArrayOutputStream();
     startLogging(eventBus, buffer, DependencyInfo.ALL);
-    var nanosToMillis = BlazeClock.createNanosToMillisSinceEpochConverter();
-    module.setNanosToMillis(nanosToMillis);
+    var timeAnchor = TimeAnchor.create();
+    module.setTimeAnchor(timeAnchor);
 
     module.spawnExecuted(
         new SpawnExecutedEvent(
@@ -689,7 +690,7 @@ public final class ExecutionGraphModuleTest extends FoundationTestCase {
             new FakeActionInputFileCache(),
             mock(OutputMetadataStore.class),
             mock(ActionLookupData.class)));
-    module.buildComplete(new BuildCompleteEvent(new BuildResult(1000)));
+    module.buildComplete(new BuildCompleteEvent(new BuildResult(TimeAnchor.create(), 1000)));
 
     assertThat(parse(buffer))
         .containsExactly(
@@ -708,7 +709,7 @@ public final class ExecutionGraphModuleTest extends FoundationTestCase {
                 .setIndex(1)
                 .setMetrics(
                     ExecutionGraph.Metrics.newBuilder()
-                        .setStartTimestampMillis(nanosToMillis.toEpochMillis(0)))
+                        .setStartTimestampMillis(timeAnchor.toEpochMillis(0)))
                 .setRuleClass("dummy-kind")
                 .build());
   }
@@ -717,8 +718,8 @@ public final class ExecutionGraphModuleTest extends FoundationTestCase {
   public void noSpawnAction_hasCorrectDuration() throws Exception {
     var buffer = new ByteArrayOutputStream();
     startLogging(eventBus, buffer, DependencyInfo.ALL);
-    var nanosToMillis = BlazeClock.createNanosToMillisSinceEpochConverter();
-    module.setNanosToMillis(nanosToMillis);
+    var timeAnchor = TimeAnchor.create();
+    module.setTimeAnchor(timeAnchor);
 
     var action = new ActionsTestUtil.NullAction(createOutputArtifact("foo/out"));
     module.actionComplete(
@@ -729,14 +730,14 @@ public final class ExecutionGraphModuleTest extends FoundationTestCase {
             new FakeActionInputFileCache(),
             mock(OutputMetadataStore.class),
             mock(ActionLookupData.class)));
-    module.buildComplete(new BuildCompleteEvent(new BuildResult(1000)));
+    module.buildComplete(new BuildCompleteEvent(new BuildResult(TimeAnchor.create(), 1000)));
 
     assertThat(parse(buffer))
         .containsExactly(
             executionGraphNodeBuilderForAction(action)
                 .setMetrics(
                     ExecutionGraph.Metrics.newBuilder()
-                        .setStartTimestampMillis(nanosToMillis.toEpochMillis(1000000))
+                        .setStartTimestampMillis(timeAnchor.toEpochMillis(1000000))
                         .setDurationMillis(1)
                         .setProcessMillis(1))
                 .setRuleClass("dummy-kind")
@@ -770,7 +771,7 @@ public final class ExecutionGraphModuleTest extends FoundationTestCase {
             remoteResult,
             Instant.ofEpochMilli(100),
             /* spawnIdentifier= */ "foo2"));
-    module.buildComplete(new BuildCompleteEvent(new BuildResult(1000)));
+    module.buildComplete(new BuildCompleteEvent(new BuildResult(TimeAnchor.create(), 1000)));
 
     ImmutableList<ExecutionGraph.Node> nodes = parse(buffer);
     assertThat(nodes)
@@ -861,7 +862,7 @@ public final class ExecutionGraphModuleTest extends FoundationTestCase {
             remoteResult,
             Instant.ofEpochMilli(10),
             /* spawnIdentifier= */ "foo2"));
-    module.buildComplete(new BuildCompleteEvent(new BuildResult(1000)));
+    module.buildComplete(new BuildCompleteEvent(new BuildResult(TimeAnchor.create(), 1000)));
 
     ImmutableList<ExecutionGraph.Node> nodes = parse(buffer);
     assertThat(nodes)
@@ -939,7 +940,7 @@ public final class ExecutionGraphModuleTest extends FoundationTestCase {
             dependentResult,
             Instant.ofEpochMilli(300),
             /* spawnIdentifier= */ "foo3"));
-    module.buildComplete(new BuildCompleteEvent(new BuildResult(1000)));
+    module.buildComplete(new BuildCompleteEvent(new BuildResult(TimeAnchor.create(), 1000)));
 
     ImmutableList<ExecutionGraph.Node> nodes = parse(buffer);
     assertThat(nodes)

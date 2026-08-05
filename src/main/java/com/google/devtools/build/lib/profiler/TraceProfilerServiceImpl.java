@@ -26,6 +26,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.Clock;
+import com.google.devtools.build.lib.clock.TimeAnchor;
 import com.google.devtools.build.lib.collect.Extrema;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.profiler.PredicateBasedStatRecorder.RecorderAndPredicate;
@@ -253,6 +254,7 @@ public final class TraceProfilerServiceImpl implements TraceProfilerService {
       UUID buildID,
       boolean recordAllDurations,
       Clock clock,
+      TimeAnchor timeAnchor,
       long execStartTimeNanos,
       boolean slimProfile,
       long slimProfileSizeLimit,
@@ -291,7 +293,13 @@ public final class TraceProfilerServiceImpl implements TraceProfilerService {
               : SlimProfileConfiguration.disabled();
       writer =
           new JsonTraceFileWriter(
-              stream, execStartTimeNanos, slimProfileConfig, outputBase, buildID, format);
+              stream,
+              execStartTimeNanos,
+              timeAnchor,
+              slimProfileConfig,
+              outputBase,
+              buildID,
+              format);
       writer.start();
     }
     this.writerRef.set(writer);

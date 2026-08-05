@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.buildtool.BuildResult;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.MainRepoMappingComputationStartingEvent;
+import com.google.devtools.build.lib.clock.TimeAnchor;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
@@ -63,7 +64,7 @@ import org.junit.runners.JUnit4;
 public class UiEventHandlerTest {
 
   private static final BuildCompleteEvent BUILD_COMPLETE_EVENT =
-      new BuildCompleteEvent(new BuildResult(/* startTimeMillis= */ 0));
+      new BuildCompleteEvent(new BuildResult(TimeAnchor.create(), /* startTimeNanos= */ 0));
   private static final String BUILD_DID_NOT_COMPLETE_MESSAGE =
       "\033[31m\033[1mERROR: \033[0mBuild did NOT complete successfully" + System.lineSeparator();
 
@@ -165,7 +166,7 @@ public class UiEventHandlerTest {
     @Test
     public void buildComplete_successfulBuild() {
       uiEventHandler.handle(output(""));
-      var buildSuccessResult = new BuildResult(/* startTimeMillis= */ 0);
+      var buildSuccessResult = new BuildResult(TimeAnchor.create(), /* startTimeNanos= */ 0);
       buildSuccessResult.setDetailedExitCode(DetailedExitCode.success());
       uiEventHandler.buildComplete(new BuildCompleteEvent(buildSuccessResult));
 

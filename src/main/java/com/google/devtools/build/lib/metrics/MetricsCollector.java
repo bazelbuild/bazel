@@ -58,7 +58,7 @@ import com.google.devtools.build.lib.buildtool.buildevent.CriticalPathEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionPhaseCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionStartingEvent;
 import com.google.devtools.build.lib.clock.BlazeClock;
-import com.google.devtools.build.lib.clock.BlazeClock.NanosToMillisSinceEpochConverter;
+import com.google.devtools.build.lib.clock.TimeAnchor;
 import com.google.devtools.build.lib.dynamic.DynamicExecutionFinishedEvent;
 import com.google.devtools.build.lib.metrics.MetricsModule.Options;
 import com.google.devtools.build.lib.metrics.PostGCMemoryUseRecorder.PeakHeap;
@@ -478,8 +478,7 @@ class MetricsCollector {
   }
 
   private ActionData buildActionData(ActionStats actionStats) {
-    NanosToMillisSinceEpochConverter nanosToMillisSinceEpochConverter =
-        BlazeClock.createNanosToMillisSinceEpochConverter();
+    TimeAnchor timeAnchor = env.getTimeAnchor();
     long numActionsExecuted = actionStats.numActionsExecuted.get();
     ActionData.Builder builder =
         ActionData.newBuilder()
@@ -489,10 +488,8 @@ class MetricsCollector {
 
     if (numActionsExecuted > 0) {
       builder
-          .setFirstStartedMs(
-              nanosToMillisSinceEpochConverter.toEpochMillis(actionStats.firstStarted.longValue()))
-          .setLastEndedMs(
-              nanosToMillisSinceEpochConverter.toEpochMillis(actionStats.lastEnded.longValue()));
+          .setFirstStartedMs(timeAnchor.toEpochMillis(actionStats.firstStarted.longValue()))
+          .setLastEndedMs(timeAnchor.toEpochMillis(actionStats.lastEnded.longValue()));
     }
 
     long systemTime = actionStats.systemTime.get();

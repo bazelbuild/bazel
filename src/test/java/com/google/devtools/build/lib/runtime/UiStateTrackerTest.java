@@ -58,6 +58,7 @@ import com.google.devtools.build.lib.buildtool.ExecutionProgressReceiver;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionProgressReceiverAvailableEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.TestFilteringCompleteEvent;
+import com.google.devtools.build.lib.clock.TimeAnchor;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
@@ -1492,7 +1493,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
     BuildEventTransport transport1 = newBepTransport("BuildEventTransport1");
     BuildEventTransport transport2 = newBepTransport("BuildEventTransport2");
     BuildEventTransport transport3 = newBepTransport("BuildEventTransport3");
-    BuildResult buildResult = new BuildResult(clock.currentTimeMillis());
+    BuildResult buildResult = new BuildResult(TimeAnchor.create(clock), clock.nanoTime());
     buildResult.setDetailedExitCode(DetailedExitCode.success());
     clock.advanceMillis(TimeUnit.SECONDS.toMillis(1));
     buildResult.setStopTime(clock.currentTimeMillis());
@@ -1554,7 +1555,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
     ManualClock clock = new ManualClock();
     BuildEventTransport transport1 = newBepTransport("A".repeat(61));
     BuildEventTransport transport2 = newBepTransport("BuildEventTransport");
-    BuildResult buildResult = new BuildResult(clock.currentTimeMillis());
+    BuildResult buildResult = new BuildResult(TimeAnchor.create(clock), clock.nanoTime());
     buildResult.setDetailedExitCode(DetailedExitCode.success());
     LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(true);
     UiStateTracker stateTracker = getUiStateTracker(clock, /* targetWidth= */ 60);
@@ -1658,7 +1659,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
     stateTracker.actionUploadStarted(
         ActionUploadStartedEvent.create(
             action, Store.AC, Digest.newBuilder().setHash("foo").setSizeBytes(1).build()));
-    BuildResult buildResult = new BuildResult(clock.currentTimeMillis());
+    BuildResult buildResult = new BuildResult(TimeAnchor.create(clock), clock.nanoTime());
     buildResult.setDetailedExitCode(DetailedExitCode.success());
     buildResult.setStopTime(clock.currentTimeMillis());
     var unused = stateTracker.buildComplete(new BuildCompleteEvent(buildResult));
@@ -1680,7 +1681,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
     Action action = mockAction("Some action", "foo");
     UiStateTracker stateTracker = getUiStateTracker(clock);
     stateTracker.actionUploadStarted(ActionUploadStartedEvent.create(action, Store.AC, a));
-    BuildResult buildResult = new BuildResult(clock.currentTimeMillis());
+    BuildResult buildResult = new BuildResult(TimeAnchor.create(clock), clock.nanoTime());
     buildResult.setDetailedExitCode(DetailedExitCode.success());
     buildResult.setStopTime(clock.currentTimeMillis());
     var unused = stateTracker.buildComplete(new BuildCompleteEvent(buildResult));

@@ -21,7 +21,7 @@ import com.google.devtools.build.lib.actions.AggregatedSpawnMetrics;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
-import com.google.devtools.build.lib.clock.BlazeClock.NanosToMillisSinceEpochConverter;
+import com.google.devtools.build.lib.clock.TimeAnchor;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import java.time.Duration;
@@ -259,8 +259,8 @@ public class CriticalPathComponent {
     return startNanos;
   }
 
-  public long getStartTimeMillisSinceEpoch(NanosToMillisSinceEpochConverter converter) {
-    return converter.toEpochMillis(startNanos);
+  public long getStartTimeMillisSinceEpoch(TimeAnchor timeAnchor) {
+    return timeAnchor.toEpochMillis(startNanos);
   }
 
   public Duration getElapsedTime() {

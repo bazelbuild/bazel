@@ -17,6 +17,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.util.StringUtilities.bytesCountToDisplayString;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Stopwatch;
 import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
@@ -190,7 +191,7 @@ public final class DiskCacheGarbageCollector {
   }
 
   private CollectionStats runUnderLock() throws IOException, InterruptedException {
-    Instant startTime = Instant.now();
+    Stopwatch stopwatch = Stopwatch.createStarted();
     EntryScanner scanner = new EntryScanner();
     EntryDeleter deleter = new EntryDeleter();
 
@@ -202,7 +203,7 @@ public final class DiskCacheGarbageCollector {
     }
 
     DeletionStats deletionStats = deleter.await();
-    Duration elapsedTime = Duration.between(startTime, Instant.now());
+    Duration elapsedTime = stopwatch.elapsed();
 
     return new CollectionStats(
         allEntries.size(),

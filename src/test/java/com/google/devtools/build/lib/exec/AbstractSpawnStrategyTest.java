@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnExecutedEvent;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
+import com.google.devtools.build.lib.clock.TimeAnchor;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.exec.SpawnCache.CacheHandle;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
@@ -90,6 +91,7 @@ public class AbstractSpawnStrategyTest {
     eventHandler = new StoredEventHandler();
     when(actionExecutionContext.getEventHandler()).thenReturn(eventHandler);
     when(actionExecutionContext.getClock()).thenReturn(clock);
+    when(actionExecutionContext.getTimeAnchor()).thenReturn(TimeAnchor.create(clock));
   }
 
   @Test

@@ -17,6 +17,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext.ShowSubcomma
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.clock.Clock;
+import com.google.devtools.build.lib.clock.TimeAnchor;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsProvider;
@@ -54,6 +55,11 @@ public interface Executor extends ActionContext.ActionContextRegistry {
    * performance measurements / reporting.
    */
   Clock getClock();
+
+  /**
+   * Returns the anchor relating this command's {@link Clock#nanoTime} readings to the wall clock.
+   */
+  TimeAnchor getTimeAnchor();
 
   /**
    * Returns {@link BugReporter} instance to use to report bugs.

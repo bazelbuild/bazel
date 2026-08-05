@@ -73,6 +73,8 @@ import com.google.devtools.build.lib.buildtool.BuildResult;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.NoAnalyzeEvent;
+import com.google.devtools.build.lib.clock.BlazeClock;
+import com.google.devtools.build.lib.clock.TimeAnchor;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -305,7 +307,7 @@ public final class BuildEventStreamerTest extends BuildEventStreamerTestBase {
     assertThat(afterFirstEvent.get(0).getEventId()).isEqualTo(startEvent.getEventId());
     assertThat(handler.transportSet).hasSize(1);
 
-    streamer.buildEvent(new BuildCompleteEvent(new BuildResult(0)));
+    streamer.buildEvent(new BuildCompleteEvent(new BuildResult(TimeAnchor.create(), /* startTimeNanos= */ 0)));
 
     assertThat(streamer.isClosed()).isTrue();
     eventBus.post(new BuildEventTransportClosedEvent(transport));
@@ -406,7 +408,7 @@ public final class BuildEventStreamerTest extends BuildEventStreamerTestBase {
     streamer.buildEvent(startEvent);
     streamer.buildEvent(earlyEvent);
     streamer.buildEvent(lateReference);
-    streamer.buildEvent(new BuildCompleteEvent(new BuildResult(0)));
+    streamer.buildEvent(new BuildCompleteEvent(new BuildResult(TimeAnchor.create(), /* startTimeNanos= */ 0)));
 
     assertThat(streamer.isClosed()).isTrue();
     List<BuildEvent> eventsSeen = transport.getEvents();
@@ -496,7 +498,7 @@ public final class BuildEventStreamerTest extends BuildEventStreamerTestBase {
     pool.awaitTermination(1, TimeUnit.DAYS);
 
     BuildEventId lateId = testId("late event");
-    streamer.buildEvent(new BuildCompleteEvent(new BuildResult(0), ImmutableList.of(lateId)));
+    streamer.buildEvent(new BuildCompleteEvent(new BuildResult(TimeAnchor.create(), /* startTimeNanos= */ 0), ImmutableList.of(lateId)));
     assertThat(streamer.isClosed()).isFalse();
     streamer.buildEvent(new GenericBuildEvent(lateId, ImmutableSet.of()));
     assertThat(streamer.isClosed()).isTrue();
@@ -548,7 +550,7 @@ public final class BuildEventStreamerTest extends BuildEventStreamerTestBase {
       time += watch.elapsed().toMillis();
 
       BuildEventId lateId = testId("late event");
-      streamer.buildEvent(new BuildCompleteEvent(new BuildResult(0), ImmutableList.of(lateId)));
+      streamer.buildEvent(new BuildCompleteEvent(new BuildResult(TimeAnchor.create(), /* startTimeNanos= */ 0), ImmutableList.of(lateId)));
       assertThat(streamer.isClosed()).isFalse();
       streamer.buildEvent(new GenericBuildEvent(lateId, ImmutableSet.of()));
       assertThat(streamer.isClosed()).isTrue();
@@ -578,7 +580,7 @@ public final class BuildEventStreamerTest extends BuildEventStreamerTestBase {
 
     streamer.buildEvent(startEvent);
     streamer.buildEvent(failedTarget);
-    streamer.buildEvent(new BuildCompleteEvent(new BuildResult(0)));
+    streamer.buildEvent(new BuildCompleteEvent(new BuildResult(TimeAnchor.create(), /* startTimeNanos= */ 0)));
 
     assertThat(streamer.isClosed()).isTrue();
     List<BuildEvent> allEventsSeen = transport.getEvents();
@@ -1200,7 +1202,7 @@ public final class BuildEventStreamerTest extends BuildEventStreamerTestBase {
             ImmutableList.of(BuildEventIdUtil.buildStartedId()));
 
     streamer.buildEvent(orderEvent);
-    streamer.buildEvent(new BuildCompleteEvent(new BuildResult(0)));
+    streamer.buildEvent(new BuildCompleteEvent(new BuildResult(TimeAnchor.create(), /* startTimeNanos= */ 0)));
 
     assertThat(streamer.isClosed()).isTrue();
     List<BuildEvent> eventsSeen = transport.getEvents();
@@ -1223,7 +1225,7 @@ public final class BuildEventStreamerTest extends BuildEventStreamerTestBase {
             ImmutableSet.of(
                 ProgressEvent.INITIAL_PROGRESS_UPDATE, BuildEventIdUtil.buildFinished()));
     BuildEvent lateEvent = new GenericBuildEvent(lateId, ImmutableSet.of(testId("nonexistent")));
-    BuildEvent finishedEvent = new BuildCompleteEvent(new BuildResult(0), ImmutableList.of(lateId));
+    BuildEvent finishedEvent = new BuildCompleteEvent(new BuildResult(TimeAnchor.create(), /* startTimeNanos= */ 0), ImmutableList.of(lateId));
 
     streamer.buildEvent(startEvent);
     streamer.buildEvent(finishedEvent);
@@ -1243,7 +1245,7 @@ public final class BuildEventStreamerTest extends BuildEventStreamerTestBase {
             ImmutableSet.of(
                 ProgressEvent.INITIAL_PROGRESS_UPDATE, BuildEventIdUtil.buildFinished()));
     BuildEventId lateId = testId("late event");
-    BuildEvent finishedEvent = new BuildCompleteEvent(new BuildResult(0), ImmutableList.of(lateId));
+    BuildEvent finishedEvent = new BuildCompleteEvent(new BuildResult(TimeAnchor.create(), /* startTimeNanos= */ 0), ImmutableList.of(lateId));
 
     streamer.buildEvent(startEvent);
     streamer.buildEvent(finishedEvent);
@@ -1270,7 +1272,7 @@ public final class BuildEventStreamerTest extends BuildEventStreamerTestBase {
             ImmutableSet.of(
                 ProgressEvent.INITIAL_PROGRESS_UPDATE, BuildEventIdUtil.buildFinished()));
     BuildEventId lateId = testId("late event");
-    BuildEvent finishedEvent = new BuildCompleteEvent(new BuildResult(0), ImmutableList.of(lateId));
+    BuildEvent finishedEvent = new BuildCompleteEvent(new BuildResult(TimeAnchor.create(), /* startTimeNanos= */ 0), ImmutableList.of(lateId));
 
     streamer.buildEvent(startEvent);
     streamer.buildEvent(
@@ -1569,7 +1571,9 @@ public final class BuildEventStreamerTest extends BuildEventStreamerTestBase {
                 .setTargets(ImmutableList.of("//foo:bar"))
                 .setOptions(createMockOptions())
                 .setId(UUID.randomUUID())
-                .setStartTimeMillis(10842L)
+                .setStartTime(
+                    new TimeAnchor(BlazeClock.instance(), 10842L, /* nanos= */ 0L),
+                    /* startTimeNanos= */ 0L)
                 .build(),
             null,
             "/tmp/build");
@@ -1609,7 +1613,9 @@ public final class BuildEventStreamerTest extends BuildEventStreamerTestBase {
                 .setTargets(ImmutableList.of("//foo:bar"))
                 .setOptions(createMockOptions())
                 .setId(UUID.randomUUID())
-                .setStartTimeMillis(10842L)
+                .setStartTime(
+                    new TimeAnchor(BlazeClock.instance(), 10842L, /* nanos= */ 0L),
+                    /* startTimeNanos= */ 0L)
                 .build(),
             null,
             "/tmp/build");
@@ -1773,7 +1779,7 @@ public final class BuildEventStreamerTest extends BuildEventStreamerTestBase {
 
     streamer.buildEvent(replaceable);
     assertThat(transport.getEvents()).isEmpty();
-    streamer.buildEvent(new BuildCompleteEvent(new BuildResult(0)));
+    streamer.buildEvent(new BuildCompleteEvent(new BuildResult(TimeAnchor.create(), /* startTimeNanos= */ 0)));
     assertThat(transport.getEvents()).contains(replaceable);
   }
 
@@ -1850,7 +1856,7 @@ public final class BuildEventStreamerTest extends BuildEventStreamerTestBase {
       Throwable crash,
       boolean catastrophe,
       Collection<BuildEventId> childrenEvents) {
-    BuildResult result = new BuildResult(0);
+    BuildResult result = new BuildResult(TimeAnchor.create(), /* startTimeNanos= */ 0);
     result.setDetailedExitCode(detailedExitCode);
     result.setStopOnFirstFailure(stopOnFailure);
     if (catastrophe) {

@@ -74,6 +74,7 @@ import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.clock.JavaClock;
+import com.google.devtools.build.lib.clock.TimeAnchor;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.EventBusEventHandler;
@@ -1430,7 +1431,8 @@ public class RemoteSpawnRunnerTest {
             retryService,
             logDir,
             remoteExecutionService,
-            digestUtil);
+            digestUtil,
+            TimeAnchor.create());
 
     ExecuteResponse succeeded =
         ExecuteResponse.newBuilder()
@@ -1966,6 +1968,7 @@ public class RemoteSpawnRunnerTest {
         retryService,
         logDir,
         service,
-        digestUtil);
+        digestUtil,
+        TimeAnchor.create());
   }
 }

@@ -209,7 +209,8 @@ final class RemoteActionContextProvider {
             retryScheduler,
             logDir,
             getRemoteExecutionService(),
-            digestUtil);
+            digestUtil,
+            env.getTimeAnchor());
     registryBuilder.registerStrategy(
         new RemoteSpawnStrategy(spawnRunner, executionOptions), "remote");
   }

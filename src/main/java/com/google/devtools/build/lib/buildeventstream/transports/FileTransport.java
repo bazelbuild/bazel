@@ -18,6 +18,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
+import com.google.common.base.Stopwatch;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -42,7 +43,6 @@ import com.google.devtools.build.lib.util.DetailedExitCode;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.time.Duration;
-import java.time.Instant;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
@@ -132,7 +132,7 @@ abstract class FileTransport implements BuildEventTransport {
     public void run() {
       ListenableFuture<BuildEventStreamProtos.BuildEvent> buildEventF;
       try {
-        Instant prevFlush = Instant.now();
+        Stopwatch sinceFlush = Stopwatch.createStarted();
         while ((buildEventF = pendingWrites.poll(FLUSH_INTERVAL.toMillis(), TimeUnit.MILLISECONDS))
             != CLOSE_EVENT_FUTURE) {
           if (buildEventF != null) {
@@ -142,11 +142,10 @@ abstract class FileTransport implements BuildEventTransport {
               out.write(serialized);
             }
           }
-          Instant now = Instant.now();
-          if (buildEventF == null || now.compareTo(prevFlush.plus(FLUSH_INTERVAL)) > 0) {
+          if (buildEventF == null || sinceFlush.elapsed().compareTo(FLUSH_INTERVAL) > 0) {
             // Some users, e.g. Tulsi, expect prompt BEP stream flushes for interactive use.
             out.flush();
-            prevFlush = now;
+            sinceFlush.reset().start();
           }
         }
       } catch (ExecutionException e) {

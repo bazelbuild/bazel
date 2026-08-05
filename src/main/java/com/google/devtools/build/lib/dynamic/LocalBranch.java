@@ -18,6 +18,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.devtools.build.lib.actions.DynamicStrategyRegistry.DynamicMode.LOCAL;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -34,7 +35,6 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import java.time.Duration;
-import java.time.Instant;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -52,7 +52,7 @@ class LocalBranch extends Branch {
   private final IgnoreFailureCheck ignoreFailureCheck;
   private final Function<Spawn, Optional<Spawn>> getExtraSpawnForLocalExecution;
   private final AtomicBoolean delayLocalExecution;
-  private final Instant creationTime = Instant.now();
+  private final Stopwatch age = Stopwatch.createStarted();
 
   public LocalBranch(
       ActionExecutionContext actionExecutionContext,
@@ -74,7 +74,7 @@ class LocalBranch extends Branch {
   }
 
   public Duration getAge() {
-    return Duration.between(creationTime, Instant.now());
+    return age.elapsed();
   }
 
   /**

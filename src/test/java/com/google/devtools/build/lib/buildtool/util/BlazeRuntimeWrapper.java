@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.buildtool.BuildTool;
 import com.google.devtools.build.lib.buildtool.BuildTool.AnalysisPostProcessor;
 import com.google.devtools.build.lib.buildtool.CqueryProcessor;
 import com.google.devtools.build.lib.clock.JavaClock;
+import com.google.devtools.build.lib.clock.TimeAnchor;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -237,7 +238,7 @@ public class BlazeRuntimeWrapper {
                 InvocationPolicy.getDefaultInstance(),
                 workspaceSetupWarnings,
                 /* waitTimeInMs= */ 0L,
-                /* commandStartTime= */ runtime.getClock().currentTimeMillis(),
+                /* firstContactTime= */ TimeAnchor.create(runtime.getClock()),
                 /* idleTaskResultsFromPreviousIdlePeriod= */ ImmutableList.of(),
                 this.crashMessages::add,
                 extensions.stream().map(Any::pack).collect(toImmutableList()),
@@ -529,7 +530,7 @@ public class BlazeRuntimeWrapper {
 
       try {
         lastRequest = createRequest(env.getCommandName(), targets);
-        lastResult = new BuildResult(lastRequest.getStartTime());
+        lastResult = new BuildResult(lastRequest.getTimeAnchor(), lastRequest.getStartTimeNanos());
 
         Crash crash = null;
         DetailedExitCode detailedExitCode = DetailedExitCode.of(createGenericDetailedFailure());
@@ -588,6 +589,7 @@ public class BlazeRuntimeWrapper {
             /* buildID= */ null,
             /* recordAllDurations= */ false,
             new JavaClock(),
+            TimeAnchor.create(),
             /* execStartTimeNanos= */ 42,
             /* slimProfile= */ false,
             /* slimProfileSizeLimit= */ -1,
@@ -651,7 +653,7 @@ public class BlazeRuntimeWrapper {
             .setStartupOptions(null)
             .setOutErr(env.getReporter().getOutErr())
             .setTargets(targets)
-            .setStartTimeMillis(runtime.getClock().currentTimeMillis());
+            .setStartTime(env.getTimeAnchor(), env.getCommandStartNanos());
     if (commandName.equals("test") || commandName.equals("coverage")) {
       builder.setRunTests(true);
     }

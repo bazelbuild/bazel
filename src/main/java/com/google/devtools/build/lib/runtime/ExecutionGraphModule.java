@@ -57,8 +57,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.buildtool.BuildResult.BuildToolLogCollection;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionStartingEvent;
-import com.google.devtools.build.lib.clock.BlazeClock;
-import com.google.devtools.build.lib.clock.BlazeClock.NanosToMillisSinceEpochConverter;
+import com.google.devtools.build.lib.clock.TimeAnchor;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.exec.local.LocalExecutionOptions;
 import com.google.devtools.build.lib.runtime.BuildEventArtifactUploaderFactory.InvalidPackagePathSymlinkException;
@@ -193,8 +192,9 @@ public class ExecutionGraphModule extends BlazeModule {
   private ActionDumpWriter writer;
   private CommandEnvironment env;
   private WalkableGraph graph;
-  private NanosToMillisSinceEpochConverter nanosToMillis =
-      BlazeClock.createNanosToMillisSinceEpochConverter();
+  // Replaced by the command's anchor in beforeCommand. Modules live as long as the server, so the
+  // value sampled here would be arbitrarily stale by the time any command is served.
+  private TimeAnchor timeAnchor = TimeAnchor.create();
   // Only relevant for Skymeld: there may be multiple events and we only count the first one.
   private final AtomicBoolean executionStarted = new AtomicBoolean();
 
@@ -216,19 +216,14 @@ public class ExecutionGraphModule extends BlazeModule {
   }
 
   @VisibleForTesting
-  void setNanosToMillis(NanosToMillisSinceEpochConverter nanosToMillis) {
-    this.nanosToMillis = nanosToMillis;
+  void setTimeAnchor(TimeAnchor timeAnchor) {
+    this.timeAnchor = timeAnchor;
   }
 
   @Override
   public void beforeCommand(CommandEnvironment env) {
     this.env = env;
-    // Modules are instantiated once per server, so the converter built in the field initializer
-    // above is arbitrarily stale by the time any command is served: it maps monotonic readings to
-    // wall-clock time using the offset that happened to hold at server startup. The two clocks are
-    // backed by different operating system clocks whose offset is not constant, so re-sample it for
-    // the command being served.
-    this.nanosToMillis = BlazeClock.createNanosToMillisSinceEpochConverter();
+    this.timeAnchor = env.getTimeAnchor();
 
     if (env.getCommand().buildPhase().executes()) {
       ExecutionGraphOptions options =
@@ -376,8 +371,8 @@ public class ExecutionGraphModule extends BlazeModule {
       localWriter.enqueue(
           action,
           inputMetadataProvider,
-          nanosToMillis.toEpochMillis(nanoTimeStart),
-          nanosToMillis.toEpochMillis(nanoTimeFinish));
+          timeAnchor.toEpochMillis(nanoTimeStart),
+          timeAnchor.toEpochMillis(nanoTimeFinish));
     }
   }
 

@@ -193,7 +193,7 @@ public class MobileInstallCommand implements BlazeCommand {
             .setStartupOptions(env.getRuntime().getStartupOptionsProvider())
             .setOutErr(outErr)
             .setTargets(targets)
-            .setStartTimeMillis(env.getCommandStartTime())
+            .setStartTime(env.getTimeAnchor(), env.getCommandStartNanos())
             .build();
 
     AtomicReference<ExecRequest> deployerRequestRef = new AtomicReference<>();

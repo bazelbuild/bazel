@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.analysis.SymlinkEntry;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.RunfileSymlinksMode;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.clock.Clock;
+import com.google.devtools.build.lib.clock.TimeAnchor;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
@@ -419,6 +420,13 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
 
   public Clock getClock() {
     return executor.getClock();
+  }
+
+  /**
+   * Returns the anchor relating this command's {@link Clock#nanoTime} readings to the wall clock.
+   */
+  public TimeAnchor getTimeAnchor() {
+    return executor.getTimeAnchor();
   }
 
   /**

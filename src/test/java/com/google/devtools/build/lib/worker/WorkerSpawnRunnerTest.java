@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.actions.VirtualActionInput;
 import com.google.devtools.build.lib.clock.JavaClock;
+import com.google.devtools.build.lib.clock.TimeAnchor;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -157,7 +158,8 @@ public class WorkerSpawnRunnerTest {
             /* runfilesTreeUpdater= */ null,
             Options.getDefaults(WorkerOptions.class),
             metricsCollector,
-            new JavaClock());
+            new JavaClock(),
+            TimeAnchor.create());
     WorkerKey key = createWorkerKey(fs, "mnem", false);
     Path logFile = fs.getPath("/worker.log");
 
@@ -549,7 +551,8 @@ public class WorkerSpawnRunnerTest {
         /* runfilesTreeUpdater= */ null,
         workerOptions,
         metricsCollector,
-        new JavaClock());
+        new JavaClock(),
+        TimeAnchor.create());
   }
 
   @Test

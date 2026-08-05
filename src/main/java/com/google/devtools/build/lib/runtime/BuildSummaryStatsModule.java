@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.buildtool.buildevent.CriticalPathEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionStartingEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ProfilerStartedEvent;
 import com.google.devtools.build.lib.clock.BlazeClock;
+import com.google.devtools.build.lib.clock.TimeAnchor;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
@@ -60,9 +61,9 @@ public class BuildSummaryStatsModule extends BlazeModule {
   private boolean enabled;
 
   private boolean statsSummary;
-  private long commandStartMillis;
-  private long executionStartMillis;
-  private long executionEndMillis;
+  private long commandStartNanos;
+  private long executionStartNanos;
+  private long executionEndNanos;
   private SpawnStats spawnStats;
   private ProfilerStartedEvent profileEvent;
   private AtomicBoolean executionStarted;
@@ -72,7 +73,7 @@ public class BuildSummaryStatsModule extends BlazeModule {
     this.reporter = env.getReporter();
     this.eventBus = env.getEventBus();
     this.actionKeyContext = env.getSkyframeExecutor().getActionKeyContext();
-    commandStartMillis = env.getCommandStartTime();
+    commandStartNanos = env.getCommandStartNanos();
     this.spawnStats = new SpawnStats();
     eventBus.register(this);
     executionStarted = new AtomicBoolean(false);
@@ -119,8 +120,7 @@ public class BuildSummaryStatsModule extends BlazeModule {
   }
 
   private void markExecutionPhaseStarted() {
-    // TODO(ulfjack): Make sure to use the same clock as for commandStartMillis.
-    executionStartMillis = BlazeClock.instance().currentTimeMillis();
+    executionStartNanos = BlazeClock.nanoTime();
   }
 
   @Subscribe
@@ -130,7 +130,7 @@ public class BuildSummaryStatsModule extends BlazeModule {
 
   @Subscribe
   public void executionPhaseFinish(@SuppressWarnings("unused") ExecutionFinishedEvent event) {
-    executionEndMillis = BlazeClock.instance().currentTimeMillis();
+    executionEndNanos = BlazeClock.nanoTime();
   }
 
   @Subscribe
@@ -223,16 +223,16 @@ public class BuildSummaryStatsModule extends BlazeModule {
         if (criticalPath != AggregatedCriticalPath.EMPTY) {
           reporter.handle(Event.info(criticalPath.getNewStringSummary()));
         }
-        long now = event.getResult().getStopTime();
-        long executionTime = executionEndMillis - executionStartMillis;
-        long overheadTime = now - commandStartMillis - executionTime;
+        long nowNanos = event.getResult().getStopTimeNanos();
+        double executionSeconds = TimeAnchor.secondsBetween(executionStartNanos, executionEndNanos);
+        double elapsedSeconds = TimeAnchor.secondsBetween(commandStartNanos, nowNanos);
         reporter.handle(
             Event.info(
                 String.format(
                     "Elapsed time %.2fs (preparation %.2fs, execution %.2fs)",
-                    (now - commandStartMillis) / 1000.0,
-                    overheadTime / 1000.0,
-                    executionTime / 1000.0)));
+                    elapsedSeconds,
+                    elapsedSeconds - executionSeconds,
+                    executionSeconds)));
         logger.atInfo().log("Stats summary: %s", Joiner.on(", ").join(items));
       } else {
         reporter.handle(Event.info(Joiner.on(", ").join(items)));

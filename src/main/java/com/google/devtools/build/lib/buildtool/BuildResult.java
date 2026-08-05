@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.Local
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
 import com.google.devtools.build.lib.buildeventstream.BuildToolLogs;
 import com.google.devtools.build.lib.buildeventstream.BuildToolLogs.LogFileEntry;
+import com.google.devtools.build.lib.clock.TimeAnchor;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.util.CrashFailureDetails;
@@ -49,8 +50,10 @@ import javax.annotation.Nullable;
  * mutable.
  */
 public final class BuildResult {
-  private long startTimeMillis = 0; // milliseconds since UNIX epoch.
-  private long stopTimeMillis = 0;
+  private final TimeAnchor timeAnchor;
+  private final long startTimeNanos;
+  private long stopTimeNanos;
+  private boolean stopped = false;
 
   private Throwable crash = null;
   private boolean catastrophe = false;
@@ -69,35 +72,49 @@ public final class BuildResult {
 
   @Nullable private FailureDetail postBuildCallbackFailureDetail;
 
-  public BuildResult(long startTimeMillis) {
-    this.startTimeMillis = startTimeMillis;
+  public BuildResult(TimeAnchor timeAnchor, long startTimeNanos) {
+    this.timeAnchor = timeAnchor;
+    this.startTimeNanos = startTimeNanos;
+    this.stopTimeNanos = startTimeNanos;
   }
 
   /**
-   * Record the time (according to System.currentTimeMillis()) at which the service of this request
-   * was completed.
+   * Records the time, as a {@link com.google.devtools.build.lib.clock.Clock#nanoTime} reading, at
+   * which the service of this request was completed.
    */
-  public void setStopTime(long stopTimeMillis) {
-    this.stopTimeMillis = stopTimeMillis;
+  public void setStopTime(long stopTimeNanos) {
+    this.stopTimeNanos = stopTimeNanos;
+    this.stopped = true;
   }
 
   /**
-   * Return the time (according to System.currentTimeMillis()) at which the service of this request
-   * was completed.
+   * Returns the time, in millis since the epoch, at which the service of this request was
+   * completed.
    */
   public long getStopTime() {
-    return stopTimeMillis;
+    return timeAnchor.toEpochMillis(stopTimeNanos);
   }
 
   /**
    * Returns the elapsed time in seconds for the service of this request. Not defined for requests
    * that have not been serviced.
+   *
+   * <p>Measured on the monotonic clock, so that a wall-clock step during the build does not show up
+   * as build time.
    */
   public double getElapsedSeconds() {
-    if (startTimeMillis == 0 || stopTimeMillis == 0) {
+    if (!stopped) {
       throw new IllegalStateException("BuildRequest has not been serviced");
     }
-    return (stopTimeMillis - startTimeMillis) / 1000.0;
+    return TimeAnchor.secondsBetween(startTimeNanos, stopTimeNanos);
+  }
+
+  /**
+   * Returns the time, as a {@link com.google.devtools.build.lib.clock.Clock#nanoTime} reading, at
+   * which the service of this request was completed.
+   */
+  public long getStopTimeNanos() {
+    return stopTimeNanos;
   }
 
   public void setDetailedExitCode(DetailedExitCode detailedExitCode) {
@@ -280,8 +297,8 @@ public final class BuildResult {
   @Override
   public String toString() {
     return MoreObjects.toStringHelper(this)
-        .add("startTimeMillis", startTimeMillis)
-        .add("stopTimeMillis", stopTimeMillis)
+        .add("startTimeNanos", startTimeNanos)
+        .add("stopTimeNanos", stopTimeNanos)
         .add("crash", crash)
         .add("catastrophe", catastrophe)
         .add("detailedExitCode", detailedExitCode)

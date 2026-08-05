@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext.ShowSubcomma
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.clock.Clock;
+import com.google.devtools.build.lib.clock.TimeAnchor;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
@@ -78,6 +79,11 @@ public class DummyExecutor implements Executor {
   @Override
   public Clock getClock() {
     return clock;
+  }
+
+  @Override
+  public TimeAnchor getTimeAnchor() {
+    return TimeAnchor.create(clock);
   }
 
   @Override

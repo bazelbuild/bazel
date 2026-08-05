@@ -241,7 +241,8 @@ public class WorkerModule extends BlazeModule {
             env.getRunfilesTreeUpdater(),
             env.getOptions().getOptions(WorkerOptions.class),
             WorkerProcessMetricsCollector.instance(),
-            env.getClock());
+            env.getClock(),
+            env.getTimeAnchor());
     ExecutionOptions executionOptions =
         checkNotNull(env.getOptions().getOptions(ExecutionOptions.class));
     registryBuilder.registerStrategy(

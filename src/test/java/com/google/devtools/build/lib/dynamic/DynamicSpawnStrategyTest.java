@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil.NullAction;
 import com.google.devtools.build.lib.bugreport.BugReporter;
+import com.google.devtools.build.lib.clock.TimeAnchor;
 import com.google.devtools.build.lib.exec.BlazeExecutor;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
@@ -346,6 +347,7 @@ public class DynamicSpawnStrategyTest {
             testRoot,
             /* reporter= */ null,
             /* clock= */ null,
+            TimeAnchor.create(),
             BugReporter.defaultInstance(),
             OptionsParser.builder()
                 .optionsClasses(ImmutableList.of(ExecutionOptions.class))

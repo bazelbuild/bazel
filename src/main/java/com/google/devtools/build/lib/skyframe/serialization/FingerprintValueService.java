@@ -18,6 +18,7 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.concurrent.Executors.newSingleThreadExecutor;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Stopwatch;
 import com.google.common.base.Throwables;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -25,8 +26,6 @@ import com.google.devtools.build.lib.util.DecimalBucketer;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
-import java.time.Duration;
-import java.time.Instant;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
@@ -146,12 +145,10 @@ public final class FingerprintValueService implements KeyValueWriter {
   /** Delegates to {@link FingerprintValueStore#put}. */
   @Override
   public WriteStatus put(KeyBytesProvider fingerprint, byte[] serializedBytes) {
-    Instant before = Instant.now();
+    Stopwatch stopwatch = Stopwatch.createStarted();
     WriteStatus status = store.put(fingerprint, serializedBytes);
     status.addListener(
-        () ->
-            setLatencyMicros.add(
-                TimeUnit.NANOSECONDS.toMicros(Duration.between(before, Instant.now()).toNanos())),
+        () -> setLatencyMicros.add(TimeUnit.NANOSECONDS.toMicros(stopwatch.elapsed().toNanos())),
         directExecutor());
     return status;
   }
@@ -175,12 +172,10 @@ public final class FingerprintValueService implements KeyValueWriter {
 
   /** Delegates to {@link FingerprintValueStore#get}. */
   public ListenableFuture<byte[]> get(KeyBytesProvider fingerprint) throws IOException {
-    Instant before = Instant.now();
+    Stopwatch stopwatch = Stopwatch.createStarted();
     ListenableFuture<byte[]> result = store.get(fingerprint);
     result.addListener(
-        () ->
-            getLatencyMicros.add(
-                TimeUnit.NANOSECONDS.toMicros(Duration.between(before, Instant.now()).toNanos())),
+        () -> getLatencyMicros.add(TimeUnit.NANOSECONDS.toMicros(stopwatch.elapsed().toNanos())),
         directExecutor());
     return result;
   }

@@ -233,6 +233,7 @@ public class ExecutionTool {
         env.getExecRoot(),
         getReporter(),
         runtime.getClock(),
+        env.getTimeAnchor(),
         runtime.getBugReporter(),
         request,
         actionContextRegistry,

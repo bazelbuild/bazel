@@ -187,7 +187,7 @@ public final class CqueryCommand implements BlazeCommand {
             .setStartupOptions(runtime.getStartupOptionsProvider())
             .setOutErr(env.getReporter().getOutErr())
             .setTargets(topLevelTargets)
-            .setStartTimeMillis(env.getCommandStartTime())
+            .setStartTime(env.getTimeAnchor(), env.getCommandStartNanos())
             .setCheckforActionConflicts(false)
             .setReportIncompatibleTargets(false)
             .build();

@@ -50,7 +50,7 @@ public class TargetFetcher {
             .setStartupOptions(env.getRuntime().getStartupOptionsProvider())
             .setOutErr(env.getReporter().getOutErr())
             .setTargets(targets)
-            .setStartTimeMillis(env.getCommandStartTime())
+            .setStartTime(env.getTimeAnchor(), env.getCommandStartNanos())
             .build();
 
     BuildResult result = new BuildTool(env).processRequest(request, null, options);

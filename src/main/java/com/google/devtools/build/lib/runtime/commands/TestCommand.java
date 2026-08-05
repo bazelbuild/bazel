@@ -156,7 +156,7 @@ public class TestCommand implements BlazeCommand {
             .setStartupOptions(runtime.getStartupOptionsProvider())
             .setOutErr(env.getReporter().getOutErr())
             .setTargets(targets)
-            .setStartTimeMillis(env.getCommandStartTime())
+            .setStartTime(env.getTimeAnchor(), env.getCommandStartNanos())
             .setRunTests(true);
     if (options.getOptions(CoreOptions.class).getCollectCodeCoverage()
         && !options.containsExplicitOption(

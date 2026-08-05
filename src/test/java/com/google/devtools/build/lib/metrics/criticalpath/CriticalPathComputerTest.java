@@ -54,7 +54,7 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil.MockAction;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil.NullAction;
 import com.google.devtools.build.lib.clock.BlazeClock;
-import com.google.devtools.build.lib.clock.BlazeClock.NanosToMillisSinceEpochConverter;
+import com.google.devtools.build.lib.clock.TimeAnchor;
 import com.google.devtools.build.lib.exec.util.FakeActionInputFileCache;
 import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
@@ -515,9 +515,8 @@ public class CriticalPathComputerTest extends FoundationTestCase {
     simulateActionExec(new NullAction(), 2000);
     checkCriticalPath(2000, "2.00");
     checkTopComponentsTimes(computer, 2000L);
-    NanosToMillisSinceEpochConverter converter =
-        BlazeClock.createNanosToMillisSinceEpochConverter(clock);
-    assertThat(computer.getMaxCriticalPath().getStartTimeMillisSinceEpoch(converter)).isEqualTo(0L);
+    TimeAnchor timeAnchor = TimeAnchor.create(clock);
+    assertThat(computer.getMaxCriticalPath().getStartTimeMillisSinceEpoch(timeAnchor)).isEqualTo(0L);
   }
 
   /**

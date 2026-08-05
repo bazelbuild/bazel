@@ -22,6 +22,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
+import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -166,7 +167,7 @@ public abstract class AbstractBlazeQueryEnvironment<T>
       QueryExpression expr, ThreadSafeOutputFormatterCallback<T> callback)
       throws QueryException, InterruptedException, IOException {
     EmptinessSensingCallback<T> emptySensingCallback = new EmptinessSensingCallback<>(callback);
-    long startTime = System.currentTimeMillis();
+    Stopwatch stopwatch = Stopwatch.createStarted();
     // In the --nokeep_going case, errors are reported in the order in which the patterns are
     // specified; using a linked hash set here makes sure that the left-most error is reported.
     Set<String> targetPatternSet = new LinkedHashSet<>();
@@ -198,7 +199,7 @@ public abstract class AbstractBlazeQueryEnvironment<T>
     if (ioExn != null) {
       throw ioExn;
     }
-    long elapsedTime = System.currentTimeMillis() - startTime;
+    long elapsedTime = stopwatch.elapsed().toMillis();
     if (elapsedTime > 1) {
       logger.atInfo().log("Spent %d milliseconds evaluating query", elapsedTime);
     }

@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
+import com.google.devtools.build.lib.clock.TimeAnchor;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.RunfilesTreeUpdater;
 import com.google.devtools.build.lib.runtime.BlazeWorkspace.ActionCacheGarbageCollectorIdleTask;
@@ -418,7 +419,7 @@ public class BlazeRuntimeTest {
         QuiescingExecutorsImpl.forTesting(),
         /* warnings= */ ImmutableList.of(),
         /* waitTimeInMs= */ 0L,
-        /* commandStartTime= */ 0L,
+        /* firstContactTime= */ TimeAnchor.create(),
         /* idleTaskResultsFromPreviousIdlePeriod= */ ImmutableList.of(),
         /* shutdownReasonConsumer= */ shutdownReason::set,
         /* commandExtensions= */ ImmutableList.of(),

@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
+import com.google.devtools.build.lib.clock.TimeAnchor;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.LoadingOptions;
@@ -80,7 +81,8 @@ public class BuildRequest implements OptionsProvider {
     private String commandName;
     private OutErr outErr;
     private List<String> targets;
-    private long startTimeMillis; // milliseconds since UNIX epoch.
+    private TimeAnchor timeAnchor;
+    private long startTimeNanos;
     private boolean needsInstrumentationFilter;
     private boolean runTests;
     private boolean checkForActionConflicts = true;
@@ -124,9 +126,14 @@ public class BuildRequest implements OptionsProvider {
       return this;
     }
 
+    /**
+     * Sets when the request started, as a {@link com.google.devtools.build.lib.clock.Clock#nanoTime}
+     * reading plus the anchor needed to express it on the wall clock.
+     */
     @CanIgnoreReturnValue
-    public Builder setStartTimeMillis(long startTimeMillis) {
-      this.startTimeMillis = startTimeMillis;
+    public Builder setStartTime(TimeAnchor timeAnchor, long startTimeNanos) {
+      this.timeAnchor = timeAnchor;
+      this.startTimeNanos = startTimeNanos;
       return this;
     }
 
@@ -171,7 +178,8 @@ public class BuildRequest implements OptionsProvider {
           targets,
           outErr,
           id,
-          startTimeMillis,
+          timeAnchor,
+          startTimeNanos,
           needsInstrumentationFilter,
           runTests,
           checkForActionConflicts,
@@ -195,7 +203,8 @@ public class BuildRequest implements OptionsProvider {
   private final OutErr outErr;
   private final List<String> targets;
 
-  private final long startTimeMillis; // milliseconds since UNIX epoch.
+  private final TimeAnchor timeAnchor;
+  private final long startTimeNanos;
 
   private final boolean needsInstrumentationFilter;
   private final boolean runningInEmacs;
@@ -211,7 +220,8 @@ public class BuildRequest implements OptionsProvider {
       List<String> targets,
       OutErr outErr,
       UUID id,
-      long startTimeMillis,
+      TimeAnchor timeAnchor,
+      long startTimeNanos,
       boolean needsInstrumentationFilter,
       boolean runTests,
       boolean checkForActionConflicts,
@@ -221,7 +231,8 @@ public class BuildRequest implements OptionsProvider {
     this.outErr = outErr;
     this.targets = targets;
     this.id = id;
-    this.startTimeMillis = startTimeMillis;
+    this.timeAnchor = timeAnchor;
+    this.startTimeNanos = startTimeNanos;
     this.userOptions =
         options.getUserOptions() == null
             ? ImmutableMap.of()
@@ -384,11 +395,23 @@ public class BuildRequest implements OptionsProvider {
   }
 
   /**
-   * Return the time (according to System.currentTimeMillis()) at which the service of this request
-   * was started.
+   * Returns the time at which the service of this request was started, in millis since the epoch.
    */
   public long getStartTime() {
-    return startTimeMillis;
+    return timeAnchor.toEpochMillis(startTimeNanos);
+  }
+
+  /**
+   * Returns the time at which the service of this request was started, as a {@link
+   * com.google.devtools.build.lib.clock.Clock#nanoTime} reading.
+   */
+  public long getStartTimeNanos() {
+    return startTimeNanos;
+  }
+
+  /** Returns the anchor relating this request's monotonic readings to the wall clock. */
+  public TimeAnchor getTimeAnchor() {
+    return timeAnchor;
   }
 
   public boolean needsInstrumentationFilter() {
