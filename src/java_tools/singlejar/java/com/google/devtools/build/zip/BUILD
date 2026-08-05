@@ -25,13 +25,24 @@ java_library(
     name = "zip",
     srcs = glob(["*.java"]),
     visibility = ["//visibility:public"],
-    deps = ["//third_party:jsr305"],
+    deps = [
+        "//third_party:apache_commons_compress",
+        "//third_party:jsr305",
+    ],
 )
 
 # Adjusts zip offsets in self-extracting archive (like zip -qA, but out-of-place).
 java_binary(
     name = "adjust_sfx",
     main_class = "com.google.devtools.build.zip.AdjustSfx",
+    visibility = ["//src:__pkg__"],
+    runtime_deps = [":zip"],
+)
+
+# Hermetic packaging tool for Bazel release archives.
+java_binary(
+    name = "package_zipper",
+    main_class = "com.google.devtools.build.zip.PackageZipper",
     visibility = ["//src:__pkg__"],
     runtime_deps = [":zip"],
 )
