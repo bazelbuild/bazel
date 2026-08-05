@@ -647,6 +647,66 @@ public class UploadManifest {
     return actionResult;
   }
 
+  /** Uploads a derived-key metadata record while deliberately omitting regular output blobs. */
+  public ActionResult uploadMetadataOnly(
+      RemoteActionExecutionContext context,
+      CombinedCache combinedCache,
+      ExtendedEventHandler reporter,
+      Action metadataAction,
+      ActionKey metadataActionKey)
+      throws IOException, InterruptedException, ExecException {
+    // digestToBlobs contains the original Action and Command and any Tree protos required to
+    // interpret directory metadata. Add the derived Action required by REAPI UpdateActionResult,
+    // but deliberately exclude digestToFile, which contains regular outputs and stdout/stderr.
+    Map<Digest, ByteString> metadataBlobs = new HashMap<>(digestToBlobs);
+    metadataBlobs.put(metadataActionKey.digest(), metadataAction.toByteString());
+    ImmutableSet<Digest> metadataDigests = ImmutableSet.copyOf(metadataBlobs.keySet());
+    ImmutableSet<Digest> missingDigests;
+    try (var s =
+        Profiler.instance().profile(ProfilerTask.INFO, "find missing metadata digests")) {
+      missingDigests = getFromFuture(combinedCache.findMissingDigests(context, metadataDigests));
+    }
+
+    var uploadFutures = new ArrayList<ListenableFuture<Void>>(missingDigests.size());
+    for (Digest digest : missingDigests) {
+      ByteString blob = metadataBlobs.get(digest);
+      if (blob == null) {
+        throw new IOException("Missing metadata blob for digest: " + digest);
+      }
+      uploadFutures.add(
+          decorateUploadFuture(
+              combinedCache.uploadBlob(context, digest, blob),
+              reporter,
+              context.getSpawnOwner(),
+              Store.CAS,
+              digest));
+    }
+    waitForBulkTransfer(uploadFutures);
+
+    ActionResult outputMetadata =
+        result
+            .clone()
+            .clearStdoutDigest()
+            .clearStderrDigest()
+            .clearStdoutRaw()
+            .clearStderrRaw()
+            .build();
+    if (outputMetadata.getExitCode() == 0) {
+      // Keep the record self-contained so an integrity-checking cache can return it even though the
+      // producer's regular output blobs are intentionally absent.
+      ActionResult metadataRecord =
+          ActionResult.newBuilder().setStdoutRaw(outputMetadata.toByteString()).build();
+      getFromFuture(
+          decorateUploadFuture(
+              combinedCache.uploadActionResult(context, metadataActionKey, metadataRecord),
+              reporter,
+              context.getSpawnOwner(),
+              Store.AC,
+              metadataActionKey.digest()));
+    }
+    return outputMetadata;
+  }
+
   private ListenableFuture<Void> uploadSingleDigest(
       RemoteActionExecutionContext context, CombinedCache combinedCache, Digest digest) {
     Path file = digestToFile.get(digest);

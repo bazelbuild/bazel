@@ -105,6 +105,81 @@ function test_cc_tree_remote_cache_download_minimal() {
       || fail "Failed to build //a:tree_cc with remote cache and minimal downloads"
 }
 
+function test_metadata_only_action_result_skips_unused_producer() {
+  mkdir -p metadata_only
+  local -r producer_log="${TEST_TMPDIR}/metadata_only_producer_executions"
+  touch "${producer_log}"
+
+  cat > metadata_only/rules.bzl <<EOF
+def _metadata_only_pipeline_impl(ctx):
+    intermediate = ctx.actions.declare_file(ctx.label.name + ".intermediate")
+    final = ctx.actions.declare_file(ctx.label.name + ".final")
+    ctx.actions.run_shell(
+        outputs = [intermediate],
+        command = "echo producer >> '${producer_log}'; echo payload > \"\$1\"",
+        arguments = [intermediate.path],
+        mnemonic = "MetadataOnlyProducer",
+    )
+    ctx.actions.run_shell(
+        inputs = [intermediate, ctx.file.mode],
+        outputs = [final],
+        command = "cat \"\$1\" \"\$2\" > \"\$3\"",
+        arguments = [intermediate.path, ctx.file.mode.path, final.path],
+        mnemonic = "MetadataOnlyConsumer",
+    )
+    return [DefaultInfo(files = depset([final]))]
+
+metadata_only_pipeline = rule(
+    implementation = _metadata_only_pipeline_impl,
+    attrs = {"mode": attr.label(allow_single_file = True)},
+)
+EOF
+
+  cat > metadata_only/BUILD <<'EOF'
+load(":rules.bzl", "metadata_only_pipeline")
+
+metadata_only_pipeline(
+    name = "subject",
+    mode = "mode.txt",
+)
+EOF
+  echo first > metadata_only/mode.txt
+
+  local -a metadata_options=(
+    --remote_cache="grpc://localhost:${worker_port}"
+    --remote_download_minimal
+    --experimental_remote_cache_metadata_only_mnemonic=MetadataOnlyProducer
+    --enable_bzlmod=false
+    --enable_workspace=true
+  )
+  if [[ -n "${METADATA_TEST_REPOSITORY_CACHE:-}" ]]; then
+    metadata_options+=(--repository_cache="${METADATA_TEST_REPOSITORY_CACHE}")
+  fi
+  if [[ -n "${METADATA_TEST_DISTDIR:-}" ]]; then
+    metadata_options+=(--distdir="${METADATA_TEST_DISTDIR}")
+  fi
+
+  bazel build "${metadata_options[@]}" //metadata_only:subject >& "${TEST_log}" \
+    || fail "Failed to populate metadata-only producer and consumer results"
+  assert_equals 1 "$(wc -l < "${producer_log}" | tr -d ' ')"
+  expect_log "remote cache: metadata-only action result uploaded mnemonic=MetadataOnlyProducer"
+
+  bazel clean >& "${TEST_log}"
+  bazel build "${metadata_options[@]}" //metadata_only:subject >& "${TEST_log}" \
+    || fail "Failed to reuse downstream result from metadata-only producer result"
+  assert_equals 1 "$(wc -l < "${producer_log}" | tr -d ' ')"
+  expect_log "remote cache: metadata-only action result hit mnemonic=MetadataOnlyProducer"
+
+  # Change only a downstream input. The consumer now misses, so fetching the deliberately absent
+  # intermediate blob must trigger lost-input recovery and execute the producer normally.
+  echo second > metadata_only/mode.txt
+  bazel clean >& "${TEST_log}"
+  bazel build "${metadata_options[@]}" //metadata_only:subject >& "${TEST_log}" \
+    || fail "Failed to fall back after downstream cache miss"
+  assert_equals 2 "$(wc -l < "${producer_log}" | tr -d ' ')"
+  expect_log "lost inputs with digests:"
+}
+
 function test_cc_tree_prefetching_download_minimal() {
   setup_cc_tree
 
