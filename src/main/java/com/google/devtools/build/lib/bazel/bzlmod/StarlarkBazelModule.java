@@ -52,15 +52,17 @@ public class StarlarkBazelModule implements StarlarkValue {
       name = "bazel_module_tags",
       category = DocCategory.BUILTIN,
       doc =
-          "Contains the tags in a module for the module extension currently being processed. This"
-              + " object has a field for each tag class of the extension, and the value of the"
-              + " field is a list containing an object for each tag instance. This \"tag instance\""
-              + " object in turn has a field for each attribute of the tag class.\n\n"
-              + "When passed as positional arguments to <code>print()</code> or <code>fail()"
-              + "</code>, tag instance objects turn into a meaningful string representation of the"
-              + " form \"'install' tag at /home/user/workspace/MODULE.bazel:3:4\". This can be used"
-              + " to construct error messages that point to the location of the tag in the module"
-              + " file, e.g. <code>fail(\"Conflict between\", tag1, \"and\", tag2)</code>.")
+          """
+          Contains the tags in a module for the module extension currently being processed. This \
+          object has a field for each tag class of the extension, and the value of the field is a \
+          list containing an object for each tag instance. This "tag instance" object in turn has \
+          a field for each attribute of the tag class.
+          <p>When passed as positional arguments to <code>print()</code> or <code>fail()</code>, \
+          tag instance objects turn into a meaningful string representation of the form "'install' \
+          tag at /home/user/workspace/MODULE.bazel:3:4". This can be used to construct error \
+          messages that point to the location of the tag in the module file, e.g. \
+          <code>fail("Conflict between", tag1, "and", tag2)</code>.\
+          """)
   static class Tags implements Structure {
     private final ImmutableMap<String, StarlarkList<TypeCheckedTag>> typeCheckedTags;
 
@@ -109,7 +111,8 @@ public class StarlarkBazelModule implements StarlarkValue {
       ModuleExtension extension,
       RepositoryMapping repoMapping,
       @Nullable ModuleExtensionUsage usage,
-      Label.RepoMappingRecorder repoMappingRecorder)
+      Label.RepoMappingRecorder repoMappingRecorder,
+      int moduleIndex)
       throws ExternalDepsException {
     LabelConverter labelConverter =
         new LabelConverter(
@@ -121,7 +124,8 @@ public class StarlarkBazelModule implements StarlarkValue {
     for (String tagClassName : extension.tagClasses().keySet()) {
       typeCheckedTags.put(tagClassName, new ArrayList<>());
     }
-    for (Tag tag : tags) {
+    for (int tagIndex = 0; tagIndex < tags.size(); tagIndex++) {
+      Tag tag = tags.get(tagIndex);
       TagClass tagClass = extension.tagClasses().get(tag.getTagName());
       if (tagClass == null) {
         throw ExternalDepsException.withMessage(
@@ -140,7 +144,12 @@ public class StarlarkBazelModule implements StarlarkValue {
           .get(tag.getTagName())
           .add(
               TypeCheckedTag.create(
-                  tagClass, tag, labelConverter, module.getKey().toDisplayString()));
+                  tagClass,
+                  tag,
+                  labelConverter,
+                  module.getKey().toDisplayString(),
+                  moduleIndex,
+                  tagIndex));
     }
     return new StarlarkBazelModule(
         module.getName(),
