@@ -379,7 +379,16 @@ string GetSelfPath(const char* argv0) {
 }
 
 string GetCacheDir() {
-  string home = GetHomeDir();
+  // Respect $XDG_CACHE_HOME if set, for consistency with Linux / macOS and
+  // to provide a uniform way to configure caches in CI environments without
+  // explicitly setting --output_user_root.
+  //
+  // See https://github.com/bazelbuild/bazel/issues/27808
+  const string xdg_cache_home = GetPathEnv("XDG_CACHE_HOME");
+  if (!xdg_cache_home.empty()) {
+    return blaze_util::JoinPath(xdg_cache_home, "bazel");
+  }
+  const string home = GetHomeDir();
   if (home.empty()) {
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
         << "Cannot find a good output root.\n"
