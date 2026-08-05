@@ -5,6 +5,7 @@ load("@rules_python//python:defs.bzl", "py_binary", "py_library")
 load("//src:build_defs.bzl", "transition_java_language_8_archive")
 load("//src:release_archive.bzl", "release_archive")
 load(":embedded_tools.bzl", "srcsfile")
+load(":package_zip.bzl", "package_zip")
 load(":rule_size_test.bzl", "rule_size_test")
 
 package(default_applicable_licenses = ["@io_bazel//:license"])
@@ -232,20 +233,9 @@ genrule(
     "_nojdk",
 ]]
 
-[genrule(
+[package_zip(
     name = "package-zip" + suffix,
-    # This script assumes the following arg order:
-    #   1) embedded tools zip (if it exists)
-    #   2) the deploy jar
-    #   3) the install base key
-    #   4) the platforms archive
-    #   5) everything else to be bundled
-    # Ensure we haven't forgotten to add all package-zip items as dependencies
-    # of :install_base_key-file, otherwise bazel won't correctly reextract
-    # modified files.
     srcs = ([":embedded_tools" + suffix + ".zip"] if embed else []) + [
-        "//src/main/java/com/google/devtools/build/lib/bazel:BazelServer_deploy.jar",
-        "install_base_key" + suffix,
         "//:platforms-srcs",
         "//:rules_java-srcs",
         # Non-ordered items follow:
@@ -260,14 +250,15 @@ genrule(
             "//src/main/tools:daemonize",
         ],
     }),
-    outs = ["package" + suffix + ".zip"],
-    cmd = "$(location :package_bazel_on_host_platform) $@ " + ("" if embed else "''") + " $(SRCS)",
-    tools = [":package_bazel_on_host_platform"],
-) for suffix, embed in [
-    ("_jdk_allmodules", True),
-    ("_jdk_minimal", True),
-    ("_notools", False),
-    ("_nojdk", True),
+    out = "package" + suffix + ".zip",
+    dev_build = dev_build,
+    install_base_key = "install_base_key" + suffix,
+    server_jar = "//src/main/java/com/google/devtools/build/lib/bazel:BazelServer_deploy.jar",
+) for suffix, embed, dev_build in [
+    ("_jdk_allmodules", True, True),
+    ("_jdk_minimal", True, False),
+    ("_notools", False, False),
+    ("_nojdk", True, False),
 ]]
 
 genrule(
