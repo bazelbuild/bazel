@@ -338,6 +338,14 @@ public class TestActionBuilderTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testRunsPerTestWithFilterContainingAt() throws Exception {
+    useConfiguration("--runs_per_test=//tests:small_test_1@2");
+    ImmutableList<Artifact.DerivedArtifact> testStatusList =
+        getTestStatusArtifacts("//tests:small_test_1");
+    assertThat(testStatusList).hasSize(2);
+  }
+
+  @Test
   public void testRunsPerTestCanBeOverridden() throws Exception {
     useConfiguration("--runs_per_test=1", "--runs_per_test=2");
     ImmutableList<Artifact.DerivedArtifact> testStatusList =
