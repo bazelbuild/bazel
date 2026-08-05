@@ -23,6 +23,10 @@
 #include <sys/stat.h>
 #include <time.h>
 
+#ifdef _WIN32
+#include <io.h>
+#endif
+
 #include <algorithm>
 #include <cinttypes>
 #include <cstdint>
@@ -1068,6 +1072,19 @@ bool OutputJar::Close() {
     if (ftruncate(fileno(file_), outpos_) != 0) {
       diag_err(1, "ftruncate failed");
     }
+  }
+#endif
+#ifdef _WIN32
+  // fclose() flushes the CRT buffer to the OS but does not force NTFS to
+  // update the directory entry's EOF. Without that, a stat() by another
+  // process shortly after we exit can observe a stale, undersized length.
+  // Flush the stdio buffer first: _commit() operates on the fd and cannot
+  // see bytes still held in the FILE* buffer without fflush().
+  if (fflush(file_) != 0) {
+    diag_err(1, "fflush failed");
+  }
+  if (_commit(_fileno(file_)) != 0) {
+    diag_err(1, "_commit failed");
   }
 #endif
   if (fclose(file_)) {
