@@ -1524,6 +1524,11 @@ public class CppCompileAction extends AbstractAction
             .getOptions()
             .getOptions(BuildLanguageOptions.class)
             .getExperimentalSiblingRepositoryLayout();
+    boolean bazelExternalDirectory =
+        actionExecutionContext
+            .getOptions()
+            .getOptions(BuildLanguageOptions.class)
+            .getIncompatibleBazelExternalDirectory();
 
     if (shouldParseShowIncludes()) {
       NestedSet<Artifact> discoveredInputs =
@@ -1533,6 +1538,7 @@ public class CppCompileAction extends AbstractAction
               showIncludesFilterForStdout,
               showIncludesFilterForStderr,
               siblingRepositoryLayout,
+              bazelExternalDirectory,
               pathMapper);
       updateActionInputs(discoveredInputs);
       validateInclusions(actionExecutionContext, discoveredInputs);
@@ -1552,6 +1558,7 @@ public class CppCompileAction extends AbstractAction
             scanningContext.getArtifactResolver(),
             dotDContents,
             siblingRepositoryLayout,
+            bazelExternalDirectory,
             pathMapper);
     dotDContents = null; // Garbage collect in-memory .d contents.
 
@@ -1810,6 +1817,7 @@ public class CppCompileAction extends AbstractAction
       ShowIncludesFilter showIncludesFilterForStdout,
       ShowIncludesFilter showIncludesFilterForStderr,
       boolean siblingRepositoryLayout,
+      boolean bazelExternalDirectory,
       PathMapper pathMapper)
       throws ActionExecutionException {
     Collection<Path> stdoutDeps = showIncludesFilterForStdout.getDependencies(execRoot);
@@ -1843,6 +1851,7 @@ public class CppCompileAction extends AbstractAction
         execRoot,
         artifactResolver,
         siblingRepositoryLayout,
+        bazelExternalDirectory,
         pathMapper);
   }
 
@@ -1853,6 +1862,25 @@ public class CppCompileAction extends AbstractAction
       ArtifactResolver artifactResolver,
       byte[] dotDContents,
       boolean siblingRepositoryLayout,
+      PathMapper pathMapper)
+      throws ActionExecutionException {
+    return discoverInputsFromDotdFiles(
+        actionExecutionContext,
+        execRoot,
+        artifactResolver,
+        dotDContents,
+        siblingRepositoryLayout,
+        /* bazelExternalDirectory= */ false,
+        pathMapper);
+  }
+
+  public NestedSet<Artifact> discoverInputsFromDotdFiles(
+      ActionExecutionContext actionExecutionContext,
+      Path execRoot,
+      ArtifactResolver artifactResolver,
+      byte[] dotDContents,
+      boolean siblingRepositoryLayout,
+      boolean bazelExternalDirectory,
       PathMapper pathMapper)
       throws ActionExecutionException {
     Preconditions.checkNotNull(getDotdFile(), "Trying to scan .d file which is unset");
@@ -1866,6 +1894,7 @@ public class CppCompileAction extends AbstractAction
         execRoot,
         artifactResolver,
         siblingRepositoryLayout,
+        bazelExternalDirectory,
         pathMapper);
   }
 

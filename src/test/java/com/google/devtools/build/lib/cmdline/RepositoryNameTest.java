@@ -78,6 +78,37 @@ public class RepositoryNameTest {
   }
 
   @Test
+  public void getExecPath_bazelExternalDirectory() throws Exception {
+    RepositoryName repositoryName = RepositoryName.create("foo");
+
+    assertThat(repositoryName.getExecPath(false, false))
+        .isEqualTo(PathFragment.create("external/foo"));
+    assertThat(repositoryName.getExecPath(false, true))
+        .isEqualTo(PathFragment.create("bazel-external/foo"));
+    assertThat(repositoryName.getExecPath(true, true))
+        .isEqualTo(PathFragment.create("../foo"));
+  }
+
+  @Test
+  public void fromPathFragment_bazelExternalDirectory() {
+    var parsed =
+        RepositoryName.fromPathFragment(
+            PathFragment.create("bazel-external/foo/pkg/file"),
+            /* siblingRepositoryLayout= */ false,
+            /* bazelExternalDirectory= */ true);
+
+    assertThat(parsed).isNotNull();
+    assertThat(parsed.getFirst()).isEqualTo(RepositoryName.createUnvalidated("foo"));
+    assertThat(parsed.getSecond()).isEqualTo(PathFragment.create("pkg/file"));
+    assertThat(
+            RepositoryName.fromPathFragment(
+                PathFragment.create("external/foo/pkg/file"),
+                /* siblingRepositoryLayout= */ false,
+                /* bazelExternalDirectory= */ true))
+        .isNull();
+  }
+
+  @Test
   public void testGetDefaultCanonicalForm() throws Exception {
     assertThat(RepositoryName.create("").getCanonicalForm()).isEqualTo("");
     assertThat(RepositoryName.create("foo").getCanonicalForm()).isEqualTo("@@foo");

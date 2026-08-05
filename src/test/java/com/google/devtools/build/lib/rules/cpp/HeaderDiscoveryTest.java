@@ -126,6 +126,32 @@ public final class HeaderDiscoveryTest {
   }
 
   @Test
+  public void nonWindowsPlatform_resolvesBazelExternalSourcePath() throws Exception {
+    ArtifactResolver artifactResolver = mock(ArtifactResolver.class);
+    RepositoryName repositoryName = RepositoryName.createUnvalidated("some_repo");
+    SourceArtifact resolvedArtifact = sourceArtifact("pkg/header.h");
+    PathFragment depPath = PathFragment.create("bazel-external/some_repo/pkg/header.h");
+    when(artifactResolver.resolveSourceArtifact(eq(depPath), eq(repositoryName)))
+        .thenReturn(resolvedArtifact);
+
+    NestedSet<Artifact> result =
+        HeaderDiscovery.discoverInputsFromDependencies(
+            nonWindowsAction(),
+            ActionsTestUtil.createArtifact(derivedArtifactRoot, derivedRoot.getRelative("foo.cc")),
+            /* shouldValidateInclusions= */ true,
+            ImmutableList.of(execRoot.getRelative(depPath)),
+            /* permittedSystemIncludePrefixes= */ ImmutableList.of(),
+            NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+            execRoot,
+            artifactResolver,
+            /* siblingRepositoryLayout= */ false,
+            /* bazelExternalDirectory= */ true,
+            PathMapper.NOOP);
+
+    assertThat(result.toList()).containsExactly(resolvedArtifact);
+  }
+
+  @Test
   public void windowsPlatform_singleCaseInsensitiveMatch_addsToInputs() throws Exception {
     ArtifactResolver artifactResolver = mock(ArtifactResolver.class);
     SourceArtifact resolvedArtifact = sourceArtifact("pkg/Include/BaseTsd.h");

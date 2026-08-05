@@ -138,6 +138,7 @@ public class BuildConfigurationValue
   private final BuildOptionDetails buildOptionDetails;
 
   private final boolean siblingRepositoryLayout;
+  private final boolean bazelExternalDirectory;
 
   private final FeatureSet defaultFeatures;
 
@@ -196,6 +197,7 @@ public class BuildConfigurationValue
       BuildOptions buildOptions,
       @Nullable BuildOptions baselineOptions,
       boolean siblingRepositoryLayout,
+      boolean bazelExternalDirectory,
       String platformCpu,
       // Arguments below this are server-global.
       BlazeDirectories directories,
@@ -217,6 +219,7 @@ public class BuildConfigurationValue
         buildOptions,
         mnemonic,
         siblingRepositoryLayout,
+        bazelExternalDirectory,
         platformCpu,
         globalProvider.getRunfilesPrefix(),
         directories,
@@ -250,6 +253,7 @@ public class BuildConfigurationValue
         buildOptions,
         mnemonic,
         siblingRepositoryLayout,
+        /* bazelExternalDirectory= */ false,
         "",
         globalProvider.getRunfilesPrefix(),
         directories,
@@ -277,6 +281,7 @@ public class BuildConfigurationValue
       BuildOptions buildOptions,
       String mnemonic,
       boolean siblingRepositoryLayout,
+      boolean bazelExternalDirectory,
       String platformCpu,
       // Arguments below this are either server-global and constant or completely dependent values.
       String workspaceName,
@@ -301,6 +306,7 @@ public class BuildConfigurationValue
             siblingRepositoryLayout);
     this.workspaceName = workspaceName;
     this.siblingRepositoryLayout = siblingRepositoryLayout;
+    this.bazelExternalDirectory = bazelExternalDirectory;
 
     // We can't use an ImmutableMap.Builder here; we need the ability to add entries with keys that
     // are already in the map so that the same define can be specified on the command line twice,
@@ -522,6 +528,10 @@ public class BuildConfigurationValue
 
   public boolean isSiblingRepositoryLayout() {
     return siblingRepositoryLayout;
+  }
+
+  public boolean isBazelExternalDirectory() {
+    return bazelExternalDirectory;
   }
 
   @Override

@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.analysis.config.transitions.TransitionFacto
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.buildtool.util.TestRuleModule;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.exec.FileWriteStrategy;
@@ -801,6 +802,49 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
     buildTarget("//target:target");
 
     assertThat(getWorkspace().getChild("prefix-genfiles").isSymbolicLink()).isTrue();
+  }
+
+  @Test
+  public void bazelExternalLink_presentWithIncompatibleFlag() throws Exception {
+    addOptions(
+        "--incompatible_bazel_external_directory",
+        "--symlink_prefix=prefix-");
+
+    write("target/BUILD", "basic_rule(name='target')");
+    buildTarget("//target:target");
+
+    assertThat(getConvenienceSymlinks())
+        .containsEntry(
+            "prefix-external",
+            getExecRoot().getRelative(LabelConstants.BAZEL_EXTERNAL_PATH_PREFIX));
+  }
+
+  @Test
+  public void bazelExternalLink_removedWithoutIncompatibleFlag() throws Exception {
+    addOptions("--symlink_prefix=prefix-");
+    Path externalLink = getWorkspace().getChild("prefix-external");
+    externalLink.createSymbolicLink(getExecRoot().getRelative("old-external"));
+
+    write("target/BUILD", "basic_rule(name='target')");
+    buildTarget("//target:target");
+
+    assertThat(externalLink.exists(Symlinks.NOFOLLOW)).isFalse();
+  }
+
+  @Test
+  public void bazelExternalLink_removedByClean() throws Exception {
+    addOptions(
+        "--incompatible_bazel_external_directory",
+        "--symlink_prefix=prefix-");
+
+    write("target/BUILD", "basic_rule(name='target')");
+    buildTarget("//target:target");
+    Path externalLink = getWorkspace().getChild("prefix-external");
+    assertThat(externalLink.isSymbolicLink()).isTrue();
+
+    clean();
+
+    assertThat(externalLink.exists(Symlinks.NOFOLLOW)).isFalse();
   }
 
   @Test

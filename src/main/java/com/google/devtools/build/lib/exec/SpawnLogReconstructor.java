@@ -54,14 +54,21 @@ public final class SpawnLogReconstructor implements MessageInputStream<SpawnExec
   // * bazel-out/k8-fastbuild/bin/pkg/file.txt (repo: null, path: "pkg/file.txt")
   // * bazel-out/k8-fastbuild/bin/external/some_repo/pkg/file.txt (repo: "some_repo", path:
   //   "pkg/file.txt")
+  // * bazel-out/k8-fastbuild/bin/bazel-external/some_repo/pkg/file.txt (repo: "some_repo", path:
+  //   "pkg/file.txt")
   private static final Pattern DEFAULT_GENERATED_FILE_RUNFILES_PATH_PATTERN =
-      Pattern.compile("(?:bazel|blaze)-out/[^/]+/[^/]+/(?:external/(?<repo>[^/]+)/)?(?<path>.+)");
+      Pattern.compile(
+          "(?:bazel|blaze)-out/[^/]+/[^/]+/"
+              + "(?:(?:(?:bazel|blaze)-)?external/(?<repo>[^/]+)/)?(?<path>.+)");
 
   // Examples:
   // * pkg/file.txt (repo: null, path: "pkg/file.txt")
   // * external/some_repo/pkg/file.txt (repo: "some_repo", path: "pkg/file.txt")
+  // * bazel-external/some_repo/pkg/file.txt (repo: "some_repo", path: "pkg/file.txt")
+  // * blaze-external/some_repo/pkg/file.txt (repo: "some_repo", path: "pkg/file.txt")
   private static final Pattern DEFAULT_SOURCE_FILE_RUNFILES_PATH_PATTERN =
-      Pattern.compile("(?:external/(?<repo>[^/]+)/)?(?<path>.+)");
+      Pattern.compile(
+          "(?:(?:(?:bazel|blaze)-)?external/(?<repo>[^/]+)/)?(?<path>.+)");
 
   // Examples:
   // * bazel-out/k8-fastbuild/bin/pkg/file.txt (repo: null, path: "pkg/file.txt")

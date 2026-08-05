@@ -375,9 +375,9 @@ public final class Label
   }
 
   /**
-   * Returns the execution root for the workspace, relative to the execroot (e.g., for label
-   * {@code @repo//pkg:b}, it will returns {@code external/repo/pkg} and for label {@code //pkg:a},
-   * it will returns an empty string.
+   * Returns the execution root for the workspace, relative to the execroot (e.g., under the default
+   * layout, for label {@code @repo//pkg:b}, it returns {@code external/repo}; for label {@code
+   * //pkg:a}, it returns an empty string).
    *
    * @deprecated The sole purpose of this method is to implement the workspace_root method. For
    *     other purposes, use {@link RepositoryName#getExecPath} instead.
@@ -387,7 +387,8 @@ public final class Label
       structField = true,
       doc =
           "Returns the execution root for the repository containing the target referred to by this"
-              + " label, relative to the execroot. For instance:<br><pre"
+              + " label, relative to the execroot. Under the default repository layout, for"
+              + " instance:<br><pre"
               + " class=language-python>Label(\"@repo//pkg/foo:abc\").workspace_root =="
               + " \"external/repo\"</pre>",
       useStarlarkSemantics = true)
@@ -396,7 +397,9 @@ public final class Label
     checkRepoVisibilityForStarlark("workspace_root");
     return packageIdentifier
         .getRepository()
-        .getExecPath(semantics.getBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT))
+        .getExecPath(
+            semantics.getBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT),
+            semantics.getBool(BuildLanguageOptions.INCOMPATIBLE_BAZEL_EXTERNAL_DIRECTORY))
         .toString();
   }
 
