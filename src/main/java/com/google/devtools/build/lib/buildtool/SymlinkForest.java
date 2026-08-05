@@ -53,13 +53,6 @@ public class SymlinkForest {
   private final Path execroot;
   private final String productName;
   private final String prefix;
-  private final boolean siblingRepositoryLayout;
-
-  /** Constructor for a symlink forest creator without non-symlinked directories parameter. */
-  public SymlinkForest(
-      ImmutableMap<PackageIdentifier, Root> packageRoots, Path execroot, String productName) {
-    this(packageRoots, execroot, productName, false);
-  }
 
   /**
    * Constructor for a symlink forest creator; does not perform any i/o.
@@ -71,15 +64,11 @@ public class SymlinkForest {
    * @param productName {@code BlazeRuntime#getProductName()}
    */
   public SymlinkForest(
-      ImmutableMap<PackageIdentifier, Root> packageRoots,
-      Path execroot,
-      String productName,
-      boolean siblingRepositoryLayout) {
+      ImmutableMap<PackageIdentifier, Root> packageRoots, Path execroot, String productName) {
     this.packageRoots = packageRoots;
     this.execroot = execroot;
     this.productName = productName;
     this.prefix = productName + "-";
-    this.siblingRepositoryLayout = siblingRepositoryLayout;
   }
 
   /**
@@ -126,8 +115,7 @@ public class SymlinkForest {
       Set<Path> externalRepoLinks)
       throws IOException {
     Optional<Path> plantedSymlink =
-        plantSingleSymlinkForExternalRepo(
-            repository, source, execroot, siblingRepositoryLayout, externalRepoLinks);
+        plantSingleSymlinkForExternalRepo(repository, source, execroot, externalRepoLinks);
     plantedSymlink.ifPresent(plantedSymlinks::add);
   }
 
@@ -135,13 +123,10 @@ public class SymlinkForest {
       ImmutableList.Builder<Path> plantedSymlinks, Path mainRepoRoot) throws IOException {
     // For the main repo top-level directory, generate symlinks to everything in the directory
     // instead of the directory itself.
-    if (siblingRepositoryLayout) {
-      execroot.createDirectory();
-    }
     for (Path target : mainRepoRoot.getDirectoryEntries()) {
       String baseName = target.getBaseName();
       Path execPath = execroot.getRelative(baseName);
-      if (symlinkShouldBePlanted(prefix, siblingRepositoryLayout, baseName, target)) {
+      if (symlinkShouldBePlanted(prefix, baseName, target)) {
         execPath.createSymbolicLink(target);
         plantedSymlinks.add(execPath);
         // TODO(jingwen-external): is this creating execroot/io_bazel/external?
@@ -152,9 +137,6 @@ public class SymlinkForest {
   private void plantSymlinkForestWithPartialMainRepository(
       ImmutableList.Builder<Path> plantedSymlinks, Map<Path, Path> mainRepoLinks)
       throws IOException, AbruptExitException {
-    if (siblingRepositoryLayout) {
-      execroot.createDirectory();
-    }
     for (Entry<Path, Path> entry : mainRepoLinks.entrySet()) {
       Path link = entry.getKey();
       Path target = entry.getValue();
@@ -202,14 +184,11 @@ public class SymlinkForest {
     // Create output dirs for all dirs that have more than one root and need to be split.
     for (PackageIdentifier dir : dirsParentsFirst) {
       if (!dir.getRepository().isMain()) {
-        execroot
-            .getRelative(dir.getRepository().getExecPath(siblingRepositoryLayout))
-            .createDirectoryAndParents();
+        execroot.getRelative(dir.getRepository().getExecPath()).createDirectoryAndParents();
       }
       if (dirRootsMap.get(dir).size() > 1) {
-        logger.atFiner().log(
-            "mkdir %s", execroot.getRelative(dir.getExecPath(siblingRepositoryLayout)));
-        execroot.getRelative(dir.getExecPath(siblingRepositoryLayout)).createDirectoryAndParents();
+        logger.atFiner().log("mkdir %s", execroot.getRelative(dir.getExecPath()));
+        execroot.getRelative(dir.getExecPath()).createDirectoryAndParents();
       }
     }
 
@@ -224,7 +203,7 @@ public class SymlinkForest {
         }
         // This is the top-most dir that can be linked to a single root. Make it so.
         Root root = roots.iterator().next(); // lone root in set
-        Path link = execroot.getRelative(dir.getExecPath(siblingRepositoryLayout));
+        Path link = execroot.getRelative(dir.getExecPath());
         logger.atFiner().log("ln -s %s %s", root.getRelative(dir.getSourceRoot()), link);
         link.createSymbolicLink(root.getRelative(dir.getSourceRoot()));
         plantedSymlinks.add(link);
@@ -269,7 +248,7 @@ public class SymlinkForest {
       if (!pkgId.getPackageFragment().equals(PathFragment.EMPTY_FRAGMENT)) {
         continue;
       }
-      Path execrootDirectory = execroot.getRelative(pkgId.getExecPath(siblingRepositoryLayout));
+      Path execrootDirectory = execroot.getRelative(pkgId.getExecPath());
       // If there were no subpackages, this directory might not exist yet.
       if (!execrootDirectory.exists()) {
         execrootDirectory.createDirectoryAndParents();
@@ -296,7 +275,6 @@ public class SymlinkForest {
    */
   public ImmutableList<Path> plantSymlinkForest() throws IOException, AbruptExitException {
     deleteTreesBelowNotPrefixed(execroot, prefix);
-    deleteSiblingRepositorySymlinks(siblingRepositoryLayout, execroot);
 
     boolean shouldLinkAllTopLevelItems = false;
     Map<Path, Path> mainRepoLinks = new LinkedHashMap<>();
@@ -329,8 +307,7 @@ public class SymlinkForest {
           shouldLinkAllTopLevelItems = true;
         } else {
           String baseName = pkgId.getPackageFragment().getSegment(0);
-          if (!siblingRepositoryLayout
-              && baseName.equals(LabelConstants.EXTERNAL_PATH_PREFIX.getBaseName())) {
+          if (baseName.equals(LabelConstants.EXTERNAL_PATH_PREFIX.getBaseName())) {
             // ignore external/ directory if user has it in the source tree
             // because it conflicts with external repository location.
             continue;
@@ -362,18 +339,6 @@ public class SymlinkForest {
     return plantedSymlinks.build();
   }
 
-  private static void deleteSiblingRepositorySymlinks(
-      boolean siblingRepositoryLayout, Path execroot) throws IOException {
-    if (siblingRepositoryLayout) {
-      // Delete execroot/../<symlinks> to directories representing external repositories.
-      for (Path p : execroot.getParentDirectory().getDirectoryEntries()) {
-        if (p.isSymbolicLink()) {
-          p.deleteTree();
-        }
-      }
-    }
-  }
-
   /**
    * Eagerly plant the symlinks from execroot to the source root provided by the single package path
    * of the current build. Only works with a single package path. Before planting the new symlinks,
@@ -385,14 +350,9 @@ public class SymlinkForest {
    * @return a set of potentially conflicting baseNames, all in lowercase.
    */
   public static ImmutableSet<String> eagerlyPlantSymlinkForestSinglePackagePath(
-      Path execroot,
-      Path sourceRoot,
-      String prefix,
-      IgnoredSubdirectories ignoredPaths,
-      boolean siblingRepositoryLayout)
+      Path execroot, Path sourceRoot, String prefix, IgnoredSubdirectories ignoredPaths)
       throws IOException {
     deleteTreesBelowNotPrefixed(execroot, prefix);
-    deleteSiblingRepositorySymlinks(siblingRepositoryLayout, execroot);
 
     Map<String, List<Path>> symlinkBaseNameToTargets = new HashMap<>();
     Set<String> potentiallyConflictingBaseNamesLowercase = new HashSet<>();
@@ -411,8 +371,7 @@ public class SymlinkForest {
         Path target = Iterables.getOnlyElement(targets);
         String originalBaseName = target.getBaseName();
         Path link = execroot.getRelative(originalBaseName);
-        if (symlinkShouldBePlanted(
-            prefix, ignoredPaths, siblingRepositoryLayout, originalBaseName, target)) {
+        if (symlinkShouldBePlanted(prefix, ignoredPaths, originalBaseName, target)) {
           link.createSymbolicLink(target);
         }
       } else {
@@ -422,24 +381,17 @@ public class SymlinkForest {
     return ImmutableSet.copyOf(potentiallyConflictingBaseNamesLowercase);
   }
 
-  static boolean symlinkShouldBePlanted(
-      String prefix, boolean siblingRepositoryLayout, String baseName, Path target) {
-    return symlinkShouldBePlanted(
-        prefix, IgnoredSubdirectories.EMPTY, siblingRepositoryLayout, baseName, target);
+  static boolean symlinkShouldBePlanted(String prefix, String baseName, Path target) {
+    return symlinkShouldBePlanted(prefix, IgnoredSubdirectories.EMPTY, baseName, target);
   }
 
   public static boolean symlinkShouldBePlanted(
-      String prefix,
-      IgnoredSubdirectories ignoredSubdirectories,
-      boolean siblingRepositoryLayout,
-      String baseName,
-      Path target) {
+      String prefix, IgnoredSubdirectories ignoredSubdirectories, String baseName, Path target) {
     // Create any links that don't start with bazel-, and ignore external/ directory if
     // user has it in the source tree because it conflicts with external repository location.
     return !baseName.startsWith(prefix)
         && ignoredSubdirectories.matchingEntry(target.asFragment().toRelative()) == null
-        && (siblingRepositoryLayout
-            || !baseName.equals(LabelConstants.EXTERNAL_PATH_PREFIX.getBaseName()));
+        && !baseName.equals(LabelConstants.EXTERNAL_PATH_PREFIX.getBaseName());
   }
 
   /**
@@ -452,20 +404,15 @@ public class SymlinkForest {
       RepositoryName repository,
       Path source,
       Path execroot,
-      boolean siblingRepositoryLayout,
       Set<Path> alreadyPlantedExternalRepoLinks)
       throws IOException {
     // For external repositories, create one symlink to each external repository
     // directory.
     // From <output_base>/execroot/<main repo name>/external/<external repo name>
     // to   <output_base>/external/<external repo name>
-    //
-    // However, if --experimental_sibling_repository_layout is true, symlink:
-    // From <output_base>/execroot/<external repo name>
-    // to   <output_base>/external/<external repo name>
-    Path execrootLink = execroot.getRelative(repository.getExecPath(siblingRepositoryLayout));
+    Path execrootLink = execroot.getRelative(repository.getExecPath());
 
-    if (!siblingRepositoryLayout && alreadyPlantedExternalRepoLinks.isEmpty()) {
+    if (alreadyPlantedExternalRepoLinks.isEmpty()) {
       execroot.getRelative(LabelConstants.EXTERNAL_PATH_PREFIX).createDirectoryAndParents();
     }
     // Prevent re-creating existing symlinks.

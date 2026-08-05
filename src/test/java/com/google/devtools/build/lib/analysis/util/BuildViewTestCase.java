@@ -111,7 +111,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -1484,7 +1483,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     ActionLookupKey actionLookupKey = ConfiguredTargetKey.fromConfiguredTarget(owner);
     return getDerivedArtifact(
         owner.getLabel().getPackageFragment().getRelative(packageRelativePath),
-        getConfiguration(owner).getBinDirectory(RepositoryName.MAIN),
+        getConfiguration(owner).getBinDirectory(),
         actionLookupKey);
   }
 
@@ -1524,7 +1523,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected Artifact.DerivedArtifact getBinArtifactWithNoOwner(String rootRelativePath) {
     return getDerivedArtifact(
         PathFragment.create(rootRelativePath),
-        targetConfig.getBinDirectory(RepositoryName.MAIN),
+        targetConfig.getBinDirectory(),
         ActionsTestUtil.NULL_ARTIFACT_OWNER);
   }
 
@@ -1599,7 +1598,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected Artifact getGenfilesArtifactWithNoOwner(String rootRelativePath) {
     return getDerivedArtifact(
         PathFragment.create(rootRelativePath),
-        targetConfig.getGenfilesDirectory(RepositoryName.MAIN),
+        targetConfig.getGenfilesDirectory(),
         ActionsTestUtil.NULL_ARTIFACT_OWNER);
   }
 
@@ -1655,7 +1654,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
       AspectParameters params) {
     return getPackageRelativeDerivedArtifact(
         packageRelativePath,
-        getConfiguration(owner).getGenfilesDirectory(owner.getLabel().getRepository()),
+        getConfiguration(owner).getGenfilesDirectory(),
         getOwnerForAspect(owner, creatingAspectFactory, params));
   }
 
@@ -1668,7 +1667,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   private Artifact getGenfilesArtifact(
       String packageRelativePath, ArtifactOwner owner, BuildConfigurationValue config) {
     return getPackageRelativeDerivedArtifact(
-        packageRelativePath, config.getGenfilesDirectory(RepositoryName.MAIN), owner);
+        packageRelativePath, config.getGenfilesDirectory(), owner);
   }
 
   protected AspectKey getOwnerForAspect(
@@ -2348,8 +2347,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         .isEqualTo(
             String.format(
                 "%s%s.extra_action_dummy",
-                targetConfig.getGenfilesFragment(RepositoryName.MAIN),
-                convertLabelToPath(targetLabel)));
+                targetConfig.getGenfilesFragment(), convertLabelToPath(targetLabel)));
 
     return (PseudoAction<?>) pseudoAction;
   }

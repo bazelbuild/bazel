@@ -60,7 +60,7 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
         .isEqualTo(
             actualProtocLabel
                 .getRepository()
-                .getExecPath(false)
+                .getExecPath()
                 .getRelative(actualProtocLabel.toPathFragment())
                 .getPathString());
   }

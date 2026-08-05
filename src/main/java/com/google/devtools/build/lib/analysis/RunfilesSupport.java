@@ -406,9 +406,7 @@ public final class RunfilesSupport {
 
   private static Artifact createRunfilesInputManifestArtifact(
       RuleContext context, Artifact owningExecutable) {
-    PathFragment relativePath =
-        owningExecutable.getOutputDirRelativePath(
-            context.getConfiguration().isSiblingRepositoryLayout());
+    PathFragment relativePath = owningExecutable.getOutputDirRelativePath();
     String basename = relativePath.getBaseName();
     PathFragment inputManifestPath = relativePath.replaceName(basename + INPUT_MANIFEST_EXT);
     return context.getDerivedArtifact(inputManifestPath, context.getBinDirectory());
@@ -522,9 +520,7 @@ public final class RunfilesSupport {
       return inputManifest;
     }
 
-    PathFragment runfilesDir =
-        runfilesTreeArtifact.getOutputDirRelativePath(
-            context.getConfiguration().isSiblingRepositoryLayout());
+    PathFragment runfilesDir = runfilesTreeArtifact.getOutputDirRelativePath();
     PathFragment outputManifestPath = runfilesDir.getRelative(OUTPUT_MANIFEST_BASENAME);
 
     BuildConfigurationValue config = context.getConfiguration();
@@ -690,8 +686,7 @@ public final class RunfilesSupport {
 
     PathFragment executablePath =
         (owningExecutable != null)
-            ? owningExecutable.getOutputDirRelativePath(
-                ruleContext.getConfiguration().isSiblingRepositoryLayout())
+            ? owningExecutable.getOutputDirRelativePath()
             : ruleContext.getPackageDirectory().getRelative(ruleContext.getLabel().getName());
     Artifact repoMappingManifest =
         ruleContext.getDerivedArtifact(

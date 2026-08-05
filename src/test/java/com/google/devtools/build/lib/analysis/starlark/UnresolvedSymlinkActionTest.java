@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.exec.util.TestExecutorBuilder;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationDepsUtils;
@@ -57,7 +56,7 @@ public class UnresolvedSymlinkActionTest extends BuildViewTestCase {
 
   @Before
   public final void setUp() throws Exception {
-    ArtifactRoot binDir = targetConfig.getBinDirectory(RepositoryName.MAIN);
+    ArtifactRoot binDir = targetConfig.getBinDirectory();
     outputArtifact =
         SpecialArtifact.create(
             binDir,

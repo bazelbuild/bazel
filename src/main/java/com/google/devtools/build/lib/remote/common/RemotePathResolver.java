@@ -114,56 +114,6 @@ public interface RemotePathResolver {
   }
 
   /**
-   * A {@link RemotePathResolver} used when {@code --experimental_sibling_repository_layout} is set.
-   * Use parent directory of {@code execRoot} and set {@code workingDirectory} to the base name of
-   * {@code execRoot}.
-   *
-   * <p>The paths of outputs are relative to {@code workingDirectory}.
-   */
-  class SiblingRepositoryLayoutResolver implements RemotePathResolver {
-
-    private final Path execRoot;
-    private final PathFragment workingDirectory;
-
-    public SiblingRepositoryLayoutResolver(Path execRoot) {
-      this.execRoot = execRoot;
-      // The "root directory" of the action from the point of view of RBE is the parent directory of
-      // the execroot locally. This is so that paths of artifacts in external repositories don't
-      // start with an uplevel reference.
-      this.workingDirectory = PathFragment.create(checkNotNull(execRoot.getBaseName()));
-    }
-
-    @Override
-    public PathFragment getWorkingDirectory() {
-      return workingDirectory;
-    }
-
-    private Path getBase() {
-      return execRoot;
-    }
-
-    @Override
-    public String localPathToOutputPath(Path path) {
-      return path.relativeTo(getBase()).getPathString();
-    }
-
-    @Override
-    public String localPathToOutputPath(PathFragment execPath) {
-      return localPathToOutputPath(execRoot.getRelative(execPath));
-    }
-
-    @Override
-    public Path outputPathToLocalPath(String outputPath) {
-      return getBase().getRelative(outputPath);
-    }
-
-    @Override
-    public PathFragment localPathToExecPath(PathFragment localPath) {
-      return localPath.relativeTo(getBase().asFragment());
-    }
-  }
-
-  /**
    * Adapts a given base {@link RemotePathResolver} to also apply a {@link PathMapper} to map (and
    * inverse map) paths.
    */

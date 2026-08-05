@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
-import com.google.devtools.build.lib.remote.common.RemotePathResolver.SiblingRepositoryLayoutResolver;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
@@ -62,7 +61,7 @@ public class RemotePathResolverTest {
   }
 
   @Test
-  public void getWorkingDirectory_default_isInputRoot() {
+  public void getWorkingDirectory_isInputRoot() {
     RemotePathResolver remotePathResolver = RemotePathResolver.createDefault(execRoot);
 
     String workingDirectory = remotePathResolver.getWorkingDirectory().getPathString();
@@ -71,16 +70,7 @@ public class RemotePathResolverTest {
   }
 
   @Test
-  public void getWorkingDirectory_sibling_isExecRootBaseName() {
-    RemotePathResolver remotePathResolver = new SiblingRepositoryLayoutResolver(execRoot);
-
-    String workingDirectory = remotePathResolver.getWorkingDirectory().getPathString();
-
-    assertThat(workingDirectory).isEqualTo("main");
-  }
-
-  @Test
-  public void getInputMapping_default_inputsRelativeToExecRoot() throws Exception {
+  public void getInputMapping_inputsRelativeToExecRoot() throws Exception {
     RemotePathResolver remotePathResolver = RemotePathResolver.createDefault(execRoot);
 
     SortedMap<PathFragment, ActionInput> inputs =
@@ -90,29 +80,8 @@ public class RemotePathResolverTest {
   }
 
   @Test
-  public void getInputMapping_sibling_inputsRelativeToInputRoot() throws Exception {
-    RemotePathResolver remotePathResolver = new SiblingRepositoryLayoutResolver(execRoot);
-
-    SortedMap<PathFragment, ActionInput> inputs =
-        remotePathResolver.getInputMapping(spawnExecutionContext, false);
-
-    assertThat(inputs).containsExactly(PathFragment.create("main/foo"), input);
-  }
-
-  @Test
-  public void convertPaths_default_relativeToWorkingDirectory() {
+  public void convertPaths_relativeToWorkingDirectory() {
     RemotePathResolver remotePathResolver = RemotePathResolver.createDefault(execRoot);
-
-    String outputPath = remotePathResolver.localPathToOutputPath(PathFragment.create("bar"));
-    Path localPath = remotePathResolver.outputPathToLocalPath(outputPath);
-
-    assertThat(outputPath).isEqualTo("bar");
-    assertThat(localPath).isEqualTo(execRoot.getRelative("bar"));
-  }
-
-  @Test
-  public void convertPaths_siblingCompatible_relativeToWorkingDirectory() {
-    RemotePathResolver remotePathResolver = new SiblingRepositoryLayoutResolver(execRoot);
 
     String outputPath = remotePathResolver.localPathToOutputPath(PathFragment.create("bar"));
     Path localPath = remotePathResolver.outputPathToLocalPath(outputPath);

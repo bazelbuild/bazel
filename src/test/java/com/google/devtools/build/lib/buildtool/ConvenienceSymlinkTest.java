@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.analysis.config.transitions.TransitionFacto
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.buildtool.util.TestRuleModule;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.exec.FileWriteStrategy;
 import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
@@ -365,7 +364,7 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
                         (target) -> target.getLabel().toString(),
                         (target) ->
                             getConfigurationFromLastBuildResult(target)
-                                .getOutputDirectory(RepositoryName.MAIN)
+                                .getOutputDirectory()
                                 .getRoot()
                                 .asPath()
                                 .relativeTo(getOutputPath())
