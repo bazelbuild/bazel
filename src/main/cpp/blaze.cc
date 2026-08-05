@@ -874,7 +874,10 @@ static void ConnectOrDie(const OptionProcessor &option_processor,
                          BlazeServer *server) {
   // Give the server two minutes to start up. That's enough to connect with a
   // debugger.
-  const auto start_time = std::chrono::system_clock::now();
+  // Measured on the steady clock: a wall-clock step, which a VM commonly takes
+  // shortly after boot or when resuming from a snapshot, must not be mistaken
+  // for the server taking too long to come up.
+  const auto start_time = std::chrono::steady_clock::now();
   const auto try_until_time =
       start_time +
       std::chrono::seconds(startup_options.local_startup_timeout_secs);
@@ -882,8 +885,8 @@ static void ConnectOrDie(const OptionProcessor &option_processor,
   // connect.
   const auto min_message_interval = std::chrono::seconds(10);
   auto last_message_time = start_time;
-  while (std::chrono::system_clock::now() < try_until_time) {
-    const auto attempt_time = std::chrono::system_clock::now();
+  while (std::chrono::steady_clock::now() < try_until_time) {
+    const auto attempt_time = std::chrono::steady_clock::now();
     const auto next_attempt_time =
         attempt_time + std::chrono::milliseconds(100);
 
