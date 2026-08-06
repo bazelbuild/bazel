@@ -118,6 +118,9 @@ sh_test(
         ":test-deps",
         "//src/test/java/com/google/devtools/build/lib/worker:ExampleWorker_deploy.jar",
     ],
+    exec_group_compatible_with = {
+        "test": ["//:mount_capable"],
+    },
     shard_count = 10,
     tags = [
         # MacOS does not have cgroups so it can't support hardened sandbox
@@ -562,6 +565,9 @@ sh_test(
         "//src/main/tools:linux-sandbox",
         "//src/test/shell:sandboxing_test_utils",
     ],
+    exec_group_compatible_with = {
+        "test": ["//:mount_capable"],
+    },
     shard_count = 2,
     tags = [
         "no_macos",
@@ -796,6 +802,9 @@ sh_test(
         ":test-deps",
         "//src/test/shell:sandboxing_test_utils",
     ],
+    exec_group_compatible_with = {
+        "test": ["//:mount_capable"],
+    },
     shard_count = 4,
     tags = ["no_windows"],
 )
