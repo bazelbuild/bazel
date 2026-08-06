@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.skyframe.serialization;
 import static com.google.common.util.concurrent.Futures.getDone;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.skyframe.serialization.SharedValueDeserializationContext.StateEvictedException;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.FileOpNodeMemoizingLookup;
@@ -26,8 +28,10 @@ import com.google.devtools.build.skyframe.SkyFunction.Environment.SkyKeyComputeS
 import com.google.devtools.build.skyframe.SkyFunction.LookupEnvironment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedInputStream;
+import java.util.EnumMap;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import javax.annotation.Nullable;
@@ -64,14 +68,29 @@ public final class SkyValueRetriever {
    * <p>It's mostly a continuation but also contains various kinds of data mostly useful for
    * debugging that are orthogonal to the continuation.
    */
+  public enum RetrievalPhase {
+    TOTAL,
+    INITIAL_QUERY,
+    WAITING_FOR_CACHE_SERVICE_RESPONSE,
+    WAITING_FOR_FUTURE_LOOKUP_CONTINUATION,
+    WAITING_FOR_LOOKUP_CONTINUATION,
+    WAITING_FOR_FUTURE_RESULT
+  }
+
   public static final class RetrievalContext {
     private SerializationState state;
     private int restarts;
     @Nullable private ByteString invalidationFingerprint;
+    private long startTimestampNanos;
+    private long lastTransitionTimestampNanos;
+    private final EnumMap<RetrievalPhase, Long> phaseDurationNanos =
+        new EnumMap<>(RetrievalPhase.class);
 
     public RetrievalContext() {
       state = InitialQuery.INITIAL_QUERY;
       restarts = 0;
+      startTimestampNanos = 0;
+      lastTransitionTimestampNanos = 0;
     }
 
     public SerializationState getState() {
@@ -97,6 +116,70 @@ public final class SkyValueRetriever {
 
     public void setInvalidationFingerprint(ByteString invalidationFingerprint) {
       this.invalidationFingerprint = invalidationFingerprint;
+    }
+
+    public boolean isInitialQuery() {
+      return state == InitialQuery.INITIAL_QUERY;
+    }
+
+    public void setStartTimestampNanos(long startTimestampNanos) {
+      this.startTimestampNanos = startTimestampNanos;
+      this.lastTransitionTimestampNanos = startTimestampNanos;
+    }
+
+    @CanIgnoreReturnValue
+    public SerializationState transitionTo(SerializationState nextState) {
+      long now = System.nanoTime();
+      if (lastTransitionTimestampNanos != 0) {
+        RetrievalPhase currentPhase = getPhase(this.state);
+        if (currentPhase != null) {
+          long elapsed = now - lastTransitionTimestampNanos;
+          Long old = phaseDurationNanos.put(currentPhase, elapsed);
+          Preconditions.checkState(old == null);
+        }
+      }
+      this.state = nextState;
+      this.lastTransitionTimestampNanos = now;
+      return nextState;
+    }
+
+    private static RetrievalPhase getPhase(SerializationState state) {
+      return switch (state) {
+        case InitialQuery unused -> RetrievalPhase.INITIAL_QUERY;
+        case WaitingForCacheServiceResponse unused ->
+            RetrievalPhase.WAITING_FOR_CACHE_SERVICE_RESPONSE;
+        case WaitingForFutureLookupContinuation unused ->
+            RetrievalPhase.WAITING_FOR_FUTURE_LOOKUP_CONTINUATION;
+        case WaitingForLookupContinuation unused -> RetrievalPhase.WAITING_FOR_LOOKUP_CONTINUATION;
+        case WaitingForFutureResult unused -> RetrievalPhase.WAITING_FOR_FUTURE_RESULT;
+        case NoCachedData unused -> throw new IllegalStateException();
+        case RetrievedValue unused -> throw new IllegalStateException();
+      };
+    }
+
+    public void recordPhaseDurationNanos(RetrievalPhase phase, long nanos) {
+      Long old = phaseDurationNanos.put(phase, nanos);
+      Preconditions.checkState(old == null);
+    }
+
+    public ImmutableMap<RetrievalPhase, Long> getPhaseDurationMicros() {
+      ImmutableMap.Builder<RetrievalPhase, Long> builder = ImmutableMap.builder();
+      builder.put(RetrievalPhase.TOTAL, getTotalElapsedTimeMicros());
+      for (RetrievalPhase phase : RetrievalPhase.values()) {
+        if (phase == RetrievalPhase.TOTAL) {
+          continue;
+        }
+        long nanos = phaseDurationNanos.getOrDefault(phase, 0L);
+        builder.put(phase, nanos / 1000L);
+      }
+      return builder.buildOrThrow();
+    }
+
+    public long getTotalElapsedTimeMicros() {
+      if (startTimestampNanos == 0) {
+        return 0L;
+      }
+      return (System.nanoTime() - startTimestampNanos) / 1000L;
     }
   }
 
@@ -218,7 +301,8 @@ public final class SkyValueRetriever {
             ListenableFuture<LookupResult> futureResponse =
                 analysisCacheClient.lookup(cacheKey.toBytes());
 
-            serializationState = new WaitingForCacheServiceResponse(futureResponse);
+            serializationState =
+                retrievalContext.transitionTo(new WaitingForCacheServiceResponse(futureResponse));
             switch (futuresShim.dependOnFuture(futureResponse)) {
               case DONE -> {} // continues to the next state
               case NOT_DONE -> {
@@ -239,7 +323,7 @@ public final class SkyValueRetriever {
                 // Possible version skew: the old LC doesn't know about the new enum value.
                 missReason = MissReason.MISS_REASON_UNSPECIFIED;
               }
-              serializationState = new NoCachedData(missReason);
+              serializationState = retrievalContext.transitionTo(new NoCachedData(missReason));
               continue;
             }
             if (result.invalidationFingerprint() != null) {
@@ -254,12 +338,15 @@ public final class SkyValueRetriever {
                 fileOpNodes.registerRemoteFingerprint(
                     key, retrievalContext.getInvalidationFingerprint());
               }
-              serializationState = new RetrievedValue((SkyValue) value);
+              serializationState =
+                  retrievalContext.transitionTo(new RetrievedValue((SkyValue) value));
               continue;
             }
             @SuppressWarnings("unchecked")
             var futureContinuation = (ListenableFuture<SkyframeLookupContinuation>) value;
-            serializationState = new WaitingForFutureLookupContinuation(futureContinuation);
+            serializationState =
+                retrievalContext.transitionTo(
+                    new WaitingForFutureLookupContinuation(futureContinuation));
             switch (futuresShim.dependOnFuture(futureContinuation)) {
               case DONE -> {} // continues to the next state
               case NOT_DONE -> {
@@ -273,7 +360,9 @@ public final class SkyValueRetriever {
             // WaitingForLookupContinuation so restarts from that state do not need repeat the
             // unwrapping.
             try {
-              serializationState = new WaitingForLookupContinuation(getDone(futureContinuation));
+              serializationState =
+                  retrievalContext.transitionTo(
+                      new WaitingForLookupContinuation(getDone(futureContinuation)));
             } catch (ExecutionException e) {
               MissReason reason =
                   e.getCause() instanceof SerializationException se
@@ -294,7 +383,8 @@ public final class SkyValueRetriever {
             if (futureResult == null) {
               return Restart.RESTART;
             }
-            serializationState = new WaitingForFutureResult(futureResult);
+            serializationState =
+                retrievalContext.transitionTo(new WaitingForFutureResult(futureResult));
             switch (futuresShim.dependOnFuture(futureResult)) {
               case DONE -> {} // continues to the next state
               case NOT_DONE -> {
@@ -309,7 +399,8 @@ public final class SkyValueRetriever {
                 fileOpNodes.registerRemoteFingerprint(
                     key, retrievalContext.getInvalidationFingerprint());
               }
-              serializationState = new RetrievedValue(retrievedValue);
+              serializationState =
+                  retrievalContext.transitionTo(new RetrievedValue(retrievedValue));
             } catch (ExecutionException e) {
               throw new SerializationException("waiting for deserialization result for " + key, e);
             }
@@ -329,7 +420,7 @@ public final class SkyValueRetriever {
       // TODO: b/438142239 - ideally, CancellationException would be handled by Skyframe. However,
       // it is only thrown by this method and NO_CACHED_DATA is a safe fallback.
       var result = new NoCachedData(MissReason.MISS_REASON_UNSPECIFIED);
-      serializationState = result;
+      serializationState = retrievalContext.transitionTo(result);
       return result;
     } finally {
       retrievalContext.setState(serializationState);

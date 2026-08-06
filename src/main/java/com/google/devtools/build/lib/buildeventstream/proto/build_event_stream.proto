@@ -1457,6 +1457,30 @@ message BuildMetrics {
       int64 value = 2;
     }
 
+    message LatencyBySkyFunction {
+      string skyfunction = 1;
+
+      enum Outcome {
+        OUTCOME_UNSPECIFIED = 0;
+        HIT = 1;
+        MISS = 2;
+      }
+      Outcome outcome = 2;
+
+      Distribution latency = 3;
+
+      enum Phase {
+        PHASE_UNSPECIFIED = 0;
+        TOTAL = 1;
+        INITIAL_QUERY = 2;
+        WAITING_FOR_CACHE_SERVICE_RESPONSE = 3;
+        WAITING_FOR_FUTURE_LOOKUP_CONTINUATION = 4;
+        WAITING_FOR_LOOKUP_CONTINUATION = 5;
+        WAITING_FOR_FUTURE_RESULT = 6;
+      }
+      Phase phase = 4;
+    }
+
     int64 cache_hits = 1;
     int64 cache_misses = 2;
     int64 value_store_value_bytes_received = 3;
@@ -1482,6 +1506,7 @@ message BuildMetrics {
     repeated Entry cache_misses_by_reason = 23;
     repeated Entry cache_misses_by_skyfunction = 24;
     repeated Entry cache_hits_by_skyfunction = 25;
+    repeated LatencyBySkyFunction latency_by_skyfunction = 29;
 
     // The result of the Skycache metadata lookup.
     devtools_blaze_proto.TopLevelTargetsMatchStatus metadata_lookup_result = 16;
