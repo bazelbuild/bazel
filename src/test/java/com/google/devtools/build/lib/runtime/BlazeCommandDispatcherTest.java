@@ -29,13 +29,19 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.bugreport.BugReporter;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.profiler.MemoryProfiler;
 import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.TraceProfilerServiceImpl;
 import com.google.devtools.build.lib.runtime.CommandDispatcher.LockingMode;
+import com.google.devtools.build.lib.buildtool.BuildResult.BuildToolLogCollection;
 import com.google.devtools.build.lib.runtime.CommandDispatcher.UiVerbosity;
+import java.io.FileDescriptor;
+import net.starlark.java.eval.CpuProfiler;
+import net.starlark.java.eval.CpuProfilerNativeSupport;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.BuildProgress;
@@ -60,7 +66,9 @@ import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsClass;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingResult;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.io.PrintStream;
 import java.lang.ref.WeakReference;
 import java.util.Arrays;
@@ -70,6 +78,7 @@ import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
+import javax.annotation.Nullable;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -86,9 +95,11 @@ public final class BlazeCommandDispatcherTest {
   private final BarCommand bar = new BarCommand();
   private Map<String, String> clientEnv;
   private AbruptExitException errorOnAfterCommand;
+  private TestInstrumentationOutputBuilder testInstrumentationOutputBuilder;
 
   @Before
   public void initializeRuntime() throws Exception {
+    Profiler.setTraceProfilerService(new TraceProfilerServiceImpl());
     initializeRuntimeInternal();
   }
 
@@ -112,6 +123,16 @@ public final class BlazeCommandDispatcherTest {
                 OptionsParser.builder().optionsClasses(BlazeServerStartupOptions.class).build())
             .addBlazeModule(
                 new BlazeModule() {
+                  @Override
+                  public void serverInit(OptionsParsingResult startupOptions, ServerBuilder builder) {
+                    if (testInstrumentationOutputBuilder != null) {
+                      builder
+                          .getInstrumentationOutputFactoryBuilder()
+                          .setRedirectInstrumentationOutputBuilderSupplier(
+                              () -> testInstrumentationOutputBuilder);
+                    }
+                  }
+
                   @Override
                   public void beforeCommand(CommandEnvironment env) {
                     clientEnv = env.getClientEnv();
@@ -142,6 +163,8 @@ public final class BlazeCommandDispatcherTest {
   public void stopProfilers() throws Exception {
     // Needs to be done because we are simulating crashes but keeping the jvm alive.
     Profiler.instance().stop();
+    Profiler.setTraceProfilerService(null);
+    CpuProfiler.setNativeSupport(null);
     MemoryProfiler.instance().stop();
   }
 
@@ -709,6 +732,50 @@ public final class BlazeCommandDispatcherTest {
   }
 
   @Test
+  public void starlarkCpuProfileOutputIsClosedWhenProfilingInitializationFails() throws Exception {
+    CpuProfiler.setNativeSupport(new FakeCpuProfilerNativeSupport(/* startTimerSucceeds= */ false));
+    testInstrumentationOutputBuilder = new TestInstrumentationOutputBuilder();
+    initializeRuntimeInternal();
+    runtime.overrideCommands(ImmutableList.of(foo));
+
+    BlazeCommandDispatcher dispatch = new BlazeCommandDispatcher(runtime);
+    BlazeCommandResult result =
+        dispatch.exec(
+            ImmutableList.of(
+                "foo",
+                "--redirect_local_instrumentation_output_writes",
+                "--starlark_cpu_profile=profiles/test.pprof"),
+            "test",
+            outErr);
+
+    assertThat(result.getDetailedExitCode().getFailureDetail().getCommand().getCode())
+        .isEqualTo(FailureDetails.Command.Code.STARLARK_CPU_PROFILING_INITIALIZATION_FAILURE);
+    assertThat(testInstrumentationOutputBuilder.output.closed).isTrue();
+  }
+
+  @Test
+  public void starlarkCpuProfileOutputIsClosedOnEarlyReturnAfterStart() throws Exception {
+    CpuProfiler.setNativeSupport(new FakeCpuProfilerNativeSupport(/* startTimerSucceeds= */ true));
+    testInstrumentationOutputBuilder = new TestInstrumentationOutputBuilder();
+    initializeRuntimeInternal();
+    runtime.overrideCommands(ImmutableList.of(foo));
+
+    BlazeCommandDispatcher dispatch = new BlazeCommandDispatcher(runtime);
+    BlazeCommandResult result =
+        dispatch.exec(
+            ImmutableList.of(
+                "foo",
+                "--redirect_local_instrumentation_output_writes",
+                "--starlark_cpu_profile=profiles/test.pprof",
+                "--config=UNDEFINED_CONFIG_VALUE"),
+            "test",
+            outErr);
+
+    assertThat(result.getExitCode()).isEqualTo(ExitCode.COMMAND_LINE_ERROR);
+    assertThat(testInstrumentationOutputBuilder.output.closed).isTrue();
+  }
+
+  @Test
   public void useHighestPriorityExitCode() throws Exception {
     DetailedExitCode arbitraryError1 =
         DetailedExitCode.of(
@@ -818,6 +885,76 @@ public final class BlazeCommandDispatcherTest {
     assertThat(result.getDetailedExitCode()).isEqualTo(optionsParseFailure);
     assertThat(outErr.errAsLatin1())
         .contains("Config value 'UNDEFINED_CONFIG_VALUE' is not defined in any .rc file");
+  }
+
+  private static final class FakeCpuProfilerNativeSupport implements CpuProfilerNativeSupport {
+    private final boolean startTimerSucceeds;
+
+    private FakeCpuProfilerNativeSupport(boolean startTimerSucceeds) {
+      this.startTimerSucceeds = startTimerSucceeds;
+    }
+
+    @Override
+    public FileDescriptor createPipe() {
+      return FileDescriptor.in;
+    }
+
+    @Override
+    public boolean startTimer(long periodMicros) {
+      return startTimerSucceeds;
+    }
+
+    @Override
+    public void stopTimer() {}
+
+    @Override
+    public int getThreadId() {
+      return 1;
+    }
+  }
+
+  private static final class TestInstrumentationOutputBuilder
+      implements InstrumentationOutputBuilder {
+    private final CloseTrackingOutput output = new CloseTrackingOutput();
+
+    @Override
+    public InstrumentationOutputBuilder setName(String name) {
+      return this;
+    }
+
+    @Override
+    public InstrumentationOutputBuilder setCreateParent(boolean createParent) {
+      return this;
+    }
+
+    @Override
+    public InstrumentationOutput build() {
+      return new InstrumentationOutput() {
+        @Override
+        public OutputStream createOutputStream() {
+          return output;
+        }
+
+        @Override
+        public void publish(BuildToolLogCollection buildToolLogCollection) {}
+
+        @Override
+        @Nullable
+        public String getPathString() {
+          return "profiles/test.pprof";
+        }
+      };
+    }
+  }
+
+  private static final class CloseTrackingOutput extends ByteArrayOutputStream {
+    private boolean closed;
+
+    @Override
+    public void close() throws IOException {
+      closed = true;
+      super.close();
+    }
   }
 
   @Command(

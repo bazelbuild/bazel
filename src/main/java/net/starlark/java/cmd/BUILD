@@ -1,7 +1,7 @@
 # The Starlark interpreter
 # Open-sourced as part of Bazel.
 
-load("@rules_java//java:defs.bzl", "java_binary")
+load("@rules_java//java:defs.bzl", "java_binary", "java_library")
 
 package(
     default_applicable_licenses = ["//:license"],
@@ -14,9 +14,20 @@ filegroup(
     visibility = ["//src:__subpackages__"],
 )
 
+java_library(
+    name = "cmd_lib",
+    srcs = ["Main.java"],
+    visibility = ["//src/main/java/net/starlark/java:clients"],
+    deps = [
+        "//src/main/java/net/starlark/java/eval",
+        "//src/main/java/net/starlark/java/eval:cpu_profiler_native_support_impl",
+        "//src/main/java/net/starlark/java/syntax",
+        "//third_party:jsr305",
+    ],
+)
+
 java_binary(
     name = "starlark",
-    srcs = ["Main.java"],
     jvm_flags = [
         # quiet warnings from com.google.protobuf.UnsafeUtil,
         # see: https://github.com/google/protobuf/issues/3781
@@ -28,10 +39,5 @@ java_binary(
     ],
     main_class = "net.starlark.java.cmd.Main",
     visibility = ["//src/main/java/net/starlark/java:clients"],
-    deps = [
-        "//src/main/java/net/starlark/java/eval",
-        "//src/main/java/net/starlark/java/eval:cpu_profiler_native_support_impl",
-        "//src/main/java/net/starlark/java/syntax",
-        "//third_party:jsr305",
-    ],
+    runtime_deps = [":cmd_lib"],
 )
