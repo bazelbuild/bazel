@@ -106,7 +106,7 @@ EOF
 genrule(
   name = "remote-ip",
   outs = [ "remote-ip.txt" ],
-  cmd = "curl -fo \$@ ${remote_ip}:80",
+  cmd = "curl -fo \$@ -H 'Host: ${hostname}' ${remote_ip}:80",
   tags = [ ${tags} ],
 )
 
