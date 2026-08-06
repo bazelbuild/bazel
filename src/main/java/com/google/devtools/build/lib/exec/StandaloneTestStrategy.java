@@ -56,6 +56,7 @@ import com.google.devtools.build.lib.runtime.TestSummaryOptions;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.TestAction;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -450,16 +451,21 @@ public class StandaloneTestStrategy extends TestStrategy {
    */
   private static Spawn createXmlGeneratingSpawn(
       TestRunnerAction action, ImmutableMap<String, String> testEnv, SpawnResult result) {
-    ImmutableList<String> args =
-        ImmutableList.of(
-            action
-                .getTestXmlGeneratorScript()
-                .getExecPath()
-                .getCallablePathStringForOs(action.getExecutionSettings().getExecutionOs()),
-            action.getTestLog().getExecPathString(),
-            action.getTestXml().getExecPathString(),
-            Integer.toString(result.getWallTimeInMs() / 1000),
-            Integer.toString(result.exitCode()));
+    ImmutableList.Builder<String> args = ImmutableList.builder();
+    if (action.getExecutionSettings().getExecutionOs() != OS.WINDOWS) {
+      args.add(
+          Preconditions.checkNotNull(action.getShExecutableMaybe())
+              .getCallablePathStringForOs(action.getExecutionSettings().getExecutionOs()));
+    }
+    args.add(
+        action
+            .getTestXmlGeneratorScript()
+            .getExecPath()
+            .getCallablePathStringForOs(action.getExecutionSettings().getExecutionOs()),
+        action.getTestLog().getExecPathString(),
+        action.getTestXml().getExecPathString(),
+        Integer.toString(result.getWallTimeInMs() / 1000),
+        Integer.toString(result.exitCode()));
     ImmutableMap.Builder<String, String> envBuilder = ImmutableMap.builder();
     // "PATH" and "TEST_BINARY" are also required, they should always be set in testEnv.
     Preconditions.checkArgument(testEnv.containsKey("PATH"));
@@ -473,7 +479,7 @@ public class StandaloneTestStrategy extends TestStrategy {
     }
     return new SimpleSpawn(
         action,
-        args,
+        args.build(),
         envBuilder.buildOrThrow(),
         // Pass the execution info of the action which is identical to the supported tags set on the
         // test target. In particular, this does not set the test timeout on the spawn.
@@ -886,7 +892,13 @@ public class StandaloneTestStrategy extends TestStrategy {
                 .addAll(xmlSpawnResults)
                 .build();
       } catch (InterruptedException | ExecException e) {
-        closeSuppressed(e, xmlSpawnOutErr);
+        try {
+          xmlSpawnOutErr.close();
+          writeOutFile(xmlSpawnOutErr.getOutputPath(), fileOutErr.getOutputPath());
+          writeOutFile(xmlSpawnOutErr.getErrorPath(), fileOutErr.getOutputPath());
+        } catch (IOException closeException) {
+          e.addSuppressed(closeException);
+        }
         throw e;
       }
     }

@@ -27,9 +27,11 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <algorithm>
 #include <memory>
 #include <set>
 #include <string>
+#include <vector>
 
 #include "third_party/ijar/platform_utils.h"
 #include "third_party/ijar/zip.h"
@@ -77,6 +79,102 @@ class UnzipProcessor : public ZipExtractorProcessor {
   const bool extract_;
   const bool flatten_;
   std::set<std::string> file_names;
+};
+
+class FilterProcessor : public ZipExtractorProcessor {
+ public:
+  explicit FilterProcessor(char **patterns) : patterns_(patterns) {}
+
+  void SetBuilder(ZipBuilder *builder) { builder_ = builder; }
+
+  bool Failed() const { return failed_; }
+
+  void WriteAll() {
+    std::sort(entries_.begin(), entries_.end(),
+              [](const Entry &left, const Entry &right) {
+                return left.filename < right.filename;
+              });
+    for (const Entry &entry : entries_) {
+      u4 attr = entry.attr;
+      if (attr == 0) {
+        bool is_directory = !entry.filename.empty() &&
+                            entry.filename[entry.filename.size() - 1] == '/';
+        mode_t mode = is_directory ? 0755 : 0644;
+        attr = stat_to_zipattr(Stat{entry.data.size(), mode, is_directory});
+      }
+      u1 *buffer = builder_->NewFile(entry.filename.c_str(), attr);
+      if (buffer == nullptr) {
+        failed_ = true;
+        return;
+      }
+      if (!entry.data.empty()) {
+        memcpy(buffer, entry.data.data(), entry.data.size());
+      }
+      if (builder_->FinishFile(entry.data.size(), /*compress=*/true,
+                               /*compute_crc=*/true) < 0) {
+        failed_ = true;
+        return;
+      }
+    }
+  }
+
+  bool Accept(const char *filename, const u4 /*attr*/) override {
+    for (int i = 0; patterns_ != nullptr && patterns_[i] != nullptr; ++i) {
+      if (Matches(filename, patterns_[i])) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  void Process(const char *filename, u4 attr, const u1 *data,
+               size_t size) override {
+    entries_.push_back(
+        Entry{filename, attr, std::vector<u1>(data, data + size)});
+  }
+
+ private:
+  struct Entry {
+    std::string filename;
+    u4 attr;
+    std::vector<u1> data;
+  };
+
+  static bool Matches(const char *filename, const char *pattern) {
+    size_t filename_length = strlen(filename);
+    size_t pattern_length = strlen(pattern);
+    bool leading_wildcard = pattern_length > 0 && pattern[0] == '*';
+    bool trailing_wildcard =
+        pattern_length > 0 && pattern[pattern_length - 1] == '*';
+    if (pattern_length == 1 && leading_wildcard) {
+      return true;
+    }
+    const char *literal = pattern + (leading_wildcard ? 1 : 0);
+    size_t literal_length =
+        pattern_length - (leading_wildcard ? 1 : 0) -
+        (trailing_wildcard ? 1 : 0);
+
+    if (leading_wildcard && trailing_wildcard) {
+      return std::string(filename).find(std::string(literal, literal_length)) !=
+             std::string::npos;
+    }
+    if (leading_wildcard) {
+      return filename_length >= literal_length &&
+             memcmp(filename + filename_length - literal_length, literal,
+                    literal_length) == 0;
+    }
+    if (trailing_wildcard) {
+      return filename_length >= literal_length &&
+             memcmp(filename, literal, literal_length) == 0;
+    }
+    return filename_length == literal_length &&
+           memcmp(filename, literal, literal_length) == 0;
+  }
+
+  char **patterns_;
+  ZipBuilder *builder_ = nullptr;
+  std::vector<Entry> entries_;
+  bool failed_ = false;
 };
 
 // Concatene 2 path, path1 and path2, using / as a directory separator and
@@ -192,6 +290,39 @@ int extract(char *zipfile, char *exdir, char **files, bool verbose,
 
   if (extractor->ProcessAll() < 0) {
     fprintf(stderr, "%s.\n", extractor->GetError());
+    return -1;
+  }
+  return 0;
+}
+
+int filter(char *input_zip, char *output_zip, char **patterns) {
+  FilterProcessor processor(patterns);
+  std::unique_ptr<ZipExtractor> extractor(
+      ZipExtractor::Create(input_zip, &processor));
+  if (extractor == nullptr) {
+    fprintf(stderr, "Unable to open zip file %s: %s.\n", input_zip,
+            strerror(errno));
+    return -1;
+  }
+  std::unique_ptr<ZipBuilder> builder(
+      ZipBuilder::Create(output_zip, extractor->CalculateOutputLength()));
+  if (builder == nullptr) {
+    fprintf(stderr, "Unable to create zip file %s: %s.\n", output_zip,
+            strerror(errno));
+    return -1;
+  }
+  processor.SetBuilder(builder.get());
+  if (extractor->ProcessAll() < 0) {
+    fprintf(stderr, "%s.\n", extractor->GetError());
+    return -1;
+  }
+  processor.WriteAll();
+  if (processor.Failed()) {
+    fprintf(stderr, "%s\n", builder->GetError());
+    return -1;
+  }
+  if (builder->Finish() < 0) {
+    fprintf(stderr, "%s\n", builder->GetError());
     return -1;
   }
   return 0;
@@ -401,6 +532,8 @@ static void usage(char *progname) {
           "  C compress - compress files when using the create operation\n");
   fprintf(stderr, "x and c cannot be used in the same command-line.\n");
   fprintf(stderr,
+          "  d input.zip output.zip patterns... # Delete matching entries.\n");
+  fprintf(stderr,
           "\nFor every file, a path in the zip can be specified. Examples:\n");
   fprintf(stderr,
           "  zipper c x.zip a/b/__init__.py= # Add an empty file at "
@@ -415,6 +548,9 @@ static void usage(char *progname) {
 }
 
 int main(int argc, char **argv) {
+  if (argc >= 5 && strcmp(argv[1], "d") == 0) {
+    return devtools_ijar::filter(argv[2], argv[3], argv + 4);
+  }
   bool extract = false;
   bool verbose = false;
   bool create = false;

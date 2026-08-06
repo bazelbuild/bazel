@@ -42,14 +42,25 @@ if [ "$1" == "--allmodules" ]; then
   shift
   modules="ALL-MODULE-PATH"
 else
-  modules=$(cat "$3" | paste -sd "," - | tr -d '\r')
-  # We have to add this module explicitly because jdeps doesn't find the
-  # dependency on it but it is still necessary for TLSv1.3.
-  modules="$modules,jdk.crypto.ec"
+  modules=""
+fi
+target_windows=false
+if [ "$1" == "--target_windows" ]; then
+  target_windows=true
+  shift
 fi
 tooljdk=$1
 fulljdk=$2
 out=$4
+if [ -z "$modules" ]; then
+  while IFS= read -r module; do
+    module=${module%$'\r'}
+    modules=${modules:+$modules,}$module
+  done < "$3"
+  # We have to add this module explicitly because jdeps doesn't find the
+  # dependency on it but it is still necessary for TLSv1.3.
+  modules="$modules,jdk.crypto.ec"
+fi
 # Optional 5th argument: a separate jmods archive for JDKs that don't ship
 # with jmods (e.g. Adoptium Temurin with JEP 493 enabled).
 jmods_archive=${5:-}
@@ -58,7 +69,11 @@ if [ -n "$jmods_archive" ]; then
   jmods_archive=$(cd "$(dirname "$jmods_archive")" && echo "$(pwd)/$(basename "$jmods_archive")")
 fi
 
-UNAME=$(uname -s | tr 'A-Z' 'a-z')
+ZIPPER=$(rlocation io_bazel/third_party/ijar/zipper)
+ZIPPER=$(cd "${ZIPPER%/*}" && echo "$PWD/${ZIPPER##*/}")
+OBJCOPY=$(rlocation io_bazel/src/objcopy)
+OBJCOPY=$(cd "${OBJCOPY%/*}" && echo "$PWD/${OBJCOPY##*/}")
+export PATH="${OBJCOPY%/*}:$PATH"
 # Options for the JVM that runs the Bazel server, which are either required or
 # recommended when using the embedded JDK on platforms that use a minified JDK.
 # Setting these options here rather than in blaze.cc avoids the need to detect
@@ -90,10 +105,30 @@ strip_to_jdk_home() {
   fi
 }
 
-if [[ "$UNAME" =~ msys_nt* ]]; then
-  unzip -q "$tooljdk" -d "tool_jdk.$$"
+extract_archive() {
+  local archive=$1
+  local dir=$2
+  mkdir "$dir"
+  if [[ "$archive" == *.zip ]]; then
+    "$ZIPPER" x "$archive" -d "$dir"
+  else
+    tar xf "$archive" --no-same-owner -C "$dir"
+  fi
+}
+
+create_zip() {
+  local archive=$1
+  local dir=$2
+  (
+    cd "$dir"
+    "$ZIPPER" cC "$archive" $(find reduced -print)
+  )
+}
+
+if $target_windows; then
+  extract_archive "$tooljdk" "tool_jdk.$$"
   strip_to_jdk_home "tool_jdk.$$"
-  unzip -q "$fulljdk" -d "full_jdk.$$"
+  extract_archive "$fulljdk" "full_jdk.$$"
   strip_to_jdk_home "full_jdk.$$"
   tool_jdk_home=$(cd "tool_jdk.$$" && pwd)
   cd "full_jdk.$$"
@@ -101,7 +136,7 @@ if [[ "$UNAME" =~ msys_nt* ]]; then
   # provided jmods archive.
   if [ ! -f jmods/java.base.jmod ]; then
     if [ -n "$jmods_archive" ]; then
-      unzip -q "$jmods_archive" -d jmods_tmp
+      "$ZIPPER" x "$jmods_archive" -d jmods_tmp
       # The archive contains a single top-level directory with jmod files.
       mv jmods_tmp/*/* jmods_tmp/ 2>/dev/null || true
       # Move all .jmod files into the jmods directory.
@@ -129,13 +164,16 @@ if [[ "$UNAME" =~ msys_nt* ]]; then
   # support of Unicode characters outside the system code page.
   # The JDK currently (as of JDK 23) doesn't support this natively:
   # https://mail.openjdk.org/pipermail/core-libs-dev/2024-November/133773.html
-  "$(rlocation io_bazel/src/read_manifest.exe)" reduced/bin/java.exe \
-    | sed 's|</asmv3:windowsSettings>|<activeCodePage xmlns="http://schemas.microsoft.com/SMI/2019/WindowsSettings">UTF-8</activeCodePage>&|' \
-    | "$(rlocation io_bazel/src/write_manifest.exe)" reduced/bin/java.exe
+  if [[ -n "${RUNFILES_MANIFEST_FILE:-}" ]] && \
+      grep -q 'io_bazel/src/read_manifest.exe ' "$RUNFILES_MANIFEST_FILE"; then
+    "$(rlocation io_bazel/src/read_manifest.exe)" reduced/bin/java.exe \
+      | sed 's|</asmv3:windowsSettings>|<activeCodePage xmlns="http://schemas.microsoft.com/SMI/2019/WindowsSettings">UTF-8</activeCodePage>&|' \
+      | "$(rlocation io_bazel/src/write_manifest.exe)" reduced/bin/java.exe
+  fi
   for f in DISCLAIMER readme.txt legal/java.base/ASSEMBLY_EXCEPTION; do [ -f "$f" ] && cp "$f" reduced/; done
   # These are necessary for --host_jvm_debug to work.
   cp bin/dt_socket.dll bin/jdwp.dll reduced/bin
-  zip -q -X -r ../reduced.zip reduced/
+  create_zip "$(pwd)/../reduced.zip" "$(pwd)"
   cd ..
   mv reduced.zip "$out"
   rm -rf "full_jdk.$$" "tool_jdk.$$"
@@ -143,11 +181,9 @@ else
   # The --no-same-owner flag instructs tar to not try to chown extracted files
   # to the owner stored in the archive - it will try to do that when running as
   # root, but fail when running inside Docker, so we explicitly disable it.
-  mkdir "tool_jdk.$$"
-  tar xf "$tooljdk" --no-same-owner -C "tool_jdk.$$"
+  extract_archive "$tooljdk" "tool_jdk.$$"
   strip_to_jdk_home "tool_jdk.$$"
-  mkdir "target_jdk.$$"
-  tar xf "$fulljdk" --no-same-owner -C "target_jdk.$$"
+  extract_archive "$fulljdk" "target_jdk.$$"
   strip_to_jdk_home "target_jdk.$$"
   cd "target_jdk.$$"
   # If the full JDK doesn't ship with jmods (e.g. JEP 493), use the separately
@@ -172,7 +208,7 @@ else
   # These are necessary for --host_jvm_debug to work.
   cp lib/libdt_socket.* lib/libjdwp.* reduced/lib
   find reduced -exec touch -ht 198001010000 {} +
-  zip -q -X -r ../reduced.zip reduced/
+  create_zip "$(pwd)/../reduced.zip" "$(pwd)"
   cd ..
   mv reduced.zip "$out"
   rm -rf "target_jdk.$$" "tool_jdk.$$"

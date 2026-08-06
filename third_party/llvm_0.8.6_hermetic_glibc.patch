@@ -1,0 +1,50 @@
+diff --git a/3rd_party/libc/glibc/glibc.BUILD.bazel b/3rd_party/libc/glibc/glibc.BUILD.bazel
+index 1e82cbd..847935a 100644
+--- a/3rd_party/libc/glibc/glibc.BUILD.bazel
++++ b/3rd_party/libc/glibc/glibc.BUILD.bazel
+@@ -181,6 +181,7 @@ copy_file(
+     name = "glibc_crt1.object",
+     src = "Scrt1.o",
+     out = "crt1.o",
++    allow_symlink = True,
+     visibility = ["//visibility:public"],
+ )
+
+diff --git a/runtimes/mingw/BUILD.bazel b/runtimes/mingw/BUILD.bazel
+index 87a10bc..7b1f831 100644
+--- a/runtimes/mingw/BUILD.bazel
++++ b/runtimes/mingw/BUILD.bazel
+@@ -1,7 +1,7 @@
+ load("@bazel_lib//:bzl_library.bzl", "bzl_library")
+-load("@bazel_lib//lib:copy_file.bzl", "copy_file")
+ load("@bazel_lib//lib:copy_to_directory.bzl", "copy_to_directory")
+ load("@bazel_lib//lib:run_binary.bzl", "run_binary")
++load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
+ load("@llvm//toolchain/runtimes:cc_runtime_library.bzl", "cc_runtime_stage0_library")
+ load("//runtimes:defs.bzl", "stub_library")
+ load(":crt_object.bzl", "crt_object")
+@@ -314,6 +314,7 @@ copy_file(
+     name = "pthread",
+     src = ":winpthread",
+     out = "libpthread.a",
++    allow_symlink = True,
+     visibility = ["//visibility:public"],
+ )
+
+diff --git a/runtimes/mingw/crt_object.bzl b/runtimes/mingw/crt_object.bzl
+index 1b43f4d..1d53fe0 100644
+--- a/runtimes/mingw/crt_object.bzl
++++ b/runtimes/mingw/crt_object.bzl
+@@ -1,4 +1,4 @@
+-load("@bazel_lib//lib:copy_file.bzl", "copy_file")
++load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
+ load("@llvm//toolchain/runtimes:cc_runtime_library.bzl", "cc_runtime_stage0_library")
+
+ def crt_object(name, out, visibility, **kwargs):
+@@ -17,5 +17,6 @@ def crt_object(name, out, visibility, **kwargs):
+         name = name,
+         src = name + "_file",
+         out = out,
++        allow_symlink = True,
+         visibility = visibility,
+     )
