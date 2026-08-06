@@ -169,6 +169,11 @@ public final class Module implements Resolver.Module, TypeTagger.LoadableModule 
     return clientData;
   }
 
+  /** Returns the Starlark semantics used by the execution of this module. */
+  public StarlarkSemantics getSemantics() {
+    return semantics;
+  }
+
   /** Sets the module's doc string. It may be retrieved using {@link #getDocumentation}. */
   public void setDocumentation(String documentation) {
     this.documentation = documentation;

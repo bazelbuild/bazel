@@ -2137,6 +2137,25 @@ java_test(
     ],
 )
 
+java_test(
+    name = "BzlLoadThreadOwnerTest",
+    timeout = "moderate",
+    srcs = ["BzlLoadThreadOwnerTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
+        "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/main/java/net/starlark/java/eval",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//src/test/java/com/google/devtools/build/lib/skyframe/util:SkyframeExecutorTestUtils",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+        "@com_google_protobuf//:protobuf_java",
+    ],
+)
+
 # This test's methods are all ignored. Reason: Test is flaky; see https://github.com/bazelbuild/bazel/issues/10776
 java_test(
     name = "MacOSXFsEventsDiffAwarenessTest",
