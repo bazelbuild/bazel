@@ -1207,25 +1207,28 @@ string GetUserName() {
   // Check USER, for sake of consistency with Linux / macOS. This is only set
   // under MSYS2, or potentially in tests.
   string user = GetEnv("USER");
-  if (!user.empty()) {
-    return user;
+  if (user.empty()) {
+    // Check USERNAME before calling GetUserNameW. Doing so allows the user to
+    // customize (or override) the user name.
+    // See
+    // https://github.com/bazelbuild/bazel/issues/7819#issuecomment-533050947
+    user = GetEnv("USERNAME");
   }
-
-  // Check USERNAME before calling GetUserNameW. Doing so allows the user to
-  // customize (or override) the user name.
-  // See https://github.com/bazelbuild/bazel/issues/7819#issuecomment-533050947
-  user = GetEnv("USERNAME");
-  if (!user.empty()) {
-    return user;
+  if (user.empty()) {
+    WCHAR buffer[UNLEN + 1];
+    DWORD len = UNLEN + 1;
+    if (!::GetUserNameW(buffer, &len)) {
+      BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+          << "GetUserNameW failed: " << GetLastErrorString();
+    }
+    user = blaze_util::WstringToCstring(buffer);
   }
-
-  WCHAR buffer[UNLEN + 1];
-  DWORD len = UNLEN + 1;
-  if (!::GetUserNameW(buffer, &len)) {
-    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "GetUserNameW failed: " << GetLastErrorString();
-  }
-  return blaze_util::WstringToCstring(buffer);
+  // Replace slashes and backslashes with underscores so that usernames like
+  // "DOMAIN\\user" or "foo/bar" do not cause issues in paths (e.g.
+  // output_user_root). See https://github.com/bazelbuild/bazel/issues/20289
+  std::replace(user.begin(), user.end(), '/', '_');
+  std::replace(user.begin(), user.end(), '\\', '_');
+  return user;
 }
 
 bool IsEmacsTerminal() {

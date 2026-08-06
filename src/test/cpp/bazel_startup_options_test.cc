@@ -159,6 +159,19 @@ TEST_F(BazelStartupOptionsTest,
 }
 
 TEST_F(BazelStartupOptionsTest,
+       UpdateConfigurationOnLinuxOrDarwinWithSpecialCharactersInUser) {
+  SetEnv("USER", "foo/bar\\baz");
+  SetEnv("HOME", "/nonexistent/home");
+  SetEnv("XDG_CACHE_HOME", "/nonexistent/cache");
+  UnsetEnv("TEST_TMPDIR");
+  ReinitStartupOptions();
+  UpdateConfiguration();
+
+  ASSERT_EQ(blaze_util::Path("/nonexistent/cache/bazel/_bazel_foo_bar_baz"),
+            startup_options_->output_user_root);
+}
+
+TEST_F(BazelStartupOptionsTest,
        UpdateConfigurationOnLinuxOrDarwinNoShellExpansion) {
   SetEnv("USER", "gandalf");
   SetEnv("TEST_TMPDIR", "~/\"$foo/test\"");
