@@ -270,19 +270,27 @@ function try_with_timeout() {
   done
 }
 
-function setup_localjdk_javabase() {
-  if is_windows; then
-    jdk_binary=local_jdk/bin/java.exe
-  else
-    jdk_binary=local_jdk/bin/java
+function setup_javabase() {
+  if [[ -z "${JAVA_ROOTPATH:-}" ]]; then
+    log_fatal "set JAVA_ROOTPATH to the rootpath of a java binary to use setup_javabase"
   fi
-  jdk_binary_rlocation=$(rlocation ${jdk_binary})
+  jdk_binary_rlocation=$(rlocation ${JAVA_ROOTPATH#../}) || {
+    log_fatal "error: failed to find $JAVA_ROOTPATH, make sure you have added it to data" >&2
+  }
   if [[ -z "${jdk_binary_rlocation}" ]]; then
-    echo "error: failed to find $jdk_binary, make sure you have java \
-installed or pass --java_runtime_verison=XX with the correct version" >&2
+    log_fatal "error: failed to find $JAVA_ROOTPATH, make sure you have added it to data" >&2
   fi
   if is_windows; then
     jdk_dir="$(cygpath -m $(cd ${jdk_binary_rlocation}/../..; pwd))"
+    # if this is a java repository, copy out just the runtime and use that
+    if [[ -f "${jdk_dir}/BUILD.bazel" ]]; then
+      tmp_runtime_dir=$(mktemp -d --tmpdir=${TEST_TMPDIR})
+      for f in $(ls -1 ${jdk_dir}); do
+        ln -s ${jdk_dir}/$f -t ${tmp_runtime_dir}
+      done
+      rm ${tmp_runtime_dir}/BUILD.bazel
+      jdk_dir=${tmp_runtime_dir}
+    fi
   else
     jdk_dir="$(dirname $(dirname ${jdk_binary_rlocation}))"
   fi
