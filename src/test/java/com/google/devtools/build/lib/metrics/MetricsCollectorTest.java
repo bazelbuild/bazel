@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.Re
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalPhase;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievedValue;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheClient;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingServicesSupplier;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.proto.MissReason;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.proto.TopLevelTargetsMatchStatus;
 import com.google.devtools.build.lib.util.Bucket;
@@ -61,6 +62,7 @@ import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
 import org.junit.After;
 import org.junit.Assume;
 import org.junit.Before;
@@ -1183,5 +1185,27 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
               .build());
     }
     return result.build();
+  }
+
+  @Test
+  public void testRemoteAnalysisCacheStats_peers() throws Exception {
+    runtimeWrapper.newCommand();
+    getCommandEnvironment()
+        .getRemoteAnalysisCachingEventListener()
+        .recordPeers(
+            ImmutableMap.of(
+                new RemoteAnalysisCachingServicesSupplier.Peer(
+                    "skycache.AnalysisCacheService", "test-user@wj/10.0.0.1:8080"),
+                new AtomicLong(1)));
+
+    buildTarget("//foo:foo");
+
+    BuildMetrics buildMetrics = buildMetricsEventListener.event.getBuildMetrics();
+    assertThat(buildMetrics.hasRemoteAnalysisCacheStatistics()).isTrue();
+    RemoteAnalysisCacheStatistics stats = buildMetrics.getRemoteAnalysisCacheStatistics();
+    assertThat(stats.getPeersList()).hasSize(1);
+    assertThat(stats.getPeers(0).getServiceName()).isEqualTo("skycache.AnalysisCacheService");
+    assertThat(stats.getPeers(0).getId()).isEqualTo("test-user@wj/10.0.0.1:8080");
+    assertThat(stats.getPeers(0).getRequestCount()).isEqualTo(1);
   }
 }

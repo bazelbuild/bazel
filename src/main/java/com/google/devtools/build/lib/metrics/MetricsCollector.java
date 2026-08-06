@@ -82,6 +82,7 @@ import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStor
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalPhase;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheClient;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingEventListener;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingServicesSupplier;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.proto.TopLevelTargetsMatchStatus;
 import com.google.devtools.build.lib.util.Bucket;
 import com.google.devtools.build.lib.worker.WorkerProcessMetrics;
@@ -495,6 +496,22 @@ class MetricsCollector {
     }
 
     result.setSerializationExceptionCount(listener.getSerializationExceptionCounts());
+
+    RemoteAnalysisCachingServicesSupplier supplier =
+        env.getBlazeWorkspace().remoteAnalysisCachingServicesSupplier();
+    if (supplier != null && supplier.getPeers() != null) {
+      listener.recordPeers(supplier.getPeers());
+    }
+
+    for (var entry : listener.getPeers().entrySet()) {
+      var peer = entry.getKey();
+      result.addPeers(
+          RemoteAnalysisCacheStatistics.Peer.newBuilder()
+              .setServiceName(peer.serviceName())
+              .setId(peer.id())
+              .setRequestCount(entry.getValue().get())
+              .build());
+    }
 
     return result.build();
   }

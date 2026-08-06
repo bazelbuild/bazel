@@ -106,6 +106,7 @@ import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnaly
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheFactory;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheReaderDepsProvider;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingServicesSupplier;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisMetadataWriter;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.SerializationDependenciesProvider;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -1036,6 +1037,9 @@ public class BuildTool {
   private void reportRemoteAnalysisServiceStats(
       @Nullable FingerprintValueService fingerprintValueService,
       @Nullable RemoteAnalysisCacheClient analysisCacheClient) {
+    if (fingerprintValueService != null) {
+      fingerprintValueService.shutdown();
+    }
     FingerprintValueStore.Stats fingerprintValueServiceStats =
         fingerprintValueService == null
             ? FingerprintValueStore.EMPTY_STATS
@@ -1046,6 +1050,9 @@ public class BuildTool {
             : analysisCacheClient.getStats();
     env.getRemoteAnalysisCachingEventListener()
         .recordServiceStats(fingerprintValueServiceStats, remoteAnalysisCacheClientStats);
+    RemoteAnalysisCachingServicesSupplier servicesSupplier =
+        env.getBlazeWorkspace().remoteAnalysisCachingServicesSupplier();
+    env.getRemoteAnalysisCachingEventListener().recordPeers(servicesSupplier.getPeers());
   }
 
   private void reportOnlyBailOutReason(RemoteAnalysisCacheReaderDepsProvider readerDeps)

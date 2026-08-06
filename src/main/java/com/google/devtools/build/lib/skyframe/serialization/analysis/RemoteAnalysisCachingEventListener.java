@@ -33,10 +33,12 @@ import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.Re
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalPhase;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalResult;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievedValue;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingServicesSupplier.Peer;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.proto.MissReason;
 import com.google.devtools.build.lib.util.DecimalBucketer;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
@@ -68,6 +70,7 @@ public class RemoteAnalysisCachingEventListener {
   private final Set<SkyKey> serializedKeys = ConcurrentHashMap.newKeySet();
   private final Set<SkyKey> cacheHits = ConcurrentHashMap.newKeySet();
   private final Set<SkyKey> cacheMisses = ConcurrentHashMap.newKeySet();
+  private final ConcurrentHashMap<Peer, AtomicLong> peers = new ConcurrentHashMap<>();
   private final Set<SerializationException> serializationExceptions = ConcurrentHashMap.newKeySet();
   private final ConcurrentHashMap<SkyFunctionName, AtomicLong> hitsBySkyFunctionName =
       new ConcurrentHashMap<>();
@@ -121,6 +124,18 @@ public class RemoteAnalysisCachingEventListener {
 
   public Set<SkyKey> getCacheMisses() {
     return ImmutableSet.copyOf(cacheMisses);
+  }
+
+  public void recordPeers(Map<Peer, AtomicLong> newPeers) {
+    if (newPeers != null) {
+      newPeers.forEach(
+          (peer, count) ->
+              this.peers.computeIfAbsent(peer, k -> new AtomicLong()).addAndGet(count.get()));
+    }
+  }
+
+  public Map<Peer, AtomicLong> getPeers() {
+    return ImmutableMap.copyOf(peers);
   }
 
   public void recordServiceStats(

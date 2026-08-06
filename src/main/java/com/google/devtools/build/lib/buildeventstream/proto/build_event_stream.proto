@@ -1531,6 +1531,13 @@ message BuildMetrics {
     }
     InvalidationLookupMetrics invalidation_lookup_metrics = 27;
     int64 serialization_exception_count = 28;
+
+    message Peer {
+      string service_name = 1;
+      string id = 2;
+      int64 request_count = 3;
+    }
+    repeated Peer peers = 30;
   }
 
   RemoteAnalysisCacheStatistics remote_analysis_cache_statistics = 13;

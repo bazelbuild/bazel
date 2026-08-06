@@ -62,6 +62,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:skyvalue_retriever",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:event_listener",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:remote_analysis_cache_client",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:remote_analysis_caching_services_supplier",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis/proto:analysis_cache_service_metadata_status_java_proto",
         "//src/main/java/com/google/devtools/build/lib/util:bucket",
         "//src/main/java/com/google/devtools/build/lib/worker:worker_process_metrics",

@@ -17,6 +17,7 @@ java_library(
     deps = [
         ":client_id",
         ":remote_analysis_cache_client",
+        ":remote_analysis_caching_services_supplier",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
