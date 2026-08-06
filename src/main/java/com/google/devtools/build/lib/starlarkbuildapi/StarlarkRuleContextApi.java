@@ -78,7 +78,12 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
           + " href=\"https://bazel.build/extending/rules#requesting_output_files\"> default"
           + " outputs</a> of a dependency. <a"
           + " href=\"https://github.com/bazelbuild/examples/blob/main/rules/depsets/foo.bzl\">See"
-          + " example of use</a>.";
+          + " example of use</a>."
+          + " <p><b>Note:</b> May be memory intensive for large or transitive file sets, as"
+          + " depsets must be flattened to lists. If a non-trivial number of files is expected,"
+          + " prefer collecting depsets from <code>DefaultInfo</code> providers instead:<pre"
+          + " class=language-python>inputs = depset(transitive ="
+          + " [t[DefaultInfo].files for t in ctx.attr.&lt;ATTR&gt;])</pre>";
   String FILE_DOC =
       "A <code>struct</code> containing files defined in <a"
           + " href='../toplevel/attr.html#label'>label type attributes</a> marked as <a"
