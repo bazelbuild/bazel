@@ -190,10 +190,6 @@ public class BzlCompileFunction implements SkyFunction {
     }
 
     boolean useTypeSyntax = shouldUseTypeSyntax(semantics, key);
-    // Type checking requires the syntax flag to be enabled, though technically it shouldn't matter
-    // to semantics if unannotated code is considered untyped.
-    boolean doTypeChecking =
-        useTypeSyntax && semantics.getBool(StarlarkSemantics.EXPERIMENTAL_STARLARK_TYPE_CHECKING);
 
     FileOptions options =
         FileOptions.builder()
@@ -210,7 +206,9 @@ public class BzlCompileFunction implements SkyFunction {
             // detail in errors (i.e. new fields or error subclasses).
             .stringLiteralsAreAsciiOnly(key.isSclDialect())
             .allowTypeSyntax(useTypeSyntax)
-            .tolerateInvalidTypeExpressions(!doTypeChecking)
+            // Bazel 8 only tolerates type syntax, it never type checks, so arbitrary expressions
+            // are accepted in type positions.
+            .tolerateInvalidTypeExpressions(true)
             .build();
     StarlarkFile file = StarlarkFile.parse(input, options);
 
